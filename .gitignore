@@ -1,0 +1,8 @@
+deps/.*
+docs/build
+*.jl.cov
+*.jl.*.cov
+junk*
+.*.swo
+.*.swp
+tracefile.info
