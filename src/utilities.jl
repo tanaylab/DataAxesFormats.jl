@@ -1,24 +1,25 @@
 """
-Utility functions, which in principle shouldn't be part of this package at all, but don't seem to
-exist anywhere. If/when any of this is provided by a more appropriate package, the code here should
-be removed.
+Utility functions, which in principle shouldn't be part of this package at all.
 """
 module Utilities
 
-export axis_length
 export Column
 export count_nnz
 export Error
-export inefficient_loop_action
-export inefficient_loop_context
+export inefficient_policy
+export inefficient_action
 export major_axis
 export MatrixAxis
 export minor_axis
+export naxis
+export ncolumns
+export nrows
 export other_axis
 export present
-export Row
+export present_percent
 export relayout
-export SuspectAction
+export Row
+export InefficientPolicy
 export view_axis
 export view_column
 export view_row
@@ -33,20 +34,18 @@ using SparseArrays
 """
 Identify a matrix axis to use.
 
-Valid values are: `Column` - access the matrix one column at a time or `Row` - access the matrix
-one row at a time. Yes, one could use `1` and `2` as axis indices but symbolic names make the code
-much more readable and less error-prone.
+Valid values are: `Column` - access the matrix one column at a time or `Row` - access the matrix one row at a time. Yes,
+one could use `1` and `2` as axis indices but symbolic names make the code much more readable and less error-prone.
 """
 @enum MatrixAxis Column Row
 
 """
     major_axis(matrix::AbstractMatrix)::Union{MatrixAxis,Nothing}
 
-Return the major axis of a matrix, that is, the axis one should use for the outer loop for the most
-efficient iteration on the matrix elements. This extends the `MemoryLayout` provided by the
-`ArrayLayouts` package to also deal with `SparseArrays`, and focuses just on the narrow question of
-the efficient access patterns rather than trying to fully describe the memory layout of the array.
-If the matrix doesn't support any efficient access axis, returns `nothing`.
+Return the major axis of a matrix, that is, the axis one should use for the outer loop for the most efficient access
+to the matrix elements. This extends the `MemoryLayout` provided by the `ArrayLayouts` package to also deal with
+`SparseArrays`, and focuses just on the narrow question of the efficient access patterns rather than trying to fully
+describe the memory layout of the array. If the matrix doesn't support any efficient access axis, returns `nothing`.
 """
 @inline major_axis(::SparseMatrixCSC) = Column
 @inline major_axis(matrix::Transpose) = other_axis(major_axis(matrix.parent))
@@ -59,11 +58,10 @@ If the matrix doesn't support any efficient access axis, returns `nothing`.
 """
     minor_axis(matrix::AbstractMatrix)::Union{MatrixAxis,Nothing}
 
-Return the minor axis of a matrix, that is, the axis one should use for the inner loop for the most
-efficient iteration on the matrix elements. This extends the `MemoryLayout` provided by the
-`ArrayLayouts` package to also deal with `SparseArrays`, and focuses just on the narrow question of
-the efficient access patterns rather than trying to fully describe the memory layout of the array.
-If the matrix doesn't support any efficient access axis, return `nothing`.
+Return the minor axis of a matrix, that is, the axis one should use for the inner loop for the most efficient access
+to the matrix elements. This extends the `MemoryLayout` provided by the `ArrayLayouts` package to also deal with
+`SparseArrays`, and focuses just on the narrow question of the efficient access patterns rather than trying to fully
+describe the memory layout of the array. If the matrix doesn't support any efficient access axis, return `nothing`.
 """
 @inline minor_axis(matrix::AbstractMatrix) = other_axis(major_axis(matrix))
 
@@ -83,12 +81,12 @@ function other_axis(axis::Union{MatrixAxis, Nothing})::Union{MatrixAxis, Nothing
 end
 
 """
-    axis_length(matrix::AbstractMatrix, axis:MatrixAxis)::Int
+    naxis(matrix::AbstractMatrix, axis:MatrixAxis)::Int
 
-Return the size of an `axis` of a `matrix`. Yes, one could use `size` and `1` and `2` as axis
-indices but symbolic names make the code much more readable and less error-prone.
+Return the number of elements of an `axis` of a `matrix`. Yes, one could use `size` and `1` and `2` as axis indices but
+symbolic names make the code much more readable and less error-prone.
 """
-function axis_length(matrix::AbstractMatrix, axis::MatrixAxis)::Int
+function naxis(matrix::AbstractMatrix, axis::MatrixAxis)::Int
     if axis == Column
         return size(matrix, 2)
     else
@@ -97,47 +95,68 @@ function axis_length(matrix::AbstractMatrix, axis::MatrixAxis)::Int
 end
 
 """
-    The action to take on a suspect action.
+    nrows(matrix::AbstractMatrix)::Int
 
-Valid values are `nothing` - do nothing special, just execute the code and hope for the best, `Warn`
-
-  - emit a warning using `@warn`, and `Error` - abort the program with an error message.
+Return the number of rows of a `matrix`. Yes, one could use `size` of `1` but `nrows` is much more readable and less
+error-prone.
 """
-@enum SuspectAction Warn Error
-
-inefficient_loop_policy = Warn
-
-"""
-    inefficient_loop_action(action::Union{SuspectAction,Nothing})::Union{SuspectAction,Nothing}
-
-Specify the `action` to take when a nested loop iterates on the matrix in an inefficient order.
-Returns the previous action.
-"""
-function inefficient_loop_action(action::Union{SuspectAction, Nothing})::Union{SuspectAction, Nothing}
-    previous_action = inefficient_loop_policy
-
-    @sync for process in 1:nprocs()
-        @spawnat process begin
-            global inefficient_loop_policy
-            inefficient_loop_policy = action
-        end
-    end
-
-    return previous_action
+function nrows(matrix::AbstractMatrix)::Int
+    return size(matrix, 1)
 end
 
 """
-    inefficient_loop_context(context::AbstractString)::Nothing
+    ncolumns(matrix::AbstractMatrix)::Int
 
-Report iterating on a matrix in an inefficient order in some `context` by performing the current
-`inefficient_loop_action`.
+Return the number of columns of a `matrix`. Yes, one could use `size` of `1` but `ncolumns` is much more readable and
+less error-prone.
 """
-function inefficient_loop_context(context::AbstractString)::Nothing
-    if inefficient_loop_policy == Warn
-        @warn "Inefficient iteration on matrix elements when $(context)"  # untested
+function ncolumns(matrix::AbstractMatrix)::Int
+    return size(matrix, 2)
+end
 
-    elseif inefficient_loop_policy == Error
-        error("Inefficient iteration on matrix elements when $(context)")
+"""
+    The action to take on a suspect action.
+
+Valid values are `nothing` - do nothing special, just execute the code and hope for the best, `Warn` - emit a warning
+using `@warn`, and `Error` - abort the program with an error message.
+"""
+@enum InefficientPolicy Warn Error
+
+global_inefficient_policy = Warn
+
+"""
+    inefficient_policy(
+        policy::Union{InefficientPolicy,Nothing}
+    )::Union{InefficientPolicy,Nothing}
+
+Specify the `policy` to take when accessing a matrix in an inefficient way. Returns the previous policy.
+"""
+function inefficient_policy(policy::Union{InefficientPolicy, Nothing})::Union{InefficientPolicy, Nothing}
+    global global_inefficient_policy
+    previous_policy = global_inefficient_policy
+
+    @sync for process in 1:nprocs()
+        @spawnat process begin
+            global global_inefficient_policy
+            global_inefficient_policy = policy
+        end
+    end
+
+    return previous_policy
+end
+
+"""
+    inefficient_action(action::AbstractString)::Nothing
+
+Report accessing a matrix in an inefficient way for during some `action`, by applying the current
+`inefficient_policy`.
+"""
+function inefficient_action(action::AbstractString)::Nothing
+    if global_inefficient_policy == Warn
+        @warn "Inefficient access to matrix elements when $(action)"  # untested
+
+    elseif global_inefficient_policy == Error
+        error("Inefficient access to matrix elements when $(action)")
     end
 end
 
@@ -158,21 +177,24 @@ function count_nnz(vector::AbstractVector; structural::Bool = true)::Int
 end
 
 """
-    count_nnz(matrix::AbstractMatrix; per::MatrixAxis, structural::Bool=true)::AbstractVector
+    count_nnz(
+        matrix::AbstractMatrix;
+        per::MatrixAxis,
+        structural::Bool=true
+    )::AbstractVector
 
 Return the number of non-zero elements `per` each `matrix` axis entry. If:
 
   - This is a (possibly transposed) `SparseMatrixCSC`;
 
-  - The `major_axis` of the matrix matches the per-axis (that is, `Column` for `SparseMatrixCSC` and
-    `Row` for its transpose);
+  - The `major_axis` of the matrix matches the per-axis (that is, `Column` for `SparseMatrixCSC` and `Row` for its
+    transpose);
   - The `structural` parameter is `true` (the default);
 
-Then this returns the number of structural zeros rather than actual non-zero elements. Otherwise,
-this actually counts the number of non-zero elements, which can be slow.
+Then this returns the number of structural zeros rather than actual non-zero elements. Otherwise, this actually counts
+the number of non-zero elements, which can be slow.
 
-If actually counting the elements of the `minor_axis` of a matrix, this is subject to the
-`inefficient_loop_action`.
+If actually counting the elements of the `minor_axis` of a matrix, this is subject to the `inefficient_policy`.
 """
 function count_nnz(matrix::Transpose; per::MatrixAxis, structural::Bool = true)::AbstractVector
     return count_nnz(matrix.parent; per = other_axis(per), structural = structural)
@@ -180,37 +202,41 @@ end
 
 function count_nnz(matrix::SparseMatrixCSC; per::MatrixAxis, structural::Bool = true)::AbstractVector
     if per == Row
-        inefficient_loop_context("counting non-zero matrix elements")
+        inefficient_action("counting non-zero matrix elements")
         type = eltype(matrix.colptr)
-        return [type(count_nnz(matrix[row_index, :])) for row_index in 1:axis_length(matrix, Row)]
+        return [type(count_nnz(matrix[row_index, :])) for row_index in 1:nrows(matrix)]
 
     elseif structural
         return diff(matrix.colptr)
 
     else
         type = eltype(matrix.colptr)
-        return [type(count_nnz(matrix[:, column_index].nzval)) for column_index in 1:axis_length(matrix, Column)]
+        return [type(count_nnz(matrix[:, column_index].nzval)) for column_index in 1:ncolumns(matrix)]
     end
 end
 
 function count_nnz(matrix::AbstractMatrix; per::MatrixAxis, structural::Bool = true)::AbstractVector
     efficient_per = major_axis(matrix)
     if efficient_per != nothing && efficient_per != per
-        inefficient_loop_context("counting non-zero matrix elements")
+        inefficient_action("counting non-zero matrix elements")
     end
 
     if per == Column
-        return [count_nnz(matrix[:, column_index]) for column_index in 1:axis_length(matrix, Column)]
+        return [count_nnz(matrix[:, column_index]) for column_index in 1:ncolumns(matrix)]
     else
-        return [count_nnz(matrix[row_index, :]) for row_index in 1:axis_length(matrix, Row)]
+        return [count_nnz(matrix[row_index, :]) for row_index in 1:nrows(matrix)]
     end
 end
 
 """
-    relayout(matrix::AbstractMatrix, to_major_axis::MatrixAxis; copy::Bool=false)::AbstractMatrix
+    relayout(
+        matrix::AbstractMatrix,
+        to_major_axis::MatrixAxis;
+        copy::Bool=false
+    )::AbstractMatrix
 
-Return a version of the `matrix` which has the requested `major_axis`. If `copy`, a new copy of the
-matrix is returned even if its major axis already matches the requested one.
+Return a version of the `matrix` which has the requested `major_axis`. If `copy`, a new copy of the matrix is returned
+even if its major axis already matches the requested one.
 """
 function relayout(matrix::AbstractMatrix, to_major_axis::MatrixAxis; copy::Bool = false)::AbstractMatrix
     from_major_axis = major_axis(matrix)
@@ -275,10 +301,9 @@ end
 """
     present(value::Any)::String
 
-Present a `value` in an error message or a log entry. Unlike `"\$(value)"`, this focuses on
-producing a human-readable indication of the type of the value, so it double-quotes strings,
-prefixes symbols with `:`, and reports the type and sizes of arrays rather than showing their
-content.
+Present a `value` in an error message or a log entry. Unlike `"\$(value)"`, this focuses on producing a human-readable
+indication of the type of the value, so it double-quotes strings, prefixes symbols with `:`, and reports the type and
+sizes of arrays rather than showing their content.
 """
 function present(value::Any)::String
     if ismissing(value)
@@ -337,6 +362,8 @@ function present(value::Any)::String
 end
 
 """
+    present_percent(used::Int64, out_of::Int64)::String
+
 Present a fraction of `used` amount `out_of` some total as a percentage.
 """
 function present_percent(used::Int64, out_of::Int64)::String

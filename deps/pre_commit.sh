@@ -1,5 +1,5 @@
-#!/bin/sh
-set -e
+#!/bin/bash
+set -e -o pipefail
 deps/unindexed_files.sh
 if grep -i 'TODO'"X" `git ls-files`
 then

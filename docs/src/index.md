@@ -1,7 +1,10 @@
 # Daf
 
-TODO
-
 ```@docs
 Daf.Daf
+```
+
+# Index
+
+```@index
 ```

@@ -1,4 +1,4 @@
-using Daf.Utilities
+using Daf
 
 function test_matrix_layout()
     @test major_axis(tc.matrix) == tc.major_axis
@@ -7,8 +7,10 @@ function test_matrix_layout()
     rows_count = length(tc.rows)
     columns_count = length(tc.columns)
 
-    @test axis_length(tc.matrix, Row) == rows_count
-    @test axis_length(tc.matrix, Column) == columns_count
+    @test naxis(tc.matrix, Row) == rows_count
+    @test nrows(tc.matrix) == rows_count
+    @test naxis(tc.matrix, Column) == columns_count
+    @test ncolumns(tc.matrix) == columns_count
 
     for row_index in 1:rows_count
         @test view_axis(tc.matrix, Row, row_index) == tc.rows[row_index]
@@ -21,11 +23,11 @@ function test_matrix_layout()
             @test count_nnz(tc.matrix; per = Row) == tc.rows_nnz
             @test count_nnz(tc.matrix; per = Row, structural = false) == tc.rows_nnz
         else
-            inefficient_loop_action(nothing)
+            inefficient_policy(nothing)
             @test count_nnz(tc.matrix; per = Row) == tc.rows_nnz
             @test count_nnz(tc.matrix; per = Row, structural = true) == tc.rows_nnz
 
-            inefficient_loop_action(Error)
+            inefficient_policy(Error)
             @test_throws ErrorException count_nnz(tc.matrix, per = Row)
             @test_throws ErrorException count_nnz(tc.matrix, per = Row, structural = true)
         end
@@ -42,11 +44,11 @@ function test_matrix_layout()
             @test count_nnz(tc.matrix; per = Column) == tc.columns_nnz
             @test count_nnz(tc.matrix; per = Column, structural = false) == tc.columns_nnz
         else
-            inefficient_loop_action(nothing)
+            inefficient_policy(nothing)
             @test count_nnz(tc.matrix[:, column_index]) == tc.columns_nnz[column_index]
             @test count_nnz(tc.matrix[:, column_index]; structural = false) == tc.columns_nnz[column_index]
 
-            inefficient_loop_action(Error)
+            inefficient_policy(Error)
             @test_throws ErrorException count_nnz(tc.matrix, per = Column)
             @test_throws ErrorException count_nnz(tc.matrix, per = Column, structural = true)
         end

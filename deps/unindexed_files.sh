@@ -1,8 +1,8 @@
-#!/bin/sh
-set -e
+#!/bin/bash
+set -e -o pipefail
 UNTRACKED=`git ls-files --others --exclude-standard`
 UNADDED=`git diff`
-if [ "Q$UNTRACKED$UNADDED" != "Q" ]
+if [ "$UNTRACKED$UNADDED" != "" ]
 then
     git status
     false

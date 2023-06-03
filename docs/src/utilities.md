@@ -23,9 +23,9 @@ layout and iterate on the matrix accordingly. The following allows us to detect 
 where this isn't the case:
 
 ```@docs
-Daf.Utilities.SuspectAction
-Daf.Utilities.inefficient_loop_action
-Daf.Utilities.inefficient_loop_context
+Daf.Utilities.InefficientPolicy
+Daf.Utilities.inefficient_policy
+Daf.Utilities.inefficient_action
 ```
 
 To ensure we are looping on the proper memory layout, it is sometimes necessary to re-layout a
@@ -36,12 +36,14 @@ Daf.Utilities.relayout
 ```
 
 We also use the symbolic axis names in other utility functions which make operations more readable,
-for example `count_nnz(matrix, per=Row)` is much clearer than `count_nnz(matrix, axis=2)` and
-`view_column(matrix, 2)` or even `view_axis(matrix, Column, 2)` are much clearer than
-`selectdim(matrix, 2, 2)`.
+for example `nrows(matrix)` is clearer than `matrix.size(1)`,`count_nnz(matrix, per=Row)` is clearer
+than `count_nnz(matrix, axis=2)` and `view_column(matrix, 2)` or even `view_axis(matrix, Column, 2)`
+are clearer than `selectdim(matrix, 2, 2)`.
 
 ```@docs
-Daf.Utilities.axis_length
+Daf.Utilities.nrows
+Daf.Utilities.ncolumns
+Daf.Utilities.naxis
 Daf.Utilities.count_nnz
 Daf.Utilities.view_axis
 Daf.Utilities.view_column
@@ -56,4 +58,10 @@ approach than the simple `"$(value)"` string interpolation.
 ```@docs
 Daf.Utilities.present
 Daf.Utilities.present_percent
+```
+
+## Index
+
+```@index
+Pages = ["utilities.md"]
 ```

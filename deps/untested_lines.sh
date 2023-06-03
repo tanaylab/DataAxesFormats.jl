@@ -1,5 +1,5 @@
-#!/bin/sh
-set -e
+#!/bin/bash
+set -e -o pipefail
 grep -H -n '.' */*.cov \
 | sed 's/\.[0-9][0-9]*\.cov:\([0-9][0-9]*\): [ ]*\(\S*\) /`\1`\2`/' \
 | sort -t '`' -k '1,1' -k '2n,2' \
@@ -43,6 +43,7 @@ grep -H -n '.' */*.cov \
         # state 2: Function body
         OFS = "`"
     }
+    state == 0 && $4 ~ /^[@A-Z][A-Za-z0-9:{}, ()]* =/ && $3 == "-" { $3 = "0" }
     state == 2 && $3 == "-" && $4 !~ /^\s*([)]|begin|end|else|try|finally)?\s*(#.*)$/ { $3 = "0" }
     state == 2 && $3 == "0" && $4 ~ /^\s*([)]|begin|end|else|try|finally)?\s*(#.*)?$/ { $3 = "-" }
     state == 2 && $4 ~ /^end/ { state = 0 }
