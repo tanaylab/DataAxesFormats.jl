@@ -1,7 +1,5 @@
 #!/bin/sh
-#{
-#FINAL=true
-
+set -e
 grep -H -n '.' */*.cov \
 | sed 's/\.[0-9][0-9]*\.cov:\([0-9][0-9]*\): [ ]*\(\S*\) /`\1`\2`/' \
 | sort -t '`' -k '1,1' -k '2n,2' \
@@ -40,15 +38,18 @@ grep -H -n '.' */*.cov \
 | awk -F '`' '
     BEGIN {
         state = 0
+        # state 0: Outside a function
+        # state 1: Function declaration
+        # state 2: Function body
         OFS = "`"
     }
+    state == 2 && $3 == "-" && $4 !~ /^\s*([)]|begin|end|else|try|finally)?\s*(#.*)$/ { $3 = "0" }
+    state == 2 && $3 == "0" && $4 ~ /^\s*([)]|begin|end|else|try|finally)?\s*(#.*)?$/ { $3 = "-" }
+    state == 2 && $4 ~ /^end/ { state = 0 }
     $4 ~ /^\s*function / { state = 1 }
     state == 1 && $4 ~ /)::/ { state = 2 }
-    state > 0 && $3 ~ /[0-9]/ { state = 0 }
-    state == 3 && $3 == "-" && $4 !~ /^\s*([)]|begin|end|else|try|finally|$)/ { $3 = "0" }
-    state == 2 { state = 3 }
-    $3 != "-" { print }
-    state == 3 && $4 ~ /^end/ { state = 0 }
+    state != 2 && $3 == "0" { $3 = "-" }
+    { print }
 ' \
 | awk -F '`' '
 BEGIN {

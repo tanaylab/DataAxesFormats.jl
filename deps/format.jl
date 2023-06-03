@@ -33,7 +33,7 @@ format(
     trailing_comma = true,
     trailing_zero = true,
     join_lines_based_on_source = false,
-    indent_submodule = true,
+    indent_submodule = false,
     separate_kwargs_with_semicolon = true,
     surround_whereop_typeparameters = true,
     overwrite = true,
