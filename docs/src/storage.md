@@ -39,6 +39,16 @@ Daf.Storage.get_axis
 Daf.Storage.axis_length
 ```
 
+We can store named vector (1D) data along an axis:
+
+```@docs
+Daf.Storage.has_vector
+Daf.Storage.set_vector!
+Daf.Storage.delete_vector!
+Daf.Storage.vector_names
+Daf.Storage.get_vector
+```
+
 ## Concrete storage
 
 To implement a new storage format adapter, you will need to implement the `name`, `has_scalar` and `has_axis` functions
@@ -54,6 +64,11 @@ Daf.Storage.unsafe_add_axis!
 Daf.Storage.unsafe_delete_axis!
 Daf.Storage.unsafe_get_axis
 Daf.Storage.unsafe_axis_length
+Daf.Storage.unsafe_has_vector
+Daf.Storage.unsafe_set_vector!
+Daf.Storage.unsafe_delete_vector!
+Daf.Storage.unsafe_get_vector
+Daf.Storage.unsafe_vector_names
 ```
 
 ## Memory storage

@@ -19,16 +19,18 @@ struct MemoryStorage <: AbstractStorage
 
     axes::Dict{String, DenseVector{String}}
 
+    vectors::Dict{String, Dict{String, AbstractVector}}
+
     function MemoryStorage(name::String)
         scalars = Dict{String, Any}()
-
         axes = Dict{String, DenseVector{String}}()
+        vectors = Dict{String, Dict{String, AbstractVector{String}}}()
 
         if endswith(name, "#")
             name = name * string(objectid(axes); base = 16)
         end
 
-        return new(name, scalars, axes)
+        return new(name, scalars, axes, vectors)
     end
 end
 
@@ -64,11 +66,13 @@ end
 
 function Storage.unsafe_add_axis!(storage::MemoryStorage, axis::String, entries::DenseVector{String})::Nothing
     storage.axes[axis] = entries
+    storage.vectors[axis] = Dict{String, AbstractVector}()
     return nothing
 end
 
 function Storage.unsafe_delete_axis!(storage::MemoryStorage, axis::String)::Nothing
     delete!(storage.axes, axis)
+    delete!(storage.vectors, axis)
     return nothing
 end
 
@@ -82,4 +86,26 @@ end
 
 function Storage.unsafe_axis_length(storage::MemoryStorage, axis::String)::Int64
     return length(storage.axes[axis])
+end
+
+function Storage.unsafe_has_vector(storage::MemoryStorage, axis::String, name::String)::Bool
+    return haskey(storage.vectors[axis], name)
+end
+
+function Storage.unsafe_set_vector!(storage::MemoryStorage, axis::String, name::String, value::Any)::Nothing
+    storage.vectors[axis][name] = value
+    return nothing
+end
+
+function Storage.unsafe_delete_vector!(storage::MemoryStorage, axis::String, name::String)::Nothing
+    delete!(storage.vectors[axis], name)
+    return nothing
+end
+
+function Storage.unsafe_vector_names(storage::MemoryStorage, axis::String)::AbstractSet{String}
+    return keys(storage.vectors[axis])
+end
+
+function Storage.unsafe_get_vector(storage::MemoryStorage, axis::String, name::String)::Any
+    return storage.vectors[axis][name]
 end

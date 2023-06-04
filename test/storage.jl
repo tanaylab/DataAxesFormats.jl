@@ -4,14 +4,14 @@ function test_storage_scalar(storage::AbstractStorage)::Nothing
     @test !has_scalar(storage, "version")
     @test length(scalar_names(storage)) == 0
 
-    @test_throws "missing scalar: version in storage: memory" get_scalar(storage, "version")
+    @test_throws "missing scalar: version in the storage: memory" get_scalar(storage, "version")
     @test get_scalar(storage, "version"; default = (3, 4)) == (3, 4)
 
-    @test_throws "missing scalar: version in storage: memory" delete_scalar!(storage, "version")
+    @test_throws "missing scalar: version in the storage: memory" delete_scalar!(storage, "version")
     delete_scalar!(storage, "version"; must_exist = false)
 
     set_scalar!(storage, "version", (1, 2))
-    @test_throws "existing scalar: version in storage: memory" set_scalar!(storage, "version", (4, 5))
+    @test_throws "existing scalar: version in the storage: memory" set_scalar!(storage, "version", (4, 5))
 
     @test length(scalar_names(storage)) == 1
     @test "version" in scalar_names(storage)
@@ -28,12 +28,12 @@ end
 
 function test_storage_axis(storage::AbstractStorage)::Nothing
     @test !has_axis(storage, "cell")
-    @test_throws "missing axis: cell in storage: memory" get_axis(storage, "cell")
+    @test_throws "missing axis: cell in the storage: memory" get_axis(storage, "cell")
     delete_axis!(storage, "cell"; must_exist = false)
     @test length(axis_names(storage)) == 0
 
     repeated_cell_names = vec(["cell1", "cell1", "cell3"])
-    @test_throws "non-unique entries for new axis: cell in storage: memory" add_axis!(
+    @test_throws "non-unique entries for new axis: cell in the storage: memory" add_axis!(
         storage,  # only seems untested
         "cell",  # only seems untested
         repeated_cell_names,  # only seems untested
@@ -48,12 +48,58 @@ function test_storage_axis(storage::AbstractStorage)::Nothing
     @test axis_length(storage, "cell") == 3
     @test get_axis(storage, "cell") === cell_names
 
-    @test_throws "existing axis: cell in storage: memory" add_axis!(storage, "cell", cell_names)
+    @test_throws "existing axis: cell in the storage: memory" add_axis!(storage, "cell", cell_names)
 
     delete_axis!(storage, "cell")
     @test !has_axis(storage, "cell")
-    @test_throws "missing axis: cell in storage: memory" delete_axis!(storage, "cell")
+    @test_throws "missing axis: cell in the storage: memory" delete_axis!(storage, "cell")
     @test length(axis_names(storage)) == 0
+
+    return nothing
+end
+
+function test_storage_vector(storage::AbstractStorage)::Nothing
+    @test_throws "missing axis: cell in the storage: memory" has_vector(storage, "cell", "age")
+    @test_throws "missing axis: cell in the storage: memory" vector_names(storage, "cell")
+    @test_throws "missing axis: cell in the storage: memory" delete_vector!(storage, "cell", "age")
+    @test_throws "missing axis: cell in the storage: memory" get_vector(storage, "cell", "age")
+    @test_throws "missing axis: cell in the storage: memory" set_vector!(storage, "cell", "age", vec([0 1 2]))
+
+    add_axis!(storage, "cell", vec(["cell0", "cell1", "cell3"]))
+    @test !has_vector(storage, "cell", "age")
+    @test length(vector_names(storage, "cell")) == 0
+    @test_throws "missing vector: age for the axis: cell in the storage: memory" delete_vector!(storage, "cell", "age")
+    delete_vector!(storage, "cell", "age"; must_exist = false)
+    @test_throws "missing vector: age for the axis: cell in the storage: memory" get_vector(storage, "cell", "age")
+    @test_throws "value length: 2 is different from axis: cell length: 3 in the storage: storage_name" set_vector!(
+        storage,  # only seems untested
+        "cell",  # only seems untested
+        "age",  # only seems untested
+        vec([0 1]),  # only seems untested
+    )
+    @test_throws "" get_vector(storage, "cell", "age"; default = vec([1 2]))
+    @test get_vector(storage, "cell", "age"; default = vec([1 2 3])) == vec([1 2 3])
+    @test get_vector(storage, "cell", "age"; default = 1) == vec([1 1 1])
+
+    set_vector!(storage, "cell", "age", vec([0 1 2]))
+    @test_throws "existing vector: age for the axis: cell in the storage: memory" set_vector!(
+        storage,  # only seems untested
+        "cell",  # only seems untested
+        "age",  # only seems untested
+        vec([1 2 3]),  # only seems untested
+    )
+    @test length(vector_names(storage, "cell")) == 1
+    @test "age" in vector_names(storage, "cell")
+    @test get_vector(storage, "cell", "age") == vec([0 1 2])
+
+    delete_vector!(storage, "cell", "age")
+    @test !has_vector(storage, "cell", "age")
+
+    set_vector!(storage, "cell", "age", vec([0 1 2]))
+    @test has_vector(storage, "cell", "age")
+    delete_axis!(storage, "cell")
+    add_axis!(storage, "cell", vec(["cell0", "cell1"]))
+    @test !has_vector(storage, "cell", "age")
 
     return nothing
 end
@@ -72,6 +118,10 @@ end
 
 function Storage.has_axis(storage::LyingStorage, axis::String)::Bool
     return storage.lie
+end
+
+function Storage.vector_names(storage::LyingStorage, axis::String)::AbstractSet{String}
+    return Set{String}()
 end
 
 @testset "storage" begin
@@ -103,6 +153,16 @@ end
             bad_storage,
             "cell",
         )
+        @test_throws "missing method: unsafe_has_vector for storage type: LyingStorage" has_vector(
+            bad_storage,
+            "cell",
+            "age",
+        )
+        @test_throws "missing method: unsafe_has_vector for storage type: LyingStorage" get_vector(
+            bad_storage,
+            "cell",
+            "age",
+        )
 
         bad_storage = LyingStorage(false)
 
@@ -125,5 +185,6 @@ end
         @test storage_name(storage) == "memory"
         test_storage_scalar(storage)
         test_storage_axis(storage)
+        test_storage_vector(storage)
     end
 end
