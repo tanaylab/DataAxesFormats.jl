@@ -16,7 +16,7 @@ unindexed_files:
 
 .PHONY: format
 format: deps/.format
-deps/.format: */*.jl deps/format.sh deps/format.jl
+deps/.format: */*.jl */*/*.jl deps/format.sh deps/format.jl
 	deps/format.sh
 	@touch deps/.format
 

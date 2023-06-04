@@ -48,6 +48,7 @@ grep -H -n '.' */*.cov \
     state == 2 && $3 == "0" && $4 ~ /^\s*([)]|begin|end|else|try|finally)?\s*(#.*)?$/ { $3 = "-" }
     state == 2 && $4 ~ /^end/ { state = 0 }
     $4 ~ /^\s*function / { state = 1 }
+    state == 1 && $3 == "0" { $3 = "-" }
     state == 1 && $4 ~ /)::/ { state = 2 }
     state != 2 && $3 == "0" { $3 = "-" }
     { print }

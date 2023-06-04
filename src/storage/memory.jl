@@ -15,21 +15,47 @@ If the `name` ends with `#`, then we append an object identifier to it, to make 
 struct MemoryStorage <: AbstractStorage
     name::String
 
+    scalars::Dict{String, Any}
+
     axes::Dict{String, DenseVector{String}}
 
     function MemoryStorage(name::String)
+        scalars = Dict{String, Any}()
+
         axes = Dict{String, DenseVector{String}}()
 
         if endswith(name, "#")
             name = name * string(objectid(axes); base = 16)
         end
 
-        return new(name, axes)
+        return new(name, scalars, axes)
     end
 end
 
-function Storage.name(storage::MemoryStorage)::String
+function Storage.storage_name(storage::MemoryStorage)::String
     return storage.name
+end
+
+function Storage.has_scalar(storage::MemoryStorage, name::String)::Bool
+    return haskey(storage.scalars, name)
+end
+
+function Storage.unsafe_set_scalar!(storage::MemoryStorage, name::String, value::Any)::Nothing
+    storage.scalars[name] = value
+    return nothing
+end
+
+function Storage.unsafe_delete_scalar!(storage::MemoryStorage, name::String)::Nothing
+    delete!(storage.scalars, name)
+    return nothing
+end
+
+function Storage.unsafe_get_scalar(storage::MemoryStorage, name::String)::Any
+    return storage.scalars[name]
+end
+
+function Storage.has_axis(storage::MemoryStorage, axis::String)::Bool
+    return haskey(storage.axes, axis)
 end
 
 function Storage.unsafe_add_axis!(storage::MemoryStorage, axis::String, entries::DenseVector{String})::Nothing
@@ -42,14 +68,10 @@ function Storage.unsafe_delete_axis!(storage::MemoryStorage, axis::String)::Noth
     return nothing
 end
 
-function Storage.has_axis(storage::MemoryStorage, axis::String)::Bool
-    return haskey(storage.axes, axis)
+function Storage.unsafe_get_axis(storage::MemoryStorage, axis::String)::DenseVector{String}
+    return storage.axes[axis]
 end
 
 function Storage.unsafe_axis_length(storage::MemoryStorage, axis::String)::Int64
     return length(storage.axes[axis])
-end
-
-function Storage.unsafe_axis_entries(storage::MemoryStorage, axis::String)::DenseVector{String}
-    return storage.axes[axis]
 end
