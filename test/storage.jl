@@ -2,6 +2,7 @@ using Daf
 
 function test_storage_scalar(storage::AbstractStorage)::Nothing
     @test !has_scalar(storage, "version")
+    @test length(scalar_names(storage)) == 0
 
     @test_throws "missing scalar: version in storage: memory" get_scalar(storage, "version")
     @test get_scalar(storage, "version"; default = (3, 4)) == (3, 4)
@@ -12,11 +13,15 @@ function test_storage_scalar(storage::AbstractStorage)::Nothing
     set_scalar!(storage, "version", (1, 2))
     @test_throws "existing scalar: version in storage: memory" set_scalar!(storage, "version", (4, 5))
 
+    @test length(scalar_names(storage)) == 1
+    @test "version" in scalar_names(storage)
+
     @test get_scalar(storage, "version") == (1, 2)
     @test get_scalar(storage, "version"; default = (3, 4)) == (1, 2)
 
     delete_scalar!(storage, "version")
     @test !has_scalar(storage, "version")
+    @test length(scalar_names(storage)) == 0
 
     return nothing
 end
@@ -25,6 +30,7 @@ function test_storage_axis(storage::AbstractStorage)::Nothing
     @test !has_axis(storage, "cell")
     @test_throws "missing axis: cell in storage: memory" get_axis(storage, "cell")
     delete_axis!(storage, "cell"; must_exist = false)
+    @test length(axis_names(storage)) == 0
 
     repeated_cell_names = vec(["cell1", "cell1", "cell3"])
     @test_throws "non-unique entries for new axis: cell in storage: memory" add_axis!(
@@ -35,6 +41,8 @@ function test_storage_axis(storage::AbstractStorage)::Nothing
 
     cell_names = vec(["cell1", "cell2", "cell3"])
     add_axis!(storage, "cell", cell_names)
+    @test length(axis_names(storage)) == 1
+    @test "cell" in axis_names(storage)
 
     @test has_axis(storage, "cell")
     @test axis_length(storage, "cell") == 3
@@ -45,6 +53,7 @@ function test_storage_axis(storage::AbstractStorage)::Nothing
     delete_axis!(storage, "cell")
     @test !has_axis(storage, "cell")
     @test_throws "missing axis: cell in storage: memory" delete_axis!(storage, "cell")
+    @test length(axis_names(storage)) == 0
 
     return nothing
 end
@@ -71,7 +80,9 @@ end
 
         @test_throws "missing method: storage_name for storage type: BadStorage" storage_name(bad_storage)
         @test_throws "missing method: has_scalar for storage type: BadStorage" has_scalar(bad_storage, "version")
+        @test_throws "missing method: scalar_names for storage type: BadStorage" scalar_names(bad_storage)
         @test_throws "missing method: has_axis for storage type: BadStorage" has_axis(bad_storage, "cell")
+        @test_throws "missing method: axis_names for storage type: BadStorage" axis_names(bad_storage)
 
         bad_storage = LyingStorage(true)
 

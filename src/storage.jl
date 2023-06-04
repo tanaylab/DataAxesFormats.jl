@@ -27,12 +27,14 @@ using Reexport
 export AbstractStorage
 export add_axis!
 export axis_length
+export axis_names
 export delete_axis!
 export delete_scalar!
 export get_axis
 export get_scalar
 export has_axis
 export has_scalar
+export scalar_names
 export set_scalar!
 export storage_name
 export unsafe_add_axis!
@@ -163,6 +165,15 @@ function unsafe_get_scalar(storage::AbstractStorage, name::String)::Any
     return error("missing method: unsafe_get_scalar for storage type: $(typeof(storage))")
 end
 
+"""
+    scalar_names(storage::AbstractStorage)::Set{String}
+
+The names of the scalars in the `storage`.
+"""
+function scalar_names(storage::AbstractStorage)::AbstractSet{String}
+    return error("missing method: scalar_names for storage type: $(typeof(storage))")
+end
+
 function require_scalar(storage::AbstractStorage, name::String)::Nothing
     if !has_scalar(storage, name)
         error("missing scalar: $(name) in storage: $(storage_name(storage))")
@@ -281,6 +292,15 @@ This trusts the `axis` does exist in the `storage`.
 """
 function unsafe_get_axis(storage::AbstractStorage, axis::String)::DenseVector{String}
     return error("missing method: unsafe_get_axis for storage type: $(typeof(storage))")
+end
+
+"""
+    axis_names(storage::AbstractStorage)::AbstractSet{String}
+
+The names of the axes of the `storage`.
+"""
+function axis_names(storage::AbstractStorage)::AbstractSet{String}
+    return error("missing method: axis_names for storage type: $(typeof(storage))")
 end
 
 """

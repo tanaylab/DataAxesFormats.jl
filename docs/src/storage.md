@@ -24,6 +24,7 @@ usage as a "heavy duty" key-value container, though; there are plenty of other o
 Daf.Storage.has_scalar
 Daf.Storage.set_scalar!
 Daf.Storage.delete_scalar!
+Daf.Storage.scalar_names
 Daf.Storage.get_scalar
 ```
 
@@ -33,6 +34,7 @@ The focus of the storage is on data along some axes:
 Daf.Storage.has_axis
 Daf.Storage.add_axis!
 Daf.Storage.delete_axis!
+Daf.Storage.axis_names
 Daf.Storage.get_axis
 Daf.Storage.axis_length
 ```

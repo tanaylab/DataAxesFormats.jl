@@ -54,6 +54,10 @@ function Storage.unsafe_get_scalar(storage::MemoryStorage, name::String)::Any
     return storage.scalars[name]
 end
 
+function Storage.scalar_names(storage::MemoryStorage)::AbstractSet{String}
+    return keys(storage.scalars)
+end
+
 function Storage.has_axis(storage::MemoryStorage, axis::String)::Bool
     return haskey(storage.axes, axis)
 end
@@ -66,6 +70,10 @@ end
 function Storage.unsafe_delete_axis!(storage::MemoryStorage, axis::String)::Nothing
     delete!(storage.axes, axis)
     return nothing
+end
+
+function Storage.axis_names(storage::MemoryStorage)::AbstractSet{String}
+    return keys(storage.axes)
 end
 
 function Storage.unsafe_get_axis(storage::MemoryStorage, axis::String)::DenseVector{String}
