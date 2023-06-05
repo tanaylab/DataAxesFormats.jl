@@ -100,8 +100,9 @@ function test_storage_vector(storage::AbstractStorage)::Nothing
     delete_vector!(storage, "cell", "age")
     @test !has_vector(storage, "cell", "age")
 
-    set_vector!(storage, "cell", "age", vec([0 1 2]))
+    set_vector!(storage, "cell", "age", 1)
     @test has_vector(storage, "cell", "age")
+    @test get_vector(storage, "cell", "age") == vec([1 1 1])
     delete_axis!(storage, "cell")
     add_axis!(storage, "cell", vec(["cell0", "cell1"]))
     @test !has_vector(storage, "cell", "age")
@@ -200,7 +201,8 @@ function test_storage_matrix(storage::AbstractStorage)::Nothing
 
     delete_matrix!(storage, "cell", "gene", "UMIs")
 
-    set_matrix!(storage, "cell", "gene", "UMIs", [0 1; 2 3; 4 5])
+    set_matrix!(storage, "cell", "gene", "UMIs", 1)
+    @test get_matrix(storage, "cell", "gene", "UMIs") == [1 1; 1 1; 1 1]
 
     delete_axis!(storage, "cell")
     delete_axis!(storage, "gene")

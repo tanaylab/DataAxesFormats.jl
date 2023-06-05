@@ -396,11 +396,13 @@ end
         storage::AbstractStorage,
         axis::String,
         name::String,
-        vector::AbstractVector;
+        vector::Union{Number, String, AbstractVector};
         overwrite::Bool = false,
     )::Nothing
 
 Set a `vector` with some `name` for some `axis` in the `storage`.
+
+If the `vector` specified is actually a number or a string, the stored vector is filled with this value.
 
 This first verifies the `axis` exists in the `storage`, and that the `vector` has the appropriate length. If `overwrite`
 is `false` (the default), this also verifies the `name` vector does not exist for the `axis`.
@@ -409,11 +411,11 @@ function set_vector!(
     storage::AbstractStorage,
     axis::String,
     name::String,
-    vector::AbstractVector;
+    vector::Union{Number, String, AbstractVector};
     overwrite::Bool = false,
 )::Nothing
     require_axis(storage, axis)
-    if length(vector) != axis_length(storage, axis)
+    if vector isa AbstractVector && length(vector) != axis_length(storage, axis)
         error(
             "vector length: $(length(vector)) " *  # only seems untested
             "is different from axis: $(axis) " *  # only seems untested
@@ -433,15 +435,22 @@ end
         storage::AbstractStorage,
         axis::String,
         name::String,
-        vector::AbstractVector,
+        vector::Union{Number, String, AbstractVector},
     )::Nothing
 
 Implement setting a `vector` with some `name` for some `axis` in the `storage`.
 
+If the `vector` specified is actually a number or a string, the stored vector is filled with this value.
+
 This trusts the `axis` exists in the `storage`, and that the `vector` has the appropriate length. It will silently
 overwrite an existing vector for the same `name` for the `axis`.
 """
-function unsafe_set_vector!(storage::AbstractStorage, axis::String, name::String, vector::AbstractVector)::Nothing
+function unsafe_set_vector!(
+    storage::AbstractStorage,
+    axis::String,
+    name::String,
+    vector::Union{Number, String, AbstractVector},
+)::Nothing
     return error("missing method: unsafe_set_vector! for storage type: $(typeof(storage))")  # untested
 end
 
@@ -504,7 +513,12 @@ function unsafe_vector_names(storage::AbstractStorage, axis::String)::AbstractSe
 end
 
 """
-    get_vector(storage::AbstractStorage, axis::String, name::String[; default::Any])::AbstractVector
+    get_vector(
+        storage::AbstractStorage,
+        axis::String,
+        name::String
+        [; default::Union{Number, String, AbstractVector}]
+    )::AbstractVector
 
 The vector with some `name` for some `axis` in the `storage`.
 
@@ -513,7 +527,12 @@ If `default` is not specified, this first verifies the `name` vector exists in t
 an `AbstractVector`, it has to be of the same size as the `axis`, and is returned. Otherwise, a new `Vector` is created
 of the correct size containing the `default`, and is returned.
 """
-function get_vector(storage::AbstractStorage, axis::String, name::String; default::Any = NO_DEFAULT)::AbstractVector
+function get_vector(
+    storage::AbstractStorage,
+    axis::String,
+    name::String;
+    default::Union{Number, String, AbstractVector, NoDefault} = NO_DEFAULT,
+)::AbstractVector
     require_axis(storage, axis)
     if default isa AbstractVector && length(default) != axis_length(storage, axis)
         error(
@@ -619,6 +638,8 @@ end
 Set the `matrix` with some `name` for some `rows_axis` and `columns_axis` in the `storage`. Since this is Julia, this
 should be a column-major `matrix`.
 
+If the `matrix` specified is actually a number or a string, the stored matrix is filled with this value.
+
 This first verifies the `rows_axis` and `columns_axis` exist in the `storage`, that the `matrix` is column-major of the
 appropriate size. If `overwrite` is `false` (the default), this also verifies the `name` matrix does not exist for the
 `rows_axis` and `columns_axis`.
@@ -628,29 +649,31 @@ function set_matrix!(
     rows_axis::String,
     columns_axis::String,
     name::String,
-    matrix::AbstractMatrix;
+    matrix::Union{Number, String, AbstractMatrix};
     overwrite::Bool = false,
 )::Nothing
     require_axis(storage, rows_axis)
     require_axis(storage, columns_axis)
-    if major_axis(matrix) != Column
-        error("matrix: $(typeof(matrix)) is not column-major")  # untested
-    end
-    if nrows(matrix) != axis_length(storage, rows_axis)
-        error(
-            "matrix rows: $(nrows(matrix)) " *  # only seems untested
-            "is different from axis: $(rows_axis) " *  # only seems untested
-            "length: $(axis_length(storage, rows_axis)) " *  # only seems untested
-            "in the storage: $(storage_name)",  # only seems untested
-        )
-    end
-    if ncolumns(matrix) != axis_length(storage, columns_axis)
-        error(
-            "matrix columns: $(ncolumns(matrix)) " *  # only seems untested
-            "is different from axis: $(columns_axis) " *  # only seems untested
-            "length: $(axis_length(storage, columns_axis)) " *  # only seems untested
-            "in the storage: $(storage_name)",  # only seems untested
-        )
+    if matrix isa AbstractMatrix
+        if major_axis(matrix) != Column
+            error("matrix: $(typeof(matrix)) is not column-major")  # untested
+        end
+        if nrows(matrix) != axis_length(storage, rows_axis)
+            error(
+                "matrix rows: $(nrows(matrix)) " *  # only seems untested
+                "is different from axis: $(rows_axis) " *  # only seems untested
+                "length: $(axis_length(storage, rows_axis)) " *  # only seems untested
+                "in the storage: $(storage_name)",  # only seems untested
+            )
+        end
+        if ncolumns(matrix) != axis_length(storage, columns_axis)
+            error(
+                "matrix columns: $(ncolumns(matrix)) " *  # only seems untested
+                "is different from axis: $(columns_axis) " *  # only seems untested
+                "length: $(axis_length(storage, columns_axis)) " *  # only seems untested
+                "in the storage: $(storage_name)",  # only seems untested
+            )
+        end
     end
     if !overwrite
         require_no_matrix(storage, rows_axis, columns_axis, name)
@@ -670,6 +693,8 @@ end
 
 Implement setting the `matrix` with some `name` for some `rows_axis` and `columns_axis` in the `storage`.
 
+If the `matrix` specified is actually a number or a string, the stored matrix is filled with this value.
+
 This trusts the `rows_axis` and `columns_axis` exist in the `storage`, and that the `matrix` is column-major of the
 appropriate size. It will silently overwrite an existing matrix for the same `name` for the `rows_axis` and
 `columns_axis`.
@@ -679,7 +704,7 @@ function unsafe_set_matrix!(
     rows_axis::String,
     columns_axis::String,
     name::String,
-    matrix::AbstractMatrix,
+    matrix::Union{Number, String, AbstractMatrix},
 )::Nothing
     return error("missing method: unsafe_set_matrix! for storage type: $(typeof(storage))")  # untested
 end
@@ -734,7 +759,11 @@ function unsafe_delete_matrix!(storage::AbstractStorage, rows_axis::String, colu
 end
 
 """
-    matrix_names(storage::AbstractStorage, rows_axis::String, columns_axis::String)::Set{String}
+    matrix_names(
+        storage::AbstractStorage,
+        rows_axis::String,
+        columns_axis::String,
+    )::Set{String}
 
 The names of the matrices for the `rows_axis` and `columns_axis` in the `storage`.
 
@@ -747,7 +776,11 @@ function matrix_names(storage::AbstractStorage, rows_axis::String, columns_axis:
 end
 
 """
-    unsafe_matrix_names(storage::AbstractStorage, rows_axis::String, columns_axis::String)::Set{String}
+    unsafe_matrix_names(
+        storage::AbstractStorage,
+        rows_axis::String,
+        columns_axis::String,
+    )::Set{String}
 
 Implement fetching the names of the matrices for the `rows_axis` and `columns_axis` in the `storage`.
 
@@ -782,7 +815,13 @@ function require_no_matrix(storage::AbstractStorage, rows_axis::String, columns_
 end
 
 """
-    get_matrix(storage::AbstractStorage, rows_axis::String, columns_axis::String, name::String[; default::Any])::AbstractMatrix
+    get_matrix(
+        storage::AbstractStorage,
+        rows_axis::String,
+        columns_axis::String,
+        name::String
+        [; default::Union{Number, String, AbstractMatrix}]
+    )::AbstractMatrix
 
 The matrix with some `name` for some `rows_axis` and `columns_axis` in the `storage`.
 
@@ -796,7 +835,7 @@ function get_matrix(
     rows_axis::String,
     columns_axis::String,
     name::String;
-    default::Any = NO_DEFAULT,
+    default::Union{Number, String, NoDefault, AbstractMatrix} = NO_DEFAULT,
 )::AbstractMatrix
     require_axis(storage, rows_axis)
     require_axis(storage, columns_axis)

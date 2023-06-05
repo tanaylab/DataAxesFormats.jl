@@ -104,8 +104,17 @@ function Storage.unsafe_has_vector(storage::MemoryStorage, axis::String, name::S
     return haskey(storage.vectors[axis], name)
 end
 
-function Storage.unsafe_set_vector!(storage::MemoryStorage, axis::String, name::String, vector::AbstractVector)::Nothing
-    storage.vectors[axis][name] = vector
+function Storage.unsafe_set_vector!(
+    storage::MemoryStorage,
+    axis::String,
+    name::String,
+    vector::Union{Number, String, AbstractVector},
+)::Nothing
+    if vector isa AbstractVector
+        storage.vectors[axis][name] = vector
+    else
+        storage.vectors[axis][name] = fill(vector, unsafe_axis_length(storage, axis))
+    end
     return nothing
 end
 
@@ -131,9 +140,14 @@ function Storage.unsafe_set_matrix!(
     rows_axis::String,
     columns_axis::String,
     name::String,
-    matrix::AbstractMatrix,
+    matrix::Union{Number, String, AbstractMatrix},
 )::Nothing
-    storage.matrices[rows_axis][columns_axis][name] = matrix
+    if matrix isa AbstractMatrix
+        storage.matrices[rows_axis][columns_axis][name] = matrix
+    else
+        storage.matrices[rows_axis][columns_axis][name] =
+            fill(matrix, unsafe_axis_length(storage, rows_axis), unsafe_axis_length(storage, columns_axis))  # only seems untested
+    end
     return nothing
 end
 
