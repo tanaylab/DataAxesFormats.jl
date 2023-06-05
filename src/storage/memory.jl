@@ -15,6 +15,8 @@ If the `name` ends with `#`, then we append an object identifier to it, to make 
 struct MemoryStorage <: AbstractStorage
     name::String
 
+    is_frozen::Array{Bool, 1}
+
     scalars::Dict{String, Any}
 
     axes::Dict{String, DenseVector{String}}
@@ -33,12 +35,26 @@ struct MemoryStorage <: AbstractStorage
             name = name * string(objectid(axes); base = 16)
         end
 
-        return new(name, scalars, axes, vectors, matrices)
+        return new(name, [false], scalars, axes, vectors, matrices)
     end
 end
 
 function Storage.storage_name(storage::MemoryStorage)::String
     return storage.name
+end
+
+function Storage.is_frozen(storage::MemoryStorage)::Bool
+    return storage.is_frozen[1]
+end
+
+function Storage.freeze(storage::MemoryStorage)::Nothing
+    storage.is_frozen[1] = true
+    return nothing
+end
+
+function Storage.unfreeze(storage::MemoryStorage)::Nothing
+    storage.is_frozen[1] = false
+    return nothing
 end
 
 function Storage.has_scalar(storage::MemoryStorage, name::String)::Bool

@@ -10,6 +10,13 @@ function test_storage_scalar(storage::AbstractStorage)::Nothing
     @test_throws "missing scalar: version in the storage: memory" delete_scalar!(storage, "version")
     delete_scalar!(storage, "version"; must_exist = false)
 
+    @test !is_frozen(storage)
+    freeze(storage)
+    @test is_frozen(storage)
+    @test_throws "frozen storage: memory" delete_scalar!(storage, "version")
+    unfreeze(storage)
+    @test !is_frozen(storage)
+
     set_scalar!(storage, "version", (1, 2))
     @test_throws "existing scalar: version in the storage: memory" set_scalar!(storage, "version", (4, 5))
 

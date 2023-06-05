@@ -16,6 +16,17 @@ We require each storage to have a (ideally, unique) human-readable name for erro
 Daf.Storage.storage_name
 ```
 
+A storage may be frozen, preventing it against changes. This prevents calling any of the `add_...!`, `set_...!` and
+`delete_...!` functions. It also tries to prevent, as much as Julia allows, modifications to the vectors and matrices
+returned from the storage. Normally, these modified in-place - this applies even to persistent storage formats that use
+memory-mapping (which is all of them).
+
+```@docs
+Daf.Storage.is_frozen
+Daf.Storage.freeze
+Daf.Storage.unfreeze
+```
+
 We can store arbitrary named values in the storage, that is, treat it as a simple key-value container. This is useful
 for keep metadata for the whole data set (e.g. provenance and versioning information). The code is not optimized for
 usage as a "heavy duty" key-value container, though; there are plenty of other options for that.
@@ -61,10 +72,10 @@ Daf.Storage.get_matrix
 
 ## Concrete storage
 
-To implement a new storage format adapter, you will need to implement the `name`, `has_scalar` and `has_axis` functions
-listed above. In addition, you will need to implement the "unsafe" variant of the rest of the functions. This
-implementation can ignore most error conditions because the "safe" version of the functions performs most validations
-first, before calling the "unsafe" variant.
+To implement a new storage format adapter, you will need to implement the `storage_name`, `is_frozen`, `freeze`,
+`unfreeze`, `has_scalar` and `has_axis` functions listed above. In addition, you will need to implement the "unsafe"
+variant of the rest of the functions. This implementation can ignore most error conditions because the "safe" version of
+the functions performs most validations first, before calling the "unsafe" variant.
 
 For scalars:
 

@@ -32,6 +32,7 @@ export delete_axis!
 export delete_matrix!
 export delete_scalar!
 export delete_vector!
+export freeze
 export get_axis
 export get_matrix
 export get_scalar
@@ -40,12 +41,14 @@ export has_axis
 export has_matrix
 export has_scalar
 export has_vector
+export is_frozen
 export matrix_names
 export scalar_names
 export set_matrix!
 export set_scalar!
 export set_vector!
 export storage_name
+export unfreeze
 export unsafe_add_axis!
 export unsafe_axis_length
 export unsafe_delete_axis!
@@ -80,6 +83,39 @@ function storage_name(storage::AbstractStorage)::String
 end
 
 """
+    is_frozen(storage::AbstractStorage)::Bool
+
+Whether the storage supports only read-only access.
+"""
+function is_frozen(storage::AbstractStorage)::Bool
+    return error("missing method: is_frozen for storage type: $(typeof(storage))")  # untested
+end
+
+"""
+    freeze(storage::AbstractStorage)::Nothing
+
+Prevent modifications of the storage.
+"""
+function freeze(storage::AbstractStorage)::Nothing
+    return error("missing method: freeze for storage type: $(typeof(storage))")  # untested
+end
+
+"""
+    unfreeze(storage::AbstractStorage)::Nothing
+
+Allow modifications of the storage.
+"""
+function unfreeze(storage::AbstractStorage)::Nothing
+    return error("missing method: unfreeze for storage type: $(typeof(storage))")  # untested
+end
+
+function require_unfrozen(storage::AbstractStorage)::Nothing
+    if is_frozen(storage)
+        error("frozen storage: $(storage_name(storage))")
+    end
+end
+
+"""
     has_scalar(storage::AbstractStorage, name::String)::Bool
 
 Check whether a scalar with some `name` exists in the `storage`.
@@ -99,8 +135,11 @@ end
 Set the `value` of a scalar with some `name` in the `storage`.
 
 If `overwrite` is `false` (the default), this first verifies the `name` does not exist.
+
+This will cause an error if the `storage` `is_frozen`.
 """
 function set_scalar!(storage::AbstractStorage, name::String, value::Any; overwrite::Bool = false)::Nothing
+    require_unfrozen(storage)
     if !overwrite
         require_no_scalar(storage, name)
     end
@@ -135,6 +174,7 @@ Delete an existing scalar with some `name` from the `storage`.
 If `must_exist` is `true` (the default), this first verifies the `name` scalar exists in the `storage`.
 """
 function delete_scalar!(storage::AbstractStorage, name::String; must_exist::Bool = true)::Nothing
+    require_unfrozen(storage)
     if must_exist
         require_scalar(storage, name)
     elseif !has_scalar(storage, name)
@@ -229,6 +269,7 @@ Add a new `axis` to the `storage`.
 This first verifies the `axis` does not exist and that the `entries` are unique.
 """
 function add_axis!(storage::AbstractStorage, axis::String, entries::DenseVector{String})::Nothing
+    require_unfrozen(storage)
     require_no_axis(storage, axis)
 
     if !allunique(entries)
@@ -267,6 +308,7 @@ axis.
 If `must_exist` is `true` (the default), this first verifies the `axis` exists in the `storage`.
 """
 function delete_axis!(storage::AbstractStorage, axis::String; must_exist::Bool = true)::Nothing
+    require_unfrozen(storage)
     if must_exist
         require_axis(storage, axis)
     elseif !has_axis(storage, axis)
@@ -406,6 +448,8 @@ If the `vector` specified is actually a number or a string, the stored vector is
 
 This first verifies the `axis` exists in the `storage`, and that the `vector` has the appropriate length. If `overwrite`
 is `false` (the default), this also verifies the `name` vector does not exist for the `axis`.
+
+This will cause an error if the `storage` `is_frozen`.
 """
 function set_vector!(
     storage::AbstractStorage,
@@ -414,6 +458,7 @@ function set_vector!(
     vector::Union{Number, String, AbstractVector};
     overwrite::Bool = false,
 )::Nothing
+    require_unfrozen(storage)
     require_axis(storage, axis)
     if vector isa AbstractVector && length(vector) != axis_length(storage, axis)
         error(
@@ -468,6 +513,7 @@ This first verifies the `axis` exists in the `storage`. If `must_exist` is `true
 `name` vector exists for the `axis`.
 """
 function delete_vector!(storage::AbstractStorage, axis::String, name::String; must_exist::Bool = true)::Nothing
+    require_unfrozen(storage)
     require_axis(storage, axis)
     if must_exist
         require_vector(storage, axis, name)
@@ -643,6 +689,8 @@ If the `matrix` specified is actually a number or a string, the stored matrix is
 This first verifies the `rows_axis` and `columns_axis` exist in the `storage`, that the `matrix` is column-major of the
 appropriate size. If `overwrite` is `false` (the default), this also verifies the `name` matrix does not exist for the
 `rows_axis` and `columns_axis`.
+
+This will cause an error if the `storage` `is_frozen`.
 """
 function set_matrix!(
     storage::AbstractStorage,
@@ -652,6 +700,7 @@ function set_matrix!(
     matrix::Union{Number, String, AbstractMatrix};
     overwrite::Bool = false,
 )::Nothing
+    require_unfrozen(storage)
     require_axis(storage, rows_axis)
     require_axis(storage, columns_axis)
     if matrix isa AbstractMatrix
@@ -730,6 +779,7 @@ function delete_matrix!(
     name::String;
     must_exist::Bool = true,
 )::Nothing
+    require_unfrozen(storage)
     require_axis(storage, rows_axis)
     require_axis(storage, columns_axis)
     if must_exist
