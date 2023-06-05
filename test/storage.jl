@@ -71,13 +71,18 @@ function test_storage_vector(storage::AbstractStorage)::Nothing
     @test_throws "missing vector: age for the axis: cell in the storage: memory" delete_vector!(storage, "cell", "age")
     delete_vector!(storage, "cell", "age"; must_exist = false)
     @test_throws "missing vector: age for the axis: cell in the storage: memory" get_vector(storage, "cell", "age")
-    @test_throws "value length: 2 is different from axis: cell length: 3 in the storage: storage_name" set_vector!(
+    @test_throws "vector length: 2 is different from axis: cell length: 3 in the storage: storage_name" set_vector!(
         storage,  # only seems untested
         "cell",  # only seems untested
         "age",  # only seems untested
         vec([0 1]),  # only seems untested
     )
-    @test_throws "" get_vector(storage, "cell", "age"; default = vec([1 2]))
+    @test_throws "default length: 2 is different from axis: cell length: 3 in the storage: storage_name" get_vector(
+        storage,  # only seems untested
+        "cell",  # only seems untested
+        "age";  # only seems untested
+        default = vec([1 2]),  # only seems untested
+    )
     @test get_vector(storage, "cell", "age"; default = vec([1 2 3])) == vec([1 2 3])
     @test get_vector(storage, "cell", "age"; default = 1) == vec([1 1 1])
 
@@ -104,87 +109,116 @@ function test_storage_vector(storage::AbstractStorage)::Nothing
     return nothing
 end
 
-struct BadStorage <: AbstractStorage
-    BadStorage() = new()
-end
+function test_storage_matrix(storage::AbstractStorage)::Nothing
+    @test_throws "missing axis: cell in the storage: memory" has_matrix(storage, "cell", "gene", "UMIs")
+    @test_throws "missing axis: cell in the storage: memory" matrix_names(storage, "cell", "gene")
+    @test_throws "missing axis: cell in the storage: memory" delete_matrix!(storage, "cell", "gene", "UMIs")
+    @test_throws "missing axis: cell in the storage: memory" get_matrix(storage, "cell", "gene", "UMIs")
+    @test_throws "missing axis: cell in the storage: memory" set_matrix!(
+        storage,  # only seems untested
+        "cell",  # only seems untested
+        "gene",  # only seems untested
+        "UMIS",  # only seems untested
+        [0 1 2; 3 4 5],  # only seems untested
+    )
 
-struct LyingStorage <: AbstractStorage
-    lie::Bool
-end
+    add_axis!(storage, "cell", vec(["cell0", "cell1", "cell2"]))
 
-function Storage.has_scalar(storage::LyingStorage, name::String)::Bool
-    return storage.lie
-end
+    @test_throws "missing axis: gene in the storage: memory" has_matrix(storage, "cell", "gene", "UMIs")
+    @test_throws "missing axis: gene in the storage: memory" matrix_names(storage, "cell", "gene")
+    @test_throws "missing axis: gene in the storage: memory" delete_matrix!(storage, "cell", "gene", "UMIs")
+    @test_throws "missing axis: gene in the storage: memory" get_matrix(storage, "cell", "gene", "UMIs")
+    @test_throws "missing axis: gene in the storage: memory" set_matrix!(
+        storage,  # only seems untested
+        "cell",  # only seems untested
+        "gene",  # only seems untested
+        "UMIS",  # only seems untested
+        [0 1 2; 3 4 5],  # only seems untested
+    )
 
-function Storage.has_axis(storage::LyingStorage, axis::String)::Bool
-    return storage.lie
-end
+    add_axis!(storage, "gene", vec(["gene0", "gene1"]))
 
-function Storage.vector_names(storage::LyingStorage, axis::String)::AbstractSet{String}
-    return Set{String}()
+    @test !has_matrix(storage, "cell", "gene", "UMIs")
+    @test length(matrix_names(storage, "cell", "gene")) == 0
+    @test length(matrix_names(storage, "gene", "cell")) == 0
+    @test_throws "missing matrix: UMIs for the rows axis: cell and the columns axis: gene in the storage: memory" delete_matrix!(
+        storage,  # only seems untested
+        "cell",  # only seems untested
+        "gene",  # only seems untested
+        "UMIs",  # only seems untested
+    )
+    delete_matrix!(storage, "cell", "gene", "UMIs"; must_exist = false)
+    @test_throws "missing matrix: UMIs for the rows axis: cell and the columns axis: gene in the storage: memory" get_matrix(
+        storage,  # only seems untested
+        "cell",  # only seems untested
+        "gene",  # only seems untested
+        "UMIs",  # only seems untested
+    )
+    @test_throws "matrix rows: 2 is different from axis: cell length: 3 in the storage: storage_name" set_matrix!(
+        storage,  # only seems untested
+        "cell",  # only seems untested
+        "gene",  # only seems untested
+        "UMIS",  # only seems untested
+        [0 1; 2 3],  # only seems untested
+    )
+    @test_throws "matrix columns: 3 is different from axis: gene length: 2 in the storage: storage_name" set_matrix!(
+        storage,  # only seems untested
+        "cell",  # only seems untested
+        "gene",  # only seems untested
+        "UMIS",  # only seems untested
+        [0 1 3; 4 5 6; 7 8 9],  # only seems untested
+    )
+    @test_throws "default rows: 2 is different from axis: cell length: 3 in the storage: storage_name" get_matrix(
+        storage,  # only seems untested
+        "cell",  # only seems untested
+        "gene",  # only seems untested
+        "UMIs",  # only seems untested
+        default = [0 1; 2 3],  # only seems untested
+    )
+    @test_throws "default columns: 3 is different from axis: gene length: 2 in the storage: storage_name" get_matrix(
+        storage,  # only seems untested
+        "cell",  # only seems untested
+        "gene",  # only seems untested
+        "UMIs",  # only seems untested
+        default = [0 1 3; 4 5 6; 7 8 9],  # only seems untested
+    )
+
+    @test get_matrix(storage, "cell", "gene", "UMIs"; default = [1 2; 3 4; 5 6]) == [1 2; 3 4; 5 6]
+    @test get_matrix(storage, "cell", "gene", "UMIs"; default = 1) == [1 1; 1 1; 1 1]
+
+    set_matrix!(storage, "cell", "gene", "UMIs", [0 1; 2 3; 4 5])
+    @test_throws "existing matrix: UMIs for the rows axis: cell and the columns axis: gene in the storage: memory" set_matrix!(
+        storage,  # only seems untested
+        "cell",  # only seems untested
+        "gene",  # only seems untested
+        "UMIs",  # only seems untested
+        [1 2; 3 4; 5 6],  # only seems untested
+    )
+    @test get_matrix(storage, "cell", "gene", "UMIs") == [0 1; 2 3; 4 5]
+    @test get_matrix(storage, "cell", "gene", "UMIs"; default = [1 2; 3 4; 5 6]) == [0 1; 2 3; 4 5]
+    @test get_matrix(storage, "cell", "gene", "UMIs"; default = 1) == [0 1; 2 3; 4 5]
+
+    delete_matrix!(storage, "cell", "gene", "UMIs")
+
+    set_matrix!(storage, "cell", "gene", "UMIs", [0 1; 2 3; 4 5])
+
+    delete_axis!(storage, "cell")
+    delete_axis!(storage, "gene")
+
+    add_axis!(storage, "cell", vec(["cell0", "cell1", "cell2"]))
+    add_axis!(storage, "gene", vec(["gene0", "gene1"]))
+
+    @test !has_matrix(storage, "cell", "gene", "UMIs")
+
+    return nothing
 end
 
 @testset "storage" begin
-    @testset "bad_storage" begin
-        bad_storage = BadStorage()
-
-        @test_throws "missing method: storage_name for storage type: BadStorage" storage_name(bad_storage)
-        @test_throws "missing method: has_scalar for storage type: BadStorage" has_scalar(bad_storage, "version")
-        @test_throws "missing method: scalar_names for storage type: BadStorage" scalar_names(bad_storage)
-        @test_throws "missing method: has_axis for storage type: BadStorage" has_axis(bad_storage, "cell")
-        @test_throws "missing method: axis_names for storage type: BadStorage" axis_names(bad_storage)
-
-        bad_storage = LyingStorage(true)
-
-        @test_throws "missing method: unsafe_delete_scalar! for storage type: LyingStorage" delete_scalar!(
-            bad_storage,
-            "version",
-        )
-        @test_throws "missing method: unsafe_get_scalar for storage type: LyingStorage" get_scalar(
-            bad_storage,
-            "version",
-        )
-        @test_throws "missing method: unsafe_delete_axis! for storage type: LyingStorage" delete_axis!(
-            bad_storage,
-            "cell",
-        )
-        @test_throws "missing method: unsafe_get_axis for storage type: LyingStorage" get_axis(bad_storage, "cell")
-        @test_throws "missing method: unsafe_axis_length for storage type: LyingStorage" axis_length(
-            bad_storage,
-            "cell",
-        )
-        @test_throws "missing method: unsafe_has_vector for storage type: LyingStorage" has_vector(
-            bad_storage,
-            "cell",
-            "age",
-        )
-        @test_throws "missing method: unsafe_has_vector for storage type: LyingStorage" get_vector(
-            bad_storage,
-            "cell",
-            "age",
-        )
-
-        bad_storage = LyingStorage(false)
-
-        delete_scalar!(bad_storage, "version"; must_exist = false)
-        @test get_scalar(bad_storage, "version"; default = (1, 2)) == (1, 2)
-        @test_throws "missing method: unsafe_set_scalar! for storage type: LyingStorage" set_scalar!(
-            bad_storage,
-            "version",
-            (1, 2),
-        )
-        @test_throws "missing method: unsafe_add_axis! for storage type: LyingStorage" add_axis!(
-            bad_storage,
-            "cell",
-            vec(["cell0"]),
-        )
-    end
-
     @testset "memory" begin
-        storage = MemoryStorage("memory")
-        @test storage_name(storage) == "memory"
-        test_storage_scalar(storage)
-        test_storage_axis(storage)
-        test_storage_vector(storage)
+        @test storage_name(MemoryStorage("memory")) == "memory"
+        test_storage_scalar(MemoryStorage("memory"))
+        test_storage_axis(MemoryStorage("memory"))
+        test_storage_vector(MemoryStorage("memory"))
+        test_storage_matrix(MemoryStorage("memory"))
     end
 end

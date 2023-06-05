@@ -49,6 +49,16 @@ Daf.Storage.vector_names
 Daf.Storage.get_vector
 ```
 
+And named matrix (2D) data along a pair of axes:
+
+```@docs
+Daf.Storage.has_matrix
+Daf.Storage.set_matrix!
+Daf.Storage.delete_matrix!
+Daf.Storage.matrix_names
+Daf.Storage.get_matrix
+```
+
 ## Concrete storage
 
 To implement a new storage format adapter, you will need to implement the `name`, `has_scalar` and `has_axis` functions
@@ -56,19 +66,41 @@ listed above. In addition, you will need to implement the "unsafe" variant of th
 implementation can ignore most error conditions because the "safe" version of the functions performs most validations
 first, before calling the "unsafe" variant.
 
+For scalars:
+
 ```@docs
 Daf.Storage.unsafe_set_scalar!
 Daf.Storage.unsafe_delete_scalar!
 Daf.Storage.unsafe_get_scalar
+```
+
+For axes:
+
+```@docs
 Daf.Storage.unsafe_add_axis!
+Daf.Storage.unsafe_axis_length
 Daf.Storage.unsafe_delete_axis!
 Daf.Storage.unsafe_get_axis
-Daf.Storage.unsafe_axis_length
+```
+
+For vectors:
+
+```@docs
 Daf.Storage.unsafe_has_vector
 Daf.Storage.unsafe_set_vector!
 Daf.Storage.unsafe_delete_vector!
-Daf.Storage.unsafe_get_vector
 Daf.Storage.unsafe_vector_names
+Daf.Storage.unsafe_get_vector
+```
+
+For matrices:
+
+```@docs
+Daf.Storage.unsafe_has_matrix
+Daf.Storage.unsafe_set_matrix!
+Daf.Storage.unsafe_delete_matrix!
+Daf.Storage.unsafe_matrix_names
+Daf.Storage.unsafe_get_matrix
 ```
 
 ## Memory storage
