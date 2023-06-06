@@ -1,7 +1,20 @@
 """
-Utility functions, which in principle shouldn't be part of this package at all.
+Matrices (typically) have a well-defined layout which dictates which types of processing is (much!) more efficient.
+
+This is different from the more general `ArrayLayouts` package. Instead, in `Daf` we restrict ourselves to vectors and
+matrices (as opposed to N-dimensional arrays). In addition, we typically store `DenseArray` data (with special handling
+of `SparseMatrixCSC`, which is basically just a combination of three `DenseVector`). This makes the memory layout
+question simpler - is the matrix in row-major or column-major format>
+
+Running algorithms on the wrong matrix layout can be (silently) orders of magnitude slower - for example, summing the
+values in each row on a column-major matrix. Alas, Julia's type system does not allow us to easily add `MatrixInColumns`
+and `MatrixInRows` or anything like that (in general Julia's type system is a mess when dealing with arrays because of
+"reasons").
+
+We therefore settle for providing functions to detect the matrix memory layout, and efficiently convert a matrix between
+these layouts (the default implementation of this conversion is horribly inefficient for some unknown reason).
 """
-module Utilities
+module MatrixLayouts
 
 export Column
 export count_nnz
@@ -16,11 +29,8 @@ export ncolumns
 export nrows
 export InefficientPolicy
 export other_axis
-export present
-export present_percent
 export relayout
 export Row
-export unique_name
 export view_axis
 export view_column
 export view_row
@@ -297,113 +307,6 @@ Return a view of a column with some `index` of a `matrix`.
 """
 function view_column(matrix::AbstractMatrix, index::Int)::AbstractVector
     return selectdim(matrix, 2, index)
-end
-
-unique_name_prefixes = Dict{String, Int64}()
-
-"""
-    unique_name(prefix::String)::String
-
-Return a unique name starting with the `prefix` and followed by `#`, the process index (if using multiple processes),
-and an index (how many times this name was used in the process). That is, `unique_name("foo")` will return `foo#1` for
-the first usage, `foo#2` for the 2nd, etc., and if using multiple processes, will return `foo#1.1`, `foo#1.2`, etc.
-"""
-function unique_name(prefix::String)::String
-    if haskey(unique_name_prefixes, prefix)
-        counter = unique_name_prefixes[prefix]
-        counter += 1
-    else
-        counter = 1
-    end
-    unique_name_prefixes[prefix] = counter
-    if nprocs() > 1
-        return "$(prefix)#$(myid()).$(counter)"  # untested
-    else
-        return "$(prefix)#$(counter)"
-    end
-end
-
-"""
-    present(value::Any)::String
-
-Present a `value` in an error message or a log entry. Unlike `"\$(value)"`, this focuses on producing a human-readable
-indication of the type of the value, so it double-quotes strings, prefixes symbols with `:`, and reports the type and
-sizes of arrays rather than showing their content.
-"""
-function present(value::Any)::String
-    if ismissing(value)
-        return "missing"
-    end
-
-    if value isa String
-        return "\"$(value)\""
-    end
-
-    if value isa Symbol
-        return ":$(value)"
-    end
-
-    if value isa AbstractVector
-        if value isa DenseVector
-            return "$(length(value)) x $(eltype(value)) (dense)"
-        end
-
-        if value isa SparseVector
-            nnz = present_percent(length(value.nzval), length(value))
-            return "$(length(value)) x $(eltype(value)) (sparse $(nnz))"
-        end
-
-        return "$(length(value)) x $(eltype(value)) ($(typeof(value)))"  # untested
-    end
-
-    if value isa AbstractMatrix
-        layout = major_axis(value)
-        if layout == Row
-            suffix = ", row-major"
-        elseif layout == Column
-            suffix = ", column-major"
-        else
-            suffix = ""  # untested
-        end
-
-        internal = value
-        while internal isa Transpose
-            internal = internal.parent
-        end
-
-        if internal isa DenseMatrix
-            return "$(size(value, 1)) x $(size(value, 2)) x $(eltype(value)) (dense$(suffix))"
-        end
-
-        if internal isa SparseMatrixCSC
-            nnz = present_percent(length(internal.nzval), length(value))
-            return "$(size(value, 1)) x $(size(value, 2)) x $(eltype(value)) (sparse $(nnz)$(suffix))"
-        end
-
-        return "$(size(value, 1)) x $(size(value, 2)) x $(eltype(value)) ($(typeof(value))$(suffix))"  # untested
-    end
-
-    return "$(value)"
-end
-
-"""
-    present_percent(used::Int64, out_of::Int64)::String
-
-Present a fraction of `used` amount `out_of` some total as a percentage.
-"""
-function present_percent(used::Int64, out_of::Int64)::String
-    float_percent = 100.0 * Float64(used) / Float64(out_of)
-    int_percent = round(Int64, float_percent)
-
-    if int_percent == 0 && float_percent > 0
-        return "<1%"  # untested
-    end
-
-    if int_percent == 100 && float_percent < 100
-        return ">99%"  # untested
-    end
-
-    return "$(int_percent)%"
 end
 
 end # module

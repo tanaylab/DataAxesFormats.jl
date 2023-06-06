@@ -20,8 +20,11 @@ module Daf
 
 using Reexport
 
-include("utilities.jl")
-@reexport using Daf.Utilities
+include("matrix_layouts.jl")
+@reexport using Daf.MatrixLayouts
+
+include("messages.jl")
+@reexport using Daf.Messages
 
 include("storage.jl")
 @reexport using Daf.Storage

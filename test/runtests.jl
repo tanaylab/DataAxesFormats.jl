@@ -4,5 +4,6 @@ using LinearAlgebra
 using SparseArrays
 using TestContexts
 
-include("utilities.jl")
+include("messages.jl")
+include("matrix_layouts.jl")
 include("storage.jl")

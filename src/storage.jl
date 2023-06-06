@@ -22,8 +22,6 @@ constructing storage objects to be used by the higher-level `Container` API.
 """
 module Storage
 
-using Daf.Utilities
-
 export AbstractStorage
 export add_axis!
 export axis_length
@@ -66,6 +64,9 @@ export unsafe_set_scalar!
 export unsafe_set_vector!
 export unsafe_vector_names
 export vector_names
+
+using Daf.MatrixLayouts
+using Daf.Messages
 
 """
 An abstract interface for all `Daf` storage formats.

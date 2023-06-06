@@ -11,7 +11,7 @@ Daf.Storage.AbstractStorage
 ```
 
 We require each storage to have a human-readable `.name::String` property for error messages and the like. This name
-should be unique, using [`unique_name`](@ref Daf.Utilities.unique_name).
+should be unique, using [`unique_name`](@ref Daf.Messages.unique_name).
 
 A storage may be frozen, preventing it against changes. This prevents calling any of the `add_...!`, `set_...!` and
 `delete_...!` functions. It also tries to prevent, as much as Julia allows, modifications to the vectors and matrices
