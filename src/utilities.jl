@@ -14,12 +14,13 @@ export minor_axis
 export naxis
 export ncolumns
 export nrows
+export InefficientPolicy
 export other_axis
 export present
 export present_percent
 export relayout
 export Row
-export InefficientPolicy
+export unique_name
 export view_axis
 export view_column
 export view_row
@@ -296,6 +297,30 @@ Return a view of a column with some `index` of a `matrix`.
 """
 function view_column(matrix::AbstractMatrix, index::Int)::AbstractVector
     return selectdim(matrix, 2, index)
+end
+
+unique_name_prefixes = Dict{String, Int64}()
+
+"""
+    unique_name(prefix::String)::String
+
+Return a unique name starting with the `prefix` and followed by `#`, the process index (if using multiple processes),
+and an index (how many times this name was used in the process). That is, `unique_name("foo")` will return `foo#1` for
+the first usage, `foo#2` for the 2nd, etc., and if using multiple processes, will return `foo#1.1`, `foo#1.2`, etc.
+"""
+function unique_name(prefix::String)::String
+    if haskey(unique_name_prefixes, prefix)
+        counter = unique_name_prefixes[prefix]
+        counter += 1
+    else
+        counter = 1
+    end
+    unique_name_prefixes[prefix] = counter
+    if nprocs() > 1
+        return "$(prefix)#$(myid()).$(counter)"  # untested
+    else
+        return "$(prefix)#$(counter)"
+    end
 end
 
 """

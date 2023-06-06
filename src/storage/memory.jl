@@ -9,8 +9,6 @@ This just keeps everything in-memory, similarly to the way an `AnnData` object w
 object that just keeps references to the data it is given.
 
 This is the "default" storage type you should use, unless you need to persist the data on the disk.
-
-If the `name` ends with `#`, then we append an object identifier to it, to make it unique in the current process.
 """
 struct MemoryStorage <: AbstractStorage
     name::String
@@ -31,16 +29,8 @@ struct MemoryStorage <: AbstractStorage
         vectors = Dict{String, Dict{String, AbstractVector{String}}}()
         matrices = Dict{String, Dict{String, Dict{String, AbstractVector{String}}}}()
 
-        if endswith(name, "#")
-            name = name * string(objectid(axes); base = 16)
-        end
-
-        return new(name, [false], scalars, axes, vectors, matrices)
+        return new(unique_name(name), [false], scalars, axes, vectors, matrices)
     end
-end
-
-function Storage.storage_name(storage::MemoryStorage)::String
-    return storage.name
 end
 
 function Storage.is_frozen(storage::MemoryStorage)::Bool

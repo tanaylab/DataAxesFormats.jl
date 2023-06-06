@@ -50,7 +50,13 @@ Daf.Utilities.view_column
 Daf.Utilities.view_row
 ```
 
-## Presentation
+## Messages
+
+When generating error and log messages, it is useful to have unique human-readable names for objects.
+
+```@docs
+Daf.Utilities.unique_name
+```
 
 When generating error and log messages, presenting values to the user often requires a different
 approach than the simple `"$(value)"` string interpolation.

@@ -153,6 +153,11 @@ test_set("utilities") do
         end
     end
 
+    test_set("unique_name") do
+        @test unique_name("foo") == "foo#1"
+        @test unique_name("foo") == "foo#2"
+    end
+
     test_set("present") do
         @test present(missing) == "missing"
         @test present("foo") == "\"foo\""

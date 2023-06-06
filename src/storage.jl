@@ -1,6 +1,6 @@
 """
 Storage objects provide low-level API for storing data in specific formats. To extend `Daf` to support an additional
-format, create a new concrete implementation of `AbstractStorage` for that format.
+format, create a new concrete implementation of [`AbstractStorage`](@ref) for that format.
 
 A storage object contains some named scalar data, a set of axes (each with a unique name for each entry), and named
 vector and matrix data based on these axes.
@@ -18,7 +18,7 @@ separate namespaces listed above. Most of this logic is common to all storage fo
 functions so the concrete storage format adapters are even simpler.
 
 The storage API is therefore very low-level, and is not suitable for use from outside the package, except for
-constructing storage objects to be used by the higher-level `DafContainer` API.
+constructing storage objects to be used by the higher-level `Container` API.
 """
 module Storage
 
@@ -47,7 +47,6 @@ export scalar_names
 export set_matrix!
 export set_scalar!
 export set_vector!
-export storage_name
 export unfreeze
 export unsafe_add_axis!
 export unsafe_axis_length
@@ -72,15 +71,6 @@ export vector_names
 An abstract interface for all `Daf` storage formats.
 """
 abstract type AbstractStorage end
-
-"""
-    storage_name(storage::AbstractStorage)::String
-
-Return a human-readable name identifying the `storage`.
-"""
-function storage_name(storage::AbstractStorage)::String
-    return error("missing method: storage_name for storage type: $(typeof(storage))")  # untested
-end
 
 """
     is_frozen(storage::AbstractStorage)::Bool
@@ -111,7 +101,7 @@ end
 
 function require_unfrozen(storage::AbstractStorage)::Nothing
     if is_frozen(storage)
-        error("frozen storage: $(storage_name(storage))")
+        error("frozen storage: $(storage.name)")
     end
 end
 
@@ -136,7 +126,7 @@ Set the `value` of a scalar with some `name` in the `storage`.
 
 If `overwrite` is `false` (the default), this first verifies the `name` does not exist.
 
-This will cause an error if the `storage` `is_frozen`.
+This will cause an error if the `storage` [`is_frozen`](@ref).
 """
 function set_scalar!(storage::AbstractStorage, name::String, value::Any; overwrite::Bool = false)::Nothing
     require_unfrozen(storage)
@@ -236,14 +226,14 @@ end
 
 function require_scalar(storage::AbstractStorage, name::String)::Nothing
     if !has_scalar(storage, name)
-        error("missing scalar: $(name) in the storage: $(storage_name(storage))")
+        error("missing scalar: $(name) in the storage: $(storage.name)")
     end
     return nothing
 end
 
 function require_no_scalar(storage::AbstractStorage, name::String)::Nothing
     if has_scalar(storage, name)
-        error("existing scalar: $(name) in the storage: $(storage_name(storage))")
+        error("existing scalar: $(name) in the storage: $(storage.name)")
     end
     return nothing
 end
@@ -273,7 +263,7 @@ function add_axis!(storage::AbstractStorage, axis::String, entries::DenseVector{
     require_no_axis(storage, axis)
 
     if !allunique(entries)
-        error("non-unique entries for new axis: $(axis) in the storage: $(storage_name(storage))")
+        error("non-unique entries for new axis: $(axis) in the storage: $(storage.name)")
     end
 
     unsafe_add_axis!(storage, axis, entries)
@@ -398,14 +388,14 @@ end
 
 function require_axis(storage::AbstractStorage, axis::String)::Nothing
     if !has_axis(storage, axis)
-        error("missing axis: $(axis) in the storage: $(storage_name(storage))")
+        error("missing axis: $(axis) in the storage: $(storage.name)")
     end
     return nothing
 end
 
 function require_no_axis(storage::AbstractStorage, axis::String)::Nothing
     if has_axis(storage, axis)
-        error("existing axis: $(axis) in the storage: $(storage_name(storage))")
+        error("existing axis: $(axis) in the storage: $(storage.name)")
     end
     return nothing
 end
@@ -449,7 +439,7 @@ If the `vector` specified is actually a number or a string, the stored vector is
 This first verifies the `axis` exists in the `storage`, and that the `vector` has the appropriate length. If `overwrite`
 is `false` (the default), this also verifies the `name` vector does not exist for the `axis`.
 
-This will cause an error if the `storage` `is_frozen`.
+This will cause an error if the `storage` [`is_frozen`](@ref).
 """
 function set_vector!(
     storage::AbstractStorage,
@@ -465,7 +455,7 @@ function set_vector!(
             "vector length: $(length(vector)) " *  # only seems untested
             "is different from axis: $(axis) " *  # only seems untested
             "length: $(axis_length(storage, axis)) " *  # only seems untested
-            "in the storage: $(storage_name)",  # only seems untested
+            "in the storage: $(storage.name)",  # only seems untested
         )
     end
     if !overwrite
@@ -585,7 +575,7 @@ function get_vector(
             "default length: $(length(default)) " *  # only seems untested
             "is different from axis: $(axis) " *  # only seems untested
             "length: $(axis_length(storage, axis)) " *  # only seems untested
-            "in the storage: $(storage_name)",  # only seems untested
+            "in the storage: $(storage.name)",  # only seems untested
         )
     end
     if default === NO_DEFAULT
@@ -604,7 +594,7 @@ function get_vector(
             "returned vector length: $(length(vector)) " *  # untested
             "instead of axis: $(axis) " *  # untested
             "length: $(axis_length(storage, axis)) " *  # untested
-            "in the storage: $(storage_name)",  # untested
+            "in the storage: $(storage.name)",  # untested
         )
     end
     return vector
@@ -623,14 +613,14 @@ end
 
 function require_vector(storage::AbstractStorage, axis::String, name::String)::Nothing
     if !has_vector(storage, axis, name)
-        error("missing vector: $(name) for the axis: $(axis) in the storage: $(storage_name(storage))")
+        error("missing vector: $(name) for the axis: $(axis) in the storage: $(storage.name)")
     end
     return nothing
 end
 
 function require_no_vector(storage::AbstractStorage, axis::String, name::String)::Nothing
     if has_vector(storage, axis, name)
-        error("existing vector: $(name) for the axis: $(axis) in the storage: $(storage_name(storage))")
+        error("existing vector: $(name) for the axis: $(axis) in the storage: $(storage.name)")
     end
     return nothing
 end
@@ -690,7 +680,7 @@ This first verifies the `rows_axis` and `columns_axis` exist in the `storage`, t
 appropriate size. If `overwrite` is `false` (the default), this also verifies the `name` matrix does not exist for the
 `rows_axis` and `columns_axis`.
 
-This will cause an error if the `storage` `is_frozen`.
+This will cause an error if the `storage` [`is_frozen`](@ref).
 """
 function set_matrix!(
     storage::AbstractStorage,
@@ -712,7 +702,7 @@ function set_matrix!(
                 "matrix rows: $(nrows(matrix)) " *  # only seems untested
                 "is different from axis: $(rows_axis) " *  # only seems untested
                 "length: $(axis_length(storage, rows_axis)) " *  # only seems untested
-                "in the storage: $(storage_name)",  # only seems untested
+                "in the storage: $(storage.name)",  # only seems untested
             )
         end
         if ncolumns(matrix) != axis_length(storage, columns_axis)
@@ -720,7 +710,7 @@ function set_matrix!(
                 "matrix columns: $(ncolumns(matrix)) " *  # only seems untested
                 "is different from axis: $(columns_axis) " *  # only seems untested
                 "length: $(axis_length(storage, columns_axis)) " *  # only seems untested
-                "in the storage: $(storage_name)",  # only seems untested
+                "in the storage: $(storage.name)",  # only seems untested
             )
         end
     end
@@ -846,7 +836,7 @@ function require_matrix(storage::AbstractStorage, rows_axis::String, columns_axi
             "missing matrix: $(name) " *  # only seems untested
             "for the rows axis: $(rows_axis) " *  # only seems untested
             "and the columns axis: $(columns_axis) " *  # only seems untested
-            "in the storage: $(storage_name(storage))",  # only seems untested
+            "in the storage: $(storage.name)",  # only seems untested
         )
     end
     return nothing
@@ -858,7 +848,7 @@ function require_no_matrix(storage::AbstractStorage, rows_axis::String, columns_
             "existing matrix: $(name) " *  # only seems untested
             "for the rows axis: $(rows_axis) " *  # only seems untested
             "and the columns axis: $(columns_axis) " *  # only seems untested
-            "in the storage: $(storage_name(storage))",  # only seems untested
+            "in the storage: $(storage.name)",  # only seems untested
         )
     end
     return nothing
@@ -898,7 +888,7 @@ function get_matrix(
                 "default rows: $(nrows(default)) " *  # only seems untested
                 "is different from axis: $(rows_axis) " *  # only seems untested
                 "length: $(axis_length(storage, rows_axis)) " *  # only seems untested
-                "in the storage: $(storage_name)",  # only seems untested
+                "in the storage: $(storage.name)",  # only seems untested
             )
         end
         if ncolumns(default) != axis_length(storage, columns_axis)
@@ -906,7 +896,7 @@ function get_matrix(
                 "default columns: $(ncolumns(default)) " *  # only seems untested
                 "is different from axis: $(columns_axis) " *  # only seems untested
                 "length: $(axis_length(storage, columns_axis)) " *  # only seems untested
-                "in the storage: $(storage_name)",  # only seems untested
+                "in the storage: $(storage.name)",  # only seems untested
             )
         end
     end
@@ -926,7 +916,7 @@ function get_matrix(
             "returned matrix rows: $(nrows(matrix)) " *  # untested
             "instead of axis: $(axis) " *  # untested
             "length: $(axis_length(storage, rows_axis)) " *  # untested
-            "in the storage: $(storage_name)",  # untested
+            "in the storage: $(storage.name)",  # untested
         )
     end
     if ncolumns(matrix) != axis_length(storage, columns_axis)
@@ -935,7 +925,7 @@ function get_matrix(
             "returned matrix columns: $(ncolumns(matrix)) " *  # untested
             "instead of axis: $(axis) " *  # untested
             "length: $(axis_length(storage, columns_axis)) " *  # untested
-            "in the storage: $(storage_name)",  # untested
+            "in the storage: $(storage.name)",  # untested
         )
     end
     if major_axis(matrix) != Column
