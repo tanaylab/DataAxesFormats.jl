@@ -23,6 +23,9 @@ using Reexport
 include("matrix_layouts.jl")
 @reexport using Daf.MatrixLayouts
 
+include("as_dense.jl")
+@reexport using Daf.AsDense
+
 include("messages.jl")
 @reexport using Daf.Messages
 

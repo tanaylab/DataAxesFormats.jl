@@ -7,6 +7,7 @@ export present
 export present_percent
 export unique_name
 
+using Daf.AsDense
 using Daf.MatrixLayouts
 using Distributed
 using LinearAlgebra
@@ -49,59 +50,89 @@ indication of the type of the value, so it double-quotes strings, prefixes symbo
 sizes of arrays rather than showing their content.
 """
 function present(value::Any)::String
-    if ismissing(value)
-        return "missing"
-    end
-
-    if value isa String
-        return "\"$(value)\""
-    end
-
-    if value isa Symbol
-        return ":$(value)"
-    end
-
-    if value isa AbstractVector
-        if value isa DenseVector
-            return "$(length(value)) x $(eltype(value)) (dense)"
-        end
-
-        if value isa SparseVector
-            nnz = present_percent(length(value.nzval), length(value))
-            return "$(length(value)) x $(eltype(value)) (sparse $(nnz))"
-        end
-
-        return "$(length(value)) x $(eltype(value)) ($(typeof(value)))"  # untested
-    end
-
-    if value isa AbstractMatrix
-        layout = major_axis(value)
-        if layout == Row
-            suffix = ", row-major"
-        elseif layout == Column
-            suffix = ", column-major"
-        else
-            suffix = ""  # untested
-        end
-
-        internal = value
-        while internal isa Transpose
-            internal = internal.parent
-        end
-
-        if internal isa DenseMatrix
-            return "$(size(value, 1)) x $(size(value, 2)) x $(eltype(value)) (dense$(suffix))"
-        end
-
-        if internal isa SparseMatrixCSC
-            nnz = present_percent(length(internal.nzval), length(value))
-            return "$(size(value, 1)) x $(size(value, 2)) x $(eltype(value)) (sparse $(nnz)$(suffix))"
-        end
-
-        return "$(size(value, 1)) x $(size(value, 2)) x $(eltype(value)) ($(typeof(value))$(suffix))"  # untested
-    end
-
     return "$(value)"
+end
+
+function present(value::Missing)::String
+    return "missing"
+end
+
+function present(value::String)::String
+    return "\"$(value)\""
+end
+
+function present(value::Symbol)::String
+    return ":$(value)"
+end
+
+function present(value::AbstractVector)::String
+    as_dense = as_dense_if_possible(value)  # untested
+    if as_dense !== value  # untested
+        return present(as_dense)  # untested
+    end  # untested
+    return "$(length(value)) x $(eltype(value)) ($(typeof(value)))"  # untested
+end
+
+function present(value::DenseVector)::String
+    return "$(length(value)) x $(eltype(value)) (dense)"
+end
+
+function present(value::SparseVector)::String
+    nnz = present_percent(length(value.nzval), length(value))
+    return "$(length(value)) x $(eltype(value)) (sparse $(nnz))"
+end
+
+function present(value::AbstractMatrix; transposed::Bool = false)::String
+    as_dense = as_dense_if_possible(value)  # untested
+    if as_dense !== value  # untested
+        return present(as_dense)  # untested
+    end
+    return present_matrix(value, "$(typeof(value))"; transposed = transposed)  # untested
+end
+
+function present(value::DenseMatrix; transposed::Bool = false)::String
+    return present_matrix(value, "dense"; transposed = transposed)
+end
+
+function present(value::SparseMatrixCSC; transposed::Bool = false)::String
+    nnz = present_percent(length(value.nzval), length(value))
+    return present_matrix(value, "sparse $(nnz)"; transposed = transposed)
+end
+
+function present(value::Transpose; transposed::Bool = false)::String
+    return present(transpose(value); transposed = !transposed)
+end
+
+function present_matrix(matrix::AbstractMatrix, kind::String; transposed::Bool = false)::String
+    layout = major_axis(matrix)
+    if transposed
+        layout = other_axis(layout)
+    end
+    if layout == Row
+        suffix = "$(kind), row-major"
+    elseif layout == Column
+        suffix = "$(kind), column-major"
+    else
+        suffix = kind  # untested
+    end
+
+    if transposed
+        return "$(size(matrix, 2)) x $(size(matrix, 1)) x $(eltype(matrix)) ($(suffix))"
+    else
+        return "$(size(matrix, 1)) x $(size(matrix, 2)) x $(eltype(matrix)) ($(suffix))"
+    end
+end
+
+function present(value::AbstractArray)::String
+    text = ""
+    for dim_size in size(value)
+        if text == ""
+            text = "$(dim_size)"
+        else
+            text = "$(text) x $(dim_size)"
+        end
+    end
+    return "$(text) x $(eltype(value)) ($(typeof(value)))"
 end
 
 """

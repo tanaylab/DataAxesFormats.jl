@@ -20,5 +20,6 @@ test_set("messages") do
         @test present(transpose([0 1 2; 3 4 5])) == "3 x 2 x Int64 (dense, row-major)"
         @test present(SparseMatrixCSC([0 1 2; 3 4 5])) == "2 x 3 x Int64 (sparse 83%, column-major)"
         @test present(transpose(SparseMatrixCSC([0 1 2; 3 4 5]))) == "3 x 2 x Int64 (sparse 83%, row-major)"
+        @test present(zeros(1, 2, 3)) == "1 x 2 x 3 x Float64 (Array{Float64, 3})"
     end
 end
