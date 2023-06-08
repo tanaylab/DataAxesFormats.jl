@@ -1,19 +1,16 @@
-using Base: elsize
-using Daf
-using LinearAlgebra
-using SparseArrays
-
-function test_same_strided_matrix_content(left::AbstractMatrix, right::AbstractMatrix)
+function test_same_strided_matrix_content(left::AbstractMatrix, right::AbstractMatrix)::Nothing
     @test strides(left) == strides(right)
     @test stride(left, 1) == stride(right, 1)
     @test stride(left, 2) == stride(right, 2)
-    return test_same_matrix_content(left, right)
+    test_same_matrix_content(left, right)
+    return nothing
 end
 
-function test_same_matrix_content(left::AbstractMatrix, right::AbstractMatrix)
+function test_same_matrix_content(left::AbstractMatrix, right::AbstractMatrix)::Nothing
     @test length(left) == length(right)
     @test size(left) == size(right)
     @test left == right
+    return nothing
 end
 
 function is_same_matrix_storage(left::AbstractMatrix, right::AbstractMatrix)::Bool

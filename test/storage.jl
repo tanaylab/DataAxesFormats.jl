@@ -1,5 +1,3 @@
-using Daf
-
 function test_storage_scalar(storage::AbstractStorage)::Nothing
     name = storage.name
 

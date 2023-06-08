@@ -65,7 +65,7 @@ export unsafe_set_vector!
 export unsafe_vector_names
 export vector_names
 
-using Daf.MatrixLayouts
+using Daf.DataTypes
 using Daf.Messages
 
 """
@@ -131,9 +131,11 @@ This will cause an error if the `storage` [`is_frozen`](@ref).
 """
 function set_scalar!(storage::AbstractStorage, name::String, value::Any; overwrite::Bool = false)::Nothing
     require_unfrozen(storage)
+
     if !overwrite
         require_no_scalar(storage, name)
     end
+
     unsafe_set_scalar!(storage, name, value)
     return nothing
 end
@@ -166,11 +168,13 @@ If `must_exist` is `true` (the default), this first verifies the `name` scalar e
 """
 function delete_scalar!(storage::AbstractStorage, name::String; must_exist::Bool = true)::Nothing
     require_unfrozen(storage)
+
     if must_exist
         require_scalar(storage, name)
     elseif !has_scalar(storage, name)
         return nothing
     end
+
     unsafe_delete_scalar!(storage, name)
     return nothing
 end
@@ -211,6 +215,7 @@ function get_scalar(storage::AbstractStorage, name::String; default::Any = NO_DE
     elseif !has_scalar(storage, name)
         return default
     end
+
     return unsafe_get_scalar(storage, name)
 end
 
@@ -300,19 +305,23 @@ If `must_exist` is `true` (the default), this first verifies the `axis` exists i
 """
 function delete_axis!(storage::AbstractStorage, axis::String; must_exist::Bool = true)::Nothing
     require_unfrozen(storage)
+
     if must_exist
         require_axis(storage, axis)
     elseif !has_axis(storage, axis)
         return nothing
     end
+
     for name in vector_names(storage, axis)
         unsafe_delete_vector!(storage, axis, name)
     end
+
     for other_axis in axis_names(storage)
         for name in matrix_names(storage, axis, other_axis)
             unsafe_delete_matrix!(storage, axis, other_axis, name)
         end
     end
+
     unsafe_delete_axis!(storage, axis)
     return nothing
 end
@@ -429,7 +438,7 @@ end
         storage::AbstractStorage,
         axis::String,
         name::String,
-        vector::Union{Number, String, AbstractVector};
+        vector::Union{Number, String, StorageVector};
         overwrite::Bool = false,
     )::Nothing
 
@@ -446,12 +455,13 @@ function set_vector!(
     storage::AbstractStorage,
     axis::String,
     name::String,
-    vector::Union{Number, String, AbstractVector};
+    vector::Union{Number, String, StorageVector};
     overwrite::Bool = false,
 )::Nothing
     require_unfrozen(storage)
     require_axis(storage, axis)
-    if vector isa AbstractVector && length(vector) != axis_length(storage, axis)
+
+    if vector isa StorageVector && length(vector) != axis_length(storage, axis)
         error(
             "vector length: $(length(vector)) " *  # only seems untested
             "is different from axis: $(axis) " *  # only seems untested
@@ -459,9 +469,11 @@ function set_vector!(
             "in the storage: $(storage.name)",  # only seems untested
         )
     end
+
     if !overwrite
         require_no_vector(storage, axis, name)
     end
+
     unsafe_set_vector!(storage, axis, name, vector)
     return nothing
 end
@@ -471,7 +483,7 @@ end
         storage::AbstractStorage,
         axis::String,
         name::String,
-        vector::Union{Number, String, AbstractVector},
+        vector::Union{Number, String, StorageVector},
     )::Nothing
 
 Implement setting a `vector` with some `name` for some `axis` in the `storage`.
@@ -485,7 +497,7 @@ function unsafe_set_vector!(
     storage::AbstractStorage,
     axis::String,
     name::String,
-    vector::Union{Number, String, AbstractVector},
+    vector::Union{Number, String, StorageVector},
 )::Nothing
     return error("missing method: unsafe_set_vector! for storage type: $(typeof(storage))")  # untested
 end
@@ -506,11 +518,13 @@ This first verifies the `axis` exists in the `storage`. If `must_exist` is `true
 function delete_vector!(storage::AbstractStorage, axis::String, name::String; must_exist::Bool = true)::Nothing
     require_unfrozen(storage)
     require_axis(storage, axis)
+
     if must_exist
         require_vector(storage, axis, name)
     elseif !has_vector(storage, axis, name)
         return nothing
     end
+
     unsafe_delete_vector!(storage, axis, name)
     return nothing
 end
@@ -554,24 +568,25 @@ end
         storage::AbstractStorage,
         axis::String,
         name::String
-        [; default::Union{Number, String, AbstractVector}]
-    )::AbstractVector
+        [; default::Union{Number, String, StorageVector}]
+    )::StorageVector
 
 The vector with some `name` for some `axis` in the `storage`.
 
-This first verifies the `axis` exists in the `storage`.
-If `default` is not specified, this first verifies the `name` vector exists in the `storage`. Otherwise, if `default` is
-an `AbstractVector`, it has to be of the same size as the `axis`, and is returned. Otherwise, a new `Vector` is created
-of the correct size containing the `default`, and is returned.
+This first verifies the `axis` exists in the `storage`. If `default` is not specified, this first verifies the `name`
+vector exists in the `storage`. Otherwise, if `default` is an `StorageVector`, it has to be of the same size as the
+`axis`, and is returned. Otherwise, a new `Vector` is created of the correct size containing the `default`, and is
+returned.
 """
 function get_vector(
     storage::AbstractStorage,
     axis::String,
     name::String;
-    default::Union{Number, String, AbstractVector, NoDefault} = NO_DEFAULT,
-)::AbstractVector
+    default::Union{Number, String, StorageVector, NoDefault} = NO_DEFAULT,
+)::StorageVector
     require_axis(storage, axis)
-    if default isa AbstractVector && length(default) != axis_length(storage, axis)
+
+    if default isa StorageVector && length(default) != axis_length(storage, axis)
         error(
             "default length: $(length(default)) " *  # only seems untested
             "is different from axis: $(axis) " *  # only seems untested
@@ -579,16 +594,25 @@ function get_vector(
             "in the storage: $(storage.name)",  # only seems untested
         )
     end
+
     if default === NO_DEFAULT
         require_vector(storage, axis, name)
     elseif !has_vector(storage, axis, name)
-        if default isa AbstractVector
+        if default isa StorageVector
             return default
         else
             return fill(default, axis_length(storage, axis))
         end
     end
+
     vector = unsafe_get_vector(storage, axis, name)
+    if !(vector isa StorageVector)
+        error(  # untested
+            "unsafe_get_vector for: $(typeof(storage)) " *  # untested
+            "returned invalid Daf storage vector: $(typeof(vector))",  # untested
+        )
+    end
+
     if length(vector) != axis_length(storage, axis)
         error(  # untested
             "unsafe_get_vector for: $(typeof(storage)) " *  # untested
@@ -598,17 +622,18 @@ function get_vector(
             "in the storage: $(storage.name)",  # untested
         )
     end
+
     return vector
 end
 
 """
-    unsafe_get_vector(storage::AbstractStorage, axis::String, name::String)::AbstractVector
+    unsafe_get_vector(storage::AbstractStorage, axis::String, name::String)::StorageVector
 
 Implement fetching the vector with some `name` for some `axis` in the `storage`.
 
 This trusts the `axis` exists in the `storage`, and the `name` vector exists for the `axis`.
 """
-function unsafe_get_vector(storage::AbstractStorage, name::String)::AbstractVector
+function unsafe_get_vector(storage::AbstractStorage, name::String)::StorageVector
     return error("missing method: unsafe_get_vector for storage type: $(typeof(storage))")  # untested
 end
 
@@ -668,7 +693,7 @@ end
         rows_axis::String,
         columns_axis::String,
         name::String,
-        matrix::AbstractMatrix;
+        matrix::StorageMatrix;
         overwrite::Bool = false,
     )::Nothing
 
@@ -688,36 +713,39 @@ function set_matrix!(
     rows_axis::String,
     columns_axis::String,
     name::String,
-    matrix::Union{Number, String, AbstractMatrix};
+    matrix::Union{Number, String, StorageMatrix};
     overwrite::Bool = false,
 )::Nothing
     require_unfrozen(storage)
     require_axis(storage, rows_axis)
     require_axis(storage, columns_axis)
-    if matrix isa AbstractMatrix
-        if major_axis(matrix) != Column
-            error("matrix: $(typeof(matrix)) is not column-major")  # untested
-        end
-        if nrows(matrix) != axis_length(storage, rows_axis)
+
+    if matrix isa StorageMatrix
+        require_storage_matrix(matrix)
+
+        if size(matrix, Rows) != axis_length(storage, rows_axis)
             error(
-                "matrix rows: $(nrows(matrix)) " *  # only seems untested
+                "matrix rows: $(size(matrix, Rows)) " *  # only seems untested
                 "is different from axis: $(rows_axis) " *  # only seems untested
                 "length: $(axis_length(storage, rows_axis)) " *  # only seems untested
                 "in the storage: $(storage.name)",  # only seems untested
             )
         end
-        if ncolumns(matrix) != axis_length(storage, columns_axis)
+
+        if size(matrix, Columns) != axis_length(storage, columns_axis)
             error(
-                "matrix columns: $(ncolumns(matrix)) " *  # only seems untested
+                "matrix columns: $(size(matrix, Columns)) " *  # only seems untested
                 "is different from axis: $(columns_axis) " *  # only seems untested
                 "length: $(axis_length(storage, columns_axis)) " *  # only seems untested
                 "in the storage: $(storage.name)",  # only seems untested
             )
         end
     end
+
     if !overwrite
         require_no_matrix(storage, rows_axis, columns_axis, name)
     end
+
     unsafe_set_matrix!(storage, rows_axis, columns_axis, name, matrix)
     return nothing
 end
@@ -728,7 +756,7 @@ end
         rows_axis::String,
         columns_axis::String,
         name::String,
-        matrix::AbstractMatrix,
+        matrix::StorageMatrix,
     )::Nothing
 
 Implement setting the `matrix` with some `name` for some `rows_axis` and `columns_axis` in the `storage`.
@@ -744,7 +772,7 @@ function unsafe_set_matrix!(
     rows_axis::String,
     columns_axis::String,
     name::String,
-    matrix::Union{Number, String, AbstractMatrix},
+    matrix::Union{Number, String, StorageMatrix},
 )::Nothing
     return error("missing method: unsafe_set_matrix! for storage type: $(typeof(storage))")  # untested
 end
@@ -773,11 +801,13 @@ function delete_matrix!(
     require_unfrozen(storage)
     require_axis(storage, rows_axis)
     require_axis(storage, columns_axis)
+
     if must_exist
         require_matrix(storage, rows_axis, columns_axis, name)
     elseif !has_matrix(storage, rows_axis, columns_axis, name)
         return nothing
     end
+
     unsafe_delete_matrix!(storage, rows_axis, columns_axis, name)
     return nothing
 end
@@ -861,13 +891,13 @@ end
         rows_axis::String,
         columns_axis::String,
         name::String
-        [; default::Union{Number, String, AbstractMatrix}]
-    )::AbstractMatrix
+        [; default::Union{Number, String, StorageMatrix}]
+    )::StorageMatrix
 
 The matrix with some `name` for some `rows_axis` and `columns_axis` in the `storage`.
 
 This first verifies the `rows_axis` and `columns_axis` exist in the `storage`. If `default` is not specified, this first
-verifies the `name` matrix exists in the `storage`. Otherwise, if `default` is an `AbstractMatrix`, it has to be of the
+verifies the `name` matrix exists in the `storage`. Otherwise, if `default` is a `StorageMatrix`, it has to be of the
 same size as the `rows_axis` and `columns_axis`, and is returned. Otherwise, a new `Matrix` is created of the correct
 size containing the `default`, and is returned.
 """
@@ -876,65 +906,78 @@ function get_matrix(
     rows_axis::String,
     columns_axis::String,
     name::String;
-    default::Union{Number, String, NoDefault, AbstractMatrix} = NO_DEFAULT,
-)::AbstractMatrix
+    default::Union{Number, String, NoDefault, StorageMatrix} = NO_DEFAULT,
+)::StorageMatrix
     require_axis(storage, rows_axis)
     require_axis(storage, columns_axis)
-    if default isa AbstractMatrix
-        if major_axis(default) != Column
-            error("default matrix: $(typeof(default)) is not column-major")  # untested
-        end
-        if nrows(default) != axis_length(storage, rows_axis)
+
+    if default isa StorageMatrix
+        require_storage_matrix(default)
+
+        if size(default, Rows) != axis_length(storage, rows_axis)
             error(
-                "default rows: $(nrows(default)) " *  # only seems untested
+                "default rows: $(size(default, Rows)) " *  # only seems untested
                 "is different from axis: $(rows_axis) " *  # only seems untested
                 "length: $(axis_length(storage, rows_axis)) " *  # only seems untested
                 "in the storage: $(storage.name)",  # only seems untested
             )
         end
-        if ncolumns(default) != axis_length(storage, columns_axis)
+
+        if size(default, Columns) != axis_length(storage, columns_axis)
             error(
-                "default columns: $(ncolumns(default)) " *  # only seems untested
+                "default columns: $(size(default, Columns)) " *  # only seems untested
                 "is different from axis: $(columns_axis) " *  # only seems untested
                 "length: $(axis_length(storage, columns_axis)) " *  # only seems untested
                 "in the storage: $(storage.name)",  # only seems untested
             )
         end
     end
+
     if default === NO_DEFAULT
         require_matrix(storage, rows_axis, columns_axis, name)
     elseif !has_matrix(storage, rows_axis, columns_axis, name)
-        if default isa AbstractMatrix
+        if default isa StorageMatrix
             return default
         else
             return fill(default, axis_length(storage, rows_axis), axis_length(storage, columns_axis))
         end
     end
+
     matrix = unsafe_get_matrix(storage, rows_axis, columns_axis, name)
-    if nrows(matrix) != axis_length(storage, rows_axis)
+    if !is_storage_matrix(matrix)
         error(  # untested
             "unsafe_get_matrix for: $(typeof(storage)) " *  # untested
-            "returned matrix rows: $(nrows(matrix)) " *  # untested
+            "returned invalid Daf storage matrix: $(typeof(matrix))",  # untested
+        )
+    end
+
+    if size(matrix, Rows) != axis_length(storage, rows_axis)
+        error(  # untested
+            "unsafe_get_matrix for: $(typeof(storage)) " *  # untested
+            "returned matrix rows: $(size(matrix, Rows)) " *  # untested
             "instead of axis: $(axis) " *  # untested
             "length: $(axis_length(storage, rows_axis)) " *  # untested
             "in the storage: $(storage.name)",  # untested
         )
     end
-    if ncolumns(matrix) != axis_length(storage, columns_axis)
+
+    if size(matrix, Columns) != axis_length(storage, columns_axis)
         error(  # untested
             "unsafe_get_matrix for: $(typeof(storage)) " *  # untested
-            "returned matrix columns: $(ncolumns(matrix)) " *  # untested
+            "returned matrix columns: $(size(matrix, Columns)) " *  # untested
             "instead of axis: $(axis) " *  # untested
             "length: $(axis_length(storage, columns_axis)) " *  # untested
             "in the storage: $(storage.name)",  # untested
         )
     end
-    if major_axis(matrix) != Column
+
+    if major_axis(matrix) != Columns
         error(  # untested
             "unsafe_get_matrix for: $(typeof(storage)) " *  # untested
             "returned non column-major matrix: $(typeof(matrix)) ",  # untested
         )
     end
+
     return matrix
 end
 
@@ -944,7 +987,7 @@ end
         rows_axis::String,
         columns_axis::String,
         name::String
-    )::AbstractMatrix
+    )::StorageMatrix
 
 Implement fetching the matrix with some `name` for some `rows_axis` and `columns_axis` in the `storage`.
 
@@ -956,7 +999,7 @@ function unsafe_get_matrix(
     rows_axis::String,
     columns_axis::String,
     name::String,
-)::AbstractMatrix
+)::StorageMatrix
     return error("missing method: unsafe_get_matrix for storage type: $(typeof(storage))")  # untested
 end
 

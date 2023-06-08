@@ -8,7 +8,7 @@ export present_percent
 export unique_name
 
 using Daf.AsDense
-using Daf.MatrixLayouts
+using Daf.DataTypes
 using Distributed
 using LinearAlgebra
 using SparseArrays
@@ -34,6 +34,7 @@ function unique_name(prefix::String)::String
     else
         counter = 1
     end
+
     unique_name_prefixes[prefix] = counter
     if nprocs() > 1
         return "$(prefix)#$(myid()).$(counter)"  # untested
@@ -74,12 +75,12 @@ function present(value::AbstractVector)::String
 end
 
 function present(value::DenseVector)::String
-    return "$(length(value)) x $(eltype(value)) (dense)"
+    return "$(length(value)) x $(eltype(value)) (Dense)"
 end
 
 function present(value::SparseVector)::String
     nnz = present_percent(length(value.nzval), length(value))
-    return "$(length(value)) x $(eltype(value)) (sparse $(nnz))"
+    return "$(length(value)) x $(eltype(value)) (Sparse $(nnz))"
 end
 
 function present(value::AbstractMatrix; transposed::Bool = false)::String
@@ -91,12 +92,12 @@ function present(value::AbstractMatrix; transposed::Bool = false)::String
 end
 
 function present(value::DenseMatrix; transposed::Bool = false)::String
-    return present_matrix(value, "dense"; transposed = transposed)
+    return present_matrix(value, "Dense"; transposed = transposed)
 end
 
 function present(value::SparseMatrixCSC; transposed::Bool = false)::String
     nnz = present_percent(length(value.nzval), length(value))
-    return present_matrix(value, "sparse $(nnz)"; transposed = transposed)
+    return present_matrix(value, "Sparse $(nnz)"; transposed = transposed)
 end
 
 function present(value::Transpose; transposed::Bool = false)::String
@@ -108,10 +109,9 @@ function present_matrix(matrix::AbstractMatrix, kind::String; transposed::Bool =
     if transposed
         layout = other_axis(layout)
     end
-    if layout == Row
-        suffix = "$(kind), row-major"
-    elseif layout == Column
-        suffix = "$(kind), column-major"
+
+    if layout != nothing
+        suffix = "$(kind) in $(axis_name(layout))"
     else
         suffix = kind  # untested
     end

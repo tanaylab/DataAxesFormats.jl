@@ -1,10 +1,14 @@
 using Test
 
+using Base: elsize
+using Daf
 using LinearAlgebra
 using SparseArrays
 using TestContexts
 
-include("messages.jl")
+inefficient_action_policy(ErrorPolicy)
+
+include("data_types.jl")
 include("as_dense.jl")
-include("matrix_layouts.jl")
+include("messages.jl")
 include("storage.jl")

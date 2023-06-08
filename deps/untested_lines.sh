@@ -35,7 +35,6 @@ grep -H -n '.' */*.cov */*/*.cov \
         }
     }
 ' \
-| tee junk.in \
 | awk -F '`' '
     BEGIN {
         state = 0
@@ -50,13 +49,12 @@ grep -H -n '.' */*.cov */*/*.cov \
     state == 2 && $3 == "-" && $4 !~ /^\s*([)]|begin|end|else|try|finally)?\s*(#.*)$/ { $3 = "0" }
     state == 2 && $3 == "0" && $4 ~ /^\s*([)]|begin|end|else|try|finally)?\s*(#.*)?$/ { $3 = "-" }
     state == 2 && $4 ~ /^end/ { state = 0 }
-    state != 3 && $4 ~ /^(@.* )?\s*function / { state = 1 }
+    state != 3 && $4 ~ /^(@.* )?\s*function / { print(">>>", $4, "<<<"); state = 1 }
     state == 1 && $3 == "0" { $3 = "-" }
     state == 1 && $4 ~ /)::/ { state = 2 }
     state != 2 && $3 == "0" { $3 = "-" }
     { print }
 ' \
-| tee junk.out \
 | awk -F '`' '
 BEGIN {
     OFS = "`"
