@@ -35,64 +35,68 @@ export as_dense_if_possible
 export as_dense_or_copy
 export as_dense_or_fail
 
-struct DenseView{T, N} <: DenseArray{T, N}
-    parent::AbstractArray{T, N}
+# The following is based on the internal `ReadOnly` implementation in the Julia standard library.
+
+struct DenseView{T, N, P <: AbstractArray{T, N}} <: DenseArray{T, N}
+    parent::P
 end
 
-@inline function Base.IndexStyle(::Type{<:DenseView})::Any
-    return Base.IndexLinear()
+Base.getproperty(dv::DenseView, symbol::Symbol) = Base.getproperty(parent(dv), symbol)
+
+@inline Base.parent(dv::DenseView) = getfield(dv, :parent)
+
+for method in [:length, :first, :last, :eachindex, :firstindex, :lastindex, :eltype]
+    @eval @propagate_inbounds @inline Base.$method(dv::DenseView) = Base.$method(parent(dv))
 end
 
-@inline function Base.length(dense_view::DenseView)::Any
-    return length(dense_view.parent)
+for method in [:iterate, :axes, :getindex, :setindex!, :size, :strides]
+    @eval @propagate_inbounds @inline Base.$method(dv::DenseView, args...) = Base.$method(parent(dv), args...)
 end
 
-@inline function Base.size(dense_view::DenseView)::Any
-    return size(dense_view.parent)
+function Base.unsafe_convert(pointer::Type{Ptr{T}}, dv::DenseView) where {T}
+    return Base.unsafe_convert(pointer, parent(dv))
 end
 
-@inline function Base.strides(dense_view::DenseView)::Any
-    return strides(dense_view.parent)
+Base.elsize(::Type{DenseView{T, N, P}}) where {T, N, P} = Base.elsize(P)
+
+for method in [:IteratorSize, :IndexStyle]
+    @eval @inline Base.$method(::Type{DenseView{T, N, P}}) where {T, N, P} = Base.$method(P)
 end
 
-@inline function Base.stride(dense_view::DenseView, axis::Integer)::Any
-    return stride(dense_view.parent, axis)
+@inline function Base.resize!(dv::DenseView, new_length)
+    return new_length == length(parent(dv)) ? dv : error("can't resize $(typeof(dv))")
 end
 
-@inline function Base.elsize(dense_view::Type{<:DenseView{T}})::Any where {T}
-    return Base.isbitstype(T) ? sizeof(T) : (Base.isbitsunion(T) ? Base.bitsunionsize(T) : sizeof(Ptr))  # untested
+Base.copy(dv::DenseView) = as_dense_if_possible(copy(parent(dv)))
+
+Base.:(==)(left_dv::DenseView, right_matrix::AbstractMatrix) = parent(left_dv) == right_matrix
+
+Base.:(==)(left_matrix::AbstractMatrix, right_dv::DenseView) = left_matrix == parent(right_dv)
+
+Base.:(==)(left_dv::DenseView, right_dv::DenseView) = parent(left_dv) == parent(right_dv)
+
+Base.dataids(::DenseView) = tuple()
+
+# The rest is ours:
+
+@propagate_inbounds @inline function Base.view(dv::DenseView, indices::Integer...)::Any
+    return as_dense_if_possible(view(dv.parent, indices...))  # untested
 end
 
-@inline function Base.parent(dense_view::DenseView)::Any
-    return dense_view.parent  # untested
+@inline function Base.similar(dv::DenseView, dimensions::Integer...)::Any
+    return as_dense_if_possible(similar(dv.parent, dimensions...))  # untested
 end
 
-@propagate_inbounds @inline function Base.getindex(dense_view::DenseView, indices::Integer...)::Any
-    return getindex(dense_view.parent, indices...)
+@inline function Base.similar(dv::DenseView, type::Type, dimensions::Integer...)::Any
+    return as_dense_if_possible(similar(dv.parent, type, dimensions...))  # untested
 end
 
-@propagate_inbounds @inline function Base.setindex!(dense_view::DenseView, value::Any, indices::Integer...)::Any
-    return setindex!(dense_view.parent, value, indices...)  # untested
+@inline function Base.reshape(dv::DenseView, dimensions::Integer...)::Any
+    return as_dense_if_possible(reshape(dv.parent, dimensions...))  # untested
 end
 
-@propagate_inbounds @inline function Base.view(dense_view::DenseView, indices::Integer...)::Any
-    return as_dense_if_possible(view(dense_view.parent, indices...))  # untested
-end
-
-@inline function Base.similar(dense_view::DenseView, dimensions::Integer...)::Any
-    return as_dense_if_possible(similar(dense_view.parent, dimensions...))  # untested
-end
-
-@inline function Base.similar(dense_view::DenseView, type::Type, dimensions::Integer...)::Any
-    return as_dense_if_possible(similar(dense_view.parent, type, dimensions...))  # untested
-end
-
-@inline function Base.reshape(dense_view::DenseView, dimensions::Integer...)::Any
-    return as_dense_if_possible(reshape(dense_view.parent, dimensions...))  # untested
-end
-
-@inline function LinearAlgebra.transpose(dense_view::DenseView)::Any
-    return DenseView(transpose(dense_view.parent))  # untested
+@inline function LinearAlgebra.transpose(dv::DenseView)::Any
+    return as_dense_if_possible(transpose(dv.parent))  # untested
 end
 
 """
@@ -128,11 +132,11 @@ function as_dense_if_possible(matrix::AbstractMatrix{T})::AbstractMatrix{T} wher
     end
 
     try
-        array_strides = strides(matrix)
-        array_sizes = size(matrix)
+        matrix_strides = strides(matrix)
+        matrix_sizes = size(matrix)
 
-        if (array_strides[1] == 1 && array_strides[2] == array_sizes[1]) ||
-           (array_strides[1] == array_sizes[2] && array_strides[2] == 1)  # only seems untested
+        if (matrix_strides[1] == 1 && matrix_strides[2] == matrix_sizes[1]) ||
+           (matrix_strides[1] == matrix_sizes[2] && matrix_strides[2] == 1)  # only seems untested
             return DenseView(matrix)
         end
 
