@@ -67,6 +67,20 @@ Daf.Storage.matrix_names
 Daf.Storage.get_matrix
 ```
 
+`Daf` disk storage formats rely heavily on memory-mapping. This allows efficient access to large amount of data, in
+theory even larger than the available memory. While reading such data is straightforward enough, writing it is tricky,
+because using [`set_vector!`](@ref) or [`set_matrix!`](@ref) would require one to create a full in-memory version of the
+data, which would then be written to disk; this is not only inefficient, but also limits one to data that fits in
+memory. The following functions allow creating and memory-mapping data directly in the storage, allowing for more
+efficient data storage creation, and storing arbitrary large data regardless of the available memory size.
+
+```@docs
+Daf.Storage.empty_dense_vector!
+Daf.Storage.empty_sparse_vector!
+Daf.Storage.empty_dense_matrix!
+Daf.Storage.empty_sparse_matrix!
+```
+
 ## Concrete storage
 
 To implement a new storage format adapter, you will need to provide a `.name::String` property, and the
@@ -97,6 +111,8 @@ For vectors:
 ```@docs
 Daf.Storage.unsafe_has_vector
 Daf.Storage.unsafe_set_vector!
+Daf.Storage.unsafe_empty_dense_vector!
+Daf.Storage.unsafe_empty_sparse_vector!
 Daf.Storage.unsafe_delete_vector!
 Daf.Storage.unsafe_vector_names
 Daf.Storage.unsafe_get_vector
@@ -107,6 +123,8 @@ For matrices:
 ```@docs
 Daf.Storage.unsafe_has_matrix
 Daf.Storage.unsafe_set_matrix!
+Daf.Storage.unsafe_empty_dense_matrix!
+Daf.Storage.unsafe_empty_sparse_matrix!
 Daf.Storage.unsafe_delete_matrix!
 Daf.Storage.unsafe_matrix_names
 Daf.Storage.unsafe_get_matrix

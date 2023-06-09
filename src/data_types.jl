@@ -1,5 +1,10 @@
 """
-Only a restricted set of matrix and vector types is supported by `Daf`.
+Only a restricted set of scalar, matrix and vector types is supported by `Daf`.
+
+The set of scalar types is restricted because we need to be able to store them in disk files. This rules out compound
+types such as `Dict`. This isn't an issue for vector and matrix elements but is sometimes bothersome for "scalar" data
+(not associated with any axis). If you find yourself needed to store such data, you'll have to serialize it to a string.
+By convention, we use `JSON` blobs for such data.
 
 Julia supports a potential infinite variety of ways to represent matrices and vectors. `Daf` is intentionally
 restricted to specific representations. This has several advantages:
@@ -78,6 +83,7 @@ export relayout!
 export require_storage_matrix
 export require_storage_vector
 export Rows
+export StorageScalar
 export StorageMatrix
 export StorageVector
 export verify_efficient_action
@@ -89,7 +95,19 @@ using LinearAlgebra
 using SparseArrays
 
 """
+Types that can be used as scalars, or elements in stored matrices or vectors.
+
+This is restricted to numbers (including Booleans) and strings. It is arguably too restrictive, as in principle we could
+support any arbitrary `isbitstype`. However, in practice this would cause much trouble when accessing the data from
+other systems (specifically Python and R). Since `Daf` targets storing arbitrary scientific data (especially biological
+data), this restriction seems reasonable.
+"""
+StorageScalar = Union{String, Number}
+
+"""
 Matrices that can be directly stored (and fetched) from `Daf` storage.
+
+The element type must be a [`StorageScalar`](@ref), to allow storing the data in disk files.
 
 The storable matrix types are:
 
@@ -111,10 +129,12 @@ The storable matrix types are:
 Note we require `StorageMatrix` data to be in column-major layout. Therefore, use [`is_storage_matrix`](@ref) instead of
 (or in addition to) `isa StorageMatrix` to detect whether a matrix is a valid `StorageMatrix` or not.
 """
-StorageMatrix{T} = Union{DenseMatrix{T}, SparseMatrixCSC{T}}
+StorageMatrix{T} = Union{DenseMatrix{T}, SparseMatrixCSC{T}} where {T <: StorageScalar}
 
 """
 Vectors that can be directly stored (and fetched) from `Daf` storage.
+
+The element type must be a [`StorageScalar`](@ref), to allow storing the data in disk files.
 
 The storable vector types are:
 
@@ -128,7 +148,7 @@ The storable vector types are:
 
 Here, mercifully, we can just use `isa StorageVector` to detect whether some data is a valid `StorageVector`.
 """
-StorageVector{T} = Union{DenseVector{T}, SparseVector{T}}
+StorageVector{T} = Union{DenseVector{T}, SparseVector{T}} where {T <: StorageScalar}
 
 """
     is_storage_matrix(data::SparseMatrixCSC)::Bool
@@ -193,11 +213,11 @@ A symbolic name for the rows axis. It is much more readable to write, say, `size
 Columns = 2
 
 """
-    axis_name(axis::Union{Int, Nothing})::String
+    axis_name(axis::Union{Integer, Nothing})::String
 
 Return the name of the axis (for messages).
 """
-function axis_name(axis::Union{Int, Nothing})::String
+function axis_name(axis::Union{Integer, Nothing})::String
     if axis == nothing
         return "nothing"
     end
@@ -214,7 +234,7 @@ function axis_name(axis::Union{Int, Nothing})::String
 end
 
 """
-    major_axis(matrix::AbstractMatrix)::Union{Int,Nothing}
+    major_axis(matrix::AbstractMatrix)::Union{Int8,Nothing}
 
 Return the index of the major axis of a matrix, that is, the axis one should use for the *inner* loop for the most
 efficient access to the matrix elements. If the matrix doesn't support any efficient access axis, returns `nothing`.
@@ -228,7 +248,7 @@ efficient access to the matrix elements. If the matrix doesn't support any effic
 @inline axis_of_layout(::MemoryLayout) = nothing  # untested
 
 """
-    minor_axis(matrix::AbstractMatrix)::Union{Int,Nothing}
+    minor_axis(matrix::AbstractMatrix)::Union{Int8,Nothing}
 
 Return the index of the minor axis of a matrix, that is, the axis one should use for the *outer* loop for the most
 efficient access to the matrix elements. If the matrix doesn't support any efficient access axis, returns `nothing`.
@@ -236,18 +256,18 @@ efficient access to the matrix elements. If the matrix doesn't support any effic
 @inline minor_axis(matrix::AbstractMatrix) = other_axis(major_axis(matrix))
 
 """
-    other_axis(axis::Union{Int,Nothing})::Union{Int,Nothing}
+    other_axis(axis::Union{Integer,Nothing})::Union{Int8,Nothing}
 
 Return the other `matrix` `axis` (that is, convert between [`Rows`](@ref) and [`Columns`](@ref)). If given `nothing`
 returns `nothing`.
 """
-@inline function other_axis(axis::Union{Int, Nothing})::Union{Int, Nothing}
+@inline function other_axis(axis::Union{Integer, Nothing})::Union{Int8, Nothing}
     if axis == nothing
         return nothing
     end
 
     if axis == Rows || axis == Columns
-        return 3 - axis
+        return Int8(3 - axis)
     end
 
     return error("invalid matrix axis: $(axis)")
@@ -285,7 +305,7 @@ end
     verify_efficient_action(
         action::AbstractString,
         matrix::AbstractMatrix,
-        axis::Int,
+        axis::Integer,
     )::Nothing
 
 Verify that the `action` about to be executed for the `matrix` works "with the grain" of the data, which requires the
@@ -295,7 +315,7 @@ This will not protect you against performing "against the grain" operations such
 column-major matrix. It is meant to be added in your own code before such actions, to verify you will not apply them
 "against the grain" of the data.
 """
-function verify_efficient_action(action::AbstractString, matrix::AbstractMatrix, axis::Int)::Nothing
+function verify_efficient_action(action::AbstractString, matrix::AbstractMatrix, axis::Integer)::Nothing
     if major_axis(matrix) == axis
         return
     end

@@ -136,11 +136,11 @@ function present(value::AbstractArray)::String
 end
 
 """
-    present_percent(used::Int64, out_of::Int64)::String
+    present_percent(used::Integer, out_of::Integer)::String
 
 Present a fraction of `used` amount `out_of` some total as a percentage.
 """
-function present_percent(used::Int64, out_of::Int64)::String
+function present_percent(used::Integer, out_of::Integer)::String
     float_percent = 100.0 * Float64(used) / Float64(out_of)
     int_percent = round(Int64, float_percent)
 

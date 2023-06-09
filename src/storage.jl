@@ -30,6 +30,10 @@ export delete_axis!
 export delete_matrix!
 export delete_scalar!
 export delete_vector!
+export empty_dense_matrix!
+export empty_dense_vector!
+export empty_sparse_matrix!
+export empty_sparse_vector!
 export freeze
 export get_axis
 export get_matrix
@@ -52,6 +56,10 @@ export unsafe_delete_axis!
 export unsafe_delete_matrix!
 export unsafe_delete_scalar!
 export unsafe_delete_vector!
+export unsafe_empty_dense_vector!
+export unsafe_empty_sparse_vector!
+export unsafe_empty_dense_matrix!
+export unsafe_empty_sparse_matrix!
 export unsafe_get_axis
 export unsafe_get_matrix
 export unsafe_get_scalar
@@ -67,6 +75,7 @@ export vector_names
 
 using Daf.DataTypes
 using Daf.Messages
+using SparseArrays
 
 """
 An abstract interface for all `Daf` storage formats.
@@ -119,8 +128,8 @@ end
     set_scalar!(
         storage::AbstractStorage,
         name::String,
-        value::Any;
-        overwrite::Bool = false,
+        value::StorageScalar
+        [; overwrite::Bool]
     )::Nothing
 
 Set the `value` of a scalar with some `name` in the `storage`.
@@ -129,7 +138,7 @@ If `overwrite` is `false` (the default), this first verifies the `name` does not
 
 This will cause an error if the `storage` [`is_frozen`](@ref).
 """
-function set_scalar!(storage::AbstractStorage, name::String, value::Any; overwrite::Bool = false)::Nothing
+function set_scalar!(storage::AbstractStorage, name::String, value::StorageScalar; overwrite::Bool = false)::Nothing
     require_unfrozen(storage)
 
     if !overwrite
@@ -144,14 +153,14 @@ end
     unsafe_set_scalar!(
         storage::AbstractStorage,
         name::String,
-        value::Any,
+        value::StorageScalar,
     )::Nothing
 
 Implement setting the `value` of a scalar with some `name` in the `storage`.
 
 This will silently overwrite an existing `value` for the same `name` scalar.
 """
-function unsafe_set_scalar!(storage::AbstractStorage, name::String, value::Any)::Nothing
+function unsafe_set_scalar!(storage::AbstractStorage, name::String, value::StorageScalar)::Nothing
     return error("missing method: unsafe_set_scalar! for storage type: $(typeof(storage))")  # untested
 end
 
@@ -199,18 +208,19 @@ function scalar_names(storage::AbstractStorage)::AbstractSet{String}
     return error("missing method: scalar_names for storage type: $(typeof(storage))")  # untested
 end
 
-struct NoDefault end
-NO_DEFAULT = NoDefault()
-
 """
-    get_scalar(storage::AbstractStorage, name::String[; default::Any])::Any
+    get_scalar(storage::AbstractStorage, name::String[; default::StorageScalar])::StorageScalar
 
 The value of a scalar with some `name` in the `storage`.
 
 If `default` is not specified, this first verifies the `name` scalar exists in the `storage`.
 """
-function get_scalar(storage::AbstractStorage, name::String; default::Any = NO_DEFAULT)::Any
-    if default === NO_DEFAULT
+function get_scalar(
+    storage::AbstractStorage,
+    name::String;
+    default::Union{StorageScalar, Nothing} = nothing,
+)::StorageScalar
+    if default == nothing
         require_scalar(storage, name)
     elseif !has_scalar(storage, name)
         return default
@@ -220,13 +230,13 @@ function get_scalar(storage::AbstractStorage, name::String; default::Any = NO_DE
 end
 
 """
-    unsafe_get_scalar(storage::AbstractStorage, name::String)::Any
+    unsafe_get_scalar(storage::AbstractStorage, name::String)::StorageScalar
 
 Implement fetching the value of a scalar with some `name` in the `storage`.
 
 This trusts the `name` scalar exists in the `storage`.
 """
-function unsafe_get_scalar(storage::AbstractStorage, name::String)::Any
+function unsafe_get_scalar(storage::AbstractStorage, name::String)::StorageScalar
     return error("missing method: unsafe_get_scalar for storage type: $(typeof(storage))")  # untested
 end
 
@@ -438,8 +448,8 @@ end
         storage::AbstractStorage,
         axis::String,
         name::String,
-        vector::Union{Number, String, StorageVector};
-        overwrite::Bool = false,
+        vector::Union{Number, String, StorageVector}
+        [; overwrite::Bool]
     )::Nothing
 
 Set a `vector` with some `name` for some `axis` in the `storage`.
@@ -500,6 +510,147 @@ function unsafe_set_vector!(
     vector::Union{Number, String, StorageVector},
 )::Nothing
     return error("missing method: unsafe_set_vector! for storage type: $(typeof(storage))")  # untested
+end
+
+"""
+    empty_dense_vector!(
+        storage::AbstractStorage,
+        axis::String,
+        name::String,
+        eltype::Type{T}
+        [; overwrite::Bool]
+    )::DenseVector{T} where {T <: Number}
+
+Create an empty dense `vector` with some `name` for some `axis` in the `storage`.
+
+The returned vector will be uninitialized; the caller is expected to fill it with values. This saves creating a copy of
+the vector before setting it in the storage, which makes a huge difference when creating vectors on disk (using memory
+mapping). For this reason, this does not work for strings, as they do not have a fixed size.
+
+This first verifies the `axis` exists in the `storage`. If `overwrite` is `false` (the default), this also verifies the
+`name` vector does not exist for the `axis`.
+
+This will cause an error if the `storage` [`is_frozen`](@ref).
+"""
+function empty_dense_vector!(
+    storage::AbstractStorage,
+    axis::String,
+    name::String,
+    eltype::Type{T};
+    overwrite::Bool = false,
+)::DenseVector{T} where {T <: Number}
+    require_unfrozen(storage)
+    require_axis(storage, axis)
+
+    if !overwrite
+        require_no_vector(storage, axis, name)
+    end
+
+    return unsafe_empty_dense_vector!(storage, axis, name, eltype)
+end
+
+"""
+    unsafe_empty_dense_vector!(
+        storage::AbstractStorage,
+        axis::String,
+        name::String,
+        eltype::Type{T},
+    )::DenseVector where {T <: Number}
+
+Implement setting a `vector` with some `name` for some `axis` in the `storage`.
+
+Implement creating an empty dense `matrix` with some `name` for some `rows_axis` and `columns_axis` in the `storage`.
+
+This trusts the `axis` exists in the `storage`. It will silently overwrite an existing vector for the same `name` for
+the `axis`.
+"""
+function unsafe_empty_dense_vector!(
+    storage::AbstractStorage,
+    axis::String,
+    name::String,
+    eltype::Type{T},
+)::DenseVector{T} where {T <: Number}
+    return error("missing method: unsafe_empty_dense_vector! for storage type: $(typeof(storage))")  # untested
+end
+
+"""
+    empty_sparse_vector!(
+        storage::AbstractStorage,
+        axis::String,
+        name::String,
+        eltype::Type{T},
+        nnz::Integer,
+        indtype::Type{I}
+        [; overwrite::Bool]
+    )::DenseVector{T} where {T <: Number, I <: Integer}
+
+Create an empty dense `vector` with some `name` for some `axis` in the `storage`.
+
+The returned vector will be uninitialized; the caller is expected to fill it with values. This means manually filling
+the `nzind` and `nzval` vectors. Specifying the `nnz` makes their sizes known in advance, to allow pre-allocating disk
+storage. For this reason, this does not work for strings, as they do not have a fixed size.
+
+This severely restricts the usefulness of this function, because typically `nnz` is only know after fully computing the
+matrix. Still, in some cases a large sparse vector is created by concatenating several smaller ones; this function
+allows doing so directly into the storage vector, avoiding a copy in case of memory-mapped disk storage formats.
+
+Note that it is the caller's responsibility to fill the three vectors with valid data. **There's no safety net if you
+mess this up**. Specifically, you must ensure:
+
+  - `nzind[1] == 1`
+  - `nzind[i] <= nzind[i + 1]`
+  - `nzind[end] == nnz`
+
+This first verifies the `axis` exists in the `storage`. If `overwrite` is `false` (the default), this also verifies the
+`name` vector does not exist for the `axis`.
+
+This will cause an error if the `storage` [`is_frozen`](@ref).
+"""
+function empty_sparse_vector!(
+    storage::AbstractStorage,
+    axis::String,
+    name::String,
+    eltype::Type{T},
+    nnz::Integer,
+    indtype::Type{I};
+    overwrite::Bool = false,
+)::SparseVector{T, I} where {T <: Number, I <: Integer}
+    require_unfrozen(storage)
+    require_axis(storage, axis)
+
+    if !overwrite
+        require_no_vector(storage, axis, name)
+    end
+
+    return unsafe_empty_sparse_vector!(storage, axis, name, eltype, nnz, indtype)
+end
+
+"""
+    unsafe_empty_dense_vector!(
+        storage::AbstractStorage,
+        axis::String,
+        name::String,
+        eltype::Type{T},
+        nnz::Integer,
+        indtype::Type{I},
+    )::DenseVector where {T <: Number, I <: Integer}
+
+Implement setting a `vector` with some `name` for some `axis` in the `storage`.
+
+Implement creating an empty dense `matrix` with some `name` for some `rows_axis` and `columns_axis` in the `storage`.
+
+This trusts the `axis` exists in the `storage`. It will silently overwrite an existing vector for the same `name` for
+the `axis`.
+"""
+function unsafe_empty_sparse_vector!(
+    storage::AbstractStorage,
+    axis::String,
+    name::String,
+    eltype::Type{T},
+    nnz::Integer,
+    indtype::Type{I},
+)::SparseVector{T, I} where {T <: Number, I <: Integer}
+    return error("missing method: unsafe_empty_sparse_vector! for storage type: $(typeof(storage))")  # untested
 end
 
 """
@@ -582,7 +733,7 @@ function get_vector(
     storage::AbstractStorage,
     axis::String,
     name::String;
-    default::Union{Number, String, StorageVector, NoDefault} = NO_DEFAULT,
+    default::Union{StorageScalar, StorageVector, Nothing} = nothing,
 )::StorageVector
     require_axis(storage, axis)
 
@@ -595,7 +746,7 @@ function get_vector(
         )
     end
 
-    if default === NO_DEFAULT
+    if default == nothing
         require_vector(storage, axis, name)
     elseif !has_vector(storage, axis, name)
         if default isa StorageVector
@@ -693,8 +844,8 @@ end
         rows_axis::String,
         columns_axis::String,
         name::String,
-        matrix::StorageMatrix;
-        overwrite::Bool = false,
+        matrix::StorageMatrix
+        [; overwrite::Bool]
     )::Nothing
 
 Set the `matrix` with some `name` for some `rows_axis` and `columns_axis` in the `storage`. Since this is Julia, this
@@ -775,6 +926,154 @@ function unsafe_set_matrix!(
     matrix::Union{Number, String, StorageMatrix},
 )::Nothing
     return error("missing method: unsafe_set_matrix! for storage type: $(typeof(storage))")  # untested
+end
+
+"""
+    empty_dense_matrix!(
+        storage::AbstractStorage,
+        rows_axis::String,
+        columns_axis::String,
+        name::String,
+        eltype::Type{T}
+        [; overwrite::Bool]
+    )::DenseMatrix{T} where {T <: Number}
+
+Create an empty dense `matrix` with some `name` for some `rows_axis` and `columns_axis` in the `storage`. Since this is
+Julia, this will be a column-major `matrix`.
+
+The returned matrix will be uninitialized; the caller is expected to fill it with values. This saves creating a copy of
+the matrix before setting it in the storage, which makes a huge difference when creating matrices on disk (using memory
+mapping). For this reason, this does not work for strings, as they do not have a fixed size.
+
+This first verifies the `rows_axis` and `columns_axis` exist in the `storage`, that the `matrix` is column-major of the
+appropriate size. If `overwrite` is `false` (the default), this also verifies the `name` matrix does not exist for the
+`rows_axis` and `columns_axis`.
+
+This will cause an error if the `storage` [`is_frozen`](@ref).
+"""
+function empty_dense_matrix!(
+    storage::AbstractStorage,
+    rows_axis::String,
+    columns_axis::String,
+    name::String,
+    eltype::Type{T};
+    overwrite::Bool = false,
+)::DenseMatrix{T} where {T <: Number}
+    require_unfrozen(storage)
+    require_axis(storage, rows_axis)
+    require_axis(storage, columns_axis)
+
+    if !overwrite
+        require_no_matrix(storage, rows_axis, columns_axis, name)
+    end
+
+    return unsafe_empty_dense_matrix!(storage, rows_axis, columns_axis, name, eltype)
+end
+
+"""
+    unsafe_empty_dense_matrix!(
+        storage::AbstractStorage,
+        rows_axis::String,
+        columns_axis::String,
+        name::String,
+        eltype::Type{T},
+    )::DenseMatrix{T} where {T <: Number}
+
+Implement creating an empty dense `matrix` with some `name` for some `rows_axis` and `columns_axis` in the `storage`.
+
+This trusts the `rows_axis` and `columns_axis` exist in the `storage`. It will silently overwrite an existing matrix for
+the same `name` for the `rows_axis` and `columns_axis`.
+"""
+function unsafe_empty_dense_matrix!(
+    storage::AbstractStorage,
+    rows_axis::String,
+    columns_axis::String,
+    eltype::Type{T},
+)::DenseMatrix{T} where {T <: Number}
+    return error("missing method: unsafe_empty_dense_matrix! for storage type: $(typeof(storage))")  # untested
+end
+
+"""
+    empty_sparse_matrix!(
+        storage::AbstractStorage,
+        rows_axis::String,
+        columns_axis::String,
+        name::String,
+        eltype::Type{T},
+        nnz::Integer,
+        intdype::Type{I}
+        [; overwrite::Bool]
+    )::SparseMatrixCSC{T, I} where {T <: Number, I <: Integer}
+
+Create an empty sparse `matrix` with some `name` for some `rows_axis` and `columns_axis` in the `storage`.
+
+The returned matrix will be uninitialized; the caller is expected to fill it with values. This means manually filling
+the `colptr`, `rowval` and `nzval` vectors. Specifying the `nnz` makes their sizes known in advance, to allow
+pre-allocating disk storage. For this reason, this does not work for strings, as they do not have a fixed size.
+
+This severely restricts the usefulness of this function, because typically `nnz` is only know after fully computing the
+matrix. Still, in some cases a large sparse matrix is created by concatenating several smaller ones; this function
+allows doing so directly into the storage matrix, avoiding a copy in case of memory-mapped disk storage formats.
+
+Note that it is the caller's responsibility to fill the three vectors with valid data. **There's no safety net if you
+mess this up**. Specifically, you must ensure:
+
+  - `colptr[1] == 1`
+  - `colptr[end] == nnz + 1`
+  - `colptr[i] <= colptr[i + 1]`
+  - for all `j`, for all `i` such that `colptr[j] <= i` and `i + 1 < colptr[j + 1]`, `1 <= rowptr[i] < rowptr[i + 1] <= nrows`
+
+This first verifies the `rows_axis` and `columns_axis` exist in the `storage`. If `overwrite` is `false` (the default),
+this also verifies the `name` matrix does not exist for the `rows_axis` and `columns_axis`.
+
+This will cause an error if the `storage` [`is_frozen`](@ref).
+"""
+function empty_sparse_matrix!(
+    storage::AbstractStorage,
+    rows_axis::String,
+    columns_axis::String,
+    name::String,
+    eltype::Type{T},
+    nnz::Integer,
+    indtype::Type{I};
+    overwrite::Bool = false,
+)::SparseMatrixCSC{T, I} where {T <: Number, I <: Integer}
+    require_unfrozen(storage)
+    require_axis(storage, rows_axis)
+    require_axis(storage, columns_axis)
+
+    if !overwrite
+        require_no_matrix(storage, rows_axis, columns_axis, name)
+    end
+
+    return unsafe_empty_sparse_matrix!(storage, rows_axis, columns_axis, name, eltype, nnz, indtype)
+end
+
+"""
+    unsafe_empty_dense_matrix!(
+        storage::AbstractStorage,
+        rows_axis::String,
+        columns_axis::String,
+        name::String,
+        eltype::Type{T},
+        intdype::Type{I},
+        nnz::Integer,
+    )::SparseMatrixCSC{T, I} where {T <: Number, I <: Integer}
+
+Implement creating an empty sparse `matrix` with some `name` for some `rows_axis` and `columns_axis` in the `storage`.
+
+This trusts the `rows_axis` and `columns_axis` exist in the `storage`. It will silently overwrite an existing matrix for
+the same `name` for the `rows_axis` and `columns_axis`.
+"""
+function unsafe_empty_sparse_matrix!(
+    storage::AbstractStorage,
+    rows_axis::String,
+    columns_axis::String,
+    eltype::Type{T},
+    nnz::Integer,
+    indtype::Type{I},
+)::SparseMatrixCSC{T, I} where {T <: Number, I <: Integer}
+    return error("missing method: unsafe_empty_sparse_matrix! for storage type: $(typeof(storage))")  # untested
 end
 
 """
@@ -906,7 +1205,7 @@ function get_matrix(
     rows_axis::String,
     columns_axis::String,
     name::String;
-    default::Union{Number, String, NoDefault, StorageMatrix} = NO_DEFAULT,
+    default::Union{StorageScalar, StorageMatrix, Nothing} = nothing,
 )::StorageMatrix
     require_axis(storage, rows_axis)
     require_axis(storage, columns_axis)
@@ -933,7 +1232,7 @@ function get_matrix(
         end
     end
 
-    if default === NO_DEFAULT
+    if default == nothing
         require_matrix(storage, rows_axis, columns_axis, name)
     elseif !has_matrix(storage, rows_axis, columns_axis, name)
         if default isa StorageMatrix

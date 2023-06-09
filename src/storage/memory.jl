@@ -15,7 +15,7 @@ struct MemoryStorage <: AbstractStorage
 
     is_frozen::Array{Bool, 1}
 
-    scalars::Dict{String, Any}
+    scalars::Dict{String, StorageScalar}
 
     axes::Dict{String, DenseVector{String}}
 
@@ -24,7 +24,7 @@ struct MemoryStorage <: AbstractStorage
     matrices::Dict{String, Dict{String, Dict{String, StorageMatrix}}}
 
     function MemoryStorage(name::String)
-        scalars = Dict{String, Any}()
+        scalars = Dict{String, StorageScalar}()
         axes = Dict{String, DenseVector{String}}()
         vectors = Dict{String, Dict{String, StorageVector{String}}}()
         matrices = Dict{String, Dict{String, Dict{String, StorageVector{String}}}}()
@@ -50,7 +50,7 @@ function Storage.has_scalar(storage::MemoryStorage, name::String)::Bool
     return haskey(storage.scalars, name)
 end
 
-function Storage.unsafe_set_scalar!(storage::MemoryStorage, name::String, value::Any)::Nothing
+function Storage.unsafe_set_scalar!(storage::MemoryStorage, name::String, value::StorageScalar)::Nothing
     storage.scalars[name] = value
     return nothing
 end
@@ -60,7 +60,7 @@ function Storage.unsafe_delete_scalar!(storage::MemoryStorage, name::String)::No
     return nothing
 end
 
-function Storage.unsafe_get_scalar(storage::MemoryStorage, name::String)::Any
+function Storage.unsafe_get_scalar(storage::MemoryStorage, name::String)::StorageScalar
     return storage.scalars[name]
 end
 
@@ -128,6 +128,34 @@ function Storage.unsafe_set_vector!(
     return nothing
 end
 
+function Storage.unsafe_empty_dense_vector!(
+    storage::MemoryStorage,
+    axis::String,
+    name::String,
+    eltype::Type{T},
+)::DenseVector{T} where {T <: Number}
+    nelements = unsafe_axis_length(storage, axis)
+    vector = Vector{T}(undef, nelements)
+    storage.vectors[axis][name] = vector
+    return vector
+end
+
+function Storage.unsafe_empty_sparse_vector!(
+    storage::MemoryStorage,
+    axis::String,
+    name::String,
+    eltype::Type{T},
+    nnz::Integer,
+    indtype::Type{I},
+)::SparseVector{T, I} where {T <: Number, I <: Integer}
+    nelements = unsafe_axis_length(storage, axis)
+    nzind = Vector{I}(undef, nnz)
+    nzval = Vector{T}(undef, nnz)
+    vector = SparseVector(nelements, nzind, nzval)
+    storage.vectors[axis][name] = vector
+    return vector
+end
+
 function Storage.unsafe_delete_vector!(storage::MemoryStorage, axis::String, name::String)::Nothing
     delete!(storage.vectors[axis], name)
     return nothing
@@ -160,6 +188,40 @@ function Storage.unsafe_set_matrix!(
     end
 
     return nothing
+end
+
+function Storage.unsafe_empty_dense_matrix!(
+    storage::MemoryStorage,
+    rows_axis::String,
+    columns_axis::String,
+    name::String,
+    eltype::Type{T},
+)::DenseMatrix{T} where {T <: Number}
+    nrows = unsafe_axis_length(storage, rows_axis)
+    ncols = unsafe_axis_length(storage, columns_axis)
+    matrix = Matrix{T}(undef, nrows, ncols)
+    storage.matrices[rows_axis][columns_axis][name] = matrix
+    return matrix
+end
+
+function Storage.unsafe_empty_sparse_matrix!(
+    storage::MemoryStorage,
+    rows_axis::String,
+    columns_axis::String,
+    name::String,
+    eltype::Type{T},
+    nnz::Integer,
+    indtype::Type{I},
+)::SparseMatrixCSC{T, I} where {T <: Number, I <: Integer}
+    nrows = unsafe_axis_length(storage, rows_axis)
+    ncols = unsafe_axis_length(storage, columns_axis)
+    colptr = fill(I(1), ncols + 1)
+    colptr[end] = nnz + 1
+    rowval = Vector{I}(undef, nnz)
+    nzval = Vector{T}(undef, nnz)
+    matrix = SparseMatrixCSC(nrows, ncols, colptr, rowval, nzval)
+    storage.matrices[rows_axis][columns_axis][name] = matrix
+    return matrix
 end
 
 function Storage.unsafe_delete_matrix!(

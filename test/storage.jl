@@ -5,7 +5,7 @@ function test_storage_scalar(storage::AbstractStorage)::Nothing
     @test length(scalar_names(storage)) == 0
 
     @test_throws "missing scalar: version in the storage: $(name)" get_scalar(storage, "version")
-    @test get_scalar(storage, "version"; default = (3, 4)) == (3, 4)
+    @test get_scalar(storage, "version"; default = 3) == 3
 
     @test_throws "missing scalar: version in the storage: $(name)" delete_scalar!(storage, "version")
     delete_scalar!(storage, "version"; must_exist = false)
@@ -17,14 +17,14 @@ function test_storage_scalar(storage::AbstractStorage)::Nothing
     unfreeze(storage)
     @test !is_frozen(storage)
 
-    set_scalar!(storage, "version", (1, 2))
-    @test_throws "existing scalar: version in the storage: $(name)" set_scalar!(storage, "version", (4, 5))
+    set_scalar!(storage, "version", "1.2")
+    @test_throws "existing scalar: version in the storage: $(name)" set_scalar!(storage, "version", "4.5")
 
     @test length(scalar_names(storage)) == 1
     @test "version" in scalar_names(storage)
 
-    @test get_scalar(storage, "version") == (1, 2)
-    @test get_scalar(storage, "version"; default = (3, 4)) == (1, 2)
+    @test get_scalar(storage, "version") == "1.2"
+    @test get_scalar(storage, "version"; default = "3.4") == "1.2"
 
     delete_scalar!(storage, "version")
     @test !has_scalar(storage, "version")
@@ -114,8 +114,25 @@ function test_storage_vector(storage::AbstractStorage)::Nothing
     set_vector!(storage, "cell", "age", 1)
     @test has_vector(storage, "cell", "age")
     @test get_vector(storage, "cell", "age") == vec([1 1 1])
+
+    delete_vector!(storage, "cell", "age")
+    empty_dense = empty_dense_vector!(storage, "cell", "age", Int64)
+    @test empty_dense isa Vector{Int64}
+    empty_dense .= vec([0 1 2])
+    @test get_vector(storage, "cell", "age") == vec([0 1 2])
+
+    sparse = SparseVector(empty_dense)
+    delete_vector!(storage, "cell", "age")
+    empty_sparse = empty_sparse_vector!(storage, "cell", "age", Int64, nnz(sparse), Int8)
+    @test empty_sparse isa SparseVector{Int64, Int8}
+    empty_sparse.nzind .= sparse.nzind
+    empty_sparse.nzval .= sparse.nzval
+    @test empty_sparse == sparse
+    @test get_vector(storage, "cell", "age") == sparse
+
     delete_axis!(storage, "cell")
     add_axis!(storage, "cell", vec(["cell0", "cell1"]))
+
     @test !has_vector(storage, "cell", "age")
 
     return nothing
@@ -216,6 +233,22 @@ function test_storage_matrix(storage::AbstractStorage)::Nothing
 
     set_matrix!(storage, "cell", "gene", "UMIs", 1)
     @test get_matrix(storage, "cell", "gene", "UMIs") == [1 1; 1 1; 1 1]
+
+    delete_matrix!(storage, "cell", "gene", "UMIs")
+    empty_dense = empty_dense_matrix!(storage, "cell", "gene", "UMIs", Int64)
+    @test empty_dense isa Matrix{Int64}
+    empty_dense .= [0 1; 2 3; 4 0]
+    @test get_matrix(storage, "cell", "gene", "UMIs") == [0 1; 2 3; 4 0]
+
+    sparse = SparseMatrixCSC(empty_dense)
+    delete_matrix!(storage, "cell", "gene", "UMIs")
+    empty_sparse = empty_sparse_matrix!(storage, "cell", "gene", "UMIs", Int64, nnz(sparse), Int8)
+    @test empty_sparse isa SparseMatrixCSC{Int64, Int8}
+    empty_sparse.colptr .= sparse.colptr
+    empty_sparse.rowval .= sparse.rowval
+    empty_sparse.nzval .= sparse.nzval
+    @test empty_sparse == sparse
+    @test get_matrix(storage, "cell", "gene", "UMIs") == sparse
 
     delete_axis!(storage, "cell")
     delete_axis!(storage, "gene")

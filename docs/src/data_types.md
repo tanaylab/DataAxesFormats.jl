@@ -6,12 +6,25 @@ Daf.DataTypes
 
 ## Supported storage types
 
+Scalars (data which is not associated with any axis):
+
+```@docs
+Daf.DataTypes.StorageScalar
+```
+
+Vectors (data which is associated with a single axis):
+
+```@docs
+Daf.DataTypes.StorageVector
+Daf.DataTypes.require_storage_vector
+```
+
+Matrices (data which is associated with a pair of axes):
+
 ```@docs
 Daf.DataTypes.StorageMatrix
 Daf.DataTypes.is_storage_matrix
 Daf.DataTypes.require_storage_matrix
-Daf.DataTypes.StorageVector
-Daf.DataTypes.require_storage_vector
 ```
 
 ## Symbolic names for axes
