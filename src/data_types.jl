@@ -44,8 +44,9 @@ The bottom line is that, when storing and fetching data in `Daf`, one has to car
 columns, and which axis to use for rows, to ensure operations will be applied "with the grain" of the data. Internally,
 `Daf` typically stores just one variant of the data (with a particular axes order). If asked for the other layout (by
 flipping the requested axes), then `Daf` will `transpose!` the data, and cache the results (in memory) for future use.
-You can also explicitly store both layouts in `Daf`, in which case the right one will be fetched. However, in this case,
-it would be your responsibility to ensure both versions of the data contain the same values.
+You can also explicitly store both layouts in `Daf`, in which case the right one will be fetched. In this case, it would
+be your responsibility to ensure both versions of the data contain the same values. This is a hassle, but it is
+worthwhile when working with large data sets.
 
 Note that `transpose!` is very different from `transpose`. A `transpose` (no `!`) of a matrix is a zero-copy wrapper
 which merely flips the axes, so a `transpose` of a column-major matrix is a row-major matrix (and vice-versa). In
@@ -71,6 +72,7 @@ operations "with the grain" rather than "against the grain" of the data.
 module DataTypes
 
 export axis_name
+export check_efficient_action
 export Columns
 export ErrorPolicy
 export inefficient_action_policy
@@ -83,16 +85,17 @@ export relayout!
 export require_storage_matrix
 export require_storage_vector
 export Rows
-export StorageScalar
 export StorageMatrix
+export StorageScalar
 export StorageVector
-export verify_efficient_action
 export WarnPolicy
 
 using ArrayLayouts
 using Distributed
 using LinearAlgebra
 using SparseArrays
+
+import Distributed.@everywhere
 
 """
 Types that can be used as scalars, or elements in stored matrices or vectors.
@@ -143,7 +146,7 @@ The storable vector types are:
     matrices.
 
   - The `SparseVector` type. This is a concrete type, which stores two dense vectors - the index of each non-zero element,
-    and the values of the non-zero elements (for boolean data the second vector can be omitted). This is the natural
+    and the values of the non-zero elements (for Boolean data the second vector can be omitted). This is the natural
     choice given it is what we get when we slice a `SparseMatrixCSC`.
 
 Here, mercifully, we can just use `isa StorageVector` to detect whether some data is a valid `StorageVector`.
@@ -245,7 +248,7 @@ efficient access to the matrix elements. If the matrix doesn't support any effic
 
 @inline axis_of_layout(::AbstractColumnMajor) = Columns
 @inline axis_of_layout(::AbstractRowMajor) = Rows
-@inline axis_of_layout(::MemoryLayout) = nothing  # untested
+@inline axis_of_layout(::MemoryLayout) = nothing
 
 """
     minor_axis(matrix::AbstractMatrix)::Union{Int8,Nothing}
@@ -276,12 +279,13 @@ end
 """
 The action to take when performing an operation "against the grain" of the memory layout of a matrix.
 
-Valid values are `nothing` - do nothing special, just execute the code and hope for the best, `WarnPolicy` - emit a
-warning using `@warn`, and `ErrorPolicy` - abort the program with an error message.
+Valid values are `nothing` - do nothing special, just execute the code and hope for the best (the default), `WarnPolicy`
+
+  - emit a warning using `@warn`, and `ErrorPolicy` - abort the program with an error message.
 """
 @enum InefficientActionPolicy WarnPolicy ErrorPolicy
 
-global_inefficient_action_policy = WarnPolicy
+GLOBAL_INEFFICIENT_ACTION_POLICY = nothing
 
 """
     inefficient_action_policy(
@@ -289,50 +293,56 @@ global_inefficient_action_policy = WarnPolicy
     )::Union{InefficientActionPolicy,Nothing}
 
 Specify the `policy` to take when accessing a matrix in an inefficient way. Returns the previous policy.
+
+Note this will affect *all* the processes, not just the current one.
 """
 function inefficient_action_policy(
     policy::Union{InefficientActionPolicy, Nothing},
 )::Union{InefficientActionPolicy, Nothing}
-    global global_inefficient_action_policy
-    previous_inefficient_action_policy = global_inefficient_action_policy
+    global GLOBAL_INEFFICIENT_ACTION_POLICY
+    previous_inefficient_action_policy = GLOBAL_INEFFICIENT_ACTION_POLICY
 
-    @eval @everywhere Daf.DataTypes.global_inefficient_action_policy = $policy
+    @eval @everywhere Daf.DataTypes.GLOBAL_INEFFICIENT_ACTION_POLICY = $policy
 
     return previous_inefficient_action_policy
 end
 
 """
-    verify_efficient_action(
+    check_efficient_action(
         action::AbstractString,
-        matrix::AbstractMatrix,
         axis::Integer,
+        operand::String,
+        matrix::AbstractMatrix,
     )::Nothing
 
-Verify that the `action` about to be executed for the `matrix` works "with the grain" of the data, which requires the
-`matrix` to be in `axis`-major layout. If it isn't, then apply the [`inefficient_action_policy`](@ref).
+Check whether the `action` about to be executed for an `operand` which is `matrix` works "with the grain" of the data,
+which requires the `matrix` to be in `axis`-major layout. If it isn't, then apply the
+[`inefficient_action_policy`](@ref).
 
 This will not protect you against performing "against the grain" operations such as `selectdim(matrix, Rows, 1)` for a
 column-major matrix. It is meant to be added in your own code before such actions, to verify you will not apply them
 "against the grain" of the data.
 """
-function verify_efficient_action(action::AbstractString, matrix::AbstractMatrix, axis::Integer)::Nothing
-    if major_axis(matrix) == axis
+function check_efficient_action(action::AbstractString, axis::Integer, operand::String, matrix::AbstractMatrix)::Nothing
+    if major_axis(matrix) == axis || GLOBAL_INEFFICIENT_ACTION_POLICY == nothing
         return
     end
 
-    if global_inefficient_action_policy == WarnPolicy
-        @warn "action: $(action) " *
-              "major axis: $(axis_name(axis)) " *  # only appears untested
-              "is different from the matrix: $(typeof(matrix)) " *  # only appears untested
-              "major axis: $(axis_name(major_axis(matrix)))"  # only appears untested
+    message = (
+        "the major axis: $(axis_name(axis))\n" *
+        "of the action: $(action)\n" *
+        "is different from the major axis: $(axis_name(major_axis(matrix)))\n" *
+        "of the $(operand) matrix: $(typeof(matrix))"
+    )
 
-    elseif global_inefficient_action_policy == ErrorPolicy
-        error(
-            "action: $(action) " *  # only appears untested
-            "major axis: $(axis_name(axis)) " *  # only appears untested
-            "is different from the matrix: $(typeof(matrix)) " *  # only appears untested
-            "major axis: $(axis_name(major_axis(matrix)))",  # only appears untested
-        )
+    if GLOBAL_INEFFICIENT_ACTION_POLICY == WarnPolicy
+        @warn message
+
+    elseif GLOBAL_INEFFICIENT_ACTION_POLICY == ErrorPolicy
+        error(message)
+
+    else
+        @assert false  # untested
     end
 end
 

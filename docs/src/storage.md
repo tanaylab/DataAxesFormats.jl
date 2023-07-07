@@ -25,7 +25,7 @@ Daf.Storage.unfreeze
 ```
 
 We can store arbitrary named values in the storage, that is, treat it as a simple key-value container. This is useful
-for keep metadata for the whole data set (e.g. provenance and version information). The code is not optimized for
+for keep metadata for the whole data set (e.g., provenance and version information). The code is not optimized for
 usage as a "heavy duty" key-value container, though; there are plenty of other options for that.
 
 ```@docs

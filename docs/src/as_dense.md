@@ -10,5 +10,5 @@ Daf.AsDense.as_dense_or_fail
 ## Index
 
 ```@index
-Pages = ["dense_view.md"]
+Pages = ["as_dense.md"]
 ```

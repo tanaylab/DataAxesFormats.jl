@@ -24,7 +24,18 @@ makedocs(;
     authors = "Oren Ben-Kiki",
     clean = true,
     format = Documenter.HTML(; prettyurls = get(ENV, "CI", nothing) == "true"),
-    pages = ["index.md", "data_types.md", "as_dense.md", "storage.md", "messages.md", "todo.md"],
+    pages = [
+        "index.md",
+        "data_types.md",
+        "as_dense.md",
+        "storage.md",
+        "oprec.md",
+        "registry.md",
+        "query.md",
+        "operations.md",
+        "messages.md",
+        "todo.md",
+    ],
 )
 
 if seen_problems

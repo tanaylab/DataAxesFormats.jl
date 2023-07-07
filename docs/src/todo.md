@@ -2,12 +2,10 @@
 
 The following issues are not addressed:
 
-## Containers
+## Queries
 
-  - The actual `Daf` container (as opposed to the low-level `Storage`)
-  - Which should provide a `Query` based API
-  - Which would allow for `ElementWise` and `Reduction` operations
-  - Which would allow for a powerful `View` mechanism
+  - Implement queries on storage.
+  - Implement operations.
 
 ## Composable computations
 
@@ -16,9 +14,12 @@ The following issues are not addressed:
 
 ## Disk storage formats
 
+  - Make `name` a reserved property (alias `name` member of the storage?)
   - `FilesStorage`
   - `Hdf5Storage`
   - `AnnDataStorage`
+  - `ChainStorage`
+  - `ViewStorage`
 
 ## Convenience functions
 
@@ -29,11 +30,15 @@ The following issues are not addressed:
 
 ## Read-only matrix/vector types
 
-The Julia standard library has *internally* `ReadOnly` arrays and even `FixedSparseCSC` and `FixedSparseVector` that
-make use for it. However, "what is allowed to Jupiter is forbidden for the ox", so these are not exported and can't be
-used by us mere mortals (unless we duplicate most of that code). This is a real pity because it would be "very nice
-indeed" if "frozen" storage returned `ReadOnly` arrays, protected against accidental change. The situation isn't *that*
-bad because all the disk storage formats (will) use memory-mapping, allowing us to protect their data using the
-operating system instead. This however does not work for data stored in-memory.
+  - Use Julia's internal `ReadOnly` and `FixedSparseCSC` and `FixedSparseVector`.
+  - Split `AbstractStorage` to `Reader` and `Writer`.
+  - Add `as_strided` and/or `as_fast` ?
 
-  - `ReadOnly` as guide for `DenseView`
+## Misc
+
+  - @everywhere for registries
+  - Use DocStringExtensions
+  - Link to `Expression` in documentation of `Context`.
+  - Link to `encode_expression` in documentation of `Token`.
+  - Document queries.
+  - "Description" metadata per axis / property / storage ?

@@ -42,42 +42,60 @@ grep -H -n '.' */*.cov */*/*.cov \
         # state 1: Function declaration
         # state 2: Function body
         # state 3: Comment
+        uncov_func = 0
         OFS = "`"
     }
     (state == 0 || state == 3) && $4 ~ /"""/ { state = 3 - state }
+    state > 0 && uncov_func { $3 = "-" }
     state == 0 && $4 ~ /^[@A-Z][A-Za-z0-9:{}, ()]* =/ && $3 == "-" { $3 = "0" }
-    state == 2 && $3 == "-" && $4 !~ /^\s*([)]|begin|end|else|try|finally)?\s*(#.*)$/ { $3 = "0" }
-    state == 2 && $3 == "0" && $4 ~ /^\s*([)]|begin|end|else|try|finally)?\s*(#.*)?$/ { $3 = "-" }
     state == 2 && $4 ~ /^end/ { state = 0 }
-    state != 3 && $4 ~ /^(@.* )?\s*function / { print(">>>", $4, "<<<"); state = 1 }
-    state == 1 && $3 == "0" { $3 = "-" }
-    state == 1 && $4 ~ /)::/ { state = 2 }
-    state != 2 && $3 == "0" { $3 = "-" }
+    state != 3 && $3 != "-" && $4 ~ /^(@.* )?\s*function / { state = 1; uncov_func = 0; }
+    state != 3 && $3 == "-" && $4 ~ /^(@.* )?\s*function / { state = 1; uncov_func = 1; $3 = "0"; }
+    state == 1 && $4 ~ /)::|)$/ { state = 2 }
+    state != 2 && state != 1 && $3 == "0" { $3 = "-" }
     { print }
 ' \
 | awk -F '`' '
 BEGIN {
-    OFS = "`"
+    OFS = ":"
     untested = 0
     tested = 0
+    ok_untested = 0
+    ok_tested = 0
+    useless = 0
 }
-tolower($4) ~ /only seems untested/ { next }
-$3 == 0 && tolower($4) ~ /untested/ { next }
+$3 == 0 { ok_untested += 1 }
+$3 > 0 { ok_tested += 1 }
+$3 == "-" && tolower($4) ~ /# untested|# only seems untested/ {
+    print $1, $2, " ! " $4
+    useless += 1;
+}
+$3 == 0 && tolower($4) ~ /# untested/ { ok_untested += 1; next }
 $3 == 0 {
     print $1, $2, " - " $4
     untested += 1
 }
-$3 > 0 && tolower($4) ~ /untested/ {
+$3 > 0 && tolower($4) ~ /# untested/ {
     print $1, $2, " + " $4
     tested += 1
 }
 END {
+    ok_total = ok_untested + ok_tested
+    printf("%s (%.1f%%) tested, %s (%.1f%%) untested\n",
+           ok_tested, ok_tested * 100.0 / ok_total,
+           ok_untested, ok_untested * 100.0 / ok_total)
+
+    if (useless > 0) {
+        printf("ERROR: %s lines with useless \"untested\" annotation\n", useless)
+    }
+
     if (untested > 0) {
         printf("ERROR: %s untested lines without an \"untested\" annotation\n", untested)
     }
     if (tested > 0) {
         printf("ERROR: %s tested lines with an \"untested\" annotation\n", tested)
     }
+
     if (untested > 0 || tested > 0) {
         exit(1)
     }

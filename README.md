@@ -10,8 +10,8 @@ features are:
 
   - Out of the box, allow storing the data in memory, in `AnnData` objects (e.g., using `h5ad` files), directly inside
     [H5FS](https://hdfgroup.org/) files, or as a collection of simple memory-mapped files in a directory.
-  - The data model is based on (1) some axes with named entries, (2) vector data indexed by a single axis, (3) matrix data
-    indexed by a pair of axes, and also (4) scalar data items (anything not tied to some axis).
+  - The data model is based on (1) some axes with named entries, (2) vector data indexed by a single axis, (3) matrix
+    data indexed by a pair of axes, and also (4) scalar data (anything not tied to some axis).
   - There is explicit control over 2D data layout (row or column major), and support for both dense and sparse matrices,
     both of which are crucial for performance.
   - This is implemented in Julia, as a seed for efficient computation pipelines (which are hard to implement in Python
@@ -36,13 +36,13 @@ different access method.
 
 This works pretty well until one starts to perform higher level operations:
 
-  - (Almost) everyone groups cells into "type" clusters. This requires storing per-cluster data (e.g. its name and its
+  - (Almost) everyone groups cells into "type" clusters. This requires storing per-cluster data (e.g., its name and its
     color).
 
-  - Since "type" clusters (hopefully) correspond to biological states, which map to gene expression levels, this requires
-    also storing per-cluster-per-gene data.
-  - Often such clusters form at least a two-level hierarchy, so we need per-sub-cluster data and per-sub-cluster-per-gene
-    data as well.
+  - Since "type" clusters (hopefully) correspond to biological states, which map to gene expression levels, this
+    requires also storing per-cluster-per-gene data.
+  - Often such clusters form at least a two-level hierarchy, so we need per-sub-cluster data and
+    per-sub-cluster-per-gene data as well.
   - We'd like to keep both the UMIs count and the normalized gene fractions (and possibly their log2 values for quick
     fold factor computations).
 

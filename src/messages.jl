@@ -13,7 +13,7 @@ using Distributed
 using LinearAlgebra
 using SparseArrays
 
-unique_name_prefixes = Dict{String, Int64}()
+UNIQUE_NAME_PREFIXES = Dict{String, Int64}()
 
 """
     unique_name(prefix::String)::String
@@ -28,14 +28,16 @@ will return `foo#1` for the first usage, `foo#2` for the 2nd, etc., and if using
 `foo#1.1`, `foo#1.2`, etc.
 """
 function unique_name(prefix::String)::String
-    if haskey(unique_name_prefixes, prefix)
-        counter = unique_name_prefixes[prefix]
+    global UNIQUE_NAME_PREFIXES
+
+    if haskey(UNIQUE_NAME_PREFIXES, prefix)
+        counter = UNIQUE_NAME_PREFIXES[prefix]
         counter += 1
     else
         counter = 1
     end
 
-    unique_name_prefixes[prefix] = counter
+    UNIQUE_NAME_PREFIXES[prefix] = counter
     if nprocs() > 1
         return "$(prefix)#$(myid()).$(counter)"  # untested
     else
@@ -66,12 +68,12 @@ function present(value::Symbol)::String
     return ":$(value)"
 end
 
-function present(value::AbstractVector)::String
-    as_dense = as_dense_if_possible(value)  # untested
-    if as_dense !== value  # untested
-        return present(as_dense)  # untested
-    end  # untested
-    return "$(length(value)) x $(eltype(value)) ($(typeof(value)))"  # untested
+function present(value::AbstractVector)::String  # untested
+    as_dense = as_dense_if_possible(value)
+    if as_dense !== value
+        return present(as_dense)
+    end
+    return "$(length(value)) x $(eltype(value)) ($(typeof(value)))"
 end
 
 function present(value::DenseVector)::String
@@ -83,12 +85,12 @@ function present(value::SparseVector)::String
     return "$(length(value)) x $(eltype(value)) (Sparse $(nnz))"
 end
 
-function present(value::AbstractMatrix; transposed::Bool = false)::String
-    as_dense = as_dense_if_possible(value)  # untested
-    if as_dense !== value  # untested
-        return present(as_dense)  # untested
+function present(value::AbstractMatrix; transposed::Bool = false)::String  # untested
+    as_dense = as_dense_if_possible(value)
+    if as_dense !== value
+        return present(as_dense)
     end
-    return present_matrix(value, "$(typeof(value))"; transposed = transposed)  # untested
+    return present_matrix(value, "$(typeof(value))"; transposed = transposed)
 end
 
 function present(value::DenseMatrix; transposed::Bool = false)::String

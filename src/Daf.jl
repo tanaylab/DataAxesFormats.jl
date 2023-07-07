@@ -8,7 +8,7 @@ features are:
   - Out of the box, allow storing the data in memory, in `AnnData` objects (e.g., using `h5ad` files), directly inside
     [H5FS](https://hdfgroup.org/) files, or as a collection of simple memory-mapped files in a directory.
   - The data model is based on (1) some axes with named entries, (2) vector data indexed by a single axis, (3) matrix data
-    indexed by a pair of axes, and also (4) scalar data items (anything not tied to some axis).
+    indexed by a pair of axes, and also (4) scalar data (anything not tied to some axis).
   - There is explicit control over 2D data layout (row or column major), and support for both dense and sparse matrices,
     both of which are crucial for performance.
 
@@ -31,5 +31,16 @@ include("messages.jl")
 
 include("storage.jl")
 @reexport using Daf.Storage
+
+include("oprec.jl")
+
+include("registry.jl")
+@reexport using Daf.Registry
+
+include("query.jl")
+@reexport using Daf.Query
+
+include("operations.jl")
+@reexport using Daf.Operations
 
 end # module

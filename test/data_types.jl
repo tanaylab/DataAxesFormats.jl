@@ -53,7 +53,7 @@ test_set("data_types") do
         require_storage_vector(sprand(4, 4, 0.5)[:, 1])
         require_storage_vector(sprand(4, 4, 0.5)[1, :])
         require_storage_vector(as_dense_or_fail(selectdim(rand(4, 4), Columns, 2)))
-        @test_throws "SubArray{Float64, 1, Matrix{Float64}, Tuple{Int64, Base.Slice{Base.OneTo{Int64}}}, true} " *
+        @test_throws "type: SubArray{Float64, 1, Matrix{Float64}, Tuple{Int64, Base.Slice{Base.OneTo{Int64}}}, true} " *
                      "is not a valid Daf.StorageVector" require_storage_vector(
             as_dense_if_possible(selectdim(rand(4, 4), Rows, 2)),
         )
@@ -63,23 +63,28 @@ test_set("data_types") do
     test_set("inefficient_action_policy") do
         inefficient_action_policy(nothing)
 
-        verify_efficient_action("test", rand(4, 4), Rows)
-        verify_efficient_action("test", rand(4, 4), Columns)
+        check_efficient_action("test", Rows, "input", rand(4, 4))
+        check_efficient_action("test", Columns, "input", rand(4, 4))
 
         inefficient_action_policy(WarnPolicy)
 
-        verify_efficient_action("test", rand(4, 4), Columns)
-        @test_logs (
-            :warn,
-            "action: test major axis: Rows is different from the matrix: Matrix{Float64} major axis: Columns",
-        ) verify_efficient_action("test", rand(4, 4), Rows)
+        check_efficient_action("test", Columns, "input", rand(4, 4))
+        @test_logs (:warn, dedent("""
+                               the major axis: Rows
+                               of the action: test
+                               is different from the major axis: Columns
+                               of the input matrix: Matrix{Float64}
+                           """)) check_efficient_action("test", Rows, "input", rand(4, 4))
 
         inefficient_action_policy(ErrorPolicy)
 
-        verify_efficient_action("test", rand(4, 4), Columns)
-        @test_throws "action: test major axis: Rows " *
-                     "is different from the matrix: Matrix{Float64} " *
-                     "major axis: Columns" verify_efficient_action("test", rand(4, 4), Rows)
+        check_efficient_action("test", Columns, "input", rand(4, 4))
+        @test_throws dedent("""
+            the major axis: Rows
+            of the action: test
+            is different from the major axis: Columns
+            of the input matrix: Matrix{Float64}
+        """) check_efficient_action("test", Rows, "input", rand(4, 4))
     end
 
     test_set("relayout!") do

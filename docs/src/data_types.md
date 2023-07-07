@@ -49,7 +49,7 @@ Daf.DataTypes.relayout!
 ```@docs
 Daf.DataTypes.InefficientActionPolicy
 Daf.DataTypes.inefficient_action_policy
-Daf.DataTypes.verify_efficient_action
+Daf.DataTypes.check_efficient_action
 ```
 
 ## Index

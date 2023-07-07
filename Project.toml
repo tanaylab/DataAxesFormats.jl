@@ -4,8 +4,11 @@ authors = ["Oren Ben-Kiki <oren@ben-kiki.org>"]
 version = "0.1.0"
 
 [deps]
+Accessors = "7d9f7c33-5ae7-4f3b-8dc6-eff91059b697"
 ArrayLayouts = "4c555306-a7a7-4459-81d9-ec55ddd5c99a"
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
+DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+URIs = "5c2747f8-b7ea-4ff2-ba2e-563bfd36b1d4"

@@ -1,6 +1,8 @@
 """
 Allow Julia to apply optimizations to dense arrays, even though their concrete type is not a `DenseArray`.
 
+This probably belongs in a separate package (or `Base`).
+
 Many Julia packages provide optimized code for `DenseArray`. However, due to the restrictions of Julia's simplistic type
 system, some operations return a type that is not a `DenseArray` even though it could be. For example, a `transpose` of
 a `DenseArray` _should_ logically be a `DenseArray`, but instead it is a `Transpose` which is _not_ a `DenseArray`. This
@@ -25,15 +27,18 @@ underlying array implementation. When in doubt, you can always wrap the result w
 
 The internal concrete `DenseView` type is not exposed; the idea is that all external code uses `DenseArray` as usual.
 Instead, we provide functions to wrap and/or convert any `AbstractArray` into a `DenseArray`.
+
+This probably belongs in a separate package (or `Base`).
 """
 module AsDense
-
-using LinearAlgebra
-using Base: @propagate_inbounds
 
 export as_dense_if_possible
 export as_dense_or_copy
 export as_dense_or_fail
+
+using LinearAlgebra
+
+import Base.@propagate_inbounds
 
 # The following is based on the internal `ReadOnly` implementation in the Julia standard library.
 
@@ -53,7 +58,7 @@ for method in [:iterate, :axes, :getindex, :setindex!, :size, :strides]
     @eval @propagate_inbounds @inline Base.$method(dv::DenseView, args...) = Base.$method(parent(dv), args...)
 end
 
-function Base.unsafe_convert(pointer::Type{Ptr{T}}, dv::DenseView) where {T}
+function Base.unsafe_convert(pointer::Type{Ptr{T}}, dv::DenseView)::Ptr{T} where {T}  # untested
     return Base.unsafe_convert(pointer, parent(dv))
 end
 
@@ -63,7 +68,7 @@ for method in [:IteratorSize, :IndexStyle]
     @eval @inline Base.$method(::Type{DenseView{T, N, P}}) where {T, N, P} = Base.$method(P)
 end
 
-@inline function Base.resize!(dv::DenseView, new_length)
+@inline function Base.resize!(dv::DenseView, new_length)::DenseView  # untested
     return new_length == length(parent(dv)) ? dv : error("can't resize $(typeof(dv))")
 end
 
@@ -79,24 +84,24 @@ Base.dataids(::DenseView) = tuple()
 
 # The rest is ours:
 
-@propagate_inbounds @inline function Base.view(dv::DenseView, indices::Integer...)::Any
-    return as_dense_if_possible(view(dv.parent, indices...))  # untested
+@propagate_inbounds @inline function Base.view(dv::DenseView, indices::Integer...)::Any  # untested
+    return as_dense_if_possible(view(dv.parent, indices...))
 end
 
-@inline function Base.similar(dv::DenseView, dimensions::Integer...)::Any
-    return as_dense_if_possible(similar(dv.parent, dimensions...))  # untested
+@inline function Base.similar(dv::DenseView, dimensions::Integer...)::Any  # untested
+    return as_dense_if_possible(similar(dv.parent, dimensions...))
 end
 
-@inline function Base.similar(dv::DenseView, type::Type, dimensions::Integer...)::Any
-    return as_dense_if_possible(similar(dv.parent, type, dimensions...))  # untested
+@inline function Base.similar(dv::DenseView, type::Type, dimensions::Integer...)::Any  # untested
+    return as_dense_if_possible(similar(dv.parent, type, dimensions...))
 end
 
-@inline function Base.reshape(dv::DenseView, dimensions::Integer...)::Any
-    return as_dense_if_possible(reshape(dv.parent, dimensions...))  # untested
+@inline function Base.reshape(dv::DenseView, dimensions::Integer...)::Any  # untested
+    return as_dense_if_possible(reshape(dv.parent, dimensions...))
 end
 
-@inline function LinearAlgebra.transpose(dv::DenseView)::Any
-    return as_dense_if_possible(transpose(dv.parent))  # untested
+@inline function LinearAlgebra.transpose(dv::DenseView)::Any  # untested
+    return as_dense_if_possible(transpose(dv.parent))
 end
 
 """
@@ -121,7 +126,7 @@ function as_dense_if_possible(vector::AbstractVector{T})::AbstractVector{T} wher
 
         return vector
 
-    catch MethodError  # only seems untested
+    catch MethodError
         return vector  # untested
     end
 end
@@ -136,13 +141,13 @@ function as_dense_if_possible(matrix::AbstractMatrix{T})::AbstractMatrix{T} wher
         matrix_sizes = size(matrix)
 
         if (matrix_strides[1] == 1 && matrix_strides[2] == matrix_sizes[1]) ||
-           (matrix_strides[1] == matrix_sizes[2] && matrix_strides[2] == 1)  # only seems untested
+           (matrix_strides[1] == matrix_sizes[2] && matrix_strides[2] == 1)
             return DenseView(matrix)
         end
 
         return matrix
 
-    catch MethodError  # only seems untested
+    catch MethodError
         return matrix
     end
 end

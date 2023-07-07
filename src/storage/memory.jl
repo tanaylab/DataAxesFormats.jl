@@ -184,7 +184,7 @@ function Storage.unsafe_set_matrix!(
         storage.matrices[rows_axis][columns_axis][name] = matrix
     else
         storage.matrices[rows_axis][columns_axis][name] =
-            fill(matrix, unsafe_axis_length(storage, rows_axis), unsafe_axis_length(storage, columns_axis))  # only seems untested
+            fill(matrix, unsafe_axis_length(storage, rows_axis), unsafe_axis_length(storage, columns_axis))
     end
 
     return nothing
