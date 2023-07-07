@@ -20,10 +20,12 @@ end
 #    return nothing
 #end
 
-include("data_types.jl")
 include("as_dense.jl")
+include("matrix_layouts.jl")
+include("data_types.jl")
 include("messages.jl")
+include("storage.jl")
 include("oprec.jl")
 include("registry.jl")
 include("query.jl")
-include("storage.jl")
+#include("operations.jl")

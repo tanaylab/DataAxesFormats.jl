@@ -8,9 +8,10 @@ vector and matrix data based on these axes.
 Data is identified by its unique name given the axes it is based on. That is, there is a separate namespace for scalar,
 vectors for each specific axis, and matrices for each specific pair of axes.
 
-For matrices, we keep careful track of their layout, that is, which axis is "major" and which is "minor". A storage will
-only list matrix data under the axis order that describes its layout. In theory a storage may hold two copies of the
-same matrix in both possible memory layouts, in which case it will be listed twice, under both axes orders.
+For matrices, we keep careful track of their [`MatrixLayouts`](@ref). A storage will only list matrix data under the
+axis order that describes its layout (that is, storage formats only deal with column-major matrices). In theory a
+storage may hold two copies of the same matrix in both possible memory layouts, in which case it will be listed twice,
+under both axes orders.
 
 In general, storage objects are as "dumb" as possible, to make it easier to create new storage format adapters. That is,
 storage objects are just glorified key-value repositories, with the absolutely minimal necessary logic to deal with the
@@ -74,11 +75,24 @@ export unsafe_vector_names
 export vector_names
 
 using Daf.DataTypes
+using Daf.MatrixLayouts
 using Daf.Messages
 using SparseArrays
 
+import Daf.DataTypes.require_storage_matrix
+import Daf.DataTypes.require_storage_vector
+
 """
 An abstract interface for all `Daf` storage formats.
+
+We require each storage to have a human-readable `.name::String` property for error messages and the like. This name
+should be unique, using [`unique_name`](@ref).
+
+To implement a new concrete storage format adapter, you will need to provide a `.name::String` property, and the
+[`is_frozen`](@ref), [`freeze`](@ref), [`unfreeze`](@ref), [`has_scalar`](@ref) and [`has_axis`](@ref) functions listed
+below. In addition, you will need to implement the "unsafe" variant of the rest of the functions, which are listed in
+[`Concrete storage`] below. This implementation can ignore most error conditions because the "safe" version of the
+functions performs most validations first, before calling the "unsafe" variant.
 """
 abstract type AbstractStorage end
 
@@ -86,6 +100,11 @@ abstract type AbstractStorage end
     is_frozen(storage::AbstractStorage)::Bool
 
 Whether the storage supports only read-only access.
+
+If a storage is frozen, this prevents calling any of the `add_...!`, `set_...!` and `delete_...!` functions. It also
+tries to prevent, as much as Julia allows, modifications to the vectors and matrices returned from the storage.
+Otherwise, in-place modifications will be reflected in the storage (since all formats are either in-memory or
+memory-mapped).
 """
 function is_frozen(storage::AbstractStorage)::Bool  # untested
     return error("missing method: is_frozen\nfor storage type: $(typeof(storage))")
@@ -471,7 +490,8 @@ function set_vector!(
     require_unfrozen(storage)
     require_axis(storage, axis)
 
-    if vector isa StorageVector
+    if vector isa AbstractVector
+        require_storage_vector(vector)
         require_axis_length(storage, "vector length", length(vector), axis)
     end
 
@@ -732,7 +752,8 @@ function get_vector(
 )::StorageVector
     require_axis(storage, axis)
 
-    if default isa StorageVector
+    if default isa AbstractVector
+        require_storage_vector(default)
         require_axis_length(storage, "default length", length(default), axis)
     end
 
@@ -867,6 +888,7 @@ function set_matrix!(
 
     if matrix isa StorageMatrix
         require_storage_matrix(matrix)
+        require_column_major(matrix)
         require_axis_length(storage, "matrix rows", size(matrix, Rows), rows_axis)
         require_axis_length(storage, "matrix columns", size(matrix, Columns), columns_axis)
     end
@@ -1199,6 +1221,7 @@ function get_matrix(
 
     if default isa StorageMatrix
         require_storage_matrix(default)
+        require_column_major(default)
         require_axis_length(storage, "default rows", size(default, Rows), rows_axis)
         require_axis_length(storage, "default columns", size(default, Columns), columns_axis)
     end
@@ -1214,7 +1237,7 @@ function get_matrix(
     end
 
     matrix = unsafe_get_matrix(storage, rows_axis, columns_axis, name)
-    if !is_storage_matrix(matrix)
+    if !(matrix isa StorageMatrix)
         error( # untested
             "unsafe_get_matrix for: $(typeof(storage))\n" * "returned invalid Daf storage matrix: $(typeof(matrix))",
         )
@@ -1269,6 +1292,12 @@ function unsafe_get_matrix(  # untested
     name::String,
 )::StorageMatrix
     return error("missing method: unsafe_get_matrix\nfor storage type: $(typeof(storage))")
+end
+
+function require_column_major(matrix::StorageMatrix)::Nothing
+    if major_axis(matrix) != Columns
+        error("type: $(typeof(matrix)) is not in column-major layout")
+    end
 end
 
 function require_axis_length(storage::AbstractStorage, what_name::String, what_length::Integer, axis::String)::Nothing

@@ -9,6 +9,7 @@ export unique_name
 
 using Daf.AsDense
 using Daf.DataTypes
+using Daf.MatrixLayouts
 using Distributed
 using LinearAlgebra
 using SparseArrays

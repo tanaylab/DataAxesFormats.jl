@@ -1,4 +1,4 @@
-# Operator Precedence Parser
+# Operator precedence parser
 
 ```@docs
 Daf.Oprec

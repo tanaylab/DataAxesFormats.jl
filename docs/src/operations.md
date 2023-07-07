@@ -1,4 +1,4 @@
-# Query Operations
+# Query operations
 
 ```@docs
 Daf.Operations

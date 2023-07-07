@@ -1,7 +1,5 @@
 """
-Allow Julia to apply optimizations to dense arrays, even though their concrete type is not a `DenseArray`.
-
-This probably belongs in a separate package (or `Base`).
+Allow Julia to apply optimizations to dense arrays, even though their concrete type does not derive from `DenseArray`.
 
 Many Julia packages provide optimized code for `DenseArray`. However, due to the restrictions of Julia's simplistic type
 system, some operations return a type that is not a `DenseArray` even though it could be. For example, a `transpose` of
@@ -13,17 +11,17 @@ This is unfortunate because Julia is supposed to allow us to achieve high perfor
 significant performance boots in many cases. While all(most) Julia code which is optimized for `DenseArray` also
 recognizes its `Transpose`, so this specific case does not harm efficiency. However, this general type system weakness
 also applies to lesser known types, for example `PyArray` which is an efficient zero-copy wrapper for `numpy` arrays
-(when invoking Julia from Python code, for example in order to use `Daf`). This means that even for the very common case
-where the `numpy` array is actually dense, some (many) optimizations will not kick in for it, resulting in a significant
-performance loss.
+(when invoking Julia from Python code). This means that even for the very common case where the `numpy` array is
+actually dense, some (many) optimizations will not kick in for it, resulting in a significant performance loss.
 
 To deal with such cases, this module implements `DenseView` which is a thin zero-copy wrapper around any array that is
 "really" dense. Since `DenseView` _is_ a `DenseArray`, this allows all relevant optimizations to be applied to it
 Something like this really should have been in a different package, possibly even part of `Base`.
 
 The `DenseView` tries to be "sticky", in that "simple" operations (transposing, viewing or reshaping) will result with a
-dense array if possible. For more complex operations (`map`, `adjoint`, etc.) you are left at the tender mercies of the
-underlying array implementation. When in doubt, you can always wrap the result with [`as_dense_if_possible`](@ref).
+dense array if possible. For more complex operations (`map`, `adjoint`, etc.) you are left to the tender mercies of the
+underlying array implementation. When in doubt, you can always wrap the result of an operation with another
+[`as_dense_if_possible`](@ref).
 
 The internal concrete `DenseView` type is not exposed; the idea is that all external code uses `DenseArray` as usual.
 Instead, we provide functions to wrap and/or convert any `AbstractArray` into a `DenseArray`.
@@ -171,8 +169,8 @@ function as_dense_or_copy(array::AbstractArray{T, N})::DenseArray{T, N} where {T
 end
 
 """
-    function as_dense_or_copy(vector::AbstractVector{T})::DenseVector{T} where {T}
-    function as_dense_or_copy(matrix::AbstractMatrix{T})::DenseMatrix{T} where {T}
+    function as_dense_or_fail(vector::AbstractVector{T})::DenseVector{T} where {T}
+    function as_dense_or_fail(matrix::AbstractMatrix{T})::DenseMatrix{T} where {T}
 
 Given any `vector` or `matrix`, return a zero-copy `DenseVector` or `DenseMatrix` wrapper
 for it if possible, otherwise fail with an `error`.

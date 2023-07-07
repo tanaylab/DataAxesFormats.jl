@@ -1,4 +1,4 @@
-# Operations Registry
+# Operations registry
 
 ```@docs
 Daf.Registry
