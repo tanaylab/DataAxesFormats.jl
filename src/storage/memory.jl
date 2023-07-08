@@ -13,8 +13,6 @@ This is the "default" storage type you should use, unless you need to persist th
 struct MemoryStorage <: AbstractStorage
     name::String
 
-    is_frozen::Array{Bool, 1}
-
     scalars::Dict{String, StorageScalar}
 
     axes::Dict{String, DenseVector{String}}
@@ -28,22 +26,8 @@ struct MemoryStorage <: AbstractStorage
         axes = Dict{String, DenseVector{String}}()
         vectors = Dict{String, Dict{String, StorageVector{String}}}()
         matrices = Dict{String, Dict{String, Dict{String, StorageVector{String}}}}()
-        return new(unique_name(name), [false], scalars, axes, vectors, matrices)
+        return new(unique_name(name), scalars, axes, vectors, matrices)
     end
-end
-
-function Storage.is_frozen(storage::MemoryStorage)::Bool
-    return storage.is_frozen[1]
-end
-
-function Storage.freeze(storage::MemoryStorage)::Nothing
-    storage.is_frozen[1] = true
-    return nothing
-end
-
-function Storage.unfreeze(storage::MemoryStorage)::Nothing
-    storage.is_frozen[1] = false
-    return nothing
 end
 
 function Storage.has_scalar(storage::MemoryStorage, name::String)::Bool

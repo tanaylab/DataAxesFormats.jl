@@ -10,14 +10,6 @@ Daf.Storage
 Daf.Storage.AbstractStorage
 ```
 
-## Freezing storage
-
-```@docs
-Daf.Storage.is_frozen
-Daf.Storage.freeze
-Daf.Storage.unfreeze
-```
-
 ## Scalar properties
 
 ```@docs

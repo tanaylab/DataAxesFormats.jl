@@ -27,7 +27,6 @@ export empty_dense_matrix!
 export empty_dense_vector!
 export empty_sparse_matrix!
 export empty_sparse_vector!
-export freeze
 export get_axis
 export get_matrix
 export get_scalar
@@ -36,13 +35,11 @@ export has_axis
 export has_matrix
 export has_scalar
 export has_vector
-export is_frozen
 export matrix_names
 export scalar_names
 export set_matrix!
 export set_scalar!
 export set_vector!
-export unfreeze
 export unsafe_add_axis!
 export unsafe_axis_length
 export unsafe_delete_axis!
@@ -81,10 +78,10 @@ We require each storage to have a human-readable `.name::String` property for er
 should be unique, using [`unique_name`](@ref).
 
 To implement a new concrete storage format adapter, you will need to provide a `.name::String` property, and the
-[`is_frozen`](@ref), [`freeze`](@ref), [`unfreeze`](@ref), [`has_scalar`](@ref) and [`has_axis`](@ref) functions listed
-below. In addition, you will need to implement the "unsafe" variant of the rest of the functions, which are listed in
-[`Concrete storage`] below. This implementation can ignore most error conditions because the "safe" version of the
-functions performs most validations first, before calling the "unsafe" variant.
+[`has_scalar`](@ref) and [`has_axis`](@ref) functions listed below. In addition, you will need to implement the "unsafe"
+variant of the rest of the functions, which are listed in [`Concrete storage`] below. This implementation can ignore
+most error conditions because the "safe" version of the functions performs most validations first, before calling the
+"unsafe" variant.
 
 In general, storage functionality is as "dumb" as possible, to make it easier to create new storage format adapters.
 That is, the required functions implement a glorified key-value repositories, with the absolutely minimal necessary
@@ -92,44 +89,6 @@ logic to deal with the separate namespaces listed above. Most of this logic is c
 contained in the base functions so the concrete storage format adapters are even simpler.
 """
 abstract type AbstractStorage end
-
-"""
-    is_frozen(storage::AbstractStorage)::Bool
-
-Whether the storage supports only read-only access.
-
-If a storage is frozen, this prevents calling any of the `add_...!`, `set_...!` and `delete_...!` functions. It also
-tries to prevent, as much as Julia allows, modifications to the vectors and matrices returned from the storage.
-Otherwise, in-place modifications will be reflected in the storage (since all formats are either in-memory or
-memory-mapped).
-"""
-function is_frozen(storage::AbstractStorage)::Bool  # untested
-    return error("missing method: is_frozen\nfor storage type: $(typeof(storage))")
-end
-
-"""
-    freeze(storage::AbstractStorage)::Nothing
-
-Prevent modifications of the storage.
-"""
-function freeze(storage::AbstractStorage)::Nothing  # untested
-    return error("missing method: freeze\nfor storage type: $(typeof(storage))")
-end
-
-"""
-    unfreeze(storage::AbstractStorage)::Nothing
-
-Allow modifications of the storage.
-"""
-function unfreeze(storage::AbstractStorage)::Nothing  # untested
-    return error("missing method: unfreeze\nfor storage type: $(typeof(storage))")
-end
-
-function require_unfrozen(storage::AbstractStorage)::Nothing
-    if is_frozen(storage)
-        error("frozen storage: $(storage.name)")
-    end
-end
 
 """
     has_scalar(storage::AbstractStorage, name::String)::Bool
@@ -151,12 +110,8 @@ end
 Set the `value` of a scalar property with some `name` in the `storage`.
 
 If `overwrite` is `false` (the default), this first verifies the `name` scalar property does not exist.
-
-This will cause an error if the `storage` [`is_frozen`](@ref).
 """
 function set_scalar!(storage::AbstractStorage, name::String, value::StorageScalar; overwrite::Bool = false)::Nothing
-    require_unfrozen(storage)
-
     if !overwrite
         require_no_scalar(storage, name)
     end
@@ -192,8 +147,6 @@ Delete a scalar property with some `name` from the `storage`.
 If `must_exist` is `true` (the default), this first verifies the `name` scalar property exists in the `storage`.
 """
 function delete_scalar!(storage::AbstractStorage, name::String; must_exist::Bool = true)::Nothing
-    require_unfrozen(storage)
-
     if must_exist
         require_scalar(storage, name)
     elseif !has_scalar(storage, name)
@@ -291,7 +244,6 @@ Add a new `axis` to the `storage`.
 This first verifies the `axis` does not exist and that the `entries` are unique.
 """
 function add_axis!(storage::AbstractStorage, axis::String, entries::DenseVector{String})::Nothing
-    require_unfrozen(storage)
     require_no_axis(storage, axis)
 
     if !allunique(entries)
@@ -329,8 +281,6 @@ Delete an `axis` from the `storage`. This will also delete any vector or matrix 
 If `must_exist` is `true` (the default), this first verifies the `axis` exists in the `storage`.
 """
 function delete_axis!(storage::AbstractStorage, axis::String; must_exist::Bool = true)::Nothing
-    require_unfrozen(storage)
-
     if must_exist
         require_axis(storage, axis)
     elseif !has_axis(storage, axis)
@@ -476,8 +426,6 @@ If the `vector` specified is actually a [`StorageScalar`](@ref), the stored vect
 This first verifies the `axis` exists in the `storage`, that the property name isn't `name`, and that the `vector` has
 the appropriate length. If `overwrite` is `false` (the default), this also verifies the `name` vector does not exist for
 the `axis`.
-
-This will cause an error if the `storage` [`is_frozen`](@ref).
 """
 function set_vector!(
     storage::AbstractStorage,
@@ -487,7 +435,6 @@ function set_vector!(
     overwrite::Bool = false,
 )::Nothing
     require_not_name(storage, axis, name)
-    require_unfrozen(storage)
     require_axis(storage, axis)
 
     if vector isa AbstractVector
@@ -544,8 +491,6 @@ mapping). For this reason, this does not work for strings, as they do not have a
 
 This first verifies the `axis` exists in the `storage` and that the property name isn't `name`. If `overwrite` is
 `false` (the default), this also verifies the `name` vector does not exist for the `axis`.
-
-This will cause an error if the `storage` [`is_frozen`](@ref).
 """
 function empty_dense_vector!(
     storage::AbstractStorage,
@@ -555,7 +500,6 @@ function empty_dense_vector!(
     overwrite::Bool = false,
 )::DenseVector{T} where {T <: Number}
     require_not_name(storage, axis, name)
-    require_unfrozen(storage)
     require_axis(storage, axis)
 
     if !overwrite
@@ -621,8 +565,6 @@ allows doing so directly into the storage vector, avoiding a copy in case of mem
 
 This first verifies the `axis` exists in the `storage` and that the property name isn't `name`. If `overwrite` is
 `false` (the default), this also verifies the `name` vector does not exist for the `axis`.
-
-This will cause an error if the `storage` [`is_frozen`](@ref).
 """
 function empty_sparse_vector!(
     storage::AbstractStorage,
@@ -634,7 +576,6 @@ function empty_sparse_vector!(
     overwrite::Bool = false,
 )::SparseVector{T, I} where {T <: Number, I <: Integer}
     require_not_name(storage, axis, name)
-    require_unfrozen(storage)
     require_axis(storage, axis)
 
     if !overwrite
@@ -686,7 +627,6 @@ This first verifies the `axis` exists in the `storage` and that the property nam
 """
 function delete_vector!(storage::AbstractStorage, axis::String, name::String; must_exist::Bool = true)::Nothing
     require_not_name(storage, axis, name)
-    require_unfrozen(storage)
     require_axis(storage, axis)
 
     if must_exist
@@ -882,8 +822,6 @@ If the `matrix` specified is actually a [`StorageScalar`](@ref), the stored matr
 This first verifies the `rows_axis` and `columns_axis` exist in the `storage`, that the `matrix` is column-major of the
 appropriate size. If `overwrite` is `false` (the default), this also verifies the `name` matrix does not exist for the
 `rows_axis` and `columns_axis`.
-
-This will cause an error if the `storage` [`is_frozen`](@ref).
 """
 function set_matrix!(
     storage::AbstractStorage,
@@ -893,7 +831,6 @@ function set_matrix!(
     matrix::Union{StorageScalar, StorageMatrix};
     overwrite::Bool = false,
 )::Nothing
-    require_unfrozen(storage)
     require_axis(storage, rows_axis)
     require_axis(storage, columns_axis)
 
@@ -959,8 +896,6 @@ mapping). For this reason, this does not work for strings, as they do not have a
 This first verifies the `rows_axis` and `columns_axis` exist in the `storage`, that the `matrix` is column-major of the
 appropriate size. If `overwrite` is `false` (the default), this also verifies the `name` matrix does not exist for the
 `rows_axis` and `columns_axis`.
-
-This will cause an error if the `storage` [`is_frozen`](@ref).
 """
 function empty_dense_matrix!(
     storage::AbstractStorage,
@@ -970,7 +905,6 @@ function empty_dense_matrix!(
     eltype::Type{T};
     overwrite::Bool = false,
 )::DenseMatrix{T} where {T <: Number}
-    require_unfrozen(storage)
     require_axis(storage, rows_axis)
     require_axis(storage, columns_axis)
 
@@ -1039,8 +973,6 @@ allows doing so directly into the storage matrix, avoiding a copy in case of mem
 
 This first verifies the `rows_axis` and `columns_axis` exist in the `storage`. If `overwrite` is `false` (the default),
 this also verifies the `name` matrix does not exist for the `rows_axis` and `columns_axis`.
-
-This will cause an error if the `storage` [`is_frozen`](@ref).
 """
 function empty_sparse_matrix!(
     storage::AbstractStorage,
@@ -1052,7 +984,6 @@ function empty_sparse_matrix!(
     indtype::Type{I};
     overwrite::Bool = false,
 )::SparseMatrixCSC{T, I} where {T <: Number, I <: Integer}
-    require_unfrozen(storage)
     require_axis(storage, rows_axis)
     require_axis(storage, columns_axis)
 
@@ -1112,7 +1043,6 @@ function delete_matrix!(
     name::String;
     must_exist::Bool = true,
 )::Nothing
-    require_unfrozen(storage)
     require_axis(storage, rows_axis)
     require_axis(storage, columns_axis)
 

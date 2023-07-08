@@ -16,13 +16,6 @@ function test_storage_scalar(storage::AbstractStorage)::Nothing
     """) delete_scalar!(storage, "version")
     delete_scalar!(storage, "version"; must_exist = false)
 
-    @test !is_frozen(storage)
-    freeze(storage)
-    @test is_frozen(storage)
-    @test_throws "frozen storage: $(name)" delete_scalar!(storage, "version")
-    unfreeze(storage)
-    @test !is_frozen(storage)
-
     set_scalar!(storage, "version", "1.2")
     @test_throws dedent("""
         existing scalar: version

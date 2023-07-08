@@ -28,11 +28,6 @@ The following issues are not addressed:
   - `embed_sparse_vector!`
   - `embed_sparse_matrix!`
 
-## Safety
-
-  - Use Julia's internal `ReadOnly` and `FixedSparseCSC` and `FixedSparseVector`.
-  - Split `AbstractStorage` to `Reader` and `Writer`?
-
 ## Documentation
 
   - Add examples and doctests (especially for queries)
@@ -43,4 +38,3 @@ The following issues are not addressed:
 ## Misc
 
   - @everywhere for registries
-  - "Description" metadata per axis / property / storage ?
