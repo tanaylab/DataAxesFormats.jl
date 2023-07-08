@@ -1,22 +1,30 @@
 """
-As of writing this code, Julia doesn't seem to have a robust parser generator solution. Therefore, this module provides
-a simple operator precedence based parser library to use for parsing `Daf` queries.
+You can safely skip this module if you are only using `Daf`. It is an internal module which is only of interest for
+maintainers. Some of the types here are also used when implementing additional query element-wise or reduction
+operations. In particular, this isn't reexported by default when `using Daf`.
 
-Operator-precedence based parsers are very simple. You define a set of patterns for tokens, which we use to tokenize the
-input. Some tokens are operators, with precedence; we construct and return an expression tree based on these.
+Ideally `Daf` should have used some established parser generator module for parsing queries, making this unnecessary.
+However, As of writing this code, Julia doesn't seem to have such a parser generator solution. Therefore, this module
+provides a simple operator precedence based parser generator. The upside is that we can tailor this to our needs (in
+particular, provide tailored error messages when parsing fails).
 
-It turns out that this approach allows describing a wide range of languages, including languages which one wouldn't
-intuitively think of as "expressions", all the way up to a full programming language. That said, the implementation here
-is tailored to parsing `Daf` queries, and is not general enough to be a package on its own.
+Operator-precedence based parsers are simple to define and implement. A set of `Regex` patterns are used for converting
+the input string into [`Token`](@ref)s. Some tokens are [`Operator`](@ref)s, which have [`Associativity`](@ref) and
+precedence. We therefore build an [`Expression`](@ref) tree from the tokens, and then "parse" it into something more
+convenient to work with.
+
+This is pretty intuitive when thinking about something like arithmetic expressions `1 + 2 * 3`. However, it turns out
+that this approach allows for parsing a wide range of languages, including languages which one wouldn't immediately
+think of as "expressions", all the way up to full programming languages.
+
+That said, the implementation here is tailored for parsing `Daf` queries, and is not general enough to be a package on
+its own.
 
 Specifically, we assume that `_[0-9A-F][0-9A-F]` can't appear inside an operator, which is mostly reasonable; that `\\x`
 is used to escape "special" characters to allow them in "normal" tokens, which isn't typically true in most languages;
-and we don't support postfix operators (e.g., `;` in C), we assume all operators are infix (e.g., `*` in arithmetic),
-but some can also be prefix (e.g., `-` in arithmetic); there's no support for parenthesis; and we assume the parsed
+we don't support postfix operators (e.g., `;` in C), we assume all operators are infix (e.g., `*` in arithmetic), but
+some can also be prefix (e.g., `-` in arithmetic); there's no support for parenthesis; and we assume the parsed
 expressions are "small" (can be squashed into a single line) for the purpose of creating friendly error messages.
-
-For now, this isn't even reexported by default when `using Daf`. It is still documented to provide some insight on how
-`Daf` query parsing works.
 """
 module Oprec
 
@@ -30,7 +38,7 @@ export Expression
 export LeftAssociative
 export Operation
 export Operator
-export parse_encoded_expression
+export build_encoded_expression
 export parse_in_context
 export parse_list_in_context
 export parse_operand_in_context
@@ -80,93 +88,76 @@ For infix operators, how to group a sequence of operators.
 @enum Associativity LeftAssociative RightAssociative
 
 """
+    struct Operator{E}
+        id::E
+        is_prefix::Bool
+        associativity::Associativity
+        precedence::Int
+    end
+
 Describe an operator token.
 
-The implementation is restricted to operators which are either infix (e.g., `+` in arithmetic expressions), prefix
-(e.g., `!` in boolean expressions), or both (e.g., `-` in arithmetic expressions).
+We attach an arbitrary `id` to the operators, which is typically used to carry some `@enum` to identify it for parsing
+the expression tree.
 
-Higher precedence operators (e.g., `*` in arithmetic expressions) will bind more strongly than lower precedence
+The implementation is restricted to operators which are always infix (e.g., `+` in arithmetic expressions). Some
+operators can also be `is_prefix` (e.g., `-` in arithmetic expressions).
+
+Higher `precedence` operators (e.g., `*` in arithmetic expressions) will bind more strongly than lower precedence
 operators (e.g., `+` in arithmetic expressions). That is, `a + b * c` will be parsed as `a + (b * c)`.
-
-We allow attaching an arbitrary `id` to the operators, which is typically used to carry some `@enum` to identify it.
 """
 struct Operator{E}
-    """
-    Identify the operator for post-processing. This typically carries some `@enum` value.
-    """
     id::E
-
-    """
-    Whether the operator can be used as a prefix, e.g., `-` in arithmetic expressions.
-    """
     is_prefix::Bool
-
-    """
-    If the operator can be used as an infix, e.g., `*` in arithmetic expressions, how to group a sequence of operators
-    (of the same precedence).
-    """
     associativity::Associativity
-
-    """
-    How strongly does the operator bind to its operand, e.g., in arithmetic expressions, `*` binds more strongly than
-    `+`.
-    """
     precedence::Int
 end
 
 """
-A parsed token of the expression.
+    struct Token{E}
+        first_index::Int
+        last_index::Int
+        string::String
+        operator::Union{Operator{E}, Nothing}
+    end
 
-This contains the location in the (encoded) expression string to facilitate generating friendly error messages. Ideally
-such locations should include line numbers but in `Daf` we squash our queries to a single-line, under the assumption
-they are "relatively simple". This allows us to simplify the code.
+A parsed token of the expression (leaf node in an [`Expression`](@ref) tree).
 
-The indices and the string all refer to the `encode_expression`.
+This contains the location (`first_index` .. `last_index`) in the (encoded) expression string to enable generating
+friendly error messages. There are no line numbers in locations because in `Daf` we squash our queries to a single-line,
+under the assumption they are "relatively simple". This allows us to simplify the code.
+
+We also hold the (decoded!) `string` of the token. If the token is an [`Operator`](@ref), we also provide its
+description.
 """
 struct Token{E}
-    """
-    Index of first [`encode_expression`](@ref) character of token.
-    """
     first_index::Int
-
-    """
-    Index of last [`encode_expression`](@ref) character of token.
-    """
     last_index::Int
-
-    """
-    The original (**not** [`encode_expression`](@ref)) string of the token.
-    """
     string::String
-
-    """
-    If the token is an [`Operator`](@ref), its description.
-    """
     operator::Union{Operator{E}, Nothing}
 end
 
 """
-An operation in an expression tree.
+    struct Operation{E}
+        left::Union{Operation{E}, Token{E}, Nothing}
+        token::Token{E}
+        right::Union{Operation{E}, Token{E}}
+    end
+
+An operation (node in an [`Expression`](@ref) tree).
+
+The `token` describes the [`Operator`](@ref). There's always a `right` sub-tree, but for prefix operators, the `left`
+sub-tree is `nothing`.
 """
 struct Operation{E}
-    """
-    The left operand of the [`Operator`](@ref), if it is an infix operator. This can be a sub-[`Expression`](@ref) or an
-    operand [`Token`](@ref).
-    """
     left::Union{Operation{E}, Token{E}, Nothing}
-
-    """
-    The [`Token`](@ref) of the operator.
-    """
     token::Token{E}
-
-    """
-    The right operand of the [`Operator`](@ref). This can be a sub-[`Expression`](@ref) or an operand [`Token`](@ref).
-    """
     right::Union{Operation{E}, Token{E}}
 end
 
 """
+    Expression{E} = Union{Operation{E}, Token{E}}
+
 An expression tree - either an [`Operation`](@ref) or an operand ([`Token`](@ref)).
 """
 const Expression{E} = Union{Operation{E}, Token{E}}
@@ -184,33 +175,25 @@ function as_string(operation::Operation{E})::String where {E}
 end
 
 """
+    struct Syntax{E}
+        space_regex::Regex
+        operand_regex::Regex
+        operator_regex::Regex
+        operators::Dict{String, Operator{E}}
+    end
+
 Describe the syntax to parse using the patterns for tokens.
 
-When tokenizing, we try matching the `space_regex` first, then the `operand_regex`, and only then the `operator_regex`.
+When tokenizing, we try matching the `space_regex` first. Anything that matches is considered to be white space and
+discarded. We then try to match the `operand_regex`. Anything that matches is considered to be an operand
+[`Token`](@ref). Otherwise, we try to match the `operator_regex`, and look up the result in the `operators` dictionary
+to obtain an [`Operator`](@ref) [`Token`](@ref). Anything that doesn't match (or that doesn't exist in the `operators`)
+is reported as an invalid character.
 """
 struct Syntax{E}
-    """
-    A regular expression that matches any white space used to (optionally) separate between [`Token`](@ref). It must
-    only match at the start of the string and not match an empty string, e.g., `^\\s+`. Anything that matches is
-    silently discarded.
-    """
     space_regex::Regex
-
-    """
-    A regular expression that matches an operand [`Token`](@ref). It must only match at the start of the string and not
-    match an empty string, e.g., `^\\d+`.
-    """
     operand_regex::Regex
-
-    """
-    A regular expression that matches any of the `operators`. It must only match at the start of the string and not
-    match an empty string. If what it matches doesn't appear in the `operators` dictionary, we ignore the match.
-    """
     operator_regex::Regex
-
-    """
-    The description of the allowed operators.
-    """
     operators::Dict{String, Operator{E}}
 end
 
@@ -417,11 +400,14 @@ function error_at_token(
 end
 
 """
-Parse an expression string into a sequence of [`Token`](@ref)s and organize them into an [`Expression`](@ref) tree.
+    build_encoded_expression(
+        encoded_string::AbstractString,
+        syntax::Syntax{E},
+    )::Union{Expression{E}, Nothing} where {E}
 
-This assumes the string went through [`encode_expression`](@ref).
+Build an [`Expression`](@ref) tree from an `encoded_string` (that went through [`encode_expression`](@ref)).
 """
-function parse_encoded_expression(
+function build_encoded_expression(
     encoded_string::AbstractString,
     syntax::Syntax{E},
 )::Union{Expression{E}, Nothing} where {E}
@@ -458,11 +444,13 @@ function Context(encoded_string::AbstractString, operators::Type)::Context
 end
 
 """
+    error_in_context(context::Context{E}, message::AbstractString)::Nothing where {E}
+
 Report a parsing error in some [`Context`](@ref).
 
 This provides location markers for the nested [`Context`](@ref) that led us to the point where the error occurred. It
 only works for small (one-line) inputs, where there's little or no recursion in the parsing. Therefore, it is a good fit
-for `Daf` queries, but not for more general parsed languages.
+for `Daf` queries, but not for a more general parsed languages.
 """
 function error_in_context(context::Context{E}, message::AbstractString)::Nothing where {E}
     located_names = [
@@ -485,8 +473,16 @@ function error_in_context(context::Context{E}, message::AbstractString)::Nothing
 end
 
 """
+    parse_in_context(
+        parse::Union{Function, Type},
+        context::Context{E},
+        expression::Expression{E};
+        name::AbstractString,
+        operators::Vector{E} = E[],
+    )::Any where {E}
+
 Parse a node of an [`Expression`](@ref), using it as the [`Context`](@ref) when parsing any sub-expression. That is,
-push the top-level `expression` into the context, invoke the `parse` function, and pop the `expression` from the
+push the top-level `expression` into the context, invoke the `parse()` function, and pop the `expression` from the
 context. Will return the results of the `parse` function.
 """
 function parse_in_context(
@@ -597,11 +593,18 @@ function expression_last_index(encoded_string::AbstractString, operation::Operat
 end
 
 """
+    parse_operand_in_context(
+        parse::Union{Function, Type},
+        context::Context{E},
+        expression::Expression{E};
+        name::AbstractString,
+    )::Any where {E}
+
 Parse an operand in an [`Expression`](@ref) in some [`Context`](@ref).
 
-Passes the `parse` function the [`Token`](@ref) of the operand, and returns whatever the result it.
+If the `expression` is not an operand [`Token`], report an [`error_in_context`](@ref), using the `name`.
 
-If the `expression` is not an operand (simple [`Token`]), report an [`error_in_context`](@ref).
+Otherwise, give the `parse` function the operand [`Token`](@ref), and returns whatever the result it.
 """
 function parse_operand_in_context(
     parse::Union{Function, Type},
@@ -619,9 +622,15 @@ function parse_operand_in_context(
 end
 
 """
-Parse a string operand in an [`Expression`](@ref) in some [`Context`](@ref).
+    parse_string_in_context(
+        context::Context{E},
+        expression::Expression{E};
+        name::AbstractString,
+    )::AbstractString where {E}
 
-If the `expression` is not an operand (simple [`Token`]), report an [`error_in_context`](@ref).
+If the `expression` is not an operand [`Token`], report an [`error_in_context`](@ref), using the `name`.
+
+Otherwise, return the string of the operand [`Token`](@ref).
 """
 function parse_string_in_context(
     context::Context{E},
@@ -632,8 +641,13 @@ function parse_string_in_context(
 end
 
 """
-Check whether a (sub-)[`Expression`](@ref) is an [`Operation`](@ref) using one of the specified operators. If so, return
-the operator's [`Token`](@ref); otherwise, return `nothing`.
+    check_operation(
+        expression::Expression{E},
+        operators::Vector{E}
+    )::Union{Token{E}, Nothing} where {E}
+
+Check whether an `expression` is an [`Operation`](@ref) using one of the specified `operators`. If so, return the
+operator's [`Token`](@ref); otherwise, return `nothing`.
 """
 function check_operation(expression::Expression{E}, operators::Vector{E})::Union{Token{E}, Nothing} where {E}
     if !(expression isa Operation)
@@ -650,13 +664,22 @@ function check_operation(expression::Expression{E}, operators::Vector{E})::Union
 end
 
 """
+    parse_operation_in_context(
+        parse::Union{Function, Type},
+        context::Context{E},
+        expression::Expression{E};
+        expression_name::AbstractString,
+        operator_name::AbstractString,
+        operators::Vector{E},
+    )::Any where {E}
+
 Parse an operation in an [`Expression`](@ref).
 
-Passes the `parse` function the left sub-[`Expression`](@ref) (or `nothing` for a prefix operator), the [`Token`](@ref)
-of the operator, and the right sub-[`Expression`](@ref).
-
 If the `expression` is not an [`Operation`](@ref) using one of the listed `operators`, report an
-[`error_in_context`](@ref).
+[`error_in_context`](@ref) using the `expression_name` and the `operator_name`.
+
+Otherwise, give the `parse` function the left sub-[`Expression`](@ref) (or `nothing` for a prefix operator), the
+[`Token`](@ref) of the operator, and the right sub-[`Expression`](@ref).
 """
 function parse_operation_in_context(
     parse::Union{Function, Type},
@@ -684,30 +707,47 @@ function parse_operation_in_context(
 end
 
 """
-Parse a variable-length list of some elements.
+    parse_list_in_context(
+        [parse_element::Union{Function, Type},]
+        context::Context{E},
+        expression::Expression{E};
+        list_name::AbstractString,
+        element_type::Type{T},
+        first_operator::Union{Token{E}, Nothing} = nothing,
+        operators::Vector{E},
+    )::Vector{T} where {T, E}
 
-The implementation here requires the operators to have right [`Associativity`](@ref).
+This converts an expression of the form `element ( operator element )*` into a vector of `element`, assuming the
+`operators` have right [`Associativity`](@ref). For example, `property_name : property_name : ...` for a chained
+property lookup.
+
+We repeatedly invoke the `parse_element` function (or the `element_type` constructor, if `parse_element` is not given),
+with the `context` (using the `list_name`), the operator immediately to the left of each sub-`expression` (using the
+`first_operator` for the 1st one), and the sub-expression. We collect the results into a `Vector` of the `element_type`.
+
+This always matches. If the `expression` isn't an [`Operation`](@ref) using one of the `operators`, then this simply
+returns a single-element vector. That said, naturally parsing the field may fail.
 """
 function parse_list_in_context(
-    parse_field::Union{Function, Type},
+    parse_element::Union{Function, Type},
     context::Context{E},
     expression::Expression{E};
-    name::AbstractString,
+    list_name::AbstractString,
     element_type::Type{T},
     first_operator::Union{Token{E}, Nothing} = nothing,
     operators::Vector{E},
 )::Vector{T} where {T, E}
-    return parse_in_context(context, expression; name = name, operators = operators) do
+    return parse_in_context(context, expression; name = list_name, operators = operators) do
         elements = T[]
         operator = first_operator
 
         while check_operation(expression, operators) != nothing && expression.left != nothing
-            push!(elements, parse_field(context, operator, expression.left))
+            push!(elements, parse_element(context, operator, expression.left))
             operator = expression.token
             expression = expression.right
         end
 
-        push!(elements, parse_field(context, operator, expression))
+        push!(elements, parse_element(context, operator, expression))
         return elements
     end
 end
@@ -715,7 +755,7 @@ end
 function parse_list_in_context(
     context::Context{E},
     expression::Expression{E};
-    name::AbstractString,
+    list_name::AbstractString,
     element_type::Type{T},
     first_operator::Union{Token{E}, Nothing} = nothing,
     operators::Vector{E},
@@ -724,7 +764,7 @@ function parse_list_in_context(
         element_type,
         context,
         expression;
-        name = name,
+        list_name = list_name,
         element_type = element_type,
         first_operator = first_operator,
         operators = operators,
@@ -732,10 +772,26 @@ function parse_list_in_context(
 end
 
 """
-Parse an object with some field followed by optional sequence of elements.
+    parse_with_list_in_context(
+        parse::Union{Function, Type},
+        context::Context{E},
+        expression::Expression{E};
+        expression_name::AbstractString,
+        separator_name::AbstractString,
+        separator_operators::Vector{E},
+        list_name::AbstractString,
+        parse_element::Union{Function, Type, Nothing} = nothing,
+        element_type::Type{L},
+        first_operator::Bool = false,
+        operators::Vector{E},
+    )::Any where {L, E}
 
-This is used several times in a `Daf` query, e.g., `operation; parameter, ...` and `lookup % eltwise % ...`, so it gets
-its own specialized function.
+This converts an expression of the form `something separator element ( operator element )*` into a combined object,
+which typically has two members, a field for `something` and a vector for one or more `element`. For example, `operation ; parameter_assignment , parameter_assignment , ...` for invoking an element-wise or reduction operation.
+
+If the `expression` isn't an [`Operation`](@ref) using one of the `separator_operators`, then we assume there is no list
+of `elements`. Otherwise this invokes [`parse_list_in_context`](@ref) for collecting the elements. If `first_operator`,
+we give it the separator operator as the first operator.
 """
 function parse_with_list_in_context(
     parse::Union{Function, Type},
@@ -745,13 +801,13 @@ function parse_with_list_in_context(
     separator_name::AbstractString,
     separator_operators::Vector{E},
     list_name::AbstractString,
-    parse_field::Union{Function, Type, Nothing} = nothing,
+    parse_element::Union{Function, Type, Nothing} = nothing,
     element_type::Type{L},
     first_operator::Bool = false,
     operators::Vector{E},
 )::Any where {L, E}
-    if parse_field == nothing
-        parse_field = element_type
+    if parse_element == nothing
+        parse_element = element_type
     end
     if check_operation(expression, separator_operators) == nothing
         return parse_in_context(context, expression; name = expression_name) do
@@ -768,10 +824,10 @@ function parse_with_list_in_context(
             return parse(
                 field,
                 parse_list_in_context(
-                    parse_field,
+                    parse_element,
                     context,
                     elements;
-                    name = list_name,
+                    list_name = list_name,
                     element_type = element_type,
                     first_operator = first_operator ? separator : nothing,
                     operators = operators,

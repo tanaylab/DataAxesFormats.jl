@@ -1,5 +1,6 @@
 """
-Query operations.
+A `Daf` query can use operations to process the data: [`EltwiseOperation`](@ref)s that preserve the shape of the data,
+and [`ReductionOperation`](@ref)s that reduce a matrix to a vector, or a vector to a scalar.
 """
 module Operations
 
@@ -71,6 +72,12 @@ FLOAT_DTYPE = Dict{Type, Type}(
 )
 
 """
+    invalid_parameter_value(
+        context::QueryContext,
+        parameter_assignment::QueryOperation,
+        must_be::String
+    )::Nothing
+
 Complain that an operation parameter is not valid.
 """
 function invalid_parameter_value(context::QueryContext, parameter_assignment::QueryOperation, must_be::String)::Nothing
@@ -87,6 +94,11 @@ function invalid_parameter_value(context::QueryContext, parameter_assignment::Qu
 end
 
 """
+    parse_dtype_assignment(
+        context::QueryContext,
+        parameter_assignment::QueryOperation
+    )::Union{Type, Nothing}
+
 Parse the `dtype` operation parameter.
 
 Valid names are `{B,b}ool`, `{UI,ui,I,i}nt{8,16,32,64}` and `{F,f}loat{32,64}`, and `auto` which is parsed to `nothing`.
@@ -101,6 +113,12 @@ function parse_dtype_assignment(context::QueryContext, parameter_assignment::Que
 end
 
 """
+    function parse_number_assignment(
+        context::QueryContext,
+        parameter_assignment::QueryOperation,
+        type::Type{T},
+    )::T where {T <: Number}
+
 Parse a numeric operation parameter.
 """
 function parse_number_assignment(
@@ -120,6 +138,14 @@ function parse_number_assignment(
 end
 
 """
+    function parse_parameter(
+        parse_assignment::Function,
+        context::QueryContext,
+        parameters_assignments::Dict{String, QueryOperation},
+        parameter_name::String,
+        default::Any,
+    )::Any
+
 Parse an operation parameter.
 """
 function parse_parameter(

@@ -137,6 +137,14 @@ function test_storage_vector(storage::AbstractStorage)::Nothing
     @test get_vector(storage, "cell", "age"; default = vec([1 2 3])) == vec([1 2 3])
     @test get_vector(storage, "cell", "age"; default = 1) == vec([1 1 1])
 
+    @test_throws dedent("""
+        setting the reserved property: name
+        for the axis: cell
+        in the storage: $(name)
+    """) set_vector!(storage, "cell", "name", vec([0 1]))
+    @test has_vector(storage, "cell", "name")
+    @test get_vector(storage, "cell", "name") == get_axis(storage, "cell")
+
     set_vector!(storage, "cell", "age", vec([0 1 2]))
     @test_throws dedent("""
         existing vector: age

@@ -36,6 +36,8 @@ using LinearAlgebra
 using SparseArrays
 
 """
+    StorageScalar = Union{String, Number}
+
 Types that can be used as scalars, or elements in stored matrices or vectors.
 
 This is restricted to numbers (including Booleans) and strings. It is arguably too restrictive, as in principle we could
@@ -46,6 +48,12 @@ opposed to "anything at all", this restriction seems reasonable.
 StorageScalar = Union{String, Number}
 
 """
+    StorageMatrix{T} = Union{
+        DenseMatrix{T},
+        SparseMatrixCSC{T},
+        Transpose{SparseMatrixCSC{T}}
+    } where {T <: StorageScalar}
+
 Matrices that can be directly stored (and fetched) from `Daf` storage.
 
 The element type must be a [`StorageScalar`](@ref), to allow storing the data in disk files.
@@ -68,6 +76,11 @@ The storable matrix types are:
 StorageMatrix{T} = Union{DenseMatrix{T}, SparseMatrixCSC{T}, Transpose{SparseMatrixCSC{T}}} where {T <: StorageScalar}
 
 """
+    StorageVector{T} = Union{
+        DenseVector{T},
+        SparseVector{T}
+    } where {T <: StorageScalar}
+
 Vectors that can be directly stored (and fetched) from `Daf` storage.
 
 The element type must be a [`StorageScalar`](@ref), to allow storing the data in disk files.

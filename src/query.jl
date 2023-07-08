@@ -19,7 +19,7 @@ error messages refer to the one-line version of the query string, instead of the
 
 We only reexport [`escape_query`](@ref), [`unescape_query`](@ref) and [`is_safe_query_char`](@ref) from the top-level
 `Daf` module itself, as these are all you might be interested in from outside the `Daf` package. The other entities
-listed here describe the syntax of a query and give insight into how the query is computed.
+listed here describe the syntax of a query, and give insight into how the query is computed.
 """
 module Query
 
@@ -34,11 +34,12 @@ export FilterOperator
 export is_safe_query_char
 export MatrixAxes
 export MatrixEntryAxes
-export MatrixLayout
 export MatrixEntryLookup
-export MatrixLookup
+export MatrixLayout
+export MatrixPropertyLookup
 export MatrixQuery
 export MatrixSliceAxes
+export MatrixSliceLookup
 export ParameterAssignment
 export parse_matrix_query
 export parse_scalar_query
@@ -46,20 +47,22 @@ export parse_vector_query
 export PropertyComparison
 export PropertyLookup
 export QueryContext
+export QueryExpression
 export QueryOperation
+export QueryOperator
 export QueryToken
 export ReduceMatrixQuery
 export ReduceVectorQuery
 export ScalarDataLookup
-export ScalarLookup
+export ScalarPropertyLookup
 export ScalarQuery
-export MatrixSliceLookup
 export unescape_query
 export VectorDataLookup
-export VectorLookup
 export VectorEntryLookup
+export VectorPropertyLookup
 export VectorQuery
 
+using Daf.MatrixLayouts
 using Daf.Oprec
 using Daf.Registry
 using URIs
@@ -91,13 +94,16 @@ We need to consider the following kinds of characters:
     a special character. For example, if you have a cell whose name is `ACTG:Plate1`, and you want to access the name of
     the batch of this specific cell, you will have to write `cell = ACTG\\:Plate1 : batch`.
 
-Note that `\\` is also used by Julia inside `"..."` string literals, to escape writing non-printable characters. For
-example, `"\\n"` is a single-character string containing a line break, and therefore `"\\\\"` is used to write a single
-`\\`. Thus the above example would have to be written as `"cell = ACTG\\\\:Plate1 : batch"`. This isn't nice.
+!!! note
 
-Luckily, Julia also has `raw"..."` string literals that work similarly to Python's `r"..."` strings (in Julia, `r"..."`
-is a regular expression, not a string). Inside raw string literals, a `\\` is a `\\` (unless it precedes a `"`).
-Therefore the above example could also be written as `raw"cell = ACTG\\:Plate1 : batch`, which is more readable.
+    The `\\` character is also used by Julia inside `"..."` string literals, to escape writing non-printable characters.
+    For example, `"\\n"` is a single-character string containing a line break, and therefore `"\\\\"` is used to write a
+    single `\\`. Thus the above example would have to be written as `"cell = ACTG\\\\:Plate1 : batch"`. This isn't nice.
+
+    Luckily, Julia also has `raw"..."` string literals that work similarly to Python's `r"..."` strings (in Julia,
+    `r"..."` is a regular expression, not a string). Inside raw string literals, a `\\` is a `\\` (unless it precedes a
+    `"`). Therefore the above example could also be written as `raw"cell = ACTG\\:Plate1 : batch`, which is more
+    readable.
 
 Back to `escape_query` - it will prefix any (potentially) special character with a `\\`. It is useful if you want to
 inject a data into a query. Often this happens when using `\$(...)` to embed values into a query string, e.g., the query
@@ -144,6 +150,34 @@ function prepare_query_string(query_string::AbstractString)::String
     return query_string
 end
 
+"""
+The operators that can be used in a `Daf` query.
+
+| Operator  | Associativity | Precedence | Description                                                                                |
+|:---------:|:-------------:|:----------:|:------------------------------------------------------------------------------------------ |
+| `%>`      | Left          | 0          | Reduction operation (matrix to vector, vector to scalar), e.g. `cell , gene @ UMIs %> Sum` |
+| `%`       | Right         | 1          | Element-wise operation (e.g., `cell , gene @ UMIs % Log`)                                  |
+| `@`       | Right         | 2          | Lookup (e.g., `cell , gene @ UMIs`)                                                        |
+| `;`       | Right         | 3          | 1. Column-major layout (e.g., `cell ; gene @ UMIs`)                                        |
+|           |               |            | 2. Parameters separator (e.g., `Log; base = 2`)                                            |
+| `,`       | Right         | 3          | Row-major layout (e.g., `cell , gene`)                                                     |
+|           |               | 3          | Parameter assignment separator (e.g., `Log; base = 2, eps = 1`)                            |
+| `&`       | Right         | 4          | AND filter (e.g., `gene & marker`)                                                         |
+| `\\|`     | Right         | 4          | OR filter (e.g., `gene & marker \\| noisy`)                                                |
+| `^`       | Right         | 4          | XOR filter (e.g., `gene & marker ^ noisy`)                                                 |
+| `<`       | Right         | 5          | Less than (e.g., `batch : age < 1`)                                                        |
+| `<=`, `≤` | Right         | 5          | Less or equal (e.g., `batch : age <= 1`)                                                   |
+| `!=`, `≠` | Right         | 5          | Not equal (e.g., `batch : age != 1`)                                                       |
+| `=`       | Right         | 5          | 1. Is equal (e.g., `batch : age = 1`)                                                      |
+|           |               |            | 2. Select axis entry (e.g., `cell , gene = FOX1 @ UMIs`)                                   |
+|           |               |            | 3. Parameter assignment (e.g., `Log; base = 2`)                                            |
+| `>=`, `≥` | Right         | 5          | Greater or equal (e.g., `batch : age >= 1`)                                                |
+| `>`       | Right         | 5          | Greater than (e.g., `batch : age > 1`)                                                     |
+| `!~`, `≁` | Right         | 5          | Not match (e.g., `gene !~ MT-.\\*`                                                         |
+| `~`       | Right         | 5          | 1. Match (e.g., `gene ~ MT-.\\*`)                                                          |
+|           |               |            | 2. Invert mask (prefix; e.g., `gene & ~noisy`)                                             |
+| `:`       | Right         | 6          | Chained property lookup (e.g., `batch : age`)                                              |
+"""
 @enum QueryOperators OpAnd OpChain OpEltwise OpEqual OpGreaterOrEqual OpGreaterThan OpLessOrEqual OpLessThan OpLookup OpMatch OpNotEqual OpNotMatch OpOr OpPrimarySeparator OpReduce OpSecondarySeparator OpValue OpXor
 
 const OpParameterSeparator = OpPrimarySeparator
@@ -152,12 +186,44 @@ const OpRowMajorSeparator = OpPrimarySeparator
 const OpColumnMajorSeparator = OpSecondarySeparator
 const OpInvert = OpMatch
 
+"""
+    QueryContext = Context{QueryOperators}
+
+Context for reporting errors while parsing a query.
+"""
 const QueryContext = Context{QueryOperators}
+
+"""
+    QueryExpression = Expression{QueryOperators}
+
+An expression tree for a `Daf` query.
+"""
 const QueryExpression = Expression{QueryOperators}
+
+"""
+    QueryOperation = Operation{QueryOperators}
+
+A non-leaf node in a [`QueryExpression`](@ref) tree.
+"""
 const QueryOperation = Operation{QueryOperators}
-const QueryOperator = Operator{QueryOperators}
-const QuerySyntax = Syntax{QueryOperators}
+
+"""
+    QueryToken = Token{QueryOperators}
+
+A leaf node in a [`QueryExpression`](@ref) tree.
+
+This will capture any sequence of [`safe`](@ref is_safe_query_char) or [`escaped`](@ref escape_query) characters.
+"""
 const QueryToken = Token{QueryOperators}
+
+"""
+    QueryOperator = Operator{QueryOperators}
+
+A description of one of the [`QueryOperators`](@ref).
+"""
+const QueryOperator = Operator{QueryOperators}
+
+const QuerySyntax = Syntax{QueryOperators}
 
 QUERY_SYNTAX = QuerySyntax(
     r"^\s+",                             # Spaces
@@ -189,15 +255,15 @@ QUERY_SYNTAX = QuerySyntax(
 )
 
 """
-Assignment of a value to a single parameter of an element-wise or reduction operation.
+`ParameterAssignment` = [`QueryToken`](@ref)(*parameter name*) `=` [`QueryToken`](@ref)(*parameter value*)
 
-The parameter value is parsed as a string token, which is passed to the operation, which will convert it to the
-appropriate type. Therefore you will need to [`escape`](@ref escape_query) any special characters in a value. "Luckily",
-numbers (including floating point numbers) need no escaping.
+    struct ParameterAssignment
+        assignment::QueryOperation
+    end
 
-**ParameterAssignment** = [`Token`](@ref is_safe_query_char) `=` [`Token`](@ref is_safe_query_char)
-
-Examples: `base = 2`, `dtype = Int64`, `eps = 1e-5`.
+Assignment of a value to a single parameter of an element-wise or reduction operation. This is provided to the
+constructors of [`EltwiseOperation`](@ref)s and [`ReductionOperation`](@ref)s. The constructors will convert the string
+parameter value to the appropriate parameter type, and will generate error messages in context if the value is invalid.
 """
 struct ParameterAssignment
     assignment::QueryOperation
@@ -291,9 +357,9 @@ function parse_query_operation(
 end
 
 """
-Parse a [`EltwiseOperation`](@ref).
+`EltwiseOperation` = [`QueryToken`](@ref)([`EltwiseOperation`](@ref)) ( `;` [`ParameterAssignment`](@ref) ( `,` [`ParameterAssignment`](@ref) )* )?
 
-**EltwiseOperation** = [`Token`](@ref is_safe_query_char) ( `;` [`ParameterAssignment`](@ref) ( `,` [`ParameterAssignment`](@ref) )* )?
+Parse a [`EltwiseOperation`](@ref).
 """
 function parse_eltwise_operation(
     context::QueryContext,
@@ -304,9 +370,9 @@ function parse_eltwise_operation(
 end
 
 """
-Parse a [`ReductionOperation`](@ref).
+`ReductionOperation` = [`QueryToken`](@ref)([`ReductionOperation`](@ref)) ( `;` [`ParameterAssignment`](@ref) ( `,` [`ParameterAssignment`](@ref) )* )?
 
-**ReductionOperation** = [`Token`](@ref is_safe_query_char) ( `;` [`ParameterAssignment`](@ref) ( `,` [`ParameterAssignment`](@ref) )* )?
+Parse a [`ReductionOperation`](@ref).
 """
 function parse_reduction_operation(
     context::QueryContext,
@@ -343,19 +409,16 @@ function canonical(operation::AbstractOperation)::String
 end
 
 """
+`PropertyLookup` = [`QueryToken`](@ref)(*property name*) ( `:` [`QueryToken`](@ref)(*property name*) )*
+
 Lookup the value of some property for a single axis (for vector data) or a pair of axes (for matrix data).
 
 This is typically just the name of the property to lookup. However, we commonly find that a property of one axis
 contains names of entries in another axis. For example, we may have a `batch` property per `cell`, and an `age` property
 per `batch`. In such cases, we allow a chained lookup of the color of the type of each cell by writing `batch : age`.
 The chain can be as long as necessary (e.g., `batch : donor : sex`).
-
-**PropertyLookup** = [`Token`](@ref is_safe_query_char) ( `:` [`Token`](@ref is_safe_query_char) )*
 """
 struct PropertyLookup
-    """
-    The chain of property names to look up.
-    """
     property_names::Vector{String}
 end
 
@@ -364,7 +427,7 @@ function PropertyLookup(context::QueryContext, query_tree::QueryExpression)::Pro
         parse_list_in_context(
             context,
             query_tree;
-            name = "property lookup",
+            list_name = "property lookup",
             element_type = String,
             operators = [OpChain],
         ) do context, operator, property_name
@@ -386,28 +449,14 @@ function Base.:(==)(left::PropertyLookup, right::PropertyLookup)::Bool
 end
 
 """
+`ComparisonOperator` = `<` | `<=` | `≤` | `=` | `!=` | `≠` | `>=` | `≥` | `>` | `~` | `!~` | `≁`
+
 How to compare a each value of a property with some constant value to generate a filter mask.
 
-**ComparisonOperator** _(e.g., `>=`)_ =
+!!! note
 
-`<` _(less than)_
-
-| `<=` | `≤` _(less than or equal)_
-
-| `=` _(equal)_
-
-| `!=` | `≠` _(not equal)_
-
-| `>=` | `≥` _(greater than or equal)_
-
-| `>` _(greater than)_
-
-| `~` _(match a regexp)_
-
-| `!~` | `≁` _(do not match a regexp)_
-
-Note that for matching, you will have to [`escape`](@ref escape_query) any special characters used in regexp; for
-example, you will need to write `raw"gene ~ RP\\[LS\\].\\*"` to match all the ribosomal gene names.
+    For matching (using `~` or `!~`), you will have to [`escape`](@ref escape_query) any special characters used in
+    regexp; for example, you will need to write `raw"gene ~ RP\\[LS\\].\\*"` to match all the ribosomal gene names.
 """
 @enum ComparisonOperator CmpLessThan CmpLessOrEqual CmpEqual CmpNotEqual CmpGreaterOrEqual CmpGreaterThan CmpMatch CmpNotMatch
 
@@ -434,23 +483,15 @@ CANONICAL_COMPARISON_OPERATOR = Dict(
 )
 
 """
+`PropertyComparison` = [`ComparisonOperator`](@ref) [`QueryToken`](@ref)(*property value*)
+
 Compare a (non-Boolean) property to a constant value.
 
 This is used to convert any set of non-Boolean property values for the axis entries into a Boolean mask which we can
 then use to filter the axis entries, e.g. `> 1` will create a mask of all the entries whose value is larger than one.
-
-**PropertyComparison** = [`ComparisonOperator`](@ref) [`Token`](@ref is_safe_query_char)
 """
 struct PropertyComparison
-    """
-    How to compare the value with the property we looked up.
-    """
     comparison_operator::ComparisonOperator
-
-    """
-    The constant value to compare against. This is always a string. We convert it to the same (numeric) data type as the
-    property values when doing the comparison.
-    """
     property_value::String
 end
 
@@ -480,30 +521,19 @@ function Base.:(==)(left::PropertyComparison, right::PropertyComparison)::Bool
 end
 
 """
-Compute some value for each entry of an axis.
+`AxisLookup` = `~` [`PropertyLookup`](@ref) | [`PropertyLookup`](@ref) [`PropertyComparison`](@ref)?
 
-This can simply look up the value of some property of the axis, e.g., `batch : age`. In addition, we allow extra
-features for dealing with Boolean masks. First, if looking up a Boolean property, then prefixing it with a `~` will
-invert the result, e.g. `~ marker`. Second, when looking up a non-Boolean property, it is possible to convert it into
-Boolean values by comparing it with a constant value, e.g., `batch : age > 1`. This allows us to use the result as a
-mask, e.g., when filtering which entries of an axis we want to fetch results for.
+Lookup some value for each entry of an axis.
 
-**AxisLookup** = `~` [`PropertyLookup`](@ref) | [`PropertyLookup`](@ref) [`PropertyComparison`](@ref)?
+This can simply lookup the value of some property of the axis, e.g., `batch : age`. In addition, we allow extra features
+for dealing with Boolean masks. First, if looking up a Boolean property, then prefixing it with a `~` will invert the
+result, e.g. `~ marker`. Second, when looking up a non-Boolean property, it is possible to convert it into Boolean
+values by comparing it with a constant value, e.g., `batch : age > 1`. This allows us to use the result as a mask, e.g.,
+when filtering which entries of an axis we want to fetch results for.
 """
 struct AxisLookup
-    """
-    Whether to inverse the mask before applying it to the filter.
-    """
     is_inverse::Bool
-
-    """
-    How to lookup a property value for each entry of the axis.
-    """
     property_lookup::PropertyLookup
-
-    """
-    How to compare the property values with some constant value.
-    """
     property_comparison::Union{PropertyComparison, Nothing}
 end
 
@@ -568,15 +598,9 @@ function Base.isless(left::AxisLookup, right::AxisLookup)::Bool
 end
 
 """
+`FilterOperator` = `&` | `|` | `^`
+
 A Boolean operator for updating the mask of a filter.
-
-**FilterOperator** =
-
-`&` _(AND - restrict the filter to only the mask entries)_
-
-| `|` _(OR - increase the filter to also include the mask entries)_
-
-| `^` _(XOR - flip the inclusion of the mask entries)_
 """
 @enum FilterOperator FilterAnd FilterOr FilterXor
 
@@ -585,6 +609,8 @@ PARSE_FILTER_OPERATOR = Dict(OpAnd => FilterAnd, OpOr => FilterOr, OpXor => Filt
 CANONICAL_FILTER_OPERATOR = Dict(FilterAnd => "&", FilterOr => "|", FilterXor => "^")
 
 """
+`AxisFilter` = [`FilterOperator`](@ref) [`AxisLookup`](@ref)
+
 A filter to apply to an axis.
 
 By default we fetch results for each entry of each axis. We can restrict the set of entries we fetch results for by
@@ -593,18 +619,9 @@ in a strict left to right order. Each filter can restrict the set of entries (`&
 entries (`^`, XOR). For example, `gene & noisy | lateral & ~ marker` will start with all the genes, restrict the set to
 just the noisy genes, increase the set to also include lateral genes, and finally decrease the set to exclude marker
 genes. That is, it will return the set of non-marker genes that are also either noisy or lateral.
-
-**AxisFilter** = [`FilterOperator`](@ref) [`AxisLookup`](@ref)
 """
 struct AxisFilter
-    """
-    How to combine the filter and the mask.
-    """
     filter_operator::FilterOperator
-
-    """
-    How to compute the mask to combine with the filter.
-    """
     axis_lookup::AxisLookup
 end
 
@@ -622,22 +639,15 @@ function Base.isless(left::AxisFilter, right::AxisFilter)::Bool
 end
 
 """
+`FilteredAxis` = [`QueryToken`](@ref)(*axis name*) [`AxisFilter`](@ref)*
+
 (Possibly filtered) axis to lookup a property for.
 
 By default, all the axis entries will be used. Applying a filter will restrict the results just to the axis entries that
 match the result of the filter.
-
-**FilteredAxis** = `Token` [`AxisFilter`](@ref)*
 """
 struct FilteredAxis
-    """
-    The name of the axis to filter.
-    """
     axis_name::String
-
-    """
-    The sequence of axis filters to apply to the axis.
-    """
     axis_filters::Vector{AxisFilter}
 end
 
@@ -684,11 +694,13 @@ function canonical(filtered_axis::FilteredAxis)::String
 end
 
 """
-The layout of the matrix result.
+`MatrixLayout` = `,` | `;`
 
-Julia "likes" `ColumnMajor` layout, where each column is consecutive in memory. Numpy "likes" `RowMajor` layout, where
-each row is consecutive in memory. What really matters is that the layout will match the operations performed on the
-data.
+The layout of the matrix result (`,` for `RowMajor` and `;` for `ColumnMajor`).
+
+Julia "likes" the column-major [`MatrixLayouts`](@ref), where each column is consecutive in memory. Numpy "likes" the
+row-major layouts, where each row is consecutive in memory. This doesn't matter much. What *really* matters is that you
+will perform operations "with the grain" of the data.
 """
 @enum MatrixLayout RowMajor ColumnMajor
 
@@ -697,27 +709,16 @@ PARSE_MATRIX_LAYOUT = Dict(OpRowMajorSeparator => RowMajor, OpColumnMajorSeparat
 CANONICAL_MATRIX_LAYOUT = Dict(RowMajor => ",", ColumnMajor => ";")
 
 """
+`MatrixAxes` = [`FilteredAxis`](@ref) [`MatrixLayout`](@ref) [`FilteredAxis`](@ref)
+
 (Possibly filtered) axes of matrix to lookup a property for.
 
-The first one specifies the matrix rows, the second specifies the matrix columns. The separator specifies whether the
-matrix will be in row-major layout (`,`) or column-major layout (`;`).
-
-**MatrixAxes** = [`FilteredAxis`](@ref) [`MatrixLayout`](@ref) [`FilteredAxis`](@ref)
+The first axis specifies the matrix rows, the second axis specifies the matrix columns. The separator specifies whether
+the matrix will be in row-major layout (`,`) or column-major layout (`;`).
 """
 struct MatrixAxes
-    """
-    Specify the (possibly filtered) axis for the rows of the matrix.
-    """
     rows_axis::FilteredAxis
-
-    """
-    Whether the matrix should be in row-major or column-major layout.
-    """
     matrix_layout::MatrixLayout
-
-    """
-    Specify the (possibly filtered) axis for the columns of the matrix.
-    """
     columns_axis::FilteredAxis
 end
 
@@ -746,58 +747,44 @@ function canonical(matrix_axes::MatrixAxes)::String
 end
 
 """
+`MatrixPropertyLookup` = [`MatrixAxes`](@ref) `@` [`QueryToken`](@ref)(*property name*)
+
 Lookup a matrix property (that is, a property that gives a value to each combination of entries of two axes).
-
-**MatrixLookup** [`MatrixAxes`](@ref) `@` [`Token`](@ref is_safe_query_char)
 """
-struct MatrixLookup
-    """
-    Specify the two axes to lookup data for.
-    """
+struct MatrixPropertyLookup
     matrix_axes::MatrixAxes
-
-    """
-    The name of the property to lookup a matrix of values for.
-    """
     property_name::String
 end
 
-function MatrixLookup(context::QueryContext, query_tree::QueryExpression)::MatrixLookup
+function MatrixPropertyLookup(context::QueryContext, query_tree::QueryExpression)::MatrixPropertyLookup
     return parse_operation_in_context(
         context,
         query_tree;
-        expression_name = "matrix lookup",
+        expression_name = "matrix property lookup",
         operator_name = "lookup operator",
         operators = [OpLookup],
     ) do matrix_axes, lookup_operator, property_name
-        return MatrixLookup(
+        return MatrixPropertyLookup(
             MatrixAxes(context, matrix_axes),
             parse_string_in_context(context, property_name; name = "property name"),
         )
     end
 end
 
-function canonical(matrix_lookup::MatrixLookup)::String
+function canonical(matrix_lookup::MatrixPropertyLookup)::String
     return canonical(matrix_lookup.matrix_axes) * " @ " * escape_query(matrix_lookup.property_name)
 end
 
 """
+`MatrixQuery` = [`MatrixPropertyLookup`](@ref) ( `%` [`EltwiseOperation`](@ref parse_eltwise_operation) )*
+
 A query that returns matrix data.
 
 There's only one variant of this: looking up a matrix property and optionally passing it through a sequence of
-element-wise operations, using the `%` operator.
-
-**MatrixQuery** = [`MatrixLookup`](@ref) ( `%` [`EltwiseOperation`](@ref parse_eltwise_operation) )*
+element-wise operations.
 """
 struct MatrixQuery
-    """
-    How to lookup a matrix of property values.
-    """
-    matrix_lookup::MatrixLookup
-
-    """
-    Zero or more element-wise operations to apply to the values in the matrix.
-    """
+    matrix_lookup::MatrixPropertyLookup
     eltwise_operations::Vector{EltwiseOperation}
 end
 
@@ -809,15 +796,17 @@ function MatrixQuery(context::QueryContext, query_tree::QueryExpression)::Matrix
         separator_name = "eltwise operator",
         separator_operators = [OpEltwise],
         list_name = "eltwise operations",
-        parse_field = parse_eltwise_operation,
+        parse_element = parse_eltwise_operation,
         element_type = EltwiseOperation,
         operators = [OpEltwise],
     ) do matrix_lookup, eltwise_operations
-        return MatrixQuery(MatrixLookup(context, matrix_lookup), eltwise_operations)
+        return MatrixQuery(MatrixPropertyLookup(context, matrix_lookup), eltwise_operations)
     end
 end
 
 """
+    parse_matrix_query(query_string::AbstractString)::MatrixQuery
+
 Parse a [`MatrixQuery`](@ref) from a query string.
 """
 function parse_matrix_query(query_string::AbstractString)::MatrixQuery
@@ -825,7 +814,7 @@ function parse_matrix_query(query_string::AbstractString)::MatrixQuery
     if isempty(query_string)
         error("empty query")
     end
-    query_tree = parse_encoded_expression(query_string, QUERY_SYNTAX)
+    query_tree = build_encoded_expression(query_string, QUERY_SYNTAX)
     context = Context(query_string, QueryOperators)
     return MatrixQuery(context, query_tree)
 end
@@ -839,42 +828,35 @@ function canonical(matrix_query::MatrixQuery)::String
 end
 
 """
+`VectorPropertyLookup` = [`FilteredAxis`](@ref) `@` [`AxisLookup`](@ref)
+
 Lookup a vector property (that is, a property that gives a value to each entry of an axis).
-
-**VectorLookup** [`FilteredAxis`](@ref) `@` [`AxisLookup`](@ref)
 """
-struct VectorLookup
-    """
-    Specify the axis to lookup data for.
-    """
+struct VectorPropertyLookup
     filtered_axis::FilteredAxis
-
-    """
-    How to lookup some value for each axis entry.
-    """
     axis_lookup::AxisLookup
 end
 
-function VectorLookup(context::QueryContext, query_tree::QueryExpression)::VectorLookup
+function VectorPropertyLookup(context::QueryContext, query_tree::QueryExpression)::VectorPropertyLookup
     return parse_operation_in_context(
         context,
         query_tree;
-        expression_name = "vector lookup",
+        expression_name = "vector property lookup",
         operator_name = "lookup operator",
         operators = [OpLookup],
     ) do filtered_axis, lookup_operator, axis_lookup
-        return VectorLookup(FilteredAxis(context, filtered_axis), AxisLookup(context, axis_lookup))
+        return VectorPropertyLookup(FilteredAxis(context, filtered_axis), AxisLookup(context, axis_lookup))
     end
 end
 
-function canonical(vector_lookup::VectorLookup)::String
+function canonical(vector_lookup::VectorPropertyLookup)::String
     return canonical(vector_lookup.filtered_axis) * " @ " * canonical(vector_lookup.axis_lookup)
 end
 
 """
-Slice a single entry from an axis.
+`AxisEntry` = [`QueryToken`](@ref)(*axis name*) `=` [`QueryToken`](@ref)(*entry name*)
 
-**AxisEntry** = [`Token`](@ref is_safe_query_char) `=` [`Token`](@ref)
+Slice a single entry from an axis.
 """
 struct AxisEntry
     axis_name::String
@@ -901,11 +883,11 @@ function canonical(axis_entry::AxisEntry)::String
 end
 
 """
+`MatrixSliceAxes` = [`FilteredAxis`](@ref) `,` [`AxisEntry`](@ref)
+
 (Possibly filtered) axes of a slice of a matrix to lookup a property for.
 
 The first axis specifies the result entries, and the second specifies the specific entry of an axis to slice.
-
-**MatrixSliceAxes** = [`FilteredAxis`](@ref) `,` [`AxisEntry`](@ref)
 """
 struct MatrixSliceAxes
     filtered_axis::FilteredAxis
@@ -929,19 +911,12 @@ function canonical(matrix_slice_axes::MatrixSliceAxes)::String
 end
 
 """
-Lookup a vector slice of a matrix property.
+`MatrixSliceLookup` = [`MatrixSliceAxes`](@ref) `@` [`QueryToken`](@ref)(*property name*)
 
-**MatrixSliceLookup** [`MatrixSliceAxes`](@ref) `@` [`Token`](@ref)
+Lookup a vector slice of a matrix property.
 """
 struct MatrixSliceLookup
-    """
-    Specify the axes to lookup a slice of the data for.
-    """
     matrix_slice_axes::MatrixSliceAxes
-
-    """
-    The property to lookup a slice of the data for.
-    """
     property_name::String
 end
 
@@ -965,9 +940,9 @@ function canonical(matrix_slice_lookup::MatrixSliceLookup)::String
 end
 
 """
-Query for matrix data and reduce it to a vector.
+`ReduceMatrixQuery` = [`MatrixQuery`](@ref) `%>` [`ReductionOperation`](@ref parse_reduction_operation)
 
-**ReduceMatrixQuery** = [`MatrixQuery`](@ref) `%>` [`ReductionOperation`](@ref parse_reduction_operation)
+Query for matrix data and reduce it to a vector.
 """
 struct ReduceMatrixQuery
     matrix_query::MatrixQuery
@@ -979,38 +954,30 @@ function canonical(reduce_matrix_query::ReduceMatrixQuery)::String
 end
 
 """
-Lookup vector data.
+`VectorDataLookup` = [`VectorPropertyLookup`](@ref) | [`MatrixSliceLookup`](@ref) | [`ReduceMatrixQuery`](@ref)
 
-This can be looking up a vector property, looking up a slice of a matrix property, or reducing the results of matrix
-query to a vector.
-
-**VectorDataLookup** = [`VectorLookup`](@ref) | [`MatrixSliceLookup`](@ref) | [`ReduceMatrixQuery`](@ref)
+Lookup vector data. This can be looking up a vector property, looking up a slice of a matrix property, or reducing the
+results of matrix query to a vector.
 """
-const VectorDataLookup = Union{VectorLookup, MatrixSliceLookup, ReduceMatrixQuery}
+const VectorDataLookup = Union{VectorPropertyLookup, MatrixSliceLookup, ReduceMatrixQuery}
 
 function parse_vector_data_lookup(context::QueryContext, query_tree::QueryExpression)::VectorDataLookup
     if check_operation(query_tree, [OpLookup]) != nothing &&
        check_operation(query_tree.left, [OpPrimarySeparator]) != nothing
         return MatrixSliceLookup(context, query_tree)
     else
-        return VectorLookup(context, query_tree)
+        return VectorPropertyLookup(context, query_tree)
     end
 end
 
 """
-A query that returns vector data.
+`VectorQuery` = [`VectorDataLookup`](@ref) ( `%` [`EltwiseOperation`](@ref parse_eltwise_operation) )*
 
-**VectorQuery** = [`VectorDataLookup`](@ref) ( `%` [`EltwiseOperation`](@ref parse_eltwise_operation) )*
+A query that returns vector data. This looks up some vector data and optionally applies a series of element-wise
+operations to it.
 """
 struct VectorQuery
-    """
-    How to lookup a vector of property values.
-    """
     vector_data_lookup::VectorDataLookup
-
-    """
-    Zero or more element-wise operations to apply to the values in the vector.
-    """
     eltwise_operations::Vector{EltwiseOperation}
 end
 
@@ -1030,7 +997,7 @@ function VectorQuery(context::QueryContext, query_tree::QueryExpression)::Vector
                 separator_name = "eltwise operator",
                 separator_operators = [OpEltwise],
                 list_name = "eltwise operations",
-                parse_field = parse_eltwise_operation,
+                parse_element = parse_eltwise_operation,
                 element_type = EltwiseOperation,
                 operators = [OpEltwise],
             ) do reduction_operation, eltwise_operations
@@ -1050,7 +1017,7 @@ function VectorQuery(context::QueryContext, query_tree::QueryExpression)::Vector
             separator_name = "eltwise operator",
             separator_operators = [OpEltwise],
             list_name = "eltwise operations",
-            parse_field = parse_eltwise_operation,
+            parse_element = parse_eltwise_operation,
             element_type = EltwiseOperation,
             operators = [OpEltwise],
         ) do vector_data_lookup, eltwise_operations
@@ -1060,6 +1027,8 @@ function VectorQuery(context::QueryContext, query_tree::QueryExpression)::Vector
 end
 
 """
+    parse_vector_query(query_string::AbstractString)::VectorQuery
+
 Parse a [`VectorQuery`](@ref) from a query string.
 """
 function parse_vector_query(query_string::AbstractString)::VectorQuery
@@ -1067,7 +1036,7 @@ function parse_vector_query(query_string::AbstractString)::VectorQuery
     if isempty(query_string)
         error("empty query")
     end
-    query_tree = parse_encoded_expression(query_string, QUERY_SYNTAX)
+    query_tree = build_encoded_expression(query_string, QUERY_SYNTAX)
     context = Context(query_string, QueryOperators)
     return VectorQuery(context, query_tree)
 end
@@ -1081,26 +1050,26 @@ function canonical(vector_query::VectorQuery)::String
 end
 
 """
-Lookup vector data.
+`ScalarPropertyLookup` = [`QueryToken`](@ref)(*property name*)
 
-**ScalarLookup** = [`Token`](@ref)
+Lookup a scalar property.
 """
-struct ScalarLookup
+struct ScalarPropertyLookup
     property_name::String
 end
 
-function ScalarLookup(context::QueryContext, query_tree::QueryExpression)::ScalarLookup
-    return ScalarLookup(parse_string_in_context(context, query_tree; name = "property name"))
+function ScalarPropertyLookup(context::QueryContext, query_tree::QueryExpression)::ScalarPropertyLookup
+    return ScalarPropertyLookup(parse_string_in_context(context, query_tree; name = "property name"))
 end
 
-function canonical(scalar_lookup::ScalarLookup)::String
+function canonical(scalar_lookup::ScalarPropertyLookup)::String
     return escape_query(scalar_lookup.property_name)
 end
 
 """
-Lookup an entry of a vector property.
+`VectorEntryLookup` = [`AxisEntry`](@ref) `@` [`AxisLookup`](@ref)
 
-**VectorEntryLookup** [`AxisEntry`](@ref) `@` [`AxisLookup`](@ref)
+Lookup an entry of a vector property.
 """
 struct VectorEntryLookup
     axis_entry::AxisEntry
@@ -1124,9 +1093,9 @@ function canonical(vector_entry_lookup::VectorEntryLookup)::String
 end
 
 """
-Locate a single entry of both axes of a a matrix.
+`MatrixEntryAxes` = [`AxisEntry`](@ref) `,` [`AxisEntry`](@ref)
 
-**MatrixEntryAxes** [`AxisEntry`](@ref) `,` [`AxisEntry`](@ref)
+Locate a single entry of both axes of a matrix.
 """
 struct MatrixEntryAxes
     rows_entry::AxisEntry
@@ -1150,9 +1119,9 @@ function canonical(matrix_entry_axes::MatrixEntryAxes)::String
 end
 
 """
-Lookup an entry of a matrix property.
+`MatrixEntryLookup` = [`MatrixEntryAxes`](@ref) `@` [`QueryToken`](@ref)(*property name*)
 
-**MatrixEntryLookup** [`MatrixEntryAxes`](@ref) `@` [`Token`](@ref)
+Lookup an entry of a matrix property.
 """
 struct MatrixEntryLookup
     matrix_entry_axes::MatrixEntryAxes
@@ -1179,10 +1148,10 @@ function canonical(matrix_entry_lookup::MatrixEntryLookup)::String
 end
 
 """
-Query for vector data and reduce it to a scalar. Note that the vector query may itself be a reduction of a matrix to a
-vector, allowing reducing a metrix to a scalar (in two steps).
+`ReduceVectorQuery` = [`VectorQuery`](@ref) `%>` [`ReductionOperation`](@ref parse_reduction_operation)
 
-**ReduceVectorQuery** = [`VectorQuery`](@ref) `%>` [`ReductionOperation`](@ref parse_reduction_operation)
+Query for vector data and reduce it to a scalar. The vector query may itself be a reduction of a matrix to a vector,
+allowing reducing a matrix to a scalar (in two reduction steps).
 """
 struct ReduceVectorQuery
     vector_query::VectorQuery
@@ -1194,15 +1163,15 @@ function canonical(reduce_vector_query::ReduceVectorQuery)::String
 end
 
 """
-Lookup scalar data.
+`ScalarDataLookup` = [`ScalarPropertyLookup`](@ref) | [`ReduceVectorQuery`](@ref) | [`VectorEntryLookup`](@ref) | [`MatrixEntryLookup`](@ref)
 
-**ScalarDataLookup** = [`ScalarLookup`](@ref) | [`ReduceVectorQuery`](@ref) | [`VectorEntryLookup`](@ref) | [`MatrixEntryLookup`](@ref)
+Lookup scalar data.
 """
-const ScalarDataLookup = Union{ScalarLookup, ReduceVectorQuery, VectorEntryLookup, MatrixEntryLookup}
+const ScalarDataLookup = Union{ScalarPropertyLookup, ReduceVectorQuery, VectorEntryLookup, MatrixEntryLookup}
 
 function parse_scalar_data_lookup(context::QueryContext, query_tree::QueryExpression)::ScalarDataLookup
     if check_operation(query_tree, [OpLookup]) == nothing
-        return ScalarLookup(context, query_tree)
+        return ScalarPropertyLookup(context, query_tree)
     elseif check_operation(query_tree.left, [OpPrimarySeparator]) != nothing
         return MatrixEntryLookup(context, query_tree)
     else
@@ -1211,9 +1180,9 @@ function parse_scalar_data_lookup(context::QueryContext, query_tree::QueryExpres
 end
 
 """
-A query that returns scalar data.
+`ScalarQuery` = [`ScalarDataLookup`](@ref) ( `%` [`EltwiseOperation`](@ref parse_eltwise_operation) )*
 
-**ScalarQuery** = [`ScalarDataLookup`](@ref) ( `%` [`EltwiseOperation`](@ref parse_eltwise_operation) )*
+A query that returns scalar data.
 """
 struct ScalarQuery
     scalar_data_lookup::ScalarDataLookup
@@ -1229,6 +1198,8 @@ function canonical(scalar_query::ScalarQuery)::String
 end
 
 """
+    parse_scalar_query(query_string::AbstractString)::ScalarQuery
+
 Parse a [`ScalarQuery`](@ref) from a query string.
 """
 function parse_scalar_query(query_string::AbstractString)::ScalarQuery
@@ -1236,7 +1207,7 @@ function parse_scalar_query(query_string::AbstractString)::ScalarQuery
     if isempty(query_string)
         error("empty query")
     end
-    query_tree = parse_encoded_expression(query_string, QUERY_SYNTAX)
+    query_tree = build_encoded_expression(query_string, QUERY_SYNTAX)
     context = Context(query_string, QueryOperators)
 
     if check_operation(query_tree, [OpReduce]) != nothing
@@ -1254,7 +1225,7 @@ function parse_scalar_query(query_string::AbstractString)::ScalarQuery
                 separator_name = "eltwise operator",
                 separator_operators = [OpEltwise],
                 list_name = "eltwise operations",
-                parse_field = parse_eltwise_operation,
+                parse_element = parse_eltwise_operation,
                 element_type = EltwiseOperation,
                 operators = [OpEltwise],
             ) do reduction_operation, eltwise_operations
@@ -1274,7 +1245,7 @@ function parse_scalar_query(query_string::AbstractString)::ScalarQuery
             separator_name = "eltwise operator",
             separator_operators = [OpEltwise],
             list_name = "eltwise operations",
-            parse_field = parse_eltwise_operation,
+            parse_element = parse_eltwise_operation,
             element_type = EltwiseOperation,
             operators = [OpEltwise],
         ) do scalar_data_lookup, eltwise_operations

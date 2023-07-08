@@ -69,7 +69,7 @@ test_set("query") do
             in:     ··· • ·         (filter mask)
             in: · • ·······         (filtered axis)
             in: ··········· • ·     (matrix axes)
-            in: ··············· • · (matrix lookup)
+            in: ··············· • · (matrix property lookup)
         """) canonical(parse_matrix_query("a & ~ b < 1 , c @ d"))
 
         @test canonical(parse_matrix_query("a , b @ c % Abs")) == "a , b @ c % Abs ; dtype = auto"

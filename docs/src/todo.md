@@ -28,17 +28,19 @@ The following issues are not addressed:
   - `embed_sparse_vector!`
   - `embed_sparse_matrix!`
 
-## Read-only matrix/vector types
+## Safety
 
   - Use Julia's internal `ReadOnly` and `FixedSparseCSC` and `FixedSparseVector`.
-  - Split `AbstractStorage` to `Reader` and `Writer`.
-  - Add `as_strided` and/or `as_fast` ?
+  - Split `AbstractStorage` to `Reader` and `Writer`?
+
+## Documentation
+
+  - Add examples and doctests (especially for queries)
+  - Link to `Expression` in documentation of `Context`?
+  - Link to `encode_expression` in documentation of `Token`?
+  - Rename links to `QueryToken` in documentation of queries?
 
 ## Misc
 
   - @everywhere for registries
-  - Use DocStringExtensions
-  - Link to `Expression` in documentation of `Context`.
-  - Link to `encode_expression` in documentation of `Token`.
-  - Document queries.
   - "Description" metadata per axis / property / storage ?

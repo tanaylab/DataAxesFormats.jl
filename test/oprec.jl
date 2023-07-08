@@ -27,7 +27,7 @@ function token_strings(string::AbstractString)::Vector{String}
 end
 
 function parsed_string(string::AbstractString)::String
-    return Daf.Oprec.as_string(parse_encoded_expression(encode_expression(string), SYNTAX))
+    return Daf.Oprec.as_string(build_encoded_expression(encode_expression(string), SYNTAX))
 end
 
 struct TestSum
@@ -190,7 +190,7 @@ test_set("oprec") do
 
     test_set("error_in_context") do
         encoded_string = encode_expression("-1 + x / 0")
-        tree = parse_encoded_expression(encoded_string, SYNTAX)
+        tree = build_encoded_expression(encoded_string, SYNTAX)
         context = Context(encoded_string, Operators)
 
         @test check_operation(tree, [Plus, Minus]).operator.id == Plus
@@ -314,49 +314,49 @@ test_set("oprec") do
 
     test_set("parse_list_in_context") do
         encoded_string = encode_expression("1")
-        tree = parse_encoded_expression(encoded_string, SYNTAX)
+        tree = build_encoded_expression(encoded_string, SYNTAX)
         context = Context(encoded_string, Operators)
         @test as_string(
-            parse_list_in_context(context, tree; name = "sum", element_type = TestSum, operators = [Plus, Minus]),
+            parse_list_in_context(context, tree; list_name = "sum", element_type = TestSum, operators = [Plus, Minus]),
         ) == "(+) 1"
 
         encoded_string = encode_expression("1 + 2 - 3")
-        tree = parse_encoded_expression(encoded_string, SYNTAX)
+        tree = build_encoded_expression(encoded_string, SYNTAX)
         context = Context(encoded_string, Operators)
         @test as_string(
-            parse_list_in_context(context, tree; name = "sum", element_type = TestSum, operators = [Plus, Minus]),
+            parse_list_in_context(context, tree; list_name = "sum", element_type = TestSum, operators = [Plus, Minus]),
         ) == "(+) 1 + 2 - 3"
 
         encoded_string = encode_expression("- 1 + 2 * 3 - 4")
-        tree = parse_encoded_expression(encoded_string, SYNTAX)
+        tree = build_encoded_expression(encoded_string, SYNTAX)
         context = Context(encoded_string, Operators)
         @test as_string(
-            parse_list_in_context(context, tree; name = "sum", element_type = TestSum, operators = [Plus, Minus]),
+            parse_list_in_context(context, tree; list_name = "sum", element_type = TestSum, operators = [Plus, Minus]),
         ) == "(+) ( - 1) + (2 * 3) - 4"
 
         encoded_string = encode_expression("1 ** 2")
-        tree = parse_encoded_expression(encoded_string, SYNTAX)
+        tree = build_encoded_expression(encoded_string, SYNTAX)
         context = Context(encoded_string, Operators)
         @test_throws dedent("""
             unexpected operator: **
             in: 1 ** 2
             in: · ▲▲ · (multiplication)
-        """) parse_list_in_context(context, tree; name = "sum", element_type = TestSum, operators = [Plus, Minus])
+        """) parse_list_in_context(context, tree; list_name = "sum", element_type = TestSum, operators = [Plus, Minus])
 
         encoded_string = encode_expression("1 + 2 ** 3 + 4")
-        tree = parse_encoded_expression(encoded_string, SYNTAX)
+        tree = build_encoded_expression(encoded_string, SYNTAX)
         context = Context(encoded_string, Operators)
         @test_throws dedent("""
             unexpected operator: **
             in: 1 + 2 ** 3 + 4
             in:     · ▲▲ ·     (multiplication)
             in: · • ······ • · (sum)
-        """) parse_list_in_context(context, tree; name = "sum", element_type = TestSum, operators = [Plus, Minus])
+        """) parse_list_in_context(context, tree; list_name = "sum", element_type = TestSum, operators = [Plus, Minus])
     end
 
     test_set("parse_with_list_in_context") do
         encoded_string = encode_expression("1")
-        tree = parse_encoded_expression(encoded_string, SYNTAX)
+        tree = build_encoded_expression(encoded_string, SYNTAX)
         context = Context(encoded_string, Operators)
         @test as_string(
             parse_with_list_in_context(
@@ -374,7 +374,7 @@ test_set("oprec") do
         ) == "1 ! "
 
         encoded_string = encode_expression("1 ! 2")
-        tree = parse_encoded_expression(encoded_string, SYNTAX)
+        tree = build_encoded_expression(encoded_string, SYNTAX)
         context = Context(encoded_string, Operators)
         @test as_string(
             parse_with_list_in_context(
@@ -392,7 +392,7 @@ test_set("oprec") do
         ) == "1 ! (+) 2"
 
         encoded_string = encode_expression("1 ! 2 + 3 * 4 ** 5 + 6")
-        tree = parse_encoded_expression(encoded_string, SYNTAX)
+        tree = build_encoded_expression(encoded_string, SYNTAX)
         context = Context(encoded_string, Operators)
         @test as_string(
             parse_with_list_in_context(

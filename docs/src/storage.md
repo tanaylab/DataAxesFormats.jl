@@ -18,7 +18,7 @@ Daf.Storage.freeze
 Daf.Storage.unfreeze
 ```
 
-## Scalar data
+## Scalar properties
 
 ```@docs
 Daf.Storage.has_scalar
@@ -39,7 +39,7 @@ Daf.Storage.get_axis
 Daf.Storage.axis_length
 ```
 
-## Vector data
+## Vector properties
 
 ```@docs
 Daf.Storage.has_vector
@@ -49,7 +49,7 @@ Daf.Storage.vector_names
 Daf.Storage.get_vector
 ```
 
-## Matrix data
+## Matrix properties
 
 ```@docs
 Daf.Storage.has_matrix
@@ -59,7 +59,7 @@ Daf.Storage.matrix_names
 Daf.Storage.get_matrix
 ```
 
-## Creating data
+## Creating properties
 
 ```@docs
 Daf.Storage.empty_dense_vector!

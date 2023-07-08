@@ -14,11 +14,13 @@ columns would be slow, and summing rows would be fast.
 This is much simpler than the `ArrayLayouts` module which attempts to fully describe the layout of N-dimensional arrays,
 a much more ambitious goal which is an overkill for our needs.
 
-Note that the "default" layout in Julia is column-major, which inherits this from matlab, which inherits this from
-FORTRAN, allegedly because this is more efficient for some linear algebra operations. In contrast, Python `numpy` uses
-row-major layout by default. In either case, this is just an arbitrary convention, and all systems work just fine with
-data of either memory layout; the key consideration is to keep track of the layout, and to apply operations "with the
-grain" rather than "against the grain" of the data.
+!!! note
+
+    The "default" layout in Julia is column-major, which inherits this from matlab, which inherits this from FORTRAN,
+    allegedly because this is more efficient for some linear algebra operations. In contrast, Python `numpy` uses
+    row-major layout by default. In either case, this is just an arbitrary convention, and all systems work just fine
+    with data of either memory layout; the key consideration is to keep track of the layout, and to apply operations
+    "with the grain" rather than "against the grain" of the data.
 """
 module MatrixLayouts
 
@@ -156,7 +158,9 @@ GLOBAL_INEFFICIENT_ACTION_POLICY = nothing
 
 Specify the `policy` to take when accessing a matrix in an inefficient way. Returns the previous policy.
 
-Note this will affect *all* the processes, not just the current one.
+!!! note
+
+    This will affect *all* the processes `@everywhere`, not just the current one.
 """
 function inefficient_action_policy(
     policy::Union{InefficientActionPolicy, Nothing},
@@ -186,10 +190,12 @@ and matlab) will silently run operations "against the grain", which would be pai
 this function will help in detecting such slowdowns, without having to resort to profiling the code to isolate the
 problem.
 
-This will not prevent the code from performing "against the grain" operations such as `selectdim(matrix, Rows, 1)` for a
-column-major matrix, but if you add this check before performing any (series of) operations on a matrix, then you will
-have a clear indication of whether (and where) such operations occur. You can then consider whether to invoke
-[`relayout!`](@ref) on the data, or (for data fetched from `Daf`), simply query for the other memory layout.
+!!! note
+
+    This will not prevent the code from performing "against the grain" operations such as `selectdim(matrix, Rows, 1)`
+    for a column-major matrix, but if you add this check before performing any (series of) operations on a matrix, then
+    you will have a clear indication of whether (and where) such operations occur. You can then consider whether to
+    invoke [`relayout!`](@ref) on the data, or (for data fetched from `Daf`), simply query for the other memory layout.
 """
 function check_efficient_action(action::AbstractString, axis::Integer, operand::String, matrix::AbstractMatrix)::Nothing
     global GLOBAL_INEFFICIENT_ACTION_POLICY
@@ -236,12 +242,14 @@ be slow, and summing the UMIs of a cell is fast. This `transpose` of `transpose!
 what `relayout!` does for you. However, `relayout!` will work for both `SparseMatrixCSC` and `DenseMatrix`, and if
 `into` is not specified, a `similar` matrix is allocated automatically for it.
 
-It is almost always worthwhile to `relayout!` a matrix and then perform operations "with the grain" of the data, instead
-of skipping it and performing operations "against the grain" of the data. This is because (in Julia at least) the
-implementation of `transpose!` is optimized for the task, while the other operations typically don't provide any
-specific optimizations for working "against the grain" of the data. When performing a series of operations (e.g.,
-converting gene UMIs to fractions out of the total for each cell, then computing the log base 2 of this fraction), the
-benefits of a `relayout!` become even more significant.
+!!! note
+
+    It is almost always worthwhile to `relayout!` a matrix and then perform operations "with the grain" of the data,
+    instead of skipping it and performing operations "against the grain" of the data. This is because (in Julia at
+    least) the implementation of `transpose!` is optimized for the task, while the other operations typically don't
+    provide any specific optimizations for working "against the grain" of the data. The benefits of a `relayout!` become
+    even more significant when performing a series of operations (e.g., summing the gene UMIs in each cell, converting
+    gene UMIs to fractions out of these totals, then computing the log base 2 of this fraction).
 """
 function relayout!(matrix::SparseMatrixCSC)::SparseMatrixCSC
     return SparseMatrixCSC(transpose(matrix))
