@@ -23,6 +23,7 @@ export delete_axis!
 export delete_matrix!
 export delete_scalar!
 export delete_vector!
+export description
 export empty_dense_matrix!
 export empty_dense_vector!
 export empty_sparse_matrix!
@@ -1260,6 +1261,92 @@ end
 function require_not_name(storage::AbstractStorage, axis::String, name::String)::Nothing
     if name == "name"
         error("setting the reserved property: name\n" * "for the axis: $(axis)\n" * "in the storage: $(storage.name)")
+    end
+    return nothing
+end
+
+"""
+    description(storage::AbstractStorage)::String
+
+Return a (multi-line) description of the contents of some `storage`. This tries to hit a sweet spot between usefulness
+and terseness.
+"""
+function description(storage::AbstractStorage)::String
+    lines = String[]
+
+    push!(lines, "type: $(typeof(storage))")
+    push!(lines, "name: $(storage.name)")
+
+    scalars_description(storage, lines)
+
+    axes = collect(axis_names(storage))
+    sort!(axes)
+    if !isempty(axes)
+        axes_description(storage, axes, lines)
+        vectors_description(storage, axes, lines)
+        matrices_description(storage, axes, lines)
+    end
+
+    push!(lines, "")
+    return join(lines, "\n")
+end
+
+function scalars_description(storage::AbstractStorage, lines::Vector{String})::Nothing
+    scalars = collect(scalar_names(storage))
+    if !isempty(scalars)
+        sort!(scalars)
+        push!(lines, "scalars:")
+        for scalar in scalars
+            push!(lines, "  $(scalar): $(present(get_scalar(storage, scalar)))")
+        end
+    end
+    return nothing
+end
+
+function axes_description(storage::AbstractStorage, axes::Vector{String}, lines::Vector{String})::Nothing
+    push!(lines, "axes:")
+    for axis in axes
+        push!(lines, "  $(axis): $(axis_length(storage, axis)) entries")
+    end
+    return nothing
+end
+
+function vectors_description(storage::AbstractStorage, axes::Vector{String}, lines::Vector{String})::Nothing
+    is_first = true
+    for axis in axes
+        vectors = collect(vector_names(storage, axis))
+        if !isempty(vectors)
+            if is_first
+                push!(lines, "vectors:")
+                is_first = false
+            end
+            sort!(vectors)
+            push!(lines, "  $(axis):")
+            for vector in vectors
+                push!(lines, "    $(vector): $(present(get_vector(storage, axis, vector)))")
+            end
+        end
+    end
+    return nothing
+end
+
+function matrices_description(storage::AbstractStorage, axes::Vector{String}, lines::Vector{String})::Nothing
+    is_first = true
+    for rows_axis in axes
+        for columns_axis in axes
+            matrices = collect(matrix_names(storage, rows_axis, columns_axis))
+            if !isempty(matrices)
+                if is_first
+                    push!(lines, "matrices:")
+                    is_first = false
+                end
+                sort!(matrices)
+                push!(lines, "  $(rows_axis),$(columns_axis):")
+                for matrix in matrices
+                    push!(lines, "    $(matrix): $(present(get_matrix(storage, rows_axis, columns_axis, matrix)))")
+                end
+            end
+        end
     end
     return nothing
 end

@@ -28,6 +28,13 @@ function test_storage_scalar(storage::AbstractStorage)::Nothing
     @test get_scalar(storage, "version") == "1.2"
     @test get_scalar(storage, "version"; default = "3.4") == "1.2"
 
+    @test description(storage) == dedent("""
+        type: MemoryStorage
+        name: $(name)
+        scalars:
+          version: "1.2"
+    """) * "\n"
+
     delete_scalar!(storage, "version")
     @test !has_scalar(storage, "version")
     @test length(scalar_names(storage)) == 0
@@ -65,6 +72,13 @@ function test_storage_axis(storage::AbstractStorage)::Nothing
         existing axis: cell
         in the storage: $(name)
     """) add_axis!(storage, "cell", cell_names)
+
+    @test description(storage) == dedent("""
+        type: MemoryStorage
+        name: $(name)
+        axes:
+          cell: 3 entries
+    """) * "\n"
 
     delete_axis!(storage, "cell")
     @test !has_axis(storage, "cell")
@@ -147,6 +161,16 @@ function test_storage_vector(storage::AbstractStorage)::Nothing
     @test length(vector_names(storage, "cell")) == 1
     @test "age" in vector_names(storage, "cell")
     @test get_vector(storage, "cell", "age") == vec([0 1 2])
+
+    @test description(storage) == dedent("""
+        type: MemoryStorage
+        name: $(name)
+        axes:
+          cell: 3 entries
+        vectors:
+          cell:
+            age: 3 x Int64 (Dense)
+    """) * "\n"
 
     delete_vector!(storage, "cell", "age")
     @test !has_vector(storage, "cell", "age")
@@ -285,6 +309,17 @@ function test_storage_matrix(storage::AbstractStorage)::Nothing
     @test get_matrix(storage, "cell", "gene", "UMIs") == [0 1; 2 3; 4 5]
     @test get_matrix(storage, "cell", "gene", "UMIs"; default = [1 2; 3 4; 5 6]) == [0 1; 2 3; 4 5]
     @test get_matrix(storage, "cell", "gene", "UMIs"; default = 1) == [0 1; 2 3; 4 5]
+
+    @test description(storage) == dedent("""
+        type: MemoryStorage
+        name: $(name)
+        axes:
+          cell: 3 entries
+          gene: 2 entries
+        matrices:
+          cell,gene:
+            UMIs: 3 x 2 x Int64 (Dense in Columns)
+    """) * "\n"
 
     delete_matrix!(storage, "cell", "gene", "UMIs")
 

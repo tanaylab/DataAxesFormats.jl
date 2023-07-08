@@ -8,6 +8,7 @@ Daf.Storage
 
 ```@docs
 Daf.Storage.AbstractStorage
+Daf.Storage.description
 ```
 
 ## Scalar properties
