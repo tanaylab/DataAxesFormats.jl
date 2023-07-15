@@ -12,6 +12,9 @@ For matrices, we keep careful track of their [`MatrixLayouts`](@ref). A storage 
 axis order that describes its layout (that is, storage formats only deal with column-major matrices). In theory a
 storage may hold two copies of the same matrix in both possible memory layouts, in which case it will be listed twice,
 under both axes orders.
+
+The storage format API is intentionally low-level and isn't typically used outside the `Daf` package, except for
+creating new storage objects.
 """
 module Storage
 
@@ -67,6 +70,7 @@ export vector_names
 using Daf.DataTypes
 using Daf.MatrixLayouts
 using Daf.Messages
+using Daf.Query
 using SparseArrays
 
 import Daf.DataTypes.require_storage_matrix
@@ -84,26 +88,26 @@ variant of the rest of the functions, which are listed in [`Concrete storage`] b
 most error conditions because the "safe" version of the functions performs most validations first, before calling the
 "unsafe" variant.
 
-In general, storage functionality is as "dumb" as possible, to make it easier to create new storage format adapters.
-That is, the required functions implement a glorified key-value repositories, with the absolutely minimal necessary
-logic to deal with the separate namespaces listed above. Most of this logic is common to all storage formats, and is
-contained in the base functions so the concrete storage format adapters are even simpler.
+In general, storage objects are as "dumb" as possible, to make it easier to support new storage formats. The required
+functions implement a glorified key-value repositories, with the absolutely minimal necessary logic to deal with the
+separate namespaces listed above. Most of this logic is common to all storage formats, and is contained in the base
+functions, so the concrete storage format adapters are even simpler.
 """
 abstract type AbstractStorage end
 
 """
-    has_scalar(storage::AbstractStorage, name::String)::Bool
+    has_scalar(storage::AbstractStorage, name::AbstractString)::Bool
 
 Check whether a scalar property with some `name` exists in the `storage`.
 """
-function has_scalar(storage::AbstractStorage, name::String)::Bool  # untested
+function has_scalar(storage::AbstractStorage, name::AbstractString)::Bool  # untested
     return error("missing method: has_scalar\nfor storage type: $(typeof(storage))")
 end
 
 """
     set_scalar!(
         storage::AbstractStorage,
-        name::String,
+        name::AbstractString,
         value::StorageScalar
         [; overwrite::Bool]
     )::Nothing
@@ -112,7 +116,12 @@ Set the `value` of a scalar property with some `name` in the `storage`.
 
 If `overwrite` is `false` (the default), this first verifies the `name` scalar property does not exist.
 """
-function set_scalar!(storage::AbstractStorage, name::String, value::StorageScalar; overwrite::Bool = false)::Nothing
+function set_scalar!(
+    storage::AbstractStorage,
+    name::AbstractString,
+    value::StorageScalar;
+    overwrite::Bool = false,
+)::Nothing
     if !overwrite
         require_no_scalar(storage, name)
     end
@@ -124,7 +133,7 @@ end
 """
     unsafe_set_scalar!(
         storage::AbstractStorage,
-        name::String,
+        name::AbstractString,
         value::StorageScalar,
     )::Nothing
 
@@ -132,14 +141,14 @@ Implement setting the `value` of a scalar property with some `name` in the `stor
 
 This will silently overwrite an existing `value` for the same `name` scalar property.
 """
-function unsafe_set_scalar!(storage::AbstractStorage, name::String, value::StorageScalar)::Nothing  # untested
+function unsafe_set_scalar!(storage::AbstractStorage, name::AbstractString, value::StorageScalar)::Nothing  # untested
     return error("missing method: unsafe_set_scalar!\nfor storage type: $(typeof(storage))")
 end
 
 """
     delete_scalar!(
         storage::AbstractStorage,
-        name::String;
+        name::AbstractString;
         must_exist::Bool = true,
     )::Nothing
 
@@ -147,7 +156,7 @@ Delete a scalar property with some `name` from the `storage`.
 
 If `must_exist` is `true` (the default), this first verifies the `name` scalar property exists in the `storage`.
 """
-function delete_scalar!(storage::AbstractStorage, name::String; must_exist::Bool = true)::Nothing
+function delete_scalar!(storage::AbstractStorage, name::AbstractString; must_exist::Bool = true)::Nothing
     if must_exist
         require_scalar(storage, name)
     elseif !has_scalar(storage, name)
@@ -159,13 +168,13 @@ function delete_scalar!(storage::AbstractStorage, name::String; must_exist::Bool
 end
 
 """
-    unsafe_delete_scalar!(storage::AbstractStorage, name::String)::Nothing
+    unsafe_delete_scalar!(storage::AbstractStorage, name::AbstractString)::Nothing
 
 Implement deleting a scalar property with some `name` from `storage`.
 
 This trusts that the `name` scalar property exists in the `storage`.
 """
-function unsafe_delete_scalar!(storage::AbstractStorage, name::String)::Nothing  # untested
+function unsafe_delete_scalar!(storage::AbstractStorage, name::AbstractString)::Nothing  # untested
     return error("missing method: unsafe_delete_scalar!\nfor storage type: $(typeof(storage))")
 end
 
@@ -179,7 +188,7 @@ function scalar_names(storage::AbstractStorage)::AbstractSet{String}  # untested
 end
 
 """
-    get_scalar(storage::AbstractStorage, name::String[; default::StorageScalar])::StorageScalar
+    get_scalar(storage::AbstractStorage, name::AbstractString[; default::StorageScalar])::StorageScalar
 
 Get the value of a scalar property with some `name` in the `storage`.
 
@@ -187,7 +196,7 @@ If `default` is not specified, this first verifies the `name` scalar property ex
 """
 function get_scalar(
     storage::AbstractStorage,
-    name::String;
+    name::AbstractString;
     default::Union{StorageScalar, Nothing} = nothing,
 )::StorageScalar
     if default == nothing
@@ -200,43 +209,43 @@ function get_scalar(
 end
 
 """
-    unsafe_get_scalar(storage::AbstractStorage, name::String)::StorageScalar
+    unsafe_get_scalar(storage::AbstractStorage, name::AbstractString)::StorageScalar
 
 Implement fetching the value of a scalar property with some `name` in the `storage`.
 
 This trusts the `name` scalar property exists in the `storage`.
 """
-function unsafe_get_scalar(storage::AbstractStorage, name::String)::StorageScalar  # untested
+function unsafe_get_scalar(storage::AbstractStorage, name::AbstractString)::StorageScalar  # untested
     return error("missing method: unsafe_get_scalar\nfor storage type: $(typeof(storage))")
 end
 
-function require_scalar(storage::AbstractStorage, name::String)::Nothing
+function require_scalar(storage::AbstractStorage, name::AbstractString)::Nothing
     if !has_scalar(storage, name)
-        error("missing scalar: $(name)\nin the storage: $(storage.name)")
+        error("missing scalar property: $(name)\nin the storage: $(storage.name)")
     end
     return nothing
 end
 
-function require_no_scalar(storage::AbstractStorage, name::String)::Nothing
+function require_no_scalar(storage::AbstractStorage, name::AbstractString)::Nothing
     if has_scalar(storage, name)
-        error("existing scalar: $(name)\nin the storage: $(storage.name)")
+        error("existing scalar property: $(name)\nin the storage: $(storage.name)")
     end
     return nothing
 end
 
 """
-    has_axis(storage::AbstractStorage, axis::String)::Bool
+    has_axis(storage::AbstractStorage, axis::AbstractString)::Bool
 
 Check whether some `axis` exists in the `storage`.
 """
-function has_axis(storage::AbstractStorage, axis::String)::Bool  # untested
+function has_axis(storage::AbstractStorage, axis::AbstractString)::Bool  # untested
     return error("missing method: has_axis\nfor storage type: $(typeof(storage))")
 end
 
 """
     add_axis!(
         storage::AbstractStorage,
-        axis::String,
+        axis::AbstractString,
         entries::DenseVector{String}
     )::Nothing
 
@@ -244,7 +253,7 @@ Add a new `axis` to the `storage`.
 
 This first verifies the `axis` does not exist and that the `entries` are unique.
 """
-function add_axis!(storage::AbstractStorage, axis::String, entries::DenseVector{String})::Nothing
+function add_axis!(storage::AbstractStorage, axis::AbstractString, entries::DenseVector{String})::Nothing
     require_no_axis(storage, axis)
 
     if !allunique(entries)
@@ -258,7 +267,7 @@ end
 """
     unsafe_add_axis!(
         storage::AbstractStorage,
-        axis::String,
+        axis::AbstractString,
         entries::DenseVector{String}
     )::Nothing
 
@@ -266,14 +275,14 @@ Implement adding a new `axis` to `storage`.
 
 This trusts that the `axis` does not already exist in the `storage`, and that the names of the `entries` are unique.
 """
-function unsafe_add_axis!(storage::AbstractStorage, axis::String, entries::DenseVector{String})::Nothing  # untested
+function unsafe_add_axis!(storage::AbstractStorage, axis::AbstractString, entries::DenseVector{String})::Nothing  # untested
     return error("missing method: unsafe_add_axis!\nfor storage type: $(typeof(storage))")
 end
 
 """
     delete_axis!(
         storage::AbstractStorage,
-        axis::String;
+        axis::AbstractString;
         must_exist::Bool = true,
     )::Nothing
 
@@ -281,7 +290,7 @@ Delete an `axis` from the `storage`. This will also delete any vector or matrix 
 
 If `must_exist` is `true` (the default), this first verifies the `axis` exists in the `storage`.
 """
-function delete_axis!(storage::AbstractStorage, axis::String; must_exist::Bool = true)::Nothing
+function delete_axis!(storage::AbstractStorage, axis::AbstractString; must_exist::Bool = true)::Nothing
     if must_exist
         require_axis(storage, axis)
     elseif !has_axis(storage, axis)
@@ -305,7 +314,7 @@ end
 """
     unsafe_delete_axis!(
         storage::AbstractStorage,
-        axis::String,
+        axis::AbstractString,
     )::Nothing
 
 Implement deleting some `axis` from `storage`.
@@ -313,7 +322,7 @@ Implement deleting some `axis` from `storage`.
 This trusts that the `axis` exists in the `storage`, and that all properties that are based on this axis have already
 been deleted.
 """
-function unsafe_delete_axis!(storage::AbstractStorage, axis::String)::Nothing  # untested
+function unsafe_delete_axis!(storage::AbstractStorage, axis::AbstractString)::Nothing  # untested
     return error("missing method: unsafe_delete_axis!\nfor storage type: $(typeof(storage))")
 end
 
@@ -327,60 +336,60 @@ function axis_names(storage::AbstractStorage)::AbstractSet{String}  # untested
 end
 
 """
-    get_axis(storage::AbstractStorage, axis::String)::DenseVector{String}
+    get_axis(storage::AbstractStorage, axis::AbstractString)::DenseVector{String}
 
 The unique names of the entries of some `axis` of the `storage`. This is identical to doing [`get_vector`](@ref) for the
 special `name` property.
 
 This first verifies the `axis` exists in the `storage`.
 """
-function get_axis(storage::AbstractStorage, axis::String)::DenseVector{String}
+function get_axis(storage::AbstractStorage, axis::AbstractString)::DenseVector{String}
     require_axis(storage, axis)
     return unsafe_get_axis(storage, axis)
 end
 
 """
-    unsafe_get_axis(storage::AbstractStorage, axis::String)::DenseVector{String}
+    unsafe_get_axis(storage::AbstractStorage, axis::AbstractString)::DenseVector{String}
 
 Implement fetching the unique names of the entries of some `axis` of the `storage`.
 
 This trusts the `axis` exists in the `storage`.
 """
-function unsafe_get_axis(storage::AbstractStorage, axis::String)::DenseVector{String}  # untested
+function unsafe_get_axis(storage::AbstractStorage, axis::AbstractString)::DenseVector{String}  # untested
     return error("missing method: unsafe_get_axis\nfor storage type: $(typeof(storage))")
 end
 
 """
-    axis_length(storage::AbstractStorage, axis::String)::Int64
+    axis_length(storage::AbstractStorage, axis::AbstractString)::Int64
 
 The number of entries along the `axis` in the `storage`.
 
 This first verifies the `axis` exists in the `storage`.
 """
-function axis_length(storage::AbstractStorage, axis::String)::Int64
+function axis_length(storage::AbstractStorage, axis::AbstractString)::Int64
     require_axis(storage, axis)
     return unsafe_axis_length(storage, axis)
 end
 
 """
-    unsafe_axis_length(storage::AbstractStorage, axis::String)::Int64
+    unsafe_axis_length(storage::AbstractStorage, axis::AbstractString)::Int64
 
 Implement fetching the number of entries along the `axis`.
 
 This trusts the `axis` exists in the `storage`.
 """
-function unsafe_axis_length(storage::AbstractStorage, axis::String)::Int64  # untested
+function unsafe_axis_length(storage::AbstractStorage, axis::AbstractString)::Int64  # untested
     return error("missing method: unsafe_axis_length\nfor storage type: $(typeof(storage))")
 end
 
-function require_axis(storage::AbstractStorage, axis::String)::Nothing
+function require_axis(storage::AbstractStorage, axis::AbstractString)::Nothing
     if !has_axis(storage, axis)
         error("missing axis: $(axis)\nin the storage: $(storage.name)")
     end
     return nothing
 end
 
-function require_no_axis(storage::AbstractStorage, axis::String)::Nothing
+function require_no_axis(storage::AbstractStorage, axis::AbstractString)::Nothing
     if has_axis(storage, axis)
         error("existing axis: $(axis)\nin the storage: $(storage.name)")
     end
@@ -388,34 +397,34 @@ function require_no_axis(storage::AbstractStorage, axis::String)::Nothing
 end
 
 """
-    has_vector(storage::AbstractStorage, axis::String, name::String)::Bool
+    has_vector(storage::AbstractStorage, axis::AbstractString, name::AbstractString)::Bool
 
 Check whether a vector property with some `name` exists for the `axis` in the `storage`. This is always true for the
 special `name` property.
 
 This first verifies the `axis` exists in the `storage`.
 """
-function has_vector(storage::AbstractStorage, axis::String, name::String)::Bool
+function has_vector(storage::AbstractStorage, axis::AbstractString, name::AbstractString)::Bool
     require_axis(storage, axis)
     return name == "name" || unsafe_has_vector(storage, axis, name)
 end
 
 """
-    has_vector(storage::AbstractStorage, axis::String, name::String)::Bool
+    has_vector(storage::AbstractStorage, axis::AbstractString, name::AbstractString)::Bool
 
 Implement checking whether a vector property with some `name` exists for the `axis` in the `storage`.
 
 This trusts the `axis` exists in the `storage` and that the property name isn't `name`.
 """
-function unsafe_has_vector(storage::AbstractStorage, axis::String, name::String)::Bool  # untested
+function unsafe_has_vector(storage::AbstractStorage, axis::AbstractString, name::AbstractString)::Bool  # untested
     return error("missing method: unsafe_has_vector\nfor storage type: $(typeof(storage))")
 end
 
 """
     set_vector!(
         storage::AbstractStorage,
-        axis::String,
-        name::String,
+        axis::AbstractString,
+        name::AbstractString,
         vector::Union{StorageScalar, StorageVector}
         [; overwrite::Bool]
     )::Nothing
@@ -430,8 +439,8 @@ the `axis`.
 """
 function set_vector!(
     storage::AbstractStorage,
-    axis::String,
-    name::String,
+    axis::AbstractString,
+    name::AbstractString,
     vector::Union{StorageScalar, StorageVector};
     overwrite::Bool = false,
 )::Nothing
@@ -454,8 +463,8 @@ end
 """
     unsafe_set_vector!(
         storage::AbstractStorage,
-        axis::String,
-        name::String,
+        axis::AbstractString,
+        name::AbstractString,
         vector::Union{StorageScalar, StorageVector},
     )::Nothing
 
@@ -468,8 +477,8 @@ appropriate length. It will silently overwrite an existing vector for the same `
 """
 function unsafe_set_vector!(  # untested
     storage::AbstractStorage,
-    axis::String,
-    name::String,
+    axis::AbstractString,
+    name::AbstractString,
     vector::Union{StorageScalar, StorageVector},
 )::Nothing
     return error("missing method: unsafe_set_vector!\nfor storage type: $(typeof(storage))")
@@ -478,8 +487,8 @@ end
 """
     empty_dense_vector!(
         storage::AbstractStorage,
-        axis::String,
-        name::String,
+        axis::AbstractString,
+        name::AbstractString,
         eltype::Type{T}
         [; overwrite::Bool]
     )::DenseVector{T} where {T <: Number}
@@ -495,8 +504,8 @@ This first verifies the `axis` exists in the `storage` and that the property nam
 """
 function empty_dense_vector!(
     storage::AbstractStorage,
-    axis::String,
-    name::String,
+    axis::AbstractString,
+    name::AbstractString,
     eltype::Type{T};
     overwrite::Bool = false,
 )::DenseVector{T} where {T <: Number}
@@ -513,8 +522,8 @@ end
 """
     unsafe_empty_dense_vector!(
         storage::AbstractStorage,
-        axis::String,
-        name::String,
+        axis::AbstractString,
+        name::AbstractString,
         eltype::Type{T},
     )::DenseVector where {T <: Number}
 
@@ -527,8 +536,8 @@ existing vector for the same `name` for the `axis`.
 """
 function unsafe_empty_dense_vector!(  # untested
     storage::AbstractStorage,
-    axis::String,
-    name::String,
+    axis::AbstractString,
+    name::AbstractString,
     eltype::Type{T},
 )::DenseVector{T} where {T <: Number}
     return error("missing method: unsafe_empty_dense_vector!\nfor storage type: $(typeof(storage))")
@@ -537,8 +546,8 @@ end
 """
     empty_sparse_vector!(
         storage::AbstractStorage,
-        axis::String,
-        name::String,
+        axis::AbstractString,
+        name::AbstractString,
         eltype::Type{T},
         nnz::Integer,
         indtype::Type{I}
@@ -569,8 +578,8 @@ This first verifies the `axis` exists in the `storage` and that the property nam
 """
 function empty_sparse_vector!(
     storage::AbstractStorage,
-    axis::String,
-    name::String,
+    axis::AbstractString,
+    name::AbstractString,
     eltype::Type{T},
     nnz::Integer,
     indtype::Type{I};
@@ -589,8 +598,8 @@ end
 """
     unsafe_empty_dense_vector!(
         storage::AbstractStorage,
-        axis::String,
-        name::String,
+        axis::AbstractString,
+        name::AbstractString,
         eltype::Type{T},
         nnz::Integer,
         indtype::Type{I},
@@ -604,8 +613,8 @@ existing vector for the same `name` for the `axis`.
 """
 function unsafe_empty_sparse_vector!(  # untested
     storage::AbstractStorage,
-    axis::String,
-    name::String,
+    axis::AbstractString,
+    name::AbstractString,
     eltype::Type{T},
     nnz::Integer,
     indtype::Type{I},
@@ -616,8 +625,8 @@ end
 """
     delete_vector!(
         storage::AbstractStorage,
-        axis::String,
-        name::String;
+        axis::AbstractString,
+        name::AbstractString;
         must_exist::Bool = true,
     )::Nothing
 
@@ -626,7 +635,12 @@ Delete a vector property with some `name` for some `axis` from the `storage`.
 This first verifies the `axis` exists in the `storage` and that the property name isn't `name`. If `must_exist` is
 `true` (the default), this also verifies the `name` vector exists for the `axis`.
 """
-function delete_vector!(storage::AbstractStorage, axis::String, name::String; must_exist::Bool = true)::Nothing
+function delete_vector!(
+    storage::AbstractStorage,
+    axis::AbstractString,
+    name::AbstractString;
+    must_exist::Bool = true,
+)::Nothing
     require_not_name(storage, axis, name)
     require_axis(storage, axis)
 
@@ -641,46 +655,46 @@ function delete_vector!(storage::AbstractStorage, axis::String, name::String; mu
 end
 
 """
-    unsafe_delete_vector!(storage::AbstractStorage, axis::String, name::String)::Nothing
+    unsafe_delete_vector!(storage::AbstractStorage, axis::AbstractString, name::AbstractString)::Nothing
 
 Implement deleting a vector property with some `name` for some `axis` from `storage`.
 
 This trusts the `axis` exists in the `storage`, that the property name isn't `name`, and that the `name` vector exists
 for the `axis`.
 """
-function unsafe_delete_vector!(storage::AbstractStorage, axis::String, name::String)::Nothing  # untested
+function unsafe_delete_vector!(storage::AbstractStorage, axis::AbstractString, name::AbstractString)::Nothing  # untested
     return error("missing method: unsafe_delete_vector! for storage type: $(typeof(storage))")
 end
 
 """
-    vector_names(storage::AbstractStorage, axis::String)::Set{String}
+    vector_names(storage::AbstractStorage, axis::AbstractString)::Set{String}
 
 The names of the vector properties for the `axis` in the `storage`, **not** including the special `name` property.
 
 This first verifies the `axis` exists in the `storage`.
 """
-function vector_names(storage::AbstractStorage, axis::String)::AbstractSet{String}
+function vector_names(storage::AbstractStorage, axis::AbstractString)::AbstractSet{String}
     require_axis(storage, axis)
     return unsafe_vector_names(storage, axis)
 end
 
 """
-    unsafe_vector_names(storage::AbstractStorage, axis::String)::Set{String}
+    unsafe_vector_names(storage::AbstractStorage, axis::AbstractString)::Set{String}
 
 Implement fetching the names of the vectors for the `axis` in the `storage`, **not** including the special `name`
 property.
 
 This trusts the `axis` exists in the `storage`.
 """
-function unsafe_vector_names(storage::AbstractStorage, axis::String)::AbstractSet{String}  # untested
+function unsafe_vector_names(storage::AbstractStorage, axis::AbstractString)::AbstractSet{String}  # untested
     return error("missing method: unsafe_vector_names\nfor storage type: $(typeof(storage))")
 end
 
 """
     get_vector(
         storage::AbstractStorage,
-        axis::String,
-        name::String
+        axis::AbstractString,
+        name::AbstractString
         [; default::Union{StorageScalar, StorageVector}]
     )::StorageVector
 
@@ -693,8 +707,8 @@ returned.
 """
 function get_vector(
     storage::AbstractStorage,
-    axis::String,
-    name::String;
+    axis::AbstractString,
+    name::AbstractString;
     default::Union{StorageScalar, StorageVector, Nothing} = nothing,
 )::StorageVector
     require_axis(storage, axis)
@@ -739,26 +753,26 @@ function get_vector(
 end
 
 """
-    unsafe_get_vector(storage::AbstractStorage, axis::String, name::String)::StorageVector
+    unsafe_get_vector(storage::AbstractStorage, axis::AbstractString, name::AbstractString)::StorageVector
 
 Implement fetching the vector property with some `name` for some `axis` in the `storage`.
 
 This trusts the `axis` exists in the `storage`, and the `name` vector exists for the `axis`.
 """
-function unsafe_get_vector(storage::AbstractStorage, name::String)::StorageVector  # untested
+function unsafe_get_vector(storage::AbstractStorage, name::AbstractString)::StorageVector  # untested
     return error("missing method: unsafe_get_vector\nfor storage type: $(typeof(storage))")
 end
 
-function require_vector(storage::AbstractStorage, axis::String, name::String)::Nothing
+function require_vector(storage::AbstractStorage, axis::AbstractString, name::AbstractString)::Nothing
     if !has_vector(storage, axis, name)
-        error("missing vector: $(name)\nfor the axis: $(axis)\nin the storage: $(storage.name)")
+        error("missing vector property: $(name)\nfor the axis: $(axis)\nin the storage: $(storage.name)")
     end
     return nothing
 end
 
-function require_no_vector(storage::AbstractStorage, axis::String, name::String)::Nothing
+function require_no_vector(storage::AbstractStorage, axis::AbstractString, name::AbstractString)::Nothing
     if has_vector(storage, axis, name)
-        error("existing vector: $(name)\nfor the axis: $(axis)\nin the storage: $(storage.name)")
+        error("existing vector property: $(name)\nfor the axis: $(axis)\nin the storage: $(storage.name)")
     end
     return nothing
 end
@@ -766,9 +780,9 @@ end
 """
     has_matrix(
         storage::AbstractStorage,
-        rows_axis::String,
-        columns_axis::String,
-        name::String,
+        rows_axis::AbstractString,
+        columns_axis::AbstractString,
+        name::AbstractString,
     )::Bool
 
 Check whether a matrix property with some `name` exists for the `rows_axis` and the `columns_axis` in the `storage`.
@@ -777,7 +791,12 @@ it would report the matrix under both axis orders.
 
 This first verifies the `rows_axis` and `columns_axis` exists in the `storage`.
 """
-function has_matrix(storage::AbstractStorage, rows_axis::String, columns_axis::String, name::String)::Bool
+function has_matrix(
+    storage::AbstractStorage,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+)::Bool
     require_axis(storage, rows_axis)
     require_axis(storage, columns_axis)
     return unsafe_has_matrix(storage, rows_axis, columns_axis, name)
@@ -786,9 +805,9 @@ end
 """
     has_matrix(
         storage::AbstractStorage,
-        rows_axis::String,
-        columns_axis::String,
-        name::String,
+        rows_axis::AbstractString,
+        columns_axis::AbstractString,
+        name::AbstractString,
     )::Bool
 
 Implement checking whether a matrix property with some `name` exists for the `rows_axis` and the `columns_axis` in the
@@ -798,9 +817,9 @@ This trusts the `rows_axis` and the `columns_axis` exist in the `storage`.
 """
 function unsafe_has_matrix(  # untested
     storage::AbstractStorage,
-    rows_axis::String,
-    columns_axis::String,
-    name::String,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
 )::Bool
     return error("missing method: unsafe_has_matrix\nfor storage type: $(typeof(storage))")
 end
@@ -808,9 +827,9 @@ end
 """
     set_matrix!(
         storage::AbstractStorage,
-        rows_axis::String,
-        columns_axis::String,
-        name::String,
+        rows_axis::AbstractString,
+        columns_axis::AbstractString,
+        name::AbstractString,
         matrix::StorageMatrix
         [; overwrite::Bool]
     )::Nothing
@@ -826,9 +845,9 @@ appropriate size. If `overwrite` is `false` (the default), this also verifies th
 """
 function set_matrix!(
     storage::AbstractStorage,
-    rows_axis::String,
-    columns_axis::String,
-    name::String,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
     matrix::Union{StorageScalar, StorageMatrix};
     overwrite::Bool = false,
 )::Nothing
@@ -853,9 +872,9 @@ end
 """
     unsafe_set_matrix!(
         storage::AbstractStorage,
-        rows_axis::String,
-        columns_axis::String,
-        name::String,
+        rows_axis::AbstractString,
+        columns_axis::AbstractString,
+        name::AbstractString,
         matrix::StorageMatrix,
     )::Nothing
 
@@ -869,9 +888,9 @@ appropriate size. It will silently overwrite an existing matrix for the same `na
 """
 function unsafe_set_matrix!(  # untested
     storage::AbstractStorage,
-    rows_axis::String,
-    columns_axis::String,
-    name::String,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
     matrix::Union{StorageScalar, StorageMatrix},
 )::Nothing
     return error("missing method: unsafe_set_matrix!\nfor storage type: $(typeof(storage))")
@@ -880,9 +899,9 @@ end
 """
     empty_dense_matrix!(
         storage::AbstractStorage,
-        rows_axis::String,
-        columns_axis::String,
-        name::String,
+        rows_axis::AbstractString,
+        columns_axis::AbstractString,
+        name::AbstractString,
         eltype::Type{T}
         [; overwrite::Bool]
     )::DenseMatrix{T} where {T <: Number}
@@ -900,9 +919,9 @@ appropriate size. If `overwrite` is `false` (the default), this also verifies th
 """
 function empty_dense_matrix!(
     storage::AbstractStorage,
-    rows_axis::String,
-    columns_axis::String,
-    name::String,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
     eltype::Type{T};
     overwrite::Bool = false,
 )::DenseMatrix{T} where {T <: Number}
@@ -919,9 +938,9 @@ end
 """
     unsafe_empty_dense_matrix!(
         storage::AbstractStorage,
-        rows_axis::String,
-        columns_axis::String,
-        name::String,
+        rows_axis::AbstractString,
+        columns_axis::AbstractString,
+        name::AbstractString,
         eltype::Type{T},
     )::DenseMatrix{T} where {T <: Number}
 
@@ -933,8 +952,8 @@ the same `name` for the `rows_axis` and `columns_axis`.
 """
 function unsafe_empty_dense_matrix!(  # untested
     storage::AbstractStorage,
-    rows_axis::String,
-    columns_axis::String,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
     eltype::Type{T},
 )::DenseMatrix{T} where {T <: Number}
     return error("missing method: unsafe_empty_dense_matrix!\nfor storage type: $(typeof(storage))")
@@ -943,9 +962,9 @@ end
 """
     empty_sparse_matrix!(
         storage::AbstractStorage,
-        rows_axis::String,
-        columns_axis::String,
-        name::String,
+        rows_axis::AbstractString,
+        columns_axis::AbstractString,
+        name::AbstractString,
         eltype::Type{T},
         nnz::Integer,
         intdype::Type{I}
@@ -977,9 +996,9 @@ this also verifies the `name` matrix does not exist for the `rows_axis` and `col
 """
 function empty_sparse_matrix!(
     storage::AbstractStorage,
-    rows_axis::String,
-    columns_axis::String,
-    name::String,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
     eltype::Type{T},
     nnz::Integer,
     indtype::Type{I};
@@ -998,9 +1017,9 @@ end
 """
     unsafe_empty_dense_matrix!(
         storage::AbstractStorage,
-        rows_axis::String,
-        columns_axis::String,
-        name::String,
+        rows_axis::AbstractString,
+        columns_axis::AbstractString,
+        name::AbstractString,
         eltype::Type{T},
         intdype::Type{I},
         nnz::Integer,
@@ -1014,8 +1033,8 @@ the same `name` for the `rows_axis` and `columns_axis`.
 """
 function unsafe_empty_sparse_matrix!(  # untested
     storage::AbstractStorage,
-    rows_axis::String,
-    columns_axis::String,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
     eltype::Type{T},
     nnz::Integer,
     indtype::Type{I},
@@ -1026,9 +1045,9 @@ end
 """
     delete_matrix!(
         storage::AbstractStorage,
-        rows_axis::String,
-        columns_axis::String,
-        name::String;
+        rows_axis::AbstractString,
+        columns_axis::AbstractString,
+        name::AbstractString;
         must_exist::Bool = true,
     )::Nothing
 
@@ -1039,9 +1058,9 @@ this also verifies the `name` matrix exists for the `rows_axis` and `columns_axi
 """
 function delete_matrix!(
     storage::AbstractStorage,
-    rows_axis::String,
-    columns_axis::String,
-    name::String;
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString;
     must_exist::Bool = true,
 )::Nothing
     require_axis(storage, rows_axis)
@@ -1060,9 +1079,9 @@ end
 """
     unsafe_delete_matrix!(
         storage::AbstractStorage,
-        rows_axis::String,
-        columns_axis::String,
-        name::String
+        rows_axis::AbstractString,
+        columns_axis::AbstractString,
+        name::AbstractString
     )::Nothing
 
 Implement deleting a matrix property with some `name` for some `rows_axis` and `columns_axis` from `storage`.
@@ -1072,9 +1091,9 @@ This trusts the `rows_axis` and `columns_axis` exist in the `storage`, and that 
 """
 function unsafe_delete_matrix!(  # untested
     storage::AbstractStorage,
-    rows_axis::String,
-    columns_axis::String,
-    name::String,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
 )::Nothing
     return error("missing method: unsafe_delete_matrix!\nfor storage type: $(typeof(storage))")
 end
@@ -1082,15 +1101,19 @@ end
 """
     matrix_names(
         storage::AbstractStorage,
-        rows_axis::String,
-        columns_axis::String,
+        rows_axis::AbstractString,
+        columns_axis::AbstractString,
     )::Set{String}
 
 The names of the matrix properties for the `rows_axis` and `columns_axis` in the `storage`.
 
 This first verifies the `rows_axis` and `columns_axis` exist in the `storage`.
 """
-function matrix_names(storage::AbstractStorage, rows_axis::String, columns_axis::String)::AbstractSet{String}
+function matrix_names(
+    storage::AbstractStorage,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+)::AbstractSet{String}
     require_axis(storage, rows_axis)
     require_axis(storage, columns_axis)
     return unsafe_matrix_names(storage, rows_axis, columns_axis)
@@ -1099,8 +1122,8 @@ end
 """
     unsafe_matrix_names(
         storage::AbstractStorage,
-        rows_axis::String,
-        columns_axis::String,
+        rows_axis::AbstractString,
+        columns_axis::AbstractString,
     )::Set{String}
 
 Implement fetching the names of the matrix properties for the `rows_axis` and `columns_axis` in the `storage`.
@@ -1109,16 +1132,21 @@ This trusts the `rows_axis` and `columns_axis` exist in the `storage`.
 """
 function unsafe_matrix_names(  # untested
     storage::AbstractStorage,
-    rows_axis::String,
-    columns_axis::String,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
 )::AbstractSet{String}
     return error("missing method: unsafe_matrix_names\nfor storage type: $(typeof(storage))")
 end
 
-function require_matrix(storage::AbstractStorage, rows_axis::String, columns_axis::String, name::String)::Nothing
+function require_matrix(
+    storage::AbstractStorage,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+)::Nothing
     if !has_matrix(storage, rows_axis, columns_axis, name)
         error(
-            "missing matrix: $(name)\n" *
+            "missing matrix property: $(name)\n" *
             "for the rows axis: $(rows_axis)\n" *
             "and the columns axis: $(columns_axis)\n" *
             "in the storage: $(storage.name)",
@@ -1127,10 +1155,15 @@ function require_matrix(storage::AbstractStorage, rows_axis::String, columns_axi
     return nothing
 end
 
-function require_no_matrix(storage::AbstractStorage, rows_axis::String, columns_axis::String, name::String)::Nothing
+function require_no_matrix(
+    storage::AbstractStorage,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+)::Nothing
     if has_matrix(storage, rows_axis, columns_axis, name)
         error(
-            "existing matrix: $(name)\n" *
+            "existing matrix property: $(name)\n" *
             "for the rows axis: $(rows_axis)\n" *
             "and the columns axis: $(columns_axis)\n" *
             "in the storage: $(storage.name)",
@@ -1142,9 +1175,9 @@ end
 """
     get_matrix(
         storage::AbstractStorage,
-        rows_axis::String,
-        columns_axis::String,
-        name::String
+        rows_axis::AbstractString,
+        columns_axis::AbstractString,
+        name::AbstractString
         [; default::Union{StorageScalar, StorageMatrix}]
     )::StorageMatrix
 
@@ -1157,9 +1190,9 @@ size containing the `default`, and is returned.
 """
 function get_matrix(
     storage::AbstractStorage,
-    rows_axis::String,
-    columns_axis::String,
-    name::String;
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString;
     default::Union{StorageScalar, StorageMatrix, Nothing} = nothing,
 )::StorageMatrix
     require_axis(storage, rows_axis)
@@ -1221,9 +1254,9 @@ end
 """
     unsafe_get_matrix(
         storage::AbstractStorage,
-        rows_axis::String,
-        columns_axis::String,
-        name::String
+        rows_axis::AbstractString,
+        columns_axis::AbstractString,
+        name::AbstractString
     )::StorageMatrix
 
 Implement fetching the matrix property with some `name` for some `rows_axis` and `columns_axis` in the `storage`.
@@ -1233,9 +1266,9 @@ and `columns_axis`.
 """
 function unsafe_get_matrix(  # untested
     storage::AbstractStorage,
-    rows_axis::String,
-    columns_axis::String,
-    name::String,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
 )::StorageMatrix
     return error("missing method: unsafe_get_matrix\nfor storage type: $(typeof(storage))")
 end
@@ -1246,7 +1279,12 @@ function require_column_major(matrix::StorageMatrix)::Nothing
     end
 end
 
-function require_axis_length(storage::AbstractStorage, what_name::String, what_length::Integer, axis::String)::Nothing
+function require_axis_length(
+    storage::AbstractStorage,
+    what_name::AbstractString,
+    what_length::Integer,
+    axis::AbstractString,
+)::Nothing
     if what_length != axis_length(storage, axis)
         error(
             "$(what_name): $(what_length)\n" *
@@ -1258,7 +1296,7 @@ function require_axis_length(storage::AbstractStorage, what_name::String, what_l
     return nothing
 end
 
-function require_not_name(storage::AbstractStorage, axis::String, name::String)::Nothing
+function require_not_name(storage::AbstractStorage, axis::AbstractString, name::AbstractString)::Nothing
     if name == "name"
         error("setting the reserved property: name\n" * "for the axis: $(axis)\n" * "in the storage: $(storage.name)")
     end
@@ -1266,12 +1304,12 @@ function require_not_name(storage::AbstractStorage, axis::String, name::String):
 end
 
 """
-    description(storage::AbstractStorage)::String
+    description(storage::AbstractStorage)::AbstractString
 
 Return a (multi-line) description of the contents of some `storage`. This tries to hit a sweet spot between usefulness
 and terseness.
 """
-function description(storage::AbstractStorage)::String
+function description(storage::AbstractStorage)::AbstractString
     lines = String[]
 
     push!(lines, "type: $(typeof(storage))")
@@ -1351,6 +1389,7 @@ function matrices_description(storage::AbstractStorage, axes::Vector{String}, li
     return nothing
 end
 
+include("storage/query.jl")
 include("storage/memory.jl")
 
 end # module

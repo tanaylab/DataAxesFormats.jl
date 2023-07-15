@@ -4,12 +4,15 @@ and [`ReductionOperation`](@ref)s that reduce a matrix to a vector, or a vector 
 """
 module Operations
 
+using Daf.DataTypes
 using Daf.Query
 using Daf.Registry
 
 import Base.MathConstants.e
 import Daf.Query.error_in_context
 import Daf.Query.parse_in_context
+import Daf.Registry.compute_eltwise
+import Daf.Registry.compute_reduction
 import Distributed.@everywhere
 
 using Base.MathConstants
@@ -23,9 +26,32 @@ export parse_number_assignment
 export parse_parameter
 export Sum
 
-# Map name of `dtype` in a query to the Julia.
-#
-# Valid names are `{B,b}ool`, `{UI,ui,I,i}nt{8,16,32,64}` and `{F,f}loat{32,64}`.
+"""
+    invalid_parameter_value(
+        context::QueryContext,
+        parameter_assignment::QueryOperation,
+        must_be::AbstractString
+    )::Nothing
+
+Complain that an operation parameter is not valid.
+"""
+function invalid_parameter_value(
+    context::QueryContext,
+    parameter_assignment::QueryOperation,
+    must_be::AbstractString,
+)::Nothing
+    return parse_in_context(context, parameter_assignment; name = "parameter assignment") do
+        return parse_in_context(context, parameter_assignment.right; name = "parameter value") do
+            return error_in_context(
+                context,
+                "invalid value: \"$(escape_string(parameter_assignment.right.string))\"\n" *
+                "value must be: $(must_be)\n" *
+                "for the parameter: $(parameter_assignment.left.string)",
+            )
+        end
+    end
+end
+
 DTYPE_BY_NAME = Dict{String, Union{Type, Nothing}}(
     "bool" => Bool,
     "Bool" => Bool,
@@ -51,47 +77,6 @@ DTYPE_BY_NAME = Dict{String, Union{Type, Nothing}}(
     "Float64" => Float64,
     "auto" => nothing,
 )
-
-# Map a data type to the matching size floating-point data type.
-#
-# This is used to compute a default data type for operations that return a floating point number (e.g., [`Log`](@ref)),
-# when they get an input of an arbitrary data type (e.g., some integer).
-FLOAT_DTYPE = Dict{Type, Type}(
-    Bool => Float32,
-    Int8 => Float32,
-    Int8 => Float32,
-    Int16 => Float32,
-    Int32 => Float32,
-    Int64 => Float64,
-    UInt8 => Float32,
-    UInt16 => Float32,
-    UInt32 => Float32,
-    UInt64 => Float64,
-    Float32 => Float32,
-    Float64 => Float64,
-)
-
-"""
-    invalid_parameter_value(
-        context::QueryContext,
-        parameter_assignment::QueryOperation,
-        must_be::String
-    )::Nothing
-
-Complain that an operation parameter is not valid.
-"""
-function invalid_parameter_value(context::QueryContext, parameter_assignment::QueryOperation, must_be::String)::Nothing
-    return parse_in_context(context, parameter_assignment; name = "parameter assignment") do
-        return parse_in_context(context, parameter_assignment.right; name = "parameter value") do
-            return error_in_context(
-                context,
-                "invalid value: \"$(escape_string(parameter_assignment.right.string))\"\n" *
-                "value must be: $(must_be)\n" *
-                "for the parameter: $(parameter_assignment.left.string)",
-            )
-        end
-    end
-end
 
 """
     parse_dtype_assignment(
@@ -142,7 +127,7 @@ end
         parse_assignment::Function,
         context::QueryContext,
         parameters_assignments::Dict{String, QueryOperation},
-        parameter_name::String,
+        parameter_name::AbstractString,
         default::Any,
     )::Any
 
@@ -152,7 +137,7 @@ function parse_parameter(
     parse_assignment::Function,
     context::QueryContext,
     parameters_assignments::Dict{String, QueryOperation},
-    parameter_name::String,
+    parameter_name::AbstractString,
     default::Any,
 )::Any
     if parameter_name in keys(parameters_assignments)
@@ -177,6 +162,21 @@ end
 function Abs(context::QueryContext, parameters_assignments::Dict{String, QueryOperation})::Abs
     dtype = parse_parameter(parse_dtype_assignment, context, parameters_assignments, "dtype", nothing)
     return Abs(dtype)
+end
+
+function compute_eltwise(
+    operation::Abs,
+    input::Union{StorageMatrix, StorageVector},
+)::Union{StorageMatrix, StorageVector}
+    dtype = same_dtype_for(eltype(input), operation.dtype)
+    output = similar(input, dtype)
+    output .= abs.(input)
+    return output
+end
+
+function compute_eltwise(operation::Abs, input::Number)::Number  # untested
+    dtype = same_dtype_for(eltype(input), operation.dtype)
+    return dtype(abs(input))
 end
 
 """
@@ -219,6 +219,24 @@ function Log(context::QueryContext, parameters_assignments::Dict{String, QueryOp
     end
 
     return Log(dtype, base, eps)
+end
+
+function compute_eltwise(
+    operation::Log,
+    input::Union{StorageMatrix, StorageVector},
+)::Union{StorageMatrix, StorageVector}
+    dtype = float_dtype_for(eltype(input), operation.dtype)
+    output = similar(input, dtype)
+    output .= input
+    output .+= dtype(operation.eps)
+    output .= log.(output)
+    output ./= log(dtype(operation.base))
+    return output
+end
+
+function compute_eltwise(operation::Log, input::Number)::Number  # untested
+    dtype = same_dtype_for(eltype(input), operation.dtype)
+    return log(dtype(dtype(input) + dtype(operation.eps))) / log(dtype(operation.base))
 end
 
 """

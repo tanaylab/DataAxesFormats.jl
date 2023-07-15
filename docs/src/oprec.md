@@ -4,6 +4,14 @@
 Daf.Oprec
 ```
 
+## Escaping special characters
+
+```@docs
+Daf.Oprec.escape_query
+Daf.Oprec.unescape_query
+Daf.Oprec.is_safe_query_char
+```
+
 ## Encoding / decoding
 
 ```@docs

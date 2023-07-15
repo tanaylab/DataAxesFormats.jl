@@ -25,31 +25,107 @@ is used to escape "special" characters to allow them in "normal" tokens, which i
 we don't support postfix operators (e.g., `;` in C), we assume all operators are infix (e.g., `*` in arithmetic), but
 some can also be prefix (e.g., `-` in arithmetic); there's no support for parenthesis; and we assume the parsed
 expressions are "small" (can be squashed into a single line) for the purpose of creating friendly error messages.
+
+We only reexport [`escape_query`](@ref), [`unescape_query`](@ref) and [`is_safe_query_char`](@ref) from the top-level
+`Daf` module itself, as these are all you might be interested in from outside the `Daf` package.
 """
 module Oprec
 
 export Associativity
-export Context
+export build_encoded_expression
 export check_operation
+export Context
 export decode_expression
 export encode_expression
 export error_in_context
+export escape_query
 export Expression
+export is_safe_query_char
 export LeftAssociative
 export Operation
 export Operator
-export build_encoded_expression
 export parse_in_context
 export parse_list_in_context
 export parse_operand_in_context
 export parse_operation_in_context
-export parse_with_list_in_context
 export parse_string_in_context
+export parse_with_list_in_context
 export RightAssociative
 export Syntax
 export Token
+export unescape_query
 
 using URIs
+
+"""
+    escape_query(token::AbstractString)::String
+
+Given some raw `token` (name of an axis, axis entry or property, or a parameter value), which may contain special
+characters, return an escaped version to be used in a query string.
+
+We need to consider the following kinds of characters:
+
+  - **Safe** ([`is_safe_query_char`](@ref)) characters include `a` - `z`, `A` - `Z`, `0` - `9`, `_`, `+`, `-`, and `.`,
+    as well as any non-ASCII (that is, Unicode) characters. Any sequence of these characters will be considered a single
+    token, used to write names (of axes, axis entries, properties, operations, parameters), and also values (for
+    parameters). These cover all the common cases (including signed integer and floating point values).
+
+  - All other ASCII characters are (at least potentially) **special**, that is, may be used to describe the query
+    structure. Currently only a subset of these are actually used: `#`, `\\`, `@`, `:`, `<`, `=`, `,`, `;`, `!`, `&`,
+    `|`, `^` and `%`, and, of course, white space (spaces, tabs and line breaks) which can be used for readability.
+    Additional characters may be used in future version, if we choose to enhance the query language.
+  - Prefixing *any* character with a `\\` allows using it inside a token. This is useful if some name or value contains
+    a special character. For example, if you have a cell whose name is `ACTG:Plate1`, and you want to access the name of
+    the batch of this specific cell, you will have to write `cell = ACTG\\:Plate1 : batch`.
+
+!!! note
+
+    The `\\` character is also used by Julia inside `"..."` string literals, to escape writing non-printable characters.
+    For example, `"\\n"` is a single-character string containing a line break, and therefore `"\\\\"` is used to write a
+    single `\\`. Thus the above example would have to be written as `"cell = ACTG\\\\:Plate1 : batch"`. This isn't nice.
+
+    Luckily, Julia also has `raw"..."` string literals that work similarly to Python's `r"..."` strings (in Julia,
+    `r"..."` is a regular expression, not a string). Inside raw string literals, a `\\` is a `\\` (unless it precedes a
+    `"`). Therefore the above example could also be written as `raw"cell = ACTG\\:Plate1 : batch`, which is more
+    readable.
+
+Back to `escape_query` - it will prefix any (potentially) special character with a `\\`. It is useful if you want to
+inject a data into a query. Often this happens when using `\$(...)` to embed values into a query string, e.g., the query
+`\$(axis) @ \$(property) > \$(value)` is unsafe, as any of the embedded variables may contain unsafe characters. You
+should instead write something like `\$(escape_query(axis)) @ \$(escape_query(property)) > \$(escape_query(value))`.
+"""
+function escape_query(token::AbstractString)::String
+    return replace(token, (character -> !is_safe_query_char(character)) => s"\\\0")
+end
+
+"""
+    unescape_query(escaped_token::AbstractString)::String
+
+Undo [`escape_query`](@ref), that is, given a query token with a `\\` characters escaping special characters, drop the
+`\\` to get back the original string value.
+"""
+function unescape_query(escaped_token::AbstractString)::String
+    return replace(escaped_token, r"\\(.)" => s"\1")
+end
+
+"""
+    is_safe_query_char(character::Char)::Bool
+
+Return whether a character is safe to use inside a query token (name of an axis, axis entry or property, or a parameter
+value).
+
+The safe characters are `a` - `z`, `A` - `Z`, `0` - `9`, `_`, `+`, `-`, and `.`, as well as any non-ASCII (that is,
+Unicode) characters.
+"""
+function is_safe_query_char(character::Char)::Bool
+    return character == '_' ||
+           character == '.' ||
+           character == '+' ||
+           character == '-' ||
+           isletter(character) ||
+           isdigit(character) ||
+           !isascii(character)
+end
 
 """
 Given an expression string to parse, encode any character escaped by a `\\` such that it will be considered a normal
@@ -225,7 +301,7 @@ function tokenize(encoded_string::AbstractString, syntax::Syntax{E})::Vector{Tok
                 Token{E}(
                     first_index,
                     first_index + length(operand_string) - 1,
-                    decode_expression(operand_string),
+                    unescape_query(decode_expression(operand_string)),
                     nothing,
                 ),
             )
@@ -248,7 +324,7 @@ function tokenize(encoded_string::AbstractString, syntax::Syntax{E})::Vector{Tok
                     Token(
                         first_index,
                         first_index + length(operator_string) - 1,
-                        decode_expression(operator_string),
+                        unescape_query(decode_expression(operator_string)),
                         operator,
                     ),
                 )
@@ -390,7 +466,7 @@ function error_at_token(
     if at_index <= length(tokens)
         token = tokens[at_index]
         indent = repeat(" ", decode_index(encoded_string, token.first_index - 1))
-        marker = repeat("▲", length(decode_expression(token.string)))
+        marker = repeat("▲", length(unescape_query(decode_expression(token.string))))
     else
         token = tokens[end]
         indent = repeat(" ", decode_index(encoded_string, token.last_index))
@@ -539,7 +615,7 @@ function expression_locator(
         operator_first_index = decode_index(encoded_string, operation.token.first_index)
         operator_length = length(operation.token.string)
         operator_last_index = operator_first_index + operator_length - 1
-        operator_marker = repeat(depth == 1 ? "▲" : "•", operator_length)
+        operator_marker = depth == 1 ? repeat("▲", operator_length) : operation.token.string
         operator_indent = repeat(" ", operator_first_index - last_index - 1)
 
         locator = locator * operator_indent * operator_marker
@@ -698,7 +774,7 @@ function parse_operation_in_context(
         if operator == nothing
             error_in_context(
                 context,
-                "unexpected operator: $(decode_expression(expression.token.string))\nexpected operator: $(operator_name)",
+                "unexpected operator: $(unescape_query(decode_expression(expression.token.string)))\nexpected operator: $(operator_name)",
             )
         end
 

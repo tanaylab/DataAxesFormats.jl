@@ -28,6 +28,14 @@ Matrices (data which is associated with a pair of axes):
 Daf.DataTypes.StorageMatrix
 ```
 
+## Functions
+
+```@docs
+Daf.DataTypes.as_storage_if_possible
+Daf.DataTypes.as_storage_or_copy
+Daf.DataTypes.as_storage_or_fail
+```
+
 ## Index
 
 ```@index

@@ -35,18 +35,20 @@ include("data_types.jl")
 include("messages.jl")
 @reexport using Daf.Messages
 
-include("storage.jl")
-@reexport using Daf.Storage
-
 include("oprec.jl")
 
 include("registry.jl")
-@reexport using Daf.Registry
 
 include("query.jl")
 @reexport using Daf.Query
 
 include("operations.jl")
 @reexport using Daf.Operations
+
+include("storage.jl")
+@reexport using Daf.Storage
+
+include("example_data.jl")
+@reexport using Daf.ExampleData
 
 end # module

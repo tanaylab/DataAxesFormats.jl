@@ -21,7 +21,7 @@ struct MemoryStorage <: AbstractStorage
 
     matrices::Dict{String, Dict{String, Dict{String, StorageMatrix}}}
 
-    function MemoryStorage(name::String)
+    function MemoryStorage(name::AbstractString)
         scalars = Dict{String, StorageScalar}()
         axes = Dict{String, DenseVector{String}}()
         vectors = Dict{String, Dict{String, StorageVector{String}}}()
@@ -30,21 +30,21 @@ struct MemoryStorage <: AbstractStorage
     end
 end
 
-function Storage.has_scalar(storage::MemoryStorage, name::String)::Bool
+function Storage.has_scalar(storage::MemoryStorage, name::AbstractString)::Bool
     return haskey(storage.scalars, name)
 end
 
-function Storage.unsafe_set_scalar!(storage::MemoryStorage, name::String, value::StorageScalar)::Nothing
+function Storage.unsafe_set_scalar!(storage::MemoryStorage, name::AbstractString, value::StorageScalar)::Nothing
     storage.scalars[name] = value
     return nothing
 end
 
-function Storage.unsafe_delete_scalar!(storage::MemoryStorage, name::String)::Nothing
+function Storage.unsafe_delete_scalar!(storage::MemoryStorage, name::AbstractString)::Nothing
     delete!(storage.scalars, name)
     return nothing
 end
 
-function Storage.unsafe_get_scalar(storage::MemoryStorage, name::String)::StorageScalar
+function Storage.unsafe_get_scalar(storage::MemoryStorage, name::AbstractString)::StorageScalar
     return storage.scalars[name]
 end
 
@@ -52,11 +52,11 @@ function Storage.scalar_names(storage::MemoryStorage)::AbstractSet{String}
     return keys(storage.scalars)
 end
 
-function Storage.has_axis(storage::MemoryStorage, axis::String)::Bool
+function Storage.has_axis(storage::MemoryStorage, axis::AbstractString)::Bool
     return haskey(storage.axes, axis)
 end
 
-function Storage.unsafe_add_axis!(storage::MemoryStorage, axis::String, entries::DenseVector{String})::Nothing
+function Storage.unsafe_add_axis!(storage::MemoryStorage, axis::AbstractString, entries::DenseVector{String})::Nothing
     storage.axes[axis] = entries
     storage.vectors[axis] = Dict{String, StorageVector}()
     storage.matrices[axis] = Dict{String, Dict{String, StorageMatrix}}()
@@ -69,7 +69,7 @@ function Storage.unsafe_add_axis!(storage::MemoryStorage, axis::String, entries:
     return nothing
 end
 
-function Storage.unsafe_delete_axis!(storage::MemoryStorage, axis::String)::Nothing
+function Storage.unsafe_delete_axis!(storage::MemoryStorage, axis::AbstractString)::Nothing
     delete!(storage.axes, axis)
     delete!(storage.vectors, axis)
     delete!(storage.matrices, axis)
@@ -85,22 +85,22 @@ function Storage.axis_names(storage::MemoryStorage)::AbstractSet{String}
     return keys(storage.axes)
 end
 
-function Storage.unsafe_get_axis(storage::MemoryStorage, axis::String)::DenseVector{String}
+function Storage.unsafe_get_axis(storage::MemoryStorage, axis::AbstractString)::DenseVector{String}
     return storage.axes[axis]
 end
 
-function Storage.unsafe_axis_length(storage::MemoryStorage, axis::String)::Int64
+function Storage.unsafe_axis_length(storage::MemoryStorage, axis::AbstractString)::Int64
     return length(storage.axes[axis])
 end
 
-function Storage.unsafe_has_vector(storage::MemoryStorage, axis::String, name::String)::Bool
+function Storage.unsafe_has_vector(storage::MemoryStorage, axis::AbstractString, name::AbstractString)::Bool
     return haskey(storage.vectors[axis], name)
 end
 
 function Storage.unsafe_set_vector!(
     storage::MemoryStorage,
-    axis::String,
-    name::String,
+    axis::AbstractString,
+    name::AbstractString,
     vector::Union{Number, String, StorageVector},
 )::Nothing
     if vector isa StorageVector
@@ -114,8 +114,8 @@ end
 
 function Storage.unsafe_empty_dense_vector!(
     storage::MemoryStorage,
-    axis::String,
-    name::String,
+    axis::AbstractString,
+    name::AbstractString,
     eltype::Type{T},
 )::DenseVector{T} where {T <: Number}
     nelements = unsafe_axis_length(storage, axis)
@@ -126,8 +126,8 @@ end
 
 function Storage.unsafe_empty_sparse_vector!(
     storage::MemoryStorage,
-    axis::String,
-    name::String,
+    axis::AbstractString,
+    name::AbstractString,
     eltype::Type{T},
     nnz::Integer,
     indtype::Type{I},
@@ -140,28 +140,33 @@ function Storage.unsafe_empty_sparse_vector!(
     return vector
 end
 
-function Storage.unsafe_delete_vector!(storage::MemoryStorage, axis::String, name::String)::Nothing
+function Storage.unsafe_delete_vector!(storage::MemoryStorage, axis::AbstractString, name::AbstractString)::Nothing
     delete!(storage.vectors[axis], name)
     return nothing
 end
 
-function Storage.unsafe_vector_names(storage::MemoryStorage, axis::String)::AbstractSet{String}
+function Storage.unsafe_vector_names(storage::MemoryStorage, axis::AbstractString)::AbstractSet{String}
     return keys(storage.vectors[axis])
 end
 
-function Storage.unsafe_get_vector(storage::MemoryStorage, axis::String, name::String)::StorageVector
+function Storage.unsafe_get_vector(storage::MemoryStorage, axis::AbstractString, name::AbstractString)::StorageVector
     return storage.vectors[axis][name]
 end
 
-function Storage.unsafe_has_matrix(storage::MemoryStorage, rows_axis::String, columns_axis::String, name::String)::Bool
+function Storage.unsafe_has_matrix(
+    storage::MemoryStorage,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+)::Bool
     return haskey(storage.matrices[rows_axis][columns_axis], name)
 end
 
 function Storage.unsafe_set_matrix!(
     storage::MemoryStorage,
-    rows_axis::String,
-    columns_axis::String,
-    name::String,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
     matrix::Union{Number, String, StorageMatrix},
 )::Nothing
     if matrix isa StorageMatrix
@@ -176,9 +181,9 @@ end
 
 function Storage.unsafe_empty_dense_matrix!(
     storage::MemoryStorage,
-    rows_axis::String,
-    columns_axis::String,
-    name::String,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
     eltype::Type{T},
 )::DenseMatrix{T} where {T <: Number}
     nrows = unsafe_axis_length(storage, rows_axis)
@@ -190,9 +195,9 @@ end
 
 function Storage.unsafe_empty_sparse_matrix!(
     storage::MemoryStorage,
-    rows_axis::String,
-    columns_axis::String,
-    name::String,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
     eltype::Type{T},
     nnz::Integer,
     indtype::Type{I},
@@ -210,9 +215,9 @@ end
 
 function Storage.unsafe_delete_matrix!(
     storage::MemoryStorage,
-    rows_axis::String,
-    columns_axis::String,
-    name::String,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
 )::Nothing
     delete!(storage.matrices[rows_axis][columns_axis], name)
     return nothing
@@ -220,17 +225,17 @@ end
 
 function Storage.unsafe_matrix_names(
     storage::MemoryStorage,
-    rows_axis::String,
-    columns_axis::String,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
 )::AbstractSet{String}
     return keys(storage.matrices[rows_axis][columns_axis])
 end
 
 function Storage.unsafe_get_matrix(
     storage::MemoryStorage,
-    rows_axis::String,
-    columns_axis::String,
-    name::String,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
 )::StorageMatrix
     return storage.matrices[rows_axis][columns_axis][name]
 end

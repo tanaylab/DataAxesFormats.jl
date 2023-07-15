@@ -61,6 +61,12 @@ Daf.Storage.empty_dense_matrix!
 Daf.Storage.empty_sparse_matrix!
 ```
 
+## Memory storage
+
+```@docs
+Daf.Storage.MemoryStorage
+```
+
 ## Concrete storage
 
 ### For scalars:
@@ -102,12 +108,6 @@ Daf.Storage.unsafe_empty_sparse_matrix!
 Daf.Storage.unsafe_delete_matrix!
 Daf.Storage.unsafe_matrix_names
 Daf.Storage.unsafe_get_matrix
-```
-
-## Memory storage
-
-```@docs
-Daf.Storage.MemoryStorage
 ```
 
 ## Index

@@ -16,10 +16,6 @@ query string to a single line). This allows using arbitrary comments, white spac
 and also allows error messages to visually refer to the part of the query that triggered them, without having to deal
 with thorny issues of visually indicating messages inside multi-line query strings. This comes at the cost that the
 error messages refer to the one-line version of the query string, instead of the original.
-
-We only reexport [`escape_query`](@ref), [`unescape_query`](@ref) and [`is_safe_query_char`](@ref) from the top-level
-`Daf` module itself, as these are all you might be interested in from outside the `Daf` package. The other entities
-listed here describe the syntax of a query, and give insight into how the query is computed.
 """
 module Query
 
@@ -28,14 +24,11 @@ export AxisFilter
 export AxisLookup
 export canonical
 export ComparisonOperator
-export escape_query
 export FilteredAxis
 export FilterOperator
-export is_safe_query_char
 export MatrixAxes
 export MatrixEntryAxes
 export MatrixEntryLookup
-export MatrixLayout
 export MatrixPropertyLookup
 export MatrixQuery
 export MatrixSliceAxes
@@ -56,13 +49,11 @@ export ReduceVectorQuery
 export ScalarDataLookup
 export ScalarPropertyLookup
 export ScalarQuery
-export unescape_query
 export VectorDataLookup
 export VectorEntryLookup
 export VectorPropertyLookup
 export VectorQuery
 
-using Daf.MatrixLayouts
 using Daf.Oprec
 using Daf.Registry
 using URIs
@@ -72,76 +63,6 @@ import Daf.Registry.AbstractOperation
 import Daf.Registry.ELTWISE_REGISTERED_OPERATIONS
 import Daf.Registry.REDUCTION_REGISTERED_OPERATIONS
 import Daf.Registry.RegisteredOperation
-
-"""
-    escape_query(token::AbstractString)::String
-
-Given some raw `token` (name of an axis, axis entry or property, or a parameter value), which may contain special
-characters, return an escaped version to be used in a query string.
-
-We need to consider the following kinds of characters:
-
-  - **Safe** ([`is_safe_query_char`](@ref)) characters include `a` - `z`, `A` - `Z`, `0` - `9`, `_`, `+`, `-`, and `.`,
-    as well as any non-ASCII (that is, Unicode) characters. Any sequence of these characters will be considered a single
-    token, used to write names (of axes, axis entries, properties, operations, parameters), and also values (for
-    parameters). These cover all the common cases (including signed integer and floating point values).
-
-  - All other ASCII characters are (at least potentially) **special**, that is, may be used to describe the query
-    structure. Currently only a subset of these are actually used: `#`, `\\`, `@`, `:`, `<`, `=`, `,`, `;`, `!`, `&`,
-    `|`, `^` and `%`, and, of course, white space (spaces, tabs and line breaks) which can be used for readability.
-    Additional characters may be used in future version, if we choose to enhance the query language.
-  - Prefixing *any* character with a `\\` allows using it inside a token. This is useful if some name or value contains
-    a special character. For example, if you have a cell whose name is `ACTG:Plate1`, and you want to access the name of
-    the batch of this specific cell, you will have to write `cell = ACTG\\:Plate1 : batch`.
-
-!!! note
-
-    The `\\` character is also used by Julia inside `"..."` string literals, to escape writing non-printable characters.
-    For example, `"\\n"` is a single-character string containing a line break, and therefore `"\\\\"` is used to write a
-    single `\\`. Thus the above example would have to be written as `"cell = ACTG\\\\:Plate1 : batch"`. This isn't nice.
-
-    Luckily, Julia also has `raw"..."` string literals that work similarly to Python's `r"..."` strings (in Julia,
-    `r"..."` is a regular expression, not a string). Inside raw string literals, a `\\` is a `\\` (unless it precedes a
-    `"`). Therefore the above example could also be written as `raw"cell = ACTG\\:Plate1 : batch`, which is more
-    readable.
-
-Back to `escape_query` - it will prefix any (potentially) special character with a `\\`. It is useful if you want to
-inject a data into a query. Often this happens when using `\$(...)` to embed values into a query string, e.g., the query
-`\$(axis) @ \$(property) > \$(value)` is unsafe, as any of the embedded variables may contain unsafe characters. You
-should instead write something like `\$(escape_query(axis)) @ \$(escape_query(property)) > \$(escape_query(value))`.
-"""
-function escape_query(token::AbstractString)::String
-    return replace(token, (character -> !is_safe_query_char(character)) => s"\\\0")
-end
-
-"""
-    unescape_query(escaped_token::AbstractString)::String
-
-Undo [`escape_query`](@ref), that is, given a query token with a `\\` characters escaping special characters, drop the
-`\\` to get back the original string value.
-"""
-function unescape_query(escaped_token::AbstractString)::String
-    return replace(escaped_token, r"\\(.)" => s"\1")
-end
-
-"""
-    is_safe_query_char(character::Char)::Bool
-
-Return whether a character is safe to use inside a query token (name of an axis, axis entry or property, or a parameter
-value).
-
-The safe characters are `a` - `z`, `A` - `Z`, `0` - `9`, `_`, `+`, `-`, and `.`, as well as any non-ASCII (that is,
-Unicode) characters.
-"""
-function is_safe_query_char(character::Char)::Bool
-    return character == '_' ||
-           character == '.' ||
-           character == '+' ||
-           character == '-' ||
-           isletter(character) ||
-           isdigit(character) ||
-           !isascii(character)
-end
 
 function prepare_query_string(query_string::AbstractString)::String
     query_string = encode_expression(query_string)
@@ -153,37 +74,34 @@ end
 """
 The operators that can be used in a `Daf` query.
 
-| Operator  | Associativity | Precedence | Description                                                                                |
-|:---------:|:-------------:|:----------:|:------------------------------------------------------------------------------------------ |
-| `%>`      | Left          | 0          | Reduction operation (matrix to vector, vector to scalar), e.g. `cell , gene @ UMIs %> Sum` |
-| `%`       | Right         | 1          | Element-wise operation (e.g., `cell , gene @ UMIs % Log`)                                  |
-| `@`       | Right         | 2          | Lookup (e.g., `cell , gene @ UMIs`)                                                        |
-| `;`       | Right         | 3          | 1. Column-major layout (e.g., `cell ; gene @ UMIs`)                                        |
-|           |               |            | 2. Parameters separator (e.g., `Log; base = 2`)                                            |
-| `,`       | Right         | 3          | Row-major layout (e.g., `cell , gene`)                                                     |
-|           |               | 3          | Parameter assignment separator (e.g., `Log; base = 2, eps = 1`)                            |
-| `&`       | Right         | 4          | AND filter (e.g., `gene & marker`)                                                         |
-| `\\|`     | Right         | 4          | OR filter (e.g., `gene & marker \\| noisy`)                                                |
-| `^`       | Right         | 4          | XOR filter (e.g., `gene & marker ^ noisy`)                                                 |
-| `<`       | Right         | 5          | Less than (e.g., `batch : age < 1`)                                                        |
-| `<=`, `≤` | Right         | 5          | Less or equal (e.g., `batch : age <= 1`)                                                   |
-| `!=`, `≠` | Right         | 5          | Not equal (e.g., `batch : age != 1`)                                                       |
-| `=`       | Right         | 5          | 1. Is equal (e.g., `batch : age = 1`)                                                      |
-|           |               |            | 2. Select axis entry (e.g., `cell , gene = FOX1 @ UMIs`)                                   |
-|           |               |            | 3. Parameter assignment (e.g., `Log; base = 2`)                                            |
-| `>=`, `≥` | Right         | 5          | Greater or equal (e.g., `batch : age >= 1`)                                                |
-| `>`       | Right         | 5          | Greater than (e.g., `batch : age > 1`)                                                     |
-| `!~`, `≁` | Right         | 5          | Not match (e.g., `gene !~ MT-.\\*`                                                         |
-| `~`       | Right         | 5          | 1. Match (e.g., `gene ~ MT-.\\*`)                                                          |
-|           |               |            | 2. Invert mask (prefix; e.g., `gene & ~noisy`)                                             |
-| `:`       | Right         | 6          | Chained property lookup (e.g., `batch : age`)                                              |
+| Operator  | Associativity | Precedence | Description                                                                               |
+|:---------:|:-------------:|:----------:|:----------------------------------------------------------------------------------------- |
+| `%>`      | Left          | 0          | Reduction operation (matrix to vector, vector to scalar), e.g. `cell, gene @ UMIs %> Sum` |
+| `%`       | Right         | 1          | Element-wise operation (e.g., `cell, gene @ UMIs % Log`)                                  |
+| `@`       | Right         | 2          | Lookup (e.g., `cell, gene @ UMIs`)                                                        |
+| `;`       | Right         | 3          | Operation separator (e.g., `Log; base = 2`)                                               |
+| `,`       | Right         | 3          | 1. Axes separator (e.g., `cell, gene @ UMIs`)                                             |
+|           |               | 3          | 2. Parameter separator (e.g., `Log; base = 2, eps = 1`)                                   |
+| `&`       | Right         | 4          | AND filter (e.g., `gene & marker`)                                                        |
+| `\\|`     | Right         | 4          | OR filter (e.g., `gene & marker \\| noisy`)                                               |
+| `^`       | Right         | 4          | XOR filter (e.g., `gene & marker ^ noisy`)                                                |
+| `<`       | Right         | 5          | Less than (e.g., `batch : age < 1`)                                                       |
+| `<=`, `≤` | Right         | 5          | Less or equal (e.g., `batch : age <= 1`)                                                  |
+| `!=`, `≠` | Right         | 5          | Not equal (e.g., `batch : age != 1`)                                                      |
+| `=`       | Right         | 5          | 1. Is equal (e.g., `batch : age = 1`)                                                     |
+|           |               |            | 2. Select axis entry (e.g., `cell, gene = FOX1 @ UMIs`)                                   |
+|           |               |            | 3. Parameter assignment (e.g., `Log; base = 2`)                                           |
+| `>=`, `≥` | Right         | 5          | Greater or equal (e.g., `batch : age >= 1`)                                               |
+| `>`       | Right         | 5          | Greater than (e.g., `batch : age > 1`)                                                    |
+| `!~`, `≁` | Right         | 5          | Not match (e.g., `gene !~ MT-.\\*`                                                        |
+| `~`       | Right         | 5          | 1. Match (e.g., `gene ~ MT-.\\*`)                                                         |
+|           |               |            | 2. Invert mask (prefix; e.g., `gene & ~noisy`)                                            |
+| `:`       | Right         | 6          | Chained property lookup (e.g., `batch : age`)                                             |
 """
-@enum QueryOperators OpAnd OpChain OpEltwise OpEqual OpGreaterOrEqual OpGreaterThan OpLessOrEqual OpLessThan OpLookup OpMatch OpNotEqual OpNotMatch OpOr OpPrimarySeparator OpReduce OpSecondarySeparator OpValue OpXor
+@enum QueryOperators OpAnd OpChain OpEltwise OpEqual OpGreaterOrEqual OpGreaterThan OpLessOrEqual OpLessThan OpLookup OpMatch OpNotEqual OpNotMatch OpOr OpPrimarySeparator OpReduce OpOperationSeparator OpValue OpXor
 
 const OpParameterSeparator = OpPrimarySeparator
-const OpParametersSeparator = OpSecondarySeparator
-const OpRowMajorSeparator = OpPrimarySeparator
-const OpColumnMajorSeparator = OpSecondarySeparator
+const OpAxesSeparator = OpPrimarySeparator
 const OpInvert = OpMatch
 
 """
@@ -233,7 +151,7 @@ QUERY_SYNTAX = QuerySyntax(
         "%>" => Operator(OpReduce, false, LeftAssociative, 0),
         "%" => Operator(OpEltwise, false, RightAssociative, 1),
         "@" => Operator(OpLookup, false, RightAssociative, 2),
-        ";" => Operator(OpSecondarySeparator, false, RightAssociative, 3),
+        ";" => Operator(OpOperationSeparator, false, RightAssociative, 3),
         "," => Operator(OpPrimarySeparator, false, RightAssociative, 3),
         "&" => Operator(OpAnd, false, RightAssociative, 4),
         "|" => Operator(OpOr, false, RightAssociative, 4),
@@ -290,7 +208,7 @@ end
 function parse_operation_type(
     context::QueryContext,
     query_tree::QueryExpression,
-    kind::String,
+    kind::AbstractString,
     registered_operations::Dict{String, RegisteredOperation},
 )::Type
     return parse_operand_in_context(context, query_tree; name = "$(kind) type") do operation_type_name
@@ -304,15 +222,15 @@ end
 function parse_query_operation(
     context::QueryContext,
     query_tree::QueryExpression,
-    kind::String,
+    kind::AbstractString,
     registered_operations::Dict{String, RegisteredOperation},
 )::AbstractOperation
     return parse_with_list_in_context(
         context,
         query_tree;
         expression_name = "$(kind) operation",
-        separator_name = "parameters separator",
-        separator_operators = [OpParametersSeparator],
+        separator_name = "operation separator",
+        separator_operators = [OpOperationSeparator],
         list_name = "parameters assignments",
         element_type = ParameterAssignment,
         operators = [OpParameterSeparator],
@@ -372,7 +290,8 @@ end
 """
 `ReductionOperation` = [`QueryToken`](@ref)([`ReductionOperation`](@ref)) ( `;` [`ParameterAssignment`](@ref) ( `,` [`ParameterAssignment`](@ref) )* )?
 
-Parse a [`ReductionOperation`](@ref).
+Parse a [`ReductionOperation`](@ref). This will reduce a vector to a scalar, or each column of a matrix to a single
+value (that is, a matrix to a vector).
 """
 function parse_reduction_operation(
     context::QueryContext,
@@ -391,20 +310,22 @@ same", they will have the same `canonical` form.
 """
 function canonical(operation::AbstractOperation)::String
     return "$(typeof(operation))" *
-           " ; " *
+           "; " *
            join(
                [
-                   (String(field_name) *
-                    " = " * #
-                    if field_name == :dtype && getfield(operation, :dtype) == nothing
-                        "auto"
-                    elseif getfield(operation, field_name) == Float64(e)
-                        "e"
-                    else
-                        escape_query("$(getfield(operation, field_name))")
-                    end) for field_name in fieldnames(typeof(operation))
+                   (
+                       escape_query(String(field_name)) *
+                       " = " * #
+                       if field_name == :dtype && getfield(operation, :dtype) == nothing
+                           "auto"
+                       elseif getfield(operation, field_name) == Float64(e)
+                           "e"
+                       else
+                           escape_query("$(getfield(operation, field_name))")
+                       end
+                   ) for field_name in fieldnames(typeof(operation))
                ],
-               " , ",
+               ", ",
            )
 end
 
@@ -580,7 +501,7 @@ end
 function canonical(axis_lookup::AxisLookup)::String
     result = canonical(axis_lookup.property_lookup)
     if axis_lookup.is_inverse
-        result = "~ " * result
+        result = "~" * result
     end
     if axis_lookup.property_comparison != nothing
         result *= " " * canonical(axis_lookup.property_comparison)
@@ -694,31 +615,14 @@ function canonical(filtered_axis::FilteredAxis)::String
 end
 
 """
-`MatrixLayout` = `,` | `;`
-
-The layout of the matrix result (`,` for `RowMajor` and `;` for `ColumnMajor`).
-
-Julia "likes" the column-major [`MatrixLayouts`](@ref), where each column is consecutive in memory. Numpy "likes" the
-row-major layouts, where each row is consecutive in memory. This doesn't matter much. What *really* matters is that you
-will perform operations "with the grain" of the data.
-"""
-@enum MatrixLayout RowMajor ColumnMajor
-
-PARSE_MATRIX_LAYOUT = Dict(OpRowMajorSeparator => RowMajor, OpColumnMajorSeparator => ColumnMajor)
-
-CANONICAL_MATRIX_LAYOUT = Dict(RowMajor => ",", ColumnMajor => ";")
-
-"""
-`MatrixAxes` = [`FilteredAxis`](@ref) [`MatrixLayout`](@ref) [`FilteredAxis`](@ref)
+`MatrixAxes` = [`FilteredAxis`](@ref) `,` [`FilteredAxis`](@ref)
 
 (Possibly filtered) axes of matrix to lookup a property for.
 
-The first axis specifies the matrix rows, the second axis specifies the matrix columns. The separator specifies whether
-the matrix will be in row-major layout (`,`) or column-major layout (`;`).
+The first axis specifies the matrix rows, the second axis specifies the matrix columns.
 """
 struct MatrixAxes
     rows_axis::FilteredAxis
-    matrix_layout::MatrixLayout
     columns_axis::FilteredAxis
 end
 
@@ -727,23 +631,15 @@ function MatrixAxes(context::QueryContext, query_tree::QueryExpression)::MatrixA
         context,
         query_tree;
         expression_name = "matrix axes",
-        operator_name = "matrix layout separator",
-        operators = [OpRowMajorSeparator, OpColumnMajorSeparator],
-    ) do rows_axis, matrix_layout, columns_axis
-        return MatrixAxes(
-            FilteredAxis(context, rows_axis),
-            PARSE_MATRIX_LAYOUT[matrix_layout.operator.id],
-            FilteredAxis(context, columns_axis),
-        )
+        operator_name = "axes separator",
+        operators = [OpAxesSeparator],
+    ) do rows_axis, axes_separator, columns_axis
+        return MatrixAxes(FilteredAxis(context, rows_axis), FilteredAxis(context, columns_axis))
     end
 end
 
 function canonical(matrix_axes::MatrixAxes)::String
-    return canonical(matrix_axes.rows_axis) *
-           " " *
-           CANONICAL_MATRIX_LAYOUT[matrix_axes.matrix_layout] *
-           " " *
-           canonical(matrix_axes.columns_axis)
+    return canonical(matrix_axes.rows_axis) * ", " * canonical(matrix_axes.columns_axis)
 end
 
 """
@@ -771,8 +667,8 @@ function MatrixPropertyLookup(context::QueryContext, query_tree::QueryExpression
     end
 end
 
-function canonical(matrix_lookup::MatrixPropertyLookup)::String
-    return canonical(matrix_lookup.matrix_axes) * " @ " * escape_query(matrix_lookup.property_name)
+function canonical(matrix_property_lookup::MatrixPropertyLookup)::String
+    return canonical(matrix_property_lookup.matrix_axes) * " @ " * escape_query(matrix_property_lookup.property_name)
 end
 
 """
@@ -784,7 +680,7 @@ There's only one variant of this: looking up a matrix property and optionally pa
 element-wise operations.
 """
 struct MatrixQuery
-    matrix_lookup::MatrixPropertyLookup
+    matrix_property_lookup::MatrixPropertyLookup
     eltwise_operations::Vector{EltwiseOperation}
 end
 
@@ -799,8 +695,8 @@ function MatrixQuery(context::QueryContext, query_tree::QueryExpression)::Matrix
         parse_element = parse_eltwise_operation,
         element_type = EltwiseOperation,
         operators = [OpEltwise],
-    ) do matrix_lookup, eltwise_operations
-        return MatrixQuery(MatrixPropertyLookup(context, matrix_lookup), eltwise_operations)
+    ) do matrix_property_lookup, eltwise_operations
+        return MatrixQuery(MatrixPropertyLookup(context, matrix_property_lookup), eltwise_operations)
     end
 end
 
@@ -820,7 +716,7 @@ function parse_matrix_query(query_string::AbstractString)::MatrixQuery
 end
 
 function canonical(matrix_query::MatrixQuery)::String
-    result = canonical(matrix_query.matrix_lookup)
+    result = canonical(matrix_query.matrix_property_lookup)
     for eltwise_operation in matrix_query.eltwise_operations
         result *= " % " * canonical(eltwise_operation)
     end
@@ -907,7 +803,7 @@ function MatrixSliceAxes(context::QueryContext, query_tree::QueryExpression)::Ma
 end
 
 function canonical(matrix_slice_axes::MatrixSliceAxes)::String
-    return canonical(matrix_slice_axes.filtered_axis) * " , " * canonical(matrix_slice_axes.axis_entry)
+    return canonical(matrix_slice_axes.filtered_axis) * ", " * canonical(matrix_slice_axes.axis_entry)
 end
 
 """
@@ -963,7 +859,7 @@ const VectorDataLookup = Union{VectorPropertyLookup, MatrixSliceLookup, ReduceMa
 
 function parse_vector_data_lookup(context::QueryContext, query_tree::QueryExpression)::VectorDataLookup
     if check_operation(query_tree, [OpLookup]) != nothing &&
-       check_operation(query_tree.left, [OpPrimarySeparator]) != nothing
+       check_operation(query_tree.left, [OpAxesSeparator]) != nothing
         return MatrixSliceLookup(context, query_tree)
     else
         return VectorPropertyLookup(context, query_tree)
@@ -1108,14 +1004,14 @@ function MatrixEntryAxes(context::QueryContext, query_tree::QueryExpression)::Ma
         query_tree;
         expression_name = "matrix entry axes",
         operator_name = "lookup operator",
-        operators = [OpPrimarySeparator],
+        operators = [OpAxesSeparator],
     ) do rows_entry, axes_operator, columns_entry
         return MatrixEntryAxes(AxisEntry(context, rows_entry), AxisEntry(context, columns_entry))
     end
 end
 
 function canonical(matrix_entry_axes::MatrixEntryAxes)::String
-    return canonical(matrix_entry_axes.rows_entry) * " , " * canonical(matrix_entry_axes.columns_entry)
+    return canonical(matrix_entry_axes.rows_entry) * ", " * canonical(matrix_entry_axes.columns_entry)
 end
 
 """
@@ -1172,7 +1068,7 @@ const ScalarDataLookup = Union{ScalarPropertyLookup, ReduceVectorQuery, VectorEn
 function parse_scalar_data_lookup(context::QueryContext, query_tree::QueryExpression)::ScalarDataLookup
     if check_operation(query_tree, [OpLookup]) == nothing
         return ScalarPropertyLookup(context, query_tree)
-    elseif check_operation(query_tree.left, [OpPrimarySeparator]) != nothing
+    elseif check_operation(query_tree.left, [OpAxesSeparator]) != nothing
         return MatrixEntryLookup(context, query_tree)
     else
         return VectorEntryLookup(context, query_tree)

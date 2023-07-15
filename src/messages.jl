@@ -17,7 +17,7 @@ using SparseArrays
 UNIQUE_NAME_PREFIXES = Dict{String, Int64}()
 
 """
-    unique_name(prefix::String)::String
+    unique_name(prefix::AbstractString)::String
 
 Using short, human-readable unique names for things is a great help when debugging. Normally one has to choose between
 using a human-provided short non-unique name, and an opaque object identifier, or a combination thereof. This function
@@ -27,8 +27,14 @@ That is, this will return a unique name starting with the `prefix` and followed 
 multiple processes), and an index (how many times this name was used in the process). For example, `unique_name("foo")`
 will return `foo#1` for the first usage, `foo#2` for the 2nd, etc., and if using multiple processes, will return
 `foo#1.1`, `foo#1.2`, etc.
+
+To help with tests, if the `prefix` ends with `!`, we return it as-is, accepting it may not be unique.
 """
-function unique_name(prefix::String)::String
+function unique_name(prefix::AbstractString)::String
+    if prefix[end] == '!'
+        return String(prefix)
+    end
+
     global UNIQUE_NAME_PREFIXES
 
     if haskey(UNIQUE_NAME_PREFIXES, prefix)

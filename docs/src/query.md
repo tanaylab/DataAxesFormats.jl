@@ -4,14 +4,6 @@
 Daf.Query
 ```
 
-## Escaping special characters
-
-```@docs
-Daf.Query.escape_query
-Daf.Query.unescape_query
-Daf.Query.is_safe_query_char
-```
-
 ## Query syntax
 
 ```@docs
@@ -30,7 +22,6 @@ Daf.Query.parse_matrix_query
 Daf.Query.MatrixQuery
 Daf.Query.MatrixPropertyLookup
 Daf.Query.MatrixAxes
-Daf.Query.MatrixLayout
 ```
 
 ## Vector queries

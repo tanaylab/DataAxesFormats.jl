@@ -26,4 +26,43 @@ test_set("data_types") do
         )
         @test_throws "type: Int64 is not a valid Daf.StorageVector" require_storage_vector(1)
     end
+
+    test_set("as_storage") do
+        test_set("array") do
+            array = [0 1 2; 3 4 5]
+            @test array isa StorageMatrix
+            @test as_storage_if_possible(array) === array
+            @test as_storage_or_copy(array) === array
+            @test as_storage_or_fail(array) === array
+        end
+        test_set("transpose") do
+            array = transpose([0 1 2; 3 4 5])
+            @test !(array isa StorageMatrix)
+            @test as_storage_if_possible(array) isa DenseMatrix
+            @test as_storage_or_copy(array) isa DenseMatrix
+            @test as_storage_or_fail(array) isa DenseMatrix
+        end
+        test_set("sparse") do
+            array = SparseMatrixCSC([0 1 2; 3 4 5])
+            @test array isa StorageMatrix
+            @test as_storage_if_possible(array) === array
+            @test as_storage_or_copy(array) === array
+            @test as_storage_or_fail(array) === array
+
+            array = array[1, :]
+            @test array isa StorageVector
+            @test as_storage_if_possible(array) === array
+            @test as_storage_or_copy(array) === array
+            @test as_storage_or_fail(array) === array
+        end
+        test_set("sparse transpose") do
+            array = transpose(SparseMatrixCSC([0 1 2; 3 4 5]))
+            @test !(array isa StorageMatrix)
+            @test as_storage_if_possible(array) === array
+            @test as_storage_or_copy(array) isa SparseMatrixCSC
+            @test_throws "the array: Transpose{Int64, SparseMatrixCSC{Int64, Int64}} is not storage" as_storage_or_fail(
+                array,
+            )
+        end
+    end
 end

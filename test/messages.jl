@@ -2,6 +2,7 @@ test_set("messages") do
     test_set("unique_name") do
         @test unique_name("foo") == "foo#1"
         @test unique_name("foo") == "foo#2"
+        @test unique_name("foo!") == "foo!"
     end
 
     test_set("present") do

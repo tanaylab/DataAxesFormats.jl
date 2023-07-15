@@ -26,6 +26,9 @@ ensure it is working "with the grain" of the data, which is *much* more efficien
 """
 module DataTypes
 
+export as_storage_if_possible
+export as_storage_or_copy
+export as_storage_or_fail
 export StorageMatrix
 export StorageScalar
 export StorageVector
@@ -51,7 +54,6 @@ StorageScalar = Union{String, Number}
     StorageMatrix{T} = Union{
         DenseMatrix{T},
         SparseMatrixCSC{T},
-        Transpose{SparseMatrixCSC{T}}
     } where {T <: StorageScalar}
 
 Matrices that can be directly stored (and fetched) from `Daf` storage.
@@ -69,11 +71,9 @@ The storable matrix types are:
   - The `SparseMatrixCSC` type, that is, a sparse matrix stored in columns. This is a concrete type, which stores
     three (dense) internal vectors: the row index of each non-zero element, the starting offset of each column, and of
     course the values of the non-zero elements. This is the "standard" sparse matrix format in Julia, and is easy to
-    store (and memory map), by storing three separate dense vectors. There is no standard row-major `SparseMatrixCSR`
-    equivalent in Julia, so if needed, `Daf` will store (and provide) the `Transpose` of a `SparseMatrixCSC` matrix
-    instead.
+    store (and memory map), by storing three separate dense vectors.
 """
-StorageMatrix{T} = Union{DenseMatrix{T}, SparseMatrixCSC{T}, Transpose{SparseMatrixCSC{T}}} where {T <: StorageScalar}
+StorageMatrix{T} = Union{DenseMatrix{T}, SparseMatrixCSC{T}} where {T <: StorageScalar}
 
 """
     StorageVector{T} = Union{
@@ -113,6 +113,82 @@ end
 
 function require_storage_vector(vector::StorageVector)::Nothing
     return nothing
+end
+
+"""
+    function as_storage_if_possible(vector::AbstractVector{T})::StorageVector{T} where {T}
+    function as_storage_if_possible(matrix::AbstractMatrix{T})::StorageMatrix{T} where {T}
+
+Given a `vector` or `matrix`, return them as a `StorageMatrix` or `StorageVector` if possible, using a zero-copy
+`DenseVector` or `DenseMatrix` wrapper if necessary, otherwise, return the original data.
+
+This will return any `StorageVector` or `StorageMatrix` as-is without creating a wrapper.
+"""
+function as_storage_if_possible(matrix::StorageMatrix{T})::StorageMatrix{T} where {T}
+    return matrix
+end
+
+function as_storage_if_possible(matrix::AbstractMatrix{T})::AbstractMatrix{T} where {T}
+    return as_dense_if_possible(matrix)
+end
+
+function as_storage_if_possible(vector::StorageVector{T})::StorageVector{T} where {T}
+    return vector
+end
+
+function as_storage_if_possible(vector::AbstractVector{T})::AbstractVector{T} where {T}  # untested
+    return as_dense_if_possible(vector)
+end
+
+"""
+    function as_storage_or_copy(vector::AbstractVector{T})::StorageVector{T} where {T}
+    function as_storage_or_copy(matrix::AbstractMatrix{T})::StorageMatrix{T} where {T}
+
+Given a `vector` or `matrix`, return them as a `StorageMatrix` or `StorageVector` if possible, using a zero-copy
+`DenseVector` or `DenseMatrix` wrapper if necessary, otherwise, return a dense copy of the the original data.
+
+This will return any `StorageVector` or `StorageMatrix` as-is without creating a wrapper or copying.
+"""
+function as_storage_or_copy(array::AbstractArray{T})::Union{StorageMatrix{T}, StorageVector{T}} where {T}
+    as_storage = as_storage_if_possible(array)
+    if as_storage isa StorageMatrix || as_storage isa StorageVector
+        return as_storage
+    end
+
+    parent = array
+    while true
+        try
+            parent = parent.parent
+        catch
+            break
+        end
+    end
+
+    if parent isa SparseMatrixCSC
+        return SparseMatrixCSC(as_storage)
+    elseif parent isa SparseVector       # untested
+        return SparseVector(as_storage)  # untested
+    else
+        return Array(as_storage)         # untested
+    end
+end
+
+"""
+    function as_storage_or_fail(vector::AbstractVector{T})::StorageVector{T} where {T}
+    function as_storage_or_fail(matrix::AbstractMatrix{T})::StorageMatrix{T} where {T}
+
+Given a `vector` or `matrix`, return them as a `StorageMatrix` or `StorageVector` if possible, using a zero-copy
+`DenseVector` or `DenseMatrix` wrapper if necessary, otherwise, fail with an `error`.
+
+This will return any `StorageVector` or `StorageMatrix` as-is without creating a wrapper or copying.
+"""
+function as_storage_or_fail(array::AbstractArray{T})::Union{StorageMatrix{T}, StorageVector{T}} where {T}
+    as_storage = as_storage_if_possible(array)
+    if as_storage isa StorageMatrix || as_storage isa StorageVector
+        return as_storage
+    else
+        error("the array: $(typeof(array)) is not storage")
+    end
 end
 
 end # module

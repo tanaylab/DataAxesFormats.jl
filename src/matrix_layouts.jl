@@ -177,7 +177,7 @@ end
     check_efficient_action(
         action::AbstractString,
         axis::Integer,
-        operand::String,
+        operand::AbstractString,
         matrix::AbstractMatrix,
     )::Nothing
 
@@ -197,7 +197,12 @@ problem.
     you will have a clear indication of whether (and where) such operations occur. You can then consider whether to
     invoke [`relayout!`](@ref) on the data, or (for data fetched from `Daf`), simply query for the other memory layout.
 """
-function check_efficient_action(action::AbstractString, axis::Integer, operand::String, matrix::AbstractMatrix)::Nothing
+function check_efficient_action(
+    action::AbstractString,
+    axis::Integer,
+    operand::AbstractString,
+    matrix::AbstractMatrix,
+)::Nothing
     global GLOBAL_INEFFICIENT_ACTION_POLICY
     if major_axis(matrix) == axis || GLOBAL_INEFFICIENT_ACTION_POLICY == nothing
         return

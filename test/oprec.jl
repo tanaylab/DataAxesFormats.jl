@@ -1,5 +1,11 @@
 using Daf.Oprec
 
+function test_escape_query(unescaped::String, escaped::String)::Nothing
+    @test escape_query(unescaped) == escaped
+    @test unescape_query(escaped) == unescaped
+    return nothing
+end
+
 function test_encode_expression(decoded::String, encoded::String)::Nothing
     @test encode_expression(decoded) == encoded
     @test decode_expression(encoded) == decoded
@@ -66,6 +72,24 @@ function as_string(with_sums::TestWithSums)::String
 end
 
 test_set("oprec") do
+    test_set("escape") do
+        test_escape_query("a", "a")
+        test_escape_query("z", "z")
+        test_escape_query("A", "A")
+        test_escape_query("Z", "Z")
+        test_escape_query("0", "0")
+        test_escape_query("9", "9")
+        test_escape_query("_", "_")
+        test_escape_query(".", ".")
+        test_escape_query("+", "+")
+        test_escape_query("-", "-")
+        test_escape_query(" ", "\\ ")
+        test_escape_query("\\", "\\\\")
+        test_escape_query("%", "\\%")
+        test_escape_query(":", "\\:")
+        return nothing
+    end
+
     test_set("encode") do
         test_encode_expression("a", "a")
         test_encode_expression("\\a", "_61")
@@ -123,7 +147,7 @@ test_set("oprec") do
 
         @test parsed_string("x") == "x"
 
-        @test parsed_string("\\#") == "\\#"
+        @test parsed_string("\\#") == "#"
 
         @test parsed_string("-1") == "( - 1)"
 
@@ -182,7 +206,7 @@ test_set("oprec") do
         @test_throws dedent("""
             expected: operator
             in: 1 \\#
-            at:   ▲▲
+            at:   ▲
         """) parsed_string("1 \\#")
 
         return nothing
@@ -216,8 +240,8 @@ test_set("oprec") do
             expected operator: **
             in: -1 + x / 0
             in:  ▲         (pow)
-            in: •·         (negate)
-            in: ·· • ····· (add)
+            in: -·         (negate)
+            in: ·· + ····· (add)
         """) parse_operation_in_context(
             context,
             tree;
@@ -249,7 +273,7 @@ test_set("oprec") do
           expected operator: -
           in: -1 + x / 0
           in:      · ▲ · (sub)
-          in: ·· • ····· (add)
+          in: ·· + ····· (add)
         """) parse_operation_in_context(
             context,
             tree;
@@ -272,8 +296,8 @@ test_set("oprec") do
           zero denominator
           in: -1 + x / 0
           in:          ▲ (denominator)
-          in:      · • · (div)
-          in: ·· • ····· (add)
+          in:      · / · (div)
+          in: ·· + ····· (add)
         """) parse_operation_in_context(
             context,
             tree;
@@ -298,7 +322,7 @@ test_set("oprec") do
           unexpected operator: -
           in: -1 + x / 0
           in: ▲·         (number)
-          in: ·· • ····· (add)
+          in: ·· + ····· (add)
         """) parse_operation_in_context(
             context,
             tree;
@@ -350,7 +374,7 @@ test_set("oprec") do
             unexpected operator: **
             in: 1 + 2 ** 3 + 4
             in:     · ▲▲ ·     (multiplication)
-            in: · • ······ • · (sum)
+            in: · + ······ + · (sum)
         """) parse_list_in_context(context, tree; list_name = "sum", element_type = TestSum, operators = [Plus, Minus])
     end
 

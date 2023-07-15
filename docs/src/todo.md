@@ -5,7 +5,8 @@ The following issues are not addressed:
 ## Queries
 
   - Implement queries on storage.
-  - Implement operations.
+  - Return named arrays.
+  - Implement more operations.
 
 ## Composable computations
 
@@ -38,3 +39,5 @@ The following issues are not addressed:
 ## Misc
 
   - @everywhere for registries
+  - More efficient lookup of chained properties?
+  - `as_storage`
