@@ -16,11 +16,7 @@ import Daf.Query.FilterXor
 
 function query(storage::AbstractStorage, matrix_query::MatrixQuery)::Union{StorageMatrix, Nothing}
     result = compute_matrix_lookup(storage, matrix_query.matrix_property_lookup)
-    if result != nothing
-        for eltwise_operation in matrix_query.eltwise_operations
-            result = compute_eltwise(eltwise_operation, result)
-        end
-    end
+    result = compute_eltwise_result(matrix_query.eltwise_operations, result)
     return result
 end
 
@@ -264,11 +260,7 @@ end
 
 function query(storage::AbstractStorage, vector_query::VectorQuery)::Union{StorageVector, Nothing}
     result = compute_vector_data_lookup(storage, vector_query.vector_data_lookup)
-    if result != nothing
-        for eltwise_operation in vector_query.eltwise_operations
-            result = compute_eltwise(eltwise_operation, result)
-        end
-    end
+    result = compute_eltwise_result(vector_query.eltwise_operations, result)
     return result
 end
 
@@ -302,15 +294,7 @@ function compute_vector_data_lookup(
         matrix_slice_lookup.property_name,
     )
 
-    axis_entries = get_axis(storage, matrix_slice_lookup.matrix_slice_axes.axis_entry.axis_name)
-    index = findfirst(==(matrix_slice_lookup.matrix_slice_axes.axis_entry.entry_name), axis_entries)
-    if index == nothing
-        error(
-            "the entry: $(matrix_slice_lookup.matrix_slice_axes.axis_entry.entry_name)\n" *
-            "is missing from the axis: $(matrix_slice_lookup.matrix_slice_axes.axis_entry.axis_name)\n" *
-            "in the storage: $(storage.name)",
-        )
-    end
+    index = find_axis_entry_index(storage, matrix_slice_lookup.matrix_slice_axes.axis_entry)
     result = result[:, index]
 
     rows_mask = compute_filtered_axis(storage, matrix_slice_lookup.matrix_slice_axes.filtered_axis)
@@ -329,5 +313,100 @@ function compute_vector_data_lookup(
     if result == nothing
         return nothing
     end
-    return compute_reduction(reduce_matrix_query.reduction_operation, result)
+    return compute_reduction_result(reduce_matrix_query.reduction_operation, result)
+end
+
+function query(storage::AbstractStorage, scalar_query::ScalarQuery)::Union{StorageScalar, Nothing}
+    result = compute_scalar_data_lookup(storage, scalar_query.scalar_data_lookup)
+    result = compute_eltwise_result(scalar_query.eltwise_operations, result)
+    return result
+end
+
+function compute_scalar_data_lookup(
+    storage::AbstractStorage,
+    scalar_property_lookup::ScalarPropertyLookup,
+)::Union{StorageScalar, Nothing}
+    return get_scalar(storage, scalar_property_lookup.property_name)
+end
+
+function compute_scalar_data_lookup(
+    storage::AbstractStorage,
+    reduce_vector_query::ReduceVectorQuery,
+)::Union{StorageScalar, Nothing}
+    result = query(storage, reduce_vector_query.vector_query)
+    return compute_reduction_result(reduce_vector_query.reduction_operation, result)
+end
+
+function compute_scalar_data_lookup(
+    storage::AbstractStorage,
+    vector_entry_lookup::VectorEntryLookup,
+)::Union{StorageScalar, Nothing}
+    result = compute_axis_lookup(storage, vector_entry_lookup.axis_entry.axis_name, vector_entry_lookup.axis_lookup)
+    index = find_axis_entry_index(storage, vector_entry_lookup.axis_entry)
+    return result[index]
+end
+
+function compute_scalar_data_lookup(
+    storage::AbstractStorage,
+    matrix_entry_lookup::MatrixEntryLookup,
+)::Union{StorageScalar, Nothing}
+    result = get_matrix(
+        storage,
+        matrix_entry_lookup.matrix_entry_axes.rows_entry.axis_name,
+        matrix_entry_lookup.matrix_entry_axes.columns_entry.axis_name,
+        matrix_entry_lookup.property_name,
+    )
+    row_index = find_axis_entry_index(storage, matrix_entry_lookup.matrix_entry_axes.rows_entry)
+    column_index = find_axis_entry_index(storage, matrix_entry_lookup.matrix_entry_axes.columns_entry)
+    return result[row_index, column_index]
+end
+
+function find_axis_entry_index(storage::AbstractStorage, axis_entry::AxisEntry)::Int
+    axis_entries = get_axis(storage, axis_entry.axis_name)
+    index = findfirst(==(axis_entry.entry_name), axis_entries)
+    if index == nothing
+        error(
+            "the entry: $(axis_entry.entry_name)\n" *
+            "is missing from the axis: $(axis_entry.axis_name)\n" *
+            "in the storage: $(storage.name)",
+        )
+    end
+    return index
+end
+
+function compute_eltwise_result(
+    eltwise_operations::Vector{EltwiseOperation},
+    result::Union{StorageMatrix, StorageVector, StorageScalar, Nothing},
+)::Union{StorageMatrix, StorageVector, StorageScalar, Nothing}
+    if result == nothing
+        return nothing
+    else
+        for eltwise_operation in eltwise_operations
+            if !(eltype(result) <: Number)
+                error(
+                    "non-numeric input: $(typeof(result))\n" *
+                    "for the eltwise operation: $(canonical(eltwise_operation))\n",
+                )
+            end
+            result = compute_eltwise(eltwise_operation, result)
+        end
+        return result
+    end
+end
+
+function compute_reduction_result(
+    reduction_operation::ReductionOperation,
+    result::Union{StorageMatrix, StorageVector, Nothing},
+)::Union{StorageVector, StorageScalar, Nothing}
+    if result == nothing
+        return nothing
+    else
+        if !(eltype(result) <: Number)
+            error(
+                "non-numeric input: $(typeof(result))\n" *
+                "for the reduction operation: $(canonical(reduction_operation))\n",
+            )
+        end
+        return compute_reduction(reduction_operation, result)
+    end
 end

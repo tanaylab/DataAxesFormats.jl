@@ -174,7 +174,7 @@ function compute_eltwise(
     return output
 end
 
-function compute_eltwise(operation::Abs, input::Number)::Number  # untested
+function compute_eltwise(operation::Abs, input::Number)::Number
     dtype = same_dtype_for(eltype(input), operation.dtype)
     return dtype(abs(input))
 end
@@ -263,7 +263,7 @@ function compute_reduction(operation::Sum, input::StorageMatrix)::StorageVector
     return result
 end
 
-function compute_reduction(operation::Sum, input::StorageVector)::Number  # untested
+function compute_reduction(operation::Sum, input::StorageVector)::Number
     dtype = same_dtype_for(eltype(input), operation.dtype)
     return dtype(sum(input))
 end

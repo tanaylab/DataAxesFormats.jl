@@ -16,6 +16,8 @@ Create an example memory storage to use for doctest tests.
 function example_storage()::MemoryStorage
     storage = MemoryStorage("example!")
 
+    set_scalar!(storage, "version", "1.0")
+
     gene_names = ["RSPO3", "FOXA1", "WNT6", "TNNI1", "MSGN1", "LMO2", "SFRP5", "DLX5", "ITGA4", "FOXA2"]
     module_names = ["M$(index)" for index in 1:3]
     cell_names = ["C$(index)" for index in 1:20]

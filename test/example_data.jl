@@ -5,6 +5,8 @@ test_set("example_data") do
         @test description(storage) == dedent("""
             type: MemoryStorage
             name: example!
+            scalars:
+              version: "1.0"
             axes:
               batch: 4 entries
               cell: 20 entries
@@ -270,5 +272,34 @@ test_set("example_data") do
               nothing
 
         return nothing
+    end
+
+    test_set("scalar queries") do
+        @test Daf.Storage.query(storage, Daf.Query.parse_scalar_query("version")) == "1.0"
+
+        @test_throws dedent("""
+          non-numeric input: String
+          for the eltwise operation: Abs; dtype = auto
+        """) Daf.Storage.query(storage, Daf.Query.parse_scalar_query("version % Abs"))
+
+        @test_throws dedent("""
+          non-numeric input: Vector{String}
+          for the reduction operation: Sum; dtype = auto
+        """) Daf.Storage.query(storage, Daf.Query.parse_scalar_query("gene @ module %> Sum"))
+
+        Daf.Storage.query(storage, Daf.Query.parse_scalar_query("gene = FOXA1 @ module")) == "M1"
+
+        @test Daf.Storage.query(storage, Daf.Query.parse_scalar_query("batch @ age %> Sum % Abs")) == 11
+
+        @test Daf.Storage.query(
+            storage,
+            Daf.Query.parse_scalar_query("cell & batch : age > 2, gene = FOXA1 @ UMIs %> Sum"),
+        ) == 42
+
+        @test Daf.Storage.query(storage, Daf.Query.parse_scalar_query("cell, gene @ UMIs %> Sum %> Sum")) == 2079
+
+        @test Daf.Storage.query(storage, Daf.Query.parse_scalar_query("cell = C4, gene = FOXA1 @ UMIs")) == 14
+
+        @test Daf.Storage.query(storage, Daf.Query.parse_scalar_query("batch & age < 0 @ age %> Sum")) == nothing
     end
 end
