@@ -242,4 +242,33 @@ test_set("example_data") do
 
         return nothing
     end
+
+    test_set("vector queries") do
+        @test Daf.Storage.query(storage, Daf.Query.parse_vector_query("batch @ age")) == Int8[3, 2, 2, 4]
+
+        @test Daf.Storage.query(storage, Daf.Query.parse_vector_query("batch & age < 0 @ age")) == nothing
+
+        @test Daf.Storage.query(storage, Daf.Query.parse_vector_query("cell, gene = FOXA1 @ UMIs % Abs")) ==
+              Int16[23, 3, 2, 14, 6, 6, 26, 62, 19, 27, 5, 3, 1, 29, 7, 1, 13, 11, 2, 9]
+
+        @test Daf.Storage.query(storage, Daf.Query.parse_vector_query("cell & batch : age > 2, gene = FOXA1 @ UMIs")) ==
+              Int16[3, 2, 14, 6, 5, 1, 2, 9]
+
+        @test Daf.Storage.query(storage, Daf.Query.parse_vector_query("gene & marker @ module")) ==
+              ["M3", "M3", "M1", "M3"]
+
+        @test Daf.Storage.query(storage, Daf.Query.parse_vector_query("cell, gene @ UMIs %> Sum")) ==
+              Int16[126, 269, 194, 307, 232, 229, 143, 220, 147, 212]
+
+        @test_throws dedent("""
+            the entry: DOGB2
+            is missing from the axis: gene
+            in the storage: example!
+        """) Daf.Storage.query(storage, Daf.Query.parse_vector_query("cell, gene = DOGB2 @ UMIs"))
+
+        @test Daf.Storage.query(storage, Daf.Query.parse_vector_query("cell, gene & module ~ Q. @ UMIs %> Sum")) ==
+              nothing
+
+        return nothing
+    end
 end

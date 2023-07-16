@@ -1,6 +1,7 @@
 import Daf.Registry.EltwiseOperation
 import Daf.Registry.ReductionOperation
 import Daf.Registry.compute_eltwise
+import Daf.Registry.compute_reduction
 import Daf.Query.CmpEqual
 import Daf.Query.CmpGreaterOrEqual
 import Daf.Query.CmpGreaterThan
@@ -172,12 +173,12 @@ function compute_axis_lookup_compare(
         return values .<= value  # untested
     elseif axis_lookup.property_comparison.comparison_operator == CmpEqual
         return values .== value
-    elseif axis_lookup.property_comparison.comparison_operator == CmpNotEqual        # untested
+    elseif axis_lookup.property_comparison.comparison_operator == CmpNotEqual
         return values .!= value                                                      # untested
-    elseif axis_lookup.property_comparison.comparison_operator == CmpGreaterThan     # untested
-        return values .>= value                                                      # untested
+    elseif axis_lookup.property_comparison.comparison_operator == CmpGreaterThan
+        return values .> value
     elseif axis_lookup.property_comparison.comparison_operator == CmpGreaterOrEqual  # untested
-        return values .> value                                                       # untested
+        return values .>= value                                                      # untested
     else
         @assert false  # untested
     end
@@ -259,4 +260,74 @@ function find_axis_value(
         )
     end
     return next_axis_values[index]
+end
+
+function query(storage::AbstractStorage, vector_query::VectorQuery)::Union{StorageVector, Nothing}
+    result = compute_vector_data_lookup(storage, vector_query.vector_data_lookup)
+    if result != nothing
+        for eltwise_operation in vector_query.eltwise_operations
+            result = compute_eltwise(eltwise_operation, result)
+        end
+    end
+    return result
+end
+
+function compute_vector_data_lookup(
+    storage::AbstractStorage,
+    vector_property_lookup::VectorPropertyLookup,
+)::Union{StorageVector, Nothing}
+    result =
+        compute_axis_lookup(storage, vector_property_lookup.filtered_axis.axis_name, vector_property_lookup.axis_lookup)
+    mask = compute_filtered_axis(storage, vector_property_lookup.filtered_axis)
+
+    if mask != nothing && !any(mask)
+        return nothing
+    end
+
+    if mask != nothing
+        result = result[mask]
+    end
+
+    return result
+end
+
+function compute_vector_data_lookup(
+    storage::AbstractStorage,
+    matrix_slice_lookup::MatrixSliceLookup,
+)::Union{StorageVector, Nothing}
+    result = get_matrix(
+        storage,
+        matrix_slice_lookup.matrix_slice_axes.filtered_axis.axis_name,
+        matrix_slice_lookup.matrix_slice_axes.axis_entry.axis_name,
+        matrix_slice_lookup.property_name,
+    )
+
+    axis_entries = get_axis(storage, matrix_slice_lookup.matrix_slice_axes.axis_entry.axis_name)
+    index = findfirst(==(matrix_slice_lookup.matrix_slice_axes.axis_entry.entry_name), axis_entries)
+    if index == nothing
+        error(
+            "the entry: $(matrix_slice_lookup.matrix_slice_axes.axis_entry.entry_name)\n" *
+            "is missing from the axis: $(matrix_slice_lookup.matrix_slice_axes.axis_entry.axis_name)\n" *
+            "in the storage: $(storage.name)",
+        )
+    end
+    result = result[:, index]
+
+    rows_mask = compute_filtered_axis(storage, matrix_slice_lookup.matrix_slice_axes.filtered_axis)
+    if rows_mask != nothing
+        result = result[rows_mask]
+    end
+
+    return result
+end
+
+function compute_vector_data_lookup(
+    storage::AbstractStorage,
+    reduce_matrix_query::ReduceMatrixQuery,
+)::Union{StorageVector, Nothing}
+    result = query(storage, reduce_matrix_query.matrix_query)
+    if result == nothing
+        return nothing
+    end
+    return compute_reduction(reduce_matrix_query.reduction_operation, result)
 end

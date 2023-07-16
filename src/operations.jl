@@ -256,6 +256,18 @@ function Sum(context::QueryContext, parameters_assignments::Dict{String, QueryOp
     return Sum(dtype)
 end
 
+function compute_reduction(operation::Sum, input::StorageMatrix)::StorageVector
+    dtype = same_dtype_for(eltype(input), operation.dtype)
+    result = Vector{dtype}(undef, size(input)[2])
+    result .= transpose(sum(input; dims = 1))
+    return result
+end
+
+function compute_reduction(operation::Sum, input::StorageVector)::Number  # untested
+    dtype = same_dtype_for(eltype(input), operation.dtype)
+    return dtype(sum(input))
+end
+
 """
 Reduction operation that returns the maximal element.
 

@@ -40,4 +40,3 @@ The following issues are not addressed:
 
   - @everywhere for registries
   - More efficient lookup of chained properties?
-  - `as_storage`
