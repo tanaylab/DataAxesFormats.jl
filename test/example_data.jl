@@ -1,9 +1,9 @@
 test_set("example_data") do
-    storage = Daf.ExampleData.example_storage()
+    container = Daf.ExampleData.example_container()
 
     test_set("description") do
-        @test description(storage) == dedent("""
-            type: MemoryStorage
+        @test description(container) == dedent("""
+            type: MemoryContainer
             name: example!
             scalars:
               version: "1.0"
@@ -35,7 +35,7 @@ test_set("example_data") do
     end
 
     test_set("matrix queries") do
-        Daf.Storage.query(storage, Daf.Query.parse_matrix_query("cell , gene @ UMIs")) == Int16[
+        matrix_query(container, "cell , gene @ UMIs") == Int16[
             1   23  9   5   50  4  13  12  12  2
             20  3   2   16  17  6  3   4   2   22
             5   2   2   3   4   29 14  0   2   15
@@ -58,7 +58,7 @@ test_set("example_data") do
             12  9   14  43  11  5  2   32  12  4
         ]
 
-        Daf.Storage.query(storage, Daf.Query.parse_matrix_query("cell , gene @ UMIs % Abs")) == Int16[
+        matrix_query(container, "cell , gene @ UMIs % Abs") == Int16[
             1   23  9   5   50  4  13  12  12  2
             20  3   2   16  17  6  3   4   2   22
             5   2   2   3   4   29 14  0   2   15
@@ -81,7 +81,7 @@ test_set("example_data") do
             12  9   14  43  11  5  2   32  12  4
         ]
 
-        Daf.Storage.query(storage, Daf.Query.parse_matrix_query("cell , gene @ UMIs % Abs; dtype = Int8")) == Int8[
+        matrix_query(container, "cell , gene @ UMIs % Abs; dtype = Int8") == Int8[
             1   23  9   5   50  4  13  12  12  2
             20  3   2   16  17  6  3   4   2   22
             5   2   2   3   4   29 14  0   2   15
@@ -104,8 +104,7 @@ test_set("example_data") do
             12  9   14  43  11  5  2   32  12  4
         ]
 
-        Daf.Storage.query(storage, Daf.Query.parse_matrix_query("cell , gene @ UMIs % Abs % Log; base = 2, eps = 1")) ==
-        Float32[
+        matrix_query(container, "cell , gene @ UMIs % Abs % Log; base = 2, eps = 1") == Float32[
             1.0         4.5849624   3.321928   2.5849626  5.6724253  2.321928   3.807355   3.7004397  3.7004397  1.5849625
             4.392318    2.0         1.5849625  4.087463   4.169925   2.807355   2.0        2.321928   1.5849625  4.523562
             2.5849626   1.5849625   1.5849625  2.0        2.321928   4.906891   3.9068906  0.0        1.5849625  4.0
@@ -128,10 +127,7 @@ test_set("example_data") do
             3.7004397   3.321928    3.9068906  5.4594316  3.5849626  2.5849626  1.5849625  5.044394   3.7004397  2.321928
         ]
 
-        Daf.Storage.query(
-            storage,
-            Daf.Query.parse_matrix_query("cell , gene @ UMIs % Abs % Log; dtype = Float64, base = 2, eps = 1"),
-        ) == Float64[
+        matrix_query(container, "cell , gene @ UMIs % Abs % Log; dtype = Float64, base = 2, eps = 1") == Float64[
             1.0         4.5849624   3.321928   2.5849626  5.6724253  2.321928   3.807355   3.7004397  3.7004397  1.5849625
             4.392318    2.0         1.5849625  4.087463   4.169925   2.807355   2.0        2.321928   1.5849625  4.523562
             2.5849626   1.5849625   1.5849625  2.0        2.321928   4.906891   3.9068906  0.0        1.5849625  4.0
@@ -154,10 +150,7 @@ test_set("example_data") do
             3.7004397   3.321928    3.9068906  5.4594316  3.5849626  2.5849626  1.5849625  5.044394   3.7004397  2.321928
         ]
 
-        @test Daf.Storage.query(
-            storage,
-            Daf.Query.parse_matrix_query("cell & batch = B1, gene & module = M1 @ UMIs"),
-        ) == Int16[
+        @test matrix_query(container, "cell & batch = B1, gene & module = M1 @ UMIs") == Int16[
             3  2
             2  2
             6  3
@@ -166,10 +159,7 @@ test_set("example_data") do
             9  12
         ]
 
-        @test Daf.Storage.query(
-            storage,
-            Daf.Query.parse_matrix_query("cell & batch : age < 3, gene & ~noisy & ~lateral @ UMIs"),
-        ) == Int16[
+        @test matrix_query(container, "cell & batch : age < 3, gene & ~noisy & ~lateral @ UMIs") == Int16[
             4   12
             57  0
             11  0
@@ -184,10 +174,7 @@ test_set("example_data") do
             1   14
         ]
 
-        @test Daf.Storage.query(
-            storage,
-            Daf.Query.parse_matrix_query("cell & batch = B1, gene & module ~ .1 @ UMIs"),
-        ) == Int16[
+        @test matrix_query(container, "cell & batch = B1, gene & module ~ .1 @ UMIs") == Int16[
             3  2
             2  2
             6  3
@@ -196,110 +183,104 @@ test_set("example_data") do
             9  12
         ]
 
-        @test Daf.Storage.query(storage, Daf.Query.parse_matrix_query("cell, gene & module ~ Q. @ UMIs")) == nothing
+        @test matrix_query(container, "cell, gene & module ~ Q. @ UMIs") == nothing
 
         @test_throws dedent("""
           invalid value: I1
           of the chained property: batch.invalid
           of the axis: cell
           is missing from the next axis: batch
-          in the storage: example!
-        """) Daf.Storage.query(storage, Daf.Query.parse_matrix_query("cell & batch.invalid : age > 1, gene @ UMIs"))
+          in the Daf.Container: example!
+        """) matrix_query(container, "cell & batch.invalid : age > 1, gene @ UMIs")
 
         @test_throws dedent("""
             non-Bool data type: Int8
             for the axis filter: & batch : age
-            in the storage: example!
-        """) Daf.Storage.query(storage, Daf.Query.parse_matrix_query("cell & batch : age, gene @ UMIs"))
+            in the Daf.Container: example!
+        """) matrix_query(container, "cell & batch : age, gene @ UMIs")
 
         @test_throws dedent("""
             non-String data type: Bool
             for the chained property: marker
             for the axis: gene
-            in the storage: example!
-        """) Daf.Storage.query(storage, Daf.Query.parse_matrix_query("cell, gene & marker : noisy @ UMIs"))
+            in the Daf.Container: example!
+        """) matrix_query(container, "cell, gene & marker : noisy @ UMIs")
 
         @test_throws dedent("""
             invalid eltype value: "Q"
             for the axis lookup: batch : age > Q
             for the axis: cell
-            in the storage: example!
-        """) Daf.Storage.query(storage, Daf.Query.parse_matrix_query("cell & batch : age > Q, gene @ UMIs"))
+            in the Daf.Container: example!
+        """) matrix_query(container, "cell & batch : age > Q, gene @ UMIs")
 
         @test_throws dedent("""
             invalid Regex: "["
             for the axis lookup: batch ~ \\[
             for the axis: cell
-            in the storage: example!
-        """) Daf.Storage.query(storage, Daf.Query.parse_matrix_query("cell & batch ~ \\[, gene @ UMIs"))
+            in the Daf.Container: example!
+        """) matrix_query(container, "cell & batch ~ \\[, gene @ UMIs")
 
-        @test Daf.Storage.query(storage, Daf.Query.parse_matrix_query("cell & batch ~ \\\\\\[, gene @ UMIs")) == nothing
+        matrix_query(container, "cell & batch ~ \\\\\\[, gene @ UMIs") == nothing
 
         @test_throws dedent("""
             non-String data type: Int8
             for the match axis lookup: batch : age ~ .
             for the axis: cell
-            in the storage: example!
-        """) Daf.Storage.query(storage, Daf.Query.parse_matrix_query("cell & batch : age ~ ., gene @ UMIs"))
+            in the Daf.Container: example!
+        """) matrix_query(container, "cell & batch : age ~ ., gene @ UMIs")
 
         return nothing
     end
 
     test_set("vector queries") do
-        @test Daf.Storage.query(storage, Daf.Query.parse_vector_query("batch @ age")) == Int8[3, 2, 2, 4]
+        @test vector_query(container, "batch @ age") == Int8[3, 2, 2, 4]
 
-        @test Daf.Storage.query(storage, Daf.Query.parse_vector_query("batch & age < 0 @ age")) == nothing
+        @test vector_query(container, "batch & age < 0 @ age") == nothing
 
-        @test Daf.Storage.query(storage, Daf.Query.parse_vector_query("cell, gene = FOXA1 @ UMIs % Abs")) ==
+        @test vector_query(container, "cell, gene = FOXA1 @ UMIs % Abs") ==
               Int16[23, 3, 2, 14, 6, 6, 26, 62, 19, 27, 5, 3, 1, 29, 7, 1, 13, 11, 2, 9]
 
-        @test Daf.Storage.query(storage, Daf.Query.parse_vector_query("cell & batch : age > 2, gene = FOXA1 @ UMIs")) ==
-              Int16[3, 2, 14, 6, 5, 1, 2, 9]
+        @test vector_query(container, "cell & batch : age > 2, gene = FOXA1 @ UMIs") == Int16[3, 2, 14, 6, 5, 1, 2, 9]
 
-        @test Daf.Storage.query(storage, Daf.Query.parse_vector_query("gene & marker @ module")) ==
-              ["M3", "M3", "M1", "M3"]
+        @test vector_query(container, "gene & marker @ module") == ["M3", "M3", "M1", "M3"]
 
-        @test Daf.Storage.query(storage, Daf.Query.parse_vector_query("cell, gene @ UMIs %> Sum")) ==
+        @test vector_query(container, "cell, gene @ UMIs %> Sum") ==
               Int16[126, 269, 194, 307, 232, 229, 143, 220, 147, 212]
 
         @test_throws dedent("""
             the entry: DOGB2
             is missing from the axis: gene
-            in the storage: example!
-        """) Daf.Storage.query(storage, Daf.Query.parse_vector_query("cell, gene = DOGB2 @ UMIs"))
+            in the Daf.Container: example!
+        """) vector_query(container, "cell, gene = DOGB2 @ UMIs")
 
-        @test Daf.Storage.query(storage, Daf.Query.parse_vector_query("cell, gene & module ~ Q. @ UMIs %> Sum")) ==
-              nothing
+        @test vector_query(container, "cell, gene & module ~ Q. @ UMIs %> Sum") == nothing
 
         return nothing
     end
 
     test_set("scalar queries") do
-        @test Daf.Storage.query(storage, Daf.Query.parse_scalar_query("version")) == "1.0"
+        @test scalar_query(container, "version") == "1.0"
 
         @test_throws dedent("""
           non-numeric input: String
           for the eltwise operation: Abs; dtype = auto
-        """) Daf.Storage.query(storage, Daf.Query.parse_scalar_query("version % Abs"))
+        """) scalar_query(container, "version % Abs")
 
         @test_throws dedent("""
           non-numeric input: Vector{String}
           for the reduction operation: Sum; dtype = auto
-        """) Daf.Storage.query(storage, Daf.Query.parse_scalar_query("gene @ module %> Sum"))
+        """) scalar_query(container, "gene @ module %> Sum")
 
-        Daf.Storage.query(storage, Daf.Query.parse_scalar_query("gene = FOXA1 @ module")) == "M1"
+        scalar_query(container, "gene = FOXA1 @ module") == "M1"
 
-        @test Daf.Storage.query(storage, Daf.Query.parse_scalar_query("batch @ age %> Sum % Abs")) == 11
+        @test scalar_query(container, "batch @ age %> Sum % Abs") == 11
 
-        @test Daf.Storage.query(
-            storage,
-            Daf.Query.parse_scalar_query("cell & batch : age > 2, gene = FOXA1 @ UMIs %> Sum"),
-        ) == 42
+        @test scalar_query(container, "cell & batch : age > 2, gene = FOXA1 @ UMIs %> Sum") == 42
 
-        @test Daf.Storage.query(storage, Daf.Query.parse_scalar_query("cell, gene @ UMIs %> Sum %> Sum")) == 2079
+        @test scalar_query(container, "cell, gene @ UMIs %> Sum %> Sum") == 2079
 
-        @test Daf.Storage.query(storage, Daf.Query.parse_scalar_query("cell = C4, gene = FOXA1 @ UMIs")) == 14
+        @test scalar_query(container, "cell = C4, gene = FOXA1 @ UMIs") == 14
 
-        @test Daf.Storage.query(storage, Daf.Query.parse_scalar_query("batch & age < 0 @ age %> Sum")) == nothing
+        @test scalar_query(container, "batch & age < 0 @ age %> Sum") == nothing
     end
 end

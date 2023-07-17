@@ -1,7 +1,18 @@
-export MemoryStorage
+"""
+In-memory storage `Daf` [`Format`](@ref).
+"""
+module MemoryFormat
+
+export MemoryContainer
+
+using Daf.DataTypes
+using Daf.Formats
+using Daf.Containers
+using Daf.Messages
+using SparseArrays
 
 """
-    MemoryStorage(name::String)
+    MemoryContainer(name::String)
 
 Simple in-memory storage.
 
@@ -10,8 +21,10 @@ object that just keeps references to the data it is given.
 
 This is the "default" storage type you should use, unless you need to persist the data on the disk.
 """
-struct MemoryStorage <: AbstractStorage
+struct MemoryContainer <: Container
     name::String
+
+    cache::Dict{String, Any}
 
     scalars::Dict{String, StorageScalar}
 
@@ -21,42 +34,43 @@ struct MemoryStorage <: AbstractStorage
 
     matrices::Dict{String, Dict{String, Dict{String, StorageMatrix}}}
 
-    function MemoryStorage(name::AbstractString)
+    function MemoryContainer(name::AbstractString)
+        cache = Dict{String, Any}()
         scalars = Dict{String, StorageScalar}()
         axes = Dict{String, DenseVector{String}}()
         vectors = Dict{String, Dict{String, StorageVector{String}}}()
         matrices = Dict{String, Dict{String, Dict{String, StorageVector{String}}}}()
-        return new(unique_name(name), scalars, axes, vectors, matrices)
+        return new(unique_name(name), cache, scalars, axes, vectors, matrices)
     end
 end
 
-function Storage.has_scalar(storage::MemoryStorage, name::AbstractString)::Bool
+function Formats.format_has_scalar(storage::MemoryContainer, name::AbstractString)::Bool
     return haskey(storage.scalars, name)
 end
 
-function Storage.unsafe_set_scalar!(storage::MemoryStorage, name::AbstractString, value::StorageScalar)::Nothing
+function Formats.format_set_scalar!(storage::MemoryContainer, name::AbstractString, value::StorageScalar)::Nothing
     storage.scalars[name] = value
     return nothing
 end
 
-function Storage.unsafe_delete_scalar!(storage::MemoryStorage, name::AbstractString)::Nothing
+function Formats.format_delete_scalar!(storage::MemoryContainer, name::AbstractString)::Nothing
     delete!(storage.scalars, name)
     return nothing
 end
 
-function Storage.unsafe_get_scalar(storage::MemoryStorage, name::AbstractString)::StorageScalar
+function Formats.format_get_scalar(storage::MemoryContainer, name::AbstractString)::StorageScalar
     return storage.scalars[name]
 end
 
-function Storage.scalar_names(storage::MemoryStorage)::AbstractSet{String}
+function Formats.format_scalar_names(storage::MemoryContainer)::AbstractSet{String}
     return keys(storage.scalars)
 end
 
-function Storage.has_axis(storage::MemoryStorage, axis::AbstractString)::Bool
+function Formats.format_has_axis(storage::MemoryContainer, axis::AbstractString)::Bool
     return haskey(storage.axes, axis)
 end
 
-function Storage.unsafe_add_axis!(storage::MemoryStorage, axis::AbstractString, entries::DenseVector{String})::Nothing
+function Formats.format_add_axis!(storage::MemoryContainer, axis::AbstractString, entries::DenseVector{String})::Nothing
     storage.axes[axis] = entries
     storage.vectors[axis] = Dict{String, StorageVector}()
     storage.matrices[axis] = Dict{String, Dict{String, StorageMatrix}}()
@@ -69,7 +83,7 @@ function Storage.unsafe_add_axis!(storage::MemoryStorage, axis::AbstractString, 
     return nothing
 end
 
-function Storage.unsafe_delete_axis!(storage::MemoryStorage, axis::AbstractString)::Nothing
+function Formats.format_delete_axis!(storage::MemoryContainer, axis::AbstractString)::Nothing
     delete!(storage.axes, axis)
     delete!(storage.vectors, axis)
     delete!(storage.matrices, axis)
@@ -81,24 +95,24 @@ function Storage.unsafe_delete_axis!(storage::MemoryStorage, axis::AbstractStrin
     return nothing
 end
 
-function Storage.axis_names(storage::MemoryStorage)::AbstractSet{String}
+function Formats.format_axis_names(storage::MemoryContainer)::AbstractSet{String}
     return keys(storage.axes)
 end
 
-function Storage.unsafe_get_axis(storage::MemoryStorage, axis::AbstractString)::DenseVector{String}
+function Formats.format_get_axis(storage::MemoryContainer, axis::AbstractString)::DenseVector{String}
     return storage.axes[axis]
 end
 
-function Storage.unsafe_axis_length(storage::MemoryStorage, axis::AbstractString)::Int64
+function Formats.format_axis_length(storage::MemoryContainer, axis::AbstractString)::Int64
     return length(storage.axes[axis])
 end
 
-function Storage.unsafe_has_vector(storage::MemoryStorage, axis::AbstractString, name::AbstractString)::Bool
+function Formats.format_has_vector(storage::MemoryContainer, axis::AbstractString, name::AbstractString)::Bool
     return haskey(storage.vectors[axis], name)
 end
 
-function Storage.unsafe_set_vector!(
-    storage::MemoryStorage,
+function Formats.format_set_vector!(
+    storage::MemoryContainer,
     axis::AbstractString,
     name::AbstractString,
     vector::Union{Number, String, StorageVector},
@@ -106,33 +120,33 @@ function Storage.unsafe_set_vector!(
     if vector isa StorageVector
         storage.vectors[axis][name] = vector
     else
-        storage.vectors[axis][name] = fill(vector, unsafe_axis_length(storage, axis))
+        storage.vectors[axis][name] = fill(vector, format_axis_length(storage, axis))
     end
 
     return nothing
 end
 
-function Storage.unsafe_empty_dense_vector!(
-    storage::MemoryStorage,
+function Formats.format_empty_dense_vector!(
+    storage::MemoryContainer,
     axis::AbstractString,
     name::AbstractString,
     eltype::Type{T},
 )::DenseVector{T} where {T <: Number}
-    nelements = unsafe_axis_length(storage, axis)
+    nelements = format_axis_length(storage, axis)
     vector = Vector{T}(undef, nelements)
     storage.vectors[axis][name] = vector
     return vector
 end
 
-function Storage.unsafe_empty_sparse_vector!(
-    storage::MemoryStorage,
+function Formats.format_empty_sparse_vector!(
+    storage::MemoryContainer,
     axis::AbstractString,
     name::AbstractString,
     eltype::Type{T},
     nnz::Integer,
     indtype::Type{I},
 )::SparseVector{T, I} where {T <: Number, I <: Integer}
-    nelements = unsafe_axis_length(storage, axis)
+    nelements = format_axis_length(storage, axis)
     nzind = Vector{I}(undef, nnz)
     nzval = Vector{T}(undef, nnz)
     vector = SparseVector(nelements, nzind, nzval)
@@ -140,21 +154,21 @@ function Storage.unsafe_empty_sparse_vector!(
     return vector
 end
 
-function Storage.unsafe_delete_vector!(storage::MemoryStorage, axis::AbstractString, name::AbstractString)::Nothing
+function Formats.format_delete_vector!(storage::MemoryContainer, axis::AbstractString, name::AbstractString)::Nothing
     delete!(storage.vectors[axis], name)
     return nothing
 end
 
-function Storage.unsafe_vector_names(storage::MemoryStorage, axis::AbstractString)::AbstractSet{String}
+function Formats.format_vector_names(storage::MemoryContainer, axis::AbstractString)::AbstractSet{String}
     return keys(storage.vectors[axis])
 end
 
-function Storage.unsafe_get_vector(storage::MemoryStorage, axis::AbstractString, name::AbstractString)::StorageVector
+function Formats.format_get_vector(storage::MemoryContainer, axis::AbstractString, name::AbstractString)::StorageVector
     return storage.vectors[axis][name]
 end
 
-function Storage.unsafe_has_matrix(
-    storage::MemoryStorage,
+function Formats.format_has_matrix(
+    storage::MemoryContainer,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
@@ -162,8 +176,8 @@ function Storage.unsafe_has_matrix(
     return haskey(storage.matrices[rows_axis][columns_axis], name)
 end
 
-function Storage.unsafe_set_matrix!(
-    storage::MemoryStorage,
+function Formats.format_set_matrix!(
+    storage::MemoryContainer,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
@@ -173,28 +187,28 @@ function Storage.unsafe_set_matrix!(
         storage.matrices[rows_axis][columns_axis][name] = matrix
     else
         storage.matrices[rows_axis][columns_axis][name] =
-            fill(matrix, unsafe_axis_length(storage, rows_axis), unsafe_axis_length(storage, columns_axis))
+            fill(matrix, format_axis_length(storage, rows_axis), format_axis_length(storage, columns_axis))
     end
 
     return nothing
 end
 
-function Storage.unsafe_empty_dense_matrix!(
-    storage::MemoryStorage,
+function Formats.format_empty_dense_matrix!(
+    storage::MemoryContainer,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
     eltype::Type{T},
 )::DenseMatrix{T} where {T <: Number}
-    nrows = unsafe_axis_length(storage, rows_axis)
-    ncols = unsafe_axis_length(storage, columns_axis)
+    nrows = format_axis_length(storage, rows_axis)
+    ncols = format_axis_length(storage, columns_axis)
     matrix = Matrix{T}(undef, nrows, ncols)
     storage.matrices[rows_axis][columns_axis][name] = matrix
     return matrix
 end
 
-function Storage.unsafe_empty_sparse_matrix!(
-    storage::MemoryStorage,
+function Formats.format_empty_sparse_matrix!(
+    storage::MemoryContainer,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
@@ -202,8 +216,8 @@ function Storage.unsafe_empty_sparse_matrix!(
     nnz::Integer,
     indtype::Type{I},
 )::SparseMatrixCSC{T, I} where {T <: Number, I <: Integer}
-    nrows = unsafe_axis_length(storage, rows_axis)
-    ncols = unsafe_axis_length(storage, columns_axis)
+    nrows = format_axis_length(storage, rows_axis)
+    ncols = format_axis_length(storage, columns_axis)
     colptr = fill(I(1), ncols + 1)
     colptr[end] = nnz + 1
     rowval = Vector{I}(undef, nnz)
@@ -213,8 +227,8 @@ function Storage.unsafe_empty_sparse_matrix!(
     return matrix
 end
 
-function Storage.unsafe_delete_matrix!(
-    storage::MemoryStorage,
+function Formats.format_delete_matrix!(
+    storage::MemoryContainer,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
@@ -223,19 +237,21 @@ function Storage.unsafe_delete_matrix!(
     return nothing
 end
 
-function Storage.unsafe_matrix_names(
-    storage::MemoryStorage,
+function Formats.format_matrix_names(
+    storage::MemoryContainer,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
 )::AbstractSet{String}
     return keys(storage.matrices[rows_axis][columns_axis])
 end
 
-function Storage.unsafe_get_matrix(
-    storage::MemoryStorage,
+function Formats.format_get_matrix(
+    storage::MemoryContainer,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
 )::StorageMatrix
     return storage.matrices[rows_axis][columns_axis][name]
+end
+
 end

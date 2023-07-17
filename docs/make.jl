@@ -26,8 +26,10 @@ makedocs(;
     format = Documenter.HTML(; prettyurls = get(ENV, "CI", nothing) == "true"),
     pages = [
         "index.md",
-        "storage.md",
-        "query.md",
+        "containers.md",
+        "formats.md",
+        "memory_format.md",
+        "queries.md",
         "registry.md",
         "operations.md",
         "data_types.md",

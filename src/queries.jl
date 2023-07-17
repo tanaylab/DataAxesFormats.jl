@@ -17,7 +17,7 @@ and also allows error messages to visually refer to the part of the query that t
 with thorny issues of visually indicating messages inside multi-line query strings. This comes at the cost that the
 error messages refer to the one-line version of the query string, instead of the original.
 """
-module Query
+module Queries
 
 export AxisEntry
 export AxisFilter

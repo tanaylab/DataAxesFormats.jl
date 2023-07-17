@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e -o pipefail
-grep -H -n '.' */*.cov */*/*.cov \
+grep -H -n '.' */*.cov \
 | sed 's/\.[0-9][0-9]*\.cov:\([0-9][0-9]*\): [ ]*\(\S*\) /`\1`\2`/' \
 | sort -t '`' -k '1,1' -k '2n,2' \
 | awk -F '`' '

@@ -1,23 +1,25 @@
-function test_storage_scalar(storage::AbstractStorage)::Nothing
+import Daf.Formats.Format
+
+function test_storage_scalar(storage::Format)::Nothing
     @test !has_scalar(storage, "version")
     @test length(scalar_names(storage)) == 0
 
     @test_throws dedent("""
         missing scalar property: version
-        in the storage: memory!
+        in the Daf.Container: memory!
     """) get_scalar(storage, "version")
     @test get_scalar(storage, "version"; default = 3) == 3
 
     @test_throws dedent("""
         missing scalar property: version
-        in the storage: memory!
+        in the Daf.Container: memory!
     """) delete_scalar!(storage, "version")
     delete_scalar!(storage, "version"; must_exist = false)
 
     set_scalar!(storage, "version", "1.2")
     @test_throws dedent("""
         existing scalar property: version
-        in the storage: memory!
+        in the Daf.Container: memory!
     """) set_scalar!(storage, "version", "4.5")
 
     @test length(scalar_names(storage)) == 1
@@ -27,7 +29,7 @@ function test_storage_scalar(storage::AbstractStorage)::Nothing
     @test get_scalar(storage, "version"; default = "3.4") == "1.2"
 
     @test description(storage) == dedent("""
-        type: MemoryStorage
+        type: MemoryContainer
         name: memory!
         scalars:
           version: "1.2"
@@ -40,13 +42,13 @@ function test_storage_scalar(storage::AbstractStorage)::Nothing
     return nothing
 end
 
-function test_storage_axis(storage::AbstractStorage)::Nothing
+function test_storage_axis(storage::Format)::Nothing
     name = storage.name
 
     @test !has_axis(storage, "cell")
     @test_throws dedent("""
         missing axis: cell
-        in the storage: memory!
+        in the Daf.Container: memory!
     """) get_axis(storage, "cell")
     delete_axis!(storage, "cell"; must_exist = false)
     @test length(axis_names(storage)) == 0
@@ -54,7 +56,7 @@ function test_storage_axis(storage::AbstractStorage)::Nothing
     repeated_cell_names = vec(["cell1", "cell1", "cell3"])
     @test_throws dedent("""
         non-unique entries for new axis: cell
-        in the storage: memory!
+        in the Daf.Container: memory!
     """) add_axis!(storage, "cell", repeated_cell_names)
 
     cell_names = vec(["cell1", "cell2", "cell3"])
@@ -68,11 +70,11 @@ function test_storage_axis(storage::AbstractStorage)::Nothing
 
     @test_throws dedent("""
         existing axis: cell
-        in the storage: memory!
+        in the Daf.Container: memory!
     """) add_axis!(storage, "cell", cell_names)
 
     @test description(storage) == dedent("""
-        type: MemoryStorage
+        type: MemoryContainer
         name: memory!
         axes:
           cell: 3 entries
@@ -82,35 +84,35 @@ function test_storage_axis(storage::AbstractStorage)::Nothing
     @test !has_axis(storage, "cell")
     @test_throws dedent("""
         missing axis: cell
-        in the storage: memory!
+        in the Daf.Container: memory!
     """) delete_axis!(storage, "cell")
     @test length(axis_names(storage)) == 0
 
     return nothing
 end
 
-function test_storage_vector(storage::AbstractStorage)::Nothing
+function test_storage_vector(storage::Format)::Nothing
     name = storage.name
 
     @test_throws dedent("""
         missing axis: cell
-        in the storage: memory!
+        in the Daf.Container: memory!
     """) has_vector(storage, "cell", "age")
     @test_throws dedent("""
         missing axis: cell
-        in the storage: memory!
+        in the Daf.Container: memory!
     """) vector_names(storage, "cell")
     @test_throws dedent("""
         missing axis: cell
-        in the storage: memory!
+        in the Daf.Container: memory!
     """) delete_vector!(storage, "cell", "age")
     @test_throws dedent("""
         missing axis: cell
-        in the storage: memory!
+        in the Daf.Container: memory!
     """) get_vector(storage, "cell", "age")
     @test_throws dedent("""
         missing axis: cell
-        in the storage: memory!
+        in the Daf.Container: memory!
     """) set_vector!(storage, "cell", "age", vec([0 1 2]))
 
     add_axis!(storage, "cell", vec(["cell0", "cell1", "cell3"]))
@@ -119,25 +121,25 @@ function test_storage_vector(storage::AbstractStorage)::Nothing
     @test_throws dedent("""
         missing vector property: age
         for the axis: cell
-        in the storage: memory!
+        in the Daf.Container: memory!
     """) delete_vector!(storage, "cell", "age")
     delete_vector!(storage, "cell", "age"; must_exist = false)
     @test_throws dedent("""
         missing vector property: age
         for the axis: cell
-        in the storage: memory!
+        in the Daf.Container: memory!
     """) get_vector(storage, "cell", "age")
     @test_throws dedent("""
         vector length: 2
         is different from the length: 3
         of the axis: cell
-        in the storage: memory!
+        in the Daf.Container: memory!
     """) set_vector!(storage, "cell", "age", vec([0 1]))
     @test_throws dedent("""
         default length: 2
         is different from the length: 3
         of the axis: cell
-        in the storage: memory!
+        in the Daf.Container: memory!
     """) get_vector(storage, "cell", "age"; default = vec([1 2]))
     @test get_vector(storage, "cell", "age"; default = vec([1 2 3])) == vec([1 2 3])
     @test get_vector(storage, "cell", "age"; default = 1) == vec([1 1 1])
@@ -145,7 +147,7 @@ function test_storage_vector(storage::AbstractStorage)::Nothing
     @test_throws dedent("""
         setting the reserved property: name
         for the axis: cell
-        in the storage: memory!
+        in the Daf.Container: memory!
     """) set_vector!(storage, "cell", "name", vec([0 1]))
     @test has_vector(storage, "cell", "name")
     @test get_vector(storage, "cell", "name") == get_axis(storage, "cell")
@@ -154,14 +156,14 @@ function test_storage_vector(storage::AbstractStorage)::Nothing
     @test_throws dedent("""
         existing vector property: age
         for the axis: cell
-        in the storage: memory!
+        in the Daf.Container: memory!
     """) set_vector!(storage, "cell", "age", vec([1 2 3]))
     @test length(vector_names(storage, "cell")) == 1
     @test "age" in vector_names(storage, "cell")
     @test get_vector(storage, "cell", "age") == vec([0 1 2])
 
     @test description(storage) == dedent("""
-        type: MemoryStorage
+        type: MemoryContainer
         name: memory!
         axes:
           cell: 3 entries
@@ -200,51 +202,51 @@ function test_storage_vector(storage::AbstractStorage)::Nothing
     return nothing
 end
 
-function test_storage_matrix(storage::AbstractStorage)::Nothing
+function test_storage_matrix(storage::Format)::Nothing
     name = storage.name
 
     @test_throws dedent("""
         missing axis: cell
-        in the storage: memory!
+        in the Daf.Container: memory!
     """) has_matrix(storage, "cell", "gene", "UMIs")
     @test_throws dedent("""
         missing axis: cell
-        in the storage: memory!
+        in the Daf.Container: memory!
     """) matrix_names(storage, "cell", "gene")
     @test_throws dedent("""
         missing axis: cell
-        in the storage: memory!
+        in the Daf.Container: memory!
     """) delete_matrix!(storage, "cell", "gene", "UMIs")
     @test_throws dedent("""
         missing axis: cell
-        in the storage: memory!
+        in the Daf.Container: memory!
     """) get_matrix(storage, "cell", "gene", "UMIs")
     @test_throws dedent("""
         missing axis: cell
-        in the storage: memory!
+        in the Daf.Container: memory!
     """) set_matrix!(storage, "cell", "gene", "UMIS", [0 1 2; 3 4 5])
 
     add_axis!(storage, "cell", vec(["cell0", "cell1", "cell2"]))
 
     @test_throws dedent("""
         missing axis: gene
-        in the storage: memory!
+        in the Daf.Container: memory!
     """) has_matrix(storage, "cell", "gene", "UMIs")
     @test_throws dedent("""
         missing axis: gene
-        in the storage: memory!
+        in the Daf.Container: memory!
     """) matrix_names(storage, "cell", "gene")
     @test_throws dedent("""
         missing axis: gene
-        in the storage: memory!
+        in the Daf.Container: memory!
     """) delete_matrix!(storage, "cell", "gene", "UMIs")
     @test_throws dedent("""
         missing axis: gene
-        in the storage: memory!
+        in the Daf.Container: memory!
     """) get_matrix(storage, "cell", "gene", "UMIs")
     @test_throws dedent("""
         missing axis: gene
-        in the storage: memory!
+        in the Daf.Container: memory!
     """) set_matrix!(storage, "cell", "gene", "UMIS", [0 1 2; 3 4 5])
 
     add_axis!(storage, "gene", vec(["gene0", "gene1"]))
@@ -256,38 +258,38 @@ function test_storage_matrix(storage::AbstractStorage)::Nothing
         missing matrix property: UMIs
         for the rows axis: cell
         and the columns axis: gene
-        in the storage: memory!
+        in the Daf.Container: memory!
     """) delete_matrix!(storage, "cell", "gene", "UMIs")
     delete_matrix!(storage, "cell", "gene", "UMIs"; must_exist = false)
     @test_throws dedent("""
         missing matrix property: UMIs
         for the rows axis: cell
         and the columns axis: gene
-        in the storage: memory!
+        in the Daf.Container: memory!
     """) get_matrix(storage, "cell", "gene", "UMIs")
     @test_throws dedent("""
         matrix rows: 2
         is different from the length: 3
         of the axis: cell
-        in the storage: memory!
+        in the Daf.Container: memory!
     """) set_matrix!(storage, "cell", "gene", "UMIS", [0 1; 2 3])
     @test_throws dedent("""
         matrix columns: 3
         is different from the length: 2
         of the axis: gene
-        in the storage: memory!
+        in the Daf.Container: memory!
     """) set_matrix!(storage, "cell", "gene", "UMIS", [0 1 3; 4 5 6; 7 8 9])
     @test_throws dedent("""
         default rows: 2
         is different from the length: 3
         of the axis: cell
-        in the storage: memory!
+        in the Daf.Container: memory!
     """) get_matrix(storage, "cell", "gene", "UMIs", default = [0 1; 2 3])
     @test_throws dedent("""
         default columns: 3
         is different from the length: 2
         of the axis: gene
-        in the storage: memory!
+        in the Daf.Container: memory!
     """) get_matrix(storage, "cell", "gene", "UMIs", default = [0 1 3; 4 5 6; 7 8 9])
 
     @test get_matrix(storage, "cell", "gene", "UMIs"; default = [1 2; 3 4; 5 6]) == [1 2; 3 4; 5 6]
@@ -302,14 +304,14 @@ function test_storage_matrix(storage::AbstractStorage)::Nothing
         existing matrix property: UMIs
         for the rows axis: cell
         and the columns axis: gene
-        in the storage: memory!
+        in the Daf.Container: memory!
     """) set_matrix!(storage, "cell", "gene", "UMIs", [1 2; 3 4; 5 6])
     @test get_matrix(storage, "cell", "gene", "UMIs") == [0 1; 2 3; 4 5]
     @test get_matrix(storage, "cell", "gene", "UMIs"; default = [1 2; 3 4; 5 6]) == [0 1; 2 3; 4 5]
     @test get_matrix(storage, "cell", "gene", "UMIs"; default = 1) == [0 1; 2 3; 4 5]
 
     @test description(storage) == dedent("""
-        type: MemoryStorage
+        type: MemoryContainer
         name: memory!
         axes:
           cell: 3 entries
@@ -353,9 +355,9 @@ end
 
 @testset "storage" begin
     @testset "memory" begin
-        test_storage_scalar(MemoryStorage("memory!"))
-        test_storage_axis(MemoryStorage("memory!"))
-        test_storage_vector(MemoryStorage("memory!"))
-        test_storage_matrix(MemoryStorage("memory!"))
+        test_storage_scalar(MemoryContainer("memory!"))
+        test_storage_axis(MemoryContainer("memory!"))
+        test_storage_vector(MemoryContainer("memory!"))
+        test_storage_matrix(MemoryContainer("memory!"))
     end
 end

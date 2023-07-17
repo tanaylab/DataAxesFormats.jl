@@ -39,14 +39,19 @@ include("oprec.jl")
 
 include("registry.jl")
 
-include("query.jl")
-@reexport using Daf.Query
+include("queries.jl")
+@reexport using Daf.Queries
 
 include("operations.jl")
 @reexport using Daf.Operations
 
-include("storage.jl")
-@reexport using Daf.Storage
+include("formats.jl")
+
+include("containers.jl")
+@reexport using Daf.Containers
+
+include("memory_format.jl")
+@reexport using Daf.MemoryFormat
 
 include("example_data.jl")
 @reexport using Daf.ExampleData

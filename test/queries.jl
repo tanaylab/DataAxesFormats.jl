@@ -1,26 +1,26 @@
-using Daf.Query
+using Daf.Queries
 
 test_set("query") do
     test_set("prepare") do
-        @test Daf.Query.prepare_query_string("a") == "a"
-        @test Daf.Query.prepare_query_string("z") == "z"
-        @test Daf.Query.prepare_query_string("A") == "A"
-        @test Daf.Query.prepare_query_string("Z") == "Z"
-        @test Daf.Query.prepare_query_string("0") == "0"
-        @test Daf.Query.prepare_query_string("9") == "9"
-        @test Daf.Query.prepare_query_string("_") == "_5F"
-        @test Daf.Query.prepare_query_string(".") == "."
-        @test Daf.Query.prepare_query_string("+") == "+"
-        @test Daf.Query.prepare_query_string("-") == "-"
-        @test Daf.Query.prepare_query_string(" ") == ""
-        @test Daf.Query.prepare_query_string("\\a") == "_61"
-        @test Daf.Query.prepare_query_string("a # multi-\n # line comment!\nb") == "a b"
-        @test Daf.Query.prepare_query_string("\\") == "\\"
-        @test Daf.Query.prepare_query_string("\\\\") == "_5C"
-        @test Daf.Query.prepare_query_string("%") == "%"
-        @test Daf.Query.prepare_query_string("\\%") == "_25"
-        @test Daf.Query.prepare_query_string(":") == ":"
-        @test Daf.Query.prepare_query_string("\\:") == "_3A"
+        @test Daf.Queries.prepare_query_string("a") == "a"
+        @test Daf.Queries.prepare_query_string("z") == "z"
+        @test Daf.Queries.prepare_query_string("A") == "A"
+        @test Daf.Queries.prepare_query_string("Z") == "Z"
+        @test Daf.Queries.prepare_query_string("0") == "0"
+        @test Daf.Queries.prepare_query_string("9") == "9"
+        @test Daf.Queries.prepare_query_string("_") == "_5F"
+        @test Daf.Queries.prepare_query_string(".") == "."
+        @test Daf.Queries.prepare_query_string("+") == "+"
+        @test Daf.Queries.prepare_query_string("-") == "-"
+        @test Daf.Queries.prepare_query_string(" ") == ""
+        @test Daf.Queries.prepare_query_string("\\a") == "_61"
+        @test Daf.Queries.prepare_query_string("a # multi-\n # line comment!\nb") == "a b"
+        @test Daf.Queries.prepare_query_string("\\") == "\\"
+        @test Daf.Queries.prepare_query_string("\\\\") == "_5C"
+        @test Daf.Queries.prepare_query_string("%") == "%"
+        @test Daf.Queries.prepare_query_string("\\%") == "_25"
+        @test Daf.Queries.prepare_query_string(":") == ":"
+        @test Daf.Queries.prepare_query_string("\\:") == "_3A"
     end
 
     test_set("matrix query") do

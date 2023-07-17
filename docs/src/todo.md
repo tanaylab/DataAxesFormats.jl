@@ -4,9 +4,10 @@ The following issues are not addressed:
 
 ## Queries
 
-  - Implement queries on storage.
   - Return named arrays.
   - Implement more operations.
+  - Relayout?
+  - Generic input types?
 
 ## Composable computations
 

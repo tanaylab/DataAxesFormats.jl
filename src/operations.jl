@@ -5,12 +5,12 @@ and [`ReductionOperation`](@ref)s that reduce a matrix to a vector, or a vector 
 module Operations
 
 using Daf.DataTypes
-using Daf.Query
+using Daf.Queries
 using Daf.Registry
 
 import Base.MathConstants.e
-import Daf.Query.error_in_context
-import Daf.Query.parse_in_context
+import Daf.Queries.error_in_context
+import Daf.Queries.parse_in_context
 import Daf.Registry.compute_eltwise
 import Daf.Registry.compute_reduction
 import Distributed.@everywhere
