@@ -23,9 +23,6 @@ module Daf
 
 using Reexport
 
-include("as_dense.jl")
-@reexport using Daf.AsDense
-
 include("matrix_layouts.jl")
 @reexport using Daf.MatrixLayouts
 

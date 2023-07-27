@@ -37,7 +37,6 @@ export relayout!
 export Rows
 export WarnPolicy
 
-using Daf.AsDense
 using Distributed
 using LinearAlgebra
 using SparseArrays
@@ -94,16 +93,13 @@ end
 function major_axis(matrix::AbstractMatrix)::Union{Int8, Nothing}
     try
         matrix_strides = strides(matrix)
-        matrix_sizes = size(matrix)
-
-        if (matrix_strides[1] == 1 && matrix_strides[2] == matrix_sizes[1])
+        if matrix_strides[1] == 1
             return Columns
         end
-        if (matrix_strides[1] == matrix_sizes[2] && matrix_strides[2] == 1)
-            return Rows
+        if matrix_strides[2] == 1  # untested
+            return Rows            # untested
         end
-
-        return nothing  # untested
+        return nothing             # untested
 
     catch MethodError
         return nothing  # untested

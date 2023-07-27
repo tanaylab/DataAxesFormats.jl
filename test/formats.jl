@@ -296,8 +296,8 @@ function test_storage_matrix(storage::Format)::Nothing
     @test get_matrix(storage, "cell", "gene", "UMIs"; default = 1) == [1 1; 1 1; 1 1]
 
     @test_throws dedent("""
-        type: Daf.AsDense.DenseView{Int64, 2, Transpose{Int64, Matrix{Int64}}} is not in column-major layout
-    """) set_matrix!(storage, "cell", "gene", "UMIs", as_dense_or_fail(transpose([0 1 2; 3 4 5])))
+        type: Transpose{Int64, Matrix{Int64}} is not in column-major layout
+    """) set_matrix!(storage, "cell", "gene", "UMIs", transpose([0 1 2; 3 4 5]))
 
     set_matrix!(storage, "cell", "gene", "UMIs", [0 1; 2 3; 4 5])
     @test_throws dedent("""

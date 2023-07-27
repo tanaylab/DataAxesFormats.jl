@@ -214,7 +214,8 @@ macro query_operation(operation_type_name)
     name_reference = esc(operation_type_name)
 
     source_line = __source__.line
-    source_file = String(__source__.file)
+    file = __source__.file
+    source_file = file == nothing ? "-" : String(file)
 
     module_name = Symbol("Daf_$(name_string)_$(source_line)")
 

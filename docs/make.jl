@@ -34,7 +34,6 @@ makedocs(;
         "operations.md",
         "data_types.md",
         "matrix_layouts.md",
-        "as_dense.md",
         "oprec.md",
         "messages.md",
         "example_data.md",

@@ -59,8 +59,6 @@ using Daf.Registry
 using Daf.Queries
 using SparseArrays
 
-import Daf.DataTypes.require_storage_matrix
-import Daf.DataTypes.require_storage_vector
 import Daf.Queries.CmpEqual
 import Daf.Queries.CmpGreaterOrEqual
 import Daf.Queries.CmpGreaterThan
@@ -335,8 +333,7 @@ function set_vector!(
     require_not_name(container, axis, name)
     require_axis(container, axis)
 
-    if vector isa AbstractVector
-        require_storage_vector(vector)
+    if vector isa StorageVector
         require_axis_length(container, "vector length", length(vector), axis)
     end
 
@@ -506,8 +503,7 @@ function get_vector(
         return format_get_axis(container, axis)
     end
 
-    if default isa AbstractVector
-        require_storage_vector(default)
+    if default isa StorageVector
         require_axis_length(container, "default length", length(default), axis)
     end
 
@@ -612,7 +608,6 @@ function set_matrix!(
     require_axis(container, columns_axis)
 
     if matrix isa StorageMatrix
-        require_storage_matrix(matrix)
         require_column_major(matrix)
         require_axis_length(container, "matrix rows", size(matrix, Rows), rows_axis)
         require_axis_length(container, "matrix columns", size(matrix, Columns), columns_axis)
@@ -836,7 +831,6 @@ function get_matrix(
     require_axis(container, columns_axis)
 
     if default isa StorageMatrix
-        require_storage_matrix(default)
         require_column_major(default)
         require_axis_length(container, "default rows", size(default, Rows), rows_axis)
         require_axis_length(container, "default columns", size(default, Columns), columns_axis)
@@ -1287,15 +1281,15 @@ function compute_vector_data_lookup(
     )
     mask = compute_filtered_axis(container, vector_property_lookup.filtered_axis)
 
-    if mask != nothing && !any(mask)
+    if mask == nothing
+        return result
+    end
+
+    if !any(mask)
         return nothing
     end
 
-    if mask != nothing
-        result = result[mask]
-    end
-
-    return result
+    return result[mask]
 end
 
 function compute_vector_data_lookup(

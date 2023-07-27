@@ -7,7 +7,6 @@ export present
 export present_percent
 export unique_name
 
-using Daf.AsDense
 using Daf.DataTypes
 using Daf.MatrixLayouts
 using Distributed
@@ -76,10 +75,6 @@ function present(value::Symbol)::String
 end
 
 function present(value::AbstractVector)::String  # untested
-    as_dense = as_dense_if_possible(value)
-    if as_dense !== value
-        return present(as_dense)
-    end
     return "$(length(value)) x $(eltype(value)) ($(typeof(value)))"
 end
 
@@ -93,10 +88,6 @@ function present(value::SparseVector)::String
 end
 
 function present(value::AbstractMatrix; transposed::Bool = false)::String  # untested
-    as_dense = as_dense_if_possible(value)
-    if as_dense !== value
-        return present(as_dense)
-    end
     return present_matrix(value, "$(typeof(value))"; transposed = transposed)
 end
 

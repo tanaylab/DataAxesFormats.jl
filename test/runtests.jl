@@ -20,9 +20,7 @@ end
 #    return nothing
 #end
 
-include("as_dense.jl")
 include("matrix_layouts.jl")
-include("data_types.jl")
 include("messages.jl")
 include("formats.jl")
 include("oprec.jl")
