@@ -74,13 +74,24 @@ import Daf.Queries.FilterXor
 """
 An abstract interface for all `Daf` containers.
 
-We require each container to have a human-readable `.name::String` property for error messages and the like. We ensure
-this name is unique by using [`unique_name`](@ref) when the container is constructed.
-
 We distinguish between the high-level API of the `Container` which is meant to be used from outside the package, and the
 internal low-level API of the [`Format`](@ref) which is needed to implement a new storage format.
+
+We require each storage format to have a `.internal::`[`Internal`](@ref) property. This enables all the high-level
+`Container` functions.
+
+Each container behaves "as if" it has a `.name::String` property which identifies the container instance, for logging,
+error messages, etc. This name goes through [`unique_name`](@ref) to distinguish between instances.
 """
 abstract type Container <: Format end
+
+function Base.getproperty(container::Container, property::Symbol)::Any
+    if property == :name
+        return container.internal.name
+    else
+        return getfield(container, property)
+    end
+end
 
 """
     has_scalar(container::Container, name::AbstractString)::Bool

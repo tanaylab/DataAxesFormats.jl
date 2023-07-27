@@ -26,6 +26,7 @@ additional storage format. We therefore do not reexport anything from this modul
 """
 module Formats
 
+export Internal
 export Format
 export format_add_axis!
 export format_axis_length
@@ -61,10 +62,27 @@ using Daf.Messages
 using SparseArrays
 
 """
+    Internal(name::AbstractString)
+
+Internal data we need to keep in any concrete [`Format`](@ref). This has to be available as a `.internal` data member of the
+concrete format. This enables all the high-level `Container` functions.
+
+The constructor will automatically call [`unique_name`](@ref) to try and make the names unique for improved error
+messages.
+"""
+struct Internal
+    name::String
+
+    function Internal(name::AbstractString)::Internal
+        return new(unique_name(name))
+    end
+end
+
+"""
 An abstract interface for all `Daf` storage formats.
 
-We require each storage format to have a human-readable `.name::String` property for error messages and the like. This
-name should be made unique when constructing a new object by using [`unique_name`](@ref).
+We require each storage format to have a `.internal::`[`Internal`](@ref) property. This enables all the high-level
+`Container` functions.
 
 We also require each storage format to have a `.cache::Dict{String,Any}` property which we'll use to cache
 [`relayout!`](@ref) and query results.

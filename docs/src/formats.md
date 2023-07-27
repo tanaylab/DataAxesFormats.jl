@@ -8,6 +8,7 @@ Daf.Formats
 
 ```@docs
 Daf.Formats.Format
+Daf.Formats.Internal
 ```
 
 ## Scalar properties

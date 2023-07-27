@@ -22,9 +22,7 @@ object that just keeps references to the data it is given.
 This is the "default" storage type you should use, unless you need to persist the data on the disk.
 """
 struct MemoryContainer <: Container
-    name::String
-
-    cache::Dict{String, Any}
+    internal::Internal
 
     scalars::Dict{String, StorageScalar}
 
@@ -35,12 +33,11 @@ struct MemoryContainer <: Container
     matrices::Dict{String, Dict{String, Dict{String, StorageMatrix}}}
 
     function MemoryContainer(name::AbstractString)
-        cache = Dict{String, Any}()
         scalars = Dict{String, StorageScalar}()
         axes = Dict{String, DenseVector{String}}()
         vectors = Dict{String, Dict{String, StorageVector{String}}}()
         matrices = Dict{String, Dict{String, Dict{String, StorageVector{String}}}}()
-        return new(unique_name(name), cache, scalars, axes, vectors, matrices)
+        return new(Internal(name), scalars, axes, vectors, matrices)
     end
 end
 
