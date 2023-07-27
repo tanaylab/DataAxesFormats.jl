@@ -73,8 +73,10 @@ messages.
 struct Internal
     name::String
 
-    function Internal(name::AbstractString)::Internal
-        return new(unique_name(name))
+    is_read_only::Vector{Bool}
+
+    function Internal(name::AbstractString; is_read_only::Bool = false)::Internal
+        return new(unique_name(name), [is_read_only])
     end
 end
 

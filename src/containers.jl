@@ -43,6 +43,8 @@ export has_scalar
 export has_vector
 export matrix_names
 export matrix_query
+export is_read_only
+export read_only!
 export scalar_names
 export scalar_query
 export set_matrix!
@@ -50,6 +52,7 @@ export set_scalar!
 export set_vector!
 export vector_names
 export vector_query
+export with_read_only!
 
 using Daf.DataTypes
 using Daf.Formats
@@ -94,6 +97,44 @@ function Base.getproperty(container::Container, property::Symbol)::Any
 end
 
 """
+    is_read_only(container::Container)::Bool
+
+Return whether the `container` is protected against modification.
+"""
+function is_read_only(container::Container)::Bool
+    return container.internal.is_read_only[1]
+end
+
+"""
+    read_only!(container::Container[, read_only::Bool = true])::Bool
+
+Set whether the `container` is protected against modification. Returns the previous setting.
+
+!!! note
+
+    Disk-based containers that were created as read-only will `error` if trying to make them non-read-only.
+"""
+function read_only!(container::Container, read_only::Bool = true)::Bool
+    was_read_only = container.internal.is_read_only[1]
+    container.internal.is_read_only[1] = read_only
+    return was_read_only
+end
+
+"""
+    with_read_only!(action::Function, container::Container[, read_only::Bool = true])::Any
+
+Run the `action` with the `container` temporarily protected (or allowing) modifications, and return the result.
+"""
+function with_read_only!(action::Function, container::Container, read_only::Bool = true)::Any
+    was_read_only = read_only!(container, read_only)
+    try
+        return action()
+    finally
+        read_only!(container, was_read_only)
+    end
+end
+
+"""
     has_scalar(container::Container, name::AbstractString)::Bool
 
 Check whether a scalar property with some `name` exists in the `container`.
@@ -115,6 +156,8 @@ Set the `value` of a scalar property with some `name` in the `container`.
 If `overwrite` is `false` (the default), this first verifies the `name` scalar property does not exist.
 """
 function set_scalar!(container::Container, name::AbstractString, value::StorageScalar; overwrite::Bool = false)::Nothing
+    require_not_read_only(container, "set_scalar!")
+
     if !overwrite
         require_no_scalar(container, name)
     end
@@ -135,6 +178,8 @@ Delete a scalar property with some `name` from the `container`.
 If `must_exist` is `true` (the default), this first verifies the `name` scalar property exists in the `container`.
 """
 function delete_scalar!(container::Container, name::AbstractString; must_exist::Bool = true)::Nothing
+    require_not_read_only(container, "delete_scalar!")
+
     if must_exist
         require_scalar(container, name)
     elseif !has_scalar(container, name)
@@ -213,6 +258,7 @@ Add a new `axis` to the `container`.
 This first verifies the `axis` does not exist and that the `entries` are unique.
 """
 function add_axis!(container::Container, axis::AbstractString, entries::DenseVector{String})::Nothing
+    require_not_read_only(container, "add_axis!")
     require_no_axis(container, axis)
 
     if !allunique(entries)
@@ -236,6 +282,7 @@ axis.
 If `must_exist` is `true` (the default), this first verifies the `axis` exists in the `container`.
 """
 function delete_axis!(container::Container, axis::AbstractString; must_exist::Bool = true)::Nothing
+    require_not_read_only(container, "delete_axis!")
     if must_exist
         require_axis(container, axis)
     elseif !has_axis(container, axis)
@@ -273,9 +320,9 @@ the special `name` property.
 
 This first verifies the `axis` exists in the `container`.
 """
-function get_axis(container::Container, axis::AbstractString)::DenseVector{String}
+function get_axis(container::Container, axis::AbstractString)::AbstractVector{String}
     require_axis(container, axis)
-    return format_get_axis(container, axis)
+    return SparseArrays.ReadOnly(format_get_axis(container, axis))
 end
 
 """
@@ -341,6 +388,7 @@ function set_vector!(
     vector::Union{StorageScalar, StorageVector};
     overwrite::Bool = false,
 )::Nothing
+    require_not_read_only(container, "set_vector!")
     require_not_name(container, axis, name)
     require_axis(container, axis)
 
@@ -381,6 +429,7 @@ function empty_dense_vector!(
     eltype::Type{T};
     overwrite::Bool = false,
 )::DenseVector{T} where {T <: Number}
+    require_not_read_only(container, "empty_dense_vector!")
     require_not_name(container, axis, name)
     require_axis(container, axis)
 
@@ -433,6 +482,7 @@ function empty_sparse_vector!(
     indtype::Type{I};
     overwrite::Bool = false,
 )::SparseVector{T, I} where {T <: Number, I <: Integer}
+    require_not_read_only(container, "empty_sparse_vector!")
     require_not_name(container, axis, name)
     require_axis(container, axis)
 
@@ -462,6 +512,7 @@ function delete_vector!(
     name::AbstractString;
     must_exist::Bool = true,
 )::Nothing
+    require_not_read_only(container, "delete_vector!")
     require_not_name(container, axis, name)
     require_axis(container, axis)
 
@@ -511,42 +562,47 @@ function get_vector(
     require_axis(container, axis)
 
     if name == "name"
-        return format_get_axis(container, axis)
+        return SparseArrays.ReadOnly(format_get_axis(container, axis))
     end
 
     if default isa StorageVector
         require_axis_length(container, "default length", length(default), axis)
     end
 
-    if default == nothing
-        require_vector(container, axis, name)
-    elseif !has_vector(container, axis, name)
+    vector = nothing
+    if !has_vector(container, axis, name)
         if default isa StorageVector
-            return default
-        else
-            return fill(default, axis_length(container, axis))
+            vector = default
+        elseif default isa StorageScalar
+            vector = fill(default, axis_length(container, axis))
         end
     end
 
-    vector = format_get_vector(container, axis, name)
-    if !(vector isa StorageVector)
-        error(  # untested
-            "format_get_vector for Daf.Format: $(typeof(container))\n" *
-            "returned invalid Daf.StorageVector: $(typeof(vector))",
-        )
+    if vector == nothing
+        require_vector(container, axis, name)
+        vector = format_get_vector(container, axis, name)
+        if !(vector isa StorageVector)
+            error(  # untested
+                "format_get_vector for Daf.Format: $(typeof(container))\n" *
+                "returned invalid Daf.StorageVector: $(typeof(vector))",
+            )
+        end
+        if length(vector) != axis_length(container, axis)
+            error( # untested
+                "format_get_vector for Daf.Format: $(typeof(container))\n" *
+                "returned vector length: $(length(vector))\n" *
+                "instead of axis: $(axis)\n" *
+                "length: $(axis_length(container, axis))\n" *
+                "in the Daf.Container: $(container.name)",
+            )
+        end
     end
 
-    if length(vector) != axis_length(container, axis)
-        error( # untested
-            "format_get_vector for Daf.Format: $(typeof(container))\n" *
-            "returned vector length: $(length(vector))\n" *
-            "instead of axis: $(axis)\n" *
-            "length: $(axis_length(container, axis))\n" *
-            "in the Daf.Container: $(container.name)",
-        )
+    if is_read_only(container)
+        return SparseArrays.ReadOnly(vector)
+    else
+        return vector
     end
-
-    return vector
 end
 
 function require_vector(container::Container, axis::AbstractString, name::AbstractString)::Nothing
@@ -615,6 +671,7 @@ function set_matrix!(
     matrix::Union{StorageScalar, StorageMatrix};
     overwrite::Bool = false,
 )::Nothing
+    require_not_read_only(container, "set_matrix!")
     require_axis(container, rows_axis)
     require_axis(container, columns_axis)
 
@@ -661,6 +718,7 @@ function empty_dense_matrix!(
     eltype::Type{T};
     overwrite::Bool = false,
 )::DenseMatrix{T} where {T <: Number}
+    require_not_read_only(container, "empty_dense_matrix!")
     require_axis(container, rows_axis)
     require_axis(container, columns_axis)
 
@@ -716,6 +774,7 @@ function empty_sparse_matrix!(
     indtype::Type{I};
     overwrite::Bool = false,
 )::SparseMatrixCSC{T, I} where {T <: Number, I <: Integer}
+    require_not_read_only(container, "empty_sparse_matrix!")
     require_axis(container, rows_axis)
     require_axis(container, columns_axis)
 
@@ -747,6 +806,7 @@ function delete_matrix!(
     name::AbstractString;
     must_exist::Bool = true,
 )::Nothing
+    require_not_read_only(container, "delete_matrix!")
     require_axis(container, rows_axis)
     require_axis(container, columns_axis)
 
@@ -847,52 +907,58 @@ function get_matrix(
         require_axis_length(container, "default columns", size(default, Columns), columns_axis)
     end
 
-    if default == nothing
-        require_matrix(container, rows_axis, columns_axis, name)
-    elseif !has_matrix(container, rows_axis, columns_axis, name)
+    matrix = nothing
+    if !has_matrix(container, rows_axis, columns_axis, name)
         if default isa StorageMatrix
-            return default
-        else
-            return fill(default, axis_length(container, rows_axis), axis_length(container, columns_axis))
+            matrix = default
+        elseif default isa StorageScalar
+            matrix = fill(default, axis_length(container, rows_axis), axis_length(container, columns_axis))
         end
     end
 
-    matrix = format_get_matrix(container, rows_axis, columns_axis, name)
-    if !(matrix isa StorageMatrix)
-        error( # untested
-            "format_get_matrix for Daf.Format: $(typeof(container))\n" *
-            "returned invalid Daf.StorageMatrix: $(typeof(matrix))",
-        )
+    if matrix == nothing
+        require_matrix(container, rows_axis, columns_axis, name)
+        matrix = format_get_matrix(container, rows_axis, columns_axis, name)
+        if !(matrix isa StorageMatrix)
+            error( # untested
+                "format_get_matrix for Daf.Format: $(typeof(container))\n" *
+                "returned invalid Daf.StorageMatrix: $(typeof(matrix))",
+            )
+        end
+
+        if size(matrix, Rows) != axis_length(container, rows_axis)
+            error( # untested
+                "format_get_matrix for Daf.Format: $(typeof(container))\n" *
+                "returned matrix rows: $(size(matrix, Rows))\n" *
+                "instead of axis: $(axis)\n" *
+                "length: $(axis_length(container, rows_axis))\n" *
+                "in the Daf.Container: $(container.name)",
+            )
+        end
+
+        if size(matrix, Columns) != axis_length(container, columns_axis)
+            error( # untested
+                "format_get_matrix for Daf.Format: $(typeof(container))\n" *
+                "returned matrix columns: $(size(matrix, Columns))\n" *
+                "instead of axis: $(axis)\n" *
+                "length: $(axis_length(container, columns_axis))\n" *
+                "in the Daf.Container: $(container.name)",
+            )
+        end
+
+        if major_axis(matrix) != Columns
+            error( # untested
+                "format_get_matrix for Daf.Format: $(typeof(container))\n" *
+                "returned non column-major matrix: $(typeof(matrix))",
+            )
+        end
     end
 
-    if size(matrix, Rows) != axis_length(container, rows_axis)
-        error( # untested
-            "format_get_matrix for Daf.Format: $(typeof(container))\n" *
-            "returned matrix rows: $(size(matrix, Rows))\n" *
-            "instead of axis: $(axis)\n" *
-            "length: $(axis_length(container, rows_axis))\n" *
-            "in the Daf.Container: $(container.name)",
-        )
+    if is_read_only(container)
+        return SparseArrays.ReadOnly(matrix)
+    else
+        return matrix
     end
-
-    if size(matrix, Columns) != axis_length(container, columns_axis)
-        error( # untested
-            "format_get_matrix for Daf.Format: $(typeof(container))\n" *
-            "returned matrix columns: $(size(matrix, Columns))\n" *
-            "instead of axis: $(axis)\n" *
-            "length: $(axis_length(container, columns_axis))\n" *
-            "in the Daf.Container: $(container.name)",
-        )
-    end
-
-    if major_axis(matrix) != Columns
-        error( # untested
-            "format_get_matrix for Daf.Format: $(typeof(container))\n" *
-            "returned non column-major matrix: $(typeof(matrix))",
-        )
-    end
-
-    return matrix
 end
 
 function require_column_major(matrix::StorageMatrix)::Nothing
@@ -1075,10 +1141,10 @@ end
 
 function compute_axis_filter(
     container::Container,
-    mask::Vector{Bool},
+    mask::AbstractVector{Bool},
     axis::AbstractString,
     axis_filter::AxisFilter,
-)::Vector{Bool}
+)::AbstractVector{Bool}
     filter = compute_axis_lookup(container, axis, axis_filter.axis_lookup)
     if eltype(filter) != Bool
         error(
@@ -1103,7 +1169,7 @@ function compute_axis_filter(
     end
 end
 
-function compute_axis_lookup(container::Container, axis::AbstractString, axis_lookup::AxisLookup)::Vector
+function compute_axis_lookup(container::Container, axis::AbstractString, axis_lookup::AxisLookup)::AbstractVector
     values = compute_property_lookup(container, axis, axis_lookup.property_lookup)
 
     if axis_lookup.property_comparison == nothing
@@ -1122,8 +1188,8 @@ function compute_axis_lookup_match(
     container::Container,
     axis::AbstractString,
     axis_lookup::AxisLookup,
-    values::Vector,
-)::Vector
+    values::AbstractVector,
+)::AbstractVector
     if eltype(values) != String
         error(
             "non-String data type: $(eltype(values))\n" *
@@ -1158,8 +1224,8 @@ function compute_axis_lookup_compare(
     container::Container,
     axis::AbstractString,
     axis_lookup::AxisLookup,
-    values::Vector,
-)::Vector
+    values::AbstractVector,
+)::AbstractVector
     value = axis_lookup.property_comparison.property_value
     if eltype(values) != String
         try
@@ -1191,7 +1257,11 @@ function compute_axis_lookup_compare(
     end
 end
 
-function compute_property_lookup(container::Container, axis::AbstractString, property_lookup::PropertyLookup)::Vector
+function compute_property_lookup(
+    container::Container,
+    axis::AbstractString,
+    property_lookup::PropertyLookup,
+)::AbstractVector
     last_property_name = property_lookup.property_names[1]
     values = get_vector(container, axis, last_property_name)
 
@@ -1215,7 +1285,7 @@ function compute_chained_property(
     container::Container,
     last_axis::AbstractString,
     last_property_name::AbstractString,
-    last_property_values::Vector{String},
+    last_property_values::AbstractVector{String},
     next_property_name::AbstractString,
 )::Tuple{Vector, String}
     if has_axis(container, last_property_name)
@@ -1249,8 +1319,8 @@ function find_axis_value(
     last_property_name::AbstractString,
     last_property_value::AbstractString,
     next_axis::AbstractString,
-    next_axis_entries::Vector{String},
-    next_axis_values::Vector,
+    next_axis_entries::AbstractVector{String},
+    next_axis_values::AbstractVector,
 )::Any
     index = findfirst(==(last_property_value), next_axis_entries)
     if index == nothing
@@ -1438,6 +1508,12 @@ function compute_reduction_result(
             )
         end
         return compute_reduction(reduction_operation, result)
+    end
+end
+
+function require_not_read_only(container::Container, action::String)::Nothing
+    if is_read_only(container)
+        error("$(action) for read-only Daf.Container: $(container.name)")
     end
 end
 

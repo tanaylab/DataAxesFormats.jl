@@ -11,6 +11,12 @@ Daf.Containers.Container
 Daf.Containers.description
 ```
 
+```@docs
+Daf.Containers.is_read_only
+Daf.Containers.read_only!
+Daf.Containers.with_read_only!
+```
+
 ## Queries
 
 ```@docs

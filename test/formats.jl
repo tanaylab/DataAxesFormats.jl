@@ -35,7 +35,22 @@ function test_storage_scalar(storage::Format)::Nothing
           version: "1.2"
     """) * "\n"
 
+    @test !is_read_only(storage)
+    @test read_only!(storage) == false
+    @test is_read_only(storage)
+    @test_throws "delete_scalar! for read-only Daf.Container: memory!" delete_scalar!(storage, "version")
+    @test read_only!(storage)
+    @test read_only!(storage, false) == true
+    @test !is_read_only(storage)
+
+    with_read_only!(storage) do
+        @test is_read_only(storage)
+        @test_throws "delete_scalar! for read-only Daf.Container: memory!" delete_scalar!(storage, "version")
+    end
+    @test !is_read_only(storage)
+
     delete_scalar!(storage, "version")
+
     @test !has_scalar(storage, "version")
     @test length(scalar_names(storage)) == 0
 
@@ -66,7 +81,7 @@ function test_storage_axis(storage::Format)::Nothing
 
     @test has_axis(storage, "cell")
     @test axis_length(storage, "cell") == 3
-    @test get_axis(storage, "cell") === cell_names
+    @test get_axis(storage, "cell") == cell_names
 
     @test_throws dedent("""
         existing axis: cell
@@ -142,7 +157,9 @@ function test_storage_vector(storage::Format)::Nothing
         in the Daf.Container: memory!
     """) get_vector(storage, "cell", "age"; default = vec([1 2]))
     @test get_vector(storage, "cell", "age"; default = vec([1 2 3])) == vec([1 2 3])
-    @test get_vector(storage, "cell", "age"; default = 1) == vec([1 1 1])
+    with_read_only!(storage) do
+        @test get_vector(storage, "cell", "age"; default = 1) == vec([1 1 1])
+    end
 
     @test_throws dedent("""
         setting the reserved property: name
@@ -293,7 +310,9 @@ function test_storage_matrix(storage::Format)::Nothing
     """) get_matrix(storage, "cell", "gene", "UMIs", default = [0 1 3; 4 5 6; 7 8 9])
 
     @test get_matrix(storage, "cell", "gene", "UMIs"; default = [1 2; 3 4; 5 6]) == [1 2; 3 4; 5 6]
-    @test get_matrix(storage, "cell", "gene", "UMIs"; default = 1) == [1 1; 1 1; 1 1]
+    with_read_only!(storage) do
+        @test get_matrix(storage, "cell", "gene", "UMIs"; default = 1) == [1 1; 1 1; 1 1]
+    end
 
     @test_throws dedent("""
         type: Transpose{Int64, Matrix{Int64}} is not in column-major layout
