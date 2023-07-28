@@ -4,6 +4,7 @@ using Base: elsize
 using Base.MathConstants
 using Daf
 using LinearAlgebra
+using NamedArrays
 using SparseArrays
 using TestContexts
 

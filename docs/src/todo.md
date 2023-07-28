@@ -4,19 +4,19 @@ The following issues are not addressed:
 
 ## Queries
 
-  - Return named arrays.
   - Implement more operations.
   - Relayout?
-  - Generic input types?
 
 ## Composable computations
 
+  - Views.
   - Generic two-way `Adapter` functionality based on the `View`
   - Composable self-documenting `Computation` functions
 
 ## Disk storage formats
 
-  - Make `name` a reserved property (alias `name` member of the storage?)
+  - Make `name` a reserved scalar property (alias for `name` member of the storage)???
+  - Input types using empty.
   - `FilesStorage`
   - `Hdf5Storage`
   - `AnnDataStorage`
@@ -39,5 +39,6 @@ The following issues are not addressed:
 
 ## Misc
 
+  - Make containers thread-safe!!!
   - @everywhere for registries
   - More efficient lookup of chained properties?

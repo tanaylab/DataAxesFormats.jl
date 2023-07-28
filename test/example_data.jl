@@ -5,6 +5,7 @@ test_set("example_data") do
         @test description(container) == dedent("""
             type: MemoryContainer
             name: example!
+            is_read_only: False
             scalars:
               version: "1.0"
             axes:

@@ -60,6 +60,7 @@ using Daf.MatrixLayouts
 using Daf.Messages
 using Daf.Registry
 using Daf.Queries
+using NamedArrays
 using SparseArrays
 
 import Daf.Queries.CmpEqual
@@ -322,7 +323,7 @@ This first verifies the `axis` exists in the `container`.
 """
 function get_axis(container::Container, axis::AbstractString)::AbstractVector{String}
     require_axis(container, axis)
-    return SparseArrays.ReadOnly(format_get_axis(container, axis))
+    return as_read_only(format_get_axis(container, axis))
 end
 
 """
@@ -394,6 +395,9 @@ function set_vector!(
 
     if vector isa StorageVector
         require_axis_length(container, "vector length", length(vector), axis)
+        if vector isa NamedVector
+            require_axis_names(container, axis, "entry names of the: vector", names(vector, 1))
+        end
     end
 
     if !overwrite
@@ -411,7 +415,7 @@ end
         name::AbstractString,
         eltype::Type{T}
         [; overwrite::Bool]
-    )::DenseVector{T} where {T <: Number}
+    )::NamedVector{T, DenseVector{T}} where {T <: Number}
 
 Create an empty dense vector property with some `name` for some `axis` in the `container`.
 
@@ -428,7 +432,7 @@ function empty_dense_vector!(
     name::AbstractString,
     eltype::Type{T};
     overwrite::Bool = false,
-)::DenseVector{T} where {T <: Number}
+)::NamedVector{T} where {T <: Number}
     require_not_read_only(container, "empty_dense_vector!")
     require_not_name(container, axis, name)
     require_axis(container, axis)
@@ -437,7 +441,7 @@ function empty_dense_vector!(
         require_no_vector(container, axis, name)
     end
 
-    return format_empty_dense_vector!(container, axis, name, eltype)
+    return as_named_vector(container, axis, format_empty_dense_vector!(container, axis, name, eltype))
 end
 
 """
@@ -449,7 +453,7 @@ end
         nnz::Integer,
         indtype::Type{I}
         [; overwrite::Bool]
-    )::DenseVector{T} where {T <: Number, I <: Integer}
+    )::NamedVector{T, SparseVector{T, I}} where {T <: Number, I <: Integer}
 
 Create an empty dense vector property with some `name` for some `axis` in the `container`.
 
@@ -481,7 +485,7 @@ function empty_sparse_vector!(
     nnz::Integer,
     indtype::Type{I};
     overwrite::Bool = false,
-)::SparseVector{T, I} where {T <: Number, I <: Integer}
+)::NamedVector{T, SparseVector{T, I}} where {T <: Number, I <: Integer}
     require_not_read_only(container, "empty_sparse_vector!")
     require_not_name(container, axis, name)
     require_axis(container, axis)
@@ -490,7 +494,7 @@ function empty_sparse_vector!(
         require_no_vector(container, axis, name)
     end
 
-    return format_empty_sparse_vector!(container, axis, name, eltype, nnz, indtype)
+    return as_named_vector(container, axis, format_empty_sparse_vector!(container, axis, name, eltype, nnz, indtype))
 end
 
 """
@@ -558,15 +562,18 @@ function get_vector(
     axis::AbstractString,
     name::AbstractString;
     default::Union{StorageScalar, StorageVector, Nothing} = nothing,
-)::StorageVector
+)::NamedArray
     require_axis(container, axis)
 
     if name == "name"
-        return SparseArrays.ReadOnly(format_get_axis(container, axis))
+        return as_read_only(format_get_axis(container, axis))
     end
 
     if default isa StorageVector
         require_axis_length(container, "default length", length(default), axis)
+        if default isa NamedVector
+            require_axis_names(container, axis, "entry names of the: default vector", names(default, 1))
+        end
     end
 
     vector = nothing
@@ -599,10 +606,10 @@ function get_vector(
     end
 
     if is_read_only(container)
-        return SparseArrays.ReadOnly(vector)
-    else
-        return vector
+        vector = as_read_only(vector)
     end
+
+    return as_named_vector(container, axis, vector)
 end
 
 function require_vector(container::Container, axis::AbstractString, name::AbstractString)::Nothing
@@ -679,6 +686,10 @@ function set_matrix!(
         require_column_major(matrix)
         require_axis_length(container, "matrix rows", size(matrix, Rows), rows_axis)
         require_axis_length(container, "matrix columns", size(matrix, Columns), columns_axis)
+        if matrix isa NamedMatrix
+            require_axis_names(container, rows_axis, "row names of the: matrix", names(matrix, 1))
+            require_axis_names(container, columns_axis, "column names of the: matrix", names(matrix, 2))
+        end
     end
 
     if !overwrite
@@ -697,7 +708,7 @@ end
         name::AbstractString,
         eltype::Type{T}
         [; overwrite::Bool]
-    )::DenseMatrix{T} where {T <: Number}
+    )::NamedMatrix{T, DenseMatrix{T}} where {T <: Number}
 
 Create an empty dense matrix property with some `name` for some `rows_axis` and `columns_axis` in the `container`. Since
 this is Julia, this will be a column-major `matrix`.
@@ -717,7 +728,7 @@ function empty_dense_matrix!(
     name::AbstractString,
     eltype::Type{T};
     overwrite::Bool = false,
-)::DenseMatrix{T} where {T <: Number}
+)::NamedMatrix{T} where {T <: Number}
     require_not_read_only(container, "empty_dense_matrix!")
     require_axis(container, rows_axis)
     require_axis(container, columns_axis)
@@ -726,7 +737,12 @@ function empty_dense_matrix!(
         require_no_matrix(container, rows_axis, columns_axis, name)
     end
 
-    return format_empty_dense_matrix!(container, rows_axis, columns_axis, name, eltype)
+    return as_named_matrix(
+        container,
+        rows_axis,
+        columns_axis,
+        format_empty_dense_matrix!(container, rows_axis, columns_axis, name, eltype),
+    )
 end
 
 """
@@ -739,7 +755,7 @@ end
         nnz::Integer,
         intdype::Type{I}
         [; overwrite::Bool]
-    )::SparseMatrixCSC{T, I} where {T <: Number, I <: Integer}
+    )::NamedMatrix{T, SparseMatrixCSC{T, I}} where {T <: Number, I <: Integer}
 
 Create an empty sparse matrix property with some `name` for some `rows_axis` and `columns_axis` in the `container`.
 
@@ -773,7 +789,7 @@ function empty_sparse_matrix!(
     nnz::Integer,
     indtype::Type{I};
     overwrite::Bool = false,
-)::SparseMatrixCSC{T, I} where {T <: Number, I <: Integer}
+)::NamedMatrix{T, SparseMatrixCSC{T, I}} where {T <: Number, I <: Integer}
     require_not_read_only(container, "empty_sparse_matrix!")
     require_axis(container, rows_axis)
     require_axis(container, columns_axis)
@@ -782,7 +798,12 @@ function empty_sparse_matrix!(
         require_no_matrix(container, rows_axis, columns_axis, name)
     end
 
-    return format_empty_sparse_matrix!(container, rows_axis, columns_axis, name, eltype, nnz, indtype)
+    return as_named_matrix(
+        container,
+        rows_axis,
+        columns_axis,
+        format_empty_sparse_matrix!(container, rows_axis, columns_axis, name, eltype, nnz, indtype),
+    )
 end
 
 """
@@ -905,6 +926,10 @@ function get_matrix(
         require_column_major(default)
         require_axis_length(container, "default rows", size(default, Rows), rows_axis)
         require_axis_length(container, "default columns", size(default, Columns), columns_axis)
+        if default isa NamedMatrix
+            require_axis_names(container, rows_axis, "row names of the: default matrix", names(default, 1))
+            require_axis_names(container, columns_axis, "column names of the: default matrix", names(default, 2))
+        end
     end
 
     matrix = nothing
@@ -955,10 +980,10 @@ function get_matrix(
     end
 
     if is_read_only(container)
-        return SparseArrays.ReadOnly(matrix)
-    else
-        return matrix
+        matrix = as_read_only(matrix)
     end
+
+    return as_named_matrix(container, rows_axis, columns_axis, matrix)
 end
 
 function require_column_major(matrix::StorageMatrix)::Nothing
@@ -995,6 +1020,95 @@ function require_not_name(container::Container, axis::AbstractString, name::Abst
     return nothing
 end
 
+function require_not_read_only(container::Container, action::String)::Nothing
+    if is_read_only(container)
+        error("$(action) for read-only Daf.Container: $(container.name)")
+    end
+end
+
+function as_read_only(array::SparseArrays.ReadOnly)::SparseArrays.ReadOnly  # untested
+    return array
+end
+
+function as_read_only(array::NamedArray)::NamedArray  # untested
+    if array.array isa SparseArrays.ReadOnly
+        return array
+    else
+        return NamedArray(as_read_only(array.array), array.dicts, array.dimnames)
+    end
+end
+
+function as_read_only(array::AbstractArray)::SparseArrays.ReadOnly
+    return SparseArrays.ReadOnly(array)
+end
+
+function require_axis_names(container::Container, axis::AbstractString, what::String, names::Vector{String})::Nothing
+    expected_names = get_axis(container, axis)
+    if names != expected_names
+        error("$(what)\nmismatch the entry names of the axis: $(axis)\nin the Daf.Container: $(container.name)")
+    end
+end
+
+function as_named_vector(container::Container, axis::AbstractString, vector::NamedVector)::NamedVector
+    return vector
+end
+
+function as_named_vector(container::Container, axis::AbstractString, vector::AbstractVector)::NamedArray
+    axis_names_dict = get(container.internal.axes, axis, nothing)
+    if axis_names_dict == nothing
+        named_array = NamedArray(vector, (get_axis(container, axis),), (axis,))
+        container.internal.axes[axis] = named_array.dicts[1]
+        return named_array
+
+    else
+        return NamedArray(vector, (axis_names_dict,), (axis,))
+    end
+end
+
+function as_named_matrix(
+    container::Container,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    matrix::NamedMatrix,
+)::NamedMatrix
+    return matrix
+end
+
+function as_named_matrix(
+    container::Container,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    matrix::AbstractMatrix,
+)::NamedArray
+    rows_axis_names_dict = get(container.internal.axes, rows_axis, nothing)
+    columns_axis_names_dict = get(container.internal.axes, columns_axis, nothing)
+    if rows_axis_names_dict == nothing || columns_axis_names_dict == nothing
+        named_array = NamedArray(
+            matrix,
+            (get_axis(container, rows_axis), get_axis(container, columns_axis)),
+            (rows_axis, columns_axis),
+        )
+        container.internal.axes[rows_axis] = named_array.dicts[1]
+        container.internal.axes[columns_axis] = named_array.dicts[2]
+        return named_array
+
+    else
+        return NamedArray(matrix, (rows_axis_names_dict, columns_axis_names_dict), (rows_axis, columns_axis))
+    end
+end
+
+function base_array(array::AbstractArray)::AbstractArray
+    return array
+end
+
+function base_array(array::SparseArrays.ReadOnly)::AbstractArray
+    return base_array(parent(array))
+end
+
+function base_array(array::NamedArray)::AbstractArray
+    return base_array(array.array)
+end
+
 """
     description(container::Container)::AbstractString
 
@@ -1006,6 +1120,7 @@ function description(container::Container)::AbstractString
 
     push!(lines, "type: $(typeof(container))")
     push!(lines, "name: $(container.name)")
+    push!(lines, "is_read_only: $(is_read_only(container) ? "True" : "False")")
 
     scalars_description(container, lines)
 
@@ -1053,7 +1168,7 @@ function vectors_description(container::Container, axes::Vector{String}, lines::
             sort!(vectors)
             push!(lines, "  $(axis):")
             for vector in vectors
-                push!(lines, "    $(vector): $(present(get_vector(container, axis, vector)))")
+                push!(lines, "    $(vector): $(present(base_array(get_vector(container, axis, vector))))")
             end
         end
     end
@@ -1073,7 +1188,10 @@ function matrices_description(container::Container, axes::Vector{String}, lines:
                 sort!(matrices)
                 push!(lines, "  $(rows_axis),$(columns_axis):")
                 for matrix in matrices
-                    push!(lines, "    $(matrix): $(present(get_matrix(container, rows_axis, columns_axis, matrix)))")
+                    push!(
+                        lines,
+                        "    $(matrix): $(present(base_array(get_matrix(container, rows_axis, columns_axis, matrix))))",
+                    )
                 end
             end
         end
@@ -1476,45 +1594,46 @@ end
 
 function compute_eltwise_result(
     eltwise_operations::Vector{EltwiseOperation},
-    result::Union{StorageMatrix, StorageVector, StorageScalar, Nothing},
+    input::Union{StorageMatrix, StorageVector, StorageScalar, Nothing},
 )::Union{StorageMatrix, StorageVector, StorageScalar, Nothing}
-    if result == nothing
+    if input == nothing
         return nothing
-    else
-        for eltwise_operation in eltwise_operations
-            if !(eltype(result) <: Number)
-                error(
-                    "non-numeric input: $(typeof(result))\n" *
-                    "for the eltwise operation: $(canonical(eltwise_operation))\n",
-                )
-            end
-            result = compute_eltwise(eltwise_operation, result)
-        end
-        return result
     end
+
+    result = input
+    for eltwise_operation in eltwise_operations
+        if result isa StorageScalar
+            result_type = typeof(result)
+        else
+            result = base_array(result)
+            result_type = eltype(result)
+        end
+        if !(result_type <: Number)
+            error(
+                "non-numeric input: $(typeof(result))\n" *
+                "for the eltwise operation: $(canonical(eltwise_operation))\n",
+            )
+        end
+        result = compute_eltwise(eltwise_operation, result)
+    end
+    return result
 end
 
 function compute_reduction_result(
     reduction_operation::ReductionOperation,
-    result::Union{StorageMatrix, StorageVector, Nothing},
+    input::Union{StorageMatrix, StorageVector, Nothing},
 )::Union{StorageVector, StorageScalar, Nothing}
-    if result == nothing
+    if input == nothing
         return nothing
-    else
-        if !(eltype(result) <: Number)
-            error(
-                "non-numeric input: $(typeof(result))\n" *
-                "for the reduction operation: $(canonical(reduction_operation))\n",
-            )
-        end
-        return compute_reduction(reduction_operation, result)
     end
-end
 
-function require_not_read_only(container::Container, action::String)::Nothing
-    if is_read_only(container)
-        error("$(action) for read-only Daf.Container: $(container.name)")
+    if !(eltype(input) <: Number)
+        error(
+            "non-numeric input: $(typeof(base_array(input)))\n" *
+            "for the reduction operation: $(canonical(reduction_operation))\n",
+        )
     end
+    return compute_reduction(reduction_operation, input)
 end
 
 end # module

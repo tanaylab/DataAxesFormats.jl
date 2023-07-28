@@ -28,9 +28,20 @@ function test_storage_scalar(storage::Format)::Nothing
     @test get_scalar(storage, "version") == "1.2"
     @test get_scalar(storage, "version"; default = "3.4") == "1.2"
 
+    with_read_only!(storage) do
+        @test description(storage) == dedent("""
+            type: MemoryContainer
+            name: memory!
+            is_read_only: True
+            scalars:
+              version: "1.2"
+        """) * "\n"
+    end
+
     @test description(storage) == dedent("""
         type: MemoryContainer
         name: memory!
+        is_read_only: False
         scalars:
           version: "1.2"
     """) * "\n"
@@ -68,13 +79,13 @@ function test_storage_axis(storage::Format)::Nothing
     delete_axis!(storage, "cell"; must_exist = false)
     @test length(axis_names(storage)) == 0
 
-    repeated_cell_names = vec(["cell1", "cell1", "cell3"])
+    repeated_cell_names = ["cell1", "cell1", "cell3"]
     @test_throws dedent("""
         non-unique entries for new axis: cell
         in the Daf.Container: memory!
     """) add_axis!(storage, "cell", repeated_cell_names)
 
-    cell_names = vec(["cell1", "cell2", "cell3"])
+    cell_names = ["cell1", "cell2", "cell3"]
     add_axis!(storage, "cell", cell_names)
     @test length(axis_names(storage)) == 1
     @test "cell" in axis_names(storage)
@@ -91,6 +102,7 @@ function test_storage_axis(storage::Format)::Nothing
     @test description(storage) == dedent("""
         type: MemoryContainer
         name: memory!
+        is_read_only: False
         axes:
           cell: 3 entries
     """) * "\n"
@@ -128,9 +140,9 @@ function test_storage_vector(storage::Format)::Nothing
     @test_throws dedent("""
         missing axis: cell
         in the Daf.Container: memory!
-    """) set_vector!(storage, "cell", "age", vec([0 1 2]))
+    """) set_vector!(storage, "cell", "age", [0, 1, 2])
 
-    add_axis!(storage, "cell", vec(["cell0", "cell1", "cell3"]))
+    add_axis!(storage, "cell", ["cell0", "cell1", "cell3"])
     @test !has_vector(storage, "cell", "age")
     @test length(vector_names(storage, "cell")) == 0
     @test_throws dedent("""
@@ -149,39 +161,63 @@ function test_storage_vector(storage::Format)::Nothing
         is different from the length: 3
         of the axis: cell
         in the Daf.Container: memory!
-    """) set_vector!(storage, "cell", "age", vec([0 1]))
+    """) set_vector!(storage, "cell", "age", [0, 1])
+
+    bad_names = NamedArray([0, 1, 2])
+    setnames!(bad_names, ["cell0", "cell1", "cell2"], 1)
+
+    good_names = NamedArray([2, 1, 0])
+    setnames!(good_names, ["cell0", "cell1", "cell3"], 1)
+
+    @test_throws dedent("""
+        entry names of the: vector
+        mismatch the entry names of the axis: cell
+        in the Daf.Container: memory!
+    """) set_vector!(storage, "cell", "age", bad_names)
+
     @test_throws dedent("""
         default length: 2
         is different from the length: 3
         of the axis: cell
         in the Daf.Container: memory!
-    """) get_vector(storage, "cell", "age"; default = vec([1 2]))
-    @test get_vector(storage, "cell", "age"; default = vec([1 2 3])) == vec([1 2 3])
+    """) get_vector(storage, "cell", "age"; default = [1, 2])
+    @test get_vector(storage, "cell", "age"; default = [1, 2, 3]) == [1, 2, 3]
     with_read_only!(storage) do
-        @test get_vector(storage, "cell", "age"; default = 1) == vec([1 1 1])
+        @test get_vector(storage, "cell", "age"; default = 1) == [1, 1, 1]
     end
+    @test_throws dedent("""
+        entry names of the: default vector
+        mismatch the entry names of the axis: cell
+        in the Daf.Container: memory!
+    """) get_vector(storage, "cell", "age"; default = bad_names)
+    @test get_vector(storage, "cell", "age"; default = good_names) == good_names
 
     @test_throws dedent("""
         setting the reserved property: name
         for the axis: cell
         in the Daf.Container: memory!
-    """) set_vector!(storage, "cell", "name", vec([0 1]))
+    """) set_vector!(storage, "cell", "name", [0, 1])
     @test has_vector(storage, "cell", "name")
     @test get_vector(storage, "cell", "name") == get_axis(storage, "cell")
 
-    set_vector!(storage, "cell", "age", vec([0 1 2]))
+    set_vector!(storage, "cell", "age", good_names)
+    @test get_vector(storage, "cell", "age") == [2, 1, 0]
+
+    set_vector!(storage, "cell", "age", [0, 1, 2]; overwrite = true)
     @test_throws dedent("""
         existing vector property: age
         for the axis: cell
         in the Daf.Container: memory!
-    """) set_vector!(storage, "cell", "age", vec([1 2 3]))
+    """) set_vector!(storage, "cell", "age", [1, 2, 3])
     @test length(vector_names(storage, "cell")) == 1
     @test "age" in vector_names(storage, "cell")
-    @test get_vector(storage, "cell", "age") == vec([0 1 2])
+    @test get_vector(storage, "cell", "age") == [0, 1, 2]
+    @test names(get_vector(storage, "cell", "age"), 1) == ["cell0", "cell1", "cell3"]
 
     @test description(storage) == dedent("""
         type: MemoryContainer
         name: memory!
+        is_read_only: False
         axes:
           cell: 3 entries
         vectors:
@@ -194,25 +230,25 @@ function test_storage_vector(storage::Format)::Nothing
 
     set_vector!(storage, "cell", "age", 1)
     @test has_vector(storage, "cell", "age")
-    @test get_vector(storage, "cell", "age") == vec([1 1 1])
+    @test get_vector(storage, "cell", "age") == [1, 1, 1]
 
     delete_vector!(storage, "cell", "age")
     empty_dense = empty_dense_vector!(storage, "cell", "age", Int64)
-    @test empty_dense isa Vector{Int64}
-    empty_dense .= vec([0 1 2])
-    @test get_vector(storage, "cell", "age") == vec([0 1 2])
+    @test empty_dense.array isa Vector{Int64}
+    empty_dense .= [0, 1, 2]
+    @test get_vector(storage, "cell", "age") == [0, 1, 2]
 
     sparse = SparseVector(empty_dense)
     delete_vector!(storage, "cell", "age")
     empty_sparse = empty_sparse_vector!(storage, "cell", "age", Int64, nnz(sparse), Int8)
-    @test empty_sparse isa SparseVector{Int64, Int8}
-    empty_sparse.nzind .= sparse.nzind
-    empty_sparse.nzval .= sparse.nzval
+    @test empty_sparse.array isa SparseVector{Int64, Int8}
+    empty_sparse.array.nzind .= sparse.nzind
+    empty_sparse.array.nzval .= sparse.nzval
     @test empty_sparse == sparse
     @test get_vector(storage, "cell", "age") == sparse
 
     delete_axis!(storage, "cell")
-    add_axis!(storage, "cell", vec(["cell0", "cell1"]))
+    add_axis!(storage, "cell", ["cell0", "cell1"])
 
     @test !has_vector(storage, "cell", "age")
 
@@ -243,7 +279,7 @@ function test_storage_matrix(storage::Format)::Nothing
         in the Daf.Container: memory!
     """) set_matrix!(storage, "cell", "gene", "UMIS", [0 1 2; 3 4 5])
 
-    add_axis!(storage, "cell", vec(["cell0", "cell1", "cell2"]))
+    add_axis!(storage, "cell", ["cell0", "cell1", "cell2"])
 
     @test_throws dedent("""
         missing axis: gene
@@ -266,7 +302,7 @@ function test_storage_matrix(storage::Format)::Nothing
         in the Daf.Container: memory!
     """) set_matrix!(storage, "cell", "gene", "UMIS", [0 1 2; 3 4 5])
 
-    add_axis!(storage, "gene", vec(["gene0", "gene1"]))
+    add_axis!(storage, "gene", ["gene0", "gene1"])
 
     @test !has_matrix(storage, "cell", "gene", "UMIs")
     @test length(matrix_names(storage, "cell", "gene")) == 0
@@ -318,7 +354,26 @@ function test_storage_matrix(storage::Format)::Nothing
         type: Transpose{Int64, Matrix{Int64}} is not in column-major layout
     """) set_matrix!(storage, "cell", "gene", "UMIs", transpose([0 1 2; 3 4 5]))
 
-    set_matrix!(storage, "cell", "gene", "UMIs", [0 1; 2 3; 4 5])
+    bad_names = NamedArray([1 0; 3 2; 5 4])
+    setnames!(bad_names, ["cell0", "cell1", "cell3"], 1)
+    setnames!(bad_names, ["gene0", "gene1"], 2)
+
+    good_names = NamedArray([1 0; 3 2; 5 4])
+    setnames!(good_names, ["cell0", "cell1", "cell2"], 1)
+    setnames!(good_names, ["gene0", "gene1"], 2)
+
+    @test_throws dedent("""
+        row names of the: matrix
+        mismatch the entry names of the axis: cell
+        in the Daf.Container: memory!
+    """) set_matrix!(storage, "cell", "gene", "UMIs", bad_names)
+
+    @test get_matrix(storage, "cell", "gene", "UMIs"; default = good_names) == good_names
+
+    set_matrix!(storage, "cell", "gene", "UMIs", good_names)
+    @test get_matrix(storage, "cell", "gene", "UMIs") == good_names
+
+    set_matrix!(storage, "cell", "gene", "UMIs", [0 1; 2 3; 4 5]; overwrite = true)
     @test_throws dedent("""
         existing matrix property: UMIs
         for the rows axis: cell
@@ -332,6 +387,7 @@ function test_storage_matrix(storage::Format)::Nothing
     @test description(storage) == dedent("""
         type: MemoryContainer
         name: memory!
+        is_read_only: False
         axes:
           cell: 3 entries
           gene: 2 entries
@@ -347,25 +403,39 @@ function test_storage_matrix(storage::Format)::Nothing
 
     delete_matrix!(storage, "cell", "gene", "UMIs")
     empty_dense = empty_dense_matrix!(storage, "cell", "gene", "UMIs", Int64)
-    @test empty_dense isa Matrix{Int64}
+    @test empty_dense.array isa Matrix{Int64}
     empty_dense .= [0 1; 2 3; 4 0]
     @test get_matrix(storage, "cell", "gene", "UMIs") == [0 1; 2 3; 4 0]
 
     sparse = SparseMatrixCSC(empty_dense)
     delete_matrix!(storage, "cell", "gene", "UMIs")
     empty_sparse = empty_sparse_matrix!(storage, "cell", "gene", "UMIs", Int64, nnz(sparse), Int8)
-    @test empty_sparse isa SparseMatrixCSC{Int64, Int8}
-    empty_sparse.colptr .= sparse.colptr
-    empty_sparse.rowval .= sparse.rowval
-    empty_sparse.nzval .= sparse.nzval
+    @test empty_sparse.array isa SparseMatrixCSC{Int64, Int8}
+    empty_sparse.array.colptr .= sparse.colptr
+    empty_sparse.array.rowval .= sparse.rowval
+    empty_sparse.array.nzval .= sparse.nzval
     @test empty_sparse == sparse
     @test get_matrix(storage, "cell", "gene", "UMIs") == sparse
+
+    with_read_only!(storage) do
+        @test description(storage) == dedent("""
+            type: MemoryContainer
+            name: memory!
+            is_read_only: True
+            axes:
+              cell: 3 entries
+              gene: 2 entries
+            matrices:
+              cell,gene:
+                UMIs: 3 x 2 x Int64 (Sparse 67% in Columns)
+        """) * "\n"
+    end
 
     delete_axis!(storage, "cell")
     delete_axis!(storage, "gene")
 
-    add_axis!(storage, "cell", vec(["cell0", "cell1", "cell2"]))
-    add_axis!(storage, "gene", vec(["gene0", "gene1"]))
+    add_axis!(storage, "cell", ["cell0", "cell1", "cell2"])
+    add_axis!(storage, "gene", ["gene0", "gene1"])
 
     @test !has_matrix(storage, "cell", "gene", "UMIs")
 

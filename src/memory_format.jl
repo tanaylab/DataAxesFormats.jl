@@ -31,14 +31,14 @@ struct MemoryContainer <: Container
     vectors::Dict{String, Dict{String, StorageVector}}
 
     matrices::Dict{String, Dict{String, Dict{String, StorageMatrix}}}
+end
 
-    function MemoryContainer(name::AbstractString)
-        scalars = Dict{String, StorageScalar}()
-        axes = Dict{String, DenseVector{String}}()
-        vectors = Dict{String, Dict{String, StorageVector{String}}}()
-        matrices = Dict{String, Dict{String, Dict{String, StorageVector{String}}}}()
-        return new(Internal(name), scalars, axes, vectors, matrices)
-    end
+function MemoryContainer(name::AbstractString)::MemoryContainer
+    scalars = Dict{String, StorageScalar}()
+    axes = Dict{String, DenseVector{String}}()
+    vectors = Dict{String, Dict{String, StorageVector{String}}}()
+    matrices = Dict{String, Dict{String, Dict{String, StorageVector{String}}}}()
+    return MemoryContainer(Internal(name), scalars, axes, vectors, matrices)
 end
 
 function Formats.format_has_scalar(storage::MemoryContainer, name::AbstractString)::Bool

@@ -59,6 +59,7 @@ export format_vector_names
 using Daf.DataTypes
 using Daf.MatrixLayouts
 using Daf.Messages
+using OrderedCollections
 using SparseArrays
 
 """
@@ -72,12 +73,12 @@ messages.
 """
 struct Internal
     name::String
-
     is_read_only::Vector{Bool}
+    axes::Dict{String, OrderedDict{String, Int64}}
+end
 
-    function Internal(name::AbstractString; is_read_only::Bool = false)::Internal
-        return new(unique_name(name), [is_read_only])
-    end
+function Internal(name::AbstractString; is_read_only::Bool = false)::Internal
+    return Internal(unique_name(name), [is_read_only], Dict{String, OrderedDict{String, Int64}}())
 end
 
 """
