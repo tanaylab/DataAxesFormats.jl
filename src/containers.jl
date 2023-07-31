@@ -548,7 +548,7 @@ end
         axis::AbstractString,
         name::AbstractString
         [; default::Union{StorageScalar, StorageVector}]
-    )::StorageVector
+    )::NamedVector
 
 Get the vector property with some `name` for some `axis` in the `container`.
 
@@ -903,7 +903,7 @@ end
         columns_axis::AbstractString,
         name::AbstractString
         [; default::Union{StorageScalar, StorageMatrix}]
-    )::StorageMatrix
+    )::NamedMatrix
 
 get the matrix property with some `name` for some `rows_axis` and `columns_axis` in the `container`.
 
@@ -918,7 +918,7 @@ function get_matrix(
     columns_axis::AbstractString,
     name::AbstractString;
     default::Union{StorageScalar, StorageMatrix, Nothing} = nothing,
-)::StorageMatrix
+)::NamedArray
     require_axis(container, rows_axis)
     require_axis(container, columns_axis)
 
@@ -1205,11 +1205,11 @@ end
 Query the `container` for some matrix results. See [`MatrixQuery`](@ref) for the possible queries that return matrix
 results.
 """
-function matrix_query(container::Container, query::AbstractString)::Union{StorageMatrix, Nothing}
+function matrix_query(container::Container, query::AbstractString)::Union{NamedArray, Nothing}
     return matrix_query(container, parse_matrix_query(query))
 end
 
-function matrix_query(container::Container, matrix_query::MatrixQuery)::Union{StorageMatrix, Nothing}
+function matrix_query(container::Container, matrix_query::MatrixQuery)::Union{NamedArray, Nothing}
     result = compute_matrix_lookup(container, matrix_query.matrix_property_lookup)
     result = compute_eltwise_result(matrix_query.eltwise_operations, result)
     return result
@@ -1218,7 +1218,7 @@ end
 function compute_matrix_lookup(
     container::Container,
     matrix_property_lookup::MatrixPropertyLookup,
-)::Union{AbstractMatrix, Nothing}
+)::Union{NamedArray, Nothing}
     result = get_matrix(
         container,
         matrix_property_lookup.matrix_axes.rows_axis.axis_name,
@@ -1226,8 +1226,8 @@ function compute_matrix_lookup(
         matrix_property_lookup.property_name,
     )
 
-    rows_mask = compute_filtered_axis(container, matrix_property_lookup.matrix_axes.rows_axis)
-    columns_mask = compute_filtered_axis(container, matrix_property_lookup.matrix_axes.columns_axis)
+    rows_mask = compute_filtered_axis_mask(container, matrix_property_lookup.matrix_axes.rows_axis)
+    columns_mask = compute_filtered_axis_mask(container, matrix_property_lookup.matrix_axes.columns_axis)
 
     if (rows_mask != nothing && !any(rows_mask)) || (columns_mask != nothing && !any(columns_mask))
         return nothing
@@ -1244,7 +1244,7 @@ function compute_matrix_lookup(
     return result
 end
 
-function compute_filtered_axis(container::Container, filtered_axis::FilteredAxis)::Union{Vector{Bool}, Nothing}
+function compute_filtered_axis_mask(container::Container, filtered_axis::FilteredAxis)::Union{Vector{Bool}, Nothing}
     if isempty(filtered_axis.axis_filters)
         return nothing
     end
@@ -1287,27 +1287,30 @@ function compute_axis_filter(
     end
 end
 
-function compute_axis_lookup(container::Container, axis::AbstractString, axis_lookup::AxisLookup)::AbstractVector
+function compute_axis_lookup(container::Container, axis::AbstractString, axis_lookup::AxisLookup)::NamedArray
     values = compute_property_lookup(container, axis, axis_lookup.property_lookup)
 
     if axis_lookup.property_comparison == nothing
         return values
-
-    elseif axis_lookup.property_comparison.comparison_operator == CmpMatch ||
-           axis_lookup.property_comparison.comparison_operator == CmpNotMatch
-        return compute_axis_lookup_match(container, axis, axis_lookup, values)
-
-    else
-        return compute_axis_lookup_compare(container, axis, axis_lookup, values)
     end
+
+    mask =
+        if axis_lookup.property_comparison.comparison_operator == CmpMatch ||
+           axis_lookup.property_comparison.comparison_operator == CmpNotMatch
+            compute_axis_lookup_match_mask(container, axis, axis_lookup, values)
+        else
+            compute_axis_lookup_compare_mask(container, axis, axis_lookup, values)
+        end
+
+    return NamedArray(mask, values.dicts, values.dimnames)
 end
 
-function compute_axis_lookup_match(
+function compute_axis_lookup_match_mask(
     container::Container,
     axis::AbstractString,
     axis_lookup::AxisLookup,
     values::AbstractVector,
-)::AbstractVector
+)::Vector{Bool}
     if eltype(values) != String
         error(
             "non-String data type: $(eltype(values))\n" *
@@ -1338,12 +1341,12 @@ function compute_axis_lookup_match(
     end
 end
 
-function compute_axis_lookup_compare(
+function compute_axis_lookup_compare_mask(
     container::Container,
     axis::AbstractString,
     axis_lookup::AxisLookup,
     values::AbstractVector,
-)::AbstractVector
+)::Vector{Bool}
     value = axis_lookup.property_comparison.property_value
     if eltype(values) != String
         try
@@ -1379,7 +1382,7 @@ function compute_property_lookup(
     container::Container,
     axis::AbstractString,
     property_lookup::PropertyLookup,
-)::AbstractVector
+)::NamedArray
     last_property_name = property_lookup.property_names[1]
     values = get_vector(container, axis, last_property_name)
 
@@ -1403,9 +1406,9 @@ function compute_chained_property(
     container::Container,
     last_axis::AbstractString,
     last_property_name::AbstractString,
-    last_property_values::AbstractVector{String},
+    last_property_values::NamedVector{String},
     next_property_name::AbstractString,
-)::Tuple{Vector, String}
+)::Tuple{NamedArray, String}
     if has_axis(container, last_property_name)
         next_axis = last_property_name
     else
@@ -1415,20 +1418,19 @@ function compute_chained_property(
     next_axis_entries = get_axis(container, next_axis)
     next_axis_values = get_vector(container, next_axis, next_property_name)
 
-    return (
-        [
-            find_axis_value(
-                container,
-                last_axis,
-                last_property_name,
-                property_value,
-                next_axis,
-                next_axis_entries,
-                next_axis_values,
-            ) for property_value in last_property_values
-        ],
-        next_axis,
-    )
+    next_property_values = [
+        find_axis_value(
+            container,
+            last_axis,
+            last_property_name,
+            property_value,
+            next_axis,
+            next_axis_entries,
+            next_axis_values,
+        ) for property_value in last_property_values
+    ]
+
+    return (NamedArray(next_property_values, last_property_values.dicts, last_property_values.dimnames), next_axis)
 end
 
 function find_axis_value(
@@ -1454,16 +1456,16 @@ function find_axis_value(
 end
 
 """
-    vector_query(container::Container, query::AbstractString)::Union{StorageVector, Nothing}
+    vector_query(container::Container, query::AbstractString)::Union{NamedVector, Nothing}
 
 Query the `container` for some vector results. See [`VectorQuery`](@ref) for the possible queries that return vector
 results.
 """
-function vector_query(container::Container, query::AbstractString)::Union{StorageVector, Nothing}
+function vector_query(container::Container, query::AbstractString)::Union{NamedArray, Nothing}
     return vector_query(container, parse_vector_query(query))
 end
 
-function vector_query(container::Container, vector_query::VectorQuery)::Union{StorageVector, Nothing}
+function vector_query(container::Container, vector_query::VectorQuery)::Union{NamedArray, Nothing}
     result = compute_vector_data_lookup(container, vector_query.vector_data_lookup)
     result = compute_eltwise_result(vector_query.eltwise_operations, result)
     return result
@@ -1472,13 +1474,13 @@ end
 function compute_vector_data_lookup(
     container::Container,
     vector_property_lookup::VectorPropertyLookup,
-)::Union{StorageVector, Nothing}
+)::Union{NamedArray, Nothing}
     result = compute_axis_lookup(
         container,
         vector_property_lookup.filtered_axis.axis_name,
         vector_property_lookup.axis_lookup,
     )
-    mask = compute_filtered_axis(container, vector_property_lookup.filtered_axis)
+    mask = compute_filtered_axis_mask(container, vector_property_lookup.filtered_axis)
 
     if mask == nothing
         return result
@@ -1494,7 +1496,7 @@ end
 function compute_vector_data_lookup(
     container::Container,
     matrix_slice_lookup::MatrixSliceLookup,
-)::Union{StorageVector, Nothing}
+)::Union{NamedArray, Nothing}
     result = get_matrix(
         container,
         matrix_slice_lookup.matrix_slice_axes.filtered_axis.axis_name,
@@ -1505,7 +1507,7 @@ function compute_vector_data_lookup(
     index = find_axis_entry_index(container, matrix_slice_lookup.matrix_slice_axes.axis_entry)
     result = result[:, index]
 
-    rows_mask = compute_filtered_axis(container, matrix_slice_lookup.matrix_slice_axes.filtered_axis)
+    rows_mask = compute_filtered_axis_mask(container, matrix_slice_lookup.matrix_slice_axes.filtered_axis)
     if rows_mask != nothing
         result = result[rows_mask]
     end
@@ -1516,7 +1518,7 @@ end
 function compute_vector_data_lookup(
     container::Container,
     reduce_matrix_query::ReduceMatrixQuery,
-)::Union{StorageVector, Nothing}
+)::Union{NamedArray, Nothing}
     result = matrix_query(container, reduce_matrix_query.matrix_query)
     if result == nothing
         return nothing
@@ -1594,35 +1596,40 @@ end
 
 function compute_eltwise_result(
     eltwise_operations::Vector{EltwiseOperation},
-    input::Union{StorageMatrix, StorageVector, StorageScalar, Nothing},
-)::Union{StorageMatrix, StorageVector, StorageScalar, Nothing}
+    input::Union{NamedArray, StorageScalar, Nothing},
+)::Union{NamedArray, StorageScalar, Nothing}
     if input == nothing
         return nothing
     end
 
     result = input
     for eltwise_operation in eltwise_operations
+        named_result = result
         if result isa StorageScalar
-            result_type = typeof(result)
+            check_type = typeof(result)
+            error_type = typeof(result)
         else
-            result = base_array(result)
-            result_type = eltype(result)
+            check_type = eltype(result)
+            error_type = typeof(base_array(result))
         end
-        if !(result_type <: Number)
-            error(
-                "non-numeric input: $(typeof(result))\n" *
-                "for the eltwise operation: $(canonical(eltwise_operation))\n",
-            )
+
+        if !(check_type <: Number)
+            error("non-numeric input: $(error_type)\n" * "for the eltwise operation: $(canonical(eltwise_operation))\n")
         end
-        result = compute_eltwise(eltwise_operation, result)
+
+        if result isa StorageScalar
+            result = compute_eltwise(eltwise_operation, result)
+        else
+            result = NamedArray(compute_eltwise(eltwise_operation, result.array), result.dicts, result.dimnames)
+        end
     end
     return result
 end
 
 function compute_reduction_result(
     reduction_operation::ReductionOperation,
-    input::Union{StorageMatrix, StorageVector, Nothing},
-)::Union{StorageVector, StorageScalar, Nothing}
+    input::Union{NamedArray, Nothing},
+)::Union{NamedArray, StorageScalar, Nothing}
     if input == nothing
         return nothing
     end
@@ -1633,7 +1640,11 @@ function compute_reduction_result(
             "for the reduction operation: $(canonical(reduction_operation))\n",
         )
     end
-    return compute_reduction(reduction_operation, input)
+    if ndims(input) == 2
+        return NamedArray(compute_reduction(reduction_operation, input.array), (input.dicts[2],), (input.dimnames[2],))
+    else
+        return compute_reduction(reduction_operation, input.array)
+    end
 end
 
 end # module

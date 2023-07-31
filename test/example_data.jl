@@ -184,6 +184,11 @@ test_set("example_data") do
             9  12
         ]
 
+        @test names(matrix_query(container, "cell & batch = B1, gene & module ~ .1 @ UMIs"), 1) ==
+              ["C2", "C3", "C6", "C11", "C16", "C20"]
+
+        @test names(matrix_query(container, "cell & batch = B1, gene & module ~ .1 @ UMIs"), 2) == ["FOXA1", "ITGA4"]
+
         @test matrix_query(container, "cell, gene & module ~ Q. @ UMIs") == nothing
 
         @test_throws dedent("""
@@ -244,6 +249,7 @@ test_set("example_data") do
         @test vector_query(container, "cell & batch : age > 2, gene = FOXA1 @ UMIs") == Int16[3, 2, 14, 6, 5, 1, 2, 9]
 
         @test vector_query(container, "gene & marker @ module") == ["M3", "M3", "M1", "M3"]
+        @test names(vector_query(container, "gene & marker @ module"), 1) == ["WNT6", "SFRP5", "ITGA4", "FOXA2"]
 
         @test vector_query(container, "cell, gene @ UMIs %> Sum") ==
               Int16[126, 269, 194, 307, 232, 229, 143, 220, 147, 212]
