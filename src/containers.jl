@@ -316,8 +316,8 @@ end
 """
     get_axis(container::Container, axis::AbstractString)::DenseVector{String}
 
-The unique names of the entries of some `axis` of the `container`. This is identical to doing [`get_vector`](@ref) for
-the special `name` property.
+The unique names of the entries of some `axis` of the `container`. This is similar to doing [`get_vector`](@ref) for the
+special `name` property, except that it returns a simple vector of strings instead of a `NamedVector`.
 
 This first verifies the `axis` exists in the `container`.
 """
@@ -550,7 +550,8 @@ end
         [; default::Union{StorageScalar, StorageVector}]
     )::NamedVector
 
-Get the vector property with some `name` for some `axis` in the `container`.
+Get the vector property with some `name` for some `axis` in the `container`. The names of the result are the names of
+the vector entries (same as returned by [`get_axis`](@ref)).
 
 This first verifies the `axis` exists in the `container`. If `default` is not specified, this first verifies the `name`
 vector exists in the `container`. Otherwise, if `default` is a `StorageVector`, it has to be of the same size as the
@@ -905,7 +906,8 @@ end
         [; default::Union{StorageScalar, StorageMatrix}]
     )::NamedMatrix
 
-get the matrix property with some `name` for some `rows_axis` and `columns_axis` in the `container`.
+Get the matrix property with some `name` for some `rows_axis` and `columns_axis` in the `container`. The names of the
+result axes are the names of the relevant axes entries (same as returned by [`get_axis`](@ref)).
 
 This first verifies the `rows_axis` and `columns_axis` exist in the `container`. If `default` is not specified, this
 first verifies the `name` matrix exists in the `container`. Otherwise, if `default` is a `StorageMatrix`, it has to be
@@ -1200,10 +1202,11 @@ function matrices_description(container::Container, axes::Vector{String}, lines:
 end
 
 """
-    matrix_query(container::Container, query::AbstractString)::Union{StorageMatrix, Nothing}
+    matrix_query(container::Container, query::AbstractString)::Union{NamedMatrix, Nothing}
 
 Query the `container` for some matrix results. See [`MatrixQuery`](@ref) for the possible queries that return matrix
-results.
+results. The names of the axes of the result are the names of the axis entries. This is especially useful when the query
+applies masks to the axes. Will return `nothing` if any of the masks is empty.
 """
 function matrix_query(container::Container, query::AbstractString)::Union{NamedArray, Nothing}
     return matrix_query(container, parse_matrix_query(query))
@@ -1459,7 +1462,8 @@ end
     vector_query(container::Container, query::AbstractString)::Union{NamedVector, Nothing}
 
 Query the `container` for some vector results. See [`VectorQuery`](@ref) for the possible queries that return vector
-results.
+results. The names of the results are the names of the axis entries. This is especially useful when the query applies a
+mask to the axis. Will return `nothing` if any of the masks is empty.
 """
 function vector_query(container::Container, query::AbstractString)::Union{NamedArray, Nothing}
     return vector_query(container, parse_vector_query(query))
