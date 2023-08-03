@@ -4,9 +4,9 @@ and [`ReductionOperation`](@ref)s that reduce a matrix to a vector, or a vector 
 """
 module Operations
 
-using Daf.DataTypes
 using Daf.Queries
 using Daf.Registry
+using Daf.StorageTypes
 
 import Base.MathConstants.e
 import Daf.Queries.error_in_context

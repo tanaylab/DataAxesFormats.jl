@@ -1,11 +1,10 @@
 test_set("example_data") do
-    container = Daf.ExampleData.example_container()
+    daf = Daf.ExampleData.example_daf()
 
     test_set("description") do
-        @test description(container) == dedent("""
-            type: MemoryContainer
+        @test description(daf) == dedent("""
+            type: MemoryDaf
             name: example!
-            is_read_only: False
             scalars:
               version: "1.0"
             axes:
@@ -36,7 +35,7 @@ test_set("example_data") do
     end
 
     test_set("matrix queries") do
-        matrix_query(container, "cell , gene @ UMIs") == Int16[
+        matrix_query(daf, "cell , gene @ UMIs") == Int16[
             1   23  9   5   50  4  13  12  12  2
             20  3   2   16  17  6  3   4   2   22
             5   2   2   3   4   29 14  0   2   15
@@ -59,7 +58,7 @@ test_set("example_data") do
             12  9   14  43  11  5  2   32  12  4
         ]
 
-        matrix_query(container, "cell , gene @ UMIs % Abs") == Int16[
+        matrix_query(daf, "cell , gene @ UMIs % Abs") == Int16[
             1   23  9   5   50  4  13  12  12  2
             20  3   2   16  17  6  3   4   2   22
             5   2   2   3   4   29 14  0   2   15
@@ -82,7 +81,7 @@ test_set("example_data") do
             12  9   14  43  11  5  2   32  12  4
         ]
 
-        matrix_query(container, "cell , gene @ UMIs % Abs; dtype = Int8") == Int8[
+        matrix_query(daf, "cell , gene @ UMIs % Abs; dtype = Int8") == Int8[
             1   23  9   5   50  4  13  12  12  2
             20  3   2   16  17  6  3   4   2   22
             5   2   2   3   4   29 14  0   2   15
@@ -105,7 +104,7 @@ test_set("example_data") do
             12  9   14  43  11  5  2   32  12  4
         ]
 
-        matrix_query(container, "cell , gene @ UMIs % Abs % Log; base = 2, eps = 1") == Float32[
+        matrix_query(daf, "cell , gene @ UMIs % Abs % Log; base = 2, eps = 1") == Float32[
             1.0         4.5849624   3.321928   2.5849626  5.6724253  2.321928   3.807355   3.7004397  3.7004397  1.5849625
             4.392318    2.0         1.5849625  4.087463   4.169925   2.807355   2.0        2.321928   1.5849625  4.523562
             2.5849626   1.5849625   1.5849625  2.0        2.321928   4.906891   3.9068906  0.0        1.5849625  4.0
@@ -128,7 +127,7 @@ test_set("example_data") do
             3.7004397   3.321928    3.9068906  5.4594316  3.5849626  2.5849626  1.5849625  5.044394   3.7004397  2.321928
         ]
 
-        matrix_query(container, "cell , gene @ UMIs % Abs % Log; dtype = Float64, base = 2, eps = 1") == Float64[
+        matrix_query(daf, "cell , gene @ UMIs % Abs % Log; dtype = Float64, base = 2, eps = 1") == Float64[
             1.0         4.5849624   3.321928   2.5849626  5.6724253  2.321928   3.807355   3.7004397  3.7004397  1.5849625
             4.392318    2.0         1.5849625  4.087463   4.169925   2.807355   2.0        2.321928   1.5849625  4.523562
             2.5849626   1.5849625   1.5849625  2.0        2.321928   4.906891   3.9068906  0.0        1.5849625  4.0
@@ -151,7 +150,7 @@ test_set("example_data") do
             3.7004397   3.321928    3.9068906  5.4594316  3.5849626  2.5849626  1.5849625  5.044394   3.7004397  2.321928
         ]
 
-        @test matrix_query(container, "cell & batch = B1, gene & module = M1 @ UMIs") == Int16[
+        @test matrix_query(daf, "cell & batch = B1, gene & module = M1 @ UMIs") == Int16[
             3  2
             2  2
             6  3
@@ -160,7 +159,7 @@ test_set("example_data") do
             9  12
         ]
 
-        @test matrix_query(container, "cell & batch : age < 3, gene & ~noisy & ~lateral @ UMIs") == Int16[
+        @test matrix_query(daf, "cell & batch : age < 3, gene & ~noisy & ~lateral @ UMIs") == Int16[
             4   12
             57  0
             11  0
@@ -175,7 +174,7 @@ test_set("example_data") do
             1   14
         ]
 
-        @test matrix_query(container, "cell & batch = B1, gene & module ~ .1 @ UMIs") == Int16[
+        @test matrix_query(daf, "cell & batch = B1, gene & module ~ .1 @ UMIs") == Int16[
             3  2
             2  2
             6  3
@@ -184,110 +183,109 @@ test_set("example_data") do
             9  12
         ]
 
-        @test names(matrix_query(container, "cell & batch = B1, gene & module ~ .1 @ UMIs"), 1) ==
+        @test names(matrix_query(daf, "cell & batch = B1, gene & module ~ .1 @ UMIs"), 1) ==
               ["C2", "C3", "C6", "C11", "C16", "C20"]
 
-        @test names(matrix_query(container, "cell & batch = B1, gene & module ~ .1 @ UMIs"), 2) == ["FOXA1", "ITGA4"]
+        @test names(matrix_query(daf, "cell & batch = B1, gene & module ~ .1 @ UMIs"), 2) == ["FOXA1", "ITGA4"]
 
-        @test matrix_query(container, "cell, gene & module ~ Q. @ UMIs") == nothing
+        @test matrix_query(daf, "cell, gene & module ~ Q. @ UMIs") == nothing
 
         @test_throws dedent("""
           invalid value: I1
           of the chained property: batch.invalid
           of the axis: cell
           is missing from the next axis: batch
-          in the Daf.Container: example!
-        """) matrix_query(container, "cell & batch.invalid : age > 1, gene @ UMIs")
+          in the daf data: example!
+        """) matrix_query(daf, "cell & batch.invalid : age > 1, gene @ UMIs")
 
         @test_throws dedent("""
             non-Bool data type: Int8
             for the axis filter: & batch : age
-            in the Daf.Container: example!
-        """) matrix_query(container, "cell & batch : age, gene @ UMIs")
+            in the daf data: example!
+        """) matrix_query(daf, "cell & batch : age, gene @ UMIs")
 
         @test_throws dedent("""
             non-String data type: Bool
             for the chained property: marker
             for the axis: gene
-            in the Daf.Container: example!
-        """) matrix_query(container, "cell, gene & marker : noisy @ UMIs")
+            in the daf data: example!
+        """) matrix_query(daf, "cell, gene & marker : noisy @ UMIs")
 
         @test_throws dedent("""
             invalid eltype value: "Q"
             for the axis lookup: batch : age > Q
             for the axis: cell
-            in the Daf.Container: example!
-        """) matrix_query(container, "cell & batch : age > Q, gene @ UMIs")
+            in the daf data: example!
+        """) matrix_query(daf, "cell & batch : age > Q, gene @ UMIs")
 
         @test_throws dedent("""
             invalid Regex: "["
             for the axis lookup: batch ~ \\[
             for the axis: cell
-            in the Daf.Container: example!
-        """) matrix_query(container, "cell & batch ~ \\[, gene @ UMIs")
+            in the daf data: example!
+        """) matrix_query(daf, "cell & batch ~ \\[, gene @ UMIs")
 
-        matrix_query(container, "cell & batch ~ \\\\\\[, gene @ UMIs") == nothing
+        matrix_query(daf, "cell & batch ~ \\\\\\[, gene @ UMIs") == nothing
 
         @test_throws dedent("""
             non-String data type: Int8
             for the match axis lookup: batch : age ~ .
             for the axis: cell
-            in the Daf.Container: example!
-        """) matrix_query(container, "cell & batch : age ~ ., gene @ UMIs")
+            in the daf data: example!
+        """) matrix_query(daf, "cell & batch : age ~ ., gene @ UMIs")
 
         return nothing
     end
 
     test_set("vector queries") do
-        @test vector_query(container, "batch @ age") == Int8[3, 2, 2, 4]
+        @test vector_query(daf, "batch @ age") == Int8[3, 2, 2, 4]
 
-        @test vector_query(container, "batch & age < 0 @ age") == nothing
+        @test vector_query(daf, "batch & age < 0 @ age") == nothing
 
-        @test vector_query(container, "cell, gene = FOXA1 @ UMIs % Abs") ==
+        @test vector_query(daf, "cell, gene = FOXA1 @ UMIs % Abs") ==
               Int16[23, 3, 2, 14, 6, 6, 26, 62, 19, 27, 5, 3, 1, 29, 7, 1, 13, 11, 2, 9]
 
-        @test vector_query(container, "cell & batch : age > 2, gene = FOXA1 @ UMIs") == Int16[3, 2, 14, 6, 5, 1, 2, 9]
+        @test vector_query(daf, "cell & batch : age > 2, gene = FOXA1 @ UMIs") == Int16[3, 2, 14, 6, 5, 1, 2, 9]
 
-        @test vector_query(container, "gene & marker @ module") == ["M3", "M3", "M1", "M3"]
-        @test names(vector_query(container, "gene & marker @ module"), 1) == ["WNT6", "SFRP5", "ITGA4", "FOXA2"]
+        @test vector_query(daf, "gene & marker @ module") == ["M3", "M3", "M1", "M3"]
+        @test names(vector_query(daf, "gene & marker @ module"), 1) == ["WNT6", "SFRP5", "ITGA4", "FOXA2"]
 
-        @test vector_query(container, "cell, gene @ UMIs %> Sum") ==
-              Int16[126, 269, 194, 307, 232, 229, 143, 220, 147, 212]
+        @test vector_query(daf, "cell, gene @ UMIs %> Sum") == Int16[126, 269, 194, 307, 232, 229, 143, 220, 147, 212]
 
         @test_throws dedent("""
             the entry: DOGB2
             is missing from the axis: gene
-            in the Daf.Container: example!
-        """) vector_query(container, "cell, gene = DOGB2 @ UMIs")
+            in the daf data: example!
+        """) vector_query(daf, "cell, gene = DOGB2 @ UMIs")
 
-        @test vector_query(container, "cell, gene & module ~ Q. @ UMIs %> Sum") == nothing
+        @test vector_query(daf, "cell, gene & module ~ Q. @ UMIs %> Sum") == nothing
 
         return nothing
     end
 
     test_set("scalar queries") do
-        @test scalar_query(container, "version") == "1.0"
+        @test scalar_query(daf, "version") == "1.0"
 
         @test_throws dedent("""
           non-numeric input: String
           for the eltwise operation: Abs; dtype = auto
-        """) scalar_query(container, "version % Abs")
+        """) scalar_query(daf, "version % Abs")
 
         @test_throws dedent("""
           non-numeric input: Vector{String}
           for the reduction operation: Sum; dtype = auto
-        """) scalar_query(container, "gene @ module %> Sum")
+        """) scalar_query(daf, "gene @ module %> Sum")
 
-        scalar_query(container, "gene = FOXA1 @ module") == "M1"
+        scalar_query(daf, "gene = FOXA1 @ module") == "M1"
 
-        @test scalar_query(container, "batch @ age %> Sum % Abs") == 11
+        @test scalar_query(daf, "batch @ age %> Sum % Abs") == 11
 
-        @test scalar_query(container, "cell & batch : age > 2, gene = FOXA1 @ UMIs %> Sum") == 42
+        @test scalar_query(daf, "cell & batch : age > 2, gene = FOXA1 @ UMIs %> Sum") == 42
 
-        @test scalar_query(container, "cell, gene @ UMIs %> Sum %> Sum") == 2079
+        @test scalar_query(daf, "cell, gene @ UMIs %> Sum %> Sum") == 2079
 
-        @test scalar_query(container, "cell = C4, gene = FOXA1 @ UMIs") == 14
+        @test scalar_query(daf, "cell = C4, gene = FOXA1 @ UMIs") == 14
 
-        @test scalar_query(container, "batch & age < 0 @ age %> Sum") == nothing
+        @test scalar_query(daf, "batch & age < 0 @ age %> Sum") == nothing
     end
 end

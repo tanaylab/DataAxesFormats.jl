@@ -3,7 +3,7 @@ Example data for doctest tests.
 """
 module ExampleData
 
-using Daf.Containers
+using Daf.Data
 using Daf.MemoryFormat
 using Random
 
@@ -12,10 +12,10 @@ function random_entries(gen::MersenneTwister, size::Int, entry_names::Vector{Str
 end
 
 """
-Create an example memory container to use for doctest tests.
+Create an example memory `daf` to use for doctest tests.
 """
-function example_container()::MemoryContainer
-    storage = MemoryContainer("example!")
+function example_daf()::MemoryDaf
+    storage = MemoryDaf("example!")
 
     set_scalar!(storage, "version", "1.0")
 

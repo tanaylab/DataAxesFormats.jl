@@ -26,8 +26,8 @@ using Reexport
 include("matrix_layouts.jl")
 @reexport using Daf.MatrixLayouts
 
-include("data_types.jl")
-@reexport using Daf.DataTypes
+include("storage_types.jl")
+@reexport using Daf.StorageTypes
 
 include("messages.jl")
 @reexport using Daf.Messages
@@ -44,8 +44,11 @@ include("operations.jl")
 
 include("formats.jl")
 
-include("containers.jl")
-@reexport using Daf.Containers
+include("data.jl")
+@reexport using Daf.Data
+
+include("read_only.jl")
+@reexport using Daf.ReadOnly
 
 include("memory_format.jl")
 @reexport using Daf.MemoryFormat

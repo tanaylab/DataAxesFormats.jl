@@ -18,7 +18,7 @@ export ReductionOperation
 export register_query_operation
 export same_dtype_for
 
-using Daf.DataTypes
+using Daf.StorageTypes
 
 FLOAT_DTYPE = Dict{Type, Type}(
     Bool => Float32,

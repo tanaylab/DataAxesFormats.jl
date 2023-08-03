@@ -2,7 +2,7 @@
 
 ```@docs
 Daf.MemoryFormat
-Daf.MemoryFormat.MemoryContainer
+Daf.MemoryFormat.MemoryDaf
 ```
 
 ## Index

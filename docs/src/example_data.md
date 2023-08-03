@@ -7,7 +7,7 @@ Daf.ExampleData
 ## Example Storage
 
 ```@docs
-Daf.ExampleData.example_container
+Daf.ExampleData.example_daf
 ```
 
 ## Index

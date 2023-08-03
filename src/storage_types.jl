@@ -1,5 +1,5 @@
 """
-Only a restricted set of scalar, matrix and vector types is supported by `Daf`.
+Only a restricted set of scalar, matrix and vector types is stored by `Daf`.
 
 The set of scalar types is restricted because we need to be able to store them in disk files. This rules out compound
 types such as `Dict`. This isn't an issue for vector and matrix elements but is sometimes bothersome for "scalar" data
@@ -24,7 +24,7 @@ biological data), which in general is not of any such special shape. The upside 
 by `Daf` have a clear [`MatrixLayouts`](@ref) (regardless of whether they are dense or sparse). This allows user code to
 ensure it is working "with the grain" of the data, which is *much* more efficient.
 """
-module DataTypes
+module StorageTypes
 
 export StorageMatrix
 export StorageScalar

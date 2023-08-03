@@ -7,8 +7,8 @@ export present
 export present_percent
 export unique_name
 
-using Daf.DataTypes
 using Daf.MatrixLayouts
+using Daf.StorageTypes
 using Distributed
 using LinearAlgebra
 using SparseArrays
