@@ -49,7 +49,7 @@ coverage: untested_lines line_coverage
 .PHONY: docs
 docs: docs/index.html
 
-docs/index.html: src/*.jl src/*.md deps/document.sh deps/document.jl
+docs/index.html: src/*.jl src/*.md src/assets/* deps/document.sh deps/document.jl
 	deps/document.sh
 
 .PHONY: clean
