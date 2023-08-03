@@ -14,16 +14,24 @@ end
 
 global_logger(detect_problems)
 
-push!(LOAD_PATH, "../src/")
+push!(LOAD_PATH, ".")
 
 using Daf
 
 makedocs(;
-    sitename = "Daf.jl",
-    modules = [Daf],
     authors = "Oren Ben-Kiki",
+    repo = "../{path}?plain=1#L{line}",
+    build = "../docs",
+    source = "../src",
     clean = true,
-    format = Documenter.HTML(; prettyurls = get(ENV, "CI", nothing) == "true"),
+    doctest = true,
+    modules = [Daf],
+    highlightsig = true,
+    sitename = "Daf.jl",
+    draft = false,
+    strict = true,
+    linkcheck = true,
+    format = Documenter.HTML(; prettyurls = false),
     pages = [
         "index.md",
         "data.md",

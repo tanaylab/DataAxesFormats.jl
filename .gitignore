@@ -1,5 +1,4 @@
 deps/.*
-docs/build
 *.jl.cov
 *.jl.*.cov
 junk*
