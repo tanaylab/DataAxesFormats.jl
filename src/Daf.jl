@@ -8,12 +8,9 @@ features are:
 
   - There is explicit control over 2D data layout (row or column major), and support for both dense and sparse matrices,
     both of which are crucial for performance.
-
   - A simple query language makes it easy to access the data, providing features such as slicing, aggregation, and
     filtering.
-
   - Support both in-memory and persistent data storage of "any" format (given an adapter implementation).
-
   - Out of the box, allow storing the data in memory, in `AnnData` objects (e.g., using `h5ad` files), directly inside
     [HDF5](https://www.hdfgroup.org/solutions/hdf5) files (e.g., using `h5df` files), or as a collection of simple
     memory-mapped files in a directory (which works nicely with tools like `make` for automating computation pipelines).

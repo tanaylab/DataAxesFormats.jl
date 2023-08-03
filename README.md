@@ -1,7 +1,5 @@
 # DAF - Data in Axes in Formats
 
-![Documentation Status](https://readthedocs.org/projects/daf.jl/badge/?version=latest)
-
 The `Daf.jl` package provides a uniform generic interface for accessing 1D and 2D data arranged along some set of axes.
 This is a much-needed generalization of the [AnnData](https://pypi.org/project/anndata) functionality. The key
 features are:
@@ -21,7 +19,7 @@ features are:
     [https://libraries.io/cran/JuliaCall](https://libraries.io/cran/JuliaCall) to allow direct access to `Daf.jl` from R
     code.
 
-See the [documentation](https://daf.jl.readthedocs.io/en/latest/) for details.
+See the [documentation](https://tanaylab.github.io/Daf.jl/) for details.
 
 ## Motivation
 

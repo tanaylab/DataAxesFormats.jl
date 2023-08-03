@@ -20,7 +20,7 @@ using Daf
 
 makedocs(;
     authors = "Oren Ben-Kiki",
-    repo = "../{path}?plain=1#L{line}",
+    repo = "https://github.com/tanaylab/Daf.jl/blob/main{path}?plain=1#L{line}",
     build = "../docs",
     source = "../src",
     clean = true,
