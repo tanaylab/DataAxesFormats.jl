@@ -1,3 +1,3 @@
 #!/bin/bash
 set -e -o pipefail
-julia deps/format.jl
+julia --color=no deps/format.jl

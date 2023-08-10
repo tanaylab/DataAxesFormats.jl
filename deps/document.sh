@@ -1,5 +1,5 @@
 #!/bin/bash
 set -e -o pipefail
-rm -f docs/*.*
 julia --color=no deps/document.jl
-rm -f docs/*.jl docs/*.cov
+sed -i 's: on <span class="colophon-date" title="[^"]*">[^<]*</span>::' docs/*/*html
+rm -rf docs/*/*.{cov,jl}

@@ -1,10 +1,13 @@
 using Logging
 using LoggingExtras
-seen_problems = false
+
+module CountWarnings
+seen_problems = 0
+end
+
 detect_problems = EarlyFilteredLogger(global_logger()) do log_args
     if log_args.level >= Logging.Warn
-        global seen_problems
-        seen_problems = true
+        CountWarnings.seen_problems += 1
     end
     return true
 end
@@ -14,6 +17,6 @@ import (Pkg)
 Pkg.activate(".")
 Pkg.test(; coverage = true, test_args = Base.ARGS)
 
-if seen_problems
+if CountWarnings.seen_problems > 1
     exit(1)
 end

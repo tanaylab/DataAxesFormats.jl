@@ -1,3 +1,7 @@
+# Build the documentations locally into `docs` so they will appear in the github pages. This way, in github we have the
+# head version documentation, while in the standard Julia packages documentation we have the documentation of the last
+# published version.
+
 using Documenter
 using Logging
 using LoggingExtras
@@ -17,17 +21,24 @@ global_logger(detect_problems)
 push!(LOAD_PATH, ".")
 
 using Daf
+using Pkg
+
+PROJECT_TOML = Pkg.TOML.parsefile(joinpath(@__DIR__, "..", "Project.toml"))
+VERSION = PROJECT_TOML["version"]
+NAME = PROJECT_TOML["name"]
+AUTHORS = PROJECT_TOML["authors"]
+REPO = "https://github.com/tanaylab/$(NAME).jl"
 
 makedocs(;
-    authors = "Oren Ben-Kiki",
-    repo = "https://github.com/tanaylab/Daf.jl/blob/main{path}?plain=1#L{line}",
-    build = "../docs",
+    authors = join(" ", AUTHORS),
+    repo = "$(REPO)/blob/main{path}?plain=1#L{line}",
+    build = "../docs/v$(VERSION)",
     source = "../src",
     clean = true,
     doctest = true,
     modules = [Daf],
     highlightsig = true,
-    sitename = "Daf.jl",
+    sitename = "$(NAME).jl v$(VERSION)",
     draft = false,
     strict = true,
     linkcheck = true,
