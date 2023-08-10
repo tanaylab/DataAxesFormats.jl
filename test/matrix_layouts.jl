@@ -17,7 +17,7 @@ nested_test("matrix_layouts") do
         nested_test("dense") do
             dense = rand(4, 4)
 
-            nested_test("matrix") do
+            nested_test("base") do
                 @test major_axis(dense) == Columns
                 @test minor_axis(dense) == Rows
             end
@@ -41,7 +41,7 @@ nested_test("matrix_layouts") do
         nested_test("sparse") do
             sparse = sprand(4, 4, 0.5)
 
-            nested_test("matrix") do
+            nested_test("base") do
                 @test major_axis(sparse) == Columns
                 @test minor_axis(sparse) == Rows
             end
@@ -106,7 +106,7 @@ nested_test("matrix_layouts") do
                 @test major_axis(dense) == Columns
                 @test !issparse(dense)
 
-                nested_test("matrix") do
+                nested_test("base") do
                     relayout = relayout!(dense)
                     @test major_axis(relayout) == Rows
                     @test relayout == dense
@@ -146,7 +146,7 @@ nested_test("matrix_layouts") do
                 @test major_axis(sparse) == Columns
                 @test issparse(sparse)
 
-                nested_test("matrix") do
+                nested_test("base") do
                     relayout = relayout!(sparse)
                     @test major_axis(relayout) == Rows
                     @test relayout == sparse
@@ -188,7 +188,7 @@ nested_test("matrix_layouts") do
                 @test major_axis(from) == Columns
                 into = transpose(rand(6, 4))
 
-                nested_test("matrix") do
+                nested_test("base") do
                     relayout!(into, from)
                     @test major_axis(into) == Rows
                     @test into == from
@@ -254,7 +254,7 @@ nested_test("matrix_layouts") do
                 end
                 into = transpose(into)
 
-                nested_test("matrix") do
+                nested_test("base") do
                     relayout!(into, from)
                     @test major_axis(into) == Rows
                     @test into == from

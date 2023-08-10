@@ -23,8 +23,8 @@ end
 #end
 
 include("matrix_layouts.jl")
-
 include("messages.jl")
+
 include("formats.jl")
 include("oprec.jl")
 include("registry.jl")
