@@ -34,11 +34,14 @@ export major_axis
 export minor_axis
 export other_axis
 export relayout!
+export require_major_axis
+export require_minor_axis
 export Rows
 export WarnPolicy
 
 using Distributed
 using LinearAlgebra
+using NamedArrays
 using SparseArrays
 
 import Distributed.@everywhere
@@ -82,12 +85,20 @@ end
 Return the index of the major axis of a matrix, that is, the axis one should keep *fixed* for an efficient loop
 accessing the matrix elements. If the matrix doesn't support any efficient access axis, returns `nothing`.
 """
-function major_axis(::SparseMatrixCSC)
-    return Columns
+function major_axis(matrix::NamedMatrix)::Union{Int8, Nothing}
+    return major_axis(matrix.array)
 end
 
-function major_axis(matrix::Transpose)
+function major_axis(matrix::SparseArrays.ReadOnly)::Union{Int8, Nothing}
+    return major_axis(parent(matrix))
+end
+
+function major_axis(matrix::Transpose)::Union{Int8, Nothing}
     return other_axis(major_axis(matrix.parent))
+end
+
+function major_axis(matrix::AbstractSparseMatrix)::Union{Int8, Nothing}
+    return Columns
 end
 
 function major_axis(matrix::AbstractMatrix)::Union{Int8, Nothing}
@@ -107,12 +118,36 @@ function major_axis(matrix::AbstractMatrix)::Union{Int8, Nothing}
 end
 
 """
+    require_major_axis(matrix::AbstractMatrix)::Int8
+
+Similar to [`major_axis`](@ref) but will `error` if the matrix isn't in either row-major or column-major layout.
+"""
+function require_major_axis(matrix::AbstractMatrix)::Int8
+    axis = major_axis(matrix)
+    if axis == nothing
+        error("type: $(typeof(matrix)) is not in any-major layout")  # untested
+    end
+    return axis
+end
+
+"""
     minor_axis(matrix::AbstractMatrix)::Union{Int8,Nothing}
 
 Return the index of the minor axis of a matrix, that is, the axis one should *vary* for an efficient loop accessing the
 matrix elements. If the matrix doesn't support any efficient access axis, returns `nothing`.
 """
-@inline minor_axis(matrix::AbstractMatrix) = other_axis(major_axis(matrix))
+function minor_axis(matrix::AbstractMatrix)::Union{Int8, Nothing}
+    return other_axis(major_axis(matrix))
+end
+
+"""
+    require_minor_axis(matrix::AbstractMatrix)::Int8
+
+Similar to [`minor_axis`](@ref) but will `error` if the matrix isn't in either row-major or column-major layout.
+"""
+function require_minor_axis(matrix::AbstractMatrix)::Int8  # untested
+    return other_axis(require_major_axis(matrix))
+end
 
 """
     other_axis(axis::Union{Integer,Nothing})::Union{Int8,Nothing}
@@ -120,7 +155,7 @@ matrix elements. If the matrix doesn't support any efficient access axis, return
 Return the other `matrix` `axis` (that is, convert between [`Rows`](@ref) and [`Columns`](@ref)). If given `nothing`
 returns `nothing`.
 """
-@inline function other_axis(axis::Union{Integer, Nothing})::Union{Int8, Nothing}
+function other_axis(axis::Union{Integer, Nothing})::Union{Int8, Nothing}
     if axis == nothing
         return nothing
     end
@@ -223,8 +258,10 @@ function check_efficient_action(
 end
 
 """
-    relayout!(matrix::SparseMatrixCSC)::SparseMatrixCSC
-    relayout!([into::DenseMatrix], matrix::DenseMatrix)::DenseMatrix
+    relayout!(matrix::AbstractMatrix)::AbstractMatrix
+    relayout!(matrix::NamedMatrix)::NamedMatrix
+    relayout!(into::AbstractMatrix, from::AbstractMatrix)::AbstractMatrix
+    relayout!(into::AbstractMatrix, from::NamedMatrix)::NamedMatrix
 
 Return the same `matrix` data, but in the other memory layout.
 
@@ -237,12 +274,6 @@ In contrast, `transpose!` (with a `!`) is slow; it creates a rearranged copy of 
 rows are genes and columns are cells, but this time, in column-major layout. Therefore, in this case summing the UMIs of
 a gene will be slow, and summing the UMIs of a cell will be fast.
 
-If you `transpose` (no `!`) the result of `transpose!` (with a `!`), you end up with a matrix that appears to be "the
-same" as the original (rows are cells and columns are genes), but behaves differently - summing the UMIs of a gene will
-be slow, and summing the UMIs of a cell is fast. This `transpose` of `transpose!` is a common idiom and is basically
-what `relayout!` does for you. However, `relayout!` will work for both `SparseMatrixCSC` and `DenseMatrix`, and if
-`into` is not specified, a `similar` matrix is allocated automatically for it.
-
 !!! note
 
     It is almost always worthwhile to `relayout!` a matrix and then perform operations "with the grain" of the data,
@@ -251,17 +282,112 @@ what `relayout!` does for you. However, `relayout!` will work for both `SparseMa
     provide any specific optimizations for working "against the grain" of the data. The benefits of a `relayout!` become
     even more significant when performing a series of operations (e.g., summing the gene UMIs in each cell, converting
     gene UMIs to fractions out of these totals, then computing the log base 2 of this fraction).
+
+If you `transpose` (no `!`) the result of `transpose!` (with a `!`), you end up with a matrix that *appears* to be the
+same as the original (rows are cells and columns are genes), but behaves *differently* - summing the UMIs of a gene will
+be slow, and summing the UMIs of a cell is fast. This `transpose` of `transpose!` is a common idiom and is basically
+what `relayout!` does for you. In addition, `relayout!` will work for both sparse and dense matrices, and if `into` is
+not specified, a `similar` matrix is allocated automatically for it.
+
+!!! note
+
+    The caller is responsible for providing a sensible `into` matrix (sparse for a sparse `from`, dense for a non-sparse
+    `from`). This can be a transposed matrix. If `from` is a `NamedMatrix`, then the result will be a `NamedMatrix` with
+    the same axes. If `into` is also a `NamedMatrix`, then its axes must match `from`.
 """
-function relayout!(matrix::SparseMatrixCSC)::SparseMatrixCSC
-    return SparseMatrixCSC(transpose(matrix))
+function relayout!(matrix::NamedMatrix)::NamedArray
+    return NamedArray(relayout!(matrix.array), matrix.dicts, matrix.dimnames)
 end
 
-function relayout!(to::DenseMatrix, from::DenseMatrix)::DenseMatrix
-    return transpose!(to, from)
+function relayout!(matrix::SparseArrays.ReadOnly)::AbstractMatrix
+    return relayout!(parent(matrix))
 end
 
-function relayout!(matrix::DenseMatrix)::DenseMatrix
-    return transpose!(similar(transpose(matrix)), matrix)
+function relayout!(matrix::Transpose)::AbstractMatrix
+    return transpose(relayout!(parent(matrix)))
+end
+
+function relayout!(matrix::AbstractSparseMatrix)::AbstractMatrix
+    @assert require_major_axis(matrix) == Columns
+    return transpose(SparseMatrixCSC(transpose(matrix)))
+end
+
+function relayout!(matrix::AbstractMatrix)::AbstractMatrix
+    return transpose(transpose!(similar(transpose(matrix)), matrix))
+end
+
+function relayout!(into::AbstractMatrix, from::NamedMatrix)::NamedArray  # untested
+    return NamedArray(relayout!(into, from.array), from.dicts, from.dimnames)
+end
+
+function relayout!(into::Transpose, from::NamedMatrix)::AbstractMatrix
+    relayout!(parent(into), transpose(from))
+    return into
+end
+
+function relayout!(into::SparseMatrixCSC, from::NamedMatrix)::AbstractMatrix
+    relayout!(into, from.array)
+    return into
+end
+
+function relayout!(into::NamedArray, from::NamedMatrix)::NamedArray
+    @assert into.dimnames == from.dimnames
+    @assert into.dicts == from.dicts
+    return NamedArray(relayout!(into.array, from.array), from.dicts, from.dimnames)
+end
+
+function relayout!(into::NamedArray, from::AbstractMatrix)::NamedArray
+    return NamedArray(relayout!(into.array, from), into.dicts, into.dimnames)
+end
+
+function relayout!(into::Transpose, from::AbstractMatrix)::AbstractMatrix
+    relayout!(parent(into), transpose(from))
+    return into
+end
+
+function relayout!(into::SparseMatrixCSC, from::AbstractMatrix)::SparseMatrixCSC
+    if size(into) != size(from)
+        error("relayout into size: $(size(into))\nis different from size: $(size(from))")
+    end
+    if !issparse(from)
+        error("relayout into sparse: $(typeof(into)) of non-sparse matrix: $(typeof(from))")
+    end
+    from = base_sparse_matrix(from)
+    return transpose!(into, transpose(from))
+end
+
+function relayout!(into::DenseMatrix, from::AbstractMatrix)::DenseMatrix
+    if size(into) != size(from)
+        error("relayout into size: $(size(into))\nis different from size: $(size(from))")
+    end
+    if issparse(from)
+        error("relayout into dense: $(typeof(into)) of sparse matrix: $(typeof(from))")
+    end
+    return transpose!(into, transpose(from))
+end
+
+function relayout!(into::AbstractMatrix, from::AbstractMatrix)::AbstractMatrix  # untested
+    return error("unsupported relayout into: $(typeof(into)) from: $(typeof(from))")
+end
+
+function base_sparse_matrix(matrix::Transpose)::SparseMatrixCSC
+    return transpose(base_sparse_matrix(matrix.parent))
+end
+
+function base_sparse_matrix(matrix::NamedMatrix)::SparseMatrixCSC  # untested
+    return base_sparse_matrix(matrix.array)
+end
+
+function base_sparse_matrix(matrix::SparseArrays.ReadOnly)::SparseMatrixCSC
+    return base_sparse_matrix(parent(matrix))
+end
+
+function base_sparse_matrix(matrix::AbstractSparseMatrix)::AbstractSparseMatrix
+    return matrix
+end
+
+function base_sparse_matrix(matrix::AbstractMatrix)::AbstractSparseMatrix  # untested
+    return error("unsupported relayout sparse matrix: $(typeof(matrix))")
 end
 
 end # module

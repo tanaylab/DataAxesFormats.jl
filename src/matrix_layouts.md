@@ -16,7 +16,9 @@ Daf.MatrixLayouts.axis_name
 
 ```@docs
 Daf.MatrixLayouts.major_axis
+Daf.MatrixLayouts.require_major_axis
 Daf.MatrixLayouts.minor_axis
+Daf.MatrixLayouts.require_minor_axis
 Daf.MatrixLayouts.other_axis
 ```
 

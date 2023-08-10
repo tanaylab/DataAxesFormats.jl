@@ -1,87 +1,314 @@
-test_set("matrix layouts") do
-    test_set("axis_name") do
-        @test axis_name(Rows) == "Rows"
-        @test axis_name(Columns) == "Columns"
-        @test axis_name(nothing) == "nothing"
-        @test_throws "invalid matrix axis: -1" axis_name(-1)
+nested_test("matrix_layouts") do
+    nested_test("axes") do
+        nested_test("name") do
+            @test axis_name(Rows) == "Rows"
+            @test axis_name(Columns) == "Columns"
+            @test axis_name(nothing) == "nothing"
+            @test_throws "invalid matrix axis: -1" axis_name(-1)
+        end
+
+        nested_test("other") do
+            @test other_axis(Rows) == Columns
+            @test other_axis(Columns) == Rows
+            @test other_axis(nothing) == nothing
+            @test_throws "invalid matrix axis: -1" other_axis(-1)
+        end
+
+        nested_test("dense") do
+            dense = rand(4, 4)
+
+            nested_test("matrix") do
+                @test major_axis(dense) == Columns
+                @test minor_axis(dense) == Rows
+            end
+
+            nested_test("transpose") do
+                @test major_axis(transpose(dense)) == Rows
+                @test minor_axis(transpose(dense)) == Columns
+            end
+
+            nested_test("read_only") do
+                @test major_axis(SparseArrays.ReadOnly(dense)) == Columns
+                @test minor_axis(SparseArrays.ReadOnly(dense)) == Rows
+            end
+
+            nested_test("named") do
+                @test major_axis(NamedArray(dense)) == Columns
+                @test minor_axis(NamedArray(dense)) == Rows
+            end
+        end
+
+        nested_test("sparse") do
+            sparse = sprand(4, 4, 0.5)
+
+            nested_test("matrix") do
+                @test major_axis(sparse) == Columns
+                @test minor_axis(sparse) == Rows
+            end
+
+            nested_test("transpose") do
+                @test major_axis(transpose(sparse)) == Rows
+                @test minor_axis(transpose(sparse)) == Columns
+            end
+
+            nested_test("read_only") do
+                @test major_axis(SparseArrays.ReadOnly(sparse)) == Columns
+                @test minor_axis(SparseArrays.ReadOnly(sparse)) == Rows
+            end
+
+            nested_test("named") do
+                @test major_axis(NamedArray(sparse)) == Columns
+                @test minor_axis(NamedArray(sparse)) == Rows
+            end
+        end
     end
 
-    test_set("other_axis") do
-        @test other_axis(Rows) == Columns
-        @test other_axis(Columns) == Rows
-        @test other_axis(nothing) == nothing
-        @test_throws "invalid matrix axis: -1" other_axis(-1)
-    end
-
-    test_set("major_axis") do
-        @test major_axis(rand(4, 4)) == Columns
-        @test major_axis(transpose(rand(4, 4))) == Rows
-        @test major_axis(sprand(4, 4, 0.5)) == Columns
-        @test major_axis(transpose(sprand(4, 4, 0.5))) == Rows
-    end
-
-    test_set("minor_axis") do
-        @test minor_axis(rand(4, 4)) == Rows
-        @test minor_axis(transpose(rand(4, 4))) == Columns
-        @test minor_axis(sprand(4, 4, 0.5)) == Rows
-        @test minor_axis(transpose(sprand(4, 4, 0.5))) == Columns
-    end
-
-    test_set("inefficient_action_policy") do
-        @test inefficient_action_policy(nothing) == ErrorPolicy
-
+    nested_test("inefficient_action_policy") do
         matrix = rand(4, 4)
+        inefficient_action_policy(ErrorPolicy)
 
-        check_efficient_action("test", Rows, "input", matrix)
-        check_efficient_action("test", Columns, "input", matrix)
+        nested_test("nothing") do
+            @test inefficient_action_policy(nothing) == ErrorPolicy
 
-        @test inefficient_action_policy(WarnPolicy) == nothing
+            check_efficient_action("test", Columns, "input", matrix)
+            return check_efficient_action("test", Rows, "input", matrix)
+        end
 
-        check_efficient_action("test", Columns, "input", matrix)
-        @test_logs (:warn, dedent("""
-                               the major axis: Rows
-                               of the action: test
-                               is different from the major axis: Columns
-                               of the input matrix: Matrix{Float64}
-                           """)) check_efficient_action("test", Rows, "input", matrix)
+        nested_test("WarnPolicy") do
+            @test inefficient_action_policy(WarnPolicy) == ErrorPolicy
 
-        @test inefficient_action_policy(ErrorPolicy) == WarnPolicy
+            check_efficient_action("test", Columns, "input", matrix)
+            @test_logs (:warn, dedent("""
+                                   the major axis: Rows
+                                   of the action: test
+                                   is different from the major axis: Columns
+                                   of the input matrix: Matrix{Float64}
+                               """)) check_efficient_action("test", Rows, "input", matrix)
+        end
 
-        check_efficient_action("test", Columns, "input", matrix)
-        @test_throws dedent("""
-            the major axis: Rows
-            of the action: test
-            is different from the major axis: Columns
-            of the input matrix: Matrix{Float64}
-        """) check_efficient_action("test", Rows, "input", matrix)
+        nested_test("ErrorPolicy") do
+            @test inefficient_action_policy(ErrorPolicy) == ErrorPolicy
+
+            check_efficient_action("test", Columns, "input", matrix)
+            @test_throws dedent("""
+                the major axis: Rows
+                of the action: test
+                is different from the major axis: Columns
+                of the input matrix: Matrix{Float64}
+            """) check_efficient_action("test", Rows, "input", matrix)
+        end
     end
 
-    test_set("relayout!") do
-        sparse = sprand(4, 6, 0.5)
-        dense = Matrix(sparse)
+    nested_test("relayout!") do
+        nested_test("automatic") do
+            nested_test("dense") do
+                dense = rand(4, 6)
+                @test major_axis(dense) == Columns
+                @test !issparse(dense)
 
-        @test sparse == dense
-        @test major_axis(sparse) == Columns
-        @test major_axis(dense) == Columns
+                nested_test("matrix") do
+                    relayout = relayout!(dense)
+                    @test major_axis(relayout) == Rows
+                    @test relayout == dense
+                    @test !issparse(relayout)
+                end
 
-        transposed_sparse = transpose(sparse)
-        transposed_dense = transpose(dense)
-        @test transposed_sparse == transposed_dense
+                nested_test("transpose") do
+                    transposed_dense = transpose(dense)
+                    @test major_axis(transposed_dense) == Rows
 
-        @test major_axis(transposed_sparse) == Rows
-        @test major_axis(transposed_dense) == Rows
+                    relayout = relayout!(transposed_dense)
+                    @test major_axis(relayout) == Columns
+                    @test relayout == transposed_dense
+                    @test !issparse(relayout)
+                end
 
-        relayout_sparse = relayout!(sparse)
-        relayout_dense = relayout!(dense)
-        similar_dense = similar(transposed_dense)
-        @test relayout!(similar_dense, dense) === similar_dense
+                nested_test("read_only") do
+                    relayout = relayout!(SparseArrays.ReadOnly(dense))
+                    @test major_axis(relayout) == Rows
+                    @test relayout == dense
+                    @test !issparse(relayout)
+                end
 
-        @test major_axis(relayout_sparse) == Columns
-        @test major_axis(relayout_dense) == Columns
-        @test major_axis(similar_dense) == Columns
+                nested_test("named") do
+                    named = NamedArray(dense)
+                    relayout = relayout!(named)
+                    @test major_axis(relayout) == Rows
+                    @test relayout == dense
+                    @test !issparse(relayout.array)
+                    @test relayout.dicts === named.dicts
+                    @test relayout.dimnames === named.dimnames
+                end
+            end
 
-        @test relayout_sparse == transposed_sparse
-        @test relayout_dense == transposed_dense
-        @test similar_dense == transposed_dense
+            nested_test("sparse") do
+                sparse = sprand(4, 6, 0.5)
+                @test major_axis(sparse) == Columns
+                @test issparse(sparse)
+
+                nested_test("matrix") do
+                    relayout = relayout!(sparse)
+                    @test major_axis(relayout) == Rows
+                    @test relayout == sparse
+                    @test issparse(relayout)
+                end
+
+                nested_test("transpose") do
+                    transposed_sparse = transpose(sparse)
+                    @test major_axis(transposed_sparse) == Rows
+
+                    relayout = relayout!(transposed_sparse)
+                    @test major_axis(relayout) == Columns
+                    @test relayout == transposed_sparse
+                    @test issparse(relayout)
+                end
+
+                nested_test("read_only") do
+                    relayout = relayout!(SparseArrays.ReadOnly(sparse))
+                    @test major_axis(relayout) == Rows
+                    @test relayout == sparse
+                    @test issparse(relayout)
+                end
+
+                nested_test("named") do
+                    named = NamedArray(sparse)
+                    relayout = relayout!(named)
+                    @test major_axis(relayout) == Rows
+                    @test relayout == sparse
+                    @test issparse(relayout.array)
+                    @test relayout.dicts === named.dicts
+                    @test relayout.dimnames === named.dimnames
+                end
+            end
+        end
+
+        nested_test("manual") do
+            nested_test("dense") do
+                from = rand(4, 6)
+                @test major_axis(from) == Columns
+                into = transpose(rand(6, 4))
+
+                nested_test("matrix") do
+                    relayout!(into, from)
+                    @test major_axis(into) == Rows
+                    @test into == from
+                end
+
+                nested_test("wrong_size") do
+                    into = sprand(5, 5, 0.5)
+                    @test_throws "relayout into size: (5, 5)\nis different from size: (4, 6)" relayout!(into, from)
+                end
+
+                nested_test("into_sparse") do
+                    into = sprand(4, 6, 0.5)
+                    @test_throws "relayout into sparse: SparseMatrixCSC{Float64, Int64} of non-sparse matrix: Matrix{Float64}" relayout!(
+                        into,
+                        from,
+                    )
+                end
+
+                nested_test("read_only") do
+                    relayout!(into, SparseArrays.ReadOnly(from))
+                    @test major_axis(into) == Rows
+                    @test into == from
+                end
+
+                nested_test("transpose") do
+                    relayout!(transpose(into), transpose(from))
+                    @test major_axis(into) == Rows
+                    @test into == from
+                end
+
+                nested_test("named") do
+                    nested_test("from") do
+                        named_from = NamedArray(from)
+                        relayout!(into, from)
+                        @test major_axis(into) == Rows
+                        @test into == from
+                    end
+
+                    nested_test("into") do
+                        named_into = NamedArray(into)
+                        relayout!(into, from)
+                        @test major_axis(into) == Rows
+                        @test into == from
+                    end
+
+                    nested_test("both") do
+                        named_from = NamedArray(from)
+                        named_into = NamedArray(into)
+                        relayout!(into, from)
+                        @test major_axis(into) == Rows
+                        @test into == from
+                    end
+                end
+            end
+
+            nested_test("sparse") do
+                from = sprand(4, 6, 0.5)
+                @test major_axis(from) == Columns
+
+                into = sprand(6, 4, 0.5)
+                while nnz(into) != nnz(from)  # Lazy way to get a fitting target matrix.
+                    into = sprand(6, 4, 0.5)
+                end
+                into = transpose(into)
+
+                nested_test("matrix") do
+                    relayout!(into, from)
+                    @test major_axis(into) == Rows
+                    @test into == from
+                end
+
+                nested_test("wrong_size") do
+                    into = rand(5, 5)
+                    @test_throws "relayout into size: (5, 5)\nis different from size: (4, 6)" relayout!(into, from)
+                end
+
+                nested_test("into_dense") do
+                    into = rand(4, 6)
+                    @test_throws "relayout into dense: Matrix{Float64} of sparse matrix: SparseMatrixCSC{Float64, Int64}" relayout!(
+                        into,
+                        from,
+                    )
+                end
+
+                nested_test("read_only") do
+                    relayout!(into, SparseArrays.ReadOnly(from))
+                    @test major_axis(into) == Rows
+                    @test into == from
+                end
+
+                nested_test("transpose") do
+                    relayout!(transpose(into), transpose(from))
+                    @test major_axis(into) == Rows
+                    @test into == from
+                end
+
+                nested_test("named") do
+                    nested_test("from") do
+                        named_from = NamedArray(from)
+                        relayout!(into, named_from)
+                        @test major_axis(into) == Rows
+                        @test into == from
+                    end
+
+                    nested_test("into") do
+                        named_into = NamedArray(into)
+                        relayout!(named_into, from)
+                        @test major_axis(named_into) == Rows
+                        @test into == from
+                    end
+
+                    nested_test("both") do
+                        named_from = NamedArray(from)
+                        named_into = NamedArray(into)
+                        relayout!(named_into, named_from)
+                        @test major_axis(named_into) == Rows
+                        @test into == from
+                    end
+                end
+            end
+        end
     end
 end

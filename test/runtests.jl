@@ -5,6 +5,7 @@ using Base.MathConstants
 using Daf
 using LinearAlgebra
 using NamedArrays
+using NestedTests
 using SparseArrays
 using TestContexts
 
@@ -22,6 +23,7 @@ end
 #end
 
 include("matrix_layouts.jl")
+
 include("messages.jl")
 include("formats.jl")
 include("oprec.jl")
