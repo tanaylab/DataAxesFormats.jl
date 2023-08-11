@@ -865,7 +865,7 @@ function get_matrix(
             error( # untested
                 "format_get_matrix for daf format: $(typeof(daf))\n" *
                 "returned matrix rows: $(size(matrix, Rows))\n" *
-                "instead of axis: $(axis)\n" *
+                "instead of axis: $(rows_axis)\n" *
                 "length: $(axis_length(daf, rows_axis))\n" *
                 "in the daf data: $(daf.name)",
             )
@@ -875,7 +875,7 @@ function get_matrix(
             error( # untested
                 "format_get_matrix for daf format: $(typeof(daf))\n" *
                 "returned matrix columns: $(size(matrix, Columns))\n" *
-                "instead of axis: $(axis)\n" *
+                "instead of axis: $(columns_axis)\n" *
                 "length: $(axis_length(daf, columns_axis))\n" *
                 "in the daf data: $(daf.name)",
             )
@@ -1128,7 +1128,7 @@ function compute_matrix_lookup(daf::ReadDaf, matrix_property_lookup::MatrixPrope
     end
 
     if rows_mask != nothing && columns_mask != nothing
-        result = result[rows_mask, columns_mask]
+        result = result[rows_mask, columns_mask]  # NOJET
     elseif rows_mask != nothing
         result = result[rows_mask, :]  # untested
     elseif columns_mask != nothing
@@ -1378,7 +1378,7 @@ function compute_vector_data_lookup(
         return nothing
     end
 
-    return result[mask]
+    return result[mask]  # NOJET
 end
 
 function compute_vector_data_lookup(daf::ReadDaf, matrix_slice_lookup::MatrixSliceLookup)::Union{NamedArray, Nothing}
@@ -1482,7 +1482,7 @@ function compute_eltwise_result(
             error_type = typeof(result)
         else
             check_type = eltype(result)
-            error_type = typeof(base_array(result))
+            error_type = typeof(base_array(result))  # NOJET
         end
 
         if !(check_type <: Number)
@@ -1492,7 +1492,7 @@ function compute_eltwise_result(
         if result isa StorageScalar
             result = compute_eltwise(eltwise_operation, result)
         else
-            result = NamedArray(compute_eltwise(eltwise_operation, result.array), result.dicts, result.dimnames)
+            result = NamedArray(compute_eltwise(eltwise_operation, result.array), result.dicts, result.dimnames)  # NOJET
         end
     end
     return result

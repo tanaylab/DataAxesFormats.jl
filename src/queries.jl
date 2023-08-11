@@ -235,12 +235,12 @@ function parse_query_operation(
         element_type = ParameterAssignment,
         operators = [OpParameterSeparator],
     ) do operation_type_name, parameters_assignments
-        operation_type = parse_operation_type(context, operation_type_name, kind, registered_operations)
+        operation_type = parse_operation_type(context, operation_type_name, kind, registered_operations)  # NOJET
 
         parameters_dict = Dict{String, QueryOperation}()
         parameter_symbols = fieldnames(operation_type)
         for parameter_assignment in parameters_assignments
-            if !(Symbol(parameter_assignment.assignment.left.string) in parameter_symbols)
+            if !(Symbol(parameter_assignment.assignment.left.string) in parameter_symbols)  # NOJET
                 parse_in_context(context, parameter_assignment.assignment; name = "parameter assignment") do
                     parse_in_context(context, parameter_assignment.assignment.left; name = "parameter name") do
                         return error_in_context(
@@ -309,24 +309,24 @@ and even reorders [`AxisFilter`](@ref)s in a [`FilteredAxis`](@ref) where possib
 same", they will have the same `canonical` form.
 """
 function canonical(operation::AbstractOperation)::String
-    return "$(typeof(operation))" *
-           "; " *
-           join(
-               [
-                   (
-                       escape_query(String(field_name)) *
-                       " = " * #
-                       if field_name == :dtype && getfield(operation, :dtype) == nothing
-                           "auto"
-                       elseif getfield(operation, field_name) == Float64(e)
-                           "e"
-                       else
-                           escape_query("$(getfield(operation, field_name))")
-                       end
-                   ) for field_name in fieldnames(typeof(operation))
-               ],
-               ", ",
-           )
+    field_names = fieldnames(typeof(operation))
+    parameters = join(  # NOJET
+        [
+            (
+                escape_query(String(field_name)) *
+                " = " * #
+                if field_name == :dtype && getfield(operation, :dtype) == nothing
+                    "auto"
+                elseif getfield(operation, field_name) == Float64(e)
+                    "e"
+                else
+                    escape_query("$(getfield(operation, field_name))")
+                end
+            ) for field_name in fieldnames(typeof(operation))
+        ],
+        ", ",
+    )
+    return "$(typeof(operation)); $(parameters)"
 end
 
 """
@@ -428,9 +428,9 @@ function PropertyComparison(
 end
 
 function canonical(property_comparison::PropertyComparison)::String
-    return CANONICAL_COMPARISON_OPERATOR[property_comparison.comparison_operator] *
-           " " *
-           escape_query(property_comparison.property_value)
+    comparison_operator = CANONICAL_COMPARISON_OPERATOR[property_comparison.comparison_operator]
+    property_value = escape_query(property_comparison.property_value)
+    return "$(comparison_operator) $(property_value)"
 end
 
 function Base.isless(left::PropertyComparison, right::PropertyComparison)::Bool
@@ -484,7 +484,7 @@ function AxisLookup(context::QueryContext, query_tree::QueryExpression)::AxisLoo
                 OpGreaterOrEqual,
             ],
         ) do property_lookup, comparison_operator, property_value
-            return AxisLookup(
+            return AxisLookup(  # NOJET
                 false,
                 PropertyLookup(context, property_lookup),
                 PropertyComparison(context, comparison_operator, property_value),
@@ -504,7 +504,7 @@ function canonical(axis_lookup::AxisLookup)::String
         result = "~" * result
     end
     if axis_lookup.property_comparison != nothing
-        result *= " " * canonical(axis_lookup.property_comparison)
+        result *= " " * canonical(axis_lookup.property_comparison)  # NOJET
     end
     return result
 end
@@ -514,7 +514,7 @@ function Base.isless(left::AxisLookup, right::AxisLookup)::Bool
         left.property_comparison == nothing ? PropertyComparison(CmpLessThan, "") : left.property_comparison
     right_property_comparison =
         right.property_comparison == nothing ? PropertyComparison(CmpLessThan, "") : right.property_comparison
-    return (left.property_lookup, left_property_comparison, left.is_inverse) <
+    return (left.property_lookup, left_property_comparison, left.is_inverse) <  # NOJET
            (right.property_lookup, right_property_comparison, right.is_inverse)
 end
 
@@ -551,7 +551,9 @@ function AxisFilter(context::QueryContext, filter_operator::QueryToken, axis_loo
 end
 
 function canonical(axis_filter::AxisFilter)::String
-    return CANONICAL_FILTER_OPERATOR[axis_filter.filter_operator] * " " * canonical(axis_filter.axis_lookup)
+    filter_operator = CANONICAL_FILTER_OPERATOR[axis_filter.filter_operator]
+    axis_lookup = canonical(axis_filter.axis_lookup)
+    return "$(filter_operator) $(axis_lookup)"
 end
 
 function Base.isless(left::AxisFilter, right::AxisFilter)::Bool
@@ -584,7 +586,7 @@ function FilteredAxis(context::QueryContext, query_tree::QueryExpression)::Filte
         first_operator = true,
         operators = [OpAnd, OpOr, OpXor],
     ) do axis_name, axis_filters
-        return FilteredAxis(
+        return FilteredAxis(  # NOJET
             parse_string_in_context(context, axis_name; name = "axis name"),
             sorted_axis_filters(axis_filters),
         )
@@ -634,7 +636,7 @@ function MatrixAxes(context::QueryContext, query_tree::QueryExpression)::MatrixA
         operator_name = "axes separator",
         operators = [OpAxesSeparator],
     ) do rows_axis, axes_separator, columns_axis
-        return MatrixAxes(FilteredAxis(context, rows_axis), FilteredAxis(context, columns_axis))
+        return MatrixAxes(FilteredAxis(context, rows_axis), FilteredAxis(context, columns_axis))  # NOJET
     end
 end
 
@@ -660,7 +662,7 @@ function MatrixPropertyLookup(context::QueryContext, query_tree::QueryExpression
         operator_name = "lookup operator",
         operators = [OpLookup],
     ) do matrix_axes, lookup_operator, property_name
-        return MatrixPropertyLookup(
+        return MatrixPropertyLookup(  # NOJET
             MatrixAxes(context, matrix_axes),
             parse_string_in_context(context, property_name; name = "property name"),
         )
@@ -696,7 +698,7 @@ function MatrixQuery(context::QueryContext, query_tree::QueryExpression)::Matrix
         element_type = EltwiseOperation,
         operators = [OpEltwise],
     ) do matrix_property_lookup, eltwise_operations
-        return MatrixQuery(MatrixPropertyLookup(context, matrix_property_lookup), eltwise_operations)
+        return MatrixQuery(MatrixPropertyLookup(context, matrix_property_lookup), eltwise_operations)  # NOJET
     end
 end
 
@@ -767,7 +769,7 @@ function AxisEntry(context::QueryContext, query_tree::QueryExpression)::AxisEntr
         operator_name = "equality operator",
         operators = [OpEqual],
     ) do axis_name, assignment_operator, entry_name
-        return AxisEntry(
+        return AxisEntry(  # NOJET
             parse_string_in_context(context, axis_name; name = "axis name"),
             parse_string_in_context(context, entry_name; name = "entry name"),
         )
@@ -824,7 +826,7 @@ function MatrixSliceLookup(context::QueryContext, query_tree::QueryExpression)::
         operator_name = "lookup operator",
         operators = [OpLookup],
     ) do matrix_slice_axes, lookup_operator, property_name
-        return MatrixSliceLookup(
+        return MatrixSliceLookup(  # NOJET
             MatrixSliceAxes(context, matrix_slice_axes),
             parse_string_in_context(context, property_name; name = "property name"),
         )
@@ -858,7 +860,7 @@ results of matrix query to a vector.
 const VectorDataLookup = Union{VectorPropertyLookup, MatrixSliceLookup, ReduceMatrixQuery}
 
 function parse_vector_data_lookup(context::QueryContext, query_tree::QueryExpression)::VectorDataLookup
-    if check_operation(query_tree, [OpLookup]) != nothing &&
+    if check_operation(query_tree, [OpLookup]) != nothing &&  # NOJET
        check_operation(query_tree.left, [OpAxesSeparator]) != nothing
         return MatrixSliceLookup(context, query_tree)
     else
@@ -899,7 +901,7 @@ function VectorQuery(context::QueryContext, query_tree::QueryExpression)::Vector
             ) do reduction_operation, eltwise_operations
                 return parse_reduction_operation(context, reduction_operator, reduction_operation), eltwise_operations
             end
-            return VectorQuery(
+            return VectorQuery(  # NOJET
                 ReduceMatrixQuery(MatrixQuery(context, matrix_query), reduction_operation),
                 eltwise_operations,
             )
@@ -980,7 +982,7 @@ function VectorEntryLookup(context::QueryContext, query_tree::QueryExpression)::
         operator_name = "lookup operator",
         operators = [OpLookup],
     ) do axis_entry, lookup_operator, axis_lookup
-        return VectorEntryLookup(AxisEntry(context, axis_entry), AxisLookup(context, axis_lookup))
+        return VectorEntryLookup(AxisEntry(context, axis_entry), AxisLookup(context, axis_lookup))  # NOJET
     end
 end
 
@@ -1032,7 +1034,7 @@ function MatrixEntryLookup(context::QueryContext, query_tree::QueryExpression)::
         operator_name = "lookup operator",
         operators = [OpLookup],
     ) do matrix_entry_axes, lookup_operator, property_name
-        return MatrixEntryLookup(
+        return MatrixEntryLookup(  # NOJET
             MatrixEntryAxes(context, matrix_entry_axes),
             parse_string_in_context(context, property_name; name = "property name"),
         )
@@ -1068,7 +1070,7 @@ const ScalarDataLookup = Union{ScalarPropertyLookup, ReduceVectorQuery, VectorEn
 function parse_scalar_data_lookup(context::QueryContext, query_tree::QueryExpression)::ScalarDataLookup
     if check_operation(query_tree, [OpLookup]) == nothing
         return ScalarPropertyLookup(context, query_tree)
-    elseif check_operation(query_tree.left, [OpAxesSeparator]) != nothing
+    elseif check_operation(query_tree.left, [OpAxesSeparator]) != nothing  # NOJET
         return MatrixEntryLookup(context, query_tree)
     else
         return VectorEntryLookup(context, query_tree)
@@ -1127,7 +1129,7 @@ function parse_scalar_query(query_string::AbstractString)::ScalarQuery
             ) do reduction_operation, eltwise_operations
                 return parse_reduction_operation(context, reduction_operator, reduction_operation), eltwise_operations
             end
-            return ScalarQuery(
+            return ScalarQuery(  # NOJET
                 ReduceVectorQuery(VectorQuery(context, matrix_query), reduction_operation),
                 eltwise_operations,
             )

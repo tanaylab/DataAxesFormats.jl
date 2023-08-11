@@ -21,7 +21,14 @@ deps/.format: */*.jl deps/format.sh deps/format.jl
 	@touch deps/.format
 
 .PHONY: check
-check: untested_lines
+check: jet untested_lines
+
+.PHONY: jet
+jet: deps/.jet
+
+deps/.jet: *.toml src/*.jl test/*.toml test/*.jl deps/jet.sh deps/jet.jl deps/jet.py
+	deps/jet.sh
+	@touch deps/.jet
 
 .PHONY: test
 test: tracefile.info

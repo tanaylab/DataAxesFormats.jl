@@ -107,7 +107,7 @@ function major_axis(matrix::AbstractMatrix)::Union{Int8, Nothing}
         if matrix_strides[1] == 1
             return Columns
         end
-        if matrix_strides[2] == 1  # untested
+        if matrix_strides[2] == 1  # untested NOJET
             return Rows            # untested
         end
         return nothing             # untested
@@ -331,7 +331,7 @@ function relayout!(into::SparseMatrixCSC, from::NamedMatrix)::AbstractMatrix
 end
 
 function relayout!(into::NamedArray, from::NamedMatrix)::NamedArray
-    @assert into.dimnames == from.dimnames
+    @assert into.dimnames == from.dimnames  # NOJET
     @assert into.dicts == from.dicts
     return NamedArray(relayout!(into.array, from.array), from.dicts, from.dimnames)
 end

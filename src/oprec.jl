@@ -607,8 +607,9 @@ function expression_locator(
     last_index = 0
 
     while true
-        if operation.left != nothing
-            left_locator, last_index = operand_locator(encoded_string, last_index, operation.left)
+        left_operation = operation.left
+        if left_operation != nothing
+            left_locator, last_index = operand_locator(encoded_string, last_index, left_operation)
             locator *= left_locator
         end
 
@@ -630,7 +631,7 @@ function expression_locator(
         operation = operation.right
     end
 
-    right_locator, right_last_index = operand_locator(encoded_string, last_index, operation.right)
+    right_locator, right_last_index = operand_locator(encoded_string, last_index, operation.right)  # NOJET
     return locator * right_locator
 end
 
@@ -653,10 +654,11 @@ function expression_first_index(encoded_string::AbstractString, token::Token{E})
 end
 
 function expression_first_index(encoded_string::AbstractString, operation::Operation{E})::Int where {E}
-    if operation.left == nothing
+    left_operation = operation.left
+    if left_operation == nothing
         return expression_first_index(encoded_string, operation.token)
     else
-        return expression_first_index(encoded_string, operation.left)
+        return expression_first_index(encoded_string, left_operation)
     end
 end
 
@@ -731,7 +733,7 @@ function check_operation(expression::Expression{E}, operators::Vector{E})::Union
     end
 
     for operator in operators
-        if expression.token.operator.id == operator
+        if expression.token.operator.id == operator  # NOJET
             return expression.token
         end
     end
@@ -774,7 +776,8 @@ function parse_operation_in_context(
         if operator == nothing
             error_in_context(
                 context,
-                "unexpected operator: $(unescape_query(decode_expression(expression.token.string)))\nexpected operator: $(operator_name)",
+                "unexpected operator: $(unescape_query(decode_expression(expression.token.string)))\n" *
+                "expected operator: $(operator_name)",
             )
         end
 
