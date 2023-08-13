@@ -43,6 +43,7 @@ include("operations.jl")
 @reexport using Daf.Operations
 
 include("formats.jl")
+@reexport using Daf.Formats
 
 include("data.jl")
 @reexport using Daf.Data

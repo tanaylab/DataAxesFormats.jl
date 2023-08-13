@@ -192,7 +192,7 @@ test_set("example_data") do
 
         @test_throws dedent("""
           invalid value: I1
-          of the chained property: batch.invalid
+          of the chained: batch.invalid
           of the axis: cell
           is missing from the next axis: batch
           in the daf data: example!
@@ -206,7 +206,7 @@ test_set("example_data") do
 
         @test_throws dedent("""
             non-String data type: Bool
-            for the chained property: marker
+            for the chained: marker
             for the axis: gene
             in the daf data: example!
         """) matrix_query(daf, "cell, gene & marker : noisy @ UMIs")

@@ -163,14 +163,14 @@ end
 
 function require_scalar(daf::ReadDaf, name::AbstractString)::Nothing
     if !has_scalar(daf, name)
-        error("missing scalar property: $(name)\nin the daf data: $(daf.name)")
+        error("missing scalar: $(name)\nin the daf data: $(daf.name)")
     end
     return nothing
 end
 
 function require_no_scalar(daf::ReadDaf, name::AbstractString)::Nothing
     if has_scalar(daf, name)
-        error("existing scalar property: $(name)\nin the daf data: $(daf.name)")
+        error("existing scalar: $(name)\nin the daf data: $(daf.name)")
     end
     return nothing
 end
@@ -230,7 +230,10 @@ function delete_axis!(daf::WriteDaf, axis::AbstractString; must_exist::Bool = tr
 
     for other_axis in axis_names(daf)
         for name in matrix_names(daf, axis, other_axis)
-            Formats.format_delete_matrix!(daf, axis, other_axis, name)
+            Formats.format_delete_matrix!(daf, axis, other_axis, name)  # untested
+        end  # untested
+        for name in matrix_names(daf, other_axis, axis)
+            Formats.format_delete_matrix!(daf, other_axis, axis, name)
         end
     end
 
@@ -329,6 +332,7 @@ function set_vector!(
     if vector isa StorageVector
         require_axis_length(daf, "vector length", length(vector), axis)
         if vector isa NamedVector
+            require_dim_name(daf, axis, "vector dim name", dimnames(vector, 1))
             require_axis_names(daf, axis, "entry names of the: vector", names(vector, 1))
         end
     end
@@ -498,7 +502,8 @@ function get_vector(
     if default isa StorageVector
         require_axis_length(daf, "default length", length(default), axis)
         if default isa NamedVector
-            require_axis_names(daf, axis, "entry names of the: default vector", names(default, 1))
+            require_dim_name(daf, axis, "default dim name", dimnames(default, 1))
+            require_axis_names(daf, axis, "entry names of the: default", names(default, 1))
         end
     end
 
@@ -536,14 +541,14 @@ end
 
 function require_vector(daf::ReadDaf, axis::AbstractString, name::AbstractString)::Nothing
     if !has_vector(daf, axis, name)
-        error("missing vector property: $(name)\nfor the axis: $(axis)\nin the daf data: $(daf.name)")
+        error("missing vector: $(name)\nfor the axis: $(axis)\nin the daf data: $(daf.name)")
     end
     return nothing
 end
 
 function require_no_vector(daf::ReadDaf, axis::AbstractString, name::AbstractString)::Nothing
     if has_vector(daf, axis, name)
-        error("existing vector property: $(name)\nfor the axis: $(axis)\nin the daf data: $(daf.name)")
+        error("existing vector: $(name)\nfor the axis: $(axis)\nin the daf data: $(daf.name)")
     end
     return nothing
 end
@@ -603,6 +608,8 @@ function set_matrix!(
         require_axis_length(daf, "matrix rows", size(matrix, Rows), rows_axis)
         require_axis_length(daf, "matrix columns", size(matrix, Columns), columns_axis)
         if matrix isa NamedMatrix
+            require_dim_name(daf, rows_axis, "matrix rows dim name", dimnames(matrix, 1); prefix = "rows")
+            require_dim_name(daf, columns_axis, "matrix columns dim name", dimnames(matrix, 2); prefix = "columns")
             require_axis_names(daf, rows_axis, "row names of the: matrix", names(matrix, 1))
             require_axis_names(daf, columns_axis, "column names of the: matrix", names(matrix, 2))
         end
@@ -779,7 +786,7 @@ function require_matrix(
 )::Nothing
     if !has_matrix(daf, rows_axis, columns_axis, name)
         error(
-            "missing matrix property: $(name)\n" *
+            "missing matrix: $(name)\n" *
             "for the rows axis: $(rows_axis)\n" *
             "and the columns axis: $(columns_axis)\n" *
             "in the daf data: $(daf.name)",
@@ -796,7 +803,7 @@ function require_no_matrix(
 )::Nothing
     if has_matrix(daf, rows_axis, columns_axis, name)
         error(
-            "existing matrix property: $(name)\n" *
+            "existing matrix: $(name)\n" *
             "for the rows axis: $(rows_axis)\n" *
             "and the columns axis: $(columns_axis)\n" *
             "in the daf data: $(daf.name)",
@@ -837,8 +844,10 @@ function get_matrix(
         require_axis_length(daf, "default rows", size(default, Rows), rows_axis)
         require_axis_length(daf, "default columns", size(default, Columns), columns_axis)
         if default isa NamedMatrix
-            require_axis_names(daf, rows_axis, "row names of the: default matrix", names(default, 1))
-            require_axis_names(daf, columns_axis, "column names of the: default matrix", names(default, 2))
+            require_dim_name(daf, rows_axis, "default rows dim name", dimnames(default, 1); prefix = "rows")
+            require_dim_name(daf, columns_axis, "default columns dim name", dimnames(default, 2); prefix = "columns")
+            require_axis_names(daf, rows_axis, "row names of the: default", names(default, 1))
+            require_axis_names(daf, columns_axis, "column names of the: default", names(default, 2))
         end
     end
 
@@ -917,7 +926,7 @@ end
 
 function require_not_name(daf::ReadDaf, axis::AbstractString, name::AbstractString)::Nothing
     if name == "name"
-        error("setting the reserved property: name\n" * "for the axis: $(axis)\n" * "in the daf data: $(daf.name)")
+        error("setting the reserved vector: name\n" * "for the axis: $(axis)\n" * "in the daf data: $(daf.name)")
     end
     return nothing
 end
@@ -938,6 +947,22 @@ function as_read_only(array::AbstractArray)::SparseArrays.ReadOnly
     return SparseArrays.ReadOnly(array)
 end
 
+function require_dim_name(
+    daf::ReadDaf,
+    axis::AbstractString,
+    what::String,
+    name::Union{Symbol, String};
+    prefix::String = "",
+)::Nothing
+    if prefix != ""
+        prefix = prefix * " "
+    end
+    string_name = String(name)
+    if string_name != axis
+        error("$(what): $(string_name)\nis different from the $(prefix)axis: $(axis)\nin the daf data: $(daf.name)")
+    end
+end
+
 function require_axis_names(daf::ReadDaf, axis::AbstractString, what::String, names::Vector{String})::Nothing
     expected_names = get_axis(daf, axis)
     if names != expected_names
@@ -945,14 +970,14 @@ function require_axis_names(daf::ReadDaf, axis::AbstractString, what::String, na
     end
 end
 
-function as_named_vector(daf::ReadDaf, axis::AbstractString, vector::NamedVector)::NamedVector
+function as_named_vector(daf::ReadDaf, axis::AbstractString, vector::NamedVector)::NamedArray
     return vector
 end
 
 function as_named_vector(daf::ReadDaf, axis::AbstractString, vector::AbstractVector)::NamedArray
     axis_names_dict = get(daf.internal.axes, axis, nothing)
     if axis_names_dict == nothing
-        named_array = NamedArray(vector, (get_axis(daf, axis),), (axis,))
+        named_array = NamedArray(vector; names = (get_axis(daf, axis),), dimnames = (axis,))
         daf.internal.axes[axis] = named_array.dicts[1]
         return named_array
 
@@ -966,7 +991,7 @@ function as_named_matrix(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     matrix::NamedMatrix,
-)::NamedMatrix
+)::NamedArray
     return matrix
 end
 
@@ -979,8 +1004,11 @@ function as_named_matrix(
     rows_axis_names_dict = get(daf.internal.axes, rows_axis, nothing)
     columns_axis_names_dict = get(daf.internal.axes, columns_axis, nothing)
     if rows_axis_names_dict == nothing || columns_axis_names_dict == nothing
-        named_array =
-            NamedArray(matrix, (get_axis(daf, rows_axis), get_axis(daf, columns_axis)), (rows_axis, columns_axis))
+        named_array = NamedArray(
+            matrix;
+            names = (get_axis(daf, rows_axis), get_axis(daf, columns_axis)),
+            dimnames = (rows_axis, columns_axis),
+        )
         daf.internal.axes[rows_axis] = named_array.dicts[1]
         daf.internal.axes[columns_axis] = named_array.dicts[2]
         return named_array
@@ -1280,7 +1308,7 @@ function compute_property_lookup(daf::ReadDaf, axis::AbstractString, property_lo
         if eltype(values) != String
             error(
                 "non-String data type: $(eltype(values))\n" *
-                "for the chained property: $(last_property_name)\n" *
+                "for the chained: $(last_property_name)\n" *
                 "for the axis: $(axis)\n" *
                 "in the daf data: $(daf.name)",
             )
@@ -1336,7 +1364,7 @@ function find_axis_value(
     if index == nothing
         error(
             "invalid value: $(last_property_value)\n" *
-            "of the chained property: $(last_property_name)\n" *
+            "of the chained: $(last_property_name)\n" *
             "of the axis: $(last_axis)\n" *
             "is missing from the next axis: $(next_axis)\n" *
             "in the daf data: $(daf.name)",
