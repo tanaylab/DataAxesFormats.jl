@@ -18,13 +18,65 @@ import Distributed.@everywhere
 using Base.MathConstants
 
 export Abs
+export float_dtype_for
 export invalid_parameter_value
 export Log
 export Max
 export parse_dtype_assignment
 export parse_number_assignment
 export parse_parameter
+export Round
 export Sum
+
+FLOAT_DTYPE_FOR = Dict{Type, Type}(
+    Bool => Float32,
+    Int8 => Float32,
+    Int16 => Float32,
+    Int32 => Float32,
+    Int64 => Float64,
+    UInt8 => Float32,
+    UInt16 => Float32,
+    UInt32 => Float32,
+    UInt64 => Float64,
+    Float32 => Float32,
+    Float64 => Float64,
+)
+
+"""
+    float_dtype_for(element_type::Type)::Type
+
+Given an input `element_type`, return the data type to use for the result of an operation that always produces floating
+point values (e.g., `Log`).
+"""
+function float_dtype_for(element_type::Type)::Type
+    global FLOAT_DTYPE_FOR
+    return FLOAT_DTYPE_FOR[element_type]
+end
+
+INT_DTYPE_FOR = Dict{Type, Type}(
+    Bool => Bool,
+    Int8 => Int8,
+    Int16 => Int16,
+    Int32 => Int32,
+    Int64 => Int64,
+    UInt8 => UInt8,
+    UInt16 => UInt16,
+    UInt32 => UInt32,
+    UInt64 => UInt64,
+    Float32 => Int32,
+    Float64 => Int64,
+)
+
+"""
+    int_dtype_for(element_type::Type)::Type
+
+Given an input `element_type`, return the data type to use for the result of an operation that always produces integer
+values (e.g., `Round`).
+"""
+function int_dtype_for(element_type::Type)::Type
+    global INT_DTYPE_FOR
+    return INT_DTYPE_FOR[element_type]
+end
 
 """
     invalid_parameter_value(
@@ -86,7 +138,7 @@ DTYPE_BY_NAME = Dict{String, Union{Type, Nothing}}(
 
 Parse the `dtype` operation parameter.
 
-Valid names are `{B,b}ool`, `{UI,ui,I,i}nt{8,16,32,64}` and `{F,f}loat{32,64}`, and `auto` which is parsed to `nothing`.
+Valid names are `{B,b}ool`, `{UI,ui,I,i}nt{8,16,32,64}` and `{F,f}loat{32,64}`.
 """
 function parse_dtype_assignment(context::QueryContext, parameter_assignment::QueryOperation)::Union{Type, Nothing}
     dtype_name = parameter_assignment.right.string
@@ -149,34 +201,47 @@ end
 
 """
 Element-wise operation that converts every element to its absolute value.
-
-**Parameters**:
-
-`dtype` - Force the result data type. By default the data type is identical to the input data type.
 """
-struct Abs <: EltwiseOperation
-    dtype::Union{Type, Nothing}
-end
+struct Abs <: EltwiseOperation end
 @query_operation Abs
 
 function Abs(context::QueryContext, parameters_assignments::Dict{String, QueryOperation})::Abs
-    dtype = parse_parameter(parse_dtype_assignment, context, parameters_assignments, "dtype", nothing)
-    return Abs(dtype)
+    return Abs()
 end
 
 function compute_eltwise(
     operation::Abs,
-    input::Union{StorageMatrix, StorageVector},
-)::Union{StorageMatrix, StorageVector}
-    dtype = same_dtype_for(eltype(input), operation.dtype)
-    output = similar(input, dtype)
-    output .= abs.(input)
-    return output
+    input::S,
+)::S where {T <: Number, S <: Union{StorageMatrix{T}, StorageVector{T}}}
+    return abs.(input)
 end
 
-function compute_eltwise(operation::Abs, input::Number)::Number
-    dtype = same_dtype_for(eltype(input), operation.dtype)
-    return dtype(abs(input))
+function compute_eltwise(operation::Abs, input::T)::T where {T <: Number}
+    return abs(input)
+end
+
+"""
+Element-wise operation that converts every element to the nearest integer value.
+"""
+struct Round <: EltwiseOperation
+    dtype::Union{Type, Nothing}
+end
+@query_operation Round
+
+function Round(context::QueryContext, parameters_assignments::Dict{String, QueryOperation})::Round
+    dtype = parse_parameter(parse_dtype_assignment, context, parameters_assignments, "dtype", nothing)
+    return Round(dtype)
+end
+
+function compute_eltwise(
+    operation::Round,
+    input::Union{StorageMatrix{T}, StorageVector{T}},
+)::Union{StorageMatrix, StorageVector} where {T <: Number}
+    return round.(int_dtype_for(eltype(input)), input)
+end
+
+function compute_eltwise(operation::Round, input::Number)::Number  # untested
+    return round(int_dtype_for(typeof(input)), input)
 end
 
 """
@@ -184,24 +249,18 @@ Element-wise operation that converts every element to its logarithm.
 
 **Parameters**:
 
-`dtype` - Force the result data type. By default the data type is `Float64` if the input is 64-bit data, `Float32`
-otherwise.
-
 `base` - The base of the logarithm. By default uses `e` (that is, computes the natural logarithm), which isn't
 convenient, but is the standard.
 
 `eps` - Added to the input before computing the logarithm, to handle zero input data. By default is zero.
 """
 struct Log <: EltwiseOperation
-    dtype::Union{Type, Nothing}
     base::Float64
     eps::Float64
 end
 @query_operation Log
 
 function Log(context::QueryContext, parameters_assignments::Dict{String, QueryOperation})::Log
-    dtype = parse_parameter(parse_dtype_assignment, context, parameters_assignments, "dtype", nothing)
-
     base = parse_parameter(context, parameters_assignments, "base", Float64(e)) do context, parameter_assignment
         base = parse_number_assignment(context, parameter_assignment, Float64)
         if base <= 0
@@ -218,14 +277,14 @@ function Log(context::QueryContext, parameters_assignments::Dict{String, QueryOp
         return eps
     end
 
-    return Log(dtype, base, eps)
+    return Log(base, eps)
 end
 
 function compute_eltwise(
     operation::Log,
-    input::Union{StorageMatrix, StorageVector},
-)::Union{StorageMatrix, StorageVector}
-    dtype = float_dtype_for(eltype(input), operation.dtype)
+    input::Union{StorageMatrix{T}, StorageVector{T}},
+)::Union{StorageMatrix, StorageVector} where {T <: Number}
+    dtype = float_dtype_for(eltype(input))
     output = similar(input, dtype)
     output .= input
     output .+= dtype(operation.eps)
@@ -234,55 +293,39 @@ function compute_eltwise(
     return output
 end
 
-function compute_eltwise(operation::Log, input::Number)::Number  # untested
-    dtype = same_dtype_for(eltype(input), operation.dtype)
+function compute_eltwise(operation::Log, input::T)::T where {T <: Number}  # untested
+    dtype = float_dtype_for(eltype(input))
     return log(dtype(dtype(input) + dtype(operation.eps))) / log(dtype(operation.base))
 end
 
 """
 Reduction operation that sums elements.
-
-**Parameters**:
-
-`dtype` - Force the result data type. By default the data type is identical to the input data type.
 """
-struct Sum <: ReductionOperation
-    dtype::Union{Type, Nothing}
-end
+struct Sum <: ReductionOperation end
 @query_operation Sum
 
 function Sum(context::QueryContext, parameters_assignments::Dict{String, QueryOperation})::Sum
-    dtype = parse_parameter(parse_dtype_assignment, context, parameters_assignments, "dtype", nothing)
-    return Sum(dtype)
+    return Sum()
 end
 
-function compute_reduction(operation::Sum, input::StorageMatrix)::StorageVector
-    dtype = same_dtype_for(eltype(input), operation.dtype)
-    result = Vector{dtype}(undef, size(input)[2])
+function compute_reduction(operation::Sum, input::StorageMatrix{T})::StorageVector{T} where {T <: Number}
+    result = Vector{eltype(input)}(undef, size(input)[2])
     result .= transpose(sum(input; dims = 1))
     return result
 end
 
-function compute_reduction(operation::Sum, input::StorageVector)::Number
-    dtype = same_dtype_for(eltype(input), operation.dtype)
-    return dtype(sum(input))
+function compute_reduction(operation::Sum, input::StorageVector{T})::T where {T <: Number}
+    return sum(input)
 end
 
 """
 Reduction operation that returns the maximal element.
-
-**Parameters**:
-
-`dtype` - Force the result data type. By default the data type is identical to the input data type.
 """
-struct Max <: ReductionOperation
-    dtype::Union{Type, Nothing}
-end
+struct Max <: ReductionOperation end
 @query_operation Max
 
 function Max(context::QueryContext, parameters_assignments::Dict{String, QueryOperation})::Max
-    dtype = parse_parameter(parse_dtype_assignment, context, parameters_assignments, "dtype", nothing)
-    return Max(dtype)
+    return Max()
 end
 
 end # module

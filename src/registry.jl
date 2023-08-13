@@ -12,55 +12,11 @@ module Registry
 export compute_eltwise
 export compute_reduction
 export EltwiseOperation
-export float_dtype_for
 export @query_operation
 export ReductionOperation
 export register_query_operation
-export same_dtype_for
 
 using Daf.StorageTypes
-
-FLOAT_DTYPE = Dict{Type, Type}(
-    Bool => Float32,
-    Int8 => Float32,
-    Int16 => Float32,
-    Int32 => Float32,
-    Int64 => Float64,
-    UInt8 => Float32,
-    UInt16 => Float32,
-    UInt32 => Float32,
-    UInt64 => Float64,
-    Float32 => Float32,
-    Float64 => Float64,
-)
-
-"""
-    float_dtype_for(element_type::Type, dtype::Union{Type, Nothing})::Type
-
-Given an input `element_type` and the value of the mandatory `dtype` operation parameter, return the data type to use
-for the result of an operation that always produces floating point values (e.g., `Log`).
-"""
-function float_dtype_for(element_type::Type, dtype::Union{Type, Nothing})::Type
-    if dtype == nothing
-        return FLOAT_DTYPE[element_type]
-    else
-        return dtype
-    end
-end
-
-"""
-    same_dtype_for(element_type::Type, dtype::Union{Type, Nothing})::Type
-
-Given an input `element_type` and the value of the mandatory `dtype` operation parameter, return the data type to use
-for the result of an operation that does not modify the type of the data (e.g., `Min`).
-"""
-function same_dtype_for(element_type::Type, dtype::Union{Type, Nothing})::Type
-    if dtype == nothing
-        return element_type
-    else
-        return dtype
-    end
-end
 
 # An operation in the global registry (used for parsing).
 struct RegisteredOperation
@@ -82,17 +38,15 @@ element.
 To implement a new such operation, the type is expected to be of the form:
 
     struct MyOperation <: EltwiseOperation
-        dtype::Union{Type, Nothing}
-        ... other parameters ...
+        ... optional parameters ...
     end
     @query_operation MyOperation
 
     MyOperation(context::QueryContext, parameters_assignments::Dict{String, QueryOperation})::MyOperation
 
-The constructor should use `parse_parameter` for each of the parameters (using `parse_dtype_assignment` for the
-mandatory `dtype` parameter, and typically `parse_number_assignment` for the rest). In addition you will need to invoke
-[`@query_operation`](@ref) to register the operation so it can be used in a query, and implement the functions listed
-below. See the query operations module for details and examples.
+The constructor should use `parse_parameter` for each of the parameters (for example, using `parse_number_assignment`).
+In addition you will need to invoke [`@query_operation`](@ref) to register the operation so it can be used in a query,
+and implement the functions listed below. See the query operations module for details and examples.
 """
 abstract type EltwiseOperation <: AbstractOperation end
 
@@ -118,16 +72,15 @@ entry per column, containing the result of reducing the column to a scalar.
 To implement a new such operation, the type is expected to be of the form:
 
     struct MyOperation <: ReductionOperation
-        dtype::Union{Type, Nothing}
-        ... other parameters ...
+        ... optional parameters ...
     end
 
     MyOperation(context::QueryContext, parameters_assignments::Dict{String, QueryOperation})::MyOperation
 
-The constructor should use `parse_parameter` for each of the parameters (using `parse_dtype_assignment` for the
-mandatory `dtype` parameter, and typically `parse_number_assignment` for the rest). In addition you will need to invoke
-[`@query_operation`](@ref) to register the operation so it can be used in a query, and implement the functions listed
-below. See the query operations module for details and examples.
+The constructor should use `parse_parameter` for each of the parameters (for example, using typically
+`parse_number_assignment`). In addition you will need to invoke [`@query_operation`](@ref) to register the operation so
+it can be used in a query, and implement the functions listed below. See the query operations module for details and
+examples.
 """
 abstract type ReductionOperation <: AbstractOperation end
 
@@ -188,10 +141,6 @@ function register_query_operation(
                 "2nd in: $(source_file):$(source_line)",
             )
         end
-    end
-
-    if !(:dtype in fieldnames(T))
-        error("missing field: dtype\n" * "for the $(kind) operation: $(name)\n" * "in: $(source_file):$(source_line)")
     end
 
     registered_operations[name] = RegisteredOperation(type, source_file, source_line)

@@ -77,12 +77,12 @@ nested_test("query") do
 
         nested_test("eltwise") do
             nested_test("single") do
-                @test canonical(parse_matrix_query("a, b @ c % Abs")) == "a, b @ c % Abs; dtype = auto"
+                @test canonical(parse_matrix_query("a, b @ c % Round")) == "a, b @ c % Round; dtype = auto"
             end
 
             nested_test("multiple") do
-                @test canonical(parse_matrix_query("a, b @ c % Abs % Log; dtype = Float32")) ==
-                      "a, b @ c % Abs; dtype = auto % Log; dtype = Float32, base = e, eps = 0.0"
+                @test canonical(parse_matrix_query("a, b @ c % Round; dtype = auto % Log")) ==
+                      "a, b @ c % Round; dtype = auto % Log; base = e, eps = 0.0"
             end
 
             nested_test("unknown") do
@@ -97,7 +97,7 @@ nested_test("query") do
             nested_test("parameters") do
                 nested_test("()") do
                     @test canonical(parse_matrix_query("a, b @ c % Abs % Log; base = 2, eps = 1e-5")) ==
-                          "a, b @ c % Abs; dtype = auto % Log; dtype = auto, base = 2.0, eps = 1.0e-5"
+                          "a, b @ c % Abs % Log; base = 2.0, eps = 1.0e-5"
                 end
 
                 nested_test("unknown") do
@@ -131,12 +131,12 @@ nested_test("query") do
                             invalid value: "String"
                             value must be: a number type
                             for the parameter: dtype
-                            in: a, b @ c % Abs; dtype = String
-                            in:                         ▲▲▲▲▲▲ (parameter value)
-                            in:                 ····· = ······ (parameter assignment)
-                            in:            ···; ·············· (eltwise operation)
-                            in: ········ % ··················· (matrix query)
-                        """) canonical(parse_matrix_query("a, b @ c % Abs; dtype = String"))
+                            in: a, b @ c % Round; dtype = String
+                            in:                           ▲▲▲▲▲▲ (parameter value)
+                            in:                   ····· = ······ (parameter assignment)
+                            in:            ·····; ·············· (eltwise operation)
+                            in: ········ % ····················· (matrix query)
+                        """) canonical(parse_matrix_query("a, b @ c % Round; dtype = String"))
 
                         @test_throws dedent("""
                             invalid value: "x"
@@ -209,8 +209,7 @@ nested_test("query") do
         end
 
         nested_test("eltwise") do
-            @test canonical(parse_vector_query("a @ b % Log; base = e")) ==
-                  "a @ b % Log; dtype = auto, base = e, eps = 0.0"
+            @test canonical(parse_vector_query("a @ b % Log; base = e")) == "a @ b % Log; base = e, eps = 0.0"
         end
 
         nested_test("slice") do
@@ -240,12 +239,12 @@ nested_test("query") do
 
         nested_test("reduction") do
             nested_test("()") do
-                @test canonical(parse_vector_query("a, b @ d %> Sum")) == "a, b @ d %> Sum; dtype = auto"
+                @test canonical(parse_vector_query("a, b @ d %> Sum")) == "a, b @ d %> Sum"
             end
 
             nested_test("eltwise") do
                 @test canonical(parse_vector_query("a, b @ d % Abs %> Sum % Log")) ==
-                      "a, b @ d % Abs; dtype = auto %> Sum; dtype = auto % Log; dtype = auto, base = e, eps = 0.0"
+                      "a, b @ d % Abs %> Sum % Log; base = e, eps = 0.0"
             end
         end
     end
@@ -260,20 +259,18 @@ nested_test("query") do
         end
 
         nested_test("eltwise") do
-            @test canonical(parse_scalar_query("a % Abs")) == "a % Abs; dtype = auto"
+            @test canonical(parse_scalar_query("a % Abs")) == "a % Abs"
         end
 
         nested_test("reduction") do
             nested_test("vector") do
                 nested_test("()") do
-                    @test canonical(parse_scalar_query("a @ b %> Sum")) == "a @ b %> Sum; dtype = auto"
+                    @test canonical(parse_scalar_query("a @ b %> Sum")) == "a @ b %> Sum"
                 end
 
                 nested_test("eltwise") do
-                    @test canonical(parse_scalar_query("a @ b % Abs %> Sum")) ==
-                          "a @ b % Abs; dtype = auto %> Sum; dtype = auto"
-                    @test canonical(parse_scalar_query("a @ b %> Sum % Abs")) ==
-                          "a @ b %> Sum; dtype = auto % Abs; dtype = auto"
+                    @test canonical(parse_scalar_query("a @ b % Abs %> Sum")) == "a @ b % Abs %> Sum"
+                    @test canonical(parse_scalar_query("a @ b %> Sum % Abs")) == "a @ b %> Sum % Abs"
                 end
             end
 
@@ -290,7 +287,7 @@ nested_test("query") do
 
                 nested_test("eltwise") do
                     @test canonical(parse_scalar_query("a, b @ c % Abs %> Sum % Log %> Max")) ==
-                          "a, b @ c % Abs; dtype = auto %> Sum; dtype = auto % Log; dtype = auto, base = e, eps = 0.0 %> Max; dtype = auto"
+                          "a, b @ c % Abs %> Sum % Log; base = e, eps = 0.0 %> Max"
                 end
             end
         end
@@ -306,7 +303,7 @@ nested_test("query") do
                 end
 
                 nested_test("eltwise") do
-                    @test canonical(parse_scalar_query("a = b @ c % Abs")) == "a = b @ c % Abs; dtype = auto"
+                    @test canonical(parse_scalar_query("a = b @ c % Abs")) == "a = b @ c % Abs"
                 end
             end
 
@@ -316,8 +313,7 @@ nested_test("query") do
                 end
 
                 nested_test("eltwise") do
-                    @test canonical(parse_scalar_query("a = b, c = d @ e % Abs")) ==
-                          "a = b, c = d @ e % Abs; dtype = auto"
+                    @test canonical(parse_scalar_query("a = b, c = d @ e % Abs")) == "a = b, c = d @ e % Abs"
                 end
             end
         end

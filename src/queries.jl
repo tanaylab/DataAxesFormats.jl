@@ -326,7 +326,11 @@ function canonical(operation::AbstractOperation)::String
         ],
         ", ",
     )
-    return "$(typeof(operation)); $(parameters)"
+    if parameters == ""
+        return "$(typeof(operation))"
+    else
+        return "$(typeof(operation)); $(parameters)"
+    end
 end
 
 """
