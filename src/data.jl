@@ -1022,7 +1022,7 @@ function base_array(array::AbstractArray)::AbstractArray
     return array
 end
 
-function base_array(array::SparseArrays.ReadOnly)::AbstractArray  # untested
+function base_array(array::SparseArrays.ReadOnly)::AbstractArray
     return base_array(parent(array))
 end
 
@@ -1039,7 +1039,6 @@ terseness.
 function description(daf::ReadDaf)::AbstractString
     lines = String[]
 
-    push!(lines, "type: $(typeof(daf))")
     push!(lines, "name: $(daf.name)")
 
     Formats.format_description_header(daf, lines)

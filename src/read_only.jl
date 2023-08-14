@@ -15,6 +15,8 @@ using Daf.Messages
 using Daf.StorageTypes
 using SparseArrays
 
+import Daf.Data.as_read_only
+
 """
     ReadOnly(daf::F) where {F <: WriteDaf}
 
@@ -94,7 +96,7 @@ function Formats.format_get_vector(
     axis::AbstractString,
     name::AbstractString,
 )::StorageVector
-    return Formats.format_get_vector(read_only_view.daf, axis, name)
+    return as_read_only(Formats.format_get_vector(read_only_view.daf, axis, name))
 end
 
 function Formats.format_has_matrix(
@@ -120,7 +122,12 @@ function Formats.format_get_matrix(
     columns_axis::AbstractString,
     name::AbstractString,
 )::StorageMatrix
-    return Formats.format_get_matrix(read_only_view.daf, rows_axis, columns_axis, name)
+    return as_read_only(Formats.format_get_matrix(read_only_view.daf, rows_axis, columns_axis, name))
+end
+
+function Formats.format_description_header(daf::ReadOnlyView, lines::Array{String})::Nothing
+    push!(lines, "type: ReadOnly $(typeof(daf.daf))")
+    return nothing
 end
 
 end

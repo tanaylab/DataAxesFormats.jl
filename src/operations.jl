@@ -211,8 +211,8 @@ end
 
 function compute_eltwise(
     operation::Abs,
-    input::S,
-)::S where {T <: Number, S <: Union{StorageMatrix{T}, StorageVector{T}}}
+    input::Union{StorageMatrix{T}, StorageVector{T}},
+)::Union{StorageMatrix, StorageVector} where {T <: Number}
     return abs.(input)
 end
 

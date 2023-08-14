@@ -512,6 +512,7 @@ end
 Allow a `format` to amit additional description header lines.
 """
 function format_description_header(daf::ReadFormat, lines::Array{String})::Nothing
+    push!(lines, "type: $(typeof(daf))")
     return nothing
 end
 

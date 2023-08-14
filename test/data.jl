@@ -1504,6 +1504,10 @@ nested_test("data") do
     nested_test("memory") do
         daf = MemoryDaf("memory!")
         @test daf.name == "memory!"
+        @test description(daf) == dedent("""
+            name: memory!
+            type: MemoryDaf
+        """) * "\n"
         test_format(daf)
         return nothing
     end

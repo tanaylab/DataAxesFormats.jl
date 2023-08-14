@@ -1,10 +1,11 @@
 nested_test("example_data") do
-    daf = Daf.ExampleData.example_daf()
+    daf = read_only(Daf.ExampleData.example_daf())
+    @test read_only(daf) === daf
 
     nested_test("description") do
         @test description(daf) == dedent("""
-            type: MemoryDaf
             name: example!
+            type: ReadOnly MemoryDaf
             scalars:
               version: "1.0"
             axes:
