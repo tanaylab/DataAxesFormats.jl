@@ -7,8 +7,8 @@ Daf.Formats
 ## Read API
 
 ```@docs
-Daf.Formats.ReadDaf
-Daf.Formats.ReadFormat
+Daf.Formats.DafReader
+Daf.Formats.FormatReader
 Daf.Formats.Internal
 ```
 
@@ -55,8 +55,8 @@ Daf.Formats.format_get_matrix
 ## Write API
 
 ```@docs
-Daf.Formats.WriteDaf
-Daf.Formats.WriteFormat
+Daf.Formats.DafWriter
+Daf.Formats.FormatWriter
 ```
 
 ### Scalar properties
@@ -84,6 +84,7 @@ Daf.Formats.format_delete_vector!
 
 ```@docs
 Daf.Formats.format_set_matrix!
+Daf.Formats.format_relayout_matrix!
 Daf.Formats.format_delete_matrix!
 ```
 

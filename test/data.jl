@@ -2,11 +2,19 @@ CELL_NAMES = ["TATA", "GATA", "CATA"]
 GENE_NAMES = ["RSPO3", "FOXA1", "WNT6", "TNNI1"]
 MARKER_GENES_BY_DEPTH =
     [[true, false, true, false], [false, true, false, true], [false, false, true, true], [true, true, false, false]]
-UMIS_BY_DEPTH = [[0 1 2 3; 1 2 3 0; 2 3 0 1], [1 2 3 0; 2 3 0 1; 3 0 1 2], [2 3 0 1; 3 0 1 2; 0 1 2 3]]
+UMIS_BY_DEPTH =
+    [[0 1 2 3; 1 2 3 0; 2 3 0 1], [1 2 3 0; 2 3 0 1; 3 0 1 2], [2 3 0 1; 3 0 1 2; 0 1 2 3], [3 0 1 2; 0 1 2 3; 1 2 3 0]]
 
-function test_missing_scalar(daf::WriteDaf, depth::Int)::Nothing
+function test_missing_scalar(daf::DafReader, depth::Int)::Nothing
     if depth > 3
         return nothing
+    end
+
+    if daf isa DafWriter
+        nested_test("read_only") do
+            test_missing_scalar(read_only(daf), depth)
+            return nothing
+        end
     end
 
     nested_test("has_scalar") do
@@ -28,6 +36,10 @@ function test_missing_scalar(daf::WriteDaf, depth::Int)::Nothing
         nested_test("default") do
             @test get_scalar(daf, "depth"; default = -2) == -2
         end
+    end
+
+    if !(daf isa DafWriter)
+        return nothing
     end
 
     nested_test("delete_scalar!") do
@@ -61,7 +73,14 @@ function test_missing_scalar(daf::WriteDaf, depth::Int)::Nothing
     end
 end
 
-function test_existing_scalar(daf::WriteDaf, depth::Int)::Nothing
+function test_existing_scalar(daf::DafReader, depth::Int)::Nothing
+    if daf isa DafWriter
+        nested_test("read_only") do
+            test_existing_scalar(read_only(daf), depth)
+            return nothing
+        end
+    end
+
     if depth > 3
         return nothing
     end
@@ -82,6 +101,10 @@ function test_existing_scalar(daf::WriteDaf, depth::Int)::Nothing
         nested_test("default") do
             @test get_scalar(daf, "depth"; default = -2) == depth
         end
+    end
+
+    if !(daf isa DafWriter)
+        return nothing
     end
 
     nested_test("delete_scalar!") do
@@ -139,9 +162,16 @@ function test_existing_scalar(daf::WriteDaf, depth::Int)::Nothing
     end
 end
 
-function test_missing_axis(daf::WriteDaf, depth::Int)::Nothing
+function test_missing_axis(daf::DafReader, depth::Int)::Nothing
     if depth > 3
         return nothing  # untested
+    end
+
+    if daf isa DafWriter
+        nested_test("read_only") do
+            test_missing_axis(read_only(daf), depth)
+            return nothing
+        end
     end
 
     nested_test("has_axis") do
@@ -171,6 +201,10 @@ function test_missing_axis(daf::WriteDaf, depth::Int)::Nothing
             missing axis: gene
             in the daf data: $(daf.name)
         """) get_axis(daf, "gene")
+    end
+
+    if !(daf isa DafWriter)
+        return nothing
     end
 
     nested_test("delete_axis") do
@@ -213,9 +247,16 @@ function test_missing_axis(daf::WriteDaf, depth::Int)::Nothing
     end
 end
 
-function test_existing_axis(daf::WriteDaf, depth::Int)::Nothing
+function test_existing_axis(daf::DafReader, depth::Int)::Nothing
     if depth > 3
         return nothing
+    end
+
+    if daf isa DafWriter
+        nested_test("read_only") do
+            test_existing_axis(read_only(daf), depth)
+            return nothing
+        end
     end
 
     nested_test("has_axis") do
@@ -240,6 +281,10 @@ function test_existing_axis(daf::WriteDaf, depth::Int)::Nothing
 
     nested_test("name") do
         @test get_vector(daf, "gene", "name") == GENE_NAMES
+    end
+
+    if !(daf isa DafWriter)
+        return nothing
     end
 
     nested_test("delete_axis!") do
@@ -278,9 +323,16 @@ function test_existing_axis(daf::WriteDaf, depth::Int)::Nothing
     end
 end
 
-function test_missing_vector_axis(daf::WriteDaf, depth::Int)::Nothing
+function test_missing_vector_axis(daf::DafReader, depth::Int)::Nothing
     if depth > 3
         return nothing
+    end
+
+    if daf isa DafWriter
+        nested_test("read_only") do
+            test_missing_vector_axis(read_only(daf), depth)
+            return nothing
+        end
     end
 
     nested_test("has_vector") do
@@ -302,6 +354,10 @@ function test_missing_vector_axis(daf::WriteDaf, depth::Int)::Nothing
             missing axis: gene
             in the daf data: $(daf.name)
         """) get_vector(daf, "gene", "marker")
+    end
+
+    if !(daf isa DafWriter)
+        return nothing
     end
 
     nested_test("delete_vector") do
@@ -355,9 +411,16 @@ function test_missing_vector_axis(daf::WriteDaf, depth::Int)::Nothing
     end
 end
 
-function test_missing_vector(daf::WriteDaf, depth::Int)::Nothing
+function test_missing_vector(daf::DafReader, depth::Int)::Nothing
     if depth > 3
         return nothing
+    end
+
+    if daf isa DafWriter
+        nested_test("read_only") do
+            test_missing_vector(read_only(daf), depth)
+            return nothing
+        end
     end
 
     nested_test("has_vector") do
@@ -456,6 +519,10 @@ function test_missing_vector(daf::WriteDaf, depth::Int)::Nothing
                 end
             end
         end
+    end
+
+    if !(daf isa DafWriter)
+        return nothing
     end
 
     nested_test("delete_vector") do
@@ -557,7 +624,8 @@ function test_missing_vector(daf::WriteDaf, depth::Int)::Nothing
         nested_test("dense") do
             empty = empty_dense_vector!(daf, "gene", "marker", Bool)
             empty .= MARKER_GENES_BY_DEPTH[depth]
-            return test_existing_vector(daf, depth + 1)
+            test_existing_vector(daf, depth + 1)
+            return nothing
         end
 
         nested_test("sparse") do
@@ -565,14 +633,22 @@ function test_missing_vector(daf::WriteDaf, depth::Int)::Nothing
             sparse = SparseVector(MARKER_GENES_BY_DEPTH[depth])
             empty.array.nzind .= sparse.nzind
             empty.array.nzval .= sparse.nzval
-            return test_existing_vector(daf, depth + 1)
+            test_existing_vector(daf, depth + 1)
+            return nothing
         end
     end
 end
 
-function test_existing_vector(daf::WriteDaf, depth::Int)::Nothing
+function test_existing_vector(daf::DafReader, depth::Int)::Nothing
     if depth > 3
         return nothing
+    end
+
+    if daf isa DafWriter
+        nested_test("read_only") do
+            test_existing_vector(read_only(daf), depth)
+            return nothing
+        end
     end
 
     nested_test("has_vector") do
@@ -607,6 +683,10 @@ function test_existing_vector(daf::WriteDaf, depth::Int)::Nothing
                 """) get_vector(daf, "gene", "marker"; default = [false, false, false])
             end
         end
+    end
+
+    if !(daf isa DafWriter)
+        return nothing
     end
 
     nested_test("delete_vector!") do
@@ -738,16 +818,24 @@ function test_existing_vector(daf::WriteDaf, depth::Int)::Nothing
                         overwrite = true,
                     )
                     empty .= SparseVector(MARKER_GENES_BY_DEPTH[depth])
-                    return test_existing_vector(daf, depth + 1)
+                    test_existing_vector(daf, depth + 1)
+                    return nothing
                 end
             end
         end
     end
 end
 
-function test_missing_matrix_axis(daf::WriteDaf, depth::Int)::Nothing
+function test_missing_matrix_axis(daf::DafReader, depth::Int)::Nothing
     if depth > 3
         return nothing
+    end
+
+    if daf isa DafWriter
+        nested_test("read_only") do
+            test_missing_matrix_axis(read_only(daf), depth)
+            return nothing
+        end
     end
 
     nested_test("has_matrix") do
@@ -755,11 +843,14 @@ function test_missing_matrix_axis(daf::WriteDaf, depth::Int)::Nothing
             missing axis: cell
             in the daf data: $(daf.name)
         """) has_matrix(daf, "cell", "gene", "UMIs")
-        @test add_axis!(daf, "cell", CELL_NAMES) == nothing
-        @test_throws dedent("""
-            missing axis: gene
-            in the daf data: $(daf.name)
-        """) has_matrix(daf, "cell", "gene", "UMIs")
+
+        if daf isa DafWriter
+            @test add_axis!(daf, "cell", CELL_NAMES) == nothing
+            @test_throws dedent("""
+                missing axis: gene
+                in the daf data: $(daf.name)
+            """) has_matrix(daf, "cell", "gene", "UMIs")
+        end
     end
 
     nested_test("matrix_names") do
@@ -767,11 +858,14 @@ function test_missing_matrix_axis(daf::WriteDaf, depth::Int)::Nothing
             missing axis: cell
             in the daf data: $(daf.name)
         """) matrix_names(daf, "cell", "gene")
-        @test add_axis!(daf, "cell", CELL_NAMES) == nothing
-        @test_throws dedent("""
-            missing axis: gene
-            in the daf data: $(daf.name)
-        """) matrix_names(daf, "cell", "gene")
+
+        if daf isa DafWriter
+            @test add_axis!(daf, "cell", CELL_NAMES) == nothing
+            @test_throws dedent("""
+                missing axis: gene
+                in the daf data: $(daf.name)
+            """) matrix_names(daf, "cell", "gene")
+        end
     end
 
     nested_test("get_matrix") do
@@ -779,11 +873,18 @@ function test_missing_matrix_axis(daf::WriteDaf, depth::Int)::Nothing
             missing axis: cell
             in the daf data: $(daf.name)
         """) get_matrix(daf, "cell", "gene", "UMIs")
-        @test add_axis!(daf, "cell", CELL_NAMES) == nothing
-        @test_throws dedent("""
-            missing axis: gene
-            in the daf data: $(daf.name)
-        """) get_matrix(daf, "cell", "gene", "UMIs")
+
+        if daf isa DafWriter
+            @test add_axis!(daf, "cell", CELL_NAMES) == nothing
+            @test_throws dedent("""
+                missing axis: gene
+                in the daf data: $(daf.name)
+            """) get_matrix(daf, "cell", "gene", "UMIs")
+        end
+    end
+
+    if !(daf isa DafWriter)
+        return nothing
     end
 
     nested_test("delete_matrix") do
@@ -867,27 +968,56 @@ function test_missing_matrix_axis(daf::WriteDaf, depth::Int)::Nothing
     end
 end
 
-function test_missing_matrix(daf::WriteDaf, depth::Int)::Nothing
+function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
     if depth > 3
         return nothing
     end
 
+    if daf isa DafWriter
+        nested_test("read_only") do
+            test_missing_matrix(read_only(daf), depth)
+            return nothing
+        end
+    end
+
     nested_test("has_matrix") do
-        @test !has_matrix(daf, "cell", "gene", "UMIs")
+        @test !has_matrix(daf, "cell", "gene", "UMIs"; relayout = false)
     end
 
     nested_test("matrix_names") do
-        @test isempty(matrix_names(daf, "cell", "gene"))
+        @test isempty(matrix_names(daf, "cell", "gene"; relayout = false))
     end
 
     nested_test("get_matrix") do
-        nested_test("()") do
-            @test_throws dedent("""
-                missing matrix: UMIs
-                for the rows axis: cell
-                and the columns axis: gene
-                in the daf data: $(daf.name)
-            """) get_matrix(daf, "cell", "gene", "UMIs")
+        nested_test("relayout") do
+            nested_test("default") do
+                @test_throws dedent("""
+                    missing matrix: UMIs
+                    for the rows axis: cell
+                    and the columns axis: gene
+                    or the other way around
+                    in the daf data: $(daf.name)
+                """) get_matrix(daf, "cell", "gene", "UMIs")
+            end
+
+            nested_test("true") do
+                @test_throws dedent("""
+                    missing matrix: UMIs
+                    for the rows axis: cell
+                    and the columns axis: gene
+                    or the other way around
+                    in the daf data: $(daf.name)
+                """) get_matrix(daf, "cell", "gene", "UMIs"; relayout = true)
+            end
+
+            nested_test("false") do
+                @test_throws dedent("""
+                    missing matrix: UMIs
+                    for the rows axis: cell
+                    and the columns axis: gene
+                    in the daf data: $(daf.name)
+                """) get_matrix(daf, "cell", "gene", "UMIs"; relayout = false)
+            end
         end
 
         nested_test("default") do
@@ -900,8 +1030,14 @@ function test_missing_matrix(daf::WriteDaf, depth::Int)::Nothing
 
             nested_test("matrix") do
                 nested_test("()") do
-                    @test get_matrix(daf, "cell", "gene", "UMIs"; default = [0 1 2 3; 1 2 3 4; 2 3 4 5]) ==
-                          [0 1 2 3; 1 2 3 4; 2 3 4 5]
+                    @test get_matrix(
+                        daf,
+                        "cell",
+                        "gene",
+                        "UMIs";
+                        default = [0 1 2 3; 1 2 3 4; 2 3 4 5],
+                        relayout = false,
+                    ) == [0 1 2 3; 1 2 3 4; 2 3 4 5]
                     @test dimnames(get_matrix(daf, "cell", "gene", "UMIs"; default = [0 1 2 3; 1 2 3 4; 2 3 4 5])) ==
                           ["cell", "gene"]
                     @test names(get_matrix(daf, "cell", "gene", "UMIs"; default = [0 1 2 3; 1 2 3 4; 2 3 4 5])) ==
@@ -1057,24 +1193,74 @@ function test_missing_matrix(daf::WriteDaf, depth::Int)::Nothing
         end
     end
 
-    nested_test("delete_matrix") do
-        nested_test("()") do
-            @test_throws dedent("""
-                missing matrix: UMIs
-                for the rows axis: cell
-                and the columns axis: gene
-                in the daf data: $(daf.name)
-            """) delete_matrix!(daf, "cell", "gene", "UMIs")
-        end
+    if !(daf isa DafWriter)
+        return nothing
+    end
 
-        nested_test("must_exist") do
+    nested_test("delete_matrix") do
+        nested_test("relayout") do
+            nested_test("default") do
+                @test_throws dedent("""
+                    missing matrix: UMIs
+                    for the rows axis: cell
+                    and the columns axis: gene
+                    or the other way around
+                    in the daf data: $(daf.name)
+                """) delete_matrix!(daf, "cell", "gene", "UMIs")
+            end
+
             nested_test("true") do
                 @test_throws dedent("""
                     missing matrix: UMIs
                     for the rows axis: cell
                     and the columns axis: gene
+                    or the other way around
                     in the daf data: $(daf.name)
-                """) delete_matrix!(daf, "cell", "gene", "UMIs"; must_exist = true)
+                """) delete_matrix!(daf, "cell", "gene", "UMIs"; relayout = true)
+            end
+
+            nested_test("false") do
+                @test_throws dedent("""
+                    missing matrix: UMIs
+                    for the rows axis: cell
+                    and the columns axis: gene
+                    in the daf data: $(daf.name)
+                """) delete_matrix!(daf, "cell", "gene", "UMIs"; relayout = false)
+            end
+        end
+
+        nested_test("must_exist") do
+            nested_test("true") do
+                nested_test("relayout") do
+                    nested_test("default") do
+                        @test_throws dedent("""
+                            missing matrix: UMIs
+                            for the rows axis: cell
+                            and the columns axis: gene
+                            or the other way around
+                            in the daf data: $(daf.name)
+                        """) delete_matrix!(daf, "cell", "gene", "UMIs"; must_exist = true)
+                    end
+
+                    nested_test("true") do
+                        @test_throws dedent("""
+                            missing matrix: UMIs
+                            for the rows axis: cell
+                            and the columns axis: gene
+                            or the other way around
+                            in the daf data: $(daf.name)
+                        """) delete_matrix!(daf, "cell", "gene", "UMIs"; must_exist = true, relayout = true)
+                    end
+
+                    nested_test("false") do
+                        @test_throws dedent("""
+                            missing matrix: UMIs
+                            for the rows axis: cell
+                            and the columns axis: gene
+                            in the daf data: $(daf.name)
+                        """) delete_matrix!(daf, "cell", "gene", "UMIs"; must_exist = true, relayout = false)
+                    end
+                end
             end
 
             nested_test("false") do
@@ -1085,15 +1271,37 @@ function test_missing_matrix(daf::WriteDaf, depth::Int)::Nothing
 
     nested_test("set_matrix!") do
         nested_test("scalar") do
-            @test set_matrix!(daf, "cell", "gene", "UMIs", 1.0) == nothing
-            @test get_matrix(daf, "cell", "gene", "UMIs") == [1.0 1.0 1.0 1.0; 1.0 1.0 1.0 1.0; 1.0 1.0 1.0 1.0]
+            @test set_matrix!(daf, "cell", "gene", "UMIs", 1.0; relayout = false) == nothing
+            @test get_matrix(daf, "cell", "gene", "UMIs"; relayout = false) ==
+                  [1.0 1.0 1.0 1.0; 1.0 1.0 1.0 1.0; 1.0 1.0 1.0 1.0]
         end
 
         nested_test("matrix") do
-            nested_test("()") do
-                @test set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[depth]) == nothing
-                test_existing_matrix(daf, depth + 1)
-                return nothing
+            nested_test("relayout") do
+                nested_test("default") do
+                    @test set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[depth]) == nothing
+                    test_existing_relayout_matrix(daf, depth + 1)
+                    return nothing
+                end
+
+                nested_test("true") do
+                    @test set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[depth]; relayout = true) == nothing
+                    test_existing_relayout_matrix(daf, depth + 1)
+                    return nothing
+                end
+
+                nested_test("false") do
+                    @test set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[depth]; relayout = false) == nothing
+
+                    nested_test("exists") do
+                        return test_existing_matrix(daf, depth + 1)
+                    end
+
+                    nested_test("relayout") do
+                        @test relayout_matrix!(daf, "cell", "gene", "UMIs") == nothing
+                        return test_existing_relayout_matrix(daf, depth + 1)
+                    end
+                end
             end
 
             nested_test("transpose") do
@@ -1126,15 +1334,51 @@ function test_missing_matrix(daf::WriteDaf, depth::Int)::Nothing
         end
 
         nested_test("named") do
-            nested_test("()") do
-                @test set_matrix!(
-                    daf,
-                    "cell",
-                    "gene",
-                    "UMIs",
-                    NamedArray(UMIS_BY_DEPTH[depth]; names = (CELL_NAMES, GENE_NAMES), dimnames = ("cell", "gene")),
-                ) == nothing
-                return test_existing_matrix(daf, depth + 1)
+            nested_test("relayout") do
+                nested_test("default") do
+                    @test set_matrix!(
+                        daf,
+                        "cell",
+                        "gene",
+                        "UMIs",
+                        NamedArray(UMIS_BY_DEPTH[depth]; names = (CELL_NAMES, GENE_NAMES), dimnames = ("cell", "gene")),
+                    ) == nothing
+                    test_existing_relayout_matrix(daf, depth + 1)
+                    return nothing
+                end
+
+                nested_test("true") do
+                    @test set_matrix!(
+                        daf,
+                        "cell",
+                        "gene",
+                        "UMIs",
+                        NamedArray(UMIS_BY_DEPTH[depth]; names = (CELL_NAMES, GENE_NAMES), dimnames = ("cell", "gene"));
+                        relayout = true,
+                    ) == nothing
+                    test_existing_relayout_matrix(daf, depth + 1)
+                    return nothing
+                end
+
+                nested_test("false") do
+                    @test set_matrix!(
+                        daf,
+                        "cell",
+                        "gene",
+                        "UMIs",
+                        NamedArray(UMIS_BY_DEPTH[depth]; names = (CELL_NAMES, GENE_NAMES), dimnames = ("cell", "gene"));
+                        relayout = false,
+                    ) == nothing
+
+                    nested_test("exists") do
+                        return test_existing_matrix(daf, depth + 1)
+                    end
+
+                    nested_test("relayout") do
+                        @test relayout_matrix!(daf, "cell", "gene", "UMIs") == nothing
+                        return test_existing_relayout_matrix(daf, depth + 1)
+                    end
+                end
             end
 
             nested_test("!rows") do
@@ -1211,7 +1455,15 @@ function test_missing_matrix(daf::WriteDaf, depth::Int)::Nothing
         nested_test("dense") do
             empty = empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16)
             empty .= UMIS_BY_DEPTH[depth]
-            return test_existing_matrix(daf, depth + 1)
+
+            nested_test("exists") do
+                return test_existing_matrix(daf, depth + 1)
+            end
+
+            nested_test("relayout") do
+                @test relayout_matrix!(daf, "cell", "gene", "UMIs") == nothing
+                return test_existing_relayout_matrix(daf, depth + 1)
+            end
         end
 
         nested_test("sparse") do
@@ -1220,43 +1472,312 @@ function test_missing_matrix(daf::WriteDaf, depth::Int)::Nothing
             empty.array.colptr .= sparse.colptr
             empty.array.rowval .= sparse.rowval
             empty.array.nzval .= sparse.nzval
-            return test_existing_matrix(daf, depth + 1)
+
+            nested_test("exists") do
+                return test_existing_matrix(daf, depth + 1)
+            end
+
+            nested_test("relayout") do
+                @test relayout_matrix!(daf, "cell", "gene", "UMIs") == nothing
+                return test_existing_relayout_matrix(daf, depth + 1)
+            end
         end
     end
 end
 
-function test_existing_matrix(daf::WriteDaf, depth::Int)::Nothing
+function test_existing_matrix(daf::DafReader, depth::Int)::Nothing
     if depth > 3
         return nothing
     end
 
+    if daf isa DafWriter
+        nested_test("read_only") do
+            test_existing_matrix(read_only(daf), depth)
+            return nothing
+        end
+    end
+
     nested_test("has_matrix") do
-        @test has_matrix(daf, "cell", "gene", "UMIs")
+        nested_test("relayout") do
+            nested_test("default") do
+                @test has_matrix(daf, "cell", "gene", "UMIs")
+                @test has_matrix(daf, "gene", "cell", "UMIs")
+            end
+
+            nested_test("true") do
+                @test has_matrix(daf, "cell", "gene", "UMIs"; relayout = true)
+                @test has_matrix(daf, "gene", "cell", "UMIs"; relayout = true)
+            end
+
+            nested_test("false") do
+                @test has_matrix(daf, "cell", "gene", "UMIs"; relayout = false)
+                @test !has_matrix(daf, "gene", "cell", "UMIs"; relayout = false)
+            end
+        end
     end
 
     nested_test("matrix_names") do
-        @test matrix_names(daf, "cell", "gene") == Set(["UMIs"])
+        nested_test("relayout") do
+            nested_test("default") do
+                @test matrix_names(daf, "cell", "gene") == Set(["UMIs"])
+                @test matrix_names(daf, "gene", "cell") == Set(["UMIs"])
+            end
+
+            nested_test("true") do
+                @test matrix_names(daf, "cell", "gene"; relayout = true) == Set(["UMIs"])
+                @test matrix_names(daf, "gene", "cell"; relayout = true) == Set(["UMIs"])
+            end
+
+            nested_test("false") do
+                @test matrix_names(daf, "cell", "gene"; relayout = false) == Set(["UMIs"])
+                @test isempty(matrix_names(daf, "gene", "cell"; relayout = false))
+            end
+        end
     end
 
     nested_test("get_matrix") do
-        nested_test("()") do
-            @test get_matrix(daf, "cell", "gene", "UMIs") == UMIS_BY_DEPTH[depth - 1]
-            @test dimnames(get_matrix(daf, "cell", "gene", "UMIs")) == ["cell", "gene"]
-            @test names(get_matrix(daf, "cell", "gene", "UMIs")) == [CELL_NAMES, GENE_NAMES]
+        nested_test("relayout") do
+            nested_test("default") do
+                @test get_matrix(daf, "cell", "gene", "UMIs") == UMIS_BY_DEPTH[depth - 1]
+                @test dimnames(get_matrix(daf, "cell", "gene", "UMIs")) == ["cell", "gene"]
+                @test names(get_matrix(daf, "cell", "gene", "UMIs")) == [CELL_NAMES, GENE_NAMES]
+
+                @test get_matrix(daf, "gene", "cell", "UMIs") == transpose(UMIS_BY_DEPTH[depth - 1])
+                @test dimnames(get_matrix(daf, "gene", "cell", "UMIs")) == ["gene", "cell"]
+                @test names(get_matrix(daf, "gene", "cell", "UMIs")) == [GENE_NAMES, CELL_NAMES]
+
+                if !(daf isa DafWriter)
+                    daf = daf.daf
+                end
+
+                nested_test("!axes") do
+                    @test delete_axis!(daf, "cell") == nothing
+                    @test delete_axis!(daf, "gene") == nothing
+                    return test_missing_matrix_axis(daf, depth + 1)
+                end
+            end
+
+            nested_test("true") do
+                @test get_matrix(daf, "cell", "gene", "UMIs"; relayout = true) == UMIS_BY_DEPTH[depth - 1]
+                @test dimnames(get_matrix(daf, "cell", "gene", "UMIs"; relayout = true)) == ["cell", "gene"]
+                @test names(get_matrix(daf, "cell", "gene", "UMIs"; relayout = true)) == [CELL_NAMES, GENE_NAMES]
+
+                @test get_matrix(daf, "gene", "cell", "UMIs"; relayout = true) == transpose(UMIS_BY_DEPTH[depth - 1])
+                @test dimnames(get_matrix(daf, "gene", "cell", "UMIs"; relayout = true)) == ["gene", "cell"]
+                @test names(get_matrix(daf, "gene", "cell", "UMIs"; relayout = true)) == [GENE_NAMES, CELL_NAMES]
+
+                if !(daf isa DafWriter)
+                    daf = daf.daf
+                end
+
+                nested_test("!axes") do
+                    @test delete_axis!(daf, "cell") == nothing
+                    @test delete_axis!(daf, "gene") == nothing
+                    return test_missing_matrix_axis(daf, depth + 1)
+                end
+            end
+
+            nested_test("false") do
+                @test get_matrix(daf, "cell", "gene", "UMIs"; relayout = false) == UMIS_BY_DEPTH[depth - 1]
+                @test dimnames(get_matrix(daf, "cell", "gene", "UMIs"; relayout = false)) == ["cell", "gene"]
+                @test names(get_matrix(daf, "cell", "gene", "UMIs"; relayout = false)) == [CELL_NAMES, GENE_NAMES]
+
+                @test_throws dedent("""
+                    missing matrix: UMIs
+                    for the rows axis: gene
+                    and the columns axis: cell
+                    in the daf data: $(daf.name)
+                """) get_matrix(daf, "gene", "cell", "UMIs"; relayout = false)
+            end
         end
 
         nested_test("default") do
             nested_test("scalar") do
-                @test get_matrix(daf, "cell", "gene", "UMIs"; default = 1) == UMIS_BY_DEPTH[depth - 1]
-                @test dimnames(get_matrix(daf, "cell", "gene", "UMIs"; default = 1)) == ["cell", "gene"]
-                @test names(get_matrix(daf, "cell", "gene", "UMIs"; default = 1)) == [CELL_NAMES, GENE_NAMES]
+                nested_test("relayout") do
+                    nested_test("default") do
+                        @test get_matrix(daf, "cell", "gene", "UMIs"; default = 1) == UMIS_BY_DEPTH[depth - 1]
+                        @test dimnames(get_matrix(daf, "cell", "gene", "UMIs"; default = 1)) == ["cell", "gene"]
+                        @test names(get_matrix(daf, "cell", "gene", "UMIs"; default = 1)) == [CELL_NAMES, GENE_NAMES]
+
+                        @test get_matrix(daf, "gene", "cell", "UMIs"; default = 1) ==
+                              transpose(UMIS_BY_DEPTH[depth - 1])
+                        @test dimnames(get_matrix(daf, "gene", "cell", "UMIs"; default = 1)) == ["gene", "cell"]
+                        @test names(get_matrix(daf, "gene", "cell", "UMIs"; default = 1)) == [GENE_NAMES, CELL_NAMES]
+                    end
+
+                    nested_test("true") do
+                        @test get_matrix(daf, "cell", "gene", "UMIs"; default = 1, relayout = true) ==
+                              UMIS_BY_DEPTH[depth - 1]
+                        @test dimnames(get_matrix(daf, "cell", "gene", "UMIs"; default = 1, relayout = true)) ==
+                              ["cell", "gene"]
+                        @test names(get_matrix(daf, "cell", "gene", "UMIs"; default = 1, relayout = true)) ==
+                              [CELL_NAMES, GENE_NAMES]
+
+                        @test get_matrix(daf, "gene", "cell", "UMIs"; default = 1, relayout = true) ==
+                              transpose(UMIS_BY_DEPTH[depth - 1])
+                        @test dimnames(get_matrix(daf, "gene", "cell", "UMIs"; default = 1, relayout = true)) ==
+                              ["gene", "cell"]
+                        @test names(get_matrix(daf, "gene", "cell", "UMIs"; default = 1, relayout = true)) ==
+                              [GENE_NAMES, CELL_NAMES]
+                    end
+
+                    nested_test("false") do
+                        @test get_matrix(daf, "cell", "gene", "UMIs"; default = 1, relayout = false) ==
+                              UMIS_BY_DEPTH[depth - 1]
+                        @test dimnames(get_matrix(daf, "cell", "gene", "UMIs"; default = 1, relayout = false)) ==
+                              ["cell", "gene"]
+                        @test names(get_matrix(daf, "cell", "gene", "UMIs"; default = 1, relayout = false)) ==
+                              [CELL_NAMES, GENE_NAMES]
+
+                        @test get_matrix(daf, "gene", "cell", "UMIs"; default = 1, relayout = false) ==
+                              [1 1 1; 1 1 1; 1 1 1; 1 1 1]
+                        @test dimnames(get_matrix(daf, "gene", "cell", "UMIs"; default = 1, relayout = true)) ==
+                              ["gene", "cell"]
+                        @test names(get_matrix(daf, "gene", "cell", "UMIs"; default = 1, relayout = true)) ==
+                              [GENE_NAMES, CELL_NAMES]
+                    end
+                end
             end
 
             nested_test("matrix") do
-                nested_test("()") do
-                    @test get_matrix(daf, "cell", "gene", "UMIs") == UMIS_BY_DEPTH[depth - 1]
-                    @test dimnames(get_matrix(daf, "cell", "gene", "UMIs")) == ["cell", "gene"]
-                    @test names(get_matrix(daf, "cell", "gene", "UMIs")) == [CELL_NAMES, GENE_NAMES]
+                nested_test("relayout") do
+                    nested_test("default") do
+                        @test get_matrix(daf, "cell", "gene", "UMIs"; default = [0 1 2 3; 1 2 3 4; 2 3 4 5]) ==
+                              UMIS_BY_DEPTH[depth - 1]
+                        @test dimnames(
+                            get_matrix(daf, "cell", "gene", "UMIs"; default = [0 1 2 3; 1 2 3 4; 2 3 4 5]),
+                        ) == ["cell", "gene"]
+                        @test names(get_matrix(daf, "cell", "gene", "UMIs"; default = [0 1 2 3; 1 2 3 4; 2 3 4 5])) ==
+                              [CELL_NAMES, GENE_NAMES]
+
+                        @test get_matrix(daf, "gene", "cell", "UMIs"; default = [0 1 2; 1 2 3; 2 3 4; 4 5 6]) ==
+                              transpose(UMIS_BY_DEPTH[depth - 1])
+                        @test dimnames(
+                            get_matrix(daf, "gene", "cell", "UMIs"; default = [0 1 2; 1 2 3; 2 3 4; 4 5 6]),
+                        ) == ["gene", "cell"]
+                        @test names(get_matrix(daf, "gene", "cell", "UMIs"; default = [0 1 2; 1 2 3; 2 3 4; 4 5 6])) ==
+                              [GENE_NAMES, CELL_NAMES]
+                    end
+
+                    nested_test("true") do
+                        @test get_matrix(
+                            daf,
+                            "cell",
+                            "gene",
+                            "UMIs";
+                            default = [0 1 2 3; 1 2 3 4; 2 3 4 5],
+                            relayout = true,
+                        ) == UMIS_BY_DEPTH[depth - 1]
+                        @test dimnames(
+                            get_matrix(
+                                daf,
+                                "cell",
+                                "gene",
+                                "UMIs";
+                                default = [0 1 2 3; 1 2 3 4; 2 3 4 5],
+                                relayout = true,
+                            ),
+                        ) == ["cell", "gene"]
+                        @test names(
+                            get_matrix(
+                                daf,
+                                "cell",
+                                "gene",
+                                "UMIs";
+                                default = [0 1 2 3; 1 2 3 4; 2 3 4 5],
+                                relayout = true,
+                            ),
+                        ) == [CELL_NAMES, GENE_NAMES]
+
+                        @test get_matrix(
+                            daf,
+                            "gene",
+                            "cell",
+                            "UMIs";
+                            default = [0 1 2; 1 2 3; 2 3 4; 4 5 6],
+                            relayout = true,
+                        ) == transpose(UMIS_BY_DEPTH[depth - 1])
+                        @test dimnames(
+                            get_matrix(
+                                daf,
+                                "gene",
+                                "cell",
+                                "UMIs";
+                                default = [0 1 2; 1 2 3; 2 3 4; 4 5 6],
+                                relayout = true,
+                            ),
+                        ) == ["gene", "cell"]
+                        @test names(
+                            get_matrix(
+                                daf,
+                                "gene",
+                                "cell",
+                                "UMIs";
+                                default = [0 1 2; 1 2 3; 2 3 4; 4 5 6],
+                                relayout = true,
+                            ),
+                        ) == [GENE_NAMES, CELL_NAMES]
+                    end
+
+                    nested_test("false") do
+                        @test get_matrix(
+                            daf,
+                            "cell",
+                            "gene",
+                            "UMIs";
+                            default = [0 1 2 3; 1 2 3 4; 2 3 4 5],
+                            relayout = false,
+                        ) == UMIS_BY_DEPTH[depth - 1]
+                        @test dimnames(
+                            get_matrix(
+                                daf,
+                                "cell",
+                                "gene",
+                                "UMIs";
+                                default = [0 1 2 3; 1 2 3 4; 2 3 4 5],
+                                relayout = false,
+                            ),
+                        ) == ["cell", "gene"]
+                        @test names(
+                            get_matrix(
+                                daf,
+                                "cell",
+                                "gene",
+                                "UMIs";
+                                default = [0 1 2 3; 1 2 3 4; 2 3 4 5],
+                                relayout = false,
+                            ),
+                        ) == [CELL_NAMES, GENE_NAMES]
+
+                        @test get_matrix(
+                            daf,
+                            "gene",
+                            "cell",
+                            "UMIs";
+                            default = [0 1 2; 1 2 3; 2 3 4; 4 5 6],
+                            relayout = false,
+                        ) == [0 1 2; 1 2 3; 2 3 4; 4 5 6]
+                        @test dimnames(
+                            get_matrix(
+                                daf,
+                                "gene",
+                                "cell",
+                                "UMIs";
+                                default = [0 1 2; 1 2 3; 2 3 4; 4 5 6],
+                                relayout = false,
+                            ),
+                        ) == ["gene", "cell"]
+                        @test names(
+                            get_matrix(
+                                daf,
+                                "gene",
+                                "cell",
+                                "UMIs";
+                                default = [0 1 2; 1 2 3; 2 3 4; 4 5 6],
+                                relayout = false,
+                            ),
+                        ) == [GENE_NAMES, CELL_NAMES]
+                    end
                 end
 
                 nested_test("!rows") do
@@ -1280,9 +1801,13 @@ function test_existing_matrix(daf::WriteDaf, depth::Int)::Nothing
         end
     end
 
+    if !(daf isa DafWriter)
+        return nothing
+    end
+
     nested_test("delete_matrix!") do
         nested_test("()") do
-            @test delete_matrix!(daf, "cell", "gene", "UMIs") == nothing
+            @test delete_matrix!(daf, "cell", "gene", "UMIs"; relayout = false) == nothing
             nested_test("deleted") do
                 test_missing_matrix(daf, depth + 1)
                 return nothing
@@ -1291,7 +1816,7 @@ function test_existing_matrix(daf::WriteDaf, depth::Int)::Nothing
 
         nested_test("must_exist") do
             nested_test("true") do
-                @test delete_matrix!(daf, "cell", "gene", "UMIs"; must_exist = true) == nothing
+                @test delete_matrix!(daf, "cell", "gene", "UMIs"; must_exist = true, relayout = false) == nothing
                 nested_test("deleted") do
                     test_missing_matrix(daf, depth + 1)
                     return nothing
@@ -1299,7 +1824,7 @@ function test_existing_matrix(daf::WriteDaf, depth::Int)::Nothing
             end
 
             nested_test("false") do
-                @test delete_matrix!(daf, "cell", "gene", "UMIs"; must_exist = false) == nothing
+                @test delete_matrix!(daf, "cell", "gene", "UMIs"; must_exist = false, relayout = false) == nothing
                 nested_test("deleted") do
                     test_missing_matrix(daf, depth + 1)
                     return nothing
@@ -1317,16 +1842,16 @@ function test_existing_matrix(daf::WriteDaf, depth::Int)::Nothing
 
     nested_test("set_matrix!") do
         nested_test("scalar") do
-            nested_test("()") do
-                @test_throws dedent("""
-                    existing matrix: UMIs
-                    for the rows axis: cell
-                    and the columns axis: gene
-                    in the daf data: $(daf.name)
-                """) set_matrix!(daf, "cell", "gene", "UMIs", 1)
-            end
-
             nested_test("overwrite") do
+                nested_test("default") do
+                    @test_throws dedent("""
+                        existing matrix: UMIs
+                        for the rows axis: cell
+                        and the columns axis: gene
+                        in the daf data: $(daf.name)
+                    """) set_matrix!(daf, "cell", "gene", "UMIs", 1)
+                end
+
                 nested_test("false") do
                     @test_throws dedent("""
                         existing matrix: UMIs
@@ -1337,23 +1862,23 @@ function test_existing_matrix(daf::WriteDaf, depth::Int)::Nothing
                 end
 
                 nested_test("true") do
-                    @test set_matrix!(daf, "cell", "gene", "UMIs", 1; overwrite = true) == nothing
-                    @test get_matrix(daf, "cell", "gene", "UMIs") == [1 1 1 1; 1 1 1 1; 1 1 1 1]
+                    @test set_matrix!(daf, "cell", "gene", "UMIs", 1; overwrite = true, relayout = false) == nothing
+                    @test get_matrix(daf, "cell", "gene", "UMIs"; relayout = false) == [1 1 1 1; 1 1 1 1; 1 1 1 1]
                 end
             end
         end
 
         nested_test("matrix") do
-            nested_test("()") do
-                @test_throws dedent("""
-                    existing matrix: UMIs
-                    for the rows axis: cell
-                    and the columns axis: gene
-                    in the daf data: $(daf.name)
-                """) set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[depth])
-            end
-
             nested_test("overwrite") do
+                nested_test("default") do
+                    @test_throws dedent("""
+                        existing matrix: UMIs
+                        for the rows axis: cell
+                        and the columns axis: gene
+                        in the daf data: $(daf.name)
+                    """) set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[depth])
+                end
+
                 nested_test("false") do
                     @test_throws dedent("""
                         existing matrix: UMIs
@@ -1364,10 +1889,47 @@ function test_existing_matrix(daf::WriteDaf, depth::Int)::Nothing
                 end
 
                 nested_test("true") do
-                    @test set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[depth]; overwrite = true) == nothing
-                    nested_test("overwritten") do
-                        test_existing_matrix(daf, depth + 1)
-                        return nothing
+                    nested_test("relayout") do
+                        nested_test("default") do
+                            @test set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[depth]; overwrite = true) ==
+                                  nothing
+                            nested_test("overwritten") do
+                                test_existing_relayout_matrix(daf, depth + 1)
+                                return nothing
+                            end
+                        end
+
+                        nested_test("true") do
+                            @test set_matrix!(
+                                daf,
+                                "cell",
+                                "gene",
+                                "UMIs",
+                                UMIS_BY_DEPTH[depth];
+                                overwrite = true,
+                                relayout = true,
+                            ) == nothing
+                            nested_test("overwritten") do
+                                test_existing_relayout_matrix(daf, depth + 1)
+                                return nothing
+                            end
+                        end
+
+                        nested_test("false") do
+                            @test set_matrix!(
+                                daf,
+                                "cell",
+                                "gene",
+                                "UMIs",
+                                UMIS_BY_DEPTH[depth];
+                                overwrite = true,
+                                relayout = false,
+                            ) == nothing
+                            nested_test("overwritten") do
+                                test_existing_matrix(daf, depth + 1)
+                                return nothing
+                            end
+                        end
                     end
                 end
             end
@@ -1376,16 +1938,16 @@ function test_existing_matrix(daf::WriteDaf, depth::Int)::Nothing
 
     nested_test("empty_matrix!") do
         nested_test("dense") do
-            nested_test("()") do
-                return @test_throws dedent("""
-                    existing matrix: UMIs
-                    for the rows axis: cell
-                    and the columns axis: gene
-                    in the daf data: $(daf.name)
-                """) empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16)
-            end
-
             nested_test("overwrite") do
+                nested_test("default") do
+                    return @test_throws dedent("""
+                        existing matrix: UMIs
+                        for the rows axis: cell
+                        and the columns axis: gene
+                        in the daf data: $(daf.name)
+                    """) empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16)
+                end
+
                 nested_test("false") do
                     return @test_throws dedent("""
                         existing matrix: UMIs
@@ -1398,8 +1960,15 @@ function test_existing_matrix(daf::WriteDaf, depth::Int)::Nothing
                 nested_test("true") do
                     empty = empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16; overwrite = true)
                     empty .= UMIS_BY_DEPTH[depth]
+
                     nested_test("overwritten") do
                         test_existing_matrix(daf, depth + 1)
+                        return nothing
+                    end
+
+                    nested_test("relayout") do
+                        @test relayout_matrix!(daf, "cell", "gene", "UMIs") == nothing
+                        test_existing_relayout_matrix(daf, depth + 1)
                         return nothing
                     end
                 end
@@ -1407,16 +1976,16 @@ function test_existing_matrix(daf::WriteDaf, depth::Int)::Nothing
         end
 
         nested_test("sparse") do
-            nested_test("()") do
-                return @test_throws dedent("""
-                    existing matrix: UMIs
-                    for the rows axis: cell
-                    and the columns axis: gene
-                    in the daf data: $(daf.name)
-                """) empty_sparse_matrix!(daf, "cell", "gene", "UMIs", Int16, sum(UMIS_BY_DEPTH[depth] .> 0), Int16)
-            end
-
             nested_test("overwrite") do
+                nested_test("default") do
+                    return @test_throws dedent("""
+                        existing matrix: UMIs
+                        for the rows axis: cell
+                        and the columns axis: gene
+                        in the daf data: $(daf.name)
+                    """) empty_sparse_matrix!(daf, "cell", "gene", "UMIs", Int16, sum(UMIS_BY_DEPTH[depth] .> 0), Int16)
+                end
+
                 nested_test("false") do
                     return @test_throws dedent("""
                         existing matrix: UMIs
@@ -1450,14 +2019,610 @@ function test_existing_matrix(daf::WriteDaf, depth::Int)::Nothing
                     empty.array.colptr .= sparse.colptr
                     empty.array.rowval .= sparse.rowval
                     empty.array.nzval .= sparse.nzval
-                    return test_existing_matrix(daf, depth + 1)
+
+                    nested_test("overwritten") do
+                        return test_existing_matrix(daf, depth + 1)
+                    end
+
+                    nested_test("relayout") do
+                        @test relayout_matrix!(daf, "cell", "gene", "UMIs") == nothing
+                        test_existing_relayout_matrix(daf, depth + 1)
+                        return nothing
+                    end
                 end
             end
         end
     end
 end
 
-function test_format(daf::WriteDaf)
+function test_existing_relayout_matrix(daf::DafReader, depth::Int)::Nothing
+    if depth > 3
+        return nothing
+    end
+
+    if daf isa DafWriter
+        nested_test("read_only") do
+            test_existing_relayout_matrix(read_only(daf), depth)
+            return nothing
+        end
+    end
+
+    nested_test("has_matrix") do
+        nested_test("relayout") do
+            nested_test("default") do
+                @test has_matrix(daf, "cell", "gene", "UMIs")
+                @test has_matrix(daf, "gene", "cell", "UMIs")
+            end
+
+            nested_test("true") do
+                @test has_matrix(daf, "cell", "gene", "UMIs"; relayout = true)
+                @test has_matrix(daf, "gene", "cell", "UMIs"; relayout = true)
+            end
+
+            nested_test("false") do
+                @test has_matrix(daf, "cell", "gene", "UMIs"; relayout = false)
+                @test has_matrix(daf, "gene", "cell", "UMIs"; relayout = false)
+            end
+        end
+    end
+
+    nested_test("matrix_names") do
+        nested_test("relayout") do
+            nested_test("default") do
+                @test matrix_names(daf, "cell", "gene") == Set(["UMIs"])
+                @test matrix_names(daf, "gene", "cell") == Set(["UMIs"])
+            end
+
+            nested_test("true") do
+                @test matrix_names(daf, "cell", "gene"; relayout = true) == Set(["UMIs"])
+                @test matrix_names(daf, "gene", "cell"; relayout = true) == Set(["UMIs"])
+            end
+
+            nested_test("false") do
+                @test matrix_names(daf, "cell", "gene"; relayout = false) == Set(["UMIs"])
+                @test matrix_names(daf, "gene", "cell"; relayout = false) == Set(["UMIs"])
+            end
+        end
+    end
+
+    nested_test("get_matrix") do
+        nested_test("relayout") do
+            nested_test("default") do
+                @test get_matrix(daf, "cell", "gene", "UMIs") == UMIS_BY_DEPTH[depth - 1]
+                @test dimnames(get_matrix(daf, "cell", "gene", "UMIs")) == ["cell", "gene"]
+                @test names(get_matrix(daf, "cell", "gene", "UMIs")) == [CELL_NAMES, GENE_NAMES]
+
+                @test get_matrix(daf, "gene", "cell", "UMIs") == transpose(UMIS_BY_DEPTH[depth - 1])
+                @test dimnames(get_matrix(daf, "gene", "cell", "UMIs")) == ["gene", "cell"]
+                @test names(get_matrix(daf, "gene", "cell", "UMIs")) == [GENE_NAMES, CELL_NAMES]
+
+                if !(daf isa DafWriter)
+                    daf = daf.daf
+                end
+
+                nested_test("!axes") do
+                    @test delete_axis!(daf, "cell") == nothing
+                    @test delete_axis!(daf, "gene") == nothing
+                    return test_missing_matrix_axis(daf, depth + 1)
+                end
+            end
+
+            nested_test("true") do
+                @test get_matrix(daf, "cell", "gene", "UMIs"; relayout = true) == UMIS_BY_DEPTH[depth - 1]
+                @test dimnames(get_matrix(daf, "cell", "gene", "UMIs"; relayout = true)) == ["cell", "gene"]
+                @test names(get_matrix(daf, "cell", "gene", "UMIs"; relayout = true)) == [CELL_NAMES, GENE_NAMES]
+
+                @test get_matrix(daf, "gene", "cell", "UMIs"; relayout = true) == transpose(UMIS_BY_DEPTH[depth - 1])
+                @test dimnames(get_matrix(daf, "gene", "cell", "UMIs"; relayout = true)) == ["gene", "cell"]
+                @test names(get_matrix(daf, "gene", "cell", "UMIs"; relayout = true)) == [GENE_NAMES, CELL_NAMES]
+            end
+
+            nested_test("false") do
+                @test get_matrix(daf, "cell", "gene", "UMIs"; relayout = false) == UMIS_BY_DEPTH[depth - 1]
+                @test dimnames(get_matrix(daf, "cell", "gene", "UMIs"; relayout = false)) == ["cell", "gene"]
+                @test names(get_matrix(daf, "cell", "gene", "UMIs"; relayout = false)) == [CELL_NAMES, GENE_NAMES]
+
+                @test get_matrix(daf, "gene", "cell", "UMIs"; relayout = false) == transpose(UMIS_BY_DEPTH[depth - 1])
+                @test dimnames(get_matrix(daf, "gene", "cell", "UMIs"; relayout = false)) == ["gene", "cell"]
+                @test names(get_matrix(daf, "gene", "cell", "UMIs"; relayout = false)) == [GENE_NAMES, CELL_NAMES]
+            end
+        end
+
+        nested_test("default") do
+            nested_test("scalar") do
+                nested_test("relayout") do
+                    nested_test("default") do
+                        @test get_matrix(daf, "cell", "gene", "UMIs"; default = 1) == UMIS_BY_DEPTH[depth - 1]
+                        @test dimnames(get_matrix(daf, "cell", "gene", "UMIs"; default = 1)) == ["cell", "gene"]
+                        @test names(get_matrix(daf, "cell", "gene", "UMIs"; default = 1)) == [CELL_NAMES, GENE_NAMES]
+
+                        @test get_matrix(daf, "gene", "cell", "UMIs"; default = 1) ==
+                              transpose(UMIS_BY_DEPTH[depth - 1])
+                        @test dimnames(get_matrix(daf, "gene", "cell", "UMIs"; default = 1)) == ["gene", "cell"]
+                        @test names(get_matrix(daf, "gene", "cell", "UMIs"; default = 1)) == [GENE_NAMES, CELL_NAMES]
+                    end
+
+                    nested_test("true") do
+                        @test get_matrix(daf, "cell", "gene", "UMIs"; default = 1, relayout = true) ==
+                              UMIS_BY_DEPTH[depth - 1]
+                        @test dimnames(get_matrix(daf, "cell", "gene", "UMIs"; default = 1, relayout = true)) ==
+                              ["cell", "gene"]
+                        @test names(get_matrix(daf, "cell", "gene", "UMIs"; default = 1, relayout = true)) ==
+                              [CELL_NAMES, GENE_NAMES]
+
+                        @test get_matrix(daf, "gene", "cell", "UMIs"; default = 1, relayout = true) ==
+                              transpose(UMIS_BY_DEPTH[depth - 1])
+                        @test dimnames(get_matrix(daf, "gene", "cell", "UMIs"; default = 1, relayout = true)) ==
+                              ["gene", "cell"]
+                        @test names(get_matrix(daf, "gene", "cell", "UMIs"; default = 1, relayout = true)) ==
+                              [GENE_NAMES, CELL_NAMES]
+                    end
+
+                    nested_test("false") do
+                        @test get_matrix(daf, "cell", "gene", "UMIs"; default = 1, relayout = false) ==
+                              UMIS_BY_DEPTH[depth - 1]
+                        @test dimnames(get_matrix(daf, "cell", "gene", "UMIs"; default = 1, relayout = false)) ==
+                              ["cell", "gene"]
+                        @test names(get_matrix(daf, "cell", "gene", "UMIs"; default = 1, relayout = false)) ==
+                              [CELL_NAMES, GENE_NAMES]
+
+                        @test get_matrix(daf, "gene", "cell", "UMIs"; default = 1, relayout = false) ==
+                              transpose(UMIS_BY_DEPTH[depth - 1])
+                        @test dimnames(get_matrix(daf, "gene", "cell", "UMIs"; default = 1, relayout = false)) ==
+                              ["gene", "cell"]
+                        @test names(get_matrix(daf, "gene", "cell", "UMIs"; default = 1, relayout = false)) ==
+                              [GENE_NAMES, CELL_NAMES]
+                    end
+                end
+            end
+
+            nested_test("matrix") do
+                nested_test("relayout") do
+                    nested_test("default") do
+                        @test get_matrix(daf, "cell", "gene", "UMIs"; default = [0 1 2 3; 1 2 3 4; 2 3 4 5]) ==
+                              UMIS_BY_DEPTH[depth - 1]
+                        @test dimnames(
+                            get_matrix(daf, "cell", "gene", "UMIs"; default = [0 1 2 3; 1 2 3 4; 2 3 4 5]),
+                        ) == ["cell", "gene"]
+                        @test names(get_matrix(daf, "cell", "gene", "UMIs"; default = [0 1 2 3; 1 2 3 4; 2 3 4 5])) ==
+                              [CELL_NAMES, GENE_NAMES]
+
+                        @test get_matrix(daf, "gene", "cell", "UMIs"; default = [0 1 2; 1 2 3; 2 3 4; 4 5 6]) ==
+                              transpose(UMIS_BY_DEPTH[depth - 1])
+                        @test dimnames(
+                            get_matrix(daf, "gene", "cell", "UMIs"; default = [0 1 2; 1 2 3; 2 3 4; 4 5 6]),
+                        ) == ["gene", "cell"]
+                        @test names(get_matrix(daf, "gene", "cell", "UMIs"; default = [0 1 2; 1 2 3; 2 3 4; 4 5 6])) ==
+                              [GENE_NAMES, CELL_NAMES]
+                    end
+
+                    nested_test("true") do
+                        @test get_matrix(
+                            daf,
+                            "cell",
+                            "gene",
+                            "UMIs";
+                            default = [0 1 2 3; 1 2 3 4; 2 3 4 5],
+                            relayout = true,
+                        ) == UMIS_BY_DEPTH[depth - 1]
+                        @test dimnames(
+                            get_matrix(
+                                daf,
+                                "cell",
+                                "gene",
+                                "UMIs";
+                                default = [0 1 2 3; 1 2 3 4; 2 3 4 5],
+                                relayout = true,
+                            ),
+                        ) == ["cell", "gene"]
+                        @test names(
+                            get_matrix(
+                                daf,
+                                "cell",
+                                "gene",
+                                "UMIs";
+                                default = [0 1 2 3; 1 2 3 4; 2 3 4 5],
+                                relayout = true,
+                            ),
+                        ) == [CELL_NAMES, GENE_NAMES]
+
+                        @test get_matrix(
+                            daf,
+                            "gene",
+                            "cell",
+                            "UMIs";
+                            default = [0 1 2; 1 2 3; 2 3 4; 4 5 6],
+                            relayout = true,
+                        ) == transpose(UMIS_BY_DEPTH[depth - 1])
+                        @test dimnames(
+                            get_matrix(
+                                daf,
+                                "gene",
+                                "cell",
+                                "UMIs";
+                                default = [0 1 2; 1 2 3; 2 3 4; 4 5 6],
+                                relayout = true,
+                            ),
+                        ) == ["gene", "cell"]
+                        @test names(
+                            get_matrix(
+                                daf,
+                                "gene",
+                                "cell",
+                                "UMIs";
+                                default = [0 1 2; 1 2 3; 2 3 4; 4 5 6],
+                                relayout = true,
+                            ),
+                        ) == [GENE_NAMES, CELL_NAMES]
+                    end
+
+                    nested_test("false") do
+                        @test get_matrix(
+                            daf,
+                            "cell",
+                            "gene",
+                            "UMIs";
+                            default = [0 1 2 3; 1 2 3 4; 2 3 4 5],
+                            relayout = false,
+                        ) == UMIS_BY_DEPTH[depth - 1]
+                        @test dimnames(
+                            get_matrix(
+                                daf,
+                                "cell",
+                                "gene",
+                                "UMIs";
+                                default = [0 1 2 3; 1 2 3 4; 2 3 4 5],
+                                relayout = false,
+                            ),
+                        ) == ["cell", "gene"]
+                        @test names(
+                            get_matrix(
+                                daf,
+                                "cell",
+                                "gene",
+                                "UMIs";
+                                default = [0 1 2 3; 1 2 3 4; 2 3 4 5],
+                                relayout = false,
+                            ),
+                        ) == [CELL_NAMES, GENE_NAMES]
+
+                        @test get_matrix(
+                            daf,
+                            "gene",
+                            "cell",
+                            "UMIs";
+                            default = [0 1 2; 1 2 3; 2 3 4; 4 5 6],
+                            relayout = false,
+                        ) == transpose(UMIS_BY_DEPTH[depth - 1])
+                        @test dimnames(
+                            get_matrix(
+                                daf,
+                                "gene",
+                                "cell",
+                                "UMIs";
+                                default = [0 1 2; 1 2 3; 2 3 4; 4 5 6],
+                                relayout = false,
+                            ),
+                        ) == ["gene", "cell"]
+                        @test names(
+                            get_matrix(
+                                daf,
+                                "gene",
+                                "cell",
+                                "UMIs";
+                                default = [0 1 2; 1 2 3; 2 3 4; 4 5 6],
+                                relayout = false,
+                            ),
+                        ) == [GENE_NAMES, CELL_NAMES]
+                    end
+                end
+
+                nested_test("!rows") do
+                    @test_throws dedent("""
+                        default rows: 2
+                        is different from the length: 3
+                        of the axis: cell
+                        in the daf data: $(daf.name)
+                    """) get_matrix(daf, "cell", "gene", "UMIs"; default = [0 1 2 3; 4 5 6 7])
+                end
+
+                nested_test("!columns") do
+                    @test_throws dedent("""
+                        default columns: 2
+                        is different from the length: 4
+                        of the axis: gene
+                        in the daf data: $(daf.name)
+                    """) get_matrix(daf, "cell", "gene", "UMIs"; default = [0 1; 2 3; 4 5])
+                end
+            end
+        end
+    end
+
+    if !(daf isa DafWriter)
+        return nothing
+    end
+
+    nested_test("delete_matrix!") do
+        nested_test("relayout") do
+            nested_test("default") do
+                @test delete_matrix!(daf, "gene", "cell", "UMIs") == nothing
+                nested_test("deleted") do
+                    test_missing_matrix(daf, depth + 1)
+                    return nothing
+                end
+            end
+
+            nested_test("true") do
+                @test delete_matrix!(daf, "gene", "cell", "UMIs"; relayout = true) == nothing
+                nested_test("deleted") do
+                    test_missing_matrix(daf, depth + 1)
+                    return nothing
+                end
+            end
+
+            nested_test("false") do
+                @test delete_matrix!(daf, "gene", "cell", "UMIs"; relayout = false) == nothing
+                nested_test("deleted") do
+                    test_existing_matrix(daf, depth)
+                    return nothing
+                end
+            end
+        end
+
+        nested_test("must_exist") do
+            nested_test("true") do
+                @test delete_matrix!(daf, "cell", "gene", "UMIs"; must_exist = true) == nothing
+                nested_test("deleted") do
+                    test_missing_matrix(daf, depth + 1)
+                    return nothing
+                end
+            end
+
+            nested_test("false") do
+                @test delete_matrix!(daf, "cell", "gene", "UMIs"; must_exist = false) == nothing
+                nested_test("deleted") do
+                    test_missing_matrix(daf, depth + 1)
+                    return nothing
+                end
+            end
+        end
+    end
+
+    nested_test("delete_axis!") do
+        @test delete_axis!(daf, "gene") == nothing
+        @test delete_axis!(daf, "cell") == nothing
+        test_missing_matrix_axis(daf, depth + 1)
+        return nothing
+    end
+
+    nested_test("set_matrix!") do
+        nested_test("scalar") do
+            nested_test("overwrite") do
+                nested_test("default") do
+                    @test_throws dedent("""
+                        existing matrix: UMIs
+                        for the rows axis: cell
+                        and the columns axis: gene
+                        in the daf data: $(daf.name)
+                    """) set_matrix!(daf, "cell", "gene", "UMIs", 1)
+                end
+
+                nested_test("false") do
+                    @test_throws dedent("""
+                        existing matrix: UMIs
+                        for the rows axis: cell
+                        and the columns axis: gene
+                        in the daf data: $(daf.name)
+                    """) set_matrix!(daf, "cell", "gene", "UMIs", 1; overwrite = false)
+                end
+
+                nested_test("true") do
+                    @test set_matrix!(daf, "cell", "gene", "UMIs", 1; overwrite = true, relayout = false) == nothing
+                    @test get_matrix(daf, "cell", "gene", "UMIs"; relayout = false) == [1 1 1 1; 1 1 1 1; 1 1 1 1]
+                end
+            end
+        end
+
+        nested_test("matrix") do
+            nested_test("overwrite") do
+                nested_test("default") do
+                    @test_throws dedent("""
+                        existing matrix: UMIs
+                        for the rows axis: cell
+                        and the columns axis: gene
+                        in the daf data: $(daf.name)
+                    """) set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[depth])
+                end
+
+                nested_test("false") do
+                    @test_throws dedent("""
+                        existing matrix: UMIs
+                        for the rows axis: cell
+                        and the columns axis: gene
+                        in the daf data: $(daf.name)
+                    """) set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[depth]; overwrite = false)
+                end
+
+                nested_test("true") do
+                    nested_test("relayout") do
+                        nested_test("default") do
+                            @test set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[depth]; overwrite = true) ==
+                                  nothing
+                            nested_test("overwritten") do
+                                test_existing_relayout_matrix(daf, depth + 1)
+                                return nothing
+                            end
+                        end
+
+                        nested_test("true") do
+                            @test set_matrix!(
+                                daf,
+                                "cell",
+                                "gene",
+                                "UMIs",
+                                UMIS_BY_DEPTH[depth];
+                                overwrite = true,
+                                relayout = true,
+                            ) == nothing
+                            nested_test("overwritten") do
+                                test_existing_relayout_matrix(daf, depth + 1)
+                                return nothing
+                            end
+                        end
+
+                        nested_test("false") do
+                            @test set_matrix!(
+                                daf,
+                                "cell",
+                                "gene",
+                                "UMIs",
+                                UMIS_BY_DEPTH[depth];
+                                overwrite = true,
+                                relayout = false,
+                            ) == nothing
+
+                            nested_test("delete") do
+                                @test delete_matrix!(daf, "gene", "cell", "UMIs"; relayout = false) == nothing
+                                test_existing_matrix(daf, depth + 1)
+                                return nothing
+                            end
+
+                            nested_test("relayout") do
+                                nested_test("overwrite") do
+                                    nested_test("default") do
+                                        @test_throws dedent("""
+                                            existing matrix: UMIs
+                                            for the rows axis: gene
+                                            and the columns axis: cell
+                                            in the daf data: $(daf.name)
+                                        """) relayout_matrix!(daf, "cell", "gene", "UMIs") == nothing
+                                    end
+
+                                    nested_test("false") do
+                                        @test_throws dedent("""
+                                            existing matrix: UMIs
+                                            for the rows axis: gene
+                                            and the columns axis: cell
+                                            in the daf data: $(daf.name)
+                                        """) relayout_matrix!(daf, "cell", "gene", "UMIs"; overwrite = false) == nothing
+                                    end
+
+                                    nested_test("true") do
+                                        @test relayout_matrix!(daf, "cell", "gene", "UMIs"; overwrite = true) == nothing
+                                        test_existing_relayout_matrix(daf, depth + 1)
+                                        return nothing
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    nested_test("empty_matrix!") do
+        nested_test("dense") do
+            nested_test("overwrite") do
+                nested_test("default") do
+                    return @test_throws dedent("""
+                        existing matrix: UMIs
+                        for the rows axis: cell
+                        and the columns axis: gene
+                        in the daf data: $(daf.name)
+                    """) empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16)
+                end
+
+                nested_test("false") do
+                    return @test_throws dedent("""
+                        existing matrix: UMIs
+                        for the rows axis: cell
+                        and the columns axis: gene
+                        in the daf data: $(daf.name)
+                    """) empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16; overwrite = false)
+                end
+
+                nested_test("true") do
+                    empty = empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16; overwrite = true)
+                    empty .= UMIS_BY_DEPTH[depth]
+                    @test delete_matrix!(daf, "gene", "cell", "UMIs"; relayout = false) == nothing
+
+                    nested_test("overwritten") do
+                        test_existing_matrix(daf, depth + 1)
+                        return nothing
+                    end
+
+                    nested_test("relayout") do
+                        @test relayout_matrix!(daf, "cell", "gene", "UMIs") == nothing
+                        test_existing_relayout_matrix(daf, depth + 1)
+                        return nothing
+                    end
+                end
+            end
+        end
+
+        nested_test("sparse") do
+            nested_test("overwrite") do
+                nested_test("default") do
+                    return @test_throws dedent("""
+                        existing matrix: UMIs
+                        for the rows axis: cell
+                        and the columns axis: gene
+                        in the daf data: $(daf.name)
+                    """) empty_sparse_matrix!(daf, "cell", "gene", "UMIs", Int16, sum(UMIS_BY_DEPTH[depth] .> 0), Int16)
+                end
+
+                nested_test("false") do
+                    return @test_throws dedent("""
+                        existing matrix: UMIs
+                        for the rows axis: cell
+                        and the columns axis: gene
+                        in the daf data: $(daf.name)
+                    """) empty_sparse_matrix!(
+                        daf,
+                        "cell",
+                        "gene",
+                        "UMIs",
+                        Int16,
+                        sum(UMIS_BY_DEPTH[depth] .> 0),
+                        Int16;
+                        overwrite = false,
+                    )
+                end
+
+                nested_test("true") do
+                    empty = empty_sparse_matrix!(
+                        daf,
+                        "cell",
+                        "gene",
+                        "UMIs",
+                        Int16,
+                        sum(UMIS_BY_DEPTH[depth] .> 0),
+                        Int16;
+                        overwrite = true,
+                    )
+                    sparse = SparseMatrixCSC(UMIS_BY_DEPTH[depth])
+                    empty.array.colptr .= sparse.colptr
+                    empty.array.rowval .= sparse.rowval
+                    empty.array.nzval .= sparse.nzval
+                    @test delete_matrix!(daf, "gene", "cell", "UMIs"; relayout = false) == nothing
+
+                    nested_test("overwritten") do
+                        return test_existing_matrix(daf, depth + 1)
+                    end
+
+                    nested_test("relayout") do
+                        @test relayout_matrix!(daf, "cell", "gene", "UMIs") == nothing
+                        test_existing_relayout_matrix(daf, depth + 1)
+                        return nothing
+                    end
+                end
+            end
+        end
+    end
+end
+
+function test_format(daf::DafWriter)
     nested_test("scalar") do
         nested_test("missing") do
             test_missing_scalar(daf, 1)

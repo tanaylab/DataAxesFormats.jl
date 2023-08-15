@@ -78,6 +78,7 @@ Daf.Data.delete_vector!
 
 ```@docs
 Daf.Data.set_matrix!
+Daf.Data.relayout_matrix!
 Daf.Data.delete_matrix!
 ```
 

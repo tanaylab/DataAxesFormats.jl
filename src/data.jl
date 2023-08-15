@@ -1,6 +1,6 @@
 """
-The [`ReadDaf`](@ref) and [`WriteDaf`](@ref) interfaces specify a high-level API for accessing `Daf` data. This API is
-implemented here, on top of the low-level [`ReadFormat`](@ref) and [`WriteFormat`](@ref) API.
+The [`DafReader`](@ref) and [`DafWriter`](@ref) interfaces specify a high-level API for accessing `Daf` data. This API is
+implemented here, on top of the low-level [`FormatReader`](@ref) and [`FormatWriter`](@ref) API.
 
 Data properties are identified by a unique name given the axes they are based on. That is, there is a separate namespace
 for scalar properties, vector properties for each specific axis, and matrix properties for each *unordered* pair of
@@ -12,8 +12,8 @@ Similarly, we cache the results of applying a query to the data. We allow cleari
 necessary.
 
 The data API is the high-level API intended to be used from outside the package, and is therefore re-exported from the
-top-level `Daf` namespace. It provides additional functionality on top of the low-level [`ReadFormat`](@ref) and
-[`WriteFormat`](@ref) implementations, accepting more general data types, automatically dealing with [`relayout!`](@ref)
+top-level `Daf` namespace. It provides additional functionality on top of the low-level [`FormatReader`](@ref) and
+[`FormatWriter`](@ref) implementations, accepting more general data types, automatically dealing with [`relayout!`](@ref)
 when needed, and even providing a language for [`Queries`](@ref) for flexible extraction of data from the container.
 """
 module Data
@@ -40,6 +40,7 @@ export has_scalar
 export has_vector
 export matrix_names
 export matrix_query
+export relayout_matrix!
 export scalar_names
 export scalar_query
 export set_matrix!
@@ -51,6 +52,7 @@ export vector_query
 using Daf.Formats
 using Daf.MatrixLayouts
 using Daf.Messages
+using Daf.Oprec
 using Daf.Queries
 using Daf.Registry
 using Daf.StorageTypes
@@ -58,8 +60,8 @@ using NamedArrays
 using SparseArrays
 
 import Daf.Formats
-import Daf.Formats.ReadFormat
-import Daf.Formats.WriteFormat
+import Daf.Formats.FormatReader
+import Daf.Formats.FormatWriter
 import Daf.Queries.CmpEqual
 import Daf.Queries.CmpGreaterOrEqual
 import Daf.Queries.CmpGreaterThan
@@ -72,7 +74,7 @@ import Daf.Queries.FilterAnd
 import Daf.Queries.FilterOr
 import Daf.Queries.FilterXor
 
-function Base.getproperty(daf::ReadDaf, property::Symbol)::Any
+function Base.getproperty(daf::DafReader, property::Symbol)::Any
     if property == :name
         return daf.internal.name
     else
@@ -81,29 +83,31 @@ function Base.getproperty(daf::ReadDaf, property::Symbol)::Any
 end
 
 """
-    has_scalar(daf::ReadDaf, name::AbstractString)::Bool
+    has_scalar(daf::DafReader, name::AbstractString)::Bool
 
 Check whether a scalar property with some `name` exists in `daf`.
 """
-function has_scalar(daf::ReadDaf, name::AbstractString)::Bool
+function has_scalar(daf::DafReader, name::AbstractString)::Bool
     return Formats.format_has_scalar(daf, name)
 end
 
 """
     set_scalar!(
-        daf::WriteDaf,
+        daf::DafWriter,
         name::AbstractString,
-        value::StorageScalar
-        [; overwrite::Bool]
+        value::StorageScalar;
+        [overwrite::Bool = false]
     )::Nothing
 
 Set the `value` of a scalar property with some `name` in `daf`.
 
-If `overwrite` is `false` (the default), this first verifies the `name` scalar property does not exist.
+If not `overwrite` (the default), this first verifies the `name` scalar property does not exist.
 """
-function set_scalar!(daf::WriteDaf, name::AbstractString, value::StorageScalar; overwrite::Bool = false)::Nothing
+function set_scalar!(daf::DafWriter, name::AbstractString, value::StorageScalar; overwrite::Bool = false)::Nothing
     if !overwrite
         require_no_scalar(daf, name)
+    elseif Formats.format_has_scalar(daf, name)
+        Formats.format_delete_scalar!(daf, name)
     end
 
     Formats.format_set_scalar!(daf, name, value)
@@ -112,81 +116,89 @@ end
 
 """
     delete_scalar!(
-        daf::WriteDaf,
+        daf::DafWriter,
         name::AbstractString;
         must_exist::Bool = true,
     )::Nothing
 
 Delete a scalar property with some `name` from `daf`.
 
-If `must_exist` is `true` (the default), this first verifies the `name` scalar property exists in `daf`.
+If `must_exist` (the default), this first verifies the `name` scalar property exists in `daf`.
 """
-function delete_scalar!(daf::WriteDaf, name::AbstractString; must_exist::Bool = true)::Nothing
+function delete_scalar!(daf::DafWriter, name::AbstractString; must_exist::Bool = true)::Nothing
     if must_exist
         require_scalar(daf, name)
-    elseif !has_scalar(daf, name)
-        return nothing
     end
 
-    Formats.format_delete_scalar!(daf, name)
+    if Formats.format_has_scalar(daf, name)
+        Formats.format_delete_scalar!(daf, name)
+    end
+
     return nothing
 end
 
 """
-    scalar_names(daf::ReadDaf)::Set{String}
+    scalar_names(daf::DafReader)::Set{String}
 
 The names of the scalar properties in `daf`.
 """
-function scalar_names(daf::ReadDaf)::AbstractSet{String}
+function scalar_names(daf::DafReader)::AbstractSet{String}
     return Formats.format_scalar_names(daf)
 end
 
 """
     get_scalar(
-        daf::ReadDaf,
-        name::AbstractString[; default::StorageScalar]
+        daf::DafReader,
+        name::AbstractString;
+        [default::Union{StorageScalar, Nothing} = nothing]
     )::StorageScalar
 
 Get the value of a scalar property with some `name` in `daf`.
 
-If `default` is not specified, this first verifies the `name` scalar property exists in `daf`.
+If `default` is `nothing` (the default), this first verifies the `name` scalar property exists in `daf`.
 """
-function get_scalar(daf::ReadDaf, name::AbstractString; default::Union{StorageScalar, Nothing} = nothing)::StorageScalar
+function get_scalar(
+    daf::DafReader,
+    name::AbstractString;
+    default::Union{StorageScalar, Nothing} = nothing,
+)::StorageScalar
     if default == nothing
         require_scalar(daf, name)
-    elseif !has_scalar(daf, name)
-        return default
     end
 
-    return Formats.format_get_scalar(daf, name)
+    if has_scalar(daf, name)
+        return Formats.format_get_scalar(daf, name)
+    end
+
+    return default
 end
 
-function require_scalar(daf::ReadDaf, name::AbstractString)::Nothing
-    if !has_scalar(daf, name)
+function require_scalar(daf::DafReader, name::AbstractString)::Nothing
+    if !Formats.format_has_scalar(daf, name)
         error("missing scalar: $(name)\nin the daf data: $(daf.name)")
     end
     return nothing
 end
 
-function require_no_scalar(daf::ReadDaf, name::AbstractString)::Nothing
-    if has_scalar(daf, name)
+function require_no_scalar(daf::DafReader, name::AbstractString)::Nothing
+    if Formats.format_has_scalar(daf, name)
         error("existing scalar: $(name)\nin the daf data: $(daf.name)")
     end
     return nothing
 end
 
 """
-    has_axis(daf::ReadDaf, axis::AbstractString)::Bool
+    has_axis(daf::DafReader, axis::AbstractString)::Bool
 
 Check whether some `axis` exists in `daf`.
 """
-function has_axis(daf::ReadDaf, axis::AbstractString)::Bool
+function has_axis(daf::DafReader, axis::AbstractString)::Bool
     return Formats.format_has_axis(daf, axis)
 end
 
 """
     add_axis!(
-        daf::WriteDaf,
+        daf::DafWriter,
         axis::AbstractString,
         entries::DenseVector{String}
     )::Nothing
@@ -195,7 +207,7 @@ Add a new `axis` `daf`.
 
 This first verifies the `axis` does not exist and that the `entries` are unique.
 """
-function add_axis!(daf::WriteDaf, axis::AbstractString, entries::DenseVector{String})::Nothing
+function add_axis!(daf::DafWriter, axis::AbstractString, entries::DenseVector{String})::Nothing
     require_no_axis(daf, axis)
 
     if !allunique(entries)
@@ -208,31 +220,37 @@ end
 
 """
     delete_axis!(
-        daf::WriteDaf,
+        daf::DafWriter,
         axis::AbstractString;
         must_exist::Bool = true,
     )::Nothing
 
 Delete an `axis` from the `daf`. This will also delete any vector or matrix properties that are based on this axis.
 
-If `must_exist` is `true` (the default), this first verifies the `axis` exists in the `daf`.
+If `must_exist` (the default), this first verifies the `axis` exists in the `daf`.
 """
-function delete_axis!(daf::WriteDaf, axis::AbstractString; must_exist::Bool = true)::Nothing
+function delete_axis!(daf::DafWriter, axis::AbstractString; must_exist::Bool = true)::Nothing
     if must_exist
         require_axis(daf, axis)
-    elseif !has_axis(daf, axis)
+    end
+
+    if !Formats.format_has_axis(daf, axis)
         return nothing
     end
 
-    for name in vector_names(daf, axis)
+    for key in daf.internal.axes_cache_keys
+        delete!(daf.internal.cache, key)
+    end
+
+    for name in Formats.format_vector_names(daf, axis)
         Formats.format_delete_vector!(daf, axis, name)
     end
 
-    for other_axis in axis_names(daf)
-        for name in matrix_names(daf, axis, other_axis)
-            Formats.format_delete_matrix!(daf, axis, other_axis, name)  # untested
-        end  # untested
-        for name in matrix_names(daf, other_axis, axis)
+    for other_axis in Formats.format_axis_names(daf)
+        for name in Formats.format_matrix_names(daf, axis, other_axis)
+            Formats.format_delete_matrix!(daf, axis, other_axis, name)
+        end
+        for name in Formats.format_matrix_names(daf, other_axis, axis)
             Formats.format_delete_matrix!(daf, other_axis, axis, name)
         end
     end
@@ -242,73 +260,73 @@ function delete_axis!(daf::WriteDaf, axis::AbstractString; must_exist::Bool = tr
 end
 
 """
-    axis_names(daf::ReadDaf)::AbstractSet{String}
+    axis_names(daf::DafReader)::AbstractSet{String}
 
 The names of the axes of `daf`.
 """
-function axis_names(daf::ReadDaf)::AbstractSet{String}
+function axis_names(daf::DafReader)::AbstractSet{String}
     return Formats.format_axis_names(daf)
 end
 
 """
-    get_axis(daf::ReadDaf, axis::AbstractString)::DenseVector{String}
+    get_axis(daf::DafReader, axis::AbstractString)::DenseVector{String}
 
 The unique names of the entries of some `axis` of `daf`. This is similar to doing [`get_vector`](@ref) for the special
 `name` property, except that it returns a simple vector of strings instead of a `NamedVector`.
 
 This first verifies the `axis` exists in `daf`.
 """
-function get_axis(daf::ReadDaf, axis::AbstractString)::AbstractVector{String}
+function get_axis(daf::DafReader, axis::AbstractString)::AbstractVector{String}
     require_axis(daf, axis)
     return as_read_only(Formats.format_get_axis(daf, axis))
 end
 
 """
-    axis_length(daf::ReadDaf, axis::AbstractString)::Int64
+    axis_length(daf::DafReader, axis::AbstractString)::Int64
 
 The number of entries along the `axis` in `daf`.
 
 This first verifies the `axis` exists in `daf`.
 """
-function axis_length(daf::ReadDaf, axis::AbstractString)::Int64
+function axis_length(daf::DafReader, axis::AbstractString)::Int64
     require_axis(daf, axis)
     return Formats.format_axis_length(daf, axis)
 end
 
-function require_axis(daf::ReadDaf, axis::AbstractString)::Nothing
-    if !has_axis(daf, axis)
+function require_axis(daf::DafReader, axis::AbstractString)::Nothing
+    if !Formats.format_has_axis(daf, axis)
         error("missing axis: $(axis)\nin the daf data: $(daf.name)")
     end
     return nothing
 end
 
-function require_no_axis(daf::ReadDaf, axis::AbstractString)::Nothing
-    if has_axis(daf, axis)
+function require_no_axis(daf::DafReader, axis::AbstractString)::Nothing
+    if Formats.format_has_axis(daf, axis)
         error("existing axis: $(axis)\nin the daf data: $(daf.name)")
     end
     return nothing
 end
 
 """
-    has_vector(daf::ReadDaf, axis::AbstractString, name::AbstractString)::Bool
+    has_vector(daf::DafReader, axis::AbstractString, name::AbstractString)::Bool
 
 Check whether a vector property with some `name` exists for the `axis` in `daf`. This is always true for the special
 `name` property.
 
 This first verifies the `axis` exists in `daf`.
 """
-function has_vector(daf::ReadDaf, axis::AbstractString, name::AbstractString)::Bool
+function has_vector(daf::DafReader, axis::AbstractString, name::AbstractString)::Bool
     require_axis(daf, axis)
     return name == "name" || Formats.format_has_vector(daf, axis, name)
 end
 
 """
     set_vector!(
-        daf::WriteDaf,
+        daf::DafWriter,
         axis::AbstractString,
         name::AbstractString,
-        vector::Union{StorageScalar, StorageVector}
-        [; overwrite::Bool]
+        vector::Union{StorageScalar, StorageVector};
+        [overwrite::Bool = false]
     )::Nothing
 
 Set a vector property with some `name` for some `axis` in `daf`.
@@ -316,11 +334,11 @@ Set a vector property with some `name` for some `axis` in `daf`.
 If the `vector` specified is actually a [`StorageScalar`](@ref), the stored vector is filled with this value.
 
 This first verifies the `axis` exists in `daf`, that the property name isn't `name`, and that the `vector` has the
-appropriate length. If `overwrite` is `false` (the default), this also verifies the `name` vector does not exist for the
+appropriate length. If not `overwrite` (the default), this also verifies the `name` vector does not exist for the
 `axis`.
 """
 function set_vector!(
-    daf::WriteDaf,
+    daf::DafWriter,
     axis::AbstractString,
     name::AbstractString,
     vector::Union{StorageScalar, StorageVector};
@@ -339,6 +357,8 @@ function set_vector!(
 
     if !overwrite
         require_no_vector(daf, axis, name)
+    elseif Formats.format_has_vector(daf, axis, name)
+        Formats.format_delete_vector!(daf, axis, name)
     end
 
     Formats.format_set_vector!(daf, axis, name, vector)
@@ -347,11 +367,11 @@ end
 
 """
     empty_dense_vector!(
-        daf::WriteDaf,
+        daf::DafWriter,
         axis::AbstractString,
         name::AbstractString,
-        eltype::Type{T}
-        [; overwrite::Bool]
+        eltype::Type{T};
+        [overwrite::Bool = false]
     )::NamedVector{T, DenseVector{T}} where {T <: Number}
 
 Create an empty dense vector property with some `name` for some `axis` in `daf`.
@@ -360,11 +380,11 @@ The returned vector will be uninitialized; the caller is expected to fill it wit
 the vector before setting it in the data, which makes a huge difference when creating vectors on disk (using memory
 mapping). For this reason, this does not work for strings, as they do not have a fixed size.
 
-This first verifies the `axis` exists in `daf` and that the property name isn't `name`. If `overwrite` is `false` (the
+This first verifies the `axis` exists in `daf` and that the property name isn't `name`. If not `overwrite` (the
 default), this also verifies the `name` vector does not exist for the `axis`.
 """
 function empty_dense_vector!(
-    daf::WriteDaf,
+    daf::DafWriter,
     axis::AbstractString,
     name::AbstractString,
     eltype::Type{T};
@@ -375,6 +395,8 @@ function empty_dense_vector!(
 
     if !overwrite
         require_no_vector(daf, axis, name)
+    elseif Formats.format_has_vector(daf, axis, name)
+        Formats.format_delete_vector!(daf, axis, name)
     end
 
     return as_named_vector(daf, axis, Formats.format_empty_dense_vector!(daf, axis, name, eltype))
@@ -382,13 +404,13 @@ end
 
 """
     empty_sparse_vector!(
-        daf::WriteDaf,
+        daf::DafWriter,
         axis::AbstractString,
         name::AbstractString,
         eltype::Type{T},
         nnz::Integer,
-        indtype::Type{I}
-        [; overwrite::Bool]
+        indtype::Type{I};
+        [overwrite::Bool = false]
     )::NamedVector{T, SparseVector{T, I}} where {T <: Number, I <: Integer}
 
 Create an empty dense vector property with some `name` for some `axis` in `daf`.
@@ -410,11 +432,11 @@ allows doing so directly into the data vector, avoiding a copy in case of memory
       - `nzind[i] <= nzind[i + 1]`
       - `nzind[end] == nnz`
 
-This first verifies the `axis` exists in `daf` and that the property name isn't `name`. If `overwrite` is `false` (the
+This first verifies the `axis` exists in `daf` and that the property name isn't `name`. If not `overwrite` (the
 default), this also verifies the `name` vector does not exist for the `axis`.
 """
 function empty_sparse_vector!(
-    daf::WriteDaf,
+    daf::DafWriter,
     axis::AbstractString,
     name::AbstractString,
     eltype::Type{T},
@@ -427,6 +449,8 @@ function empty_sparse_vector!(
 
     if !overwrite
         require_no_vector(daf, axis, name)
+    elseif Formats.format_has_vector(daf, axis, name)
+        Formats.format_delete_vector!(daf, axis, name)
     end
 
     return as_named_vector(daf, axis, Formats.format_empty_sparse_vector!(daf, axis, name, eltype, nnz, indtype))
@@ -434,7 +458,7 @@ end
 
 """
     delete_vector!(
-        daf::WriteDaf,
+        daf::DafWriter,
         axis::AbstractString,
         name::AbstractString;
         must_exist::Bool = true,
@@ -442,16 +466,18 @@ end
 
 Delete a vector property with some `name` for some `axis` from `daf`.
 
-This first verifies the `axis` exists in `daf` and that the property name isn't `name`. If `must_exist` is `true` (the
-default), this also verifies the `name` vector exists for the `axis`.
+This first verifies the `axis` exists in `daf` and that the property name isn't `name`. If `must_exist` (the default),
+this also verifies the `name` vector exists for the `axis`.
 """
-function delete_vector!(daf::WriteDaf, axis::AbstractString, name::AbstractString; must_exist::Bool = true)::Nothing
+function delete_vector!(daf::DafWriter, axis::AbstractString, name::AbstractString; must_exist::Bool = true)::Nothing
     require_not_name(daf, axis, name)
     require_axis(daf, axis)
 
     if must_exist
         require_vector(daf, axis, name)
-    elseif !has_vector(daf, axis, name)
+    end
+
+    if !Formats.format_has_vector(daf, axis, name)
         return nothing
     end
 
@@ -460,35 +486,35 @@ function delete_vector!(daf::WriteDaf, axis::AbstractString, name::AbstractStrin
 end
 
 """
-    vector_names(daf::ReadDaf, axis::AbstractString)::Set{String}
+    vector_names(daf::DafReader, axis::AbstractString)::Set{String}
 
 The names of the vector properties for the `axis` in `daf`, **not** including the special `name` property.
 
 This first verifies the `axis` exists in `daf`.
 """
-function vector_names(daf::ReadDaf, axis::AbstractString)::AbstractSet{String}
+function vector_names(daf::DafReader, axis::AbstractString)::AbstractSet{String}
     require_axis(daf, axis)
     return Formats.format_vector_names(daf, axis)
 end
 
 """
     get_vector(
-        daf::ReadDaf,
+        daf::DafReader,
         axis::AbstractString,
-        name::AbstractString
-        [; default::Union{StorageScalar, StorageVector}]
+        name::AbstractString;
+        [default::Union{StorageScalar, StorageVector, Nothing} = nothing]
     )::NamedVector
 
 Get the vector property with some `name` for some `axis` in `daf`. The names of the result are the names of the vector
 entries (same as returned by [`get_axis`](@ref)). The special property `name` returns an array whose values are also the
 (read-only) names of the entries of the axis.
 
-This first verifies the `axis` exists in `daf`. If `default` is not specified, this first verifies the `name` vector
-exists in `daf`. Otherwise, if `default` is a `StorageVector`, it has to be of the same size as the `axis`, and is
-returned. Otherwise, a new `Vector` is created of the correct size containing the `default`, and is returned.
+This first verifies the `axis` exists in `daf`. If `default` is `nothing` (the default), this first verifies the `name`
+vector exists in `daf`. Otherwise, if `default` is a `StorageVector`, it has to be of the same size as the `axis`, and
+is returned. Otherwise, a new `Vector` is created of the correct size containing the `default`, and is returned.
 """
 function get_vector(
-    daf::ReadDaf,
+    daf::DafReader,
     axis::AbstractString,
     name::AbstractString;
     default::Union{StorageScalar, StorageVector, Nothing} = nothing,
@@ -508,11 +534,11 @@ function get_vector(
     end
 
     vector = nothing
-    if !has_vector(daf, axis, name)
+    if !Formats.format_has_vector(daf, axis, name)
         if default isa StorageVector
             vector = default
         elseif default isa StorageScalar
-            vector = fill(default, axis_length(daf, axis))
+            vector = fill(default, Formats.format_axis_length(daf, axis))
         end
     end
 
@@ -525,7 +551,7 @@ function get_vector(
                 "returned invalid Daf.StorageVector: $(typeof(vector))",
             )
         end
-        if length(vector) != axis_length(daf, axis)
+        if length(vector) != Formats.format_axis_length(daf, axis)
             error( # untested
                 "format_get_vector for daf format: $(typeof(daf))\n" *
                 "returned vector length: $(length(vector))\n" *
@@ -539,15 +565,15 @@ function get_vector(
     return as_named_vector(daf, axis, vector)
 end
 
-function require_vector(daf::ReadDaf, axis::AbstractString, name::AbstractString)::Nothing
-    if !has_vector(daf, axis, name)
+function require_vector(daf::DafReader, axis::AbstractString, name::AbstractString)::Nothing
+    if !Formats.format_has_vector(daf, axis, name)
         error("missing vector: $(name)\nfor the axis: $(axis)\nin the daf data: $(daf.name)")
     end
     return nothing
 end
 
-function require_no_vector(daf::ReadDaf, axis::AbstractString, name::AbstractString)::Nothing
-    if has_vector(daf, axis, name)
+function require_no_vector(daf::DafReader, axis::AbstractString, name::AbstractString)::Nothing
+    if Formats.format_has_vector(daf, axis, name)
         error("existing vector: $(name)\nfor the axis: $(axis)\nin the daf data: $(daf.name)")
     end
     return nothing
@@ -555,32 +581,44 @@ end
 
 """
     has_matrix(
-        daf::ReadDaf,
+        daf::DafReader,
         rows_axis::AbstractString,
         columns_axis::AbstractString,
-        name::AbstractString,
+        name::AbstractString;
+        [relayout::Bool = true]
     )::Bool
 
 Check whether a matrix property with some `name` exists for the `rows_axis` and the `columns_axis` in `daf`. Since this
 is Julia, this means a column-major matrix. A daf may contain two copies of the same data, in which case it would report
 the matrix under both axis orders.
 
+If `relayout` (the default), this will also check whether the data exists in the other layout (that is, with flipped
+axes).
+
 This first verifies the `rows_axis` and `columns_axis` exists in `daf`.
 """
-function has_matrix(daf::ReadDaf, rows_axis::AbstractString, columns_axis::AbstractString, name::AbstractString)::Bool
+function has_matrix(
+    daf::DafReader,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString;
+    relayout::Bool = true,
+)::Bool
     require_axis(daf, rows_axis)
     require_axis(daf, columns_axis)
-    return Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
+    return Formats.format_has_matrix(daf, rows_axis, columns_axis, name) ||
+           (relayout && Formats.format_has_matrix(daf, columns_axis, rows_axis, name))
 end
 
 """
     set_matrix!(
-        daf::WriteDaf,
+        daf::DafWriter,
         rows_axis::AbstractString,
         columns_axis::AbstractString,
         name::AbstractString,
-        matrix::StorageMatrix
-        [; overwrite::Bool]
+        matrix::StorageMatrix;
+        [overwrite::Bool = false,
+        relayout::Bool = true]
     )::Nothing
 
 Set the matrix property with some `name` for some `rows_axis` and `columns_axis` in `daf`. Since this is Julia, this
@@ -588,17 +626,22 @@ should be a column-major `matrix`.
 
 If the `matrix` specified is actually a [`StorageScalar`](@ref), the stored matrix is filled with this value.
 
+If `relayout` (the default), this will also automatically [`relayout!`](@ref) the matrix and store the result, so the
+data would also be stored in row-major layout (that is, with the axes flipped), similarly to calling
+[`relayout_matrix!`](@ref).
+
 This first verifies the `rows_axis` and `columns_axis` exist in `daf`, that the `matrix` is column-major of the
-appropriate size. If `overwrite` is `false` (the default), this also verifies the `name` matrix does not exist for the
+appropriate size. If not `overwrite` (the default), this also verifies the `name` matrix does not exist for the
 `rows_axis` and `columns_axis`.
 """
 function set_matrix!(
-    daf::WriteDaf,
+    daf::DafWriter,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
     matrix::Union{StorageScalar, StorageMatrix};
     overwrite::Bool = false,
+    relayout::Bool = true,
 )::Nothing
     require_axis(daf, rows_axis)
     require_axis(daf, columns_axis)
@@ -616,21 +659,35 @@ function set_matrix!(
     end
 
     if !overwrite
-        require_no_matrix(daf, rows_axis, columns_axis, name)
+        require_no_matrix(daf, rows_axis, columns_axis, name; relayout = relayout)
     end
 
+    delete!(daf.internal.cache, "$(escape_query(rows_axis)), $(escape_query(columns_axis)) @ $(escape_query(name))")
+    delete!(daf.internal.cache, "$(escape_query(columns_axis)), $(escape_query(rows_axis)) @ $(escape_query(name))")
+
+    if Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
+        Formats.format_delete_matrix!(daf, rows_axis, columns_axis, name)
+    end
     Formats.format_set_matrix!(daf, rows_axis, columns_axis, name, matrix)
+
+    if relayout
+        if overwrite && Formats.format_has_matrix(daf, columns_axis, rows_axis, name)
+            Formats.format_delete_matrix!(daf, columns_axis, rows_axis, name)
+        end
+        Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name)
+    end
+
     return nothing
 end
 
 """
     empty_dense_matrix!(
-        daf::WriteDaf,
+        daf::DafWriter,
         rows_axis::AbstractString,
         columns_axis::AbstractString,
         name::AbstractString,
-        eltype::Type{T}
-        [; overwrite::Bool]
+        eltype::Type{T};
+        [overwrite::Bool = false]
     )::NamedMatrix{T, DenseMatrix{T}} where {T <: Number}
 
 Create an empty dense matrix property with some `name` for some `rows_axis` and `columns_axis` in `daf`. Since this is
@@ -641,11 +698,11 @@ the matrix before setting it in `daf`, which makes a huge difference when creati
 mapping). For this reason, this does not work for strings, as they do not have a fixed size.
 
 This first verifies the `rows_axis` and `columns_axis` exist in `daf`, that the `matrix` is column-major of the
-appropriate size. If `overwrite` is `false` (the default), this also verifies the `name` matrix does not exist for the
+appropriate size. If not `overwrite` (the default), this also verifies the `name` matrix does not exist for the
 `rows_axis` and `columns_axis`.
 """
 function empty_dense_matrix!(
-    daf::WriteDaf,
+    daf::DafWriter,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
@@ -656,8 +713,13 @@ function empty_dense_matrix!(
     require_axis(daf, columns_axis)
 
     if !overwrite
-        require_no_matrix(daf, rows_axis, columns_axis, name)
+        require_no_matrix(daf, rows_axis, columns_axis, name; relayout = false)
+    elseif Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
+        Formats.format_delete_matrix!(daf, rows_axis, columns_axis, name)
     end
+
+    delete!(daf.internal.cache, "$(escape_query(rows_axis)), $(escape_query(columns_axis)) @ $(escape_query(name))")
+    delete!(daf.internal.cache, "$(escape_query(columns_axis)), $(escape_query(rows_axis)) @ $(escape_query(name))")
 
     return as_named_matrix(
         daf,
@@ -669,14 +731,14 @@ end
 
 """
     empty_sparse_matrix!(
-        daf::WriteDaf,
+        daf::DafWriter,
         rows_axis::AbstractString,
         columns_axis::AbstractString,
         name::AbstractString,
         eltype::Type{T},
         nnz::Integer,
-        intdype::Type{I}
-        [; overwrite::Bool]
+        intdype::Type{I};
+        [overwrite::Bool = false]
     )::NamedMatrix{T, SparseMatrixCSC{T, I}} where {T <: Number, I <: Integer}
 
 Create an empty sparse matrix property with some `name` for some `rows_axis` and `columns_axis` in `daf`.
@@ -691,19 +753,21 @@ allows doing so directly into the data, avoiding a copy in case of memory-mapped
 
 !!! warning
 
-    It is the caller's responsibility to fill the three vectors with valid data. **There's no safety net if you mess
-    this up**. Specifically, you must ensure:
+
+https://science.slashdot.org/story/23/08/12/1942234/common-alzheimers-disease-gene-may-have-helped-our-ancestors-have-more-kids
+It is the caller's responsibility to fill the three vectors with valid data. **There's no safety net if you mess
+this up**. Specifically, you must ensure:
 
       - `colptr[1] == 1`
       - `colptr[end] == nnz + 1`
       - `colptr[i] <= colptr[i + 1]`
       - for all `j`, for all `i` such that `colptr[j] <= i` and `i + 1 < colptr[j + 1]`, `1 <= rowptr[i] < rowptr[i + 1] <= nrows`
 
-This first verifies the `rows_axis` and `columns_axis` exist in `daf`. If `overwrite` is `false` (the default), this
-also verifies the `name` matrix does not exist for the `rows_axis` and `columns_axis`.
+This first verifies the `rows_axis` and `columns_axis` exist in `daf`. If not `overwrite` (the default), this also
+verifies the `name` matrix does not exist for the `rows_axis` and `columns_axis`.
 """
 function empty_sparse_matrix!(
-    daf::WriteDaf,
+    daf::DafWriter,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
@@ -716,8 +780,13 @@ function empty_sparse_matrix!(
     require_axis(daf, columns_axis)
 
     if !overwrite
-        require_no_matrix(daf, rows_axis, columns_axis, name)
+        require_no_matrix(daf, rows_axis, columns_axis, name; relayout = false)
+    elseif Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
+        Formats.format_delete_matrix!(daf, rows_axis, columns_axis, name)
     end
+
+    delete!(daf.internal.cache, "$(escape_query(rows_axis)), $(escape_query(columns_axis)) @ $(escape_query(name))")
+    delete!(daf.internal.cache, "$(escape_query(columns_axis)), $(escape_query(rows_axis)) @ $(escape_query(name))")
 
     return as_named_matrix(
         daf,
@@ -728,67 +797,144 @@ function empty_sparse_matrix!(
 end
 
 """
-    delete_matrix!(
-        daf::WriteDaf,
+    relayout_matrix!(
+        daf::DafWriter,
         rows_axis::AbstractString,
         columns_axis::AbstractString,
         name::AbstractString;
-        must_exist::Bool = true,
+        [overwrite::Bool = false]
+    )::Nothing
+
+Given a matrix property with some `name` exists (in column-major layout) in `daf` for the `rows_axis` and the
+`columns_axis`, then [`relayout!`](@ref) it and store the row-major result as well (that is, with flipped axes).
+
+This is useful following calling [`empty_dense_matrix!`](@ref) or [`empty_sparse_matrix!`](@ref) to ensure both layouts
+of the matrix are stored in `def`. When calling [`set_matrix!`](@ref), it is simpler to just specify (the default)
+`relayout = true`.
+
+This first verifies the `rows_axis` and `columns_axis` exist in `daf`, and that there is a `name` (column-major) matrix
+property for them. If not `overwrite` (the default), this also verifies the `name` matrix does not exist for the
+*flipped* `rows_axis` and `columns_axis`.
+"""
+function relayout_matrix!(
+    daf::DafWriter,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString;
+    overwrite::Bool = false,
+)::Nothing
+    require_axis(daf, rows_axis)
+    require_axis(daf, columns_axis)
+
+    require_matrix(daf, rows_axis, columns_axis, name; relayout = false)
+
+    if !overwrite
+        require_no_matrix(daf, columns_axis, rows_axis, name; relayout = false)
+    elseif Formats.format_has_matrix(daf, columns_axis, rows_axis, name)
+        Formats.format_delete_matrix!(daf, columns_axis, rows_axis, name)
+    end
+
+    delete!(daf.internal.cache, "$(escape_query(rows_axis)), $(escape_query(columns_axis)) @ $(escape_query(name))")
+    delete!(daf.internal.cache, "$(escape_query(columns_axis)), $(escape_query(rows_axis)) @ $(escape_query(name))")
+
+    Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name)
+    return nothing
+end
+
+"""
+    delete_matrix!(
+        daf::DafWriter,
+        rows_axis::AbstractString,
+        columns_axis::AbstractString,
+        name::AbstractString;
+        [must_exist::Bool = true,
+        relayout::Bool = true]
     )::Nothing
 
 Delete a matrix property with some `name` for some `rows_axis` and `columns_axis` from `daf`.
 
-This first verifies the `rows_axis` and `columns_axis` exist in `daf`. If `must_exist` is `true` (the default), this
-also verifies the `name` matrix exists for the `rows_axis` and `columns_axis`.
+If `relayout` (the default), this will also delete the matrix in the other layout (that is, with flipped axes).
+
+This first verifies the `rows_axis` and `columns_axis` exist in `daf`. If `must_exist` (the default), this also verifies
+the `name` matrix exists for the `rows_axis` and `columns_axis`.
 """
 function delete_matrix!(
-    daf::WriteDaf,
+    daf::DafWriter,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString;
     must_exist::Bool = true,
+    relayout::Bool = true,
 )::Nothing
     require_axis(daf, rows_axis)
     require_axis(daf, columns_axis)
 
     if must_exist
-        require_matrix(daf, rows_axis, columns_axis, name)
-    elseif !has_matrix(daf, rows_axis, columns_axis, name)
-        return nothing
+        require_matrix(daf, rows_axis, columns_axis, name; relayout = relayout)
     end
 
-    Formats.format_delete_matrix!(daf, rows_axis, columns_axis, name)
+    delete!(daf.internal.cache, "$(escape_query(rows_axis)), $(escape_query(columns_axis)) @ $(escape_query(name))")
+    delete!(daf.internal.cache, "$(escape_query(columns_axis)), $(escape_query(rows_axis)) @ $(escape_query(name))")
+
+    if Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
+        Formats.format_delete_matrix!(daf, rows_axis, columns_axis, name)
+    end
+
+    if relayout && Formats.format_has_matrix(daf, columns_axis, rows_axis, name)
+        Formats.format_delete_matrix!(daf, columns_axis, rows_axis, name)
+    end
+
     return nothing
 end
 
 """
     matrix_names(
-        daf::ReadDaf,
+        daf::DafReader,
         rows_axis::AbstractString,
-        columns_axis::AbstractString,
+        columns_axis::AbstractString;
+        [relayout::Bool = true]
     )::Set{String}
 
 The names of the matrix properties for the `rows_axis` and `columns_axis` in `daf`.
 
+If `relayout` (default), then this will include the names of matrices that exist in the other layout (that is, with
+flipped axes).
+
 This first verifies the `rows_axis` and `columns_axis` exist in `daf`.
 """
-function matrix_names(daf::ReadDaf, rows_axis::AbstractString, columns_axis::AbstractString)::AbstractSet{String}
+function matrix_names(
+    daf::DafReader,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString;
+    relayout::Bool = true,
+)::AbstractSet{String}
     require_axis(daf, rows_axis)
     require_axis(daf, columns_axis)
-    return Formats.format_matrix_names(daf, rows_axis, columns_axis)
+    names = Formats.format_matrix_names(daf, rows_axis, columns_axis)
+    if relayout
+        names = union(names, Formats.format_matrix_names(daf, columns_axis, rows_axis))
+    end
+    return names
 end
 
 function require_matrix(
-    daf::ReadDaf,
+    daf::DafReader,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
-    name::AbstractString,
+    name::AbstractString;
+    relayout::Bool,
 )::Nothing
-    if !has_matrix(daf, rows_axis, columns_axis, name)
+    if !has_matrix(daf, rows_axis, columns_axis, name; relayout = relayout)
+        if relayout
+            extra = "or the other way around\n"
+        else
+            extra = ""
+        end
         error(
             "missing matrix: $(name)\n" *
             "for the rows axis: $(rows_axis)\n" *
             "and the columns axis: $(columns_axis)\n" *
+            extra *
             "in the daf data: $(daf.name)",
         )
     end
@@ -796,12 +942,13 @@ function require_matrix(
 end
 
 function require_no_matrix(
-    daf::ReadDaf,
+    daf::DafReader,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
-    name::AbstractString,
+    name::AbstractString;
+    relayout::Bool,
 )::Nothing
-    if has_matrix(daf, rows_axis, columns_axis, name)
+    if Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
         error(
             "existing matrix: $(name)\n" *
             "for the rows axis: $(rows_axis)\n" *
@@ -809,32 +956,37 @@ function require_no_matrix(
             "in the daf data: $(daf.name)",
         )
     end
+    if relayout
+        require_no_matrix(daf, columns_axis, rows_axis, name; relayout = false)
+    end
     return nothing
 end
 
 """
     get_matrix(
-        daf::ReadDaf,
+        daf::DafReader,
         rows_axis::AbstractString,
         columns_axis::AbstractString,
-        name::AbstractString
-        [; default::Union{StorageScalar, StorageMatrix}]
+        name::AbstractString;
+        [default::Union{StorageScalar, StorageMatrix, Nothing} = nothing,
+        relayout::Bool = true]
     )::NamedMatrix
 
 Get the matrix property with some `name` for some `rows_axis` and `columns_axis` in `daf`. The names of the result axes
 are the names of the relevant axes entries (same as returned by [`get_axis`](@ref)).
 
-This first verifies the `rows_axis` and `columns_axis` exist in `daf`. If `default` is not specified, this first
-verifies the `name` matrix exists in `daf`. Otherwise, if `default` is a `StorageMatrix`, it has to be of the same size
-as the `rows_axis` and `columns_axis`, and is returned. Otherwise, a new `Matrix` is created of the correct size
+This first verifies the `rows_axis` and `columns_axis` exist in `daf`. If `default` is `nothing` (the default), this
+first verifies the `name` matrix exists in `daf`. Otherwise, if `default` is a `StorageMatrix`, it has to be of the same
+size as the `rows_axis` and `columns_axis`, and is returned. Otherwise, a new `Matrix` is created of the correct size
 containing the `default`, and is returned.
 """
 function get_matrix(
-    daf::ReadDaf,
+    daf::DafReader,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString;
     default::Union{StorageScalar, StorageMatrix, Nothing} = nothing,
+    relayout::Bool = true,
 )::NamedArray
     require_axis(daf, rows_axis)
     require_axis(daf, columns_axis)
@@ -852,16 +1004,42 @@ function get_matrix(
     end
 
     matrix = nothing
-    if !has_matrix(daf, rows_axis, columns_axis, name)
-        if default isa StorageMatrix
-            matrix = default
-        elseif default isa StorageScalar
-            matrix = fill(default, axis_length(daf, rows_axis), axis_length(daf, columns_axis))
+    if !Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
+        if relayout && Formats.format_has_matrix(daf, columns_axis, rows_axis, name)
+            if daf isa DafWriter
+                Formats.format_relayout_matrix!(daf, columns_axis, rows_axis, name)
+            else
+                key = "$(escape_query(rows_axis)), $(escape_query(columns_axis)) @ $(escape_query(name))"
+
+                rows_axis_keys = get!(daf.internal.axes_cache_keys, rows_axis) do
+                    return Set{String}()
+                end
+                push!(rows_axis_keys, key)
+
+                columns_axis_keys = get!(daf.internal.axes_cache_keys, columns_axis) do
+                    return Set{String}()
+                end
+                push!(columns_axis_keys, key)
+
+                matrix = get!(daf.internal.cache, key) do
+                    return transpose(relayout!(Formats.format_get_matrix(daf, columns_axis, rows_axis, name)))
+                end
+            end
+        else
+            if default isa StorageMatrix
+                matrix = default
+            elseif default isa StorageScalar
+                matrix = fill(
+                    default,
+                    Formats.format_axis_length(daf, rows_axis),
+                    Formats.format_axis_length(daf, columns_axis),
+                )
+            end
         end
     end
 
     if matrix == nothing
-        require_matrix(daf, rows_axis, columns_axis, name)
+        require_matrix(daf, rows_axis, columns_axis, name; relayout = relayout)
         matrix = Formats.format_get_matrix(daf, rows_axis, columns_axis, name)
         if !(matrix isa StorageMatrix)
             error( # untested
@@ -870,7 +1048,7 @@ function get_matrix(
             )
         end
 
-        if size(matrix, Rows) != axis_length(daf, rows_axis)
+        if size(matrix, Rows) != Formats.format_axis_length(daf, rows_axis)
             error( # untested
                 "format_get_matrix for daf format: $(typeof(daf))\n" *
                 "returned matrix rows: $(size(matrix, Rows))\n" *
@@ -880,7 +1058,7 @@ function get_matrix(
             )
         end
 
-        if size(matrix, Columns) != axis_length(daf, columns_axis)
+        if size(matrix, Columns) != Formats.format_axis_length(daf, columns_axis)
             error( # untested
                 "format_get_matrix for daf format: $(typeof(daf))\n" *
                 "returned matrix columns: $(size(matrix, Columns))\n" *
@@ -908,15 +1086,15 @@ function require_column_major(matrix::StorageMatrix)::Nothing
 end
 
 function require_axis_length(
-    daf::ReadDaf,
+    daf::DafReader,
     what_name::AbstractString,
     what_length::Integer,
     axis::AbstractString,
 )::Nothing
-    if what_length != axis_length(daf, axis)
+    if what_length != Formats.format_axis_length(daf, axis)
         error(
             "$(what_name): $(what_length)\n" *
-            "is different from the length: $(axis_length(daf, axis))\n" *
+            "is different from the length: $(Formats.format_axis_length(daf, axis))\n" *
             "of the axis: $(axis)\n" *
             "in the daf data: $(daf.name)",
         )
@@ -924,7 +1102,7 @@ function require_axis_length(
     return nothing
 end
 
-function require_not_name(daf::ReadDaf, axis::AbstractString, name::AbstractString)::Nothing
+function require_not_name(daf::DafReader, axis::AbstractString, name::AbstractString)::Nothing
     if name == "name"
         error("setting the reserved vector: name\n" * "for the axis: $(axis)\n" * "in the daf data: $(daf.name)")
     end
@@ -935,9 +1113,9 @@ function as_read_only(array::SparseArrays.ReadOnly)::SparseArrays.ReadOnly  # un
     return array
 end
 
-function as_read_only(array::NamedArray)::NamedArray  # untested
+function as_read_only(array::NamedArray)::NamedArray
     if array.array isa SparseArrays.ReadOnly
-        return array
+        return array  # untested
     else
         return NamedArray(as_read_only(array.array), array.dicts, array.dimnames)
     end
@@ -948,7 +1126,7 @@ function as_read_only(array::AbstractArray)::SparseArrays.ReadOnly
 end
 
 function require_dim_name(
-    daf::ReadDaf,
+    daf::DafReader,
     axis::AbstractString,
     what::String,
     name::Union{Symbol, String};
@@ -963,18 +1141,18 @@ function require_dim_name(
     end
 end
 
-function require_axis_names(daf::ReadDaf, axis::AbstractString, what::String, names::Vector{String})::Nothing
+function require_axis_names(daf::DafReader, axis::AbstractString, what::String, names::Vector{String})::Nothing
     expected_names = get_axis(daf, axis)
     if names != expected_names
         error("$(what)\nmismatch the entry names of the axis: $(axis)\nin the daf data: $(daf.name)")
     end
 end
 
-function as_named_vector(daf::ReadDaf, axis::AbstractString, vector::NamedVector)::NamedArray
+function as_named_vector(daf::DafReader, axis::AbstractString, vector::NamedVector)::NamedArray
     return vector
 end
 
-function as_named_vector(daf::ReadDaf, axis::AbstractString, vector::AbstractVector)::NamedArray
+function as_named_vector(daf::DafReader, axis::AbstractString, vector::AbstractVector)::NamedArray
     axis_names_dict = get(daf.internal.axes, axis, nothing)
     if axis_names_dict == nothing
         named_array = NamedArray(vector; names = (get_axis(daf, axis),), dimnames = (axis,))
@@ -987,7 +1165,7 @@ function as_named_vector(daf::ReadDaf, axis::AbstractString, vector::AbstractVec
 end
 
 function as_named_matrix(
-    daf::ReadDaf,
+    daf::DafReader,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     matrix::NamedMatrix,
@@ -996,7 +1174,7 @@ function as_named_matrix(
 end
 
 function as_named_matrix(
-    daf::ReadDaf,
+    daf::DafReader,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     matrix::AbstractMatrix,
@@ -1031,12 +1209,12 @@ function base_array(array::NamedArray)::AbstractArray
 end
 
 """
-    description(daf::ReadDaf)::AbstractString
+    description(daf::DafReader)::AbstractString
 
 Return a (multi-line) description of the contents of `daf`. This tries to hit a sweet spot between usefulness and
 terseness.
 """
-function description(daf::ReadDaf)::AbstractString
+function description(daf::DafReader)::AbstractString
     lines = String[]
 
     push!(lines, "name: $(daf.name)")
@@ -1045,12 +1223,13 @@ function description(daf::ReadDaf)::AbstractString
 
     scalars_description(daf, lines)
 
-    axes = collect(axis_names(daf))
+    axes = collect(Formats.format_axis_names(daf))
     sort!(axes)
     if !isempty(axes)
         axes_description(daf, axes, lines)
         vectors_description(daf, axes, lines)
         matrices_description(daf, axes, lines)
+        cache_description(daf, axes, lines)
     end
 
     Formats.format_description_footer(daf, lines)
@@ -1059,30 +1238,30 @@ function description(daf::ReadDaf)::AbstractString
     return join(lines, "\n")
 end
 
-function scalars_description(daf::ReadDaf, lines::Vector{String})::Nothing
-    scalars = collect(scalar_names(daf))
+function scalars_description(daf::DafReader, lines::Vector{String})::Nothing
+    scalars = collect(Formats.format_scalar_names(daf))
     if !isempty(scalars)
         sort!(scalars)
         push!(lines, "scalars:")
         for scalar in scalars
-            push!(lines, "  $(scalar): $(present(get_scalar(daf, scalar)))")
+            push!(lines, "  $(scalar): $(present(Formats.format_get_scalar(daf, scalar)))")
         end
     end
     return nothing
 end
 
-function axes_description(daf::ReadDaf, axes::Vector{String}, lines::Vector{String})::Nothing
+function axes_description(daf::DafReader, axes::Vector{String}, lines::Vector{String})::Nothing
     push!(lines, "axes:")
     for axis in axes
-        push!(lines, "  $(axis): $(axis_length(daf, axis)) entries")
+        push!(lines, "  $(axis): $(Formats.format_axis_length(daf, axis)) entries")
     end
     return nothing
 end
 
-function vectors_description(daf::ReadDaf, axes::Vector{String}, lines::Vector{String})::Nothing
+function vectors_description(daf::DafReader, axes::Vector{String}, lines::Vector{String})::Nothing
     is_first = true
     for axis in axes
-        vectors = collect(vector_names(daf, axis))
+        vectors = collect(Formats.format_vector_names(daf, axis))
         if !isempty(vectors)
             if is_first
                 push!(lines, "vectors:")
@@ -1091,18 +1270,18 @@ function vectors_description(daf::ReadDaf, axes::Vector{String}, lines::Vector{S
             sort!(vectors)
             push!(lines, "  $(axis):")
             for vector in vectors
-                push!(lines, "    $(vector): $(present(base_array(get_vector(daf, axis, vector))))")
+                push!(lines, "    $(vector): $(present(base_array(Formats.format_get_vector(daf, axis, vector))))")
             end
         end
     end
     return nothing
 end
 
-function matrices_description(daf::ReadDaf, axes::Vector{String}, lines::Vector{String})::Nothing
+function matrices_description(daf::DafReader, axes::Vector{String}, lines::Vector{String})::Nothing
     is_first = true
     for rows_axis in axes
         for columns_axis in axes
-            matrices = collect(matrix_names(daf, rows_axis, columns_axis))
+            matrices = collect(Formats.format_matrix_names(daf, rows_axis, columns_axis))
             if !isempty(matrices)
                 if is_first
                     push!(lines, "matrices:")
@@ -1113,7 +1292,7 @@ function matrices_description(daf::ReadDaf, axes::Vector{String}, lines::Vector{
                 for matrix in matrices
                     push!(
                         lines,
-                        "    $(matrix): $(present(base_array(get_matrix(daf, rows_axis, columns_axis, matrix))))",
+                        "    $(matrix): $(present(base_array(Formats.format_get_matrix(daf, rows_axis, columns_axis, matrix))))",
                     )
                 end
             end
@@ -1122,24 +1301,42 @@ function matrices_description(daf::ReadDaf, axes::Vector{String}, lines::Vector{
     return nothing
 end
 
+function cache_description(daf::DafReader, axes::Vector{String}, lines::Vector{String})::Nothing
+    is_first = true
+    cache_keys = collect(keys(daf.internal.cache))
+    sort!(cache_keys)
+    for key in cache_keys
+        if is_first  # untested
+            push!(lines, "cache:")  # untested
+            is_first = false  # untested  # untested
+        end
+        value = daf.internal.cache[key]  # untested
+        if value isa AbstractArray  # untested  # untested
+            value = base_array(value)  # untested
+        end
+        push!(lines, "  $(key): $(present(value))")  # untested
+    end  # untested
+    return nothing
+end
+
 """
-    matrix_query(daf::ReadDaf, query::AbstractString)::Union{NamedMatrix, Nothing}
+    matrix_query(daf::DafReader, query::AbstractString)::Union{NamedMatrix, Nothing}
 
 Query `daf` for some matrix results. See [`MatrixQuery`](@ref) for the possible queries that return matrix results. The
 names of the axes of the result are the names of the axis entries. This is especially useful when the query applies
 masks to the axes. Will return `nothing` if any of the masks is empty.
 """
-function matrix_query(daf::ReadDaf, query::AbstractString)::Union{NamedArray, Nothing}
+function matrix_query(daf::DafReader, query::AbstractString)::Union{NamedArray, Nothing}
     return matrix_query(daf, parse_matrix_query(query))
 end
 
-function matrix_query(daf::ReadDaf, matrix_query::MatrixQuery)::Union{NamedArray, Nothing}
+function matrix_query(daf::DafReader, matrix_query::MatrixQuery)::Union{NamedArray, Nothing}
     result = compute_matrix_lookup(daf, matrix_query.matrix_property_lookup)
     result = compute_eltwise_result(matrix_query.eltwise_operations, result)
     return result
 end
 
-function compute_matrix_lookup(daf::ReadDaf, matrix_property_lookup::MatrixPropertyLookup)::Union{NamedArray, Nothing}
+function compute_matrix_lookup(daf::DafReader, matrix_property_lookup::MatrixPropertyLookup)::Union{NamedArray, Nothing}
     result = get_matrix(
         daf,
         matrix_property_lookup.matrix_axes.rows_axis.axis_name,
@@ -1165,7 +1362,7 @@ function compute_matrix_lookup(daf::ReadDaf, matrix_property_lookup::MatrixPrope
     return result
 end
 
-function compute_filtered_axis_mask(daf::ReadDaf, filtered_axis::FilteredAxis)::Union{Vector{Bool}, Nothing}
+function compute_filtered_axis_mask(daf::DafReader, filtered_axis::FilteredAxis)::Union{Vector{Bool}, Nothing}
     if isempty(filtered_axis.axis_filters)
         return nothing
     end
@@ -1179,7 +1376,7 @@ function compute_filtered_axis_mask(daf::ReadDaf, filtered_axis::FilteredAxis)::
 end
 
 function compute_axis_filter(
-    daf::ReadDaf,
+    daf::DafReader,
     mask::AbstractVector{Bool},
     axis::AbstractString,
     axis_filter::AxisFilter,
@@ -1208,7 +1405,7 @@ function compute_axis_filter(
     end
 end
 
-function compute_axis_lookup(daf::ReadDaf, axis::AbstractString, axis_lookup::AxisLookup)::NamedArray
+function compute_axis_lookup(daf::DafReader, axis::AbstractString, axis_lookup::AxisLookup)::NamedArray
     values = compute_property_lookup(daf, axis, axis_lookup.property_lookup)
 
     if axis_lookup.property_comparison == nothing
@@ -1227,7 +1424,7 @@ function compute_axis_lookup(daf::ReadDaf, axis::AbstractString, axis_lookup::Ax
 end
 
 function compute_axis_lookup_match_mask(
-    daf::ReadDaf,
+    daf::DafReader,
     axis::AbstractString,
     axis_lookup::AxisLookup,
     values::AbstractVector,
@@ -1263,7 +1460,7 @@ function compute_axis_lookup_match_mask(
 end
 
 function compute_axis_lookup_compare_mask(
-    daf::ReadDaf,
+    daf::DafReader,
     axis::AbstractString,
     axis_lookup::AxisLookup,
     values::AbstractVector,
@@ -1299,7 +1496,7 @@ function compute_axis_lookup_compare_mask(
     end
 end
 
-function compute_property_lookup(daf::ReadDaf, axis::AbstractString, property_lookup::PropertyLookup)::NamedArray
+function compute_property_lookup(daf::DafReader, axis::AbstractString, property_lookup::PropertyLookup)::NamedArray
     last_property_name = property_lookup.property_names[1]
     values = get_vector(daf, axis, last_property_name)
 
@@ -1320,7 +1517,7 @@ function compute_property_lookup(daf::ReadDaf, axis::AbstractString, property_lo
 end
 
 function compute_chained_property(
-    daf::ReadDaf,
+    daf::DafReader,
     last_axis::AbstractString,
     last_property_name::AbstractString,
     last_property_values::NamedVector{String},
@@ -1351,7 +1548,7 @@ function compute_chained_property(
 end
 
 function find_axis_value(
-    daf::ReadDaf,
+    daf::DafReader,
     last_axis::AbstractString,
     last_property_name::AbstractString,
     last_property_value::AbstractString,
@@ -1373,24 +1570,24 @@ function find_axis_value(
 end
 
 """
-    vector_query(daf::ReadDaf, query::AbstractString)::Union{NamedVector, Nothing}
+    vector_query(daf::DafReader, query::AbstractString)::Union{NamedVector, Nothing}
 
 Query `daf` for some vector results. See [`VectorQuery`](@ref) for the possible queries that return vector results. The
 names of the results are the names of the axis entries. This is especially useful when the query applies a mask to the
 axis. Will return `nothing` if any of the masks is empty.
 """
-function vector_query(daf::ReadDaf, query::AbstractString)::Union{NamedArray, Nothing}
+function vector_query(daf::DafReader, query::AbstractString)::Union{NamedArray, Nothing}
     return vector_query(daf, parse_vector_query(query))
 end
 
-function vector_query(daf::ReadDaf, vector_query::VectorQuery)::Union{NamedArray, Nothing}
+function vector_query(daf::DafReader, vector_query::VectorQuery)::Union{NamedArray, Nothing}
     result = compute_vector_data_lookup(daf, vector_query.vector_data_lookup)
     result = compute_eltwise_result(vector_query.eltwise_operations, result)
     return result
 end
 
 function compute_vector_data_lookup(
-    daf::ReadDaf,
+    daf::DafReader,
     vector_property_lookup::VectorPropertyLookup,
 )::Union{NamedArray, Nothing}
     result =
@@ -1408,7 +1605,7 @@ function compute_vector_data_lookup(
     return result[mask]  # NOJET
 end
 
-function compute_vector_data_lookup(daf::ReadDaf, matrix_slice_lookup::MatrixSliceLookup)::Union{NamedArray, Nothing}
+function compute_vector_data_lookup(daf::DafReader, matrix_slice_lookup::MatrixSliceLookup)::Union{NamedArray, Nothing}
     result = get_matrix(
         daf,
         matrix_slice_lookup.matrix_slice_axes.filtered_axis.axis_name,
@@ -1427,7 +1624,7 @@ function compute_vector_data_lookup(daf::ReadDaf, matrix_slice_lookup::MatrixSli
     return result
 end
 
-function compute_vector_data_lookup(daf::ReadDaf, reduce_matrix_query::ReduceMatrixQuery)::Union{NamedArray, Nothing}
+function compute_vector_data_lookup(daf::DafReader, reduce_matrix_query::ReduceMatrixQuery)::Union{NamedArray, Nothing}
     result = matrix_query(daf, reduce_matrix_query.matrix_query)
     if result == nothing
         return nothing
@@ -1436,39 +1633,48 @@ function compute_vector_data_lookup(daf::ReadDaf, reduce_matrix_query::ReduceMat
 end
 
 """
-    scalar_query(daf::ReadDaf, query::AbstractString)::Union{StorageScalar, Nothing}
+    scalar_query(daf::DafReader, query::AbstractString)::Union{StorageScalar, Nothing}
 
 Query `daf` for some scalar results. See [`ScalarQuery`](@ref) for the possible queries that return scalar results.
 """
-function scalar_query(daf::ReadDaf, query::AbstractString)::Union{StorageScalar, Nothing}
+function scalar_query(daf::DafReader, query::AbstractString)::Union{StorageScalar, Nothing}
     return scalar_query(daf, parse_scalar_query(query))
 end
 
-function scalar_query(daf::ReadDaf, scalar_query::ScalarQuery)::Union{StorageScalar, Nothing}
+function scalar_query(daf::DafReader, scalar_query::ScalarQuery)::Union{StorageScalar, Nothing}
     result = compute_scalar_data_lookup(daf, scalar_query.scalar_data_lookup)
     result = compute_eltwise_result(scalar_query.eltwise_operations, result)
     return result
 end
 
 function compute_scalar_data_lookup(
-    daf::ReadDaf,
+    daf::DafReader,
     scalar_property_lookup::ScalarPropertyLookup,
 )::Union{StorageScalar, Nothing}
     return get_scalar(daf, scalar_property_lookup.property_name)
 end
 
-function compute_scalar_data_lookup(daf::ReadDaf, reduce_vector_query::ReduceVectorQuery)::Union{StorageScalar, Nothing}
+function compute_scalar_data_lookup(
+    daf::DafReader,
+    reduce_vector_query::ReduceVectorQuery,
+)::Union{StorageScalar, Nothing}
     result = vector_query(daf, reduce_vector_query.vector_query)
     return compute_reduction_result(reduce_vector_query.reduction_operation, result)
 end
 
-function compute_scalar_data_lookup(daf::ReadDaf, vector_entry_lookup::VectorEntryLookup)::Union{StorageScalar, Nothing}
+function compute_scalar_data_lookup(
+    daf::DafReader,
+    vector_entry_lookup::VectorEntryLookup,
+)::Union{StorageScalar, Nothing}
     result = compute_axis_lookup(daf, vector_entry_lookup.axis_entry.axis_name, vector_entry_lookup.axis_lookup)
     index = find_axis_entry_index(daf, vector_entry_lookup.axis_entry)
     return result[index]
 end
 
-function compute_scalar_data_lookup(daf::ReadDaf, matrix_entry_lookup::MatrixEntryLookup)::Union{StorageScalar, Nothing}
+function compute_scalar_data_lookup(
+    daf::DafReader,
+    matrix_entry_lookup::MatrixEntryLookup,
+)::Union{StorageScalar, Nothing}
     result = get_matrix(
         daf,
         matrix_entry_lookup.matrix_entry_axes.rows_entry.axis_name,
@@ -1480,7 +1686,7 @@ function compute_scalar_data_lookup(daf::ReadDaf, matrix_entry_lookup::MatrixEnt
     return result[row_index, column_index]
 end
 
-function find_axis_entry_index(daf::ReadDaf, axis_entry::AxisEntry)::Int
+function find_axis_entry_index(daf::DafReader, axis_entry::AxisEntry)::Int
     axis_entries = get_axis(daf, axis_entry.axis_name)
     index = findfirst(==(axis_entry.entry_name), axis_entries)
     if index == nothing

@@ -32,6 +32,8 @@ nested_test("example_data") do
             matrices:
               cell,gene:
                 UMIs: 20 x 10 x Int16 (Dense in Columns)
+              gene,cell:
+                UMIs: 10 x 20 x Int16 (Dense in Columns)
         """) * "\n"
     end
 

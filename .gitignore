@@ -1,7 +1,9 @@
 deps/.*
-*.jl.cov
 *.jl.*.cov
+*.jl.cov
 junk*
 .*.swo
 .*.swp
+tags
+TAGS
 tracefile.info

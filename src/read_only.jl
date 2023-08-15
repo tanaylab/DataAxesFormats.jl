@@ -1,7 +1,7 @@
 """
 Read-only `Daf` storage format.
 
-The `ReadOnlyView` class acts as a wrapper for any [`WriteDaf`](@ref) data, protecting it against accidental
+The `ReadOnlyView` class acts as a wrapper for any [`DafWriter`](@ref) data, protecting it against accidental
 modification.
 """
 module ReadOnly
@@ -18,12 +18,12 @@ using SparseArrays
 import Daf.Data.as_read_only
 
 """
-    ReadOnly(daf::F) where {F <: WriteDaf}
+    ReadOnly(daf::F) where {F <: DafWriter}
 
-A wrapper for any [`WriteDaf`](@ref) data, protecting it against accidental modification. This isn't typically created
+A wrapper for any [`DafWriter`](@ref) data, protecting it against accidental modification. This isn't typically created
 manually; instead call [`read_only`](@ref).
 """
-struct ReadOnlyView{F} <: ReadDaf where {F <: WriteDaf}
+struct ReadOnlyView{F} <: DafReader where {F <: DafWriter}
     daf::F
 end
 
@@ -41,17 +41,17 @@ function Base.getproperty(read_only_view::ReadOnlyView, property::Symbol)::Any
 end
 
 """
-    read_only(daf::F)::ReadDaf where {F <: WriteDaf}
-    read_only(daf::F)::F where {F <: ReadDaf}
+    read_only(daf::F)::DafReader where {F <: DafWriter}
+    read_only(daf::F)::F where {F <: DafReader}
 
 Wrap `daf` with a `ReadOnlyView` to protect it against accidental modification. If given a read-only `daf`, return it
 as-is.
 """
-function read_only(daf::F)::ReadOnlyView{F} where {F <: WriteDaf}
+function read_only(daf::F)::ReadOnlyView{F} where {F <: DafWriter}
     return ReadOnlyView(daf)
 end
 
-function read_only(daf::F)::F where {F <: ReadDaf}
+function read_only(daf::F)::F where {F <: DafReader}
     return daf
 end
 

@@ -41,7 +41,7 @@ function example_daf()::MemoryDaf
         "cell",
         "gene",
         "UMIs",
-        round.(Int16, randexp(gen, length(cell_names), length(gene_names)) * 10),
+        round.(Int16, randexp(gen, length(cell_names), length(gene_names)) * 10);
     )
     set_vector!(storage, "cell", "batch", random_entries(gen, length(cell_names), batch_names))
     set_vector!(storage, "cell", "batch.invalid", random_entries(gen, length(cell_names), invalid_batch_names))
