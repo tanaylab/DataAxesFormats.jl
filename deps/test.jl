@@ -13,9 +13,14 @@ detect_problems = EarlyFilteredLogger(global_logger()) do log_args
 end
 global_logger(detect_problems)
 
-import (Pkg)
+using JET
+using SnoopCompile
+
+import Pkg
 Pkg.activate(".")
-Pkg.test(; coverage = true, test_args = Base.ARGS)
+
+tinf = @snoopi_deep Pkg.test(; coverage = true, test_args = Base.ARGS)
+report_callees(inference_triggers(tinf))
 
 if CountWarnings.seen_problems > 1
     exit(1)
