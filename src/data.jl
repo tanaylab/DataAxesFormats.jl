@@ -26,6 +26,7 @@ export delete_matrix!
 export delete_scalar!
 export delete_vector!
 export description
+export empty_cache!
 export empty_dense_matrix!
 export empty_dense_vector!
 export empty_sparse_matrix!
@@ -110,6 +111,8 @@ function set_scalar!(daf::DafWriter, name::AbstractString, value::StorageScalar;
         Formats.format_delete_scalar!(daf, name)
     end
 
+    invalidate_cached_dependencies!(daf, scalar_dependency_key(name))
+
     Formats.format_set_scalar!(daf, name, value)
     return nothing
 end
@@ -134,7 +137,13 @@ function delete_scalar!(daf::DafWriter, name::AbstractString; must_exist::Bool =
         Formats.format_delete_scalar!(daf, name)
     end
 
+    invalidate_cached_dependencies!(daf, scalar_dependency_key(name))
+
     return nothing
+end
+
+function scalar_dependency_key(name::AbstractString)::String
+    return escape_query(name)
 end
 
 """
@@ -238,9 +247,7 @@ function delete_axis!(daf::DafWriter, axis::AbstractString; must_exist::Bool = t
         return nothing
     end
 
-    for key in daf.internal.axes_cache_keys
-        delete!(daf.internal.cache, key)
-    end
+    invalidate_cached_dependencies!(daf, axis_dependency_key(axis))
 
     for name in Formats.format_vector_names(daf, axis)
         Formats.format_delete_vector!(daf, axis, name)
@@ -257,6 +264,10 @@ function delete_axis!(daf::DafWriter, axis::AbstractString; must_exist::Bool = t
 
     Formats.format_delete_axis!(daf, axis)
     return nothing
+end
+
+function axis_dependency_key(axis::AbstractString)::String
+    return "$(escape_query(axis)) @"
 end
 
 """
@@ -361,6 +372,8 @@ function set_vector!(
         Formats.format_delete_vector!(daf, axis, name)
     end
 
+    invalidate_cached_dependencies!(daf, vector_dependency_key(axis, name))
+
     Formats.format_set_vector!(daf, axis, name, vector)
     return nothing
 end
@@ -398,6 +411,8 @@ function empty_dense_vector!(
     elseif Formats.format_has_vector(daf, axis, name)
         Formats.format_delete_vector!(daf, axis, name)
     end
+
+    invalidate_cached_dependencies!(daf, vector_dependency_key(axis, name))
 
     return as_named_vector(daf, axis, Formats.format_empty_dense_vector!(daf, axis, name, eltype))
 end
@@ -453,6 +468,8 @@ function empty_sparse_vector!(
         Formats.format_delete_vector!(daf, axis, name)
     end
 
+    invalidate_cached_dependencies!(daf, vector_dependency_key(axis, name))
+
     return as_named_vector(daf, axis, Formats.format_empty_sparse_vector!(daf, axis, name, eltype, nnz, indtype))
 end
 
@@ -481,8 +498,14 @@ function delete_vector!(daf::DafWriter, axis::AbstractString, name::AbstractStri
         return nothing
     end
 
+    invalidate_cached_dependencies!(daf, vector_dependency_key(axis, name))
+
     Formats.format_delete_vector!(daf, axis, name)
     return nothing
+end
+
+function vector_dependency_key(axis::AbstractString, name::AbstractString)::String
+    return "$(escape_query(axis)) @ $(escape_query(name))"
 end
 
 """
@@ -662,8 +685,7 @@ function set_matrix!(
         require_no_matrix(daf, rows_axis, columns_axis, name; relayout = relayout)
     end
 
-    delete!(daf.internal.cache, "$(escape_query(rows_axis)), $(escape_query(columns_axis)) @ $(escape_query(name))")
-    delete!(daf.internal.cache, "$(escape_query(columns_axis)), $(escape_query(rows_axis)) @ $(escape_query(name))")
+    invalidate_cached_dependencies!(daf, matrix_dependency_key(rows_axis, columns_axis, name))
 
     if Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
         Formats.format_delete_matrix!(daf, rows_axis, columns_axis, name)
@@ -718,8 +740,7 @@ function empty_dense_matrix!(
         Formats.format_delete_matrix!(daf, rows_axis, columns_axis, name)
     end
 
-    delete!(daf.internal.cache, "$(escape_query(rows_axis)), $(escape_query(columns_axis)) @ $(escape_query(name))")
-    delete!(daf.internal.cache, "$(escape_query(columns_axis)), $(escape_query(rows_axis)) @ $(escape_query(name))")
+    invalidate_cached_dependencies!(daf, matrix_dependency_key(rows_axis, columns_axis, name))
 
     return as_named_matrix(
         daf,
@@ -785,8 +806,7 @@ function empty_sparse_matrix!(
         Formats.format_delete_matrix!(daf, rows_axis, columns_axis, name)
     end
 
-    delete!(daf.internal.cache, "$(escape_query(rows_axis)), $(escape_query(columns_axis)) @ $(escape_query(name))")
-    delete!(daf.internal.cache, "$(escape_query(columns_axis)), $(escape_query(rows_axis)) @ $(escape_query(name))")
+    invalidate_cached_dependencies!(daf, matrix_dependency_key(rows_axis, columns_axis, name))
 
     return as_named_matrix(
         daf,
@@ -834,8 +854,7 @@ function relayout_matrix!(
         Formats.format_delete_matrix!(daf, columns_axis, rows_axis, name)
     end
 
-    delete!(daf.internal.cache, "$(escape_query(rows_axis)), $(escape_query(columns_axis)) @ $(escape_query(name))")
-    delete!(daf.internal.cache, "$(escape_query(columns_axis)), $(escape_query(rows_axis)) @ $(escape_query(name))")
+    invalidate_cached_dependencies!(daf, matrix_dependency_key(rows_axis, columns_axis, name))
 
     Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name)
     return nothing
@@ -873,8 +892,7 @@ function delete_matrix!(
         require_matrix(daf, rows_axis, columns_axis, name; relayout = relayout)
     end
 
-    delete!(daf.internal.cache, "$(escape_query(rows_axis)), $(escape_query(columns_axis)) @ $(escape_query(name))")
-    delete!(daf.internal.cache, "$(escape_query(columns_axis)), $(escape_query(rows_axis)) @ $(escape_query(name))")
+    invalidate_cached_dependencies!(daf, matrix_dependency_key(rows_axis, columns_axis, name))
 
     if Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
         Formats.format_delete_matrix!(daf, rows_axis, columns_axis, name)
@@ -885,6 +903,14 @@ function delete_matrix!(
     end
 
     return nothing
+end
+
+function matrix_dependency_key(rows_axis::AbstractString, columns_axis::AbstractString, name::AbstractString)::String
+    if rows_axis < columns_axis
+        return "$(escape_query(rows_axis)), $(escape_query(columns_axis)) @ $(escape_query(name))"
+    else
+        return "$(escape_query(columns_axis)), $(escape_query(rows_axis)) @ $(escape_query(name))"
+    end
 end
 
 """
@@ -972,8 +998,13 @@ end
         relayout::Bool = true]
     )::NamedMatrix
 
-Get the matrix property with some `name` for some `rows_axis` and `columns_axis` in `daf`. The names of the result axes
-are the names of the relevant axes entries (same as returned by [`get_axis`](@ref)).
+Get the column-major matrix property with some `name` for some `rows_axis` and `columns_axis` in `daf`. The names of the
+result axes are the names of the relevant axes entries (same as returned by [`get_axis`](@ref)).
+
+If `relayout` (the default), then if the matrix is only stored in the other memory layout (that is, with flipped axes),
+then automatically call [`relayout!`](@ref) to compute the result. If `daf isa DafWriter`, then store the result for
+future use; otherwise, just cache it in-memory (similar to a query result). This may lock up very large amounts of
+memory; you can [`empty_cache!`](@ref) to release it.
 
 This first verifies the `rows_axis` and `columns_axis` exist in `daf`. If `default` is `nothing` (the default), this
 first verifies the `name` matrix exists in `daf`. Otherwise, if `default` is a `StorageMatrix`, it has to be of the same
@@ -1010,16 +1041,11 @@ function get_matrix(
                 Formats.format_relayout_matrix!(daf, columns_axis, rows_axis, name)
             else
                 key = "$(escape_query(rows_axis)), $(escape_query(columns_axis)) @ $(escape_query(name))"
+                flipped_key = "$(escape_query(columns_axis)), $(escape_query(rows_axis)) @ $(escape_query(name))"
 
-                rows_axis_keys = get!(daf.internal.axes_cache_keys, rows_axis) do
-                    return Set{String}()
-                end
-                push!(rows_axis_keys, key)
-
-                columns_axis_keys = get!(daf.internal.axes_cache_keys, columns_axis) do
-                    return Set{String}()
-                end
-                push!(columns_axis_keys, key)
+                store_cached_dependency_key!(daf, axis_dependency_key(rows_axis), key)
+                store_cached_dependency_key!(daf, axis_dependency_key(columns_axis), key)
+                store_cached_dependency_key!(daf, matrix_dependency_key(rows_axis, columns_axis, name), key)
 
                 matrix = get!(daf.internal.cache, key) do
                     return transpose(relayout!(Formats.format_get_matrix(daf, columns_axis, rows_axis, name)))
@@ -1306,16 +1332,16 @@ function cache_description(daf::DafReader, axes::Vector{String}, lines::Vector{S
     cache_keys = collect(keys(daf.internal.cache))
     sort!(cache_keys)
     for key in cache_keys
-        if is_first  # untested
-            push!(lines, "cache:")  # untested
-            is_first = false  # untested  # untested
+        if is_first
+            push!(lines, "cache:")
+            is_first = false
         end
-        value = daf.internal.cache[key]  # untested
-        if value isa AbstractArray  # untested  # untested
-            value = base_array(value)  # untested
+        value = daf.internal.cache[key]
+        if value isa AbstractArray
+            value = base_array(value)
         end
-        push!(lines, "  $(key): $(present(value))")  # untested
-    end  # untested
+        push!(lines, "  $(key): $(present(value))")
+    end
     return nothing
 end
 
@@ -1325,27 +1351,53 @@ end
 Query `daf` for some matrix results. See [`MatrixQuery`](@ref) for the possible queries that return matrix results. The
 names of the axes of the result are the names of the axis entries. This is especially useful when the query applies
 masks to the axes. Will return `nothing` if any of the masks is empty.
+
+The query result is cached in memory to speed up repeated queries. For computed queries (e.g., results of element-wise
+operations) this may lock up very large amounts of memory; you can [`empty_cache!`](@ref) to release it.
 """
 function matrix_query(daf::DafReader, query::AbstractString)::Union{NamedArray, Nothing}
     return matrix_query(daf, parse_matrix_query(query))
 end
 
-function matrix_query(daf::DafReader, matrix_query::MatrixQuery)::Union{NamedArray, Nothing}
-    result = compute_matrix_lookup(daf, matrix_query.matrix_property_lookup)
-    result = compute_eltwise_result(matrix_query.eltwise_operations, result)
-    return result
+function matrix_query(
+    daf::DafReader,
+    matrix_query::MatrixQuery,
+    outer_dependency_keys::Union{Set{String}, Nothing} = nothing,
+)::Union{NamedArray, Nothing}
+    cache_key = canonical(matrix_query)
+    return get!(daf.internal.cache, cache_key) do
+        matrix_dependency_keys = Set{String}()
+        result = compute_matrix_lookup(daf, matrix_query.matrix_property_lookup, matrix_dependency_keys)
+        result = compute_eltwise_result(matrix_query.eltwise_operations, result)
+
+        for dependency_key in matrix_dependency_keys
+            store_cached_dependency_key!(daf, dependency_key, cache_key)
+        end
+
+        if outer_dependency_keys != nothing
+            union!(outer_dependency_keys, matrix_dependency_keys)
+        end
+
+        return result
+    end
 end
 
-function compute_matrix_lookup(daf::DafReader, matrix_property_lookup::MatrixPropertyLookup)::Union{NamedArray, Nothing}
-    result = get_matrix(
-        daf,
-        matrix_property_lookup.matrix_axes.rows_axis.axis_name,
-        matrix_property_lookup.matrix_axes.columns_axis.axis_name,
-        matrix_property_lookup.property_name,
-    )
+function compute_matrix_lookup(
+    daf::DafReader,
+    matrix_property_lookup::MatrixPropertyLookup,
+    dependency_keys::Set{String},
+)::Union{NamedArray, Nothing}
+    rows_axis = matrix_property_lookup.matrix_axes.rows_axis.axis_name
+    columns_axis = matrix_property_lookup.matrix_axes.columns_axis.axis_name
+    name = matrix_property_lookup.property_name
 
-    rows_mask = compute_filtered_axis_mask(daf, matrix_property_lookup.matrix_axes.rows_axis)
-    columns_mask = compute_filtered_axis_mask(daf, matrix_property_lookup.matrix_axes.columns_axis)
+    push!(dependency_keys, axis_dependency_key(rows_axis))
+    push!(dependency_keys, axis_dependency_key(columns_axis))
+    push!(dependency_keys, matrix_dependency_key(rows_axis, columns_axis, name))
+    result = get_matrix(daf, rows_axis, columns_axis, name)
+
+    rows_mask = compute_filtered_axis_mask(daf, matrix_property_lookup.matrix_axes.rows_axis, dependency_keys)
+    columns_mask = compute_filtered_axis_mask(daf, matrix_property_lookup.matrix_axes.columns_axis, dependency_keys)
 
     if (rows_mask != nothing && !any(rows_mask)) || (columns_mask != nothing && !any(columns_mask))
         return nothing
@@ -1362,14 +1414,18 @@ function compute_matrix_lookup(daf::DafReader, matrix_property_lookup::MatrixPro
     return result
 end
 
-function compute_filtered_axis_mask(daf::DafReader, filtered_axis::FilteredAxis)::Union{Vector{Bool}, Nothing}
+function compute_filtered_axis_mask(
+    daf::DafReader,
+    filtered_axis::FilteredAxis,
+    dependency_keys::Set{String},
+)::Union{Vector{Bool}, Nothing}
     if isempty(filtered_axis.axis_filters)
         return nothing
     end
 
     mask = fill(true, axis_length(daf, filtered_axis.axis_name))
     for axis_filter in filtered_axis.axis_filters
-        mask = compute_axis_filter(daf, mask, filtered_axis.axis_name, axis_filter)
+        mask = compute_axis_filter(daf, mask, filtered_axis.axis_name, axis_filter, dependency_keys)
     end
 
     return mask
@@ -1380,8 +1436,9 @@ function compute_axis_filter(
     mask::AbstractVector{Bool},
     axis::AbstractString,
     axis_filter::AxisFilter,
+    dependency_keys::Set{String},
 )::AbstractVector{Bool}
-    filter = compute_axis_lookup(daf, axis, axis_filter.axis_lookup)
+    filter = compute_axis_lookup(daf, axis, axis_filter.axis_lookup, dependency_keys)
     if eltype(filter) != Bool
         error(
             "non-Bool data type: $(eltype(filter))\n" *
@@ -1405,8 +1462,13 @@ function compute_axis_filter(
     end
 end
 
-function compute_axis_lookup(daf::DafReader, axis::AbstractString, axis_lookup::AxisLookup)::NamedArray
-    values = compute_property_lookup(daf, axis, axis_lookup.property_lookup)
+function compute_axis_lookup(
+    daf::DafReader,
+    axis::AbstractString,
+    axis_lookup::AxisLookup,
+    dependency_keys::Set{String},
+)::NamedArray
+    values = compute_property_lookup(daf, axis, axis_lookup.property_lookup, dependency_keys)
 
     if axis_lookup.property_comparison == nothing
         return values
@@ -1496,8 +1558,16 @@ function compute_axis_lookup_compare_mask(
     end
 end
 
-function compute_property_lookup(daf::DafReader, axis::AbstractString, property_lookup::PropertyLookup)::NamedArray
+function compute_property_lookup(
+    daf::DafReader,
+    axis::AbstractString,
+    property_lookup::PropertyLookup,
+    dependency_keys::Set{String},
+)::NamedArray
     last_property_name = property_lookup.property_names[1]
+
+    push!(dependency_keys, axis_dependency_key(axis))
+    push!(dependency_keys, vector_dependency_key(axis, last_property_name))
     values = get_vector(daf, axis, last_property_name)
 
     for next_property_name in property_lookup.property_names[2:end]
@@ -1509,7 +1579,8 @@ function compute_property_lookup(daf::DafReader, axis::AbstractString, property_
                 "in the daf data: $(daf.name)",
             )
         end
-        values, axis = compute_chained_property(daf, axis, last_property_name, values, next_property_name)
+        values, axis =
+            compute_chained_property(daf, axis, last_property_name, values, next_property_name, dependency_keys)
         last_property_name = next_property_name
     end
 
@@ -1522,6 +1593,7 @@ function compute_chained_property(
     last_property_name::AbstractString,
     last_property_values::NamedVector{String},
     next_property_name::AbstractString,
+    dependency_keys::Set{String},
 )::Tuple{NamedArray, String}
     if has_axis(daf, last_property_name)
         next_axis = last_property_name
@@ -1529,7 +1601,10 @@ function compute_chained_property(
         next_axis = split(last_property_name, "."; limit = 2)[1]
     end
 
+    push!(dependency_keys, axis_dependency_key(next_axis))
     next_axis_entries = get_axis(daf, next_axis)
+
+    push!(dependency_keys, vector_dependency_key(next_axis, next_property_name))
     next_axis_values = get_vector(daf, next_axis, next_property_name)
 
     next_property_values = [
@@ -1575,24 +1650,49 @@ end
 Query `daf` for some vector results. See [`VectorQuery`](@ref) for the possible queries that return vector results. The
 names of the results are the names of the axis entries. This is especially useful when the query applies a mask to the
 axis. Will return `nothing` if any of the masks is empty.
+
+The query result is cached in memory to speed up repeated queries. For computed queries (e.g., results of element-wise
+operations) this may lock up very large amounts of memory; you can [`empty_cache!`](@ref) to release it.
 """
 function vector_query(daf::DafReader, query::AbstractString)::Union{NamedArray, Nothing}
     return vector_query(daf, parse_vector_query(query))
 end
 
-function vector_query(daf::DafReader, vector_query::VectorQuery)::Union{NamedArray, Nothing}
-    result = compute_vector_data_lookup(daf, vector_query.vector_data_lookup)
-    result = compute_eltwise_result(vector_query.eltwise_operations, result)
-    return result
+function vector_query(
+    daf::DafReader,
+    vector_query::VectorQuery,
+    outer_dependency_keys::Union{Set{String}, Nothing} = nothing,
+)::Union{NamedArray, Nothing}
+    cache_key = canonical(vector_query)
+    return get!(daf.internal.cache, cache_key) do
+        vector_dependency_keys = Set{String}()
+        result = compute_vector_data_lookup(daf, vector_query.vector_data_lookup, vector_dependency_keys)
+        result = compute_eltwise_result(vector_query.eltwise_operations, result)
+
+        for dependency_key in vector_dependency_keys
+            store_cached_dependency_key!(daf, dependency_key, cache_key)
+        end
+
+        if outer_dependency_keys != nothing
+            union!(outer_dependency_keys, vector_dependency_keys)
+        end
+
+        return result
+    end
 end
 
 function compute_vector_data_lookup(
     daf::DafReader,
     vector_property_lookup::VectorPropertyLookup,
+    dependency_keys::Set{String},
 )::Union{NamedArray, Nothing}
-    result =
-        compute_axis_lookup(daf, vector_property_lookup.filtered_axis.axis_name, vector_property_lookup.axis_lookup)
-    mask = compute_filtered_axis_mask(daf, vector_property_lookup.filtered_axis)
+    result = compute_axis_lookup(
+        daf,
+        vector_property_lookup.filtered_axis.axis_name,
+        vector_property_lookup.axis_lookup,
+        dependency_keys,
+    )
+    mask = compute_filtered_axis_mask(daf, vector_property_lookup.filtered_axis, dependency_keys)
 
     if mask == nothing
         return result
@@ -1605,18 +1705,24 @@ function compute_vector_data_lookup(
     return result[mask]  # NOJET
 end
 
-function compute_vector_data_lookup(daf::DafReader, matrix_slice_lookup::MatrixSliceLookup)::Union{NamedArray, Nothing}
-    result = get_matrix(
-        daf,
-        matrix_slice_lookup.matrix_slice_axes.filtered_axis.axis_name,
-        matrix_slice_lookup.matrix_slice_axes.axis_entry.axis_name,
-        matrix_slice_lookup.property_name,
-    )
+function compute_vector_data_lookup(
+    daf::DafReader,
+    matrix_slice_lookup::MatrixSliceLookup,
+    dependency_keys::Set{String},
+)::Union{NamedArray, Nothing}
+    rows_axis = matrix_slice_lookup.matrix_slice_axes.filtered_axis.axis_name
+    columns_axis = matrix_slice_lookup.matrix_slice_axes.axis_entry.axis_name
+    name = matrix_slice_lookup.property_name
+
+    push!(dependency_keys, axis_dependency_key(rows_axis))
+    push!(dependency_keys, axis_dependency_key(columns_axis))
+    push!(dependency_keys, matrix_dependency_key(rows_axis, columns_axis, name))
+    result = get_matrix(daf, rows_axis, columns_axis, name)
 
     index = find_axis_entry_index(daf, matrix_slice_lookup.matrix_slice_axes.axis_entry)
-    result = result[:, index]
+    result = result[:, index]  # NOJET
 
-    rows_mask = compute_filtered_axis_mask(daf, matrix_slice_lookup.matrix_slice_axes.filtered_axis)
+    rows_mask = compute_filtered_axis_mask(daf, matrix_slice_lookup.matrix_slice_axes.filtered_axis, dependency_keys)
     if rows_mask != nothing
         result = result[rows_mask]
     end
@@ -1624,8 +1730,12 @@ function compute_vector_data_lookup(daf::DafReader, matrix_slice_lookup::MatrixS
     return result
 end
 
-function compute_vector_data_lookup(daf::DafReader, reduce_matrix_query::ReduceMatrixQuery)::Union{NamedArray, Nothing}
-    result = matrix_query(daf, reduce_matrix_query.matrix_query)
+function compute_vector_data_lookup(
+    daf::DafReader,
+    reduce_matrix_query::ReduceMatrixQuery,
+    dependency_keys::Set{String},
+)::Union{NamedArray, Nothing}
+    result = matrix_query(daf, reduce_matrix_query.matrix_query, dependency_keys)
     if result == nothing
         return nothing
     end
@@ -1636,37 +1746,67 @@ end
     scalar_query(daf::DafReader, query::AbstractString)::Union{StorageScalar, Nothing}
 
 Query `daf` for some scalar results. See [`ScalarQuery`](@ref) for the possible queries that return scalar results.
+
+The query result is cached in memory to speed up repeated queries. For computed queries (e.g., results of element-wise
+operations) this may lock up very large amounts of memory; you can [`empty_cache!`](@ref) to release it.
 """
 function scalar_query(daf::DafReader, query::AbstractString)::Union{StorageScalar, Nothing}
     return scalar_query(daf, parse_scalar_query(query))
 end
 
-function scalar_query(daf::DafReader, scalar_query::ScalarQuery)::Union{StorageScalar, Nothing}
-    result = compute_scalar_data_lookup(daf, scalar_query.scalar_data_lookup)
-    result = compute_eltwise_result(scalar_query.eltwise_operations, result)
-    return result
+function scalar_query(
+    daf::DafReader,
+    scalar_query::ScalarQuery,
+    outer_dependency_keys::Union{Set{String}, Nothing} = nothing,
+)::Union{StorageScalar, Nothing}
+    cache_key = canonical(scalar_query)
+    return get!(daf.internal.cache, cache_key) do
+        scalar_dependency_keys = Set{String}()
+        result = compute_scalar_data_lookup(daf, scalar_query.scalar_data_lookup, scalar_dependency_keys)
+        result = compute_eltwise_result(scalar_query.eltwise_operations, result)
+
+        for dependency_key in scalar_dependency_keys
+            store_cached_dependency_key!(daf, dependency_key, cache_key)
+        end
+
+        if outer_dependency_keys != nothing
+            union!(outer_dependency_keys, scalar_dependency_keys)  # untested
+        end
+
+        return result
+    end
 end
 
 function compute_scalar_data_lookup(
     daf::DafReader,
     scalar_property_lookup::ScalarPropertyLookup,
+    dependency_keys::Set{String},
 )::Union{StorageScalar, Nothing}
-    return get_scalar(daf, scalar_property_lookup.property_name)
+    name = scalar_property_lookup.property_name
+    push!(dependency_keys, scalar_dependency_key(name))
+    return get_scalar(daf, name)
 end
 
 function compute_scalar_data_lookup(
     daf::DafReader,
     reduce_vector_query::ReduceVectorQuery,
+    dependency_keys::Set{String},
 )::Union{StorageScalar, Nothing}
-    result = vector_query(daf, reduce_vector_query.vector_query)
+    result = vector_query(daf, reduce_vector_query.vector_query, dependency_keys)
     return compute_reduction_result(reduce_vector_query.reduction_operation, result)
 end
 
 function compute_scalar_data_lookup(
     daf::DafReader,
     vector_entry_lookup::VectorEntryLookup,
+    dependency_keys::Set{String},
 )::Union{StorageScalar, Nothing}
-    result = compute_axis_lookup(daf, vector_entry_lookup.axis_entry.axis_name, vector_entry_lookup.axis_lookup)
+    result = compute_axis_lookup(
+        daf,
+        vector_entry_lookup.axis_entry.axis_name,
+        vector_entry_lookup.axis_lookup,
+        dependency_keys,
+    )
     index = find_axis_entry_index(daf, vector_entry_lookup.axis_entry)
     return result[index]
 end
@@ -1674,13 +1814,17 @@ end
 function compute_scalar_data_lookup(
     daf::DafReader,
     matrix_entry_lookup::MatrixEntryLookup,
+    dependency_keys::Set{String},
 )::Union{StorageScalar, Nothing}
-    result = get_matrix(
-        daf,
-        matrix_entry_lookup.matrix_entry_axes.rows_entry.axis_name,
-        matrix_entry_lookup.matrix_entry_axes.columns_entry.axis_name,
-        matrix_entry_lookup.property_name,
-    )
+    rows_axis = matrix_entry_lookup.matrix_entry_axes.rows_entry.axis_name
+    columns_axis = matrix_entry_lookup.matrix_entry_axes.columns_entry.axis_name
+    name = matrix_entry_lookup.property_name
+
+    push!(dependency_keys, axis_dependency_key(rows_axis))
+    push!(dependency_keys, axis_dependency_key(columns_axis))
+    push!(dependency_keys, matrix_dependency_key(rows_axis, columns_axis, name))
+    result = get_matrix(daf, rows_axis, columns_axis, name)
+
     row_index = find_axis_entry_index(daf, matrix_entry_lookup.matrix_entry_axes.rows_entry)
     column_index = find_axis_entry_index(daf, matrix_entry_lookup.matrix_entry_axes.columns_entry)
     return result[row_index, column_index]
@@ -1750,6 +1894,38 @@ function compute_reduction_result(
     else
         return compute_reduction(reduction_operation, input.array)
     end
+end
+
+function store_cached_dependency_key!(daf::DafReader, dependency_key::String, cache_key::String)::Nothing
+    keys_set = get!(daf.internal.dependency_cache_keys, dependency_key) do
+        return Set{String}()
+    end
+    push!(keys_set, cache_key)
+    return nothing
+end
+
+function invalidate_cached_dependencies!(daf::DafReader, dependency_key::String)::Nothing
+    cache_keys = pop!(daf.internal.dependency_cache_keys, dependency_key, nothing)
+    if cache_keys != nothing
+        for cache_key in cache_keys
+            delete!(daf.internal.cache, cache_key)
+        end
+    end
+end
+
+"""
+    empty_cache!(daf::DafReader)::Nothing
+
+Empty the cached computed results. This includes computed query results, as well as any relayout matrices that couldn't
+be stored in the `daf` storage itself.
+
+This might be needed if caching consumes too much memory. To see what (if anything) is cached, look at the results of
+[`description`](@ref).
+"""
+function empty_cache!(daf::DafReader)::Nothing
+    empty!(daf.internal.cache)
+    empty!(daf.internal.dependency_cache_keys)
+    return nothing
 end
 
 end # module

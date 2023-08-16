@@ -56,7 +56,7 @@ struct Internal
     is_read_only::Vector{Bool}
     axes::Dict{String, OrderedDict{String, Int64}}
     cache::Dict{String, Any}
-    axes_cache_keys::Dict{String, Set{String}}
+    dependency_cache_keys::Dict{String, Set{String}}
 end
 
 function Internal(name::AbstractString; is_read_only::Bool = false)::Internal

@@ -46,11 +46,15 @@ FLOAT_DTYPE_FOR = Dict{Type, Type}(
     float_dtype_for(element_type::Type)::Type
 
 Given an input `element_type`, return the data type to use for the result of an operation that always produces floating
-point values (e.g., `Log`).
+point values (e.g., `Log`). If `dtype` isn't (the default) `nothing`, it is returned instead.
 """
-function float_dtype_for(element_type::Type)::Type
-    global FLOAT_DTYPE_FOR
-    return FLOAT_DTYPE_FOR[element_type]
+function float_dtype_for(element_type::Type, dtype::Union{Type, Nothing} = nothing)::Type
+    if dtype == nothing
+        global FLOAT_DTYPE_FOR
+        return FLOAT_DTYPE_FOR[element_type]
+    else
+        return dtype  # untested
+    end
 end
 
 INT_DTYPE_FOR = Dict{Type, Type}(
@@ -68,14 +72,18 @@ INT_DTYPE_FOR = Dict{Type, Type}(
 )
 
 """
-    int_dtype_for(element_type::Type)::Type
+    int_dtype_for(element_type::Type[, dtype::Union{Type, Nothing} = nothing])::Type
 
 Given an input `element_type`, return the data type to use for the result of an operation that always produces integer
-values (e.g., `Round`).
+values (e.g., `Round`). If `dtype` isn't (the default) `nothing`, it is returned instead.
 """
-function int_dtype_for(element_type::Type)::Type
-    global INT_DTYPE_FOR
-    return INT_DTYPE_FOR[element_type]
+function int_dtype_for(element_type::Type, dtype::Union{Type, Nothing} = nothing)::Type
+    if dtype == nothing
+        global INT_DTYPE_FOR  # untested
+        return INT_DTYPE_FOR[element_type]  # untested
+    else
+        return dtype
+    end
 end
 
 """
@@ -237,11 +245,11 @@ function compute_eltwise(
     operation::Round,
     input::Union{StorageMatrix{T}, StorageVector{T}},
 )::Union{StorageMatrix, StorageVector} where {T <: Number}
-    return round.(int_dtype_for(eltype(input)), input)
+    return round.(int_dtype_for(eltype(input), operation.dtype), input)
 end
 
 function compute_eltwise(operation::Round, input::Number)::Number  # untested
-    return round(int_dtype_for(typeof(input)), input)
+    return round(int_dtype_for(eltype(input), operation.dtype), input)
 end
 
 """

@@ -16,6 +16,7 @@ Daf.Data.description
 Daf.Data.scalar_query
 Daf.Data.vector_query
 Daf.Data.matrix_query
+Daf.Data.empty_cache!
 ```
 
 ### Scalar properties
