@@ -124,9 +124,9 @@ version = "2022.10.11"
 
 [[deps.NamedArrays]]
 deps = ["Combinatorics", "DataStructures", "DelimitedFiles", "InvertedIndices", "LinearAlgebra", "Random", "Requires", "SparseArrays", "Statistics"]
-git-tree-sha1 = "b84e17976a40cb2bfe3ae7edb3673a8c630d4f95"
+git-tree-sha1 = "6d42eca6c3a27dc79172d6d947ead136d88751bb"
 uuid = "86f7a689-2022-50b4-a561-43c23ac3c673"
-version = "0.9.8"
+version = "0.10.0"
 
 [[deps.NetworkOptions]]
 uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
