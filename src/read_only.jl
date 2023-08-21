@@ -1,12 +1,8 @@
 """
 Read-only `Daf` storage format.
-
-The `ReadOnlyView` class acts as a wrapper for any [`DafWriter`](@ref) data, protecting it against accidental
-modification.
 """
 module ReadOnly
 
-export ReadOnlyView
 export read_only
 
 using Daf.Data
@@ -41,7 +37,7 @@ function Base.getproperty(read_only_view::ReadOnlyView, property::Symbol)::Any
 end
 
 """
-    read_only(daf::F)::DafReader where {F <: DafWriter}
+    read_only(daf::F)::ReadOnlyView{F} where {F <: DafWriter}
     read_only(daf::F)::F where {F <: DafReader}
 
 Wrap `daf` with a `ReadOnlyView` to protect it against accidental modification. If given a read-only `daf`, return it
@@ -125,8 +121,8 @@ function Formats.format_get_matrix(
     return as_read_only(Formats.format_get_matrix(read_only_view.daf, rows_axis, columns_axis, name))
 end
 
-function Formats.format_description_header(daf::ReadOnlyView, lines::Array{String})::Nothing
-    push!(lines, "type: ReadOnly $(typeof(daf.daf))")
+function Formats.format_description_header(read_only_view::ReadOnlyView, lines::Array{String})::Nothing
+    push!(lines, "type: ReadOnly $(typeof(read_only_view.daf))")
     return nothing
 end
 

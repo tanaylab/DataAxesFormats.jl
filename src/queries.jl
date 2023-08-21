@@ -751,6 +751,10 @@ function VectorPropertyLookup(context::QueryContext, query_tree::QueryExpression
     end
 end
 
+function vector_query_axis(vector_property_lookup::VectorPropertyLookup)::String
+    return vector_property_lookup.filtered_axis.axis_name
+end
+
 function canonical(vector_lookup::VectorPropertyLookup)::String
     return canonical(vector_lookup.filtered_axis) * " @ " * canonical(vector_lookup.axis_lookup)
 end
@@ -837,6 +841,10 @@ function MatrixSliceLookup(context::QueryContext, query_tree::QueryExpression)::
     end
 end
 
+function vector_query_axis(matrix_slice_lookup::MatrixSliceLookup)::String  # untested
+    return matrix_slice_lookup.matrix_slice_axes.filtered_axis.axis_name  # untested
+end
+
 function canonical(matrix_slice_lookup::MatrixSliceLookup)::String
     return canonical(matrix_slice_lookup.matrix_slice_axes) * " @ " * escape_query(matrix_slice_lookup.property_name)
 end
@@ -849,6 +857,10 @@ Query for matrix data and reduce it to a vector.
 struct ReduceMatrixQuery
     matrix_query::MatrixQuery
     reduction_operation::ReductionOperation
+end
+
+function vector_query_axis(reduce_matrix_query::ReduceMatrixQuery)::String  # untested
+    return reduce_matrix_query.matrix_query.matrix_property_lookup.matrix_axes.columns_axis.axis_name  # untested
 end
 
 function canonical(reduce_matrix_query::ReduceMatrixQuery)::String
@@ -926,6 +938,10 @@ function VectorQuery(context::QueryContext, query_tree::QueryExpression)::Vector
             return VectorQuery(parse_vector_data_lookup(context, vector_data_lookup), eltwise_operations)
         end
     end
+end
+
+function vector_query_axis(vector_query::VectorQuery)::String
+    return vector_query_axis(vector_query.vector_data_lookup)
 end
 
 """

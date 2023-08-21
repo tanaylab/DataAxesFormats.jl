@@ -77,26 +77,30 @@ nested_test("oprec") do
             test_escape_query("a", "a")
             test_escape_query("z", "z")
             test_escape_query("A", "A")
-            return test_escape_query("Z", "Z")
+            test_escape_query("Z", "Z")
+            return nothing
         end
 
         nested_test("digits") do
             test_escape_query("0", "0")
-            return test_escape_query("9", "9")
+            test_escape_query("9", "9")
+            return nothing
         end
 
         nested_test("allowed") do
             test_escape_query("_", "_")
             test_escape_query("+", "+")
             test_escape_query("-", "-")
-            return test_escape_query(".", ".")
+            test_escape_query(".", ".")
+            return nothing
         end
 
         nested_test("special") do
             test_escape_query(" ", "\\ ")
             test_escape_query("\\", "\\\\")
             test_escape_query("%", "\\%")
-            return test_escape_query(":", "\\:")
+            test_escape_query(":", "\\:")
+            return nothing
         end
 
         return nothing
@@ -111,14 +115,16 @@ nested_test("oprec") do
             test_encode_expression("A", "A")
             test_encode_expression("\\A", "_41")
             test_encode_expression("Z", "Z")
-            return test_encode_expression("\\Z", "_5A")
+            test_encode_expression("\\Z", "_5A")
+            return nothing
         end
 
         nested_test("digits") do
             test_encode_expression("0", "0")
             test_encode_expression("\\0", "_30")
             test_encode_expression("9", "9")
-            return test_encode_expression("\\9", "_39")
+            test_encode_expression("\\9", "_39")
+            return nothing
         end
 
         nested_test("allowed") do
@@ -129,7 +135,8 @@ nested_test("oprec") do
             test_encode_expression("-", "-")
             test_encode_expression("\\-", "_2D")
             test_encode_expression(".", ".")
-            return test_encode_expression("\\.", "_2E")
+            test_encode_expression("\\.", "_2E")
+            return nothing
         end
 
         nested_test("special") do
@@ -140,7 +147,8 @@ nested_test("oprec") do
             test_encode_expression("%", "%")
             test_encode_expression("\\%", "_25")
             test_encode_expression(":", ":")
-            return test_encode_expression("\\:", "_3A")
+            test_encode_expression("\\:", "_3A")
+            return nothing
         end
 
         return nothing

@@ -1294,12 +1294,14 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
                     @test set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[depth]; relayout = false) == nothing
 
                     nested_test("exists") do
-                        return test_existing_matrix(daf, depth + 1)
+                        test_existing_matrix(daf, depth + 1)
+                        return nothing
                     end
 
                     nested_test("relayout") do
                         @test relayout_matrix!(daf, "cell", "gene", "UMIs") == nothing
-                        return test_existing_relayout_matrix(daf, depth + 1)
+                        test_existing_relayout_matrix(daf, depth + 1)
+                        return nothing
                     end
                 end
             end
@@ -1371,12 +1373,14 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
                     ) == nothing
 
                     nested_test("exists") do
-                        return test_existing_matrix(daf, depth + 1)
+                        test_existing_matrix(daf, depth + 1)
+                        return nothing
                     end
 
                     nested_test("relayout") do
                         @test relayout_matrix!(daf, "cell", "gene", "UMIs") == nothing
-                        return test_existing_relayout_matrix(daf, depth + 1)
+                        test_existing_relayout_matrix(daf, depth + 1)
+                        return nothing
                     end
                 end
             end
@@ -1457,12 +1461,14 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
             empty .= UMIS_BY_DEPTH[depth]
 
             nested_test("exists") do
-                return test_existing_matrix(daf, depth + 1)
+                test_existing_matrix(daf, depth + 1)
+                return nothing
             end
 
             nested_test("relayout") do
                 @test relayout_matrix!(daf, "cell", "gene", "UMIs") == nothing
-                return test_existing_relayout_matrix(daf, depth + 1)
+                test_existing_relayout_matrix(daf, depth + 1)
+                return nothing
             end
         end
 
@@ -1474,12 +1480,14 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
             empty.array.nzval .= sparse.nzval
 
             nested_test("exists") do
-                return test_existing_matrix(daf, depth + 1)
+                test_existing_matrix(daf, depth + 1)
+                return nothing
             end
 
             nested_test("relayout") do
                 @test relayout_matrix!(daf, "cell", "gene", "UMIs") == nothing
-                return test_existing_relayout_matrix(daf, depth + 1)
+                test_existing_relayout_matrix(daf, depth + 1)
+                return nothing
             end
         end
     end
@@ -1553,7 +1561,8 @@ function test_existing_matrix(daf::DafReader, depth::Int)::Nothing
                 nested_test("!axes") do
                     @test delete_axis!(daf, "cell") == nothing
                     @test delete_axis!(daf, "gene") == nothing
-                    return test_missing_matrix_axis(daf, depth + 1)
+                    test_missing_matrix_axis(daf, depth + 1)
+                    return nothing
                 end
             end
 
@@ -1573,7 +1582,8 @@ function test_existing_matrix(daf::DafReader, depth::Int)::Nothing
                 nested_test("!axes") do
                     @test delete_axis!(daf, "cell") == nothing
                     @test delete_axis!(daf, "gene") == nothing
-                    return test_missing_matrix_axis(daf, depth + 1)
+                    test_missing_matrix_axis(daf, depth + 1)
+                    return nothing
                 end
             end
 
@@ -2021,7 +2031,8 @@ function test_existing_matrix(daf::DafReader, depth::Int)::Nothing
                     empty.array.nzval .= sparse.nzval
 
                     nested_test("overwritten") do
-                        return test_existing_matrix(daf, depth + 1)
+                        test_existing_matrix(daf, depth + 1)
+                        return nothing
                     end
 
                     nested_test("relayout") do
@@ -2103,7 +2114,8 @@ function test_existing_relayout_matrix(daf::DafReader, depth::Int)::Nothing
                 nested_test("!axes") do
                     @test delete_axis!(daf, "cell") == nothing
                     @test delete_axis!(daf, "gene") == nothing
-                    return test_missing_matrix_axis(daf, depth + 1)
+                    test_missing_matrix_axis(daf, depth + 1)
+                    return nothing
                 end
             end
 
@@ -2608,7 +2620,8 @@ function test_existing_relayout_matrix(daf::DafReader, depth::Int)::Nothing
                     @test delete_matrix!(daf, "gene", "cell", "UMIs"; relayout = false) == nothing
 
                     nested_test("overwritten") do
-                        return test_existing_matrix(daf, depth + 1)
+                        test_existing_matrix(daf, depth + 1)
+                        return nothing
                     end
 
                     nested_test("relayout") do

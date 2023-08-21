@@ -53,16 +53,14 @@ messages.
 """
 struct Internal
     name::String
-    is_read_only::Vector{Bool}
     axes::Dict{String, OrderedDict{String, Int64}}
     cache::Dict{String, Any}
     dependency_cache_keys::Dict{String, Set{String}}
 end
 
-function Internal(name::AbstractString; is_read_only::Bool = false)::Internal
+function Internal(name::AbstractString)::Internal
     return Internal(
         unique_name(name),
-        [is_read_only],
         Dict{String, OrderedDict{String, Int64}}(),
         Dict{String, Any}(),
         Dict{String, Set{String}}(),
@@ -457,7 +455,7 @@ end
         name::AbstractString
     )::Nothing
 
-[`relayout!`](@ref) the existing `name` columns-major matrix property for the `rows_axis` and the `columns_axis` and
+[`relayout!`](@ref) the existing `name` column-major matrix property for the `rows_axis` and the `columns_axis` and
 store the results as a row-major matrix property (that is, with flipped axes).
 
 This trusts the `rows_axis` and `columns_axis` exist in `format`, that the `name` matrix property exists for them, and

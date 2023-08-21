@@ -1406,9 +1406,9 @@ function compute_matrix_lookup(
     if rows_mask != nothing && columns_mask != nothing
         result = result[rows_mask, columns_mask]  # NOJET
     elseif rows_mask != nothing
-        result = result[rows_mask, :]  # untested
+        result = result[rows_mask, :]
     elseif columns_mask != nothing
-        result = result[:, columns_mask]  # untested
+        result = result[:, columns_mask]
     end
 
     return result

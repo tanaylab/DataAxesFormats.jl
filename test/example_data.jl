@@ -1,4 +1,9 @@
-function test_description(daf::DafReader, cache::String = "")::Nothing
+function test_description(
+    daf::DafReader;
+    cache::String = "",
+    kind::String = "ReadOnly ",
+    name::String = "example!",
+)::Nothing
     if cache == ""
         suffix = "\n"
     else
@@ -6,8 +11,8 @@ function test_description(daf::DafReader, cache::String = "")::Nothing
     end
 
     @test description(daf) == dedent("""
-        name: example!
-        type: ReadOnly MemoryDaf
+        name: $(name)
+        type: $(kind)MemoryDaf
         scalars:
           version: "1.0"
         axes:
@@ -51,7 +56,43 @@ nested_test("example_data") do
     @test read_only(daf) === daf
 
     nested_test("description") do
-        return test_description(daf)
+        nested_test("base") do
+            nested_test("()") do
+                return test_description(daf.daf; kind = "")
+            end
+
+            nested_test("view") do
+                view = viewer(
+                    "view!",
+                    daf.daf;
+                    scalars = [ALL_SCALARS],
+                    axes = [ALL_AXES],
+                    vectors = [ALL_VECTORS],
+                    matrices = [ALL_MATRICES],
+                )
+                test_description(view; kind = "View ", name = "view!")
+                return nothing
+            end
+        end
+
+        nested_test("read_only") do
+            nested_test("()") do
+                return test_description(daf)
+            end
+
+            nested_test("view") do
+                view = viewer(
+                    "view!",
+                    daf;
+                    scalars = [ALL_SCALARS],
+                    axes = [ALL_AXES],
+                    vectors = [ALL_VECTORS],
+                    matrices = [ALL_MATRICES],
+                )
+                test_description(view; kind = "View ", name = "view!")
+                return nothing
+            end
+        end
     end
 
     nested_test("query") do
@@ -80,10 +121,10 @@ nested_test("example_data") do
                     12  9   14  43  11  5  2   32  12  4
                 ]
 
-                test_description(daf, dedent("""
-                    cache:
-                      cell, gene @ UMIs: 20 x 10 x Int16 (Dense in Columns)
-                """))
+                test_description(daf; cache = dedent("""
+                      cache:
+                        cell, gene @ UMIs: 20 x 10 x Int16 (Dense in Columns)
+                  """))
 
                 return nothing
             end
@@ -113,10 +154,11 @@ nested_test("example_data") do
                         12  9   14  43  11  5  2   32  12  4
                     ]
 
-                    return test_description(daf, dedent("""
-                               cache:
-                                 cell, gene @ UMIs % Abs: 20 x 10 x Int16 (Dense in Columns)
-                           """))
+                    test_description(daf; cache = dedent("""
+                                 cache:
+                                   cell, gene @ UMIs % Abs: 20 x 10 x Int16 (Dense in Columns)
+                             """))
+                    return nothing
                 end
 
                 nested_test("dtype") do
@@ -143,10 +185,11 @@ nested_test("example_data") do
                         12  9   14  43  11  5  2   32  12  4
                     ]
 
-                    return test_description(daf, dedent("""
-                               cache:
-                                 cell, gene @ UMIs % Round; dtype = Int8: 20 x 10 x Int8 (Dense in Columns)
-                           """))
+                    test_description(daf; cache = dedent("""
+                                 cache:
+                                   cell, gene @ UMIs % Round; dtype = Int8: 20 x 10 x Int8 (Dense in Columns)
+                             """))
+                    return nothing
                 end
 
                 nested_test("multiple") do
@@ -173,13 +216,11 @@ nested_test("example_data") do
                         3.7004397   3.321928    3.9068906  5.4594316  3.5849626  2.5849626  1.5849625  5.044394   3.7004397  2.321928
                     ]
 
-                    return test_description(
-                        daf,
-                        dedent("""
-      cache:
-        cell, gene @ UMIs % Abs % Log; base = 2.0, eps = 1.0: 20 x 10 x Float32 (Dense in Columns)
-  """),
-                    )
+                    test_description(daf; cache = dedent("""
+                          cache:
+                            cell, gene @ UMIs % Abs % Log; base = 2.0, eps = 1.0: 20 x 10 x Float32 (Dense in Columns)
+                      """))
+                    return nothing
                 end
             end
 
@@ -195,10 +236,11 @@ nested_test("example_data") do
                             9  12
                         ]
 
-                        return test_description(daf, dedent("""
-                                   cache:
-                                     cell & batch = B1, gene & module = M1 @ UMIs: 6 x 2 x Int16 (Dense in Columns)
-                               """))
+                        test_description(daf; cache = dedent("""
+                                     cache:
+                                       cell & batch = B1, gene & module = M1 @ UMIs: 6 x 2 x Int16 (Dense in Columns)
+                                 """))
+                        return nothing
                     end
 
                     nested_test("!value") do
