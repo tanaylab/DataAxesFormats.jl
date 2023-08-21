@@ -96,9 +96,10 @@ The operators that can be used in a `Daf` query.
 | `!~`, `≁` | Right         | 5          | Not match (e.g., `gene !~ MT-.\\*`                                                        |
 | `~`       | Right         | 5          | 1. Match (e.g., `gene ~ MT-.\\*`)                                                         |
 |           |               |            | 2. Invert mask (prefix; e.g., `gene & ~noisy`)                                            |
+| `?`       | Right         | 5          | Chained property default (e.g., `cell : metacell : color ? black`)                        |
 | `:`       | Right         | 6          | Chained property lookup (e.g., `batch : age`)                                             |
 """
-@enum QueryOperators OpAnd OpChain OpEltwise OpEqual OpGreaterOrEqual OpGreaterThan OpLessOrEqual OpLessThan OpLookup OpMatch OpNotEqual OpNotMatch OpOr OpPrimarySeparator OpReduce OpOperationSeparator OpValue OpXor
+@enum QueryOperators OpAnd OpChain OpDefault OpEltwise OpEqual OpGreaterOrEqual OpGreaterThan OpLessOrEqual OpLessThan OpLookup OpMatch OpNotEqual OpNotMatch OpOr OpPrimarySeparator OpReduce OpOperationSeparator OpValue OpXor
 
 const OpParameterSeparator = OpPrimarySeparator
 const OpAxesSeparator = OpPrimarySeparator
@@ -144,9 +145,9 @@ const QueryOperator = Operator{QueryOperators}
 const QuerySyntax = Syntax{QueryOperators}
 
 QUERY_SYNTAX = QuerySyntax(
-    r"^\s+",                             # Spaces
-    r"^[0-9a-zA-Z_.+-]+",                # Operand
-    r"^(?:[<!>]=|!~|%>|[%@;,:&|^<=~>])", # Operators
+    r"^\s+",                              # Spaces
+    r"^[0-9a-zA-Z_.+-]+",                 # Operand
+    r"^(?:[<!>]=|!~|%>|[%@;,:&|^<=~>?])", # Operators
     Dict(
         "%>" => Operator(OpReduce, false, LeftAssociative, 0),
         "%" => Operator(OpEltwise, false, RightAssociative, 1),
@@ -168,6 +169,7 @@ QUERY_SYNTAX = QuerySyntax(
         "!~" => Operator(OpNotMatch, false, RightAssociative, 5),
         "≁" => Operator(OpNotMatch, false, RightAssociative, 5),
         "~" => Operator(OpMatch, true, RightAssociative, 5),
+        "?" => Operator(OpDefault, false, RightAssociative, 5),
         ":" => Operator(OpChain, false, RightAssociative, 6),
     ),
 )
@@ -374,16 +376,22 @@ function Base.:(==)(left::PropertyLookup, right::PropertyLookup)::Bool
 end
 
 """
-`ComparisonOperator` = `<` | `<=` | `≤` | `=` | `!=` | `≠` | `>=` | `≥` | `>` | `~` | `!~` | `≁`
+`ComparisonOperator` = `<` | `<=` | `≤` | `=` | `!=` | `≠` | `>=` | `≥` | `>` | `~` | `!~` | `≁` | `?`
 
 How to compare a each value of a property with some constant value to generate a filter mask.
+
+The `?` operator is special. Instead of comparing the values, it replaces missing values with a default values.
+Normally, when using a chained `PropertyLookup`, it is an error if some entries hold an empty value. The `?` operator
+allows for such cases by using a default value for the end result. For example, `cell : metacell : type : color` will
+fail with an error if a specific `cell` has a `metacell` value `""`. However,  `cell : metacell : type : color ? black`
+will return a value of `black` for such cells instead.
 
 !!! note
 
     For matching (using `~` or `!~`), you will have to [`escape`](@ref escape_query) any special characters used in
     regexp; for example, you will need to write `raw"gene ~ RP\\[LS\\].\\*"` to match all the ribosomal gene names.
 """
-@enum ComparisonOperator CmpLessThan CmpLessOrEqual CmpEqual CmpNotEqual CmpGreaterOrEqual CmpGreaterThan CmpMatch CmpNotMatch
+@enum ComparisonOperator CmpLessThan CmpLessOrEqual CmpEqual CmpNotEqual CmpGreaterOrEqual CmpGreaterThan CmpMatch CmpNotMatch CmpDefault
 
 PARSE_COMPARISON_OPERATOR = Dict(
     OpLessThan => CmpLessThan,
@@ -394,6 +402,7 @@ PARSE_COMPARISON_OPERATOR = Dict(
     OpNotMatch => CmpNotMatch,
     OpGreaterThan => CmpGreaterThan,
     OpGreaterOrEqual => CmpGreaterOrEqual,
+    OpDefault => CmpDefault,
 )
 
 CANONICAL_COMPARISON_OPERATOR = Dict(
@@ -405,6 +414,7 @@ CANONICAL_COMPARISON_OPERATOR = Dict(
     CmpNotMatch => "!~",
     CmpGreaterThan => ">",
     CmpGreaterOrEqual => ">=",
+    CmpDefault => "?",
 )
 
 """
@@ -470,7 +480,17 @@ function AxisLookup(context::QueryContext, query_tree::QueryExpression)::AxisLoo
 
     elseif check_operation(
         query_tree,
-        [OpLessThan, OpLessOrEqual, OpNotEqual, OpEqual, OpMatch, OpNotMatch, OpGreaterThan, OpGreaterOrEqual],
+        [
+            OpLessThan,
+            OpLessOrEqual,
+            OpNotEqual,
+            OpEqual,
+            OpMatch,
+            OpNotMatch,
+            OpGreaterThan,
+            OpGreaterOrEqual,
+            OpDefault,
+        ],
     ) != nothing
         return parse_operation_in_context(
             context,
@@ -486,6 +506,7 @@ function AxisLookup(context::QueryContext, query_tree::QueryExpression)::AxisLoo
                 OpNotMatch,
                 OpGreaterThan,
                 OpGreaterOrEqual,
+                OpDefault,
             ],
         ) do property_lookup, comparison_operator, property_value
             return AxisLookup(  # NOJET

@@ -25,6 +25,8 @@ function example_daf()::MemoryDaf
     batch_names = ["B$(index)" for index in 1:4]
     invalid_batch_names = copy(batch_names)
     invalid_batch_names[1] = "I1"
+    partial_batch_names = copy(batch_names)
+    partial_batch_names[1] = ""
 
     type_names = ["T$(index)" for index in 1:3]
 
@@ -56,6 +58,8 @@ function example_daf()::MemoryDaf
     set_vector!(storage, "gene", "marker", rand(gen, Bool, length(gene_names)))
     set_vector!(storage, "gene", "noisy", rand(gen, Bool, length(gene_names)))
     set_vector!(storage, "gene", "lateral", rand(gen, Bool, length(gene_names)))
+
+    set_vector!(storage, "cell", "batch.partial", random_entries(gen, length(cell_names), partial_batch_names))
 
     return storage
 end

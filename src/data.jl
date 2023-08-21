@@ -63,6 +63,7 @@ using SparseArrays
 import Daf.Formats
 import Daf.Formats.FormatReader
 import Daf.Formats.FormatWriter
+import Daf.Queries.CmpDefault
 import Daf.Queries.CmpEqual
 import Daf.Queries.CmpGreaterOrEqual
 import Daf.Queries.CmpGreaterThan
@@ -1468,8 +1469,25 @@ function compute_axis_lookup(
     axis_lookup::AxisLookup,
     dependency_keys::Set{String},
 )::NamedArray
-    values = compute_property_lookup(daf, axis, axis_lookup.property_lookup, dependency_keys)
+    allow_missing_entries =
+        axis_lookup.property_comparison != nothing && axis_lookup.property_comparison.comparison_operator == CmpDefault
+    values, missing_mask =
+        compute_property_lookup(daf, axis, axis_lookup.property_lookup, dependency_keys, allow_missing_entries)
 
+    @assert allow_missing_entries == (missing_mask != nothing)
+
+    if allow_missing_entries
+        @assert allow_missing_entries == (missing_mask != nothing)
+
+        @assert missing_mask != nothing
+        value = axis_lookup_comparison_value(daf, axis, axis_lookup, values)
+        values[missing_mask] .= value  # NOJET
+        return values
+    end
+
+    @assert allow_missing_entries == (missing_mask != nothing)
+    @assert !allow_missing_entries
+    @assert missing_mask == nothing
     if axis_lookup.property_comparison == nothing
         return values
     end
@@ -1527,20 +1545,7 @@ function compute_axis_lookup_compare_mask(
     axis_lookup::AxisLookup,
     values::AbstractVector,
 )::Vector{Bool}
-    value = axis_lookup.property_comparison.property_value
-    if eltype(values) != String
-        try
-            value = parse(eltype(values), value)
-        catch
-            error(
-                "invalid $(eltype) value: \"$(escape_string(axis_lookup.property_comparison.property_value))\"\n" *
-                "for the axis lookup: $(canonical(axis_lookup))\n" *
-                "for the axis: $(axis)\n" *
-                "in the daf data: $(daf.name)",
-            )
-        end
-    end
-
+    value = axis_lookup_comparison_value(daf, axis, axis_lookup, values)
     if axis_lookup.property_comparison.comparison_operator == CmpLessThan
         return values .< value
     elseif axis_lookup.property_comparison.comparison_operator == CmpLessOrEqual
@@ -1558,17 +1563,46 @@ function compute_axis_lookup_compare_mask(
     end
 end
 
+function axis_lookup_comparison_value(
+    daf::DafReader,
+    axis::AbstractString,
+    axis_lookup::AxisLookup,
+    values::AbstractVector,
+)::StorageScalar
+    value = axis_lookup.property_comparison.property_value
+    if eltype(values) != String
+        try
+            value = parse(eltype(values), value)
+        catch
+            error(
+                "invalid $(eltype) value: \"$(escape_string(axis_lookup.property_comparison.property_value))\"\n" *
+                "for the axis lookup: $(canonical(axis_lookup))\n" *
+                "for the axis: $(axis)\n" *
+                "in the daf data: $(daf.name)",
+            )
+        end
+    end
+    return value
+end
+
 function compute_property_lookup(
     daf::DafReader,
     axis::AbstractString,
     property_lookup::PropertyLookup,
     dependency_keys::Set{String},
-)::NamedArray
+    allow_missing_entries::Bool,
+)::Tuple{NamedArray, Union{Vector{Bool}, Nothing}}
     last_property_name = property_lookup.property_names[1]
 
     push!(dependency_keys, axis_dependency_key(axis))
     push!(dependency_keys, vector_dependency_key(axis, last_property_name))
     values = get_vector(daf, axis, last_property_name)
+
+    if allow_missing_entries
+        missing_mask = zeros(Bool, length(values))
+    else
+        missing_mask = nothing
+    end
 
     for next_property_name in property_lookup.property_names[2:end]
         if eltype(values) != String
@@ -1579,12 +1613,21 @@ function compute_property_lookup(
                 "in the daf data: $(daf.name)",
             )
         end
-        values, axis =
-            compute_chained_property(daf, axis, last_property_name, values, next_property_name, dependency_keys)
+        values, axis = compute_chained_property(
+            daf,
+            axis,
+            last_property_name,
+            values,
+            next_property_name,
+            dependency_keys,
+            missing_mask,
+        )
         last_property_name = next_property_name
     end
 
-    return values
+    @assert allow_missing_entries == (missing_mask != nothing)
+
+    return values, missing_mask
 end
 
 function compute_chained_property(
@@ -1594,6 +1637,7 @@ function compute_chained_property(
     last_property_values::NamedVector{String},
     next_property_name::AbstractString,
     dependency_keys::Set{String},
+    missing_mask::Union{Vector{Bool}, Nothing},
 )::Tuple{NamedArray, String}
     if has_axis(daf, last_property_name)
         next_axis = last_property_name
@@ -1616,7 +1660,9 @@ function compute_chained_property(
             next_axis,
             next_axis_entries,
             next_axis_values,
-        ) for property_value in last_property_values
+            property_index,
+            missing_mask,
+        ) for (property_index, property_value) in enumerate(last_property_values)
     ]
 
     return (NamedArray(next_property_values, last_property_values.dicts, last_property_values.dimnames), next_axis)
@@ -1630,9 +1676,19 @@ function find_axis_value(
     next_axis::AbstractString,
     next_axis_entries::AbstractVector{String},
     next_axis_values::AbstractVector,
+    property_index::Int,
+    missing_mask::Union{Vector{Bool}, Nothing},
 )::Any
+    if missing_mask != nothing && missing_mask[property_index]
+        return zero_of(next_axis_values)  # untested
+    end
     index = findfirst(==(last_property_value), next_axis_entries)
-    if index == nothing
+    if index != nothing
+        return next_axis_values[index]
+    elseif missing_mask != nothing
+        missing_mask[property_index] = true
+        return zero_of(next_axis_values)
+    else
         error(
             "invalid value: $(last_property_value)\n" *
             "of the chained: $(last_property_name)\n" *
@@ -1641,7 +1697,14 @@ function find_axis_value(
             "in the daf data: $(daf.name)",
         )
     end
-    return next_axis_values[index]
+end
+
+function zero_of(values::AbstractVector{T})::T where {T <: StorageScalar}
+    if T == String
+        return ""  # untested
+    else
+        return zero(T)
+    end
 end
 
 """

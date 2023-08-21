@@ -28,6 +28,7 @@ function test_description(
           cell:
             batch: 20 x String (Dense)
             batch.invalid: 20 x String (Dense)
+            batch.partial: 20 x String (Dense)
             type: 20 x String (Dense)
           gene:
             lateral: 10 x Bool (Dense)
@@ -350,6 +351,38 @@ nested_test("example_data") do
         nested_test("vector") do
             nested_test("()") do
                 @test vector_query(daf, "batch @ age") == Int8[3, 2, 2, 4]
+            end
+
+            nested_test("chained") do
+                nested_test("valid") do
+                    @test vector_query(daf, "cell @ batch : age") ==
+                          Int8[2, 3, 3, 4, 2, 3, 2, 2, 2, 2, 3, 2, 2, 2, 2, 3, 2, 2, 4, 3]
+                end
+
+                nested_test("invalid") do
+                    @test_throws dedent("""
+                        invalid value: I1
+                        of the chained: batch.invalid
+                        of the axis: cell
+                        is missing from the next axis: batch
+                        in the daf data: example!
+                    """) vector_query(daf, "cell @ batch.invalid : age")
+                end
+
+                nested_test("partial") do
+                    @test_throws dedent("""
+                        invalid value: 
+                        of the chained: batch.partial
+                        of the axis: cell
+                        is missing from the next axis: batch
+                        in the daf data: example!
+                    """) vector_query(daf, "cell @ batch.partial : age")
+                end
+
+                nested_test("default") do
+                    @test vector_query(daf, "cell @ batch.partial : age ? -1") ==
+                          Int8[4, 4, -1, 2, 2, 2, 2, 2, 4, 4, 4, 4, 2, 2, 2, 4, -1, 4, 4, 4]
+                end
             end
 
             nested_test("comparison") do
