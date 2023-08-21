@@ -565,6 +565,10 @@ in a strict left to right order. Each filter can restrict the set of entries (`&
 entries (`^`, XOR). For example, `gene & noisy | lateral & ~ marker` will start with all the genes, restrict the set to
 just the noisy genes, increase the set to also include lateral genes, and finally decrease the set to exclude marker
 genes. That is, it will return the set of non-marker genes that are also either noisy or lateral.
+
+If the [`AxisLookup`](@ref) does not specify a [`PropertyComparison`](@ref), and the looked up property does not have
+Boolean values, then the values are converted to Boolean by comparing them with zero (for numeric properties) or the
+empty string (for string properties).
 """
 struct AxisFilter
     filter_operator::FilterOperator

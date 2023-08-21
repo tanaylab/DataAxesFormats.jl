@@ -1399,20 +1399,19 @@ function compute_matrix_lookup(
 
     rows_mask = compute_filtered_axis_mask(daf, matrix_property_lookup.matrix_axes.rows_axis, dependency_keys)
     columns_mask = compute_filtered_axis_mask(daf, matrix_property_lookup.matrix_axes.columns_axis, dependency_keys)
-
     if (rows_mask != nothing && !any(rows_mask)) || (columns_mask != nothing && !any(columns_mask))
         return nothing
     end
 
     if rows_mask != nothing && columns_mask != nothing
-        result = result[rows_mask, columns_mask]  # NOJET
+        return result[rows_mask, columns_mask]  # NOJET
     elseif rows_mask != nothing
-        result = result[rows_mask, :]
+        return result[rows_mask, :]
     elseif columns_mask != nothing
-        result = result[:, columns_mask]
+        return result[:, columns_mask]
+    else
+        return result
     end
-
-    return result
 end
 
 function compute_filtered_axis_mask(
@@ -1439,13 +1438,9 @@ function compute_axis_filter(
     axis_filter::AxisFilter,
     dependency_keys::Set{String},
 )::AbstractVector{Bool}
-    filter = compute_axis_lookup(daf, axis, axis_filter.axis_lookup, dependency_keys)
+    filter = compute_axis_lookup(daf, axis, axis_filter.axis_lookup, dependency_keys, nothing)
     if eltype(filter) != Bool
-        error(
-            "non-Bool data type: $(eltype(filter))\n" *
-            "for the axis filter: $(canonical(axis_filter))\n" *
-            "in the daf data: $(daf.name)",
-        )
+        filter = NamedArray(filter .!= zero_of(filter), filter.dicts, filter.dimnames)
     end
 
     if axis_filter.axis_lookup.is_inverse
@@ -1468,31 +1463,26 @@ function compute_axis_lookup(
     axis::AbstractString,
     axis_lookup::AxisLookup,
     dependency_keys::Set{String},
+    mask::Union{Vector{Bool}, Nothing},
 )::NamedArray
     allow_missing_entries =
         axis_lookup.property_comparison != nothing && axis_lookup.property_comparison.comparison_operator == CmpDefault
     values, missing_mask =
-        compute_property_lookup(daf, axis, axis_lookup.property_lookup, dependency_keys, allow_missing_entries)
-
-    @assert allow_missing_entries == (missing_mask != nothing)
+        compute_property_lookup(daf, axis, axis_lookup.property_lookup, dependency_keys, mask, allow_missing_entries)
 
     if allow_missing_entries
-        @assert allow_missing_entries == (missing_mask != nothing)
-
         @assert missing_mask != nothing
         value = axis_lookup_comparison_value(daf, axis, axis_lookup, values)
         values[missing_mask] .= value  # NOJET
         return values
     end
 
-    @assert allow_missing_entries == (missing_mask != nothing)
-    @assert !allow_missing_entries
     @assert missing_mask == nothing
     if axis_lookup.property_comparison == nothing
         return values
     end
 
-    mask =
+    result =
         if axis_lookup.property_comparison.comparison_operator == CmpMatch ||
            axis_lookup.property_comparison.comparison_operator == CmpNotMatch
             compute_axis_lookup_match_mask(daf, axis, axis_lookup, values)
@@ -1500,7 +1490,7 @@ function compute_axis_lookup(
             compute_axis_lookup_compare_mask(daf, axis, axis_lookup, values)
         end
 
-    return NamedArray(mask, values.dicts, values.dimnames)
+    return NamedArray(result, values.dicts, values.dimnames)
 end
 
 function compute_axis_lookup_match_mask(
@@ -1590,6 +1580,7 @@ function compute_property_lookup(
     axis::AbstractString,
     property_lookup::PropertyLookup,
     dependency_keys::Set{String},
+    mask::Union{Vector{Bool}, Nothing},
     allow_missing_entries::Bool,
 )::Tuple{NamedArray, Union{Vector{Bool}, Nothing}}
     last_property_name = property_lookup.property_names[1]
@@ -1597,6 +1588,9 @@ function compute_property_lookup(
     push!(dependency_keys, axis_dependency_key(axis))
     push!(dependency_keys, vector_dependency_key(axis, last_property_name))
     values = get_vector(daf, axis, last_property_name)
+    if mask != nothing
+        values = values[mask]
+    end
 
     if allow_missing_entries
         missing_mask = zeros(Bool, length(values))
@@ -1701,7 +1695,7 @@ end
 
 function zero_of(values::AbstractVector{T})::T where {T <: StorageScalar}
     if T == String
-        return ""  # untested
+        return ""
     else
         return zero(T)
     end
@@ -1749,23 +1743,18 @@ function compute_vector_data_lookup(
     vector_property_lookup::VectorPropertyLookup,
     dependency_keys::Set{String},
 )::Union{NamedArray, Nothing}
-    result = compute_axis_lookup(
+    mask = compute_filtered_axis_mask(daf, vector_property_lookup.filtered_axis, dependency_keys)
+    if mask != nothing && !any(mask)
+        return nothing
+    end
+
+    return compute_axis_lookup(
         daf,
         vector_property_lookup.filtered_axis.axis_name,
         vector_property_lookup.axis_lookup,
         dependency_keys,
+        mask,
     )
-    mask = compute_filtered_axis_mask(daf, vector_property_lookup.filtered_axis, dependency_keys)
-
-    if mask == nothing
-        return result
-    end
-
-    if !any(mask)
-        return nothing
-    end
-
-    return result[mask]  # NOJET
 end
 
 function compute_vector_data_lookup(
@@ -1786,11 +1775,13 @@ function compute_vector_data_lookup(
     result = result[:, index]  # NOJET
 
     rows_mask = compute_filtered_axis_mask(daf, matrix_slice_lookup.matrix_slice_axes.filtered_axis, dependency_keys)
-    if rows_mask != nothing
-        result = result[rows_mask]
+    if rows_mask == nothing
+        return result
+    elseif !any(rows_mask)
+        return nothing  # untested
+    else
+        return result[rows_mask]
     end
-
-    return result
 end
 
 function compute_vector_data_lookup(
@@ -1864,14 +1855,20 @@ function compute_scalar_data_lookup(
     vector_entry_lookup::VectorEntryLookup,
     dependency_keys::Set{String},
 )::Union{StorageScalar, Nothing}
+    index = find_axis_entry_index(daf, vector_entry_lookup.axis_entry)
+    mask = zeros(Bool, axis_length(daf, vector_entry_lookup.axis_entry.axis_name))
+    mask[index] = true
+
     result = compute_axis_lookup(
         daf,
         vector_entry_lookup.axis_entry.axis_name,
         vector_entry_lookup.axis_lookup,
         dependency_keys,
+        mask,
     )
-    index = find_axis_entry_index(daf, vector_entry_lookup.axis_entry)
-    return result[index]
+
+    @assert length(result) == 1
+    return result[1]
 end
 
 function compute_scalar_data_lookup(

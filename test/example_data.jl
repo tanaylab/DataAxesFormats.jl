@@ -253,14 +253,6 @@ nested_test("example_data") do
                         """) matrix_query(daf, "cell & batch : age > Q, gene @ UMIs")
                     end
                 end
-
-                nested_test("!type") do
-                    @test_throws dedent("""
-                        non-Bool data type: Int8
-                        for the axis filter: & batch : age
-                        in the daf data: example!
-                    """) matrix_query(daf, "cell & batch : age, gene @ UMIs")
-                end
             end
 
             nested_test("chained") do
@@ -387,6 +379,11 @@ nested_test("example_data") do
 
             nested_test("comparison") do
                 @test vector_query(daf, "batch & age < 0 @ age") == nothing
+            end
+
+            nested_test("masked") do
+                @test vector_query(daf, "cell & batch.partial @ batch.partial : age") ==
+                      Int8[4, 4, 2, 2, 2, 2, 2, 4, 4, 4, 4, 2, 2, 2, 4, 4, 4, 4]
             end
 
             nested_test("slice") do
