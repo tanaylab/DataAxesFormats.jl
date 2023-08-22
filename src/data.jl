@@ -1247,90 +1247,101 @@ function base_array(array::NamedArray)::AbstractArray
 end
 
 """
-    description(daf::DafReader)::AbstractString
+    description(daf::DafReader[; deep::Bool = false])::AbstractString
 
 Return a (multi-line) description of the contents of `daf`. This tries to hit a sweet spot between usefulness and
-terseness.
+terseness. If `deep`, also describes any data set nested inside this one (if any).
 """
-function description(daf::DafReader)::AbstractString
+function description(daf::DafReader; deep::Bool = false)::String
     lines = String[]
-
-    push!(lines, "name: $(daf.name)")
-
-    Formats.format_description_header(daf, lines)
-
-    scalars_description(daf, lines)
-
-    axes = collect(Formats.format_axis_names(daf))
-    sort!(axes)
-    if !isempty(axes)
-        axes_description(daf, axes, lines)
-        vectors_description(daf, axes, lines)
-        matrices_description(daf, axes, lines)
-        cache_description(daf, axes, lines)
-    end
-
-    Formats.format_description_footer(daf, lines)
-
+    description(daf, "", lines, deep)
     push!(lines, "")
     return join(lines, "\n")
 end
 
-function scalars_description(daf::DafReader, lines::Vector{String})::Nothing
+function description(daf::DafReader, indent::String, lines::Vector{String}, deep::Bool)::Nothing
+    if indent == ""
+        push!(lines, "$(indent)name: $(daf.name)")
+    else
+        push!(lines, "- $(indent[3:end])name: $(daf.name)")
+    end
+
+    Formats.format_description_header(daf, indent, lines)
+
+    scalars_description(daf, indent, lines)
+
+    axes = collect(Formats.format_axis_names(daf))
+    sort!(axes)
+    if !isempty(axes)
+        axes_description(daf, axes, indent, lines)
+        vectors_description(daf, axes, indent, lines)
+        matrices_description(daf, axes, indent, lines)
+        cache_description(daf, axes, indent, lines)
+    end
+
+    Formats.format_description_footer(daf, indent, lines, deep)
+    return nothing
+end
+
+function scalars_description(daf::DafReader, indent::String, lines::Vector{String})::Nothing
     scalars = collect(Formats.format_scalar_names(daf))
     if !isempty(scalars)
         sort!(scalars)
-        push!(lines, "scalars:")
+        push!(lines, "$(indent)scalars:")
         for scalar in scalars
-            push!(lines, "  $(scalar): $(present(Formats.format_get_scalar(daf, scalar)))")
+            push!(lines, "$(indent)  $(scalar): $(present(Formats.format_get_scalar(daf, scalar)))")
         end
     end
     return nothing
 end
 
-function axes_description(daf::DafReader, axes::Vector{String}, lines::Vector{String})::Nothing
-    push!(lines, "axes:")
+function axes_description(daf::DafReader, axes::Vector{String}, indent::String, lines::Vector{String})::Nothing
+    push!(lines, "$(indent)axes:")
     for axis in axes
-        push!(lines, "  $(axis): $(Formats.format_axis_length(daf, axis)) entries")
+        push!(lines, "$(indent)  $(axis): $(Formats.format_axis_length(daf, axis)) entries")
     end
     return nothing
 end
 
-function vectors_description(daf::DafReader, axes::Vector{String}, lines::Vector{String})::Nothing
+function vectors_description(daf::DafReader, axes::Vector{String}, indent::String, lines::Vector{String})::Nothing
     is_first = true
     for axis in axes
         vectors = collect(Formats.format_vector_names(daf, axis))
         if !isempty(vectors)
             if is_first
-                push!(lines, "vectors:")
+                push!(lines, "$(indent)vectors:")
                 is_first = false
             end
             sort!(vectors)
-            push!(lines, "  $(axis):")
+            push!(lines, "$(indent)  $(axis):")
             for vector in vectors
-                push!(lines, "    $(vector): $(present(base_array(Formats.format_get_vector(daf, axis, vector))))")
+                push!(
+                    lines,
+                    "$(indent)    $(vector): $(present(base_array(Formats.format_get_vector(daf, axis, vector))))",
+                )
             end
         end
     end
     return nothing
 end
 
-function matrices_description(daf::DafReader, axes::Vector{String}, lines::Vector{String})::Nothing
+function matrices_description(daf::DafReader, axes::Vector{String}, indent::String, lines::Vector{String})::Nothing
     is_first = true
     for rows_axis in axes
         for columns_axis in axes
             matrices = collect(Formats.format_matrix_names(daf, rows_axis, columns_axis))
             if !isempty(matrices)
                 if is_first
-                    push!(lines, "matrices:")
+                    push!(lines, "$(indent)matrices:")
                     is_first = false
                 end
                 sort!(matrices)
-                push!(lines, "  $(rows_axis),$(columns_axis):")
+                push!(lines, "$(indent)  $(rows_axis),$(columns_axis):")
                 for matrix in matrices
                     push!(
                         lines,
-                        "    $(matrix): $(present(base_array(Formats.format_get_matrix(daf, rows_axis, columns_axis, matrix))))",
+                        "$(indent)    $(matrix): " *
+                        present(base_array(Formats.format_get_matrix(daf, rows_axis, columns_axis, matrix))),
                     )
                 end
             end
@@ -1339,20 +1350,20 @@ function matrices_description(daf::DafReader, axes::Vector{String}, lines::Vecto
     return nothing
 end
 
-function cache_description(daf::DafReader, axes::Vector{String}, lines::Vector{String})::Nothing
+function cache_description(daf::DafReader, axes::Vector{String}, indent::String, lines::Vector{String})::Nothing
     is_first = true
     cache_keys = collect(keys(daf.internal.cache))
     sort!(cache_keys)
     for key in cache_keys
         if is_first
-            push!(lines, "cache:")
+            push!(lines, "$(indent)cache:")
             is_first = false
         end
         value = daf.internal.cache[key]
         if value isa AbstractArray
             value = base_array(value)
         end
-        push!(lines, "  $(key): $(present(value))")
+        push!(lines, "$(indent)  $(key): $(present(value))")
     end
     return nothing
 end

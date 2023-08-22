@@ -54,6 +54,9 @@ include("read_only.jl")
 include("views.jl")
 @reexport using Daf.Views
 
+include("chains.jl")
+@reexport using Daf.Chains
+
 include("memory_format.jl")
 @reexport using Daf.MemoryFormat
 

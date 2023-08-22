@@ -48,6 +48,7 @@ makedocs(;
         "data.md",
         "read_only.md",
         "views.md",
+        "chains.md",
         "formats.md",
         "memory_format.md",
         "queries.md",

@@ -35,14 +35,14 @@ import Daf.Queries.vector_query_axis
 import Daf.ReadOnly.ReadOnlyView
 
 """
-    DafView(daf::F) where {F <: DafReader}
+    struct DafView(daf::F) <: DafReader where {F <: DafReader}
 
 A read-only wrapper for any [`DafReader`](@ref) data, which exposes an arbitrary view of it as another
 [`DafReader`](@ref). This isn't typically created manually; instead call [`viewer`](@ref).
 """
-struct DafView{F} <: DafReader where {F <: DafReader}
+struct DafView <: DafReader
     internal::Internal
-    daf::F
+    daf::DafReader
     scalars::Dict{String, Union{ScalarQuery, StorageScalar}}
     axes::Dict{String, Tuple{String, Union{VectorQuery, DenseVector{String}}}}
     vectors::Dict{String, Dict{String, Union{VectorQuery, StorageVector}}}
@@ -489,8 +489,8 @@ function Formats.format_get_matrix(
     return value  # NOJET
 end
 
-function Formats.format_description_header(view::DafView, lines::Array{String})::Nothing
-    push!(lines, "type: View $(typeof(view.daf))")
+function Formats.format_description_header(view::DafView, indent::String, lines::Array{String})::Nothing
+    push!(lines, "$(indent)type: View $(typeof(view.daf))")
     return nothing
 end
 

@@ -14,13 +14,13 @@ using SparseArrays
 import Daf.Data.as_read_only
 
 """
-    ReadOnly(daf::F) where {F <: DafWriter}
+    struct ReadOnlyView <: DafReader ... end
 
 A wrapper for any [`DafWriter`](@ref) data, protecting it against accidental modification. This isn't typically created
 manually; instead call [`read_only`](@ref).
 """
-struct ReadOnlyView{F} <: DafReader where {F <: DafWriter}
-    daf::F
+struct ReadOnlyView <: DafReader
+    daf::DafReader
 end
 
 function Base.getproperty(read_only_view::ReadOnlyView, property::Symbol)::Any
@@ -37,17 +37,16 @@ function Base.getproperty(read_only_view::ReadOnlyView, property::Symbol)::Any
 end
 
 """
-    read_only(daf::F)::ReadOnlyView{F} where {F <: DafWriter}
-    read_only(daf::F)::F where {F <: DafReader}
+    read_only(daf::DafReader)::ReadOnlyView
 
 Wrap `daf` with a `ReadOnlyView` to protect it against accidental modification. If given a read-only `daf`, return it
 as-is.
 """
-function read_only(daf::F)::ReadOnlyView{F} where {F <: DafWriter}
+function read_only(daf::DafReader)::ReadOnlyView
     return ReadOnlyView(daf)
 end
 
-function read_only(daf::F)::F where {F <: DafReader}
+function read_only(daf::ReadOnlyView)::ReadOnlyView
     return daf
 end
 
@@ -121,8 +120,8 @@ function Formats.format_get_matrix(
     return as_read_only(Formats.format_get_matrix(read_only_view.daf, rows_axis, columns_axis, name))
 end
 
-function Formats.format_description_header(read_only_view::ReadOnlyView, lines::Array{String})::Nothing
-    push!(lines, "type: ReadOnly $(typeof(read_only_view.daf))")
+function Formats.format_description_header(read_only_view::ReadOnlyView, indent::String, lines::Array{String})::Nothing
+    push!(lines, "$(indent)type: ReadOnly $(typeof(read_only_view.daf))")
     return nothing
 end
 

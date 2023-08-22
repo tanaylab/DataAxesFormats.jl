@@ -536,17 +536,18 @@ end
 
 Allow a `format` to amit additional description header lines.
 """
-function format_description_header(format::FormatReader, lines::Array{String})::Nothing
-    push!(lines, "type: $(typeof(format))")
+function format_description_header(format::FormatReader, indent::String, lines::Array{String})::Nothing
+    push!(lines, "$(indent)type: $(typeof(format))")
     return nothing
 end
 
 """
     function format_description_footer(format::FormatReader, lines::Array{String})::Nothing
 
-Allow a `format` to amit additional description footer lines.
+Allow a `format` to amit additional description footer lines. If `deep`, this also emit the description of any data sets
+nested in this one, if any.
 """
-function format_description_footer(format::FormatReader, lines::Array{String})::Nothing
+function format_description_footer(format::FormatReader, indent::String, lines::Array{String}, deep::Bool)::Nothing
     return nothing
 end
 
