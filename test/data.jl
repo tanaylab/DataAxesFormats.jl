@@ -622,17 +622,28 @@ function test_missing_vector(daf::DafReader, depth::Int)::Nothing
 
     nested_test("empty_vector!") do
         nested_test("dense") do
-            empty = empty_dense_vector!(daf, "gene", "marker", Bool)
-            empty .= MARKER_GENES_BY_DEPTH[depth]
+            @test empty_dense_vector!(daf, "gene", "marker", Bool) do empty
+                empty .= MARKER_GENES_BY_DEPTH[depth]
+                return 7
+            end == 7
             test_existing_vector(daf, depth + 1)
             return nothing
         end
 
         nested_test("sparse") do
-            empty = empty_sparse_vector!(daf, "gene", "marker", Bool, sum(MARKER_GENES_BY_DEPTH[depth]), Int32)
-            sparse = SparseVector(MARKER_GENES_BY_DEPTH[depth])
-            empty.array.nzind .= sparse.nzind
-            empty.array.nzval .= sparse.nzval
+            @test empty_sparse_vector!(
+                daf,
+                "gene",
+                "marker",
+                Bool,
+                sum(MARKER_GENES_BY_DEPTH[depth]),
+                Int32,
+            ) do empty
+                sparse = SparseVector(MARKER_GENES_BY_DEPTH[depth])
+                empty.array.nzind .= sparse.nzind
+                empty.array.nzval .= sparse.nzval
+                return 7
+            end == 7
             test_existing_vector(daf, depth + 1)
             return nothing
         end
@@ -758,7 +769,9 @@ function test_existing_vector(daf::DafReader, depth::Int)::Nothing
                     existing vector: marker
                     for the axis: gene
                     in the daf data: $(daf.name)
-                """) empty_dense_vector!(daf, "gene", "marker", Bool)
+                """) empty_dense_vector!(daf, "gene", "marker", Bool) do empty
+                    @assert false
+                end
             end
 
             nested_test("overwrite") do
@@ -767,12 +780,17 @@ function test_existing_vector(daf::DafReader, depth::Int)::Nothing
                         existing vector: marker
                         for the axis: gene
                         in the daf data: $(daf.name)
-                    """) empty_dense_vector!(daf, "gene", "marker", Bool; overwrite = false)
+                    """) empty_dense_vector!(daf, "gene", "marker", Bool; overwrite = false) do empty
+                        @assert false
+                    end
                 end
 
                 nested_test("true") do
-                    empty = empty_dense_vector!(daf, "gene", "marker", Bool; overwrite = true)
-                    empty .= MARKER_GENES_BY_DEPTH[depth]
+                    @test empty_dense_vector!(daf, "gene", "marker", Bool; overwrite = true) do empty
+                        empty .= MARKER_GENES_BY_DEPTH[depth]
+                        return 7
+                    end == 7
+
                     nested_test("overwritten") do
                         test_existing_vector(daf, depth + 1)
                         return nothing
@@ -787,12 +805,21 @@ function test_existing_vector(daf::DafReader, depth::Int)::Nothing
                     existing vector: marker
                     for the axis: gene
                     in the daf data: $(daf.name)
-                """) empty_sparse_vector!(daf, "gene", "marker", Bool, sum(MARKER_GENES_BY_DEPTH[depth]), Int16)
+                """) empty_sparse_vector!(
+                    daf,
+                    "gene",
+                    "marker",
+                    Bool,
+                    sum(MARKER_GENES_BY_DEPTH[depth]),
+                    Int16,
+                ) do empty
+                    @assert false
+                end
             end
 
             nested_test("overwrite") do
                 nested_test("false") do
-                    return @test_throws dedent("""
+                    @test_throws dedent("""
                         existing vector: marker
                         for the axis: gene
                         in the daf data: $(daf.name)
@@ -804,11 +831,13 @@ function test_existing_vector(daf::DafReader, depth::Int)::Nothing
                         sum(MARKER_GENES_BY_DEPTH[depth]),
                         Int16;
                         overwrite = false,
-                    )
+                    ) do
+                        @assert false
+                    end
                 end
 
                 nested_test("true") do
-                    empty = empty_sparse_vector!(
+                    @test empty_sparse_vector!(
                         daf,
                         "gene",
                         "marker",
@@ -816,8 +845,10 @@ function test_existing_vector(daf::DafReader, depth::Int)::Nothing
                         sum(MARKER_GENES_BY_DEPTH[depth]),
                         Int16;
                         overwrite = true,
-                    )
-                    empty .= SparseVector(MARKER_GENES_BY_DEPTH[depth])
+                    ) do empty
+                        empty .= SparseVector(MARKER_GENES_BY_DEPTH[depth])
+                        return 7
+                    end == 7
                     test_existing_vector(daf, depth + 1)
                     return nothing
                 end
@@ -1457,8 +1488,10 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
 
     nested_test("empty_matrix!") do
         nested_test("dense") do
-            empty = empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16)
-            empty .= UMIS_BY_DEPTH[depth]
+            @test empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16) do empty
+                empty .= UMIS_BY_DEPTH[depth]
+                return 7
+            end == 7
 
             nested_test("exists") do
                 test_existing_matrix(daf, depth + 1)
@@ -1473,11 +1506,21 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
         end
 
         nested_test("sparse") do
-            empty = empty_sparse_matrix!(daf, "cell", "gene", "UMIs", Int16, sum(UMIS_BY_DEPTH[depth] .> 0), Int16)
-            sparse = SparseMatrixCSC(UMIS_BY_DEPTH[depth])
-            empty.array.colptr .= sparse.colptr
-            empty.array.rowval .= sparse.rowval
-            empty.array.nzval .= sparse.nzval
+            @test empty_sparse_matrix!(
+                daf,
+                "cell",
+                "gene",
+                "UMIs",
+                Int16,
+                sum(UMIS_BY_DEPTH[depth] .> 0),
+                Int16,
+            ) do empty
+                sparse = SparseMatrixCSC(UMIS_BY_DEPTH[depth])
+                empty.array.colptr .= sparse.colptr
+                empty.array.rowval .= sparse.rowval
+                empty.array.nzval .= sparse.nzval
+                return 7
+            end == 7
 
             nested_test("exists") do
                 test_existing_matrix(daf, depth + 1)
@@ -1955,7 +1998,9 @@ function test_existing_matrix(daf::DafReader, depth::Int)::Nothing
                         for the rows axis: cell
                         and the columns axis: gene
                         in the daf data: $(daf.name)
-                    """) empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16)
+                    """) empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16) do empty
+                        @assert false
+                    end
                 end
 
                 nested_test("false") do
@@ -1964,12 +2009,16 @@ function test_existing_matrix(daf::DafReader, depth::Int)::Nothing
                         for the rows axis: cell
                         and the columns axis: gene
                         in the daf data: $(daf.name)
-                    """) empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16; overwrite = false)
+                    """) empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16; overwrite = false) do empty
+                        @assert false
+                    end
                 end
 
                 nested_test("true") do
-                    empty = empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16; overwrite = true)
-                    empty .= UMIS_BY_DEPTH[depth]
+                    @test empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16; overwrite = true) do empty
+                        empty .= UMIS_BY_DEPTH[depth]
+                        return 7
+                    end == 7
 
                     nested_test("overwritten") do
                         test_existing_matrix(daf, depth + 1)
@@ -1993,7 +2042,17 @@ function test_existing_matrix(daf::DafReader, depth::Int)::Nothing
                         for the rows axis: cell
                         and the columns axis: gene
                         in the daf data: $(daf.name)
-                    """) empty_sparse_matrix!(daf, "cell", "gene", "UMIs", Int16, sum(UMIS_BY_DEPTH[depth] .> 0), Int16)
+                    """) empty_sparse_matrix!(
+                        daf,
+                        "cell",
+                        "gene",
+                        "UMIs",
+                        Int16,
+                        sum(UMIS_BY_DEPTH[depth] .> 0),
+                        Int16,
+                    ) do empty
+                        @assert false
+                    end
                 end
 
                 nested_test("false") do
@@ -2011,11 +2070,13 @@ function test_existing_matrix(daf::DafReader, depth::Int)::Nothing
                         sum(UMIS_BY_DEPTH[depth] .> 0),
                         Int16;
                         overwrite = false,
-                    )
+                    ) do empty
+                        @assert false
+                    end
                 end
 
                 nested_test("true") do
-                    empty = empty_sparse_matrix!(
+                    @test empty_sparse_matrix!(
                         daf,
                         "cell",
                         "gene",
@@ -2024,11 +2085,13 @@ function test_existing_matrix(daf::DafReader, depth::Int)::Nothing
                         sum(UMIS_BY_DEPTH[depth] .> 0),
                         Int16;
                         overwrite = true,
-                    )
-                    sparse = SparseMatrixCSC(UMIS_BY_DEPTH[depth])
-                    empty.array.colptr .= sparse.colptr
-                    empty.array.rowval .= sparse.rowval
-                    empty.array.nzval .= sparse.nzval
+                    ) do empty
+                        sparse = SparseMatrixCSC(UMIS_BY_DEPTH[depth])
+                        empty.array.colptr .= sparse.colptr
+                        empty.array.rowval .= sparse.rowval
+                        empty.array.nzval .= sparse.nzval
+                        return 7
+                    end == 7
 
                     nested_test("overwritten") do
                         test_existing_matrix(daf, depth + 1)
@@ -2542,7 +2605,9 @@ function test_existing_relayout_matrix(daf::DafReader, depth::Int)::Nothing
                         for the rows axis: cell
                         and the columns axis: gene
                         in the daf data: $(daf.name)
-                    """) empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16)
+                    """) empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16) do empty
+                        @assert false
+                    end
                 end
 
                 nested_test("false") do
@@ -2551,12 +2616,16 @@ function test_existing_relayout_matrix(daf::DafReader, depth::Int)::Nothing
                         for the rows axis: cell
                         and the columns axis: gene
                         in the daf data: $(daf.name)
-                    """) empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16; overwrite = false)
+                    """) empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16; overwrite = false) do empty
+                        @assert false
+                    end
                 end
 
                 nested_test("true") do
-                    empty = empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16; overwrite = true)
-                    empty .= UMIS_BY_DEPTH[depth]
+                    @test empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16; overwrite = true) do empty
+                        empty .= UMIS_BY_DEPTH[depth]
+                        return 7
+                    end == 7
                     @test delete_matrix!(daf, "gene", "cell", "UMIs"; relayout = false) == nothing
 
                     nested_test("overwritten") do
@@ -2581,7 +2650,17 @@ function test_existing_relayout_matrix(daf::DafReader, depth::Int)::Nothing
                         for the rows axis: cell
                         and the columns axis: gene
                         in the daf data: $(daf.name)
-                    """) empty_sparse_matrix!(daf, "cell", "gene", "UMIs", Int16, sum(UMIS_BY_DEPTH[depth] .> 0), Int16)
+                    """) empty_sparse_matrix!(
+                        daf,
+                        "cell",
+                        "gene",
+                        "UMIs",
+                        Int16,
+                        sum(UMIS_BY_DEPTH[depth] .> 0),
+                        Int16,
+                    ) do empty
+                        @assert false
+                    end
                 end
 
                 nested_test("false") do
@@ -2599,11 +2678,13 @@ function test_existing_relayout_matrix(daf::DafReader, depth::Int)::Nothing
                         sum(UMIS_BY_DEPTH[depth] .> 0),
                         Int16;
                         overwrite = false,
-                    )
+                    ) do empty
+                        @assert false
+                    end
                 end
 
                 nested_test("true") do
-                    empty = empty_sparse_matrix!(
+                    @test empty_sparse_matrix!(
                         daf,
                         "cell",
                         "gene",
@@ -2612,11 +2693,13 @@ function test_existing_relayout_matrix(daf::DafReader, depth::Int)::Nothing
                         sum(UMIS_BY_DEPTH[depth] .> 0),
                         Int16;
                         overwrite = true,
-                    )
-                    sparse = SparseMatrixCSC(UMIS_BY_DEPTH[depth])
-                    empty.array.colptr .= sparse.colptr
-                    empty.array.rowval .= sparse.rowval
-                    empty.array.nzval .= sparse.nzval
+                    ) do empty
+                        sparse = SparseMatrixCSC(UMIS_BY_DEPTH[depth])
+                        empty.array.colptr .= sparse.colptr
+                        empty.array.rowval .= sparse.rowval
+                        empty.array.nzval .= sparse.nzval
+                        return 7
+                    end == 7
                     @test delete_matrix!(daf, "gene", "cell", "UMIs"; relayout = false) == nothing
 
                     nested_test("overwritten") do

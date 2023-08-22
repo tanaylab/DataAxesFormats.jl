@@ -5,23 +5,19 @@ The following issues are not addressed:
 ## Queries
 
   - Implement more operations.
-  - Relayout?
 
 ## Composable computations
 
-  - Views.
-  - Generic two-way `Adapter` functionality based on the `View`
+  - `Provide` functionality based on the `View`
+  - `Provide` functionality based on the `View`
   - Composable self-documenting `Computation` functions
 
 ## Disk storage formats
 
-  - Make `name` a reserved scalar property (alias for `name` member of the storage)???
-  - Input types using empty.
+  - `ChainStorage`
   - `FilesStorage`
   - `Hdf5Storage`
   - `AnnDataStorage`
-  - `ChainStorage`
-  - `ViewStorage`
 
 ## Convenience functions
 

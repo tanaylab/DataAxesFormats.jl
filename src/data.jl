@@ -381,16 +381,17 @@ end
 
 """
     empty_dense_vector!(
+        fill::Function,
         daf::DafWriter,
         axis::AbstractString,
         name::AbstractString,
         eltype::Type{T};
         [overwrite::Bool = false]
-    )::NamedVector{T, DenseVector{T}} where {T <: Number}
+    )::Any where {T <: Number}
 
-Create an empty dense vector property with some `name` for some `axis` in `daf`.
+Create an empty dense vector property with some `name` for some `axis` in `daf`, pass it to `fill`, and return the result.
 
-The returned vector will be uninitialized; the caller is expected to fill it with values. This saves creating a copy of
+The returned vector will be uninitialized; the caller is expected to `fill` it with values. This saves creating a copy of
 the vector before setting it in the data, which makes a huge difference when creating vectors on disk (using memory
 mapping). For this reason, this does not work for strings, as they do not have a fixed size.
 
@@ -398,12 +399,13 @@ This first verifies the `axis` exists in `daf` and that the property name isn't 
 default), this also verifies the `name` vector does not exist for the `axis`.
 """
 function empty_dense_vector!(
+    fill::Function,
     daf::DafWriter,
     axis::AbstractString,
     name::AbstractString,
     eltype::Type{T};
     overwrite::Bool = false,
-)::NamedVector{T} where {T <: Number}
+)::Any where {T <: Number}
     require_not_name(daf, axis, name)
     require_axis(daf, axis)
 
@@ -415,11 +417,12 @@ function empty_dense_vector!(
 
     invalidate_cached_dependencies!(daf, vector_dependency_key(axis, name))
 
-    return as_named_vector(daf, axis, Formats.format_empty_dense_vector!(daf, axis, name, eltype))
+    return fill(as_named_vector(daf, axis, Formats.format_empty_dense_vector!(daf, axis, name, eltype)))
 end
 
 """
     empty_sparse_vector!(
+        fill::Function,
         daf::DafWriter,
         axis::AbstractString,
         name::AbstractString,
@@ -427,11 +430,12 @@ end
         nnz::Integer,
         indtype::Type{I};
         [overwrite::Bool = false]
-    )::NamedVector{T, SparseVector{T, I}} where {T <: Number, I <: Integer}
+    )::Any where {T <: Number, I <: Integer}
 
-Create an empty dense vector property with some `name` for some `axis` in `daf`.
+Create an empty sparse vector property with some `name` for some `axis` in `daf`, pass it to `fill` and return the
+result.
 
-The returned vector will be uninitialized; the caller is expected to fill it with values. This means manually filling
+The returned vector will be uninitialized; the caller is expected to `fill` it with values. This means manually filling
 the `nzind` and `nzval` vectors. Specifying the `nnz` makes their sizes known in advance, to allow pre-allocating disk
 data. For this reason, this does not work for strings, as they do not have a fixed size.
 
@@ -441,8 +445,7 @@ allows doing so directly into the data vector, avoiding a copy in case of memory
 
 !!! warning
 
-    It is the caller's responsibility to fill the three vectors with valid data. **There's no safety net if you mess
-    this up**. Specifically, you must ensure:
+    It is the caller's responsibility to fill the three vectors with valid data. Specifically, you must ensure:
 
       - `nzind[1] == 1`
       - `nzind[i] <= nzind[i + 1]`
@@ -452,6 +455,7 @@ This first verifies the `axis` exists in `daf` and that the property name isn't 
 default), this also verifies the `name` vector does not exist for the `axis`.
 """
 function empty_sparse_vector!(
+    fill::Function,
     daf::DafWriter,
     axis::AbstractString,
     name::AbstractString,
@@ -459,7 +463,7 @@ function empty_sparse_vector!(
     nnz::Integer,
     indtype::Type{I};
     overwrite::Bool = false,
-)::NamedVector{T, SparseVector{T, I}} where {T <: Number, I <: Integer}
+)::Any where {T <: Number, I <: Integer}
     require_not_name(daf, axis, name)
     require_axis(daf, axis)
 
@@ -471,7 +475,10 @@ function empty_sparse_vector!(
 
     invalidate_cached_dependencies!(daf, vector_dependency_key(axis, name))
 
-    return as_named_vector(daf, axis, Formats.format_empty_sparse_vector!(daf, axis, name, eltype, nnz, indtype))
+    empty_vector = Formats.format_empty_sparse_vector!(daf, axis, name, eltype, nnz, indtype)
+    result = fill(as_named_vector(daf, axis, empty_vector))
+    _verified = SparseVector(length(empty_vector), empty_vector.nzind, empty_vector.nzval)
+    return result
 end
 
 """
@@ -705,19 +712,20 @@ end
 
 """
     empty_dense_matrix!(
+        fill::Function,
         daf::DafWriter,
         rows_axis::AbstractString,
         columns_axis::AbstractString,
         name::AbstractString,
         eltype::Type{T};
         [overwrite::Bool = false]
-    )::NamedMatrix{T, DenseMatrix{T}} where {T <: Number}
+    )::Any where {T <: Number}
 
-Create an empty dense matrix property with some `name` for some `rows_axis` and `columns_axis` in `daf`. Since this is
-Julia, this will be a column-major `matrix`.
+Create an empty dense matrix property with some `name` for some `rows_axis` and `columns_axis` in `daf`, pass it to
+`fill`, and return the result. Since this is Julia, this will be a column-major `matrix`.
 
-The returned matrix will be uninitialized; the caller is expected to fill it with values. This saves creating a copy of
-the matrix before setting it in `daf`, which makes a huge difference when creating matrices on disk (using memory
+The returned matrix will be uninitialized; the caller is expected to `fill` it with values. This saves creating a copy
+of the matrix before setting it in `daf`, which makes a huge difference when creating matrices on disk (using memory
 mapping). For this reason, this does not work for strings, as they do not have a fixed size.
 
 This first verifies the `rows_axis` and `columns_axis` exist in `daf`, that the `matrix` is column-major of the
@@ -725,13 +733,14 @@ appropriate size. If not `overwrite` (the default), this also verifies the `name
 `rows_axis` and `columns_axis`.
 """
 function empty_dense_matrix!(
+    fill::Function,
     daf::DafWriter,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
     eltype::Type{T};
     overwrite::Bool = false,
-)::NamedMatrix{T} where {T <: Number}
+)::Any where {T <: Number}
     require_axis(daf, rows_axis)
     require_axis(daf, columns_axis)
 
@@ -743,16 +752,19 @@ function empty_dense_matrix!(
 
     invalidate_cached_dependencies!(daf, matrix_dependency_key(rows_axis, columns_axis, name))
 
-    return as_named_matrix(
-        daf,
-        rows_axis,
-        columns_axis,
-        Formats.format_empty_dense_matrix!(daf, rows_axis, columns_axis, name, eltype),
+    return fill(
+        as_named_matrix(
+            daf,
+            rows_axis,
+            columns_axis,
+            Formats.format_empty_dense_matrix!(daf, rows_axis, columns_axis, name, eltype),
+        ),
     )
 end
 
 """
     empty_sparse_matrix!(
+        fill::Function,
         daf::DafWriter,
         rows_axis::AbstractString,
         columns_axis::AbstractString,
@@ -761,11 +773,12 @@ end
         nnz::Integer,
         intdype::Type{I};
         [overwrite::Bool = false]
-    )::NamedMatrix{T, SparseMatrixCSC{T, I}} where {T <: Number, I <: Integer}
+    )::Any where {T <: Number, I <: Integer}
 
-Create an empty sparse matrix property with some `name` for some `rows_axis` and `columns_axis` in `daf`.
+Create an empty sparse matrix property with some `name` for some `rows_axis` and `columns_axis` in `daf`, pass it to
+`fill`, and return the result.
 
-The returned matrix will be uninitialized; the caller is expected to fill it with values. This means manually filling
+The returned matrix will be uninitialized; the caller is expected to `fill` it with values. This means manually filling
 the `colptr`, `rowval` and `nzval` vectors. Specifying the `nnz` makes their sizes known in advance, to allow
 pre-allocating disk space. For this reason, this does not work for strings, as they do not have a fixed size.
 
@@ -777,8 +790,7 @@ allows doing so directly into the data, avoiding a copy in case of memory-mapped
 
 
 https://science.slashdot.org/story/23/08/12/1942234/common-alzheimers-disease-gene-may-have-helped-our-ancestors-have-more-kids
-It is the caller's responsibility to fill the three vectors with valid data. **There's no safety net if you mess
-this up**. Specifically, you must ensure:
+It is the caller's responsibility to fill the three vectors with valid data. Specifically, you must ensure:
 
       - `colptr[1] == 1`
       - `colptr[end] == nnz + 1`
@@ -789,6 +801,7 @@ This first verifies the `rows_axis` and `columns_axis` exist in `daf`. If not `o
 verifies the `name` matrix does not exist for the `rows_axis` and `columns_axis`.
 """
 function empty_sparse_matrix!(
+    fill::Function,
     daf::DafWriter,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
@@ -797,7 +810,7 @@ function empty_sparse_matrix!(
     nnz::Integer,
     indtype::Type{I};
     overwrite::Bool = false,
-)::NamedMatrix{T, SparseMatrixCSC{T, I}} where {T <: Number, I <: Integer}
+)::Any where {T <: Number, I <: Integer}
     require_axis(daf, rows_axis)
     require_axis(daf, columns_axis)
 
@@ -809,12 +822,10 @@ function empty_sparse_matrix!(
 
     invalidate_cached_dependencies!(daf, matrix_dependency_key(rows_axis, columns_axis, name))
 
-    return as_named_matrix(
-        daf,
-        rows_axis,
-        columns_axis,
-        Formats.format_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, eltype, nnz, indtype),
-    )
+    empty_matrix = Formats.format_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, eltype, nnz, indtype)
+    result = fill(as_named_matrix(daf, rows_axis, columns_axis, empty_matrix))
+    _verified = SparseMatrixCSC(size(empty_matrix)..., empty_matrix.colptr, empty_matrix.rowval, empty_matrix.nzval)
+    return result
 end
 
 """
