@@ -19,7 +19,7 @@ features are:
     [https://libraries.io/cran/JuliaCall](https://libraries.io/cran/JuliaCall) to allow direct access to `Daf.jl` from R
     code.
 
-See the [v0.1.0 documentation](https://tanaylab.github.io/Daf.jl/v0.1/0) for details.
+See the [v0.1.0 documentation](https://tanaylab.github.io/Daf.jl/v0.1.0) for details.
 
 ## Motivation
 
