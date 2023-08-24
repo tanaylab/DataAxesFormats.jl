@@ -2,9 +2,10 @@
 
 ```@docs
 Daf.Chains
-Daf.Chains.ChainReader
-Daf.Chains.ReadOnlyChain
 Daf.Chains.chain_reader
+Daf.Chains.chain_writer
+Daf.Chains.ReadOnlyChain
+Daf.Chains.WriteChain
 ```
 
 ## Index

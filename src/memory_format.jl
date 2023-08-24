@@ -54,7 +54,7 @@ function Formats.format_set_scalar!(memory::MemoryDaf, name::AbstractString, val
     return nothing
 end
 
-function Formats.format_delete_scalar!(memory::MemoryDaf, name::AbstractString)::Nothing
+function Formats.format_delete_scalar!(memory::MemoryDaf, name::AbstractString; for_set::Bool)::Nothing
     delete!(memory.scalars, name)
     return nothing
 end
@@ -155,7 +155,12 @@ function Formats.format_empty_sparse_vector!(
     return vector
 end
 
-function Formats.format_delete_vector!(memory::MemoryDaf, axis::AbstractString, name::AbstractString)::Nothing
+function Formats.format_delete_vector!(
+    memory::MemoryDaf,
+    axis::AbstractString,
+    name::AbstractString;
+    for_set::Bool,
+)::Nothing
     delete!(memory.vectors[axis], name)
     return nothing
 end
@@ -247,7 +252,8 @@ function Formats.format_delete_matrix!(
     memory::MemoryDaf,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
-    name::AbstractString,
+    name::AbstractString;
+    for_set::Bool,
 )::Nothing
     delete!(memory.matrices[rows_axis][columns_axis], name)
     return nothing

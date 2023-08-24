@@ -125,13 +125,18 @@ function format_set_scalar!(format::FormatWriter, name::AbstractString, value::S
 end
 
 """
-    format_delete_scalar!(format::FormatWriter, name::AbstractString)::Nothing
+    format_delete_scalar!(
+        format::FormatWriter,
+        name::AbstractString;
+        for_set::Bool
+    )::Nothing
 
-Implement deleting a scalar property with some `name` from `format`.
+Implement deleting a scalar property with some `name` from `format`. If `for_set`, this is done just prior to setting
+the scalar with a different value.
 
 This trusts that the `name` scalar property exists in `format`.
 """
-function format_delete_scalar!(format::FormatWriter, name::AbstractString)::Nothing  # untested
+function format_delete_scalar!(format::FormatWriter, name::AbstractString; for_set::Bool)::Nothing  # untested
     return error("missing method: format_delete_scalar!\nfor the daf format: $(typeof(format))")
 end
 
@@ -184,10 +189,7 @@ function format_add_axis!(  # untested
 end
 
 """
-    format_delete_axis!(
-        format::FormatWriter,
-        axis::AbstractString,
-    )::Nothing
+    format_delete_axis!(format::FormatWriter, axis::AbstractString)::Nothing
 
 Implement deleting some `axis` from `format`.
 
@@ -316,14 +318,20 @@ function format_empty_sparse_vector!(  # untested
 end
 
 """
-    format_delete_vector!(format::FormatWriter, axis::AbstractString, name::AbstractString)::Nothing
+    format_delete_vector!(
+        format::FormatWriter,
+        axis::AbstractString,
+        name::AbstractString;
+        for_set::Bool
+    )::Nothing
 
-Implement deleting a vector property with some `name` for some `axis` from `format`.
+Implement deleting a vector property with some `name` for some `axis` from `format`. If `for_set`, this is done just
+prior to setting the vector with a different value.
 
 This trusts the `axis` exists in `format`, that the vector property name isn't `name`, and that the `name` vector exists
 for the `axis`.
 """
-function format_delete_vector!(format::FormatWriter, axis::AbstractString, name::AbstractString)::Nothing  # untested
+function format_delete_vector!(format::FormatWriter, axis::AbstractString, name::AbstractString; for_set::Bool)::Nothing  # untested
     return error("missing method: format_delete_vector! for the daf format: $(typeof(format))")
 end
 
@@ -475,10 +483,12 @@ end
         format::FormatWriter,
         rows_axis::AbstractString,
         columns_axis::AbstractString,
-        name::AbstractString
+        name::AbstractString;
+        for_set::Bool
     )::Nothing
 
-Implement deleting a matrix property with some `name` for some `rows_axis` and `columns_axis` from `format`.
+Implement deleting a matrix property with some `name` for some `rows_axis` and `columns_axis` from `format`. If
+`for_set`, this is done just prior to setting the matrix with a different value.
 
 This trusts the `rows_axis` and `columns_axis` exist in `format`, and that the `name` matrix property exists for them.
 """
@@ -486,7 +496,8 @@ function format_delete_matrix!(  # untested
     format::FormatWriter,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
-    name::AbstractString,
+    name::AbstractString;
+    for_set::Bool,
 )::Nothing
     return error("missing method: format_delete_matrix!\nfor the daf format: $(typeof(format))")
 end

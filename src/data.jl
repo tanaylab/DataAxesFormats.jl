@@ -109,7 +109,7 @@ function set_scalar!(daf::DafWriter, name::AbstractString, value::StorageScalar;
     if !overwrite
         require_no_scalar(daf, name)
     elseif Formats.format_has_scalar(daf, name)
-        Formats.format_delete_scalar!(daf, name)
+        Formats.format_delete_scalar!(daf, name; for_set = true)
     end
 
     invalidate_cached_dependencies!(daf, scalar_dependency_key(name))
@@ -135,7 +135,7 @@ function delete_scalar!(daf::DafWriter, name::AbstractString; must_exist::Bool =
     end
 
     if Formats.format_has_scalar(daf, name)
-        Formats.format_delete_scalar!(daf, name)
+        Formats.format_delete_scalar!(daf, name; for_set = false)
     end
 
     invalidate_cached_dependencies!(daf, scalar_dependency_key(name))
@@ -251,15 +251,15 @@ function delete_axis!(daf::DafWriter, axis::AbstractString; must_exist::Bool = t
     invalidate_cached_dependencies!(daf, axis_dependency_key(axis))
 
     for name in Formats.format_vector_names(daf, axis)
-        Formats.format_delete_vector!(daf, axis, name)
+        Formats.format_delete_vector!(daf, axis, name; for_set = false)
     end
 
     for other_axis in Formats.format_axis_names(daf)
         for name in Formats.format_matrix_names(daf, axis, other_axis)
-            Formats.format_delete_matrix!(daf, axis, other_axis, name)
+            Formats.format_delete_matrix!(daf, axis, other_axis, name; for_set = false)
         end
         for name in Formats.format_matrix_names(daf, other_axis, axis)
-            Formats.format_delete_matrix!(daf, other_axis, axis, name)
+            Formats.format_delete_matrix!(daf, other_axis, axis, name; for_set = false)
         end
     end
 
@@ -370,7 +370,7 @@ function set_vector!(
     if !overwrite
         require_no_vector(daf, axis, name)
     elseif Formats.format_has_vector(daf, axis, name)
-        Formats.format_delete_vector!(daf, axis, name)
+        Formats.format_delete_vector!(daf, axis, name; for_set = true)
     end
 
     invalidate_cached_dependencies!(daf, vector_dependency_key(axis, name))
@@ -412,7 +412,7 @@ function empty_dense_vector!(
     if !overwrite
         require_no_vector(daf, axis, name)
     elseif Formats.format_has_vector(daf, axis, name)
-        Formats.format_delete_vector!(daf, axis, name)
+        Formats.format_delete_vector!(daf, axis, name; for_set = true)
     end
 
     invalidate_cached_dependencies!(daf, vector_dependency_key(axis, name))
@@ -470,7 +470,7 @@ function empty_sparse_vector!(
     if !overwrite
         require_no_vector(daf, axis, name)
     elseif Formats.format_has_vector(daf, axis, name)
-        Formats.format_delete_vector!(daf, axis, name)
+        Formats.format_delete_vector!(daf, axis, name; for_set = true)
     end
 
     invalidate_cached_dependencies!(daf, vector_dependency_key(axis, name))
@@ -508,7 +508,7 @@ function delete_vector!(daf::DafWriter, axis::AbstractString, name::AbstractStri
 
     invalidate_cached_dependencies!(daf, vector_dependency_key(axis, name))
 
-    Formats.format_delete_vector!(daf, axis, name)
+    Formats.format_delete_vector!(daf, axis, name; for_set = false)
     return nothing
 end
 
@@ -696,13 +696,13 @@ function set_matrix!(
     invalidate_cached_dependencies!(daf, matrix_dependency_key(rows_axis, columns_axis, name))
 
     if Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
-        Formats.format_delete_matrix!(daf, rows_axis, columns_axis, name)
+        Formats.format_delete_matrix!(daf, rows_axis, columns_axis, name; for_set = true)
     end
     Formats.format_set_matrix!(daf, rows_axis, columns_axis, name, matrix)
 
     if relayout
         if overwrite && Formats.format_has_matrix(daf, columns_axis, rows_axis, name)
-            Formats.format_delete_matrix!(daf, columns_axis, rows_axis, name)
+            Formats.format_delete_matrix!(daf, columns_axis, rows_axis, name; for_set = true)
         end
         Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name)
     end
@@ -747,7 +747,7 @@ function empty_dense_matrix!(
     if !overwrite
         require_no_matrix(daf, rows_axis, columns_axis, name; relayout = false)
     elseif Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
-        Formats.format_delete_matrix!(daf, rows_axis, columns_axis, name)
+        Formats.format_delete_matrix!(daf, rows_axis, columns_axis, name; for_set = true)
     end
 
     invalidate_cached_dependencies!(daf, matrix_dependency_key(rows_axis, columns_axis, name))
@@ -817,7 +817,7 @@ function empty_sparse_matrix!(
     if !overwrite
         require_no_matrix(daf, rows_axis, columns_axis, name; relayout = false)
     elseif Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
-        Formats.format_delete_matrix!(daf, rows_axis, columns_axis, name)
+        Formats.format_delete_matrix!(daf, rows_axis, columns_axis, name; for_set = true)
     end
 
     invalidate_cached_dependencies!(daf, matrix_dependency_key(rows_axis, columns_axis, name))
@@ -863,7 +863,7 @@ function relayout_matrix!(
     if !overwrite
         require_no_matrix(daf, columns_axis, rows_axis, name; relayout = false)
     elseif Formats.format_has_matrix(daf, columns_axis, rows_axis, name)
-        Formats.format_delete_matrix!(daf, columns_axis, rows_axis, name)
+        Formats.format_delete_matrix!(daf, columns_axis, rows_axis, name; for_set = true)
     end
 
     invalidate_cached_dependencies!(daf, matrix_dependency_key(rows_axis, columns_axis, name))
@@ -907,11 +907,11 @@ function delete_matrix!(
     invalidate_cached_dependencies!(daf, matrix_dependency_key(rows_axis, columns_axis, name))
 
     if Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
-        Formats.format_delete_matrix!(daf, rows_axis, columns_axis, name)
+        Formats.format_delete_matrix!(daf, rows_axis, columns_axis, name; for_set = false)
     end
 
     if relayout && Formats.format_has_matrix(daf, columns_axis, rows_axis, name)
-        Formats.format_delete_matrix!(daf, columns_axis, rows_axis, name)
+        Formats.format_delete_matrix!(daf, columns_axis, rows_axis, name; for_set = false)
     end
 
     return nothing

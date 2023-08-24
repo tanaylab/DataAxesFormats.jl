@@ -2,7 +2,7 @@
 
 julia_version = "1.9.2"
 manifest_format = "2.0"
-project_hash = "db0b01ad688498e451370bc5a4c2ba4e7fe805dc"
+project_hash = "445c121c4f6cc48c85f0cbe261dc8967d4da4687"
 
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
@@ -150,9 +150,9 @@ uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 
 [[deps.LoggingExtras]]
 deps = ["Dates", "Logging"]
-git-tree-sha1 = "cedb76b37bc5a6c702ade66be44f831fa23c681e"
+git-tree-sha1 = "a03c77519ab45eb9a34d3cfe2ca223d79c064323"
 uuid = "e6f89c97-d47a-5376-807f-9c37f3926c36"
-version = "1.0.0"
+version = "1.0.1"
 
 [[deps.Markdown]]
 deps = ["Base64"]
@@ -184,9 +184,9 @@ version = "0.10.0"
 
 [[deps.NestedTests]]
 deps = ["Printf", "Test"]
-git-tree-sha1 = "9b5f1d3c237a87f70eb4df93e3fe5b7818a668a6"
+git-tree-sha1 = "3ffd894ade0824aa2851ecae575b0187012e1487"
 uuid = "c7752788-e2db-4f03-8189-845608b41f97"
-version = "0.2.0"
+version = "0.3.0"
 
 [[deps.NetworkOptions]]
 uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
@@ -227,9 +227,9 @@ version = "1.9.2"
 
 [[deps.PrecompileTools]]
 deps = ["Preferences"]
-git-tree-sha1 = "9673d39decc5feece56ef3940e5dafba15ba0f81"
+git-tree-sha1 = "03b4c25b43cb84cee5c90aa9b5ea0a78fd848d2f"
 uuid = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
-version = "1.1.2"
+version = "1.2.0"
 
 [[deps.Preferences]]
 deps = ["TOML"]

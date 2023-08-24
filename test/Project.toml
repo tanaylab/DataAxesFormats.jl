@@ -6,6 +6,3 @@ NestedTests = "c7752788-e2db-4f03-8189-845608b41f97"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 TestContexts = "bc03c374-6515-4bc9-983b-02908b112166"
-
-[compat]
-NestedTests = "0.2.0"
