@@ -105,9 +105,7 @@ abstract type DafWriter <: FormatWriter end
 
 Check whether a scalar property with some `name` exists in `format`.
 """
-function format_has_scalar(format::FormatReader, name::AbstractString)::Bool  # untested
-    return error("missing method: format_has_scalar\nfor the daf format: $(typeof(format))")
-end
+function format_has_scalar end
 
 """
     format_set_scalar!(
@@ -120,9 +118,7 @@ Implement setting the `value` of a scalar property with some `name` in `format`.
 
 This trusts that the `name` scalar property does not exist in `format`.
 """
-function format_set_scalar!(format::FormatWriter, name::AbstractString, value::StorageScalar)::Nothing  # untested
-    return error("missing method: format_set_scalar!\nfor the daf format: $(typeof(format))")
-end
+function format_set_scalar! end
 
 """
     format_delete_scalar!(
@@ -136,18 +132,14 @@ the scalar with a different value.
 
 This trusts that the `name` scalar property exists in `format`.
 """
-function format_delete_scalar!(format::FormatWriter, name::AbstractString; for_set::Bool)::Nothing  # untested
-    return error("missing method: format_delete_scalar!\nfor the daf format: $(typeof(format))")
-end
+function format_delete_scalar! end
 
 """
     format_scalar_names(format::FormatReader)::Set{String}
 
 The names of the scalar properties in `format`.
 """
-function format_scalar_names(format::FormatReader)::AbstractSet{String}  # untested
-    return error("missing method: format_scalar_names\nfor the daf format: $(typeof(format))")
-end
+function format_scalar_names end
 
 """
     format_get_scalar(format::FormatReader, name::AbstractString)::StorageScalar
@@ -156,37 +148,27 @@ Implement fetching the value of a scalar property with some `name` in `format`.
 
 This trusts the `name` scalar property exists in `format`.
 """
-function format_get_scalar(format::FormatReader, name::AbstractString)::StorageScalar  # untested
-    return error("missing method: format_get_scalar\nfor the daf format: $(typeof(format))")
-end
+function format_get_scalar end
 
 """
     format_has_axis(format::FormatReader, axis::AbstractString)::Bool
 
 Check whether some `axis` exists in `format`.
 """
-function format_has_axis(format::FormatReader, axis::AbstractString)::Bool  # untested
-    return error("missing method: format_has_axis\nfor the daf format: $(typeof(format))")
-end
+function format_has_axis end
 
 """
     format_add_axis!(
         format::FormatWriter,
         axis::AbstractString,
-        entries::DenseVector{String}
+        entries::AbstractVector{String}
     )::Nothing
 
 Implement adding a new `axis` to `format`.
 
 This trusts that the `axis` does not already exist in `format`, and that the names of the `entries` are unique.
 """
-function format_add_axis!(  # untested
-    format::FormatWriter,
-    axis::AbstractString,
-    entries::DenseVector{String},
-)::Nothing
-    return error("missing method: format_add_axis!\nfor the daf format: $(typeof(format))")
-end
+function format_add_axis! end
 
 """
     format_delete_axis!(format::FormatWriter, axis::AbstractString)::Nothing
@@ -196,29 +178,23 @@ Implement deleting some `axis` from `format`.
 This trusts that the `axis` exists in `format`, and that all properties that are based on this axis have already been
 deleted.
 """
-function format_delete_axis!(format::FormatWriter, axis::AbstractString)::Nothing  # untested
-    return error("missing method: format_delete_axis!\nfor the daf format: $(typeof(format))")
-end
+function format_delete_axis! end
 
 """
     format_axis_names(format::FormatReader)::AbstractSet{String}
 
 The names of the axes of `format`.
 """
-function format_axis_names(format::FormatReader)::AbstractSet{String}  # untested
-    return error("missing method: format_axis_names\nfor the daf format: $(typeof(format))")
-end
+function format_axis_names end
 
 """
-    format_get_axis(format::FormatReader, axis::AbstractString)::DenseVector{String}
+    format_get_axis(format::FormatReader, axis::AbstractString)::AbstractVector{String}
 
 Implement fetching the unique names of the entries of some `axis` of `format`.
 
 This trusts the `axis` exists in `format`.
 """
-function format_get_axis(format::FormatReader, axis::AbstractString)::DenseVector{String}  # untested
-    return error("missing method: format_get_axis\nfor the daf format: $(typeof(format))")
-end
+function format_get_axis end
 
 """
     format_axis_length(format::FormatReader, axis::AbstractString)::Int64
@@ -227,9 +203,7 @@ Implement fetching the number of entries along the `axis`.
 
 This trusts the `axis` exists in `format`.
 """
-function format_axis_length(format::FormatReader, axis::AbstractString)::Int64  # untested
-    return error("missing method: format_axis_length\nfor the daf format: $(typeof(format))")
-end
+function format_axis_length end
 
 """
     format_has_vector(format::FormatReader, axis::AbstractString, name::AbstractString)::Bool
@@ -238,9 +212,7 @@ Implement checking whether a vector property with some `name` exists for the `ax
 
 This trusts the `axis` exists in `format` and that the property name isn't `name`.
 """
-function format_has_vector(format::FormatReader, axis::AbstractString, name::AbstractString)::Bool  # untested
-    return error("missing method: format_has_vector\nfor the daf format: $(typeof(format))")
-end
+function format_has_vector end
 
 """
     format_set_vector!(
@@ -257,14 +229,7 @@ If the `vector` specified is actually a [`StorageScalar`](@ref), the stored vect
 This trusts the `axis` exists in `format`, that the vector property `name` isn't `"name"`, that it does not exist for
 the `axis`, and that the `vector` has the appropriate length for it.
 """
-function format_set_vector!(  # untested
-    format::FormatWriter,
-    axis::AbstractString,
-    name::AbstractString,
-    vector::Union{StorageScalar, StorageVector},
-)::Nothing
-    return error("missing method: format_set_vector!\nfor the daf format: $(typeof(format))")
-end
+function format_set_vector! end
 
 """
     format_empty_dense_vector!(
@@ -281,24 +246,17 @@ Implement creating an empty dense `matrix` with some `name` for some `rows_axis`
 This trusts the `axis` exists in `format` and that the vector property `name` isn't `"name"`, and that it does not exist
 for the `axis`.
 """
-function format_empty_dense_vector!(  # untested
-    format::FormatWriter,
-    axis::AbstractString,
-    name::AbstractString,
-    eltype::Type{T},
-)::DenseVector{T} where {T <: Number}
-    return error("missing method: format_empty_dense_vector!\nfor the daf format: $(typeof(format))")
-end
+function format_empty_dense_vector! end
 
 """
-    format_empty_dense_vector!(
+    format_empty_sparse_vector!(
         format::FormatWriter,
         axis::AbstractString,
         name::AbstractString,
         eltype::Type{T},
         nnz::Integer,
         indtype::Type{I},
-    )::DenseVector where {T <: Number, I <: Integer}
+    )::SparseVector{T, I} where {T <: Number, I <: Integer}
 
 Implement creating an empty dense vector property with some `name` for some `rows_axis` and `columns_axis` in
 `format`.
@@ -306,16 +264,7 @@ Implement creating an empty dense vector property with some `name` for some `row
 This trusts the `axis` exists in `format` and that the vector property `name` isn't `"name"`, and that it does not exist
 for the `axis`.
 """
-function format_empty_sparse_vector!(  # untested
-    format::FormatWriter,
-    axis::AbstractString,
-    name::AbstractString,
-    eltype::Type{T},
-    nnz::Integer,
-    indtype::Type{I},
-)::SparseVector{T, I} where {T <: Number, I <: Integer}
-    return error("missing method: format_empty_sparse_vector!\nfor the daf format: $(typeof(format))")
-end
+function format_empty_sparse_vector! end
 
 """
     format_delete_vector!(
@@ -331,9 +280,7 @@ prior to setting the vector with a different value.
 This trusts the `axis` exists in `format`, that the vector property name isn't `name`, and that the `name` vector exists
 for the `axis`.
 """
-function format_delete_vector!(format::FormatWriter, axis::AbstractString, name::AbstractString; for_set::Bool)::Nothing  # untested
-    return error("missing method: format_delete_vector! for the daf format: $(typeof(format))")
-end
+function format_delete_vector! end
 
 """
     format_vector_names(format::FormatReader, axis::AbstractString)::Set{String}
@@ -342,9 +289,7 @@ Implement fetching the names of the vectors for the `axis` in `format`, **not** 
 
 This trusts the `axis` exists in `format`.
 """
-function format_vector_names(format::FormatReader, axis::AbstractString)::AbstractSet{String}  # untested
-    return error("missing method: format_vector_names\nfor the daf format: $(typeof(format))")
-end
+function format_vector_names end
 
 """
     format_get_vector(format::FormatReader, axis::AbstractString, name::AbstractString)::StorageVector
@@ -353,9 +298,7 @@ Implement fetching the vector property with some `name` for some `axis` in `form
 
 This trusts the `axis` exists in `format`, and the `name` vector property exists for the `axis`.
 """
-function format_get_vector(format::FormatReader, name::AbstractString)::StorageVector  # untested
-    return error("missing method: format_get_vector\nfor the daf format: $(typeof(format))")
-end
+function format_get_vector end
 
 """
     format_has_matrix(
@@ -370,14 +313,7 @@ Implement checking whether a matrix property with some `name` exists for the `ro
 
 This trusts the `rows_axis` and the `columns_axis` exist in `format`.
 """
-function format_has_matrix(  # untested
-    format::FormatReader,
-    rows_axis::AbstractString,
-    columns_axis::AbstractString,
-    name::AbstractString,
-)::Bool
-    return error("missing method: format_has_matrix\nfor the daf format: $(typeof(format))")
-end
+function format_has_matrix end
 
 """
     format_set_matrix!(
@@ -395,15 +331,7 @@ If the `matrix` specified is actually a [`StorageScalar`](@ref), the stored matr
 This trusts the `rows_axis` and `columns_axis` exist in `format`, that the `name` matrix property does not exist for
 them, and that the `matrix` is column-major of the appropriate size for it.
 """
-function format_set_matrix!(  # untested
-    format::FormatWriter,
-    rows_axis::AbstractString,
-    columns_axis::AbstractString,
-    name::AbstractString,
-    matrix::Union{StorageScalar, StorageMatrix},
-)::Nothing
-    return error("missing method: format_set_matrix!\nfor the daf format: $(typeof(format))")
-end
+function format_set_matrix! end
 
 """
     format_empty_dense_matrix!(
@@ -419,14 +347,7 @@ Implement creating an empty dense matrix property with some `name` for some `row
 This trusts the `rows_axis` and `columns_axis` exist in `format` and that the `name` matrix property does not exist for
 them.
 """
-function format_empty_dense_matrix!(  # untested
-    format::FormatWriter,
-    rows_axis::AbstractString,
-    columns_axis::AbstractString,
-    eltype::Type{T},
-)::DenseMatrix{T} where {T <: Number}
-    return error("missing method: format_empty_dense_matrix!\nfor the daf format: $(typeof(format))")
-end
+function format_empty_dense_matrix! end
 
 """
     format_empty_dense_matrix!(
@@ -444,16 +365,7 @@ Implement creating an empty sparse matrix property with some `name` for some `ro
 This trusts the `rows_axis` and `columns_axis` exist in `format` and that the `name` matrix property does not exist for
 them.
 """
-function format_empty_sparse_matrix!(  # untested
-    format::FormatWriter,
-    rows_axis::AbstractString,
-    columns_axis::AbstractString,
-    eltype::Type{T},
-    nnz::Integer,
-    indtype::Type{I},
-)::SparseMatrixCSC{T, I} where {T <: Number, I <: Integer}
-    return error("missing method: format_empty_sparse_matrix!\nfor the daf format: $(typeof(format))")
-end
+function format_empty_sparse_matrix! end
 
 """
     format_relayout_matrix!(
@@ -469,14 +381,7 @@ store the results as a row-major matrix property (that is, with flipped axes).
 This trusts the `rows_axis` and `columns_axis` exist in `format`, that the `name` matrix property exists for them, and
 that it does not exist for the flipped axes.
 """
-function format_relayout_matrix!(  # untested
-    format::FormatWriter,
-    rows_axis::AbstractString,
-    columns_axis::AbstractString,
-    name::AbstractString,
-)::Nothing
-    return error("missing method: format_set_matrix!\nfor the daf format: $(typeof(format))")
-end
+function format_relayout_matrix! end
 
 """
     format_delete_matrix!(
@@ -492,15 +397,7 @@ Implement deleting a matrix property with some `name` for some `rows_axis` and `
 
 This trusts the `rows_axis` and `columns_axis` exist in `format`, and that the `name` matrix property exists for them.
 """
-function format_delete_matrix!(  # untested
-    format::FormatWriter,
-    rows_axis::AbstractString,
-    columns_axis::AbstractString,
-    name::AbstractString;
-    for_set::Bool,
-)::Nothing
-    return error("missing method: format_delete_matrix!\nfor the daf format: $(typeof(format))")
-end
+function format_delete_matrix! end
 
 """
     format_matrix_names(
@@ -513,13 +410,7 @@ Implement fetching the names of the matrix properties for the `rows_axis` and `c
 
 This trusts the `rows_axis` and `columns_axis` exist in `format`.
 """
-function format_matrix_names(  # untested
-    format::FormatReader,
-    rows_axis::AbstractString,
-    columns_axis::AbstractString,
-)::AbstractSet{String}
-    return error("missing method: format_matrix_names\nfor the daf format: $(typeof(format))")
-end
+function format_matrix_names end
 
 """
     format_get_matrix(
@@ -533,14 +424,7 @@ Implement fetching the matrix property with some `name` for some `rows_axis` and
 
 This trusts the `rows_axis` and `columns_axis` exist in `format`, and the `name` matrix property exists for them.
 """
-function format_get_matrix(  # untested
-    format::FormatReader,
-    rows_axis::AbstractString,
-    columns_axis::AbstractString,
-    name::AbstractString,
-)::StorageMatrix
-    return error("missing method: format_get_matrix\nfor the daf format: $(typeof(format))")
-end
+function format_get_matrix end
 
 """
     function format_description_header(format::FormatReader, lines::Array{String})::Nothing

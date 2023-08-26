@@ -57,9 +57,7 @@ abstract type EltwiseOperation <: AbstractOperation end
 
 Compute an [`EltwiseOperation`](@ref) `operation`.
 """
-function compute_eltwise(operation::EltwiseOperation, input::Any)::Nothing  # untested
-    return error("missing method: compute_eltwise ($(typeof(input))) for the operation: $(typeof(operation))")
-end
+function compute_eltwise end
 
 """
 Abstract type for all reduction operations.
@@ -90,9 +88,7 @@ abstract type ReductionOperation <: AbstractOperation end
 
 Compute an [`ReductionOperation`](@ref) `operation`.
 """
-function compute_reduction(operation::ReductionOperation, input::Any)::StorageVector  # untested
-    return error("missing method: compute_reduction ($(typeof(input))) for the operation: $(typeof(operation))")
-end
+function compute_reduction end
 
 # A global registry of all the known element-wise operations.
 ELTWISE_REGISTERED_OPERATIONS = Dict{String, RegisteredOperation}()

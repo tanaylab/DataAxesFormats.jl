@@ -210,14 +210,14 @@ end
     add_axis!(
         daf::DafWriter,
         axis::AbstractString,
-        entries::DenseVector{String}
+        entries::AbstractVector{String}
     )::Nothing
 
 Add a new `axis` `daf`.
 
 This first verifies the `axis` does not exist and that the `entries` are unique.
 """
-function add_axis!(daf::DafWriter, axis::AbstractString, entries::DenseVector{String})::Nothing
+function add_axis!(daf::DafWriter, axis::AbstractString, entries::AbstractVector{String})::Nothing
     require_no_axis(daf, axis)
 
     if !allunique(entries)
@@ -281,7 +281,7 @@ function axis_names(daf::DafReader)::AbstractSet{String}
 end
 
 """
-    get_axis(daf::DafReader, axis::AbstractString)::DenseVector{String}
+    get_axis(daf::DafReader, axis::AbstractString)::AbstractVector{String}
 
 The unique names of the entries of some `axis` of `daf`. This is similar to doing [`get_vector`](@ref) for the special
 `name` property, except that it returns a simple vector of strings instead of a `NamedVector`.
@@ -1949,7 +1949,7 @@ function compute_eltwise_result(
         end
 
         if result isa StorageScalar
-            result = compute_eltwise(eltwise_operation, result)
+            result = compute_eltwise(eltwise_operation, result)  # NOJET
         else
             result = NamedArray(compute_eltwise(eltwise_operation, result.array), result.dicts, result.dimnames)  # NOJET
         end

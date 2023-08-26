@@ -49,8 +49,8 @@ grep -H -n '.' */*.cov \
     state > 0 && uncov_func { $3 = "-" }
     state == 0 && $4 ~ /^[@A-Z][A-Za-z0-9:{}, ()]* =/ && $3 == "-" { $3 = "0" }
     state == 2 && $4 ~ /^end/ { state = 0 }
-    state != 3 && $3 != "-" && $4 ~ /^(@.* )?\s*function / { state = 1; uncov_func = 0; }
-    state != 3 && $3 == "-" && $4 ~ /^(@.* )?\s*function / { state = 1; uncov_func = 1; $3 = "0"; }
+    state != 3 && $3 != "-" && $4 ~ /^(@.* )?\s*function / && $4 !~ /^function.*end/ { state = 1; uncov_func = 0; }
+    state != 3 && $3 == "-" && $4 ~ /^(@.* )?\s*function / && $4 !~ /^function.*end/ { state = 1; uncov_func = 1; $3 = "0"; }
     state == 1 && $4 ~ /)::|)$/ { state = 2 }
     state != 2 && state != 1 && $3 == "0" { $3 = "-" }
     { print }

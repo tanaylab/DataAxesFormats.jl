@@ -70,7 +70,7 @@ function Formats.format_axis_names(read_only_view::ReadOnlyView)::AbstractSet{St
     return Formats.format_axis_names(read_only_view.daf)
 end
 
-function Formats.format_get_axis(read_only_view::ReadOnlyView, axis::AbstractString)::DenseVector{String}
+function Formats.format_get_axis(read_only_view::ReadOnlyView, axis::AbstractString)::AbstractVector{String}
     return Formats.format_get_axis(read_only_view.daf, axis)
 end
 

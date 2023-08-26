@@ -44,7 +44,7 @@ struct DafView <: DafReader
     internal::Internal
     daf::DafReader
     scalars::Dict{String, Union{ScalarQuery, StorageScalar}}
-    axes::Dict{String, Tuple{String, Union{VectorQuery, DenseVector{String}}}}
+    axes::Dict{String, Tuple{String, Union{VectorQuery, AbstractVector{String}}}}
     vectors::Dict{String, Dict{String, Union{VectorQuery, StorageVector}}}
     matrices::Dict{String, Dict{String, Dict{String, Union{MatrixQuery, StorageMatrix}}}}
 end
@@ -188,8 +188,8 @@ end
 function collect_axes(
     daf::DafReader,
     axes::AbstractVector{Pair{String, A}},
-)::Dict{String, Tuple{String, Union{VectorQuery, DenseVector{String}}}} where {A <: Union{String, Nothing}}
-    collected_axes = Dict{String, Tuple{String, Union{VectorQuery, DenseVector{String}}}}()
+)::Dict{String, Tuple{String, Union{VectorQuery, AbstractVector{String}}}} where {A <: Union{String, Nothing}}
+    collected_axes = Dict{String, Tuple{String, Union{VectorQuery, AbstractVector{String}}}}()
     for (axis, query) in axes
         collect_axis(daf, collected_axes, axis, query)
     end
@@ -198,7 +198,7 @@ end
 
 function collect_axis(
     daf::DafReader,
-    collected_axes::Dict{String, Tuple{String, Union{VectorQuery, DenseVector{String}}}},
+    collected_axes::Dict{String, Tuple{String, Union{VectorQuery, AbstractVector{String}}}},
     axis::String,
     query::Union{String, Nothing},
 )::Nothing
@@ -220,7 +220,7 @@ end
 function collect_vectors(
     view_name::AbstractString,
     daf::DafReader,
-    collected_axes::Dict{String, Tuple{String, Union{VectorQuery, DenseVector{String}}}},
+    collected_axes::Dict{String, Tuple{String, Union{VectorQuery, AbstractVector{String}}}},
     vectors::AbstractVector{Pair{Tuple{String, String}, V}},
 )::Dict{String, Dict{String, Union{VectorQuery, StorageVector}}} where {V <: Union{String, Nothing}}
     collected_vectors = Dict{String, Dict{String, Union{VectorQuery, StorageVector}}}()
@@ -236,7 +236,7 @@ end
 function collect_vector(
     view_name::String,
     daf::DafReader,
-    collected_axes::Dict{String, Tuple{String, Union{VectorQuery, DenseVector{String}}}},
+    collected_axes::Dict{String, Tuple{String, Union{VectorQuery, AbstractVector{String}}}},
     collected_vectors::Dict{String, Dict{String, Union{VectorQuery, StorageVector}}},
     axis::String,
     vector_name::String,
@@ -274,7 +274,7 @@ end
 function collect_matrices(
     view_name::AbstractString,
     daf::DafReader,
-    collected_axes::Dict{String, Tuple{String, Union{VectorQuery, DenseVector{String}}}},
+    collected_axes::Dict{String, Tuple{String, Union{VectorQuery, AbstractVector{String}}}},
     matrices::AbstractVector{Pair{Tuple{String, String, String}, M}},
 )::Dict{String, Dict{String, Dict{String, Union{MatrixQuery, StorageMatrix}}}} where {M <: Union{String, Nothing}}
     collected_matrices = Dict{String, Dict{String, Dict{String, Union{MatrixQuery, StorageMatrix}}}}()
@@ -294,7 +294,7 @@ function collect_matrix(
     view_name::AbstractString,
     daf::DafReader,
     collected_matrices::Dict{String, Dict{String, Dict{String, Union{MatrixQuery, StorageMatrix}}}},
-    collected_axes::Dict{String, Tuple{String, Union{VectorQuery, DenseVector{String}}}},
+    collected_axes::Dict{String, Tuple{String, Union{VectorQuery, AbstractVector{String}}}},
     rows_axis::String,
     columns_axis::String,
     matrix_name::String,
@@ -363,7 +363,7 @@ end
 function require_axis_prefix(
     daf::DafReader,
     name::AbstractString,
-    collected_axes::Dict{String, Tuple{String, Union{VectorQuery, DenseVector{String}}}},
+    collected_axes::Dict{String, Tuple{String, Union{VectorQuery, AbstractVector{String}}}},
     axis::String,
 )::String
     result = get(collected_axes, axis, nothing)
@@ -398,7 +398,7 @@ function Formats.format_axis_names(view::DafView)::AbstractSet{String}
     return keys(view.axes)
 end
 
-function Formats.format_get_axis(view::DafView, axis::AbstractString)::DenseVector{String}
+function Formats.format_get_axis(view::DafView, axis::AbstractString)::AbstractVector{String}
     (prefix, names) = view.axes[axis]
     if names isa VectorQuery
         result = vector_query(view.daf, names)
