@@ -63,4 +63,7 @@ include("memory_format.jl")
 include("example_data.jl")
 @reexport using Daf.ExampleData
 
+include("contracts.jl")
+@reexport using Daf.Contracts
+
 end # module

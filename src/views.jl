@@ -1,8 +1,8 @@
 """
 Create a different view of `Daf` data using queries. This is a very flexible mechanism which can be used for a variety
 of use cases. A simple way of using this is to view a subset of the data as a `Daf` data set. A variant of this also
-renames the data properties to adapt them to the requirements of some computational tool. This makes it simpler to
-create such tools (using fixed, generic property names) and apply them to arbitrary data (with arbitrary specific
+renames the data properties to adapt them to the requirements of some computation. This makes it simpler to create such
+tools (using fixed, generic property names) and apply them to arbitrary data (with arbitrary specific
 property names).
 """
 module Views

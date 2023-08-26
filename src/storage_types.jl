@@ -34,7 +34,12 @@ using Daf.MatrixLayouts
 using SparseArrays
 
 """
-    StorageScalar = Union{String, Number}
+    StorageScalar = Union{
+        String,
+        Bool,
+        Int8, UInt8, Int16, UInt16, Int32, UInt32, Int64, UInt64,
+        Float32, Float64
+    }
 
 Types that can be used as scalars, or elements in stored matrices or vectors.
 
@@ -43,7 +48,7 @@ support any arbitrary `isbitstype`. However, in practice this would cause much t
 other systems (specifically Python and R). Since `Daf` targets storing scientific data (especially biological data), as
 opposed to "anything at all", this restriction seems reasonable.
 """
-StorageScalar = Union{String, Number}
+StorageScalar = Union{String, Bool, Int8, UInt8, Int16, UInt16, Int32, UInt32, Int64, UInt64, Float32, Float64}
 
 """
     StorageMatrix{T} = AbstractMatrix{T} where {T <: StorageScalar}

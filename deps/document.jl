@@ -49,6 +49,7 @@ makedocs(;
         "read_only.md",
         "views.md",
         "chains.md",
+        "contracts.md",
         "formats.md",
         "memory_format.md",
         "queries.md",
