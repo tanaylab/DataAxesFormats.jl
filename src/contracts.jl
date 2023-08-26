@@ -3,8 +3,10 @@ Enforce input and output contracts of computations using `Daf` data.
 """
 module Contracts
 
+export @computation
 export Contingent
 export Contract
+export CONTRACT
 export Expectation
 export Guaranteed
 export Optional
@@ -14,6 +16,8 @@ export verify_output
 
 using Daf.Data
 using Daf.Formats
+using DocStringExtensions
+using ExprTools
 
 """
 The expectation from a specific entity for a computation on `Daf` data.
@@ -34,7 +38,7 @@ existence of optional input and/or the value of parameters to the computation, a
         scalars::Union{
             Vector{Pair{
                 AbstractString,
-                Tuple{Expectation, DataType, AbstractString}
+                Tuple{Expectation, Type, AbstractString}
             }}, Nothing
         } = nothing,
         axes::Union{
@@ -46,14 +50,14 @@ existence of optional input and/or the value of parameters to the computation, a
         vectors::Union{
             Vector{Pair{
                 Tuple{AbstractString, AbstractString},
-                Tuple{Expectation, DataType, AbstractString}
+                Tuple{Expectation, Type, AbstractString}
             }},
             Nothing
         } = nothing,
         matrices::Union{
             Vector{Pair{
                 Tuple{AbstractString, AbstractString, AbstractString},
-                Tuple{Expectation, DataType, AbstractString}
+                Tuple{Expectation, Type, AbstractString}
             }},
             Nothing
         } = nothing,
@@ -75,30 +79,30 @@ list the axes with their descriptions so the documentation of the contract will 
 `matrices` - a vector of pairs where the key is a tuple of the axes and matrix names, and the value is a tuple of the
 [`Expectation`](@ref), the data type of the matrix entries, and a description of the matrix (for documentation).
 """
-struct Contract
-    scalars::Vector{Pair{String, Tuple{Expectation, DataType, String}}}
+struct Contract{T1, T2, T3}
+    scalars::Vector{Pair{String, Tuple{Expectation, T1, String}}}
     axes::Vector{Pair{String, Tuple{Expectation, String}}}
-    vectors::Vector{Pair{Tuple{String, String}, Tuple{Expectation, DataType, String}}}
-    matrices::Vector{Pair{Tuple{String, String, String}, Tuple{Expectation, DataType, String}}}
+    vectors::Vector{Pair{Tuple{String, String}, Tuple{Expectation, T2, String}}}
+    matrices::Vector{Pair{Tuple{String, String, String}, Tuple{Expectation, T3, String}}}
 end
 
 function Contract(;
-    scalars::Union{Vector{Pair{String, Tuple{Expectation, DataType, String}}}, Nothing} = nothing,
+    scalars::Union{Vector{Pair{String, Tuple{Expectation, T1, String}}}, Nothing} = nothing,
     axes::Union{Vector{Pair{String, Tuple{Expectation, String}}}, Nothing} = nothing,
-    vectors::Union{Vector{Pair{Tuple{String, String}, Tuple{Expectation, DataType, String}}}, Nothing} = nothing,
-    matrices::Union{Vector{Pair{Tuple{String, String, String}, Tuple{Expectation, DataType, String}}}, Nothing} = nothing,
-)::Contract
+    vectors::Union{Vector{Pair{Tuple{String, String}, Tuple{Expectation, T2, String}}}, Nothing} = nothing,
+    matrices::Union{Vector{Pair{Tuple{String, String, String}, Tuple{Expectation, T3, String}}}, Nothing} = nothing,
+)::Contract where {T1 <: Type, T2 <: Type, T3 <: Type}
     if scalars == nothing
-        scalars = Vector{Pair{String, Tuple{Expectation, DataType, String}}}()
+        scalars = Vector{Pair{String, Tuple{Expectation, Type, String}}}()
     end
     if axes == nothing
         axes = Vector{Pair{String, Tuple{Expectation, String}}}()
     end
     if vectors == nothing
-        vectors = Vector{Pair{Tuple{String, String}, Tuple{Expectation, DataType, String}}}()
+        vectors = Vector{Pair{Tuple{String, String}, Tuple{Expectation, Type, String}}}()
     end
     if matrices == nothing
-        matrices = Vector{Pair{Tuple{String, String, String}, Tuple{Expectation, DataType, String}}}()
+        matrices = Vector{Pair{Tuple{String, String, String}, Tuple{Expectation, Type, String}}}()
     end
     return Contract(scalars, axes, vectors, matrices)
 end
@@ -144,10 +148,10 @@ function verify_scalar_contract(
     daf::DafReader,
     name::String,
     expectation::Expectation,
-    data_type::DataType,
+    data_type::T,
     description::String;
     is_output::Bool,
-)::Nothing
+)::Nothing where {T <: Type}
     value = get_scalar(daf, name; default = missing)
     if is_mandatory(expectation; is_output = is_output) && value === missing
         error(
@@ -192,10 +196,10 @@ function verify_vector_contract(
     axis::String,
     name::String,
     expectation::Expectation,
-    data_type::DataType,
+    data_type::T,
     description::String;
     is_output::Bool,
-)::Nothing
+)::Nothing where {T <: Type}
     value = missing
     if verify_axis_contract(computation, daf, axis, expectation, ""; is_output = is_output)
         value = get_vector(daf, axis, name; default = missing)
@@ -227,10 +231,10 @@ function verify_matrix_contract(
     columns_axis::String,
     name::String,
     expectation::Expectation,
-    data_type::DataType,
+    data_type::T,
     description::String;
     is_output::Bool,
-)::Nothing
+)::Nothing where {T <: Type}
     has_rows_axis = verify_axis_contract(computation, daf, rows_axis, expectation, ""; is_output = is_output)
     has_columns_axis = verify_axis_contract(computation, daf, columns_axis, expectation, ""; is_output = is_output)
     value = missing
@@ -275,5 +279,193 @@ function direction_name(is_output::Bool)::String
         return "input"
     end
 end
+
+function with_contract(contract::Contract, name::String, inner_function)
+    return (daf::DafWriter, args...; kwargs...) -> (verify_input(contract, name, daf);
+    result = inner_function(daf, args...; kwargs...);
+    verify_output(contract, name, daf);
+    result)
+end
+
+function contract_documentation(contract::Contract, buffer::IOBuffer)::Nothing
+    has_inputs = false
+    has_inputs = scalar_documentation(contract, buffer; is_output = false, has_any = has_inputs)
+    has_inputs = axes_documentation(contract, buffer; is_output = false, has_any = has_inputs)
+    has_inputs = vectors_documentation(contract, buffer; is_output = false, has_any = has_inputs)
+    has_inputs = matrices_documentation(contract, buffer; is_output = false, has_any = has_inputs)
+    has_outputs = false
+    has_outputs = scalar_documentation(contract, buffer; is_output = true, has_any = has_outputs)
+    has_outputs = axes_documentation(contract, buffer; is_output = true, has_any = has_outputs)
+    has_outputs = vectors_documentation(contract, buffer; is_output = true, has_any = has_outputs)
+    has_outputs = matrices_documentation(contract, buffer; is_output = true, has_any = has_outputs)
+    return nothing
+end
+
+const CONTRACT_OF_FUNCTION = Dict{String, Contract}()
+
+function scalar_documentation(contract::Contract, buffer::IOBuffer; is_output::Bool, has_any::Bool)::Bool
+    is_first = true
+    for (name, (expectation, data_type, description)) in contract.scalars
+        if (is_output && (expectation == Guaranteed || expectation == Contingent)) ||
+           (!is_output && (expectation == Required || expectation == Optional))
+            has_any = direction_header(buffer; is_output = is_output, has_any = has_any)
+            if is_first
+                is_first = false
+                println(buffer)
+                println(buffer, "## Scalars")
+            end
+            println(buffer)
+            println(buffer, "**$(name)**::$(data_type) ($(expectation)): $(description)")
+        end
+    end
+    return has_any
+end
+
+function axes_documentation(contract::Contract, buffer::IOBuffer; is_output::Bool, has_any::Bool)::Bool
+    is_first = true
+    for (name, (expectation, description)) in contract.axes
+        if (is_output && (expectation == Guaranteed || expectation == Contingent)) ||
+           (!is_output && (expectation == Required || expectation == Optional))
+            has_any = direction_header(buffer; is_output = is_output, has_any = has_any)
+            if is_first
+                is_first = false
+                println(buffer)
+                println(buffer, "## Axes")
+            end
+            println(buffer)
+            println(buffer, "**$(name)** ($(expectation)): $(description)")
+        end
+    end
+    return has_any
+end
+
+function vectors_documentation(contract::Contract, buffer::IOBuffer; is_output::Bool, has_any::Bool)::Bool
+    is_first = true
+    for ((axis_name, name), (expectation, data_type, description)) in contract.vectors
+        if (is_output && (expectation == Guaranteed || expectation == Contingent)) ||
+           (!is_output && (expectation == Required || expectation == Optional))
+            has_any = direction_header(buffer; is_output = is_output, has_any = has_any)
+            if is_first
+                is_first = false
+                println(buffer)
+                println(buffer, "## Vectors")
+            end
+            println(buffer)
+            println(buffer, "**$(axis_name) @ $(name)**::$(data_type) ($(expectation)): $(description)")
+        end
+    end
+    return has_any
+end
+
+function matrices_documentation(contract::Contract, buffer::IOBuffer; is_output::Bool, has_any::Bool)::Bool
+    is_first = true
+    for ((rows_axis_name, columns_axis_name, name), (expectation, data_type, description)) in contract.matrices
+        if (is_output && (expectation == Guaranteed || expectation == Contingent)) ||
+           (!is_output && (expectation == Required || expectation == Optional))
+            has_any = direction_header(buffer; is_output = is_output, has_any = has_any)
+            if is_first
+                is_first = false
+                println(buffer)
+                println(buffer, "## Matrices")
+            end
+            println(buffer)
+            println(
+                buffer,
+                "**$(rows_axis_name), $(columns_axis_name) @ $(name)**::$(data_type) ($(expectation)): $(description)",
+            )
+        end
+    end
+    return has_any
+end
+
+function direction_header(buffer::IOBuffer; is_output::Bool, has_any::Bool)::Bool
+    if !has_any
+        if is_output
+            println(buffer)
+            println(buffer, "# Outputs")
+        else
+            println(buffer, "# Inputs")
+        end
+    end
+    return true
+end
+
+"""
+    @computation Contract(...)
+    function something(daf::DafWriter, ...)
+        return ...
+    end
+
+Mark a function as a `daf` computation. This has two effects. First, it verifies that the `daf` data satisfies the
+[`Contract`](@ref) when the computation is invoked and when it is complete (using [`verify_input`](@ref) and
+[`verify_output`](@ref)); second, it stashed the contract in a global variable to allow expanding [`CONTRACT`](@ref) in
+the documentation string.
+
+!!! note
+
+    The first argument of the function must be a [`DafWriter`](@ref), which the contract will be applied to.
+"""
+macro computation(contract, definition)
+    inner_definition = ExprTools.splitdef(definition)
+    outer_definition = copy(inner_definition)
+    function_name = get(inner_definition, :name, nothing)
+    if function_name == nothing
+        error("@computation requires a named function")
+    end
+    @assert function_name isa Symbol
+    inner_definition[:name] = Symbol(function_name, :_inner)
+    full_name = "$(__module__).$(function_name)"
+    global CONTRACT_OF_FUNCTION
+    CONTRACT_OF_FUNCTION[full_name] = eval(contract)
+    outer_definition[:body] = Expr(
+        :call,
+        :(Daf.Contracts.with_contract(
+            Daf.Contracts.CONTRACT_OF_FUNCTION[$full_name],
+            $full_name,
+            $(ExprTools.combinedef(inner_definition)),
+        )),
+        get(outer_definition, :args, [])...,
+        get(outer_definition, :kwargs, [])...,
+    )
+    return esc(ExprTools.combinedef(outer_definition))
+end
+
+struct ContractDocumentation <: DocStringExtensions.Abbreviation end
+
+function DocStringExtensions.format(::ContractDocumentation, buffer::IOBuffer, doc_str::Base.Docs.DocStr)::Nothing
+    binding = doc_str.data[:binding]
+    object = Docs.resolve(binding)
+    full_name = "$(doc_str.data[:module]).$(Symbol(object))"
+    contract = get(CONTRACT_OF_FUNCTION, full_name, missing)
+    if contract === missing
+        error(
+            "no contract associated with: $(full_name)\n" *
+            "use: @computation Contract(...) function $(full_name)(...)",
+        )
+    end
+    contract_documentation(contract, buffer)
+    return nothing
+end
+
+"""
+Given:
+
+    '''
+    ...
+    \$(CONTRACT)
+    ...
+    '''
+    @computation Contract(...)
+    function something(daf::DafWriter, ...)
+        return ...
+    end
+
+Then `\$(CONTRACT)` will be expanded with a description of the [`Contract`](@ref). This is based on `DocStringExtensions`.
+
+!!! note
+
+    The first argument of the function must be a [`DafWriter`](@ref), which the contract will be applied to.
+"""
+const CONTRACT = ContractDocumentation()
 
 end # module
