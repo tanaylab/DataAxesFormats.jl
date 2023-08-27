@@ -2794,6 +2794,8 @@ nested_test("data") do
     nested_test("memory") do
         daf = MemoryDaf("memory!")
         @test daf.name == "memory!"
+        @test present(daf) == "MemoryDaf memory!"
+        @test present(read_only(daf)) == "ReadOnly MemoryDaf memory!"
         @test description(daf) == dedent("""
             name: memory!
             type: MemoryDaf

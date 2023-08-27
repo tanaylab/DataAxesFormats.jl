@@ -14,6 +14,7 @@ export DEFAULT
 
 using Daf.Contracts
 using Daf.Formats
+using Daf.Messages
 using DocStringExtensions
 using ExprTools
 
@@ -21,7 +22,12 @@ import Daf.Contracts.contract_documentation
 
 function with_contract(contract::Contract, name::String, inner_function)
     return (daf::DafReader, args...; kwargs...) -> (verify_input(contract, name, daf);
+    @debug "call: $(name)($(present(daf))) {";
+    for (name, value) in kwargs
+        @debug "$(name): $(present(value))"
+    end;
     result = inner_function(daf, args...; kwargs...);
+    @debug "done: $(name) }";
     verify_output(contract, name, daf);
     result)
 end
@@ -30,7 +36,12 @@ function with_contract(first_contract::Contract, second_contract::Contract, name
     return (first_daf::DafReader, second_daf::DafReader, args...; kwargs...) ->
         (verify_input(first_contract, name, first_daf);
         verify_input(second_contract, name, second_daf);
+        @debug "call: $(name)($(present(first_daf)), $(present(second_daf))) {";
+        for (name, value) in kwargs
+            @debug "$(name): $(present(value))"  # untested
+        end;  # untested
         result = inner_function(first_daf, second_daf, args...; kwargs...);
+        @debug "done: $(name) }";
         verify_output(first_contract, name, first_daf);
         verify_output(second_contract, name, second_daf);
         result)

@@ -16,11 +16,13 @@ nested_test("chains") do
     end
 
     nested_test("access") do
-        for (name, chain) in [
-            ("read", chain_reader("chain!", [first, read_only(second)])),
-            ("write", chain_writer("chain!", [first, second])),
+        for (name, type_name, chain) in [
+            ("read", "ReadOnly", chain_reader("chain!", [first, read_only(second)])),
+            ("write", "Write", chain_writer("chain!", [first, second])),
         ]
             nested_test(name) do
+                @test present(chain) == "$(type_name) Chain chain!"
+
                 nested_test("scalar") do
                     nested_test("first") do
                         set_scalar!(first, "version", 1.0)
@@ -49,7 +51,7 @@ nested_test("chains") do
                             nested_test("()") do
                                 @test description(chain) == dedent("""
                                     name: chain!
-                                    type: ReadOnly Chain
+                                    type: $(type_name) Chain
                                     scalars:
                                       version: 2.0
                                 """) * "\n"
@@ -58,7 +60,7 @@ nested_test("chains") do
                             nested_test("!deep") do
                                 @test description(chain; deep = false) == dedent("""
                                     name: chain!
-                                    type: ReadOnly Chain
+                                    type: $(type_name) Chain
                                     scalars:
                                       version: 2.0
                                   """) * "\n"
@@ -67,7 +69,7 @@ nested_test("chains") do
                             nested_test("deep") do
                                 @test description(chain; deep = true) == dedent("""
                                     name: chain!
-                                    type: ReadOnly Chain
+                                    type: $(type_name) Chain
                                     scalars:
                                       version: 2.0
                                     chain:

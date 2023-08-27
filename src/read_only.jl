@@ -12,6 +12,7 @@ using Daf.StorageTypes
 using SparseArrays
 
 import Daf.Data.as_read_only
+import Daf.Messages
 
 """
     struct ReadOnlyView <: DafReader ... end
@@ -123,6 +124,10 @@ end
 function Formats.format_description_header(read_only_view::ReadOnlyView, indent::String, lines::Array{String})::Nothing
     push!(lines, "$(indent)type: ReadOnly $(typeof(read_only_view.daf))")
     return nothing
+end
+
+function Messages.present(value::ReadOnlyView)::String
+    return "ReadOnly $(present(value.daf))"
 end
 
 end

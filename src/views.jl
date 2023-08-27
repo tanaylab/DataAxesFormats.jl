@@ -15,6 +15,7 @@ export viewer
 
 using Daf.Data
 using Daf.Formats
+using Daf.Messages
 using Daf.StorageTypes
 
 import Daf.Data.as_read_only
@@ -27,6 +28,7 @@ import Daf.Data.ScalarQuery
 import Daf.Data.VectorQuery
 import Daf.Formats
 import Daf.Formats.Internal
+import Daf.Messages
 import Daf.Oprec.decode_expression
 import Daf.Oprec.encode_expression
 import Daf.Oprec.escape_query
@@ -492,6 +494,10 @@ end
 function Formats.format_description_header(view::DafView, indent::String, lines::Array{String})::Nothing
     push!(lines, "$(indent)type: View $(typeof(view.daf))")
     return nothing
+end
+
+function Messages.present(value::DafView)::String
+    return "View $(present(value.daf))"
 end
 
 end # module

@@ -63,6 +63,7 @@ using SparseArrays
 import Daf.Formats
 import Daf.Formats.FormatReader
 import Daf.Formats.FormatWriter
+import Daf.Messages
 import Daf.Queries.CmpDefault
 import Daf.Queries.CmpEqual
 import Daf.Queries.CmpGreaterOrEqual
@@ -2030,6 +2031,10 @@ function empty_cache!(daf::DafReader)::Nothing
     empty!(daf.internal.cache)
     empty!(daf.internal.dependency_cache_keys)
     return nothing
+end
+
+function Messages.present(value::DafReader)::String
+    return "$(typeof(value)) $(value.name)"
 end
 
 end # module

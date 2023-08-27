@@ -11,12 +11,14 @@ export chain_writer
 
 using Daf.Data
 using Daf.Formats
+using Daf.Messages
 using Daf.ReadOnly
 using Daf.StorageTypes
 using SparseArrays
 
 import Daf.Data.as_read_only
 import Daf.Formats.Internal
+import Daf.Messages
 import Daf.ReadOnly.ReadOnlyView
 
 """
@@ -434,8 +436,13 @@ function Formats.format_get_matrix(
     @assert false  # untested
 end
 
-function Formats.format_description_header(chain::AnyChain, indent::String, lines::Array{String})::Nothing
+function Formats.format_description_header(chain::ReadOnlyChain, indent::String, lines::Array{String})::Nothing
     push!(lines, "$(indent)type: ReadOnly Chain")
+    return nothing
+end
+
+function Formats.format_description_header(chain::WriteChain, indent::String, lines::Array{String})::Nothing
+    push!(lines, "$(indent)type: Write Chain")
     return nothing
 end
 
@@ -447,6 +454,14 @@ function Formats.format_description_footer(chain::AnyChain, indent::String, line
         end
     end
     return nothing
+end
+
+function Messages.present(value::ReadOnlyChain)::String
+    return "ReadOnly Chain $(value.name)"
+end
+
+function Messages.present(value::WriteChain)::String
+    return "Write Chain $(value.name)"
 end
 
 end # module

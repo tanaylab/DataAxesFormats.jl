@@ -7,6 +7,7 @@ nested_test("views") do
         set_vector!(daf, "cell", "age", [1, 2])
         nested_test("copy") do
             view = viewer("view!", read_only(daf); scalars = ["*" => "="])
+            @test present(view) == "View MemoryDaf memory!"
             @test scalar_names(view) == Set(["version"])
             @test get_scalar(view, "version") == "1.0"
         end
