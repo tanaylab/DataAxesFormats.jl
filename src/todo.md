@@ -5,12 +5,14 @@ The following issues are not addressed:
 ## Queries
 
   - Implement more operations.
+  - Test the operations.
+  - Aggregation in queries.
 
 ## Composable computations
 
-  - `Provide` functionality based on the `View`
-  - `Provide` functionality based on the `View`
-  - Composable self-documenting `Computation` functions
+  - Copy functions.
+  - Aggregation functions.
+  - Adapters based on views.
 
 ## Disk storage formats
 

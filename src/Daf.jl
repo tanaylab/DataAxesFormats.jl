@@ -66,4 +66,7 @@ include("example_data.jl")
 include("contracts.jl")
 @reexport using Daf.Contracts
 
+include("computations.jl")
+@reexport using Daf.Computations
+
 end # module

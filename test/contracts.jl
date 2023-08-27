@@ -26,6 +26,7 @@ nested_test("contracts") do
                 nested_test("input") do
                     @test_throws dedent("""
                         missing input scalar: version
+                        with type: Int64
                         for the computation: computation
                         on the daf data: memory!
                     """) verify_input(contract, "computation", daf)
@@ -58,6 +59,7 @@ nested_test("contracts") do
                 nested_test("output") do
                     @test_throws dedent("""
                         missing output scalar: version
+                        with type: Int64
                         for the computation: computation
                         on the daf data: memory!
                     """) verify_output(contract, "computation", daf)
@@ -227,6 +229,7 @@ nested_test("contracts") do
                     @test_throws dedent("""
                         missing input vector: age
                         of the axis: cell
+                        with element type: Int64
                         for the computation: computation
                         on the daf data: memory!
                     """) verify_input(contract, "computation", daf)
@@ -260,6 +263,7 @@ nested_test("contracts") do
                     @test_throws dedent("""
                         missing output vector: age
                         of the axis: cell
+                        with element type: Int64
                         for the computation: computation
                         on the daf data: memory!
                     """) verify_output(contract, "computation", daf)
@@ -356,6 +360,7 @@ nested_test("contracts") do
                         missing input matrix: UMIs
                         of the rows axis: cell
                         and the columns axis: gene
+                        with element type: Int64
                         for the computation: computation
                         on the daf data: memory!
                     """) verify_input(contract, "computation", daf)
@@ -390,6 +395,7 @@ nested_test("contracts") do
                         missing output matrix: UMIs
                         of the rows axis: cell
                         and the columns axis: gene
+                        with element type: Int64
                         for the computation: computation
                         on the daf data: memory!
                     """) verify_output(contract, "computation", daf)
@@ -522,104 +528,5 @@ nested_test("contracts") do
                 end
             end
         end
-    end
-end
-
-"""
-Documentation
-
-$(CONTRACT)
-"""
-@computation Contract(
-    scalars = [
-        "version" => (Optional, String, "In major.minor.patch format."),
-        "quality" => (Guaranteed, Float64, "Overall output quality score between 0.0 and 1.0."),
-    ],
-    axes = ["cell" => (Required, "The sampled single cells."), "gene" => (Optional, "The sampled genes.")],
-    vectors = [
-        ("gene", "noisy") => (Optional, Bool, "Mask of genes with high variability."),
-        ("cell", "special") => (Contingent, Bool, "Computed mask of special cells, if requested."),
-    ],
-    matrices = [
-        ("cell", "gene", "UMIs") =>
-            (Required, Union{UInt8, UInt16, UInt32, UInt64}, "The number of sampled scRNA molecules."),
-    ],
-) function example(daf::DafWriter)::Nothing
-    set_scalar!(daf, "quality", 0.0)
-    return nothing
-end
-
-"""
-Documentation
-
-$(CONTRACT)
-"""
-function counter_example(daf::DafWriter)::Nothing
-    return nothing
-end
-
-nested_test("computation") do
-    daf = MemoryDaf("memory!")
-
-    nested_test("()") do
-        add_axis!(daf, "cell", ["A", "B"])
-        add_axis!(daf, "gene", ["X", "Y", "Z"])
-        set_matrix!(daf, "cell", "gene", "UMIs", UInt8[0 1 2; 3 4 5])
-        @test example(daf) == nothing
-    end
-
-    nested_test("missing") do
-        @test_throws dedent("""
-            missing input axis: cell
-            for the computation: Main.example
-            on the daf data: memory!
-        """) example(daf)
-    end
-
-    nested_test("docs") do
-        @test string(Docs.doc(example)) ==
-              dedent(
-            """
-         Documentation
-
-         # Inputs
-
-         ## Scalars
-
-         **version**::String (Optional): In major.minor.patch format.
-
-         ## Axes
-
-         **cell** (Required): The sampled single cells.
-
-         **gene** (Optional): The sampled genes.
-
-         ## Vectors
-
-         **gene @ noisy**::Bool (Optional): Mask of genes with high variability.
-
-         ## Matrices
-
-         **cell, gene @ UMIs**::Union{UInt16, UInt32, UInt64, UInt8} (Required): The number of sampled scRNA molecules.
-
-         # Outputs
-
-         ## Scalars
-
-         **quality**::Float64 (Guaranteed): Overall output quality score between 0.0 and 1.0.
-
-         ## Vectors
-
-         **cell @ special**::Bool (Contingent): Computed mask of special cells, if requested.
-     """,
-        ) * "\n"
-    end
-
-    nested_test("!docs") do
-        @test counter_example(daf) == nothing
-        @test_throws dedent("""
-            no contract associated with: Main.counter_example
-            use: @computation Contract(...) function Main.counter_example(...)
-        """) Docs.doc(counter_example)
     end
 end

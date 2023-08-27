@@ -3,10 +3,8 @@ Enforce input and output contracts of computations using `Daf` data.
 """
 module Contracts
 
-export @computation
 export Contingent
 export Contract
-export CONTRACT
 export Expectation
 export Guaranteed
 export Optional
@@ -156,6 +154,7 @@ function verify_scalar_contract(
     if is_mandatory(expectation; is_output = is_output) && value === missing
         error(
             "missing $(direction_name(is_output)) scalar: $(name)\n" *
+            "with type: $(data_type)\n" *
             "for the computation: $(computation)\n" *
             "on the daf data: $(daf.name)",
         )
@@ -208,6 +207,7 @@ function verify_vector_contract(
         error(
             "missing $(direction_name(is_output)) vector: $(name)\n" *
             "of the axis: $(axis)\n" *
+            "with element type: $(data_type)\n" *
             "for the computation: $(computation)\n" *
             "on the daf data: $(daf.name)",
         )
@@ -246,6 +246,7 @@ function verify_matrix_contract(
             "missing $(direction_name(is_output)) matrix: $(name)\n" *
             "of the rows axis: $(rows_axis)\n" *
             "and the columns axis: $(columns_axis)\n" *
+            "with element type: $(data_type)\n" *
             "for the computation: $(computation)\n" *
             "on the daf data: $(daf.name)",
         )
@@ -280,13 +281,6 @@ function direction_name(is_output::Bool)::String
     end
 end
 
-function with_contract(contract::Contract, name::String, inner_function)
-    return (daf::DafWriter, args...; kwargs...) -> (verify_input(contract, name, daf);
-    result = inner_function(daf, args...; kwargs...);
-    verify_output(contract, name, daf);
-    result)
-end
-
 function contract_documentation(contract::Contract, buffer::IOBuffer)::Nothing
     has_inputs = false
     has_inputs = scalar_documentation(contract, buffer; is_output = false, has_any = has_inputs)
@@ -301,8 +295,6 @@ function contract_documentation(contract::Contract, buffer::IOBuffer)::Nothing
     return nothing
 end
 
-const CONTRACT_OF_FUNCTION = Dict{String, Contract}()
-
 function scalar_documentation(contract::Contract, buffer::IOBuffer; is_output::Bool, has_any::Bool)::Bool
     is_first = true
     for (name, (expectation, data_type, description)) in contract.scalars
@@ -312,7 +304,7 @@ function scalar_documentation(contract::Contract, buffer::IOBuffer; is_output::B
             if is_first
                 is_first = false
                 println(buffer)
-                println(buffer, "## Scalars")
+                println(buffer, "### Scalars")
             end
             println(buffer)
             println(buffer, "**$(name)**::$(data_type) ($(expectation)): $(description)")
@@ -330,7 +322,7 @@ function axes_documentation(contract::Contract, buffer::IOBuffer; is_output::Boo
             if is_first
                 is_first = false
                 println(buffer)
-                println(buffer, "## Axes")
+                println(buffer, "### Axes")
             end
             println(buffer)
             println(buffer, "**$(name)** ($(expectation)): $(description)")
@@ -348,7 +340,7 @@ function vectors_documentation(contract::Contract, buffer::IOBuffer; is_output::
             if is_first
                 is_first = false
                 println(buffer)
-                println(buffer, "## Vectors")
+                println(buffer, "### Vectors")
             end
             println(buffer)
             println(buffer, "**$(axis_name) @ $(name)**::$(data_type) ($(expectation)): $(description)")
@@ -366,7 +358,7 @@ function matrices_documentation(contract::Contract, buffer::IOBuffer; is_output:
             if is_first
                 is_first = false
                 println(buffer)
-                println(buffer, "## Matrices")
+                println(buffer, "### Matrices")
             end
             println(buffer)
             println(
@@ -382,90 +374,12 @@ function direction_header(buffer::IOBuffer; is_output::Bool, has_any::Bool)::Boo
     if !has_any
         if is_output
             println(buffer)
-            println(buffer, "# Outputs")
+            println(buffer, "## Outputs")
         else
-            println(buffer, "# Inputs")
+            println(buffer, "## Inputs")
         end
     end
     return true
 end
-
-"""
-    @computation Contract(...)
-    function something(daf::DafWriter, ...)
-        return ...
-    end
-
-Mark a function as a `daf` computation. This has two effects. First, it verifies that the `daf` data satisfies the
-[`Contract`](@ref) when the computation is invoked and when it is complete (using [`verify_input`](@ref) and
-[`verify_output`](@ref)); second, it stashed the contract in a global variable to allow expanding [`CONTRACT`](@ref) in
-the documentation string.
-
-!!! note
-
-    The first argument of the function must be a [`DafWriter`](@ref), which the contract will be applied to.
-"""
-macro computation(contract, definition)
-    inner_definition = ExprTools.splitdef(definition)
-    outer_definition = copy(inner_definition)
-    function_name = get(inner_definition, :name, nothing)
-    if function_name == nothing
-        error("@computation requires a named function")
-    end
-    @assert function_name isa Symbol
-    inner_definition[:name] = Symbol(function_name, :_inner)
-    full_name = "$(__module__).$(function_name)"
-    global CONTRACT_OF_FUNCTION
-    CONTRACT_OF_FUNCTION[full_name] = eval(contract)
-    outer_definition[:body] = Expr(
-        :call,
-        :(Daf.Contracts.with_contract(
-            Daf.Contracts.CONTRACT_OF_FUNCTION[$full_name],
-            $full_name,
-            $(ExprTools.combinedef(inner_definition)),
-        )),
-        get(outer_definition, :args, [])...,
-        get(outer_definition, :kwargs, [])...,
-    )
-    return esc(ExprTools.combinedef(outer_definition))
-end
-
-struct ContractDocumentation <: DocStringExtensions.Abbreviation end
-
-function DocStringExtensions.format(::ContractDocumentation, buffer::IOBuffer, doc_str::Base.Docs.DocStr)::Nothing
-    binding = doc_str.data[:binding]
-    object = Docs.resolve(binding)
-    full_name = "$(doc_str.data[:module]).$(Symbol(object))"
-    contract = get(CONTRACT_OF_FUNCTION, full_name, missing)
-    if contract === missing
-        error(
-            "no contract associated with: $(full_name)\n" *
-            "use: @computation Contract(...) function $(full_name)(...)",
-        )
-    end
-    contract_documentation(contract, buffer)
-    return nothing
-end
-
-"""
-Given:
-
-    '''
-    ...
-    \$(CONTRACT)
-    ...
-    '''
-    @computation Contract(...)
-    function something(daf::DafWriter, ...)
-        return ...
-    end
-
-Then `\$(CONTRACT)` will be expanded with a description of the [`Contract`](@ref). This is based on `DocStringExtensions`.
-
-!!! note
-
-    The first argument of the function must be a [`DafWriter`](@ref), which the contract will be applied to.
-"""
-const CONTRACT = ContractDocumentation()
 
 end # module
