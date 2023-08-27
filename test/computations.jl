@@ -1,6 +1,8 @@
 """
 Single
 
+The `quality` is mandatory. The default `optional` is `$(DEFAULT.optional)`. The default `named` is `$(DEFAULT.named)`.
+
 $(CONTRACT)
 """
 @computation Contract(
@@ -17,8 +19,8 @@ $(CONTRACT)
         ("cell", "gene", "UMIs") =>
             (Required, Union{UInt8, UInt16, UInt32, UInt64}, "The number of sampled scRNA molecules."),
     ],
-) function single(daf::DafWriter)::Nothing
-    set_scalar!(daf, "quality", 0.0)
+) function single(daf::DafWriter, quality::Float64, optional::Int = 1; named::Int = 2)::Nothing
+    set_scalar!(daf, "quality", quality)
     return nothing
 end
 
@@ -61,11 +63,31 @@ end
 """
 Missing
 
+$(DEFAULT.x)
+"""
+@computation Contract() function missing_default(daf::DafWriter, x::Int)::Nothing  # untested
+    return nothing
+end
+
+"""
+Missing
+
 $(CONTRACT1)
 
 $(CONTRACT2)
 """
-function missing_cross(first::DafWriter, second::DafWriter)::Nothing  # untested
+function missing_both(first::DafWriter, second::DafWriter)::Nothing  # untested
+    return nothing
+end
+
+"""
+Missing
+
+$(CONTRACT1)
+
+$(CONTRACT2)
+"""
+@computation Contract() function missing_second(first::DafWriter, second::DafWriter)::Nothing  # untested
     return nothing
 end
 
@@ -77,7 +99,7 @@ nested_test("computations") do
             add_axis!(daf, "cell", ["A", "B"])
             add_axis!(daf, "gene", ["X", "Y", "Z"])
             set_matrix!(daf, "cell", "gene", "UMIs", UInt8[0 1 2; 3 4 5])
-            @test single(daf) == nothing
+            @test single(daf, 0.0) == nothing
         end
 
         nested_test("missing") do
@@ -85,7 +107,7 @@ nested_test("computations") do
                 missing input axis: cell
                 for the computation: Main.single
                 on the daf data: memory!
-            """) single(daf)
+            """) single(daf, 0.0)
         end
 
         nested_test("docs") do
@@ -93,6 +115,8 @@ nested_test("computations") do
                   dedent(
                 """
                    Single
+
+                   The `quality` is mandatory. The default `optional` is `1`. The default `named` is `2`.
 
                    ## Inputs
 
@@ -130,7 +154,7 @@ nested_test("computations") do
         nested_test("!docs") do
             @test missing_single(daf) == nothing
             @test_throws dedent("""
-                no single contract associated with: Main.missing_single
+                no contract(s) associated with: Main.missing_single
                 use: @computation Contract(...) function Main.missing_single(...)
             """) Docs.doc(missing_single)
         end
@@ -202,11 +226,25 @@ nested_test("computations") do
             """) * "\n"
         end
 
-        nested_test("!docs") do
+        nested_test("!doc1") do
             @test_throws dedent("""
-                no dual contract associated with: Main.missing_cross
-                use: @computation Contract(...) Contract(...) function Main.missing_cross(...)
-            """) Docs.doc(missing_cross)
+                no contract(s) associated with: Main.missing_both
+                use: @computation Contract(...) function Main.missing_both(...)
+            """) Docs.doc(missing_both)
+        end
+
+        nested_test("!doc2") do
+            @test_throws dedent("""
+                no second contract associated with: Main.missing_second
+                use: @computation Contract(...) Contract(...) function Main.missing_second(...)
+            """) Docs.doc(missing_second)
+        end
+
+        nested_test("!default") do
+            @test_throws dedent("""
+                no default for a parameter: x
+                in the computation: Main.missing_default
+            """) Docs.doc(missing_default)
         end
     end
 end

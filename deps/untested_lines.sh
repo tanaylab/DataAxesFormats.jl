@@ -70,12 +70,12 @@ $3 == "-" && tolower($4) ~ /# untested|# only seems untested/ {
     print $1, $2, " ! " $4
     useless += 1;
 }
-$3 == 0 && tolower($4) ~ /# untested/ { ok_untested += 1; next }
+$3 == 0 && tolower($4) ~ /# untested|# only seems untested/ { ok_untested += 1; next }
 $3 == 0 {
     print $1, $2, " - " $4
     untested += 1
 }
-$3 > 0 && tolower($4) ~ /# untested/ {
+$3 > 0 && tolower($4) ~ /# untested|# only seems untested/ {
     print $1, $2, " + " $4
     tested += 1
 }
