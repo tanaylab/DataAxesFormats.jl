@@ -46,6 +46,7 @@ makedocs(;
     pages = [
         "index.md",
         "data.md",
+        "copies.md",
         "read_only.md",
         "views.md",
         "chains.md",

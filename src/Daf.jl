@@ -69,4 +69,7 @@ include("contracts.jl")
 include("computations.jl")
 @reexport using Daf.Computations
 
+include("copies.jl")
+@reexport using Daf.Copies
+
 end # module
