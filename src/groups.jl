@@ -8,6 +8,7 @@ The following functions implement these lookup and aggregation operations.
 """
 module Groups
 
+export aggregate_group_vector
 export get_group_vector
 
 using Daf.Data
@@ -33,8 +34,8 @@ By default, the `group_axis` is assumed to have the same name as the `group` pro
 property per cell, and a type axis). It is possible to override this by specifying an explicit `group_axis` if the
 actual name is different.
 
-The `group` property must have a string element type. An empty string means that the element belongs to no group (e.g.,
-we don't have a type assignment for some cell). In this case, `default` must be specified, and is used for the ungrouped
+The `group` property must have a string element type. An empty string means that the entry belongs to no group (e.g., we
+don't have a type assignment for some cell). In this case, `default` must be specified, and is used for the ungrouped
 entries.
 """
 function get_group_vector(
@@ -91,6 +92,79 @@ function get_group_vector(
     end
 
     return NamedArray(value_of_entries, group_of_entries.dicts, group_of_entries.dimnames)
+end
+
+"""
+    function aggregate_group_vector(
+        aggregate::Function,
+        daf::DafReader;
+        axis::AbstractString,
+        name::AbstractString,
+        group::AbstractString,
+        group_axis::Union{AbstractString, Nothing} = nothing,
+        default::Union{StorageScalar, UndefInitializer} = undef,
+    )::NamedArray
+
+Given an `axis` of the `daf` data (e.g. cell),  a `name` vector property of this axis (e.g., age) and a `group` vector
+property of this axis (e.g. type), whose value is the name of an entry of a group axis, then return a vector assigning a
+value for each entry of the group axis, which is the `aggregate` of the values of all the original axis entries grouped
+into that entry (e.g., the mean age of the cells in each type).
+
+By default, the `group_axis` is assumed to have the same name as the `group` property (e.g., there would be a type
+property per cell, and a type axis). It is possible to override this by specifying an explicit `group_axis` if the
+actual name is different.
+
+The `group` property must have a string element type. An empty string means that the entry belongs to no group (e.g., we
+don't have a type assignment for some cell), so its value will not be aggregated into any group. In addition, a group
+may be empty (e.g., no cell is assigned to some type). In this case, `default` must be specified, and is used for the
+empty groups.
+"""
+function aggregate_group_vector(
+    aggregate::Function,
+    daf::DafReader;
+    group::AbstractString,
+    axis::AbstractString,
+    name::AbstractString,
+    group_axis::Union{AbstractString, Nothing} = nothing,
+    default::Union{StorageScalar, UndefInitializer} = undef,
+)::NamedArray
+    value_of_entries = get_vector(daf, axis, name)
+    group_of_entries = get_vector(daf, axis, group)
+    if eltype(group_of_entries) != String
+        error(
+            "non-String data type: $(eltype(group_of_entries))\n" *
+            "for the group: $(group)\n" *
+            "for the axis: $(axis)\n" *
+            "in the daf data: $(daf.name)",
+        )
+    end
+
+    if group_axis == nothing
+        group_axis = group
+    end
+    name_of_groups = get_vector(daf, group_axis, "name")
+
+    value_of_groups = Vector{eltype(value_of_entries)}(undef, length(name_of_groups))
+    for (group_index, group_name) in enumerate(name_of_groups.array)
+        mask_of_entries_of_groups = group_of_entries .== group_name
+        value_of_entries_of_groups = value_of_entries[mask_of_entries_of_groups]
+        if isempty(value_of_entries_of_groups)
+            if default == undef
+                error(
+                    "empty group: $(group_name)\n" *
+                    "with the index: $(group_index)\n" *
+                    "in the group: $(group)\n" *
+                    "for the axis: $(axis)\n" *
+                    "in the daf data: $(daf.name)",
+                )
+            end
+            value_of_groups[group_index] = default
+        else
+            value_of_groups[group_index] = aggregate(value_of_entries_of_groups)
+        end
+    end
+
+    return NamedArray(value_of_groups, name_of_groups.dicts, name_of_groups.dimnames)
 end
 
 end # module

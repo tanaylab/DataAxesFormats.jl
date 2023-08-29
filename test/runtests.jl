@@ -7,6 +7,7 @@ using LinearAlgebra
 using NamedArrays
 using NestedTests
 using SparseArrays
+using Statistics
 using TestContexts
 
 test_prefixes(ARGS)
