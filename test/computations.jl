@@ -1,4 +1,13 @@
 """
+None
+
+Just a function with a default x of `$(DEFAULT.x)`.
+"""
+@computation function none(; x = 1)
+    return x
+end
+
+"""
 Single
 
 The `quality` is mandatory. The default `optional` is `$(DEFAULT.optional)`. The default `named` is `$(DEFAULT.named)`.
@@ -92,6 +101,24 @@ $(CONTRACT2)
 end
 
 nested_test("computations") do
+    nested_test("none") do
+        nested_test("default") do
+            @test none() == 1
+        end
+
+        nested_test("parameter") do
+            @test none(; x = 2) == 2
+        end
+
+        nested_test("docs") do
+            @test string(Docs.doc(none)) == dedent("""
+                                             None
+
+                                             Just a function with a default x of `1`.
+                                             """) * "\n"
+        end
+    end
+
     nested_test("single") do
         daf = MemoryDaf("memory!")
 

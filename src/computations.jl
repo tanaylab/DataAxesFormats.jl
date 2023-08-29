@@ -20,7 +20,17 @@ using ExprTools
 
 import Daf.Contracts.contract_documentation
 
-function with_contract(contract::Contract, name::String, inner_function)
+function computation_wrapper(name::String, inner_function)
+    return (args...; kwargs...) -> (@debug "call: $(name))() {";
+    for (name, value) in kwargs
+        @debug "$(name): $(present(value))"
+    end;
+    result = inner_function(args...; kwargs...);
+    @debug "done: $(name) }";
+    result)
+end
+
+function computation_wrapper(contract::Contract, name::String, inner_function)
     return (daf::DafReader, args...; kwargs...) -> (verify_input(contract, name, daf);
     @debug "call: $(name)($(present(daf))) {";
     for (name, value) in kwargs
@@ -32,7 +42,7 @@ function with_contract(contract::Contract, name::String, inner_function)
     result)
 end
 
-function with_contract(first_contract::Contract, second_contract::Contract, name::String, inner_function)
+function computation_wrapper(first_contract::Contract, second_contract::Contract, name::String, inner_function)
     return (first_daf::DafReader, second_daf::DafReader, args...; kwargs...) ->
         (verify_input(first_contract, name, first_daf);
         verify_input(second_contract, name, second_daf);
@@ -55,6 +65,10 @@ end
 const METADATA_OF_FUNCTION = Dict{String, FunctionMetadata}()
 
 """
+    @computation function something(...)
+        return ...
+    end
+
     @computation Contract(...) function something(daf::DafWriter, ...)
         return ...
     end
@@ -65,19 +79,50 @@ const METADATA_OF_FUNCTION = Dict{String, FunctionMetadata}()
         return ...
     end
 
-Mark a function as a `daf` computation. This has two effects. First, it verifies that the `daf` data satisfies the
-[`Contract`](@ref) when the computation is invoked and when it is complete (using [`verify_input`](@ref) and
-[`verify_output`](@ref)); second, it stashed the contract in a global variable to allow expanding [`CONTRACT`](@ref) in
-the documentation string.
+Mark a function as a `daf` computation. This has the following effects:
 
-Also allows for computations with two `daf` parameters, with a separate contract for each. In this case, use
-[`CONTRACT1`](@ref) and [`CONTRACT2`](@ref) in the documentation string.
+  - It verifies that the `daf` data satisfies the [`Contract`](@ref), when the computation is invoked and when it is
+    complete (using [`verify_input`](@ref) and [`verify_output`](@ref)).
+
+  - It stashes the contract(s) (if any) in a global variable. This allows expanding [`CONTRACT`](@ref) in the
+    documentation string (for a single contract case), or [`CONTRACT1`](@ref) and [`CONTRACT2`](@ref) (for the dual
+    contract case).
+  - It stashes the default value of named arguments. This allows expanding [`DEFAULT`](@ref) in the documentation
+    string, which is especially useful if these defaults are computed, read from global constants, etc.
+  - It logs the invocation of the function (using `@debug`), including the actual values of the named arguments (using
+    [`present`]).
 
 !!! note
 
-    The first argument(s) of the function must be a [`DafReader`](@ref) or [`DafWriter`](@ref), which the contract(s)
-    will be applied to.
+    For each [`Contract`](@ref) parameter (if any), there needs to be a [`DafReader`](@ref) or [`DafWriter`](@ref),
+    which the contract(s) will be applied to. These parameters should be the initial positional parameters of the
+    function.
 """
+macro computation(definition)
+    inner_definition = ExprTools.splitdef(definition)
+    outer_definition = copy(inner_definition)
+
+    function_name = get(inner_definition, :name, nothing)
+    if function_name == nothing
+        error("@logged requires a named function")
+    end
+    @assert function_name isa Symbol
+
+    full_name = "$(__module__).$(function_name)"
+    global METADATA_OF_FUNCTION
+    METADATA_OF_FUNCTION[full_name] = FunctionMetadata(Contract[], collect_defaults(inner_definition))
+
+    inner_definition[:name] = Symbol(function_name, :_inner)
+    outer_definition[:body] = Expr(
+        :call,
+        :(Daf.Computations.computation_wrapper($full_name, $(ExprTools.combinedef(inner_definition)))),
+        patch_args(get(outer_definition, :args, []))...,
+        patch_kwargs(get(outer_definition, :kwargs, []))...,
+    )
+
+    return esc(ExprTools.combinedef(outer_definition))
+end
+
 macro computation(contract, definition)
     inner_definition = ExprTools.splitdef(definition)
     outer_definition = copy(inner_definition)
@@ -95,7 +140,7 @@ macro computation(contract, definition)
     inner_definition[:name] = Symbol(function_name, :_inner)
     outer_definition[:body] = Expr(
         :call,
-        :(Daf.Computations.with_contract(
+        :(Daf.Computations.computation_wrapper(
             Daf.Computations.METADATA_OF_FUNCTION[$full_name].contracts[1],
             $full_name,
             $(ExprTools.combinedef(inner_definition)),
@@ -126,7 +171,7 @@ macro computation(first_contract, second_contract, definition)
     inner_definition[:name] = Symbol(function_name, :_inner)
     outer_definition[:body] = Expr(
         :call,
-        :(Daf.Computations.with_contract(
+        :(Daf.Computations.computation_wrapper(
             Daf.Computations.METADATA_OF_FUNCTION[$full_name].contracts[1],
             Daf.Computations.METADATA_OF_FUNCTION[$full_name].contracts[2],
             $full_name,
