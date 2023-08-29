@@ -305,8 +305,8 @@ end
 
 function DocStringExtensions.format(what::DefaultValue, buffer::IOBuffer, doc_str::Base.Docs.DocStr)::Nothing
     full_name, metadata = get_metadata(doc_str)
-    default = get(metadata.defaults, what.name, missing)
-    if default === missing
+    default = get(metadata.defaults, what.name, nothing)
+    if default == nothing
         error("no default for a parameter: $(what.name)\n" * "in the computation: $(full_name)")
     end
     return print(buffer, default)
@@ -346,8 +346,8 @@ function get_metadata(doc_str::Base.Docs.DocStr)::Tuple{String, FunctionMetadata
     binding = doc_str.data[:binding]
     object = Docs.resolve(binding)
     full_name = "$(doc_str.data[:module]).$(Symbol(object))"
-    metadata = get(METADATA_OF_FUNCTION, full_name, missing)
-    if metadata === missing
+    metadata = get(METADATA_OF_FUNCTION, full_name, nothing)
+    if metadata == nothing
         error(
             "no contract(s) associated with: $(full_name)\n" *
             "use: @computation Contract(...) function $(full_name)(...)",

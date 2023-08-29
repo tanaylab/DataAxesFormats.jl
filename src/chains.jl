@@ -78,8 +78,8 @@ function chain_reader(name::AbstractString, dafs::Vector{F})::ReadOnlyChain wher
         push!(internal_dafs, daf)
         for axis in axis_names(daf)
             new_axis_entries = get_axis(daf, axis)
-            old_axis_entries = get(axes_entries, axis, missing)
-            if old_axis_entries === missing
+            old_axis_entries = get(axes_entries, axis, nothing)
+            if old_axis_entries == nothing
                 axes_entries[axis] = (daf.name, new_axis_entries)
             elseif new_axis_entries != old_axis_entries
                 error(

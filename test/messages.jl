@@ -6,6 +6,10 @@ nested_test("messages") do
     end
 
     nested_test("present") do
+        nested_test("undef") do
+            @test present(undef) == "undef"
+        end
+
         nested_test("missing") do
             @test present(missing) == "missing"
         end

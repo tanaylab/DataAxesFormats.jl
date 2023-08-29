@@ -150,8 +150,8 @@ function verify_scalar_contract(
     description::String;
     is_output::Bool,
 )::Nothing where {T <: Type}
-    value = get_scalar(daf, name; default = missing)
-    if is_mandatory(expectation; is_output = is_output) && value === missing
+    value = get_scalar(daf, name; default = nothing)
+    if is_mandatory(expectation; is_output = is_output) && value == nothing
         error(
             "missing $(direction_name(is_output)) scalar: $(name)\n" *
             "with type: $(data_type)\n" *
@@ -159,7 +159,7 @@ function verify_scalar_contract(
             "on the daf data: $(daf.name)",
         )
     end
-    if is_possible(expectation; is_output = is_output) && value !== missing && !(value isa data_type)
+    if is_possible(expectation; is_output = is_output) && value != nothing && !(value isa data_type)
         error(
             "unexpected type: $(typeof(value))\n" *
             "instead of type: $(data_type)\n" *
@@ -199,11 +199,11 @@ function verify_vector_contract(
     description::String;
     is_output::Bool,
 )::Nothing where {T <: Type}
-    value = missing
+    value = nothing
     if verify_axis_contract(computation, daf, axis, expectation, ""; is_output = is_output)
-        value = get_vector(daf, axis, name; default = missing)
+        value = get_vector(daf, axis, name; default = nothing)
     end
-    if is_mandatory(expectation; is_output = is_output) && value === missing
+    if is_mandatory(expectation; is_output = is_output) && value == nothing
         error(
             "missing $(direction_name(is_output)) vector: $(name)\n" *
             "of the axis: $(axis)\n" *
@@ -212,7 +212,7 @@ function verify_vector_contract(
             "on the daf data: $(daf.name)",
         )
     end
-    if is_possible(expectation; is_output = is_output) && value !== missing && !(eltype(value) <: data_type)
+    if is_possible(expectation; is_output = is_output) && value != nothing && !(eltype(value) <: data_type)
         error(
             "unexpected type: $(eltype(value))\n" *
             "instead of type: $(data_type)\n" *
@@ -237,11 +237,11 @@ function verify_matrix_contract(
 )::Nothing where {T <: Type}
     has_rows_axis = verify_axis_contract(computation, daf, rows_axis, expectation, ""; is_output = is_output)
     has_columns_axis = verify_axis_contract(computation, daf, columns_axis, expectation, ""; is_output = is_output)
-    value = missing
+    value = nothing
     if has_rows_axis && has_columns_axis
-        value = get_matrix(daf, rows_axis, columns_axis, name; default = missing)
+        value = get_matrix(daf, rows_axis, columns_axis, name; default = nothing)
     end
-    if is_mandatory(expectation; is_output = is_output) && value === missing
+    if is_mandatory(expectation; is_output = is_output) && value == nothing
         error(
             "missing $(direction_name(is_output)) matrix: $(name)\n" *
             "of the rows axis: $(rows_axis)\n" *
@@ -251,7 +251,7 @@ function verify_matrix_contract(
             "on the daf data: $(daf.name)",
         )
     end
-    if is_possible(expectation; is_output = is_output) && value !== missing && !(eltype(value) <: data_type)
+    if is_possible(expectation; is_output = is_output) && value != nothing && !(eltype(value) <: data_type)
         error(
             "unexpected type: $(eltype(value))\n" *
             "instead of type: $(data_type)\n" *

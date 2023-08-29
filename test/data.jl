@@ -35,7 +35,7 @@ function test_missing_scalar(daf::DafReader, depth::Int)::Nothing
 
         nested_test("default") do
             nested_test("missing") do
-                @test get_scalar(daf, "depth"; default = missing) === missing
+                @test get_scalar(daf, "depth"; default = nothing) == nothing
             end
 
             nested_test("scalar") do
@@ -211,15 +211,15 @@ function test_missing_axis(daf::DafReader, depth::Int)::Nothing
         end
 
         nested_test("default") do
-            nested_test("nothing") do
+            nested_test("undef") do
                 @test_throws dedent("""
                     missing axis: gene
                     in the daf data: $(daf.name)
-                """) get_axis(daf, "gene"; default = nothing)
+                """) get_axis(daf, "gene"; default = undef)
             end
 
-            nested_test("missing") do
-                @test get_axis(daf, "gene"; default = missing) === missing
+            nested_test("nothing") do
+                @test get_axis(daf, "gene"; default = nothing) == nothing
             end
         end
     end
@@ -462,8 +462,16 @@ function test_missing_vector(daf::DafReader, depth::Int)::Nothing
         end
 
         nested_test("default") do
-            nested_test("missing") do
-                @test get_vector(daf, "gene", "marker"; default = missing) === missing
+            nested_test("undef") do
+                @test_throws dedent("""
+                    missing vector: marker
+                    for the axis: gene
+                    in the daf data: $(daf.name)
+                """) get_vector(daf, "gene", "marker"; default = undef)
+            end
+
+            nested_test("nothing") do
+                @test get_vector(daf, "gene", "marker"; default = nothing) == nothing
             end
 
             nested_test("scalar") do
@@ -1078,7 +1086,7 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
 
         nested_test("default") do
             nested_test("missing") do
-                @test get_matrix(daf, "cell", "gene", "UMIs"; default = missing) === missing
+                @test get_matrix(daf, "cell", "gene", "UMIs"; default = nothing) == nothing
             end
 
             nested_test("scalar") do

@@ -15,6 +15,15 @@ The data API is the high-level API intended to be used from outside the package,
 top-level `Daf` namespace. It provides additional functionality on top of the low-level [`FormatReader`](@ref) and
 [`FormatWriter`](@ref) implementations, accepting more general data types, automatically dealing with [`relayout!`](@ref)
 when needed, and even providing a language for [`Queries`](@ref) for flexible extraction of data from the container.
+
+!!! note
+
+    In the APIs below, when getting a value, specifying a `default` of `undef` means that it is an `error` for the value
+    not to exist. In contrast, specifying a `default` of `nothing` means it is OK for the value not to exist, returning
+    `nothing`, while specifying an actual value for `default` means it is OK for the value not to exist, returning the
+    `default` instead. This is in spirit with, but not identical to, `undef` being used as a flag for array construction
+    saying "there is no initializer". If you feel this is an abuse of the value, take some comfort in that this is the
+    default value for `default` so you almost never have to write it explicitly in your code.
 """
 module Data
 
@@ -169,31 +178,28 @@ end
     get_scalar(
         daf::DafReader,
         name::AbstractString;
-        [default::Union{StorageScalar, Nothing, Missing} = nothing]
-    )::Union{StorageScalar, Missing}
+        [default::Union{StorageScalar, Nothing, UndefInitializer} = undef]
+    )::Union{StorageScalar, Nothing}
 
 Get the value of a scalar property with some `name` in `daf`.
 
-If `default` is `nothing` (the default), this first verifies the `name` scalar property exists in `daf`. Otherwise
-`default` will be returned of it does not exist.
+If `default` is `undef` (the default), this first verifies the `name` scalar property exists in `daf`. Otherwise
+`default` will be returned if the property does not exist.
 """
 function get_scalar(
     daf::DafReader,
     name::AbstractString;
-    default::Union{StorageScalar, Nothing, Missing} = nothing,
-)::Union{StorageScalar, Missing}
-    if default !== missing && default == nothing
+    default::Union{StorageScalar, Nothing, UndefInitializer} = undef,
+)::Union{StorageScalar, Nothing}
+    if default == undef
         require_scalar(daf, name)
+    elseif !has_scalar(daf, name)
+        @debug "get_scalar $(daf.name) / $(name) -> $(present(default)) ?"
+        return default
     end
 
-    if has_scalar(daf, name)
-        result = Formats.format_get_scalar(daf, name)
-        @debug "get_scalar $(daf.name) / $(name) -> $(present(result))"
-    else
-        result = default
-        @debug "get_scalar $(daf.name) / $(name) -> $(present(result)) ?"
-    end
-
+    result = Formats.format_get_scalar(daf, name)
+    @debug "get_scalar $(daf.name) / $(name) -> $(present(result))"
     return result
 end
 
@@ -306,26 +312,26 @@ end
     get_axis(
         daf::DafReader,
         axis::AbstractString
-        [; default::Union{Nothing, Missing} = nothing]
-    )::Union{AbstractVector{String}, Missing}
+        [; default::Union{Nothing, UndefInitializer} = undef]
+    )::Union{AbstractVector{String}, Nothing}
 
 The unique names of the entries of some `axis` of `daf`. This is similar to doing [`get_vector`](@ref) for the special
 `name` property, except that it returns a simple vector of strings instead of a `NamedVector`.
 
-If `default` is `missing`, it is returned if the `axis` does not exist. Otherwise (the default), this verifies the
-`axis` exists in `daf`.
+If `default` is `undef` (the default), this verifies the `axis` exists in `daf`. Otherwise, the `default` is `nothing`,
+which is returned if the `axis` does not exist.
 """
 function get_axis(
     daf::DafReader,
     axis::AbstractString;
-    default::Union{Nothing, Missing} = nothing,
-)::Union{AbstractVector{String}, Missing}
+    default::Union{Nothing, UndefInitializer} = undef,
+)::Union{AbstractVector{String}, Nothing}
     if !has_axis(daf, axis)
-        if default === missing
+        if default == nothing
             @debug "get_axis! $(daf.name) / $(axis) -> $(present(missing))"
-            return missing
+            return nothing
         else
-            @assert default == nothing
+            @assert default == undef
             require_axis(daf, axis)
         end
     end
@@ -588,15 +594,15 @@ end
         daf::DafReader,
         axis::AbstractString,
         name::AbstractString;
-        [default::Union{StorageScalar, StorageVector, Nothing, Missing} = nothing]
-    )::Union{NamedVector, Missing}
+        [default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef]
+    )::Union{NamedVector, Nothing}
 
 Get the vector property with some `name` for some `axis` in `daf`. The names of the result are the names of the vector
 entries (same as returned by [`get_axis`](@ref)). The special property `name` returns an array whose values are also the
 (read-only) names of the entries of the axis.
 
-This first verifies the `axis` exists in `daf`. If `default` is `nothing` (the default), this first verifies the `name`
-vector exists in `daf`. Otherwise, if `default` is `missing`, it will be returned. If it is a `StorageVector`, it has to
+This first verifies the `axis` exists in `daf`. If `default` is `undef` (the default), this first verifies the `name`
+vector exists in `daf`. Otherwise, if `default` is `nothing`, it will be returned. If it is a `StorageVector`, it has to
 be of the same size as the `axis`, and is returned. If it is a [`StorageScalar`](@ref). Otherwise, a new `Vector` is
 created of the correct size containing the `default`, and is returned.
 """
@@ -604,8 +610,8 @@ function get_vector(
     daf::DafReader,
     axis::AbstractString,
     name::AbstractString;
-    default::Union{StorageScalar, StorageVector, Nothing, Missing} = nothing,
-)::Union{NamedArray, Missing}
+    default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
+)::Union{NamedArray, Nothing}
     require_axis(daf, axis)
 
     if name == "name"
@@ -614,7 +620,7 @@ function get_vector(
         return result
     end
 
-    if default !== missing && default isa StorageVector
+    if default isa StorageVector
         require_axis_length(daf, "default length", length(default), axis)
         if default isa NamedVector
             require_dim_name(daf, axis, "default dim name", dimnames(default, 1))
@@ -625,20 +631,22 @@ function get_vector(
     default_suffix = ""
     vector = nothing
     if !Formats.format_has_vector(daf, axis, name)
-        if default === missing
-            @debug "get_vector $(daf.name) / $(axis) / $(name) -> $(present(missing))"
-            return missing
+        if default == nothing
+            @debug "get_vector $(daf.name) / $(axis) / $(name) -> $(present(nothing))"
+            return nothing
         end
         default_suffix = " ?"
         if default isa StorageVector
             vector = default
         elseif default isa StorageScalar
             vector = fill(default, Formats.format_axis_length(daf, axis))
+        else
+            @assert default == undef
+            require_vector(daf, axis, name)
         end
     end
 
     if vector == nothing
-        require_vector(daf, axis, name)
         vector = Formats.format_get_vector(daf, axis, name)
         if !(vector isa StorageVector)
             error(  # untested
@@ -1084,9 +1092,9 @@ end
         rows_axis::AbstractString,
         columns_axis::AbstractString,
         name::AbstractString;
-        [default::Union{StorageScalar, StorageMatrix, Nothing, Missing} = nothing,
+        [default::Union{StorageScalar, StorageMatrix, Nothing, UndefInitializer} = undef,
         relayout::Bool = true]
-    )::Union{NamedMatrix, Missing}
+    )::Union{NamedMatrix, Nothing}
 
 Get the column-major matrix property with some `name` for some `rows_axis` and `columns_axis` in `daf`. The names of the
 result axes are the names of the relevant axes entries (same as returned by [`get_axis`](@ref)).
@@ -1096,23 +1104,23 @@ then automatically call [`relayout!`](@ref) to compute the result. If `daf isa D
 future use; otherwise, just cache it in-memory (similar to a query result). This may lock up very large amounts of
 memory; you can [`empty_cache!`](@ref) to release it.
 
-This first verifies the `rows_axis` and `columns_axis` exist in `daf`. If `default` is `nothing` (the default), this
-first verifies the `name` matrix exists in `daf`. Otherwise, if `default` is `missing`, it is returned. if `default` is
-a `StorageMatrix`, it has to be of the same size as the `rows_axis` and `columns_axis`, and is returned. Otherwise, a
-new `Matrix` is created of the correct size containing the `default`, and is returned.
+This first verifies the `rows_axis` and `columns_axis` exist in `daf`. If `default` is `undef` (the default), this first
+verifies the `name` matrix exists in `daf`. Otherwise, if `default` is `nothing`, it is returned. If `default` is a
+`StorageMatrix`, it has to be of the same size as the `rows_axis` and `columns_axis`, and is returned. Otherwise, a new
+`Matrix` is created of the correct size containing the `default`, and is returned.
 """
 function get_matrix(
     daf::DafReader,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString;
-    default::Union{StorageScalar, StorageMatrix, Nothing, Missing} = nothing,
+    default::Union{StorageScalar, StorageMatrix, Nothing, UndefInitializer} = undef,
     relayout::Bool = true,
-)::Union{NamedArray, Missing}
+)::Union{NamedArray, Nothing}
     require_axis(daf, rows_axis)
     require_axis(daf, columns_axis)
 
-    if default !== missing && default isa StorageMatrix
+    if default isa StorageMatrix
         require_column_major(default)
         require_axis_length(daf, "default rows", size(default, Rows), rows_axis)
         require_axis_length(daf, "default columns", size(default, Columns), columns_axis)
@@ -1143,9 +1151,9 @@ function get_matrix(
                 end
             end
         else
-            if default === missing
-                @debug "get_matrix $(daf.name) / $(rows_axis) / $(columns_axis) / $(name) -> $(present(missing))"
-                return missing
+            if default == nothing
+                @debug "get_matrix $(daf.name) / $(rows_axis) / $(columns_axis) / $(name) -> $(present(nothing)) ?"
+                return nothing
             end
             default_suffix = " ?"
             if default isa StorageMatrix
@@ -1156,12 +1164,14 @@ function get_matrix(
                     Formats.format_axis_length(daf, rows_axis),
                     Formats.format_axis_length(daf, columns_axis),
                 )
+            else
+                @assert default == undef
+                require_matrix(daf, rows_axis, columns_axis, name; relayout = relayout)
             end
         end
     end
 
     if matrix == nothing
-        require_matrix(daf, rows_axis, columns_axis, name; relayout = relayout)
         matrix = Formats.format_get_matrix(daf, rows_axis, columns_axis, name)
         if !(matrix isa StorageMatrix)
             error( # untested

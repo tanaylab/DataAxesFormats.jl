@@ -4,13 +4,13 @@
     from::DafReader,
     name::AbstractString,
     [rename::Union{AbstractString, Nothing} = nothing,
-    default::Union{StorageScalar, Nothing, Missing} = nothing]
+    default::Union{StorageScalar, Nothing, UndefInitializer} = undef]
 )::Nothing</code></pre><p>Copy a scalar <code>from</code> some <code>DafReader</code> into some <code>DafWriter</code>.</p><p>The scalar is fetched using the <code>name</code> and the <code>default</code>. If <code>rename</code> is specified, store the scalar using this new name. If <code>overwrite</code> (not the default), overwrite an existing scalar in the target.</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/main/src/copies.jl?plain=1#LL18-L31">source</a></section></article><article class="docstring"><header><a class="docstring-binding" id="Daf.Copies.copy_axis!" href="#Daf.Copies.copy_axis!"><code>Daf.Copies.copy_axis!</code></a> — <span class="docstring-category">Function</span></header><section><div><pre><code class="language-julia hljs">function copy_axis(;
     into::DafWriter,
     from::DafReader,
     name::AbstractString,
     [rename::Union{AbstractString, Nothing} = nothing,
-    default::Union{Nothing, Missing} = nothing]
+    default::Union{Nothing, UndefInitializer} = undef]
 )::Nothing</code></pre><p>Copy an axis <code>from</code> some <code>DafReader</code> into some <code>DafWriter</code>.</p><p>The axis is fetched using the <code>name</code> and the <code>default</code>. If <code>rename</code> is specified, store the axis using this name.</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/main/src/copies.jl?plain=1#LL47-L59">source</a></section></article><article class="docstring"><header><a class="docstring-binding" id="Daf.Copies.copy_vector!" href="#Daf.Copies.copy_vector!"><code>Daf.Copies.copy_vector!</code></a> — <span class="docstring-category">Function</span></header><section><div><pre><code class="language-julia hljs">function copy_vector(;
     into::DafWriter,
     from::DafReader,
@@ -18,7 +18,7 @@
     name::AbstractString,
     [reaxis::Union{AbstractString, Nothing} = nothing,
     rename::Union{AbstractString, Nothing} = nothing,
-    default::Union{StorageScalar, StorageVector, Nothing, Missing} = nothing,
+    default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
     overwrite::Bool = false]
 )::Nothing</code></pre><p>Copy a vector <code>from</code> some <code>DafReader</code> into some <code>DafWriter</code>.</p><p>The vector is fetched using the <code>axis</code>, <code>name</code> and the <code>default</code>. If <code>reaxis</code> is specified, store the vector using this axis. If <code>rename</code> is specified, store the vector using this name. If <code>overwrite</code> (not the default), overwrite an existing vector in the target.</p><p>This requires the axis of one data set is the same, or is a subset of, the other. If the target axis contains entries that do not exist in the source, then <code>empty</code> must be specified to fill the missing values. If the source axis contains entries that do not exist in the target, they are discarded.</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/main/src/copies.jl?plain=1#LL74-L95">source</a></section></article><article class="docstring"><header><a class="docstring-binding" id="Daf.Copies.copy_matrix!" href="#Daf.Copies.copy_matrix!"><code>Daf.Copies.copy_matrix!</code></a> — <span class="docstring-category">Function</span></header><section><div><pre><code class="language-julia hljs">function copy_matrix(;
     into::DafWriter,
@@ -29,7 +29,7 @@
     [rows_reaxis::Union{AbstractString, Nothing} = nothing,
     columns_reaxis::Union{AbstractString, Nothing} = nothing,
     rename::Union{AbstractString, Nothing} = nothing,
-    default::Union{StorageScalar, StorageVector, Nothing, Missing} = nothing,
+    default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
     empty::Union{StorageScalar, Nothing} = nothing,
     relayout::Bool = true,
     overwrite::Bool = false]

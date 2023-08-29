@@ -63,6 +63,10 @@ function present(value::Any)::String
     return "$(value)"
 end
 
+function present(value::UndefInitializer)::String
+    return "undef"
+end
+
 function present(value::Missing)::String
     return "missing"
 end

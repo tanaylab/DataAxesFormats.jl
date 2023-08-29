@@ -12,15 +12,15 @@ nested_test("copies") do
             end
 
             nested_test("default") do
-                nested_test("nothing") do
+                nested_test("undef") do
                     @test_throws dedent("""
                         missing scalar: version
                         in the daf data: from!
-                    """) copy_scalar!(from = from, into = into, name = "version"; default = nothing)
+                    """) copy_scalar!(from = from, into = into, name = "version"; default = undef)
                 end
 
-                nested_test("missing") do
-                    @test copy_scalar!(; from = from, into = into, name = "version", default = missing) == nothing
+                nested_test("nothing") do
+                    @test copy_scalar!(; from = from, into = into, name = "version", default = nothing) == nothing
                     @test !has_scalar(into, "version")
                 end
 
@@ -73,18 +73,18 @@ nested_test("copies") do
             end
 
             nested_test("default") do
+                nested_test("undef") do
+                    @test_throws dedent("""
+                        missing axis: cell
+                        in the daf data: into!
+                    """) copy_vector!(from = from, into = into, axis = "cell", name = "age"; default = undef)
+                end
+
                 nested_test("nothing") do
                     @test_throws dedent("""
                         missing axis: cell
                         in the daf data: into!
-                    """) copy_vector!(from = from, into = into, axis = "cell", name = "age"; default = nothing)
-                end
-
-                nested_test("missing") do
-                    @test_throws dedent("""
-                        missing axis: cell
-                        in the daf data: into!
-                    """) copy_vector!(; from = from, into = into, axis = "cell", name = "age", default = missing) ==
+                    """) copy_vector!(; from = from, into = into, axis = "cell", name = "age", default = nothing) ==
                          nothing
                 end
 
@@ -110,16 +110,16 @@ nested_test("copies") do
             end
 
             nested_test("default") do
-                nested_test("nothing") do
+                nested_test("undef") do
                     @test_throws dedent("""
                         missing vector: age
                         for the axis: cell
                         in the daf data: from!
-                    """) copy_vector!(from = from, into = into, axis = "cell", name = "age"; default = nothing)
+                    """) copy_vector!(from = from, into = into, axis = "cell", name = "age"; default = undef)
                 end
 
-                nested_test("missing") do
-                    @test copy_vector!(; from = from, into = into, axis = "cell", name = "age", default = missing) ==
+                nested_test("nothing") do
+                    @test copy_vector!(; from = from, into = into, axis = "cell", name = "age", default = nothing) ==
                           nothing
                     @test !has_vector(into, "cell", "age")
                 end
@@ -342,6 +342,34 @@ nested_test("copies") do
             end
 
             nested_test("default") do
+                nested_test("undef") do
+                    @test_throws dedent("""
+                        missing axis: cell
+                        in the daf data: into!
+                    """) copy_matrix!(
+                        from = from,
+                        into = into,
+                        rows_axis = "cell",
+                        columns_axis = "gene",
+                        name = "UMIs";
+                        default = undef,
+                    )
+
+                    @test add_axis!(into, "cell", ["A", "B"]) == nothing
+
+                    @test_throws dedent("""
+                        missing axis: gene
+                        in the daf data: into!
+                    """) copy_matrix!(
+                        from = from,
+                        into = into,
+                        rows_axis = "cell",
+                        columns_axis = "gene",
+                        name = "UMIs";
+                        default = undef,
+                    )
+                end
+
                 nested_test("nothing") do
                     @test_throws dedent("""
                         missing axis: cell
@@ -367,34 +395,6 @@ nested_test("copies") do
                         columns_axis = "gene",
                         name = "UMIs";
                         default = nothing,
-                    )
-                end
-
-                nested_test("missing") do
-                    @test_throws dedent("""
-                        missing axis: cell
-                        in the daf data: into!
-                    """) copy_matrix!(
-                        from = from,
-                        into = into,
-                        rows_axis = "cell",
-                        columns_axis = "gene",
-                        name = "UMIs";
-                        default = missing,
-                    )
-
-                    @test add_axis!(into, "cell", ["A", "B"]) == nothing
-
-                    @test_throws dedent("""
-                        missing axis: gene
-                        in the daf data: into!
-                    """) copy_matrix!(
-                        from = from,
-                        into = into,
-                        rows_axis = "cell",
-                        columns_axis = "gene",
-                        name = "UMIs";
-                        default = missing,
                     )
                 end
             end
@@ -415,7 +415,7 @@ nested_test("copies") do
             end
 
             nested_test("default") do
-                nested_test("nothing") do
+                nested_test("undef") do
                     @test_throws dedent("""
                         missing matrix: UMIs
                         for the rows axis: cell
@@ -428,18 +428,18 @@ nested_test("copies") do
                         rows_axis = "cell",
                         columns_axis = "gene",
                         name = "UMIs";
-                        default = nothing,
+                        default = undef,
                     )
                 end
 
-                nested_test("missing") do
+                nested_test("nothing") do
                     @test copy_matrix!(;
                         from = from,
                         into = into,
                         rows_axis = "cell",
                         columns_axis = "gene",
                         name = "UMIs",
-                        default = missing,
+                        default = nothing,
                     ) == nothing
                     @test !has_matrix(into, "cell", "gene", "UMIs")
                 end

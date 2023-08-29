@@ -21,7 +21,7 @@ using SparseArrays
         from::DafReader,
         name::AbstractString,
         [rename::Union{AbstractString, Nothing} = nothing,
-        default::Union{StorageScalar, Nothing, Missing} = nothing]
+        default::Union{StorageScalar, Nothing, UndefInitializer} = undef]
     )::Nothing
 
 Copy a scalar `from` some `DafReader` into some `DafWriter`.
@@ -34,11 +34,11 @@ function copy_scalar!(;
     from::DafReader,
     name::AbstractString,
     rename::Union{AbstractString, Nothing} = nothing,
-    default::Union{StorageScalar, Nothing, Missing} = nothing,
+    default::Union{StorageScalar, Nothing, UndefInitializer} = undef,
     overwrite::Bool = false,
 )::Nothing
     value = get_scalar(from, name; default = default)
-    if value !== missing
+    if value != nothing
         rename = new_name(rename, name)
         set_scalar!(into, rename, value; overwrite = overwrite)
     end
@@ -50,7 +50,7 @@ end
         from::DafReader,
         name::AbstractString,
         [rename::Union{AbstractString, Nothing} = nothing,
-        default::Union{Nothing, Missing} = nothing]
+        default::Union{Nothing, UndefInitializer} = undef]
     )::Nothing
 
 Copy an axis `from` some `DafReader` into some `DafWriter`.
@@ -62,10 +62,10 @@ function copy_axis!(;
     from::DafReader,
     name::AbstractString,
     rename::Union{AbstractString, Nothing} = nothing,
-    default::Union{Nothing, Missing} = nothing,
+    default::Union{Nothing, UndefInitializer} = undef,
 )::Nothing
     value = get_axis(from, name; default = default)
-    if value !== missing
+    if value != nothing
         rename = new_name(rename, name)
         add_axis!(into, rename, value)
     end
@@ -79,7 +79,7 @@ end
         name::AbstractString,
         [reaxis::Union{AbstractString, Nothing} = nothing,
         rename::Union{AbstractString, Nothing} = nothing,
-        default::Union{StorageScalar, StorageVector, Nothing, Missing} = nothing,
+        default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
         overwrite::Bool = false]
     )::Nothing
 
@@ -100,7 +100,7 @@ function copy_vector!(;
     name::AbstractString,
     reaxis::Union{AbstractString, Nothing} = nothing,
     rename::Union{AbstractString, Nothing} = nothing,
-    default::Union{StorageScalar, StorageVector, Nothing, Missing} = nothing,
+    default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
     empty::Union{StorageScalar, Nothing} = nothing,
     overwrite::Bool = false,
     relation::Union{Symbol, Nothing} = nothing,
@@ -114,7 +114,7 @@ function copy_vector!(;
     end
 
     value = get_vector(from, axis, name; default = default)
-    if value === missing
+    if value == nothing
         return nothing
     end
 
@@ -158,7 +158,7 @@ end
         [rows_reaxis::Union{AbstractString, Nothing} = nothing,
         columns_reaxis::Union{AbstractString, Nothing} = nothing,
         rename::Union{AbstractString, Nothing} = nothing,
-        default::Union{StorageScalar, StorageVector, Nothing, Missing} = nothing,
+        default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
         empty::Union{StorageScalar, Nothing} = nothing,
         relayout::Bool = true,
         overwrite::Bool = false]
@@ -184,7 +184,7 @@ function copy_matrix!(;
     rows_reaxis::Union{AbstractString, Nothing} = nothing,
     columns_reaxis::Union{AbstractString, Nothing} = nothing,
     rename::Union{AbstractString, Nothing} = nothing,
-    default::Union{StorageScalar, StorageMatrix, Nothing, Missing} = nothing,
+    default::Union{StorageScalar, StorageMatrix, Nothing, UndefInitializer} = undef,
     empty::Union{StorageScalar, Nothing} = nothing,
     relayout::Bool = true,
     overwrite::Bool = false,
@@ -213,7 +213,7 @@ function copy_matrix!(;
     end
 
     value = get_matrix(from, rows_axis, columns_axis, name; default = default, relayout = relayout)
-    if value === missing
+    if value == nothing
         return nothing
     end
 
