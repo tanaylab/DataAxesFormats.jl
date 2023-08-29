@@ -11,12 +11,14 @@ export ALL_AXES
 export ALL_MATRICES
 export ALL_SCALARS
 export ALL_VECTORS
+export DafView
 export viewer
 
 using Daf.Data
 using Daf.Formats
 using Daf.Messages
 using Daf.StorageTypes
+using Daf.ReadOnly
 
 import Daf.Data.as_read_only
 import Daf.Data.base_array
@@ -34,7 +36,7 @@ import Daf.Oprec.encode_expression
 import Daf.Oprec.escape_query
 import Daf.Queries.canonical
 import Daf.Queries.vector_query_axis
-import Daf.ReadOnly.ReadOnlyView
+import Daf.ReadOnly
 
 """
     struct DafView(daf::F) <: DafReader where {F <: DafReader}
@@ -79,7 +81,7 @@ ALL_MATRICES = ("*", "*", "*") => "="
         axes::AbstractVector{Pair{String, Union{String, Nothing}}} = [],
         vectors::AbstractVector{Pair{Tuple{String, String}, Union{String, Nothing}}} = []]
         matrices::AbstractVector{Pair{Tuple{String, String, String}, Union{String, Nothing}}} = []]
-    )::DafView
+    )::Union{DafView, ReadOnlyView}
 
 Wrap `daf` data with a read-only [`DafView`](@ref). The exposed view is defined by a set of queries applied to the
 original data. These queries are evaluated only when data is actually accessed. Therefore, creating a view is a
@@ -127,6 +129,11 @@ the `axes` parameter), and likewise if the name is `"*"`, it replaced by all the
 The value for matrices can again be `"="` to expose the property as is, or the suffix of a matrix query. The full query
 will have the axes queries appended automatically, similarly to the above. The order of the axes does not matter, so
 `matrices = [("gene", "cell", "UMIs") => "="]` has the same effect as `matrices = [("cell", "gene", "UMIs") => "="]`.
+
+!!! note
+
+    As an optimization, calling `viewer` with all-empty (default) arguments returns a simple [`ReadOnlyView`](@ref),
+    that is, it is equivalent to calling [`read_only`](@ref). In this case the `name` is ignored.
 """
 function viewer(
     name::AbstractString,
@@ -139,12 +146,18 @@ function viewer(
     matrices::AbstractVector{Pair{Tuple{String, String, String}, M}} = Vector{
         Pair{Tuple{String, String, String}, Union{String, Nothing}},
     }(),
-)::DafView where {
+)::Union{
+    DafView,
+    ReadOnlyView,
+} where {
     S <: Union{String, Nothing},
     A <: Union{String, Nothing},
     V <: Union{String, Nothing},
     M <: Union{String, Nothing},
 }
+    if isempty(scalars) && isempty(axes) && isempty(vectors) && isempty(matrices)
+        return read_only(daf)
+    end
     if daf isa ReadOnlyView
         daf = daf.daf
     end
@@ -498,6 +511,10 @@ end
 
 function Messages.present(value::DafView)::String
     return "View $(present(value.daf))"
+end
+
+function ReadOnly.read_only(daf::DafView)::DafView
+    return daf
 end
 
 end # module

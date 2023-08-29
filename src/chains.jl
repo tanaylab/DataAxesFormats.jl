@@ -19,7 +19,6 @@ using SparseArrays
 import Daf.Data.as_read_only
 import Daf.Formats.Internal
 import Daf.Messages
-import Daf.ReadOnly.ReadOnlyView
 
 """
     struct ReadOnlyChain <: DafReader ... end
@@ -462,6 +461,14 @@ end
 
 function Messages.present(value::WriteChain)::String
     return "Write Chain $(value.name)"
+end
+
+function ReadOnly.read_only(daf::ReadOnlyChain)::ReadOnlyChain
+    return daf
+end
+
+function ReadOnly.read_only(daf::WriteChain)::ReadOnlyView
+    return ReadOnlyView(daf)
 end
 
 end # module

@@ -3,6 +3,7 @@ Read-only `Daf` storage format.
 """
 module ReadOnly
 
+export ReadOnlyView
 export read_only
 
 using Daf.Data

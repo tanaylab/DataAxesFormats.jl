@@ -72,4 +72,7 @@ include("computations.jl")
 include("copies.jl")
 @reexport using Daf.Copies
 
+include("adapters.jl")
+@reexport using Daf.Adapters
+
 end # module

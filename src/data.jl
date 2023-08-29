@@ -91,7 +91,9 @@ end
 Check whether a scalar property with some `name` exists in `daf`.
 """
 function has_scalar(daf::DafReader, name::AbstractString)::Bool
-    return Formats.format_has_scalar(daf, name)
+    result = Formats.format_has_scalar(daf, name)
+    # @debug "has_scalar $(daf.name) / $(name) -> $(present(result))"
+    return result
 end
 
 """
@@ -107,6 +109,8 @@ Set the `value` of a scalar property with some `name` in `daf`.
 If not `overwrite` (the default), this first verifies the `name` scalar property does not exist.
 """
 function set_scalar!(daf::DafWriter, name::AbstractString, value::StorageScalar; overwrite::Bool = false)::Nothing
+    @debug "set_scalar! $(daf.name) / $(name) <$(overwrite ? "=" : "-") $(present(value))"
+
     if !overwrite
         require_no_scalar(daf, name)
     elseif Formats.format_has_scalar(daf, name)
@@ -131,6 +135,8 @@ Delete a scalar property with some `name` from `daf`.
 If `must_exist` (the default), this first verifies the `name` scalar property exists in `daf`.
 """
 function delete_scalar!(daf::DafWriter, name::AbstractString; must_exist::Bool = true)::Nothing
+    @debug "delete_scalar! $(daf.name) / $(name)$(must_exist ? "" : " ?")"
+
     if must_exist
         require_scalar(daf, name)
     end
@@ -154,7 +160,9 @@ end
 The names of the scalar properties in `daf`.
 """
 function scalar_names(daf::DafReader)::AbstractSet{String}
-    return Formats.format_scalar_names(daf)
+    result = Formats.format_scalar_names(daf)
+    # @debug "scalar_names $(daf.name) -> $(present(result))"
+    return result
 end
 
 """
@@ -179,10 +187,14 @@ function get_scalar(
     end
 
     if has_scalar(daf, name)
-        return Formats.format_get_scalar(daf, name)
+        result = Formats.format_get_scalar(daf, name)
+        @debug "get_scalar $(daf.name) / $(name) -> $(present(result))"
+    else
+        result = default
+        @debug "get_scalar $(daf.name) / $(name) -> $(present(result)) ?"
     end
 
-    return default
+    return result
 end
 
 function require_scalar(daf::DafReader, name::AbstractString)::Nothing
@@ -205,7 +217,9 @@ end
 Check whether some `axis` exists in `daf`.
 """
 function has_axis(daf::DafReader, axis::AbstractString)::Bool
-    return Formats.format_has_axis(daf, axis)
+    result = Formats.format_has_axis(daf, axis)
+    # @debug "has_axis $(daf.name) / $(axis) -> $(present(result))"
+    return result
 end
 
 """
@@ -220,6 +234,8 @@ Add a new `axis` `daf`.
 This first verifies the `axis` does not exist and that the `entries` are unique.
 """
 function add_axis!(daf::DafWriter, axis::AbstractString, entries::AbstractVector{String})::Nothing
+    @debug "add_axis $(daf.name) / $(axis) <- $(present(entries))"
+
     require_no_axis(daf, axis)
 
     if !allunique(entries)
@@ -242,6 +258,8 @@ Delete an `axis` from the `daf`. This will also delete any vector or matrix prop
 If `must_exist` (the default), this first verifies the `axis` exists in the `daf`.
 """
 function delete_axis!(daf::DafWriter, axis::AbstractString; must_exist::Bool = true)::Nothing
+    @debug "delete_axis! $(daf.name) / $(axis)$(must_exist ? "" : " ?")"
+
     if must_exist
         require_axis(daf, axis)
     end
@@ -279,7 +297,9 @@ end
 The names of the axes of `daf`.
 """
 function axis_names(daf::DafReader)::AbstractSet{String}
-    return Formats.format_axis_names(daf)
+    result = Formats.format_axis_names(daf)
+    # @debug "axis_names $(daf.name) -> $(present(result))"
+    return result
 end
 
 """
@@ -302,13 +322,17 @@ function get_axis(
 )::Union{AbstractVector{String}, Missing}
     if !has_axis(daf, axis)
         if default === missing
+            @debug "get_axis! $(daf.name) / $(axis) -> $(present(missing))"
             return missing
         else
             @assert default == nothing
             require_axis(daf, axis)
         end
     end
-    return as_read_only(Formats.format_get_axis(daf, axis))
+
+    result = as_read_only(Formats.format_get_axis(daf, axis))
+    @debug "get_axis! $(daf.name) / $(axis) -> $(present(result))"
+    return result
 end
 
 """
@@ -320,7 +344,9 @@ This first verifies the `axis` exists in `daf`.
 """
 function axis_length(daf::DafReader, axis::AbstractString)::Int64
     require_axis(daf, axis)
-    return Formats.format_axis_length(daf, axis)
+    result = Formats.format_axis_length(daf, axis)
+    # @debug "axis_length! $(daf.name) / $(axis) -> $(present(result))"
+    return result
 end
 
 function require_axis(daf::DafReader, axis::AbstractString)::Nothing
@@ -347,7 +373,9 @@ This first verifies the `axis` exists in `daf`.
 """
 function has_vector(daf::DafReader, axis::AbstractString, name::AbstractString)::Bool
     require_axis(daf, axis)
-    return name == "name" || Formats.format_has_vector(daf, axis, name)
+    result = name == "name" || Formats.format_has_vector(daf, axis, name)
+    # @debug "has_vector $(daf.name) / $(axis) / $(name) -> $(present(result))"
+    return result
 end
 
 """
@@ -374,6 +402,8 @@ function set_vector!(
     vector::Union{StorageScalar, StorageVector};
     overwrite::Bool = false,
 )::Nothing
+    @debug "set_vector! $(daf.name) / $(axis) / $(name) <$(overwrite ? "=" : "-") $(present(vector))"
+
     require_not_name(daf, axis, name)
     require_axis(daf, axis)
 
@@ -435,7 +465,9 @@ function empty_dense_vector!(
 
     invalidate_cached_dependencies!(daf, vector_dependency_key(axis, name))
 
-    return fill(as_named_vector(daf, axis, Formats.format_empty_dense_vector!(daf, axis, name, eltype)))
+    result = as_named_vector(daf, axis, Formats.format_empty_dense_vector!(daf, axis, name, eltype))
+    @debug "empty_dense_vector! $(daf.name) / $(axis) / $(name) <$(overwrite ? "=" : "-") $(present(result))"
+    return fill(result)
 end
 
 """
@@ -495,7 +527,8 @@ function empty_sparse_vector!(
 
     empty_vector = Formats.format_empty_sparse_vector!(daf, axis, name, eltype, nnz, indtype)
     result = fill(as_named_vector(daf, axis, empty_vector))
-    _verified = SparseVector(length(empty_vector), empty_vector.nzind, empty_vector.nzval)
+    verified = SparseVector(length(empty_vector), empty_vector.nzind, empty_vector.nzval)
+    @debug "empty_dense_vector! $(daf.name) / $(axis) / $(name) <$(overwrite ? "=" : "-") $(present(verified))"
     return result
 end
 
@@ -513,6 +546,8 @@ This first verifies the `axis` exists in `daf` and that the property name isn't 
 this also verifies the `name` vector exists for the `axis`.
 """
 function delete_vector!(daf::DafWriter, axis::AbstractString, name::AbstractString; must_exist::Bool = true)::Nothing
+    @debug "delete_vector! $(daf.name) / $(axis) / $(name) $(must_exist ? "" : " ?")"
+
     require_not_name(daf, axis, name)
     require_axis(daf, axis)
 
@@ -543,7 +578,9 @@ This first verifies the `axis` exists in `daf`.
 """
 function vector_names(daf::DafReader, axis::AbstractString)::AbstractSet{String}
     require_axis(daf, axis)
-    return Formats.format_vector_names(daf, axis)
+    result = Formats.format_vector_names(daf, axis)
+    # @debug "vector_names $(daf.name) / $(axis) -> $(present(result))"
+    return result
 end
 
 """
@@ -572,7 +609,9 @@ function get_vector(
     require_axis(daf, axis)
 
     if name == "name"
-        return as_named_vector(daf, axis, as_read_only(Formats.format_get_axis(daf, axis)))
+        result = as_named_vector(daf, axis, as_read_only(Formats.format_get_axis(daf, axis)))
+        @debug "get_vector $(daf.name) / $(axis) / $(name) -> $(present(result))"
+        return result
     end
 
     if default !== missing && default isa StorageVector
@@ -583,11 +622,15 @@ function get_vector(
         end
     end
 
+    default_suffix = ""
     vector = nothing
     if !Formats.format_has_vector(daf, axis, name)
         if default === missing
+            @debug "get_vector $(daf.name) / $(axis) / $(name) -> $(present(missing))"
             return missing
-        elseif default isa StorageVector
+        end
+        default_suffix = " ?"
+        if default isa StorageVector
             vector = default
         elseif default isa StorageScalar
             vector = fill(default, Formats.format_axis_length(daf, axis))
@@ -614,7 +657,9 @@ function get_vector(
         end
     end
 
-    return as_named_vector(daf, axis, vector)
+    result = as_named_vector(daf, axis, vector)
+    @debug "get_vector $(daf.name) / $(axis) / $(name) -> $(present(result))$(default_suffix)"
+    return result
 end
 
 function require_vector(daf::DafReader, axis::AbstractString, name::AbstractString)::Nothing
@@ -658,8 +703,11 @@ function has_matrix(
 )::Bool
     require_axis(daf, rows_axis)
     require_axis(daf, columns_axis)
-    return Formats.format_has_matrix(daf, rows_axis, columns_axis, name) ||
-           (relayout && Formats.format_has_matrix(daf, columns_axis, rows_axis, name))
+    result =
+        Formats.format_has_matrix(daf, rows_axis, columns_axis, name) ||
+        (relayout && Formats.format_has_matrix(daf, columns_axis, rows_axis, name))
+    # @debug "has_matrix $(daf) / $(rows_axis) / $(columns_axis) / $(name) $(relayout ? "%" : "#")> $(result)"
+    return result
 end
 
 """
@@ -695,6 +743,8 @@ function set_matrix!(
     overwrite::Bool = false,
     relayout::Bool = true,
 )::Nothing
+    @debug "set_matrix! $(daf) / $(rows_axis) / $(columns_axis) / $(name) <$(relayout ? "%" : "#")$(overwrite ? "=" : "-") $(matrix)"
+
     require_axis(daf, rows_axis)
     require_axis(daf, columns_axis)
 
@@ -773,14 +823,15 @@ function empty_dense_matrix!(
 
     invalidate_cached_dependencies!(daf, matrix_dependency_key(rows_axis, columns_axis, name))
 
-    return fill(
-        as_named_matrix(
-            daf,
-            rows_axis,
-            columns_axis,
-            Formats.format_empty_dense_matrix!(daf, rows_axis, columns_axis, name, eltype),
-        ),
+    named = as_named_matrix(
+        daf,
+        rows_axis,
+        columns_axis,
+        Formats.format_empty_dense_matrix!(daf, rows_axis, columns_axis, name, eltype),
     )
+    result = fill(named)
+    @debug "empty_dense_matrix! $(daf) / $(rows_axis) / $(columns_axis) / $(name) <$(overwrite ? "=" : "-") $(named)"
+    return result
 end
 
 """
@@ -845,7 +896,8 @@ function empty_sparse_matrix!(
 
     empty_matrix = Formats.format_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, eltype, nnz, indtype)
     result = fill(as_named_matrix(daf, rows_axis, columns_axis, empty_matrix))
-    _verified = SparseMatrixCSC(size(empty_matrix)..., empty_matrix.colptr, empty_matrix.rowval, empty_matrix.nzval)
+    verified = SparseMatrixCSC(size(empty_matrix)..., empty_matrix.colptr, empty_matrix.rowval, empty_matrix.nzval)
+    @debug "empty_sparse_matrix! $(daf) / $(rows_axis) / $(columns_axis) / $(name) <$(overwrite ? "=" : "-") $(verified)"
     return result
 end
 
@@ -876,6 +928,8 @@ function relayout_matrix!(
     name::AbstractString;
     overwrite::Bool = false,
 )::Nothing
+    @debug "relayout_matrix! $(daf) / $(rows_axis) / $(columns_axis) / $(name) <$(overwrite ? "=" : "-")>"
+
     require_axis(daf, rows_axis)
     require_axis(daf, columns_axis)
 
@@ -918,6 +972,8 @@ function delete_matrix!(
     must_exist::Bool = true,
     relayout::Bool = true,
 )::Nothing
+    @debug "delete_matrix! $(daf.name) / $(rows_axis) / $(columns_axis) / $(name) $(must_exist ? "" : " ?")"
+
     require_axis(daf, rows_axis)
     require_axis(daf, columns_axis)
 
@@ -973,6 +1029,7 @@ function matrix_names(
     if relayout
         names = union(names, Formats.format_matrix_names(daf, columns_axis, rows_axis))
     end
+    # @debug "matrix_names $(daf.name) / $(rows_axis) / $(columns_axis) $(relayout ? "%" : "#")> $(present(names))"
     return names
 end
 
@@ -1067,6 +1124,7 @@ function get_matrix(
         end
     end
 
+    default_suffix = ""
     matrix = nothing
     if !Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
         if relayout && Formats.format_has_matrix(daf, columns_axis, rows_axis, name)
@@ -1086,8 +1144,11 @@ function get_matrix(
             end
         else
             if default === missing
+                @debug "get_matrix $(daf.name) / $(rows_axis) / $(columns_axis) / $(name) -> $(present(missing))"
                 return missing
-            elseif default isa StorageMatrix
+            end
+            default_suffix = " ?"
+            if default isa StorageMatrix
                 matrix = default
             elseif default isa StorageScalar
                 matrix = fill(
@@ -1137,7 +1198,9 @@ function get_matrix(
         end
     end
 
-    return as_named_matrix(daf, rows_axis, columns_axis, matrix)
+    result = as_named_matrix(daf, rows_axis, columns_axis, matrix)
+    @debug "get_matrix $(daf.name) / $(rows_axis) / $(columns_axis) / $(name) -> $(present(result))$(default_suffix)"
+    return result
 end
 
 function require_column_major(matrix::StorageMatrix)::Nothing

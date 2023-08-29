@@ -1,12 +1,18 @@
 nested_test("views") do
     daf = MemoryDaf("memory!")
 
+    nested_test("none") do
+        @test viewer("read_only", daf) isa ReadOnlyView
+        @test viewer("read_only", daf).daf === daf
+    end
+
     nested_test("scalar") do
         set_scalar!(daf, "version", "1.0")
         add_axis!(daf, "cell", ["X", "Y"])
         set_vector!(daf, "cell", "age", [1, 2])
         nested_test("copy") do
             view = viewer("view!", read_only(daf); scalars = ["*" => "="])
+            @test read_only(view) === view
             @test present(view) == "View MemoryDaf memory!"
             @test scalar_names(view) == Set(["version"])
             @test get_scalar(view, "version") == "1.0"

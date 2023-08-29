@@ -13,6 +13,10 @@ nested_test("chains") do
             "chain!",
             [first, read_only(second)],
         )
+        read_chain = chain_reader("chain!", [first, second])
+        @assert read_only(read_chain) === read_chain
+        write_chain = chain_writer("chain!", [first, second])
+        @assert read_only(write_chain) !== write_chain
     end
 
     nested_test("access") do

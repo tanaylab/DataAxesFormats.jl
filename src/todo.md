@@ -2,10 +2,6 @@
 
 The following issues are not addressed (yet):
 
-## Composable computations
-
-  - Adapters based on views.
-
 ## Basic functionality
 
   - Aggregation functions.
