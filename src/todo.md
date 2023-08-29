@@ -4,7 +4,6 @@ The following issues are not addressed (yet):
 
 ## Basic functionality
 
-  - Aggregation functions.
   - Aggregation in queries.
 
 ## Disk storage formats

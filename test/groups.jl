@@ -1,8 +1,10 @@
 nested_test("groups") do
+    daf = MemoryDaf("memory!")
+
+    @test add_axis!(daf, "cell", ["A", "B", "C", "D"]) == nothing
+    @test add_axis!(daf, "type", ["X", "Y"]) == nothing
+
     nested_test("get_group_vector") do
-        daf = MemoryDaf("memory!")
-        @test add_axis!(daf, "cell", ["A", "B", "C", "D"]) == nothing
-        @test add_axis!(daf, "type", ["X", "Y"]) == nothing
         @test set_vector!(daf, "type", "color", ["red", "green"]) == nothing
 
         nested_test("complete") do
@@ -68,10 +70,7 @@ nested_test("groups") do
     end
 
     nested_test("aggregate_group_vector") do
-        daf = MemoryDaf("memory!")
-        @test add_axis!(daf, "cell", ["A", "B", "C", "D"]) == nothing
         @test set_vector!(daf, "cell", "age", [1, 2, 3, 4]) == nothing
-        @test add_axis!(daf, "type", ["X", "Y"]) == nothing
 
         nested_test("complete") do
             @test set_vector!(daf, "cell", "type", ["X", "Y", "X", "Y"]) == nothing
@@ -123,6 +122,28 @@ nested_test("groups") do
                     ) == [2.0, 0.0]
                 end
             end
+        end
+    end
+
+    nested_test("count_groups_matrix") do
+        nested_test("numbers") do
+            @test set_vector!(daf, "cell", "age", [1, 1, 2, 1]) == nothing
+            @test set_vector!(daf, "cell", "type", ["X", "Y", "X", "Y"]) == nothing
+            @test count_groups_matrix(daf; axis = "cell", rows_name = "type", columns_name = "age") == [1 1; 2 0]
+            @test names(count_groups_matrix(daf; axis = "cell", rows_name = "type", columns_name = "age"), 1) ==
+                  ["X", "Y"]
+            @test names(count_groups_matrix(daf; axis = "cell", rows_name = "type", columns_name = "age"), 2) ==
+                  ["1", "2"]
+        end
+
+        nested_test("strings") do
+            @test set_vector!(daf, "cell", "age", ["Young", "Young", "", "Old"]) == nothing
+            @test set_vector!(daf, "cell", "type", ["X", "Y", "X", "Y"]) == nothing
+            @test count_groups_matrix(daf; axis = "cell", rows_name = "type", columns_name = "age") == [0 1; 1 1]
+            @test names(count_groups_matrix(daf; axis = "cell", rows_name = "type", columns_name = "age"), 1) ==
+                  ["X", "Y"]
+            @test names(count_groups_matrix(daf; axis = "cell", rows_name = "type", columns_name = "age"), 2) ==
+                  ["Old", "Young"]
         end
     end
 end

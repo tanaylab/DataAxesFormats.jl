@@ -74,30 +74,30 @@ end
 """
 The operators that can be used in a `Daf` query.
 
-| Operator  | Associativity | Precedence | Description                                                                               |
-|:---------:|:-------------:|:----------:|:----------------------------------------------------------------------------------------- |
-| `%>`      | Left          | 0          | Reduction operation (matrix to vector, vector to scalar), e.g. `cell, gene @ UMIs %> Sum` |
-| `%`       | Right         | 1          | Element-wise operation (e.g., `cell, gene @ UMIs % Log`)                                  |
-| `@`       | Right         | 2          | Lookup (e.g., `cell, gene @ UMIs`)                                                        |
-| `;`       | Right         | 3          | Operation separator (e.g., `Log; base = 2`)                                               |
-| `,`       | Right         | 3          | 1. Axes separator (e.g., `cell, gene @ UMIs`)                                             |
-|           |               | 3          | 2. Parameter separator (e.g., `Log; base = 2, eps = 1`)                                   |
-| `&`       | Right         | 4          | AND filter (e.g., `gene & marker`)                                                        |
-| `\\|`     | Right         | 4          | OR filter (e.g., `gene & marker \\| noisy`)                                               |
-| `^`       | Right         | 4          | XOR filter (e.g., `gene & marker ^ noisy`)                                                |
-| `<`       | Right         | 5          | Less than (e.g., `batch : age < 1`)                                                       |
-| `<=`, `≤` | Right         | 5          | Less or equal (e.g., `batch : age <= 1`)                                                  |
-| `!=`, `≠` | Right         | 5          | Not equal (e.g., `batch : age != 1`)                                                      |
-| `=`       | Right         | 5          | 1. Is equal (e.g., `batch : age = 1`)                                                     |
-|           |               |            | 2. Select axis entry (e.g., `cell, gene = FOX1 @ UMIs`)                                   |
-|           |               |            | 3. Parameter assignment (e.g., `Log; base = 2`)                                           |
-| `>=`, `≥` | Right         | 5          | Greater or equal (e.g., `batch : age >= 1`)                                               |
-| `>`       | Right         | 5          | Greater than (e.g., `batch : age > 1`)                                                    |
-| `!~`, `≁` | Right         | 5          | Not match (e.g., `gene !~ MT-.\\*`                                                        |
-| `~`       | Right         | 5          | 1. Match (e.g., `gene ~ MT-.\\*`)                                                         |
-|           |               |            | 2. Invert mask (prefix; e.g., `gene & ~noisy`)                                            |
-| `?`       | Right         | 5          | Chained property default (e.g., `cell : metacell : color ? black`)                        |
-| `:`       | Right         | 6          | Chained property lookup (e.g., `batch : age`)                                             |
+| Operator  | Associativity | Precedence | Description                                                                                |
+|:---------:|:-------------:|:----------:|:------------------------------------------------------------------------------------------ |
+| `%>`      | Left          | 0          | Reduction operation (matrix to vector, vector to scalar), e.g., `cell, gene @ UMIs %> Sum` |
+| `%`       | Right         | 1          | Element-wise operation (e.g., `cell, gene @ UMIs % Log`)                                   |
+| `@`       | Right         | 2          | Lookup (e.g., `cell, gene @ UMIs`)                                                         |
+| `;`       | Right         | 3          | Operation separator (e.g., `Log; base = 2`)                                                |
+| `,`       | Right         | 3          | 1. Axes separator (e.g., `cell, gene @ UMIs`)                                              |
+|           |               | 3          | 2. Parameter separator (e.g., `Log; base = 2, eps = 1`)                                    |
+| `&`       | Right         | 4          | AND filter (e.g., `gene & marker`)                                                         |
+| `\\|`     | Right         | 4          | OR filter (e.g., `gene & marker \\| noisy`)                                                |
+| `^`       | Right         | 4          | XOR filter (e.g., `gene & marker ^ noisy`)                                                 |
+| `<`       | Right         | 5          | Less than (e.g., `batch : age < 1`)                                                        |
+| `<=`, `≤` | Right         | 5          | Less or equal (e.g., `batch : age <= 1`)                                                   |
+| `!=`, `≠` | Right         | 5          | Not equal (e.g., `batch : age != 1`)                                                       |
+| `=`       | Right         | 5          | 1. Is equal (e.g., `batch : age = 1`)                                                      |
+|           |               |            | 2. Select axis entry (e.g., `cell, gene = FOX1 @ UMIs`)                                    |
+|           |               |            | 3. Parameter assignment (e.g., `Log; base = 2`)                                            |
+| `>=`, `≥` | Right         | 5          | Greater or equal (e.g., `batch : age >= 1`)                                                |
+| `>`       | Right         | 5          | Greater than (e.g., `batch : age > 1`)                                                     |
+| `!~`, `≁` | Right         | 5          | Not match (e.g., `gene !~ MT-.\\*`                                                         |
+| `~`       | Right         | 5          | 1. Match (e.g., `gene ~ MT-.\\*`)                                                          |
+|           |               |            | 2. Invert mask (prefix; e.g., `gene & ~noisy`)                                             |
+| `?`       | Right         | 5          | Chained property default (e.g., `cell : metacell : color ? black`)                         |
+| `:`       | Right         | 6          | Chained property lookup (e.g., `batch : age`)                                              |
 """
 @enum QueryOperators OpAnd OpChain OpDefault OpEltwise OpEqual OpGreaterOrEqual OpGreaterThan OpLessOrEqual OpLessThan OpLookup OpMatch OpNotEqual OpNotMatch OpOr OpPrimarySeparator OpReduce OpOperationSeparator OpValue OpXor
 
@@ -423,7 +423,7 @@ CANONICAL_COMPARISON_OPERATOR = Dict(
 Compare a (non-Boolean) property to a constant value.
 
 This is used to convert any set of non-Boolean property values for the axis entries into a Boolean mask which we can
-then use to filter the axis entries, e.g. `> 1` will create a mask of all the entries whose value is larger than one.
+then use to filter the axis entries, e.g., `> 1` will create a mask of all the entries whose value is larger than one.
 """
 struct PropertyComparison
     comparison_operator::ComparisonOperator
@@ -462,7 +462,7 @@ Lookup some value for each entry of an axis.
 
 This can simply lookup the value of some property of the axis, e.g., `batch : age`. In addition, we allow extra features
 for dealing with Boolean masks. First, if looking up a Boolean property, then prefixing it with a `~` will invert the
-result, e.g. `~ marker`. Second, when looking up a non-Boolean property, it is possible to convert it into Boolean
+result, e.g., `~ marker`. Second, when looking up a non-Boolean property, it is possible to convert it into Boolean
 values by comparing it with a constant value, e.g., `batch : age > 1`. This allows us to use the result as a mask, e.g.,
 when filtering which entries of an axis we want to fetch results for.
 """
