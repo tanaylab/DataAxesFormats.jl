@@ -50,6 +50,7 @@ makedocs(;
         "views.md",
         "chains.md",
         "computations.md",
+        "groups.md",
         "copies.md",
         "adapters.md",
         "contracts.md",

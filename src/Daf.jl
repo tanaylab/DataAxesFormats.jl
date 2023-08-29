@@ -48,6 +48,9 @@ include("formats.jl")
 include("data.jl")
 @reexport using Daf.Data
 
+include("groups.jl")
+@reexport using Daf.Groups
+
 include("read_only.jl")
 @reexport using Daf.ReadOnly
 
