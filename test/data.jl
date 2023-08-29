@@ -1051,7 +1051,7 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
                     missing matrix: UMIs
                     for the rows axis: cell
                     and the columns axis: gene
-                    or the other way around
+                    (and the other way around)
                     in the daf data: $(daf.name)
                 """) get_matrix(daf, "cell", "gene", "UMIs")
             end
@@ -1061,7 +1061,7 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
                     missing matrix: UMIs
                     for the rows axis: cell
                     and the columns axis: gene
-                    or the other way around
+                    (and the other way around)
                     in the daf data: $(daf.name)
                 """) get_matrix(daf, "cell", "gene", "UMIs"; relayout = true)
             end
@@ -1264,7 +1264,7 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
                     missing matrix: UMIs
                     for the rows axis: cell
                     and the columns axis: gene
-                    or the other way around
+                    (and the other way around)
                     in the daf data: $(daf.name)
                 """) delete_matrix!(daf, "cell", "gene", "UMIs")
             end
@@ -1274,7 +1274,7 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
                     missing matrix: UMIs
                     for the rows axis: cell
                     and the columns axis: gene
-                    or the other way around
+                    (and the other way around)
                     in the daf data: $(daf.name)
                 """) delete_matrix!(daf, "cell", "gene", "UMIs"; relayout = true)
             end
@@ -1297,7 +1297,7 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
                             missing matrix: UMIs
                             for the rows axis: cell
                             and the columns axis: gene
-                            or the other way around
+                            (and the other way around)
                             in the daf data: $(daf.name)
                         """) delete_matrix!(daf, "cell", "gene", "UMIs"; must_exist = true)
                     end
@@ -1307,7 +1307,7 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
                             missing matrix: UMIs
                             for the rows axis: cell
                             and the columns axis: gene
-                            or the other way around
+                            (and the other way around)
                             in the daf data: $(daf.name)
                         """) delete_matrix!(daf, "cell", "gene", "UMIs"; must_exist = true, relayout = true)
                     end

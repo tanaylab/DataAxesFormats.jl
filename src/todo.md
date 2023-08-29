@@ -1,32 +1,38 @@
 # TODO
 
-The following issues are not addressed:
-
-## Queries
-
-  - Implement more operations.
-  - Test the operations.
-  - Aggregation in queries.
+The following issues are not addressed (yet):
 
 ## Composable computations
 
-  - Copy functions.
-  - Aggregation functions.
   - Adapters based on views.
+
+## Basic functionality
+
+  - Aggregation functions.
+  - Aggregation in queries.
 
 ## Disk storage formats
 
-  - `ChainStorage`
   - `FilesStorage`
   - `Hdf5Storage`
   - `AnnDataStorage`
 
-## Convenience functions
+## Queries
+
+  - Test the operations.
+  - Implement more operations.
+
+## Functionality
 
   - `concatenate_sparse_vectors!`
   - `concatenate_sparse_matrices!`
-  - `embed_sparse_vector!`
-  - `embed_sparse_matrix!`
+  - Concatenate along axis
+
+## Tracking
+
+  - Log non-computation functions.
+  - Collect computations invocations into "computations" scalar (JSON blob)?
+  - Repository: DAG of data sets
 
 ## Documentation
 
@@ -39,4 +45,11 @@ The following issues are not addressed:
 
   - Make containers thread-safe!!!
   - @everywhere for registries
+
+## Performance
+
   - More efficient lookup of chained properties?
+  - More efficient copy of `:from_is_subset` sparse matrices.
+    
+      + `expand_sparse_vector`
+      + `expand_sparse_matrix`

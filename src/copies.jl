@@ -133,11 +133,11 @@ function copy_vector!(;
 
     if issparse(value)
         dense = Vector{eltype(value)}(undef, axis_length(into, reaxis))
-        named = NamedArray(dense; names = get_axis(into, reaxis))
+        named = NamedArray(dense; names = (get_axis(into, reaxis),))
         named .= empty
         named[names(value, 1)] .= value
         sparse = SparseVector(dense)
-        set_vector!(into, reaxis, sparse; overwrite = overwrite)
+        set_vector!(into, reaxis, rename, sparse; overwrite = overwrite)
     else
         empty_dense_vector!(into, reaxis, rename, eltype(value); overwrite = overwrite) do empty_vector
             empty_vector .= empty
@@ -159,6 +159,8 @@ end
         columns_reaxis::Union{AbstractString, Nothing} = nothing,
         rename::Union{AbstractString, Nothing} = nothing,
         default::Union{StorageScalar, StorageVector, Nothing, Missing} = nothing,
+        empty::Union{StorageScalar, Nothing} = nothing,
+        relayout::Bool = true,
         overwrite::Bool = false]
     )::Nothing
 
@@ -183,6 +185,7 @@ function copy_matrix!(;
     columns_reaxis::Union{AbstractString, Nothing} = nothing,
     rename::Union{AbstractString, Nothing} = nothing,
     default::Union{StorageScalar, StorageMatrix, Nothing, Missing} = nothing,
+    empty::Union{StorageScalar, Nothing} = nothing,
     relayout::Bool = true,
     overwrite::Bool = false,
     rows_relation::Union{Symbol, Nothing} = nothing,
@@ -226,6 +229,7 @@ function copy_matrix!(;
             rename = rename,
             default = nothing,
             relayout = false,
+            empty = empty,
             overwrite = overwrite,
             rows_relation = rows_relation,
             columns_relation = columns_relation,
@@ -247,14 +251,6 @@ function copy_matrix!(;
 
     @assert rows_relation == :from_is_subset || columns_relation == :from_is_subset
 
-    if rows_relation == :into_is_subset && columns_relation == :into_is_subset
-        values = values[get_axis(into, rows_reaxis), get_axis(into, columns_reaxis)]
-    elseif rows_relation == :into_is_subset
-        values = values[get_axis(into, rows_reaxis), :]
-    elseif columns_relation == :into_is_subset
-        values = values[:, get_axis(into, columns_reaxis)]
-    end
-
     if issparse(value)
         dense = Matrix{eltype(value)}(undef, axis_length(into, rows_reaxis), axis_length(into, columns_reaxis))
         named = NamedArray(dense; names = (get_axis(into, rows_reaxis), get_axis(into, columns_reaxis)))
@@ -270,13 +266,12 @@ function copy_matrix!(;
             rename,
             eltype(value);
             overwrite = overwrite,
-            relayout = relayout,
         ) do empty_matrix
             empty_matrix .= empty
             return empty_matrix[names(value, 1), names(value, 2)] .= value
         end
         if relayout
-            relayout_matrix!(daf, rows_reaxis, columns_reaxis, rename; overwrite = overwrite)
+            relayout_matrix!(into, rows_reaxis, columns_reaxis, rename; overwrite = overwrite)  # untested
         end
     end
 
@@ -286,7 +281,7 @@ end
 """
     copy_all!(;
         into::DafWriter,
-        from::DafReader,
+        from::DafReader
         [overwrite::Bool = false,
         relayout::Bool = true]
     )::Nothing
@@ -311,7 +306,7 @@ end
 function verify_axes(into::DafWriter, from::DafReader)::Dict{String, Symbol}
     axis_relations = Dict{String, Symbol}()
     for axis in axis_names(from)
-        axis_relations[axis] = verify_axis(into, axis, from, axis)
+        axis_relations[axis] = verify_axis(into, axis, from, axis; allow_missing = true, allow_from_subset = false)
     end
     return axis_relations
 end
@@ -325,7 +320,7 @@ function verify_axis(
     allow_from_subset::Bool,
 )::Union{Symbol, Nothing}
     if allow_missing && !has_axis(into_daf, into_axis)
-        return nothing
+        return :same
     end
 
     from_entries = Set(get_axis(from_daf, from_axis))  # NOJET
@@ -361,14 +356,14 @@ end
 
 function copy_scalars(into::DafWriter, from::DafReader, overwrite::Bool)::Nothing
     for name in scalar_names(from)
-        copy_scalar!(; into = into, from = from, overwrite = overwrite)
+        copy_scalar!(; into = into, from = from, name = name, overwrite = overwrite)
     end
 end
 
 function copy_axes(into::DafWriter, from::DafReader)::Nothing
     for axis in axis_names(from)
         if !has_axis(into, axis)
-            copy_axis!(; from = from, into = into, axis = axis)
+            copy_axis!(; from = from, into = into, name = axis)
         end
     end
 end

@@ -985,7 +985,7 @@ function require_matrix(
 )::Nothing
     if !has_matrix(daf, rows_axis, columns_axis, name; relayout = relayout)
         if relayout
-            extra = "or the other way around\n"
+            extra = "(and the other way around)\n"
         else
             extra = ""
         end
@@ -1170,7 +1170,7 @@ function require_not_name(daf::DafReader, axis::AbstractString, name::AbstractSt
     return nothing
 end
 
-function as_read_only(array::SparseArrays.ReadOnly)::SparseArrays.ReadOnly  # untested
+function as_read_only(array::SparseArrays.ReadOnly)::SparseArrays.ReadOnly
     return array
 end
 
