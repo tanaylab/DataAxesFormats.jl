@@ -331,11 +331,7 @@ function compute_chained_property(
     dependency_keys::Set{String},
     missing_mask::Union{Vector{Bool}, Nothing},
 )::Tuple{NamedArray, String}
-    if has_axis(daf, last_property_name)
-        next_axis = last_property_name
-    else
-        next_axis = split(last_property_name, "."; limit = 2)[1]
-    end
+    next_axis = axis_of_property(daf, last_property_name)
 
     push!(dependency_keys, axis_dependency_key(next_axis))
     next_axis_entries = get_vector(daf, next_axis, "name")
@@ -359,6 +355,14 @@ function compute_chained_property(
     ]
 
     return (NamedArray(next_property_values, last_property_values.dicts, last_property_values.dimnames), next_axis)
+end
+
+function axis_of_property(daf::DafReader, property_name::AbstractString)::AbstractString
+    if has_axis(daf, property_name)
+        return property_name
+    else
+        return split(property_name, "."; limit = 2)[1]
+    end
 end
 
 function find_axis_value(

@@ -131,21 +131,17 @@ nested_test("groups") do
         nested_test("numbers") do
             @test set_vector!(daf, "cell", "age", [1, 1, 2, 1]) == nothing
             @test set_vector!(daf, "cell", "type", ["X", "Y", "X", "Y"]) == nothing
-            @test count_groups_matrix(daf; axis = "cell", rows_name = "type", columns_name = "age") == [1 1; 2 0]
-            @test names(count_groups_matrix(daf; axis = "cell", rows_name = "type", columns_name = "age"), 1) ==
-                  ["X", "Y"]
-            @test names(count_groups_matrix(daf; axis = "cell", rows_name = "type", columns_name = "age"), 2) ==
-                  ["1", "2"]
+            @test count_groups_matrix(daf, "cell", ["type"], ["age"]) == [1 1; 2 0]
+            @test names(count_groups_matrix(daf, "cell", ["type"], ["age"]), 1) == ["X", "Y"]
+            @test names(count_groups_matrix(daf, "cell", ["type"], ["age"]), 2) == ["1", "2"]
         end
 
         nested_test("strings") do
             @test set_vector!(daf, "cell", "age", ["Young", "Young", "", "Old"]) == nothing
             @test set_vector!(daf, "cell", "type", ["X", "Y", "X", "Y"]) == nothing
-            @test count_groups_matrix(daf; axis = "cell", rows_name = "type", columns_name = "age") == [0 1; 1 1]
-            @test names(count_groups_matrix(daf; axis = "cell", rows_name = "type", columns_name = "age"), 1) ==
-                  ["X", "Y"]
-            @test names(count_groups_matrix(daf; axis = "cell", rows_name = "type", columns_name = "age"), 2) ==
-                  ["Old", "Young"]
+            @test count_groups_matrix(daf, "cell", ["type"], ["age"]) == [0 1; 1 1]
+            @test names(count_groups_matrix(daf, "cell", ["type"], ["age"]), 1) == ["X", "Y"]
+            @test names(count_groups_matrix(daf, "cell", ["type"], ["age"]), 2) == ["Old", "Young"]
         end
     end
 end

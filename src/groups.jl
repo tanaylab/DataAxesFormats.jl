@@ -18,6 +18,7 @@ using Daf.Formats
 using Daf.StorageTypes
 using NamedArrays
 
+import Daf.DataQueries.axis_of_property
 import Daf.DataQueries.compute_property_lookup
 
 """
@@ -137,44 +138,45 @@ end
 
 """
     function count_groups_matrix(
-        daf::DafReader;
+        daf::DafReader,
         axis::AbstractString,
-        rows_name::AbstractString,
-        columns_name::AbstractString,
-        [rows_axis::Union{AbstractString, Nothing} = nothing,
-        columns_axis::Union{AbstractString, Nothing} = nothing,
-        type::Type = UInt32]
+        rows_names::Vector{R},
+        columns_names::Vector{C};
+        type::Type = UInt32,
+        rows_default::Union{StorageScalar, Nothing},
+        columns_default::Union{StorageScalar, Nothing},
     )::NamedMatrix
 
-Given an `axis` of the `daf` data (e.g., cell) that has two vector properties, called `rows_name` and `columns_name`
-(e.g., type and age), return a matrix whose rows and columns are the unique values of these properties, containing the
-number of entries that have that combination of values (e.g., the number of cells with a specific type and a specific
-age).
+Given an `axis` of the `daf` data (e.g., cell), fetch two chained vector properties for it using
+[`get_chained_vector`](@ref), and generate a matrix where each entry is the number of instances which have each specific
+combination of the values. For example, if `axis` is `cell`, `rows_names` is `["batch", "age"]`, and `columns_names` is
+`["type", "color"]`, then the matrix will have the different ages as rows, different colors as columns, and each entry
+will count the number of cells with a specific age and a specific color.
 
-If there exists an axis with the same name as the `rows_name` and/or the `columns_name`, it is used to determine the
-order of the entries. Otherwise, the entries are sorted in ascending order. If the name of any of the axes is different,
-specify the `rows_axis` and/or `columns_axis` to override the name(s).
+If there exists an axis with the same name as the final row and/or column name, it is used to determine the set of valid
+values and their order. Otherwise, the entries are sorted in ascending order.
 
 By default, the data type of the matrix is `UInt32`, which is a reasonable trade-off between expressiveness (up to 4G)
 and size (only 4 bytes per entry). You can override this using the `type` parameter.
 
 !!! note
 
-    The typically value type is a string; in this case, entries with an empty string values (ungrouped entries) are not
-    counter. However, the values can also be numeric. In either case, it is expected that the set of actually present
-    values will be small, otherwise the resulting matrix will be very large.
+    The typically the chained value type is a string; in this case, entries with an empty string values (ungrouped
+    entries) are not counted. However, the values can also be numeric. In either case, it is expected that the set of
+    actually present values will be small, otherwise the resulting matrix will be very large.
 """
 function count_groups_matrix(
-    daf::DafReader;
+    daf::DafReader,
     axis::AbstractString,
-    rows_name::AbstractString,
-    columns_name::AbstractString,
-    rows_axis::Union{AbstractString, Nothing} = nothing,
-    columns_axis::Union{AbstractString, Nothing} = nothing,
+    rows_names::Vector{R},
+    columns_names::Vector{C};
     type::Type = UInt32,
-)::NamedMatrix
-    rows_axis, row_value_of_entries, all_row_values = collect_count_axis(daf, axis, rows_name, rows_axis)
-    columns_axis, column_value_of_entries, all_column_values = collect_count_axis(daf, axis, columns_name, columns_axis)
+    rows_default::Union{StorageScalar, UndefInitializer} = undef,
+    columns_default::Union{StorageScalar, UndefInitializer} = undef,
+)::NamedMatrix where {R <: AbstractString, C <: AbstractString}
+    rows_axis, row_value_of_entries, all_row_values = collect_count_axis(daf, axis, rows_names, rows_default)
+    columns_axis, column_value_of_entries, all_column_values =
+        collect_count_axis(daf, axis, columns_names, columns_default)
 
     counts_matrix = NamedArray(
         zeros(type, length(all_row_values), length(all_column_values));
@@ -186,7 +188,7 @@ function count_groups_matrix(
         row_value = string(row_value)
         column_value = string(column_value)
         if row_value != "" && column_value != ""
-            counts_matrix[row_value, column_value] += 1
+            counts_matrix[row_value, column_value] += 1  # NOJET
         end
     end
 
@@ -196,18 +198,16 @@ end
 function collect_count_axis(
     daf::DafReader,
     axis::AbstractString,
-    name::AbstractString,
-    axis_name::Union{AbstractString, Nothing},
-)::Tuple{AbstractString, StorageVector, AbstractVector{String}}
-    value_of_entries = get_vector(daf, axis, name)
+    names::Vector{S},
+    default::Union{StorageScalar, UndefInitializer},
+)::Tuple{AbstractString, StorageVector, AbstractVector{String}} where {S <: AbstractString}
+    value_of_entries = get_chained_vector(daf, axis, names; default = default)
 
-    if axis_name == nothing
-        axis_name = name
-    end
-
+    axis_name = axis_of_property(daf, names[end])
     if has_axis(daf, axis_name)
         all_values = get_axis(daf, axis_name)
     else
+        axis_name = names[end]
         all_values = unique!(sort!(copy(value_of_entries.array)))
         if eltype(all_values) != String
             all_values = [string(value) for value in all_values]
