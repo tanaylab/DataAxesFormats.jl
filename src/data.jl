@@ -1758,7 +1758,7 @@ function compute_chained_property(
     end
 
     push!(dependency_keys, axis_dependency_key(next_axis))
-    next_axis_entries = get_axis(daf, next_axis)
+    next_axis_entries = get_vector(daf, next_axis, "name")
 
     push!(dependency_keys, vector_dependency_key(next_axis, next_property_name))
     next_axis_values = get_vector(daf, next_axis, next_property_name)
@@ -1786,7 +1786,7 @@ function find_axis_value(
     last_property_name::AbstractString,
     last_property_value::AbstractString,
     next_axis::AbstractString,
-    next_axis_entries::AbstractVector{String},
+    next_axis_entries::NamedVector{String},
     next_axis_values::AbstractVector,
     property_index::Int,
     missing_mask::Union{Vector{Bool}, Nothing},
@@ -1794,7 +1794,7 @@ function find_axis_value(
     if missing_mask != nothing && missing_mask[property_index]
         return zero_of(next_axis_values)  # untested
     end
-    index = findfirst(==(last_property_value), next_axis_entries)
+    index = get(next_axis_entries.dicts[1], last_property_value, nothing)
     if index != nothing
         return next_axis_values[index]
     elseif missing_mask != nothing
@@ -2009,8 +2009,8 @@ function compute_scalar_data_lookup(
 end
 
 function find_axis_entry_index(daf::DafReader, axis_entry::AxisEntry)::Int
-    axis_entries = get_axis(daf, axis_entry.axis_name)
-    index = findfirst(==(axis_entry.entry_name), axis_entries)  # NOJET
+    axis_entries = get_vector(daf, axis_entry.axis_name, "name")
+    index = get(axis_entries.dicts[1], axis_entry.entry_name, nothing)
     if index == nothing
         error(
             "the entry: $(axis_entry.entry_name)\n" *

@@ -43,8 +43,6 @@ The following issues are not addressed (yet):
 
 ## Performance
 
-  - More efficient lookup of chained properties?
-
   - More efficient copy of `:from_is_subset` sparse matrices.
     
       + `expand_sparse_vector`
