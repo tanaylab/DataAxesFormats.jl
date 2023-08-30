@@ -52,7 +52,7 @@ function test_description(
     return nothing
 end
 
-nested_test("example_data") do
+nested_test("data_queries") do
     daf = read_only(Daf.ExampleData.example_daf())
     @test read_only(daf) === daf
 

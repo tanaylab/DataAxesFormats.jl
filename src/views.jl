@@ -15,6 +15,7 @@ export DafView
 export viewer
 
 using Daf.Data
+using Daf.DataQueries
 using Daf.Formats
 using Daf.Messages
 using Daf.StorageTypes
@@ -22,20 +23,20 @@ using Daf.ReadOnly
 
 import Daf.Data.as_read_only
 import Daf.Data.base_array
-import Daf.Data.parse_matrix_query
-import Daf.Data.parse_scalar_query
-import Daf.Data.parse_vector_query
-import Daf.Data.MatrixQuery
-import Daf.Data.ScalarQuery
-import Daf.Data.VectorQuery
 import Daf.Formats
 import Daf.Formats.Internal
 import Daf.Messages
 import Daf.Oprec.decode_expression
 import Daf.Oprec.encode_expression
 import Daf.Oprec.escape_query
-import Daf.Queries.canonical
-import Daf.Queries.vector_query_axis
+import Daf.ParseQueries.canonical
+import Daf.ParseQueries.MatrixQuery
+import Daf.ParseQueries.parse_matrix_query
+import Daf.ParseQueries.parse_scalar_query
+import Daf.ParseQueries.parse_vector_query
+import Daf.ParseQueries.ScalarQuery
+import Daf.ParseQueries.VectorQuery
+import Daf.ParseQueries.vector_query_axis
 import Daf.ReadOnly
 
 """

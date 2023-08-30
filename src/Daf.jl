@@ -36,8 +36,8 @@ include("oprec.jl")
 
 include("registry.jl")
 
-include("queries.jl")
-@reexport using Daf.Queries
+include("parse_queries.jl")
+@reexport using Daf.ParseQueries
 
 include("operations.jl")
 @reexport using Daf.Operations
@@ -47,6 +47,9 @@ include("formats.jl")
 
 include("data.jl")
 @reexport using Daf.Data
+
+include("data_queries.jl")
+@reexport using Daf.DataQueries
 
 include("groups.jl")
 @reexport using Daf.Groups

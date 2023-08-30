@@ -4,13 +4,13 @@ and [`ReductionOperation`](@ref)s that reduce a matrix to a vector, or a vector 
 """
 module Operations
 
-using Daf.Queries
+using Daf.ParseQueries
 using Daf.Registry
 using Daf.StorageTypes
 
 import Base.MathConstants.e
-import Daf.Queries.error_in_context
-import Daf.Queries.parse_in_context
+import Daf.ParseQueries.error_in_context
+import Daf.ParseQueries.parse_in_context
 import Daf.Registry.compute_eltwise
 import Daf.Registry.compute_reduction
 import Distributed.@everywhere

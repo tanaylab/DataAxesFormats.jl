@@ -1,36 +1,34 @@
-using Daf.Queries
-
-nested_test("query") do
+nested_test("parse_queries") do
     nested_test("prepare") do
         nested_test("alpha") do
-            @test Daf.Queries.prepare_query_string("a") == "a"
-            @test Daf.Queries.prepare_query_string("z") == "z"
-            @test Daf.Queries.prepare_query_string("A") == "A"
-            @test Daf.Queries.prepare_query_string("Z") == "Z"
+            @test Daf.ParseQueries.prepare_query_string("a") == "a"
+            @test Daf.ParseQueries.prepare_query_string("z") == "z"
+            @test Daf.ParseQueries.prepare_query_string("A") == "A"
+            @test Daf.ParseQueries.prepare_query_string("Z") == "Z"
         end
 
         nested_test("digits") do
-            @test Daf.Queries.prepare_query_string("0") == "0"
-            @test Daf.Queries.prepare_query_string("9") == "9"
+            @test Daf.ParseQueries.prepare_query_string("0") == "0"
+            @test Daf.ParseQueries.prepare_query_string("9") == "9"
         end
 
         nested_test("allowed") do
-            @test Daf.Queries.prepare_query_string("_") == "_5F"
-            @test Daf.Queries.prepare_query_string(".") == "."
-            @test Daf.Queries.prepare_query_string("+") == "+"
-            @test Daf.Queries.prepare_query_string("-") == "-"
+            @test Daf.ParseQueries.prepare_query_string("_") == "_5F"
+            @test Daf.ParseQueries.prepare_query_string(".") == "."
+            @test Daf.ParseQueries.prepare_query_string("+") == "+"
+            @test Daf.ParseQueries.prepare_query_string("-") == "-"
         end
 
         nested_test("special") do
-            @test Daf.Queries.prepare_query_string(" ") == ""
-            @test Daf.Queries.prepare_query_string("\\a") == "_61"
-            @test Daf.Queries.prepare_query_string("a # multi-\n # line comment!\nb") == "a b"
-            @test Daf.Queries.prepare_query_string("\\") == "\\"
-            @test Daf.Queries.prepare_query_string("\\\\") == "_5C"
-            @test Daf.Queries.prepare_query_string("%") == "%"
-            @test Daf.Queries.prepare_query_string("\\%") == "_25"
-            @test Daf.Queries.prepare_query_string(":") == ":"
-            @test Daf.Queries.prepare_query_string("\\:") == "_3A"
+            @test Daf.ParseQueries.prepare_query_string(" ") == ""
+            @test Daf.ParseQueries.prepare_query_string("\\a") == "_61"
+            @test Daf.ParseQueries.prepare_query_string("a # multi-\n # line comment!\nb") == "a b"
+            @test Daf.ParseQueries.prepare_query_string("\\") == "\\"
+            @test Daf.ParseQueries.prepare_query_string("\\\\") == "_5C"
+            @test Daf.ParseQueries.prepare_query_string("%") == "%"
+            @test Daf.ParseQueries.prepare_query_string("\\%") == "_25"
+            @test Daf.ParseQueries.prepare_query_string(":") == ":"
+            @test Daf.ParseQueries.prepare_query_string("\\:") == "_3A"
         end
     end
 
