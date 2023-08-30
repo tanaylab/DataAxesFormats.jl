@@ -10,89 +10,56 @@ module Groups
 
 export aggregate_group_vector
 export count_groups_matrix
-export get_group_vector
+export get_chained_vector
 
 using Daf.Data
+using Daf.DataQueries
 using Daf.Formats
 using Daf.StorageTypes
 using NamedArrays
 
+import Daf.DataQueries.compute_property_lookup
+
 """
-    get_group_vector(
+    get_chained_vector(
         daf::DafReader;
         axis::AbstractString,
-        group::AbstractString,
-        group_axis::Union{AbstractString, Nothing} = nothing,
-        name::AbstractString,
+        names::Vector[S],
         [default::Union{StorageScalar, UndefInitializer} = undef]
-    ) -> StorageVector
+    ) -> StorageVector where {S <: AbstractString}
 
-Given an `axis` of the `daf` data (e.g., cell), and a `group` vector property of this axis (e.g., type), whose value is
-the name of an entry of a group axis, and a `name` of a vector property of this group axis (e.g., color), then return a
-vector assigning a value for each entry of the original axis (e.g., a color for each cell).
+Given an `axis` and a series of `names` properties, expect each property value to be a string, used to lookup its value
+in a property axis of the same name, until the last property that is actually returned. For example, if the `axis` is
+`cell` and the `names` are `["batch", "donor", "sex"]`, then fetch the sex of the donor of the batch of each cell.
 
-By default, the `group_axis` is assumed to have the same name as the `group` property (e.g., there would be a type
-property per cell, and a type axis). It is possible to override this by specifying an explicit `group_axis` if the
-actual name is different.
+The group axis is assumed to have the same name as the named property (e.g., there would be `batch` and `donor` axes).
+It is also possible to have the property name begin with the axis name followed by a `.suffix`, for example, fetching
+`["type.manual", "color"]` will fetch the `color` from the `type` axis, based on the value of the `type.manual` of each
+cell.
 
-The `group` property must have a string element type. An empty string means that the entry belongs to no group (e.g., we
-don't have a type assignment for some cell). In this case, `default` must be specified, and is used for the ungrouped
-entries.
+If, at any place along the chain, the group property value is the empty string, then `default` must be specified, and
+will be used for the final result.
 """
-function get_group_vector(
-    daf::DafReader;
+function get_chained_vector(
+    daf::DafReader,
     axis::AbstractString,
-    group::AbstractString,
-    name::AbstractString,
-    group_axis::Union{AbstractString, Nothing} = nothing,
+    names::Vector{S};
     default::Union{StorageScalar, UndefInitializer} = undef,
-)::NamedArray
-    group_of_entries = get_vector(daf, axis, group)
-    if eltype(group_of_entries) != String
-        error(
-            "non-String data type: $(eltype(group_of_entries))\n" *
-            "for the group: $(group)\n" *
-            "for the axis: $(axis)\n" *
-            "in the daf data: $(daf.name)",
-        )
+)::NamedArray where {S <: AbstractString}
+    if isempty(names)
+        error("empty names for get_chained_vector")
     end
 
-    if group_axis == nothing
-        group_axis = group
-    end
-    value_of_groups = get_vector(daf, group_axis, name)
+    values, missing_mask = compute_property_lookup(daf, axis, names, Set{String}(), nothing, default != undef)
 
-    value_of_entries = Vector{eltype(value_of_groups)}(undef, length(group_of_entries))
-    for (entry_index, group_of_entry) in enumerate(group_of_entries.array)
-        if group_of_entry == ""
-            if default == undef
-                error(
-                    "ungrouped entry: $(names(group_of_entries, 1)[entry_index])\n" *
-                    "with the index: $(entry_index)\n" *
-                    "of the axis: $(axis)\n" *
-                    "has empty group: $(group)\n" *
-                    "in the daf data: $(daf.name)",
-                )
-            end
-            value_of_entries[entry_index] = default
-        else
-            index_of_value_of_group = get(value_of_groups.dicts[1], group_of_entry, nothing)
-            if index_of_value_of_group == nothing
-                error(
-                    "invalid value: $(group_of_entry)\n" *
-                    "of the group: $(group)\n" *
-                    "of the entry: $(names(group_of_entries, 1)[entry_index])\n" *
-                    "with the index: $(entry_index)\n" *
-                    "of the axis: $(axis)\n" *
-                    "is missing from the group axis: $(group_axis)\n" *
-                    "in the daf data: $(daf.name)",
-                )
-            end
-            value_of_entries[entry_index] = value_of_groups.array[index_of_value_of_group]
-        end
+    if default != undef
+        @assert missing_mask != nothing
+        values[missing_mask] .= default
+    else
+        @assert missing_mask == nothing
     end
 
-    return NamedArray(value_of_entries, group_of_entries.dicts, group_of_entries.dimnames)
+    return values
 end
 
 """

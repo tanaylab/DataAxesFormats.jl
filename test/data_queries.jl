@@ -275,11 +275,12 @@ nested_test("data_queries") do
 
                 nested_test("!name") do
                     @test_throws dedent("""
-                      invalid value: I1
-                      of the chained: batch.invalid
-                      of the axis: cell
-                      is missing from the next axis: batch
-                      in the daf data: example!
+                        invalid value: I1
+                        of the chained: batch.invalid
+                        entry index: 1
+                        of the axis: cell
+                        is missing from the next axis: batch
+                        in the daf data: example!
                     """) matrix_query(daf, "cell & batch.invalid : age > 1, gene @ UMIs")
                 end
 
@@ -355,6 +356,7 @@ nested_test("data_queries") do
                     @test_throws dedent("""
                         invalid value: I1
                         of the chained: batch.invalid
+                        entry index: 1
                         of the axis: cell
                         is missing from the next axis: batch
                         in the daf data: example!
@@ -363,10 +365,10 @@ nested_test("data_queries") do
 
                 nested_test("partial") do
                     @test_throws dedent("""
-                        invalid value: 
+                        empty value
                         of the chained: batch.partial
+                        entry index: 3
                         of the axis: cell
-                        is missing from the next axis: batch
                         in the daf data: example!
                     """) vector_query(daf, "cell @ batch.partial : age")
                 end

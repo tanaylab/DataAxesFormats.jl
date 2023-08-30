@@ -159,8 +159,14 @@ function compute_axis_lookup(
 )::NamedArray
     allow_missing_entries =
         axis_lookup.property_comparison != nothing && axis_lookup.property_comparison.comparison_operator == CmpDefault
-    values, missing_mask =
-        compute_property_lookup(daf, axis, axis_lookup.property_lookup, dependency_keys, mask, allow_missing_entries)
+    values, missing_mask = compute_property_lookup(
+        daf,
+        axis,
+        axis_lookup.property_lookup.property_names,
+        dependency_keys,
+        mask,
+        allow_missing_entries,
+    )
 
     if allow_missing_entries
         @assert missing_mask != nothing
@@ -270,12 +276,12 @@ end
 function compute_property_lookup(
     daf::DafReader,
     axis::AbstractString,
-    property_lookup::PropertyLookup,
+    property_names::Vector{S},
     dependency_keys::Set{String},
     mask::Union{Vector{Bool}, Nothing},
     allow_missing_entries::Bool,
-)::Tuple{NamedArray, Union{Vector{Bool}, Nothing}}
-    last_property_name = property_lookup.property_names[1]
+)::Tuple{NamedArray, Union{Vector{Bool}, Nothing}} where {S <: AbstractString}
+    last_property_name = property_names[1]
 
     push!(dependency_keys, axis_dependency_key(axis))
     push!(dependency_keys, vector_dependency_key(axis, last_property_name))
@@ -290,7 +296,7 @@ function compute_property_lookup(
         missing_mask = nothing
     end
 
-    for next_property_name in property_lookup.property_names[2:end]
+    for next_property_name in property_names[2:end]
         if eltype(values) != String
             error(
                 "non-String data type: $(eltype(values))\n" *
@@ -342,6 +348,7 @@ function compute_chained_property(
             daf,
             last_axis,
             last_property_name,
+            property_index,
             property_value,
             next_axis,
             next_axis_entries,
@@ -358,6 +365,7 @@ function find_axis_value(
     daf::DafReader,
     last_axis::AbstractString,
     last_property_name::AbstractString,
+    last_property_index::Int,
     last_property_value::AbstractString,
     next_axis::AbstractString,
     next_axis_entries::NamedVector{String},
@@ -365,24 +373,33 @@ function find_axis_value(
     property_index::Int,
     missing_mask::Union{Vector{Bool}, Nothing},
 )::Any
-    if missing_mask != nothing && missing_mask[property_index]
-        return zero_of(next_axis_values)  # untested
-    end
-    index = get(next_axis_entries.dicts[1], last_property_value, nothing)
-    if index != nothing
-        return next_axis_values[index]
-    elseif missing_mask != nothing
+    if last_property_value == ""
+        if missing_mask == nothing
+            error(
+                "empty value\n" *
+                "of the chained: $(last_property_name)\n" *
+                "entry index: $(last_property_index)\n" *
+                "of the axis: $(last_axis)\n" *
+                "in the daf data: $(daf.name)",
+            )
+        end
         missing_mask[property_index] = true
         return zero_of(next_axis_values)
-    else
+    end
+
+    index = get(next_axis_entries.dicts[1], last_property_value, nothing)
+    if index == nothing
         error(
             "invalid value: $(last_property_value)\n" *
             "of the chained: $(last_property_name)\n" *
+            "entry index: $(last_property_index)\n" *
             "of the axis: $(last_axis)\n" *
             "is missing from the next axis: $(next_axis)\n" *
             "in the daf data: $(daf.name)",
         )
     end
+
+    return next_axis_values[index]
 end
 
 function zero_of(values::AbstractVector{T})::T where {T <: StorageScalar}
