@@ -60,7 +60,7 @@ function matrix_query(
     cache_key = canonical(matrix_query)
     return get!(daf.internal.cache, cache_key) do
         matrix_dependency_keys = Set{String}()
-        result = compute_matrix_lookup(daf, matrix_query.matrix_property_lookup, matrix_dependency_keys)
+        result = compute_matrix_data_lookup(daf, matrix_query.matrix_data_lookup, matrix_dependency_keys)
         result = compute_eltwise_result(matrix_query.eltwise_operations, result)
 
         for dependency_key in matrix_dependency_keys
@@ -75,7 +75,7 @@ function matrix_query(
     end
 end
 
-function compute_matrix_lookup(
+function compute_matrix_data_lookup(
     daf::DafReader,
     matrix_property_lookup::MatrixPropertyLookup,
     dependency_keys::Set{String},
@@ -103,6 +103,127 @@ function compute_matrix_lookup(
         return result[:, columns_mask]
     else
         return result
+    end
+end
+
+function compute_matrix_data_lookup(
+    daf::DafReader,
+    matrix_counts::MatrixCounts,
+    dependency_keys::Set{String},
+)::Union{NamedArray, Nothing}
+    mask = compute_filtered_axis_mask(daf, matrix_counts.filtered_axis, dependency_keys)
+
+    rows_axis, row_value_of_entries, all_row_values = collect_counts_axis(
+        daf,
+        matrix_counts.filtered_axis.axis_name,
+        matrix_counts.counted_axes.rows_counted_axis.property_lookup.property_names,
+        dependency_keys,
+        mask,
+        matrix_counts.counted_axes.rows_counted_axis.default_value,
+    )
+
+    columns_axis, column_value_of_entries, all_column_values = collect_counts_axis(
+        daf,
+        matrix_counts.filtered_axis.axis_name,
+        matrix_counts.counted_axes.columns_counted_axis.property_lookup.property_names,
+        dependency_keys,
+        mask,
+        matrix_counts.counted_axes.columns_counted_axis.default_value,
+    )
+
+    return compute_counts_matrix(
+        rows_axis,
+        row_value_of_entries,
+        all_row_values,
+        columns_axis,
+        column_value_of_entries,
+        all_column_values,
+        UInt32,
+    )
+end
+
+function compute_counts_matrix(
+    rows_axis::AbstractString,
+    row_value_of_entries::StorageVector,
+    all_row_values::AbstractVector{String},
+    columns_axis::AbstractString,
+    column_value_of_entries::StorageVector,
+    all_column_values::AbstractVector{String},
+    type::Type,
+)::NamedArray
+    counts_matrix = NamedArray(
+        zeros(type, length(all_row_values), length(all_column_values));
+        names = (all_row_values, all_column_values),
+        dimnames = (rows_axis, columns_axis),
+    )
+
+    for (row_value, column_value) in zip(row_value_of_entries, column_value_of_entries)
+        row_value = string(row_value)
+        column_value = string(column_value)
+        if row_value != "" && column_value != ""
+            counts_matrix[row_value, column_value] += 1  # NOJET
+        end
+    end
+
+    return counts_matrix
+end
+
+function collect_counts_axis(
+    daf::DafReader,
+    axis::AbstractString,
+    property_names::Vector{S},
+    dependency_keys::Set{String},
+    mask::Union{Vector{Bool}, Nothing},
+    default::Union{StorageScalar, Nothing, UndefInitializer},
+)::Tuple{AbstractString, StorageVector, AbstractVector{String}} where {S <: AbstractString}
+    if default == nothing
+        default = undef
+    end
+
+    value_of_entries, missing_mask =
+        compute_property_lookup(daf, axis, property_names, dependency_keys, mask, default != undef)
+
+    if default != undef
+        default = default_for(property_names[end], eltype(value_of_entries), default)  # NOJET
+        @assert missing_mask != nothing
+        value_of_entries[missing_mask] .= default
+    else
+        @assert missing_mask == nothing
+    end
+
+    axis_name = axis_of_property(daf, property_names[end])
+    if has_axis(daf, axis_name)
+        all_values = get_axis(daf, axis_name)
+    else
+        axis_name = property_names[end]
+        all_values = unique!(sort!(copy(value_of_entries.array)))
+        if eltype(all_values) != String
+            all_values = [string(value) for value in all_values]
+        elseif !isempty(all_values) && all_values[1] == ""
+            all_values = all_values[2:end]
+        end
+    end
+
+    return (axis_name, value_of_entries, all_values)
+end
+
+function default_for(
+    axis_name::AbstractString,
+    value_type::Type,
+    default_value::StorageScalar,
+)::Union{StorageScalar, UndefInitializer}
+    if typeof(default_value) == value_type
+        return default_value  # untested
+    else
+        try
+            return parse(value_type, default_value)
+        catch
+            error(
+                "invalid default value: $(default_value)\n" *
+                "for the type: $(value_type)\n" *
+                "of the counted axis: $(axis_name)",
+            )
+        end
     end
 end
 

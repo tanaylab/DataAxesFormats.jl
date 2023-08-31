@@ -27,6 +27,7 @@ export ComparisonOperator
 export FilteredAxis
 export FilterOperator
 export MatrixAxes
+export MatrixCounts
 export MatrixEntryAxes
 export MatrixEntryLookup
 export MatrixPropertyLookup
@@ -683,27 +684,131 @@ struct MatrixPropertyLookup
     property_name::String
 end
 
-function MatrixPropertyLookup(context::QueryContext, query_tree::QueryExpression)::MatrixPropertyLookup
-    return parse_operation_in_context(
-        context,
-        query_tree;
-        expression_name = "matrix property lookup",
-        operator_name = "lookup operator",
-        operators = [OpLookup],
-    ) do matrix_axes, lookup_operator, property_name
-        return MatrixPropertyLookup(  # NOJET
-            MatrixAxes(context, matrix_axes),
-            parse_string_in_context(context, property_name; name = "property name"),
-        )
-    end
-end
-
 function canonical(matrix_property_lookup::MatrixPropertyLookup)::String
     return canonical(matrix_property_lookup.matrix_axes) * " @ " * escape_query(matrix_property_lookup.property_name)
 end
 
+function vector_query_axis(matrix_property_lookup::MatrixPropertyLookup)::String  # untested
+    return matrix_property_lookup.matrix_axes.columns_axis.axis_name  # untested
+end
+
 """
-`MatrixQuery` = [`MatrixPropertyLookup`](@ref) ( `%` [`EltwiseOperation`](@ref parse_eltwise_operation) )*
+`CountedAxis` = [`PropertyLookup`](@ref) ( `?` [`QueryToken`](@ref)(*axis default*) )?
+
+An axis of a matrix of counts, with an optional default for missing values.
+"""
+struct CountedAxis
+    property_lookup::PropertyLookup
+    default_value::Union{String, Nothing}
+end
+
+function CountedAxis(context::QueryContext, query_tree::QueryExpression)::CountedAxis
+    if check_operation(query_tree, [OpDefault]) == nothing  # NOJET
+        return CountedAxis(PropertyLookup(context, query_tree), nothing)
+    else
+        return parse_operation_in_context(
+            context,
+            query_tree;
+            expression_name = "counted axis",
+            operator_name = "default specifier",
+            operators = [OpDefault],
+        ) do property_lookup, default_specifier, default_value
+            return CountedAxis(  # NOJET
+                PropertyLookup(context, property_lookup),
+                parse_string_in_context(context, default_value; name = "default value"),
+            )
+        end
+    end
+end
+
+function canonical(counted_axis::CountedAxis)::String
+    default_value = counted_axis.default_value
+    if default_value == nothing
+        return canonical(counted_axis.property_lookup)
+    else
+        return canonical(counted_axis.property_lookup) * " ? " * escape_query(default_value)
+    end
+end
+
+"""
+`CountedAxes` = [`PropertyLookup`](@ref) `,` [`PropertyLookup`](@ref)
+
+The two axes of a matrix of counts.
+"""
+struct CountedAxes
+    rows_counted_axis::CountedAxis
+    columns_counted_axis::CountedAxis
+end
+
+function CountedAxes(context::QueryContext, query_tree::QueryExpression)::CountedAxes
+    return parse_operation_in_context(
+        context,
+        query_tree;
+        expression_name = "counted axes",
+        operator_name = "axes separator",
+        operators = [OpAxesSeparator],
+    ) do rows_property_lookup, axes_separator, columns_property_lookup
+        return CountedAxes(  # NOJET
+            CountedAxis(context, rows_property_lookup),
+            CountedAxis(context, columns_property_lookup),
+        )
+    end
+end
+
+function canonical(counted_axes::CountedAxes)::String
+    return canonical(counted_axes.rows_counted_axis) * ", " * canonical(counted_axes.columns_counted_axis)
+end
+
+"""
+`MatrixCounts` = [`FilteredAxis`](@ref) `@` [`CountedAxes`](@ref)
+
+Generate a matrix of counts of entries of a base axis which have each combination of two properties.
+"""
+struct MatrixCounts
+    filtered_axis::FilteredAxis
+    counted_axes::CountedAxes
+end
+
+function canonical(matrix_context::MatrixCounts)::String
+    return canonical(matrix_context.filtered_axis) * " @ " * canonical(matrix_context.counted_axes)
+end
+
+function vector_query_axis(matrix_counts::MatrixCounts)::String  # untested
+    return matrix_counts.counted_axes.columns_counted_axis.property_lookup.property_names[end]  # untested
+end
+
+"""
+`MatrixDataLookup` = [`MatrixPropertyLookup`](@ref) | [`MatrixCounts`](@ref)
+
+Lookup matrix data. This can be looking up a matrix property, or computing counts of the combinations of two properties
+of the same axis.
+"""
+const MatrixDataLookup = Union{MatrixPropertyLookup, MatrixCounts}
+
+function parse_matrix_data_lookup(context::QueryContext, query_tree::QueryExpression)::MatrixDataLookup
+    return parse_operation_in_context(
+        context,
+        query_tree;
+        expression_name = "matrix data lookup",
+        operator_name = "lookup operator",
+        operators = [OpLookup],
+    ) do left, lookup_operator, right
+        if check_operation(left, [OpAxesSeparator]) != nothing  # NOJET
+            return MatrixPropertyLookup(  # NOJET
+                MatrixAxes(context, left),
+                parse_string_in_context(context, right; name = "property name"),
+            )
+        else
+            return MatrixCounts(  # NOJET
+                FilteredAxis(context, left),
+                CountedAxes(context, right),
+            )
+        end
+    end
+end
+
+"""
+`MatrixQuery` = [`MatrixDataLookup`](@ref) ( `%` [`EltwiseOperation`](@ref parse_eltwise_operation) )*
 
 A query that returns matrix data.
 
@@ -711,7 +816,7 @@ There's only one variant of this: looking up a matrix property and optionally pa
 element-wise operations.
 """
 struct MatrixQuery
-    matrix_property_lookup::MatrixPropertyLookup
+    matrix_data_lookup::MatrixDataLookup
     eltwise_operations::Vector{EltwiseOperation}
 end
 
@@ -726,8 +831,8 @@ function MatrixQuery(context::QueryContext, query_tree::QueryExpression)::Matrix
         parse_element = parse_eltwise_operation,
         element_type = EltwiseOperation,
         operators = [OpEltwise],
-    ) do matrix_property_lookup, eltwise_operations
-        return MatrixQuery(MatrixPropertyLookup(context, matrix_property_lookup), eltwise_operations)  # NOJET
+    ) do matrix_data_lookup, eltwise_operations
+        return MatrixQuery(parse_matrix_data_lookup(context, matrix_data_lookup), eltwise_operations)  # NOJET
     end
 end
 
@@ -747,7 +852,7 @@ function parse_matrix_query(query_string::AbstractString)::MatrixQuery
 end
 
 function canonical(matrix_query::MatrixQuery)::String
-    result = canonical(matrix_query.matrix_property_lookup)
+    result = canonical(matrix_query.matrix_data_lookup)
     for eltwise_operation in matrix_query.eltwise_operations
         result *= " % " * canonical(eltwise_operation)
     end
@@ -885,7 +990,7 @@ struct ReduceMatrixQuery
 end
 
 function vector_query_axis(reduce_matrix_query::ReduceMatrixQuery)::String  # untested
-    return reduce_matrix_query.matrix_query.matrix_property_lookup.matrix_axes.columns_axis.axis_name  # untested
+    return vector_query_axis(reduce_matrix_query.matrix_query.matrix_data_lookup)  # untested
 end
 
 function canonical(reduce_matrix_query::ReduceMatrixQuery)::String

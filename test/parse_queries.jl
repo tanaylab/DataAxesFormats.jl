@@ -68,7 +68,7 @@ nested_test("parse_queries") do
                     in:     ··· < ·        (filter mask)
                     in: · & ·······        (filtered axis)
                     in: ···········, ·     (matrix axes)
-                    in: ·············· @ · (matrix property lookup)
+                    in: ·············· @ · (matrix data lookup)
                 """) canonical(parse_matrix_query("a & ~ b < 1, c @ d"))
             end
         end
@@ -175,6 +175,17 @@ nested_test("parse_queries") do
                         """) canonical(parse_matrix_query("a, b @ c % Abs % Log; eps = -1"))
                     end
                 end
+            end
+        end
+
+        nested_test("counts") do
+            nested_test("simple") do
+                @test canonical(parse_matrix_query("a @ b , c")) == "a @ b, c"
+            end
+
+            nested_test("complex") do
+                @test canonical(parse_matrix_query("a & b @ c ? d , e : f % Log; base = 2, eps = 1")) ==
+                      "a & b @ c ? d, e : f % Log; base = 2.0, eps = 1.0"
             end
         end
     end

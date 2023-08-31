@@ -339,6 +339,45 @@ nested_test("data_queries") do
                     @test matrix_query(daf, "cell & batch ~ \\\\\\[, gene @ UMIs") == nothing
                 end
             end
+
+            nested_test("counts") do
+                nested_test("chained") do
+                    @test matrix_query(daf, "cell @ type, batch : age") == [2 3 1; 6 1 0; 4 2 1]
+                    @test names(matrix_query(daf, "cell @ type, batch : age"), 1) == ["T1", "T2", "T3"]
+                    @test names(matrix_query(daf, "cell @ type, batch : age"), 2) == ["2", "3", "4"]
+                end
+
+                nested_test("filtered") do
+                    @test names(matrix_query(daf, "cell & batch : sex = Male @ type, batch : age"), 1) ==
+                          ["T1", "T2", "T3"]
+                    @test names(matrix_query(daf, "cell & batch : sex = Male @ type, batch : age"), 2) == ["3"]
+                    @test matrix_query(daf, "cell & batch : sex = Male @ type, batch : age") == [3; 1; 2;;]
+                end
+
+                nested_test("default") do
+                    nested_test("()") do
+                        @test_throws dedent("""
+                            empty value
+                            of the chained: batch.partial
+                            entry index: 3
+                            of the axis: cell
+                            in the daf data: example!
+                        """) matrix_query(daf, "cell @ type, batch.partial : age") == []
+                    end
+
+                    nested_test("!type") do
+                        @test_throws dedent("""
+                            invalid default value: none
+                            for the type: Int8
+                            of the counted axis: age
+                        """) matrix_query(daf, "cell @ type, batch.partial : age ? none") == []
+                    end
+
+                    nested_test("value") do
+                        @test matrix_query(daf, "cell @ type, batch.partial : age ? -1") == [1 1 4; 1 3 3; 0 4 3]
+                    end
+                end
+            end
         end
 
         nested_test("vector") do

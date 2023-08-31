@@ -19,6 +19,8 @@ using Daf.StorageTypes
 using NamedArrays
 
 import Daf.DataQueries.axis_of_property
+import Daf.DataQueries.collect_counts_axis
+import Daf.DataQueries.compute_counts_matrix
 import Daf.DataQueries.compute_property_lookup
 
 """
@@ -174,49 +176,20 @@ function count_groups_matrix(
     rows_default::Union{StorageScalar, UndefInitializer} = undef,
     columns_default::Union{StorageScalar, UndefInitializer} = undef,
 )::NamedMatrix where {R <: AbstractString, C <: AbstractString}
-    rows_axis, row_value_of_entries, all_row_values = collect_count_axis(daf, axis, rows_names, rows_default)
+    rows_axis, row_value_of_entries, all_row_values =
+        collect_counts_axis(daf, axis, rows_names, Set{String}(), nothing, rows_default)
     columns_axis, column_value_of_entries, all_column_values =
-        collect_count_axis(daf, axis, columns_names, columns_default)
+        collect_counts_axis(daf, axis, columns_names, Set{String}(), nothing, columns_default)
 
-    counts_matrix = NamedArray(
-        zeros(type, length(all_row_values), length(all_column_values));
-        names = (all_row_values, all_column_values),
-        dimnames = (rows_axis, columns_axis),
+    return compute_counts_matrix(
+        rows_axis,
+        row_value_of_entries,
+        all_row_values,
+        columns_axis,
+        column_value_of_entries,
+        all_column_values,
+        UInt32,
     )
-
-    for (row_value, column_value) in zip(row_value_of_entries, column_value_of_entries)
-        row_value = string(row_value)
-        column_value = string(column_value)
-        if row_value != "" && column_value != ""
-            counts_matrix[row_value, column_value] += 1  # NOJET
-        end
-    end
-
-    return counts_matrix
-end
-
-function collect_count_axis(
-    daf::DafReader,
-    axis::AbstractString,
-    names::Vector{S},
-    default::Union{StorageScalar, UndefInitializer},
-)::Tuple{AbstractString, StorageVector, AbstractVector{String}} where {S <: AbstractString}
-    value_of_entries = get_chained_vector(daf, axis, names; default = default)
-
-    axis_name = axis_of_property(daf, names[end])
-    if has_axis(daf, axis_name)
-        all_values = get_axis(daf, axis_name)
-    else
-        axis_name = names[end]
-        all_values = unique!(sort!(copy(value_of_entries.array)))
-        if eltype(all_values) != String
-            all_values = [string(value) for value in all_values]
-        elseif !isempty(all_values) && all_values[1] == ""
-            all_values = all_values[2:end]
-        end
-    end
-
-    return (axis_name, value_of_entries, all_values)
 end
 
 end # module

@@ -20,8 +20,12 @@ Daf.ParseQueries.QueryContext
 ```@docs
 Daf.ParseQueries.parse_matrix_query
 Daf.ParseQueries.MatrixQuery
+Daf.ParseQueries.MatrixDataLookup
 Daf.ParseQueries.MatrixPropertyLookup
 Daf.ParseQueries.MatrixAxes
+Daf.ParseQueries.MatrixCounts
+Daf.ParseQueries.CountedAxes
+Daf.ParseQueries.CountedAxis
 ```
 
 ## Vector queries
