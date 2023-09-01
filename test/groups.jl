@@ -74,19 +74,16 @@ nested_test("groups") do
     nested_test("aggregate_group_vector") do
         @test set_vector!(daf, "cell", "age", [1, 2, 3, 4]) == nothing
 
-        nested_test("complete") do
+        nested_test("axis") do
             @test set_vector!(daf, "cell", "type", ["X", "Y", "X", "Y"]) == nothing
-            @test aggregate_group_vector(mean, daf; axis = "cell", name = "age", group = "type") == [2.0, 3.0]
-            @test names(aggregate_group_vector(mean, daf; axis = "cell", name = "age", group = "type"), 1) == ["X", "Y"]
+            @test aggregate_group_vector(mean, daf, "cell", ["age"], ["type"]) == [2.0, 3.0]
+            @test names(aggregate_group_vector(mean, daf, "cell", ["age"], ["type"]), 1) == ["X", "Y"]
         end
 
-        nested_test("!string") do
-            @test_throws dedent("""
-                non-String data type: Int64
-                for the group: age
-                for the axis: cell
-                in the daf data: memory!
-            """) aggregate_group_vector(mean, daf, axis = "cell", name = "age", group = "age")
+        nested_test("!axis") do
+            @test set_vector!(daf, "cell", "type", ["X", "Y", "X", "Y"]) == nothing
+            @test aggregate_group_vector(mean, daf, "cell", ["age"], ["age"]) == [1.0, 2.0, 3.0, 4.0]
+            @test names(aggregate_group_vector(mean, daf, "cell", ["age"], ["age"]), 1) == ["1", "2", "3", "4"]
         end
 
         nested_test("partial") do
@@ -99,10 +96,10 @@ nested_test("groups") do
                     in the group: type
                     for the axis: cell
                     in the daf data: memory!
-                """) aggregate_group_vector(mean, daf; axis = "cell", name = "age", group = "type")
+                """) aggregate_group_vector(mean, daf, "cell", ["age"], ["type"])
             end
 
-            nested_test("default") do
+            nested_test("empty") do
                 nested_test("undef") do
                     @test_throws dedent("""
                         empty group: Y
@@ -110,18 +107,11 @@ nested_test("groups") do
                         in the group: type
                         for the axis: cell
                         in the daf data: memory!
-                    """) aggregate_group_vector(mean, daf; axis = "cell", name = "age", group = "type")
+                    """) aggregate_group_vector(mean, daf, "cell", ["age"], ["type"])
                 end
 
                 nested_test("value") do
-                    @test aggregate_group_vector(
-                        mean,
-                        daf;
-                        axis = "cell",
-                        name = "age",
-                        group = "type",
-                        default = 0.0,
-                    ) == [2.0, 0.0]
+                    @test aggregate_group_vector(mean, daf, "cell", ["age"], ["type"]; empty = 0.0) == [2.0, 0.0]
                 end
             end
         end

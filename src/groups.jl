@@ -25,9 +25,9 @@ import Daf.DataQueries.compute_property_lookup
 
 """
     get_chained_vector(
-        daf::DafReader;
+        daf::DafReader,
         axis::AbstractString,
-        names::Vector[S],
+        names::Vector[S];
         [default::Union{StorageScalar, UndefInitializer} = undef]
     ) -> StorageVector where {S <: AbstractString}
 
@@ -70,11 +70,11 @@ end
         aggregate::Function,
         daf::DafReader;
         axis::AbstractString,
-        name::AbstractString,
-        group::AbstractString,
-        group_axis::Union{AbstractString, Nothing} = nothing,
-        default::Union{StorageScalar, UndefInitializer} = undef,
-    )::NamedArray
+        names::Vector{N},
+        groups::Vector{G};
+        [default::Union{StorageScalar, UndefInitializer} = undef,
+        empty::Union{StorageScalar, UndefInitializer} = undef]
+    )::NamedArray where {S <: AbstractString, G <: AbstractString}
 
 Given an `axis` of the `daf` data (e.g., cell), a `name` vector property of this axis (e.g., age) and a `group` vector
 property of this axis (e.g., type), whose value is the name of an entry of a group axis, then return a vector assigning a
@@ -92,50 +92,67 @@ empty groups.
 """
 function aggregate_group_vector(
     aggregate::Function,
-    daf::DafReader;
-    group::AbstractString,
+    daf::DafReader,
     axis::AbstractString,
-    name::AbstractString,
-    group_axis::Union{AbstractString, Nothing} = nothing,
+    names::Vector{N},
+    groups::Vector{G};
     default::Union{StorageScalar, UndefInitializer} = undef,
-)::NamedArray
-    value_of_entries = get_vector(daf, axis, name)
-    group_of_entries = get_vector(daf, axis, group)
-    if eltype(group_of_entries) != String
+    empty::Union{StorageScalar, UndefInitializer} = undef,
+)::NamedArray where {N <: AbstractString, G <: AbstractString}
+    value_of_entries = get_chained_vector(daf, axis, names)
+
+    group_axis, group_of_entries, all_group_values =
+        collect_counts_axis(daf, axis, groups, Set{String}(), nothing, default)
+
+    if has_axis(daf, group_axis)
+        named_groups = get_vector(daf, group_axis, "name")
+    else
+        named_groups = NamedArray(all_group_values; names = (all_group_values,), dimnames = (group_axis,))
+    end
+
+    value_of_groups = [
+        aggregate_group_value(
+            aggregate,
+            daf,
+            axis,
+            value_of_entries.array,
+            group_axis,
+            group_of_entries,
+            group_index,
+            group_name,
+            empty,
+        ) for (group_index, group_name) in enumerate(all_group_values)
+    ]
+
+    return NamedArray(value_of_groups, named_groups.dicts, named_groups.dimnames)
+end
+
+function aggregate_group_value(
+    aggregate::Function,
+    daf::DafReader,
+    axis::AbstractString,
+    value_of_entries::StorageVector,
+    group_axis::AbstractString,
+    group_of_entries::AbstractVector{String},
+    group_index::Int,
+    group_name::AbstractString,
+    empty::Union{StorageScalar, UndefInitializer} = undef,
+)::StorageScalar
+    mask_of_entries_of_groups = group_of_entries .== group_name
+    value_of_entries_of_groups = value_of_entries[mask_of_entries_of_groups]
+    if !isempty(value_of_entries_of_groups)
+        return aggregate(value_of_entries_of_groups)
+    elseif empty == undef
         error(
-            "non-String data type: $(eltype(group_of_entries))\n" *
-            "for the group: $(group)\n" *
+            "empty group: $(group_name)\n" *
+            "with the index: $(group_index)\n" *
+            "in the group: $(group_axis)\n" *
             "for the axis: $(axis)\n" *
             "in the daf data: $(daf.name)",
         )
+    else
+        return empty
     end
-
-    if group_axis == nothing
-        group_axis = group
-    end
-    name_of_groups = get_vector(daf, group_axis, "name")
-
-    value_of_groups = Vector{eltype(value_of_entries)}(undef, length(name_of_groups))
-    for (group_index, group_name) in enumerate(name_of_groups.array)
-        mask_of_entries_of_groups = group_of_entries .== group_name
-        value_of_entries_of_groups = value_of_entries[mask_of_entries_of_groups]
-        if isempty(value_of_entries_of_groups)
-            if default == undef
-                error(
-                    "empty group: $(group_name)\n" *
-                    "with the index: $(group_index)\n" *
-                    "in the group: $(group)\n" *
-                    "for the axis: $(axis)\n" *
-                    "in the daf data: $(daf.name)",
-                )
-            end
-            value_of_groups[group_index] = default
-        else
-            value_of_groups[group_index] = aggregate(value_of_entries_of_groups)
-        end
-    end
-
-    return NamedArray(value_of_groups, name_of_groups.dicts, name_of_groups.dimnames)
 end
 
 """

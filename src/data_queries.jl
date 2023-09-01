@@ -112,6 +112,9 @@ function compute_matrix_data_lookup(
     dependency_keys::Set{String},
 )::Union{NamedArray, Nothing}
     mask = compute_filtered_axis_mask(daf, matrix_counts.filtered_axis, dependency_keys)
+    if mask != nothing && isempty(mask)
+        return nothing  # untested
+    end
 
     rows_axis, row_value_of_entries, all_row_values = collect_counts_axis(
         daf,
@@ -144,10 +147,10 @@ end
 
 function compute_counts_matrix(
     rows_axis::AbstractString,
-    row_value_of_entries::StorageVector,
+    row_value_of_entries::AbstractVector{String},
     all_row_values::AbstractVector{String},
     columns_axis::AbstractString,
-    column_value_of_entries::StorageVector,
+    column_value_of_entries::AbstractVector{String},
     all_column_values::AbstractVector{String},
     type::Type,
 )::NamedArray
@@ -175,7 +178,7 @@ function collect_counts_axis(
     dependency_keys::Set{String},
     mask::Union{Vector{Bool}, Nothing},
     default::Union{StorageScalar, Nothing, UndefInitializer},
-)::Tuple{AbstractString, StorageVector, AbstractVector{String}} where {S <: AbstractString}
+)::Tuple{AbstractString, AbstractVector{String}, AbstractVector{String}} where {S <: AbstractString}
     if default == nothing
         default = undef
     end
@@ -202,6 +205,10 @@ function collect_counts_axis(
         elseif !isempty(all_values) && all_values[1] == ""
             all_values = all_values[2:end]
         end
+    end
+
+    if eltype(value_of_entries) != String
+        value_of_entries = [string(value) for value in value_of_entries]
     end
 
     return (axis_name, value_of_entries, all_values)

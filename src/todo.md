@@ -4,7 +4,8 @@ The following issues are not addressed (yet):
 
 ## Basic functionality
 
-  - Aggregation in queries.
+  - Composable queries.
+  - Use @enumx
 
 ## Disk storage formats
 
