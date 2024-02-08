@@ -7,6 +7,9 @@ Daf.StorageTypes
 # Storable types
 
 ```@docs
+Daf.StorageTypes.StorageInteger
+Daf.StorageTypes.StorageFloat
+Daf.StorageTypes.StorageNumber
 Daf.StorageTypes.StorageScalar
 Daf.StorageTypes.StorageVector
 Daf.StorageTypes.StorageMatrix

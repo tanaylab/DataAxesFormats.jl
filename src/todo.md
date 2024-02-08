@@ -4,8 +4,9 @@ The following issues are not addressed (yet):
 
 ## Basic functionality
 
-  - Composable queries.
-  - Use @enumx
+  - GroupBy.
+  - Defaults for missing chained lookups.
+  - Use @enumx ?
 
 ## Disk storage formats
 

@@ -14,6 +14,7 @@ export verify_output
 
 using Daf.Data
 using Daf.Formats
+using Daf.Unions
 using DocStringExtensions
 using ExprTools
 
@@ -85,10 +86,10 @@ struct Contract{T1, T2, T3}
 end
 
 function Contract(;
-    scalars::Union{Vector{Pair{String, Tuple{Expectation, T1, String}}}, Nothing} = nothing,
-    axes::Union{Vector{Pair{String, Tuple{Expectation, String}}}, Nothing} = nothing,
-    vectors::Union{Vector{Pair{Tuple{String, String}, Tuple{Expectation, T2, String}}}, Nothing} = nothing,
-    matrices::Union{Vector{Pair{Tuple{String, String, String}, Tuple{Expectation, T3, String}}}, Nothing} = nothing,
+    scalars::Maybe{Vector{Pair{String, Tuple{Expectation, T1, String}}}} = nothing,
+    axes::Maybe{Vector{Pair{String, Tuple{Expectation, String}}}} = nothing,
+    vectors::Maybe{Vector{Pair{Tuple{String, String}, Tuple{Expectation, T2, String}}}} = nothing,
+    matrices::Maybe{Vector{Pair{Tuple{String, String, String}, Tuple{Expectation, T3, String}}}} = nothing,
 )::Contract where {T1 <: Type, T2 <: Type, T3 <: Type}
     if scalars == nothing
         scalars = Vector{Pair{String, Tuple{Expectation, Type, String}}}()
@@ -106,26 +107,26 @@ function Contract(;
 end
 
 """
-    function verify_input(daf::DafReader, contract::Contract, computation::String)::Nothing
+    function verify_input(daf::DafReader, contract::Contract, computation::AbstractString)::Nothing
 
 Verify the `daf` data when a computation is invoked. This verifies that all the required data exists and is of the
 appropriate type, and that if any of the optional data exists, it has the appropriate type.
 """
-function verify_input(contract::Contract, computation::String, daf::DafReader)::Nothing
+function verify_input(contract::Contract, computation::AbstractString, daf::DafReader)::Nothing
     return verify_contract(contract, computation, daf; is_output = false)
 end
 
 """
-    function verify_output(daf::DafReader, contract::Contract, computation::String)::Nothing
+    function verify_output(daf::DafReader, contract::Contract, computation::AbstractString)::Nothing
 
 Verify the `daf` data when a computation is complete. This verifies that all the guaranteed data exists and is of the
 appropriate type, and that if any of the contingent data exists, it has the appropriate type.
 """
-function verify_output(contract::Contract, computation::String, daf::DafReader)::Nothing
+function verify_output(contract::Contract, computation::AbstractString, daf::DafReader)::Nothing
     return verify_contract(contract, computation, daf; is_output = true)
 end
 
-function verify_contract(contract::Contract, computation::String, daf::DafReader; is_output::Bool)::Nothing
+function verify_contract(contract::Contract, computation::AbstractString, daf::DafReader; is_output::Bool)::Nothing
     for (scalar_name, scalar_term) in contract.scalars
         verify_scalar_contract(computation, daf, scalar_name, scalar_term...; is_output = is_output)
     end
@@ -142,12 +143,12 @@ function verify_contract(contract::Contract, computation::String, daf::DafReader
 end
 
 function verify_scalar_contract(
-    computation::String,
+    computation::AbstractString,
     daf::DafReader,
-    name::String,
+    name::AbstractString,
     expectation::Expectation,
     data_type::T,
-    description::String;
+    description::AbstractString;
     is_output::Bool,
 )::Nothing where {T <: Type}
     value = get_scalar(daf, name; default = nothing)
@@ -171,11 +172,11 @@ function verify_scalar_contract(
 end
 
 function verify_axis_contract(
-    computation::String,
+    computation::AbstractString,
     daf::DafReader,
-    name::String,
+    name::AbstractString,
     expectation::Expectation,
-    description::String;
+    description::AbstractString;
     is_output::Bool,
 )::Bool
     axis_exists = has_axis(daf, name)
@@ -190,13 +191,13 @@ function verify_axis_contract(
 end
 
 function verify_vector_contract(
-    computation::String,
+    computation::AbstractString,
     daf::DafReader,
-    axis::String,
-    name::String,
+    axis::AbstractString,
+    name::AbstractString,
     expectation::Expectation,
     data_type::T,
-    description::String;
+    description::AbstractString;
     is_output::Bool,
 )::Nothing where {T <: Type}
     value = nothing
@@ -225,14 +226,14 @@ function verify_vector_contract(
 end
 
 function verify_matrix_contract(
-    computation::String,
+    computation::AbstractString,
     daf::DafReader,
-    rows_axis::String,
-    columns_axis::String,
-    name::String,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
     expectation::Expectation,
     data_type::T,
-    description::String;
+    description::AbstractString;
     is_output::Bool,
 )::Nothing where {T <: Type}
     has_rows_axis = verify_axis_contract(computation, daf, rows_axis, expectation, ""; is_output = is_output)

@@ -71,7 +71,7 @@ function present(value::Missing)::String
     return "missing"
 end
 
-function present(value::String)::String
+function present(value::AbstractString)::String
     return "\"$(value)\""
 end
 
@@ -83,28 +83,28 @@ function present(value::AbstractVector)::String
     return present_vector(value, "")
 end
 
-function present_vector(vector::SparseArrays.ReadOnly, prefix::String)::String
+function present_vector(vector::SparseArrays.ReadOnly, prefix::AbstractString)::String
     return present_vector(parent(vector), concat_prefixes(prefix, "ReadOnly"))
 end
 
-function present_vector(vector::NamedArray, prefix::String)::String
+function present_vector(vector::NamedArray, prefix::AbstractString)::String
     return present_vector(vector.array, concat_prefixes(prefix, "Named"))
 end
 
-function present_vector(vector::DenseVector, prefix::String)::String
+function present_vector(vector::DenseVector, prefix::AbstractString)::String
     return present_vector_size(vector, concat_prefixes(prefix, "Dense"))
 end
 
-function present_vector(vector::SparseVector, prefix::String)::String
+function present_vector(vector::SparseVector, prefix::AbstractString)::String
     nnz = present_percent(length(vector.nzval), length(vector))
     return present_vector_size(vector, concat_prefixes(prefix, "Sparse $(nnz)"))
 end
 
-function present_vector(vector::AbstractVector, prefix::String)::String  # untested
+function present_vector(vector::AbstractVector, prefix::AbstractString)::String  # untested
     return present_vector_size(vector, "")
 end
 
-function present_vector_size(vector::AbstractVector, kind::String)::String
+function present_vector_size(vector::AbstractVector, kind::AbstractString)::String
     if kind == ""
         kind = "$(typeof(vector))"  # untested
     end
@@ -115,32 +115,32 @@ function present(matrix::AbstractMatrix)::String
     return present_matrix(matrix, ""; transposed = false)
 end
 
-function present_matrix(matrix::SparseArrays.ReadOnly, prefix::String; transposed::Bool = false)::String
+function present_matrix(matrix::SparseArrays.ReadOnly, prefix::AbstractString; transposed::Bool = false)::String
     return present_matrix(parent(matrix), concat_prefixes(prefix, "ReadOnly"); transposed = transposed)
 end
 
-function present_matrix(matrix::NamedMatrix, prefix::String; transposed::Bool = false)::String
+function present_matrix(matrix::NamedMatrix, prefix::AbstractString; transposed::Bool = false)::String
     return present_matrix(matrix.array, concat_prefixes(prefix, "Named"); transposed = transposed)
 end
 
-function present_matrix(matrix::Transpose, prefix::String; transposed::Bool = false)::String
+function present_matrix(matrix::Transpose, prefix::AbstractString; transposed::Bool = false)::String
     return present_matrix(transpose(matrix), prefix; transposed = !transposed)
 end
 
-function present_matrix(matrix::DenseMatrix, prefix::String; transposed::Bool = false)::String
+function present_matrix(matrix::DenseMatrix, prefix::AbstractString; transposed::Bool = false)::String
     return present_matrix_size(matrix, concat_prefixes(prefix, "Dense"); transposed = transposed)
 end
 
-function present_matrix(matrix::SparseMatrixCSC, prefix::String; transposed::Bool = false)::String
+function present_matrix(matrix::SparseMatrixCSC, prefix::AbstractString; transposed::Bool = false)::String
     nnz = present_percent(length(matrix.nzval), length(matrix))
     return present_matrix_size(matrix, concat_prefixes(prefix, "Sparse $(nnz)"); transposed = transposed)
 end
 
-function present_matrix(matrix::AbstractMatrix, kind::String; transposed::Bool = false)::String  # untested
+function present_matrix(matrix::AbstractMatrix, kind::AbstractString; transposed::Bool = false)::String  # untested
     return present_matrix_size(matrix, kind; transposed = transposed)
 end
 
-function present_matrix_size(matrix::AbstractMatrix, kind::String; transposed::Bool = false)::String
+function present_matrix_size(matrix::AbstractMatrix, kind::AbstractString; transposed::Bool = false)::String
     layout = major_axis(matrix)
     if transposed
         layout = other_axis(layout)
@@ -195,7 +195,7 @@ function present_percent(used::Integer, out_of::Integer)::String
     return "$(int_percent)%"
 end
 
-function concat_prefixes(prefix::String, suffix::String)::String
+function concat_prefixes(prefix::AbstractString, suffix::AbstractString)::String
     @assert suffix != ""
     if prefix == ""
         return suffix

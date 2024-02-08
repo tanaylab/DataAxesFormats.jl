@@ -16,11 +16,13 @@ Daf.Registry.compute_eltwise
 ```@docs
 Daf.Registry.ReductionOperation
 Daf.Registry.compute_reduction
+Daf.Registry.reduction_result_type
 ```
 
 ## Registering operations
 
 ```@docs
+Daf.Registry.QueryOperation
 Daf.Registry.@query_operation
 Daf.Registry.register_query_operation
 ```

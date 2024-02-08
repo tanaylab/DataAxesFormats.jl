@@ -26,7 +26,10 @@ ensure it is working "with the grain" of the data, which is *much* more efficien
 """
 module StorageTypes
 
+export StorageFloat
+export StorageInteger
 export StorageMatrix
+export StorageNumber
 export StorageScalar
 export StorageVector
 
@@ -34,63 +37,82 @@ using Daf.MatrixLayouts
 using SparseArrays
 
 """
-    StorageScalar = Union{
-        String,
-        Bool,
-        Int8, UInt8, Int16, UInt16, Int32, UInt32, Int64, UInt64,
-        Float32, Float64
-    }
+    StorageInteger = Union{Int8, UInt8, Int16, UInt16, Int32, UInt32, Int64, UInt64}
+
+Integer number types that can be used as scalars, or elements in stored matrices or vectors.
+"""
+StorageInteger = Union{Int8, UInt8, Int16, UInt16, Int32, UInt32, Int64, UInt64}
+
+"""
+    StorageFloat = Union{Float32, Float64}
+
+Floating point number types that can be used as scalars, or elements in stored matrices or vectors.
+"""
+StorageFloat = Union{Float32, Float64}
+
+"""
+    StorageNumber = Union{Bool, StorageInteger, StorageFloat}
+
+Number types that can be used as scalars, or elements in stored matrices or vectors.
+"""
+StorageNumber = Union{Bool, StorageInteger, StorageFloat}
+
+"""
+    StorageScalar = Union{StorageNumber, String}
 
 Types that can be used as scalars, or elements in stored matrices or vectors.
 
-This is restricted to numbers (including Booleans) and strings. It is arguably too restrictive, as in principle we could
-support any arbitrary `isbitstype`. However, in practice this would cause much trouble when accessing the data from
-other systems (specifically Python and R). Since `Daf` targets storing scientific data (especially biological data), as
-opposed to "anything at all", this restriction seems reasonable.
+This is restricted to [`StorageNumber`](@ref) (including Booleans) and strings. It is arguably too restrictive, as in
+principle we could support any arbitrary `isbitstype`. However, in practice this would cause much trouble when accessing
+the data from other systems (specifically Python and R). Since `Daf` targets storing scientific data (especially
+biological data), as opposed to "anything at all", this restriction seems reasonable.
 """
-StorageScalar = Union{String, Bool, Int8, UInt8, Int16, UInt16, Int32, UInt32, Int64, UInt64, Float32, Float64}
+StorageScalar = Union{StorageNumber, String}
 
 """
-    StorageMatrix{T} = AbstractMatrix{T} where {T <: StorageScalar}
+    StorageMatrix{T} = AbstractMatrix{T} where {T <: StorageNumber}
 
 Matrices that can be directly stored (and fetched) from `Daf` storage.
 
-The element type must be a [`StorageScalar`](@ref), to allow storing the data in disk files.
+The element type must be a [`StorageNumber`](@ref), to allow efficient storage of the data in disk files. That is,
+matrices of strings are *not* supported.
 
 !!! note
 
-    All matrices we store must have a clear [`MatrixLayouts`](@ref), that is, must be in either row- or column-major
-    format.
+    All matrices we store must have a clear [`MatrixLayouts`](@ref), that is, must be in either row-major or
+    column-major format.
 """
-StorageMatrix{T} = AbstractMatrix{T} where {T <: StorageScalar}
+StorageMatrix{T} = AbstractMatrix{T} where {T <: StorageNumber}
 
 """
     StorageVector{T} = AbstractVector{T} where {T <: StorageScalar}
 
 Vectors that can be directly stored (and fetched) from `Daf` storage.
 
-The element type must be a [`StorageScalar`](@ref), to allow storing the data in disk files.
+The element type must be a [`StorageScalar`](@ref), to allow storing the data in disk files. Vectors of strings
+are supported but will be less efficient.
 """
 StorageVector{T} = AbstractVector{T} where {T <: StorageScalar}
 
 """
-    MappableMatrix{T} = Union{DenseMatrix{T}, SparseMatrixCSC{T}} where {T <: StorageScalar}
+    MappableMatrix{T} = Union{DenseMatrix{T}, SparseMatrixCSC{T}} where {T <: StorageNumber}
 
 Matrices that we can memory-map to disk storage. Storing any other matrix type into disk storage will convert the data
 to one of these formats.
 
-The element type must be a [`StorageScalar`](@ref).
+The element type must be a [`StorageNumber`](@ref).
 """
-MappableMatrix{T} = Union{DenseMatrix{T}, SparseMatrixCSC{T}} where {T <: StorageScalar}
+MappableMatrix{T} = Union{DenseMatrix{T}, SparseMatrixCSC{T}} where {T <: StorageNumber}
 
 """
-    MappableVector{T} = Union{DenseVector{T}, SparseVector{T}} where {T <: StorageScalar}
+    MappableVector{T} = Union{DenseVector{T}, SparseVector{T}} where {T <: StorageNumber}
 
-vectors that we can memory-map to disk storage. Storing any other vector type into disk storage will convert the data to
+Vectors that we can memory-map to disk storage. Storing any other vector type into disk storage will convert the data to
 one of these formats.
 
-The element type must be a [`StorageScalar`](@ref).
+The element type must be a [`StorageNumber`](@ref). Vectors of strings in CSV files are read instead of being
+memory-mapped.
 """
-MappableVector{T} = Union{DenseVector{T}, SparseVector{T}} where {T <: StorageScalar}
+MappableVector{T} = Union{DenseVector{T}, SparseVector{T}} where {T <: StorageNumber}
 
 end # module

@@ -52,7 +52,7 @@ The constructor will automatically call [`unique_name`](@ref) to try and make th
 messages.
 """
 struct Internal
-    name::String
+    name::AbstractString
     axes::Dict{String, OrderedDict{String, Int64}}
     cache::Dict{String, Any}
     dependency_cache_keys::Dict{String, Set{String}}
@@ -237,7 +237,7 @@ function format_set_vector! end
         axis::AbstractString,
         name::AbstractString,
         eltype::Type{T},
-    )::DenseVector where {T <: Number}
+    )::DenseVector where {T <: StorageNumber}
 
 Implement setting a vector property with some `name` for some `axis` in `format`.
 
@@ -254,9 +254,9 @@ function format_empty_dense_vector! end
         axis::AbstractString,
         name::AbstractString,
         eltype::Type{T},
-        nnz::Integer,
+        nnz::StorageInteger,
         indtype::Type{I},
-    )::SparseVector{T, I} where {T <: Number, I <: Integer}
+    )::SparseVector{T, I} where {T <: StorageNumber, I <: StorageInteger}
 
 Implement creating an empty dense vector property with some `name` for some `rows_axis` and `columns_axis` in
 `format`.
@@ -340,7 +340,7 @@ function format_set_matrix! end
         columns_axis::AbstractString,
         name::AbstractString,
         eltype::Type{T},
-    )::DenseMatrix{T} where {T <: Number}
+    )::DenseMatrix{T} where {T <: StorageNumber}
 
 Implement creating an empty dense matrix property with some `name` for some `rows_axis` and `columns_axis` in `format`.
 
@@ -357,8 +357,8 @@ function format_empty_dense_matrix! end
         name::AbstractString,
         eltype::Type{T},
         intdype::Type{I},
-        nnz::Integer,
-    )::SparseMatrixCSC{T, I} where {T <: Number, I <: Integer}
+        nnz::StorageInteger,
+    )::SparseMatrixCSC{T, I} where {T <: StorageNumber, I <: StorageInteger}
 
 Implement creating an empty sparse matrix property with some `name` for some `rows_axis` and `columns_axis` in `format`.
 
@@ -431,7 +431,7 @@ function format_get_matrix end
 
 Allow a `format` to amit additional description header lines.
 """
-function format_description_header(format::FormatReader, indent::String, lines::Array{String})::Nothing
+function format_description_header(format::FormatReader, indent::AbstractString, lines::Array{String})::Nothing
     push!(lines, "$(indent)type: $(typeof(format))")
     return nothing
 end
@@ -442,7 +442,12 @@ end
 Allow a `format` to amit additional description footer lines. If `deep`, this also emit the description of any data sets
 nested in this one, if any.
 """
-function format_description_footer(format::FormatReader, indent::String, lines::Array{String}, deep::Bool)::Nothing
+function format_description_footer(
+    format::FormatReader,
+    indent::AbstractString,
+    lines::Array{String},
+    deep::Bool,
+)::Nothing
     return nothing
 end
 

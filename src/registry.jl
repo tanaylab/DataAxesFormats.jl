@@ -13,6 +13,7 @@ export compute_eltwise
 export compute_reduction
 export EltwiseOperation
 export @query_operation
+export reduction_result_type
 export ReductionOperation
 export register_query_operation
 
@@ -25,15 +26,28 @@ struct RegisteredOperation
     source_line::Int
 end
 
-# Abstract interface for all query operations.
-abstract type AbstractOperation end
+"""
+Abstract interface for all query operations. An actual query is a series of these operations which, when applied to
+`Daf` data, compute some result.
+"""
+abstract type QueryOperation end
+
+# Abstract interface for all query computation (element-wise and reduction) operations.
+abstract type ComputationOperation <: QueryOperation end
 
 """
 Abstract type for all element-wise operations.
 
-An element-wise operation may be applied to matrix or vector data. It will preserve the shape of the data, but changes
-the values, and possibly the data type of the elements. For example, `Abs` will compute the absolute value of each
-element.
+In a string query, this is specified using the `%` operator (e.g., `% Abs`, `% Log base 2`):
+
+`EltwiseOperation` := `%` operation ( parameter value )*
+
+Since each `EltwiseOperation` isa [`QueryOperation`](@ref), you can directly apply it to a query (e.g.,
+`Axis("cell") |> Lookup("age") |> Abs()`). For this there should be other constructor(s) tailored for this usage.
+
+An element-wise operation may be applied to scalar, vector ot matrix data. It will preserve the shape of the data, but
+changes the value(s), and possibly the data type of the elements. For example, `Abs` will compute the absolute value of
+each value.
 
 To implement a new such operation, the type is expected to be of the form:
 
@@ -42,18 +56,18 @@ To implement a new such operation, the type is expected to be of the form:
     end
     @query_operation MyOperation
 
-    MyOperation(context::QueryContext, parameters_assignments::Dict{String, QueryOperation})::MyOperation
+    MyOperation(context::QueryContext, parameter_values::Dict{String, QueryOperation})::MyOperation
 
 The constructor should use `parse_parameter` for each of the parameters (for example, using `parse_number_assignment`).
 In addition you will need to invoke [`@query_operation`](@ref) to register the operation so it can be used in a query,
 and implement the functions listed below. See the query operations module for details and examples.
 """
-abstract type EltwiseOperation <: AbstractOperation end
+abstract type EltwiseOperation <: ComputationOperation end
 
 """
     compute_eltwise(operation::EltwiseOperation, input::StorageMatrix)::StorageMatrix
     compute_eltwise(operation::EltwiseOperation, input::StorageVector)::StorageVector
-    compute_eltwise(operation::EltwiseOperation, input_value::Number)::Number
+    compute_eltwise(operation::EltwiseOperation, input_value::Number)::StorageNumber
 
 Compute an [`EltwiseOperation`](@ref) `operation`.
 """
@@ -61,6 +75,14 @@ function compute_eltwise end
 
 """
 Abstract type for all reduction operations.
+
+In a string query, this is specified using the `%>` operator (e.g., `%> Sum`, `%> Quantile fraction 0.05`):
+
+`ReductionOperation` := `%>` operation ( parameter value )*
+
+Since each `ReductionOperation` isa [`QueryOperation`](@ref), you can directly apply it to a query (e.g.,
+`Axis("cell") |> Axis("gene") |> Lookup("UMIs") |> Quantile(0.05)`). For this there should be other constructor(s)
+tailored for this usage.
 
 A reduction operation may be applied to matrix or vector data. It will reduce (eliminate) one dimension of the data, and
 possibly the result will have a different data type than the input. When applied to a vector, the operation will return
@@ -73,22 +95,31 @@ To implement a new such operation, the type is expected to be of the form:
         ... optional parameters ...
     end
 
-    MyOperation(context::QueryContext, parameters_assignments::Dict{String, QueryOperation})::MyOperation
+    MyOperation(context::QueryContext, parameter_values::Dict{String, QueryOperation})::MyOperation
 
 The constructor should use `parse_parameter` for each of the parameters (for example, using typically
 `parse_number_assignment`). In addition you will need to invoke [`@query_operation`](@ref) to register the operation so
 it can be used in a query, and implement the functions listed below. See the query operations module for details and
 examples.
 """
-abstract type ReductionOperation <: AbstractOperation end
+abstract type ReductionOperation <: ComputationOperation end
 
 """
     compute_reduction(operation::ReductionOperation, input::StorageMatrix)::StorageVector
-    compute_reduction(operation::ReductionOperation, input::StorageVector)::Number
+    compute_reduction(operation::ReductionOperation, input::StorageVector)::StorageNumber
 
-Compute an [`ReductionOperation`](@ref) `operation`.
+Since each `ReductionOperation` isa [`QueryOperation`](@ref), you can directly apply it to a query (e.g.,
+`Axis("cell") |> Axis("gene") |> Lookup("UMIs") |> Sum()`). For this there should be other constructor(s) tailored for
+this usage.
 """
 function compute_reduction end
+
+"""
+    reduction_result_type(operation::ReductionOperation, eltype::Type)::Type
+
+Return the data type of the result of the reduction `operation` if applied to a vector of the specified `eltype`.
+"""
+function reduction_result_type end
 
 # A global registry of all the known element-wise operations.
 ELTWISE_REGISTERED_OPERATIONS = Dict{String, RegisteredOperation}()

@@ -23,6 +23,8 @@ module Daf
 
 using Reexport
 
+include("unions.jl")
+
 include("matrix_layouts.jl")
 @reexport using Daf.MatrixLayouts
 
@@ -32,12 +34,10 @@ include("storage_types.jl")
 include("messages.jl")
 @reexport using Daf.Messages
 
-include("oprec.jl")
-
 include("registry.jl")
 
-include("parse_queries.jl")
-@reexport using Daf.ParseQueries
+include("tokens.jl")
+@reexport using Daf.Tokens
 
 include("operations.jl")
 @reexport using Daf.Operations
@@ -48,11 +48,8 @@ include("formats.jl")
 include("data.jl")
 @reexport using Daf.Data
 
-include("data_queries.jl")
-@reexport using Daf.DataQueries
-
-include("groups.jl")
-@reexport using Daf.Groups
+include("queries.jl")
+@reexport using Daf.Queries
 
 include("read_only.jl")
 @reexport using Daf.ReadOnly

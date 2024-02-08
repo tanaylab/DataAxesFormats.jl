@@ -39,6 +39,7 @@ export require_minor_axis
 export Rows
 export WarnPolicy
 
+using Daf.Unions
 using Distributed
 using LinearAlgebra
 using NamedArrays
@@ -59,11 +60,11 @@ A symbolic name for the rows axis. It is much more readable to write, say, `size
 Columns = 2
 
 """
-    axis_name(axis::Union{Integer, Nothing})::String
+    axis_name(axis::Maybe{Integer})::String
 
 Return the name of the axis (for messages).
 """
-function axis_name(axis::Union{Integer, Nothing})::String
+function axis_name(axis::Maybe{Integer})::String
     if axis == nothing
         return "nothing"
     end
@@ -80,34 +81,34 @@ function axis_name(axis::Union{Integer, Nothing})::String
 end
 
 """
-    major_axis(matrix::AbstractMatrix)::Union{Int8,Nothing}
+    major_axis(matrix::AbstractMatrix)::Maybe{Int8}
 
 Return the index of the major axis of a matrix, that is, the axis one should keep *fixed* for an efficient loop
 accessing the matrix elements. If the matrix doesn't support any efficient access axis, returns `nothing`.
 """
-function major_axis(matrix::NamedMatrix)::Union{Int8, Nothing}
+function major_axis(matrix::NamedMatrix)::Maybe{Int8}
     return major_axis(matrix.array)
 end
 
-function major_axis(matrix::SparseArrays.ReadOnly)::Union{Int8, Nothing}
+function major_axis(matrix::SparseArrays.ReadOnly)::Maybe{Int8}
     return major_axis(parent(matrix))
 end
 
-function major_axis(matrix::Transpose)::Union{Int8, Nothing}
+function major_axis(matrix::Transpose)::Maybe{Int8}
     return other_axis(major_axis(matrix.parent))
 end
 
-function major_axis(matrix::AbstractSparseMatrix)::Union{Int8, Nothing}
+function major_axis(matrix::AbstractSparseMatrix)::Maybe{Int8}
     return Columns
 end
 
-function major_axis(matrix::AbstractMatrix)::Union{Int8, Nothing}
+function major_axis(matrix::AbstractMatrix)::Maybe{Int8}
     try
         matrix_strides = strides(matrix)
         if matrix_strides[1] == 1
             return Columns
         end
-        if matrix_strides[2] == 1  # untested NOJET
+        if matrix_strides[2] == 1  # untested
             return Rows            # untested
         end
         return nothing             # untested
@@ -131,12 +132,12 @@ function require_major_axis(matrix::AbstractMatrix)::Int8
 end
 
 """
-    minor_axis(matrix::AbstractMatrix)::Union{Int8,Nothing}
+    minor_axis(matrix::AbstractMatrix)::Maybe{Int8}
 
 Return the index of the minor axis of a matrix, that is, the axis one should *vary* for an efficient loop accessing the
 matrix elements. If the matrix doesn't support any efficient access axis, returns `nothing`.
 """
-function minor_axis(matrix::AbstractMatrix)::Union{Int8, Nothing}
+function minor_axis(matrix::AbstractMatrix)::Maybe{Int8}
     return other_axis(major_axis(matrix))
 end
 
@@ -150,12 +151,12 @@ function require_minor_axis(matrix::AbstractMatrix)::Int8  # untested
 end
 
 """
-    other_axis(axis::Union{Integer,Nothing})::Union{Int8,Nothing}
+    other_axis(axis::Maybe{Integer})::Maybe{Int8}
 
 Return the other `matrix` `axis` (that is, convert between [`Rows`](@ref) and [`Columns`](@ref)). If given `nothing`
 returns `nothing`.
 """
-function other_axis(axis::Union{Integer, Nothing})::Union{Int8, Nothing}
+function other_axis(axis::Maybe{Integer})::Maybe{Int8}
     if axis == nothing
         return nothing
     end
@@ -184,8 +185,8 @@ GLOBAL_INEFFICIENT_ACTION_POLICY = nothing
 
 """
     inefficient_action_policy(
-        policy::Union{InefficientActionPolicy,Nothing}
-    )::Union{InefficientActionPolicy,Nothing}
+        policy::Maybe{InefficientActionPolicy}
+    )::Maybe{InefficientActionPolicy}
 
 Specify the `policy` to take when accessing a matrix in an inefficient way. Returns the previous policy.
 
@@ -193,9 +194,7 @@ Specify the `policy` to take when accessing a matrix in an inefficient way. Retu
 
     This will affect *all* the processes `@everywhere`, not just the current one.
 """
-function inefficient_action_policy(
-    policy::Union{InefficientActionPolicy, Nothing},
-)::Union{InefficientActionPolicy, Nothing}
+function inefficient_action_policy(policy::Maybe{InefficientActionPolicy})::Maybe{InefficientActionPolicy}
     global GLOBAL_INEFFICIENT_ACTION_POLICY
     previous_inefficient_action_policy = GLOBAL_INEFFICIENT_ACTION_POLICY
 

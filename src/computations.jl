@@ -20,7 +20,7 @@ using ExprTools
 
 import Daf.Contracts.contract_documentation
 
-function computation_wrapper(name::String, inner_function)
+function computation_wrapper(name::AbstractString, inner_function)
     return (args...; kwargs...) -> (@debug "call: $(name))() {";
     for (name, value) in kwargs
         @debug "$(name): $(present(value))"
@@ -30,7 +30,7 @@ function computation_wrapper(name::String, inner_function)
     result)
 end
 
-function computation_wrapper(contract::Contract, name::String, inner_function)
+function computation_wrapper(contract::Contract, name::AbstractString, inner_function)
     return (daf::DafReader, args...; kwargs...) -> (verify_input(contract, name, daf);
     @debug "call: $(name)($(present(daf))) {";
     for (name, value) in kwargs
@@ -42,13 +42,13 @@ function computation_wrapper(contract::Contract, name::String, inner_function)
     result)
 end
 
-function computation_wrapper(first_contract::Contract, second_contract::Contract, name::String, inner_function)
+function computation_wrapper(first_contract::Contract, second_contract::Contract, name::AbstractString, inner_function)
     return (first_daf::DafReader, second_daf::DafReader, args...; kwargs...) ->
         (verify_input(first_contract, name, first_daf);
         verify_input(second_contract, name, second_daf);
         @debug "call: $(name)($(present(first_daf)), $(present(second_daf))) {";
         for (name, value) in kwargs
-            @debug "$(name): $(present(value))"  # untested
+            @debug "- $(name): $(present(value))"  # untested
         end;  # untested
         result = inner_function(first_daf, second_daf, args...; kwargs...);
         @debug "done: $(name) }";
@@ -300,7 +300,7 @@ such arguments.
 const CONTRACT2 = ContractDocumentation(2)
 
 struct DefaultValue <: DocStringExtensions.Abbreviation
-    name::String
+    name::AbstractString
 end
 
 function DocStringExtensions.format(what::DefaultValue, buffer::IOBuffer, doc_str::Base.Docs.DocStr)::Nothing

@@ -12,6 +12,7 @@ export copy_vector!
 using Daf.Data
 using Daf.Formats
 using Daf.StorageTypes
+using Daf.Unions
 using NamedArrays
 using SparseArrays
 
@@ -20,11 +21,12 @@ using SparseArrays
         into::DafWriter,
         from::DafReader,
         name::AbstractString,
-        [rename::Union{AbstractString, Nothing} = nothing,
-        default::Union{StorageScalar, Nothing, UndefInitializer} = undef]
+        [rename::Maybe{AbstractString} = nothing,
+        default::Union{StorageScalar, Nothing, UndefInitializer} = undef,
+        overwrite::Bool = false]
     )::Nothing
 
-Copy a scalar `from` some `DafReader` into some `DafWriter`.
+Copy a scalar `from` some `DafReader` `into` some `DafWriter`.
 
 The scalar is fetched using the `name` and the `default`. If `rename` is specified, store the scalar using this new
 name. If `overwrite` (not the default), overwrite an existing scalar in the target.
@@ -33,7 +35,7 @@ function copy_scalar!(;
     into::DafWriter,
     from::DafReader,
     name::AbstractString,
-    rename::Union{AbstractString, Nothing} = nothing,
+    rename::Maybe{AbstractString} = nothing,
     default::Union{StorageScalar, Nothing, UndefInitializer} = undef,
     overwrite::Bool = false,
 )::Nothing
@@ -49,7 +51,7 @@ end
         into::DafWriter,
         from::DafReader,
         name::AbstractString,
-        [rename::Union{AbstractString, Nothing} = nothing,
+        [rename::Maybe{AbstractString} = nothing,
         default::Union{Nothing, UndefInitializer} = undef]
     )::Nothing
 
@@ -61,7 +63,7 @@ function copy_axis!(;
     into::DafWriter,
     from::DafReader,
     name::AbstractString,
-    rename::Union{AbstractString, Nothing} = nothing,
+    rename::Maybe{AbstractString} = nothing,
     default::Union{Nothing, UndefInitializer} = undef,
 )::Nothing
     value = get_axis(from, name; default = default)
@@ -77,33 +79,34 @@ end
         from::DafReader,
         axis::AbstractString,
         name::AbstractString,
-        [reaxis::Union{AbstractString, Nothing} = nothing,
-        rename::Union{AbstractString, Nothing} = nothing,
+        [reaxis::Maybe{AbstractString} = nothing,
+        rename::Maybe{AbstractString} = nothing,
         default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
+        empty::Maybe{StorageScalar} = nothing,
         overwrite::Bool = false]
     )::Nothing
 
-Copy a vector `from` some `DafReader` into some `DafWriter`.
+Copy a vector `from` some `DafReader` `into` some `DafWriter`.
 
 The vector is fetched using the `axis`, `name` and the `default`. If `reaxis` is specified, store the vector using this
 axis. If `rename` is specified, store the vector using this name. If `overwrite` (not the default), overwrite an
 existing vector in the target.
 
-This requires the axis of one data set is the same, or is a subset of, the other. If the target axis contains entries
-that do not exist in the source, then `empty` must be specified to fill the missing values. If the source axis contains
-entries that do not exist in the target, they are discarded.
+This requires the axis of one data set is the same, or is a superset of, or a subset of, the other. If the target axis
+contains entries that do not exist in the source, then `empty` must be specified to fill the missing values. If the
+source axis contains entries that do not exist in the target, they are discarded (not copied).
 """
 function copy_vector!(;
     into::DafWriter,
     from::DafReader,
     axis::AbstractString,
     name::AbstractString,
-    reaxis::Union{AbstractString, Nothing} = nothing,
-    rename::Union{AbstractString, Nothing} = nothing,
+    reaxis::Maybe{AbstractString} = nothing,
+    rename::Maybe{AbstractString} = nothing,
     default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
-    empty::Union{StorageScalar, Nothing} = nothing,
+    empty::Maybe{StorageScalar} = nothing,
     overwrite::Bool = false,
-    relation::Union{Symbol, Nothing} = nothing,
+    relation::Maybe{Symbol} = nothing,
 )::Nothing
     reaxis = new_name(reaxis, axis)
     rename = new_name(rename, name)
@@ -135,13 +138,13 @@ function copy_vector!(;
         dense = Vector{eltype(value)}(undef, axis_length(into, reaxis))
         named = NamedArray(dense; names = (get_axis(into, reaxis),))
         named .= empty
-        named[names(value, 1)] .= value
+        named[names(value, 1)] .= value  # NOJET
         sparse = SparseVector(dense)
         set_vector!(into, reaxis, rename, sparse; overwrite = overwrite)
     else
         empty_dense_vector!(into, reaxis, rename, eltype(value); overwrite = overwrite) do empty_vector
             empty_vector .= empty
-            return empty_vector[names(value, 1)] .= value
+            return empty_vector[names(value, 1)] .= value  # NOJET
         end
     end
 
@@ -155,25 +158,25 @@ end
         rows_axis::AbstractString,
         columns_axis::AbstractString,
         name::AbstractString,
-        [rows_reaxis::Union{AbstractString, Nothing} = nothing,
-        columns_reaxis::Union{AbstractString, Nothing} = nothing,
-        rename::Union{AbstractString, Nothing} = nothing,
+        [rows_reaxis::Maybe{AbstractString} = nothing,
+        columns_reaxis::Maybe{AbstractString} = nothing,
+        rename::Maybe{AbstractString} = nothing,
         default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
-        empty::Union{StorageScalar, Nothing} = nothing,
+        empty::Maybe{StorageScalar} = nothing,
         relayout::Bool = true,
         overwrite::Bool = false]
     )::Nothing
 
-Copy a matrix `from` some `DafReader` into some `DafWriter`.
+Copy a matrix `from` some `DafReader` `into` some `DafWriter`.
 
 The matrix is fetched using the `rows_axis`, `columns_axis`, `name`, `relayout` and the `default`. If `rows_reaxis`
 and/or `columns_reaxis` are specified, store the vector using these axes. If `rename` is specified, store the matrix
 using this name. If `overwrite` (not the default), overwrite an existing matrix in the target. The matrix is stored with
 the same `relayout`.
 
-This requires each axis of one data set is the same, or is a subset of, the other. If a target axis contains entries
-that do not exist in the source, then `empty` must be specified to fill the missing values. If a source axis contains
-entries that do not exist in the target, they are discarded.
+This requires each axis of one data set is the same, or is a superset of, or a subset of, the other. If a target axis
+contains entries that do not exist in the source, then `empty` must be specified to fill the missing values. If a source
+axis contains entries that do not exist in the target, they are discarded (not copied).
 """
 function copy_matrix!(;
     into::DafWriter,
@@ -181,15 +184,15 @@ function copy_matrix!(;
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    rows_reaxis::Union{AbstractString, Nothing} = nothing,
-    columns_reaxis::Union{AbstractString, Nothing} = nothing,
-    rename::Union{AbstractString, Nothing} = nothing,
-    default::Union{StorageScalar, StorageMatrix, Nothing, UndefInitializer} = undef,
-    empty::Union{StorageScalar, Nothing} = nothing,
+    rows_reaxis::Maybe{AbstractString} = nothing,
+    columns_reaxis::Maybe{AbstractString} = nothing,
+    rename::Maybe{AbstractString} = nothing,
+    default::Union{StorageNumber, StorageMatrix, Nothing, UndefInitializer} = undef,
+    empty::Maybe{StorageNumber} = nothing,
     relayout::Bool = true,
     overwrite::Bool = false,
-    rows_relation::Union{Symbol, Nothing} = nothing,
-    columns_relation::Union{Symbol, Nothing} = nothing,
+    rows_relation::Maybe{Symbol} = nothing,
+    columns_relation::Maybe{Symbol} = nothing,
 )::Nothing
     rows_reaxis = new_name(rows_reaxis, rows_axis)
     columns_reaxis = new_name(columns_reaxis, columns_axis)
@@ -255,7 +258,7 @@ function copy_matrix!(;
         dense = Matrix{eltype(value)}(undef, axis_length(into, rows_reaxis), axis_length(into, columns_reaxis))
         named = NamedArray(dense; names = (get_axis(into, rows_reaxis), get_axis(into, columns_reaxis)))
         named .= empty
-        named[names(value, 1), names(value, 2)] .= value
+        named[names(value, 1), names(value, 2)] .= value  # NOJET
         sparse = SparseMatrixCSC(dense)
         set_matrix!(into, rows_reaxis, columns_reaxis, rename, sparse; overwrite = overwrite, relayout = relayout)
     else
@@ -268,7 +271,7 @@ function copy_matrix!(;
             overwrite = overwrite,
         ) do empty_matrix
             empty_matrix .= empty
-            return empty_matrix[names(value, 1), names(value, 2)] .= value
+            return empty_matrix[names(value, 1), names(value, 2)] .= value  # NOJET
         end
         if relayout
             relayout_matrix!(into, rows_reaxis, columns_reaxis, rename; overwrite = overwrite)  # untested
@@ -290,9 +293,9 @@ Copy all the content of a `DafReader` into a `DafWriter`. If `overwrite`, this w
 target. If `relayout`, matrices will be stored in the target both layouts, regardless of how they were stored in the
 source.
 
-This will copy missing axes from the source to the target, but will *not* overwrite existing axes, regardless of the
-value of `overwrite`. An axis that exists in the target must be identical to, or be a subset of, the same axis in the
-source.
+This will create target axes that exist in only in the source, but will *not* overwrite existing target axes, regardless
+of the value of `overwrite`. An axis that exists in the target must be identical to, or be a subset of, the same axis in
+the source.
 """
 function copy_all!(; into::DafWriter, from::DafReader, overwrite::Bool = false, relayout::Bool = true)::Nothing
     axis_relations = verify_axes(into, from)
@@ -318,13 +321,13 @@ function verify_axis(
     from_axis::AbstractString;
     allow_missing::Bool,
     allow_from_subset::Bool,
-)::Union{Symbol, Nothing}
+)::Maybe{Symbol}
     if allow_missing && !has_axis(into_daf, into_axis)
         return :same
     end
 
-    from_entries = Set(get_axis(from_daf, from_axis))  # NOJET
-    into_entries = Set(get_axis(into_daf, into_axis))  # NOJET
+    from_entries = Set(get_axis(from_daf, from_axis))
+    into_entries = Set(get_axis(into_daf, into_axis))
 
     if into_entries == from_entries
         return :same
@@ -410,7 +413,7 @@ function copy_matrices(
     end
 end
 
-function new_name(rename::Union{AbstractString, Nothing}, name::AbstractString)::AbstractString
+function new_name(rename::Maybe{AbstractString}, name::AbstractString)::AbstractString
     return rename == nothing ? name : rename
 end
 

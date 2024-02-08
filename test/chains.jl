@@ -15,6 +15,7 @@ nested_test("chains") do
         )
         read_chain = chain_reader("chain!", [first, second])
         @assert read_only(read_chain) === read_chain
+        @assert read_only(read_chain, "read-only chain!") !== read_chain
         write_chain = chain_writer("chain!", [first, second])
         @assert read_only(write_chain) !== write_chain
     end
@@ -358,7 +359,7 @@ nested_test("chains") do
                 @test get_vector(chain, "cell", "age") == [2, 3]
                 @test_throws dedent("""
                     failed to delete the vector: age
-                    for the axis: cell
+                    of the axis: cell
                     from the daf data: second!
                     of the chain: chain!
                     because it exists in the earlier: first!
@@ -376,7 +377,7 @@ nested_test("chains") do
                 @test get_vector(chain, "cell", "age") == [3, 4]
                 @test_throws dedent("""
                     failed to delete the vector: age
-                    for the axis: cell
+                    of the axis: cell
                     from the daf data: second!
                     of the chain: chain!
                     because it exists in the earlier: first!

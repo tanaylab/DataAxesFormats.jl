@@ -22,12 +22,16 @@ Daf.Operations.Sum
 ## Support functions
 
 ```@docs
-Daf.Operations.parse_parameter
-Daf.Operations.parse_number_assignment
-Daf.Operations.parse_dtype_assignment
-Daf.Operations.invalid_parameter_value
+Daf.Operations.parse_parameter_value
+Daf.Operations.error_invalid_parameter_value
+Daf.Operations.parse_number_value
+Daf.Operations.parse_dtype_value
+Daf.Operations.parse_int_dtype_value
+Daf.Operations.parse_float_dtype_value
 Daf.Operations.float_dtype_for
 Daf.Operations.int_dtype_for
+Daf.Operations.sum_dtype_for
+Daf.Operations.unsigned_dtype_for
 ```
 
 ## Index

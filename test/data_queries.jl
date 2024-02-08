@@ -132,7 +132,7 @@ nested_test("data_queries") do
 
             nested_test("eltwise") do
                 nested_test("single") do
-                    @test matrix_query(daf, "cell , gene @ UMIs % Abs") == Int16[
+                    @test matrix_query(daf, "cell , gene @ UMIs % Abs") == UInt16[
                         1   23  9   5   50  4  13  12  12  2
                         20  3   2   16  17  6  3   4   2   22
                         5   2   2   3   4   29 14  0   2   15
@@ -157,7 +157,7 @@ nested_test("data_queries") do
 
                     test_description(daf; cache = dedent("""
                                  cache:
-                                   cell, gene @ UMIs % Abs: 20 x 10 x Int16 (Dense in Columns)
+                                   cell, gene @ UMIs % Abs: 20 x 10 x UInt16 (Dense in Columns)
                              """))
                     return nothing
                 end

@@ -10,22 +10,30 @@ using Daf.Computations
 using Daf.Contracts
 using Daf.Copies
 using Daf.MemoryFormat
+using Daf.Queries
 using Daf.ReadOnly
+using Daf.Unions
 using Daf.Views
 
 """
     adapter(
         computation::Function,
         name::AbstractString,
-        view::Union{DafView, ReadOnlyView},
+        view::Union{DafView, ReadOnlyView};
         [capture=MemoryDaf,
-        scalars::AbstractVector{Pair{String, Union{String, Nothing}}} = [],
-        axes::AbstractVector{Pair{String, Union{String, Nothing}}} = [],
-        vectors::AbstractVector{Pair{Tuple{String, String}, Union{String, Nothing}}} = []],
-        matrices::AbstractVector{Pair{Tuple{String, String, String}, Union{String, Nothing}}} = [],
+        axes::AbstractVector{Pair{String, AxesValue}} = Vector{Pair{String, String}}(),
+        data::AbstractVector{Pair{DataKey, DataValue}} = Vector{Pair{String, String}}(),
         relayout::Bool = true,
         overwrite::Bool = false]
-    )::Any
+    )::Any where {
+        DataKey <: Union{
+            String,                        # Scalar name
+            Tuple{String, String},         # Axis, vector name
+            Tuple{String, String, String}  # Rows axis, columns axis, matrix name
+        },
+        DataValue <: Maybe{Union{AbstractString, Query}},
+        AxesValue <: Maybe{Union{AbstractString, Query}},
+    }
 
 Invoke a computation on a `view` data set and return the result; copy a [`viewer`](@ref) of the updated data set into
 the base `daf` data of the view.
@@ -40,9 +48,8 @@ To address these issues, the common idiom for applying computations to `daf` dat
   - Create a (read-only) `view` of your data which presents the data properties under the names expected by the
     computation, using [`viewer`](@ref). If the computation was annotated by `@computation`, then its [`Contract`](@ref)
     will be explicitly documented so you will know exactly what to provide.
-
   - Pass this `view` to `adapter`, which will invoke the `computation` with a (writable) `adapted` version of the data
-    (created using [`chain_writer`](@ref) and a new `DafWriter` to `capture` the output, by default,
+    (created using [`chain_writer`](@ref) and a new `DafWriter` to `capture` the output; by default, this will be a
     [`MemoryDaf`]@(ref)).
   - Once the computation is done, create a new view of the output, which presents the subset of the output data
     properties you are interested in, with the names you would like to store them as. Again, if the computation was
@@ -60,10 +67,10 @@ daf = ... # Some input `daf` data we wish to compute on.
 # under a different name.
 
 result = adapter(
-    "example",      # A name to use to generate the temporary `daf` data names.
-    view(daf; ...), # How to view the input in the way expected by the computation.
-    ...,            # How and what to view the output for copying back into `daf`.
-) do adapted        # The writable adapted data we can pass to the computation.
+    "example",              # A name to use to generate the temporary `daf` data names.
+    view(daf; ...),         # How to view the input in the way expected by the computation.
+    axes = ..., data = ..., # How and what to view the output for copying back into `daf`.
+) do adapted                   # The writable adapted data we can pass to the computation.
     computation(adapted, ...)  # Actually do the computation.
     return ...                 # An additional result outside `daf`.
 end
@@ -73,42 +80,27 @@ end
 ```
 
 This idiom allows [`@computation`](@ref) functions to use clear generic names for their inputs and outputs, and still
-apply them to arbitrary data sets using more specific names. For example, one can invoke the same computation with
-different parameter values, and store the different results in the same data set under different names. Or, one can
-pre-process the inputs of the computation, storing the result under a different name, and still be able to apply the
-computation to these modified inputs.
+apply them to arbitrary data sets using more specific names. One can even invoke the same computation with different
+parameter values, and store the different results in the same data set under different names.
 """
 function adapter(
     computation::Function,
     name::AbstractString,
     view::Union{DafView, ReadOnlyView};
     capture = MemoryDaf,
-    scalars::AbstractVector{Pair{String, S}} = Vector{Pair{String, Union{String, Nothing}}}(),
-    axes::AbstractVector{Pair{String, A}} = Vector{Pair{String, Union{String, Nothing}}}(),
-    vectors::AbstractVector{Pair{Tuple{String, String}, V}} = Vector{
-        Pair{Tuple{String, String}, Union{String, Nothing}},
-    }(),
-    matrices::AbstractVector{Pair{Tuple{String, String, String}, M}} = Vector{
-        Pair{Tuple{String, String, String}, Union{String, Nothing}},
-    }(),
+    axes::AbstractVector{Pair{String, AxesValue}} = Vector{Pair{String, String}}(),
+    data::AbstractVector{Pair{DataKey, DataValue}} = Vector{Pair{String, String}}(),
     relayout::Bool = true,
     overwrite::Bool = false,
 )::Any where {
-    S <: Union{String, Nothing},
-    A <: Union{String, Nothing},
-    V <: Union{String, Nothing},
-    M <: Union{String, Nothing},
+    DataKey <: Union{String, Tuple{String, String}, Tuple{String, String, String}},
+    DataValue <: Maybe{Union{AbstractString, Query}},
+    AxesValue <: Maybe{Union{AbstractString, Query}},
 }
-    input_chain = chain_writer("$(view.daf.name).$(name).input", [view, capture("$(view.daf.name).$(name).capture")])
+    view_name = view.name
+    input_chain = chain_writer("$(view_name).$(name).input", [view, capture("$(view_name).$(name).capture")])
     result = computation(input_chain)
-    output_chain = viewer(
-        "$(view.daf.name).$(name).output",
-        input_chain;
-        scalars = scalars,
-        axes = axes,
-        vectors = vectors,
-        matrices = matrices,
-    )
+    output_chain = viewer("$(view_name).$(name).output", input_chain; axes = axes, data = data)
     copy_all!(; from = output_chain, into = view.daf, relayout = relayout, overwrite = overwrite)
     return result
 end

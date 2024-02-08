@@ -16,7 +16,7 @@ import Daf.Formats
 import Daf.Formats.Internal
 
 """
-    MemoryDaf(name::String)
+    MemoryDaf(name::AbstractString)
 
 Simple in-memory storage.
 
@@ -116,7 +116,7 @@ function Formats.format_set_vector!(
     memory::MemoryDaf,
     axis::AbstractString,
     name::AbstractString,
-    vector::Union{Number, String, StorageVector},
+    vector::Union{StorageNumber, AbstractString, StorageVector},
 )::Nothing
     if vector isa StorageVector
         memory.vectors[axis][name] = vector
@@ -132,7 +132,7 @@ function Formats.format_empty_dense_vector!(
     axis::AbstractString,
     name::AbstractString,
     eltype::Type{T},
-)::DenseVector{T} where {T <: Number}
+)::DenseVector{T} where {T <: StorageNumber}
     nelements = Formats.format_axis_length(memory, axis)
     vector = Vector{T}(undef, nelements)
     memory.vectors[axis][name] = vector
@@ -144,9 +144,9 @@ function Formats.format_empty_sparse_vector!(
     axis::AbstractString,
     name::AbstractString,
     eltype::Type{T},
-    nnz::Integer,
+    nnz::StorageInteger,
     indtype::Type{I},
-)::SparseVector{T, I} where {T <: Number, I <: Integer}
+)::SparseVector{T, I} where {T <: StorageNumber, I <: StorageInteger}
     nelements = Formats.format_axis_length(memory, axis)
     nzind = Vector{I}(undef, nnz)
     nzval = Vector{T}(undef, nnz)
@@ -187,7 +187,7 @@ function Formats.format_set_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    matrix::Union{Number, String, StorageMatrix},
+    matrix::Union{StorageNumber, AbstractString, StorageMatrix},
 )::Nothing
     if matrix isa StorageMatrix
         memory.matrices[rows_axis][columns_axis][name] = matrix
@@ -208,7 +208,7 @@ function Formats.format_empty_dense_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     eltype::Type{T},
-)::DenseMatrix{T} where {T <: Number}
+)::DenseMatrix{T} where {T <: StorageNumber}
     nrows = Formats.format_axis_length(memory, rows_axis)
     ncols = Formats.format_axis_length(memory, columns_axis)
     matrix = Matrix{T}(undef, nrows, ncols)
@@ -222,9 +222,9 @@ function Formats.format_empty_sparse_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     eltype::Type{T},
-    nnz::Integer,
+    nnz::StorageInteger,
     indtype::Type{I},
-)::SparseMatrixCSC{T, I} where {T <: Number, I <: Integer}
+)::SparseMatrixCSC{T, I} where {T <: StorageNumber, I <: StorageInteger}
     nrows = Formats.format_axis_length(memory, rows_axis)
     ncols = Formats.format_axis_length(memory, columns_axis)
     colptr = fill(I(1), ncols + 1)

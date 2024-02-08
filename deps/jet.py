@@ -1,3 +1,5 @@
+from glob import glob
+from os.path import relpath
 import fileinput
 import re
 import sys
@@ -5,26 +7,49 @@ import sys
 location_pattern = re.compile(r'(\S+):(\d+)$')
 
 read_path = None
-read_lines = None
+read_lines = {}
+unused_lines = {}
 bad_paths = set()
 
-def is_disabled(path, line):
+def load_file(path):
+    global read_lines
+    global unused_lines
+    global bad_paths
+
     if path in bad_paths:
         return False
 
-    global read_path
-    global read_lines
+    if path in read_lines:
+        return True
 
-    if path != read_path:
-        try:
-            with open(path) as file:
-                read_lines = list(file.readlines())
-            read_path = path
-        except:
-            bad_paths.add(path)
-            return False
+    try:
+        with open(path) as file:
+            file_lines = list(file.readlines())
 
-    return "NOJET" in read_lines[int(line) - 1]
+        read_lines[path] = file_lines
+        unused_lines[path] = file_lines.copy()
+        return True
+
+    except:
+        bad_paths.add(path)
+        return False
+
+def is_disabled(path, line):
+    path = relpath(path)
+    if not load_file(path):
+        return False
+
+    line = int(line) - 1
+    unused_lines[path][line] = ""
+    return "NOJET" in read_lines[path][line]
+
+for path in glob("src/*.jl"):
+    path = relpath(path)
+    load_file(path)
+
+for path in glob("test/*.jl"):
+    path = relpath(path)
+    load_file(path)
 
 context_lines = []
 context_disabled = []
@@ -68,14 +93,32 @@ for line in fileinput.input():
                 print(context_line[:-1])
         print(line[:-1])
 
-if errors > 0:
-    if skipped > 0:
-        print(f"\nJET: {errors} errors found, {skipped} errors skipped")
-    else:
-        print(f"\nJET: {errors} errors found")
-    sys.exit(1)
+unused = 0
+for path, lines in unused_lines.items():
+    for line_index, line_text in enumerate(lines):
+        if "NOJET" in line_text:
+            if unused == 0:
+                print("")
+            unused += 1
+            print(f"{path}:{line_index + 1}: Unused NOJET directive")
 
+print("")
+
+message = "JET:"
+separator = ""
+if errors > 0:
+    message += f" {errors} errors"
+    separator = ","
 if skipped > 0:
-    print(f"\nJET: {skipped} errors skipped")
+    message += f"{separator} {skipped} skipped"
+    separator = ","
+if unused > 0:
+    message += f"{separator} {unused} unused"
+
+if errors + skipped + unused > 0:
+    print(message)
 else:
-    print(f"\nJET: clean!")
+    print("JET: clean!")
+
+if errors + unused > 0:
+    sys.exit(1)

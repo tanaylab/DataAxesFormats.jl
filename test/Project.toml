@@ -1,5 +1,6 @@
 [deps]
 Coverage = "a2441757-f6aa-5fb2-8edb-039e3f45d037"
+ExceptionUnwrapping = "460bff9d-24e4-43bc-9d9f-a8973cb893f4"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 NamedArrays = "86f7a689-2022-50b4-a561-43c23ac3c673"
 NestedTests = "c7752788-e2db-4f03-8189-845608b41f97"

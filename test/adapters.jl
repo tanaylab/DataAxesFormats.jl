@@ -3,8 +3,8 @@ nested_test("adapters") do
     set_scalar!(daf, "INPUT", 1)
     result = adapter(
         "example!",
-        viewer("input", daf; scalars = ["input" => "INPUT"]);
-        scalars = ["OUTPUT" => "output"],
+        viewer("input", daf; data = ["input" => ": INPUT"]);
+        data = ["OUTPUT" => ": output"],
     ) do adapted
         set_scalar!(adapted, "output", get_scalar(adapted, "input"))
         return 7

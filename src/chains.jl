@@ -14,6 +14,7 @@ using Daf.Formats
 using Daf.Messages
 using Daf.ReadOnly
 using Daf.StorageTypes
+using Daf.Unions
 using SparseArrays
 
 import Daf.Data.as_read_only
@@ -224,7 +225,7 @@ function Formats.format_set_vector!(
     chain::WriteChain,
     axis::AbstractString,
     name::AbstractString,
-    vector::Union{Number, String, StorageVector},
+    vector::Union{StorageScalar, StorageVector},
 )::Nothing
     if !Formats.format_has_axis(chain.daf, axis)
         Formats.format_add_axis!(chain.daf, axis, Formats.format_get_axis(chain, axis))
@@ -238,7 +239,7 @@ function Formats.format_empty_dense_vector!(
     axis::AbstractString,
     name::AbstractString,
     eltype::Type{T},
-)::DenseVector{T} where {T <: Number}
+)::DenseVector{T} where {T <: StorageNumber}
     if !Formats.format_has_axis(chain.daf, axis)
         Formats.format_add_axis!(chain.daf, axis, Formats.format_get_axis(chain, axis))
     end
@@ -250,9 +251,9 @@ function Formats.format_empty_sparse_vector!(
     axis::AbstractString,
     name::AbstractString,
     eltype::Type{T},
-    nnz::Integer,
+    nnz::StorageInteger,
     indtype::Type{I},
-)::SparseVector{T, I} where {T <: Number, I <: Integer}
+)::SparseVector{T, I} where {T <: StorageNumber, I <: StorageInteger}
     if !Formats.format_has_axis(chain.daf, axis)
         Formats.format_add_axis!(chain.daf, axis, Formats.format_get_axis(chain, axis))
     end
@@ -270,7 +271,7 @@ function Formats.format_delete_vector!(
             if Formats.format_has_axis(daf, axis) && Formats.format_has_vector(daf, axis, name)
                 error(
                     "failed to delete the vector: $(name)\n" *
-                    "for the axis: $(axis)\n" *
+                    "of the axis: $(axis)\n" *
                     "from the daf data: $(chain.daf.name)\n" *
                     "of the chain: $(chain.name)\n" *
                     "because it exists in the earlier: $(daf.name)",
@@ -321,7 +322,7 @@ function Formats.format_set_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    matrix::Union{Number, String, StorageMatrix},
+    matrix::Union{StorageNumber, StorageMatrix},
 )::Nothing
     for axis in (rows_axis, columns_axis)
         if !Formats.format_has_axis(chain.daf, axis)
@@ -338,7 +339,7 @@ function Formats.format_empty_dense_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     eltype::Type{T},
-)::DenseMatrix{T} where {T <: Number}
+)::DenseMatrix{T} where {T <: StorageNumber}
     for axis in (rows_axis, columns_axis)
         if !Formats.format_has_axis(chain.daf, axis)
             Formats.format_add_axis!(chain.daf, axis, Formats.format_get_axis(chain, axis))
@@ -353,9 +354,9 @@ function Formats.format_empty_sparse_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     eltype::Type{T},
-    nnz::Integer,
+    nnz::StorageInteger,
     indtype::Type{I},
-)::SparseMatrixCSC{T, I} where {T <: Number, I <: Integer}
+)::SparseMatrixCSC{T, I} where {T <: StorageNumber, I <: StorageInteger}
     for axis in (rows_axis, columns_axis)
         if !Formats.format_has_axis(chain.daf, axis)
             Formats.format_add_axis!(chain.daf, axis, Formats.format_get_axis(chain, axis))
@@ -435,17 +436,22 @@ function Formats.format_get_matrix(
     @assert false  # untested
 end
 
-function Formats.format_description_header(chain::ReadOnlyChain, indent::String, lines::Array{String})::Nothing
+function Formats.format_description_header(chain::ReadOnlyChain, indent::AbstractString, lines::Array{String})::Nothing
     push!(lines, "$(indent)type: ReadOnly Chain")
     return nothing
 end
 
-function Formats.format_description_header(chain::WriteChain, indent::String, lines::Array{String})::Nothing
+function Formats.format_description_header(chain::WriteChain, indent::AbstractString, lines::Array{String})::Nothing
     push!(lines, "$(indent)type: Write Chain")
     return nothing
 end
 
-function Formats.format_description_footer(chain::AnyChain, indent::String, lines::Array{String}, deep::Bool)::Nothing
+function Formats.format_description_footer(
+    chain::AnyChain,
+    indent::AbstractString,
+    lines::Array{String},
+    deep::Bool,
+)::Nothing
     if deep
         push!(lines, "$(indent)chain:")
         for daf in chain.dafs
@@ -463,12 +469,20 @@ function Messages.present(value::WriteChain)::String
     return "Write Chain $(value.name)"
 end
 
-function ReadOnly.read_only(daf::ReadOnlyChain)::ReadOnlyChain
-    return daf
+function ReadOnly.read_only(daf::ReadOnlyChain, name::Maybe{AbstractString} = nothing)::ReadOnlyChain
+    if name == nothing
+        return daf
+    else
+        internal = Internal(name, daf.internal.axes, daf.internal.cache, daf.internal.dependency_cache_keys)
+        return ReadOnlyChain(internal, daf.dafs)
+    end
 end
 
-function ReadOnly.read_only(daf::WriteChain)::ReadOnlyView
-    return ReadOnlyView(daf)
+function ReadOnly.read_only(daf::WriteChain, name::Maybe{AbstractString} = nothing)::ReadOnlyView
+    if name == nothing
+        name = daf.name
+    end
+    return ReadOnlyView(name, daf)
 end
 
 end # module
