@@ -8,6 +8,8 @@ export copy_axis!
 export copy_matrix!
 export copy_scalar!
 export copy_vector!
+export empty_dict
+export EmptyKey
 
 using Daf.Data
 using Daf.Formats
@@ -133,6 +135,7 @@ function copy_vector!(;
     end
 
     @assert relation == :from_is_subset
+    verify_subset(from.name, axis, into.name, reaxis, empty != nothing)
 
     if issparse(value)
         dense = Vector{eltype(value)}(undef, axis_length(into, reaxis))
@@ -240,6 +243,14 @@ function copy_matrix!(;
         relayout = false
     end
 
+    if columns_relation == :from_is_subset
+        verify_subset(from.name, columns_axis, into.name, columns_reaxis, empty != nothing)
+    end
+
+    if rows_relation == :from_is_subset
+        verify_subset(from.name, rows_axis, into.name, rows_reaxis, empty != nothing)
+    end
+
     if rows_relation == :same && columns_relation == :same
         set_matrix!(into, rows_reaxis, columns_reaxis, rename, value; overwrite = overwrite, relayout = relayout)
         return nothing
@@ -285,9 +296,16 @@ end
     copy_all!(;
         into::DafWriter,
         from::DafReader
-        [overwrite::Bool = false,
+        [empty::Maybe{Dict{Key, Value}} = nothing,
+        overwrite::Bool = false,
         relayout::Bool = true]
-    )::Nothing
+    )::Nothing where {
+        Key <: Union{
+            Tuple{AbstractString, AbstractString},                  # Key for empty value for vectors.
+            Tuple{AbstractString, AbstractString, AbstractString},  # Key for empty value for matrices.
+        },
+        Value <: StorageScalarBase
+    }
 
 Copy all the content of a `DafReader` into a `DafWriter`. If `overwrite`, this will overwrite existing data in the
 target. If `relayout`, matrices will be stored in the target both layouts, regardless of how they were stored in the
@@ -296,20 +314,33 @@ source.
 This will create target axes that exist in only in the source, but will *not* overwrite existing target axes, regardless
 of the value of `overwrite`. An axis that exists in the target must be identical to, or be a subset of, the same axis in
 the source.
+
+If the source has axes which are a subset of the same axes in the target, then you must specify a dictionary of values
+for the `empty` entries that will be created in the target when copying any vector and/or matrix properties. This is
+specified using a `(axis, property) => value` entry for specifying an empty value for a vector property and a
+`(rows_axis, columns_axis, property) => entry` for specifying an empty value for a matrix property. The order of the
+axes for matrix properties doesn't matter (the same empty value is automatically used for both axes orders).
 """
-function copy_all!(; into::DafWriter, from::DafReader, overwrite::Bool = false, relayout::Bool = true)::Nothing
-    axis_relations = verify_axes(into, from)
+function copy_all!(;
+    into::DafWriter,
+    from::DafReader,
+    empty::Maybe{Dict} = nothing,
+    overwrite::Bool = false,
+    relayout::Bool = true,
+)::Nothing
+    axis_relations = verify_axes(into, from; allow_from_subset = (empty != nothing))
     copy_scalars(into, from, overwrite)
     copy_axes(into, from)
-    copy_vectors(into, from, axis_relations, overwrite)
-    copy_matrices(into, from, axis_relations, overwrite, relayout)
+    copy_vectors(into, from, axis_relations, empty, overwrite)
+    copy_matrices(into, from, axis_relations, empty, overwrite, relayout)
     return nothing
 end
 
-function verify_axes(into::DafWriter, from::DafReader)::Dict{String, Symbol}
+function verify_axes(into::DafWriter, from::DafReader; allow_from_subset::Bool)::Dict{String, Symbol}
     axis_relations = Dict{String, Symbol}()
     for axis in axis_names(from)
-        axis_relations[axis] = verify_axis(into, axis, from, axis; allow_missing = true, allow_from_subset = false)
+        axis_relations[axis] =
+            verify_axis(into, axis, from, axis; allow_missing = true, allow_from_subset = allow_from_subset)
     end
     return axis_relations
 end
@@ -338,14 +369,7 @@ function verify_axis(
     end
 
     if from_entries < into_entries
-        if !allow_from_subset
-            error(
-                "missing entries from the axis: $(from_axis)\n" *
-                "of the source daf data: $(from_daf.name)\n" *
-                "which are needed for the axis: $(into_axis)\n" *
-                "of the target daf data: $(into_daf.name)\n",
-            )
-        end
+        verify_subset(from_daf.name, from_axis, into_daf.name, into_axis, allow_from_subset)
         return :from_is_subset
     end
 
@@ -355,6 +379,23 @@ function verify_axis(
         "and the axis: $(into_axis)\n" *
         "of the target daf data: $(into_daf.name)\n",
     )
+end
+
+function verify_subset(
+    from_name::AbstractString,
+    from_axis::AbstractString,
+    into_name::AbstractString,
+    into_axis::AbstractString,
+    allow_subset::Bool,
+)::Nothing
+    if !allow_subset
+        error(
+            "missing entries from the axis: $(from_axis)\n" *
+            "of the source daf data: $(from_name)\n" *
+            "which are needed for the axis: $(into_axis)\n" *
+            "of the target daf data: $(into_name)\n",
+        )
+    end
 end
 
 function copy_scalars(into::DafWriter, from::DafReader, overwrite::Bool)::Nothing
@@ -371,14 +412,25 @@ function copy_axes(into::DafWriter, from::DafReader)::Nothing
     end
 end
 
-function copy_vectors(into::DafWriter, from::DafReader, axis_relations::Dict{String, Symbol}, overwrite::Bool)::Nothing
+function copy_vectors(
+    into::DafWriter,
+    from::DafReader,
+    axis_relations::Dict{String, Symbol},
+    empty::Maybe{Dict},
+    overwrite::Bool,
+)::Nothing
+    empty_value = nothing
     for (axis, relation) in axis_relations
         for name in vector_names(from, axis)
+            if empty != nothing
+                empty_value = get(empty, (axis, name), nothing)
+            end
             copy_vector!(;
                 into = into,
                 from = from,
                 axis = axis,
                 name = name,
+                empty = empty_value,
                 overwrite = overwrite,
                 relation = relation,
             )
@@ -390,19 +442,28 @@ function copy_matrices(
     into::DafWriter,
     from::DafReader,
     axis_relations::Dict{String, Symbol},
+    empty::Maybe{Dict},
     overwrite::Bool,
     relayout::Bool,
 )::Nothing
+    empty_value = nothing
     for (rows_axis, rows_relation) in axis_relations
         for (columns_axis, columns_relation) in axis_relations
             if !relayout || columns_axis >= rows_axis
                 for name in matrix_names(from, rows_axis, columns_axis; relayout = relayout)
+                    if empty != nothing
+                        empty_value = get(empty, (rows_axis, columns_axis, name), nothing)
+                        if empty_value == nothing
+                            empty_value = get(empty, (columns_axis, rows_axis, name), nothing)
+                        end
+                    end
                     copy_matrix!(;
                         into = into,
                         from = from,
                         rows_axis = rows_axis,
                         columns_axis = columns_axis,
                         name = name,
+                        empty = empty_value,
                         overwrite = overwrite,
                         rows_relation = rows_relation,
                         columns_relation = columns_relation,

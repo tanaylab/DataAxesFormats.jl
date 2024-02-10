@@ -31,6 +31,7 @@ export StorageInteger
 export StorageMatrix
 export StorageNumber
 export StorageScalar
+export StorageScalarBase
 export StorageVector
 
 using Daf.MatrixLayouts
@@ -58,7 +59,7 @@ Number types that can be used as scalars, or elements in stored matrices or vect
 StorageNumber = Union{Bool, StorageInteger, StorageFloat}
 
 """
-    StorageScalar = Union{StorageNumber, String}
+    StorageScalar = Union{StorageNumber, S} where {S <: AbstractString}
 
 Types that can be used as scalars, or elements in stored matrices or vectors.
 
@@ -67,7 +68,16 @@ principle we could support any arbitrary `isbitstype`. However, in practice this
 the data from other systems (specifically Python and R). Since `Daf` targets storing scientific data (especially
 biological data), as opposed to "anything at all", this restriction seems reasonable.
 """
-StorageScalar = Union{StorageNumber, String}
+StorageScalar = Union{StorageNumber, S} where {S <: AbstractString}
+
+"""
+    StorageScalarBase = Union{StorageNumber, AbstractString}
+
+For using in `where` clauses when a type needs to be a [`StorageScalar`](@ref). That is, write
+`where {T <: StorageScalarBase}` instead of `where {T <: StorageScalar}`, because of the
+limitations of Julia's type system.
+"""
+StorageScalarBase = Union{StorageNumber, AbstractString}
 
 """
     StorageMatrix{T} = AbstractMatrix{T} where {T <: StorageNumber}

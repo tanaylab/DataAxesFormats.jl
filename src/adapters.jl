@@ -23,6 +23,7 @@ using Daf.Views
         [capture=MemoryDaf,
         axes::AbstractVector{Pair{String, AxesValue}} = Vector{Pair{String, String}}(),
         data::AbstractVector{Pair{DataKey, DataValue}} = Vector{Pair{String, String}}(),
+        empty::Maybe{Dict{EmptyKey, EmptyValue}} = nothing,
         relayout::Bool = true,
         overwrite::Bool = false]
     )::Any where {
@@ -33,6 +34,11 @@ using Daf.Views
         },
         DataValue <: Maybe{Union{AbstractString, Query}},
         AxesValue <: Maybe{Union{AbstractString, Query}},
+        EmptyKey <: Union{
+            Tuple{AbstractString, AbstractString},                  # Key for empty value for vectors.
+            Tuple{AbstractString, AbstractString, AbstractString},  # Key for empty value for matrices.
+        },
+        EmptyValue <: StorageScalarBase
     }
 
 Invoke a computation on a `view` data set and return the result; copy a [`viewer`](@ref) of the updated data set into
@@ -55,8 +61,8 @@ To address these issues, the common idiom for applying computations to `daf` dat
     properties you are interested in, with the names you would like to store them as. Again, if the computation was
     annotated by [`@computation`](@ref), then its [`Contract`](@ref) will be explicitly documented so you will know
     exactly what to expect.
-  - Copy this output view data into the base `daf` data of the `view` (using [`copy_all!`](@ref), `relayout` (default:
-    `true`) and `overwrite` (default: `false`).
+  - Copy this output view data into the base `daf` data of the `view` (using [`copy_all!`](@ref), `empty`, `relayout`
+    (default: `true`) and `overwrite` (default: `false`).
 
 That is, the code would look something like this:
 
@@ -70,6 +76,7 @@ result = adapter(
     "example",              # A name to use to generate the temporary `daf` data names.
     view(daf; ...),         # How to view the input in the way expected by the computation.
     axes = ..., data = ..., # How and what to view the output for copying back into `daf`.
+    empty = ...,            # If the view specifies a subset of some axes.
 ) do adapted                   # The writable adapted data we can pass to the computation.
     computation(adapted, ...)  # Actually do the computation.
     return ...                 # An additional result outside `daf`.
@@ -90,6 +97,7 @@ function adapter(
     capture = MemoryDaf,
     axes::AbstractVector{Pair{String, AxesValue}} = Vector{Pair{String, String}}(),
     data::AbstractVector{Pair{DataKey, DataValue}} = Vector{Pair{String, String}}(),
+    empty::Maybe{Dict} = nothing,
     relayout::Bool = true,
     overwrite::Bool = false,
 )::Any where {
@@ -101,7 +109,7 @@ function adapter(
     input_chain = chain_writer("$(view_name).$(name).input", [view, capture("$(view_name).$(name).capture")])
     result = computation(input_chain)
     output_chain = viewer("$(view_name).$(name).output", input_chain; axes = axes, data = data)
-    copy_all!(; from = output_chain, into = view.daf, relayout = relayout, overwrite = overwrite)
+    copy_all!(; from = output_chain, into = view.daf, empty = empty, relayout = relayout, overwrite = overwrite)
     return result
 end
 

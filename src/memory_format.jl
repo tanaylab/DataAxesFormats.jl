@@ -1,5 +1,5 @@
 """
-In-memory storage `Daf` storage format.
+In-memory `Daf` storage format.
 """
 module MemoryFormat
 
@@ -116,7 +116,7 @@ function Formats.format_set_vector!(
     memory::MemoryDaf,
     axis::AbstractString,
     name::AbstractString,
-    vector::Union{StorageNumber, AbstractString, StorageVector},
+    vector::Union{StorageScalar, StorageVector},
 )::Nothing
     if vector isa StorageVector
         memory.vectors[axis][name] = vector
@@ -187,7 +187,7 @@ function Formats.format_set_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    matrix::Union{StorageNumber, AbstractString, StorageMatrix},
+    matrix::Union{StorageNumber, StorageMatrix},
 )::Nothing
     if matrix isa StorageMatrix
         memory.matrices[rows_axis][columns_axis][name] = matrix

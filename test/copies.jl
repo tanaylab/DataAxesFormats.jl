@@ -1040,16 +1040,36 @@ nested_test("copies") do
     end
 
     nested_test("all") do
-        @test set_scalar!(from, "version", "1.0") == nothing
-        @test add_axis!(from, "cell", ["A", "B"]) == nothing
-        @test add_axis!(from, "gene", ["W", "X", "Y"]) == nothing
-        @test add_axis!(into, "gene", ["W", "X", "Y"]) == nothing
-        @test set_vector!(from, "cell", "age", [1, 2]) == nothing
-        @test set_matrix!(from, "cell", "gene", "UMIs", [1 2 3; 4 5 6]) == nothing
-        @test copy_all!(; from = from, into = into) == nothing
-        @test get_scalar(into, "version") == "1.0"
-        @test get_axis(into, "cell") == ["A", "B"]
-        @test get_vector(into, "cell", "age") == [1, 2]
-        @test get_matrix(into, "cell", "gene", "UMIs") == [1 2 3; 4 5 6]
+        nested_test("empty") do
+            @test set_scalar!(from, "version", "1.0") == nothing
+            @test add_axis!(from, "cell", ["A"]) == nothing
+            @test add_axis!(from, "gene", ["W", "X"]) == nothing
+            @test set_vector!(from, "cell", "age", [1.0]) == nothing
+            @test set_matrix!(from, "cell", "gene", "UMIs", [1 2]) == nothing
+
+            copy_all!(; from = from, into = into)
+
+            @test get_scalar(into, "version") == "1.0"
+            @test get_axis(into, "cell") == ["A"]
+            @test get_vector(into, "cell", "age") == [1.0]
+            @test get_matrix(into, "cell", "gene", "UMIs") == [1 2]
+        end
+
+        nested_test("subset") do
+            @test add_axis!(into, "cell", ["A", "B"]) == nothing
+            @test add_axis!(into, "gene", ["W", "X", "Z"]) == nothing
+
+            @test set_scalar!(from, "version", "1.0") == nothing
+            @test add_axis!(from, "cell", ["A"]) == nothing
+            @test add_axis!(from, "gene", ["W", "X"]) == nothing
+            @test set_vector!(from, "cell", "age", [1.0]) == nothing
+            @test set_matrix!(from, "cell", "gene", "UMIs", [1 2]) == nothing
+
+            copy_all!(; from = from, into = into, empty = Dict(("cell", "age") => 0.0, ("gene", "cell", "UMIs") => 0))
+
+            @test get_scalar(into, "version") == "1.0"
+            @test get_vector(into, "cell", "age") == [1.0, 0.0]
+            @test get_matrix(into, "cell", "gene", "UMIs") == [1 2 0; 0 0 0]
+        end
     end
 end

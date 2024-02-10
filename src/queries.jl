@@ -717,7 +717,7 @@ function Base.show(io::IO, fetch::Fetch)::Nothing
 end
 
 """
-    IfMissing(value::Union{AbstractString, StorageScalar}; dtype::Maybe{Type} = nothing) <: QueryOperation
+    IfMissing(value::StorageScalar; dtype::Maybe{Type} = nothing) <: QueryOperation
 
 A query operation providing a value to use if the data is missing some property: In a string [`Query`](@ref), this is
 specified using the `||` operator, followed by the value to use, and optionally followed by the data type of the value
@@ -727,11 +727,11 @@ If the data type is not specified, and the `value` isa `AbstractString`, then th
 [`guess_typed_value`](@ref) of the `value`.
 """
 struct IfMissing <: ModifierQueryOperation
-    missing_value::Union{AbstractString, StorageScalar}
+    missing_value::StorageScalar
     dtype::Maybe{Type}
 end
 
-function IfMissing(value::Union{AbstractString, StorageScalar}; dtype::Maybe{Type} = nothing)::IfMissing
+function IfMissing(value::StorageScalar; dtype::Maybe{Type} = nothing)::IfMissing
     if dtype != nothing
         @assert value isa dtype
     elseif !(value isa AbstractString)
@@ -749,7 +749,7 @@ function Base.show(io::IO, if_missing::IfMissing)::Nothing
 end
 
 """
-    IfNot(value::Maybe{Union{AbstractString, StorageScalar}} = nothing) <: QueryOperation
+    IfNot(value::Maybe{StorageScalar} = nothing) <: QueryOperation
 
 A query operation providing a value to use for "false-ish" values in a vector (empty strings, zero numeric values, or
 false Boolean values). In a string [`Query`](@ref), this is indicated using the `?` operator, optionally followed by a
@@ -765,7 +765,7 @@ If the `value` isa `AbstractString`, then it is automatically converted to the d
 vector.
 """
 struct IfNot <: ModifierQueryOperation
-    not_value::Maybe{Union{AbstractString, StorageScalar}}
+    not_value::Maybe{StorageScalar}
 end
 
 function IfNot()
@@ -1050,7 +1050,7 @@ function Base.show(io::IO, comparison_operation::ComparisonOperation)::Nothing
 end
 
 """
-    IsLess(comparison_value::Union{AbstractString, StorageScalar}) <: QueryOperation
+    IsLess(comparison_value::StorageScalar) <: QueryOperation
 
 A query operation for converting a vector value to a Boolean mask by comparing it some value. In a string
 [`Query`](@ref), this is specified using the `<` operator, followed by the value to compare with.
@@ -1059,28 +1059,24 @@ A string value is automatically converted into the same type as the vector value
 will restrict the result vector only to cells whose probability is less than half).
 """
 struct IsLess <: ComparisonOperation
-    comparison_value::Union{AbstractString, StorageScalar}
+    comparison_value::StorageScalar
 end
 
 function comparison_operator(is_less::IsLess)::String
     return "<"
 end
 
-function compute_comparison(
-    compared_value::StorageScalar,
-    is_less::IsLess,
-    comparison_value::Union{AbstractString, StorageScalar},
-)::Bool
+function compute_comparison(compared_value::StorageScalar, is_less::IsLess, comparison_value::StorageScalar)::Bool
     return compared_value < comparison_value
 end
 
 """
-    IsLessEqual(comparison_value::Union{AbstractString, StorageScalar}) <: QueryOperation
+    IsLessEqual(comparison_value::StorageScalar) <: QueryOperation
 
 Similar to [`IsLess`](@ref) except that uses `<=` instead of `<` for the comparison.
 """
 struct IsLessEqual <: ComparisonOperation
-    comparison_value::Union{AbstractString, StorageScalar}
+    comparison_value::StorageScalar
 end
 
 function comparison_operator(is_less_equal::IsLessEqual)::String
@@ -1090,13 +1086,13 @@ end
 function compute_comparison(
     compared_value::StorageScalar,
     is_less_equal::IsLessEqual,
-    comparison_value::Union{AbstractString, StorageScalar},
+    comparison_value::StorageScalar,
 )::Bool
     return compared_value <= comparison_value
 end
 
 """
-    IsEqual(comparison_value::Union{AbstractString, StorageScalar}) <: QueryOperation
+    IsEqual(comparison_value::StorageScalar) <: QueryOperation
 
 Equality is used for two purposes:
 
@@ -1106,28 +1102,24 @@ Equality is used for two purposes:
     vector from a matrix (e.g., `/ cell = ATGC / gene : UMIs` or `/ cell / gene = FOX1 : UMIs`).
 """
 struct IsEqual <: ComparisonOperation
-    comparison_value::Union{AbstractString, StorageScalar}
+    comparison_value::StorageScalar
 end
 
 function comparison_operator(is_equal::IsEqual)::String
     return "="
 end
 
-function compute_comparison(
-    compared_value::StorageScalar,
-    is_equal::IsEqual,
-    comparison_value::Union{AbstractString, StorageScalar},
-)::Bool
+function compute_comparison(compared_value::StorageScalar, is_equal::IsEqual, comparison_value::StorageScalar)::Bool
     return compared_value == comparison_value
 end
 
 """
-    IsNotEqual(comparison_value::Union{AbstractString, StorageScalar}) <: QueryOperation
+    IsNotEqual(comparison_value::StorageScalar) <: QueryOperation
 
 Similar to [`IsLess`](@ref) except that uses `!=` instead of `<` for the comparison.
 """
 struct IsNotEqual <: ComparisonOperation
-    comparison_value::Union{AbstractString, StorageScalar}
+    comparison_value::StorageScalar
 end
 
 function comparison_operator(is_not_equal::IsNotEqual)::String
@@ -1137,39 +1129,35 @@ end
 function compute_comparison(
     compared_value::StorageScalar,
     is_not_equal::IsNotEqual,
-    comparison_value::Union{AbstractString, StorageScalar},
+    comparison_value::StorageScalar,
 )::Bool
     return compared_value != comparison_value
 end
 
 """
-    IsGreater(comparison_value::Union{AbstractString, StorageScalar}) <: QueryOperation
+    IsGreater(comparison_value::StorageScalar) <: QueryOperation
 
 Similar to [`IsLess`](@ref) except that uses `>` instead of `<` for the comparison.
 """
 struct IsGreater <: ComparisonOperation
-    comparison_value::Union{AbstractString, StorageScalar}
+    comparison_value::StorageScalar
 end
 
 function comparison_operator(is_greater::IsGreater)::String
     return ">"
 end
 
-function compute_comparison(
-    compared_value::StorageScalar,
-    is_greater::IsGreater,
-    comparison_value::Union{AbstractString, StorageScalar},
-)::Bool
+function compute_comparison(compared_value::StorageScalar, is_greater::IsGreater, comparison_value::StorageScalar)::Bool
     return compared_value > comparison_value
 end
 
 """
-    IsGreaterEqual(value::Union{AbstractString, StorageScalar}) <: QueryOperation
+    IsGreaterEqual(value::StorageScalar) <: QueryOperation
 
 Similar to [`IsLess`](@ref) except that uses `>=` instead of `<` for the comparison.
 """
 struct IsGreaterEqual <: ComparisonOperation
-    comparison_value::Union{AbstractString, StorageScalar}
+    comparison_value::StorageScalar
 end
 
 function comparison_operator(is_greater_equal::IsGreaterEqual)::String
@@ -1179,7 +1167,7 @@ end
 function compute_comparison(
     compared_value::StorageScalar,
     is_greater_equal::IsGreaterEqual,
-    comparison_value::Union{AbstractString, StorageScalar},
+    comparison_value::StorageScalar,
 )::Bool
     return compared_value >= comparison_value
 end
@@ -1899,7 +1887,7 @@ mutable struct EntryFetchState
     common::CommonFetchState
     axis_entry_index::Int
     scalar_value::Maybe{StorageScalar}
-    if_not_value::Maybe{Union{AbstractString, StorageScalar}}
+    if_not_value::Maybe{StorageScalar}
 end
 
 mutable struct VectorFetchState
@@ -3286,11 +3274,20 @@ function value_for_if_missing(if_missing::IfMissing; dtype::Maybe{Type} = nothin
     return guess_typed_value(if_missing.missing_value)
 end
 
-function value_for(
-    query_state::QueryState,
-    type::Type{T},
-    value::Union{AbstractString, StorageScalar},
-)::T where {T <: StorageScalar}
+function regex_for(query_state::QueryState, value::StorageScalar)::Regex
+    comparison_value = value_for(query_state, String, value)
+    comparison_value = "^(:?" * comparison_value * ")\$"
+    try
+        return Regex(comparison_value)
+    catch exception
+        error_at_state(
+            query_state,
+            "$(typeof(exception)): $(exception.msg)\nin the regular expression: $(comparison_value)\n",
+        )
+    end
+end
+
+function value_for(query_state::QueryState, type::Type{T}, value::StorageScalar)::T where {T <: StorageScalar}
     if value isa T
         return value
     elseif value isa AbstractString
@@ -3301,23 +3298,10 @@ function value_for(
         end
     else
         try  # untested
-            return T(value)  # untested
+            return T(value)  # untested NOJET
         catch exception
             error_at_state(query_state, "$(typeof(exception)): $(exception.msg)\n")  # untested
         end
-    end
-end
-
-function regex_for(query_state::QueryState, value::Union{AbstractString, StorageScalar})::Regex
-    comparison_value = value_for(query_state, String, value)
-    comparison_value = "^(:?" * comparison_value * ")\$"
-    try
-        return Regex(comparison_value)
-    catch exception
-        error_at_state(
-            query_state,
-            "$(typeof(exception)): $(exception.msg)\nin the regular expression: $(comparison_value)\n",
-        )
     end
 end
 
