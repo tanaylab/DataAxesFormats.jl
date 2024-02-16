@@ -1,0 +1,748 @@
+"""
+HDF5 storage `Daf` storage format. This is the "native" way to store `Daf` data in HDF5 files. HDF5 files are
+essentially "a filesystem inside a file", with "groups" instead of directories and "datasets" instead of files. This is
+a generic format and there are various specific formats which use specific internal structure to hold some data - for
+example, `h5ad` files have a specific internal structure for representing `AnnData` objects. To represent `Daf` data in
+HDF5 storage, we use the following internal structure (which is *not* compatible with `h5ad`):
+
+  - An HDF5 file may contain `Daf` data directly in the root group, in which case, it is restricted to holding just a
+    single `Daf` data set. When using such a file, you automatically access the single `Daf` data set contained in it.
+    By convention such files are given a `.h5df` suffix.
+  - Alternatively, an HDF5 file may contain `Daf` data inside some arbitrary group, in which case, there's no restriction
+    on the content of other groups in the file. Such groups may contain other `Daf` data (allowing for multiple `Daf` data
+    sets in a single file), and/or non-`Daf` data. When using such a file, you need to specify the name of the group that
+    contains the `Daf` data set you are interested it. By convention, at least if such files contain "mostly" (or only)
+    `Daf` data sets, they are given a `.h5dfs` suffix, and are accompanied by some documentation describing the top-level
+    groups in the file.
+  - Under the `Daf` data group, there are 4 sub-groups: `scalars`, `axes`, `vectors` and `matrices` and a `daf` dataset.
+  - To future-proof the format, the `daf` dataset will contain a vector of two integers, the first acting as the major
+    version number and the second as the minor version number, using [semantic versioning](https://semver.org/). This
+    makes it easy to test whether some group in an HDF5 file does/n't contain `Daf` data, and which version of the
+    internal structure it is using. Currently the only defined version is `[1,0]`.
+  - The `scalars` group contains scalar properties, each as its own "dataset". The only supported scalar data types
+    are these included in [`StorageScalar`](@ref). If you *really* need something else, serialize it to JSON and store the
+    result as a string scalar. This should be *extremely* rare.
+  - The `axes` group contains a "dataset" per axis, which contains a vector of strings (the names of the axis entries).
+  - The `vectors` group contains a sub-group for each axis. Each such sub-group contains vector properties. If the
+    vector is dense, it is stored directly as a "dataset". Otherwise, it is stored as a group containing two vector
+    "datasets": `nzind` is containing the indices of the non-zero values, and `nzval` containing the actual values. See
+    Julia's `SparseVector` implementation for details. The only supported vector element types are these included in
+    [`StorageScalar`](@ref), same as [`StorageVector`](@ref).
+  - The `matrices` group contains a sub-group for each rows axis, which contains a sub-group for each columns axis. Each
+    such sub-sub group contains matrix properties. If the matrix is dense, it is stored directly as a "dataset" (in
+    column-major layout). Otherwise, it is stored as a group containing three vector "datasets": `colptr` containing the
+    indices of the rows of each column in `rowval`, `rowval` containing the indices of the non-zero rows of the columns,
+    and `nzval` containing the non-zero matrix entry values. See Julia's `SparseMatrixCSC` implementation for details.
+    The only supported matrix element types are these included in [`StorageNumber`](@ref) - this explicitly excludes
+    matrices of strings, same as [`StorageMatrix`](@ref).
+  - All vectors and matrices are stored in a contiguous way in the file. This explicitly excludes chunked and compressed
+    formats. This restriction is both for efficiency (allowing for memory-mapping) and for simplicity (allowing for
+    "anyone" to directly access the data).
+
+That's all there is to it. Due to the above restrictions on types and layout, the metadata provided by HDF5 for each
+"dataset" is sufficient to fully describe the data, and one should be able to directly access it using any HDF5 API in
+any programming language, if needed. Typically, however, it is easiest to simply use the Julia `Daf` package to access
+the data.
+
+!!! note
+
+    The code here assumes the HDF5 data obeys all the above conventions and restrictions. If you only create and access
+    `Daf` data using [`H5df`](@ref), then this will always be the case (assuming no bugs). However, if you do this in
+    some other way (e.g., directly using some HDF5 API in some arbitrary programming language), and the result is
+    invalid, then the code here may fails with "less than friendly" error messages.
+"""
+module H5DF
+
+export H5df
+
+using Daf.Data
+using Daf.Unions
+using Daf.Formats
+using Daf.MatrixLayouts
+using Daf.StorageTypes
+using HDF5
+using SparseArrays
+
+import Daf.Data.base_array
+import Daf.Formats
+import Daf.Formats.Internal
+
+"""
+The specific major version of the format that is supported by this code (`1`). The code will refuse to access data that
+is stored in a different major format.
+"""
+MAJOR_VERSION::UInt8 = 1
+
+"""
+The maximal minor version of the format that is supported by this code (`0`). The code will refuse to access data that
+is stored with the expected major version (`1`), but that uses a higher minor version.
+
+!!! note
+
+    Modifying data that is stored with a lower minor version number *may* increase its minor version number.
+"""
+MINOR_VERSION::UInt8 = 0
+
+"""
+    H5df(
+        file::HDF5.File;
+        [name::Maybe{AbstractString} = nothing,
+        group::Maybe{AbstractString} = nothing,
+        create::Bool = false]
+    )
+
+Storage in a HDF5 file.
+
+If the `Daf` data set is stored directly in the root of the file (by convention, using a `.h5df` file name suffix), then
+you should not specify a `group`, but must specify a `name` for the data set. If the `Daf` data is stored in some group
+inside the file, then you must specify the path to the `group`. By default, this will also be used as the data set
+`name`, unless you explicitly provide one.
+
+If there's no `Daf` data set in the specified location, and `create` is specified, then an empty data set will be
+created there.
+
+If the HDF5 `file` was opened as read-only, then you will not be able to modify the data
+"""
+struct H5df <: DafWriter
+    internal::Internal
+    root::Union{HDF5.File, HDF5.Group}
+end
+
+function H5df(
+    file::HDF5.File;
+    name::Maybe{AbstractString} = nothing,
+    group::Maybe{AbstractString} = nothing,
+    create::Bool = false,
+)::H5df
+    if name == nothing
+        name = group
+        if name == nothing
+            error("H5df requires a group or a data set name")
+        end
+    end
+    if group == nothing
+        identifier = name
+        root = file
+    else
+        if create && !haskey(file, group)
+            root_group = create_group(file, group)
+            close(root_group)
+        end
+        identifier = group
+        root = file[group]
+    end
+
+    if haskey(root, "daf")
+        format_dataset = root["daf"]
+        @assert format_dataset isa HDF5.Dataset
+        format_version = read(format_dataset)
+        @assert length(format_version) == 2
+        @assert eltype(format_version) <: Unsigned
+        if format_version[1] != MAJOR_VERSION || format_version[2] > MINOR_VERSION
+            error(
+                "incompatible format version: $(format_version[1]).$(format_version[2])\n" *
+                "for the daf data: $(identifier)\n" *
+                "the code supports version: $(MAJOR_VERSION).$(MINOR_VERSION)",
+            )
+        end
+
+    elseif create
+        root["daf"] = [MAJOR_VERSION, MINOR_VERSION]
+        scalars_group = create_group(root, "scalars")
+        axes_group = create_group(root, "axes")
+        vectors_group = create_group(root, "vectors")
+        matrices_group = create_group(root, "matrices")
+
+        close(scalars_group)
+        close(axes_group)
+        close(vectors_group)
+        close(matrices_group)
+
+    else
+        error("not a daf data set: $(identifier)")
+    end
+
+    return H5df(Internal(name), root)
+end
+
+function Formats.format_has_scalar(h5df::H5df, name::AbstractString)::Bool
+    scalars_group = h5df.root["scalars"]  # NOJET
+    @assert scalars_group isa HDF5.Group
+    return haskey(scalars_group, name)
+end
+
+function Formats.format_set_scalar!(h5df::H5df, name::AbstractString, value::StorageScalar)::Nothing
+    scalars_group = h5df.root["scalars"]
+    @assert scalars_group isa HDF5.Group
+    scalars_group[name] = value  # NOJET
+    return nothing
+end
+
+function Formats.format_delete_scalar!(h5df::H5df, name::AbstractString; for_set::Bool)::Nothing
+    scalars_group = h5df.root["scalars"]
+    @assert scalars_group isa HDF5.Group
+    delete_object(scalars_group, name)
+    return nothing
+end
+
+function Formats.format_get_scalar(h5df::H5df, name::AbstractString)::StorageScalar
+    scalars_group = h5df.root["scalars"]
+    @assert scalars_group isa HDF5.Group
+    scalars_dataset = scalars_group[name]
+    @assert scalars_dataset isa HDF5.Dataset
+    return read(scalars_dataset)
+end
+
+function Formats.format_scalar_names(h5df::H5df)::AbstractSet{String}
+    scalars_group = h5df.root["scalars"]
+    @assert scalars_group isa HDF5.Group
+    return Set(keys(scalars_group))
+end
+
+function Formats.format_has_axis(h5df::H5df, axis::AbstractString)::Bool
+    axes_group = h5df.root["axes"]
+    @assert axes_group isa HDF5.Group
+    return haskey(axes_group, axis)
+end
+
+function Formats.format_add_axis!(h5df::H5df, axis::AbstractString, entries::AbstractVector{String})::Nothing
+    axes_group = h5df.root["axes"]
+    @assert axes_group isa HDF5.Group
+    axes_group[axis] = entries  # NOJET
+
+    vectors_group = h5df.root["vectors"]
+    @assert vectors_group isa HDF5.Group
+    axis_vectors_group = create_group(vectors_group, axis)  # NOJET
+    close(axis_vectors_group)
+
+    matrices_group = h5df.root["matrices"]
+    @assert matrices_group isa HDF5.Group
+    other_axes = keys(matrices_group)
+
+    axis_matrices_group = create_group(matrices_group, axis)
+    for other_axis in other_axes
+        other_axis_matrices_group = create_group(axis_matrices_group, other_axis)
+        close(other_axis_matrices_group)
+    end
+    close(axis_matrices_group)
+
+    for other_axis in keys(matrices_group)
+        matrix_axis_group = matrices_group[other_axis]
+        @assert matrix_axis_group isa HDF5.Group
+        axis_matrices_group = create_group(matrix_axis_group, axis)
+        close(axis_matrices_group)
+    end
+
+    return nothing
+end
+
+function Formats.format_delete_axis!(h5df::H5df, axis::AbstractString)::Nothing
+    axes_group = h5df.root["axes"]
+    @assert axes_group isa HDF5.Group
+    delete_object(axes_group, axis)
+
+    vectors_group = h5df.root["vectors"]
+    @assert vectors_group isa HDF5.Group
+    delete_object(vectors_group, axis)
+
+    matrices_group = h5df.root["matrices"]
+    @assert matrices_group isa HDF5.Group
+    delete_object(matrices_group, axis)
+
+    for other_axis in keys(matrices_group)
+        other_axis_group = matrices_group[other_axis]
+        @assert other_axis_group isa HDF5.Group
+        delete_object(other_axis_group, axis)
+    end
+
+    return nothing
+end
+
+function Formats.format_axis_names(h5df::H5df)::AbstractSet{String}
+    axes_group = h5df.root["axes"]
+    @assert axes_group isa HDF5.Group
+    return Set(keys(axes_group))
+end
+
+function Formats.format_get_axis(h5df::H5df, axis::AbstractString)::AbstractVector{String}
+    axes_group = h5df.root["axes"]
+    @assert axes_group isa HDF5.Group
+
+    axis_dataset = axes_group[axis]
+    @assert axis_dataset isa HDF5.Dataset
+    return read(axis_dataset)  # NOJET
+end
+
+function Formats.format_axis_length(h5df::H5df, axis::AbstractString)::Int64
+    axes_group = h5df.root["axes"]
+    @assert axes_group isa HDF5.Group
+
+    axis_dataset = axes_group[axis]
+    @assert axis_dataset isa HDF5.Dataset
+    return length(axis_dataset)
+end
+
+function Formats.format_has_vector(h5df::H5df, axis::AbstractString, name::AbstractString)::Bool
+    vectors_group = h5df.root["vectors"]
+    @assert vectors_group isa HDF5.Group
+
+    axis_vectors_group = vectors_group[axis]
+    @assert axis_vectors_group isa HDF5.Group
+
+    return haskey(axis_vectors_group, name)
+end
+
+function Formats.format_set_vector!(
+    h5df::H5df,
+    axis::AbstractString,
+    name::AbstractString,
+    vector::Union{StorageScalar, StorageVector},
+)::Nothing
+    vectors_group = h5df.root["vectors"]
+    @assert vectors_group isa HDF5.Group
+
+    axis_vectors_group = vectors_group[axis]
+    @assert axis_vectors_group isa HDF5.Group
+
+    if vector isa StorageScalar
+        vector_dataset =
+            create_dataset(axis_vectors_group, name, typeof(vector), (Formats.format_axis_length(h5df, axis),))
+
+        vector_dataset[:] = vector
+        close(vector_dataset)
+
+    elseif vector isa SparseVector
+        vector_group = create_group(axis_vectors_group, name)
+        vector_group["nzind"] = vector.nzind
+        vector_group["nzval"] = vector.nzval
+        close(vector_group)
+
+    else
+        @assert vector isa AbstractVector
+        axis_vectors_group[name] = base_array(vector)
+    end
+
+    return nothing
+end
+
+function Formats.format_empty_dense_vector!(
+    h5df::H5df,
+    axis::AbstractString,
+    name::AbstractString,
+    eltype::Type{T},
+)::AbstractVector{T} where {T <: StorageNumber}
+    vectors_group = h5df.root["vectors"]
+    @assert vectors_group isa HDF5.Group
+
+    axis_vectors_group = vectors_group[axis]
+    @assert axis_vectors_group isa HDF5.Group
+
+    vector_dataset = create_dataset(axis_vectors_group, name, eltype, (Formats.format_axis_length(h5df, axis),))
+    @assert vector_dataset isa HDF5.Dataset
+    vector_dataset[1] = 0
+
+    vector = HDF5.readmmap(vector_dataset)
+    close(vector_dataset)
+    return vector
+end
+
+function Formats.format_empty_sparse_vector!(
+    h5df::H5df,
+    axis::AbstractString,
+    name::AbstractString,
+    eltype::Type{T},
+    nnz::StorageInteger,
+    indtype::Type{I},
+)::SparseVector{T, I} where {T <: StorageNumber, I <: StorageInteger}
+    vectors_group = h5df.root["vectors"]
+    @assert vectors_group isa HDF5.Group
+
+    axis_vectors_group = vectors_group[axis]
+    @assert axis_vectors_group isa HDF5.Group
+    vector_group = create_group(axis_vectors_group, name)
+
+    nzind_dataset = create_dataset(vector_group, "nzind", indtype, (nnz,))
+    nzval_dataset = create_dataset(vector_group, "nzval", eltype, (nnz,))
+
+    @assert nzind_dataset isa HDF5.Dataset
+    @assert nzval_dataset isa HDF5.Dataset
+
+    nzind_dataset[1] = 0
+    nzval_dataset[1] = 0
+
+    nzind_vector = HDF5.readmmap(nzind_dataset)
+    nzval_vector = HDF5.readmmap(nzval_dataset)
+
+    nelements = Formats.format_axis_length(h5df, axis)
+    # TODO: Avoid copying the vectors if/when SparseArrays allows for it.
+    vector = SparseVector(nelements, Vector(nzind_vector), Vector(nzval_vector))
+
+    close(nzind_dataset)
+    close(nzval_dataset)
+    close(vector_group)
+
+    return vector
+end
+
+function Formats.format_end_empty_sparse_vector!(
+    h5df::H5df,
+    axis::AbstractString,
+    name::AbstractString,
+    filled::SparseVector,
+)::Nothing
+    vectors_group = h5df.root["vectors"]
+    @assert vectors_group isa HDF5.Group
+
+    axis_vectors_group = vectors_group[axis]
+    @assert axis_vectors_group isa HDF5.Group
+
+    vector_group = axis_vectors_group[name]
+    @assert vector_group isa HDF5.Group
+
+    delete_object(vector_group, "nzind")
+    delete_object(vector_group, "nzval")
+
+    vector_group["nzind"] = filled.nzind
+    vector_group["nzval"] = filled.nzval
+
+    return nothing
+end
+
+function Formats.format_delete_vector!(h5df::H5df, axis::AbstractString, name::AbstractString; for_set::Bool)::Nothing
+    vectors_group = h5df.root["vectors"]
+    @assert vectors_group isa HDF5.Group
+
+    axis_vectors_group = vectors_group[axis]
+    @assert axis_vectors_group isa HDF5.Group
+
+    delete_object(axis_vectors_group, name)
+    return nothing
+end
+
+function Formats.format_vector_names(h5df::H5df, axis::AbstractString)::AbstractSet{String}
+    vectors_group = h5df.root["vectors"]
+    @assert vectors_group isa HDF5.Group
+
+    axis_vectors_group = vectors_group[axis]
+    @assert axis_vectors_group isa HDF5.Group
+    return Set(keys(axis_vectors_group))
+end
+
+function Formats.format_get_vector(h5df::H5df, axis::AbstractString, name::AbstractString)::StorageVector
+    vectors_group = h5df.root["vectors"]
+    @assert vectors_group isa HDF5.Group
+
+    axis_vectors_group = vectors_group[axis]
+    @assert axis_vectors_group isa HDF5.Group
+
+    vector_object = axis_vectors_group[name]
+    if vector_object isa HDF5.Dataset
+        return dataset_as_vector(vector_object)
+
+    else
+        @assert vector_object isa HDF5.Group
+
+        nzind_dataset = vector_object["nzind"]
+        @assert nzind_dataset isa HDF5.Dataset
+        nzind_vector = HDF5.readmmap(nzind_dataset)
+
+        nzval_dataset = vector_object["nzval"]
+        @assert nzval_dataset isa HDF5.Dataset
+        nzval_vector = dataset_as_vector(nzval_dataset)
+
+        nelements = Formats.format_axis_length(h5df, axis)
+        # TODO: Avoid copying the vectors if/when SparseArrays allows for it.
+        return SparseVector(nelements, Vector(nzind_vector), Vector(nzval_vector))
+    end
+end
+
+function Formats.format_has_matrix(
+    h5df::H5df,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+)::Bool
+    matrices_group = h5df.root["matrices"]
+    @assert matrices_group isa HDF5.Group
+
+    rows_axis_group = matrices_group[rows_axis]
+    @assert rows_axis_group isa HDF5.Group
+
+    columns_axis_group = rows_axis_group[columns_axis]
+    @assert columns_axis_group isa HDF5.Group
+
+    return haskey(columns_axis_group, name)
+end
+
+function Formats.format_set_matrix!(
+    h5df::H5df,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+    matrix::Union{StorageNumber, StorageMatrix},
+)::Nothing
+    matrices_group = h5df.root["matrices"]
+    @assert matrices_group isa HDF5.Group
+
+    rows_axis_group = matrices_group[rows_axis]
+    @assert rows_axis_group isa HDF5.Group
+
+    columns_axis_group = rows_axis_group[columns_axis]
+    @assert columns_axis_group isa HDF5.Group
+
+    if matrix isa StorageNumber
+        nrows = Formats.format_axis_length(h5df, rows_axis)
+        ncols = Formats.format_axis_length(h5df, columns_axis)
+        matrix_dataset = create_dataset(columns_axis_group, name, typeof(matrix), (nrows, ncols))
+        matrix_dataset[:, :] = matrix
+        close(matrix_dataset)
+
+    elseif matrix isa SparseMatrixCSC
+        matrix_group = create_group(columns_axis_group, name)
+        matrix_group["colptr"] = matrix.colptr
+        matrix_group["rowval"] = matrix.rowval
+        matrix_group["nzval"] = matrix.nzval
+        close(matrix_group)
+
+    else
+        columns_axis_group[name] = matrix
+    end
+
+    return nothing
+end
+
+function Formats.format_empty_dense_matrix!(
+    h5df::H5df,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+    eltype::Type{T},
+)::AbstractMatrix{T} where {T <: StorageNumber}
+    matrices_group = h5df.root["matrices"]
+    @assert matrices_group isa HDF5.Group
+
+    rows_axis_group = matrices_group[rows_axis]
+    @assert rows_axis_group isa HDF5.Group
+
+    columns_axis_group = rows_axis_group[columns_axis]
+    @assert columns_axis_group isa HDF5.Group
+
+    nrows = Formats.format_axis_length(h5df, rows_axis)
+    ncols = Formats.format_axis_length(h5df, columns_axis)
+    matrix_dataset = create_dataset(columns_axis_group, name, eltype, (nrows, ncols))
+    matrix_dataset[1, 1] = 0
+    matrix = HDF5.readmmap(matrix_dataset)
+    close(matrix_dataset)
+    return matrix
+end
+
+function Formats.format_empty_sparse_matrix!(
+    h5df::H5df,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+    eltype::Type{T},
+    nnz::StorageInteger,
+    indtype::Type{I},
+)::SparseMatrixCSC{T, I} where {T <: StorageNumber, I <: StorageInteger}
+    matrices_group = h5df.root["matrices"]
+    @assert matrices_group isa HDF5.Group
+
+    rows_axis_group = matrices_group[rows_axis]
+    @assert rows_axis_group isa HDF5.Group
+
+    columns_axis_group = rows_axis_group[columns_axis]
+    @assert columns_axis_group isa HDF5.Group
+    matrix_group = create_group(columns_axis_group, name)
+
+    nrows = Formats.format_axis_length(h5df, rows_axis)
+    ncols = Formats.format_axis_length(h5df, columns_axis)
+
+    colptr_dataset = create_dataset(matrix_group, "colptr", indtype, ncols + 1)
+    rowval_dataset = create_dataset(matrix_group, "rowval", indtype, Int(nnz))
+    nzval_dataset = create_dataset(matrix_group, "nzval", eltype, Int(nnz))
+
+    colptr_dataset[:] = nnz + 1
+    colptr_dataset[1] = 1
+    rowval_dataset[1] = 0
+    nzval_dataset[1] = 0
+
+    colptr_vector = HDF5.readmmap(colptr_dataset)
+    rowval_vector = HDF5.readmmap(rowval_dataset)
+    nzval_vector = dataset_as_vector(nzval_dataset)
+
+    close(colptr_dataset)
+    close(rowval_dataset)
+    close(nzval_dataset)
+    close(matrix_group)
+
+    # TODO: Avoid copying the vectors if/when SparseArrays allows for it.
+    return SparseMatrixCSC(nrows, ncols, Vector(colptr_vector), Vector(rowval_vector), Vector(nzval_vector))
+end
+
+function Formats.format_end_empty_sparse_matrix!(
+    h5df::H5df,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+    filled::SparseMatrixCSC,
+)::Nothing
+    matrices_group = h5df.root["matrices"]
+    @assert matrices_group isa HDF5.Group
+
+    rows_axis_group = matrices_group[rows_axis]
+    @assert rows_axis_group isa HDF5.Group
+
+    columns_axis_group = rows_axis_group[columns_axis]
+    @assert columns_axis_group isa HDF5.Group
+
+    matrix_group = columns_axis_group[name]
+    @assert matrix_group isa HDF5.Group
+
+    delete_object(matrix_group, "colptr")
+    delete_object(matrix_group, "rowval")
+    delete_object(matrix_group, "nzval")
+
+    matrix_group["colptr"] = filled.colptr
+    matrix_group["rowval"] = filled.rowval
+    matrix_group["nzval"] = filled.nzval
+
+    return nothing
+end
+
+function Formats.format_relayout_matrix!(
+    h5df::H5df,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+)::Nothing
+    matrix = Formats.format_get_matrix(h5df, rows_axis, columns_axis, name)
+    if matrix isa SparseMatrixCSC
+        relayout_matrix = Formats.format_empty_sparse_matrix!(
+            h5df,
+            columns_axis,
+            rows_axis,
+            name,
+            eltype(matrix),
+            nnz(matrix),
+            eltype(matrix.colptr),
+        )
+    else
+        relayout_matrix = Formats.format_empty_dense_matrix!(h5df, columns_axis, rows_axis, name, eltype(matrix))
+    end
+    relayout!(transpose(relayout_matrix), matrix)
+    if matrix isa SparseMatrixCSC
+        Formats.format_end_empty_sparse_matrix!(h5df, columns_axis, rows_axis, name, relayout_matrix)
+    end
+    return nothing
+end
+
+function Formats.format_delete_matrix!(
+    h5df::H5df,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString;
+    for_set::Bool,
+)::Nothing
+    matrices_group = h5df.root["matrices"]
+    @assert matrices_group isa HDF5.Group
+
+    rows_axis_group = matrices_group[rows_axis]
+    @assert rows_axis_group isa HDF5.Group
+
+    columns_axis_group = rows_axis_group[columns_axis]
+    @assert columns_axis_group isa HDF5.Group
+
+    delete_object(columns_axis_group, name)
+    return nothing
+end
+
+function Formats.format_matrix_names(
+    h5df::H5df,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+)::AbstractSet{String}
+    matrices_group = h5df.root["matrices"]
+    @assert matrices_group isa HDF5.Group
+
+    rows_axis_group = matrices_group[rows_axis]
+    @assert rows_axis_group isa HDF5.Group
+
+    columns_axis_group = rows_axis_group[columns_axis]
+    @assert columns_axis_group isa HDF5.Group
+
+    return Set(keys(columns_axis_group))
+end
+
+function Formats.format_get_matrix(
+    h5df::H5df,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+)::StorageMatrix
+    matrices_group = h5df.root["matrices"]
+    @assert matrices_group isa HDF5.Group
+
+    rows_axis_group = matrices_group[rows_axis]
+    @assert rows_axis_group isa HDF5.Group
+
+    columns_axis_group = rows_axis_group[columns_axis]
+    @assert columns_axis_group isa HDF5.Group
+
+    matrix_object = columns_axis_group[name]
+    if matrix_object isa HDF5.Dataset
+        return dataset_as_matrix(matrix_object)
+
+    else
+        @assert matrix_object isa HDF5.Group
+
+        colptr_dataset = matrix_object["colptr"]
+        @assert colptr_dataset isa HDF5.Dataset
+        colptr_vector = HDF5.readmmap(colptr_dataset)
+
+        rowval_dataset = matrix_object["rowval"]
+        @assert rowval_dataset isa HDF5.Dataset
+        rowval_vector = HDF5.readmmap(rowval_dataset)
+
+        nzval_dataset = matrix_object["nzval"]
+        @assert nzval_dataset isa HDF5.Dataset
+        nzval_vector = dataset_as_vector(nzval_dataset)
+
+        nrows = Formats.format_axis_length(h5df, rows_axis)
+        ncols = Formats.format_axis_length(h5df, columns_axis)
+        # TODO: Avoid copying the vectors if/when SparseArrays allows for it.
+        return SparseMatrixCSC(nrows, ncols, Vector(colptr_vector), Vector(rowval_vector), Vector(nzval_vector))
+    end
+end
+
+function dataset_as_vector(dataset::HDF5.Dataset)::AbstractVector
+    if HDF5.ismmappable(dataset)
+        return HDF5.readmmap(dataset)
+    else
+        return read(dataset)
+    end
+end
+
+function dataset_as_matrix(dataset::HDF5.Dataset)::AbstractMatrix
+    if HDF5.ismmappable(dataset)
+        return HDF5.readmmap(dataset)
+    else
+        return read(dataset)  # untested
+    end
+end
+
+# function dump_tree(name::AbstractString, root::Union{HDF5.File, HDF5.Group}, indent = "")::Nothing
+#     println("TODO X $(indent)$(name):")
+#     indent *= "  "
+#     for key in keys(root)
+#         value = root[key]
+#         if value isa HDF5.Dataset
+#             value = read(value)
+#             println("TODO X $(indent)$(key): $(typeof(value)) $(value)")
+#         else
+#             dump_tree(key, value, indent)
+#         end
+#    end
+# end
+
+end

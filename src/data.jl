@@ -518,6 +518,7 @@ function empty_sparse_vector!(
     empty_vector = Formats.format_empty_sparse_vector!(daf, axis, name, eltype, nnz, indtype)
     result = fill(as_named_vector(daf, axis, empty_vector))
     verified = SparseVector(length(empty_vector), empty_vector.nzind, empty_vector.nzval)
+    Formats.format_end_empty_sparse_vector!(daf, axis, name, verified)
     @debug "empty_dense_vector! $(daf.name) / $(axis) : $(name) <$(overwrite ? "=" : "-") $(present(verified))"
     return result
 end
@@ -708,7 +709,7 @@ end
         rows_axis::AbstractString,
         columns_axis::AbstractString,
         name::AbstractString,
-        matrix::StorageMatrix;
+        matrix::Union{StorageNumber, StorageMatrix};
         [overwrite::Bool = false,
         relayout::Bool = true]
     )::Nothing
@@ -853,13 +854,12 @@ allows doing so directly into the data, avoiding a copy in case of memory-mapped
 !!! warning
 
 
-https://science.slashdot.org/story/23/08/12/1942234/common-alzheimers-disease-gene-may-have-helped-our-ancestors-have-more-kids
 It is the caller's responsibility to fill the three vectors with valid data. Specifically, you must ensure:
 
-      - `colptr[1] == 1`
-      - `colptr[end] == nnz + 1`
-      - `colptr[i] <= colptr[i + 1]`
-      - for all `j`, for all `i` such that `colptr[j] <= i` and `i + 1 < colptr[j + 1]`, `1 <= rowptr[i] < rowptr[i + 1] <= nrows`
+  - `colptr[1] == 1`
+  - `colptr[end] == nnz + 1`
+  - `colptr[i] <= colptr[i + 1]`
+  - for all `j`, for all `i` such that `colptr[j] <= i` and `i + 1 < colptr[j + 1]`, `1 <= rowptr[i] < rowptr[i + 1] <= nrows`
 
 This first verifies the `rows_axis` and `columns_axis` exist in `daf`. If not `overwrite` (the default), this also
 verifies the `name` matrix does not exist for the `rows_axis` and `columns_axis`.
@@ -889,6 +889,7 @@ function empty_sparse_matrix!(
     empty_matrix = Formats.format_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, eltype, nnz, indtype)
     result = fill(as_named_matrix(daf, rows_axis, columns_axis, empty_matrix))
     verified = SparseMatrixCSC(size(empty_matrix)..., empty_matrix.colptr, empty_matrix.rowval, empty_matrix.nzval)
+    Formats.format_end_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, verified)
     @debug "empty_sparse_matrix! $(daf) / $(rows_axis) / $(columns_axis) : $(name) <$(overwrite ? "=" : "-") $(verified)"
     return result
 end

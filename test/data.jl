@@ -1,4 +1,6 @@
 CELL_NAMES = ["TATA", "GATA", "CATA"]
+CELL_TYPES_BY_DEPTH =
+    [["Bcell", "TCell", "TCell"], ["TCell", "Bcell", "TCell"], ["TCell", "TCell", "BCell"], ["BCell", "BCell", "TCell"]]
 GENE_NAMES = ["RSPO3", "FOXA1", "WNT6", "TNNI1"]
 MARKER_GENES_BY_DEPTH =
     [[true, false, true, false], [false, true, false, true], [false, false, true, true], [true, true, false, false]]
@@ -253,6 +255,7 @@ function test_missing_axis(daf::DafReader, depth::Int)::Nothing
     nested_test("add_axis") do
         nested_test("unique") do
             @test add_axis!(daf, "gene", GENE_NAMES) == nothing
+            @test add_axis!(daf, "cell", CELL_NAMES) == nothing
             nested_test("created") do
                 test_existing_axis(daf, depth + 1)
                 return nothing
@@ -293,15 +296,17 @@ function test_existing_axis(daf::DafReader, depth::Int)::Nothing
     end
 
     nested_test("axis_names") do
-        @test axis_names(daf) == Set(["gene"])
+        @test axis_names(daf) == Set(["gene", "cell"])
     end
 
     nested_test("get_axis") do
         @test get_axis(daf, "gene") == GENE_NAMES
+        @test get_axis(daf, "cell") == CELL_NAMES
     end
 
     nested_test("name") do
         @test get_vector(daf, "gene", "name") == GENE_NAMES
+        @test get_vector(daf, "cell", "name") == CELL_NAMES
     end
 
     if !(daf isa DafWriter)
@@ -311,6 +316,7 @@ function test_existing_axis(daf::DafReader, depth::Int)::Nothing
     nested_test("delete_axis!") do
         nested_test("()") do
             @test delete_axis!(daf, "gene") == nothing
+            @test delete_axis!(daf, "cell") == nothing
             nested_test("deleted") do
                 test_missing_axis(daf, depth + 1)
                 return nothing
@@ -320,6 +326,7 @@ function test_existing_axis(daf::DafReader, depth::Int)::Nothing
         nested_test("must_exist") do
             nested_test("true") do
                 @test delete_axis!(daf, "gene"; must_exist = true) == nothing
+                @test delete_axis!(daf, "cell"; must_exist = true) == nothing
                 nested_test("deleted") do
                     test_missing_axis(daf, depth + 1)
                     return nothing
@@ -328,6 +335,7 @@ function test_existing_axis(daf::DafReader, depth::Int)::Nothing
 
             nested_test("false") do
                 @test delete_axis!(daf, "gene"; must_exist = false) == nothing
+                @test delete_axis!(daf, "cell"; must_exist = false) == nothing
                 nested_test("deleted") do
                     test_missing_axis(daf, depth + 1)
                     return nothing
@@ -578,6 +586,7 @@ function test_missing_vector(daf::DafReader, depth::Int)::Nothing
 
             nested_test("false") do
                 @test delete_vector!(daf, "gene", "marker"; must_exist = false) == nothing
+                @test delete_vector!(daf, "cell", "type"; must_exist = false) == nothing
             end
         end
     end
@@ -589,8 +598,17 @@ function test_missing_vector(daf::DafReader, depth::Int)::Nothing
         end
 
         nested_test("vector") do
-            nested_test("()") do
+            nested_test("dense") do
                 @test set_vector!(daf, "gene", "marker", MARKER_GENES_BY_DEPTH[depth]) == nothing
+                @test set_vector!(daf, "cell", "type", CELL_TYPES_BY_DEPTH[depth]) == nothing
+                test_existing_vector(daf, depth + 1)
+                return nothing
+            end
+
+            nested_test("sparse") do
+                @test set_vector!(daf, "gene", "marker", SparseVector(MARKER_GENES_BY_DEPTH[depth])) == nothing
+                # TODO: When SparseArrays supports strings, test it.
+                @test set_vector!(daf, "cell", "type", CELL_TYPES_BY_DEPTH[depth]) == nothing
                 test_existing_vector(daf, depth + 1)
                 return nothing
             end
@@ -619,6 +637,12 @@ function test_missing_vector(daf::DafReader, depth::Int)::Nothing
                         "gene",
                         "marker",
                         NamedArray(MARKER_GENES_BY_DEPTH[depth]; names = (GENE_NAMES,), dimnames = ("gene",)),
+                    ) == nothing
+                    @test set_vector!(
+                        daf,
+                        "cell",
+                        "type",
+                        NamedArray(CELL_TYPES_BY_DEPTH[depth]; names = (CELL_NAMES,), dimnames = ("cell",)),
                     ) == nothing
                     test_existing_vector(daf, depth + 1)
                     return nothing
@@ -659,6 +683,7 @@ function test_missing_vector(daf::DafReader, depth::Int)::Nothing
                 empty .= MARKER_GENES_BY_DEPTH[depth]
                 return 7
             end == 7
+            @test set_vector!(daf, "cell", "type", CELL_TYPES_BY_DEPTH[depth]; overwrite = true) == nothing
             test_existing_vector(daf, depth + 1)
             return nothing
         end
@@ -677,6 +702,7 @@ function test_missing_vector(daf::DafReader, depth::Int)::Nothing
                 empty.array.nzval .= sparse.nzval
                 return 7
             end == 7
+            @test set_vector!(daf, "cell", "type", CELL_TYPES_BY_DEPTH[depth]; overwrite = true) == nothing
             test_existing_vector(daf, depth + 1)
             return nothing
         end
@@ -708,6 +734,9 @@ function test_existing_vector(daf::DafReader, depth::Int)::Nothing
             @test get_vector(daf, "gene", "marker") == MARKER_GENES_BY_DEPTH[depth - 1]
             @test dimnames(get_vector(daf, "gene", "marker")) == ["gene"]
             @test names(get_vector(daf, "gene", "marker")) == [GENE_NAMES]
+            @test get_vector(daf, "cell", "type") == CELL_TYPES_BY_DEPTH[depth - 1]
+            @test dimnames(get_vector(daf, "cell", "type")) == ["cell"]
+            @test names(get_vector(daf, "cell", "type")) == [CELL_NAMES]
         end
 
         nested_test("default") do
@@ -736,6 +765,7 @@ function test_existing_vector(daf::DafReader, depth::Int)::Nothing
     nested_test("delete_vector!") do
         nested_test("()") do
             @test delete_vector!(daf, "gene", "marker") == nothing
+            @test delete_vector!(daf, "cell", "type") == nothing
             nested_test("deleted") do
                 test_missing_vector(daf, depth + 1)
                 return nothing
@@ -745,6 +775,7 @@ function test_existing_vector(daf::DafReader, depth::Int)::Nothing
         nested_test("must_exist") do
             nested_test("true") do
                 @test delete_vector!(daf, "gene", "marker"; must_exist = true) == nothing
+                @test delete_vector!(daf, "cell", "type"; must_exist = true) == nothing
                 nested_test("deleted") do
                     test_missing_vector(daf, depth + 1)
                     return nothing
@@ -753,6 +784,7 @@ function test_existing_vector(daf::DafReader, depth::Int)::Nothing
 
             nested_test("false") do
                 @test delete_vector!(daf, "gene", "marker"; must_exist = false) == nothing
+                @test delete_vector!(daf, "cell", "type"; must_exist = false) == nothing
                 nested_test("deleted") do
                     test_missing_vector(daf, depth + 1)
                     return nothing
@@ -787,6 +819,7 @@ function test_existing_vector(daf::DafReader, depth::Int)::Nothing
 
             nested_test("true") do
                 @test set_vector!(daf, "gene", "marker", MARKER_GENES_BY_DEPTH[depth]; overwrite = true) == nothing
+                @test set_vector!(daf, "cell", "type", CELL_TYPES_BY_DEPTH[depth]; overwrite = true) == nothing
                 nested_test("overwritten") do
                     test_existing_vector(daf, depth + 1)
                     return nothing
@@ -823,6 +856,7 @@ function test_existing_vector(daf::DafReader, depth::Int)::Nothing
                         empty .= MARKER_GENES_BY_DEPTH[depth]
                         return 7
                     end == 7
+                    @test set_vector!(daf, "cell", "type", CELL_TYPES_BY_DEPTH[depth]; overwrite = true) == nothing
 
                     nested_test("overwritten") do
                         test_existing_vector(daf, depth + 1)
@@ -879,9 +913,12 @@ function test_existing_vector(daf::DafReader, depth::Int)::Nothing
                         Int16;
                         overwrite = true,
                     ) do empty
-                        empty .= SparseVector(MARKER_GENES_BY_DEPTH[depth])
+                        sparse = SparseVector(MARKER_GENES_BY_DEPTH[depth])
+                        empty.array.nzind .= sparse.nzind
+                        empty.array.nzval .= sparse.nzval
                         return 7
                     end == 7
+                    @test set_vector!(daf, "cell", "type", CELL_TYPES_BY_DEPTH[depth]; overwrite = true) == nothing
                     test_existing_vector(daf, depth + 1)
                     return nothing
                 end
@@ -1346,8 +1383,14 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
 
         nested_test("matrix") do
             nested_test("relayout") do
-                nested_test("default") do
+                nested_test("dense") do
                     @test set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[depth]) == nothing
+                    test_existing_relayout_matrix(daf, depth + 1)
+                    return nothing
+                end
+
+                nested_test("sparse") do
+                    @test set_matrix!(daf, "cell", "gene", "UMIs", SparseMatrixCSC(UMIS_BY_DEPTH[depth])) == nothing
                     test_existing_relayout_matrix(daf, depth + 1)
                     return nothing
                 end
@@ -2778,6 +2821,7 @@ function test_format(daf::DafWriter)
 
         nested_test("axis") do
             @test add_axis!(daf, "gene", GENE_NAMES) == nothing
+            @test add_axis!(daf, "cell", CELL_NAMES) == nothing
             test_missing_vector(daf, 1)
             return nothing
         end
@@ -2811,5 +2855,60 @@ nested_test("data") do
         """) * "\n"
         test_format(daf)
         return nothing
+    end
+
+    nested_test("h5df") do
+        nested_test("invalid") do
+            mktemp() do path, io
+                h5open(path, "w") do h5file
+                    @test_throws "H5df requires a group or a data set name" H5df(h5file)
+                    @test_throws "not a daf data set: h5df!" H5df(h5file; name = "h5df!")
+                    daf = H5df(h5file; name = "h5df!", create = true)
+                    delete_object(h5file, "daf")
+                    h5file["daf"] = [UInt(2), UInt(0)]
+                    @test_throws dedent("""
+                        incompatible format version: 2.0
+                        for the daf data: version!
+                        the code supports version: 1.0
+                    """) H5df(h5file; name = "version!")
+                end
+            end
+        end
+
+        nested_test("root") do
+            mktemp() do path, io
+                h5open(path, "w") do h5file
+                    daf = H5df(h5file; name = "h5df!", create = true)
+                    @test daf.name == "h5df!"
+                    @test present(daf) == "H5df h5df!"
+                    @test present(read_only(daf)) == "ReadOnly H5df h5df!"
+                    @test present(read_only(daf, "renamed!")) == "ReadOnly H5df renamed!"
+                    @test description(daf) == dedent("""
+                        name: h5df!
+                        type: H5df
+                    """) * "\n"
+                    test_format(daf)
+                    return nothing
+                end
+            end
+        end
+
+        nested_test("nested") do
+            mktemp() do path, io
+                h5open(path, "w") do h5file
+                    daf = H5df(h5file; group = "nested!", create = true)
+                    @test daf.name == "nested!"
+                    @test present(daf) == "H5df nested!"
+                    @test present(read_only(daf)) == "ReadOnly H5df nested!"
+                    @test present(read_only(daf, "renamed!")) == "ReadOnly H5df renamed!"
+                    @test description(daf) == dedent("""
+                        name: nested!
+                        type: H5df
+                    """) * "\n"
+                    test_format(daf)
+                    return nothing
+                end
+            end
+        end
     end
 end

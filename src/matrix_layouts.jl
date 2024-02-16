@@ -320,11 +320,11 @@ function relayout!(into::AbstractMatrix, from::NamedMatrix)::NamedArray  # untes
 end
 
 function relayout!(into::Transpose, from::NamedMatrix)::AbstractMatrix
-    relayout!(parent(into), transpose(from))
+    relayout!(parent(into), transpose(from.array))
     return into
 end
 
-function relayout!(into::SparseMatrixCSC, from::NamedMatrix)::AbstractMatrix
+function relayout!(into::SparseMatrixCSC, from::NamedMatrix)::AbstractMatrix  # untested
     relayout!(into, from.array)
     return into
 end
@@ -351,8 +351,13 @@ function relayout!(into::SparseMatrixCSC, from::AbstractMatrix)::SparseMatrixCSC
     if !issparse(from)
         error("relayout into sparse: $(typeof(into)) of non-sparse matrix: $(typeof(from))")
     end
-    from = base_sparse_matrix(from)
-    return transpose!(into, transpose(from))
+    base_from = base_sparse_matrix(from)
+    transpose_base_from = transpose(base_from)
+    if transpose_base_from isa SparseMatrixCSC && nnz(transpose_base_from) == nnz(into)
+        return sparse_transpose_in_memory!(into, transpose_base_from)
+    else
+        return transpose!(into, transpose_base_from)  # untested
+    end
 end
 
 function relayout!(into::DenseMatrix, from::AbstractMatrix)::DenseMatrix
@@ -365,28 +370,188 @@ function relayout!(into::DenseMatrix, from::AbstractMatrix)::DenseMatrix
     return transpose!(into, transpose(from))
 end
 
-function relayout!(into::AbstractMatrix, from::AbstractMatrix)::AbstractMatrix  # untested
-    return error("unsupported relayout into: $(typeof(into)) from: $(typeof(from))")
+function relayout!(into::AbstractMatrix, from::AbstractMatrix)::AbstractMatrix
+    try
+        into_strides = strides(into)
+        into_size = size(into)
+        if into_strides == (1, into_size[1]) || into_strides == (into_size[2], 1)
+            return transpose!(into, transpose(from))
+        end
+    catch  # untested
+    end
+    return error("unsupported relayout into: $(typeof(into)) from: $(typeof(from))")  # untested
 end
 
-function base_sparse_matrix(matrix::Transpose)::SparseMatrixCSC
+function base_sparse_matrix(matrix::Transpose)::AbstractMatrix
     return transpose(base_sparse_matrix(matrix.parent))
 end
 
-function base_sparse_matrix(matrix::NamedMatrix)::SparseMatrixCSC  # untested
+function base_sparse_matrix(matrix::NamedMatrix)::AbstractMatrix  # untested
     return base_sparse_matrix(matrix.array)
 end
 
-function base_sparse_matrix(matrix::SparseArrays.ReadOnly)::SparseMatrixCSC
+function base_sparse_matrix(matrix::SparseArrays.ReadOnly)::AbstractMatrix
     return base_sparse_matrix(parent(matrix))
 end
 
-function base_sparse_matrix(matrix::AbstractSparseMatrix)::AbstractSparseMatrix
+function base_sparse_matrix(matrix::AbstractSparseMatrix)::AbstractMatrix
     return matrix
 end
 
-function base_sparse_matrix(matrix::AbstractMatrix)::AbstractSparseMatrix  # untested
+function base_sparse_matrix(matrix::AbstractMatrix)::AbstractMatrix  # untested
     return error("unsupported relayout sparse matrix: $(typeof(matrix))")
+end
+
+mutable struct FromPosition
+    from_row::Int
+    from_column::Int
+    from_nnz::Int
+end
+
+function get_from_position_key(from_position::FromPosition)::Tuple{Int, Int}
+    return (from_position.from_row, from_position.from_column)
+end
+
+function sparse_transpose_in_memory!(into::SparseMatrixCSC, from::SparseMatrixCSC)::SparseMatrixCSC
+    both_nnz = nnz(from)
+    from_nrows, from_ncols = size(from)
+    into_nrows, into_ncols = size(into)
+    @assert nnz(into) == nnz(from)
+    @assert into_nrows == from_ncols
+    @assert into_ncols == from_nrows
+    find_position_step = Int(ceil(from_nrows * (from_ncols / both_nnz)))
+    @assert find_position_step > 0
+
+    from_positions = Vector{FromPosition}(undef, from_ncols)
+    for from_column in 1:from_ncols
+        from_nnz = from.colptr[from_column]
+        if from_nnz == from.colptr[from_column + 1]
+            from_row = from_nrows + 1
+            from_nnz = both_nnz + 1
+        else
+            from_row = from.rowval[from_nnz]
+        end
+        from_positions[from_column] = FromPosition(from_row, from_column, from_nnz)
+    end
+
+    sort!(from_positions; by = get_from_position_key)
+
+    into_column = 0
+    for nnz_index in 1:both_nnz
+        from_position = from_positions[1]
+        into_column = insert_into_entry!(into, into_column, nnz_index, from, from_position)
+        update_from_position!(from, from_position, from_nrows, both_nnz)
+
+        if from_ncols > 1
+            resort_from_positions!(from_position, from_positions, find_position_step)
+        end
+    end
+
+    @assert from_positions[1].from_row == from_nrows + 1
+
+    return into
+end
+
+function insert_into_entry!(
+    into::SparseMatrixCSC,
+    into_column::Int,
+    into_nnz::Int,
+    from::SparseMatrixCSC,
+    from_position::FromPosition,
+)::Int
+    from_column = from_position.from_column
+    from_row = from_position.from_row
+    from_nnz = from_position.from_nnz
+
+    @assert into_column <= from_row
+    if into_column < from_row
+        into.colptr[(into_column + 1):from_row] .= into_nnz  # NOJET
+        into_column = from_row
+    end
+    into.rowval[into_nnz] = from_column
+    into.nzval[into_nnz] = from.nzval[from_nnz]
+
+    return into_column
+end
+
+function update_from_position!(
+    from::SparseMatrixCSC,
+    from_position::FromPosition,
+    from_nrows::Int,
+    both_nnz::Int,
+)::Nothing
+    from_column = from_position.from_column
+    from_nnz = from_position.from_nnz
+
+    from_nnz += 1
+    if from_nnz == from.colptr[from_column + 1]
+        from_position.from_row = from_nrows + 1
+        from_position.from_nnz = both_nnz + 1
+    else
+        from_position.from_row = from.rowval[from_nnz]
+        from_position.from_nnz = from_nnz
+    end
+
+    return nothing
+end
+
+function resort_from_positions!(
+    from_position::FromPosition,
+    from_positions::Vector{FromPosition},
+    find_position_step::Int,
+)::Nothing
+    from_position_key = get_from_position_key(from_position)
+    low_position_index = 2
+    low_position_key = get_from_position_key(from_positions[low_position_index])
+    if from_position_key < low_position_key
+        return nothing
+    end
+
+    high_position_index =
+        find_high_position_index(from_positions, low_position_index, find_position_step, from_position_key)
+    if high_position_index == nothing
+        from_positions_length = length(from_positions)
+        copyto!(from_positions, 1, from_positions, 2, from_positions_length - 1)
+        from_positions[from_positions_length] = from_position
+    else
+        position_range = high_position_index - low_position_index
+        while position_range > 1
+            mid_position_index = low_position_index + div(position_range, 2)
+            mid_position_key = get_from_position_key(from_positions[mid_position_index])
+            if mid_position_key < from_position_key
+                low_position_index = mid_position_index
+            else
+                high_position_index = mid_position_index
+            end
+            position_range = high_position_index - low_position_index
+        end
+        copyto!(from_positions, 1, from_positions, 2, low_position_index - 1)
+        from_positions[low_position_index] = from_position
+    end
+
+    return nothing
+end
+
+function find_high_position_index(
+    from_positions::Vector{FromPosition},
+    low_position_index::Int,
+    find_position_step::Int,
+    from_position_key::Tuple{Int, Int},
+)::Maybe{Int}
+    from_positions_length = length(from_positions)
+    high_position_index = low_position_index
+    while true
+        high_position_index = min(high_position_index + find_position_step, from_positions_length)
+        high_position_key = get_from_position_key(from_positions[high_position_index])
+
+        if high_position_key > from_position_key
+            return high_position_index
+        end
+
+        if high_position_index == from_positions_length
+            return nothing
+        end
+    end
 end
 
 end # module

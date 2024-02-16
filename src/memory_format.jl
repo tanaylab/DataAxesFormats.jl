@@ -8,7 +8,6 @@ export MemoryDaf
 using Daf.Data
 using Daf.Formats
 using Daf.MatrixLayouts
-using Daf.Messages
 using Daf.StorageTypes
 using SparseArrays
 
@@ -132,7 +131,7 @@ function Formats.format_empty_dense_vector!(
     axis::AbstractString,
     name::AbstractString,
     eltype::Type{T},
-)::DenseVector{T} where {T <: StorageNumber}
+)::AbstractVector{T} where {T <: StorageNumber}
     nelements = Formats.format_axis_length(memory, axis)
     vector = Vector{T}(undef, nelements)
     memory.vectors[axis][name] = vector
@@ -208,7 +207,7 @@ function Formats.format_empty_dense_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     eltype::Type{T},
-)::DenseMatrix{T} where {T <: StorageNumber}
+)::AbstractMatrix{T} where {T <: StorageNumber}
     nrows = Formats.format_axis_length(memory, rows_axis)
     ncols = Formats.format_axis_length(memory, columns_axis)
     matrix = Matrix{T}(undef, nrows, ncols)
@@ -227,8 +226,8 @@ function Formats.format_empty_sparse_matrix!(
 )::SparseMatrixCSC{T, I} where {T <: StorageNumber, I <: StorageInteger}
     nrows = Formats.format_axis_length(memory, rows_axis)
     ncols = Formats.format_axis_length(memory, columns_axis)
-    colptr = fill(I(1), ncols + 1)
-    colptr[end] = nnz + 1
+    colptr = fill(I(nnz + 1), ncols + 1)
+    colptr[1] = 1
     rowval = Vector{I}(undef, nnz)
     nzval = Vector{T}(undef, nnz)
     matrix = SparseMatrixCSC(nrows, ncols, colptr, rowval, nzval)

@@ -16,13 +16,6 @@ Daf.StorageTypes.StorageVector
 Daf.StorageTypes.StorageMatrix
 ```
 
-# Mappable types
-
-```@docs
-Daf.StorageTypes.MappableVector
-Daf.StorageTypes.MappableMatrix
-```
-
 ## Index
 
 ```@index

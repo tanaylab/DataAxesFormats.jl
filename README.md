@@ -5,7 +5,6 @@ This is a much-needed generalization of the [AnnData](https://pypi.org/project/a
 features are:
 
   - Support both in-memory and persistent data storage of "any" format (given an adapter implementation).
-
   - Out of the box, allow storing the data in memory, in `AnnData` objects (e.g., using `h5ad` files), directly inside
     [H5FS](https://hdfgroup.org/) files, or as a collection of simple memory-mapped files in a directory.
   - The data model is based on (1) some axes with named entries, (2) vector data indexed by a single axis, (3) matrix

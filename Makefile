@@ -6,7 +6,7 @@ ci: format check coverage docs $(TODO_X) unindexed_files
 
 $(TODO_X): deps/.$(TODO_X)
 
-deps/.$(TODO_X): $(shell git ls-files)
+deps/.$(TODO_X): $(shell git ls-files | grep -v docs)
 	deps/$(TODO_X).sh
 	@touch deps/.$(TODO_X)
 

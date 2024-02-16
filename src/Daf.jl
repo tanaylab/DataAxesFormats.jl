@@ -78,4 +78,7 @@ include("copies.jl")
 include("adapters.jl")
 @reexport using Daf.Adapters
 
+include("h5df.jl")
+@reexport using Daf.H5DF
+
 end # module

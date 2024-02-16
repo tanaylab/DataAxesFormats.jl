@@ -1417,6 +1417,10 @@ function error_unexpected_operation(query_state::Union{QueryState, FakeQueryStat
     return error_at_state(query_state, "unexpected operation: $(query_operation_type)\n")
 end
 
+function Base.getindex(daf::DafReader, query::Union{Query, AbstractString})::Union{StorageScalar, NamedArray}
+    return get_query(daf, query)
+end
+
 """
     function get_query(
         daf::DafReader, query::Union{Query, AbstractString}
@@ -1426,6 +1430,8 @@ end
 Apply the full `query` to the `daf` data and return the result. By default, this will cache results, so repeated queries
 will be accelerated. This may consume a large amount of memory. You can disable it by specifying `cache = false`, or
 release the cached data using [`empty_cache!`](@ref).
+
+As a shorthand syntax you can also invoke this using `getindex`, that is, using the `[]` operator (e.g., `daf[q"/ cell"]` is equivalent to `get_query(daf, q"/ cell")`).
 """
 function get_query(daf::DafReader, query_string::AbstractString; cache::Bool = true)::Union{StorageScalar, NamedArray}
     return get_query(daf, Query(query_string); cache = cache)
@@ -2326,7 +2332,7 @@ function patch_fetched_values(
             if !vector_fetch_state.may_modify_axis_mask
                 axis_mask = copy(axis_mask)
             end
-            axis_mask[axis_mask] = fetched_mask  # NOJET
+            axis_mask[axis_mask] = fetched_mask
         end
         vector_fetch_state.may_modify_axis_mask = true
 

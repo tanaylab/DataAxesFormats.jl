@@ -239,7 +239,7 @@ function Formats.format_empty_dense_vector!(
     axis::AbstractString,
     name::AbstractString,
     eltype::Type{T},
-)::DenseVector{T} where {T <: StorageNumber}
+)::AbstractVector{T} where {T <: StorageNumber}
     if !Formats.format_has_axis(chain.daf, axis)
         Formats.format_add_axis!(chain.daf, axis, Formats.format_get_axis(chain, axis))
     end
@@ -339,7 +339,7 @@ function Formats.format_empty_dense_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     eltype::Type{T},
-)::DenseMatrix{T} where {T <: StorageNumber}
+)::AbstractMatrix{T} where {T <: StorageNumber}
     for axis in (rows_axis, columns_axis)
         if !Formats.format_has_axis(chain.daf, axis)
             Formats.format_add_axis!(chain.daf, axis, Formats.format_get_axis(chain, axis))

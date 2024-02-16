@@ -147,7 +147,7 @@ function copy_vector!(;
     else
         empty_dense_vector!(into, reaxis, rename, eltype(value); overwrite = overwrite) do empty_vector
             empty_vector .= empty
-            return empty_vector[names(value, 1)] .= value  # NOJET
+            return empty_vector[names(value, 1)] .= value
         end
     end
 
@@ -282,7 +282,7 @@ function copy_matrix!(;
             overwrite = overwrite,
         ) do empty_matrix
             empty_matrix .= empty
-            return empty_matrix[names(value, 1), names(value, 2)] .= value  # NOJET
+            return empty_matrix[names(value, 1), names(value, 2)] .= value
         end
         if relayout
             relayout_matrix!(into, rows_reaxis, columns_reaxis, rename; overwrite = overwrite)  # untested

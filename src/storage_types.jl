@@ -104,25 +104,4 @@ are supported but will be less efficient.
 """
 StorageVector{T} = AbstractVector{T} where {T <: StorageScalar}
 
-"""
-    MappableMatrix{T} = Union{DenseMatrix{T}, SparseMatrixCSC{T}} where {T <: StorageNumber}
-
-Matrices that we can memory-map to disk storage. Storing any other matrix type into disk storage will convert the data
-to one of these formats.
-
-The element type must be a [`StorageNumber`](@ref).
-"""
-MappableMatrix{T} = Union{DenseMatrix{T}, SparseMatrixCSC{T}} where {T <: StorageNumber}
-
-"""
-    MappableVector{T} = Union{DenseVector{T}, SparseVector{T}} where {T <: StorageNumber}
-
-Vectors that we can memory-map to disk storage. Storing any other vector type into disk storage will convert the data to
-one of these formats.
-
-The element type must be a [`StorageNumber`](@ref). Vectors of strings in CSV files are read instead of being
-memory-mapped.
-"""
-MappableVector{T} = Union{DenseVector{T}, SparseVector{T}} where {T <: StorageNumber}
-
 end # module

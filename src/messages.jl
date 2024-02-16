@@ -101,13 +101,18 @@ function present_vector(vector::SparseVector, prefix::AbstractString)::String
 end
 
 function present_vector(vector::AbstractVector, prefix::AbstractString)::String  # untested
-    return present_vector_size(vector, "")
+    try
+        if strides(vector) == (1,)
+            return present_vector_size(vector, "$(typeof(vector)) - Dense")
+        else
+            return present_vector_size(vector, "$(typeof(vector)) - Strided")
+        end
+    catch
+        return present_vector_size(vector, "$(typeof(vector))")
+    end
 end
 
 function present_vector_size(vector::AbstractVector, kind::AbstractString)::String
-    if kind == ""
-        kind = "$(typeof(vector))"  # untested
-    end
     return "$(length(vector)) x $(eltype(vector)) ($(kind))"
 end
 
@@ -137,17 +142,23 @@ function present_matrix(matrix::SparseMatrixCSC, prefix::AbstractString; transpo
 end
 
 function present_matrix(matrix::AbstractMatrix, kind::AbstractString; transposed::Bool = false)::String  # untested
-    return present_matrix_size(matrix, kind; transposed = transposed)
+    try
+        matrix_strides = strides(matrix)
+        matrix_sizes = size(matrix)
+        if matrix_strides == (1, matrix_sizes[1]) || matrix_strides == (matrix_sizes[2], 1)
+            return present_matrix_size(matrix, "$(typeof(matrix)) - Dense"; transposed = transposed)
+        else
+            return present_matrix_size(matrix, "$(typeof(matrix)) - Strided"; transposed = transposed)
+        end
+    catch
+        return present_matrix_size(matrix, "$(typeof(matrix))"; transposed = transposed)
+    end
 end
 
 function present_matrix_size(matrix::AbstractMatrix, kind::AbstractString; transposed::Bool = false)::String
     layout = major_axis(matrix)
     if transposed
         layout = other_axis(layout)
-    end
-
-    if kind == ""
-        kind = "$(typeof(matrix))"  # untested
     end
 
     if layout == nothing

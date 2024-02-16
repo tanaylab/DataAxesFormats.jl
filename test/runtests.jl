@@ -4,6 +4,7 @@ using Base: elsize
 using Base.MathConstants
 using Daf
 using ExceptionUnwrapping
+using HDF5
 using LinearAlgebra
 using NamedArrays
 using NestedTests
@@ -14,6 +15,7 @@ using TestContexts
 test_prefixes(ARGS)
 
 inefficient_action_policy(ErrorPolicy)
+abort_on_first_failure(true)
 
 function dedent(string::AbstractString)::String
     lines = split(string, "\n")[1:(end - 1)]

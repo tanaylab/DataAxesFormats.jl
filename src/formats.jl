@@ -237,7 +237,7 @@ function format_set_vector! end
         axis::AbstractString,
         name::AbstractString,
         eltype::Type{T},
-    )::DenseVector where {T <: StorageNumber}
+    )::VectorVector where {T <: StorageNumber}
 
 Implement setting a vector property with some `name` for some `axis` in `format`.
 
@@ -245,6 +245,12 @@ Implement creating an empty dense `matrix` with some `name` for some `rows_axis`
 
 This trusts the `axis` exists in `format` and that the vector property `name` isn't `"name"`, and that it does not exist
 for the `axis`.
+
+!!! note
+
+    The return type of this function is always a *functionally* dense vector, that is, it will have `strides` of `(1,)`,
+    so that elements are consecutive in memory. However it need not be an actual `DenseVector` because of Julia's type
+    system's limitations.
 """
 function format_empty_dense_vector! end
 
@@ -265,6 +271,15 @@ This trusts the `axis` exists in `format` and that the vector property `name` is
 for the `axis`.
 """
 function format_empty_sparse_vector! end
+
+function format_end_empty_sparse_vector!(
+    format::DafWriter,
+    axis::AbstractString,
+    name::AbstractString,
+    filled::SparseVector,
+)::Nothing
+    return nothing
+end
 
 """
     format_delete_vector!(
@@ -340,12 +355,18 @@ function format_set_matrix! end
         columns_axis::AbstractString,
         name::AbstractString,
         eltype::Type{T},
-    )::DenseMatrix{T} where {T <: StorageNumber}
+    )::AbstractMatrix{T} where {T <: StorageNumber}
 
 Implement creating an empty dense matrix property with some `name` for some `rows_axis` and `columns_axis` in `format`.
 
 This trusts the `rows_axis` and `columns_axis` exist in `format` and that the `name` matrix property does not exist for
 them.
+
+!!! note
+
+    The return type of this function is always a *functionally* dense vector, that is, it will have `strides` of
+    `(1,nrows)`, so that elements are consecutive in memory. However it need not be an actual `DenseMatrix` because of
+    Julia's type system's limitations.
 """
 function format_empty_dense_matrix! end
 
@@ -358,7 +379,7 @@ function format_empty_dense_matrix! end
         eltype::Type{T},
         intdype::Type{I},
         nnz::StorageInteger,
-    )::SparseMatrixCSC{T, I} where {T <: StorageNumber, I <: StorageInteger}
+    )::AbstractMatrix{T}
 
 Implement creating an empty sparse matrix property with some `name` for some `rows_axis` and `columns_axis` in `format`.
 
@@ -366,6 +387,16 @@ This trusts the `rows_axis` and `columns_axis` exist in `format` and that the `n
 them.
 """
 function format_empty_sparse_matrix! end
+
+function format_end_empty_sparse_matrix!(
+    format::DafWriter,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+    filled::SparseMatrixCSC,
+)::Nothing
+    return nothing
+end
 
 """
     format_relayout_matrix!(

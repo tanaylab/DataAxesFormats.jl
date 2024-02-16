@@ -23,7 +23,7 @@ function test_invalid(daf::DafReader, query::Union{String, Query}, message::Stri
     message = dedent(message)
     @test_throws message query_result_dimensions(query)
     @test_throws (message * "\nfor the daf data: memory!") with_unwrapping_exceptions() do
-        return get_query(daf, query)
+        return daf[query]
     end
     return nothing
 end
@@ -32,7 +32,7 @@ function test_invalid(daf::DafReader, query::Union{String, Query}, dimensions::I
     @test query_result_dimensions(query) == dimensions
     message = dedent(message)
     @test_throws message with_unwrapping_exceptions() do
-        return get_query(daf, query)
+        return daf[query]
     end
     return nothing
 end
@@ -151,7 +151,7 @@ nested_test("queries") do
 
             nested_test("eltwise") do
                 nested_test("()") do
-                    @test get_query(daf, q"/ cell : age % Log base 2 eps 1") == [0.0, 1.0]
+                    @test get_result(daf, q"/ cell : age % Log base 2 eps 1") == ("cell", ["A" => 0.0, "B" => 1.0])
                 end
 
                 nested_test("string") do
@@ -172,7 +172,7 @@ nested_test("queries") do
 
             nested_test("reduction") do
                 nested_test("()") do
-                    @test get_query(daf, q"/ cell : age %> Sum") == 1
+                    @test get_result(daf, q"/ cell : age %> Sum") == 1
                 end
 
                 nested_test("string") do
@@ -196,7 +196,7 @@ nested_test("queries") do
             set_vector!(daf, "cell", "age", [0, 1])
 
             nested_test("()") do
-                @test get_query(daf, q"/ cell = A") == "A"
+                @test get_result(daf, q"/ cell = A") == "A"
             end
 
             nested_test("!value") do
@@ -232,13 +232,13 @@ nested_test("queries") do
                 set_vector!(daf, "type", "color", ["red", "green"])
 
                 nested_test("!if_missing") do
-                    @test get_query(daf, q"/ cell = B : type || black => color") == "black"
+                    @test get_result(daf, q"/ cell = B : type || black => color") == "black"
                 end
 
                 set_vector!(daf, "cell", "type", ["", "U"])
 
                 nested_test("()") do
-                    @test get_query(daf, q"/ cell = B : type") == "U"
+                    @test get_result(daf, q"/ cell = B : type") == "U"
                 end
 
                 nested_test("!String") do
@@ -257,19 +257,19 @@ nested_test("queries") do
                 end
 
                 nested_test("+if_missing") do
-                    @test get_query(daf, q"/ cell = B : type || V") == "U"
+                    @test get_result(daf, q"/ cell = B : type || V") == "U"
                 end
 
                 nested_test("-if_missing") do
-                    @test get_query(daf, q"/ cell = A : score || -1") == -1
+                    @test get_result(daf, q"/ cell = A : score || -1") == -1
                 end
 
                 nested_test("+if_not") do
-                    @test get_query(daf, q"/ cell = B : type ? black => color") == "red"
+                    @test get_result(daf, q"/ cell = B : type ? black => color") == "red"
                 end
 
                 nested_test("-if_not") do
-                    @test get_query(daf, q"/ cell = A : type ? black => color") == "black"
+                    @test get_result(daf, q"/ cell = A : type ? black => color") == "black"
                 end
 
                 nested_test("deep") do
@@ -277,9 +277,9 @@ nested_test("queries") do
                     add_axis!(daf, "donor", ["M", "N"])
                     set_vector!(daf, "batch", "donor", ["M", "N"])
                     set_vector!(daf, "cell", "batch", ["", "U"])
-                    @test get_query(daf, q"/ cell = A : batch ? -1 => donor => sex || 1.0") === -1.0
+                    @test get_result(daf, q"/ cell = A : batch ? -1 => donor => sex || 1.0") === -1.0
                     set_vector!(daf, "donor", "sex", ["Male", "Female"])
-                    @test get_query(daf, q"/ cell = A : batch ? Unknown => donor => sex") == "Unknown"
+                    @test get_result(daf, q"/ cell = A : batch ? Unknown => donor => sex") == "Unknown"
                 end
 
                 nested_test("invalid") do
@@ -424,7 +424,7 @@ nested_test("queries") do
                 set_vector!(daf, "cell", "type", ["V", "U"])
 
                 nested_test("()") do
-                    @test get_query(daf, q"/ cell = A : type => color") == "green"
+                    @test get_result(daf, q"/ cell = A : type => color") == "green"
                     @test get_result(daf, q"/ cell : type => color") == ("cell", ["A" => "green", "B" => "red"])
                     @test get_result(daf, q"/ cell : type || magenta => color") ==
                           ("cell", ["A" => "green", "B" => "red"])
@@ -688,7 +688,7 @@ nested_test("queries") do
                 end
 
                 nested_test("twice") do
-                    @test get_query(daf, q"/ cell / gene : UMIs %> Sum %> Sum") == -3
+                    @test get_result(daf, q"/ cell / gene : UMIs %> Sum %> Sum") == -3
                 end
             end
         end
@@ -1104,24 +1104,24 @@ nested_test("queries") do
 
         nested_test("()") do
             @test get_result(daf, q"/ cell & is_doublet : age") == ("cell", ["A" => 0])
-            masked = get_query(daf, q"/ cell & is_doublet : age")
-            remasked = get_query(daf, q"/ cell & is_doublet : age")
+            masked = daf[q"/ cell & is_doublet : age"]
+            remasked = daf[q"/ cell & is_doublet : age"]
             @test remasked === masked
         end
 
         nested_test("!") do
             @test get_result(daf, q"/ cell & is_doublet : age"; cache = false) == ("cell", ["A" => 0])
             masked = get_query(daf, q"/ cell & is_doublet : age"; cache = false)
-            remasked = get_query(daf, q"/ cell & is_doublet : age")
+            remasked = daf[q"/ cell & is_doublet : age"]
             @test remasked == masked
             @test remasked !== masked
         end
 
         nested_test("empty") do
             @test get_result(daf, q"/ cell & is_doublet : age") == ("cell", ["A" => 0])
-            masked = get_query(daf, q"/ cell & is_doublet : age")
+            masked = daf[q"/ cell & is_doublet : age"]
             empty_cache!(daf)
-            remasked = get_query(daf, q"/ cell & is_doublet : age")
+            remasked = daf[q"/ cell & is_doublet : age"]
             @test remasked == masked
             @test remasked !== masked
         end
