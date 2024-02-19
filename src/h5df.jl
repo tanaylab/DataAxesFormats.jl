@@ -39,6 +39,9 @@ HDF5 storage, we use the following internal structure (which is *not* compatible
     formats. This restriction is both for efficiency (allowing for memory-mapping) and for simplicity (allowing for
     "anyone" to directly access the data).
 
+!!! note
+
+
 That's all there is to it. Due to the above restrictions on types and layout, the metadata provided by HDF5 for each
 "dataset" is sufficient to fully describe the data, and one should be able to directly access it using any HDF5 API in
 any programming language, if needed. Typically, however, it is easiest to simply use the Julia `Daf` package to access
@@ -46,10 +49,13 @@ the data.
 
 !!! note
 
-    The code here assumes the HDF5 data obeys all the above conventions and restrictions. If you only create and access
-    `Daf` data using [`H5df`](@ref), then this will always be the case (assuming no bugs). However, if you do this in
-    some other way (e.g., directly using some HDF5 API in some arbitrary programming language), and the result is
-    invalid, then the code here may fails with "less than friendly" error messages.
+    The code here assumes the HDF5 data obeys all the above conventions and restrictions. Since we use memory mapping
+    whenever possible (for efficiency), this requires that when creating an HDF5 file to contain `Daf` data, you must
+    specify `;fapl=HDF5.FileAccessProperties(;alignment=(1,8))`, to ensure all the memory buffers are properly aligned
+    (specifically, memory buffers of vectors used to represent sparse vectors and matrices). As long as you do this, and
+    only access `Daf` data in them using [`H5df`](@ref), then the code will work as expected (assuming no bugs).
+    However, if you do this in some other way (e.g., directly using some HDF5 API in some arbitrary programming
+    language), and the result is invalid, then the code here may fails with "less than friendly" error messages.
 """
 module H5DF
 
@@ -120,6 +126,7 @@ function H5df(
             error("H5df requires a group or a data set name")
         end
     end
+
     if group == nothing
         identifier = name
         root = file
@@ -160,6 +167,19 @@ function H5df(
 
     else
         error("not a daf data set: $(identifier)")
+    end
+
+    file_access_properties = HDF5.get_access_properties(file)  # NOJET
+    alignment = file_access_properties.alignment
+    if alignment[1] > 1 || alignment[2] != 8
+        @warn (
+            "unsafe HDF5 file alignment for Daf: ($(Int(alignment[1])), $(Int(alignment[2])))\n" *
+            "the safe HDF5 file alignment is: (1, 8)\n" *
+            "note that unaligned data is inefficient,\n" *
+            "and will break the empty_* functions;\n" *
+            "to force the alignment, create the file using:\n" *
+            "h5open(...;fapl=HDF5.FileAccessProperties(;alignment=(1,8))"
+        )
     end
 
     return H5df(Internal(name), root)
@@ -341,7 +361,7 @@ function Formats.format_empty_dense_vector!(
     @assert vector_dataset isa HDF5.Dataset
     vector_dataset[1] = 0
 
-    vector = HDF5.readmmap(vector_dataset)
+    vector = dataset_as_vector(vector_dataset)
     close(vector_dataset)
     return vector
 end
@@ -370,42 +390,17 @@ function Formats.format_empty_sparse_vector!(
     nzind_dataset[1] = 0
     nzval_dataset[1] = 0
 
-    nzind_vector = HDF5.readmmap(nzind_dataset)
-    nzval_vector = HDF5.readmmap(nzval_dataset)
+    nzind_vector = dataset_as_vector(nzind_dataset)
+    nzval_vector = dataset_as_vector(nzval_dataset)
 
     nelements = Formats.format_axis_length(h5df, axis)
-    # TODO: Avoid copying the vectors if/when SparseArrays allows for it.
-    vector = SparseVector(nelements, Vector(nzind_vector), Vector(nzval_vector))
+    vector = SparseVector(nelements, nzind_vector, nzval_vector)
 
     close(nzind_dataset)
     close(nzval_dataset)
     close(vector_group)
 
     return vector
-end
-
-function Formats.format_end_empty_sparse_vector!(
-    h5df::H5df,
-    axis::AbstractString,
-    name::AbstractString,
-    filled::SparseVector,
-)::Nothing
-    vectors_group = h5df.root["vectors"]
-    @assert vectors_group isa HDF5.Group
-
-    axis_vectors_group = vectors_group[axis]
-    @assert axis_vectors_group isa HDF5.Group
-
-    vector_group = axis_vectors_group[name]
-    @assert vector_group isa HDF5.Group
-
-    delete_object(vector_group, "nzind")
-    delete_object(vector_group, "nzval")
-
-    vector_group["nzind"] = filled.nzind
-    vector_group["nzval"] = filled.nzval
-
-    return nothing
 end
 
 function Formats.format_delete_vector!(h5df::H5df, axis::AbstractString, name::AbstractString; for_set::Bool)::Nothing
@@ -444,15 +439,14 @@ function Formats.format_get_vector(h5df::H5df, axis::AbstractString, name::Abstr
 
         nzind_dataset = vector_object["nzind"]
         @assert nzind_dataset isa HDF5.Dataset
-        nzind_vector = HDF5.readmmap(nzind_dataset)
+        nzind_vector = dataset_as_vector(nzind_dataset)
 
         nzval_dataset = vector_object["nzval"]
         @assert nzval_dataset isa HDF5.Dataset
         nzval_vector = dataset_as_vector(nzval_dataset)
 
         nelements = Formats.format_axis_length(h5df, axis)
-        # TODO: Avoid copying the vectors if/when SparseArrays allows for it.
-        return SparseVector(nelements, Vector(nzind_vector), Vector(nzval_vector))
+        return SparseVector(nelements, nzind_vector, nzval_vector)
     end
 end
 
@@ -531,7 +525,7 @@ function Formats.format_empty_dense_matrix!(
     ncols = Formats.format_axis_length(h5df, columns_axis)
     matrix_dataset = create_dataset(columns_axis_group, name, eltype, (nrows, ncols))
     matrix_dataset[1, 1] = 0
-    matrix = HDF5.readmmap(matrix_dataset)
+    matrix = dataset_as_matrix(matrix_dataset)
     close(matrix_dataset)
     return matrix
 end
@@ -567,8 +561,8 @@ function Formats.format_empty_sparse_matrix!(
     rowval_dataset[1] = 0
     nzval_dataset[1] = 0
 
-    colptr_vector = HDF5.readmmap(colptr_dataset)
-    rowval_vector = HDF5.readmmap(rowval_dataset)
+    colptr_vector = dataset_as_vector(colptr_dataset)
+    rowval_vector = dataset_as_vector(rowval_dataset)
     nzval_vector = dataset_as_vector(nzval_dataset)
 
     close(colptr_dataset)
@@ -576,38 +570,7 @@ function Formats.format_empty_sparse_matrix!(
     close(nzval_dataset)
     close(matrix_group)
 
-    # TODO: Avoid copying the vectors if/when SparseArrays allows for it.
-    return SparseMatrixCSC(nrows, ncols, Vector(colptr_vector), Vector(rowval_vector), Vector(nzval_vector))
-end
-
-function Formats.format_end_empty_sparse_matrix!(
-    h5df::H5df,
-    rows_axis::AbstractString,
-    columns_axis::AbstractString,
-    name::AbstractString,
-    filled::SparseMatrixCSC,
-)::Nothing
-    matrices_group = h5df.root["matrices"]
-    @assert matrices_group isa HDF5.Group
-
-    rows_axis_group = matrices_group[rows_axis]
-    @assert rows_axis_group isa HDF5.Group
-
-    columns_axis_group = rows_axis_group[columns_axis]
-    @assert columns_axis_group isa HDF5.Group
-
-    matrix_group = columns_axis_group[name]
-    @assert matrix_group isa HDF5.Group
-
-    delete_object(matrix_group, "colptr")
-    delete_object(matrix_group, "rowval")
-    delete_object(matrix_group, "nzval")
-
-    matrix_group["colptr"] = filled.colptr
-    matrix_group["rowval"] = filled.rowval
-    matrix_group["nzval"] = filled.nzval
-
-    return nothing
+    return SparseMatrixCSC(nrows, ncols, colptr_vector, rowval_vector, nzval_vector)
 end
 
 function Formats.format_relayout_matrix!(
@@ -631,9 +594,6 @@ function Formats.format_relayout_matrix!(
         relayout_matrix = Formats.format_empty_dense_matrix!(h5df, columns_axis, rows_axis, name, eltype(matrix))
     end
     relayout!(transpose(relayout_matrix), matrix)
-    if matrix isa SparseMatrixCSC
-        Formats.format_end_empty_sparse_matrix!(h5df, columns_axis, rows_axis, name, relayout_matrix)
-    end
     return nothing
 end
 
@@ -698,11 +658,11 @@ function Formats.format_get_matrix(
 
         colptr_dataset = matrix_object["colptr"]
         @assert colptr_dataset isa HDF5.Dataset
-        colptr_vector = HDF5.readmmap(colptr_dataset)
+        colptr_vector = dataset_as_vector(colptr_dataset)
 
         rowval_dataset = matrix_object["rowval"]
         @assert rowval_dataset isa HDF5.Dataset
-        rowval_vector = HDF5.readmmap(rowval_dataset)
+        rowval_vector = dataset_as_vector(rowval_dataset)
 
         nzval_dataset = matrix_object["nzval"]
         @assert nzval_dataset isa HDF5.Dataset
@@ -710,21 +670,20 @@ function Formats.format_get_matrix(
 
         nrows = Formats.format_axis_length(h5df, rows_axis)
         ncols = Formats.format_axis_length(h5df, columns_axis)
-        # TODO: Avoid copying the vectors if/when SparseArrays allows for it.
-        return SparseMatrixCSC(nrows, ncols, Vector(colptr_vector), Vector(rowval_vector), Vector(nzval_vector))
+        return SparseMatrixCSC(nrows, ncols, colptr_vector, rowval_vector, nzval_vector)
     end
 end
 
-function dataset_as_vector(dataset::HDF5.Dataset)::AbstractVector
-    if HDF5.ismmappable(dataset)
+function dataset_as_vector(dataset::HDF5.Dataset)::StorageVector
+    if HDF5.ismmappable(dataset) && HDF5.iscontiguous(dataset)
         return HDF5.readmmap(dataset)
     else
         return read(dataset)
     end
 end
 
-function dataset_as_matrix(dataset::HDF5.Dataset)::AbstractMatrix
-    if HDF5.ismmappable(dataset)
+function dataset_as_matrix(dataset::HDF5.Dataset)::StorageMatrix
+    if HDF5.ismmappable(dataset) && HDF5.iscontiguous(dataset)
         return HDF5.readmmap(dataset)
     else
         return read(dataset)  # untested

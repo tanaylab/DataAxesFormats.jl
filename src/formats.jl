@@ -272,15 +272,6 @@ for the `axis`.
 """
 function format_empty_sparse_vector! end
 
-function format_end_empty_sparse_vector!(
-    format::DafWriter,
-    axis::AbstractString,
-    name::AbstractString,
-    filled::SparseVector,
-)::Nothing
-    return nothing
-end
-
 """
     format_delete_vector!(
         format::FormatWriter,
@@ -387,16 +378,6 @@ This trusts the `rows_axis` and `columns_axis` exist in `format` and that the `n
 them.
 """
 function format_empty_sparse_matrix! end
-
-function format_end_empty_sparse_matrix!(
-    format::DafWriter,
-    rows_axis::AbstractString,
-    columns_axis::AbstractString,
-    name::AbstractString,
-    filled::SparseMatrixCSC,
-)::Nothing
-    return nothing
-end
 
 """
     format_relayout_matrix!(

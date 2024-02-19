@@ -80,10 +80,10 @@ Queries can be constructed in two ways. In code, a query can be built by chainin
 `Axis("gene") |> Lookup("is_marker")` looks up the `is_marker` vector property of the `gene` axis).
 
 Alternatively, a query can be parsed from a string, which needs to be parsed into a [`Query`](@ref) object (e.g., the
-above can be written as `Query("/gene@marker")`). See the [`QUERY_OPERATORS`](@ref) for a table of supported operators.
-Spaces (and comments) around the operators are optional; see [`tokenize`](@ref) for details. You can also convert a
-[`Query`](@ref) to a `string` (or `print` it, etc.) to see its representation. This is used for `error` messages and as
-a key when caching query results.
+above can be written as `Query("/gene:is_marker")`). See the [`QUERY_OPERATORS`](@ref) for a table of supported
+operators. Spaces (and comments) around the operators are optional; see [`tokenize`](@ref) for details. You can also
+convert a [`Query`](@ref) to a `string` (or `print` it, etc.) to see its representation. This is used for `error`
+messages and as a key when caching query results.
 
 Since query strings use `\\` as an escape character, it is easier to use `raw` string literals for queries (e.g.,
 `Query(raw"cell = ATGC\\:B1 : age")` vs. `Query("cell = ATGC\\\\:B1 : age")`). To make this even easier we provide the

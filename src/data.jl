@@ -518,7 +518,6 @@ function empty_sparse_vector!(
     empty_vector = Formats.format_empty_sparse_vector!(daf, axis, name, eltype, nnz, indtype)
     result = fill(as_named_vector(daf, axis, empty_vector))
     verified = SparseVector(length(empty_vector), empty_vector.nzind, empty_vector.nzval)
-    Formats.format_end_empty_sparse_vector!(daf, axis, name, verified)
     @debug "empty_dense_vector! $(daf.name) / $(axis) : $(name) <$(overwrite ? "=" : "-") $(present(verified))"
     return result
 end
@@ -889,7 +888,6 @@ function empty_sparse_matrix!(
     empty_matrix = Formats.format_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, eltype, nnz, indtype)
     result = fill(as_named_matrix(daf, rows_axis, columns_axis, empty_matrix))
     verified = SparseMatrixCSC(size(empty_matrix)..., empty_matrix.colptr, empty_matrix.rowval, empty_matrix.nzval)
-    Formats.format_end_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, verified)
     @debug "empty_sparse_matrix! $(daf) / $(rows_axis) / $(columns_axis) : $(name) <$(overwrite ? "=" : "-") $(verified)"
     return result
 end

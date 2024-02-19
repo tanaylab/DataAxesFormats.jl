@@ -147,7 +147,7 @@ function copy_vector!(;
     else
         empty_dense_vector!(into, reaxis, rename, eltype(value); overwrite = overwrite) do empty_vector
             empty_vector .= empty
-            return empty_vector[names(value, 1)] .= value
+            return empty_vector[names(value, 1)] .= value  # NOJET
         end
     end
 

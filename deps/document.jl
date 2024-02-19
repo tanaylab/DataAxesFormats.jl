@@ -55,6 +55,7 @@ makedocs(;
         "contracts.md",
         "formats.md",
         "memory_format.md",
+        "h5df.md",
         "registry.md",
         "operations.md",
         "storage_types.md",

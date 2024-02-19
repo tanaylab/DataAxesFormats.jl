@@ -370,16 +370,16 @@ function relayout!(into::DenseMatrix, from::AbstractMatrix)::DenseMatrix
     return transpose!(into, transpose(from))
 end
 
-function relayout!(into::AbstractMatrix, from::AbstractMatrix)::AbstractMatrix
+function relayout!(into::AbstractMatrix, from::AbstractMatrix)::AbstractMatrix  # untested
     try
         into_strides = strides(into)
         into_size = size(into)
         if into_strides == (1, into_size[1]) || into_strides == (into_size[2], 1)
             return transpose!(into, transpose(from))
         end
-    catch  # untested
+    catch
     end
-    return error("unsupported relayout into: $(typeof(into)) from: $(typeof(from))")  # untested
+    return error("unsupported relayout into: $(typeof(into)) from: $(typeof(from))")
 end
 
 function base_sparse_matrix(matrix::Transpose)::AbstractMatrix

@@ -2863,7 +2863,14 @@ nested_test("data") do
                 h5open(path, "w") do h5file
                     @test_throws "H5df requires a group or a data set name" H5df(h5file)
                     @test_throws "not a daf data set: h5df!" H5df(h5file; name = "h5df!")
-                    daf = H5df(h5file; name = "h5df!", create = true)
+                    @test_logs (:warn, dedent("""
+                        unsafe HDF5 file alignment for Daf: (1, 1)
+                        the safe HDF5 file alignment is: (1, 8)
+                        note that unaligned data is inefficient,
+                        and will break the empty_* functions;
+                        to force the alignment, create the file using:
+                        h5open(...;fapl=HDF5.FileAccessProperties(;alignment=(1,8))
+                    """)) H5df(h5file; name = "h5df!", create = true)
                     delete_object(h5file, "daf")
                     h5file["daf"] = [UInt(2), UInt(0)]
                     @test_throws dedent("""
@@ -2877,7 +2884,7 @@ nested_test("data") do
 
         nested_test("root") do
             mktemp() do path, io
-                h5open(path, "w") do h5file
+                h5open(path, "w"; fapl = HDF5.FileAccessProperties(; alignment = (1, 8))) do h5file
                     daf = H5df(h5file; name = "h5df!", create = true)
                     @test daf.name == "h5df!"
                     @test present(daf) == "H5df h5df!"
@@ -2895,7 +2902,7 @@ nested_test("data") do
 
         nested_test("nested") do
             mktemp() do path, io
-                h5open(path, "w") do h5file
+                h5open(path, "w"; fapl = HDF5.FileAccessProperties(; alignment = (1, 8))) do h5file
                     daf = H5df(h5file; group = "nested!", create = true)
                     @test daf.name == "nested!"
                     @test present(daf) == "H5df nested!"
