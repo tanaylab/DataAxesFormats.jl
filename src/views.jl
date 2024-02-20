@@ -551,7 +551,7 @@ function Formats.format_get_scalar(view::DafView, name::AbstractString)::Storage
     return scalar_value
 end
 
-function Formats.format_scalar_names(view::DafView)::AbstractSet{String}
+function Formats.format_scalar_names(view::DafView)::AbstractStringSet
     return keys(view.scalars)
 end
 
@@ -559,7 +559,7 @@ function Formats.format_has_axis(view::DafView, axis::AbstractString)::Bool
     return haskey(view.axes, axis)
 end
 
-function Formats.format_axis_names(view::DafView)::AbstractSet{String}
+function Formats.format_axis_names(view::DafView)::AbstractStringSet
     return keys(view.axes)
 end
 
@@ -589,7 +589,7 @@ function Formats.format_has_vector(view::DafView, axis::AbstractString, name::Ab
     return haskey(view.vectors[axis], name)
 end
 
-function Formats.format_vector_names(view::DafView, axis::AbstractString)::AbstractSet{String}
+function Formats.format_vector_names(view::DafView, axis::AbstractString)::AbstractStringSet
     return keys(view.vectors[axis])
 end
 
@@ -616,7 +616,7 @@ function Formats.format_matrix_names(
     view::DafView,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
-)::AbstractSet{String}
+)::AbstractStringSet
     return keys(view.matrices[rows_axis][columns_axis])
 end
 

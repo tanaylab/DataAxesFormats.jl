@@ -157,7 +157,7 @@ function Formats.format_get_scalar(chain::AnyChain, name::AbstractString)::Stora
     @assert false  # untested
 end
 
-function Formats.format_scalar_names(chain::AnyChain)::AbstractSet{String}
+function Formats.format_scalar_names(chain::AnyChain)::AbstractStringSet
     return reduce(union, [Formats.format_scalar_names(daf) for daf in chain.dafs])
 end
 
@@ -190,7 +190,7 @@ function Formats.format_delete_axis!(chain::WriteChain, axis::AbstractString)::N
     return nothing
 end
 
-function Formats.format_axis_names(chain::AnyChain)::AbstractSet{String}
+function Formats.format_axis_names(chain::AnyChain)::AbstractStringSet
     return reduce(union, [Formats.format_axis_names(daf) for daf in chain.dafs])
 end
 
@@ -285,7 +285,7 @@ function Formats.format_delete_vector!(
     return nothing
 end
 
-function Formats.format_vector_names(chain::AnyChain, axis::AbstractString)::AbstractSet{String}
+function Formats.format_vector_names(chain::AnyChain, axis::AbstractString)::AbstractStringSet
     return reduce(
         union,
         [Formats.format_vector_names(daf, axis) for daf in chain.dafs if Formats.format_has_axis(daf, axis)],
@@ -410,7 +410,7 @@ function Formats.format_matrix_names(
     chain::AnyChain,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
-)::AbstractSet{String}
+)::AbstractStringSet
     return reduce(
         union,
         [

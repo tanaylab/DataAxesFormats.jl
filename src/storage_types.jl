@@ -26,6 +26,7 @@ ensure it is working "with the grain" of the data, which is *much* more efficien
 """
 module StorageTypes
 
+export AbstractStringSet
 export StorageFloat
 export StorageInteger
 export StorageMatrix
@@ -36,6 +37,13 @@ export StorageVector
 
 using Daf.MatrixLayouts
 using SparseArrays
+
+"""
+    AbstractStringSet = AbstractSet{S} where {S <: AbstractString}
+
+A set of strings, without commitment to the concrete implementation of either the set or the strings contained in it.
+"""
+AbstractStringSet = AbstractSet{S} where {S <: AbstractString}
 
 """
     StorageInteger = Union{Int8, UInt8, Int16, UInt16, Int32, UInt32, Int64, UInt64}

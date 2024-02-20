@@ -152,7 +152,7 @@ end
 
 The names of the scalar properties in `daf`.
 """
-function scalar_names(daf::DafReader)::AbstractSet{String}
+function scalar_names(daf::DafReader)::AbstractStringSet
     result = Formats.format_scalar_names(daf)
     # @debug "scalar_names $(daf.name) -> $(present(result))"
     return result
@@ -282,11 +282,11 @@ function axis_dependency_key(axis::AbstractString)::String
 end
 
 """
-    axis_names(daf::DafReader)::AbstractSet{String}
+    axis_names(daf::DafReader)::AbstractStringSet
 
 The names of the axes of `daf`.
 """
-function axis_names(daf::DafReader)::AbstractSet{String}
+function axis_names(daf::DafReader)::AbstractStringSet
     result = Formats.format_axis_names(daf)
     # @debug "axis_names $(daf.name) -> $(present(result))"
     return result
@@ -566,7 +566,7 @@ The names of the vector properties for the `axis` in `daf`, **not** including th
 
 This first verifies the `axis` exists in `daf`.
 """
-function vector_names(daf::DafReader, axis::AbstractString)::AbstractSet{String}
+function vector_names(daf::DafReader, axis::AbstractString)::AbstractStringSet
     require_axis(daf, axis)
     result = Formats.format_vector_names(daf, axis)
     # @debug "vector_names $(daf.name) / $(axis) -> $(present(result))"
@@ -1013,7 +1013,7 @@ function matrix_names(
     rows_axis::AbstractString,
     columns_axis::AbstractString;
     relayout::Bool = true,
-)::AbstractSet{String}
+)::AbstractStringSet
     require_axis(daf, rows_axis)
     require_axis(daf, columns_axis)
     names = Formats.format_matrix_names(daf, rows_axis, columns_axis)

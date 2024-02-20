@@ -65,7 +65,7 @@ function Formats.format_get_scalar(read_only_view::ReadOnlyView, name::AbstractS
     return Formats.format_get_scalar(read_only_view.daf, name)
 end
 
-function Formats.format_scalar_names(read_only_view::ReadOnlyView)::AbstractSet{String}
+function Formats.format_scalar_names(read_only_view::ReadOnlyView)::AbstractStringSet
     return Formats.format_scalar_names(read_only_view.daf)
 end
 
@@ -73,7 +73,7 @@ function Formats.format_has_axis(read_only_view::ReadOnlyView, axis::AbstractStr
     return Formats.format_has_axis(read_only_view.daf, axis)
 end
 
-function Formats.format_axis_names(read_only_view::ReadOnlyView)::AbstractSet{String}
+function Formats.format_axis_names(read_only_view::ReadOnlyView)::AbstractStringSet
     return Formats.format_axis_names(read_only_view.daf)
 end
 
@@ -89,7 +89,7 @@ function Formats.format_has_vector(read_only_view::ReadOnlyView, axis::AbstractS
     return Formats.format_has_vector(read_only_view.daf, axis, name)
 end
 
-function Formats.format_vector_names(read_only_view::ReadOnlyView, axis::AbstractString)::AbstractSet{String}
+function Formats.format_vector_names(read_only_view::ReadOnlyView, axis::AbstractString)::AbstractStringSet
     return Formats.format_vector_names(read_only_view.daf, axis)
 end
 
@@ -114,7 +114,7 @@ function Formats.format_matrix_names(
     read_only_view::ReadOnlyView,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
-)::AbstractSet{String}
+)::AbstractStringSet
     return Formats.format_matrix_names(read_only_view.daf, rows_axis, columns_axis)
 end
 

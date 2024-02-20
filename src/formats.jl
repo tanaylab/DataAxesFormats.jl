@@ -181,7 +181,7 @@ deleted.
 function format_delete_axis! end
 
 """
-    format_axis_names(format::FormatReader)::AbstractSet{String}
+    format_axis_names(format::FormatReader)::AbstractStringSet
 
 The names of the axes of `format`.
 """

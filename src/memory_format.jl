@@ -62,7 +62,7 @@ function Formats.format_get_scalar(memory::MemoryDaf, name::AbstractString)::Sto
     return memory.scalars[name]
 end
 
-function Formats.format_scalar_names(memory::MemoryDaf)::AbstractSet{String}
+function Formats.format_scalar_names(memory::MemoryDaf)::AbstractStringSet
     return keys(memory.scalars)
 end
 
@@ -95,7 +95,7 @@ function Formats.format_delete_axis!(memory::MemoryDaf, axis::AbstractString)::N
     return nothing
 end
 
-function Formats.format_axis_names(memory::MemoryDaf)::AbstractSet{String}
+function Formats.format_axis_names(memory::MemoryDaf)::AbstractStringSet
     return keys(memory.axes)
 end
 
@@ -164,7 +164,7 @@ function Formats.format_delete_vector!(
     return nothing
 end
 
-function Formats.format_vector_names(memory::MemoryDaf, axis::AbstractString)::AbstractSet{String}
+function Formats.format_vector_names(memory::MemoryDaf, axis::AbstractString)::AbstractStringSet
     return keys(memory.vectors[axis])
 end
 
@@ -262,7 +262,7 @@ function Formats.format_matrix_names(
     memory::MemoryDaf,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
-)::AbstractSet{String}
+)::AbstractStringSet
     return keys(memory.matrices[rows_axis][columns_axis])
 end
 

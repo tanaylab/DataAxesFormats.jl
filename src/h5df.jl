@@ -213,7 +213,7 @@ function Formats.format_get_scalar(h5df::H5df, name::AbstractString)::StorageSca
     return read(scalars_dataset)
 end
 
-function Formats.format_scalar_names(h5df::H5df)::AbstractSet{String}
+function Formats.format_scalar_names(h5df::H5df)::AbstractStringSet
     scalars_group = h5df.root["scalars"]
     @assert scalars_group isa HDF5.Group
     return Set(keys(scalars_group))
@@ -278,7 +278,7 @@ function Formats.format_delete_axis!(h5df::H5df, axis::AbstractString)::Nothing
     return nothing
 end
 
-function Formats.format_axis_names(h5df::H5df)::AbstractSet{String}
+function Formats.format_axis_names(h5df::H5df)::AbstractStringSet
     axes_group = h5df.root["axes"]
     @assert axes_group isa HDF5.Group
     return Set(keys(axes_group))
@@ -414,7 +414,7 @@ function Formats.format_delete_vector!(h5df::H5df, axis::AbstractString, name::A
     return nothing
 end
 
-function Formats.format_vector_names(h5df::H5df, axis::AbstractString)::AbstractSet{String}
+function Formats.format_vector_names(h5df::H5df, axis::AbstractString)::AbstractStringSet
     vectors_group = h5df.root["vectors"]
     @assert vectors_group isa HDF5.Group
 
@@ -621,7 +621,7 @@ function Formats.format_matrix_names(
     h5df::H5df,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
-)::AbstractSet{String}
+)::AbstractStringSet
     matrices_group = h5df.root["matrices"]
     @assert matrices_group isa HDF5.Group
 

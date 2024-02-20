@@ -10,10 +10,10 @@ features are:
   - A simple query language makes it easy to access the data, providing features such as slicing, aggregation, and
     filtering.
   - Support both in-memory and persistent data storage of "any" format (given an adapter implementation).
-  - Out of the box, allow storing the data in memory, in `AnnData` objects (e.g., using `h5ad` files), directly inside
-    [HDF5](https://www.hdfgroup.org/solutions/hdf5) files (e.g., using [`H5df`](@ref) files), or as a collection of
-    simple memory-mapped files in a directory (which works nicely with tools like `make` for automating computation
-    pipelines).
+  - Out of the box, allow storing the data in memory, in `AnnData` objects (using `H5ad` files), directly inside
+    [HDF5](https://www.hdfgroup.org/solutions/hdf5) files (using [`H5df`](@ref)), or as a collection of simple
+    memory-mapped files in a directory (using `FilesDaf`), which works nicely with tools like `make` for
+    automating computation pipelines.
 
 The top-level `Daf` module re-exports all(most) everything from the sub-modules, so you can directly access any exported
 symbol by `using Daf` (or `import Daf: MemoryStorage`), instead of having to import or use qualified names (such as
