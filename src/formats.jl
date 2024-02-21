@@ -33,14 +33,48 @@ functions listed here for both [`FormatReader`](@ref) and [`FormatWriter`](@ref)
 """
 module Formats
 
+export CacheType
 export DafReader
 export DafWriter
+export MappedData
+export MemoryData
+export QueryData
 
 using Daf.MatrixLayouts
 using Daf.Messages
 using Daf.StorageTypes
+using Daf.Tokens
+using Daf.Unions
 using OrderedCollections
 using SparseArrays
+
+"""
+Types of cached data inside `Daf`.
+
+  - `MappedData` - memory-mapped disk data. This is the cheapest data, as it doesn't put pressure on the garbage
+    collector. It requires some OS resources to maintain the mapping, and physical memory for the subset of the data
+    that is actually being accessed. That is, one can memory map larger data than the physical memory, and performance
+    will be good, as long as the subset of the data that is actually accessed is small enough to fit in memory. If it
+    isn't, the performance will drop (a lot!) because the OS will be continuously reading data pages from disk - but it
+    will not crash due to an out of memory error. It is very important not to re-map the same data twice because that
+    causes all sort of inefficiencies and edge cases in the hardware and low-level software.
+  - `MemoryData` - disk data copied to application memory, or alternative layout of data matrices. This does pressure
+    the garbage collector and can cause out of memory errors. However, re-fetching the data from disk is very slow,
+    so caching this data is crucial for performance.
+  - `QueryData` - data that is computed by queries based on stored data (e.g., masked data, or results of a reduction
+    or an element-wise operation). This again takes up application memory and may cause out of memory errors, but it is
+    very useful to cache the results when the same query is executed multiple times (e.g., when using views). Manually
+    executing queries therefore allows to explicitly disable the caching of the query results, since some queries will
+    not be repeated.
+
+If too much data has been cached, call [`empty_cache!`] to release it.
+"""
+@enum CacheType MappedData MemoryData QueryData
+
+struct CacheEntry
+    cache_type::CacheType
+    data::Union{StorageScalar, StorageVector, StorageMatrix}
+end
 
 """
     Internal(name::AbstractString)
@@ -54,7 +88,7 @@ messages.
 struct Internal
     name::AbstractString
     axes::Dict{String, OrderedDict{String, Int64}}
-    cache::Dict{String, Any}
+    cache::Dict{String, CacheEntry}
     dependency_cache_keys::Dict{String, Set{String}}
 end
 
@@ -62,7 +96,7 @@ function Internal(name::AbstractString)::Internal
     return Internal(
         unique_name(name),
         Dict{String, OrderedDict{String, Int64}}(),
-        Dict{String, Any}(),
+        Dict{String, CacheEntry}(),
         Dict{String, Set{String}}(),
     )
 end
@@ -461,6 +495,149 @@ function format_description_footer(
     deep::Bool,
 )::Nothing
     return nothing
+end
+
+function get_from_cache(format::FormatReader, cache_key::AbstractString)::Maybe{Union{StorageVector, StorageMatrix}}
+    result = get(format.internal.cache, cache_key, nothing)
+    if result == nothing
+        return nothing
+    else
+        return result.data
+    end
+end
+
+function get_vector_through_cache(format::FormatReader, axis::AbstractString, name::AbstractString)::StorageVector
+    cache_key = vector_cache_key(axis, name)
+    cached_vector = get_from_cache(format, cache_key)
+    if cached_vector == nothing
+        return format_get_vector(format, axis, name)
+    else
+        @assert cached_vector isa StorageVector  # untested
+        return cached_vector  # untested
+    end
+end
+
+function get_matrix_through_cache(
+    format::FormatReader,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+)::StorageMatrix
+    cache_key = matrix_cache_key(rows_axis, columns_axis, name)
+    cached_matrix = get_from_cache(format, cache_key)
+    if cached_matrix == nothing
+        return format_get_matrix(format, rows_axis, columns_axis, name)
+    else
+        @assert cached_matrix isa StorageMatrix
+        return cached_matrix
+    end
+end
+
+function cache_vector!(
+    format::FormatReader,
+    axis::AbstractString,
+    name::AbstractString,
+    vector::StorageVector,
+    cache_type::CacheType,
+)::Nothing
+    cache_key = vector_cache_key(axis, name)
+    store_cached_dependency_key!(format, cache_key, axis_cache_key(axis))
+
+    @assert !haskey(format.internal.cache, cache_key)
+    format.internal.cache[cache_key] = CacheEntry(cache_type, vector)
+
+    return nothing
+end
+
+function cache_matrix!(
+    format::FormatReader,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+    matrix::StorageMatrix,
+    cache_type::CacheType,
+)::Nothing
+    cache_key = matrix_cache_key(rows_axis, columns_axis, name)
+    store_cached_dependency_key!(format, cache_key, axis_cache_key(rows_axis))
+    store_cached_dependency_key!(format, cache_key, axis_cache_key(columns_axis))
+
+    @assert !haskey(format.internal.cache, cache_key)
+    format.internal.cache[cache_key] = CacheEntry(cache_type, matrix)
+
+    return nothing
+end
+
+function scalar_cache_key(name::AbstractString)::String
+    return ": $(escape_value(name))"
+end
+
+function axis_cache_key(axis::AbstractString)::String
+    return "/ $(escape_value(axis))"
+end
+
+function vector_cache_key(axis::AbstractString, name::AbstractString)::String
+    return "/ $(escape_value(axis)) : $(escape_value(name))"
+end
+
+function matrix_cache_key(rows_axis::AbstractString, columns_axis::AbstractString, name::AbstractString)::String
+    return "/ $(escape_value(rows_axis)) / $(escape_value(columns_axis)) : $(escape_value(name))"
+end
+
+function store_cached_dependency_keys!(
+    format::FormatReader,
+    cache_key::AbstractString,
+    dependency_keys::Set{String},
+)::Nothing
+    for dependency_key in dependency_keys
+        if cache_key != dependency_key
+            store_cached_dependency_key!(format, cache_key, dependency_key)
+        end
+    end
+    return nothing
+end
+
+function store_cached_dependency_key!(
+    format::FormatReader,
+    cache_key::AbstractString,
+    dependency_key::AbstractString,
+)::Nothing
+    keys_set = get!(format.internal.dependency_cache_keys, dependency_key) do
+        return Set{String}()
+    end
+    @assert cache_key != dependency_key
+    push!(keys_set, cache_key)
+    return nothing
+end
+
+function invalidate_cached!(format::FormatReader, cache_key::AbstractString)::Nothing
+    delete!(format.internal.cache, cache_key)
+
+    dependent_keys = pop!(format.internal.dependency_cache_keys, cache_key, nothing)
+    if dependent_keys != nothing
+        for dependent_key in dependent_keys
+            delete!(format.internal.cache, dependent_key)
+        end
+    end
+
+    return nothing
+end
+
+function combined_cache_type(first_cache_type::CacheType, second_cache_type::CacheType)::CacheType
+    if first_cache_type == QueryData || second_cache_type == QueryData
+        return QueryData  # untested
+    elseif first_cache_type == MemoryData || second_cache_type == MemoryData
+        return MemoryData  # untested
+    else
+        return MappedData
+    end
+end
+
+function combined_cache_type(
+    first_cache_type::CacheType,
+    second_cache_type::CacheType,
+    third_cache_type::CacheType,
+)::CacheType
+    return combined_cache_type(first_cache_type, combined_cache_type(second_cache_type, third_cache_type))
 end
 
 end # module

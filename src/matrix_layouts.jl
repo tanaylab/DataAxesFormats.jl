@@ -504,7 +504,7 @@ function resort_from_positions!(
     low_position_index = 2
     low_position_key = get_from_position_key(from_positions[low_position_index])
     if from_position_key < low_position_key
-        return nothing
+        return nothing  # untested
     end
 
     high_position_index =

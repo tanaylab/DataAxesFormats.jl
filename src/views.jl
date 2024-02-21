@@ -24,7 +24,7 @@ using Daf.StorageTypes
 using Daf.Tokens
 using Daf.Unions
 
-import Daf.Data.as_read_only
+import Daf.Data.as_read_only_array
 import Daf.Data.base_array
 import Daf.Formats
 import Daf.Formats.Internal
@@ -567,7 +567,7 @@ function Formats.format_get_axis(view::DafView, axis::AbstractString)::AbstractV
     fetch_axis = view.axes[axis]
     axis_names = fetch_axis.value
     if axis_names == nothing
-        axis_names = as_read_only(get_query(view.daf, fetch_axis.query).array)
+        axis_names = as_read_only_array(get_query(view.daf, fetch_axis.query).array)
         if !(eltype(axis_names) <: AbstractString)
             error(
                 "non-String vector of: $(eltype(axis_names))\n" *
@@ -597,7 +597,7 @@ function Formats.format_get_vector(view::DafView, axis::AbstractString, name::Ab
     fetch_vector = view.vectors[axis][name]
     vector_value = fetch_vector.value
     if vector_value == nothing
-        vector_value = as_read_only(get_query(view.daf, fetch_vector.query))
+        vector_value = as_read_only_array(get_query(view.daf, fetch_vector.query))
         fetch_vector.value = vector_value
     end
     return vector_value
@@ -629,7 +629,7 @@ function Formats.format_get_matrix(
     fetch_matrix = view.matrices[rows_axis][columns_axis][name]
     matrix_value = fetch_matrix.value
     if matrix_value == nothing
-        matrix_value = as_read_only(get_query(view.daf, fetch_matrix.query))
+        matrix_value = as_read_only_array(get_query(view.daf, fetch_matrix.query))
         fetch_matrix.value = matrix_value
     end
     return matrix_value

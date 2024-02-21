@@ -115,7 +115,7 @@ nested_test("example_data") do
 
                 test_description(daf; cache = dedent("""
                       cache:
-                        '/ cell / gene : UMIs': 20 x 10 x Int16 (Dense in Columns)
+                        '/ cell / gene : UMIs': (QueryData) 20 x 10 x Int16 (Dense in Columns)
                   """))
 
                 return nothing
@@ -147,7 +147,7 @@ nested_test("example_data") do
 
                 test_description(daf; cache = dedent("""
                     cache:
-                      '/ cell / gene : UMIs % Abs': 20 x 10 x UInt16 (Dense in Columns)
+                      '/ cell / gene : UMIs % Abs': (QueryData) 20 x 10 x UInt16 (Dense in Columns)
                 """))
                 return nothing
             end
@@ -164,7 +164,7 @@ nested_test("example_data") do
 
                 test_description(daf; cache = dedent("""
                     cache:
-                      '/ cell & batch = B1 / gene & module = M1 : UMIs': 6 x 2 x Int16 (Dense in Columns)
+                      '/ cell & batch = B1 / gene & module = M1 : UMIs': (QueryData) 6 x 2 x Int16 (Dense in Columns)
                 """))
                 return nothing
             end

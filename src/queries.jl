@@ -46,15 +46,16 @@ using NamedArrays
 
 import Base.MathConstants.e
 import Base.MathConstants.pi
-import Daf.Data.axis_dependency_key
-import Daf.Data.matrix_dependency_key
 import Daf.Data.require_axis
 import Daf.Data.require_matrix
 import Daf.Data.require_scalar
 import Daf.Data.require_vector
-import Daf.Data.scalar_dependency_key
-import Daf.Data.store_cached_dependency_keys!
-import Daf.Data.vector_dependency_key
+import Daf.Formats.axis_cache_key
+import Daf.Formats.CacheEntry
+import Daf.Formats.matrix_cache_key
+import Daf.Formats.scalar_cache_key
+import Daf.Formats.store_cached_dependency_keys!
+import Daf.Formats.vector_cache_key
 import Daf.Registry.ComputationOperation
 import Daf.Registry.ELTWISE_REGISTERED_OPERATIONS
 import Daf.Registry.QueryOperation
@@ -73,8 +74,8 @@ sequence of [`QueryOperation`](@ref), that when applied one at a time on some [`
 vector or matrix result. A single [`Lookup`](@ref) or a single [`Axis`](@ref) are also valid complete queries.
 
 To apply a query, invoke [`get_query`](@ref) to apply a query to some [`DafReader`](@ref) data. By default, query
-operations will cache their results in memory, to speed up repeated queries. This may lock up large amounts of memory;
-you can [`empty_cache!`](@ref) to release it.
+operations will cache their results in memory as [`QueryData`](@ref CacheType), to speed up repeated queries. This may
+lock up large amounts of memory; you can [`empty_cache!`](@ref) to release it.
 
 Queries can be constructed in two ways. In code, a query can be built by chaining query operations (e.g., the expression
 `Axis("gene") |> Lookup("is_marker")` looks up the `is_marker` vector property of the `gene` axis).
@@ -1431,7 +1432,8 @@ Apply the full `query` to the `daf` data and return the result. By default, this
 will be accelerated. This may consume a large amount of memory. You can disable it by specifying `cache = false`, or
 release the cached data using [`empty_cache!`](@ref).
 
-As a shorthand syntax you can also invoke this using `getindex`, that is, using the `[]` operator (e.g., `daf[q"/ cell"]` is equivalent to `get_query(daf, q"/ cell")`).
+As a shorthand syntax you can also invoke this using `getindex`, that is, using the `[]` operator (e.g., `daf[q"/ cell"]` is
+equivalent to `get_query(daf, q"/ cell")`).
 """
 function get_query(daf::DafReader, query_string::AbstractString; cache::Bool = true)::Union{StorageScalar, NamedArray}
     return get_query(daf, Query(query_string); cache = cache)
@@ -1439,9 +1441,9 @@ end
 
 function get_query(daf::DafReader, query_sequence::QuerySequence; cache::Bool = true)::Union{StorageScalar, NamedArray}
     cache_key = join([string(query_operation) for query_operation in query_sequence.query_operations], " ")
-    cached_result = get(daf.internal.cache, cache_key, nothing)
-    if cached_result != nothing
-        return cached_result
+    cached_entry = get(daf.internal.cache, cache_key, nothing)
+    if cached_entry != nothing
+        return cached_entry.data
     end
 
     query_state = QueryState(daf, query_sequence, 1, Vector{QueryValue}())
@@ -1452,9 +1454,9 @@ function get_query(daf::DafReader, query_sequence::QuerySequence; cache::Bool = 
     end
 
     result, dependency_keys = get_query_result(query_state)
-    if cache
+    if cache && !haskey(daf.internal.cache, cache_key)
         store_cached_dependency_keys!(daf, cache_key, dependency_keys)
-        daf.internal.cache[cache_key] = result
+        daf.internal.cache[cache_key] = CacheEntry(QueryData, result)
     end
 
     return result
@@ -1568,18 +1570,6 @@ function get_matrix_result(query_state::QueryState)::Tuple{NamedArray, Set{Strin
     return matrix_state.named_matrix, matrix_state.dependency_keys
 end
 
-"""
-    empty_cache!(daf::DafReader)::Nothing
-
-Clear the cache of [`Query`](@ref) results and relayout matrices. This may be needed to release large cached objects to
-keep memory usage down.
-"""
-function empty_cache!(daf::DafReader)::Nothing
-    empty!(daf.internal.cache)
-    empty!(daf.internal.dependency_cache_keys)
-    return nothing
-end
-
 function apply_query_operation!(query_state::QueryState, modifier_operation::ModifierQueryOperation)::Nothing
     return error_unexpected_operation(query_state)
 end
@@ -1611,7 +1601,7 @@ end
 function push_axis(query_state::QueryState, axis::Axis, is_equal::Nothing)::Nothing
     require_axis(query_state.daf, axis.axis_name)
     query_sequence = QuerySequence((axis,))
-    dependency_keys = Set((axis_dependency_key(axis.axis_name),))
+    dependency_keys = Set((axis_cache_key(axis.axis_name),))
     axis_state = AxisState(query_sequence, dependency_keys, axis.axis_name, nothing)
     push!(query_state.stack, axis_state)
     return nothing
@@ -1621,7 +1611,7 @@ function push_axis(query_state::QueryState, axis::Axis, is_equal::IsEqual)::Noth
     axis_entries = get_vector(query_state.daf, axis.axis_name, "name")
 
     query_sequence = QuerySequence((axis, is_equal))
-    dependency_keys = Set((axis_dependency_key(axis.axis_name),))
+    dependency_keys = Set((axis_cache_key(axis.axis_name),))
 
     comparison_value = is_equal.comparison_value
     if !(comparison_value isa AbstractString)
@@ -1672,7 +1662,7 @@ end
 function lookup_scalar(query_state::QueryState, lookup::Lookup)::Nothing
     if_missing_value = parse_if_missing_value(query_state)
     scalar_value = get_scalar(query_state.daf, lookup.property_name; default = if_missing_value)
-    dependency_keys = Set((scalar_dependency_key(lookup.property_name),))
+    dependency_keys = Set((scalar_cache_key(lookup.property_name),))
     scalar_state = ScalarState(query_state_sequence(query_state), dependency_keys, scalar_value)
     push!(query_state.stack, scalar_state)
     return nothing
@@ -1702,7 +1692,7 @@ function lookup_axes(query_state::QueryState, lookup::Lookup)::Nothing
     dependency_keys = union(rows_axis_state.dependency_keys, columns_axis_state.dependency_keys)
     push!(
         dependency_keys,
-        matrix_dependency_key(rows_axis_state.axis_name, columns_axis_state.axis_name, lookup.property_name),
+        matrix_cache_key(rows_axis_state.axis_name, columns_axis_state.axis_name, lookup.property_name),
     )
 
     rows_axis_modifier = rows_axis_state.axis_modifier
@@ -1926,7 +1916,7 @@ function fetch_property(query_state::QueryState, axis_state::AxisState, fetch_op
     fetch_property_name = fetch_operation.property_name
 
     while true
-        push!(fetch_state.common.dependency_keys, vector_dependency_key(fetch_axis_name, fetch_property_name))
+        push!(fetch_state.common.dependency_keys, vector_cache_key(fetch_axis_name, fetch_property_name))
 
         if_missing = get_next_operation(query_state, IfMissing)
         if_not = get_next_operation(query_state, IfNot)

@@ -17,7 +17,7 @@ using Daf.StorageTypes
 using Daf.Unions
 using SparseArrays
 
-import Daf.Data.as_read_only
+import Daf.Data.as_read_only_array
 import Daf.Formats.Internal
 import Daf.Messages
 
@@ -295,7 +295,7 @@ end
 function Formats.format_get_vector(chain::AnyChain, axis::AbstractString, name::AbstractString)::StorageVector
     for daf in reverse(chain.dafs)
         if Formats.format_has_axis(daf, axis) && Formats.format_has_vector(daf, axis, name)
-            return as_read_only(Formats.format_get_vector(daf, axis, name))
+            return as_read_only_array(Formats.format_get_vector(daf, axis, name))
         end
     end
     @assert false  # untested
@@ -430,7 +430,7 @@ function Formats.format_get_matrix(
         if Formats.format_has_axis(daf, rows_axis) &&
            Formats.format_has_axis(daf, columns_axis) &&
            Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
-            return as_read_only(Formats.format_get_matrix(daf, rows_axis, columns_axis, name))
+            return as_read_only_array(Formats.format_get_matrix(daf, rows_axis, columns_axis, name))
         end
     end
     @assert false  # untested

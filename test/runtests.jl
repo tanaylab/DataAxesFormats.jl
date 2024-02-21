@@ -12,7 +12,11 @@ using SparseArrays
 using Statistics
 using TestContexts
 
+import Random
+
 test_prefixes(ARGS)
+
+Random.seed!(123456)
 
 inefficient_action_policy(ErrorPolicy)
 abort_on_first_failure(true)

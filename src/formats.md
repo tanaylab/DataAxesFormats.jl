@@ -10,6 +10,7 @@ Daf.Formats
 Daf.Formats.DafReader
 Daf.Formats.FormatReader
 Daf.Formats.Internal
+Daf.Formats.CacheType
 ```
 
 ### Description

@@ -1118,12 +1118,31 @@ nested_test("queries") do
         end
 
         nested_test("empty") do
-            @test get_result(daf, q"/ cell & is_doublet : age") == ("cell", ["A" => 0])
-            masked = daf[q"/ cell & is_doublet : age"]
-            empty_cache!(daf)
-            remasked = daf[q"/ cell & is_doublet : age"]
-            @test remasked == masked
-            @test remasked !== masked
+            nested_test("all") do
+                @test get_result(daf, q"/ cell & is_doublet : age") == ("cell", ["A" => 0])
+                masked = daf[q"/ cell & is_doublet : age"]
+                empty_cache!(daf)
+                remasked = daf[q"/ cell & is_doublet : age"]
+                @test remasked == masked
+                @test remasked !== masked
+            end
+
+            nested_test("query") do
+                @test get_result(daf, q"/ cell & is_doublet : age") == ("cell", ["A" => 0])
+                masked = daf[q"/ cell & is_doublet : age"]
+                empty_cache!(daf; clear = QueryData)
+                remasked = daf[q"/ cell & is_doublet : age"]
+                @test remasked == masked
+                @test remasked !== masked
+            end
+
+            nested_test("!query") do
+                @test get_result(daf, q"/ cell & is_doublet : age") == ("cell", ["A" => 0])
+                masked = daf[q"/ cell & is_doublet : age"]
+                empty_cache!(daf; keep = QueryData)
+                remasked = daf[q"/ cell & is_doublet : age"]
+                @test remasked === masked
+            end
         end
     end
 end
