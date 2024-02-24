@@ -44,7 +44,7 @@ as-is.
 """
 function read_only(daf::DafReader, name::Maybe{AbstractString} = nothing)::ReadOnlyView
     if name == nothing
-        name = daf.name
+        name = daf.internal.name
     end
     return ReadOnlyView(name, daf)
 end

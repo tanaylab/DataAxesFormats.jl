@@ -38,6 +38,11 @@ HDF5 storage, we use the following internal structure (which is *not* compatible
   - All vectors and matrices are stored in a contiguous way in the file, which allows us to efficiently memory-map
     them.
 
+That's all there is to it. Due to the above restrictions on types and layout, the metadata provided by HDF5 for each
+"dataset" is sufficient to fully describe the data, and one should be able to directly access it using any HDF5 API in
+any programming language, if needed. Typically, however, it is easiest to simply use the Julia `Daf` package to access
+the data.
+
 !!! note
 
     When creating an HDF5 file to contain `Daf` data, you should specify
@@ -45,10 +50,12 @@ HDF5 storage, we use the following internal structure (which is *not* compatible
     efficient access. Otherwise, memory mapping will be *much* less efficient. A warning is therefore generated whenever
     you try to access `Daf` data stored in an HDF5 file which does not enforce proper alignment.
 
-That's all there is to it. Due to the above restrictions on types and layout, the metadata provided by HDF5 for each
-"dataset" is sufficient to fully describe the data, and one should be able to directly access it using any HDF5 API in
-any programming language, if needed. Typically, however, it is easiest to simply use the Julia `Daf` package to access
-the data.
+!!! note
+
+    Deleting data from an HDF5 file does not reuse the abandoned storage. In general if you want to reclaim that
+    storage, you will need to repack the file, which will invalidate any memory-mapped buffers created for it.
+    Therefore, if you delete data (e.g. using [`delete_vector!`](@ref)), you should eventually abandon the `H5df`
+    object, repack the HDF5 file, then create a new `H5df` object to access the repacked data.
 
 !!! note
 
@@ -59,7 +66,7 @@ the data.
     in some arbitrary programming language), and the result is invalid, then the code here may fails with "less than
     friendly" error messages.
 """
-module H5DF
+module H5dfFormat
 
 export H5df
 
@@ -67,6 +74,7 @@ using Daf.Data
 using Daf.Unions
 using Daf.Formats
 using Daf.MatrixLayouts
+using Daf.ReadOnly
 using Daf.StorageTypes
 using HDF5
 using SparseArrays
@@ -77,14 +85,14 @@ import Daf.Formats.Internal
 import Daf.Formats.combined_cache_type
 
 """
-The specific major version of the format that is supported by this code (`1`). The code will refuse to access data that
-is stored in a different major format.
+The specific major version of the [`H5df`](@ref) format that is supported by this code (`1`). The code will refuse to
+access data that is stored in a different major format.
 """
 MAJOR_VERSION::UInt8 = 1
 
 """
-The maximal minor version of the format that is supported by this code (`0`). The code will refuse to access data that
-is stored with the expected major version (`1`), but that uses a higher minor version.
+The maximal minor version of the [`H5df`](@ref) format that is supported by this code (`0`). The code will refuse to
+access data that is stored with the expected major version (`1`), but that uses a higher minor version.
 
 !!! note
 
@@ -103,14 +111,23 @@ MINOR_VERSION::UInt8 = 0
 Storage in a HDF5 file.
 
 If the `Daf` data set is stored directly in the root of the file (by convention, using a `.h5df` file name suffix), then
-you should not specify a `group`, but must specify a `name` for the data set. If the `Daf` data is stored in some group
+you must not specify a `group`, but must specify a `name` for the data set. If the `Daf` data is stored in some group
 inside the file, then you must specify the path to the `group`. By default, this will also be used as the data set
 `name`, unless you explicitly provide one.
 
-If there's no `Daf` data set in the specified location, and `create` is specified, then an empty data set will be
-created there.
+The valid `mode` values are as follows (the default mode is `r`):
 
-If the HDF5 `file` was opened as read-only, then you will not be able to modify the data
+| Mode | Allow modifications? | Create if does not exist? | Returned type          |
+|:---- |:-------------------- |:------------------------- |:---------------------- |
+| `r`  | No                   | No                        | [`ReadOnlyView`](@ref) |
+| `r+` | Yes                  | No                        | [`H5df`](@ref)         |
+| `w+` | Yes                  | Yes                       | [`H5df`](@ref)         |
+
+!!! note
+
+    The `w` mode (which would have deleted the data set if it exists) is intentionally not supported, since this will
+    not reuse the abandoned storage. If you want to delete data in an HDF5 file, you need to do this first, then re-pack
+    the file, and only then create an `H5df` object for accessing the packed file.
 """
 struct H5df <: DafWriter
     internal::Internal
@@ -121,8 +138,18 @@ function H5df(
     file::HDF5.File;
     name::Maybe{AbstractString} = nothing,
     group::Maybe{AbstractString} = nothing,
-    create::Bool = false,
-)::H5df
+    mode::AbstractString = "r",
+)::Union{H5df, ReadOnlyView}
+    (is_read_only, create_if_missing) = if mode == "r"
+        (true, false)
+    elseif mode == "r+"
+        (false, false)  # untested
+    elseif mode == "w" || mode == "w+"
+        (false, true)
+    else
+        error("invalid mode: $(mode)")
+    end
+
     if name == nothing
         name = group
         if name == nothing
@@ -134,12 +161,15 @@ function H5df(
         identifier = name
         root = file
     else
-        if create && !haskey(file, group)
+        if create_if_missing && !haskey(file, group)
             root_group = create_group(file, group)
             close(root_group)
         end
         identifier = group
         root = file[group]
+        if !(root isa HDF5.Group)
+            error("HDF5[$(group)] isa $(typeof(root))")
+        end
     end
 
     if haskey(root, "daf")
@@ -156,7 +186,7 @@ function H5df(
             )
         end
 
-    elseif create
+    elseif create_if_missing
         root["daf"] = [MAJOR_VERSION, MINOR_VERSION]
         scalars_group = create_group(root, "scalars")
         axes_group = create_group(root, "axes")
@@ -185,7 +215,12 @@ function H5df(
         )
     end
 
-    return H5df(Internal(name), root)
+    h5df = H5df(Internal(name), root)
+    if is_read_only
+        return read_only(h5df)  # untested
+    else
+        return h5df
+    end
 end
 
 function Formats.format_has_scalar(h5df::H5df, name::AbstractString)::Bool
@@ -219,7 +254,10 @@ end
 function Formats.format_scalar_names(h5df::H5df)::AbstractStringSet
     scalars_group = h5df.root["scalars"]
     @assert scalars_group isa HDF5.Group
-    return Set(keys(scalars_group))
+
+    names = Set(keys(scalars_group))
+    Formats.cache_scalar_names!(h5df, names, MemoryData)
+    return names
 end
 
 function Formats.format_has_axis(h5df::H5df, axis::AbstractString)::Bool
@@ -284,7 +322,10 @@ end
 function Formats.format_axis_names(h5df::H5df)::AbstractStringSet
     axes_group = h5df.root["axes"]
     @assert axes_group isa HDF5.Group
-    return Set(keys(axes_group))
+
+    names = Set(keys(axes_group))
+    Formats.cache_axis_names!(h5df, names, MemoryData)
+    return names
 end
 
 function Formats.format_get_axis(h5df::H5df, axis::AbstractString)::AbstractVector{String}
@@ -426,7 +467,10 @@ function Formats.format_vector_names(h5df::H5df, axis::AbstractString)::Abstract
 
     axis_vectors_group = vectors_group[axis]
     @assert axis_vectors_group isa HDF5.Group
-    return Set(keys(axis_vectors_group))
+
+    names = Set(keys(axis_vectors_group))
+    Formats.cache_vector_names!(h5df, axis, names, MemoryData)
+    return names
 end
 
 function Formats.format_get_vector(h5df::H5df, axis::AbstractString, name::AbstractString)::StorageVector
@@ -652,7 +696,9 @@ function Formats.format_matrix_names(
     columns_axis_group = rows_axis_group[columns_axis]
     @assert columns_axis_group isa HDF5.Group
 
-    return Set(keys(columns_axis_group))
+    names = Set(keys(columns_axis_group))
+    Formats.cache_matrix_names!(h5df, rows_axis, columns_axis, names, MemoryData)
+    return names
 end
 
 function Formats.format_get_matrix(

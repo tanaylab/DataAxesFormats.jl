@@ -2,9 +2,14 @@ function get_result(
     daf::DafReader,
     query::Union{String, Query};
     cache::Bool = true,
-)::Union{StorageScalar, Tuple{String, Vector}, Tuple{Tuple{String, String}, Vector}}
+)::Union{Vector{String}, StorageScalar, Tuple{String, Vector}, Tuple{Tuple{String, String}, Vector}}
     value = get_query(daf, query; cache = cache)
-    if value isa NamedVector
+    if value isa AbstractStringSet
+        @test query_result_dimensions(query) == -1
+        names = collect(value)
+        sort!(names)
+        return names
+    elseif value isa NamedVector
         @test query_result_dimensions(query) == 1
         return (value.dimnames[1], [(name => value[name]) for name in keys(value.dicts[1])])
     elseif value isa NamedMatrix
@@ -57,6 +62,165 @@ nested_test("queries") do
         nested_test("four") do
             @test string(Axis("cell") |> Axis("gene") |> Lookup("UMIs") |> Sum()) == "/ cell / gene : UMIs %> Sum"
             @test string((Axis("cell") |> Axis("gene")) |> (Lookup("UMIs") |> Sum())) == "/ cell / gene : UMIs %> Sum"
+        end
+    end
+
+    nested_test("names") do
+        nested_test("invalid") do
+            nested_test("!kind") do
+                return test_invalid(
+                    daf,
+                    Names(),
+                    """
+                        no kind specified for names
+                        in the query: ?
+                        at operation: ▲
+                    """,
+                )
+            end
+
+            nested_test("unexpected") do
+                set_scalar!(daf, "score", 1.0)
+                return test_invalid(
+                    daf,
+                    q": score ?",
+                    """
+                        unexpected operation: Names
+                        in the query: : score ?
+                        at operation:         ▲
+                    """,
+                )
+            end
+
+            nested_test("kind") do
+                return test_invalid(
+                    daf,
+                    q"? vectors",
+                    """
+                        invalid kind: vectors
+                        in the query: ? vectors
+                        at operation: ▲▲▲▲▲▲▲▲▲
+                    """,
+                )
+            end
+
+            nested_test("vectors") do
+                add_axis!(daf, "cell", ["A", "B"])
+
+                nested_test("kind") do
+                    return test_invalid(
+                        daf,
+                        q"/ cell ? vectors",
+                        """
+                            unexpected kind: vectors
+                            specified for vector names
+                            in the query: / cell ? vectors
+                            at operation:        ▲▲▲▲▲▲▲▲▲
+                        """,
+                    )
+                end
+
+                nested_test("entry") do
+                    return test_invalid(
+                        daf,
+                        q"/ cell = A ?",
+                        """
+                            sliced/masked axis for vector names
+                            in the query: / cell = A ?
+                            at operation:            ▲
+                        """,
+                    )
+                end
+
+                nested_test("slice") do
+                    return test_invalid(
+                        daf,
+                        q"/ cell & name != A ?",
+                        """
+                            sliced/masked axis for vector names
+                            in the query: / cell & name != A ?
+                            at operation:                    ▲
+                        """,
+                    )
+                end
+            end
+
+            nested_test("matrices") do
+                add_axis!(daf, "cell", ["A", "B"])
+                add_axis!(daf, "gene", ["X", "Y", "Z"])
+
+                nested_test("kind") do
+                    return test_invalid(
+                        daf,
+                        q"/ cell / gene ? matrices",
+                        """
+                            unexpected kind: matrices
+                            specified for matrix names
+                            in the query: / cell / gene ? matrices
+                            at operation:               ▲▲▲▲▲▲▲▲▲▲
+                        """,
+                    )
+                end
+
+                nested_test("entry") do
+                    return test_invalid(
+                        daf,
+                        q"/ cell = A / gene ?",
+                        """
+                            sliced/masked axis for matrix names
+                            in the query: / cell = A / gene ?
+                            at operation:                   ▲
+                        """,
+                    )
+                end
+
+                nested_test("slice") do
+                    return test_invalid(
+                        daf,
+                        q"/ gene / cell & name != A ?",
+                        """
+                            sliced/masked axis for matrix names
+                            in the query: / gene / cell & name != A ?
+                            at operation:                           ▲
+                        """,
+                    )
+                end
+            end
+        end
+
+        nested_test("scalars") do
+            @test get_result(daf, q"? scalars") == []
+            set_scalar!(daf, "score", 1.0)
+            @test get_result(daf, q"? scalars") == ["score"]
+            set_scalar!(daf, "version", "1.0.1")
+            @test get_result(daf, q"? scalars") == ["score", "version"]
+        end
+
+        nested_test("axes") do
+            @test get_result(daf, q"? axes") == []
+            add_axis!(daf, "cell", ["A", "B"])
+            @test get_result(daf, q"? axes") == ["cell"]
+            add_axis!(daf, "batch", ["U", "V"])
+            @test get_result(daf, q"? axes") == ["batch", "cell"]
+        end
+
+        nested_test("vectors") do
+            add_axis!(daf, "cell", ["A", "B"])
+            @test get_result(daf, q"/ cell ?") == []
+            set_vector!(daf, "cell", "age", [0, 1])
+            @test get_result(daf, q"/ cell ?") == ["age"]
+            set_vector!(daf, "cell", "type", ["U", "V"])
+            @test get_result(daf, q"/ cell ?") == ["age", "type"]
+        end
+
+        nested_test("matrices") do
+            add_axis!(daf, "cell", ["A", "B"])
+            add_axis!(daf, "gene", ["X", "Y", "Z"])
+            @test get_result(daf, q"/ cell / gene ?") == []
+            @test get_result(daf, q"/ gene / cell ?") == []
+            set_matrix!(daf, "cell", "gene", "UMIs", [0 -1 2; -3 4 -5])
+            @test get_result(daf, q"/ cell / gene ?") == ["UMIs"]
+            @test get_result(daf, q"/ gene / cell ?") == ["UMIs"]
         end
     end
 
@@ -265,11 +429,11 @@ nested_test("queries") do
                 end
 
                 nested_test("+if_not") do
-                    @test get_result(daf, q"/ cell = B : type ? black => color") == "red"
+                    @test get_result(daf, q"/ cell = B : type ?? black => color") == "red"
                 end
 
                 nested_test("-if_not") do
-                    @test get_result(daf, q"/ cell = A : type ? black => color") == "black"
+                    @test get_result(daf, q"/ cell = A : type ?? black => color") == "black"
                 end
 
                 nested_test("deep") do
@@ -277,9 +441,9 @@ nested_test("queries") do
                     add_axis!(daf, "donor", ["M", "N"])
                     set_vector!(daf, "batch", "donor", ["M", "N"])
                     set_vector!(daf, "cell", "batch", ["", "U"])
-                    @test get_result(daf, q"/ cell = A : batch ? -1 => donor => sex || 1.0") === -1.0
+                    @test get_result(daf, q"/ cell = A : batch ?? -1 => donor => sex || 1.0") === -1.0
                     set_vector!(daf, "donor", "sex", ["Male", "Female"])
-                    @test get_result(daf, q"/ cell = A : batch ? Unknown => donor => sex") == "Unknown"
+                    @test get_result(daf, q"/ cell = A : batch ?? Unknown => donor => sex") == "Unknown"
                 end
 
                 nested_test("invalid") do
@@ -502,10 +666,11 @@ nested_test("queries") do
                     add_axis!(daf, "type", ["U", "V"])
                     set_vector!(daf, "type", "color", ["red", "green"])
                     set_vector!(daf, "cell", "type", ["", "U"])
-                    @test get_result(daf, q"/ cell : type ? => color") == ("cell", ["B" => "red"])
+                    @test get_result(daf, q"/ cell : type ?? => color") == ("cell", ["B" => "red"])
                     @test get_result(daf, q"/ cell & type : type => color") == ("cell", ["B" => "red"])
-                    @test get_result(daf, q"/ cell & type : type ? => color") == ("cell", ["B" => "red"])
-                    @test get_result(daf, q"/ cell : type ? black => color") == ("cell", ["A" => "black", "B" => "red"])
+                    @test get_result(daf, q"/ cell & type : type ?? => color") == ("cell", ["B" => "red"])
+                    @test get_result(daf, q"/ cell : type ?? black => color") ==
+                          ("cell", ["A" => "black", "B" => "red"])
                 end
 
                 nested_test("unexpected") do
@@ -514,11 +679,11 @@ nested_test("queries") do
                     set_vector!(daf, "cell", "type", ["V", "U"])
                     return test_invalid(
                         daf,
-                        q"/ cell : type => color ?",
+                        q"/ cell : type => color ??",
                         """
                             unexpected operation: IfNot
-                            in the query: / cell : type => color ?
-                            at operation:                        ▲
+                            in the query: / cell : type => color ??
+                            at operation:                        ▲▲
                         """,
                     )
                     return test_invalid(
@@ -532,10 +697,10 @@ nested_test("queries") do
                     )
                     return test_invalid(
                         daf,
-                        q"/ cell : type => color ? !",
+                        q"/ cell : type => color ?? !",
                         """
                             unexpected operation: IfNot
-                            in the query: / cell : type => color ? !
+                            in the query: / cell : type => color ?? !
                             at operation:                        ▲
                         """,
                     )
@@ -547,9 +712,10 @@ nested_test("queries") do
                     set_vector!(daf, "donor", "sex", ["Male", "Female"])
                     set_vector!(daf, "batch", "donor", ["", "N"])
                     set_vector!(daf, "cell", "batch", ["", "U"])
-                    @test get_result(daf, q"/ cell : batch ? => donor ? => sex") == ("cell", [])
-                    @test get_result(daf, q"/ cell : batch ? Unknown => donor ? => sex") == ("cell", ["A" => "Unknown"])
-                    @test get_result(daf, q"/ cell : batch ? => donor ? Other => sex") == ("cell", ["B" => "Other"])
+                    @test get_result(daf, q"/ cell : batch ?? => donor ?? => sex") == ("cell", [])
+                    @test get_result(daf, q"/ cell : batch ?? Unknown => donor ?? => sex") ==
+                          ("cell", ["A" => "Unknown"])
+                    @test get_result(daf, q"/ cell : batch ?? => donor ?? Other => sex") == ("cell", ["B" => "Other"])
                 end
 
                 nested_test("unexpected") do
@@ -558,11 +724,11 @@ nested_test("queries") do
                     nested_test("if_not") do
                         return test_invalid(
                             daf,
-                            q"/ cell ?",
+                            q"/ cell ??",
                             """
                                 unexpected operation: IfNot
-                                in the query: / cell ?
-                                at operation:        ▲
+                                in the query: / cell ??
+                                at operation:        ▲▲
                             """,
                         )
                     end
@@ -831,13 +997,13 @@ nested_test("queries") do
             set_vector!(daf, "batch", "age", [1, 2, 3])
             set_vector!(daf, "type", "color", ["red", "green", "blue"])
 
-            @test get_result(daf, q"/ cell : batch ? => age * type") ==
+            @test get_result(daf, q"/ cell : batch ?? => age * type") ==
                   (("age", "type"), [("1", "") => 1, ("1", "X") => 1])
 
-            @test get_result(daf, q"/ cell : batch * type ? => color") ==
+            @test get_result(daf, q"/ cell : batch * type ?? => color") ==
                   (("batch", "color"), [("", "red") => 1, ("U", "red") => 1])
 
-            @test get_result(daf, q"/ cell : batch ? => age * type ? => color") ==
+            @test get_result(daf, q"/ cell : batch ?? => age * type ?? => color") ==
                   (("age", "color"), [("1", "red") => 1])
         end
     end
@@ -912,7 +1078,7 @@ nested_test("queries") do
                 set_vector!(daf, "cell", "is_doublet", [true, false, true])
                 set_vector!(daf, "cell", "batch", ["U", "V", ""]; overwrite = true)
                 set_vector!(daf, "batch", "age", [1, 2, 3]; overwrite = true)
-                @test get_result(daf, q"/ cell / gene : UMIs @ batch ? => age %> Sum") == (
+                @test get_result(daf, q"/ cell / gene : UMIs @ batch ?? => age %> Sum") == (
                     ("age", "gene"),
                     [
                         ("1", "X") => 1,
@@ -923,7 +1089,7 @@ nested_test("queries") do
                         ("2", "Z") => 6,
                     ],
                 )
-                @test get_result(daf, q"/ cell & is_doublet / gene : UMIs @ batch ? => age %> Sum") ==
+                @test get_result(daf, q"/ cell & is_doublet / gene : UMIs @ batch ?? => age %> Sum") ==
                       (("age", "gene"), [("1", "X") => 1, ("1", "Y") => 2, ("1", "Z") => 3])
             end
 

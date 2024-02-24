@@ -23,6 +23,7 @@ Daf.Queries.empty_cache!
 
 ```@docs
 Daf.Queries.QUERY_OPERATORS
+Daf.Queries.NAMES_QUERY
 Daf.Queries.SCALAR_QUERY
 Daf.Queries.LOOKUP_PROPERTY
 Daf.Queries.VECTOR_ENTRY
@@ -69,6 +70,7 @@ Daf.Queries.IsMatch
 Daf.Queries.IsNotEqual
 Daf.Queries.IsNotMatch
 Daf.Queries.Lookup
+Daf.Queries.Names
 Daf.Queries.Or
 Daf.Queries.OrNot
 Daf.Queries.Xor

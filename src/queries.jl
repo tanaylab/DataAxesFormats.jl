@@ -24,6 +24,7 @@ export IsMatch
 export IsNotEqual
 export IsNotMatch
 export Lookup
+export Names
 export Or
 export OrNot
 export @q_str
@@ -102,10 +103,27 @@ sub-queries in `Daf` views), without having to go through the string representat
 [`ReductionOperation`](@ref)), allowing for additional operations to be provided by external packages.
 
 Obviously not all possible combinations of operations make sense (e.g., `Lookup("is_marker") |> Axis("cell")` will not
-work). For the full list of valid combinations, see [`SCALAR_QUERY`](@ref), [`VECTOR_QUERY`](@ref) and
-[`MATRIX_QUERY`](@ref) below.
+work). For the full list of valid combinations, see [`NAMES_QUERY`](@ref), [`SCALAR_QUERY`](@ref),
+[`VECTOR_QUERY`](@ref) and [`MATRIX_QUERY`](@ref) below.
 """
 abstract type Query <: QueryOperation end
+
+"""
+`NAMES_QUERY` :=
+( [`Names`](@ref) `scalars`
+| [`Names`](@ref) `axes`
+| [`Axis`](@ref) [`Names`](@ref)
+| [`Axis`](@ref) [`Axis`](@ref) [`Names`](@ref)
+)
+
+A query returning a set of names:
+
+  - Looking up the set of names of the scalar properties (`? scalars`).
+  - Looking up the set of names of the axes (`? axes`).
+  - Looking up the set of names of the vector properties of an axis (e.g., `/ cell ?`).
+  - Looking up the set of names of the matrix properties of a pair of axes (e.g., `/ cell / gene ?`).
+"""
+NAMES_QUERY = nothing
 
 """
 `SCALAR_QUERY` :=
@@ -380,42 +398,45 @@ VECTOR_FETCH = nothing
 """
 Operators used to represent a [`Query`](@ref) as a string.
 
-| Operator                                                                                                                       | Implementation               | Description                                                                              |
-|:------------------------------------------------------------------------------------------------------------------------------:|:----------------------------:|:---------------------------------------------------------------------------------------- |
-| `/`                                                                                                                            | [`Axis`](@ref)               | Specify a vector or matrix axis (e.g., `/ cell : batch` or `/ cell / gene : UMIs`).      |
-| `:`                                                                                                                            | [`Lookup`](@ref)             | Lookup a property (e.g., `@ version`, `/ cell : batch` or `/ cell / gene : UMIs`).       |
-| `=>`                                                                                                                           | [`Fetch`](@ref)              | Fetch a property from another axis (e.g., `/ cell : batch => age`).                      |
-| `!`                                                                                                                            | [`AsAxis`](@ref)             | 1. Specify axis name when fetching a property (e.g., `/ cell : manual ! type => color`). |
-|                                                                                                                                |                              | 2. Force all axis values when counting (e.g., `/ cell : batch ! * manual ! type`).       |
-|                                                                                                                                |                              | 3. Force all axis values when grouping (e.g., `/ cell : age @ batch ! %> Mean`).         |
-| `?`                                                                                                                            | [`IfNot`](@ref)              | 1. Mask excluding false-ish values (e.g., / cell : batch ? => age`).                     |
-|                                                                                                                                |                              | 2. Default for false-ish lookup values (e.g., / cell : type ? Outlier`).                 |
-|                                                                                                                                |                              | 2. Default for false-ish fetched values (e.g., / cell : batch ? 1 => age`).              |
-| `||`                                                                                                                           | [`IfMissing`](@ref)          | 1. Value for missing lookup properties (e.g., `/ gene : is_marker || false`).            |
-|                                                                                                                                |                              | 2. Value for missing fetched properties (e.g., `/ cell : type || red => color`).         |
-|                                                                                                                                |                              | 3. Value for empty reduced vectors (e.g., `/ cell : type = LMPP => age %> Max || 0`).    |
-| `%`                                                                                                                            | [`EltwiseOperation`](@ref)   | Apply an element-wise operation (e.g., `/ cell / gene : UMIs % Log base 2 eps 1`).       |
-| `%>`                                                                                                                           | [`ReductionOperation`](@ref) | Apply a reduction operation (e.g., `/ cell / gene : UMIs %> Sum`).                       |
-| `*`                                                                                                                            | [`CountBy`](@ref)            | Compute counts matrix (e.g., `/ cell : age * type`).                                     |
-| `@`                                                                                                                            | [`GroupBy`](@ref)            | 1. Aggregate vector entries by a group (e.g., `/ cell : age @ type %> Mean`).            |
-| `     |                              | 1. Aggregate matrix row entries by a group (e.g.,`/ cell / gene : UMIs @ type %> Max`). |                              |                                                                                          |
-| `&`                                                                                                                            | [`And`](@ref)                | Restrict axis entries (e.g., `/ gene & marker`).                                         |
-| `&!`                                                                                                                           | [`AndNot`](@ref)             | Restrict axis entries (e.g., `/ gene &! marker`).                                        |
-| `|`                                                                                                                            | [`Or`](@ref)                 | Expand axis entries (e.g., `/ gene & marker | noisy`).                                   |
-| `|!`                                                                                                                           | [`OrNot`](@ref)              | Expand axis entries (e.g., `/ gene & marker |! noisy`).                                  |
-| `^`                                                                                                                            | [`Xor`](@ref)                | Flip axis entries (e.g., `/ gene & marker ^ noisy`).                                     |
-| `^!`                                                                                                                           | [`XorNot`](@ref)             | Flip axis entries (e.g., `/ gene & marker ^! noisy`).                                    |
-| `=`                                                                                                                            | [`IsEqual`](@ref)            | 1. Select an entry from an axis (e.g., `/ cell / gene = FOX1 : UMIs`).                   |
-|                                                                                                                                |                              | 2. Compare equal (e.g., `/ cell & age = 1`).                                             |
-| `!=`                                                                                                                           | [`IsNotEqual`](@ref)         | Compare not equal (e.g., `/ cell & age != 1`).                                           |
-| `<`                                                                                                                            | [`IsLess`](@ref)             | Compare less than (e.g., `/ cell & age < 1`).                                            |
-| `<=`                                                                                                                           | [`IsLessEqual`](@ref)        | Compare less or equal (e.g., `/ cell & age <= 1`).                                       |
-| `>`                                                                                                                            | [`IsGreater`](@ref)          | Compare greater than (e.g., `/ cell & age >= 1`).                                        |
-| `>=`                                                                                                                           | [`IsGreaterEqual`](@ref)     | Compare greater or equal (e.g., `/ cell & age >= 1`).                                    |
-| `~`                                                                                                                            | [`IsMatch`](@ref)            | Compare match (e.g., `/ gene & name ~ RP\\[SL\\]`).                                      |
-| `!~`                                                                                                                           | [`IsNotMatch`](@ref)         | Compare not match (e.g., `/ gene & name !~ RP\\[SL\\]`).                                 |
+| Operator | Implementation               | Description                                                                              |
+|:-------- |:----------------------------:|:---------------------------------------------------------------------------------------- |
+| `/`      | [`Axis`](@ref)               | Specify a vector or matrix axis (e.g., `/ cell : batch` or `/ cell / gene : UMIs`).      |
+| `?`      | [`Names`](@ref)              | 1. Names of scalars or axes (`? axes`, `? scalars`).                                     |
+|          |                              | 2. Names of vectors of axis (e.g., `/ cell ?`).                                          |
+|          |                              | 3. Names of matrices of axes (e.g., `/ cell / gene ?`).                                  |
+| `:`      | [`Lookup`](@ref)             | Lookup a property (e.g., `@ version`, `/ cell : batch` or `/ cell / gene : UMIs`).       |
+| `=>`     | [`Fetch`](@ref)              | Fetch a property from another axis (e.g., `/ cell : batch => age`).                      |
+| `!`      | [`AsAxis`](@ref)             | 1. Specify axis name when fetching a property (e.g., `/ cell : manual ! type => color`). |
+|          |                              | 2. Force all axis values when counting (e.g., `/ cell : batch ! * manual ! type`).       |
+|          |                              | 3. Force all axis values when grouping (e.g., `/ cell : age @ batch ! %> Mean`).         |
+| `??`     | [`IfNot`](@ref)              | 1. Mask excluding false-ish values (e.g., `/ cell : batch ?? => age`).                   |
+|          |                              | 2. Default for false-ish lookup values (e.g., `/ cell : type ?? Outlier`).               |
+|          |                              | 3. Default for false-ish fetched values (e.g., `/ cell : batch ?? 1 => age`).            |
+| `||`     | [`IfMissing`](@ref)          | 1. Value for missing lookup properties (e.g., `/ gene : is_marker || false`).            |
+|          |                              | 2. Value for missing fetched properties (e.g., `/ cell : type || red => color`).         |
+|          |                              | 3. Value for empty reduced vectors (e.g., `/ cell : type = LMPP => age %> Max || 0`).    |
+| `%`      | [`EltwiseOperation`](@ref)   | Apply an element-wise operation (e.g., `/ cell / gene : UMIs % Log base 2 eps 1`).       |
+| `%>`     | [`ReductionOperation`](@ref) | Apply a reduction operation (e.g., `/ cell / gene : UMIs %> Sum`).                       |
+| `*`      | [`CountBy`](@ref)            | Compute counts matrix (e.g., `/ cell : age * type`).                                     |
+| `@`      | [`GroupBy`](@ref)            | 1. Aggregate vector entries by a group (e.g., `/ cell : age @ type %> Mean`).            |
+|          |                              | 2. Aggregate matrix row entries by a group (e.g.,`/ cell / gene : UMIs @ type %> Max`).  |
+| `&`      | [`And`](@ref)                | Restrict axis entries (e.g., `/ gene & marker`).                                         |
+| `&!`     | [`AndNot`](@ref)             | Restrict axis entries (e.g., `/ gene &! marker`).                                        |
+| `|`      | [`Or`](@ref)                 | Expand axis entries (e.g., `/ gene & marker | noisy`).                                   |
+| `|!`     | [`OrNot`](@ref)              | Expand axis entries (e.g., `/ gene & marker |! noisy`).                                  |
+| `^`      | [`Xor`](@ref)                | Flip axis entries (e.g., `/ gene & marker ^ noisy`).                                     |
+| `^!`     | [`XorNot`](@ref)             | Flip axis entries (e.g., `/ gene & marker ^! noisy`).                                    |
+| `=`      | [`IsEqual`](@ref)            | 1. Select an entry from an axis (e.g., `/ cell / gene = FOX1 : UMIs`).                   |
+|          |                              | 2. Compare equal (e.g., `/ cell & age = 1`).                                             |
+| `!=`     | [`IsNotEqual`](@ref)         | Compare not equal (e.g., `/ cell & age != 1`).                                           |
+| `<`      | [`IsLess`](@ref)             | Compare less than (e.g., `/ cell & age < 1`).                                            |
+| `<=`     | [`IsLessEqual`](@ref)        | Compare less or equal (e.g., `/ cell & age <= 1`).                                       |
+| `>`      | [`IsGreater`](@ref)          | Compare greater than (e.g., `/ cell & age >= 1`).                                        |
+| `>=`     | [`IsGreaterEqual`](@ref)     | Compare greater or equal (e.g., `/ cell & age >= 1`).                                    |
+| `~`      | [`IsMatch`](@ref)            | Compare match (e.g., `/ gene & name ~ RP\\[SL\\]`).                                      |
+| `!~`     | [`IsNotMatch`](@ref)         | Compare not match (e.g., `/ gene & name !~ RP\\[SL\\]`).                                 |
 """
-QUERY_OPERATORS = r"^(?:=>|\|\||%>|&!|\|!|\^!|!=|<=|>=|!~|/|:|!|\?|%|\*|@|&|\||\^|=|<|>|~)"
+QUERY_OPERATORS = r"^(?:=>|\|\||\?\?|%>|&!|\|!|\^!|!=|<=|>=|!~|/|:|!|%|\*|@|&|\||\?|\^|=|<|>|~)"
 
 function Query(query_string::AbstractString)::QuerySequence
     tokens = tokenize(query_string, QUERY_OPERATORS)
@@ -461,7 +482,7 @@ function next_query_operation(tokens::Vector{Token}, next_token_index::Int)::Tup
         end
     end
 
-    for (operator, operation_type) in (("?", IfNot), ("!", AsAxis))
+    for (operator, operation_type) in (("??", IfNot), ("!", AsAxis), ("?", Names))
         if token.value == operator
             token = maybe_next_value_token(tokens, next_token_index)
             if token == nothing
@@ -639,6 +660,49 @@ function Base.:(|>)(first_operation::QueryOperation, second_operation::QueryOper
 end
 
 """
+    Names(kind::Maybe{AbstractString} = nothing) <: Query
+
+A query operation for looking up a set of names. In a string [`Query`](@ref), this is specified using the `?`
+operator, optionally followed by the kind of objects to name.
+
+  - If the query state is empty, a `kind` must be specified, one of `scalars` or `axes`, and the result is the set of
+    their names (`? scalars`, `? axes`).
+  - If the query state contains a single axis (without any masks), the `kind` must not be specified, and the result is
+    the set of names of vector properties of the axis (e.g., `/ cell ?`).
+  - If the query state contains two axes (without any masks), the `kind` must not be specified, and the result is
+    the set of names of matrix properties of the axes (e.g., `/ cell / gene ?`).
+
+!!! note
+
+    This, [`Lookup`](@ref) and [`Axis`](@ref) are the only [`QueryOperation`](@ref)s that also works as a complete
+    [`Query`](@ref).
+"""
+struct Names <: Query
+    kind::Maybe{AbstractString}
+    function Names(kind::Maybe{AbstractString} = nothing)::Names
+        return new(kind)
+    end
+end
+
+function get_query(daf::DafReader, names::Names; cache::Bool = true)::AbstractStringSet
+    return get_query(daf, QuerySequence((names,)); cache = cache)
+end
+
+function query_result_dimensions(names::Names)::Int
+    return query_result_dimensions(QuerySequence((names,)))
+end
+
+function Base.show(io::IO, names::Names)::Nothing
+    kind = names.kind
+    if kind == nothing
+        print(io, "?")
+    else
+        print(io, "? $(kind)")
+    end
+    return nothing
+end
+
+"""
     Lookup(property_name::AbstractString) <: Query
 
 A query operation for looking up the value of a property with some name. In a string [`Query`](@ref), this is specified
@@ -656,7 +720,8 @@ If any of the axes has a single entry selected using [`IsEqual`]@(ref), this wil
 
 !!! note
 
-    This and [`Axis`](@ref) are the only [`QueryOperation`](@ref)s that also works as a complete [`Query`](@ref).
+    This, [`Names`](@ref) and [`Axis`](@ref) are the only [`QueryOperation`](@ref)s that also works as a complete
+    [`Query`](@ref).
 """
 struct Lookup <: Query
     property_name::AbstractString
@@ -666,12 +731,6 @@ function get_query(daf::DafReader, lookup::Lookup; cache::Bool = true)::StorageS
     return get_query(daf, QuerySequence((lookup,)); cache = cache)
 end
 
-"""
-    function query_result_dimensions(query::Union{Query, AbstractString})::Int
-
-Return the number of dimensions (0 - scalar, 1 - vector, 2 - matrix) of the results of a query. This also verifies the
-query is syntactically valid, though it may still fail if applied to specific data due to invalid data values or types.
-"""
 function query_result_dimensions(lookup::Lookup)::Int
     return query_result_dimensions(QuerySequence((lookup,)))
 end
@@ -753,7 +812,7 @@ end
     IfNot(value::Maybe{StorageScalar} = nothing) <: QueryOperation
 
 A query operation providing a value to use for "false-ish" values in a vector (empty strings, zero numeric values, or
-false Boolean values). In a string [`Query`](@ref), this is indicated using the `?` operator, optionally followed by a
+false Boolean values). In a string [`Query`](@ref), this is indicated using the `??` operator, optionally followed by a
 value to use.
 
 If the value is `nothing` (the default), then these entries are dropped (masked out) of the result (e.g., `/ cell : type ?` behaves the same as `/ cell & type : type`, that is, returns the type of the cells which have a non-empty type).
@@ -776,9 +835,9 @@ end
 function Base.show(io::IO, if_not::IfNot)::Nothing
     not_value = if_not.not_value
     if not_value == nothing
-        print(io, "?")
+        print(io, "??")
     else
-        print(io, "? $(escape_value(string(not_value)))")
+        print(io, "?? $(escape_value(string(not_value)))")
     end
     return nothing
 end
@@ -847,7 +906,8 @@ be selected from the axis using [`IsEqual`](@ref) (e.g., `/ gene = FOX1 : noisy`
 
 !!! note
 
-    This and [`Lookup`](@ref) are the only [`QueryOperation`](@ref)s that also works as a complete [`Query`](@ref).
+    This, [`Names`](@ref) and [`Lookup`](@ref) are the only [`QueryOperation`](@ref)s that also works as a complete
+    [`Query`](@ref).
 """
 struct Axis <: Query
     axis_name::AbstractString
@@ -1334,6 +1394,7 @@ end
 
 struct FakeAxisState
     is_entry::Bool
+    is_slice::Bool
 end
 
 mutable struct VectorState
@@ -1361,7 +1422,7 @@ end
 
 struct FakeMatrixState end
 
-QueryValue = Union{ScalarState, AxisState, VectorState, MatrixState, AsAxis, GroupBy}
+QueryValue = Union{AbstractStringSet, ScalarState, AxisState, VectorState, MatrixState, AsAxis, GroupBy}
 
 mutable struct QueryState
     daf::DafReader
@@ -1374,7 +1435,8 @@ struct FakeAsAxis end
 
 struct FakeGroupBy end
 
-FakeQueryValue = Union{FakeScalarState, FakeAxisState, FakeVectorState, FakeMatrixState, FakeAsAxis, FakeGroupBy}
+FakeQueryValue =
+    Union{Set{String}, FakeScalarState, FakeAxisState, FakeVectorState, FakeMatrixState, FakeAsAxis, FakeGroupBy}
 
 mutable struct FakeQueryState
     query_sequence::QuerySequence
@@ -1418,7 +1480,10 @@ function error_unexpected_operation(query_state::Union{QueryState, FakeQueryStat
     return error_at_state(query_state, "unexpected operation: $(query_operation_type)\n")
 end
 
-function Base.getindex(daf::DafReader, query::Union{Query, AbstractString})::Union{StorageScalar, NamedArray}
+function Base.getindex(
+    daf::DafReader,
+    query::Union{Query, AbstractString},
+)::Union{AbstractStringSet, StorageScalar, NamedArray}
     return get_query(daf, query)
 end
 
@@ -1435,11 +1500,19 @@ release the cached data using [`empty_cache!`](@ref).
 As a shorthand syntax you can also invoke this using `getindex`, that is, using the `[]` operator (e.g., `daf[q"/ cell"]` is
 equivalent to `get_query(daf, q"/ cell")`).
 """
-function get_query(daf::DafReader, query_string::AbstractString; cache::Bool = true)::Union{StorageScalar, NamedArray}
+function get_query(
+    daf::DafReader,
+    query_string::AbstractString;
+    cache::Bool = true,
+)::Union{AbstractStringSet, StorageScalar, NamedArray}
     return get_query(daf, Query(query_string); cache = cache)
 end
 
-function get_query(daf::DafReader, query_sequence::QuerySequence; cache::Bool = true)::Union{StorageScalar, NamedArray}
+function get_query(
+    daf::DafReader,
+    query_sequence::QuerySequence;
+    cache::Bool = true,
+)::Union{AbstractStringSet, StorageScalar, NamedArray}
     cache_key = join([string(query_operation) for query_operation in query_sequence.query_operations], " ")
     cached_entry = get(daf.internal.cache, cache_key, nothing)
     if cached_entry != nothing
@@ -1456,7 +1529,7 @@ function get_query(daf::DafReader, query_sequence::QuerySequence; cache::Bool = 
     result, dependency_keys = get_query_result(query_state)
     if cache && !haskey(daf.internal.cache, cache_key)
         store_cached_dependency_keys!(daf, cache_key, dependency_keys)
-        daf.internal.cache[cache_key] = CacheEntry(QueryData, result)
+        Formats.cache_data!(daf, cache_key, result, QueryData)
     end
 
     return result
@@ -1466,6 +1539,13 @@ function query_result_dimensions(query_string::AbstractString)::Int
     return query_result_dimensions(Query(query_string))
 end
 
+"""
+    function query_result_dimensions(query::Union{Query, AbstractString})::Int
+
+Return the number of dimensions (-1 - names, 0 - scalar, 1 - vector, 2 - matrix) of the results of a query. This also
+verifies the query is syntactically valid, though it may still fail if applied to specific data due to invalid data
+values or types.
+"""
 function query_result_dimensions(query_sequence::QuerySequence)::Int
     fake_query_state = FakeQueryState(query_sequence, 1, Vector{FakeQueryValue}())
     while fake_query_state.next_operation_index <= length(fake_query_state.query_sequence.query_operations)
@@ -1502,8 +1582,12 @@ function peek_next_operation(
     return nothing
 end
 
-function get_query_result(query_state::QueryState)::Tuple{Union{StorageScalar, NamedArray}, Set{String}}
-    if is_all(query_state, (ScalarState,))
+function get_query_result(
+    query_state::QueryState,
+)::Tuple{Union{AbstractStringSet, StorageScalar, NamedArray}, Set{String}}
+    if is_all(query_state, (AbstractStringSet,))
+        return get_names_result(query_state)
+    elseif is_all(query_state, (ScalarState,))
         return get_scalar_result(query_state)
     elseif is_all(query_state, (AxisState,))
         return get_axis_result(query_state)
@@ -1517,7 +1601,9 @@ function get_query_result(query_state::QueryState)::Tuple{Union{StorageScalar, N
 end
 
 function get_query_result_dimensions(fake_query_state::FakeQueryState)::Int
-    if is_all(fake_query_state, (FakeScalarState,))
+    if is_all(fake_query_state, (AbstractStringSet,))
+        return -1
+    elseif is_all(fake_query_state, (FakeScalarState,))
         return 0
     elseif is_all(fake_query_state, (FakeAxisState,))
         fake_axis_state = fake_query_state.stack[1]
@@ -1534,6 +1620,12 @@ function get_query_result_dimensions(fake_query_state::FakeQueryState)::Int
     else
         return error("partial query: $(fake_query_state.query_sequence)")
     end
+end
+
+function get_names_result(query_state::QueryState)::Tuple{AbstractStringSet, Set{String}}
+    names = pop!(query_state.stack)
+    @assert names isa AbstractStringSet
+    return names, Set{String}()
 end
 
 function get_scalar_result(query_state::QueryState)::Tuple{StorageScalar, Set{String}}
@@ -1591,7 +1683,8 @@ end
 function fake_query_operation!(fake_query_state::FakeQueryState, axis::Axis)::Nothing
     if isempty(fake_query_state.stack) || is_all(fake_query_state, (FakeAxisState,))
         is_entry = get_next_operation(fake_query_state, IsEqual) != nothing
-        push!(fake_query_state.stack, FakeAxisState(is_entry))
+        is_slice = peek_next_operation(fake_query_state, MaskOperation) != nothing
+        push!(fake_query_state.stack, FakeAxisState(is_entry, is_slice))
         return nothing
     end
 
@@ -1632,6 +1725,123 @@ function push_axis(query_state::QueryState, axis::Axis, is_equal::IsEqual)::Noth
 
     axis_state = AxisState(query_sequence, dependency_keys, axis.axis_name, axis_entry_index)
     push!(query_state.stack, axis_state)
+    return nothing
+end
+
+function apply_query_operation!(query_state::QueryState, names::Names)::Nothing
+    if isempty(query_state.stack)
+        return get_kind_names(query_state, names)
+    elseif is_all(query_state, (AxisState,))
+        return get_vector_names(query_state, names)
+    elseif is_all(query_state, (AxisState, AxisState))
+        return get_matrix_names(query_state, names)
+    end
+
+    return error_unexpected_operation(query_state)
+end
+
+function get_kind_names(query_state::QueryState, names::Names)::Nothing
+    if names.kind == nothing
+        error_at_state(query_state, "no kind specified for names\n")
+    end
+
+    if names.kind == "scalars"
+        push!(query_state.stack, scalar_names(query_state.daf))
+    elseif names.kind == "axes"
+        push!(query_state.stack, axis_names(query_state.daf))
+    else
+        error_at_state(query_state, "invalid kind: $(names.kind)\n")
+    end
+
+    return nothing
+end
+
+function get_vector_names(query_state::QueryState, names::Names)::Nothing
+    if names.kind != nothing
+        error_at_state(query_state, "unexpected kind: $(names.kind)\nspecified for vector names\n")
+    end
+    axis_state = pop!(query_state.stack)
+    @assert axis_state isa AxisState
+    if axis_state.axis_modifier != nothing
+        error_at_state(query_state, "sliced/masked axis for vector names\n")
+    end
+
+    push!(query_state.stack, vector_names(query_state.daf, axis_state.axis_name))
+    return nothing
+end
+
+function get_matrix_names(query_state::QueryState, names::Names)::Nothing
+    if names.kind != nothing
+        error_at_state(query_state, "unexpected kind: $(names.kind)\nspecified for matrix names\n")
+    end
+
+    rows_axis_state = pop!(query_state.stack)
+    @assert rows_axis_state isa AxisState
+    columns_axis_state = pop!(query_state.stack)
+    @assert columns_axis_state isa AxisState
+    if rows_axis_state.axis_modifier != nothing || columns_axis_state.axis_modifier != nothing
+        error_at_state(query_state, "sliced/masked axis for matrix names\n")
+    end
+
+    push!(query_state.stack, matrix_names(query_state.daf, rows_axis_state.axis_name, columns_axis_state.axis_name))
+    return nothing
+end
+
+function fake_query_operation!(fake_query_state::FakeQueryState, names::Names)::Nothing
+    if isempty(fake_query_state.stack)
+        return fake_kind_names(fake_query_state, names)
+    elseif is_all(fake_query_state, (FakeAxisState,))
+        return fake_vector_names(fake_query_state, names)
+    elseif is_all(fake_query_state, (FakeAxisState, FakeAxisState))
+        return fake_matrix_names(fake_query_state, names)
+    end
+
+    return error_unexpected_operation(fake_query_state)
+end
+
+function fake_kind_names(fake_query_state::FakeQueryState, names::Names)::Nothing
+    if names.kind == nothing
+        error_at_state(fake_query_state, "no kind specified for names\n")
+    elseif names.kind != "scalars" && names.kind != "axes"
+        error_at_state(fake_query_state, "invalid kind: $(names.kind)\n")
+    end
+
+    push!(fake_query_state.stack, Set{String}())
+    return nothing
+end
+
+function fake_vector_names(fake_query_state::FakeQueryState, names::Names)::Nothing
+    if names.kind != nothing
+        error_at_state(fake_query_state, "unexpected kind: $(names.kind)\nspecified for vector names\n")
+    end
+
+    fake_axis_state = pop!(fake_query_state.stack)
+    @assert fake_axis_state isa FakeAxisState
+    if fake_axis_state.is_entry || fake_axis_state.is_slice
+        error_at_state(fake_query_state, "sliced/masked axis for vector names\n")
+    end
+
+    push!(fake_query_state.stack, Set{String}())
+    return nothing
+end
+
+function fake_matrix_names(fake_query_state::FakeQueryState, names::Names)::Nothing
+    if names.kind != nothing
+        error_at_state(fake_query_state, "unexpected kind: $(names.kind)\nspecified for matrix names\n")
+    end
+
+    fake_rows_axis_state = pop!(fake_query_state.stack)
+    @assert fake_rows_axis_state isa FakeAxisState
+    fake_columns_axis_state = pop!(fake_query_state.stack)
+    @assert fake_columns_axis_state isa FakeAxisState
+    if fake_rows_axis_state.is_entry ||
+       fake_rows_axis_state.is_slice ||
+       fake_columns_axis_state.is_entry ||
+       fake_columns_axis_state.is_slice
+        error_at_state(fake_query_state, "sliced/masked axis for matrix names\n")
+    end
+
+    push!(fake_query_state.stack, Set{String}())
     return nothing
 end
 
@@ -2644,7 +2854,7 @@ function fake_fetch_count_by(fake_query_state::FakeQueryState, count_by::CountBy
     rows_vector_state = pop!(fake_query_state.stack)
     @assert rows_vector_state isa FakeVectorState
 
-    fake_fetch_property(fake_query_state, FakeAxisState(false))
+    fake_fetch_property(fake_query_state, FakeAxisState(false, false))
     columns_vector_state = pop!(fake_query_state.stack)
     @assert columns_vector_state isa FakeVectorState
 
@@ -2937,7 +3147,7 @@ function parse_group_by(
 end
 
 function fake_parse_group_by(fake_query_state::FakeQueryState)::Bool
-    fake_fetch_property(fake_query_state, FakeAxisState(false))
+    fake_fetch_property(fake_query_state, FakeAxisState(false, false))
     groups_vector_state = pop!(fake_query_state.stack)
     @assert groups_vector_state isa FakeVectorState
     groups_as_axis = get_next_operation(fake_query_state, AsAxis)

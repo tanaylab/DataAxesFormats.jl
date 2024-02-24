@@ -2862,7 +2862,10 @@ nested_test("data") do
             mktemp() do path, io
                 h5open(path, "w") do h5file
                     @test_throws "H5df requires a group or a data set name" H5df(h5file)
+                    @test_throws "invalid mode: a" H5df(h5file; name = "h5df!", mode = "a")
                     @test_throws "not a daf data set: h5df!" H5df(h5file; name = "h5df!")
+                    h5file["foo"] = "string"
+                    @test_throws "HDF5[foo] isa HDF5.Dataset" H5df(h5file; group = "foo")
                     @test_logs (:warn, dedent("""
                         unsafe HDF5 file alignment for Daf: (1, 1)
                         the safe HDF5 file alignment is: (1, 8)
@@ -2870,7 +2873,7 @@ nested_test("data") do
                         and will break the empty_* functions;
                         to force the alignment, create the file using:
                         h5open(...;fapl=HDF5.FileAccessProperties(;alignment=(1,8))
-                    """)) H5df(h5file; name = "h5df!", create = true)
+                    """)) H5df(h5file; name = "h5df!", mode = "w+")
                     delete_object(h5file, "daf")
                     h5file["daf"] = [UInt(2), UInt(0)]
                     @test_throws dedent("""
@@ -2885,7 +2888,7 @@ nested_test("data") do
         nested_test("root") do
             mktemp() do path, io
                 h5open(path, "w"; fapl = HDF5.FileAccessProperties(; alignment = (1, 8))) do h5file
-                    daf = H5df(h5file; name = "h5df!", create = true)
+                    daf = H5df(h5file; name = "h5df!", mode = "w+")
                     @test daf.name == "h5df!"
                     @test present(daf) == "H5df h5df!"
                     @test present(read_only(daf)) == "ReadOnly H5df h5df!"
@@ -2903,7 +2906,7 @@ nested_test("data") do
         nested_test("nested") do
             mktemp() do path, io
                 h5open(path, "w"; fapl = HDF5.FileAccessProperties(; alignment = (1, 8))) do h5file
-                    daf = H5df(h5file; group = "nested!", create = true)
+                    daf = H5df(h5file; group = "nested!", mode = "w+")
                     @test daf.name == "nested!"
                     @test present(daf) == "H5df nested!"
                     @test present(read_only(daf)) == "ReadOnly H5df nested!"

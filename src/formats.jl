@@ -73,7 +73,7 @@ If too much data has been cached, call [`empty_cache!`] to release it.
 
 struct CacheEntry
     cache_type::CacheType
-    data::Union{StorageScalar, StorageVector, StorageMatrix}
+    data::Union{AbstractStringSet, StorageScalar, StorageVector, StorageMatrix}
 end
 
 """
@@ -497,7 +497,7 @@ function format_description_footer(
     return nothing
 end
 
-function get_from_cache(format::FormatReader, cache_key::AbstractString)::Maybe{Union{StorageVector, StorageMatrix}}
+function get_from_cache(format::FormatReader, cache_key::AbstractString, ::Type{T})::Maybe{T} where {T}
     result = get(format.internal.cache, cache_key, nothing)
     if result == nothing
         return nothing
@@ -506,14 +506,46 @@ function get_from_cache(format::FormatReader, cache_key::AbstractString)::Maybe{
     end
 end
 
-function get_vector_through_cache(format::FormatReader, axis::AbstractString, name::AbstractString)::StorageVector
-    cache_key = vector_cache_key(axis, name)
-    cached_vector = get_from_cache(format, cache_key)
-    if cached_vector == nothing
-        return format_get_vector(format, axis, name)
+function get_through_cache(getter::Function, format::FormatReader, cache_key::AbstractString, ::Type{T})::T where {T}
+    cached = get_from_cache(format, cache_key, T)
+    if cached == nothing
+        return getter()
     else
-        @assert cached_vector isa StorageVector  # untested
-        return cached_vector  # untested
+        return cached
+    end
+end
+
+function get_scalar_names_through_cache(format::FormatReader)::AbstractStringSet
+    return get_through_cache(format, scalar_names_cache_key(), AbstractStringSet) do
+        return format_scalar_names(format)
+    end
+end
+
+function get_axis_names_through_cache(format::FormatReader)::AbstractStringSet
+    return get_through_cache(format, axis_names_cache_key(), AbstractStringSet) do
+        return format_axis_names(format)
+    end
+end
+
+function get_vector_names_through_cache(format::FormatReader, axis::AbstractString)::AbstractStringSet
+    return get_through_cache(format, vector_names_cache_key(axis), AbstractStringSet) do
+        return format_vector_names(format, axis)
+    end
+end
+
+function get_matrix_names_through_cache(
+    format::FormatReader,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+)::AbstractStringSet
+    return get_through_cache(format, matrix_names_cache_key(rows_axis, columns_axis), AbstractStringSet) do
+        return format_matrix_names(format, rows_axis, columns_axis)
+    end
+end
+
+function get_vector_through_cache(format::FormatReader, axis::AbstractString, name::AbstractString)::StorageVector
+    return get_through_cache(format, vector_cache_key(axis, name), StorageVector) do
+        return format_get_vector(format, axis, name)
     end
 end
 
@@ -523,14 +555,56 @@ function get_matrix_through_cache(
     columns_axis::AbstractString,
     name::AbstractString,
 )::StorageMatrix
-    cache_key = matrix_cache_key(rows_axis, columns_axis, name)
-    cached_matrix = get_from_cache(format, cache_key)
-    if cached_matrix == nothing
+    return get_through_cache(format, matrix_cache_key(rows_axis, columns_axis, name), StorageMatrix) do
         return format_get_matrix(format, rows_axis, columns_axis, name)
-    else
-        @assert cached_matrix isa StorageMatrix
-        return cached_matrix
     end
+end
+
+function cache_data!(
+    format::FormatReader,
+    cache_key::AbstractString,
+    data::Union{AbstractStringSet, StorageScalar, StorageVector, StorageMatrix},
+    cache_type::CacheType,
+)::Nothing
+    @assert !haskey(format.internal.cache, cache_key)
+    format.internal.cache[cache_key] = CacheEntry(cache_type, data)
+    return nothing
+end
+
+function cache_scalar_names!(format::FormatReader, names::AbstractStringSet, cache_type::CacheType)::Nothing
+    cache_key = scalar_names_cache_key()
+    cache_data!(format, cache_key, names, cache_type)
+    return nothing
+end
+
+function cache_axis_names!(format::FormatReader, names::AbstractStringSet, cache_type::CacheType)::Nothing
+    cache_key = axis_names_cache_key()
+    cache_data!(format, cache_key, names, cache_type)
+    return nothing
+end
+
+function cache_vector_names!(
+    format::FormatReader,
+    axis::AbstractString,
+    names::AbstractStringSet,
+    cache_type::CacheType,
+)::Nothing
+    cache_key = vector_names_cache_key(axis)
+    cache_data!(format, cache_key, names, cache_type)
+    return nothing
+end
+
+function cache_matrix_names!(
+    format::FormatReader,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    names::AbstractStringSet,
+    cache_type::CacheType;
+    relayout::Bool = true,
+)::Nothing
+    cache_key = matrix_names_cache_key(rows_axis, columns_axis)
+    cache_data!(format, cache_key, names, cache_type)
+    return nothing
 end
 
 function cache_vector!(
@@ -541,11 +615,8 @@ function cache_vector!(
     cache_type::CacheType,
 )::Nothing
     cache_key = vector_cache_key(axis, name)
+    cache_data!(format, cache_key, vector, cache_type)
     store_cached_dependency_key!(format, cache_key, axis_cache_key(axis))
-
-    @assert !haskey(format.internal.cache, cache_key)
-    format.internal.cache[cache_key] = CacheEntry(cache_type, vector)
-
     return nothing
 end
 
@@ -558,13 +629,39 @@ function cache_matrix!(
     cache_type::CacheType,
 )::Nothing
     cache_key = matrix_cache_key(rows_axis, columns_axis, name)
+    cache_data!(format, cache_key, matrix, cache_type)
     store_cached_dependency_key!(format, cache_key, axis_cache_key(rows_axis))
     store_cached_dependency_key!(format, cache_key, axis_cache_key(columns_axis))
-
-    @assert !haskey(format.internal.cache, cache_key)
-    format.internal.cache[cache_key] = CacheEntry(cache_type, matrix)
-
     return nothing
+end
+
+function scalar_names_cache_key()::String
+    return "? scalars"
+end
+
+function axis_names_cache_key()::String
+    return "? axes"
+end
+
+function vector_names_cache_key(axis::AbstractString)::String
+    return "/ $(axis) ?"
+end
+
+function matrix_names_cache_key(rows_axis::AbstractString, columns_axis::AbstractString)::String
+    return "? / $(rows_axis) / $(columns_axis)" # TRICKY: NOT the query key, which uses the union.
+end
+
+function matrix_relayout_names_cache_keys(
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+)::Union{Tuple{String}, Tuple{String, String}}
+    first_key = "/ $(rows_axis) / $(columns_axis) ?"
+    if rows_axis == columns_axis
+        return (first_key,)
+    else
+        second_key = "/ $(columns_axis) / $(rows_axis) ?"
+        return (first_key, second_key)
+    end
 end
 
 function scalar_cache_key(name::AbstractString)::String

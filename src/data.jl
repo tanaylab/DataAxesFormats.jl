@@ -104,8 +104,6 @@ If not `overwrite` (the default), this first verifies the `name` scalar property
 function set_scalar!(daf::DafWriter, name::AbstractString, value::StorageScalar; overwrite::Bool = false)::Nothing
     @debug "set_scalar! $(daf.name) : $(name) <$(overwrite ? "=" : "-") $(present(value))"
 
-    Formats.invalidate_cached!(daf, Formats.scalar_cache_key(name))
-
     if !overwrite
         require_no_scalar(daf, name)
     elseif Formats.format_has_scalar(daf, name)
@@ -114,6 +112,8 @@ function set_scalar!(daf::DafWriter, name::AbstractString, value::StorageScalar;
 
     Formats.format_set_scalar!(daf, name, value)
 
+    Formats.invalidate_cached!(daf, Formats.scalar_cache_key(name))
+    Formats.invalidate_cached!(daf, Formats.scalar_names_cache_key())
     return nothing
 end
 
@@ -135,12 +135,12 @@ function delete_scalar!(daf::DafWriter, name::AbstractString; must_exist::Bool =
         require_scalar(daf, name)
     end
 
-    Formats.invalidate_cached!(daf, Formats.scalar_cache_key(name))
-
     if Formats.format_has_scalar(daf, name)
         Formats.format_delete_scalar!(daf, name; for_set = false)
     end
 
+    Formats.invalidate_cached!(daf, Formats.scalar_cache_key(name))
+    Formats.invalidate_cached!(daf, Formats.scalar_names_cache_key())
     return nothing
 end
 
@@ -150,7 +150,7 @@ end
 The names of the scalar properties in `daf`.
 """
 function scalar_names(daf::DafReader)::AbstractStringSet
-    result = Formats.format_scalar_names(daf)
+    result = Formats.get_scalar_names_through_cache(daf)
     # @debug "scalar_names $(daf.name) -> $(present(result))"
     return result
 end
@@ -230,6 +230,8 @@ function add_axis!(daf::DafWriter, axis::AbstractString, entries::AbstractVector
     end
 
     Formats.format_add_axis!(daf, axis, entries)
+
+    Formats.invalidate_cached!(daf, Formats.axis_names_cache_key())
     return nothing
 end
 
@@ -255,23 +257,27 @@ function delete_axis!(daf::DafWriter, axis::AbstractString; must_exist::Bool = t
         return nothing
     end
 
-    Formats.invalidate_cached!(daf, Formats.axis_cache_key(axis))
-
-    for name in Formats.format_vector_names(daf, axis)
+    vector_names = Formats.get_vector_names_through_cache(daf, axis)
+    for name in vector_names
         Formats.format_delete_vector!(daf, axis, name; for_set = false)
     end
 
-    for other_axis in Formats.format_axis_names(daf)
-        for name in Formats.format_matrix_names(daf, axis, other_axis)
+    axis_names = Formats.get_axis_names_through_cache(daf)
+    for other_axis in axis_names
+        matrix_names = Formats.get_matrix_names_through_cache(daf, axis, other_axis)
+        for name in matrix_names
             Formats.format_delete_matrix!(daf, axis, other_axis, name; for_set = false)
         end
-        for name in Formats.format_matrix_names(daf, other_axis, axis)
+        matrix_names = Formats.get_matrix_names_through_cache(daf, other_axis, axis)
+        for name in matrix_names
             Formats.format_delete_matrix!(daf, other_axis, axis, name; for_set = false)
         end
     end
 
     Formats.format_delete_axis!(daf, axis)
 
+    Formats.invalidate_cached!(daf, Formats.axis_cache_key(axis))
+    Formats.invalidate_cached!(daf, Formats.axis_names_cache_key())
     return nothing
 end
 
@@ -281,7 +287,7 @@ end
 The names of the axes of `daf`.
 """
 function axis_names(daf::DafReader)::AbstractStringSet
-    result = Formats.format_axis_names(daf)
+    result = Formats.get_axis_names_through_cache(daf)
     # @debug "axis_names $(daf.name) -> $(present(result))"
     return result
 end
@@ -399,8 +405,6 @@ function set_vector!(
         end
     end
 
-    Formats.invalidate_cached!(daf, Formats.vector_cache_key(axis, name))
-
     if !overwrite
         require_no_vector(daf, axis, name)
     elseif Formats.format_has_vector(daf, axis, name)
@@ -409,6 +413,8 @@ function set_vector!(
 
     Formats.format_set_vector!(daf, axis, name, vector)
 
+    Formats.invalidate_cached!(daf, Formats.vector_cache_key(axis, name))
+    Formats.invalidate_cached!(daf, Formats.vector_names_cache_key(axis))
     return nothing
 end
 
@@ -442,8 +448,6 @@ function empty_dense_vector!(
     require_not_name(daf, axis, name)
     require_axis(daf, axis)
 
-    Formats.invalidate_cached!(daf, Formats.vector_cache_key(axis, name))
-
     if !overwrite
         require_no_vector(daf, axis, name)
     elseif Formats.format_has_vector(daf, axis, name)
@@ -452,6 +456,10 @@ function empty_dense_vector!(
 
     empty_vector = Formats.format_empty_dense_vector!(daf, axis, name, eltype)
     result = as_named_vector(daf, axis, empty_vector)
+
+    Formats.invalidate_cached!(daf, Formats.vector_cache_key(axis, name))
+    Formats.invalidate_cached!(daf, Formats.vector_names_cache_key(axis))
+
     @debug "empty_dense_vector! $(daf.name) / $(axis) : $(name) <$(overwrite ? "=" : "-") $(present(result))"
     return fill(result)
 end
@@ -503,8 +511,6 @@ function empty_sparse_vector!(
     require_not_name(daf, axis, name)
     require_axis(daf, axis)
 
-    Formats.invalidate_cached!(daf, Formats.vector_cache_key(axis, name))
-
     if !overwrite
         require_no_vector(daf, axis, name)
     elseif Formats.format_has_vector(daf, axis, name)
@@ -514,6 +520,10 @@ function empty_sparse_vector!(
     empty_vector = Formats.format_empty_sparse_vector!(daf, axis, name, eltype, nnz, indtype)
     result = fill(as_named_vector(daf, axis, empty_vector))
     verified = SparseVector(length(empty_vector), empty_vector.nzind, empty_vector.nzval)
+
+    Formats.invalidate_cached!(daf, Formats.vector_cache_key(axis, name))
+    Formats.invalidate_cached!(daf, Formats.vector_names_cache_key(axis))
+
     @debug "empty_dense_vector! $(daf.name) / $(axis) : $(name) <$(overwrite ? "=" : "-") $(present(verified))"
     return result
 end
@@ -545,9 +555,10 @@ function delete_vector!(daf::DafWriter, axis::AbstractString, name::AbstractStri
         return nothing
     end
 
-    Formats.invalidate_cached!(daf, Formats.vector_cache_key(axis, name))
-
     Formats.format_delete_vector!(daf, axis, name; for_set = false)
+
+    Formats.invalidate_cached!(daf, Formats.vector_cache_key(axis, name))
+    Formats.invalidate_cached!(daf, Formats.vector_names_cache_key(axis))
     return nothing
 end
 
@@ -598,9 +609,8 @@ function get_vector(
         end
     end
 
-    cached_vector = Formats.get_from_cache(daf, Formats.vector_cache_key(axis, name))
+    cached_vector = Formats.get_from_cache(daf, Formats.vector_cache_key(axis, name), StorageVector)
     if cached_vector != nothing
-        @assert cached_vector isa StorageVector
         if eltype(cached_vector) <: AbstractString
             cached_vector = as_read_only_array(cached_vector)
         end
@@ -757,21 +767,25 @@ function set_matrix!(
         require_no_matrix(daf, rows_axis, columns_axis, name; relayout = relayout)
     end
 
-    Formats.invalidate_cached!(daf, Formats.matrix_cache_key(rows_axis, columns_axis, name))
-    Formats.invalidate_cached!(daf, Formats.matrix_cache_key(columns_axis, rows_axis, name))
-
     if Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
         Formats.format_delete_matrix!(daf, rows_axis, columns_axis, name; for_set = true)
     end
-    Formats.format_set_matrix!(daf, rows_axis, columns_axis, name, matrix)
 
-    if relayout
-        if overwrite && Formats.format_has_matrix(daf, columns_axis, rows_axis, name)
-            Formats.format_delete_matrix!(daf, columns_axis, rows_axis, name; for_set = true)
-        end
-        Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name)
+    if relayout && overwrite && Formats.format_has_matrix(daf, columns_axis, rows_axis, name)
+        Formats.format_delete_matrix!(daf, columns_axis, rows_axis, name; for_set = true)
     end
 
+    Formats.invalidate_cached!(daf, Formats.matrix_cache_key(rows_axis, columns_axis, name))
+    Formats.invalidate_cached!(daf, Formats.matrix_cache_key(columns_axis, rows_axis, name))
+    Formats.invalidate_cached!(daf, Formats.matrix_names_cache_key(rows_axis, columns_axis))
+    for cache_key in Formats.matrix_relayout_names_cache_keys(rows_axis, columns_axis)
+        Formats.invalidate_cached!(daf, cache_key)
+    end
+
+    Formats.format_set_matrix!(daf, rows_axis, columns_axis, name, matrix)
+    if relayout
+        Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name)
+    end
     return nothing
 end
 
@@ -809,13 +823,17 @@ function empty_dense_matrix!(
     require_axis(daf, rows_axis)
     require_axis(daf, columns_axis)
 
-    Formats.invalidate_cached!(daf, Formats.matrix_cache_key(rows_axis, columns_axis, name))
-    Formats.invalidate_cached!(daf, Formats.matrix_cache_key(columns_axis, rows_axis, name))
-
     if !overwrite
         require_no_matrix(daf, rows_axis, columns_axis, name; relayout = false)
     elseif Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
         Formats.format_delete_matrix!(daf, rows_axis, columns_axis, name; for_set = true)
+    end
+
+    Formats.invalidate_cached!(daf, Formats.matrix_cache_key(rows_axis, columns_axis, name))
+    Formats.invalidate_cached!(daf, Formats.matrix_cache_key(columns_axis, rows_axis, name))
+    Formats.invalidate_cached!(daf, Formats.matrix_names_cache_key(rows_axis, columns_axis))
+    for cache_key in Formats.matrix_relayout_names_cache_keys(rows_axis, columns_axis)
+        Formats.invalidate_cached!(daf, cache_key)
     end
 
     named = as_named_matrix(
@@ -825,6 +843,7 @@ function empty_dense_matrix!(
         Formats.format_empty_dense_matrix!(daf, rows_axis, columns_axis, name, eltype),
     )
     result = fill(named)
+
     @debug "empty_dense_matrix! $(daf.name) / $(rows_axis) / $(columns_axis) : $(name) <$(overwrite ? "=" : "-") $(named)"
     return result
 end
@@ -880,18 +899,23 @@ function empty_sparse_matrix!(
     require_axis(daf, rows_axis)
     require_axis(daf, columns_axis)
 
-    Formats.invalidate_cached!(daf, Formats.matrix_cache_key(rows_axis, columns_axis, name))
-    Formats.invalidate_cached!(daf, Formats.matrix_cache_key(columns_axis, rows_axis, name))
-
     if !overwrite
         require_no_matrix(daf, rows_axis, columns_axis, name; relayout = false)
     elseif Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
         Formats.format_delete_matrix!(daf, rows_axis, columns_axis, name; for_set = true)
     end
 
+    Formats.invalidate_cached!(daf, Formats.matrix_cache_key(rows_axis, columns_axis, name))
+    Formats.invalidate_cached!(daf, Formats.matrix_cache_key(columns_axis, rows_axis, name))
+    Formats.invalidate_cached!(daf, Formats.matrix_names_cache_key(rows_axis, columns_axis))
+    for cache_key in Formats.matrix_relayout_names_cache_keys(rows_axis, columns_axis)
+        Formats.invalidate_cached!(daf, cache_key)
+    end
+
     empty_matrix = Formats.format_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, eltype, nnz, indtype)
     result = fill(as_named_matrix(daf, rows_axis, columns_axis, empty_matrix))
     verified = SparseMatrixCSC(size(empty_matrix)..., empty_matrix.colptr, empty_matrix.rowval, empty_matrix.nzval)
+
     @debug "empty_sparse_matrix! $(daf.name) / $(rows_axis) / $(columns_axis) : $(name) <$(overwrite ? "=" : "-") $(verified)"
     return result
 end
@@ -930,14 +954,13 @@ function relayout_matrix!(
 
     require_matrix(daf, rows_axis, columns_axis, name; relayout = false)
 
-    Formats.invalidate_cached!(daf, Formats.matrix_cache_key(rows_axis, columns_axis, name))
-    Formats.invalidate_cached!(daf, Formats.matrix_cache_key(columns_axis, rows_axis, name))
-
     if !overwrite
         require_no_matrix(daf, columns_axis, rows_axis, name; relayout = false)
     elseif Formats.format_has_matrix(daf, columns_axis, rows_axis, name)
         Formats.format_delete_matrix!(daf, columns_axis, rows_axis, name; for_set = true)
     end
+
+    Formats.invalidate_cached!(daf, Formats.matrix_cache_key(columns_axis, rows_axis, name))
 
     Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name)
     return nothing
@@ -977,9 +1000,6 @@ function delete_matrix!(
         require_matrix(daf, rows_axis, columns_axis, name; relayout = relayout)
     end
 
-    Formats.invalidate_cached!(daf, Formats.matrix_cache_key(rows_axis, columns_axis, name))
-    Formats.invalidate_cached!(daf, Formats.matrix_cache_key(columns_axis, rows_axis, name))
-
     if Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
         Formats.format_delete_matrix!(daf, rows_axis, columns_axis, name; for_set = false)
     end
@@ -988,6 +1008,12 @@ function delete_matrix!(
         Formats.format_delete_matrix!(daf, columns_axis, rows_axis, name; for_set = false)
     end
 
+    Formats.invalidate_cached!(daf, Formats.matrix_cache_key(rows_axis, columns_axis, name))
+    Formats.invalidate_cached!(daf, Formats.matrix_cache_key(columns_axis, rows_axis, name))
+    Formats.invalidate_cached!(daf, Formats.matrix_names_cache_key(rows_axis, columns_axis))
+    for cache_key in Formats.matrix_relayout_names_cache_keys(rows_axis, columns_axis)
+        Formats.invalidate_cached!(daf, cache_key)
+    end
     return nothing
 end
 
@@ -1014,10 +1040,21 @@ function matrix_names(
 )::AbstractStringSet
     require_axis(daf, rows_axis)
     require_axis(daf, columns_axis)
-    names = Formats.format_matrix_names(daf, rows_axis, columns_axis)
-    if relayout
-        names = union(names, Formats.format_matrix_names(daf, columns_axis, rows_axis))
+
+    if !relayout
+        names = Formats.get_matrix_names_through_cache(daf, rows_axis, columns_axis)
+    else
+        cache_keys = Formats.matrix_relayout_names_cache_keys(rows_axis, columns_axis)
+        names = Formats.get_from_cache(daf, cache_keys[1], AbstractStringSet)
+        if names == nothing
+            names = Formats.get_matrix_names_through_cache(daf, rows_axis, columns_axis)
+            names = union(names, Formats.get_matrix_names_through_cache(daf, columns_axis, rows_axis))
+            for cache_key in cache_keys
+                Formats.cache_data!(daf, cache_key, names, MemoryData)
+            end
+        end
     end
+
     # @debug "matrix_names $(daf.name) / $(rows_axis) / $(columns_axis) $(relayout ? "%" : "#")> $(present(names))"
     return names
 end
@@ -1113,9 +1150,8 @@ function get_matrix(
         end
     end
 
-    cached_matrix = Formats.get_from_cache(daf, Formats.matrix_cache_key(rows_axis, columns_axis, name))
+    cached_matrix = Formats.get_from_cache(daf, Formats.matrix_cache_key(rows_axis, columns_axis, name), StorageMatrix)
     if cached_matrix != nothing
-        @assert cached_matrix isa StorageMatrix
         return as_named_matrix(daf, rows_axis, columns_axis, cached_matrix)
     end
 
@@ -1365,7 +1401,7 @@ function description(daf::DafReader, indent::AbstractString, lines::Vector{Strin
 end
 
 function scalars_description(daf::DafReader, indent::AbstractString, lines::Vector{String})::Nothing
-    scalars = collect(Formats.format_scalar_names(daf))
+    scalars = collect(Formats.get_scalar_names_through_cache(daf))
     if !isempty(scalars)
         sort!(scalars)
         push!(lines, "$(indent)scalars:")
@@ -1392,7 +1428,7 @@ function vectors_description(
 )::Nothing
     is_first = true
     for axis in axes
-        vectors = collect(Formats.format_vector_names(daf, axis))
+        vectors = collect(Formats.get_vector_names_through_cache(daf, axis))
         if !isempty(vectors)
             if is_first
                 push!(lines, "$(indent)vectors:")
@@ -1420,7 +1456,7 @@ function matrices_description(
     is_first = true
     for rows_axis in axes
         for columns_axis in axes
-            matrices = collect(Formats.format_matrix_names(daf, rows_axis, columns_axis))
+            matrices = collect(Formats.get_matrix_names_through_cache(daf, rows_axis, columns_axis))
             if !isempty(matrices)
                 if is_first
                     push!(lines, "$(indent)matrices:")

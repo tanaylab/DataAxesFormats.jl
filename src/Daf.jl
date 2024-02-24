@@ -12,8 +12,8 @@ features are:
   - Support both in-memory and persistent data storage of "any" format (given an adapter implementation).
   - Out of the box, allow storing the data in memory, in `AnnData` objects (using `H5ad` files), directly inside
     [HDF5](https://www.hdfgroup.org/solutions/hdf5) files (using [`H5df`](@ref)), or as a collection of simple
-    memory-mapped files in a directory (using `FilesDaf`), which works nicely with tools like `make` for
-    automating computation pipelines.
+    memory-mapped files in a directory (using `FilesDaf`), which works nicely with tools like `make` for automating
+    computation pipelines.
 
 The top-level `Daf` module re-exports all(most) everything from the sub-modules, so you can directly access any exported
 symbol by `using Daf` (or `import Daf: MemoryStorage`), instead of having to import or use qualified names (such as
@@ -63,8 +63,8 @@ include("chains.jl")
 include("memory_format.jl")
 @reexport using Daf.MemoryFormat
 
-include("example_data.jl")
-@reexport using Daf.ExampleData
+include("h5df_format.jl")
+@reexport using Daf.H5dfFormat
 
 include("contracts.jl")
 @reexport using Daf.Contracts
@@ -78,7 +78,7 @@ include("copies.jl")
 include("adapters.jl")
 @reexport using Daf.Adapters
 
-include("h5df.jl")
-@reexport using Daf.H5DF
+include("example_data.jl")
+@reexport using Daf.ExampleData
 
 end # module
