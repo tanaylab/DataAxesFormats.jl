@@ -296,7 +296,7 @@ end
     copy_all!(;
         into::DafWriter,
         from::DafReader
-        [empty::Maybe{Dict{Key, Value}} = nothing,
+        [empty::Maybe{AbstractDict{Key, Value}} = nothing,
         overwrite::Bool = false,
         relayout::Bool = true]
     )::Nothing where {
@@ -324,7 +324,7 @@ axes for matrix properties doesn't matter (the same empty value is automatically
 function copy_all!(;
     into::DafWriter,
     from::DafReader,
-    empty::Maybe{Dict} = nothing,
+    empty::Maybe{AbstractDict} = nothing,
     overwrite::Bool = false,
     relayout::Bool = true,
 )::Nothing
@@ -416,7 +416,7 @@ function copy_vectors(
     into::DafWriter,
     from::DafReader,
     axis_relations::Dict{String, Symbol},
-    empty::Maybe{Dict},
+    empty::Maybe{AbstractDict},
     overwrite::Bool,
 )::Nothing
     empty_value = nothing
@@ -442,7 +442,7 @@ function copy_matrices(
     into::DafWriter,
     from::DafReader,
     axis_relations::Dict{String, Symbol},
-    empty::Maybe{Dict},
+    empty::Maybe{AbstractDict},
     overwrite::Bool,
     relayout::Bool,
 )::Nothing
