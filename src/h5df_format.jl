@@ -82,7 +82,6 @@ using SparseArrays
 import Daf.Data.base_array
 import Daf.Formats
 import Daf.Formats.Internal
-import Daf.Formats.combined_cache_type
 
 """
 The specific major version of the [`H5df`](@ref) format that is supported by this code (`1`). The code will refuse to
@@ -102,9 +101,10 @@ MINOR_VERSION::UInt8 = 0
 
 """
     H5df(
-        root::Union{AbstractString, HDF5.File, HDF5.Group};
-        mode::AbstractString = "r",
-        name::Maybe{AbstractString} = nothing)
+        root::Union{AbstractString, HDF5.File, HDF5.Group},
+        mode::AbstractString = "r";
+        [name::Maybe{AbstractString} = nothing]
+    )
 
 Storage in a HDF5 file.
 
@@ -126,25 +126,12 @@ The valid `mode` values are as follows (the default mode is `r`):
 
 !!! note
 
-    If specifying a path `root, when calling `h5open`, the `w+`mode is converted to`cw`, and the file alignment of created files is `(1, 8)` to maximize efficiency of mapped vectors and matrices.
+    If specifying a path (string) `root`, when calling `h5open`, the file alignment of created files is set to `(1, 8)`
+    to maximize efficiency of mapped vectors and matrices, and the `w+` mode is converted to `cw`.
 """
 struct H5df <: DafWriter
     internal::Internal
     root::Union{HDF5.File, HDF5.Group}
-end
-
-function parse_mode(mode::AbstractString)::Tuple{Bool, Bool, Bool}
-    if mode == "r"
-        (true, false, false)
-    elseif mode == "r+"
-        (false, false, false)
-    elseif mode == "w+"
-        (false, true, false)
-    elseif mode == "w"
-        (false, true, true)
-    else
-        error("invalid mode: $(mode)")
-    end
 end
 
 function H5df(
@@ -152,7 +139,7 @@ function H5df(
     name::Maybe{AbstractString} = nothing,
     mode::AbstractString = "r",
 )::Union{H5df, ReadOnlyView}
-    (is_read_only, create_if_missing, truncate_if_exists) = parse_mode(mode)
+    (is_read_only, create_if_missing, truncate_if_exists) = Formats.parse_mode(mode)
 
     if root isa AbstractString
         if mode == "w+"
@@ -296,10 +283,10 @@ function Formats.format_has_axis(h5df::H5df, axis::AbstractString)::Bool
     return haskey(axes_group, axis)
 end
 
-function Formats.format_add_axis!(h5df::H5df, axis::AbstractString, entries::AbstractVector{String})::Nothing
+function Formats.format_add_axis!(h5df::H5df, axis::AbstractString, entries::AbstractStringVector)::Nothing
     axes_group = h5df.root["axes"]
     @assert axes_group isa HDF5.Group
-    axes_group[axis] = entries  # NOJET
+    axes_group[axis] = entries
 
     vectors_group = h5df.root["vectors"]
     @assert vectors_group isa HDF5.Group
@@ -308,16 +295,21 @@ function Formats.format_add_axis!(h5df::H5df, axis::AbstractString, entries::Abs
 
     matrices_group = h5df.root["matrices"]
     @assert matrices_group isa HDF5.Group
-    other_axes = keys(matrices_group)
+
+    axes = Formats.get_axis_names_through_cache(h5df)
 
     axis_matrices_group = create_group(matrices_group, axis)
-    for other_axis in other_axes
-        other_axis_matrices_group = create_group(axis_matrices_group, other_axis)
-        close(other_axis_matrices_group)
+
+    for other_axis in axes
+        if other_axis != axis
+            other_axis_matrices_group = create_group(axis_matrices_group, other_axis)
+            close(other_axis_matrices_group)
+        end
     end
+
     close(axis_matrices_group)
 
-    for other_axis in keys(matrices_group)
+    for other_axis in axes
         matrix_axis_group = matrices_group[other_axis]
         @assert matrix_axis_group isa HDF5.Group
         axis_matrices_group = create_group(matrix_axis_group, axis)
@@ -358,13 +350,15 @@ function Formats.format_axis_names(h5df::H5df)::AbstractStringSet
     return names
 end
 
-function Formats.format_get_axis(h5df::H5df, axis::AbstractString)::AbstractVector{String}
+function Formats.format_get_axis(h5df::H5df, axis::AbstractString)::AbstractStringVector
     axes_group = h5df.root["axes"]
     @assert axes_group isa HDF5.Group
 
     axis_dataset = axes_group[axis]
     @assert axis_dataset isa HDF5.Dataset
-    return read(axis_dataset)  # NOJET
+    entries, cache_type = dataset_as_vector(axis_dataset)
+    Formats.cache_axis!(h5df, axis, entries, cache_type)
+    return entries
 end
 
 function Formats.format_axis_length(h5df::H5df, axis::AbstractString)::Int64
@@ -476,7 +470,13 @@ function Formats.format_empty_sparse_vector!(
     nelements = Formats.format_axis_length(h5df, axis)
     sparse_vector = SparseVector(nelements, nzind_vector, nzval_vector)
 
-    Formats.cache_vector!(h5df, axis, name, sparse_vector, combined_cache_type(nzind_cache_type, nzval_cache_type))
+    Formats.cache_vector!(
+        h5df,
+        axis,
+        name,
+        sparse_vector,
+        Formats.combined_cache_type(nzind_cache_type, nzval_cache_type),
+    )
     return sparse_vector
 end
 
@@ -661,7 +661,7 @@ function Formats.format_empty_sparse_matrix!(
         columns_axis,
         name,
         sparse_matrix,
-        combined_cache_type(colptr_cache_type, rowval_cache_type, nzval_cache_type),
+        Formats.combined_cache_type(colptr_cache_type, rowval_cache_type, nzval_cache_type),
     )
     return sparse_matrix
 end
@@ -776,7 +776,7 @@ function Formats.format_get_matrix(
             columns_axis,
             name,
             sparse_matrix,
-            combined_cache_type(colptr_cache_type, rowval_cache_type, nzval_cache_type),
+            Formats.combined_cache_type(colptr_cache_type, rowval_cache_type, nzval_cache_type),
         )
         return sparse_matrix
     end
@@ -786,7 +786,7 @@ function dataset_as_vector(dataset::HDF5.Dataset)::Tuple{StorageVector, CacheTyp
     if HDF5.ismmappable(dataset) && HDF5.iscontiguous(dataset)
         return (HDF5.readmmap(dataset), MappedData)
     else
-        return (read(dataset), MemoryData)
+        return (read(dataset), MemoryData)  # NOJET
     end
 end
 

@@ -195,7 +195,7 @@ function format_has_axis end
     format_add_axis!(
         format::FormatWriter,
         axis::AbstractString,
-        entries::AbstractVector{String}
+        entries::AbstractStringVector
     )::Nothing
 
 Implement adding a new `axis` to `format`.
@@ -222,7 +222,7 @@ The names of the axes of `format`.
 function format_axis_names end
 
 """
-    format_get_axis(format::FormatReader, axis::AbstractString)::AbstractVector{String}
+    format_get_axis(format::FormatReader, axis::AbstractString)::AbstractStringVector
 
 Implement fetching the unique names of the entries of some `axis` of `format`.
 
@@ -543,6 +543,18 @@ function get_matrix_names_through_cache(
     end
 end
 
+function get_scalar_through_cache(format::FormatReader, name::AbstractString)::StorageScalar  # untested
+    return get_through_cache(format, scalar_cache_key(name), StorageScalar) do
+        return format_get_scalar(format, name)
+    end
+end
+
+function get_axis_through_cache(format::FormatReader, axis::AbstractString)::AbstractStringVector
+    return get_through_cache(format, axis_cache_key(axis), AbstractStringVector) do
+        return format_get_axis(format, axis)
+    end
+end
+
 function get_vector_through_cache(format::FormatReader, axis::AbstractString, name::AbstractString)::StorageVector
     return get_through_cache(format, vector_cache_key(axis, name), StorageVector) do
         return format_get_vector(format, axis, name)
@@ -583,6 +595,17 @@ function cache_axis_names!(format::FormatReader, names::AbstractStringSet, cache
     return nothing
 end
 
+function cache_axis!(
+    format::FormatReader,
+    axis::AbstractString,
+    entries::AbstractStringVector,
+    cache_type::CacheType,
+)::Nothing
+    cache_key = axis_cache_key(axis)
+    cache_data!(format, cache_key, entries, cache_type)
+    return nothing
+end
+
 function cache_vector_names!(
     format::FormatReader,
     axis::AbstractString,
@@ -604,6 +627,12 @@ function cache_matrix_names!(
 )::Nothing
     cache_key = matrix_names_cache_key(rows_axis, columns_axis)
     cache_data!(format, cache_key, names, cache_type)
+    return nothing
+end
+
+function cache_scalar!(format::FormatReader, name::AbstractString, value::StorageScalar, cache_type::CacheType)::Nothing  # untested
+    cache_key = scalar_cache_key(name)
+    cache_data!(format, cache_key, value, cache_type)
     return nothing
 end
 
@@ -735,6 +764,20 @@ function combined_cache_type(
     third_cache_type::CacheType,
 )::CacheType
     return combined_cache_type(first_cache_type, combined_cache_type(second_cache_type, third_cache_type))
+end
+
+function parse_mode(mode::AbstractString)::Tuple{Bool, Bool, Bool}
+    if mode == "r"
+        (true, false, false)
+    elseif mode == "r+"
+        (false, false, false)
+    elseif mode == "w+"
+        (false, true, false)
+    elseif mode == "w"
+        (false, true, true)
+    else
+        error("invalid mode: $(mode)")
+    end
 end
 
 end # module

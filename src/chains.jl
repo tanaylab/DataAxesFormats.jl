@@ -170,7 +170,7 @@ function Formats.format_has_axis(chain::AnyChain, axis::AbstractString)::Bool
     return false
 end
 
-function Formats.format_add_axis!(chain::WriteChain, axis::AbstractString, entries::AbstractVector{String})::Nothing
+function Formats.format_add_axis!(chain::WriteChain, axis::AbstractString, entries::AbstractStringVector)::Nothing
     Formats.format_add_axis!(chain.daf, axis, entries)
     return nothing
 end
@@ -194,7 +194,7 @@ function Formats.format_axis_names(chain::AnyChain)::AbstractStringSet
     return reduce(union, [Formats.format_axis_names(daf) for daf in chain.dafs])
 end
 
-function Formats.format_get_axis(chain::AnyChain, axis::AbstractString)::AbstractVector{String}
+function Formats.format_get_axis(chain::AnyChain, axis::AbstractString)::AbstractStringVector
     for daf in reverse(chain.dafs)
         if Formats.format_has_axis(daf, axis)
             return Formats.format_get_axis(daf, axis)

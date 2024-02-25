@@ -213,25 +213,25 @@ end
     add_axis!(
         daf::DafWriter,
         axis::AbstractString,
-        entries::AbstractVector{String}
+        entries::AbstractStringVector
     )::Nothing
 
 Add a new `axis` `daf`.
 
 This first verifies the `axis` does not exist and that the `entries` are unique.
 """
-function add_axis!(daf::DafWriter, axis::AbstractString, entries::AbstractVector{String})::Nothing
+function add_axis!(daf::DafWriter, axis::AbstractString, entries::AbstractStringVector)::Nothing
     @debug "add_axis $(daf.name) / $(axis) <- $(present(entries))"
 
     require_no_axis(daf, axis)
 
-    if !allunique(entries)
+    if !allunique(entries)  # NOJET
         error("non-unique entries for new axis: $(axis)\nin the daf data: $(daf.name)")
     end
 
-    Formats.format_add_axis!(daf, axis, entries)
-
     Formats.invalidate_cached!(daf, Formats.axis_names_cache_key())
+
+    Formats.format_add_axis!(daf, axis, entries)
     return nothing
 end
 
@@ -274,10 +274,10 @@ function delete_axis!(daf::DafWriter, axis::AbstractString; must_exist::Bool = t
         end
     end
 
-    Formats.format_delete_axis!(daf, axis)
-
     Formats.invalidate_cached!(daf, Formats.axis_cache_key(axis))
     Formats.invalidate_cached!(daf, Formats.axis_names_cache_key())
+
+    Formats.format_delete_axis!(daf, axis)
     return nothing
 end
 
@@ -297,7 +297,7 @@ end
         daf::DafReader,
         axis::AbstractString
         [; default::Union{Nothing, UndefInitializer} = undef]
-    )::Maybe{AbstractVector{String}}
+    )::Maybe{AbstractStringVector}
 
 The unique names of the entries of some `axis` of `daf`. This is similar to doing [`get_vector`](@ref) for the special
 `name` property, except that it returns a simple vector of strings instead of a `NamedVector`.
@@ -309,7 +309,7 @@ function get_axis(
     daf::DafReader,
     axis::AbstractString;
     default::Union{Nothing, UndefInitializer} = undef,
-)::Maybe{AbstractVector{String}}
+)::Maybe{AbstractStringVector}
     if !has_axis(daf, axis)
         if default == nothing
             @debug "get_axis! $(daf.name) / $(axis) -> $(present(missing))"
@@ -320,7 +320,7 @@ function get_axis(
         end
     end
 
-    result = as_read_only_array(Formats.format_get_axis(daf, axis))
+    result = as_read_only_array(Formats.get_axis_through_cache(daf, axis))
     @debug "get_axis! $(daf.name) / $(axis) -> $(present(result))"
     return result
 end
@@ -618,7 +618,7 @@ function get_vector(
     end
 
     if name == "name"
-        result = as_named_vector(daf, axis, Formats.format_get_axis(daf, axis))
+        result = as_named_vector(daf, axis, Formats.get_axis_through_cache(daf, axis))
         @debug "get_vector $(daf.name) / $(axis) : $(name) -> $(present(result))"
         return result
     end

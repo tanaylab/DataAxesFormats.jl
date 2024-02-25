@@ -2862,6 +2862,7 @@ nested_test("data") do
             mktempdir() do path
                 h5open(path * "/test.h5df", "w") do h5file
                     @test_throws "invalid mode: a" H5df(h5file; name = "h5df!", mode = "a")
+                    println("Ignore the following warning:")
                     @test_throws "not a daf data set: HDF5.File: (read-write) $(path)/test.h5df" H5df(
                         h5file;
                         name = "h5df!",

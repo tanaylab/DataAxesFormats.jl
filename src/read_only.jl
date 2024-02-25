@@ -77,7 +77,7 @@ function Formats.format_axis_names(read_only_view::ReadOnlyView)::AbstractString
     return Formats.format_axis_names(read_only_view.daf)
 end
 
-function Formats.format_get_axis(read_only_view::ReadOnlyView, axis::AbstractString)::AbstractVector{String}
+function Formats.format_get_axis(read_only_view::ReadOnlyView, axis::AbstractString)::AbstractStringVector
     return Formats.format_get_axis(read_only_view.daf, axis)
 end
 

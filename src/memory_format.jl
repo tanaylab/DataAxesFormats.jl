@@ -29,7 +29,7 @@ struct MemoryDaf <: DafWriter
 
     scalars::Dict{String, StorageScalar}
 
-    axes::Dict{String, AbstractVector{String}}
+    axes::Dict{String, AbstractStringVector}
 
     vectors::Dict{String, Dict{String, StorageVector}}
 
@@ -38,7 +38,7 @@ end
 
 function MemoryDaf(name::AbstractString)::MemoryDaf
     scalars = Dict{String, StorageScalar}()
-    axes = Dict{String, AbstractVector{String}}()
+    axes = Dict{String, AbstractStringVector}()
     vectors = Dict{String, Dict{String, StorageVector{String}}}()
     matrices = Dict{String, Dict{String, Dict{String, StorageVector{String}}}}()
     return MemoryDaf(Internal(name), scalars, axes, vectors, matrices)
@@ -70,7 +70,7 @@ function Formats.format_has_axis(memory::MemoryDaf, axis::AbstractString)::Bool
     return haskey(memory.axes, axis)
 end
 
-function Formats.format_add_axis!(memory::MemoryDaf, axis::AbstractString, entries::AbstractVector{String})::Nothing
+function Formats.format_add_axis!(memory::MemoryDaf, axis::AbstractString, entries::AbstractStringVector)::Nothing
     memory.axes[axis] = entries
     memory.vectors[axis] = Dict{String, StorageVector}()
     memory.matrices[axis] = Dict{String, Dict{String, StorageMatrix}}()
@@ -99,7 +99,7 @@ function Formats.format_axis_names(memory::MemoryDaf)::AbstractStringSet
     return keys(memory.axes)
 end
 
-function Formats.format_get_axis(memory::MemoryDaf, axis::AbstractString)::AbstractVector{String}
+function Formats.format_get_axis(memory::MemoryDaf, axis::AbstractString)::AbstractStringVector
     return memory.axes[axis]
 end
 

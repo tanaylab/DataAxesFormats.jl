@@ -27,6 +27,7 @@ ensure it is working "with the grain" of the data, which is *much* more efficien
 module StorageTypes
 
 export AbstractStringSet
+export AbstractStringVector
 export StorageFloat
 export StorageInteger
 export StorageMatrix
@@ -44,6 +45,13 @@ using SparseArrays
 A set of strings, without commitment to the concrete implementation of either the set or the strings contained in it.
 """
 AbstractStringSet = AbstractSet{S} where {S <: AbstractString}
+
+"""
+    AbstractStringVector = AbstractVector{S} where {S <: AbstractString}
+
+A vector of strings, without commitment to the concrete implementation of either the vector or the strings contained in it.
+"""
+AbstractStringVector = AbstractVector{S} where {S <: AbstractString}
 
 """
     StorageInteger = Union{Int8, UInt8, Int16, UInt16, Int32, UInt32, Int64, UInt64}

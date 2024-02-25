@@ -49,7 +49,7 @@ struct DafView <: DafReader
     internal::Internal
     daf::DafReader
     scalars::Dict{String, Fetch{StorageScalar}}
-    axes::Dict{String, Fetch{AbstractVector{String}}}
+    axes::Dict{String, Fetch{AbstractStringVector}}
     vectors::Dict{String, Dict{String, Fetch{StorageVector}}}
     matrices::Dict{String, Dict{String, Dict{String, Fetch{StorageMatrix}}}}
 end
@@ -184,7 +184,7 @@ function viewer(
         daf = daf.daf
     end
     collected_scalars::Dict{String, Fetch{StorageScalar}} = collect_scalars(name, daf, data)
-    collected_axes::Dict{String, Fetch{AbstractVector{String}}} = collect_axes(name, daf, axes)
+    collected_axes::Dict{String, Fetch{AbstractStringVector}} = collect_axes(name, daf, axes)
     collected_vectors::Dict{String, Dict{String, Fetch{StorageVector}}} =
         collect_vectors(name, daf, collected_axes, data)
     collected_matrices::Dict{String, Dict{String, Dict{String, Fetch{StorageMatrix}}}} =
@@ -261,8 +261,8 @@ function collect_axes(
     view_name::AbstractString,
     daf::DafReader,
     axes::AbstractVector{Pair{String, AxesValue}},
-)::Dict{String, Fetch{AbstractVector{String}}} where {AxesValue <: Maybe{Union{AbstractString, Query}}}
-    collected_axes = Dict{String, Fetch{AbstractVector{String}}}()
+)::Dict{String, Fetch{AbstractStringVector}} where {AxesValue <: Maybe{Union{AbstractString, Query}}}
+    collected_axes = Dict{String, Fetch{AbstractStringVector}}()
     for (axis, query) in axes
         collect_axis(view_name, daf, collected_axes, axis, prepare_query(query))
     end
@@ -272,7 +272,7 @@ end
 function collect_axis(
     view_name::AbstractString,
     daf::DafReader,
-    collected_axes::Dict{String, Fetch{AbstractVector{String}}},
+    collected_axes::Dict{String, Fetch{AbstractStringVector}},
     axis_name::AbstractString,
     axis_query::Maybe{Union{AbstractString, Query}},
 )::Nothing
@@ -297,7 +297,7 @@ function collect_axis(
                 "of the daf data: $(daf.name)",
             )
         end
-        collected_axes[axis_name] = Fetch{AbstractVector{String}}(axis_query, nothing)
+        collected_axes[axis_name] = Fetch{AbstractStringVector}(axis_query, nothing)
     end
     return nothing
 end
@@ -305,7 +305,7 @@ end
 function collect_vectors(
     view_name::AbstractString,
     daf::DafReader,
-    collected_axes::Dict{String, Fetch{AbstractVector{String}}},
+    collected_axes::Dict{String, Fetch{AbstractStringVector}},
     data::AbstractVector{Pair{DataKey, DataValue}} = Vector{Pair{String, String}}(),
 )::Dict{
     String,
@@ -338,7 +338,7 @@ end
 function collect_vector(
     view_name::AbstractString,
     daf::DafReader,
-    collected_axes::Dict{String, Fetch{AbstractVector{String}}},
+    collected_axes::Dict{String, Fetch{AbstractStringVector}},
     collected_vectors::Dict{String, Dict{String, Fetch{StorageVector}}},
     axis_name::AbstractString,
     vector_name::AbstractString,
@@ -401,7 +401,7 @@ end
 function collect_matrices(
     view_name::AbstractString,
     daf::DafReader,
-    collected_axes::Dict{String, Fetch{AbstractVector{String}}},
+    collected_axes::Dict{String, Fetch{AbstractStringVector}},
     data::AbstractVector{Pair{DataKey, DataValue}} = Vector{Pair{String, String}}(),
 )::Dict{
     String,
@@ -439,7 +439,7 @@ function collect_matrix(
     view_name::AbstractString,
     daf::DafReader,
     collected_matrices::Dict{String, Dict{String, Dict{String, Fetch{StorageMatrix}}}},
-    collected_axes::Dict{String, Fetch{AbstractVector{String}}},
+    collected_axes::Dict{String, Fetch{AbstractStringVector}},
     rows_axis_name::AbstractString,
     columns_axis_name::AbstractString,
     matrix_name::AbstractString,
@@ -527,9 +527,9 @@ end
 function get_fetch_axis(
     view_name::AbstractString,
     daf::DafReader,
-    collected_axes::Dict{String, Fetch{AbstractVector{String}}},
+    collected_axes::Dict{String, Fetch{AbstractStringVector}},
     axis::AbstractString,
-)::Fetch{AbstractVector{String}}
+)::Fetch{AbstractStringVector}
     fetch_axis = get(collected_axes, axis, nothing)
     if fetch_axis == nothing
         error("the axis: $(axis)\n" * "is not exposed by the view: $(view_name)\n" * "of the daf data: $(daf.name)")
@@ -563,7 +563,7 @@ function Formats.format_axis_names(view::DafView)::AbstractStringSet
     return keys(view.axes)
 end
 
-function Formats.format_get_axis(view::DafView, axis::AbstractString)::AbstractVector{String}
+function Formats.format_get_axis(view::DafView, axis::AbstractString)::AbstractStringVector
     fetch_axis = view.axes[axis]
     axis_names = fetch_axis.value
     if axis_names == nothing
