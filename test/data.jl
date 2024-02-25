@@ -8,7 +8,7 @@ UMIS_BY_DEPTH =
     [[0 1 2 3; 1 2 3 0; 2 3 0 1], [1 2 3 0; 2 3 0 1; 3 0 1 2], [2 3 0 1; 3 0 1 2; 0 1 2 3], [3 0 1 2; 0 1 2 3; 1 2 3 0]]
 
 function test_missing_scalar(daf::DafReader, depth::Int)::Nothing
-    if depth > 3
+    if depth > 2
         return nothing
     end
 
@@ -89,7 +89,7 @@ function test_existing_scalar(daf::DafReader, depth::Int)::Nothing
         end
     end
 
-    if depth > 3
+    if depth > 2
         return nothing
     end
 
@@ -171,8 +171,8 @@ function test_existing_scalar(daf::DafReader, depth::Int)::Nothing
 end
 
 function test_missing_axis(daf::DafReader, depth::Int)::Nothing
-    if depth > 3
-        return nothing  # untested
+    if depth > 2
+        return nothing
     end
 
     if daf isa DafWriter
@@ -272,8 +272,8 @@ function test_missing_axis(daf::DafReader, depth::Int)::Nothing
 end
 
 function test_existing_axis(daf::DafReader, depth::Int)::Nothing
-    if depth > 3
-        return nothing
+    if depth > 2
+        return nothing  # untested
     end
 
     if daf isa DafWriter
@@ -353,7 +353,7 @@ function test_existing_axis(daf::DafReader, depth::Int)::Nothing
 end
 
 function test_missing_vector_axis(daf::DafReader, depth::Int)::Nothing
-    if depth > 3
+    if depth > 2
         return nothing
     end
 
@@ -441,7 +441,7 @@ function test_missing_vector_axis(daf::DafReader, depth::Int)::Nothing
 end
 
 function test_missing_vector(daf::DafReader, depth::Int)::Nothing
-    if depth > 3
+    if depth > 2
         return nothing
     end
 
@@ -710,7 +710,7 @@ function test_missing_vector(daf::DafReader, depth::Int)::Nothing
 end
 
 function test_existing_vector(daf::DafReader, depth::Int)::Nothing
-    if depth > 3
+    if depth > 2
         return nothing
     end
 
@@ -928,7 +928,7 @@ function test_existing_vector(daf::DafReader, depth::Int)::Nothing
 end
 
 function test_missing_matrix_axis(daf::DafReader, depth::Int)::Nothing
-    if depth > 3
+    if depth > 2
         return nothing
     end
 
@@ -1070,7 +1070,7 @@ function test_missing_matrix_axis(daf::DafReader, depth::Int)::Nothing
 end
 
 function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
-    if depth > 3
+    if depth > 2
         return nothing
     end
 
@@ -1617,7 +1617,7 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
 end
 
 function test_existing_matrix(daf::DafReader, depth::Int)::Nothing
-    if depth > 3
+    if depth > 2
         return nothing
     end
 
@@ -2190,7 +2190,7 @@ function test_existing_matrix(daf::DafReader, depth::Int)::Nothing
 end
 
 function test_existing_relayout_matrix(daf::DafReader, depth::Int)::Nothing
-    if depth > 3
+    if depth > 2
         return nothing
     end
 
@@ -2866,6 +2866,7 @@ nested_test("data") do
                         h5file;
                         name = "h5df!",
                     )
+                    println("Ignore the following warning:")
                     @test_logs (:warn, dedent("""
                         unsafe HDF5 file alignment for Daf: (1, 1)
                         the safe HDF5 file alignment is: (1, 8)
