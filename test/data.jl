@@ -2859,13 +2859,13 @@ nested_test("data") do
 
     nested_test("h5df") do
         nested_test("invalid") do
-            mktemp() do path, io
-                h5open(path, "w") do h5file
-                    @test_throws "H5df requires a group or a data set name" H5df(h5file)
+            mktempdir() do path
+                h5open(path * "/test.h5df", "w") do h5file
                     @test_throws "invalid mode: a" H5df(h5file; name = "h5df!", mode = "a")
-                    @test_throws "not a daf data set: h5df!" H5df(h5file; name = "h5df!")
-                    h5file["foo"] = "string"
-                    @test_throws "HDF5[foo] isa HDF5.Dataset" H5df(h5file; group = "foo")
+                    @test_throws "not a daf data set: HDF5.File: (read-write) $(path)/test.h5df" H5df(
+                        h5file;
+                        name = "h5df!",
+                    )
                     @test_logs (:warn, dedent("""
                         unsafe HDF5 file alignment for Daf: (1, 1)
                         the safe HDF5 file alignment is: (1, 8)
@@ -2878,7 +2878,7 @@ nested_test("data") do
                     h5file["daf"] = [UInt(2), UInt(0)]
                     @test_throws dedent("""
                         incompatible format version: 2.0
-                        for the daf data: version!
+                        for the daf data: HDF5.File: (read-write) $(path)/test.h5df
                         the code supports version: 1.0
                     """) H5df(h5file; name = "version!")
                 end
@@ -2886,36 +2886,43 @@ nested_test("data") do
         end
 
         nested_test("root") do
-            mktemp() do path, io
-                h5open(path, "w"; fapl = HDF5.FileAccessProperties(; alignment = (1, 8))) do h5file
-                    daf = H5df(h5file; name = "h5df!", mode = "w+")
-                    @test daf.name == "h5df!"
-                    @test present(daf) == "H5df h5df!"
-                    @test present(read_only(daf)) == "ReadOnly H5df h5df!"
-                    @test present(read_only(daf, "renamed!")) == "ReadOnly H5df renamed!"
-                    @test description(daf) == dedent("""
-                        name: h5df!
-                        type: H5df
-                    """) * "\n"
-                    test_format(daf)
-                    return nothing
-                end
+            mktempdir() do path
+                daf = H5df(path * "/test.h5df"; name = "h5df!", mode = "w+")
+                @test daf.name == "h5df!"
+                @test present(daf) == "H5df h5df!"
+                @test present(read_only(daf)) == "ReadOnly H5df h5df!"
+                @test present(read_only(daf, "renamed!")) == "ReadOnly H5df renamed!"
+                @test description(daf) == dedent("""
+                    name: h5df!
+                    type: H5df
+                """) * "\n"
+                test_format(daf)
+                daf = H5df(path * "/test.h5df"; mode = "r+")
+                @test present(daf) == "H5df $(path)/test.h5df"
+                return nothing
             end
         end
 
         nested_test("nested") do
-            mktemp() do path, io
-                h5open(path, "w"; fapl = HDF5.FileAccessProperties(; alignment = (1, 8))) do h5file
-                    daf = H5df(h5file; group = "nested!", mode = "w+")
-                    @test daf.name == "nested!"
-                    @test present(daf) == "H5df nested!"
-                    @test present(read_only(daf)) == "ReadOnly H5df nested!"
+            mktempdir() do path
+                h5open(path * "/test.h5df", "w"; fapl = HDF5.FileAccessProperties(; alignment = (1, 8))) do h5file
+                    HDF5.create_group(h5file, "root")
+                    daf = H5df(h5file["root"]; mode = "w+")
+                    @test present(daf) == "H5df $(path)/test.h5df:/root"
+                    @test present(read_only(daf)) == "ReadOnly H5df $(path)/test.h5df:/root"
                     @test present(read_only(daf, "renamed!")) == "ReadOnly H5df renamed!"
                     @test description(daf) == dedent("""
-                        name: nested!
+                        name: $(path)/test.h5df:/root
                         type: H5df
                     """) * "\n"
                     test_format(daf)
+
+                    attributes(h5file["root"])["will_be_deleted"] = 1
+                    @assert length(attributes(h5file["root"])) == 1
+                    daf = H5df(h5file["root"]; name = "h5df!", mode = "w")
+                    @test daf.name == "h5df!"
+                    @test present(daf) == "H5df h5df!"
+                    @assert length(attributes(h5file["root"])) == 0
                     return nothing
                 end
             end

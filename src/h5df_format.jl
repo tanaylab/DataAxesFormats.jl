@@ -102,107 +102,105 @@ MINOR_VERSION::UInt8 = 0
 
 """
     H5df(
-        file::HDF5.File;
-        [name::Maybe{AbstractString} = nothing,
-        group::Maybe{AbstractString} = nothing,
-        create::Bool = false]
-    )
+        root::Union{AbstractString, HDF5.File, HDF5.Group};
+        mode::AbstractString = "r",
+        name::Maybe{AbstractString} = nothing)
 
 Storage in a HDF5 file.
 
-If the `Daf` data set is stored directly in the root of the file (by convention, using a `.h5df` file name suffix), then
-you must not specify a `group`, but must specify a `name` for the data set. If the `Daf` data is stored in some group
-inside the file, then you must specify the path to the `group`. By default, this will also be used as the data set
-`name`, unless you explicitly provide one.
+The `root` can be the path of an HDF5 file, which will be opened with the specified `mode`, or an opened HDF5 file, in
+which cases the `Daf` data set will be stored directly in the root of the file (by convention, using a `.h5df` file name
+suffix). Alternatively, the `root` can be a group inside an HDF5 file, which allows to store multiple `Daf` data sets
+inside the same HDF5 file (by convention, using a `.h5dfs` file name suffix).
+
+If the `name` is not specified, uses the path of the HDF5 file, followed by the internal path of the group (if any).
 
 The valid `mode` values are as follows (the default mode is `r`):
 
-| Mode | Allow modifications? | Create if does not exist? | Returned type          |
-|:---- |:-------------------- |:------------------------- |:---------------------- |
-| `r`  | No                   | No                        | [`ReadOnlyView`](@ref) |
-| `r+` | Yes                  | No                        | [`H5df`](@ref)         |
-| `w+` | Yes                  | Yes                       | [`H5df`](@ref)         |
+| Mode | Allow modifications? | Create if does not exist? | Truncate if exists? | Returned type          |
+|:---- |:-------------------- |:------------------------- |:------------------- |:---------------------- |
+| `r`  | No                   | No                        | No                  | [`ReadOnlyView`](@ref) |
+| `r+` | Yes                  | No                        | No                  | [`H5df`](@ref)         |
+| `w+` | Yes                  | Yes                       | No                  | [`H5df`](@ref)         |
+| `w`  | Yes                  | Yes                       | Yes                 | [`H5df`](@ref)         |
 
 !!! note
 
-    The `w` mode (which would have deleted the data set if it exists) is intentionally not supported, since this will
-    not reuse the abandoned storage. If you want to delete data in an HDF5 file, you need to do this first, then re-pack
-    the file, and only then create an `H5df` object for accessing the packed file.
+    If specifying a path `root, when calling `h5open`, the `w+`mode is converted to`cw`, and the file alignment of created files is `(1, 8)` to maximize efficiency of mapped vectors and matrices.
 """
 struct H5df <: DafWriter
     internal::Internal
     root::Union{HDF5.File, HDF5.Group}
 end
 
-function H5df(
-    file::HDF5.File;
-    name::Maybe{AbstractString} = nothing,
-    group::Maybe{AbstractString} = nothing,
-    mode::AbstractString = "r",
-)::Union{H5df, ReadOnlyView}
-    (is_read_only, create_if_missing) = if mode == "r"
-        (true, false)
+function parse_mode(mode::AbstractString)::Tuple{Bool, Bool, Bool}
+    if mode == "r"
+        (true, false, false)
     elseif mode == "r+"
-        (false, false)  # untested
-    elseif mode == "w" || mode == "w+"
-        (false, true)
+        (false, false, false)
+    elseif mode == "w+"
+        (false, true, false)
+    elseif mode == "w"
+        (false, true, true)
     else
         error("invalid mode: $(mode)")
     end
+end
+
+function H5df(
+    root::Union{AbstractString, HDF5.File, HDF5.Group};
+    name::Maybe{AbstractString} = nothing,
+    mode::AbstractString = "r",
+)::Union{H5df, ReadOnlyView}
+    (is_read_only, create_if_missing, truncate_if_exists) = parse_mode(mode)
+
+    if root isa AbstractString
+        if mode == "w+"
+            mode = "cw"
+        end
+        root = h5open(root, mode; fapl = HDF5.FileAccessProperties(; alignment = (1, 8)))  # NOJET
+    end
+    verify_alignment(root)
 
     if name == nothing
-        name = group
-        if name == nothing
-            error("H5df requires a group or a data set name")
-        end
-    end
-
-    if group == nothing
-        identifier = name
-        root = file
-    else
-        if create_if_missing && !haskey(file, group)
-            root_group = create_group(file, group)
-            close(root_group)
-        end
-        identifier = group
-        root = file[group]
-        if !(root isa HDF5.Group)
-            error("HDF5[$(group)] isa $(typeof(root))")
+        if root isa HDF5.File
+            name = root.filename
+        else
+            @assert root isa HDF5.Group
+            name = "$(root.file.filename):$(HDF5.name(root))"
         end
     end
 
     if haskey(root, "daf")
-        format_dataset = root["daf"]
-        @assert format_dataset isa HDF5.Dataset
-        format_version = read(format_dataset)
-        @assert length(format_version) == 2
-        @assert eltype(format_version) <: Unsigned
-        if format_version[1] != MAJOR_VERSION || format_version[2] > MINOR_VERSION
-            error(
-                "incompatible format version: $(format_version[1]).$(format_version[2])\n" *
-                "for the daf data: $(identifier)\n" *
-                "the code supports version: $(MAJOR_VERSION).$(MINOR_VERSION)",
-            )
+        if truncate_if_exists
+            delete_content(root)
+            create_daf(root)
+        else
+            verify_daf(root)
         end
-
-    elseif create_if_missing
-        root["daf"] = [MAJOR_VERSION, MINOR_VERSION]
-        scalars_group = create_group(root, "scalars")
-        axes_group = create_group(root, "axes")
-        vectors_group = create_group(root, "vectors")
-        matrices_group = create_group(root, "matrices")
-
-        close(scalars_group)
-        close(axes_group)
-        close(vectors_group)
-        close(matrices_group)
-
     else
-        error("not a daf data set: $(identifier)")
+        if create_if_missing
+            delete_content(root)
+            create_daf(root)
+        else
+            error("not a daf data set: $(root)")
+        end
     end
 
-    file_access_properties = HDF5.get_access_properties(file)  # NOJET
+    h5df = H5df(Internal(name), root)
+    if is_read_only
+        return read_only(h5df)  # untested
+    else
+        return h5df
+    end
+end
+
+function verify_alignment(root::HDF5.Group)::Nothing
+    return verify_alignment(root.file)
+end
+
+function verify_alignment(root::HDF5.File)::Nothing
+    file_access_properties = HDF5.get_access_properties(root)
     alignment = file_access_properties.alignment
     if alignment[1] > 1 || alignment[2] != 8
         @warn (
@@ -214,12 +212,44 @@ function H5df(
             "h5open(...;fapl=HDF5.FileAccessProperties(;alignment=(1,8))"
         )
     end
+end
 
-    h5df = H5df(Internal(name), root)
-    if is_read_only
-        return read_only(h5df)  # untested
-    else
-        return h5df
+function create_daf(root::Union{HDF5.File, HDF5.Group})::Nothing
+    root["daf"] = [MAJOR_VERSION, MINOR_VERSION]
+    scalars_group = create_group(root, "scalars")
+    axes_group = create_group(root, "axes")
+    vectors_group = create_group(root, "vectors")
+    matrices_group = create_group(root, "matrices")
+
+    close(scalars_group)
+    close(axes_group)
+    close(vectors_group)
+    return close(matrices_group)
+end
+
+function verify_daf(root::Union{HDF5.File, HDF5.Group})::Nothing
+    format_dataset = root["daf"]
+    @assert format_dataset isa HDF5.Dataset
+    format_version = read(format_dataset)
+    @assert length(format_version) == 2
+    @assert eltype(format_version) <: Unsigned
+    if format_version[1] != MAJOR_VERSION || format_version[2] > MINOR_VERSION
+        error(
+            "incompatible format version: $(format_version[1]).$(format_version[2])\n" *
+            "for the daf data: $(root)\n" *
+            "the code supports version: $(MAJOR_VERSION).$(MINOR_VERSION)",
+        )
+    end
+end
+
+function delete_content(root::Union{HDF5.File, HDF5.Group})::Nothing
+    attribute_names = collect(keys(HDF5.attributes(root)))
+    for attribute_name in attribute_names
+        HDF5.delete_attribute(root, attribute_name)
+    end
+    object_names = collect(keys(root))
+    for object_name in object_names
+        HDF5.delete_object(root, object_name)
     end
 end
 

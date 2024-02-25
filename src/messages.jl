@@ -17,7 +17,7 @@ using SparseArrays
 UNIQUE_NAME_PREFIXES = Dict{String, Int64}()
 
 """
-    unique_name(prefix::AbstractString)::String
+    unique_name(prefix::AbstractString)::AbstractString
 
 Using short, human-readable unique names for things is a great help when debugging. Normally one has to choose between
 using a human-provided short non-unique name, and an opaque object identifier, or a combination thereof. This function
@@ -25,27 +25,27 @@ replaces the opaque object identifier with a short counter, which gives names th
 
 That is, this will return a unique name starting with the `prefix` and followed by `#`, the process index (if using
 multiple processes), and an index (how many times this name was used in the process). For example, `unique_name("foo")`
-will return `foo#1` for the first usage, `foo#2` for the 2nd, etc., and if using multiple processes, will return
-`foo#1.1`, `foo#1.2`, etc.
+will return `foo` for the first usage, `foo#2` for the 2nd, etc. If using multiple processes, it will return `foo`,
+`foo#1.2`, etc.
+
+That is, for code where the names are unique (e.g., a simple script or Jupyter notebook), this doesn't mess up the
+names. It only appends a suffix to the names if it is needed to disambiguate between multiple uses of the same name.
 
 To help with tests, if the `prefix` ends with `!`, we return it as-is, accepting it may not be unique.
 """
-function unique_name(prefix::AbstractString)::String
+function unique_name(prefix::AbstractString)::AbstractString
     if prefix[end] == '!'
         return String(prefix)
     end
 
     global UNIQUE_NAME_PREFIXES
-
-    if haskey(UNIQUE_NAME_PREFIXES, prefix)
-        counter = UNIQUE_NAME_PREFIXES[prefix]
-        counter += 1
-    else
-        counter = 1
-    end
-
+    counter = get(UNIQUE_NAME_PREFIXES, prefix, 0)
+    counter += 1
     UNIQUE_NAME_PREFIXES[prefix] = counter
-    if nprocs() > 1
+
+    if counter == 1
+        return prefix
+    elseif nprocs() > 1
         return "$(prefix)#$(myid()).$(counter)"  # untested
     else
         return "$(prefix)#$(counter)"
