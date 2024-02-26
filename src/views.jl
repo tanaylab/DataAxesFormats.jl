@@ -105,7 +105,7 @@ Queries are listed separately for axes, and scalars, vector and matrix propertie
 
 *Axes* are specified as a list of pairs (similar to initializing a `Dict`). The order of the pairs matter (last one
 wins). If the key is `"*"`, then it is replaced by all the names of the axes of the wrapped `daf` data. If the value is
-`nothing`, then the axis will *not* be exposed by the view. If the value is `"="`, then the axis will be exposed with
+`nothing`, then the axis will **not** be exposed by the view. If the value is `"="`, then the axis will be exposed with
 the same entries as in the original `daf` data. Otherwise the value is any valid query that returns a vector of
 (unique!) strings to serve as the vector entries.
 

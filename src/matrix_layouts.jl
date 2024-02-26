@@ -83,7 +83,7 @@ end
 """
     major_axis(matrix::AbstractMatrix)::Maybe{Int8}
 
-Return the index of the major axis of a matrix, that is, the axis one should keep *fixed* for an efficient loop
+Return the index of the major axis of a matrix, that is, the axis one should keep **fixed** for an efficient inner loop
 accessing the matrix elements. If the matrix doesn't support any efficient access axis, returns `nothing`.
 """
 function major_axis(matrix::NamedMatrix)::Maybe{Int8}
@@ -134,8 +134,8 @@ end
 """
     minor_axis(matrix::AbstractMatrix)::Maybe{Int8}
 
-Return the index of the minor axis of a matrix, that is, the axis one should *vary* for an efficient loop accessing the
-matrix elements. If the matrix doesn't support any efficient access axis, returns `nothing`.
+Return the index of the minor axis of a matrix, that is, the axis one should **vary** for an efficient inner loop
+accessing the matrix elements. If the matrix doesn't support any efficient access axis, returns `nothing`.
 """
 function minor_axis(matrix::AbstractMatrix)::Maybe{Int8}
     return other_axis(major_axis(matrix))
@@ -192,7 +192,7 @@ Specify the `policy` to take when accessing a matrix in an inefficient way. Retu
 
 !!! note
 
-    This will affect *all* the processes `@everywhere`, not just the current one.
+    This will affect **all** the processes `@everywhere`, not just the current one.
 """
 function inefficient_action_policy(policy::Maybe{InefficientActionPolicy})::Maybe{InefficientActionPolicy}
     global GLOBAL_INEFFICIENT_ACTION_POLICY
@@ -215,7 +215,7 @@ This will check whether the `action` about to be executed for an `operand` which
 the data, which requires the `matrix` to be in `axis`-major layout. If it isn't, then apply the
 [`inefficient_action_policy`](@ref).
 
-In general, you *really* want operations to go "with the grain" of the data. Unfortunately, Julia (and Python, and R,
+In general, you **really** want operations to go "with the grain" of the data. Unfortunately, Julia (and Python, and R,
 and matlab) will silently run operations "against the grain", which would be painfully slow. A liberal application of
 this function will help in detecting such slowdowns, without having to resort to profiling the code to isolate the
 problem.
@@ -267,7 +267,7 @@ Return the same `matrix` data, but in the other memory layout.
 Suppose you have a column-major UMIs matrix, whose rows are cells, and columns are genes. Therefore, summing the UMIs of
 a gene will be fast, but summing the UMIs of a cell will be slow. A `transpose` (no `!`) of a matrix is fast; it creates
 a zero-copy wrapper of the matrix with flipped axes, so its rows will be genes and columns will be cells, but in
-row-major layout. Therefore, *still*, summing the UMIs of a gene is fast, and summing the UMIs of a cell is slow.
+row-major layout. Therefore, **still**, summing the UMIs of a gene is fast, and summing the UMIs of a cell is slow.
 
 In contrast, `transpose!` (with a `!`) is slow; it creates a rearranged copy of the data, also returning a matrix whose
 rows are genes and columns are cells, but this time, in column-major layout. Therefore, in this case summing the UMIs of
@@ -282,8 +282,8 @@ a gene will be slow, and summing the UMIs of a cell will be fast.
     even more significant when performing a series of operations (e.g., summing the gene UMIs in each cell, converting
     gene UMIs to fractions out of these totals, then computing the log base 2 of this fraction).
 
-If you `transpose` (no `!`) the result of `transpose!` (with a `!`), you end up with a matrix that *appears* to be the
-same as the original (rows are cells and columns are genes), but behaves *differently* - summing the UMIs of a gene will
+If you `transpose` (no `!`) the result of `transpose!` (with a `!`), you end up with a matrix that **appears** to be the
+same as the original (rows are cells and columns are genes), but behaves **differently** - summing the UMIs of a gene will
 be slow, and summing the UMIs of a cell is fast. This `transpose` of `transpose!` is a common idiom and is basically
 what `relayout!` does for you. In addition, `relayout!` will work for both sparse and dense matrices, and if `into` is
 not specified, a `similar` matrix is allocated automatically for it.

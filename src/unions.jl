@@ -16,9 +16,9 @@ called it (other languages call this `Optional` or `Opt` but I think Haskell cam
 better). It is used heavily in my, and most other, Julia code. I also added `Unsure` as a shorthand for `Union{..., Missing}` for completeness, but I do not actually use it anywhere. I assume it is useful for Julia code dealing
 specifically with statistical analysis.
 
-I do not re-export the shorthand unions from the top-level `Daf` namespace. That is, even if `using Daf`, you will *not*
-have my `Maybe` and `Unsure` shorthands pollute your namespace. If you do want to reuse them in your code, explicitly
-write `using Daf.Unions`.
+I do not re-export the shorthand unions from the top-level `Daf` namespace. That is, even if `using Daf`, you will
+**not** have my `Maybe` and `Unsure` shorthands pollute your namespace. If you do want to reuse them in your code,
+explicitly write `using Daf.Unions`.
 """
 module Unions
 

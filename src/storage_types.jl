@@ -15,14 +15,14 @@ restricted to specific representations. This has several advantages:
 
   - Client code need only worry about dealing with these restricted representations, which limits the amount of code
     paths required for efficient algorithm implementations. However, you (mostly) need not worry about this when
-    invoking library functions, which have code paths covering all common matrix types. You *do* need to consider the
+    invoking library functions, which have code paths covering all common matrix types. You **do** need to consider the
     layout of the data, though (see below).
 
 This has the downside that `Daf` doesn't support efficient storage of specialized matrices (to pick a random example,
 upper triangular matrices). This isn't a great loss, since `Daf` targets storing arbitrary scientific data (especially
 biological data), which in general is not of any such special shape. The upside is that all matrices stored and returned
 by `Daf` have a clear [`MatrixLayouts`](@ref) (regardless of whether they are dense or sparse). This allows user code to
-ensure it is working "with the grain" of the data, which is *much* more efficient.
+ensure it is working "with the grain" of the data, which is **much** more efficient.
 """
 module StorageTypes
 
@@ -101,7 +101,7 @@ StorageScalarBase = Union{StorageNumber, AbstractString}
 Matrices that can be directly stored (and fetched) from `Daf` storage.
 
 The element type must be a [`StorageNumber`](@ref), to allow efficient storage of the data in disk files. That is,
-matrices of strings are *not* supported.
+matrices of strings are **not** supported.
 
 !!! note
 

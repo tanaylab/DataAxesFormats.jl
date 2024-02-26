@@ -282,9 +282,9 @@ for the `axis`.
 
 !!! note
 
-    The return type of this function is always a *functionally* dense vector, that is, it will have `strides` of `(1,)`,
-    so that elements are consecutive in memory. However it need not be an actual `DenseVector` because of Julia's type
-    system's limitations.
+    The return type of this function is always a **functionally** dense vector, that is, it will have `strides` of
+    `(1,)`, so that elements are consecutive in memory. However it need not be an actual `DenseVector` because of
+    Julia's type system's limitations.
 """
 function format_empty_dense_vector! end
 
@@ -389,7 +389,7 @@ them.
 
 !!! note
 
-    The return type of this function is always a *functionally* dense vector, that is, it will have `strides` of
+    The return type of this function is always a **functionally** dense vector, that is, it will have `strides` of
     `(1,nrows)`, so that elements are consecutive in memory. However it need not be an actual `DenseMatrix` because of
     Julia's type system's limitations.
 """

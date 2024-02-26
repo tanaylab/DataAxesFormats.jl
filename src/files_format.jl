@@ -63,8 +63,8 @@ We use multiple files to store `Daf` data, under some root directory, as follows
 
     When creating an HDF5 file to contain `Daf` data, you should specify
     `;fapl=HDF5.FileAccessProperties(;alignment=(1,8))`. This ensures all the memory buffers are properly aligned for
-    efficient access. Otherwise, memory mapping will be *much* less efficient. A warning is therefore generated whenever
-    you try to access `Daf` data stored in an HDF5 file which does not enforce proper alignment.
+    efficient access. Otherwise, memory mapping will be **much** less efficient. A warning is therefore generated
+    whenever you try to access `Daf` data stored in an HDF5 file which does not enforce proper alignment.
 
 That's all there is to it. The format is intentionally simple and transparent to maximize its accessibility by other
 (standard) tools. Still, it is easiest to create the data using the Julia `Daf` package.
@@ -110,7 +110,7 @@ access data that is stored with the expected major version (`1`), but that uses 
 
 !!! note
 
-    Modifying data that is stored with a lower minor version number *may* increase its minor version number.
+    Modifying data that is stored with a lower minor version number **may** increase its minor version number.
 """
 MINOR_VERSION::UInt8 = 0
 

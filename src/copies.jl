@@ -311,9 +311,9 @@ Copy all the content of a `DafReader` into a `DafWriter`. If `overwrite`, this w
 target. If `relayout`, matrices will be stored in the target both layouts, regardless of how they were stored in the
 source.
 
-This will create target axes that exist in only in the source, but will *not* overwrite existing target axes, regardless
-of the value of `overwrite`. An axis that exists in the target must be identical to, or be a subset of, the same axis in
-the source.
+This will create target axes that exist in only in the source, but will **not** overwrite existing target axes,
+regardless of the value of `overwrite`. An axis that exists in the target must be identical to, or be a subset of, the
+same axis in the source.
 
 If the source has axes which are a subset of the same axes in the target, then you must specify a dictionary of values
 for the `empty` entries that will be created in the target when copying any vector and/or matrix properties. This is

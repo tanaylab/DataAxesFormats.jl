@@ -28,8 +28,8 @@ We need to consider the following kinds of characters:
     value [`Token`](@ref). These cover all the common cases (including signed integer and floating point values).
 
   - All other ASCII characters are (at least potentially) **special**, that is, may be used to describe an operation.
-  - Prefixing *any* character with a `\\` allows using it inside a value [`Token`](@ref). This is useful if some name or
-    value contains a special character. For example, if you have a cell whose name is `ACTG:Plate1`, and you want to
+  - Prefixing **any** character with a `\\` allows using it inside a value [`Token`](@ref). This is useful if some name
+    or value contains a special character. For example, if you have a cell whose name is `ACTG:Plate1`, and you want to
     access the name of the batch of this specific cell, you will have to write `/ cell = ACTG\\:Plate1 : batch`.
 
 !!! note
@@ -106,7 +106,7 @@ end
 Given an expression string to parse, encode any non-ASCII (that is, Unicode) character, as well as any character escaped
 by a `\\`, such that the result will only use [`is_value_char`](@ref) characters. Every encoded character is replaced by
 `_XX` using URI encoding, but replacing the `%` with a `_` so we can deal with unescaped `%` as an operator, so we also
-need to encode `_` as `_5F`, so we need to encode `\\_` as `_5C_5F`. Isn't encoding *fun*?
+need to encode `_` as `_5F`, so we need to encode `\\_` as `_5C_5F`. Isn't encoding **fun**?
 """
 function encode_expression(expr_string::AbstractString)::String
     return replace(expr_string, "\\_" => "_5C_5F", "_" => "_5F", r"\\." => encode_expression_char)

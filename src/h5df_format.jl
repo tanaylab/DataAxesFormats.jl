@@ -3,7 +3,7 @@ HDF5 storage `Daf` storage format. This is the "native" way to store `Daf` data 
 essentially "a filesystem inside a file", with "groups" instead of directories and "datasets" instead of files. This is
 a generic format and there are various specific formats which use specific internal structure to hold some data - for
 example, `h5ad` files have a specific internal structure for representing `AnnData` objects. To represent `Daf` data in
-HDF5 storage, we use the following internal structure (which is *not* compatible with `h5ad`):
+HDF5 storage, we use the following internal structure (which is **not** compatible with `h5ad`):
 
   - An HDF5 file may contain `Daf` data directly in the root group, in which case, it is restricted to holding just a
     single `Daf` data set. When using such a file, you automatically access the single `Daf` data set contained in it.
@@ -20,8 +20,8 @@ HDF5 storage, we use the following internal structure (which is *not* compatible
     makes it easy to test whether some group in an HDF5 file does/n't contain `Daf` data, and which version of the
     internal structure it is using. Currently the only defined version is `[1,0]`.
   - The `scalars` group contains scalar properties, each as its own "dataset". The only supported scalar data types
-    are these included in [`StorageScalar`](@ref). If you *really* need something else, serialize it to JSON and store the
-    result as a string scalar. This should be *extremely* rare.
+    are these included in [`StorageScalar`](@ref). If you **really** need something else, serialize it to JSON and store
+    the result as a string scalar. This should be **extremely** rare.
   - The `axes` group contains a "dataset" per axis, which contains a vector of strings (the names of the axis entries).
   - The `vectors` group contains a sub-group for each axis. Each such sub-group contains vector properties. If the
     vector is dense, it is stored directly as a "dataset". Otherwise, it is stored as a group containing two vector
@@ -47,8 +47,8 @@ the data.
 
     When creating an HDF5 file to contain `Daf` data, you should specify
     `;fapl=HDF5.FileAccessProperties(;alignment=(1,8))`. This ensures all the memory buffers are properly aligned for
-    efficient access. Otherwise, memory mapping will be *much* less efficient. A warning is therefore generated whenever
-    you try to access `Daf` data stored in an HDF5 file which does not enforce proper alignment.
+    efficient access. Otherwise, memory mapping will be **much** less efficient. A warning is therefore generated
+    whenever you try to access `Daf` data stored in an HDF5 file which does not enforce proper alignment.
 
 !!! note
 
@@ -95,7 +95,7 @@ access data that is stored with the expected major version (`1`), but that uses 
 
 !!! note
 
-    Modifying data that is stored with a lower minor version number *may* increase its minor version number.
+    Modifying data that is stored with a lower minor version number **may** increase its minor version number.
 """
 MINOR_VERSION::UInt8 = 0
 

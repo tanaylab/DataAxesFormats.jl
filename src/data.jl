@@ -3,7 +3,7 @@ The [`DafReader`](@ref) and [`DafWriter`](@ref) interfaces specify a high-level 
 implemented here, on top of the low-level [`FormatReader`](@ref) and [`FormatWriter`](@ref) API.
 
 Data properties are identified by a unique name given the axes they are based on. That is, there is a separate namespace
-for scalar properties, vector properties for each specific axis, and matrix properties for each *unordered* pair of
+for scalar properties, vector properties for each specific axis, and matrix properties for each **unordered** pair of
 axes.
 
 For matrices, we keep careful track of their [`MatrixLayouts`](@ref). Returned matrices are always in column-major
@@ -783,7 +783,7 @@ function set_matrix!(
     end
 
     Formats.format_set_matrix!(daf, rows_axis, columns_axis, name, matrix)
-    if relayout
+    if relayout && rows_axis != columns_axis
         Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name)
     end
     return nothing
@@ -939,6 +939,15 @@ of the matrix are stored in `def`. When calling [`set_matrix!`](@ref), it is sim
 This first verifies the `rows_axis` and `columns_axis` exist in `daf`, and that there is a `name` (column-major) matrix
 property for them. If not `overwrite` (the default), this also verifies the `name` matrix does not exist for the
 *flipped* `rows_axis` and `columns_axis`.
+
+!!! note
+
+    A restriction of the way `Daf` stores data is that square data is only stored in one (column-major) layout (e.g., to
+    store a weighted directed graph between cells, you may store an outgoing_weights matrix where each cell's column
+    holds the outgoing weights from the cell to the other cells. In this case you **can't** ask `Daf` to relayout the
+    matrix to row-major order so that each cell's row would be the incoming weights from the other cells. Instead you
+    would need to explicitly store a separate incoming_weights matrix where each cell's column holds the incoming
+    weights).
 """
 function relayout_matrix!(
     daf::DafWriter,
