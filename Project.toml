@@ -11,11 +11,13 @@ ExprTools = "e2ba6199-217a-4e67-a87a-7c52f15ade04"
 HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
 JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Mmap = "a63ad114-7e13-5084-954f-fe012c677804"
 NamedArrays = "86f7a689-2022-50b4-a561-43c23ac3c673"
 OrderedCollections = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+StringViews = "354b36f9-a18e-4713-926e-db85100087ba"
 URIs = "5c2747f8-b7ea-4ff2-ba2e-563bfd36b1d4"
 
 [compat]

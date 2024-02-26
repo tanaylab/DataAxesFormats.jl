@@ -113,7 +113,7 @@ function encode_expression(expr_string::AbstractString)::String
 end
 
 function encode_expression_char(escaped_char::AbstractString)::AbstractString
-    return replace(escapeuri(escaped_char[2:end], character -> false), r"%" => "_")
+    return replace(escapeuri(escaped_char[2:end], character -> false), r"%" => "_")  # NOJET
 end
 
 """

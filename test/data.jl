@@ -21,6 +21,7 @@ function test_missing_scalar(daf::DafReader, depth::Int)::Nothing
 
     nested_test("has_scalar") do
         @test !has_scalar(daf, "depth")
+        @test !has_scalar(daf, "version")
     end
 
     nested_test("scalar_names") do
@@ -33,15 +34,21 @@ function test_missing_scalar(daf::DafReader, depth::Int)::Nothing
                 missing scalar: depth
                 in the daf data: $(daf.name)
             """) get_scalar(daf, "depth")
+            @test_throws dedent("""
+                missing scalar: version
+                in the daf data: $(daf.name)
+            """) get_scalar(daf, "version")
         end
 
         nested_test("default") do
             nested_test("missing") do
                 @test get_scalar(daf, "depth"; default = nothing) == nothing
+                @test get_scalar(daf, "version"; default = nothing) == nothing
             end
 
             nested_test("scalar") do
                 @test get_scalar(daf, "depth"; default = -2) == -2
+                @test get_scalar(daf, "version"; default = 0) == 0
             end
         end
     end
@@ -56,6 +63,10 @@ function test_missing_scalar(daf::DafReader, depth::Int)::Nothing
                 missing scalar: depth
                 in the daf data: $(daf.name)
             """) delete_scalar!(daf, "depth")
+            @test_throws dedent("""
+                missing scalar: version
+                in the daf data: $(daf.name)
+            """) delete_scalar!(daf, "version")
         end
 
         nested_test("must_exist") do
@@ -64,16 +75,22 @@ function test_missing_scalar(daf::DafReader, depth::Int)::Nothing
                     missing scalar: depth
                     in the daf data: $(daf.name)
                 """) delete_scalar!(daf, "depth"; must_exist = true)
+                @test_throws dedent("""
+                    missing scalar: version
+                    in the daf data: $(daf.name)
+                """) delete_scalar!(daf, "version"; must_exist = true)
             end
 
             nested_test("false") do
                 @test delete_scalar!(daf, "depth"; must_exist = false) == nothing
+                @test delete_scalar!(daf, "version"; must_exist = false) == nothing
             end
         end
     end
 
     nested_test("set_scalar!") do
         @test set_scalar!(daf, "depth", depth + 1) == nothing
+        @test set_scalar!(daf, "version", "1.0") == nothing
         nested_test("created") do
             test_existing_scalar(daf, depth + 1)
             return nothing
@@ -95,19 +112,22 @@ function test_existing_scalar(daf::DafReader, depth::Int)::Nothing
 
     nested_test("has_scalar") do
         @test has_scalar(daf, "depth")
+        @test has_scalar(daf, "version")
     end
 
     nested_test("scalar_names") do
-        @test scalar_names(daf) == Set(["depth"])
+        @test scalar_names(daf) == Set(["depth", "version"])
     end
 
     nested_test("get_scalar") do
         nested_test("()") do
             @test get_scalar(daf, "depth") == depth
+            @test get_scalar(daf, "version") == "1.0"
         end
 
         nested_test("default") do
             @test get_scalar(daf, "depth"; default = -2) == depth
+            @test get_scalar(daf, "version"; default = -2) == "1.0"
         end
     end
 
@@ -118,6 +138,7 @@ function test_existing_scalar(daf::DafReader, depth::Int)::Nothing
     nested_test("delete_scalar!") do
         nested_test("()") do
             @test delete_scalar!(daf, "depth") == nothing
+            @test delete_scalar!(daf, "version") == nothing
             nested_test("deleted") do
                 test_missing_scalar(daf, depth + 1)
                 return nothing
@@ -127,6 +148,7 @@ function test_existing_scalar(daf::DafReader, depth::Int)::Nothing
         nested_test("must_exist") do
             nested_test("true") do
                 @test delete_scalar!(daf, "depth"; must_exist = true) == nothing
+                @test delete_scalar!(daf, "version"; must_exist = true) == nothing
                 nested_test("deleted") do
                     test_missing_scalar(daf, depth + 1)
                     return nothing
@@ -135,6 +157,7 @@ function test_existing_scalar(daf::DafReader, depth::Int)::Nothing
 
             nested_test("false") do
                 @test delete_scalar!(daf, "depth"; must_exist = false) == nothing
+                @test delete_scalar!(daf, "version"; must_exist = false) == nothing
                 nested_test("deleted") do
                     test_missing_scalar(daf, depth + 1)
                     return nothing
@@ -149,6 +172,10 @@ function test_existing_scalar(daf::DafReader, depth::Int)::Nothing
                 existing scalar: depth
                 in the daf data: $(daf.name)
             """) set_scalar!(daf, "depth", -1)
+            @test_throws dedent("""
+                existing scalar: version
+                in the daf data: $(daf.name)
+            """) set_scalar!(daf, "version", -1)
         end
 
         nested_test("overwrite") do
@@ -157,10 +184,15 @@ function test_existing_scalar(daf::DafReader, depth::Int)::Nothing
                     existing scalar: depth
                     in the daf data: $(daf.name)
                 """) set_scalar!(daf, "depth", -1; overwrite = false)
+                @test_throws dedent("""
+                    existing scalar: version
+                    in the daf data: $(daf.name)
+                """) set_scalar!(daf, "version", -1; overwrite = false)
             end
 
             nested_test("true") do
                 @test set_scalar!(daf, "depth", depth + 1; overwrite = true) == nothing
+                @test set_scalar!(daf, "version", "1.0"; overwrite = true) == nothing
                 nested_test("overwritten") do
                     test_existing_scalar(daf, depth + 1)
                     return nothing
@@ -595,6 +627,8 @@ function test_missing_vector(daf::DafReader, depth::Int)::Nothing
         nested_test("scalar") do
             @test set_vector!(daf, "gene", "marker", 1.0) == nothing
             @test get_vector(daf, "gene", "marker") == [1.0, 1.0, 1.0, 1.0]
+            @test set_vector!(daf, "cell", "type", "TCell") == nothing
+            @test get_vector(daf, "cell", "type") == ["TCell", "TCell", "TCell"]
         end
 
         nested_test("vector") do
@@ -2861,12 +2895,9 @@ nested_test("data") do
         nested_test("invalid") do
             mktempdir() do path
                 h5open(path * "/test.h5df", "w") do h5file
-                    @test_throws "invalid mode: a" H5df(h5file; name = "h5df!", mode = "a")
+                    @test_throws "invalid mode: a" H5df(h5file, "a")
                     println("Ignore the following warning:")
-                    @test_throws "not a daf data set: HDF5.File: (read-write) $(path)/test.h5df" H5df(
-                        h5file;
-                        name = "h5df!",
-                    )
+                    @test_throws "not a daf data set: HDF5.File: (read-write) $(path)/test.h5df" H5df(h5file)
                     println("Ignore the following warning:")
                     @test_logs (:warn, dedent("""
                         unsafe HDF5 file alignment for Daf: (1, 1)
@@ -2875,7 +2906,7 @@ nested_test("data") do
                         and will break the empty_* functions;
                         to force the alignment, create the file using:
                         h5open(...;fapl=HDF5.FileAccessProperties(;alignment=(1,8))
-                    """)) H5df(h5file; name = "h5df!", mode = "w+")
+                    """)) H5df(h5file, "w+"; name = "h5df!")
                     delete_object(h5file, "daf")
                     h5file["daf"] = [UInt(2), UInt(0)]
                     @test_throws dedent("""
@@ -2889,7 +2920,7 @@ nested_test("data") do
 
         nested_test("root") do
             mktempdir() do path
-                daf = H5df(path * "/test.h5df"; name = "h5df!", mode = "w+")
+                daf = H5df(path * "/test.h5df", "w+"; name = "h5df!")
                 @test daf.name == "h5df!"
                 @test present(daf) == "H5df h5df!"
                 @test present(read_only(daf)) == "ReadOnly H5df h5df!"
@@ -2899,7 +2930,7 @@ nested_test("data") do
                     type: H5df
                 """) * "\n"
                 test_format(daf)
-                daf = H5df(path * "/test.h5df"; mode = "r+")
+                daf = H5df(path * "/test.h5df", "r+")
                 @test present(daf) == "H5df $(path)/test.h5df"
                 return nothing
             end
@@ -2909,7 +2940,7 @@ nested_test("data") do
             mktempdir() do path
                 h5open(path * "/test.h5df", "w"; fapl = HDF5.FileAccessProperties(; alignment = (1, 8))) do h5file
                     HDF5.create_group(h5file, "root")
-                    daf = H5df(h5file["root"]; mode = "w+")
+                    daf = H5df(h5file["root"], "w+")
                     @test present(daf) == "H5df $(path)/test.h5df:/root"
                     @test present(read_only(daf)) == "ReadOnly H5df $(path)/test.h5df:/root"
                     @test present(read_only(daf, "renamed!")) == "ReadOnly H5df renamed!"
@@ -2921,12 +2952,55 @@ nested_test("data") do
 
                     attributes(h5file["root"])["will_be_deleted"] = 1
                     @assert length(attributes(h5file["root"])) == 1
-                    daf = H5df(h5file["root"]; name = "h5df!", mode = "w")
+                    daf = H5df(h5file["root"], "w"; name = "h5df!")
                     @test daf.name == "h5df!"
                     @test present(daf) == "H5df h5df!"
                     @assert length(attributes(h5file["root"])) == 0
                     return nothing
                 end
+            end
+        end
+    end
+
+    nested_test("files") do
+        nested_test("invalid") do
+            mktempdir() do path
+                @test_throws "invalid mode: a" FilesDaf(path, "a")
+                write("$(path)/file", "")
+                @test_throws "not a directory: $(path)/file" FilesDaf("$(path)/file")
+                @test_throws "not a daf directory: $(path)" FilesDaf(path)
+                open("$(path)/daf.json", "w") do file
+                    return println(file, "{\"version\":[2,0]}")
+                end
+                @test_throws dedent("""
+                    incompatible format version: 2.0
+                    for the daf directory: $(path)
+                    the code supports version: 1.0
+                """) FilesDaf(path; name = "version!")
+            end
+        end
+
+        nested_test("root") do
+            mktempdir() do path
+                path = path * "/test"
+                daf = FilesDaf(path, "w+"; name = "files!")
+                @test daf.name == "files!"
+                @test present(daf) == "FilesDaf files!"
+                @test present(read_only(daf)) == "ReadOnly FilesDaf files!"
+                @test present(read_only(daf, "renamed!")) == "ReadOnly FilesDaf renamed!"
+                @test description(daf) == dedent("""
+                    name: files!
+                    type: FilesDaf
+                """) * "\n"
+                test_format(daf)
+                mkdir(path * "/deleted")
+                daf = FilesDaf(path, "r")
+                @assert isdir(path * "/deleted")
+                @test present(daf) == "ReadOnly FilesDaf $(path)"
+                daf = FilesDaf(path, "w"; name = "empty!")
+                @test present(daf) == "FilesDaf empty!"
+                @assert !ispath(path * "/deleted")
+                return nothing
             end
         end
     end

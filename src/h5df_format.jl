@@ -135,9 +135,9 @@ struct H5df <: DafWriter
 end
 
 function H5df(
-    root::Union{AbstractString, HDF5.File, HDF5.Group};
+    root::Union{AbstractString, HDF5.File, HDF5.Group},
+    mode::AbstractString = "r";
     name::Maybe{AbstractString} = nothing,
-    mode::AbstractString = "r",
 )::Union{H5df, ReadOnlyView}
     (is_read_only, create_if_missing, truncate_if_exists) = Formats.parse_mode(mode)
 
@@ -158,7 +158,7 @@ function H5df(
         end
     end
 
-    if haskey(root, "daf")
+    if haskey(root, "daf")  # NOJET
         if truncate_if_exists
             delete_content(root)
             create_daf(root)
@@ -202,7 +202,7 @@ function verify_alignment(root::HDF5.File)::Nothing
 end
 
 function create_daf(root::Union{HDF5.File, HDF5.Group})::Nothing
-    root["daf"] = [MAJOR_VERSION, MINOR_VERSION]
+    root["daf"] = [MAJOR_VERSION, MINOR_VERSION]  # NOJET
     scalars_group = create_group(root, "scalars")
     axes_group = create_group(root, "axes")
     vectors_group = create_group(root, "vectors")
@@ -217,7 +217,7 @@ end
 function verify_daf(root::Union{HDF5.File, HDF5.Group})::Nothing
     format_dataset = root["daf"]
     @assert format_dataset isa HDF5.Dataset
-    format_version = read(format_dataset)
+    format_version = read(format_dataset)  # NOJET
     @assert length(format_version) == 2
     @assert eltype(format_version) <: Unsigned
     if format_version[1] != MAJOR_VERSION || format_version[2] > MINOR_VERSION
@@ -230,7 +230,7 @@ function verify_daf(root::Union{HDF5.File, HDF5.Group})::Nothing
 end
 
 function delete_content(root::Union{HDF5.File, HDF5.Group})::Nothing
-    attribute_names = collect(keys(HDF5.attributes(root)))
+    attribute_names = collect(keys(HDF5.attributes(root)))  # NOJET
     for attribute_name in attribute_names
         HDF5.delete_attribute(root, attribute_name)
     end
@@ -241,7 +241,7 @@ function delete_content(root::Union{HDF5.File, HDF5.Group})::Nothing
 end
 
 function Formats.format_has_scalar(h5df::H5df, name::AbstractString)::Bool
-    scalars_group = h5df.root["scalars"]  # NOJET
+    scalars_group = h5df.root["scalars"]
     @assert scalars_group isa HDF5.Group
     return haskey(scalars_group, name)
 end
@@ -249,7 +249,7 @@ end
 function Formats.format_set_scalar!(h5df::H5df, name::AbstractString, value::StorageScalar)::Nothing
     scalars_group = h5df.root["scalars"]
     @assert scalars_group isa HDF5.Group
-    scalars_group[name] = value  # NOJET
+    scalars_group[name] = value
     return nothing
 end
 
@@ -290,7 +290,7 @@ function Formats.format_add_axis!(h5df::H5df, axis::AbstractString, entries::Abs
 
     vectors_group = h5df.root["vectors"]
     @assert vectors_group isa HDF5.Group
-    axis_vectors_group = create_group(vectors_group, axis)  # NOJET
+    axis_vectors_group = create_group(vectors_group, axis)
     close(axis_vectors_group)
 
     matrices_group = h5df.root["matrices"]
@@ -786,7 +786,7 @@ function dataset_as_vector(dataset::HDF5.Dataset)::Tuple{StorageVector, CacheTyp
     if HDF5.ismmappable(dataset) && HDF5.iscontiguous(dataset)
         return (HDF5.readmmap(dataset), MappedData)
     else
-        return (read(dataset), MemoryData)  # NOJET
+        return (read(dataset), MemoryData)
     end
 end
 

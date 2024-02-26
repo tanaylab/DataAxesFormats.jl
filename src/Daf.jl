@@ -66,6 +66,9 @@ include("memory_format.jl")
 include("h5df_format.jl")
 @reexport using Daf.H5dfFormat
 
+include("files_format.jl")
+@reexport using Daf.FilesFormat
+
 include("contracts.jl")
 @reexport using Daf.Contracts
 

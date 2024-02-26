@@ -630,7 +630,7 @@ function cache_matrix_names!(
     return nothing
 end
 
-function cache_scalar!(format::FormatReader, name::AbstractString, value::StorageScalar, cache_type::CacheType)::Nothing  # untested
+function cache_scalar!(format::FormatReader, name::AbstractString, value::StorageScalar, cache_type::CacheType)::Nothing
     cache_key = scalar_cache_key(name)
     cache_data!(format, cache_key, value, cache_type)
     return nothing
