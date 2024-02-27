@@ -55,10 +55,10 @@ end
 nested_test("example_data") do
     daf = read_only(Daf.ExampleData.example_daf())
     @test read_only(daf) === daf
-    renamed = read_only(daf, "new name!")
+    renamed = read_only(daf; name = "new name!")
     @test renamed !== daf
     @test read_only(renamed) === renamed
-    rerenamed = read_only(renamed, "newer name!")
+    rerenamed = read_only(renamed; name = "newer name!")
     @test rerenamed !== renamed
 
     nested_test("description") do
@@ -68,7 +68,7 @@ nested_test("example_data") do
             end
 
             nested_test("view") do
-                view = viewer("view!", daf.daf; axes = [ALL_AXES], data = ALL_DATA)
+                view = viewer(daf.daf; name = "view!", axes = [ALL_AXES], data = ALL_DATA)
                 test_description(view; kind = "View ", name = "view!")
                 return nothing
             end
@@ -80,7 +80,7 @@ nested_test("example_data") do
             end
 
             nested_test("view") do
-                view = viewer("view!", daf; axes = [ALL_AXES], data = ALL_DATA)
+                view = viewer(daf; name = "view!", axes = [ALL_AXES], data = ALL_DATA)
                 test_description(view; kind = "View ", name = "view!")
                 return nothing
             end

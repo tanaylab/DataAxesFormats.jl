@@ -1,5 +1,5 @@
 nested_test("contracts") do
-    daf = MemoryDaf("memory!")
+    daf = MemoryDaf(; name = "memory!")
 
     nested_test("scalar") do
         nested_test("()") do

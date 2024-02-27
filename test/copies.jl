@@ -1,6 +1,6 @@
 nested_test("copies") do
-    from = MemoryDaf("from!")
-    into = MemoryDaf("into!")
+    from = MemoryDaf(; name = "from!")
+    into = MemoryDaf(; name = "into!")
 
     nested_test("scalar") do
         nested_test("missing") do

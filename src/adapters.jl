@@ -18,9 +18,9 @@ using Daf.Views
 """
     adapter(
         computation::Function,
-        name::AbstractString,
         view::Union{DafView, ReadOnlyView};
-        [capture=MemoryDaf,
+        [name::Maybe{AbstractString} = nothing,
+        capture=MemoryDaf,
         axes::AbstractVector{Pair{String, AxesValue}} = Vector{Pair{String, String}}(),
         data::AbstractVector{Pair{DataKey, DataValue}} = Vector{Pair{String, String}}(),
         empty::Maybe{Dict{EmptyKey, EmptyValue}} = nothing,
@@ -42,7 +42,8 @@ using Daf.Views
     }
 
 Invoke a computation on a `view` data set and return the result; copy a [`viewer`](@ref) of the updated data set into
-the base `daf` data of the view.
+the base `daf` data of the view. If specified, the `name` is used as a prefix for all the names; otherwise, the `view`
+name is used as the prefix.
 
 If you have some `daf` data you wish to run a computation on, you need to deal with name mismatches. That is, the names
 of the input and output data properties of the computation may be different from these used in your data. In addition,
@@ -92,8 +93,8 @@ parameter values, and store the different results in the same data set under dif
 """
 function adapter(
     computation::Function,
-    name::AbstractString,
     view::Union{DafView, ReadOnlyView};
+    name::Maybe{AbstractString} = nothing,
     capture = MemoryDaf,
     axes::AbstractVector{Pair{String, AxesValue}} = Vector{Pair{String, String}}(),
     data::AbstractVector{Pair{DataKey, DataValue}} = Vector{Pair{String, String}}(),
@@ -105,10 +106,14 @@ function adapter(
     DataValue <: Maybe{Union{AbstractString, Query}},
     AxesValue <: Maybe{Union{AbstractString, Query}},
 }
-    view_name = view.name
-    input_chain = chain_writer("$(view_name).$(name).input", [view, capture("$(view_name).$(name).capture")])
+    if name == nothing
+        prefix = view.name
+    else
+        prefix = name  # untested
+    end
+    input_chain = chain_writer([view, capture(; name = "$(prefix).capture")]; name = "$(prefix).input")
     result = computation(input_chain)
-    output_chain = viewer("$(view_name).$(name).output", input_chain; axes = axes, data = data)
+    output_chain = viewer(input_chain; name = "$(prefix).output", axes = axes, data = data)
     copy_all!(; from = output_chain, into = view.daf, empty = empty, relayout = relayout, overwrite = overwrite)
     return result
 end

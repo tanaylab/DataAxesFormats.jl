@@ -54,7 +54,7 @@ struct WriteChain <: DafWriter
 end
 
 """
-    chain_reader(name::AbstractString, dafs::Vector{F})::ReadOnlyChain where {F <: DafReader}
+    chain_reader(dafs::Vector{F}; name::Maybe{AbstractString} = nothing)::DafReader where {F <: DafReader}
 
 Create a read-only chain wrapper of [`DafReader`](@ref)s, presenting them as a single `DafReader`. When accessing the
 content, the exposed value is that provided by the last data set that contains the data, that is, later data sets can
@@ -66,10 +66,57 @@ identical. This isn't typically created manually; instead call [`chain_reader`](
     While this verifies the axes are consistent at the time of creating the chain, it's no defense against modifying the
     chained data after the fact, creating inconsistent axes. *Don't do that*.
 """
-function chain_reader(name::AbstractString, dafs::Vector{F})::ReadOnlyChain where {F <: DafReader}
+function chain_reader(dafs::Vector{F}; name::Maybe{AbstractString} = nothing)::DafReader where {F <: DafReader}
     if isempty(dafs)
-        error("empty chain: $(name)")
+        error("empty chain$(name_suffix(name))")
     end
+
+    if length(dafs) == 1
+        return read_only(dafs[1]; name = name)
+    end
+
+    if name == nothing
+        name = join([daf.name for daf in dafs], ";")
+    end
+
+    internal_dafs = reader_internal_dafs(dafs, name)
+    return ReadOnlyChain(Internal(name), internal_dafs)
+end
+
+"""
+    chain_writer(dafs::Vector{F}; name::Maybe{AbstractString} = nothing)::DafWriter where {F <: DafReader}
+
+Create a chain wrapper for a chain of [`DafReader`](@ref) data, presenting them as a single `DafWriter`. This acts
+similarly to [`chain_reader`](@ref), but requires the final entry to be a [`DafWriter`](@ref). Any modifications or
+additions to the chain are directed at this final writer.
+
+!!! note
+
+    Deletions are only allowed for data that exists only in the final writer. That is, it is impossible to delete from a
+    chain something that exists in any of the readers; it is only possible to override it.
+"""
+function chain_writer(dafs::Vector{F}; name::Maybe{AbstractString} = nothing)::DafWriter where {F <: DafReader}
+    if isempty(dafs)
+        error("empty chain$(name_suffix(name))")
+    end
+
+    if !(dafs[end] isa DafWriter)
+        error("read-only final data: $(dafs[end].name)\n" * "in write chain$(name_suffix(name))")
+    end
+
+    if name == nothing
+        if length(dafs) == 1
+            return dafs[1]
+        end
+        name = join([daf.name for daf in dafs], ";")
+    end
+
+    internal_dafs = reader_internal_dafs(dafs, name)
+    reader = ReadOnlyChain(Internal(name), internal_dafs)
+    return WriteChain(reader.internal, reader.dafs, dafs[end])
+end
+
+function reader_internal_dafs(dafs::Vector{F}, name::AbstractString)::Vector{DafReader} where {F}
     axes_entries = Dict{String, Tuple{String, Vector{String}}}()
     internal_dafs = Vector{DafReader}()
     for daf in dafs
@@ -92,27 +139,15 @@ function chain_reader(name::AbstractString, dafs::Vector{F})::ReadOnlyChain wher
             end
         end
     end
-    return ReadOnlyChain(Internal(name), internal_dafs)
+    return internal_dafs
 end
 
-"""
-    chain_writer(name::AbstractString, dafs::Vector{F})::WriteChain where {F <: DafReader}
-
-Create a chain wrapper for a chain of [`DafReader`](@ref) data, presenting them as a single `DafWriter`. This acts
-similarly to [`chain_reader`](@ref), but requires the final entry to be a [`DafWriter`](@ref). Any modifications or
-additions to the chain are directed at this final writer.
-
-!!! note
-
-    Deletions are only allowed for data that exists only in the final writer. That is, it is impossible to delete from a
-    chain something that exists in any of the readers; it is only possible to override it.
-"""
-function chain_writer(name::AbstractString, dafs::Vector{F})::WriteChain where {F <: DafReader}
-    reader = chain_reader(name, dafs)
-    if !(dafs[end] isa DafWriter)
-        error("read-only final data: $(dafs[end].name)\n" * "in write chain: $(reader.name)")
+function name_suffix(name::Maybe{AbstractString})::String
+    if name == nothing
+        return ""
+    else
+        return ": $(name)"
     end
-    return WriteChain(reader.internal, reader.dafs, dafs[end])
 end
 
 AnyChain = Union{ReadOnlyChain, WriteChain}
@@ -461,12 +496,18 @@ function Formats.format_description_footer(
     return nothing
 end
 
-function Messages.present(value::ReadOnlyChain)::String
-    return "ReadOnly Chain $(value.name)"
+function Messages.present(value::ReadOnlyChain; name::Maybe{AbstractString} = nothing)::String
+    if name == nothing
+        name = value.name
+    end
+    return "ReadOnly Chain $(name)"
 end
 
-function Messages.present(value::WriteChain)::String
-    return "Write Chain $(value.name)"
+function Messages.present(value::WriteChain; name::Maybe{AbstractString} = nothing)::String
+    if name == nothing
+        name = value.name
+    end
+    return "Write Chain $(name)"
 end
 
 function ReadOnly.read_only(daf::ReadOnlyChain, name::Maybe{AbstractString} = nothing)::ReadOnlyChain

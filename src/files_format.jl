@@ -121,8 +121,10 @@ MINOR_VERSION::UInt8 = 0
         [; name::Maybe{AbstractString} = nothing]
     )
 
-Storage in disk files in some directory. By default, the `path` to the directory is used as the data set `name`, unless
-you explicitly provide one.
+Storage in disk files in some directory.
+
+If not specified, the `name` will be the value of the "name" scalar property, if it exists, otherwise, it will be the
+specified `path`.
 
 The valid `mode` values are as follows (the default mode is `r`):
 
@@ -159,10 +161,17 @@ function FilesDaf(
         if !isdir(path)
             mkpath(path)
         end
+
         if !ispath(daf_file_path)
             write("$(path)/daf.json", "{\"version\":[$(MAJOR_VERSION),$(MINOR_VERSION)]}\n")
             for directory in ("scalars", "axes", "vectors", "matrices")
                 mkdir("$(path)/$(directory)")
+            end
+
+            if name != nothing
+                open("$(path)/scalars/name.json", "w") do file
+                    return JSON.Writer.print(file, Dict("type" => "String", "value" => name))
+                end
             end
         end
     end
@@ -185,7 +194,12 @@ function FilesDaf(
     end
 
     if name == nothing
-        name = path
+        name_path = "$(path)/scalars/name.json"
+        if ispath(name_path)
+            name = string(read_scalar(name_path))
+        else
+            name = path  # untested
+        end
     end
 
     if is_read_only
@@ -219,7 +233,13 @@ function Formats.format_delete_scalar!(files::FilesDaf, name::AbstractString; fo
 end
 
 function Formats.format_get_scalar(files::FilesDaf, name::AbstractString)::StorageScalar
-    json = JSON.parsefile("$(files.path)/scalars/$(name).json")
+    value = read_scalar("$(files.path)/scalars/$(name).json")
+    Formats.cache_scalar!(files, name, value, MemoryData)
+    return value
+end
+
+function read_scalar(path::AbstractString)::StorageScalar
+    json = JSON.parsefile(path)
     @assert json isa AbstractDict
     dtype_name = json["type"]
     json_value = json["value"]
@@ -232,8 +252,6 @@ function Formats.format_get_scalar(files::FilesDaf, name::AbstractString)::Stora
         @assert dtype != nothing
         value = convert(dtype, json_value)
     end
-
-    Formats.cache_scalar!(files, name, value, MemoryData)
 
     return value
 end

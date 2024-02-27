@@ -37,19 +37,19 @@ function Base.getproperty(read_only_view::ReadOnlyView, property::Symbol)::Any
 end
 
 """
-    read_only(daf::DafReader)::ReadOnlyView
+    read_only(daf::DafReader[; name::Maybe{AbstractString]} = nothing)::ReadOnlyView
 
 Wrap `daf` with a `ReadOnlyView` to protect it against accidental modification. If given a read-only `daf`, return it
-as-is.
+as-is. If not specified, the `name` of the `daf` is reused.
 """
-function read_only(daf::DafReader, name::Maybe{AbstractString} = nothing)::ReadOnlyView
+function read_only(daf::DafReader; name::Maybe{AbstractString} = nothing)::ReadOnlyView
     if name == nothing
         name = daf.internal.name
     end
     return ReadOnlyView(name, daf)
 end
 
-function read_only(daf::ReadOnlyView, name::Maybe{AbstractString} = nothing)::ReadOnlyView
+function read_only(daf::ReadOnlyView; name::Maybe{AbstractString} = nothing)::ReadOnlyView
     if name == nothing
         return daf
     else
@@ -136,8 +136,11 @@ function Formats.format_description_header(
     return nothing
 end
 
-function Messages.present(value::ReadOnlyView)::String
-    return "ReadOnly $(typeof(value.daf)) $(value.name)"
+function Messages.present(value::ReadOnlyView; name::Maybe{AbstractString} = nothing)::String
+    if name == nothing
+        name = value.name
+    end
+    return "ReadOnly $(present(value.daf; name = name))"
 end
 
 end

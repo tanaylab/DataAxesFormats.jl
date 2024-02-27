@@ -86,14 +86,14 @@ complete data set anyway.
 `Daf` also provides a simple in-memory storage format, which is a very efficient and lightweight container (similar to
 an in-memory `AnnData` object).
 
+Since `AnnData` is used by many existing tools, `Daf` allows exporting (a subset of) a data set into `AnnData`, and
+present an `AnnData` data set as a (restricted) `Daf` data set.
+
 It is possible to create zero-copy views of `Daf` data (slicing, renaming and hiding axes and/or specific properties),
 and to copy `Daf` data from one data set to another. `Daf` also allows chaining data sets, for example storing
-clustering data in a separate (small) data set than the clustered data, without having to copy the (large) clustered
-data into the data set. The combination of both features avoids needlessly copying large amounts of data just to mold it
-to the form needed by some computational tool.
-
-Since, `AnnData` is used by many existing tools, `Daf` allows exporting a (subset of a) data set into `AnnData` and
-present an `AnnData` data set as a (read-only) `Daf` data set.
+alternative clustering options in separates (small) data sets, next to the clustered data, without having to copy the
+(large) clustered data into each data set. The combination of views and chains avoids needlessly duplicating large
+amounts of data just to mold it to the form needed by some computational tool.
 
 It is assumed that `Daf` data will be processed in a single machine, that is, `Daf` does not try to address the issues
 of a distributed cluster of servers working on a shared data set. Today's servers (as of 2023) can get very big (~100

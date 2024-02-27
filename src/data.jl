@@ -1506,8 +1506,11 @@ function cache_description(daf::DafReader, axes::Vector{String}, indent::Abstrac
     return nothing
 end
 
-function Messages.present(daf::DafReader)::String
-    return "$(typeof(daf)) $(daf.name)"
+function Messages.present(daf::DafReader; name::Maybe{AbstractString} = nothing)::String
+    if name == nothing
+        name = daf.name
+    end
+    return "$(typeof(daf)) $(name)"
 end
 
 """

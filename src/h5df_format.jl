@@ -113,7 +113,8 @@ which cases the `Daf` data set will be stored directly in the root of the file (
 suffix). Alternatively, the `root` can be a group inside an HDF5 file, which allows to store multiple `Daf` data sets
 inside the same HDF5 file (by convention, using a `.h5dfs` file name suffix).
 
-If the `name` is not specified, uses the path of the HDF5 file, followed by the internal path of the group (if any).
+If not specified, the `name` will be the value of the "name" scalar property, if it exists, otherwise, it will be the
+path of the HDF5 file, followed by the internal path of the group (if any).
 
 The valid `mode` values are as follows (the default mode is `r`):
 
@@ -149,28 +150,38 @@ function H5df(
     end
     verify_alignment(root)
 
-    if name == nothing
-        if root isa HDF5.File
-            name = root.filename
-        else
-            @assert root isa HDF5.Group
-            name = "$(root.file.filename):$(HDF5.name(root))"
-        end
-    end
-
     if haskey(root, "daf")  # NOJET
         if truncate_if_exists
             delete_content(root)
-            create_daf(root)
+            create_daf(root, name)
         else
             verify_daf(root)
         end
     else
         if create_if_missing
             delete_content(root)
-            create_daf(root)
+            create_daf(root, name)
         else
             error("not a daf data set: $(root)")
+        end
+    end
+
+    if name == nothing && haskey(root, "scalars")
+        scalars_group = root["scalars"]
+        @assert scalars_group isa HDF5.Group
+        if haskey(scalars_group, "name")
+            name_dataset = scalars_group["name"]
+            @assert name_dataset isa HDF5.Dataset
+            name = string(read(name_dataset))
+        end
+    end
+
+    if name == nothing
+        if root isa HDF5.Group
+            name = "$(root.file.filename):$(HDF5.name(root))"
+        else
+            @assert root isa HDF5.File  # untested
+            name = root.filename  # untested
         end
     end
 
@@ -201,17 +212,23 @@ function verify_alignment(root::HDF5.File)::Nothing
     end
 end
 
-function create_daf(root::Union{HDF5.File, HDF5.Group})::Nothing
+function create_daf(root::Union{HDF5.File, HDF5.Group}, name::Maybe{AbstractString})::Nothing
     root["daf"] = [MAJOR_VERSION, MINOR_VERSION]  # NOJET
     scalars_group = create_group(root, "scalars")
     axes_group = create_group(root, "axes")
     vectors_group = create_group(root, "vectors")
     matrices_group = create_group(root, "matrices")
 
+    if name != nothing
+        scalars_group["name"] = name
+    end
+
     close(scalars_group)
     close(axes_group)
     close(vectors_group)
-    return close(matrices_group)
+    close(matrices_group)
+
+    return nothing
 end
 
 function verify_daf(root::Union{HDF5.File, HDF5.Group})::Nothing

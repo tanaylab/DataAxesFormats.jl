@@ -43,7 +43,7 @@ function test_invalid(daf::DafReader, query::Union{String, Query}, dimensions::I
 end
 
 nested_test("queries") do
-    daf = MemoryDaf("memory!")
+    daf = MemoryDaf(; name = "memory!")
 
     nested_test("combine") do
         nested_test("one") do

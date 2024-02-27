@@ -83,8 +83,8 @@ ALL_DATA::Vector{Pair{Union{String, Tuple{String, String}, Tuple{String, String,
 
 """
     viewer(
-        name::AbstractString,
-        daf::DafReader;
+        daf::DafReader
+        [;name::Maybe{AbstractString} = nothing,
         [axes::AbstractVector{Pair{String, AxesValue}}} = [],
         data::AbstractVector{Pair{DataKey, DataValue}}} = []]
     )::Union{DafView, ReadOnlyView} where {
@@ -100,6 +100,8 @@ ALL_DATA::Vector{Pair{Union{String, Tuple{String, String}, Tuple{String, String,
 Wrap `daf` data with a read-only [`DafView`](@ref). The exposed view is defined by a set of queries applied to the
 original data. These queries are evaluated only when data is actually accessed. Therefore, creating a view is a
 relatively cheap operation.
+
+If the `name` is not specified, the result name will be based on the name of `daf`, with a `.view` suffix.
 
 Queries are listed separately for axes, and scalars, vector and matrix properties, as follows:
 
@@ -165,8 +167,8 @@ That is, assuming a `gene` and `cell` axes were exposed by the `axes` parameter,
     based on its `key`.
 """
 function viewer(
-    name::AbstractString,
     daf::DafReader;
+    name::Maybe{AbstractString} = nothing,
     axes::AbstractVector{Pair{String, AxesValue}} = Vector{Pair{String, String}}(),
     data::AbstractVector{Pair{DataKey, DataValue}} = Vector{Pair{String, String}}(),
 )::Union{
@@ -178,10 +180,13 @@ function viewer(
     AxesValue <: Maybe{Union{AbstractString, Query}},
 }
     if isempty(axes) && isempty(data)
-        return read_only(daf, name)
+        return read_only(daf; name = name)
     end
     if daf isa ReadOnlyView
         daf = daf.daf
+    end
+    if name == nothing
+        name = daf.name * ".view"
     end
     collected_scalars::Dict{String, Fetch{StorageScalar}} = collect_scalars(name, daf, data)
     collected_axes::Dict{String, Fetch{AbstractStringVector}} = collect_axes(name, daf, axes)
@@ -640,8 +645,11 @@ function Formats.format_description_header(view::DafView, indent::AbstractString
     return nothing
 end
 
-function Messages.present(value::DafView)::String
-    return "View $(present(value.daf))"
+function Messages.present(value::DafView; name::Maybe{AbstractString} = nothing)::String
+    if name == nothing
+        name = value.name
+    end
+    return "View $(present(value.daf; name = name))"
 end
 
 function ReadOnly.read_only(daf::DafView)::DafView

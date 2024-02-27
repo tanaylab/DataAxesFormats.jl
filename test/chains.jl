@@ -1,29 +1,66 @@
 nested_test("chains") do
-    first = MemoryDaf("first!")
-    second = MemoryDaf("second!")
+    first = MemoryDaf(; name = "first!")
+    second = MemoryDaf(; name = "second!")
 
     nested_test("empty") do
-        @test_throws dedent("""
-            empty chain: chain!
-        """) chain_reader("chain!", Vector{DafReader}())
+        nested_test("name") do
+            nested_test("reader") do
+                @test_throws dedent("""
+                    empty chain: chain!
+                """) chain_reader(Vector{DafReader}(); name = "chain!")
+            end
+
+            nested_test("writer") do
+                @test_throws dedent("""
+                    empty chain: chain!
+                """) chain_writer(Vector{DafWriter}(); name = "chain!")
+            end
+        end
+
+        nested_test("!name") do
+            nested_test("reader") do
+                @test_throws dedent("""
+                    empty chain
+                """) chain_reader(Vector{DafReader}())
+            end
+
+            nested_test("writer") do
+                @test_throws dedent("""
+                    empty chain
+                """) chain_writer(Vector{DafWriter}())
+            end
+        end
     end
 
-    nested_test("read_only") do
+    nested_test("one") do
+        nested_test("reader") do
+            read_first = read_only(first)
+            read_chain = chain_reader([read_first])
+            @assert read_chain === read_first
+        end
+
+        nested_test("writer") do
+            write_chain = chain_writer([first])
+            @assert write_chain === first
+        end
+    end
+
+    nested_test("two") do
         @test_throws "read-only final data: second!\nin write chain: chain!" chain_writer(
-            "chain!",
-            [first, read_only(second)],
+            [first, read_only(second)];
+            name = "chain!",
         )
-        read_chain = chain_reader("chain!", [first, second])
+        read_chain = chain_reader([first, second])
         @assert read_only(read_chain) === read_chain
-        @assert read_only(read_chain, "read-only chain!") !== read_chain
-        write_chain = chain_writer("chain!", [first, second])
+        @assert read_only(read_chain, "read-only first!;second!") !== read_chain
+        write_chain = chain_writer([first, second])
         @assert read_only(write_chain) !== write_chain
     end
 
     nested_test("access") do
         for (name, type_name, chain) in [
-            ("read", "ReadOnly", chain_reader("chain!", [first, read_only(second)])),
-            ("write", "Write", chain_writer("chain!", [first, second])),
+            ("read", "ReadOnly", chain_reader([first, read_only(second)]; name = "chain!")),
+            ("write", "Write", chain_writer([first, second]; name = "chain!")),
         ]
             nested_test(name) do
                 @test present(chain) == "$(type_name) Chain chain!"
@@ -126,7 +163,7 @@ nested_test("chains") do
                             in the Daf data: first!
                             and the Daf data: second!
                             in the chain: chain!
-                        """) chain_reader("chain!", [first, second])
+                        """) chain_reader([first, second]; name = "chain!")
                         @test !has_axis(chain, "gene")
                     end
                 end
@@ -201,7 +238,7 @@ nested_test("chains") do
     end
 
     nested_test("write") do
-        chain = chain_writer("chain!", [read_only(first), second])
+        chain = chain_writer([read_only(first), second]; name = "chain!")
 
         nested_test("scalar") do
             @test !has_scalar(first, "version")

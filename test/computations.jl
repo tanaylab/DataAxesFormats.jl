@@ -120,7 +120,7 @@ nested_test("computations") do
     end
 
     nested_test("single") do
-        daf = MemoryDaf("memory!")
+        daf = MemoryDaf(; name = "memory!")
 
         nested_test("()") do
             add_axis!(daf, "cell", ["A", "B"])
@@ -188,8 +188,8 @@ nested_test("computations") do
     end
 
     nested_test("cross") do
-        first = MemoryDaf("first!")
-        second = MemoryDaf("second!")
+        first = MemoryDaf(; name = "first!")
+        second = MemoryDaf(; name = "second!")
 
         nested_test("()") do
             set_scalar!(first, "version", "0.0")

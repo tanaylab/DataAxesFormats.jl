@@ -15,7 +15,7 @@ end
 Create an example memory `daf` to use for doctest tests.
 """
 function example_daf()::MemoryDaf
-    storage = MemoryDaf("example!")
+    storage = MemoryDaf(; name = "example!")
 
     set_scalar!(storage, "version", "1.0")
 

@@ -15,7 +15,7 @@ import Daf.Formats
 import Daf.Formats.Internal
 
 """
-    MemoryDaf(name::AbstractString)
+    MemoryDaf(; name::AbstractString = "memory")
 
 Simple in-memory storage.
 
@@ -36,7 +36,7 @@ struct MemoryDaf <: DafWriter
     matrices::Dict{String, Dict{String, Dict{String, StorageMatrix}}}
 end
 
-function MemoryDaf(name::AbstractString)::MemoryDaf
+function MemoryDaf(; name::AbstractString = "memory")::MemoryDaf
     scalars = Dict{String, StorageScalar}()
     axes = Dict{String, AbstractStringVector}()
     vectors = Dict{String, Dict{String, StorageVector{String}}}()

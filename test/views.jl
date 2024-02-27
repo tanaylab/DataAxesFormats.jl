@@ -1,9 +1,9 @@
 nested_test("views") do
-    daf = MemoryDaf("memory!")
+    daf = MemoryDaf(; name = "memory!")
 
     nested_test("none") do
-        @test viewer("read_only", daf) isa ReadOnlyView
-        @test viewer("read_only", daf).daf === daf
+        @test viewer(daf; name = "read_only") isa ReadOnlyView
+        @test viewer(daf; name = "read_only").daf === daf
     end
 
     nested_test("scalar") do
@@ -12,15 +12,15 @@ nested_test("views") do
         set_vector!(daf, "cell", "age", [1, 2])
 
         nested_test("copy") do
-            view = viewer("view!", read_only(daf); data = [ALL_SCALARS])
+            view = viewer(read_only(daf); data = [ALL_SCALARS])
             @test read_only(view) === view
-            @test present(view) == "View MemoryDaf memory!"
+            @test present(view) == "View MemoryDaf memory!.view"
             @test scalar_names(view) == Set(["version"])
             @test get_scalar(view, "version") == "1.0"
         end
 
         nested_test("reduction") do
-            view = viewer("view!", daf; data = ["sum_ages" => "/ cell : age %> Sum"])
+            view = viewer(daf; data = ["sum_ages" => "/ cell : age %> Sum"])
             @test scalar_names(view) == Set(["sum_ages"])
             @test get_scalar(view, "sum_ages") == 3
         end
@@ -31,11 +31,11 @@ nested_test("views") do
                 for the scalar: sum_ages
                 for the view: view!
                 of the daf data: memory!
-            """) viewer("view!", daf; data = ["sum_ages" => "/ cell : age"])
+            """) viewer(daf; name = "view!", data = ["sum_ages" => "/ cell : age"])
         end
 
         nested_test("hidden") do
-            view = viewer("view!", daf; data = [ALL_SCALARS, "version" => nothing])
+            view = viewer(daf; data = [ALL_SCALARS, "version" => nothing])
             @test isempty(scalar_names(view))
         end
     end
@@ -47,17 +47,17 @@ nested_test("views") do
         set_vector!(daf, "gene", "noisy", [true, true, false])
 
         nested_test("copy") do
-            view = viewer("view!", daf; axes = [ALL_AXES])
+            view = viewer(daf; axes = [ALL_AXES])
             @test axis_names(view) == Set(["cell", "gene"])
         end
 
         nested_test("hidden") do
-            view = viewer("view!", daf; axes = [ALL_AXES, "cell" => nothing])
+            view = viewer(daf; axes = [ALL_AXES, "cell" => nothing])
             @test axis_names(view) == Set(["gene"])
         end
 
         nested_test("masked") do
-            view = viewer("view!", daf; axes = ["gene" => "/ gene & marker"])
+            view = viewer(daf; axes = ["gene" => "/ gene & marker"])
             @test get_axis(view, "gene") == ["A", "C"]
         end
 
@@ -67,12 +67,12 @@ nested_test("views") do
                 for the axis: gene
                 for the view: view!
                 of the daf data: memory!
-            """) viewer("view!", daf; axes = ["gene" => "/ gene : marker %> Sum"])
+            """) viewer(daf; name = "view!", axes = ["gene" => "/ gene : marker %> Sum"])
         end
 
         nested_test("!String") do
             set_vector!(daf, "cell", "age", [1, 2])
-            view = viewer("view!", daf; axes = ["cell" => "/ cell : age"])
+            view = viewer(daf; name = "view!", axes = ["cell" => "/ cell : age"])
             @test_throws dedent("""
                 non-String vector of: Int64
                 names vector for the axis: cell
@@ -88,7 +88,7 @@ nested_test("views") do
         set_vector!(daf, "cell", "batch", [1, 2, 2])
 
         nested_test("copy") do
-            view = viewer("view!", daf; axes = [ALL_AXES], data = [ALL_VECTORS])
+            view = viewer(daf; name = "view!", axes = [ALL_AXES], data = [ALL_VECTORS])
             @test vector_names(view, "cell") == Set(["age", "batch"])
             @test get_vector(view, "cell", "age") == [1, 2, 3]
             @test get_vector(view, "cell", "batch") == [1, 2, 2]
@@ -99,23 +99,23 @@ nested_test("views") do
                 the axis: cell
                 is not exposed by the view: view!
                 of the daf data: memory!
-            """) viewer("view!", daf; data = [("cell", "age") => "="])
+            """) viewer(daf; name = "view!", data = [("cell", "age") => "="])
         end
 
         nested_test("hidden") do
-            view = viewer("view!", daf; axes = [ALL_AXES], data = [ALL_VECTORS, ("cell", "age") => nothing])
+            view = viewer(daf; axes = [ALL_AXES], data = [ALL_VECTORS, ("cell", "age") => nothing])
             @test vector_names(view, "cell") == Set(["batch"])
             @test get_vector(view, "cell", "batch") == [1, 2, 2]
         end
 
         nested_test("renamed") do
-            view = viewer("view!", daf; axes = [ALL_AXES], data = [("cell", "day") => ": age"])
+            view = viewer(daf; axes = [ALL_AXES], data = [("cell", "day") => ": age"])
             @test vector_names(view, "cell") == Set(["day"])
             @test get_vector(view, "cell", "day") == [1, 2, 3]
         end
 
         nested_test("masked") do
-            view = viewer("view!", daf; axes = ["cell" => "/ cell & batch = 2"], data = [("cell", "age") => "="])
+            view = viewer(daf; axes = ["cell" => "/ cell & batch = 2"], data = [("cell", "age") => "="])
             @test vector_names(view, "cell") == Set(["age"])
             @test get_vector(view, "cell", "age") == [2, 3]
         end
@@ -123,7 +123,7 @@ nested_test("views") do
         nested_test("reduced") do
             add_axis!(daf, "gene", ["A", "B"])
             set_matrix!(daf, "cell", "gene", "UMIs", [0 1; 2 3; 4 5])
-            view = viewer("view!", daf; axes = [ALL_AXES], data = [("cell", "total_umis") => "/ gene : UMIs %> Sum"])
+            view = viewer(daf; axes = [ALL_AXES], data = [("cell", "total_umis") => "/ gene : UMIs %> Sum"])
             @test get_vector(view, "cell", "total_umis") == [1, 5, 9]
         end
 
@@ -136,7 +136,7 @@ nested_test("views") do
                 for the axis: cell
                 for the view: view!
                 of the daf data: memory!
-            """) viewer("view!", daf; axes = [ALL_AXES], data = [("cell", "total_umis") => "/ gene : UMIs"])
+            """) viewer(daf; name = "view!", axes = [ALL_AXES], data = [("cell", "total_umis") => "/ gene : UMIs"])
         end
     end
 
@@ -147,7 +147,7 @@ nested_test("views") do
         set_matrix!(daf, "cell", "gene", "UMIs", [0 1 2; 3 4 5])
 
         nested_test("copy") do
-            view = viewer("view!", daf; axes = [ALL_AXES], data = [ALL_MATRICES])
+            view = viewer(daf; axes = [ALL_AXES], data = [ALL_MATRICES])
             @test matrix_names(view, "gene", "cell"; relayout = false) == Set(["UMIs"])
             @test matrix_names(view, "cell", "gene"; relayout = false) == Set(["UMIs"])
             @test get_matrix(view, "cell", "gene", "UMIs") == [0 1 2; 3 4 5]
@@ -155,7 +155,7 @@ nested_test("views") do
         end
 
         nested_test("query") do
-            view = viewer("view!", daf; axes = [ALL_AXES], data = [("cell", "gene", "UMIs") => ": UMIs % Abs"])
+            view = viewer(daf; axes = [ALL_AXES], data = [("cell", "gene", "UMIs") => ": UMIs % Abs"])
             @test isempty(matrix_names(view, "gene", "cell"; relayout = false))
             @test matrix_names(view, "gene", "cell"; relayout = true) == Set(["UMIs"])
             @test matrix_names(view, "cell", "gene"; relayout = false) == Set(["UMIs"])
@@ -164,12 +164,12 @@ nested_test("views") do
         end
 
         nested_test("hidden") do
-            view = viewer("view!", daf; axes = [ALL_AXES], data = [ALL_MATRICES, ("cell", "gene", "UMIs") => nothing])
+            view = viewer(daf; axes = [ALL_AXES], data = [ALL_MATRICES, ("cell", "gene", "UMIs") => nothing])
             @test isempty(matrix_names(view, "gene", "cell"))
         end
 
         nested_test("masked") do
-            view = viewer("view!", daf; axes = ["cell" => "=", "gene" => "/ gene & marker"], data = [ALL_MATRICES])
+            view = viewer(daf; axes = ["cell" => "=", "gene" => "/ gene & marker"], data = [ALL_MATRICES])
             @test matrix_names(view, "gene", "cell"; relayout = false) == Set(["UMIs"])
             @test matrix_names(view, "cell", "gene"; relayout = false) == Set(["UMIs"])
             @test get_matrix(view, "cell", "gene", "UMIs") == [0 2; 3 5]
@@ -184,7 +184,7 @@ nested_test("views") do
                 and the columns axis: gene
                 for the view: view!
                 of the daf data: memory!
-            """) viewer("view!", daf; axes = [ALL_AXES], data = [("cell", "gene", "UMIs") => ": UMIS %> Sum"])
+            """) viewer(daf; name = "view!", axes = [ALL_AXES], data = [("cell", "gene", "UMIs") => ": UMIS %> Sum"])
         end
     end
 end

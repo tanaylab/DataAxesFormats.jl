@@ -25,7 +25,7 @@ function test_missing_scalar(daf::DafReader, depth::Int)::Nothing
     end
 
     nested_test("scalar_names") do
-        @test isempty(scalar_names(daf))
+        @test isempty(scalar_names(daf)) || scalar_names(daf) == Set(["name"])
     end
 
     nested_test("get_scalar") do
@@ -116,7 +116,7 @@ function test_existing_scalar(daf::DafReader, depth::Int)::Nothing
     end
 
     nested_test("scalar_names") do
-        @test scalar_names(daf) == Set(["depth", "version"])
+        @test scalar_names(daf) == Set(["depth", "version"]) || scalar_names(daf) == Set(["depth", "version", "name"])
     end
 
     nested_test("get_scalar") do
@@ -2878,11 +2878,11 @@ end
 
 nested_test("data") do
     nested_test("memory") do
-        daf = MemoryDaf("memory!")
+        daf = MemoryDaf(; name = "memory!")
         @test daf.name == "memory!"
         @test present(daf) == "MemoryDaf memory!"
         @test present(read_only(daf)) == "ReadOnly MemoryDaf memory!"
-        @test present(read_only(daf, "read-only memory!")) == "ReadOnly MemoryDaf read-only memory!"
+        @test present(read_only(daf; name = "read-only memory!")) == "ReadOnly MemoryDaf read-only memory!"
         @test description(daf) == dedent("""
             name: memory!
             type: MemoryDaf
@@ -2922,16 +2922,21 @@ nested_test("data") do
             mktempdir() do path
                 daf = H5df(path * "/test.h5df", "w+"; name = "h5df!")
                 @test daf.name == "h5df!"
+                @test get_scalar(daf, "name") == "h5df!"
                 @test present(daf) == "H5df h5df!"
                 @test present(read_only(daf)) == "ReadOnly H5df h5df!"
-                @test present(read_only(daf, "renamed!")) == "ReadOnly H5df renamed!"
+                @test present(read_only(daf; name = "renamed!")) == "ReadOnly H5df renamed!"
                 @test description(daf) == dedent("""
                     name: h5df!
                     type: H5df
+                    scalars:
+                      name: "h5df!"
                 """) * "\n"
                 test_format(daf)
                 daf = H5df(path * "/test.h5df", "r+")
-                @test present(daf) == "H5df $(path)/test.h5df"
+                @test daf.name == "h5df!"
+                @test get_scalar(daf, "name") == "h5df!"
+                @test present(daf) == "H5df h5df!"
                 return nothing
             end
         end
@@ -2943,7 +2948,7 @@ nested_test("data") do
                     daf = H5df(h5file["root"], "w+")
                     @test present(daf) == "H5df $(path)/test.h5df:/root"
                     @test present(read_only(daf)) == "ReadOnly H5df $(path)/test.h5df:/root"
-                    @test present(read_only(daf, "renamed!")) == "ReadOnly H5df renamed!"
+                    @test present(read_only(daf; name = "renamed!")) == "ReadOnly H5df renamed!"
                     @test description(daf) == dedent("""
                         name: $(path)/test.h5df:/root
                         type: H5df
@@ -2987,16 +2992,18 @@ nested_test("data") do
                 @test daf.name == "files!"
                 @test present(daf) == "FilesDaf files!"
                 @test present(read_only(daf)) == "ReadOnly FilesDaf files!"
-                @test present(read_only(daf, "renamed!")) == "ReadOnly FilesDaf renamed!"
+                @test present(read_only(daf; name = "renamed!")) == "ReadOnly FilesDaf renamed!"
                 @test description(daf) == dedent("""
                     name: files!
                     type: FilesDaf
+                    scalars:
+                      name: "files!"
                 """) * "\n"
                 test_format(daf)
                 mkdir(path * "/deleted")
                 daf = FilesDaf(path, "r")
                 @assert isdir(path * "/deleted")
-                @test present(daf) == "ReadOnly FilesDaf $(path)"
+                @test present(daf) == "ReadOnly FilesDaf files!"
                 daf = FilesDaf(path, "w"; name = "empty!")
                 @test present(daf) == "FilesDaf empty!"
                 @assert !ispath(path * "/deleted")
