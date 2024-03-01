@@ -70,21 +70,21 @@ That is, the code would look something like this:
 ```
 daf = ... # Some input `Daf` data we wish to compute on.
 
-# Here `Daf` contains the inputs for the computation, but possibly
+# Here `daf` contains the inputs for the computation, but possibly
 # under a different name.
 
 result = adapter(
     "example",              # A name to use to generate the temporary `Daf` data names.
     view(daf; ...),         # How to view the input in the way expected by the computation.
-    axes = ..., data = ..., # How and what to view the output for copying back into `Daf`.
+    axes = ..., data = ..., # How and what to view the output for copying back into `daf`.
     empty = ...,            # If the view specifies a subset of some axes.
 ) do adapted                   # The writable adapted data we can pass to the computation.
     computation(adapted, ...)  # Actually do the computation.
-    return ...                 # An additional result outside `Daf`.
+    return ...                 # An additional result outside `daf`.
 end
 
-# Here `Daf` will contain the specific renamed outputs specified in `adapter`,
-# and you can also access the additional non-`Daf` data `result`.
+# Here `daf` will contain the specific renamed outputs specified in `adapter`,
+# and you can also access the additional non-`daf` data `result`.
 ```
 
 This idiom allows [`@computation`](@ref) functions to use clear generic names for their inputs and outputs, and still

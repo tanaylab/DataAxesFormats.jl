@@ -97,26 +97,26 @@ ALL_DATA::Vector{Pair{Union{String, Tuple{String, String}, Tuple{String, String,
         AxesValue <: Maybe{Union{AbstractString, Query}},
     }
 
-Wrap `Daf` data with a read-only [`DafView`](@ref). The exposed view is defined by a set of queries applied to the
+Wrap `daf` data with a read-only [`DafView`](@ref). The exposed view is defined by a set of queries applied to the
 original data. These queries are evaluated only when data is actually accessed. Therefore, creating a view is a
 relatively cheap operation.
 
-If the `name` is not specified, the result name will be based on the name of `Daf`, with a `.view` suffix.
+If the `name` is not specified, the result name will be based on the name of `daf`, with a `.view` suffix.
 
 Queries are listed separately for axes, and scalars, vector and matrix properties, as follows:
 
 *Axes* are specified as a list of pairs (similar to initializing a `Dict`). The order of the pairs matter (last one
-wins). If the key is `"*"`, then it is replaced by all the names of the axes of the wrapped `Daf` data. If the value is
+wins). If the key is `"*"`, then it is replaced by all the names of the axes of the wrapped `daf` data. If the value is
 `nothing`, then the axis will **not** be exposed by the view. If the value is `"="`, then the axis will be exposed with
-the same entries as in the original `Daf` data. Otherwise the value is any valid query that returns a vector of
+the same entries as in the original `daf` data. Otherwise the value is any valid query that returns a vector of
 (unique!) strings to serve as the vector entries.
 
-That is, saying `"*" => "="` (or, [`ALL_AXES`](@ref) will expose all the original `Daf` data axes from the view.
+That is, saying `"*" => "="` (or, [`ALL_AXES`](@ref) will expose all the original `daf` data axes from the view.
 Following this by saying `"type" => nothing` will hide the `type` from the view. Saying `"batch" => q"/ batch & age > 1`
 will expose the `batch` axis, but only including the batches whose `age` property is greater than 1.
 
 *Scalars* are specified similarly, using the `data` parameter, except that the query should return a scalar instead of a
-vector. That is, saying `"*" => "="` (or, [`ALL_SCALARS`](@ref)) will expose all the original `Daf` data scalars from
+vector. That is, saying `"*" => "="` (or, [`ALL_SCALARS`](@ref)) will expose all the original `daf` data scalars from
 the view. Following this by saying `"version" => nothing` will hide the `version` from the view. Adding
 `"total_umis" => q"/ cell / gene : UMIs %> Sum %> Sum"` will expose a `total_umis` scalar containing the total sum of all
 UMIs of all genes in all cells, etc.
@@ -133,7 +133,7 @@ query operator.
 
 That is, specifying that `axes = ["gene" => q"/ gene & marker"]`, and then that
 `data = [("gene", "forbidden") => q": lateral"]`, then the view will expose a `forbidden` vector property for the `gene`
-axis, by applying the combined query `/ gene & marker : lateral` to the original `Daf` data.
+axis, by applying the combined query `/ gene & marker : lateral` to the original `daf` data.
 
 This gets trickier when using a query reducing a matrix to a vector. In these cases, the value query will start with `/`
 ([`Axis`](@ref)) query operator to specify the reduced matrix axis, followed by the `:` ([`Lookup`](@ref)) operator.

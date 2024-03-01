@@ -349,9 +349,9 @@ end
         h5ad::Maybe{AbstractString} = nothing]
     )::AnnData
 
-View a `Daf` data set as `AnnData`. This doesn't duplicate matrices or vectors, but acts as a view containing references
-to the same ones. Adding and/or deleting data in the view using the `AnnData` API will not affect the original `Daf`
-data set.
+View the `daf` data set as `AnnData`. This doesn't duplicate matrices or vectors, but acts as a view containing
+references to the same ones. Adding and/or deleting data in the view using the `AnnData` API will not affect the
+original `daf` data set.
 
 If specified, the result is also written to an `h5ad` file.
 

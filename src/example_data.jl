@@ -12,7 +12,7 @@ function random_entries(gen::MersenneTwister, size::Int, entry_names::Vector{Str
 end
 
 """
-Create an example memory `Daf` to use for doctest tests.
+Create an example [`MemoryDaf`](@ref) to use for doctest tests.
 """
 function example_daf()::MemoryDaf
     storage = MemoryDaf(; name = "example!")

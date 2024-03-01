@@ -39,8 +39,8 @@ end
 """
     read_only(daf::DafReader[; name::Maybe{AbstractString]} = nothing)::ReadOnlyView
 
-Wrap `Daf` with a `ReadOnlyView` to protect it against accidental modification. If given a read-only `Daf`, return it
-as-is. If not specified, the `name` of the `Daf` is reused.
+Wrap `daf` with a `ReadOnlyView` to protect it against accidental modification. If given a read-only `daf`, return it
+as-is. If not specified, the `name` of the `daf` is reused.
 """
 function read_only(daf::DafReader; name::Maybe{AbstractString} = nothing)::ReadOnlyView
     if name == nothing

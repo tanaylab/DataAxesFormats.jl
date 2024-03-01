@@ -169,7 +169,7 @@ This trusts that the `name` scalar property exists in `format`.
 function format_delete_scalar! end
 
 """
-    format_scalar_names(format::FormatReader)::Set{String}
+    format_scalar_names(format::FormatReader)::AbstractStringSet
 
 The names of the scalar properties in `format`.
 """
@@ -323,7 +323,7 @@ for the `axis`.
 function format_delete_vector! end
 
 """
-    format_vector_names(format::FormatReader, axis::AbstractString)::Set{String}
+    format_vector_names(format::FormatReader, axis::AbstractString)::AbstractStringSet
 
 Implement fetching the names of the vectors for the `axis` in `format`, **not** including the special `name` property.
 
@@ -450,7 +450,7 @@ function format_delete_matrix! end
         format::FormatReader,
         rows_axis::AbstractString,
         columns_axis::AbstractString,
-    )::Set{String}
+    )::AbstractStringSet
 
 Implement fetching the names of the matrix properties for the `rows_axis` and `columns_axis` in `format`.
 
