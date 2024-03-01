@@ -11,6 +11,7 @@ export CountBy
 export EltwiseOperation
 export empty_cache!
 export Fetch
+export get_frame
 export get_query
 export GroupBy
 export IfMissing
@@ -30,6 +31,7 @@ export OrNot
 export @q_str
 export Query
 export query_result_dimensions
+export query_axis_name
 export QuerySequence
 export ReductionOperation
 export Xor
@@ -43,6 +45,7 @@ using Daf.Registry
 using Daf.StorageTypes
 using Daf.Tokens
 using Daf.Unions
+using DataFrames
 using NamedArrays
 
 import Base.MathConstants.e
@@ -1393,6 +1396,7 @@ mutable struct AxisState
 end
 
 struct FakeAxisState
+    axis_name::Maybe{AbstractString}
     is_entry::Bool
     is_slice::Bool
 end
@@ -1547,14 +1551,17 @@ verifies the query is syntactically valid, though it may still fail if applied t
 values or types.
 """
 function query_result_dimensions(query_sequence::QuerySequence)::Int
+    return get_query_result_dimensions(get_fake_query_result(query_sequence))
+end
+
+function get_fake_query_result(query_sequence::QuerySequence)::FakeQueryState
     fake_query_state = FakeQueryState(query_sequence, 1, Vector{FakeQueryValue}())
     while fake_query_state.next_operation_index <= length(fake_query_state.query_sequence.query_operations)
         query_operation = query_sequence.query_operations[fake_query_state.next_operation_index]
         fake_query_state.next_operation_index += 1
         fake_query_operation!(fake_query_state, query_operation)
     end
-
-    return get_query_result_dimensions(fake_query_state)
+    return fake_query_state
 end
 
 function get_next_operation(
@@ -1684,7 +1691,7 @@ function fake_query_operation!(fake_query_state::FakeQueryState, axis::Axis)::No
     if isempty(fake_query_state.stack) || is_all(fake_query_state, (FakeAxisState,))
         is_entry = get_next_operation(fake_query_state, IsEqual) != nothing
         is_slice = peek_next_operation(fake_query_state, MaskOperation) != nothing
-        push!(fake_query_state.stack, FakeAxisState(is_entry, is_slice))
+        push!(fake_query_state.stack, FakeAxisState(axis.axis_name, is_entry, is_slice))
         return nothing
     end
 
@@ -2854,7 +2861,7 @@ function fake_fetch_count_by(fake_query_state::FakeQueryState, count_by::CountBy
     rows_vector_state = pop!(fake_query_state.stack)
     @assert rows_vector_state isa FakeVectorState
 
-    fake_fetch_property(fake_query_state, FakeAxisState(false, false))
+    fake_fetch_property(fake_query_state, FakeAxisState(nothing, false, false))
     columns_vector_state = pop!(fake_query_state.stack)
     @assert columns_vector_state isa FakeVectorState
 
@@ -3147,7 +3154,7 @@ function parse_group_by(
 end
 
 function fake_parse_group_by(fake_query_state::FakeQueryState)::Bool
-    fake_fetch_property(fake_query_state, FakeAxisState(false, false))
+    fake_fetch_property(fake_query_state, FakeAxisState(nothing, false, false))
     groups_vector_state = pop!(fake_query_state.stack)
     @assert groups_vector_state isa FakeVectorState
     groups_as_axis = get_next_operation(fake_query_state, AsAxis)
@@ -3509,6 +3516,109 @@ function value_for(query_state::QueryState, type::Type{T}, value::StorageScalar)
             error_at_state(query_state, "$(typeof(exception)): $(exception.msg)\n")  # untested
         end
     end
+end
+
+"""
+    function get_frame(
+        daf::DafReader,
+        axis::Union{Query, AbstractString},
+        [columns::Union{
+            Nothing,
+            AbstractStringVector,
+            Vector{Pair{String, String}},
+            Vector{Pair{String, Query}},
+            Vector{Pair{String, Union{String, Query}}},
+        } = nothing],
+        cache::Bool = true]
+    )::DataFrame end
+
+Return a `DataFrame` containing multiple vectors of the same `axis`.
+
+The `axis` can be either just the name of an axis (e.g., `"cell"`), or a query for the axis (e.g., `q"/ cell"`),
+possibly using a mask (e.g., `q"/ cell & age > 1"`). The result of the query must be a vector of unique axis entry
+names.
+
+If `columns` is not specified, the data frame will contain all the vector properties of the axis, in alphabetical order
+(since `DataFrame` has no concept of named rows, the 1st column will contain the name of the axis entry). Otherwise,
+`columns` may be a vector of names of vector properties (e.g., `["batch", "age"]`), or a vector of pairs mapping a
+column name to a query suffix (e.g., ["color" => q": type => color"]). This suffix is applied to the `axis` query. The
+result of the query must be a vector.
+
+By default, this will cache results of all queries. This may consume a large amount of memory. You can disable it by
+specifying `cache = false`, or release the cached data using [`empty_cache!`](@ref).
+"""
+function get_frame(
+    daf::DafReader,
+    axis::Union{Query, AbstractString},
+    columns::Union{
+        Nothing,
+        AbstractStringVector,
+        Vector{Pair{String, String}},
+        Vector{Pair{String, Query}},
+        Vector{Pair{String, Union{String, Query}}},
+    } = nothing;
+    cache::Bool = false,
+)::DataFrame
+    if axis isa Query
+        axis_query = axis
+        axis_name = query_axis_name(axis)
+    else
+        tokens = tokenize(axis, QUERY_OPERATORS)
+        if isempty(tokens) || tokens[1].value != "/"
+            axis_name = axis
+            axis_query = Axis(axis)
+        else
+            axis_query = Query(axis)
+            axis_name = query_axis_name(axis_query)
+        end
+    end
+
+    row_names = get_query(daf, axis_query; cache = cache).array
+    @assert row_names isa AbstractStringVector
+
+    if columns == nothing
+        columns = sort!(collect(vector_names(daf, axis_name)))
+        insert!(columns, 1, "name")
+    end
+
+    if eltype(columns) <: AbstractString
+        columns = [column => Lookup(column) for column in columns]
+    end
+
+    data = Vector{Pair{AbstractString, StorageVector}}()
+    for (column_name, column_query) in columns
+        if column_query isa AbstractString
+            column_query = Query(column_query)
+        end
+        full_query = axis_query |> column_query
+        vector = get_query(daf, full_query; cache = cache)
+        if !(vector isa StorageVector) || length(vector) != length(row_names)
+            error("invalid column query: $(column_query)\nfor the daf data: $(daf.name)")
+        end
+        push!(data, column_name => vector.array)  # NOJET
+    end
+
+    return DataFrame(data)
+end
+
+function query_axis_name(query::Query)::AbstractString
+    return query_axis_name(QuerySequence((query,)))
+end
+
+function query_axis_name(query_sequence::QuerySequence)::AbstractString
+    return get_query_axis_name(get_fake_query_result(query_sequence))
+end
+
+function get_query_axis_name(fake_query_state::FakeQueryState)::AbstractString
+    if is_all(fake_query_state, (FakeAxisState,))
+        fake_axis_state = fake_query_state.stack[1]
+        @assert fake_axis_state isa FakeAxisState
+        if fake_axis_state.axis_name != nothing && !fake_axis_state.is_entry
+            return fake_axis_state.axis_name
+        end
+    end
+
+    return error("invalid axis query: $(fake_query_state.query_sequence)")
 end
 
 end  # module

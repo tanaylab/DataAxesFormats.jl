@@ -1311,4 +1311,80 @@ nested_test("queries") do
             end
         end
     end
+
+    nested_test("dataframes") do
+        add_axis!(daf, "cell", ["A", "B"])
+        set_vector!(daf, "cell", "is_doublet", [true, false])
+        set_vector!(daf, "cell", "age", [0, 1])
+
+        nested_test("axis") do
+            nested_test("name") do
+                @test "$(get_frame(daf, "cell"))" == dedent("""
+                    2×3 DataFrame
+                     Row │ name    age    is_doublet
+                         │ String  Int64  Bool
+                    ─────┼───────────────────────────
+                       1 │ A           0        true
+                       2 │ B           1       false
+                """)
+            end
+
+            nested_test("query") do
+                @test "$(get_frame(daf, Axis("cell")))" == dedent("""
+                    2×3 DataFrame
+                     Row │ name    age    is_doublet
+                         │ String  Int64  Bool
+                    ─────┼───────────────────────────
+                       1 │ A           0        true
+                       2 │ B           1       false
+                """)
+            end
+
+            nested_test("!query") do
+                @test_throws "invalid axis query: / cell : age" get_frame(daf, "/ cell : age")
+            end
+
+            nested_test("mask") do
+                @test "$(get_frame(daf, q"/ cell & is_doublet"))" == dedent("""
+                    1×3 DataFrame
+                     Row │ name    age    is_doublet
+                         │ String  Int64  Bool
+                    ─────┼───────────────────────────
+                       1 │ A           0        true
+                """)
+            end
+        end
+
+        nested_test("columns") do
+            nested_test("names") do
+                @test "$(get_frame(daf, "cell", ["age", "is_doublet"]))" == dedent("""
+                    2×2 DataFrame
+                     Row │ age    is_doublet
+                         │ Int64  Bool
+                    ─────┼───────────────────
+                       1 │     0        true
+                       2 │     1       false
+                """)
+            end
+
+            nested_test("queries") do
+                @test "$(get_frame(daf, "cell", ["age" => ": age", "doublet" => ": is_doublet"]))" == dedent("""
+                    2×2 DataFrame
+                     Row │ age    doublet
+                         │ Int64  Bool
+                    ─────┼────────────────
+                       1 │     0     true
+                       2 │     1    false
+                """)
+            end
+
+            nested_test("!queries") do
+                @test_throws "invalid column query: : age %> Sum\nfor the daf data: memory!" get_frame(
+                    daf,
+                    "cell",
+                    ["age" => ": age %> Sum", "doublet" => ": is_doublet"],
+                )
+            end
+        end
+    end
 end
