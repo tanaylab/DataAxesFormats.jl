@@ -79,9 +79,9 @@ const METADATA_OF_FUNCTION = Dict{String, FunctionMetadata}()
         return ...
     end
 
-Mark a function as a `daf` computation. This has the following effects:
+Mark a function as a `Daf` computation. This has the following effects:
 
-  - It verifies that the `daf` data satisfies the [`Contract`](@ref), when the computation is invoked and when it is
+  - It verifies that the `Daf` data satisfies the [`Contract`](@ref), when the computation is invoked and when it is
     complete (using [`verify_input`](@ref) and [`verify_output`](@ref)).
 
   - It stashes the contract(s) (if any) in a global variable. This allows expanding [`CONTRACT`](@ref) in the
@@ -229,7 +229,7 @@ function collect_defaults(inner_definition)::Dict{String, Any}
 end
 
 function collect_arg_default(defaults::Dict{String, Any}, arg::Symbol)::Nothing  # untested
-    return nothing  # untested
+    return nothing
 end
 
 function collect_arg_default(defaults::Dict{String, Any}, arg::Expr)::Nothing
@@ -288,13 +288,13 @@ Then `\$(CONTRACT)` will be expanded with a description of the [`Contract`](@ref
 const CONTRACT = ContractDocumentation(1)
 
 """
-Same as [`CONTRACT`](@ref), but reference the contract for the 1st `daf` argument for a [`@computation`](@ref) with two
+Same as [`CONTRACT`](@ref), but reference the contract for the 1st `Daf` argument for a [`@computation`](@ref) with two
 such arguments.
 """
 const CONTRACT1 = ContractDocumentation(1)
 
 """
-Same as [`CONTRACT`](@ref), but reference the contract for the 2nd `daf` argument for a [`@computation`](@ref) with two
+Same as [`CONTRACT`](@ref), but reference the contract for the 2nd `Daf` argument for a [`@computation`](@ref) with two
 such arguments.
 """
 const CONTRACT2 = ContractDocumentation(2)

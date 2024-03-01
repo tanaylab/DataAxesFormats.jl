@@ -25,7 +25,7 @@ function test_missing_scalar(daf::DafReader, depth::Int)::Nothing
     end
 
     nested_test("scalar_names") do
-        @test isempty(scalar_names(daf)) || scalar_names(daf) == Set(["name"])
+        @test isempty(scalar_names(daf))
     end
 
     nested_test("get_scalar") do
@@ -116,7 +116,7 @@ function test_existing_scalar(daf::DafReader, depth::Int)::Nothing
     end
 
     nested_test("scalar_names") do
-        @test scalar_names(daf) == Set(["depth", "version"]) || scalar_names(daf) == Set(["depth", "version", "name"])
+        @test scalar_names(daf) == Set(["depth", "version"])
     end
 
     nested_test("get_scalar") do
@@ -1153,6 +1153,18 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
                     in the daf data: $(daf.name)
                 """) get_matrix(daf, "cell", "gene", "UMIs"; relayout = false)
             end
+
+            if daf isa DafWriter
+                nested_test("square") do
+                    set_matrix!(daf, "cell", "cell", "outgoing_edges", [0 1 2; 1 0 2; 1 2 0])
+                    @test_throws dedent("""
+                        can't relayout square matrix: outgoing_edges
+                        of the axis: cell
+                        due to daf representation limitations
+                        in the daf data: $(daf.name)
+                    """) relayout_matrix!(daf, "cell", "cell", "outgoing_edges")
+                end
+            end
         end
 
         nested_test("default") do
@@ -1184,7 +1196,7 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
                 end
 
                 nested_test("transpose") do
-                    @test_throws "type: Transpose{Int64, Matrix{Int64}} is not in column-major layout" get_matrix(
+                    @test_throws "type not in column-major layout: 3 x 4 x Int64 in Rows (transposed Dense)" get_matrix(
                         daf,
                         "cell",
                         "gene",
@@ -1452,7 +1464,7 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
             end
 
             nested_test("transpose") do
-                @test_throws "type: Transpose{Int64, Matrix{Int64}} is not in column-major layout" set_matrix!(
+                @test_throws "type not in column-major layout: 3 x 4 x Int64 in Rows (transposed Dense)" set_matrix!(
                     daf,
                     "cell",
                     "gene",
@@ -2920,23 +2932,19 @@ nested_test("data") do
 
         nested_test("root") do
             mktempdir() do path
-                daf = H5df(path * "/test.h5df", "w+"; name = "h5df!")
+                daf = H5df("$(path)/test.h5df", "w+"; name = "h5df!")
                 @test daf.name == "h5df!"
-                @test get_scalar(daf, "name") == "h5df!"
                 @test present(daf) == "H5df h5df!"
                 @test present(read_only(daf)) == "ReadOnly H5df h5df!"
                 @test present(read_only(daf; name = "renamed!")) == "ReadOnly H5df renamed!"
                 @test description(daf) == dedent("""
                     name: h5df!
                     type: H5df
-                    scalars:
-                      name: "h5df!"
                 """) * "\n"
                 test_format(daf)
                 daf = H5df(path * "/test.h5df", "r+")
-                @test daf.name == "h5df!"
-                @test get_scalar(daf, "name") == "h5df!"
-                @test present(daf) == "H5df h5df!"
+                @test daf.name == "$(path)/test.h5df"
+                @test present(daf) == "H5df $(path)/test.h5df"
                 return nothing
             end
         end
@@ -2957,6 +2965,11 @@ nested_test("data") do
 
                     attributes(h5file["root"])["will_be_deleted"] = 1
                     @assert length(attributes(h5file["root"])) == 1
+
+                    h5file["root/scalars/name"] = "h5df!"
+                    daf = H5df(h5file["root"], "r")
+                    @assert daf.name == "h5df!"
+
                     daf = H5df(h5file["root"], "w"; name = "h5df!")
                     @test daf.name == "h5df!"
                     @test present(daf) == "H5df h5df!"
@@ -2996,11 +3009,12 @@ nested_test("data") do
                 @test description(daf) == dedent("""
                     name: files!
                     type: FilesDaf
-                    scalars:
-                      name: "files!"
                 """) * "\n"
                 test_format(daf)
                 mkdir(path * "/deleted")
+                daf = FilesDaf(path, "r")
+                @test daf.name == path
+                write(path * "/scalars/name.json", "{\"type\":\"String\",\"value\":\"files!\"}\n")
                 daf = FilesDaf(path, "r")
                 @assert isdir(path * "/deleted")
                 @test present(daf) == "ReadOnly FilesDaf files!"

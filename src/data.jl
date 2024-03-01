@@ -2,6 +2,10 @@
 The [`DafReader`](@ref) and [`DafWriter`](@ref) interfaces specify a high-level API for accessing `Daf` data. This API is
 implemented here, on top of the low-level [`FormatReader`](@ref) and [`FormatWriter`](@ref) API.
 
+Each data set is given a name to use in error messages etc. You can explicitly set this name when creating a `Daf`
+object. Otherwise, when opening an existing data set, if it contains a scalar "name" property, it is used. Otherwise
+some reasonable default is used. In all cases, object names are passed through [`unique_name`](@ref) to avoid ambiguity.
+
 Data properties are identified by a unique name given the axes they are based on. That is, there is a separate namespace
 for scalar properties, vector properties for each specific axis, and matrix properties for each **unordered** pair of
 axes.
@@ -20,10 +24,10 @@ top-level `Daf` namespace. It provides additional functionality on top of the lo
 
     In the APIs below, when getting a value, specifying a `default` of `undef` means that it is an `error` for the value
     not to exist. In contrast, specifying a `default` of `nothing` means it is OK for the value not to exist, returning
-    `nothing`, while specifying an actual value for `default` means it is OK for the value not to exist, returning the
+    `nothing`. Specifying an actual value for `default` means it is OK for the value not to exist, returning the
     `default` instead. This is in spirit with, but not identical to, `undef` being used as a flag for array construction
-    saying "there is no initializer". If you feel this is an abuse of the value, take some comfort in that this is the
-    default value for `default` so you almost never have to write it explicitly in your code.
+    saying "there is no initializer". If you feel this is an abuse of the `undef` value, take some comfort in that it is
+    the default value for the `default`, so you almost never have to write it explicitly in your code.
 """
 module Data
 
@@ -81,7 +85,7 @@ end
 """
     has_scalar(daf::DafReader, name::AbstractString)::Bool
 
-Check whether a scalar property with some `name` exists in `daf`.
+Check whether a scalar property with some `name` exists in `Daf`.
 """
 function has_scalar(daf::DafReader, name::AbstractString)::Bool
     result = Formats.format_has_scalar(daf, name)
@@ -97,7 +101,7 @@ end
         [overwrite::Bool = false]
     )::Nothing
 
-Set the `value` of a scalar property with some `name` in `daf`.
+Set the `value` of a scalar property with some `name` in `Daf`.
 
 If not `overwrite` (the default), this first verifies the `name` scalar property does not exist.
 """
@@ -124,9 +128,9 @@ end
         must_exist::Bool = true,
     )::Nothing
 
-Delete a scalar property with some `name` from `daf`.
+Delete a scalar property with some `name` from `Daf`.
 
-If `must_exist` (the default), this first verifies the `name` scalar property exists in `daf`.
+If `must_exist` (the default), this first verifies the `name` scalar property exists in `Daf`.
 """
 function delete_scalar!(daf::DafWriter, name::AbstractString; must_exist::Bool = true)::Nothing
     @debug "delete_scalar! $(daf.name) : $(name)$(must_exist ? "" : " ?")"
@@ -147,7 +151,7 @@ end
 """
     scalar_names(daf::DafReader)::Set{String}
 
-The names of the scalar properties in `daf`.
+The names of the scalar properties in `Daf`.
 """
 function scalar_names(daf::DafReader)::AbstractStringSet
     result = Formats.get_scalar_names_through_cache(daf)
@@ -162,9 +166,9 @@ end
         [default::Union{StorageScalar, Nothing, UndefInitializer} = undef]
     )::Maybe{StorageScalar}
 
-Get the value of a scalar property with some `name` in `daf`.
+Get the value of a scalar property with some `name` in `Daf`.
 
-If `default` is `undef` (the default), this first verifies the `name` scalar property exists in `daf`. Otherwise
+If `default` is `undef` (the default), this first verifies the `name` scalar property exists in `Daf`. Otherwise
 `default` will be returned if the property does not exist.
 """
 function get_scalar(
@@ -201,10 +205,10 @@ end
 """
     has_axis(daf::DafReader, axis::AbstractString)::Bool
 
-Check whether some `axis` exists in `daf`.
+Check whether some `axis` exists in `Daf`.
 """
 function has_axis(daf::DafReader, axis::AbstractString)::Bool
-    result = Formats.format_has_axis(daf, axis)
+    result = Formats.format_has_axis(daf, axis; for_change = false)
     # @debug "has_axis $(daf.name) / $(axis) -> $(present(result))"
     return result
 end
@@ -216,16 +220,16 @@ end
         entries::AbstractStringVector
     )::Nothing
 
-Add a new `axis` `daf`.
+Add a new `axis` `Daf`.
 
 This first verifies the `axis` does not exist and that the `entries` are unique.
 """
 function add_axis!(daf::DafWriter, axis::AbstractString, entries::AbstractStringVector)::Nothing
     @debug "add_axis $(daf.name) / $(axis) <- $(present(entries))"
 
-    require_no_axis(daf, axis)
+    require_no_axis(daf, axis; for_change = true)
 
-    if !allunique(entries)  # NOJET
+    if !allunique(entries)
         error("non-unique entries for new axis: $(axis)\nin the daf data: $(daf.name)")
     end
 
@@ -242,18 +246,18 @@ end
         must_exist::Bool = true,
     )::Nothing
 
-Delete an `axis` from the `daf`. This will also delete any vector or matrix properties that are based on this axis.
+Delete an `axis` from the `Daf`. This will also delete any vector or matrix properties that are based on this axis.
 
-If `must_exist` (the default), this first verifies the `axis` exists in the `daf`.
+If `must_exist` (the default), this first verifies the `axis` exists in the `Daf`.
 """
 function delete_axis!(daf::DafWriter, axis::AbstractString; must_exist::Bool = true)::Nothing
     @debug "delete_axis! $(daf.name) / $(axis)$(must_exist ? "" : " ?")"
 
     if must_exist
-        require_axis(daf, axis)
+        require_axis(daf, axis; for_change = true)
     end
 
-    if !Formats.format_has_axis(daf, axis)
+    if !Formats.format_has_axis(daf, axis; for_change = true)
         return nothing
     end
 
@@ -284,7 +288,7 @@ end
 """
     axis_names(daf::DafReader)::AbstractStringSet
 
-The names of the axes of `daf`.
+The names of the axes of `Daf`.
 """
 function axis_names(daf::DafReader)::AbstractStringSet
     result = Formats.get_axis_names_through_cache(daf)
@@ -295,14 +299,14 @@ end
 """
     get_axis(
         daf::DafReader,
-        axis::AbstractString
-        [; default::Union{Nothing, UndefInitializer} = undef]
+        axis::AbstractString;
+        [default::Union{Nothing, UndefInitializer} = undef]
     )::Maybe{AbstractStringVector}
 
-The unique names of the entries of some `axis` of `daf`. This is similar to doing [`get_vector`](@ref) for the special
+The unique names of the entries of some `axis` of `Daf`. This is similar to doing [`get_vector`](@ref) for the special
 `name` property, except that it returns a simple vector of strings instead of a `NamedVector`.
 
-If `default` is `undef` (the default), this verifies the `axis` exists in `daf`. Otherwise, the `default` is `nothing`,
+If `default` is `undef` (the default), this verifies the `axis` exists in `Daf`. Otherwise, the `default` is `nothing`,
 which is returned if the `axis` does not exist.
 """
 function get_axis(
@@ -328,9 +332,9 @@ end
 """
     axis_length(daf::DafReader, axis::AbstractString)::Int64
 
-The number of entries along the `axis` in `daf`.
+The number of entries along the `axis` in `Daf`.
 
-This first verifies the `axis` exists in `daf`.
+This first verifies the `axis` exists in `Daf`.
 """
 function axis_length(daf::DafReader, axis::AbstractString)::Int64
     require_axis(daf, axis)
@@ -339,15 +343,15 @@ function axis_length(daf::DafReader, axis::AbstractString)::Int64
     return result
 end
 
-function require_axis(daf::DafReader, axis::AbstractString)::Nothing
-    if !Formats.format_has_axis(daf, axis)
+function require_axis(daf::DafReader, axis::AbstractString; for_change::Bool = false)::Nothing
+    if !Formats.format_has_axis(daf, axis; for_change = for_change)
         error("missing axis: $(axis)\nin the daf data: $(daf.name)")
     end
     return nothing
 end
 
-function require_no_axis(daf::DafReader, axis::AbstractString)::Nothing
-    if Formats.format_has_axis(daf, axis)
+function require_no_axis(daf::DafReader, axis::AbstractString; for_change::Bool = false)::Nothing
+    if Formats.format_has_axis(daf, axis; for_change = for_change)
         error("existing axis: $(axis)\nin the daf data: $(daf.name)")
     end
     return nothing
@@ -356,10 +360,10 @@ end
 """
     has_vector(daf::DafReader, axis::AbstractString, name::AbstractString)::Bool
 
-Check whether a vector property with some `name` exists for the `axis` in `daf`. This is always true for the special
+Check whether a vector property with some `name` exists for the `axis` in `Daf`. This is always true for the special
 `name` property.
 
-This first verifies the `axis` exists in `daf`.
+This first verifies the `axis` exists in `Daf`.
 """
 function has_vector(daf::DafReader, axis::AbstractString, name::AbstractString)::Bool
     require_axis(daf, axis)
@@ -377,11 +381,11 @@ end
         [overwrite::Bool = false]
     )::Nothing
 
-Set a vector property with some `name` for some `axis` in `daf`.
+Set a vector property with some `name` for some `axis` in `Daf`.
 
 If the `vector` specified is actually a [`StorageScalar`](@ref), the stored vector is filled with this value.
 
-This first verifies the `axis` exists in `daf`, that the property name isn't `name`, and that the `vector` has the
+This first verifies the `axis` exists in `Daf`, that the property name isn't `name`, and that the `vector` has the
 appropriate length. If not `overwrite` (the default), this also verifies the `name` vector does not exist for the
 `axis`.
 """
@@ -428,13 +432,13 @@ end
         [overwrite::Bool = false]
     )::Any where {T <: StorageNumber}
 
-Create an empty dense vector property with some `name` for some `axis` in `daf`, pass it to `fill`, and return the result.
+Create an empty dense vector property with some `name` for some `axis` in `Daf`, pass it to `fill`, and return the result.
 
 The returned vector will be uninitialized; the caller is expected to `fill` it with values. This saves creating a copy of
 the vector before setting it in the data, which makes a huge difference when creating vectors on disk (using memory
 mapping). For this reason, this does not work for strings, as they do not have a fixed size.
 
-This first verifies the `axis` exists in `daf` and that the property name isn't `name`. If not `overwrite` (the
+This first verifies the `axis` exists in `Daf` and that the property name isn't `name`. If not `overwrite` (the
 default), this also verifies the `name` vector does not exist for the `axis`.
 """
 function empty_dense_vector!(
@@ -476,7 +480,7 @@ end
         [overwrite::Bool = false]
     )::Any where {T <: StorageNumber, I <: StorageInteger}
 
-Create an empty sparse vector property with some `name` for some `axis` in `daf`, pass it to `fill` and return the
+Create an empty sparse vector property with some `name` for some `axis` in `Daf`, pass it to `fill` and return the
 result.
 
 The returned vector will be uninitialized; the caller is expected to `fill` it with values. This means manually filling
@@ -495,7 +499,7 @@ allows doing so directly into the data vector, avoiding a copy in case of memory
       - `nzind[i] <= nzind[i + 1]`
       - `nzind[end] == nnz`
 
-This first verifies the `axis` exists in `daf` and that the property name isn't `name`. If not `overwrite` (the
+This first verifies the `axis` exists in `Daf` and that the property name isn't `name`. If not `overwrite` (the
 default), this also verifies the `name` vector does not exist for the `axis`.
 """
 function empty_sparse_vector!(
@@ -536,9 +540,9 @@ end
         must_exist::Bool = true,
     )::Nothing
 
-Delete a vector property with some `name` for some `axis` from `daf`.
+Delete a vector property with some `name` for some `axis` from `Daf`.
 
-This first verifies the `axis` exists in `daf` and that the property name isn't `name`. If `must_exist` (the default),
+This first verifies the `axis` exists in `Daf` and that the property name isn't `name`. If `must_exist` (the default),
 this also verifies the `name` vector exists for the `axis`.
 """
 function delete_vector!(daf::DafWriter, axis::AbstractString, name::AbstractString; must_exist::Bool = true)::Nothing
@@ -565,9 +569,9 @@ end
 """
     vector_names(daf::DafReader, axis::AbstractString)::Set{String}
 
-The names of the vector properties for the `axis` in `daf`, **not** including the special `name` property.
+The names of the vector properties for the `axis` in `Daf`, **not** including the special `name` property.
 
-This first verifies the `axis` exists in `daf`.
+This first verifies the `axis` exists in `Daf`.
 """
 function vector_names(daf::DafReader, axis::AbstractString)::AbstractStringSet
     require_axis(daf, axis)
@@ -584,12 +588,12 @@ end
         [default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef]
     )::Maybe{NamedVector}
 
-Get the vector property with some `name` for some `axis` in `daf`. The names of the result are the names of the vector
+Get the vector property with some `name` for some `axis` in `Daf`. The names of the result are the names of the vector
 entries (same as returned by [`get_axis`](@ref)). The special property `name` returns an array whose values are also the
 (read-only) names of the entries of the axis.
 
-This first verifies the `axis` exists in `daf`. If `default` is `undef` (the default), this first verifies the `name`
-vector exists in `daf`. Otherwise, if `default` is `nothing`, it will be returned. If it is a `StorageVector`, it has to
+This first verifies the `axis` exists in `Daf`. If `default` is `undef` (the default), this first verifies the `name`
+vector exists in `Daf`. Otherwise, if `default` is `nothing`, it will be returned. If it is a `StorageVector`, it has to
 be of the same size as the `axis`, and is returned. If it is a [`StorageScalar`](@ref). Otherwise, a new `Vector` is
 created of the correct size containing the `default`, and is returned.
 """
@@ -646,7 +650,7 @@ function get_vector(
         if !(vector isa StorageVector)
             error(  # untested
                 "format_get_vector for daf format: $(typeof(daf))\n" *
-                "returned invalid Daf.StorageVector: $(typeof(vector))",
+                "returned invalid Daf.StorageVector: $(present(vector))",
             )
         end
         if length(vector) != Formats.format_axis_length(daf, axis)
@@ -688,14 +692,14 @@ end
         [relayout::Bool = true]
     )::Bool
 
-Check whether a matrix property with some `name` exists for the `rows_axis` and the `columns_axis` in `daf`. Since this
+Check whether a matrix property with some `name` exists for the `rows_axis` and the `columns_axis` in `Daf`. Since this
 is Julia, this means a column-major matrix. A daf may contain two copies of the same data, in which case it would report
 the matrix under both axis orders.
 
 If `relayout` (the default), this will also check whether the data exists in the other layout (that is, with flipped
 axes).
 
-This first verifies the `rows_axis` and `columns_axis` exists in `daf`.
+This first verifies the `rows_axis` and `columns_axis` exists in `Daf`.
 """
 function has_matrix(
     daf::DafReader,
@@ -704,9 +708,13 @@ function has_matrix(
     name::AbstractString;
     relayout::Bool = true,
 )::Bool
+    relayout = relayout && rows_axis != columns_axis
+
     require_axis(daf, rows_axis)
     require_axis(daf, columns_axis)
+
     result =
+        haskey(daf.internal.cache, Formats.matrix_cache_key(rows_axis, columns_axis, name)) ||
         Formats.format_has_matrix(daf, rows_axis, columns_axis, name) ||
         (relayout && Formats.format_has_matrix(daf, columns_axis, rows_axis, name))
     # @debug "has_matrix $(daf.name) / $(rows_axis) / $(columns_axis) : $(name) $(relayout ? "%" : "#")> $(result)"
@@ -724,7 +732,7 @@ end
         relayout::Bool = true]
     )::Nothing
 
-Set the matrix property with some `name` for some `rows_axis` and `columns_axis` in `daf`. Since this is Julia, this
+Set the matrix property with some `name` for some `rows_axis` and `columns_axis` in `Daf`. Since this is Julia, this
 should be a column-major `matrix`.
 
 If the `matrix` specified is actually a [`StorageScalar`](@ref), the stored matrix is filled with this value.
@@ -733,7 +741,7 @@ If `relayout` (the default), this will also automatically [`relayout!`](@ref) th
 data would also be stored in row-major layout (that is, with the axes flipped), similarly to calling
 [`relayout_matrix!`](@ref).
 
-This first verifies the `rows_axis` and `columns_axis` exist in `daf`, that the `matrix` is column-major of the
+This first verifies the `rows_axis` and `columns_axis` exist in `Daf`, that the `matrix` is column-major of the
 appropriate size. If not `overwrite` (the default), this also verifies the `name` matrix does not exist for the
 `rows_axis` and `columns_axis`.
 """
@@ -746,6 +754,8 @@ function set_matrix!(
     overwrite::Bool = false,
     relayout::Bool = true,
 )::Nothing
+    relayout = relayout && rows_axis != columns_axis
+
     @debug "set_matrix! $(daf.name) / $(rows_axis) / $(columns_axis) : $(name) <$(relayout ? "%" : "#")$(overwrite ? "=" : "-") $(matrix)"
 
     require_axis(daf, rows_axis)
@@ -800,14 +810,14 @@ end
         [overwrite::Bool = false]
     )::Any where {T <: StorageNumber}
 
-Create an empty dense matrix property with some `name` for some `rows_axis` and `columns_axis` in `daf`, pass it to
+Create an empty dense matrix property with some `name` for some `rows_axis` and `columns_axis` in `Daf`, pass it to
 `fill`, and return the result. Since this is Julia, this will be a column-major `matrix`.
 
 The returned matrix will be uninitialized; the caller is expected to `fill` it with values. This saves creating a copy
-of the matrix before setting it in `daf`, which makes a huge difference when creating matrices on disk (using memory
+of the matrix before setting it in `Daf`, which makes a huge difference when creating matrices on disk (using memory
 mapping). For this reason, this does not work for strings, as they do not have a fixed size.
 
-This first verifies the `rows_axis` and `columns_axis` exist in `daf`, that the `matrix` is column-major of the
+This first verifies the `rows_axis` and `columns_axis` exist in `Daf`, that the `matrix` is column-major of the
 appropriate size. If not `overwrite` (the default), this also verifies the `name` matrix does not exist for the
 `rows_axis` and `columns_axis`.
 """
@@ -861,7 +871,7 @@ end
         [overwrite::Bool = false]
     )::Any where {T <: StorageNumber, I <: StorageInteger}
 
-Create an empty sparse matrix property with some `name` for some `rows_axis` and `columns_axis` in `daf`, pass it to
+Create an empty sparse matrix property with some `name` for some `rows_axis` and `columns_axis` in `Daf`, pass it to
 `fill`, and return the result.
 
 The returned matrix will be uninitialized; the caller is expected to `fill` it with values. This means manually filling
@@ -882,7 +892,7 @@ It is the caller's responsibility to fill the three vectors with valid data. Spe
   - `colptr[i] <= colptr[i + 1]`
   - for all `j`, for all `i` such that `colptr[j] <= i` and `i + 1 < colptr[j + 1]`, `1 <= rowptr[i] < rowptr[i + 1] <= nrows`
 
-This first verifies the `rows_axis` and `columns_axis` exist in `daf`. If not `overwrite` (the default), this also
+This first verifies the `rows_axis` and `columns_axis` exist in `Daf`. If not `overwrite` (the default), this also
 verifies the `name` matrix does not exist for the `rows_axis` and `columns_axis`.
 """
 function empty_sparse_matrix!(
@@ -929,14 +939,14 @@ end
         [overwrite::Bool = false]
     )::Nothing
 
-Given a matrix property with some `name` exists (in column-major layout) in `daf` for the `rows_axis` and the
+Given a matrix property with some `name` exists (in column-major layout) in `Daf` for the `rows_axis` and the
 `columns_axis`, then [`relayout!`](@ref) it and store the row-major result as well (that is, with flipped axes).
 
 This is useful following calling [`empty_dense_matrix!`](@ref) or [`empty_sparse_matrix!`](@ref) to ensure both layouts
 of the matrix are stored in `def`. When calling [`set_matrix!`](@ref), it is simpler to just specify (the default)
 `relayout = true`.
 
-This first verifies the `rows_axis` and `columns_axis` exist in `daf`, and that there is a `name` (column-major) matrix
+This first verifies the `rows_axis` and `columns_axis` exist in `Daf`, and that there is a `name` (column-major) matrix
 property for them. If not `overwrite` (the default), this also verifies the `name` matrix does not exist for the
 *flipped* `rows_axis` and `columns_axis`.
 
@@ -960,6 +970,15 @@ function relayout_matrix!(
 
     require_axis(daf, rows_axis)
     require_axis(daf, columns_axis)
+
+    if rows_axis == columns_axis
+        error(
+            "can't relayout square matrix: $(name)\n" *
+            "of the axis: $(rows_axis)\n" *
+            "due to daf representation limitations\n" *
+            "in the daf data: $(daf.name)",
+        )
+    end
 
     require_matrix(daf, rows_axis, columns_axis, name; relayout = false)
 
@@ -985,11 +1004,11 @@ end
         relayout::Bool = true]
     )::Nothing
 
-Delete a matrix property with some `name` for some `rows_axis` and `columns_axis` from `daf`.
+Delete a matrix property with some `name` for some `rows_axis` and `columns_axis` from `Daf`.
 
 If `relayout` (the default), this will also delete the matrix in the other layout (that is, with flipped axes).
 
-This first verifies the `rows_axis` and `columns_axis` exist in `daf`. If `must_exist` (the default), this also verifies
+This first verifies the `rows_axis` and `columns_axis` exist in `Daf`. If `must_exist` (the default), this also verifies
 the `name` matrix exists for the `rows_axis` and `columns_axis`.
 """
 function delete_matrix!(
@@ -1000,6 +1019,8 @@ function delete_matrix!(
     must_exist::Bool = true,
     relayout::Bool = true,
 )::Nothing
+    relayout = relayout && rows_axis != columns_axis
+
     @debug "delete_matrix! $(daf.name) / $(rows_axis) / $(columns_axis) : $(name) $(must_exist ? "" : " ?")"
 
     require_axis(daf, rows_axis)
@@ -1034,12 +1055,12 @@ end
         [relayout::Bool = true]
     )::Set{String}
 
-The names of the matrix properties for the `rows_axis` and `columns_axis` in `daf`.
+The names of the matrix properties for the `rows_axis` and `columns_axis` in `Daf`.
 
 If `relayout` (default), then this will include the names of matrices that exist in the other layout (that is, with
 flipped axes).
 
-This first verifies the `rows_axis` and `columns_axis` exist in `daf`.
+This first verifies the `rows_axis` and `columns_axis` exist in `Daf`.
 """
 function matrix_names(
     daf::DafReader,
@@ -1047,6 +1068,8 @@ function matrix_names(
     columns_axis::AbstractString;
     relayout::Bool = true,
 )::AbstractStringSet
+    relayout = relayout && rows_axis != columns_axis
+
     require_axis(daf, rows_axis)
     require_axis(daf, columns_axis)
 
@@ -1123,7 +1146,7 @@ end
         relayout::Bool = true]
     )::Maybe{NamedMatrix}
 
-Get the column-major matrix property with some `name` for some `rows_axis` and `columns_axis` in `daf`. The names of the
+Get the column-major matrix property with some `name` for some `rows_axis` and `columns_axis` in `Daf`. The names of the
 result axes are the names of the relevant axes entries (same as returned by [`get_axis`](@ref)).
 
 If `relayout` (the default), then if the matrix is only stored in the other memory layout (that is, with flipped axes),
@@ -1131,8 +1154,8 @@ then automatically call [`relayout!`](@ref) to compute the result. If `daf isa D
 future use; otherwise, just cache it as [`MemoryData`](@ref CacheType). This may lock up very large amounts of memory;
 you can call `empty_cache!` to release it.
 
-This first verifies the `rows_axis` and `columns_axis` exist in `daf`. If `default` is `undef` (the default), this first
-verifies the `name` matrix exists in `daf`. Otherwise, if `default` is `nothing`, it is returned. If `default` is a
+This first verifies the `rows_axis` and `columns_axis` exist in `Daf`. If `default` is `undef` (the default), this first
+verifies the `name` matrix exists in `Daf`. Otherwise, if `default` is `nothing`, it is returned. If `default` is a
 `StorageMatrix`, it has to be of the same size as the `rows_axis` and `columns_axis`, and is returned. Otherwise, a new
 `Matrix` is created of the correct size containing the `default`, and is returned.
 """
@@ -1144,6 +1167,8 @@ function get_matrix(
     default::Union{StorageNumber, StorageMatrix, Nothing, UndefInitializer} = undef,
     relayout::Bool = true,
 )::Maybe{NamedArray}
+    relayout = relayout && rows_axis != columns_axis
+
     require_axis(daf, rows_axis)
     require_axis(daf, columns_axis)
 
@@ -1206,7 +1231,7 @@ function get_matrix(
         if !(matrix isa StorageMatrix)
             error( # untested
                 "format_get_matrix for daf format: $(typeof(daf))\n" *
-                "returned invalid Daf.StorageMatrix: $(typeof(matrix))",
+                "returned invalid Daf.StorageMatrix: $(present(matrix))",
             )
         end
 
@@ -1233,7 +1258,7 @@ function get_matrix(
         if major_axis(matrix) != Columns
             error( # untested
                 "format_get_matrix for daf format: $(typeof(daf))\n" *
-                "returned non column-major matrix: $(typeof(matrix))",
+                "returned non column-major matrix: $(present(matrix))",
             )
         end
     end
@@ -1245,7 +1270,7 @@ end
 
 function require_column_major(matrix::StorageMatrix)::Nothing
     if major_axis(matrix) != Columns
-        error("type: $(typeof(matrix)) is not in column-major layout")
+        error("type not in column-major layout: $(present(matrix))")
     end
 end
 
@@ -1375,7 +1400,7 @@ end
 """
     description(daf::DafReader[; deep::Bool = false])::AbstractString
 
-Return a (multi-line) description of the contents of `daf`. This tries to hit a sweet spot between usefulness and
+Return a (multi-line) description of the contents of `Daf`. This tries to hit a sweet spot between usefulness and
 terseness. If `deep`, also describes any data set nested inside this one (if any).
 """
 function description(daf::DafReader; deep::Bool = false)::String
@@ -1515,8 +1540,8 @@ end
 
 """
     empty_cache!(
-        daf::DafReader
-        [; clear::Maybe{CacheType} = nothing,
+        daf::DafReader;
+        [clear::Maybe{CacheType} = nothing,
         keep::Maybe{CacheType} = nothing]
     )::Nothing
 

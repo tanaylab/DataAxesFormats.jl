@@ -167,7 +167,7 @@ Given an expression string, convert it into a vector of [`Token`](@ref).
 
 We first convert everything that matches the [`SPACE_REGEX`](@ref) into a single space. This squashed the expression
 into a single line (discarding line breaks and comments), and the squashed expression is used for reporting errors. This
-is reasonable for dealing with `daf` queries which are expected to be "relatively simple".
+is reasonable for dealing with `Daf` queries which are expected to be "relatively simple".
 
 When tokenizing, we discard the spaces. Anything that matches the [`VALUE_REGEX`](@ref) is considered to be a value
 [`Token`](@ref). Anything that matches the `operators` is considered to be an operator [`Token`](@ref). Anything else is

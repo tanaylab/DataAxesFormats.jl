@@ -185,9 +185,9 @@ This trusts the `name` scalar property exists in `format`.
 function format_get_scalar end
 
 """
-    format_has_axis(format::FormatReader, axis::AbstractString)::Bool
+    format_has_axis(format::FormatReader, axis::AbstractString; for_change::Bool)::Bool
 
-Check whether some `axis` exists in `format`.
+Check whether some `axis` exists in `format`. If `for_change`, this is done just prior to adding or deleting the axis.
 """
 function format_has_axis end
 
@@ -424,8 +424,8 @@ function format_empty_sparse_matrix! end
 [`relayout!`](@ref) the existing `name` column-major matrix property for the `rows_axis` and the `columns_axis` and
 store the results as a row-major matrix property (that is, with flipped axes).
 
-This trusts the `rows_axis` and `columns_axis` exist in `format`, that the `name` matrix property exists for them, and
-that it does not exist for the flipped axes.
+This trusts the `rows_axis` and `columns_axis` are different from each other, exist in `format`, that the `name` matrix
+property exists for them, and that it does not exist for the flipped axes.
 """
 function format_relayout_matrix! end
 

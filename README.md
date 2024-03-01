@@ -119,6 +119,12 @@ TODO: To install the Python wrappers...
 
 TODO: To install the R wrappers...
 
+## TODO
+
+TODO: Get a DataFrame in one API call (multiple vectors of the same axis).
+
+TODO: Repository API - `parent` and loading a whole chain - cache (weak?) opened data by path?
+
 ## License (MIT)
 
 Copyright © 2023-2024 Weizmann Institute of Science

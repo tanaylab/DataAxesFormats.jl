@@ -62,3 +62,7 @@ docs/v0.1.0/index.html: src/*.jl src/*.md deps/document.sh deps/document.jl
 .PHONY: clean
 clean:
 	deps/clean.sh
+
+.PHONY: add_pkgs
+add_pkgs:
+	deps/add_pkgs.sh

@@ -14,8 +14,8 @@ HDF5 storage, we use the following internal structure (which is **not** compatib
     contains the `Daf` data set you are interested it. By convention, at least if such files contain "mostly" (or only)
     `Daf` data sets, they are given a `.h5dfs` suffix, and are accompanied by some documentation describing the top-level
     groups in the file.
-  - Under the `Daf` data group, there are 4 sub-groups: `scalars`, `axes`, `vectors` and `matrices` and a `daf` dataset.
-  - To future-proof the format, the `daf` dataset will contain a vector of two integers, the first acting as the major
+  - Under the `Daf` data group, there are 4 sub-groups: `scalars`, `axes`, `vectors` and `matrices` and a `Daf` dataset.
+  - To future-proof the format, the `Daf` dataset will contain a vector of two integers, the first acting as the major
     version number and the second as the minor version number, using [semantic versioning](https://semver.org/). This
     makes it easy to test whether some group in an HDF5 file does/n't contain `Daf` data, and which version of the
     internal structure it is using. Currently the only defined version is `[1,0]`.
@@ -113,8 +113,9 @@ which cases the `Daf` data set will be stored directly in the root of the file (
 suffix). Alternatively, the `root` can be a group inside an HDF5 file, which allows to store multiple `Daf` data sets
 inside the same HDF5 file (by convention, using a `.h5dfs` file name suffix).
 
-If not specified, the `name` will be the value of the "name" scalar property, if it exists, otherwise, it will be the
-path of the HDF5 file, followed by the internal path of the group (if any).
+When opening an existing data set, if `name` is not specified, and there exists a "name" scalar property, it is used as
+the name. Otherwise, the path of the HDF5 file will be used as the name, followed by the internal path of the group (if
+any).
 
 The valid `mode` values are as follows (the default mode is `r`):
 
@@ -153,14 +154,14 @@ function H5df(
     if haskey(root, "daf")  # NOJET
         if truncate_if_exists
             delete_content(root)
-            create_daf(root, name)
+            create_daf(root)
         else
             verify_daf(root)
         end
     else
         if create_if_missing
             delete_content(root)
-            create_daf(root, name)
+            create_daf(root)
         else
             error("not a daf data set: $(root)")
         end
@@ -180,14 +181,14 @@ function H5df(
         if root isa HDF5.Group
             name = "$(root.file.filename):$(HDF5.name(root))"
         else
-            @assert root isa HDF5.File  # untested
-            name = root.filename  # untested
+            @assert root isa HDF5.File
+            name = root.filename
         end
     end
 
     h5df = H5df(Internal(name), root)
     if is_read_only
-        return read_only(h5df)  # untested
+        return read_only(h5df)
     else
         return h5df
     end
@@ -212,16 +213,12 @@ function verify_alignment(root::HDF5.File)::Nothing
     end
 end
 
-function create_daf(root::Union{HDF5.File, HDF5.Group}, name::Maybe{AbstractString})::Nothing
-    root["daf"] = [MAJOR_VERSION, MINOR_VERSION]  # NOJET
+function create_daf(root::Union{HDF5.File, HDF5.Group})::Nothing
+    root["daf"] = [MAJOR_VERSION, MINOR_VERSION]
     scalars_group = create_group(root, "scalars")
     axes_group = create_group(root, "axes")
     vectors_group = create_group(root, "vectors")
     matrices_group = create_group(root, "matrices")
-
-    if name != nothing
-        scalars_group["name"] = name
-    end
 
     close(scalars_group)
     close(axes_group)
@@ -234,7 +231,7 @@ end
 function verify_daf(root::Union{HDF5.File, HDF5.Group})::Nothing
     format_dataset = root["daf"]
     @assert format_dataset isa HDF5.Dataset
-    format_version = read(format_dataset)  # NOJET
+    format_version = read(format_dataset)
     @assert length(format_version) == 2
     @assert eltype(format_version) <: Unsigned
     if format_version[1] != MAJOR_VERSION || format_version[2] > MINOR_VERSION
@@ -294,7 +291,7 @@ function Formats.format_scalar_names(h5df::H5df)::AbstractStringSet
     return names
 end
 
-function Formats.format_has_axis(h5df::H5df, axis::AbstractString)::Bool
+function Formats.format_has_axis(h5df::H5df, axis::AbstractString; for_change::Bool)::Bool
     axes_group = h5df.root["axes"]
     @assert axes_group isa HDF5.Group
     return haskey(axes_group, axis)
@@ -814,19 +811,5 @@ function dataset_as_matrix(dataset::HDF5.Dataset)::Tuple{StorageMatrix, CacheTyp
         return (read(dataset), MemoryData)  # untested
     end
 end
-
-# function dump_tree(name::AbstractString, root::Union{HDF5.File, HDF5.Group}, indent = "")::Nothing
-#     println("TODO X $(indent)$(name):")
-#     indent *= "  "
-#     for key in keys(root)
-#         value = root[key]
-#         if value isa HDF5.Dataset
-#             value = read(value)
-#             println("TODO X $(indent)$(key): $(typeof(value)) $(value)")
-#         else
-#             dump_tree(key, value, indent)
-#         end
-#    end
-# end
 
 end

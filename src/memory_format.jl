@@ -8,14 +8,18 @@ export MemoryDaf
 using Daf.Data
 using Daf.Formats
 using Daf.MatrixLayouts
+using Daf.Messages
 using Daf.StorageTypes
+using Daf.Unions
 using SparseArrays
 
 import Daf.Formats
 import Daf.Formats.Internal
 
 """
-    MemoryDaf(; name::AbstractString = "memory")
+    struct MemoryDaf <: DafWriter ... end
+
+    MemoryDaf(; name = "memory")
 
 Simple in-memory storage.
 
@@ -41,7 +45,8 @@ function MemoryDaf(; name::AbstractString = "memory")::MemoryDaf
     axes = Dict{String, AbstractStringVector}()
     vectors = Dict{String, Dict{String, StorageVector{String}}}()
     matrices = Dict{String, Dict{String, Dict{String, StorageVector{String}}}}()
-    return MemoryDaf(Internal(name), scalars, axes, vectors, matrices)
+    memory = MemoryDaf(Internal(name), scalars, axes, vectors, matrices)
+    return memory
 end
 
 function Formats.format_has_scalar(memory::MemoryDaf, name::AbstractString)::Bool
@@ -66,7 +71,7 @@ function Formats.format_scalar_names(memory::MemoryDaf)::AbstractStringSet
     return keys(memory.scalars)
 end
 
-function Formats.format_has_axis(memory::MemoryDaf, axis::AbstractString)::Bool
+function Formats.format_has_axis(memory::MemoryDaf, axis::AbstractString; for_change::Bool)::Bool
     return haskey(memory.axes, axis)
 end
 

@@ -117,14 +117,14 @@ MINOR_VERSION::UInt8 = 0
 """
     FilesDaf(
         path::AbstractString,
-        mode::AbstractString = "r",
-        [; name::Maybe{AbstractString} = nothing]
+        mode::AbstractString = "r";
+        [name::Maybe{AbstractString} = nothing]
     )
 
 Storage in disk files in some directory.
 
-If not specified, the `name` will be the value of the "name" scalar property, if it exists, otherwise, it will be the
-specified `path`.
+When opening an existing data set, if `name` is not specified, and there exists a "name" scalar property, it is used as
+the name. Otherwise, the `path` will be used as the name.
 
 The valid `mode` values are as follows (the default mode is `r`):
 
@@ -167,12 +167,6 @@ function FilesDaf(
             for directory in ("scalars", "axes", "vectors", "matrices")
                 mkdir("$(path)/$(directory)")
             end
-
-            if name != nothing
-                open("$(path)/scalars/name.json", "w") do file
-                    return JSON.Writer.print(file, Dict("type" => "String", "value" => name))
-                end
-            end
         end
     end
 
@@ -198,7 +192,7 @@ function FilesDaf(
         if ispath(name_path)
             name = string(read_scalar(name_path))
         else
-            name = path  # untested
+            name = path
         end
     end
 
@@ -257,10 +251,12 @@ function read_scalar(path::AbstractString)::StorageScalar
 end
 
 function Formats.format_scalar_names(files::FilesDaf)::AbstractStringSet
-    return get_names_set(files, "$(files.path)/scalars", ".json")
+    names_set = get_names_set(files, "$(files.path)/scalars", ".json")
+    Formats.cache_scalar_names!(files, names_set, MemoryData)
+    return names_set
 end
 
-function Formats.format_has_axis(files::FilesDaf, axis::AbstractString)::Bool
+function Formats.format_has_axis(files::FilesDaf, axis::AbstractString; for_change::Bool)::Bool
     return ispath("$(files.path)/axes/$(axis).txt")
 end
 
@@ -298,7 +294,9 @@ function Formats.format_delete_axis!(files::FilesDaf, axis::AbstractString)::Not
 end
 
 function Formats.format_axis_names(files::FilesDaf)::AbstractStringSet
-    return get_names_set(files, "$(files.path)/axes", ".txt")
+    names_set = get_names_set(files, "$(files.path)/axes", ".txt")
+    Formats.cache_axis_names!(files, names_set, MemoryData)
+    return names_set
 end
 
 function Formats.format_get_axis(files::FilesDaf, axis::AbstractString)::AbstractStringVector
@@ -407,7 +405,9 @@ function Formats.format_delete_vector!(
 end
 
 function Formats.format_vector_names(files::FilesDaf, axis::AbstractString)::AbstractStringSet
-    return get_names_set(files, "$(files.path)/vectors/$(axis)", ".json")
+    names_set = get_names_set(files, "$(files.path)/vectors/$(axis)", ".json")
+    Formats.cache_vector_names!(files, axis, names_set, MemoryData)
+    return names_set
 end
 
 function Formats.format_get_vector(files::FilesDaf, axis::AbstractString, name::AbstractString)::StorageVector
@@ -595,7 +595,9 @@ function Formats.format_matrix_names(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
 )::AbstractStringSet
-    return get_names_set(files, "$(files.path)/matrices/$(rows_axis)/$(columns_axis)", ".json")
+    names_set = get_names_set(files, "$(files.path)/matrices/$(rows_axis)/$(columns_axis)", ".json")
+    Formats.cache_matrix_names!(files, rows_axis, columns_axis, names_set, MemoryData)
+    return names_set
 end
 
 function Formats.format_get_matrix(

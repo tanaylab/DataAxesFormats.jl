@@ -109,7 +109,7 @@ end
 """
     function verify_input(daf::DafReader, contract::Contract, computation::AbstractString)::Nothing
 
-Verify the `daf` data when a computation is invoked. This verifies that all the required data exists and is of the
+Verify the `Daf` data when a computation is invoked. This verifies that all the required data exists and is of the
 appropriate type, and that if any of the optional data exists, it has the appropriate type.
 """
 function verify_input(contract::Contract, computation::AbstractString, daf::DafReader)::Nothing
@@ -119,7 +119,7 @@ end
 """
     function verify_output(daf::DafReader, contract::Contract, computation::AbstractString)::Nothing
 
-Verify the `daf` data when a computation is complete. This verifies that all the guaranteed data exists and is of the
+Verify the `Daf` data when a computation is complete. This verifies that all the guaranteed data exists and is of the
 appropriate type, and that if any of the contingent data exists, it has the appropriate type.
 """
 function verify_output(contract::Contract, computation::AbstractString, daf::DafReader)::Nothing
@@ -253,7 +253,7 @@ function verify_matrix_contract(
         )
     end
     if is_possible(expectation; is_output = is_output) && value != nothing && !(eltype(value) <: data_type)
-        error(
+        error(  # NOJET
             "unexpected type: $(eltype(value))\n" *
             "instead of type: $(data_type)\n" *
             "for the $(direction_name(is_output)) matrix: $(name)\n" *

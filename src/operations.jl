@@ -201,7 +201,7 @@ function error_invalid_parameter_value(  # untested
     parameter_value::Token,
     must_be::AbstractString,
 )::Union{}
-    return error_at_token(  # untested
+    return error_at_token(
         parameter_value,
         "invalid value: \"$(escape_string(parameter_value.value))\"\n" *
         "value must be: $(must_be)\n" *
@@ -275,11 +275,11 @@ function parse_int_dtype_value(  # untested
     parameter_name::AbstractString,
     parameter_value::Token,
 )::Maybe{Type}
-    dtype = parse_dtype_value(operation_name, parameter_name, parameter_value)  # untested
-    if dtype <: Integer  # untested
-        return dtype  # untested
+    dtype = parse_dtype_value(operation_name, parameter_name, parameter_value)
+    if dtype <: Integer
+        return dtype
     else
-        error_invalid_parameter_value(operation_name, parameter_name, parameter_value, "an integer type")  # untested
+        error_invalid_parameter_value(operation_name, parameter_name, parameter_value, "an integer type")
     end
 end
 
@@ -297,11 +297,11 @@ function parse_float_dtype_value(  # untested
     parameter_name::AbstractString,
     parameter_value::Token,
 )::Maybe{Type}
-    dtype = parse_dtype_value(operation_name, parameter_name, parameter_value)  # untested
-    if dtype <: AbstractFloat  # untested
-        return dtype  # untested
+    dtype = parse_dtype_value(operation_name, parameter_name, parameter_value)
+    if dtype <: AbstractFloat
+        return dtype
     else
-        error_invalid_parameter_value(operation_name, parameter_name, parameter_value, "a float type")  # untested
+        error_invalid_parameter_value(operation_name, parameter_name, parameter_value, "a float type")
     end
 end
 
@@ -394,8 +394,8 @@ function compute_eltwise(
 end
 
 function compute_eltwise(operation::Abs, input::StorageNumber)::StorageNumber  # untested
-    dtype = unsigned_dtype_for(eltype(input), operation.dtype)  # untested
-    return dtype(abs(input))  # untested
+    dtype = unsigned_dtype_for(eltype(input), operation.dtype)
+    return dtype(abs(input))
 end
 
 """

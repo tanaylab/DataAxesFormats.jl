@@ -39,8 +39,8 @@ end
 """
     read_only(daf::DafReader[; name::Maybe{AbstractString]} = nothing)::ReadOnlyView
 
-Wrap `daf` with a `ReadOnlyView` to protect it against accidental modification. If given a read-only `daf`, return it
-as-is. If not specified, the `name` of the `daf` is reused.
+Wrap `Daf` with a `ReadOnlyView` to protect it against accidental modification. If given a read-only `Daf`, return it
+as-is. If not specified, the `name` of the `Daf` is reused.
 """
 function read_only(daf::DafReader; name::Maybe{AbstractString} = nothing)::ReadOnlyView
     if name == nothing
@@ -69,8 +69,8 @@ function Formats.format_scalar_names(read_only_view::ReadOnlyView)::AbstractStri
     return Formats.format_scalar_names(read_only_view.daf)
 end
 
-function Formats.format_has_axis(read_only_view::ReadOnlyView, axis::AbstractString)::Bool
-    return Formats.format_has_axis(read_only_view.daf, axis)
+function Formats.format_has_axis(read_only_view::ReadOnlyView, axis::AbstractString; for_change::Bool)::Bool
+    return Formats.format_has_axis(read_only_view.daf, axis; for_change = for_change)
 end
 
 function Formats.format_axis_names(read_only_view::ReadOnlyView)::AbstractStringSet

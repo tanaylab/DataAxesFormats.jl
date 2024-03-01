@@ -162,15 +162,15 @@ function present_matrix_size(matrix::AbstractMatrix, kind::AbstractString; trans
     end
 
     if layout == nothing
-        suffix = kind  # untested
+        layout_suffix = "w/o major axis"  # untested
     else
-        suffix = "$(kind) in $(axis_name(layout))"
+        layout_suffix = "in $(axis_name(layout))"
     end
 
     if transposed
-        return "$(size(matrix, 2)) x $(size(matrix, 1)) x $(eltype(matrix)) ($(suffix))"
+        return "$(size(matrix, 2)) x $(size(matrix, 1)) x $(eltype(matrix)) $(layout_suffix) (transposed $(kind))"
     else
-        return "$(size(matrix, 1)) x $(size(matrix, 2)) x $(eltype(matrix)) ($(suffix))"
+        return "$(size(matrix, 1)) x $(size(matrix, 2)) x $(eltype(matrix)) $(layout_suffix) ($(kind))"
     end
 end
 

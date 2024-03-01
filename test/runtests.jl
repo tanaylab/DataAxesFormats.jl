@@ -6,6 +6,7 @@ using Daf
 using ExceptionUnwrapping
 using HDF5
 using LinearAlgebra
+using Muon
 using NamedArrays
 using NestedTests
 using SparseArrays
@@ -65,6 +66,7 @@ end
 include("matrix_layouts.jl")
 include("messages.jl")
 include("data.jl")
+include("anndata.jl")
 include("tokens.jl")
 include("queries.jl")
 include("registry.jl")

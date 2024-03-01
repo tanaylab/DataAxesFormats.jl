@@ -69,6 +69,9 @@ include("h5df_format.jl")
 include("files_format.jl")
 @reexport using Daf.FilesFormat
 
+include("anndata_format.jl")
+@reexport using Daf.AnnDataFormat
+
 include("contracts.jl")
 @reexport using Daf.Contracts
 

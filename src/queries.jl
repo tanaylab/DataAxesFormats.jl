@@ -1489,11 +1489,11 @@ end
 
 """
     function get_query(
-        daf::DafReader, query::Union{Query, AbstractString}
-        [; cache::Bool = true]
+        daf::DafReader, query::Union{Query, AbstractString};
+        [cache::Bool = true]
     )::Union{StorageScalar, NamedVector, NamedMatrix}
 
-Apply the full `query` to the `daf` data and return the result. By default, this will cache results, so repeated queries
+Apply the full `query` to the `Daf` data and return the result. By default, this will cache results, so repeated queries
 will be accelerated. This may consume a large amount of memory. You can disable it by specifying `cache = false`, or
 release the cached data using [`empty_cache!`](@ref).
 

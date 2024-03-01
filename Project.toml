@@ -4,6 +4,7 @@ authors = ["Oren Ben-Kiki <oren@ben-kiki.org>"]
 version = "0.1.0"
 
 [deps]
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 EnumX = "4e289a0a-7415-4d19-859d-a7e5c4648b56"
