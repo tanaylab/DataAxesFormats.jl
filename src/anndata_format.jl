@@ -3,7 +3,16 @@ Import/export `Daf` data from/to `AnnData`.
 
 Due to the different data models, not all the content of `AnnData` can be represented as `Daf`, and vice-versa. However,
 "most" of the data can be automatically converted from one form to the other. In both directions, conversion is
-zero-copy; that is, we merely create a different view for the same vectors and matrices.
+zero-copy; that is, we merely create a different view for the same vectors and matrices. We also use memory-mapping
+whenever possible for increased performance.
+
+!!! note
+
+    As of Muon.jl 0.1.1, datasets created by `AnnData` are always written in chunked layout, which rules out
+    memory-mapping them. In contrast, the Python `anndata` package, as of version 0.10.5, always writes datasets as
+    contiguous, which does allow memory mapping them. That is, using `Daf` to access `AnnData` files written in Python
+    will be more efficient than accessing data files written in Julia, at least until [this
+    issue](https://github.com/scverse/Muon.jl/issues/24) is resolved. Sigh.
 
 The following `Daf` data can't be naively stored in `AnnData`:
 
@@ -72,6 +81,7 @@ using Daf.MemoryFormat
 using Daf.StorageTypes
 using Daf.Unions
 using DataFrames
+using HDF5
 using Muon
 import Daf.Data.require_matrix
 import Daf.Formats
@@ -221,7 +231,7 @@ function verify_is_supported_type(
             "unsupported type for $(property): $(typeof(value))\nsupported type is: $(supported_type)\n",
         )
     end
-    if value isa StorageMatrix && major_axis(value) == nothing
+    if value isa StorageMatrix && !(value isa Muon.TransposedDataset) && major_axis(value) == nothing
         report_unsupported(name, unsupported_policy, "type not in row/column-major layout: $(typeof(value))\n")  # untested
     end
     return nothing
@@ -297,7 +307,7 @@ end
 function copy_supported_square_matrices(dict::AbstractDict, memory::MemoryDaf, axis::AbstractString)::Nothing
     for (name, matrix) in dict
         if matrix isa StorageMatrix
-            set_matrix!(memory, axis, axis, name, transpose(matrix))
+            set_matrix!(memory, axis, axis, name, transpose(access_matrix(matrix)); relayout = false)
         end
     end
 end
@@ -309,7 +319,7 @@ function copy_supported_matrices(
     columns_axis::AbstractString,
 )::Nothing
     for (name, matrix) in dict
-        copy_supported_matrix(matrix, memory, rows_axis, columns_axis, name)
+        copy_supported_matrix(access_matrix(matrix), memory, rows_axis, columns_axis, name)
     end
 end
 
@@ -320,6 +330,17 @@ function copy_supported_matrix(  # untested
     columns_axis::AbstractString,
     name::AbstractString,
 )::Nothing
+    return nothing
+end
+
+function copy_supported_matrix(
+    matrix::Muon.TransposedDataset,
+    memory::MemoryDaf,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+)::Nothing
+    copy_supported_matrix(access_matrix(matrix), memory, rows_axis, columns_axis, name)
     return nothing
 end
 
@@ -336,8 +357,21 @@ function copy_supported_matrix(
         rows_axis, columns_axis = columns_axis, rows_axis
     end
     if matrix_major_axis != nothing
-        set_matrix!(memory, rows_axis, columns_axis, name, matrix)
+        set_matrix!(memory, rows_axis, columns_axis, name, matrix; relayout = false)
     end
+end
+
+function access_matrix(matrix::Muon.TransposedDataset)::AbstractMatrix
+    dataset = matrix.dset
+    if HDF5.ismmappable(dataset) && HDF5.iscontiguous(dataset)
+        return transpose(HDF5.readmmap(dataset))  # untested
+    else
+        return transpose(read(dataset))
+    end
+end
+
+function access_matrix(matrix::Any)::Any
+    return matrix
 end
 
 """

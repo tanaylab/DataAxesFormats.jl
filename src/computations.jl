@@ -27,7 +27,7 @@ function computation_wrapper(name::AbstractString, inner_function)
     end;
     result = inner_function(args...; kwargs...);
     @debug "done: $(name) }";
-    result)
+    result)  # untested
 end
 
 function computation_wrapper(contract::Contract, name::AbstractString, inner_function)
@@ -39,7 +39,7 @@ function computation_wrapper(contract::Contract, name::AbstractString, inner_fun
     result = inner_function(daf, args...; kwargs...);
     @debug "done: $(name) }";
     verify_output(contract, name, daf);
-    result)
+    result)  # untested
 end
 
 function computation_wrapper(first_contract::Contract, second_contract::Contract, name::AbstractString, inner_function)
@@ -54,7 +54,7 @@ function computation_wrapper(first_contract::Contract, second_contract::Contract
         @debug "done: $(name) }";
         verify_output(first_contract, name, first_daf);
         verify_output(second_contract, name, second_daf);
-        result)
+        result)  # untested
 end
 
 struct FunctionMetadata

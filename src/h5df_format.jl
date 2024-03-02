@@ -214,7 +214,7 @@ function verify_alignment(root::HDF5.File)::Nothing
 end
 
 function create_daf(root::Union{HDF5.File, HDF5.Group})::Nothing
-    root["daf"] = [MAJOR_VERSION, MINOR_VERSION]
+    root["daf"] = [MAJOR_VERSION, MINOR_VERSION]  # NOJET
     scalars_group = create_group(root, "scalars")
     axes_group = create_group(root, "axes")
     vectors_group = create_group(root, "vectors")
@@ -231,7 +231,7 @@ end
 function verify_daf(root::Union{HDF5.File, HDF5.Group})::Nothing
     format_dataset = root["daf"]
     @assert format_dataset isa HDF5.Dataset
-    format_version = read(format_dataset)
+    format_version = read(format_dataset)  # NOJET
     @assert length(format_version) == 2
     @assert eltype(format_version) <: Unsigned
     if format_version[1] != MAJOR_VERSION || format_version[2] > MINOR_VERSION

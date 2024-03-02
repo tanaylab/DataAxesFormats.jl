@@ -42,7 +42,6 @@ export WarnPolicy
 using Daf.Unions
 using Distributed
 using LinearAlgebra
-using Muon
 using NamedArrays
 using SparseArrays
 
@@ -86,12 +85,6 @@ end
 
 Return the index of the major axis of a matrix, that is, the axis one should keep **fixed** for an efficient inner loop
 accessing the matrix elements. If the matrix doesn't support any efficient access axis, returns `nothing`.
-
-!!! note
-
-    As of version 0.1.1, `Muon` always expects `AnnData` matrices to be stored in row-major order and therefore exposes
-    them as a `TransposedDataset`. However it neglects to implement the `strides` method. To allow accessing `AnnData`
-    matrices via `Daf`, we declare `TransposedDataset` to be row-major even though it doesn't implement `strides`. Sigh.
 """
 function major_axis(matrix::NamedMatrix)::Maybe{Int8}
     return major_axis(matrix.array)
@@ -107,10 +100,6 @@ end
 
 function major_axis(matrix::AbstractSparseMatrix)::Maybe{Int8}
     return Columns
-end
-
-function major_axis(matrix::Muon.TransposedDataset)::Maybe{Int8}
-    return Rows
 end
 
 function major_axis(matrix::AbstractMatrix)::Maybe{Int8}
@@ -322,10 +311,6 @@ function relayout!(matrix::AbstractSparseMatrix)::AbstractMatrix
     return transpose(SparseMatrixCSC(transpose(matrix)))
 end
 
-function relayout!(matrix::Muon.TransposedDataset)::AbstractMatrix
-    return Matrix(matrix)  # NOJET
-end
-
 function relayout!(matrix::AbstractMatrix)::AbstractMatrix
     return transpose(transpose!(similar(transpose(matrix)), matrix))
 end
@@ -345,7 +330,7 @@ function relayout!(into::SparseMatrixCSC, from::NamedMatrix)::AbstractMatrix  # 
 end
 
 function relayout!(into::NamedArray, from::NamedMatrix)::NamedArray
-    @assert into.dimnames == from.dimnames
+    @assert into.dimnames == from.dimnames  # NOJET
     @assert into.dicts == from.dicts
     return NamedArray(relayout!(into.array, from.array), from.dicts, from.dimnames)
 end
