@@ -501,4 +501,4 @@ function copy_matrices(
     end
 end
 
-end
+end  # module

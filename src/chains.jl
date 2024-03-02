@@ -521,7 +521,15 @@ function ReadOnly.read_only(daf::ReadOnlyChain, name::Maybe{AbstractString} = no
     if name == nothing
         return daf
     else
-        internal = Internal(name, daf.internal.axes, daf.internal.cache, daf.internal.dependency_cache_keys)
+        internal = Internal(
+            name,
+            daf.internal.axes,
+            daf.internal.cache,
+            daf.internal.dependency_cache_keys,
+            daf.internal.lock,
+            daf.internal.writer_thread,
+            daf.internal.thread_has_read_lock,
+        )
         return ReadOnlyChain(internal, daf.dafs)
     end
 end

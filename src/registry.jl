@@ -201,4 +201,4 @@ macro query_operation(operation_type_name)
     end
 end
 
-end
+end  # module

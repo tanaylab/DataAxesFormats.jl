@@ -280,4 +280,4 @@ function Formats.format_get_matrix(
     return memory.matrices[rows_axis][columns_axis][name]
 end
 
-end
+end  # module

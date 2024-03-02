@@ -40,6 +40,8 @@ export MappedData
 export MemoryData
 export QueryData
 
+using Base.Threads
+using ConcurrentUtils
 using Daf.MatrixLayouts
 using Daf.Messages
 using Daf.StorageTypes
@@ -47,6 +49,8 @@ using Daf.Tokens
 using Daf.Unions
 using OrderedCollections
 using SparseArrays
+
+struct UpgradToWriteLockException <: Exception end
 
 """
 Types of cached data inside `Daf`.
@@ -90,6 +94,9 @@ struct Internal
     axes::Dict{String, OrderedDict{String, Int64}}
     cache::Dict{String, CacheEntry}
     dependency_cache_keys::Dict{String, Set{String}}
+    lock::ReadWriteLock
+    writer_thread::Vector{Int}
+    thread_has_read_lock::Vector{Bool}
 end
 
 function Internal(name::AbstractString)::Internal
@@ -98,6 +105,9 @@ function Internal(name::AbstractString)::Internal
         Dict{String, OrderedDict{String, Int64}}(),
         Dict{String, CacheEntry}(),
         Dict{String, Set{String}}(),
+        ReadWriteLock(),
+        [0],
+        fill(false, nthreads()),
     )
 end
 
@@ -138,6 +148,8 @@ abstract type DafWriter <: FormatWriter end
     format_has_scalar(format::FormatReader, name::AbstractString)::Bool
 
 Check whether a scalar property with some `name` exists in `format`.
+
+This trusts that we have a read lock on the data set.
 """
 function format_has_scalar end
 
@@ -150,7 +162,7 @@ function format_has_scalar end
 
 Implement setting the `value` of a scalar property with some `name` in `format`.
 
-This trusts that the `name` scalar property does not exist in `format`.
+This trusts that we have a write lock on the data set, and that the `name` scalar property does not exist in `format`.
 """
 function format_set_scalar! end
 
@@ -164,7 +176,7 @@ function format_set_scalar! end
 Implement deleting a scalar property with some `name` from `format`. If `for_set`, this is done just prior to setting
 the scalar with a different value.
 
-This trusts that the `name` scalar property exists in `format`.
+This trusts that we have a write lock on the data set, and that the `name` scalar property exists in `format`.
 """
 function format_delete_scalar! end
 
@@ -172,6 +184,8 @@ function format_delete_scalar! end
     format_scalar_names(format::FormatReader)::AbstractStringSet
 
 The names of the scalar properties in `format`.
+
+This trusts that we have a read lock on the data set.
 """
 function format_scalar_names end
 
@@ -180,7 +194,7 @@ function format_scalar_names end
 
 Implement fetching the value of a scalar property with some `name` in `format`.
 
-This trusts the `name` scalar property exists in `format`.
+This trusts that we have a read lock on the data set, and that the `name` scalar property exists in `format`.
 """
 function format_get_scalar end
 
@@ -188,6 +202,8 @@ function format_get_scalar end
     format_has_axis(format::FormatReader, axis::AbstractString; for_change::Bool)::Bool
 
 Check whether some `axis` exists in `format`. If `for_change`, this is done just prior to adding or deleting the axis.
+
+This trusts that we have a read lock on the data set.
 """
 function format_has_axis end
 
@@ -200,7 +216,8 @@ function format_has_axis end
 
 Implement adding a new `axis` to `format`.
 
-This trusts that the `axis` does not already exist in `format`, and that the names of the `entries` are unique.
+This trusts we have a write lock on the data set, that the `axis` does not already exist in `format`, and that the names
+of the `entries` are unique.
 """
 function format_add_axis! end
 
@@ -209,8 +226,8 @@ function format_add_axis! end
 
 Implement deleting some `axis` from `format`.
 
-This trusts that the `axis` exists in `format`, and that all properties that are based on this axis have already been
-deleted.
+This trusts This trusts we have a write lock on the data set, that the `axis` exists in `format`, and that all
+properties that are based on this axis have already been deleted.
 """
 function format_delete_axis! end
 
@@ -218,6 +235,8 @@ function format_delete_axis! end
     format_axis_names(format::FormatReader)::AbstractStringSet
 
 The names of the axes of `format`.
+
+This trusts that we have a read lock on the data set.
 """
 function format_axis_names end
 
@@ -226,7 +245,7 @@ function format_axis_names end
 
 Implement fetching the unique names of the entries of some `axis` of `format`.
 
-This trusts the `axis` exists in `format`.
+This trusts that we have a read lock on the data set, and that the `axis` exists in `format`.
 """
 function format_get_axis end
 
@@ -235,7 +254,7 @@ function format_get_axis end
 
 Implement fetching the number of entries along the `axis`.
 
-This trusts the `axis` exists in `format`.
+This trusts that we have a read lock on the data set, and that the `axis` exists in `format`.
 """
 function format_axis_length end
 
@@ -244,7 +263,8 @@ function format_axis_length end
 
 Implement checking whether a vector property with some `name` exists for the `axis` in `format`.
 
-This trusts the `axis` exists in `format` and that the property name isn't `name`.
+This trusts that we have a read lock on the data set, that the `axis` exists in `format` and that the property name
+isn't `name`.
 """
 function format_has_vector end
 
@@ -260,8 +280,8 @@ Implement setting a vector property with some `name` for some `axis` in `format`
 
 If the `vector` specified is actually a [`StorageScalar`](@ref), the stored vector is filled with this value.
 
-This trusts the `axis` exists in `format`, that the vector property `name` isn't `"name"`, that it does not exist for
-the `axis`, and that the `vector` has the appropriate length for it.
+This trusts we have a write lock on the data set, that the `axis` exists in `format`, that the vector property `name`
+isn't `"name"`, that it does not exist for the `axis`, and that the `vector` has the appropriate length for it.
 """
 function format_set_vector! end
 
@@ -277,8 +297,8 @@ Implement setting a vector property with some `name` for some `axis` in `format`
 
 Implement creating an empty dense `matrix` with some `name` for some `rows_axis` and `columns_axis` in `format`.
 
-This trusts the `axis` exists in `format` and that the vector property `name` isn't `"name"`, and that it does not exist
-for the `axis`.
+This trusts we have a write lock on the data set, that the `axis` exists in `format` and that the vector property `name`
+isn't `"name"`, and that it does not exist for the `axis`.
 
 !!! note
 
@@ -301,8 +321,8 @@ function format_empty_dense_vector! end
 Implement creating an empty dense vector property with some `name` for some `rows_axis` and `columns_axis` in
 `format`.
 
-This trusts the `axis` exists in `format` and that the vector property `name` isn't `"name"`, and that it does not exist
-for the `axis`.
+This trusts we have a write lock on the data set, that the `axis` exists in `format` and that the vector property `name`
+isn't `"name"`, and that it does not exist for the `axis`.
 """
 function format_empty_sparse_vector! end
 
@@ -317,8 +337,8 @@ function format_empty_sparse_vector! end
 Implement deleting a vector property with some `name` for some `axis` from `format`. If `for_set`, this is done just
 prior to setting the vector with a different value.
 
-This trusts the `axis` exists in `format`, that the vector property name isn't `name`, and that the `name` vector exists
-for the `axis`.
+This trusts we have a write lock on the data set, that the `axis` exists in `format`, that the vector property name
+isn't `name`, and that the `name` vector exists for the `axis`.
 """
 function format_delete_vector! end
 
@@ -327,7 +347,7 @@ function format_delete_vector! end
 
 Implement fetching the names of the vectors for the `axis` in `format`, **not** including the special `name` property.
 
-This trusts the `axis` exists in `format`.
+This trusts that we have a read lock on the data set, and that the `axis` exists in `format`.
 """
 function format_vector_names end
 
@@ -336,7 +356,8 @@ function format_vector_names end
 
 Implement fetching the vector property with some `name` for some `axis` in `format`.
 
-This trusts the `axis` exists in `format`, and the `name` vector property exists for the `axis`.
+This trusts that we have a read lock on the data set, that the `axis` exists in `format`, and the `name` vector property
+exists for the `axis`.
 """
 function format_get_vector end
 
@@ -351,7 +372,7 @@ function format_get_vector end
 Implement checking whether a matrix property with some `name` exists for the `rows_axis` and the `columns_axis` in
 `format`.
 
-This trusts the `rows_axis` and the `columns_axis` exist in `format`.
+This trusts that we have a read lock on the data set, and that the `rows_axis` and the `columns_axis` exist in `format`.
 """
 function format_has_matrix end
 
@@ -368,8 +389,8 @@ Implement setting the matrix property with some `name` for some `rows_axis` and 
 
 If the `matrix` specified is actually a [`StorageScalar`](@ref), the stored matrix is filled with this value.
 
-This trusts the `rows_axis` and `columns_axis` exist in `format`, that the `name` matrix property does not exist for
-them, and that the `matrix` is column-major of the appropriate size for it.
+This trusts we have a write lock on the data set, that the `rows_axis` and `columns_axis` exist in `format`, that the
+`name` matrix property does not exist for them, and that the `matrix` is column-major of the appropriate size for it.
 """
 function format_set_matrix! end
 
@@ -384,8 +405,8 @@ function format_set_matrix! end
 
 Implement creating an empty dense matrix property with some `name` for some `rows_axis` and `columns_axis` in `format`.
 
-This trusts the `rows_axis` and `columns_axis` exist in `format` and that the `name` matrix property does not exist for
-them.
+This trusts we have a write lock on the data set, that the `rows_axis` and `columns_axis` exist in `format` and that the
+`name` matrix property does not exist for them.
 
 !!! note
 
@@ -408,8 +429,8 @@ function format_empty_dense_matrix! end
 
 Implement creating an empty sparse matrix property with some `name` for some `rows_axis` and `columns_axis` in `format`.
 
-This trusts the `rows_axis` and `columns_axis` exist in `format` and that the `name` matrix property does not exist for
-them.
+This trusts we have a write lock on the data set, that the `rows_axis` and `columns_axis` exist in `format` and that the
+`name` matrix property does not exist for them.
 """
 function format_empty_sparse_matrix! end
 
@@ -424,8 +445,8 @@ function format_empty_sparse_matrix! end
 [`relayout!`](@ref) the existing `name` column-major matrix property for the `rows_axis` and the `columns_axis` and
 store the results as a row-major matrix property (that is, with flipped axes).
 
-This trusts the `rows_axis` and `columns_axis` are different from each other, exist in `format`, that the `name` matrix
-property exists for them, and that it does not exist for the flipped axes.
+This trusts we have a write lock on the data set, that the `rows_axis` and `columns_axis` are different from each other,
+exist in `format`, that the `name` matrix property exists for them, and that it does not exist for the flipped axes.
 """
 function format_relayout_matrix! end
 
@@ -441,7 +462,8 @@ function format_relayout_matrix! end
 Implement deleting a matrix property with some `name` for some `rows_axis` and `columns_axis` from `format`. If
 `for_set`, this is done just prior to setting the matrix with a different value.
 
-This trusts the `rows_axis` and `columns_axis` exist in `format`, and that the `name` matrix property exists for them.
+This trusts we have a write lock on the data set, that the `rows_axis` and `columns_axis` exist in `format`, and that
+the `name` matrix property exists for them.
 """
 function format_delete_matrix! end
 
@@ -454,7 +476,7 @@ function format_delete_matrix! end
 
 Implement fetching the names of the matrix properties for the `rows_axis` and `columns_axis` in `format`.
 
-This trusts the `rows_axis` and `columns_axis` exist in `format`.
+This trusts that we have a read lock on the data set, and that the `rows_axis` and `columns_axis` exist in `format`.
 """
 function format_matrix_names end
 
@@ -468,7 +490,8 @@ function format_matrix_names end
 
 Implement fetching the matrix property with some `name` for some `rows_axis` and `columns_axis` in `format`.
 
-This trusts the `rows_axis` and `columns_axis` exist in `format`, and the `name` matrix property exists for them.
+This trusts that we have a read lock on the data set, and that the `rows_axis` and `columns_axis` exist in `format`, and
+the `name` matrix property exists for them.
 """
 function format_get_matrix end
 
@@ -476,6 +499,8 @@ function format_get_matrix end
     function format_description_header(format::FormatReader, lines::Array{String})::Nothing
 
 Allow a `format` to amit additional description header lines.
+
+This trusts that we have a read lock on the data set.
 """
 function format_description_header(format::FormatReader, indent::AbstractString, lines::Array{String})::Nothing
     push!(lines, "$(indent)type: $(typeof(format))")
@@ -487,6 +512,8 @@ end
 
 Allow a `format` to amit additional description footer lines. If `deep`, this also emit the description of any data sets
 nested in this one, if any.
+
+This trusts that we have a read lock on the data set.
 """
 function format_description_footer(
     format::FormatReader,
@@ -578,6 +605,7 @@ function cache_data!(
     data::Union{AbstractStringSet, StorageScalar, StorageVector, StorageMatrix},
     cache_type::CacheType,
 )::Nothing
+    @assert format.internal.writer_thread[1] == threadid()
     @assert !haskey(format.internal.cache, cache_key)
     format.internal.cache[cache_key] = CacheEntry(cache_type, data)
     return nothing
@@ -727,6 +755,7 @@ function store_cached_dependency_key!(
     cache_key::AbstractString,
     dependency_key::AbstractString,
 )::Nothing
+    @assert format.internal.writer_thread[1] == threadid()
     keys_set = get!(format.internal.dependency_cache_keys, dependency_key) do
         return Set{String}()
     end
@@ -777,6 +806,76 @@ function parse_mode(mode::AbstractString)::Tuple{Bool, Bool, Bool}
         (false, true, true)
     else
         error("invalid mode: $(mode)")
+    end
+end
+
+function with_write_lock(action::Function, format::FormatReader)::Any
+    thread_id = threadid()
+    if format.internal.writer_thread[1] == thread_id
+        return action()  # untested
+    end
+
+    lock(format.internal.lock)
+    try
+        format.internal.writer_thread[1] = thread_id
+        return action()
+    finally
+        @assert !format.internal.thread_has_read_lock[thread_id]
+        @assert format.internal.writer_thread[1] == thread_id
+        format.internal.writer_thread[1] = 0
+        unlock(format.internal.lock)
+    end
+end
+
+function with_read_lock(action::Function, format::FormatReader)::Any
+    thread_id = threadid()
+    if format.internal.writer_thread[1] == thread_id || format.internal.thread_has_read_lock[thread_id]
+        return action()
+    end
+
+    lock_read(format.internal.lock)
+    try
+        format.internal.thread_has_read_lock[thread_id] = true
+        @assert format.internal.writer_thread[1] == 0
+        return action()
+
+    catch exception
+        if exception isa UpgradToWriteLockException
+            @assert format.internal.thread_has_read_lock[thread_id]
+            @assert format.internal.writer_thread[1] == 0
+            format.internal.thread_has_read_lock[thread_id] = false
+            unlock_read(format.internal.lock)
+            lock(format.internal.lock)
+            format.internal.writer_thread[1] = thread_id
+            return action()
+        else
+            rethrow(exception)
+        end
+
+    finally
+        if format.internal.writer_thread[1] == thread_id
+            @assert !format.internal.thread_has_read_lock[thread_id]
+            format.internal.writer_thread[1] = 0
+            unlock(format.internal.lock)
+        else
+            @assert format.internal.thread_has_read_lock[thread_id]
+            @assert format.internal.writer_thread[1] == 0
+            format.internal.thread_has_read_lock[thread_id] = false
+            unlock_read(format.internal.lock)
+        end
+    end
+end
+
+function upgrade_to_write_lock(format::FormatReader)::Nothing
+    thread_id = threadid()
+    writer_thread = format.internal.writer_thread[1]
+    if writer_thread == 0
+        @assert format.internal.thread_has_read_lock[thread_id]
+        throw(UpgradToWriteLockException())
+    else
+        @assert !format.internal.thread_has_read_lock[thread_id]
+        @assert writer_thread == thread_id
+        return nothing
     end
 end
 

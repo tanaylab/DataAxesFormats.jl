@@ -59,7 +59,9 @@ import Daf.Formats.CacheEntry
 import Daf.Formats.matrix_cache_key
 import Daf.Formats.scalar_cache_key
 import Daf.Formats.store_cached_dependency_keys!
+import Daf.Formats.upgrade_to_write_lock
 import Daf.Formats.vector_cache_key
+import Daf.Formats.with_read_lock
 import Daf.Registry.ComputationOperation
 import Daf.Registry.ELTWISE_REGISTERED_OPERATIONS
 import Daf.Registry.QueryOperation
@@ -1523,20 +1525,22 @@ function get_query(
         return cached_entry.data
     end
 
-    query_state = QueryState(daf, query_sequence, 1, Vector{QueryValue}())
-    while query_state.next_operation_index <= length(query_state.query_sequence.query_operations)
-        query_operation = query_sequence.query_operations[query_state.next_operation_index]
-        query_state.next_operation_index += 1
-        apply_query_operation!(query_state, query_operation)
-    end
+    return with_read_lock(daf) do
+        query_state = QueryState(daf, query_sequence, 1, Vector{QueryValue}())
+        while query_state.next_operation_index <= length(query_state.query_sequence.query_operations)
+            query_operation = query_sequence.query_operations[query_state.next_operation_index]
+            query_state.next_operation_index += 1
+            apply_query_operation!(query_state, query_operation)
+        end
 
-    result, dependency_keys = get_query_result(query_state)
-    if cache && !haskey(daf.internal.cache, cache_key)
-        store_cached_dependency_keys!(daf, cache_key, dependency_keys)
-        Formats.cache_data!(daf, cache_key, result, QueryData)
+        result, dependency_keys = get_query_result(query_state)
+        if cache && !haskey(daf.internal.cache, cache_key)
+            Formats.upgrade_to_write_lock(daf)
+            Formats.cache_data!(daf, cache_key, result, QueryData)
+            store_cached_dependency_keys!(daf, cache_key, dependency_keys)
+        end
+        return result
     end
-
-    return result
 end
 
 function query_result_dimensions(query_string::AbstractString)::Int
