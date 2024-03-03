@@ -116,15 +116,10 @@ interoperability with legacy computation pipelines.
 
 Just `Pkg.add("Daf")`, like installing any other Julia package.
 
-TODO: To install the Python wrappers...
+To install the Python `Daf` [package](https://github.com/tanaylab/Daf.py), just `pip install daf`, like installing any
+other Python package.
 
 TODO: To install the R wrappers...
-
-## TODO
-
-TODO: Get a DataFrame in one API call (multiple vectors of the same axis).
-
-TODO: Repository API - `parent` and loading a whole chain - cache (weak?) opened data by path?
 
 ## License (MIT)
 

@@ -71,7 +71,7 @@ Types of cached data inside `Daf`.
     executing queries therefore allows to explicitly disable the caching of the query results, since some queries will
     not be repeated.
 
-If too much data has been cached, call [`empty_cache!`] to release it.
+If too much data has been cached, call `empty_cache!` to release it.
 """
 @enum CacheType MappedData MemoryData QueryData
 
