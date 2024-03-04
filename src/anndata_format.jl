@@ -29,8 +29,16 @@ happy. We store the discarded names of the axes and matrix in unstructured annot
 
 The following `AnnData` can't be naively stored in `Daf`:
 
-  - Unstructured data (`uns`) that isn't scalar (e.g., mappings).
-  - Matrices whose axis is not explicitly declared (`obsm`, `varm`).
+  - Non-scalars (e.g., mappings) inside `uns` unstructured annotations. The `Daf` equivalent is storing JSON string
+    blobs, which is awkward to use. TODO: provide better API to deal with such data.
+  - Data using nullable entries (e.g. a matrix with nullable integer entries). In contrast, `Daf` supports the
+    convention that zero values are special. This only works in some cases (e.g., it isn't a good solution for Boolean
+    data). It is possible of course to explicitly store Boolean masks and apply them to the data, but this is
+    inconvenient. TODO: Have `Daf` natively support nullable/masked arrays.
+  - Matrix data that only uses one of the axes (that is, `obsm` and `varm` data). The problem here is, paradoxically,
+    that `Daf` supports such data "too well", by allowing multiple axes to be defined, and storing matrices based on any
+    pair of axes. However, this requires the other axes to be explicitly created, and their information just doesn't
+    exist in the `AnnData` data set. TODO: Allow unstructured annotations to store the entries of the other axis.
 
 When viewing `AnnData` as `Daf`, we either ignore, warn, or treat as an error any such unsupported data.
 
@@ -68,46 +76,21 @@ module AnnDataFormat
 
 export anndata_as_daf
 export daf_as_anndata
-export ErrorUnsupported
-export IgnoreUnsupported
-export UnsupportedPolicy
-export WarnUnsupported
 
-using Daf.Formats
 using Daf.Data
+using Daf.Formats
+using Daf.Generic
 using Daf.MatrixLayouts
 using Daf.MemoryFormat
 using Daf.MemoryFormat
 using Daf.StorageTypes
-using Daf.Unions
 using DataFrames
 using HDF5
 using Muon
+
 import Daf.Data.require_matrix
 import Daf.Formats
 import Daf.Formats.Internal
-
-"""
-There are certain types of data held in `AnnData` which do not easily map into `Daf`, specifically:
-
-  - Non-scalars (e.g., mappings) inside `uns` unstructured annotations. The `Daf` equivalent is storing JSON string
-    blobs, which is awkward to use. TODO: provide better API to deal with such data.
-  - Data using nullable entries (e.g. a matrix with nullable integer entries). In contrast, `Daf` supports the
-    convention that zero values are special. This only works in some cases (e.g., it isn't a good solution for Boolean
-    data). It is possible of course to explicitly store Boolean masks and apply them to the data, but this is
-    inconvenient. TODO: Have `Daf` natively support nullable/masked arrays.
-  - Matrix data that only uses one of the axes (that is, `obsm` and `varm` data). The problem here is, paradoxically,
-    that `Daf` supports such data "too well", by allowing multiple axes to be defined, and storing matrices based on any
-    pair of axes. However, this requires the other axes to be explicitly created, and their information just doesn't
-    exist in the `AnnData` data set. TODO: Allow unstructured annotations to store the entries of the other axis.
-
-The `UnsupportedPolicy` describes how to deal with such data:
-
-  - `IgnoreUnsupported` will silently ignore such data.
-  - `WarnUnsupported` will emit a warning for each `AnnData` annotation which doesn't map to `Daf`. This is the default.
-  - `ErrorUnsupported` will emit an error instead, aborting the program.
-"""
-@enum UnsupportedPolicy IgnoreUnsupported WarnUnsupported ErrorUnsupported
 
 """
     anndata_as_daf(
@@ -116,12 +99,15 @@ The `UnsupportedPolicy` describes how to deal with such data:
         obs_is::Maybe{AbstractString} = nothing,
         var_is::Maybe{AbstractString} = nothing,
         X_is::Maybe{AbstractString} = nothing,
-        unsupported_policy::UnsupportedPolicy = WarnUnsupported]
+        unsupported_handler::AbnormalHandler = WarnHandler]
     )::MemoryDaf
 
 View `AnnData` as a `Daf` data set, specifically using a [`MemoryDaf`](@ref). This doesn't duplicate matrices or
 vectors, but acts as a view containing references to the same ones. Adding and/or deleting data in the view using the
 `Daf` API will not affect the original `adata`.
+
+Any unsupported `AnnData` annotations will be handled using the `unsupported_handler`. By default, we'll warn about each
+and every such unsupported property.
 
 If `adata` is a string, then it is the path of an `h5ad` file which is automatically loaded.
 
@@ -143,7 +129,7 @@ function anndata_as_daf(
     obs_is::Maybe{AbstractString} = nothing,
     var_is::Maybe{AbstractString} = nothing,
     X_is::Maybe{AbstractString} = nothing,
-    unsupported_policy::UnsupportedPolicy = WarnUnsupported,
+    unsupported_handler::AbnormalHandler = WarnHandler,
 )::MemoryDaf
     if adata isa AbstractString
         adata = readh5ad(adata; backed = true)  # NOJET
@@ -155,7 +141,7 @@ function anndata_as_daf(
     X_is = by_annotation(adata, X_is, "X_is", "X")
     @assert obs_is != var_is
 
-    verify_unsupported(adata, name, unsupported_policy)
+    verify_unsupported(adata, name, unsupported_handler)
     memory = MemoryDaf(; name = name)
     copy_supported(adata, memory, obs_is, var_is, X_is)
     return memory
@@ -174,20 +160,20 @@ function by_annotation(
     return value
 end
 
-function verify_unsupported(adata::AnnData, name::AbstractString, unsupported_policy::UnsupportedPolicy)::Nothing
-    if unsupported_policy != IgnoreUnsupported
-        verify_are_supported_type(adata.uns, "uns", StorageScalar, name, unsupported_policy)
+function verify_unsupported(adata::AnnData, name::AbstractString, unsupported_handler::AbnormalHandler)::Nothing
+    if unsupported_handler != IgnoreHandler
+        verify_are_supported_type(adata.uns, "uns", StorageScalar, name, unsupported_handler)
 
-        verify_are_supported_type(adata.obs, "obs", StorageVector, name, unsupported_policy)
-        verify_are_supported_type(adata.var, "var", StorageVector, name, unsupported_policy)
+        verify_are_supported_type(adata.obs, "obs", StorageVector, name, unsupported_handler)
+        verify_are_supported_type(adata.var, "var", StorageVector, name, unsupported_handler)
 
-        verify_is_supported_type(adata.X, StorageMatrix, name, "X", unsupported_policy)
-        verify_are_supported_type(adata.layers, "layers", StorageMatrix, name, unsupported_policy)
-        verify_are_supported_type(adata.obsp, "obsp", StorageMatrix, name, unsupported_policy)
-        verify_are_supported_type(adata.varp, "varp", StorageMatrix, name, unsupported_policy)
+        verify_is_supported_type(adata.X, StorageMatrix, name, "X", unsupported_handler)
+        verify_are_supported_type(adata.layers, "layers", StorageMatrix, name, unsupported_handler)
+        verify_are_supported_type(adata.obsp, "obsp", StorageMatrix, name, unsupported_handler)
+        verify_are_supported_type(adata.varp, "varp", StorageMatrix, name, unsupported_handler)
 
-        verify_are_empty(adata.obsm, "obsm", name, unsupported_policy)
-        verify_are_empty(adata.varm, "varm", name, unsupported_policy)
+        verify_are_empty(adata.obsm, "obsm", name, unsupported_handler)
+        verify_are_empty(adata.varm, "varm", name, unsupported_handler)
     end
 end
 
@@ -196,10 +182,10 @@ function verify_are_supported_type(
     member::AbstractString,
     supported_type::Type,
     name::AbstractString,
-    unsupported_policy::UnsupportedPolicy,
+    unsupported_handler::AbnormalHandler,
 )::Nothing
     for (key, value) in dict  # NOJET
-        verify_is_supported_type(value, supported_type, name, "$(member)[$(key)]", unsupported_policy)
+        verify_is_supported_type(value, supported_type, name, "$(member)[$(key)]", unsupported_handler)
     end
     return nothing
 end
@@ -209,10 +195,10 @@ function verify_are_supported_type(
     member::AbstractString,
     supported_type::Type,
     name::AbstractString,
-    unsupported_policy::UnsupportedPolicy,
+    unsupported_handler::AbnormalHandler,
 )::Nothing
     for column in names(frame)
-        verify_is_supported_type(frame[!, column], supported_type, name, "$(member)[$(column)]", unsupported_policy)
+        verify_is_supported_type(frame[!, column], supported_type, name, "$(member)[$(column)]", unsupported_handler)
     end
     return nothing
 end
@@ -222,17 +208,17 @@ function verify_is_supported_type(
     supported_type::Type,
     name::AbstractString,
     property::AbstractString,
-    unsupported_policy::UnsupportedPolicy,
+    unsupported_handler::AbnormalHandler,
 )::Nothing
     if !(value isa supported_type)
         report_unsupported(
             name,
-            unsupported_policy,
+            unsupported_handler,
             "unsupported type for $(property): $(typeof(value))\nsupported type is: $(supported_type)\n",
         )
     end
     if value isa StorageMatrix && !(value isa Muon.TransposedDataset) && major_axis(value) == nothing
-        report_unsupported(name, unsupported_policy, "type not in row/column-major layout: $(typeof(value))\n")  # untested
+        report_unsupported(name, unsupported_handler, "type not in row/column-major layout: $(typeof(value))\n")  # untested
     end
     return nothing
 end
@@ -241,26 +227,23 @@ function verify_are_empty(
     dict::AbstractDict,
     member::AbstractString,
     name::AbstractString,
-    unsupported_policy::UnsupportedPolicy,
+    unsupported_handler::AbnormalHandler,
 )::Nothing
     for key in keys(dict)
-        report_unsupported(name, unsupported_policy, "unsupported annotation: $(member)[$(key)]\n")
+        report_unsupported(name, unsupported_handler, "unsupported annotation: $(member)[$(key)]\n")
     end
     return nothing
 end
 
 function report_unsupported(
     name::AbstractString,
-    unsupported_policy::UnsupportedPolicy,
+    unsupported_handler::AbnormalHandler,
     message::AbstractString,
 )::Nothing
-    message *= "in AnnData for the daf data: $(name)"
-    if unsupported_policy == ErrorUnsupported
-        error(message)
-    else
-        @assert unsupported_policy == WarnUnsupported
-        @warn message
+    handle_abnormal(unsupported_handler) do
+        return message * "in AnnData for the daf data: $(name)"
     end
+    return nothing
 end
 
 function copy_supported(

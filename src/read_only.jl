@@ -8,9 +8,9 @@ export read_only
 
 using Daf.Data
 using Daf.Formats
+using Daf.Generic
 using Daf.Messages
 using Daf.StorageTypes
-using Daf.Unions
 using SparseArrays
 
 import Daf.Data.as_read_only_array

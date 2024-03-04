@@ -81,7 +81,7 @@ nested_test("anndata") do
                 adata.uns["mapping"] = Dict("a" => 1)
 
                 nested_test("ignore") do
-                    back = anndata_as_daf(adata; unsupported_policy = IgnoreUnsupported)
+                    back = anndata_as_daf(adata; unsupported_handler = IgnoreHandler)
                     test_daf(back)
                     return nothing
                 end
@@ -96,7 +96,7 @@ nested_test("anndata") do
                             in AnnData for the daf data: anndata
                             """,
                         ),
-                    ) anndata_as_daf(adata; unsupported_policy = WarnUnsupported)
+                    ) anndata_as_daf(adata; unsupported_handler = WarnHandler)
                     test_daf(back)
                     return nothing
                 end
@@ -108,7 +108,7 @@ nested_test("anndata") do
                         supported type is: Union{Bool, Float32, Float64, Int16, Int32, Int64, Int8, UInt16, UInt32, UInt64, UInt8, S} where S<:AbstractString
                         in AnnData for the daf data: anndata
                         """,
-                    ) anndata_as_daf(adata; unsupported_policy = ErrorUnsupported)
+                    ) anndata_as_daf(adata; unsupported_handler = ErrorHandler)
                 end
             end
 
@@ -116,7 +116,7 @@ nested_test("anndata") do
                 adata.obsm["unknown_axis"] = [0 1 3; 4 5 6]
 
                 nested_test("ignore") do
-                    back = anndata_as_daf(adata; unsupported_policy = IgnoreUnsupported)
+                    back = anndata_as_daf(adata; unsupported_handler = IgnoreHandler)
                     test_daf(back)
                     return nothing
                 end
@@ -125,7 +125,7 @@ nested_test("anndata") do
                     back = @test_logs (:warn, dedent("""
                         unsupported annotation: obsm[unknown_axis]
                         in AnnData for the daf data: anndata
-                    """)) anndata_as_daf(adata; unsupported_policy = WarnUnsupported)
+                    """)) anndata_as_daf(adata; unsupported_handler = WarnHandler)
                     test_daf(back)
                     return nothing
                 end
@@ -134,7 +134,7 @@ nested_test("anndata") do
                     @test_throws dedent("""
                         unsupported annotation: obsm[unknown_axis]
                         in AnnData for the daf data: anndata
-                    """) anndata_as_daf(adata; unsupported_policy = ErrorUnsupported)
+                    """) anndata_as_daf(adata; unsupported_handler = ErrorHandler)
                 end
             end
         end
@@ -144,7 +144,7 @@ nested_test("anndata") do
         mktempdir() do path
             adata = daf_as_anndata(memory; obs_is = "cell", var_is = "gene", h5ad = "$(path)/test.h5ad")
             test_adata(adata)
-            back = anndata_as_daf("$(path)/test.h5ad"; unsupported_policy = ErrorUnsupported)
+            back = anndata_as_daf("$(path)/test.h5ad"; unsupported_handler = ErrorHandler)
             test_daf(back)
             return nothing
         end

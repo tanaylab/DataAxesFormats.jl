@@ -11,10 +11,10 @@ export chain_writer
 
 using Daf.Data
 using Daf.Formats
+using Daf.Generic
 using Daf.Messages
 using Daf.ReadOnly
 using Daf.StorageTypes
-using Daf.Unions
 using SparseArrays
 
 import Daf.Data.as_read_only_array

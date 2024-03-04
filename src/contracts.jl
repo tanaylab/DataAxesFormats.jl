@@ -14,16 +14,20 @@ export verify_output
 
 using Daf.Data
 using Daf.Formats
-using Daf.Unions
+using Daf.Generic
 using DocStringExtensions
 using ExprTools
 
 """
-The expectation from a specific entity for a computation on `Daf` data.
+The expectation from a specific property for a computation on `Daf` data.
+
+Input data:
 
 `Required` - data that must exist in the data when invoking the computation, will be used as input.
 
 `Optional` - data that, if existing in the data when invoking the computation, will be used as an input.
+
+Output data:
 
 `Guaranteed` - data that is guaranteed to exist when the computation is done.
 

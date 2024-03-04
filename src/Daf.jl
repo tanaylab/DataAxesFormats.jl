@@ -23,7 +23,7 @@ module Daf
 
 using Reexport
 
-include("unions.jl")
+include("generic.jl")
 
 include("matrix_layouts.jl")
 @reexport using Daf.MatrixLayouts

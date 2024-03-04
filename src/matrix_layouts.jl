@@ -27,9 +27,7 @@ module MatrixLayouts
 export axis_name
 export check_efficient_action
 export Columns
-export ErrorPolicy
-export inefficient_action_policy
-export InefficientActionPolicy
+export inefficient_action_handler
 export major_axis
 export minor_axis
 export other_axis
@@ -37,9 +35,8 @@ export relayout!
 export require_major_axis
 export require_minor_axis
 export Rows
-export WarnPolicy
 
-using Daf.Unions
+using Daf.Generic
 using Distributed
 using LinearAlgebra
 using NamedArrays
@@ -168,39 +165,25 @@ function other_axis(axis::Maybe{Integer})::Maybe{Int8}
     return error("invalid matrix axis: $(axis)")
 end
 
-"""
-The action to take when performing an operation "against the grain" of the memory layout of a matrix.
-
-Valid values are:
-
-`nothing` - do nothing special, just execute the code and hope for the best (the default).
-
-`WarnPolicy` - emit a warning using `@warn`.
-
-`ErrorPolicy` - abort the program with an error message.
-"""
-@enum InefficientActionPolicy WarnPolicy ErrorPolicy
-
-GLOBAL_INEFFICIENT_ACTION_POLICY = nothing
+GLOBAL_INEFFICIENT_ACTION_HANDLER::AbnormalHandler = IgnoreHandler
 
 """
-    inefficient_action_policy(
-        policy::Maybe{InefficientActionPolicy}
-    )::Maybe{InefficientActionPolicy}
+    inefficient_action_handler(handler::AbnormalHandler)::AbnormalHandler
 
-Specify the `policy` to take when accessing a matrix in an inefficient way. Returns the previous policy.
+Specify the [`AbnormalHandler`](@ref) to use when accessing a matrix in an inefficient way ("against the grain").
+Returns the previous handler.
 
 !!! note
 
     This will affect **all** the processes `@everywhere`, not just the current one.
 """
-function inefficient_action_policy(policy::Maybe{InefficientActionPolicy})::Maybe{InefficientActionPolicy}
-    global GLOBAL_INEFFICIENT_ACTION_POLICY
-    previous_inefficient_action_policy = GLOBAL_INEFFICIENT_ACTION_POLICY
+function inefficient_action_handler(handler::AbnormalHandler)::AbnormalHandler
+    global GLOBAL_INEFFICIENT_ACTION_HANDLER
+    previous_inefficient_action_handler = GLOBAL_INEFFICIENT_ACTION_HANDLER
 
-    @eval @everywhere Daf.MatrixLayouts.GLOBAL_INEFFICIENT_ACTION_POLICY = $policy
+    @eval @everywhere Daf.MatrixLayouts.GLOBAL_INEFFICIENT_ACTION_HANDLER = $handler
 
-    return previous_inefficient_action_policy
+    return previous_inefficient_action_handler
 end
 
 """
@@ -213,12 +196,12 @@ end
 
 This will check whether the `action` about to be executed for an `operand` which is `matrix` works "with the grain" of
 the data, which requires the `matrix` to be in `axis`-major layout. If it isn't, then apply the
-[`inefficient_action_policy`](@ref).
+[`inefficient_action_handler`](@ref).
 
 In general, you **really** want operations to go "with the grain" of the data. Unfortunately, Julia (and Python, and R,
-and matlab) will silently run operations "against the grain", which would be painfully slow. A liberal application of
-this function will help in detecting such slowdowns, without having to resort to profiling the code to isolate the
-problem.
+and matlab) will silently run operations "against the grain", which would be **painfully** slow. A liberal application
+of this function in your code will help in detecting such slowdowns, without having to resort to profiling the code to
+isolate the problem.
 
 !!! note
 
@@ -233,26 +216,16 @@ function check_efficient_action(
     operand::AbstractString,
     matrix::AbstractMatrix,
 )::Nothing
-    global GLOBAL_INEFFICIENT_ACTION_POLICY
-    if major_axis(matrix) == axis || GLOBAL_INEFFICIENT_ACTION_POLICY == nothing
-        return
-    end
-
-    message = (
-        "the major axis: $(axis_name(axis))\n" *
-        "of the action: $(action)\n" *
-        "is different from the major axis: $(axis_name(major_axis(matrix)))\n" *
-        "of the $(operand) matrix: $(typeof(matrix))"
-    )
-
-    if GLOBAL_INEFFICIENT_ACTION_POLICY == WarnPolicy
-        @warn message
-
-    elseif GLOBAL_INEFFICIENT_ACTION_POLICY == ErrorPolicy
-        error(message)
-
-    else
-        @assert false  # untested
+    if major_axis(matrix) != axis
+        global GLOBAL_INEFFICIENT_ACTION_HANDLER
+        handle_abnormal(GLOBAL_INEFFICIENT_ACTION_HANDLER) do
+            return (
+                "the major axis: $(axis_name(axis))\n" *
+                "of the action: $(action)\n" *
+                "is different from the major axis: $(axis_name(major_axis(matrix)))\n" *
+                "of the $(operand) matrix: $(typeof(matrix))"
+            )
+        end
     end
 end
 

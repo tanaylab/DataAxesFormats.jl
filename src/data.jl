@@ -64,10 +64,10 @@ export vector_names
 
 using ConcurrentUtils
 using Daf.Formats
+using Daf.Generic
 using Daf.MatrixLayouts
 using Daf.Messages
 using Daf.StorageTypes
-using Daf.Unions
 using NamedArrays
 using SparseArrays
 

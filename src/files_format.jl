@@ -82,8 +82,8 @@ export FilesDaf
 
 using Base.Filesystem
 using Daf.Data
-using Daf.Unions
 using Daf.Formats
+using Daf.Generic
 using Daf.MatrixLayouts
 using Daf.ReadOnly
 using Daf.StorageTypes

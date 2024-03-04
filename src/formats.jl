@@ -42,11 +42,11 @@ export QueryData
 
 using Base.Threads
 using ConcurrentUtils
+using Daf.Generic
 using Daf.MatrixLayouts
 using Daf.Messages
 using Daf.StorageTypes
 using Daf.Tokens
-using Daf.Unions
 using OrderedCollections
 using SparseArrays
 

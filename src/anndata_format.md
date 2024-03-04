@@ -2,7 +2,6 @@
 
 ```@docs
 Daf.AnnDataFormat
-Daf.AnnDataFormat.UnsupportedPolicy
 Daf.AnnDataFormat.anndata_as_daf
 Daf.AnnDataFormat.daf_as_anndata
 ```

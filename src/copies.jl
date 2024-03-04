@@ -20,8 +20,8 @@ export EmptyKey
 
 using Daf.Data
 using Daf.Formats
+using Daf.Generic
 using Daf.StorageTypes
-using Daf.Unions
 using NamedArrays
 using SparseArrays
 

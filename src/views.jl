@@ -17,12 +17,12 @@ export viewer
 
 using Daf.Data
 using Daf.Formats
+using Daf.Generic
 using Daf.Messages
 using Daf.Queries
 using Daf.ReadOnly
 using Daf.StorageTypes
 using Daf.Tokens
-using Daf.Unions
 
 import Daf.Data.as_read_only_array
 import Daf.Data.base_array

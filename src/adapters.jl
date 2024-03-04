@@ -9,10 +9,10 @@ using Daf.Chains
 using Daf.Computations
 using Daf.Contracts
 using Daf.Copies
+using Daf.Generic
 using Daf.MemoryFormat
 using Daf.Queries
 using Daf.ReadOnly
-using Daf.Unions
 using Daf.Views
 
 """

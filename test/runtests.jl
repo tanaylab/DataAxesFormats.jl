@@ -3,6 +3,7 @@ using Test
 using Base: elsize
 using Base.MathConstants
 using Daf
+using Daf.Generic
 using ExceptionUnwrapping
 using HDF5
 using LinearAlgebra
@@ -19,7 +20,7 @@ test_prefixes(ARGS)
 
 Random.seed!(123456)
 
-inefficient_action_policy(ErrorPolicy)
+inefficient_action_handler(ErrorHandler)
 abort_on_first_failure(true)
 
 function dedent(string::AbstractString)::String

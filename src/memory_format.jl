@@ -7,10 +7,10 @@ export MemoryDaf
 
 using Daf.Data
 using Daf.Formats
+using Daf.Generic
 using Daf.MatrixLayouts
 using Daf.Messages
 using Daf.StorageTypes
-using Daf.Unions
 using SparseArrays
 
 import Daf.Formats

@@ -40,11 +40,11 @@ export XorNot
 using Base.Threads
 using Daf.Data
 using Daf.Formats
+using Daf.Generic
 using Daf.Operations
 using Daf.Registry
 using Daf.StorageTypes
 using Daf.Tokens
-using Daf.Unions
 using DataFrames
 using NamedArrays
 

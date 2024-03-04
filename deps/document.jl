@@ -67,7 +67,7 @@ makedocs(;
         "storage_types.md",
         "matrix_layouts.md",
         "messages.md",
-        "unions.md",
+        "generic.md",
         "example_data.md",
         "todo.md",
     ],

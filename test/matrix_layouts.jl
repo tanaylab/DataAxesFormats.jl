@@ -63,19 +63,19 @@ nested_test("matrix_layouts") do
         end
     end
 
-    nested_test("inefficient_action_policy") do
+    nested_test("inefficient_action_handler") do
         matrix = rand(4, 4)
-        inefficient_action_policy(ErrorPolicy)
+        inefficient_action_handler(ErrorHandler)
 
-        nested_test("nothing") do
-            @test inefficient_action_policy(nothing) == ErrorPolicy
+        nested_test("ignore") do
+            @test inefficient_action_handler(IgnoreHandler) == ErrorHandler
 
             check_efficient_action("test", Columns, "input", matrix)
             return check_efficient_action("test", Rows, "input", matrix)
         end
 
-        nested_test("WarnPolicy") do
-            @test inefficient_action_policy(WarnPolicy) == ErrorPolicy
+        nested_test("warn") do
+            @test inefficient_action_handler(WarnHandler) == ErrorHandler
 
             check_efficient_action("test", Columns, "input", matrix)
             @test_logs (:warn, dedent("""
@@ -86,8 +86,8 @@ nested_test("matrix_layouts") do
                                """)) check_efficient_action("test", Rows, "input", matrix)
         end
 
-        nested_test("ErrorPolicy") do
-            @test inefficient_action_policy(ErrorPolicy) == ErrorPolicy
+        nested_test("error") do
+            @test inefficient_action_handler(ErrorHandler) == ErrorHandler
 
             check_efficient_action("test", Columns, "input", matrix)
             @test_throws dedent("""

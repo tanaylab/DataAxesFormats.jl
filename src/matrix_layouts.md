@@ -32,8 +32,7 @@ Daf.MatrixLayouts.relayout!
 
 ```@docs
 Daf.MatrixLayouts.check_efficient_action
-Daf.MatrixLayouts.InefficientActionPolicy
-Daf.MatrixLayouts.inefficient_action_policy
+Daf.MatrixLayouts.inefficient_action_handler
 ```
 
 ## Index

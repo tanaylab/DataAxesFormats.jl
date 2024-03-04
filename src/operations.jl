@@ -18,7 +18,7 @@ import Daf.Tokens.Token
 import Distributed.@everywhere
 
 using Base.MathConstants
-using Daf.Unions
+using Daf.Generic
 
 export Abs
 export float_dtype_for
