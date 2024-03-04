@@ -40,27 +40,27 @@ existence of optional input and/or the value of parameters to the computation, a
     function Contract([;
         scalars::Union{
             Vector{Pair{
-                AbstractString,
-                Tuple{Expectation, Type, AbstractString}
+                String,
+                Tuple{Expectation, Type, String}
             }}, Nothing
         } = nothing,
         axes::Union{
             Vector{Pair{
-                AbstractString,
-                Tuple{Expectation, AbstractString}
+                String,
+                Tuple{Expectation, String}
             }}, Nothing
         } = nothing,
         vectors::Union{
             Vector{Pair{
-                Tuple{AbstractString, AbstractString},
-                Tuple{Expectation, Type, AbstractString}
+                Tuple{String, String},
+                Tuple{Expectation, Type, String}
             }},
             Nothing
         } = nothing,
         matrices::Union{
             Vector{Pair{
-                Tuple{AbstractString, AbstractString, AbstractString},
-                Tuple{Expectation, Type, AbstractString}
+                Tuple{String, String, String},
+                Tuple{Expectation, Type, String}
             }},
             Nothing
         } = nothing,

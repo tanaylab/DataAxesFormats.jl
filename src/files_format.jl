@@ -690,7 +690,7 @@ end
 function mmap_file_data(
     path::AbstractString,
     array_type::Type{T},
-    size::Union{Integer, Tuple{Integer, Integer}},
+    size::Union{Integer, Tuple{<:Integer, <:Integer}},
     mode::AbstractString,
 )::T where {T <: Union{StorageVector, StorageMatrix}}
     return open(path, mode) do file

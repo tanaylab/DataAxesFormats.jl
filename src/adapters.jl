@@ -11,6 +11,7 @@ using Daf.Contracts
 using Daf.Copies
 using Daf.Generic
 using Daf.MemoryFormat
+using Daf.StorageTypes
 using Daf.Queries
 using Daf.ReadOnly
 using Daf.Views
@@ -35,8 +36,8 @@ using Daf.Views
         DataValue <: Maybe{Union{AbstractString, Query}},
         AxesValue <: Maybe{Union{AbstractString, Query}},
         EmptyKey <: Union{
-            Tuple{AbstractString, AbstractString},                  # Key for empty value for vectors.
-            Tuple{AbstractString, AbstractString, AbstractString},  # Key for empty value for matrices.
+            Tuple{String, String},          # Key for empty value for vectors.
+            Tuple{String, String, String},  # Key for empty value for matrices.
         },
         EmptyValue <: StorageScalarBase
     }
@@ -98,13 +99,15 @@ function adapter(
     capture = MemoryDaf,
     axes::AbstractVector{Pair{String, AxesValue}} = Vector{Pair{String, String}}(),
     data::AbstractVector{Pair{DataKey, DataValue}} = Vector{Pair{String, String}}(),
-    empty::Maybe{Dict} = nothing,
+    empty::Maybe{Dict{EmptyKey, EmptyValue}} = nothing,
     relayout::Bool = true,
     overwrite::Bool = false,
 )::Any where {
     DataKey <: Union{String, Tuple{String, String}, Tuple{String, String, String}},
     DataValue <: Maybe{Union{AbstractString, Query}},
     AxesValue <: Maybe{Union{AbstractString, Query}},
+    EmptyKey <: Union{Tuple{String, String}, Tuple{String, String, String}},
+    EmptyValue <: StorageScalarBase,
 }
     if name == nothing
         prefix = view.name
