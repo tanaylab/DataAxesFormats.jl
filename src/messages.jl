@@ -14,7 +14,7 @@ using LinearAlgebra
 using NamedArrays
 using SparseArrays
 
-UNIQUE_NAME_PREFIXES = Dict{String, Int64}()
+UNIQUE_NAME_PREFIXES = Dict{AbstractString, Int64}()
 
 """
     unique_name(prefix::AbstractString)::AbstractString

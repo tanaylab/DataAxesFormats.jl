@@ -2,6 +2,7 @@
 
 ```@docs
 Daf.Data
+Daf.DataKey
 ```
 
 ## Read API

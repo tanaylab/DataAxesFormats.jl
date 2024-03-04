@@ -1,8 +1,4 @@
-function get_result(
-    daf::DafReader,
-    query::Union{String, Query};
-    cache::Bool = true,
-)::Union{Vector{String}, StorageScalar, Tuple{String, Vector}, Tuple{Tuple{String, String}, Vector}}
+function get_result(daf::DafReader, query::Union{String, Query}; cache::Bool = true)::Any
     value = get_query(daf, query; cache = cache)
     if value isa AbstractStringSet
         @test query_result_dimensions(query) == -1
@@ -1368,21 +1364,22 @@ nested_test("queries") do
             end
 
             nested_test("queries") do
-                @test "$(get_frame(daf, "cell", ["age" => ": age", "doublet" => ": is_doublet"]))" == dedent("""
-                    2×2 DataFrame
-                     Row │ age    doublet
-                         │ Int64  Bool
-                    ─────┼────────────────
-                       1 │     0     true
-                       2 │     1    false
-                """)
+                @test "$(get_frame(daf, "cell", QueryColumns(["age" => ": age", "doublet" => ": is_doublet"])))" ==
+                      dedent("""
+    2×2 DataFrame
+     Row │ age    doublet
+         │ Int64  Bool
+    ─────┼────────────────
+       1 │     0     true
+       2 │     1    false
+""")
             end
 
             nested_test("!queries") do
                 @test_throws "invalid column query: : age %> Sum\nfor the daf data: memory!" get_frame(
                     daf,
                     "cell",
-                    ["age" => ": age %> Sum", "doublet" => ": is_doublet"],
+                    QueryColumns(["age" => ": age %> Sum", "doublet" => ": is_doublet"]),
                 )
             end
         end

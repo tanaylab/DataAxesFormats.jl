@@ -5,9 +5,10 @@ module ExampleData
 
 using Daf.Data
 using Daf.MemoryFormat
+using Daf.StorageTypes
 using Random
 
-function random_entries(gen::MersenneTwister, size::Int, entry_names::Vector{String})::Vector{String}
+function random_entries(gen::MersenneTwister, size::Int, entry_names::AbstractStringVector)::AbstractStringVector
     return entry_names[round.(Int8, rand(gen, size) * length(entry_names) .+ 0.5)]
 end
 

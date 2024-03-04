@@ -7,6 +7,7 @@ export And
 export AndNot
 export AsAxis
 export Axis
+export QueryColumns
 export CountBy
 export EltwiseOperation
 export empty_cache!
@@ -244,8 +245,8 @@ given  the type `Outlier`).
 Only when the vector property is used for [`CountBy`](@ref) or for [`GroupBy`](@ref), providing the [`AsAxis`](@ref)
 suffix indicates that the property is associated with an axis (similar to an indirect axis in [`Fetch`](@ref)), and the
 set of groups is forced to be the values of that axis; in this case, empty string values are always ignored (e.g.,
-`/ cell : age @ type ! %> Mean || 0` will return a vector of the mean age of the cells of each type, with a value of zero
-for types which have no cells, and ignoring cells which have an empty type; similarly,
+`/ cell : age @ type ! %> Mean || 0` will return a vector of the mean age of the cells of each type, with a value of
+zero for types which have no cells, and ignoring cells which have an empty type; similarly,
 `/ cell : batch => donor ! * type !` will return a matrix whose rows are donors and columns are types, counting the
 number of cells of each type that were sampled from each donor, ignoring cells which have an empty type or whose batch
 has an empty donor).
@@ -263,8 +264,8 @@ MATRIX_ROW = nothing
 """
 `MATRIX_COLUMN` := [`Axis`](@ref) [`AXIS_MASK`](@ref)* [`Axis`](@ref) [`IsEqual`](@ref) [`Lookup`](@ref)
 
-Lookup the values of a single column of a matrix property, eliminating the columns axis (e.g., `/ gene / cell = ATGC : UMIs`
-will evaluate to a vector of the UMIs of all the genes of the ATGC cell).
+Lookup the values of a single column of a matrix property, eliminating the columns axis (e.g.,
+`/ gene / cell = ATGC : UMIs` will evaluate to a vector of the UMIs of all the genes of the ATGC cell).
 """
 MATRIX_COLUMN = nothing
 
@@ -333,7 +334,8 @@ POST_PROCESS = nothing
 The entries of a vector or the rows of a matrix result may be grouped, where all the values that have the same group
 value are reduced to a single value using a [`ReductionOperation`](@ref) (e.g.,
 `/ cell : batch => donor => age @ type %> Mean` will compute the mean age of all the cells of each type,
-and `/ cell / gene : UMIs @ type %> Mean` will compute a matrix of the mean UMIs of each gene for the cells of each type).
+and `/ cell / gene : UMIs @ type %> Mean` will compute a matrix of the mean UMIs of each gene for the cells of each
+type).
 
 If the group property is suffixed by [`AsAxis`](@ref), then the result will have a value for each entry of the axis
 (e.g., `/ cell : age @ type ! %> Mean` will compute the mean age of the cells of each type). In this case, some groups
@@ -717,7 +719,8 @@ using the `:` operator, followed by the property name to look up.
   - If the query state contains a single axis, this looks up the value of a vector property (e.g., `/ cell : batch`).
   - If the query state contains two axes, this looks up the value of a matrix property (e.g., `/ cell / gene : UMIs`).
 
-If the property does not exist, this is an error, unless this is followed by [`IfMissing`](@ref) (e.g., `: version || 1.0`).
+If the property does not exist, this is an error, unless this is followed by [`IfMissing`](@ref) (e.g.,
+`: version || 1.0`).
 
 If any of the axes has a single entry selected using [`IsEqual`]@(ref), this will reduce the dimension of the result
 (e.g., `/ cell / gene = FOX1 : UMIs` is a vector, and both `/ cell = C1 / gene = FOX1 : UMI` and
@@ -763,8 +766,8 @@ naming convention where the property name begins with the axis name followed by 
 `/ cell : type => color` and `/ cell : type.manual => color` will look up the `color` of the `type` of some property of
 the `cell` axis - either "the" `type` of each `cell`, or the alternate `type.manual` of each cell).
 
-Fetching can be chained (e.g., `/ cell : batch => donor => age` will fetch the `age` of the `donor` of the `batch` of each
-`cell`).
+Fetching can be chained (e.g., `/ cell : batch => donor => age` will fetch the `age` of the `donor` of the `batch` of
+each `cell`).
 
 If the property does not exist, this is an error, unless this is followed by [`IfMissing`](@ref) (e.g.,
 `/ cell : type => color || red`). If the property contains an empty value, this is also an error, unless it is followed
@@ -820,11 +823,12 @@ A query operation providing a value to use for "false-ish" values in a vector (e
 false Boolean values). In a string [`Query`](@ref), this is indicated using the `??` operator, optionally followed by a
 value to use.
 
-If the value is `nothing` (the default), then these entries are dropped (masked out) of the result (e.g., `/ cell : type ?` behaves the same as `/ cell & type : type`, that is, returns the type of the cells which have a non-empty type).
-Otherwise, this value is used instead of the "false-ish" value (e.g., `/ cell : type ? Outlier` will return a vector of
-the type of each cell, with the value `Outlier` for cells with an empty type). When fetching properties, this is the
-final value (e.g., `/ cell : type ? red => color` will return a vector of the color of the type of each cell, with a
-`red` color for the cells with an empty type).
+If the value is `nothing` (the default), then these entries are dropped (masked out) of the result (e.g.,
+`/ cell : type ?` behaves the same as `/ cell & type : type`, that is, returns the type of the cells which have a
+non-empty type). Otherwise, this value is used instead of the "false-ish" value (e.g., `/ cell : type ? Outlier` will
+return a vector of the type of each cell, with the value `Outlier` for cells with an empty type). When fetching
+properties, this is the final value (e.g., `/ cell : type ? red => color` will return a vector of the color of the type
+of each cell, with a `red` color for the cells with an empty type).
 
 If the `value` isa `AbstractString`, then it is automatically converted to the data type of the elements of the results
 vector.
@@ -1384,7 +1388,7 @@ end
 
 mutable struct ScalarState
     query_sequence::QuerySequence
-    dependency_keys::Set{String}
+    dependency_keys::Set{AbstractString}
     scalar_value::StorageScalar
 end
 
@@ -1392,7 +1396,7 @@ struct FakeScalarState end
 
 mutable struct AxisState
     query_sequence::QuerySequence
-    dependency_keys::Set{String}
+    dependency_keys::Set{AbstractString}
     axis_name::AbstractString
     axis_modifier::Maybe{Union{Vector{Bool}, Int}}
 end
@@ -1405,7 +1409,7 @@ end
 
 mutable struct VectorState
     query_sequence::QuerySequence
-    dependency_keys::Set{String}
+    dependency_keys::Set{AbstractString}
     named_vector::NamedArray
     property_name::AbstractString
     axis_state::Maybe{AxisState}
@@ -1418,7 +1422,7 @@ end
 
 mutable struct MatrixState
     query_sequence::QuerySequence
-    dependency_keys::Set{String}
+    dependency_keys::Set{AbstractString}
     named_matrix::NamedArray
     rows_property_name::AbstractString
     columns_property_name::AbstractString
@@ -1441,8 +1445,15 @@ struct FakeAsAxis end
 
 struct FakeGroupBy end
 
-FakeQueryValue =
-    Union{Set{String}, FakeScalarState, FakeAxisState, FakeVectorState, FakeMatrixState, FakeAsAxis, FakeGroupBy}
+FakeQueryValue = Union{
+    Set{AbstractString},
+    FakeScalarState,
+    FakeAxisState,
+    FakeVectorState,
+    FakeMatrixState,
+    FakeAsAxis,
+    FakeGroupBy,
+}
 
 mutable struct FakeQueryState
     query_sequence::QuerySequence
@@ -1503,8 +1514,8 @@ Apply the full `query` to the `Daf` data and return the result. By default, this
 will be accelerated. This may consume a large amount of memory. You can disable it by specifying `cache = false`, or
 release the cached data using [`empty_cache!`](@ref).
 
-As a shorthand syntax you can also invoke this using `getindex`, that is, using the `[]` operator (e.g., `daf[q"/ cell"]` is
-equivalent to `get_query(daf, q"/ cell")`).
+As a shorthand syntax you can also invoke this using `getindex`, that is, using the `[]` operator (e.g.,
+`daf[q"/ cell"]` is equivalent to `get_query(daf, q"/ cell")`).
 """
 function get_query(
     daf::DafReader,
@@ -1595,7 +1606,7 @@ end
 
 function get_query_result(
     query_state::QueryState,
-)::Tuple{Union{AbstractStringSet, StorageScalar, NamedArray}, Set{String}}
+)::Tuple{Union{AbstractStringSet, StorageScalar, NamedArray}, Set{AbstractString}}
     if is_all(query_state, (AbstractStringSet,))
         return get_names_result(query_state)
     elseif is_all(query_state, (ScalarState,))
@@ -1633,19 +1644,19 @@ function get_query_result_dimensions(fake_query_state::FakeQueryState)::Int
     end
 end
 
-function get_names_result(query_state::QueryState)::Tuple{AbstractStringSet, Set{String}}
+function get_names_result(query_state::QueryState)::Tuple{AbstractStringSet, Set{AbstractString}}
     names = pop!(query_state.stack)
     @assert names isa AbstractStringSet
-    return names, Set{String}()
+    return names, Set{AbstractString}()
 end
 
-function get_scalar_result(query_state::QueryState)::Tuple{StorageScalar, Set{String}}
+function get_scalar_result(query_state::QueryState)::Tuple{StorageScalar, Set{AbstractString}}
     scalar_state = pop!(query_state.stack)
     @assert scalar_state isa ScalarState
     return scalar_state.scalar_value, scalar_state.dependency_keys
 end
 
-function get_axis_result(query_state::QueryState)::Tuple{Union{String, NamedArray}, Set{String}}
+function get_axis_result(query_state::QueryState)::Tuple{Union{AbstractString, NamedArray}, Set{AbstractString}}
     axis_state = pop!(query_state.stack)
     @assert axis_state isa AxisState
 
@@ -1661,13 +1672,13 @@ function get_axis_result(query_state::QueryState)::Tuple{Union{String, NamedArra
     end
 end
 
-function get_vector_result(query_state::QueryState)::Tuple{NamedArray, Set{String}}
+function get_vector_result(query_state::QueryState)::Tuple{NamedArray, Set{AbstractString}}
     vector_state = pop!(query_state.stack)
     @assert vector_state isa VectorState
     return vector_state.named_vector, vector_state.dependency_keys
 end
 
-function get_matrix_result(query_state::QueryState)::Tuple{NamedArray, Set{String}}
+function get_matrix_result(query_state::QueryState)::Tuple{NamedArray, Set{AbstractString}}
     matrix_state = pop!(query_state.stack)
     @assert matrix_state isa MatrixState
     return matrix_state.named_matrix, matrix_state.dependency_keys
@@ -1817,7 +1828,7 @@ function fake_kind_names(fake_query_state::FakeQueryState, names::Names)::Nothin
         error_at_state(fake_query_state, "invalid kind: $(names.kind)\n")
     end
 
-    push!(fake_query_state.stack, Set{String}())
+    push!(fake_query_state.stack, Set{AbstractString}())
     return nothing
 end
 
@@ -1832,7 +1843,7 @@ function fake_vector_names(fake_query_state::FakeQueryState, names::Names)::Noth
         error_at_state(fake_query_state, "sliced/masked axis for vector names\n")
     end
 
-    push!(fake_query_state.stack, Set{String}())
+    push!(fake_query_state.stack, Set{AbstractString}())
     return nothing
 end
 
@@ -1852,7 +1863,7 @@ function fake_matrix_names(fake_query_state::FakeQueryState, names::Names)::Noth
         error_at_state(fake_query_state, "sliced/masked axis for matrix names\n")
     end
 
-    push!(fake_query_state.stack, Set{String}())
+    push!(fake_query_state.stack, Set{AbstractString}())
     return nothing
 end
 
@@ -2023,7 +2034,7 @@ function lookup_matrix(
     named_matrix::Maybe{NamedMatrix},
     rows_axis_state::AxisState,
     columns_axis_state::AxisState,
-    dependency_keys::Set{String},
+    dependency_keys::Set{AbstractString},
 )::Nothing
     matrix_state = MatrixState(
         query_state_sequence(query_state),
@@ -2042,7 +2053,7 @@ function lookup_matrix_slice(
     query_state::QueryState,
     named_vector::NamedVector,
     axis_state::AxisState,
-    dependency_keys::Set{String},
+    dependency_keys::Set{AbstractString},
 )::Nothing
     vector_state = VectorState(
         query_state_sequence(query_state),
@@ -2059,7 +2070,7 @@ end
 function lookup_matrix_entry(
     query_state::QueryState,
     scalar_value::StorageScalar,
-    dependency_keys::Set{String},
+    dependency_keys::Set{AbstractString},
 )::Nothing
     scalar_state = ScalarState(query_state_sequence(query_state), dependency_keys, scalar_value)
     push!(query_state.stack, scalar_state)
@@ -2097,7 +2108,7 @@ mutable struct CommonFetchState
     axis_state::AxisState
     axis_name::AbstractString
     property_name::AbstractString
-    dependency_keys::Set{String}
+    dependency_keys::Set{AbstractString}
 end
 
 mutable struct EntryFetchState
@@ -2912,7 +2923,7 @@ function unique_values(
     vector_state::VectorState,
     as_axis::Maybe{AsAxis},
     need_index_of_values::Bool,
-)::Tuple{String, StorageVector, Maybe{Dict}}
+)::Tuple{AbstractString, StorageVector, Maybe{Dict}}
     property_name = vector_state.property_name
 
     if as_axis == nothing
@@ -3132,7 +3143,7 @@ function parse_group_by(
     query_state::QueryState,
     axis_state::AxisState,
     group_by::GroupBy,
-)::Maybe{Tuple{VectorState, StorageVector, Vector{String}, AbstractString, ReductionOperation, Maybe{IfMissing}}}
+)::Maybe{Tuple{VectorState, StorageVector, AbstractStringVector, AbstractString, ReductionOperation, Maybe{IfMissing}}}
     fetch_property(query_state, axis_state, group_by)
     groups_vector_state = pop!(query_state.stack)
     @assert groups_vector_state isa VectorState
@@ -3523,16 +3534,16 @@ function value_for(query_state::QueryState, type::Type{T}, value::StorageScalar)
 end
 
 """
+Specify columns for a data frame. This is a vector of pairs, where the key is the column name, and the value is a query
+that computes the data of the column.
+"""
+QueryColumns = AbstractVector{Union{Pair{String, String}, Pair{String, Query}}}
+
+"""
     function get_frame(
         daf::DafReader,
         axis::Union{Query, AbstractString},
-        [columns::Union{
-            Nothing,
-            AbstractStringVector,
-            Vector{Pair{String, String}},
-            Vector{Pair{String, Query}},
-            Vector{Pair{String, Union{String, Query}}},
-        } = nothing],
+        [columns::Maybe{Union{AbstractStringVector, QueryColumns}} = nothing,
         cache::Bool = true]
     )::DataFrame end
 
@@ -3554,13 +3565,7 @@ specifying `cache = false`, or release the cached data using [`empty_cache!`](@r
 function get_frame(
     daf::DafReader,
     axis::Union{Query, AbstractString},
-    columns::Union{
-        Nothing,
-        AbstractStringVector,
-        Vector{Pair{String, String}},
-        Vector{Pair{String, Query}},
-        Vector{Pair{String, Union{String, Query}}},
-    } = nothing;
+    columns::Maybe{Union{AbstractStringVector, QueryColumns}} = nothing,
     cache::Bool = false,
 )::DataFrame
     if axis isa Query
@@ -3589,7 +3594,7 @@ function get_frame(
         columns = [column => Lookup(column) for column in columns]
     end
 
-    data = Vector{Pair{AbstractString, StorageVector}}()
+    data = Vector{Pair{String, StorageVector}}()
     for (column_name, column_query) in columns
         if column_query isa AbstractString
             column_query = Query(column_query)

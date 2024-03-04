@@ -130,7 +130,7 @@ end
 function Formats.format_description_header(
     read_only_view::ReadOnlyView,
     indent::AbstractString,
-    lines::Array{String},
+    lines::Vector{String},
 )::Nothing
     push!(lines, "$(indent)type: ReadOnly $(typeof(read_only_view.daf))")
     return nothing

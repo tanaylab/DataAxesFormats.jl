@@ -18,6 +18,7 @@ Daf.Queries.get_query
 Daf.Queries.query_result_dimensions
 Daf.Queries.empty_cache!
 Daf.Queries.get_frame
+Daf.Queries.QueryColumns
 ```
 
 ## Syntax

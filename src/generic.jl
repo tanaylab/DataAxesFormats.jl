@@ -1,8 +1,9 @@
 """
 Types that arguably should belong in a more general-purpose package.
 
-We do not re-export the types and functions defined here from the top-level `Daf` namespace. That is, even if `using Daf`, you will **not** have these generic names polluting your namespace. If you do want to reuse them in your code,
-explicitly write `using Daf.Generic`.
+We do not re-export the types and functions defined here from the top-level `Daf` namespace. That is, even if
+`using Daf`, you will **not** have these generic names polluting your namespace. If you do want to reuse them in your
+code, explicitly write `using Daf.Generic`.
 """
 module Generic
 
@@ -32,8 +33,8 @@ Valid values are:
 
 Call this when encountering some abnormal, but recoverable, condition. Follow it by the recovery code.
 
-This will `error` if the `handler` is `ErrorHandler`, and abort the program. If it is `WarnHandler`, it will just `@warn`
-and return. If it is `IgnoreHandler` it will just return.
+This will `error` if the `handler` is `ErrorHandler`, and abort the program. If it is `WarnHandler`, it will just
+`@warn` and return. If it is `IgnoreHandler` it will just return.
 
 The `message` is a function that should return an `AbstractString` to use. For efficiency, it is not invoked if ignoring
 the condition.

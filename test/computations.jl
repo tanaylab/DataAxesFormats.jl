@@ -15,18 +15,14 @@ The `quality` is mandatory. The default `optional` is `$(DEFAULT.optional)`. The
 $(CONTRACT)
 """
 @computation Contract(
-    scalars = [
-        "version" => (Optional, String, "In major.minor.patch format."),
-        "quality" => (Guaranteed, Float64, "Overall output quality score between 0.0 and 1.0."),
-    ],
-    axes = ["cell" => (Required, "The sampled single cells."), "gene" => (Optional, "The sampled genes.")],
-    vectors = [
-        ("gene", "noisy") => (Optional, Bool, "Mask of genes with high variability."),
-        ("cell", "special") => (Contingent, Bool, "Computed mask of special cells, if requested."),
-    ],
-    matrices = [
+    axes = ["cell" => (RequiredInput, "The sampled single cells."), "gene" => (OptionalInput, "The sampled genes.")],
+    data = [
+        "version" => (OptionalInput, String, "In major.minor.patch format."),
+        "quality" => (GuaranteedOutput, Float64, "Overall output quality score between 0.0 and 1.0."),
+        ("gene", "noisy") => (OptionalInput, Bool, "Mask of genes with high variability."),
+        ("cell", "special") => (OptionalOutput, Bool, "Computed mask of special cells, if requested."),
         ("cell", "gene", "UMIs") =>
-            (Required, Union{UInt8, UInt16, UInt32, UInt64}, "The number of sampled scRNA molecules."),
+            (RequiredInput, Union{UInt8, UInt16, UInt32, UInt64}, "The number of sampled scRNA molecules."),
     ],
 ) function single(daf::DafWriter, quality::Float64, optional::Int = 1; named::Int = 2)::Nothing
     set_scalar!(daf, "quality", quality)
@@ -45,14 +41,14 @@ $(CONTRACT1)
 $(CONTRACT2)
 """
 @computation Contract(
-    scalars = [
-        "version" => (Required, String, "In major.minor.patch format."),
-        "quality" => (Guaranteed, Float64, "Overall output quality score between 0.0 and 1.0."),
+    data = [
+        "version" => (RequiredInput, String, "In major.minor.patch format."),
+        "quality" => (GuaranteedOutput, Float64, "Overall output quality score between 0.0 and 1.0."),
     ],
 ) Contract(
-    scalars = [
-        "version" => (Guaranteed, String, "In major.minor.patch format."),
-        "quality" => (Required, Float64, "Overall output quality score between 0.0 and 1.0."),
+    data = [
+        "version" => (GuaranteedOutput, String, "In major.minor.patch format."),
+        "quality" => (RequiredInput, Float64, "Overall output quality score between 0.0 and 1.0."),
     ],
 ) function cross(first::DafWriter, second::DafWriter)::Nothing
     set_scalar!(second, "version", get_scalar(first, "version"))
@@ -149,31 +145,31 @@ nested_test("computations") do
 
                    ### Scalars
 
-                   **version**::String (Optional): In major.minor.patch format.
+                   **version**::String (optional): In major.minor.patch format.
 
                    ### Axes
 
-                   **cell** (Required): The sampled single cells.
+                   **cell** (required): The sampled single cells.
 
-                   **gene** (Optional): The sampled genes.
+                   **gene** (optional): The sampled genes.
 
                    ### Vectors
 
-                   **gene @ noisy**::Bool (Optional): Mask of genes with high variability.
+                   **gene @ noisy**::Bool (optional): Mask of genes with high variability.
 
                    ### Matrices
 
-                   **cell, gene @ UMIs**::Union{UInt16, UInt32, UInt64, UInt8} (Required): The number of sampled scRNA molecules.
+                   **cell, gene @ UMIs**::Union{UInt16, UInt32, UInt64, UInt8} (required): The number of sampled scRNA molecules.
 
                    ## Outputs
 
                    ### Scalars
 
-                   **quality**::Float64 (Guaranteed): Overall output quality score between 0.0 and 1.0.
+                   **quality**::Float64 (guaranteed): Overall output quality score between 0.0 and 1.0.
 
                    ### Vectors
 
-                   **cell @ special**::Bool (Contingent): Computed mask of special cells, if requested.
+                   **cell @ special**::Bool (optional): Computed mask of special cells, if requested.
                """,
             ) * "\n"
         end
@@ -229,13 +225,13 @@ nested_test("computations") do
 
                 ### Scalars
 
-                **version**::String (Required): In major.minor.patch format.
+                **version**::String (required): In major.minor.patch format.
 
                 ## Outputs
 
                 ### Scalars
 
-                **quality**::Float64 (Guaranteed): Overall output quality score between 0.0 and 1.0.
+                **quality**::Float64 (guaranteed): Overall output quality score between 0.0 and 1.0.
 
                 # Second
 
@@ -243,13 +239,13 @@ nested_test("computations") do
 
                 ### Scalars
 
-                **quality**::Float64 (Required): Overall output quality score between 0.0 and 1.0.
+                **quality**::Float64 (required): Overall output quality score between 0.0 and 1.0.
 
                 ## Outputs
 
                 ### Scalars
 
-                **version**::String (Guaranteed): In major.minor.patch format.
+                **version**::String (guaranteed): In major.minor.patch format.
             """) * "\n"
         end
 

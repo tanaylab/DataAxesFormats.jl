@@ -16,7 +16,7 @@ export copy_matrix!
 export copy_scalar!
 export copy_vector!
 export empty_dict
-export EmptyKey
+export EmptyData
 
 using Daf.Data
 using Daf.Formats
@@ -300,19 +300,35 @@ function copy_matrix!(;
 end
 
 """
+Specify the data to use for missing properties in a `Daf` data set. This is a dictionary with an [`DataKey`](@ref)
+specifying for which property we specify a value to, and the value to use.
+
+!!! note
+
+    Due to Julia's type system limitations, there's just no way for the system to enforce the type of the pairs when
+    initializing this dictionary. That is, what we'd **like** to say is:
+
+        EmptyData = AbstractDict{DataKey, StorageScalar}
+
+    But what we are **forced** to say is:
+
+        EmptyData = AbstractDict
+
+    That's **not** a mistake. Even `EmptyData = AbstractDict{Key, StorageScalar} where {Key}` fails to work, as do all
+    the (many) possibilities for expressing "this is a dictionary where the key or the value can be one of several
+    things" Sigh. Glory to anyone who figures out an incantation that would force the system to perform **any**
+    meaningful type inference here.
+"""
+EmptyData = AbstractDict
+
+"""
     copy_all!(;
         into::DafWriter,
         from::DafReader
-        [empty::Maybe{AbstractDict{Key, Value}} = nothing,
+        [empty::Maybe{EmptyData} = nothing,
         overwrite::Bool = false,
         relayout::Bool = true]
-    )::Nothing where {
-        Key <: Union{
-            Tuple{AbstractString, AbstractString},                  # Key for empty value for vectors.
-            Tuple{AbstractString, AbstractString, AbstractString},  # Key for empty value for matrices.
-        },
-        Value <: StorageScalarBase
-    }
+    )::Nothing
 
 Copy all the content of a `DafReader` into a `DafWriter`. If `overwrite`, this will overwrite existing data in the
 target. If `relayout`, matrices will be stored in the target both layouts, regardless of how they were stored in the
@@ -331,20 +347,28 @@ axes for matrix properties doesn't matter (the same empty value is automatically
 function copy_all!(;
     into::DafWriter,
     from::DafReader,
-    empty::Maybe{AbstractDict} = nothing,
+    empty::Maybe{EmptyData} = nothing,
     overwrite::Bool = false,
     relayout::Bool = true,
 )::Nothing
+    if empty != nothing
+        for (key, value) in empty
+            @assert key isa DataKey
+            @assert value isa StorageScalar
+        end
+    end
+
     axis_relations = verify_axes(into, from; allow_from_subset = (empty != nothing))
     copy_scalars(into, from, overwrite)
     copy_axes(into, from)
     copy_vectors(into, from, axis_relations, empty, overwrite)
     copy_matrices(into, from, axis_relations, empty, overwrite, relayout)
+
     return nothing
 end
 
-function verify_axes(into::DafWriter, from::DafReader; allow_from_subset::Bool)::Dict{String, Symbol}
-    axis_relations = Dict{String, Symbol}()
+function verify_axes(into::DafWriter, from::DafReader; allow_from_subset::Bool)::Dict{AbstractString, Symbol}
+    axis_relations = Dict{AbstractString, Symbol}()
     for axis in axis_names(from)
         axis_relations[axis] =
             verify_axis(into, axis, from, axis; allow_missing = true, allow_from_subset = allow_from_subset)
@@ -422,8 +446,8 @@ end
 function copy_vectors(
     into::DafWriter,
     from::DafReader,
-    axis_relations::Dict{String, Symbol},
-    empty::Maybe{AbstractDict},
+    axis_relations::Dict{AbstractString, Symbol},
+    empty::Maybe{EmptyData},
     overwrite::Bool,
 )::Nothing
     empty_value = nothing
@@ -448,8 +472,8 @@ end
 function copy_matrices(
     into::DafWriter,
     from::DafReader,
-    axis_relations::Dict{String, Symbol},
-    empty::Maybe{AbstractDict},
+    axis_relations::Dict{AbstractString, Symbol},
+    empty::Maybe{EmptyData},
     overwrite::Bool,
     relayout::Bool,
 )::Nothing

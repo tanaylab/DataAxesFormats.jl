@@ -3,12 +3,14 @@ Enforce input and output contracts of computations using `Daf` data.
 """
 module Contracts
 
-export Contingent
 export Contract
-export Expectation
-export Guaranteed
-export Optional
-export Required
+export ContractAxes
+export ContractData
+export ContractExpectation
+export GuaranteedOutput
+export OptionalInput
+export OptionalOutput
+export RequiredInput
 export verify_input
 export verify_output
 
@@ -23,91 +25,80 @@ The expectation from a specific property for a computation on `Daf` data.
 
 Input data:
 
-`Required` - data that must exist in the data when invoking the computation, will be used as input.
+`RequiredInput` - data that must exist in the data when invoking the computation, will be used as input.
 
-`Optional` - data that, if existing in the data when invoking the computation, will be used as an input.
+`OptionalInput` - data that, if existing in the data when invoking the computation, will be used as an input.
 
 Output data:
 
-`Guaranteed` - data that is guaranteed to exist when the computation is done.
+`GuaranteedOutput` - data that is guaranteed to exist when the computation is done.
 
-`Contingent` - data that may exist when the computation is done, contingent on some condition, which may include the
+`OptionalOutput` - data that may exist when the computation is done, depending on some condition, which may include the
 existence of optional input and/or the value of parameters to the computation, and/or the content of the data.
 """
-@enum Expectation Required Optional Guaranteed Contingent
+@enum ContractExpectation RequiredInput OptionalInput GuaranteedOutput OptionalOutput
 
 """
-    function Contract([;
-        scalars::Union{
-            Vector{Pair{
-                String,
-                Tuple{Expectation, Type, String}
-            }}, Nothing
-        } = nothing,
-        axes::Union{
-            Vector{Pair{
-                String,
-                Tuple{Expectation, String}
-            }}, Nothing
-        } = nothing,
-        vectors::Union{
-            Vector{Pair{
-                Tuple{String, String},
-                Tuple{Expectation, Type, String}
-            }},
-            Nothing
-        } = nothing,
-        matrices::Union{
-            Vector{Pair{
-                Tuple{String, String, String},
-                Tuple{Expectation, Type, String}
-            }},
-            Nothing
-        } = nothing,
-    ])::Contract
-
-The contract of a computational tool. This consists of four separate parts:
-
-`scalars` - a vector of pairs where the key is the scalar name and the value is a tuple of the [`Expectation`](@ref),
-the data type of the scalar, and a description of the scalar (for documentation).
-
-`axes` - a vector of pairs where the key is the axis name and the value is a tuple of the [`Expectation`](@ref) and a
+A vector of pairs where the key is the axis name and the value is a tuple of the [`ContractExpectation`](@ref) and a
 description of the axis (for documentation). Axes are listed mainly for documentation; axes of required or guaranteed
 vectors or matrices are automatically required or guaranteed to match. However it is considered polite to explicitly
 list the axes with their descriptions so the documentation of the contract will be complete.
 
-`vectors` - a vector of pairs where the key is a tuple of the axis and vector names, and the value is a tuple of the
-[`Expectation`](@ref), the data type of the vector entries, and a description of the vector (for documentation).
+!!! note
 
-`matrices` - a vector of pairs where the key is a tuple of the axes and matrix names, and the value is a tuple of the
-[`Expectation`](@ref), the data type of the matrix entries, and a description of the matrix (for documentation).
+    Due to Julia's type system limitations, there's just no way for the system to enforce the type of the pairs
+    in this vector. That is, what we'd **like** to say is:
+
+        ContractAxes = AbstractVector{Pair{AbstractString, Tuple{ContractExpectation, AbstractString}}}
+
+    But what we are **forced** to say is:
+
+        ContractAxes = AbstractVector
+
+    That's **not** a mistake. Even `ContractAxes = AbstractVector{Pair}` fails to work, as do all the (many)
+    possibilities for expressing "this is a vector of pairs where the key or the value can be one of several things"
+    Sigh. Glory to anyone who figures out an incantation that would force the system to perform **any** meaningful type
+    inference here.
 """
-struct Contract{T1, T2, T3}
-    scalars::Vector{Pair{String, Tuple{Expectation, T1, String}}}
-    axes::Vector{Pair{String, Tuple{Expectation, String}}}
-    vectors::Vector{Pair{Tuple{String, String}, Tuple{Expectation, T2, String}}}
-    matrices::Vector{Pair{Tuple{String, String, String}, Tuple{Expectation, T3, String}}}
+ContractAxes = AbstractVector
+
+"""
+A vector of pairs where the key is a [`DataKey`](@ref) identifying some data property, and the value is a tuple of the
+[`ContractExpectation`](@ref), the expected data type, and a description (for documentation).
+
+!!! note
+
+    Due to Julia's type system limitations, there's just no way for the system to enforce the type of the pairs
+    in this vector. That is, what we'd **like** to say is:
+
+        ContractData = AbstractVector{Pair{DataKey, Tuple{ContractExpectation, Type, AbstractString}}}
+
+    But what we are **forced** to say is:
+
+        ContractData = AbstractVector
+
+    That's **not** a mistake. Even `ContractData = AbstractVector{Pair}` fails to work, as do all the (many)
+    possibilities for expressing "this is a vector of pairs where the key or the value can be one of several things"
+    Sigh. Glory to anyone who figures out an incantation that would force the system to perform **any** meaningful type
+    inference here.
+"""
+ContractData = AbstractVector
+
+"""
+    function Contract(;
+        [axes::Maybe{ContractAxes} = nothing,
+        data::Maybe{ContractData} = nothing]
+    )::Contract
+
+The contract of a computational tool, specifing the [`ContractAxes`](@ref) and [`ContractData`](@ref).
+"""
+struct Contract
+    axes::Maybe{ContractAxes}
+    data::Maybe{ContractData}
 end
 
-function Contract(;
-    scalars::Maybe{Vector{Pair{String, Tuple{Expectation, T1, String}}}} = nothing,
-    axes::Maybe{Vector{Pair{String, Tuple{Expectation, String}}}} = nothing,
-    vectors::Maybe{Vector{Pair{Tuple{String, String}, Tuple{Expectation, T2, String}}}} = nothing,
-    matrices::Maybe{Vector{Pair{Tuple{String, String, String}, Tuple{Expectation, T3, String}}}} = nothing,
-)::Contract where {T1 <: Type, T2 <: Type, T3 <: Type}
-    if scalars == nothing
-        scalars = Vector{Pair{String, Tuple{Expectation, Type, String}}}()
-    end
-    if axes == nothing
-        axes = Vector{Pair{String, Tuple{Expectation, String}}}()
-    end
-    if vectors == nothing
-        vectors = Vector{Pair{Tuple{String, String}, Tuple{Expectation, Type, String}}}()
-    end
-    if matrices == nothing
-        matrices = Vector{Pair{Tuple{String, String, String}, Tuple{Expectation, Type, String}}}()
-    end
-    return Contract(scalars, axes, vectors, matrices)
+function Contract(; axes::Maybe{ContractAxes} = nothing, data::Maybe{ContractData} = nothing)::Contract
+    return Contract(axes, data)
 end
 
 """
@@ -123,26 +114,37 @@ end
 """
     function verify_output(daf::DafReader, contract::Contract, computation::AbstractString)::Nothing
 
-Verify the `daf` data when a computation is complete. This verifies that all the guaranteed data exists and is of the
-appropriate type, and that if any of the contingent data exists, it has the appropriate type.
+Verify the `daf` data when a computation is complete. This verifies that all the guaranteed output data exists and is of
+the appropriate type, and that if any of the optional output data exists, it has the appropriate type.
 """
 function verify_output(contract::Contract, computation::AbstractString, daf::DafReader)::Nothing
     return verify_contract(contract, computation, daf; is_output = true)
 end
 
 function verify_contract(contract::Contract, computation::AbstractString, daf::DafReader; is_output::Bool)::Nothing
-    for (scalar_name, scalar_term) in contract.scalars
-        verify_scalar_contract(computation, daf, scalar_name, scalar_term...; is_output = is_output)
+    if contract.axes != nothing
+        for (axis_name, axis_term) in contract.axes
+            @assert axis_name isa AbstractString
+            @assert axis_term isa Tuple{ContractExpectation, AbstractString}
+            verify_axis_contract(computation, daf, axis_name, axis_term...; is_output = is_output)
+        end
     end
-    for (axis_name, axis_term) in contract.axes
-        verify_axis_contract(computation, daf, axis_name, axis_term...; is_output = is_output)
+
+    if contract.data != nothing
+        for (data_key, data_term) in contract.data
+            @assert data_key isa DataKey
+            @assert data_term isa Tuple{ContractExpectation, Type, AbstractString}
+            if data_key isa AbstractString
+                verify_scalar_contract(computation, daf, data_key, data_term...; is_output = is_output)
+            elseif data_key isa Tuple{AbstractString, AbstractString}
+                verify_vector_contract(computation, daf, data_key..., data_term...; is_output = is_output)
+            else
+                @assert data_key isa Tuple{AbstractString, AbstractString, AbstractString}
+                verify_matrix_contract(computation, daf, data_key..., data_term...; is_output = is_output)
+            end
+        end
     end
-    for (vector_names, vector_term) in contract.vectors
-        verify_vector_contract(computation, daf, vector_names..., vector_term...; is_output = is_output)
-    end
-    for (matrix_names, matrix_term) in contract.matrices
-        verify_matrix_contract(computation, daf, matrix_names..., matrix_term...; is_output = is_output)
-    end
+
     return nothing
 end
 
@@ -150,7 +152,7 @@ function verify_scalar_contract(
     computation::AbstractString,
     daf::DafReader,
     name::AbstractString,
-    expectation::Expectation,
+    expectation::ContractExpectation,
     data_type::T,
     description::AbstractString;
     is_output::Bool,
@@ -179,7 +181,7 @@ function verify_axis_contract(
     computation::AbstractString,
     daf::DafReader,
     name::AbstractString,
-    expectation::Expectation,
+    expectation::ContractExpectation,
     description::AbstractString;
     is_output::Bool,
 )::Bool
@@ -199,7 +201,7 @@ function verify_vector_contract(
     daf::DafReader,
     axis::AbstractString,
     name::AbstractString,
-    expectation::Expectation,
+    expectation::ContractExpectation,
     data_type::T,
     description::AbstractString;
     is_output::Bool,
@@ -235,7 +237,7 @@ function verify_matrix_contract(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    expectation::Expectation,
+    expectation::ContractExpectation,
     data_type::T,
     description::AbstractString;
     is_output::Bool,
@@ -269,13 +271,13 @@ function verify_matrix_contract(
     end
 end
 
-function is_mandatory(expectation::Expectation; is_output::Bool)::Bool
-    return (is_output && expectation == Guaranteed) || (!is_output && expectation == Required)
+function is_mandatory(expectation::ContractExpectation; is_output::Bool)::Bool
+    return (is_output && expectation == GuaranteedOutput) || (!is_output && expectation == RequiredInput)
 end
 
-function is_possible(expectation::Expectation; is_output::Bool)::Bool
-    return (is_output && (expectation == Guaranteed || expectation == Contingent)) ||
-           (!is_output && (expectation == Required || expectation == Optional))
+function is_possible(expectation::ContractExpectation; is_output::Bool)::Bool
+    return (is_output && (expectation == GuaranteedOutput || expectation == OptionalOutput)) ||
+           (!is_output && (expectation == RequiredInput || expectation == OptionalInput))
 end
 
 function direction_name(is_output::Bool)::String
@@ -301,77 +303,97 @@ function contract_documentation(contract::Contract, buffer::IOBuffer)::Nothing
 end
 
 function scalar_documentation(contract::Contract, buffer::IOBuffer; is_output::Bool, has_any::Bool)::Bool
-    is_first = true
-    for (name, (expectation, data_type, description)) in contract.scalars
-        if (is_output && (expectation == Guaranteed || expectation == Contingent)) ||
-           (!is_output && (expectation == Required || expectation == Optional))
-            has_any = direction_header(buffer; is_output = is_output, has_any = has_any)
-            if is_first
-                is_first = false
+    if contract.data != nothing
+        is_first = true
+        for (name, (expectation, data_type, description)) in contract.data
+            if name isa AbstractString && (
+                (is_output && (expectation == GuaranteedOutput || expectation == OptionalOutput)) ||
+                (!is_output && (expectation == RequiredInput || expectation == OptionalInput))
+            )
+                has_any = direction_header(buffer; is_output = is_output, has_any = has_any)
+                if is_first
+                    is_first = false
+                    println(buffer)
+                    println(buffer, "### Scalars")
+                end
                 println(buffer)
-                println(buffer, "### Scalars")
+                println(buffer, "**$(name)**::$(data_type) ($(short(expectation))): $(description)")
             end
-            println(buffer)
-            println(buffer, "**$(name)**::$(data_type) ($(expectation)): $(description)")
         end
     end
+
     return has_any
 end
 
 function axes_documentation(contract::Contract, buffer::IOBuffer; is_output::Bool, has_any::Bool)::Bool
-    is_first = true
-    for (name, (expectation, description)) in contract.axes
-        if (is_output && (expectation == Guaranteed || expectation == Contingent)) ||
-           (!is_output && (expectation == Required || expectation == Optional))
-            has_any = direction_header(buffer; is_output = is_output, has_any = has_any)
-            if is_first
-                is_first = false
+    if contract.axes != nothing
+        is_first = true
+        for (name, (expectation, description)) in contract.axes
+            if (is_output && (expectation == GuaranteedOutput || expectation == OptionalOutput)) ||
+               (!is_output && (expectation == RequiredInput || expectation == OptionalInput))
+                has_any = direction_header(buffer; is_output = is_output, has_any = has_any)
+                if is_first
+                    is_first = false
+                    println(buffer)
+                    println(buffer, "### Axes")
+                end
                 println(buffer)
-                println(buffer, "### Axes")
+                println(buffer, "**$(name)** ($(short(expectation))): $(description)")
             end
-            println(buffer)
-            println(buffer, "**$(name)** ($(expectation)): $(description)")
         end
     end
+
     return has_any
 end
 
 function vectors_documentation(contract::Contract, buffer::IOBuffer; is_output::Bool, has_any::Bool)::Bool
-    is_first = true
-    for ((axis_name, name), (expectation, data_type, description)) in contract.vectors
-        if (is_output && (expectation == Guaranteed || expectation == Contingent)) ||
-           (!is_output && (expectation == Required || expectation == Optional))
-            has_any = direction_header(buffer; is_output = is_output, has_any = has_any)
-            if is_first
-                is_first = false
-                println(buffer)
-                println(buffer, "### Vectors")
+    if contract.data != nothing
+        is_first = true
+        for (key, (expectation, data_type, description)) in contract.data
+            if key isa Tuple{AbstractString, AbstractString}
+                axis_name, name = key
+                if (is_output && (expectation == GuaranteedOutput || expectation == OptionalOutput)) ||
+                   (!is_output && (expectation == RequiredInput || expectation == OptionalInput))
+                    has_any = direction_header(buffer; is_output = is_output, has_any = has_any)
+                    if is_first
+                        is_first = false
+                        println(buffer)
+                        println(buffer, "### Vectors")
+                    end
+                    println(buffer)
+                    println(buffer, "**$(axis_name) @ $(name)**::$(data_type) ($(short(expectation))): $(description)")
+                end
             end
-            println(buffer)
-            println(buffer, "**$(axis_name) @ $(name)**::$(data_type) ($(expectation)): $(description)")
         end
     end
+
     return has_any
 end
 
 function matrices_documentation(contract::Contract, buffer::IOBuffer; is_output::Bool, has_any::Bool)::Bool
-    is_first = true
-    for ((rows_axis_name, columns_axis_name, name), (expectation, data_type, description)) in contract.matrices
-        if (is_output && (expectation == Guaranteed || expectation == Contingent)) ||
-           (!is_output && (expectation == Required || expectation == Optional))
-            has_any = direction_header(buffer; is_output = is_output, has_any = has_any)
-            if is_first
-                is_first = false
-                println(buffer)
-                println(buffer, "### Matrices")
+    if contract.data != nothing
+        is_first = true
+        for (key, (expectation, data_type, description)) in contract.data
+            if key isa Tuple{AbstractString, AbstractString, AbstractString}
+                rows_axis_name, columns_axis_name, name = key
+                if (is_output && (expectation == GuaranteedOutput || expectation == OptionalOutput)) ||
+                   (!is_output && (expectation == RequiredInput || expectation == OptionalInput))
+                    has_any = direction_header(buffer; is_output = is_output, has_any = has_any)
+                    if is_first
+                        is_first = false
+                        println(buffer)
+                        println(buffer, "### Matrices")
+                    end
+                    println(buffer)
+                    println(
+                        buffer,
+                        "**$(rows_axis_name), $(columns_axis_name) @ $(name)**::$(data_type) ($(short(expectation))): $(description)",
+                    )
+                end
             end
-            println(buffer)
-            println(
-                buffer,
-                "**$(rows_axis_name), $(columns_axis_name) @ $(name)**::$(data_type) ($(expectation)): $(description)",
-            )
         end
     end
+
     return has_any
 end
 
@@ -385,6 +407,18 @@ function direction_header(buffer::IOBuffer; is_output::Bool, has_any::Bool)::Boo
         end
     end
     return true
+end
+
+function short(expectation::ContractExpectation)::String
+    if expectation == RequiredInput
+        return "required"
+    elseif expectation == GuaranteedOutput
+        return "guaranteed"
+    elseif expectation == OptionalInput || expectation == OptionalOutput
+        return "optional"
+    else
+        @assert false  # untested
+    end
 end
 
 end # module

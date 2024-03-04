@@ -119,7 +119,7 @@ function chain_writer(dafs::Vector{F}; name::Maybe{AbstractString} = nothing)::D
 end
 
 function reader_internal_dafs(dafs::Vector{F}, name::AbstractString)::Vector{DafReader} where {F}
-    axes_entries = Dict{String, Tuple{String, Vector{String}}}()
+    axes_entries = Dict{AbstractString, Tuple{AbstractString, AbstractStringVector}}()
     internal_dafs = Vector{DafReader}()
     for daf in dafs
         if daf isa ReadOnlyView
@@ -478,12 +478,12 @@ function Formats.format_get_matrix(
     @assert false  # untested
 end
 
-function Formats.format_description_header(chain::ReadOnlyChain, indent::AbstractString, lines::Array{String})::Nothing
+function Formats.format_description_header(chain::ReadOnlyChain, indent::AbstractString, lines::Vector{String})::Nothing
     push!(lines, "$(indent)type: ReadOnly Chain")
     return nothing
 end
 
-function Formats.format_description_header(chain::WriteChain, indent::AbstractString, lines::Array{String})::Nothing
+function Formats.format_description_header(chain::WriteChain, indent::AbstractString, lines::Vector{String})::Nothing
     push!(lines, "$(indent)type: Write Chain")
     return nothing
 end
@@ -491,7 +491,7 @@ end
 function Formats.format_description_footer(
     chain::AnyChain,
     indent::AbstractString,
-    lines::Array{String},
+    lines::Vector{String},
     deep::Bool,
 )::Nothing
     if deep

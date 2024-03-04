@@ -1,6 +1,6 @@
 """
-The [`FormatReader`](@ref) and [`FormatWriter`](@ref) interfaces specify a low-level API for storing `Daf` data. To extend
-`Daf` to support an additional format, create a new implementation of this API.
+The [`FormatReader`](@ref) and [`FormatWriter`](@ref) interfaces specify a low-level API for storing `Daf` data. To
+extend `Daf` to support an additional format, create a new implementation of this API.
 
 A storage format object contains some named scalar data, a set of axes (each with a unique name for each entry), and
 named vector and matrix data based on these axes.
@@ -23,13 +23,13 @@ The functions listed here use the [`FormatReader`](@ref) for read-only operation
 operations into a `Daf` storage. This is a low-level API, not meant to be used from outside the package, and therefore
 is not re-exported from the top-level `Daf` namespace.
 
-In contrast, the functions using [`DafReader`](@ref) and [`DafWriter`](@ref) describe the high-level API meant to be used
-from outside the package, and are re-exported. These functions are listed in the `Daf.Data` module. These functions
+In contrast, the functions using [`DafReader`](@ref) and [`DafWriter`](@ref) describe the high-level API meant to be
+used from outside the package, and are re-exported. These functions are listed in the `Daf.Data` module. These functions
 provide all the logic common to any storage format, allowing us to keep the format-specific functions as simple as
 possible.
 
-That is, when implementing a new `Daf` storage format, you should write `struct MyFormat <: DafWriter`, and implement the
-functions listed here for both [`FormatReader`](@ref) and [`FormatWriter`](@ref).
+That is, when implementing a new `Daf` storage format, you should write `struct MyFormat <: DafWriter`, and implement
+the functions listed here for both [`FormatReader`](@ref) and [`FormatWriter`](@ref).
 """
 module Formats
 
@@ -91,9 +91,9 @@ messages.
 """
 struct Internal
     name::AbstractString
-    axes::Dict{String, OrderedDict{String, Int64}}
-    cache::Dict{String, CacheEntry}
-    dependency_cache_keys::Dict{String, Set{String}}
+    axes::Dict{AbstractString, OrderedDict{AbstractString, Int64}}
+    cache::Dict{AbstractString, CacheEntry}
+    dependency_cache_keys::Dict{AbstractString, Set{AbstractString}}
     lock::ReadWriteLock
     writer_thread::Vector{Int}
     thread_has_read_lock::Vector{Bool}
@@ -102,9 +102,9 @@ end
 function Internal(name::AbstractString)::Internal
     return Internal(
         unique_name(name),
-        Dict{String, OrderedDict{String, Int64}}(),
-        Dict{String, CacheEntry}(),
-        Dict{String, Set{String}}(),
+        Dict{AbstractString, OrderedDict{AbstractString, Int64}}(),
+        Dict{AbstractString, CacheEntry}(),
+        Dict{AbstractString, Set{AbstractString}}(),
         ReadWriteLock(),
         [0],
         fill(false, nthreads()),
@@ -496,19 +496,19 @@ the `name` matrix property exists for them.
 function format_get_matrix end
 
 """
-    function format_description_header(format::FormatReader, lines::Array{String})::Nothing
+    function format_description_header(format::FormatReader, lines::Vector{String})::Nothing
 
 Allow a `format` to amit additional description header lines.
 
 This trusts that we have a read lock on the data set.
 """
-function format_description_header(format::FormatReader, indent::AbstractString, lines::Array{String})::Nothing
+function format_description_header(format::FormatReader, indent::AbstractString, lines::Vector{String})::Nothing
     push!(lines, "$(indent)type: $(typeof(format))")
     return nothing
 end
 
 """
-    function format_description_footer(format::FormatReader, lines::Array{String})::Nothing
+    function format_description_footer(format::FormatReader, lines::Vector{String})::Nothing
 
 Allow a `format` to amit additional description footer lines. If `deep`, this also emit the description of any data sets
 nested in this one, if any.
@@ -518,7 +518,7 @@ This trusts that we have a read lock on the data set.
 function format_description_footer(
     format::FormatReader,
     indent::AbstractString,
-    lines::Array{String},
+    lines::Vector{String},
     deep::Bool,
 )::Nothing
     return nothing
@@ -740,7 +740,7 @@ end
 function store_cached_dependency_keys!(
     format::FormatReader,
     cache_key::AbstractString,
-    dependency_keys::Set{String},
+    dependency_keys::Set{AbstractString},
 )::Nothing
     for dependency_key in dependency_keys
         if cache_key != dependency_key
@@ -757,7 +757,7 @@ function store_cached_dependency_key!(
 )::Nothing
     @assert format.internal.writer_thread[1] == threadid()
     keys_set = get!(format.internal.dependency_cache_keys, dependency_key) do
-        return Set{String}()
+        return Set{AbstractString}()
     end
     @assert cache_key != dependency_key
     push!(keys_set, cache_key)

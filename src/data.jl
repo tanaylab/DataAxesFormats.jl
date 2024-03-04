@@ -36,6 +36,7 @@ module Data
 export add_axis!
 export axis_length
 export axis_names
+export DataKey
 export delete_axis!
 export delete_matrix!
 export delete_scalar!
@@ -79,6 +80,21 @@ import Daf.Formats.upgrade_to_write_lock
 import Daf.Formats.with_read_lock
 import Daf.Formats.with_write_lock
 import Daf.Messages
+
+"""
+A key specifying some data property in `Daf`.
+
+**Scalars** are identified by their name.
+
+**Vectors** are specified as a tuple of the axis name and the property name.
+
+**Matrices** are specified as a tuple or the rows axis, the columns axis, and the property name.
+
+The [`DafReader`](@ref) and [`DafWriter`](@ref) interfaces do not use this type, as each function knows exactly the type
+of data property it works on. However, higher-level APIs do use this as keys for dictionaries etc.
+"""
+DataKey =
+    Union{AbstractString, Tuple{AbstractString, AbstractString}, Tuple{AbstractString, AbstractString, AbstractString}}
 
 function Base.getproperty(daf::DafReader, property::Symbol)::Any
     if property == :name
@@ -464,10 +480,11 @@ end
         [overwrite::Bool = false]
     )::Any where {T <: StorageNumber}
 
-Create an empty dense vector property with some `name` for some `axis` in `daf`, pass it to `fill`, and return the result.
+Create an empty dense vector property with some `name` for some `axis` in `daf`, pass it to `fill`, and return the
+result.
 
-The returned vector will be uninitialized; the caller is expected to `fill` it with values. This saves creating a copy of
-the vector before setting it in the data, which makes a huge difference when creating vectors on disk (using memory
+The returned vector will be uninitialized; the caller is expected to `fill` it with values. This saves creating a copy
+of the vector before setting it in the data, which makes a huge difference when creating vectors on disk (using memory
 mapping). For this reason, this does not work for strings, as they do not have a fixed size.
 
 This first verifies the `axis` exists in `daf` and that the property name isn't `name`. If not `overwrite` (the
@@ -1405,7 +1422,12 @@ function require_dim_name(
     end
 end
 
-function require_axis_names(daf::DafReader, axis::AbstractString, what::AbstractString, names::Vector{String})::Nothing
+function require_axis_names(
+    daf::DafReader,
+    axis::AbstractString,
+    what::AbstractString,
+    names::AbstractStringVector,
+)::Nothing
     expected_names = get_axis(daf, axis)
     if names != expected_names
         error("$(what)\nmismatch the entry names of the axis: $(axis)\nin the daf data: $(daf.name)")
@@ -1523,7 +1545,12 @@ function scalars_description(daf::DafReader, indent::AbstractString, lines::Vect
     return nothing
 end
 
-function axes_description(daf::DafReader, axes::Vector{String}, indent::AbstractString, lines::Vector{String})::Nothing
+function axes_description(
+    daf::DafReader,
+    axes::AbstractStringVector,
+    indent::AbstractString,
+    lines::Vector{String},
+)::Nothing
     push!(lines, "$(indent)axes:")
     for axis in axes
         push!(lines, "$(indent)  $(axis): $(Formats.format_axis_length(daf, axis)) entries")
@@ -1533,7 +1560,7 @@ end
 
 function vectors_description(
     daf::DafReader,
-    axes::Vector{String},
+    axes::AbstractStringVector,
     indent::AbstractString,
     lines::Vector{String},
 )::Nothing
@@ -1560,7 +1587,7 @@ end
 
 function matrices_description(
     daf::DafReader,
-    axes::Vector{String},
+    axes::AbstractStringVector,
     indent::AbstractString,
     lines::Vector{String},
 )::Nothing
@@ -1588,7 +1615,12 @@ function matrices_description(
     return nothing
 end
 
-function cache_description(daf::DafReader, axes::Vector{String}, indent::AbstractString, lines::Vector{String})::Nothing
+function cache_description(
+    daf::DafReader,
+    axes::AbstractStringVector,
+    indent::AbstractString,
+    lines::Vector{String},
+)::Nothing
     is_first = true
     cache_keys = collect(keys(daf.internal.cache))
     sort!(cache_keys)
@@ -1608,7 +1640,7 @@ function cache_description(daf::DafReader, axes::Vector{String}, indent::Abstrac
     return nothing
 end
 
-function Messages.present(daf::DafReader; name::Maybe{AbstractString} = nothing)::String
+function Messages.present(daf::DafReader; name::Maybe{AbstractString} = nothing)::AbstractString
     if name == nothing
         name = daf.name
     end

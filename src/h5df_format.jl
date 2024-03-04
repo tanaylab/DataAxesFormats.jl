@@ -8,12 +8,12 @@ HDF5 storage, we use the following internal structure (which is **not** compatib
   - An HDF5 file may contain `Daf` data directly in the root group, in which case, it is restricted to holding just a
     single `Daf` data set. When using such a file, you automatically access the single `Daf` data set contained in it.
     By convention such files are given a `.h5df` suffix.
-  - Alternatively, an HDF5 file may contain `Daf` data inside some arbitrary group, in which case, there's no restriction
-    on the content of other groups in the file. Such groups may contain other `Daf` data (allowing for multiple `Daf` data
-    sets in a single file), and/or non-`Daf` data. When using such a file, you need to specify the name of the group that
-    contains the `Daf` data set you are interested it. By convention, at least if such files contain "mostly" (or only)
-    `Daf` data sets, they are given a `.h5dfs` suffix, and are accompanied by some documentation describing the top-level
-    groups in the file.
+  - Alternatively, an HDF5 file may contain `Daf` data inside some arbitrary group, in which case, there's no
+    restriction on the content of other groups in the file. Such groups may contain other `Daf` data (allowing for
+    multiple `Daf` data sets in a single file), and/or non-`Daf` data. When using such a file, you need to specify the
+    name of the group that contains the `Daf` data set you are interested it. By convention, at least if such files
+    contain "mostly" (or only) `Daf` data sets, they are given a `.h5dfs` suffix, and are accompanied by some
+    documentation describing the top-level groups in the file.
   - Under the `Daf` data group, there are 4 sub-groups: `scalars`, `axes`, `vectors` and `matrices` and a `Daf` dataset.
   - To future-proof the format, the `Daf` dataset will contain a vector of two integers, the first acting as the major
     version number and the second as the minor version number, using [semantic versioning](https://semver.org/). This

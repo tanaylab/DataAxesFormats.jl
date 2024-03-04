@@ -22,25 +22,12 @@ using Daf.Views
         view::Union{DafView, ReadOnlyView};
         [name::Maybe{AbstractString} = nothing,
         capture=MemoryDaf,
-        axes::AbstractVector{Pair{String, AxesValue}} = Vector{Pair{String, String}}(),
-        data::AbstractVector{Pair{DataKey, DataValue}} = Vector{Pair{String, String}}(),
-        empty::Maybe{Dict{EmptyKey, EmptyValue}} = nothing,
+        axes::Maybe{ViewAxes} = nothing,
+        data::Maybe{ViewData} = nothing,
+        empty::Maybe{EmptyData} = nothing,
         relayout::Bool = true,
         overwrite::Bool = false]
-    )::Any where {
-        DataKey <: Union{
-            String,                        # Scalar name
-            Tuple{String, String},         # Axis, vector name
-            Tuple{String, String, String}  # Rows axis, columns axis, matrix name
-        },
-        DataValue <: Maybe{Union{AbstractString, Query}},
-        AxesValue <: Maybe{Union{AbstractString, Query}},
-        EmptyKey <: Union{
-            Tuple{String, String},          # Key for empty value for vectors.
-            Tuple{String, String, String},  # Key for empty value for matrices.
-        },
-        EmptyValue <: StorageScalarBase
-    }
+    )::Any
 
 Invoke a computation on a `view` data set and return the result; copy a [`viewer`](@ref) of the updated data set into
 the base `Daf` data of the view. If specified, the `name` is used as a prefix for all the names; otherwise, the `view`
@@ -97,18 +84,12 @@ function adapter(
     view::Union{DafView, ReadOnlyView};
     name::Maybe{AbstractString} = nothing,
     capture = MemoryDaf,
-    axes::AbstractVector{Pair{String, AxesValue}} = Vector{Pair{String, String}}(),
-    data::AbstractVector{Pair{DataKey, DataValue}} = Vector{Pair{String, String}}(),
-    empty::Maybe{Dict{EmptyKey, EmptyValue}} = nothing,
+    axes::Maybe{ViewAxes} = nothing,
+    data::Maybe{ViewData} = nothing,
+    empty::Maybe{EmptyData} = nothing,
     relayout::Bool = true,
     overwrite::Bool = false,
-)::Any where {
-    DataKey <: Union{String, Tuple{String, String}, Tuple{String, String, String}},
-    DataValue <: Maybe{Union{AbstractString, Query}},
-    AxesValue <: Maybe{Union{AbstractString, Query}},
-    EmptyKey <: Union{Tuple{String, String}, Tuple{String, String, String}},
-    EmptyValue <: StorageScalarBase,
-}
+)::Any
     if name == nothing
         prefix = view.name
     else

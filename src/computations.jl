@@ -59,10 +59,10 @@ end
 
 struct FunctionMetadata
     contracts::Vector{Contract}
-    defaults::Dict{String, Any}
+    defaults::Dict{AbstractString, Any}
 end
 
-const METADATA_OF_FUNCTION = Dict{String, FunctionMetadata}()
+const METADATA_OF_FUNCTION = Dict{AbstractString, FunctionMetadata}()
 
 """
     @computation function something(...)
@@ -217,8 +217,8 @@ function patch_kwarg(arg::Expr)::Any
     return arg
 end
 
-function collect_defaults(inner_definition)::Dict{String, Any}
-    defaults = Dict{String, Any}()
+function collect_defaults(inner_definition)::Dict{AbstractString, Any}
+    defaults = Dict{AbstractString, Any}()
     for arg in get(inner_definition, :args, [])
         collect_arg_default(defaults, arg)
     end
@@ -228,11 +228,11 @@ function collect_defaults(inner_definition)::Dict{String, Any}
     return defaults
 end
 
-function collect_arg_default(defaults::Dict{String, Any}, arg::Symbol)::Nothing  # untested
+function collect_arg_default(defaults::Dict{AbstractString, Any}, arg::Symbol)::Nothing  # untested
     return nothing
 end
 
-function collect_arg_default(defaults::Dict{String, Any}, arg::Expr)::Nothing
+function collect_arg_default(defaults::Dict{AbstractString, Any}, arg::Expr)::Nothing
     if arg.head == :kw
         @assert length(arg.args) == 2
         name = arg.args[1]
@@ -279,7 +279,8 @@ When using [`@computation`](@ref):
         return ...
     end
 
-Then `\$(CONTRACT)` will be expanded with a description of the [`Contract`](@ref). This is based on `DocStringExtensions`.
+Then `\$(CONTRACT)` will be expanded with a description of the [`Contract`](@ref). This is based on
+`DocStringExtensions`.
 
 !!! note
 
@@ -342,7 +343,7 @@ correct value is used in the documentation.
 """
 const DEFAULT = DefaultContainer()
 
-function get_metadata(doc_str::Base.Docs.DocStr)::Tuple{String, FunctionMetadata}
+function get_metadata(doc_str::Base.Docs.DocStr)::Tuple{AbstractString, FunctionMetadata}
     binding = doc_str.data[:binding]
     object = Docs.resolve(binding)
     full_name = "$(doc_str.data[:module]).$(Symbol(object))"

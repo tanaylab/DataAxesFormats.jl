@@ -49,7 +49,8 @@ AbstractStringSet = AbstractSet{S} where {S <: AbstractString}
 """
     AbstractStringVector = AbstractVector{S} where {S <: AbstractString}
 
-A vector of strings, without commitment to the concrete implementation of either the vector or the strings contained in it.
+A vector of strings, without commitment to the concrete implementation of either the vector or the strings contained in
+it.
 """
 AbstractStringVector = AbstractVector{S} where {S <: AbstractString}
 

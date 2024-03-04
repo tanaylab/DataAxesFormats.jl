@@ -256,10 +256,10 @@ a gene will be slow, and summing the UMIs of a cell will be fast.
     gene UMIs to fractions out of these totals, then computing the log base 2 of this fraction).
 
 If you `transpose` (no `!`) the result of `transpose!` (with a `!`), you end up with a matrix that **appears** to be the
-same as the original (rows are cells and columns are genes), but behaves **differently** - summing the UMIs of a gene will
-be slow, and summing the UMIs of a cell is fast. This `transpose` of `transpose!` is a common idiom and is basically
-what `relayout!` does for you. In addition, `relayout!` will work for both sparse and dense matrices, and if `into` is
-not specified, a `similar` matrix is allocated automatically for it.
+same as the original (rows are cells and columns are genes), but behaves **differently** - summing the UMIs of a gene
+will be slow, and summing the UMIs of a cell is fast. This `transpose` of `transpose!` is a common idiom and is
+basically what `relayout!` does for you. In addition, `relayout!` will work for both sparse and dense matrices, and if
+`into` is not specified, a `similar` matrix is allocated automatically for it.
 
 !!! note
 

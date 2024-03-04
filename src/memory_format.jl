@@ -31,20 +31,20 @@ This is the "default" storage type you should use, unless you need to persist th
 struct MemoryDaf <: DafWriter
     internal::Internal
 
-    scalars::Dict{String, StorageScalar}
+    scalars::Dict{AbstractString, StorageScalar}
 
-    axes::Dict{String, AbstractStringVector}
+    axes::Dict{AbstractString, AbstractStringVector}
 
-    vectors::Dict{String, Dict{String, StorageVector}}
+    vectors::Dict{AbstractString, Dict{AbstractString, StorageVector}}
 
-    matrices::Dict{String, Dict{String, Dict{String, StorageMatrix}}}
+    matrices::Dict{AbstractString, Dict{AbstractString, Dict{AbstractString, StorageMatrix}}}
 end
 
 function MemoryDaf(; name::AbstractString = "memory")::MemoryDaf
-    scalars = Dict{String, StorageScalar}()
-    axes = Dict{String, AbstractStringVector}()
-    vectors = Dict{String, Dict{String, StorageVector{String}}}()
-    matrices = Dict{String, Dict{String, Dict{String, StorageVector{String}}}}()
+    scalars = Dict{AbstractString, StorageScalar}()
+    axes = Dict{AbstractString, AbstractStringVector}()
+    vectors = Dict{AbstractString, Dict{AbstractString, StorageVector}}()
+    matrices = Dict{AbstractString, Dict{AbstractString, Dict{AbstractString, StorageMatrix}}}()
     memory = MemoryDaf(Internal(name), scalars, axes, vectors, matrices)
     return memory
 end
@@ -77,12 +77,12 @@ end
 
 function Formats.format_add_axis!(memory::MemoryDaf, axis::AbstractString, entries::AbstractStringVector)::Nothing
     memory.axes[axis] = entries
-    memory.vectors[axis] = Dict{String, StorageVector}()
-    memory.matrices[axis] = Dict{String, Dict{String, StorageMatrix}}()
+    memory.vectors[axis] = Dict{AbstractString, StorageVector}()
+    memory.matrices[axis] = Dict{AbstractString, Dict{AbstractString, StorageMatrix}}()
 
     for other_axis in keys(memory.axes)
-        memory.matrices[axis][other_axis] = Dict{String, StorageMatrix}()
-        memory.matrices[other_axis][axis] = Dict{String, StorageMatrix}()
+        memory.matrices[axis][other_axis] = Dict{AbstractString, StorageMatrix}()
+        memory.matrices[other_axis][axis] = Dict{AbstractString, StorageMatrix}()
     end
 
     return nothing

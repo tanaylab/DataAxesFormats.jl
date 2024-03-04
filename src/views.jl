@@ -13,6 +13,9 @@ export ALL_MATRICES
 export ALL_SCALARS
 export ALL_VECTORS
 export DafView
+export ViewAxes
+export ViewData
+export DataKey
 export viewer
 
 using Daf.Data
@@ -48,80 +51,57 @@ A read-only wrapper for any [`DafReader`](@ref) data, which exposes an arbitrary
 struct DafView <: DafReader
     internal::Internal
     daf::DafReader
-    scalars::Dict{String, Fetch{StorageScalar}}
-    axes::Dict{String, Fetch{AbstractStringVector}}
-    vectors::Dict{String, Dict{String, Fetch{StorageVector}}}
-    matrices::Dict{String, Dict{String, Dict{String, Fetch{StorageMatrix}}}}
+    scalars::Dict{AbstractString, Fetch{StorageScalar}}
+    axes::Dict{AbstractString, Fetch{AbstractStringVector}}
+    vectors::Dict{AbstractString, Dict{AbstractString, Fetch{StorageVector}}}
+    matrices::Dict{AbstractString, Dict{AbstractString, Dict{AbstractString, Fetch{StorageMatrix}}}}
 end
 
 """
-A pair to use in the `axes` parameter of [`viewer`](@ref) to specify the view exposes all the base data axes.
-"""
-ALL_AXES = "*" => "="
+Specify axes to expose from a view.
 
-"""
-A pair to use in the `data` parameter of [`viewer`](@ref) to specify the view exposes all the base data scalars.
-"""
-ALL_SCALARS = "*" => "="
+This is specified as a vector of pairs (similar to initializing a `Dict`). The order of the pairs matter (last one
+wins).
 
-"""
-A pair to use in the `data` parameter of [`viewer`](@ref) to specify the view exposes all the vectors of the exposed axes.
-"""
-ALL_VECTORS = ("*", "*") => "="
+If the key is `"*"`, then it is replaced by all the names of the axes of the wrapped `daf` data. Otherwise, the key is
+just the name of an axis.
 
-"""
-A pair to use in the `data` parameter of [`viewer`](@ref) to specify the view exposes all the matrices of the exposed axes.
-"""
-ALL_MATRICES = ("*", "*", "*") => "="
-
-"""
-Pairs to use in the `data` parameters of [`viewer`](@ref) (using `...`) to specify the view exposes all the data of the
-exposed axes.
-"""
-ALL_DATA::Vector{Pair{Union{String, Tuple{String, String}, Tuple{String, String, String}}, String}} =
-    [ALL_SCALARS, ALL_VECTORS, ALL_MATRICES]
-
-"""
-    viewer(
-        daf::DafReader;
-        [name::Maybe{AbstractString} = nothing,
-        [axes::AbstractVector{Pair{String, AxesValue}}} = [],
-        data::AbstractVector{Pair{DataKey, DataValue}}} = []]
-    )::Union{DafView, ReadOnlyView} where {
-        DataKey <: Union{
-            String,                        # Scalar name
-            Tuple{String, String},         # Axis, vector name
-            Tuple{String, String, String}  # Rows axis, columns axis, matrix name
-        },
-        DataValue <: Maybe{Union{AbstractString, Query}},
-        AxesValue <: Maybe{Union{AbstractString, Query}},
-    }
-
-Wrap `daf` data with a read-only [`DafView`](@ref). The exposed view is defined by a set of queries applied to the
-original data. These queries are evaluated only when data is actually accessed. Therefore, creating a view is a
-relatively cheap operation.
-
-If the `name` is not specified, the result name will be based on the name of `daf`, with a `.view` suffix.
-
-Queries are listed separately for axes, and scalars, vector and matrix properties, as follows:
-
-*Axes* are specified as a list of pairs (similar to initializing a `Dict`). The order of the pairs matter (last one
-wins). If the key is `"*"`, then it is replaced by all the names of the axes of the wrapped `daf` data. If the value is
-`nothing`, then the axis will **not** be exposed by the view. If the value is `"="`, then the axis will be exposed with
-the same entries as in the original `daf` data. Otherwise the value is any valid query that returns a vector of
-(unique!) strings to serve as the vector entries.
+If the value is `nothing`, then the axis will **not** be exposed by the view. If the value is `"="`, then the axis will
+be exposed with the same entries as in the original `daf` data. Otherwise the value is any valid query that returns a
+vector of (unique!) strings to serve as the vector entries.
 
 That is, saying `"*" => "="` (or, [`ALL_AXES`](@ref) will expose all the original `daf` data axes from the view.
 Following this by saying `"type" => nothing` will hide the `type` from the view. Saying `"batch" => q"/ batch & age > 1`
 will expose the `batch` axis, but only including the batches whose `age` property is greater than 1.
 
-*Scalars* are specified similarly, using the `data` parameter, except that the query should return a scalar instead of a
+!!! note
+
+    Due to Julia's type system limitations, there's just no way for the system to enforce the type of the pairs
+    in this vector. That is, what we'd **like** to say is:
+
+        ViewAxes = AbstractVector{Pair{AbstractString, Maybe{Union{AbstractString, Query}}}}
+
+    But what we are **forced** to say is:
+
+        ViewAxes = AbstractVector
+
+    That's **not** a mistake. Even `ViewAxes = AbstractVector{Pair}` fails to work, as do all the (many) possibilities
+    for expressing "this is a vector of pairs where the key or the value can be one of several things" Sigh. Glory to
+    anyone who figures out an incantation that would force the system to perform **any** meaningful type inference here.
+"""
+ViewAxes = AbstractVector
+
+"""
+Specify data to expose from view. This is specified as a vector of pairs (similar to initializing a `Dict`). The order
+of the pairs matter (last one wins).
+
+**Scalars** are specified similarly to [`ViewAxes`](@ref), except that the query should return a scalar instead of a
 vector. That is, saying `"*" => "="` (or, [`ALL_SCALARS`](@ref)) will expose all the original `daf` data scalars from
 the view. Following this by saying `"version" => nothing` will hide the `version` from the view. Adding
-`"total_umis" => q"/ cell / gene : UMIs %> Sum %> Sum"` will expose a `total_umis` scalar containing the total sum of all
-UMIs of all genes in all cells, etc.
+`"total_umis" => q"/ cell / gene : UMIs %> Sum %> Sum"` will expose a `total_umis` scalar containing the total sum of
+all UMIs of all genes in all cells, etc.
 
-*Vectors* are specified similarly to scalars, but require a key specifying both an axis and a property name. The axis
+**Vectors** are specified similarly to scalars, but require a key specifying both an axis and a property name. The axis
 must be exposed by the view (based on the `axes` parameter). If the axis is `"*"`, it is replaces by all the exposed
 axis names specified by the `axes` parameter. Similarly, if the property name is `"*"` (e.g., `("gene", "*")`), then  it
 is replaced by all the vector properties of the exposed axis in the base data. Therefore if the pair is
@@ -146,7 +126,7 @@ That is, specifying `axes = ["cell" => q"/ cell & type = TCell"]`, and then
 per-`cell` vector property, using the query `/ gene & noisy / cell & type = TCell : UMIs %> Sum`, which will
 compute the sum of the `UMIs` of all the noisy genes for each cell (whose `type` is `TCell`).
 
-*Matrices* require a key specifying both axes and a property name. The axes must both be exposed by the view (based on
+**Matrices** require a key specifying both axes and a property name. The axes must both be exposed by the view (based on
 the `axes` parameter). Again if any or both of the axes are `"*"`, they are replaced by all the exposed axes (based on
 the `axes` parameter), and likewise if the name is `"*"`, it replaced by all the matrix properties of the axes. The
 value for matrices can again be `"="` to expose the property as is, or the suffix of a matrix query. Therefore if the
@@ -154,10 +134,74 @@ pair is `("*", "*", "*") => "="` (or, `ALL_MATRICES`), all matrix properties of 
 exposed.
 
 The order of the axes does not matter, so
-`matrices = [("gene", "cell", "UMIs") => "="]` has the same effect as `matrices = [("cell", "gene", "UMIs") => "="]`.
+`data = [("gene", "cell", "UMIs") => "="]` has the same effect as `data = [("cell", "gene", "UMIs") => "="]`.
 
 That is, assuming a `gene` and `cell` axes were exposed by the `axes` parameter, then specifying that
 `("cell", "gene", "log_UMIs") => q": UMIs % Log base 2 eps"` will expose the matrix `log_UMIs` for each cell and gene.
+
+!!! note
+
+    Due to Julia's type system limitations, there's just no way for the system to enforce the type of the pairs
+    in this vector. That is, what we'd **like** to say is:
+
+        ViewData = AbstractVector{Pair{DataKey, Maybe{Union{AbstractString, Query}}}}
+
+    But what we are **forced** to say is:
+
+        ViewData = AbstractVector
+
+    That's **not** a mistake. Even `ViewData = AbstractVector{Pair}` fails to work, as do all the (many) possibilities
+    for expressing "this is a vector of pairs where the key or the value can be one of several things" Sigh. Glory to
+    anyone who figures out an incantation that would force the system to perform **any** meaningful type inference here.
+"""
+ViewData = AbstractVector
+
+"""
+A pair to use in the `axes` parameter of [`viewer`](@ref) to specify the view exposes all the base data axes.
+"""
+ALL_AXES = "*" => "="
+
+"""
+A pair to use in the `data` parameter of [`viewer`](@ref) to specify the view exposes all the base data scalars.
+"""
+ALL_SCALARS = "*" => "="
+
+"""
+A pair to use in the `data` parameter of [`viewer`](@ref) to specify the view exposes all the vectors of the exposed
+axes.
+"""
+ALL_VECTORS = ("*", "*") => "="
+
+"""
+A pair to use in the `data` parameter of [`viewer`](@ref) to specify the view exposes all the matrices of the exposed
+axes.
+"""
+ALL_MATRICES = ("*", "*", "*") => "="
+
+"""
+A vector of pairs to use in the `data` parameters of [`viewer`](@ref) (using `...`) to specify the view exposes all the
+data of the exposed axes.
+"""
+ALL_DATA = [ALL_SCALARS, ALL_VECTORS, ALL_MATRICES]
+
+EMPTY_AXES = Vector{Pair{String, String}}()
+EMPTY_DATA = Vector{Pair{String, String}}()
+
+"""
+    viewer(
+        daf::DafReader;
+        [name::Maybe{AbstractString} = nothing,
+        axes::Maybe{ViewAxes} = nothing,
+        data::Maybe{ViewData} = nothing]
+    )::Union{DafView, ReadOnlyView}
+
+Wrap `daf` data with a read-only [`DafView`](@ref). The exposed view is defined by a set of queries applied to the
+original data. These queries are evaluated only when data is actually accessed. Therefore, creating a view is a
+relatively cheap operation.
+
+If the `name` is not specified, the result name will be based on the name of `daf`, with a `.view` suffix.
+
+Queries are listed separately for axes, and scalars, vector and matrix properties, as follows:
 
 !!! note
 
@@ -169,48 +213,51 @@ That is, assuming a `gene` and `cell` axes were exposed by the `axes` parameter,
 function viewer(
     daf::DafReader;
     name::Maybe{AbstractString} = nothing,
-    axes::AbstractVector{Pair{String, AxesValue}} = Vector{Pair{String, String}}(),
-    data::AbstractVector{Pair{DataKey, DataValue}} = Vector{Pair{String, String}}(),
-)::Union{
-    DafView,
-    ReadOnlyView,
-} where {
-    DataKey <: Union{String, Tuple{String, String}, Tuple{String, String, String}},
-    DataValue <: Maybe{Union{AbstractString, Query}},
-    AxesValue <: Maybe{Union{AbstractString, Query}},
-}
+    axes::Maybe{ViewAxes} = nothing,
+    data::Maybe{ViewData} = nothing,
+)::Union{DafView, ReadOnlyView}
+    if axes == nothing
+        axes = EMPTY_AXES
+    end
+    if data == nothing
+        data = EMPTY_DATA
+    end
+
     if isempty(axes) && isempty(data)
         return read_only(daf; name = name)
     end
+
     if daf isa ReadOnlyView
         daf = daf.daf
     end
+
     if name == nothing
         name = daf.name * ".view"
     end
-    collected_scalars::Dict{String, Fetch{StorageScalar}} = collect_scalars(name, daf, data)
-    collected_axes::Dict{String, Fetch{AbstractStringVector}} = collect_axes(name, daf, axes)
-    collected_vectors::Dict{String, Dict{String, Fetch{StorageVector}}} =
+
+    for (key, query) in data
+        @assert key isa DataKey
+        @assert query isa Maybe{Union{AbstractString, Query}}
+    end
+
+    collected_axes::Dict{AbstractString, Fetch{AbstractStringVector}} = collect_axes(name, daf, axes)
+    collected_scalars::Dict{AbstractString, Fetch{StorageScalar}} = collect_scalars(name, daf, data)
+    collected_vectors::Dict{AbstractString, Dict{AbstractString, Fetch{StorageVector}}} =
         collect_vectors(name, daf, collected_axes, data)
-    collected_matrices::Dict{String, Dict{String, Dict{String, Fetch{StorageMatrix}}}} =
+    collected_matrices::Dict{AbstractString, Dict{AbstractString, Dict{AbstractString, Fetch{StorageMatrix}}}} =
         collect_matrices(name, daf, collected_axes, data)
+
     return DafView(Internal(name), daf, collected_scalars, collected_axes, collected_vectors, collected_matrices)
 end
 
 function collect_scalars(
     view_name::AbstractString,
     daf::DafReader,
-    data::AbstractVector{Pair{DataKey, DataValue}} = Vector{Pair{String, String}}(),
-)::Dict{
-    String,
-    Fetch{StorageScalar},
-} where {
-    DataKey <: Union{String, Tuple{String, String}, Tuple{String, String, String}},
-    DataValue <: Maybe{Union{AbstractString, Query}},
-}
-    collected_scalars = Dict{String, Fetch{StorageScalar}}()
+    data::ViewData,
+)::Dict{AbstractString, Fetch{StorageScalar}}
+    collected_scalars = Dict{AbstractString, Fetch{StorageScalar}}()
     for (key, query) in data
-        if key isa String
+        if key isa AbstractString
             collect_scalar(view_name, daf, collected_scalars, key, prepare_query(query))
         end
     end
@@ -218,8 +265,8 @@ function collect_scalars(
 end
 
 function prepare_query(maybe_query::Maybe{Union{AbstractString, Query}})::Maybe{Union{AbstractString, Query}}
-    if maybe_query isa String
-        maybe_query = strip(maybe_query)
+    if maybe_query isa AbstractString
+        maybe_query = strip(maybe_query)  # NOJET
         if maybe_query != "="
             maybe_query = Query(maybe_query)
         end
@@ -232,7 +279,7 @@ QUERY_TYPE_BY_DIMENSIONS = ["scalar", "vector", "matrix"]
 function collect_scalar(
     view_name::AbstractString,
     daf::DafReader,
-    collected_scalars::Dict{String, Fetch{StorageScalar}},
+    collected_scalars::Dict{AbstractString, Fetch{StorageScalar}},
     scalar_name::AbstractString,
     scalar_query::Maybe{Union{AbstractString, Query}},
 )::Nothing
@@ -265,10 +312,12 @@ end
 function collect_axes(
     view_name::AbstractString,
     daf::DafReader,
-    axes::AbstractVector{Pair{String, AxesValue}},
-)::Dict{String, Fetch{AbstractStringVector}} where {AxesValue <: Maybe{Union{AbstractString, Query}}}
-    collected_axes = Dict{String, Fetch{AbstractStringVector}}()
+    axes::ViewAxes,
+)::Dict{AbstractString, Fetch{AbstractStringVector}}
+    collected_axes = Dict{AbstractString, Fetch{AbstractStringVector}}()
     for (axis, query) in axes
+        @assert axis isa AbstractString
+        @assert query isa Maybe{Union{AbstractString, Query}}
         collect_axis(view_name, daf, collected_axes, axis, prepare_query(query))
     end
     return collected_axes
@@ -277,7 +326,7 @@ end
 function collect_axis(
     view_name::AbstractString,
     daf::DafReader,
-    collected_axes::Dict{String, Fetch{AbstractStringVector}},
+    collected_axes::Dict{AbstractString, Fetch{AbstractStringVector}},
     axis_name::AbstractString,
     axis_query::Maybe{Union{AbstractString, Query}},
 )::Nothing
@@ -310,21 +359,15 @@ end
 function collect_vectors(
     view_name::AbstractString,
     daf::DafReader,
-    collected_axes::Dict{String, Fetch{AbstractStringVector}},
-    data::AbstractVector{Pair{DataKey, DataValue}} = Vector{Pair{String, String}}(),
-)::Dict{
-    String,
-    Dict{String, Fetch{StorageVector}},
-} where {
-    DataKey <: Union{String, Tuple{String, String}, Tuple{String, String, String}},
-    DataValue <: Maybe{Union{AbstractString, Query}},
-}
-    collected_vectors = Dict{String, Dict{String, Fetch{StorageVector}}}()
+    collected_axes::Dict{AbstractString, Fetch{AbstractStringVector}},
+    data::ViewData,
+)::Dict{AbstractString, Dict{AbstractString, Fetch{StorageVector}}}
+    collected_vectors = Dict{AbstractString, Dict{AbstractString, Fetch{StorageVector}}}()
     for axis in keys(collected_axes)
-        collected_vectors[axis] = Dict{String, Fetch{StorageVector}}()
+        collected_vectors[axis] = Dict{AbstractString, Fetch{StorageVector}}()
     end
     for (key, query) in data
-        if key isa Tuple{String, String}
+        if key isa Tuple{AbstractString, AbstractString}
             axis_name, vector_name = key
             collect_vector(
                 view_name,
@@ -343,8 +386,8 @@ end
 function collect_vector(
     view_name::AbstractString,
     daf::DafReader,
-    collected_axes::Dict{String, Fetch{AbstractStringVector}},
-    collected_vectors::Dict{String, Dict{String, Fetch{StorageVector}}},
+    collected_axes::Dict{AbstractString, Fetch{AbstractStringVector}},
+    collected_vectors::Dict{AbstractString, Dict{AbstractString, Fetch{StorageVector}}},
     axis_name::AbstractString,
     vector_name::AbstractString,
     vector_query::Maybe{Union{AbstractString, Query}},
@@ -406,24 +449,18 @@ end
 function collect_matrices(
     view_name::AbstractString,
     daf::DafReader,
-    collected_axes::Dict{String, Fetch{AbstractStringVector}},
-    data::AbstractVector{Pair{DataKey, DataValue}} = Vector{Pair{String, String}}(),
-)::Dict{
-    String,
-    Dict{String, Dict{String, Fetch{StorageMatrix}}},
-} where {
-    DataKey <: Union{String, Tuple{String, String}, Tuple{String, String, String}},
-    DataValue <: Maybe{Union{AbstractString, Query}},
-}
-    collected_matrices = Dict{String, Dict{String, Dict{String, Fetch{StorageMatrix}}}}()
+    collected_axes::Dict{AbstractString, Fetch{AbstractStringVector}},
+    data::ViewData,
+)::Dict{AbstractString, Dict{AbstractString, Dict{AbstractString, Fetch{StorageMatrix}}}}
+    collected_matrices = Dict{AbstractString, Dict{AbstractString, Dict{AbstractString, Fetch{StorageMatrix}}}}()
     for rows_axis_name in keys(collected_axes)
-        collected_matrices[rows_axis_name] = Dict{String, Dict{String, Fetch{StorageMatrix}}}()
+        collected_matrices[rows_axis_name] = Dict{AbstractString, Dict{AbstractString, Fetch{StorageMatrix}}}()
         for columns_axis_name in keys(collected_axes)
-            collected_matrices[rows_axis_name][columns_axis_name] = Dict{String, Fetch{StorageMatrix}}()
+            collected_matrices[rows_axis_name][columns_axis_name] = Dict{AbstractString, Fetch{StorageMatrix}}()
         end
     end
     for (key, query) in data
-        if key isa Tuple{String, String, String}
+        if key isa Tuple{AbstractString, AbstractString, AbstractString}
             (rows_axis_name, columns_axis_name, matrix_name) = key
             collect_matrix(
                 view_name,
@@ -443,8 +480,8 @@ end
 function collect_matrix(
     view_name::AbstractString,
     daf::DafReader,
-    collected_matrices::Dict{String, Dict{String, Dict{String, Fetch{StorageMatrix}}}},
-    collected_axes::Dict{String, Fetch{AbstractStringVector}},
+    collected_matrices::Dict{AbstractString, Dict{AbstractString, Dict{AbstractString, Fetch{StorageMatrix}}}},
+    collected_axes::Dict{AbstractString, Fetch{AbstractStringVector}},
     rows_axis_name::AbstractString,
     columns_axis_name::AbstractString,
     matrix_name::AbstractString,
@@ -532,7 +569,7 @@ end
 function get_fetch_axis(
     view_name::AbstractString,
     daf::DafReader,
-    collected_axes::Dict{String, Fetch{AbstractStringVector}},
+    collected_axes::Dict{AbstractString, Fetch{AbstractStringVector}},
     axis::AbstractString,
 )::Fetch{AbstractStringVector}
     fetch_axis = get(collected_axes, axis, nothing)
@@ -640,7 +677,7 @@ function Formats.format_get_matrix(
     return matrix_value
 end
 
-function Formats.format_description_header(view::DafView, indent::AbstractString, lines::Array{String})::Nothing
+function Formats.format_description_header(view::DafView, indent::AbstractString, lines::Vector{String})::Nothing
     push!(lines, "$(indent)type: View $(typeof(view.daf))")
     return nothing
 end
