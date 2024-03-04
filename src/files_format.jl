@@ -324,6 +324,10 @@ function Formats.format_set_vector!(
     name::AbstractString,
     vector::Union{StorageScalar, StorageVector},
 )::Nothing
+    if vector == 0
+        vector = spzeros(typeof(vector), Formats.format_axis_length(files, axis))
+    end
+
     if vector isa AbstractString
         @assert !(contains(vector, '\n'))
         write_array_json("$(files.path)/vectors/$(axis)/$(name).json", "dense", String)
@@ -332,7 +336,7 @@ function Formats.format_set_vector!(
     elseif vector isa StorageScalar
         @assert vector isa StorageNumber
         write_array_json("$(files.path)/vectors/$(axis)/$(name).json", "dense", typeof(vector))
-        fill_file("$(files.path)/vectors/$(axis)/$(name).data", vector, Formats.format_axis_length(files, axis))  # NOJET
+        fill_file("$(files.path)/vectors/$(axis)/$(name).data", vector, Formats.format_axis_length(files, axis))
 
     elseif vector isa SparseVector
         write_array_json("$(files.path)/vectors/$(axis)/$(name).json", "sparse", eltype(vector), indtype(vector))
@@ -480,6 +484,12 @@ function Formats.format_set_matrix!(
     name::AbstractString,
     matrix::Union{StorageNumber, StorageMatrix},
 )::Nothing
+    nrows = Formats.format_axis_length(files, rows_axis)
+    ncols = Formats.format_axis_length(files, columns_axis)
+    if matrix == 0
+        matrix = spzeros(typeof(matrix), nrows, ncols)
+    end
+
     if matrix isa SparseMatrixCSC
         write_array_json(
             "$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json",
@@ -493,14 +503,7 @@ function Formats.format_set_matrix!(
 
     elseif matrix isa StorageNumber
         write_array_json("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", "dense", typeof(matrix))
-        nrows = Formats.format_axis_length(files, rows_axis)
-        ncols = Formats.format_axis_length(files, columns_axis)
-        size = nrows * ncols
-        open("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).data", "w") do file
-            for _ in 1:size
-                write(file, matrix)
-            end
-        end
+        fill_file("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).data", matrix, nrows * ncols)
 
     else
         write_array_json("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", "dense", eltype(matrix))
@@ -520,11 +523,11 @@ function Formats.format_empty_dense_matrix!(
     write_array_json("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", "dense", T)
     path = "$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).data"
 
-    rows_size = Formats.format_axis_length(files, rows_axis)
-    columns_size = Formats.format_axis_length(files, columns_axis)
-    fill_file(path, T(0), rows_size * columns_size)
+    nrows = Formats.format_axis_length(files, rows_axis)
+    ncols = Formats.format_axis_length(files, columns_axis)
+    fill_file(path, T(0), nrows * ncols)
 
-    matrix = mmap_file_data(path, Matrix{T}, (rows_size, columns_size), "r+")
+    matrix = mmap_file_data(path, Matrix{T}, (nrows, ncols), "r+")
     Formats.cache_matrix!(files, rows_axis, columns_axis, name, matrix, MappedData)
     return matrix
 end

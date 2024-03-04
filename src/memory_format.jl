@@ -124,6 +124,8 @@ function Formats.format_set_vector!(
 )::Nothing
     if vector isa StorageVector
         memory.vectors[axis][name] = vector
+    elseif vector == 0
+        memory.vectors[axis][name] = spzeros(typeof(vector), Formats.format_axis_length(memory, axis))
     else
         memory.vectors[axis][name] = fill(vector, Formats.format_axis_length(memory, axis))
     end
@@ -195,6 +197,12 @@ function Formats.format_set_matrix!(
 )::Nothing
     if matrix isa StorageMatrix
         memory.matrices[rows_axis][columns_axis][name] = matrix
+    elseif matrix == 0
+        memory.matrices[rows_axis][columns_axis][name] = spzeros(
+            typeof(matrix),
+            Formats.format_axis_length(memory, rows_axis),
+            Formats.format_axis_length(memory, columns_axis),
+        )
     else
         memory.matrices[rows_axis][columns_axis][name] = fill(
             matrix,

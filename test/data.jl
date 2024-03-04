@@ -516,8 +516,9 @@ function test_missing_vector(daf::DafReader, depth::Int)::Nothing
 
             nested_test("scalar") do
                 @test get_vector(daf, "gene", "marker"; default = 1) == [1, 1, 1, 1]
+                @test get_vector(daf, "gene", "marker"; default = 0) == [0, 0, 0, 0]
                 @test dimnames(get_vector(daf, "gene", "marker"; default = 1)) == ["gene"]
-                @test names(get_vector(daf, "gene", "marker"; default = 1)) == [GENE_NAMES]
+                @test names(get_vector(daf, "gene", "marker"; default = 0)) == [GENE_NAMES]
             end
 
             nested_test("vector") do
@@ -627,6 +628,8 @@ function test_missing_vector(daf::DafReader, depth::Int)::Nothing
         nested_test("scalar") do
             @test set_vector!(daf, "gene", "marker", 1.0) == nothing
             @test get_vector(daf, "gene", "marker") == [1.0, 1.0, 1.0, 1.0]
+            @test set_vector!(daf, "gene", "noisy", 0.0) == nothing
+            @test get_vector(daf, "gene", "noisy") == [0.0, 0.0, 0.0, 0.0]
             @test set_vector!(daf, "cell", "type", "TCell") == nothing
             @test get_vector(daf, "cell", "type") == ["TCell", "TCell", "TCell"]
         end
@@ -1175,8 +1178,10 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
             nested_test("scalar") do
                 @test get_matrix(daf, "cell", "gene", "UMIs"; default = 1.0) ==
                       [1.0 1.0 1.0 1.0; 1.0 1.0 1.0 1.0; 1.0 1.0 1.0 1.0]
+                @test get_matrix(daf, "cell", "gene", "UMIs"; default = 0.0) ==
+                      [0.0 0.0 0.0 0.0; 0.0 0.0 0.0 0.0; 0.0 0.0 0.0 0.0]
                 @test dimnames(get_matrix(daf, "cell", "gene", "UMIs"; default = 1.0)) == ["cell", "gene"]
-                @test names(get_matrix(daf, "cell", "gene", "UMIs"; default = 1.0)) == [CELL_NAMES, GENE_NAMES]
+                @test names(get_matrix(daf, "cell", "gene", "UMIs"; default = 0.0)) == [CELL_NAMES, GENE_NAMES]
             end
 
             nested_test("matrix") do
@@ -1425,6 +1430,9 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
             @test set_matrix!(daf, "cell", "gene", "UMIs", 1.0; relayout = false) == nothing
             @test get_matrix(daf, "cell", "gene", "UMIs"; relayout = false) ==
                   [1.0 1.0 1.0 1.0; 1.0 1.0 1.0 1.0; 1.0 1.0 1.0 1.0]
+            @test set_matrix!(daf, "cell", "gene", "LogUMIs", 0.0; relayout = false) == nothing
+            @test get_matrix(daf, "cell", "gene", "LogUMIs"; relayout = false) ==
+                  [0.0 0.0 0.0 0.0; 0.0 0.0 0.0 0.0; 0.0 0.0 0.0 0.0]
         end
 
         nested_test("matrix") do

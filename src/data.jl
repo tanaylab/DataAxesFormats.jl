@@ -676,13 +676,15 @@ function get_vector(
                 return nothing
             end
             default_suffix = " ?"
-            if default isa StorageVector
-                vector = default
-            elseif default isa StorageScalar
-                vector = fill(default, Formats.format_axis_length(daf, axis))
-            else
-                @assert default == undef
+            if default == undef
                 require_vector(daf, axis, name)
+            elseif default isa StorageVector
+                vector = default
+            elseif default == 0
+                vector = spzeros(typeof(default), Formats.format_axis_length(daf, axis))
+            else
+                @assert default isa StorageScalar
+                vector = fill(default, Formats.format_axis_length(daf, axis))
             end
         end
 
@@ -1277,17 +1279,23 @@ function get_matrix(
                     return nothing
                 end
                 default_suffix = " ?"
-                if default isa StorageMatrix
+                if default == undef
+                    require_matrix(daf, rows_axis, columns_axis, name; relayout = relayout)
+                elseif default isa StorageMatrix
                     matrix = default
-                elseif default isa StorageScalar
+                elseif default == 0
+                    matrix = spzeros(
+                        typeof(default),
+                        Formats.format_axis_length(daf, rows_axis),
+                        Formats.format_axis_length(daf, columns_axis),
+                    )
+                else
+                    @assert default isa StorageScalar
                     matrix = fill(
                         default,
                         Formats.format_axis_length(daf, rows_axis),
                         Formats.format_axis_length(daf, columns_axis),
                     )
-                else
-                    @assert default == undef
-                    require_matrix(daf, rows_axis, columns_axis, name; relayout = relayout)
                 end
             end
         end
