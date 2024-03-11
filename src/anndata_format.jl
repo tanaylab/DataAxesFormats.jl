@@ -8,11 +8,10 @@ whenever possible for increased performance.
 
 !!! note
 
-    As of Muon.jl 0.1.1, datasets created by `AnnData` are always written in chunked layout, which rules out
-    memory-mapping them. In contrast, the Python `anndata` package, as of version 0.10.5, always writes datasets as
-    contiguous, which does allow memory mapping them. That is, using `Daf` to access `AnnData` files written in Python
-    will be more efficient than accessing data files written in Julia, at least until [this
-    issue](https://github.com/scverse/Muon.jl/issues/24) is resolved. Sigh.
+    We use the `AnnData` Julia implementation from [Muon.jl](https://docs.juliahub.com/Muon/QfqCh/0.1.1/). The last
+    published released for this package is from 2021, and lacks features added over the years, which we use. Therefore,
+    currently `Daf` uses the head revision of Muon from [github](https://github.com/scverse/Muon.jl), with all that
+    implies. We'll change this to a proper registry dependency if/when a new Muon version is released.
 
 The following `Daf` data can't be naively stored in `AnnData`:
 
@@ -347,9 +346,9 @@ end
 function access_matrix(matrix::Muon.TransposedDataset)::AbstractMatrix
     dataset = matrix.dset
     if HDF5.ismmappable(dataset) && HDF5.iscontiguous(dataset)
-        return transpose(HDF5.readmmap(dataset))  # untested
+        return transpose(HDF5.readmmap(dataset))
     else
-        return transpose(read(dataset))
+        return transpose(read(dataset))  # untested
     end
 end
 
@@ -419,7 +418,7 @@ function daf_as_anndata(
     copy_matrices(daf, obs_is, var_is, X_is, adata.layers)
 
     if h5ad != nothing
-        writeh5ad(h5ad, adata)  # NOJET
+        writeh5ad(h5ad, adata; compress = UInt8(0))  # NOJET
     end
 
     return adata
