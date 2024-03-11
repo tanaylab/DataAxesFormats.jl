@@ -160,8 +160,8 @@ nested_test("chains") do
                         add_axis!(second, "cell", ["A", "C"])
                         @test_throws dedent("""
                             different entries for the axis: cell
-                            in the Daf data: first!
-                            and the Daf data: second!
+                            in the daf data: first!
+                            and the daf data: second!
                             in the chain: chain!
                         """) chain_reader([first, second]; name = "chain!")
                         @test !has_axis(chain, "gene")

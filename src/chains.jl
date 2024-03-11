@@ -134,8 +134,8 @@ function reader_internal_dafs(dafs::Vector{F}, name::AbstractString)::Vector{Daf
             elseif new_axis_entries != old_axis_entries
                 error(
                     "different entries for the axis: $(axis)\n" *
-                    "in the Daf data: $(old_axis_entries[1])\n" *
-                    "and the Daf data: $(daf.name)\n" *
+                    "in the daf data: $(old_axis_entries[1])\n" *
+                    "and the daf data: $(daf.name)\n" *
                     "in the chain: $(name)",
                 )
             end
@@ -191,7 +191,7 @@ function Formats.format_get_scalar(chain::AnyChain, name::AbstractString)::Stora
             return Formats.format_get_scalar(daf, name)
         end
     end
-    @assert false  # untested
+    @assert false
 end
 
 function Formats.format_scalar_names(chain::AnyChain)::AbstractStringSet
@@ -238,7 +238,7 @@ function Formats.format_get_axis(chain::AnyChain, axis::AbstractString)::Abstrac
             return Formats.format_get_axis(daf, axis)
         end
     end
-    @assert false  # untested
+    @assert false
 end
 
 function Formats.format_axis_length(chain::AnyChain, axis::AbstractString)::Int64
@@ -247,7 +247,7 @@ function Formats.format_axis_length(chain::AnyChain, axis::AbstractString)::Int6
             return Formats.format_axis_length(daf, axis)
         end
     end
-    @assert false  # untested
+    @assert false
 end
 
 function Formats.format_has_vector(chain::AnyChain, axis::AbstractString, name::AbstractString)::Bool
@@ -339,7 +339,7 @@ function Formats.format_get_vector(chain::AnyChain, axis::AbstractString, name::
             return as_read_only_array(Formats.format_get_vector(daf, axis, name))
         end
     end
-    @assert false  # untested
+    @assert false
 end
 
 function Formats.format_has_matrix(
@@ -475,7 +475,7 @@ function Formats.format_get_matrix(
             return as_read_only_array(Formats.format_get_matrix(daf, rows_axis, columns_axis, name))
         end
     end
-    @assert false  # untested
+    @assert false
 end
 
 function Formats.format_description_header(chain::ReadOnlyChain, indent::AbstractString, lines::Vector{String})::Nothing

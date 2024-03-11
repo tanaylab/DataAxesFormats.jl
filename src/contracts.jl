@@ -417,7 +417,7 @@ function short(expectation::ContractExpectation)::String
     elseif expectation == OptionalInput || expectation == OptionalOutput
         return "optional"
     else
-        @assert false  # untested
+        @assert false
     end
 end
 

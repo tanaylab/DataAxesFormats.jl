@@ -62,22 +62,27 @@ BEGIN {
     tested = 0
     ok_untested = 0
     ok_tested = 0
-    useless = 0
+    useless_untested = 0
+    useless_seems_untested = 0
 }
 $3 == 0 { ok_untested += 1 }
 $3 > 0 { ok_tested += 1 }
 $3 == "-" && tolower($4) ~ /# untested|# only seems untested/ {
     print $1, $2, " ! " $4
-    useless += 1;
+    useless_untested += 1;
 }
-$3 == 0 && tolower($4) ~ /# untested|# only seems untested/ { ok_untested += 1; next }
+$3 == 0 && tolower($4) ~ /@assert false(\s*#.*)?$|^\s*end\>(\s*#.*)?$|# untested|# only seems untested/ { ok_untested += 1; next }
 $3 == 0 {
     print $1, $2, " - " $4
     untested += 1
 }
-$3 > 0 && tolower($4) ~ /# untested|# only seems untested/ {
+$3 > 0 && tolower($4) ~ /# untested/ {
     print $1, $2, " + " $4
     tested += 1
+}
+$3 > 0 && tolower($4) ~ /# only seems untested/ {
+    print $1, $2, " ! " $4
+    useless_seems_untested += 1
 }
 END {
     ok_total = ok_untested + ok_tested
@@ -85,8 +90,12 @@ END {
            ok_tested, ok_tested * 100.0 / ok_total,
            ok_untested, ok_untested * 100.0 / ok_total)
 
-    if (useless > 0) {
-        printf("ERROR: %s lines with useless \"untested\" annotation\n", useless)
+    if (useless_untested > 0) {
+        printf("ERROR: %s lines with useless_untested \"untested\" annotation\n", useless_untested)
+    }
+
+    if (useless_seems_untested > 0) {
+        printf("ERROR: %s lines with useless_untested \"seems untested\" annotation\n", useless_seems_untested)
     }
 
     if (untested > 0) {

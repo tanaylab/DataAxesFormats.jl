@@ -408,7 +408,7 @@ nested_test("queries") do
                         1,
                         """
                             fetching with a non-String vector of: Int64
-                            of the property: age
+                            of the vector: age
                             of the axis: cell
                             in the query: / cell : age => batch
                             at operation:              ▲▲▲▲▲▲▲▲
@@ -452,7 +452,7 @@ nested_test("queries") do
                         0,
                         """
                             invalid value: W
-                            of the property: batch
+                            of the vector: batch
                             of the axis: cell
                             is missing from the fetched axis: batch
                             in the query: / cell = B : batch => donor
@@ -470,7 +470,7 @@ nested_test("queries") do
                         q"/ cell = B : batch => donor",
                         0,
                         """
-                            empty value of the property: batch
+                            empty value of the vector: batch
                             of the axis: cell
                             used for the fetched axis: batch
                             in the query: / cell = B : batch => donor
@@ -513,7 +513,7 @@ nested_test("queries") do
                         1,
                         """
                             matching non-string vector: Int64
-                            of the property: age
+                            of the vector: age
                             of the axis: cell
                             in the query: / cell & age ~ T.\\*
                             at operation:              ▲▲▲▲▲▲
@@ -619,7 +619,7 @@ nested_test("queries") do
                     1,
                     """
                         invalid value: W
-                        of the property: type
+                        of the vector: type
                         of the axis: cell
                         is missing from the fetched axis: type
                         in the query: / cell : type => color
@@ -637,7 +637,7 @@ nested_test("queries") do
                     q"/ cell : type => color",
                     1,
                     """
-                        empty value of the property: type
+                        empty value of the vector: type
                         of the axis: cell
                         used for the fetched axis: type
                         in the query: / cell : type => color

@@ -55,6 +55,7 @@ makedocs(;
         "chains.md",
         "computations.md",
         "copies.md",
+        "concat.md",
         "adapters.md",
         "contracts.md",
         "formats.md",

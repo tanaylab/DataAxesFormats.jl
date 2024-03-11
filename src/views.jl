@@ -8,14 +8,18 @@ property names).
 module Views
 
 export ALL_AXES
-export ALL_DATA
 export ALL_MATRICES
 export ALL_SCALARS
 export ALL_VECTORS
 export DafView
+export DataKey
+export VIEW_ALL_AXES
+export VIEW_ALL_DATA
+export VIEW_ALL_MATRICES
+export VIEW_ALL_SCALARS
+export VIEW_ALL_VECTORS
 export ViewAxes
 export ViewData
-export DataKey
 export viewer
 
 using Daf.Data
@@ -70,7 +74,7 @@ If the value is `nothing`, then the axis will **not** be exposed by the view. If
 be exposed with the same entries as in the original `daf` data. Otherwise the value is any valid query that returns a
 vector of (unique!) strings to serve as the vector entries.
 
-That is, saying `"*" => "="` (or, [`ALL_AXES`](@ref) will expose all the original `daf` data axes from the view.
+That is, saying `"*" => "="` (or, [`VIEW_ALL_AXES`](@ref) will expose all the original `daf` data axes from the view.
 Following this by saying `"type" => nothing` will hide the `type` from the view. Saying `"batch" => q"/ batch & age > 1`
 will expose the `batch` axis, but only including the batches whose `age` property is greater than 1.
 
@@ -96,16 +100,15 @@ Specify data to expose from view. This is specified as a vector of pairs (simila
 of the pairs matter (last one wins).
 
 **Scalars** are specified similarly to [`ViewAxes`](@ref), except that the query should return a scalar instead of a
-vector. That is, saying `"*" => "="` (or, [`ALL_SCALARS`](@ref)) will expose all the original `daf` data scalars from
-the view. Following this by saying `"version" => nothing` will hide the `version` from the view. Adding
+vector. That is, saying `"*" => "="` (or, [`VIEW_ALL_SCALARS`](@ref)) will expose all the original `daf` data scalars
+from the view. Following this by saying `"version" => nothing` will hide the `version` from the view. Adding
 `"total_umis" => q"/ cell / gene : UMIs %> Sum %> Sum"` will expose a `total_umis` scalar containing the total sum of
 all UMIs of all genes in all cells, etc.
 
 **Vectors** are specified similarly to scalars, but require a key specifying both an axis and a property name. The axis
 must be exposed by the view (based on the `axes` parameter). If the axis is `"*"`, it is replaces by all the exposed
 axis names specified by the `axes` parameter. Similarly, if the property name is `"*"` (e.g., `("gene", "*")`), then  it
-is replaced by all the vector properties of the exposed axis in the base data. Therefore if the pair is
-`("*", "*") => "="` (or [`ALL_VECTORS`](@ref))`, all vector properties of all the (exposed) axes will also be exposed.
+is replaced by all the vector properties of the exposed axis in the base data. Therefore if the pair is `("*", "*") => "="` (or [`VIEW_ALL_VECTORS`](@ref))`, all vector properties of all the (exposed) axes will also be exposed.
 
 The value for vectors must be the suffix of a vector query based on the appropriate axis; a value of `"="` is again used
 to expose the property as-is. That is, the value for the vector will normally start with the `:` ([`Lookup`](@ref))
@@ -130,7 +133,7 @@ compute the sum of the `UMIs` of all the noisy genes for each cell (whose `type`
 the `axes` parameter). Again if any or both of the axes are `"*"`, they are replaced by all the exposed axes (based on
 the `axes` parameter), and likewise if the name is `"*"`, it replaced by all the matrix properties of the axes. The
 value for matrices can again be `"="` to expose the property as is, or the suffix of a matrix query. Therefore if the
-pair is `("*", "*", "*") => "="` (or, `ALL_MATRICES`), all matrix properties of all the (exposed) axes will also be
+pair is `("*", "*", "*") => "="` (or, `VIEW_ALL_MATRICES`), all matrix properties of all the (exposed) axes will also be
 exposed.
 
 The order of the axes does not matter, so
@@ -157,32 +160,52 @@ That is, assuming a `gene` and `cell` axes were exposed by the `axes` parameter,
 ViewData = AbstractVector
 
 """
+A pair to use in the `axes` parameter of [`viewer`](@ref) to specify all the base data axes.
+"""
+ALL_AXES = "*"
+
+"""
 A pair to use in the `axes` parameter of [`viewer`](@ref) to specify the view exposes all the base data axes.
 """
-ALL_AXES = "*" => "="
+VIEW_ALL_AXES = ALL_AXES => "="
+
+"""
+A key to use in the `data` parameter of [`viewer`](@ref) to specify all the base data scalars.
+"""
+ALL_SCALARS = "*"
 
 """
 A pair to use in the `data` parameter of [`viewer`](@ref) to specify the view exposes all the base data scalars.
 """
-ALL_SCALARS = "*" => "="
+VIEW_ALL_SCALARS = ALL_SCALARS => "="
+
+"""
+A key to use in the `data` parameter of [`viewer`](@ref) to specify all the vectors of the exposed axes.
+"""
+ALL_VECTORS = ("*", "*")
 
 """
 A pair to use in the `data` parameter of [`viewer`](@ref) to specify the view exposes all the vectors of the exposed
 axes.
 """
-ALL_VECTORS = ("*", "*") => "="
+VIEW_ALL_VECTORS = ALL_VECTORS => "="
+
+"""
+A key to use in the `data` parameter of [`viewer`](@ref) to specify all the matrices of the exposed axes.
+"""
+ALL_MATRICES = ("*", "*", "*")
 
 """
 A pair to use in the `data` parameter of [`viewer`](@ref) to specify the view exposes all the matrices of the exposed
 axes.
 """
-ALL_MATRICES = ("*", "*", "*") => "="
+VIEW_ALL_MATRICES = ALL_MATRICES => "="
 
 """
 A vector of pairs to use in the `data` parameters of [`viewer`](@ref) (using `...`) to specify the view exposes all the
 data of the exposed axes.
 """
-ALL_DATA = [ALL_SCALARS, ALL_VECTORS, ALL_MATRICES]
+VIEW_ALL_DATA = [VIEW_ALL_SCALARS, VIEW_ALL_VECTORS, VIEW_ALL_MATRICES]
 
 EMPTY_AXES = Vector{Pair{String, String}}()
 EMPTY_DATA = Vector{Pair{String, String}}()
@@ -206,9 +229,9 @@ Queries are listed separately for axes, and scalars, vector and matrix propertie
 !!! note
 
     As an optimization, calling `viewer` with all-empty (default) arguments returns a simple [`ReadOnlyView`](@ref),
-    that is, it is equivalent to calling [`read_only`](@ref). Additionally, saying `data = ALL_DATA` will expose all the
-    data using any of the exposed axes; you can write `data = [ALL_DATA..., `key` => nothing]` to hide specific data
-    based on its `key`.
+    that is, it is equivalent to calling [`read_only`](@ref). Additionally, saying `data = VIEW_ALL_DATA` will expose
+    all the data using any of the exposed axes; you can write `data = [VIEW_ALL_DATA..., `key` => nothing]` to hide
+    specific data based on its `key`.
 """
 function viewer(
     daf::DafReader;

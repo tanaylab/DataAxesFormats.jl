@@ -153,7 +153,7 @@ function register_query_operation(
         registered_operations = REDUCTION_REGISTERED_OPERATIONS
         kind = "reduction"
     else
-        @assert false  # untested
+        @assert false
     end
 
     name = String(type.name.name)

@@ -81,6 +81,9 @@ include("computations.jl")
 include("copies.jl")
 @reexport using Daf.Copies
 
+include("concat.jl")
+@reexport using Daf.Concat
+
 include("adapters.jl")
 @reexport using Daf.Adapters
 

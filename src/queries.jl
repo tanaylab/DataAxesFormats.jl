@@ -2000,7 +2000,7 @@ function lookup_axes(query_state::QueryState, lookup::Lookup)::Nothing
         end
     end
 
-    @assert false  # untested
+    @assert false
 end
 
 function fake_lookup_axes(fake_query_state::FakeQueryState)::Nothing
@@ -2182,7 +2182,7 @@ function fetch_property(query_state::QueryState, axis_state::AxisState, fetch_op
             error_at_state(
                 query_state,
                 "fetching with a non-String vector of: $(eltype(next_named_vector))\n" *
-                "of the property: $(fetch_property_name)\n" *
+                "of the vector: $(fetch_property_name)\n" *
                 "of the axis: $(fetch_axis_name)\n",
             )
         end
@@ -2358,7 +2358,7 @@ function entry_scalar_value(
             error_at_state(
                 query_state,
                 "invalid value: $(previous_scalar_value)\n" *
-                "of the property: $(entry_fetch_state.common.property_name)\n" *
+                "of the vector: $(entry_fetch_state.common.property_name)\n" *
                 "of the axis: $(entry_fetch_state.common.axis_name)\n" *
                 "is missing from the fetched axis: $(fetch_axis_name)\n",
             )
@@ -2378,7 +2378,7 @@ function entry_scalar_value(
         next_axis_name = axis_of_property(query_state.daf, fetch_property_name, as_axis)
         error_at_state(
             query_state,
-            "empty value of the property: $(fetch_property_name)\n" *
+            "empty value of the vector: $(fetch_property_name)\n" *
             "of the axis: $(fetch_axis_name)\n" *
             "used for the fetched axis: $(next_axis_name)\n",
         )
@@ -2508,7 +2508,7 @@ function fetch_second_named_vector(
                     error_at_state(
                         query_state,
                         "invalid value: $(previous_value)\n" *
-                        "of the property: $(vector_fetch_state.common.property_name)\n" *
+                        "of the vector: $(vector_fetch_state.common.property_name)\n" *
                         "of the axis: $(vector_fetch_state.common.axis_name)\n" *
                         "is missing from the fetched axis: $(fetch_axis_name)\n",
                     )
@@ -2604,7 +2604,7 @@ function verify_fetched_values(
                 next_axis_name = axis_of_property(query_state.daf, fetch_property_name, as_axis)
                 error_at_state(
                     query_state,
-                    "empty value of the property: $(fetch_property_name)\n" *
+                    "empty value of the vector: $(fetch_property_name)\n" *
                     "of the axis: $(fetch_axis_name)\n" *
                     "used for the fetched axis: $(next_axis_name)\n",
                 )
@@ -2734,7 +2734,7 @@ function apply_comparison(query_state::QueryState)::Nothing
             error_at_state(
                 query_state,
                 "matching non-string vector: $(eltype(vector_state.named_vector))\n" *
-                "of the property: $(vector_state.property_name)\n" *
+                "of the vector: $(vector_state.property_name)\n" *
                 "of the axis: $(axis_state.axis_name)\n",
             )
         end

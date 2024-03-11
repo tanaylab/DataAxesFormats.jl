@@ -68,7 +68,7 @@ nested_test("example_data") do
             end
 
             nested_test("view") do
-                view = viewer(daf.daf; name = "view!", axes = [ALL_AXES], data = ALL_DATA)
+                view = viewer(daf.daf; name = "view!", axes = [VIEW_ALL_AXES], data = VIEW_ALL_DATA)
                 test_description(view; kind = "View ", name = "view!")
                 return nothing
             end
@@ -80,7 +80,7 @@ nested_test("example_data") do
             end
 
             nested_test("view") do
-                view = viewer(daf; name = "view!", axes = [ALL_AXES], data = ALL_DATA)
+                view = viewer(daf; name = "view!", axes = [VIEW_ALL_AXES], data = VIEW_ALL_DATA)
                 test_description(view; kind = "View ", name = "view!")
                 return nothing
             end
