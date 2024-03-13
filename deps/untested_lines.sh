@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e -o pipefail
 grep -H -n '.' */*.cov \
-| sed 's/\.[0-9][0-9]*\.cov:\([0-9][0-9]*\): [ ]*\(\S*\) /`\1`\2`/' \
+| sed 's/\.[0-9][0-9]*\.cov:\([0-9][0-9]*\): [ ]*\([^ ]*\) /`\1`\2`/' \
 | sort -t '`' -k '1,1' -k '2n,2' \
 | awk -F '`' '
     BEGIN {
@@ -49,8 +49,8 @@ grep -H -n '.' */*.cov \
     state > 0 && uncov_func { $3 = "-" }
     state == 0 && $4 ~ /^[@A-Z][A-Za-z0-9:{}, ()]* =/ && $3 == "-" { $3 = "0" }
     state == 2 && $4 ~ /^end/ { state = 0 }
-    state != 3 && ($3 != "-" && $3 != "0") && $4 ~ /^(@.* )?\s*function / && $4 !~ /^function.*end/ { state = 1; uncov_func = 0 }
-    state != 3 && ($3 == "-" || $3 == "0") && $4 ~ /^(@.* )?\s*function / && $4 !~ /^function.*end/ { state = 1; uncov_func = 1; $3 = "0"; }
+    state != 3 && ($3 != "-" && $3 != "0") && $4 ~ /^(@.* )?[ ]*function / && $4 !~ /^function.*end/ { state = 1; uncov_func = 0 }
+    state != 3 && ($3 == "-" || $3 == "0") && $4 ~ /^(@.* )?[ ]*function / && $4 !~ /^function.*end/ { state = 1; uncov_func = 1; $3 = "0"; }
     state == 1 && $4 ~ /)::|)$/ { state = 2 }
     state != 2 && state != 1 && $3 == "0" { $3 = "-" }
     { print }
@@ -71,7 +71,7 @@ $3 == "-" && tolower($4) ~ /# untested|# only seems untested/ {
     print $1, $2, " ! " $4
     useless_untested += 1;
 }
-$3 == 0 && tolower($4) ~ /@assert false(\s*#.*)?$|^\s*end\>(\s*#.*)?$|# untested|# only seems untested/ { ok_untested += 1; next }
+$3 == 0 && tolower($4) ~ /@assert false([ ]*#.*)?$|^[ ]*end([ ]*#.*)?$|# untested|# only seems untested/ { ok_untested += 1; next }
 $3 == 0 {
     print $1, $2, " - " $4
     untested += 1

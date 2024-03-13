@@ -1012,7 +1012,7 @@ nested_test("queries") do
             set_vector!(daf, "cell", "age", [1, 2, 3])
 
             nested_test("()") do
-                @test get_result(daf, q"/ cell : age @ batch %> Max") == ("batch", ["U" => 3, "V" => 2])
+                @test get_result(daf, q"/ cell : age @ batch %> Min") == ("batch", ["U" => 1, "V" => 2])
             end
 
             nested_test("!reduction") do

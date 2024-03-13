@@ -1,0 +1,1221 @@
+src/data.jl.32797.cov:1:        - """
+src/data.jl.32797.cov:2:        - The [`DafReader`](@ref) and [`DafWriter`](@ref) interfaces specify a high-level API for accessing `Daf` data. This API
+src/data.jl.32797.cov:3:        - is implemented here, on top of the low-level [`FormatReader`](@ref) and [`FormatWriter`](@ref) API. The high-level API
+src/data.jl.32797.cov:4:        - provides thread safety so the low-level API can (mostly) ignore this issue.
+src/data.jl.32797.cov:5:        - 
+src/data.jl.32797.cov:6:        - Each data set is given a name to use in error messages etc. You can explicitly set this name when creating a `Daf`
+src/data.jl.32797.cov:7:        - object. Otherwise, when opening an existing data set, if it contains a scalar "name" property, it is used. Otherwise
+src/data.jl.32797.cov:8:        - some reasonable default is used. In all cases, object names are passed through [`unique_name`](@ref) to avoid ambiguity.
+src/data.jl.32797.cov:9:        - 
+src/data.jl.32797.cov:10:        - Data properties are identified by a unique name given the axes they are based on. That is, there is a separate namespace
+src/data.jl.32797.cov:11:        - for scalar properties, vector properties for each specific axis, and matrix properties for each **unordered** pair of
+src/data.jl.32797.cov:12:        - axes.
+src/data.jl.32797.cov:13:        - 
+src/data.jl.32797.cov:14:        - For matrices, we keep careful track of their [`MatrixLayouts`](@ref). Returned matrices are always in column-major
+src/data.jl.32797.cov:15:        - layout, using [`relayout!`](@ref) if necessary. As this is an expensive operation, we'll cache the result in memory.
+src/data.jl.32797.cov:16:        - Similarly, we cache the results of applying a query to the data. We allow clearing the cache to reduce memory usage, if
+src/data.jl.32797.cov:17:        - necessary.
+src/data.jl.32797.cov:18:        - 
+src/data.jl.32797.cov:19:        - The data API is the high-level API intended to be used from outside the package, and is therefore re-exported from the
+src/data.jl.32797.cov:20:        - top-level `Daf` namespace. It provides additional functionality on top of the low-level [`FormatReader`](@ref) and
+src/data.jl.32797.cov:21:        - [`FormatWriter`](@ref) implementations, accepting more general data types, automatically dealing with
+src/data.jl.32797.cov:22:        - [`relayout!`](@ref) when needed. In particular, it enforces single-writer multiple-readers for each data set, so the
+src/data.jl.32797.cov:23:        - format code can ignore multi-threading and still be thread-safe.
+src/data.jl.32797.cov:24:        - 
+src/data.jl.32797.cov:25:        - !!! note
+src/data.jl.32797.cov:26:        - 
+src/data.jl.32797.cov:27:        -     In the APIs below, when getting a value, specifying a `default` of `undef` means that it is an `error` for the value
+src/data.jl.32797.cov:28:        -     not to exist. In contrast, specifying a `default` of `nothing` means it is OK for the value not to exist, returning
+src/data.jl.32797.cov:29:        -     `nothing`. Specifying an actual value for `default` means it is OK for the value not to exist, returning the
+src/data.jl.32797.cov:30:        -     `default` instead. This is in spirit with, but not identical to, `undef` being used as a flag for array construction
+src/data.jl.32797.cov:31:        -     saying "there is no initializer". If you feel this is an abuse of the `undef` value, take some comfort in that it is
+src/data.jl.32797.cov:32:        -     the default value for the `default`, so you almost never have to write it explicitly in your code.
+src/data.jl.32797.cov:33:        - """
+src/data.jl.32797.cov:34:        - module Data
+src/data.jl.32797.cov:35:        - 
+src/data.jl.32797.cov:36:        - export add_axis!
+src/data.jl.32797.cov:37:        - export axis_length
+src/data.jl.32797.cov:38:        - export axis_names
+src/data.jl.32797.cov:39:        - export DataKey
+src/data.jl.32797.cov:40:        - export delete_axis!
+src/data.jl.32797.cov:41:        - export delete_matrix!
+src/data.jl.32797.cov:42:        - export delete_scalar!
+src/data.jl.32797.cov:43:        - export delete_vector!
+src/data.jl.32797.cov:44:        - export description
+src/data.jl.32797.cov:45:        - export empty_cache!
+src/data.jl.32797.cov:46:        - export empty_dense_matrix!
+src/data.jl.32797.cov:47:        - export empty_dense_vector!
+src/data.jl.32797.cov:48:        - export empty_sparse_matrix!
+src/data.jl.32797.cov:49:        - export empty_sparse_vector!
+src/data.jl.32797.cov:50:        - export get_axis
+src/data.jl.32797.cov:51:        - export get_matrix
+src/data.jl.32797.cov:52:        - export get_scalar
+src/data.jl.32797.cov:53:        - export get_vector
+src/data.jl.32797.cov:54:        - export has_axis
+src/data.jl.32797.cov:55:        - export has_matrix
+src/data.jl.32797.cov:56:        - export has_scalar
+src/data.jl.32797.cov:57:        - export has_vector
+src/data.jl.32797.cov:58:        - export matrix_names
+src/data.jl.32797.cov:59:        - export relayout_matrix!
+src/data.jl.32797.cov:60:        - export scalar_names
+src/data.jl.32797.cov:61:        - export set_matrix!
+src/data.jl.32797.cov:62:        - export set_scalar!
+src/data.jl.32797.cov:63:        - export set_vector!
+src/data.jl.32797.cov:64:        - export vector_names
+src/data.jl.32797.cov:65:        - 
+src/data.jl.32797.cov:66:        - using ConcurrentUtils
+src/data.jl.32797.cov:67:        - using Daf.Formats
+src/data.jl.32797.cov:68:        - using Daf.Generic
+src/data.jl.32797.cov:69:        - using Daf.MatrixLayouts
+src/data.jl.32797.cov:70:        - using Daf.Messages
+src/data.jl.32797.cov:71:        - using Daf.StorageTypes
+src/data.jl.32797.cov:72:        - using NamedArrays
+src/data.jl.32797.cov:73:        - using SparseArrays
+src/data.jl.32797.cov:74:        - 
+src/data.jl.32797.cov:75:        - import Daf.Formats
+src/data.jl.32797.cov:76:        - import Daf.Formats.CacheEntry
+src/data.jl.32797.cov:77:        - import Daf.Formats.FormatReader
+src/data.jl.32797.cov:78:        - import Daf.Formats.FormatWriter
+src/data.jl.32797.cov:79:        - import Daf.Formats.upgrade_to_write_lock
+src/data.jl.32797.cov:80:        - import Daf.Formats.with_read_lock
+src/data.jl.32797.cov:81:        - import Daf.Formats.with_write_lock
+src/data.jl.32797.cov:82:        - import Daf.Messages
+src/data.jl.32797.cov:83:        - 
+src/data.jl.32797.cov:84:        - """
+src/data.jl.32797.cov:85:        - A key specifying some data property in `Daf`.
+src/data.jl.32797.cov:86:        - 
+src/data.jl.32797.cov:87:        - **Scalars** are identified by their name.
+src/data.jl.32797.cov:88:        - 
+src/data.jl.32797.cov:89:        - **Vectors** are specified as a tuple of the axis name and the property name.
+src/data.jl.32797.cov:90:        - 
+src/data.jl.32797.cov:91:        - **Matrices** are specified as a tuple or the rows axis, the columns axis, and the property name.
+src/data.jl.32797.cov:92:        - 
+src/data.jl.32797.cov:93:        - The [`DafReader`](@ref) and [`DafWriter`](@ref) interfaces do not use this type, as each function knows exactly the type
+src/data.jl.32797.cov:94:        - of data property it works on. However, higher-level APIs do use this as keys for dictionaries etc.
+src/data.jl.32797.cov:95:        - """
+src/data.jl.32797.cov:96:        - DataKey =
+src/data.jl.32797.cov:97:        -     Union{AbstractString, Tuple{AbstractString, AbstractString}, Tuple{AbstractString, AbstractString, AbstractString}}
+src/data.jl.32797.cov:98:        - 
+src/data.jl.32797.cov:99:      423 function Base.getproperty(daf::DafReader, property::Symbol)::Any
+src/data.jl.32797.cov:100:      423     if property == :name
+src/data.jl.32797.cov:101:        0         return daf.internal.name
+src/data.jl.32797.cov:102:        -     else
+src/data.jl.32797.cov:103:      423         return getfield(daf, property)
+src/data.jl.32797.cov:104:        -     end
+src/data.jl.32797.cov:105:        - end
+src/data.jl.32797.cov:106:        - 
+src/data.jl.32797.cov:107:        - """
+src/data.jl.32797.cov:108:        -     has_scalar(daf::DafReader, name::AbstractString)::Bool
+src/data.jl.32797.cov:109:        - 
+src/data.jl.32797.cov:110:        - Check whether a scalar property with some `name` exists in `daf`.
+src/data.jl.32797.cov:111:        - """
+src/data.jl.32797.cov:112:        - function has_scalar(daf::DafReader, name::AbstractString)::Bool
+src/data.jl.32797.cov:113:        -     return with_read_lock(daf) do
+src/data.jl.32797.cov:114:        -         result = Formats.format_has_scalar(daf, name)
+src/data.jl.32797.cov:115:        -         # @debug "has_scalar $(daf.name) : $(name) -> $(present(result))"
+src/data.jl.32797.cov:116:        -         return result
+src/data.jl.32797.cov:117:        -     end
+src/data.jl.32797.cov:118:        - end
+src/data.jl.32797.cov:119:        - 
+src/data.jl.32797.cov:120:        - """
+src/data.jl.32797.cov:121:        -     set_scalar!(
+src/data.jl.32797.cov:122:        -         daf::DafWriter,
+src/data.jl.32797.cov:123:        -         name::AbstractString,
+src/data.jl.32797.cov:124:        -         value::StorageScalar;
+src/data.jl.32797.cov:125:        -         [overwrite::Bool = false]
+src/data.jl.32797.cov:126:        -     )::Nothing
+src/data.jl.32797.cov:127:        - 
+src/data.jl.32797.cov:128:        - Set the `value` of a scalar property with some `name` in `daf`.
+src/data.jl.32797.cov:129:        - 
+src/data.jl.32797.cov:130:        - If not `overwrite` (the default), this first verifies the `name` scalar property does not exist.
+src/data.jl.32797.cov:131:        - """
+src/data.jl.32797.cov:132:        2 function set_scalar!(daf::DafWriter, name::AbstractString, value::StorageScalar; overwrite::Bool = false)::Nothing
+src/data.jl.32797.cov:133:        1     return with_write_lock(daf) do
+src/data.jl.32797.cov:134:        1         @debug "set_scalar! $(daf.name) : $(name) <$(overwrite ? "=" : "-") $(present(value))"
+src/data.jl.32797.cov:135:        - 
+src/data.jl.32797.cov:136:        1         if !overwrite
+src/data.jl.32797.cov:137:        1             require_no_scalar(daf, name)
+src/data.jl.32797.cov:138:        0         elseif Formats.format_has_scalar(daf, name)
+src/data.jl.32797.cov:139:        0             Formats.format_delete_scalar!(daf, name; for_set = true)
+src/data.jl.32797.cov:140:        -         end
+src/data.jl.32797.cov:141:        - 
+src/data.jl.32797.cov:142:        1         Formats.format_set_scalar!(daf, name, value)
+src/data.jl.32797.cov:143:        - 
+src/data.jl.32797.cov:144:        1         Formats.invalidate_cached!(daf, Formats.scalar_cache_key(name))
+src/data.jl.32797.cov:145:        1         Formats.invalidate_cached!(daf, Formats.scalar_names_cache_key())
+src/data.jl.32797.cov:146:        1         return nothing
+src/data.jl.32797.cov:147:        -     end
+src/data.jl.32797.cov:148:        - end
+src/data.jl.32797.cov:149:        - 
+src/data.jl.32797.cov:150:        - """
+src/data.jl.32797.cov:151:        -     delete_scalar!(
+src/data.jl.32797.cov:152:        -         daf::DafWriter,
+src/data.jl.32797.cov:153:        -         name::AbstractString;
+src/data.jl.32797.cov:154:        -         must_exist::Bool = true,
+src/data.jl.32797.cov:155:        -     )::Nothing
+src/data.jl.32797.cov:156:        - 
+src/data.jl.32797.cov:157:        - Delete a scalar property with some `name` from `daf`.
+src/data.jl.32797.cov:158:        - 
+src/data.jl.32797.cov:159:        - If `must_exist` (the default), this first verifies the `name` scalar property exists in `daf`.
+src/data.jl.32797.cov:160:        - """
+src/data.jl.32797.cov:161:        - function delete_scalar!(daf::DafWriter, name::AbstractString; must_exist::Bool = true)::Nothing
+src/data.jl.32797.cov:162:        -     return with_write_lock(daf) do
+src/data.jl.32797.cov:163:        -         @debug "delete_scalar! $(daf.name) : $(name)$(must_exist ? "" : " ?")"
+src/data.jl.32797.cov:164:        - 
+src/data.jl.32797.cov:165:        -         if must_exist
+src/data.jl.32797.cov:166:        -             require_scalar(daf, name)
+src/data.jl.32797.cov:167:        -         end
+src/data.jl.32797.cov:168:        - 
+src/data.jl.32797.cov:169:        -         if Formats.format_has_scalar(daf, name)
+src/data.jl.32797.cov:170:        -             Formats.format_delete_scalar!(daf, name; for_set = false)
+src/data.jl.32797.cov:171:        -         end
+src/data.jl.32797.cov:172:        - 
+src/data.jl.32797.cov:173:        -         Formats.invalidate_cached!(daf, Formats.scalar_cache_key(name))
+src/data.jl.32797.cov:174:        -         Formats.invalidate_cached!(daf, Formats.scalar_names_cache_key())
+src/data.jl.32797.cov:175:        -         return nothing
+src/data.jl.32797.cov:176:        -     end
+src/data.jl.32797.cov:177:        - end
+src/data.jl.32797.cov:178:        - 
+src/data.jl.32797.cov:179:        - """
+src/data.jl.32797.cov:180:        -     scalar_names(daf::DafReader)::AbstractStringSet
+src/data.jl.32797.cov:181:        - 
+src/data.jl.32797.cov:182:        - The names of the scalar properties in `daf`.
+src/data.jl.32797.cov:183:        - """
+src/data.jl.32797.cov:184:        - function scalar_names(daf::DafReader)::AbstractStringSet
+src/data.jl.32797.cov:185:        -     return with_read_lock(daf) do
+src/data.jl.32797.cov:186:        -         result = Formats.get_scalar_names_through_cache(daf)
+src/data.jl.32797.cov:187:        -         # @debug "scalar_names $(daf.name) -> $(present(result))"
+src/data.jl.32797.cov:188:        -         return result
+src/data.jl.32797.cov:189:        -     end
+src/data.jl.32797.cov:190:        - end
+src/data.jl.32797.cov:191:        - 
+src/data.jl.32797.cov:192:        - """
+src/data.jl.32797.cov:193:        -     get_scalar(
+src/data.jl.32797.cov:194:        -         daf::DafReader,
+src/data.jl.32797.cov:195:        -         name::AbstractString;
+src/data.jl.32797.cov:196:        -         [default::Union{StorageScalar, Nothing, UndefInitializer} = undef]
+src/data.jl.32797.cov:197:        -     )::Maybe{StorageScalar}
+src/data.jl.32797.cov:198:        - 
+src/data.jl.32797.cov:199:        - Get the value of a scalar property with some `name` in `daf`.
+src/data.jl.32797.cov:200:        - 
+src/data.jl.32797.cov:201:        - If `default` is `undef` (the default), this first verifies the `name` scalar property exists in `daf`. Otherwise
+src/data.jl.32797.cov:202:        - `default` will be returned if the property does not exist.
+src/data.jl.32797.cov:203:        - """
+src/data.jl.32797.cov:204:        4 function get_scalar(
+src/data.jl.32797.cov:205:        -     daf::DafReader,
+src/data.jl.32797.cov:206:        -     name::AbstractString;
+src/data.jl.32797.cov:207:        -     default::Union{StorageScalar, Nothing, UndefInitializer} = undef,
+src/data.jl.32797.cov:208:        - )::Maybe{StorageScalar}
+src/data.jl.32797.cov:209:        2     return with_read_lock(daf) do
+src/data.jl.32797.cov:210:        2         if default == undef
+src/data.jl.32797.cov:211:        2             require_scalar(daf, name)
+src/data.jl.32797.cov:212:        0         elseif !has_scalar(daf, name)
+src/data.jl.32797.cov:213:        0             @debug "get_scalar $(daf.name) : $(name) -> $(present(default)) ?"
+src/data.jl.32797.cov:214:        0             return default
+src/data.jl.32797.cov:215:        -         end
+src/data.jl.32797.cov:216:        - 
+src/data.jl.32797.cov:217:        2         result = Formats.format_get_scalar(daf, name)
+src/data.jl.32797.cov:218:        2         @debug "get_scalar $(daf.name) : $(name) -> $(present(result))"
+src/data.jl.32797.cov:219:        2         return result
+src/data.jl.32797.cov:220:        -     end
+src/data.jl.32797.cov:221:        - end
+src/data.jl.32797.cov:222:        - 
+src/data.jl.32797.cov:223:        2 function require_scalar(daf::DafReader, name::AbstractString)::Nothing
+src/data.jl.32797.cov:224:        2     if !Formats.format_has_scalar(daf, name)
+src/data.jl.32797.cov:225:        0         error("missing scalar: $(name)\nin the daf data: $(daf.name)")
+src/data.jl.32797.cov:226:        -     end
+src/data.jl.32797.cov:227:        2     return nothing
+src/data.jl.32797.cov:228:        - end
+src/data.jl.32797.cov:229:        - 
+src/data.jl.32797.cov:230:        1 function require_no_scalar(daf::DafReader, name::AbstractString)::Nothing
+src/data.jl.32797.cov:231:        1     if Formats.format_has_scalar(daf, name)
+src/data.jl.32797.cov:232:        0         error("existing scalar: $(name)\nin the daf data: $(daf.name)")
+src/data.jl.32797.cov:233:        -     end
+src/data.jl.32797.cov:234:        1     return nothing
+src/data.jl.32797.cov:235:        - end
+src/data.jl.32797.cov:236:        - 
+src/data.jl.32797.cov:237:        - """
+src/data.jl.32797.cov:238:        -     has_axis(daf::DafReader, axis::AbstractString)::Bool
+src/data.jl.32797.cov:239:        - 
+src/data.jl.32797.cov:240:        - Check whether some `axis` exists in `daf`.
+src/data.jl.32797.cov:241:        - """
+src/data.jl.32797.cov:242:        3 function has_axis(daf::DafReader, axis::AbstractString)::Bool
+src/data.jl.32797.cov:243:        3     return with_read_lock(daf) do
+src/data.jl.32797.cov:244:        3         result = Formats.format_has_axis(daf, axis; for_change = false)
+src/data.jl.32797.cov:245:        -         # @debug "has_axis $(daf.name) / $(axis) -> $(present(result))"
+src/data.jl.32797.cov:246:        3         return result
+src/data.jl.32797.cov:247:        -     end
+src/data.jl.32797.cov:248:        - end
+src/data.jl.32797.cov:249:        - 
+src/data.jl.32797.cov:250:        - """
+src/data.jl.32797.cov:251:        -     add_axis!(
+src/data.jl.32797.cov:252:        -         daf::DafWriter,
+src/data.jl.32797.cov:253:        -         axis::AbstractString,
+src/data.jl.32797.cov:254:        -         entries::AbstractStringVector
+src/data.jl.32797.cov:255:        -     )::Nothing
+src/data.jl.32797.cov:256:        - 
+src/data.jl.32797.cov:257:        - Add a new `axis` `daf`.
+src/data.jl.32797.cov:258:        - 
+src/data.jl.32797.cov:259:        - This first verifies the `axis` does not exist and that the `entries` are unique.
+src/data.jl.32797.cov:260:        - """
+src/data.jl.32797.cov:261:       12 function add_axis!(daf::DafWriter, axis::AbstractString, entries::AbstractStringVector)::Nothing
+src/data.jl.32797.cov:262:       12     return with_write_lock(daf) do
+src/data.jl.32797.cov:263:       12         @debug "add_axis $(daf.name) / $(axis) <- $(present(entries))"
+src/data.jl.32797.cov:264:        - 
+src/data.jl.32797.cov:265:       12         require_no_axis(daf, axis; for_change = true)
+src/data.jl.32797.cov:266:        - 
+src/data.jl.32797.cov:267:       12         if !allunique(entries)
+src/data.jl.32797.cov:268:        0             error("non-unique entries for new axis: $(axis)\nin the daf data: $(daf.name)")
+src/data.jl.32797.cov:269:        -         end
+src/data.jl.32797.cov:270:        - 
+src/data.jl.32797.cov:271:       12         Formats.invalidate_cached!(daf, Formats.axis_names_cache_key())
+src/data.jl.32797.cov:272:        - 
+src/data.jl.32797.cov:273:       12         Formats.format_add_axis!(daf, axis, entries)
+src/data.jl.32797.cov:274:       12         return nothing
+src/data.jl.32797.cov:275:        -     end
+src/data.jl.32797.cov:276:        - end
+src/data.jl.32797.cov:277:        - 
+src/data.jl.32797.cov:278:        - """
+src/data.jl.32797.cov:279:        -     delete_axis!(
+src/data.jl.32797.cov:280:        -         daf::DafWriter,
+src/data.jl.32797.cov:281:        -         axis::AbstractString;
+src/data.jl.32797.cov:282:        -         must_exist::Bool = true,
+src/data.jl.32797.cov:283:        -     )::Nothing
+src/data.jl.32797.cov:284:        - 
+src/data.jl.32797.cov:285:        - Delete an `axis` from the `daf`. This will also delete any vector or matrix properties that are based on this axis.
+src/data.jl.32797.cov:286:        - 
+src/data.jl.32797.cov:287:        - If `must_exist` (the default), this first verifies the `axis` exists in the `daf`.
+src/data.jl.32797.cov:288:        - """
+src/data.jl.32797.cov:289:        - function delete_axis!(daf::DafWriter, axis::AbstractString; must_exist::Bool = true)::Nothing
+src/data.jl.32797.cov:290:        -     return with_write_lock(daf) do
+src/data.jl.32797.cov:291:        -         @debug "delete_axis! $(daf.name) / $(axis)$(must_exist ? "" : " ?")"
+src/data.jl.32797.cov:292:        - 
+src/data.jl.32797.cov:293:        -         if must_exist
+src/data.jl.32797.cov:294:        -             require_axis(daf, axis; for_change = true)
+src/data.jl.32797.cov:295:        -         end
+src/data.jl.32797.cov:296:        - 
+src/data.jl.32797.cov:297:        -         if !Formats.format_has_axis(daf, axis; for_change = true)
+src/data.jl.32797.cov:298:        -             return nothing
+src/data.jl.32797.cov:299:        -         end
+src/data.jl.32797.cov:300:        - 
+src/data.jl.32797.cov:301:        -         vector_names = Formats.get_vector_names_through_cache(daf, axis)
+src/data.jl.32797.cov:302:        -         for name in vector_names
+src/data.jl.32797.cov:303:        -             Formats.format_delete_vector!(daf, axis, name; for_set = false)
+src/data.jl.32797.cov:304:        -         end
+src/data.jl.32797.cov:305:        - 
+src/data.jl.32797.cov:306:        -         axis_names = Formats.get_axis_names_through_cache(daf)
+src/data.jl.32797.cov:307:        -         for other_axis in axis_names
+src/data.jl.32797.cov:308:        -             matrix_names = Formats.get_matrix_names_through_cache(daf, axis, other_axis)
+src/data.jl.32797.cov:309:        -             for name in matrix_names
+src/data.jl.32797.cov:310:        -                 Formats.format_delete_matrix!(daf, axis, other_axis, name; for_set = false)
+src/data.jl.32797.cov:311:        -             end
+src/data.jl.32797.cov:312:        -             matrix_names = Formats.get_matrix_names_through_cache(daf, other_axis, axis)
+src/data.jl.32797.cov:313:        -             for name in matrix_names
+src/data.jl.32797.cov:314:        -                 Formats.format_delete_matrix!(daf, other_axis, axis, name; for_set = false)
+src/data.jl.32797.cov:315:        -             end
+src/data.jl.32797.cov:316:        -         end
+src/data.jl.32797.cov:317:        - 
+src/data.jl.32797.cov:318:        -         Formats.invalidate_cached!(daf, Formats.axis_cache_key(axis))
+src/data.jl.32797.cov:319:        -         Formats.invalidate_cached!(daf, Formats.axis_names_cache_key())
+src/data.jl.32797.cov:320:        - 
+src/data.jl.32797.cov:321:        -         Formats.format_delete_axis!(daf, axis)
+src/data.jl.32797.cov:322:        -         return nothing
+src/data.jl.32797.cov:323:        -     end
+src/data.jl.32797.cov:324:        - end
+src/data.jl.32797.cov:325:        - 
+src/data.jl.32797.cov:326:        - """
+src/data.jl.32797.cov:327:        -     axis_names(daf::DafReader)::AbstractStringSet
+src/data.jl.32797.cov:328:        - 
+src/data.jl.32797.cov:329:        - The names of the axes of `daf`.
+src/data.jl.32797.cov:330:        - """
+src/data.jl.32797.cov:331:        - function axis_names(daf::DafReader)::AbstractStringSet
+src/data.jl.32797.cov:332:        -     return with_read_lock(daf) do
+src/data.jl.32797.cov:333:        -         result = Formats.get_axis_names_through_cache(daf)
+src/data.jl.32797.cov:334:        -         # @debug "axis_names $(daf.name) -> $(present(result))"
+src/data.jl.32797.cov:335:        -         return result
+src/data.jl.32797.cov:336:        -     end
+src/data.jl.32797.cov:337:        - end
+src/data.jl.32797.cov:338:        - 
+src/data.jl.32797.cov:339:        - """
+src/data.jl.32797.cov:340:        -     get_axis(
+src/data.jl.32797.cov:341:        -         daf::DafReader,
+src/data.jl.32797.cov:342:        -         axis::AbstractString;
+src/data.jl.32797.cov:343:        -         [default::Union{Nothing, UndefInitializer} = undef]
+src/data.jl.32797.cov:344:        -     )::Maybe{AbstractStringVector}
+src/data.jl.32797.cov:345:        - 
+src/data.jl.32797.cov:346:        - The unique names of the entries of some `axis` of `daf`. This is similar to doing [`get_vector`](@ref) for the special
+src/data.jl.32797.cov:347:        - `name` property, except that it returns a simple vector of strings instead of a `NamedVector`.
+src/data.jl.32797.cov:348:        - 
+src/data.jl.32797.cov:349:        - If `default` is `undef` (the default), this verifies the `axis` exists in `daf`. Otherwise, the `default` is `nothing`,
+src/data.jl.32797.cov:350:        - which is returned if the `axis` does not exist.
+src/data.jl.32797.cov:351:        - """
+src/data.jl.32797.cov:352:        6 function get_axis(
+src/data.jl.32797.cov:353:        -     daf::DafReader,
+src/data.jl.32797.cov:354:        -     axis::AbstractString;
+src/data.jl.32797.cov:355:        -     default::Union{Nothing, UndefInitializer} = undef,
+src/data.jl.32797.cov:356:        - )::Maybe{AbstractStringVector}
+src/data.jl.32797.cov:357:        3     return with_read_lock(daf) do
+src/data.jl.32797.cov:358:        3         if !has_axis(daf, axis)
+src/data.jl.32797.cov:359:        0             if default == nothing
+src/data.jl.32797.cov:360:        0                 @debug "get_axis! $(daf.name) / $(axis) -> $(present(missing))"
+src/data.jl.32797.cov:361:        0                 return nothing
+src/data.jl.32797.cov:362:        -             else
+src/data.jl.32797.cov:363:        0                 @assert default == undef
+src/data.jl.32797.cov:364:        0                 require_axis(daf, axis)
+src/data.jl.32797.cov:365:        -             end
+src/data.jl.32797.cov:366:        -         end
+src/data.jl.32797.cov:367:        - 
+src/data.jl.32797.cov:368:        3         result = as_read_only_array(Formats.get_axis_through_cache(daf, axis))
+src/data.jl.32797.cov:369:        3         @debug "get_axis! $(daf.name) / $(axis) -> $(present(result))"
+src/data.jl.32797.cov:370:        3         return result
+src/data.jl.32797.cov:371:        -     end
+src/data.jl.32797.cov:372:        - end
+src/data.jl.32797.cov:373:        - 
+src/data.jl.32797.cov:374:        - """
+src/data.jl.32797.cov:375:        -     axis_length(daf::DafReader, axis::AbstractString)::Int64
+src/data.jl.32797.cov:376:        - 
+src/data.jl.32797.cov:377:        - The number of entries along the `axis` in `daf`.
+src/data.jl.32797.cov:378:        - 
+src/data.jl.32797.cov:379:        - This first verifies the `axis` exists in `daf`.
+src/data.jl.32797.cov:380:        - """
+src/data.jl.32797.cov:381:        0 function axis_length(daf::DafReader, axis::AbstractString)::Int64
+src/data.jl.32797.cov:382:        0     return with_read_lock(daf) do
+src/data.jl.32797.cov:383:        0         require_axis(daf, axis)
+src/data.jl.32797.cov:384:        0         result = Formats.format_axis_length(daf, axis)
+src/data.jl.32797.cov:385:        -         # @debug "axis_length! $(daf.name) / $(axis) -> $(present(result))"
+src/data.jl.32797.cov:386:        0         return result
+src/data.jl.32797.cov:387:        -     end
+src/data.jl.32797.cov:388:        - end
+src/data.jl.32797.cov:389:        - 
+src/data.jl.32797.cov:390:       30 function require_axis(daf::DafReader, axis::AbstractString; for_change::Bool = false)::Nothing
+src/data.jl.32797.cov:391:       15     if !Formats.format_has_axis(daf, axis; for_change = for_change)
+src/data.jl.32797.cov:392:        0         error("missing axis: $(axis)\nin the daf data: $(daf.name)")
+src/data.jl.32797.cov:393:        -     end
+src/data.jl.32797.cov:394:       15     return nothing
+src/data.jl.32797.cov:395:        - end
+src/data.jl.32797.cov:396:        - 
+src/data.jl.32797.cov:397:       24 function require_no_axis(daf::DafReader, axis::AbstractString; for_change::Bool = false)::Nothing
+src/data.jl.32797.cov:398:       12     if Formats.format_has_axis(daf, axis; for_change = for_change)
+src/data.jl.32797.cov:399:        0         error("existing axis: $(axis)\nin the daf data: $(daf.name)")
+src/data.jl.32797.cov:400:        -     end
+src/data.jl.32797.cov:401:       12     return nothing
+src/data.jl.32797.cov:402:        - end
+src/data.jl.32797.cov:403:        - 
+src/data.jl.32797.cov:404:        - """
+src/data.jl.32797.cov:405:        -     has_vector(daf::DafReader, axis::AbstractString, name::AbstractString)::Bool
+src/data.jl.32797.cov:406:        - 
+src/data.jl.32797.cov:407:        - Check whether a vector property with some `name` exists for the `axis` in `daf`. This is always true for the special
+src/data.jl.32797.cov:408:        - `name` property.
+src/data.jl.32797.cov:409:        - 
+src/data.jl.32797.cov:410:        - This first verifies the `axis` exists in `daf`.
+src/data.jl.32797.cov:411:        - """
+src/data.jl.32797.cov:412:        - function has_vector(daf::DafReader, axis::AbstractString, name::AbstractString)::Bool
+src/data.jl.32797.cov:413:        -     return with_read_lock(daf) do
+src/data.jl.32797.cov:414:        -         require_axis(daf, axis)
+src/data.jl.32797.cov:415:        -         result = name == "name" || Formats.format_has_vector(daf, axis, name)
+src/data.jl.32797.cov:416:        -         # @debug "has_vector $(daf.name) / $(axis) : $(name) -> $(present(result))"
+src/data.jl.32797.cov:417:        -         return result
+src/data.jl.32797.cov:418:        -     end
+src/data.jl.32797.cov:419:        - end
+src/data.jl.32797.cov:420:        - 
+src/data.jl.32797.cov:421:        - """
+src/data.jl.32797.cov:422:        -     set_vector!(
+src/data.jl.32797.cov:423:        -         daf::DafWriter,
+src/data.jl.32797.cov:424:        -         axis::AbstractString,
+src/data.jl.32797.cov:425:        -         name::AbstractString,
+src/data.jl.32797.cov:426:        -         vector::Union{StorageScalar, StorageVector};
+src/data.jl.32797.cov:427:        -         [overwrite::Bool = false]
+src/data.jl.32797.cov:428:        -     )::Nothing
+src/data.jl.32797.cov:429:        - 
+src/data.jl.32797.cov:430:        - Set a vector property with some `name` for some `axis` in `daf`.
+src/data.jl.32797.cov:431:        - 
+src/data.jl.32797.cov:432:        - If the `vector` specified is actually a [`StorageScalar`](@ref), the stored vector is filled with this value.
+src/data.jl.32797.cov:433:        - 
+src/data.jl.32797.cov:434:        - This first verifies the `axis` exists in `daf`, that the property name isn't `name`, and that the `vector` has the
+src/data.jl.32797.cov:435:        - appropriate length. If not `overwrite` (the default), this also verifies the `name` vector does not exist for the
+src/data.jl.32797.cov:436:        - `axis`.
+src/data.jl.32797.cov:437:        - """
+src/data.jl.32797.cov:438:        2 function set_vector!(
+src/data.jl.32797.cov:439:        -     daf::DafWriter,
+src/data.jl.32797.cov:440:        -     axis::AbstractString,
+src/data.jl.32797.cov:441:        -     name::AbstractString,
+src/data.jl.32797.cov:442:        -     vector::Union{StorageScalar, StorageVector};
+src/data.jl.32797.cov:443:        -     overwrite::Bool = false,
+src/data.jl.32797.cov:444:        - )::Nothing
+src/data.jl.32797.cov:445:        1     return with_write_lock(daf) do
+src/data.jl.32797.cov:446:        1         @debug "set_vector! $(daf.name) / $(axis) : $(name) <$(overwrite ? "=" : "-") $(present(vector))"
+src/data.jl.32797.cov:447:        - 
+src/data.jl.32797.cov:448:        1         require_not_name(daf, axis, name)
+src/data.jl.32797.cov:449:        1         require_axis(daf, axis)
+src/data.jl.32797.cov:450:        - 
+src/data.jl.32797.cov:451:        1         if vector isa StorageVector
+src/data.jl.32797.cov:452:        1             require_axis_length(daf, "vector length", length(vector), axis)
+src/data.jl.32797.cov:453:        1             if vector isa NamedVector
+src/data.jl.32797.cov:454:        0                 require_dim_name(daf, axis, "vector dim name", dimnames(vector, 1))
+src/data.jl.32797.cov:455:        0                 require_axis_names(daf, axis, "entry names of the: vector", names(vector, 1))
+src/data.jl.32797.cov:456:        -             end
+src/data.jl.32797.cov:457:        -         end
+src/data.jl.32797.cov:458:        - 
+src/data.jl.32797.cov:459:        1         if !overwrite
+src/data.jl.32797.cov:460:        1             require_no_vector(daf, axis, name)
+src/data.jl.32797.cov:461:        0         elseif Formats.format_has_vector(daf, axis, name)
+src/data.jl.32797.cov:462:        0             Formats.format_delete_vector!(daf, axis, name; for_set = true)
+src/data.jl.32797.cov:463:        -         end
+src/data.jl.32797.cov:464:        - 
+src/data.jl.32797.cov:465:        1         Formats.format_set_vector!(daf, axis, name, vector)
+src/data.jl.32797.cov:466:        - 
+src/data.jl.32797.cov:467:        1         Formats.invalidate_cached!(daf, Formats.vector_cache_key(axis, name))
+src/data.jl.32797.cov:468:        1         Formats.invalidate_cached!(daf, Formats.vector_names_cache_key(axis))
+src/data.jl.32797.cov:469:        1         return nothing
+src/data.jl.32797.cov:470:        -     end
+src/data.jl.32797.cov:471:        - end
+src/data.jl.32797.cov:472:        - 
+src/data.jl.32797.cov:473:        - """
+src/data.jl.32797.cov:474:        -     empty_dense_vector!(
+src/data.jl.32797.cov:475:        -         fill::Function,
+src/data.jl.32797.cov:476:        -         daf::DafWriter,
+src/data.jl.32797.cov:477:        -         axis::AbstractString,
+src/data.jl.32797.cov:478:        -         name::AbstractString,
+src/data.jl.32797.cov:479:        -         eltype::Type{T};
+src/data.jl.32797.cov:480:        -         [overwrite::Bool = false]
+src/data.jl.32797.cov:481:        -     )::Any where {T <: StorageNumber}
+src/data.jl.32797.cov:482:        - 
+src/data.jl.32797.cov:483:        - Create an empty dense vector property with some `name` for some `axis` in `daf`, pass it to `fill`, and return the
+src/data.jl.32797.cov:484:        - result.
+src/data.jl.32797.cov:485:        - 
+src/data.jl.32797.cov:486:        - The returned vector will be uninitialized; the caller is expected to `fill` it with values. This saves creating a copy
+src/data.jl.32797.cov:487:        - of the vector before setting it in the data, which makes a huge difference when creating vectors on disk (using memory
+src/data.jl.32797.cov:488:        - mapping). For this reason, this does not work for strings, as they do not have a fixed size.
+src/data.jl.32797.cov:489:        - 
+src/data.jl.32797.cov:490:        - This first verifies the `axis` exists in `daf` and that the property name isn't `name`. If not `overwrite` (the
+src/data.jl.32797.cov:491:        - default), this also verifies the `name` vector does not exist for the `axis`.
+src/data.jl.32797.cov:492:        - """
+src/data.jl.32797.cov:493:        - function empty_dense_vector!(
+src/data.jl.32797.cov:494:        -     fill::Function,
+src/data.jl.32797.cov:495:        -     daf::DafWriter,
+src/data.jl.32797.cov:496:        -     axis::AbstractString,
+src/data.jl.32797.cov:497:        -     name::AbstractString,
+src/data.jl.32797.cov:498:        -     eltype::Type{T};
+src/data.jl.32797.cov:499:        -     overwrite::Bool = false,
+src/data.jl.32797.cov:500:        - )::Any where {T <: StorageNumber}
+src/data.jl.32797.cov:501:        -     return with_write_lock(daf) do
+src/data.jl.32797.cov:502:        -         require_not_name(daf, axis, name)
+src/data.jl.32797.cov:503:        -         require_axis(daf, axis)
+src/data.jl.32797.cov:504:        - 
+src/data.jl.32797.cov:505:        -         if !overwrite
+src/data.jl.32797.cov:506:        -             require_no_vector(daf, axis, name)
+src/data.jl.32797.cov:507:        -         elseif Formats.format_has_vector(daf, axis, name)
+src/data.jl.32797.cov:508:        -             Formats.format_delete_vector!(daf, axis, name; for_set = true)
+src/data.jl.32797.cov:509:        -         end
+src/data.jl.32797.cov:510:        - 
+src/data.jl.32797.cov:511:        -         empty_vector = Formats.format_empty_dense_vector!(daf, axis, name, eltype)
+src/data.jl.32797.cov:512:        -         result = as_named_vector(daf, axis, empty_vector)
+src/data.jl.32797.cov:513:        - 
+src/data.jl.32797.cov:514:        -         Formats.invalidate_cached!(daf, Formats.vector_cache_key(axis, name))
+src/data.jl.32797.cov:515:        -         Formats.invalidate_cached!(daf, Formats.vector_names_cache_key(axis))
+src/data.jl.32797.cov:516:        - 
+src/data.jl.32797.cov:517:        -         @debug "empty_dense_vector! $(daf.name) / $(axis) : $(name) <$(overwrite ? "=" : "-") $(present(result))"
+src/data.jl.32797.cov:518:        -         return fill(result)
+src/data.jl.32797.cov:519:        -     end
+src/data.jl.32797.cov:520:        - end
+src/data.jl.32797.cov:521:        - 
+src/data.jl.32797.cov:522:        - """
+src/data.jl.32797.cov:523:        -     empty_sparse_vector!(
+src/data.jl.32797.cov:524:        -         fill::Function,
+src/data.jl.32797.cov:525:        -         daf::DafWriter,
+src/data.jl.32797.cov:526:        -         axis::AbstractString,
+src/data.jl.32797.cov:527:        -         name::AbstractString,
+src/data.jl.32797.cov:528:        -         eltype::Type{T},
+src/data.jl.32797.cov:529:        -         nnz::StorageInteger,
+src/data.jl.32797.cov:530:        -         indtype::Type{I};
+src/data.jl.32797.cov:531:        -         [overwrite::Bool = false]
+src/data.jl.32797.cov:532:        -     )::Any where {T <: StorageNumber, I <: StorageInteger}
+src/data.jl.32797.cov:533:        - 
+src/data.jl.32797.cov:534:        - Create an empty sparse vector property with some `name` for some `axis` in `daf`, pass it to `fill` and return the
+src/data.jl.32797.cov:535:        - result.
+src/data.jl.32797.cov:536:        - 
+src/data.jl.32797.cov:537:        - The returned vector will be uninitialized; the caller is expected to `fill` it with values. This means manually filling
+src/data.jl.32797.cov:538:        - the `nzind` and `nzval` vectors. Specifying the `nnz` makes their sizes known in advance, to allow pre-allocating disk
+src/data.jl.32797.cov:539:        - data. For this reason, this does not work for strings, as they do not have a fixed size.
+src/data.jl.32797.cov:540:        - 
+src/data.jl.32797.cov:541:        - This severely restricts the usefulness of this function, because typically `nnz` is only know after fully computing the
+src/data.jl.32797.cov:542:        - matrix. Still, in some cases a large sparse vector is created by concatenating several smaller ones; this function
+src/data.jl.32797.cov:543:        - allows doing so directly into the data vector, avoiding a copy in case of memory-mapped disk formats.
+src/data.jl.32797.cov:544:        - 
+src/data.jl.32797.cov:545:        - !!! warning
+src/data.jl.32797.cov:546:        - 
+src/data.jl.32797.cov:547:        -     It is the caller's responsibility to fill the three vectors with valid data. Specifically, you must ensure:
+src/data.jl.32797.cov:548:        - 
+src/data.jl.32797.cov:549:        -       - `nzind[1] == 1`
+src/data.jl.32797.cov:550:        -       - `nzind[i] <= nzind[i + 1]`
+src/data.jl.32797.cov:551:        -       - `nzind[end] == nnz`
+src/data.jl.32797.cov:552:        - 
+src/data.jl.32797.cov:553:        - This first verifies the `axis` exists in `daf` and that the property name isn't `name`. If not `overwrite` (the
+src/data.jl.32797.cov:554:        - default), this also verifies the `name` vector does not exist for the `axis`.
+src/data.jl.32797.cov:555:        - """
+src/data.jl.32797.cov:556:        - function empty_sparse_vector!(
+src/data.jl.32797.cov:557:        -     fill::Function,
+src/data.jl.32797.cov:558:        -     daf::DafWriter,
+src/data.jl.32797.cov:559:        -     axis::AbstractString,
+src/data.jl.32797.cov:560:        -     name::AbstractString,
+src/data.jl.32797.cov:561:        -     eltype::Type{T},
+src/data.jl.32797.cov:562:        -     nnz::StorageInteger,
+src/data.jl.32797.cov:563:        -     indtype::Type{I};
+src/data.jl.32797.cov:564:        -     overwrite::Bool = false,
+src/data.jl.32797.cov:565:        - )::Any where {T <: StorageNumber, I <: StorageInteger}
+src/data.jl.32797.cov:566:        -     return with_write_lock(daf) do
+src/data.jl.32797.cov:567:        -         require_not_name(daf, axis, name)
+src/data.jl.32797.cov:568:        -         require_axis(daf, axis)
+src/data.jl.32797.cov:569:        - 
+src/data.jl.32797.cov:570:        -         if !overwrite
+src/data.jl.32797.cov:571:        -             require_no_vector(daf, axis, name)
+src/data.jl.32797.cov:572:        -         elseif Formats.format_has_vector(daf, axis, name)
+src/data.jl.32797.cov:573:        -             Formats.format_delete_vector!(daf, axis, name; for_set = true)
+src/data.jl.32797.cov:574:        -         end
+src/data.jl.32797.cov:575:        - 
+src/data.jl.32797.cov:576:        -         empty_vector = Formats.format_empty_sparse_vector!(daf, axis, name, eltype, nnz, indtype)
+src/data.jl.32797.cov:577:        -         result = fill(as_named_vector(daf, axis, empty_vector))
+src/data.jl.32797.cov:578:        -         verified = SparseVector(length(empty_vector), empty_vector.nzind, empty_vector.nzval)
+src/data.jl.32797.cov:579:        - 
+src/data.jl.32797.cov:580:        -         Formats.invalidate_cached!(daf, Formats.vector_cache_key(axis, name))
+src/data.jl.32797.cov:581:        -         Formats.invalidate_cached!(daf, Formats.vector_names_cache_key(axis))
+src/data.jl.32797.cov:582:        - 
+src/data.jl.32797.cov:583:        -         @debug "empty_dense_vector! $(daf.name) / $(axis) : $(name) <$(overwrite ? "=" : "-") $(present(verified))"
+src/data.jl.32797.cov:584:        -         return result
+src/data.jl.32797.cov:585:        -     end
+src/data.jl.32797.cov:586:        - end
+src/data.jl.32797.cov:587:        - 
+src/data.jl.32797.cov:588:        - """
+src/data.jl.32797.cov:589:        -     delete_vector!(
+src/data.jl.32797.cov:590:        -         daf::DafWriter,
+src/data.jl.32797.cov:591:        -         axis::AbstractString,
+src/data.jl.32797.cov:592:        -         name::AbstractString;
+src/data.jl.32797.cov:593:        -         must_exist::Bool = true,
+src/data.jl.32797.cov:594:        -     )::Nothing
+src/data.jl.32797.cov:595:        - 
+src/data.jl.32797.cov:596:        - Delete a vector property with some `name` for some `axis` from `daf`.
+src/data.jl.32797.cov:597:        - 
+src/data.jl.32797.cov:598:        - This first verifies the `axis` exists in `daf` and that the property name isn't `name`. If `must_exist` (the default),
+src/data.jl.32797.cov:599:        - this also verifies the `name` vector exists for the `axis`.
+src/data.jl.32797.cov:600:        - """
+src/data.jl.32797.cov:601:        - function delete_vector!(daf::DafWriter, axis::AbstractString, name::AbstractString; must_exist::Bool = true)::Nothing
+src/data.jl.32797.cov:602:        -     return with_write_lock(daf) do
+src/data.jl.32797.cov:603:        -         @debug "delete_vector! $(daf.name) / $(axis) : $(name) $(must_exist ? "" : " ?")"
+src/data.jl.32797.cov:604:        - 
+src/data.jl.32797.cov:605:        -         require_not_name(daf, axis, name)
+src/data.jl.32797.cov:606:        -         require_axis(daf, axis)
+src/data.jl.32797.cov:607:        - 
+src/data.jl.32797.cov:608:        -         if must_exist
+src/data.jl.32797.cov:609:        -             require_vector(daf, axis, name)
+src/data.jl.32797.cov:610:        -         end
+src/data.jl.32797.cov:611:        - 
+src/data.jl.32797.cov:612:        -         if !Formats.format_has_vector(daf, axis, name)
+src/data.jl.32797.cov:613:        -             return nothing
+src/data.jl.32797.cov:614:        -         end
+src/data.jl.32797.cov:615:        - 
+src/data.jl.32797.cov:616:        -         Formats.format_delete_vector!(daf, axis, name; for_set = false)
+src/data.jl.32797.cov:617:        - 
+src/data.jl.32797.cov:618:        -         Formats.invalidate_cached!(daf, Formats.vector_cache_key(axis, name))
+src/data.jl.32797.cov:619:        -         Formats.invalidate_cached!(daf, Formats.vector_names_cache_key(axis))
+src/data.jl.32797.cov:620:        -         return nothing
+src/data.jl.32797.cov:621:        -     end
+src/data.jl.32797.cov:622:        - end
+src/data.jl.32797.cov:623:        - 
+src/data.jl.32797.cov:624:        - """
+src/data.jl.32797.cov:625:        -     vector_names(daf::DafReader, axis::AbstractString)::AbstractStringSet
+src/data.jl.32797.cov:626:        - 
+src/data.jl.32797.cov:627:        - The names of the vector properties for the `axis` in `daf`, **not** including the special `name` property.
+src/data.jl.32797.cov:628:        - 
+src/data.jl.32797.cov:629:        - This first verifies the `axis` exists in `daf`.
+src/data.jl.32797.cov:630:        - """
+src/data.jl.32797.cov:631:        - function vector_names(daf::DafReader, axis::AbstractString)::AbstractStringSet
+src/data.jl.32797.cov:632:        -     return with_read_lock(daf) do
+src/data.jl.32797.cov:633:        -         require_axis(daf, axis)
+src/data.jl.32797.cov:634:        -         result = Formats.format_vector_names(daf, axis)
+src/data.jl.32797.cov:635:        -         # @debug "vector_names $(daf.name) / $(axis) -> $(present(result))"
+src/data.jl.32797.cov:636:        -         return result
+src/data.jl.32797.cov:637:        -     end
+src/data.jl.32797.cov:638:        - end
+src/data.jl.32797.cov:639:        - 
+src/data.jl.32797.cov:640:        - """
+src/data.jl.32797.cov:641:        -     get_vector(
+src/data.jl.32797.cov:642:        -         daf::DafReader,
+src/data.jl.32797.cov:643:        -         axis::AbstractString,
+src/data.jl.32797.cov:644:        -         name::AbstractString;
+src/data.jl.32797.cov:645:        -         [default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef]
+src/data.jl.32797.cov:646:        -     )::Maybe{NamedVector}
+src/data.jl.32797.cov:647:        - 
+src/data.jl.32797.cov:648:        - Get the vector property with some `name` for some `axis` in `daf`. The names of the result are the names of the vector
+src/data.jl.32797.cov:649:        - entries (same as returned by [`get_axis`](@ref)). The special property `name` returns an array whose values are also the
+src/data.jl.32797.cov:650:        - (read-only) names of the entries of the axis.
+src/data.jl.32797.cov:651:        - 
+src/data.jl.32797.cov:652:        - This first verifies the `axis` exists in `daf`. If `default` is `undef` (the default), this first verifies the `name`
+src/data.jl.32797.cov:653:        - vector exists in `daf`. Otherwise, if `default` is `nothing`, it will be returned. If it is a `StorageVector`, it has to
+src/data.jl.32797.cov:654:        - be of the same size as the `axis`, and is returned. If it is a [`StorageScalar`](@ref). Otherwise, a new `Vector` is
+src/data.jl.32797.cov:655:        - created of the correct size containing the `default`, and is returned.
+src/data.jl.32797.cov:656:        - """
+src/data.jl.32797.cov:657:        4 function get_vector(
+src/data.jl.32797.cov:658:        -     daf::DafReader,
+src/data.jl.32797.cov:659:        -     axis::AbstractString,
+src/data.jl.32797.cov:660:        -     name::AbstractString;
+src/data.jl.32797.cov:661:        -     default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
+src/data.jl.32797.cov:662:        - )::Maybe{NamedArray}
+src/data.jl.32797.cov:663:        2     return with_read_lock(daf) do
+src/data.jl.32797.cov:664:        2         require_axis(daf, axis)
+src/data.jl.32797.cov:665:        - 
+src/data.jl.32797.cov:666:        2         if default isa StorageVector
+src/data.jl.32797.cov:667:        0             require_axis_length(daf, "default length", length(default), axis)
+src/data.jl.32797.cov:668:        0             if default isa NamedVector
+src/data.jl.32797.cov:669:        0                 require_dim_name(daf, axis, "default dim name", dimnames(default, 1))
+src/data.jl.32797.cov:670:        0                 require_axis_names(daf, axis, "entry names of the: default", names(default, 1))
+src/data.jl.32797.cov:671:        -             end
+src/data.jl.32797.cov:672:        -         end
+src/data.jl.32797.cov:673:        - 
+src/data.jl.32797.cov:674:        2         cached_vector = Formats.get_from_cache(daf, Formats.vector_cache_key(axis, name), StorageVector)
+src/data.jl.32797.cov:675:        4         if cached_vector != nothing
+src/data.jl.32797.cov:676:        0             if eltype(cached_vector) <: AbstractString
+src/data.jl.32797.cov:677:        0                 cached_vector = as_read_only_array(cached_vector)
+src/data.jl.32797.cov:678:        -             end
+src/data.jl.32797.cov:679:        0             return as_named_vector(daf, axis, cached_vector)
+src/data.jl.32797.cov:680:        -         end
+src/data.jl.32797.cov:681:        - 
+src/data.jl.32797.cov:682:        2         if name == "name"
+src/data.jl.32797.cov:683:        0             result = as_named_vector(daf, axis, Formats.get_axis_through_cache(daf, axis))
+src/data.jl.32797.cov:684:        0             @debug "get_vector $(daf.name) / $(axis) : $(name) -> $(present(result))"
+src/data.jl.32797.cov:685:        0             return result
+src/data.jl.32797.cov:686:        -         end
+src/data.jl.32797.cov:687:        - 
+src/data.jl.32797.cov:688:        2         default_suffix = ""
+src/data.jl.32797.cov:689:        2         vector = nothing
+src/data.jl.32797.cov:690:        2         if !Formats.format_has_vector(daf, axis, name)
+src/data.jl.32797.cov:691:        0             if default == nothing
+src/data.jl.32797.cov:692:        0                 @debug "get_vector $(daf.name) / $(axis) : $(name) -> $(present(nothing))"
+src/data.jl.32797.cov:693:        0                 return nothing
+src/data.jl.32797.cov:694:        -             end
+src/data.jl.32797.cov:695:        0             default_suffix = " ?"
+src/data.jl.32797.cov:696:        0             if default == undef
+src/data.jl.32797.cov:697:        0                 require_vector(daf, axis, name)
+src/data.jl.32797.cov:698:        0             elseif default isa StorageVector
+src/data.jl.32797.cov:699:        0                 vector = default
+src/data.jl.32797.cov:700:        0             elseif default == 0
+src/data.jl.32797.cov:701:        0                 vector = spzeros(typeof(default), Formats.format_axis_length(daf, axis))
+src/data.jl.32797.cov:702:        -             else
+src/data.jl.32797.cov:703:        0                 @assert default isa StorageScalar
+src/data.jl.32797.cov:704:        0                 vector = fill(default, Formats.format_axis_length(daf, axis))
+src/data.jl.32797.cov:705:        -             end
+src/data.jl.32797.cov:706:        -         end
+src/data.jl.32797.cov:707:        - 
+src/data.jl.32797.cov:708:        2         if vector == nothing
+src/data.jl.32797.cov:709:        2             vector = Formats.get_vector_through_cache(daf, axis, name)
+src/data.jl.32797.cov:710:        2             if !(vector isa StorageVector)
+src/data.jl.32797.cov:711:        0                 error(  # untested
+src/data.jl.32797.cov:712:        -                     "format_get_vector for daf format: $(typeof(daf))\n" *
+src/data.jl.32797.cov:713:        -                     "returned invalid Daf.StorageVector: $(present(vector))",
+src/data.jl.32797.cov:714:        -                 )
+src/data.jl.32797.cov:715:        -             end
+src/data.jl.32797.cov:716:        2             if length(vector) != Formats.format_axis_length(daf, axis)
+src/data.jl.32797.cov:717:        0                 error( # untested
+src/data.jl.32797.cov:718:        -                     "format_get_vector for daf format: $(typeof(daf))\n" *
+src/data.jl.32797.cov:719:        -                     "returned vector length: $(length(vector))\n" *
+src/data.jl.32797.cov:720:        -                     "instead of axis: $(axis)\n" *
+src/data.jl.32797.cov:721:        -                     "length: $(axis_length(daf, axis))\n" *
+src/data.jl.32797.cov:722:        -                     "in the daf data: $(daf.name)",
+src/data.jl.32797.cov:723:        -                 )
+src/data.jl.32797.cov:724:        -             end
+src/data.jl.32797.cov:725:        -         end
+src/data.jl.32797.cov:726:        - 
+src/data.jl.32797.cov:727:        2         result = as_named_vector(daf, axis, vector)
+src/data.jl.32797.cov:728:        2         @debug "get_vector $(daf.name) / $(axis) : $(name) -> $(present(result))$(default_suffix)"
+src/data.jl.32797.cov:729:        2         return result
+src/data.jl.32797.cov:730:        -     end
+src/data.jl.32797.cov:731:        - end
+src/data.jl.32797.cov:732:        - 
+src/data.jl.32797.cov:733:        0 function require_vector(daf::DafReader, axis::AbstractString, name::AbstractString)::Nothing
+src/data.jl.32797.cov:734:        0     if !Formats.format_has_vector(daf, axis, name)
+src/data.jl.32797.cov:735:        0         error("missing vector: $(name)\nfor the axis: $(axis)\nin the daf data: $(daf.name)")
+src/data.jl.32797.cov:736:        -     end
+src/data.jl.32797.cov:737:        0     return nothing
+src/data.jl.32797.cov:738:        - end
+src/data.jl.32797.cov:739:        - 
+src/data.jl.32797.cov:740:        1 function require_no_vector(daf::DafReader, axis::AbstractString, name::AbstractString)::Nothing
+src/data.jl.32797.cov:741:        1     if Formats.format_has_vector(daf, axis, name)
+src/data.jl.32797.cov:742:        0         error("existing vector: $(name)\nfor the axis: $(axis)\nin the daf data: $(daf.name)")
+src/data.jl.32797.cov:743:        -     end
+src/data.jl.32797.cov:744:        1     return nothing
+src/data.jl.32797.cov:745:        - end
+src/data.jl.32797.cov:746:        - 
+src/data.jl.32797.cov:747:        - """
+src/data.jl.32797.cov:748:        -     has_matrix(
+src/data.jl.32797.cov:749:        -         daf::DafReader,
+src/data.jl.32797.cov:750:        -         rows_axis::AbstractString,
+src/data.jl.32797.cov:751:        -         columns_axis::AbstractString,
+src/data.jl.32797.cov:752:        -         name::AbstractString;
+src/data.jl.32797.cov:753:        -         [relayout::Bool = true]
+src/data.jl.32797.cov:754:        -     )::Bool
+src/data.jl.32797.cov:755:        - 
+src/data.jl.32797.cov:756:        - Check whether a matrix property with some `name` exists for the `rows_axis` and the `columns_axis` in `daf`. Since this
+src/data.jl.32797.cov:757:        - is Julia, this means a column-major matrix. A daf may contain two copies of the same data, in which case it would report
+src/data.jl.32797.cov:758:        - the matrix under both axis orders.
+src/data.jl.32797.cov:759:        - 
+src/data.jl.32797.cov:760:        - If `relayout` (the default), this will also check whether the data exists in the other layout (that is, with flipped
+src/data.jl.32797.cov:761:        - axes).
+src/data.jl.32797.cov:762:        - 
+src/data.jl.32797.cov:763:        - This first verifies the `rows_axis` and `columns_axis` exists in `daf`.
+src/data.jl.32797.cov:764:        - """
+src/data.jl.32797.cov:765:        - function has_matrix(
+src/data.jl.32797.cov:766:        -     daf::DafReader,
+src/data.jl.32797.cov:767:        -     rows_axis::AbstractString,
+src/data.jl.32797.cov:768:        -     columns_axis::AbstractString,
+src/data.jl.32797.cov:769:        -     name::AbstractString;
+src/data.jl.32797.cov:770:        -     relayout::Bool = true,
+src/data.jl.32797.cov:771:        - )::Bool
+src/data.jl.32797.cov:772:        -     return with_read_lock(daf) do
+src/data.jl.32797.cov:773:        -         relayout = relayout && rows_axis != columns_axis
+src/data.jl.32797.cov:774:        - 
+src/data.jl.32797.cov:775:        -         require_axis(daf, rows_axis)
+src/data.jl.32797.cov:776:        -         require_axis(daf, columns_axis)
+src/data.jl.32797.cov:777:        - 
+src/data.jl.32797.cov:778:        -         result =
+src/data.jl.32797.cov:779:        -             haskey(daf.internal.cache, Formats.matrix_cache_key(rows_axis, columns_axis, name)) ||
+src/data.jl.32797.cov:780:        -             Formats.format_has_matrix(daf, rows_axis, columns_axis, name) ||
+src/data.jl.32797.cov:781:        -             (relayout && Formats.format_has_matrix(daf, columns_axis, rows_axis, name))
+src/data.jl.32797.cov:782:        -         # @debug "has_matrix $(daf.name) / $(rows_axis) / $(columns_axis) : $(name) $(relayout ? "%" : "#")> $(result)"
+src/data.jl.32797.cov:783:        -         return result
+src/data.jl.32797.cov:784:        -     end
+src/data.jl.32797.cov:785:        - end
+src/data.jl.32797.cov:786:        - 
+src/data.jl.32797.cov:787:        - """
+src/data.jl.32797.cov:788:        -     set_matrix!(
+src/data.jl.32797.cov:789:        -         daf::DafWriter,
+src/data.jl.32797.cov:790:        -         rows_axis::AbstractString,
+src/data.jl.32797.cov:791:        -         columns_axis::AbstractString,
+src/data.jl.32797.cov:792:        -         name::AbstractString,
+src/data.jl.32797.cov:793:        -         matrix::Union{StorageNumber, StorageMatrix};
+src/data.jl.32797.cov:794:        -         [overwrite::Bool = false,
+src/data.jl.32797.cov:795:        -         relayout::Bool = true]
+src/data.jl.32797.cov:796:        -     )::Nothing
+src/data.jl.32797.cov:797:        - 
+src/data.jl.32797.cov:798:        - Set the matrix property with some `name` for some `rows_axis` and `columns_axis` in `daf`. Since this is Julia, this
+src/data.jl.32797.cov:799:        - should be a column-major `matrix`.
+src/data.jl.32797.cov:800:        - 
+src/data.jl.32797.cov:801:        - If the `matrix` specified is actually a [`StorageScalar`](@ref), the stored matrix is filled with this value.
+src/data.jl.32797.cov:802:        - 
+src/data.jl.32797.cov:803:        - If `relayout` (the default), this will also automatically [`relayout!`](@ref) the matrix and store the result, so the
+src/data.jl.32797.cov:804:        - data would also be stored in row-major layout (that is, with the axes flipped), similarly to calling
+src/data.jl.32797.cov:805:        - [`relayout_matrix!`](@ref).
+src/data.jl.32797.cov:806:        - 
+src/data.jl.32797.cov:807:        - This first verifies the `rows_axis` and `columns_axis` exist in `daf`, that the `matrix` is column-major of the
+src/data.jl.32797.cov:808:        - appropriate size. If not `overwrite` (the default), this also verifies the `name` matrix does not exist for the
+src/data.jl.32797.cov:809:        - `rows_axis` and `columns_axis`.
+src/data.jl.32797.cov:810:        - """
+src/data.jl.32797.cov:811:        2 function set_matrix!(
+src/data.jl.32797.cov:812:        -     daf::DafWriter,
+src/data.jl.32797.cov:813:        -     rows_axis::AbstractString,
+src/data.jl.32797.cov:814:        -     columns_axis::AbstractString,
+src/data.jl.32797.cov:815:        -     name::AbstractString,
+src/data.jl.32797.cov:816:        -     matrix::Union{StorageNumber, StorageMatrix};
+src/data.jl.32797.cov:817:        -     overwrite::Bool = false,
+src/data.jl.32797.cov:818:        -     relayout::Bool = true,
+src/data.jl.32797.cov:819:        - )::Nothing
+src/data.jl.32797.cov:820:        1     return with_write_lock(daf) do
+src/data.jl.32797.cov:821:        1         relayout = relayout && rows_axis != columns_axis
+src/data.jl.32797.cov:822:        - 
+src/data.jl.32797.cov:823:        1         @debug "set_matrix! $(daf.name) / $(rows_axis) / $(columns_axis) : $(name) <$(relayout ? "%" : "#")$(overwrite ? "=" : "-") $(matrix)"
+src/data.jl.32797.cov:824:        - 
+src/data.jl.32797.cov:825:        1         require_axis(daf, rows_axis)
+src/data.jl.32797.cov:826:        1         require_axis(daf, columns_axis)
+src/data.jl.32797.cov:827:        - 
+src/data.jl.32797.cov:828:        1         if matrix isa StorageMatrix
+src/data.jl.32797.cov:829:        1             require_column_major(matrix)
+src/data.jl.32797.cov:830:        1             require_axis_length(daf, "matrix rows", size(matrix, Rows), rows_axis)
+src/data.jl.32797.cov:831:        1             require_axis_length(daf, "matrix columns", size(matrix, Columns), columns_axis)
+src/data.jl.32797.cov:832:        1             if matrix isa NamedMatrix
+src/data.jl.32797.cov:833:        0                 require_dim_name(daf, rows_axis, "matrix rows dim name", dimnames(matrix, 1); prefix = "rows")
+src/data.jl.32797.cov:834:        0                 require_dim_name(daf, columns_axis, "matrix columns dim name", dimnames(matrix, 2); prefix = "columns")
+src/data.jl.32797.cov:835:        0                 require_axis_names(daf, rows_axis, "row names of the: matrix", names(matrix, 1))
+src/data.jl.32797.cov:836:        0                 require_axis_names(daf, columns_axis, "column names of the: matrix", names(matrix, 2))
+src/data.jl.32797.cov:837:        -             end
+src/data.jl.32797.cov:838:        -         end
+src/data.jl.32797.cov:839:        - 
+src/data.jl.32797.cov:840:        1         if !overwrite
+src/data.jl.32797.cov:841:        1             require_no_matrix(daf, rows_axis, columns_axis, name; relayout = relayout)
+src/data.jl.32797.cov:842:        -         end
+src/data.jl.32797.cov:843:        - 
+src/data.jl.32797.cov:844:        1         if Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
+src/data.jl.32797.cov:845:        0             Formats.format_delete_matrix!(daf, rows_axis, columns_axis, name; for_set = true)
+src/data.jl.32797.cov:846:        -         end
+src/data.jl.32797.cov:847:        - 
+src/data.jl.32797.cov:848:        1         if relayout && overwrite && Formats.format_has_matrix(daf, columns_axis, rows_axis, name)
+src/data.jl.32797.cov:849:        0             Formats.format_delete_matrix!(daf, columns_axis, rows_axis, name; for_set = true)
+src/data.jl.32797.cov:850:        -         end
+src/data.jl.32797.cov:851:        - 
+src/data.jl.32797.cov:852:        1         Formats.invalidate_cached!(daf, Formats.matrix_cache_key(rows_axis, columns_axis, name))
+src/data.jl.32797.cov:853:        1         Formats.invalidate_cached!(daf, Formats.matrix_cache_key(columns_axis, rows_axis, name))
+src/data.jl.32797.cov:854:        1         Formats.invalidate_cached!(daf, Formats.matrix_names_cache_key(rows_axis, columns_axis))
+src/data.jl.32797.cov:855:        2         for cache_key in Formats.matrix_relayout_names_cache_keys(rows_axis, columns_axis)
+src/data.jl.32797.cov:856:        2             Formats.invalidate_cached!(daf, cache_key)
+src/data.jl.32797.cov:857:        2         end
+src/data.jl.32797.cov:858:        - 
+src/data.jl.32797.cov:859:        1         Formats.format_set_matrix!(daf, rows_axis, columns_axis, name, matrix)
+src/data.jl.32797.cov:860:        1         if relayout && rows_axis != columns_axis
+src/data.jl.32797.cov:861:        1             Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name)
+src/data.jl.32797.cov:862:        -         end
+src/data.jl.32797.cov:863:        1         return nothing
+src/data.jl.32797.cov:864:        -     end
+src/data.jl.32797.cov:865:        - end
+src/data.jl.32797.cov:866:        - 
+src/data.jl.32797.cov:867:        - """
+src/data.jl.32797.cov:868:        -     empty_dense_matrix!(
+src/data.jl.32797.cov:869:        -         fill::Function,
+src/data.jl.32797.cov:870:        -         daf::DafWriter,
+src/data.jl.32797.cov:871:        -         rows_axis::AbstractString,
+src/data.jl.32797.cov:872:        -         columns_axis::AbstractString,
+src/data.jl.32797.cov:873:        -         name::AbstractString,
+src/data.jl.32797.cov:874:        -         eltype::Type{T};
+src/data.jl.32797.cov:875:        -         [overwrite::Bool = false]
+src/data.jl.32797.cov:876:        -     )::Any where {T <: StorageNumber}
+src/data.jl.32797.cov:877:        - 
+src/data.jl.32797.cov:878:        - Create an empty dense matrix property with some `name` for some `rows_axis` and `columns_axis` in `daf`, pass it to
+src/data.jl.32797.cov:879:        - `fill`, and return the result. Since this is Julia, this will be a column-major `matrix`.
+src/data.jl.32797.cov:880:        - 
+src/data.jl.32797.cov:881:        - The returned matrix will be uninitialized; the caller is expected to `fill` it with values. This saves creating a copy
+src/data.jl.32797.cov:882:        - of the matrix before setting it in `daf`, which makes a huge difference when creating matrices on disk (using memory
+src/data.jl.32797.cov:883:        - mapping). For this reason, this does not work for strings, as they do not have a fixed size.
+src/data.jl.32797.cov:884:        - 
+src/data.jl.32797.cov:885:        - This first verifies the `rows_axis` and `columns_axis` exist in `daf`, that the `matrix` is column-major of the
+src/data.jl.32797.cov:886:        - appropriate size. If not `overwrite` (the default), this also verifies the `name` matrix does not exist for the
+src/data.jl.32797.cov:887:        - `rows_axis` and `columns_axis`.
+src/data.jl.32797.cov:888:        - """
+src/data.jl.32797.cov:889:        - function empty_dense_matrix!(
+src/data.jl.32797.cov:890:        -     fill::Function,
+src/data.jl.32797.cov:891:        -     daf::DafWriter,
+src/data.jl.32797.cov:892:        -     rows_axis::AbstractString,
+src/data.jl.32797.cov:893:        -     columns_axis::AbstractString,
+src/data.jl.32797.cov:894:        -     name::AbstractString,
+src/data.jl.32797.cov:895:        -     eltype::Type{T};
+src/data.jl.32797.cov:896:        -     overwrite::Bool = false,
+src/data.jl.32797.cov:897:        - )::Any where {T <: StorageNumber}
+src/data.jl.32797.cov:898:        -     return with_write_lock(daf) do
+src/data.jl.32797.cov:899:        -         require_axis(daf, rows_axis)
+src/data.jl.32797.cov:900:        -         require_axis(daf, columns_axis)
+src/data.jl.32797.cov:901:        - 
+src/data.jl.32797.cov:902:        -         if !overwrite
+src/data.jl.32797.cov:903:        -             require_no_matrix(daf, rows_axis, columns_axis, name; relayout = false)
+src/data.jl.32797.cov:904:        -         elseif Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
+src/data.jl.32797.cov:905:        -             Formats.format_delete_matrix!(daf, rows_axis, columns_axis, name; for_set = true)
+src/data.jl.32797.cov:906:        -         end
+src/data.jl.32797.cov:907:        - 
+src/data.jl.32797.cov:908:        -         Formats.invalidate_cached!(daf, Formats.matrix_cache_key(rows_axis, columns_axis, name))
+src/data.jl.32797.cov:909:        -         Formats.invalidate_cached!(daf, Formats.matrix_cache_key(columns_axis, rows_axis, name))
+src/data.jl.32797.cov:910:        -         Formats.invalidate_cached!(daf, Formats.matrix_names_cache_key(rows_axis, columns_axis))
+src/data.jl.32797.cov:911:        -         for cache_key in Formats.matrix_relayout_names_cache_keys(rows_axis, columns_axis)
+src/data.jl.32797.cov:912:        -             Formats.invalidate_cached!(daf, cache_key)
+src/data.jl.32797.cov:913:        -         end
+src/data.jl.32797.cov:914:        - 
+src/data.jl.32797.cov:915:        -         named = as_named_matrix(
+src/data.jl.32797.cov:916:        -             daf,
+src/data.jl.32797.cov:917:        -             rows_axis,
+src/data.jl.32797.cov:918:        -             columns_axis,
+src/data.jl.32797.cov:919:        -             Formats.format_empty_dense_matrix!(daf, rows_axis, columns_axis, name, eltype),
+src/data.jl.32797.cov:920:        -         )
+src/data.jl.32797.cov:921:        -         result = fill(named)
+src/data.jl.32797.cov:922:        - 
+src/data.jl.32797.cov:923:        -         @debug "empty_dense_matrix! $(daf.name) / $(rows_axis) / $(columns_axis) : $(name) <$(overwrite ? "=" : "-") $(named)"
+src/data.jl.32797.cov:924:        -         return result
+src/data.jl.32797.cov:925:        -     end
+src/data.jl.32797.cov:926:        - end
+src/data.jl.32797.cov:927:        - 
+src/data.jl.32797.cov:928:        - """
+src/data.jl.32797.cov:929:        -     empty_sparse_matrix!(
+src/data.jl.32797.cov:930:        -         fill::Function,
+src/data.jl.32797.cov:931:        -         daf::DafWriter,
+src/data.jl.32797.cov:932:        -         rows_axis::AbstractString,
+src/data.jl.32797.cov:933:        -         columns_axis::AbstractString,
+src/data.jl.32797.cov:934:        -         name::AbstractString,
+src/data.jl.32797.cov:935:        -         eltype::Type{T},
+src/data.jl.32797.cov:936:        -         nnz::StorageInteger,
+src/data.jl.32797.cov:937:        -         intdype::Type{I};
+src/data.jl.32797.cov:938:        -         [overwrite::Bool = false]
+src/data.jl.32797.cov:939:        -     )::Any where {T <: StorageNumber, I <: StorageInteger}
+src/data.jl.32797.cov:940:        - 
+src/data.jl.32797.cov:941:        - Create an empty sparse matrix property with some `name` for some `rows_axis` and `columns_axis` in `daf`, pass it to
+src/data.jl.32797.cov:942:        - `fill`, and return the result.
+src/data.jl.32797.cov:943:        - 
+src/data.jl.32797.cov:944:        - The returned matrix will be uninitialized; the caller is expected to `fill` it with values. This means manually filling
+src/data.jl.32797.cov:945:        - the `colptr`, `rowval` and `nzval` vectors. Specifying the `nnz` makes their sizes known in advance, to allow
+src/data.jl.32797.cov:946:        - pre-allocating disk space. For this reason, this does not work for strings, as they do not have a fixed size.
+src/data.jl.32797.cov:947:        - 
+src/data.jl.32797.cov:948:        - This severely restricts the usefulness of this function, because typically `nnz` is only know after fully computing the
+src/data.jl.32797.cov:949:        - matrix. Still, in some cases a large sparse matrix is created by concatenating several smaller ones; this function
+src/data.jl.32797.cov:950:        - allows doing so directly into the data, avoiding a copy in case of memory-mapped disk formats.
+src/data.jl.32797.cov:951:        - 
+src/data.jl.32797.cov:952:        - !!! warning
+src/data.jl.32797.cov:953:        - 
+src/data.jl.32797.cov:954:        - 
+src/data.jl.32797.cov:955:        - It is the caller's responsibility to fill the three vectors with valid data. Specifically, you must ensure:
+src/data.jl.32797.cov:956:        - 
+src/data.jl.32797.cov:957:        -   - `colptr[1] == 1`
+src/data.jl.32797.cov:958:        -   - `colptr[end] == nnz + 1`
+src/data.jl.32797.cov:959:        -   - `colptr[i] <= colptr[i + 1]`
+src/data.jl.32797.cov:960:        -   - for all `j`, for all `i` such that `colptr[j] <= i` and `i + 1 < colptr[j + 1]`, `1 <= rowptr[i] < rowptr[i + 1] <= nrows`
+src/data.jl.32797.cov:961:        - 
+src/data.jl.32797.cov:962:        - This first verifies the `rows_axis` and `columns_axis` exist in `daf`. If not `overwrite` (the default), this also
+src/data.jl.32797.cov:963:        - verifies the `name` matrix does not exist for the `rows_axis` and `columns_axis`.
+src/data.jl.32797.cov:964:        - """
+src/data.jl.32797.cov:965:        - function empty_sparse_matrix!(
+src/data.jl.32797.cov:966:        -     fill::Function,
+src/data.jl.32797.cov:967:        -     daf::DafWriter,
+src/data.jl.32797.cov:968:        -     rows_axis::AbstractString,
+src/data.jl.32797.cov:969:        -     columns_axis::AbstractString,
+src/data.jl.32797.cov:970:        -     name::AbstractString,
+src/data.jl.32797.cov:971:        -     eltype::Type{T},
+src/data.jl.32797.cov:972:        -     nnz::StorageInteger,
+src/data.jl.32797.cov:973:        -     indtype::Type{I};
+src/data.jl.32797.cov:974:        -     overwrite::Bool = false,
+src/data.jl.32797.cov:975:        - )::Any where {T <: StorageNumber, I <: StorageInteger}
+src/data.jl.32797.cov:976:        -     return with_write_lock(daf) do
+src/data.jl.32797.cov:977:        -         require_axis(daf, rows_axis)
+src/data.jl.32797.cov:978:        -         require_axis(daf, columns_axis)
+src/data.jl.32797.cov:979:        - 
+src/data.jl.32797.cov:980:        -         if !overwrite
+src/data.jl.32797.cov:981:        -             require_no_matrix(daf, rows_axis, columns_axis, name; relayout = false)
+src/data.jl.32797.cov:982:        -         elseif Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
+src/data.jl.32797.cov:983:        -             Formats.format_delete_matrix!(daf, rows_axis, columns_axis, name; for_set = true)
+src/data.jl.32797.cov:984:        -         end
+src/data.jl.32797.cov:985:        - 
+src/data.jl.32797.cov:986:        -         Formats.invalidate_cached!(daf, Formats.matrix_cache_key(rows_axis, columns_axis, name))
+src/data.jl.32797.cov:987:        -         Formats.invalidate_cached!(daf, Formats.matrix_cache_key(columns_axis, rows_axis, name))
+src/data.jl.32797.cov:988:        -         Formats.invalidate_cached!(daf, Formats.matrix_names_cache_key(rows_axis, columns_axis))
+src/data.jl.32797.cov:989:        -         for cache_key in Formats.matrix_relayout_names_cache_keys(rows_axis, columns_axis)
+src/data.jl.32797.cov:990:        -             Formats.invalidate_cached!(daf, cache_key)
+src/data.jl.32797.cov:991:        -         end
+src/data.jl.32797.cov:992:        - 
+src/data.jl.32797.cov:993:        -         empty_matrix = Formats.format_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, eltype, nnz, indtype)
+src/data.jl.32797.cov:994:        -         result = fill(as_named_matrix(daf, rows_axis, columns_axis, empty_matrix))
+src/data.jl.32797.cov:995:        -         verified = SparseMatrixCSC(size(empty_matrix)..., empty_matrix.colptr, empty_matrix.rowval, empty_matrix.nzval)
+src/data.jl.32797.cov:996:        - 
+src/data.jl.32797.cov:997:        -         @debug "empty_sparse_matrix! $(daf.name) / $(rows_axis) / $(columns_axis) : $(name) <$(overwrite ? "=" : "-") $(verified)"
+src/data.jl.32797.cov:998:        -         return result
+src/data.jl.32797.cov:999:        -     end
+src/data.jl.32797.cov:1000:        - end
+src/data.jl.32797.cov:1001:        - 
+src/data.jl.32797.cov:1002:        - """
+src/data.jl.32797.cov:1003:        -     relayout_matrix!(
+src/data.jl.32797.cov:1004:        -         daf::DafWriter,
+src/data.jl.32797.cov:1005:        -         rows_axis::AbstractString,
+src/data.jl.32797.cov:1006:        -         columns_axis::AbstractString,
+src/data.jl.32797.cov:1007:        -         name::AbstractString;
+src/data.jl.32797.cov:1008:        -         [overwrite::Bool = false]
+src/data.jl.32797.cov:1009:        -     )::Nothing
+src/data.jl.32797.cov:1010:        - 
+src/data.jl.32797.cov:1011:        - Given a matrix property with some `name` exists (in column-major layout) in `daf` for the `rows_axis` and the
+src/data.jl.32797.cov:1012:        - `columns_axis`, then [`relayout!`](@ref) it and store the row-major result as well (that is, with flipped axes).
+src/data.jl.32797.cov:1013:        - 
+src/data.jl.32797.cov:1014:        - This is useful following calling [`empty_dense_matrix!`](@ref) or [`empty_sparse_matrix!`](@ref) to ensure both layouts
+src/data.jl.32797.cov:1015:        - of the matrix are stored in `def`. When calling [`set_matrix!`](@ref), it is simpler to just specify (the default)
+src/data.jl.32797.cov:1016:        - `relayout = true`.
+src/data.jl.32797.cov:1017:        - 
+src/data.jl.32797.cov:1018:        - This first verifies the `rows_axis` and `columns_axis` exist in `daf`, and that there is a `name` (column-major) matrix
+src/data.jl.32797.cov:1019:        - property for them. If not `overwrite` (the default), this also verifies the `name` matrix does not exist for the
+src/data.jl.32797.cov:1020:        - *flipped* `rows_axis` and `columns_axis`.
+src/data.jl.32797.cov:1021:        - 
+src/data.jl.32797.cov:1022:        - !!! note
+src/data.jl.32797.cov:1023:        - 
+src/data.jl.32797.cov:1024:        -     A restriction of the way `Daf` stores data is that square data is only stored in one (column-major) layout (e.g., to
+src/data.jl.32797.cov:1025:        -     store a weighted directed graph between cells, you may store an outgoing_weights matrix where each cell's column
+src/data.jl.32797.cov:1026:        -     holds the outgoing weights from the cell to the other cells. In this case you **can't** ask `Daf` to relayout the
+src/data.jl.32797.cov:1027:        -     matrix to row-major order so that each cell's row would be the incoming weights from the other cells. Instead you
+src/data.jl.32797.cov:1028:        -     would need to explicitly store a separate incoming_weights matrix where each cell's column holds the incoming
+src/data.jl.32797.cov:1029:        -     weights).
+src/data.jl.32797.cov:1030:        - """
+src/data.jl.32797.cov:1031:        - function relayout_matrix!(
+src/data.jl.32797.cov:1032:        -     daf::DafWriter,
+src/data.jl.32797.cov:1033:        -     rows_axis::AbstractString,
+src/data.jl.32797.cov:1034:        -     columns_axis::AbstractString,
+src/data.jl.32797.cov:1035:        -     name::AbstractString;
+src/data.jl.32797.cov:1036:        -     overwrite::Bool = false,
+src/data.jl.32797.cov:1037:        - )::Nothing
+src/data.jl.32797.cov:1038:        -     return with_write_lock(daf) do
+src/data.jl.32797.cov:1039:        -         @debug "relayout_matrix! $(daf.name) / $(rows_axis) / $(columns_axis) : $(name) <$(overwrite ? "=" : "-")>"
+src/data.jl.32797.cov:1040:        - 
+src/data.jl.32797.cov:1041:        -         require_axis(daf, rows_axis)
+src/data.jl.32797.cov:1042:        -         require_axis(daf, columns_axis)
+src/data.jl.32797.cov:1043:        - 
+src/data.jl.32797.cov:1044:        -         if rows_axis == columns_axis
+src/data.jl.32797.cov:1045:        -             error(
+src/data.jl.32797.cov:1046:        -                 "can't relayout square matrix: $(name)\n" *
+src/data.jl.32797.cov:1047:        -                 "of the axis: $(rows_axis)\n" *
+src/data.jl.32797.cov:1048:        -                 "due to daf representation limitations\n" *
+src/data.jl.32797.cov:1049:        -                 "in the daf data: $(daf.name)",
+src/data.jl.32797.cov:1050:        -             )
+src/data.jl.32797.cov:1051:        -         end
+src/data.jl.32797.cov:1052:        - 
+src/data.jl.32797.cov:1053:        -         require_matrix(daf, rows_axis, columns_axis, name; relayout = false)
+src/data.jl.32797.cov:1054:        - 
+src/data.jl.32797.cov:1055:        -         if !overwrite
+src/data.jl.32797.cov:1056:        -             require_no_matrix(daf, columns_axis, rows_axis, name; relayout = false)
+src/data.jl.32797.cov:1057:        -         elseif Formats.format_has_matrix(daf, columns_axis, rows_axis, name)
+src/data.jl.32797.cov:1058:        -             Formats.format_delete_matrix!(daf, columns_axis, rows_axis, name; for_set = true)
+src/data.jl.32797.cov:1059:        -         end
+src/data.jl.32797.cov:1060:        - 
+src/data.jl.32797.cov:1061:        -         Formats.invalidate_cached!(daf, Formats.matrix_cache_key(columns_axis, rows_axis, name))
+src/data.jl.32797.cov:1062:        - 
+src/data.jl.32797.cov:1063:        -         Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name)
+src/data.jl.32797.cov:1064:        -         return nothing
+src/data.jl.32797.cov:1065:        -     end
+src/data.jl.32797.cov:1066:        - end
+src/data.jl.32797.cov:1067:        - 
+src/data.jl.32797.cov:1068:        - """
+src/data.jl.32797.cov:1069:        -     delete_matrix!(
+src/data.jl.32797.cov:1070:        -         daf::DafWriter,
+src/data.jl.32797.cov:1071:        -         rows_axis::AbstractString,
+src/data.jl.32797.cov:1072:        -         columns_axis::AbstractString,
+src/data.jl.32797.cov:1073:        -         name::AbstractString;
+src/data.jl.32797.cov:1074:        -         [must_exist::Bool = true,
+src/data.jl.32797.cov:1075:        -         relayout::Bool = true]
+src/data.jl.32797.cov:1076:        -     )::Nothing
+src/data.jl.32797.cov:1077:        - 
+src/data.jl.32797.cov:1078:        - Delete a matrix property with some `name` for some `rows_axis` and `columns_axis` from `daf`.
+src/data.jl.32797.cov:1079:        - 
+src/data.jl.32797.cov:1080:        - If `relayout` (the default), this will also delete the matrix in the other layout (that is, with flipped axes).
+src/data.jl.32797.cov:1081:        - 
+src/data.jl.32797.cov:1082:        - This first verifies the `rows_axis` and `columns_axis` exist in `daf`. If `must_exist` (the default), this also verifies
+src/data.jl.32797.cov:1083:        - the `name` matrix exists for the `rows_axis` and `columns_axis`.
+src/data.jl.32797.cov:1084:        - """
+src/data.jl.32797.cov:1085:        - function delete_matrix!(
+src/data.jl.32797.cov:1086:        -     daf::DafWriter,
+src/data.jl.32797.cov:1087:        -     rows_axis::AbstractString,
+src/data.jl.32797.cov:1088:        -     columns_axis::AbstractString,
+src/data.jl.32797.cov:1089:        -     name::AbstractString;
+src/data.jl.32797.cov:1090:        -     must_exist::Bool = true,
+src/data.jl.32797.cov:1091:        -     relayout::Bool = true,
+src/data.jl.32797.cov:1092:        - )::Nothing
+src/data.jl.32797.cov:1093:        -     return with_write_lock(daf) do
+src/data.jl.32797.cov:1094:        -         relayout = relayout && rows_axis != columns_axis
+src/data.jl.32797.cov:1095:        - 
+src/data.jl.32797.cov:1096:        -         @debug "delete_matrix! $(daf.name) / $(rows_axis) / $(columns_axis) : $(name) $(must_exist ? "" : " ?")"
+src/data.jl.32797.cov:1097:        - 
+src/data.jl.32797.cov:1098:        -         require_axis(daf, rows_axis)
+src/data.jl.32797.cov:1099:        -         require_axis(daf, columns_axis)
+src/data.jl.32797.cov:1100:        - 
+src/data.jl.32797.cov:1101:        -         if must_exist
+src/data.jl.32797.cov:1102:        -             require_matrix(daf, rows_axis, columns_axis, name; relayout = relayout)
+src/data.jl.32797.cov:1103:        -         end
+src/data.jl.32797.cov:1104:        - 
+src/data.jl.32797.cov:1105:        -         if Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
+src/data.jl.32797.cov:1106:        -             Formats.format_delete_matrix!(daf, rows_axis, columns_axis, name; for_set = false)
+src/data.jl.32797.cov:1107:        -         end
+src/data.jl.32797.cov:1108:        - 
+src/data.jl.32797.cov:1109:        -         if relayout && Formats.format_has_matrix(daf, columns_axis, rows_axis, name)
+src/data.jl.32797.cov:1110:        -             Formats.format_delete_matrix!(daf, columns_axis, rows_axis, name; for_set = false)
+src/data.jl.32797.cov:1111:        -         end
+src/data.jl.32797.cov:1112:        - 
+src/data.jl.32797.cov:1113:        -         Formats.invalidate_cached!(daf, Formats.matrix_cache_key(rows_axis, columns_axis, name))
+src/data.jl.32797.cov:1114:        -         Formats.invalidate_cached!(daf, Formats.matrix_cache_key(columns_axis, rows_axis, name))
+src/data.jl.32797.cov:1115:        -         Formats.invalidate_cached!(daf, Formats.matrix_names_cache_key(rows_axis, columns_axis))
+src/data.jl.32797.cov:1116:        -         for cache_key in Formats.matrix_relayout_names_cache_keys(rows_axis, columns_axis)
+src/data.jl.32797.cov:1117:        -             Formats.invalidate_cached!(daf, cache_key)
+src/data.jl.32797.cov:1118:        -         end
+src/data.jl.32797.cov:1119:        -         return nothing
+src/data.jl.32797.cov:1120:        -     end
+src/data.jl.32797.cov:1121:        - end
+src/data.jl.32797.cov:1122:        - 
+src/data.jl.32797.cov:1123:        - """
+src/data.jl.32797.cov:1124:        -     matrix_names(
+src/data.jl.32797.cov:1125:        -         daf::DafReader,
+src/data.jl.32797.cov:1126:        -         rows_axis::AbstractString,
+src/data.jl.32797.cov:1127:        -         columns_axis::AbstractString;
+src/data.jl.32797.cov:1128:        -         [relayout::Bool = true]
+src/data.jl.32797.cov:1129:        -     )::AbstractStringSet
+src/data.jl.32797.cov:1130:        - 
+src/data.jl.32797.cov:1131:        - The names of the matrix properties for the `rows_axis` and `columns_axis` in `daf`.
+src/data.jl.32797.cov:1132:        - 
+src/data.jl.32797.cov:1133:        - If `relayout` (default), then this will include the names of matrices that exist in the other layout (that is, with
+src/data.jl.32797.cov:1134:        - flipped axes).
+src/data.jl.32797.cov:1135:        - 
+src/data.jl.32797.cov:1136:        - This first verifies the `rows_axis` and `columns_axis` exist in `daf`.
+src/data.jl.32797.cov:1137:        - """
+src/data.jl.32797.cov:1138:        - function matrix_names(
+src/data.jl.32797.cov:1139:        -     daf::DafReader,
+src/data.jl.32797.cov:1140:        -     rows_axis::AbstractString,
+src/data.jl.32797.cov:1141:        -     columns_axis::AbstractString;
+src/data.jl.32797.cov:1142:        -     relayout::Bool = true,
+src/data.jl.32797.cov:1143:        - )::AbstractStringSet
+src/data.jl.32797.cov:1144:        -     return with_read_lock(daf) do
+src/data.jl.32797.cov:1145:        -         relayout = relayout && rows_axis != columns_axis
+src/data.jl.32797.cov:1146:        - 
+src/data.jl.32797.cov:1147:        -         require_axis(daf, rows_axis)
+src/data.jl.32797.cov:1148:        -         require_axis(daf, columns_axis)
+src/data.jl.32797.cov:1149:        - 
+src/data.jl.32797.cov:1150:        -         if !relayout
+src/data.jl.32797.cov:1151:        -             names = Formats.get_matrix_names_through_cache(daf, rows_axis, columns_axis)
+src/data.jl.32797.cov:1152:        -         else
+src/data.jl.32797.cov:1153:        -             cache_keys = Formats.matrix_relayout_names_cache_keys(rows_axis, columns_axis)
+src/data.jl.32797.cov:1154:        -             names = Formats.get_from_cache(daf, cache_keys[1], AbstractStringSet)
+src/data.jl.32797.cov:1155:        -             if names == nothing
+src/data.jl.32797.cov:1156:        -                 upgrade_to_write_lock(daf)
+src/data.jl.32797.cov:1157:        -                 names = Formats.get_matrix_names_through_cache(daf, rows_axis, columns_axis)
+src/data.jl.32797.cov:1158:        -                 names = union(names, Formats.get_matrix_names_through_cache(daf, columns_axis, rows_axis))
+src/data.jl.32797.cov:1159:        -                 for cache_key in cache_keys
+src/data.jl.32797.cov:1160:        -                     Formats.cache_data!(daf, cache_key, names, MemoryData)
+src/data.jl.32797.cov:1161:        -                 end
+src/data.jl.32797.cov:1162:        -             end
+src/data.jl.32797.cov:1163:        -         end
+src/data.jl.32797.cov:1164:        - 
+src/data.jl.32797.cov:1165:        -         # @debug "matrix_names $(daf.name) / $(rows_axis) / $(columns_axis) $(relayout ? "%" : "#")> $(present(names))"
+src/data.jl.32797.cov:1166:        -         return names
+src/data.jl.32797.cov:1167:        -     end
+src/data.jl.32797.cov:1168:        - end
+src/data.jl.32797.cov:1169:        - 
+src/data.jl.32797.cov:1170:        - function require_matrix(
+src/data.jl.32797.cov:1171:        -     daf::DafReader,
+src/data.jl.32797.cov:1172:        -     rows_axis::AbstractString,
+src/data.jl.32797.cov:1173:        -     columns_axis::AbstractString,
+src/data.jl.32797.cov:1174:        -     name::AbstractString;
+src/data.jl.32797.cov:1175:        -     relayout::Bool,
+src/data.jl.32797.cov:1176:        - )::Nothing
+src/data.jl.32797.cov:1177:        -     if !has_matrix(daf, rows_axis, columns_axis, name; relayout = relayout)
+src/data.jl.32797.cov:1178:        -         if relayout
+src/data.jl.32797.cov:1179:        -             extra = "(and the other way around)\n"
+src/data.jl.32797.cov:1180:        -         else
+src/data.jl.32797.cov:1181:        -             extra = ""
+src/data.jl.32797.cov:1182:        -         end
+src/data.jl.32797.cov:1183:        -         error(
+src/data.jl.32797.cov:1184:        -             "missing matrix: $(name)\n" *
+src/data.jl.32797.cov:1185:        -             "for the rows axis: $(rows_axis)\n" *
+src/data.jl.32797.cov:1186:        -             "and the columns axis: $(columns_axis)\n" *
+src/data.jl.32797.cov:1187:        -             extra *
+src/data.jl.32797.cov:1188:        -             "in the daf data: $(daf.name)",
+src/data.jl.32797.cov:1189:        -         )
+src/data.jl.32797.cov:1190:        -     end
+src/data.jl.32797.cov:1191:        -     return nothing
+src/data.jl.32797.cov:1192:        - end
+src/data.jl.32797.cov:1193:        - 
+src/data.jl.32797.cov:1194:        4 function require_no_matrix(
+src/data.jl.32797.cov:1195:        -     daf::DafReader,
+src/data.jl.32797.cov:1196:        -     rows_axis::AbstractString,
+src/data.jl.32797.cov:1197:        -     columns_axis::AbstractString,
+src/data.jl.32797.cov:1198:        -     name::AbstractString;
+src/data.jl.32797.cov:1199:        -     relayout::Bool,
+src/data.jl.32797.cov:1200:        - )::Nothing
+src/data.jl.32797.cov:1201:        2     if Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
+src/data.jl.32797.cov:1202:        0         error(
+src/data.jl.32797.cov:1203:        -             "existing matrix: $(name)\n" *
+src/data.jl.32797.cov:1204:        -             "for the rows axis: $(rows_axis)\n" *
+src/data.jl.32797.cov:1205:        -             "and the columns axis: $(columns_axis)\n" *
+src/data.jl.32797.cov:1206:        -             "in the daf data: $(daf.name)",
+src/data.jl.32797.cov:1207:        -         )
+src/data.jl.32797.cov:1208:        -     end
+src/data.jl.32797.cov:1209:        2     if relayout
+src/data.jl.32797.cov:1210:        1         require_no_matrix(daf, columns_axis, rows_axis, name; relayout = false)
+src/data.jl.32797.cov:1211:        -     end
+src/data.jl.32797.cov:1212:        2     return nothing
+src/data.jl.32797.cov:1213:        - end
+src/data.jl.32797.cov:1214:        - 
+src/data.jl.32797.cov:1215:        - """
+src/data.jl.32797.cov:1216:        -     get_matrix(
+src/data.jl.32797.cov:1217:        -         daf::DafReader,
+src/data.jl.32797.cov:1218:        -         rows_axis::AbstractString,
+src/data.jl.32797.cov:1219:        -         columns_axis::AbstractString,
+src/data.jl.32797.cov:1220:        -         name::AbstractString;
+src/data.jl.32

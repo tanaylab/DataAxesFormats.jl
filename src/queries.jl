@@ -520,9 +520,9 @@ function next_query_operation(tokens::Vector{Token}, next_token_index::Int)::Tup
             if type_token.value == "String"
                 dtype = String
             else
-                dtype = parse_dtype_value("IfMissing", "dtype", type_token)
+                dtype = parse_number_dtype_value(token, "dtype", type_token)
                 if dtype != nothing
-                    value = parse_number_value("IfMissing", "value", value_token, dtype)
+                    value = parse_number_value(token, "value", value_token, dtype)
                 end
             end
         else
@@ -594,7 +594,7 @@ function parse_registered_operation(
         parameters_dict[name_token.value] = value_token
     end
 
-    operation = operation_type(parameters_dict)
+    operation = operation_type(operation_name, parameters_dict)
     return (operation, next_token_index)
 end
 
@@ -1374,7 +1374,7 @@ function show_computation_operation(
             if field_value == Float64(e)
                 print(io, "e")
             elseif field_value == Float64(pi)
-                print(io, "pi")  # untested
+                print(io, "pi")
             elseif field_value isa AbstractString
                 print(io, escape_value(field_value))  # untested
             else
@@ -3604,7 +3604,7 @@ function get_frame(
         if !(vector isa StorageVector) || length(vector) != length(row_names)
             error("invalid column query: $(column_query)\nfor the daf data: $(daf.name)")
         end
-        push!(data, column_name => vector.array)  # NOJET
+        push!(data, column_name => vector.array)
     end
 
     return DataFrame(data)
