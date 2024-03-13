@@ -63,7 +63,7 @@ nested_test("chains") do
             ("write", "Write", chain_writer([first, second]; name = "chain!")),
         ]
             nested_test(name) do
-                @test present(chain) == "$(type_name) Chain chain!"
+                @test describe(chain) == "$(type_name) Chain chain!"
 
                 nested_test("scalar") do
                     nested_test("first") do
@@ -95,7 +95,7 @@ nested_test("chains") do
                                     name: chain!
                                     type: $(type_name) Chain
                                     scalars:
-                                      version: 2.0
+                                      version: 2.0 (Float64)
                                 """) * "\n"
                             end
 
@@ -104,7 +104,7 @@ nested_test("chains") do
                                     name: chain!
                                     type: $(type_name) Chain
                                     scalars:
-                                      version: 2.0
+                                      version: 2.0 (Float64)
                                   """) * "\n"
                             end
 
@@ -113,16 +113,16 @@ nested_test("chains") do
                                     name: chain!
                                     type: $(type_name) Chain
                                     scalars:
-                                      version: 2.0
+                                      version: 2.0 (Float64)
                                     chain:
                                     - name: first!
                                       type: MemoryDaf
                                       scalars:
-                                        version: 1.0
+                                        version: 1.0 (Float64)
                                     - name: second!
                                       type: MemoryDaf
                                       scalars:
-                                        version: 2.0
+                                        version: 2.0 (Float64)
                                   """) * "\n"
                             end
                         end

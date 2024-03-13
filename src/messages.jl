@@ -3,8 +3,8 @@ Functions for improving the quality of error and log messages.
 """
 module Messages
 
-export present
-export present_percent
+export describe
+export describe_percent
 export unique_name
 
 using Daf.MatrixLayouts
@@ -53,33 +53,40 @@ function unique_name(prefix::AbstractString)::AbstractString
 end
 
 """
-    present(value::Any)::String
+    describe(value::Any)::String
 
-Present a `value` in an error message or a log entry. Unlike `"\$(value)"`, this focuses on producing a human-readable
+Describe a `value` in an error message or a log entry. Unlike `"\$(value)"`, this focuses on producing a human-readable
 indication of the type of the value, so it double-quotes strings, prefixes symbols with `:`, and reports the type and
 sizes of arrays rather than showing their content, as well as having specializations for the various `Daf` data types.
 """
-function present(value::Any)::String
-    return "$(value)"
+function describe(value::Any)::String
+    return "$(value) ($(typeof(value)))"
 end
 
-function present(value::UndefInitializer)::String
+function describe(value::Real)::String
+    return "$(value) ($(typeof(value)))"
+end
+
+function describe(value::Bool)::String
+    return "$(value)"
+end
+function describe(value::UndefInitializer)::String
     return "undef"
 end
 
-function present(value::Missing)::String
+function describe(value::Missing)::String
     return "missing"
 end
 
-function present(value::AbstractString)::String
+function describe(value::AbstractString)::String
     return "\"$(value)\""
 end
 
-function present(value::Symbol)::String
+function describe(value::Symbol)::String
     return ":$(value)"
 end
 
-function present(value::AbstractVector)::String
+function describe(value::AbstractVector)::String
     return present_vector(value, "")
 end
 
@@ -96,7 +103,7 @@ function present_vector(vector::DenseVector, prefix::AbstractString)::String
 end
 
 function present_vector(vector::SparseVector, prefix::AbstractString)::String
-    nnz = present_percent(length(vector.nzval), length(vector))
+    nnz = describe_percent(length(vector.nzval), length(vector))
     return present_vector_size(vector, concat_prefixes(prefix, "Sparse $(nnz)"))
 end
 
@@ -116,7 +123,7 @@ function present_vector_size(vector::AbstractVector, kind::AbstractString)::Stri
     return "$(length(vector)) x $(eltype(vector)) ($(kind))"
 end
 
-function present(matrix::AbstractMatrix)::String
+function describe(matrix::AbstractMatrix)::String
     return present_matrix(matrix, ""; transposed = false)
 end
 
@@ -137,7 +144,7 @@ function present_matrix(matrix::DenseMatrix, prefix::AbstractString; transposed:
 end
 
 function present_matrix(matrix::SparseMatrixCSC, prefix::AbstractString; transposed::Bool = false)::String
-    nnz = present_percent(length(matrix.nzval), length(matrix))
+    nnz = describe_percent(length(matrix.nzval), length(matrix))
     return present_matrix_size(matrix, concat_prefixes(prefix, "Sparse $(nnz)"); transposed = transposed)
 end
 
@@ -174,7 +181,7 @@ function present_matrix_size(matrix::AbstractMatrix, kind::AbstractString; trans
     end
 end
 
-function present(value::AbstractArray)::String
+function describe(value::AbstractArray)::String
     text = ""
     for dim_size in size(value)
         if text == ""
@@ -187,11 +194,11 @@ function present(value::AbstractArray)::String
 end
 
 """
-    present_percent(used::Integer, out_of::Integer)::String
+    describe_percent(used::Integer, out_of::Integer)::String
 
-Present a fraction of `used` amount `out_of` some total as a percentage.
+Describe a fraction of `used` amount `out_of` some total as a percentage.
 """
-function present_percent(used::Integer, out_of::Integer)::String
+function describe_percent(used::Integer, out_of::Integer)::String
     float_percent = 100.0 * Float64(used) / Float64(out_of)
     int_percent = round(Int64, float_percent)
 

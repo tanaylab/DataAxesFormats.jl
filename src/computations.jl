@@ -23,7 +23,7 @@ import Daf.Contracts.contract_documentation
 function computation_wrapper(name::AbstractString, inner_function)
     return (args...; kwargs...) -> (@debug "call: $(name))() {";
     for (name, value) in kwargs
-        @debug "$(name): $(present(value))"
+        @debug "$(name): $(describe(value))"
     end;
     result = inner_function(args...; kwargs...);
     @debug "done: $(name) }";
@@ -32,9 +32,9 @@ end
 
 function computation_wrapper(contract::Contract, name::AbstractString, inner_function)
     return (daf::DafReader, args...; kwargs...) -> (verify_input(contract, name, daf);
-    @debug "call: $(name)($(present(daf))) {";
+    @debug "call: $(name)($(describe(daf))) {";
     for (name, value) in kwargs
-        @debug "$(name): $(present(value))"
+        @debug "$(name): $(describe(value))"
     end;
     result = inner_function(daf, args...; kwargs...);
     @debug "done: $(name) }";
@@ -46,9 +46,9 @@ function computation_wrapper(first_contract::Contract, second_contract::Contract
     return (first_daf::DafReader, second_daf::DafReader, args...; kwargs...) ->
         (verify_input(first_contract, name, first_daf);
         verify_input(second_contract, name, second_daf);
-        @debug "call: $(name)($(present(first_daf)), $(present(second_daf))) {";
+        @debug "call: $(name)($(describe(first_daf)), $(describe(second_daf))) {";
         for (name, value) in kwargs
-            @debug "- $(name): $(present(value))"  # untested
+            @debug "- $(name): $(describe(value))"  # untested
         end;  # untested
         result = inner_function(first_daf, second_daf, args...; kwargs...);
         @debug "done: $(name) }";
@@ -90,7 +90,7 @@ Mark a function as a `Daf` computation. This has the following effects:
   - It stashes the default value of named arguments. This allows expanding [`DEFAULT`](@ref) in the documentation
     string, which is especially useful if these defaults are computed, read from global constants, etc.
   - It logs the invocation of the function (using `@debug`), including the actual values of the named arguments (using
-    [`present`]).
+    [`describe`](@ref)).
 
 !!! note
 

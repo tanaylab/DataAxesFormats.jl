@@ -112,7 +112,7 @@ Check whether a scalar property with some `name` exists in `daf`.
 function has_scalar(daf::DafReader, name::AbstractString)::Bool
     return with_read_lock(daf) do
         result = Formats.format_has_scalar(daf, name)
-        # @debug "has_scalar $(daf.name) : $(name) -> $(present(result))"
+        # @debug "has_scalar $(daf.name) : $(name) -> $(describe(result))"
         return result
     end
 end
@@ -131,7 +131,7 @@ If not `overwrite` (the default), this first verifies the `name` scalar property
 """
 function set_scalar!(daf::DafWriter, name::AbstractString, value::StorageScalar; overwrite::Bool = false)::Nothing
     return with_write_lock(daf) do
-        @debug "set_scalar! $(daf.name) : $(name) <$(overwrite ? "=" : "-") $(present(value))"
+        @debug "set_scalar! $(daf.name) : $(name) <$(overwrite ? "=" : "-") $(describe(value))"
 
         if !overwrite
             require_no_scalar(daf, name)
@@ -184,7 +184,7 @@ The names of the scalar properties in `daf`.
 function scalar_names(daf::DafReader)::AbstractStringSet
     return with_read_lock(daf) do
         result = Formats.get_scalar_names_through_cache(daf)
-        # @debug "scalar_names $(daf.name) -> $(present(result))"
+        # @debug "scalar_names $(daf.name) -> $(describe(result))"
         return result
     end
 end
@@ -210,12 +210,12 @@ function get_scalar(
         if default == undef
             require_scalar(daf, name)
         elseif !has_scalar(daf, name)
-            @debug "get_scalar $(daf.name) : $(name) -> $(present(default)) ?"
+            @debug "get_scalar $(daf.name) : $(name) -> $(describe(default)) ?"
             return default
         end
 
         result = Formats.format_get_scalar(daf, name)
-        @debug "get_scalar $(daf.name) : $(name) -> $(present(result))"
+        @debug "get_scalar $(daf.name) : $(name) -> $(describe(result))"
         return result
     end
 end
@@ -242,7 +242,7 @@ Check whether some `axis` exists in `daf`.
 function has_axis(daf::DafReader, axis::AbstractString)::Bool
     return with_read_lock(daf) do
         result = Formats.format_has_axis(daf, axis; for_change = false)
-        # @debug "has_axis $(daf.name) / $(axis) -> $(present(result))"
+        # @debug "has_axis $(daf.name) / $(axis) -> $(describe(result))"
         return result
     end
 end
@@ -260,7 +260,7 @@ This first verifies the `axis` does not exist and that the `entries` are unique.
 """
 function add_axis!(daf::DafWriter, axis::AbstractString, entries::AbstractStringVector)::Nothing
     return with_write_lock(daf) do
-        @debug "add_axis $(daf.name) / $(axis) <- $(present(entries))"
+        @debug "add_axis $(daf.name) / $(axis) <- $(describe(entries))"
 
         require_no_axis(daf, axis; for_change = true)
 
@@ -331,7 +331,7 @@ The names of the axes of `daf`.
 function axis_names(daf::DafReader)::AbstractStringSet
     return with_read_lock(daf) do
         result = Formats.get_axis_names_through_cache(daf)
-        # @debug "axis_names $(daf.name) -> $(present(result))"
+        # @debug "axis_names $(daf.name) -> $(describe(result))"
         return result
     end
 end
@@ -357,7 +357,7 @@ function get_axis(
     return with_read_lock(daf) do
         if !has_axis(daf, axis)
             if default == nothing
-                @debug "get_axis! $(daf.name) / $(axis) -> $(present(missing))"
+                @debug "get_axis! $(daf.name) / $(axis) -> $(describe(missing))"
                 return nothing
             else
                 @assert default == undef
@@ -366,7 +366,7 @@ function get_axis(
         end
 
         result = as_read_only_array(Formats.get_axis_through_cache(daf, axis))
-        @debug "get_axis! $(daf.name) / $(axis) -> $(present(result))"
+        @debug "get_axis! $(daf.name) / $(axis) -> $(describe(result))"
         return result
     end
 end
@@ -382,7 +382,7 @@ function axis_length(daf::DafReader, axis::AbstractString)::Int64
     return with_read_lock(daf) do
         require_axis(daf, axis)
         result = Formats.format_axis_length(daf, axis)
-        # @debug "axis_length! $(daf.name) / $(axis) -> $(present(result))"
+        # @debug "axis_length! $(daf.name) / $(axis) -> $(describe(result))"
         return result
     end
 end
@@ -413,7 +413,7 @@ function has_vector(daf::DafReader, axis::AbstractString, name::AbstractString):
     return with_read_lock(daf) do
         require_axis(daf, axis)
         result = name == "name" || Formats.format_has_vector(daf, axis, name)
-        # @debug "has_vector $(daf.name) / $(axis) : $(name) -> $(present(result))"
+        # @debug "has_vector $(daf.name) / $(axis) : $(name) -> $(describe(result))"
         return result
     end
 end
@@ -443,7 +443,7 @@ function set_vector!(
     overwrite::Bool = false,
 )::Nothing
     return with_write_lock(daf) do
-        @debug "set_vector! $(daf.name) / $(axis) : $(name) <$(overwrite ? "=" : "-") $(present(vector))"
+        @debug "set_vector! $(daf.name) / $(axis) : $(name) <$(overwrite ? "=" : "-") $(describe(vector))"
 
         require_not_name(daf, axis, name)
         require_axis(daf, axis)
@@ -514,7 +514,7 @@ function empty_dense_vector!(
         Formats.invalidate_cached!(daf, Formats.vector_cache_key(axis, name))
         Formats.invalidate_cached!(daf, Formats.vector_names_cache_key(axis))
 
-        @debug "empty_dense_vector! $(daf.name) / $(axis) : $(name) <$(overwrite ? "=" : "-") $(present(result))"
+        @debug "empty_dense_vector! $(daf.name) / $(axis) : $(name) <$(overwrite ? "=" : "-") $(describe(result))"
         return fill(result)
     end
 end
@@ -580,7 +580,7 @@ function empty_sparse_vector!(
         Formats.invalidate_cached!(daf, Formats.vector_cache_key(axis, name))
         Formats.invalidate_cached!(daf, Formats.vector_names_cache_key(axis))
 
-        @debug "empty_dense_vector! $(daf.name) / $(axis) : $(name) <$(overwrite ? "=" : "-") $(present(verified))"
+        @debug "empty_dense_vector! $(daf.name) / $(axis) : $(name) <$(overwrite ? "=" : "-") $(describe(verified))"
         return result
     end
 end
@@ -632,7 +632,7 @@ function vector_names(daf::DafReader, axis::AbstractString)::AbstractStringSet
     return with_read_lock(daf) do
         require_axis(daf, axis)
         result = Formats.format_vector_names(daf, axis)
-        # @debug "vector_names $(daf.name) / $(axis) -> $(present(result))"
+        # @debug "vector_names $(daf.name) / $(axis) -> $(describe(result))"
         return result
     end
 end
@@ -681,7 +681,7 @@ function get_vector(
 
         if name == "name"
             result = as_named_vector(daf, axis, Formats.get_axis_through_cache(daf, axis))
-            @debug "get_vector $(daf.name) / $(axis) : $(name) -> $(present(result))"
+            @debug "get_vector $(daf.name) / $(axis) : $(name) -> $(describe(result))"
             return result
         end
 
@@ -689,7 +689,7 @@ function get_vector(
         vector = nothing
         if !Formats.format_has_vector(daf, axis, name)
             if default == nothing
-                @debug "get_vector $(daf.name) / $(axis) : $(name) -> $(present(nothing))"
+                @debug "get_vector $(daf.name) / $(axis) : $(name) -> $(describe(nothing))"
                 return nothing
             end
             default_suffix = " ?"
@@ -710,7 +710,7 @@ function get_vector(
             if !(vector isa StorageVector)
                 error(  # untested
                     "format_get_vector for daf format: $(typeof(daf))\n" *
-                    "returned invalid Daf.StorageVector: $(present(vector))",
+                    "returned invalid Daf.StorageVector: $(describe(vector))",
                 )
             end
             if length(vector) != Formats.format_axis_length(daf, axis)
@@ -725,7 +725,7 @@ function get_vector(
         end
 
         result = as_named_vector(daf, axis, vector)
-        @debug "get_vector $(daf.name) / $(axis) : $(name) -> $(present(result))$(default_suffix)"
+        @debug "get_vector $(daf.name) / $(axis) : $(name) -> $(describe(result))$(default_suffix)"
         return result
     end
 end
@@ -1162,7 +1162,7 @@ function matrix_names(
             end
         end
 
-        # @debug "matrix_names $(daf.name) / $(rows_axis) / $(columns_axis) $(relayout ? "%" : "#")> $(present(names))"
+        # @debug "matrix_names $(daf.name) / $(rows_axis) / $(columns_axis) $(relayout ? "%" : "#")> $(describe(names))"
         return names
     end
 end
@@ -1292,7 +1292,7 @@ function get_matrix(
                 end
             else
                 if default == nothing
-                    @debug "get_matrix $(daf.name) / $(rows_axis) / $(columns_axis) : $(name) -> $(present(nothing)) ?"
+                    @debug "get_matrix $(daf.name) / $(rows_axis) / $(columns_axis) : $(name) -> $(describe(nothing)) ?"
                     return nothing
                 end
                 default_suffix = " ?"
@@ -1322,7 +1322,7 @@ function get_matrix(
             if !(matrix isa StorageMatrix)
                 error( # untested
                     "format_get_matrix for daf format: $(typeof(daf))\n" *
-                    "returned invalid Daf.StorageMatrix: $(present(matrix))",
+                    "returned invalid Daf.StorageMatrix: $(describe(matrix))",
                 )
             end
 
@@ -1349,20 +1349,20 @@ function get_matrix(
             if major_axis(matrix) != Columns
                 error( # untested
                     "format_get_matrix for daf format: $(typeof(daf))\n" *
-                    "returned non column-major matrix: $(present(matrix))",
+                    "returned non column-major matrix: $(describe(matrix))",
                 )
             end
         end
 
         result = as_named_matrix(daf, rows_axis, columns_axis, matrix)
-        @debug "get_matrix $(daf.name) / $(rows_axis) / $(columns_axis) : $(name) -> $(present(result))$(default_suffix)"
+        @debug "get_matrix $(daf.name) / $(rows_axis) / $(columns_axis) : $(name) -> $(describe(result))$(default_suffix)"
         return result
     end
 end
 
 function require_column_major(matrix::StorageMatrix)::Nothing
     if major_axis(matrix) != Columns
-        error("type not in column-major layout: $(present(matrix))")
+        error("type not in column-major layout: $(describe(matrix))")
     end
 end
 
@@ -1539,7 +1539,7 @@ function scalars_description(daf::DafReader, indent::AbstractString, lines::Vect
         sort!(scalars)
         push!(lines, "$(indent)scalars:")
         for scalar in scalars
-            push!(lines, "$(indent)  $(scalar): $(present(Formats.format_get_scalar(daf, scalar)))")
+            push!(lines, "$(indent)  $(scalar): $(describe(Formats.format_get_scalar(daf, scalar)))")
         end
     end
     return nothing
@@ -1577,7 +1577,7 @@ function vectors_description(
             for vector in vectors
                 push!(
                     lines,
-                    "$(indent)    $(vector): $(present(base_array(Formats.format_get_vector(daf, axis, vector))))",
+                    "$(indent)    $(vector): $(describe(base_array(Formats.format_get_vector(daf, axis, vector))))",
                 )
             end
         end
@@ -1606,7 +1606,7 @@ function matrices_description(
                     push!(
                         lines,
                         "$(indent)    $(matrix): " *
-                        present(base_array(Formats.format_get_matrix(daf, rows_axis, columns_axis, matrix))),
+                        describe(base_array(Formats.format_get_matrix(daf, rows_axis, columns_axis, matrix))),
                     )
                 end
             end
@@ -1635,12 +1635,12 @@ function cache_description(
             value = base_array(value)
         end
         key = replace(key, "'" => "''")
-        push!(lines, "$(indent)  '$(key)': ($(cache_entry.cache_type)) $(present(value))")
+        push!(lines, "$(indent)  '$(key)': ($(cache_entry.cache_type)) $(describe(value))")
     end
     return nothing
 end
 
-function Messages.present(daf::DafReader; name::Maybe{AbstractString} = nothing)::AbstractString
+function Messages.describe(daf::DafReader; name::Maybe{AbstractString} = nothing)::AbstractString
     if name == nothing
         name = daf.name
     end

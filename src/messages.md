@@ -6,8 +6,8 @@ Daf.Messages
 
 ```@docs
 Daf.Messages.unique_name
-Daf.Messages.present
-Daf.Messages.present_percent
+Daf.Messages.describe
+Daf.Messages.describe_percent
 ```
 
 ## Index

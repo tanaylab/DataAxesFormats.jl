@@ -503,14 +503,14 @@ function Formats.format_description_footer(
     return nothing
 end
 
-function Messages.present(value::ReadOnlyChain; name::Maybe{AbstractString} = nothing)::String
+function Messages.describe(value::ReadOnlyChain; name::Maybe{AbstractString} = nothing)::String
     if name == nothing
         name = value.name
     end
     return "ReadOnly Chain $(name)"
 end
 
-function Messages.present(value::WriteChain; name::Maybe{AbstractString} = nothing)::String
+function Messages.describe(value::WriteChain; name::Maybe{AbstractString} = nothing)::String
     if name == nothing
         name = value.name
     end

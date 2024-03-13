@@ -14,7 +14,7 @@ nested_test("views") do
         nested_test("copy") do
             view = viewer(read_only(daf); data = [VIEW_ALL_SCALARS])
             @test read_only(view) === view
-            @test present(view) == "View MemoryDaf memory!.view"
+            @test describe(view) == "View MemoryDaf memory!.view"
             @test scalar_names(view) == Set(["version"])
             @test get_scalar(view, "version") == "1.0"
         end

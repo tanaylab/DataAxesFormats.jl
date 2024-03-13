@@ -705,11 +705,11 @@ function Formats.format_description_header(view::DafView, indent::AbstractString
     return nothing
 end
 
-function Messages.present(value::DafView; name::Maybe{AbstractString} = nothing)::String
+function Messages.describe(value::DafView; name::Maybe{AbstractString} = nothing)::String
     if name == nothing
         name = value.name
     end
-    return "View $(present(value.daf; name = name))"
+    return "View $(describe(value.daf; name = name))"
 end
 
 function ReadOnly.read_only(daf::DafView)::DafView
