@@ -2,7 +2,6 @@
 
 ```@docs
 Daf.Data
-Daf.DataKey
 ```
 
 ## Read API
@@ -82,6 +81,14 @@ Daf.Data.empty_dense_vector!
 Daf.Data.empty_sparse_vector!
 Daf.Data.empty_dense_matrix!
 Daf.Data.empty_sparse_matrix!
+```
+
+### Utilities
+
+```@docs
+Daf.Data.axis_version_counter
+Daf.Data.vector_version_counter
+Daf.Data.matrix_version_counter
 ```
 
 ## Index

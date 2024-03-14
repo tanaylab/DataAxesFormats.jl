@@ -2,6 +2,7 @@
 
 ```@docs
 Daf.Formats
+Daf.Formats.DataKey
 ```
 
 ## Read API

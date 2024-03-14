@@ -503,6 +503,19 @@ function Formats.format_description_footer(
     return nothing
 end
 
+function Formats.format_get_version_counter(chain::AnyChain, version_key::Formats.DataKey)::UInt32
+    version_counter = UInt32(0)
+    for daf in chain.dafs
+        version_counter += Formats.format_get_version_counter(daf, version_key)
+    end
+    return version_counter
+end
+
+function Formats.format_increment_version_counter(chain::WriteChain, version_key::DataKey)::Nothing
+    Formats.format_increment_version_counter(chain.daf, version_key)
+    return nothing
+end
+
 function Messages.describe(value::ReadOnlyChain; name::Maybe{AbstractString} = nothing)::String
     if name == nothing
         name = value.name
@@ -526,6 +539,7 @@ function ReadOnly.read_only(daf::ReadOnlyChain, name::Maybe{AbstractString} = no
             daf.internal.axes,
             daf.internal.cache,
             daf.internal.dependency_cache_keys,
+            daf.internal.version_counters,
             daf.internal.lock,
             daf.internal.writer_thread,
             daf.internal.thread_has_read_lock,

@@ -171,7 +171,9 @@ nested_test("chains") do
                 nested_test("vector") do
                     nested_test("first") do
                         add_axis!(first, "cell", ["A", "B"])
+                        previous_version_counter = vector_version_counter(chain, "cell", "age")
                         set_vector!(first, "cell", "age", [1, 2])
+                        @test vector_version_counter(chain, "cell", "age") == previous_version_counter + 1
                         @test has_vector(chain, "cell", "age")
                         @test get_vector(chain, "cell", "age") == [1, 2]
                         @test vector_names(chain, "cell") == Set(["age"])
@@ -180,7 +182,9 @@ nested_test("chains") do
 
                     nested_test("second") do
                         add_axis!(second, "cell", ["A", "B"])
+                        previous_version_counter = vector_version_counter(chain, "cell", "age")
                         set_vector!(second, "cell", "age", [2, 3])
+                        @test vector_version_counter(chain, "cell", "age") == previous_version_counter + 1
                         @test has_vector(chain, "cell", "age")
                         @test get_vector(chain, "cell", "age") == [2, 3]
                         @test vector_names(chain, "cell") == Set(["age"])

@@ -36,7 +36,7 @@ module Data
 export add_axis!
 export axis_length
 export axis_names
-export DataKey
+export axis_version_counter
 export delete_axis!
 export delete_matrix!
 export delete_scalar!
@@ -56,12 +56,14 @@ export has_matrix
 export has_scalar
 export has_vector
 export matrix_names
+export matrix_version_counter
 export relayout_matrix!
 export scalar_names
 export set_matrix!
 export set_scalar!
 export set_vector!
 export vector_names
+export vector_version_counter
 
 using ConcurrentUtils
 using Daf.Formats
@@ -80,21 +82,6 @@ import Daf.Formats.upgrade_to_write_lock
 import Daf.Formats.with_read_lock
 import Daf.Formats.with_write_lock
 import Daf.Messages
-
-"""
-A key specifying some data property in `Daf`.
-
-**Scalars** are identified by their name.
-
-**Vectors** are specified as a tuple of the axis name and the property name.
-
-**Matrices** are specified as a tuple or the rows axis, the columns axis, and the property name.
-
-The [`DafReader`](@ref) and [`DafWriter`](@ref) interfaces do not use this type, as each function knows exactly the type
-of data property it works on. However, higher-level APIs do use this as keys for dictionaries etc.
-"""
-DataKey =
-    Union{AbstractString, Tuple{AbstractString, AbstractString}, Tuple{AbstractString, AbstractString, AbstractString}}
 
 function Base.getproperty(daf::DafReader, property::Symbol)::Any
     if property == :name
@@ -254,7 +241,7 @@ end
         entries::AbstractStringVector
     )::Nothing
 
-Add a new `axis` `daf`.
+Add a new `axis` to `daf`.
 
 This first verifies the `axis` does not exist and that the `entries` are unique.
 """
@@ -319,8 +306,25 @@ function delete_axis!(daf::DafWriter, axis::AbstractString; must_exist::Bool = t
         Formats.invalidate_cached!(daf, Formats.axis_names_cache_key())
 
         Formats.format_delete_axis!(daf, axis)
+        Formats.format_increment_version_counter(daf, axis)
         return nothing
     end
+end
+
+"""
+    axis_version_counter(daf::DafReader, axis::AbstractString)::UInt32
+
+Return the version number of the axis. This is incremented every time [`delete_axis!`](@ref) is called. It is used by
+interfaces to other programming languages to minimize copying data.
+
+!!! note
+
+    This is purely in-memory per-instance, and **not** a global persistent version counter. That is, the version counter
+    starts at zero even if opening a persistent disk `daf` data set.
+"""
+function axis_version_counter(daf::DafReader, axis::AbstractString)::UInt32
+    # TRICKY: We don't track versions for scalars so we can use the string keys for the axes.
+    return Formats.format_get_version_counter(daf, axis)
 end
 
 """
@@ -462,6 +466,7 @@ function set_vector!(
             Formats.format_delete_vector!(daf, axis, name; for_set = true)
         end
 
+        Formats.format_increment_version_counter(daf, (axis, name))
         Formats.format_set_vector!(daf, axis, name, vector)
 
         Formats.invalidate_cached!(daf, Formats.vector_cache_key(axis, name))
@@ -508,6 +513,7 @@ function empty_dense_vector!(
             Formats.format_delete_vector!(daf, axis, name; for_set = true)
         end
 
+        Formats.format_increment_version_counter(daf, (axis, name))
         empty_vector = Formats.format_empty_dense_vector!(daf, axis, name, eltype)
         result = as_named_vector(daf, axis, empty_vector)
 
@@ -573,6 +579,7 @@ function empty_sparse_vector!(
             Formats.format_delete_vector!(daf, axis, name; for_set = true)
         end
 
+        Formats.format_increment_version_counter(daf, (axis, name))
         empty_vector = Formats.format_empty_sparse_vector!(daf, axis, name, eltype, nnz, indtype)
         result = fill(as_named_vector(daf, axis, empty_vector))
         verified = SparseVector(length(empty_vector), empty_vector.nzind, empty_vector.nzval)
@@ -583,6 +590,22 @@ function empty_sparse_vector!(
         @debug "empty_dense_vector! $(daf.name) / $(axis) : $(name) <$(overwrite ? "=" : "-") $(describe(verified))"
         return result
     end
+end
+
+"""
+    vector_version_counter(daf::DafReader, axis::AbstractString, name::AbstractString)::UInt32
+
+Return the version number of the vector. This is incremented every time [`set_vector!`](@ref),
+[`empty_dense_vector!`](@ref) or [`empty_sparse_vector!`](@ref) are called. It is used by interfaces to other
+programming languages to minimize copying data.
+
+!!! note
+
+    This is purely in-memory per-instance, and **not** a global persistent version counter. That is, the version counter
+    starts at zero even if opening a persistent disk `daf` data set.
+"""
+function vector_version_counter(daf::DafReader, axis::AbstractString, name::AbstractString)::UInt32
+    return Formats.format_get_version_counter(daf, (axis, name))
 end
 
 """
@@ -856,6 +879,7 @@ function set_matrix!(
             Formats.invalidate_cached!(daf, cache_key)
         end
 
+        Formats.format_increment_version_counter(daf, (rows_axis, columns_axis, name))
         Formats.format_set_matrix!(daf, rows_axis, columns_axis, name, matrix)
         if relayout && rows_axis != columns_axis
             Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name)
@@ -912,12 +936,9 @@ function empty_dense_matrix!(
             Formats.invalidate_cached!(daf, cache_key)
         end
 
-        named = as_named_matrix(
-            daf,
-            rows_axis,
-            columns_axis,
-            Formats.format_empty_dense_matrix!(daf, rows_axis, columns_axis, name, eltype),
-        )
+        Formats.format_increment_version_counter(daf, (rows_axis, columns_axis, name))
+        empty = Formats.format_empty_dense_matrix!(daf, rows_axis, columns_axis, name, eltype)
+        named = as_named_matrix(daf, rows_axis, columns_axis, empty)
         result = fill(named)
 
         @debug "empty_dense_matrix! $(daf.name) / $(rows_axis) / $(columns_axis) : $(name) <$(overwrite ? "=" : "-") $(named)"
@@ -990,6 +1011,7 @@ function empty_sparse_matrix!(
             Formats.invalidate_cached!(daf, cache_key)
         end
 
+        Formats.format_increment_version_counter(daf, (rows_axis, columns_axis, name))
         empty_matrix = Formats.format_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, eltype, nnz, indtype)
         result = fill(as_named_matrix(daf, rows_axis, columns_axis, empty_matrix))
         verified = SparseMatrixCSC(size(empty_matrix)..., empty_matrix.colptr, empty_matrix.rowval, empty_matrix.nzval)
@@ -997,6 +1019,30 @@ function empty_sparse_matrix!(
         @debug "empty_sparse_matrix! $(daf.name) / $(rows_axis) / $(columns_axis) : $(name) <$(overwrite ? "=" : "-") $(verified)"
         return result
     end
+end
+
+"""
+    matrix_version_counter(daf::DafReader, rows_axis::AbstractString, columns_axis::AbstractString, name::AbstractString)::UInt32
+
+Return the version number of the matrix. The order of the axes does not matter. This is incremented every time
+[`set_matrix!`](@ref), [`empty_dense_matrix!`](@ref) or [`empty_sparse_matrix!`](@ref) are called. It is used by
+interfaces to other programming languages to minimize copying data.
+
+!!! note
+
+    This is purely in-memory per-instance, and **not** a global persistent version counter. That is, the version counter
+    starts at zero even if opening a persistent disk `daf` data set.
+"""
+function matrix_version_counter(
+    daf::DafReader,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+)::UInt32
+    if columns_axis < rows_axis
+        rows_axis, columns_axis = columns_axis, rows_axis
+    end
+    return Formats.format_get_version_counter(daf, (rows_axis, columns_axis, name))
 end
 
 """

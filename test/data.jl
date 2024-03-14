@@ -288,6 +288,8 @@ function test_missing_axis(daf::DafReader, depth::Int)::Nothing
         nested_test("unique") do
             @test add_axis!(daf, "gene", GENE_NAMES) == nothing
             @test add_axis!(daf, "cell", CELL_NAMES) == nothing
+            @test axis_version_counter(daf, "gene") == depth - 1
+            @test axis_version_counter(daf, "cell") == depth - 1
             nested_test("created") do
                 test_existing_axis(daf, depth + 1)
                 return nothing
@@ -716,16 +718,23 @@ function test_missing_vector(daf::DafReader, depth::Int)::Nothing
 
     nested_test("empty_vector!") do
         nested_test("dense") do
+            previous_version_counter = vector_version_counter(daf, "gene", "marker")
             @test empty_dense_vector!(daf, "gene", "marker", Bool) do empty
                 empty .= MARKER_GENES_BY_DEPTH[depth]
                 return 7
             end == 7
+            @test vector_version_counter(daf, "gene", "marker") == previous_version_counter + 1
+
+            previous_version_counter = vector_version_counter(daf, "cell", "type")
             @test set_vector!(daf, "cell", "type", CELL_TYPES_BY_DEPTH[depth]; overwrite = true) == nothing
+            @test vector_version_counter(daf, "gene", "marker") == previous_version_counter + 1
+
             test_existing_vector(daf, depth + 1)
             return nothing
         end
 
         nested_test("sparse") do
+            previous_version_counter = vector_version_counter(daf, "gene", "marker")
             @test empty_sparse_vector!(
                 daf,
                 "gene",
@@ -739,7 +748,12 @@ function test_missing_vector(daf::DafReader, depth::Int)::Nothing
                 empty.array.nzval .= sparse.nzval
                 return 7
             end == 7
+            @test vector_version_counter(daf, "gene", "marker") == previous_version_counter + 1
+
+            previous_version_counter = vector_version_counter(daf, "cell", "type")
             @test set_vector!(daf, "cell", "type", CELL_TYPES_BY_DEPTH[depth]; overwrite = true) == nothing
+            @test vector_version_counter(daf, "gene", "marker") == previous_version_counter + 1
+
             test_existing_vector(daf, depth + 1)
             return nothing
         end
@@ -1528,6 +1542,7 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
                 end
 
                 nested_test("false") do
+                    previous_version_counter = matrix_version_counter(daf, "gene", "cell", "UMIS")
                     @test set_matrix!(
                         daf,
                         "cell",
@@ -1536,6 +1551,7 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
                         NamedArray(UMIS_BY_DEPTH[depth]; names = (CELL_NAMES, GENE_NAMES), dimnames = ("cell", "gene"));
                         relayout = false,
                     ) == nothing
+                    @test matrix_version_counter(daf, "cell", "gene", "UMIs") == previous_version_counter + 1
 
                     nested_test("exists") do
                         test_existing_matrix(daf, depth + 1)
@@ -1622,10 +1638,12 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
 
     nested_test("empty_matrix!") do
         nested_test("dense") do
+            previous_version_counter = matrix_version_counter(daf, "cell", "gene", "UMIs")
             @test empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16) do empty
                 empty .= UMIS_BY_DEPTH[depth]
                 return 7
             end == 7
+            @test matrix_version_counter(daf, "gene", "cell", "UMIs") == previous_version_counter + 1
 
             nested_test("exists") do
                 test_existing_matrix(daf, depth + 1)
@@ -1640,6 +1658,7 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
         end
 
         nested_test("sparse") do
+            previous_version_counter = matrix_version_counter(daf, "cell", "gene", "UMIs")
             @test empty_sparse_matrix!(
                 daf,
                 "cell",
@@ -1655,6 +1674,7 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
                 empty.array.nzval .= sparse.nzval
                 return 7
             end == 7
+            @test matrix_version_counter(daf, "gene", "cell", "UMIs") == previous_version_counter + 1
 
             nested_test("exists") do
                 test_existing_matrix(daf, depth + 1)

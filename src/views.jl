@@ -12,7 +12,6 @@ export ALL_MATRICES
 export ALL_SCALARS
 export ALL_VECTORS
 export DafView
-export DataKey
 export VIEW_ALL_AXES
 export VIEW_ALL_DATA
 export VIEW_ALL_MATRICES

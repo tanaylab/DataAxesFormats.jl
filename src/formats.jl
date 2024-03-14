@@ -36,6 +36,7 @@ module Formats
 export CacheType
 export DafReader
 export DafWriter
+export DataKey
 export MappedData
 export MemoryData
 export QueryData
@@ -51,6 +52,21 @@ using OrderedCollections
 using SparseArrays
 
 struct UpgradToWriteLockException <: Exception end
+
+"""
+A key specifying some data property in `Daf`.
+
+**Scalars** are identified by their name.
+
+**Vectors** are specified as a tuple of the axis name and the property name.
+
+**Matrices** are specified as a tuple or the rows axis, the columns axis, and the property name.
+
+The [`DafReader`](@ref) and [`DafWriter`](@ref) interfaces do not use this type, as each function knows exactly the type
+of data property it works on. However, higher-level APIs do use this as keys for dictionaries etc.
+"""
+DataKey =
+    Union{AbstractString, Tuple{AbstractString, AbstractString}, Tuple{AbstractString, AbstractString, AbstractString}}
 
 """
 Types of cached data inside `Daf`.
@@ -94,6 +110,7 @@ struct Internal
     axes::Dict{AbstractString, OrderedDict{AbstractString, Int64}}
     cache::Dict{AbstractString, CacheEntry}
     dependency_cache_keys::Dict{AbstractString, Set{AbstractString}}
+    version_counters::Dict{DataKey, UInt32}
     lock::ReadWriteLock
     writer_thread::Vector{Int}
     thread_has_read_lock::Vector{Bool}
@@ -105,6 +122,7 @@ function Internal(name::AbstractString)::Internal
         Dict{AbstractString, OrderedDict{AbstractString, Int64}}(),
         Dict{AbstractString, CacheEntry}(),
         Dict{AbstractString, Set{AbstractString}}(),
+        Dict{DataKey, UInt32}(),
         ReadWriteLock(),
         [0],
         fill(false, nthreads()),
@@ -877,6 +895,16 @@ function upgrade_to_write_lock(format::FormatReader)::Nothing
         @assert writer_thread == thread_id
         return nothing
     end
+end
+
+function format_get_version_counter(format::FormatReader, version_key::DataKey)::UInt32
+    return get(format.internal.version_counters, version_key, UInt32(0))
+end
+
+function format_increment_version_counter(format::FormatWriter, version_key::DataKey)::Nothing
+    previous_version_counter = format_get_version_counter(format, version_key)
+    format.internal.version_counters[version_key] = previous_version_counter + 1
+    return nothing
 end
 
 end # module
