@@ -668,7 +668,7 @@ function Formats.format_empty_sparse_matrix!(
 
     colptr_dataset[:] = nnz + 1
     colptr_dataset[1] = 1
-    rowval_dataset[1] = 0
+    rowval_dataset[:] = 1
     nzval_dataset[1] = 0
 
     colptr_vector, colptr_cache_type = dataset_as_vector(colptr_dataset)

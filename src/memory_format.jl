@@ -241,8 +241,12 @@ function Formats.format_empty_sparse_matrix!(
     ncols = Formats.format_axis_length(memory, columns_axis)
     colptr = fill(I(nnz + 1), ncols + 1)
     colptr[1] = 1
-    rowval = Vector{I}(undef, nnz)
+    rowval = fill(I(1), nnz)
     nzval = Vector{T}(undef, nnz)
+    println("TODOX JULIA format_empty_sparse_matrix")
+    println("TODOX JULIA colptr $(colptr)")
+    println("TODOX JULIA rowval $(rowval)")
+    println("TODOX JULIA nzval $(nzval)")
     matrix = SparseMatrixCSC(nrows, ncols, colptr, rowval, nzval)
     memory.matrices[rows_axis][columns_axis][name] = matrix
     return matrix

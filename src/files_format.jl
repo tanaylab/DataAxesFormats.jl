@@ -551,7 +551,7 @@ function Formats.format_empty_sparse_matrix!(
     nzval_path = "$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).nzval"
 
     fill_file(colptr_path, I(nnz + 1), ncols + 1)
-    fill_file(rowval_path, I(0), nnz)
+    fill_file(rowval_path, I(1), nnz)
     fill_file(nzval_path, T(0), nnz)
 
     colptr_vector = mmap_file_data(colptr_path, Vector{I}, (ncols + 1), "r+")
