@@ -25,6 +25,9 @@ using Daf.StorageTypes
 using NamedArrays
 using SparseArrays
 
+import Daf.Data.as_named_vector
+import Daf.Data.as_named_matrix
+
 """
     function copy_scalar(;
         into::DafWriter,
@@ -154,7 +157,8 @@ function copy_vector!(;
     else
         empty_dense_vector!(into, reaxis, rename, eltype(value); overwrite = overwrite) do empty_vector
             empty_vector .= empty
-            empty_vector[names(value, 1)] .= value
+            named_vector = as_named_vector(into, axis, empty_vector)
+            named_vector[names(value, 1)] .= value
             return nothing
         end
     end
@@ -290,7 +294,8 @@ function copy_matrix!(;
             overwrite = overwrite,
         ) do empty_matrix
             empty_matrix .= empty
-            empty_matrix[names(value, 1), names(value, 2)] .= value
+            named_matrix = as_named_matrix(into, rows_axis, columns_axis, empty_matrix)
+            named_matrix[names(value, 1), names(value, 2)] .= value
             return nothing
         end
         if relayout

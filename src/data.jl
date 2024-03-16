@@ -515,13 +515,13 @@ function empty_dense_vector!(
 
         Formats.format_increment_version_counter(daf, (axis, name))
         empty_vector = Formats.format_empty_dense_vector!(daf, axis, name, eltype)
-        result = as_named_vector(daf, axis, empty_vector)
+        result = fill(empty_vector)
 
         Formats.invalidate_cached!(daf, Formats.vector_cache_key(axis, name))
         Formats.invalidate_cached!(daf, Formats.vector_names_cache_key(axis))
 
-        @debug "empty_dense_vector! $(daf.name) / $(axis) : $(name) <$(overwrite ? "=" : "-") $(describe(result))"
-        return fill(result)
+        @debug "empty_dense_vector! $(daf.name) / $(axis) : $(name) <$(overwrite ? "=" : "-") $(describe(empty_vector))"
+        return result
     end
 end
 
@@ -938,11 +938,10 @@ function empty_dense_matrix!(
         end
 
         Formats.format_increment_version_counter(daf, (rows_axis, columns_axis, name))
-        empty = Formats.format_empty_dense_matrix!(daf, rows_axis, columns_axis, name, eltype)
-        named = as_named_matrix(daf, rows_axis, columns_axis, empty)
-        result = fill(named)
+        empty_matrix = Formats.format_empty_dense_matrix!(daf, rows_axis, columns_axis, name, eltype)
+        result = fill(empty_matrix)
 
-        @debug "empty_dense_matrix! $(daf.name) / $(rows_axis) / $(columns_axis) : $(name) <$(overwrite ? "=" : "-") $(named)"
+        @debug "empty_dense_matrix! $(daf.name) / $(rows_axis) / $(columns_axis) : $(name) <$(overwrite ? "=" : "-") $(empty_matrix)"
         return result
     end
 end

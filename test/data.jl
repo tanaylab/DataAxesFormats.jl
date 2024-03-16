@@ -719,8 +719,8 @@ function test_missing_vector(daf::DafReader, depth::Int)::Nothing
     nested_test("empty_vector!") do
         nested_test("dense") do
             previous_version_counter = vector_version_counter(daf, "gene", "marker")
-            @test empty_dense_vector!(daf, "gene", "marker", Bool) do empty
-                empty .= MARKER_GENES_BY_DEPTH[depth]
+            @test empty_dense_vector!(daf, "gene", "marker", Bool) do empty_vector
+                empty_vector .= MARKER_GENES_BY_DEPTH[depth]
                 return 7
             end == 7
             @test vector_version_counter(daf, "gene", "marker") == previous_version_counter + 1
@@ -886,7 +886,7 @@ function test_existing_vector(daf::DafReader, depth::Int)::Nothing
                     existing vector: marker
                     for the axis: gene
                     in the daf data: $(daf.name)
-                """) empty_dense_vector!(daf, "gene", "marker", Bool) do empty
+                """) empty_dense_vector!(daf, "gene", "marker", Bool) do empty_vector
                     @assert false
                 end
             end
@@ -897,14 +897,14 @@ function test_existing_vector(daf::DafReader, depth::Int)::Nothing
                         existing vector: marker
                         for the axis: gene
                         in the daf data: $(daf.name)
-                    """) empty_dense_vector!(daf, "gene", "marker", Bool; overwrite = false) do empty
+                    """) empty_dense_vector!(daf, "gene", "marker", Bool; overwrite = false) do empty_vector
                         @assert false
                     end
                 end
 
                 nested_test("true") do
-                    @test empty_dense_vector!(daf, "gene", "marker", Bool; overwrite = true) do empty
-                        empty .= MARKER_GENES_BY_DEPTH[depth]
+                    @test empty_dense_vector!(daf, "gene", "marker", Bool; overwrite = true) do empty_vector
+                        empty_vector .= MARKER_GENES_BY_DEPTH[depth]
                         return 7
                     end == 7
                     @test set_vector!(daf, "cell", "type", CELL_TYPES_BY_DEPTH[depth]; overwrite = true) == nothing
@@ -1639,8 +1639,8 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
     nested_test("empty_matrix!") do
         nested_test("dense") do
             previous_version_counter = matrix_version_counter(daf, "cell", "gene", "UMIs")
-            @test empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16) do empty
-                empty .= UMIS_BY_DEPTH[depth]
+            @test empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16) do empty_matrix
+                empty_matrix .= UMIS_BY_DEPTH[depth]
                 return 7
             end == 7
             @test matrix_version_counter(daf, "gene", "cell", "UMIs") == previous_version_counter + 1
@@ -2152,7 +2152,7 @@ function test_existing_matrix(daf::DafReader, depth::Int)::Nothing
                         for the rows axis: cell
                         and the columns axis: gene
                         in the daf data: $(daf.name)
-                    """) empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16) do empty
+                    """) empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16) do empty_matrix
                         @assert false
                     end
                 end
@@ -2163,14 +2163,14 @@ function test_existing_matrix(daf::DafReader, depth::Int)::Nothing
                         for the rows axis: cell
                         and the columns axis: gene
                         in the daf data: $(daf.name)
-                    """) empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16; overwrite = false) do empty
+                    """) empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16; overwrite = false) do empty_matrix
                         @assert false
                     end
                 end
 
                 nested_test("true") do
-                    @test empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16; overwrite = true) do empty
-                        empty .= UMIS_BY_DEPTH[depth]
+                    @test empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16; overwrite = true) do empty_matrix
+                        empty_matrix .= UMIS_BY_DEPTH[depth]
                         return 7
                     end == 7
 
@@ -2759,7 +2759,7 @@ function test_existing_relayout_matrix(daf::DafReader, depth::Int)::Nothing
                         for the rows axis: cell
                         and the columns axis: gene
                         in the daf data: $(daf.name)
-                    """) empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16) do empty
+                    """) empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16) do empty_matrix
                         @assert false
                     end
                 end
@@ -2770,14 +2770,14 @@ function test_existing_relayout_matrix(daf::DafReader, depth::Int)::Nothing
                         for the rows axis: cell
                         and the columns axis: gene
                         in the daf data: $(daf.name)
-                    """) empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16; overwrite = false) do empty
+                    """) empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16; overwrite = false) do empty_matrix
                         @assert false
                     end
                 end
 
                 nested_test("true") do
-                    @test empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16; overwrite = true) do empty
-                        empty .= UMIS_BY_DEPTH[depth]
+                    @test empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16; overwrite = true) do empty_matrix
+                        empty_matrix .= UMIS_BY_DEPTH[depth]
                         return 7
                     end == 7
                     @test delete_matrix!(daf, "gene", "cell", "UMIs"; relayout = false) == nothing
