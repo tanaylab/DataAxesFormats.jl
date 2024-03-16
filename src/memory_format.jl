@@ -152,13 +152,22 @@ function Formats.format_empty_sparse_vector!(
     eltype::Type{T},
     nnz::StorageInteger,
     indtype::Type{I},
-)::SparseVector{T, I} where {T <: StorageNumber, I <: StorageInteger}
+)::Tuple{AbstractVector{I}, AbstractVector{T}, Nothing} where {T <: StorageNumber, I <: StorageInteger}
     nelements = Formats.format_axis_length(memory, axis)
     nzind = Vector{I}(undef, nnz)
     nzval = Vector{T}(undef, nnz)
-    vector = SparseVector(nelements, nzind, nzval)
-    memory.vectors[axis][name] = vector
-    return vector
+    return (nzind, nzval, nothing)
+end
+
+function Formats.format_filled_sparse_vector!(
+    memory::MemoryDaf,
+    axis::AbstractString,
+    name::AbstractString,
+    extra::Nothing,
+    filled::SparseVector{T, I},
+)::Nothing where {T <: StorageNumber, I <: StorageInteger}
+    memory.vectors[axis][name] = filled
+    return nothing
 end
 
 function Formats.format_delete_vector!(
@@ -236,20 +245,31 @@ function Formats.format_empty_sparse_matrix!(
     eltype::Type{T},
     nnz::StorageInteger,
     indtype::Type{I},
-)::SparseMatrixCSC{T, I} where {T <: StorageNumber, I <: StorageInteger}
+)::Tuple{
+    AbstractVector{I},
+    AbstractVector{I},
+    AbstractVector{T},
+    Nothing,
+} where {T <: StorageNumber, I <: StorageInteger}
     nrows = Formats.format_axis_length(memory, rows_axis)
     ncols = Formats.format_axis_length(memory, columns_axis)
     colptr = fill(I(nnz + 1), ncols + 1)
     colptr[1] = 1
     rowval = fill(I(1), nnz)
     nzval = Vector{T}(undef, nnz)
-    println("TODOX JULIA format_empty_sparse_matrix")
-    println("TODOX JULIA colptr $(colptr)")
-    println("TODOX JULIA rowval $(rowval)")
-    println("TODOX JULIA nzval $(nzval)")
-    matrix = SparseMatrixCSC(nrows, ncols, colptr, rowval, nzval)
-    memory.matrices[rows_axis][columns_axis][name] = matrix
-    return matrix
+    return (colptr, rowval, nzval, nothing)
+end
+
+function Formats.format_filled_sparse_matrix!(
+    memory::MemoryDaf,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+    extra::Nothing,
+    filled::SparseMatrixCSC{T, I},
+)::Nothing where {T <: StorageNumber, I <: StorageInteger}
+    memory.matrices[rows_axis][columns_axis][name] = filled
+    return nothing
 end
 
 function Formats.format_relayout_matrix!(

@@ -580,23 +580,15 @@ function concatenate_axis_sparse_vectors(
     nnz_offsets, nnz_sizes, total_nnz = nnz_arrays(vectors)
     indtype = indtype_for_size(concatenated_axis_size)
 
-    empty_sparse_vector!(
-        into,
-        axis,
-        vector_property,
-        dtype,
-        total_nnz,
-        indtype;
-        overwrite = overwrite,
-    ) do concatenated_vector
+    empty_sparse_vector!(into, axis, vector_property, dtype, total_nnz, indtype; overwrite = overwrite) do nzind, nzval
         @threads for index in 1:length(vectors)
             offset = offsets[index]
             nnz_offset = nnz_offsets[index]
             nnz_size = nnz_sizes[index]
             vector = vectors[index]
-            concatenated_vector.array.nzval[(nnz_offset + 1):(nnz_offset + nnz_size)] = vector.nzval
-            concatenated_vector.array.nzind[(nnz_offset + 1):(nnz_offset + nnz_size)] = vector.nzind
-            concatenated_vector.array.nzind[(nnz_offset + 1):(nnz_offset + nnz_size)] .+= offset
+            nzval[(nnz_offset + 1):(nnz_offset + nnz_size)] = vector.nzval
+            nzind[(nnz_offset + 1):(nnz_offset + nnz_size)] = vector.nzind
+            nzind[(nnz_offset + 1):(nnz_offset + nnz_size)] .+= offset
         end
     end
 
@@ -712,19 +704,19 @@ function concatenate_axis_sparse_matrices(
         total_nnz,
         indtype;
         overwrite = overwrite,
-    ) do concatenated_matrix
+    ) do colptr, rowval, nzval
         @threads for index in 1:length(matrices)
             column_offset = offsets[index]
             ncols = sizes[index]
             nnz_offset = nnz_offsets[index]
             nnz_size = nnz_sizes[index]
             matrix = matrices[index]
-            concatenated_matrix.array.nzval[(nnz_offset + 1):(nnz_offset + nnz_size)] = matrix.nzval
-            concatenated_matrix.array.rowval[(nnz_offset + 1):(nnz_offset + nnz_size)] = matrix.rowval
-            concatenated_matrix.array.colptr[(column_offset + 1):(column_offset + ncols)] = matrix.colptr[1:ncols]
-            concatenated_matrix.array.colptr[(column_offset + 1):(column_offset + ncols)] .+= nnz_offset
+            nzval[(nnz_offset + 1):(nnz_offset + nnz_size)] = matrix.nzval
+            rowval[(nnz_offset + 1):(nnz_offset + nnz_size)] = matrix.rowval
+            colptr[(column_offset + 1):(column_offset + ncols)] = matrix.colptr[1:ncols]
+            colptr[(column_offset + 1):(column_offset + ncols)] .+= nnz_offset
         end
-        return concatenated_matrix.array.colptr[end] = total_nnz + 1
+        return colptr[end] = total_nnz + 1
     end
 
     return nothing
@@ -1015,15 +1007,15 @@ function concatenate_merge_sparse_vector(
         total_nnz,
         indtype;
         overwrite = overwrite,
-    ) do concatenated_matrix
-        @assert concatenated_matrix.array.colptr[1] == 1
+    ) do colptr, rowval, nzval
+        colptr[1] == 1
         @threads for index in 1:length(vectors)
             nnz_offset = nnz_offsets[index]
             nnz_size = nnz_sizes[index]
             vector = vectors[index]
-            concatenated_matrix.array.nzval[(nnz_offset + 1):(nnz_offset + nnz_size)] = vector.nzval
-            concatenated_matrix.array.rowval[(nnz_offset + 1):(nnz_offset + nnz_size)] = vector.nzind
-            concatenated_matrix.array.colptr[index + 1] = nnz_offset + nnz_size + 1
+            nzval[(nnz_offset + 1):(nnz_offset + nnz_size)] = vector.nzval
+            rowval[(nnz_offset + 1):(nnz_offset + nnz_size)] = vector.nzind
+            colptr[index + 1] = nnz_offset + nnz_size + 1
         end
     end
 

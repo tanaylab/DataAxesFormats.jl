@@ -291,11 +291,22 @@ function Formats.format_empty_sparse_vector!(
     eltype::Type{T},
     nnz::StorageInteger,
     indtype::Type{I},
-)::SparseVector{T, I} where {T <: StorageNumber, I <: StorageInteger}
+)::Tuple{AbstractVector{I}, AbstractVector{T}, Any} where {T <: StorageNumber, I <: StorageInteger}
     if !Formats.format_has_axis(chain.daf, axis; for_change = false)
         Formats.format_add_axis!(chain.daf, axis, Formats.format_get_axis(chain, axis))
     end
     return Formats.format_empty_sparse_vector!(chain.daf, axis, name, eltype, nnz, indtype)
+end
+
+function Formats.format_filled_sparse_vector!(
+    chain::WriteChain,
+    axis::AbstractString,
+    name::AbstractString,
+    extra::Any,
+    filled::SparseVector{T, I},
+)::Nothing where {T <: StorageNumber, I <: StorageInteger}
+    Formats.format_filled_sparse_vector!(chain.daf, axis, name, extra, filled)
+    return nothing
 end
 
 function Formats.format_delete_vector!(
@@ -397,13 +408,25 @@ function Formats.format_empty_sparse_matrix!(
     eltype::Type{T},
     nnz::StorageInteger,
     indtype::Type{I},
-)::SparseMatrixCSC{T, I} where {T <: StorageNumber, I <: StorageInteger}
+)::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}, Any} where {T <: StorageNumber, I <: StorageInteger}
     for axis in (rows_axis, columns_axis)
         if !Formats.format_has_axis(chain.daf, axis; for_change = false)
             Formats.format_add_axis!(chain.daf, axis, Formats.format_get_axis(chain, axis))
         end
     end
     return Formats.format_empty_sparse_matrix!(chain.daf, rows_axis, columns_axis, name, eltype, nnz, indtype)
+end
+
+function Formats.format_filled_sparse_matrix!(
+    chain::WriteChain,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+    extra::Any,
+    filled::SparseMatrixCSC{T, I},
+)::Nothing where {T <: StorageNumber, I <: StorageInteger}
+    Formats.format_filled_sparse_matrix!(chain.daf, rows_axis, columns_axis, name, extra, filled)
+    return nothing
 end
 
 function Formats.format_relayout_matrix!(

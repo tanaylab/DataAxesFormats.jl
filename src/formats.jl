@@ -334,15 +334,37 @@ function format_empty_dense_vector! end
         eltype::Type{T},
         nnz::StorageInteger,
         indtype::Type{I},
-    )::SparseVector{T, I} where {T <: StorageNumber, I <: StorageInteger}
+    )::Tuple{AbstractVector{I}, AbstractVector{T}, Any}
+    where {T <: StorageNumber, I <: StorageInteger}
 
 Implement creating an empty dense vector property with some `name` for some `rows_axis` and `columns_axis` in
-`format`.
+`format`. The final tuple element is passed to [`format_filled_sparse_vector!`](@ref).
 
 This trusts we have a write lock on the data set, that the `axis` exists in `format` and that the vector property `name`
 isn't `"name"`, and that it does not exist for the `axis`.
 """
 function format_empty_sparse_vector! end
+
+"""
+    format_filled_sparse_vector!(
+        format::FormatWriter,
+        axis::AbstractString,
+        name::AbstractString,
+        extra::Any,
+        filled::SparseVector{T, I},
+    )::Nothing where {T <: StorageNumber, I <: StorageInteger}
+
+Allow the `format` to perform caching once the empty sparse vector has been `filled`. By default this does nothing.
+"""
+function format_filled_sparse_vector!(  # untested
+    format::FormatWriter,
+    axis::AbstractString,
+    name::AbstractString,
+    extra::Any,
+    filled::SparseVector{T, I},
+)::Nothing where {T <: StorageNumber, I <: StorageInteger}
+    return nothing
+end
 
 """
     format_delete_vector!(
@@ -435,7 +457,7 @@ This trusts we have a write lock on the data set, that the `rows_axis` and `colu
 function format_empty_dense_matrix! end
 
 """
-    format_empty_dense_matrix!(
+    format_empty_sparse_matrix!(
         format::FormatWriter,
         rows_axis::AbstractString,
         columns_axis::AbstractString,
@@ -443,14 +465,39 @@ function format_empty_dense_matrix! end
         eltype::Type{T},
         intdype::Type{I},
         nnz::StorageInteger,
-    )::AbstractMatrix{T}
+    )::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}, Any}
+    where {T <: StorageNumber, I <: StorageInteger}
 
 Implement creating an empty sparse matrix property with some `name` for some `rows_axis` and `columns_axis` in `format`.
+The final tuple element is passed to [`format_filled_sparse_matrix!`](@ref).
 
 This trusts we have a write lock on the data set, that the `rows_axis` and `columns_axis` exist in `format` and that the
 `name` matrix property does not exist for them.
 """
 function format_empty_sparse_matrix! end
+
+"""
+    format_filled_dense_matrix!(
+        format::FormatWriter,
+        rows_axis::AbstractString,
+        columns_axis::AbstractString,
+        name::AbstractString,
+        extra::Any,
+        filled::SparseMatrixCSC{T, I},
+    )::Nothing where {T <: StorageNumber, I <: StorageInteger}
+
+Allow the `format` to perform caching once the empty sparse matrix has been `filled`. By default this does nothing.
+"""
+function format_filled_sparse_matrix!(  # untested
+    format::FormatWriter,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+    extra::Any,
+    filled::SparseMatrixCSC{T, I},
+)::Nothing where {T <: StorageNumber, I <: StorageInteger}
+    return nothing
+end
 
 """
     format_relayout_matrix!(

@@ -377,10 +377,10 @@ nested_test("chains") do
             end
 
             nested_test("empty_sparse") do
-                @test empty_sparse_vector!(chain, "cell", "age", Int16, 2, Int16) do empty
+                @test empty_sparse_vector!(chain, "cell", "age", Int16, 2, Int16) do nzind, nzval
                     sparse = SparseVector([1, 2])
-                    empty.array.nzind .= sparse.nzind
-                    empty.array.nzval .= sparse.nzval
+                    nzind .= sparse.nzind
+                    nzval .= sparse.nzval
                     return 7
                 end == 7
                 @test !has_vector(first, "cell", "age")
@@ -459,11 +459,11 @@ nested_test("chains") do
             end
 
             nested_test("empty_sparse") do
-                @test empty_sparse_matrix!(chain, "cell", "gene", "UMIs", Int16, 5, Int16) do empty
+                @test empty_sparse_matrix!(chain, "cell", "gene", "UMIs", Int16, 5, Int16) do colptr, rowval, nzval
                     sparse = SparseMatrixCSC([0 1 2; 3 4 5])
-                    empty.array.colptr .= sparse.colptr
-                    empty.array.rowval .= sparse.rowval
-                    empty.array.nzval .= sparse.nzval
+                    colptr .= sparse.colptr
+                    rowval .= sparse.rowval
+                    nzval .= sparse.nzval
                     return 17
                 end == 17
                 @test !has_matrix(first, "cell", "gene", "UMIs")

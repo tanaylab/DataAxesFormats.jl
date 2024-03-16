@@ -385,7 +385,7 @@ function Formats.format_empty_sparse_vector!(
     eltype::Type{T},
     nnz::StorageInteger,
     indtype::Type{I},
-)::SparseVector{T, I} where {T <: StorageNumber, I <: StorageInteger}
+)::Tuple{AbstractVector{I}, AbstractVector{T}, Nothing} where {T <: StorageNumber, I <: StorageInteger}
     Formats.upgrade_to_write_lock(files)
 
     write_array_json("$(files.path)/vectors/$(axis)/$(name).json", "sparse", T, I)
@@ -398,11 +398,18 @@ function Formats.format_empty_sparse_vector!(
     nzind_vector = mmap_file_data(nzind_path, Vector{I}, nnz, "r+")
     nzval_vector = mmap_file_data(nzval_path, Vector{T}, nnz, "r+")
 
-    size = Formats.format_axis_length(files, axis)
-    sparse_vector = SparseVector(size, nzind_vector, nzval_vector)
+    return (nzind_vector, nzval_vector, nothing)
+end
 
-    Formats.cache_vector!(files, axis, name, sparse_vector, MappedData)
-    return sparse_vector
+function Formats.format_filled_sparse_vector!(
+    files::FilesDaf,
+    axis::AbstractString,
+    name::AbstractString,
+    extra::Nothing,
+    filled::SparseVector{T, I},
+)::Nothing where {T <: StorageNumber, I <: StorageInteger}
+    Formats.cache_vector!(files, axis, name, filled, MappedData)
+    return nothing
 end
 
 function Formats.format_delete_vector!(
@@ -540,7 +547,12 @@ function Formats.format_empty_sparse_matrix!(
     eltype::Type{T},
     nnz::StorageInteger,
     indtype::Type{I},
-)::SparseMatrixCSC{T, I} where {T <: StorageNumber, I <: StorageInteger}
+)::Tuple{
+    AbstractVector{I},
+    AbstractVector{I},
+    AbstractVector{T},
+    Nothing,
+} where {T <: StorageNumber, I <: StorageInteger}
     write_array_json("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", "sparse", T, I)
 
     nrows = Formats.format_axis_length(files, rows_axis)
@@ -550,19 +562,26 @@ function Formats.format_empty_sparse_matrix!(
     rowval_path = "$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).rowval"
     nzval_path = "$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).nzval"
 
-    fill_file(colptr_path, I(nnz + 1), ncols + 1)
-    fill_file(rowval_path, I(1), nnz)
+    fill_file(colptr_path, I(0), ncols + 1)
+    fill_file(rowval_path, I(0), nnz)
     fill_file(nzval_path, T(0), nnz)
 
     colptr_vector = mmap_file_data(colptr_path, Vector{I}, (ncols + 1), "r+")
     rowval_vector = mmap_file_data(rowval_path, Vector{I}, nnz, "r+")
     nzval_vector = mmap_file_data(nzval_path, Vector{T}, nnz, "r+")
+    return (colptr_vector, rowval_vector, nzval_vector, nothing)
+end
 
-    colptr_vector[1] = 1
-
-    sparse_matrix = SparseMatrixCSC(nrows, ncols, colptr_vector, rowval_vector, nzval_vector)
-    Formats.cache_matrix!(files, rows_axis, columns_axis, name, sparse_matrix, MappedData)
-    return sparse_matrix
+function Formats.format_filled_sparse_matrix!(
+    files::FilesDaf,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+    extra::Nothing,
+    filled::SparseMatrixCSC{T, I},
+)::Nothing where {T <: StorageNumber, I <: StorageInteger}
+    Formats.cache_matrix!(files, rows_axis, columns_axis, name, filled, MappedData)
+    return nothing
 end
 
 function Formats.format_relayout_matrix!(
@@ -574,7 +593,7 @@ function Formats.format_relayout_matrix!(
     matrix = Formats.get_matrix_through_cache(files, rows_axis, columns_axis, name)
 
     if matrix isa SparseMatrixCSC
-        relayout_matrix = Formats.format_empty_sparse_matrix!(
+        colptr, rowval, nzval = Formats.format_empty_sparse_matrix!(
             files,
             columns_axis,
             rows_axis,
@@ -583,6 +602,10 @@ function Formats.format_relayout_matrix!(
             nnz(matrix),
             eltype(matrix.colptr),
         )
+        colptr[1] = 1
+        colptr[2:end] .= length(nzval) + 1
+        relayout_matrix =
+            SparseMatrixCSC(axis_length(files, columns_axis), axis_length(files, rows_axis), colptr, rowval, nzval)
     else
         relayout_matrix = Formats.format_empty_dense_matrix!(files, columns_axis, rows_axis, name, eltype(matrix))
     end

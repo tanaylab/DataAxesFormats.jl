@@ -742,10 +742,10 @@ function test_missing_vector(daf::DafReader, depth::Int)::Nothing
                 Bool,
                 sum(MARKER_GENES_BY_DEPTH[depth]),
                 Int32,
-            ) do empty
+            ) do empty_nzind, empty_nzval
                 sparse = SparseVector(MARKER_GENES_BY_DEPTH[depth])
-                empty.array.nzind .= sparse.nzind
-                empty.array.nzval .= sparse.nzval
+                empty_nzind .= sparse.nzind
+                empty_nzval .= sparse.nzval
                 return 7
             end == 7
             @test vector_version_counter(daf, "gene", "marker") == previous_version_counter + 1
@@ -930,7 +930,7 @@ function test_existing_vector(daf::DafReader, depth::Int)::Nothing
                     Bool,
                     sum(MARKER_GENES_BY_DEPTH[depth]),
                     Int16,
-                ) do empty
+                ) do empty_nzind, empty_nzval
                     @assert false
                 end
             end
@@ -949,7 +949,7 @@ function test_existing_vector(daf::DafReader, depth::Int)::Nothing
                         sum(MARKER_GENES_BY_DEPTH[depth]),
                         Int16;
                         overwrite = false,
-                    ) do
+                    ) do empty_nzind, empty_nzval
                         @assert false
                     end
                 end
@@ -963,10 +963,10 @@ function test_existing_vector(daf::DafReader, depth::Int)::Nothing
                         sum(MARKER_GENES_BY_DEPTH[depth]),
                         Int16;
                         overwrite = true,
-                    ) do empty
+                    ) do empty_nzind, empty_nzval
                         sparse = SparseVector(MARKER_GENES_BY_DEPTH[depth])
-                        empty.array.nzind .= sparse.nzind
-                        empty.array.nzval .= sparse.nzval
+                        empty_nzind .= sparse.nzind
+                        empty_nzval .= sparse.nzval
                         return 7
                     end == 7
                     @test set_vector!(daf, "cell", "type", CELL_TYPES_BY_DEPTH[depth]; overwrite = true) == nothing
@@ -1667,11 +1667,11 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
                 Int16,
                 sum(UMIS_BY_DEPTH[depth] .> 0),
                 Int16,
-            ) do empty
+            ) do empty_colptr, empty_rowval, empty_nzval
                 sparse = SparseMatrixCSC(UMIS_BY_DEPTH[depth])
-                empty.array.colptr .= sparse.colptr
-                empty.array.rowval .= sparse.rowval
-                empty.array.nzval .= sparse.nzval
+                empty_colptr .= sparse.colptr
+                empty_rowval .= sparse.rowval
+                empty_nzval .= sparse.nzval
                 return 7
             end == 7
             @test matrix_version_counter(daf, "gene", "cell", "UMIs") == previous_version_counter + 1
@@ -2204,7 +2204,7 @@ function test_existing_matrix(daf::DafReader, depth::Int)::Nothing
                         Int16,
                         sum(UMIS_BY_DEPTH[depth] .> 0),
                         Int16,
-                    ) do empty
+                    ) do empty_colptr, empty_rowval, empty_nzval
                         @assert false
                     end
                 end
@@ -2224,7 +2224,7 @@ function test_existing_matrix(daf::DafReader, depth::Int)::Nothing
                         sum(UMIS_BY_DEPTH[depth] .> 0),
                         Int16;
                         overwrite = false,
-                    ) do empty
+                    ) do empty_colptr, empty_rowval, empty_nzval
                         @assert false
                     end
                 end
@@ -2239,11 +2239,11 @@ function test_existing_matrix(daf::DafReader, depth::Int)::Nothing
                         sum(UMIS_BY_DEPTH[depth] .> 0),
                         Int16;
                         overwrite = true,
-                    ) do empty
+                    ) do empty_colptr, empty_rowval, empty_nzval
                         sparse = SparseMatrixCSC(UMIS_BY_DEPTH[depth])
-                        empty.array.colptr .= sparse.colptr
-                        empty.array.rowval .= sparse.rowval
-                        empty.array.nzval .= sparse.nzval
+                        empty_colptr .= sparse.colptr
+                        empty_rowval .= sparse.rowval
+                        empty_nzval .= sparse.nzval
                         return 7
                     end == 7
 
@@ -2812,7 +2812,7 @@ function test_existing_relayout_matrix(daf::DafReader, depth::Int)::Nothing
                         Int16,
                         sum(UMIS_BY_DEPTH[depth] .> 0),
                         Int16,
-                    ) do empty
+                    ) do empty_colptr, empty_rowval, empty_nzval
                         @assert false
                     end
                 end
@@ -2832,7 +2832,7 @@ function test_existing_relayout_matrix(daf::DafReader, depth::Int)::Nothing
                         sum(UMIS_BY_DEPTH[depth] .> 0),
                         Int16;
                         overwrite = false,
-                    ) do empty
+                    ) do empty_colptr, empty_rowval, empty_nzval
                         @assert false
                     end
                 end
@@ -2847,11 +2847,11 @@ function test_existing_relayout_matrix(daf::DafReader, depth::Int)::Nothing
                         sum(UMIS_BY_DEPTH[depth] .> 0),
                         Int16;
                         overwrite = true,
-                    ) do empty
+                    ) do empty_colptr, empty_rowval, empty_nzval
                         sparse = SparseMatrixCSC(UMIS_BY_DEPTH[depth])
-                        empty.array.colptr .= sparse.colptr
-                        empty.array.rowval .= sparse.rowval
-                        empty.array.nzval .= sparse.nzval
+                        empty_colptr .= sparse.colptr
+                        empty_rowval .= sparse.rowval
+                        empty_nzval .= sparse.nzval
                         return 7
                     end == 7
                     @test delete_matrix!(daf, "gene", "cell", "UMIs"; relayout = false) == nothing

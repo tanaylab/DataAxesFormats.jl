@@ -537,12 +537,12 @@ end
         [overwrite::Bool = false]
     )::Any where {T <: StorageNumber, I <: StorageInteger}
 
-Create an empty sparse vector property with some `name` for some `axis` in `daf`, pass it to `fill` and return the
-result.
+Create an empty sparse vector property with some `name` for some `axis` in `daf`, pass its parts to `fill` and return
+the result.
 
-The returned vector will be uninitialized; the caller is expected to `fill` it with values. This means manually filling
-the `nzind` and `nzval` vectors. Specifying the `nnz` makes their sizes known in advance, to allow pre-allocating disk
-data. For this reason, this does not work for strings, as they do not have a fixed size.
+The returned vector will be uninitialized; the caller is expected to `fill` its `nzind` and `nzval` vectors with values.
+Specifying the `nnz` makes their sizes known in advance, to allow pre-allocating disk data. For this reason, this does
+not work for strings, as they do not have a fixed size.
 
 This severely restricts the usefulness of this function, because typically `nnz` is only know after fully computing the
 matrix. Still, in some cases a large sparse vector is created by concatenating several smaller ones; this function
@@ -550,7 +550,7 @@ allows doing so directly into the data vector, avoiding a copy in case of memory
 
 !!! warning
 
-    It is the caller's responsibility to fill the three vectors with valid data. Specifically, you must ensure:
+    It is the caller's responsibility to fill the two vectors with valid data. Specifically, you must ensure:
 
       - `nzind[1] == 1`
       - `nzind[i] <= nzind[i + 1]`
@@ -580,14 +580,15 @@ function empty_sparse_vector!(
         end
 
         Formats.format_increment_version_counter(daf, (axis, name))
-        empty_vector = Formats.format_empty_sparse_vector!(daf, axis, name, eltype, nnz, indtype)
-        result = fill(as_named_vector(daf, axis, empty_vector))
-        verified = SparseVector(length(empty_vector), empty_vector.nzind, empty_vector.nzval)
+        nzind, nzval, extra = Formats.format_empty_sparse_vector!(daf, axis, name, eltype, nnz, indtype)
+        result = fill(nzind, nzval)
+        filled = SparseVector(axis_length(daf, axis), nzind, nzval)
+        Formats.format_filled_sparse_vector!(daf, axis, name, extra, filled)
 
         Formats.invalidate_cached!(daf, Formats.vector_cache_key(axis, name))
         Formats.invalidate_cached!(daf, Formats.vector_names_cache_key(axis))
 
-        @debug "empty_dense_vector! $(daf.name) / $(axis) : $(name) <$(overwrite ? "=" : "-") $(describe(verified))"
+        @debug "empty_dense_vector! $(daf.name) / $(axis) : $(name) <$(overwrite ? "=" : "-") $(describe(filled))"
         return result
     end
 end
@@ -959,12 +960,12 @@ end
         [overwrite::Bool = false]
     )::Any where {T <: StorageNumber, I <: StorageInteger}
 
-Create an empty sparse matrix property with some `name` for some `rows_axis` and `columns_axis` in `daf`, pass it to
-`fill`, and return the result.
+Create an empty sparse matrix property with some `name` for some `rows_axis` and `columns_axis` in `daf`, pass its parts
+to `fill`, and return the result.
 
-The returned matrix will be uninitialized; the caller is expected to `fill` it with values. This means manually filling
-the `colptr`, `rowval` and `nzval` vectors. Specifying the `nnz` makes their sizes known in advance, to allow
-pre-allocating disk space. For this reason, this does not work for strings, as they do not have a fixed size.
+The returned matrix will be uninitialized; the caller is expected to `fill` its `colptr`, `rowval` and `nzval` vectors.
+Specifying the `nnz` makes their sizes known in advance, to allow pre-allocating disk space. For this reason, this does
+not work for strings, as they do not have a fixed size.
 
 This severely restricts the usefulness of this function, because typically `nnz` is only know after fully computing the
 matrix. Still, in some cases a large sparse matrix is created by concatenating several smaller ones; this function
@@ -1012,11 +1013,13 @@ function empty_sparse_matrix!(
         end
 
         Formats.format_increment_version_counter(daf, (rows_axis, columns_axis, name))
-        empty_matrix = Formats.format_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, eltype, nnz, indtype)
-        result = fill(as_named_matrix(daf, rows_axis, columns_axis, empty_matrix))
-        verified = SparseMatrixCSC(size(empty_matrix)..., empty_matrix.colptr, empty_matrix.rowval, empty_matrix.nzval)
+        colptr, rowval, nzval, extra =
+            Formats.format_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, eltype, nnz, indtype)
+        result = fill(colptr, rowval, nzval)
+        filled = SparseMatrixCSC(axis_length(daf, rows_axis), axis_length(daf, columns_axis), colptr, rowval, nzval)
+        Formats.format_filled_sparse_matrix!(daf, rows_axis, columns_axis, name, extra, filled)
 
-        @debug "empty_sparse_matrix! $(daf.name) / $(rows_axis) / $(columns_axis) : $(name) <$(overwrite ? "=" : "-") $(verified)"
+        @debug "empty_sparse_matrix! $(daf.name) / $(rows_axis) / $(columns_axis) : $(name) <$(overwrite ? "=" : "-") $(filled)"
         return result
     end
 end

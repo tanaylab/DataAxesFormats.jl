@@ -95,8 +95,10 @@ Daf.Formats.format_delete_matrix!
 ```@docs
 Daf.Formats.format_empty_dense_vector!
 Daf.Formats.format_empty_sparse_vector!
+Daf.Formats.format_filled_sparse_vector!
 Daf.Formats.format_empty_dense_matrix!
 Daf.Formats.format_empty_sparse_matrix!
+Daf.Formats.format_filled_sparse_matrix!
 ```
 
 ## Index

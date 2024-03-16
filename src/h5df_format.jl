@@ -463,7 +463,7 @@ function Formats.format_empty_sparse_vector!(
     eltype::Type{T},
     nnz::StorageInteger,
     indtype::Type{I},
-)::SparseVector{T, I} where {T <: StorageNumber, I <: StorageInteger}
+)::Tuple{AbstractVector{I}, AbstractVector{T}, CacheType} where {T <: StorageNumber, I <: StorageInteger}
     vectors_group = h5df.root["vectors"]
     @assert vectors_group isa HDF5.Group
 
@@ -482,22 +482,24 @@ function Formats.format_empty_sparse_vector!(
 
     nzind_vector, nzind_cache_type = dataset_as_vector(nzind_dataset)
     nzval_vector, nzval_cache_type = dataset_as_vector(nzval_dataset)
+    cache_type = Formats.combined_cache_type(nzind_cache_type, nzval_cache_type)
 
     close(nzind_dataset)
     close(nzval_dataset)
     close(vector_group)
 
-    nelements = Formats.format_axis_length(h5df, axis)
-    sparse_vector = SparseVector(nelements, nzind_vector, nzval_vector)
+    return (nzind_vector, nzval_vector, cache_type)
+end
 
-    Formats.cache_vector!(
-        h5df,
-        axis,
-        name,
-        sparse_vector,
-        Formats.combined_cache_type(nzind_cache_type, nzval_cache_type),
-    )
-    return sparse_vector
+function Formats.format_filled_sparse_vector!(
+    h5df::H5df,
+    axis::AbstractString,
+    name::AbstractString,
+    cache_type::CacheType,
+    filled::SparseVector{T, I},
+)::Nothing where {T <: StorageNumber, I <: StorageInteger}
+    Formats.cache_vector!(h5df, axis, name, filled, cache_type)
+    return nothing
 end
 
 function Formats.format_delete_vector!(h5df::H5df, axis::AbstractString, name::AbstractString; for_set::Bool)::Nothing
@@ -648,7 +650,12 @@ function Formats.format_empty_sparse_matrix!(
     eltype::Type{T},
     nnz::StorageInteger,
     indtype::Type{I},
-)::SparseMatrixCSC{T, I} where {T <: StorageNumber, I <: StorageInteger}
+)::Tuple{
+    AbstractVector{I},
+    AbstractVector{I},
+    AbstractVector{T},
+    CacheType,
+} where {T <: StorageNumber, I <: StorageInteger}
     matrices_group = h5df.root["matrices"]
     @assert matrices_group isa HDF5.Group
 
@@ -674,22 +681,26 @@ function Formats.format_empty_sparse_matrix!(
     colptr_vector, colptr_cache_type = dataset_as_vector(colptr_dataset)
     rowval_vector, rowval_cache_type = dataset_as_vector(rowval_dataset)
     nzval_vector, nzval_cache_type = dataset_as_vector(nzval_dataset)
+    cache_type = Formats.combined_cache_type(colptr_cache_type, rowval_cache_type, nzval_cache_type)
 
     close(colptr_dataset)
     close(rowval_dataset)
     close(nzval_dataset)
     close(matrix_group)
 
-    sparse_matrix = SparseMatrixCSC(nrows, ncols, colptr_vector, rowval_vector, nzval_vector)
-    Formats.cache_matrix!(
-        h5df,
-        rows_axis,
-        columns_axis,
-        name,
-        sparse_matrix,
-        Formats.combined_cache_type(colptr_cache_type, rowval_cache_type, nzval_cache_type),
-    )
-    return sparse_matrix
+    return (colptr_vector, rowval_vector, nzval_vector, cache_type)
+end
+
+function Formats.format_filled_sparse_matrix!(
+    h5df::H5df,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+    cache_type::CacheType,
+    filled::SparseMatrixCSC{T, I},
+)::Nothing where {T <: StorageNumber, I <: StorageInteger}
+    Formats.cache_matrix!(h5df, rows_axis, columns_axis, name, filled, cache_type)
+    return nothing
 end
 
 function Formats.format_relayout_matrix!(
@@ -701,7 +712,7 @@ function Formats.format_relayout_matrix!(
     matrix = Formats.get_matrix_through_cache(h5df, rows_axis, columns_axis, name)
 
     if matrix isa SparseMatrixCSC
-        relayout_matrix = Formats.format_empty_sparse_matrix!(
+        colptr, rowval, nzval = Formats.format_empty_sparse_matrix!(
             h5df,
             columns_axis,
             rows_axis,
@@ -710,6 +721,10 @@ function Formats.format_relayout_matrix!(
             nnz(matrix),
             eltype(matrix.colptr),
         )
+        colptr[1] = 1
+        colptr[2:end] .= length(nzval) + 1
+        relayout_matrix =
+            SparseMatrixCSC(axis_length(h5df, columns_axis), axis_length(h5df, rows_axis), colptr, rowval, nzval)
     else
         relayout_matrix = Formats.format_empty_dense_matrix!(h5df, columns_axis, rows_axis, name, eltype(matrix))
     end
