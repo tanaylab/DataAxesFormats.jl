@@ -284,11 +284,11 @@
 </code> and 
 <code>matrices
 </code> and a 
-<code>Daf
+<code>daf
 </code> dataset.
 </li>
 <li>To future-proof the format, the 
-<code>Daf
+<code>daf
 </code> dataset will contain a vector of two integers, the first acting as the major version number and the second as the minor version number, using 
 <a href="https://semver.org/">semantic versioning
 </a>. This makes it easy to test whether some group in an HDF5 file does/n&#39;t contain 
@@ -360,6 +360,34 @@
 <code>Daf
 </code> package to access the data.
 </p>
+<p>Example HDF5 structure:
+</p>
+<pre>
+<code class="nohighlight hljs">example-daf-dataset-root-group/
+├─ daf
+├─ scalars/
+│  └─ version
+├─ axes/
+│  ├─ cell
+│  └─ gene
+├─ vectors/
+│  ├─ cell/
+│  │  └─ batch
+│  └─ gene/
+│     └─ is_marker
+└─ matrices/
+   ├─ cell/
+   │   ├─ cell/
+   │   └─ gene/
+   │      └─ UMIs/
+   │         ├─ colptr
+   │         ├─ rowval
+   │         └─ nzval
+   └─ gene/
+      ├─ cell/
+      └─ gene/
+</code>
+</pre>
 <div class="admonition is-info">
 <header class="admonition-header">Note
 </header>
@@ -407,7 +435,7 @@
 </div>
 </div>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/h5df_format.jl#L1-L68">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/h5df_format.jl#L1-L94">source
 </a>
 </section>
 </article>
@@ -433,7 +461,7 @@
 </code>). The code will refuse to access data that is stored in a different major format.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/h5df_format.jl#L86-L89">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/h5df_format.jl#L112-L115">source
 </a>
 </section>
 </article>
@@ -471,7 +499,7 @@
 </div>
 </div>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/h5df_format.jl#L92-L99">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/h5df_format.jl#L118-L125">source
 </a>
 </section>
 </article>
@@ -629,7 +657,7 @@
 </div>
 </div>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/h5df_format.jl#L102-L133">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/h5df_format.jl#L128-L159">source
 </a>
 </section>
 </article>

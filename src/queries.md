@@ -15,10 +15,6 @@ Daf.Queries.@q_str
 
 ```@docs
 Daf.Queries.get_query
-Daf.Queries.query_result_dimensions
-Daf.Queries.empty_cache!
-Daf.Queries.get_frame
-Daf.Queries.QueryColumns
 ```
 
 ## Syntax
@@ -49,7 +45,7 @@ Daf.Queries.ComparisonOperation
 Daf.Queries.guess_typed_value
 ```
 
-## Query Operations
+## Query Operators
 
 ```@docs
 Daf.Queries.QuerySequence
@@ -77,6 +73,15 @@ Daf.Queries.Or
 Daf.Queries.OrNot
 Daf.Queries.Xor
 Daf.Queries.XorNot
+```
+
+## Additional Functions
+
+```@docs
+Daf.Queries.query_result_dimensions
+Daf.Queries.empty_cache!
+Daf.Queries.get_frame
+Daf.Queries.QueryColumns
 ```
 
 ## Index

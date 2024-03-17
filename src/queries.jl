@@ -419,7 +419,7 @@ Operators used to represent a [`Query`](@ref) as a string.
 | `??`     | [`IfNot`](@ref)              | 1. Mask excluding false-ish values (e.g., `/ cell : batch ?? => age`).                   |
 |          |                              | 2. Default for false-ish lookup values (e.g., `/ cell : type ?? Outlier`).               |
 |          |                              | 3. Default for false-ish fetched values (e.g., `/ cell : batch ?? 1 => age`).            |
-| `||`     | [`IfMissing`](@ref)          | 1. Value for missing lookup properties (e.g., `/ gene : is_marker || false`).            |
+| `││`     | [`IfMissing`](@ref)          | 1. Value for missing lookup properties (e.g., `/ gene : is_marker ││ false`).            |
 |          |                              | 2. Value for missing fetched properties (e.g., `/ cell : type || red => color`).         |
 |          |                              | 3. Value for empty reduced vectors (e.g., `/ cell : type = LMPP => age %> Max || 0`).    |
 | `%`      | [`EltwiseOperation`](@ref)   | Apply an element-wise operation (e.g., `/ cell / gene : UMIs % Log base 2 eps 1`).       |
@@ -429,8 +429,8 @@ Operators used to represent a [`Query`](@ref) as a string.
 |          |                              | 2. Aggregate matrix row entries by a group (e.g.,`/ cell / gene : UMIs @ type %> Max`).  |
 | `&`      | [`And`](@ref)                | Restrict axis entries (e.g., `/ gene & marker`).                                         |
 | `&!`     | [`AndNot`](@ref)             | Restrict axis entries (e.g., `/ gene &! marker`).                                        |
-| `|`      | [`Or`](@ref)                 | Expand axis entries (e.g., `/ gene & marker | noisy`).                                   |
-| `|!`     | [`OrNot`](@ref)              | Expand axis entries (e.g., `/ gene & marker |! noisy`).                                  |
+| `│`      | [`Or`](@ref)                 | Expand axis entries (e.g., `/ gene & marker │ noisy`).                                   |
+| `│!`     | [`OrNot`](@ref)              | Expand axis entries (e.g., `/ gene & marker │! noisy`).                                  |
 | `^`      | [`Xor`](@ref)                | Flip axis entries (e.g., `/ gene & marker ^ noisy`).                                     |
 | `^!`     | [`XorNot`](@ref)             | Flip axis entries (e.g., `/ gene & marker ^! noisy`).                                    |
 | `=`      | [`IsEqual`](@ref)            | 1. Select an entry from an axis (e.g., `/ cell / gene = FOX1 : UMIs`).                   |
@@ -442,6 +442,11 @@ Operators used to represent a [`Query`](@ref) as a string.
 | `>=`     | [`IsGreaterEqual`](@ref)     | Compare greater or equal (e.g., `/ cell & age >= 1`).                                    |
 | `~`      | [`IsMatch`](@ref)            | Compare match (e.g., `/ gene & name ~ RP\\[SL\\]`).                                      |
 | `!~`     | [`IsNotMatch`](@ref)         | Compare not match (e.g., `/ gene & name !~ RP\\[SL\\]`).                                 |
+
+!!! note
+
+    Due to Julia's Documenter limitations, the ASCII `|` character (`&#124;`) is replaced by the Unicode `│` character
+    (`&#9474;`) in the above table. Sigh.
 """
 QUERY_OPERATORS = r"^(?:=>|\|\||\?\?|%>|&!|\|!|\^!|!=|<=|>=|!~|/|:|!|%|\*|@|&|\||\?|\^|=|<|>|~)"
 
@@ -1506,7 +1511,8 @@ end
 
 """
     function get_query(
-        daf::DafReader, query::Union{Query, AbstractString};
+        daf::DafReader,
+        query::Union{Query, AbstractString};
         [cache::Bool = true]
     )::Union{StorageScalar, NamedVector, NamedMatrix}
 
@@ -3556,8 +3562,9 @@ names.
 If `columns` is not specified, the data frame will contain all the vector properties of the axis, in alphabetical order
 (since `DataFrame` has no concept of named rows, the 1st column will contain the name of the axis entry). Otherwise,
 `columns` may be a vector of names of vector properties (e.g., `["batch", "age"]`), or a vector of pairs mapping a
-column name to a query suffix (e.g., ["color" => q": type => color"]). This suffix is applied to the `axis` query. The
-result of the query must be a vector.
+column name to a query suffix (e.g., `["color" => q": type => color"]`). This suffix is applied to the `axis` query
+(e.g., if the `axis` is masked as above, the full query for the `color` column would be
+`q"/ cell & age > 1 : type => color`). The result of the full query must be a vector.
 
 By default, this will cache results of all queries. This may consume a large amount of memory. You can disable it by
 specifying `cache = false`, or release the cached data using [`empty_cache!`](@ref).

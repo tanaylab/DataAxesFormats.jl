@@ -14,8 +14,8 @@ HDF5 storage, we use the following internal structure (which is **not** compatib
     name of the group that contains the `Daf` data set you are interested it. By convention, at least if such files
     contain "mostly" (or only) `Daf` data sets, they are given a `.h5dfs` suffix, and are accompanied by some
     documentation describing the top-level groups in the file.
-  - Under the `Daf` data group, there are 4 sub-groups: `scalars`, `axes`, `vectors` and `matrices` and a `Daf` dataset.
-  - To future-proof the format, the `Daf` dataset will contain a vector of two integers, the first acting as the major
+  - Under the `Daf` data group, there are 4 sub-groups: `scalars`, `axes`, `vectors` and `matrices` and a `daf` dataset.
+  - To future-proof the format, the `daf` dataset will contain a vector of two integers, the first acting as the major
     version number and the second as the minor version number, using [semantic versioning](https://semver.org/). This
     makes it easy to test whether some group in an HDF5 file does/n't contain `Daf` data, and which version of the
     internal structure it is using. Currently the only defined version is `[1,0]`.
@@ -42,6 +42,32 @@ That's all there is to it. Due to the above restrictions on types and layout, th
 "dataset" is sufficient to fully describe the data, and one should be able to directly access it using any HDF5 API in
 any programming language, if needed. Typically, however, it is easiest to simply use the Julia `Daf` package to access
 the data.
+
+Example HDF5 structure:
+
+    example-daf-dataset-root-group/
+    ├─ daf
+    ├─ scalars/
+    │  └─ version
+    ├─ axes/
+    │  ├─ cell
+    │  └─ gene
+    ├─ vectors/
+    │  ├─ cell/
+    │  │  └─ batch
+    │  └─ gene/
+    │     └─ is_marker
+    └─ matrices/
+       ├─ cell/
+       │   ├─ cell/
+       │   └─ gene/
+       │      └─ UMIs/
+       │         ├─ colptr
+       │         ├─ rowval
+       │         └─ nzval
+       └─ gene/
+          ├─ cell/
+          └─ gene/
 
 !!! note
 

@@ -1,9 +1,10 @@
-deps/.*
 *.jl.*.cov
 *.jl.cov
-junk*
 .*.swo
 .*.swp
-tags
+.DS_Store
 TAGS
+deps/.*
+junk*
+tags
 tracefile.info

@@ -1,6 +1,6 @@
 """
-Files `Daf` storage format. This is an efficient way to persist `Daf` data in a filesystem, and offers a different
-trade-off compared to storing the data in an HDF5 file.
+A `Daf` storage format in disk files. This is an efficient way to persist `Daf` data in a filesystem, and offers a
+different trade-off compared to storing the data in an HDF5 file.
 
 On the downside, this being a directory, you need to create a `zip` or `tar` or some other form of archive file if you
 want to publish it. Also, accessing `FilesDaf` will consume multiple file descriptors as opposed to just one for HDF5,
@@ -50,6 +50,34 @@ We use multiple files to store `Daf` data, under some root directory, as follows
     non-zero values, and three binary data files, `name.colptr`, `name.rowval` containing the indices of the non-zero
     values, and `name.nzval` containing the values of the non-zero entries (which we can memory-map for direct access).
     See Julia's `SparseMatrixCSC` implementation for details.
+
+Example directory structure:
+
+    example-daf-dataset-root-directory/
+    ├─ daf.json
+    ├─ scalars/
+    │  └─ version.json
+    ├─ axes/
+    │  ├─ cell.txt
+    │  └─ gene.txt
+    ├─ vectors/
+    │  ├─ cell/
+    │  │  ├─ batch.json
+    │  │  └─ batch.txt
+    │  └─ gene/
+    │     ├─ is_marker.json
+    │     └─ is_marker.data
+    └─ matrices/
+       ├─ cell/
+       │  ├─ cell/
+       │  └─ gene/
+       │     ├─ UMIs.json
+       │     ├─ UMIs.colptr
+       │     ├─ UMIs.rowval
+       │     └─ UMIs.nzval
+       └─ gene/
+          ├─ cell/
+          └─ gene/
 
 !!! note
 

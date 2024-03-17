@@ -86,8 +86,14 @@
 </a>
 </li>
 <li>
-<a class="tocitem" href="#Query-Operations">
-<span>Query Operations
+<a class="tocitem" href="#Query-Operators">
+<span>Query Operators
+</span>
+</a>
+</li>
+<li>
+<a class="tocitem" href="#Additional-Functions">
+<span>Additional Functions
 </span>
 </a>
 </li>
@@ -261,7 +267,7 @@
 </a>.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L1-L3">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L1-L3">source
 </a>
 </section>
 </article>
@@ -439,7 +445,7 @@
 </a> below.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L76-L114">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L76-L114">source
 </a>
 </section>
 </article>
@@ -483,7 +489,7 @@
 </code> == `Axis(&quot;cell&quot;) |&gt; IsEqual(&quot;ATGC:B1&quot;) |&gt; Lookup(&quot;batch&quot;)).
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L622-L629">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L627-L634">source
 </a>
 </section>
 </article>
@@ -510,7 +516,8 @@
 <div>
 <pre>
 <code class="language-julia hljs">function get_query(
-    daf::DafReader, query::Union{Query, AbstractString};
+    daf::DafReader,
+    query::Union{Query, AbstractString};
     [cache::Bool = true]
 )::Union{StorageScalar, NamedVector, NamedMatrix}
 </code>
@@ -538,162 +545,7 @@
 </code>).
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L1507-L1519">source
-</a>
-</section>
-</article>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
-<a class="docstring-binding" id="Daf.Queries.query_result_dimensions" href="#Daf.Queries.query_result_dimensions">
-<code>Daf.Queries.query_result_dimensions
-</code>
-</a> — 
-<span class="docstring-category">Function
-</span>
-</header>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">function query_result_dimensions(query::Union{Query, AbstractString})::Int
-</code>
-</pre>
-<p>Return the number of dimensions (-1 - names, 0 - scalar, 1 - vector, 2 - matrix) of the results of a query. This also verifies the query is syntactically valid, though it may still fail if applied to specific data due to invalid data values or types.
-</p>
-</div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L1561-L1567">source
-</a>
-</section>
-</article>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
-<a class="docstring-binding" id="Daf.Data.empty_cache!" href="#Daf.Data.empty_cache!">
-<code>Daf.Data.empty_cache!
-</code>
-</a> — 
-<span class="docstring-category">Function
-</span>
-</header>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">empty_cache!(
-    daf::DafReader;
-    [clear::Maybe{CacheType} = nothing,
-    keep::Maybe{CacheType} = nothing]
-)::Nothing
-</code>
-</pre>
-<p>Clear some cached data. By default, completely empties the caches. You can specify either 
-<code>clear
-</code>, to only forget a specific 
-<a href="formats.html#Daf.Formats.CacheType">
-<code>CacheType
-</code>
-</a> (e.g., for clearing only 
-<code>QueryData
-</code>), or 
-<code>keep
-</code>, to forget everything except a specific 
-<a href="formats.html#Daf.Formats.CacheType">
-<code>CacheType
-</code>
-</a> (e.g., for keeping only 
-<code>MappedData
-</code>). You can&#39;t specify both 
-<code>clear
-</code> and 
-<code>keep
-</code>.
-</p>
-</div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/data.jl#L1698-L1708">source
-</a>
-</section>
-</article>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
-<a class="docstring-binding" id="Daf.Queries.get_frame" href="#Daf.Queries.get_frame">
-<code>Daf.Queries.get_frame
-</code>
-</a> — 
-<span class="docstring-category">Function
-</span>
-</header>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">function get_frame(
-    daf::DafReader,
-    axis::Union{Query, AbstractString},
-    [columns::Maybe{Union{AbstractStringVector, QueryColumns}} = nothing,
-    cache::Bool = true]
-)::DataFrame end
-</code>
-</pre>
-<p>Return a 
-<code>DataFrame
-</code> containing multiple vectors of the same 
-<code>axis
-</code>.
-</p>
-<p>The 
-<code>axis
-</code> can be either just the name of an axis (e.g., 
-<code>&quot;cell&quot;
-</code>), or a query for the axis (e.g., 
-<code>q&quot;/ cell&quot;
-</code>), possibly using a mask (e.g., 
-<code>q&quot;/ cell &amp; age &gt; 1&quot;
-</code>). The result of the query must be a vector of unique axis entry names.
-</p>
-<p>If 
-<code>columns
-</code> is not specified, the data frame will contain all the vector properties of the axis, in alphabetical order (since 
-<code>DataFrame
-</code> has no concept of named rows, the 1st column will contain the name of the axis entry). Otherwise, 
-<code>columns
-</code> may be a vector of names of vector properties (e.g., 
-<code>[&quot;batch&quot;, &quot;age&quot;]
-</code>), or a vector of pairs mapping a column name to a query suffix (e.g., [&quot;color&quot; =&gt; q&quot;: type =&gt; color&quot;]). This suffix is applied to the 
-<code>axis
-</code> query. The result of the query must be a vector.
-</p>
-<p>By default, this will cache results of all queries. This may consume a large amount of memory. You can disable it by specifying 
-<code>cache = false
-</code>, or release the cached data using 
-<a href="queries.html#Daf.Data.empty_cache!">
-<code>empty_cache!
-</code>
-</a>.
-</p>
-</div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L3542-L3564">source
-</a>
-</section>
-</article>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
-<a class="docstring-binding" id="Daf.Queries.QueryColumns" href="#Daf.Queries.QueryColumns">
-<code>Daf.Queries.QueryColumns
-</code>
-</a> — 
-<span class="docstring-category">Type
-</span>
-</header>
-<section>
-<div>
-<p>Specify columns for a data frame. This is a vector of pairs, where the key is the column name, and the value is a query that computes the data of the column.
-</p>
-</div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L3536-L3539">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L1512-L1525">source
 </a>
 </section>
 </article>
@@ -898,11 +750,19 @@
 </td>
 </tr>
 <tr>
-<td style="text-align: left">`
+<td style="text-align: left">
+<code>││
+</code>
 </td>
 <td style="text-align: center">
+<a href="queries.html#Daf.Queries.IfMissing">
+<code>IfMissing
+</code>
+</a>
 </td>
-<td style="text-align: left">`
+<td style="text-align: left">1. Value for missing lookup properties (e.g., 
+<code>/ gene : is_marker ││ false
+</code>).
 </td>
 </tr>
 <tr>
@@ -1028,27 +888,35 @@
 </td>
 </tr>
 <tr>
-<td style="text-align: left">`
-</td>
-<td style="text-align: center">`
-</td>
 <td style="text-align: left">
+<code>│
+</code>
+</td>
+<td style="text-align: center">
 <a href="queries.html#Daf.Queries.Or">
 <code>Or
 </code>
 </a>
 </td>
+<td style="text-align: left">Expand axis entries (e.g., 
+<code>/ gene &amp; marker │ noisy
+</code>).
+</td>
 </tr>
 <tr>
-<td style="text-align: left">`
-</td>
-<td style="text-align: center">!`
-</td>
 <td style="text-align: left">
+<code>│!
+</code>
+</td>
+<td style="text-align: center">
 <a href="queries.html#Daf.Queries.OrNot">
 <code>OrNot
 </code>
 </a>
+</td>
+<td style="text-align: left">Expand axis entries (e.g., 
+<code>/ gene &amp; marker │! noisy
+</code>).
 </td>
 </tr>
 <tr>
@@ -1222,8 +1090,24 @@
 </td>
 </tr>
 </table>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>Due to Julia&#39;s Documenter limitations, the ASCII 
+<code>|
+</code> character (
+<code>&amp;#124;
+</code>) is replaced by the Unicode 
+<code>│
+</code> character (
+<code>&amp;#9474;
+</code>) in the above table. Sigh.
+</p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L405-L445">source
+</div>
+</div>
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L405-L450">source
 </a>
 </section>
 </article>
@@ -1297,7 +1181,7 @@
 </li>
 </ul>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L117-L131">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L117-L131">source
 </a>
 </section>
 </article>
@@ -1365,7 +1249,7 @@
 </code> will compute the absolute value of the log base 2 of the mean age of all the donors).
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L134-L155">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L134-L155">source
 </a>
 </section>
 </article>
@@ -1423,7 +1307,7 @@
 </a> allows for more complex operations.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L158-L169">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L158-L169">source
 </a>
 </section>
 </article>
@@ -1461,7 +1345,7 @@
 </code> will return whether the FOX1 gene is a marker gene).
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L172-L177">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L172-L177">source
 </a>
 </section>
 </article>
@@ -1507,7 +1391,7 @@
 </code> will return the number of UMIs of the FOX1 gene of the ATGC cell).
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L180-L185">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L180-L185">source
 </a>
 </section>
 </article>
@@ -1545,7 +1429,7 @@
 </code> will return zero if there are no cells whose type is LMPP).
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L188-L197">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L188-L197">source
 </a>
 </section>
 </article>
@@ -1607,7 +1491,7 @@
 </code> will compute the log base 2 of one plus the of the UMIs of each gene in each cell).
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L200-L218">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L200-L218">source
 </a>
 </section>
 </article>
@@ -1651,7 +1535,7 @@
 </code> will return the age of the donor of the batch of each cell).
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L221-L228">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L221-L228">source
 </a>
 </section>
 </article>
@@ -1743,7 +1627,7 @@
 </code> will return a matrix whose rows are donors and columns are types, counting the number of cells of each type that were sampled from each donor, ignoring cells which have an empty type or whose batch has an empty donor).
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L231-L253">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L231-L253">source
 </a>
 </section>
 </article>
@@ -1789,7 +1673,7 @@
 </code> will evaluate to a vector of the UMIs of the FOX1 gene of all the cells).
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L256-L261">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L256-L261">source
 </a>
 </section>
 </article>
@@ -1835,7 +1719,7 @@
 </code> will evaluate to a vector of the UMIs of all the genes of the ATGC cell).
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L264-L269">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L264-L269">source
 </a>
 </section>
 </article>
@@ -1869,7 +1753,7 @@
 </code> will evaluate to a vector of the total UMIs of each cell).
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L272-L278">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L272-L278">source
 </a>
 </section>
 </article>
@@ -1923,7 +1807,7 @@
 </code> will compute the log base 2 of 1 plus the UMIs of each gene in each cell).
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L281-L294">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L281-L294">source
 </a>
 </section>
 </article>
@@ -1971,7 +1855,7 @@
 </code> will return a matrix of the UMIs of each marker gene in cells whose type is LMPP).
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L297-L304">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L297-L304">source
 </a>
 </section>
 </article>
@@ -2009,7 +1893,7 @@
 </code> will return a matrix whose rows are ages and columns are sexes, where each entry contains the number of cells which have the specific age and sex).
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L307-L313">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L307-L313">source
 </a>
 </section>
 </article>
@@ -2059,7 +1943,7 @@
 </li>
 </ul>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L316-L328">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L316-L328">source
 </a>
 </section>
 </article>
@@ -2121,7 +2005,7 @@
 </code> will compute the mean age for the cells of each type, with a zero value for types for which there are no cells).
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L331-L345">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L331-L345">source
 </a>
 </section>
 </article>
@@ -2163,7 +2047,7 @@
 </code>).
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L348-L355">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L348-L355">source
 </a>
 </section>
 </article>
@@ -2219,7 +2103,7 @@
 </code>, which will include all noisy genes even if they are lateral).
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L358-L366">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L358-L366">source
 </a>
 </section>
 </article>
@@ -2339,7 +2223,7 @@
 </code>.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L369-L402">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L369-L402">source
 </a>
 </section>
 </article>
@@ -2407,7 +2291,7 @@
 </code>).
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L1096-L1111">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L1101-L1116">source
 </a>
 </section>
 </article>
@@ -2463,16 +2347,16 @@
 </code>).
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L3462-L3474">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L3468-L3480">source
 </a>
 </section>
 </article>
-<h2 id="Query-Operations">
-<a class="docs-heading-anchor" href="#Query-Operations">Query Operations
+<h2 id="Query-Operators">
+<a class="docs-heading-anchor" href="#Query-Operators">Query Operators
 </a>
-<a id="Query-Operations-1">
+<a id="Query-Operators-1">
 </a>
-<a class="docs-heading-anchor-permalink" href="#Query-Operations" title="Permalink">
+<a class="docs-heading-anchor-permalink" href="#Query-Operators" title="Permalink">
 </a>
 </h2>
 <article class="docstring">
@@ -2501,7 +2385,7 @@
 </a>s.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L634-L638">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L639-L643">source
 </a>
 </section>
 </article>
@@ -2547,7 +2431,7 @@
 </code> will restrict the result vector to cells whose batch has an age larger than 1).
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L945-L957">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L950-L962">source
 </a>
 </section>
 </article>
@@ -2581,7 +2465,7 @@
 </code> operator, followed by the name of an axis property to look up to compute the mask.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L975-L980">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L980-L985">source
 </a>
 </section>
 </article>
@@ -2699,7 +2583,7 @@
 </code> property value of this axis).
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L854-L885">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L859-L890">source
 </a>
 </section>
 </article>
@@ -2801,7 +2685,7 @@
 </div>
 </div>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L903-L920">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L908-L925">source
 </a>
 </section>
 </article>
@@ -2859,7 +2743,7 @@
 </code> will generate a matrix whose columns correspond to batches and whose rows are the fraction of the cells from each type within each batch).
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L1282-L1306">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L1287-L1311">source
 </a>
 </section>
 </article>
@@ -2947,7 +2831,7 @@
 </code> will assign a zero age for cells which have an empty batch).
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L753-L777">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L758-L782">source
 </a>
 </section>
 </article>
@@ -3007,7 +2891,7 @@
 </code> will succeed, assigning a value of zero for types which have no cells associated with them).
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L1316-L1337">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L1321-L1342">source
 </a>
 </section>
 </article>
@@ -3051,7 +2935,7 @@
 </code>.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L787-L796">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L792-L801">source
 </a>
 </section>
 </article>
@@ -3103,7 +2987,7 @@
 </code>, then it is automatically converted to the data type of the elements of the results vector.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L819-L835">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L824-L840">source
 </a>
 </section>
 </article>
@@ -3149,7 +3033,7 @@
 </li>
 </ul>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L1164-L1173">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L1169-L1178">source
 </a>
 </section>
 </article>
@@ -3181,7 +3065,7 @@
 </code> for the comparison.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L1207-L1211">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L1212-L1216">source
 </a>
 </section>
 </article>
@@ -3213,7 +3097,7 @@
 </code> for the comparison.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L1224-L1228">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L1229-L1233">source
 </a>
 </section>
 </article>
@@ -3247,7 +3131,7 @@
 </code> will restrict the result vector only to cells whose probability is less than half).
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L1122-L1130">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L1127-L1135">source
 </a>
 </section>
 </article>
@@ -3279,7 +3163,7 @@
 </code> for the comparison.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L1143-L1147">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L1148-L1152">source
 </a>
 </section>
 </article>
@@ -3307,7 +3191,7 @@
 </a> except that the compared values must be strings, and the mask is of the values that match the given regular expression.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L1247-L1252">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L1252-L1257">source
 </a>
 </section>
 </article>
@@ -3339,7 +3223,7 @@
 </code> for the comparison.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L1186-L1190">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L1191-L1195">source
 </a>
 </section>
 </article>
@@ -3367,7 +3251,7 @@
 </a> except that looks for entries that do not match the pattern.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L1265-L1269">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L1270-L1274">source
 </a>
 </section>
 </article>
@@ -3453,7 +3337,7 @@
 </div>
 </div>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L712-L733">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L717-L738">source
 </a>
 </section>
 </article>
@@ -3533,7 +3417,7 @@
 </div>
 </div>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L669-L686">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L674-L691">source
 </a>
 </section>
 </article>
@@ -3575,7 +3459,7 @@
 </code> will restrict the result vector to either marker or noisy genes).
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L998-L1006">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L1003-L1011">source
 </a>
 </section>
 </article>
@@ -3609,7 +3493,7 @@
 </code> operator, followed by the name of an axis property to look up to compute the mask.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L1024-L1029">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L1029-L1034">source
 </a>
 </section>
 </article>
@@ -3651,7 +3535,7 @@
 </code> will restrict the result vector to either marker or noisy genes, but not both).
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L1047-L1055">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L1052-L1060">source
 </a>
 </section>
 </article>
@@ -3685,7 +3569,178 @@
 </code> operator, followed by the name of an axis property to look up to compute the mask.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/9c941987537558637769ef65c05a42ac0220b506/src/queries.jl#L1073-L1078">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L1078-L1083">source
+</a>
+</section>
+</article>
+<h2 id="Additional-Functions">
+<a class="docs-heading-anchor" href="#Additional-Functions">Additional Functions
+</a>
+<a id="Additional-Functions-1">
+</a>
+<a class="docs-heading-anchor-permalink" href="#Additional-Functions" title="Permalink">
+</a>
+</h2>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Queries.query_result_dimensions" href="#Daf.Queries.query_result_dimensions">
+<code>Daf.Queries.query_result_dimensions
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">function query_result_dimensions(query::Union{Query, AbstractString})::Int
+</code>
+</pre>
+<p>Return the number of dimensions (-1 - names, 0 - scalar, 1 - vector, 2 - matrix) of the results of a query. This also verifies the query is syntactically valid, though it may still fail if applied to specific data due to invalid data values or types.
+</p>
+</div>
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L1567-L1573">source
+</a>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Data.empty_cache!" href="#Daf.Data.empty_cache!">
+<code>Daf.Data.empty_cache!
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">empty_cache!(
+    daf::DafReader;
+    [clear::Maybe{CacheType} = nothing,
+    keep::Maybe{CacheType} = nothing]
+)::Nothing
+</code>
+</pre>
+<p>Clear some cached data. By default, completely empties the caches. You can specify either 
+<code>clear
+</code>, to only forget a specific 
+<a href="formats.html#Daf.Formats.CacheType">
+<code>CacheType
+</code>
+</a> (e.g., for clearing only 
+<code>QueryData
+</code>), or 
+<code>keep
+</code>, to forget everything except a specific 
+<a href="formats.html#Daf.Formats.CacheType">
+<code>CacheType
+</code>
+</a> (e.g., for keeping only 
+<code>MappedData
+</code>). You can&#39;t specify both 
+<code>clear
+</code> and 
+<code>keep
+</code>.
+</p>
+</div>
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/data.jl#L1698-L1708">source
+</a>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Queries.get_frame" href="#Daf.Queries.get_frame">
+<code>Daf.Queries.get_frame
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">function get_frame(
+    daf::DafReader,
+    axis::Union{Query, AbstractString},
+    [columns::Maybe{Union{AbstractStringVector, QueryColumns}} = nothing,
+    cache::Bool = true]
+)::DataFrame end
+</code>
+</pre>
+<p>Return a 
+<code>DataFrame
+</code> containing multiple vectors of the same 
+<code>axis
+</code>.
+</p>
+<p>The 
+<code>axis
+</code> can be either just the name of an axis (e.g., 
+<code>&quot;cell&quot;
+</code>), or a query for the axis (e.g., 
+<code>q&quot;/ cell&quot;
+</code>), possibly using a mask (e.g., 
+<code>q&quot;/ cell &amp; age &gt; 1&quot;
+</code>). The result of the query must be a vector of unique axis entry names.
+</p>
+<p>If 
+<code>columns
+</code> is not specified, the data frame will contain all the vector properties of the axis, in alphabetical order (since 
+<code>DataFrame
+</code> has no concept of named rows, the 1st column will contain the name of the axis entry). Otherwise, 
+<code>columns
+</code> may be a vector of names of vector properties (e.g., 
+<code>[&quot;batch&quot;, &quot;age&quot;]
+</code>), or a vector of pairs mapping a column name to a query suffix (e.g., 
+<code>[&quot;color&quot; =&gt; q&quot;: type =&gt; color&quot;]
+</code>). This suffix is applied to the 
+<code>axis
+</code> query (e.g., if the 
+<code>axis
+</code> is masked as above, the full query for the 
+<code>color
+</code> column would be 
+<code>q&quot;/ cell &amp; age &gt; 1 : type =&gt; color
+</code>). The result of the full query must be a vector.
+</p>
+<p>By default, this will cache results of all queries. This may consume a large amount of memory. You can disable it by specifying 
+<code>cache = false
+</code>, or release the cached data using 
+<a href="queries.html#Daf.Data.empty_cache!">
+<code>empty_cache!
+</code>
+</a>.
+</p>
+</div>
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L3548-L3571">source
+</a>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Queries.QueryColumns" href="#Daf.Queries.QueryColumns">
+<code>Daf.Queries.QueryColumns
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</header>
+<section>
+<div>
+<p>Specify columns for a data frame. This is a vector of pairs, where the key is the column name, and the value is a query that computes the data of the column.
+</p>
+</div>
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/efb806f8b6941b1eded506c246667b3658de6e07/src/queries.jl#L3542-L3545">source
 </a>
 </section>
 </article>
