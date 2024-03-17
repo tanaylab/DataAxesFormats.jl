@@ -537,8 +537,8 @@ end
         [overwrite::Bool = false]
     )::Any where {T <: StorageNumber, I <: StorageInteger}
 
-Create an empty sparse vector property with some `name` for some `axis` in `daf`, pass its parts to `fill` and return
-the result.
+Create an empty sparse vector property with some `name` for some `axis` in `daf`, pass its parts (`nzind` and `nzval`)
+to `fill`, and return the result.
 
 The returned vector will be uninitialized; the caller is expected to `fill` its `nzind` and `nzval` vectors with values.
 Specifying the `nnz` makes their sizes known in advance, to allow pre-allocating disk data. For this reason, this does
@@ -960,7 +960,7 @@ end
     )::Any where {T <: StorageNumber, I <: StorageInteger}
 
 Create an empty sparse matrix property with some `name` for some `rows_axis` and `columns_axis` in `daf`, pass its parts
-to `fill`, and return the result.
+(`colptr`, `rowval` and `nzval`) to `fill`, and return the result.
 
 The returned matrix will be uninitialized; the caller is expected to `fill` its `colptr`, `rowval` and `nzval` vectors.
 Specifying the `nnz` makes their sizes known in advance, to allow pre-allocating disk space. For this reason, this does
