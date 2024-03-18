@@ -201,7 +201,7 @@ function get_scalar(
             return default
         end
 
-        result = Formats.format_get_scalar(daf, name)
+        result = Formats.get_scalar_through_cache(daf, name)
         @debug "get_scalar $(daf.name) : $(name) -> $(describe(result))"
         return result
     end

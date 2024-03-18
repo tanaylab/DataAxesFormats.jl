@@ -635,7 +635,7 @@ function get_matrix_names_through_cache(
     end
 end
 
-function get_scalar_through_cache(format::FormatReader, name::AbstractString)::StorageScalar  # untested
+function get_scalar_through_cache(format::FormatReader, name::AbstractString)::StorageScalar
     return get_through_cache(format, scalar_cache_key(name), StorageScalar) do
         return format_get_scalar(format, name)
     end
