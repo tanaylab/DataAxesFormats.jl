@@ -770,20 +770,11 @@ function vector_names_cache_key(axis::AbstractString)::String
 end
 
 function matrix_names_cache_key(rows_axis::AbstractString, columns_axis::AbstractString)::String
-    return "? / $(rows_axis) / $(columns_axis)" # TRICKY: NOT the query key, which uses the union.
+    return "? / $(rows_axis) / $(columns_axis)" # TRICKY: NOT the query key, which returns the union.
 end
 
-function matrix_relayout_names_cache_keys(
-    rows_axis::AbstractString,
-    columns_axis::AbstractString,
-)::Union{Tuple{String}, Tuple{String, String}}
-    first_key = "/ $(rows_axis) / $(columns_axis) ?"
-    if rows_axis == columns_axis
-        return (first_key,)
-    else
-        second_key = "/ $(columns_axis) / $(rows_axis) ?"
-        return (first_key, second_key)
-    end
+function matrix_relayout_names_cache_key(rows_axis::AbstractString, columns_axis::AbstractString)::String
+    return "/ $(rows_axis) / $(columns_axis) ?"  # TRICKY: The query key, which returns the union.
 end
 
 function scalar_cache_key(name::AbstractString)::String
