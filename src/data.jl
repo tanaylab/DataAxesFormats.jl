@@ -1546,18 +1546,19 @@ end
     description(daf::DafReader[; deep::Bool = false])::AbstractString
 
 Return a (multi-line) description of the contents of `daf`. This tries to hit a sweet spot between usefulness and
-terseness. If `deep`, also describes any data set nested inside this one (if any).
+terseness. If `cache`, also describes the content of the cache. If `deep`, also describes any data set nested inside
+this one (if any).
 """
-function description(daf::DafReader; deep::Bool = false)::String
+function description(daf::DafReader; cache::Bool = false, deep::Bool = false)::String
     return with_read_lock(daf) do
         lines = String[]
-        description(daf, "", lines, deep)
+        description(daf, "", lines, cache, deep)
         push!(lines, "")
         return join(lines, "\n")
     end
 end
 
-function description(daf::DafReader, indent::AbstractString, lines::Vector{String}, deep::Bool)::Nothing
+function description(daf::DafReader, indent::AbstractString, lines::Vector{String}, cache::Bool, deep::Bool)::Nothing
     if indent == ""
         push!(lines, "$(indent)name: $(daf.name)")
     else
@@ -1574,10 +1575,12 @@ function description(daf::DafReader, indent::AbstractString, lines::Vector{Strin
         axes_description(daf, axes, indent, lines)
         vectors_description(daf, axes, indent, lines)
         matrices_description(daf, axes, indent, lines)
-        cache_description(daf, axes, indent, lines)
+        if cache
+            cache_description(daf, axes, indent, lines)
+        end
     end
 
-    Formats.format_description_footer(daf, indent, lines, deep)
+    Formats.format_description_footer(daf, indent, lines, cache, deep)
     return nothing
 end
 

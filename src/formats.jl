@@ -584,6 +584,7 @@ function format_description_footer(
     format::FormatReader,
     indent::AbstractString,
     lines::Vector{String},
+    cache::Bool,
     deep::Bool,
 )::Nothing
     return nothing

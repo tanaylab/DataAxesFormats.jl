@@ -515,12 +515,13 @@ function Formats.format_description_footer(
     chain::AnyChain,
     indent::AbstractString,
     lines::Vector{String},
+    cache::Bool,
     deep::Bool,
 )::Nothing
     if deep
         push!(lines, "$(indent)chain:")
         for daf in chain.dafs
-            description(daf, indent * "  ", lines, deep)
+            description(daf, indent * "  ", lines, cache, deep)
         end
     end
     return nothing

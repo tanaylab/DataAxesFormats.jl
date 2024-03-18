@@ -4,13 +4,7 @@ function test_description(
     kind::String = "ReadOnly ",
     name::String = "example!",
 )::Nothing
-    if cache == ""
-        suffix = "\n"
-    else
-        suffix = "\n" * cache * "\n"
-    end
-
-    @test description(daf) == dedent("""
+    prefix = dedent("""
         name: $(name)
         type: $(kind)MemoryDaf
         scalars:
@@ -42,11 +36,12 @@ function test_description(
             UMIs: 20 x 10 x Int16 in Columns (Dense)
           gene,cell:
             UMIs: 10 x 20 x Int16 in Columns (Dense)
-    """) * suffix
+    """) * "\n"
+
+    @test description(daf) == prefix
 
     if cache != ""
-        empty_cache!(daf)
-        test_description(daf)
+        @test description(daf; cache = true) == prefix * cache * "\n"
     end
 
     return nothing
