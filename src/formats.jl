@@ -40,6 +40,7 @@ export DataKey
 export MappedData
 export MemoryData
 export QueryData
+export end_write_lock
 
 using Base.Threads
 using ConcurrentUtils
@@ -876,11 +877,30 @@ function with_write_lock(action::Function, format::FormatReader)::Any
         format.internal.writer_thread[1] = thread_id
         return action()
     finally
-        @assert !format.internal.thread_has_read_lock[thread_id]
-        @assert format.internal.writer_thread[1] == thread_id
-        format.internal.writer_thread[1] = 0
-        unlock(format.internal.lock)
+        end_write_lock(format)
     end
+end
+
+function begin_write_lock(action::Function, format::FormatReader)::Any
+    thread_id = threadid()
+    @assert format.internal.writer_thread[1] != thread_id
+
+    lock(format.internal.lock)
+    try
+        format.internal.writer_thread[1] = thread_id
+        return action()
+    catch
+        end_write_lock(format)
+        rethrow()
+    end
+end
+
+function end_write_lock(format::FormatReader)::Any
+    thread_id = threadid()
+    @assert !format.internal.thread_has_read_lock[thread_id]
+    @assert format.internal.writer_thread[1] == thread_id
+    format.internal.writer_thread[1] = 0
+    return unlock(format.internal.lock)
 end
 
 function with_read_lock(action::Function, format::FormatReader)::Any

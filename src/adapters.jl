@@ -9,7 +9,9 @@ using Daf.Chains
 using Daf.Computations
 using Daf.Contracts
 using Daf.Copies
+using Daf.Copies
 using Daf.Generic
+using Daf.Formats
 using Daf.MemoryFormat
 using Daf.StorageTypes
 using Daf.Queries
@@ -62,10 +64,10 @@ daf = ... # Some input `Daf` data we wish to compute on.
 # under a different name.
 
 result = adapter(
-    "example",              # A name to use to generate the temporary `Daf` data names.
-    view(daf; ...),         # How to view the input in the way expected by the computation.
-    axes = ..., data = ..., # How and what to view the output for copying back into `daf`.
-    empty = ...,            # If the view specifies a subset of some axes.
+    "example",                 # A name to use to generate the temporary `Daf` data names.
+    view(daf; ...),            # How to view the input in the way expected by the computation.
+    axes = ..., data = ...,    # How and what to view the output for copying back into `daf`.
+    empty = ...,               # If the view specifies a subset of some axes.
 ) do adapted                   # The writable adapted data we can pass to the computation.
     computation(adapted, ...)  # Actually do the computation.
     return ...                 # An additional result outside `daf`.
@@ -90,16 +92,52 @@ function adapter(
     relayout::Bool = true,
     overwrite::Bool = false,
 )::Any
+    adapted = get_adapter_input(view; name = name, capture = capture)
+    result = computation(adapted)
+    copy_adapter_output(
+        view,
+        adapted;
+        name = name,
+        axes = axes,
+        data = data,
+        empty = empty,
+        relayout = relayout,
+        overwrite = overwrite,
+    )
+    return result
+end
+
+function get_adapter_input(
+    view::Union{DafView, ReadOnlyView};
+    name::Maybe{AbstractString},
+    capture = MemoryDaf,
+)::DafWriter
     if name == nothing
         prefix = view.name
     else
         prefix = name  # untested
     end
-    input_chain = chain_writer([view, capture(; name = "$(prefix).capture")]; name = "$(prefix).input")
-    result = computation(input_chain)
-    output_chain = viewer(input_chain; name = "$(prefix).output", axes = axes, data = data)
-    copy_all!(; from = output_chain, into = view.daf, empty = empty, relayout = relayout, overwrite = overwrite)
-    return result
+    return chain_writer([view, capture(; name = "$(prefix).capture")]; name = "$(prefix).adapted")
+end
+
+function copy_adapter_output(
+    view::Union{DafView, ReadOnlyView},
+    adapted::DafWriter;
+    name::Maybe{AbstractString},
+    axes::Maybe{ViewAxes},
+    data::Maybe{ViewData},
+    empty::Maybe{EmptyData},
+    relayout::Bool,
+    overwrite::Bool,
+)::Nothing
+    if name == nothing
+        prefix = view.name
+    else
+        prefix = name  # untested
+    end
+    output = viewer(adapted; name = "$(prefix).output", axes = axes, data = data)
+    copy_all!(; from = output, into = view.daf, empty = empty, relayout = relayout, overwrite = overwrite)
+    return nothing
 end
 
 end # module

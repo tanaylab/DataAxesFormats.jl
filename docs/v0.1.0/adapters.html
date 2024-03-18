@@ -239,7 +239,7 @@
 </a>.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/3433a548cc14b7d66c982747b602e0e90daba031/src/adapters.jl#L1-L3">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/f8fbc1582964971daf695103fd5ced0626d4a83e/src/adapters.jl#L1-L3">source
 </a>
 </section>
 </article>
@@ -369,10 +369,10 @@
 # under a different name.
 
 result = adapter(
-    &quot;example&quot;,              # A name to use to generate the temporary `Daf` data names.
-    view(daf; ...),         # How to view the input in the way expected by the computation.
-    axes = ..., data = ..., # How and what to view the output for copying back into `daf`.
-    empty = ...,            # If the view specifies a subset of some axes.
+    &quot;example&quot;,                 # A name to use to generate the temporary `Daf` data names.
+    view(daf; ...),            # How to view the input in the way expected by the computation.
+    axes = ..., data = ...,    # How and what to view the output for copying back into `daf`.
+    empty = ...,               # If the view specifies a subset of some axes.
 ) do adapted                   # The writable adapted data we can pass to the computation.
     computation(adapted, ...)  # Actually do the computation.
     return ...                 # An additional result outside `daf`.
@@ -389,7 +389,7 @@ end
 </a> functions to use clear generic names for their inputs and outputs, and still apply them to arbitrary data sets using more specific names. One can even invoke the same computation with different parameter values, and store the different results in the same data set under different names.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/3433a548cc14b7d66c982747b602e0e90daba031/src/adapters.jl#L19-L81">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/f8fbc1582964971daf695103fd5ced0626d4a83e/src/adapters.jl#L21-L83">source
 </a>
 </section>
 </article>
