@@ -1568,7 +1568,7 @@ function description(daf::DafReader, indent::AbstractString, lines::Vector{Strin
 
     scalars_description(daf, indent, lines)
 
-    axes = collect(Formats.format_axis_names(daf))
+    axes = collect(axis_names(daf))
     sort!(axes)
     if !isempty(axes)
         axes_description(daf, axes, indent, lines)
@@ -1587,7 +1587,7 @@ function scalars_description(daf::DafReader, indent::AbstractString, lines::Vect
         sort!(scalars)
         push!(lines, "$(indent)scalars:")
         for scalar in scalars
-            push!(lines, "$(indent)  $(scalar): $(describe(Formats.format_get_scalar(daf, scalar)))")
+            push!(lines, "$(indent)  $(scalar): $(describe(get_scalar(daf, scalar)))")
         end
     end
     return nothing
@@ -1601,7 +1601,7 @@ function axes_description(
 )::Nothing
     push!(lines, "$(indent)axes:")
     for axis in axes
-        push!(lines, "$(indent)  $(axis): $(Formats.format_axis_length(daf, axis)) entries")
+        push!(lines, "$(indent)  $(axis): $(axis_length(daf, axis)) entries")
     end
     return nothing
 end
@@ -1623,10 +1623,7 @@ function vectors_description(
             sort!(vectors)
             push!(lines, "$(indent)  $(axis):")
             for vector in vectors
-                push!(
-                    lines,
-                    "$(indent)    $(vector): $(describe(base_array(Formats.format_get_vector(daf, axis, vector))))",
-                )
+                push!(lines, "$(indent)    $(vector): $(describe(base_array(get_vector(daf, axis, vector))))")
             end
         end
     end
@@ -1654,7 +1651,7 @@ function matrices_description(
                     push!(
                         lines,
                         "$(indent)    $(matrix): " *
-                        describe(base_array(Formats.format_get_matrix(daf, rows_axis, columns_axis, matrix))),
+                        describe(base_array(get_matrix(daf, rows_axis, columns_axis, matrix; relayout = false))),
                     )
                 end
             end

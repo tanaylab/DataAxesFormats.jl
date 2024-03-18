@@ -715,8 +715,7 @@ function cache_matrix_names!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     names::AbstractStringSet,
-    cache_type::CacheType;
-    relayout::Bool = true,
+    cache_type::CacheType,
 )::Nothing
     cache_key = matrix_names_cache_key(rows_axis, columns_axis)
     cache_data!(format, cache_key, names, cache_type)
