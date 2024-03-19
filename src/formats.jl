@@ -881,6 +881,7 @@ function with_write_lock(action::Function, format::FormatReader)::Any
     end
 end
 
+# For avoiding callbacks when calling Julia from another language.
 function begin_write_lock(action::Function, format::FormatReader)::Any
     thread_id = threadid()
     @assert format.internal.writer_thread[1] != thread_id
@@ -895,6 +896,7 @@ function begin_write_lock(action::Function, format::FormatReader)::Any
     end
 end
 
+# For avoiding callbacks when calling Julia from another language.
 function end_write_lock(format::FormatReader)::Any
     thread_id = threadid()
     @assert !format.internal.thread_has_read_lock[thread_id]

@@ -35,6 +35,7 @@ include("messages.jl")
 @reexport using Daf.Messages
 
 include("registry.jl")
+@reexport using Daf.Registry: EltwiseOperation, ReductionOperation
 
 include("tokens.jl")
 @reexport using Daf.Tokens

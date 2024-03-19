@@ -9,8 +9,6 @@ export AsAxis
 export Axis
 export QueryColumns
 export CountBy
-export EltwiseOperation
-export empty_cache!
 export Fetch
 export get_frame
 export get_query
@@ -34,7 +32,6 @@ export Query
 export query_result_dimensions
 export query_axis_name
 export QuerySequence
-export ReductionOperation
 export Xor
 export XorNot
 
@@ -80,9 +77,10 @@ A query is a description of a (sub-)process for extracting some data from a [`Da
 sequence of [`QueryOperation`](@ref), that when applied one at a time on some [`DafReader`](@ref), result in a scalar,
 vector or matrix result. A single [`Lookup`](@ref) or a single [`Axis`](@ref) are also valid complete queries.
 
-To apply a query, invoke [`get_query`](@ref) to apply a query to some [`DafReader`](@ref) data. By default, query
-operations will cache their results in memory as [`QueryData`](@ref CacheType), to speed up repeated queries. This may
-lock up large amounts of memory; you can [`empty_cache!`](@ref) to release it.
+To apply a query, invoke [`get_query`](@ref) to apply a query to some [`DafReader`](@ref) data (you can also use the
+shorthand ``daf[query]`` instead of ``get_query(daf, query)``). By default, query operations will cache their results in
+memory as [`QueryData`](@ref CacheType), to speed up repeated queries. This may lock up large amounts of memory; you can
+[`empty_cache!`](@ref) to release it.
 
 Queries can be constructed in two ways. In code, a query can be built by chaining query operations (e.g., the expression
 `Axis("gene") |> Lookup("is_marker")` looks up the `is_marker` vector property of the `gene` axis).
@@ -655,6 +653,14 @@ function Base.show(io::IO, query_sequence::QuerySequence)::Nothing
     end
 end
 
+# For avoiding Julia operators when calling Julia from another language.
+function QuerySequence(
+    first::Union{QuerySequence, QueryOperation},
+    second::Union{QuerySequence, QueryOperation},
+)::QuerySequence
+    return first |> second
+end
+
 function Base.:(|>)(first_sequence::QuerySequence, second_sequence::QuerySequence)::QuerySequence
     return QuerySequence((first_sequence.query_operations..., second_sequence.query_operations...))
 end
@@ -715,7 +721,7 @@ function Base.show(io::IO, names::Names)::Nothing
 end
 
 """
-    Lookup(property_name::AbstractString) <: Query
+    Lookup(property::AbstractString) <: Query
 
 A query operation for looking up the value of a property with some name. In a string [`Query`](@ref), this is specified
 using the `:` operator, followed by the property name to look up.
@@ -756,7 +762,7 @@ end
 abstract type ModifierQueryOperation <: QueryOperation end
 
 """
-    Fetch(property_name::AbstractString) <: QueryOperation
+    Fetch(property::AbstractString) <: QueryOperation
 
 A query operation for fetching the value of a property from another axis, based on a vector property whose values are
 entry names of the axis. In a string [`Query`](@ref), this is specified using the `=>` operator, followed by the name to
@@ -792,7 +798,7 @@ end
 """
     IfMissing(value::StorageScalar; dtype::Maybe{Type} = nothing) <: QueryOperation
 
-A query operation providing a value to use if the data is missing some property: In a string [`Query`](@ref), this is
+A query operation providing a value to use if the data is missing some property. In a string [`Query`](@ref), this is
 specified using the `||` operator, followed by the value to use, and optionally followed by the data type of the value
 (e.g., `: score || 1 Float32`).
 
@@ -857,7 +863,7 @@ function Base.show(io::IO, if_not::IfNot)::Nothing
 end
 
 """
-    AsAxis([axis_name::AbstractString = nothing]) <: QueryOperation
+    AsAxis([axis::AbstractString = nothing]) <: QueryOperation
 
 There are three cases where we may want to take a vector property and consider each value to be the name of an entry of
 some axis: [`Fetch`](@ref), [`CountBy`](@ref) and [`GroupBy`](@ref). In a string [`Query`](@ref), this is indicated by
@@ -906,7 +912,7 @@ function Base.show(io::IO, as_axis::AsAxis)::Nothing
 end
 
 """
-    Axis(axis_name::AbstractString) <: QueryOperation
+    Axis(axis::AbstractString) <: QueryOperation
 
 A query operation for specifying a result axis. In a string [`Query`](@ref), this is specified using the `/` operator
 followed by the axis name.
@@ -948,7 +954,7 @@ function Base.show(io::IO, mask_operation::MaskOperation)::Nothing
 end
 
 """
-    And(property_name::AbstractString) <: QueryOperation
+    And(property::AbstractString) <: QueryOperation
 
 A query operation for restricting the set of entries of an [`Axis`](@ref). In a string [`Query`](@ref), this is
 specified using the `&` operator, followed by the name of an axis property to look up to compute the mask.
@@ -978,7 +984,7 @@ function update_axis_mask(
 end
 
 """
-    AndNot(property_name::AbstractString) <: QueryOperation
+    AndNot(property::AbstractString) <: QueryOperation
 
 Same as [`And`](@ref) but use the inverse of the mask. In a string [`Query`](@ref), this is specified using the `&!`
 operator, followed by the name of an axis property to look up to compute the mask.
@@ -1001,7 +1007,7 @@ function update_axis_mask(
 end
 
 """
-    Or(property_name::AbstractString) <: QueryOperation
+    Or(property::AbstractString) <: QueryOperation
 
 A query operation for expanding the set of entries of an [`Axis`](@ref). In a string [`Query`](@ref), this is specified
 using the `|` operator, followed by the name of an axis property to look up to compute the mask.
@@ -1027,7 +1033,7 @@ function update_axis_mask(
 end
 
 """
-    OrNot(property_name::AbstractString) <: QueryOperation
+    OrNot(property::AbstractString) <: QueryOperation
 
 Same as [`Or`](@ref) but use the inverse of the mask. In a string [`Query`](@ref), this is specified using the `|!`
 operator, followed by the name of an axis property to look up to compute the mask.
@@ -1050,7 +1056,7 @@ function update_axis_mask(
 end
 
 """
-    Xor(property_name::AbstractString) <: QueryOperation
+    Xor(property::AbstractString) <: QueryOperation
 
 A query operation for flipping the set of entries of an [`Axis`](@ref). In a string [`Query`](@ref), this is specified
 using the `^` operator, followed by the name of an axis property to look up to compute the mask.
@@ -1076,7 +1082,7 @@ function update_axis_mask(
 end
 
 """
-    XorNot(property_name::AbstractString) <: QueryOperation
+    XorNot(property::AbstractString) <: QueryOperation
 
 Same as [`Xor`](@ref) but use the inverse of the mask. In a string [`Query`](@ref), this is specified using the `^!`
 operator, followed by the name of an axis property to look up to compute the mask.
@@ -1125,7 +1131,7 @@ function Base.show(io::IO, comparison_operation::ComparisonOperation)::Nothing
 end
 
 """
-    IsLess(comparison_value::StorageScalar) <: QueryOperation
+    IsLess(value::StorageScalar) <: QueryOperation
 
 A query operation for converting a vector value to a Boolean mask by comparing it some value. In a string
 [`Query`](@ref), this is specified using the `<` operator, followed by the value to compare with.
@@ -1146,7 +1152,7 @@ function compute_comparison(compared_value::StorageScalar, is_less::IsLess, comp
 end
 
 """
-    IsLessEqual(comparison_value::StorageScalar) <: QueryOperation
+    IsLessEqual(value::StorageScalar) <: QueryOperation
 
 Similar to [`IsLess`](@ref) except that uses `<=` instead of `<` for the comparison.
 """
@@ -1167,7 +1173,7 @@ function compute_comparison(
 end
 
 """
-    IsEqual(comparison_value::StorageScalar) <: QueryOperation
+    IsEqual(value::StorageScalar) <: QueryOperation
 
 Equality is used for two purposes:
 
@@ -1189,7 +1195,7 @@ function compute_comparison(compared_value::StorageScalar, is_equal::IsEqual, co
 end
 
 """
-    IsNotEqual(comparison_value::StorageScalar) <: QueryOperation
+    IsNotEqual(value::StorageScalar) <: QueryOperation
 
 Similar to [`IsLess`](@ref) except that uses `!=` instead of `<` for the comparison.
 """
@@ -1210,7 +1216,7 @@ function compute_comparison(
 end
 
 """
-    IsGreater(comparison_value::StorageScalar) <: QueryOperation
+    IsGreater(value::StorageScalar) <: QueryOperation
 
 Similar to [`IsLess`](@ref) except that uses `>` instead of `<` for the comparison.
 """
@@ -1250,7 +1256,7 @@ end
 abstract type MatchOperation <: ComparisonOperation end
 
 """
-    IsMatch(comparison_value::Union{AbstractString, Regex}) <: QueryOperation
+    IsMatch(value::Union{AbstractString, Regex}) <: QueryOperation
 
 Similar to [`IsLess`](@ref) except that the compared values must be strings, and the mask
 is of the values that match the given regular expression.
@@ -1268,7 +1274,7 @@ function compute_comparison(compared_value::AbstractString, is_match::IsMatch, c
 end
 
 """
-    IsNotMatch(comparison_value::Union{AbstractString, Regex}) <: QueryOperation
+    IsNotMatch(value::Union{AbstractString, Regex}) <: QueryOperation
 
 Similar to [`IsMatch`](@ref) except that looks for entries that do not match the pattern.
 """
@@ -1285,7 +1291,7 @@ function compute_comparison(compared_value::AbstractString, is_not_match::IsNotM
 end
 
 """
-    CountBy(property_name::AbstractString) <: QueryOperation
+    CountBy(property::AbstractString) <: QueryOperation
 
 A query operation that generates a matrix of counts of combinations of pairs of values for the same entries of an axis.
 That is, it follows fetching some vector property, and is followed by fetching a second vector property of the same
@@ -1319,7 +1325,7 @@ function Base.show(io::IO, count_by::CountBy)::Nothing
 end
 
 """
-    GroupBy(property_name::AbstractString) <: QueryOperation
+    GroupBy(property::AbstractString) <: QueryOperation
 
 A query operation that uses a (following) [`ReductionOperation`](@ref) to aggregate the values of each group of values.
 Will fetch the specified `property_name` (possibly followed by additional [`Fetch`](@ref) operations) and use the
@@ -3542,8 +3548,23 @@ end
 """
 Specify columns for a data frame. This is a vector of pairs, where the key is the column name, and the value is a query
 that computes the data of the column.
+
+!!! note
+
+    Due to Julia's type system limitations, there's just no way for the system to enforce the type of the pairs
+    in this vector. That is, what we'd **like** to say is:
+
+        QueryColumns = AbstractVector{Pair{AbstractString, Union{AbstractString, Query}}}
+
+    But what we are **forced** to say is:
+
+        QueryColumns = AbstractVector
+
+    That's **not** a mistake. Even `QueryColumns = AbstractVector{Pair}` fails to work, as do all the (many) possibilities
+    for expressing "this is a vector of pairs where the key or the value can be one of several things" Sigh. Glory to
+    anyone who figures out an incantation that would force the system to perform **any** meaningful type inference here.
 """
-QueryColumns = AbstractVector{Union{Pair{String, String}, Pair{String, Query}}}
+QueryColumns = AbstractVector
 
 """
     function get_frame(
@@ -3573,7 +3594,7 @@ function get_frame(
     daf::DafReader,
     axis::Union{Query, AbstractString},
     columns::Maybe{Union{AbstractStringVector, QueryColumns}} = nothing,
-    cache::Bool = false,
+    cache::Bool = true,
 )::DataFrame
     if axis isa Query
         axis_query = axis

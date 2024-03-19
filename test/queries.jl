@@ -47,7 +47,7 @@ nested_test("queries") do
         end
 
         nested_test("two") do
-            @test string(Axis("cell") |> Lookup("age")) == "/ cell : age"
+            @test string(QuerySequence(Axis("cell"), Lookup("age"))) == "/ cell : age"
         end
 
         nested_test("three") do
@@ -1364,22 +1364,21 @@ nested_test("queries") do
             end
 
             nested_test("queries") do
-                @test "$(get_frame(daf, "cell", QueryColumns(["age" => ": age", "doublet" => ": is_doublet"])))" ==
-                      dedent("""
-    2×2 DataFrame
-     Row │ age    doublet
-         │ Int64  Bool
-    ─────┼────────────────
-       1 │     0     true
-       2 │     1    false
-""")
+                @test "$(get_frame(daf, "cell", ["age" => ": age", "doublet" => ": is_doublet"]))" == dedent("""
+                    2×2 DataFrame
+                     Row │ age    doublet
+                         │ Int64  Bool
+                    ─────┼────────────────
+                       1 │     0     true
+                       2 │     1    false
+                """)
             end
 
             nested_test("!queries") do
                 @test_throws "invalid column query: : age %> Sum\nfor the daf data: memory!" get_frame(
                     daf,
                     "cell",
-                    QueryColumns(["age" => ": age %> Sum", "doublet" => ": is_doublet"]),
+                    ["age" => ": age %> Sum", "doublet" => ": is_doublet"],
                 )
             end
         end
