@@ -1,14 +1,15 @@
 """
-HDF5 storage `Daf` storage format. This is the "native" way to store `Daf` data in HDF5 files. HDF5 files are
-essentially "a filesystem inside a file", with "groups" instead of directories and "datasets" instead of files. This is
-a generic format and there are various specific formats which use specific internal structure to hold some data - for
-example, `h5ad` files have a specific internal structure for representing `AnnData` objects. To represent `Daf` data in
-HDF5 storage, we use the following internal structure (which is **not** compatible with `h5ad`):
+A `Daf` storage format in an HDF5 disk file. This is the "native" way to store `Daf` data in HDF5 files, which can be
+used to contain "anything", as HDF5 is essentially "a filesystem inside a file", with "groups" instead of directories
+and "datasets" instead of files. Therefore HDF5 is very generic, and there are various specific formats which use
+specific internal structure to hold some data in it - for example, `h5ad` files have a specific internal structure for
+representing `AnnData` objects. To represent `Daf` data in HDF5 storage, we use the following internal structure (which
+is **not** compatible with `h5ad`):
 
-  - An HDF5 file may contain `Daf` data directly in the root group, in which case, it is restricted to holding just a
+  - The HDF5 file may contain `Daf` data directly in the root group, in which case, it is restricted to holding just a
     single `Daf` data set. When using such a file, you automatically access the single `Daf` data set contained in it.
     By convention such files are given a `.h5df` suffix.
-  - Alternatively, an HDF5 file may contain `Daf` data inside some arbitrary group, in which case, there's no
+  - Alternatively, the HDF5 file may contain `Daf` data inside some arbitrary group, in which case, there's no
     restriction on the content of other groups in the file. Such groups may contain other `Daf` data (allowing for
     multiple `Daf` data sets in a single file), and/or non-`Daf` data. When using such a file, you need to specify the
     name of the group that contains the `Daf` data set you are interested it. By convention, at least if such files
