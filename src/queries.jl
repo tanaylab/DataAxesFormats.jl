@@ -2362,7 +2362,7 @@ function entry_scalar_value(
         scalar_value = next_named_vector.array[entry_fetch_state.axis_entry_index]
 
     else
-        @assert previous_scalar_value isa String
+        @assert previous_scalar_value isa AbstractString
         @assert previous_scalar_value != ""
 
         index_in_fetched = get(next_named_vector.dicts[1], previous_scalar_value, nothing)
@@ -2490,7 +2490,7 @@ function fetch_second_named_vector(
     next_named_vector::Maybe{NamedVector},
     if_missing_value::Union{UndefInitializer, StorageScalar},
 )::StorageVector
-    @assert eltype(previous_named_vector) == String
+    @assert eltype(previous_named_vector) <: AbstractString
 
     axis_mask = vector_fetch_state.common.axis_state.axis_modifier
     vector_fetch_state.may_modify_named_vector = true
@@ -2606,7 +2606,7 @@ function verify_fetched_values(
     if_not_values::Maybe{Vector{Maybe{IfNot}}},
     as_axis::Maybe{AsAxis},
 )::Nothing
-    @assert eltype(fetched_values) == String
+    @assert eltype(fetched_values) <: AbstractString
     for index in 1:length(fetched_values)
         if if_not_values == nothing || if_not_values[index] == nothing
             fetched_value = fetched_values[index]
@@ -2771,7 +2771,7 @@ function apply_mask_to_axis_state(
     mask_operation::MaskOperation,
 )::Nothing
     mask_vector = mask_state.named_vector.array
-    if eltype(mask_vector) == String
+    if eltype(mask_vector) <: AbstractString
         mask_vector = mask_vector .!= ""
     elseif eltype(mask_vector) != Bool
         mask_vector = mask_vector .!= 0
@@ -3622,7 +3622,7 @@ function get_frame(
         columns = [column => Lookup(column) for column in columns]
     end
 
-    data = Vector{Pair{String, StorageVector}}()
+    data = Vector{Pair{AbstractString, StorageVector}}()
     for (column_name, column_query) in columns
         if column_query isa AbstractString
             column_query = Query(column_query)
