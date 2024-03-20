@@ -3570,7 +3570,7 @@ QueryColumns = AbstractVector
     function get_frame(
         daf::DafReader,
         axis::Union{Query, AbstractString},
-        [columns::Maybe{Union{AbstractStringVector, QueryColumns}} = nothing,
+        [columns::Maybe{Union{AbstractStringVector, QueryColumns}} = nothing;
         cache::Bool = true]
     )::DataFrame end
 
@@ -3593,7 +3593,7 @@ specifying `cache = false`, or release the cached data using [`empty_cache!`](@r
 function get_frame(
     daf::DafReader,
     axis::Union{Query, AbstractString},
-    columns::Maybe{Union{AbstractStringVector, QueryColumns}} = nothing,
+    columns::Maybe{Union{AbstractStringVector, QueryColumns}} = nothing;
     cache::Bool = true,
 )::DataFrame
     if axis isa Query
