@@ -3430,7 +3430,7 @@ function reduce_matrix(query_state::QueryState, reduction_operation::ReductionOp
     @assert matrix_state isa MatrixState
 
     named_matrix = matrix_state.named_matrix
-    vector_value = compute_reduction(reduction_operation, named_matrix)
+    vector_value = compute_reduction(reduction_operation, named_matrix.array)
     named_vector = NamedArray(vector_value, named_matrix.dicts[2:2], named_matrix.dimnames[2:2])
 
     vector_state = VectorState(

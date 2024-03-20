@@ -386,12 +386,12 @@ nested_test("operations") do
         nested_test("var") do
             nested_test("vector") do
                 set_vector!(daf, "cell", "value", [1, 3])
-                @test with_type(daf[Axis("cell") |> Lookup("value") |> Var()]) == (2, Float64)
+                @test with_type(daf[Axis("cell") |> Lookup("value") |> Var()]) == (1, Float64)
             end
 
             nested_test("matrix") do
                 set_matrix!(daf, "cell", "gene", "value", [1.0 2.0 2.0; -3.0 1.0 6.0])
-                @test with_type(daf["/ cell / gene : value %> Var dtype Float32"]) == ([8.0, 0.5, 8.0], Float32)
+                @test with_type(daf["/ cell / gene : value %> Var dtype Float32"]) == ([4.0, 0.25, 4.0], Float32)
             end
         end
 
@@ -409,25 +409,24 @@ nested_test("operations") do
 
             nested_test("vector") do
                 set_vector!(daf, "cell", "value", [1, 3])
-                @test with_type(daf[Axis("cell") |> Lookup("value") |> VarN()]) == (1, Float64)
+                @test with_type(daf[Axis("cell") |> Lookup("value") |> VarN()]) == (0.5, Float64)
             end
 
             nested_test("matrix") do
                 set_matrix!(daf, "cell", "gene", "value", [1.0 3.0 2.0; -3.0 9.0 6.0])
-                @test with_type(daf["/ cell / gene : value %> VarN dtype Float32 eps 0"]) == ([-8.0, 3.0, 2.0], Float32)
+                @test with_type(daf["/ cell / gene : value %> VarN dtype Float32 eps 0"]) == ([-4.0, 1.5, 1.0], Float32)
             end
         end
 
         nested_test("std") do
             nested_test("vector") do
                 set_vector!(daf, "cell", "value", [1, 3])
-                @test with_type(daf[Axis("cell") |> Lookup("value") |> Std()]) == (sqrt(2), Float64)
+                @test with_type(daf[Axis("cell") |> Lookup("value") |> Std()]) == (1, Float64)
             end
 
             nested_test("matrix") do
                 set_matrix!(daf, "cell", "gene", "value", [-1.0 2.0 4.0; -3.0 6.0 12.0])
-                @test with_type(daf["/ cell / gene : value %> Std dtype Float32"]) ==
-                      (Float32[sqrt(2), sqrt(8.0), sqrt(32.0)], Float32)
+                @test with_type(daf["/ cell / gene : value %> Std dtype Float32"]) == (Float32[1.0, 2.0, 4.0], Float32)
             end
         end
 
@@ -445,13 +444,13 @@ nested_test("operations") do
 
             nested_test("vector") do
                 set_vector!(daf, "cell", "value", [1, 3])
-                @test with_type(daf[Axis("cell") |> Lookup("value") |> StdN()]) == (sqrt(0.5), Float64)
+                @test with_type(daf[Axis("cell") |> Lookup("value") |> StdN()]) == (0.5, Float64)
             end
 
             nested_test("matrix") do
                 set_matrix!(daf, "cell", "gene", "value", [-1.0 2.0 4.0; -3.0 6.0 12.0])
                 @test with_type(daf["/ cell / gene : value %> StdN dtype Float32 eps 0"]) ==
-                      (Float32[-sqrt(2) / 2, sqrt(8.0) / 4, sqrt(32.0) / 8], Float32)
+                      (Float32[-0.5, 0.5, 0.5], Float32)
             end
         end
     end

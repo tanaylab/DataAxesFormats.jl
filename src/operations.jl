@@ -1022,7 +1022,7 @@ end
 """
     Var(; dtype::Maybe{Type} = nothing)
 
-Reduction operation that returns the variance of the values.
+Reduction operation that returns the (uncorrected) variance of the values.
 
 **Parameters**
 
@@ -1046,12 +1046,12 @@ end
 
 function compute_reduction(operation::Var, input::StorageMatrix{T})::StorageVector where {T <: StorageNumber}
     dtype = reduction_result_type(operation, eltype(input))
-    return convert(AbstractVector{dtype}, vec(var(input; dims = 1)))
+    return convert(AbstractVector{dtype}, vec(var(input; dims = 1, corrected = false)))
 end
 
 function compute_reduction(operation::Var, input::StorageVector{T})::StorageNumber where {T <: StorageNumber}
     dtype = reduction_result_type(operation, eltype(input))
-    return dtype(var(input))
+    return dtype(var(input; corrected = false))
 end
 
 function reduction_result_type(operation::Var, eltype::Type)::Type
@@ -1061,7 +1061,8 @@ end
 """
     VarN(; dtype::Maybe{Type} = nothing, eps::StorageNumber = 0.0)
 
-Reduction operation that returns the variance of the values, normalized (divided) by the mean of the values.
+Reduction operation that returns the (uncorrected) variance of the values, normalized (divided) by the mean of the
+values.
 
 **Parameters**
 
@@ -1095,7 +1096,7 @@ end
 
 function compute_reduction(operation::VarN, input::StorageMatrix{T})::StorageVector where {T <: StorageNumber}
     dtype = reduction_result_type(operation, eltype(input))
-    vars = convert(AbstractVector{dtype}, vec(var(input; dims = 1)))
+    vars = convert(AbstractVector{dtype}, vec(var(input; dims = 1, corrected = false)))
     means = convert(AbstractVector{dtype}, vec(mean(input; dims = 1)))
     means .+= operation.eps
     vars ./= means
@@ -1104,7 +1105,7 @@ end
 
 function compute_reduction(operation::VarN, input::StorageVector{T})::StorageNumber where {T <: StorageNumber}
     dtype = reduction_result_type(operation, eltype(input))
-    return dtype(var(input)) / dtype((Float64(mean(input)) + operation.eps))
+    return dtype(var(input; corrected = false)) / dtype((Float64(mean(input)) + operation.eps))
 end
 
 function reduction_result_type(operation::VarN, eltype::Type)::Type
@@ -1114,7 +1115,7 @@ end
 """
     Std(; dtype::Maybe{Type} = nothing)
 
-Reduction operation that returns the standard deviation of the values.
+Reduction operation that returns the (uncorrected) standard deviation of the values.
 
 **Parameters**
 
@@ -1138,12 +1139,12 @@ end
 
 function compute_reduction(operation::Std, input::StorageMatrix{T})::StorageVector where {T <: StorageNumber}
     dtype = reduction_result_type(operation, eltype(input))
-    return convert(AbstractVector{dtype}, vec(std(input; dims = 1)))
+    return convert(AbstractVector{dtype}, vec(std(input; dims = 1, corrected = false)))
 end
 
 function compute_reduction(operation::Std, input::StorageVector{T})::StorageNumber where {T <: StorageNumber}
     dtype = reduction_result_type(operation, eltype(input))
-    return dtype(std(input))
+    return dtype(std(input; corrected = false))
 end
 
 function reduction_result_type(operation::Std, eltype::Type)::Type
@@ -1153,7 +1154,8 @@ end
 """
     StdN(; dtype::Maybe{Type} = nothing, eps::StorageNumber = 0)
 
-Reduction operation that returns the standard deviation of the values, normalized (divided) by the mean value.
+Reduction operation that returns the (uncorrected) standard deviation of the values, normalized (divided) by the mean
+value.
 
 **Parameters**
 
@@ -1187,7 +1189,7 @@ end
 
 function compute_reduction(operation::StdN, input::StorageMatrix{T})::StorageVector where {T <: StorageNumber}
     dtype = reduction_result_type(operation, eltype(input))
-    stds = convert(AbstractVector{dtype}, vec(std(input; dims = 1)))
+    stds = convert(AbstractVector{dtype}, vec(std(input; dims = 1, corrected = false)))
     means = convert(AbstractVector{dtype}, vec(mean(input; dims = 1)))
     means .+= operation.eps
     stds ./= means
@@ -1196,7 +1198,7 @@ end
 
 function compute_reduction(operation::StdN, input::StorageVector{T})::StorageNumber where {T <: StorageNumber}
     dtype = reduction_result_type(operation, eltype(input))
-    return dtype(std(input)) / dtype(mean(input) + operation.eps)
+    return dtype(std(input; corrected = false)) / dtype(mean(input) + operation.eps)
 end
 
 function reduction_result_type(operation::StdN, eltype::Type)::Type
