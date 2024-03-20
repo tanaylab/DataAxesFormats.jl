@@ -297,8 +297,8 @@ MATRIX_QUERY = nothing
 
 Lookup the values of some matrix property (e.g., `/ gene / cell : UMIs` will return the matrix of UMIs of each gene in
 each cell). This can be restricted to a subset of the vector using masks (e.g.,
-`/ gene & is_marker / cell & type = LMPP : UMIs` will return a matrix of the UMIs of each marker gene in cells
-whose type is LMPP).
+`/ gene & is_marker / cell & type = LMPP : UMIs` will return a matrix of the UMIs of each marker gene in cells whose
+type is LMPP).
 """
 MATRIX_LOOKUP = nothing
 
@@ -425,18 +425,18 @@ Operators used to represent a [`Query`](@ref) as a string.
 | `*`      | [`CountBy`](@ref)            | Compute counts matrix (e.g., `/ cell : age * type`).                                     |
 | `@`      | [`GroupBy`](@ref)            | 1. Aggregate vector entries by a group (e.g., `/ cell : age @ type %> Mean`).            |
 |          |                              | 2. Aggregate matrix row entries by a group (e.g.,`/ cell / gene : UMIs @ type %> Max`).  |
-| `&`      | [`And`](@ref)                | Restrict axis entries (e.g., `/ gene & marker`).                                         |
-| `&!`     | [`AndNot`](@ref)             | Restrict axis entries (e.g., `/ gene &! marker`).                                        |
-| `│`      | [`Or`](@ref)                 | Expand axis entries (e.g., `/ gene & marker │ noisy`).                                   |
-| `│!`     | [`OrNot`](@ref)              | Expand axis entries (e.g., `/ gene & marker │! noisy`).                                  |
-| `^`      | [`Xor`](@ref)                | Flip axis entries (e.g., `/ gene & marker ^ noisy`).                                     |
-| `^!`     | [`XorNot`](@ref)             | Flip axis entries (e.g., `/ gene & marker ^! noisy`).                                    |
+| `&`      | [`And`](@ref)                | Restrict axis entries (e.g., `/ gene & is_marker`).                                      |
+| `&!`     | [`AndNot`](@ref)             | Restrict axis entries (e.g., `/ gene &! is_marker`).                                     |
+| `│`      | [`Or`](@ref)                 | Expand axis entries (e.g., `/ gene & is_marker │ is_noisy`).                             |
+| `│!`     | [`OrNot`](@ref)              | Expand axis entries (e.g., `/ gene & is_marker │! is_noisy`).                            |
+| `^`      | [`Xor`](@ref)                | Flip axis entries (e.g., `/ gene & is_marker ^ is_noisy`).                               |
+| `^!`     | [`XorNot`](@ref)             | Flip axis entries (e.g., `/ gene & is_marker ^! is_noisy`).                              |
 | `=`      | [`IsEqual`](@ref)            | 1. Select an entry from an axis (e.g., `/ cell / gene = FOX1 : UMIs`).                   |
 |          |                              | 2. Compare equal (e.g., `/ cell & age = 1`).                                             |
 | `!=`     | [`IsNotEqual`](@ref)         | Compare not equal (e.g., `/ cell & age != 1`).                                           |
 | `<`      | [`IsLess`](@ref)             | Compare less than (e.g., `/ cell & age < 1`).                                            |
 | `<=`     | [`IsLessEqual`](@ref)        | Compare less or equal (e.g., `/ cell & age <= 1`).                                       |
-| `>`      | [`IsGreater`](@ref)          | Compare greater than (e.g., `/ cell & age >= 1`).                                        |
+| `>`      | [`IsGreater`](@ref)          | Compare greater than (e.g., `/ cell & age > 1`).                                         |
 | `>=`     | [`IsGreaterEqual`](@ref)     | Compare greater or equal (e.g., `/ cell & age >= 1`).                                    |
 | `~`      | [`IsMatch`](@ref)            | Compare match (e.g., `/ gene & name ~ RP\\[SL\\]`).                                      |
 | `!~`     | [`IsNotMatch`](@ref)         | Compare not match (e.g., `/ gene & name !~ RP\\[SL\\]`).                                 |
@@ -735,7 +735,7 @@ If the property does not exist, this is an error, unless this is followed by [`I
 
 If any of the axes has a single entry selected using [`IsEqual`]@(ref), this will reduce the dimension of the result
 (e.g., `/ cell / gene = FOX1 : UMIs` is a vector, and both `/ cell = C1 / gene = FOX1 : UMI` and
-`/ gene = FOX1 : marker` are scalars).
+`/ gene = FOX1 : is_marker` are scalars).
 
 !!! note
 
@@ -919,10 +919,10 @@ followed by the axis name.
 
 This needs to be specified at least once for a vector query (e.g., `/ cell : batch`), and twice for a matrix (e.g.,
 `/ cell / gene : UMIs`). Axes can be filtered using Boolean masks using [`And`](@ref), [`AndNot`](@ref), [`Or`](@ref),
-[`OrNot`](@ref), [`Xor`](@ref) and [`XorNot`](@ref) (e.g., `/ gene & marker : noisy`). Alternatively, a single entry can
-be selected from the axis using [`IsEqual`](@ref) (e.g., `/ gene = FOX1 : noisy`, `/ cell / gene = FOX1 : UMIs`,
-`/ cell = C1 / gene = FOX1 : UMIs`). Finally, a matrix can be reduced into a vector, and a vector to a scalar, using
-[`ReductionOperation`](@ref) (e.g., `/ gene / cell : UMIs %> Sum %> Mean`).
+[`OrNot`](@ref), [`Xor`](@ref) and [`XorNot`](@ref) (e.g., `/ gene & is_marker : is_noisy`). Alternatively, a single
+entry can be selected from the axis using [`IsEqual`](@ref) (e.g., `/ gene = FOX1 : is_noisy`,
+`/ cell / gene = FOX1 : UMIs`, `/ cell = C1 / gene = FOX1 : UMIs`). Finally, a matrix can be reduced into a vector, and
+a vector to a scalar, using [`ReductionOperation`](@ref) (e.g., `/ gene / cell : UMIs %> Sum %> Mean`).
 
 !!! note
 
@@ -959,12 +959,12 @@ end
 A query operation for restricting the set of entries of an [`Axis`](@ref). In a string [`Query`](@ref), this is
 specified using the `&` operator, followed by the name of an axis property to look up to compute the mask.
 
-The mask may be just the fetched property (e.g., `/ gene & marker` will restrict the result vector to only marker
+The mask may be just the fetched property (e.g., `/ gene & is_marker` will restrict the result vector to only marker
 genes). If the value of the property is not Boolean, it is automatically compared to `0` or the empty string, depending
 on its type (e.g., `/ cell & type` will restrict the result vector to only cells which were given a non-empty-string
-type annotation). It is also possible to fetch properties from other axes, and use an explicit [`Comparison operators`]
-to compute the Boolean mask (e.g., `/ cell & batch => age > 1` will restrict the result vector to cells whose batch has
-an age larger than 1).
+type annotation). It is also possible to fetch properties from other axes, and use an explicit
+[`ComparisonOperation`](@ref) to compute the Boolean mask (e.g., `/ cell & batch => age > 1` will restrict the result
+vector to cells whose batch has an age larger than 1).
 """
 struct And <: MaskOperation
     property_name::AbstractString
@@ -1012,8 +1012,8 @@ end
 A query operation for expanding the set of entries of an [`Axis`](@ref). In a string [`Query`](@ref), this is specified
 using the `|` operator, followed by the name of an axis property to look up to compute the mask.
 
-This works similarly to [`And`](@ref), except that it adds to the mask (e.g., `/ gene & marker | noisy` will restrict
-the result vector to either marker or noisy genes).
+This works similarly to [`And`](@ref), except that it adds to the mask (e.g., `/ gene & is_marker | is_noisy` will
+restrict the result vector to either marker or noisy genes).
 """
 struct Or <: MaskOperation
     property_name::AbstractString
@@ -1061,8 +1061,8 @@ end
 A query operation for flipping the set of entries of an [`Axis`](@ref). In a string [`Query`](@ref), this is specified
 using the `^` operator, followed by the name of an axis property to look up to compute the mask.
 
-This works similarly to [`Or`](@ref), except that it flips entries in the mask (e.g., `/ gene & marker ^ noisy` will
-restrict the result vector to either marker or noisy genes, but not both).
+This works similarly to [`Or`](@ref), except that it flips entries in the mask (e.g., `/ gene & is_marker ^ is_noisy`
+will restrict the result vector to either marker or noisy genes, but not both).
 """
 struct Xor <: MaskOperation
     property_name::AbstractString

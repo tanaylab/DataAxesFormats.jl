@@ -460,7 +460,7 @@ function compute_eltwise(operation::Round, input::StorageNumber)::StorageNumber
 end
 
 """
-    Clamp([; min::Maybe{Float64} = nothing, max::Maybe{Float64} = nothing])
+    Clamp([; min::Maybe{StorageNumber} = nothing, max::Maybe{StorageNumber} = nothing])
 
 Element-wise operation that converts every element to a value inside a range.
 
@@ -480,9 +480,9 @@ struct Clamp <: EltwiseOperation
 end
 @query_operation Clamp
 
-function Clamp(; min::Float64 = -Inf, max::Float64 = Inf)::Clamp
+function Clamp(; min::StorageNumber = -Inf, max::StorageNumber = Inf)::Clamp
     @assert min < max
-    return Clamp(min, max)
+    return Clamp(Float64(min), Float64(max))
 end
 
 function Clamp(operation_name::Token, parameters_values::Dict{String, Token})::Clamp
@@ -608,7 +608,7 @@ function compute_eltwise(operation::Fraction, input::StorageNumber)::StorageNumb
 end
 
 """
-    Log(; dtype::Maybe{Type} = nothing, base::Float64 = e, eps::Float64 = 0)
+    Log(; dtype::Maybe{Type} = nothing, base::StorageNumber = e, eps::StorageNumber = 0)
 
 Element-wise operation that converts every element to its logarithm.
 
@@ -628,10 +628,10 @@ struct Log <: EltwiseOperation
 end
 @query_operation Log
 
-function Log(; dtype::Maybe{Type} = nothing, base::Float64 = Float64(e), eps::Float64 = 0.0)::Log
+function Log(; dtype::Maybe{Type} = nothing, base::StorageNumber = Float64(e), eps::StorageNumber = 0.0)::Log
     @assert base > 0
     @assert eps >= 0
-    return Log(dtype, base, eps)
+    return Log(dtype, Float64(base), Float64(eps))
 end
 
 function Log(operation_name::Token, parameters_values::Dict{String, Token})::Log
@@ -679,7 +679,7 @@ function compute_eltwise(operation::Log, input::T)::StorageNumber where {T <: St
 end
 
 """
-    Significant(; high::Float64, low::Maybe{Float64} = nothing)
+    Significant(; high::StorageNumber, low::Maybe{StorageNumber} = nothing)
 
 Element-wise operation that zeros all "insignificant" values. Significant values have a high absolute value. This is
 typically used to prune matrices of effect sizes (log of ratio between a baseline and some result) for heatmap display.
@@ -704,14 +704,18 @@ struct Significant <: EltwiseOperation
 end
 @query_operation Significant
 
-function Significant(; dtype::Maybe{Type} = nothing, high::Float64, low::Maybe{Float64} = nothing)::Significant
+function Significant(;
+    dtype::Maybe{Type} = nothing,
+    high::StorageNumber,
+    low::Maybe{StorageNumber} = nothing,
+)::Significant
     if low == nothing
         low = high
     end
     @assert high > 0
-    @assert low > 0
+    @assert low > 0  # NOJET
     @assert low <= high
-    return Significant(high, low)
+    return Significant(Float64(high), Float64(low))  # NOJET
 end
 
 function Significant(operation_name::Token, parameters_values::Dict{String, Token})::Significant
@@ -764,7 +768,11 @@ function compute_eltwise(operation::Significant, input::StorageVector{T})::Spars
     return output
 end
 
-function significant!(vector::StorageVector{T}, high::Float64, low::Float64)::Nothing where {T <: StorageNumber}
+function significant!(
+    vector::StorageVector{T},
+    high::StorageNumber,
+    low::StorageNumber,
+)::Nothing where {T <: StorageNumber}
     high = eltype(vector)(high)
     low = eltype(vector)(low)
     not_high_mask = (-high .< vector) .& (vector .< high)
@@ -914,7 +922,7 @@ function reduction_result_type(operation::Median, eltype::Type)::Type
 end
 
 """
-    Quantile(; dtype::Maybe{Type} = nothing, p::Float64)
+    Quantile(; dtype::Maybe{Type} = nothing, p::StorageNumber)
 
 Reduction operation that returns the quantile value, that is, a value such that a certain fraction of the values is
 lower.
@@ -932,8 +940,8 @@ struct Quantile <: ReductionOperation
 end
 @query_operation Quantile
 
-function Quantile(; dtype::Maybe{Type} = nothing, p::Float64)::Quantile
-    return Quantile(dtype, p)
+function Quantile(; dtype::Maybe{Type} = nothing, p::StorageNumber)::Quantile
+    return Quantile(dtype, Float64(p))
 end
 
 function Quantile(operation_name::Token, parameters_values::Dict{String, Token})::Quantile
@@ -1051,7 +1059,7 @@ function reduction_result_type(operation::Var, eltype::Type)::Type
 end
 
 """
-    VarN(; dtype::Maybe{Type} = nothing, eps::Float64 = 0.0)
+    VarN(; dtype::Maybe{Type} = nothing, eps::StorageNumber = 0.0)
 
 Reduction operation that returns the variance of the values, normalized (divided) by the mean of the values.
 
@@ -1067,7 +1075,7 @@ struct VarN <: ReductionOperation
 end
 @query_operation VarN
 
-function VarN(; dtype::Maybe{Type} = nothing, eps::Float64 = 0.0)::VarN
+function VarN(; dtype::Maybe{Type} = nothing, eps::StorageNumber = 0)::VarN
     return VarN(dtype, eps)
 end
 
@@ -1143,7 +1151,7 @@ function reduction_result_type(operation::Std, eltype::Type)::Type
 end
 
 """
-    StdN(; dtype::Maybe{Type} = nothing, eps::Float64 = 0.0)
+    StdN(; dtype::Maybe{Type} = nothing, eps::StorageNumber = 0)
 
 Reduction operation that returns the standard deviation of the values, normalized (divided) by the mean value.
 
@@ -1159,7 +1167,7 @@ struct StdN <: ReductionOperation
 end
 @query_operation StdN
 
-function StdN(; dtype::Maybe{Type} = nothing, eps::Float64 = 0.0)::StdN
+function StdN(; dtype::Maybe{Type} = nothing, eps::StorageNumber = 0)::StdN
     return StdN(dtype, eps)
 end
 
