@@ -54,7 +54,7 @@ struct WriteChain <: DafWriter
 end
 
 """
-    chain_reader(dafs::Vector{F}; name::Maybe{AbstractString} = nothing)::DafReader where {F <: DafReader}
+    chain_reader(dafs::AbstractVector{F}; name::Maybe{AbstractString} = nothing)::DafReader where {F <: DafReader}
 
 Create a read-only chain wrapper of [`DafReader`](@ref)s, presenting them as a single `DafReader`. When accessing the
 content, the exposed value is that provided by the last data set that contains the data, that is, later data sets can
@@ -66,7 +66,7 @@ identical. This isn't typically created manually; instead call [`chain_reader`](
     While this verifies the axes are consistent at the time of creating the chain, it's no defense against modifying the
     chained data after the fact, creating inconsistent axes. *Don't do that*.
 """
-function chain_reader(dafs::Vector{F}; name::Maybe{AbstractString} = nothing)::DafReader where {F <: DafReader}
+function chain_reader(dafs::AbstractVector{F}; name::Maybe{AbstractString} = nothing)::DafReader where {F <: DafReader}
     if isempty(dafs)
         error("empty chain$(name_suffix(name))")
     end
@@ -85,7 +85,7 @@ function chain_reader(dafs::Vector{F}; name::Maybe{AbstractString} = nothing)::D
 end
 
 """
-    chain_writer(dafs::Vector{F}; name::Maybe{AbstractString} = nothing)::DafWriter where {F <: DafReader}
+    chain_writer(dafs::AbstractVector{F}; name::Maybe{AbstractString} = nothing)::DafWriter where {F <: DafReader}
 
 Create a chain wrapper for a chain of [`DafReader`](@ref) data, presenting them as a single `DafWriter`. This acts
 similarly to [`chain_reader`](@ref), but requires the final entry to be a [`DafWriter`](@ref). Any modifications or
@@ -96,7 +96,7 @@ additions to the chain are directed at this final writer.
     Deletions are only allowed for data that exists only in the final writer. That is, it is impossible to delete from a
     chain something that exists in any of the readers; it is only possible to override it.
 """
-function chain_writer(dafs::Vector{F}; name::Maybe{AbstractString} = nothing)::DafWriter where {F <: DafReader}
+function chain_writer(dafs::AbstractVector{F}; name::Maybe{AbstractString} = nothing)::DafWriter where {F <: DafReader}
     if isempty(dafs)
         error("empty chain$(name_suffix(name))")
     end
@@ -118,7 +118,7 @@ function chain_writer(dafs::Vector{F}; name::Maybe{AbstractString} = nothing)::D
     return WriteChain(reader.internal, reader.dafs, dafs[end])
 end
 
-function reader_internal_dafs(dafs::Vector{F}, name::AbstractString)::Vector{DafReader} where {F}
+function reader_internal_dafs(dafs::AbstractVector{F}, name::AbstractString)::Vector{DafReader} where {F}
     axes_entries = Dict{AbstractString, Tuple{AbstractString, AbstractStringVector}}()
     internal_dafs = Vector{DafReader}()
     for daf in dafs
