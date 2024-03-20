@@ -2189,7 +2189,7 @@ function fetch_property(query_state::QueryState, axis_state::AxisState, fetch_op
         end
         next_named_vector = get_vector(query_state.daf, fetch_axis_name, fetch_property_name; default = default_value)
 
-        if !is_final && next_named_vector != nothing && eltype(next_named_vector) != String
+        if !is_final && next_named_vector != nothing && !(eltype(next_named_vector) <: AbstractString)
             query_state.next_operation_index += 1
             error_at_state(
                 query_state,
