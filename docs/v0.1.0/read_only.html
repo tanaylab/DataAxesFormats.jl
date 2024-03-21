@@ -235,7 +235,7 @@
 </code> storage format.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/318022e458aa3f6125b3ee4a2194226b22d5f6b0/src/read_only.jl#L1-L3">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/05da9f43bcbffcd5ddf0bce84404dede8b76341d/src/read_only.jl#L1-L3">source
 </a>
 </section>
 </article>
@@ -243,8 +243,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.ReadOnly.ReadOnlyView" href="#Daf.ReadOnly.ReadOnlyView">
-<code>Daf.ReadOnly.ReadOnlyView
+<a class="docstring-binding" id="Daf.ReadOnly.DafReadOnly" href="#Daf.ReadOnly.DafReadOnly">
+<code>Daf.ReadOnly.DafReadOnly
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -252,22 +252,14 @@
 </header>
 <section>
 <div>
-<pre>
-<code class="language-julia hljs">struct ReadOnlyView &lt;: DafReader ... end
+<p>A common base type for a read-only 
+<a href="formats.html#Daf.Formats.DafReader">
+<code>DafReader
 </code>
-</pre>
-<p>A wrapper for any 
-<a href="formats.html#Daf.Formats.DafWriter">
-<code>DafWriter
-</code>
-</a> data, protecting it against accidental modification. This isn&#39;t typically created manually; instead call 
-<a href="read_only.html#Daf.ReadOnly.read_only">
-<code>read_only
-</code>
-</a>.
+</a>, which doesn&#39;t allow any modification of the data.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/318022e458aa3f6125b3ee4a2194226b22d5f6b0/src/read_only.jl#L19-L24">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/05da9f43bcbffcd5ddf0bce84404dede8b76341d/src/read_only.jl#L19-L21">source
 </a>
 </section>
 </article>
@@ -275,8 +267,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.ReadOnly.read_only" href="#Daf.ReadOnly.read_only">
-<code>Daf.ReadOnly.read_only
+<a class="docstring-binding" id="Daf.ReadOnly.daf_read_only" href="#Daf.ReadOnly.daf_read_only">
+<code>Daf.ReadOnly.daf_read_only
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -285,23 +277,63 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">read_only(daf::DafReader[; name::Maybe{AbstractString]} = nothing)::ReadOnlyView
+<code class="language-julia hljs">daf_read_only(daf::DafReader[; name::Maybe{AbstractString]} = nothing)::DafReadOnlyWrapper
 </code>
 </pre>
 <p>Wrap 
 <code>daf
 </code> with a 
-<code>ReadOnlyView
-</code> to protect it against accidental modification. If given a read-only 
-<code>daf
-</code>, return it as-is. If not specified, the 
+<a href="read_only.html#Daf.ReadOnly.DafReadOnlyWrapper">
+<code>DafReadOnlyWrapper
+</code>
+</a> to protect it against accidental modification. If not specified, the 
 <code>name
 </code> of the 
 <code>daf
-</code> is reused.
+</code> is reused. If 
+<code>name
+</code> is not specified and 
+<code>daf
+</code> isa 
+<a href="read_only.html#Daf.ReadOnly.DafReadOnly">
+<code>DafReadOnly
+</code>
+</a>, return it as-is.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/318022e458aa3f6125b3ee4a2194226b22d5f6b0/src/read_only.jl#L39-L44">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/05da9f43bcbffcd5ddf0bce84404dede8b76341d/src/read_only.jl#L44-L49">source
+</a>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.ReadOnly.DafReadOnlyWrapper" href="#Daf.ReadOnly.DafReadOnlyWrapper">
+<code>Daf.ReadOnly.DafReadOnlyWrapper
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">struct DafReadOnlyWrapper &lt;: DafReader ... end
+</code>
+</pre>
+<p>A wrapper for any 
+<a href="formats.html#Daf.Formats.DafWriter">
+<code>DafWriter
+</code>
+</a> data, protecting it against accidental modification. This isn&#39;t exported and isn&#39;t created manually; instead call 
+<a href="read_only.html#Daf.ReadOnly.daf_read_only">
+<code>daf_read_only
+</code>
+</a>.
+</p>
+</div>
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/05da9f43bcbffcd5ddf0bce84404dede8b76341d/src/read_only.jl#L24-L29">source
 </a>
 </section>
 </article>
@@ -321,14 +353,20 @@
 </a>
 </li>
 <li>
-<a href="read_only.html#Daf.ReadOnly.ReadOnlyView">
-<code>Daf.ReadOnly.ReadOnlyView
+<a href="read_only.html#Daf.ReadOnly.DafReadOnly">
+<code>Daf.ReadOnly.DafReadOnly
 </code>
 </a>
 </li>
 <li>
-<a href="read_only.html#Daf.ReadOnly.read_only">
-<code>Daf.ReadOnly.read_only
+<a href="read_only.html#Daf.ReadOnly.DafReadOnlyWrapper">
+<code>Daf.ReadOnly.DafReadOnlyWrapper
+</code>
+</a>
+</li>
+<li>
+<a href="read_only.html#Daf.ReadOnly.daf_read_only">
+<code>Daf.ReadOnly.daf_read_only
 </code>
 </a>
 </li>

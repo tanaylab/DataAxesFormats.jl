@@ -237,29 +237,91 @@
 </a> functionality. The key features are:
 </p>
 <ul>
-<li>The data model is based on (1) some axes with named entries, (2) vector data indexed by a single axis, (3) matrix data indexed by a pair of axes, and also (4) scalar data (anything not tied to some axis).
+<li>The data model 
+<a href="storage_types.html#Daf.StorageTypes">
+<code>StorageTypes
+</code>
+</a> include (1) some axes with named entries, (2) vector data indexed by a single axis, (3) matrix data indexed by a pair of axes, and also (4) scalar data (anything not tied to some axis).
 </li>
-<li>There is explicit control over 2D data layout (row or column major), and support for both dense and sparse matrices, both of which are crucial for performance.
+<li>Explicit control over 2D data 
+<a href="matrix_layouts.html#Daf.MatrixLayouts">
+<code>MatrixLayouts
+</code>
+</a> (row or column major), with support for both dense and sparse matrices, both of which are crucial for performance.
 </li>
-<li>A simple query language makes it easy to access the data, providing features such as slicing, aggregation, and filtering.
-</li>
-<li>Support both in-memory and persistent data storage of &quot;any&quot; format (given an adapter implementation).
-</li>
-<li>Out of the box, allow storing the data in memory, in 
-<code>AnnData
-</code> objects (using 
-<code>H5ad
-</code> files), directly inside 
+<li>Out of the box, allow storing the data in memory (using 
+<a href="memory_format.html#Daf.MemoryFormat.MemoryDaf">
+<code>MemoryDaf
+</code>
+</a>), directly inside 
 <a href="https://www.hdfgroup.org/solutions/hdf5">HDF5
 </a> files (using 
 <a href="h5df_format.html#Daf.H5dfFormat.H5df">
 <code>H5df
 </code>
-</a>), or as a collection of simple memory-mapped files in a directory (using 
+</a>), or as a collection of simple files in a directory (using 
+<a href="files_format.html#Daf.FilesFormat.FilesDaf">
 <code>FilesDaf
-</code>), which works nicely with tools like 
+</code>
+</a>), which works nicely with tools like 
 <code>make
 </code> for automating computation pipelines.
+</li>
+<li>Import and export to/from 
+<a href="anndata_format.html#Daf.AnnDataFormat">
+<code>AnnDataFormat
+</code>
+</a> for interoperability with non-
+<code>Daf
+</code> tools.
+</li>
+<li>Implementation with a focus on memory-mapping to allow for efficient processing of large data sets (in theory, larger than the system&#39;s memory). In particular, merely opening a data set is a fast operation (almost) regardless of its size.
+</li>
+<li>Well-defined interfaces for implementing additional storage 
+<a href="formats.html#Formats">
+<code>Formats
+</code>
+</a>.
+</li>
+<li>Creating 
+<a href="chains.html#Chains">
+<code>Chains
+</code>
+</a> of data sets, allowing zero-copy reuse of common data between multiple computation pipelines.
+</li>
+<li>
+<a href="concat.html#Concat">
+<code>Concat
+</code>
+</a> multiple data sets into a single data set along one or more axes.
+</li>
+<li>A 
+<a href="queries.html#Daf.Queries.Query">
+<code>Query
+</code>
+</a> language for accessing the data, providing features such as slicing, aggregation and filtering, and making 
+<a href="views.html#Views">
+<code>Views
+</code>
+</a> and 
+<a href="copies.html#Copies">
+<code>Copies
+</code>
+</a> based on these queries.
+</li>
+<li>Self documenting 
+<a href="computations.html#Computations">
+<code>Computations
+</code>
+</a> with an explicit 
+<a href="contracts.html#Contracts">
+<code>Contracts
+</code>
+</a> describing and enforcing the inputs and outputs, and 
+<a href="adapters.html#Adapters">
+<code>Adapters
+</code>
+</a> for applying the computation to data of a different format.
 </li>
 </ul>
 <p>The top-level 
@@ -267,13 +329,30 @@
 </code> module re-exports all(most) everything from the sub-modules, so you can directly access any exported symbol by 
 <code>using Daf
 </code> (or 
-<code>import Daf: MemoryStorage
+<code>import Daf: MemoryDaf
 </code>), instead of having to import or use qualified names (such as 
-<code>Daf.Storage.MemoryStorage
+<code>Daf.MemoryFormat.MemoryDaf
 </code>).
 </p>
+<p>The 
+<code>Daf
+</code> data sets type hierarchy looks like this:
+</p>
+<pre>
+<code class="nohighlight hljs">DafReader (abstract type)
+├─ DafReadOnly (abstract type)
+│  ├─ DafReadOnlyWrapper (created by daf_read_only)
+│  ├─ DafView (created by daf_view)
+│  └─ DafChainReader (created by chain_reader)
+└─ DafWriter (abstract type)
+   ├─ DafChainWriter (created by chain_writer)
+   ├─ MemoryDaf
+   ├─ FilesDaf
+   └─ H5df
+</code>
+</pre>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/318022e458aa3f6125b3ee4a2194226b22d5f6b0/src/Daf.jl#L1-L21">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/05da9f43bcbffcd5ddf0bce84404dede8b76341d/src/Daf.jl#L1-L43">source
 </a>
 </section>
 </article>
@@ -1079,8 +1158,14 @@
 </a>
 </li>
 <li>
-<a href="read_only.html#Daf.ReadOnly.ReadOnlyView">
-<code>Daf.ReadOnly.ReadOnlyView
+<a href="read_only.html#Daf.ReadOnly.DafReadOnly">
+<code>Daf.ReadOnly.DafReadOnly
+</code>
+</a>
+</li>
+<li>
+<a href="read_only.html#Daf.ReadOnly.DafReadOnlyWrapper">
+<code>Daf.ReadOnly.DafReadOnlyWrapper
 </code>
 </a>
 </li>
@@ -1793,8 +1878,8 @@
 </a>
 </li>
 <li>
-<a href="read_only.html#Daf.ReadOnly.read_only">
-<code>Daf.ReadOnly.read_only
+<a href="read_only.html#Daf.ReadOnly.daf_read_only">
+<code>Daf.ReadOnly.daf_read_only
 </code>
 </a>
 </li>
@@ -1859,8 +1944,8 @@
 </a>
 </li>
 <li>
-<a href="views.html#Daf.Views.viewer">
-<code>Daf.Views.viewer
+<a href="views.html#Daf.Views.daf_view">
+<code>Daf.Views.daf_view
 </code>
 </a>
 </li>

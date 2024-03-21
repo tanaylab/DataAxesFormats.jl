@@ -130,6 +130,19 @@ function Internal(name::AbstractString)::Internal
     )
 end
 
+function renamed_internal(internal::Internal, name::AbstractString)::Internal
+    return Internal(
+        name,
+        internal.axes,
+        internal.cache,
+        internal.dependency_cache_keys,
+        internal.version_counters,
+        internal.lock,
+        internal.writer_thread,
+        internal.thread_has_read_lock,
+    )
+end
+
 """
 An low-level abstract interface for reading from `Daf` storage formats.
 
@@ -141,7 +154,7 @@ Each storage format must implement the functions listed below for reading from t
 abstract type FormatReader end
 
 """
-A  high-level abstract interface for read-only access to `Daf` data.
+A high-level abstract interface for read-only access to `Daf` data.
 
 All the functions for this type are provided based on the functions required for [`FormatReader`](@ref). See the
 `Daf.Data` module for their description.
@@ -156,7 +169,7 @@ Each storage format must implement the functions listed below for writing into t
 abstract type FormatWriter <: DafReader end
 
 """
-A  high-level abstract interface for write access to `Daf` data.
+A high-level abstract interface for write access to `Daf` data.
 
 All the functions for this type are provided based on the functions required for [`FormatWriter`](@ref). See the
 `Daf.Data` module for their description.

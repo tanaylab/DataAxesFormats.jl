@@ -146,12 +146,12 @@ any).
 
 The valid `mode` values are as follows (the default mode is `r`):
 
-| Mode | Allow modifications? | Create if does not exist? | Truncate if exists? | Returned type          |
-|:---- |:-------------------- |:------------------------- |:------------------- |:---------------------- |
-| `r`  | No                   | No                        | No                  | [`ReadOnlyView`](@ref) |
-| `r+` | Yes                  | No                        | No                  | [`H5df`](@ref)         |
-| `w+` | Yes                  | Yes                       | No                  | [`H5df`](@ref)         |
-| `w`  | Yes                  | Yes                       | Yes                 | [`H5df`](@ref)         |
+| Mode | Allow modifications? | Create if does not exist? | Truncate if exists? | Returned type         |
+|:---- |:-------------------- |:------------------------- |:------------------- |:--------------------- |
+| `r`  | No                   | No                        | No                  | [`DafReadOnly`](@ref) |
+| `r+` | Yes                  | No                        | No                  | [`H5df`](@ref)        |
+| `w+` | Yes                  | Yes                       | No                  | [`H5df`](@ref)        |
+| `w`  | Yes                  | Yes                       | Yes                 | [`H5df`](@ref)        |
 
 !!! note
 
@@ -167,7 +167,7 @@ function H5df(
     root::Union{AbstractString, HDF5.File, HDF5.Group},
     mode::AbstractString = "r";
     name::Maybe{AbstractString} = nothing,
-)::Union{H5df, ReadOnlyView}
+)::Union{H5df, DafReadOnly}
     (is_read_only, create_if_missing, truncate_if_exists) = Formats.parse_mode(mode)
 
     if root isa AbstractString
@@ -215,7 +215,7 @@ function H5df(
 
     h5df = H5df(Internal(name), root)
     if is_read_only
-        return read_only(h5df)
+        return daf_read_only(h5df)
     else
         return h5df
     end

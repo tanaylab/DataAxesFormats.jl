@@ -14,7 +14,7 @@ function test_missing_scalar(daf::DafReader, depth::Int)::Nothing
 
     if daf isa DafWriter
         nested_test("read_only") do
-            test_missing_scalar(read_only(daf), depth)
+            test_missing_scalar(daf_read_only(daf), depth)
             return nothing
         end
     end
@@ -101,7 +101,7 @@ end
 function test_existing_scalar(daf::DafReader, depth::Int)::Nothing
     if daf isa DafWriter
         nested_test("read_only") do
-            test_existing_scalar(read_only(daf), depth)
+            test_existing_scalar(daf_read_only(daf), depth)
             return nothing
         end
     end
@@ -209,7 +209,7 @@ function test_missing_axis(daf::DafReader, depth::Int)::Nothing
 
     if daf isa DafWriter
         nested_test("read_only") do
-            test_missing_axis(read_only(daf), depth)
+            test_missing_axis(daf_read_only(daf), depth)
             return nothing
         end
     end
@@ -312,7 +312,7 @@ function test_existing_axis(daf::DafReader, depth::Int)::Nothing
 
     if daf isa DafWriter
         nested_test("read_only") do
-            test_existing_axis(read_only(daf), depth)
+            test_existing_axis(daf_read_only(daf), depth)
             return nothing
         end
     end
@@ -393,7 +393,7 @@ function test_missing_vector_axis(daf::DafReader, depth::Int)::Nothing
 
     if daf isa DafWriter
         nested_test("read_only") do
-            test_missing_vector_axis(read_only(daf), depth)
+            test_missing_vector_axis(daf_read_only(daf), depth)
             return nothing
         end
     end
@@ -481,7 +481,7 @@ function test_missing_vector(daf::DafReader, depth::Int)::Nothing
 
     if daf isa DafWriter
         nested_test("read_only") do
-            test_missing_vector(read_only(daf), depth)
+            test_missing_vector(daf_read_only(daf), depth)
             return nothing
         end
     end
@@ -767,7 +767,7 @@ function test_existing_vector(daf::DafReader, depth::Int)::Nothing
 
     if daf isa DafWriter
         nested_test("read_only") do
-            test_existing_vector(read_only(daf), depth)
+            test_existing_vector(daf_read_only(daf), depth)
             return nothing
         end
     end
@@ -985,7 +985,7 @@ function test_missing_matrix_axis(daf::DafReader, depth::Int)::Nothing
 
     if daf isa DafWriter
         nested_test("read_only") do
-            test_missing_matrix_axis(read_only(daf), depth)
+            test_missing_matrix_axis(daf_read_only(daf), depth)
             return nothing
         end
     end
@@ -1127,7 +1127,7 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
 
     if daf isa DafWriter
         nested_test("read_only") do
-            test_missing_matrix(read_only(daf), depth)
+            test_missing_matrix(daf_read_only(daf), depth)
             return nothing
         end
     end
@@ -1697,7 +1697,7 @@ function test_existing_matrix(daf::DafReader, depth::Int)::Nothing
 
     if daf isa DafWriter
         nested_test("read_only") do
-            test_existing_matrix(read_only(daf), depth)
+            test_existing_matrix(daf_read_only(daf), depth)
             return nothing
         end
     end
@@ -2270,7 +2270,7 @@ function test_existing_relayout_matrix(daf::DafReader, depth::Int)::Nothing
 
     if daf isa DafWriter
         nested_test("read_only") do
-            test_existing_relayout_matrix(read_only(daf), depth)
+            test_existing_relayout_matrix(daf_read_only(daf), depth)
             return nothing
         end
     end
@@ -2921,8 +2921,8 @@ nested_test("data") do
         daf = MemoryDaf(; name = "memory!")
         @test daf.name == "memory!"
         @test describe(daf) == "MemoryDaf memory!"
-        @test describe(read_only(daf)) == "ReadOnly MemoryDaf memory!"
-        @test describe(read_only(daf; name = "read-only memory!")) == "ReadOnly MemoryDaf read-only memory!"
+        @test describe(daf_read_only(daf)) == "ReadOnly MemoryDaf memory!"
+        @test describe(daf_read_only(daf; name = "read-only memory!")) == "ReadOnly MemoryDaf read-only memory!"
         @test description(daf) == dedent("""
             name: memory!
             type: MemoryDaf
@@ -2963,8 +2963,8 @@ nested_test("data") do
                 daf = H5df("$(path)/test.h5df", "w+"; name = "h5df!")
                 @test daf.name == "h5df!"
                 @test describe(daf) == "H5df h5df!"
-                @test describe(read_only(daf)) == "ReadOnly H5df h5df!"
-                @test describe(read_only(daf; name = "renamed!")) == "ReadOnly H5df renamed!"
+                @test describe(daf_read_only(daf)) == "ReadOnly H5df h5df!"
+                @test describe(daf_read_only(daf; name = "renamed!")) == "ReadOnly H5df renamed!"
                 @test description(daf) == dedent("""
                     name: h5df!
                     type: H5df
@@ -2983,8 +2983,8 @@ nested_test("data") do
                     HDF5.create_group(h5file, "root")
                     daf = H5df(h5file["root"], "w+")
                     @test describe(daf) == "H5df $(path)/test.h5df:/root"
-                    @test describe(read_only(daf)) == "ReadOnly H5df $(path)/test.h5df:/root"
-                    @test describe(read_only(daf; name = "renamed!")) == "ReadOnly H5df renamed!"
+                    @test describe(daf_read_only(daf)) == "ReadOnly H5df $(path)/test.h5df:/root"
+                    @test describe(daf_read_only(daf; name = "renamed!")) == "ReadOnly H5df renamed!"
                     @test description(daf) == dedent("""
                         name: $(path)/test.h5df:/root
                         type: H5df
@@ -3032,8 +3032,8 @@ nested_test("data") do
                 daf = FilesDaf(path, "w+"; name = "files!")
                 @test daf.name == "files!"
                 @test describe(daf) == "FilesDaf files!"
-                @test describe(read_only(daf)) == "ReadOnly FilesDaf files!"
-                @test describe(read_only(daf; name = "renamed!")) == "ReadOnly FilesDaf renamed!"
+                @test describe(daf_read_only(daf)) == "ReadOnly FilesDaf files!"
+                @test describe(daf_read_only(daf; name = "renamed!")) == "ReadOnly FilesDaf renamed!"
                 @test description(daf) == dedent("""
                     name: files!
                     type: FilesDaf

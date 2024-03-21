@@ -21,7 +21,7 @@ using Daf.Views
 """
     adapter(
         computation::Function,
-        view::Union{DafView, ReadOnlyView};
+        view::DafReadOnly,
         [name::Maybe{AbstractString} = nothing,
         capture=MemoryDaf,
         axes::Maybe{ViewAxes} = nothing,
@@ -31,7 +31,7 @@ using Daf.Views
         overwrite::Bool = false]
     )::Any
 
-Invoke a computation on a `view` data set and return the result; copy a [`viewer`](@ref) of the updated data set into
+Invoke a computation on a `view` data set and return the result; copy a [`daf_view`](@ref) of the updated data set into
 the base `Daf` data of the view. If specified, the `name` is used as a prefix for all the names; otherwise, the `view`
 name is used as the prefix.
 
@@ -43,8 +43,8 @@ irrelevant properties.
 To address these issues, the common idiom for applying computations to `Daf` data is to use the `adapter` as follows:
 
   - Create a (read-only) `view` of your data which presents the data properties under the names expected by the
-    computation, using [`viewer`](@ref). If the computation was annotated by `@computation`, then its [`Contract`](@ref)
-    will be explicitly documented so you will know exactly what to provide.
+    computation, using [`daf_view`](@ref). If the computation was annotated by `@computation`, then its
+    [`Contract`](@ref) will be explicitly documented so you will know exactly what to provide.
   - Pass this `view` to `adapter`, which will invoke the `computation` with a (writable) `adapted` version of the data
     (created using [`chain_writer`](@ref) and a new `DafWriter` to `capture` the output; by default, this will be a
     [`MemoryDaf`]@(ref)).
@@ -83,7 +83,7 @@ parameter values, and store the different results in the same data set under dif
 """
 function adapter(
     computation::Function,
-    view::Union{DafView, ReadOnlyView};
+    view::DafReadOnly;
     name::Maybe{AbstractString} = nothing,
     capture = MemoryDaf,
     axes::Maybe{ViewAxes} = nothing,
@@ -107,11 +107,7 @@ function adapter(
     return result
 end
 
-function get_adapter_input(
-    view::Union{DafView, ReadOnlyView};
-    name::Maybe{AbstractString},
-    capture = MemoryDaf,
-)::DafWriter
+function get_adapter_input(view::DafReadOnly; name::Maybe{AbstractString}, capture = MemoryDaf)::DafWriter
     if name == nothing
         prefix = view.name
     else
@@ -121,7 +117,7 @@ function get_adapter_input(
 end
 
 function copy_adapter_output(
-    view::Union{DafView, ReadOnlyView},
+    view::DafReadOnly,
     adapted::DafWriter;
     name::Maybe{AbstractString},
     axes::Maybe{ViewAxes},
@@ -135,7 +131,7 @@ function copy_adapter_output(
     else
         prefix = name  # untested
     end
-    output = viewer(adapted; name = "$(prefix).output", axes = axes, data = data)
+    output = daf_view(adapted; name = "$(prefix).output", axes = axes, data = data)
     copy_all!(; from = output, into = view.daf, empty = empty, relayout = relayout, overwrite = overwrite)
     return nothing
 end

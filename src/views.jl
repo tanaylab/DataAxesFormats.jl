@@ -19,7 +19,7 @@ export VIEW_ALL_SCALARS
 export VIEW_ALL_VECTORS
 export ViewAxes
 export ViewData
-export viewer
+export daf_view
 
 using Daf.Data
 using Daf.Formats
@@ -38,6 +38,7 @@ import Daf.Messages
 import Daf.Tokens.decode_expression
 import Daf.Tokens.encode_expression
 import Daf.ReadOnly
+import Daf.ReadOnly.DafReadOnlyWrapper
 
 # Something we fetch from the original data.
 mutable struct Fetch{T}
@@ -49,9 +50,9 @@ end
     struct DafView(daf::DafReader) <: DafReader
 
 A read-only wrapper for any [`DafReader`](@ref) data, which exposes an arbitrary view of it as another
-[`DafReader`](@ref). This isn't typically created manually; instead call [`viewer`](@ref).
+[`DafReadOnly`](@ref). This isn't typically created manually; instead call [`daf_view`](@ref).
 """
-struct DafView <: DafReader
+struct DafView <: DafReadOnly
     internal::Internal
     daf::DafReader
     scalars::Dict{AbstractString, Fetch{StorageScalar}}
@@ -159,50 +160,50 @@ That is, assuming a `gene` and `cell` axes were exposed by the `axes` parameter,
 ViewData = AbstractVector
 
 """
-A pair to use in the `axes` parameter of [`viewer`](@ref) to specify all the base data axes.
+A pair to use in the `axes` parameter of [`daf_view`](@ref) to specify all the base data axes.
 """
 ALL_AXES = "*"
 
 """
-A pair to use in the `axes` parameter of [`viewer`](@ref) to specify the view exposes all the base data axes.
+A pair to use in the `axes` parameter of [`daf_view`](@ref) to specify the view exposes all the base data axes.
 """
 VIEW_ALL_AXES = ALL_AXES => "="
 
 """
-A key to use in the `data` parameter of [`viewer`](@ref) to specify all the base data scalars.
+A key to use in the `data` parameter of [`daf_view`](@ref) to specify all the base data scalars.
 """
 ALL_SCALARS = "*"
 
 """
-A pair to use in the `data` parameter of [`viewer`](@ref) to specify the view exposes all the base data scalars.
+A pair to use in the `data` parameter of [`daf_view`](@ref) to specify the view exposes all the base data scalars.
 """
 VIEW_ALL_SCALARS = ALL_SCALARS => "="
 
 """
-A key to use in the `data` parameter of [`viewer`](@ref) to specify all the vectors of the exposed axes.
+A key to use in the `data` parameter of [`daf_view`](@ref) to specify all the vectors of the exposed axes.
 """
 ALL_VECTORS = ("*", "*")
 
 """
-A pair to use in the `data` parameter of [`viewer`](@ref) to specify the view exposes all the vectors of the exposed
+A pair to use in the `data` parameter of [`daf_view`](@ref) to specify the view exposes all the vectors of the exposed
 axes.
 """
 VIEW_ALL_VECTORS = ALL_VECTORS => "="
 
 """
-A key to use in the `data` parameter of [`viewer`](@ref) to specify all the matrices of the exposed axes.
+A key to use in the `data` parameter of [`daf_view`](@ref) to specify all the matrices of the exposed axes.
 """
 ALL_MATRICES = ("*", "*", "*")
 
 """
-A pair to use in the `data` parameter of [`viewer`](@ref) to specify the view exposes all the matrices of the exposed
+A pair to use in the `data` parameter of [`daf_view`](@ref) to specify the view exposes all the matrices of the exposed
 axes.
 """
 VIEW_ALL_MATRICES = ALL_MATRICES => "="
 
 """
-A vector of pairs to use in the `data` parameters of [`viewer`](@ref) (using `...`) to specify the view exposes all the
-data of the exposed axes.
+A vector of pairs to use in the `data` parameters of [`daf_view`](@ref) (using `...`) to specify the view exposes all
+the data of the exposed axes.
 """
 VIEW_ALL_DATA = [VIEW_ALL_SCALARS, VIEW_ALL_VECTORS, VIEW_ALL_MATRICES]
 
@@ -210,12 +211,12 @@ EMPTY_AXES = Vector{Pair{String, String}}()
 EMPTY_DATA = Vector{Pair{String, String}}()
 
 """
-    viewer(
+    daf_view(
         daf::DafReader;
         [name::Maybe{AbstractString} = nothing,
         axes::Maybe{ViewAxes} = nothing,
         data::Maybe{ViewData} = nothing]
-    )::Union{DafView, ReadOnlyView}
+    )::DafReadOnly
 
 Wrap `daf` data with a read-only [`DafView`](@ref). The exposed view is defined by a set of queries applied to the
 original data. These queries are evaluated only when data is actually accessed. Therefore, creating a view is a
@@ -227,17 +228,17 @@ Queries are listed separately for axes, and scalars, vector and matrix propertie
 
 !!! note
 
-    As an optimization, calling `viewer` with all-empty (default) arguments returns a simple [`ReadOnlyView`](@ref),
-    that is, it is equivalent to calling [`read_only`](@ref). Additionally, saying `data = VIEW_ALL_DATA` will expose
-    all the data using any of the exposed axes; you can write `data = [VIEW_ALL_DATA..., `key` => nothing]` to hide
-    specific data based on its `key`.
+    As an optimization, calling `daf_view` with all-empty (default) arguments returns a simple
+    [`DafReadOnlyWrapper`](@ref), that is, it is equivalent to calling [`daf_read_only`](@ref). Additionally, saying
+    `data = VIEW_ALL_DATA` will expose all the data using any of the exposed axes; you can write
+    `data = [VIEW_ALL_DATA..., key => nothing]` to hide specific data based on its `key`.
 """
-function viewer(
+function daf_view(
     daf::DafReader;
     name::Maybe{AbstractString} = nothing,
     axes::Maybe{ViewAxes} = nothing,
     data::Maybe{ViewData} = nothing,
-)::Union{DafView, ReadOnlyView}
+)::DafReadOnly
     if axes == nothing
         axes = EMPTY_AXES
     end
@@ -246,10 +247,10 @@ function viewer(
     end
 
     if isempty(axes) && isempty(data)
-        return read_only(daf; name = name)
+        return daf_read_only(daf; name = name)
     end
 
-    if daf isa ReadOnlyView
+    if daf isa ReadOnly.DafReadOnlyWrapper
         daf = daf.daf
     end
 
@@ -711,8 +712,19 @@ function Messages.describe(value::DafView; name::Maybe{AbstractString} = nothing
     return "View $(describe(value.daf; name = name))"
 end
 
-function ReadOnly.read_only(daf::DafView)::DafView
-    return daf
+function ReadOnly.daf_read_only(daf::DafView; name::Maybe{AbstractString} = nothing)::DafView
+    if name == nothing
+        return daf
+    else
+        return DafView(
+            Formats.renamed_internal(daf.internal, name),
+            daf.daf,
+            daf.scalars,
+            daf.axes,
+            daf.vectors,
+            daf.matrices,
+        )
+    end
 end
 
 end # module

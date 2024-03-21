@@ -239,7 +239,7 @@
 </a>.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/318022e458aa3f6125b3ee4a2194226b22d5f6b0/src/adapters.jl#L1-L3">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/05da9f43bcbffcd5ddf0bce84404dede8b76341d/src/adapters.jl#L1-L3">source
 </a>
 </section>
 </article>
@@ -259,7 +259,7 @@
 <pre>
 <code class="language-julia hljs">adapter(
     computation::Function,
-    view::Union{DafView, ReadOnlyView};
+    view::DafReadOnly,
     [name::Maybe{AbstractString} = nothing,
     capture=MemoryDaf,
     axes::Maybe{ViewAxes} = nothing,
@@ -273,8 +273,8 @@
 <p>Invoke a computation on a 
 <code>view
 </code> data set and return the result; copy a 
-<a href="views.html#Daf.Views.viewer">
-<code>viewer
+<a href="views.html#Daf.Views.daf_view">
+<code>daf_view
 </code>
 </a> of the updated data set into the base 
 <code>Daf
@@ -298,8 +298,8 @@
 <li>Create a (read-only) 
 <code>view
 </code> of your data which presents the data properties under the names expected by the computation, using 
-<a href="views.html#Daf.Views.viewer">
-<code>viewer
+<a href="views.html#Daf.Views.daf_view">
+<code>daf_view
 </code>
 </a>. If the computation was annotated by 
 <code>@computation
@@ -389,7 +389,7 @@ end
 </a> functions to use clear generic names for their inputs and outputs, and still apply them to arbitrary data sets using more specific names. One can even invoke the same computation with different parameter values, and store the different results in the same data set under different names.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/318022e458aa3f6125b3ee4a2194226b22d5f6b0/src/adapters.jl#L21-L83">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/05da9f43bcbffcd5ddf0bce84404dede8b76341d/src/adapters.jl#L21-L83">source
 </a>
 </section>
 </article>

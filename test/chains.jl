@@ -34,7 +34,7 @@ nested_test("chains") do
 
     nested_test("one") do
         nested_test("reader") do
-            read_first = read_only(first)
+            read_first = daf_read_only(first)
             read_chain = chain_reader([read_first])
             @assert read_chain === read_first
         end
@@ -47,19 +47,19 @@ nested_test("chains") do
 
     nested_test("two") do
         @test_throws "read-only final data: second!\nin write chain: chain!" chain_writer(
-            [first, read_only(second)];
+            [first, daf_read_only(second)];
             name = "chain!",
         )
         read_chain = chain_reader([first, second])
-        @assert read_only(read_chain) === read_chain
-        @assert read_only(read_chain, "read-only first!;second!") !== read_chain
+        @assert daf_read_only(read_chain) === read_chain
+        @assert daf_read_only(read_chain; name = "read-only first!;second!") !== read_chain
         write_chain = chain_writer([first, second])
-        @assert read_only(write_chain) !== write_chain
+        @assert daf_read_only(write_chain) !== write_chain
     end
 
     nested_test("access") do
         for (name, type_name, chain) in [
-            ("read", "ReadOnly", chain_reader([first, read_only(second)]; name = "chain!")),
+            ("read", "ReadOnly", chain_reader([first, daf_read_only(second)]; name = "chain!")),
             ("write", "Write", chain_writer([first, second]; name = "chain!")),
         ]
             nested_test(name) do
@@ -242,7 +242,7 @@ nested_test("chains") do
     end
 
     nested_test("write") do
-        chain = chain_writer([read_only(first), second]; name = "chain!")
+        chain = chain_writer([daf_read_only(first), second]; name = "chain!")
 
         nested_test("scalar") do
             @test !has_scalar(first, "version")

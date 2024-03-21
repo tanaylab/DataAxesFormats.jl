@@ -3,7 +3,7 @@
 ```@docs
 Daf.Views
 Daf.Views.DafView
-Daf.Views.viewer
+Daf.Views.daf_view
 Daf.Views.ViewAxes
 Daf.Views.ViewData
 Daf.Views.ALL_SCALARS

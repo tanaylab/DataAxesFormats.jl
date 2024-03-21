@@ -48,12 +48,12 @@ function test_description(
 end
 
 nested_test("example_data") do
-    daf = read_only(Daf.ExampleData.example_daf())
-    @test read_only(daf) === daf
-    renamed = read_only(daf; name = "new name!")
+    daf = daf_read_only(Daf.ExampleData.example_daf())
+    @test daf_read_only(daf) === daf
+    renamed = daf_read_only(daf; name = "new name!")
     @test renamed !== daf
-    @test read_only(renamed) === renamed
-    rerenamed = read_only(renamed; name = "newer name!")
+    @test daf_read_only(renamed) === renamed
+    rerenamed = daf_read_only(renamed; name = "newer name!")
     @test rerenamed !== renamed
 
     nested_test("description") do
@@ -63,7 +63,7 @@ nested_test("example_data") do
             end
 
             nested_test("view") do
-                view = viewer(daf.daf; name = "view!", axes = [VIEW_ALL_AXES], data = VIEW_ALL_DATA)
+                view = daf_view(daf.daf; name = "view!", axes = [VIEW_ALL_AXES], data = VIEW_ALL_DATA)
                 test_description(view; kind = "View ", name = "view!")
                 return nothing
             end
@@ -75,7 +75,7 @@ nested_test("example_data") do
             end
 
             nested_test("view") do
-                view = viewer(daf; name = "view!", axes = [VIEW_ALL_AXES], data = VIEW_ALL_DATA)
+                view = daf_view(daf; name = "view!", axes = [VIEW_ALL_AXES], data = VIEW_ALL_DATA)
                 test_description(view; kind = "View ", name = "view!")
                 return nothing
             end

@@ -20,6 +20,7 @@ using SparseArrays
 import Daf.Data.as_read_only_array
 import Daf.Formats.Internal
 import Daf.Messages
+import Daf.ReadOnly.DafReadOnlyWrapper
 
 """
     struct ReadOnlyChain <: DafReader ... end
@@ -29,7 +30,7 @@ the exposed value is that provided by the last data set that contains the data, 
 earlier data sets. However, if an axis exists in more than one data set in the chain, then its entries must be
 identical. This isn't typically created manually; instead call [`chain_reader`](@ref).
 """
-struct ReadOnlyChain <: DafReader
+struct ReadOnlyChain <: DafReadOnly
     internal::Internal
     dafs::Vector{DafReader}
 end
@@ -66,13 +67,16 @@ identical. This isn't typically created manually; instead call [`chain_reader`](
     While this verifies the axes are consistent at the time of creating the chain, it's no defense against modifying the
     chained data after the fact, creating inconsistent axes. *Don't do that*.
 """
-function chain_reader(dafs::AbstractVector{F}; name::Maybe{AbstractString} = nothing)::DafReader where {F <: DafReader}
+function chain_reader(
+    dafs::AbstractVector{F};
+    name::Maybe{AbstractString} = nothing,
+)::DafReadOnly where {F <: DafReader}
     if isempty(dafs)
         error("empty chain$(name_suffix(name))")
     end
 
     if length(dafs) == 1
-        return read_only(dafs[1]; name = name)
+        return daf_read_only(dafs[1]; name = name)
     end
 
     if name == nothing
@@ -122,7 +126,7 @@ function reader_internal_dafs(dafs::AbstractVector{F}, name::AbstractString)::Ve
     axes_entries = Dict{AbstractString, Tuple{AbstractString, AbstractStringVector}}()
     internal_dafs = Vector{DafReader}()
     for daf in dafs
-        if daf isa ReadOnlyView
+        if daf isa DafReadOnlyWrapper
             daf = daf.daf
         end
         push!(internal_dafs, daf)
@@ -554,29 +558,12 @@ function Messages.describe(value::WriteChain; name::Maybe{AbstractString} = noth
     return "Write Chain $(name)"
 end
 
-function ReadOnly.read_only(daf::ReadOnlyChain, name::Maybe{AbstractString} = nothing)::ReadOnlyChain
+function ReadOnly.daf_read_only(daf::ReadOnlyChain; name::Maybe{AbstractString} = nothing)::ReadOnlyChain
     if name == nothing
         return daf
     else
-        internal = Internal(
-            name,
-            daf.internal.axes,
-            daf.internal.cache,
-            daf.internal.dependency_cache_keys,
-            daf.internal.version_counters,
-            daf.internal.lock,
-            daf.internal.writer_thread,
-            daf.internal.thread_has_read_lock,
-        )
-        return ReadOnlyChain(internal, daf.dafs)
+        return ReadOnlyChain(Formats.renamed_internal(daf.internal, name), daf.dafs)
     end
-end
-
-function ReadOnly.read_only(daf::WriteChain, name::Maybe{AbstractString} = nothing)::ReadOnlyView
-    if name == nothing
-        name = daf.name
-    end
-    return ReadOnlyView(name, daf)
 end
 
 end # module
