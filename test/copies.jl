@@ -62,12 +62,12 @@ nested_test("copies") do
             @test_throws dedent("""
                 missing axis: cell
                 in the daf data: source!
-            """) copy_axis!(source = source, destination = destination, name = "cell")
+            """) copy_axis!(source = source, destination = destination, axis = "cell")
         end
 
         nested_test("existing") do
             @test add_axis!(source, "cell", ["A", "B"]) == nothing
-            @test copy_axis!(; source = source, destination = destination, name = "cell") == nothing
+            @test copy_axis!(; source = source, destination = destination, axis = "cell") == nothing
             @test get_axis(destination, "cell") == ["A", "B"]
         end
     end

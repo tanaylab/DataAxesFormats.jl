@@ -37,7 +37,7 @@ import Daf.Data.as_named_matrix
         overwrite::Bool = false]
     )::Nothing
 
-Copy a scalar from some `source` `DafReader` into some `destination` `DafWriter`.
+Copy a scalar with some `name` from some `source` `DafReader` into some `destination` `DafWriter`.
 
 The scalar is fetched using the `name` and the `default`. If `rename` is specified, store the scalar using this new
 name. If `overwrite` (not the default), overwrite an existing scalar in the target.
@@ -61,25 +61,25 @@ end
     function copy_axis(;
         destination::DafWriter,
         source::DafReader,
-        name::AbstractString,
+        axis::AbstractString,
         [rename::Maybe{AbstractString} = nothing,
         default::Union{Nothing, UndefInitializer} = undef]
     )::Nothing
 
-Copy an axis from some `source` `DafReader` into some `destination` `DafWriter`.
+Copy an `axis` from some `source` `DafReader` into some `destination` `DafWriter`.
 
 The axis is fetched using the `name` and the `default`. If `rename` is specified, store the axis using this name.
 """
 function copy_axis!(;
     destination::DafWriter,
     source::DafReader,
-    name::AbstractString,
+    axis::AbstractString,
     rename::Maybe{AbstractString} = nothing,
     default::Union{Nothing, UndefInitializer} = undef,
 )::Nothing
-    value = get_axis(source, name; default = default)
+    value = get_axis(source, axis; default = default)
     if value != nothing
-        rename = new_name(rename, name)
+        rename = new_name(rename, axis)
         add_axis!(destination, rename, value)
     end
 end
@@ -475,7 +475,7 @@ end
 function copy_axes(destination::DafWriter, source::DafReader)::Nothing
     for axis in axis_names(source)
         if !has_axis(destination, axis)
-            copy_axis!(; source = source, destination = destination, name = axis)
+            copy_axis!(; source = source, destination = destination, axis = axis)
         end
     end
 end
