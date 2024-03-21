@@ -237,7 +237,7 @@
 <p>The exact behavior of concatenation is surprisingly complex when accounting for sparse vs. dense matrices, different matrix layouts, and properties which are not along the concatenation axis. The implementation is further complicated by minimizing the allocation of intermediate memory buffers for the data; that is, in principle, concatenating from and into memory-mapped data sets should not allocate &quot;any&quot; memory buffers - the data should be copied directly from one memory-mapped region to another.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/3c9c853e132ca284cec5f84e289deac859bc8b48/src/concat.jl#L1-L10">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/e0728ddfeb46cc4f38542ffefa5d97844964ac40/src/concat.jl#L1-L10">source
 </a>
 </section>
 </article>
@@ -362,7 +362,7 @@
 </code> existing properties in the target.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/3c9c853e132ca284cec5f84e289deac859bc8b48/src/concat.jl#L71-L132">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/e0728ddfeb46cc4f38542ffefa5d97844964ac40/src/concat.jl#L70-L131">source
 </a>
 </section>
 </article>
@@ -422,21 +422,15 @@
 </strong> to say is:
 </p>
 <pre>
-<code class="nohighlight hljs">ViewData = AbstractVector
+<code class="nohighlight hljs">ViewData = AbstractVector{&lt;:Pair}
 </code>
 </pre>
-<p>That&#39;s 
-<strong>not
-</strong> a mistake. Even 
-<code>MergeData = AbstractVector{Pair}
-</code> fails to work, as do all the (many) possibilities for expressing &quot;this is a vector of pairs where the key or the value can be one of several things&quot; Sigh. Glory to anyone who figures out an incantation that would force the system to perform 
-<strong>any
-</strong> meaningful type inference here.
+<p>Glory to anyone who figures out an incantation that would force the system to perform more meaningful type inference here.
 </p>
 </div>
 </div>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/3c9c853e132ca284cec5f84e289deac859bc8b48/src/concat.jl#L34-L53">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/e0728ddfeb46cc4f38542ffefa5d97844964ac40/src/concat.jl#L34-L52">source
 </a>
 </section>
 </article>
@@ -472,7 +466,7 @@
 </li>
 </ul>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/3c9c853e132ca284cec5f84e289deac859bc8b48/src/concat.jl#L56-L68">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/e0728ddfeb46cc4f38542ffefa5d97844964ac40/src/concat.jl#L55-L67">source
 </a>
 </section>
 </article>

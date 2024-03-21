@@ -3558,13 +3558,12 @@ that computes the data of the column.
 
     But what we are **forced** to say is:
 
-        QueryColumns = AbstractVector
+        QueryColumns = AbstractVector{<:Pair}
 
-    That's **not** a mistake. Even `QueryColumns = AbstractVector{Pair}` fails to work, as do all the (many) possibilities
-    for expressing "this is a vector of pairs where the key or the value can be one of several things" Sigh. Glory to
-    anyone who figures out an incantation that would force the system to perform **any** meaningful type inference here.
+    Glory to anyone who figures out an incantation that would force the system to perform more meaningful type inference
+    here.
 """
-QueryColumns = AbstractVector
+QueryColumns = AbstractVector{<:Pair}
 
 """
     function get_frame(

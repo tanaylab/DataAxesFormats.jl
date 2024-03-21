@@ -237,7 +237,7 @@
 </code> data set. A variant of this also renames the data properties to adapt them to the requirements of some computation. This makes it simpler to create such tools (using fixed, generic property names) and apply them to arbitrary data (with arbitrary specific property names).
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/3c9c853e132ca284cec5f84e289deac859bc8b48/src/views.jl#L1-L7">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/e0728ddfeb46cc4f38542ffefa5d97844964ac40/src/views.jl#L1-L7">source
 </a>
 </section>
 </article>
@@ -273,7 +273,7 @@
 </a>.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/3c9c853e132ca284cec5f84e289deac859bc8b48/src/views.jl#L49-L54">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/e0728ddfeb46cc4f38542ffefa5d97844964ac40/src/views.jl#L49-L54">source
 </a>
 </section>
 </article>
@@ -342,7 +342,7 @@
 </div>
 </div>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/3c9c853e132ca284cec5f84e289deac859bc8b48/src/views.jl#L213-L235">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/e0728ddfeb46cc4f38542ffefa5d97844964ac40/src/views.jl#L211-L233">source
 </a>
 </section>
 </article>
@@ -418,21 +418,15 @@
 </strong> to say is:
 </p>
 <pre>
-<code class="nohighlight hljs">ViewAxes = AbstractVector
+<code class="nohighlight hljs">ViewAxes = AbstractVector{&lt;:Pair}
 </code>
 </pre>
-<p>That&#39;s 
-<strong>not
-</strong> a mistake. Even 
-<code>ViewAxes = AbstractVector{Pair}
-</code> fails to work, as do all the (many) possibilities for expressing &quot;this is a vector of pairs where the key or the value can be one of several things&quot; Sigh. Glory to anyone who figures out an incantation that would force the system to perform 
-<strong>any
-</strong> meaningful type inference here.
+<p>Glory to anyone who figures out an incantation that would force the system to perform more meaningful type inference here.
 </p>
 </div>
 </div>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/3c9c853e132ca284cec5f84e289deac859bc8b48/src/views.jl#L64-L95">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/e0728ddfeb46cc4f38542ffefa5d97844964ac40/src/views.jl#L64-L94">source
 </a>
 </section>
 </article>
@@ -606,21 +600,15 @@
 </strong> to say is:
 </p>
 <pre>
-<code class="nohighlight hljs">ViewData = AbstractVector
+<code class="nohighlight hljs">ViewData = AbstractVector{&lt;:Pair}
 </code>
 </pre>
-<p>That&#39;s 
-<strong>not
-</strong> a mistake. Even 
-<code>ViewData = AbstractVector{Pair}
-</code> fails to work, as do all the (many) possibilities for expressing &quot;this is a vector of pairs where the key or the value can be one of several things&quot; Sigh. Glory to anyone who figures out an incantation that would force the system to perform 
-<strong>any
-</strong> meaningful type inference here.
+<p>Glory to anyone who figures out an incantation that would force the system to perform more meaningful type inference here.
 </p>
 </div>
 </div>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/3c9c853e132ca284cec5f84e289deac859bc8b48/src/views.jl#L98-L159">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/e0728ddfeb46cc4f38542ffefa5d97844964ac40/src/views.jl#L97-L157">source
 </a>
 </section>
 </article>
@@ -646,7 +634,7 @@
 </a> to specify all the base data scalars.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/3c9c853e132ca284cec5f84e289deac859bc8b48/src/views.jl#L172-L174">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/e0728ddfeb46cc4f38542ffefa5d97844964ac40/src/views.jl#L170-L172">source
 </a>
 </section>
 </article>
@@ -672,7 +660,7 @@
 </a> to specify the view exposes all the base data scalars.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/3c9c853e132ca284cec5f84e289deac859bc8b48/src/views.jl#L177-L179">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/e0728ddfeb46cc4f38542ffefa5d97844964ac40/src/views.jl#L175-L177">source
 </a>
 </section>
 </article>
@@ -698,7 +686,7 @@
 </a> to specify all the base data axes.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/3c9c853e132ca284cec5f84e289deac859bc8b48/src/views.jl#L162-L164">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/e0728ddfeb46cc4f38542ffefa5d97844964ac40/src/views.jl#L160-L162">source
 </a>
 </section>
 </article>
@@ -724,7 +712,7 @@
 </a> to specify the view exposes all the base data axes.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/3c9c853e132ca284cec5f84e289deac859bc8b48/src/views.jl#L167-L169">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/e0728ddfeb46cc4f38542ffefa5d97844964ac40/src/views.jl#L165-L167">source
 </a>
 </section>
 </article>
@@ -750,7 +738,7 @@
 </a> to specify all the vectors of the exposed axes.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/3c9c853e132ca284cec5f84e289deac859bc8b48/src/views.jl#L182-L184">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/e0728ddfeb46cc4f38542ffefa5d97844964ac40/src/views.jl#L180-L182">source
 </a>
 </section>
 </article>
@@ -776,7 +764,7 @@
 </a> to specify the view exposes all the vectors of the exposed axes.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/3c9c853e132ca284cec5f84e289deac859bc8b48/src/views.jl#L187-L190">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/e0728ddfeb46cc4f38542ffefa5d97844964ac40/src/views.jl#L185-L188">source
 </a>
 </section>
 </article>
@@ -802,7 +790,7 @@
 </a> to specify all the matrices of the exposed axes.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/3c9c853e132ca284cec5f84e289deac859bc8b48/src/views.jl#L193-L195">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/e0728ddfeb46cc4f38542ffefa5d97844964ac40/src/views.jl#L191-L193">source
 </a>
 </section>
 </article>
@@ -828,7 +816,7 @@
 </a> to specify the view exposes all the matrices of the exposed axes.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/3c9c853e132ca284cec5f84e289deac859bc8b48/src/views.jl#L198-L201">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/e0728ddfeb46cc4f38542ffefa5d97844964ac40/src/views.jl#L196-L199">source
 </a>
 </section>
 </article>
@@ -856,7 +844,7 @@
 </code>) to specify the view exposes all the data of the exposed axes.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/3c9c853e132ca284cec5f84e289deac859bc8b48/src/views.jl#L204-L207">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/e0728ddfeb46cc4f38542ffefa5d97844964ac40/src/views.jl#L202-L205">source
 </a>
 </section>
 </article>

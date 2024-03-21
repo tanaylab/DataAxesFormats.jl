@@ -87,13 +87,12 @@ will expose the `batch` axis, but only including the batches whose `age` propert
 
     But what we are **forced** to say is:
 
-        ViewAxes = AbstractVector
+        ViewAxes = AbstractVector{<:Pair}
 
-    That's **not** a mistake. Even `ViewAxes = AbstractVector{Pair}` fails to work, as do all the (many) possibilities
-    for expressing "this is a vector of pairs where the key or the value can be one of several things" Sigh. Glory to
-    anyone who figures out an incantation that would force the system to perform **any** meaningful type inference here.
+    Glory to anyone who figures out an incantation that would force the system to perform more meaningful type inference
+    here.
 """
-ViewAxes = AbstractVector
+ViewAxes = AbstractVector{<:Pair}
 
 """
 Specify data to expose from view. This is specified as a vector of pairs (similar to initializing a `Dict`). The order
@@ -151,13 +150,12 @@ That is, assuming a `gene` and `cell` axes were exposed by the `axes` parameter,
 
     But what we are **forced** to say is:
 
-        ViewData = AbstractVector
+        ViewData = AbstractVector{<:Pair}
 
-    That's **not** a mistake. Even `ViewData = AbstractVector{Pair}` fails to work, as do all the (many) possibilities
-    for expressing "this is a vector of pairs where the key or the value can be one of several things" Sigh. Glory to
-    anyone who figures out an incantation that would force the system to perform **any** meaningful type inference here.
+    Glory to anyone who figures out an incantation that would force the system to perform more meaningful type inference
+    here.
 """
-ViewData = AbstractVector
+ViewData = AbstractVector{<:Pair}
 
 """
 A pair to use in the `axes` parameter of [`daf_view`](@ref) to specify all the base data axes.

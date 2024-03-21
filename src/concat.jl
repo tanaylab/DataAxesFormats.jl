@@ -45,13 +45,12 @@ relevant properties. For matrices, merge is done separately for each layout. Tha
 
     But what we are **forced** to say is:
 
-        ViewData = AbstractVector
+        ViewData = AbstractVector{<:Pair}
 
-    That's **not** a mistake. Even `MergeData = AbstractVector{Pair}` fails to work, as do all the (many) possibilities
-    for expressing "this is a vector of pairs where the key or the value can be one of several things" Sigh. Glory to
-    anyone who figures out an incantation that would force the system to perform **any** meaningful type inference here.
+    Glory to anyone who figures out an incantation that would force the system to perform more meaningful type inference
+    here.
 """
-MergeData = AbstractVector
+MergeData = AbstractVector{<:Pair}
 
 """
 The action for merging the values of a property from the concatenated data sets into the result data set. This is used

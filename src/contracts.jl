@@ -53,14 +53,12 @@ list the axes with their descriptions so the documentation of the contract will 
 
     But what we are **forced** to say is:
 
-        ContractAxes = AbstractVector
+        ContractAxes = AbstractVector{<:Pair}
 
-    That's **not** a mistake. Even `ContractAxes = AbstractVector{Pair}` fails to work, as do all the (many)
-    possibilities for expressing "this is a vector of pairs where the key or the value can be one of several things"
-    Sigh. Glory to anyone who figures out an incantation that would force the system to perform **any** meaningful type
-    inference here.
+    Glory to anyone who figures out an incantation that would force the system to perform more meaningful type inference
+    here.
 """
-ContractAxes = AbstractVector
+ContractAxes = AbstractVector{<:Pair}
 
 """
 A vector of pairs where the key is a [`DataKey`](@ref) identifying some data property, and the value is a tuple of the
@@ -75,14 +73,12 @@ A vector of pairs where the key is a [`DataKey`](@ref) identifying some data pro
 
     But what we are **forced** to say is:
 
-        ContractData = AbstractVector
+        ContractData = AbstractVector{<:Pair}
 
-    That's **not** a mistake. Even `ContractData = AbstractVector{Pair}` fails to work, as do all the (many)
-    possibilities for expressing "this is a vector of pairs where the key or the value can be one of several things"
-    Sigh. Glory to anyone who figures out an incantation that would force the system to perform **any** meaningful type
-    inference here.
+    Glory to anyone who figures out an incantation that would force the system to perform more meaningful type inference
+    here.
 """
-ContractData = AbstractVector
+ContractData = AbstractVector{<:Pair}
 
 """
     function Contract(;

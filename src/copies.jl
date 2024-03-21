@@ -15,7 +15,6 @@ export copy_axis!
 export copy_matrix!
 export copy_scalar!
 export copy_vector!
-export empty_dict
 export EmptyData
 
 using Daf.Data
