@@ -132,7 +132,7 @@ function copy_adapter_output(
         prefix = name  # untested
     end
     output = daf_view(adapted; name = "$(prefix).output", axes = axes, data = data)
-    copy_all!(; from = output, into = view.daf, empty = empty, relayout = relayout, overwrite = overwrite)
+    copy_all!(; source = output, destination = view.daf, empty = empty, relayout = relayout, overwrite = overwrite)
     return nothing
 end
 

@@ -184,128 +184,134 @@ nested_test("matrix_layouts") do
 
         nested_test("manual") do
             nested_test("dense") do
-                from = rand(4, 6)
-                @test major_axis(from) == Columns
-                into = transpose(rand(6, 4))
+                source = rand(4, 6)
+                @test major_axis(source) == Columns
+                destination = transpose(rand(6, 4))
 
                 nested_test("base") do
-                    relayout!(into, from)
-                    @test major_axis(into) == Rows
-                    @test into == from
+                    relayout!(destination, source)
+                    @test major_axis(destination) == Rows
+                    @test destination == source
                 end
 
                 nested_test("wrong_size") do
-                    into = sprand(5, 5, 0.5)
-                    @test_throws "relayout into size: (5, 5)\nis different from size: (4, 6)" relayout!(into, from)
-                end
-
-                nested_test("into_sparse") do
-                    into = sprand(4, 6, 0.5)
-                    @test_throws "relayout into sparse: SparseMatrixCSC{Float64, Int64} of non-sparse matrix: Matrix{Float64}" relayout!(
-                        into,
-                        from,
+                    destination = sprand(5, 5, 0.5)
+                    @test_throws "relayout destination size: (5, 5)\nis different from source size: (4, 6)" relayout!(
+                        destination,
+                        source,
                     )
                 end
 
+                nested_test("destination_sparse") do
+                    destination = sprand(4, 6, 0.5)
+                    @test_throws dedent("""
+                        relayout sparse destination: SparseMatrixCSC{Float64, Int64}
+                        and non-sparse source: Matrix{Float64}
+                    """) relayout!(destination, source)
+                end
+
                 nested_test("read_only") do
-                    relayout!(into, SparseArrays.ReadOnly(from))
-                    @test major_axis(into) == Rows
-                    @test into == from
+                    relayout!(destination, SparseArrays.ReadOnly(source))
+                    @test major_axis(destination) == Rows
+                    @test destination == source
                 end
 
                 nested_test("transpose") do
-                    relayout!(transpose(into), transpose(from))
-                    @test major_axis(into) == Rows
-                    @test into == from
+                    relayout!(transpose(destination), transpose(source))
+                    @test major_axis(destination) == Rows
+                    @test destination == source
                 end
 
                 nested_test("named") do
-                    nested_test("from") do
-                        named_from = NamedArray(from)
-                        relayout!(into, from)
-                        @test major_axis(into) == Rows
-                        @test into == from
+                    nested_test("source") do
+                        named_source = NamedArray(source)
+                        relayout!(destination, source)
+                        @test major_axis(destination) == Rows
+                        @test destination == source
                     end
 
-                    nested_test("into") do
-                        named_into = NamedArray(into)
-                        relayout!(into, from)
-                        @test major_axis(into) == Rows
-                        @test into == from
+                    nested_test("destination") do
+                        named_destination = NamedArray(destination)
+                        relayout!(destination, source)
+                        @test major_axis(destination) == Rows
+                        @test destination == source
                     end
 
                     nested_test("both") do
-                        named_from = NamedArray(from)
-                        named_into = NamedArray(into)
-                        relayout!(into, from)
-                        @test major_axis(into) == Rows
-                        @test into == from
+                        named_source = NamedArray(source)
+                        named_destination = NamedArray(destination)
+                        relayout!(destination, source)
+                        @test major_axis(destination) == Rows
+                        @test destination == source
                     end
                 end
             end
 
             nested_test("sparse") do
-                from = sprand(4, 6, 0.5)
-                @test major_axis(from) == Columns
+                source = sprand(4, 6, 0.5)
+                @test major_axis(source) == Columns
 
-                into = sprand(6, 4, 0.5)
-                while nnz(into) != nnz(from)  # Lazy way to get a fitting target matrix.
-                    into = sprand(6, 4, 0.5)
+                destination = sprand(6, 4, 0.5)
+                while nnz(destination) != nnz(source)  # Lazy way to get a fitting target matrix.
+                    destination = sprand(6, 4, 0.5)
                 end
-                into = transpose(into)
+                destination = transpose(destination)
 
                 nested_test("base") do
-                    relayout!(into, from)
-                    @test major_axis(into) == Rows
-                    @test into == from
+                    relayout!(destination, source)
+                    @test major_axis(destination) == Rows
+                    @test destination == source
                 end
 
                 nested_test("wrong_size") do
-                    into = rand(5, 5)
-                    @test_throws "relayout into size: (5, 5)\nis different from size: (4, 6)" relayout!(into, from)
+                    destination = rand(5, 5)
+                    @test_throws dedent("""
+                        relayout destination size: (5, 5)
+                        is different from source size: (4, 6)
+                    """) relayout!(destination, source)
                 end
 
-                nested_test("into_dense") do
-                    into = rand(4, 6)
-                    @test_throws "relayout into dense: Matrix{Float64} of sparse matrix: SparseMatrixCSC{Float64, Int64}" relayout!(
-                        into,
-                        from,
-                    )
+                nested_test("destination_dense") do
+                    destination = rand(4, 6)
+                    @test_throws dedent("""
+                        relayout dense destination: Matrix{Float64}
+                        and sparse source: SparseMatrixCSC{Float64, Int64}
+                    """) relayout!(destination, source)
                 end
 
                 nested_test("read_only") do
-                    relayout!(into, SparseArrays.ReadOnly(from))
-                    @test major_axis(into) == Rows
-                    @test into == from
+                    relayout!(destination, SparseArrays.ReadOnly(source))
+                    @test major_axis(destination) == Rows
+                    @test destination == source
                 end
 
                 nested_test("transpose") do
-                    relayout!(transpose(into), transpose(from))
-                    @test major_axis(into) == Rows
-                    @test into == from
+                    relayout!(transpose(destination), transpose(source))
+                    @test major_axis(destination) == Rows
+                    @test destination == source
                 end
 
                 nested_test("named") do
-                    nested_test("from") do
-                        named_from = NamedArray(from)
-                        relayout!(into, named_from)
-                        @test major_axis(into) == Rows
-                        @test into == from
+                    nested_test("source") do
+                        named_source = NamedArray(source)
+                        relayout!(destination, named_source)
+                        @test major_axis(destination) == Rows
+                        @test destination == source
                     end
 
-                    nested_test("into") do
-                        named_into = NamedArray(into)
-                        relayout!(named_into, from)
-                        @test major_axis(named_into) == Rows
-                        @test into == from
+                    nested_test("destination") do
+                        named_destination = NamedArray(destination)
+                        relayout!(named_destination, source)
+                        @test major_axis(named_destination) == Rows
+                        @test destination == source
                     end
 
                     nested_test("both") do
-                        named_from = NamedArray(from)
-                        named_into = NamedArray(into)
-                        relayout!(named_into, named_from)
-                        @test major_axis(named_into) == Rows
-                        @test into == from
+                        named_source = NamedArray(source)
+                        named_destination = NamedArray(destination)
+                        relayout!(named_destination, named_source)
+                        @test major_axis(named_destination) == Rows
+                        @test destination == source
                     end
                 end
             end

@@ -69,9 +69,9 @@ of other axes). Valid values are:
 
 """
     function concatenate(
-        into::DafWriter,
+        destination::DafWriter,
         axis::Union{AbstractString, AbstractStringVector},
-        from::AbstractVector{<:DafReader};
+        sources::AbstractVector{<:DafReader};
         [names::Maybe{AbstractStringVector} = nothing,
         dataset_axis::Maybe{AbstractString} = "dataset",
         dataset_property::Bool = true,
@@ -83,8 +83,8 @@ of other axes). Valid values are:
         overwrite::Bool = false]
     )::Nothing
 
-Concatenate data `from` a sequence of `Daf` data sets `into` a single data set along one or more concatenation `axis`.
-You can also concatenate along multiple axes by specifying an array of `axis` names.
+Concatenate data from a `sources` sequence of `Daf` data sets into a single `destination` data set along one or more
+concatenation `axis`. You can also concatenate along multiple axes by specifying an array of `axis` names.
 
 We need a unique name for each of the concatenated data sets. By default, we use the `DafReader.name`. You can
 override this by specifying an explicit `names` vector with one name per data set.
@@ -130,9 +130,9 @@ then such properties will be processed according to it. Using `CollectAxis` for 
 By default, concatenation will fail rather than `overwrite` existing properties in the target.
 """
 function concatenate(
-    into::DafWriter,
+    destination::DafWriter,
     axis::Union{AbstractString, AbstractStringVector},
-    from::AbstractVector{<:DafReader};
+    sources::AbstractVector{<:DafReader};
     names::Maybe{AbstractStringVector} = nothing,
     dataset_axis::Maybe{AbstractString} = "dataset",
     dataset_property::Bool = true,
@@ -153,42 +153,42 @@ function concatenate(
     @assert allunique(axes)
 
     for axis in axes
-        require_no_axis(into, axis)
-        for daf in from
-            require_axis(daf, axis)
+        require_no_axis(destination, axis)
+        for source in sources
+            require_axis(source, axis)
         end
     end
 
     for rows_axis in axes
         for columns_axis in axes
-            for daf in from
-                invalid_matrix_names = matrix_names(daf, rows_axis, columns_axis; relayout = false)
+            for source in sources
+                invalid_matrix_names = matrix_names(source, rows_axis, columns_axis; relayout = false)
                 for invalid_matrix_name in invalid_matrix_names
                     error(
                         "can't concatenate the matrix: $(invalid_matrix_name)\n" *
                         "for the concatenated rows axis: $(rows_axis)\n" *
                         "and the concatenated columns axis: $(columns_axis)\n" *
-                        "in the daf data: $(daf.name)\n" *
-                        "concatenated into the daf data: $(into.name)",
+                        "in the daf data: $(source.name)\n" *
+                        "concatenated into the daf data: $(destination.name)",
                     )
                 end
             end
         end
     end
 
-    @assert length(from) > 0
+    @assert length(sources) > 0
 
     if names == nothing
-        names = [daf.name for daf in from]
+        names = [source.name for source in sources]
     end
-    @assert length(names) == length(from)
+    @assert length(names) == length(sources)
     @assert allunique(names)
 
     if dataset_axis != nothing
         @assert !(dataset_axis in axes)
-        require_no_axis(into, dataset_axis)
-        for daf in from
-            require_no_axis(daf, dataset_axis)
+        require_no_axis(destination, dataset_axis)
+        for source in sources
+            require_no_axis(source, dataset_axis)
         end
     end
 
@@ -208,21 +208,21 @@ function concatenate(
 
     axes_set = Set(axes)
     other_axes_entry_names = Dict{AbstractString, Tuple{AbstractString, AbstractStringVector}}()
-    for daf in from
-        for axis_name in axis_names(daf)
+    for source in sources
+        for axis_name in axis_names(source)
             if !(axis_name in axes_set)
-                other_axis_entry_names = get_axis(daf, axis_name)
+                other_axis_entry_names = get_axis(source, axis_name)
                 previous_axis_data = get(other_axes_entry_names, axis_name, nothing)
                 if previous_axis_data == nothing
-                    other_axes_entry_names[axis_name] = (daf.name, other_axis_entry_names)
+                    other_axes_entry_names[axis_name] = (source.name, other_axis_entry_names)
                 else
-                    (previous_daf_name, previous_axis_entry_names) = previous_axis_data
+                    (previous_source_name, previous_axis_entry_names) = previous_axis_data
                     if other_axis_entry_names != previous_axis_entry_names
                         error(
                             "different entries for the axis: $(axis_name)\n" *
-                            "between the daf data: $(previous_daf_name)\n" *
-                            "and the daf data: $(daf.name)\n" *
-                            "concatenated into the daf data: $(into.name)",
+                            "between the daf data: $(previous_source_name)\n" *
+                            "and the daf data: $(source.name)\n" *
+                            "concatenated into the daf data: $(destination.name)",
                         )
                     end
                 end
@@ -232,11 +232,11 @@ function concatenate(
     other_axes_set = keys(other_axes_entry_names)
 
     if dataset_axis != nothing
-        add_axis!(into, dataset_axis, names)
+        add_axis!(destination, dataset_axis, names)
     end
 
     for (other_axis, other_axis_entry_names) in other_axes_entry_names
-        add_axis!(into, other_axis, other_axis_entry_names[2])
+        add_axis!(destination, other_axis, other_axis_entry_names[2])
     end
 
     for axis_index in 1:length(axes)
@@ -246,9 +246,9 @@ function concatenate(
             axis_prefixed = prefixed[axis_index]
         end
         concatenate_axis(
-            into,
+            destination,
             axes[axis_index],
-            from;
+            sources;
             axes = axes,
             other_axes_set = other_axes_set,
             names = names,
@@ -265,8 +265,8 @@ function concatenate(
 
     if merge != nothing
         concatenate_merge(
-            into,
-            from;
+            destination,
+            sources;
             dataset_axis = dataset_axis,
             other_axes_set = other_axes_set,
             names = names,
@@ -281,9 +281,9 @@ function concatenate(
 end
 
 function concatenate_axis(
-    into::DafWriter,
+    destination::DafWriter,
     axis::AbstractString,
-    from::AbstractVector{<:DafReader};
+    sources::AbstractVector{<:DafReader};
     axes::AbstractStringVector,
     other_axes_set::AbstractStringSet,
     names::AbstractStringVector,
@@ -296,7 +296,7 @@ function concatenate_axis(
     sparse_if_saves_storage_fraction::AbstractFloat,
     overwrite::Bool,
 )::Nothing
-    sizes = [axis_length(daf, axis) for daf in from]
+    sizes = [axis_length(source, axis) for source in sources]
     concatenated_axis_size = sum(sizes)
 
     offsets = cumsum(sizes)
@@ -304,9 +304,9 @@ function concatenate_axis(
     offsets[1] = 0
 
     concatenate_axis_entry_names(
-        into,
+        destination,
         axis,
-        from;
+        sources;
         names = names,
         prefix = prefix,
         sizes = sizes,
@@ -316,7 +316,7 @@ function concatenate_axis(
 
     if dataset_axis != nothing && dataset_property
         concatenate_axis_dataset_property(
-            into,
+            destination,
             axis;
             names = names,
             dataset_axis = dataset_axis,
@@ -328,8 +328,8 @@ function concatenate_axis(
     end
 
     vector_properties_set = Set{AbstractString}()
-    for daf in from
-        union!(vector_properties_set, vector_names(daf, axis))
+    for source in sources
+        union!(vector_properties_set, vector_names(source, axis))
     end
 
     for vector_property in vector_properties_set
@@ -351,10 +351,10 @@ function concatenate_axis(
         empty_value = get_empty_value(empty, (axis, vector_property))
 
         concatenate_axis_vector(
-            into,
+            destination,
             axis,
             vector_property,
-            from;
+            sources;
             names = names,
             prefix = prefix_axis,
             empty_value = empty_value,
@@ -368,19 +368,19 @@ function concatenate_axis(
 
     for other_axis in other_axes_set
         matrix_properties_set = Set{AbstractString}()
-        for daf in from
-            union!(matrix_properties_set, matrix_names(daf, other_axis, axis; relayout = false))
+        for source in sources
+            union!(matrix_properties_set, matrix_names(source, other_axis, axis; relayout = false))
         end
 
         for matrix_property in matrix_properties_set
             empty_value =
                 get_empty_value(empty, (other_axis, axis, matrix_property), (axis, other_axis, matrix_property))
             concatenate_axis_matrix(
-                into,
+                destination,
                 other_axis,
                 axis,
                 matrix_property,
-                from;
+                sources;
                 empty_value = empty_value,
                 sparse_if_saves_storage_fraction = sparse_if_saves_storage_fraction,
                 offsets = offsets,
@@ -395,9 +395,9 @@ function concatenate_axis(
 end
 
 function concatenate_axis_entry_names(
-    into::DafWriter,
+    destination::DafWriter,
     axis::AbstractString,
-    from::AbstractVector{<:DafReader};
+    sources::AbstractVector{<:DafReader};
     names::AbstractStringVector,
     prefix::Bool,
     sizes::AbstractVector{<:Integer},
@@ -407,31 +407,31 @@ function concatenate_axis_entry_names(
     axis_entry_names = Vector{AbstractString}(undef, concatenated_axis_size)
 
     if prefix
-        @threads for index in 1:length(from)
-            daf = from[index]
+        @threads for index in 1:length(sources)
+            source = sources[index]
             offset = offsets[index]
             size = sizes[index]
             name = names[index]
-            from_axis_entry_names = get_axis(daf, axis)
+            from_axis_entry_names = get_axis(source, axis)
             axis_entry_names[(offset + 1):(offset + size)] = (name * ".") .* from_axis_entry_names
         end
     else
-        @threads for index in 1:length(from)
-            daf = from[index]
+        @threads for index in 1:length(sources)
+            source = sources[index]
             offset = offsets[index]
             size = sizes[index]
-            from_axis_entry_names = get_axis(daf, axis)
+            from_axis_entry_names = get_axis(source, axis)
             axis_entry_names[(offset + 1):(offset + size)] .= from_axis_entry_names[:]
         end
     end
 
-    add_axis!(into, axis, axis_entry_names)
+    add_axis!(destination, axis, axis_entry_names)
 
     return nothing
 end
 
 function concatenate_axis_dataset_property(
-    into::DafWriter,
+    destination::DafWriter,
     axis::AbstractString;
     names::AbstractStringVector,
     dataset_axis::AbstractString,
@@ -449,15 +449,15 @@ function concatenate_axis_dataset_property(
         axis_datasets[(offset + 1):(offset + size)] .= name
     end
 
-    set_vector!(into, axis, dataset_axis, axis_datasets; overwrite = overwrite)
+    set_vector!(destination, axis, dataset_axis, axis_datasets; overwrite = overwrite)
     return nothing
 end
 
 function concatenate_axis_vector(
-    into::DafWriter,
+    destination::DafWriter,
     axis::AbstractString,
     vector_property::AbstractString,
-    from::AbstractVector{<:DafReader};
+    sources::AbstractVector{<:DafReader};
     names::AbstractStringVector,
     prefix::Bool,
     empty_value::Maybe{StorageScalar},
@@ -467,15 +467,15 @@ function concatenate_axis_vector(
     concatenated_axis_size::Integer,
     overwrite::Bool,
 )::Nothing
-    vectors = [get_vector(daf, axis, vector_property; default = nothing) for daf in from]
+    vectors = [get_vector(source, axis, vector_property; default = nothing) for source in sources]
     dtype = reduce(merge_dtypes, vectors; init = typeof(empty_value))
 
     if dtype == String
         concatenate_axis_string_vectors(
-            into,
+            destination,
             axis,
             vector_property,
-            from;
+            sources;
             names = names,
             prefix = prefix,
             empty_value = empty_value,
@@ -493,7 +493,7 @@ function concatenate_axis_vector(
             @assert empty_value == nothing || empty_value == 0
             sparse_vectors = sparsify_vectors(vectors, dtype, sizes)
             concatenate_axis_sparse_vectors(
-                into,
+                destination,
                 axis,
                 vector_property;
                 dtype = dtype,
@@ -506,10 +506,10 @@ function concatenate_axis_vector(
 
         else
             concatenate_axis_dense_vectors(
-                into,
+                destination,
                 axis,
                 vector_property,
-                from;
+                sources;
                 dtype = dtype,
                 empty_value = empty_value,
                 offsets = offsets,
@@ -524,10 +524,10 @@ function concatenate_axis_vector(
 end
 
 function concatenate_axis_string_vectors(
-    into::DafWriter,
+    destination::DafWriter,
     axis::AbstractString,
     vector_property::AbstractString,
-    from::AbstractVector{<:DafReader};
+    sources::AbstractVector{<:DafReader};
     names::AbstractStringVector,
     prefix::Bool,
     empty_value::Maybe{StorageScalar},
@@ -540,14 +540,14 @@ function concatenate_axis_string_vectors(
     concatenated_vector = Vector{AbstractString}(undef, concatenated_axis_size)
 
     @threads for index in 1:length(vectors)
-        daf = from[index]
+        source = sources[index]
         offset = offsets[index]
         size = sizes[index]
         name = names[index]
         vector = vectors[index]
         if vector == nothing
             concatenated_vector[(offset + 1):(offset + size)] .=
-                require_empty_value_for_vector(empty_value, vector_property, axis, daf, into)
+                require_empty_value_for_vector(empty_value, vector_property, axis, source, destination)
         else
             @assert length(vector) == size
             if !(eltype(vector) <: AbstractString)
@@ -561,12 +561,12 @@ function concatenate_axis_string_vectors(
         end
     end
 
-    set_vector!(into, axis, vector_property, concatenated_vector; overwrite = overwrite)
+    set_vector!(destination, axis, vector_property, concatenated_vector; overwrite = overwrite)
     return nothing
 end
 
 function concatenate_axis_sparse_vectors(
-    into::DafWriter,
+    destination::DafWriter,
     axis::AbstractString,
     vector_property::AbstractString;
     dtype::Type,
@@ -579,7 +579,15 @@ function concatenate_axis_sparse_vectors(
     nnz_offsets, nnz_sizes, total_nnz = nnz_arrays(vectors)
     indtype = indtype_for_size(concatenated_axis_size)
 
-    empty_sparse_vector!(into, axis, vector_property, dtype, total_nnz, indtype; overwrite = overwrite) do nzind, nzval
+    empty_sparse_vector!(
+        destination,
+        axis,
+        vector_property,
+        dtype,
+        total_nnz,
+        indtype;
+        overwrite = overwrite,
+    ) do nzind, nzval
         @threads for index in 1:length(vectors)
             offset = offsets[index]
             nnz_offset = nnz_offsets[index]
@@ -595,10 +603,10 @@ function concatenate_axis_sparse_vectors(
 end
 
 function concatenate_axis_dense_vectors(
-    into::DafWriter,
+    destination::DafWriter,
     axis::AbstractString,
     vector_property::AbstractString,
-    from::AbstractVector{<:DafReader};
+    sources::AbstractVector{<:DafReader};
     dtype::Type,
     empty_value::Maybe{StorageNumber},
     offsets::AbstractVector{<:Integer},
@@ -606,15 +614,15 @@ function concatenate_axis_dense_vectors(
     vectors::AbstractVector{<:Maybe{<:StorageVector}},
     overwrite::Bool,
 )::Nothing
-    empty_dense_vector!(into, axis, vector_property, dtype; overwrite = overwrite) do concatenated_vector
+    empty_dense_vector!(destination, axis, vector_property, dtype; overwrite = overwrite) do concatenated_vector
         @threads for index in 1:length(vectors)
-            daf = from[index]
+            source = sources[index]
             offset = offsets[index]
             size = sizes[index]
             vector = vectors[index]
             if vector == nothing
                 concatenated_vector[(offset + 1):(offset + size)] .=
-                    require_empty_value_for_vector(empty_value, vector_property, axis, daf, into)
+                    require_empty_value_for_vector(empty_value, vector_property, axis, source, destination)
             else
                 @assert length(vector) == size
                 concatenated_vector[(offset + 1):(offset + size)] = vector
@@ -627,11 +635,11 @@ function concatenate_axis_dense_vectors(
 end
 
 function concatenate_axis_matrix(
-    into::DafWriter,
+    destination::DafWriter,
     other_axis::AbstractString,
     axis::AbstractString,
     matrix_property::AbstractString,
-    from::AbstractVector{<:DafReader};
+    sources::AbstractVector{<:DafReader};
     empty_value::Maybe{StorageNumber},
     sparse_if_saves_storage_fraction::AbstractFloat,
     offsets::AbstractVector{<:Integer},
@@ -639,16 +647,16 @@ function concatenate_axis_matrix(
     concatenated_axis_size::Integer,
     overwrite::Bool,
 )::Nothing
-    matrices = [get_matrix(daf, other_axis, axis, matrix_property; default = nothing) for daf in from]
+    matrices = [get_matrix(source, other_axis, axis, matrix_property; default = nothing) for source in sources]
     dtype = reduce(merge_dtypes, matrices; init = typeof(empty_value))
 
-    nrows = axis_length(into, other_axis)
-    sparse_saves = sparse_storage_fraction(empty_value, dtype, sizes, matrices, axis_length(into, other_axis), 2)
+    nrows = axis_length(destination, other_axis)
+    sparse_saves = sparse_storage_fraction(empty_value, dtype, sizes, matrices, axis_length(destination, other_axis), 2)
     if sparse_saves >= sparse_if_saves_storage_fraction
         @assert empty_value == nothing || empty_value == 0
         sparse_matrices = sparsify_matrices(matrices, dtype, nrows, sizes)
         concatenate_axis_sparse_matrices(
-            into,
+            destination,
             other_axis,
             axis,
             matrix_property;
@@ -662,11 +670,11 @@ function concatenate_axis_matrix(
 
     else
         concatenate_axis_dense_matrices(
-            into,
+            destination,
             other_axis,
             axis,
             matrix_property,
-            from;
+            sources;
             dtype = dtype,
             empty_value = empty_value,
             offsets = offsets,
@@ -680,7 +688,7 @@ function concatenate_axis_matrix(
 end
 
 function concatenate_axis_sparse_matrices(
-    into::DafWriter,
+    destination::DafWriter,
     other_axis::AbstractString,
     axis::AbstractString,
     matrix_property::AbstractString;
@@ -695,7 +703,7 @@ function concatenate_axis_sparse_matrices(
     indtype = indtype_for_size(concatenated_axis_size)
 
     empty_sparse_matrix!(
-        into,
+        destination,
         other_axis,
         axis,
         matrix_property,
@@ -722,11 +730,11 @@ function concatenate_axis_sparse_matrices(
 end
 
 function concatenate_axis_dense_matrices(
-    into::DafWriter,
+    destination::DafWriter,
     other_axis::AbstractString,
     axis::AbstractString,
     matrix_property::AbstractString,
-    from::AbstractVector{<:DafReader};
+    sources::AbstractVector{<:DafReader};
     dtype::Type,
     empty_value::Maybe{StorageNumber},
     offsets::AbstractVector{<:Integer},
@@ -734,15 +742,22 @@ function concatenate_axis_dense_matrices(
     matrices::AbstractVector{<:Maybe{<:StorageMatrix}},
     overwrite::Bool,
 )::Nothing
-    empty_dense_matrix!(into, other_axis, axis, matrix_property, dtype; overwrite = overwrite) do concatenated_matrix
+    empty_dense_matrix!(
+        destination,
+        other_axis,
+        axis,
+        matrix_property,
+        dtype;
+        overwrite = overwrite,
+    ) do concatenated_matrix
         @threads for index in 1:length(matrices)
-            daf = from[index]
+            source = sources[index]
             column_offset = offsets[index]
             ncols = sizes[index]
             matrix = matrices[index]
             if matrix == nothing
                 concatenated_matrix[:, (column_offset + 1):(column_offset + ncols)] .=
-                    require_empty_value_for_matrix(empty_value, matrix_property, other_axis, axis, daf, into)
+                    require_empty_value_for_matrix(empty_value, matrix_property, other_axis, axis, source, destination)
             else
                 @assert size(matrix)[2] == ncols
                 concatenated_matrix[:, (column_offset + 1):(column_offset + ncols)] = matrix
@@ -755,8 +770,8 @@ function concatenate_axis_dense_matrices(
 end
 
 function concatenate_merge(
-    into::DafWriter,
-    from::AbstractVector{<:DafReader};
+    destination::DafWriter,
+    sources::AbstractVector{<:DafReader};
     dataset_axis::Maybe{AbstractString},
     other_axes_set::AbstractStringSet,
     names::AbstractStringVector,
@@ -766,17 +781,17 @@ function concatenate_merge(
     overwrite::Bool,
 )::Nothing
     scalar_properties_set = Set{AbstractString}()
-    for daf in from
-        union!(scalar_properties_set, scalar_names(daf))
+    for source in sources
+        union!(scalar_properties_set, scalar_names(source))
     end
     for scalar_property in scalar_properties_set
         merge_action = get_merge_action(merge, scalar_property)
         empty_value = get_empty_value(empty, scalar_property)
         if merge_action != SkipProperty
             concatenate_merge_scalar(
-                into,
+                destination,
                 scalar_property,
-                from;
+                sources;
                 dataset_axis = dataset_axis,
                 empty_value = empty_value,
                 merge_action = merge_action,
@@ -788,9 +803,9 @@ function concatenate_merge(
     for axis in other_axes_set
         vector_properties_set = Set{AbstractString}()
         square_matrix_properties_set = Set{AbstractString}()
-        for daf in from
-            union!(vector_properties_set, vector_names(daf, axis))
-            union!(square_matrix_properties_set, matrix_names(daf, axis, axis))
+        for source in sources
+            union!(vector_properties_set, vector_names(source, axis))
+            union!(square_matrix_properties_set, matrix_names(source, axis, axis))
         end
 
         for vector_property in vector_properties_set
@@ -798,10 +813,10 @@ function concatenate_merge(
             empty_value = get_empty_value(empty, (axis, vector_property))
             if merge_action != SkipProperty
                 concatenate_merge_vector(
-                    into,
+                    destination,
                     axis,
                     vector_property,
-                    from;
+                    sources;
                     dataset_axis = dataset_axis,
                     empty_value = empty_value,
                     merge_action = merge_action,
@@ -816,12 +831,11 @@ function concatenate_merge(
             empty_value = get_empty_value(empty, (axis, axis, square_matrix_property))
             if merge_action != SkipProperty
                 concatenate_merge_matrix(
-                    into,
+                    destination,
                     axis,
                     axis,
                     square_matrix_property,
-                    from;
-                    empty_value = empty_value,
+                    sources;
                     merge_action = merge_action,
                     overwrite = overwrite,
                 )
@@ -833,8 +847,8 @@ function concatenate_merge(
         for columns_axis in other_axes_set
             if rows_axis != columns_axis
                 matrix_properties_set = Set{AbstractString}()
-                for daf in from
-                    union!(matrix_properties_set, matrix_names(daf, rows_axis, columns_axis; relayout = false))
+                for source in sources
+                    union!(matrix_properties_set, matrix_names(source, rows_axis, columns_axis; relayout = false))
                 end
 
                 for matrix_property in matrix_properties_set
@@ -846,12 +860,11 @@ function concatenate_merge(
                     )
                     if merge_action != SkipProperty
                         concatenate_merge_matrix(
-                            into,
+                            destination,
                             rows_axis,
                             columns_axis,
                             matrix_property,
-                            from;
-                            empty_value = empty_value,
+                            sources;
                             merge_action = merge_action,
                             overwrite = overwrite,
                         )
@@ -865,19 +878,19 @@ function concatenate_merge(
 end
 
 function concatenate_merge_scalar(
-    into::DafWriter,
+    destination::DafWriter,
     scalar_property::AbstractString,
-    from::AbstractVector{<:DafReader};
+    sources::AbstractVector{<:DafReader};
     dataset_axis::Maybe{AbstractString},
     empty_value::Maybe{StorageScalar},
     merge_action::MergeAction,
     overwrite::Bool,
 )::Nothing
     if merge_action == LastValue
-        for daf in reverse(from)
-            value = get_scalar(daf, scalar_property; default = nothing)
+        for source in reverse(sources)
+            value = get_scalar(source, scalar_property; default = nothing)
             if value != nothing
-                set_scalar!(into, scalar_property, value; overwrite = overwrite)
+                set_scalar!(destination, scalar_property, value; overwrite = overwrite)
                 return nothing
             end
         end
@@ -887,15 +900,15 @@ function concatenate_merge_scalar(
         if dataset_axis == nothing
             error(
                 "can't collect axis for the scalar: $(scalar_property)\n" *
-                "of the daf data sets concatenated into the daf data: $(into.name)\n",
+                "of the daf data sets concatenated into the daf data: $(destination.name)\n",
                 "because no data set axis was created",
             )
         end
 
-        scalars = [get_scalar(daf, scalar_property; default = nothing) for daf in from]
+        scalars = [get_scalar(source, scalar_property; default = nothing) for source in sources]
         dtype = reduce(merge_dtypes, scalars; init = typeof(empty_value))
         scalars = [dtype(scalar) for scalar in scalars]
-        set_vector!(into, dataset_axis, scalar_property, scalars; overwrite = overwrite)
+        set_vector!(destination, dataset_axis, scalar_property, scalars; overwrite = overwrite)
         return nothing
 
     else
@@ -904,10 +917,10 @@ function concatenate_merge_scalar(
 end
 
 function concatenate_merge_vector(
-    into::DafWriter,
+    destination::DafWriter,
     axis::AbstractString,
     vector_property::AbstractString,
-    from::AbstractVector{<:DafReader};
+    sources::AbstractVector{<:DafReader};
     dataset_axis::Maybe{AbstractString},
     empty_value::Maybe{StorageScalar},
     merge_action::MergeAction,
@@ -915,10 +928,10 @@ function concatenate_merge_vector(
     overwrite::Bool,
 )::Nothing
     if merge_action == LastValue
-        for daf in reverse(from)
-            value = get_vector(daf, axis, vector_property; default = nothing)
+        for source in reverse(sources)
+            value = get_vector(source, axis, vector_property; default = nothing)
             if value != nothing
-                set_vector!(into, axis, vector_property, value; overwrite = overwrite)
+                set_vector!(destination, axis, vector_property, value; overwrite = overwrite)
                 return nothing
             end
         end
@@ -929,12 +942,12 @@ function concatenate_merge_vector(
             error(
                 "can't collect axis for the vector: $(vector_property)\n" *
                 "of the axis: $(axis)\n" *
-                "of the daf data sets concatenated into the daf data: $(into.name)\n",
+                "of the daf data sets concatenated into the daf data: $(destination.name)\n",
                 "because no data set axis was created",
             )
         end
 
-        vectors = [get_vector(daf, axis, vector_property; default = nothing) for daf in from]
+        vectors = [get_vector(source, axis, vector_property; default = nothing) for source in sources]
 
         size = nothing
         for vector in vectors
@@ -953,7 +966,7 @@ function concatenate_merge_vector(
                 @assert empty_value == nothing || empty_value == 0
                 sparse_vectors = sparsify_vectors(vectors, dtype, sizes)
                 concatenate_merge_sparse_vector(
-                    into,
+                    destination,
                     axis,
                     dataset_axis,
                     vector_property;
@@ -967,11 +980,11 @@ function concatenate_merge_vector(
         end
 
         concatenate_merge_dense_vector(
-            into,
+            destination,
             axis,
             dataset_axis,
             vector_property,
-            from;
+            sources;
             dtype = dtype,
             empty_value = empty_value,
             vectors = vectors,
@@ -985,7 +998,7 @@ function concatenate_merge_vector(
 end
 
 function concatenate_merge_sparse_vector(
-    into::DafWriter,
+    destination::DafWriter,
     axis::AbstractString,
     dataset_axis::AbstractString,
     vector_property::AbstractString;
@@ -998,7 +1011,7 @@ function concatenate_merge_sparse_vector(
     indtype = indtype_for_size(nrows * length(vectors))
 
     empty_sparse_matrix!(
-        into,
+        destination,
         axis,
         dataset_axis,
         vector_property,
@@ -1022,23 +1035,30 @@ function concatenate_merge_sparse_vector(
 end
 
 function concatenate_merge_dense_vector(
-    into::DafWriter,
+    destination::DafWriter,
     axis::AbstractString,
     dataset_axis::AbstractString,
     vector_property::AbstractString,
-    from::AbstractVector{<:DafReader};
+    sources::AbstractVector{<:DafReader};
     dtype::Type,
     empty_value::Maybe{StorageScalar},
     vectors::AbstractVector{<:Maybe{<:NamedVector}},
     overwrite::Bool,
 )::Nothing
-    empty_dense_matrix!(into, axis, dataset_axis, vector_property, dtype; overwrite = overwrite) do concatenated_matrix
+    empty_dense_matrix!(
+        destination,
+        axis,
+        dataset_axis,
+        vector_property,
+        dtype;
+        overwrite = overwrite,
+    ) do concatenated_matrix
         @threads for index in 1:length(vectors)
-            daf = from[index]
+            source = sources[index]
             vector = vectors[index]
             if vector == nothing
                 concatenated_matrix[:, index] .=
-                    require_empty_value_for_vector(empty_value, vector_property, axis, daf, into)
+                    require_empty_value_for_vector(empty_value, vector_property, axis, source, destination)
             else
                 concatenated_matrix[:, index] = vector
             end
@@ -1050,21 +1070,20 @@ function concatenate_merge_dense_vector(
 end
 
 function concatenate_merge_matrix(
-    into::DafWriter,
+    destination::DafWriter,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     matrix_property::AbstractString,
-    from::AbstractVector{<:DafReader};
-    empty_value::Maybe{StorageScalar},
+    sources::AbstractVector{<:DafReader};
     merge_action::MergeAction,
     overwrite::Bool,
 )::Nothing
     if merge_action == LastValue
-        for daf in reverse(from)
-            matrix = get_matrix(daf, rows_axis, columns_axis, matrix_property; relayout = false, default = nothing)
+        for source in reverse(sources)
+            matrix = get_matrix(source, rows_axis, columns_axis, matrix_property; relayout = false, default = nothing)
             if matrix != nothing
                 set_matrix!(
-                    into,
+                    destination,
                     rows_axis,
                     columns_axis,
                     matrix_property,
@@ -1082,7 +1101,7 @@ function concatenate_merge_matrix(
             "can't collect axis for the matrix: $(matrix_property)\n" *
             "of the rows axis: $(rows_axis)\n" *
             "and the columns axis: $(columns_axis)\n" *
-            "of the daf data sets concatenated into the daf data: $(into.name)\n",
+            "of the daf data sets concatenated into the daf data: $(destination.name)\n",
             "because that would create a 3D tensor, which is not supported",
         )
 
@@ -1096,14 +1115,14 @@ function require_empty_value_for_vector(
     vector_property::AbstractString,
     axis::AbstractString,
     daf::DafReader,
-    into::DafWriter,
+    destination::DafWriter,
 )::StorageScalar
     if empty_value == nothing
         error(
             "no empty value for the vector: $(vector_property)\n" *
             "of the axis: $(axis)\n" *
             "which is missing from the daf data: $(daf.name)\n" *
-            "concatenated into the daf data: $(into.name)",
+            "concatenated into the daf data: $(destination.name)",
         )
     end
     return empty_value
@@ -1115,7 +1134,7 @@ function require_empty_value_for_matrix(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     daf::DafReader,
-    into::DafWriter,
+    destination::DafWriter,
 )::StorageNumber
     if empty_value == nothing
         error(
@@ -1123,7 +1142,7 @@ function require_empty_value_for_matrix(
             "of the rows axis: $(rows_axis)\n" *
             "and the columns axis: $(columns_axis)\n" *
             "which is missing from the daf data: $(daf.name)\n" *
-            "concatenated into the daf data: $(into.name)",
+            "concatenated into the daf data: $(destination.name)",
         )
     end
     return empty_value

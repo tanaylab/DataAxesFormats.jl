@@ -237,7 +237,7 @@
 <p>The exact behavior of concatenation is surprisingly complex when accounting for sparse vs. dense matrices, different matrix layouts, and properties which are not along the concatenation axis. The implementation is further complicated by minimizing the allocation of intermediate memory buffers for the data; that is, in principle, concatenating from and into memory-mapped data sets should not allocate &quot;any&quot; memory buffers - the data should be copied directly from one memory-mapped region to another.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/e0728ddfeb46cc4f38542ffefa5d97844964ac40/src/concat.jl#L1-L10">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/f228c18134919a3fb2831c4ccb2a3028a4fa05a8/src/concat.jl#L1-L10">source
 </a>
 </section>
 </article>
@@ -256,9 +256,9 @@
 <div>
 <pre>
 <code class="language-julia hljs">function concatenate(
-    into::DafWriter,
+    destination::DafWriter,
     axis::Union{AbstractString, AbstractStringVector},
-    from::AbstractVector{&lt;:DafReader};
+    sources::AbstractVector{&lt;:DafReader};
     [names::Maybe{AbstractStringVector} = nothing,
     dataset_axis::Maybe{AbstractString} = &quot;dataset&quot;,
     dataset_property::Bool = true,
@@ -271,13 +271,13 @@
 )::Nothing
 </code>
 </pre>
-<p>Concatenate data 
-<code>from
-</code> a sequence of 
+<p>Concatenate data from a 
+<code>sources
+</code> sequence of 
 <code>Daf
-</code> data sets 
-<code>into
-</code> a single data set along one or more concatenation 
+</code> data sets into a single 
+<code>destination
+</code> data set along one or more concatenation 
 <code>axis
 </code>. You can also concatenate along multiple axes by specifying an array of 
 <code>axis
@@ -362,7 +362,7 @@
 </code> existing properties in the target.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/e0728ddfeb46cc4f38542ffefa5d97844964ac40/src/concat.jl#L70-L131">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/f228c18134919a3fb2831c4ccb2a3028a4fa05a8/src/concat.jl#L70-L131">source
 </a>
 </section>
 </article>
@@ -430,7 +430,7 @@
 </div>
 </div>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/e0728ddfeb46cc4f38542ffefa5d97844964ac40/src/concat.jl#L34-L52">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/f228c18134919a3fb2831c4ccb2a3028a4fa05a8/src/concat.jl#L34-L52">source
 </a>
 </section>
 </article>
@@ -466,7 +466,7 @@
 </li>
 </ul>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/e0728ddfeb46cc4f38542ffefa5d97844964ac40/src/concat.jl#L55-L67">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/f228c18134919a3fb2831c4ccb2a3028a4fa05a8/src/concat.jl#L55-L67">source
 </a>
 </section>
 </article>

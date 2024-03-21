@@ -247,7 +247,7 @@
 </div>
 </div>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/e0728ddfeb46cc4f38542ffefa5d97844964ac40/src/copies.jl#L1-L10">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/f228c18134919a3fb2831c4ccb2a3028a4fa05a8/src/copies.jl#L1-L10">source
 </a>
 </section>
 </article>
@@ -266,8 +266,8 @@
 <div>
 <pre>
 <code class="language-julia hljs">function copy_scalar(;
-    into::DafWriter,
-    from::DafReader,
+    destination::DafWriter,
+    source::DafReader,
     name::AbstractString,
     [rename::Maybe{AbstractString} = nothing,
     default::Union{StorageScalar, Nothing, UndefInitializer} = undef,
@@ -275,13 +275,13 @@
 )::Nothing
 </code>
 </pre>
-<p>Copy a scalar 
-<code>from
-</code> some 
-<code>DafReader
+<p>Copy a scalar from some 
+<code>source
 </code> 
-<code>into
-</code> some 
+<code>DafReader
+</code> into some 
+<code>destination
+</code> 
 <code>DafWriter
 </code>.
 </p>
@@ -296,7 +296,7 @@
 </code> (not the default), overwrite an existing scalar in the target.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/e0728ddfeb46cc4f38542ffefa5d97844964ac40/src/copies.jl#L30-L44">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/f228c18134919a3fb2831c4ccb2a3028a4fa05a8/src/copies.jl#L30-L44">source
 </a>
 </section>
 </article>
@@ -315,19 +315,21 @@
 <div>
 <pre>
 <code class="language-julia hljs">function copy_axis(;
-    into::DafWriter,
-    from::DafReader,
+    destination::DafWriter,
+    source::DafReader,
     name::AbstractString,
     [rename::Maybe{AbstractString} = nothing,
     default::Union{Nothing, UndefInitializer} = undef]
 )::Nothing
 </code>
 </pre>
-<p>Copy an axis 
-<code>from
-</code> some 
+<p>Copy an axis from some 
+<code>source
+</code> 
 <code>DafReader
 </code> into some 
+<code>destination
+</code> 
 <code>DafWriter
 </code>.
 </p>
@@ -340,7 +342,7 @@
 </code> is specified, store the axis using this name.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/e0728ddfeb46cc4f38542ffefa5d97844964ac40/src/copies.jl#L60-L72">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/f228c18134919a3fb2831c4ccb2a3028a4fa05a8/src/copies.jl#L60-L72">source
 </a>
 </section>
 </article>
@@ -359,8 +361,8 @@
 <div>
 <pre>
 <code class="language-julia hljs">function copy_vector(;
-    into::DafWriter,
-    from::DafReader,
+    destination::DafWriter,
+    source::DafReader,
     axis::AbstractString,
     name::AbstractString,
     [reaxis::Maybe{AbstractString} = nothing,
@@ -371,13 +373,13 @@
 )::Nothing
 </code>
 </pre>
-<p>Copy a vector 
-<code>from
-</code> some 
-<code>DafReader
+<p>Copy a vector from some 
+<code>source
 </code> 
-<code>into
-</code> some 
+<code>DafReader
+</code> into some 
+<code>destination
+</code> 
 <code>DafWriter
 </code>.
 </p>
@@ -400,7 +402,7 @@
 </code> must be specified to fill the missing values. If the source axis contains entries that do not exist in the target, they are discarded (not copied).
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/e0728ddfeb46cc4f38542ffefa5d97844964ac40/src/copies.jl#L87-L109">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/f228c18134919a3fb2831c4ccb2a3028a4fa05a8/src/copies.jl#L87-L109">source
 </a>
 </section>
 </article>
@@ -419,8 +421,8 @@
 <div>
 <pre>
 <code class="language-julia hljs">function copy_matrix(;
-    into::DafWriter,
-    from::DafReader,
+    destination::DafWriter,
+    source::DafReader,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
@@ -434,13 +436,13 @@
 )::Nothing
 </code>
 </pre>
-<p>Copy a matrix 
-<code>from
-</code> some 
-<code>DafReader
+<p>Copy a matrix from some 
+<code>source
 </code> 
-<code>into
-</code> some 
+<code>DafReader
+</code> into some 
+<code>destination
+</code> 
 <code>DafWriter
 </code>.
 </p>
@@ -471,7 +473,7 @@
 </code> must be specified to fill the missing values. If a source axis contains entries that do not exist in the target, they are discarded (not copied).
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/e0728ddfeb46cc4f38542ffefa5d97844964ac40/src/copies.jl#L168-L194">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/f228c18134919a3fb2831c4ccb2a3028a4fa05a8/src/copies.jl#L175-L201">source
 </a>
 </section>
 </article>
@@ -490,8 +492,8 @@
 <div>
 <pre>
 <code class="language-julia hljs">copy_all!(;
-    into::DafWriter,
-    from::DafReader
+    destination::DafWriter,
+    source::DafReader
     [empty::Maybe{EmptyData} = nothing,
     overwrite::Bool = false,
     relayout::Bool = true]
@@ -499,8 +501,12 @@
 </code>
 </pre>
 <p>Copy all the content of a 
+<code>source
+</code> 
 <code>DafReader
 </code> into a 
+<code>destination
+</code> 
 <code>DafWriter
 </code>. If 
 <code>overwrite
@@ -523,7 +529,7 @@
 </code> for specifying an empty value for a matrix property. The order of the axes for matrix properties doesn&#39;t matter (the same empty value is automatically used for both axes orders).
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/e0728ddfeb46cc4f38542ffefa5d97844964ac40/src/copies.jl#L330-L352">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/f228c18134919a3fb2831c4ccb2a3028a4fa05a8/src/copies.jl#L355-L377">source
 </a>
 </section>
 </article>
@@ -579,7 +585,7 @@
 </div>
 </div>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/e0728ddfeb46cc4f38542ffefa5d97844964ac40/src/copies.jl#L308-L327">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/f228c18134919a3fb2831c4ccb2a3028a4fa05a8/src/copies.jl#L333-L352">source
 </a>
 </section>
 </article>

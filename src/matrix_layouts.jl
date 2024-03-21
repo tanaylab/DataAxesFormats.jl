@@ -232,8 +232,8 @@ end
 """
     relayout!(matrix::AbstractMatrix)::AbstractMatrix
     relayout!(matrix::NamedMatrix)::NamedMatrix
-    relayout!(into::AbstractMatrix, from::AbstractMatrix)::AbstractMatrix
-    relayout!(into::AbstractMatrix, from::NamedMatrix)::NamedMatrix
+    relayout!(destination::AbstractMatrix, source::AbstractMatrix)::AbstractMatrix
+    relayout!(destination::AbstractMatrix, source::NamedMatrix)::NamedMatrix
 
 Return the same `matrix` data, but in the other memory layout.
 
@@ -259,13 +259,13 @@ If you `transpose` (no `!`) the result of `transpose!` (with a `!`), you end up 
 same as the original (rows are cells and columns are genes), but behaves **differently** - summing the UMIs of a gene
 will be slow, and summing the UMIs of a cell is fast. This `transpose` of `transpose!` is a common idiom and is
 basically what `relayout!` does for you. In addition, `relayout!` will work for both sparse and dense matrices, and if
-`into` is not specified, a `similar` matrix is allocated automatically for it.
+`destination` is not specified, a `similar` matrix is allocated automatically for it.
 
 !!! note
 
-    The caller is responsible for providing a sensible `into` matrix (sparse for a sparse `from`, dense for a non-sparse
-    `from`). This can be a transposed matrix. If `from` is a `NamedMatrix`, then the result will be a `NamedMatrix` with
-    the same axes. If `into` is also a `NamedMatrix`, then its axes must match `from`.
+    The caller is responsible for providing a sensible `destination` matrix (sparse for a sparse `source`, dense for a
+    non-sparse `source`). This can be a transposed matrix. If `source` is a `NamedMatrix`, then the result will be a
+    `NamedMatrix` with the same axes. If `destination` is also a `NamedMatrix`, then its axes must match `source`.
 """
 function relayout!(matrix::NamedMatrix)::NamedArray
     return NamedArray(relayout!(matrix.array), matrix.dicts, matrix.dimnames)
@@ -288,71 +288,71 @@ function relayout!(matrix::AbstractMatrix)::AbstractMatrix
     return transpose(transpose!(similar(transpose(matrix)), matrix))
 end
 
-function relayout!(into::AbstractMatrix, from::NamedMatrix)::NamedArray  # untested
-    return NamedArray(relayout!(into, from.array), from.dicts, from.dimnames)
+function relayout!(destination::AbstractMatrix, source::NamedMatrix)::NamedArray  # untested
+    return NamedArray(relayout!(destination, source.array), source.dicts, source.dimnames)
 end
 
-function relayout!(into::Transpose, from::NamedMatrix)::AbstractMatrix
-    relayout!(parent(into), transpose(from.array))
-    return into
+function relayout!(destination::Transpose, source::NamedMatrix)::AbstractMatrix
+    relayout!(parent(destination), transpose(source.array))
+    return destination
 end
 
-function relayout!(into::SparseMatrixCSC, from::NamedMatrix)::AbstractMatrix  # untested
-    relayout!(into, from.array)
-    return into
+function relayout!(destination::SparseMatrixCSC, source::NamedMatrix)::AbstractMatrix  # untested
+    relayout!(destination, source.array)
+    return destination
 end
 
-function relayout!(into::NamedArray, from::NamedMatrix)::NamedArray
-    @assert into.dimnames == from.dimnames  # NOJET
-    @assert into.dicts == from.dicts
-    return NamedArray(relayout!(into.array, from.array), from.dicts, from.dimnames)
+function relayout!(destination::NamedArray, source::NamedMatrix)::NamedArray
+    @assert destination.dimnames == source.dimnames  # NOJET
+    @assert destination.dicts == source.dicts
+    return NamedArray(relayout!(destination.array, source.array), source.dicts, source.dimnames)
 end
 
-function relayout!(into::NamedArray, from::AbstractMatrix)::NamedArray
-    return NamedArray(relayout!(into.array, from), into.dicts, into.dimnames)
+function relayout!(destination::NamedArray, source::AbstractMatrix)::NamedArray
+    return NamedArray(relayout!(destination.array, source), destination.dicts, destination.dimnames)
 end
 
-function relayout!(into::Transpose, from::AbstractMatrix)::AbstractMatrix
-    relayout!(parent(into), transpose(from))
-    return into
+function relayout!(destination::Transpose, source::AbstractMatrix)::AbstractMatrix
+    relayout!(parent(destination), transpose(source))
+    return destination
 end
 
-function relayout!(into::SparseMatrixCSC, from::AbstractMatrix)::SparseMatrixCSC
-    if size(into) != size(from)
-        error("relayout into size: $(size(into))\nis different from size: $(size(from))")
+function relayout!(destination::SparseMatrixCSC, source::AbstractMatrix)::SparseMatrixCSC
+    if size(destination) != size(source)
+        error("relayout destination size: $(size(destination))\nis different from source size: $(size(source))")
     end
-    if !issparse(from)
-        error("relayout into sparse: $(typeof(into)) of non-sparse matrix: $(typeof(from))")
+    if !issparse(source)
+        error("relayout sparse destination: $(typeof(destination))\nand non-sparse source: $(typeof(source))")
     end
-    base_from = base_sparse_matrix(from)
+    base_from = base_sparse_matrix(source)
     transpose_base_from = transpose(base_from)
-    if transpose_base_from isa SparseMatrixCSC && nnz(transpose_base_from) == nnz(into)
-        return sparse_transpose_in_memory!(into, transpose_base_from)
+    if transpose_base_from isa SparseMatrixCSC && nnz(transpose_base_from) == nnz(destination)
+        return sparse_transpose_in_memory!(destination, transpose_base_from)
     else
-        return transpose!(into, transpose_base_from)  # untested
+        return transpose!(destination, transpose_base_from)  # untested
     end
 end
 
-function relayout!(into::DenseMatrix, from::AbstractMatrix)::DenseMatrix
-    if size(into) != size(from)
-        error("relayout into size: $(size(into))\nis different from size: $(size(from))")
+function relayout!(destination::DenseMatrix, source::AbstractMatrix)::DenseMatrix
+    if size(destination) != size(source)
+        error("relayout destination size: $(size(destination))\nis different from source size: $(size(source))")
     end
-    if issparse(from)
-        error("relayout into dense: $(typeof(into)) of sparse matrix: $(typeof(from))")
+    if issparse(source)
+        error("relayout dense destination: $(typeof(destination))\nand sparse source: $(typeof(source))")
     end
-    return transpose!(into, transpose(from))
+    return transpose!(destination, transpose(source))
 end
 
-function relayout!(into::AbstractMatrix, from::AbstractMatrix)::AbstractMatrix  # untested
+function relayout!(destination::AbstractMatrix, source::AbstractMatrix)::AbstractMatrix  # untested
     try
-        into_strides = strides(into)
-        into_size = size(into)
+        into_strides = strides(destination)
+        into_size = size(destination)
         if into_strides == (1, into_size[1]) || into_strides == (into_size[2], 1)
-            return transpose!(into, transpose(from))
+            return transpose!(destination, transpose(source))
         end
     catch
     end
-    return error("unsupported relayout into: $(typeof(into)) from: $(typeof(from))")
+    return error("unsupported relayout destination: $(typeof(destination))\nand source: $(typeof(source))")
 end
 
 function base_sparse_matrix(matrix::Transpose)::AbstractMatrix
@@ -385,11 +385,11 @@ function get_from_position_key(from_position::FromPosition)::Tuple{Int, Int}
     return (from_position.from_row, from_position.from_column)
 end
 
-function sparse_transpose_in_memory!(into::SparseMatrixCSC, from::SparseMatrixCSC)::SparseMatrixCSC
-    both_nnz = nnz(from)
-    from_nrows, from_ncols = size(from)
-    into_nrows, into_ncols = size(into)
-    @assert nnz(into) == nnz(from)
+function sparse_transpose_in_memory!(destination::SparseMatrixCSC, source::SparseMatrixCSC)::SparseMatrixCSC
+    both_nnz = nnz(source)
+    from_nrows, from_ncols = size(source)
+    into_nrows, into_ncols = size(destination)
+    @assert nnz(destination) == nnz(source)
     @assert into_nrows == from_ncols
     @assert into_ncols == from_nrows
     find_position_step = Int(ceil(from_nrows * (from_ncols / both_nnz)))
@@ -397,12 +397,12 @@ function sparse_transpose_in_memory!(into::SparseMatrixCSC, from::SparseMatrixCS
 
     from_positions = Vector{FromPosition}(undef, from_ncols)
     for from_column in 1:from_ncols
-        from_nnz = from.colptr[from_column]
-        if from_nnz == from.colptr[from_column + 1]
+        from_nnz = source.colptr[from_column]
+        if from_nnz == source.colptr[from_column + 1]
             from_row = from_nrows + 1
             from_nnz = both_nnz + 1
         else
-            from_row = from.rowval[from_nnz]
+            from_row = source.rowval[from_nnz]
         end
         from_positions[from_column] = FromPosition(from_row, from_column, from_nnz)
     end
@@ -412,8 +412,8 @@ function sparse_transpose_in_memory!(into::SparseMatrixCSC, from::SparseMatrixCS
     into_column = 0
     for nnz_index in 1:both_nnz
         from_position = from_positions[1]
-        into_column = insert_into_entry!(into, into_column, nnz_index, from, from_position)
-        update_from_position!(from, from_position, from_nrows, both_nnz)
+        into_column = insert_into_entry!(destination, into_column, nnz_index, source, from_position)
+        update_from_position!(source, from_position, from_nrows, both_nnz)
 
         if from_ncols > 1
             resort_from_positions!(from_position, from_positions, find_position_step)
@@ -422,14 +422,14 @@ function sparse_transpose_in_memory!(into::SparseMatrixCSC, from::SparseMatrixCS
 
     @assert from_positions[1].from_row == from_nrows + 1
 
-    return into
+    return destination
 end
 
 function insert_into_entry!(
-    into::SparseMatrixCSC,
+    destination::SparseMatrixCSC,
     into_column::Int,
     into_nnz::Int,
-    from::SparseMatrixCSC,
+    source::SparseMatrixCSC,
     from_position::FromPosition,
 )::Int
     from_column = from_position.from_column
@@ -438,17 +438,17 @@ function insert_into_entry!(
 
     @assert into_column <= from_row
     if into_column < from_row
-        into.colptr[(into_column + 1):from_row] .= into_nnz  # NOJET
+        destination.colptr[(into_column + 1):from_row] .= into_nnz  # NOJET
         into_column = from_row
     end
-    into.rowval[into_nnz] = from_column
-    into.nzval[into_nnz] = from.nzval[from_nnz]
+    destination.rowval[into_nnz] = from_column
+    destination.nzval[into_nnz] = source.nzval[from_nnz]
 
     return into_column
 end
 
 function update_from_position!(
-    from::SparseMatrixCSC,
+    source::SparseMatrixCSC,
     from_position::FromPosition,
     from_nrows::Int,
     both_nnz::Int,
@@ -457,11 +457,11 @@ function update_from_position!(
     from_nnz = from_position.from_nnz
 
     from_nnz += 1
-    if from_nnz == from.colptr[from_column + 1]
+    if from_nnz == source.colptr[from_column + 1]
         from_position.from_row = from_nrows + 1
         from_position.from_nnz = both_nnz + 1
     else
-        from_position.from_row = from.rowval[from_nnz]
+        from_position.from_row = source.rowval[from_nnz]
         from_position.from_nnz = from_nnz
     end
 
