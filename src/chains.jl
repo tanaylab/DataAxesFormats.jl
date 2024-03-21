@@ -23,11 +23,11 @@ import Daf.Messages
 import Daf.ReadOnly.DafReadOnlyWrapper
 
 """
-    struct ReadOnlyChain <: DafReader ... end
+    struct ReadOnlyChain <: DafReadOnly ... end
 
-A wrapper for a chain of [`DafReader`](@ref) data, presenting them as a single `DafReader`. When accessing the content,
-the exposed value is that provided by the last data set that contains the data, that is, later data sets can override
-earlier data sets. However, if an axis exists in more than one data set in the chain, then its entries must be
+A wrapper for a chain of [`DafReader`](@ref) data, presenting them as a single `DafReadOnly`. When accessing the
+content, the exposed value is that provided by the last data set that contains the data, that is, later data sets can
+override earlier data sets. However, if an axis exists in more than one data set in the chain, then its entries must be
 identical. This isn't typically created manually; instead call [`chain_reader`](@ref).
 """
 struct ReadOnlyChain <: DafReadOnly

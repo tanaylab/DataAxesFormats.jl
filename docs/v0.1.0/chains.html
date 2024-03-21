@@ -237,7 +237,7 @@
 </code> data set that contains extra (or overriding) data on top of a larger read-only data set. In particular this allows creating several such incompatible extra data sets (e.g., different groupings of cells to metacells), without having to duplicate the common (read only) data.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/05da9f43bcbffcd5ddf0bce84404dede8b76341d/src/chains.jl#L1-L6">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/3c9c853e132ca284cec5f84e289deac859bc8b48/src/chains.jl#L1-L6">source
 </a>
 </section>
 </article>
@@ -281,7 +281,7 @@
 </div>
 </div>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/05da9f43bcbffcd5ddf0bce84404dede8b76341d/src/chains.jl#L57-L69">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/3c9c853e132ca284cec5f84e289deac859bc8b48/src/chains.jl#L57-L69">source
 </a>
 </section>
 </article>
@@ -327,7 +327,7 @@
 </div>
 </div>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/05da9f43bcbffcd5ddf0bce84404dede8b76341d/src/chains.jl#L91-L102">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/3c9c853e132ca284cec5f84e289deac859bc8b48/src/chains.jl#L91-L102">source
 </a>
 </section>
 </article>
@@ -345,7 +345,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">struct ReadOnlyChain &lt;: DafReader ... end
+<code class="language-julia hljs">struct ReadOnlyChain &lt;: DafReadOnly ... end
 </code>
 </pre>
 <p>A wrapper for a chain of 
@@ -353,7 +353,7 @@
 <code>DafReader
 </code>
 </a> data, presenting them as a single 
-<code>DafReader
+<code>DafReadOnly
 </code>. When accessing the content, the exposed value is that provided by the last data set that contains the data, that is, later data sets can override earlier data sets. However, if an axis exists in more than one data set in the chain, then its entries must be identical. This isn&#39;t typically created manually; instead call 
 <a href="chains.html#Daf.Chains.chain_reader">
 <code>chain_reader
@@ -361,7 +361,7 @@
 </a>.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/05da9f43bcbffcd5ddf0bce84404dede8b76341d/src/chains.jl#L25-L32">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/3c9c853e132ca284cec5f84e289deac859bc8b48/src/chains.jl#L25-L32">source
 </a>
 </section>
 </article>
@@ -399,7 +399,7 @@
 <p>Any modifications or additions to the chain are directed at the final writer. Deletions are only allowed for data that exists only in this writer. That is, it is impossible to delete from a chain something that exists in any of the readers; it is only possible to override it.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/05da9f43bcbffcd5ddf0bce84404dede8b76341d/src/chains.jl#L38-L50">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/3c9c853e132ca284cec5f84e289deac859bc8b48/src/chains.jl#L38-L50">source
 </a>
 </section>
 </article>
