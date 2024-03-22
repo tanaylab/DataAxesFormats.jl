@@ -48,7 +48,7 @@ follows:
     [`Contract`](@ref) will be explicitly documented so you will know exactly what to provide.
   - Pass this `view` to `daf_adapter`, which will invoke the `computation` with a (writable) `adapted` version of the
     data (created using [`chain_writer`](@ref) and a new `DafWriter` to `capture` the output; by default, this will be a
-    [`MemoryDaf`]@(ref)).
+    [`MemoryDaf`]@(ref)), but it can be any function that takes a `name` (named) parameter and returns a `DafWriter`.
   - Once the `computation` is done, create a new view of the output, which presents the subset of the output data
     properties you are interested in, with the names you would like to store them as. Again, if the `computation` was
     annotated by [`@computation`](@ref), then its [`Contract`](@ref) will be explicitly documented so you will know
@@ -100,7 +100,8 @@ function daf_adapter(
     relayout::Bool = true,
     overwrite::Bool = false,
 )::Any
-    adapted = get_adapter_input(view; name = name, capture = capture)
+    writer = capture(; name = get_adapter_capture_name(view; name = name))
+    adapted = get_adapter_input(view; name = name, writer = writer)
     result = computation(adapted)
     copy_adapter_output(
         view,
@@ -115,13 +116,18 @@ function daf_adapter(
     return result
 end
 
+function get_adapter_capture_name(view::Union{DafWriter, DafReadOnly}; name::Maybe{AbstractString})::AbstractString
+    _base, prefix = get_base(view, name)
+    return prefix * ".capture"
+end
+
 function get_adapter_input(
     view::Union{DafWriter, DafReadOnly};
     name::Maybe{AbstractString},
-    capture = MemoryDaf,
+    writer::DafWriter,
 )::DafWriter
     _base, prefix = get_base(view, name)
-    return chain_writer([view, capture(; name = "$(prefix).capture")]; name = "$(prefix).adapted")
+    return chain_writer([view, writer]; name = "$(prefix).adapted")
 end
 
 function copy_adapter_output(
