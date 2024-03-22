@@ -239,7 +239,7 @@
 </a>.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/c144d2226f812e374ae997e90a7a53302569e5f2/src/adapters.jl#L1-L3">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/03ed99eb917b0269422438aee6c5e787dd612a96/src/adapters.jl#L1-L3">source
 </a>
 </section>
 </article>
@@ -247,8 +247,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Adapters.adapter" href="#Daf.Adapters.adapter">
-<code>Daf.Adapters.adapter
+<a class="docstring-binding" id="Daf.Adapters.daf_adapter" href="#Daf.Adapters.daf_adapter">
+<code>Daf.Adapters.daf_adapter
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -257,9 +257,9 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">adapter(
+<code class="language-julia hljs">daf_adapter(
     computation::Function,
-    view::DafReadOnly,
+    view::Union{DafWriter, DafReadOnly},
     [name::Maybe{AbstractString} = nothing,
     capture=MemoryDaf,
     axes::Maybe{ViewAxes} = nothing,
@@ -270,7 +270,9 @@
 )::Any
 </code>
 </pre>
-<p>Invoke a computation on a 
+<p>Invoke a 
+<code>computation
+</code> on a 
 <code>view
 </code> data set and return the result; copy a 
 <a href="views.html#Daf.Views.daf_view">
@@ -286,22 +288,30 @@
 </p>
 <p>If you have some 
 <code>Daf
-</code> data you wish to run a computation on, you need to deal with name mismatches. That is, the names of the input and output data properties of the computation may be different from these used in your data. In addition, you might be interested only in a subset of the computed data properties, to avoiding polluting your data set with irrelevant properties.
+</code> data you wish to run a 
+<code>computation
+</code> on, you need to deal with name mismatches. That is, the names of the input and output data properties of the 
+<code>computation
+</code> may be different from these used in your data. In addition, you might be interested only in a subset of the computed data properties, to avoiding polluting your data set with irrelevant properties.
 </p>
 <p>To address these issues, the common idiom for applying computations to 
 <code>Daf
 </code> data is to use the 
-<code>adapter
+<code>daf_adapter
 </code> as follows:
 </p>
 <ul>
 <li>Create a (read-only) 
 <code>view
-</code> of your data which presents the data properties under the names expected by the computation, using 
+</code> of your data which presents the data properties under the names expected by the 
+<code>computation
+</code>, using 
 <a href="views.html#Daf.Views.daf_view">
 <code>daf_view
 </code>
-</a>. If the computation was annotated by 
+</a>. If the 
+<code>computation
+</code> was annotated by 
 <code>@computation
 </code>, then its 
 <a href="contracts.html#Daf.Contracts.Contract">
@@ -312,7 +322,7 @@
 <li>Pass this 
 <code>view
 </code> to 
-<code>adapter
+<code>daf_adapter
 </code>, which will invoke the 
 <code>computation
 </code> with a (writable) 
@@ -329,7 +339,11 @@
 <code>MemoryDaf
 </code>]@(ref)).
 </li>
-<li>Once the computation is done, create a new view of the output, which presents the subset of the output data properties you are interested in, with the names you would like to store them as. Again, if the computation was annotated by 
+<li>Once the 
+<code>computation
+</code> is done, create a new view of the output, which presents the subset of the output data properties you are interested in, with the names you would like to store them as. Again, if the 
+<code>computation
+</code> was annotated by 
 <a href="computations.html#Daf.Computations.@computation">
 <code>@computation
 </code>
@@ -360,7 +374,27 @@
 </code>).
 </li>
 </ul>
-<p>That is, the code would look something like this:
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>If the names of the properties in the input already match the contract of the 
+<code>computation
+</code>, you can pass the data set directly as the 
+<span>$view$
+</span>. The call to 
+<code>daf_adapter
+</code> may still be needed to filter or rename the 
+<code>computation
+</code>&#39;s output. If the outputs can also be used as-is, then there&#39;s no need to invoke 
+<code>daf_adapter
+</code>; directly apply the 
+<code>computation
+</code> to the data and be done.
+</p>
+</div>
+</div>
+<p>Typically the code would look something like this:
 </p>
 <pre>
 <code class="nohighlight hljs">daf = ... # Some input `Daf` data we wish to compute on.
@@ -368,17 +402,17 @@
 # Here `daf` contains the inputs for the computation, but possibly
 # under a different name.
 
-result = adapter(
+result = daf_adapter(
     &quot;example&quot;,                 # A name to use to generate the temporary `Daf` data names.
-    view(daf; ...),            # How to view the input in the way expected by the computation.
-    axes = ..., data = ...,    # How and what to view the output for copying back into `daf`.
-    empty = ...,               # If the view specifies a subset of some axes.
+    daf_view(daf; ...),        # How to view the input in the way expected by the computation.
+    axes = ..., data = ...,    # How and what to view from the output for copying back into `daf`.
+    empty = ...,               # If the input view specifies a subset of some axes.
 ) do adapted                   # The writable adapted data we can pass to the computation.
     computation(adapted, ...)  # Actually do the computation.
     return ...                 # An additional result outside `daf`.
 end
 
-# Here `daf` will contain the specific renamed outputs specified in `adapter`,
+# Here `daf` will contain the specific renamed outputs specified in `daf_adapter`,
 # and you can also access the additional non-`daf` data `result`.
 </code>
 </pre>
@@ -389,7 +423,7 @@ end
 </a> functions to use clear generic names for their inputs and outputs, and still apply them to arbitrary data sets using more specific names. One can even invoke the same computation with different parameter values, and store the different results in the same data set under different names.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/c144d2226f812e374ae997e90a7a53302569e5f2/src/adapters.jl#L21-L83">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/03ed99eb917b0269422438aee6c5e787dd612a96/src/adapters.jl#L21-L91">source
 </a>
 </section>
 </article>
