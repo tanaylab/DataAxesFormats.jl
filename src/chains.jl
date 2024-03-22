@@ -76,7 +76,7 @@ function chain_reader(
     end
 
     if length(dafs) == 1
-        return daf_read_only(dafs[1]; name = name)
+        return read_only(dafs[1]; name = name)
     end
 
     if name == nothing
@@ -558,7 +558,7 @@ function Messages.describe(value::WriteChain; name::Maybe{AbstractString} = noth
     return "Write Chain $(name)"
 end
 
-function ReadOnly.daf_read_only(daf::ReadOnlyChain; name::Maybe{AbstractString} = nothing)::ReadOnlyChain
+function ReadOnly.read_only(daf::ReadOnlyChain; name::Maybe{AbstractString} = nothing)::ReadOnlyChain
     if name == nothing
         return daf
     else

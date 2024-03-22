@@ -237,7 +237,7 @@
 </code> data set. A variant of this also renames the data properties to adapt them to the requirements of some computation. This makes it simpler to create such tools (using fixed, generic property names) and apply them to arbitrary data (with arbitrary specific property names).
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/067da03aa5b8f2b096ddf3e0088f8712e4aa3426/src/views.jl#L1-L7">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/34d603e89c37b4bc935f0a66ea2585c12a5b7bb3/src/views.jl#L1-L7">source
 </a>
 </section>
 </article>
@@ -267,13 +267,13 @@
 <code>DafReadOnly
 </code>
 </a>. This isn&#39;t typically created manually; instead call 
-<a href="views.html#Daf.Views.daf_view">
-<code>daf_view
+<a href="views.html#Daf.Views.viewer">
+<code>viewer
 </code>
 </a>.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/067da03aa5b8f2b096ddf3e0088f8712e4aa3426/src/views.jl#L49-L54">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/34d603e89c37b4bc935f0a66ea2585c12a5b7bb3/src/views.jl#L49-L54">source
 </a>
 </section>
 </article>
@@ -281,8 +281,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Views.daf_view" href="#Daf.Views.daf_view">
-<code>Daf.Views.daf_view
+<a class="docstring-binding" id="Daf.Views.viewer" href="#Daf.Views.viewer">
+<code>Daf.Views.viewer
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -291,7 +291,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">daf_view(
+<code class="language-julia hljs">viewer(
     daf::DafReader;
     [name::Maybe{AbstractString} = nothing,
     axes::Maybe{ViewAxes} = nothing,
@@ -322,14 +322,14 @@
 </header>
 <div class="admonition-body">
 <p>As an optimization, calling 
-<code>daf_view
+<code>viewer
 </code> with all-empty (default) arguments returns a simple 
 <a href="read_only.html#Daf.ReadOnly.DafReadOnlyWrapper">
 <code>DafReadOnlyWrapper
 </code>
 </a>, that is, it is equivalent to calling 
-<a href="read_only.html#Daf.ReadOnly.daf_read_only">
-<code>daf_read_only
+<a href="read_only.html#Daf.ReadOnly.read_only">
+<code>read_only
 </code>
 </a>. Additionally, saying 
 <code>data = VIEW_ALL_DATA
@@ -342,7 +342,7 @@
 </div>
 </div>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/067da03aa5b8f2b096ddf3e0088f8712e4aa3426/src/views.jl#L211-L233">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/34d603e89c37b4bc935f0a66ea2585c12a5b7bb3/src/views.jl#L211-L233">source
 </a>
 </section>
 </article>
@@ -426,7 +426,7 @@
 </div>
 </div>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/067da03aa5b8f2b096ddf3e0088f8712e4aa3426/src/views.jl#L64-L94">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/34d603e89c37b4bc935f0a66ea2585c12a5b7bb3/src/views.jl#L64-L94">source
 </a>
 </section>
 </article>
@@ -608,7 +608,7 @@
 </div>
 </div>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/067da03aa5b8f2b096ddf3e0088f8712e4aa3426/src/views.jl#L97-L157">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/34d603e89c37b4bc935f0a66ea2585c12a5b7bb3/src/views.jl#L97-L157">source
 </a>
 </section>
 </article>
@@ -628,13 +628,13 @@
 <p>A key to use in the 
 <code>data
 </code> parameter of 
-<a href="views.html#Daf.Views.daf_view">
-<code>daf_view
+<a href="views.html#Daf.Views.viewer">
+<code>viewer
 </code>
 </a> to specify all the base data scalars.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/067da03aa5b8f2b096ddf3e0088f8712e4aa3426/src/views.jl#L170-L172">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/34d603e89c37b4bc935f0a66ea2585c12a5b7bb3/src/views.jl#L170-L172">source
 </a>
 </section>
 </article>
@@ -654,13 +654,13 @@
 <p>A pair to use in the 
 <code>data
 </code> parameter of 
-<a href="views.html#Daf.Views.daf_view">
-<code>daf_view
+<a href="views.html#Daf.Views.viewer">
+<code>viewer
 </code>
 </a> to specify the view exposes all the base data scalars.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/067da03aa5b8f2b096ddf3e0088f8712e4aa3426/src/views.jl#L175-L177">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/34d603e89c37b4bc935f0a66ea2585c12a5b7bb3/src/views.jl#L175-L177">source
 </a>
 </section>
 </article>
@@ -680,13 +680,13 @@
 <p>A pair to use in the 
 <code>axes
 </code> parameter of 
-<a href="views.html#Daf.Views.daf_view">
-<code>daf_view
+<a href="views.html#Daf.Views.viewer">
+<code>viewer
 </code>
 </a> to specify all the base data axes.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/067da03aa5b8f2b096ddf3e0088f8712e4aa3426/src/views.jl#L160-L162">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/34d603e89c37b4bc935f0a66ea2585c12a5b7bb3/src/views.jl#L160-L162">source
 </a>
 </section>
 </article>
@@ -706,13 +706,13 @@
 <p>A pair to use in the 
 <code>axes
 </code> parameter of 
-<a href="views.html#Daf.Views.daf_view">
-<code>daf_view
+<a href="views.html#Daf.Views.viewer">
+<code>viewer
 </code>
 </a> to specify the view exposes all the base data axes.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/067da03aa5b8f2b096ddf3e0088f8712e4aa3426/src/views.jl#L165-L167">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/34d603e89c37b4bc935f0a66ea2585c12a5b7bb3/src/views.jl#L165-L167">source
 </a>
 </section>
 </article>
@@ -732,13 +732,13 @@
 <p>A key to use in the 
 <code>data
 </code> parameter of 
-<a href="views.html#Daf.Views.daf_view">
-<code>daf_view
+<a href="views.html#Daf.Views.viewer">
+<code>viewer
 </code>
 </a> to specify all the vectors of the exposed axes.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/067da03aa5b8f2b096ddf3e0088f8712e4aa3426/src/views.jl#L180-L182">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/34d603e89c37b4bc935f0a66ea2585c12a5b7bb3/src/views.jl#L180-L182">source
 </a>
 </section>
 </article>
@@ -758,13 +758,13 @@
 <p>A pair to use in the 
 <code>data
 </code> parameter of 
-<a href="views.html#Daf.Views.daf_view">
-<code>daf_view
+<a href="views.html#Daf.Views.viewer">
+<code>viewer
 </code>
 </a> to specify the view exposes all the vectors of the exposed axes.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/067da03aa5b8f2b096ddf3e0088f8712e4aa3426/src/views.jl#L185-L188">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/34d603e89c37b4bc935f0a66ea2585c12a5b7bb3/src/views.jl#L185-L188">source
 </a>
 </section>
 </article>
@@ -784,13 +784,13 @@
 <p>A key to use in the 
 <code>data
 </code> parameter of 
-<a href="views.html#Daf.Views.daf_view">
-<code>daf_view
+<a href="views.html#Daf.Views.viewer">
+<code>viewer
 </code>
 </a> to specify all the matrices of the exposed axes.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/067da03aa5b8f2b096ddf3e0088f8712e4aa3426/src/views.jl#L191-L193">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/34d603e89c37b4bc935f0a66ea2585c12a5b7bb3/src/views.jl#L191-L193">source
 </a>
 </section>
 </article>
@@ -810,13 +810,13 @@
 <p>A pair to use in the 
 <code>data
 </code> parameter of 
-<a href="views.html#Daf.Views.daf_view">
-<code>daf_view
+<a href="views.html#Daf.Views.viewer">
+<code>viewer
 </code>
 </a> to specify the view exposes all the matrices of the exposed axes.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/067da03aa5b8f2b096ddf3e0088f8712e4aa3426/src/views.jl#L196-L199">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/34d603e89c37b4bc935f0a66ea2585c12a5b7bb3/src/views.jl#L196-L199">source
 </a>
 </section>
 </article>
@@ -836,15 +836,15 @@
 <p>A vector of pairs to use in the 
 <code>data
 </code> parameters of 
-<a href="views.html#Daf.Views.daf_view">
-<code>daf_view
+<a href="views.html#Daf.Views.viewer">
+<code>viewer
 </code>
 </a> (using 
 <code>...
 </code>) to specify the view exposes all the data of the exposed axes.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/067da03aa5b8f2b096ddf3e0088f8712e4aa3426/src/views.jl#L202-L205">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/34d603e89c37b4bc935f0a66ea2585c12a5b7bb3/src/views.jl#L202-L205">source
 </a>
 </section>
 </article>
@@ -936,8 +936,8 @@
 </a>
 </li>
 <li>
-<a href="views.html#Daf.Views.daf_view">
-<code>Daf.Views.daf_view
+<a href="views.html#Daf.Views.viewer">
+<code>Daf.Views.viewer
 </code>
 </a>
 </li>

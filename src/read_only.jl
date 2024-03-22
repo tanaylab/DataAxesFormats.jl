@@ -4,7 +4,7 @@ Read-only `Daf` storage format.
 module ReadOnly
 
 export DafReadOnly
-export daf_read_only
+export read_only
 
 using Daf.Data
 using Daf.Formats
@@ -25,7 +25,7 @@ abstract type DafReadOnly <: DafReader end
     struct DafReadOnlyWrapper <: DafReader ... end
 
 A wrapper for any [`DafWriter`](@ref) data, protecting it against accidental modification. This isn't exported and isn't
-created manually; instead call [`daf_read_only`](@ref).
+created manually; instead call [`read_only`](@ref).
 """
 struct DafReadOnlyWrapper <: DafReadOnly
     name::AbstractString
@@ -42,19 +42,19 @@ function Base.getproperty(read_only_view::DafReadOnlyWrapper, property::Symbol):
 end
 
 """
-    daf_read_only(daf::DafReader[; name::Maybe{AbstractString]} = nothing)::DafReadOnlyWrapper
+    read_only(daf::DafReader[; name::Maybe{AbstractString]} = nothing)::DafReadOnlyWrapper
 
 Wrap `daf` with a [`DafReadOnlyWrapper`](@ref) to protect it against accidental modification. If not specified, the
 `name` of the `daf` is reused. If `name` is not specified and `daf` isa [`DafReadOnly`](@ref), return it as-is.
 """
-function daf_read_only(daf::DafReader; name::Maybe{AbstractString} = nothing)::DafReadOnly
+function read_only(daf::DafReader; name::Maybe{AbstractString} = nothing)::DafReadOnly
     if name == nothing
         name = daf.internal.name
     end
     return DafReadOnlyWrapper(name, daf)
 end
 
-function daf_read_only(daf::DafReadOnly; name::Maybe{AbstractString} = nothing)::DafReadOnly
+function read_only(daf::DafReadOnly; name::Maybe{AbstractString} = nothing)::DafReadOnly
     if name == nothing
         return daf
     else

@@ -32,8 +32,8 @@ The `Daf` data sets type hierarchy looks like this:
 
     DafReader (abstract type)
     ├─ DafReadOnly (abstract type)
-    │  ├─ DafReadOnlyWrapper (created by daf_read_only)
-    │  ├─ DafView (created by daf_view)
+    │  ├─ DafReadOnlyWrapper (created by read_only)
+    │  ├─ DafView (created by viewer)
     │  └─ DafChainReader (created by chain_reader)
     └─ DafWriter (abstract type)
        ├─ DafChainWriter (created by chain_writer)

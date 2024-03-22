@@ -19,7 +19,7 @@ export VIEW_ALL_SCALARS
 export VIEW_ALL_VECTORS
 export ViewAxes
 export ViewData
-export daf_view
+export viewer
 
 using Daf.Data
 using Daf.Formats
@@ -50,7 +50,7 @@ end
     struct DafView(daf::DafReader) <: DafReader
 
 A read-only wrapper for any [`DafReader`](@ref) data, which exposes an arbitrary view of it as another
-[`DafReadOnly`](@ref). This isn't typically created manually; instead call [`daf_view`](@ref).
+[`DafReadOnly`](@ref). This isn't typically created manually; instead call [`viewer`](@ref).
 """
 struct DafView <: DafReadOnly
     internal::Internal
@@ -158,49 +158,49 @@ That is, assuming a `gene` and `cell` axes were exposed by the `axes` parameter,
 ViewData = AbstractVector{<:Pair}
 
 """
-A pair to use in the `axes` parameter of [`daf_view`](@ref) to specify all the base data axes.
+A pair to use in the `axes` parameter of [`viewer`](@ref) to specify all the base data axes.
 """
 ALL_AXES = "*"
 
 """
-A pair to use in the `axes` parameter of [`daf_view`](@ref) to specify the view exposes all the base data axes.
+A pair to use in the `axes` parameter of [`viewer`](@ref) to specify the view exposes all the base data axes.
 """
 VIEW_ALL_AXES = ALL_AXES => "="
 
 """
-A key to use in the `data` parameter of [`daf_view`](@ref) to specify all the base data scalars.
+A key to use in the `data` parameter of [`viewer`](@ref) to specify all the base data scalars.
 """
 ALL_SCALARS = "*"
 
 """
-A pair to use in the `data` parameter of [`daf_view`](@ref) to specify the view exposes all the base data scalars.
+A pair to use in the `data` parameter of [`viewer`](@ref) to specify the view exposes all the base data scalars.
 """
 VIEW_ALL_SCALARS = ALL_SCALARS => "="
 
 """
-A key to use in the `data` parameter of [`daf_view`](@ref) to specify all the vectors of the exposed axes.
+A key to use in the `data` parameter of [`viewer`](@ref) to specify all the vectors of the exposed axes.
 """
 ALL_VECTORS = ("*", "*")
 
 """
-A pair to use in the `data` parameter of [`daf_view`](@ref) to specify the view exposes all the vectors of the exposed
+A pair to use in the `data` parameter of [`viewer`](@ref) to specify the view exposes all the vectors of the exposed
 axes.
 """
 VIEW_ALL_VECTORS = ALL_VECTORS => "="
 
 """
-A key to use in the `data` parameter of [`daf_view`](@ref) to specify all the matrices of the exposed axes.
+A key to use in the `data` parameter of [`viewer`](@ref) to specify all the matrices of the exposed axes.
 """
 ALL_MATRICES = ("*", "*", "*")
 
 """
-A pair to use in the `data` parameter of [`daf_view`](@ref) to specify the view exposes all the matrices of the exposed
+A pair to use in the `data` parameter of [`viewer`](@ref) to specify the view exposes all the matrices of the exposed
 axes.
 """
 VIEW_ALL_MATRICES = ALL_MATRICES => "="
 
 """
-A vector of pairs to use in the `data` parameters of [`daf_view`](@ref) (using `...`) to specify the view exposes all
+A vector of pairs to use in the `data` parameters of [`viewer`](@ref) (using `...`) to specify the view exposes all
 the data of the exposed axes.
 """
 VIEW_ALL_DATA = [VIEW_ALL_SCALARS, VIEW_ALL_VECTORS, VIEW_ALL_MATRICES]
@@ -209,7 +209,7 @@ EMPTY_AXES = Vector{Pair{String, String}}()
 EMPTY_DATA = Vector{Pair{String, String}}()
 
 """
-    daf_view(
+    viewer(
         daf::DafReader;
         [name::Maybe{AbstractString} = nothing,
         axes::Maybe{ViewAxes} = nothing,
@@ -226,12 +226,12 @@ Queries are listed separately for axes, and scalars, vector and matrix propertie
 
 !!! note
 
-    As an optimization, calling `daf_view` with all-empty (default) arguments returns a simple
-    [`DafReadOnlyWrapper`](@ref), that is, it is equivalent to calling [`daf_read_only`](@ref). Additionally, saying
+    As an optimization, calling `viewer` with all-empty (default) arguments returns a simple
+    [`DafReadOnlyWrapper`](@ref), that is, it is equivalent to calling [`read_only`](@ref). Additionally, saying
     `data = VIEW_ALL_DATA` will expose all the data using any of the exposed axes; you can write
     `data = [VIEW_ALL_DATA..., key => nothing]` to hide specific data based on its `key`.
 """
-function daf_view(
+function viewer(
     daf::DafReader;
     name::Maybe{AbstractString} = nothing,
     axes::Maybe{ViewAxes} = nothing,
@@ -245,7 +245,7 @@ function daf_view(
     end
 
     if isempty(axes) && isempty(data)
-        return daf_read_only(daf; name = name)
+        return read_only(daf; name = name)
     end
 
     if daf isa ReadOnly.DafReadOnlyWrapper
@@ -710,7 +710,7 @@ function Messages.describe(value::DafView; name::Maybe{AbstractString} = nothing
     return "View $(describe(value.daf; name = name))"
 end
 
-function ReadOnly.daf_read_only(daf::DafView; name::Maybe{AbstractString} = nothing)::DafView
+function ReadOnly.read_only(daf::DafView; name::Maybe{AbstractString} = nothing)::DafView
     if name == nothing
         return daf
     else

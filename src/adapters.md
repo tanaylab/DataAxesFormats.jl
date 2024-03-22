@@ -2,7 +2,7 @@
 
 ```@docs
 Daf.Adapters
-Daf.Adapters.daf_adapter
+Daf.Adapters.adapter
 ```
 
 ## Index

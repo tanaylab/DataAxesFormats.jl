@@ -215,7 +215,7 @@ function H5df(
 
     h5df = H5df(Internal(name), root)
     if is_read_only
-        return daf_read_only(h5df)
+        return read_only(h5df)
     else
         return h5df
     end

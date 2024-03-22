@@ -225,7 +225,7 @@ function FilesDaf(
     end
 
     if is_read_only
-        return daf_read_only(FilesDaf(Internal(name), path, "r"))
+        return read_only(FilesDaf(Internal(name), path, "r"))
     else
         return FilesDaf(Internal(name), path, "r+")
     end

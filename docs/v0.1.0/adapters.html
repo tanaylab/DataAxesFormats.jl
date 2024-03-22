@@ -239,7 +239,7 @@
 </a>.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/067da03aa5b8f2b096ddf3e0088f8712e4aa3426/src/adapters.jl#L1-L3">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/34d603e89c37b4bc935f0a66ea2585c12a5b7bb3/src/adapters.jl#L1-L3">source
 </a>
 </section>
 </article>
@@ -247,8 +247,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Adapters.daf_adapter" href="#Daf.Adapters.daf_adapter">
-<code>Daf.Adapters.daf_adapter
+<a class="docstring-binding" id="Daf.Adapters.adapter" href="#Daf.Adapters.adapter">
+<code>Daf.Adapters.adapter
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -257,7 +257,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">daf_adapter(
+<code class="language-julia hljs">adapter(
     computation::Function,
     view::Union{DafWriter, DafReadOnly},
     [name::Maybe{AbstractString} = nothing,
@@ -275,8 +275,8 @@
 </code> on a 
 <code>view
 </code> data set and return the result; copy a 
-<a href="views.html#Daf.Views.daf_view">
-<code>daf_view
+<a href="views.html#Daf.Views.viewer">
+<code>viewer
 </code>
 </a> of the updated data set into the base 
 <code>Daf
@@ -297,7 +297,7 @@
 <p>To address these issues, the common idiom for applying computations to 
 <code>Daf
 </code> data is to use the 
-<code>daf_adapter
+<code>adapter
 </code> as follows:
 </p>
 <ul>
@@ -306,8 +306,8 @@
 </code> of your data which presents the data properties under the names expected by the 
 <code>computation
 </code>, using 
-<a href="views.html#Daf.Views.daf_view">
-<code>daf_view
+<a href="views.html#Daf.Views.viewer">
+<code>viewer
 </code>
 </a>. If the 
 <code>computation
@@ -322,7 +322,7 @@
 <li>Pass this 
 <code>view
 </code> to 
-<code>daf_adapter
+<code>adapter
 </code>, which will invoke the 
 <code>computation
 </code> with a (writable) 
@@ -387,11 +387,11 @@
 </code>, you can pass the data set directly as the 
 <span>$view$
 </span>. The call to 
-<code>daf_adapter
+<code>adapter
 </code> may still be needed to filter or rename the 
 <code>computation
 </code>&#39;s output. If the outputs can also be used as-is, then there&#39;s no need to invoke 
-<code>daf_adapter
+<code>adapter
 </code>; directly apply the 
 <code>computation
 </code> to the data and be done.
@@ -406,9 +406,9 @@
 # Here `daf` contains the inputs for the computation, but possibly
 # under a different name.
 
-result = daf_adapter(
+result = adapter(
     &quot;example&quot;,                 # A name to use to generate the temporary `Daf` data names.
-    daf_view(daf; ...),        # How to view the input in the way expected by the computation.
+    viewer(daf; ...),        # How to view the input in the way expected by the computation.
     axes = ..., data = ...,    # How and what to view from the output for copying back into `daf`.
     empty = ...,               # If the input view specifies a subset of some axes.
 ) do adapted                   # The writable adapted data we can pass to the computation.
@@ -416,7 +416,7 @@ result = daf_adapter(
     return ...                 # An additional result outside `daf`.
 end
 
-# Here `daf` will contain the specific renamed outputs specified in `daf_adapter`,
+# Here `daf` will contain the specific renamed outputs specified in `adapter`,
 # and you can also access the additional non-`daf` data `result`.
 </code>
 </pre>
@@ -427,7 +427,7 @@ end
 </a> functions to use clear generic names for their inputs and outputs, and still apply them to arbitrary data sets using more specific names. One can even invoke the same computation with different parameter values, and store the different results in the same data set under different names.
 </p>
 </div>
-<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/067da03aa5b8f2b096ddf3e0088f8712e4aa3426/src/adapters.jl#L21-L91">source
+<a class="docs-sourcelink" target="_blank" href="https://github.com/tanaylab/Daf.jl/blob/34d603e89c37b4bc935f0a66ea2585c12a5b7bb3/src/adapters.jl#L21-L91">source
 </a>
 </section>
 </article>
