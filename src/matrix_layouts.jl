@@ -165,13 +165,13 @@ function other_axis(axis::Maybe{Integer})::Maybe{Int8}
     return error("invalid matrix axis: $(axis)")
 end
 
-GLOBAL_INEFFICIENT_ACTION_HANDLER::AbnormalHandler = IgnoreHandler
+GLOBAL_INEFFICIENT_ACTION_HANDLER::AbnormalHandler = WarnHandler
 
 """
     inefficient_action_handler(handler::AbnormalHandler)::AbnormalHandler
 
 Specify the [`AbnormalHandler`](@ref) to use when accessing a matrix in an inefficient way ("against the grain").
-Returns the previous handler.
+Returns the previous handler. The default handler is `WarnHandler`.
 
 !!! note
 
