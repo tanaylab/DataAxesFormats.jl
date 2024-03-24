@@ -32,6 +32,7 @@ REPO = "https://github.com/tanaylab/$(NAME).jl"
 makedocs(;
     authors = join(" ", AUTHORS),
     build = "../docs/v$(VERSION)",
+    remotes = nothing,
     source = "../src",
     clean = true,
     doctest = true,

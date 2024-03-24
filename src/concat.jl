@@ -488,7 +488,7 @@ function concatenate_axis_vector(
 
     else
         @assert empty_value isa Maybe{StorageScalar}
-        sparse_saves = sparse_storage_fraction(empty_value, dtype, sizes, vectors, 1, 1)  # NOJET
+        sparse_saves = sparse_storage_fraction(empty_value, dtype, sizes, vectors, 1, 1)
         if sparse_saves >= sparse_if_saves_storage_fraction
             @assert empty_value == nothing || empty_value == 0
             sparse_vectors = sparsify_vectors(vectors, dtype, sizes)
@@ -961,7 +961,7 @@ function concatenate_merge_vector(
         dtype = reduce(merge_dtypes, vectors; init = typeof(empty_value))
 
         if dtype != String
-            sparse_saves = sparse_storage_fraction(empty_value, dtype, sizes, vectors, 1, 1)  # NOJET
+            sparse_saves = sparse_storage_fraction(empty_value, dtype, sizes, vectors, 1, 1)
             if sparse_saves >= sparse_if_saves_storage_fraction
                 @assert empty_value == nothing || empty_value == 0
                 sparse_vectors = sparsify_vectors(vectors, dtype, sizes)

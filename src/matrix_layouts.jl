@@ -303,7 +303,7 @@ function relayout!(destination::SparseMatrixCSC, source::NamedMatrix)::AbstractM
 end
 
 function relayout!(destination::NamedArray, source::NamedMatrix)::NamedArray
-    @assert destination.dimnames == source.dimnames  # NOJET
+    @assert destination.dimnames == source.dimnames
     @assert destination.dicts == source.dicts
     return NamedArray(relayout!(destination.array, source.array), source.dicts, source.dimnames)
 end
@@ -438,7 +438,7 @@ function insert_into_entry!(
 
     @assert into_column <= from_row
     if into_column < from_row
-        destination.colptr[(into_column + 1):from_row] .= into_nnz  # NOJET
+        destination.colptr[(into_column + 1):from_row] .= into_nnz
         into_column = from_row
     end
     destination.rowval[into_nnz] = from_column

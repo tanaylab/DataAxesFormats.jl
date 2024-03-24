@@ -287,7 +287,7 @@ end
 
 function prepare_query(maybe_query::Maybe{Union{AbstractString, Query}})::Maybe{Union{AbstractString, Query}}
     if maybe_query isa AbstractString
-        maybe_query = strip(maybe_query)  # NOJET
+        maybe_query = strip(maybe_query)
         if maybe_query != "="
             maybe_query = Query(maybe_query)
         end

@@ -157,7 +157,7 @@ function copy_vector!(;
         dense = Vector{eltype(value)}(undef, axis_length(destination, reaxis))
         named = NamedArray(dense; names = (get_axis(destination, reaxis),))
         named .= empty
-        named[names(value, 1)] .= value  # NOJET
+        named[names(value, 1)] .= value
         sparse = SparseVector(dense)
         set_vector!(destination, reaxis, rename, sparse; overwrite = overwrite)
     else
@@ -297,7 +297,7 @@ function copy_matrix!(;
         )
         named = NamedArray(dense; names = (get_axis(destination, rows_reaxis), get_axis(destination, columns_reaxis)))
         named .= empty
-        named[names(value, 1), names(value, 2)] .= value  # NOJET
+        named[names(value, 1), names(value, 2)] .= value
         sparse = SparseMatrixCSC(dense)
         set_matrix!(
             destination,

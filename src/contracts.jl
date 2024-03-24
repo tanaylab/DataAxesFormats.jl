@@ -255,7 +255,7 @@ function verify_matrix_contract(
         )
     end
     if is_possible(expectation; is_output = is_output) && value != nothing && !(eltype(value) <: data_type)
-        error(  # NOJET
+        error(
             "unexpected type: $(eltype(value))\n" *
             "instead of type: $(data_type)\n" *
             "for the $(direction_name(is_output)) matrix: $(name)\n" *

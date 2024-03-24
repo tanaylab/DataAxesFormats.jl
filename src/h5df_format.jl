@@ -174,11 +174,11 @@ function H5df(
         if mode == "w+"
             mode = "cw"
         end
-        root = h5open(root, mode; fapl = HDF5.FileAccessProperties(; alignment = (1, 8)))  # NOJET
+        root = h5open(root, mode; fapl = HDF5.FileAccessProperties(; alignment = (1, 8)))
     end
     verify_alignment(root)
 
-    if haskey(root, "daf")  # NOJET
+    if haskey(root, "daf")
         if truncate_if_exists
             delete_content(root)
             create_daf(root)
@@ -241,7 +241,7 @@ function verify_alignment(root::HDF5.File)::Nothing
 end
 
 function create_daf(root::Union{HDF5.File, HDF5.Group})::Nothing
-    root["daf"] = [MAJOR_VERSION, MINOR_VERSION]  # NOJET
+    root["daf"] = [MAJOR_VERSION, MINOR_VERSION]
     scalars_group = create_group(root, "scalars")
     axes_group = create_group(root, "axes")
     vectors_group = create_group(root, "vectors")
@@ -258,7 +258,7 @@ end
 function verify_daf(root::Union{HDF5.File, HDF5.Group})::Nothing
     format_dataset = root["daf"]
     @assert format_dataset isa HDF5.Dataset
-    format_version = read(format_dataset)  # NOJET
+    format_version = read(format_dataset)
     @assert length(format_version) == 2
     @assert eltype(format_version) <: Unsigned
     if format_version[1] != MAJOR_VERSION || format_version[2] > MINOR_VERSION
@@ -271,7 +271,7 @@ function verify_daf(root::Union{HDF5.File, HDF5.Group})::Nothing
 end
 
 function delete_content(root::Union{HDF5.File, HDF5.Group})::Nothing
-    attribute_names = collect(keys(HDF5.attributes(root)))  # NOJET
+    attribute_names = collect(keys(HDF5.attributes(root)))
     for attribute_name in attribute_names
         HDF5.delete_attribute(root, attribute_name)
     end

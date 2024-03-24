@@ -201,7 +201,7 @@ function FilesDaf(
     if !isfile(daf_file_path)
         error("not a daf directory: $(path)")
     end
-    daf_json = JSON.parsefile(daf_file_path)  # NOJET
+    daf_json = JSON.parsefile(daf_file_path)
     @assert daf_json isa AbstractDict
     daf_version = daf_json["version"]
     @assert daf_version isa AbstractVector
@@ -748,7 +748,7 @@ function mmap_file_data(
     mode::AbstractString,
 )::T where {T <: Union{StorageVector, StorageMatrix}}
     return open(path, mode) do file
-        return mmap(file, T, size)  # NOJET
+        return mmap(file, T, size)
     end
 end
 

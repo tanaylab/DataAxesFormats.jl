@@ -201,7 +201,7 @@ function patch_arg(arg::Expr)::Any
 end
 
 function patch_kwargs(args)::Any
-    return [patch_kwarg(arg) for arg in args]  # NOJET
+    return [patch_kwarg(arg) for arg in args]
 end
 
 function patch_kwarg(arg::Expr)::Any
