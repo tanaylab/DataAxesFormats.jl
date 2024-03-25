@@ -131,7 +131,7 @@ function anndata_as_daf(
     unsupported_handler::AbnormalHandler = WarnHandler,
 )::MemoryDaf
     if adata isa AbstractString
-        adata = readh5ad(adata; backed = true)
+        adata = readh5ad(adata; backed = true)  # NOJET
     end
 
     name = by_annotation(adata, name, "name", "anndata")
@@ -183,7 +183,7 @@ function verify_are_supported_type(
     name::AbstractString,
     unsupported_handler::AbnormalHandler,
 )::Nothing
-    for (key, value) in dict
+    for (key, value) in dict  # NOJET
         verify_is_supported_type(value, supported_type, name, "$(member)[$(key)]", unsupported_handler)
     end
     return nothing
@@ -264,7 +264,7 @@ function copy_supported(
     copy_supported_square_matrices(adata.varp, memory, var_is)
 
     copy_supported_matrices(adata.layers, memory, obs_is, var_is)
-    copy_supported_matrix(adata.X, memory, obs_is, var_is, X_is)
+    copy_supported_matrix(adata.X, memory, obs_is, var_is, X_is)  # NOJET
 
     return nothing
 end
@@ -418,7 +418,7 @@ function daf_as_anndata(
     copy_matrices(daf, obs_is, var_is, X_is, adata.layers)
 
     if h5ad != nothing
-        writeh5ad(h5ad, adata; compress = UInt8(0))
+        writeh5ad(h5ad, adata; compress = UInt8(0))  # NOJET
     end
 
     return adata

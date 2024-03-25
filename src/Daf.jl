@@ -95,6 +95,9 @@ include("files_format.jl")
 include("anndata_format.jl")
 @reexport using Daf.AnnDataFormat
 
+include("reconstruction.jl")
+@reexport using Daf.Reconstruction
+
 include("contracts.jl")
 @reexport using Daf.Contracts
 

@@ -49,7 +49,7 @@ inject a value. Often this happens when using `\$(...)` to embed values into a q
 instead write something like `/ \$(escape_value(axis)) @ \$(escape_value(property))`.
 """
 function escape_value(value::AbstractString)::String
-    return replace(value, (character -> !is_value_char(character)) => s"\\\0")
+    return replace(value, (character -> !is_value_char(character)) => s"\\\0")  # NOJET
 end
 
 """
@@ -113,7 +113,7 @@ function encode_expression(expr_string::AbstractString)::String
 end
 
 function encode_expression_char(escaped_char::AbstractString)::AbstractString
-    return replace(escapeuri(escaped_char[2:end], character -> false), r"%" => "_")
+    return replace(escapeuri(escaped_char[2:end], character -> false), r"%" => "_")  # NOJET
 end
 
 """

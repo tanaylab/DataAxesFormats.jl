@@ -126,6 +126,7 @@ Set the `value` of a scalar property with some `name` in `daf`.
 If not `overwrite` (the default), this first verifies the `name` scalar property does not exist.
 """
 function set_scalar!(daf::DafWriter, name::AbstractString, value::StorageScalar; overwrite::Bool = false)::Nothing
+    @assert value isa AbstractString || isbits(value)
     return with_write_lock(daf) do
         @debug "set_scalar! $(daf.name) : $(name) <$(overwrite ? "=" : "-") $(describe(value))"
 
@@ -468,6 +469,7 @@ function set_vector!(
     vector::Union{StorageScalar, StorageVector};
     overwrite::Bool = false,
 )::Nothing
+    @assert eltype(vector) <: AbstractString || isbitstype(eltype(vector))
     return with_write_lock(daf) do
         @debug "set_vector! $(daf.name) / $(axis) : $(name) <$(overwrite ? "=" : "-") $(describe(vector))"
 
@@ -521,6 +523,7 @@ function empty_dense_vector!(
     eltype::Type{T};
     overwrite::Bool = false,
 )::Any where {T <: StorageNumber}
+    @assert isbitstype(eltype)
     vector = get_empty_dense_vector!(daf, axis, name, eltype; overwrite = overwrite)
     try
         result = fill(vector)
@@ -538,6 +541,7 @@ function get_empty_dense_vector!(
     eltype::Type{T};
     overwrite::Bool,
 )::AbstractVector{T} where {T <: StorageNumber}
+    @assert isbitstype(eltype)
     return begin_write_lock(daf) do
         require_not_name(daf, axis, name)
         require_axis(daf, axis)
@@ -609,6 +613,7 @@ function empty_sparse_vector!(
     indtype::Type{I};
     overwrite::Bool = false,
 )::Any where {T <: StorageNumber, I <: StorageInteger}
+    @assert isbitstype(eltype)
     nzind, nzval, extra = get_empty_sparse_vector!(daf, axis, name, eltype, nnz, indtype; overwrite = overwrite)
     try
         result = fill(nzind, nzval)
@@ -916,6 +921,7 @@ function set_matrix!(
     overwrite::Bool = false,
     relayout::Bool = true,
 )::Nothing
+    @assert isbitstype(eltype(matrix))
     return with_write_lock(daf) do
         relayout = relayout && rows_axis != columns_axis
 
@@ -986,6 +992,7 @@ function empty_dense_matrix!(
     eltype::Type{T};
     overwrite::Bool = false,
 )::Any where {T <: StorageNumber}
+    @assert isbitstype(eltype)
     matrix = get_empty_dense_matrix!(daf, rows_axis, columns_axis, name, eltype; overwrite = overwrite)
     try
         result = fill(matrix)
@@ -1077,6 +1084,8 @@ function empty_sparse_matrix!(
     indtype::Type{I};
     overwrite::Bool = false,
 )::Any where {T <: StorageNumber, I <: StorageInteger}
+    @assert isbitstype(eltype)
+    @assert isbitstype(indtype)
     colptr, rowval, nzval, extra =
         get_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, eltype, nnz, indtype; overwrite = overwrite)
     try

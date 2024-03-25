@@ -2328,7 +2328,7 @@ function if_not_scalar_value(
         end
         if_not_value = entry_fetch_state.if_not_value
         @assert if_not_value != nothing
-        return value_for(query_state, dtype, if_not_value)
+        return value_for(query_state, dtype, if_not_value)  # NOJET
     end
 end
 
@@ -2342,7 +2342,7 @@ function missing_scalar_value(
         return if_missing_value
     else
         @assert entry_fetch_state.if_not_value == nothing
-        entry_fetch_state.if_not_value = if_missing_value
+        entry_fetch_state.if_not_value = if_missing_value  # NOJET
         return nothing
     end
 end
@@ -2473,7 +2473,7 @@ function fetch_first_named_vector(
             vector_fetch_state.may_modify_named_vector = false
         else
             @assert axis_mask isa Vector{Bool}
-            base_named_vector = base_named_vector[axis_mask]
+            base_named_vector = base_named_vector[axis_mask]  # NOJET
             vector_fetch_state.may_modify_named_vector = true
         end
         fetched_values = base_named_vector.array
@@ -2909,7 +2909,7 @@ function apply_mask_to_base_vector_state(base_vector_state::VectorState, masked_
 
     if base_axis_mask != masked_axis_mask
         @assert masked_axis_mask isa Vector{Bool}
-        @assert base_axis_mask == nothing || !any(masked_axis_mask .& .!base_axis_mask)
+        @assert base_axis_mask == nothing || !any(masked_axis_mask .& .!base_axis_mask)  # NOJET
         apply_mask_to_vector_state(base_vector_state, masked_axis_mask)
     end
 end
@@ -3015,7 +3015,7 @@ function apply_mask_to_matrix_state_rows(matrix_state::MatrixState, new_rows_mas
     @assert rows_axis_state != nothing
     old_rows_mask = rows_axis_state.axis_modifier
     if old_rows_mask == nothing
-        matrix_state.named_matrix = matrix_state.named_matrix[new_rows_mask, :]
+        matrix_state.named_matrix = matrix_state.named_matrix[new_rows_mask, :]  # NOJET
         rows_axis_state.axis_modifier = new_rows_mask
     else
         sub_rows_mask = new_rows_mask[old_rows_mask]
@@ -3515,7 +3515,7 @@ function value_for_if_missing(if_missing::IfMissing; dtype::Maybe{Type} = nothin
 end
 
 function regex_for(query_state::QueryState, value::StorageScalar)::Regex
-    comparison_value = value_for(query_state, String, value)
+    comparison_value = value_for(query_state, String, value)  # NOJET
     comparison_value = "^(:?" * comparison_value * ")\$"
     try
         return Regex(comparison_value)

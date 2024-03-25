@@ -713,9 +713,9 @@ function Significant(;
         low = high
     end
     @assert high > 0
-    @assert low > 0
+    @assert low > 0  # NOJET
     @assert low <= high
-    return Significant(Float64(high), Float64(low))
+    return Significant(Float64(high), Float64(low))  # NOJET
 end
 
 function Significant(operation_name::Token, parameters_values::Dict{String, Token})::Significant
@@ -847,7 +847,7 @@ function Max(operation_name::Token, parameters_values::Dict{String, Token})::Max
 end
 
 function compute_reduction(operation::Max, input::StorageMatrix{T})::StorageVector where {T <: StorageNumber}
-    return vec(maximum(input; dims = 1))
+    return vec(maximum(input; dims = 1))  # NOJET
 end
 
 function compute_reduction(operation::Max, input::StorageVector{T})::StorageNumber where {T <: StorageNumber}
@@ -909,7 +909,7 @@ end
 
 function compute_reduction(operation::Median, input::StorageMatrix{T})::StorageVector where {T <: StorageNumber}
     dtype = reduction_result_type(operation, eltype(input))
-    return convert(AbstractVector{dtype}, vec(median(input; dims = 1)))
+    return convert(AbstractVector{dtype}, vec(median(input; dims = 1)))  # NOJET
 end
 
 function compute_reduction(operation::Median, input::StorageVector{T})::StorageNumber where {T <: StorageNumber}
@@ -966,7 +966,7 @@ function compute_reduction(operation::Quantile, input::StorageMatrix{T})::Storag
     output = Vector{dtype}(undef, size(input)[2])
     @threads for column_index in 1:length(output)
         column_vector = @view input[:, column_index]
-        output[column_index] = quantile(column_vector, operation.p)
+        output[column_index] = quantile(column_vector, operation.p)  # NOJET
     end
     return output
 end
@@ -1007,12 +1007,12 @@ end
 
 function compute_reduction(operation::Mean, input::StorageMatrix{T})::StorageVector where {T <: StorageNumber}
     dtype = reduction_result_type(operation, eltype(input))
-    return convert(AbstractVector{dtype}, vec(mean(input; dims = 1)))
+    return convert(AbstractVector{dtype}, vec(mean(input; dims = 1)))  # NOJET
 end
 
 function compute_reduction(operation::Mean, input::StorageVector{T})::StorageNumber where {T <: StorageNumber}
     dtype = reduction_result_type(operation, eltype(input))
-    return dtype(mean(input))
+    return dtype(mean(input))  # NOJET
 end
 
 function reduction_result_type(operation::Mean, eltype::Type)::Type
