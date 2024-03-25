@@ -16,13 +16,13 @@ using Daf.Queries
 
 """
     function reconstruct_axis(
-        daf::DafWriter,
+        daf::DafWriter;
         existing_axis::AbstractString,
         implicit_axis::AbstractString,
-        rename_axis::Maybe{AbstractString} = Nothing,
-        empty_implicit::Maybe{AbstractString} = Nothing,
-        implicit_properties::Maybe{AbstractStringSet} = Nothing,
-    )::AbstractStringSet
+        [rename_axis::Maybe{AbstractString} = Nothing,
+        empty_implicit::Maybe{StorageScalar} = Nothing,
+        implicit_properties::Maybe{AbstractStringSet} = Nothing]
+    )::AbstractDict{<:AbstractString, Maybe{StorageScalar}}
 
 Given an `existing_axis` in `daf`, which has a property `implicit_axis`, create a new axis with the same name (or, if
 specified, call it `rename_axis`). If `empty_implicit` is specified, this value of the property is replaced by the empty

@@ -254,13 +254,13 @@
 <div>
 <pre>
 <code class="language-julia hljs">function reconstruct_axis(
-    daf::DafWriter,
+    daf::DafWriter;
     existing_axis::AbstractString,
     implicit_axis::AbstractString,
-    rename_axis::Maybe{AbstractString} = Nothing,
-    empty_implicit::Maybe{AbstractString} = Nothing,
-    implicit_properties::Maybe{AbstractStringSet} = Nothing,
-)::AbstractStringSet
+    [rename_axis::Maybe{AbstractString} = Nothing,
+    empty_implicit::Maybe{StorageScalar} = Nothing,
+    implicit_properties::Maybe{AbstractStringSet} = Nothing]
+)::AbstractDict{&lt;:AbstractString, Maybe{StorageScalar}}
 </code>
 </pre>
 <p>Given an 
