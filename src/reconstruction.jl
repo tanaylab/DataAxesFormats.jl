@@ -6,7 +6,7 @@ type, and delete the per-cell color property).
 """
 module Reconstruction
 
-export reconstruct_axis
+export reconstruct_axis!
 
 using Daf.Data
 using Daf.Formats
@@ -15,7 +15,7 @@ using Daf.StorageTypes
 using Daf.Queries
 
 """
-    function reconstruct_axis(
+    function reconstruct_axis!(
         daf::DafWriter;
         existing_axis::AbstractString,
         implicit_axis::AbstractString,
@@ -44,7 +44,7 @@ doublet score). Not specifying the `implicit_properties` allows the function to 
     consistent, and return a mapping between each migrated property name and the value of such entries (if any exist).
     When reconstructing the original property, specify this value using [`IfNot`](@ref) (e.g., `/ cell : type => color ?? magenta`).
 """
-function reconstruct_axis(
+function reconstruct_axis!(
     daf::DafWriter;
     existing_axis::AbstractString,
     implicit_axis::AbstractString,

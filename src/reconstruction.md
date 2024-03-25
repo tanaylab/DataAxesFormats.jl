@@ -2,7 +2,7 @@
 
 ```@docs
 Daf.Reconstruction
-Daf.Reconstruction.reconstruct_axis
+Daf.Reconstruction.reconstruct_axis!
 ```
 
 ## Index

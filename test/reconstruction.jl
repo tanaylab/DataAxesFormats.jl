@@ -7,7 +7,7 @@ nested_test("reconstruction") do
 
     nested_test("default") do
         set_vector!(memory, "cell", "batch", ["X", "X", "Y", ""])
-        results = reconstruct_axis(memory; existing_axis = "cell", implicit_axis = "batch")
+        results = reconstruct_axis!(memory; existing_axis = "cell", implicit_axis = "batch")
         @test keys(results) == Set(["age"])
         @test results["age"] == 3
 
@@ -33,7 +33,7 @@ nested_test("reconstruction") do
             of the axis: cell
             for the reconstructed axis: batch
             in the daf data: memory!
-        """) reconstruct_axis(
+        """) reconstruct_axis!(
             memory,
             existing_axis = "cell",
             implicit_axis = "batch",
@@ -43,7 +43,7 @@ nested_test("reconstruction") do
 
     nested_test("integer") do
         set_vector!(memory, "cell", "batch", [1, 1, 2, 0])
-        results = reconstruct_axis(memory; existing_axis = "cell", implicit_axis = "batch", empty_implicit = 0)
+        results = reconstruct_axis!(memory; existing_axis = "cell", implicit_axis = "batch", empty_implicit = 0)
         @test keys(results) == Set(["age"])
         @test results["age"] == 3
 
