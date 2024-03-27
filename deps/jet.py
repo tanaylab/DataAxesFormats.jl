@@ -96,7 +96,7 @@ for line in fileinput.input():
 unused = 0
 for path, lines in unused_lines.items():
     for line_index, line_text in enumerate(lines):
-        if "NOJET" in line_text:
+        if "NOJET" in line_text and ".jl/" in line_text:
             if unused == 0:
                 print("")
             unused += 1
