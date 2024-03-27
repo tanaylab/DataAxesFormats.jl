@@ -61,4 +61,52 @@ nested_test("reconstruction") do
                 score: 4 x Float64 (Dense)
         """) * "\n"
     end
+
+    nested_test("manual") do
+        set_vector!(memory, "cell", "batch", ["X", "X", "Y", ""])
+
+        nested_test("!entry") do
+            add_axis!(memory, "batch", ["X", "Z"])
+            @test_throws dedent("""
+                missing used entry: Y
+                from the existing reconstructed axis: batch
+                in the daf data: memory!
+            """) reconstruct_axis!(memory; existing_axis = "cell", implicit_axis = "batch")
+        end
+
+        nested_test("!default") do
+            add_axis!(memory, "batch", ["X", "Y", "Z"])
+            @test_throws dedent("""
+                no default value specified for the unused entry: Z
+                of the reconstructed property: age
+                in the daf data: memory!
+            """) reconstruct_axis!(memory; existing_axis = "cell", implicit_axis = "batch")
+        end
+
+        nested_test("default") do
+            add_axis!(memory, "batch", ["X", "Y", "Z"])
+            results = reconstruct_axis!(
+                memory;
+                existing_axis = "cell",
+                implicit_axis = "batch",
+                properties_defaults = Dict(["age" => 4]),
+            )
+            @test keys(results) == Set(["age"])
+            @test results["age"] == 3
+
+            @test description(memory) == dedent("""
+                name: memory!
+                type: MemoryDaf
+                axes:
+                  batch: 3 entries
+                  cell: 4 entries
+                vectors:
+                  batch:
+                    age: 3 x Int64 (Dense)
+                  cell:
+                    batch: 4 x String (Dense)
+                    score: 4 x Float64 (Dense)
+            """) * "\n"
+        end
+    end
 end

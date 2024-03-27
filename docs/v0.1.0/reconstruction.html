@@ -257,9 +257,10 @@
     daf::DafWriter;
     existing_axis::AbstractString,
     implicit_axis::AbstractString,
-    [rename_axis::Maybe{AbstractString} = Nothing,
-    empty_implicit::Maybe{StorageScalar} = Nothing,
-    implicit_properties::Maybe{AbstractStringSet} = Nothing]
+    [rename_axis::Maybe{AbstractString} = nothing,
+    empty_implicit::Maybe{StorageScalar} = nothing,
+    implicit_properties::Maybe{AbstractStringSet} = nothing,
+    properties_defaults::Maybe{AbstractDict} = nothing]
 )::AbstractDict{&lt;:AbstractString, Maybe{StorageScalar}}
 </code>
 </pre>
@@ -281,6 +282,46 @@
 <code>implicit_axis
 </code> and the property values, and store it as a property of the newly created axis.
 </p>
+<p>If the 
+<code>implicit_axis
+</code> already exists, we verify that all the values provided for it by the 
+<code>existing_axis
+</code> do, in fact, exist as names of entries in the 
+<code>implicit_axis
+</code>. This allows manually creating the 
+<code>implicit_axis
+</code> with additional entries that are not currently in use.
+</p>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>If the 
+<code>implicit_axis
+</code> already exists and contains entries that aren&#39;t currently in use, you must specify 
+<code>properties_defaults
+</code> for the values of these entries of the reconstructed properties.
+</p>
+<p>Due to Julia&#39;s type system limitations, there&#39;s just no way for the system to enforce the type of the pairs in this vector. That is, what we&#39;d 
+<strong>like
+</strong> to say is:
+</p>
+<pre>
+<code class="nohighlight hljs">properties_defaults::Maybe{AbstractDict{&lt;:AbstractString, &lt;:StorageScalar}} = nothing
+</code>
+</pre>
+<p>But what we are 
+<strong>forced
+</strong> to say is:
+</p>
+<pre>
+<code class="nohighlight hljs">properties_defaults::Maybe{Dict} = nothing
+</code>
+</pre>
+<p>Glory to anyone who figures out an incantation that would force the system to perform more meaningful type inference here.
+</p>
+</div>
+</div>
 <p>If 
 <code>implicit_properties
 </code> are explicitly specified, then we require the mapping from 
