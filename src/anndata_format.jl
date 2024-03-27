@@ -34,6 +34,8 @@ The following `AnnData` can't be naively stored in `Daf`:
     convention that zero values are special. This only works in some cases (e.g., it isn't a good solution for Boolean
     data). It is possible of course to explicitly store Boolean masks and apply them to the data, but this is
     inconvenient. TODO: Have `Daf` natively support nullable/masked arrays.
+  - Categorical data. Categorical vectors are therefore converted to simple strings. However, `Daf` doesn't support
+    matrices of strings, so it doesn't support or convert categorical matrices.
   - Matrix data that only uses one of the axes (that is, `obsm` and `varm` data). The problem here is, paradoxically,
     that `Daf` supports such data "too well", by allowing multiple axes to be defined, and storing matrices based on any
     pair of axes. However, this requires the other axes to be explicitly created, and their information just doesn't
@@ -76,6 +78,7 @@ module AnnDataFormat
 export anndata_as_daf
 export daf_as_anndata
 
+using CategoricalArrays
 using Daf.Data
 using Daf.Formats
 using Daf.Generic
@@ -209,15 +212,18 @@ function verify_is_supported_type(
     property::AbstractString,
     unsupported_handler::AbnormalHandler,
 )::Nothing
+    if value isa StorageMatrix && !(value isa Muon.TransposedDataset) && major_axis(value) == nothing
+        report_unsupported(name, unsupported_handler, "type not in row/column-major layout: $(typeof(value))\n")  # untested
+    end
+    if value isa CategoricalArray
+        return nothing  # untested
+    end
     if !(value isa supported_type)
         report_unsupported(
             name,
             unsupported_handler,
             "unsupported type for $(property): $(typeof(value))\nsupported type is: $(supported_type)\n",
         )
-    end
-    if value isa StorageMatrix && !(value isa Muon.TransposedDataset) && major_axis(value) == nothing
-        report_unsupported(name, unsupported_handler, "type not in row/column-major layout: $(typeof(value))\n")  # untested
     end
     return nothing
 end
@@ -280,6 +286,15 @@ end
 function copy_supported_vectors(frame::DataFrame, memory::MemoryDaf, axis::AbstractString)::Nothing
     for column in names(frame)
         vector = frame[!, column]
+        if vector isa CategoricalVector
+            vector = [  # untested
+                if value === missing
+                    ""
+                else
+                    string(value)
+                end for value in vector
+            ]
+        end
         if vector isa StorageVector
             set_vector!(memory, axis, column, vector)
         end
@@ -300,7 +315,7 @@ function copy_supported_matrices(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
 )::Nothing
-    for (name, matrix) in dict
+    for (name, matrix) in dict  # NOJET
         copy_supported_matrix(access_matrix(matrix), memory, rows_axis, columns_axis, name)
     end
 end
