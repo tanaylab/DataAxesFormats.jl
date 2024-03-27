@@ -42,8 +42,6 @@ using LinearAlgebra
 using NamedArrays
 using SparseArrays
 
-import Distributed.@everywhere
-
 """
 A symbolic name for the rows axis. It is much more readable to write, say, `size(matrix, Rows)`, instead of
 `size(matrix, 1)`.
@@ -172,17 +170,11 @@ GLOBAL_INEFFICIENT_ACTION_HANDLER::AbnormalHandler = WarnHandler
 
 Specify the [`AbnormalHandler`](@ref) to use when accessing a matrix in an inefficient way ("against the grain").
 Returns the previous handler. The default handler is `WarnHandler`.
-
-!!! note
-
-    This will affect **all** the processes `@everywhere`, not just the current one.
 """
 function inefficient_action_handler(handler::AbnormalHandler)::AbnormalHandler
     global GLOBAL_INEFFICIENT_ACTION_HANDLER
     previous_inefficient_action_handler = GLOBAL_INEFFICIENT_ACTION_HANDLER
-
-    @eval @everywhere Daf.MatrixLayouts.GLOBAL_INEFFICIENT_ACTION_HANDLER = $handler
-
+    GLOBAL_INEFFICIENT_ACTION_HANDLER = handler
     return previous_inefficient_action_handler
 end
 

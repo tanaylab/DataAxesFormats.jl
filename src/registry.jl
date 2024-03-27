@@ -56,7 +56,7 @@ To implement a new such operation, the type is expected to be of the form:
     end
     @query_operation MyOperation
 
-    MyOperation(context::QueryContext, parameter_values::Dict{String, QueryOperation})::MyOperation
+    MyOperation(operation_name::Token, parameter_values::Dict{String, Token})::MyOperation
 
 The constructor should use `parse_parameter` for each of the parameters (for example, using `parse_number_assignment`).
 In addition you will need to invoke [`@query_operation`](@ref) to register the operation so it can be used in a query,
@@ -95,7 +95,7 @@ To implement a new such operation, the type is expected to be of the form:
         ... optional parameters ...
     end
 
-    MyOperation(context::QueryContext, parameter_values::Dict{String, QueryOperation})::MyOperation
+    MyOperation(operation_name::Token, parameter_values::Dict{String, Token})::MyOperation
 
 The constructor should use `parse_parameter` for each of the parameters (for example, using typically
 `parse_number_assignment`). In addition you will need to invoke [`@query_operation`](@ref) to register the operation so

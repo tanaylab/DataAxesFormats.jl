@@ -72,7 +72,6 @@ makedocs(;
         "messages.md",
         "generic.md",
         "example_data.md",
-        "todo.md",
     ],
 )
 
