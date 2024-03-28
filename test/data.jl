@@ -2920,9 +2920,9 @@ nested_test("data") do
     nested_test("memory") do
         daf = MemoryDaf(; name = "memory!")
         @test daf.name == "memory!"
-        @test describe(daf) == "MemoryDaf memory!"
-        @test describe(read_only(daf)) == "ReadOnly MemoryDaf memory!"
-        @test describe(read_only(daf; name = "read-only memory!")) == "ReadOnly MemoryDaf read-only memory!"
+        @test string(daf) == "MemoryDaf memory!"
+        @test string(read_only(daf)) == "ReadOnly MemoryDaf memory!"
+        @test string(read_only(daf; name = "read-only memory!")) == "ReadOnly MemoryDaf read-only memory!"
         @test description(daf) == dedent("""
             name: memory!
             type: MemoryDaf
@@ -2962,9 +2962,9 @@ nested_test("data") do
             mktempdir() do path
                 daf = H5df("$(path)/test.h5df", "w+"; name = "h5df!")
                 @test daf.name == "h5df!"
-                @test describe(daf) == "H5df h5df!"
-                @test describe(read_only(daf)) == "ReadOnly H5df h5df!"
-                @test describe(read_only(daf; name = "renamed!")) == "ReadOnly H5df renamed!"
+                @test string(daf) == "H5df h5df!"
+                @test string(read_only(daf)) == "ReadOnly H5df h5df!"
+                @test string(read_only(daf; name = "renamed!")) == "ReadOnly H5df renamed!"
                 @test description(daf) == dedent("""
                     name: h5df!
                     type: H5df
@@ -2972,7 +2972,7 @@ nested_test("data") do
                 test_format(daf)
                 daf = H5df(path * "/test.h5df", "r+")
                 @test daf.name == "$(path)/test.h5df"
-                @test describe(daf) == "H5df $(path)/test.h5df"
+                @test string(daf) == "H5df $(path)/test.h5df"
                 return nothing
             end
         end
@@ -2982,9 +2982,9 @@ nested_test("data") do
                 h5open(path * "/test.h5df", "w"; fapl = HDF5.FileAccessProperties(; alignment = (1, 8))) do h5file
                     HDF5.create_group(h5file, "root")
                     daf = H5df(h5file["root"], "w+")
-                    @test describe(daf) == "H5df $(path)/test.h5df:/root"
-                    @test describe(read_only(daf)) == "ReadOnly H5df $(path)/test.h5df:/root"
-                    @test describe(read_only(daf; name = "renamed!")) == "ReadOnly H5df renamed!"
+                    @test string(daf) == "H5df $(path)/test.h5df:/root"
+                    @test string(read_only(daf)) == "ReadOnly H5df $(path)/test.h5df:/root"
+                    @test string(read_only(daf; name = "renamed!")) == "ReadOnly H5df renamed!"
                     @test description(daf) == dedent("""
                         name: $(path)/test.h5df:/root
                         type: H5df
@@ -3000,7 +3000,7 @@ nested_test("data") do
 
                     daf = H5df(h5file["root"], "w"; name = "h5df!")
                     @test daf.name == "h5df!"
-                    @test describe(daf) == "H5df h5df!"
+                    @test string(daf) == "H5df h5df!"
                     @assert length(attributes(h5file["root"])) == 0
                     return nothing
                 end
@@ -3031,9 +3031,9 @@ nested_test("data") do
                 path = path * "/test"
                 daf = FilesDaf(path, "w+"; name = "files!")
                 @test daf.name == "files!"
-                @test describe(daf) == "FilesDaf files!"
-                @test describe(read_only(daf)) == "ReadOnly FilesDaf files!"
-                @test describe(read_only(daf; name = "renamed!")) == "ReadOnly FilesDaf renamed!"
+                @test string(daf) == "FilesDaf files!"
+                @test string(read_only(daf)) == "ReadOnly FilesDaf files!"
+                @test string(read_only(daf; name = "renamed!")) == "ReadOnly FilesDaf renamed!"
                 @test description(daf) == dedent("""
                     name: files!
                     type: FilesDaf
@@ -3045,9 +3045,9 @@ nested_test("data") do
                 write(path * "/scalars/name.json", "{\"type\":\"String\",\"value\":\"files!\"}\n")
                 daf = FilesDaf(path, "r")
                 @assert isdir(path * "/deleted")
-                @test describe(daf) == "ReadOnly FilesDaf files!"
+                @test string(daf) == "ReadOnly FilesDaf files!"
                 daf = FilesDaf(path, "w"; name = "empty!")
-                @test describe(daf) == "FilesDaf empty!"
+                @test string(daf) == "FilesDaf empty!"
                 @assert !ispath(path * "/deleted")
                 return nothing
             end

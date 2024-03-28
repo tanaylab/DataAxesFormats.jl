@@ -176,6 +176,11 @@ All the functions for this type are provided based on the functions required for
 """
 abstract type DafWriter <: FormatWriter end
 
+function Base.show(io::IO, format_reader::FormatReader)::Nothing
+    print(io, describe(format_reader))
+    return nothing
+end
+
 """
     format_has_scalar(format::FormatReader, name::AbstractString)::Bool
 
