@@ -57,18 +57,18 @@ nested_test("messages") do
             end
 
             nested_test("sparse") do
-                vector = SparseVector([0, 1, 2])
+                vector = sparse_vector([0, 1, 2])
 
                 nested_test("base") do
-                    @test describe(vector) == "3 x Int64 (Sparse 67%)"
+                    @test describe(vector) == "3 x Int64 (Sparse UInt8 67%)"
                 end
 
                 nested_test("read_only") do
-                    @test describe(SparseArrays.ReadOnly(vector)) == "3 x Int64 (ReadOnly Sparse 67%)"
+                    @test describe(SparseArrays.ReadOnly(vector)) == "3 x Int64 (ReadOnly Sparse UInt8 67%)"
                 end
 
                 nested_test("named") do
-                    @test describe(NamedArray(vector)) == "3 x Int64 (Named Sparse 67%)"
+                    @test describe(NamedArray(vector)) == "3 x Int64 (Named Sparse UInt8 67%)"
                 end
             end
         end
@@ -95,22 +95,23 @@ nested_test("messages") do
             end
 
             nested_test("sparse") do
-                matrix = SparseMatrixCSC([0 1 2; 3 4 5])
+                matrix = sparse_matrix_csc([0 1 2; 3 4 5])
 
                 nested_test("base") do
-                    @test describe(matrix) == "2 x 3 x Int64 in Columns (Sparse 83%)"
+                    @test describe(matrix) == "2 x 3 x Int64 in Columns (Sparse UInt8 83%)"
                 end
 
                 nested_test("transpose") do
-                    @test describe(transpose(matrix)) == "3 x 2 x Int64 in Rows (transposed Sparse 83%)"
+                    @test describe(transpose(matrix)) == "3 x 2 x Int64 in Rows (transposed Sparse UInt8 83%)"
                 end
 
                 nested_test("read_only") do
-                    @test describe(SparseArrays.ReadOnly(matrix)) == "2 x 3 x Int64 in Columns (ReadOnly Sparse 83%)"
+                    @test describe(SparseArrays.ReadOnly(matrix)) ==
+                          "2 x 3 x Int64 in Columns (ReadOnly Sparse UInt8 83%)"
                 end
 
                 nested_test("named") do
-                    @test describe(NamedArray(matrix)) == "2 x 3 x Int64 in Columns (Named Sparse 83%)"
+                    @test describe(NamedArray(matrix)) == "2 x 3 x Int64 in Columns (Named Sparse UInt8 83%)"
                 end
             end
         end

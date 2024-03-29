@@ -104,7 +104,7 @@ end
 
 function present_vector(vector::SparseVector, prefix::AbstractString)::String
     nnz = describe_percent(length(vector.nzval), length(vector))
-    return present_vector_size(vector, concat_prefixes(prefix, "Sparse $(nnz)"))
+    return present_vector_size(vector, concat_prefixes(prefix, "Sparse $(SparseArrays.indtype(vector)) $(nnz)"))
 end
 
 function present_vector(vector::AbstractVector, prefix::AbstractString)::String  # untested
@@ -135,7 +135,7 @@ function present_matrix(matrix::NamedMatrix, prefix::AbstractString; transposed:
     return present_matrix(matrix.array, concat_prefixes(prefix, "Named"); transposed = transposed)
 end
 
-function present_matrix(matrix::Transpose, prefix::AbstractString; transposed::Bool = false)::String
+function present_matrix(matrix::Union{Transpose, Adjoint}, prefix::AbstractString; transposed::Bool = false)::String
     return present_matrix(transpose(matrix), prefix; transposed = !transposed)
 end
 
@@ -145,7 +145,11 @@ end
 
 function present_matrix(matrix::SparseMatrixCSC, prefix::AbstractString; transposed::Bool = false)::String
     nnz = describe_percent(length(matrix.nzval), length(matrix))
-    return present_matrix_size(matrix, concat_prefixes(prefix, "Sparse $(nnz)"); transposed = transposed)
+    return present_matrix_size(
+        matrix,
+        concat_prefixes(prefix, "Sparse $(SparseArrays.indtype(matrix)) $(nnz)");
+        transposed = transposed,
+    )
 end
 
 function present_matrix(matrix::AbstractMatrix, kind::AbstractString; transposed::Bool = false)::String  # untested

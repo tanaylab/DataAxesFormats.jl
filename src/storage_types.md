@@ -18,6 +18,15 @@ Daf.StorageTypes.AbstractStringSet
 Daf.StorageTypes.AbstractStringVector
 ```
 
+# Constructors
+
+# Storable types
+
+```@docs
+Daf.StorageTypes.sparse_vector
+Daf.StorageTypes.sparse_matrix_csc
+```
+
 ## Index
 
 ```@index

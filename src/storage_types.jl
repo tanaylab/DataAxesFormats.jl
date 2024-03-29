@@ -28,6 +28,8 @@ module StorageTypes
 
 export AbstractStringSet
 export AbstractStringVector
+export sparse_matrix_csc
+export sparse_vector
 export StorageFloat
 export StorageInteger
 export StorageMatrix
@@ -120,5 +122,32 @@ The element type must be a [`StorageScalar`](@ref), to allow storing the data in
 are supported but will be less efficient.
 """
 StorageVector{T} = AbstractVector{T} where {T <: StorageScalar}
+
+"""
+    function sparse_vector(dense::StorageMatrix)::SparseVector
+
+Create a sparse vector using the smallest unsigned integer type needed for this size of matrix.
+"""
+function sparse_vector(dense::StorageVector{T})::SparseVector where {T <: StorageNumber}
+    return SparseVector{eltype(dense), indtype_for_size(length(dense))}(dense)
+end
+
+"""
+    function sparse_matrix_csc(dense::StorageMatrix)::SparseMatrixCSC
+
+Create a sparse matrix using the smallest unsigned integer type needed for this size of matrix.
+"""
+function sparse_matrix_csc(dense::StorageMatrix)::SparseMatrixCSC
+    return SparseMatrixCSC{eltype(dense), indtype_for_size(length(dense))}(dense)
+end
+
+function indtype_for_size(size::Integer)::Type
+    for type in (UInt8, UInt16, UInt32)
+        if size <= typemax(type)
+            return type
+        end
+    end
+    return UInt64  # untested
+end
 
 end # module

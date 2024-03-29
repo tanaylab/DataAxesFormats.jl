@@ -30,6 +30,7 @@ using SparseArrays
 import Daf.Data.require_axis
 import Daf.Data.require_no_axis
 import Daf.Data.require_no_matrix
+import Daf.StorageTypes.indtype_for_size
 
 """
 A vector of pairs where the key is a [`DataKey`](@ref) and the value is [`MergeAction`](@ref). Similarly to
@@ -577,17 +578,8 @@ function concatenate_axis_sparse_vectors(
     overwrite::Bool,
 )::Nothing
     nnz_offsets, nnz_sizes, total_nnz = nnz_arrays(vectors)
-    indtype = indtype_for_size(concatenated_axis_size)
 
-    empty_sparse_vector!(
-        destination,
-        axis,
-        vector_property,
-        dtype,
-        total_nnz,
-        indtype;
-        overwrite = overwrite,
-    ) do nzind, nzval
+    empty_sparse_vector!(destination, axis, vector_property, dtype, total_nnz; overwrite = overwrite) do nzind, nzval
         @threads for index in 1:length(vectors)
             offset = offsets[index]
             nnz_offset = nnz_offsets[index]
@@ -700,7 +692,6 @@ function concatenate_axis_sparse_matrices(
     overwrite::Bool,
 )::Nothing
     nnz_offsets, nnz_sizes, total_nnz = nnz_arrays(matrices)
-    indtype = indtype_for_size(concatenated_axis_size)
 
     empty_sparse_matrix!(
         destination,
@@ -708,8 +699,7 @@ function concatenate_axis_sparse_matrices(
         axis,
         matrix_property,
         dtype,
-        total_nnz,
-        indtype;
+        total_nnz;
         overwrite = overwrite,
     ) do colptr, rowval, nzval
         @threads for index in 1:length(matrices)
@@ -1008,7 +998,6 @@ function concatenate_merge_sparse_vector(
     overwrite::Bool,
 )::Nothing
     nnz_offsets, nnz_sizes, total_nnz = nnz_arrays(vectors)
-    indtype = indtype_for_size(nrows * length(vectors))
 
     empty_sparse_matrix!(
         destination,
@@ -1016,8 +1005,7 @@ function concatenate_merge_sparse_vector(
         dataset_axis,
         vector_property,
         dtype,
-        total_nnz,
-        indtype;
+        total_nnz;
         overwrite = overwrite,
     ) do colptr, rowval, nzval
         colptr[1] == 1
@@ -1285,7 +1273,7 @@ function sparsify_vectors(
             @assert length(vector) == size
             vector = vector.array
             if !(vector isa SparseVector)
-                vector = SparseVector(vector)
+                vector = sparse_vector(vector)
             end
             sparse_vectors[index] = vector
         end
@@ -1337,15 +1325,6 @@ function dtype_for_size(size::Integer, types::NTuple{N, Type})::Type where {N}
         end
     end
     return types[end]
-end
-
-function indtype_for_size(size::Integer)::Type
-    for type in UNSIGNED_TYPES[1:(end - 1)]
-        if size <= typemax(type)
-            return type
-        end
-    end
-    return UNSIGNED_TYPES[end]  # untested
 end
 
 end  # module

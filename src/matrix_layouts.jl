@@ -89,7 +89,7 @@ function major_axis(matrix::SparseArrays.ReadOnly)::Maybe{Int8}
     return major_axis(parent(matrix))
 end
 
-function major_axis(matrix::Transpose)::Maybe{Int8}
+function major_axis(matrix::Union{Transpose, Adjoint})::Maybe{Int8}
     return other_axis(major_axis(matrix.parent))
 end
 
@@ -106,10 +106,10 @@ function major_axis(matrix::AbstractMatrix)::Maybe{Int8}
         if matrix_strides[2] == 1
             return Rows
         end
-        return nothing             # untested
+        return nothing
 
     catch MethodError
-        return nothing  # untested
+        return nothing
     end
 end
 
@@ -267,7 +267,7 @@ function relayout!(matrix::SparseArrays.ReadOnly)::AbstractMatrix
     return relayout!(parent(matrix))
 end
 
-function relayout!(matrix::Transpose)::AbstractMatrix
+function relayout!(matrix::Union{Transpose, Adjoint})::AbstractMatrix
     return transpose(relayout!(parent(matrix)))
 end
 
@@ -284,7 +284,7 @@ function relayout!(destination::AbstractMatrix, source::NamedMatrix)::NamedArray
     return NamedArray(relayout!(destination, source.array), source.dicts, source.dimnames)
 end
 
-function relayout!(destination::Transpose, source::NamedMatrix)::AbstractMatrix
+function relayout!(destination::Union{Transpose, Adjoint}, source::NamedMatrix)::AbstractMatrix
     relayout!(parent(destination), transpose(source.array))
     return destination
 end
@@ -304,7 +304,7 @@ function relayout!(destination::NamedArray, source::AbstractMatrix)::NamedArray
     return NamedArray(relayout!(destination.array, source), destination.dicts, destination.dimnames)
 end
 
-function relayout!(destination::Transpose, source::AbstractMatrix)::AbstractMatrix
+function relayout!(destination::Union{Transpose, Adjoint}, source::AbstractMatrix)::AbstractMatrix
     relayout!(parent(destination), transpose(source))
     return destination
 end
@@ -347,7 +347,7 @@ function relayout!(destination::AbstractMatrix, source::AbstractMatrix)::Abstrac
     return error("unsupported relayout destination: $(typeof(destination))\nand source: $(typeof(source))")
 end
 
-function base_sparse_matrix(matrix::Transpose)::AbstractMatrix
+function base_sparse_matrix(matrix::Union{Transpose, Adjoint})::AbstractMatrix
     return transpose(base_sparse_matrix(matrix.parent))
 end
 

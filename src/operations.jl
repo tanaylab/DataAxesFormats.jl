@@ -414,7 +414,7 @@ function compute_eltwise(
 )::Union{StorageMatrix, StorageVector} where {T <: StorageNumber}
     dtype = unsigned_dtype_for(eltype(input), operation.dtype)
     output = similar(input, dtype)
-    output .= abs.(input)
+    output .= abs.(input)  # NOJET
     return output
 end
 

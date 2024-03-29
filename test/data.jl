@@ -645,7 +645,7 @@ function test_missing_vector(daf::DafReader, depth::Int)::Nothing
             end
 
             nested_test("sparse") do
-                @test set_vector!(daf, "gene", "marker", SparseVector(MARKER_GENES_BY_DEPTH[depth])) == nothing
+                @test set_vector!(daf, "gene", "marker", sparse_vector(MARKER_GENES_BY_DEPTH[depth])) == nothing
                 # TODO: When SparseArrays supports strings, test it.
                 @test set_vector!(daf, "cell", "type", CELL_TYPES_BY_DEPTH[depth]) == nothing
                 test_existing_vector(daf, depth + 1)
@@ -743,7 +743,7 @@ function test_missing_vector(daf::DafReader, depth::Int)::Nothing
                 sum(MARKER_GENES_BY_DEPTH[depth]),
                 Int32,
             ) do empty_nzind, empty_nzval
-                sparse = SparseVector(MARKER_GENES_BY_DEPTH[depth])
+                sparse = sparse_vector(MARKER_GENES_BY_DEPTH[depth])
                 empty_nzind .= sparse.nzind
                 empty_nzval .= sparse.nzval
                 return 7
@@ -964,7 +964,7 @@ function test_existing_vector(daf::DafReader, depth::Int)::Nothing
                         Int16;
                         overwrite = true,
                     ) do empty_nzind, empty_nzval
-                        sparse = SparseVector(MARKER_GENES_BY_DEPTH[depth])
+                        sparse = sparse_vector(MARKER_GENES_BY_DEPTH[depth])
                         empty_nzind .= sparse.nzind
                         empty_nzval .= sparse.nzval
                         return 7
@@ -1458,7 +1458,7 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
                 end
 
                 nested_test("sparse") do
-                    @test set_matrix!(daf, "cell", "gene", "UMIs", SparseMatrixCSC(UMIS_BY_DEPTH[depth])) == nothing
+                    @test set_matrix!(daf, "cell", "gene", "UMIs", sparse_matrix_csc(UMIS_BY_DEPTH[depth])) == nothing
                     test_existing_relayout_matrix(daf, depth + 1)
                     return nothing
                 end
@@ -1668,7 +1668,7 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
                 sum(UMIS_BY_DEPTH[depth] .> 0),
                 Int16,
             ) do empty_colptr, empty_rowval, empty_nzval
-                sparse = SparseMatrixCSC(UMIS_BY_DEPTH[depth])
+                sparse = sparse_matrix_csc(UMIS_BY_DEPTH[depth])
                 empty_colptr .= sparse.colptr
                 empty_rowval .= sparse.rowval
                 empty_nzval .= sparse.nzval
@@ -2240,7 +2240,7 @@ function test_existing_matrix(daf::DafReader, depth::Int)::Nothing
                         Int16;
                         overwrite = true,
                     ) do empty_colptr, empty_rowval, empty_nzval
-                        sparse = SparseMatrixCSC(UMIS_BY_DEPTH[depth])
+                        sparse = sparse_matrix_csc(UMIS_BY_DEPTH[depth])
                         empty_colptr .= sparse.colptr
                         empty_rowval .= sparse.rowval
                         empty_nzval .= sparse.nzval
@@ -2848,7 +2848,7 @@ function test_existing_relayout_matrix(daf::DafReader, depth::Int)::Nothing
                         Int16;
                         overwrite = true,
                     ) do empty_colptr, empty_rowval, empty_nzval
-                        sparse = SparseMatrixCSC(UMIS_BY_DEPTH[depth])
+                        sparse = sparse_matrix_csc(UMIS_BY_DEPTH[depth])
                         empty_colptr .= sparse.colptr
                         empty_rowval .= sparse.rowval
                         empty_nzval .= sparse.nzval

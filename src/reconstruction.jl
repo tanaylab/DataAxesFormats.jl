@@ -110,13 +110,8 @@ function reconstruct_axis!(
         unique_values = axis_values
     end
 
-    implicit_values = [
-        if implicit_value == empty_implicit
-            ""  # only seems untested
-        else
-            string(implicit_value)
-        end for implicit_value in implicit_values
-    ]
+    implicit_values =
+        [implicit_value == empty_implicit ? "" : string(implicit_value) for implicit_value in implicit_values]
 
     value_of_empties_of_properties = Dict{AbstractString, Maybe{StorageScalar}}()
     vector_values_of_properties = Dict{AbstractString, StorageVector}()

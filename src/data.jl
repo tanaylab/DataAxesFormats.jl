@@ -91,6 +91,7 @@ import Daf.Formats.begin_write_lock
 import Daf.Formats.with_read_lock
 import Daf.Formats.with_write_lock
 import Daf.Messages
+import Daf.StorageTypes.indtype_for_size
 
 function Base.getproperty(daf::DafReader, property::Symbol)::Any
     if property == :name
@@ -259,6 +260,10 @@ Add a new `axis` to `daf`.
 This first verifies the `axis` does not exist and that the `entries` are unique.
 """
 function add_axis!(daf::DafWriter, axis::AbstractString, entries::AbstractStringVector)::Nothing
+    entries = base_array(entries)
+    if entries isa SparseVector
+        entries = Vector(entries)  # untested
+    end
     return with_write_lock(daf) do
         @debug "add_axis $(daf.name) / $(axis) <- $(describe(entries))"
 
@@ -384,7 +389,7 @@ function get_axis(
     return with_read_lock(daf) do
         if !has_axis(daf, axis)
             if default == nothing
-                @debug "get_axis! $(daf.name) / $(axis) -> $(describe(missing))"
+                # @debug "get_axis! $(daf.name) / $(axis) -> $(describe(missing))"
                 return nothing
             else
                 @assert default == undef
@@ -393,7 +398,7 @@ function get_axis(
         end
 
         result = as_read_only_array(Formats.get_axis_through_cache(daf, axis))
-        @debug "get_axis! $(daf.name) / $(axis) -> $(describe(result))"
+        # @debug "get_axis! $(daf.name) / $(axis) -> $(describe(result))"
         return result
     end
 end
@@ -482,6 +487,7 @@ function set_vector!(
                 require_dim_name(daf, axis, "vector dim name", dimnames(vector, 1))
                 require_axis_names(daf, axis, "entry names of the: vector", names(vector, 1))
             end
+            vector = base_array(vector)
         end
 
         if !overwrite
@@ -577,12 +583,15 @@ end
         name::AbstractString,
         eltype::Type{T},
         nnz::StorageInteger,
-        indtype::Type{I};
+        indtype::Maybe{Type{I}} = nothing;
         [overwrite::Bool = false]
     )::Any where {T <: StorageNumber, I <: StorageInteger}
 
 Create an empty sparse vector property with some `name` for some `axis` in `daf`, pass its parts (`nzind` and `nzval`)
 to `fill`, and return the result.
+
+If `indtype` is not specified, it is chosen automatically to be the smallest unsigned integer type needed for the
+vector.
 
 The returned vector will be uninitialized; the caller is expected to `fill` its `nzind` and `nzval` vectors with values.
 Specifying the `nnz` makes their sizes known in advance, to allow pre-allocating disk data. For this reason, this does
@@ -610,10 +619,14 @@ function empty_sparse_vector!(
     name::AbstractString,
     eltype::Type{T},
     nnz::StorageInteger,
-    indtype::Type{I};
+    indtype::Maybe{Type{I}} = nothing;
     overwrite::Bool = false,
 )::Any where {T <: StorageNumber, I <: StorageInteger}
+    if indtype == nothing
+        indtype = indtype_for_size(axis_length(daf, axis))
+    end
     @assert isbitstype(eltype)
+    @assert isbitstype(indtype)
     nzind, nzval, extra = get_empty_sparse_vector!(daf, axis, name, eltype, nnz, indtype; overwrite = overwrite)
     try
         result = fill(nzind, nzval)
@@ -925,7 +938,7 @@ function set_matrix!(
     return with_write_lock(daf) do
         relayout = relayout && rows_axis != columns_axis
 
-        @debug "set_matrix! $(daf.name) / $(rows_axis) / $(columns_axis) : $(name) <$(relayout ? "%" : "#")$(overwrite ? "=" : "-") $(matrix)"
+        @debug "set_matrix! $(daf.name) / $(rows_axis) / $(columns_axis) : $(name) <$(relayout ? "%" : "#")$(overwrite ? "=" : "-") $(describe(matrix))"
 
         require_axis(daf, rows_axis)
         require_axis(daf, columns_axis)
@@ -940,6 +953,7 @@ function set_matrix!(
                 require_axis_names(daf, rows_axis, "row names of the: matrix", names(matrix, 1))
                 require_axis_names(daf, columns_axis, "column names of the: matrix", names(matrix, 2))
             end
+            matrix = base_array(matrix)
         end
 
         if !overwrite
@@ -1045,12 +1059,15 @@ end
         name::AbstractString,
         eltype::Type{T},
         nnz::StorageInteger,
-        intdype::Type{I};
+        intdype::Maybe{Type{I}} = nothing;
         [overwrite::Bool = false]
     )::Any where {T <: StorageNumber, I <: StorageInteger}
 
 Create an empty sparse matrix property with some `name` for some `rows_axis` and `columns_axis` in `daf`, pass its parts
 (`colptr`, `rowval` and `nzval`) to `fill`, and return the result.
+
+If `indtype` is not specified, it is chosen automatically to be the smallest unsigned integer type needed for the
+matrix.
 
 The returned matrix will be uninitialized; the caller is expected to `fill` its `colptr`, `rowval` and `nzval` vectors.
 Specifying the `nnz` makes their sizes known in advance, to allow pre-allocating disk space. For this reason, this does
@@ -1081,9 +1098,14 @@ function empty_sparse_matrix!(
     name::AbstractString,
     eltype::Type{T},
     nnz::StorageInteger,
-    indtype::Type{I};
+    indtype::Maybe{Type{I}} = nothing;
     overwrite::Bool = false,
 )::Any where {T <: StorageNumber, I <: StorageInteger}
+    if indtype == nothing
+        nrows = axis_length(daf, rows_axis)
+        ncolumns = axis_length(daf, columns_axis)
+        indtype = indtype_for_size(max(nrows, ncolumns, nnz))
+    end
     @assert isbitstype(eltype)
     @assert isbitstype(indtype)
     colptr, rowval, nzval, extra =

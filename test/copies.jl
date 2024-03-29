@@ -211,9 +211,11 @@ nested_test("copies") do
 
                 nested_test("()") do
                     @test_throws dedent("""
-                        missing entries source the axis: cell
+                        missing entries in the axis: cell
                         of the source daf data: source!
-                        which are needed for the axis: cell
+                        which are needed for copying the vector: age
+                        to the vector: age
+                        of the axis: cell
                         of the target daf data: destination!
                     """) copy_vector!(source = source, destination = destination, axis = "cell", name = "age")
                 end
@@ -221,9 +223,11 @@ nested_test("copies") do
                 nested_test("empty") do
                     nested_test("nothing") do
                         @test_throws dedent("""
-                            missing entries source the axis: cell
+                            missing entries in the axis: cell
                             of the source daf data: source!
-                            which are needed for the axis: cell
+                            which are needed for copying the vector: age
+                            to the vector: age
+                            of the axis: cell
                             of the target daf data: destination!
                         """) copy_vector!(
                             source = source,
@@ -294,7 +298,7 @@ nested_test("copies") do
         end
 
         nested_test("sparse") do
-            @test set_vector!(source, "cell", "age", SparseVector([1, 0])) == nothing
+            @test set_vector!(source, "cell", "age", sparse_vector([1, 0])) == nothing
 
             nested_test("existing") do
                 @test add_axis!(destination, "cell", ["A", "B"]) == nothing
@@ -332,9 +336,11 @@ nested_test("copies") do
 
                 nested_test("()") do
                     @test_throws dedent("""
-                        missing entries source the axis: cell
+                        missing entries in the axis: cell
                         of the source daf data: source!
-                        which are needed for the axis: cell
+                        which are needed for copying the vector: age
+                        to the vector: age
+                        of the axis: cell
                         of the target daf data: destination!
                     """) copy_vector!(source = source, destination = destination, axis = "cell", name = "age")
                 end
@@ -342,9 +348,11 @@ nested_test("copies") do
                 nested_test("empty") do
                     nested_test("nothing") do
                         @test_throws dedent("""
-                            missing entries source the axis: cell
+                            missing entries in the axis: cell
                             of the source daf data: source!
-                            which are needed for the axis: cell
+                            which are needed for copying the vector: age
+                            to the vector: age
+                            of the axis: cell
                             of the target daf data: destination!
                         """) copy_vector!(
                             source = source,
@@ -650,9 +658,11 @@ nested_test("copies") do
 
                     nested_test("()") do
                         @test_throws dedent("""
-                            missing entries source the axis: cell
+                            missing entries in the axis: cell
                             of the source daf data: source!
-                            which are needed for the axis: cell
+                            which are needed for copying the matrix: UMIs
+                            to the matrix: UMIs
+                            of the axis: cell
                             of the target daf data: destination!
                         """) copy_matrix!(
                             source = source,
@@ -666,9 +676,11 @@ nested_test("copies") do
                     nested_test("empty") do
                         nested_test("nothing") do
                             @test_throws dedent("""
-                                missing entries source the axis: cell
+                                missing entries in the axis: cell
                                 of the source daf data: source!
-                                which are needed for the axis: cell
+                                which are needed for copying the matrix: UMIs
+                                to the matrix: UMIs
+                                of the axis: cell
                                 of the target daf data: destination!
                             """) copy_matrix!(
                                 source = source,
@@ -700,9 +712,11 @@ nested_test("copies") do
 
                     nested_test("()") do
                         @test_throws dedent("""
-                            missing entries source the axis: gene
+                            missing entries in the axis: gene
                             of the source daf data: source!
-                            which are needed for the axis: gene
+                            which are needed for copying the matrix: UMIs
+                            to the matrix: UMIs
+                            of the axis: gene
                             of the target daf data: destination!
                         """) copy_matrix!(
                             source = source,
@@ -716,9 +730,11 @@ nested_test("copies") do
                     nested_test("empty") do
                         nested_test("nothing") do
                             @test_throws dedent("""
-                                missing entries source the axis: gene
+                                missing entries in the axis: gene
                                 of the source daf data: source!
-                                which are needed for the axis: gene
+                                which are needed for copying the matrix: UMIs
+                                to the matrix: UMIs
+                                of the axis: gene
                                 of the target daf data: destination!
                             """) copy_matrix!(
                                 source = source,
@@ -857,7 +873,7 @@ nested_test("copies") do
         end
 
         nested_test("sparse") do
-            @test set_matrix!(source, "cell", "gene", "UMIs", SparseMatrixCSC([0 1 2; 3 4 0])) == nothing
+            @test set_matrix!(source, "cell", "gene", "UMIs", sparse_matrix_csc([0 1 2; 3 4 0])) == nothing
 
             nested_test("existing") do
                 @test add_axis!(destination, "cell", ["A", "B"]) == nothing
@@ -928,9 +944,11 @@ nested_test("copies") do
 
                     nested_test("()") do
                         @test_throws dedent("""
-                            missing entries source the axis: cell
+                            missing entries in the axis: cell
                             of the source daf data: source!
-                            which are needed for the axis: cell
+                            which are needed for copying the matrix: UMIs
+                            to the matrix: UMIs
+                            of the axis: cell
                             of the target daf data: destination!
                         """) copy_matrix!(
                             source = source,
@@ -944,9 +962,11 @@ nested_test("copies") do
                     nested_test("empty") do
                         nested_test("nothing") do
                             @test_throws dedent("""
-                                missing entries source the axis: cell
+                                missing entries in the axis: cell
                                 of the source daf data: source!
-                                which are needed for the axis: cell
+                                which are needed for copying the matrix: UMIs
+                                to the matrix: UMIs
+                                of the axis: cell
                                 of the target daf data: destination!
                             """) copy_matrix!(
                                 source = source,
@@ -992,9 +1012,11 @@ nested_test("copies") do
 
                     nested_test("()") do
                         @test_throws dedent("""
-                            missing entries source the axis: gene
+                            missing entries in the axis: gene
                             of the source daf data: source!
-                            which are needed for the axis: gene
+                            which are needed for copying the matrix: UMIs
+                            to the matrix: UMIs
+                            of the axis: gene
                             of the target daf data: destination!
                         """) copy_matrix!(
                             source = source,
@@ -1008,9 +1030,11 @@ nested_test("copies") do
                     nested_test("empty") do
                         nested_test("nothing") do
                             @test_throws dedent("""
-                                missing entries source the axis: gene
+                                missing entries in the axis: gene
                                 of the source daf data: source!
-                                which are needed for the axis: gene
+                                which are needed for copying the matrix: UMIs
+                                to the matrix: UMIs
+                                of the axis: gene
                                 of the target daf data: destination!
                             """) copy_matrix!(
                                 source = source,

@@ -84,11 +84,11 @@ using Daf.Formats
 using Daf.Generic
 using Daf.MatrixLayouts
 using Daf.MemoryFormat
-using Daf.MemoryFormat
 using Daf.StorageTypes
 using DataFrames
 using HDF5
 using Muon
+using SparseArrays
 
 import Daf.Data.require_matrix
 import Daf.Formats
@@ -212,8 +212,15 @@ function verify_is_supported_type(
     property::AbstractString,
     unsupported_handler::AbnormalHandler,
 )::Nothing
-    if value isa StorageMatrix && !(value isa Muon.TransposedDataset) && major_axis(value) == nothing
-        report_unsupported(name, unsupported_handler, "type not in row/column-major layout: $(typeof(value))\n")  # untested
+    if value isa StorageMatrix &&
+       major_axis(value) == nothing &&
+       !(value isa Muon.TransposedDataset) &&
+       !(value isa Muon.SparseDataset)
+        report_unsupported(  # untested
+            name,
+            unsupported_handler,
+            "type not in row/column-major layout: $(typeof(value))\n" * "of the property: $(property)\n",
+        )
     end
     if value isa CategoricalArray
         return nothing  # untested
@@ -222,7 +229,9 @@ function verify_is_supported_type(
         report_unsupported(
             name,
             unsupported_handler,
-            "unsupported type for $(property): $(typeof(value))\nsupported type is: $(supported_type)\n",
+            "unsupported type: $(typeof(value))\n" *
+            "of the property: $(property)\n" *
+            "supported type is: $(supported_type)\n",
         )
     end
     return nothing
@@ -287,13 +296,10 @@ function copy_supported_vectors(frame::DataFrame, memory::MemoryDaf, axis::Abstr
     for column in names(frame)
         vector = frame[!, column]
         if vector isa CategoricalVector
-            vector = [  # untested
-                if value === missing
-                    ""
-                else
-                    string(value)
-                end for value in vector
-            ]
+            vector = [value === missing ? "" : string(value) for value in vector]  # untested
+        end
+        if vector isa BitVector
+            vector = Vector{Bool}(vector)  # untested
         end
         if vector isa StorageVector
             set_vector!(memory, axis, column, vector)
@@ -327,6 +333,22 @@ function copy_supported_matrix(  # untested
     columns_axis::AbstractString,
     name::AbstractString,
 )::Nothing
+    return nothing
+end
+
+function copy_supported_matrix(  # untested
+    matrix::Muon.SparseDataset,
+    memory::MemoryDaf,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+)::Nothing
+    sparse_matrix = read(matrix)
+    if matrix.csr
+        copy_supported_matrix(transpose(sparse_matrix), memory, columns_axis, rows_axis, name)
+    else
+        copy_supported_matrix(sparse_matrix, memory, rows_axis, columns_axis, name)
+    end
     return nothing
 end
 

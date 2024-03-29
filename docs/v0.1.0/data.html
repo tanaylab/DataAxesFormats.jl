@@ -1555,7 +1555,7 @@
     name::AbstractString,
     eltype::Type{T},
     nnz::StorageInteger,
-    indtype::Type{I};
+    indtype::Maybe{Type{I}} = nothing;
     [overwrite::Bool = false]
 )::Any where {T &lt;: StorageNumber, I &lt;: StorageInteger}
 </code>
@@ -1573,6 +1573,10 @@
 </code>) to 
 <code>fill
 </code>, and return the result.
+</p>
+<p>If 
+<code>indtype
+</code> is not specified, it is chosen automatically to be the smallest unsigned integer type needed for the vector.
 </p>
 <p>The returned vector will be uninitialized; the caller is expected to 
 <code>fill
@@ -1715,7 +1719,7 @@
     name::AbstractString,
     eltype::Type{T},
     nnz::StorageInteger,
-    intdype::Type{I};
+    intdype::Maybe{Type{I}} = nothing;
     [overwrite::Bool = false]
 )::Any where {T &lt;: StorageNumber, I &lt;: StorageInteger}
 </code>
@@ -1737,6 +1741,10 @@
 </code>) to 
 <code>fill
 </code>, and return the result.
+</p>
+<p>If 
+<code>indtype
+</code> is not specified, it is chosen automatically to be the smallest unsigned integer type needed for the matrix.
 </p>
 <p>The returned matrix will be uninitialized; the caller is expected to 
 <code>fill

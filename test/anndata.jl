@@ -91,7 +91,8 @@ nested_test("anndata") do
                         :warn,
                         dedent(
                             """
-                            unsupported type for uns[mapping]: Dict{String, Int64}
+                            unsupported type: Dict{String, Int64}
+                            of the property: uns[mapping]
                             supported type is: Union{Bool, Float32, Float64, Int16, Int32, Int64, Int8, UInt16, UInt32, UInt64, UInt8, S} where S<:AbstractString
                             in AnnData for the daf data: anndata
                             """,
@@ -104,7 +105,8 @@ nested_test("anndata") do
                 nested_test("error") do
                     @test_throws dedent(
                         """
-                        unsupported type for uns[mapping]: Dict{String, Int64}
+                        unsupported type: Dict{String, Int64}
+                        of the property: uns[mapping]
                         supported type is: Union{Bool, Float32, Float64, Int16, Int32, Int64, Int8, UInt16, UInt32, UInt64, UInt8, S} where S<:AbstractString
                         in AnnData for the daf data: anndata
                         """,

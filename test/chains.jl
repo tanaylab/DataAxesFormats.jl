@@ -378,7 +378,7 @@ nested_test("chains") do
 
             nested_test("empty_sparse") do
                 @test empty_sparse_vector!(chain, "cell", "age", Int16, 2, Int16) do nzind, nzval
-                    sparse = SparseVector([1, 2])
+                    sparse = sparse_vector([1, 2])
                     nzind .= sparse.nzind
                     nzval .= sparse.nzval
                     return 7
@@ -460,7 +460,7 @@ nested_test("chains") do
 
             nested_test("empty_sparse") do
                 @test empty_sparse_matrix!(chain, "cell", "gene", "UMIs", Int16, 5, Int16) do colptr, rowval, nzval
-                    sparse = SparseMatrixCSC([0 1 2; 3 4 5])
+                    sparse = sparse_matrix_csc([0 1 2; 3 4 5])
                     colptr .= sparse.colptr
                     rowval .= sparse.rowval
                     nzval .= sparse.nzval

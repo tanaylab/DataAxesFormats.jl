@@ -464,6 +464,16 @@
 <code>empty
 </code> must be specified to fill the missing values. If a source axis contains entries that do not exist in the target, they are discarded (not copied).
 </p>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>When copying a matrix from a subset to a superset, if the 
+<code>empty
+</code> value is zero, then we create a sparse matrix in the destination. However, currently we create a temporary dense matrix for this; this is inefficient and should be replaced by a more efficient method.
+</p>
+</div>
+</div>
 </div>
 </section>
 </article>

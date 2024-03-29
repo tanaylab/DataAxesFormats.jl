@@ -276,7 +276,7 @@ nested_test("operations") do
                 end
 
                 nested_test("sparse") do
-                    set_matrix!(daf, "cell", "gene", "value", SparseMatrixCSC([0.0 2.0 2.0; -3.0 0.0 6.0]))
+                    set_matrix!(daf, "cell", "gene", "value", sparse_matrix_csc([0.0 2.0 2.0; -3.0 0.0 6.0]))
                     @test with_type(daf["/ cell / gene : value % Significant high 3 low 2"]) ==
                           ([0.0 0.0 2.0; -3.0 0.0 6.0], Float64)
                 end

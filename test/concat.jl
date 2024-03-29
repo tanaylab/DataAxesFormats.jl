@@ -161,16 +161,16 @@ nested_test("concat") do
     nested_test("sparse") do
         nested_test("vector") do
             nested_test("dense") do
-                set_vector!(sources[1], "cell", "age", SparseVector([1, 2]))
-                set_vector!(sources[2], "cell", "age", SparseVector([3, 4, 5]))
+                set_vector!(sources[1], "cell", "age", sparse_vector([1, 2]))
+                set_vector!(sources[2], "cell", "age", sparse_vector([3, 4, 5]))
                 concatenate(destination, "cell", sources)
                 @test get_vector(destination, "cell", "age") == [1, 2, 3, 4, 5]
                 @test !(get_vector(destination, "cell", "age").array isa SparseVector)
             end
 
             nested_test("sparse") do
-                set_vector!(sources[1], "cell", "age", SparseVector([1, 0]))
-                set_vector!(sources[2], "cell", "age", SparseVector([0, 0, 2]))
+                set_vector!(sources[1], "cell", "age", sparse_vector([1, 0]))
+                set_vector!(sources[2], "cell", "age", sparse_vector([0, 0, 2]))
                 concatenate(destination, "cell", sources)
                 @test get_vector(destination, "cell", "age") == [1, 0, 0, 0, 2]
                 @test get_vector(destination, "cell", "age").array isa SparseVector
@@ -218,23 +218,23 @@ nested_test("concat") do
             add_axis!(sources[2], "gene", ["X", "Y"])
 
             nested_test("dense") do
-                set_matrix!(sources[1], "cell", "gene", "UMIs", SparseMatrixCSC([1 2; 3 4]))
-                set_matrix!(sources[2], "cell", "gene", "UMIs", SparseMatrixCSC([5 6; 7 8; 9 10]))
+                set_matrix!(sources[1], "cell", "gene", "UMIs", sparse_matrix_csc([1 2; 3 4]))
+                set_matrix!(sources[2], "cell", "gene", "UMIs", sparse_matrix_csc([5 6; 7 8; 9 10]))
                 concatenate(destination, "cell", sources)
                 @test get_matrix(destination, "cell", "gene", "UMIs") == [1 2; 3 4; 5 6; 7 8; 9 10]
                 @test !(get_matrix(destination, "cell", "gene", "UMIs").array isa SparseMatrixCSC)
             end
 
             nested_test("sparse") do
-                set_matrix!(sources[1], "cell", "gene", "UMIs", SparseMatrixCSC([1 0; 0 2]))
-                set_matrix!(sources[2], "cell", "gene", "UMIs", SparseMatrixCSC([0 3; 4 0; 0 5]))
+                set_matrix!(sources[1], "cell", "gene", "UMIs", sparse_matrix_csc([1 0; 0 2]))
+                set_matrix!(sources[2], "cell", "gene", "UMIs", sparse_matrix_csc([0 3; 4 0; 0 5]))
                 concatenate(destination, "cell", sources)
                 @test get_matrix(destination, "cell", "gene", "UMIs") == [1 0; 0 2; 0 3; 4 0; 0 5]
                 @test get_matrix(destination, "cell", "gene", "UMIs").array isa SparseMatrixCSC
             end
 
             nested_test("!empty") do
-                set_matrix!(sources[1], "cell", "gene", "UMIs", SparseMatrixCSC([1 2; 3 4]))
+                set_matrix!(sources[1], "cell", "gene", "UMIs", sparse_matrix_csc([1 2; 3 4]))
                 @test_throws dedent("""
                     nested task error: no empty value for the matrix: UMIs
                         of the rows axis: gene
@@ -245,7 +245,7 @@ nested_test("concat") do
             end
 
             nested_test("~empty") do
-                set_matrix!(sources[1], "cell", "gene", "UMIs", SparseMatrixCSC([1 2; 3 4]))
+                set_matrix!(sources[1], "cell", "gene", "UMIs", sparse_matrix_csc([1 2; 3 4]))
                 @test_throws dedent("""
                     nested task error: no empty value for the matrix: UMIs
                         of the rows axis: gene
@@ -257,14 +257,14 @@ nested_test("concat") do
 
             nested_test("empty") do
                 nested_test("zero") do
-                    set_matrix!(sources[1], "cell", "gene", "UMIs", SparseMatrixCSC([1 2; 3 4]))
+                    set_matrix!(sources[1], "cell", "gene", "UMIs", sparse_matrix_csc([1 2; 3 4]))
                     concatenate(destination, "cell", sources; empty = Dict(("cell", "gene", "UMIs") => 0))
                     @test get_matrix(destination, "cell", "gene", "UMIs") == [1 2; 3 4; 0 0; 0 0; 0 0]
                     @test get_matrix(destination, "cell", "gene", "UMIs").array isa SparseMatrixCSC
                 end
 
                 nested_test("!zero") do
-                    set_matrix!(sources[1], "cell", "gene", "UMIs", SparseMatrixCSC([1 2; 3 4]))
+                    set_matrix!(sources[1], "cell", "gene", "UMIs", sparse_matrix_csc([1 2; 3 4]))
                     concatenate(destination, "cell", sources; empty = Dict(("gene", "cell", "UMIs") => 5))
                     @test get_matrix(destination, "cell", "gene", "UMIs") == [1 2; 3 4; 5 5; 5 5; 5 5]
                     @test !(get_matrix(destination, "cell", "gene", "UMIs").array isa SparseMatrixCSC)
@@ -373,8 +373,8 @@ nested_test("concat") do
                 end
 
                 nested_test("sparse") do
-                    set_vector!(sources[1], "gene", "weight", SparseVector([1, 0]); overwrite = true)
-                    set_vector!(sources[2], "gene", "weight", SparseVector([0, 2]); overwrite = true)
+                    set_vector!(sources[1], "gene", "weight", sparse_vector([1, 0]); overwrite = true)
+                    set_vector!(sources[2], "gene", "weight", sparse_vector([0, 2]); overwrite = true)
                     concatenate(destination, "cell", sources; merge = [ALL_VECTORS => CollectAxis])
                     @test !has_vector(destination, "gene", "weight")
                     @test get_matrix(destination, "dataset", "gene", "weight") == [1 0; 0 2]

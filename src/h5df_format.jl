@@ -329,7 +329,8 @@ end
 function Formats.format_add_axis!(h5df::H5df, axis::AbstractString, entries::AbstractStringVector)::Nothing
     axes_group = h5df.root["axes"]
     @assert axes_group isa HDF5.Group
-    axes_group[axis] = entries
+    axis_dataset = create_dataset(axes_group, axis, String, (length(entries)))
+    axis_dataset[:] = entries
 
     vectors_group = h5df.root["vectors"]
     @assert vectors_group isa HDF5.Group
