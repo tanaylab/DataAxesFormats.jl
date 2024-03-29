@@ -326,9 +326,11 @@ function relayout!(destination::DenseMatrix, source::AbstractMatrix)::DenseMatri
         error("relayout destination size: $(size(destination))\nis different from source size: $(size(source))")
     end
     if issparse(source)
-        error("relayout dense destination: $(typeof(destination))\nand sparse source: $(typeof(source))")
+        destination .= source
+    else
+        transpose!(destination, transpose(source))
     end
-    return transpose!(destination, transpose(source))
+    return destination
 end
 
 function relayout!(destination::AbstractMatrix, source::AbstractMatrix)::AbstractMatrix  # untested

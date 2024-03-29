@@ -49,6 +49,7 @@ using Daf.MatrixLayouts
 using Daf.Messages
 using Daf.StorageTypes
 using Daf.Tokens
+using NamedArrays
 using OrderedCollections
 using SparseArrays
 
@@ -94,7 +95,7 @@ If too much data has been cached, call `empty_cache!` to release it.
 
 struct CacheEntry
     cache_type::CacheType
-    data::Union{AbstractStringSet, StorageScalar, StorageVector, StorageMatrix}
+    data::Union{AbstractStringSet, AbstractStringVector, StorageScalar, NamedArray}
 end
 
 """
@@ -687,7 +688,7 @@ end
 function cache_data!(
     format::FormatReader,
     cache_key::AbstractString,
-    data::Union{AbstractStringSet, StorageScalar, StorageVector, StorageMatrix},
+    data::Union{AbstractStringSet, AbstractStringVector, StorageScalar, NamedArray},
     cache_type::CacheType,
 )::Nothing
     @assert format.internal.writer_thread[1] == threadid()
@@ -756,7 +757,8 @@ function cache_vector!(
     cache_type::CacheType,
 )::Nothing
     cache_key = vector_cache_key(axis, name)
-    cache_data!(format, cache_key, vector, cache_type)
+    named_vector = as_named_vector(format, axis, vector)
+    cache_data!(format, cache_key, named_vector, cache_type)
     store_cached_dependency_key!(format, cache_key, axis_cache_key(axis))
     return nothing
 end
@@ -770,10 +772,74 @@ function cache_matrix!(
     cache_type::CacheType,
 )::Nothing
     cache_key = matrix_cache_key(rows_axis, columns_axis, name)
-    cache_data!(format, cache_key, matrix, cache_type)
+    named_matrix = as_named_matrix(format, rows_axis, columns_axis, matrix)
+    cache_data!(format, cache_key, named_matrix, cache_type)
     store_cached_dependency_key!(format, cache_key, axis_cache_key(rows_axis))
     store_cached_dependency_key!(format, cache_key, axis_cache_key(columns_axis))
     return nothing
+end
+
+function as_named_vector(format::FormatReader, axis::AbstractString, vector::NamedVector)::NamedArray
+    return vector
+end
+
+function as_named_vector(format::FormatReader, axis::AbstractString, vector::AbstractVector)::NamedArray
+    axis_names_dict = get(format.internal.axes, axis, nothing)
+    if axis_names_dict == nothing
+        names = as_read_only_array(Formats.get_axis_through_cache(format, axis))
+        named_array = NamedArray(vector; names = (names,), dimnames = (axis,))
+        format.internal.axes[axis] = named_array.dicts[1]
+        return named_array
+
+    else
+        return NamedArray(vector, (axis_names_dict,), (axis,))
+    end
+end
+
+function as_named_matrix(
+    format::FormatReader,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    matrix::NamedMatrix,
+)::NamedArray
+    return matrix
+end
+
+function as_named_matrix(
+    format::FormatReader,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    matrix::AbstractMatrix,
+)::NamedArray
+    rows_axis_names_dict = get(format.internal.axes, rows_axis, nothing)
+    columns_axis_names_dict = get(format.internal.axes, columns_axis, nothing)
+    if rows_axis_names_dict == nothing || columns_axis_names_dict == nothing
+        rows_names = as_read_only_array(Formats.get_axis_through_cache(format, rows_axis))
+        columns_names = as_read_only_array(Formats.get_axis_through_cache(format, columns_axis))
+        named_array = NamedArray(matrix; names = (rows_names, columns_names), dimnames = (rows_axis, columns_axis))
+        format.internal.axes[rows_axis] = named_array.dicts[1]
+        format.internal.axes[columns_axis] = named_array.dicts[2]
+        return named_array
+
+    else
+        return NamedArray(matrix, (rows_axis_names_dict, columns_axis_names_dict), (rows_axis, columns_axis))
+    end
+end
+
+function as_read_only_array(array::SparseArrays.ReadOnly)::SparseArrays.ReadOnly
+    return array
+end
+
+function as_read_only_array(array::NamedArray)::NamedArray
+    if array.array isa SparseArrays.ReadOnly
+        return array  # untested
+    else
+        return NamedArray(as_read_only_array(array.array), array.dicts, array.dimnames)
+    end
+end
+
+function as_read_only_array(array::AbstractArray)::SparseArrays.ReadOnly
+    return SparseArrays.ReadOnly(array)
 end
 
 function scalar_names_cache_key()::String

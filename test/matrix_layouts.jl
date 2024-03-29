@@ -272,11 +272,10 @@ nested_test("matrix_layouts") do
                 end
 
                 nested_test("destination_dense") do
-                    destination = rand(4, 6)
-                    @test_throws dedent("""
-                        relayout dense destination: Matrix{Float64}
-                        and sparse source: SparseMatrixCSC{Float64, Int64}
-                    """) relayout!(destination, source)
+                    destination = transpose(rand(6, 4))
+                    relayout!(destination, source)
+                    @test major_axis(destination) == Rows
+                    @test destination == source
                 end
 
                 nested_test("read_only") do

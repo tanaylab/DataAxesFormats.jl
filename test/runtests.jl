@@ -59,11 +59,6 @@ function with_unwrapping_exceptions(action::Function)::Any
     end
 end
 
-#function test_similar(left::Any, right::Any)::Nothing
-#    @test "$(left)" == "$(right)"
-#    return nothing
-#end
-
 include("matrix_layouts.jl")
 include("messages.jl")
 include("data.jl")

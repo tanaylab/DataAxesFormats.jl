@@ -83,6 +83,9 @@ using NamedArrays
 using SparseArrays
 
 import Daf.Formats
+import Daf.Formats.as_named_matrix
+import Daf.Formats.as_named_vector
+import Daf.Formats.as_read_only_array
 import Daf.Formats.CacheEntry
 import Daf.Formats.FormatReader
 import Daf.Formats.FormatWriter
@@ -1509,7 +1512,10 @@ function get_matrix(
                         Formats.store_cached_dependency_key!(daf, cache_key, Formats.axis_cache_key(rows_axis))
                         Formats.store_cached_dependency_key!(daf, cache_key, Formats.axis_cache_key(columns_axis))
                         flipped_matrix = Formats.get_matrix_through_cache(daf, columns_axis, rows_axis, name)
-                        return CacheEntry(MemoryData, transpose(relayout!(flipped_matrix)))
+                        return CacheEntry(
+                            MemoryData,
+                            as_named_matrix(daf, rows_axis, columns_axis, transpose(relayout!(flipped_matrix))),
+                        )
                     end
                     matrix = cache_entry.data
                 end
@@ -1613,22 +1619,6 @@ function require_not_name(daf::DafReader, axis::AbstractString, name::AbstractSt
     return nothing
 end
 
-function as_read_only_array(array::SparseArrays.ReadOnly)::SparseArrays.ReadOnly
-    return array
-end
-
-function as_read_only_array(array::NamedArray)::NamedArray
-    if array.array isa SparseArrays.ReadOnly
-        return array  # untested
-    else
-        return NamedArray(as_read_only_array(array.array), array.dicts, array.dimnames)
-    end
-end
-
-function as_read_only_array(array::AbstractArray)::SparseArrays.ReadOnly
-    return SparseArrays.ReadOnly(array)
-end
-
 function require_dim_name(
     daf::DafReader,
     axis::AbstractString,
@@ -1654,54 +1644,6 @@ function require_axis_names(
     expected_names = get_axis(daf, axis)
     if names != expected_names
         error("$(what)\nmismatch the entry names of the axis: $(axis)\nin the daf data: $(daf.name)")
-    end
-end
-
-function as_named_vector(daf::DafReader, axis::AbstractString, vector::NamedVector)::NamedArray
-    return vector
-end
-
-function as_named_vector(daf::DafReader, axis::AbstractString, vector::AbstractVector)::NamedArray
-    axis_names_dict = get(daf.internal.axes, axis, nothing)
-    if axis_names_dict == nothing
-        named_array = NamedArray(vector; names = (get_axis(daf, axis),), dimnames = (axis,))
-        daf.internal.axes[axis] = named_array.dicts[1]
-        return named_array
-
-    else
-        return NamedArray(vector, (axis_names_dict,), (axis,))
-    end
-end
-
-function as_named_matrix(
-    daf::DafReader,
-    rows_axis::AbstractString,
-    columns_axis::AbstractString,
-    matrix::NamedMatrix,
-)::NamedArray
-    return matrix
-end
-
-function as_named_matrix(
-    daf::DafReader,
-    rows_axis::AbstractString,
-    columns_axis::AbstractString,
-    matrix::AbstractMatrix,
-)::NamedArray
-    rows_axis_names_dict = get(daf.internal.axes, rows_axis, nothing)
-    columns_axis_names_dict = get(daf.internal.axes, columns_axis, nothing)
-    if rows_axis_names_dict == nothing || columns_axis_names_dict == nothing
-        named_array = NamedArray(
-            matrix;
-            names = (get_axis(daf, rows_axis), get_axis(daf, columns_axis)),
-            dimnames = (rows_axis, columns_axis),
-        )
-        daf.internal.axes[rows_axis] = named_array.dicts[1]
-        daf.internal.axes[columns_axis] = named_array.dicts[2]
-        return named_array
-
-    else
-        return NamedArray(matrix, (rows_axis_names_dict, columns_axis_names_dict), (rows_axis, columns_axis))
     end
 end
 
