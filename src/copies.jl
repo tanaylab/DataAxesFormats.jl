@@ -228,6 +228,7 @@ function copy_matrix!(;
     rows_relation::Maybe{Symbol} = nothing,
     columns_relation::Maybe{Symbol} = nothing,
 )::Nothing
+    relayout = relayout && rows_axis != columns_axis
     if rename == nothing
         @debug "copy_matrix! $(destination.name) <$(relayout ? "%" : "#")$(overwrite ? "-" : "=") $(source.name) / $(rows_axis)($(rows_relation)) / $(columns_axis)($(columns_relation)) : $(name) || $(describe(default)) ?? $(describe(empty))"
     else
