@@ -64,6 +64,11 @@ end
 
 const METADATA_OF_FUNCTION = Dict{AbstractString, FunctionMetadata}()
 
+function set_metadata_of_function(full_name::AbstractString, function_metadata::FunctionMetadata)::Nothing
+    METADATA_OF_FUNCTION[full_name] = function_metadata
+    return nothing
+end
+
 """
     @computation function something(...)
         return ...
@@ -109,8 +114,7 @@ macro computation(definition)
     @assert function_name isa Symbol
 
     full_name = "$(__module__).$(function_name)"
-    global METADATA_OF_FUNCTION
-    METADATA_OF_FUNCTION[full_name] = FunctionMetadata(Contract[], collect_defaults(inner_definition))
+    set_metadata_of_function(full_name, FunctionMetadata(Contract[], collect_defaults(inner_definition)))
 
     inner_definition[:name] = Symbol(function_name, :_inner)
     outer_definition[:body] = Expr(
@@ -134,8 +138,7 @@ macro computation(contract, definition)
     @assert function_name isa Symbol
 
     full_name = "$(__module__).$(function_name)"
-    global METADATA_OF_FUNCTION
-    METADATA_OF_FUNCTION[full_name] = FunctionMetadata([eval(contract)], collect_defaults(inner_definition))
+    set_metadata_of_function(full_name, FunctionMetadata([eval(contract)], collect_defaults(inner_definition)))
 
     inner_definition[:name] = Symbol(function_name, :_inner)
     outer_definition[:body] = Expr(
@@ -164,7 +167,6 @@ macro computation(first_contract, second_contract, definition)
 
     full_name = "$(__module__).$(function_name)"
 
-    global METADATA_OF_FUNCTION
     METADATA_OF_FUNCTION[full_name] =
         FunctionMetadata([eval(first_contract), eval(second_contract)], collect_defaults(inner_definition))
 
