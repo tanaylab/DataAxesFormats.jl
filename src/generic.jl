@@ -7,6 +7,7 @@ code, explicitly write `using Daf.Generic`.
 """
 module Generic
 
+export dedent
 export ErrorHandler
 export handle_abnormal
 export AbnormalHandler
@@ -66,5 +67,35 @@ writing the explicit `Union` with `Missing` but is shorter and more readable. Th
 statistics to represent missing (that is, unknown) data. It is only provided here for completeness.
 """
 Unsure = Union{T, Missing} where {T}
+
+"""
+    function dedent(string::AbstractString; indent::AbstractString = "")::String
+
+Given a possibly multi-line string with a common indentation in each line, strip this indentation from all lines, and
+replace it with `indent`. Will also strip any initial and/or final line breaks.
+"""
+function dedent(string::AbstractString; indent::AbstractString = "")::String
+    lines = split(string, "\n")
+    while !isempty(lines) && isempty(lines[1])
+        @views lines = lines[2:end]  # untested
+    end
+    while !isempty(lines) && isempty(lines[end])
+        @views lines = lines[1:(end - 1)]
+    end
+
+    first_non_space = nothing
+    for line in lines
+        line_non_space = findfirst(character -> character != ' ', line)
+        if first_non_space == nothing || (line_non_space != nothing && line_non_space < first_non_space)
+            first_non_space = line_non_space
+        end
+    end
+
+    if first_non_space == nothing
+        return indent * string  # untested NOJET
+    else
+        return join([indent * line[first_non_space:end] for line in lines], "\n")  # NOJET
+    end
+end
 
 end  # module

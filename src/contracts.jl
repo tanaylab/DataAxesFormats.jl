@@ -7,6 +7,7 @@ export Contract
 export ContractAxes
 export ContractData
 export ContractExpectation
+export dedent
 export GuaranteedOutput
 export OptionalInput
 export OptionalOutput
@@ -313,7 +314,7 @@ function scalar_documentation(contract::Contract, buffer::IOBuffer; is_output::B
                     println(buffer, "### Scalars")
                 end
                 println(buffer)
-                println(buffer, "**$(name)**::$(data_type) ($(short(expectation))): $(description)")
+                println(buffer, "**$(name)**::$(data_type) ($(short(expectation))): $(dedent(description))")
             end
         end
     end
@@ -334,7 +335,7 @@ function axes_documentation(contract::Contract, buffer::IOBuffer; is_output::Boo
                     println(buffer, "### Axes")
                 end
                 println(buffer)
-                println(buffer, "**$(name)** ($(short(expectation))): $(description)")
+                println(buffer, "**$(name)** ($(short(expectation))): $(dedent(description))")
             end
         end
     end
@@ -357,7 +358,10 @@ function vectors_documentation(contract::Contract, buffer::IOBuffer; is_output::
                         println(buffer, "### Vectors")
                     end
                     println(buffer)
-                    println(buffer, "**$(axis_name) @ $(name)**::$(data_type) ($(short(expectation))): $(description)")
+                    println(
+                        buffer,
+                        "**$(axis_name) @ $(name)**::$(data_type) ($(short(expectation))): $(dedent(description))",
+                    )
                 end
             end
         end
@@ -383,7 +387,7 @@ function matrices_documentation(contract::Contract, buffer::IOBuffer; is_output:
                     println(buffer)
                     println(
                         buffer,
-                        "**$(rows_axis_name), $(columns_axis_name) @ $(name)**::$(data_type) ($(short(expectation))): $(description)",
+                        "**$(rows_axis_name), $(columns_axis_name) @ $(name)**::$(data_type) ($(short(expectation))): $(dedent(description))",
                     )
                 end
             end

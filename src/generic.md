@@ -33,6 +33,12 @@ Daf.Generic.Maybe
 Daf.Generic.Unsure
 ```
 
+## Strings
+
+```@docs
+Daf.Generic.dedent
+```
+
 ## Index
 
 ```@index
