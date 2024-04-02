@@ -62,10 +62,15 @@ struct FunctionMetadata
     defaults::Dict{AbstractString, Any}
 end
 
-const METADATA_OF_FUNCTION = Dict{AbstractString, FunctionMetadata}()
-
-function set_metadata_of_function(full_name::AbstractString, function_metadata::FunctionMetadata)::Nothing
-    METADATA_OF_FUNCTION[full_name] = function_metadata
+function set_metadata_of_function(
+    function_module::Module,
+    function_name::Symbol,
+    function_metadata::FunctionMetadata,
+)::Nothing
+    if !isdefined(function_module, :__DAF_FUNCTION_METADATA__)
+        function_module.__DAF_FUNCTION_METADATA__ = Dict{Symbol, FunctionMetadata}()
+    end
+    function_module.__DAF_FUNCTION_METADATA__[function_name] = function_metadata
     return nothing
 end
 
@@ -112,9 +117,14 @@ macro computation(definition)
         error("@logged requires a named function")
     end
     @assert function_name isa Symbol
+    function_module = __module__
+    full_name = "$(function_module).$(function_name)"
 
-    full_name = "$(__module__).$(function_name)"
-    set_metadata_of_function(full_name, FunctionMetadata(Contract[], collect_defaults(inner_definition)))
+    set_metadata_of_function(
+        function_module,
+        function_name,
+        FunctionMetadata(Contract[], collect_defaults(inner_definition)),
+    )
 
     inner_definition[:name] = Symbol(function_name, :_inner)
     outer_definition[:body] = Expr(
@@ -136,15 +146,20 @@ macro computation(contract, definition)
         error("@computation requires a named function")
     end
     @assert function_name isa Symbol
+    function_module = __module__
+    full_name = "$(function_module).$(function_name)"
 
-    full_name = "$(__module__).$(function_name)"
-    set_metadata_of_function(full_name, FunctionMetadata([eval(contract)], collect_defaults(inner_definition)))
+    set_metadata_of_function(
+        function_module,
+        function_name,
+        FunctionMetadata([eval(contract)], collect_defaults(inner_definition)),
+    )
 
     inner_definition[:name] = Symbol(function_name, :_inner)
     outer_definition[:body] = Expr(
         :call,
         :(Daf.Computations.computation_wrapper(
-            Daf.Computations.METADATA_OF_FUNCTION[$full_name].contracts[1],
+            $function_module.__DAF_FUNCTION_METADATA__[Symbol($function_name)].contracts[1],
             $full_name,
             $(ExprTools.combinedef(inner_definition)),
         )),
@@ -164,18 +179,21 @@ macro computation(first_contract, second_contract, definition)
         error("@computation requires a named function")
     end
     @assert function_name isa Symbol
+    function_module = __module__
+    full_name = "$(function_module).$(function_name)"
 
-    full_name = "$(__module__).$(function_name)"
-
-    METADATA_OF_FUNCTION[full_name] =
-        FunctionMetadata([eval(first_contract), eval(second_contract)], collect_defaults(inner_definition))
+    set_metadata_of_function(
+        function_module,
+        function_name,
+        FunctionMetadata([eval(first_contract), eval(second_contract)], collect_defaults(inner_definition)),
+    )
 
     inner_definition[:name] = Symbol(function_name, :_inner)
     outer_definition[:body] = Expr(
         :call,
         :(Daf.Computations.computation_wrapper(
-            Daf.Computations.METADATA_OF_FUNCTION[$full_name].contracts[1],
-            Daf.Computations.METADATA_OF_FUNCTION[$full_name].contracts[2],
+            $function_module.__DAF_FUNCTION_METADATA__[Symbol($function_name)].contracts[1],
+            $function_module.__DAF_FUNCTION_METADATA__[Symbol($function_name)].contracts[2],
             $full_name,
             $(ExprTools.combinedef(inner_definition)),
         )),
@@ -348,15 +366,28 @@ const DEFAULT = DefaultContainer()
 function get_metadata(doc_str::Base.Docs.DocStr)::Tuple{AbstractString, FunctionMetadata}
     binding = doc_str.data[:binding]
     object = Docs.resolve(binding)
-    full_name = "$(doc_str.data[:module]).$(Symbol(object))"
-    metadata = get(METADATA_OF_FUNCTION, full_name, nothing)
+    object_module = nothing
+    for method in methods(object)
+        try
+            object_module = method.module
+            if isdefined(object_module, :__DAF_FUNCTION_METADATA__)
+                break
+            end
+        catch  # untested
+        end
+    end
+    if object_module == nothing
+        metadata = nothing  # untested
+    else
+        metadata = get(object_module.__DAF_FUNCTION_METADATA__, Symbol(object), nothing)
+    end
     if metadata == nothing
         error(
-            "no contract(s) associated with: $(full_name)\n" *
-            "use: @computation Contract(...) function $(full_name)(...)",
+            "no contract(s) associated with: $(object_module).$(object)\n" *
+            "use: @computation Contract(...) function $(object_module).$(object)(...)",
         )
     end
-    return full_name, metadata
+    return "$(object_module).$(object)", metadata
 end
 
 end # module
