@@ -123,7 +123,7 @@ macro computation(definition)
     set_metadata_of_function(
         function_module,
         function_name,
-        FunctionMetadata(Contract[], collect_defaults(inner_definition)),
+        FunctionMetadata(Contract[], collect_defaults(function_module, inner_definition)),
     )
 
     inner_definition[:name] = Symbol(function_name, :_inner)
@@ -152,7 +152,7 @@ macro computation(contract, definition)
     set_metadata_of_function(
         function_module,
         function_name,
-        FunctionMetadata([function_module.eval(contract)], collect_defaults(inner_definition)),
+        FunctionMetadata([function_module.eval(contract)], collect_defaults(function_module, inner_definition)),
     )
 
     inner_definition[:name] = Symbol(function_name, :_inner)
@@ -187,7 +187,7 @@ macro computation(first_contract, second_contract, definition)
         function_name,
         FunctionMetadata(
             [function_module.eval(first_contract), function_module.eval(second_contract)],
-            collect_defaults(inner_definition),
+            collect_defaults(function_module, inner_definition),
         ),
     )
 
@@ -240,22 +240,22 @@ function patch_kwarg(arg::Expr)::Any
     return arg
 end
 
-function collect_defaults(inner_definition)::Dict{AbstractString, Any}
+function collect_defaults(function_module::Module, inner_definition)::Dict{AbstractString, Any}
     defaults = Dict{AbstractString, Any}()
     for arg in get(inner_definition, :args, [])
-        collect_arg_default(defaults, arg)
+        collect_arg_default(function_module, defaults, arg)
     end
     for kwarg in get(inner_definition, :kwargs, [])
-        collect_arg_default(defaults, kwarg)
+        collect_arg_default(function_module, defaults, kwarg)
     end
     return defaults
 end
 
-function collect_arg_default(defaults::Dict{AbstractString, Any}, arg::Symbol)::Nothing  # untested
+function collect_arg_default(function_module::Module, defaults::Dict{AbstractString, Any}, arg::Symbol)::Nothing  # untested
     return nothing
 end
 
-function collect_arg_default(defaults::Dict{AbstractString, Any}, arg::Expr)::Nothing
+function collect_arg_default(function_module::Module, defaults::Dict{AbstractString, Any}, arg::Expr)::Nothing
     if arg.head == :kw
         @assert length(arg.args) == 2
         name = arg.args[1]
@@ -265,7 +265,7 @@ function collect_arg_default(defaults::Dict{AbstractString, Any}, arg::Expr)::No
             @assert length(name.args) == 2
             name = name.args[1]
         end
-        defaults[string(name)] = eval(value)
+        defaults[string(name)] = function_module.eval(value)
     end
     return nothing
 end
