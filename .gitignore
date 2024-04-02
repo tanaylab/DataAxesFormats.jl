@@ -5,6 +5,7 @@
 .DS_Store
 TAGS
 deps/.*
+deps/build.log
 junk*
 tags
 tracefile.info
