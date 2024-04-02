@@ -152,7 +152,7 @@ macro computation(contract, definition)
     set_metadata_of_function(
         function_module,
         function_name,
-        FunctionMetadata([eval(contract)], collect_defaults(inner_definition)),
+        FunctionMetadata([function_module.eval(contract)], collect_defaults(inner_definition)),
     )
 
     inner_definition[:name] = Symbol(function_name, :_inner)
@@ -185,7 +185,10 @@ macro computation(first_contract, second_contract, definition)
     set_metadata_of_function(
         function_module,
         function_name,
-        FunctionMetadata([eval(first_contract), eval(second_contract)], collect_defaults(inner_definition)),
+        FunctionMetadata(
+            [function_module.eval(first_contract), function_module.eval(second_contract)],
+            collect_defaults(inner_definition),
+        ),
     )
 
     inner_definition[:name] = Symbol(function_name, :_inner)
