@@ -1015,6 +1015,10 @@ nested_test("queries") do
                 @test get_result(daf, q"/ cell : age @ batch %> Min") == ("batch", ["U" => 1, "V" => 2])
             end
 
+            nested_test("()") do
+                @test get_result(daf, q"/ cell : age @ batch %> Count") == ("batch", ["U" => 2, "V" => 1])
+            end
+
             nested_test("!reduction") do
                 return test_invalid(
                     daf,
@@ -1047,6 +1051,20 @@ nested_test("queries") do
                         ("V", "X") => 4,
                         ("V", "Y") => 5,
                         ("V", "Z") => 6,
+                    ],
+                )
+            end
+
+            nested_test("()") do
+                @test get_result(daf, q"/ cell / gene : UMIs @ batch %> Count") == (
+                    ("batch", "gene"),
+                    [
+                        ("U", "X") => 2,
+                        ("U", "Y") => 2,
+                        ("U", "Z") => 2,
+                        ("V", "X") => 1,
+                        ("V", "Y") => 1,
+                        ("V", "Z") => 1,
                     ],
                 )
             end

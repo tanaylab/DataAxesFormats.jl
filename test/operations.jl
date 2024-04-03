@@ -285,6 +285,19 @@ nested_test("operations") do
     end
 
     nested_test("reduction") do
+        nested_test("count") do
+            nested_test("vector") do
+                set_vector!(daf, "cell", "value", [1, 3])
+                @test with_type(daf[Axis("cell") |> Lookup("value") |> Count()]) == (2, UInt32)
+                @test with_type(daf["/ cell : value %> Count dtype Int8"]) == (2, Int8)
+            end
+
+            nested_test("matrix") do
+                set_matrix!(daf, "cell", "gene", "value", [1.0 2.0 2.0; -3.0 1.0 6.0])
+                @test with_type(daf["/ cell / gene : value %> Count"]) == ([2, 2, 2], UInt32)
+            end
+        end
+
         nested_test("sum") do
             nested_test("vector") do
                 set_vector!(daf, "cell", "value", [1, 3])

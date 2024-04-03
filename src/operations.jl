@@ -26,6 +26,7 @@ using Daf.Generic
 export Abs
 export Clamp
 export Convert
+export Count
 export Fraction
 export Log
 export Max
@@ -744,7 +745,7 @@ end
 function compute_eltwise(operation::Significant, input::StorageMatrix{T})::StorageMatrix{T} where {T <: StorageNumber}
     output = copy(input)
     if output isa SparseMatrixCSC
-        @threads for column_index in 1:size(output)[2]
+        @threads for column_index in 1:size(output, 2)
             first = output.colptr[column_index]
             last = output.colptr[column_index + 1] - 1
             if first <= last
@@ -754,7 +755,7 @@ function compute_eltwise(operation::Significant, input::StorageMatrix{T})::Stora
         end
         dropzeros!(output)
     else
-        @threads for column_index in 1:size(output)[2]
+        @threads for column_index in 1:size(output, 2)
             column_vector = @view output[:, column_index]
             significant!(column_vector, operation.high, operation.low)
         end
@@ -794,6 +795,49 @@ function compute_eltwise(operation::Significant, input::T)::T where {T <: Storag
 end
 
 """
+    Count(; dtype::Maybe{Type} = nothing)
+
+Reduction operation that counts elements. This is useful when using `GroupBy` queries to count the number of elements in
+each group.
+
+**Parameters**
+
+`dtype` - By default, uses `UInt32`.
+"""
+struct Count <: ReductionOperation
+    dtype::Maybe{Type}
+end
+@query_operation Count
+
+function Count(; dtype::Maybe{Type} = nothing)::Count
+    @assert dtype == nothing || dtype <: Real
+    return Count(dtype)
+end
+
+function Count(operation_name::Token, parameters_values::Dict{String, Token})::Count
+    dtype = parse_parameter_value(operation_name, "reduction", parameters_values, "dtype", nothing) do parameter_value
+        return parse_number_dtype_value(operation_name, "dtype", parameter_value)
+    end
+    return Count(dtype)
+end
+
+function compute_reduction(operation::Count, input::StorageMatrix{T})::StorageVector where {T <: StorageNumber}
+    dtype = reduction_result_type(operation, T)
+    result = Vector{dtype}(undef, size(input, 2))
+    result .= size(input, 1)
+    return result
+end
+
+function compute_reduction(operation::Count, input::StorageVector{T})::StorageNumber where {T <: StorageNumber}
+    dtype = reduction_result_type(operation, T)
+    return dtype(length(input))
+end
+
+function reduction_result_type(operation::Count, eltype::Type)::Type
+    return operation.dtype == nothing ? UInt32 : operation.dtype
+end
+
+"""
     Sum(; dtype::Maybe{Type} = nothing)
 
 Reduction operation that sums elements.
@@ -820,7 +864,7 @@ end
 
 function compute_reduction(operation::Sum, input::StorageMatrix{T})::StorageVector where {T <: StorageNumber}
     dtype = reduction_result_type(operation, T)
-    result = Vector{dtype}(undef, size(input)[2])
+    result = Vector{dtype}(undef, size(input, 2))
     sum!(transpose(result), input)
     return result
 end
@@ -963,7 +1007,7 @@ end
 
 function compute_reduction(operation::Quantile, input::StorageMatrix{T})::StorageVector where {T <: StorageNumber}
     dtype = reduction_result_type(operation, eltype(input))
-    output = Vector{dtype}(undef, size(input)[2])
+    output = Vector{dtype}(undef, size(input, 2))
     @threads for column_index in 1:length(output)
         column_vector = @view input[:, column_index]
         output[column_index] = quantile(column_vector, operation.p)  # NOJET

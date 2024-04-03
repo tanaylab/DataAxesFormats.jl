@@ -19,6 +19,7 @@ Daf.Operations.Significant
 ## Reduction operations
 
 ```@docs
+Daf.Operations.Count
 Daf.Operations.Sum
 Daf.Operations.Max
 Daf.Operations.Min
