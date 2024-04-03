@@ -19,7 +19,6 @@ Daf.Operations.Significant
 ## Reduction operations
 
 ```@docs
-Daf.Operations.Count
 Daf.Operations.Sum
 Daf.Operations.Max
 Daf.Operations.Min
@@ -30,6 +29,8 @@ Daf.Operations.Std
 Daf.Operations.StdN
 Daf.Operations.Var
 Daf.Operations.VarN
+Daf.Operations.Mode
+Daf.Operations.Count
 ```
 
 ## Support functions

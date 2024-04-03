@@ -285,6 +285,18 @@ nested_test("operations") do
     end
 
     nested_test("reduction") do
+        nested_test("most_frequent") do
+            nested_test("vector") do
+                set_vector!(daf, "gene", "value", [1, 1, 3])
+                @test with_type(daf[Axis("gene") |> Lookup("value") |> Mode()]) == (1, Int64)
+            end
+
+            nested_test("matrix") do
+                set_matrix!(daf, "cell", "gene", "value", [1.0 2.0 2.0; 1.0 1.0 6.0])
+                @test with_type(daf["/ gene / cell : value %> Mode"]) == ([2.0, 1.0], Float64)
+            end
+        end
+
         nested_test("count") do
             nested_test("vector") do
                 set_vector!(daf, "cell", "value", [1, 3])

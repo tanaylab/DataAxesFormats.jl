@@ -9,6 +9,7 @@ using Daf.Registry
 using Daf.StorageTypes
 using Daf.Tokens
 using Statistics
+using StatsBase
 using SparseArrays
 
 import Base.MathConstants.e
@@ -33,6 +34,7 @@ export Max
 export Median
 export Mean
 export Min
+export Mode
 export Quantile
 export Round
 export Significant
@@ -835,6 +837,35 @@ end
 
 function reduction_result_type(operation::Count, eltype::Type)::Type
     return operation.dtype == nothing ? UInt32 : operation.dtype
+end
+
+"""
+    Mode()
+
+Reduction operation that returns the most frequent value in the input (the "mode").
+"""
+struct Mode <: ReductionOperation end
+@query_operation Mode
+
+function Mode(operation_name::Token, parameters_values::Dict{String, Token})::Mode
+    return Mode()
+end
+
+function compute_reduction(operation::Mode, input::StorageMatrix{T})::StorageVector where {T <: StorageNumber}
+    output = Vector{reduction_result_type(operation, eltype(input))}(undef, size(input, 2))
+    @threads for column_index in 1:length(output)
+        column_vector = @view input[:, column_index]
+        output[column_index] = mode(column_vector)
+    end
+    return output
+end
+
+function compute_reduction(operation::Mode, input::StorageVector{T})::StorageNumber where {T <: StorageNumber}
+    return mode(input)
+end
+
+function reduction_result_type(operation::Mode, eltype::Type)::Type
+    return eltype
 end
 
 """

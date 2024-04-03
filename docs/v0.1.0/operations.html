@@ -545,40 +545,6 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Operations.Count" href="#Daf.Operations.Count">
-<code>Daf.Operations.Count
-</code>
-</a> — 
-<span class="docstring-category">Type
-</span>
-</header>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">Count(; dtype::Maybe{Type} = nothing)
-</code>
-</pre>
-<p>Reduction operation that counts elements. This is useful when using 
-<code>GroupBy
-</code> queries to count the number of elements in each group.
-</p>
-<p>
-<strong>Parameters
-</strong>
-</p>
-<p>
-<code>dtype
-</code> - By default, uses 
-<code>UInt32
-</code>.
-</p>
-</div>
-</section>
-</article>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
 <a class="docstring-binding" id="Daf.Operations.Sum" href="#Daf.Operations.Sum">
 <code>Daf.Operations.Sum
 </code>
@@ -899,6 +865,62 @@
 <p>
 <code>eps
 </code> - Added to the mean before computing the division, to handle zero input data. By default is zero.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Operations.Mode" href="#Daf.Operations.Mode">
+<code>Daf.Operations.Mode
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">Mode()
+</code>
+</pre>
+<p>Reduction operation that returns the most frequent value in the input (the &quot;mode&quot;).
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Operations.Count" href="#Daf.Operations.Count">
+<code>Daf.Operations.Count
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">Count(; dtype::Maybe{Type} = nothing)
+</code>
+</pre>
+<p>Reduction operation that counts elements. This is useful when using 
+<code>GroupBy
+</code> queries to count the number of elements in each group.
+</p>
+<p>
+<strong>Parameters
+</strong>
+</p>
+<p>
+<code>dtype
+</code> - By default, uses 
+<code>UInt32
+</code>.
 </p>
 </div>
 </section>
@@ -1308,6 +1330,12 @@
 <li>
 <a href="operations.html#Daf.Operations.Min">
 <code>Daf.Operations.Min
+</code>
+</a>
+</li>
+<li>
+<a href="operations.html#Daf.Operations.Mode">
+<code>Daf.Operations.Mode
 </code>
 </a>
 </li>
