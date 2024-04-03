@@ -5,11 +5,11 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Messages · Daf.jl v0.1.0
+<title>Groups · Daf.jl v0.1.0
 </title>
-<meta name="title" content="Messages · Daf.jl v0.1.0"/>
-<meta property="og:title" content="Messages · Daf.jl v0.1.0"/>
-<meta property="twitter:title" content="Messages · Daf.jl v0.1.0"/>
+<meta name="title" content="Groups · Daf.jl v0.1.0"/>
+<meta property="og:title" content="Groups · Daf.jl v0.1.0"/>
+<meta property="twitter:title" content="Groups · Daf.jl v0.1.0"/>
 <meta name="description" content="Documentation for Daf.jl v0.1.0."/>
 <meta property="og:description" content="Documentation for Daf.jl v0.1.0."/>
 <meta property="twitter:description" content="Documentation for Daf.jl v0.1.0."/>
@@ -139,12 +139,8 @@
 <a class="tocitem" href="matrix_layouts.html">Matrix layouts
 </a>
 </li>
-<li>
-<a class="tocitem" href="groups.html">Groups
-</a>
-</li>
 <li class="is-active">
-<a class="tocitem" href="messages.html">Messages
+<a class="tocitem" href="groups.html">Groups
 </a>
 <ul class="internal">
 <li>
@@ -154,6 +150,10 @@
 </a>
 </li>
 </ul>
+</li>
+<li>
+<a class="tocitem" href="messages.html">Messages
+</a>
 </li>
 <li>
 <a class="tocitem" href="generic.html">Generic
@@ -184,13 +184,13 @@
 <nav class="breadcrumb">
 <ul class="is-hidden-mobile">
 <li class="is-active">
-<a href="messages.html">Messages
+<a href="groups.html">Groups
 </a>
 </li>
 </ul>
 <ul class="is-hidden-tablet">
 <li class="is-active">
-<a href="messages.html">Messages
+<a href="groups.html">Groups
 </a>
 </li>
 </ul>
@@ -209,20 +209,20 @@
 </div>
 </header>
 <article class="content" id="documenter-page">
-<h1 id="Messages">
-<a class="docs-heading-anchor" href="#Messages">Messages
+<h1 id="Groups">
+<a class="docs-heading-anchor" href="#Groups">Groups
 </a>
-<a id="Messages-1">
+<a id="Groups-1">
 </a>
-<a class="docs-heading-anchor-permalink" href="#Messages" title="Permalink">
+<a class="docs-heading-anchor-permalink" href="#Groups" title="Permalink">
 </a>
 </h1>
 <article class="docstring">
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Messages" href="#Daf.Messages">
-<code>Daf.Messages
+<a class="docstring-binding" id="Daf.Groups" href="#Daf.Groups">
+<code>Daf.Groups
 </code>
 </a> — 
 <span class="docstring-category">Module
@@ -230,7 +230,7 @@
 </header>
 <section>
 <div>
-<p>Functions for improving the quality of error and log messages.
+<p>Functions for dealing with computing groups of axis entries (typically for creating a new axis).
 </p>
 </div>
 </section>
@@ -239,8 +239,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Messages.unique_name" href="#Daf.Messages.unique_name">
-<code>Daf.Messages.unique_name
+<a class="docstring-binding" id="Daf.Groups.group_names" href="#Daf.Groups.group_names">
+<code>Daf.Groups.group_names
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -249,34 +249,29 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">unique_name(prefix::AbstractString)::AbstractString
+<code class="language-julia hljs">function group_names(
+    daf::DafReader,
+    axis::AbstractString,
+    entries_of_groups::AbstractVector{&lt;:AbstractVector{&lt;:Integer}};
+    prefix::AbstractString,
+)::Vector{String}
 </code>
 </pre>
-<p>Using short, human-readable unique names for things is a great help when debugging. Normally one has to choose between using a human-provided short non-unique name, and an opaque object identifier, or a combination thereof. This function replaces the opaque object identifier with a short counter, which gives names that are both unique and short.
-</p>
-<p>That is, this will return a unique name starting with the 
+<p>Given an 
+<code>entries_of_groups
+</code> vector of vectors, one for each group, containing the (sorted) indices of the entries of the group along some 
+<code>axis
+</code> of some 
+<code>daf
+</code> data set, return a vector giving a unique name for each group. This name consists of the 
 <code>prefix
-</code> and followed by 
-<code>#
-</code>, the process index (if using multiple processes), and an index (how many times this name was used in the process). For example, 
-<code>unique_name(&quot;foo&quot;)
-</code> will return 
-<code>foo
-</code> for the first usage, 
-<code>foo#2
-</code> for the 2nd, etc. If using multiple processes, it will return 
-<code>foo
-</code>, 
-<code>foo#1.2
-</code>, etc.
+</code>, followed by the index of the group, followed by a 
+<code>.XX
+</code> two-digit suffix which is a hash of the names of the axis entries of the group.
 </p>
-<p>That is, for code where the names are unique (e.g., a simple script or Jupyter notebook), this doesn&#39;t mess up the names. It only appends a suffix to the names if it is needed to disambiguate between multiple uses of the same name.
-</p>
-<p>To help with tests, if the 
-<code>prefix
-</code> ends with 
-<code>!
-</code>, we return it as-is, accepting it may not be unique.
+<p>The returned names strike a balance between readability and safety. A name like 
+<code>M123.89
+</code> for group #123 is easy to deal with manually, but is also reasonably safe in the common use case that groups are re-computed, and there is per-group metadata lying around associated with the old groups, as the probability of the new group #123 having the same suffix is only 1% (unless it is actually identical).
 </p>
 </div>
 </section>
@@ -285,8 +280,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Messages.describe" href="#Daf.Messages.describe">
-<code>Daf.Messages.describe
+<a class="docstring-binding" id="Daf.Groups.compact_groups!" href="#Daf.Groups.compact_groups!">
+<code>Daf.Groups.compact_groups!
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -295,18 +290,18 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">describe(value::Any)::String
+<code class="language-julia hljs">function compact_groups!(
+    group_indices::AbstractVector{&lt;:Integer},
+)::Int
 </code>
 </pre>
-<p>Describe a 
-<code>value
-</code> in an error message or a log entry. Unlike 
-<code>&quot;$(value)&quot;
-</code>, this focuses on producing a human-readable indication of the type of the value, so it double-quotes strings, prefixes symbols with 
-<code>:
-</code>, and reports the type and sizes of arrays rather than showing their content, as well as having specializations for the various 
-<code>Daf
-</code> data types.
+<p>Given an array 
+<code>group_indices
+</code> which assigns each entry of some axis to a non-negative group index (with zero meaning &quot;no group&quot;), compact it in-place so that the group indices will be 
+<code>1...N
+</code>, and return 
+<code>N
+</code>.
 </p>
 </div>
 </section>
@@ -315,8 +310,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Messages.describe_percent" href="#Daf.Messages.describe_percent">
-<code>Daf.Messages.describe_percent
+<a class="docstring-binding" id="Daf.Groups.collect_group_members" href="#Daf.Groups.collect_group_members">
+<code>Daf.Groups.collect_group_members
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -325,14 +320,16 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">describe_percent(used::Integer, out_of::Integer)::String
+<code class="language-julia hljs">function collect_group_members(
+    group_indices::AbstractVector{T},
+)::Vector{Vector{T}} where {T &lt;: Integer}
 </code>
 </pre>
-<p>Describe a fraction of 
-<code>used
-</code> amount 
-<code>out_of
-</code> some total as a percentage.
+<p>Given an array 
+<code>group_indices
+</code> which assigns each entry of some axis to a non-negative group index (with zero meaning &quot;no group&quot;), where the group indices are compact (in the range 
+<code>1...N
+</code>), return a vector of vectors, one for each group, containing the (sorted) indices of the entries of the group.
 </p>
 </div>
 </section>
@@ -347,35 +344,35 @@
 </h2>
 <ul>
 <li>
-<a href="messages.html#Daf.Messages">
-<code>Daf.Messages
+<a href="groups.html#Daf.Groups">
+<code>Daf.Groups
 </code>
 </a>
 </li>
 <li>
-<a href="messages.html#Daf.Messages.describe">
-<code>Daf.Messages.describe
+<a href="groups.html#Daf.Groups.collect_group_members">
+<code>Daf.Groups.collect_group_members
 </code>
 </a>
 </li>
 <li>
-<a href="messages.html#Daf.Messages.describe_percent">
-<code>Daf.Messages.describe_percent
+<a href="groups.html#Daf.Groups.compact_groups!">
+<code>Daf.Groups.compact_groups!
 </code>
 </a>
 </li>
 <li>
-<a href="messages.html#Daf.Messages.unique_name">
-<code>Daf.Messages.unique_name
+<a href="groups.html#Daf.Groups.group_names">
+<code>Daf.Groups.group_names
 </code>
 </a>
 </li>
 </ul>
 </article>
 <nav class="docs-footer">
-<a class="docs-footer-prevpage" href="groups.html">« Groups
+<a class="docs-footer-prevpage" href="matrix_layouts.html">« Matrix layouts
 </a>
-<a class="docs-footer-nextpage" href="generic.html">Generic »
+<a class="docs-footer-nextpage" href="messages.html">Messages »
 </a>
 <div class="flexbox-break">
 </div>

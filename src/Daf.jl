@@ -113,6 +113,9 @@ include("concat.jl")
 include("adapters.jl")
 @reexport using Daf.Adapters
 
+include("groups.jl")
+@reexport using Daf.Groups
+
 include("example_data.jl")
 @reexport using Daf.ExampleData
 

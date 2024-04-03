@@ -69,6 +69,7 @@ makedocs(;
         "operations.md",
         "storage_types.md",
         "matrix_layouts.md",
+        "groups.md",
         "messages.md",
         "generic.md",
         "example_data.md",
