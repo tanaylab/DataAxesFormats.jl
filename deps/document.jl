@@ -48,7 +48,8 @@ makedocs(;
     ),
     pages = [
         "index.md",
-        "data.md",
+        "readers.md",
+        "writers.md",
         "read_only.md",
         "queries.md",
         "tokens.md",

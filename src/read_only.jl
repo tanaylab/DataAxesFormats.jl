@@ -6,14 +6,14 @@ module ReadOnly
 export DafReadOnly
 export read_only
 
-using Daf.Data
 using Daf.Formats
 using Daf.GenericTypes
 using Daf.Messages
+using Daf.Readers
 using Daf.StorageTypes
 using SparseArrays
 
-import Daf.Data.as_read_only_array
+import Daf.Formats.as_read_only_array
 import Daf.Messages
 
 """

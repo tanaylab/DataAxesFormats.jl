@@ -56,7 +56,11 @@
 </a>
 </li>
 <li>
-<a class="tocitem" href="data.html">Data
+<a class="tocitem" href="readers.html">Readers
+</a>
+</li>
+<li>
+<a class="tocitem" href="writers.html">Writers
 </a>
 </li>
 <li>
@@ -303,8 +307,10 @@
 <code>DafWriter
 </code>
 </a> describe the high-level API meant to be used from outside the package, and are re-exported. These functions are listed in the 
-<code>Daf.Data
-</code> module. These functions provide all the logic common to any storage format, allowing us to keep the format-specific functions as simple as possible.
+<code>Daf.Readers
+</code> and 
+<code>Daf.Writers
+</code> modules. These functions provide all the logic common to any storage format, allowing us to keep the format-specific functions as simple as possible.
 </p>
 <p>That is, when implementing a new 
 <code>Daf
@@ -395,7 +401,7 @@
 <code>FormatReader
 </code>
 </a>. See the 
-<code>Daf.Data
+<code>Daf.Readers
 </code> module for their description.
 </p>
 </div>
@@ -1079,7 +1085,7 @@
 <code>FormatWriter
 </code>
 </a>. See the 
-<code>Daf.Data
+<code>Daf.Writers
 </code> module for their description.
 </p>
 </div>

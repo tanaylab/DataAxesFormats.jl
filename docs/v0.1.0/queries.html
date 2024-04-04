@@ -56,7 +56,11 @@
 </a>
 </li>
 <li>
-<a class="tocitem" href="data.html">Data
+<a class="tocitem" href="readers.html">Readers
+</a>
+</li>
+<li>
+<a class="tocitem" href="writers.html">Writers
 </a>
 </li>
 <li>
@@ -341,7 +345,7 @@
 <code>QueryData
 </code>
 </a>, to speed up repeated queries. This may lock up large amounts of memory; you can 
-<a href="queries.html#Daf.Data.empty_cache!">
+<a href="readers.html#Daf.Readers.empty_cache!">
 <code>empty_cache!
 </code>
 </a> to release it.
@@ -535,7 +539,7 @@
 </code> data and return the result. By default, this will cache results, so repeated queries will be accelerated. This may consume a large amount of memory. You can disable it by specifying 
 <code>cache = false
 </code>, or release the cached data using 
-<a href="queries.html#Daf.Data.empty_cache!">
+<a href="readers.html#Daf.Readers.empty_cache!">
 <code>empty_cache!
 </code>
 </a>.
@@ -3519,52 +3523,6 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Data.empty_cache!" href="#Daf.Data.empty_cache!">
-<code>Daf.Data.empty_cache!
-</code>
-</a> — 
-<span class="docstring-category">Function
-</span>
-</header>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">empty_cache!(
-    daf::DafReader;
-    [clear::Maybe{CacheType} = nothing,
-    keep::Maybe{CacheType} = nothing]
-)::Nothing
-</code>
-</pre>
-<p>Clear some cached data. By default, completely empties the caches. You can specify either 
-<code>clear
-</code>, to only forget a specific 
-<a href="formats.html#Daf.Formats.CacheType">
-<code>CacheType
-</code>
-</a> (e.g., for clearing only 
-<code>QueryData
-</code>), or 
-<code>keep
-</code>, to forget everything except a specific 
-<a href="formats.html#Daf.Formats.CacheType">
-<code>CacheType
-</code>
-</a> (e.g., for keeping only 
-<code>MappedData
-</code>). You can&#39;t specify both 
-<code>clear
-</code> and 
-<code>keep
-</code>.
-</p>
-</div>
-</section>
-</article>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
 <a class="docstring-binding" id="Daf.Queries.get_frame" href="#Daf.Queries.get_frame">
 <code>Daf.Queries.get_frame
 </code>
@@ -3622,7 +3580,7 @@
 <p>By default, this will cache results of all queries. This may consume a large amount of memory. You can disable it by specifying 
 <code>cache = false
 </code>, or release the cached data using 
-<a href="queries.html#Daf.Data.empty_cache!">
+<a href="readers.html#Daf.Readers.empty_cache!">
 <code>empty_cache!
 </code>
 </a>.
@@ -3972,12 +3930,6 @@
 <li>
 <a href="queries.html#Daf.Queries.XorNot">
 <code>Daf.Queries.XorNot
-</code>
-</a>
-</li>
-<li>
-<a href="queries.html#Daf.Data.empty_cache!">
-<code>Daf.Data.empty_cache!
 </code>
 </a>
 </li>

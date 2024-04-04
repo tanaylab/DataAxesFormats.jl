@@ -81,21 +81,22 @@ export anndata_as_daf
 export daf_as_anndata
 
 using CategoricalArrays
-using Daf.Data
 using Daf.Formats
 using Daf.GenericFunctions
 using Daf.GenericTypes
 using Daf.MatrixLayouts
 using Daf.MemoryFormat
+using Daf.Readers
 using Daf.StorageTypes
+using Daf.Writers
 using DataFrames
 using HDF5
 using Muon
 using SparseArrays
 
-import Daf.Data.require_matrix
 import Daf.Formats
 import Daf.Formats.Internal
+import Daf.Readers.require_matrix
 
 """
 anndata_as_daf(

@@ -71,11 +71,14 @@ include("operations.jl")
 include("formats.jl")
 @reexport using Daf.Formats
 
-include("data.jl")
-@reexport using Daf.Data
+include("readers.jl")
+@reexport using Daf.Readers
 
 include("queries.jl")
 @reexport using Daf.Queries
+
+include("writers.jl")
+@reexport using Daf.Writers
 
 include("read_only.jl")
 @reexport using Daf.ReadOnly
@@ -122,4 +125,4 @@ include("groups.jl")
 include("example_data.jl")
 @reexport using Daf.ExampleData
 
-end # module
+end  # module

@@ -36,7 +36,7 @@ export Xor
 export XorNot
 
 using Base.Threads
-using Daf.Data
+using Daf.Readers
 using Daf.Formats
 using Daf.GenericTypes
 using Daf.Operations
@@ -48,10 +48,6 @@ using NamedArrays
 
 import Base.MathConstants.e
 import Base.MathConstants.pi
-import Daf.Data.require_axis
-import Daf.Data.require_matrix
-import Daf.Data.require_scalar
-import Daf.Data.require_vector
 import Daf.Formats.axis_cache_key
 import Daf.Formats.CacheEntry
 import Daf.Formats.matrix_cache_key
@@ -60,6 +56,10 @@ import Daf.Formats.store_cached_dependency_keys!
 import Daf.Formats.upgrade_to_write_lock
 import Daf.Formats.vector_cache_key
 import Daf.Formats.with_read_lock
+import Daf.Readers.require_axis
+import Daf.Readers.require_matrix
+import Daf.Readers.require_scalar
+import Daf.Readers.require_vector
 import Daf.Registry.ComputationOperation
 import Daf.Registry.ELTWISE_REGISTERED_OPERATIONS
 import Daf.Registry.QueryOperation

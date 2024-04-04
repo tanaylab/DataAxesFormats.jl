@@ -56,7 +56,11 @@
 </a>
 </li>
 <li>
-<a class="tocitem" href="data.html">Data
+<a class="tocitem" href="readers.html">Readers
+</a>
+</li>
+<li>
+<a class="tocitem" href="writers.html">Writers
 </a>
 </li>
 <li>
@@ -417,7 +421,7 @@
 </header>
 <div class="admonition-body">
 <p>Deleting data from an HDF5 file does not reuse the abandoned storage. In general if you want to reclaim that storage, you will need to repack the file, which will invalidate any memory-mapped buffers created for it. Therefore, if you delete data (e.g. using 
-<a href="data.html#Daf.Data.delete_vector!">
+<a href="writers.html#Daf.Writers.delete_vector!">
 <code>delete_vector!
 </code>
 </a>), you should eventually abandon the 

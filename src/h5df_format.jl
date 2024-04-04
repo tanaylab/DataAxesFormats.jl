@@ -97,18 +97,19 @@ module H5dfFormat
 
 export H5df
 
-using Daf.Data
 using Daf.Formats
 using Daf.GenericTypes
 using Daf.MatrixLayouts
 using Daf.ReadOnly
+using Daf.Readers
 using Daf.StorageTypes
+using Daf.Writers
 using HDF5
 using SparseArrays
 
-import Daf.Data.base_array
 import Daf.Formats
 import Daf.Formats.Internal
+import Daf.Readers.base_array
 
 """
 The specific major version of the [`H5df`](@ref) format that is supported by this code (`1`). The code will refuse to

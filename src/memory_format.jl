@@ -5,12 +5,13 @@ module MemoryFormat
 
 export MemoryDaf
 
-using Daf.Data
 using Daf.Formats
 using Daf.GenericTypes
 using Daf.MatrixLayouts
 using Daf.Messages
+using Daf.Readers
 using Daf.StorageTypes
+using Daf.Writers
 using SparseArrays
 
 import Daf.Formats

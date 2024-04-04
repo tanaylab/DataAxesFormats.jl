@@ -19,18 +19,19 @@ export SkipProperty
 
 using Base.Threads
 using Daf.Copies
-using Daf.Data
 using Daf.Formats
 using Daf.GenericTypes
+using Daf.Readers
 using Daf.StorageTypes
 using Daf.Views
+using Daf.Writers
 using NamedArrays
 using SparseArrays
 
-import Daf.Data.require_axis
-import Daf.Data.require_no_axis
-import Daf.Data.require_no_matrix
+import Daf.Readers.require_axis
 import Daf.StorageTypes.indtype_for_size
+import Daf.Writers.require_no_axis
+import Daf.Writers.require_no_matrix
 
 """
 A vector of pairs where the key is a [`DataKey`](@ref) and the value is [`MergeAction`](@ref). Similarly to

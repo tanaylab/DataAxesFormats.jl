@@ -3,8 +3,8 @@ Functions for dealing with computing groups of axis entries (typically for creat
 """
 module Groups
 
-using Daf.Data
 using Daf.Formats
+using Daf.Readers
 using SHA
 
 export collect_group_members

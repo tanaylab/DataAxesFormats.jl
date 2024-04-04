@@ -3,10 +3,11 @@ Example data for doctest tests.
 """
 module ExampleData
 
-using Daf.Data
 using Daf.GenericTypes
 using Daf.MemoryFormat
+using Daf.Readers
 using Daf.StorageTypes
+using Daf.Writers
 using Random
 
 function random_entries(gen::MersenneTwister, size::Int, entry_names::AbstractStringVector)::AbstractStringVector

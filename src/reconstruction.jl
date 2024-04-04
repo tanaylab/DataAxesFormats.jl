@@ -8,11 +8,12 @@ module Reconstruction
 
 export reconstruct_axis!
 
-using Daf.Data
 using Daf.Formats
 using Daf.GenericTypes
-using Daf.StorageTypes
 using Daf.Queries
+using Daf.Readers
+using Daf.StorageTypes
+using Daf.Writers
 
 """
     function reconstruct_axis!(
