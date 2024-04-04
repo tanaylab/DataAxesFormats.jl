@@ -22,7 +22,7 @@ import Daf.Tokens.Token
 import Distributed.@everywhere
 
 using Base.MathConstants
-using Daf.Generic
+using Daf.GenericTypes
 
 export Abs
 export Clamp

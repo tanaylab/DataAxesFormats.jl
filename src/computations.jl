@@ -19,25 +19,15 @@ using DocStringExtensions
 using ExprTools
 
 import Daf.Contracts.contract_documentation
+import Daf.GenericLogging.pass_args
 
 function computation_wrapper(name::AbstractString, inner_function)
-    return (args...; kwargs...) -> (@debug "call: $(name))() {";
-    for (name, value) in kwargs
-        @debug "$(name): $(describe(value))"
-    end;
-    result = inner_function(args...; kwargs...);
-    @debug "done: $(name) }";
-    result)  # untested
+    return inner_function
 end
 
 function computation_wrapper(contract::Contract, name::AbstractString, inner_function)
     return (daf::DafReader, args...; kwargs...) -> (verify_input(contract, name, daf);
-    @debug "call: $(name)($(describe(daf))) {";
-    for (name, value) in kwargs
-        @debug "$(name): $(describe(value))"
-    end;
     result = inner_function(daf, args...; kwargs...);
-    @debug "done: $(name) }";
     verify_output(contract, name, daf);
     result)  # untested
 end
@@ -46,12 +36,7 @@ function computation_wrapper(first_contract::Contract, second_contract::Contract
     return (first_daf::DafReader, second_daf::DafReader, args...; kwargs...) ->
         (verify_input(first_contract, name, first_daf);
         verify_input(second_contract, name, second_daf);
-        @debug "call: $(name)($(describe(first_daf)), $(describe(second_daf))) {";
-        for (name, value) in kwargs
-            @debug "- $(name): $(describe(value))"  # untested
-        end;  # untested
         result = inner_function(first_daf, second_daf, args...; kwargs...);
-        @debug "done: $(name) }";
         verify_output(first_contract, name, first_daf);
         verify_output(second_contract, name, second_daf);
         result)  # untested
@@ -114,7 +99,7 @@ macro computation(definition)
 
     function_name = get(inner_definition, :name, nothing)
     if function_name == nothing
-        error("@logged requires a named function")
+        error("@computation requires a named function")
     end
     @assert function_name isa Symbol
     function_module = __module__
@@ -126,12 +111,12 @@ macro computation(definition)
         FunctionMetadata(Contract[], collect_defaults(function_module, inner_definition)),
     )
 
-    inner_definition[:name] = Symbol(function_name, :_inner)
+    inner_definition[:name] = Symbol(function_name, :_compute)
     outer_definition[:body] = Expr(
         :call,
         :(Daf.Computations.computation_wrapper($full_name, $(ExprTools.combinedef(inner_definition)))),
-        patch_args(get(outer_definition, :args, []))...,
-        patch_kwargs(get(outer_definition, :kwargs, []))...,
+        pass_args(false, get(outer_definition, :args, []))...,
+        pass_args(true, get(outer_definition, :kwargs, []))...,
     )
 
     return esc(ExprTools.combinedef(outer_definition))
@@ -155,7 +140,7 @@ macro computation(contract, definition)
         FunctionMetadata([function_module.eval(contract)], collect_defaults(function_module, inner_definition)),
     )
 
-    inner_definition[:name] = Symbol(function_name, :_inner)
+    inner_definition[:name] = Symbol(function_name, :_compute)
     outer_definition[:body] = Expr(
         :call,
         :(Daf.Computations.computation_wrapper(
@@ -163,8 +148,8 @@ macro computation(contract, definition)
             $full_name,
             $(ExprTools.combinedef(inner_definition)),
         )),
-        patch_args(get(outer_definition, :args, []))...,
-        patch_kwargs(get(outer_definition, :kwargs, []))...,
+        pass_args(false, get(outer_definition, :args, []))...,
+        pass_args(true, get(outer_definition, :kwargs, []))...,
     )
 
     return esc(ExprTools.combinedef(outer_definition))
@@ -191,7 +176,7 @@ macro computation(first_contract, second_contract, definition)
         ),
     )
 
-    inner_definition[:name] = Symbol(function_name, :_inner)
+    inner_definition[:name] = Symbol(function_name, :_compute)
     outer_definition[:body] = Expr(
         :call,
         :(Daf.Computations.computation_wrapper(
@@ -200,44 +185,11 @@ macro computation(first_contract, second_contract, definition)
             $full_name,
             $(ExprTools.combinedef(inner_definition)),
         )),
-        patch_args(get(outer_definition, :args, []))...,
-        patch_kwargs(get(outer_definition, :kwargs, []))...,
+        pass_args(false, get(outer_definition, :args, []))...,
+        pass_args(true, get(outer_definition, :kwargs, []))...,
     )
 
     return esc(ExprTools.combinedef(outer_definition))
-end
-
-function patch_args(args)::Any
-    return [patch_arg(arg) for arg in args]
-end
-
-function patch_arg(arg::Symbol)::Any  # untested
-    return arg
-end
-
-function patch_arg(arg::Expr)::Any
-    if arg.head == :kw
-        @assert length(arg.args) == 2
-        return arg.args[1]
-    end
-    return arg
-end
-
-function patch_kwargs(args)::Any
-    return [patch_kwarg(arg) for arg in args]  # NOJET
-end
-
-function patch_kwarg(arg::Expr)::Any
-    if arg.head == :kw
-        @assert length(arg.args) == 2
-        arg = copy(arg)
-        arg.args[2] = arg.args[1]
-        if arg.args[1] isa Expr
-            @assert arg.args[1].head == :(::)
-            arg.args[1] = arg.args[1].args[1]
-        end
-    end
-    return arg
 end
 
 function collect_defaults(function_module::Module, inner_definition)::Dict{AbstractString, Any}

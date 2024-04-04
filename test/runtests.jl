@@ -3,7 +3,8 @@ using Test
 using Base: elsize
 using Base.MathConstants
 using Daf
-using Daf.Generic
+using Daf.GenericFunctions
+using Daf.GenericTypes
 using ExceptionUnwrapping
 using HDF5
 using LinearAlgebra

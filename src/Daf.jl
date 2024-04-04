@@ -45,7 +45,8 @@ module Daf
 
 using Reexport
 
-include("generic.jl")
+include("generic_types.jl")
+include("generic_functions.jl")
 
 include("matrix_layouts.jl")
 @reexport using Daf.MatrixLayouts
@@ -55,6 +56,8 @@ include("storage_types.jl")
 
 include("messages.jl")
 @reexport using Daf.Messages
+
+include("generic_logging.jl")
 
 include("registry.jl")
 @reexport using Daf.Registry: EltwiseOperation, ReductionOperation

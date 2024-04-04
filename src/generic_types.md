@@ -1,14 +1,7 @@
-# Generic
+# Generic Types
 
 ```@docs
-Daf.Generic
-```
-
-## Handler
-
-```@docs
-Daf.Generic.AbnormalHandler
-Daf.Generic.handle_abnormal
+Daf.GenericTypes
 ```
 
 ## Unions
@@ -29,18 +22,22 @@ also added `Unsure` as a shorthand for `Union{..., Missing}` for completeness, b
 We assume it is useful for Julia code dealing specifically with statistical analysis.
 
 ```@docs
-Daf.Generic.Maybe
-Daf.Generic.Unsure
+Daf.GenericTypes.Maybe
+Daf.GenericTypes.Unsure
 ```
 
 ## Strings
 
+We use the following as type annotations for function arguments to be able to accept "any" concrete string collection
+type.
+
 ```@docs
-Daf.Generic.dedent
+Daf.GenericTypes.AbstractStringVector
+Daf.GenericTypes.AbstractStringSet
 ```
 
 ## Index
 
 ```@index
-Pages = ["generic.md"]
+Pages = ["generic_types.md"]
 ```

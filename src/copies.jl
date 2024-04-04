@@ -19,7 +19,7 @@ export EmptyData
 
 using Daf.Data
 using Daf.Formats
-using Daf.Generic
+using Daf.GenericTypes
 using Daf.Messages
 using Daf.StorageTypes
 using NamedArrays

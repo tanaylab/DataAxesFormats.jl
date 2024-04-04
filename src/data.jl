@@ -75,7 +75,7 @@ export vector_version_counter
 
 using ConcurrentUtils
 using Daf.Formats
-using Daf.Generic
+using Daf.GenericTypes
 using Daf.MatrixLayouts
 using Daf.Messages
 using Daf.StorageTypes

@@ -7,7 +7,7 @@ export MemoryDaf
 
 using Daf.Data
 using Daf.Formats
-using Daf.Generic
+using Daf.GenericTypes
 using Daf.MatrixLayouts
 using Daf.Messages
 using Daf.StorageTypes

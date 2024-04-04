@@ -1,20 +1,18 @@
 """
-Types that arguably should belong in a more general-purpose package.
+Functions that arguably should belong in a more general-purpose package.
 
-We do not re-export the types and functions defined here from the top-level `Daf` namespace. That is, even if
+We do not re-export the functions and supporting types defined here from the top-level `Daf` namespace. That is, even if
 `using Daf`, you will **not** have these generic names polluting your namespace. If you do want to reuse them in your
-code, explicitly write `using Daf.Generic`.
+code, explicitly write `using Daf.GenericFunctions`.
 """
-module Generic
+module GenericFunctions
 
-export dedent
-export ErrorHandler
-export handle_abnormal
 export AbnormalHandler
+export ErrorHandler
 export IgnoreHandler
-export Maybe
-export Unsure
 export WarnHandler
+export dedent
+export handle_abnormal
 
 """
 The action to take when encountering an "abnormal" (but recoverable) operation.
@@ -50,23 +48,6 @@ function handle_abnormal(message::Function, handler::AbnormalHandler)::Nothing
     end
     return nothing
 end
-
-"""
-    Maybe{T} = Union{T, Nothing}
-
-The type to use when maybe there is a value, maybe there isn't. This is exactly as if writing the explicit `Union`
-with `Nothing` but is shorter and more readable. This is extremely common.
-"""
-Maybe = Union{T, Nothing} where {T}
-
-"""
-    Unsure{T} = Union{T, Missing}
-
-The type to use when maybe there always is a value, but sometimes we are not sure what it is. This is exactly as if
-writing the explicit `Union` with `Missing` but is shorter and more readable. This is only used in code dealing with
-statistics to represent missing (that is, unknown) data. It is only provided here for completeness.
-"""
-Unsure = Union{T, Missing} where {T}
 
 """
     function dedent(string::AbstractString; indent::AbstractString = "")::String

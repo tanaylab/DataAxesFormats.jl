@@ -44,7 +44,7 @@ export end_write_lock
 
 using Base.Threads
 using ConcurrentUtils
-using Daf.Generic
+using Daf.GenericTypes
 using Daf.MatrixLayouts
 using Daf.Messages
 using Daf.StorageTypes

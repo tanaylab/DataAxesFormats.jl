@@ -10,7 +10,7 @@ using Daf.Computations
 using Daf.Contracts
 using Daf.Copies
 using Daf.Copies
-using Daf.Generic
+using Daf.GenericTypes
 using Daf.Formats
 using Daf.MemoryFormat
 using Daf.StorageTypes

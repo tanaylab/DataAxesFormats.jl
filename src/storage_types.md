@@ -14,8 +14,6 @@ Daf.StorageTypes.StorageScalar
 Daf.StorageTypes.StorageScalarBase
 Daf.StorageTypes.StorageVector
 Daf.StorageTypes.StorageMatrix
-Daf.StorageTypes.AbstractStringSet
-Daf.StorageTypes.AbstractStringVector
 ```
 
 # Constructors

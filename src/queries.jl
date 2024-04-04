@@ -38,7 +38,7 @@ export XorNot
 using Base.Threads
 using Daf.Data
 using Daf.Formats
-using Daf.Generic
+using Daf.GenericTypes
 using Daf.Operations
 using Daf.Registry
 using Daf.StorageTypes

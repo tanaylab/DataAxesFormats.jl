@@ -111,7 +111,7 @@ export FilesDaf
 using Base.Filesystem
 using Daf.Data
 using Daf.Formats
-using Daf.Generic
+using Daf.GenericTypes
 using Daf.MatrixLayouts
 using Daf.ReadOnly
 using Daf.StorageTypes

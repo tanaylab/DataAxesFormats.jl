@@ -23,7 +23,7 @@ export viewer
 
 using Daf.Data
 using Daf.Formats
-using Daf.Generic
+using Daf.GenericTypes
 using Daf.Messages
 using Daf.Queries
 using Daf.ReadOnly

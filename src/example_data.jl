@@ -4,6 +4,7 @@ Example data for doctest tests.
 module ExampleData
 
 using Daf.Data
+using Daf.GenericTypes
 using Daf.MemoryFormat
 using Daf.StorageTypes
 using Random

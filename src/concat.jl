@@ -21,7 +21,7 @@ using Base.Threads
 using Daf.Copies
 using Daf.Data
 using Daf.Formats
-using Daf.Generic
+using Daf.GenericTypes
 using Daf.StorageTypes
 using Daf.Views
 using NamedArrays
@@ -35,7 +35,9 @@ import Daf.StorageTypes.indtype_for_size
 """
 A vector of pairs where the key is a [`DataKey`](@ref) and the value is [`MergeAction`](@ref). Similarly to
 [`ViewData`](@ref), the order of the entries matters (last one wins), and a key containing `"*"` is expanded to all the
-relevant properties. For matrices, merge is done separately for each layout. That is, the order of the key `(rows_axis, columns_axis, matrix_name)` key *does* matter in the `MergeData`, which is different from how [`ViewData`](@ref) works.
+relevant properties. For matrices, merge is done separately for each layout. That is, the order of the key
+`(rows_axis, columns_axis, matrix_name)` key *does* matter in the `MergeData`, which is different from how
+[`ViewData`](@ref) works.
 
 !!! note
 

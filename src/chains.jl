@@ -11,7 +11,7 @@ export chain_writer
 
 using Daf.Data
 using Daf.Formats
-using Daf.Generic
+using Daf.GenericTypes
 using Daf.Messages
 using Daf.ReadOnly
 using Daf.StorageTypes

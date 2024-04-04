@@ -5,11 +5,11 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Generic · Daf.jl v0.1.0
+<title>Generic Logging · Daf.jl v0.1.0
 </title>
-<meta name="title" content="Generic · Daf.jl v0.1.0"/>
-<meta property="og:title" content="Generic · Daf.jl v0.1.0"/>
-<meta property="twitter:title" content="Generic · Daf.jl v0.1.0"/>
+<meta name="title" content="Generic Logging · Daf.jl v0.1.0"/>
+<meta property="og:title" content="Generic Logging · Daf.jl v0.1.0"/>
+<meta property="twitter:title" content="Generic Logging · Daf.jl v0.1.0"/>
 <meta name="description" content="Documentation for Daf.jl v0.1.0."/>
 <meta property="og:description" content="Documentation for Daf.jl v0.1.0."/>
 <meta property="twitter:description" content="Documentation for Daf.jl v0.1.0."/>
@@ -148,27 +148,9 @@
 </a>
 </li>
 <li class="is-active">
-<a class="tocitem" href="generic.html">Generic
+<a class="tocitem" href="generic_logging.html">Generic Logging
 </a>
 <ul class="internal">
-<li>
-<a class="tocitem" href="#Handler">
-<span>Handler
-</span>
-</a>
-</li>
-<li>
-<a class="tocitem" href="#Unions">
-<span>Unions
-</span>
-</a>
-</li>
-<li>
-<a class="tocitem" href="#Strings">
-<span>Strings
-</span>
-</a>
-</li>
 <li>
 <a class="tocitem" href="#Index">
 <span>Index
@@ -176,6 +158,14 @@
 </a>
 </li>
 </ul>
+</li>
+<li>
+<a class="tocitem" href="generic_types.html">Generic Types
+</a>
+</li>
+<li>
+<a class="tocitem" href="generic_functions.html">Generic Functions
+</a>
 </li>
 <li>
 <a class="tocitem" href="example_data.html">Example data
@@ -202,13 +192,13 @@
 <nav class="breadcrumb">
 <ul class="is-hidden-mobile">
 <li class="is-active">
-<a href="generic.html">Generic
+<a href="generic_logging.html">Generic Logging
 </a>
 </li>
 </ul>
 <ul class="is-hidden-tablet">
 <li class="is-active">
-<a href="generic.html">Generic
+<a href="generic_logging.html">Generic Logging
 </a>
 </li>
 </ul>
@@ -227,20 +217,20 @@
 </div>
 </header>
 <article class="content" id="documenter-page">
-<h1 id="Generic">
-<a class="docs-heading-anchor" href="#Generic">Generic
+<h1 id="Generic-Logging">
+<a class="docs-heading-anchor" href="#Generic-Logging">Generic Logging
 </a>
-<a id="Generic-1">
+<a id="Generic-Logging-1">
 </a>
-<a class="docs-heading-anchor-permalink" href="#Generic" title="Permalink">
+<a class="docs-heading-anchor-permalink" href="#Generic-Logging" title="Permalink">
 </a>
 </h1>
 <article class="docstring">
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Generic" href="#Daf.Generic">
-<code>Daf.Generic
+<a class="docstring-binding" id="Daf.GenericLogging" href="#Daf.GenericLogging">
+<code>Daf.GenericLogging
 </code>
 </a> — 
 <span class="docstring-category">Module
@@ -248,59 +238,17 @@
 </header>
 <section>
 <div>
-<p>Types that arguably should belong in a more general-purpose package.
+<p>Generic macros and functions for logging, that arguably should belong in a more general-purpose package.
 </p>
-<p>We do not re-export the types and functions defined here from the top-level 
+<p>We do not re-export the macros and functions defined here from the top-level 
 <code>Daf
 </code> namespace. That is, even if 
 <code>using Daf
 </code>, you will 
 <strong>not
 </strong> have these generic names polluting your namespace. If you do want to reuse them in your code, explicitly write 
-<code>using Daf.Generic
+<code>using Daf.GenericLogging
 </code>.
-</p>
-</div>
-</section>
-</article>
-<h2 id="Handler">
-<a class="docs-heading-anchor" href="#Handler">Handler
-</a>
-<a id="Handler-1">
-</a>
-<a class="docs-heading-anchor-permalink" href="#Handler" title="Permalink">
-</a>
-</h2>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
-<a class="docstring-binding" id="Daf.Generic.AbnormalHandler" href="#Daf.Generic.AbnormalHandler">
-<code>Daf.Generic.AbnormalHandler
-</code>
-</a> — 
-<span class="docstring-category">Type
-</span>
-</header>
-<section>
-<div>
-<p>The action to take when encountering an &quot;abnormal&quot; (but recoverable) operation.
-</p>
-<p>Valid values are:
-</p>
-<p>
-<code>IgnoreHandler
-</code> - ignore the issue and perform the recovery operation.
-</p>
-<p>
-<code>WarnHandler
-</code> - emit a warning using 
-<code>@warn
-</code>.
-</p>
-<p>
-<code>ErrorHandler
-</code> - abort the program with an error message.
 </p>
 </div>
 </section>
@@ -309,8 +257,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Generic.handle_abnormal" href="#Daf.Generic.handle_abnormal">
-<code>Daf.Generic.handle_abnormal
+<a class="docstring-binding" id="Daf.GenericLogging.setup_logger" href="#Daf.GenericLogging.setup_logger">
+<code>Daf.GenericLogging.setup_logger
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -319,96 +267,38 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">handle_abnormal(message::Function, handler::AbnormalHandler)::Nothing
+<code class="language-julia hljs">function setup_logger(
+    io::IO = stderr;
+    [level::LogLevel = Warn,
+    show_time::Bool = true,
+    show_module::Bool = true,
+    show_location::Bool = false]
+)::Nothing
 </code>
 </pre>
-<p>Call this when encountering some abnormal, but recoverable, condition. Follow it by the recovery code.
+<p>Setup a global logger that will print into 
+<code>io
+</code>, printing messages with a timestamp prefix.
 </p>
-<p>This will 
-<code>error
-</code> if the 
-<code>handler
-</code> is 
-<code>ErrorHandler
-</code>, and abort the program. If it is 
-<code>WarnHandler
-</code>, it will just 
-<code>@warn
-</code> and return. If it is 
-<code>IgnoreHandler
-</code> it will just return.
+<p>By default, this will only print warnings. Note that increasing the log level will apply to 
+<strong>everything
+</strong>. An alternative is to set up the environment variable 
+<code>JULIA_DEBUG
+</code> to a comma-separated list of modules you wish to see the debug messages of.
 </p>
-<p>The 
-<code>message
-</code> is a function that should return an 
-<code>AbstractString
-</code> to use. For efficiency, it is not invoked if ignoring the condition.
+<p>If 
+<code>show_time
+</code>, each message will be prefixed with a 
+<code>yyyy-dd-mm HH:MM:SS.sss
+</code> timestamp prefix.
 </p>
-</div>
-</section>
-</article>
-<h2 id="Unions">
-<a class="docs-heading-anchor" href="#Unions">Unions
-</a>
-<a id="Unions-1">
-</a>
-<a class="docs-heading-anchor-permalink" href="#Unions" title="Permalink">
-</a>
-</h2>
-<p>We got sick and tired of writing 
-<code>Union{..., Nothing}
-</code> everywhere. We therefore created this shorthand unions listed below and used them throughout the code. We&#39;re well aware there was a religious war of whether there should be a standard shorthand for this, vs. a standard shorthand for 
-<code>Union{..., Missing},
-</code> with everyone losing, that is, having to use the explicit 
-<code>Union
-</code> notation everywhere.
+<p>If 
+<code>show_module
+</code>, each message will be prefixed with the name of the module emitting the message.
 </p>
-<p>Looking at the answers 
-<a href="https://stackoverflow.com/questions/61936371/usage-and-convention-differences-between-missing-nothing-undef-and-nan-in-jul">here
-</a> then 
-<code>Nothing
-</code> means &quot;there is no value&quot; and 
-<code>Missing
-</code> means &quot;there is a value, but we don&#39;t know what it is&quot; (
-<code>Unknown
-</code> might have been a better name).
-</p>
-<p>Under this interpretation, 
-<code>Union{..., Nothing}
-</code> has (almost) the same semantics as Haskell&#39;s 
-<code>Maybe
-</code>, so that&#39;s what we called it (other languages call this 
-<code>Optional
-</code> or 
-<code>Opt
-</code>). It is used heavily in our (and a lot of other) Julia code. We also added 
-<code>Unsure
-</code> as a shorthand for 
-<code>Union{..., Missing}
-</code> for completeness, but we do not actually use it anywhere. We assume it is useful for Julia code dealing specifically with statistical analysis.
-</p>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
-<a class="docstring-binding" id="Daf.Generic.Maybe" href="#Daf.Generic.Maybe">
-<code>Daf.Generic.Maybe
-</code>
-</a> — 
-<span class="docstring-category">Type
-</span>
-</header>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">Maybe{T} = Union{T, Nothing}
-</code>
-</pre>
-<p>The type to use when maybe there is a value, maybe there isn&#39;t. This is exactly as if writing the explicit 
-<code>Union
-</code> with 
-<code>Nothing
-</code> but is shorter and more readable. This is extremely common.
+<p>If 
+<code>show_location
+</code>, each message will be prefixed with the file name and the line number emitting the message.
 </p>
 </div>
 </section>
@@ -417,56 +307,24 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Generic.Unsure" href="#Daf.Generic.Unsure">
-<code>Daf.Generic.Unsure
+<a class="docstring-binding" id="Daf.GenericLogging.@logged" href="#Daf.GenericLogging.@logged">
+<code>Daf.GenericLogging.@logged
 </code>
 </a> — 
-<span class="docstring-category">Type
+<span class="docstring-category">Macro
 </span>
 </header>
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">Unsure{T} = Union{T, Missing}
+<code class="language-julia hljs">@logged function something(...)
+    return ...
+end
 </code>
 </pre>
-<p>The type to use when maybe there always is a value, but sometimes we are not sure what it is. This is exactly as if writing the explicit 
-<code>Union
-</code> with 
-<code>Missing
-</code> but is shorter and more readable. This is only used in code dealing with statistics to represent missing (that is, unknown) data. It is only provided here for completeness.
-</p>
-</div>
-</section>
-</article>
-<h2 id="Strings">
-<a class="docs-heading-anchor" href="#Strings">Strings
-</a>
-<a id="Strings-1">
-</a>
-<a class="docs-heading-anchor-permalink" href="#Strings" title="Permalink">
-</a>
-</h2>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
-<a class="docstring-binding" id="Daf.Generic.dedent" href="#Daf.Generic.dedent">
-<code>Daf.Generic.dedent
-</code>
-</a> — 
-<span class="docstring-category">Function
-</span>
-</header>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">function dedent(string::AbstractString; indent::AbstractString = &quot;&quot;)::String
-</code>
-</pre>
-<p>Given a possibly multi-line string with a common indentation in each line, strip this indentation from all lines, and replace it with 
-<code>indent
-</code>. Will also strip any initial and/or final line breaks.
+<p>Automatically log (in 
+<code>Debug
+</code> level) every invocation to the function. This will also log the values of the arguments. Emits a second log entry when the function returns, with the result (if any).
 </p>
 </div>
 </section>
@@ -481,38 +339,20 @@
 </h2>
 <ul>
 <li>
-<a href="generic.html#Daf.Generic">
-<code>Daf.Generic
+<a href="generic_logging.html#Daf.GenericLogging">
+<code>Daf.GenericLogging
 </code>
 </a>
 </li>
 <li>
-<a href="generic.html#Daf.Generic.AbnormalHandler">
-<code>Daf.Generic.AbnormalHandler
+<a href="generic_logging.html#Daf.GenericLogging.setup_logger">
+<code>Daf.GenericLogging.setup_logger
 </code>
 </a>
 </li>
 <li>
-<a href="generic.html#Daf.Generic.Maybe">
-<code>Daf.Generic.Maybe
-</code>
-</a>
-</li>
-<li>
-<a href="generic.html#Daf.Generic.Unsure">
-<code>Daf.Generic.Unsure
-</code>
-</a>
-</li>
-<li>
-<a href="generic.html#Daf.Generic.dedent">
-<code>Daf.Generic.dedent
-</code>
-</a>
-</li>
-<li>
-<a href="generic.html#Daf.Generic.handle_abnormal">
-<code>Daf.Generic.handle_abnormal
+<a href="generic_logging.html#Daf.GenericLogging.@logged">
+<code>Daf.GenericLogging.@logged
 </code>
 </a>
 </li>
@@ -521,7 +361,7 @@
 <nav class="docs-footer">
 <a class="docs-footer-prevpage" href="messages.html">« Messages
 </a>
-<a class="docs-footer-nextpage" href="example_data.html">Example data »
+<a class="docs-footer-nextpage" href="generic_types.html">Generic Types »
 </a>
 <div class="flexbox-break">
 </div>

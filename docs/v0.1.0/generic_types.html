@@ -5,11 +5,11 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Chains · Daf.jl v0.1.0
+<title>Generic Types · Daf.jl v0.1.0
 </title>
-<meta name="title" content="Chains · Daf.jl v0.1.0"/>
-<meta property="og:title" content="Chains · Daf.jl v0.1.0"/>
-<meta property="twitter:title" content="Chains · Daf.jl v0.1.0"/>
+<meta name="title" content="Generic Types · Daf.jl v0.1.0"/>
+<meta property="og:title" content="Generic Types · Daf.jl v0.1.0"/>
+<meta property="twitter:title" content="Generic Types · Daf.jl v0.1.0"/>
 <meta name="description" content="Documentation for Daf.jl v0.1.0."/>
 <meta property="og:description" content="Documentation for Daf.jl v0.1.0."/>
 <meta property="twitter:description" content="Documentation for Daf.jl v0.1.0."/>
@@ -75,17 +75,9 @@
 <a class="tocitem" href="views.html">Views
 </a>
 </li>
-<li class="is-active">
+<li>
 <a class="tocitem" href="chains.html">Chains
 </a>
-<ul class="internal">
-<li>
-<a class="tocitem" href="#Index">
-<span>Index
-</span>
-</a>
-</li>
-</ul>
 </li>
 <li>
 <a class="tocitem" href="computations.html">Computations
@@ -159,9 +151,29 @@
 <a class="tocitem" href="generic_logging.html">Generic Logging
 </a>
 </li>
-<li>
+<li class="is-active">
 <a class="tocitem" href="generic_types.html">Generic Types
 </a>
+<ul class="internal">
+<li>
+<a class="tocitem" href="#Unions">
+<span>Unions
+</span>
+</a>
+</li>
+<li>
+<a class="tocitem" href="#Strings">
+<span>Strings
+</span>
+</a>
+</li>
+<li>
+<a class="tocitem" href="#Index">
+<span>Index
+</span>
+</a>
+</li>
+</ul>
 </li>
 <li>
 <a class="tocitem" href="generic_functions.html">Generic Functions
@@ -192,13 +204,13 @@
 <nav class="breadcrumb">
 <ul class="is-hidden-mobile">
 <li class="is-active">
-<a href="chains.html">Chains
+<a href="generic_types.html">Generic Types
 </a>
 </li>
 </ul>
 <ul class="is-hidden-tablet">
 <li class="is-active">
-<a href="chains.html">Chains
+<a href="generic_types.html">Generic Types
 </a>
 </li>
 </ul>
@@ -217,20 +229,20 @@
 </div>
 </header>
 <article class="content" id="documenter-page">
-<h1 id="Chains">
-<a class="docs-heading-anchor" href="#Chains">Chains
+<h1 id="Generic-Types">
+<a class="docs-heading-anchor" href="#Generic-Types">Generic Types
 </a>
-<a id="Chains-1">
+<a id="Generic-Types-1">
 </a>
-<a class="docs-heading-anchor-permalink" href="#Chains" title="Permalink">
+<a class="docs-heading-anchor-permalink" href="#Generic-Types" title="Permalink">
 </a>
 </h1>
 <article class="docstring">
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Chains" href="#Daf.Chains">
-<code>Daf.Chains
+<a class="docstring-binding" id="Daf.GenericTypes" href="#Daf.GenericTypes">
+<code>Daf.GenericTypes
 </code>
 </a> — 
 <span class="docstring-category">Module
@@ -238,107 +250,67 @@
 </header>
 <section>
 <div>
-<p>View a chain of 
+<p>Generic types that arguably should belong in a more general-purpose package.
+</p>
+<p>We do not re-export the types and functions defined here from the top-level 
 <code>Daf
-</code> data as a single data set. This allows creating a small 
-<code>Daf
-</code> data set that contains extra (or overriding) data on top of a larger read-only data set. In particular this allows creating several such incompatible extra data sets (e.g., different groupings of cells to metacells), without having to duplicate the common (read only) data.
+</code> namespace. That is, even if 
+<code>using Daf
+</code>, you will 
+<strong>not
+</strong> have these generic names polluting your namespace. If you do want to reuse them in your code, explicitly write 
+<code>using Daf.GenericTypes
+</code>.
 </p>
 </div>
 </section>
 </article>
+<h2 id="Unions">
+<a class="docs-heading-anchor" href="#Unions">Unions
+</a>
+<a id="Unions-1">
+</a>
+<a class="docs-heading-anchor-permalink" href="#Unions" title="Permalink">
+</a>
+</h2>
+<p>We got sick and tired of writing 
+<code>Union{..., Nothing}
+</code> everywhere. We therefore created this shorthand unions listed below and used them throughout the code. We&#39;re well aware there was a religious war of whether there should be a standard shorthand for this, vs. a standard shorthand for 
+<code>Union{..., Missing},
+</code> with everyone losing, that is, having to use the explicit 
+<code>Union
+</code> notation everywhere.
+</p>
+<p>Looking at the answers 
+<a href="https://stackoverflow.com/questions/61936371/usage-and-convention-differences-between-missing-nothing-undef-and-nan-in-jul">here
+</a> then 
+<code>Nothing
+</code> means &quot;there is no value&quot; and 
+<code>Missing
+</code> means &quot;there is a value, but we don&#39;t know what it is&quot; (
+<code>Unknown
+</code> might have been a better name).
+</p>
+<p>Under this interpretation, 
+<code>Union{..., Nothing}
+</code> has (almost) the same semantics as Haskell&#39;s 
+<code>Maybe
+</code>, so that&#39;s what we called it (other languages call this 
+<code>Optional
+</code> or 
+<code>Opt
+</code>). It is used heavily in our (and a lot of other) Julia code. We also added 
+<code>Unsure
+</code> as a shorthand for 
+<code>Union{..., Missing}
+</code> for completeness, but we do not actually use it anywhere. We assume it is useful for Julia code dealing specifically with statistical analysis.
+</p>
 <article class="docstring">
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Chains.chain_reader" href="#Daf.Chains.chain_reader">
-<code>Daf.Chains.chain_reader
-</code>
-</a> — 
-<span class="docstring-category">Function
-</span>
-</header>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">chain_reader(dafs::AbstractVector{F}; name::Maybe{AbstractString} = nothing)::DafReader where {F &lt;: DafReader}
-</code>
-</pre>
-<p>Create a read-only chain wrapper of 
-<a href="formats.html#Daf.Formats.DafReader">
-<code>DafReader
-</code>
-</a>s, presenting them as a single 
-<code>DafReader
-</code>. When accessing the content, the exposed value is that provided by the last data set that contains the data, that is, later data sets can override earlier data sets. However, if an axis exists in more than one data set in the chain, then its entries must be identical. This isn&#39;t typically created manually; instead call 
-<a href="chains.html#Daf.Chains.chain_reader">
-<code>chain_reader
-</code>
-</a>.
-</p>
-<div class="admonition is-info">
-<header class="admonition-header">Note
-</header>
-<div class="admonition-body">
-<p>While this verifies the axes are consistent at the time of creating the chain, it&#39;s no defense against modifying the chained data after the fact, creating inconsistent axes. 
-<em>Don&#39;t do that
-</em>.
-</p>
-</div>
-</div>
-</div>
-</section>
-</article>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
-<a class="docstring-binding" id="Daf.Chains.chain_writer" href="#Daf.Chains.chain_writer">
-<code>Daf.Chains.chain_writer
-</code>
-</a> — 
-<span class="docstring-category">Function
-</span>
-</header>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">chain_writer(dafs::AbstractVector{F}; name::Maybe{AbstractString} = nothing)::DafWriter where {F &lt;: DafReader}
-</code>
-</pre>
-<p>Create a chain wrapper for a chain of 
-<a href="formats.html#Daf.Formats.DafReader">
-<code>DafReader
-</code>
-</a> data, presenting them as a single 
-<code>DafWriter
-</code>. This acts similarly to 
-<a href="chains.html#Daf.Chains.chain_reader">
-<code>chain_reader
-</code>
-</a>, but requires the final entry to be a 
-<a href="formats.html#Daf.Formats.DafWriter">
-<code>DafWriter
-</code>
-</a>. Any modifications or additions to the chain are directed at this final writer.
-</p>
-<div class="admonition is-info">
-<header class="admonition-header">Note
-</header>
-<div class="admonition-body">
-<p>Deletions are only allowed for data that exists only in the final writer. That is, it is impossible to delete from a chain something that exists in any of the readers; it is only possible to override it.
-</p>
-</div>
-</div>
-</div>
-</section>
-</article>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
-<a class="docstring-binding" id="Daf.Chains.ReadOnlyChain" href="#Daf.Chains.ReadOnlyChain">
-<code>Daf.Chains.ReadOnlyChain
+<a class="docstring-binding" id="Daf.GenericTypes.Maybe" href="#Daf.GenericTypes.Maybe">
+<code>Daf.GenericTypes.Maybe
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -347,20 +319,14 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">struct ReadOnlyChain &lt;: DafReadOnly ... end
+<code class="language-julia hljs">Maybe{T} = Union{T, Nothing}
 </code>
 </pre>
-<p>A wrapper for a chain of 
-<a href="formats.html#Daf.Formats.DafReader">
-<code>DafReader
-</code>
-</a> data, presenting them as a single 
-<code>DafReadOnly
-</code>. When accessing the content, the exposed value is that provided by the last data set that contains the data, that is, later data sets can override earlier data sets. However, if an axis exists in more than one data set in the chain, then its entries must be identical. This isn&#39;t typically created manually; instead call 
-<a href="chains.html#Daf.Chains.chain_reader">
-<code>chain_reader
-</code>
-</a>.
+<p>The type to use when maybe there is a value, maybe there isn&#39;t. This is exactly as if writing the explicit 
+<code>Union
+</code> with 
+<code>Nothing
+</code> but is shorter and more readable. This is extremely common.
 </p>
 </div>
 </section>
@@ -369,8 +335,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Chains.WriteChain" href="#Daf.Chains.WriteChain">
-<code>Daf.Chains.WriteChain
+<a class="docstring-binding" id="Daf.GenericTypes.Unsure" href="#Daf.GenericTypes.Unsure">
+<code>Daf.GenericTypes.Unsure
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -379,24 +345,68 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">struct WriteChain &lt;: DafWriter ... end
+<code class="language-julia hljs">Unsure{T} = Union{T, Missing}
 </code>
 </pre>
-<p>A wrapper for a chain of 
-<a href="formats.html#Daf.Formats.DafReader">
-<code>DafReader
-</code>
-</a> data, with a final [
-<code>DafWriter
-</code>], presenting them as a single 
-<code>DafWriter
-</code>. When accessing the content, the exposed value is that provided by the last data set that contains the data, that is, later data sets can override earlier data sets (where the writer has the final word). However, if an axis exists in more than one data set in the chain, then its entries must be identical. This isn&#39;t typically created manually; instead call 
-<a href="chains.html#Daf.Chains.chain_reader">
-<code>chain_reader
-</code>
-</a>.
+<p>The type to use when maybe there always is a value, but sometimes we are not sure what it is. This is exactly as if writing the explicit 
+<code>Union
+</code> with 
+<code>Missing
+</code> but is shorter and more readable. This is only used in code dealing with statistics to represent missing (that is, unknown) data. It is only provided here for completeness.
 </p>
-<p>Any modifications or additions to the chain are directed at the final writer. Deletions are only allowed for data that exists only in this writer. That is, it is impossible to delete from a chain something that exists in any of the readers; it is only possible to override it.
+</div>
+</section>
+</article>
+<h2 id="Strings">
+<a class="docs-heading-anchor" href="#Strings">Strings
+</a>
+<a id="Strings-1">
+</a>
+<a class="docs-heading-anchor-permalink" href="#Strings" title="Permalink">
+</a>
+</h2>
+<p>We use the following as type annotations for function arguments to be able to accept &quot;any&quot; concrete string collection type.
+</p>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.GenericTypes.AbstractStringVector" href="#Daf.GenericTypes.AbstractStringVector">
+<code>Daf.GenericTypes.AbstractStringVector
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">AbstractStringVector = AbstractVector{S} where {S &lt;: AbstractString}
+</code>
+</pre>
+<p>A vector of strings, without commitment to the concrete implementation of either the vector or the strings contained in it.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.GenericTypes.AbstractStringSet" href="#Daf.GenericTypes.AbstractStringSet">
+<code>Daf.GenericTypes.AbstractStringSet
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">AbstractStringSet = AbstractSet{S} where {S &lt;: AbstractString}
+</code>
+</pre>
+<p>A set of strings, without commitment to the concrete implementation of either the set or the strings contained in it.
 </p>
 </div>
 </section>
@@ -411,41 +421,41 @@
 </h2>
 <ul>
 <li>
-<a href="chains.html#Daf.Chains">
-<code>Daf.Chains
+<a href="generic_types.html#Daf.GenericTypes">
+<code>Daf.GenericTypes
 </code>
 </a>
 </li>
 <li>
-<a href="chains.html#Daf.Chains.ReadOnlyChain">
-<code>Daf.Chains.ReadOnlyChain
+<a href="generic_types.html#Daf.GenericTypes.AbstractStringSet">
+<code>Daf.GenericTypes.AbstractStringSet
 </code>
 </a>
 </li>
 <li>
-<a href="chains.html#Daf.Chains.WriteChain">
-<code>Daf.Chains.WriteChain
+<a href="generic_types.html#Daf.GenericTypes.AbstractStringVector">
+<code>Daf.GenericTypes.AbstractStringVector
 </code>
 </a>
 </li>
 <li>
-<a href="chains.html#Daf.Chains.chain_reader">
-<code>Daf.Chains.chain_reader
+<a href="generic_types.html#Daf.GenericTypes.Maybe">
+<code>Daf.GenericTypes.Maybe
 </code>
 </a>
 </li>
 <li>
-<a href="chains.html#Daf.Chains.chain_writer">
-<code>Daf.Chains.chain_writer
+<a href="generic_types.html#Daf.GenericTypes.Unsure">
+<code>Daf.GenericTypes.Unsure
 </code>
 </a>
 </li>
 </ul>
 </article>
 <nav class="docs-footer">
-<a class="docs-footer-prevpage" href="views.html">« Views
+<a class="docs-footer-prevpage" href="generic_logging.html">« Generic Logging
 </a>
-<a class="docs-footer-nextpage" href="computations.html">Computations »
+<a class="docs-footer-nextpage" href="generic_functions.html">Generic Functions »
 </a>
 <div class="flexbox-break">
 </div>

@@ -71,7 +71,9 @@ makedocs(;
         "matrix_layouts.md",
         "groups.md",
         "messages.md",
-        "generic.md",
+        "generic_logging.md",
+        "generic_types.md",
+        "generic_functions.md",
         "example_data.md",
     ],
 )

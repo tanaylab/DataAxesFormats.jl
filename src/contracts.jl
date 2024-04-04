@@ -17,7 +17,8 @@ export verify_output
 
 using Daf.Data
 using Daf.Formats
-using Daf.Generic
+using Daf.GenericFunctions
+using Daf.GenericTypes
 using DocStringExtensions
 using ExprTools
 

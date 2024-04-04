@@ -156,7 +156,15 @@
 </a>
 </li>
 <li>
-<a class="tocitem" href="generic.html">Generic
+<a class="tocitem" href="generic_logging.html">Generic Logging
+</a>
+</li>
+<li>
+<a class="tocitem" href="generic_types.html">Generic Types
+</a>
+</li>
+<li>
+<a class="tocitem" href="generic_functions.html">Generic Functions
 </a>
 </li>
 <li>
@@ -246,6 +254,8 @@
 <header class="admonition-header">Note
 </header>
 <div class="admonition-body">
+</div>
+</div>
 <p>We use the 
 <code>AnnData
 </code> Julia implementation from 
@@ -256,8 +266,6 @@
 <a href="https://github.com/scverse/Muon.jl">github
 </a>, with all that implies. We&#39;ll change this to a proper registry dependency if/when a new Muon version is released.
 </p>
-</div>
-</div>
 <p>The following 
 <code>Daf
 </code> data can&#39;t be naively stored in 
@@ -350,6 +358,8 @@
 <header class="admonition-header">DANGER, WILL ROBINSON
 </header>
 <div class="admonition-body">
+</div>
+</div>
 <p>Square matrices accessed via 
 <code>Daf
 </code> APIs will be the (column-major) 
@@ -413,8 +423,6 @@
 </code> it (and store/cache the result).
 </p>
 </div>
-</div>
-</div>
 </section>
 </article>
 <article class="docstring">
@@ -430,17 +438,14 @@
 </header>
 <section>
 <div>
-<pre>
-<code class="language-julia hljs">anndata_as_daf(
-    adata::Union{AnnData, AbstractString};
-    [name::Maybe{AbstractString} = nothing,
-    obs_is::Maybe{AbstractString} = nothing,
-    var_is::Maybe{AbstractString} = nothing,
-    X_is::Maybe{AbstractString} = nothing,
-    unsupported_handler::AbnormalHandler = WarnHandler]
-)::MemoryDaf
-</code>
-</pre>
+<p>anndata
+<em>as
+</em>daf( adata::Union{AnnData, AbstractString}; [name::Maybe{AbstractString} = nothing, obs
+<em>is::Maybe{AbstractString} = nothing, var
+</em>is::Maybe{AbstractString} = nothing, X
+<em>is::Maybe{AbstractString} = nothing, unsupported
+</em>handler::AbnormalHandler = WarnHandler] )::MemoryDaf
+</p>
 <p>View 
 <code>AnnData
 </code> as a 
@@ -507,16 +512,12 @@
 </header>
 <section>
 <div>
-<pre>
-<code class="language-julia hljs">daf_as_anndata(
-    daf::DafReader;
-    [obs_is::Maybe{AbstractString} = nothing,
-    var_is::Maybe{AbstractString} = nothing,
-    X_is::Maybe{AbstractString} = nothing,
-    h5ad::Maybe{AbstractString} = nothing]
-)::AnnData
-</code>
-</pre>
+<p>daf
+<em>as
+</em>anndata( daf::DafReader; [obs
+<em>is::Maybe{AbstractString} = nothing, var
+</em>is::Maybe{AbstractString} = nothing, X_is::Maybe{AbstractString} = nothing, h5ad::Maybe{AbstractString} = nothing] )::AnnData
+</p>
 <p>View the 
 <code>daf
 </code> data set as 

@@ -10,7 +10,7 @@ export reconstruct_axis!
 
 using Daf.Data
 using Daf.Formats
-using Daf.Generic
+using Daf.GenericTypes
 using Daf.StorageTypes
 using Daf.Queries
 
