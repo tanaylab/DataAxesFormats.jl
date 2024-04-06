@@ -62,7 +62,7 @@ function compact_groups!(group_indices::AbstractVector{<:Integer})::Int
     for (entry_index, group_index) in enumerate(group_indices)
         if group_index != 0
             compact_of_group = get(compacts_of_groups, group_index, nothing)
-            if compact_of_group == nothing
+            if compact_of_group === nothing
                 n_groups += 1
                 compact_of_group = n_groups
                 compacts_of_groups[group_index] = compact_of_group

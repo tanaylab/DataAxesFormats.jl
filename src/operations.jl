@@ -81,7 +81,7 @@ function float_dtype_for(
     element_type::Type{T},
     dtype::Maybe{Type{D}},
 )::Type where {T <: StorageNumber, D <: StorageNumber}
-    if dtype == nothing
+    if dtype === nothing
         global FLOAT_DTYPE_FOR
         return FLOAT_DTYPE_FOR[element_type]
     else
@@ -117,7 +117,7 @@ function int_dtype_for(
     element_type::Type{T},
     dtype::Maybe{Type{D}},
 )::Type where {T <: StorageNumber, D <: StorageNumber}
-    if dtype == nothing
+    if dtype === nothing
         global INT_DTYPE_FOR
         return INT_DTYPE_FOR[element_type]
     else
@@ -156,7 +156,7 @@ function sum_dtype_for(
     element_type::Type{T},
     dtype::Maybe{Type{D}},
 )::Type where {T <: StorageNumber, D <: StorageNumber}
-    if dtype == nothing
+    if dtype === nothing
         global SUM_DTYPE_FOR
         return SUM_DTYPE_FOR[element_type]
     else
@@ -191,7 +191,7 @@ function unsigned_dtype_for(
     element_type::Type{T},
     dtype::Maybe{Type{D}},
 )::Type where {T <: StorageNumber, D <: StorageNumber}
-    if dtype == nothing
+    if dtype === nothing
         global UNSIGNED_DTYPE_FOR
         return UNSIGNED_DTYPE_FOR[element_type]
     else
@@ -369,11 +369,11 @@ function parse_parameter_value(
     default::Any,
 )::Any
     parameter_value = get(parameters_values, parameter_name, nothing)
-    if parameter_value != nothing
+    if parameter_value !== nothing
         parameter_value = parse_value(parameter_value)
     end
 
-    if parameter_value != nothing
+    if parameter_value !== nothing
         return parameter_value
     elseif default !== missing
         return default
@@ -606,7 +606,7 @@ function compute_eltwise(operation::Fraction, input::StorageVector{T})::StorageV
     return output
 end
 
-function compute_eltwise(operation::Fraction, input::StorageNumber)::StorageNumber
+function compute_eltwise(::Fraction, ::StorageNumber)::StorageNumber
     return error("applying Fraction eltwise operation to a scalar")
 end
 
@@ -707,12 +707,8 @@ struct Significant <: EltwiseOperation
 end
 @query_operation Significant
 
-function Significant(;
-    dtype::Maybe{Type} = nothing,
-    high::StorageNumber,
-    low::Maybe{StorageNumber} = nothing,
-)::Significant
-    if low == nothing
+function Significant(; high::StorageNumber, low::Maybe{StorageNumber} = nothing)::Significant
+    if low === nothing
         low = high
     end
     @assert high > 0
@@ -757,7 +753,8 @@ function compute_eltwise(operation::Significant, input::StorageMatrix{T})::Stora
         end
         dropzeros!(output)
     else
-        @threads for column_index in 1:size(output, 2)
+        n_columns = size(output, 2)
+        @threads for column_index in 1:n_columns
             column_vector = @view output[:, column_index]
             significant!(column_vector, operation.high, operation.low)
         end
@@ -792,7 +789,7 @@ function significant!(
     return nothing
 end
 
-function compute_eltwise(operation::Significant, input::T)::T where {T <: StorageNumber}
+function compute_eltwise(::Significant, ::T)::T where {T <: StorageNumber}
     return error("applying Significant eltwise operation to a scalar")
 end
 
@@ -812,7 +809,7 @@ end
 @query_operation Count
 
 function Count(; dtype::Maybe{Type} = nothing)::Count
-    @assert dtype == nothing || dtype <: Real
+    @assert dtype === nothing || dtype <: Real
     return Count(dtype)
 end
 
@@ -835,8 +832,8 @@ function compute_reduction(operation::Count, input::StorageVector{T})::StorageNu
     return dtype(length(input))
 end
 
-function reduction_result_type(operation::Count, eltype::Type)::Type
-    return operation.dtype == nothing ? UInt32 : operation.dtype
+function reduction_result_type(operation::Count, ::Type)::Type
+    return operation.dtype === nothing ? UInt32 : operation.dtype
 end
 
 """
@@ -847,7 +844,7 @@ Reduction operation that returns the most frequent value in the input (the "mode
 struct Mode <: ReductionOperation end
 @query_operation Mode
 
-function Mode(operation_name::Token, parameters_values::Dict{String, Token})::Mode
+function Mode(::Token, ::Dict{String, Token})::Mode
     return Mode()
 end
 
@@ -860,11 +857,11 @@ function compute_reduction(operation::Mode, input::StorageMatrix{T})::StorageVec
     return output
 end
 
-function compute_reduction(operation::Mode, input::StorageVector{T})::StorageNumber where {T <: StorageNumber}
+function compute_reduction(::Mode, input::StorageVector{T})::StorageNumber where {T <: StorageNumber}
     return mode(input)
 end
 
-function reduction_result_type(operation::Mode, eltype::Type)::Type
+function reduction_result_type(::Mode, eltype::Type)::Type
     return eltype
 end
 
@@ -917,19 +914,19 @@ Reduction operation that returns the maximal element.
 struct Max <: ReductionOperation end
 @query_operation Max
 
-function Max(operation_name::Token, parameters_values::Dict{String, Token})::Max
+function Max(::Token, ::Dict{String, Token})::Max
     return Max()
 end
 
-function compute_reduction(operation::Max, input::StorageMatrix{T})::StorageVector where {T <: StorageNumber}
+function compute_reduction(::Max, input::StorageMatrix{T})::StorageVector where {T <: StorageNumber}
     return vec(maximum(input; dims = 1))  # NOJET
 end
 
-function compute_reduction(operation::Max, input::StorageVector{T})::StorageNumber where {T <: StorageNumber}
+function compute_reduction(::Max, input::StorageVector{T})::StorageNumber where {T <: StorageNumber}
     return maximum(input)
 end
 
-function reduction_result_type(operation::Max, eltype::Type)::Type
+function reduction_result_type(::Max, eltype::Type)::Type
     return eltype
 end
 
@@ -941,19 +938,19 @@ Reduction operation that returns the minimal element.
 struct Min <: ReductionOperation end
 @query_operation Min
 
-function Min(operation_name::Token, parameters_values::Dict{String, Token})::Min
+function Min(::Token, ::Dict{String, Token})::Min
     return Min()
 end
 
-function compute_reduction(operation::Min, input::StorageMatrix{T})::StorageVector where {T <: StorageNumber}
+function compute_reduction(::Min, input::StorageMatrix{T})::StorageVector where {T <: StorageNumber}
     return vec(minimum(input; dims = 1))
 end
 
-function compute_reduction(operation::Min, input::StorageVector{T})::StorageNumber where {T <: StorageNumber}
+function compute_reduction(::Min, input::StorageVector{T})::StorageNumber where {T <: StorageNumber}
     return minimum(input)
 end
 
-function reduction_result_type(operation::Min, eltype::Type)::Type
+function reduction_result_type(::Min, eltype::Type)::Type
     return eltype
 end
 

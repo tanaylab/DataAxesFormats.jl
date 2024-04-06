@@ -160,9 +160,9 @@ function by_annotation(
     name::AbstractString,
     default::AbstractString,
 )::AbstractString
-    if value == nothing
+    if value === nothing
         value = get(adata.uns, name, default)
-        @assert value != nothing
+        @assert value !== nothing
     end
     return value
 end
@@ -218,7 +218,7 @@ function verify_is_supported_type(
     unsupported_handler::AbnormalHandler,
 )::Nothing
     if value isa StorageMatrix &&
-       major_axis(value) == nothing &&
+       major_axis(value) === nothing &&
        !(value isa Muon.TransposedDataset) &&
        !(value isa Muon.SparseDataset)
         report_unsupported(  # untested
@@ -332,11 +332,11 @@ function copy_supported_matrices(
 end
 
 function copy_supported_matrix(  # untested
-    matrix::Any,
-    memory::MemoryDaf,
-    rows_axis::AbstractString,
-    columns_axis::AbstractString,
-    name::AbstractString,
+    ::Any,
+    ::MemoryDaf,
+    ::AbstractString,
+    ::AbstractString,
+    ::AbstractString,
 )::Nothing
     return nothing
 end
@@ -380,7 +380,7 @@ function copy_supported_matrix(
         matrix = transpose(matrix)
         rows_axis, columns_axis = columns_axis, rows_axis
     end
-    if matrix_major_axis != nothing
+    if matrix_major_axis !== nothing
         set_matrix!(memory, rows_axis, columns_axis, name, matrix; relayout = false)
     end
 end
@@ -459,7 +459,7 @@ function daf_as_anndata(
 
     copy_matrices(daf, obs_is, var_is, X_is, adata.layers)
 
-    if h5ad != nothing
+    if h5ad !== nothing
         writeh5ad(h5ad, adata; compress = UInt8(0))  # NOJET
     end
 
@@ -472,9 +472,9 @@ function by_scalar(
     name::AbstractString,
     default::AbstractString,
 )::AbstractString
-    if value == nothing
+    if value === nothing
         value = get_scalar(daf, name; default = default)
-        @assert value != nothing
+        @assert value !== nothing
     end
     return value
 end

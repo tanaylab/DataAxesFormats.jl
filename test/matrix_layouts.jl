@@ -10,7 +10,7 @@ nested_test("matrix_layouts") do
         nested_test("other") do
             @test other_axis(Rows) == Columns
             @test other_axis(Columns) == Rows
-            @test other_axis(nothing) == nothing
+            @test other_axis(nothing) === nothing
             @test_throws "invalid matrix axis: -1" other_axis(-1)
         end
 

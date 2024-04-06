@@ -61,7 +61,7 @@ Columns = 2
 Return the name of the axis (for messages).
 """
 function axis_name(axis::Maybe{Integer})::String
-    if axis == nothing
+    if axis === nothing
         return "nothing"
     end
 
@@ -94,7 +94,7 @@ function major_axis(matrix::Union{Transpose, Adjoint})::Maybe{Int8}
     return other_axis(major_axis(matrix.parent))
 end
 
-function major_axis(matrix::AbstractSparseMatrix)::Maybe{Int8}
+function major_axis(::AbstractSparseMatrix)::Maybe{Int8}
     return Columns
 end
 
@@ -109,7 +109,7 @@ function major_axis(matrix::AbstractMatrix)::Maybe{Int8}
         end
         return nothing
 
-    catch MethodError
+    catch MethodError  # NOLINT
         return nothing
     end
 end
@@ -121,7 +121,7 @@ Similar to [`major_axis`](@ref) but will `error` if the matrix isn't in either r
 """
 function require_major_axis(matrix::AbstractMatrix)::Int8
     axis = major_axis(matrix)
-    if axis == nothing
+    if axis === nothing
         error("type: $(typeof(matrix)) is not in any-major layout")  # untested
     end
     return axis
@@ -153,7 +153,7 @@ Return the other `matrix` `axis` (that is, convert between [`Rows`](@ref) and [`
 returns `nothing`.
 """
 function other_axis(axis::Maybe{Integer})::Maybe{Int8}
-    if axis == nothing
+    if axis === nothing
         return nothing
     end
 
@@ -175,7 +175,7 @@ Returns the previous handler. The default handler is `WarnHandler`.
 function inefficient_action_handler(handler::AbnormalHandler)::AbnormalHandler
     global GLOBAL_INEFFICIENT_ACTION_HANDLER
     previous_inefficient_action_handler = GLOBAL_INEFFICIENT_ACTION_HANDLER
-    GLOBAL_INEFFICIENT_ACTION_HANDLER = handler
+    GLOBAL_INEFFICIENT_ACTION_HANDLER = handler  # NOLINT
     return previous_inefficient_action_handler
 end
 
@@ -282,6 +282,10 @@ function relayout!(matrix::AbstractMatrix)::AbstractMatrix
 end
 
 function relayout!(destination::AbstractMatrix, source::NamedMatrix)::NamedArray  # untested
+    return NamedArray(relayout!(destination, source.array), source.dicts, source.dimnames)
+end
+
+function relayout!(destination::DenseMatrix, source::NamedArrays.NamedMatrix)  # untested
     return NamedArray(relayout!(destination, source.array), source.dicts, source.dimnames)
 end
 

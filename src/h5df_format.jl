@@ -195,7 +195,7 @@ function H5df(
         end
     end
 
-    if name == nothing && haskey(root, "scalars")
+    if name === nothing && haskey(root, "scalars")
         scalars_group = root["scalars"]
         @assert scalars_group isa HDF5.Group
         if haskey(scalars_group, "name")
@@ -205,7 +205,7 @@ function H5df(
         end
     end
 
-    if name == nothing
+    if name === nothing
         if root isa HDF5.Group
             name = "$(root.file.filename):$(HDF5.name(root))"
         else
@@ -295,7 +295,7 @@ function Formats.format_set_scalar!(h5df::H5df, name::AbstractString, value::Sto
     return nothing
 end
 
-function Formats.format_delete_scalar!(h5df::H5df, name::AbstractString; for_set::Bool)::Nothing
+function Formats.format_delete_scalar!(h5df::H5df, name::AbstractString; for_set::Bool)::Nothing  # NOLINT
     scalars_group = h5df.root["scalars"]
     @assert scalars_group isa HDF5.Group
     delete_object(scalars_group, name)
@@ -321,7 +321,7 @@ function Formats.format_scalar_names(h5df::H5df)::AbstractStringSet
     return names
 end
 
-function Formats.format_has_axis(h5df::H5df, axis::AbstractString; for_change::Bool)::Bool
+function Formats.format_has_axis(h5df::H5df, axis::AbstractString; for_change::Bool)::Bool  # NOLINT
     axes_group = h5df.root["axes"]
     @assert axes_group isa HDF5.Group
     return haskey(axes_group, axis)
@@ -531,7 +531,7 @@ function Formats.format_filled_sparse_vector!(
     return nothing
 end
 
-function Formats.format_delete_vector!(h5df::H5df, axis::AbstractString, name::AbstractString; for_set::Bool)::Nothing
+function Formats.format_delete_vector!(h5df::H5df, axis::AbstractString, name::AbstractString; for_set::Bool)::Nothing  # NOLINT
     vectors_group = h5df.root["vectors"]
     @assert vectors_group isa HDF5.Group
 
@@ -695,7 +695,6 @@ function Formats.format_empty_sparse_matrix!(
     @assert columns_axis_group isa HDF5.Group
     matrix_group = create_group(columns_axis_group, name)
 
-    nrows = Formats.format_axis_length(h5df, rows_axis)
     ncols = Formats.format_axis_length(h5df, columns_axis)
 
     colptr_dataset = create_dataset(matrix_group, "colptr", indtype, ncols + 1)
@@ -767,7 +766,7 @@ function Formats.format_delete_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString;
-    for_set::Bool,
+    for_set::Bool,  # NOLINT
 )::Nothing
     matrices_group = h5df.root["matrices"]
     @assert matrices_group isa HDF5.Group

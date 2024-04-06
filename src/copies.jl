@@ -54,7 +54,7 @@ function copy_scalar!(;
 )::Nothing
     @debug "copy_scalar! $(destination.name) <$(overwrite ? "=" : "-") $(source.name) : $(name) || $(describe(default))"
     value = get_scalar(source, name; default = default)
-    if value != nothing
+    if value !== nothing
         rename = new_name(rename, name)
         set_scalar!(destination, rename, value; overwrite = overwrite)
     end
@@ -80,13 +80,13 @@ function copy_axis!(;
     rename::Maybe{AbstractString} = nothing,
     default::Union{Nothing, UndefInitializer} = undef,
 )::Nothing
-    if rename == nothing
+    if rename === nothing
         @debug "copy_axis! $(destination.name) <- $(source.name) : $(axis) || $(describe(default))"
     else
         @debug "copy_axis! $(destination.name) <- $(source.name) : $(rename) <- $(axis) || $(describe(default))"  # untested
     end
     value = get_axis(source, axis; default = default)
-    if value != nothing
+    if value !== nothing
         rename = new_name(rename, axis)
         add_axis!(destination, rename, value)
     end
@@ -127,7 +127,7 @@ function copy_vector!(;
     overwrite::Bool = false,
     relation::Maybe{Symbol} = nothing,
 )::Nothing
-    if rename == nothing
+    if rename === nothing
         @debug "copy_vector! $(destination.name) <$(overwrite ? "-" : "=") $(source.name) / $(axis) : $(name) || $(describe(default))"
     else
         @debug "copy_vector! $(destination.name) <$(overwrite ? "-" : "=") $(source.name) / $(axis) : $(rename) <- $(name) || $(describe(default))"  # untested
@@ -136,14 +136,14 @@ function copy_vector!(;
     reaxis = new_name(reaxis, axis)
     rename = new_name(rename, name)
 
-    what_for = empty == nothing ? "the vector: $(name)\nto the vector: $(rename)" : nothing
-    if relation == nothing
+    what_for = empty === nothing ? "the vector: $(name)\nto the vector: $(rename)" : nothing
+    if relation === nothing
         relation = verify_axis(destination, reaxis, source, axis; allow_missing = false, what_for = what_for)
-        @assert relation != nothing
+        @assert relation !== nothing
     end
 
     value = get_vector(source, axis, name; default = default)
-    if value == nothing
+    if value === nothing
         return nothing
     end
 
@@ -230,7 +230,7 @@ function copy_matrix!(;
     columns_relation::Maybe{Symbol} = nothing,
 )::Nothing
     relayout = relayout && rows_axis != columns_axis
-    if rename == nothing
+    if rename === nothing
         @debug "copy_matrix! $(destination.name) <$(relayout ? "%" : "#")$(overwrite ? "-" : "=") $(source.name) / $(rows_axis)($(rows_relation)) / $(columns_axis)($(columns_relation)) : $(name) || $(describe(default)) ?? $(describe(empty))"
     else
         @debug "copy_matrix! $(destination.name) <$(relayout ? "%" : "#")$(overwrite ? "-" : "=") $(source.name) / $(rows_axis)($(rows_relation)) / $(columns_axis)($(columns_relation)) : $(rename) <- $(name) || $(describe(default)) ?? $(describe(empty))"
@@ -240,20 +240,20 @@ function copy_matrix!(;
     columns_reaxis = new_name(columns_reaxis, columns_axis)
     rename = new_name(rename, name)
 
-    what_for = empty == nothing ? "the matrix: $(name)\nto the matrix: $(rename)" : nothing
-    if rows_relation == nothing
+    what_for = empty === nothing ? "the matrix: $(name)\nto the matrix: $(rename)" : nothing
+    if rows_relation === nothing
         rows_relation =
             verify_axis(destination, rows_reaxis, source, rows_axis; allow_missing = false, what_for = what_for)
-        @assert rows_relation != nothing
+        @assert rows_relation !== nothing
     end
-    if columns_relation == nothing
+    if columns_relation === nothing
         columns_relation =
             verify_axis(destination, columns_reaxis, source, columns_axis; allow_missing = false, what_for = what_for)
-        @assert columns_relation != nothing
+        @assert columns_relation !== nothing
     end
 
     value = get_matrix(source, rows_axis, columns_axis, name; default = default, relayout = relayout)
-    if value == nothing
+    if value === nothing
         return nothing
     end
 
@@ -392,14 +392,14 @@ function copy_all!(;
     overwrite::Bool = false,
     relayout::Bool = true,
 )::Nothing
-    if empty != nothing
+    if empty !== nothing
         for (key, value) in empty
             @assert key isa DataKey
             @assert value isa StorageScalar
         end
     end
 
-    what_for = empty == nothing ? ": data" : nothing
+    what_for = empty === nothing ? ": data" : nothing
     axis_relations = verify_axes(destination, source; what_for = what_for)
     copy_scalars(destination, source, overwrite)
     copy_axes(destination, source)
@@ -464,7 +464,7 @@ function verify_subset(
     destination_axis::AbstractString,
     what_for::Maybe{AbstractString},
 )::Nothing
-    if what_for != nothing
+    if what_for !== nothing
         error(
             "missing entries in the axis: $(source_axis)\n" *
             "of the source daf data: $(source_name)\n" *
@@ -499,7 +499,7 @@ function copy_vectors(
     empty_value = nothing
     for (axis, relation) in axis_relations
         for name in vector_names(source, axis)
-            if empty != nothing
+            if empty !== nothing
                 empty_value = get(empty, (axis, name), nothing)
             end
             copy_vector!(;
@@ -528,9 +528,9 @@ function copy_matrices(
         for (columns_axis, columns_relation) in axis_relations
             if !relayout || columns_axis >= rows_axis
                 for name in matrix_names(source, rows_axis, columns_axis; relayout = relayout)
-                    if empty != nothing
+                    if empty !== nothing
                         empty_value = get(empty, (rows_axis, columns_axis, name), nothing)
-                        if empty_value == nothing
+                        if empty_value === nothing
                             empty_value = get(empty, (columns_axis, rows_axis, name), nothing)
                         end
                     end
@@ -552,7 +552,7 @@ function copy_matrices(
 end
 
 function new_name(rename::Maybe{AbstractString}, name::AbstractString)::AbstractString
-    return rename == nothing ? name : rename
+    return rename === nothing ? name : rename
 end
 
 end # module

@@ -495,7 +495,7 @@ function next_query_operation(tokens::Vector{Token}, next_token_index::Int)::Tup
     for (operator, operation_type) in (("??", IfNot), ("!", AsAxis), ("?", Names))
         if token.value == operator
             token = maybe_next_value_token(tokens, next_token_index)
-            if token == nothing
+            if token === nothing
                 return (operation_type(), next_token_index)
             else
                 return (operation_type(token.value), next_token_index + 1)
@@ -524,7 +524,7 @@ function next_query_operation(tokens::Vector{Token}, next_token_index::Int)::Tup
                 dtype = String
             else
                 dtype = parse_number_dtype_value(token, "dtype", type_token)
-                if dtype != nothing
+                if dtype !== nothing
                     value = parse_number_value(token, "value", value_token, dtype)
                 end
             end
@@ -572,7 +572,7 @@ function parse_registered_operation(
 )::Tuple{QueryOperation, Int}
     operation_name = next_value_token(tokens, next_token_index)
     registered_operation = get(registered_operations, operation_name.value, nothing)
-    if registered_operation == nothing
+    if registered_operation === nothing
         error_at_token(operation_name, "unknown $(kind) operation: $(operation_name.value)")
     end
     next_token_index += 1
@@ -712,7 +712,7 @@ end
 
 function Base.show(io::IO, names::Names)::Nothing
     kind = names.kind
-    if kind == nothing
+    if kind === nothing
         print(io, "?")
     else
         print(io, "? $(kind)")
@@ -811,7 +811,7 @@ struct IfMissing <: ModifierQueryOperation
 end
 
 function IfMissing(value::StorageScalar; dtype::Maybe{Type} = nothing)::IfMissing
-    if dtype != nothing
+    if dtype !== nothing
         @assert value isa dtype
     elseif !(value isa AbstractString)
         dtype = typeof(value)  # untested
@@ -821,7 +821,7 @@ end
 
 function Base.show(io::IO, if_missing::IfMissing)::Nothing
     print(io, "|| $(escape_value(string(if_missing.missing_value)))")
-    if if_missing.dtype != nothing
+    if if_missing.dtype !== nothing
         print(io, " $(if_missing.dtype)")
     end
     return nothing
@@ -854,7 +854,7 @@ end
 
 function Base.show(io::IO, if_not::IfNot)::Nothing
     not_value = if_not.not_value
-    if not_value == nothing
+    if not_value === nothing
         print(io, "??")
     else
         print(io, "?? $(escape_value(string(not_value)))")
@@ -903,7 +903,7 @@ function AsAxis()::AsAxis
 end
 
 function Base.show(io::IO, as_axis::AsAxis)::Nothing
-    if as_axis.axis_name == nothing
+    if as_axis.axis_name === nothing
         print(io, "!")
     else
         print(io, "! $(escape_value(as_axis.axis_name))")
@@ -970,15 +970,11 @@ struct And <: MaskOperation
     property_name::AbstractString
 end
 
-function mask_operator(and::And)::String
+function mask_operator(::And)::String
     return "&"
 end
 
-function update_axis_mask(
-    axis_mask::Vector{Bool},
-    mask_vector::Union{Vector{Bool}, BitVector},
-    mask_operation::And,
-)::Nothing
+function update_axis_mask(axis_mask::Vector{Bool}, mask_vector::Union{Vector{Bool}, BitVector}, ::And)::Nothing
     axis_mask .&= mask_vector
     return nothing
 end
@@ -993,15 +989,11 @@ struct AndNot <: MaskOperation
     property_name::AbstractString
 end
 
-function mask_operator(and_not::AndNot)::String
+function mask_operator(::AndNot)::String
     return "&!"
 end
 
-function update_axis_mask(
-    axis_mask::Vector{Bool},
-    mask_vector::Union{Vector{Bool}, BitVector},
-    mask_operation::AndNot,
-)::Nothing
+function update_axis_mask(axis_mask::Vector{Bool}, mask_vector::Union{Vector{Bool}, BitVector}, ::AndNot)::Nothing
     axis_mask .&= .!mask_vector
     return nothing
 end
@@ -1019,15 +1011,11 @@ struct Or <: MaskOperation
     property_name::AbstractString
 end
 
-function mask_operator(or::Or)::String
+function mask_operator(::Or)::String
     return "|"
 end
 
-function update_axis_mask(
-    axis_mask::Vector{Bool},
-    mask_vector::Union{Vector{Bool}, BitVector},
-    mask_operation::Or,
-)::Nothing
+function update_axis_mask(axis_mask::Vector{Bool}, mask_vector::Union{Vector{Bool}, BitVector}, ::Or)::Nothing
     axis_mask .|= mask_vector
     return nothing
 end
@@ -1042,15 +1030,11 @@ struct OrNot <: MaskOperation
     property_name::AbstractString
 end
 
-function mask_operator(or_not::OrNot)::String
+function mask_operator(::OrNot)::String
     return "|!"
 end
 
-function update_axis_mask(
-    axis_mask::Vector{Bool},
-    mask_vector::Union{Vector{Bool}, BitVector},
-    mask_operation::OrNot,
-)::Nothing
+function update_axis_mask(axis_mask::Vector{Bool}, mask_vector::Union{Vector{Bool}, BitVector}, ::OrNot)::Nothing
     axis_mask .|= .!mask_vector
     return nothing
 end
@@ -1068,15 +1052,11 @@ struct Xor <: MaskOperation
     property_name::AbstractString
 end
 
-function mask_operator(xor::Xor)::String
+function mask_operator(::Xor)::String
     return "^"
 end
 
-function update_axis_mask(
-    axis_mask::Vector{Bool},
-    mask_vector::Union{Vector{Bool}, BitVector},
-    mask_operation::Xor,
-)::Nothing
+function update_axis_mask(axis_mask::Vector{Bool}, mask_vector::Union{Vector{Bool}, BitVector}, ::Xor)::Nothing
     axis_mask .= @. xor(axis_mask, mask_vector)
     return nothing
 end
@@ -1091,15 +1071,11 @@ struct XorNot <: MaskOperation
     property_name::AbstractString
 end
 
-function mask_operator(xor_not::XorNot)::String
+function mask_operator(::XorNot)::String
     return "^!"
 end
 
-function update_axis_mask(
-    axis_mask::Vector{Bool},
-    mask_vector::Union{Vector{Bool}, BitVector},
-    mask_operation::XorNot,
-)::Nothing
+function update_axis_mask(axis_mask::Vector{Bool}, mask_vector::Union{Vector{Bool}, BitVector}, ::XorNot)::Nothing
     axis_mask .= @. xor(axis_mask, .!mask_vector)
     return nothing
 end
@@ -1143,11 +1119,11 @@ struct IsLess <: ComparisonOperation
     comparison_value::StorageScalar
 end
 
-function comparison_operator(is_less::IsLess)::String
+function comparison_operator(::IsLess)::String
     return "<"
 end
 
-function compute_comparison(compared_value::StorageScalar, is_less::IsLess, comparison_value::StorageScalar)::Bool
+function compute_comparison(compared_value::StorageScalar, ::IsLess, comparison_value::StorageScalar)::Bool
     return compared_value < comparison_value
 end
 
@@ -1160,15 +1136,11 @@ struct IsLessEqual <: ComparisonOperation
     comparison_value::StorageScalar
 end
 
-function comparison_operator(is_less_equal::IsLessEqual)::String
+function comparison_operator(::IsLessEqual)::String
     return "<="
 end
 
-function compute_comparison(
-    compared_value::StorageScalar,
-    is_less_equal::IsLessEqual,
-    comparison_value::StorageScalar,
-)::Bool
+function compute_comparison(compared_value::StorageScalar, ::IsLessEqual, comparison_value::StorageScalar)::Bool
     return compared_value <= comparison_value
 end
 
@@ -1186,11 +1158,11 @@ struct IsEqual <: ComparisonOperation
     comparison_value::StorageScalar
 end
 
-function comparison_operator(is_equal::IsEqual)::String
+function comparison_operator(::IsEqual)::String
     return "="
 end
 
-function compute_comparison(compared_value::StorageScalar, is_equal::IsEqual, comparison_value::StorageScalar)::Bool
+function compute_comparison(compared_value::StorageScalar, ::IsEqual, comparison_value::StorageScalar)::Bool
     return compared_value == comparison_value
 end
 
@@ -1203,15 +1175,11 @@ struct IsNotEqual <: ComparisonOperation
     comparison_value::StorageScalar
 end
 
-function comparison_operator(is_not_equal::IsNotEqual)::String
+function comparison_operator(::IsNotEqual)::String
     return "!="
 end
 
-function compute_comparison(
-    compared_value::StorageScalar,
-    is_not_equal::IsNotEqual,
-    comparison_value::StorageScalar,
-)::Bool
+function compute_comparison(compared_value::StorageScalar, ::IsNotEqual, comparison_value::StorageScalar)::Bool
     return compared_value != comparison_value
 end
 
@@ -1224,11 +1192,11 @@ struct IsGreater <: ComparisonOperation
     comparison_value::StorageScalar
 end
 
-function comparison_operator(is_greater::IsGreater)::String
+function comparison_operator(::IsGreater)::String
     return ">"
 end
 
-function compute_comparison(compared_value::StorageScalar, is_greater::IsGreater, comparison_value::StorageScalar)::Bool
+function compute_comparison(compared_value::StorageScalar, ::IsGreater, comparison_value::StorageScalar)::Bool
     return compared_value > comparison_value
 end
 
@@ -1241,15 +1209,11 @@ struct IsGreaterEqual <: ComparisonOperation
     comparison_value::StorageScalar
 end
 
-function comparison_operator(is_greater_equal::IsGreaterEqual)::String
+function comparison_operator(::IsGreaterEqual)::String
     return ">="
 end
 
-function compute_comparison(
-    compared_value::StorageScalar,
-    is_greater_equal::IsGreaterEqual,
-    comparison_value::StorageScalar,
-)::Bool
+function compute_comparison(compared_value::StorageScalar, ::IsGreaterEqual, comparison_value::StorageScalar)::Bool
     return compared_value >= comparison_value
 end
 
@@ -1265,11 +1229,11 @@ struct IsMatch <: MatchOperation
     comparison_value::Union{AbstractString, Regex}
 end
 
-function comparison_operator(is_match::IsMatch)::String
+function comparison_operator(::IsMatch)::String
     return "~"
 end
 
-function compute_comparison(compared_value::AbstractString, is_match::IsMatch, comparison_regex::Regex)::Bool
+function compute_comparison(compared_value::AbstractString, ::IsMatch, comparison_regex::Regex)::Bool
     return occursin(comparison_regex, compared_value)
 end
 
@@ -1282,11 +1246,11 @@ struct IsNotMatch <: MatchOperation
     comparison_value::Union{AbstractString, Regex}
 end
 
-function comparison_operator(is_not_match::IsNotMatch)::String
+function comparison_operator(::IsNotMatch)::String
     return "!~"
 end
 
-function compute_comparison(compared_value::AbstractString, is_not_match::IsNotMatch, comparison_regex::Regex)::Bool
+function compute_comparison(compared_value::AbstractString, ::IsNotMatch, comparison_regex::Regex)::Bool
     return !occursin(comparison_regex, compared_value)
 end
 
@@ -1377,7 +1341,7 @@ function show_computation_operation(
     print(io, operation_type)
 
     for field_name in fieldnames(operation_type)
-        if field_name != :dtype || getfield(computation_operation, :dtype) != nothing
+        if field_name != :dtype || getfield(computation_operation, :dtype) !== nothing
             print(io, " ")
             print(io, escape_value(string(field_name)))
             print(io, " ")
@@ -1544,7 +1508,7 @@ function get_query(
 )::Union{AbstractStringSet, StorageScalar, NamedArray}
     cache_key = join([string(query_operation) for query_operation in query_sequence.query_operations], " ")
     cached_entry = get(daf.internal.cache, cache_key, nothing)
-    if cached_entry != nothing
+    if cached_entry !== nothing
         return cached_entry.data
     end
 
@@ -1596,7 +1560,7 @@ function get_next_operation(
     query_operation_type::Type,
 )::Maybe{QueryOperation}
     query_operation = peek_next_operation(query_state, query_operation_type)
-    if query_operation != nothing
+    if query_operation !== nothing
         query_state.next_operation_index += 1
     end
     return query_operation
@@ -1696,11 +1660,11 @@ function get_matrix_result(query_state::QueryState)::Tuple{NamedArray, Set{Abstr
     return matrix_state.named_matrix, matrix_state.dependency_keys
 end
 
-function apply_query_operation!(query_state::QueryState, modifier_operation::ModifierQueryOperation)::Nothing
+function apply_query_operation!(query_state::QueryState, ::ModifierQueryOperation)::Nothing
     return error_unexpected_operation(query_state)
 end
 
-function fake_query_operation!(fake_query_state::FakeQueryState, modifier_operation::ModifierQueryOperation)::Nothing
+function fake_query_operation!(fake_query_state::FakeQueryState, ::ModifierQueryOperation)::Nothing
     return error_unexpected_operation(fake_query_state)
 end
 
@@ -1716,8 +1680,8 @@ end
 
 function fake_query_operation!(fake_query_state::FakeQueryState, axis::Axis)::Nothing
     if isempty(fake_query_state.stack) || is_all(fake_query_state, (FakeAxisState,))
-        is_entry = get_next_operation(fake_query_state, IsEqual) != nothing
-        is_slice = peek_next_operation(fake_query_state, MaskOperation) != nothing
+        is_entry = get_next_operation(fake_query_state, IsEqual) !== nothing
+        is_slice = peek_next_operation(fake_query_state, MaskOperation) !== nothing
         push!(fake_query_state.stack, FakeAxisState(axis.axis_name, is_entry, is_slice))
         return nothing
     end
@@ -1725,7 +1689,7 @@ function fake_query_operation!(fake_query_state::FakeQueryState, axis::Axis)::No
     return error_unexpected_operation(fake_query_state)
 end
 
-function push_axis(query_state::QueryState, axis::Axis, is_equal::Nothing)::Nothing
+function push_axis(query_state::QueryState, axis::Axis, ::Nothing)::Nothing
     require_axis(query_state.daf, axis.axis_name)
     query_sequence = QuerySequence((axis,))
     dependency_keys = Set((axis_cache_key(axis.axis_name),))
@@ -1750,7 +1714,7 @@ function push_axis(query_state::QueryState, axis::Axis, is_equal::IsEqual)::Noth
     end
 
     axis_entry_index = get(axis_entries.dicts[1], comparison_value, nothing)
-    if axis_entry_index == nothing
+    if axis_entry_index === nothing
         error_at_state(
             query_state,
             "the entry: $(comparison_value)\n" * "does not exist in the axis: $(axis.axis_name)\n",
@@ -1775,7 +1739,7 @@ function apply_query_operation!(query_state::QueryState, names::Names)::Nothing
 end
 
 function get_kind_names(query_state::QueryState, names::Names)::Nothing
-    if names.kind == nothing
+    if names.kind === nothing
         error_at_state(query_state, "no kind specified for names\n")
     end
 
@@ -1791,12 +1755,12 @@ function get_kind_names(query_state::QueryState, names::Names)::Nothing
 end
 
 function get_vector_names(query_state::QueryState, names::Names)::Nothing
-    if names.kind != nothing
+    if names.kind !== nothing
         error_at_state(query_state, "unexpected kind: $(names.kind)\nspecified for vector names\n")
     end
     axis_state = pop!(query_state.stack)
     @assert axis_state isa AxisState
-    if axis_state.axis_modifier != nothing
+    if axis_state.axis_modifier !== nothing
         error_at_state(query_state, "sliced/masked axis for vector names\n")
     end
 
@@ -1805,7 +1769,7 @@ function get_vector_names(query_state::QueryState, names::Names)::Nothing
 end
 
 function get_matrix_names(query_state::QueryState, names::Names)::Nothing
-    if names.kind != nothing
+    if names.kind !== nothing
         error_at_state(query_state, "unexpected kind: $(names.kind)\nspecified for matrix names\n")
     end
 
@@ -1813,7 +1777,7 @@ function get_matrix_names(query_state::QueryState, names::Names)::Nothing
     @assert rows_axis_state isa AxisState
     columns_axis_state = pop!(query_state.stack)
     @assert columns_axis_state isa AxisState
-    if rows_axis_state.axis_modifier != nothing || columns_axis_state.axis_modifier != nothing
+    if rows_axis_state.axis_modifier !== nothing || columns_axis_state.axis_modifier !== nothing
         error_at_state(query_state, "sliced/masked axis for matrix names\n")
     end
 
@@ -1834,7 +1798,7 @@ function fake_query_operation!(fake_query_state::FakeQueryState, names::Names)::
 end
 
 function fake_kind_names(fake_query_state::FakeQueryState, names::Names)::Nothing
-    if names.kind == nothing
+    if names.kind === nothing
         error_at_state(fake_query_state, "no kind specified for names\n")
     elseif names.kind != "scalars" && names.kind != "axes"
         error_at_state(fake_query_state, "invalid kind: $(names.kind)\n")
@@ -1845,7 +1809,7 @@ function fake_kind_names(fake_query_state::FakeQueryState, names::Names)::Nothin
 end
 
 function fake_vector_names(fake_query_state::FakeQueryState, names::Names)::Nothing
-    if names.kind != nothing
+    if names.kind !== nothing
         error_at_state(fake_query_state, "unexpected kind: $(names.kind)\nspecified for vector names\n")
     end
 
@@ -1860,7 +1824,7 @@ function fake_vector_names(fake_query_state::FakeQueryState, names::Names)::Noth
 end
 
 function fake_matrix_names(fake_query_state::FakeQueryState, names::Names)::Nothing
-    if names.kind != nothing
+    if names.kind !== nothing
         error_at_state(fake_query_state, "unexpected kind: $(names.kind)\nspecified for matrix names\n")
     end
 
@@ -1891,7 +1855,7 @@ function apply_query_operation!(query_state::QueryState, lookup::Lookup)::Nothin
     return error_unexpected_operation(query_state)
 end
 
-function fake_query_operation!(fake_query_state::FakeQueryState, lookup::Lookup)::Nothing
+function fake_query_operation!(fake_query_state::FakeQueryState, ::Lookup)::Nothing
     if isempty(fake_query_state.stack)
         return fake_lookup_scalar(fake_query_state)
     elseif is_all(fake_query_state, (FakeAxisState,))
@@ -1942,8 +1906,8 @@ function lookup_axes(query_state::QueryState, lookup::Lookup)::Nothing
     rows_axis_modifier = rows_axis_state.axis_modifier
     columns_axis_modifier = columns_axis_state.axis_modifier
 
-    if rows_axis_modifier == nothing
-        if columns_axis_modifier == nothing
+    if rows_axis_modifier === nothing
+        if columns_axis_modifier === nothing
             return lookup_matrix(query_state, named_matrix, rows_axis_state, columns_axis_state, dependency_keys)
         elseif columns_axis_modifier isa Int
             return lookup_matrix_slice(
@@ -1963,7 +1927,7 @@ function lookup_axes(query_state::QueryState, lookup::Lookup)::Nothing
         end
 
     elseif rows_axis_modifier isa Int
-        if columns_axis_modifier == nothing
+        if columns_axis_modifier === nothing
             return lookup_matrix_slice(
                 query_state,
                 named_matrix[rows_axis_modifier, :],
@@ -1986,7 +1950,7 @@ function lookup_axes(query_state::QueryState, lookup::Lookup)::Nothing
         end
 
     elseif rows_axis_modifier isa Vector{Bool}
-        if columns_axis_modifier == nothing
+        if columns_axis_modifier === nothing
             return lookup_matrix(
                 query_state,
                 named_matrix[rows_axis_modifier, :],
@@ -2091,11 +2055,11 @@ end
 
 function parse_if_missing_value(query_state::QueryState)::Union{UndefInitializer, StorageScalar}
     if_missing = get_next_operation(query_state, IfMissing)
-    if if_missing == nothing
+    if if_missing === nothing
         if_missing_value = undef
     else
         @assert if_missing isa IfMissing
-        if_missing_value = value_for_if_missing(if_missing)
+        if_missing_value = value_for_if_missing(query_state, if_missing)
     end
     return if_missing_value
 end
@@ -2165,31 +2129,31 @@ function fetch_property(query_state::QueryState, axis_state::AxisState, fetch_op
         if_missing = get_next_operation(query_state, IfMissing)
         if_not = get_next_operation(query_state, IfNot)
 
-        if peek_next_operation(query_state, AsAxis) != nothing &&
-           peek_next_operation(query_state, Fetch; skip = 1) != nothing
+        if peek_next_operation(query_state, AsAxis) !== nothing &&
+           peek_next_operation(query_state, Fetch; skip = 1) !== nothing
             as_axis = get_next_operation(query_state, AsAxis)
-            @assert as_axis != nothing
+            @assert as_axis !== nothing
         else
             as_axis = nothing
         end
 
         next_fetch_operation = peek_next_operation(query_state, Fetch)
-        is_final = next_fetch_operation == nothing
-        if is_final && if_not != nothing
+        is_final = next_fetch_operation === nothing
+        if is_final && if_not !== nothing
             error_unexpected_operation(query_state)
         end
 
-        if if_missing == nothing
+        if if_missing === nothing
             if_missing_value = undef
             default_value = undef
         else
             @assert if_missing isa IfMissing
-            if_missing_value = value_for_if_missing(if_missing)
+            if_missing_value = value_for_if_missing(query_state, if_missing)
             default_value = nothing
         end
         next_named_vector = get_vector(query_state.daf, fetch_axis_name, fetch_property_name; default = default_value)
 
-        if !is_final && next_named_vector != nothing && !(eltype(next_named_vector) <: AbstractString)
+        if !is_final && next_named_vector !== nothing && !(eltype(next_named_vector) <: AbstractString)
             query_state.next_operation_index += 1
             error_at_state(
                 query_state,
@@ -2213,7 +2177,7 @@ function fetch_property(query_state::QueryState, axis_state::AxisState, fetch_op
         fetch_state.common.axis_name = fetch_axis_name
         fetch_state.common.property_name = fetch_property_name
 
-        if next_fetch_operation == nothing
+        if next_fetch_operation === nothing
             base_query_operations = fetch_state.common.base_query_sequence.query_operations
             fetch_query_operations =
                 query_state.query_sequence.query_operations[(fetch_state.common.first_operation_index):(query_state.next_operation_index - 1)]
@@ -2233,21 +2197,21 @@ function fake_fetch_property(fake_query_state::FakeQueryState, fake_axis_state::
         get_next_operation(fake_query_state, IfMissing)
         if_not = get_next_operation(fake_query_state, IfNot)
 
-        if peek_next_operation(fake_query_state, AsAxis) != nothing &&
-           peek_next_operation(fake_query_state, Fetch; skip = 1) != nothing
+        if peek_next_operation(fake_query_state, AsAxis) !== nothing &&
+           peek_next_operation(fake_query_state, Fetch; skip = 1) !== nothing
             as_axis = get_next_operation(fake_query_state, AsAxis)
-            @assert as_axis != nothing
+            @assert as_axis !== nothing
         else
             as_axis = nothing
         end
 
         next_fetch_operation = peek_next_operation(fake_query_state, Fetch)
-        is_final = next_fetch_operation == nothing
-        if is_final && if_not != nothing
+        is_final = next_fetch_operation === nothing
+        if is_final && if_not !== nothing
             error_unexpected_operation(fake_query_state)
         end
 
-        if next_fetch_operation == nothing
+        if next_fetch_operation === nothing
             if fake_axis_state.is_entry
                 push!(fake_query_state.stack, FakeScalarState())
             else
@@ -2261,9 +2225,9 @@ function fake_fetch_property(fake_query_state::FakeQueryState, fake_axis_state::
 end
 
 function axis_of_property(daf::DafReader, property_name::AbstractString, as_axis::Maybe{AsAxis})::AbstractString
-    if as_axis != nothing
+    if as_axis !== nothing
         axis_name = as_axis.axis_name
-        if axis_name != nothing
+        if axis_name !== nothing
             return axis_name
         end
     end
@@ -2286,11 +2250,11 @@ function next_fetch_state(
     as_axis::Maybe{AsAxis},
     is_final::Bool,
 )::Nothing
-    if entry_fetch_state.if_not_value != nothing
+    if entry_fetch_state.if_not_value !== nothing
         scalar_value =
             if_not_scalar_value(query_state, entry_fetch_state, next_named_vector, if_missing_value, is_final)
 
-    elseif next_named_vector == nothing
+    elseif next_named_vector === nothing
         scalar_value = missing_scalar_value(entry_fetch_state, if_missing_value, is_final)
 
     else
@@ -2320,14 +2284,14 @@ function if_not_scalar_value(
     if !is_final
         return nothing
     else
-        if next_named_vector == nothing
+        if next_named_vector === nothing
             @assert if_missing_value != undef
             dtype = typeof(if_missing_value)
         else
             dtype = eltype(next_named_vector)
         end
         if_not_value = entry_fetch_state.if_not_value
-        @assert if_not_value != nothing
+        @assert if_not_value !== nothing
         return value_for(query_state, dtype, if_not_value)  # NOJET
     end
 end
@@ -2341,7 +2305,7 @@ function missing_scalar_value(
     if is_final
         return if_missing_value
     else
-        @assert entry_fetch_state.if_not_value == nothing
+        @assert entry_fetch_state.if_not_value === nothing
         entry_fetch_state.if_not_value = if_missing_value  # NOJET
         return nothing
     end
@@ -2358,7 +2322,7 @@ function entry_scalar_value(
     is_final::Bool,
 )::Maybe{StorageScalar}
     previous_scalar_value = entry_fetch_state.scalar_value
-    if previous_scalar_value == nothing
+    if previous_scalar_value === nothing
         scalar_value = next_named_vector.array[entry_fetch_state.axis_entry_index]
 
     else
@@ -2366,7 +2330,7 @@ function entry_scalar_value(
         @assert previous_scalar_value != ""
 
         index_in_fetched = get(next_named_vector.dicts[1], previous_scalar_value, nothing)
-        if index_in_fetched == nothing
+        if index_in_fetched === nothing
             error_at_state(
                 query_state,
                 "invalid value: $(previous_scalar_value)\n" *
@@ -2378,7 +2342,7 @@ function entry_scalar_value(
         scalar_value = next_named_vector[index_in_fetched]
     end
 
-    if if_not != nothing && (scalar_value == "" || scalar_value == 0 || scalar_value == false)
+    if if_not !== nothing && (scalar_value == "" || scalar_value == 0 || scalar_value == false)
         @assert !is_final
         entry_fetch_state.if_not_value = if_not.not_value
         scalar_value = nothing
@@ -2386,7 +2350,7 @@ function entry_scalar_value(
 
     if !is_final && scalar_value == ""
         fetch = get_next_operation(query_state, Fetch)
-        @assert fetch != nothing
+        @assert fetch !== nothing
         next_axis_name = axis_of_property(query_state.daf, fetch_property_name, as_axis)
         error_at_state(
             query_state,
@@ -2411,7 +2375,7 @@ function next_fetch_state(
     is_final::Bool,
 )::Nothing
     previous_named_vector = vector_fetch_state.named_vector
-    if previous_named_vector == nothing
+    if previous_named_vector === nothing
         base_named_vector, fetched_values =
             fetch_first_named_vector(query_state, vector_fetch_state, next_named_vector, if_missing_value)
     else
@@ -2428,7 +2392,7 @@ function next_fetch_state(
 
     if_not_values = vector_fetch_state.if_not_values
 
-    if if_not != nothing
+    if if_not !== nothing
         base_named_vector, fetched_values =
             patch_fetched_values(vector_fetch_state, base_named_vector, fetched_values, if_not_values, if_not)
     elseif !is_final
@@ -2447,13 +2411,13 @@ function fetch_first_named_vector(
     next_named_vector::Maybe{NamedVector},
     if_missing_value::Union{UndefInitializer, StorageScalar},
 )::Tuple{NamedVector, StorageVector}
-    @assert vector_fetch_state.if_not_values == nothing
+    @assert vector_fetch_state.if_not_values === nothing
     axis_mask = vector_fetch_state.common.axis_state.axis_modifier
 
-    if next_named_vector == nothing
+    if next_named_vector === nothing
         base_named_vector = get_vector(query_state.daf, vector_fetch_state.common.axis_state.axis_name, "name")
         @assert if_missing_value != undef
-        if axis_mask == nothing
+        if axis_mask === nothing
             size = axis_length(query_state.daf, vector_fetch_state.common.axis_state.axis_name)
         else
             @assert axis_mask isa Vector{Bool}
@@ -2469,7 +2433,7 @@ function fetch_first_named_vector(
 
     else
         base_named_vector = next_named_vector
-        if axis_mask == nothing
+        if axis_mask === nothing
             vector_fetch_state.may_modify_named_vector = false
         else
             @assert axis_mask isa Vector{Bool}
@@ -2492,17 +2456,15 @@ function fetch_second_named_vector(
 )::StorageVector
     @assert eltype(previous_named_vector) <: AbstractString
 
-    axis_mask = vector_fetch_state.common.axis_state.axis_modifier
     vector_fetch_state.may_modify_named_vector = true
 
-    if next_named_vector == nothing
+    if next_named_vector === nothing
         @assert if_missing_value != undef
         fetched_values = Vector{typeof(if_missing_value)}(undef, length(previous_named_vector))
         if_not_values = ensure_if_not_values(vector_fetch_state, length(previous_named_vector))
         if_not = IfNot(if_missing_value)
-        for index in 1:length(if_not_values)
-            if_not_value = if_not_values[index]
-            if if_not_value == nothing
+        for (index, if_not_value) in enumerate(if_not_values)
+            if if_not_value === nothing
                 if_not_values[index] = if_not
             end
         end
@@ -2510,13 +2472,14 @@ function fetch_second_named_vector(
         fetched_values = Vector{eltype(next_named_vector)}(undef, length(previous_named_vector))
         if_not_values = vector_fetch_state.if_not_values
 
-        for index in 1:length(previous_named_vector)
-            if if_not_values == nothing || if_not_values[index] == nothing
+        n_values = length(previous_named_vector)
+        for index in 1:n_values
+            if if_not_values === nothing || if_not_values[index] === nothing
                 previous_value = previous_named_vector[index]
                 @assert previous_value != ""
 
                 index_in_fetch = get(next_named_vector.dicts[1], previous_value, nothing)
-                if index_in_fetch == nothing
+                if index_in_fetch === nothing
                     error_at_state(
                         query_state,
                         "invalid value: $(previous_value)\n" *
@@ -2542,11 +2505,11 @@ function patch_fetched_values(
     if_not::IfNot,
 )::Tuple{NamedVector, StorageVector}
     fetched_mask = nothing
-    for index in 1:length(fetched_values)
-        if if_not_values == nothing || if_not_values[index] == nothing
-            fetched_value = fetched_values[index]
-            if fetched_value == "" || fetched_value == 0 || fetched_value == false
-                if if_not.not_value == nothing
+    n_values = length(fetched_values)
+    for index in 1:n_values
+        if if_not_values === nothing || if_not_values[index] === nothing
+            if fetched_values[index] in ("", 0, false)
+                if if_not.not_value === nothing
                     fetched_mask = ensure_fetched_mask(fetched_mask, length(fetched_values))
                     fetched_mask[index] = false
                 else
@@ -2557,9 +2520,9 @@ function patch_fetched_values(
         end
     end
 
-    if fetched_mask != nothing
+    if fetched_mask !== nothing
         axis_mask = vector_fetch_state.common.axis_state.axis_modifier
-        if axis_mask == nothing
+        if axis_mask === nothing
             axis_mask = fetched_mask
         else
             @assert axis_mask isa Vector{Bool}
@@ -2576,15 +2539,15 @@ function patch_fetched_values(
 
         base_named_vector = base_named_vector[fetched_mask]
         if_not_values = vector_fetch_state.if_not_values
-        if if_not_values == nothing
+        if if_not_values === nothing
             fetched_values = fetched_values[fetched_mask]
         else
             masked_fetched_values = Vector{eltype(fetched_values)}(undef, sum(fetched_mask))
             masked_index = 0
-            for unmasked_index in 1:length(fetched_mask)
-                if fetched_mask[unmasked_index]
+            for (unmasked_index, is_fetched) in enumerate(fetched_mask)
+                if is_fetched
                     masked_index += 1
-                    if if_not_values[unmasked_index] == nothing
+                    if if_not_values[unmasked_index] === nothing
                         masked_fetched_values[masked_index] = fetched_values[unmasked_index]  # untested
                     end
                 end
@@ -2607,20 +2570,18 @@ function verify_fetched_values(
     as_axis::Maybe{AsAxis},
 )::Nothing
     @assert eltype(fetched_values) <: AbstractString
-    for index in 1:length(fetched_values)
-        if if_not_values == nothing || if_not_values[index] == nothing
-            fetched_value = fetched_values[index]
-            if fetched_value == ""
-                fetch = get_next_operation(query_state, Fetch)
-                @assert fetch != nothing
-                next_axis_name = axis_of_property(query_state.daf, fetch_property_name, as_axis)
-                error_at_state(
-                    query_state,
-                    "empty value of the vector: $(fetch_property_name)\n" *
-                    "of the axis: $(fetch_axis_name)\n" *
-                    "used for the fetched axis: $(next_axis_name)\n",
-                )
-            end
+    n_values = length(fetched_values)
+    for index in 1:n_values
+        if (if_not_values === nothing || if_not_values[index] === nothing) && fetched_values[index] == ""
+            fetch = get_next_operation(query_state, Fetch)
+            @assert fetch !== nothing
+            next_axis_name = axis_of_property(query_state.daf, fetch_property_name, as_axis)
+            error_at_state(
+                query_state,
+                "empty value of the vector: $(fetch_property_name)\n" *
+                "of the axis: $(fetch_axis_name)\n" *
+                "used for the fetched axis: $(next_axis_name)\n",
+            )
         end
     end
     return nothing
@@ -2628,7 +2589,7 @@ end
 
 function ensure_if_not_values(vector_fetch_state::VectorFetchState, size::Int)::Vector{Maybe{IfNot}}
     if_not_values = vector_fetch_state.if_not_values
-    if if_not_values == nothing
+    if if_not_values === nothing
         if_not_values = Vector{Maybe{IfNot}}(undef, size)
         fill!(if_not_values, nothing)
         vector_fetch_state.if_not_values = if_not_values
@@ -2637,7 +2598,7 @@ function ensure_if_not_values(vector_fetch_state::VectorFetchState, size::Int)::
 end
 
 function ensure_fetched_mask(fetched_mask::Maybe{Vector{Bool}}, size::Int)::Vector{Bool}
-    if fetched_mask == nothing
+    if fetched_mask === nothing
         fetched_mask = ones(Bool, size)
     end
     return fetched_mask
@@ -2649,7 +2610,7 @@ function fetch_result(
     fetch_query_sequence::QuerySequence,
 )::Nothing
     scalar_value = entry_fetch_state.scalar_value
-    @assert scalar_value != nothing
+    @assert scalar_value !== nothing
     push!(query_state.stack, ScalarState(fetch_query_sequence, entry_fetch_state.common.dependency_keys, scalar_value))
     return nothing
 end
@@ -2660,19 +2621,19 @@ function fetch_result(
     fetch_query_sequence::QuerySequence,
 )::Nothing
     named_vector = fetch_state.named_vector
-    @assert named_vector != nothing
+    @assert named_vector !== nothing
 
     if_not_values = fetch_state.if_not_values
-    if if_not_values != nothing
+    if if_not_values !== nothing
         if !fetch_state.may_modify_named_vector
             named_vector.array = copy(named_vector.array)  # untested
         end
 
         for index in 1:length(named_vector)
             if_not = if_not_values[index]
-            if if_not != nothing
+            if if_not !== nothing
                 if_not_value = if_not.not_value
-                @assert if_not_value != nothing
+                @assert if_not_value !== nothing
                 named_vector.array[index] = value_for(query_state, eltype(named_vector), if_not_value)
             end
         end
@@ -2712,7 +2673,7 @@ function apply_query_operation!(query_state::QueryState, mask_operation::MaskOpe
     return error_unexpected_operation(query_state)
 end
 
-function fake_query_operation!(fake_query_state::FakeQueryState, mask_operation::MaskOperation)::Nothing
+function fake_query_operation!(fake_query_state::FakeQueryState, ::MaskOperation)::Nothing
     if has_top(fake_query_state, (FakeAxisState,))
         fake_axis_state = pop!(fake_query_state.stack)
         @assert fake_axis_state isa FakeAxisState
@@ -2731,7 +2692,7 @@ end
 
 function apply_comparison(query_state::QueryState)::Nothing
     comparison_operation = get_next_operation(query_state, ComparisonOperation)
-    if comparison_operation == nothing
+    if comparison_operation === nothing
         return nothing
     end
 
@@ -2742,7 +2703,7 @@ function apply_comparison(query_state::QueryState)::Nothing
     if comparison_operation isa MatchOperation
         if !(eltype(vector_state.named_vector) <: AbstractString)
             axis_state = vector_state.axis_state
-            @assert axis_state != nothing
+            @assert axis_state !== nothing
             error_at_state(
                 query_state,
                 "matching non-string vector: $(eltype(vector_state.named_vector))\n" *
@@ -2779,7 +2740,7 @@ function apply_mask_to_axis_state(
     @assert mask_vector isa Union{Vector{Bool}, BitVector}
 
     axis_mask = axis_state.axis_modifier
-    if axis_mask == nothing
+    if axis_mask === nothing
         axis_mask = ones(Bool, length(mask_vector))
         axis_state.axis_modifier = axis_mask
     end
@@ -2794,7 +2755,7 @@ function apply_query_operation!(query_state::QueryState, as_axis::AsAxis)::Nothi
     if is_all(query_state, (VectorState,))
         vector_state = query_state.stack[1]
         @assert vector_state isa VectorState
-        if !vector_state.is_processed && peek_next_operation(query_state, CountBy) != nothing
+        if !vector_state.is_processed && peek_next_operation(query_state, CountBy) !== nothing
             push!(query_state.stack, as_axis)
             return nothing
         end
@@ -2803,11 +2764,11 @@ function apply_query_operation!(query_state::QueryState, as_axis::AsAxis)::Nothi
     return error_unexpected_operation(query_state)
 end
 
-function fake_query_operation!(fake_query_state::FakeQueryState, as_axis::AsAxis)::Nothing
+function fake_query_operation!(fake_query_state::FakeQueryState, ::AsAxis)::Nothing
     if is_all(fake_query_state, (FakeVectorState,))
         fake_vector_state = fake_query_state.stack[1]
         @assert fake_vector_state isa FakeVectorState
-        if !fake_vector_state.is_processed && peek_next_operation(fake_query_state, CountBy) != nothing
+        if !fake_vector_state.is_processed && peek_next_operation(fake_query_state, CountBy) !== nothing
             return nothing
         end
     end
@@ -2839,13 +2800,13 @@ function fetch_count_by(query_state::QueryState, count_by::CountBy, rows_as_axis
     rows_vector_state = pop!(query_state.stack)
     @assert rows_vector_state isa VectorState
     rows_axis_state = rows_vector_state.axis_state
-    @assert rows_axis_state != nothing
+    @assert rows_axis_state !== nothing
 
     fetch_property(query_state, rows_axis_state, count_by)
     columns_vector_state = pop!(query_state.stack)
     @assert columns_vector_state isa VectorState
     columns_axis_state = columns_vector_state.axis_state
-    @assert columns_axis_state != nothing
+    @assert columns_axis_state !== nothing
 
     columns_as_axis = get_next_operation(query_state, AsAxis)
 
@@ -2853,8 +2814,8 @@ function fetch_count_by(query_state::QueryState, count_by::CountBy, rows_as_axis
     rows_name, rows_values, rows_index_of_value = unique_values(query_state, rows_vector_state, rows_as_axis, true)
     columns_name, columns_values, columns_index_of_value =
         unique_values(query_state, columns_vector_state, columns_as_axis, true)
-    @assert rows_index_of_value != nothing
-    @assert columns_index_of_value != nothing
+    @assert rows_index_of_value !== nothing
+    @assert columns_index_of_value !== nothing
 
     rows_names = values_to_names(rows_values)
     columns_names = values_to_names(columns_values)
@@ -2884,7 +2845,7 @@ function fetch_count_by(query_state::QueryState, count_by::CountBy, rows_as_axis
     return nothing
 end
 
-function fake_fetch_count_by(fake_query_state::FakeQueryState, count_by::CountBy)::Nothing
+function fake_fetch_count_by(fake_query_state::FakeQueryState, ::CountBy)::Nothing
     rows_vector_state = pop!(fake_query_state.stack)
     @assert rows_vector_state isa FakeVectorState
 
@@ -2900,32 +2861,32 @@ end
 
 function apply_mask_to_base_vector_state(base_vector_state::VectorState, masked_vector_state::VectorState)::Nothing
     base_axis_state = base_vector_state.axis_state
-    @assert base_axis_state != nothing
+    @assert base_axis_state !== nothing
     base_axis_mask = base_axis_state.axis_modifier
 
     masked_axis_state = masked_vector_state.axis_state
-    @assert masked_axis_state != nothing
+    @assert masked_axis_state !== nothing
     masked_axis_mask = masked_axis_state.axis_modifier
 
     if base_axis_mask != masked_axis_mask
         @assert masked_axis_mask isa Vector{Bool}
-        @assert base_axis_mask == nothing || !any(masked_axis_mask .& .!base_axis_mask)  # NOJET
+        @assert base_axis_mask === nothing || !any(masked_axis_mask .& .!base_axis_mask)  # NOJET
         apply_mask_to_vector_state(base_vector_state, masked_axis_mask)
     end
 end
 
 function apply_mask_to_base_matrix_state(base_matrix_state::MatrixState, masked_vector_state::VectorState)::Nothing
     base_axis_state = base_matrix_state.rows_axis_state
-    @assert base_axis_state != nothing
+    @assert base_axis_state !== nothing
     base_axis_mask = base_axis_state.axis_modifier
 
     masked_axis_state = masked_vector_state.axis_state
-    @assert masked_axis_state != nothing
+    @assert masked_axis_state !== nothing
     masked_axis_mask = masked_axis_state.axis_modifier
 
     if base_axis_mask != masked_axis_mask
         @assert masked_axis_mask isa Vector{Bool}
-        @assert base_axis_mask == nothing || !any(masked_axis_mask .& .!base_axis_mask)
+        @assert base_axis_mask === nothing || !any(masked_axis_mask .& .!base_axis_mask)
         apply_mask_to_matrix_state_rows(base_matrix_state, masked_axis_mask)
     end
 end
@@ -2938,15 +2899,14 @@ function unique_values(
 )::Tuple{AbstractString, StorageVector, Maybe{Dict}}
     property_name = vector_state.property_name
 
-    if as_axis == nothing
+    if as_axis === nothing
         values = unique(vector_state.named_vector)
         sort!(values)
         if !need_index_of_values
             index_of_value = nothing
         else
             index_of_value = Dict{eltype(values), Int32}()
-            for index in 1:length(values)
-                value = values[index]
+            for (index, value) in enumerate(values)
                 index_of_value[value] = index
             end
         end
@@ -2982,12 +2942,10 @@ function compute_count_by(
 
     counts_matrix = zeros(matrix_type, length(rows_values), length(columns_values))
 
-    for index in 1:length(rows_vector)
-        @inbounds row_value = rows_vector[index]
-        @inbounds column_value = columns_vector[index]
+    for (row_value, column_value) in zip(rows_vector, columns_vector)
         row_index = get(rows_index_of_value, row_value, nothing)
         column_index = get(columns_index_of_value, column_value, nothing)
-        if row_index != nothing && column_index != nothing
+        if row_index !== nothing && column_index !== nothing
             @inbounds counts_matrix[row_index, column_index] += 1
         end
     end
@@ -2997,9 +2955,9 @@ end
 
 function apply_mask_to_vector_state(vector_state::VectorState, new_axis_mask::Vector{Bool})::Nothing
     axis_state = vector_state.axis_state
-    @assert axis_state != nothing
+    @assert axis_state !== nothing
     old_axis_mask = axis_state.axis_modifier
-    if old_axis_mask == nothing
+    if old_axis_mask === nothing
         vector_state.named_vector = vector_state.named_vector[new_axis_mask]
         axis_state.axis_modifier = new_axis_mask
     else
@@ -3012,9 +2970,9 @@ end
 
 function apply_mask_to_matrix_state_rows(matrix_state::MatrixState, new_rows_mask::Vector{Bool})::Nothing
     rows_axis_state = matrix_state.rows_axis_state
-    @assert rows_axis_state != nothing
+    @assert rows_axis_state !== nothing
     old_rows_mask = rows_axis_state.axis_modifier
-    if old_rows_mask == nothing
+    if old_rows_mask === nothing
         matrix_state.named_matrix = matrix_state.named_matrix[new_rows_mask, :]  # NOJET
         rows_axis_state.axis_modifier = new_rows_mask
     else
@@ -3035,7 +2993,7 @@ function apply_query_operation!(query_state::QueryState, group_by::GroupBy)::Not
     return error_unexpected_operation(query_state)
 end
 
-function fake_query_operation!(fake_query_state::FakeQueryState, group_by::GroupBy)::Nothing
+function fake_query_operation!(fake_query_state::FakeQueryState, ::GroupBy)::Nothing
     if is_all(fake_query_state, (FakeVectorState,))
         return fake_fetch_group_by_vector(fake_query_state)
     elseif is_all(fake_query_state, (FakeMatrixState,))
@@ -3049,10 +3007,10 @@ function fetch_group_by_vector(query_state::QueryState, group_by::GroupBy)::Noth
     values_vector_state = pop!(query_state.stack)
     @assert values_vector_state isa VectorState
     axis_state = values_vector_state.axis_state
-    @assert axis_state != nothing
+    @assert axis_state !== nothing
 
     parsed_group_by = parse_group_by(query_state, axis_state, group_by)
-    if parsed_group_by == nothing
+    if parsed_group_by === nothing
         return nothing
     end
     groups_vector_state, groups_values, groups_names, groups_name, reduction_operation, if_missing = parsed_group_by
@@ -3096,20 +3054,20 @@ function fetch_group_by_matrix(query_state::QueryState, group_by::GroupBy)::Noth
     values_matrix_state = pop!(query_state.stack)
     @assert values_matrix_state isa MatrixState
     axis_state = values_matrix_state.rows_axis_state
-    @assert axis_state != nothing
+    @assert axis_state !== nothing
 
     parsed_group_by = parse_group_by(query_state, axis_state, group_by)
-    if parsed_group_by == nothing
+    if parsed_group_by === nothing
         return nothing
     end
     groups_vector_state, groups_values, groups_names, groups_name, reduction_operation, if_missing = parsed_group_by
 
     columns_axis_state = values_matrix_state.columns_axis_state
-    @assert columns_axis_state != nothing
+    @assert columns_axis_state !== nothing
 
     columns_names = get_axis(query_state.daf, columns_axis_state.axis_name)
     axis_mask = columns_axis_state.axis_modifier
-    if axis_mask != nothing
+    if axis_mask !== nothing
         @assert axis_mask isa Vector{Bool}
         columns_names = columns_names[axis_mask]
     end
@@ -3162,19 +3120,18 @@ function parse_group_by(
     groups_as_axis = get_next_operation(query_state, AsAxis)
 
     reduction_operation = get_next_operation(query_state, ReductionOperation)
-    if reduction_operation == nothing
+    if reduction_operation === nothing
         push!(query_state.stack, group_by)
         return nothing
     end
 
-    if groups_as_axis == nothing
+    if groups_as_axis === nothing
         if_missing = nothing
     else
         if_missing = get_next_operation(query_state, IfMissing)
     end
 
-    groups_name, groups_values, groups_index_of_value =
-        unique_values(query_state, groups_vector_state, groups_as_axis, false)
+    groups_name, groups_values, _ = unique_values(query_state, groups_vector_state, groups_as_axis, false)
     groups_names = values_to_names(groups_values)
 
     return (groups_vector_state, groups_values, groups_names, groups_name, reduction_operation, if_missing)
@@ -3187,12 +3144,12 @@ function fake_parse_group_by(fake_query_state::FakeQueryState)::Bool
     groups_as_axis = get_next_operation(fake_query_state, AsAxis)
 
     reduction_operation = get_next_operation(fake_query_state, ReductionOperation)
-    if reduction_operation == nothing
+    if reduction_operation === nothing
         push!(fake_query_state.stack, FakeGroupBy())
         return false
     end
 
-    if groups_as_axis != nothing
+    if groups_as_axis !== nothing
         get_next_operation(fake_query_state, IfMissing)
     end
 
@@ -3210,10 +3167,10 @@ function compute_vector_group_by(
     dtype = reduction_result_type(reduction_operation, eltype(values_vector))
     results_vector = Vector{dtype}(undef, length(groups_values))
 
-    if if_missing == nothing
+    if if_missing === nothing
         empty_group_value = nothing
     else
-        empty_group_value = value_for_if_missing(if_missing; dtype = dtype)
+        empty_group_value = value_for_if_missing(query_state, if_missing; dtype = dtype)
     end
 
     collect_vector_group_by(
@@ -3224,7 +3181,6 @@ function compute_vector_group_by(
         groups_values,
         empty_group_value,
         reduction_operation,
-        if_missing,
     )
 
     return results_vector
@@ -3241,10 +3197,10 @@ function compute_matrix_group_by(
     dtype = reduction_result_type(reduction_operation, eltype(values_matrix))
     results_matrix = Matrix{dtype}(undef, length(groups_values), size(values_matrix)[2])
 
-    if if_missing == nothing
+    if if_missing === nothing
         empty_group_value = nothing
     else
-        empty_group_value = value_for_if_missing(if_missing; dtype = dtype)
+        empty_group_value = value_for_if_missing(query_state, if_missing; dtype = dtype)
     end
 
     @threads for column_index in 1:size(values_matrix)[2]
@@ -3258,7 +3214,6 @@ function compute_matrix_group_by(
             groups_values,
             empty_group_value,
             reduction_operation,
-            if_missing,
         )
     end  # untested
 
@@ -3273,15 +3228,15 @@ function collect_vector_group_by(
     groups_values::StorageVector,
     empty_group_value::Maybe{StorageScalar},
     reduction_operation::ReductionOperation,
-    if_missing::Maybe{IfMissing},
 )::Nothing
-    @threads for group_index in 1:length(groups_values)
+    n_groups = length(groups_values)
+    @threads for group_index in 1:n_groups
         group_value = groups_values[group_index]
         group_mask = groups_vector .== group_value
         values_of_group = values_vector[group_mask]
         if length(values_of_group) > 0
-            results_vector[group_index] = compute_reduction(reduction_operation, values_of_group)
-        elseif empty_group_value != nothing
+            results_vector[group_index] = compute_reduction(reduction_operation, values_of_group)  # NOLINT
+        elseif empty_group_value !== nothing
             results_vector[group_index] = empty_group_value
         else
             error_at_state(
@@ -3312,7 +3267,7 @@ function apply_query_operation!(query_state::QueryState, eltwise_operation::Eltw
     return error_unexpected_operation(query_state)
 end
 
-function fake_query_operation!(fake_query_state::FakeQueryState, eltwise_operation::EltwiseOperation)::Nothing
+function fake_query_operation!(fake_query_state::FakeQueryState, ::EltwiseOperation)::Nothing
     if is_all(fake_query_state, (FakeScalarState,)) ||
        is_all(fake_query_state, (FakeVectorState,)) ||
        is_all(fake_query_state, (FakeMatrixState,))
@@ -3334,7 +3289,7 @@ function eltwise_scalar(query_state::QueryState, eltwise_operation::EltwiseOpera
         )
     end
 
-    scalar_state.scalar_value = compute_eltwise(eltwise_operation, scalar_value)
+    scalar_state.scalar_value = compute_eltwise(eltwise_operation, scalar_value)  # NOLINT
 
     push!(query_state.stack, scalar_state)
     return nothing
@@ -3352,7 +3307,7 @@ function eltwise_vector(query_state::QueryState, eltwise_operation::EltwiseOpera
         )
     end
 
-    vector_value = compute_eltwise(eltwise_operation, vector_state.named_vector.array)
+    vector_value = compute_eltwise(eltwise_operation, vector_state.named_vector.array)  # NOLINT
     vector_state.named_vector =
         NamedArray(vector_value, vector_state.named_vector.dicts, vector_state.named_vector.dimnames)
     vector_state.is_processed = true
@@ -3365,7 +3320,7 @@ function eltwise_matrix(query_state::QueryState, eltwise_operation::EltwiseOpera
     matrix_state = pop!(query_state.stack)
     @assert matrix_state isa MatrixState
 
-    matrix_value = compute_eltwise(eltwise_operation, matrix_state.named_matrix.array)
+    matrix_value = compute_eltwise(eltwise_operation, matrix_state.named_matrix.array)  # NOLINT
     matrix_state.named_matrix =
         NamedArray(matrix_value, matrix_state.named_matrix.dicts, matrix_state.named_matrix.dimnames)
 
@@ -3387,7 +3342,7 @@ function apply_query_operation!(query_state::QueryState, reduction_operation::Re
     return error_unexpected_operation(query_state)
 end
 
-function fake_query_operation!(fake_query_state::FakeQueryState, reduction_operation::ReductionOperation)::Nothing
+function fake_query_operation!(fake_query_state::FakeQueryState, reduction_operation::ReductionOperation)::Nothing  # NOLINT
     if is_all(fake_query_state, (FakeVectorState,))
         fake_reduce_vector(fake_query_state)
         return nothing
@@ -3411,7 +3366,7 @@ function reduce_vector(query_state::QueryState, reduction_operation::ReductionOp
         )
     end
 
-    scalar_value = compute_reduction(reduction_operation, vector_state.named_vector.array)
+    scalar_value = compute_reduction(reduction_operation, vector_state.named_vector.array)  # NOLINT
 
     scalar_state = ScalarState(query_state.query_sequence, vector_state.dependency_keys, scalar_value)
     push!(query_state.stack, scalar_state)
@@ -3430,7 +3385,7 @@ function reduce_matrix(query_state::QueryState, reduction_operation::ReductionOp
     @assert matrix_state isa MatrixState
 
     named_matrix = matrix_state.named_matrix
-    vector_value = compute_reduction(reduction_operation, named_matrix.array)
+    vector_value = compute_reduction(reduction_operation, named_matrix.array)  # NOLINT
     named_vector = NamedArray(vector_value, named_matrix.dicts[2:2], named_matrix.dimnames[2:2])
 
     vector_state = VectorState(
@@ -3504,14 +3459,25 @@ function guess_typed_value(value::AbstractString)::StorageScalar
     return string(value)
 end
 
-function value_for_if_missing(if_missing::IfMissing; dtype::Maybe{Type} = nothing)::StorageScalar
-    if if_missing.dtype != nothing
+function value_for_if_missing(
+    query_state::QueryState,
+    if_missing::IfMissing;
+    dtype::Maybe{Type} = nothing,
+)::StorageScalar
+    if if_missing.dtype !== nothing
         @assert if_missing.missing_value isa if_missing.dtype
         return if_missing.missing_value
     end
 
-    @assert if_missing.missing_value isa AbstractString
-    return guess_typed_value(if_missing.missing_value)
+    if dtype === nothing
+        return guess_typed_value(if_missing.missing_value)
+    end
+
+    if if_missing.missing_value isa dtype
+        return if_missing.missing_value  # untested
+    end
+
+    return value_for(query_state, dtype, if_missing.missing_value)
 end
 
 function regex_for(query_state::QueryState, value::StorageScalar)::Regex
@@ -3527,7 +3493,7 @@ function regex_for(query_state::QueryState, value::StorageScalar)::Regex
     end
 end
 
-function value_for(query_state::QueryState, type::Type{T}, value::StorageScalar)::T where {T <: StorageScalar}
+function value_for(query_state::QueryState, ::Type{T}, value::StorageScalar)::T where {T <: StorageScalar}
     if value isa T
         return value
     elseif value isa AbstractString
@@ -3612,7 +3578,7 @@ function get_frame(
     row_names = get_query(daf, axis_query; cache = cache).array
     @assert row_names isa AbstractStringVector
 
-    if columns == nothing
+    if columns === nothing
         columns = sort!(collect(vector_names(daf, axis_name)))
         insert!(columns, 1, "name")
     end
@@ -3649,7 +3615,7 @@ function get_query_axis_name(fake_query_state::FakeQueryState)::AbstractString
     if is_all(fake_query_state, (FakeAxisState,))
         fake_axis_state = fake_query_state.stack[1]
         @assert fake_axis_state isa FakeAxisState
-        if fake_axis_state.axis_name != nothing && !fake_axis_state.is_entry
+        if fake_axis_state.axis_name !== nothing && !fake_axis_state.is_entry
             return fake_axis_state.axis_name
         end
     end

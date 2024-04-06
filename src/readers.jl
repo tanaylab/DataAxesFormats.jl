@@ -209,7 +209,7 @@ function get_axis(
 )::Maybe{AbstractStringVector}
     return with_read_lock(daf) do
         if !has_axis(daf, axis)
-            if default == nothing
+            if default === nothing
                 # @debug "get_axis! $(daf.name) / $(axis) -> $(describe(missing))"
                 return nothing
             else
@@ -330,7 +330,7 @@ function get_vector(
         end
 
         cached_vector = Formats.get_from_cache(daf, Formats.vector_cache_key(axis, name), StorageVector)
-        if cached_vector != nothing
+        if cached_vector !== nothing
             if eltype(cached_vector) <: AbstractString
                 cached_vector = as_read_only_array(cached_vector)
             end
@@ -346,7 +346,7 @@ function get_vector(
         default_suffix = ""
         vector = nothing
         if !Formats.format_has_vector(daf, axis, name)
-            if default == nothing
+            if default === nothing
                 @debug "get_vector $(daf.name) / $(axis) : $(name) -> $(describe(nothing))"
                 return nothing
             end
@@ -363,7 +363,7 @@ function get_vector(
             end
         end
 
-        if vector == nothing
+        if vector === nothing
             vector = Formats.get_vector_through_cache(daf, axis, name)
             if !(vector isa StorageVector)
                 error(  # untested
@@ -468,7 +468,7 @@ function matrix_names(
             first_relayout_cache_key = Formats.matrix_relayout_names_cache_key(rows_axis, columns_axis)
             names = Formats.get_from_cache(daf, first_relayout_cache_key, AbstractStringSet)
 
-            if names == nothing
+            if names === nothing
                 upgrade_to_write_lock(daf)
 
                 first_names = Formats.get_matrix_names_through_cache(daf, rows_axis, columns_axis)
@@ -569,7 +569,7 @@ function get_matrix(
 
         cached_matrix =
             Formats.get_from_cache(daf, Formats.matrix_cache_key(rows_axis, columns_axis, name), StorageMatrix)
-        if cached_matrix != nothing
+        if cached_matrix !== nothing
             return as_named_matrix(daf, rows_axis, columns_axis, cached_matrix)
         end
 
@@ -594,7 +594,7 @@ function get_matrix(
                     matrix = cache_entry.data
                 end
             else
-                if default == nothing
+                if default === nothing
                     @debug "get_matrix $(daf.name) / $(rows_axis) / $(columns_axis) : $(name) -> $(describe(nothing)) ?"
                     return nothing
                 end
@@ -620,7 +620,7 @@ function get_matrix(
             end
         end
 
-        if matrix == nothing
+        if matrix === nothing
             matrix = Formats.get_matrix_through_cache(daf, rows_axis, columns_axis, name)
             if !(matrix isa StorageMatrix)
                 error( # untested
@@ -772,7 +772,7 @@ function description(daf::DafReader, indent::AbstractString, lines::Vector{Strin
         vectors_description(daf, axes, indent, lines)
         matrices_description(daf, axes, indent, lines)
         if cache
-            cache_description(daf, axes, indent, lines)
+            cache_description(daf, indent, lines)
         end
     end
 
@@ -859,12 +859,7 @@ function matrices_description(
     return nothing
 end
 
-function cache_description(
-    daf::DafReader,
-    axes::AbstractStringVector,
-    indent::AbstractString,
-    lines::Vector{String},
-)::Nothing
+function cache_description(daf::DafReader, indent::AbstractString, lines::Vector{String})::Nothing
     is_first = true
     cache_keys = collect(keys(daf.internal.cache))
     sort!(cache_keys)
@@ -897,7 +892,7 @@ function base_array(array::NamedArray)::AbstractArray
 end
 
 function Messages.describe(daf::DafReader; name::Maybe{AbstractString} = nothing)::AbstractString
-    if name == nothing
+    if name === nothing
         name = daf.name
     end
     return "$(typeof(daf)) $(name)"
@@ -916,20 +911,20 @@ specific [`CacheType`](@ref) (e.g., for clearing only `QueryData`), or `keep`, t
 """
 function empty_cache!(daf::DafReader; clear::Maybe{CacheType} = nothing, keep::Maybe{CacheType} = nothing)::Nothing
     return with_write_lock(daf) do
-        @assert clear == nothing || keep == nothing
-        if clear == nothing && keep == nothing
+        @assert clear === nothing || keep === nothing
+        if clear === nothing && keep === nothing
             empty!(daf.internal.cache)
         else
             filter!(daf.internal.cache) do key_value
                 cache_type = key_value[2].cache_type
-                return cache_type == keep || (cache_type != clear && clear != nothing)
+                return cache_type == keep || (cache_type != clear && clear !== nothing)
             end
         end
 
         if isempty(daf.internal.cache)
             empty!(daf.internal.dependency_cache_keys)
         else
-            for (cache_key, dependent_keys) in daf.internal.dependency_cache_keys
+            for (_, dependent_keys) in daf.internal.dependency_cache_keys
                 filter(dependent_keys) do dependent_key
                     return haskey(daf.internal.cache, dependent_key)
                 end

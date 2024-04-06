@@ -80,9 +80,9 @@ function chain_reader(
         return read_only(dafs[1]; name = name)
     end
 
-    if name == nothing
+    if name === nothing
         name = join([daf.name for daf in dafs], ";")
-        @assert name != nothing
+        @assert name !== nothing
     end
 
     internal_dafs = reader_internal_dafs(dafs, name)
@@ -110,12 +110,12 @@ function chain_writer(dafs::AbstractVector{F}; name::Maybe{AbstractString} = not
         error("read-only final data: $(dafs[end].name)\n" * "in write chain$(name_suffix(name))")
     end
 
-    if name == nothing
+    if name === nothing
         if length(dafs) == 1
             return dafs[1]
         end
         name = join([daf.name for daf in dafs], ";")
-        @assert name != nothing
+        @assert name !== nothing
     end
 
     internal_dafs = reader_internal_dafs(dafs, name)
@@ -134,7 +134,7 @@ function reader_internal_dafs(dafs::AbstractVector{F}, name::AbstractString)::Ve
         for axis in axis_names(daf)
             new_axis_entries = get_axis(daf, axis)
             old_axis_entries = get(axes_entries, axis, nothing)
-            if old_axis_entries == nothing
+            if old_axis_entries === nothing
                 axes_entries[axis] = (daf.name, new_axis_entries)
             elseif new_axis_entries != old_axis_entries
                 error(
@@ -150,7 +150,7 @@ function reader_internal_dafs(dafs::AbstractVector{F}, name::AbstractString)::Ve
 end
 
 function name_suffix(name::Maybe{AbstractString})::String
-    if name == nothing
+    if name === nothing
         return ""
     else
         return ": $(name)"
@@ -180,7 +180,7 @@ function Formats.format_delete_scalar!(chain::WriteChain, name::AbstractString; 
                 error(
                     "failed to delete the scalar: $(name)\n" *
                     "from the daf data: $(chain.daf.name)\n" *
-                    "of the chain: $(chain.name)\n" *
+                    "of the chain: $(chain.name)\n" *  # NOLINT
                     "because it exists in the earlier: $(daf.name)",
                 )
             end
@@ -224,7 +224,7 @@ function Formats.format_delete_axis!(chain::WriteChain, axis::AbstractString)::N
             error(
                 "failed to delete the axis: $(axis)\n" *
                 "from the daf data: $(chain.daf.name)\n" *
-                "of the chain: $(chain.name)\n" *
+                "of the chain: $(chain.name)\n" *  # NOLINT
                 "because it exists in the earlier: $(daf.name)",
             )
         end
@@ -327,7 +327,7 @@ function Formats.format_delete_vector!(
                     "failed to delete the vector: $(name)\n" *
                     "of the axis: $(axis)\n" *
                     "from the daf data: $(chain.daf.name)\n" *
-                    "of the chain: $(chain.name)\n" *
+                    "of the chain: $(chain.name)\n" *  # NOLINT
                     "because it exists in the earlier: $(daf.name)",
                 )
             end
@@ -461,7 +461,7 @@ function Formats.format_delete_matrix!(
                     "for the rows axis: $(rows_axis)\n" *
                     "and the columns axis: $(columns_axis)\n" *
                     "from the daf data: $(chain.daf.name)\n" *
-                    "of the chain: $(chain.name)\n" *
+                    "of the chain: $(chain.name)\n" *  # NOLINT
                     "because it exists in the earlier: $(daf.name)",
                 )
             end
@@ -506,12 +506,12 @@ function Formats.format_get_matrix(
     @assert false
 end
 
-function Formats.format_description_header(chain::ReadOnlyChain, indent::AbstractString, lines::Vector{String})::Nothing
+function Formats.format_description_header(::ReadOnlyChain, indent::AbstractString, lines::Vector{String})::Nothing
     push!(lines, "$(indent)type: ReadOnly Chain")
     return nothing
 end
 
-function Formats.format_description_header(chain::WriteChain, indent::AbstractString, lines::Vector{String})::Nothing
+function Formats.format_description_header(::WriteChain, indent::AbstractString, lines::Vector{String})::Nothing
     push!(lines, "$(indent)type: Write Chain")
     return nothing
 end
@@ -546,21 +546,21 @@ function Formats.format_increment_version_counter(chain::WriteChain, version_key
 end
 
 function Messages.describe(value::ReadOnlyChain; name::Maybe{AbstractString} = nothing)::String
-    if name == nothing
-        name = value.name
+    if name === nothing
+        name = value.name  # NOLINT
     end
     return "ReadOnly Chain $(name)"
 end
 
 function Messages.describe(value::WriteChain; name::Maybe{AbstractString} = nothing)::String
-    if name == nothing
-        name = value.name
+    if name === nothing
+        name = value.name  # NOLINT
     end
     return "Write Chain $(name)"
 end
 
 function ReadOnly.read_only(daf::ReadOnlyChain; name::Maybe{AbstractString} = nothing)::ReadOnlyChain
-    if name == nothing
+    if name === nothing
         return daf
     else
         return ReadOnlyChain(Formats.renamed_internal(daf.internal, name), daf.dafs)

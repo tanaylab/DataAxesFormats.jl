@@ -117,7 +117,7 @@ function adapter(
 end
 
 function get_adapter_capture_name(view::Union{DafWriter, DafReadOnly}; name::Maybe{AbstractString})::AbstractString
-    _base, prefix = get_base(view, name)
+    _, prefix = get_base(view, name)
     return prefix * ".capture"
 end
 
@@ -126,7 +126,7 @@ function get_adapter_input(
     name::Maybe{AbstractString},
     writer::DafWriter,
 )::DafWriter
-    _base, prefix = get_base(view, name)
+    _, prefix = get_base(view, name)
     return chain_writer([view, writer]; name = "$(prefix).adapted")
 end
 
@@ -153,7 +153,7 @@ function get_base(view::Union{DafWriter, DafReadOnly}, name::Maybe{AbstractStrin
         @assert base isa DafWriter
     end
 
-    if name == nothing
+    if name === nothing
         prefix = base.name
     else
         prefix = name  # untested

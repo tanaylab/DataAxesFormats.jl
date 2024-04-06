@@ -182,13 +182,13 @@ function concatenate(
 
     @assert length(sources) > 0
 
-    if names == nothing
+    if names === nothing
         names = [source.name for source in sources]
     end
     @assert length(names) == length(sources)
     @assert allunique(names)
 
-    if dataset_axis != nothing
+    if dataset_axis !== nothing
         @assert !(dataset_axis in axes)
         require_no_axis(destination, dataset_axis)
         for source in sources
@@ -206,9 +206,9 @@ function concatenate(
     if prefixed isa AbstractStringSet
         prefixed = [prefixed]
     end
-    @assert prefixed == nothing || length(prefixed) == length(axes)
+    @assert prefixed === nothing || length(prefixed) == length(axes)
 
-    @assert empty == nothing || !(CollectAxis in values(empty)) || dataset_axis != nothing
+    @assert empty === nothing || !(CollectAxis in values(empty)) || dataset_axis !== nothing
 
     axes_set = Set(axes)
     other_axes_entry_names = Dict{AbstractString, Tuple{AbstractString, AbstractStringVector}}()
@@ -217,7 +217,7 @@ function concatenate(
             if !(axis_name in axes_set)
                 other_axis_entry_names = get_axis(source, axis_name)
                 previous_axis_data = get(other_axes_entry_names, axis_name, nothing)
-                if previous_axis_data == nothing
+                if previous_axis_data === nothing
                     other_axes_entry_names[axis_name] = (source.name, other_axis_entry_names)
                 else
                     (previous_source_name, previous_axis_entry_names) = previous_axis_data
@@ -235,7 +235,7 @@ function concatenate(
     end
     other_axes_set = keys(other_axes_entry_names)
 
-    if dataset_axis != nothing
+    if dataset_axis !== nothing
         add_axis!(destination, dataset_axis, names)
     end
 
@@ -243,22 +243,22 @@ function concatenate(
         add_axis!(destination, other_axis, other_axis_entry_names[2])
     end
 
-    for axis_index in 1:length(axes)
-        if prefixed == nothing
+    for (axis_index, (axis, prefix)) in enumerate(zip(axes, prefixes))
+        if prefixed === nothing
             axis_prefixed = nothing
         else
             axis_prefixed = prefixed[axis_index]
         end
         concatenate_axis(
             destination,
-            axes[axis_index],
+            axis,
             sources;
             axes = axes,
             other_axes_set = other_axes_set,
             names = names,
             dataset_axis = dataset_axis,
             dataset_property = dataset_property,
-            prefix = prefixes[axis_index],
+            prefix,
             prefixes = prefixes,
             prefixed = axis_prefixed,
             empty = empty,
@@ -267,13 +267,12 @@ function concatenate(
         )
     end
 
-    if merge != nothing
+    if merge !== nothing
         concatenate_merge(
             destination,
             sources;
             dataset_axis = dataset_axis,
             other_axes_set = other_axes_set,
-            names = names,
             empty = empty,
             merge = merge,
             sparse_if_saves_storage_fraction = sparse_if_saves_storage_fraction,
@@ -318,7 +317,7 @@ function concatenate_axis(
         concatenated_axis_size = concatenated_axis_size,
     )
 
-    if dataset_axis != nothing && dataset_property
+    if dataset_axis !== nothing && dataset_property
         concatenate_axis_dataset_property(
             destination,
             axis;
@@ -337,7 +336,7 @@ function concatenate_axis(
     end
 
     for vector_property in vector_properties_set
-        if prefixed != nothing
+        if prefixed !== nothing
             prefix_axis = vector_property in prefixed
         else
             prefix_axis = false
@@ -389,7 +388,6 @@ function concatenate_axis(
                 sparse_if_saves_storage_fraction = sparse_if_saves_storage_fraction,
                 offsets = offsets,
                 sizes = sizes,
-                concatenated_axis_size = concatenated_axis_size,
                 overwrite = overwrite,
             )
         end
@@ -409,22 +407,16 @@ function concatenate_axis_entry_names(
     concatenated_axis_size::Integer,
 )::Nothing
     axis_entry_names = Vector{AbstractString}(undef, concatenated_axis_size)
-
-    if prefix
-        @threads for index in 1:length(sources)
-            source = sources[index]
-            offset = offsets[index]
-            size = sizes[index]
+    n_sources = length(sources)
+    @threads for index in 1:n_sources
+        source = sources[index]
+        offset = offsets[index]
+        size = sizes[index]
+        from_axis_entry_names = get_axis(source, axis)
+        if prefix
             name = names[index]
-            from_axis_entry_names = get_axis(source, axis)
             axis_entry_names[(offset + 1):(offset + size)] = (name * ".") .* from_axis_entry_names
-        end
-    else
-        @threads for index in 1:length(sources)
-            source = sources[index]
-            offset = offsets[index]
-            size = sizes[index]
-            from_axis_entry_names = get_axis(source, axis)
+        else
             axis_entry_names[(offset + 1):(offset + size)] .= from_axis_entry_names[:]
         end
     end
@@ -446,7 +438,8 @@ function concatenate_axis_dataset_property(
 )::Nothing
     axis_datasets = Vector{AbstractString}(undef, concatenated_axis_size)
 
-    @threads for index in 1:length(names)
+    n_sources = length(offsets)
+    @threads for index in 1:n_sources
         offset = offsets[index]
         size = sizes[index]
         name = names[index]
@@ -494,7 +487,7 @@ function concatenate_axis_vector(
         @assert empty_value isa Maybe{StorageScalar}
         sparse_saves = sparse_storage_fraction(empty_value, dtype, sizes, vectors, 1, 1)  # NOJET
         if sparse_saves >= sparse_if_saves_storage_fraction
-            @assert empty_value == nothing || empty_value == 0
+            @assert empty_value === nothing || empty_value == 0
             sparse_vectors = sparsify_vectors(vectors, dtype, sizes)
             concatenate_axis_sparse_vectors(
                 destination,
@@ -502,9 +495,7 @@ function concatenate_axis_vector(
                 vector_property;
                 dtype = dtype,
                 offsets = offsets,
-                sizes = sizes,
                 vectors = sparse_vectors,
-                concatenated_axis_size = concatenated_axis_size,
                 overwrite = overwrite,
             )
 
@@ -543,13 +534,14 @@ function concatenate_axis_string_vectors(
 )::Nothing
     concatenated_vector = Vector{AbstractString}(undef, concatenated_axis_size)
 
-    @threads for index in 1:length(vectors)
+    n_sources = length(sources)
+    @threads for index in 1:n_sources
+        vector = vectors[index]
         source = sources[index]
         offset = offsets[index]
         size = sizes[index]
         name = names[index]
-        vector = vectors[index]
-        if vector == nothing
+        if vector === nothing
             concatenated_vector[(offset + 1):(offset + size)] .=
                 require_empty_value_for_vector(empty_value, vector_property, axis, source, destination)
         else
@@ -575,19 +567,18 @@ function concatenate_axis_sparse_vectors(
     vector_property::AbstractString;
     dtype::Type,
     offsets::AbstractVector{<:Integer},
-    sizes::AbstractVector{<:Integer},
     vectors::AbstractVector{<:SparseVector},
-    concatenated_axis_size::Integer,
     overwrite::Bool,
 )::Nothing
     nnz_offsets, nnz_sizes, total_nnz = nnz_arrays(vectors)
 
     empty_sparse_vector!(destination, axis, vector_property, dtype, total_nnz; overwrite = overwrite) do nzind, nzval
-        @threads for index in 1:length(vectors)
+        n_sources = length(vectors)
+        @threads for index in 1:n_sources
+            vector = vectors[index]
             offset = offsets[index]
             nnz_offset = nnz_offsets[index]
             nnz_size = nnz_sizes[index]
-            vector = vectors[index]
             nzval[(nnz_offset + 1):(nnz_offset + nnz_size)] = vector.nzval
             nzind[(nnz_offset + 1):(nnz_offset + nnz_size)] = vector.nzind
             nzind[(nnz_offset + 1):(nnz_offset + nnz_size)] .+= offset
@@ -610,12 +601,13 @@ function concatenate_axis_dense_vectors(
     overwrite::Bool,
 )::Nothing
     empty_dense_vector!(destination, axis, vector_property, dtype; overwrite = overwrite) do concatenated_vector
-        @threads for index in 1:length(vectors)
+        n_sources = length(sources)
+        @threads for index in 1:n_sources
             source = sources[index]
+            vector = vectors[index]
             offset = offsets[index]
             size = sizes[index]
-            vector = vectors[index]
-            if vector == nothing
+            if vector === nothing
                 concatenated_vector[(offset + 1):(offset + size)] .=
                     require_empty_value_for_vector(empty_value, vector_property, axis, source, destination)
             else
@@ -639,7 +631,6 @@ function concatenate_axis_matrix(
     sparse_if_saves_storage_fraction::AbstractFloat,
     offsets::AbstractVector{<:Integer},
     sizes::AbstractVector{<:Integer},
-    concatenated_axis_size::Integer,
     overwrite::Bool,
 )::Nothing
     matrices = [get_matrix(source, other_axis, axis, matrix_property; default = nothing) for source in sources]
@@ -648,7 +639,7 @@ function concatenate_axis_matrix(
     nrows = axis_length(destination, other_axis)
     sparse_saves = sparse_storage_fraction(empty_value, dtype, sizes, matrices, axis_length(destination, other_axis), 2)
     if sparse_saves >= sparse_if_saves_storage_fraction
-        @assert empty_value == nothing || empty_value == 0
+        @assert empty_value === nothing || empty_value == 0
         sparse_matrices = sparsify_matrices(matrices, dtype, nrows, sizes)
         concatenate_axis_sparse_matrices(
             destination,
@@ -659,7 +650,6 @@ function concatenate_axis_matrix(
             offsets = offsets,
             sizes = sizes,
             matrices = sparse_matrices,
-            concatenated_axis_size = concatenated_axis_size,
             overwrite = overwrite,
         )
 
@@ -691,7 +681,6 @@ function concatenate_axis_sparse_matrices(
     offsets::AbstractVector{<:Integer},
     sizes::AbstractVector{<:Integer},
     matrices::AbstractVector{<:SparseMatrixCSC},
-    concatenated_axis_size::Integer,
     overwrite::Bool,
 )::Nothing
     nnz_offsets, nnz_sizes, total_nnz = nnz_arrays(matrices)
@@ -705,12 +694,13 @@ function concatenate_axis_sparse_matrices(
         total_nnz;
         overwrite = overwrite,
     ) do colptr, rowval, nzval
-        @threads for index in 1:length(matrices)
+        n_sources = length(matrices)
+        @threads for index in 1:n_sources
+            matrix = matrices[index]
             column_offset = offsets[index]
             ncols = sizes[index]
             nnz_offset = nnz_offsets[index]
             nnz_size = nnz_sizes[index]
-            matrix = matrices[index]
             nzval[(nnz_offset + 1):(nnz_offset + nnz_size)] = matrix.nzval
             rowval[(nnz_offset + 1):(nnz_offset + nnz_size)] = matrix.rowval
             colptr[(column_offset + 1):(column_offset + ncols)] = matrix.colptr[1:ncols]
@@ -743,12 +733,13 @@ function concatenate_axis_dense_matrices(
         dtype;
         overwrite = overwrite,
     ) do concatenated_matrix
-        @threads for index in 1:length(matrices)
+        n_sources = length(sources)
+        @threads for index in 1:n_sources
             source = sources[index]
+            matrix = matrices[index]
             column_offset = offsets[index]
             ncols = sizes[index]
-            matrix = matrices[index]
-            if matrix == nothing
+            if matrix === nothing
                 concatenated_matrix[:, (column_offset + 1):(column_offset + ncols)] .=
                     require_empty_value_for_matrix(empty_value, matrix_property, other_axis, axis, source, destination)
             else
@@ -767,7 +758,6 @@ function concatenate_merge(
     sources::AbstractVector{<:DafReader};
     dataset_axis::Maybe{AbstractString},
     other_axes_set::AbstractStringSet,
-    names::AbstractStringVector,
     empty::Maybe{EmptyData},
     merge::MergeData,
     sparse_if_saves_storage_fraction::AbstractFloat,
@@ -821,7 +811,6 @@ function concatenate_merge(
 
         for square_matrix_property in square_matrix_properties_set
             merge_action = get_merge_action(merge, (axis, axis, square_matrix_property))
-            empty_value = get_empty_value(empty, (axis, axis, square_matrix_property))
             if merge_action != SkipProperty
                 concatenate_merge_matrix(
                     destination,
@@ -846,11 +835,6 @@ function concatenate_merge(
 
                 for matrix_property in matrix_properties_set
                     merge_action = get_merge_action(merge, (rows_axis, columns_axis, matrix_property))
-                    empty_value = get_empty_value(
-                        empty,
-                        (rows_axis, columns_axis, matrix_property),
-                        (columns_axis, rows_axis, matrix_property),
-                    )
                     if merge_action != SkipProperty
                         concatenate_merge_matrix(
                             destination,
@@ -882,7 +866,7 @@ function concatenate_merge_scalar(
     if merge_action == LastValue
         for source in reverse(sources)
             value = get_scalar(source, scalar_property; default = nothing)
-            if value != nothing
+            if value !== nothing
                 set_scalar!(destination, scalar_property, value; overwrite = overwrite)
                 return nothing
             end
@@ -890,7 +874,7 @@ function concatenate_merge_scalar(
         @assert false
 
     elseif merge_action == CollectAxis
-        if dataset_axis == nothing
+        if dataset_axis === nothing
             error(
                 "can't collect axis for the scalar: $(scalar_property)\n" *
                 "of the daf data sets concatenated into the daf data: $(destination.name)\n",
@@ -923,7 +907,7 @@ function concatenate_merge_vector(
     if merge_action == LastValue
         for source in reverse(sources)
             value = get_vector(source, axis, vector_property; default = nothing)
-            if value != nothing
+            if value !== nothing
                 set_vector!(destination, axis, vector_property, value; overwrite = overwrite)
                 return nothing
             end
@@ -931,7 +915,7 @@ function concatenate_merge_vector(
         @assert false
 
     elseif merge_action == CollectAxis
-        if dataset_axis == nothing
+        if dataset_axis === nothing
             error(
                 "can't collect axis for the vector: $(vector_property)\n" *
                 "of the axis: $(axis)\n" *
@@ -944,19 +928,19 @@ function concatenate_merge_vector(
 
         size = nothing
         for vector in vectors
-            if vector != nothing
+            if vector !== nothing
                 size = length(vector)
                 break
             end
         end
-        @assert size != nothing
+        @assert size !== nothing
         sizes = repeat([size]; outer = length(vectors))
         dtype = reduce(merge_dtypes, vectors; init = typeof(empty_value))
 
         if dtype != String
             sparse_saves = sparse_storage_fraction(empty_value, dtype, sizes, vectors, 1, 1)  # NOJET
             if sparse_saves >= sparse_if_saves_storage_fraction
-                @assert empty_value == nothing || empty_value == 0
+                @assert empty_value === nothing || empty_value == 0
                 sparse_vectors = sparsify_vectors(vectors, dtype, sizes)
                 concatenate_merge_sparse_vector(
                     destination,
@@ -964,7 +948,6 @@ function concatenate_merge_vector(
                     dataset_axis,
                     vector_property;
                     dtype = dtype,
-                    nrows = size,
                     vectors = sparse_vectors,
                     overwrite = overwrite,
                 )
@@ -996,7 +979,6 @@ function concatenate_merge_sparse_vector(
     dataset_axis::AbstractString,
     vector_property::AbstractString;
     dtype::Type,
-    nrows::Integer,
     vectors::AbstractVector{<:SparseVector},
     overwrite::Bool,
 )::Nothing
@@ -1012,10 +994,11 @@ function concatenate_merge_sparse_vector(
         overwrite = overwrite,
     ) do colptr, rowval, nzval
         colptr[1] == 1
-        @threads for index in 1:length(vectors)
+        n_sources = length(vectors)
+        @threads for index in 1:n_sources
+            vector = vectors[index]
             nnz_offset = nnz_offsets[index]
             nnz_size = nnz_sizes[index]
-            vector = vectors[index]
             nzval[(nnz_offset + 1):(nnz_offset + nnz_size)] = vector.nzval
             rowval[(nnz_offset + 1):(nnz_offset + nnz_size)] = vector.nzind
             colptr[index + 1] = nnz_offset + nnz_size + 1
@@ -1044,10 +1027,11 @@ function concatenate_merge_dense_vector(
         dtype;
         overwrite = overwrite,
     ) do concatenated_matrix
-        @threads for index in 1:length(vectors)
+        n_sources = length(sources)
+        @threads for index in 1:n_sources
             source = sources[index]
             vector = vectors[index]
-            if vector == nothing
+            if vector === nothing
                 concatenated_matrix[:, index] .=
                     require_empty_value_for_vector(empty_value, vector_property, axis, source, destination)
             else
@@ -1072,7 +1056,7 @@ function concatenate_merge_matrix(
     if merge_action == LastValue
         for source in reverse(sources)
             matrix = get_matrix(source, rows_axis, columns_axis, matrix_property; relayout = false, default = nothing)
-            if matrix != nothing
+            if matrix !== nothing
                 set_matrix!(
                     destination,
                     rows_axis,
@@ -1108,7 +1092,7 @@ function require_empty_value_for_vector(
     daf::DafReader,
     destination::DafWriter,
 )::StorageScalar
-    if empty_value == nothing
+    if empty_value === nothing
         error(
             "no empty value for the vector: $(vector_property)\n" *
             "of the axis: $(axis)\n" *
@@ -1127,7 +1111,7 @@ function require_empty_value_for_matrix(
     daf::DafReader,
     destination::DafWriter,
 )::StorageNumber
-    if empty_value == nothing
+    if empty_value === nothing
         error(
             "no empty value for the matrix: $(matrix_property)\n" *
             "of the rows axis: $(rows_axis)\n" *
@@ -1140,11 +1124,11 @@ function require_empty_value_for_matrix(
 end
 
 function get_empty_value(empty::Maybe{EmptyData}, first_key::Any, second_key::Any = nothing)::Maybe{StorageScalar}
-    if empty == nothing
+    if empty === nothing
         return nothing
     else
         value = get(empty, first_key, nothing)
-        if value == nothing && second_key != nothing
+        if value === nothing && second_key !== nothing
             value = get(empty, second_key, nothing)
         end
         return value
@@ -1242,7 +1226,7 @@ function sparse_storage_fraction(
 
     for (size, array) in zip(sizes, arrays)
         dense_size += size * scale
-        if array != nothing
+        if array !== nothing
             array = array.array
             if array isa AbstractSparseArray
                 sparse_size += nnz(array)
@@ -1267,10 +1251,11 @@ function sparsify_vectors(
 )::Vector{SparseVector}
     sparse_vectors = Vector{SparseVector}(undef, length(vectors))
 
-    @threads for index in 1:length(vectors)
-        size = sizes[index]
+    n_sources = length(vectors)
+    @threads for index in 1:n_sources
         vector = vectors[index]
-        if vector == nothing
+        size = sizes[index]
+        if vector === nothing
             sparse_vectors[index] = spzeros(dtype, size)
         else
             @assert length(vector) == size
@@ -1293,10 +1278,11 @@ function sparsify_matrices(
 )::Vector{SparseMatrixCSC}
     sparse_matrices = Vector{SparseMatrixCSC}(undef, length(matrices))
 
-    @threads for index in 1:length(matrices)
-        ncols = sizes[index]
+    n_sources = length(matrices)
+    @threads for index in 1:n_sources
         matrix = matrices[index]
-        if matrix == nothing
+        ncols = sizes[index]
+        if matrix === nothing
             sparse_matrices[index] = spzeros(dtype, nrows, ncols)
         else
             @assert size(matrix) == (nrows, ncols)

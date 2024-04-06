@@ -3,7 +3,7 @@ nested_test("contracts") do
 
     nested_test("scalar") do
         nested_test("()") do
-            @test set_scalar!(daf, "version", 1) == nothing
+            @test set_scalar!(daf, "version", 1) === nothing
             for (name, expectation) in (
                 ("required", RequiredInput),
                 ("optional", OptionalInput),
@@ -13,11 +13,11 @@ nested_test("contracts") do
                 contract = Contract(; data = ["version" => (expectation, Int64, "description")])
                 nested_test(name) do
                     nested_test("input") do
-                        @test verify_input(contract, "computation", daf) == nothing
+                        @test verify_input(contract, "computation", daf) === nothing
                     end
 
                     nested_test("output") do
-                        @test verify_output(contract, "computation", daf) == nothing
+                        @test verify_output(contract, "computation", daf) === nothing
                     end
                 end
             end
@@ -37,7 +37,7 @@ nested_test("contracts") do
                 end
 
                 nested_test("output") do
-                    @test verify_output(contract, "computation", daf) == nothing
+                    @test verify_output(contract, "computation", daf) === nothing
                 end
             end
 
@@ -45,11 +45,11 @@ nested_test("contracts") do
                 contract = Contract(; data = ["version" => (OptionalInput, Int64, "description")])
 
                 nested_test("input") do
-                    @test verify_input(contract, "computation", daf) == nothing
+                    @test verify_input(contract, "computation", daf) === nothing
                 end
 
                 nested_test("output") do
-                    @test verify_output(contract, "computation", daf) == nothing
+                    @test verify_output(contract, "computation", daf) === nothing
                 end
             end
 
@@ -57,7 +57,7 @@ nested_test("contracts") do
                 contract = Contract(; data = ["version" => (GuaranteedOutput, Int64, "description")])
 
                 nested_test("input") do
-                    @test verify_input(contract, "computation", daf) == nothing
+                    @test verify_input(contract, "computation", daf) === nothing
                 end
 
                 nested_test("output") do
@@ -74,17 +74,17 @@ nested_test("contracts") do
                 contract = Contract(; data = ["version" => (OptionalOutput, Int64, "description")])
 
                 nested_test("input") do
-                    @test verify_input(contract, "computation", daf) == nothing
+                    @test verify_input(contract, "computation", daf) === nothing
                 end
 
                 nested_test("output") do
-                    @test verify_output(contract, "computation", daf) == nothing
+                    @test verify_output(contract, "computation", daf) === nothing
                 end
             end
         end
 
         nested_test("!type") do
-            @test set_scalar!(daf, "version", "1.0") == nothing
+            @test set_scalar!(daf, "version", "1.0") === nothing
 
             for (name, expectation) in (("required", RequiredInput), ("optional", OptionalInput))
                 nested_test(name) do
@@ -101,7 +101,7 @@ nested_test("contracts") do
                     end
 
                     nested_test("output") do
-                        @test verify_output(contract, "computation", daf) == nothing
+                        @test verify_output(contract, "computation", daf) === nothing
                     end
                 end
             end
@@ -111,7 +111,7 @@ nested_test("contracts") do
                     contract = Contract(; data = ["version" => (expectation, Int64, "description")])
 
                     nested_test("input") do
-                        @test verify_input(contract, "computation", daf) == nothing
+                        @test verify_input(contract, "computation", daf) === nothing
                     end
 
                     nested_test("output") do
@@ -130,7 +130,7 @@ nested_test("contracts") do
 
     nested_test("axis") do
         nested_test("()") do
-            @test add_axis!(daf, "cell", ["A", "B"]) == nothing
+            @test add_axis!(daf, "cell", ["A", "B"]) === nothing
             for (name, expectation) in (
                 ("required", RequiredInput),
                 ("optional", OptionalInput),
@@ -140,11 +140,11 @@ nested_test("contracts") do
                 contract = Contract(; axes = ["cell" => (expectation, "description")])
                 nested_test(name) do
                     nested_test("input") do
-                        @test verify_input(contract, "computation", daf) == nothing
+                        @test verify_input(contract, "computation", daf) === nothing
                     end
 
                     nested_test("output") do
-                        @test verify_output(contract, "computation", daf) == nothing
+                        @test verify_output(contract, "computation", daf) === nothing
                     end
                 end
             end
@@ -163,7 +163,7 @@ nested_test("contracts") do
                 end
 
                 nested_test("output") do
-                    @test verify_output(contract, "computation", daf) == nothing
+                    @test verify_output(contract, "computation", daf) === nothing
                 end
             end
 
@@ -171,11 +171,11 @@ nested_test("contracts") do
                 contract = Contract(; axes = ["cell" => (OptionalInput, "description")])
 
                 nested_test("input") do
-                    @test verify_input(contract, "computation", daf) == nothing
+                    @test verify_input(contract, "computation", daf) === nothing
                 end
 
                 nested_test("output") do
-                    @test verify_output(contract, "computation", daf) == nothing
+                    @test verify_output(contract, "computation", daf) === nothing
                 end
             end
 
@@ -183,7 +183,7 @@ nested_test("contracts") do
                 contract = Contract(; axes = ["cell" => (GuaranteedOutput, "description")])
 
                 nested_test("input") do
-                    @test verify_input(contract, "computation", daf) == nothing
+                    @test verify_input(contract, "computation", daf) === nothing
                 end
 
                 nested_test("output") do
@@ -199,21 +199,21 @@ nested_test("contracts") do
                 contract = Contract(; axes = ["cell" => (OptionalOutput, "description")])
 
                 nested_test("input") do
-                    @test verify_input(contract, "computation", daf) == nothing
+                    @test verify_input(contract, "computation", daf) === nothing
                 end
 
                 nested_test("output") do
-                    @test verify_output(contract, "computation", daf) == nothing
+                    @test verify_output(contract, "computation", daf) === nothing
                 end
             end
         end
     end
 
     nested_test("vectors") do
-        @test add_axis!(daf, "cell", ["A", "B"]) == nothing
+        @test add_axis!(daf, "cell", ["A", "B"]) === nothing
 
         nested_test("()") do
-            @test set_vector!(daf, "cell", "age", [1, 2]) == nothing
+            @test set_vector!(daf, "cell", "age", [1, 2]) === nothing
             for (name, expectation) in (
                 ("required", RequiredInput),
                 ("optional", OptionalInput),
@@ -223,11 +223,11 @@ nested_test("contracts") do
                 contract = Contract(; data = [("cell", "age") => (expectation, Int64, "description")])
                 nested_test(name) do
                     nested_test("input") do
-                        @test verify_input(contract, "computation", daf) == nothing
+                        @test verify_input(contract, "computation", daf) === nothing
                     end
 
                     nested_test("output") do
-                        @test verify_output(contract, "computation", daf) == nothing
+                        @test verify_output(contract, "computation", daf) === nothing
                     end
                 end
             end
@@ -248,7 +248,7 @@ nested_test("contracts") do
                 end
 
                 nested_test("output") do
-                    @test verify_output(contract, "computation", daf) == nothing
+                    @test verify_output(contract, "computation", daf) === nothing
                 end
             end
 
@@ -256,11 +256,11 @@ nested_test("contracts") do
                 contract = Contract(; data = [("cell", "age") => (OptionalInput, Int64, "description")])
 
                 nested_test("input") do
-                    @test verify_input(contract, "computation", daf) == nothing
+                    @test verify_input(contract, "computation", daf) === nothing
                 end
 
                 nested_test("output") do
-                    @test verify_output(contract, "computation", daf) == nothing
+                    @test verify_output(contract, "computation", daf) === nothing
                 end
             end
 
@@ -268,7 +268,7 @@ nested_test("contracts") do
                 contract = Contract(; data = [("cell", "age") => (GuaranteedOutput, Int64, "description")])
 
                 nested_test("input") do
-                    @test verify_input(contract, "computation", daf) == nothing
+                    @test verify_input(contract, "computation", daf) === nothing
                 end
 
                 nested_test("output") do
@@ -286,17 +286,17 @@ nested_test("contracts") do
                 contract = Contract(; data = [("cell", "age") => (OptionalOutput, Int64, "description")])
 
                 nested_test("input") do
-                    @test verify_input(contract, "computation", daf) == nothing
+                    @test verify_input(contract, "computation", daf) === nothing
                 end
 
                 nested_test("output") do
-                    @test verify_output(contract, "computation", daf) == nothing
+                    @test verify_output(contract, "computation", daf) === nothing
                 end
             end
         end
 
         nested_test("!type") do
-            @test set_vector!(daf, "cell", "age", [1.0, 2.0]) == nothing
+            @test set_vector!(daf, "cell", "age", [1.0, 2.0]) === nothing
 
             for (name, expectation) in (("required", RequiredInput), ("optional", OptionalInput))
                 nested_test(name) do
@@ -314,7 +314,7 @@ nested_test("contracts") do
                     end
 
                     nested_test("output") do
-                        @test verify_output(contract, "computation", daf) == nothing
+                        @test verify_output(contract, "computation", daf) === nothing
                     end
                 end
             end
@@ -324,7 +324,7 @@ nested_test("contracts") do
                     contract = Contract(; data = [("cell", "age") => (expectation, Int64, "description")])
 
                     nested_test("input") do
-                        @test verify_input(contract, "computation", daf) == nothing
+                        @test verify_input(contract, "computation", daf) === nothing
                     end
 
                     nested_test("output") do
@@ -343,11 +343,11 @@ nested_test("contracts") do
     end
 
     nested_test("matrix") do
-        @test add_axis!(daf, "cell", ["A", "B"]) == nothing
-        @test add_axis!(daf, "gene", ["X", "Y", "Z"]) == nothing
+        @test add_axis!(daf, "cell", ["A", "B"]) === nothing
+        @test add_axis!(daf, "gene", ["X", "Y", "Z"]) === nothing
 
         nested_test("()") do
-            @test set_matrix!(daf, "cell", "gene", "UMIs", [0 1 2; 3 4 5]) == nothing
+            @test set_matrix!(daf, "cell", "gene", "UMIs", [0 1 2; 3 4 5]) === nothing
             for (name, expectation) in (
                 ("required", RequiredInput),
                 ("optional", OptionalInput),
@@ -357,11 +357,11 @@ nested_test("contracts") do
                 contract = Contract(; data = [("cell", "gene", "UMIs") => (expectation, Int64, "description")])
                 nested_test(name) do
                     nested_test("input") do
-                        @test verify_input(contract, "computation", daf) == nothing
+                        @test verify_input(contract, "computation", daf) === nothing
                     end
 
                     nested_test("output") do
-                        @test verify_output(contract, "computation", daf) == nothing
+                        @test verify_output(contract, "computation", daf) === nothing
                     end
                 end
             end
@@ -383,7 +383,7 @@ nested_test("contracts") do
                 end
 
                 nested_test("output") do
-                    @test verify_output(contract, "computation", daf) == nothing
+                    @test verify_output(contract, "computation", daf) === nothing
                 end
             end
 
@@ -391,11 +391,11 @@ nested_test("contracts") do
                 contract = Contract(; data = [("cell", "gene", "UMIs") => (OptionalInput, Int64, "description")])
 
                 nested_test("input") do
-                    @test verify_input(contract, "computation", daf) == nothing
+                    @test verify_input(contract, "computation", daf) === nothing
                 end
 
                 nested_test("output") do
-                    @test verify_output(contract, "computation", daf) == nothing
+                    @test verify_output(contract, "computation", daf) === nothing
                 end
             end
 
@@ -403,7 +403,7 @@ nested_test("contracts") do
                 contract = Contract(; data = [("cell", "gene", "UMIs") => (GuaranteedOutput, Int64, "description")])
 
                 nested_test("input") do
-                    @test verify_input(contract, "computation", daf) == nothing
+                    @test verify_input(contract, "computation", daf) === nothing
                 end
 
                 nested_test("output") do
@@ -422,11 +422,11 @@ nested_test("contracts") do
                 contract = Contract(; data = [("cell", "gene", "UMIs") => (OptionalOutput, Int64, "description")])
 
                 nested_test("input") do
-                    @test verify_input(contract, "computation", daf) == nothing
+                    @test verify_input(contract, "computation", daf) === nothing
                 end
 
                 nested_test("output") do
-                    @test verify_output(contract, "computation", daf) == nothing
+                    @test verify_output(contract, "computation", daf) === nothing
                 end
             end
         end
@@ -434,7 +434,7 @@ nested_test("contracts") do
         nested_test("!axis") do
             for axis in ("cell", "gene")
                 nested_test(axis) do
-                    @test delete_axis!(daf, axis) == nothing
+                    @test delete_axis!(daf, axis) === nothing
 
                     nested_test("required") do
                         contract =
@@ -449,7 +449,7 @@ nested_test("contracts") do
                         end
 
                         nested_test("output") do
-                            @test verify_output(contract, "computation", daf) == nothing
+                            @test verify_output(contract, "computation", daf) === nothing
                         end
                     end
 
@@ -458,11 +458,11 @@ nested_test("contracts") do
                             Contract(; data = [("cell", "gene", "UMIs") => (OptionalInput, Int64, "description")])
 
                         nested_test("input") do
-                            @test verify_input(contract, "computation", daf) == nothing
+                            @test verify_input(contract, "computation", daf) === nothing
                         end
 
                         nested_test("output") do
-                            @test verify_output(contract, "computation", daf) == nothing
+                            @test verify_output(contract, "computation", daf) === nothing
                         end
                     end
 
@@ -471,7 +471,7 @@ nested_test("contracts") do
                             Contract(; data = [("cell", "gene", "UMIs") => (GuaranteedOutput, Int64, "description")])
 
                         nested_test("input") do
-                            @test verify_input(contract, "computation", daf) == nothing
+                            @test verify_input(contract, "computation", daf) === nothing
                         end
 
                         nested_test("output") do
@@ -488,11 +488,11 @@ nested_test("contracts") do
                             Contract(; data = [("cell", "gene", "UMIs") => (OptionalOutput, Int64, "description")])
 
                         nested_test("input") do
-                            @test verify_input(contract, "computation", daf) == nothing
+                            @test verify_input(contract, "computation", daf) === nothing
                         end
 
                         nested_test("output") do
-                            @test verify_output(contract, "computation", daf) == nothing
+                            @test verify_output(contract, "computation", daf) === nothing
                         end
                     end
                 end
@@ -500,7 +500,7 @@ nested_test("contracts") do
         end
 
         nested_test("!type") do
-            @test set_matrix!(daf, "cell", "gene", "UMIs", [0.0 1.0 2.0; 3.0 4.0 5.0]) == nothing
+            @test set_matrix!(daf, "cell", "gene", "UMIs", [0.0 1.0 2.0; 3.0 4.0 5.0]) === nothing
 
             for (name, expectation) in (("required", RequiredInput), ("optional", OptionalInput))
                 nested_test(name) do
@@ -519,7 +519,7 @@ nested_test("contracts") do
                     end
 
                     nested_test("output") do
-                        @test verify_output(contract, "computation", daf) == nothing
+                        @test verify_output(contract, "computation", daf) === nothing
                     end
                 end
             end
@@ -529,7 +529,7 @@ nested_test("contracts") do
                     contract = Contract(; data = [("cell", "gene", "UMIs") => (expectation, Int64, "description")])
 
                     nested_test("input") do
-                        @test verify_input(contract, "computation", daf) == nothing
+                        @test verify_input(contract, "computation", daf) === nothing
                     end
 
                     nested_test("output") do

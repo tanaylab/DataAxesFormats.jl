@@ -59,7 +59,7 @@ function Formats.format_set_scalar!(memory::MemoryDaf, name::AbstractString, val
     return nothing
 end
 
-function Formats.format_delete_scalar!(memory::MemoryDaf, name::AbstractString; for_set::Bool)::Nothing
+function Formats.format_delete_scalar!(memory::MemoryDaf, name::AbstractString; for_set::Bool)::Nothing  # NOLINT
     delete!(memory.scalars, name)
     return nothing
 end
@@ -72,7 +72,7 @@ function Formats.format_scalar_names(memory::MemoryDaf)::AbstractStringSet
     return keys(memory.scalars)
 end
 
-function Formats.format_has_axis(memory::MemoryDaf, axis::AbstractString; for_change::Bool)::Bool
+function Formats.format_has_axis(memory::MemoryDaf, axis::AbstractString; for_change::Bool)::Bool  # NOLINT
     return haskey(memory.axes, axis)
 end
 
@@ -138,7 +138,7 @@ function Formats.format_empty_dense_vector!(
     memory::MemoryDaf,
     axis::AbstractString,
     name::AbstractString,
-    eltype::Type{T},
+    ::Type{T},
 )::AbstractVector{T} where {T <: StorageNumber}
     nelements = Formats.format_axis_length(memory, axis)
     vector = Vector{T}(undef, nelements)
@@ -147,14 +147,13 @@ function Formats.format_empty_dense_vector!(
 end
 
 function Formats.format_empty_sparse_vector!(
-    memory::MemoryDaf,
-    axis::AbstractString,
-    name::AbstractString,
-    eltype::Type{T},
+    ::MemoryDaf,
+    ::AbstractString,
+    ::AbstractString,
+    ::Type{T},
     nnz::StorageInteger,
-    indtype::Type{I},
+    ::Type{I},
 )::Tuple{AbstractVector{I}, AbstractVector{T}, Nothing} where {T <: StorageNumber, I <: StorageInteger}
-    nelements = Formats.format_axis_length(memory, axis)
     nzind = Vector{I}(undef, nnz)
     nzval = Vector{T}(undef, nnz)
     return (nzind, nzval, nothing)
@@ -164,7 +163,7 @@ function Formats.format_filled_sparse_vector!(
     memory::MemoryDaf,
     axis::AbstractString,
     name::AbstractString,
-    extra::Nothing,
+    ::Nothing,
     filled::SparseVector{T, I},
 )::Nothing where {T <: StorageNumber, I <: StorageInteger}
     memory.vectors[axis][name] = filled
@@ -175,7 +174,7 @@ function Formats.format_delete_vector!(
     memory::MemoryDaf,
     axis::AbstractString,
     name::AbstractString;
-    for_set::Bool,
+    for_set::Bool,  # NOLINT
 )::Nothing
     delete!(memory.vectors[axis], name)
     return nothing
@@ -229,7 +228,7 @@ function Formats.format_empty_dense_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    eltype::Type{T},
+    ::Type{T},
 )::AbstractMatrix{T} where {T <: StorageNumber}
     nrows = Formats.format_axis_length(memory, rows_axis)
     ncols = Formats.format_axis_length(memory, columns_axis)
@@ -240,19 +239,18 @@ end
 
 function Formats.format_empty_sparse_matrix!(
     memory::MemoryDaf,
-    rows_axis::AbstractString,
+    ::AbstractString,
     columns_axis::AbstractString,
-    name::AbstractString,
-    eltype::Type{T},
+    ::AbstractString,
+    ::Type{T},
     nnz::StorageInteger,
-    indtype::Type{I},
+    ::Type{I},
 )::Tuple{
     AbstractVector{I},
     AbstractVector{I},
     AbstractVector{T},
     Nothing,
 } where {T <: StorageNumber, I <: StorageInteger}
-    nrows = Formats.format_axis_length(memory, rows_axis)
     ncols = Formats.format_axis_length(memory, columns_axis)
     colptr = fill(I(nnz + 1), ncols + 1)
     colptr[1] = 1
@@ -266,7 +264,7 @@ function Formats.format_filled_sparse_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    extra::Nothing,
+    ::Nothing,
     filled::SparseMatrixCSC{T, I},
 )::Nothing where {T <: StorageNumber, I <: StorageInteger}
     memory.matrices[rows_axis][columns_axis][name] = filled
@@ -290,7 +288,7 @@ function Formats.format_delete_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString;
-    for_set::Bool,
+    for_set::Bool,  # NOLINT
 )::Nothing
     delete!(memory.matrices[rows_axis][columns_axis], name)
     return nothing

@@ -67,12 +67,12 @@ function dedent(string::AbstractString; indent::AbstractString = "")::String
     first_non_space = nothing
     for line in lines
         line_non_space = findfirst(character -> character != ' ', line)
-        if first_non_space == nothing || (line_non_space != nothing && line_non_space < first_non_space)
+        if first_non_space === nothing || (line_non_space !== nothing && line_non_space < first_non_space)
             first_non_space = line_non_space
         end
     end
 
-    if first_non_space == nothing
+    if first_non_space === nothing
         return indent * string  # untested NOJET
     else
         return join([indent * line[first_non_space:end] for line in lines], "\n")  # NOJET

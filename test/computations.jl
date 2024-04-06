@@ -122,7 +122,7 @@ nested_test("computations") do
             add_axis!(daf, "cell", ["A", "B"])
             add_axis!(daf, "gene", ["X", "Y", "Z"])
             set_matrix!(daf, "cell", "gene", "UMIs", UInt8[0 1 2; 3 4 5])
-            @test single(daf, 0.0) == nothing
+            @test single(daf, 0.0) === nothing
         end
 
         nested_test("missing") do
@@ -175,7 +175,7 @@ nested_test("computations") do
         end
 
         nested_test("!docs") do
-            @test missing_single(daf) == nothing
+            @test missing_single(daf) === nothing
             @test_throws dedent("""
                 no contract(s) associated with: Main.missing_single
                 use: @computation Contract(...) function Main.missing_single(...)
@@ -190,7 +190,7 @@ nested_test("computations") do
         nested_test("()") do
             set_scalar!(first, "version", "0.0")
             set_scalar!(second, "quality", 0.0)
-            @test cross(first, second) == nothing
+            @test cross(first, second) === nothing
         end
 
         nested_test("missing") do

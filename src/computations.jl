@@ -21,7 +21,7 @@ using ExprTools
 import Daf.Contracts.contract_documentation
 import Daf.GenericLogging.pass_args
 
-function computation_wrapper(name::AbstractString, inner_function)
+function computation_wrapper(::AbstractString, inner_function)
     return inner_function
 end
 
@@ -98,7 +98,7 @@ macro computation(definition)
     outer_definition = copy(inner_definition)
 
     function_name = get(inner_definition, :name, nothing)
-    if function_name == nothing
+    if function_name === nothing
         error("@computation requires a named function")
     end
     @assert function_name isa Symbol
@@ -127,7 +127,7 @@ macro computation(contract, definition)
     outer_definition = copy(inner_definition)
 
     function_name = get(inner_definition, :name, nothing)
-    if function_name == nothing
+    if function_name === nothing
         error("@computation requires a named function")
     end
     @assert function_name isa Symbol
@@ -160,7 +160,7 @@ macro computation(first_contract, second_contract, definition)
     outer_definition = copy(inner_definition)
 
     function_name = get(inner_definition, :name, nothing)
-    if function_name == nothing
+    if function_name === nothing
         error("@computation requires a named function")
     end
     @assert function_name isa Symbol
@@ -203,7 +203,7 @@ function collect_defaults(function_module::Module, inner_definition)::Dict{Abstr
     return defaults
 end
 
-function collect_arg_default(function_module::Module, defaults::Dict{AbstractString, Any}, arg::Symbol)::Nothing  # untested
+function collect_arg_default(::Module, ::Dict{AbstractString, Any}, ::Symbol)::Nothing  # untested
     return nothing
 end
 
@@ -282,7 +282,7 @@ end
 function DocStringExtensions.format(what::DefaultValue, buffer::IOBuffer, doc_str::Base.Docs.DocStr)::Nothing
     full_name, metadata = get_metadata(doc_str)
     default = get(metadata.defaults, what.name, nothing)
-    if default == nothing
+    if default === nothing
         error("no default for a parameter: $(what.name)\n" * "in the computation: $(full_name)")
     end
     return print(buffer, default)
@@ -290,7 +290,7 @@ end
 
 struct DefaultContainer end
 
-function Base.getproperty(defaults::DefaultContainer, parameter::Symbol)::DefaultValue
+function Base.getproperty(::DefaultContainer, parameter::Symbol)::DefaultValue
     return DefaultValue(string(parameter))
 end
 
@@ -331,12 +331,12 @@ function get_metadata(doc_str::Base.Docs.DocStr)::Tuple{AbstractString, Function
         catch  # untested
         end
     end
-    if object_module == nothing
+    if object_module === nothing
         metadata = nothing  # untested
     else
         metadata = get(object_module.__DAF_FUNCTION_METADATA__, Symbol(object), nothing)
     end
-    if metadata == nothing
+    if metadata === nothing
         error(
             "no contract(s) associated with: $(object_module).$(object)\n" *
             "use: @computation Contract(...) function $(object_module).$(object)(...)",

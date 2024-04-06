@@ -120,7 +120,7 @@ function verify_output(contract::Contract, computation::AbstractString, daf::Daf
 end
 
 function verify_contract(contract::Contract, computation::AbstractString, daf::DafReader; is_output::Bool)::Nothing
-    if contract.axes != nothing
+    if contract.axes !== nothing
         for (axis_name, axis_term) in contract.axes
             @assert axis_name isa AbstractString
             @assert axis_term isa Tuple{ContractExpectation, AbstractString}
@@ -128,7 +128,7 @@ function verify_contract(contract::Contract, computation::AbstractString, daf::D
         end
     end
 
-    if contract.data != nothing
+    if contract.data !== nothing
         for (data_key, data_term) in contract.data
             @assert data_key isa DataKey
             @assert data_term isa Tuple{ContractExpectation, Type, AbstractString}
@@ -152,11 +152,11 @@ function verify_scalar_contract(
     name::AbstractString,
     expectation::ContractExpectation,
     data_type::T,
-    description::AbstractString;
+    ::AbstractString;
     is_output::Bool,
 )::Nothing where {T <: Type}
     value = get_scalar(daf, name; default = nothing)
-    if is_mandatory(expectation; is_output = is_output) && value == nothing
+    if is_mandatory(expectation; is_output = is_output) && value === nothing
         error(
             "missing $(direction_name(is_output)) scalar: $(name)\n" *
             "with type: $(data_type)\n" *
@@ -164,7 +164,7 @@ function verify_scalar_contract(
             "on the daf data: $(daf.name)",
         )
     end
-    if is_possible(expectation; is_output = is_output) && value != nothing && !(value isa data_type)
+    if is_possible(expectation; is_output = is_output) && value !== nothing && !(value isa data_type)
         error(
             "unexpected type: $(typeof(value))\n" *
             "instead of type: $(data_type)\n" *
@@ -180,7 +180,7 @@ function verify_axis_contract(
     daf::DafReader,
     name::AbstractString,
     expectation::ContractExpectation,
-    description::AbstractString;
+    ::AbstractString;
     is_output::Bool,
 )::Bool
     axis_exists = has_axis(daf, name)
@@ -201,14 +201,14 @@ function verify_vector_contract(
     name::AbstractString,
     expectation::ContractExpectation,
     data_type::T,
-    description::AbstractString;
+    ::AbstractString;
     is_output::Bool,
 )::Nothing where {T <: Type}
     value = nothing
     if verify_axis_contract(computation, daf, axis, expectation, ""; is_output = is_output)
         value = get_vector(daf, axis, name; default = nothing)
     end
-    if is_mandatory(expectation; is_output = is_output) && value == nothing
+    if is_mandatory(expectation; is_output = is_output) && value === nothing
         error(
             "missing $(direction_name(is_output)) vector: $(name)\n" *
             "of the axis: $(axis)\n" *
@@ -217,7 +217,7 @@ function verify_vector_contract(
             "on the daf data: $(daf.name)",
         )
     end
-    if is_possible(expectation; is_output = is_output) && value != nothing && !(eltype(value) <: data_type)
+    if is_possible(expectation; is_output = is_output) && value !== nothing && !(eltype(value) <: data_type)
         error(
             "unexpected type: $(eltype(value))\n" *
             "instead of type: $(data_type)\n" *
@@ -237,7 +237,7 @@ function verify_matrix_contract(
     name::AbstractString,
     expectation::ContractExpectation,
     data_type::T,
-    description::AbstractString;
+    ::AbstractString;
     is_output::Bool,
 )::Nothing where {T <: Type}
     has_rows_axis = verify_axis_contract(computation, daf, rows_axis, expectation, ""; is_output = is_output)
@@ -246,7 +246,7 @@ function verify_matrix_contract(
     if has_rows_axis && has_columns_axis
         value = get_matrix(daf, rows_axis, columns_axis, name; default = nothing)
     end
-    if is_mandatory(expectation; is_output = is_output) && value == nothing
+    if is_mandatory(expectation; is_output = is_output) && value === nothing
         error(
             "missing $(direction_name(is_output)) matrix: $(name)\n" *
             "of the rows axis: $(rows_axis)\n" *
@@ -256,7 +256,7 @@ function verify_matrix_contract(
             "on the daf data: $(daf.name)",
         )
     end
-    if is_possible(expectation; is_output = is_output) && value != nothing && !(eltype(value) <: data_type)
+    if is_possible(expectation; is_output = is_output) && value !== nothing && !(eltype(value) <: data_type)
         error(  # NOJET
             "unexpected type: $(eltype(value))\n" *
             "instead of type: $(data_type)\n" *
@@ -301,7 +301,7 @@ function contract_documentation(contract::Contract, buffer::IOBuffer)::Nothing
 end
 
 function scalar_documentation(contract::Contract, buffer::IOBuffer; is_output::Bool, has_any::Bool)::Bool
-    if contract.data != nothing
+    if contract.data !== nothing
         is_first = true
         for (name, (expectation, data_type, description)) in contract.data
             if name isa AbstractString && (
@@ -324,7 +324,7 @@ function scalar_documentation(contract::Contract, buffer::IOBuffer; is_output::B
 end
 
 function axes_documentation(contract::Contract, buffer::IOBuffer; is_output::Bool, has_any::Bool)::Bool
-    if contract.axes != nothing
+    if contract.axes !== nothing
         is_first = true
         for (name, (expectation, description)) in contract.axes
             if (is_output && (expectation == GuaranteedOutput || expectation == OptionalOutput)) ||
@@ -345,7 +345,7 @@ function axes_documentation(contract::Contract, buffer::IOBuffer; is_output::Boo
 end
 
 function vectors_documentation(contract::Contract, buffer::IOBuffer; is_output::Bool, has_any::Bool)::Bool
-    if contract.data != nothing
+    if contract.data !== nothing
         is_first = true
         for (key, (expectation, data_type, description)) in contract.data
             if key isa Tuple{AbstractString, AbstractString}
@@ -372,7 +372,7 @@ function vectors_documentation(contract::Contract, buffer::IOBuffer; is_output::
 end
 
 function matrices_documentation(contract::Contract, buffer::IOBuffer; is_output::Bool, has_any::Bool)::Bool
-    if contract.data != nothing
+    if contract.data !== nothing
         is_first = true
         for (key, (expectation, data_type, description)) in contract.data
             if key isa Tuple{AbstractString, AbstractString, AbstractString}

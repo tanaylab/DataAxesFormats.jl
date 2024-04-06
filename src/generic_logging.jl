@@ -7,7 +7,7 @@ code, explicitly write `using Daf.GenericLogging`.
 """
 module GenericLogging
 
-export logged
+export @logged
 export setup_logger
 
 using Daf.GenericTypes
@@ -63,7 +63,7 @@ macro logged(definition)
     outer_definition = copy(inner_definition)
 
     function_name = get(inner_definition, :name, nothing)
-    if function_name == nothing
+    if function_name === nothing
         error("@logged requires a named function")
     end
     @assert function_name isa Symbol
@@ -119,8 +119,8 @@ function metafmt(  # untested
     show_location::Bool,
     level::LogLevel,
     _module::Module,
-    _id::Symbol,
-    _group::Symbol,
+    ::Symbol,
+    ::Symbol,
     file::AbstractString,
     line::Integer,
 )::Tuple{Symbol, AbstractString, AbstractString}

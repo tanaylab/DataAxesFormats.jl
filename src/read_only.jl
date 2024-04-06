@@ -48,14 +48,14 @@ Wrap `daf` with a [`DafReadOnlyWrapper`](@ref) to protect it against accidental 
 `name` of the `daf` is reused. If `name` is not specified and `daf` isa [`DafReadOnly`](@ref), return it as-is.
 """
 function read_only(daf::DafReader; name::Maybe{AbstractString} = nothing)::DafReadOnly
-    if name == nothing
+    if name === nothing
         name = daf.internal.name
     end
     return DafReadOnlyWrapper(name, daf)
 end
 
 function read_only(daf::DafReadOnly; name::Maybe{AbstractString} = nothing)::DafReadOnly
-    if name == nothing
+    if name === nothing
         return daf
     else
         return DafReadOnlyWrapper(name, daf.daf)
@@ -142,7 +142,7 @@ function Formats.format_description_header(
 end
 
 function Messages.describe(value::DafReadOnlyWrapper; name::Maybe{AbstractString} = nothing)::String
-    if name == nothing
+    if name === nothing
         name = value.name
     end
     return "ReadOnly $(describe(value.daf; name = name))"

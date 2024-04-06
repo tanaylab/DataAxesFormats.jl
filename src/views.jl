@@ -237,10 +237,10 @@ function viewer(
     axes::Maybe{ViewAxes} = nothing,
     data::Maybe{ViewData} = nothing,
 )::DafReadOnly
-    if axes == nothing
+    if axes === nothing
         axes = EMPTY_AXES
     end
-    if data == nothing
+    if data === nothing
         data = EMPTY_DATA
     end
 
@@ -252,7 +252,7 @@ function viewer(
         daf = daf.daf
     end
 
-    if name == nothing
+    if name === nothing
         name = daf.name * ".view"
     end
 
@@ -308,7 +308,7 @@ function collect_scalar(
         for scalar_name in scalar_names(daf)
             collect_scalar(view_name, daf, collected_scalars, scalar_name, scalar_query)
         end
-    elseif scalar_query == nothing
+    elseif scalar_query === nothing
         delete!(collected_scalars, scalar_name)
     else
         if scalar_query == "="
@@ -355,7 +355,7 @@ function collect_axis(
         for axis_name in axis_names(daf)
             collect_axis(view_name, daf, collected_axes, axis_name, axis_query)
         end
-    elseif axis_query == nothing
+    elseif axis_query === nothing
         delete!(collected_axes, axis_name)
     else
         if axis_query == "="
@@ -423,7 +423,7 @@ function collect_vector(
         for vector_name in vector_names(daf, base_axis)
             collect_vector(view_name, daf, collected_axes, collected_vectors, axis_name, vector_name, vector_query)
         end
-    elseif vector_query == nothing
+    elseif vector_query === nothing
         delete!(collected_vectors[axis_name], vector_name)
     else
         fetch_axis = get_fetch_axis(view_name, daf, collected_axes, axis_name)
@@ -432,7 +432,7 @@ function collect_vector(
         else
             @assert vector_query isa Query
         end
-        if vector_query isa QuerySequence && vector_query.query_operations[1] isa Axis
+        if vector_query isa QuerySequence && vector_query.query_operations[1] isa Axis  # NOLINT
             query_prefix, query_suffix = split_vector_query(vector_query)
             vector_query = query_prefix |> fetch_axis.query |> query_suffix
         else
@@ -457,7 +457,7 @@ function split_vector_query(query_sequence::QuerySequence)::Tuple{QuerySequence,
     index = findfirst(query_sequence.query_operations) do query_operation
         return query_operation isa Lookup
     end
-    if index == nothing
+    if index === nothing
         return (query_sequence, QuerySequence(()))  # untested
     else
         return (
@@ -551,7 +551,7 @@ function collect_matrix(
                 matrix_query,
             )
         end
-    elseif matrix_query == nothing
+    elseif matrix_query === nothing
         delete!(collected_matrices[rows_axis_name][columns_axis_name], matrix_name)
         delete!(collected_matrices[columns_axis_name][rows_axis_name], matrix_name)
     else
@@ -594,7 +594,7 @@ function get_fetch_axis(
     axis::AbstractString,
 )::Fetch{AbstractStringVector}
     fetch_axis = get(collected_axes, axis, nothing)
-    if fetch_axis == nothing
+    if fetch_axis === nothing
         error("the axis: $(axis)\n" * "is not exposed by the view: $(view_name)\n" * "of the daf data: $(daf.name)")
     end
     return fetch_axis
@@ -607,7 +607,7 @@ end
 function Formats.format_get_scalar(view::DafView, name::AbstractString)::StorageScalar
     fetch_scalar = view.scalars[name]
     scalar_value = fetch_scalar.value
-    if scalar_value == nothing
+    if scalar_value === nothing
         scalar_value = get_query(view.daf, fetch_scalar.query)
         fetch_scalar.value = scalar_value
     end
@@ -618,7 +618,7 @@ function Formats.format_scalar_names(view::DafView)::AbstractStringSet
     return keys(view.scalars)
 end
 
-function Formats.format_has_axis(view::DafView, axis::AbstractString; for_change::Bool)::Bool
+function Formats.format_has_axis(view::DafView, axis::AbstractString; for_change::Bool)::Bool  # NOLINT
     return haskey(view.axes, axis)
 end
 
@@ -629,7 +629,7 @@ end
 function Formats.format_get_axis(view::DafView, axis::AbstractString)::AbstractStringVector
     fetch_axis = view.axes[axis]
     axis_names = fetch_axis.value
-    if axis_names == nothing
+    if axis_names === nothing
         axis_names = as_read_only_array(get_query(view.daf, fetch_axis.query).array)
         if !(eltype(axis_names) <: AbstractString)
             error(
@@ -659,7 +659,7 @@ end
 function Formats.format_get_vector(view::DafView, axis::AbstractString, name::AbstractString)::StorageVector
     fetch_vector = view.vectors[axis][name]
     vector_value = fetch_vector.value
-    if vector_value == nothing
+    if vector_value === nothing
         vector_value = as_read_only_array(get_query(view.daf, fetch_vector.query))
         fetch_vector.value = vector_value
     end
@@ -691,7 +691,7 @@ function Formats.format_get_matrix(
 )::StorageMatrix
     fetch_matrix = view.matrices[rows_axis][columns_axis][name]
     matrix_value = fetch_matrix.value
-    if matrix_value == nothing
+    if matrix_value === nothing
         matrix_value = as_read_only_array(get_query(view.daf, fetch_matrix.query))
         fetch_matrix.value = matrix_value
     end
@@ -704,14 +704,14 @@ function Formats.format_description_header(view::DafView, indent::AbstractString
 end
 
 function Messages.describe(value::DafView; name::Maybe{AbstractString} = nothing)::String
-    if name == nothing
-        name = value.name
+    if name === nothing
+        name = value.name  # NOLINT
     end
     return "View $(describe(value.daf; name = name))"
 end
 
 function ReadOnly.read_only(daf::DafView; name::Maybe{AbstractString} = nothing)::DafView
-    if name == nothing
+    if name === nothing
         return daf
     else
         return DafView(

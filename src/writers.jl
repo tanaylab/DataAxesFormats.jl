@@ -391,7 +391,7 @@ allows doing so directly into the data vector, avoiding a copy in case of memory
 This first verifies the `axis` exists in `daf` and that the property name isn't `name`. If not `overwrite` (the
 default), this also verifies the `name` vector does not exist for the `axis`.
 """
-function empty_sparse_vector!(
+function empty_sparse_vector!(  # NOLINT
     fill::Function,
     daf::DafWriter,
     axis::AbstractString,
@@ -401,7 +401,7 @@ function empty_sparse_vector!(
     indtype::Maybe{Type{I}} = nothing;
     overwrite::Bool = false,
 )::Any where {T <: StorageNumber, I <: StorageInteger}
-    if indtype == nothing
+    if indtype === nothing
         indtype = indtype_for_size(axis_length(daf, axis))
     end
     @assert isbitstype(eltype)
@@ -697,7 +697,7 @@ It is the caller's responsibility to fill the three vectors with valid data. Spe
 This first verifies the `rows_axis` and `columns_axis` exist in `daf`. If not `overwrite` (the default), this also
 verifies the `name` matrix does not exist for the `rows_axis` and `columns_axis`.
 """
-function empty_sparse_matrix!(
+function empty_sparse_matrix!(  # NOLINT
     fill::Function,
     daf::DafWriter,
     rows_axis::AbstractString,
@@ -708,7 +708,7 @@ function empty_sparse_matrix!(
     indtype::Maybe{Type{I}} = nothing;
     overwrite::Bool = false,
 )::Any where {T <: StorageNumber, I <: StorageInteger}
-    if indtype == nothing
+    if indtype === nothing
         nrows = axis_length(daf, rows_axis)
         ncolumns = axis_length(daf, columns_axis)
         indtype = indtype_for_size(max(nrows, ncolumns, nnz))

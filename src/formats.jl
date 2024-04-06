@@ -377,11 +377,11 @@ function format_empty_sparse_vector! end
 Allow the `format` to perform caching once the empty sparse vector has been `filled`. By default this does nothing.
 """
 function format_filled_sparse_vector!(  # untested
-    format::FormatWriter,
-    axis::AbstractString,
-    name::AbstractString,
-    extra::Any,
-    filled::SparseVector{T, I},
+    ::FormatWriter,
+    ::AbstractString,
+    ::AbstractString,
+    ::Any,
+    ::SparseVector{T, I},
 )::Nothing where {T <: StorageNumber, I <: StorageInteger}
     return nothing
 end
@@ -509,12 +509,12 @@ function format_empty_sparse_matrix! end
 Allow the `format` to perform caching once the empty sparse matrix has been `filled`. By default this does nothing.
 """
 function format_filled_sparse_matrix!(  # untested
-    format::FormatWriter,
-    rows_axis::AbstractString,
-    columns_axis::AbstractString,
-    name::AbstractString,
-    extra::Any,
-    filled::SparseMatrixCSC{T, I},
+    ::FormatWriter,
+    ::AbstractString,
+    ::AbstractString,
+    ::AbstractString,
+    ::Any,
+    ::SparseMatrixCSC{T, I},
 )::Nothing where {T <: StorageNumber, I <: StorageInteger}
     return nothing
 end
@@ -600,19 +600,13 @@ nested in this one, if any.
 
 This trusts that we have a read lock on the data set.
 """
-function format_description_footer(
-    format::FormatReader,
-    indent::AbstractString,
-    lines::Vector{String},
-    cache::Bool,
-    deep::Bool,
-)::Nothing
+function format_description_footer(::FormatReader, ::AbstractString, ::Vector{String}, ::Bool, ::Bool)::Nothing
     return nothing
 end
 
 function get_from_cache(format::FormatReader, cache_key::AbstractString, ::Type{T})::Maybe{T} where {T}
     result = get(format.internal.cache, cache_key, nothing)
-    if result == nothing
+    if result === nothing
         return nothing
     else
         return result.data
@@ -621,7 +615,7 @@ end
 
 function get_through_cache(getter::Function, format::FormatReader, cache_key::AbstractString, ::Type{T})::T where {T}
     cached = get_from_cache(format, cache_key, T)
-    if cached == nothing
+    if cached === nothing
         return getter()
     else
         return cached
@@ -779,13 +773,13 @@ function cache_matrix!(
     return nothing
 end
 
-function as_named_vector(format::FormatReader, axis::AbstractString, vector::NamedVector)::NamedArray
+function as_named_vector(::FormatReader, ::AbstractString, vector::NamedVector)::NamedArray
     return vector
 end
 
 function as_named_vector(format::FormatReader, axis::AbstractString, vector::AbstractVector)::NamedArray
     axis_names_dict = get(format.internal.axes, axis, nothing)
-    if axis_names_dict == nothing
+    if axis_names_dict === nothing
         names = as_read_only_array(Formats.get_axis_through_cache(format, axis))
         named_array = NamedArray(vector; names = (names,), dimnames = (axis,))
         format.internal.axes[axis] = named_array.dicts[1]
@@ -796,12 +790,7 @@ function as_named_vector(format::FormatReader, axis::AbstractString, vector::Abs
     end
 end
 
-function as_named_matrix(
-    format::FormatReader,
-    rows_axis::AbstractString,
-    columns_axis::AbstractString,
-    matrix::NamedMatrix,
-)::NamedArray
+function as_named_matrix(::FormatReader, ::AbstractString, ::AbstractString, matrix::NamedMatrix)::NamedArray
     return matrix
 end
 
@@ -813,7 +802,7 @@ function as_named_matrix(
 )::NamedArray
     rows_axis_names_dict = get(format.internal.axes, rows_axis, nothing)
     columns_axis_names_dict = get(format.internal.axes, columns_axis, nothing)
-    if rows_axis_names_dict == nothing || columns_axis_names_dict == nothing
+    if rows_axis_names_dict === nothing || columns_axis_names_dict === nothing
         rows_names = as_read_only_array(Formats.get_axis_through_cache(format, rows_axis))
         columns_names = as_read_only_array(Formats.get_axis_through_cache(format, columns_axis))
         named_array = NamedArray(matrix; names = (rows_names, columns_names), dimnames = (rows_axis, columns_axis))
@@ -909,7 +898,7 @@ function invalidate_cached!(format::FormatReader, cache_key::AbstractString)::No
     delete!(format.internal.cache, cache_key)
 
     dependent_keys = pop!(format.internal.dependency_cache_keys, cache_key, nothing)
-    if dependent_keys != nothing
+    if dependent_keys !== nothing
         for dependent_key in dependent_keys
             delete!(format.internal.cache, dependent_key)
         end

@@ -140,7 +140,7 @@ operation. This is idempotent (safe to invoke multiple times).
 This isn't usually called directly. Instead, it is typically invoked by using the [`@query_operation`](@ref) macro.
 """
 function register_query_operation(
-    type::Type{T},
+    ::Type{T},
     source_file::AbstractString,
     source_line::Integer,
 )::Nothing where {T <: Union{EltwiseOperation, ReductionOperation}}
@@ -156,10 +156,10 @@ function register_query_operation(
         @assert false
     end
 
-    name = String(type.name.name)
+    name = String(T.name.name)
     if name in keys(registered_operations)
         previous_registration = registered_operations[name]
-        if previous_registration.type != type ||
+        if previous_registration.type != T ||
            previous_registration.source_file != source_file ||
            previous_registration.source_line != source_line
             error(
@@ -170,7 +170,7 @@ function register_query_operation(
         end
     end
 
-    registered_operations[name] = RegisteredOperation(type, source_file, source_line)
+    registered_operations[name] = RegisteredOperation(T, source_file, source_line)
     return nothing
 end
 
@@ -186,14 +186,11 @@ Note this will import `Daf.Registry.register_query_operation`, so it may only be
 module.
 """
 macro query_operation(operation_type_name)
-    name_string = String(operation_type_name)
     name_reference = esc(operation_type_name)
 
     source_line = __source__.line
     file = __source__.file
-    source_file = file == nothing ? "-" : String(file)
-
-    module_name = Symbol("Daf_$(name_string)_$(source_line)")
+    source_file = file === nothing ? "-" : String(file)
 
     return quote
         import Daf.Registry.register_query_operation

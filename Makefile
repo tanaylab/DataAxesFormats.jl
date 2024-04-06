@@ -21,7 +21,14 @@ deps/.format: */*.jl deps/format.sh deps/format.jl
 	@touch deps/.format
 
 .PHONY: check
-check: jet untested_lines
+check: static_analysis jet aqua untested_lines
+
+.PHONY: static_analysis
+static_analysis: deps/.static_analysis
+
+deps/.static_analysis: *.toml src/*.jl test/*.toml test/*.jl deps/static_analysis.sh deps/static_analysis.jl
+	deps/static_analysis.sh
+	@touch deps/.static_analysis
 
 .PHONY: jet
 jet: deps/.jet
@@ -29,6 +36,13 @@ jet: deps/.jet
 deps/.jet: *.toml src/*.jl test/*.toml test/*.jl deps/jet.sh deps/jet.jl deps/jet.py
 	deps/jet.sh
 	@touch deps/.jet
+
+.PHONY: aqua
+aqua: deps/.aqua
+
+deps/.aqua: *.toml src/*.jl test/*.toml test/*.jl deps/aqua.sh deps/aqua.jl
+	deps/aqua.sh
+	@touch deps/.aqua
 
 .PHONY: test
 test: tracefile.info

@@ -196,7 +196,7 @@ function tokenize(string::AbstractString, operators::Regex)::Vector{Token}
         end
 
         value = match(VALUE_REGEX, rest_of_string)
-        if value != nothing
+        if value !== nothing
             @assert value.offset == 1
             value_string = value.match
             @assert !isempty(value_string)
@@ -220,7 +220,7 @@ function tokenize(string::AbstractString, operators::Regex)::Vector{Token}
         end
 
         operator = match(operators, rest_of_string)
-        if operator != nothing
+        if operator !== nothing
             @assert operator.offset == 1
             operator_string = operator.match
             @assert !isempty(operator_string)

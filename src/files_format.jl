@@ -216,7 +216,7 @@ function FilesDaf(
         )
     end
 
-    if name == nothing
+    if name === nothing
         name_path = "$(path)/scalars/name.json"
         if ispath(name_path)
             name = string(read_scalar(name_path))
@@ -251,7 +251,7 @@ function Formats.format_set_scalar!(files::FilesDaf, name::AbstractString, value
     return nothing
 end
 
-function Formats.format_delete_scalar!(files::FilesDaf, name::AbstractString; for_set::Bool)::Nothing
+function Formats.format_delete_scalar!(files::FilesDaf, name::AbstractString; for_set::Bool)::Nothing  # NOLINT
     return rm("$(files.path)/scalars/$(name).json"; force = true)
 end
 
@@ -273,7 +273,7 @@ function read_scalar(path::AbstractString)::StorageScalar
         value = json_value
     else
         dtype = get(DTYPE_BY_NAME, dtype_name, nothing)
-        @assert dtype != nothing
+        @assert dtype !== nothing
         value = convert(dtype, json_value)
     end
 
@@ -282,12 +282,12 @@ end
 
 function Formats.format_scalar_names(files::FilesDaf)::AbstractStringSet
     Formats.upgrade_to_write_lock(files)
-    names_set = get_names_set(files, "$(files.path)/scalars", ".json")
+    names_set = get_names_set("$(files.path)/scalars", ".json")
     Formats.cache_scalar_names!(files, names_set, MemoryData)
     return names_set
 end
 
-function Formats.format_has_axis(files::FilesDaf, axis::AbstractString; for_change::Bool)::Bool
+function Formats.format_has_axis(files::FilesDaf, axis::AbstractString; for_change::Bool)::Bool  # NOLINT
     return ispath("$(files.path)/axes/$(axis).txt")
 end
 
@@ -326,7 +326,7 @@ end
 
 function Formats.format_axis_names(files::FilesDaf)::AbstractStringSet
     Formats.upgrade_to_write_lock(files)
-    names_set = get_names_set(files, "$(files.path)/axes", ".txt")
+    names_set = get_names_set("$(files.path)/axes", ".txt")
     Formats.cache_axis_names!(files, names_set, MemoryData)
     return names_set
 end
@@ -392,7 +392,7 @@ function Formats.format_empty_dense_vector!(
     files::FilesDaf,
     axis::AbstractString,
     name::AbstractString,
-    eltype::Type{T},
+    ::Type{T},
 )::AbstractVector{T} where {T <: StorageNumber}
     Formats.upgrade_to_write_lock(files)
 
@@ -411,9 +411,9 @@ function Formats.format_empty_sparse_vector!(
     files::FilesDaf,
     axis::AbstractString,
     name::AbstractString,
-    eltype::Type{T},
+    ::Type{T},
     nnz::StorageInteger,
-    indtype::Type{I},
+    ::Type{I},
 )::Tuple{AbstractVector{I}, AbstractVector{T}, Nothing} where {T <: StorageNumber, I <: StorageInteger}
     Formats.upgrade_to_write_lock(files)
 
@@ -434,7 +434,7 @@ function Formats.format_filled_sparse_vector!(
     files::FilesDaf,
     axis::AbstractString,
     name::AbstractString,
-    extra::Nothing,
+    ::Nothing,
     filled::SparseVector{T, I},
 )::Nothing where {T <: StorageNumber, I <: StorageInteger}
     Formats.cache_vector!(files, axis, name, filled, MappedData)
@@ -445,7 +445,7 @@ function Formats.format_delete_vector!(
     files::FilesDaf,
     axis::AbstractString,
     name::AbstractString;
-    for_set::Bool,
+    for_set::Bool,  # NOLINT
 )::Nothing
     for suffix in (".json", ".data", ".nzind", ".nzval")
         rm("$(files.path)/vectors/$(axis)/$(name)$(suffix)"; force = true)
@@ -454,7 +454,7 @@ end
 
 function Formats.format_vector_names(files::FilesDaf, axis::AbstractString)::AbstractStringSet
     Formats.upgrade_to_write_lock(files)
-    names_set = get_names_set(files, "$(files.path)/vectors/$(axis)", ".json")
+    names_set = get_names_set("$(files.path)/vectors/$(axis)", ".json")
     Formats.cache_vector_names!(files, axis, names_set, MemoryData)
     return names_set
 end
@@ -475,7 +475,7 @@ function Formats.format_get_vector(files::FilesDaf, axis::AbstractString, name::
             @assert length(vector) == size
         else
             eltype = DTYPE_BY_NAME[eltype_name]
-            @assert eltype != nothing
+            @assert eltype !== nothing
             vector =
                 mmap_file_data("$(files.path)/vectors/$(axis)/$(name).data", Vector{eltype}, size, files.files_mode)
         end
@@ -484,10 +484,10 @@ function Formats.format_get_vector(files::FilesDaf, axis::AbstractString, name::
         indtype_name = json["indtype"]
 
         eltype = DTYPE_BY_NAME[eltype_name]
-        @assert eltype != nothing
+        @assert eltype !== nothing
 
         indtype = DTYPE_BY_NAME[indtype_name]
-        @assert indtype != nothing
+        @assert indtype !== nothing
 
         nzind_path = "$(files.path)/vectors/$(axis)/$(name).nzind"
         nzval_path = "$(files.path)/vectors/$(axis)/$(name).nzval"
@@ -554,7 +554,7 @@ function Formats.format_empty_dense_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    eltype::Type{T},
+    ::Type{T},
 )::AbstractMatrix{T} where {T <: StorageNumber}
     write_array_json("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", "dense", T)
     path = "$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).data"
@@ -573,9 +573,9 @@ function Formats.format_empty_sparse_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    eltype::Type{T},
+    ::Type{T},
     nnz::StorageInteger,
-    indtype::Type{I},
+    ::Type{I},
 )::Tuple{
     AbstractVector{I},
     AbstractVector{I},
@@ -584,7 +584,6 @@ function Formats.format_empty_sparse_matrix!(
 } where {T <: StorageNumber, I <: StorageInteger}
     write_array_json("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", "sparse", T, I)
 
-    nrows = Formats.format_axis_length(files, rows_axis)
     ncols = Formats.format_axis_length(files, columns_axis)
 
     colptr_path = "$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).colptr"
@@ -606,7 +605,7 @@ function Formats.format_filled_sparse_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    extra::Nothing,
+    ::Nothing,
     filled::SparseMatrixCSC{T, I},
 )::Nothing where {T <: StorageNumber, I <: StorageInteger}
     Formats.cache_matrix!(files, rows_axis, columns_axis, name, filled, MappedData)
@@ -648,7 +647,7 @@ function Formats.format_delete_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString;
-    for_set::Bool,
+    for_set::Bool,  # NOLINT
 )::Nothing
     for suffix in (".json", ".data", ".colptr", ".rowval", "nzval")
         rm("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name)$(suffix)"; force = true)
@@ -662,7 +661,7 @@ function Formats.format_matrix_names(
     columns_axis::AbstractString,
 )::AbstractStringSet
     Formats.upgrade_to_write_lock(files)
-    names_set = get_names_set(files, "$(files.path)/matrices/$(rows_axis)/$(columns_axis)", ".json")
+    names_set = get_names_set("$(files.path)/matrices/$(rows_axis)/$(columns_axis)", ".json")
     Formats.cache_matrix_names!(files, rows_axis, columns_axis, names_set, MemoryData)
     return names_set
 end
@@ -681,7 +680,7 @@ function Formats.format_get_matrix(
     @assert format == "dense" || format == "sparse"
     eltype_name = json["eltype"]
     eltype = DTYPE_BY_NAME[eltype_name]
-    @assert eltype != nothing
+    @assert eltype !== nothing
 
     nrows = Formats.format_axis_length(files, rows_axis)
     ncols = Formats.format_axis_length(files, columns_axis)
@@ -698,10 +697,10 @@ function Formats.format_get_matrix(
         indtype_name = json["indtype"]
 
         eltype = DTYPE_BY_NAME[eltype_name]
-        @assert eltype != nothing
+        @assert eltype !== nothing
 
         indtype = DTYPE_BY_NAME[indtype_name]
-        @assert indtype != nothing
+        @assert indtype !== nothing
 
         colptr_path = "$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).colptr"
         rowval_path = "$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).rowval"
@@ -720,7 +719,7 @@ function Formats.format_get_matrix(
     return matrix
 end
 
-function get_names_set(files::FilesDaf, path::AbstractString, suffix::AbstractString)::AbstractStringSet
+function get_names_set(path::AbstractString, suffix::AbstractString)::AbstractStringSet
     names_set = Set{AbstractString}()
     suffix_length = length(suffix)
 
@@ -744,7 +743,7 @@ end
 
 function mmap_file_data(
     path::AbstractString,
-    array_type::Type{T},
+    ::Type{T},
     size::Union{Integer, Tuple{<:Integer, <:Integer}},
     mode::AbstractString,
 )::T where {T <: Union{StorageVector, StorageMatrix}}
@@ -786,18 +785,18 @@ function write_zeros_file(path::AbstractString, size::Integer)::Nothing
     return nothing
 end
 
-function write_array_json(
+function write_array_json(  # NOLINT
     path::AbstractString,
     format::AbstractString,
     eltype::Type{T},
     indtype::Maybe{Type{I}} = nothing,
 )::Nothing where {T <: StorageScalar, I <: StorageInteger}
     if format == "dense"
-        @assert indtype == nothing
+        @assert indtype === nothing
         write(path, "{\"format\":\"dense\",\"eltype\":\"$(eltype)\"}\n")
     else
         @assert format == "sparse"
-        @assert indtype != nothing
+        @assert indtype !== nothing
         write(path, "{\"format\":\"sparse\",\"eltype\":\"$(eltype)\",\"indtype\":\"$(indtype)\"}\n")
     end
     return nothing

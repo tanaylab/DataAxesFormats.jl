@@ -77,18 +77,18 @@ function reconstruct_axis!(
     implicit_properties::Maybe{AbstractStringSet} = nothing,
     properties_defaults::Maybe{Dict} = nothing,
 )::AbstractDict{<:AbstractString, Maybe{StorageScalar}}
-    if rename_axis == nothing
+    if rename_axis === nothing
         rename_axis = implicit_axis
     end
 
-    if implicit_properties != nothing
+    if implicit_properties !== nothing
         @assert !(implicit_axis in implicit_properties)
     end
 
     implicit_values = get_vector(daf, existing_axis, implicit_axis)
     overwrite_implicit_values =
-        !(eltype(implicit_values) <: AbstractString) || (empty_implicit != nothing && empty_implicit != "")
-    if eltype(implicit_values) <: AbstractString && empty_implicit == nothing
+        !(eltype(implicit_values) <: AbstractString) || (empty_implicit !== nothing && empty_implicit != "")
+    if eltype(implicit_values) <: AbstractString && empty_implicit === nothing
         empty_implicit = ""
     end
     unique_values = unique(implicit_values[implicit_values .!= empty_implicit])
@@ -117,9 +117,9 @@ function reconstruct_axis!(
     value_of_empties_of_properties = Dict{AbstractString, Maybe{StorageScalar}}()
     vector_values_of_properties = Dict{AbstractString, StorageVector}()
     for property in vector_names(daf, existing_axis)
-        is_explicit = implicit_properties != nothing && property in implicit_properties
-        if is_explicit || (implicit_properties == nothing && property != implicit_axis)
-            if properties_defaults == nothing
+        is_explicit = implicit_properties !== nothing && property in implicit_properties
+        if is_explicit || (implicit_properties === nothing && property != implicit_axis)
+            if properties_defaults === nothing
                 default_value = nothing
             else
                 default_value = get(properties_defaults, property, nothing)
@@ -134,7 +134,7 @@ function reconstruct_axis!(
                 default_value;
                 must_be_consistent = is_explicit,
             )
-            if property_data != nothing
+            if property_data !== nothing
                 value_of_empty_of_property, vector_value_of_property = property_data
                 value_of_empties_of_properties[property] = value_of_empty_of_property
                 vector_values_of_properties[property] = vector_value_of_property
@@ -174,7 +174,7 @@ function collect_property_data(
 
     for (property_value, implicit_value) in zip(property_values, implicit_values)
         property_value_of_implicit = get(property_values_of_implicits, implicit_value, nothing)
-        if property_value_of_implicit == nothing
+        if property_value_of_implicit === nothing
             property_values_of_implicits[implicit_value] = property_value
         elseif property_value_of_implicit != property_value
             if must_be_consistent
@@ -205,7 +205,7 @@ function value_of_implicit_property(
     default_value::Maybe{StorageScalar},
 )::StorageScalar
     value = get(property_values_of_implicits, unique_value, default_value)
-    if value == nothing
+    if value === nothing
         error(
             "no default value specified for the unused entry: $(unique_value)\n" *
             "of the reconstructed property: $(property)\n" *

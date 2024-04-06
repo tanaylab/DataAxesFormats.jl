@@ -70,11 +70,11 @@ end
 function describe(value::Bool)::String
     return "$(value)"
 end
-function describe(value::UndefInitializer)::String
+function describe(::UndefInitializer)::String
     return "undef"
 end
 
-function describe(value::Missing)::String
+function describe(::Missing)::String
     return "missing"
 end
 
@@ -110,12 +110,12 @@ end
 function present_vector(vector::AbstractVector, prefix::AbstractString)::String  # untested
     try
         if strides(vector) == (1,)
-            return present_vector_size(vector, "$(typeof(vector)) - Dense")
+            return present_vector_size(vector, concat_prefixes(prefix, "$(typeof(vector)) - Dense"))
         else
-            return present_vector_size(vector, "$(typeof(vector)) - Strided")
+            return present_vector_size(vector, concat_prefixes(prefix, "$(typeof(vector)) - Strided"))
         end
     catch
-        return present_vector_size(vector, "$(typeof(vector))")
+        return present_vector_size(vector, concat_prefixes(prefix, "$(typeof(vector))"))
     end
 end
 
@@ -152,7 +152,7 @@ function present_matrix(matrix::SparseMatrixCSC, prefix::AbstractString; transpo
     )
 end
 
-function present_matrix(matrix::AbstractMatrix, kind::AbstractString; transposed::Bool = false)::String  # untested
+function present_matrix(matrix::AbstractMatrix, ::AbstractString; transposed::Bool = false)::String  # untested
     try
         matrix_strides = strides(matrix)
         matrix_sizes = size(matrix)
@@ -172,7 +172,7 @@ function present_matrix_size(matrix::AbstractMatrix, kind::AbstractString; trans
         layout = other_axis(layout)
     end
 
-    if layout == nothing
+    if layout === nothing
         layout_suffix = "w/o major axis"  # untested
     else
         layout_suffix = "in $(axis_name(layout))"
