@@ -83,7 +83,7 @@ A vector of pairs where the key is a [`DataKey`](@ref) identifying some data pro
 ContractData = AbstractVector{<:Pair}
 
 """
-    function Contract(;
+    Contract(;
         [axes::Maybe{ContractAxes} = nothing,
         data::Maybe{ContractData} = nothing]
     )::Contract
@@ -100,7 +100,7 @@ function Contract(; axes::Maybe{ContractAxes} = nothing, data::Maybe{ContractDat
 end
 
 """
-    function verify_input(daf::DafReader, contract::Contract, computation::AbstractString)::Nothing
+    verify_input(daf::DafReader, contract::Contract, computation::AbstractString)::Nothing
 
 Verify the `daf` data when a computation is invoked. This verifies that all the required data exists and is of the
 appropriate type, and that if any of the optional data exists, it has the appropriate type.
@@ -110,7 +110,7 @@ function verify_input(contract::Contract, computation::AbstractString, daf::DafR
 end
 
 """
-    function verify_output(daf::DafReader, contract::Contract, computation::AbstractString)::Nothing
+    verify_output(daf::DafReader, contract::Contract, computation::AbstractString)::Nothing
 
 Verify the `daf` data when a computation is complete. This verifies that all the guaranteed output data exists and is of
 the appropriate type, and that if any of the optional output data exists, it has the appropriate type.

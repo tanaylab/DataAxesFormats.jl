@@ -4,6 +4,7 @@ Functions for dealing with computing groups of axis entries (typically for creat
 module Groups
 
 using Daf.Formats
+using Daf.GenericLogging
 using Daf.Readers
 using SHA
 
@@ -12,7 +13,7 @@ export compact_groups!
 export group_names
 
 """
-    function group_names(
+    group_names(
         daf::DafReader,
         axis::AbstractString,
         entries_of_groups::AbstractVector{<:AbstractVector{<:Integer}};
@@ -29,7 +30,7 @@ with manually, but is also reasonably safe in the common use case that groups ar
 metadata lying around associated with the old groups, as the probability of the new group #123 having the same suffix is
 only 1% (unless it is actually identical).
 """
-function group_names(
+@logged function group_names(
     daf::DafReader,
     axis::AbstractString,
     entries_of_groups::AbstractVector{<:AbstractVector{<:Integer}};
@@ -49,14 +50,14 @@ function group_names(
 end
 
 """
-    function compact_groups!(
+    compact_groups!(
         group_indices::AbstractVector{<:Integer},
     )::Int
 
 Given an array `group_indices` which assigns each entry of some axis to a non-negative group index (with zero
 meaning "no group"), compact it in-place so that the group indices will be `1...N`, and return `N`.
 """
-function compact_groups!(group_indices::AbstractVector{<:Integer})::Int
+@logged function compact_groups!(group_indices::AbstractVector{<:Integer})::Int
     n_groups = 0
     compacts_of_groups = Dict{Int, Int}()
     for (entry_index, group_index) in enumerate(group_indices)
@@ -74,7 +75,7 @@ function compact_groups!(group_indices::AbstractVector{<:Integer})::Int
 end
 
 """
-    function collect_group_members(
+    collect_group_members(
         group_indices::AbstractVector{T},
     )::Vector{Vector{T}} where {T <: Integer}
 
@@ -82,7 +83,7 @@ Given an array `group_indices` which assigns each entry of some axis to a non-ne
 meaning "no group"), where the group indices are compact (in the range `1...N`), return a vector of vectors,
 one for each group, containing the (sorted) indices of the entries of the group.
 """
-function collect_group_members(group_indices::AbstractVector{T})::Vector{Vector{T}} where {T <: Integer}
+@logged function collect_group_members(group_indices::AbstractVector{T})::Vector{Vector{T}} where {T <: Integer}
     entries_of_groups = Vector{Vector{T}}()
     for (entry_index, group_index) in enumerate(group_indices)
         if group_index != 0

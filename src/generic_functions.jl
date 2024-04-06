@@ -50,7 +50,7 @@ function handle_abnormal(message::Function, handler::AbnormalHandler)::Nothing
 end
 
 """
-    function dedent(string::AbstractString; indent::AbstractString = "")::String
+    dedent(string::AbstractString; indent::AbstractString = "")::String
 
 Given a possibly multi-line string with a common indentation in each line, strip this indentation from all lines, and
 replace it with `indent`. Will also strip any initial and/or final line breaks.

@@ -278,7 +278,10 @@ function relayout!(matrix::AbstractSparseMatrix)::AbstractMatrix
 end
 
 function relayout!(matrix::AbstractMatrix)::AbstractMatrix
-    return transpose(transpose!(similar(transpose(matrix)), matrix))
+    @debug "relayout! $(depict(matrix)) {"  # NOLINT
+    result = transpose(transpose!(similar(transpose(matrix)), matrix))
+    @debug "relayout! $(depict(result)) }"  # NOLINT
+    return result
 end
 
 function relayout!(destination::AbstractMatrix, source::NamedMatrix)::NamedArray  # untested
@@ -315,6 +318,7 @@ function relayout!(destination::Union{Transpose, Adjoint}, source::AbstractMatri
 end
 
 function relayout!(destination::SparseMatrixCSC, source::AbstractMatrix)::SparseMatrixCSC
+    @debug "relayout! destination: $(depict(destination)) source: $(depict(source)) {"  # NOLINT
     if size(destination) != size(source)
         error("relayout destination size: $(size(destination))\nis different from source size: $(size(source))")
     end
@@ -323,10 +327,13 @@ function relayout!(destination::SparseMatrixCSC, source::AbstractMatrix)::Sparse
     end
     base_from = base_sparse_matrix(source)
     transpose_base_from = transpose(base_from)
-    return transpose!(destination, transpose_base_from)
+    result = transpose!(destination, transpose_base_from)
+    @debug "relayout! result: $(depict(result)) }"  # NOLINT
+    return result
 end
 
 function relayout!(destination::DenseMatrix, source::AbstractMatrix)::DenseMatrix
+    @debug "relayout! destination: $(depict(destination)) source: $(depict(source)) {"  # NOLINT
     if size(destination) != size(source)
         error("relayout destination size: $(size(destination))\nis different from source size: $(size(source))")
     end
@@ -335,15 +342,19 @@ function relayout!(destination::DenseMatrix, source::AbstractMatrix)::DenseMatri
     else
         transpose!(destination, transpose(source))
     end
+    @debug "relayout! result: $(depict(destination)) }"  # NOLINT
     return destination
 end
 
 function relayout!(destination::AbstractMatrix, source::AbstractMatrix)::AbstractMatrix  # untested
+    @debug "relayout! destination: $(depict(destination)) source: $(depict(source)) {"  # NOLINT
     try
         into_strides = strides(destination)
         into_size = size(destination)
         if into_strides == (1, into_size[1]) || into_strides == (into_size[2], 1)
-            return transpose!(destination, transpose(source))
+            result = transpose!(destination, transpose(source))
+            @debug "relayout! result: $(depict(result)) }"  # NOLINT
+            return result
         end
     catch
     end
@@ -369,5 +380,26 @@ end
 function base_sparse_matrix(matrix::AbstractMatrix)::AbstractMatrix  # untested
     return error("unsupported relayout sparse matrix: $(typeof(matrix))")
 end
+
+function depict_matrix_size(matrix::AbstractMatrix, kind::AbstractString; transposed::Bool = false)::String
+    layout = major_axis(matrix)
+    if transposed
+        layout = other_axis(layout)
+    end
+
+    if layout === nothing
+        layout_suffix = "w/o major axis"  # untested
+    else
+        layout_suffix = "in $(axis_name(layout))"
+    end
+
+    if transposed
+        return "$(size(matrix, 2)) x $(size(matrix, 1)) x $(eltype(matrix)) $(layout_suffix) (transposed $(kind))"
+    else
+        return "$(size(matrix, 1)) x $(size(matrix, 2)) x $(eltype(matrix)) $(layout_suffix) ($(kind))"
+    end
+end
+
+function depict end
 
 end # module

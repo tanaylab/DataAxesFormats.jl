@@ -128,7 +128,7 @@ ELTWISE_REGISTERED_OPERATIONS = Dict{String, RegisteredOperation}()
 REDUCTION_REGISTERED_OPERATIONS = Dict{String, RegisteredOperation}()
 
 """
-    function register_query_operation(
+    register_query_operation(
         type::Type{T},
         source_file::AbstractString,
         source_line::Integer,

@@ -39,6 +39,7 @@ using Base.Threads
 using Daf.Readers
 using Daf.Formats
 using Daf.GenericTypes
+using Daf.Messages
 using Daf.Operations
 using Daf.Registry
 using Daf.StorageTypes
@@ -1480,7 +1481,7 @@ function Base.getindex(
 end
 
 """
-    function get_query(
+    get_query(
         daf::DafReader,
         query::Union{Query, AbstractString};
         [cache::Bool = true]
@@ -1509,6 +1510,7 @@ function get_query(
     cache_key = join([string(query_operation) for query_operation in query_sequence.query_operations], " ")
     cached_entry = get(daf.internal.cache, cache_key, nothing)
     if cached_entry !== nothing
+        @debug "get_query daf: $(depict(daf)) query_sequence: $(query_sequence) cache: $(cache) cached result: $(depict(cached_entry.data))"
         return cached_entry.data
     end
 
@@ -1526,6 +1528,7 @@ function get_query(
             Formats.cache_data!(daf, cache_key, result, QueryData)
             store_cached_dependency_keys!(daf, cache_key, dependency_keys)
         end
+        @debug "get_query daf: $(depict(daf)) query_sequence: $(query_sequence) cache: $(cache) cached result: $(depict(result))"
         return result
     end
 end
@@ -1535,7 +1538,7 @@ function query_result_dimensions(query_string::AbstractString)::Int
 end
 
 """
-    function query_result_dimensions(query::Union{Query, AbstractString})::Int
+    query_result_dimensions(query::Union{Query, AbstractString})::Int
 
 Return the number of dimensions (-1 - names, 0 - scalar, 1 - vector, 2 - matrix) of the results of a query. This also
 verifies the query is syntactically valid, though it may still fail if applied to specific data due to invalid data
@@ -3532,7 +3535,7 @@ that computes the data of the column.
 QueryColumns = AbstractVector{<:Pair}
 
 """
-    function get_frame(
+    get_frame(
         daf::DafReader,
         axis::Union{Query, AbstractString},
         [columns::Maybe{Union{AbstractStringVector, QueryColumns}} = nothing;
@@ -3600,7 +3603,9 @@ function get_frame(
         push!(data, column_name => vector.array)
     end
 
-    return DataFrame(data)
+    result = DataFrame(data)
+    @debug "get_frame daf: $(depict(daf)) axis: $(axis) columns: $(columns) result: $(depict(result))"
+    return result
 end
 
 function query_axis_name(query::Query)::AbstractString

@@ -141,11 +141,11 @@ function Formats.format_description_header(
     return nothing
 end
 
-function Messages.describe(value::DafReadOnlyWrapper; name::Maybe{AbstractString} = nothing)::String
+function Messages.depict(value::DafReadOnlyWrapper; name::Maybe{AbstractString} = nothing)::String
     if name === nothing
         name = value.name
     end
-    return "ReadOnly $(describe(value.daf; name = name))"
+    return "ReadOnly $(depict(value.daf; name = name))"
 end
 
 end  # module

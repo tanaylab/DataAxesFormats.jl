@@ -1060,52 +1060,6 @@
 </div>
 </section>
 </article>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
-<a class="docstring-binding" id="Daf.Readers.empty_cache!" href="#Daf.Readers.empty_cache!">
-<code>Daf.Readers.empty_cache!
-</code>
-</a> — 
-<span class="docstring-category">Function
-</span>
-</header>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">empty_cache!(
-    daf::DafReader;
-    [clear::Maybe{CacheType} = nothing,
-    keep::Maybe{CacheType} = nothing]
-)::Nothing
-</code>
-</pre>
-<p>Clear some cached data. By default, completely empties the caches. You can specify either 
-<code>clear
-</code>, to only forget a specific 
-<a href="formats.html#Daf.Formats.CacheType">
-<code>CacheType
-</code>
-</a> (e.g., for clearing only 
-<code>QueryData
-</code>), or 
-<code>keep
-</code>, to forget everything except a specific 
-<a href="formats.html#Daf.Formats.CacheType">
-<code>CacheType
-</code>
-</a> (e.g., for keeping only 
-<code>MappedData
-</code>). You can&#39;t specify both 
-<code>clear
-</code> and 
-<code>keep
-</code>.
-</p>
-</div>
-</section>
-</article>
 <h2 id="Index">
 <a class="docs-heading-anchor" href="#Index">Index
 </a>
@@ -1142,12 +1096,6 @@
 <li>
 <a href="readers.html#Daf.Readers.description">
 <code>Daf.Readers.description
-</code>
-</a>
-</li>
-<li>
-<a href="readers.html#Daf.Readers.empty_cache!">
-<code>Daf.Readers.empty_cache!
 </code>
 </a>
 </li>

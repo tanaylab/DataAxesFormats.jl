@@ -83,6 +83,7 @@ export daf_as_anndata
 using CategoricalArrays
 using Daf.Formats
 using Daf.GenericFunctions
+using Daf.GenericLogging
 using Daf.GenericTypes
 using Daf.MatrixLayouts
 using Daf.MemoryFormat
@@ -99,14 +100,14 @@ import Daf.Formats.Internal
 import Daf.Readers.require_matrix
 
 """
-anndata_as_daf(
-adata::Union{AnnData, AbstractString};
-[name::Maybe{AbstractString} = nothing,
-obs_is::Maybe{AbstractString} = nothing,
-var_is::Maybe{AbstractString} = nothing,
-X_is::Maybe{AbstractString} = nothing,
-unsupported_handler::AbnormalHandler = WarnHandler]
-)::MemoryDaf
+    anndata_as_daf(
+        adata::Union{AnnData, AbstractString};
+        [name::Maybe{AbstractString} = nothing,
+        obs_is::Maybe{AbstractString} = nothing,
+        var_is::Maybe{AbstractString} = nothing,
+        X_is::Maybe{AbstractString} = nothing,
+        unsupported_handler::AbnormalHandler = WarnHandler]
+    )::MemoryDaf
 
 View `AnnData` as a `Daf` data set, specifically using a [`MemoryDaf`](@ref). This doesn't duplicate matrices or
 vectors, but acts as a view containing references to the same ones. Adding and/or deleting data in the view using the
@@ -129,7 +130,7 @@ otherwise, it will be "var".
 If not specified, `X_is` (the name of the "X" matrix) will be the value of the "X_is" `uns` property, if it exists,
 otherwise, it will be "X".
 """
-function anndata_as_daf(
+@logged function anndata_as_daf(
     adata::Union{AnnData, AbstractString};
     name::Maybe{AbstractString} = nothing,
     obs_is::Maybe{AbstractString} = nothing,
@@ -138,8 +139,10 @@ function anndata_as_daf(
     unsupported_handler::AbnormalHandler = WarnHandler,
 )::MemoryDaf
     if adata isa AbstractString
-        @debug "readh5ad: $(adata)"
-        adata = readh5ad(adata; backed = true)  # NOJET
+        path = adata
+        @debug "readh5ad $(path) {"
+        adata = readh5ad(path; backed = true)  # NOJET
+        @debug "readh5ad $(path) }"
     end
 
     name = by_annotation(adata, name, "name", "anndata")
@@ -399,13 +402,13 @@ function access_matrix(matrix::Any)::Any
 end
 
 """
-daf_as_anndata(
-daf::DafReader;
-[obs_is::Maybe{AbstractString} = nothing,
-var_is::Maybe{AbstractString} = nothing,
-X_is::Maybe{AbstractString} = nothing,
-h5ad::Maybe{AbstractString} = nothing]
-)::AnnData
+    daf_as_anndata(
+        daf::DafReader;
+        [obs_is::Maybe{AbstractString} = nothing,
+        var_is::Maybe{AbstractString} = nothing,
+        X_is::Maybe{AbstractString} = nothing,
+        h5ad::Maybe{AbstractString} = nothing]
+    )::AnnData
 
 View the `daf` data set as `AnnData`. This doesn't duplicate matrices or vectors, but acts as a view containing
 references to the same ones. Adding and/or deleting data in the view using the `AnnData` API will not affect the
@@ -428,7 +431,7 @@ Each of the final `obs_is`, `var_is`, `X_is` values is stored as unstructured an
 All scalar properties, vector properties of the chosen "obs" and "var" axes, and matrix properties of these axes, are
 stored in the returned new `AnnData` object.
 """
-function daf_as_anndata(
+@logged function daf_as_anndata(
     daf::DafReader;
     obs_is::Maybe{AbstractString} = nothing,
     var_is::Maybe{AbstractString} = nothing,
@@ -460,7 +463,9 @@ function daf_as_anndata(
     copy_matrices(daf, obs_is, var_is, X_is, adata.layers)
 
     if h5ad !== nothing
+        @debug "writeh5ad $(h5ad) {"
         writeh5ad(h5ad, adata; compress = UInt8(0))  # NOJET
+        @debug "writeh5ad $(h5ad) }"
     end
 
     return adata

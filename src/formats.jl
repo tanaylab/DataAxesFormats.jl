@@ -40,6 +40,7 @@ export DataKey
 export MappedData
 export MemoryData
 export QueryData
+export empty_cache!
 export end_write_lock
 
 using Base.Threads
@@ -89,7 +90,7 @@ Types of cached data inside `Daf`.
     executing queries therefore allows to explicitly disable the caching of the query results, since some queries will
     not be repeated.
 
-If too much data has been cached, call `empty_cache!` to release it.
+If too much data has been cached, call [`empty_cache!`](@ref) to release it.
 """
 @enum CacheType MappedData MemoryData QueryData
 
@@ -178,7 +179,7 @@ All the functions for this type are provided based on the functions required for
 abstract type DafWriter <: FormatWriter end
 
 function Base.show(io::IO, format_reader::FormatReader)::Nothing
-    print(io, describe(format_reader))
+    print(io, depict(format_reader))
     return nothing
 end
 
@@ -581,7 +582,7 @@ the `name` matrix property exists for them.
 function format_get_matrix end
 
 """
-    function format_description_header(format::FormatReader, lines::Vector{String})::Nothing
+    format_description_header(format::FormatReader, lines::Vector{String})::Nothing
 
 Allow a `format` to amit additional description header lines.
 
@@ -593,7 +594,7 @@ function format_description_header(format::FormatReader, indent::AbstractString,
 end
 
 """
-    function format_description_footer(format::FormatReader, lines::Vector{String})::Nothing
+    format_description_footer(format::FormatReader, lines::Vector{String})::Nothing
 
 Allow a `format` to amit additional description footer lines. If `deep`, this also emit the description of any data sets
 nested in this one, if any.
@@ -685,6 +686,7 @@ function cache_data!(
     data::Union{AbstractStringSet, AbstractStringVector, StorageScalar, NamedArray},
     cache_type::CacheType,
 )::Nothing
+    @debug "cache_data! daf: $(depict(format)) cache_key: $(cache_key) data: $(depict(data)) cache_type: $(cache_type)"
     @assert format.internal.writer_thread[1] == threadid()
     @assert !haskey(format.internal.cache, cache_key)
     format.internal.cache[cache_key] = CacheEntry(cache_type, data)
@@ -1038,6 +1040,48 @@ function format_increment_version_counter(format::FormatWriter, version_key::Dat
     previous_version_counter = format_get_version_counter(format, version_key)
     format.internal.version_counters[version_key] = previous_version_counter + 1
     return nothing
+end
+
+"""
+    empty_cache!(
+        daf::FormatReader;
+        [clear::Maybe{CacheType} = nothing,
+        keep::Maybe{CacheType} = nothing]
+    )::Nothing
+
+Clear some cached data. By default, completely empties the caches. You can specify either `clear`, to only forget a
+specific [`CacheType`](@ref) (e.g., for clearing only `QueryData`), or `keep`, to forget everything except a specific
+[`CacheType`](@ref) (e.g., for keeping only `MappedData`). You can't specify both `clear` and `keep`.
+"""
+function empty_cache!(daf::DafReader; clear::Maybe{CacheType} = nothing, keep::Maybe{CacheType} = nothing)::Nothing
+    return with_write_lock(daf) do
+        @debug "empty_cache! daf: $(depict(daf)) clear: $(clear) keep: $(keep)"
+        @assert clear === nothing || keep === nothing
+        if clear === nothing && keep === nothing
+            empty!(daf.internal.cache)
+        else
+            filter!(daf.internal.cache) do key_value
+                cache_type = key_value[2].cache_type
+                return cache_type == keep || (cache_type != clear && clear !== nothing)
+            end
+        end
+
+        if isempty(daf.internal.cache)
+            empty!(daf.internal.dependency_cache_keys)
+        else
+            for (_, dependent_keys) in daf.internal.dependency_cache_keys
+                filter(dependent_keys) do dependent_key
+                    return haskey(daf.internal.cache, dependent_key)
+                end
+            end
+            filter(daf.internal.dependency_cache_keys) do entry
+                dependent_keys = entry[2]
+                return !isempty(dependent_keys)
+            end
+        end
+
+        return nothing
+    end
 end
 
 end # module

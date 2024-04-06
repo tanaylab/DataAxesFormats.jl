@@ -17,7 +17,7 @@ using ExprTools
 using Logging
 
 """
-    function setup_logger(
+    setup_logger(
         io::IO = stderr;
         [level::LogLevel = Warn,
         show_time::Bool = true,
@@ -73,17 +73,31 @@ macro logged(definition)
     has_result = get(inner_definition, :rtype, :Any) != :Nothing
     arg_names = [parse_arg(arg) for arg in get(outer_definition, :args, [])]
     inner_definition[:name] = Symbol(function_name, :_logged)
-    outer_definition[:body] = Expr(
-        :call,
-        :(Daf.GenericLogging.logged_wrapper(
-            $full_name,
-            $arg_names,
-            $has_result,
-            $(ExprTools.combinedef(inner_definition)),
-        )),
-        pass_args(false, get(outer_definition, :args, []))...,
-        pass_args(true, get(outer_definition, :kwargs, []))...,
-    )
+    if startswith(full_name, "Daf.") || contains(full_name, ".Daf.")
+        outer_definition[:body] = Expr(
+            :call,
+            :(GenericLogging.logged_wrapper(
+                $full_name,
+                $arg_names,
+                $has_result,
+                $(ExprTools.combinedef(inner_definition)),
+            )),
+            pass_args(false, get(outer_definition, :args, []))...,
+            pass_args(true, get(outer_definition, :kwargs, []))...,
+        )
+    else
+        outer_definition[:body] = Expr(
+            :call,
+            :(Daf.GenericLogging.logged_wrapper(
+                $full_name,
+                $arg_names,
+                $has_result,
+                $(ExprTools.combinedef(inner_definition)),
+            )),
+            pass_args(false, get(outer_definition, :args, []))...,
+            pass_args(true, get(outer_definition, :kwargs, []))...,
+        )
+    end
 
     return esc(ExprTools.combinedef(outer_definition))
 end
@@ -92,25 +106,25 @@ function parse_arg(arg::Symbol)::AbstractString
     return split(string(arg), "::"; limit = 2)[1]
 end
 
-function parse_arg(arg::Expr)::AbstractString  # untested
+function parse_arg(arg::Expr)::AbstractString
     return parse_arg(arg.args[1])
 end
 
-function logged_wrapper(name::AbstractString, arg_names::AbstractStringVector, has_result::Bool, inner_function)  # untested
+function logged_wrapper(name::AbstractString, arg_names::AbstractStringVector, has_result::Bool, inner_function)
     return (args...; kwargs...) -> (@debug "call: $(name))() {";
     for (arg_name, value) in zip(arg_names, args)
-        @debug "$(arg_name): $(describe(value))"
+        @debug "$(arg_name): $(depict(value))"
     end;
     for (name, value) in kwargs
-        @debug "$(name): $(describe(value))"
+        @debug "$(name): $(depict(value))"
     end;
     result = inner_function(args...; kwargs...);
     if has_result
-        @debug "done: $(name) return: $(describe(result)) }"
+        @debug "done: $(name) return: $(depict(result)) }"
     else
         @debug "done: $(name) }"
     end;
-    result)
+    result)  # only seems untested
 end
 
 function metafmt(  # untested

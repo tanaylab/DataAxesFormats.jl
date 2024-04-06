@@ -481,6 +481,14 @@
 </div>
 </section>
 </article>
+<h3 id="Caching">
+<a class="docs-heading-anchor" href="#Caching">Caching
+</a>
+<a id="Caching-1">
+</a>
+<a class="docs-heading-anchor-permalink" href="#Caching" title="Permalink">
+</a>
+</h3>
 <article class="docstring">
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
@@ -513,8 +521,56 @@
 </li>
 </ul>
 <p>If too much data has been cached, call 
+<a href="formats.html#Daf.Formats.empty_cache!">
 <code>empty_cache!
-</code> to release it.
+</code>
+</a> to release it.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Formats.empty_cache!" href="#Daf.Formats.empty_cache!">
+<code>Daf.Formats.empty_cache!
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">empty_cache!(
+    daf::FormatReader;
+    [clear::Maybe{CacheType} = nothing,
+    keep::Maybe{CacheType} = nothing]
+)::Nothing
+</code>
+</pre>
+<p>Clear some cached data. By default, completely empties the caches. You can specify either 
+<code>clear
+</code>, to only forget a specific 
+<a href="formats.html#Daf.Formats.CacheType">
+<code>CacheType
+</code>
+</a> (e.g., for clearing only 
+<code>QueryData
+</code>), or 
+<code>keep
+</code>, to forget everything except a specific 
+<a href="formats.html#Daf.Formats.CacheType">
+<code>CacheType
+</code>
+</a> (e.g., for keeping only 
+<code>MappedData
+</code>). You can&#39;t specify both 
+<code>clear
+</code> and 
+<code>keep
+</code>.
 </p>
 </div>
 </section>
@@ -541,7 +597,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">function format_description_header(format::FormatReader, lines::Vector{String})::Nothing
+<code class="language-julia hljs">format_description_header(format::FormatReader, lines::Vector{String})::Nothing
 </code>
 </pre>
 <p>Allow a 
@@ -567,7 +623,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">function format_description_footer(format::FormatReader, lines::Vector{String})::Nothing
+<code class="language-julia hljs">format_description_footer(format::FormatReader, lines::Vector{String})::Nothing
 </code>
 </pre>
 <p>Allow a 
@@ -1905,6 +1961,12 @@ where {T &lt;: StorageNumber, I &lt;: StorageInteger}
 <li>
 <a href="formats.html#Daf.Formats.Internal">
 <code>Daf.Formats.Internal
+</code>
+</a>
+</li>
+<li>
+<a href="formats.html#Daf.Formats.empty_cache!">
+<code>Daf.Formats.empty_cache!
 </code>
 </a>
 </li>

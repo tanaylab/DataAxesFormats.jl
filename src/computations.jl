@@ -85,7 +85,7 @@ Mark a function as a `Daf` computation. This has the following effects:
   - It stashes the default value of named arguments. This allows expanding [`DEFAULT`](@ref) in the documentation
     string, which is especially useful if these defaults are computed, read from global constants, etc.
   - It logs the invocation of the function (using `@debug`), including the actual values of the named arguments (using
-    [`describe`](@ref)).
+    [`depict`](@ref)).
 
 !!! note
 

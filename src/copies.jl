@@ -18,6 +18,7 @@ export copy_vector!
 export EmptyData
 
 using Daf.Formats
+using Daf.GenericLogging
 using Daf.GenericTypes
 using Daf.Messages
 using Daf.Readers
@@ -30,7 +31,7 @@ import Daf.Readers.as_named_vector
 import Daf.Readers.as_named_matrix
 
 """
-    function copy_scalar(;
+    copy_scalar(;
         destination::DafWriter,
         source::DafReader,
         name::AbstractString,
@@ -44,7 +45,7 @@ Copy a scalar with some `name` from some `source` `DafReader` into some `destina
 The scalar is fetched using the `name` and the `default`. If `rename` is specified, store the scalar using this new
 name. If `overwrite` (not the default), overwrite an existing scalar in the target.
 """
-function copy_scalar!(;
+@logged function copy_scalar!(;
     destination::DafWriter,
     source::DafReader,
     name::AbstractString,
@@ -52,7 +53,6 @@ function copy_scalar!(;
     default::Union{StorageScalar, Nothing, UndefInitializer} = undef,
     overwrite::Bool = false,
 )::Nothing
-    @debug "copy_scalar! $(destination.name) <$(overwrite ? "=" : "-") $(source.name) : $(name) || $(describe(default))"
     value = get_scalar(source, name; default = default)
     if value !== nothing
         rename = new_name(rename, name)
@@ -61,7 +61,7 @@ function copy_scalar!(;
 end
 
 """
-    function copy_axis(;
+    copy_axis(;
         destination::DafWriter,
         source::DafReader,
         axis::AbstractString,
@@ -73,18 +73,13 @@ Copy an `axis` from some `source` `DafReader` into some `destination` `DafWriter
 
 The axis is fetched using the `name` and the `default`. If `rename` is specified, store the axis using this name.
 """
-function copy_axis!(;
+@logged function copy_axis!(;
     destination::DafWriter,
     source::DafReader,
     axis::AbstractString,
     rename::Maybe{AbstractString} = nothing,
     default::Union{Nothing, UndefInitializer} = undef,
 )::Nothing
-    if rename === nothing
-        @debug "copy_axis! $(destination.name) <- $(source.name) : $(axis) || $(describe(default))"
-    else
-        @debug "copy_axis! $(destination.name) <- $(source.name) : $(rename) <- $(axis) || $(describe(default))"  # untested
-    end
     value = get_axis(source, axis; default = default)
     if value !== nothing
         rename = new_name(rename, axis)
@@ -93,7 +88,7 @@ function copy_axis!(;
 end
 
 """
-    function copy_vector(;
+    copy_vector(;
         destination::DafWriter,
         source::DafReader,
         axis::AbstractString,
@@ -115,7 +110,7 @@ This requires the axis of one data set is the same, or is a superset of, or a su
 contains entries that do not exist in the source, then `empty` must be specified to fill the missing values. If the
 source axis contains entries that do not exist in the target, they are discarded (not copied).
 """
-function copy_vector!(;
+@logged function copy_vector!(;
     destination::DafWriter,
     source::DafReader,
     axis::AbstractString,
@@ -127,12 +122,6 @@ function copy_vector!(;
     overwrite::Bool = false,
     relation::Maybe{Symbol} = nothing,
 )::Nothing
-    if rename === nothing
-        @debug "copy_vector! $(destination.name) <$(overwrite ? "-" : "=") $(source.name) / $(axis) : $(name) || $(describe(default))"
-    else
-        @debug "copy_vector! $(destination.name) <$(overwrite ? "-" : "=") $(source.name) / $(axis) : $(rename) <- $(name) || $(describe(default))"  # untested
-    end
-
     reaxis = new_name(reaxis, axis)
     rename = new_name(rename, name)
 
@@ -181,7 +170,7 @@ function copy_vector!(;
 end
 
 """
-    function copy_matrix(;
+    copy_matrix(;
         destination::DafWriter,
         source::DafReader,
         rows_axis::AbstractString,
@@ -213,7 +202,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
     the destination. However, currently we create a temporary dense matrix for this; this is inefficient and should be
     replaced by a more efficient method.
 """
-function copy_matrix!(;
+@logged function copy_matrix!(;
     destination::DafWriter,
     source::DafReader,
     rows_axis::AbstractString,
@@ -230,12 +219,6 @@ function copy_matrix!(;
     columns_relation::Maybe{Symbol} = nothing,
 )::Nothing
     relayout = relayout && rows_axis != columns_axis
-    if rename === nothing
-        @debug "copy_matrix! $(destination.name) <$(relayout ? "%" : "#")$(overwrite ? "-" : "=") $(source.name) / $(rows_axis)($(rows_relation)) / $(columns_axis)($(columns_relation)) : $(name) || $(describe(default)) ?? $(describe(empty))"
-    else
-        @debug "copy_matrix! $(destination.name) <$(relayout ? "%" : "#")$(overwrite ? "-" : "=") $(source.name) / $(rows_axis)($(rows_relation)) / $(columns_axis)($(columns_relation)) : $(rename) <- $(name) || $(describe(default)) ?? $(describe(empty))"
-    end
-
     rows_reaxis = new_name(rows_reaxis, rows_axis)
     columns_reaxis = new_name(columns_reaxis, columns_axis)
     rename = new_name(rename, name)
@@ -385,7 +368,7 @@ specified using a `(axis, property) => value` entry for specifying an empty valu
 `(rows_axis, columns_axis, property) => entry` for specifying an empty value for a matrix property. The order of the
 axes for matrix properties doesn't matter (the same empty value is automatically used for both axes orders).
 """
-function copy_all!(;
+@logged function copy_all!(;
     destination::DafWriter,
     source::DafReader,
     empty::Maybe{EmptyData} = nothing,

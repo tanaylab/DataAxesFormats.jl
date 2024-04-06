@@ -11,7 +11,13 @@ Daf.Formats.DataKey
 Daf.Formats.DafReader
 Daf.Formats.FormatReader
 Daf.Formats.Internal
+```
+
+### Caching
+
+```@docs
 Daf.Formats.CacheType
+Daf.Formats.empty_cache!
 ```
 
 ### Description

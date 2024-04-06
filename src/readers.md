@@ -43,7 +43,6 @@ Daf.Readers.get_matrix
 Daf.Readers.axis_version_counter
 Daf.Readers.vector_version_counter
 Daf.Readers.matrix_version_counter
-Daf.Readers.empty_cache!
 ```
 
 ## Index

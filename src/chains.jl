@@ -545,14 +545,14 @@ function Formats.format_increment_version_counter(chain::WriteChain, version_key
     return nothing
 end
 
-function Messages.describe(value::ReadOnlyChain; name::Maybe{AbstractString} = nothing)::String
+function Messages.depict(value::ReadOnlyChain; name::Maybe{AbstractString} = nothing)::String
     if name === nothing
         name = value.name  # NOLINT
     end
     return "ReadOnly Chain $(name)"
 end
 
-function Messages.describe(value::WriteChain; name::Maybe{AbstractString} = nothing)::String
+function Messages.depict(value::WriteChain; name::Maybe{AbstractString} = nothing)::String
     if name === nothing
         name = value.name  # NOLINT
     end

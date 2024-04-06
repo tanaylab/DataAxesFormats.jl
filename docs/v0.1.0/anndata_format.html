@@ -442,14 +442,17 @@
 </header>
 <section>
 <div>
-<p>anndata
-<em>as
-</em>daf( adata::Union{AnnData, AbstractString}; [name::Maybe{AbstractString} = nothing, obs
-<em>is::Maybe{AbstractString} = nothing, var
-</em>is::Maybe{AbstractString} = nothing, X
-<em>is::Maybe{AbstractString} = nothing, unsupported
-</em>handler::AbnormalHandler = WarnHandler] )::MemoryDaf
-</p>
+<pre>
+<code class="language-julia hljs">anndata_as_daf(
+    adata::Union{AnnData, AbstractString};
+    [name::Maybe{AbstractString} = nothing,
+    obs_is::Maybe{AbstractString} = nothing,
+    var_is::Maybe{AbstractString} = nothing,
+    X_is::Maybe{AbstractString} = nothing,
+    unsupported_handler::AbnormalHandler = WarnHandler]
+)::MemoryDaf
+</code>
+</pre>
 <p>View 
 <code>AnnData
 </code> as a 
@@ -516,12 +519,16 @@
 </header>
 <section>
 <div>
-<p>daf
-<em>as
-</em>anndata( daf::DafReader; [obs
-<em>is::Maybe{AbstractString} = nothing, var
-</em>is::Maybe{AbstractString} = nothing, X_is::Maybe{AbstractString} = nothing, h5ad::Maybe{AbstractString} = nothing] )::AnnData
-</p>
+<pre>
+<code class="language-julia hljs">daf_as_anndata(
+    daf::DafReader;
+    [obs_is::Maybe{AbstractString} = nothing,
+    var_is::Maybe{AbstractString} = nothing,
+    X_is::Maybe{AbstractString} = nothing,
+    h5ad::Maybe{AbstractString} = nothing]
+)::AnnData
+</code>
+</pre>
 <p>View the 
 <code>daf
 </code> data set as 

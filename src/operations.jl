@@ -298,7 +298,7 @@ function parse_int_dtype_value(  # untested
 end
 
 """
-    function parse_float_dtype_value(
+    parse_float_dtype_value(
         operation_name::AbstractString,
         parameter_name::AbstractString,
         parameter_value::Token,
@@ -320,7 +320,7 @@ function parse_float_dtype_value(
 end
 
 """
-    function parse_number_value(
+    parse_number_value(
         operation_name::AbstractString,
         parameter_name::AbstractString,
         parameter_value::Token,
@@ -349,7 +349,7 @@ function parse_number_value(
 end
 
 """
-    function parse_parameter_value(
+    parse_parameter_value(
         parse_value::Function,
         operation_name::Token,
         operation_kind::AbstractString,

@@ -63,7 +63,7 @@ nested_test("chains") do
             ("write", "Write", chain_writer([first, second]; name = "chain!")),
         ]
             nested_test(name) do
-                @test describe(chain) == "$(type_name) Chain chain!"
+                @test depict(chain) == "$(type_name) Chain chain!"
 
                 nested_test("scalar") do
                     nested_test("first") do

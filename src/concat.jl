@@ -20,6 +20,7 @@ export SkipProperty
 using Base.Threads
 using Daf.Copies
 using Daf.Formats
+using Daf.GenericLogging
 using Daf.GenericTypes
 using Daf.Readers
 using Daf.StorageTypes
@@ -72,7 +73,7 @@ of other axes). Valid values are:
 @enum MergeAction SkipProperty LastValue CollectAxis
 
 """
-    function concatenate(
+    concatenate(
         destination::DafWriter,
         axis::Union{AbstractString, AbstractStringVector},
         sources::AbstractVector{<:DafReader};
@@ -133,7 +134,7 @@ then such properties will be processed according to it. Using `CollectAxis` for 
 
 By default, concatenation will fail rather than `overwrite` existing properties in the target.
 """
-function concatenate(
+@logged function concatenate(
     destination::DafWriter,
     axis::Union{AbstractString, AbstractStringVector},
     sources::AbstractVector{<:DafReader};

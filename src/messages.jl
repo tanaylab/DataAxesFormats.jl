@@ -3,8 +3,8 @@ Functions for improving the quality of error and log messages.
 """
 module Messages
 
-export describe
-export describe_percent
+export depict
+export depict_percent
 export unique_name
 
 using Daf.MatrixLayouts
@@ -13,6 +13,9 @@ using Distributed
 using LinearAlgebra
 using NamedArrays
 using SparseArrays
+
+import Daf.MatrixLayouts.depict
+import Daf.MatrixLayouts.depict_matrix_size
 
 UNIQUE_NAME_PREFIXES = Dict{AbstractString, Int64}()
 
@@ -53,139 +56,125 @@ function unique_name(prefix::AbstractString)::AbstractString
 end
 
 """
-    describe(value::Any)::String
+    depict(value::Any)::String
 
-Describe a `value` in an error message or a log entry. Unlike `"\$(value)"`, this focuses on producing a human-readable
+Depict a `value` in an error message or a log entry. Unlike `"\$(value)"`, this focuses on producing a human-readable
 indication of the type of the value, so it double-quotes strings, prefixes symbols with `:`, and reports the type and
 sizes of arrays rather than showing their content, as well as having specializations for the various `Daf` data types.
 """
-function describe(value::Any)::String
+function depict(value::Any)::String
+    return "($(typeof(value)))"
+end
+
+function depict(value::Real)::String
     return "$(value) ($(typeof(value)))"
 end
 
-function describe(value::Real)::String
-    return "$(value) ($(typeof(value)))"
+function depict(value::Tuple)::String
+    return "(" * join([depict(entry) for entry in value], ", ") * ")"
 end
 
-function describe(value::Bool)::String
+function depict(value::Bool)::String
     return "$(value)"
 end
-function describe(::UndefInitializer)::String
+function depict(::UndefInitializer)::String
     return "undef"
 end
 
-function describe(::Missing)::String
+function depict(::Missing)::String
     return "missing"
 end
 
-function describe(value::AbstractString)::String
+function depict(value::AbstractString)::String
+    value = replace(value, "\\" => "\\\\", "\"" => "\\\"")
     return "\"$(value)\""
 end
 
-function describe(value::Symbol)::String
+function depict(value::Symbol)::String
     return ":$(value)"
 end
 
-function describe(value::AbstractVector)::String
-    return present_vector(value, "")
+function depict(value::AbstractVector)::String
+    return depict_vector(value, "")
 end
 
-function present_vector(vector::SparseArrays.ReadOnly, prefix::AbstractString)::String
-    return present_vector(parent(vector), concat_prefixes(prefix, "ReadOnly"))
+function depict_vector(vector::SparseArrays.ReadOnly, prefix::AbstractString)::String
+    return depict_vector(parent(vector), concat_prefixes(prefix, "ReadOnly"))
 end
 
-function present_vector(vector::NamedArray, prefix::AbstractString)::String
-    return present_vector(vector.array, concat_prefixes(prefix, "Named"))
+function depict_vector(vector::NamedArray, prefix::AbstractString)::String
+    return depict_vector(vector.array, concat_prefixes(prefix, "Named"))
 end
 
-function present_vector(vector::DenseVector, prefix::AbstractString)::String
-    return present_vector_size(vector, concat_prefixes(prefix, "Dense"))
+function depict_vector(vector::DenseVector, prefix::AbstractString)::String
+    return depict_vector_size(vector, concat_prefixes(prefix, "Dense"))
 end
 
-function present_vector(vector::SparseVector, prefix::AbstractString)::String
-    nnz = describe_percent(length(vector.nzval), length(vector))
-    return present_vector_size(vector, concat_prefixes(prefix, "Sparse $(SparseArrays.indtype(vector)) $(nnz)"))
+function depict_vector(vector::SparseVector, prefix::AbstractString)::String
+    nnz = depict_percent(length(vector.nzval), length(vector))
+    return depict_vector_size(vector, concat_prefixes(prefix, "Sparse $(SparseArrays.indtype(vector)) $(nnz)"))
 end
 
-function present_vector(vector::AbstractVector, prefix::AbstractString)::String  # untested
+function depict_vector(vector::AbstractVector, prefix::AbstractString)::String  # untested
     try
         if strides(vector) == (1,)
-            return present_vector_size(vector, concat_prefixes(prefix, "$(typeof(vector)) - Dense"))
+            return depict_vector_size(vector, concat_prefixes(prefix, "$(typeof(vector)) - Dense"))
         else
-            return present_vector_size(vector, concat_prefixes(prefix, "$(typeof(vector)) - Strided"))
+            return depict_vector_size(vector, concat_prefixes(prefix, "$(typeof(vector)) - Strided"))
         end
     catch
-        return present_vector_size(vector, concat_prefixes(prefix, "$(typeof(vector))"))
+        return depict_vector_size(vector, concat_prefixes(prefix, "$(typeof(vector))"))
     end
 end
 
-function present_vector_size(vector::AbstractVector, kind::AbstractString)::String
+function depict_vector_size(vector::AbstractVector, kind::AbstractString)::String
     return "$(length(vector)) x $(eltype(vector)) ($(kind))"
 end
 
-function describe(matrix::AbstractMatrix)::String
-    return present_matrix(matrix, ""; transposed = false)
+function depict(matrix::AbstractMatrix)::String
+    return depict_matrix(matrix, ""; transposed = false)
 end
 
-function present_matrix(matrix::SparseArrays.ReadOnly, prefix::AbstractString; transposed::Bool = false)::String
-    return present_matrix(parent(matrix), concat_prefixes(prefix, "ReadOnly"); transposed = transposed)
+function depict_matrix(matrix::SparseArrays.ReadOnly, prefix::AbstractString; transposed::Bool = false)::String
+    return depict_matrix(parent(matrix), concat_prefixes(prefix, "ReadOnly"); transposed = transposed)
 end
 
-function present_matrix(matrix::NamedMatrix, prefix::AbstractString; transposed::Bool = false)::String
-    return present_matrix(matrix.array, concat_prefixes(prefix, "Named"); transposed = transposed)
+function depict_matrix(matrix::NamedMatrix, prefix::AbstractString; transposed::Bool = false)::String
+    return depict_matrix(matrix.array, concat_prefixes(prefix, "Named"); transposed = transposed)
 end
 
-function present_matrix(matrix::Union{Transpose, Adjoint}, prefix::AbstractString; transposed::Bool = false)::String
-    return present_matrix(transpose(matrix), prefix; transposed = !transposed)
+function depict_matrix(matrix::Union{Transpose, Adjoint}, prefix::AbstractString; transposed::Bool = false)::String
+    return depict_matrix(transpose(matrix), prefix; transposed = !transposed)
 end
 
-function present_matrix(matrix::DenseMatrix, prefix::AbstractString; transposed::Bool = false)::String
-    return present_matrix_size(matrix, concat_prefixes(prefix, "Dense"); transposed = transposed)
+function depict_matrix(matrix::DenseMatrix, prefix::AbstractString; transposed::Bool = false)::String
+    return depict_matrix_size(matrix, concat_prefixes(prefix, "Dense"); transposed = transposed)
 end
 
-function present_matrix(matrix::SparseMatrixCSC, prefix::AbstractString; transposed::Bool = false)::String
-    nnz = describe_percent(length(matrix.nzval), length(matrix))
-    return present_matrix_size(
+function depict_matrix(matrix::SparseMatrixCSC, prefix::AbstractString; transposed::Bool = false)::String
+    nnz = depict_percent(length(matrix.nzval), length(matrix))
+    return depict_matrix_size(
         matrix,
         concat_prefixes(prefix, "Sparse $(SparseArrays.indtype(matrix)) $(nnz)");
         transposed = transposed,
     )
 end
 
-function present_matrix(matrix::AbstractMatrix, ::AbstractString; transposed::Bool = false)::String  # untested
+function depict_matrix(matrix::AbstractMatrix, ::AbstractString; transposed::Bool = false)::String  # untested
     try
         matrix_strides = strides(matrix)
         matrix_sizes = size(matrix)
         if matrix_strides == (1, matrix_sizes[1]) || matrix_strides == (matrix_sizes[2], 1)
-            return present_matrix_size(matrix, "$(typeof(matrix)) - Dense"; transposed = transposed)
+            return depict_matrix_size(matrix, "$(typeof(matrix)) - Dense"; transposed = transposed)
         else
-            return present_matrix_size(matrix, "$(typeof(matrix)) - Strided"; transposed = transposed)
+            return depict_matrix_size(matrix, "$(typeof(matrix)) - Strided"; transposed = transposed)
         end
     catch
-        return present_matrix_size(matrix, "$(typeof(matrix))"; transposed = transposed)
+        return depict_matrix_size(matrix, "$(typeof(matrix))"; transposed = transposed)
     end
 end
 
-function present_matrix_size(matrix::AbstractMatrix, kind::AbstractString; transposed::Bool = false)::String
-    layout = major_axis(matrix)
-    if transposed
-        layout = other_axis(layout)
-    end
-
-    if layout === nothing
-        layout_suffix = "w/o major axis"  # untested
-    else
-        layout_suffix = "in $(axis_name(layout))"
-    end
-
-    if transposed
-        return "$(size(matrix, 2)) x $(size(matrix, 1)) x $(eltype(matrix)) $(layout_suffix) (transposed $(kind))"
-    else
-        return "$(size(matrix, 1)) x $(size(matrix, 2)) x $(eltype(matrix)) $(layout_suffix) ($(kind))"
-    end
-end
-
-function describe(value::AbstractArray)::String
+function depict(value::AbstractArray)::String
     text = ""
     for dim_size in size(value)
         if text == ""
@@ -198,11 +187,11 @@ function describe(value::AbstractArray)::String
 end
 
 """
-    describe_percent(used::Integer, out_of::Integer)::String
+    depict_percent(used::Integer, out_of::Integer)::String
 
 Describe a fraction of `used` amount `out_of` some total as a percentage.
 """
-function describe_percent(used::Integer, out_of::Integer)::String
+function depict_percent(used::Integer, out_of::Integer)::String
     float_percent = 100.0 * Float64(used) / Float64(out_of)
     int_percent = round(Int64, float_percent)
 

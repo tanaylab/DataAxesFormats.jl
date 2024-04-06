@@ -9,6 +9,7 @@ module Reconstruction
 export reconstruct_axis!
 
 using Daf.Formats
+using Daf.GenericLogging
 using Daf.GenericTypes
 using Daf.Queries
 using Daf.Readers
@@ -16,7 +17,7 @@ using Daf.StorageTypes
 using Daf.Writers
 
 """
-    function reconstruct_axis!(
+    reconstruct_axis!(
         daf::DafWriter;
         existing_axis::AbstractString,
         implicit_axis::AbstractString,
@@ -68,7 +69,7 @@ doublet score). Not specifying the `implicit_properties` allows the function to 
     When reconstructing the original property, specify this value using [`IfNot`](@ref) (e.g.,
     `/ cell : type => color ?? magenta`).
 """
-function reconstruct_axis!(
+@logged function reconstruct_axis!(
     daf::DafWriter;
     existing_axis::AbstractString,
     implicit_axis::AbstractString,
