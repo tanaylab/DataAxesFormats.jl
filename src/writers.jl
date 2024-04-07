@@ -351,7 +351,7 @@ function filled_empty_dense_vector!(
     ::AbstractString,
     filled_vector::AbstractVector{T},
 )::Nothing where {T <: StorageNumber}
-    @debug "empty_dense_vector! filled vector: $(filled_vector) }"
+    @debug "empty_dense_vector! filled vector: $(depict(filled_vector)) }"
     return nothing
 end
 
@@ -453,7 +453,7 @@ function filled_empty_sparse_vector!(
 )::Nothing where {T <: StorageNumber, I <: StorageInteger}
     filled = SparseVector(axis_length(daf, axis), nzind, nzval)
     Formats.format_filled_sparse_vector!(daf, axis, name, extra, filled)
-    @debug "empty_sparse_vector! filled vector: $(filled) }"
+    @debug "empty_sparse_vector! filled vector: $(depict(filled)) }"
     return nothing
 end
 
@@ -653,7 +653,7 @@ function filled_empty_dense_matrix!(
     ::AbstractString,
     filled_matrix::AbstractMatrix{T},
 )::Nothing where {T <: StorageNumber}
-    @debug "empty_dense_matrix! filled matrix: $(filled_matrix) }"
+    @debug "empty_dense_matrix! filled matrix: $(depict(filled_matrix)) }"
     return nothing
 end
 
@@ -762,7 +762,7 @@ function filled_empty_sparse_matrix!(
 )::Nothing where {T <: StorageNumber, I <: StorageInteger}
     filled = SparseMatrixCSC(axis_length(daf, rows_axis), axis_length(daf, columns_axis), colptr, rowval, nzval)
     Formats.format_filled_sparse_matrix!(daf, rows_axis, columns_axis, name, extra, filled)
-    @debug "empty_sparse_matrix! filled matrix: $(filled) }"
+    @debug "empty_sparse_matrix! filled matrix: $(depict(filled)) }"
     return nothing
 end
 
