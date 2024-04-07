@@ -4,7 +4,7 @@
 .*.swp
 .DS_Store
 TAGS
-deps/.*
+deps/.did.*
 deps/build.log
 junk*
 tags
