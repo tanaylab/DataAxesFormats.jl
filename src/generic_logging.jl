@@ -59,6 +59,10 @@ Automatically log (in `Debug` level) every invocation to the function. This will
 Emits a second log entry when the function returns, with the result (if any).
 """
 macro logged(definition)
+    while definition.head === :macrocall
+        definition = macroexpand(__module__, definition)
+    end
+
     inner_definition = ExprTools.splitdef(definition)
     outer_definition = copy(inner_definition)
 

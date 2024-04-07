@@ -94,6 +94,10 @@ Mark a function as a `Daf` computation. This has the following effects:
     function.
 """
 macro computation(definition)
+    while definition.head === :macrocall
+        definition = macroexpand(__module__, definition)
+    end
+
     inner_definition = ExprTools.splitdef(definition)
     outer_definition = copy(inner_definition)
 
@@ -123,6 +127,10 @@ macro computation(definition)
 end
 
 macro computation(contract, definition)
+    while definition.head === :macrocall
+        definition = macroexpand(__module__, definition)
+    end
+
     inner_definition = ExprTools.splitdef(definition)
     outer_definition = copy(inner_definition)
 
@@ -156,6 +164,10 @@ macro computation(contract, definition)
 end
 
 macro computation(first_contract, second_contract, definition)
+    while definition.head === :macrocall
+        definition = macroexpand(__module__, definition)
+    end
+
     inner_definition = ExprTools.splitdef(definition)
     outer_definition = copy(inner_definition)
 

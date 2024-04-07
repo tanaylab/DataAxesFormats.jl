@@ -24,7 +24,7 @@ $(CONTRACT)
         ("cell", "gene", "UMIs") =>
             (RequiredInput, Union{UInt8, UInt16, UInt32, UInt64}, "The number of sampled scRNA molecules."),
     ],
-) function single(daf::DafWriter, quality::Float64, optional::Int = 1; named::Int = 2)::Nothing
+) @logged function single(daf::DafWriter, quality::Float64, optional::Int = 1; named::Int = 2)::Nothing
     set_scalar!(daf, "quality", quality)
     return nothing
 end
@@ -40,7 +40,7 @@ $(CONTRACT1)
 
 $(CONTRACT2)
 """
-@computation Contract(
+@logged @computation Contract(
     data = [
         "version" => (RequiredInput, String, "In major.minor.patch format."),
         "quality" => (GuaranteedOutput, Float64, "Overall output quality score between 0.0 and 1.0."),

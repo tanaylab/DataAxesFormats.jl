@@ -4,6 +4,7 @@ using Base: elsize
 using Base.MathConstants
 using Daf
 using Daf.GenericFunctions
+using Daf.GenericLogging
 using Daf.GenericTypes
 using ExceptionUnwrapping
 using HDF5
