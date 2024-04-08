@@ -74,9 +74,10 @@ function depict(value::Tuple)::String
     return "(" * join([depict(entry) for entry in value], ", ") * ")"
 end
 
-function depict(value::Bool)::String
+function depict(value::Union{Bool, Type})::String
     return "$(value)"
 end
+
 function depict(::UndefInitializer)::String
     return "undef"
 end
