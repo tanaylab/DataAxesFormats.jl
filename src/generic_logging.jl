@@ -81,6 +81,7 @@ macro logged(definition)
         outer_definition[:body] = Expr(
             :call,
             :(GenericLogging.logged_wrapper(
+                $function_module,
                 $full_name,
                 $arg_names,
                 $has_result,
@@ -93,6 +94,7 @@ macro logged(definition)
         outer_definition[:body] = Expr(
             :call,
             :(Daf.GenericLogging.logged_wrapper(
+                $function_module,
                 $full_name,
                 $arg_names,
                 $has_result,
@@ -114,19 +116,25 @@ function parse_arg(arg::Expr)::AbstractString
     return parse_arg(arg.args[1])
 end
 
-function logged_wrapper(name::AbstractString, arg_names::AbstractStringVector, has_result::Bool, inner_function)
-    return (args...; kwargs...) -> (@debug "call: $(name))() {";
+function logged_wrapper(
+    _module::Module,
+    name::AbstractString,
+    arg_names::AbstractStringVector,
+    has_result::Bool,
+    inner_function,
+)
+    return (args...; kwargs...) -> (@debug "$(name) {" _module = _module;
     for (arg_name, value) in zip(arg_names, args)
-        @debug "$(arg_name): $(depict(value))"
+        @debug "- $(arg_name): $(depict(value))" _module = _module
     end;
     for (name, value) in kwargs
-        @debug "$(name): $(depict(value))"
+        @debug "- $(name): $(depict(value))" _module = _module
     end;
     result = inner_function(args...; kwargs...);
     if has_result
-        @debug "done: $(name) return: $(depict(result)) }"
+        @debug "$(name) return: $(depict(result)) }" _module = _module
     else
-        @debug "done: $(name) }"
+        @debug "$(name) return }" _module = _module
     end;
     result)  # only seems untested
 end
