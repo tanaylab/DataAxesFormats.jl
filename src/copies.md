@@ -8,6 +8,7 @@ Daf.Copies.copy_vector!
 Daf.Copies.copy_matrix!
 Daf.Copies.copy_all!
 Daf.Copies.EmptyData
+Daf.Copies.DataTypes
 ```
 
 ## Index

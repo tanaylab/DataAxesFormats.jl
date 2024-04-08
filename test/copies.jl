@@ -54,6 +54,48 @@ nested_test("copies") do
                       nothing
                 @test get_scalar(destination, "version") == "1.0"
             end
+
+            nested_test("dtype") do
+                nested_test("same") do
+                    @test copy_scalar!(;
+                        source = source,
+                        destination = destination,
+                        name = "version",
+                        dtype = String,
+                    ) == nothing
+                    @test get_scalar(destination, "version") == "1.0"
+                end
+
+                nested_test("parse") do
+                    @test copy_scalar!(;
+                        source = source,
+                        destination = destination,
+                        name = "version",
+                        dtype = Float32,
+                    ) == nothing
+                    @test get_scalar(destination, "version") isa Float32
+                    @test get_scalar(destination, "version") == 1.0
+                end
+
+                nested_test("string") do
+                    @test set_scalar!(source, "version", 1.0; overwrite = true) === nothing
+                    @test copy_scalar!(;
+                        source = source,
+                        destination = destination,
+                        name = "version",
+                        dtype = String,
+                    ) == nothing
+                    @test get_scalar(destination, "version") == "1.0"
+                end
+
+                nested_test("convert") do
+                    @test set_scalar!(source, "version", 1.0; overwrite = true) === nothing
+                    @test copy_scalar!(; source = source, destination = destination, name = "version", dtype = Int32) ==
+                          nothing
+                    @test get_scalar(destination, "version") isa Int32
+                    @test get_scalar(destination, "version") == 1
+                end
+            end
         end
     end
 
@@ -197,6 +239,18 @@ nested_test("copies") do
                     ) === nothing
                     @test get_vector(destination, "cell", "age") == [1, 2]
                 end
+
+                nested_test("convert") do
+                    @test copy_vector!(;
+                        source = source,
+                        destination = destination,
+                        axis = "cell",
+                        name = "age",
+                        dtype = Float32,
+                    ) == nothing
+                    @test get_vector(destination, "cell", "age") == [1.0, 2.0]
+                    @test eltype(get_vector(destination, "cell", "age")) == Float32
+                end
             end
 
             nested_test("subset") do
@@ -321,6 +375,31 @@ nested_test("copies") do
                     ) === nothing
                     @test get_vector(destination, "cell", "age") == [1, 0]
                     @test nnz(get_vector(destination, "cell", "age").array) == 1
+                end
+
+                nested_test("dtype") do
+                    nested_test("string") do
+                        @test copy_vector!(;
+                            source = source,
+                            destination = destination,
+                            axis = "cell",
+                            name = "age",
+                            dtype = String,
+                        ) == nothing
+                        @test get_vector(destination, "cell", "age") == ["1", "0"]
+                    end
+
+                    nested_test("convert") do
+                        @test copy_vector!(;
+                            source = source,
+                            destination = destination,
+                            axis = "cell",
+                            name = "age",
+                            dtype = Float32,
+                        ) == nothing
+                        @test get_vector(destination, "cell", "age") == [1.0, 0.0]
+                        @test eltype(get_vector(destination, "cell", "age")) == Float32
+                    end
                 end
             end
 
@@ -620,6 +699,19 @@ nested_test("copies") do
                         default = [2 3 4; 5 6 7],
                     ) === nothing
                     @test get_matrix(destination, "cell", "gene", "UMIs") == [1 2 3; 4 5 6]
+                end
+
+                nested_test("convert") do
+                    @test copy_matrix!(;
+                        source = source,
+                        destination = destination,
+                        rows_axis = "cell",
+                        columns_axis = "gene",
+                        name = "UMIs",
+                        dtype = Float32,
+                    ) === nothing
+                    @test get_matrix(destination, "cell", "gene", "UMIs") == [1.0 2.0 3.0; 4.0 5.0 6.0]
+                    @test eltype(get_matrix(destination, "cell", "gene", "UMIs")) == Float32
                 end
             end
 
@@ -1209,7 +1301,7 @@ nested_test("copies") do
             @test add_axis!(destination, "cell", ["A", "B"]) === nothing
             @test add_axis!(destination, "gene", ["W", "X", "Z"]) === nothing
 
-            @test set_scalar!(source, "version", "1.0") === nothing
+            @test set_scalar!(source, "version", "1.5") === nothing
             @test add_axis!(source, "cell", ["A"]) === nothing
             @test add_axis!(source, "gene", ["W", "X"]) === nothing
             @test set_vector!(source, "cell", "age", [1.0]) === nothing
@@ -1219,9 +1311,10 @@ nested_test("copies") do
                 source = source,
                 destination = destination,
                 empty = Dict(("cell", "age") => 0.0, ("gene", "cell", "UMIs") => 0),
+                dtypes = Dict("version" => Float32),
             )
 
-            @test get_scalar(destination, "version") == "1.0"
+            @test get_scalar(destination, "version") == 1.5
             @test get_vector(destination, "cell", "age") == [1.0, 0.0]
             @test get_matrix(destination, "cell", "gene", "UMIs") == [1 2 0; 0 0 0]
         end

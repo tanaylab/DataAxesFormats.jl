@@ -280,9 +280,10 @@
     source::DafReader,
     name::AbstractString,
     [rename::Maybe{AbstractString} = nothing,
+    dtype::Maybe{Type{T}} = nothing,
     default::Union{StorageScalar, Nothing, UndefInitializer} = undef,
     overwrite::Bool = false]
-)::Nothing
+)::Nothing where {T &lt;: StorageScalarBase}
 </code>
 </pre>
 <p>Copy a scalar with some 
@@ -304,6 +305,8 @@
 </code>. If 
 <code>rename
 </code> is specified, store the scalar using this new name. If 
+<code>dtype
+</code> is specified, the data is converted to this type. If 
 <code>overwrite
 </code> (not the default), overwrite an existing scalar in the target.
 </p>
@@ -377,10 +380,11 @@
     name::AbstractString,
     [reaxis::Maybe{AbstractString} = nothing,
     rename::Maybe{AbstractString} = nothing,
+    dtype::Maybe{Type{T}} = nothing,
     default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
     empty::Maybe{StorageScalar} = nothing,
     overwrite::Bool = false]
-)::Nothing
+)::Nothing where {T &lt;: StorageScalarBase}
 </code>
 </pre>
 <p>Copy a vector from some 
@@ -404,6 +408,8 @@
 </code> is specified, store the vector using this axis. If 
 <code>rename
 </code> is specified, store the vector using this name. If 
+<code>dtype
+</code> is specified, the data is converted to this type. If 
 <code>overwrite
 </code> (not the default), overwrite an existing vector in the target.
 </p>
@@ -437,11 +443,12 @@
     [rows_reaxis::Maybe{AbstractString} = nothing,
     columns_reaxis::Maybe{AbstractString} = nothing,
     rename::Maybe{AbstractString} = nothing,
+    dtype::Maybe{Type{T}} = nothing,
     default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
     empty::Maybe{StorageScalar} = nothing,
     relayout::Bool = true,
     overwrite::Bool = false]
-)::Nothing
+)::Nothing where {T &lt;: StorageScalarBase}
 </code>
 </pre>
 <p>Copy a matrix from some 
@@ -471,6 +478,8 @@
 </code> are specified, store the vector using these axes. If 
 <code>rename
 </code> is specified, store the matrix using this name. If 
+<code>dtype
+</code> is specified, the data is converted to this type. If 
 <code>overwrite
 </code> (not the default), overwrite an existing matrix in the target. The matrix is stored with the same 
 <code>relayout
@@ -511,6 +520,7 @@
     destination::DafWriter,
     source::DafReader
     [empty::Maybe{EmptyData} = nothing,
+    dtypes::Maybe{DataTypes} = nothing,
     overwrite::Bool = false,
     relayout::Bool = true]
 )::Nothing
@@ -543,6 +553,10 @@
 </code> entry for specifying an empty value for a vector property and a 
 <code>(rows_axis, columns_axis, property) =&gt; entry
 </code> for specifying an empty value for a matrix property. The order of the axes for matrix properties doesn&#39;t matter (the same empty value is automatically used for both axes orders).
+</p>
+<p>If 
+<code>dtype
+</code> is specified, the copied data of the matching property is converted to the specified data type.
 </p>
 </div>
 </section>
@@ -601,6 +615,60 @@
 </div>
 </section>
 </article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Copies.DataTypes" href="#Daf.Copies.DataTypes">
+<code>Daf.Copies.DataTypes
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</header>
+<section>
+<div>
+<p>Specify the data type to use for overriding properties types in a 
+<code>Daf
+</code> data set. This is a dictionary with an 
+<a href="formats.html#Daf.Formats.DataKey">
+<code>DataKey
+</code>
+</a> specifying for which property we specify a value to, and the data type to use.
+</p>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>Due to Julia&#39;s type system limitations, there&#39;s just no way for the system to enforce the type of the pairs when initializing this dictionary. That is, what we&#39;d 
+<strong>like
+</strong> to say is:
+</p>
+<pre>
+<code class="nohighlight hljs">DataTypes = AbstractDict{DataKey, Type{T}} where {T &lt;: StorageScalarBase}
+</code>
+</pre>
+<p>But what we are 
+<strong>forced
+</strong> to say is:
+</p>
+<pre>
+<code class="nohighlight hljs">DataTypes = AbstractDict
+</code>
+</pre>
+<p>That&#39;s 
+<strong>not
+</strong> a mistake. Even 
+<code>DataTypes = AbstractDict{Key, T &lt;: StorageScalarBase} where {Key, T &lt;: StorageScalarBase}
+</code> fails to work, as do all the (many) possibilities for expressing &quot;this is a dictionary where the key or the value can be one of several things&quot; Sigh. Glory to anyone who figures out an incantation that would force the system to perform 
+<strong>any
+</strong> meaningful type inference here.
+</p>
+</div>
+</div>
+</div>
+</section>
+</article>
 <h2 id="Index">
 <a class="docs-heading-anchor" href="#Index">Index
 </a>
@@ -613,6 +681,12 @@
 <li>
 <a href="copies.html#Daf.Copies">
 <code>Daf.Copies
+</code>
+</a>
+</li>
+<li>
+<a href="copies.html#Daf.Copies.DataTypes">
+<code>Daf.Copies.DataTypes
 </code>
 </a>
 </li>
