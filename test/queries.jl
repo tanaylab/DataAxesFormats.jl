@@ -1,4 +1,5 @@
-function get_result(daf::DafReader, query::Union{String, Query}; cache::Bool = true)::Any
+function get_result(daf::DafReader, query::Union{String, Query}; cache::Bool = true, is_axis::Bool = false)::Any
+    @test is_axis_query(query) == is_axis
     value = get_query(daf, query; cache = cache)
     if value isa AbstractStringSet
         @test query_result_dimensions(query) == -1
@@ -190,7 +191,7 @@ nested_test("queries") do
         nested_test("scalars") do
             @test get_result(daf, q"? scalars") == []
             set_scalar!(daf, "score", 1.0)
-            @test get_result(daf, q"? scalars") == ["score"]
+            @test get_result(daf, Names("scalars")) == ["score"]
             set_scalar!(daf, "version", "1.0.1")
             @test get_result(daf, q"? scalars") == ["score", "version"]
         end
@@ -198,7 +199,7 @@ nested_test("queries") do
         nested_test("axes") do
             @test get_result(daf, q"? axes") == []
             add_axis!(daf, "cell", ["A", "B"])
-            @test get_result(daf, q"? axes") == ["cell"]
+            @test get_result(daf, Names("axes")) == ["cell"]
             add_axis!(daf, "batch", ["U", "V"])
             @test get_result(daf, q"? axes") == ["batch", "cell"]
         end
@@ -308,8 +309,8 @@ nested_test("queries") do
             end
 
             nested_test("axis") do
-                @test get_result(daf, q"/ cell") == ["A", "B"]
-                @test get_result(daf, Axis("cell")) == ["A", "B"]
+                @test get_result(daf, q"/ cell"; is_axis = true) == ["A", "B"]
+                @test get_result(daf, Axis("cell"); is_axis = true) == ["A", "B"]
             end
 
             nested_test("eltwise") do
@@ -491,8 +492,8 @@ nested_test("queries") do
 
             nested_test("match") do
                 nested_test("()") do
-                    @test get_result(daf, q"/ cell & type ~ T.\*") == ["A"]
-                    @test get_result(daf, q"/ cell & type !~ T.\*") == ["B"]
+                    @test get_result(daf, q"/ cell & type ~ T.\*"; is_axis = true) == ["A"]
+                    @test get_result(daf, q"/ cell & type !~ T.\*"; is_axis = true) == ["B"]
                 end
 
                 nested_test("!regex") do
@@ -539,35 +540,35 @@ nested_test("queries") do
             end
 
             nested_test("and") do
-                @test get_result(daf, q"/ cell & is_doublet") == ["A"]
-                @test get_result(daf, q"/ cell & age") == ["B"]
-                @test get_result(daf, q"/ cell & age = 0") == ["A"]
-                @test get_result(daf, q"/ cell & age != 0") == ["B"]
-                @test get_result(daf, q"/ cell & age < 0") == []
-                @test get_result(daf, q"/ cell & age > 0") == ["B"]
-                @test get_result(daf, q"/ cell & age <= 0") == ["A"]
-                @test get_result(daf, q"/ cell & age >= 0") == ["A", "B"]
+                @test get_result(daf, q"/ cell & is_doublet"; is_axis = true) == ["A"]
+                @test get_result(daf, q"/ cell & age"; is_axis = true) == ["B"]
+                @test get_result(daf, q"/ cell & age = 0"; is_axis = true) == ["A"]
+                @test get_result(daf, q"/ cell & age != 0"; is_axis = true) == ["B"]
+                @test get_result(daf, q"/ cell & age < 0"; is_axis = true) == []
+                @test get_result(daf, q"/ cell & age > 0"; is_axis = true) == ["B"]
+                @test get_result(daf, q"/ cell & age <= 0"; is_axis = true) == ["A"]
+                @test get_result(daf, q"/ cell & age >= 0"; is_axis = true) == ["A", "B"]
             end
 
             nested_test("and_not") do
-                @test get_result(daf, q"/ cell &! is_doublet") == ["B"]
-                @test get_result(daf, q"/ cell &! age") == ["A"]
+                @test get_result(daf, q"/ cell &! is_doublet"; is_axis = true) == ["B"]
+                @test get_result(daf, q"/ cell &! age"; is_axis = true) == ["A"]
             end
 
             nested_test("or") do
-                @test get_result(daf, q"/ cell & age | is_doublet") == ["A", "B"]
+                @test get_result(daf, q"/ cell & age | is_doublet"; is_axis = true) == ["A", "B"]
             end
 
             nested_test("or_not") do
-                @test get_result(daf, q"/ cell & age |! is_doublet") == ["B"]
+                @test get_result(daf, q"/ cell & age |! is_doublet"; is_axis = true) == ["B"]
             end
 
             nested_test("xor") do
-                @test get_result(daf, q"/ cell & age ^ is_doublet") == ["A", "B"]
+                @test get_result(daf, q"/ cell & age ^ is_doublet"; is_axis = true) == ["A", "B"]
             end
 
             nested_test("xor_not") do
-                @test get_result(daf, q"/ cell & age ^! is_doublet") == []
+                @test get_result(daf, q"/ cell & age ^! is_doublet"; is_axis = true) == []
             end
         end
 

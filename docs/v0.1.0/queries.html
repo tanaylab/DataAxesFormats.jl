@@ -78,8 +78,8 @@
 </a>
 </li>
 <li>
-<a class="tocitem" href="#Application">
-<span>Application
+<a class="tocitem" href="#Functions">
+<span>Functions
 </span>
 </a>
 </li>
@@ -92,12 +92,6 @@
 <li>
 <a class="tocitem" href="#Query-Operators">
 <span>Query Operators
-</span>
-</a>
-</li>
-<li>
-<a class="tocitem" href="#Additional-Functions">
-<span>Additional Functions
 </span>
 </a>
 </li>
@@ -503,12 +497,12 @@
 </div>
 </section>
 </article>
-<h2 id="Application">
-<a class="docs-heading-anchor" href="#Application">Application
+<h2 id="Functions">
+<a class="docs-heading-anchor" href="#Functions">Functions
 </a>
-<a id="Application-1">
+<a id="Functions-1">
 </a>
-<a class="docs-heading-anchor-permalink" href="#Application" title="Permalink">
+<a class="docs-heading-anchor-permalink" href="#Functions" title="Permalink">
 </a>
 </h2>
 <article class="docstring">
@@ -553,6 +547,165 @@
 </code> is equivalent to 
 <code>get_query(daf, q&quot;/ cell&quot;)
 </code>).
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Queries.get_frame" href="#Daf.Queries.get_frame">
+<code>Daf.Queries.get_frame
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">get_frame(
+    daf::DafReader,
+    axis::Union{Query, AbstractString},
+    [columns::Maybe{Union{AbstractStringVector, QueryColumns}} = nothing;
+    cache::Bool = true]
+)::DataFrame end
+</code>
+</pre>
+<p>Return a 
+<code>DataFrame
+</code> containing multiple vectors of the same 
+<code>axis
+</code>.
+</p>
+<p>The 
+<code>axis
+</code> can be either just the name of an axis (e.g., 
+<code>&quot;cell&quot;
+</code>), or a query for the axis (e.g., 
+<code>q&quot;/ cell&quot;
+</code>), possibly using a mask (e.g., 
+<code>q&quot;/ cell &amp; age &gt; 1&quot;
+</code>). The result of the query must be a vector of unique axis entry names.
+</p>
+<p>If 
+<code>columns
+</code> is not specified, the data frame will contain all the vector properties of the axis, in alphabetical order (since 
+<code>DataFrame
+</code> has no concept of named rows, the 1st column will contain the name of the axis entry). Otherwise, 
+<code>columns
+</code> may be a vector of names of vector properties (e.g., 
+<code>[&quot;batch&quot;, &quot;age&quot;]
+</code>), or a vector of pairs mapping a column name to a query suffix (e.g., 
+<code>[&quot;color&quot; =&gt; q&quot;: type =&gt; color&quot;]
+</code>). This suffix is applied to the 
+<code>axis
+</code> query (e.g., if the 
+<code>axis
+</code> is masked as above, the full query for the 
+<code>color
+</code> column would be 
+<code>q&quot;/ cell &amp; age &gt; 1 : type =&gt; color
+</code>). The result of the full query must be a vector.
+</p>
+<p>By default, this will cache results of all queries. This may consume a large amount of memory. You can disable it by specifying 
+<code>cache = false
+</code>, or release the cached data using 
+<a href="formats.html#Daf.Formats.empty_cache!">
+<code>empty_cache!
+</code>
+</a>.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Queries.QueryColumns" href="#Daf.Queries.QueryColumns">
+<code>Daf.Queries.QueryColumns
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</header>
+<section>
+<div>
+<p>Specify columns for a data frame. This is a vector of pairs, where the key is the column name, and the value is a query that computes the data of the column.
+</p>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>Due to Julia&#39;s type system limitations, there&#39;s just no way for the system to enforce the type of the pairs in this vector. That is, what we&#39;d 
+<strong>like
+</strong> to say is:
+</p>
+<pre>
+<code class="nohighlight hljs">QueryColumns = AbstractVector{Pair{AbstractString, Union{AbstractString, Query}}}
+</code>
+</pre>
+<p>But what we are 
+<strong>forced
+</strong> to say is:
+</p>
+<pre>
+<code class="nohighlight hljs">QueryColumns = AbstractVector{&lt;:Pair}
+</code>
+</pre>
+<p>Glory to anyone who figures out an incantation that would force the system to perform more meaningful type inference here.
+</p>
+</div>
+</div>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Queries.query_result_dimensions" href="#Daf.Queries.query_result_dimensions">
+<code>Daf.Queries.query_result_dimensions
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">query_result_dimensions(query::Union{Query, AbstractString})::Int
+</code>
+</pre>
+<p>Return the number of dimensions (-1 - names, 0 - scalar, 1 - vector, 2 - matrix) of the results of a 
+<code>query
+</code>. This also verifies the query is syntactically valid, though it may still fail if applied to specific data due to invalid data values or types.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Queries.is_axis_query" href="#Daf.Queries.is_axis_query">
+<code>Daf.Queries.is_axis_query
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">is_axis_query(query::Union{Query, AbstractString})::Bool
+</code>
+</pre>
+<p>Returns whether the 
+<code>query
+</code> specifies a (possibly masked) axis. This also verifies the query is syntactically valid, though it may still fail if applied to specific data due to invalid data values or types.
 </p>
 </div>
 </section>
@@ -3489,147 +3642,6 @@
 </div>
 </section>
 </article>
-<h2 id="Additional-Functions">
-<a class="docs-heading-anchor" href="#Additional-Functions">Additional Functions
-</a>
-<a id="Additional-Functions-1">
-</a>
-<a class="docs-heading-anchor-permalink" href="#Additional-Functions" title="Permalink">
-</a>
-</h2>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
-<a class="docstring-binding" id="Daf.Queries.query_result_dimensions" href="#Daf.Queries.query_result_dimensions">
-<code>Daf.Queries.query_result_dimensions
-</code>
-</a> — 
-<span class="docstring-category">Function
-</span>
-</header>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">query_result_dimensions(query::Union{Query, AbstractString})::Int
-</code>
-</pre>
-<p>Return the number of dimensions (-1 - names, 0 - scalar, 1 - vector, 2 - matrix) of the results of a query. This also verifies the query is syntactically valid, though it may still fail if applied to specific data due to invalid data values or types.
-</p>
-</div>
-</section>
-</article>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
-<a class="docstring-binding" id="Daf.Queries.get_frame" href="#Daf.Queries.get_frame">
-<code>Daf.Queries.get_frame
-</code>
-</a> — 
-<span class="docstring-category">Function
-</span>
-</header>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">get_frame(
-    daf::DafReader,
-    axis::Union{Query, AbstractString},
-    [columns::Maybe{Union{AbstractStringVector, QueryColumns}} = nothing;
-    cache::Bool = true]
-)::DataFrame end
-</code>
-</pre>
-<p>Return a 
-<code>DataFrame
-</code> containing multiple vectors of the same 
-<code>axis
-</code>.
-</p>
-<p>The 
-<code>axis
-</code> can be either just the name of an axis (e.g., 
-<code>&quot;cell&quot;
-</code>), or a query for the axis (e.g., 
-<code>q&quot;/ cell&quot;
-</code>), possibly using a mask (e.g., 
-<code>q&quot;/ cell &amp; age &gt; 1&quot;
-</code>). The result of the query must be a vector of unique axis entry names.
-</p>
-<p>If 
-<code>columns
-</code> is not specified, the data frame will contain all the vector properties of the axis, in alphabetical order (since 
-<code>DataFrame
-</code> has no concept of named rows, the 1st column will contain the name of the axis entry). Otherwise, 
-<code>columns
-</code> may be a vector of names of vector properties (e.g., 
-<code>[&quot;batch&quot;, &quot;age&quot;]
-</code>), or a vector of pairs mapping a column name to a query suffix (e.g., 
-<code>[&quot;color&quot; =&gt; q&quot;: type =&gt; color&quot;]
-</code>). This suffix is applied to the 
-<code>axis
-</code> query (e.g., if the 
-<code>axis
-</code> is masked as above, the full query for the 
-<code>color
-</code> column would be 
-<code>q&quot;/ cell &amp; age &gt; 1 : type =&gt; color
-</code>). The result of the full query must be a vector.
-</p>
-<p>By default, this will cache results of all queries. This may consume a large amount of memory. You can disable it by specifying 
-<code>cache = false
-</code>, or release the cached data using 
-<a href="formats.html#Daf.Formats.empty_cache!">
-<code>empty_cache!
-</code>
-</a>.
-</p>
-</div>
-</section>
-</article>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
-<a class="docstring-binding" id="Daf.Queries.QueryColumns" href="#Daf.Queries.QueryColumns">
-<code>Daf.Queries.QueryColumns
-</code>
-</a> — 
-<span class="docstring-category">Type
-</span>
-</header>
-<section>
-<div>
-<p>Specify columns for a data frame. This is a vector of pairs, where the key is the column name, and the value is a query that computes the data of the column.
-</p>
-<div class="admonition is-info">
-<header class="admonition-header">Note
-</header>
-<div class="admonition-body">
-<p>Due to Julia&#39;s type system limitations, there&#39;s just no way for the system to enforce the type of the pairs in this vector. That is, what we&#39;d 
-<strong>like
-</strong> to say is:
-</p>
-<pre>
-<code class="nohighlight hljs">QueryColumns = AbstractVector{Pair{AbstractString, Union{AbstractString, Query}}}
-</code>
-</pre>
-<p>But what we are 
-<strong>forced
-</strong> to say is:
-</p>
-<pre>
-<code class="nohighlight hljs">QueryColumns = AbstractVector{&lt;:Pair}
-</code>
-</pre>
-<p>Glory to anyone who figures out an incantation that would force the system to perform more meaningful type inference here.
-</p>
-</div>
-</div>
-</div>
-</section>
-</article>
 <h2 id="Index">
 <a class="docs-heading-anchor" href="#Index">Index
 </a>
@@ -3948,6 +3960,12 @@
 <li>
 <a href="queries.html#Daf.Queries.guess_typed_value">
 <code>Daf.Queries.guess_typed_value
+</code>
+</a>
+</li>
+<li>
+<a href="queries.html#Daf.Queries.is_axis_query">
+<code>Daf.Queries.is_axis_query
 </code>
 </a>
 </li>

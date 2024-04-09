@@ -741,6 +741,44 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
+<a class="docstring-binding" id="Daf.Operations.GeoMean" href="#Daf.Operations.GeoMean">
+<code>Daf.Operations.GeoMean
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">GeoMean(; dtype::Maybe{Type} = nothing, eps::StorageNumber = 0.0)
+</code>
+</pre>
+<p>Reduction operation that returns the geometric mean value.
+</p>
+<p>
+<strong>Parameters
+</strong>
+</p>
+<p>
+<code>dtype
+</code> - The default output data type is the 
+<a href="operations.html#Daf.Operations.float_dtype_for">
+<code>float_dtype_for
+</code>
+</a> of the input data type.
+</p>
+<p>
+<code>eps
+</code> - The regularization factor added to each value and subtracted from the raw geo-mean, to deal with zero values.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
 <a class="docstring-binding" id="Daf.Operations.Std" href="#Daf.Operations.Std">
 <code>Daf.Operations.Std
 </code>
@@ -1312,6 +1350,12 @@
 <li>
 <a href="operations.html#Daf.Operations.Fraction">
 <code>Daf.Operations.Fraction
+</code>
+</a>
+</li>
+<li>
+<a href="operations.html#Daf.Operations.GeoMean">
+<code>Daf.Operations.GeoMean
 </code>
 </a>
 </li>

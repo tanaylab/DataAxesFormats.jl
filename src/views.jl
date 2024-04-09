@@ -237,15 +237,16 @@ function viewer(
     axes::Maybe{ViewAxes} = nothing,
     data::Maybe{ViewData} = nothing,
 )::DafReadOnly
-    if axes === nothing
-        axes = EMPTY_AXES
-    end
-    if data === nothing
-        data = EMPTY_DATA
+    if axes === nothing && data === nothing
+        return read_only(daf; name = name)
     end
 
-    if isempty(axes) && isempty(data)
-        return read_only(daf; name = name)
+    if axes === nothing
+        axes = [VIEW_ALL_AXES]
+    end
+
+    if data === nothing
+        data = VIEW_ALL_DATA
     end
 
     if daf isa ReadOnly.DafReadOnlyWrapper
@@ -363,10 +364,9 @@ function collect_axis(
         else
             @assert axis_query isa Query
         end
-        dimensions = query_result_dimensions(axis_query)
-        if dimensions != 1
+        if !is_axis_query(axis_query)
             error(
-                "$(QUERY_TYPE_BY_DIMENSIONS[dimensions + 1]) query: $(axis_query)\n" *
+                "not an axis query: $(axis_query)\n" *
                 "for the axis: $(axis_name)\n" *
                 "for the view: $(view_name)\n" *
                 "of the daf data: $(daf.name)",
@@ -617,6 +617,7 @@ function Formats.format_get_scalar(view::DafView, name::AbstractString)::Storage
     fetch_scalar = view.scalars[name]
     scalar_value = fetch_scalar.value
     if scalar_value === nothing
+        Formats.upgrade_to_write_lock(view)
         scalar_value = get_query(view.daf, fetch_scalar.query)
         fetch_scalar.value = scalar_value
     end
@@ -639,15 +640,8 @@ function Formats.format_get_axis(view::DafView, axis::AbstractString)::AbstractS
     fetch_axis = view.axes[axis]
     axis_names = fetch_axis.value
     if axis_names === nothing
+        Formats.upgrade_to_write_lock(view)
         axis_names = as_read_only_array(get_query(view.daf, fetch_axis.query))
-        if !(eltype(axis_names) <: AbstractString)
-            error(
-                "non-String vector of: $(eltype(axis_names))\n" *
-                "names vector for the axis: $(axis)\n" *
-                "results from the query: $(fetch_axis.query)\n" *
-                "for the daf data: $(view.daf.name)",
-            )
-        end
         fetch_axis.value = axis_names
     end
     return axis_names
@@ -669,6 +663,7 @@ function Formats.format_get_vector(view::DafView, axis::AbstractString, name::Ab
     fetch_vector = view.vectors[axis][name]
     vector_value = fetch_vector.value
     if vector_value === nothing
+        Formats.upgrade_to_write_lock(view)
         vector_value = as_read_only_array(get_query(view.daf, fetch_vector.query))
         fetch_vector.value = vector_value
     end
@@ -702,6 +697,7 @@ function Formats.format_get_matrix(
     fetch_matrix = view.matrices[rows_axis][columns_axis][name]
     matrix_value = fetch_matrix.value
     if matrix_value === nothing
+        Formats.upgrade_to_write_lock(view)
         matrix_value = as_read_only_array(get_query(view.daf, fetch_matrix.query))
         fetch_matrix.value = matrix_value
     end

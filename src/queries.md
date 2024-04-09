@@ -11,10 +11,14 @@ Daf.Queries.Query
 Daf.Queries.@q_str
 ```
 
-## Application
+## Functions
 
 ```@docs
 Daf.Queries.get_query
+Daf.Queries.get_frame
+Daf.Queries.QueryColumns
+Daf.Queries.query_result_dimensions
+Daf.Queries.is_axis_query
 ```
 
 ## Syntax
@@ -73,14 +77,6 @@ Daf.Queries.Or
 Daf.Queries.OrNot
 Daf.Queries.Xor
 Daf.Queries.XorNot
-```
-
-## Additional Functions
-
-```@docs
-Daf.Queries.query_result_dimensions
-Daf.Queries.get_frame
-Daf.Queries.QueryColumns
 ```
 
 ## Index

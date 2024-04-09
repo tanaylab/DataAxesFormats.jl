@@ -11,7 +11,7 @@ export QueryColumns
 export CountBy
 export Fetch
 export get_frame
-export get_query
+export @q_str
 export GroupBy
 export IfMissing
 export IfNot
@@ -27,13 +27,14 @@ export Lookup
 export Names
 export Or
 export OrNot
-export @q_str
 export Query
-export query_result_dimensions
-export query_axis_name
 export QuerySequence
 export Xor
 export XorNot
+export get_query
+export is_axis_query
+export query_axis_name
+export query_result_dimensions
 
 using Base.Threads
 using Daf.Readers
@@ -707,6 +708,10 @@ function get_query(daf::DafReader, names::Names; cache::Bool = true)::AbstractSt
     return get_query(daf, QuerySequence((names,)); cache = cache)
 end
 
+function is_axis_query(names::Names)::Bool
+    return is_axis_query(QuerySequence((names,)))
+end
+
 function query_result_dimensions(names::Names)::Int
     return query_result_dimensions(QuerySequence((names,)))
 end
@@ -749,6 +754,10 @@ end
 
 function get_query(daf::DafReader, lookup::Lookup; cache::Bool = true)::StorageScalar
     return get_query(daf, QuerySequence((lookup,)); cache = cache)
+end
+
+function is_axis_query(lookup::Lookup)::Bool
+    return is_axis_query(QuerySequence((lookup,)))
 end
 
 function query_result_dimensions(lookup::Lookup)::Int
@@ -936,6 +945,10 @@ end
 
 function get_query(daf::DafReader, axis::Axis; cache::Bool = true)::AbstractStringVector
     return get_query(daf, QuerySequence((axis,)); cache = cache)
+end
+
+function is_axis_query(axis::Axis)::Bool
+    return is_axis_query(QuerySequence((axis,)))
 end
 
 function query_result_dimensions(axis::Axis)::Int
@@ -1533,14 +1546,40 @@ function get_query(
     end
 end
 
+function is_axis_query(query_string::AbstractString)::Bool
+    return is_axis_query(Query(query_string))
+end
+
 function query_result_dimensions(query_string::AbstractString)::Int
     return query_result_dimensions(Query(query_string))
 end
 
 """
+    is_axis_query(query::Union{Query, AbstractString})::Bool
+
+Returns whether the `query` specifies a (possibly masked) axis. This also verifies the query is syntactically valid,
+though it may still fail if applied to specific data due to invalid data values or types.
+"""
+function is_axis_query(query_sequence::QuerySequence)::Bool
+    return get_is_axis_query(get_fake_query_result(query_sequence))
+end
+
+function get_is_axis_query(fake_query_state::FakeQueryState)::Bool
+    if is_all(fake_query_state, (FakeAxisState,))
+        fake_axis_state = fake_query_state.stack[1]
+        @assert fake_axis_state isa FakeAxisState
+        if fake_axis_state.axis_name === nothing || !fake_axis_state.is_entry
+            return true
+        end
+    end
+
+    return false
+end
+
+"""
     query_result_dimensions(query::Union{Query, AbstractString})::Int
 
-Return the number of dimensions (-1 - names, 0 - scalar, 1 - vector, 2 - matrix) of the results of a query. This also
+Return the number of dimensions (-1 - names, 0 - scalar, 1 - vector, 2 - matrix) of the results of a `query`. This also
 verifies the query is syntactically valid, though it may still fail if applied to specific data due to invalid data
 values or types.
 """

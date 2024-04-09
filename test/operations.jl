@@ -408,6 +408,44 @@ nested_test("operations") do
             end
         end
 
+        nested_test("geomean") do
+            nested_test("negative") do
+                @test_throws dedent("""
+                    invalid value: "-1"
+                    value must be: not negative
+                    for the parameter: eps
+                    for the operation: GeoMean
+                    in: / cell / gene : value %> GeoMean eps -1
+                    at:                                      ▲▲
+                """) daf["/ cell / gene : value %> GeoMean eps -1"]
+            end
+
+            nested_test("vector") do
+                nested_test("!eps") do
+                    set_vector!(daf, "cell", "value", [1, 4])
+                    @test with_type(daf[Axis("cell") |> Lookup("value") |> GeoMean()]) == (2, Float64)
+                end
+
+                nested_test("eps") do
+                    set_vector!(daf, "cell", "value", [0, 3])
+                    @test with_type(daf[Axis("cell") |> Lookup("value") |> GeoMean(; eps = 1)]) == (1, Float64)
+                end
+            end
+
+            nested_test("matrix") do
+                nested_test("!eps") do
+                    set_matrix!(daf, "cell", "gene", "value", [1.0 2.0 2.0; 4.0 8.0 2.0])
+                    @test with_type(daf["/ cell / gene : value %> GeoMean dtype Float32"]) == ([2.0, 4.0, 2.0], Float32)
+                end
+
+                nested_test("eps") do
+                    set_matrix!(daf, "cell", "gene", "value", [0.0 1.0 1.0; 3.0 7.0 1.0])
+                    @test with_type(daf["/ cell / gene : value %> GeoMean dtype Float32 eps 1"]) ==
+                          ([1.0, 3.0, 1.0], Float32)
+                end
+            end
+        end
+
         nested_test("var") do
             nested_test("vector") do
                 set_vector!(daf, "cell", "value", [1, 3])

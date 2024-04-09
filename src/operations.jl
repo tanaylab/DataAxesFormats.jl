@@ -33,6 +33,7 @@ export Log
 export Max
 export Median
 export Mean
+export GeoMean
 export Min
 export Mode
 export Quantile
@@ -571,6 +572,7 @@ end
 @query_operation Fraction
 
 function Fraction(; dtype::Maybe{Type{T}} = nothing)::Fraction where {T <: StorageNumber}
+    @assert dtype === nothing || dtype <: AbstractFloat
     return Fraction(dtype)
 end
 
@@ -632,6 +634,7 @@ end
 @query_operation Log
 
 function Log(; dtype::Maybe{Type} = nothing, base::StorageNumber = Float64(e), eps::StorageNumber = 0.0)::Log
+    @assert dtype === nothing || dtype <: AbstractFloat
     @assert base > 0
     @assert eps >= 0
     return Log(dtype, Float64(base), Float64(eps))
@@ -880,6 +883,7 @@ end
 @query_operation Sum
 
 function Sum(; dtype::Maybe{Type} = nothing)::Sum
+    @assert dtype === nothing || dtype <: Real
     return Sum(dtype)
 end
 
@@ -969,6 +973,7 @@ end
 @query_operation Median
 
 function Median(; dtype::Maybe{Type} = nothing)::Median
+    @assert dtype === nothing || dtype <: AbstractFloat
     return Median(dtype)
 end
 
@@ -1013,7 +1018,9 @@ end
 @query_operation Quantile
 
 function Quantile(; dtype::Maybe{Type} = nothing, p::StorageNumber)::Quantile
-    return Quantile(dtype, Float64(p))
+    @assert dtype === nothing || dtype <: AbstractFloat
+    @assert 0 <= p && p <= 1
+    return Quantile(dtype, p)
 end
 
 function Quantile(operation_name::Token, parameters_values::Dict{String, Token})::Quantile
@@ -1067,6 +1074,7 @@ end
 @query_operation Mean
 
 function Mean(; dtype::Maybe{Type} = nothing)::Mean
+    @assert dtype === nothing || dtype <: AbstractFloat
     return Mean(dtype)
 end
 
@@ -1092,6 +1100,65 @@ function reduction_result_type(operation::Mean, eltype::Type)::Type
 end
 
 """
+    GeoMean(; dtype::Maybe{Type} = nothing, eps::StorageNumber = 0.0)
+
+Reduction operation that returns the geometric mean value.
+
+**Parameters**
+
+`dtype` - The default output data type is the [`float_dtype_for`](@ref) of the input data type.
+
+`eps` - The regularization factor added to each value and subtracted from the raw geo-mean, to deal with zero values.
+"""
+struct GeoMean <: ReductionOperation
+    dtype::Maybe{Type}
+    eps::Float64
+end
+@query_operation GeoMean
+
+function GeoMean(; dtype::Maybe{Type} = nothing, eps::StorageNumber = 0)::GeoMean
+    @assert dtype === nothing || dtype <: AbstractFloat
+    @assert eps >= 0
+    return GeoMean(dtype, eps)
+end
+
+function GeoMean(operation_name::Token, parameters_values::Dict{String, Token})::GeoMean
+    dtype = parse_parameter_value(operation_name, "eltwise", parameters_values, "dtype", nothing) do parameter_value
+        return parse_float_dtype_value(operation_name, "dtype", parameter_value)
+    end
+    eps = parse_parameter_value(operation_name, "eltwise", parameters_values, "eps", 0.0) do parameter_value
+        eps = parse_number_value(operation_name, "eps", parameter_value, Float64)
+        if eps < 0
+            error_invalid_parameter_value(operation_name, "eps", parameter_value, "not negative")
+        end
+        return eps
+    end
+    return GeoMean(dtype, eps)
+end
+
+function compute_reduction(operation::GeoMean, input::StorageMatrix{T})::StorageVector where {T <: StorageNumber}
+    dtype = reduction_result_type(operation, eltype(input))
+    if operation.eps == 0
+        return convert(AbstractVector{dtype}, geomean.(eachcol(input)))  # NOJET
+    else
+        return convert(AbstractVector{dtype}, geomean.(eachcol(input .+ operation.eps)) .- operation.eps)  # NOJET
+    end
+end
+
+function compute_reduction(operation::GeoMean, input::StorageVector{T})::StorageNumber where {T <: StorageNumber}
+    dtype = reduction_result_type(operation, eltype(input))
+    if operation.eps == 0
+        return dtype(geomean(input))  # NOJET
+    else
+        return dtype(geomean(input .+ operation.eps) - operation.eps)  # NOJET
+    end
+end
+
+function reduction_result_type(operation::GeoMean, eltype::Type)::Type
+    return float_dtype_for(eltype, operation.dtype)
+end
+
+"""
     Var(; dtype::Maybe{Type} = nothing)
 
 Reduction operation that returns the (uncorrected) variance of the values.
@@ -1106,6 +1173,7 @@ end
 @query_operation Var
 
 function Var(; dtype::Maybe{Type} = nothing)::Var
+    @assert dtype === nothing || dtype <: AbstractFloat
     return Var(dtype)
 end
 
@@ -1149,6 +1217,8 @@ end
 @query_operation VarN
 
 function VarN(; dtype::Maybe{Type} = nothing, eps::StorageNumber = 0)::VarN
+    @assert dtype === nothing || dtype <: AbstractFloat
+    @assert eps >= 0
     return VarN(dtype, eps)
 end
 
@@ -1199,6 +1269,7 @@ end
 @query_operation Std
 
 function Std(; dtype::Maybe{Type} = nothing)::Std
+    @assert dtype === nothing || dtype <: AbstractFloat
     return Std(dtype)
 end
 
@@ -1242,6 +1313,8 @@ end
 @query_operation StdN
 
 function StdN(; dtype::Maybe{Type} = nothing, eps::StorageNumber = 0)::StdN
+    @assert dtype === nothing || dtype <: AbstractFloat
+    @assert eps >= 0
     return StdN(dtype, eps)
 end
 

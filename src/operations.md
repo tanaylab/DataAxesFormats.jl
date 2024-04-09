@@ -25,6 +25,7 @@ Daf.Operations.Min
 Daf.Operations.Median
 Daf.Operations.Quantile
 Daf.Operations.Mean
+Daf.Operations.GeoMean
 Daf.Operations.Std
 Daf.Operations.StdN
 Daf.Operations.Var

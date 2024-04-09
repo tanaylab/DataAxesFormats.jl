@@ -71,22 +71,21 @@ nested_test("views") do
 
         nested_test("scalar") do
             @test_throws dedent("""
-                scalar query: / gene : marker %> Sum
+                not an axis query: / gene : marker %> Sum
                 for the axis: gene
                 for the view: view!
                 of the daf data: memory!
             """) viewer(daf; name = "view!", axes = ["gene" => "/ gene : marker %> Sum"])
         end
 
-        nested_test("!String") do
+        nested_test("vector") do
             set_vector!(daf, "cell", "age", [1, 2])
-            view = viewer(daf; name = "view!", axes = ["cell" => "/ cell : age"])
             @test_throws dedent("""
-                non-String vector of: Int64
-                names vector for the axis: cell
-                results from the query: / cell : age
-                for the daf data: memory!
-            """) get_axis(view, "cell")
+                not an axis query: / cell : age
+                for the axis: cell
+                for the view: view!
+                of the daf data: memory!
+            """) viewer(daf; name = "view!", axes = ["cell" => "/ cell : age"])
         end
     end
 
@@ -107,7 +106,7 @@ nested_test("views") do
                 the axis: cell
                 is not exposed by the view: view!
                 of the daf data: memory!
-            """) viewer(daf; name = "view!", data = [("cell", "age") => "="])
+            """) viewer(daf; name = "view!", axes = ["cell" => nothing], data = [("cell", "age") => "="])
         end
 
         nested_test("hidden") do
