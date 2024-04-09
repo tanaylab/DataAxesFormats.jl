@@ -72,8 +72,8 @@ daf = ... # Some input `Daf` data we wish to compute on.
 # under a different name.
 
 result = adapter(
-    "example",                 # A name to use to generate the temporary `Daf` data names.
-    viewer(daf; ...),        # How to view the input in the way expected by the computation.
+    viewer(daf; ...),          # How to view the input in the way expected by the computation.
+    name = "example",          # A name to use to generate the temporary `Daf` data names.
     axes = ..., data = ...,    # How and what to view from the output for copying back into `daf`.
     empty = ...,               # If the input view specifies a subset of some axes.
 ) do adapted                   # The writable adapted data we can pass to the computation.

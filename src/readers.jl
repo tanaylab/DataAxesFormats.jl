@@ -586,18 +586,18 @@ function get_matrix(
             if relayout && Formats.format_has_matrix(daf, columns_axis, rows_axis, name)
                 upgrade_to_write_lock(daf)
                 result_prefix = "relayout "
-                if daf isa DafWriter
+                if daf isa DafWriter &&
+                   Formats.format_has_matrix(daf, columns_axis, rows_axis, name; for_relayout = true)
                     Formats.format_relayout_matrix!(daf, columns_axis, rows_axis, name)
                 else
                     cache_key = Formats.matrix_cache_key(rows_axis, columns_axis, name)
                     cache_entry = get!(daf.internal.cache, cache_key) do
                         Formats.store_cached_dependency_key!(daf, cache_key, Formats.axis_cache_key(rows_axis))
                         Formats.store_cached_dependency_key!(daf, cache_key, Formats.axis_cache_key(columns_axis))
-                        flipped_matrix = Formats.get_matrix_through_cache(daf, columns_axis, rows_axis, name)
-                        return CacheEntry(
-                            MemoryData,
-                            as_named_matrix(daf, rows_axis, columns_axis, transpose(relayout!(flipped_matrix))),
-                        )
+                        flipped_matrix = Formats.get_matrix_through_cache(daf, columns_axis, rows_axis, name).array
+                        relayout_matrix = relayout!(flipped_matrix)
+                        transposed_matrix = transpose(relayout_matrix)
+                        return CacheEntry(MemoryData, as_named_matrix(daf, rows_axis, columns_axis, transposed_matrix))
                     end
                     matrix = cache_entry.data
                 end

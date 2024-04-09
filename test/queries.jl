@@ -8,6 +8,9 @@ function get_result(daf::DafReader, query::Union{String, Query}; cache::Bool = t
     elseif value isa NamedVector
         @test query_result_dimensions(query) == 1
         return (value.dimnames[1], [(name => value[name]) for name in keys(value.dicts[1])])
+    elseif value isa AbstractStringVector
+        @test query_result_dimensions(query) == 1
+        return value
     elseif value isa NamedMatrix
         @test query_result_dimensions(query) == 2
         return (
@@ -305,8 +308,8 @@ nested_test("queries") do
             end
 
             nested_test("axis") do
-                @test get_result(daf, q"/ cell") == ("cell", ["A" => "A", "B" => "B"])
-                @test get_result(daf, Axis("cell")) == ("cell", ["A" => "A", "B" => "B"])
+                @test get_result(daf, q"/ cell") == ["A", "B"]
+                @test get_result(daf, Axis("cell")) == ["A", "B"]
             end
 
             nested_test("eltwise") do
@@ -488,8 +491,8 @@ nested_test("queries") do
 
             nested_test("match") do
                 nested_test("()") do
-                    @test get_result(daf, q"/ cell & type ~ T.\*") == ("cell", ["A" => "A"])
-                    @test get_result(daf, q"/ cell & type !~ T.\*") == ("cell", ["B" => "B"])
+                    @test get_result(daf, q"/ cell & type ~ T.\*") == ["A"]
+                    @test get_result(daf, q"/ cell & type !~ T.\*") == ["B"]
                 end
 
                 nested_test("!regex") do
@@ -536,35 +539,35 @@ nested_test("queries") do
             end
 
             nested_test("and") do
-                @test get_result(daf, q"/ cell & is_doublet") == ("cell", ["A" => "A"])
-                @test get_result(daf, q"/ cell & age") == ("cell", ["B" => "B"])
-                @test get_result(daf, q"/ cell & age = 0") == ("cell", ["A" => "A"])
-                @test get_result(daf, q"/ cell & age != 0") == ("cell", ["B" => "B"])
-                @test get_result(daf, q"/ cell & age < 0") == ("cell", [])
-                @test get_result(daf, q"/ cell & age > 0") == ("cell", ["B" => "B"])
-                @test get_result(daf, q"/ cell & age <= 0") == ("cell", ["A" => "A"])
-                @test get_result(daf, q"/ cell & age >= 0") == ("cell", ["A" => "A", "B" => "B"])
+                @test get_result(daf, q"/ cell & is_doublet") == ["A"]
+                @test get_result(daf, q"/ cell & age") == ["B"]
+                @test get_result(daf, q"/ cell & age = 0") == ["A"]
+                @test get_result(daf, q"/ cell & age != 0") == ["B"]
+                @test get_result(daf, q"/ cell & age < 0") == []
+                @test get_result(daf, q"/ cell & age > 0") == ["B"]
+                @test get_result(daf, q"/ cell & age <= 0") == ["A"]
+                @test get_result(daf, q"/ cell & age >= 0") == ["A", "B"]
             end
 
             nested_test("and_not") do
-                @test get_result(daf, q"/ cell &! is_doublet") == ("cell", ["B" => "B"])
-                @test get_result(daf, q"/ cell &! age") == ("cell", ["A" => "A"])
+                @test get_result(daf, q"/ cell &! is_doublet") == ["B"]
+                @test get_result(daf, q"/ cell &! age") == ["A"]
             end
 
             nested_test("or") do
-                @test get_result(daf, q"/ cell & age | is_doublet") == ("cell", ["A" => "A", "B" => "B"])
+                @test get_result(daf, q"/ cell & age | is_doublet") == ["A", "B"]
             end
 
             nested_test("or_not") do
-                @test get_result(daf, q"/ cell & age |! is_doublet") == ("cell", ["B" => "B"])
+                @test get_result(daf, q"/ cell & age |! is_doublet") == ["B"]
             end
 
             nested_test("xor") do
-                @test get_result(daf, q"/ cell & age ^ is_doublet") == ("cell", ["A" => "A", "B" => "B"])
+                @test get_result(daf, q"/ cell & age ^ is_doublet") == ["A", "B"]
             end
 
             nested_test("xor_not") do
-                @test get_result(daf, q"/ cell & age ^! is_doublet") == ("cell", [])
+                @test get_result(daf, q"/ cell & age ^! is_doublet") == []
             end
         end
 

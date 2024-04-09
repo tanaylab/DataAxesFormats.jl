@@ -192,7 +192,8 @@ function Formats.format_has_matrix(
     memory::MemoryDaf,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
-    name::AbstractString,
+    name::AbstractString;
+    for_relayout::Bool = false,  # NOLINT
 )::Bool
     return haskey(memory.matrices[rows_axis][columns_axis], name)
 end

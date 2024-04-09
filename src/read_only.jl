@@ -110,9 +110,10 @@ function Formats.format_has_matrix(
     read_only_view::DafReadOnlyWrapper,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
-    name::AbstractString,
+    name::AbstractString;
+    for_relayout::Bool = false,
 )::Bool
-    return Formats.format_has_matrix(read_only_view.daf, rows_axis, columns_axis, name)
+    return Formats.format_has_matrix(read_only_view.daf, rows_axis, columns_axis, name; for_relayout = for_relayout)
 end
 
 function Formats.format_matrix_names(

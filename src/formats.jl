@@ -427,7 +427,8 @@ function format_get_vector end
         format::FormatReader,
         rows_axis::AbstractString,
         columns_axis::AbstractString,
-        name::AbstractString,
+        name::AbstractString;
+        [for_relayout::Bool = false]
     )::Bool
 
 Implement checking whether a matrix property with some `name` exists for the `rows_axis` and the `columns_axis` in
@@ -665,7 +666,8 @@ end
 
 function get_vector_through_cache(format::FormatReader, axis::AbstractString, name::AbstractString)::StorageVector
     return get_through_cache(format, vector_cache_key(axis, name), StorageVector) do
-        return format_get_vector(format, axis, name)
+        vector = format_get_vector(format, axis, name)
+        return as_named_vector(format, axis, vector)
     end
 end
 
@@ -674,9 +676,10 @@ function get_matrix_through_cache(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-)::StorageMatrix
+)::NamedArray
     return get_through_cache(format, matrix_cache_key(rows_axis, columns_axis, name), StorageMatrix) do
-        return format_get_matrix(format, rows_axis, columns_axis, name)
+        matrix = format_get_matrix(format, rows_axis, columns_axis, name)
+        return as_named_matrix(format, rows_axis, columns_axis, matrix)
     end
 end
 

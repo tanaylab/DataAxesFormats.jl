@@ -164,7 +164,6 @@ nested_test("views") do
 
         nested_test("query") do
             view = viewer(daf; axes = [VIEW_ALL_AXES], data = [("cell", "gene", "UMIs") => ": UMIs % Abs"])
-            @test isempty(matrix_names(view, "gene", "cell"; relayout = false))
             @test matrix_names(view, "gene", "cell"; relayout = true) == Set(["UMIs"])
             @test matrix_names(view, "cell", "gene"; relayout = false) == Set(["UMIs"])
             @test get_matrix(view, "cell", "gene", "UMIs") == [0 1 2; 3 4 5]

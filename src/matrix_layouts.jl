@@ -274,7 +274,10 @@ end
 
 function relayout!(matrix::AbstractSparseMatrix)::AbstractMatrix
     @assert require_major_axis(matrix) == Columns
-    return transpose(SparseMatrixCSC(transpose(matrix)))
+    @debug "relayout! $(depict(matrix)) {"  # NOLINT
+    result = transpose(SparseMatrixCSC(transpose(matrix)))
+    @debug "relayout! $(depict(result)) }"  # NOLINT
+    return result
 end
 
 function relayout!(matrix::AbstractMatrix)::AbstractMatrix

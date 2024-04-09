@@ -569,12 +569,6 @@
 <code>VIEW_ALL_MATRICES
 </code>), all matrix properties of all the (exposed) axes will also be exposed.
 </p>
-<p>The order of the axes does not matter, so 
-<code>data = [(&quot;gene&quot;, &quot;cell&quot;, &quot;UMIs&quot;) =&gt; &quot;=&quot;]
-</code> has the same effect as 
-<code>data = [(&quot;cell&quot;, &quot;gene&quot;, &quot;UMIs&quot;) =&gt; &quot;=&quot;]
-</code>.
-</p>
 <p>That is, assuming a 
 <code>gene
 </code> and 
@@ -586,6 +580,12 @@
 </code> will expose the matrix 
 <code>log_UMIs
 </code> for each cell and gene.
+</p>
+<p>The order of the axes does not matter, so 
+<code>data = [(&quot;gene&quot;, &quot;cell&quot;, &quot;UMIs&quot;) =&gt; &quot;=&quot;]
+</code> has the same effect as 
+<code>data = [(&quot;cell&quot;, &quot;gene&quot;, &quot;UMIs&quot;) =&gt; &quot;=&quot;]
+</code>.
 </p>
 <div class="admonition is-info">
 <header class="admonition-header">Note

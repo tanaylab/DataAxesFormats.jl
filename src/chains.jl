@@ -362,13 +362,17 @@ function Formats.format_has_matrix(
     chain::AnyChain,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
-    name::AbstractString,
+    name::AbstractString;
+    for_relayout::Bool = false,
 )::Bool
-    for daf in chain.dafs
+    for daf in reverse(chain.dafs)
         if Formats.format_has_axis(daf, rows_axis; for_change = false) &&
            Formats.format_has_axis(daf, columns_axis; for_change = false) &&
-           Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
+           Formats.format_has_matrix(daf, rows_axis, columns_axis, name; for_relayout = for_relayout)
             return true
+        end
+        if for_relayout
+            return false  # untested
         end
     end
     return false

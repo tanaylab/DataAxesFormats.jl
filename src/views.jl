@@ -135,11 +135,11 @@ value for matrices can again be `"="` to expose the property as is, or the suffi
 pair is `("*", "*", "*") => "="` (or, `VIEW_ALL_MATRICES`), all matrix properties of all the (exposed) axes will also be
 exposed.
 
-The order of the axes does not matter, so
-`data = [("gene", "cell", "UMIs") => "="]` has the same effect as `data = [("cell", "gene", "UMIs") => "="]`.
-
 That is, assuming a `gene` and `cell` axes were exposed by the `axes` parameter, then specifying that
 `("cell", "gene", "log_UMIs") => q": UMIs % Log base 2 eps"` will expose the matrix `log_UMIs` for each cell and gene.
+
+The order of the axes does not matter, so
+`data = [("gene", "cell", "UMIs") => "="]` has the same effect as `data = [("cell", "gene", "UMIs") => "="]`.
 
 !!! note
 
@@ -562,11 +562,12 @@ function collect_matrix(
         else
             @assert matrix_query isa Query
         end
-        matrix_query = fetch_rows_axis.query |> fetch_columns_axis.query |> matrix_query
-        dimensions = query_result_dimensions(matrix_query)
+
+        full_matrix_query = fetch_rows_axis.query |> fetch_columns_axis.query |> matrix_query
+        dimensions = query_result_dimensions(full_matrix_query)
         if dimensions != 2
             error(
-                "$(QUERY_TYPE_BY_DIMENSIONS[dimensions + 1]) query: $(matrix_query)\n" *
+                "$(QUERY_TYPE_BY_DIMENSIONS[dimensions + 1]) query: $(full_matrix_query)\n" *
                 "for the matrix: $(matrix_name)\n" *
                 "for the rows axis: $(rows_axis_name)\n" *
                 "and the columns axis: $(columns_axis_name)\n" *
@@ -574,7 +575,15 @@ function collect_matrix(
                 "of the daf data: $(daf.name)",
             )
         end
-        collected_matrices[rows_axis_name][columns_axis_name][matrix_name] = Fetch{StorageMatrix}(matrix_query, nothing)
+        collected_matrices[rows_axis_name][columns_axis_name][matrix_name] =
+            Fetch{StorageMatrix}(full_matrix_query, nothing)
+
+        if rows_axis_name != columns_axis_name
+            flipped_matrix_query = fetch_columns_axis.query |> fetch_rows_axis.query |> matrix_query
+            @assert query_result_dimensions(flipped_matrix_query) == 2
+            collected_matrices[columns_axis_name][rows_axis_name][matrix_name] =
+                Fetch{StorageMatrix}(flipped_matrix_query, nothing)
+        end
     end
     return nothing
 end
@@ -630,7 +639,7 @@ function Formats.format_get_axis(view::DafView, axis::AbstractString)::AbstractS
     fetch_axis = view.axes[axis]
     axis_names = fetch_axis.value
     if axis_names === nothing
-        axis_names = as_read_only_array(get_query(view.daf, fetch_axis.query).array)
+        axis_names = as_read_only_array(get_query(view.daf, fetch_axis.query))
         if !(eltype(axis_names) <: AbstractString)
             error(
                 "non-String vector of: $(eltype(axis_names))\n" *
@@ -670,7 +679,8 @@ function Formats.format_has_matrix(
     view::DafView,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
-    name::AbstractString,
+    name::AbstractString;
+    for_relayout::Bool = false,  # NOLINT
 )::Bool
     return haskey(view.matrices[rows_axis][columns_axis], name)
 end

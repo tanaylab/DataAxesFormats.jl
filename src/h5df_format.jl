@@ -593,7 +593,8 @@ function Formats.format_has_matrix(
     h5df::H5df,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
-    name::AbstractString,
+    name::AbstractString;
+    for_relayout::Bool = false,  # NOLINT
 )::Bool
     matrices_group = h5df.root["matrices"]
     @assert matrices_group isa HDF5.Group
@@ -737,7 +738,7 @@ function Formats.format_relayout_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
 )::Nothing
-    matrix = Formats.get_matrix_through_cache(h5df, rows_axis, columns_axis, name)
+    matrix = Formats.get_matrix_through_cache(h5df, rows_axis, columns_axis, name).array
 
     if matrix isa SparseMatrixCSC
         colptr, rowval, nzval = Formats.format_empty_sparse_matrix!(

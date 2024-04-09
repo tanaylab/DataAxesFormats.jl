@@ -934,7 +934,7 @@ struct Axis <: Query
     axis_name::AbstractString
 end
 
-function get_query(daf::DafReader, axis::Axis; cache::Bool = true)::NamedArray
+function get_query(daf::DafReader, axis::Axis; cache::Bool = true)::AbstractStringVector
     return get_query(daf, QuerySequence((axis,)); cache = cache)
 end
 
@@ -1476,7 +1476,7 @@ end
 function Base.getindex(
     daf::DafReader,
     query::Union{Query, AbstractString},
-)::Union{AbstractStringSet, StorageScalar, NamedArray}
+)::Union{AbstractStringSet, AbstractStringVector, StorageScalar, NamedArray}
     return get_query(daf, query)
 end
 
@@ -1498,7 +1498,7 @@ function get_query(
     daf::DafReader,
     query_string::AbstractString;
     cache::Bool = true,
-)::Union{AbstractStringSet, StorageScalar, NamedArray}
+)::Union{AbstractStringSet, AbstractStringVector, StorageScalar, NamedArray}
     return get_query(daf, Query(query_string); cache = cache)
 end
 
@@ -1506,7 +1506,7 @@ function get_query(
     daf::DafReader,
     query_sequence::QuerySequence;
     cache::Bool = true,
-)::Union{AbstractStringSet, StorageScalar, NamedArray}
+)::Union{AbstractStringSet, AbstractStringVector, StorageScalar, NamedArray}
     cache_key = join([string(query_operation) for query_operation in query_sequence.query_operations], " ")
     cached_entry = get(daf.internal.cache, cache_key, nothing)
     if cached_entry !== nothing
@@ -1528,7 +1528,7 @@ function get_query(
             Formats.cache_data!(daf, cache_key, result, QueryData)
             store_cached_dependency_keys!(daf, cache_key, dependency_keys)
         end
-        @debug "get_query daf: $(depict(daf)) query_sequence: $(query_sequence) cache: $(cache) cached result: $(depict(result))"
+        @debug "get_query daf: $(depict(daf)) query_sequence: $(query_sequence) cache: $(cache) result: $(depict(result))"
         return result
     end
 end
@@ -1585,7 +1585,7 @@ end
 
 function get_query_result(
     query_state::QueryState,
-)::Tuple{Union{AbstractStringSet, StorageScalar, NamedArray}, Set{AbstractString}}
+)::Tuple{Union{AbstractStringSet, AbstractStringVector, StorageScalar, NamedArray}, Set{AbstractString}}
     if is_all(query_state, (AbstractStringSet,))
         return get_names_result(query_state)
     elseif is_all(query_state, (ScalarState,))
@@ -1635,19 +1635,21 @@ function get_scalar_result(query_state::QueryState)::Tuple{StorageScalar, Set{Ab
     return scalar_state.scalar_value, scalar_state.dependency_keys
 end
 
-function get_axis_result(query_state::QueryState)::Tuple{Union{AbstractString, NamedArray}, Set{AbstractString}}
+function get_axis_result(
+    query_state::QueryState,
+)::Tuple{Union{AbstractString, AbstractStringVector}, Set{AbstractString}}
     axis_state = pop!(query_state.stack)
     @assert axis_state isa AxisState
 
     axis_modifier = axis_state.axis_modifier
+    axis_entries = get_axis(query_state.daf, axis_state.axis_name)
     if axis_modifier isa Int
-        return get_axis(query_state.daf, axis_state.axis_name)[axis_modifier], axis_state.dependency_keys
+        return axis_entries[axis_modifier], axis_state.dependency_keys
     else
-        named_vector = get_vector(query_state.daf, axis_state.axis_name, "name")
         if axis_modifier isa Vector{Bool}
-            named_vector = named_vector[axis_modifier]
+            axis_entries = axis_entries[axis_modifier]
         end
-        return named_vector, axis_state.dependency_keys
+        return axis_entries, axis_state.dependency_keys
     end
 end
 
@@ -3578,7 +3580,7 @@ function get_frame(
         end
     end
 
-    row_names = get_query(daf, axis_query; cache = cache).array
+    row_names = get_query(daf, axis_query; cache = cache)
     @assert row_names isa AbstractStringVector
 
     if columns === nothing
