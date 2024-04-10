@@ -843,6 +843,10 @@ end
     Mode()
 
 Reduction operation that returns the most frequent value in the input (the "mode").
+
+!!! note
+
+    This operation supports strings; most operations do not.
 """
 struct Mode <: ReductionOperation end
 @query_operation Mode
@@ -851,7 +855,7 @@ function Mode(::Token, ::Dict{String, Token})::Mode
     return Mode()
 end
 
-function compute_reduction(operation::Mode, input::StorageMatrix{T})::StorageVector where {T <: StorageNumber}
+function compute_reduction(operation::Mode, input::StorageMatrix)::StorageVector
     output = Vector{reduction_result_type(operation, eltype(input))}(undef, size(input, 2))
     @threads for column_index in 1:length(output)
         column_vector = @view input[:, column_index]
@@ -860,7 +864,7 @@ function compute_reduction(operation::Mode, input::StorageMatrix{T})::StorageVec
     return output
 end
 
-function compute_reduction(::Mode, input::StorageVector{T})::StorageNumber where {T <: StorageNumber}
+function compute_reduction(::Mode, input::StorageVector)::StorageScalar
     return mode(input)
 end
 
