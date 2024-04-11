@@ -823,15 +823,15 @@ function Count(operation_name::Token, parameters_values::Dict{String, Token})::C
     return Count(dtype)
 end
 
-function compute_reduction(operation::Count, input::StorageMatrix{T})::StorageVector where {T <: StorageNumber}
-    dtype = reduction_result_type(operation, T)
+function compute_reduction(operation::Count, input::StorageMatrix)::StorageVector
+    dtype = reduction_result_type(operation, eltype(input))
     result = Vector{dtype}(undef, size(input, 2))
     result .= size(input, 1)
     return result
 end
 
-function compute_reduction(operation::Count, input::StorageVector{T})::StorageNumber where {T <: StorageNumber}
-    dtype = reduction_result_type(operation, T)
+function compute_reduction(operation::Count, input::StorageVector)::StorageNumber
+    dtype = reduction_result_type(operation, eltype(input))
     return dtype(length(input))
 end
 
