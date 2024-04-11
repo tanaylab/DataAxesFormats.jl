@@ -98,6 +98,10 @@ function major_axis(::AbstractSparseMatrix)::Maybe{Int8}
     return Columns
 end
 
+function major_axis(::BitMatrix)::Maybe{Int8}  # untested
+    return Columns
+end
+
 function major_axis(matrix::AbstractMatrix)::Maybe{Int8}
     try
         matrix_strides = strides(matrix)

@@ -10,9 +10,11 @@ module GenericLogging
 export @logged
 export setup_logger
 
+using Base.Threads
 using Daf.GenericTypes
 using Daf.Messages
 using Dates
+using Distributed
 using ExprTools
 using Logging
 
@@ -155,6 +157,12 @@ function metafmt(  # untested
     prefix_parts = []
     if show_time
         push!(prefix_parts, Dates.format(now(), "yyyy-mm-dd HH:MM:SS.sss"))
+    end
+    if nprocs() > 1
+        push!(prefix_parts, "P$(myid())")  # untested
+    end
+    if nthreads() > 1
+        push!(prefix_parts, "T$(threadid())")
     end
     push!(prefix_parts, string(level == Warn ? "Warning" : string(level)))
     if show_module
