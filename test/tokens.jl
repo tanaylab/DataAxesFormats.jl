@@ -117,6 +117,8 @@ nested_test("tokens") do
         nested_test("single") do
             @test token_strings("1") == String["1"]
             @test token_strings("x") == String["x"]
+            @test token_strings("''") == String[""]
+            @test token_strings("\\'\\'") == String["''"]
         end
 
         nested_test("multiple") do

@@ -727,7 +727,11 @@ end
 <a href="tokens.html#Daf.Tokens.Token">
 <code>Token
 </code>
-</a>. Anything else is reported as an invalid character.
+</a>. As a special case, 
+<code>&#39;&#39;
+</code> is converted to an empty string, which is otherwise impossible to represent (write 
+<code>\&#39;\&#39;
+</code> to prevent this). Anything else is reported as an invalid character.
 </p>
 <div class="admonition is-info">
 <header class="admonition-header">Note

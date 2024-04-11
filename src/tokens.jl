@@ -170,8 +170,9 @@ into a single line (discarding line breaks and comments), and the squashed expre
 is reasonable for dealing with `Daf` queries which are expected to be "relatively simple".
 
 When tokenizing, we discard the spaces. Anything that matches the [`VALUE_REGEX`](@ref) is considered to be a value
-[`Token`](@ref). Anything that matches the `operators` is considered to be an operator [`Token`](@ref). Anything else is
-reported as an invalid character.
+[`Token`](@ref). Anything that matches the `operators` is considered to be an operator [`Token`](@ref). As a special
+case, `''` is converted to an empty string, which is otherwise impossible to represent (write `\\'\\'` to prevent this).
+Anything else is reported as an invalid character.
 
 !!! note
 
@@ -192,6 +193,13 @@ function tokenize(string::AbstractString, operators::Regex)::Vector{Token}
             first_index += 1
             rest_of_string = rest_of_string[2:end]
             @assert isempty(rest_of_string) || rest_of_string[1] != ' '
+            continue
+        end
+
+        if startswith(rest_of_string, "''")
+            push!(tokens, Token(false, "", token_index, first_index, first_index + 2, "''"))
+            first_index += 2
+            rest_of_string = rest_of_string[3:end]
             continue
         end
 
