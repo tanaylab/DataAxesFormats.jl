@@ -25,10 +25,10 @@ function test_description(
             batch.partial: 20 x String (Dense)
             type: 20 x String (Dense)
           gene:
-            lateral: 10 x Bool (Dense)
-            marker: 10 x Bool (Dense)
+            lateral: 10 x Bool (Dense) (7 true, 70%)
+            marker: 10 x Bool (Dense) (4 true, 40%)
             module: 10 x String (Dense)
-            noisy: 10 x Bool (Dense)
+            noisy: 10 x Bool (Dense) (4 true, 40%)
           type:
             color: 3 x String (Dense)
         matrices:

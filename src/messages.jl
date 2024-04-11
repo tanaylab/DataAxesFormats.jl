@@ -91,8 +91,8 @@ function depict(value::Symbol)::String
     return ":$(value)"
 end
 
-function depict(value::AbstractVector)::String
-    return depict_vector(value, "")
+function depict(vector::AbstractVector)::String
+    return depict_array(vector, depict_vector(vector, ""))
 end
 
 function depict_vector(vector::SparseArrays.ReadOnly, prefix::AbstractString)::String
@@ -129,7 +129,7 @@ function depict_vector_size(vector::AbstractVector, kind::AbstractString)::Strin
 end
 
 function depict(matrix::AbstractMatrix)::String
-    return depict_matrix(matrix, ""; transposed = false)
+    return depict_array(matrix, depict_matrix(matrix, ""; transposed = false))
 end
 
 function depict_matrix(matrix::SparseArrays.ReadOnly, prefix::AbstractString; transposed::Bool = false)::String
@@ -171,16 +171,24 @@ function depict_matrix(matrix::AbstractMatrix, ::AbstractString; transposed::Boo
     end
 end
 
-function depict(value::AbstractArray)::String
+function depict(array::AbstractArray)::String
     text = ""
-    for dim_size in size(value)
+    for dim_size in size(array)
         if text == ""
             text = "$(dim_size)"
         else
             text = "$(text) x $(dim_size)"
         end
     end
-    return "$(text) x $(eltype(value)) ($(typeof(value)))"
+    return depict_array(array, "$(text) x $(eltype(array)) ($(typeof(array)))")
+end
+
+function depict_array(array::AbstractArray, text::String)::String
+    if eltype(array) == Bool
+        trues = sum(array)  # NOJET
+        text *= " ($(trues) true, $(depict_percent(trues, length(array))))"
+    end
+    return text
 end
 
 """
