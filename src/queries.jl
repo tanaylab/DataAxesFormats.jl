@@ -2573,7 +2573,7 @@ function patch_fetched_values(
             if !vector_fetch_state.may_modify_axis_mask
                 axis_mask = copy(axis_mask)
             end
-            axis_mask[axis_mask] = fetched_mask
+            axis_mask[axis_mask] = fetched_mask  # NOJET
         end
         vector_fetch_state.may_modify_axis_mask = true
 

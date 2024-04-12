@@ -138,7 +138,7 @@ function logged_wrapper(
     else
         @debug "$(name) return }" _module = _module
     end;
-    result)  # only seems untested
+    result)
 end
 
 function metafmt(  # untested
@@ -159,7 +159,8 @@ function metafmt(  # untested
         push!(prefix_parts, Dates.format(now(), "yyyy-mm-dd HH:MM:SS.sss"))
     end
     if nprocs() > 1
-        push!(prefix_parts, "P$(myid())")  # untested
+        @assert false
+        push!(prefix_parts, "P$(myid())")
     end
     if nthreads() > 1
         push!(prefix_parts, "T$(threadid())")
