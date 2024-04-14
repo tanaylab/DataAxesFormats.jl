@@ -29,7 +29,7 @@ function computation_wrapper(contract::Contract, name::AbstractString, inner_fun
     return (daf::DafReader, args...; kwargs...) -> (verify_input(contract, name, daf);
     result = inner_function(daf, args...; kwargs...);
     verify_output(contract, name, daf);
-    result)
+    result)  # flaky tested
 end
 
 function computation_wrapper(first_contract::Contract, second_contract::Contract, name::AbstractString, inner_function)
@@ -39,7 +39,7 @@ function computation_wrapper(first_contract::Contract, second_contract::Contract
         result = inner_function(first_daf, second_daf, args...; kwargs...);
         verify_output(first_contract, name, first_daf);
         verify_output(second_contract, name, second_daf);
-        result)
+        result)  # flaky tested
 end
 
 struct FunctionMetadata

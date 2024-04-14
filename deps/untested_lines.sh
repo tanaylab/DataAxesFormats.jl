@@ -64,8 +64,9 @@ BEGIN {
     ok_tested = 0
     useless_untested = 0
     useless_seems_untested = 0
+    flaky_tested = 0
 }
-$3 == 0 { ok_untested += 1 }
+tolower($4) ~ /# flaky tested/ { flaky_tested += 1; next }
 $3 > 0 { ok_tested += 1 }
 $3 == "-" && tolower($4) ~ /# untested|# only seems untested/ {
     print $1, $2, " ! " $4
@@ -85,10 +86,11 @@ $3 > 0 && tolower($4) ~ /# only seems untested/ {
     useless_seems_untested += 1
 }
 END {
-    ok_total = ok_untested + ok_tested
-    printf("%s (%.1f%%) tested, %s (%.1f%%) untested\n",
+    ok_total = ok_untested + ok_tested + flaky_tested
+    printf("%s (%.1f%%) tested, %s (%.1f%%) untested, %s (%.1f%%) flaky\n",
            ok_tested, ok_tested * 100.0 / ok_total,
-           ok_untested, ok_untested * 100.0 / ok_total)
+           ok_untested, ok_untested * 100.0 / ok_total,
+           flaky_tested, flaky_tested * 100.0 / ok_total)
 
     if (useless_untested > 0) {
         printf("ERROR: %s lines with useless_untested \"untested\" annotation\n", useless_untested)

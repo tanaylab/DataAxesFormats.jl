@@ -74,6 +74,8 @@ macro logged(definition)
     end
     @assert function_name isa Symbol
     function_module = __module__
+    function_file = string(__source__.file)
+    function_line = __source__.line
     full_name = "$(function_module).$(function_name)"
 
     has_result = get(inner_definition, :rtype, :Any) != :Nothing
@@ -84,6 +86,8 @@ macro logged(definition)
             :call,
             :(GenericLogging.logged_wrapper(
                 $function_module,
+                $function_file,
+                $function_line,
                 $full_name,
                 $arg_names,
                 $has_result,
@@ -97,6 +101,8 @@ macro logged(definition)
             :call,
             :(Daf.GenericLogging.logged_wrapper(
                 $function_module,
+                $function_file,
+                $function_line,
                 $full_name,
                 $arg_names,
                 $has_result,
@@ -120,25 +126,27 @@ end
 
 function logged_wrapper(
     _module::Module,
+    _file::AbstractString,
+    _line::Integer,
     name::AbstractString,
     arg_names::AbstractStringVector,
     has_result::Bool,
     inner_function,
 )
-    return (args...; kwargs...) -> (@debug "$(name) {" _module = _module;
+    return (args...; kwargs...) -> (@debug "$(name) {" _module = _module _file = _file _line = _line;
     for (arg_name, value) in zip(arg_names, args)
-        @debug "- $(arg_name): $(depict(value))" _module = _module
+        @debug "- $(arg_name): $(depict(value))" _module = _module _file = _file _line = _line
     end;
     for (name, value) in kwargs
-        @debug "- $(name): $(depict(value))" _module = _module
+        @debug "- $(name): $(depict(value))" _module = _module _file = _file _line = _line
     end;
     result = inner_function(args...; kwargs...);
     if has_result
-        @debug "$(name) return: $(depict(result)) }" _module = _module
+        @debug "$(name) return: $(depict(result)) }" _module = _module _file = _file _line = _line
     else
-        @debug "$(name) return }" _module = _module
+        @debug "$(name) return }" _module = _module _file = _file _line = _line
     end;
-    result)
+    result)  # flaky tested
 end
 
 function metafmt(  # untested
@@ -146,7 +154,7 @@ function metafmt(  # untested
     show_module::Bool,
     show_location::Bool,
     level::LogLevel,
-    _module::Module,
+    _module,
     ::Symbol,
     ::Symbol,
     file::AbstractString,
