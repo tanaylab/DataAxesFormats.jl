@@ -88,7 +88,7 @@ nested_test("messages") do
                 end
 
                 nested_test("transpose") do
-                    @test depict(transpose(matrix)) == "3 x 2 x Int64 in Rows (transposed Dense)"
+                    @test depict(transpose(matrix)) == "3 x 2 x Int64 in Rows (Transpose Dense)"
                 end
 
                 nested_test("read_only") do
@@ -108,7 +108,7 @@ nested_test("messages") do
                 end
 
                 nested_test("transpose") do
-                    @test depict(transpose(matrix)) == "3 x 2 x Int64 in Rows (transposed Sparse UInt8 83%)"
+                    @test depict(transpose(matrix)) == "3 x 2 x Int64 in Rows (Transpose Sparse UInt8 83%)"
                 end
 
                 nested_test("read_only") do

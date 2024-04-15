@@ -134,7 +134,7 @@ function Formats.format_set_vector!(
     return nothing
 end
 
-function Formats.format_empty_dense_vector!(
+function Formats.format_get_empty_dense_vector!(
     memory::MemoryDaf,
     axis::AbstractString,
     name::AbstractString,
@@ -146,7 +146,7 @@ function Formats.format_empty_dense_vector!(
     return vector
 end
 
-function Formats.format_empty_sparse_vector!(
+function Formats.format_get_empty_sparse_vector!(
     ::MemoryDaf,
     ::AbstractString,
     ::AbstractString,
@@ -159,7 +159,7 @@ function Formats.format_empty_sparse_vector!(
     return (nzind, nzval, nothing)
 end
 
-function Formats.format_filled_sparse_vector!(
+function Formats.format_filled_empty_sparse_vector!(
     memory::MemoryDaf,
     axis::AbstractString,
     name::AbstractString,
@@ -224,7 +224,7 @@ function Formats.format_set_matrix!(
     return nothing
 end
 
-function Formats.format_empty_dense_matrix!(
+function Formats.format_get_empty_dense_matrix!(
     memory::MemoryDaf,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
@@ -238,7 +238,7 @@ function Formats.format_empty_dense_matrix!(
     return matrix
 end
 
-function Formats.format_empty_sparse_matrix!(
+function Formats.format_get_empty_sparse_matrix!(
     memory::MemoryDaf,
     ::AbstractString,
     columns_axis::AbstractString,
@@ -260,7 +260,7 @@ function Formats.format_empty_sparse_matrix!(
     return (colptr, rowval, nzval, nothing)
 end
 
-function Formats.format_filled_sparse_matrix!(
+function Formats.format_filled_empty_sparse_matrix!(
     memory::MemoryDaf,
     rows_axis::AbstractString,
     columns_axis::AbstractString,

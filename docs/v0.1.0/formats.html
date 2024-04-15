@@ -1605,8 +1605,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_empty_dense_vector!" href="#Daf.Formats.format_empty_dense_vector!">
-<code>Daf.Formats.format_empty_dense_vector!
+<a class="docstring-binding" id="Daf.Formats.format_get_empty_dense_vector!" href="#Daf.Formats.format_get_empty_dense_vector!">
+<code>Daf.Formats.format_get_empty_dense_vector!
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -1615,7 +1615,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">format_empty_dense_vector!(
+<code class="language-julia hljs">format_get_empty_dense_vector!(
     format::FormatWriter,
     axis::AbstractString,
     name::AbstractString,
@@ -1678,8 +1678,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_empty_sparse_vector!" href="#Daf.Formats.format_empty_sparse_vector!">
-<code>Daf.Formats.format_empty_sparse_vector!
+<a class="docstring-binding" id="Daf.Formats.format_filled_empty_dense_vector!" href="#Daf.Formats.format_filled_empty_dense_vector!">
+<code>Daf.Formats.format_filled_empty_dense_vector!
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -1688,7 +1688,38 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">format_empty_sparse_vector!(
+<code class="language-julia hljs">format_filled_empty_dense_vector!(
+    daf::DafWriter,
+    axis::AbstractString,
+    name::AbstractString,
+    filled_vector::AbstractVector{T},
+)::Nothing where {T &lt;: StorageNumber}
+</code>
+</pre>
+<p>Allow the 
+<code>format
+</code> to perform caching once the empty dense vector has been 
+<code>filled
+</code>. By default this does nothing.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Formats.format_get_empty_sparse_vector!" href="#Daf.Formats.format_get_empty_sparse_vector!">
+<code>Daf.Formats.format_get_empty_sparse_vector!
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">format_get_empty_sparse_vector!(
     format::FormatWriter,
     axis::AbstractString,
     name::AbstractString,
@@ -1708,8 +1739,8 @@ where {T &lt;: StorageNumber, I &lt;: StorageInteger}
 </code> in 
 <code>format
 </code>. The final tuple element is passed to 
-<a href="formats.html#Daf.Formats.format_filled_sparse_vector!">
-<code>format_filled_sparse_vector!
+<a href="formats.html#Daf.Formats.format_filled_empty_sparse_vector!">
+<code>format_filled_empty_sparse_vector!
 </code>
 </a>.
 </p>
@@ -1732,8 +1763,8 @@ where {T &lt;: StorageNumber, I &lt;: StorageInteger}
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_filled_sparse_vector!" href="#Daf.Formats.format_filled_sparse_vector!">
-<code>Daf.Formats.format_filled_sparse_vector!
+<a class="docstring-binding" id="Daf.Formats.format_filled_empty_sparse_vector!" href="#Daf.Formats.format_filled_empty_sparse_vector!">
+<code>Daf.Formats.format_filled_empty_sparse_vector!
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -1742,7 +1773,7 @@ where {T &lt;: StorageNumber, I &lt;: StorageInteger}
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">format_filled_sparse_vector!(
+<code class="language-julia hljs">format_filled_empty_sparse_vector!(
     format::FormatWriter,
     axis::AbstractString,
     name::AbstractString,
@@ -1764,8 +1795,8 @@ where {T &lt;: StorageNumber, I &lt;: StorageInteger}
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_empty_dense_matrix!" href="#Daf.Formats.format_empty_dense_matrix!">
-<code>Daf.Formats.format_empty_dense_matrix!
+<a class="docstring-binding" id="Daf.Formats.format_get_empty_dense_matrix!" href="#Daf.Formats.format_get_empty_dense_matrix!">
+<code>Daf.Formats.format_get_empty_dense_matrix!
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -1774,7 +1805,7 @@ where {T &lt;: StorageNumber, I &lt;: StorageInteger}
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">format_empty_dense_matrix!(
+<code class="language-julia hljs">format_get_empty_dense_matrix!(
     format::FormatWriter,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
@@ -1826,8 +1857,8 @@ where {T &lt;: StorageNumber, I &lt;: StorageInteger}
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_empty_sparse_matrix!" href="#Daf.Formats.format_empty_sparse_matrix!">
-<code>Daf.Formats.format_empty_sparse_matrix!
+<a class="docstring-binding" id="Daf.Formats.format_filled_empty_dense_matrix!" href="#Daf.Formats.format_filled_empty_dense_matrix!">
+<code>Daf.Formats.format_filled_empty_dense_matrix!
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -1836,7 +1867,39 @@ where {T &lt;: StorageNumber, I &lt;: StorageInteger}
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">format_empty_sparse_matrix!(
+<code class="language-julia hljs">format_filled_empty_dense_matrix!(
+    daf::DafWriter,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+    filled_matrix::AbstractVector{T},
+)::Nothing where {T &lt;: StorageNumber}
+</code>
+</pre>
+<p>Allow the 
+<code>format
+</code> to perform caching once the empty dense matrix has been 
+<code>filled
+</code>. By default this does nothing.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Formats.format_get_empty_sparse_matrix!" href="#Daf.Formats.format_get_empty_sparse_matrix!">
+<code>Daf.Formats.format_get_empty_sparse_matrix!
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">format_get_empty_sparse_matrix!(
     format::FormatWriter,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
@@ -1857,8 +1920,8 @@ where {T &lt;: StorageNumber, I &lt;: StorageInteger}
 </code> in 
 <code>format
 </code>. The final tuple element is passed to 
-<a href="formats.html#Daf.Formats.format_filled_sparse_matrix!">
-<code>format_filled_sparse_matrix!
+<a href="formats.html#Daf.Formats.format_filled_empty_sparse_matrix!">
+<code>format_filled_empty_sparse_matrix!
 </code>
 </a>.
 </p>
@@ -1879,8 +1942,8 @@ where {T &lt;: StorageNumber, I &lt;: StorageInteger}
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_filled_sparse_matrix!" href="#Daf.Formats.format_filled_sparse_matrix!">
-<code>Daf.Formats.format_filled_sparse_matrix!
+<a class="docstring-binding" id="Daf.Formats.format_filled_empty_sparse_matrix!" href="#Daf.Formats.format_filled_empty_sparse_matrix!">
+<code>Daf.Formats.format_filled_empty_sparse_matrix!
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -1889,7 +1952,7 @@ where {T &lt;: StorageNumber, I &lt;: StorageInteger}
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">format_filled_dense_matrix!(
+<code class="language-julia hljs">format_filled_empty_dense_matrix!(
     format::FormatWriter,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
@@ -2026,44 +2089,56 @@ where {T &lt;: StorageNumber, I &lt;: StorageInteger}
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_empty_dense_matrix!">
-<code>Daf.Formats.format_empty_dense_matrix!
+<a href="formats.html#Daf.Formats.format_filled_empty_dense_matrix!">
+<code>Daf.Formats.format_filled_empty_dense_matrix!
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_empty_dense_vector!">
-<code>Daf.Formats.format_empty_dense_vector!
+<a href="formats.html#Daf.Formats.format_filled_empty_dense_vector!">
+<code>Daf.Formats.format_filled_empty_dense_vector!
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_empty_sparse_matrix!">
-<code>Daf.Formats.format_empty_sparse_matrix!
+<a href="formats.html#Daf.Formats.format_filled_empty_sparse_matrix!">
+<code>Daf.Formats.format_filled_empty_sparse_matrix!
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_empty_sparse_vector!">
-<code>Daf.Formats.format_empty_sparse_vector!
-</code>
-</a>
-</li>
-<li>
-<a href="formats.html#Daf.Formats.format_filled_sparse_matrix!">
-<code>Daf.Formats.format_filled_sparse_matrix!
-</code>
-</a>
-</li>
-<li>
-<a href="formats.html#Daf.Formats.format_filled_sparse_vector!">
-<code>Daf.Formats.format_filled_sparse_vector!
+<a href="formats.html#Daf.Formats.format_filled_empty_sparse_vector!">
+<code>Daf.Formats.format_filled_empty_sparse_vector!
 </code>
 </a>
 </li>
 <li>
 <a href="formats.html#Daf.Formats.format_get_axis">
 <code>Daf.Formats.format_get_axis
+</code>
+</a>
+</li>
+<li>
+<a href="formats.html#Daf.Formats.format_get_empty_dense_matrix!">
+<code>Daf.Formats.format_get_empty_dense_matrix!
+</code>
+</a>
+</li>
+<li>
+<a href="formats.html#Daf.Formats.format_get_empty_dense_vector!">
+<code>Daf.Formats.format_get_empty_dense_vector!
+</code>
+</a>
+</li>
+<li>
+<a href="formats.html#Daf.Formats.format_get_empty_sparse_matrix!">
+<code>Daf.Formats.format_get_empty_sparse_matrix!
+</code>
+</a>
+</li>
+<li>
+<a href="formats.html#Daf.Formats.format_get_empty_sparse_vector!">
+<code>Daf.Formats.format_get_empty_sparse_vector!
 </code>
 </a>
 </li>

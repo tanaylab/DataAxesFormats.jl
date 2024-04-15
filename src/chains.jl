@@ -18,6 +18,7 @@ using Daf.StorageTypes
 using Daf.Writers
 using SparseArrays
 
+import Daf.Formats.FormatReader
 import Daf.Formats.Internal
 import Daf.Formats.as_read_only_array
 import Daf.Messages
@@ -176,7 +177,7 @@ function Formats.format_has_scalar(chain::AnyChain, name::AbstractString)::Bool
 end
 
 function Formats.format_set_scalar!(chain::WriteChain, name::AbstractString, value::StorageScalar)::Nothing
-    Formats.format_set_scalar!(chain.daf, name, value)
+    set_scalar!(chain.daf, name, value)
     return nothing
 end
 
@@ -195,7 +196,7 @@ function Formats.format_delete_scalar!(chain::WriteChain, name::AbstractString; 
             end
         end
     end
-    Formats.format_delete_scalar!(chain.daf, name; for_set = for_set)
+    delete_scalar!(chain.daf, name; must_exist = false, _for_set = for_set)
     return nothing
 end
 
@@ -203,7 +204,7 @@ function Formats.format_get_scalar(chain::AnyChain, name::AbstractString)::Stora
     for daf in reverse(chain.dafs)
         value = Formats.with_read_lock(daf) do
             if Formats.format_has_scalar(daf, name)
-                return Formats.format_get_scalar(daf, name)
+                return Formats.get_scalar_through_cache(daf, name)
             else
                 return nothing
             end
@@ -216,11 +217,16 @@ function Formats.format_get_scalar(chain::AnyChain, name::AbstractString)::Stora
 end
 
 function Formats.format_scalar_names(chain::AnyChain)::AbstractStringSet
-    return reduce(union, [
-        Formats.with_read_lock(daf) do
-            return Formats.format_scalar_names(daf)
-        end for daf in chain.dafs
-    ])
+    return reduce(
+        union,
+        [
+            Formats.with_read_lock(daf) do
+                return Formats.get_through_cache(daf, Formats.scalar_names_cache_key(), AbstractStringSet) do
+                    return Formats.format_scalar_names(daf)
+                end
+            end for daf in chain.dafs
+        ],
+    )
 end
 
 function Formats.format_has_axis(chain::AnyChain, axis::AbstractString; for_change::Bool)::Bool
@@ -237,7 +243,7 @@ function Formats.format_has_axis(chain::AnyChain, axis::AbstractString; for_chan
 end
 
 function Formats.format_add_axis!(chain::WriteChain, axis::AbstractString, entries::AbstractStringVector)::Nothing
-    Formats.format_add_axis!(chain.daf, axis, entries)
+    add_axis!(chain.daf, axis, entries)
     return nothing
 end
 
@@ -254,14 +260,14 @@ function Formats.format_delete_axis!(chain::WriteChain, axis::AbstractString)::N
             end
         end
     end
-    Formats.format_delete_axis!(chain.daf, axis)
+    delete_axis!(chain.daf, axis)
     return nothing
 end
 
 function Formats.format_axis_names(chain::AnyChain)::AbstractStringSet
     return reduce(union, [
         Formats.with_read_lock(daf) do
-            return Formats.format_axis_names(daf)
+            return Formats.get_axis_names_through_cache(daf)
         end for daf in chain.dafs
     ])
 end
@@ -270,7 +276,7 @@ function Formats.format_get_axis(chain::AnyChain, axis::AbstractString)::Abstrac
     for daf in reverse(chain.dafs)
         axis_entries = Formats.with_read_lock(daf) do
             if Formats.format_has_axis(daf, axis; for_change = false)
-                return Formats.format_get_axis(daf, axis)
+                return Formats.get_axis_through_cache(daf, axis)
             else
                 return nothing
             end
@@ -317,25 +323,25 @@ function Formats.format_set_vector!(
     vector::Union{StorageScalar, StorageVector},
 )::Nothing
     if !Formats.format_has_axis(chain.daf, axis; for_change = false)
-        Formats.format_add_axis!(chain.daf, axis, Formats.format_get_axis(chain, axis))
+        add_axis!(chain.daf, axis, Formats.get_axis_through_cache(chain, axis))
     end
-    Formats.format_set_vector!(chain.daf, axis, name, vector)
+    set_vector!(chain.daf, axis, name, vector)
     return nothing
 end
 
-function Formats.format_empty_dense_vector!(
+function Formats.format_get_empty_dense_vector!(
     chain::WriteChain,
     axis::AbstractString,
     name::AbstractString,
     eltype::Type{T},
 )::AbstractVector{T} where {T <: StorageNumber}
     if !Formats.format_has_axis(chain.daf, axis; for_change = false)
-        Formats.format_add_axis!(chain.daf, axis, Formats.format_get_axis(chain, axis))
+        add_axis!(chain.daf, axis, Formats.get_axis_through_cache(chain, axis))
     end
-    return Formats.format_empty_dense_vector!(chain.daf, axis, name, eltype)
+    return get_empty_dense_vector!(chain.daf, axis, name, eltype; overwrite = true)
 end
 
-function Formats.format_empty_sparse_vector!(
+function Formats.format_get_empty_sparse_vector!(
     chain::WriteChain,
     axis::AbstractString,
     name::AbstractString,
@@ -344,19 +350,19 @@ function Formats.format_empty_sparse_vector!(
     indtype::Type{I},
 )::Tuple{AbstractVector{I}, AbstractVector{T}, Any} where {T <: StorageNumber, I <: StorageInteger}
     if !Formats.format_has_axis(chain.daf, axis; for_change = false)
-        Formats.format_add_axis!(chain.daf, axis, Formats.format_get_axis(chain, axis))
+        add_axis!(chain.daf, axis, Formats.get_axis_through_cache(chain, axis))
     end
-    return Formats.format_empty_sparse_vector!(chain.daf, axis, name, eltype, nnz, indtype)
+    return get_empty_sparse_vector!(chain.daf, axis, name, eltype, nnz, indtype)
 end
 
-function Formats.format_filled_sparse_vector!(
+function Formats.format_filled_empty_sparse_vector!(
     chain::WriteChain,
     axis::AbstractString,
     name::AbstractString,
     extra::Any,
     filled::SparseVector{T, I},
 )::Nothing where {T <: StorageNumber, I <: StorageInteger}
-    Formats.format_filled_sparse_vector!(chain.daf, axis, name, extra, filled)
+    Formats.format_filled_empty_sparse_vector!(chain.daf, axis, name, extra, filled)
     return nothing
 end
 
@@ -382,7 +388,7 @@ function Formats.format_delete_vector!(
         end
     end
     if Formats.format_has_axis(chain.daf, axis; for_change = false) && Formats.format_has_vector(chain.daf, axis, name)
-        Formats.format_delete_vector!(chain.daf, axis, name; for_set = for_set)
+        delete_vector!(chain.daf, axis, name; _for_set = for_set)
     end
     return nothing
 end
@@ -402,7 +408,7 @@ function Formats.format_get_vector(chain::AnyChain, axis::AbstractString, name::
     for daf in reverse(chain.dafs)
         vector = Formats.with_read_lock(daf) do
             if Formats.format_has_axis(daf, axis; for_change = false) && Formats.format_has_vector(daf, axis, name)
-                return as_read_only_array(Formats.format_get_vector(daf, axis, name))
+                return as_read_only_array(Formats.get_vector_through_cache(daf, axis, name))
             else
                 return nothing
             end
@@ -449,14 +455,14 @@ function Formats.format_set_matrix!(
 )::Nothing
     for axis in (rows_axis, columns_axis)
         if !Formats.format_has_axis(chain.daf, axis; for_change = false)
-            Formats.format_add_axis!(chain.daf, axis, Formats.format_get_axis(chain, axis))
+            add_axis!(chain.daf, axis, Formats.get_axis_through_cache(chain, axis))
         end
     end
-    Formats.format_set_matrix!(chain.daf, rows_axis, columns_axis, name, matrix)
+    set_matrix!(chain.daf, rows_axis, columns_axis, name, matrix; relayout = false)
     return nothing
 end
 
-function Formats.format_empty_dense_matrix!(
+function Formats.format_get_empty_dense_matrix!(
     chain::WriteChain,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
@@ -465,13 +471,13 @@ function Formats.format_empty_dense_matrix!(
 )::AbstractMatrix{T} where {T <: StorageNumber}
     for axis in (rows_axis, columns_axis)
         if !Formats.format_has_axis(chain.daf, axis; for_change = false)
-            Formats.format_add_axis!(chain.daf, axis, Formats.format_get_axis(chain, axis))
+            add_axis!(chain.daf, axis, Formats.get_axis_through_cache(chain, axis))
         end
     end
-    return Formats.format_empty_dense_matrix!(chain.daf, rows_axis, columns_axis, name, eltype)
+    return get_empty_dense_matrix!(chain.daf, rows_axis, columns_axis, name, eltype)
 end
 
-function Formats.format_empty_sparse_matrix!(
+function Formats.format_get_empty_sparse_matrix!(
     chain::WriteChain,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
@@ -482,13 +488,13 @@ function Formats.format_empty_sparse_matrix!(
 )::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}, Any} where {T <: StorageNumber, I <: StorageInteger}
     for axis in (rows_axis, columns_axis)
         if !Formats.format_has_axis(chain.daf, axis; for_change = false)
-            Formats.format_add_axis!(chain.daf, axis, Formats.format_get_axis(chain, axis))
+            add_axis!(chain.daf, axis, Formats.get_axis_through_cache(chain, axis))
         end
     end
-    return Formats.format_empty_sparse_matrix!(chain.daf, rows_axis, columns_axis, name, eltype, nnz, indtype)
+    return get_empty_sparse_matrix!(chain.daf, rows_axis, columns_axis, name, eltype, nnz, indtype)
 end
 
-function Formats.format_filled_sparse_matrix!(
+function Formats.format_filled_empty_sparse_matrix!(
     chain::WriteChain,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
@@ -496,7 +502,7 @@ function Formats.format_filled_sparse_matrix!(
     extra::Any,
     filled::SparseMatrixCSC{T, I},
 )::Nothing where {T <: StorageNumber, I <: StorageInteger}
-    Formats.format_filled_sparse_matrix!(chain.daf, rows_axis, columns_axis, name, extra, filled)
+    Formats.format_filled_empty_sparse_matrix!(chain.daf, rows_axis, columns_axis, name, extra, filled)
     return nothing
 end
 
@@ -506,7 +512,7 @@ function Formats.format_relayout_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
 )::Nothing
-    Formats.format_relayout_matrix!(chain.daf, rows_axis, columns_axis, name)
+    relayout_matrix!(chain.daf, rows_axis, columns_axis, name)
     return nothing
 end
 
@@ -538,7 +544,7 @@ function Formats.format_delete_matrix!(
     if Formats.format_has_axis(chain.daf, rows_axis; for_change = false) &&
        Formats.format_has_axis(chain.daf, columns_axis; for_change = false) &&
        Formats.format_has_matrix(chain.daf, rows_axis, columns_axis, name)
-        Formats.format_delete_matrix!(chain.daf, rows_axis, columns_axis, name; for_set = for_set)
+        delete_matrix!(chain.daf, rows_axis, columns_axis, name; relayout = false, _for_set = for_set)
     end
     return nothing
 end
@@ -551,7 +557,7 @@ function Formats.format_matrix_names(
     return reduce(
         union,
         [
-            Formats.format_matrix_names(daf, rows_axis, columns_axis) for
+            Formats.get_matrix_names_through_cache(daf, rows_axis, columns_axis) for
             daf in chain.dafs if Formats.format_has_axis(daf, rows_axis; for_change = false) &&
             Formats.format_has_axis(daf, columns_axis; for_change = false)
         ],
@@ -569,7 +575,7 @@ function Formats.format_get_matrix(
             if Formats.format_has_axis(daf, rows_axis; for_change = false) &&
                Formats.format_has_axis(daf, columns_axis; for_change = false) &&
                Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
-                return as_read_only_array(Formats.format_get_matrix(daf, rows_axis, columns_axis, name))
+                return as_read_only_array(Formats.get_matrix_through_cache(daf, rows_axis, columns_axis, name))
             else
                 return nothing
             end

@@ -388,7 +388,7 @@ function Formats.format_set_vector!(
     return nothing
 end
 
-function Formats.format_empty_dense_vector!(
+function Formats.format_get_empty_dense_vector!(
     files::FilesDaf,
     axis::AbstractString,
     name::AbstractString,
@@ -407,7 +407,7 @@ function Formats.format_empty_dense_vector!(
     return vector
 end
 
-function Formats.format_empty_sparse_vector!(
+function Formats.format_get_empty_sparse_vector!(
     files::FilesDaf,
     axis::AbstractString,
     name::AbstractString,
@@ -430,7 +430,7 @@ function Formats.format_empty_sparse_vector!(
     return (nzind_vector, nzval_vector, nothing)
 end
 
-function Formats.format_filled_sparse_vector!(
+function Formats.format_filled_empty_sparse_vector!(
     files::FilesDaf,
     axis::AbstractString,
     name::AbstractString,
@@ -550,7 +550,7 @@ function Formats.format_set_matrix!(
     return nothing
 end
 
-function Formats.format_empty_dense_matrix!(
+function Formats.format_get_empty_dense_matrix!(
     files::FilesDaf,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
@@ -569,7 +569,7 @@ function Formats.format_empty_dense_matrix!(
     return matrix
 end
 
-function Formats.format_empty_sparse_matrix!(
+function Formats.format_get_empty_sparse_matrix!(
     files::FilesDaf,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
@@ -601,7 +601,7 @@ function Formats.format_empty_sparse_matrix!(
     return (colptr_vector, rowval_vector, nzval_vector, nothing)
 end
 
-function Formats.format_filled_sparse_matrix!(
+function Formats.format_filled_empty_sparse_matrix!(
     files::FilesDaf,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
@@ -622,7 +622,7 @@ function Formats.format_relayout_matrix!(
     matrix = Formats.get_matrix_through_cache(files, rows_axis, columns_axis, name).array
 
     if matrix isa SparseMatrixCSC
-        colptr, rowval, nzval = Formats.format_empty_sparse_matrix!(
+        colptr, rowval, nzval = Formats.format_get_empty_sparse_matrix!(
             files,
             columns_axis,
             rows_axis,
@@ -636,7 +636,7 @@ function Formats.format_relayout_matrix!(
         relayout_matrix =
             SparseMatrixCSC(axis_length(files, columns_axis), axis_length(files, rows_axis), colptr, rowval, nzval)
     else
-        relayout_matrix = Formats.format_empty_dense_matrix!(files, columns_axis, rows_axis, name, eltype(matrix))
+        relayout_matrix = Formats.format_get_empty_dense_matrix!(files, columns_axis, rows_axis, name, eltype(matrix))
     end
 
     relayout!(transpose(relayout_matrix), matrix)

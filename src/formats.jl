@@ -325,7 +325,7 @@ isn't `"name"`, that it does not exist for the `axis`, and that the `vector` has
 function format_set_vector! end
 
 """
-    format_empty_dense_vector!(
+    format_get_empty_dense_vector!(
         format::FormatWriter,
         axis::AbstractString,
         name::AbstractString,
@@ -345,10 +345,29 @@ isn't `"name"`, and that it does not exist for the `axis`.
     `(1,)`, so that elements are consecutive in memory. However it need not be an actual `DenseVector` because of
     Julia's type system's limitations.
 """
-function format_empty_dense_vector! end
+function format_get_empty_dense_vector! end
 
 """
-    format_empty_sparse_vector!(
+    format_filled_empty_dense_vector!(
+        daf::DafWriter,
+        axis::AbstractString,
+        name::AbstractString,
+        filled_vector::AbstractVector{T},
+    )::Nothing where {T <: StorageNumber}
+
+Allow the `format` to perform caching once the empty dense vector has been `filled`. By default this does nothing.
+"""
+function format_filled_empty_dense_vector!(
+    ::DafWriter,
+    ::AbstractString,
+    ::AbstractString,
+    ::AbstractVector{T},
+)::Nothing where {T <: StorageNumber}
+    return nothing
+end
+
+"""
+    format_get_empty_sparse_vector!(
         format::FormatWriter,
         axis::AbstractString,
         name::AbstractString,
@@ -359,15 +378,15 @@ function format_empty_dense_vector! end
     where {T <: StorageNumber, I <: StorageInteger}
 
 Implement creating an empty dense vector property with some `name` for some `rows_axis` and `columns_axis` in
-`format`. The final tuple element is passed to [`format_filled_sparse_vector!`](@ref).
+`format`. The final tuple element is passed to [`format_filled_empty_sparse_vector!`](@ref).
 
 This trusts we have a write lock on the data set, that the `axis` exists in `format` and that the vector property `name`
 isn't `"name"`, and that it does not exist for the `axis`.
 """
-function format_empty_sparse_vector! end
+function format_get_empty_sparse_vector! end
 
 """
-    format_filled_sparse_vector!(
+    format_filled_empty_sparse_vector!(
         format::FormatWriter,
         axis::AbstractString,
         name::AbstractString,
@@ -377,7 +396,7 @@ function format_empty_sparse_vector! end
 
 Allow the `format` to perform caching once the empty sparse vector has been `filled`. By default this does nothing.
 """
-function format_filled_sparse_vector!(  # untested
+function format_filled_empty_sparse_vector!(  # untested
     ::FormatWriter,
     ::AbstractString,
     ::AbstractString,
@@ -457,7 +476,7 @@ This trusts we have a write lock on the data set, that the `rows_axis` and `colu
 function format_set_matrix! end
 
 """
-    format_empty_dense_matrix!(
+    format_get_empty_dense_matrix!(
         format::FormatWriter,
         rows_axis::AbstractString,
         columns_axis::AbstractString,
@@ -476,10 +495,31 @@ This trusts we have a write lock on the data set, that the `rows_axis` and `colu
     `(1,nrows)`, so that elements are consecutive in memory. However it need not be an actual `DenseMatrix` because of
     Julia's type system's limitations.
 """
-function format_empty_dense_matrix! end
+function format_get_empty_dense_matrix! end
 
 """
-    format_empty_sparse_matrix!(
+    format_filled_empty_dense_matrix!(
+        daf::DafWriter,
+        rows_axis::AbstractString,
+        columns_axis::AbstractString,
+        name::AbstractString,
+        filled_matrix::AbstractVector{T},
+    )::Nothing where {T <: StorageNumber}
+
+Allow the `format` to perform caching once the empty dense matrix has been `filled`. By default this does nothing.
+"""
+function format_filled_empty_dense_matrix!(
+    ::DafWriter,
+    ::AbstractString,
+    ::AbstractString,
+    ::AbstractString,
+    ::AbstractMatrix{T},
+)::Nothing where {T <: StorageNumber}
+    return nothing
+end
+
+"""
+    format_get_empty_sparse_matrix!(
         format::FormatWriter,
         rows_axis::AbstractString,
         columns_axis::AbstractString,
@@ -491,15 +531,15 @@ function format_empty_dense_matrix! end
     where {T <: StorageNumber, I <: StorageInteger}
 
 Implement creating an empty sparse matrix property with some `name` for some `rows_axis` and `columns_axis` in `format`.
-The final tuple element is passed to [`format_filled_sparse_matrix!`](@ref).
+The final tuple element is passed to [`format_filled_empty_sparse_matrix!`](@ref).
 
 This trusts we have a write lock on the data set, that the `rows_axis` and `columns_axis` exist in `format` and that the
 `name` matrix property does not exist for them.
 """
-function format_empty_sparse_matrix! end
+function format_get_empty_sparse_matrix! end
 
 """
-    format_filled_dense_matrix!(
+    format_filled_empty_dense_matrix!(
         format::FormatWriter,
         rows_axis::AbstractString,
         columns_axis::AbstractString,
@@ -510,7 +550,7 @@ function format_empty_sparse_matrix! end
 
 Allow the `format` to perform caching once the empty sparse matrix has been `filled`. By default this does nothing.
 """
-function format_filled_sparse_matrix!(  # untested
+function format_filled_empty_sparse_matrix!(  # untested
     ::FormatWriter,
     ::AbstractString,
     ::AbstractString,
@@ -664,7 +704,7 @@ function get_axis_through_cache(format::FormatReader, axis::AbstractString)::Abs
     end
 end
 
-function get_vector_through_cache(format::FormatReader, axis::AbstractString, name::AbstractString)::StorageVector
+function get_vector_through_cache(format::FormatReader, axis::AbstractString, name::AbstractString)::NamedArray
     return get_through_cache(format, vector_cache_key(axis, name), StorageVector) do
         vector = format_get_vector(format, axis, name)
         return as_named_vector(format, axis, vector)
@@ -900,11 +940,14 @@ function store_cached_dependency_key!(
 end
 
 function invalidate_cached!(format::FormatReader, cache_key::AbstractString)::Nothing
+    @debug "invalidate_cached! daf: $(depict(format)) cache_key: $(cache_key)"
+    @debug "- delete cache_key: $(cache_key)"
     delete!(format.internal.cache, cache_key)
 
     dependent_keys = pop!(format.internal.dependency_cache_keys, cache_key, nothing)
     if dependent_keys !== nothing
         for dependent_key in dependent_keys
+            @debug "- delete dependent_key: $(dependent_key)"
             delete!(format.internal.cache, dependent_key)
         end
     end
@@ -947,7 +990,7 @@ end
 function with_write_lock(action::Function, format::FormatReader)::Any
     thread_id = threadid()
     if format.internal.writer_thread[1] == thread_id
-        return action()  # untested
+        return action()
     end
 
     lock(format.internal.lock)

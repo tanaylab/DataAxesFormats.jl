@@ -988,7 +988,11 @@ function mask_operator(::And)::String
     return "&"
 end
 
-function update_axis_mask(axis_mask::Vector{Bool}, mask_vector::Union{Vector{Bool}, BitVector}, ::And)::Nothing
+function update_axis_mask(
+    axis_mask::AbstractVector{Bool},
+    mask_vector::Union{AbstractVector{Bool}, BitVector},
+    ::And,
+)::Nothing
     axis_mask .&= mask_vector
     return nothing
 end
@@ -1007,7 +1011,11 @@ function mask_operator(::AndNot)::String
     return "&!"
 end
 
-function update_axis_mask(axis_mask::Vector{Bool}, mask_vector::Union{Vector{Bool}, BitVector}, ::AndNot)::Nothing
+function update_axis_mask(
+    axis_mask::AbstractVector{Bool},
+    mask_vector::Union{AbstractVector{Bool}, BitVector},
+    ::AndNot,
+)::Nothing
     axis_mask .&= .!mask_vector
     return nothing
 end
@@ -1029,7 +1037,11 @@ function mask_operator(::Or)::String
     return "|"
 end
 
-function update_axis_mask(axis_mask::Vector{Bool}, mask_vector::Union{Vector{Bool}, BitVector}, ::Or)::Nothing
+function update_axis_mask(
+    axis_mask::AbstractVector{Bool},
+    mask_vector::Union{AbstractVector{Bool}, BitVector},
+    ::Or,
+)::Nothing
     axis_mask .|= mask_vector
     return nothing
 end
@@ -1048,7 +1060,11 @@ function mask_operator(::OrNot)::String
     return "|!"
 end
 
-function update_axis_mask(axis_mask::Vector{Bool}, mask_vector::Union{Vector{Bool}, BitVector}, ::OrNot)::Nothing
+function update_axis_mask(
+    axis_mask::AbstractVector{Bool},
+    mask_vector::Union{AbstractVector{Bool}, BitVector},
+    ::OrNot,
+)::Nothing
     axis_mask .|= .!mask_vector
     return nothing
 end
@@ -1070,7 +1086,11 @@ function mask_operator(::Xor)::String
     return "^"
 end
 
-function update_axis_mask(axis_mask::Vector{Bool}, mask_vector::Union{Vector{Bool}, BitVector}, ::Xor)::Nothing
+function update_axis_mask(
+    axis_mask::AbstractVector{Bool},
+    mask_vector::Union{AbstractVector{Bool}, BitVector},
+    ::Xor,
+)::Nothing
     axis_mask .= @. xor(axis_mask, mask_vector)
     return nothing
 end
@@ -1089,7 +1109,11 @@ function mask_operator(::XorNot)::String
     return "^!"
 end
 
-function update_axis_mask(axis_mask::Vector{Bool}, mask_vector::Union{Vector{Bool}, BitVector}, ::XorNot)::Nothing
+function update_axis_mask(
+    axis_mask::AbstractVector{Bool},
+    mask_vector::Union{AbstractVector{Bool}, BitVector},
+    ::XorNot,
+)::Nothing
     axis_mask .= @. xor(axis_mask, .!mask_vector)
     return nothing
 end
@@ -1387,7 +1411,7 @@ mutable struct AxisState
     query_sequence::QuerySequence
     dependency_keys::Set{AbstractString}
     axis_name::AbstractString
-    axis_modifier::Maybe{Union{Vector{Bool}, Int}}
+    axis_modifier::Maybe{Union{AbstractVector{Bool}, Int}}
 end
 
 struct FakeAxisState
@@ -1685,7 +1709,7 @@ function get_axis_result(
     if axis_modifier isa Int
         return axis_entries[axis_modifier], axis_state.dependency_keys
     else
-        if axis_modifier isa Vector{Bool}
+        if axis_modifier isa AbstractVector{Bool}
             axis_entries = axis_entries[axis_modifier]
         end
         return axis_entries, axis_state.dependency_keys
@@ -1960,7 +1984,7 @@ function lookup_axes(query_state::QueryState, lookup::Lookup)::Nothing
                 rows_axis_state,
                 dependency_keys,
             )
-        elseif columns_axis_modifier isa Vector{Bool}
+        elseif columns_axis_modifier isa AbstractVector{Bool}
             return lookup_matrix(
                 query_state,
                 named_matrix[:, columns_axis_modifier],
@@ -1984,7 +2008,7 @@ function lookup_axes(query_state::QueryState, lookup::Lookup)::Nothing
                 named_matrix[rows_axis_modifier, columns_axis_modifier],
                 dependency_keys,
             )
-        elseif columns_axis_modifier isa Vector{Bool}
+        elseif columns_axis_modifier isa AbstractVector{Bool}
             return lookup_matrix_slice(
                 query_state,
                 named_matrix[rows_axis_modifier, columns_axis_modifier],
@@ -1993,7 +2017,7 @@ function lookup_axes(query_state::QueryState, lookup::Lookup)::Nothing
             )
         end
 
-    elseif rows_axis_modifier isa Vector{Bool}
+    elseif rows_axis_modifier isa AbstractVector{Bool}
         if columns_axis_modifier === nothing
             return lookup_matrix(
                 query_state,
@@ -2009,7 +2033,7 @@ function lookup_axes(query_state::QueryState, lookup::Lookup)::Nothing
                 rows_axis_state,
                 dependency_keys,
             )
-        elseif columns_axis_modifier isa Vector{Bool}
+        elseif columns_axis_modifier isa AbstractVector{Bool}
             return lookup_matrix(
                 query_state,
                 named_matrix[rows_axis_modifier, columns_axis_modifier],
@@ -2464,7 +2488,7 @@ function fetch_first_named_vector(
         if axis_mask === nothing
             size = axis_length(query_state.daf, vector_fetch_state.common.axis_state.axis_name)
         else
-            @assert axis_mask isa Vector{Bool}
+            @assert axis_mask isa AbstractVector{Bool}
             size = sum(axis_mask)
             base_named_vector = base_named_vector[axis_mask]
         end
@@ -2480,7 +2504,7 @@ function fetch_first_named_vector(
         if axis_mask === nothing
             vector_fetch_state.may_modify_named_vector = false
         else
-            @assert axis_mask isa Vector{Bool}
+            @assert axis_mask isa AbstractVector{Bool}
             base_named_vector = base_named_vector[axis_mask]  # NOJET
             vector_fetch_state.may_modify_named_vector = true
         end
@@ -2569,7 +2593,7 @@ function patch_fetched_values(
         if axis_mask === nothing
             axis_mask = fetched_mask
         else
-            @assert axis_mask isa Vector{Bool}
+            @assert axis_mask isa AbstractVector{Bool}
             if !vector_fetch_state.may_modify_axis_mask
                 axis_mask = copy(axis_mask)
             end
@@ -2597,7 +2621,7 @@ function patch_fetched_values(
                 end
             end
             @assert masked_index == length(masked_fetched_values)
-            vector_fetch_state.if_not_values = if_not_values[fetched_mask]
+            vector_fetch_state.if_not_values = if_not_values[fetched_mask]  # NOJET
             fetched_values = masked_fetched_values
         end
     end
@@ -2641,7 +2665,7 @@ function ensure_if_not_values(vector_fetch_state::VectorFetchState, size::Int)::
     return if_not_values
 end
 
-function ensure_fetched_mask(fetched_mask::Maybe{Vector{Bool}}, size::Int)::Vector{Bool}
+function ensure_fetched_mask(fetched_mask::Maybe{AbstractVector{Bool}}, size::Int)::AbstractVector{Bool}
     if fetched_mask === nothing
         fetched_mask = ones(Bool, size)
     end
@@ -2781,7 +2805,7 @@ function apply_mask_to_axis_state(
     elseif eltype(mask_vector) != Bool
         mask_vector = mask_vector .!= 0
     end
-    @assert mask_vector isa Union{Vector{Bool}, BitVector}
+    @assert eltype(mask_vector) <: Bool
 
     axis_mask = axis_state.axis_modifier
     if axis_mask === nothing
@@ -2789,7 +2813,7 @@ function apply_mask_to_axis_state(
         axis_state.axis_modifier = axis_mask
     end
 
-    @assert axis_mask isa Vector{Bool}
+    @assert axis_mask isa AbstractVector{Bool}
     update_axis_mask(axis_mask, mask_vector, mask_operation)
     axis_state.axis_modifier = axis_mask
     return nothing
@@ -2913,7 +2937,7 @@ function apply_mask_to_base_vector_state(base_vector_state::VectorState, masked_
     masked_axis_mask = masked_axis_state.axis_modifier
 
     if base_axis_mask != masked_axis_mask
-        @assert masked_axis_mask isa Vector{Bool}
+        @assert masked_axis_mask isa AbstractVector{Bool}
         @assert base_axis_mask === nothing || !any(masked_axis_mask .& .!base_axis_mask)  # NOJET
         apply_mask_to_vector_state(base_vector_state, masked_axis_mask)
     end
@@ -2929,7 +2953,7 @@ function apply_mask_to_base_matrix_state(base_matrix_state::MatrixState, masked_
     masked_axis_mask = masked_axis_state.axis_modifier
 
     if base_axis_mask != masked_axis_mask
-        @assert masked_axis_mask isa Vector{Bool}
+        @assert masked_axis_mask isa AbstractVector{Bool}
         @assert base_axis_mask === nothing || !any(masked_axis_mask .& .!base_axis_mask)
         apply_mask_to_matrix_state_rows(base_matrix_state, masked_axis_mask)
     end
@@ -2997,12 +3021,12 @@ function compute_count_by(
     return counts_matrix
 end
 
-function apply_mask_to_vector_state(vector_state::VectorState, new_axis_mask::Vector{Bool})::Nothing
+function apply_mask_to_vector_state(vector_state::VectorState, new_axis_mask::AbstractVector{Bool})::Nothing
     axis_state = vector_state.axis_state
     @assert axis_state !== nothing
     old_axis_mask = axis_state.axis_modifier
     if old_axis_mask === nothing
-        vector_state.named_vector = vector_state.named_vector[new_axis_mask]
+        vector_state.named_vector = vector_state.named_vector[new_axis_mask]  # NOJET
         axis_state.axis_modifier = new_axis_mask
     else
         sub_axis_mask = new_axis_mask[old_axis_mask]
@@ -3012,7 +3036,7 @@ function apply_mask_to_vector_state(vector_state::VectorState, new_axis_mask::Ve
     return nothing
 end
 
-function apply_mask_to_matrix_state_rows(matrix_state::MatrixState, new_rows_mask::Vector{Bool})::Nothing
+function apply_mask_to_matrix_state_rows(matrix_state::MatrixState, new_rows_mask::AbstractVector{Bool})::Nothing
     rows_axis_state = matrix_state.rows_axis_state
     @assert rows_axis_state !== nothing
     old_rows_mask = rows_axis_state.axis_modifier
@@ -3112,7 +3136,7 @@ function fetch_group_by_matrix(query_state::QueryState, group_by::GroupBy)::Noth
     columns_names = get_axis(query_state.daf, columns_axis_state.axis_name)
     axis_mask = columns_axis_state.axis_modifier
     if axis_mask !== nothing
-        @assert axis_mask isa Vector{Bool}
+        @assert axis_mask isa AbstractVector{Bool}
         columns_names = columns_names[axis_mask]
     end
 

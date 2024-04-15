@@ -401,7 +401,7 @@ function depict_matrix_size(matrix::AbstractMatrix, kind::AbstractString; transp
     end
 
     if transposed
-        return "$(size(matrix, 2)) x $(size(matrix, 1)) x $(eltype(matrix)) $(layout_suffix) (transposed $(kind))"
+        return "$(size(matrix, 2)) x $(size(matrix, 1)) x $(eltype(matrix)) $(layout_suffix) (Transpose $(kind))"
     else
         return "$(size(matrix, 1)) x $(size(matrix, 2)) x $(eltype(matrix)) $(layout_suffix) ($(kind))"
     end

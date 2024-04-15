@@ -1215,7 +1215,7 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
                 end
 
                 nested_test("transpose") do
-                    @test_throws "type not in column-major layout: 3 x 4 x Int64 in Rows (transposed Dense)" get_matrix(
+                    @test_throws "type not in column-major layout: 3 x 4 x Int64 in Rows (Transpose Dense)" get_matrix(
                         daf,
                         "cell",
                         "gene",
@@ -1486,7 +1486,7 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
             end
 
             nested_test("transpose") do
-                @test_throws "type not in column-major layout: 3 x 4 x Int64 in Rows (transposed Dense)" set_matrix!(
+                @test_throws "type not in column-major layout: 3 x 4 x Int64 in Rows (Transpose Dense)" set_matrix!(
                     daf,
                     "cell",
                     "gene",
@@ -2697,24 +2697,6 @@ function test_existing_relayout_matrix(daf::DafReader, depth::Int)::Nothing
                                 test_existing_relayout_matrix(daf, depth + 1)
                                 return nothing
                             end
-                        end
-
-                        nested_test("false") do
-                            @test set_matrix!(
-                                daf,
-                                "cell",
-                                "gene",
-                                "UMIs",
-                                UMIS_BY_DEPTH[depth];
-                                overwrite = true,
-                                relayout = false,
-                            ) === nothing
-
-                            nested_test("delete") do
-                                @test delete_matrix!(daf, "gene", "cell", "UMIs"; relayout = false) === nothing
-                                test_existing_matrix(daf, depth + 1)
-                                return nothing
-                            end
 
                             nested_test("relayout") do
                                 nested_test("overwrite") do
@@ -2744,6 +2726,35 @@ function test_existing_relayout_matrix(daf::DafReader, depth::Int)::Nothing
                                         return nothing
                                     end
                                 end
+                            end
+                        end
+
+                        nested_test("false") do
+                            @test set_matrix!(
+                                daf,
+                                "cell",
+                                "gene",
+                                "UMIs",
+                                UMIS_BY_DEPTH[depth];
+                                overwrite = true,
+                                relayout = false,
+                            ) === nothing
+
+                            nested_test("delete") do
+                                @test_throws dedent("""
+                                    missing matrix: UMIs
+                                    for the rows axis: gene
+                                    and the columns axis: cell
+                                    in the daf data: $(daf.name)
+                                """) delete_matrix!(daf, "gene", "cell", "UMIs"; relayout = false) === nothing
+                                test_existing_matrix(daf, depth + 1)
+                                return nothing
+                            end
+
+                            nested_test("relayout") do
+                                @test relayout_matrix!(daf, "cell", "gene", "UMIs") === nothing
+                                test_existing_relayout_matrix(daf, depth + 1)
+                                return nothing
                             end
                         end
                     end
