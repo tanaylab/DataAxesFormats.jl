@@ -163,8 +163,8 @@ end
 """
     axis_version_counter(daf::DafReader, axis::AbstractString)::UInt32
 
-Return the version number of the axis. This is incremented every time `delete_axis!` is called. It is used by interfaces
-to other programming languages to minimize copying data.
+Return the version number of the axis. This is incremented every time [`delete_axis!`](@ref Daf.Writers.delete_axis!) is
+called. It is used by interfaces to other programming languages to minimize copying data.
 
 !!! note
 
@@ -269,8 +269,10 @@ end
 """
     vector_version_counter(daf::DafReader, axis::AbstractString, name::AbstractString)::UInt32
 
-Return the version number of the vector. This is incremented every time `set_vector!`, `empty_dense_vector!` or
-`empty_sparse_vector!` are called. It is used by interfaces to other programming languages to minimize copying data.
+Return the version number of the vector. This is incremented every time [`set_vector!`](@ref Daf.Writers.set_vector!),
+[`empty_dense_vector!`](@ref Daf.Writers.empty_dense_vector!) or
+[`empty_sparse_vector!`](@ref Daf.Writers.empty_sparse_vector!) are called. It is used by interfaces to other
+programming languages to minimize copying data.
 
 !!! note
 
@@ -312,9 +314,9 @@ entries (same as returned by [`get_axis`](@ref)). The special property `name` re
 (read-only) names of the entries of the axis.
 
 This first verifies the `axis` exists in `daf`. If `default` is `undef` (the default), this first verifies the `name`
-vector exists in `daf`. Otherwise, if `default` is `nothing`, it will be returned. If it is a `StorageVector`, it has to
-be of the same size as the `axis`, and is returned. If it is a [`StorageScalar`](@ref). Otherwise, a new `Vector` is
-created of the correct size containing the `default`, and is returned.
+vector exists in `daf`. Otherwise, if `default` is `nothing`, it will be returned. If it is a [`StorageVector`](@ref),
+it has to be of the same size as the `axis`, and is returned. If it is a [`StorageScalar`](@ref). Otherwise, a new
+`Vector` is created of the correct size containing the `default`, and is returned.
 """
 function get_vector(
     daf::DafReader,
@@ -672,11 +674,17 @@ function get_matrix(
 end
 
 """
-    matrix_version_counter(daf::DafReader, rows_axis::AbstractString, columns_axis::AbstractString, name::AbstractString)::UInt32
+    matrix_version_counter(
+        daf::DafReader,
+        rows_axis::AbstractString,
+        columns_axis::AbstractString,
+        name::AbstractString
+    )::UInt32
 
 Return the version number of the matrix. The order of the axes does not matter. This is incremented every time
-`set_matrix!`, `empty_dense_matrix!` or `empty_sparse_matrix!` are called. It is used by interfaces to other programming
-languages to minimize copying data.
+[`set_matrix!`](@ref Daf.Writers.set_matrix!), [`empty_dense_matrix!`](@ref Daf.Writers.empty_dense_matrix!) or
+[`empty_sparse_matrix!`](@ref Daf.Writers.empty_sparse_matrix!) are called. It is used by interfaces to other
+programming languages to minimize copying data.
 
 !!! note
 

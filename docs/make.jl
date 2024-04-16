@@ -9,6 +9,7 @@ push!(LOAD_PATH, "..")
 
 using NestedTests
 using Pkg
+using Daf
 
 for file in readdir("docs"; join = true)
     if !endswith(file, "make.jl")
