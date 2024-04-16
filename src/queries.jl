@@ -219,7 +219,7 @@ will compute the log base 2 of one plus the of the UMIs of each gene in each cel
 VECTOR_QUERY = nothing
 
 """
-`VECTOR_PROPERTY` := [`Axis`](@ref) [`AXIS_MASK`](@ref)* [`VECTOR_LOOKUP`] [`VECTOR_FETCH`](@ref)*
+`VECTOR_PROPERTY` := [`Axis`](@ref) [`AXIS_MASK`](@ref)* [`VECTOR_LOOKUP`](@ref) [`VECTOR_FETCH`](@ref)*
 
 Lookup the values of some vector property (e.g., `/ gene : is_marker` will return a mask of the marker genes). This can
 be restricted to a subset of the vector using masks (e.g., `/ gene & is_marker : is_noisy` will return a mask of the
@@ -231,7 +231,7 @@ VECTOR_PROPERTY = nothing
 """
 `VECTOR_LOOKUP` := [`Lookup`](@ref) [`IfMissing`](@ref)? ( [`IfNot`](@ref) | [`AsAxis`](@ref) )?
 
-A [`Lookup`] of a vector property (e.g., `/ cell : type` will return the type of each cell).
+A [`Lookup`](@ref) of a vector property (e.g., `/ cell : type` will return the type of each cell).
 
 By default, it is an error if the property does not exist. However, if an [`IfMissing`](@ref) is provided,
 then this value is used instead (e.g., `/ cell : type || Unknown` will return a vector of `Unknown` types if
@@ -739,7 +739,7 @@ using the `:` operator, followed by the property name to look up.
 If the property does not exist, this is an error, unless this is followed by [`IfMissing`](@ref) (e.g.,
 `: version || 1.0`).
 
-If any of the axes has a single entry selected using [`IsEqual`]@(ref), this will reduce the dimension of the result
+If any of the axes has a single entry selected using [`IsEqual`](@ref), this will reduce the dimension of the result
 (e.g., `/ cell / gene = FOX1 : UMIs` is a vector, and both `/ cell = C1 / gene = FOX1 : UMI` and
 `/ gene = FOX1 : is_marker` are scalars).
 

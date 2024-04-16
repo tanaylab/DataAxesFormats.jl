@@ -11,8 +11,9 @@ For [`Rows`](@ref)-major data, the values of each row are laid out consecutively
 contiguous vector). In contrast, the values of each column are stored far apart from each other. In this case, summing
 columns would be slow, and summing rows would be fast.
 
-This is much simpler than the `ArrayLayouts` module which attempts to fully describe the layout of N-dimensional arrays,
-a much more ambitious goal which is an overkill for our needs.
+This is much simpler than the [ArrayLayouts](https://github.com/JuliaLinearAlgebra/ArrayLayouts.jl) module which
+attempts to fully describe the layout of N-dimensional arrays, a much more ambitious goal which is an overkill for our
+needs.
 
 !!! note
 

@@ -41,7 +41,7 @@ import ..Readers.as_named_matrix
         overwrite::Bool = false]
     )::Nothing where {T <: StorageScalarBase}
 
-Copy a scalar with some `name` from some `source` `DafReader` into some `destination` `DafWriter`.
+Copy a scalar with some `name` from some `source` [`DafReader`](@ref) into some `destination` [`DafWriter`](@ref).
 
 The scalar is fetched using the `name` and the `default`. If `rename` is specified, store the scalar using this new
 name. If `dtype` is specified, the data is converted to this type. If `overwrite` (not the default), overwrite an
@@ -84,7 +84,7 @@ end
         default::Union{Nothing, UndefInitializer} = undef]
     )::Nothing
 
-Copy an `axis` from some `source` `DafReader` into some `destination` `DafWriter`.
+Copy an `axis` from some `source` [`DafReader`](@ref) into some `destination` [`DafWriter`](@ref).
 
 The axis is fetched using the `name` and the `default`. If `rename` is specified, store the axis using this name.
 """
@@ -116,7 +116,7 @@ end
         overwrite::Bool = false]
     )::Nothing where {T <: StorageScalarBase}
 
-Copy a vector from some `source` `DafReader` into some `destination` `DafWriter`.
+Copy a vector from some `source` [`DafReader`](@ref) into some `destination` [`DafWriter`](@ref).
 
 The vector is fetched using the `axis`, `name` and the `default`. If `reaxis` is specified, store the vector using this
 axis. If `rename` is specified, store the vector using this name. If `dtype` is specified, the data is converted to this
@@ -230,7 +230,7 @@ end
         overwrite::Bool = false]
     )::Nothing where {T <: StorageScalarBase}
 
-Copy a matrix from some `source` `DafReader` into some `destination` `DafWriter`.
+Copy a matrix from some `source` [`DafReader`](@ref) into some `destination` [`DafWriter`](@ref).
 
 The matrix is fetched using the `rows_axis`, `columns_axis`, `name`, `relayout` and the `default`. If `rows_reaxis`
 and/or `columns_reaxis` are specified, store the vector using these axes. If `rename` is specified, store the matrix
@@ -417,8 +417,8 @@ specifying for which property we specify a value to, and the value to use.
 EmptyData = AbstractDict
 
 """
-Specify the data type to use for overriding properties types in a `Daf` data set. This is a dictionary with an [`DataKey`](@ref)
-specifying for which property we specify a value to, and the data type to use.
+Specify the data type to use for overriding properties types in a `Daf` data set. This is a dictionary with an
+[`DataKey`](@ref) specifying for which property we specify a value to, and the data type to use.
 
 !!! note
 
@@ -449,9 +449,9 @@ DataTypes = AbstractDict
         relayout::Bool = true]
     )::Nothing
 
-Copy all the content of a `source` `DafReader` into a `destination` `DafWriter`. If `overwrite`, this will overwrite
-existing data in the target. If `relayout`, matrices will be stored in the target both layouts, regardless of how they
-were stored in the source.
+Copy all the content of a `source` [`DafReader`](@ref) into a `destination` [`DafWriter`](@ref). If `overwrite`, this
+will overwrite existing data in the target. If `relayout`, matrices will be stored in the target both layouts,
+regardless of how they were stored in the source.
 
 This will create target axes that exist in only in the source, but will **not** overwrite existing target axes,
 regardless of the value of `overwrite`. An axis that exists in the target must be identical to, or be a subset of, the

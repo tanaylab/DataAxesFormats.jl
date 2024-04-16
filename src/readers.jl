@@ -531,9 +531,9 @@ Get the column-major matrix property with some `name` for some `rows_axis` and `
 result axes are the names of the relevant axes entries (same as returned by [`get_axis`](@ref)).
 
 If `relayout` (the default), then if the matrix is only stored in the other memory layout (that is, with flipped axes),
-then automatically call `relayout!` to compute the result. If `daf isa DafWriter`, then store the result for future use;
-otherwise, just cache it as [`MemoryData`](@ref CacheType). This may lock up very large amounts of memory; you can call
-`empty_cache!` to release it.
+then automatically call [`relayout!`](@ref) to compute the result. If `daf` isa [`DafWriter`](@ref), then store the
+result for future use; otherwise, just cache it as [`MemoryData`](@ref CacheType). This may lock up very large amounts
+of memory; you can call [`empty_cache!`](@ref) to release it.
 
 This first verifies the `rows_axis` and `columns_axis` exist in `daf`. If `default` is `undef` (the default), this first
 verifies the `name` matrix exists in `daf`. Otherwise, if `default` is `nothing`, it is returned. If `default` is a

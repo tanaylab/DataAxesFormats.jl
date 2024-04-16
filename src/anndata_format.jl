@@ -1,5 +1,5 @@
 """
-Import/export `Daf` data from/to `AnnData`.
+Import/export `Daf` data from/to [AnnData](https://pypi.org/project/anndata/).
 
 Due to the different data models, not all the content of `AnnData` can be represented as `Daf`, and vice-versa. However,
 "most" of the data can be automatically converted from one form to the other. In both directions, conversion is
@@ -56,24 +56,24 @@ this:
 
   - We can break the `Daf` invariant that all accessed data is column-major, at least for square matrices. This is
     bad because the invariant greatly simplifies `Daf` client code. Forcing clients to check the data layout and
-    calling `relayout!` would add a lot of error-prone boilerplate to our users.
-  - We can `relayout!` the data when copying it between `AnnData` and `Daf`. This is bad because, it would
-    force us to duplicate the data. More importantly, there is typically a good reason for the layout of the data.
-    For example, assume a directed graph between cells. A common way to store is is to have a square matrix where
-    each row contains the weights of the edges originating in one cell, connecting it to all other cells. This
-    allows code to efficiently "loop on all cells; loop on all outgoing edges". If we `relayout!` the data, then
-    such a loop would become extremely inefficient.
-  - We can return the transposed matrix from `Daf`. This is bad because Julia code and Python code processing
-    the "same" data would need to flip the indices (e.g., `outgoing_weight[from_cell, to_cell]` in Python vs.
+    calling [`relayout!`](@ref) would add a lot of error-prone boilerplate to our users.
+  - We can [`relayout!`](@ref) the data when copying it between `AnnData` and `Daf`. This is bad because it would force
+    us to duplicate the data. More importantly, there is typically a good reason for the layout of the data. For
+    example, assume a directed graph between cells. A common way to store is is to have a square matrix where each row
+    contains the weights of the edges originating in one cell, connecting it to all other cells. This allows code to
+    efficiently "loop on all cells; loop on all outgoing edges". If we [`relayout!`](@ref) the data, then such a loop
+    would become extremely inefficient.
+  - We can return the transposed matrix from `Daf`. This is bad because Julia code and Python code processing the "same"
+    data would need to flip the indices (e.g., `outgoing_weight[from_cell, to_cell]` in Python vs.
     `outgoing_weight[to_cell, from_cell]` in Julia).
 
 Having to pick between these bad options, we chose the last one as the lesser evil. The assumption is that Julia
 code is written separately from the Python code anyway. If the same algorithm is implemented in both systems, it
-would work (efficiently!), as long as the developer read this warning and flipped the order of the indices, that is.
+would work (efficiently!) - that is, as long as the developer read this warning and flipped the order of the indices.
 
-We do **not** have this problem with non-square matrices (e.g., the per-cell-per-gene `UMIs` matrix), since `Daf`
-allows for storing and accessing both layouts of the same data in this case. We simply populate `Daf` with the
-row-major data from `AnnData` and if asked for the outher layout, will `relayout!` it (and store/cache the result).
+We do **not** have this problem with non-square matrices (e.g., the per-cell-per-gene `UMIs` matrix), since `Daf` allows
+for storing and accessing both layouts of the same data in this case. We simply populate `Daf` with the row-major data
+from `AnnData` and if asked for the outher layout, will [`relayout!`](@ref) it (and store/cache the result).
 """
 module AnnDataFormat
 

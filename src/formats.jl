@@ -17,7 +17,8 @@ In general, storage format objects are as "dumb" as possible, to make it easier 
 required functions implement a glorified key-value repository, with the absolutely minimal necessary logic to deal with
 the separate property namespaces listed above.
 
-For clarity of documentation, we split the type hierarchy to `DafWriter <: FormatWriter <: DafReader <: FormatReader`.
+For clarity of documentation, we split the type hierarchy to [`DafWriter`](@ref) `<:` [`FormatWriter`](@ref) `<:`
+[`DafReader`](@ref) `<:` [`FormatReader`](@ref).
 
 The functions listed here use the [`FormatReader`](@ref) for read-only operations and [`FormatWriter`](@ref) for write
 operations into a `Daf` storage. This is a low-level API, not meant to be used from outside the package, and therefore

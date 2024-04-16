@@ -40,11 +40,11 @@ end
 """
     struct WriteChain <: DafWriter ... end
 
-A wrapper for a chain of [`DafReader`](@ref) data, with a final [`DafWriter`], presenting them as a single `DafWriter`.
-When accessing the content, the exposed value is that provided by the last data set that contains the data, that is,
-later data sets can override earlier data sets (where the writer has the final word). However, if an axis exists in more
-than one data set in the chain, then its entries must be identical. This isn't typically created manually; instead call
-[`chain_reader`](@ref).
+A wrapper for a chain of [`DafReader`](@ref) data, with a final [`DafWriter`](@ref), presenting them as a single
+[`DafWriter`](@ref). When accessing the content, the exposed value is that provided by the last data set that contains
+the data, that is, later data sets can override earlier data sets (where the writer has the final word). However, if an
+axis exists in more than one data set in the chain, then its entries must be identical. This isn't typically created
+manually; instead call [`chain_reader`](@ref).
 
 Any modifications or additions to the chain are directed at the final writer. Deletions are only allowed for data that
 exists only in this writer. That is, it is impossible to delete from a chain something that exists in any of the
@@ -59,10 +59,10 @@ end
 """
     chain_reader(dafs::AbstractVector{F}; name::Maybe{AbstractString} = nothing)::DafReader where {F <: DafReader}
 
-Create a read-only chain wrapper of [`DafReader`](@ref)s, presenting them as a single `DafReader`. When accessing the
-content, the exposed value is that provided by the last data set that contains the data, that is, later data sets can
-override earlier data sets. However, if an axis exists in more than one data set in the chain, then its entries must be
-identical. This isn't typically created manually; instead call [`chain_reader`](@ref).
+Create a read-only chain wrapper of [`DafReader`](@ref)s, presenting them as a single [`DafReader`](@ref). When
+accessing the content, the exposed value is that provided by the last data set that contains the data, that is, later
+data sets can override earlier data sets. However, if an axis exists in more than one data set in the chain, then its
+entries must be identical. This isn't typically created manually; instead call [`chain_reader`](@ref).
 
 !!! note
 
@@ -93,9 +93,9 @@ end
 """
     chain_writer(dafs::AbstractVector{F}; name::Maybe{AbstractString} = nothing)::DafWriter where {F <: DafReader}
 
-Create a chain wrapper for a chain of [`DafReader`](@ref) data, presenting them as a single `DafWriter`. This acts
-similarly to [`chain_reader`](@ref), but requires the final entry to be a [`DafWriter`](@ref). Any modifications or
-additions to the chain are directed at this final writer.
+Create a chain wrapper for a chain of [`DafReader`](@ref) data, presenting them as a single [`DafWriter`](@ref). This
+acts similarly to [`chain_reader`](@ref), but requires the final entry in the chain to be a [`DafWriter`](@ref). Any
+modifications or additions to the chain are directed only at this final writer.
 
 !!! note
 

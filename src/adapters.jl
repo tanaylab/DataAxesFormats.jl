@@ -31,26 +31,27 @@ using ..Views
         overwrite::Bool = false]
     )::Any
 
-Invoke a `computation` on a `view` data set and return the result; copy a [`viewer`](@ref) of the updated data set
-into the base `Daf` data of the view. If specified, the `name` is used as a prefix for all the names; otherwise, the
-`view` name is used as the prefix.
+Invoke a `computation` on a `view` data set and return the result; copy a [`viewer`](@ref) of the updated data set into
+the base `Daf` data of the view. If specified, the `name` is used as a prefix for all the names; otherwise, the `view`
+name is used as the prefix.
 
-If you have some `Daf` data you wish to run a `computation` on, you need to deal with name mismatches. That is, the
-names of the input and output data properties of the `computation` may be different from these used in your data. In
-addition, you might be interested only in a subset of the computed data properties, to avoiding polluting your data set
-with irrelevant properties.
+If you have some `Daf` data you wish to run a `computation` on, you need to deal with name mismatches. That is, the names
+of the input and output data properties of the `computation` may be different from these used in your data. In addition,
+you might be interested only in a subset of the computed data properties, to avoiding polluting your data set with
+irrelevant properties.
 
 To address these issues, the common idiom for applying computations to `Daf` data is to use the `adapter` as
 follows:
 
   - Create a (read-only) `view` of your data which presents the data properties under the names expected by the
-    `computation`, using [`viewer`](@ref). If the `computation` was annotated by `@computation`, then its
+    `computation`, using [`viewer`](@ref). If the `computation` was annotated by [`@computation`](@ref), then its
     [`Contract`](@ref) will be explicitly documented so you will know exactly what to provide.
   - Pass this `view` to `adapter`, which will invoke the `computation` with a (writable) `adapted` version of the
-    data (created using [`chain_writer`](@ref) and a new `DafWriter` to `capture` the output; by default, this will be a
-    [`MemoryDaf`]@(ref)), but it can be any function that takes a `name` (named) parameter and returns a `DafWriter`.
+    data (created using [`chain_writer`](@ref) and a new [`DafWriter`](@ref) to `capture` the output; by default, this
+    will be a [`MemoryDaf`](@ref)), but it can be any function that takes a `name` (named) parameter and returns a
+    `DafWriter`.
   - Once the `computation` is done, create a new view of the output, which presents the subset of the output data
-    properties you are interested in, with the names you would like to store them as. Again, if the `computation` was
+    properties you are interested in, with the names you would like to store them as. Again, if the computation was
     annotated by [`@computation`](@ref), then its [`Contract`](@ref) will be explicitly documented so you will know
     exactly what to expect.
   - Copy this output view data into the base `Daf` data of the `view` (using [`copy_all!`](@ref), `empty`, `relayout`
@@ -59,7 +60,7 @@ follows:
 !!! note
 
     If the names of the properties in the input already match the contract of the `computation`, you can pass the data
-    set directly as the ``view``. The call to `adapter` may still be needed to filter or rename the `computation`'s
+    set directly as the `view`. The call to `adapter` may still be needed to filter or rename the `computation`'s
     output. If the outputs can also be used as-is, then there's no need to invoke `adapter`; directly apply the
     `computation` to the data and be done.
 

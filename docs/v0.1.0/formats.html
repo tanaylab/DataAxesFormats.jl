@@ -281,8 +281,28 @@
 <p>In general, storage format objects are as &quot;dumb&quot; as possible, to make it easier to support new storage formats. The required functions implement a glorified key-value repository, with the absolutely minimal necessary logic to deal with the separate property namespaces listed above.
 </p>
 <p>For clarity of documentation, we split the type hierarchy to 
-<code>DafWriter &lt;: FormatWriter &lt;: DafReader &lt;: FormatReader
-</code>.
+<a href="formats.html#Daf.Formats.DafWriter">
+<code>DafWriter
+</code>
+</a> 
+<code>&lt;:
+</code> 
+<a href="formats.html#Daf.Formats.FormatWriter">
+<code>FormatWriter
+</code>
+</a> 
+<code>&lt;:
+</code> 
+<a href="formats.html#Daf.Formats.DafReader">
+<code>DafReader
+</code>
+</a> 
+<code>&lt;:
+</code> 
+<a href="formats.html#Daf.Formats.FormatReader">
+<code>FormatReader
+</code>
+</a>.
 </p>
 <p>The functions listed here use the 
 <a href="formats.html#Daf.Formats.FormatReader">

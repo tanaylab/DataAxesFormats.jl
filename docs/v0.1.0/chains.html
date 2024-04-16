@@ -273,8 +273,10 @@
 <code>DafReader
 </code>
 </a>s, presenting them as a single 
+<a href="formats.html#Daf.Formats.DafReader">
 <code>DafReader
-</code>. When accessing the content, the exposed value is that provided by the last data set that contains the data, that is, later data sets can override earlier data sets. However, if an axis exists in more than one data set in the chain, then its entries must be identical. This isn&#39;t typically created manually; instead call 
+</code>
+</a>. When accessing the content, the exposed value is that provided by the last data set that contains the data, that is, later data sets can override earlier data sets. However, if an axis exists in more than one data set in the chain, then its entries must be identical. This isn&#39;t typically created manually; instead call 
 <a href="chains.html#Daf.Chains.chain_reader">
 <code>chain_reader
 </code>
@@ -315,16 +317,18 @@
 <code>DafReader
 </code>
 </a> data, presenting them as a single 
-<code>DafWriter
-</code>. This acts similarly to 
-<a href="chains.html#Daf.Chains.chain_reader">
-<code>chain_reader
-</code>
-</a>, but requires the final entry to be a 
 <a href="formats.html#Daf.Formats.DafWriter">
 <code>DafWriter
 </code>
-</a>. Any modifications or additions to the chain are directed at this final writer.
+</a>. This acts similarly to 
+<a href="chains.html#Daf.Chains.chain_reader">
+<code>chain_reader
+</code>
+</a>, but requires the final entry in the chain to be a 
+<a href="formats.html#Daf.Formats.DafWriter">
+<code>DafWriter
+</code>
+</a>. Any modifications or additions to the chain are directed only at this final writer.
 </p>
 <div class="admonition is-info">
 <header class="admonition-header">Note
@@ -390,11 +394,15 @@
 <a href="formats.html#Daf.Formats.DafReader">
 <code>DafReader
 </code>
-</a> data, with a final [
+</a> data, with a final 
+<a href="formats.html#Daf.Formats.DafWriter">
 <code>DafWriter
-</code>], presenting them as a single 
+</code>
+</a>, presenting them as a single 
+<a href="formats.html#Daf.Formats.DafWriter">
 <code>DafWriter
-</code>. When accessing the content, the exposed value is that provided by the last data set that contains the data, that is, later data sets can override earlier data sets (where the writer has the final word). However, if an axis exists in more than one data set in the chain, then its entries must be identical. This isn&#39;t typically created manually; instead call 
+</code>
+</a>. When accessing the content, the exposed value is that provided by the last data set that contains the data, that is, later data sets can override earlier data sets (where the writer has the final word). However, if an axis exists in more than one data set in the chain, then its entries must be identical. This isn&#39;t typically created manually; instead call 
 <a href="chains.html#Daf.Chains.chain_reader">
 <code>chain_reader
 </code>

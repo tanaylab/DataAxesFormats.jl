@@ -322,8 +322,10 @@
 </a>. If the 
 <code>computation
 </code> was annotated by 
+<a href="computations.html#Daf.Computations.@computation">
 <code>@computation
-</code>, then its 
+</code>
+</a>, then its 
 <a href="contracts.html#Daf.Contracts.Contract">
 <code>Contract
 </code>
@@ -342,12 +344,16 @@
 <code>chain_writer
 </code>
 </a> and a new 
+<a href="formats.html#Daf.Formats.DafWriter">
 <code>DafWriter
-</code> to 
+</code>
+</a> to 
 <code>capture
-</code> the output; by default, this will be a [
+</code> the output; by default, this will be a 
+<a href="memory_format.html#Daf.MemoryFormat.MemoryDaf">
 <code>MemoryDaf
-</code>]@(ref)), but it can be any function that takes a 
+</code>
+</a>), but it can be any function that takes a 
 <code>name
 </code> (named) parameter and returns a 
 <code>DafWriter
@@ -355,9 +361,7 @@
 </li>
 <li>Once the 
 <code>computation
-</code> is done, create a new view of the output, which presents the subset of the output data properties you are interested in, with the names you would like to store them as. Again, if the 
-<code>computation
-</code> was annotated by 
+</code> is done, create a new view of the output, which presents the subset of the output data properties you are interested in, with the names you would like to store them as. Again, if the computation was annotated by 
 <a href="computations.html#Daf.Computations.@computation">
 <code>@computation
 </code>
@@ -395,8 +399,8 @@
 <p>If the names of the properties in the input already match the contract of the 
 <code>computation
 </code>, you can pass the data set directly as the 
-<span>$view$
-</span>. The call to 
+<code>view
+</code>. The call to 
 <code>adapter
 </code> may still be needed to filter or rename the 
 <code>computation

@@ -3,7 +3,9 @@ A `Daf` storage format in an HDF5 disk file. This is the "native" way to store `
 used to contain "anything", as HDF5 is essentially "a filesystem inside a file", with "groups" instead of directories
 and "datasets" instead of files. Therefore HDF5 is very generic, and there are various specific formats which use
 specific internal structure to hold some data in it - for example, `h5ad` files have a specific internal structure for
-representing `AnnData` objects. To represent `Daf` data in HDF5 storage, we use the following internal structure (which
+representing [AnnData](https://pypi.org/project/anndata/) objects. To represent `Daf` data in HDF5 storage, we use the
+following internal structure (which
+
 is **not** compatible with `h5ad`):
 
   - The HDF5 file may contain `Daf` data directly in the root group, in which case, it is restricted to holding just a

@@ -245,8 +245,8 @@
 <p>Import/export 
 <code>Daf
 </code> data from/to 
-<code>AnnData
-</code>.
+<a href="https://pypi.org/project/anndata/">AnnData
+</a>.
 </p>
 <p>Due to the different data models, not all the content of 
 <code>AnnData
@@ -388,18 +388,24 @@
 </code> invariant that all accessed data is column-major, at least for square matrices. This is bad because the invariant greatly simplifies 
 <code>Daf
 </code> client code. Forcing clients to check the data layout and calling 
+<a href="matrix_layouts.html#Daf.MatrixLayouts.relayout!">
 <code>relayout!
-</code> would add a lot of error-prone boilerplate to our users.
+</code>
+</a> would add a lot of error-prone boilerplate to our users.
 </li>
 <li>We can 
+<a href="matrix_layouts.html#Daf.MatrixLayouts.relayout!">
 <code>relayout!
-</code> the data when copying it between 
+</code>
+</a> the data when copying it between 
 <code>AnnData
 </code> and 
 <code>Daf
-</code>. This is bad because, it would force us to duplicate the data. More importantly, there is typically a good reason for the layout of the data. For example, assume a directed graph between cells. A common way to store is is to have a square matrix where each row contains the weights of the edges originating in one cell, connecting it to all other cells. This allows code to efficiently &quot;loop on all cells; loop on all outgoing edges&quot;. If we 
+</code>. This is bad because it would force us to duplicate the data. More importantly, there is typically a good reason for the layout of the data. For example, assume a directed graph between cells. A common way to store is is to have a square matrix where each row contains the weights of the edges originating in one cell, connecting it to all other cells. This allows code to efficiently &quot;loop on all cells; loop on all outgoing edges&quot;. If we 
+<a href="matrix_layouts.html#Daf.MatrixLayouts.relayout!">
 <code>relayout!
-</code> the data, then such a loop would become extremely inefficient.
+</code>
+</a> the data, then such a loop would become extremely inefficient.
 </li>
 <li>We can return the transposed matrix from 
 <code>Daf
@@ -410,7 +416,7 @@
 </code> in Julia).
 </li>
 </ul>
-<p>Having to pick between these bad options, we chose the last one as the lesser evil. The assumption is that Julia code is written separately from the Python code anyway. If the same algorithm is implemented in both systems, it would work (efficiently!), as long as the developer read this warning and flipped the order of the indices, that is.
+<p>Having to pick between these bad options, we chose the last one as the lesser evil. The assumption is that Julia code is written separately from the Python code anyway. If the same algorithm is implemented in both systems, it would work (efficiently!) - that is, as long as the developer read this warning and flipped the order of the indices.
 </p>
 <p>We do 
 <strong>not
@@ -423,8 +429,10 @@
 </code> with the row-major data from 
 <code>AnnData
 </code> and if asked for the outher layout, will 
+<a href="matrix_layouts.html#Daf.MatrixLayouts.relayout!">
 <code>relayout!
-</code> it (and store/cache the result).
+</code>
+</a> it (and store/cache the result).
 </p>
 </div>
 </section>

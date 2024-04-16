@@ -890,16 +890,24 @@
 <p>If 
 <code>relayout
 </code> (the default), then if the matrix is only stored in the other memory layout (that is, with flipped axes), then automatically call 
+<a href="matrix_layouts.html#Daf.MatrixLayouts.relayout!">
 <code>relayout!
-</code> to compute the result. If 
-<code>daf isa DafWriter
-</code>, then store the result for future use; otherwise, just cache it as 
+</code>
+</a> to compute the result. If 
+<code>daf
+</code> isa 
+<a href="formats.html#Daf.Formats.DafWriter">
+<code>DafWriter
+</code>
+</a>, then store the result for future use; otherwise, just cache it as 
 <a href="formats.html#Daf.Formats.CacheType">
 <code>MemoryData
 </code>
 </a>. This may lock up very large amounts of memory; you can call 
+<a href="formats.html#Daf.Formats.empty_cache!">
 <code>empty_cache!
-</code> to release it.
+</code>
+</a> to release it.
 </p>
 <p>This first verifies the 
 <code>rows_axis
