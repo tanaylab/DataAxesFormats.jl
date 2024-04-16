@@ -4,26 +4,6 @@ and [`ReductionOperation`](@ref)s that reduce a matrix to a vector, or a vector 
 """
 module Operations
 
-using Base.Threads
-using Daf.Registry
-using Daf.StorageTypes
-using Daf.Tokens
-using Statistics
-using StatsBase
-using SparseArrays
-
-import Base.MathConstants.e
-import Base.MathConstants.pi
-import Daf.Registry.compute_eltwise
-import Daf.Registry.compute_reduction
-import Daf.Registry.reduction_result_type
-import Daf.Tokens.error_at_token
-import Daf.Tokens.Token
-import Distributed.@everywhere
-
-using Base.MathConstants
-using Daf.GenericTypes
-
 export Abs
 export Clamp
 export Convert
@@ -54,6 +34,24 @@ export parse_number_value
 export parse_parameter_value
 export sum_dtype_for
 export unsigned_dtype_for
+
+using ..GenericTypes
+using ..Registry
+using ..StorageTypes
+using ..Tokens
+using Base.MathConstants
+using Base.Threads
+using SparseArrays
+using Statistics
+using StatsBase
+
+import ..Registry.compute_eltwise
+import ..Registry.compute_reduction
+import ..Registry.reduction_result_type
+import ..Tokens.error_at_token
+import ..Tokens.Token
+import Base.MathConstants.e
+import Base.MathConstants.pi
 
 FLOAT_DTYPE_FOR = Dict{Type, Type}(
     Bool => Float32,

@@ -12,14 +12,14 @@ export CONTRACT1
 export CONTRACT2
 export DEFAULT
 
-using Daf.Contracts
-using Daf.Formats
-using Daf.Messages
+using ..Contracts
+using ..Formats
+using ..Messages
 using DocStringExtensions
 using ExprTools
 
-import Daf.Contracts.contract_documentation
-import Daf.GenericLogging.pass_args
+import ..Contracts.contract_documentation
+import ..GenericLogging.pass_args
 
 function computation_wrapper(::AbstractString, inner_function)
     return inner_function

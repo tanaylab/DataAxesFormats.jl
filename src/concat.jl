@@ -17,22 +17,22 @@ export MergeAction
 export MergeData
 export SkipProperty
 
+using ..Copies
+using ..Formats
+using ..GenericLogging
+using ..GenericTypes
+using ..Readers
+using ..StorageTypes
+using ..Views
+using ..Writers
 using Base.Threads
-using Daf.Copies
-using Daf.Formats
-using Daf.GenericLogging
-using Daf.GenericTypes
-using Daf.Readers
-using Daf.StorageTypes
-using Daf.Views
-using Daf.Writers
 using NamedArrays
 using SparseArrays
 
-import Daf.Readers.require_axis
-import Daf.StorageTypes.indtype_for_size
-import Daf.Writers.require_no_axis
-import Daf.Writers.require_no_matrix
+import ..Readers.require_axis
+import ..StorageTypes.indtype_for_size
+import ..Writers.require_no_axis
+import ..Writers.require_no_matrix
 
 """
 A vector of pairs where the key is a [`DataKey`](@ref) and the value is [`MergeAction`](@ref). Similarly to

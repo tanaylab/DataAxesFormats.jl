@@ -15,10 +15,10 @@ export RequiredInput
 export verify_input
 export verify_output
 
-using Daf.Formats
-using Daf.GenericFunctions
-using Daf.GenericTypes
-using Daf.Readers
+using ..Formats
+using ..GenericFunctions
+using ..GenericTypes
+using ..Readers
 using DocStringExtensions
 using ExprTools
 

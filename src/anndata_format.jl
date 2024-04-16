@@ -80,24 +80,24 @@ module AnnDataFormat
 export anndata_as_daf
 export daf_as_anndata
 
+using ..Formats
+using ..GenericFunctions
+using ..GenericLogging
+using ..GenericTypes
+using ..MatrixLayouts
+using ..MemoryFormat
+using ..Readers
+using ..StorageTypes
+using ..Writers
 using CategoricalArrays
-using Daf.Formats
-using Daf.GenericFunctions
-using Daf.GenericLogging
-using Daf.GenericTypes
-using Daf.MatrixLayouts
-using Daf.MemoryFormat
-using Daf.Readers
-using Daf.StorageTypes
-using Daf.Writers
 using DataFrames
 using HDF5
 using Muon
 using SparseArrays
 
-import Daf.Formats
-import Daf.Formats.Internal
-import Daf.Readers.require_matrix
+import ..Formats
+import ..Formats.Internal
+import ..Readers.require_matrix
 
 """
     anndata_as_daf(

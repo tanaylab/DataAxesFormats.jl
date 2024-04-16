@@ -36,8 +36,8 @@ export require_major_axis
 export require_minor_axis
 export Rows
 
-using Daf.GenericFunctions
-using Daf.GenericTypes
+using ..GenericFunctions
+using ..GenericTypes
 using Distributed
 using LinearAlgebra
 using NamedArrays

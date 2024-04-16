@@ -52,28 +52,28 @@ export scalar_names
 export vector_names
 export vector_version_counter
 
+using ..Formats
+using ..GenericTypes
+using ..MatrixLayouts
+using ..Messages
+using ..StorageTypes
 using ConcurrentUtils
-using Daf.Formats
-using Daf.GenericTypes
-using Daf.MatrixLayouts
-using Daf.Messages
-using Daf.StorageTypes
 using NamedArrays
 using SparseArrays
 
-import Daf.Formats
-import Daf.Formats.as_named_matrix
-import Daf.Formats.as_named_vector
-import Daf.Formats.as_read_only_array
-import Daf.Formats.CacheEntry
-import Daf.Formats.FormatReader
-import Daf.Formats.FormatWriter
-import Daf.Formats.upgrade_to_write_lock
-import Daf.Formats.begin_write_lock
-import Daf.Formats.with_read_lock
-import Daf.Formats.with_write_lock
-import Daf.Messages
-import Daf.StorageTypes.indtype_for_size
+import ..Formats
+import ..Formats.as_named_matrix
+import ..Formats.as_named_vector
+import ..Formats.as_read_only_array
+import ..Formats.CacheEntry
+import ..Formats.FormatReader
+import ..Formats.FormatWriter
+import ..Formats.upgrade_to_write_lock
+import ..Formats.begin_write_lock
+import ..Formats.with_read_lock
+import ..Formats.with_write_lock
+import ..Messages
+import ..StorageTypes.indtype_for_size
 
 function Base.getproperty(daf::DafReader, property::Symbol)::Any
     if property == :name

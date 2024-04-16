@@ -21,24 +21,24 @@ export ViewAxes
 export ViewData
 export viewer
 
-using Daf.Formats
-using Daf.GenericTypes
-using Daf.Messages
-using Daf.Queries
-using Daf.Readers
-using Daf.ReadOnly
-using Daf.StorageTypes
-using Daf.Tokens
+using ..Formats
+using ..GenericTypes
+using ..Messages
+using ..Queries
+using ..Readers
+using ..ReadOnly
+using ..StorageTypes
+using ..Tokens
 
-import Daf.Formats
-import Daf.Formats.Internal
-import Daf.Messages
-import Daf.Readers.as_read_only_array
-import Daf.Readers.base_array
-import Daf.Tokens.decode_expression
-import Daf.Tokens.encode_expression
-import Daf.ReadOnly
-import Daf.ReadOnly.DafReadOnlyWrapper
+import ..Formats
+import ..Formats.Internal
+import ..Messages
+import ..Readers.as_read_only_array
+import ..Readers.base_array
+import ..Tokens.decode_expression
+import ..Tokens.encode_expression
+import ..ReadOnly
+import ..ReadOnly.DafReadOnlyWrapper
 
 # Something we fetch from the original data.
 mutable struct Fetch{T}

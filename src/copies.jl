@@ -17,18 +17,18 @@ export copy_scalar!
 export copy_vector!
 export EmptyData
 
-using Daf.Formats
-using Daf.GenericLogging
-using Daf.GenericTypes
-using Daf.Messages
-using Daf.Readers
-using Daf.StorageTypes
-using Daf.Writers
+using ..Formats
+using ..GenericLogging
+using ..GenericTypes
+using ..Messages
+using ..Readers
+using ..StorageTypes
+using ..Writers
 using NamedArrays
 using SparseArrays
 
-import Daf.Readers.as_named_vector
-import Daf.Readers.as_named_matrix
+import ..Readers.as_named_vector
+import ..Readers.as_named_matrix
 
 """
     copy_scalar(;

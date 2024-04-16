@@ -43,13 +43,13 @@ export QueryData
 export empty_cache!
 export end_write_lock
 
+using ..GenericTypes
+using ..MatrixLayouts
+using ..Messages
+using ..StorageTypes
+using ..Tokens
 using Base.Threads
 using ConcurrentUtils
-using Daf.GenericTypes
-using Daf.MatrixLayouts
-using Daf.Messages
-using Daf.StorageTypes
-using Daf.Tokens
 using NamedArrays
 using OrderedCollections
 using SparseArrays

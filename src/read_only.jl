@@ -6,15 +6,15 @@ module ReadOnly
 export DafReadOnly
 export read_only
 
-using Daf.Formats
-using Daf.GenericTypes
-using Daf.Messages
-using Daf.Readers
-using Daf.StorageTypes
+using ..Formats
+using ..GenericTypes
+using ..Messages
+using ..Readers
+using ..StorageTypes
 using SparseArrays
 
-import Daf.Formats.as_read_only_array
-import Daf.Messages
+import ..Formats.as_read_only_array
+import ..Messages
 
 """
 A common base type for a read-only [`DafReader`](@ref), which doesn't allow any modification of the data.

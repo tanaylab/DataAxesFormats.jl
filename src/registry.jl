@@ -17,7 +17,7 @@ export reduction_result_type
 export ReductionOperation
 export register_query_operation
 
-using Daf.StorageTypes
+using ..StorageTypes
 
 # An operation in the global registry (used for parsing).
 struct RegisteredOperation

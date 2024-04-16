@@ -49,80 +49,80 @@ include("generic_types.jl")
 include("generic_functions.jl")
 
 include("matrix_layouts.jl")
-@reexport using Daf.MatrixLayouts
+@reexport using .MatrixLayouts
 
 include("storage_types.jl")
-@reexport using Daf.StorageTypes
+@reexport using .StorageTypes
 
 include("messages.jl")
-@reexport using Daf.Messages
+@reexport using .Messages
 
 include("generic_logging.jl")
 
 include("registry.jl")
-@reexport using Daf.Registry: EltwiseOperation, ReductionOperation
+@reexport using .Registry: EltwiseOperation, ReductionOperation
 
 include("tokens.jl")
-@reexport using Daf.Tokens
+@reexport using .Tokens
 
 include("operations.jl")
-@reexport using Daf.Operations
+@reexport using .Operations
 
 include("formats.jl")
-@reexport using Daf.Formats
+@reexport using .Formats
 
 include("readers.jl")
-@reexport using Daf.Readers
+@reexport using .Readers
 
 include("queries.jl")
-@reexport using Daf.Queries
+@reexport using .Queries
 
 include("writers.jl")
-@reexport using Daf.Writers
+@reexport using .Writers
 
 include("read_only.jl")
-@reexport using Daf.ReadOnly
+@reexport using .ReadOnly
 
 include("views.jl")
-@reexport using Daf.Views
+@reexport using .Views
 
 include("chains.jl")
-@reexport using Daf.Chains
+@reexport using .Chains
 
 include("memory_format.jl")
-@reexport using Daf.MemoryFormat
+@reexport using .MemoryFormat
 
 include("h5df_format.jl")
-@reexport using Daf.H5dfFormat
+@reexport using .H5dfFormat
 
 include("files_format.jl")
-@reexport using Daf.FilesFormat
+@reexport using .FilesFormat
 
 include("anndata_format.jl")
-@reexport using Daf.AnnDataFormat
+@reexport using .AnnDataFormat
 
 include("reconstruction.jl")
-@reexport using Daf.Reconstruction
+@reexport using .Reconstruction
 
 include("contracts.jl")
-@reexport using Daf.Contracts
+@reexport using .Contracts
 
 include("computations.jl")
-@reexport using Daf.Computations
+@reexport using .Computations
 
 include("copies.jl")
-@reexport using Daf.Copies
+@reexport using .Copies
 
 include("concat.jl")
-@reexport using Daf.Concat
+@reexport using .Concat
 
 include("adapters.jl")
-@reexport using Daf.Adapters
+@reexport using .Adapters
 
 include("groups.jl")
-@reexport using Daf.Groups
+@reexport using .Groups
 
 include("example_data.jl")
-@reexport using Daf.ExampleData
+@reexport using .ExampleData
 
 end  # module

@@ -5,18 +5,18 @@ module Adapters
 
 export adapter
 
-using Daf.Chains
-using Daf.Computations
-using Daf.Contracts
-using Daf.Copies
-using Daf.Copies
-using Daf.GenericTypes
-using Daf.Formats
-using Daf.MemoryFormat
-using Daf.StorageTypes
-using Daf.Queries
-using Daf.ReadOnly
-using Daf.Views
+using ..Chains
+using ..Computations
+using ..Contracts
+using ..Copies
+using ..Copies
+using ..GenericTypes
+using ..Formats
+using ..MemoryFormat
+using ..StorageTypes
+using ..Queries
+using ..ReadOnly
+using ..Views
 
 """
     adapter(

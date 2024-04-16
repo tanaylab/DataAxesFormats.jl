@@ -9,20 +9,20 @@ module Chains
 export chain_reader
 export chain_writer
 
-using Daf.Formats
-using Daf.GenericTypes
-using Daf.Messages
-using Daf.ReadOnly
-using Daf.Readers
-using Daf.StorageTypes
-using Daf.Writers
+using ..Formats
+using ..GenericTypes
+using ..Messages
+using ..ReadOnly
+using ..Readers
+using ..StorageTypes
+using ..Writers
 using SparseArrays
 
-import Daf.Formats.FormatReader
-import Daf.Formats.Internal
-import Daf.Formats.as_read_only_array
-import Daf.Messages
-import Daf.ReadOnly.DafReadOnlyWrapper
+import ..Formats.FormatReader
+import ..Formats.Internal
+import ..Formats.as_read_only_array
+import ..Messages
+import ..ReadOnly.DafReadOnlyWrapper
 
 """
     struct ReadOnlyChain <: DafReadOnly ... end

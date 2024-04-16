@@ -5,17 +5,17 @@ module MemoryFormat
 
 export MemoryDaf
 
-using Daf.Formats
-using Daf.GenericTypes
-using Daf.MatrixLayouts
-using Daf.Messages
-using Daf.Readers
-using Daf.StorageTypes
-using Daf.Writers
+using ..Formats
+using ..GenericTypes
+using ..MatrixLayouts
+using ..Messages
+using ..Readers
+using ..StorageTypes
+using ..Writers
 using SparseArrays
 
-import Daf.Formats
-import Daf.Formats.Internal
+import ..Formats
+import ..Formats.Internal
 
 """
     struct MemoryDaf <: DafWriter ... end

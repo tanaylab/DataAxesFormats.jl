@@ -108,23 +108,23 @@ module FilesFormat
 
 export FilesDaf
 
+using ..Formats
+using ..GenericTypes
+using ..MatrixLayouts
+using ..ReadOnly
+using ..Readers
+using ..StorageTypes
+using ..Writers
 using Base.Filesystem
-using Daf.Formats
-using Daf.GenericTypes
-using Daf.MatrixLayouts
-using Daf.ReadOnly
-using Daf.Readers
-using Daf.StorageTypes
-using Daf.Writers
 using JSON
 using Mmap
 using SparseArrays
 using StringViews
 
-import Daf.Formats
-import Daf.Formats.Internal
-import Daf.Operations.DTYPE_BY_NAME
-import Daf.Readers.base_array
+import ..Formats
+import ..Formats.Internal
+import ..Operations.DTYPE_BY_NAME
+import ..Readers.base_array
 import SparseArrays.indtype
 
 """

@@ -36,7 +36,7 @@ export StorageScalar
 export StorageScalarBase
 export StorageVector
 
-using Daf.MatrixLayouts
+using ..MatrixLayouts
 using SparseArrays
 
 """

@@ -7,15 +7,15 @@ export depict
 export depict_percent
 export unique_name
 
-using Daf.MatrixLayouts
-using Daf.StorageTypes
+using ..MatrixLayouts
+using ..StorageTypes
 using Distributed
 using LinearAlgebra
 using NamedArrays
 using SparseArrays
 
-import Daf.MatrixLayouts.depict
-import Daf.MatrixLayouts.depict_matrix_size
+import ..MatrixLayouts.depict
+import ..MatrixLayouts.depict_matrix_size
 
 UNIQUE_NAME_PREFIXES = Dict{AbstractString, Int64}()
 

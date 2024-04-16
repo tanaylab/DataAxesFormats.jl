@@ -10,9 +10,9 @@ module GenericLogging
 export @logged
 export setup_logger
 
+using ..GenericTypes
+using ..Messages
 using Base.Threads
-using Daf.GenericTypes
-using Daf.Messages
 using Dates
 using Distributed
 using ExprTools
