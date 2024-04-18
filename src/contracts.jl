@@ -7,7 +7,6 @@ export Contract
 export ContractAxes
 export ContractData
 export ContractExpectation
-export dedent
 export GuaranteedOutput
 export OptionalInput
 export OptionalOutput
