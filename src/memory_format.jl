@@ -46,7 +46,7 @@ function MemoryDaf(; name::AbstractString = "memory")::MemoryDaf
     axes = Dict{AbstractString, AbstractStringVector}()
     vectors = Dict{AbstractString, Dict{AbstractString, StorageVector}}()
     matrices = Dict{AbstractString, Dict{AbstractString, Dict{AbstractString, StorageMatrix}}}()
-    memory = MemoryDaf(Internal(name), scalars, axes, vectors, matrices)
+    memory = MemoryDaf(Internal(name; is_frozen = false), scalars, axes, vectors, matrices)
     return memory
 end
 

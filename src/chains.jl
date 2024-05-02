@@ -87,7 +87,7 @@ function chain_reader(
     end
 
     internal_dafs = reader_internal_dafs(dafs, name)
-    return ReadOnlyChain(Internal(name), internal_dafs)
+    return ReadOnlyChain(Internal(name; is_frozen = true), internal_dafs)
 end
 
 """
@@ -107,7 +107,7 @@ function chain_writer(dafs::AbstractVector{F}; name::Maybe{AbstractString} = not
         error("empty chain$(name_suffix(name))")
     end
 
-    if !(dafs[end] isa DafWriter)
+    if !(dafs[end] isa DafWriter) || dafs[end].internal.is_frozen
         error("read-only final data: $(dafs[end].name)\n" * "in write chain$(name_suffix(name))")
     end
 
@@ -120,7 +120,7 @@ function chain_writer(dafs::AbstractVector{F}; name::Maybe{AbstractString} = not
     end
 
     internal_dafs = reader_internal_dafs(dafs, name)
-    reader = ReadOnlyChain(Internal(name), internal_dafs)
+    reader = ReadOnlyChain(Internal(name; is_frozen = false), internal_dafs)
     return WriteChain(reader.internal, reader.dafs, dafs[end])
 end
 
@@ -137,13 +137,30 @@ function reader_internal_dafs(dafs::AbstractVector{F}, name::AbstractString)::Ve
             old_axis_entries = get(axes_entries, axis, nothing)
             if old_axis_entries === nothing
                 axes_entries[axis] = (daf.name, new_axis_entries)
-            elseif new_axis_entries != old_axis_entries
-                error(
-                    "different entries for the axis: $(axis)\n" *
+            elseif length(new_axis_entries) != length(old_axis_entries[2])
+                error(  # NOJET
+                    "different number of entries: $(length(new_axis_entries))\n" *
+                    "for the axis: $(axis)\n" *
+                    "in the daf data: $(daf.name)\n" *
+                    "from the number of entries: $(length(old_axis_entries[2]))\n" *
+                    "for the axis: $(axis)\n" *
                     "in the daf data: $(old_axis_entries[1])\n" *
-                    "and the daf data: $(daf.name)\n" *
                     "in the chain: $(name)",
                 )
+            else
+                for (index, (new_entry, old_entry)) in enumerate(zip(new_axis_entries, old_axis_entries[2]))
+                    if new_entry != old_entry
+                        error(
+                            "different entry#$(index): $(new_entry)\n" *
+                            "for the axis: $(axis)\n" *
+                            "in the daf data: $(daf.name)\n" *
+                            "from the entry#$(index): $(old_entry)\n" *
+                            "for the axis: $(axis)\n" *
+                            "in the daf data: $(old_axis_entries[1])\n" *
+                            "in the chain: $(name)",
+                        )
+                    end
+                end
             end
         end
     end

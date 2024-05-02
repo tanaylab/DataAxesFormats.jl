@@ -226,9 +226,9 @@ function FilesDaf(
     end
 
     if is_read_only
-        return read_only(FilesDaf(Internal(name), path, "r"))
+        return read_only(FilesDaf(Internal(name; is_frozen = true), path, "r"))
     else
-        return FilesDaf(Internal(name), path, "r+")
+        return FilesDaf(Internal(name; is_frozen = false), path, "r+")
     end
 end
 

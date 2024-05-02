@@ -1454,6 +1454,111 @@ mutable struct QueryState
     stack::Vector{QueryValue}
 end
 
+function debug_query(object::Any; name::Maybe{AbstractString} = nothing, indent::AbstractString = "")::Nothing  # untested
+    if name === nothing
+        @debug "$(indent)- $(depict(object))"
+    else
+        @debug "$(indent)- $(name): $(depict(object))"
+    end
+    return nothing
+end
+
+function debug_query(  # untested
+    query_state::QueryState;
+    name::Maybe{AbstractString} = nothing,
+    indent::AbstractString = "",
+)::Nothing
+    if name === nothing
+        @debug "$(indent)- QueryState:"
+    else
+        @debug "$(indent)- $(name): QueryState:"
+    end
+    @debug "$(indent)  daf: $(query_state.daf.name)"
+    @debug "$(indent)  sequence: $(query_state.query_sequence)"
+    @debug "$(indent)  next_operation_index: $(query_state.next_operation_index)"
+    @debug "$(indent)  stack:"
+    for (index, query_value) in enumerate(query_state.stack)
+        debug_query(query_value; name = "#$(index)", indent = indent * "  ")
+    end
+    return nothing
+end
+
+function debug_query(  # untested
+    scalar_state::ScalarState;
+    name::Maybe{AbstractString} = nothing,
+    indent::AbstractString = "",
+)::Nothing
+    if name === nothing
+        @debug "$(indent)- ScalarState:"
+    else
+        @debug "$(indent)- $(name): ScalarState:"
+    end
+    @debug "$(indent)  query_sequence: $(scalar_state.query_sequence)"
+    @debug "$(indent)  dependency_keys: $(scalar_state.dependency_keys)"
+    @debug "$(indent)  scalar_value: $(scalar_state.scalar_value)"
+    return nothing
+end
+
+function debug_query(axis_state::AxisState; name::Maybe{AbstractString} = nothing, indent::AbstractString = "")::Nothing  # untested
+    if name === nothing
+        @debug "$(indent)- AxisState:"
+    else
+        @debug "$(indent)- $(name): AxisState:"
+    end
+    @debug "$(indent)  query_sequence: $(axis_state.query_sequence)"
+    @debug "$(indent)  dependency_keys: $(axis_state.dependency_keys)"
+    @debug "$(indent)  axis_name: $(axis_state.axis_name)"
+    @debug "$(indent)  axis_modifier: $(depict(axis_state.axis_modifier))"
+    return nothing
+end
+
+function debug_query(  # untested
+    vector_state::VectorState;
+    name::Maybe{AbstractString} = nothing,
+    indent::AbstractString = "",
+)::Nothing
+    if name === nothing
+        @debug "$(indent)- VectorState:"
+    else
+        @debug "$(indent)- $(name): VectorState:"
+    end
+    @debug "$(indent)   query_sequence: $(vector_state.query_sequence)"
+    @debug "$(indent)   dependency_keys: $(vector_state.dependency_keys)"
+    @debug "$(indent)   named_vector: $(depict(vector_state.named_vector))"
+    @debug "$(indent)   property_name: $(vector_state.property_name)"
+    @debug "$(indent)  is_processed: $(vector_state.is_processed)"
+    if vector_state.axis_state === nothing
+        @debug "$(indent)  axis_state: nothing"
+    else
+        debug_query(vector_state.axis_state; name = "axis_state", indent = indent * "  ")
+    end
+    return nothing
+end
+
+function debug_query(  # untested
+    matrix_state::MatrixState;
+    name::Maybe{AbstractString} = nothing,
+    indent::AbstractString = "",
+)::Nothing
+    if name === nothing
+        @debug "$(indent)- MatrixState:"
+    else
+        @debug "$(indent)- $(name): MatrixState:"
+    end
+    @debug "$(indent)  query_sequence: $(matrix_state.query_sequence)"
+    @debug "$(indent)  dependency_keys: $(matrix_state.dependency_keys)"
+    @debug "$(indent)  named_matrix: $(depict(matrix_state.named_matrix))"
+    @debug "$(indent)  rows_property_name: $(matrix_state.rows_property_name)"
+    @debug "$(indent)  columns_property_name: $(matrix_state.columns_property_name)"
+    if matrix_state.rows_axis_state === nothing
+        @debug "$(indent)  rows_axis_state: nothing"
+    else
+        debug_query(matrix_state.rows_axis_state; name = "rows_axis_state", indent = indent * "  ")
+    end
+    debug_query(matrix_state.columns_axis_state; name = "columns_axis_state", indent = indent * "  ")
+    return nothing
+end
+
 struct FakeAsAxis end
 
 struct FakeGroupBy end
@@ -2135,13 +2240,15 @@ end
 function lookup_axis(query_state::QueryState, lookup::Lookup)::Nothing
     axis_state = pop!(query_state.stack)
     @assert axis_state isa AxisState
-    return fetch_property(query_state, axis_state, lookup)
+    fetch_property(query_state, axis_state, lookup)
+    return nothing
 end
 
 function fake_lookup_axis(fake_query_state::FakeQueryState)::Nothing
     fake_axis_state = pop!(fake_query_state.stack)
     @assert fake_axis_state isa FakeAxisState
-    return fake_fetch_property(fake_query_state, fake_axis_state)
+    fake_fetch_property(fake_query_state, fake_axis_state)
+    return nothing
 end
 
 FetchBaseOperation = Union{Lookup, MaskOperation, CountBy, GroupBy}
@@ -2168,6 +2275,60 @@ mutable struct VectorFetchState
     named_vector::Maybe{NamedArray}
     may_modify_named_vector::Bool
     if_not_values::Maybe{Vector{Maybe{IfNot}}}
+end
+
+function debug_query(  # untested
+    common_fetch_state::CommonFetchState;
+    name::Maybe{AbstractString} = nothing,
+    indent::AbstractString = "",
+)::Nothing
+    if name === nothing
+        @debug "$(indent)- CommonFetchState:"
+    else
+        @debug "$(indent)- $(name): CommonFetchState:"
+    end
+    @debug "$(indent)  base_query_sequence: $(common_fetch_state.base_query_sequence)"
+    @debug "$(indent)  first_operation_index: $(common_fetch_state.first_operation_index)"
+    debug_query(common_fetch_state.axis_state; name = "axis_state", indent = indent * "  ")
+    @debug "$(indent)  axis_name: $(common_fetch_state.axis_name)"
+    @debug "$(indent)  property_name: $(depict(common_fetch_state.property_name))"
+    @debug "$(indent)  dependency_keys: $(depict(common_fetch_state.dependency_keys))"
+    return nothing
+end
+
+function debug_query(  # untested
+    entry_fetch_state::EntryFetchState;
+    name::Maybe{AbstractString} = nothing,
+    indent::AbstractString = "",
+)::Nothing
+    if name === nothing
+        @debug "$(indent)- EntryFetchState:"
+    else
+        @debug "$(indent)- $(name): EntryFetchState:"
+    end
+    debug_query(entry_fetch_state.common; name = "common", indent = indent * "  ")
+    @debug "$(indent)  axis_entry_index: $(entry_fetch_state.axis_entry_index)"
+    @debug "$(indent)  scalar_value: $(entry_fetch_state.scalar_value)"
+    @debug "$(indent)  if_not_value: $(entry_fetch_state.if_not_value)"
+    return nothing
+end
+
+function debug_query(  # untested
+    vector_fetch_state::VectorFetchState;
+    name::Maybe{AbstractString} = nothing,
+    indent::AbstractString = "",
+)::Nothing
+    if name === nothing
+        @debug "$(indent)- VectorFetchState:"
+    else
+        @debug "$(indent)- $(name): VectorFetchState:"
+    end
+    debug_query(vector_fetch_state.common; name = "common", indent = indent * "  ")
+    @debug "$(indent)  may_modify_axis_mask: $(vector_fetch_state.may_modify_axis_mask)"
+    @debug "$(indent)  named_vector: $(depict(vector_fetch_state.named_vector))"
+    @debug "$(indent)  may_modify_named_vector: $(vector_fetch_state.may_modify_named_vector)"
+    @debug "$(indent)  if_not_values: $(depict(vector_fetch_state.if_not_values))"
+    return nothing
 end
 
 function fetch_property(query_state::QueryState, axis_state::AxisState, fetch_operation::FetchBaseOperation)::Nothing
@@ -2250,7 +2411,8 @@ function fetch_property(query_state::QueryState, axis_state::AxisState, fetch_op
             fetch_query_operations =
                 query_state.query_sequence.query_operations[(fetch_state.common.first_operation_index):(query_state.next_operation_index - 1)]
             fetch_query_sequence = QuerySequence((base_query_operations..., fetch_query_operations...))
-            return fetch_result(query_state, fetch_state, fetch_query_sequence)
+            fetch_result(query_state, fetch_state, fetch_query_sequence)
+            return nothing
         end
 
         fetch_operation = next_fetch_operation
@@ -2732,7 +2894,7 @@ function apply_query_operation!(query_state::QueryState, mask_operation::MaskOpe
             apply_comparison(query_state)
             mask_state = pop!(query_state.stack)
             @assert mask_state isa VectorState
-            apply_mask_to_axis_state(axis_state, mask_state, mask_operation)
+            apply_mask_to_axis_state(query_state, axis_state, mask_state, mask_operation)  # NOJET
             push!(query_state.stack, axis_state)
             return nothing
         end
@@ -2795,6 +2957,7 @@ function apply_comparison(query_state::QueryState)::Nothing
 end
 
 function apply_mask_to_axis_state(
+    query_state::QueryState,
     axis_state::AxisState,
     mask_state::VectorState,
     mask_operation::MaskOperation,
@@ -2809,12 +2972,20 @@ function apply_mask_to_axis_state(
 
     axis_mask = axis_state.axis_modifier
     if axis_mask === nothing
-        axis_mask = ones(Bool, length(mask_vector))
+        axis_mask = ones(Bool, axis_length(query_state.daf, axis_state.axis_name))
         axis_state.axis_modifier = axis_mask
     end
-
     @assert axis_mask isa AbstractVector{Bool}
-    update_axis_mask(axis_mask, mask_vector, mask_operation)
+
+    mask_mask = mask_state.axis_state.axis_modifier
+
+    if mask_mask === nothing
+        update_axis_mask(axis_mask, mask_vector, mask_operation)
+    else
+        axis_mask .&= mask_mask
+        @views update_axis_mask(axis_mask[mask_mask], mask_vector, mask_operation)
+    end
+
     axis_state.axis_modifier = axis_mask
     return nothing
 end

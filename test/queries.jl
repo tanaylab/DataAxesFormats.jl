@@ -1405,4 +1405,15 @@ nested_test("queries") do
             end
         end
     end
+
+    nested_test("complex_mask") do
+        add_axis!(daf, "cell", ["A", "B", "C"])
+        set_vector!(daf, "cell", "batch", ["U", "", "V"])
+        set_vector!(daf, "cell", "type", ["X", "X", ""])
+        add_axis!(daf, "batch", ["U", "V", "W"])
+        add_axis!(daf, "type", ["X", "Y", "Z"])
+        set_vector!(daf, "batch", "age", [1, 2, 3])
+        set_vector!(daf, "type", "color", ["red", "green", "blue"])
+        @test get_result(daf, q"/ cell & batch ?? => age = 1 | batch ?? => age = 2"; is_axis = true) == ["A", "C"]
+    end
 end

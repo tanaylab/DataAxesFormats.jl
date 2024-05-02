@@ -151,7 +151,7 @@ function get_base(view::Union{DafWriter, DafReadOnly}, name::Maybe{AbstractStrin
     base = view
     if base isa DafReadOnly
         base = view.daf
-        @assert base isa DafWriter
+        @assert base isa DafWriter && !base.internal.is_frozen
     end
 
     if name === nothing

@@ -589,6 +589,7 @@ function get_matrix(
                 upgrade_to_write_lock(daf)
                 result_prefix = "relayout "
                 if daf isa DafWriter &&
+                   !daf.internal.is_frozen &&
                    Formats.format_has_matrix(daf, columns_axis, rows_axis, name; for_relayout = true)
                     Formats.format_relayout_matrix!(daf, columns_axis, rows_axis, name)
                 else

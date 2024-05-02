@@ -118,9 +118,10 @@ struct Internal
     lock::ReadWriteLock
     writer_thread::Vector{Int}
     thread_has_read_lock::Vector{Bool}
+    is_frozen::Bool
 end
 
-function Internal(name::AbstractString)::Internal
+function Internal(name::AbstractString; is_frozen::Bool)::Internal
     return Internal(
         unique_name(name),
         Dict{AbstractString, OrderedDict{AbstractString, Int64}}(),
@@ -130,6 +131,7 @@ function Internal(name::AbstractString)::Internal
         ReadWriteLock(),
         [0],
         fill(false, nthreads()),
+        is_frozen,
     )
 end
 
@@ -143,6 +145,7 @@ function renamed_internal(internal::Internal, name::AbstractString)::Internal
         internal.lock,
         internal.writer_thread,
         internal.thread_has_read_lock,
+        internal.is_frozen,
     )
 end
 

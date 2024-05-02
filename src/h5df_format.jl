@@ -216,7 +216,7 @@ function H5df(
         end
     end
 
-    h5df = H5df(Internal(name), root)
+    h5df = H5df(Internal(name; is_frozen = is_read_only), root)
     if is_read_only
         return read_only(h5df)
     else

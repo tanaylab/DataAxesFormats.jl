@@ -269,7 +269,14 @@ function viewer(
     collected_matrices::Dict{AbstractString, Dict{AbstractString, Dict{AbstractString, Fetch{StorageMatrix}}}} =
         collect_matrices(name, daf, collected_axes, data)
 
-    return DafView(Internal(name), daf, collected_scalars, collected_axes, collected_vectors, collected_matrices)
+    return DafView(
+        Internal(name; is_frozen = true),
+        daf,
+        collected_scalars,
+        collected_axes,
+        collected_vectors,
+        collected_matrices,
+    )
 end
 
 function collect_scalars(
