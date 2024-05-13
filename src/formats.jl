@@ -1009,15 +1009,17 @@ end
 # For avoiding callbacks when calling Julia from another language.
 function begin_write_lock(action::Function, format::FormatReader)::Any
     thread_id = threadid()
-    @assert format.internal.writer_thread[1] != thread_id
-
-    lock(format.internal.lock)
-    try
-        format.internal.writer_thread[1] = thread_id
-        return action()
-    catch
-        end_write_lock(format)
-        rethrow()
+    if format.internal.writer_thread[1] == thread_id
+        return action()  # untested
+    else
+        lock(format.internal.lock)
+        try
+            format.internal.writer_thread[1] = thread_id
+            return action()
+        catch
+            end_write_lock(format)
+            rethrow()
+        end
     end
 end
 

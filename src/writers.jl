@@ -214,6 +214,7 @@ function delete_axis!(daf::DafWriter, axis::AbstractString; must_exist::Bool = t
         Formats.invalidate_cached!(daf, Formats.axis_names_cache_key())
         Formats.format_increment_version_counter(daf, axis)
         Formats.format_delete_axis!(daf, axis)
+        delete!(daf.internal.axes, axis)
 
         return nothing
     end
