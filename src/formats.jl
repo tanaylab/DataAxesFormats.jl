@@ -224,13 +224,13 @@ This trusts that we have a write lock on the data set, and that the `name` scala
 function format_delete_scalar! end
 
 """
-    format_scalar_names(format::FormatReader)::AbstractStringSet
+    format_scalars_set(format::FormatReader)::AbstractStringSet
 
 The names of the scalar properties in `format`.
 
 This trusts that we have a read lock on the data set.
 """
-function format_scalar_names end
+function format_scalars_set end
 
 """
     format_get_scalar(format::FormatReader, name::AbstractString)::StorageScalar
@@ -275,22 +275,31 @@ properties that are based on this axis have already been deleted.
 function format_delete_axis! end
 
 """
-    format_axis_names(format::FormatReader)::AbstractStringSet
+    format_axes_set(format::FormatReader)::AbstractStringSet
 
 The names of the axes of `format`.
 
 This trusts that we have a read lock on the data set.
 """
-function format_axis_names end
+function format_axes_set end
 
 """
-    format_get_axis(format::FormatReader, axis::AbstractString)::AbstractStringVector
+    format_axis_array(format::FormatReader, axis::AbstractString)::AbstractStringVector
 
 Implement fetching the unique names of the entries of some `axis` of `format`.
 
 This trusts that we have a read lock on the data set, and that the `axis` exists in `format`.
 """
-function format_get_axis end
+function format_axis_array end
+
+"""
+    format_axis_dict(format::FormatReader, axis::AbstractString)::AbstractDict{<:AbstractString, <:Integer}
+
+Implement fetching a dictionary converting axis entry names to their integer index.
+
+This trusts that we have a read lock on the data set, and that the `axis` exists in `format`.
+"""
+function format_axis_dict end
 
 """
     format_axis_length(format::FormatReader, axis::AbstractString)::Int64
@@ -427,13 +436,13 @@ isn't `name`, and that the `name` vector exists for the `axis`.
 function format_delete_vector! end
 
 """
-    format_vector_names(format::FormatReader, axis::AbstractString)::AbstractStringSet
+    format_vectors_set(format::FormatReader, axis::AbstractString)::AbstractStringSet
 
 Implement fetching the names of the vectors for the `axis` in `format`, **not** including the special `name` property.
 
 This trusts that we have a read lock on the data set, and that the `axis` exists in `format`.
 """
-function format_vector_names end
+function format_vectors_set end
 
 """
     format_get_vector(format::FormatReader, axis::AbstractString, name::AbstractString)::StorageVector
@@ -599,7 +608,7 @@ the `name` matrix property exists for them.
 function format_delete_matrix! end
 
 """
-    format_matrix_names(
+    format_matrices_set(
         format::FormatReader,
         rows_axis::AbstractString,
         columns_axis::AbstractString,
@@ -609,7 +618,7 @@ Implement fetching the names of the matrix properties for the `rows_axis` and `c
 
 This trusts that we have a read lock on the data set, and that the `rows_axis` and `columns_axis` exist in `format`.
 """
-function format_matrix_names end
+function format_matrices_set end
 
 """
     format_get_matrix(
@@ -668,31 +677,31 @@ function get_through_cache(getter::Function, format::FormatReader, cache_key::Ab
     end
 end
 
-function get_scalar_names_through_cache(format::FormatReader)::AbstractStringSet
-    return get_through_cache(format, scalar_names_cache_key(), AbstractStringSet) do
-        return format_scalar_names(format)
+function get_scalars_set_through_cache(format::FormatReader)::AbstractStringSet
+    return get_through_cache(format, scalars_set_cache_key(), AbstractStringSet) do
+        return format_scalars_set(format)
     end
 end
 
-function get_axis_names_through_cache(format::FormatReader)::AbstractStringSet
-    return get_through_cache(format, axis_names_cache_key(), AbstractStringSet) do
-        return format_axis_names(format)
+function get_axes_set_through_cache(format::FormatReader)::AbstractStringSet
+    return get_through_cache(format, axes_set_cache_key(), AbstractStringSet) do
+        return format_axes_set(format)
     end
 end
 
-function get_vector_names_through_cache(format::FormatReader, axis::AbstractString)::AbstractStringSet
-    return get_through_cache(format, vector_names_cache_key(axis), AbstractStringSet) do
-        return format_vector_names(format, axis)
+function get_vectors_set_through_cache(format::FormatReader, axis::AbstractString)::AbstractStringSet
+    return get_through_cache(format, vectors_set_cache_key(axis), AbstractStringSet) do
+        return format_vectors_set(format, axis)
     end
 end
 
-function get_matrix_names_through_cache(
+function get_matrices_set_through_cache(
     format::FormatReader,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
 )::AbstractStringSet
-    return get_through_cache(format, matrix_names_cache_key(rows_axis, columns_axis), AbstractStringSet) do
-        return format_matrix_names(format, rows_axis, columns_axis)
+    return get_through_cache(format, matrices_set_cache_key(rows_axis, columns_axis), AbstractStringSet) do
+        return format_matrices_set(format, rows_axis, columns_axis)
     end
 end
 
@@ -702,9 +711,9 @@ function get_scalar_through_cache(format::FormatReader, name::AbstractString)::S
     end
 end
 
-function get_axis_through_cache(format::FormatReader, axis::AbstractString)::AbstractStringVector
+function axis_array_through_cache(format::FormatReader, axis::AbstractString)::AbstractStringVector
     return get_through_cache(format, axis_cache_key(axis), AbstractStringVector) do
-        return format_get_axis(format, axis)
+        return format_axis_array(format, axis)
     end
 end
 
@@ -740,14 +749,14 @@ function cache_data!(
     return nothing
 end
 
-function cache_scalar_names!(format::FormatReader, names::AbstractStringSet, cache_type::CacheType)::Nothing
-    cache_key = scalar_names_cache_key()
+function cache_scalars_set!(format::FormatReader, names::AbstractStringSet, cache_type::CacheType)::Nothing
+    cache_key = scalars_set_cache_key()
     cache_data!(format, cache_key, names, cache_type)
     return nothing
 end
 
-function cache_axis_names!(format::FormatReader, names::AbstractStringSet, cache_type::CacheType)::Nothing
-    cache_key = axis_names_cache_key()
+function cache_axes_set!(format::FormatReader, names::AbstractStringSet, cache_type::CacheType)::Nothing
+    cache_key = axes_set_cache_key()
     cache_data!(format, cache_key, names, cache_type)
     return nothing
 end
@@ -763,25 +772,25 @@ function cache_axis!(
     return nothing
 end
 
-function cache_vector_names!(
+function cache_vectors_set!(
     format::FormatReader,
     axis::AbstractString,
     names::AbstractStringSet,
     cache_type::CacheType,
 )::Nothing
-    cache_key = vector_names_cache_key(axis)
+    cache_key = vectors_set_cache_key(axis)
     cache_data!(format, cache_key, names, cache_type)
     return nothing
 end
 
-function cache_matrix_names!(
+function cache_matrices_set!(
     format::FormatReader,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     names::AbstractStringSet,
     cache_type::CacheType,
 )::Nothing
-    cache_key = matrix_names_cache_key(rows_axis, columns_axis)
+    cache_key = matrices_set_cache_key(rows_axis, columns_axis)
     cache_data!(format, cache_key, names, cache_type)
     return nothing
 end
@@ -826,17 +835,21 @@ function as_named_vector(::FormatReader, ::AbstractString, vector::NamedVector):
     return vector
 end
 
-function as_named_vector(format::FormatReader, axis::AbstractString, vector::AbstractVector)::NamedArray
-    axis_names_dict = get(format.internal.axes, axis, nothing)
-    if axis_names_dict === nothing
-        names = as_read_only_array(Formats.get_axis_through_cache(format, axis))
-        named_array = NamedArray(vector; names = (names,), dimnames = (axis,))
-        format.internal.axes[axis] = named_array.dicts[1]
-        return named_array
-
-    else
-        return NamedArray(vector, (axis_names_dict,), (axis,))
+function format_axis_dict(format::FormatReader, axis::AbstractString)::AbstractDict{<:AbstractString, <:Integer}
+    axis_dict = get(format.internal.axes, axis, nothing)
+    if axis_dict === nothing
+        upgrade_to_write_lock(format)
+        names = as_read_only_array(Formats.axis_array_through_cache(format, axis))
+        named_array = NamedArray(spzeros(length(names)); names = (names,), dimnames = (axis,))
+        axis_dict = named_array.dicts[1]
+        format.internal.axes[axis] = axis_dict
     end
+    return axis_dict
+end
+
+function as_named_vector(format::FormatReader, axis::AbstractString, vector::AbstractVector)::NamedArray
+    axis_dict = format_axis_dict(format, axis)
+    return NamedArray(vector, (axis_dict,), (axis,))
 end
 
 function as_named_matrix(::FormatReader, ::AbstractString, ::AbstractString, matrix::NamedMatrix)::NamedArray
@@ -849,19 +862,9 @@ function as_named_matrix(
     columns_axis::AbstractString,
     matrix::AbstractMatrix,
 )::NamedArray
-    rows_axis_names_dict = get(format.internal.axes, rows_axis, nothing)
-    columns_axis_names_dict = get(format.internal.axes, columns_axis, nothing)
-    if rows_axis_names_dict === nothing || columns_axis_names_dict === nothing
-        rows_names = as_read_only_array(Formats.get_axis_through_cache(format, rows_axis))
-        columns_names = as_read_only_array(Formats.get_axis_through_cache(format, columns_axis))
-        named_array = NamedArray(matrix; names = (rows_names, columns_names), dimnames = (rows_axis, columns_axis))
-        format.internal.axes[rows_axis] = named_array.dicts[1]
-        format.internal.axes[columns_axis] = named_array.dicts[2]
-        return named_array
-
-    else
-        return NamedArray(matrix, (rows_axis_names_dict, columns_axis_names_dict), (rows_axis, columns_axis))
-    end
+    rows_axis_dict = format_axis_dict(format, rows_axis)
+    columns_axis_dict = format_axis_dict(format, columns_axis)
+    return NamedArray(matrix, (rows_axis_dict, columns_axis_dict), (rows_axis, columns_axis))
 end
 
 function as_read_only_array(array::SparseArrays.ReadOnly)::SparseArrays.ReadOnly
@@ -880,19 +883,19 @@ function as_read_only_array(array::AbstractArray)::SparseArrays.ReadOnly
     return SparseArrays.ReadOnly(array)
 end
 
-function scalar_names_cache_key()::String
+function scalars_set_cache_key()::String
     return "? scalars"
 end
 
-function axis_names_cache_key()::String
+function axes_set_cache_key()::String
     return "? axes"
 end
 
-function vector_names_cache_key(axis::AbstractString)::String
+function vectors_set_cache_key(axis::AbstractString)::String
     return "/ $(axis) ?"
 end
 
-function matrix_names_cache_key(rows_axis::AbstractString, columns_axis::AbstractString)::String
+function matrices_set_cache_key(rows_axis::AbstractString, columns_axis::AbstractString)::String
     return "? / $(rows_axis) / $(columns_axis)" # TRICKY: NOT the query key, which returns the union.
 end
 

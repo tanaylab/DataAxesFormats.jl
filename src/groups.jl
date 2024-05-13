@@ -36,7 +36,7 @@ only 1% (unless it is actually identical).
     entries_of_groups::AbstractVector{<:AbstractVector{<:Integer}};
     prefix::AbstractString,
 )::Vector{String}
-    names_of_entries = get_axis(daf, axis)
+    names_of_entries = axis_array(daf, axis)
     names_of_groups = Vector{String}(undef, length(entries_of_groups))
     for (group_index, entries_of_group) in enumerate(entries_of_groups)
         context = SHA2_256_CTX()

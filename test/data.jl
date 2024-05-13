@@ -24,8 +24,8 @@ function test_missing_scalar(daf::DafReader, depth::Int)::Nothing
         @test !has_scalar(daf, "version")
     end
 
-    nested_test("scalar_names") do
-        @test isempty(scalar_names(daf))
+    nested_test("scalars_set") do
+        @test isempty(scalars_set(daf))
     end
 
     nested_test("get_scalar") do
@@ -115,8 +115,8 @@ function test_existing_scalar(daf::DafReader, depth::Int)::Nothing
         @test has_scalar(daf, "version")
     end
 
-    nested_test("scalar_names") do
-        @test scalar_names(daf) == Set(["depth", "version"])
+    nested_test("scalars_set") do
+        @test scalars_set(daf) == Set(["depth", "version"])
     end
 
     nested_test("get_scalar") do
@@ -225,23 +225,23 @@ function test_missing_axis(daf::DafReader, depth::Int)::Nothing
         """) axis_length(daf, "gene")
     end
 
-    nested_test("axis_names") do
-        @test isempty(axis_names(daf))
+    nested_test("axes_set") do
+        @test isempty(axes_set(daf))
     end
 
-    nested_test("vector_names") do
+    nested_test("vectors_set") do
         @test_throws dedent("""
             missing axis: gene
             in the daf data: $(daf.name)
-        """) vector_names(daf, "gene")
+        """) vectors_set(daf, "gene")
     end
 
-    nested_test("get_axis") do
+    nested_test("axis_array") do
         nested_test("()") do
             @test_throws dedent("""
                 missing axis: gene
                 in the daf data: $(daf.name)
-            """) get_axis(daf, "gene")
+            """) axis_array(daf, "gene")
         end
 
         nested_test("default") do
@@ -249,13 +249,20 @@ function test_missing_axis(daf::DafReader, depth::Int)::Nothing
                 @test_throws dedent("""
                     missing axis: gene
                     in the daf data: $(daf.name)
-                """) get_axis(daf, "gene"; default = undef)
+                """) axis_array(daf, "gene"; default = undef)
             end
 
             nested_test("nothing") do
-                @test get_axis(daf, "gene"; default = nothing) === nothing
+                @test axis_array(daf, "gene"; default = nothing) === nothing
             end
         end
+    end
+
+    nested_test("axis_dict") do
+        @test_throws dedent("""
+            missing axis: gene
+            in the daf data: $(daf.name)
+        """) axis_dict(daf, "gene")
     end
 
     if !(daf isa DafWriter)
@@ -325,17 +332,22 @@ function test_existing_axis(daf::DafReader, depth::Int)::Nothing
         @test axis_length(daf, "gene") == length(GENE_NAMES)
     end
 
-    nested_test("vector_names") do
-        @test isempty(vector_names(daf, "gene"))
+    nested_test("vectors_set") do
+        @test isempty(vectors_set(daf, "gene"))
     end
 
-    nested_test("axis_names") do
-        @test axis_names(daf) == Set(["gene", "cell"])
+    nested_test("axes_set") do
+        @test axes_set(daf) == Set(["gene", "cell"])
     end
 
-    nested_test("get_axis") do
-        @test get_axis(daf, "gene") == GENE_NAMES
-        @test get_axis(daf, "cell") == CELL_NAMES
+    nested_test("axis_array") do
+        @test axis_array(daf, "gene") == GENE_NAMES
+        @test axis_array(daf, "cell") == CELL_NAMES
+    end
+
+    nested_test("axis_dict") do
+        @test collect(axis_dict(daf, "gene")) == [name => index for (index, name) in enumerate(GENE_NAMES)]
+        @test collect(axis_dict(daf, "cell")) == [name => index for (index, name) in enumerate(CELL_NAMES)]
     end
 
     nested_test("name") do
@@ -405,11 +417,11 @@ function test_missing_vector_axis(daf::DafReader, depth::Int)::Nothing
         """) has_vector(daf, "gene", "marker")
     end
 
-    nested_test("vector_names") do
+    nested_test("vectors_set") do
         @test_throws dedent("""
             missing axis: gene
             in the daf data: $(daf.name)
-        """) vector_names(daf, "gene")
+        """) vectors_set(daf, "gene")
     end
 
     nested_test("get_vector") do
@@ -490,8 +502,8 @@ function test_missing_vector(daf::DafReader, depth::Int)::Nothing
         @test !has_vector(daf, "gene", "marker")
     end
 
-    nested_test("vector_names") do
-        @test isempty(vector_names(daf, "gene"))
+    nested_test("vectors_set") do
+        @test isempty(vectors_set(daf, "gene"))
     end
 
     nested_test("get_vector") do
@@ -776,8 +788,8 @@ function test_existing_vector(daf::DafReader, depth::Int)::Nothing
         @test has_vector(daf, "gene", "marker")
     end
 
-    nested_test("vector_names") do
-        @test vector_names(daf, "gene") == Set(["marker"])
+    nested_test("vectors_set") do
+        @test vectors_set(daf, "gene") == Set(["marker"])
     end
 
     nested_test("get_vector") do
@@ -1005,18 +1017,18 @@ function test_missing_matrix_axis(daf::DafReader, depth::Int)::Nothing
         end
     end
 
-    nested_test("matrix_names") do
+    nested_test("matrices_set") do
         @test_throws dedent("""
             missing axis: cell
             in the daf data: $(daf.name)
-        """) matrix_names(daf, "cell", "gene")
+        """) matrices_set(daf, "cell", "gene")
 
         if daf isa DafWriter
             @test add_axis!(daf, "cell", CELL_NAMES) === nothing
             @test_throws dedent("""
                 missing axis: gene
                 in the daf data: $(daf.name)
-            """) matrix_names(daf, "cell", "gene")
+            """) matrices_set(daf, "cell", "gene")
         end
     end
 
@@ -1136,8 +1148,8 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
         @test !has_matrix(daf, "cell", "gene", "UMIs"; relayout = false)
     end
 
-    nested_test("matrix_names") do
-        @test isempty(matrix_names(daf, "cell", "gene"; relayout = false))
+    nested_test("matrices_set") do
+        @test isempty(matrices_set(daf, "cell", "gene"; relayout = false))
     end
 
     nested_test("get_matrix") do
@@ -1721,21 +1733,21 @@ function test_existing_matrix(daf::DafReader, depth::Int)::Nothing
         end
     end
 
-    nested_test("matrix_names") do
+    nested_test("matrices_set") do
         nested_test("relayout") do
             nested_test("default") do
-                @test matrix_names(daf, "cell", "gene") == Set(["UMIs"])
-                @test matrix_names(daf, "gene", "cell") == Set(["UMIs"])
+                @test matrices_set(daf, "cell", "gene") == Set(["UMIs"])
+                @test matrices_set(daf, "gene", "cell") == Set(["UMIs"])
             end
 
             nested_test("true") do
-                @test matrix_names(daf, "cell", "gene"; relayout = true) == Set(["UMIs"])
-                @test matrix_names(daf, "gene", "cell"; relayout = true) == Set(["UMIs"])
+                @test matrices_set(daf, "cell", "gene"; relayout = true) == Set(["UMIs"])
+                @test matrices_set(daf, "gene", "cell"; relayout = true) == Set(["UMIs"])
             end
 
             nested_test("false") do
-                @test matrix_names(daf, "cell", "gene"; relayout = false) == Set(["UMIs"])
-                @test isempty(matrix_names(daf, "gene", "cell"; relayout = false))
+                @test matrices_set(daf, "cell", "gene"; relayout = false) == Set(["UMIs"])
+                @test isempty(matrices_set(daf, "gene", "cell"; relayout = false))
             end
         end
     end
@@ -2294,21 +2306,21 @@ function test_existing_relayout_matrix(daf::DafReader, depth::Int)::Nothing
         end
     end
 
-    nested_test("matrix_names") do
+    nested_test("matrices_set") do
         nested_test("relayout") do
             nested_test("default") do
-                @test matrix_names(daf, "cell", "gene") == Set(["UMIs"])
-                @test matrix_names(daf, "gene", "cell") == Set(["UMIs"])
+                @test matrices_set(daf, "cell", "gene") == Set(["UMIs"])
+                @test matrices_set(daf, "gene", "cell") == Set(["UMIs"])
             end
 
             nested_test("true") do
-                @test matrix_names(daf, "cell", "gene"; relayout = true) == Set(["UMIs"])
-                @test matrix_names(daf, "gene", "cell"; relayout = true) == Set(["UMIs"])
+                @test matrices_set(daf, "cell", "gene"; relayout = true) == Set(["UMIs"])
+                @test matrices_set(daf, "gene", "cell"; relayout = true) == Set(["UMIs"])
             end
 
             nested_test("false") do
-                @test matrix_names(daf, "cell", "gene"; relayout = false) == Set(["UMIs"])
-                @test matrix_names(daf, "gene", "cell"; relayout = false) == Set(["UMIs"])
+                @test matrices_set(daf, "cell", "gene"; relayout = false) == Set(["UMIs"])
+                @test matrices_set(daf, "gene", "cell"; relayout = false) == Set(["UMIs"])
             end
         end
     end

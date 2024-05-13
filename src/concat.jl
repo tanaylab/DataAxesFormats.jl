@@ -167,8 +167,8 @@ By default, concatenation will fail rather than `overwrite` existing properties 
     for rows_axis in axes
         for columns_axis in axes
             for source in sources
-                invalid_matrix_names = matrix_names(source, rows_axis, columns_axis; relayout = false)
-                for invalid_matrix_name in invalid_matrix_names
+                invalid_matrices_set = matrices_set(source, rows_axis, columns_axis; relayout = false)
+                for invalid_matrix_name in invalid_matrices_set
                     error(
                         "can't concatenate the matrix: $(invalid_matrix_name)\n" *
                         "for the concatenated rows axis: $(rows_axis)\n" *
@@ -211,12 +211,12 @@ By default, concatenation will fail rather than `overwrite` existing properties 
 
     @assert empty === nothing || !(CollectAxis in values(empty)) || dataset_axis !== nothing
 
-    axes_set = Set(axes)
+    axes_names_set = Set(axes)
     other_axes_entry_names = Dict{AbstractString, Tuple{AbstractString, AbstractStringVector}}()
     for source in sources
-        for axis_name in axis_names(source)
-            if !(axis_name in axes_set)
-                other_axis_entry_names = get_axis(source, axis_name)
+        for axis_name in axes_set(source)
+            if !(axis_name in axes_names_set)
+                other_axis_entry_names = axis_array(source, axis_name)
                 previous_axis_data = get(other_axes_entry_names, axis_name, nothing)
                 if previous_axis_data === nothing
                     other_axes_entry_names[axis_name] = (source.name, other_axis_entry_names)
@@ -333,7 +333,7 @@ function concatenate_axis(
 
     vector_properties_set = Set{AbstractString}()
     for source in sources
-        union!(vector_properties_set, vector_names(source, axis))
+        union!(vector_properties_set, vectors_set(source, axis))
     end
 
     for vector_property in vector_properties_set
@@ -373,7 +373,7 @@ function concatenate_axis(
     for other_axis in other_axes_set
         matrix_properties_set = Set{AbstractString}()
         for source in sources
-            union!(matrix_properties_set, matrix_names(source, other_axis, axis; relayout = false))
+            union!(matrix_properties_set, matrices_set(source, other_axis, axis; relayout = false))
         end
 
         for matrix_property in matrix_properties_set
@@ -413,7 +413,7 @@ function concatenate_axis_entry_names(
         source = sources[index]
         offset = offsets[index]
         size = sizes[index]
-        from_axis_entry_names = get_axis(source, axis)
+        from_axis_entry_names = axis_array(source, axis)
         if prefix
             name = names[index]
             axis_entry_names[(offset + 1):(offset + size)] = (name * ".") .* from_axis_entry_names
@@ -766,7 +766,7 @@ function concatenate_merge(
 )::Nothing
     scalar_properties_set = Set{AbstractString}()
     for source in sources
-        union!(scalar_properties_set, scalar_names(source))
+        union!(scalar_properties_set, scalars_set(source))
     end
     for scalar_property in scalar_properties_set
         merge_action = get_merge_action(merge, scalar_property)
@@ -788,8 +788,8 @@ function concatenate_merge(
         vector_properties_set = Set{AbstractString}()
         square_matrix_properties_set = Set{AbstractString}()
         for source in sources
-            union!(vector_properties_set, vector_names(source, axis))
-            union!(square_matrix_properties_set, matrix_names(source, axis, axis))
+            union!(vector_properties_set, vectors_set(source, axis))
+            union!(square_matrix_properties_set, matrices_set(source, axis, axis))
         end
 
         for vector_property in vector_properties_set
@@ -831,7 +831,7 @@ function concatenate_merge(
             if rows_axis != columns_axis
                 matrix_properties_set = Set{AbstractString}()
                 for source in sources
-                    union!(matrix_properties_set, matrix_names(source, rows_axis, columns_axis; relayout = false))
+                    union!(matrix_properties_set, matrices_set(source, rows_axis, columns_axis; relayout = false))
                 end
 
                 for matrix_property in matrix_properties_set

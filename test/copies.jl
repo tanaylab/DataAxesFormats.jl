@@ -110,7 +110,7 @@ nested_test("copies") do
         nested_test("existing") do
             @test add_axis!(source, "cell", ["A", "B"]) === nothing
             @test copy_axis!(; source = source, destination = destination, axis = "cell") === nothing
-            @test get_axis(destination, "cell") == ["A", "B"]
+            @test axis_array(destination, "cell") == ["A", "B"]
         end
     end
 
@@ -1292,7 +1292,7 @@ nested_test("copies") do
             copy_all!(; source = source, destination = destination)
 
             @test get_scalar(destination, "version") == "1.0"
-            @test get_axis(destination, "cell") == ["A"]
+            @test axis_array(destination, "cell") == ["A"]
             @test get_vector(destination, "cell", "age") == [1.0]
             @test get_matrix(destination, "cell", "gene", "UMIs") == [1 2]
         end

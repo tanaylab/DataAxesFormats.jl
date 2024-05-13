@@ -1759,7 +1759,7 @@ function get_query_result(
     elseif is_all(query_state, (ScalarState,))
         return get_scalar_result(query_state)
     elseif is_all(query_state, (AxisState,))
-        return get_axis_result(query_state)
+        return axis_array_result(query_state)
     elseif is_all(query_state, (VectorState,))
         return get_vector_result(query_state)
     elseif is_all(query_state, (MatrixState,))
@@ -1803,14 +1803,14 @@ function get_scalar_result(query_state::QueryState)::Tuple{StorageScalar, Set{Ab
     return scalar_state.scalar_value, scalar_state.dependency_keys
 end
 
-function get_axis_result(
+function axis_array_result(
     query_state::QueryState,
 )::Tuple{Union{AbstractString, AbstractStringVector}, Set{AbstractString}}
     axis_state = pop!(query_state.stack)
     @assert axis_state isa AxisState
 
     axis_modifier = axis_state.axis_modifier
-    axis_entries = get_axis(query_state.daf, axis_state.axis_name)
+    axis_entries = axis_array(query_state.daf, axis_state.axis_name)
     if axis_modifier isa Int
         return axis_entries[axis_modifier], axis_state.dependency_keys
     else
@@ -1903,9 +1903,9 @@ function apply_query_operation!(query_state::QueryState, names::Names)::Nothing
     if isempty(query_state.stack)
         return get_kind_names(query_state, names)
     elseif is_all(query_state, (AxisState,))
-        return get_vector_names(query_state, names)
+        return get_vectors_set(query_state, names)
     elseif is_all(query_state, (AxisState, AxisState))
-        return get_matrix_names(query_state, names)
+        return get_matrices_set(query_state, names)
     end
 
     return error_unexpected_operation(query_state)
@@ -1917,9 +1917,9 @@ function get_kind_names(query_state::QueryState, names::Names)::Nothing
     end
 
     if names.kind == "scalars"
-        push!(query_state.stack, scalar_names(query_state.daf))
+        push!(query_state.stack, scalars_set(query_state.daf))
     elseif names.kind == "axes"
-        push!(query_state.stack, axis_names(query_state.daf))
+        push!(query_state.stack, axes_set(query_state.daf))
     else
         error_at_state(query_state, "invalid kind: $(names.kind)\n")
     end
@@ -1927,7 +1927,7 @@ function get_kind_names(query_state::QueryState, names::Names)::Nothing
     return nothing
 end
 
-function get_vector_names(query_state::QueryState, names::Names)::Nothing
+function get_vectors_set(query_state::QueryState, names::Names)::Nothing
     if names.kind !== nothing
         error_at_state(query_state, "unexpected kind: $(names.kind)\nspecified for vector names\n")
     end
@@ -1937,11 +1937,11 @@ function get_vector_names(query_state::QueryState, names::Names)::Nothing
         error_at_state(query_state, "sliced/masked axis for vector names\n")
     end
 
-    push!(query_state.stack, vector_names(query_state.daf, axis_state.axis_name))
+    push!(query_state.stack, vectors_set(query_state.daf, axis_state.axis_name))
     return nothing
 end
 
-function get_matrix_names(query_state::QueryState, names::Names)::Nothing
+function get_matrices_set(query_state::QueryState, names::Names)::Nothing
     if names.kind !== nothing
         error_at_state(query_state, "unexpected kind: $(names.kind)\nspecified for matrix names\n")
     end
@@ -1954,7 +1954,7 @@ function get_matrix_names(query_state::QueryState, names::Names)::Nothing
         error_at_state(query_state, "sliced/masked axis for matrix names\n")
     end
 
-    push!(query_state.stack, matrix_names(query_state.daf, rows_axis_state.axis_name, columns_axis_state.axis_name))
+    push!(query_state.stack, matrices_set(query_state.daf, rows_axis_state.axis_name, columns_axis_state.axis_name))
     return nothing
 end
 
@@ -1962,9 +1962,9 @@ function fake_query_operation!(fake_query_state::FakeQueryState, names::Names)::
     if isempty(fake_query_state.stack)
         return fake_kind_names(fake_query_state, names)
     elseif is_all(fake_query_state, (FakeAxisState,))
-        return fake_vector_names(fake_query_state, names)
+        return fake_vectors_set(fake_query_state, names)
     elseif is_all(fake_query_state, (FakeAxisState, FakeAxisState))
-        return fake_matrix_names(fake_query_state, names)
+        return fake_matrices_set(fake_query_state, names)
     end
 
     return error_unexpected_operation(fake_query_state)
@@ -1981,7 +1981,7 @@ function fake_kind_names(fake_query_state::FakeQueryState, names::Names)::Nothin
     return nothing
 end
 
-function fake_vector_names(fake_query_state::FakeQueryState, names::Names)::Nothing
+function fake_vectors_set(fake_query_state::FakeQueryState, names::Names)::Nothing
     if names.kind !== nothing
         error_at_state(fake_query_state, "unexpected kind: $(names.kind)\nspecified for vector names\n")
     end
@@ -1996,7 +1996,7 @@ function fake_vector_names(fake_query_state::FakeQueryState, names::Names)::Noth
     return nothing
 end
 
-function fake_matrix_names(fake_query_state::FakeQueryState, names::Names)::Nothing
+function fake_matrices_set(fake_query_state::FakeQueryState, names::Names)::Nothing
     if names.kind !== nothing
         error_at_state(fake_query_state, "unexpected kind: $(names.kind)\nspecified for matrix names\n")
     end
@@ -3304,7 +3304,7 @@ function fetch_group_by_matrix(query_state::QueryState, group_by::GroupBy)::Noth
     columns_axis_state = values_matrix_state.columns_axis_state
     @assert columns_axis_state !== nothing
 
-    columns_names = get_axis(query_state.daf, columns_axis_state.axis_name)
+    columns_names = axis_array(query_state.daf, columns_axis_state.axis_name)
     axis_mask = columns_axis_state.axis_modifier
     if axis_mask !== nothing
         @assert axis_mask isa AbstractVector{Bool}
@@ -3818,7 +3818,7 @@ function get_frame(
     @assert row_names isa AbstractStringVector
 
     if columns === nothing
-        columns = sort!(collect(vector_names(daf, axis_name)))
+        columns = sort!(collect(vectors_set(daf, axis_name)))
         insert!(columns, 1, "name")
     end
 

@@ -98,7 +98,7 @@ doublet score). Not specifying the `implicit_properties` allows the function to 
         unique_values = [string(unique_value) for unique_value in unique_values]
     end
     if has_axis(daf, rename_axis)
-        axis_values = get_axis(daf, rename_axis)
+        axis_values = axis_array(daf, rename_axis)
         axis_values_set = Set(axis_values)
         for unique_value in unique_values
             if !(unique_value in axis_values_set)
@@ -117,7 +117,7 @@ doublet score). Not specifying the `implicit_properties` allows the function to 
 
     value_of_empties_of_properties = Dict{AbstractString, Maybe{StorageScalar}}()
     vector_values_of_properties = Dict{AbstractString, StorageVector}()
-    for property in vector_names(daf, existing_axis)
+    for property in vectors_set(daf, existing_axis)
         is_explicit = implicit_properties !== nothing && property in implicit_properties
         if is_explicit || (implicit_properties === nothing && property != implicit_axis)
             if properties_defaults === nothing

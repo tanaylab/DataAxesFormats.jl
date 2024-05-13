@@ -280,10 +280,10 @@ function read_scalar(path::AbstractString)::StorageScalar
     return value
 end
 
-function Formats.format_scalar_names(files::FilesDaf)::AbstractStringSet
+function Formats.format_scalars_set(files::FilesDaf)::AbstractStringSet
     Formats.upgrade_to_write_lock(files)
     names_set = get_names_set("$(files.path)/scalars", ".json")
-    Formats.cache_scalar_names!(files, names_set, MemoryData)
+    Formats.cache_scalars_set!(files, names_set, MemoryData)
     return names_set
 end
 
@@ -302,8 +302,8 @@ function Formats.format_add_axis!(files::FilesDaf, axis::AbstractString, entries
     mkdir("$(files.path)/vectors/$(axis)")
     mkdir("$(files.path)/matrices/$(axis)")
 
-    axis_names = Formats.get_axis_names_through_cache(files)
-    for other_axis in axis_names
+    axes_set = Formats.get_axes_set_through_cache(files)
+    for other_axis in axes_set
         mkdir("$(files.path)/matrices/$(other_axis)/$(axis)")
         if other_axis != axis
             mkdir("$(files.path)/matrices/$(axis)/$(other_axis)")
@@ -318,20 +318,20 @@ function Formats.format_delete_axis!(files::FilesDaf, axis::AbstractString)::Not
     rm("$(files.path)/vectors/$(axis)"; force = true, recursive = true)
     rm("$(files.path)/matrices/$(axis)"; force = true, recursive = true)
 
-    axis_names = Formats.get_axis_names_through_cache(files)
-    for other_axis in axis_names
+    axes_set = Formats.get_axes_set_through_cache(files)
+    for other_axis in axes_set
         rm("$(files.path)/matrices/$(other_axis)/$(axis)"; force = true, recursive = true)
     end
 end
 
-function Formats.format_axis_names(files::FilesDaf)::AbstractStringSet
+function Formats.format_axes_set(files::FilesDaf)::AbstractStringSet
     Formats.upgrade_to_write_lock(files)
     names_set = get_names_set("$(files.path)/axes", ".txt")
-    Formats.cache_axis_names!(files, names_set, MemoryData)
+    Formats.cache_axes_set!(files, names_set, MemoryData)
     return names_set
 end
 
-function Formats.format_get_axis(files::FilesDaf, axis::AbstractString)::AbstractStringVector
+function Formats.format_axis_array(files::FilesDaf, axis::AbstractString)::AbstractStringVector
     Formats.upgrade_to_write_lock(files)
     entries = mmap_file_lines("$(files.path)/axes/$(axis).txt")
     Formats.cache_axis!(files, axis, entries, MappedData)
@@ -339,7 +339,7 @@ function Formats.format_get_axis(files::FilesDaf, axis::AbstractString)::Abstrac
 end
 
 function Formats.format_axis_length(files::FilesDaf, axis::AbstractString)::Int64
-    entries = Formats.get_axis_through_cache(files, axis)
+    entries = Formats.axis_array_through_cache(files, axis)
     return length(entries)
 end
 
@@ -452,10 +452,10 @@ function Formats.format_delete_vector!(
     end
 end
 
-function Formats.format_vector_names(files::FilesDaf, axis::AbstractString)::AbstractStringSet
+function Formats.format_vectors_set(files::FilesDaf, axis::AbstractString)::AbstractStringSet
     Formats.upgrade_to_write_lock(files)
     names_set = get_names_set("$(files.path)/vectors/$(axis)", ".json")
-    Formats.cache_vector_names!(files, axis, names_set, MemoryData)
+    Formats.cache_vectors_set!(files, axis, names_set, MemoryData)
     return names_set
 end
 
@@ -656,14 +656,14 @@ function Formats.format_delete_matrix!(
     return nothing
 end
 
-function Formats.format_matrix_names(
+function Formats.format_matrices_set(
     files::FilesDaf,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
 )::AbstractStringSet
     Formats.upgrade_to_write_lock(files)
     names_set = get_names_set("$(files.path)/matrices/$(rows_axis)/$(columns_axis)", ".json")
-    Formats.cache_matrix_names!(files, rows_axis, columns_axis, names_set, MemoryData)
+    Formats.cache_matrices_set!(files, rows_axis, columns_axis, names_set, MemoryData)
     return names_set
 end
 

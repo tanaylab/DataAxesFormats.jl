@@ -9,7 +9,6 @@ Daf.Writers
 ```@docs
 Daf.Writers.set_scalar!
 Daf.Writers.delete_scalar!
-Daf.Writers.scalar_names
 ```
 
 ## Writers axes

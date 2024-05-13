@@ -70,20 +70,20 @@ function Formats.format_get_scalar(read_only_view::DafReadOnlyWrapper, name::Abs
     return Formats.format_get_scalar(read_only_view.daf, name)
 end
 
-function Formats.format_scalar_names(read_only_view::DafReadOnlyWrapper)::AbstractStringSet
-    return Formats.format_scalar_names(read_only_view.daf)
+function Formats.format_scalars_set(read_only_view::DafReadOnlyWrapper)::AbstractStringSet
+    return Formats.format_scalars_set(read_only_view.daf)
 end
 
 function Formats.format_has_axis(read_only_view::DafReadOnlyWrapper, axis::AbstractString; for_change::Bool)::Bool
     return Formats.format_has_axis(read_only_view.daf, axis; for_change = for_change)
 end
 
-function Formats.format_axis_names(read_only_view::DafReadOnlyWrapper)::AbstractStringSet
-    return Formats.format_axis_names(read_only_view.daf)
+function Formats.format_axes_set(read_only_view::DafReadOnlyWrapper)::AbstractStringSet
+    return Formats.format_axes_set(read_only_view.daf)
 end
 
-function Formats.format_get_axis(read_only_view::DafReadOnlyWrapper, axis::AbstractString)::AbstractStringVector
-    return Formats.format_get_axis(read_only_view.daf, axis)
+function Formats.format_axis_array(read_only_view::DafReadOnlyWrapper, axis::AbstractString)::AbstractStringVector
+    return Formats.format_axis_array(read_only_view.daf, axis)
 end
 
 function Formats.format_axis_length(read_only_view::DafReadOnlyWrapper, axis::AbstractString)::Int64
@@ -94,8 +94,8 @@ function Formats.format_has_vector(read_only_view::DafReadOnlyWrapper, axis::Abs
     return Formats.format_has_vector(read_only_view.daf, axis, name)
 end
 
-function Formats.format_vector_names(read_only_view::DafReadOnlyWrapper, axis::AbstractString)::AbstractStringSet
-    return Formats.format_vector_names(read_only_view.daf, axis)
+function Formats.format_vectors_set(read_only_view::DafReadOnlyWrapper, axis::AbstractString)::AbstractStringSet
+    return Formats.format_vectors_set(read_only_view.daf, axis)
 end
 
 function Formats.format_get_vector(
@@ -116,12 +116,12 @@ function Formats.format_has_matrix(
     return Formats.format_has_matrix(read_only_view.daf, rows_axis, columns_axis, name; for_relayout = for_relayout)
 end
 
-function Formats.format_matrix_names(
+function Formats.format_matrices_set(
     read_only_view::DafReadOnlyWrapper,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
 )::AbstractStringSet
-    return Formats.format_matrix_names(read_only_view.daf, rows_axis, columns_axis)
+    return Formats.format_matrices_set(read_only_view.daf, rows_axis, columns_axis)
 end
 
 function Formats.format_get_matrix(

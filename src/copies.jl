@@ -95,7 +95,7 @@ The axis is fetched using the `name` and the `default`. If `rename` is specified
     rename::Maybe{AbstractString} = nothing,
     default::Union{Nothing, UndefInitializer} = undef,
 )::Nothing
-    value = get_axis(source, axis; default = default)
+    value = axis_array(source, axis; default = default)
     if value !== nothing
         rename = new_name(rename, axis)
         add_axis!(destination, rename, value)
@@ -154,7 +154,7 @@ source axis contains entries that do not exist in the target, they are discarded
     end
 
     if relation == :destination_is_subset
-        value = value[get_axis(destination, reaxis)]
+        value = value[axis_array(destination, reaxis)]
         relation = :same
     end
 
@@ -196,7 +196,7 @@ source axis contains entries that do not exist in the target, they are discarded
 
     if issparse(value.array) || concrete_dtype <: AbstractString
         dense = Vector{concrete_dtype}(undef, axis_length(destination, reaxis))
-        named = NamedArray(dense; names = (get_axis(destination, reaxis),))
+        named = NamedArray(dense; names = (axis_array(destination, reaxis),))
         named .= empty
         named[names(value, 1)] .= value  # NOJET
         value = issparse(value.array) && !(concrete_dtype <: AbstractString) ? sparse_vector(dense) : dense
@@ -316,7 +316,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
 
     if (rows_relation == :destination_is_subset || rows_relation == :same) &&
        (columns_relation == :destination_is_subset || columns_relation == :same)
-        value = value[get_axis(destination, rows_reaxis), get_axis(destination, columns_reaxis)]
+        value = value[axis_array(destination, rows_reaxis), axis_array(destination, columns_reaxis)]
         rows_relation = :same
         columns_relation = :same
     end
@@ -359,7 +359,8 @@ axis contains entries that do not exist in the target, they are discarded (not c
             axis_length(destination, rows_reaxis),
             axis_length(destination, columns_reaxis),
         )
-        named = NamedArray(dense; names = (get_axis(destination, rows_reaxis), get_axis(destination, columns_reaxis)))
+        named =
+            NamedArray(dense; names = (axis_array(destination, rows_reaxis), axis_array(destination, columns_reaxis)))
         named .= empty
         named[names(value, 1), names(value, 2)] .= value  # NOJET
         sparse = sparse_matrix_csc(dense)
@@ -505,7 +506,7 @@ function verify_axes(
     what_for::Maybe{AbstractString},
 )::Dict{AbstractString, Symbol}
     axis_relations = Dict{AbstractString, Symbol}()
-    for axis in axis_names(source)
+    for axis in axes_set(source)
         axis_relations[axis] = verify_axis(destination, axis, source, axis; allow_missing = true, what_for = what_for)
     end
     return axis_relations
@@ -523,8 +524,8 @@ function verify_axis(
         return :same
     end
 
-    source_entries = Set(get_axis(source_daf, source_axis))
-    destination_entries = Set(get_axis(destination_daf, destination_axis))
+    source_entries = Set(axis_array(source_daf, source_axis))
+    destination_entries = Set(axis_array(destination_daf, destination_axis))
 
     if destination_entries == source_entries
         return :same
@@ -566,7 +567,7 @@ function verify_subset(
 end
 
 function copy_scalars(destination::DafWriter, source::DafReader, dtypes::Maybe{DataTypes}, overwrite::Bool)::Nothing
-    for name in scalar_names(source)
+    for name in scalars_set(source)
         dtype = nothing
         if dtypes !== nothing
             dtype = get(dtypes, name, nothing)
@@ -576,7 +577,7 @@ function copy_scalars(destination::DafWriter, source::DafReader, dtypes::Maybe{D
 end
 
 function copy_axes(destination::DafWriter, source::DafReader)::Nothing
-    for axis in axis_names(source)
+    for axis in axes_set(source)
         if !has_axis(destination, axis)
             copy_axis!(; source = source, destination = destination, axis = axis)
         end
@@ -592,7 +593,7 @@ function copy_vectors(
     overwrite::Bool,
 )::Nothing
     for (axis, relation) in axis_relations
-        for name in vector_names(source, axis)
+        for name in vectors_set(source, axis)
             empty_value = nothing
             if empty !== nothing
                 empty_value = get(empty, (axis, name), nothing)
@@ -629,7 +630,7 @@ function copy_matrices(
     for (rows_axis, rows_relation) in axis_relations
         for (columns_axis, columns_relation) in axis_relations
             if !relayout || columns_axis >= rows_axis
-                for name in matrix_names(source, rows_axis, columns_axis; relayout = relayout)
+                for name in matrices_set(source, rows_axis, columns_axis; relayout = relayout)
                     empty_value = nothing
                     if empty !== nothing
                         empty_value = get(empty, (rows_axis, columns_axis, name), nothing)

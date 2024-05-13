@@ -33,12 +33,13 @@ and still be thread-safe.
 """
 module Readers
 
+export axes_set
+export axis_array
+export axis_dict
 export axis_length
-export axis_names
 export axis_version_counter
 export description
 export empty_cache!
-export get_axis
 export get_matrix
 export get_scalar
 export get_vector
@@ -46,11 +47,11 @@ export has_axis
 export has_matrix
 export has_scalar
 export has_vector
-export matrix_names
+export matrices_set
 export matrix_version_counter
-export scalar_names
-export vector_names
+export scalars_set
 export vector_version_counter
+export vectors_set
 
 using ..Formats
 using ..GenericTypes
@@ -97,14 +98,14 @@ function has_scalar(daf::DafReader, name::AbstractString)::Bool
 end
 
 """
-    scalar_names(daf::DafReader)::AbstractStringSet
+    scalars_set(daf::DafReader)::AbstractStringSet
 
 The names of the scalar properties in `daf`.
 """
-function scalar_names(daf::DafReader)::AbstractStringSet
+function scalars_set(daf::DafReader)::AbstractStringSet
     return with_read_lock(daf) do
-        result = Formats.get_scalar_names_through_cache(daf)
-        @debug "scalar_names daf: $(depict(daf)) result: $(depict(result))"
+        result = Formats.get_scalars_set_through_cache(daf)
+        @debug "scalars_set daf: $(depict(daf)) result: $(depict(result))"
         return result
     end
 end
@@ -177,32 +178,32 @@ function axis_version_counter(daf::DafReader, axis::AbstractString)::UInt32
 end
 
 """
-    axis_names(daf::DafReader)::AbstractStringSet
+    axes_set(daf::DafReader)::AbstractStringSet
 
 The names of the axes of `daf`.
 """
-function axis_names(daf::DafReader)::AbstractStringSet
+function axes_set(daf::DafReader)::AbstractStringSet
     return with_read_lock(daf) do
-        result = Formats.get_axis_names_through_cache(daf)
-        @debug "axis_names daf: $(depict(daf)) result: $(depict(result))"
+        result = Formats.get_axes_set_through_cache(daf)
+        @debug "axes_set daf: $(depict(daf)) result: $(depict(result))"
         return result
     end
 end
 
 """
-    get_axis(
+    axis_array(
         daf::DafReader,
         axis::AbstractString;
         [default::Union{Nothing, UndefInitializer} = undef]
     )::Maybe{AbstractStringVector}
 
-The unique names of the entries of some `axis` of `daf`. This is similar to doing [`get_vector`](@ref) for the special
-`name` property, except that it returns a simple vector of strings instead of a `NamedVector`.
+The array of unique names of the entries of some `axis` of `daf`. This is similar to doing [`get_vector`](@ref) for the
+special `name` property, except that it returns a simple vector (array) of strings instead of a `NamedVector`.
 
 If `default` is `undef` (the default), this verifies the `axis` exists in `daf`. Otherwise, the `default` is `nothing`,
 which is returned if the `axis` does not exist.
 """
-function get_axis(
+function axis_array(
     daf::DafReader,
     axis::AbstractString;
     default::Union{Nothing, UndefInitializer} = undef,
@@ -211,7 +212,7 @@ function get_axis(
         result_prefix = ""
         if !has_axis(daf, axis)
             if default === nothing
-                @debug "get_axis daf: $(depict(daf)) axis: $(axis) default: nothing result: nothing"
+                @debug "axis_array daf: $(depict(daf)) axis: $(axis) default: nothing result: nothing"
                 return nothing
             else
                 result_prefix = "default "
@@ -220,9 +221,21 @@ function get_axis(
             end
         end
 
-        result = as_read_only_array(Formats.get_axis_through_cache(daf, axis))
-        @debug "get_axis daf: $(depict(daf)) axis: $(axis) default: $(depict(default)) $(result_prefix)result: $(depict(result))"
+        result = as_read_only_array(Formats.axis_array_through_cache(daf, axis))
+        @debug "axis_array daf: $(depict(daf)) axis: $(axis) default: $(depict(default)) $(result_prefix)result: $(depict(result))"
         return result
+    end
+end
+
+"""
+    function axis_dict(daf::DafReader, axis::AbstractString)::AbstractDict{<:AbstractString, <:Integer}
+
+Return a dictionary converting axis entry names to their integer index.
+"""
+function axis_dict(daf::DafReader, axis::AbstractString)::AbstractDict{<:AbstractString, <:Integer}
+    return with_read_lock(daf) do
+        require_axis(daf, axis)
+        return Formats.format_axis_dict(daf, axis)
     end
 end
 
@@ -286,17 +299,17 @@ function vector_version_counter(daf::DafReader, axis::AbstractString, name::Abst
 end
 
 """
-    vector_names(daf::DafReader, axis::AbstractString)::AbstractStringSet
+    vectors_set(daf::DafReader, axis::AbstractString)::AbstractStringSet
 
 The names of the vector properties for the `axis` in `daf`, **not** including the special `name` property.
 
 This first verifies the `axis` exists in `daf`.
 """
-function vector_names(daf::DafReader, axis::AbstractString)::AbstractStringSet
+function vectors_set(daf::DafReader, axis::AbstractString)::AbstractStringSet
     return with_read_lock(daf) do
         require_axis(daf, axis)
-        result = Formats.format_vector_names(daf, axis)
-        @debug "vector_names daf: $(depict(daf)) axis: $(axis) result: $(depict(result))"
+        result = Formats.format_vectors_set(daf, axis)
+        @debug "vectors_set daf: $(depict(daf)) axis: $(axis) result: $(depict(result))"
         return result
     end
 end
@@ -310,7 +323,7 @@ end
     )::Maybe{NamedVector}
 
 Get the vector property with some `name` for some `axis` in `daf`. The names of the result are the names of the vector
-entries (same as returned by [`get_axis`](@ref)). The special property `name` returns an array whose values are also the
+entries (same as returned by [`axis_array`](@ref)). The special property `name` returns an array whose values are also the
 (read-only) names of the entries of the axis.
 
 This first verifies the `axis` exists in `daf`. If `default` is `undef` (the default), this first verifies the `name`
@@ -346,7 +359,7 @@ function get_vector(
         end
 
         if name == "name"
-            result = as_named_vector(daf, axis, Formats.get_axis_through_cache(daf, axis))
+            result = as_named_vector(daf, axis, Formats.axis_array_through_cache(daf, axis))
             @debug "get_vector daf: $(depict(daf)) axis: $(axis) name: $(name) default: $(depict(default)) name result: $(depict(result))"
             return result
         end
@@ -443,7 +456,7 @@ function has_matrix(
 end
 
 """
-    matrix_names(
+    matrices_set(
         daf::DafReader,
         rows_axis::AbstractString,
         columns_axis::AbstractString;
@@ -457,7 +470,7 @@ flipped axes).
 
 This first verifies the `rows_axis` and `columns_axis` exist in `daf`.
 """
-function matrix_names(
+function matrices_set(
     daf::DafReader,
     rows_axis::AbstractString,
     columns_axis::AbstractString;
@@ -470,7 +483,7 @@ function matrix_names(
         require_axis(daf, columns_axis)
 
         if !relayout
-            names = Formats.get_matrix_names_through_cache(daf, rows_axis, columns_axis)
+            names = Formats.get_matrices_set_through_cache(daf, rows_axis, columns_axis)
         else
             first_relayout_cache_key = Formats.matrix_relayout_names_cache_key(rows_axis, columns_axis)
             names = Formats.get_from_cache(daf, first_relayout_cache_key, AbstractStringSet)
@@ -478,8 +491,8 @@ function matrix_names(
             if names === nothing
                 upgrade_to_write_lock(daf)
 
-                first_names = Formats.get_matrix_names_through_cache(daf, rows_axis, columns_axis)
-                second_names = Formats.get_matrix_names_through_cache(daf, columns_axis, rows_axis)
+                first_names = Formats.get_matrices_set_through_cache(daf, rows_axis, columns_axis)
+                second_names = Formats.get_matrices_set_through_cache(daf, columns_axis, rows_axis)
 
                 names = union(first_names, second_names)
 
@@ -490,7 +503,7 @@ function matrix_names(
             end
         end
 
-        @debug "matrix_names daf: $(depict(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) relayout: $(relayout) result: $(depict(names))"
+        @debug "matrices_set daf: $(depict(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) relayout: $(relayout) result: $(depict(names))"
         return names
     end
 end
@@ -530,7 +543,7 @@ end
     )::Maybe{NamedMatrix}
 
 Get the column-major matrix property with some `name` for some `rows_axis` and `columns_axis` in `daf`. The names of the
-result axes are the names of the relevant axes entries (same as returned by [`get_axis`](@ref)).
+result axes are the names of the relevant axes entries (same as returned by [`axis_array`](@ref)).
 
 If `relayout` (the default), then if the matrix is only stored in the other memory layout (that is, with flipped axes),
 then automatically call [`relayout!`](@ref) to compute the result. If `daf` isa [`DafWriter`](@ref), then store the
@@ -751,7 +764,7 @@ function require_axis_names(
     what::AbstractString,
     names::AbstractStringVector,
 )::Nothing
-    expected_names = get_axis(daf, axis)
+    expected_names = axis_array(daf, axis)
     if names != expected_names
         error("$(what)\nmismatch the entry names of the axis: $(axis)\nin the daf data: $(daf.name)")
     end
@@ -784,7 +797,7 @@ function description(daf::DafReader, indent::AbstractString, lines::Vector{Strin
 
     scalars_description(daf, indent, lines)
 
-    axes = collect(axis_names(daf))
+    axes = collect(axes_set(daf))
     sort!(axes)
     if !isempty(axes)
         axes_description(daf, axes, indent, lines)
@@ -800,7 +813,7 @@ function description(daf::DafReader, indent::AbstractString, lines::Vector{Strin
 end
 
 function scalars_description(daf::DafReader, indent::AbstractString, lines::Vector{String})::Nothing
-    scalars = collect(Formats.get_scalar_names_through_cache(daf))
+    scalars = collect(Formats.get_scalars_set_through_cache(daf))
     if !isempty(scalars)
         sort!(scalars)
         push!(lines, "$(indent)scalars:")
@@ -832,7 +845,7 @@ function vectors_description(
 )::Nothing
     is_first = true
     for axis in axes
-        vectors = collect(Formats.get_vector_names_through_cache(daf, axis))
+        vectors = collect(Formats.get_vectors_set_through_cache(daf, axis))
         if !isempty(vectors)
             if is_first
                 push!(lines, "$(indent)vectors:")
@@ -857,7 +870,7 @@ function matrices_description(
     is_first = true
     for rows_axis in axes
         for columns_axis in axes
-            matrices = collect(Formats.get_matrix_names_through_cache(daf, rows_axis, columns_axis))
+            matrices = collect(Formats.get_matrices_set_through_cache(daf, rows_axis, columns_axis))
             if !isempty(matrices)
                 if is_first
                     push!(lines, "$(indent)matrices:")

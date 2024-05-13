@@ -70,7 +70,7 @@ nested_test("chains") do
                         set_scalar!(first, "version", 1.0)
                         @test has_scalar(chain, "version")
                         @test get_scalar(chain, "version") == 1.0
-                        @test scalar_names(chain) == Set(["version"])
+                        @test scalars_set(chain) == Set(["version"])
                         @test !has_scalar(chain, "author")
                     end
 
@@ -78,7 +78,7 @@ nested_test("chains") do
                         set_scalar!(second, "version", 2.0)
                         @test has_scalar(chain, "version")
                         @test get_scalar(chain, "version") == 2.0
-                        @test scalar_names(chain) == Set(["version"])
+                        @test scalars_set(chain) == Set(["version"])
                         @test !has_scalar(chain, "author")
                     end
 
@@ -87,7 +87,7 @@ nested_test("chains") do
                         set_scalar!(second, "version", 2.0)
                         @test has_scalar(chain, "version")
                         @test get_scalar(chain, "version") == 2.0
-                        @test scalar_names(chain) == Set(["version"])
+                        @test scalars_set(chain) == Set(["version"])
                         @test !has_scalar(chain, "author")
                         nested_test("description") do
                             nested_test("()") do
@@ -133,16 +133,16 @@ nested_test("chains") do
                     nested_test("first") do
                         add_axis!(first, "cell", ["A", "B"])
                         @test has_axis(chain, "cell")
-                        @test get_axis(chain, "cell") == ["A", "B"]
-                        @test axis_names(chain) == Set(["cell"])
+                        @test axis_array(chain, "cell") == ["A", "B"]
+                        @test axes_set(chain) == Set(["cell"])
                         @test !has_axis(chain, "gene")
                     end
 
                     nested_test("second") do
                         add_axis!(second, "cell", ["A", "B"])
                         @test has_axis(chain, "cell")
-                        @test get_axis(chain, "cell") == ["A", "B"]
-                        @test axis_names(chain) == Set(["cell"])
+                        @test axis_array(chain, "cell") == ["A", "B"]
+                        @test axes_set(chain) == Set(["cell"])
                         @test !has_axis(chain, "gene")
                     end
 
@@ -150,8 +150,8 @@ nested_test("chains") do
                         add_axis!(first, "cell", ["A", "B"])
                         add_axis!(second, "cell", ["A", "B"])
                         @test has_axis(chain, "cell")
-                        @test get_axis(chain, "cell") == ["A", "B"]
-                        @test axis_names(chain) == Set(["cell"])
+                        @test axis_array(chain, "cell") == ["A", "B"]
+                        @test axes_set(chain) == Set(["cell"])
                         @test !has_axis(chain, "gene")
                     end
 
@@ -194,7 +194,7 @@ nested_test("chains") do
                         @test vector_version_counter(chain, "cell", "age") == previous_version_counter + 1
                         @test has_vector(chain, "cell", "age")
                         @test get_vector(chain, "cell", "age") == [1, 2]
-                        @test vector_names(chain, "cell") == Set(["age"])
+                        @test vectors_set(chain, "cell") == Set(["age"])
                         @test !has_vector(chain, "cell", "batch")
                     end
 
@@ -205,7 +205,7 @@ nested_test("chains") do
                         @test vector_version_counter(chain, "cell", "age") == previous_version_counter + 1
                         @test has_vector(chain, "cell", "age")
                         @test get_vector(chain, "cell", "age") == [2, 3]
-                        @test vector_names(chain, "cell") == Set(["age"])
+                        @test vectors_set(chain, "cell") == Set(["age"])
                         @test !has_vector(chain, "cell", "batch")
                     end
 
@@ -216,7 +216,7 @@ nested_test("chains") do
                         set_vector!(second, "cell", "age", [2, 3])
                         @test has_vector(chain, "cell", "age")
                         @test get_vector(chain, "cell", "age") == [2, 3]
-                        @test vector_names(chain, "cell") == Set(["age"])
+                        @test vectors_set(chain, "cell") == Set(["age"])
                         @test !has_vector(chain, "cell", "batch")
                     end
                 end
@@ -228,7 +228,7 @@ nested_test("chains") do
                         set_matrix!(first, "cell", "gene", "UMIs", [0 1 2; 3 4 5])
                         @test has_matrix(chain, "cell", "gene", "UMIs")
                         @test get_matrix(chain, "cell", "gene", "UMIs") == [0 1 2; 3 4 5]
-                        @test matrix_names(chain, "cell", "gene") == Set(["UMIs"])
+                        @test matrices_set(chain, "cell", "gene") == Set(["UMIs"])
                         @test !has_matrix(chain, "cell", "gene", "fraction")
                     end
 
@@ -238,7 +238,7 @@ nested_test("chains") do
                         set_matrix!(second, "cell", "gene", "UMIs", [5 4 3; 2 1 0])
                         @test has_matrix(chain, "cell", "gene", "UMIs")
                         @test get_matrix(chain, "cell", "gene", "UMIs") == [5 4 3; 2 1 0]
-                        @test matrix_names(chain, "cell", "gene") == Set(["UMIs"])
+                        @test matrices_set(chain, "cell", "gene") == Set(["UMIs"])
                         @test !has_matrix(chain, "cell", "gene", "fraction")
                     end
 
@@ -251,7 +251,7 @@ nested_test("chains") do
                         set_matrix!(second, "cell", "gene", "UMIs", [5 4 3; 2 1 0])
                         @test has_matrix(chain, "cell", "gene", "UMIs")
                         @test get_matrix(chain, "cell", "gene", "UMIs") == [5 4 3; 2 1 0]
-                        @test matrix_names(chain, "cell", "gene") == Set(["UMIs"])
+                        @test matrices_set(chain, "cell", "gene") == Set(["UMIs"])
                         @test !has_matrix(chain, "cell", "gene", "fraction")
                     end
                 end
@@ -332,8 +332,8 @@ nested_test("chains") do
             nested_test("late") do
                 add_axis!(chain, "cell", ["A", "B"])
                 @test !has_axis(first, "cell")
-                @test get_axis(second, "cell") == ["A", "B"]
-                @test get_axis(chain, "cell") == ["A", "B"]
+                @test axis_array(second, "cell") == ["A", "B"]
+                @test axis_array(chain, "cell") == ["A", "B"]
                 @test delete_axis!(chain, "cell") === nothing
                 @test !has_axis(second, "cell")
                 @test !has_axis(chain, "cell")
@@ -341,9 +341,9 @@ nested_test("chains") do
 
             nested_test("early") do
                 add_axis!(first, "cell", ["A", "B"])
-                @test get_axis(first, "cell") == ["A", "B"]
+                @test axis_array(first, "cell") == ["A", "B"]
                 @test !has_axis(second, "cell")
-                @test get_axis(chain, "cell") == ["A", "B"]
+                @test axis_array(chain, "cell") == ["A", "B"]
                 @test_throws dedent("""
                     failed to delete the axis: cell
                     from the daf data: second!
@@ -355,9 +355,9 @@ nested_test("chains") do
             nested_test("both") do
                 add_axis!(first, "cell", ["A", "B"])
                 add_axis!(second, "cell", ["A", "B"])
-                @test get_axis(first, "cell") == ["A", "B"]
-                @test get_axis(second, "cell") == ["A", "B"]
-                @test get_axis(chain, "cell") == ["A", "B"]
+                @test axis_array(first, "cell") == ["A", "B"]
+                @test axis_array(second, "cell") == ["A", "B"]
+                @test axis_array(chain, "cell") == ["A", "B"]
                 @test_throws dedent("""
                     failed to delete the axis: cell
                     from the daf data: second!
@@ -372,7 +372,7 @@ nested_test("chains") do
             nested_test("add") do
                 @test set_vector!(chain, "cell", "age", [1, 2]) === nothing
                 @test !has_vector(first, "cell", "age")
-                @test get_axis(second, "cell") == ["A", "B"]
+                @test axis_array(second, "cell") == ["A", "B"]
                 @test get_vector(second, "cell", "age") == [1, 2]
                 @test get_vector(chain, "cell", "age") == [1, 2]
                 @test delete_vector!(chain, "cell", "age") === nothing
@@ -386,7 +386,7 @@ nested_test("chains") do
                     return 7
                 end == 7
                 @test !has_vector(first, "cell", "age")
-                @test get_axis(second, "cell") == ["A", "B"]
+                @test axis_array(second, "cell") == ["A", "B"]
                 @test get_vector(second, "cell", "age") == [1, 2]
                 @test get_vector(chain, "cell", "age") == [1, 2]
                 @test delete_vector!(chain, "cell", "age") === nothing
@@ -402,7 +402,7 @@ nested_test("chains") do
                     return 7
                 end == 7
                 @test !has_vector(first, "cell", "age")
-                @test get_axis(second, "cell") == ["A", "B"]
+                @test axis_array(second, "cell") == ["A", "B"]
                 @test get_vector(second, "cell", "age") == [1, 2]
                 @test get_vector(chain, "cell", "age") == [1, 2]
                 @test delete_vector!(chain, "cell", "age") === nothing
@@ -450,8 +450,8 @@ nested_test("chains") do
             nested_test("add") do
                 @test set_matrix!(chain, "cell", "gene", "UMIs", [0 1 2; 3 4 5]) === nothing
                 @test !has_matrix(first, "cell", "gene", "UMIs")
-                @test get_axis(second, "cell") == ["A", "B"]
-                @test get_axis(second, "gene") == ["X", "Y", "Z"]
+                @test axis_array(second, "cell") == ["A", "B"]
+                @test axis_array(second, "gene") == ["X", "Y", "Z"]
                 @test get_matrix(second, "cell", "gene", "UMIs") == [0 1 2; 3 4 5]
                 @test get_matrix(chain, "cell", "gene", "UMIs") == [0 1 2; 3 4 5]
                 @test delete_matrix!(chain, "cell", "gene", "UMIs") === nothing
@@ -466,8 +466,8 @@ nested_test("chains") do
                     return 17
                 end == 17
                 @test !has_matrix(first, "cell", "gene", "UMIs")
-                @test get_axis(second, "cell") == ["A", "B"]
-                @test get_axis(second, "gene") == ["X", "Y", "Z"]
+                @test axis_array(second, "cell") == ["A", "B"]
+                @test axis_array(second, "gene") == ["X", "Y", "Z"]
                 @test get_matrix(second, "cell", "gene", "UMIs") == [0 1 2; 3 4 5]
                 @test get_matrix(chain, "cell", "gene", "UMIs") == [0 1 2; 3 4 5]
                 @test delete_matrix!(chain, "cell", "gene", "UMIs") === nothing
@@ -485,8 +485,8 @@ nested_test("chains") do
                     return 17
                 end == 17
                 @test !has_matrix(first, "cell", "gene", "UMIs")
-                @test get_axis(second, "cell") == ["A", "B"]
-                @test get_axis(second, "gene") == ["X", "Y", "Z"]
+                @test axis_array(second, "cell") == ["A", "B"]
+                @test axis_array(second, "gene") == ["X", "Y", "Z"]
                 @test get_matrix(second, "cell", "gene", "UMIs") == [0 1 2; 3 4 5]
                 @test get_matrix(chain, "cell", "gene", "UMIs") == [0 1 2; 3 4 5]
                 @test delete_matrix!(chain, "cell", "gene", "UMIs") === nothing

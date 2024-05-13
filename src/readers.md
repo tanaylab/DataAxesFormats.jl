@@ -9,6 +9,7 @@ Daf.Readers.description
 
 ```@docs
 Daf.Readers.has_scalar
+Daf.Readers.scalars_set
 Daf.Readers.get_scalar
 ```
 
@@ -16,8 +17,9 @@ Daf.Readers.get_scalar
 
 ```@docs
 Daf.Readers.has_axis
-Daf.Readers.axis_names
-Daf.Readers.get_axis
+Daf.Readers.axes_set
+Daf.Readers.axis_array
+Daf.Readers.axis_dict
 Daf.Readers.axis_length
 ```
 
@@ -25,7 +27,7 @@ Daf.Readers.axis_length
 
 ```@docs
 Daf.Readers.has_vector
-Daf.Readers.vector_names
+Daf.Readers.vectors_set
 Daf.Readers.get_vector
 ```
 
@@ -33,7 +35,7 @@ Daf.Readers.get_vector
 
 ```@docs
 Daf.Readers.has_matrix
-Daf.Readers.matrix_names
+Daf.Readers.matrices_set
 Daf.Readers.get_matrix
 ```
 

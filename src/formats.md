@@ -31,7 +31,7 @@ Daf.Formats.format_description_footer
 
 ```@docs
 Daf.Formats.format_has_scalar
-Daf.Formats.format_scalar_names
+Daf.Formats.format_scalars_set
 Daf.Formats.format_get_scalar
 ```
 
@@ -39,8 +39,9 @@ Daf.Formats.format_get_scalar
 
 ```@docs
 Daf.Formats.format_has_axis
-Daf.Formats.format_axis_names
-Daf.Formats.format_get_axis
+Daf.Formats.format_axes_set
+Daf.Formats.format_axis_array
+Daf.Formats.format_axis_dict
 Daf.Formats.format_axis_length
 ```
 
@@ -48,7 +49,7 @@ Daf.Formats.format_axis_length
 
 ```@docs
 Daf.Formats.format_has_vector
-Daf.Formats.format_vector_names
+Daf.Formats.format_vectors_set
 Daf.Formats.format_get_vector
 ```
 
@@ -56,7 +57,7 @@ Daf.Formats.format_get_vector
 
 ```@docs
 Daf.Formats.format_has_matrix
-Daf.Formats.format_matrix_names
+Daf.Formats.format_matrices_set
 Daf.Formats.format_get_matrix
 ```
 

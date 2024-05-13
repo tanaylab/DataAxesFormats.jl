@@ -697,8 +697,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_scalar_names" href="#Daf.Formats.format_scalar_names">
-<code>Daf.Formats.format_scalar_names
+<a class="docstring-binding" id="Daf.Formats.format_scalars_set" href="#Daf.Formats.format_scalars_set">
+<code>Daf.Formats.format_scalars_set
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -707,7 +707,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">format_scalar_names(format::FormatReader)::AbstractStringSet
+<code class="language-julia hljs">format_scalars_set(format::FormatReader)::AbstractStringSet
 </code>
 </pre>
 <p>The names of the scalar properties in 
@@ -793,8 +793,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_axis_names" href="#Daf.Formats.format_axis_names">
-<code>Daf.Formats.format_axis_names
+<a class="docstring-binding" id="Daf.Formats.format_axes_set" href="#Daf.Formats.format_axes_set">
+<code>Daf.Formats.format_axes_set
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -803,7 +803,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">format_axis_names(format::FormatReader)::AbstractStringSet
+<code class="language-julia hljs">format_axes_set(format::FormatReader)::AbstractStringSet
 </code>
 </pre>
 <p>The names of the axes of 
@@ -819,8 +819,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_get_axis" href="#Daf.Formats.format_get_axis">
-<code>Daf.Formats.format_get_axis
+<a class="docstring-binding" id="Daf.Formats.format_axis_array" href="#Daf.Formats.format_axis_array">
+<code>Daf.Formats.format_axis_array
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -829,7 +829,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">format_get_axis(format::FormatReader, axis::AbstractString)::AbstractStringVector
+<code class="language-julia hljs">format_axis_array(format::FormatReader, axis::AbstractString)::AbstractStringVector
 </code>
 </pre>
 <p>Implement fetching the unique names of the entries of some 
@@ -837,6 +837,34 @@
 </code> of 
 <code>format
 </code>.
+</p>
+<p>This trusts that we have a read lock on the data set, and that the 
+<code>axis
+</code> exists in 
+<code>format
+</code>.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Formats.format_axis_dict" href="#Daf.Formats.format_axis_dict">
+<code>Daf.Formats.format_axis_dict
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">format_axis_dict(format::FormatReader, axis::AbstractString)::AbstractDict{&lt;:AbstractString, &lt;:Integer}
+</code>
+</pre>
+<p>Implement fetching a dictionary converting axis entry names to their integer index.
 </p>
 <p>This trusts that we have a read lock on the data set, and that the 
 <code>axis
@@ -925,8 +953,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_vector_names" href="#Daf.Formats.format_vector_names">
-<code>Daf.Formats.format_vector_names
+<a class="docstring-binding" id="Daf.Formats.format_vectors_set" href="#Daf.Formats.format_vectors_set">
+<code>Daf.Formats.format_vectors_set
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -935,7 +963,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">format_vector_names(format::FormatReader, axis::AbstractString)::AbstractStringSet
+<code class="language-julia hljs">format_vectors_set(format::FormatReader, axis::AbstractString)::AbstractStringSet
 </code>
 </pre>
 <p>Implement fetching the names of the vectors for the 
@@ -1051,8 +1079,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_matrix_names" href="#Daf.Formats.format_matrix_names">
-<code>Daf.Formats.format_matrix_names
+<a class="docstring-binding" id="Daf.Formats.format_matrices_set" href="#Daf.Formats.format_matrices_set">
+<code>Daf.Formats.format_matrices_set
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -1061,7 +1089,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">format_matrix_names(
+<code class="language-julia hljs">format_matrices_set(
     format::FormatReader,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
@@ -2061,14 +2089,26 @@ where {T &lt;: StorageNumber, I &lt;: StorageInteger}
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_axis_length">
-<code>Daf.Formats.format_axis_length
+<a href="formats.html#Daf.Formats.format_axes_set">
+<code>Daf.Formats.format_axes_set
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_axis_names">
-<code>Daf.Formats.format_axis_names
+<a href="formats.html#Daf.Formats.format_axis_array">
+<code>Daf.Formats.format_axis_array
+</code>
+</a>
+</li>
+<li>
+<a href="formats.html#Daf.Formats.format_axis_dict">
+<code>Daf.Formats.format_axis_dict
+</code>
+</a>
+</li>
+<li>
+<a href="formats.html#Daf.Formats.format_axis_length">
+<code>Daf.Formats.format_axis_length
 </code>
 </a>
 </li>
@@ -2129,12 +2169,6 @@ where {T &lt;: StorageNumber, I &lt;: StorageInteger}
 <li>
 <a href="formats.html#Daf.Formats.format_filled_empty_sparse_vector!">
 <code>Daf.Formats.format_filled_empty_sparse_vector!
-</code>
-</a>
-</li>
-<li>
-<a href="formats.html#Daf.Formats.format_get_axis">
-<code>Daf.Formats.format_get_axis
 </code>
 </a>
 </li>
@@ -2205,8 +2239,8 @@ where {T &lt;: StorageNumber, I &lt;: StorageInteger}
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_matrix_names">
-<code>Daf.Formats.format_matrix_names
+<a href="formats.html#Daf.Formats.format_matrices_set">
+<code>Daf.Formats.format_matrices_set
 </code>
 </a>
 </li>
@@ -2217,8 +2251,8 @@ where {T &lt;: StorageNumber, I &lt;: StorageInteger}
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_scalar_names">
-<code>Daf.Formats.format_scalar_names
+<a href="formats.html#Daf.Formats.format_scalars_set">
+<code>Daf.Formats.format_scalars_set
 </code>
 </a>
 </li>
@@ -2241,8 +2275,8 @@ where {T &lt;: StorageNumber, I &lt;: StorageInteger}
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_vector_names">
-<code>Daf.Formats.format_vector_names
+<a href="formats.html#Daf.Formats.format_vectors_set">
+<code>Daf.Formats.format_vectors_set
 </code>
 </a>
 </li>

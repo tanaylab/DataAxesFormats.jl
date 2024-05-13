@@ -312,14 +312,14 @@ function Formats.format_get_scalar(h5df::H5df, name::AbstractString)::StorageSca
     return read(scalars_dataset)
 end
 
-function Formats.format_scalar_names(h5df::H5df)::AbstractStringSet
+function Formats.format_scalars_set(h5df::H5df)::AbstractStringSet
     Formats.upgrade_to_write_lock(h5df)
 
     scalars_group = h5df.root["scalars"]
     @assert scalars_group isa HDF5.Group
 
     names = Set(keys(scalars_group))
-    Formats.cache_scalar_names!(h5df, names, MemoryData)
+    Formats.cache_scalars_set!(h5df, names, MemoryData)
     return names
 end
 
@@ -344,7 +344,7 @@ function Formats.format_add_axis!(h5df::H5df, axis::AbstractString, entries::Abs
     @assert matrices_group isa HDF5.Group
 
     axes = Set(keys(axes_group))
-    Formats.cache_axis_names!(h5df, axes, MemoryData)
+    Formats.cache_axes_set!(h5df, axes, MemoryData)
     @assert axis in axes
 
     axis_matrices_group = create_group(matrices_group, axis)
@@ -390,18 +390,18 @@ function Formats.format_delete_axis!(h5df::H5df, axis::AbstractString)::Nothing
     return nothing
 end
 
-function Formats.format_axis_names(h5df::H5df)::AbstractStringSet
+function Formats.format_axes_set(h5df::H5df)::AbstractStringSet
     Formats.upgrade_to_write_lock(h5df)
 
     axes_group = h5df.root["axes"]
     @assert axes_group isa HDF5.Group
 
     names = Set(keys(axes_group))
-    Formats.cache_axis_names!(h5df, names, MemoryData)
+    Formats.cache_axes_set!(h5df, names, MemoryData)
     return names
 end
 
-function Formats.format_get_axis(h5df::H5df, axis::AbstractString)::AbstractStringVector
+function Formats.format_axis_array(h5df::H5df, axis::AbstractString)::AbstractStringVector
     Formats.upgrade_to_write_lock(h5df)
 
     axes_group = h5df.root["axes"]
@@ -546,7 +546,7 @@ function Formats.format_delete_vector!(h5df::H5df, axis::AbstractString, name::A
     return nothing
 end
 
-function Formats.format_vector_names(h5df::H5df, axis::AbstractString)::AbstractStringSet
+function Formats.format_vectors_set(h5df::H5df, axis::AbstractString)::AbstractStringSet
     Formats.upgrade_to_write_lock(h5df)
 
     vectors_group = h5df.root["vectors"]
@@ -556,7 +556,7 @@ function Formats.format_vector_names(h5df::H5df, axis::AbstractString)::Abstract
     @assert axis_vectors_group isa HDF5.Group
 
     names = Set(keys(axis_vectors_group))
-    Formats.cache_vector_names!(h5df, axis, names, MemoryData)
+    Formats.cache_vectors_set!(h5df, axis, names, MemoryData)
     return names
 end
 
@@ -786,7 +786,7 @@ function Formats.format_delete_matrix!(
     return nothing
 end
 
-function Formats.format_matrix_names(
+function Formats.format_matrices_set(
     h5df::H5df,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
@@ -803,7 +803,7 @@ function Formats.format_matrix_names(
     @assert columns_axis_group isa HDF5.Group
 
     names = Set(keys(columns_axis_group))
-    Formats.cache_matrix_names!(h5df, rows_axis, columns_axis, names, MemoryData)
+    Formats.cache_matrices_set!(h5df, rows_axis, columns_axis, names, MemoryData)
     return names
 end
 

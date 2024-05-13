@@ -313,7 +313,7 @@ function collect_scalar(
     scalar_query::Maybe{Union{AbstractString, Query}},
 )::Nothing
     if scalar_name == "*"
-        for scalar_name in scalar_names(daf)
+        for scalar_name in scalars_set(daf)
             collect_scalar(view_name, daf, collected_scalars, scalar_name, scalar_query)
         end
     elseif scalar_query === nothing
@@ -360,7 +360,7 @@ function collect_axis(
     axis_query::Maybe{Union{AbstractString, Query}},
 )::Nothing
     if axis_name == "*"
-        for axis_name in axis_names(daf)
+        for axis_name in axes_set(daf)
             collect_axis(view_name, daf, collected_axes, axis_name, axis_query)
         end
     elseif axis_query === nothing
@@ -427,7 +427,7 @@ function collect_vector(
     elseif vector_name == "*"
         fetch_axis = get_fetch_axis(view_name, daf, collected_axes, axis_name)
         base_axis = base_axis_of_query(fetch_axis.query)
-        for vector_name in vector_names(daf, base_axis)
+        for vector_name in vectors_set(daf, base_axis)
             collect_vector(view_name, daf, collected_axes, collected_vectors, axis_name, vector_name, vector_query)
         end
     elseif vector_query === nothing
@@ -546,7 +546,7 @@ function collect_matrix(
         fetch_columns_axis = get_fetch_axis(view_name, daf, collected_axes, columns_axis_name)
         base_rows_axis = base_axis_of_query(fetch_rows_axis.query)
         base_columns_axis = base_axis_of_query(fetch_columns_axis.query)
-        for matrix_name in matrix_names(daf, base_rows_axis, base_columns_axis)
+        for matrix_name in matrices_set(daf, base_rows_axis, base_columns_axis)
             collect_matrix(
                 view_name,
                 daf,
@@ -631,7 +631,7 @@ function Formats.format_get_scalar(view::DafView, name::AbstractString)::Storage
     return scalar_value
 end
 
-function Formats.format_scalar_names(view::DafView)::AbstractStringSet
+function Formats.format_scalars_set(view::DafView)::AbstractStringSet
     return keys(view.scalars)
 end
 
@@ -639,30 +639,30 @@ function Formats.format_has_axis(view::DafView, axis::AbstractString; for_change
     return haskey(view.axes, axis)
 end
 
-function Formats.format_axis_names(view::DafView)::AbstractStringSet
+function Formats.format_axes_set(view::DafView)::AbstractStringSet
     return keys(view.axes)
 end
 
-function Formats.format_get_axis(view::DafView, axis::AbstractString)::AbstractStringVector
+function Formats.format_axis_array(view::DafView, axis::AbstractString)::AbstractStringVector
     fetch_axis = view.axes[axis]
-    axis_names = fetch_axis.value
-    if axis_names === nothing
+    axes_set = fetch_axis.value
+    if axes_set === nothing
         Formats.upgrade_to_write_lock(view)
-        axis_names = as_read_only_array(get_query(view.daf, fetch_axis.query))
-        fetch_axis.value = axis_names
+        axes_set = as_read_only_array(get_query(view.daf, fetch_axis.query))
+        fetch_axis.value = axes_set
     end
-    return axis_names
+    return axes_set
 end
 
 function Formats.format_axis_length(view::DafView, axis::AbstractString)::Int64
-    return length(Formats.format_get_axis(view, axis))
+    return length(Formats.format_axis_array(view, axis))
 end
 
 function Formats.format_has_vector(view::DafView, axis::AbstractString, name::AbstractString)::Bool
     return haskey(view.vectors[axis], name)
 end
 
-function Formats.format_vector_names(view::DafView, axis::AbstractString)::AbstractStringSet
+function Formats.format_vectors_set(view::DafView, axis::AbstractString)::AbstractStringSet
     return keys(view.vectors[axis])
 end
 
@@ -687,7 +687,7 @@ function Formats.format_has_matrix(
     return haskey(view.matrices[rows_axis][columns_axis], name)
 end
 
-function Formats.format_matrix_names(
+function Formats.format_matrices_set(
     view::DafView,
     rows_axis::AbstractString,
     columns_axis::AbstractString,

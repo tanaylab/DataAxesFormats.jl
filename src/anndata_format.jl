@@ -446,7 +446,7 @@ stored in the returned new `AnnData` object.
     require_matrix(daf, obs_is, var_is, X_is; relayout = true)
 
     matrix = transpose(get_matrix(daf, var_is, obs_is, X_is))
-    adata = AnnData(; X = matrix, obs_names = get_axis(daf, obs_is), var_names = get_axis(daf, var_is))
+    adata = AnnData(; X = matrix, obs_names = axis_array(daf, obs_is), var_names = axis_array(daf, var_is))
 
     copy_scalars(daf, adata.uns)
 
@@ -485,7 +485,7 @@ function by_scalar(
 end
 
 function copy_scalars(daf::DafReader, dict::AbstractDict)::Nothing
-    for name in scalar_names(daf)
+    for name in scalars_set(daf)
         dict[name] = get_scalar(daf, name)
     end
 end
@@ -505,13 +505,13 @@ function store_rename_scalar(
 end
 
 function copy_square_matrices(daf::DafReader, axis::AbstractString, dict::AbstractDict)::Nothing
-    for name in matrix_names(daf, axis, axis)
+    for name in matrices_set(daf, axis, axis)
         dict[name] = transpose(get_matrix(daf, axis, axis, name))
     end
 end
 
 function copy_vectors(daf::DafReader, axis::AbstractString, frame::DataFrame)::Nothing
-    for name in vector_names(daf, axis)
+    for name in vectors_set(daf, axis)
         frame[!, name] = get_vector(daf, axis, name)
     end
 end
@@ -523,7 +523,7 @@ function copy_matrices(
     skip_name::AbstractString,
     dict::AbstractDict,
 )::Nothing
-    for name in matrix_names(daf, rows_axis, columns_axis; relayout = true)
+    for name in matrices_set(daf, rows_axis, columns_axis; relayout = true)
         if name != skip_name
             dict[name] = transpose(get_matrix(daf, columns_axis, rows_axis, name))
         end
