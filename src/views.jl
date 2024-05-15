@@ -107,7 +107,9 @@ all UMIs of all genes in all cells, etc.
 **Vectors** are specified similarly to scalars, but require a key specifying both an axis and a property name. The axis
 must be exposed by the view (based on the `axes` parameter). If the axis is `"*"`, it is replaces by all the exposed
 axis names specified by the `axes` parameter. Similarly, if the property name is `"*"` (e.g., `("gene", "*")`), then  it
-is replaced by all the vector properties of the exposed axis in the base data. Therefore if the pair is `("*", "*") => "="` (or [`VIEW_ALL_VECTORS`](@ref))`, all vector properties of all the (exposed) axes will also be exposed.
+is replaced by all the vector properties of the exposed axis in the base data. Therefore if the pair is
+`("*", "*") => "="` (or [`VIEW_ALL_VECTORS`](@ref))`, all vector properties of all the (exposed) axes will also be
+exposed.
 
 The value for vectors must be the suffix of a vector query based on the appropriate axis; a value of `"="` is again used
 to expose the property as-is. That is, the value for the vector will normally start with the `:` ([`Lookup`](@ref))
