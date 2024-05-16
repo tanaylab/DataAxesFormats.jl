@@ -10,6 +10,7 @@ using ..Computations
 using ..Contracts
 using ..Copies
 using ..Copies
+using ..GenericLogging
 using ..GenericTypes
 using ..Formats
 using ..MemoryFormat
@@ -90,7 +91,7 @@ This idiom allows [`@computation`](@ref) functions to use clear generic names fo
 apply them to arbitrary data sets using more specific names. One can even invoke the same computation with different
 parameter values, and store the different results in the same data set under different names.
 """
-function adapter(
+@logged function adapter(
     computation::Function,
     view::Union{DafWriter, DafReadOnly};
     name::Maybe{AbstractString} = nothing,
@@ -122,7 +123,7 @@ function get_adapter_capture_name(view::Union{DafWriter, DafReadOnly}; name::May
     return prefix * ".capture"
 end
 
-function get_adapter_input(
+@logged function get_adapter_input(
     view::Union{DafWriter, DafReadOnly};
     name::Maybe{AbstractString},
     writer::DafWriter,
@@ -131,7 +132,7 @@ function get_adapter_input(
     return chain_writer([view, writer]; name = "$(prefix).adapted")
 end
 
-function copy_adapter_output(
+@logged function copy_adapter_output(
     view::Union{DafWriter, DafReadOnly},
     adapted::DafWriter;
     name::Maybe{AbstractString},

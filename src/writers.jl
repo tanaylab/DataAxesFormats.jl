@@ -40,15 +40,9 @@ using NamedArrays
 using SparseArrays
 
 import ..Formats
-import ..Formats.as_named_matrix
-import ..Formats.as_named_vector
-import ..Formats.as_read_only_array
-import ..Formats.CacheEntry
-import ..Formats.FormatReader
-import ..Formats.FormatWriter
-import ..Formats.upgrade_to_write_lock
+import ..Formats.FormatWriter  # For documentation.
 import ..Formats.begin_write_lock
-import ..Formats.with_read_lock
+import ..Formats.end_write_lock
 import ..Formats.with_write_lock
 import ..Messages
 import ..Readers.base_array
@@ -76,7 +70,7 @@ If not `overwrite` (the default), this first verifies the `name` scalar property
 """
 function set_scalar!(daf::DafWriter, name::AbstractString, value::StorageScalar; overwrite::Bool = false)::Nothing
     @assert value isa AbstractString || isbits(value)
-    return with_write_lock(daf) do
+    return with_write_lock(daf, "set_scalar!") do
         @debug "set_scalar! daf: $(depict(daf)) name: $(name) value: $(depict(value)) overwrite: $(overwrite)"
 
         if !overwrite
@@ -104,7 +98,7 @@ Delete a scalar property with some `name` from `daf`.
 If `must_exist` (the default), this first verifies the `name` scalar property exists in `daf`.
 """
 function delete_scalar!(daf::DafWriter, name::AbstractString; must_exist::Bool = true, _for_set = false)::Nothing
-    return with_write_lock(daf) do
+    return with_write_lock(daf, "delete_scalar!") do
         @debug "delete_scalar! daf: $(depict(daf)) name: $(name) must exist: $(must_exist)"
 
         if must_exist
@@ -144,7 +138,7 @@ function add_axis!(daf::DafWriter, axis::AbstractString, entries::AbstractString
     if entries isa SparseVector
         entries = Vector(entries)  # untested
     end
-    return with_write_lock(daf) do
+    return with_write_lock(daf, "add_axis!") do
         @debug "add_axis! daf: $(depict(daf)) axis: $(axis) entries: $(depict(entries))"
 
         require_no_axis(daf, axis; for_change = true)
@@ -172,7 +166,7 @@ Delete an `axis` from the `daf`. This will also delete any vector or matrix prop
 If `must_exist` (the default), this first verifies the `axis` exists in the `daf`.
 """
 function delete_axis!(daf::DafWriter, axis::AbstractString; must_exist::Bool = true)::Nothing
-    return with_write_lock(daf) do
+    return with_write_lock(daf, "delete_axis!") do
         @debug "delete_axis! daf: $(depict(daf)) axis: $(axis) must exist: $(must_exist)"
 
         if must_exist
@@ -210,11 +204,11 @@ function delete_axis!(daf::DafWriter, axis::AbstractString; must_exist::Bool = t
             end
         end
 
-        Formats.invalidate_cached!(daf, Formats.axis_cache_key(axis))
+        Formats.invalidate_cached!(daf, Formats.axis_dict_cache_key(axis))
+        Formats.invalidate_cached!(daf, Formats.axis_array_cache_key(axis))
         Formats.invalidate_cached!(daf, Formats.axes_set_cache_key())
         Formats.format_increment_version_counter(daf, axis)
         Formats.format_delete_axis!(daf, axis)
-        delete!(daf.internal.axes, axis)
 
         return nothing
     end
@@ -252,7 +246,7 @@ function set_vector!(
     overwrite::Bool = false,
 )::Nothing
     @assert eltype(vector) <: AbstractString || isbitstype(eltype(vector))
-    return with_write_lock(daf) do
+    return with_write_lock(daf, "set_vector!") do
         @debug "set_vector! daf: $(depict(daf)) axis: $(axis) name: $(name) vector: $(depict(vector)) overwrite: $(overwrite)"
 
         require_not_name(daf, axis, name)
@@ -315,7 +309,7 @@ function empty_dense_vector!(
         filled_empty_dense_vector!(daf, axis, name, vector)
         return result
     finally
-        end_write_lock(daf)
+        end_write_lock(daf, "empty_dense_vector!")
     end
 end
 
@@ -327,7 +321,7 @@ function get_empty_dense_vector!(
     overwrite::Bool = false,
 )::AbstractVector{T} where {T <: StorageNumber}
     @assert isbitstype(eltype)
-    return begin_write_lock(daf) do
+    return begin_write_lock(daf, "empty_dense_vector!") do
         @debug "empty_dense_vector! daf: $(depict(daf)) axis: $(axis) name: $(name) eltype: $(eltype) overwrite: $(overwrite) {"
         require_not_name(daf, axis, name)
         require_axis(daf, axis)
@@ -415,7 +409,7 @@ function empty_sparse_vector!(  # NOLINT
         filled_empty_sparse_vector!(daf, axis, name, nzind, nzval, extra)
         return result
     finally
-        end_write_lock(daf)
+        end_write_lock(daf, "empty_sparse_vector!")
     end
 end
 
@@ -428,7 +422,7 @@ function get_empty_sparse_vector!(
     indtype::Type{I};
     overwrite::Bool = false,
 )::Tuple{AbstractVector{I}, AbstractVector{T}, Any} where {T <: StorageNumber, I <: StorageInteger}
-    return begin_write_lock(daf) do
+    return begin_write_lock(daf, "empty_sparse_vector!") do
         @debug "empty_sparse_vector! daf: $(depict(daf)) axis: $(axis) name: $(name) eltype: $(eltype) nnz: $(nnz) indtype: $(indtype) overwrite: $(overwrite) {"
         require_not_name(daf, axis, name)
         require_axis(daf, axis)
@@ -492,7 +486,7 @@ function delete_vector!(
     must_exist::Bool = true,
     _for_set::Bool = false,
 )::Nothing
-    return with_write_lock(daf) do
+    return with_write_lock(daf, "delete_vector!") do
         @debug "delete_vector! $daf: $(depict(daf)) axis: $(axis) name: $(name) must exist: $(must_exist)"
 
         require_not_name(daf, axis, name)
@@ -553,7 +547,7 @@ function set_matrix!(
     relayout::Bool = true,
 )::Nothing
     @assert isbitstype(eltype(matrix))
-    return with_write_lock(daf) do
+    return with_write_lock(daf, "set_matrix!") do
         relayout = relayout && rows_axis != columns_axis
         @debug "set_matrix! daf: $(depict(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) matrix: $(depict(matrix)) overwrite: $(overwrite) relayout: $(relayout)"
 
@@ -632,7 +626,7 @@ function empty_dense_matrix!(
         filled_empty_dense_matrix!(daf, rows_axis, columns_axis, name, matrix)
         return result
     finally
-        end_write_lock(daf)
+        end_write_lock(daf, "empty_dense_matrix!")
     end
 end
 
@@ -644,7 +638,7 @@ function get_empty_dense_matrix!(
     eltype::Type{T};
     overwrite::Bool = false,
 )::Any where {T <: StorageNumber}
-    return begin_write_lock(daf) do
+    return begin_write_lock(daf, "empty_dense_matrix!") do
         @debug "empty_dense_matrix! daf: $(depict(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) eltype: $(eltype) overwrite: $(overwrite) {"
         require_axis(daf, rows_axis)
         require_axis(daf, columns_axis)
@@ -737,7 +731,7 @@ function empty_sparse_matrix!(  # NOLINT
         filled_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, colptr, rowval, nzval, extra)
         return result
     finally
-        end_write_lock(daf)
+        end_write_lock(daf, "empty_sparse_matrix!")
     end
 end
 
@@ -751,7 +745,7 @@ function get_empty_sparse_matrix!(
     indtype::Type{I};
     overwrite::Bool = false,
 )::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}, Any} where {T <: StorageNumber, I <: StorageInteger}
-    return begin_write_lock(daf) do
+    return begin_write_lock(daf, "empty_sparse_matrix!") do
         @debug "empty_sparse_matrix! daf: $(depict(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) eltype: $(eltype) overwrite: $(overwrite) {"
         require_axis(daf, rows_axis)
         require_axis(daf, columns_axis)
@@ -819,7 +813,7 @@ function relayout_matrix!(
     name::AbstractString;
     overwrite::Bool = false,
 )::Nothing
-    return with_write_lock(daf) do
+    return with_write_lock(daf, "relayout_matrix!") do
         @debug "relayout_matrix! daf: $(depict(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) overwrite: $(overwrite) {"
 
         require_axis(daf, rows_axis)
@@ -896,7 +890,7 @@ function delete_matrix!(
     relayout::Bool = true,
     _for_set::Bool = false,
 )::Nothing
-    return with_write_lock(daf) do
+    return with_write_lock(daf, "delete_matrix!") do
         relayout = relayout && rows_axis != columns_axis
         @debug "delete_matrix! daf: $(depict(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) must exist: $(must_exist)"
 

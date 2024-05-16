@@ -18,6 +18,7 @@ import ..MatrixLayouts.depict
 import ..MatrixLayouts.depict_matrix_size
 
 UNIQUE_NAME_PREFIXES = Dict{AbstractString, Int64}()
+UNIQUE_NAME_LOCK = ReentrantLock()
 
 """
     unique_name(prefix::AbstractString)::AbstractString
@@ -41,10 +42,13 @@ function unique_name(prefix::AbstractString)::AbstractString
         return String(prefix)
     end
 
-    global UNIQUE_NAME_PREFIXES
-    counter = get(UNIQUE_NAME_PREFIXES, prefix, 0)
-    counter += 1
-    UNIQUE_NAME_PREFIXES[prefix] = counter
+    counter = lock(UNIQUE_NAME_LOCK) do
+        global UNIQUE_NAME_PREFIXES
+        counter = get(UNIQUE_NAME_PREFIXES, prefix, 0)
+        counter += 1
+        UNIQUE_NAME_PREFIXES[prefix] = counter
+        return counter
+    end
 
     if counter == 1
         return prefix
@@ -63,7 +67,15 @@ indication of the type of the value, so it double-quotes strings, prefixes symbo
 sizes of arrays rather than showing their content, as well as having specializations for the various `Daf` data types.
 """
 function depict(value::Any)::String
-    return "($(typeof(value)))"
+    try
+        return "($(typeof(value)) size: $(size(value)))"  # NOJET
+    catch
+        try
+            return "($(typeof(value)) length: $(length(value)))"  # NOJET
+        catch
+            return "($(typeof(value)))"
+        end
+    end
 end
 
 function depict(value::Real)::String

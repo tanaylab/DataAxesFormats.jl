@@ -87,7 +87,9 @@ function chain_reader(
     end
 
     internal_dafs = reader_internal_dafs(dafs, name)
-    return ReadOnlyChain(Internal(name; is_frozen = true), internal_dafs)
+    chain = ReadOnlyChain(Internal(name; is_frozen = true), internal_dafs)
+    @debug "Daf: $(depict(chain)) chain: $(join([daf.name for daf in dafs], ";"))"
+    return chain
 end
 
 """
@@ -121,7 +123,9 @@ function chain_writer(dafs::AbstractVector{F}; name::Maybe{AbstractString} = not
 
     internal_dafs = reader_internal_dafs(dafs, name)
     reader = ReadOnlyChain(Internal(name; is_frozen = false), internal_dafs)
-    return WriteChain(reader.internal, reader.dafs, dafs[end])
+    chain = WriteChain(reader.internal, reader.dafs, dafs[end])
+    @debug "Daf: $(depict(chain)) chain: $(join([daf.name for daf in dafs], ";"))"
+    return chain
 end
 
 function reader_internal_dafs(dafs::AbstractVector{F}, name::AbstractString)::Vector{DafReader} where {F}
@@ -175,18 +179,81 @@ function name_suffix(name::Maybe{AbstractString})::String
     end
 end
 
-function Formats.with_write_lock(action::Function, chain::WriteChain)::Any
-    return Formats.with_write_lock(action, chain.daf)
+AnyChain = Union{ReadOnlyChain, WriteChain}
+
+function Formats.with_read_lock(action::Function, chain::AnyChain, what_for::AbstractString)::Any
+    function wrapped_read_action(index::Int = 1)::Any
+        return Formats.with_read_lock(chain.dafs[index], "$(index):$(what_for)") do
+            index += 1
+            if index <= length(chain.dafs)
+                return wrapped_read_action(index)
+            else
+                return action()
+            end
+        end
+    end
+    return invoke(
+        Formats.with_read_lock,
+        Tuple{Function, FormatReader, AbstractString},
+        wrapped_read_action,
+        chain,
+        what_for,
+    )
 end
 
-AnyChain = Union{ReadOnlyChain, WriteChain}
+function Formats.with_write_lock(action::Function, chain::AnyChain, what_for::AbstractString)::Any
+    function wrapped_write_action(index::Int = 1)::Any
+        return Formats.with_write_lock(chain.dafs[index], "$(index):$(what_for)") do
+            index += 1
+            if index <= length(chain.dafs)
+                return wrapped_write_action(index)
+            else
+                return action()
+            end
+        end
+    end
+    return invoke(
+        Formats.with_write_lock,
+        Tuple{Function, FormatReader, AbstractString},
+        wrapped_write_action,
+        chain,
+        what_for,
+    )
+end
+
+function Formats.begin_write_lock(action::Function, chain::AnyChain, what_for::AbstractString)::Any
+    function wrapped_write_action(index::Int = 1)::Any
+        return Formats.begin_write_lock(chain.dafs[index], "$(index):$(what_for)") do
+            index += 1
+            if index <= length(chain.dafs)
+                return wrapped_write_action(index)
+            else
+                return action()
+            end
+        end
+    end
+    return invoke(
+        Formats.begin_write_lock,
+        Tuple{Function, FormatReader, AbstractString},
+        wrapped_write_action,
+        chain,
+        what_for,
+    )
+end
+
+function Formats.end_write_lock(chain::AnyChain, what_for::AbstractString, for_with::Bool = false)::Nothing
+    if !for_with
+        for daf in reverse(chain.dafs)
+            end_write_lock(daf, what_for, false)
+        end
+    end
+    invoke(Formats.end_write_lock, Tuple{FormatReader, AbstractString, Bool}, chain, what_for, for_with)
+    return nothing
+end
 
 function Formats.format_has_scalar(chain::AnyChain, name::AbstractString)::Bool
     for daf in chain.dafs
-        has_scalar = Formats.with_read_lock(daf) do
-            return Formats.format_has_scalar(daf, name)
-        end
-        if has_scalar
+        if Formats.format_has_scalar(daf, name)
             return true
         end
     end
@@ -194,40 +261,31 @@ function Formats.format_has_scalar(chain::AnyChain, name::AbstractString)::Bool
 end
 
 function Formats.format_set_scalar!(chain::WriteChain, name::AbstractString, value::StorageScalar)::Nothing
-    set_scalar!(chain.daf, name, value)
+    Formats.format_set_scalar!(chain.daf, name, value)
     return nothing
 end
 
 function Formats.format_delete_scalar!(chain::WriteChain, name::AbstractString; for_set::Bool)::Nothing
     if !for_set
         for daf in chain.dafs[1:(end - 1)]
-            Formats.with_read_lock(daf) do
-                if Formats.format_has_scalar(daf, name)
-                    error(
-                        "failed to delete the scalar: $(name)\n" *
-                        "from the daf data: $(chain.daf.name)\n" *
-                        "of the chain: $(chain.name)\n" *  # NOLINT
-                        "because it exists in the earlier: $(daf.name)",
-                    )
-                end
+            if Formats.format_has_scalar(daf, name)
+                error(
+                    "failed to delete the scalar: $(name)\n" *
+                    "from the daf data: $(chain.daf.name)\n" *
+                    "of the chain: $(chain.name)\n" *  # NOLINT
+                    "because it exists in the earlier: $(daf.name)",
+                )
             end
         end
     end
-    delete_scalar!(chain.daf, name; must_exist = false, _for_set = for_set)
+    Formats.format_delete_scalar!(chain.daf, name; for_set = for_set)
     return nothing
 end
 
 function Formats.format_get_scalar(chain::AnyChain, name::AbstractString)::StorageScalar
     for daf in reverse(chain.dafs)
-        value = Formats.with_read_lock(daf) do
-            if Formats.format_has_scalar(daf, name)
-                return Formats.get_scalar_through_cache(daf, name)
-            else
-                return nothing
-            end
-        end
-        if value !== nothing
-            return value
+        if Formats.format_has_scalar(daf, name)
+            return Formats.get_scalar_through_cache(daf, name)
         end
     end
     @assert false
@@ -237,10 +295,8 @@ function Formats.format_scalars_set(chain::AnyChain)::AbstractStringSet
     return reduce(
         union,
         [
-            Formats.with_read_lock(daf) do
-                return Formats.get_through_cache(daf, Formats.scalars_set_cache_key(), AbstractStringSet) do
-                    return Formats.format_scalars_set(daf)
-                end
+            Formats.get_through_cache(daf, Formats.scalars_set_cache_key(), AbstractStringSet) do
+                return Formats.get_scalars_set_through_cache(daf)
             end for daf in chain.dafs
         ],
     )
@@ -248,10 +304,7 @@ end
 
 function Formats.format_has_axis(chain::AnyChain, axis::AbstractString; for_change::Bool)::Bool
     for daf in chain.dafs
-        has_axis = Formats.with_read_lock(daf) do
-            return Formats.format_has_axis(daf, axis; for_change = for_change)
-        end
-        if has_axis
+        if Formats.format_has_axis(daf, axis; for_change = for_change)
             return true
         end
         for_change = false
@@ -260,46 +313,33 @@ function Formats.format_has_axis(chain::AnyChain, axis::AbstractString; for_chan
 end
 
 function Formats.format_add_axis!(chain::WriteChain, axis::AbstractString, entries::AbstractStringVector)::Nothing
-    add_axis!(chain.daf, axis, entries)
+    Formats.format_add_axis!(chain.daf, axis, entries)
     return nothing
 end
 
 function Formats.format_delete_axis!(chain::WriteChain, axis::AbstractString)::Nothing
     for daf in chain.dafs[1:(end - 1)]
-        Formats.with_read_lock(daf) do
-            if Formats.format_has_axis(daf, axis; for_change = false)
-                error(
-                    "failed to delete the axis: $(axis)\n" *
-                    "from the daf data: $(chain.daf.name)\n" *
-                    "of the chain: $(chain.name)\n" *  # NOLINT
-                    "because it exists in the earlier: $(daf.name)",
-                )
-            end
+        if Formats.format_has_axis(daf, axis; for_change = false)
+            error(
+                "failed to delete the axis: $(axis)\n" *
+                "from the daf data: $(chain.daf.name)\n" *
+                "of the chain: $(chain.name)\n" *  # NOLINT
+                "because it exists in the earlier: $(daf.name)",
+            )
         end
     end
-    delete_axis!(chain.daf, axis)
+    Formats.format_delete_axis!(chain.daf, axis)
     return nothing
 end
 
 function Formats.format_axes_set(chain::AnyChain)::AbstractStringSet
-    return reduce(union, [
-        Formats.with_read_lock(daf) do
-            return Formats.get_axes_set_through_cache(daf)
-        end for daf in chain.dafs
-    ])
+    return reduce(union, [Formats.get_axes_set_through_cache(daf) for daf in chain.dafs])
 end
 
 function Formats.format_axis_array(chain::AnyChain, axis::AbstractString)::AbstractStringVector
     for daf in reverse(chain.dafs)
-        axis_entries = Formats.with_read_lock(daf) do
-            if Formats.format_has_axis(daf, axis; for_change = false)
-                return Formats.axis_array_through_cache(daf, axis)
-            else
-                return nothing
-            end
-        end
-        if axis_entries !== nothing
-            return axis_entries
+        if Formats.format_has_axis(daf, axis; for_change = false)
+            return Formats.axis_array_through_cache(daf, axis)
         end
     end
     @assert false
@@ -307,15 +347,8 @@ end
 
 function Formats.format_axis_length(chain::AnyChain, axis::AbstractString)::Int64
     for daf in chain.dafs
-        axis_length = Formats.with_read_lock(daf) do
-            if Formats.format_has_axis(daf, axis; for_change = false)
-                return Formats.format_axis_length(daf, axis)
-            else
-                return nothing
-            end
-        end
-        if axis_length !== nothing
-            return axis_length
+        if Formats.format_has_axis(daf, axis; for_change = false)
+            return Formats.format_axis_length(daf, axis)
         end
     end
     @assert false
@@ -323,10 +356,7 @@ end
 
 function Formats.format_has_vector(chain::AnyChain, axis::AbstractString, name::AbstractString)::Bool
     for daf in chain.dafs
-        has_vector = Formats.with_read_lock(daf) do
-            return Formats.format_has_axis(daf, axis; for_change = false) && Formats.format_has_vector(daf, axis, name)
-        end
-        if has_vector
+        if Formats.format_has_axis(daf, axis; for_change = false) && Formats.format_has_vector(daf, axis, name)
             return true
         end
     end
@@ -342,7 +372,7 @@ function Formats.format_set_vector!(
     if !Formats.format_has_axis(chain.daf, axis; for_change = false)
         add_axis!(chain.daf, axis, Formats.axis_array_through_cache(chain, axis))
     end
-    set_vector!(chain.daf, axis, name, vector)
+    Formats.format_set_vector!(chain.daf, axis, name, vector)
     return nothing
 end
 
@@ -355,7 +385,7 @@ function Formats.format_get_empty_dense_vector!(
     if !Formats.format_has_axis(chain.daf, axis; for_change = false)
         add_axis!(chain.daf, axis, Formats.axis_array_through_cache(chain, axis))
     end
-    return get_empty_dense_vector!(chain.daf, axis, name, eltype; overwrite = true)
+    return Formats.format_get_empty_dense_vector!(chain.daf, axis, name, eltype)
 end
 
 function Formats.format_get_empty_sparse_vector!(
@@ -369,7 +399,7 @@ function Formats.format_get_empty_sparse_vector!(
     if !Formats.format_has_axis(chain.daf, axis; for_change = false)
         add_axis!(chain.daf, axis, Formats.axis_array_through_cache(chain, axis))
     end
-    return get_empty_sparse_vector!(chain.daf, axis, name, eltype, nnz, indtype)
+    return Formats.format_get_empty_sparse_vector!(chain.daf, axis, name, eltype, nnz, indtype)
 end
 
 function Formats.format_filled_empty_sparse_vector!(
@@ -391,21 +421,19 @@ function Formats.format_delete_vector!(
 )::Nothing
     if !for_set
         for daf in chain.dafs[1:(end - 1)]
-            Formats.with_read_lock(daf) do
-                if Formats.format_has_axis(daf, axis; for_change = false) && Formats.format_has_vector(daf, axis, name)
-                    error(
-                        "failed to delete the vector: $(name)\n" *
-                        "of the axis: $(axis)\n" *
-                        "from the daf data: $(chain.daf.name)\n" *
-                        "of the chain: $(chain.name)\n" *  # NOLINT
-                        "because it exists in the earlier: $(daf.name)",
-                    )
-                end
+            if Formats.format_has_axis(daf, axis; for_change = false) && Formats.format_has_vector(daf, axis, name)
+                error(
+                    "failed to delete the vector: $(name)\n" *
+                    "of the axis: $(axis)\n" *
+                    "from the daf data: $(chain.daf.name)\n" *
+                    "of the chain: $(chain.name)\n" *  # NOLINT
+                    "because it exists in the earlier: $(daf.name)",
+                )
             end
         end
     end
     if Formats.format_has_axis(chain.daf, axis; for_change = false) && Formats.format_has_vector(chain.daf, axis, name)
-        delete_vector!(chain.daf, axis, name; _for_set = for_set)
+        Formats.format_delete_vector!(chain.daf, axis, name; for_set = for_set)
     end
     return nothing
 end
@@ -414,24 +442,16 @@ function Formats.format_vectors_set(chain::AnyChain, axis::AbstractString)::Abst
     return reduce(
         union,
         [
-            Formats.with_read_lock(daf) do
-                return Formats.format_vectors_set(daf, axis)
-            end for daf in chain.dafs if Formats.format_has_axis(daf, axis; for_change = false)
+            Formats.get_vectors_set_through_cache(daf, axis) for
+            daf in chain.dafs if Formats.format_has_axis(daf, axis; for_change = false)
         ],
     )
 end
 
 function Formats.format_get_vector(chain::AnyChain, axis::AbstractString, name::AbstractString)::StorageVector
     for daf in reverse(chain.dafs)
-        vector = Formats.with_read_lock(daf) do
-            if Formats.format_has_axis(daf, axis; for_change = false) && Formats.format_has_vector(daf, axis, name)
-                return as_read_only_array(Formats.get_vector_through_cache(daf, axis, name))
-            else
-                return nothing
-            end
-        end
-        if vector !== nothing
-            return vector
+        if Formats.format_has_axis(daf, axis; for_change = false) && Formats.format_has_vector(daf, axis, name)
+            return as_read_only_array(Formats.get_vector_through_cache(daf, axis, name))
         end
     end
     @assert false
@@ -445,19 +465,12 @@ function Formats.format_has_matrix(
     for_relayout::Bool = false,
 )::Bool
     for daf in reverse(chain.dafs)
-        has_matrix = Formats.with_read_lock(daf) do
-            if Formats.format_has_axis(daf, rows_axis; for_change = false) &&
-               Formats.format_has_axis(daf, columns_axis; for_change = false) &&
-               Formats.format_has_matrix(daf, rows_axis, columns_axis, name; for_relayout = for_relayout)
-                return true
-            elseif for_relayout
-                return false  # untested
-            else
-                return nothing
-            end
-        end
-        if has_matrix !== nothing
-            return has_matrix
+        if Formats.format_has_axis(daf, rows_axis; for_change = false) &&
+           Formats.format_has_axis(daf, columns_axis; for_change = false) &&
+           Formats.format_has_matrix(daf, rows_axis, columns_axis, name; for_relayout = for_relayout)
+            return true
+        elseif for_relayout
+            return false  # untested
         end
     end
     return false
@@ -475,7 +488,7 @@ function Formats.format_set_matrix!(
             add_axis!(chain.daf, axis, Formats.axis_array_through_cache(chain, axis))
         end
     end
-    set_matrix!(chain.daf, rows_axis, columns_axis, name, matrix; relayout = false)
+    Formats.format_set_matrix!(chain.daf, rows_axis, columns_axis, name, matrix)
     return nothing
 end
 
@@ -491,7 +504,7 @@ function Formats.format_get_empty_dense_matrix!(
             add_axis!(chain.daf, axis, Formats.axis_array_through_cache(chain, axis))
         end
     end
-    return get_empty_dense_matrix!(chain.daf, rows_axis, columns_axis, name, eltype)
+    return Formats.format_get_empty_dense_matrix!(chain.daf, rows_axis, columns_axis, name, eltype)
 end
 
 function Formats.format_get_empty_sparse_matrix!(
@@ -508,7 +521,7 @@ function Formats.format_get_empty_sparse_matrix!(
             add_axis!(chain.daf, axis, Formats.axis_array_through_cache(chain, axis))
         end
     end
-    return get_empty_sparse_matrix!(chain.daf, rows_axis, columns_axis, name, eltype, nnz, indtype)
+    return Formats.format_get_empty_sparse_matrix!(chain.daf, rows_axis, columns_axis, name, eltype, nnz, indtype)
 end
 
 function Formats.format_filled_empty_sparse_matrix!(
@@ -542,26 +555,24 @@ function Formats.format_delete_matrix!(
 )::Nothing
     if !for_set
         for daf in chain.dafs[1:(end - 1)]
-            Formats.with_read_lock(daf) do
-                if Formats.format_has_axis(daf, rows_axis; for_change = false) &&
-                   Formats.format_has_axis(daf, columns_axis; for_change = false) &&
-                   Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
-                    error(
-                        "failed to delete the matrix: $(name)\n" *
-                        "for the rows axis: $(rows_axis)\n" *
-                        "and the columns axis: $(columns_axis)\n" *
-                        "from the daf data: $(chain.daf.name)\n" *
-                        "of the chain: $(chain.name)\n" *  # NOLINT
-                        "because it exists in the earlier: $(daf.name)",
-                    )
-                end
+            if Formats.format_has_axis(daf, rows_axis; for_change = false) &&
+               Formats.format_has_axis(daf, columns_axis; for_change = false) &&
+               Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
+                error(
+                    "failed to delete the matrix: $(name)\n" *
+                    "for the rows axis: $(rows_axis)\n" *
+                    "and the columns axis: $(columns_axis)\n" *
+                    "from the daf data: $(chain.daf.name)\n" *
+                    "of the chain: $(chain.name)\n" *  # NOLINT
+                    "because it exists in the earlier: $(daf.name)",
+                )
             end
         end
     end
     if Formats.format_has_axis(chain.daf, rows_axis; for_change = false) &&
        Formats.format_has_axis(chain.daf, columns_axis; for_change = false) &&
        Formats.format_has_matrix(chain.daf, rows_axis, columns_axis, name)
-        delete_matrix!(chain.daf, rows_axis, columns_axis, name; relayout = false, _for_set = for_set)
+        Formats.format_delete_matrix!(chain.daf, rows_axis, columns_axis, name; for_set = for_set)
     end
     return nothing
 end
@@ -588,17 +599,10 @@ function Formats.format_get_matrix(
     name::AbstractString,
 )::StorageMatrix
     for daf in reverse(chain.dafs)
-        matrix = Formats.with_read_lock(daf) do
-            if Formats.format_has_axis(daf, rows_axis; for_change = false) &&
-               Formats.format_has_axis(daf, columns_axis; for_change = false) &&
-               Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
-                return as_read_only_array(Formats.get_matrix_through_cache(daf, rows_axis, columns_axis, name))
-            else
-                return nothing
-            end
-        end
-        if matrix !== nothing
-            return matrix
+        if Formats.format_has_axis(daf, rows_axis; for_change = false) &&
+           Formats.format_has_axis(daf, columns_axis; for_change = false) &&
+           Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
+            return as_read_only_array(Formats.get_matrix_through_cache(daf, rows_axis, columns_axis, name))
         end
     end
     @assert false
@@ -624,21 +628,22 @@ function Formats.format_description_footer(
     if deep
         push!(lines, "$(indent)chain:")
         for daf in chain.dafs
-            Formats.with_read_lock(daf) do
-                description(daf, indent * "  ", lines, cache, deep)  # NOJET
-                return nothing
-            end
+            description(daf, indent * "  ", lines, cache, deep)  # NOJET
         end
     end
     return nothing
 end
 
+function Formats.invalidate_cached!(chain::AnyChain, cache_key::AbstractString)::Nothing
+    for daf in chain.dafs
+        Formats.invalidate_cached!(daf, cache_key)
+    end
+end
+
 function Formats.format_get_version_counter(chain::AnyChain, version_key::Formats.DataKey)::UInt32
     version_counter = UInt32(0)
     for daf in chain.dafs
-        version_counter += Formats.with_read_lock(daf) do
-            return Formats.format_get_version_counter(daf, version_key)
-        end
+        version_counter += Formats.format_get_version_counter(daf, version_key)
     end
     return version_counter
 end

@@ -48,7 +48,7 @@ using Base.Threads
 using DataFrames
 using NamedArrays
 
-import ..Formats.axis_cache_key
+import ..Formats.axis_array_cache_key
 import ..Formats.CacheEntry
 import ..Formats.matrix_cache_key
 import ..Formats.scalar_cache_key
@@ -1656,7 +1656,7 @@ function get_query(
         return cached_entry.data
     end
 
-    return with_read_lock(daf) do
+    return with_read_lock(daf, "get_query") do
         query_state = QueryState(daf, query_sequence, 1, Vector{QueryValue}())
         while query_state.next_operation_index <= length(query_state.query_sequence.query_operations)
             query_operation = query_sequence.query_operations[query_state.next_operation_index]
@@ -1865,7 +1865,7 @@ end
 function push_axis(query_state::QueryState, axis::Axis, ::Nothing)::Nothing
     require_axis(query_state.daf, axis.axis_name)
     query_sequence = QuerySequence((axis,))
-    dependency_keys = Set((axis_cache_key(axis.axis_name),))
+    dependency_keys = Set((axis_array_cache_key(axis.axis_name),))
     axis_state = AxisState(query_sequence, dependency_keys, axis.axis_name, nothing)
     push!(query_state.stack, axis_state)
     return nothing
@@ -1875,7 +1875,7 @@ function push_axis(query_state::QueryState, axis::Axis, is_equal::IsEqual)::Noth
     axis_entries = get_vector(query_state.daf, axis.axis_name, "name")
 
     query_sequence = QuerySequence((axis, is_equal))
-    dependency_keys = Set((axis_cache_key(axis.axis_name),))
+    dependency_keys = Set((axis_array_cache_key(axis.axis_name),))
 
     comparison_value = is_equal.comparison_value
     if !(comparison_value isa AbstractString)

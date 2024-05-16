@@ -271,7 +271,7 @@ function viewer(
     collected_matrices::Dict{AbstractString, Dict{AbstractString, Dict{AbstractString, Fetch{StorageMatrix}}}} =
         collect_matrices(name, daf, collected_axes, data)
 
-    return DafView(
+    wrapper = DafView(
         Internal(name; is_frozen = true),
         daf,
         collected_scalars,
@@ -279,6 +279,8 @@ function viewer(
         collected_vectors,
         collected_matrices,
     )
+    @debug "Daf: $(depict(wrapper)) base: $(depict(daf))"
+    return wrapper
 end
 
 function collect_scalars(

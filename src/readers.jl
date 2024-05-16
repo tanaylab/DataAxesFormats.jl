@@ -63,18 +63,14 @@ using NamedArrays
 using SparseArrays
 
 import ..Formats
+import ..Formats.CacheEntry
+import ..Formats.FormatReader  # For documentation.
 import ..Formats.as_named_matrix
 import ..Formats.as_named_vector
 import ..Formats.as_read_only_array
-import ..Formats.CacheEntry
-import ..Formats.FormatReader
-import ..Formats.FormatWriter
 import ..Formats.upgrade_to_write_lock
-import ..Formats.begin_write_lock
 import ..Formats.with_read_lock
-import ..Formats.with_write_lock
 import ..Messages
-import ..StorageTypes.indtype_for_size
 
 function Base.getproperty(daf::DafReader, property::Symbol)::Any
     if property == :name
@@ -90,7 +86,7 @@ end
 Check whether a scalar property with some `name` exists in `daf`.
 """
 function has_scalar(daf::DafReader, name::AbstractString)::Bool
-    return with_read_lock(daf) do
+    return with_read_lock(daf, "has_scalar") do
         result = Formats.format_has_scalar(daf, name)
         @debug "has_scalar daf: $(depict(daf)) name: $(name) result: $(result)"
         return result
@@ -103,7 +99,7 @@ end
 The names of the scalar properties in `daf`.
 """
 function scalars_set(daf::DafReader)::AbstractStringSet
-    return with_read_lock(daf) do
+    return with_read_lock(daf, "scalars_set") do
         result = Formats.get_scalars_set_through_cache(daf)
         @debug "scalars_set daf: $(depict(daf)) result: $(depict(result))"
         return result
@@ -127,7 +123,7 @@ function get_scalar(
     name::AbstractString;
     default::Union{StorageScalar, Nothing, UndefInitializer} = undef,
 )::Maybe{StorageScalar}
-    return with_read_lock(daf) do
+    return with_read_lock(daf, "get_scalar") do
         if default == undef
             require_scalar(daf, name)
         elseif !has_scalar(daf, name)
@@ -154,7 +150,7 @@ end
 Check whether some `axis` exists in `daf`.
 """
 function has_axis(daf::DafReader, axis::AbstractString)::Bool
-    return with_read_lock(daf) do
+    return with_read_lock(daf, "has_axis") do
         result = Formats.format_has_axis(daf, axis; for_change = false)
         @debug "has_axis daf: $(depict(daf)) axis: $(axis) result: $(result)"
         return result
@@ -183,7 +179,7 @@ end
 The names of the axes of `daf`.
 """
 function axes_set(daf::DafReader)::AbstractStringSet
-    return with_read_lock(daf) do
+    return with_read_lock(daf, "axes_set") do
         result = Formats.get_axes_set_through_cache(daf)
         @debug "axes_set daf: $(depict(daf)) result: $(depict(result))"
         return result
@@ -208,7 +204,7 @@ function axis_array(
     axis::AbstractString;
     default::Union{Nothing, UndefInitializer} = undef,
 )::Maybe{AbstractStringVector}
-    return with_read_lock(daf) do
+    return with_read_lock(daf, "axis_array") do
         result_prefix = ""
         if !has_axis(daf, axis)
             if default === nothing
@@ -233,9 +229,11 @@ end
 Return a dictionary converting axis entry names to their integer index.
 """
 function axis_dict(daf::DafReader, axis::AbstractString)::AbstractDict{<:AbstractString, <:Integer}
-    return with_read_lock(daf) do
+    return with_read_lock(daf, "axis_dict") do
         require_axis(daf, axis)
-        return Formats.format_axis_dict(daf, axis)
+        result = Formats.axis_dict_through_cache(daf, axis)
+        @debug "axis_dict daf: $(depict(daf)) result: $(depict(result))"
+        return result
     end
 end
 
@@ -247,7 +245,7 @@ The number of entries along the `axis` in `daf`.
 This first verifies the `axis` exists in `daf`.
 """
 function axis_length(daf::DafReader, axis::AbstractString)::Int64
-    return with_read_lock(daf) do
+    return with_read_lock(daf, "axis_length") do
         require_axis(daf, axis)
         result = Formats.format_axis_length(daf, axis)
         @debug "axis_length daf: $(depict(daf)) axis: $(axis) result: $(result)"
@@ -271,7 +269,7 @@ Check whether a vector property with some `name` exists for the `axis` in `daf`.
 This first verifies the `axis` exists in `daf`.
 """
 function has_vector(daf::DafReader, axis::AbstractString, name::AbstractString)::Bool
-    return with_read_lock(daf) do
+    return with_read_lock(daf, "has_vector") do
         require_axis(daf, axis)
         result = name == "name" || Formats.format_has_vector(daf, axis, name)
         @debug "has_vector daf: $(depict(daf)) axis: $(axis) name: $(name) result: $(result)"
@@ -306,9 +304,9 @@ The names of the vector properties for the `axis` in `daf`, **not** including th
 This first verifies the `axis` exists in `daf`.
 """
 function vectors_set(daf::DafReader, axis::AbstractString)::AbstractStringSet
-    return with_read_lock(daf) do
+    return with_read_lock(daf, "vectors_set") do
         require_axis(daf, axis)
-        result = Formats.format_vectors_set(daf, axis)
+        result = Formats.get_vectors_set_through_cache(daf, axis)
         @debug "vectors_set daf: $(depict(daf)) axis: $(axis) result: $(depict(result))"
         return result
     end
@@ -337,7 +335,7 @@ function get_vector(
     name::AbstractString;
     default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
 )::Maybe{NamedArray}
-    return with_read_lock(daf) do
+    return with_read_lock(daf, "get_vector") do
         require_axis(daf, axis)
 
         if default isa StorageVector
@@ -440,7 +438,7 @@ function has_matrix(
     name::AbstractString;
     relayout::Bool = true,
 )::Bool
-    return with_read_lock(daf) do
+    return with_read_lock(daf, "has_matrix") do
         relayout = relayout && rows_axis != columns_axis
 
         require_axis(daf, rows_axis)
@@ -476,7 +474,7 @@ function matrices_set(
     columns_axis::AbstractString;
     relayout::Bool = true,
 )::AbstractStringSet
-    return with_read_lock(daf) do
+    return with_read_lock(daf, "matrices_set") do
         relayout = relayout && rows_axis != columns_axis
 
         require_axis(daf, rows_axis)
@@ -563,7 +561,7 @@ function get_matrix(
     default::Union{StorageNumber, StorageMatrix, Nothing, UndefInitializer} = undef,
     relayout::Bool = true,
 )::Maybe{NamedArray}
-    return with_read_lock(daf) do
+    return with_read_lock(daf, "get_matrix") do
         relayout = relayout && rows_axis != columns_axis
 
         require_axis(daf, rows_axis)
@@ -608,8 +606,8 @@ function get_matrix(
                 else
                     cache_key = Formats.matrix_cache_key(rows_axis, columns_axis, name)
                     cache_entry = get!(daf.internal.cache, cache_key) do
-                        Formats.store_cached_dependency_key!(daf, cache_key, Formats.axis_cache_key(rows_axis))
-                        Formats.store_cached_dependency_key!(daf, cache_key, Formats.axis_cache_key(columns_axis))
+                        Formats.store_cached_dependency_key!(daf, cache_key, Formats.axis_array_cache_key(rows_axis))
+                        Formats.store_cached_dependency_key!(daf, cache_key, Formats.axis_array_cache_key(columns_axis))
                         flipped_matrix = Formats.get_matrix_through_cache(daf, columns_axis, rows_axis, name).array
                         relayout_matrix = relayout!(flipped_matrix)
                         transposed_matrix = transpose(relayout_matrix)
@@ -778,7 +776,7 @@ terseness. If `cache`, also describes the content of the cache. If `deep`, also 
 this one (if any).
 """
 function description(daf::DafReader; cache::Bool = false, deep::Bool = false)::String
-    return with_read_lock(daf) do
+    return with_read_lock(daf, "description") do
         lines = String[]
         description(daf, "", lines, cache, deep)
         push!(lines, "")

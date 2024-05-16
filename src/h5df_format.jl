@@ -102,6 +102,7 @@ export H5df
 using ..Formats
 using ..GenericTypes
 using ..MatrixLayouts
+using ..Messages
 using ..ReadOnly
 using ..Readers
 using ..StorageTypes
@@ -217,6 +218,7 @@ function H5df(
     end
 
     h5df = H5df(Internal(name; is_frozen = is_read_only), root)
+    @debug "Daf: $(depict(h5df)) root: $(root)"
     if is_read_only
         return read_only(h5df)
     else

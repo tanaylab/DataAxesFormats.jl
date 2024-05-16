@@ -41,7 +41,6 @@ Daf.Formats.format_get_scalar
 Daf.Formats.format_has_axis
 Daf.Formats.format_axes_set
 Daf.Formats.format_axis_array
-Daf.Formats.format_axis_dict
 Daf.Formats.format_axis_length
 ```
 

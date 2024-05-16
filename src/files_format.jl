@@ -111,6 +111,7 @@ export FilesDaf
 using ..Formats
 using ..GenericTypes
 using ..MatrixLayouts
+using ..Messages
 using ..ReadOnly
 using ..Readers
 using ..StorageTypes
@@ -226,10 +227,12 @@ function FilesDaf(
     end
 
     if is_read_only
-        return read_only(FilesDaf(Internal(name; is_frozen = true), path, "r"))
+        file = read_only(FilesDaf(Internal(name; is_frozen = true), path, "r"))
     else
-        return FilesDaf(Internal(name; is_frozen = false), path, "r+")
+        file = FilesDaf(Internal(name; is_frozen = false), path, "r+")
     end
+    @debug "Daf: $(depict(file)) path: $(path)"
+    return file
 end
 
 function Formats.format_has_scalar(files::FilesDaf, name::AbstractString)::Bool

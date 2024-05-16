@@ -47,6 +47,7 @@ function MemoryDaf(; name::AbstractString = "memory")::MemoryDaf
     vectors = Dict{AbstractString, Dict{AbstractString, StorageVector}}()
     matrices = Dict{AbstractString, Dict{AbstractString, Dict{AbstractString, StorageMatrix}}}()
     memory = MemoryDaf(Internal(name; is_frozen = false), scalars, axes, vectors, matrices)
+    @debug "Daf: $(depict(memory))"
     return memory
 end
 

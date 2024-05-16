@@ -51,14 +51,18 @@ function read_only(daf::DafReader; name::Maybe{AbstractString} = nothing)::DafRe
     if name === nothing
         name = daf.internal.name
     end
-    return DafReadOnlyWrapper(name, daf)
+    wrapper = DafReadOnlyWrapper(name, daf)
+    @debug "Daf: $(depict(wrapper)) base: $(daf)"
+    return wrapper
 end
 
 function read_only(daf::DafReadOnly; name::Maybe{AbstractString} = nothing)::DafReadOnly
     if name === nothing
         return daf
     else
-        return DafReadOnlyWrapper(name, daf.daf)
+        wrapper = DafReadOnlyWrapper(name, daf.daf)
+        @debug "Daf: $(depict(wrapper)) base: $(daf)"
+        return wrapper
     end
 end
 
