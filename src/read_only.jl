@@ -4,16 +4,111 @@ Read-only `Daf` storage format.
 module ReadOnly
 
 export DafReadOnly
+export copy_array
+export is_read_only_array
 export read_only
+export read_only_array
 
 using ..Formats
 using ..GenericTypes
+using ..MatrixLayouts  # For documentation.
 using ..Messages
 using ..Readers
 using ..StorageTypes
+using NamedArrays
+using LinearAlgebra
 using SparseArrays
 
 import ..Messages
+
+"""
+    read_only_array(array::AbstractArray):AbstractArray
+
+Return an immutable view of an `array`. This uses `SparseArrays.ReadOnly`, and properly deals with `NamedArray`. If the
+array is already immutable, it is returned as-is.
+"""
+function read_only_array(array::AbstractArray)::AbstractArray
+    return Formats.read_only_array(array)
+end
+
+"""
+    function is_read_only_array(array::AbstractArray)::Bool
+
+Return whether an `array` is immutable.
+"""
+function is_read_only_array(array::AbstractArray)::Bool
+    return mutable_array(array) !== array
+end
+
+"""
+    copy_array(array::AbstractArray)::AbstractArray
+
+Create a mutable copy of an array. This differs from `Base.copy` in the following:
+
+  - Copying a [`read_only_array`](@ref) is a mutable array. In contrast, both `Base.copy` and `Base.deepcopy` of a
+    read-only array will return a read-only array, which is technically correct, but is rather pointless for
+    `Base.copy`.
+  - Copying will preserve the layout of the data; that is, copying a `Transpose` array is still a `Transpose` array. In
+    contrast, while `Base.deepcopy` will preserve the layout, `Base.copy` will silently [`relayout!`](@ref) the matrix,
+    which is both expensive and confusing.
+"""
+function copy_array(array::AbstractArray)::AbstractArray
+    return deepcopy(mutable_array(array))
+end
+
+function copy_array(matrix::Transpose)::Transpose
+    return Transpose(copy_array(mutable_array(parent(matrix))))
+end
+
+function copy_array(matrix::Adjoint)::Adjoint
+    return Adjoint(copy_array(mutable_array(parent(matrix))))
+end
+
+function copy_array(array::SparseArrays.ReadOnly)::AbstractArray
+    return copy_array(mutable_array(parent(array)))
+end
+
+function copy_array(array::NamedArray)::NamedArray
+    return NamedArray(copy_array(mutable_array(array.array)), array.dicts, array.dimnames)
+end
+
+function mutable_array(array::AbstractArray)::AbstractArray
+    return array
+end
+
+function mutable_array(array::Transpose)::Transpose
+    parent_array = parent(array)
+    mutable_parent_array = mutable_array(parent_array)
+    if mutable_parent_array === parent_array
+        return array
+    else
+        return Transpose(mutable_parent_array)
+    end
+end
+
+function mutable_array(array::Adjoint)::Adjoint
+    parent_array = parent(array)
+    mutable_parent_array = mutable_array(parent_array)
+    if mutable_parent_array === parent_array
+        return array
+    else
+        return Adjoint(mutable_parent_array)
+    end
+end
+
+function mutable_array(array::SparseArrays.ReadOnly)::AbstractArray
+    return parent(array)
+end
+
+function mutable_array(array::NamedArray)::NamedArray
+    parent_array = array.array
+    mutable_parent_array = mutable_array(parent_array)
+    if mutable_parent_array === parent_array
+        return array
+    else
+        return NamedArray(mutable_parent_array, array.dicts, array.dimnames)
+    end
+end
 
 """
 A common base type for a read-only [`DafReader`](@ref), which doesn't allow any modification of the data.
@@ -142,7 +237,7 @@ function Formats.format_get_vector(
     name::AbstractString,
 )::StorageVector
     @assert Formats.has_data_read_lock(read_only_view)
-    return Formats.as_read_only_array(Formats.format_get_vector(read_only_view.daf, axis, name))
+    return Formats.read_only_array(Formats.format_get_vector(read_only_view.daf, axis, name))
 end
 
 function Formats.format_has_matrix(
@@ -172,7 +267,7 @@ function Formats.format_get_matrix(
     name::AbstractString,
 )::StorageMatrix
     @assert Formats.has_data_read_lock(read_only_view)
-    return Formats.as_read_only_array(Formats.format_get_matrix(read_only_view.daf, rows_axis, columns_axis, name))
+    return Formats.read_only_array(Formats.format_get_matrix(read_only_view.daf, rows_axis, columns_axis, name))
 end
 
 function Formats.format_description_header(

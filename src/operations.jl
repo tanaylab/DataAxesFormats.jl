@@ -36,6 +36,7 @@ export sum_dtype_for
 export unsigned_dtype_for
 
 using ..GenericTypes
+using ..ReadOnly
 using ..Registry
 using ..StorageTypes
 using ..Tokens
@@ -505,7 +506,7 @@ function compute_eltwise(
     operation::Clamp,
     input::Union{StorageMatrix{T}, StorageVector{T}},
 )::Union{StorageMatrix{T}, StorageVector{T}} where {T <: StorageNumber}
-    output = copy(input)
+    output = copy_array(input)
     clamp!(output, operation.min, operation.max)
     return output
 end
@@ -742,7 +743,7 @@ function Significant(operation_name::Token, parameters_values::Dict{String, Toke
 end
 
 function compute_eltwise(operation::Significant, input::StorageMatrix{T})::StorageMatrix{T} where {T <: StorageNumber}
-    output = copy(input)
+    output = copy_array(input)
     if output isa SparseMatrixCSC
         @threads for column_index in 1:size(output, 2)
             first = output.colptr[column_index]
@@ -764,7 +765,7 @@ function compute_eltwise(operation::Significant, input::StorageMatrix{T})::Stora
 end
 
 function compute_eltwise(operation::Significant, input::StorageVector{T})::SparseVector{T} where {T <: StorageNumber}
-    output = copy(input)
+    output = copy_array(input)
     significant!(output, operation.high, operation.low)
     return output
 end

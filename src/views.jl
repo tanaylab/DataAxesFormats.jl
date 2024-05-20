@@ -683,7 +683,7 @@ function Formats.format_axis_array(view::DafView, axis::AbstractString)::Abstrac
     fetch_axis = view.axes[axis]
     axes_set = fetch_axis.value
     if axes_set === nothing
-        axes_set = Formats.as_read_only_array(get_query(view.daf, fetch_axis.query))
+        axes_set = Formats.read_only_array(get_query(view.daf, fetch_axis.query))
         fetch_axis.value = axes_set
     end
     return axes_set
@@ -709,7 +709,7 @@ function Formats.format_get_vector(view::DafView, axis::AbstractString, name::Ab
     fetch_vector = view.vectors[axis][name]
     vector_value = fetch_vector.value
     if vector_value === nothing
-        vector_value = Formats.as_read_only_array(get_query(view.daf, fetch_vector.query))
+        vector_value = Formats.read_only_array(get_query(view.daf, fetch_vector.query))
         fetch_vector.value = vector_value
     end
     return vector_value
@@ -745,7 +745,7 @@ function Formats.format_get_matrix(
     fetch_matrix = view.matrices[rows_axis][columns_axis][name]
     matrix_value = fetch_matrix.value
     if matrix_value === nothing
-        matrix_value = Formats.as_read_only_array(get_query(view.daf, fetch_matrix.query))
+        matrix_value = Formats.read_only_array(get_query(view.daf, fetch_matrix.query))
         fetch_matrix.value = matrix_value
     end
     return matrix_value

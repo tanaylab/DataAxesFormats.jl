@@ -50,6 +50,7 @@ end
 
 include("matrix_layouts.jl")
 include("messages.jl")
+include("read_only.jl")
 include("data.jl")
 include("anndata.jl")
 include("reconstruction.jl")

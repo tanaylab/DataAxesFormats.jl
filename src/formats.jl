@@ -51,6 +51,7 @@ using ..Messages
 using ..StorageTypes
 using ..Tokens
 using Base.Threads
+using LinearAlgebra
 using NamedArrays
 using OrderedCollections
 using SparseArrays
@@ -726,7 +727,7 @@ function axis_dict_with_cache(format::FormatReader, axis::AbstractString)::Abstr
 
     if axis_dict === nothing
         axis_dict = with_write_lock(format.internal.cache_lock, format.name, "cache for:", cache_key) do
-            names = as_read_only_array(axis_array_through_cache(format, axis))
+            names = read_only_array(axis_array_through_cache(format, axis))
             named_array = NamedArray(spzeros(length(names)); names = (names,), dimnames = (axis,))
             axis_dict = named_array.dicts[1]
             format.internal.cache[cache_key] = CacheEntry(MemoryData, axis_dict)
@@ -866,20 +867,42 @@ function as_named_matrix(
     return NamedArray(matrix, (rows_axis_dict, columns_axis_dict), (rows_axis, columns_axis))
 end
 
-function as_read_only_array(array::SparseArrays.ReadOnly)::SparseArrays.ReadOnly
-    return array
+function read_only_array(array::AbstractArray)::AbstractArray
+    return SparseArrays.ReadOnly(array)
 end
 
-function as_read_only_array(array::NamedArray)::NamedArray
-    if array.array isa SparseArrays.ReadOnly
+function read_only_array(array::Transpose)::Transpose
+    parent_array = parent(array)
+    read_only_parent_array = read_only_array(parent_array)
+    if read_only_parent_array === parent_array
         return array
     else
-        return NamedArray(as_read_only_array(array.array), array.dicts, array.dimnames)
+        return Transpose(read_only_parent_array)
     end
 end
 
-function as_read_only_array(array::AbstractArray)::SparseArrays.ReadOnly
-    return SparseArrays.ReadOnly(array)
+function read_only_array(array::Adjoint)::Adjoint
+    parent_array = parent(array)
+    read_only_parent_array = read_only_array(parent_array)
+    if read_only_parent_array === parent_array
+        return array
+    else
+        return Adjoint(read_only_parent_array)
+    end
+end
+
+function read_only_array(array::SparseArrays.ReadOnly)::SparseArrays.ReadOnly
+    return array
+end
+
+function read_only_array(array::NamedArray)::NamedArray
+    parent_array = array.array
+    read_only_parent_array = read_only_array(parent_array)
+    if read_only_parent_array === parent_array
+        return array
+    else
+        return NamedArray(read_only_parent_array, array.dicts, array.dimnames)
+    end
 end
 
 function scalars_set_cache_key()::String

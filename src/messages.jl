@@ -152,8 +152,12 @@ function depict_matrix(matrix::NamedMatrix, prefix::AbstractString; transposed::
     return depict_matrix(matrix.array, concat_prefixes(prefix, "Named"); transposed = transposed)
 end
 
-function depict_matrix(matrix::Union{Transpose, Adjoint}, prefix::AbstractString; transposed::Bool = false)::String
-    return depict_matrix(transpose(matrix), prefix; transposed = !transposed)
+function depict_matrix(matrix::Transpose, prefix::AbstractString; transposed::Bool = false)::String
+    return depict_matrix(parent(matrix), concat_prefixes(prefix, "Transpose"); transposed = !transposed)
+end
+
+function depict_matrix(matrix::Adjoint, prefix::AbstractString; transposed::Bool = false)::String
+    return depict_matrix(parent(matrix), concat_prefixes(prefix, "Adjoint"); transposed = !transposed)
 end
 
 function depict_matrix(matrix::DenseMatrix, prefix::AbstractString; transposed::Bool = false)::String

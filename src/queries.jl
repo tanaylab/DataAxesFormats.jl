@@ -42,6 +42,7 @@ using ..GenericLocks
 using ..GenericTypes
 using ..Messages
 using ..Operations
+using ..ReadOnly
 using ..Registry
 using ..StorageTypes
 using ..Tokens
@@ -1818,20 +1819,20 @@ function axis_array_result(
         if axis_modifier isa AbstractVector{Bool}
             axis_entries = axis_entries[axis_modifier]
         end
-        return Formats.as_read_only_array(axis_entries), axis_state.dependency_keys
+        return Formats.read_only_array(axis_entries), axis_state.dependency_keys
     end
 end
 
 function get_vector_result(query_state::QueryState)::Tuple{NamedArray, Set{AbstractString}}
     vector_state = pop!(query_state.stack)
     @assert vector_state isa VectorState
-    return Formats.as_read_only_array(vector_state.named_vector), vector_state.dependency_keys
+    return Formats.read_only_array(vector_state.named_vector), vector_state.dependency_keys
 end
 
 function get_matrix_result(query_state::QueryState)::Tuple{NamedArray, Set{AbstractString}}
     matrix_state = pop!(query_state.stack)
     @assert matrix_state isa MatrixState
-    return Formats.as_read_only_array(matrix_state.named_matrix), matrix_state.dependency_keys
+    return Formats.read_only_array(matrix_state.named_matrix), matrix_state.dependency_keys
 end
 
 function apply_query_operation!(query_state::QueryState, ::ModifierQueryOperation)::Nothing
@@ -2758,7 +2759,7 @@ function patch_fetched_values(
         else
             @assert axis_mask isa AbstractVector{Bool}
             if !vector_fetch_state.may_modify_axis_mask
-                axis_mask = copy(axis_mask)
+                axis_mask = copy_array(axis_mask)
             end
             axis_mask[axis_mask] = fetched_mask  # NOJET
         end
@@ -2857,7 +2858,7 @@ function fetch_result(
     if_not_values = fetch_state.if_not_values
     if if_not_values !== nothing
         if !fetch_state.may_modify_named_vector
-            named_vector.array = copy(named_vector.array)  # untested
+            named_vector.array = copy_array(named_vector.array)  # untested
         end
 
         for index in 1:length(named_vector)

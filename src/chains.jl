@@ -441,7 +441,7 @@ end
 function Formats.format_get_vector(chain::AnyChain, axis::AbstractString, name::AbstractString)::StorageVector
     for daf in reverse(chain.dafs)
         if Formats.format_has_axis(daf, axis; for_change = false) && Formats.format_has_vector(daf, axis, name)
-            return Formats.as_read_only_array(Formats.get_vector_through_cache(daf, axis, name))
+            return Formats.read_only_array(Formats.get_vector_through_cache(daf, axis, name))
         end
     end
     @assert false
@@ -601,7 +601,7 @@ function Formats.format_get_matrix(
         if Formats.format_has_axis(daf, rows_axis; for_change = false) &&
            Formats.format_has_axis(daf, columns_axis; for_change = false) &&
            Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
-            return Formats.as_read_only_array(Formats.get_matrix_through_cache(daf, rows_axis, columns_axis, name))
+            return Formats.read_only_array(Formats.get_matrix_through_cache(daf, rows_axis, columns_axis, name))
         end
     end
     @assert false

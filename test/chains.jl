@@ -36,12 +36,12 @@ nested_test("chains") do
         nested_test("reader") do
             read_first = read_only(first)
             read_chain = chain_reader([read_first])
-            @assert read_chain === read_first
+            @test read_chain === read_first
         end
 
         nested_test("writer") do
             write_chain = chain_writer([first])
-            @assert write_chain === first
+            @test write_chain === first
         end
     end
 
@@ -51,10 +51,10 @@ nested_test("chains") do
             name = "chain!",
         )
         read_chain = chain_reader([first, second])
-        @assert read_only(read_chain) === read_chain
-        @assert read_only(read_chain; name = "read-only first!;second!") !== read_chain
+        @test read_only(read_chain) === read_chain
+        @test read_only(read_chain; name = "read-only first!;second!") !== read_chain
         write_chain = chain_writer([first, second])
-        @assert read_only(write_chain) !== write_chain
+        @test read_only(write_chain) !== write_chain
     end
 
     nested_test("access") do

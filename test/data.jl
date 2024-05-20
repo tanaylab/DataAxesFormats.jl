@@ -3017,16 +3017,16 @@ nested_test("data") do
                     test_format(daf)
 
                     attributes(h5file["root"])["will_be_deleted"] = 1
-                    @assert length(attributes(h5file["root"])) == 1
+                    @test length(attributes(h5file["root"])) == 1
 
                     h5file["root/scalars/name"] = "h5df!"
                     daf = H5df(h5file["root"], "r")
-                    @assert daf.name == "h5df!"
+                    @test daf.name == "h5df!"
 
                     daf = H5df(h5file["root"], "w"; name = "h5df!")
                     @test daf.name == "h5df!"
                     @test string(daf) == "H5df h5df!"
-                    @assert length(attributes(h5file["root"])) == 0
+                    @test length(attributes(h5file["root"])) == 0
                     return nothing
                 end
             end
@@ -3069,11 +3069,11 @@ nested_test("data") do
                 @test daf.name == path
                 write(path * "/scalars/name.json", "{\"type\":\"String\",\"value\":\"files!\"}\n")
                 daf = FilesDaf(path, "r")
-                @assert isdir(path * "/deleted")
+                @test isdir(path * "/deleted")
                 @test string(daf) == "ReadOnly FilesDaf files!"
                 daf = FilesDaf(path, "w"; name = "empty!")
                 @test string(daf) == "FilesDaf empty!"
-                @assert !ispath(path * "/deleted")
+                @test !ispath(path * "/deleted")
                 return nothing
             end
         end

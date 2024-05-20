@@ -93,6 +93,10 @@ end
     scalars_set(daf::DafReader)::AbstractStringSet
 
 The names of the scalar properties in `daf`.
+
+!!! note
+
+    There's no immutable set type in Julia for us to return. If you do modify the result set, bad things *will* happen.
 """
 function scalars_set(daf::DafReader)::AbstractStringSet
     return Formats.with_data_read_lock(daf, "scalars_set") do
@@ -173,6 +177,10 @@ end
     axes_set(daf::DafReader)::AbstractStringSet
 
 The names of the axes of `daf`.
+
+!!! note
+
+    There's no immutable set type in Julia for us to return. If you do modify the result set, bad things *will* happen.
 """
 function axes_set(daf::DafReader)::AbstractStringSet
     return Formats.with_data_read_lock(daf, "axes_set") do
@@ -213,7 +221,7 @@ function axis_array(
             end
         end
 
-        result = Formats.as_read_only_array(Formats.axis_array_through_cache(daf, axis))
+        result = Formats.read_only_array(Formats.axis_array_through_cache(daf, axis))
         @debug "axis_array daf: $(depict(daf)) axis: $(axis) default: $(depict(default)) $(result_prefix)result: $(depict(result))"
         return result
     end
@@ -298,6 +306,10 @@ end
 The names of the vector properties for the `axis` in `daf`, **not** including the special `name` property.
 
 This first verifies the `axis` exists in `daf`.
+
+!!! note
+
+    There's no immutable set type in Julia for us to return. If you do modify the result set, bad things *will* happen.
 """
 function vectors_set(daf::DafReader, axis::AbstractString)::AbstractStringSet
     return Formats.with_data_read_lock(daf, "vectors_set of:", axis) do
@@ -345,7 +357,7 @@ function get_vector(
         cached_vector = Formats.get_from_cache(daf, Formats.vector_cache_key(axis, name), StorageVector)
         if cached_vector !== nothing
             if eltype(cached_vector) <: AbstractString
-                cached_vector = Formats.as_read_only_array(cached_vector)
+                cached_vector = Formats.read_only_array(cached_vector)
             end
             result = Formats.as_named_vector(daf, axis, cached_vector)
             @debug "get_vector daf: $(depict(daf)) axis: $(axis) name: $(name) default: $(depict(default)) cached result: $(depict(result))"
@@ -464,6 +476,10 @@ If `relayout` (default), then this will include the names of matrices that exist
 flipped axes).
 
 This first verifies the `rows_axis` and `columns_axis` exist in `daf`.
+
+!!! note
+
+    There's no immutable set type in Julia for us to return. If you do modify the result set, bad things *will* happen.
 """
 function matrices_set(
     daf::DafReader,
@@ -674,7 +690,7 @@ function do_get_matrix(
                 )
             else
                 @assert default isa StorageScalar
-                matrix = fill(
+                matrix = fill(  # NOJET
                     default,
                     Formats.format_axis_length(daf, rows_axis),
                     Formats.format_axis_length(daf, columns_axis),

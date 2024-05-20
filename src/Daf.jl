@@ -66,23 +66,23 @@ include("registry.jl")
 include("tokens.jl")
 @reexport using .Tokens
 
-include("operations.jl")
-@reexport using .Operations
-
 include("formats.jl")
 @reexport using .Formats
 
 include("readers.jl")
 @reexport using .Readers
 
+include("read_only.jl")
+@reexport using .ReadOnly
+
+include("operations.jl")
+@reexport using .Operations
+
 include("queries.jl")
 @reexport using .Queries
 
 include("writers.jl")
 @reexport using .Writers
-
-include("read_only.jl")
-@reexport using .ReadOnly
 
 include("views.jl")
 @reexport using .Views
