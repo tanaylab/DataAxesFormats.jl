@@ -575,32 +575,6 @@ relayout!(destination::AbstractMatrix, source::NamedMatrix)::NamedMatrix
 <strong>still
 </strong>, summing the UMIs of a gene is fast, and summing the UMIs of a cell is slow.
 </p>
-<div class="admonition is-info">
-<header class="admonition-header">Note
-</header>
-<div class="admonition-body">
-<p>It turns out that 
-<code>transpose
-</code> of a 
-<code>NamedMatrix
-</code> actually does a copy with relayout under the hood. I have opened an 
-<a href="https://github.com/davidavdav/NamedArrays.jl/issues/138">issue
-</a> requesting this will be fixed. In the meanwhile, 
-<code>adjoint
-</code> works as expected and is identical to 
-<code>transpose
-</code> for the matrix element types supported by 
-<code>Daf
-</code> (since 
-<code>Complex
-</code> is not supported). It also has a nice suffix notation 
-<code>matrix&#39;
-</code>. Use this instead of 
-<code>transpose
-</code> and all should be well. Sigh.
-</p>
-</div>
-</div>
 <p>In contrast, 
 <code>transpose!
 </code> (with a 
@@ -901,7 +875,7 @@ relayout!(destination::AbstractMatrix, source::NamedMatrix)::NamedMatrix
 <hr/>
 <p>This document was generated with 
 <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl
-</a> version 1.4.0. Using Julia version 1.10.0.
+</a> version 1.4.1. Using Julia version 1.10.0.
 </p>
 </section>
 <footer class="modal-card-foot">

@@ -284,6 +284,7 @@ nested_test("operations") do
 
             nested_test("vector") do
                 set_vector!(daf, "cell", "value", [1, 3])
+                @test with_type(daf["/ cell : value"]) == ([1, 3], Int64)
                 @test with_type(daf["/ cell : value % Significant high 3"]) == ([0, 3], Int64)
                 @test with_type(daf["/ cell : value % Significant high 3 low 1"]) == ([1, 3], Int64)
             end

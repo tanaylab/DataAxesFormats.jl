@@ -178,12 +178,64 @@ nested_test("read_only") do
                     @test is_read_only_array(named_read_only_matrix)
                     @test read_only_array(named_read_only_matrix) === named_read_only_matrix
 
+                    nested_test("transpose") do
+                        named_read_only_transpose_matrix = NamedArray(SparseArrays.ReadOnly(transpose(mutable_matrix)))
+                        @test depict(named_read_only_transpose_matrix) ==
+                              "3 x 2 x Int64 in Rows (Named ReadOnly Transpose Dense)"
+                        @test is_read_only_array(named_read_only_transpose_matrix)
+                        @test read_only_array(named_read_only_transpose_matrix) === named_read_only_transpose_matrix
+                    end
+
                     nested_test("adjoint") do
                         named_read_only_adjoint_matrix = NamedArray(SparseArrays.ReadOnly(adjoint(mutable_matrix)))
                         @test depict(named_read_only_adjoint_matrix) ==
                               "3 x 2 x Int64 in Rows (Named ReadOnly Adjoint Dense)"
                         @test is_read_only_array(named_read_only_adjoint_matrix)
                         @test read_only_array(named_read_only_adjoint_matrix) === named_read_only_adjoint_matrix
+                    end
+                end
+
+                nested_test("transposed") do
+                    nested_test("()") do
+                        transpose_named_matrix = transpose(named_matrix)
+                        @test !is_read_only_array(transpose_named_matrix)
+                        @test depict(transpose_named_matrix) == "3 x 2 x Int64 in Rows (Named Transpose Dense)"
+
+                        read_only_transpose_named_matrix = SparseArrays.ReadOnly(transpose_named_matrix)
+                        @test depict(read_only_transpose_named_matrix) ==
+                              "3 x 2 x Int64 in Rows (ReadOnly Named Transpose Dense)"
+                        @test is_read_only_array(read_only_transpose_named_matrix)
+                        @test read_only_array(read_only_transpose_named_matrix) === read_only_transpose_named_matrix
+                    end
+
+                    nested_test("read_only") do
+                        transpose_named_read_only_matrix = transpose(NamedArray(SparseArrays.ReadOnly(mutable_matrix)))
+                        @test depict(transpose_named_read_only_matrix) ==
+                              "3 x 2 x Int64 in Rows (Named Transpose ReadOnly Dense)"
+                        @test is_read_only_array(transpose_named_read_only_matrix)
+                        @test read_only_array(transpose_named_read_only_matrix) === transpose_named_read_only_matrix
+                    end
+                end
+
+                nested_test("transpose") do
+                    nested_test("()") do
+                        named_transpose_matrix = NamedArray(transpose(mutable_matrix))
+                        @test depict(named_transpose_matrix) == "3 x 2 x Int64 in Rows (Named Transpose Dense)"
+                        @test !is_read_only_array(named_transpose_matrix)
+
+                        read_only_named_transpose_matrix = SparseArrays.ReadOnly(named_transpose_matrix)
+                        @test depict(read_only_named_transpose_matrix) ==
+                              "3 x 2 x Int64 in Rows (ReadOnly Named Transpose Dense)"
+                        @test is_read_only_array(read_only_named_transpose_matrix)
+                        @test read_only_array(read_only_named_transpose_matrix) === read_only_named_transpose_matrix
+                    end
+
+                    nested_test("read_only") do
+                        named_transpose_read_only_matrix = NamedArray(transpose(SparseArrays.ReadOnly(mutable_matrix)))
+                        @test depict(named_transpose_read_only_matrix) ==
+                              "3 x 2 x Int64 in Rows (Named Transpose ReadOnly Dense)"
+                        @test is_read_only_array(named_transpose_read_only_matrix)
+                        @test read_only_array(named_transpose_read_only_matrix) === named_transpose_read_only_matrix
                     end
                 end
 
@@ -388,6 +440,22 @@ nested_test("read_only") do
                     copy_read_only_matrix = copy_array(read_only_matrix)
                     @test !is_read_only_array(copy_read_only_matrix)
                     @test depict(copy_read_only_matrix) == "2 x 3 x Int64 in Columns (Named Dense)"
+                    @test copy_read_only_matrix !== mutable_matrix
+                end
+
+                nested_test("transpose") do
+                    mutable_matrix = transpose(mutable_matrix)
+                    @test !is_read_only_array(mutable_matrix)
+                    @test depict(mutable_matrix) == "3 x 2 x Int64 in Rows (Named Transpose Dense)"
+
+                    read_only_matrix = read_only_array(mutable_matrix)
+                    @test is_read_only_array(read_only_matrix)
+                    @test depict(read_only_matrix) == "3 x 2 x Int64 in Rows (Named Transpose ReadOnly Dense)"
+                    @test parent(parent(read_only_matrix.array)) === parent(mutable_matrix.array)
+
+                    copy_read_only_matrix = copy_array(read_only_matrix)
+                    @test !is_read_only_array(copy_read_only_matrix)
+                    @test depict(copy_read_only_matrix) == "3 x 2 x Int64 in Rows (Named Transpose Dense)"
                     @test copy_read_only_matrix !== mutable_matrix
                 end
 

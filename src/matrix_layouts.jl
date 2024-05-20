@@ -240,14 +240,6 @@ a gene will be fast, but summing the UMIs of a cell will be slow. A `transpose` 
 a zero-copy wrapper of the matrix with flipped axes, so its rows will be genes and columns will be cells, but in
 row-major layout. Therefore, **still**, summing the UMIs of a gene is fast, and summing the UMIs of a cell is slow.
 
-!!! note
-
-    It turns out that `transpose` of a `NamedMatrix` actually does a copy with relayout under the hood. I have opened an
-    [issue](https://github.com/davidavdav/NamedArrays.jl/issues/138) requesting this will be fixed. In the meanwhile,
-    `adjoint` works as expected and is identical to `transpose` for the matrix element types supported by `Daf` (since
-    `Complex` is not supported). It also has a nice suffix notation `matrix'`. Use this instead of `transpose` and all
-    should be well. Sigh.
-
 In contrast, `transpose!` (with a `!`) is slow; it creates a rearranged copy of the data, also returning a matrix whose
 rows are genes and columns are cells, but this time, in column-major layout. Therefore, in this case summing the UMIs of
 a gene will be slow, and summing the UMIs of a cell will be fast.
