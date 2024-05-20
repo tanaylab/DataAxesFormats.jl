@@ -3476,7 +3476,7 @@ function collect_vector_group_by(
         group_mask = groups_vector .== group_value
         values_of_group = values_vector[group_mask]
         if length(values_of_group) > 0
-            results_vector[group_index] = compute_reduction(reduction_operation, values_of_group)  # NOLINT
+            results_vector[group_index] = compute_reduction(reduction_operation, read_only_array(values_of_group))  # NOLINT
         elseif empty_group_value !== nothing
             results_vector[group_index] = empty_group_value
         else
@@ -3548,7 +3548,7 @@ function eltwise_vector(query_state::QueryState, eltwise_operation::EltwiseOpera
         )
     end
 
-    vector_value = compute_eltwise(eltwise_operation, vector_state.named_vector.array)  # NOLINT
+    vector_value = compute_eltwise(eltwise_operation, read_only_array(vector_state.named_vector.array))  # NOLINT
     vector_state.named_vector =
         NamedArray(vector_value, vector_state.named_vector.dicts, vector_state.named_vector.dimnames)
     vector_state.is_processed = true
@@ -3561,7 +3561,7 @@ function eltwise_matrix(query_state::QueryState, eltwise_operation::EltwiseOpera
     matrix_state = pop!(query_state.stack)
     @assert matrix_state isa MatrixState
 
-    matrix_value = compute_eltwise(eltwise_operation, matrix_state.named_matrix.array)  # NOLINT
+    matrix_value = compute_eltwise(eltwise_operation, read_only_array(matrix_state.named_matrix.array))  # NOLINT
     matrix_state.named_matrix =
         NamedArray(matrix_value, matrix_state.named_matrix.dicts, matrix_state.named_matrix.dimnames)
 
@@ -3607,7 +3607,7 @@ function reduce_vector(query_state::QueryState, reduction_operation::ReductionOp
         )
     end
 
-    scalar_value = compute_reduction(reduction_operation, vector_state.named_vector.array)  # NOLINT
+    scalar_value = compute_reduction(reduction_operation, read_only_array(vector_state.named_vector.array))  # NOLINT
 
     scalar_state = ScalarState(query_state.query_sequence, vector_state.dependency_keys, scalar_value)
     push!(query_state.stack, scalar_state)
@@ -3626,7 +3626,7 @@ function reduce_matrix(query_state::QueryState, reduction_operation::ReductionOp
     @assert matrix_state isa MatrixState
 
     named_matrix = matrix_state.named_matrix
-    vector_value = compute_reduction(reduction_operation, named_matrix.array)  # NOLINT
+    vector_value = compute_reduction(reduction_operation, read_only_array(named_matrix.array))  # NOLINT
     named_vector = NamedArray(vector_value, named_matrix.dicts[2:2], named_matrix.dimnames[2:2])
 
     vector_state = VectorState(
