@@ -478,17 +478,21 @@ Element-wise operation that converts every element to a value inside a range.
     At least one of `min` and `max` must be specified.
 """
 struct Clamp <: EltwiseOperation
+    dtype::Maybe{Type}
     min::Float64
     max::Float64
 end
 @query_operation Clamp
 
-function Clamp(; min::StorageNumber = -Inf, max::StorageNumber = Inf)::Clamp
+function Clamp(; dtype::Maybe{Type} = nothing, min::StorageNumber = -Inf, max::StorageNumber = Inf)::Clamp
     @assert min < max
-    return Clamp(Float64(min), Float64(max))
+    return Clamp(dtype, Float64(min), Float64(max))
 end
 
 function Clamp(operation_name::Token, parameters_values::Dict{String, Token})::Clamp
+    dtype = parse_parameter_value(operation_name, "eltwise", parameters_values, "dtype", nothing) do parameter_value
+        return parse_number_dtype_value(operation_name, "dtype", parameter_value)
+    end
     min = parse_parameter_value(operation_name, "eltwise", parameters_values, "min", -Inf) do parameter_value
         return parse_number_value(operation_name, "min", parameter_value, Float64)
     end
@@ -499,21 +503,37 @@ function Clamp(operation_name::Token, parameters_values::Dict{String, Token})::C
         end
         return value
     end
-    return Clamp(min, max)
+    return Clamp(dtype, min, max)
+end
+
+function is_int(value::Float64)::Bool
+    return value == -Inf || value == Inf || isinteger(value)
+end
+
+function dtype_for_clamp(operation::Clamp, input_type::Type)::Type
+    if operation.dtype !== nothing
+        return operation.dtype
+    elseif input_type <: Integer && is_int(operation.min) && is_int(operation.max)
+        return int_dtype_for(input_type, nothing)
+    else
+        return float_dtype_for(input_type, nothing)
+    end
 end
 
 function compute_eltwise(
     operation::Clamp,
-    input::Union{StorageMatrix{T}, StorageVector{T}},
-)::Union{StorageMatrix{T}, StorageVector{T}} where {T <: StorageNumber}
-    output = copy_array(input)
-    clamp!(output, operation.min, operation.max)
+    input::Union{StorageMatrix, StorageVector},
+)::Union{StorageMatrix, StorageVector}
+    dtype = dtype_for_clamp(operation, eltype(input))
+    output = similar(input, dtype)
+    output .= clamp.(input, operation.min, operation.max)
     return output
 end
 
-function compute_eltwise(operation::Clamp, input::T)::T where {T <: StorageNumber}
+function compute_eltwise(operation::Clamp, input::T)::StorageNumber where {T <: StorageNumber}
+    dtype = dtype_for_clamp(operation, T)
     output = clamp(input, operation.min, operation.max)
-    return T(output)
+    return dtype(output)
 end
 
 """

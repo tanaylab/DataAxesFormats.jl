@@ -97,9 +97,29 @@ nested_test("operations") do
             end
 
             nested_test("vector") do
-                set_vector!(daf, "cell", "value", [-1.7, 2.3])
-                @test with_type(daf["/ cell : value % Clamp max 0"]) == ([-1.7, 0.0], Float64)
-                @test with_type(daf["/ cell : value % Clamp min 0"]) == ([0.0, 2.3], Float64)
+                nested_test("float") do
+                    set_vector!(daf, "cell", "value", [-1.7, 2.3])
+                    @test with_type(daf["/ cell : value % Clamp max 0"]) == ([-1.7, 0.0], Float64)
+                    @test with_type(daf["/ cell : value % Clamp min 0"]) == ([0.0, 2.3], Float64)
+                end
+
+                nested_test("int") do
+                    set_vector!(daf, "cell", "value", [-1, 2])
+                    @test with_type(daf["/ cell : value % Clamp max 0"]) == ([-1, 0], Int64)
+                    @test with_type(daf["/ cell : value % Clamp min 0"]) == ([0, 2], Int64)
+                end
+
+                nested_test("mix") do
+                    set_vector!(daf, "cell", "value", [-1, 2])
+                    @test with_type(daf["/ cell : value % Clamp max 0.5"]) == ([-1.0, 0.5], Float64)
+                    @test with_type(daf["/ cell : value % Clamp min 0.5"]) == ([0.5, 2.0], Float64)
+                end
+
+                nested_test("dtype") do
+                    set_vector!(daf, "cell", "value", [-1, 2])
+                    @test with_type(daf["/ cell : value % Clamp dtype Float32 max 0"]) == ([-1, 0], Float32)
+                    @test with_type(daf["/ cell : value % Clamp dtype Float32 min 0"]) == ([0, 2], Float32)
+                end
             end
 
             nested_test("matrix") do
