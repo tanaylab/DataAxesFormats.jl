@@ -387,7 +387,7 @@
 <code>Base.copy
 </code>.
 </li>
-<li>Copying will preserve the layout of the data; that is, copying a 
+<li>Copying will preserve the layout of the data; for example, copying a 
 <code>Transpose
 </code> array is still a 
 <code>Transpose
@@ -400,6 +400,12 @@
 <code>relayout!
 </code>
 </a> the matrix, which is both expensive and confusing.
+</li>
+<li>Copying a sparse vector or matrix gives the same type of sparse array or matrix. Copying anything else gives a simple dense array regardless of the original type. This is done because a 
+<code>deepcopy
+</code> of 
+<code>PyArray
+</code> will still share the underlying buffer. Sigh.
 </li>
 </ul>
 </div>

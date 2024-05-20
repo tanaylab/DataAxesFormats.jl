@@ -1103,6 +1103,9 @@ function cache_data!(
     data::Union{AbstractStringSet, AbstractStringVector, StorageScalar, NamedArray},
     cache_type::CacheType,
 )::Nothing
+    if data isa AbstractArray
+        data = read_only_array(data)
+    end
     @debug "cache_data! daf: $(depict(format)) cache_key: $(cache_key) data: $(depict(data)) cache_type: $(cache_type)"
     with_write_lock(format.internal.cache_lock, format.name, "cache for:", cache_key) do  # NOJET
         @assert !haskey(format.internal.cache, cache_key)

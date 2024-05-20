@@ -774,20 +774,38 @@ function compute_eltwise(operation::Significant, input::StorageMatrix{T})::Stora
             end
         end
         dropzeros!(output)
+        return output
     else
         n_columns = size(output, 2)
+        is_dense_of_columns = zeros(Bool, n_columns)
         @threads for column_index in 1:n_columns
             column_vector = @view output[:, column_index]
             significant!(column_vector, operation.high, operation.low)
+            is_dense_of_columns[column_index] = all(column_vector .!= 0)
+        end
+        if all(is_dense_of_columns)
+            return output  # untested
+        else
+            return SparseMatrixCSC(output)
         end
     end
-    return output
 end
 
-function compute_eltwise(operation::Significant, input::StorageVector{T})::SparseVector{T} where {T <: StorageNumber}
+function compute_eltwise(operation::Significant, input::StorageVector{T})::StorageVector{T} where {T <: StorageNumber}
     output = copy_array(input)
-    significant!(output, operation.high, operation.low)
-    return output
+
+    if output isa SparseVector
+        significant!(output.nzval, operation.high, operation.low)
+        dropzeros!(output)
+        return output
+    else
+        significant!(output, operation.high, operation.low)
+        if any(output .== 0)
+            return SparseVector(output)
+        else
+            return output
+        end
+    end
 end
 
 function significant!(
