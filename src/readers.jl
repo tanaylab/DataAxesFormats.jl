@@ -548,6 +548,8 @@ function require_matrix(
     return nothing
 end
 
+struct RequiresRelayoutException <: Exception end
+
 struct UpgradeToWriteLockException <: Exception end
 
 """
@@ -587,6 +589,9 @@ function get_matrix(
         end
     catch exception
         if exception isa UpgradeToWriteLockException
+            if Formats.has_data_read_lock(daf)
+                throw(RequiresRelayoutException())
+            end
             return Formats.with_data_write_lock(daf, "get_matrix of:", name, "of:", rows_axis, "and:", columns_axis) do
                 return do_get_matrix(daf, rows_axis, columns_axis, name; default = default, relayout = relayout)
             end
@@ -922,23 +927,30 @@ function matrices_description(
     indent::AbstractString,
     lines::Vector{String},
 )::Nothing
-    is_first = true
+    is_first_matrix = true
     for rows_axis in axes
         for columns_axis in axes
             matrices = collect(Formats.get_matrices_set_through_cache(daf, rows_axis, columns_axis))
             if !isempty(matrices)
-                if is_first
-                    push!(lines, "$(indent)matrices:")
-                    is_first = false
-                end
                 sort!(matrices)
-                push!(lines, "$(indent)  $(rows_axis),$(columns_axis):")
+                is_first_axes = true
                 for matrix in matrices
-                    push!(
-                        lines,
-                        "$(indent)    $(matrix): " *
-                        depict(base_array(get_matrix(daf, rows_axis, columns_axis, matrix; relayout = false))),
-                    )
+                    try
+                        data = get_matrix(daf, rows_axis, columns_axis, matrix; relayout = false)
+                        if is_first_matrix
+                            push!(lines, "$(indent)matrices:")
+                            is_first_matrix = false
+                        end
+                        if is_first_axes
+                            push!(lines, "$(indent)  $(rows_axis),$(columns_axis):")
+                            is_first_axes = false
+                        end
+                        push!(lines, "$(indent)    $(matrix): " * depict(base_array(data)))
+                    catch exception
+                        if !(exception isa RequiresRelayoutException)
+                            rethrow()  # untested
+                        end
+                    end
                 end
             end
         end

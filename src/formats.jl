@@ -1051,8 +1051,8 @@ function with_data_read_lock(action::Function, format::FormatReader, what::Abstr
     end
 end
 
-function has_data_read_lock(format::FormatReader)::Bool
-    return has_read_lock(format.internal.data_lock)
+function has_data_read_lock(format::FormatReader; read_only::Bool = false)::Bool
+    return has_read_lock(format.internal.data_lock; read_only = read_only)
 end
 
 function begin_data_write_lock(format::FormatReader, what::AbstractString...)::Nothing

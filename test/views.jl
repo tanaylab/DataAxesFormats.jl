@@ -197,4 +197,36 @@ nested_test("views") do
             )
         end
     end
+
+    nested_test("requires_relayout") do
+        add_axis!(daf, "cell", ["A", "B"])
+        add_axis!(daf, "gene", ["X", "Y", "Z"])
+        set_vector!(daf, "cell", "batch", ["U", "V"])
+        set_vector!(daf, "cell", "age", [-1.0, 2.0])
+        set_matrix!(daf, "gene", "cell", "UMIs", [1 2; 3 4; 5 6]; relayout = false)
+        add_axis!(daf, "batch", ["U", "V", "W"])
+        set_vector!(daf, "batch", "sex", ["Male", "Female", "Male"])
+
+        view = viewer(
+            daf;
+            name = "view!",
+            axes = ["obs" => "/ cell", "var" => "/ gene"],
+            data = [ALL_SCALARS => nothing, ALL_VECTORS => "=", ("obs", "var", "X") => ": UMIs"],
+        )
+
+        @test description(view) == dedent("""
+            name: view!
+            type: View MemoryDaf
+            axes:
+              obs: 2 entries
+              var: 3 entries
+            vectors:
+              obs:
+                age: 2 x Float64 (Dense)
+                batch: 2 x String (Dense)
+            matrices:
+              var,obs:
+                X: 3 x 2 x Int64 in Columns (Dense)
+        """) * "\n"
+    end
 end
