@@ -9,6 +9,7 @@ using Daf.GenericTypes
 using ExceptionUnwrapping
 using HDF5
 using LinearAlgebra
+using Logging
 using Muon
 using NamedArrays
 using NestedTests
@@ -17,6 +18,8 @@ using Statistics
 using TestContexts
 
 import Random
+
+setup_logger(; level = Info)
 
 test_prefixes(ARGS)
 

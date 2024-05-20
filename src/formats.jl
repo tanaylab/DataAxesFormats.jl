@@ -42,20 +42,18 @@ export MappedData
 export MemoryData
 export QueryData
 export empty_cache!
-export end_write_lock
+export end_data_write_lock
 
+using ..GenericLocks
 using ..GenericTypes
 using ..MatrixLayouts
 using ..Messages
 using ..StorageTypes
 using ..Tokens
 using Base.Threads
-using ConcurrentUtils
 using NamedArrays
 using OrderedCollections
 using SparseArrays
-
-struct UpgradeToWriteLockException <: Exception end
 
 """
 A key specifying some data property in `Daf`.
@@ -82,9 +80,9 @@ Types of cached data inside `Daf`.
     isn't, the performance will drop (a lot!) because the OS will be continuously reading data pages from disk - but it
     will not crash due to an out of memory error. It is very important not to re-map the same data twice because that
     causes all sort of inefficiencies and edge cases in the hardware and low-level software.
-  - `MemoryData` - disk data copied to application memory, or alternative layout of data matrices. This does pressure
-    the garbage collector and can cause out of memory errors. However, re-fetching the data from disk is very slow,
-    so caching this data is crucial for performance.
+  - `MemoryData` - a copy of data (from disk, or computed). This does pressure the garbage collector and can cause out
+    of memory errors. However, recomputing or re-fetching the data from disk is slow, so caching this data is crucial
+    for performance.
   - `QueryData` - data that is computed by queries based on stored data (e.g., masked data, or results of a reduction
     or an element-wise operation). This again takes up application memory and may cause out of memory errors, but it is
     very useful to cache the results when the same query is executed multiple times (e.g., when using views). Manually
@@ -125,9 +123,8 @@ struct Internal
     cache::Dict{AbstractString, CacheEntry}
     dependency_cache_keys::Dict{AbstractString, Set{AbstractString}}
     version_counters::Dict{DataKey, UInt32}
-    lock::ReadWriteLock
-    writer_thread::Vector{WriterThread}
-    thread_has_read_lock::Vector{Bool}
+    cache_lock::QueryReadWriteLock
+    data_lock::QueryReadWriteLock
     is_frozen::Bool
 end
 
@@ -137,9 +134,8 @@ function Internal(name::AbstractString; is_frozen::Bool)::Internal
         Dict{AbstractString, CacheEntry}(),
         Dict{AbstractString, Set{AbstractString}}(),
         Dict{DataKey, UInt32}(),
-        ReadWriteLock(),
-        [WriterThread(0, 0)],
-        fill(false, nthreads()),
+        QueryReadWriteLock(),
+        QueryReadWriteLock(),
         is_frozen,
     )
 end
@@ -150,9 +146,8 @@ function renamed_internal(internal::Internal, name::AbstractString)::Internal
         internal.cache,
         internal.dependency_cache_keys,
         internal.version_counters,
-        internal.lock,
-        internal.writer_thread,
-        internal.thread_has_read_lock,
+        internal.cache_lock,
+        internal.data_lock,
         internal.is_frozen,
     )
 end
@@ -659,11 +654,14 @@ function format_description_footer(::FormatReader, ::AbstractString, ::Vector{St
 end
 
 function get_from_cache(format::FormatReader, cache_key::AbstractString, ::Type{T})::Maybe{T} where {T}
-    result = get(format.internal.cache, cache_key, nothing)
-    if result === nothing
-        return nothing
-    else
-        return result.data
+    @assert has_data_read_lock(format)
+    with_read_lock(format.internal.cache_lock, format.name, "cache for:", cache_key) do  # NOJET
+        result = get(format.internal.cache, cache_key, nothing)
+        if result === nothing
+            return nothing
+        else
+            return result.data
+        end
     end
 end
 
@@ -716,12 +714,27 @@ function axis_array_through_cache(format::FormatReader, axis::AbstractString)::A
     end
 end
 
-function axis_dict_through_cache(format::FormatReader, axis::AbstractString)::AbstractDict{<:AbstractString, <:Integer}
-    return get_through_cache(format, axis_dict_cache_key(axis), AbstractDict{<:AbstractString, <:Integer}) do
-        names = as_read_only_array(Formats.axis_array_through_cache(format, axis))
-        named_array = NamedArray(spzeros(length(names)); names = (names,), dimnames = (axis,))
-        return named_array.dicts[1]
+function axis_dict_with_cache(format::FormatReader, axis::AbstractString)::AbstractDict{<:AbstractString, <:Integer}
+    cache_key = axis_dict_cache_key(axis)
+
+    axis_dict = with_read_lock(format.internal.cache_lock, format.name, "cache for:", cache_key) do
+        cache_entry = get(format.internal.cache, cache_key, nothing)
+        if cache_entry !== nothing
+            return cache_entry.data
+        end
     end
+
+    if axis_dict === nothing
+        axis_dict = with_write_lock(format.internal.cache_lock, format.name, "cache for:", cache_key) do
+            names = as_read_only_array(axis_array_through_cache(format, axis))
+            named_array = NamedArray(spzeros(length(names)); names = (names,), dimnames = (axis,))
+            axis_dict = named_array.dicts[1]
+            format.internal.cache[cache_key] = CacheEntry(MemoryData, axis_dict)
+            return axis_dict
+        end
+    end
+
+    return axis_dict
 end
 
 function get_vector_through_cache(format::FormatReader, axis::AbstractString, name::AbstractString)::NamedArray
@@ -804,8 +817,10 @@ function cache_vector!(
 )::Nothing
     cache_key = vector_cache_key(axis, name)
     named_vector = as_named_vector(format, axis, vector)
-    cache_data!(format, cache_key, named_vector, cache_type)
-    store_cached_dependency_key!(format, cache_key, axis_array_cache_key(axis))
+    with_write_lock(format.internal.cache_lock, format.name, "cache for:", cache_key) do
+        cache_data!(format, cache_key, named_vector, cache_type)
+        return store_cached_dependency_key!(format, cache_key, axis_array_cache_key(axis))
+    end
     return nothing
 end
 
@@ -819,9 +834,11 @@ function cache_matrix!(
 )::Nothing
     cache_key = matrix_cache_key(rows_axis, columns_axis, name)
     named_matrix = as_named_matrix(format, rows_axis, columns_axis, matrix)
-    cache_data!(format, cache_key, named_matrix, cache_type)
-    store_cached_dependency_key!(format, cache_key, axis_array_cache_key(rows_axis))
-    store_cached_dependency_key!(format, cache_key, axis_array_cache_key(columns_axis))
+    with_write_lock(format.internal.cache_lock, format.name, "cache for:", cache_key) do
+        cache_data!(format, cache_key, named_matrix, cache_type)
+        store_cached_dependency_key!(format, cache_key, axis_array_cache_key(rows_axis))
+        return store_cached_dependency_key!(format, cache_key, axis_array_cache_key(columns_axis))
+    end
     return nothing
 end
 
@@ -830,7 +847,7 @@ function as_named_vector(::FormatReader, ::AbstractString, vector::NamedVector):
 end
 
 function as_named_vector(format::FormatReader, axis::AbstractString, vector::AbstractVector)::NamedArray
-    axis_dict = axis_dict_through_cache(format, axis)
+    axis_dict = axis_dict_with_cache(format, axis)
     return NamedArray(vector, (axis_dict,), (axis,))
 end
 
@@ -844,8 +861,8 @@ function as_named_matrix(
     columns_axis::AbstractString,
     matrix::AbstractMatrix,
 )::NamedArray
-    rows_axis_dict = axis_dict_through_cache(format, rows_axis)
-    columns_axis_dict = axis_dict_through_cache(format, columns_axis)
+    rows_axis_dict = axis_dict_with_cache(format, rows_axis)
+    columns_axis_dict = axis_dict_with_cache(format, columns_axis)
     return NamedArray(matrix, (rows_axis_dict, columns_axis_dict), (rows_axis, columns_axis))
 end
 
@@ -855,7 +872,7 @@ end
 
 function as_read_only_array(array::NamedArray)::NamedArray
     if array.array isa SparseArrays.ReadOnly
-        return array  # untested
+        return array
     else
         return NamedArray(as_read_only_array(array.array), array.dicts, array.dimnames)
     end
@@ -910,9 +927,11 @@ function store_cached_dependency_keys!(
     cache_key::AbstractString,
     dependency_keys::Set{AbstractString},
 )::Nothing
-    for dependency_key in dependency_keys
-        if cache_key != dependency_key
-            store_cached_dependency_key!(format, cache_key, dependency_key)
+    with_write_lock(format.internal.cache_lock, format.name, "cache for dependency keys of:", cache_key) do
+        for dependency_key in dependency_keys
+            if cache_key != dependency_key
+                store_cached_dependency_key!(format, cache_key, dependency_key)
+            end
         end
     end
     return nothing
@@ -923,26 +942,35 @@ function store_cached_dependency_key!(
     cache_key::AbstractString,
     dependency_key::AbstractString,
 )::Nothing
-    @assert has_write_lock(format)
-    keys_set = get!(format.internal.dependency_cache_keys, dependency_key) do
-        return Set{AbstractString}()
+    with_write_lock(  # NOJET
+        format.internal.cache_lock,
+        format.name,
+        "cache for dependency key:",
+        dependency_key,
+        "of:",
+        cache_key,
+    ) do
+        keys_set = get!(format.internal.dependency_cache_keys, dependency_key) do
+            return Set{AbstractString}()
+        end
+        @assert cache_key != dependency_key
+        return push!(keys_set, cache_key)
     end
-    @assert cache_key != dependency_key
-    push!(keys_set, cache_key)
     return nothing
 end
 
 function invalidate_cached!(format::FormatReader, cache_key::AbstractString)::Nothing
     @debug "invalidate_cached! daf: $(depict(format)) cache_key: $(cache_key)"
     @debug "- delete cache_key: $(cache_key)"
-    @assert has_write_lock(format)
-    delete!(format.internal.cache, cache_key)
+    with_write_lock(format.internal.cache_lock, format.name, "cache for invalidate key:", cache_key) do
+        delete!(format.internal.cache, cache_key)
 
-    dependent_keys = pop!(format.internal.dependency_cache_keys, cache_key, nothing)
-    if dependent_keys !== nothing
-        for dependent_key in dependent_keys
-            @debug "- delete dependent_key: $(dependent_key)"
-            delete!(format.internal.cache, dependent_key)
+        dependent_keys = pop!(format.internal.dependency_cache_keys, cache_key, nothing)
+        if dependent_keys !== nothing
+            for dependent_key in dependent_keys
+                @debug "- delete dependent_key: $(dependent_key)"
+                delete!(format.internal.cache, dependent_key)
+            end
         end
     end
 
@@ -981,155 +1009,68 @@ function parse_mode(mode::AbstractString)::Tuple{Bool, Bool, Bool}
     end
 end
 
-function with_write_lock(action::Function, format::FormatReader, what_for::AbstractString)::Any
-    if has_write_lock(format)
-        return action()
-    end
-
-    @assert !has_read_lock(format)
-    @debug "$(what_for) WLOCK $(format.name) $(objectid(format.internal.lock))"
-    lock(format.internal.lock)
-    @debug "$(what_for) WLOCKED $(format.name) $(objectid(format.internal.lock)) {{{"
-    @assert format.internal.writer_thread[1].thread_id == 0
-    @assert format.internal.writer_thread[1].depth == 0
-    thread_id = threadid()
-    try
-        format.internal.writer_thread[1].thread_id = thread_id
-        format.internal.writer_thread[1].depth = 1
-        return action()
-    finally
-        @assert threadid() == thread_id
-        end_write_lock(format, what_for, true)
-    end
-end
-
-# For avoiding callbacks when calling Julia from another language.
-function begin_write_lock(action::Function, format::FormatReader, what_for::AbstractString)::Any
-    @assert !has_read_lock(format)
-    @debug "$(what_for) WLOCK $(format.name) $(objectid(format.internal.lock))"
-    lock(format.internal.lock)
-    @debug "$(what_for) WLOCKED $(format.name) $(objectid(format.internal.lock)) {{{"
-    @assert format.internal.writer_thread[1].thread_id == 0
-    @assert format.internal.writer_thread[1].depth == 0
-    thread_id = threadid()
-    try
-        format.internal.writer_thread[1].thread_id = thread_id
-        format.internal.writer_thread[1].depth = 1
-        return action()
-    catch
-        @assert threadid() == thread_id
-        end_write_lock(format, what_for, true)
-        rethrow()
-    end
-end
-
-# For avoiding callbacks when calling Julia from another language.
-function end_write_lock(format::FormatReader, what_for::AbstractString, for_with::Bool = false)::Nothing  # NOLINT
-    @assert has_write_lock(format)
-    format.internal.writer_thread[1].depth -= 1
-    if format.internal.writer_thread[1].depth == 0
-        format.internal.writer_thread[1].thread_id = 0
-        @debug "$(what_for) WUNLOCK $(format.name) $(objectid(format.internal.lock))"
-        unlock(format.internal.lock)
-        @debug "$(what_for) WUNLOCKED $(format.name) $(objectid(format.internal.lock)) }}}"
-    end
+function begin_data_read_lock(format::FormatReader, what::AbstractString...)::Nothing
+    read_lock(format.internal.data_lock, format.name, "data for", what...)  # NOJET
     return nothing
 end
 
-function with_read_lock(action::Function, format::FormatReader, what_for::AbstractString)::Any
-    if has_read_lock(format)
-        return action()
-    end
+function end_data_read_lock(format::FormatReader, what::AbstractString...)::Nothing
+    read_unlock(format.internal.data_lock, format.name, "data for", what...)  # NOJET
+    return nothing
+end
 
-    @debug "$(what_for) RLOCK $(format.name) $(objectid(format.internal.lock))"
-    lock_read(format.internal.lock)
-    @debug "$(what_for) RLOCKED $(format.name) $(objectid(format.internal.lock)) {{{"
-    thread_id = threadid()
+function with_data_read_lock(action::Function, format::FormatReader, what::AbstractString...)::Any
+    begin_data_read_lock(format, what...)
     try
-        format.internal.thread_has_read_lock[thread_id] = true
         return action()
-
-    catch exception
-        @assert threadid() == thread_id
-        if exception isa UpgradeToWriteLockException
-            @assert has_read_lock(format)
-            format.internal.thread_has_read_lock[thread_id] = false
-            @debug "$(what_for).upgrade_to_write_lock RUNLOCK $(format.name) $(objectid(format.internal.lock))"
-            unlock_read(format.internal.lock)
-            @debug "$(what_for).upgrade_to_write_lock RUNLOCKED $(format.name) $(objectid(format.internal.lock)) }}}"
-            @debug "$(what_for).upgrade_to_write_lock WLOCK $(format.name) $(objectid(format.internal.lock))"
-            lock(format.internal.lock)
-            @debug "$(what_for).upgrade_to_write_lock WLOCKED $(format.name) $(objectid(format.internal.lock)) {{{"
-            @assert format.internal.writer_thread[1].thread_id == 0
-            @assert format.internal.writer_thread[1].depth == 0
-            format.internal.writer_thread[1].thread_id = thread_id
-            format.internal.writer_thread[1].depth = 1
-            return action()
-        else
-            rethrow(exception)
-        end
-
     finally
-        @assert threadid() == thread_id
-        if has_write_lock(format)
-            @assert format.internal.writer_thread[1].depth == 1
-            format.internal.writer_thread[1].thread_id = 0
-            format.internal.writer_thread[1].depth = 0
-            @debug "$(what_for) WUNLOCK $(format.name) $(objectid(format.internal.lock))"
-            unlock(format.internal.lock)
-            @debug "$(what_for) WUNLOCKED $(format.name) $(objectid(format.internal.lock)) }}}"
-        else
-            @assert has_read_lock(format)
-            format.internal.thread_has_read_lock[thread_id] = false
-            @debug "$(what_for) RUNLOCK $(format.name) $(objectid(format.internal.lock))"
-            unlock_read(format.internal.lock)
-            @debug "$(what_for) RUNLOCKED $(format.name) $(objectid(format.internal.lock)) }}}"
-        end
+        end_data_read_lock(format, what...)
     end
 end
 
-function upgrade_to_write_lock(format::FormatReader)::Nothing
-    if has_write_lock(format)
-        return nothing
-    else
-        @assert has_read_lock(format)
-        throw(UpgradeToWriteLockException())
+function has_data_read_lock(format::FormatReader)::Bool
+    return has_read_lock(format.internal.data_lock)
+end
+
+function begin_data_write_lock(format::FormatReader, what::AbstractString...)::Nothing
+    write_lock(format.internal.data_lock, format.name, "data for", what...)
+    return nothing
+end
+
+function end_data_write_lock(format::FormatReader, what::AbstractString...)::Nothing
+    write_unlock(format.internal.data_lock, format.name, "data for", what...)
+    return nothing
+end
+
+function with_data_write_lock(action::Function, format::FormatReader, what::AbstractString...)::Any
+    begin_data_write_lock(format, what...)
+    try
+        return action()
+    finally
+        end_data_write_lock(format, what...)
     end
 end
 
-function has_write_lock(format::FormatReader)::Bool
-    thread_id = threadid()
-    if format.internal.writer_thread[1].thread_id == thread_id
-        @assert format.internal.writer_thread[1].depth > 0
-        @assert !any(format.internal.thread_has_read_lock)
-        return true
-    else
-        return false
-    end
-end
-
-function has_read_lock(format::FormatReader)::Bool
-    thread_id = threadid()
-    if format.internal.thread_has_read_lock[thread_id]
-        @assert format.internal.writer_thread[1].thread_id == 0
-        @assert format.internal.writer_thread[1].depth == 0
-        return true
-    elseif format.internal.writer_thread[1].thread_id == thread_id
-        @assert format.internal.writer_thread[1].depth > 0
-        @assert !format.internal.thread_has_read_lock[thread_id]
-        return true
-    else
-        return false
-    end
+function has_data_write_lock(format::FormatReader)::Bool
+    return has_write_lock(format.internal.data_lock)
 end
 
 function format_get_version_counter(format::FormatReader, version_key::DataKey)::UInt32
-    return get(format.internal.version_counters, version_key, UInt32(0))
+    return with_read_lock(
+        format.internal.cache_lock,
+        format.name,
+        "cache for version counter of:",
+        string(version_key),
+    ) do
+        return get(format.internal.version_counters, version_key, UInt32(0))
+    end
 end
 
 function format_increment_version_counter(format::FormatWriter, version_key::DataKey)::Nothing
-    previous_version_counter = format_get_version_counter(format, version_key)
-    format.internal.version_counters[version_key] = previous_version_counter + 1
+    with_write_lock(format.internal.cache_lock, format.name, "cache for version counter of:", string(version_key)) do
+        previous_version_counter = format_get_version_counter(format, version_key)
+        return format.internal.version_counters[version_key] = previous_version_counter + 1
+    end
     return nothing
 end
 
@@ -1140,15 +1081,16 @@ function cache_data!(
     cache_type::CacheType,
 )::Nothing
     @debug "cache_data! daf: $(depict(format)) cache_key: $(cache_key) data: $(depict(data)) cache_type: $(cache_type)"
-    @assert has_write_lock(format)
-    @assert !haskey(format.internal.cache, cache_key)
-    format.internal.cache[cache_key] = CacheEntry(cache_type, data)
+    with_write_lock(format.internal.cache_lock, format.name, "cache for:", cache_key) do  # NOJET
+        @assert !haskey(format.internal.cache, cache_key)
+        return format.internal.cache[cache_key] = CacheEntry(cache_type, data)
+    end
     return nothing
 end
 
 """
     empty_cache!(
-        daf::FormatReader;
+        daf::DafReader;
         [clear::Maybe{CacheType} = nothing,
         keep::Maybe{CacheType} = nothing]
     )::Nothing
@@ -1158,7 +1100,7 @@ specific [`CacheType`](@ref) (e.g., for clearing only `QueryData`), or `keep`, t
 [`CacheType`](@ref) (e.g., for keeping only `MappedData`). You can't specify both `clear` and `keep`.
 """
 function empty_cache!(daf::DafReader; clear::Maybe{CacheType} = nothing, keep::Maybe{CacheType} = nothing)::Nothing
-    return with_write_lock(daf, "empty_cache!") do
+    with_write_lock(daf.internal.cache_lock, daf.name, "empty_cache!") do
         @debug "empty_cache! daf: $(depict(daf)) clear: $(clear) keep: $(keep)"
         @assert clear === nothing || keep === nothing
         if clear === nothing && keep === nothing
@@ -1183,9 +1125,8 @@ function empty_cache!(daf::DafReader; clear::Maybe{CacheType} = nothing, keep::M
                 return !isempty(dependent_keys)
             end
         end
-
-        return nothing
     end
+    return nothing
 end
 
 end # module

@@ -11,7 +11,7 @@ memory-mapped region to another.
 module Concat
 
 export CollectAxis
-export concatenate
+export concatenate!
 export LastValue
 export MergeAction
 export MergeData
@@ -73,7 +73,7 @@ of other axes). Valid values are:
 @enum MergeAction SkipProperty LastValue CollectAxis
 
 """
-    concatenate(
+    concatenate!(
         destination::DafWriter,
         axis::Union{AbstractString, AbstractStringVector},
         sources::AbstractVector{<:DafReader};
@@ -134,7 +134,7 @@ then such properties will be processed according to it. Using `CollectAxis` for 
 
 By default, concatenation will fail rather than `overwrite` existing properties in the target.
 """
-@logged function concatenate(
+@logged function concatenate!(
     destination::DafWriter,
     axis::Union{AbstractString, AbstractStringVector},
     sources::AbstractVector{<:DafReader};
@@ -148,140 +148,153 @@ By default, concatenation will fail rather than `overwrite` existing properties 
     merge::Maybe{MergeData} = nothing,
     overwrite::Bool = false,
 )::Nothing
-    if axis isa AbstractString
-        axes = [axis]
-    else
-        axes = axis
+    for source in sources
+        Formats.begin_data_read_lock(source, "concatenate! of source:", source.name)
     end
+    Formats.begin_data_write_lock(destination, "concatenate! of destination:", destination.name)
 
-    @assert length(axes) > 0
-    @assert allunique(axes)
-
-    for axis in axes
-        require_no_axis(destination, axis)
-        for source in sources
-            require_axis(source, axis)
+    try
+        if axis isa AbstractString
+            axes = [axis]
+        else
+            axes = axis
         end
-    end
 
-    for rows_axis in axes
-        for columns_axis in axes
+        @assert length(axes) > 0
+        @assert allunique(axes)
+
+        for axis in axes
+            require_no_axis(destination, axis)
             for source in sources
-                invalid_matrices_set = matrices_set(source, rows_axis, columns_axis; relayout = false)
-                for invalid_matrix_name in invalid_matrices_set
-                    error(
-                        "can't concatenate the matrix: $(invalid_matrix_name)\n" *
-                        "for the concatenated rows axis: $(rows_axis)\n" *
-                        "and the concatenated columns axis: $(columns_axis)\n" *
-                        "in the daf data: $(source.name)\n" *
-                        "concatenated into the daf data: $(destination.name)",
-                    )
-                end
+                require_axis(source, axis)
             end
         end
-    end
 
-    @assert length(sources) > 0
-
-    if names === nothing
-        names = [source.name for source in sources]
-    end
-    @assert length(names) == length(sources)
-    @assert allunique(names)
-
-    if dataset_axis !== nothing
-        @assert !(dataset_axis in axes)
-        require_no_axis(destination, dataset_axis)
-        for source in sources
-            require_no_axis(source, dataset_axis)
-        end
-    end
-
-    if prefix isa AbstractVector
-        prefixes = prefix
-    else
-        prefixes = fill(prefix, length(axes))
-    end
-    @assert length(prefixes) == length(axes)
-
-    if prefixed isa AbstractStringSet
-        prefixed = [prefixed]
-    end
-    @assert prefixed === nothing || length(prefixed) == length(axes)
-
-    @assert empty === nothing || !(CollectAxis in values(empty)) || dataset_axis !== nothing
-
-    axes_names_set = Set(axes)
-    other_axes_entry_names = Dict{AbstractString, Tuple{AbstractString, AbstractStringVector}}()
-    for source in sources
-        for axis_name in axes_set(source)
-            if !(axis_name in axes_names_set)
-                other_axis_entry_names = axis_array(source, axis_name)
-                previous_axis_data = get(other_axes_entry_names, axis_name, nothing)
-                if previous_axis_data === nothing
-                    other_axes_entry_names[axis_name] = (source.name, other_axis_entry_names)
-                else
-                    (previous_source_name, previous_axis_entry_names) = previous_axis_data
-                    if other_axis_entry_names != previous_axis_entry_names
+        for rows_axis in axes
+            for columns_axis in axes
+                for source in sources
+                    invalid_matrices_set = matrices_set(source, rows_axis, columns_axis; relayout = false)
+                    for invalid_matrix_name in invalid_matrices_set
                         error(
-                            "different entries for the axis: $(axis_name)\n" *
-                            "between the daf data: $(previous_source_name)\n" *
-                            "and the daf data: $(source.name)\n" *
+                            "can't concatenate the matrix: $(invalid_matrix_name)\n" *
+                            "for the concatenated rows axis: $(rows_axis)\n" *
+                            "and the concatenated columns axis: $(columns_axis)\n" *
+                            "in the daf data: $(source.name)\n" *
                             "concatenated into the daf data: $(destination.name)",
                         )
                     end
                 end
             end
         end
-    end
-    other_axes_set = keys(other_axes_entry_names)
 
-    if dataset_axis !== nothing
-        add_axis!(destination, dataset_axis, names)
-    end
+        @assert length(sources) > 0
 
-    for (other_axis, other_axis_entry_names) in other_axes_entry_names
-        add_axis!(destination, other_axis, other_axis_entry_names[2])
-    end
-
-    for (axis_index, (axis, prefix)) in enumerate(zip(axes, prefixes))
-        if prefixed === nothing
-            axis_prefixed = nothing
-        else
-            axis_prefixed = prefixed[axis_index]
+        if names === nothing
+            names = [source.name for source in sources]
         end
-        concatenate_axis(
-            destination,
-            axis,
-            sources;
-            axes = axes,
-            other_axes_set = other_axes_set,
-            names = names,
-            dataset_axis = dataset_axis,
-            dataset_property = dataset_property,
-            prefix,
-            prefixes = prefixes,
-            prefixed = axis_prefixed,
-            empty = empty,
-            sparse_if_saves_storage_fraction = sparse_if_saves_storage_fraction,
-            overwrite = overwrite,
-        )
-    end
+        @assert length(names) == length(sources)
+        @assert allunique(names)
 
-    if merge !== nothing
-        concatenate_merge(
-            destination,
-            sources;
-            dataset_axis = dataset_axis,
-            other_axes_set = other_axes_set,
-            empty = empty,
-            merge = merge,
-            sparse_if_saves_storage_fraction = sparse_if_saves_storage_fraction,
-            overwrite = overwrite,
-        )
-    end
+        if dataset_axis !== nothing
+            @assert !(dataset_axis in axes)
+            require_no_axis(destination, dataset_axis)
+            for source in sources
+                require_no_axis(source, dataset_axis)
+            end
+        end
 
-    return nothing
+        if prefix isa AbstractVector
+            prefixes = prefix
+        else
+            prefixes = fill(prefix, length(axes))
+        end
+        @assert length(prefixes) == length(axes)
+
+        if prefixed isa AbstractStringSet
+            prefixed = [prefixed]
+        end
+        @assert prefixed === nothing || length(prefixed) == length(axes)
+
+        @assert empty === nothing || !(CollectAxis in values(empty)) || dataset_axis !== nothing
+
+        axes_names_set = Set(axes)
+        other_axes_entry_names = Dict{AbstractString, Tuple{AbstractString, AbstractStringVector}}()
+        for source in sources
+            for axis_name in axes_set(source)
+                if !(axis_name in axes_names_set)
+                    other_axis_entry_names = axis_array(source, axis_name)
+                    previous_axis_data = get(other_axes_entry_names, axis_name, nothing)
+                    if previous_axis_data === nothing
+                        other_axes_entry_names[axis_name] = (source.name, other_axis_entry_names)
+                    else
+                        (previous_source_name, previous_axis_entry_names) = previous_axis_data
+                        if other_axis_entry_names != previous_axis_entry_names
+                            error(
+                                "different entries for the axis: $(axis_name)\n" *
+                                "between the daf data: $(previous_source_name)\n" *
+                                "and the daf data: $(source.name)\n" *
+                                "concatenated into the daf data: $(destination.name)",
+                            )
+                        end
+                    end
+                end
+            end
+        end
+        other_axes_set = keys(other_axes_entry_names)
+
+        if dataset_axis !== nothing
+            add_axis!(destination, dataset_axis, names)
+        end
+
+        for (other_axis, other_axis_entry_names) in other_axes_entry_names
+            add_axis!(destination, other_axis, other_axis_entry_names[2])
+        end
+
+        for (axis_index, (axis, prefix)) in enumerate(zip(axes, prefixes))
+            if prefixed === nothing
+                axis_prefixed = nothing
+            else
+                axis_prefixed = prefixed[axis_index]
+            end
+            concatenate_axis(
+                destination,
+                axis,
+                sources;
+                axes = axes,
+                other_axes_set = other_axes_set,
+                names = names,
+                dataset_axis = dataset_axis,
+                dataset_property = dataset_property,
+                prefix,
+                prefixes = prefixes,
+                prefixed = axis_prefixed,
+                empty = empty,
+                sparse_if_saves_storage_fraction = sparse_if_saves_storage_fraction,
+                overwrite = overwrite,
+            )
+        end
+
+        if merge !== nothing
+            concatenate_merge(
+                destination,
+                sources;
+                dataset_axis = dataset_axis,
+                other_axes_set = other_axes_set,
+                empty = empty,
+                merge = merge,
+                sparse_if_saves_storage_fraction = sparse_if_saves_storage_fraction,
+                overwrite = overwrite,
+            )
+        end
+
+        return nothing
+
+    finally
+        Formats.end_data_write_lock(destination, "concatenate! of destination:", destination.name)
+        for source in reverse(sources)
+            Formats.end_data_read_lock(source, "concatenate! of source:", source.name)
+        end
+    end
 end
 
 function concatenate_axis(

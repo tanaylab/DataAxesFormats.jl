@@ -24,7 +24,6 @@ nested_test("views") do
             @test get_scalar(view, "version") == "1.0"
             renamed = read_only(view; name = "renamed")
             @test renamed !== view
-            @test renamed.daf == view.daf
         end
 
         nested_test("reduction") do

@@ -47,6 +47,7 @@ using Reexport
 
 include("generic_types.jl")
 include("generic_functions.jl")
+include("generic_locks.jl")
 
 include("matrix_layouts.jl")
 @reexport using .MatrixLayouts

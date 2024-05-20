@@ -12,7 +12,7 @@ nested_test("concat") do
             and the concatenated columns axis: cell
             in the daf data: source.1!
             concatenated into the daf data: destination!
-        """) concatenate(destination, "cell", sources)
+        """) concatenate!(destination, "cell", sources)
     end
 
     nested_test("!entries") do
@@ -23,12 +23,12 @@ nested_test("concat") do
             between the daf data: source.1!
             and the daf data: source.2!
             concatenated into the daf data: destination!
-        """) concatenate(destination, "cell", sources)
+        """) concatenate!(destination, "cell", sources)
     end
 
     nested_test("concatenate") do
         nested_test("empty") do
-            concatenate(destination, "cell", sources)
+            concatenate!(destination, "cell", sources)
             @test axis_array(destination, "cell") == ["A", "B", "C", "D", "E"]
             @test axis_array(destination, "dataset") == ["source.1!", "source.2!"]
             @test get_vector(destination, "cell", "dataset") ==
@@ -36,14 +36,14 @@ nested_test("concat") do
         end
 
         nested_test("!dataset_axis") do
-            concatenate(destination, "cell", sources; dataset_axis = nothing)
+            concatenate!(destination, "cell", sources; dataset_axis = nothing)
             @test axis_array(destination, "cell") == ["A", "B", "C", "D", "E"]
             @test !has_axis(destination, "dataset")
             @test !has_vector(destination, "cell", "dataset")
         end
 
         nested_test("!dataset_property") do
-            concatenate(destination, "cell", sources; dataset_property = false)
+            concatenate!(destination, "cell", sources; dataset_property = false)
             @test axis_array(destination, "cell") == ["A", "B", "C", "D", "E"]
             @test axis_array(destination, "dataset") == ["source.1!", "source.2!"]
             @test !has_vector(destination, "cell", "dataset")
@@ -53,21 +53,21 @@ nested_test("concat") do
             nested_test("!string") do
                 set_vector!(sources[1], "cell", "age", [1, 2])
                 set_vector!(sources[2], "cell", "age", [3, 4, 5])
-                concatenate(destination, "cell", sources)
+                concatenate!(destination, "cell", sources)
                 @test get_vector(destination, "cell", "age") == [1, 2, 3, 4, 5]
             end
 
             nested_test("string") do
                 set_vector!(sources[1], "cell", "color", ["red", "green"])
                 set_vector!(sources[2], "cell", "color", ["blue", "red", "yellow"])
-                concatenate(destination, "cell", sources)
+                concatenate!(destination, "cell", sources)
                 @test get_vector(destination, "cell", "color") == ["red", "green", "blue", "red", "yellow"]
             end
 
             nested_test("string!") do
                 set_vector!(sources[1], "cell", "color", [1, 2])
                 set_vector!(sources[2], "cell", "color", ["blue", "red", "yellow"])
-                concatenate(destination, "cell", sources)
+                concatenate!(destination, "cell", sources)
                 @test get_vector(destination, "cell", "color") == ["1", "2", "blue", "red", "yellow"]
             end
 
@@ -78,12 +78,12 @@ nested_test("concat") do
                         of the axis: cell
                         which is missing from the daf data: source.2!
                         concatenated into the daf data: destination!
-                """) concatenate(destination, "cell", sources)
+                """) concatenate!(destination, "cell", sources)
             end
 
             nested_test("empty") do
                 set_vector!(sources[1], "cell", "color", ["red", "green"])
-                concatenate(destination, "cell", sources; empty = Dict(("cell", "color") => "black"))
+                concatenate!(destination, "cell", sources; empty = Dict(("cell", "color") => "black"))
                 @test get_vector(destination, "cell", "color") == ["red", "green", "black", "black", "black"]
             end
         end
@@ -93,7 +93,7 @@ nested_test("concat") do
             add_axis!(sources[2], "gene", ["X", "Y"])
             set_matrix!(sources[1], "cell", "gene", "UMIs", [1 2; 3 4])
             set_matrix!(sources[2], "cell", "gene", "UMIs", [5 6; 7 8; 9 10])
-            concatenate(destination, "cell", sources)
+            concatenate!(destination, "cell", sources)
             @test get_matrix(destination, "cell", "gene", "UMIs") == [1 2; 3 4; 5 6; 7 8; 9 10]
         end
     end
@@ -110,11 +110,11 @@ nested_test("concat") do
             @test_throws dedent("""
                 non-unique entries for new axis: metacell
                 in the daf data: destination!
-            """) concatenate(destination, ["cell", "metacell"], sources)
+            """) concatenate!(destination, ["cell", "metacell"], sources)
         end
 
         nested_test("true") do
-            concatenate(destination, ["cell", "metacell"], sources; prefix = [false, true])
+            concatenate!(destination, ["cell", "metacell"], sources; prefix = [false, true])
             @test axis_array(destination, "cell") == ["A", "B", "C", "D", "E"]
             @test axis_array(destination, "metacell") == ["source.1!.M1", "source.2!.M1", "source.2!.M2"]
             @test axis_array(destination, "dataset") == ["source.1!", "source.2!"]
@@ -127,7 +127,7 @@ nested_test("concat") do
         end
 
         nested_test("names") do
-            concatenate(destination, ["cell", "metacell"], sources; prefix = [false, true], names = ["D1", "D2"])
+            concatenate!(destination, ["cell", "metacell"], sources; prefix = [false, true], names = ["D1", "D2"])
             @test axis_array(destination, "cell") == ["A", "B", "C", "D", "E"]
             @test axis_array(destination, "metacell") == ["D1.M1", "D2.M1", "D2.M2"]
             @test axis_array(destination, "dataset") == ["D1", "D2"]
@@ -138,7 +138,7 @@ nested_test("concat") do
         end
 
         nested_test("prefixes") do
-            concatenate(
+            concatenate!(
                 destination,
                 ["cell", "metacell"],
                 sources;
@@ -163,7 +163,7 @@ nested_test("concat") do
             nested_test("dense") do
                 set_vector!(sources[1], "cell", "age", sparse_vector([1, 2]))
                 set_vector!(sources[2], "cell", "age", sparse_vector([3, 4, 5]))
-                concatenate(destination, "cell", sources)
+                concatenate!(destination, "cell", sources)
                 @test get_vector(destination, "cell", "age") == [1, 2, 3, 4, 5]
                 @test !(get_vector(destination, "cell", "age").array isa SparseVector)
             end
@@ -171,7 +171,7 @@ nested_test("concat") do
             nested_test("sparse") do
                 set_vector!(sources[1], "cell", "age", sparse_vector([1, 0]))
                 set_vector!(sources[2], "cell", "age", sparse_vector([0, 0, 2]))
-                concatenate(destination, "cell", sources)
+                concatenate!(destination, "cell", sources)
                 @test get_vector(destination, "cell", "age") == [1, 0, 0, 0, 2]
                 @test get_vector(destination, "cell", "age").array isa SparseVector
             end
@@ -183,7 +183,7 @@ nested_test("concat") do
                         of the axis: cell
                         which is missing from the daf data: source.2!
                         concatenated into the daf data: destination!
-                """) concatenate(destination, "cell", sources)
+                """) concatenate!(destination, "cell", sources)
             end
 
             nested_test("~empty") do
@@ -193,20 +193,20 @@ nested_test("concat") do
                         of the axis: cell
                         which is missing from the daf data: source.2!
                         concatenated into the daf data: destination!
-                """) concatenate(destination, "cell", sources; empty = Dict("version" => 0))
+                """) concatenate!(destination, "cell", sources; empty = Dict("version" => 0))
             end
 
             nested_test("empty") do
                 nested_test("zero") do
                     set_vector!(sources[1], "cell", "age", [1, 2])
-                    concatenate(destination, "cell", sources; empty = Dict(("cell", "age") => 0))
+                    concatenate!(destination, "cell", sources; empty = Dict(("cell", "age") => 0))
                     @test get_vector(destination, "cell", "age") == [1, 2, 0, 0, 0]
                     @test get_vector(destination, "cell", "age").array isa SparseVector
                 end
 
                 nested_test("!zero") do
                     set_vector!(sources[1], "cell", "age", [1, 0])
-                    concatenate(destination, "cell", sources; empty = Dict(("cell", "age") => 2))
+                    concatenate!(destination, "cell", sources; empty = Dict(("cell", "age") => 2))
                     @test get_vector(destination, "cell", "age") == [1, 0, 2, 2, 2]
                     @test !(get_vector(destination, "cell", "age").array isa SparseVector)
                 end
@@ -220,7 +220,7 @@ nested_test("concat") do
             nested_test("dense") do
                 set_matrix!(sources[1], "cell", "gene", "UMIs", sparse_matrix_csc([1 2; 3 4]))
                 set_matrix!(sources[2], "cell", "gene", "UMIs", sparse_matrix_csc([5 6; 7 8; 9 10]))
-                concatenate(destination, "cell", sources)
+                concatenate!(destination, "cell", sources)
                 @test get_matrix(destination, "cell", "gene", "UMIs") == [1 2; 3 4; 5 6; 7 8; 9 10]
                 @test !(get_matrix(destination, "cell", "gene", "UMIs").array isa SparseMatrixCSC)
             end
@@ -228,7 +228,7 @@ nested_test("concat") do
             nested_test("sparse") do
                 set_matrix!(sources[1], "cell", "gene", "UMIs", sparse_matrix_csc([1 0; 0 2]))
                 set_matrix!(sources[2], "cell", "gene", "UMIs", sparse_matrix_csc([0 3; 4 0; 0 5]))
-                concatenate(destination, "cell", sources)
+                concatenate!(destination, "cell", sources)
                 @test get_matrix(destination, "cell", "gene", "UMIs") == [1 0; 0 2; 0 3; 4 0; 0 5]
                 @test get_matrix(destination, "cell", "gene", "UMIs").array isa SparseMatrixCSC
             end
@@ -241,7 +241,7 @@ nested_test("concat") do
                         and the columns axis: cell
                         which is missing from the daf data: source.2!
                         concatenated into the daf data: destination!
-                """) concatenate(destination, "cell", sources)
+                """) concatenate!(destination, "cell", sources)
             end
 
             nested_test("~empty") do
@@ -252,20 +252,20 @@ nested_test("concat") do
                         and the columns axis: cell
                         which is missing from the daf data: source.2!
                         concatenated into the daf data: destination!
-                """) concatenate(destination, "cell", sources; empty = Dict("version" => 0))
+                """) concatenate!(destination, "cell", sources; empty = Dict("version" => 0))
             end
 
             nested_test("empty") do
                 nested_test("zero") do
                     set_matrix!(sources[1], "cell", "gene", "UMIs", sparse_matrix_csc([1 2; 3 4]))
-                    concatenate(destination, "cell", sources; empty = Dict(("cell", "gene", "UMIs") => 0))
+                    concatenate!(destination, "cell", sources; empty = Dict(("cell", "gene", "UMIs") => 0))
                     @test get_matrix(destination, "cell", "gene", "UMIs") == [1 2; 3 4; 0 0; 0 0; 0 0]
                     @test get_matrix(destination, "cell", "gene", "UMIs").array isa SparseMatrixCSC
                 end
 
                 nested_test("!zero") do
                     set_matrix!(sources[1], "cell", "gene", "UMIs", sparse_matrix_csc([1 2; 3 4]))
-                    concatenate(destination, "cell", sources; empty = Dict(("gene", "cell", "UMIs") => 5))
+                    concatenate!(destination, "cell", sources; empty = Dict(("gene", "cell", "UMIs") => 5))
                     @test get_matrix(destination, "cell", "gene", "UMIs") == [1 2; 3 4; 5 5; 5 5; 5 5]
                     @test !(get_matrix(destination, "cell", "gene", "UMIs").array isa SparseMatrixCSC)
                 end
@@ -279,19 +279,19 @@ nested_test("concat") do
             set_scalar!(sources[2], "version", 2)
 
             nested_test("skip") do
-                concatenate(destination, "cell", sources; merge = [ALL_VECTORS => LastValue])
+                concatenate!(destination, "cell", sources; merge = [ALL_VECTORS => LastValue])
                 @test !has_scalar(destination, "version")
                 @test !has_vector(destination, "dataset", "version")
             end
 
             nested_test("last") do
-                concatenate(destination, "cell", sources; merge = ["version" => LastValue])
+                concatenate!(destination, "cell", sources; merge = ["version" => LastValue])
                 @test get_scalar(destination, "version") == 2
                 @test !has_vector(destination, "dataset", "version")
             end
 
             nested_test("collect") do
-                concatenate(destination, "cell", sources; merge = [ALL_SCALARS => CollectAxis])
+                concatenate!(destination, "cell", sources; merge = [ALL_SCALARS => CollectAxis])
                 @test !has_scalar(destination, "version")
                 @test get_vector(destination, "dataset", "version") == [1, 2]
             end
@@ -301,7 +301,7 @@ nested_test("concat") do
                     can't collect axis for the scalar: version
                     of the daf data sets concatenated into the daf data: destination!
                     because no data set axis was created
-                """) concatenate(
+                """) concatenate!(
                     destination,
                     "cell",
                     sources;
@@ -319,13 +319,13 @@ nested_test("concat") do
             set_vector!(sources[2], "gene", "weight", [UInt16(3), UInt16(4)])
 
             nested_test("skip") do
-                concatenate(destination, "cell", sources; merge = [ALL_SCALARS => LastValue])
+                concatenate!(destination, "cell", sources; merge = [ALL_SCALARS => LastValue])
                 @test !has_vector(destination, "gene", "weight")
                 @test !has_matrix(destination, "dataset", "gene", "weight")
             end
 
             nested_test("last") do
-                concatenate(destination, "cell", sources; merge = [("gene", "weight") => LastValue])
+                concatenate!(destination, "cell", sources; merge = [("gene", "weight") => LastValue])
                 @test get_vector(destination, "gene", "weight") == [3, 4]
                 @test !has_matrix(destination, "dataset", "gene", "weight")
             end
@@ -333,7 +333,7 @@ nested_test("concat") do
             nested_test("collect") do
                 nested_test("dense") do
                     nested_test("full") do
-                        concatenate(destination, "cell", sources; merge = [ALL_VECTORS => CollectAxis])
+                        concatenate!(destination, "cell", sources; merge = [ALL_VECTORS => CollectAxis])
                         @test !has_vector(destination, "gene", "weight")
                         @test get_matrix(destination, "dataset", "gene", "weight") == [1 2; 3 4]
                         @test eltype(get_matrix(destination, "dataset", "gene", "weight")) == UInt16
@@ -343,7 +343,7 @@ nested_test("concat") do
                         delete_vector!(sources[2], "gene", "weight")
 
                         nested_test("zero") do
-                            concatenate(
+                            concatenate!(
                                 destination,
                                 "cell",
                                 sources;
@@ -357,7 +357,7 @@ nested_test("concat") do
                         end
 
                         nested_test("!zero") do
-                            concatenate(
+                            concatenate!(
                                 destination,
                                 "cell",
                                 sources;
@@ -375,7 +375,7 @@ nested_test("concat") do
                 nested_test("sparse") do
                     set_vector!(sources[1], "gene", "weight", sparse_vector([1, 0]); overwrite = true)
                     set_vector!(sources[2], "gene", "weight", sparse_vector([0, 2]); overwrite = true)
-                    concatenate(destination, "cell", sources; merge = [ALL_VECTORS => CollectAxis])
+                    concatenate!(destination, "cell", sources; merge = [ALL_VECTORS => CollectAxis])
                     @test !has_vector(destination, "gene", "weight")
                     @test get_matrix(destination, "dataset", "gene", "weight") == [1 0; 0 2]
                     @test get_matrix(destination, "dataset", "gene", "weight").array isa SparseMatrixCSC
@@ -388,7 +388,7 @@ nested_test("concat") do
                     of the axis: gene
                     of the daf data sets concatenated into the daf data: destination!
                     because no data set axis was created
-                """) concatenate(
+                """) concatenate!(
                     destination,
                     "cell",
                     sources;
@@ -407,12 +407,17 @@ nested_test("concat") do
                 set_matrix!(sources[2], "gene", "gene", "outgoing_edges", [5 6; 7 8])
 
                 nested_test("skip") do
-                    concatenate(destination, "cell", sources; merge = [ALL_VECTORS => LastValue])
+                    concatenate!(destination, "cell", sources; merge = [ALL_VECTORS => LastValue])
                     @test !has_matrix(destination, "gene", "gene", "outgoing_edges")
                 end
 
                 nested_test("last") do
-                    concatenate(destination, "cell", sources; merge = [("gene", "gene", "outgoing_edges") => LastValue])
+                    concatenate!(
+                        destination,
+                        "cell",
+                        sources;
+                        merge = [("gene", "gene", "outgoing_edges") => LastValue],
+                    )
                     @test get_matrix(destination, "gene", "gene", "outgoing_edges") == [5 6; 7 8]
                 end
 
@@ -423,7 +428,7 @@ nested_test("concat") do
                         and the columns axis: gene
                         of the daf data sets concatenated into the daf data: destination!
                         because that would create a 3D tensor, which is not supported
-                    """) concatenate(destination, "cell", sources; merge = [ALL_MATRICES => CollectAxis])
+                    """) concatenate!(destination, "cell", sources; merge = [ALL_MATRICES => CollectAxis])
                 end
             end
 
@@ -435,12 +440,12 @@ nested_test("concat") do
                 set_matrix!(sources[2], "gene", "batch", "scale", [5 6; 7 8])
 
                 nested_test("skip") do
-                    concatenate(destination, "cell", sources; merge = [ALL_VECTORS => LastValue])
+                    concatenate!(destination, "cell", sources; merge = [ALL_VECTORS => LastValue])
                     @test !has_matrix(destination, "gene", "batch", "scale")
                 end
 
                 nested_test("last") do
-                    concatenate(destination, "cell", sources; merge = [("gene", "batch", "scale") => LastValue])
+                    concatenate!(destination, "cell", sources; merge = [("gene", "batch", "scale") => LastValue])
                     @test get_matrix(destination, "gene", "batch", "scale") == [5 6; 7 8]
                 end
 
@@ -451,7 +456,7 @@ nested_test("concat") do
                         and the columns axis: gene
                         of the daf data sets concatenated into the daf data: destination!
                         because that would create a 3D tensor, which is not supported
-                    """) concatenate(destination, "cell", sources; merge = [ALL_MATRICES => CollectAxis])
+                    """) concatenate!(destination, "cell", sources; merge = [ALL_MATRICES => CollectAxis])
                 end
             end
         end

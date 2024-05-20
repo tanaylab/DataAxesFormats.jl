@@ -176,6 +176,10 @@
 </a>
 </li>
 <li>
+<a class="tocitem" href="generic_locks.html">Generic Locks
+</a>
+</li>
+<li>
 <a class="tocitem" href="generic_types.html">Generic Types
 </a>
 </li>
@@ -533,7 +537,7 @@
 </li>
 <li>
 <code>MemoryData
-</code> - disk data copied to application memory, or alternative layout of data matrices. This does pressure the garbage collector and can cause out of memory errors. However, re-fetching the data from disk is very slow, so caching this data is crucial for performance.
+</code> - a copy of data (from disk, or computed). This does pressure the garbage collector and can cause out of memory errors. However, recomputing or re-fetching the data from disk is slow, so caching this data is crucial for performance.
 </li>
 <li>
 <code>QueryData
@@ -564,7 +568,7 @@
 <div>
 <pre>
 <code class="language-julia hljs">empty_cache!(
-    daf::FormatReader;
+    daf::DafReader;
     [clear::Maybe{CacheType} = nothing,
     keep::Maybe{CacheType} = nothing]
 )::Nothing

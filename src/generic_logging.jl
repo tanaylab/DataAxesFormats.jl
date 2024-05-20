@@ -38,8 +38,15 @@ If `show_time`, each message will be prefixed with a `yyyy-dd-mm HH:MM:SS.sss` t
 If `show_module`, each message will be prefixed with the name of the module emitting the message.
 
 If `show_location`, each message will be prefixed with the file name and the line number emitting the message.
+
+!!! note
+
+    When multi-processing is used, a `P<id>:` process index is added to the log entries. When multi-threading is used, a
+    `T<id>:` thread index is added to the log entries, as well as a `K<id>:` task index. To generate the latter, this
+    stores a unique `:task_id` index in the `task_local_storage`. This is important since a task may migrate between
+    threads.
 """
-function setup_logger(  # untested
+function setup_logger(
     io::IO = stderr;
     level::LogLevel = Warn,
     show_time::Bool = true,
@@ -149,7 +156,9 @@ function logged_wrapper(
     result)  # flaky tested
 end
 
-function metafmt(  # untested
+NEXT_TASK_ID = Atomic{Int}(1)
+
+function metafmt(
     show_time::Bool,
     show_module::Bool,
     show_location::Bool,
@@ -167,18 +176,21 @@ function metafmt(  # untested
         push!(prefix_parts, Dates.format(now(), "yyyy-mm-dd HH:MM:SS.sss"))
     end
     if nprocs() > 1
-        @assert false
-        push!(prefix_parts, "P$(myid())")
+        push!(prefix_parts, "P$(myid())")  # untested
     end
     if nthreads() > 1
         push!(prefix_parts, "T$(threadid())")
+        task_id = get!(task_local_storage(), :task_id) do
+            return atomic_add!(NEXT_TASK_ID, 1)
+        end
+        push!(prefix_parts, "K$(task_id)")
     end
     push!(prefix_parts, string(level == Warn ? "Warning" : string(level)))
     if show_module
         push!(prefix_parts, string(_module))
     end
     if show_location
-        push!(prefix_parts, "$(file):$(line)")
+        push!(prefix_parts, "$(file):$(line)")  # untested
     end
     prefix = join(prefix_parts, ": ") * ":"
     return color, prefix, ""

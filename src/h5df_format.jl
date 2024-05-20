@@ -287,12 +287,14 @@ function delete_content(root::Union{HDF5.File, HDF5.Group})::Nothing
 end
 
 function Formats.format_has_scalar(h5df::H5df, name::AbstractString)::Bool
+    @assert Formats.has_data_read_lock(h5df)
     scalars_group = h5df.root["scalars"]
     @assert scalars_group isa HDF5.Group
     return haskey(scalars_group, name)
 end
 
 function Formats.format_set_scalar!(h5df::H5df, name::AbstractString, value::StorageScalar)::Nothing
+    @assert Formats.has_data_write_lock(h5df)
     scalars_group = h5df.root["scalars"]
     @assert scalars_group isa HDF5.Group
     scalars_group[name] = value
@@ -300,6 +302,7 @@ function Formats.format_set_scalar!(h5df::H5df, name::AbstractString, value::Sto
 end
 
 function Formats.format_delete_scalar!(h5df::H5df, name::AbstractString; for_set::Bool)::Nothing  # NOLINT
+    @assert Formats.has_data_write_lock(h5df)
     scalars_group = h5df.root["scalars"]
     @assert scalars_group isa HDF5.Group
     delete_object(scalars_group, name)
@@ -307,6 +310,7 @@ function Formats.format_delete_scalar!(h5df::H5df, name::AbstractString; for_set
 end
 
 function Formats.format_get_scalar(h5df::H5df, name::AbstractString)::StorageScalar
+    @assert Formats.has_data_read_lock(h5df)
     scalars_group = h5df.root["scalars"]
     @assert scalars_group isa HDF5.Group
     scalars_dataset = scalars_group[name]
@@ -315,7 +319,7 @@ function Formats.format_get_scalar(h5df::H5df, name::AbstractString)::StorageSca
 end
 
 function Formats.format_scalars_set(h5df::H5df)::AbstractStringSet
-    Formats.upgrade_to_write_lock(h5df)
+    @assert Formats.has_data_read_lock(h5df)
 
     scalars_group = h5df.root["scalars"]
     @assert scalars_group isa HDF5.Group
@@ -326,12 +330,14 @@ function Formats.format_scalars_set(h5df::H5df)::AbstractStringSet
 end
 
 function Formats.format_has_axis(h5df::H5df, axis::AbstractString; for_change::Bool)::Bool  # NOLINT
+    @assert Formats.has_data_read_lock(h5df)
     axes_group = h5df.root["axes"]
     @assert axes_group isa HDF5.Group
     return haskey(axes_group, axis)
 end
 
 function Formats.format_add_axis!(h5df::H5df, axis::AbstractString, entries::AbstractStringVector)::Nothing
+    @assert Formats.has_data_write_lock(h5df)
     axes_group = h5df.root["axes"]
     @assert axes_group isa HDF5.Group
     axis_dataset = create_dataset(axes_group, axis, String, (length(entries)))
@@ -371,6 +377,7 @@ function Formats.format_add_axis!(h5df::H5df, axis::AbstractString, entries::Abs
 end
 
 function Formats.format_delete_axis!(h5df::H5df, axis::AbstractString)::Nothing
+    @assert Formats.has_data_write_lock(h5df)
     axes_group = h5df.root["axes"]
     @assert axes_group isa HDF5.Group
     delete_object(axes_group, axis)
@@ -393,7 +400,7 @@ function Formats.format_delete_axis!(h5df::H5df, axis::AbstractString)::Nothing
 end
 
 function Formats.format_axes_set(h5df::H5df)::AbstractStringSet
-    Formats.upgrade_to_write_lock(h5df)
+    @assert Formats.has_data_read_lock(h5df)
 
     axes_group = h5df.root["axes"]
     @assert axes_group isa HDF5.Group
@@ -404,7 +411,7 @@ function Formats.format_axes_set(h5df::H5df)::AbstractStringSet
 end
 
 function Formats.format_axis_array(h5df::H5df, axis::AbstractString)::AbstractStringVector
-    Formats.upgrade_to_write_lock(h5df)
+    @assert Formats.has_data_read_lock(h5df)
 
     axes_group = h5df.root["axes"]
     @assert axes_group isa HDF5.Group
@@ -417,6 +424,7 @@ function Formats.format_axis_array(h5df::H5df, axis::AbstractString)::AbstractSt
 end
 
 function Formats.format_axis_length(h5df::H5df, axis::AbstractString)::Int64
+    @assert Formats.has_data_read_lock(h5df)
     axes_group = h5df.root["axes"]
     @assert axes_group isa HDF5.Group
 
@@ -426,6 +434,7 @@ function Formats.format_axis_length(h5df::H5df, axis::AbstractString)::Int64
 end
 
 function Formats.format_has_vector(h5df::H5df, axis::AbstractString, name::AbstractString)::Bool
+    @assert Formats.has_data_read_lock(h5df)
     vectors_group = h5df.root["vectors"]
     @assert vectors_group isa HDF5.Group
 
@@ -441,6 +450,7 @@ function Formats.format_set_vector!(
     name::AbstractString,
     vector::Union{StorageScalar, StorageVector},
 )::Nothing
+    @assert Formats.has_data_write_lock(h5df)
     vectors_group = h5df.root["vectors"]
     @assert vectors_group isa HDF5.Group
 
@@ -474,6 +484,7 @@ function Formats.format_get_empty_dense_vector!(
     name::AbstractString,
     eltype::Type{T},
 )::AbstractVector{T} where {T <: StorageNumber}
+    @assert Formats.has_data_write_lock(h5df)
     vectors_group = h5df.root["vectors"]
     @assert vectors_group isa HDF5.Group
 
@@ -499,6 +510,7 @@ function Formats.format_get_empty_sparse_vector!(
     nnz::StorageInteger,
     indtype::Type{I},
 )::Tuple{AbstractVector{I}, AbstractVector{T}, CacheType} where {T <: StorageNumber, I <: StorageInteger}
+    @assert Formats.has_data_write_lock(h5df)
     vectors_group = h5df.root["vectors"]
     @assert vectors_group isa HDF5.Group
 
@@ -533,11 +545,13 @@ function Formats.format_filled_empty_sparse_vector!(
     cache_type::CacheType,
     filled::SparseVector{T, I},
 )::Nothing where {T <: StorageNumber, I <: StorageInteger}
+    @assert Formats.has_data_write_lock(h5df)
     Formats.cache_vector!(h5df, axis, name, filled, cache_type)
     return nothing
 end
 
 function Formats.format_delete_vector!(h5df::H5df, axis::AbstractString, name::AbstractString; for_set::Bool)::Nothing  # NOLINT
+    @assert Formats.has_data_write_lock(h5df)
     vectors_group = h5df.root["vectors"]
     @assert vectors_group isa HDF5.Group
 
@@ -549,7 +563,7 @@ function Formats.format_delete_vector!(h5df::H5df, axis::AbstractString, name::A
 end
 
 function Formats.format_vectors_set(h5df::H5df, axis::AbstractString)::AbstractStringSet
-    Formats.upgrade_to_write_lock(h5df)
+    @assert Formats.has_data_read_lock(h5df)
 
     vectors_group = h5df.root["vectors"]
     @assert vectors_group isa HDF5.Group
@@ -563,7 +577,7 @@ function Formats.format_vectors_set(h5df::H5df, axis::AbstractString)::AbstractS
 end
 
 function Formats.format_get_vector(h5df::H5df, axis::AbstractString, name::AbstractString)::StorageVector
-    Formats.upgrade_to_write_lock(h5df)
+    @assert Formats.has_data_read_lock(h5df)
 
     vectors_group = h5df.root["vectors"]
     @assert vectors_group isa HDF5.Group
@@ -602,6 +616,7 @@ function Formats.format_has_matrix(
     name::AbstractString;
     for_relayout::Bool = false,  # NOLINT
 )::Bool
+    @assert Formats.has_data_read_lock(h5df)
     matrices_group = h5df.root["matrices"]
     @assert matrices_group isa HDF5.Group
 
@@ -621,6 +636,7 @@ function Formats.format_set_matrix!(
     name::AbstractString,
     matrix::Union{StorageNumber, StorageMatrix},
 )::Nothing
+    @assert Formats.has_data_write_lock(h5df)
     matrices_group = h5df.root["matrices"]
     @assert matrices_group isa HDF5.Group
 
@@ -658,6 +674,7 @@ function Formats.format_get_empty_dense_matrix!(
     name::AbstractString,
     eltype::Type{T},
 )::AbstractMatrix{T} where {T <: StorageNumber}
+    @assert Formats.has_data_write_lock(h5df)
     matrices_group = h5df.root["matrices"]
     @assert matrices_group isa HDF5.Group
 
@@ -692,6 +709,7 @@ function Formats.format_get_empty_sparse_matrix!(
     AbstractVector{T},
     CacheType,
 } where {T <: StorageNumber, I <: StorageInteger}
+    @assert Formats.has_data_write_lock(h5df)
     matrices_group = h5df.root["matrices"]
     @assert matrices_group isa HDF5.Group
 
@@ -734,6 +752,7 @@ function Formats.format_filled_empty_sparse_matrix!(
     cache_type::CacheType,
     filled::SparseMatrixCSC{T, I},
 )::Nothing where {T <: StorageNumber, I <: StorageInteger}
+    @assert Formats.has_data_write_lock(h5df)
     Formats.cache_matrix!(h5df, rows_axis, columns_axis, name, filled, cache_type)
     return nothing
 end
@@ -744,6 +763,7 @@ function Formats.format_relayout_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
 )::Nothing
+    @assert Formats.has_data_write_lock(h5df)
     matrix = Formats.get_matrix_through_cache(h5df, rows_axis, columns_axis, name).array
 
     if matrix isa SparseMatrixCSC
@@ -775,6 +795,7 @@ function Formats.format_delete_matrix!(
     name::AbstractString;
     for_set::Bool,  # NOLINT
 )::Nothing
+    @assert Formats.has_data_write_lock(h5df)
     matrices_group = h5df.root["matrices"]
     @assert matrices_group isa HDF5.Group
 
@@ -793,7 +814,7 @@ function Formats.format_matrices_set(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
 )::AbstractStringSet
-    Formats.upgrade_to_write_lock(h5df)
+    @assert Formats.has_data_read_lock(h5df)
 
     matrices_group = h5df.root["matrices"]
     @assert matrices_group isa HDF5.Group
@@ -815,7 +836,7 @@ function Formats.format_get_matrix(
     columns_axis::AbstractString,
     name::AbstractString,
 )::StorageMatrix
-    Formats.upgrade_to_write_lock(h5df)
+    @assert Formats.has_data_read_lock(h5df)
 
     matrices_group = h5df.root["matrices"]
     @assert matrices_group isa HDF5.Group

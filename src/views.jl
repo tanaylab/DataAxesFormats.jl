@@ -33,7 +33,6 @@ using ..Tokens
 import ..Formats
 import ..Formats.Internal
 import ..Messages
-import ..Readers.as_read_only_array
 import ..Readers.base_array
 import ..Tokens.decode_expression
 import ..Tokens.encode_expression
@@ -620,15 +619,44 @@ function get_fetch_axis(
     return fetch_axis
 end
 
+function Formats.begin_data_read_lock(view::DafView, what::AbstractString...)::Nothing
+    invoke(Formats.begin_data_read_lock, Tuple{DafReader, Vararg{AbstractString}}, view, what...)
+    Formats.begin_data_read_lock(view.daf, what...)
+    return nothing
+end
+
+function Formats.end_data_read_lock(view::DafView, what::AbstractString...)::Nothing
+    Formats.end_data_read_lock(view.daf, what...)
+    invoke(Formats.end_data_read_lock, Tuple{DafReader, Vararg{AbstractString}}, view, what...)
+    return nothing
+end
+
+function Formats.has_data_read_lock(view::DafView)::Bool
+    return Formats.has_data_read_lock(view.daf)
+end
+
+function Formats.begin_data_write_lock(::DafView, ::AbstractString...)::Nothing  # untested
+    @assert false
+end
+
+function Formats.end_data_write_lock(::DafView, ::AbstractString...)::Nothing
+    @assert false
+end
+
+function Formats.has_data_write_lock(::DafView)::Bool  # untested
+    return false
+end
+
 function Formats.format_has_scalar(view::DafView, name::AbstractString)::Bool
+    @assert Formats.has_data_read_lock(view)
     return haskey(view.scalars, name)
 end
 
 function Formats.format_get_scalar(view::DafView, name::AbstractString)::StorageScalar
+    @assert Formats.has_data_read_lock(view)
     fetch_scalar = view.scalars[name]
     scalar_value = fetch_scalar.value
     if scalar_value === nothing
-        Formats.upgrade_to_write_lock(view)
         scalar_value = get_query(view.daf, fetch_scalar.query)
         fetch_scalar.value = scalar_value
     end
@@ -636,46 +664,52 @@ function Formats.format_get_scalar(view::DafView, name::AbstractString)::Storage
 end
 
 function Formats.format_scalars_set(view::DafView)::AbstractStringSet
+    @assert Formats.has_data_read_lock(view)
     return keys(view.scalars)
 end
 
 function Formats.format_has_axis(view::DafView, axis::AbstractString; for_change::Bool)::Bool  # NOLINT
+    @assert Formats.has_data_read_lock(view)
     return haskey(view.axes, axis)
 end
 
 function Formats.format_axes_set(view::DafView)::AbstractStringSet
+    @assert Formats.has_data_read_lock(view)
     return keys(view.axes)
 end
 
 function Formats.format_axis_array(view::DafView, axis::AbstractString)::AbstractStringVector
+    @assert Formats.has_data_read_lock(view)
     fetch_axis = view.axes[axis]
     axes_set = fetch_axis.value
     if axes_set === nothing
-        Formats.upgrade_to_write_lock(view)
-        axes_set = as_read_only_array(get_query(view.daf, fetch_axis.query))
+        axes_set = Formats.as_read_only_array(get_query(view.daf, fetch_axis.query))
         fetch_axis.value = axes_set
     end
     return axes_set
 end
 
 function Formats.format_axis_length(view::DafView, axis::AbstractString)::Int64
+    @assert Formats.has_data_read_lock(view)
     return length(Formats.format_axis_array(view, axis))
 end
 
 function Formats.format_has_vector(view::DafView, axis::AbstractString, name::AbstractString)::Bool
+    @assert Formats.has_data_read_lock(view)
     return haskey(view.vectors[axis], name)
 end
 
 function Formats.format_vectors_set(view::DafView, axis::AbstractString)::AbstractStringSet
+    @assert Formats.has_data_read_lock(view)
     return keys(view.vectors[axis])
 end
 
 function Formats.format_get_vector(view::DafView, axis::AbstractString, name::AbstractString)::StorageVector
+    @assert Formats.has_data_read_lock(view)
     fetch_vector = view.vectors[axis][name]
     vector_value = fetch_vector.value
     if vector_value === nothing
-        Formats.upgrade_to_write_lock(view)
-        vector_value = as_read_only_array(get_query(view.daf, fetch_vector.query))
+        vector_value = Formats.as_read_only_array(get_query(view.daf, fetch_vector.query))
         fetch_vector.value = vector_value
     end
     return vector_value
@@ -688,6 +722,7 @@ function Formats.format_has_matrix(
     name::AbstractString;
     for_relayout::Bool = false,  # NOLINT
 )::Bool
+    @assert Formats.has_data_read_lock(view)
     return haskey(view.matrices[rows_axis][columns_axis], name)
 end
 
@@ -696,6 +731,7 @@ function Formats.format_matrices_set(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
 )::AbstractStringSet
+    @assert Formats.has_data_read_lock(view)
     return keys(view.matrices[rows_axis][columns_axis])
 end
 
@@ -705,17 +741,18 @@ function Formats.format_get_matrix(
     columns_axis::AbstractString,
     name::AbstractString,
 )::StorageMatrix
+    @assert Formats.has_data_read_lock(view)
     fetch_matrix = view.matrices[rows_axis][columns_axis][name]
     matrix_value = fetch_matrix.value
     if matrix_value === nothing
-        Formats.upgrade_to_write_lock(view)
-        matrix_value = as_read_only_array(get_query(view.daf, fetch_matrix.query))
+        matrix_value = Formats.as_read_only_array(get_query(view.daf, fetch_matrix.query))
         fetch_matrix.value = matrix_value
     end
     return matrix_value
 end
 
 function Formats.format_description_header(view::DafView, indent::AbstractString, lines::Vector{String})::Nothing
+    @assert Formats.has_data_read_lock(view)
     push!(lines, "$(indent)type: View $(typeof(view.daf))")
     return nothing
 end
@@ -727,18 +764,13 @@ function Messages.depict(value::DafView; name::Maybe{AbstractString} = nothing):
     return "View $(depict(value.daf; name = name))"
 end
 
-function ReadOnly.read_only(daf::DafView; name::Maybe{AbstractString} = nothing)::DafView
+function ReadOnly.read_only(daf::DafView; name::Maybe{AbstractString} = nothing)::Union{DafView, DafReadOnlyWrapper}
     if name === nothing
         return daf
     else
-        return DafView(
-            Formats.renamed_internal(daf.internal, name),
-            daf.daf,
-            daf.scalars,
-            daf.axes,
-            daf.vectors,
-            daf.matrices,
-        )
+        wrapper = DafReadOnlyWrapper(name, daf)
+        @debug "Daf: $(depict(wrapper)) base: $(daf)"
+        return wrapper
     end
 end
 

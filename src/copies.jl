@@ -27,9 +27,6 @@ using ..Writers
 using NamedArrays
 using SparseArrays
 
-import ..Readers.as_named_vector
-import ..Readers.as_named_matrix
-
 """
     copy_scalar(;
         destination::DafWriter,
@@ -204,7 +201,7 @@ source axis contains entries that do not exist in the target, they are discarded
     else
         empty_dense_vector!(destination, reaxis, rename, concrete_dtype; overwrite = overwrite) do empty_vector
             empty_vector .= empty
-            named_vector = as_named_vector(destination, axis, empty_vector)
+            named_vector = Formats.as_named_vector(destination, axis, empty_vector)
             named_vector[names(value, 1)] .= value
             return nothing
         end
@@ -383,7 +380,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
             overwrite = overwrite,
         ) do empty_matrix
             empty_matrix .= empty
-            named_matrix = as_named_matrix(destination, rows_axis, columns_axis, empty_matrix)
+            named_matrix = Formats.as_named_matrix(destination, rows_axis, columns_axis, empty_matrix)
             named_matrix[names(value, 1), names(value, 2)] .= value
             return nothing
         end

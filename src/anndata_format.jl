@@ -438,29 +438,33 @@ stored in the returned new `AnnData` object.
     X_is::Maybe{AbstractString} = nothing,
     h5ad::Maybe{AbstractString} = nothing,
 )::AnnData
-    obs_is = by_scalar(daf, obs_is, "obs_is", "obs")
-    var_is = by_scalar(daf, var_is, "var_is", "var")
-    X_is = by_scalar(daf, X_is, "X_is", "X")
+    adata = Formats.with_data_read_lock(daf, "daf_as_anndata") do
+        obs_is = by_scalar(daf, obs_is, "obs_is", "obs")
+        var_is = by_scalar(daf, var_is, "var_is", "var")
+        X_is = by_scalar(daf, X_is, "X_is", "X")
 
-    @assert obs_is != var_is
-    require_matrix(daf, obs_is, var_is, X_is; relayout = true)
+        @assert obs_is != var_is
+        require_matrix(daf, obs_is, var_is, X_is; relayout = true)
 
-    matrix = transpose(get_matrix(daf, var_is, obs_is, X_is))
-    adata = AnnData(; X = matrix, obs_names = axis_array(daf, obs_is), var_names = axis_array(daf, var_is))
+        matrix = transpose(get_matrix(daf, var_is, obs_is, X_is))
+        adata = AnnData(; X = matrix, obs_names = axis_array(daf, obs_is), var_names = axis_array(daf, var_is))
 
-    copy_scalars(daf, adata.uns)
+        copy_scalars(daf, adata.uns)
 
-    store_rename_scalar(adata.uns, obs_is, "obs_is", "obs")
-    store_rename_scalar(adata.uns, var_is, "var_is", "var")
-    store_rename_scalar(adata.uns, X_is, "X_is", "X")
+        store_rename_scalar(adata.uns, obs_is, "obs_is", "obs")
+        store_rename_scalar(adata.uns, var_is, "var_is", "var")
+        store_rename_scalar(adata.uns, X_is, "X_is", "X")
 
-    copy_square_matrices(daf, obs_is, adata.obsp)
-    copy_square_matrices(daf, var_is, adata.varp)
+        copy_square_matrices(daf, obs_is, adata.obsp)
+        copy_square_matrices(daf, var_is, adata.varp)
 
-    copy_vectors(daf, obs_is, adata.obs)
-    copy_vectors(daf, var_is, adata.var)
+        copy_vectors(daf, obs_is, adata.obs)
+        copy_vectors(daf, var_is, adata.var)
 
-    copy_matrices(daf, obs_is, var_is, X_is, adata.layers)
+        copy_matrices(daf, obs_is, var_is, X_is, adata.layers)
+
+        return adata
+    end
 
     if h5ad !== nothing
         @debug "writeh5ad $(h5ad) {"

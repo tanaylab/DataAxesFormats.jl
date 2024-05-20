@@ -30,6 +30,7 @@ export set_scalar!
 export set_vector!
 
 using ..Formats
+using ..GenericLocks
 using ..GenericTypes
 using ..MatrixLayouts
 using ..Messages
@@ -41,9 +42,6 @@ using SparseArrays
 
 import ..Formats
 import ..Formats.FormatWriter  # For documentation.
-import ..Formats.begin_write_lock
-import ..Formats.end_write_lock
-import ..Formats.with_write_lock
 import ..Messages
 import ..Readers.base_array
 import ..Readers.require_axis
@@ -70,7 +68,7 @@ If not `overwrite` (the default), this first verifies the `name` scalar property
 """
 function set_scalar!(daf::DafWriter, name::AbstractString, value::StorageScalar; overwrite::Bool = false)::Nothing
     @assert value isa AbstractString || isbits(value)
-    return with_write_lock(daf, "set_scalar!") do
+    return Formats.with_data_write_lock(daf, "set_scalar! of:", name) do
         @debug "set_scalar! daf: $(depict(daf)) name: $(name) value: $(depict(value)) overwrite: $(overwrite)"
 
         if !overwrite
@@ -98,7 +96,7 @@ Delete a scalar property with some `name` from `daf`.
 If `must_exist` (the default), this first verifies the `name` scalar property exists in `daf`.
 """
 function delete_scalar!(daf::DafWriter, name::AbstractString; must_exist::Bool = true, _for_set = false)::Nothing
-    return with_write_lock(daf, "delete_scalar!") do
+    return Formats.with_data_write_lock(daf, "delete_scalar! of:", name) do
         @debug "delete_scalar! daf: $(depict(daf)) name: $(name) must exist: $(must_exist)"
 
         if must_exist
@@ -138,7 +136,7 @@ function add_axis!(daf::DafWriter, axis::AbstractString, entries::AbstractString
     if entries isa SparseVector
         entries = Vector(entries)  # untested
     end
-    return with_write_lock(daf, "add_axis!") do
+    return Formats.with_data_write_lock(daf, "add_axis! of:", axis) do
         @debug "add_axis! daf: $(depict(daf)) axis: $(axis) entries: $(depict(entries))"
 
         require_no_axis(daf, axis; for_change = true)
@@ -166,7 +164,7 @@ Delete an `axis` from the `daf`. This will also delete any vector or matrix prop
 If `must_exist` (the default), this first verifies the `axis` exists in the `daf`.
 """
 function delete_axis!(daf::DafWriter, axis::AbstractString; must_exist::Bool = true)::Nothing
-    return with_write_lock(daf, "delete_axis!") do
+    return Formats.with_data_write_lock(daf, "delete_axis! of:", axis) do
         @debug "delete_axis! daf: $(depict(daf)) axis: $(axis) must exist: $(must_exist)"
 
         if must_exist
@@ -246,7 +244,7 @@ function set_vector!(
     overwrite::Bool = false,
 )::Nothing
     @assert eltype(vector) <: AbstractString || isbitstype(eltype(vector))
-    return with_write_lock(daf, "set_vector!") do
+    return Formats.with_data_write_lock(daf, "set_vector! of:", name, "of:", axis) do
         @debug "set_vector! daf: $(depict(daf)) axis: $(axis) name: $(name) vector: $(depict(vector)) overwrite: $(overwrite)"
 
         require_not_name(daf, axis, name)
@@ -309,7 +307,7 @@ function empty_dense_vector!(
         filled_empty_dense_vector!(daf, axis, name, vector)
         return result
     finally
-        end_write_lock(daf, "empty_dense_vector!")
+        Formats.end_data_write_lock(daf, "empty_dense_vector! of:", name, "of:", axis)
     end
 end
 
@@ -321,7 +319,8 @@ function get_empty_dense_vector!(
     overwrite::Bool = false,
 )::AbstractVector{T} where {T <: StorageNumber}
     @assert isbitstype(eltype)
-    return begin_write_lock(daf, "empty_dense_vector!") do
+    Formats.begin_data_write_lock(daf, "empty_dense_vector! of:", name, "of:", axis)
+    try
         @debug "empty_dense_vector! daf: $(depict(daf)) axis: $(axis) name: $(name) eltype: $(eltype) overwrite: $(overwrite) {"
         require_not_name(daf, axis, name)
         require_axis(daf, axis)
@@ -337,6 +336,9 @@ function get_empty_dense_vector!(
 
         update_caches_before_set_vector(daf, axis, name)
         return Formats.format_get_empty_dense_vector!(daf, axis, name, eltype)
+    catch
+        Formats.end_data_write_lock(daf, "empty_dense_vector! of:", name, "of:", axis)
+        rethrow()
     end
 end
 
@@ -409,7 +411,7 @@ function empty_sparse_vector!(  # NOLINT
         filled_empty_sparse_vector!(daf, axis, name, nzind, nzval, extra)
         return result
     finally
-        end_write_lock(daf, "empty_sparse_vector!")
+        Formats.end_data_write_lock(daf, "empty_sparse_vector! of:", name, "of:", axis)
     end
 end
 
@@ -422,7 +424,8 @@ function get_empty_sparse_vector!(
     indtype::Type{I};
     overwrite::Bool = false,
 )::Tuple{AbstractVector{I}, AbstractVector{T}, Any} where {T <: StorageNumber, I <: StorageInteger}
-    return begin_write_lock(daf, "empty_sparse_vector!") do
+    Formats.begin_data_write_lock(daf, "empty_sparse_vector! of:", name, "of:", axis)
+    try
         @debug "empty_sparse_vector! daf: $(depict(daf)) axis: $(axis) name: $(name) eltype: $(eltype) nnz: $(nnz) indtype: $(indtype) overwrite: $(overwrite) {"
         require_not_name(daf, axis, name)
         require_axis(daf, axis)
@@ -438,6 +441,9 @@ function get_empty_sparse_vector!(
 
         update_caches_before_set_vector(daf, axis, name)
         return Formats.format_get_empty_sparse_vector!(daf, axis, name, eltype, nnz, indtype)
+    catch
+        Formats.end_data_write_lock(daf, "empty_sparse_vector! of:", name, "of:", axis)
+        rethrow()
     end
 end
 
@@ -456,13 +462,15 @@ function filled_empty_sparse_vector!(
 end
 
 function update_caches_before_set_vector(daf::DafWriter, axis::AbstractString, name::AbstractString)::Nothing
-    Formats.invalidate_cached!(daf, Formats.vector_cache_key(axis, name))
-    if Formats.format_has_vector(daf, axis, name)
-        Formats.format_delete_vector!(daf, axis, name; for_set = true)
-    else
-        Formats.invalidate_cached!(daf, Formats.vectors_set_cache_key(axis))
+    with_write_lock(daf.internal.cache_lock, daf.name, "cache for: set_vector! of:", name, "of:", axis) do
+        Formats.invalidate_cached!(daf, Formats.vector_cache_key(axis, name))
+        if Formats.format_has_vector(daf, axis, name)
+            Formats.format_delete_vector!(daf, axis, name; for_set = true)
+        else
+            Formats.invalidate_cached!(daf, Formats.vectors_set_cache_key(axis))
+        end
+        return Formats.format_increment_version_counter(daf, (axis, name))
     end
-    Formats.format_increment_version_counter(daf, (axis, name))
     return nothing
 end
 
@@ -486,7 +494,7 @@ function delete_vector!(
     must_exist::Bool = true,
     _for_set::Bool = false,
 )::Nothing
-    return with_write_lock(daf, "delete_vector!") do
+    return Formats.with_data_write_lock(daf, "delete_vector! of:", name, "of:", axis) do
         @debug "delete_vector! $daf: $(depict(daf)) axis: $(axis) name: $(name) must exist: $(must_exist)"
 
         require_not_name(daf, axis, name)
@@ -497,9 +505,11 @@ function delete_vector!(
         end
 
         if Formats.format_has_vector(daf, axis, name)
-            Formats.invalidate_cached!(daf, Formats.vector_cache_key(axis, name))
-            Formats.invalidate_cached!(daf, Formats.vectors_set_cache_key(axis))
-            Formats.format_delete_vector!(daf, axis, name; for_set = _for_set)
+            with_write_lock(daf.internal.cache_lock, daf.name, "cache for: delete_vector! of:", name, "of:", axis) do
+                Formats.invalidate_cached!(daf, Formats.vector_cache_key(axis, name))
+                Formats.invalidate_cached!(daf, Formats.vectors_set_cache_key(axis))
+                return Formats.format_delete_vector!(daf, axis, name; for_set = _for_set)
+            end
         end
 
         return nothing
@@ -547,7 +557,7 @@ function set_matrix!(
     relayout::Bool = true,
 )::Nothing
     @assert isbitstype(eltype(matrix))
-    return with_write_lock(daf, "set_matrix!") do
+    Formats.with_data_write_lock(daf, "set_matrix! of:", name, "of:", rows_axis, "and:", columns_axis) do
         relayout = relayout && rows_axis != columns_axis
         @debug "set_matrix! daf: $(depict(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) matrix: $(depict(matrix)) overwrite: $(overwrite) relayout: $(relayout)"
 
@@ -583,9 +593,9 @@ function set_matrix!(
             update_caches_before_set_matrix(daf, columns_axis, rows_axis, name)
             Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name)
         end
-
-        return nothing
     end
+
+    return nothing
 end
 
 """
@@ -626,7 +636,7 @@ function empty_dense_matrix!(
         filled_empty_dense_matrix!(daf, rows_axis, columns_axis, name, matrix)
         return result
     finally
-        end_write_lock(daf, "empty_dense_matrix!")
+        Formats.end_data_write_lock(daf, "empty_dense_matrix! of:", name, "of:", rows_axis, "and:", columns_axis)
     end
 end
 
@@ -638,7 +648,8 @@ function get_empty_dense_matrix!(
     eltype::Type{T};
     overwrite::Bool = false,
 )::Any where {T <: StorageNumber}
-    return begin_write_lock(daf, "empty_dense_matrix!") do
+    Formats.begin_data_write_lock(daf, "empty_dense_matrix! of:", name, "of:", rows_axis, "and:", columns_axis)
+    try
         @debug "empty_dense_matrix! daf: $(depict(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) eltype: $(eltype) overwrite: $(overwrite) {"
         require_axis(daf, rows_axis)
         require_axis(daf, columns_axis)
@@ -651,6 +662,9 @@ function get_empty_dense_matrix!(
 
         update_caches_before_set_matrix(daf, rows_axis, columns_axis, name)
         return Formats.format_get_empty_dense_matrix!(daf, rows_axis, columns_axis, name, eltype)
+    catch
+        Formats.end_data_write_lock(daf, "empty_dense_matrix! of:", name, "of:", rows_axis, "and:", columns_axis)
+        rethrow()
     end
 end
 
@@ -731,7 +745,7 @@ function empty_sparse_matrix!(  # NOLINT
         filled_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, colptr, rowval, nzval, extra)
         return result
     finally
-        end_write_lock(daf, "empty_sparse_matrix!")
+        Formats.end_data_write_lock(daf, "empty_sparse_matrix! of:", name, "of:", rows_axis, "and:", columns_axis)
     end
 end
 
@@ -745,7 +759,8 @@ function get_empty_sparse_matrix!(
     indtype::Type{I};
     overwrite::Bool = false,
 )::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}, Any} where {T <: StorageNumber, I <: StorageInteger}
-    return begin_write_lock(daf, "empty_sparse_matrix!") do
+    Formats.begin_data_write_lock(daf, "empty_sparse_matrix! of:", name, "of:", rows_axis, "and:", columns_axis)
+    try
         @debug "empty_sparse_matrix! daf: $(depict(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) eltype: $(eltype) overwrite: $(overwrite) {"
         require_axis(daf, rows_axis)
         require_axis(daf, columns_axis)
@@ -758,6 +773,9 @@ function get_empty_sparse_matrix!(
 
         update_caches_before_set_matrix(daf, rows_axis, columns_axis, name)
         return Formats.format_get_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, eltype, nnz, indtype)
+    catch
+        Formats.end_data_write_lock(daf, "empty_sparse_matrix! of:", name, "of:", rows_axis, "and:", columns_axis)
+        rethrow()
     end
 end
 
@@ -813,7 +831,7 @@ function relayout_matrix!(
     name::AbstractString;
     overwrite::Bool = false,
 )::Nothing
-    return with_write_lock(daf, "relayout_matrix!") do
+    Formats.with_data_write_lock(daf, "relayout_matrix! of:", name, "of:", rows_axis, "and:", columns_axis) do
         @debug "relayout_matrix! daf: $(depict(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) overwrite: $(overwrite) {"
 
         require_axis(daf, rows_axis)
@@ -840,8 +858,8 @@ function relayout_matrix!(
         Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name)
 
         @debug "relayout_matrix! }"
-        return nothing
     end
+    return nothing
 end
 
 function update_caches_before_set_matrix(
@@ -850,14 +868,25 @@ function update_caches_before_set_matrix(
     columns_axis::AbstractString,
     name::AbstractString,
 )::Nothing
-    Formats.invalidate_cached!(daf, Formats.matrix_cache_key(rows_axis, columns_axis, name))
-    if Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
-        Formats.format_delete_matrix!(daf, rows_axis, columns_axis, name; for_set = true)
-    else
-        Formats.invalidate_cached!(daf, Formats.matrices_set_cache_key(rows_axis, columns_axis))
-        Formats.invalidate_cached!(daf, Formats.matrix_relayout_names_cache_key(rows_axis, columns_axis))
-        if rows_axis != columns_axis
-            Formats.invalidate_cached!(daf, Formats.matrix_relayout_names_cache_key(columns_axis, rows_axis))
+    with_write_lock(
+        daf.internal.cache_lock,
+        daf.name,
+        "cache for set_matrix! of:",
+        name,
+        "of:",
+        rows_axis,
+        "and:",
+        columns_axis,
+    ) do
+        Formats.invalidate_cached!(daf, Formats.matrix_cache_key(rows_axis, columns_axis, name))
+        if Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
+            Formats.format_delete_matrix!(daf, rows_axis, columns_axis, name; for_set = true)
+        else
+            Formats.invalidate_cached!(daf, Formats.matrices_set_cache_key(rows_axis, columns_axis))
+            Formats.invalidate_cached!(daf, Formats.matrix_relayout_names_cache_key(rows_axis, columns_axis))
+            if rows_axis != columns_axis
+                Formats.invalidate_cached!(daf, Formats.matrix_relayout_names_cache_key(columns_axis, rows_axis))
+            end
         end
     end
     Formats.format_increment_version_counter(daf, (rows_axis, columns_axis, name))
@@ -890,7 +919,7 @@ function delete_matrix!(
     relayout::Bool = true,
     _for_set::Bool = false,
 )::Nothing
-    return with_write_lock(daf, "delete_matrix!") do
+    Formats.with_data_write_lock(daf, "delete_matrix! of:", name, "of:", rows_axis, "and:", columns_axis) do
         relayout = relayout && rows_axis != columns_axis
         @debug "delete_matrix! daf: $(depict(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) must exist: $(must_exist)"
 
@@ -908,9 +937,8 @@ function delete_matrix!(
         if relayout && Formats.format_has_matrix(daf, columns_axis, rows_axis, name)
             update_caches_and_delete_matrix(daf, columns_axis, rows_axis, name, _for_set)
         end
-
-        return nothing
     end
+    return nothing
 end
 
 function update_caches_and_delete_matrix(
@@ -920,9 +948,21 @@ function update_caches_and_delete_matrix(
     name::AbstractString,
     for_set::Bool,
 )::Nothing
-    Formats.invalidate_cached!(daf, Formats.matrices_set_cache_key(rows_axis, columns_axis))
-    Formats.invalidate_cached!(daf, Formats.matrix_cache_key(rows_axis, columns_axis, name))
-    return Formats.format_delete_matrix!(daf, rows_axis, columns_axis, name; for_set = for_set)
+    with_write_lock(
+        daf.internal.cache_lock,
+        daf.name,
+        "cache for delete_matrix! of:",
+        name,
+        "of:",
+        rows_axis,
+        "and:",
+        columns_axis,
+    ) do
+        Formats.invalidate_cached!(daf, Formats.matrices_set_cache_key(rows_axis, columns_axis))
+        Formats.invalidate_cached!(daf, Formats.matrix_cache_key(rows_axis, columns_axis, name))
+        return Formats.format_delete_matrix!(daf, rows_axis, columns_axis, name; for_set = for_set)
+    end
+    return nothing
 end
 
 function require_no_matrix(
@@ -932,6 +972,7 @@ function require_no_matrix(
     name::AbstractString;
     relayout::Bool,
 )::Nothing
+    @assert Formats.has_data_read_lock(daf)
     if Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
         error(
             "existing matrix: $(name)\n" *

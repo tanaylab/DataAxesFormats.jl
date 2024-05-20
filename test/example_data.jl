@@ -110,6 +110,10 @@ nested_test("example_data") do
 
                 test_description(daf; cache = dedent("""
                       cache:
+                        '# batch': (MemoryData) (OrderedCollections.OrderedDict{String, Int64} length: 4)
+                        '# cell': (MemoryData) (OrderedCollections.OrderedDict{String, Int64} length: 20)
+                        '# gene': (MemoryData) (OrderedCollections.OrderedDict{String, Int64} length: 10)
+                        '# type': (MemoryData) (OrderedCollections.OrderedDict{String, Int64} length: 3)
                         '/ cell / gene : UMIs': (QueryData) 20 x 10 x Int16 in Columns (Dense)
                   """))
 
@@ -142,6 +146,10 @@ nested_test("example_data") do
 
                 test_description(daf; cache = dedent("""
                     cache:
+                      '# batch': (MemoryData) (OrderedCollections.OrderedDict{String, Int64} length: 4)
+                      '# cell': (MemoryData) (OrderedCollections.OrderedDict{String, Int64} length: 20)
+                      '# gene': (MemoryData) (OrderedCollections.OrderedDict{String, Int64} length: 10)
+                      '# type': (MemoryData) (OrderedCollections.OrderedDict{String, Int64} length: 3)
                       '/ cell / gene : UMIs % Abs': (QueryData) 20 x 10 x UInt16 in Columns (Dense)
                 """))
                 return nothing
@@ -159,6 +167,10 @@ nested_test("example_data") do
 
                 test_description(daf; cache = dedent("""
                     cache:
+                      '# batch': (MemoryData) (OrderedCollections.OrderedDict{String, Int64} length: 4)
+                      '# cell': (MemoryData) (OrderedCollections.OrderedDict{String, Int64} length: 20)
+                      '# gene': (MemoryData) (OrderedCollections.OrderedDict{String, Int64} length: 10)
+                      '# type': (MemoryData) (OrderedCollections.OrderedDict{String, Int64} length: 3)
                       '/ cell & batch = B1 / gene & module = M1 : UMIs': (QueryData) 6 x 2 x Int16 in Columns (Dense)
                 """))
                 return nothing

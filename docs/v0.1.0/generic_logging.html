@@ -164,6 +164,10 @@
 </ul>
 </li>
 <li>
+<a class="tocitem" href="generic_locks.html">Generic Locks
+</a>
+</li>
+<li>
 <a class="tocitem" href="generic_types.html">Generic Types
 </a>
 </li>
@@ -304,6 +308,24 @@
 <code>show_location
 </code>, each message will be prefixed with the file name and the line number emitting the message.
 </p>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>When multi-processing is used, a 
+<code>P&lt;id&gt;:
+</code> process index is added to the log entries. When multi-threading is used, a 
+<code>T&lt;id&gt;:
+</code> thread index is added to the log entries, as well as a 
+<code>K&lt;id&gt;:
+</code> task index. To generate the latter, this stores a unique 
+<code>:task_id
+</code> index in the 
+<code>task_local_storage
+</code>. This is important since a task may migrate between threads.
+</p>
+</div>
+</div>
 </div>
 </section>
 </article>
@@ -365,7 +387,7 @@ end
 <nav class="docs-footer">
 <a class="docs-footer-prevpage" href="messages.html">« Messages
 </a>
-<a class="docs-footer-nextpage" href="generic_types.html">Generic Types »
+<a class="docs-footer-nextpage" href="generic_locks.html">Generic Locks »
 </a>
 <div class="flexbox-break">
 </div>

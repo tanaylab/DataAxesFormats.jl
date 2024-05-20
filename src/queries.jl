@@ -38,6 +38,7 @@ export query_result_dimensions
 
 using ..Readers
 using ..Formats
+using ..GenericLocks
 using ..GenericTypes
 using ..Messages
 using ..Operations
@@ -48,14 +49,7 @@ using Base.Threads
 using DataFrames
 using NamedArrays
 
-import ..Formats.axis_array_cache_key
 import ..Formats.CacheEntry
-import ..Formats.matrix_cache_key
-import ..Formats.scalar_cache_key
-import ..Formats.store_cached_dependency_keys!
-import ..Formats.upgrade_to_write_lock
-import ..Formats.vector_cache_key
-import ..Formats.with_read_lock
 import ..Readers.require_axis
 import ..Readers.require_matrix
 import ..Readers.require_scalar
@@ -1650,29 +1644,36 @@ function get_query(
     cache::Bool = true,
 )::Union{AbstractStringSet, AbstractStringVector, StorageScalar, NamedArray}
     cache_key = join([string(query_operation) for query_operation in query_sequence.query_operations], " ")
-    cached_entry = get(daf.internal.cache, cache_key, nothing)
-    if cached_entry !== nothing
-        @debug "get_query daf: $(depict(daf)) query_sequence: $(query_sequence) cache: $(cache) cached result: $(depict(cached_entry.data))"
-        return cached_entry.data
-    end
-
-    return with_read_lock(daf, "get_query") do
-        query_state = QueryState(daf, query_sequence, 1, Vector{QueryValue}())
-        while query_state.next_operation_index <= length(query_state.query_sequence.query_operations)
-            query_operation = query_sequence.query_operations[query_state.next_operation_index]
-            query_state.next_operation_index += 1
-            apply_query_operation!(query_state, query_operation)
+    result = with_read_lock(daf.internal.cache_lock, daf.name, "cache for:", cache_key) do
+        cached_entry = get(daf.internal.cache, cache_key, nothing)
+        if cached_entry !== nothing
+            @debug "get_query daf: $(depict(daf)) query_sequence: $(query_sequence) cache: $(cache) cached result: $(depict(cached_entry.data))"
+            return cached_entry.data
         end
-
-        result, dependency_keys = get_query_result(query_state)
-        if cache && !haskey(daf.internal.cache, cache_key)
-            Formats.upgrade_to_write_lock(daf)
-            Formats.cache_data!(daf, cache_key, result, QueryData)
-            store_cached_dependency_keys!(daf, cache_key, dependency_keys)
-        end
-        @debug "get_query daf: $(depict(daf)) query_sequence: $(query_sequence) cache: $(cache) result: $(depict(result))"
-        return result
     end
+    if result === nothing
+        result = Formats.with_data_read_lock(daf, "get_query of:", cache_key) do
+            query_state = QueryState(daf, query_sequence, 1, Vector{QueryValue}())
+            while query_state.next_operation_index <= length(query_state.query_sequence.query_operations)
+                query_operation = query_sequence.query_operations[query_state.next_operation_index]
+                query_state.next_operation_index += 1
+                apply_query_operation!(query_state, query_operation)
+            end
+
+            result, dependency_keys = get_query_result(query_state)
+            if cache
+                with_write_lock(daf.internal.cache_lock, daf.name, "cache for:", cache_key) do
+                    if !haskey(daf.internal.cache, cache_key)
+                        Formats.cache_data!(daf, cache_key, result, QueryData)
+                        Formats.store_cached_dependency_keys!(daf, cache_key, dependency_keys)
+                    end
+                end
+            end
+            @debug "get_query daf: $(depict(daf)) query_sequence: $(query_sequence) cache: $(cache) result: $(depict(result))"
+            return result
+        end
+    end
+    return result
 end
 
 function is_axis_query(query_string::AbstractString)::Bool
@@ -1817,20 +1818,20 @@ function axis_array_result(
         if axis_modifier isa AbstractVector{Bool}
             axis_entries = axis_entries[axis_modifier]
         end
-        return axis_entries, axis_state.dependency_keys
+        return Formats.as_read_only_array(axis_entries), axis_state.dependency_keys
     end
 end
 
 function get_vector_result(query_state::QueryState)::Tuple{NamedArray, Set{AbstractString}}
     vector_state = pop!(query_state.stack)
     @assert vector_state isa VectorState
-    return vector_state.named_vector, vector_state.dependency_keys
+    return Formats.as_read_only_array(vector_state.named_vector), vector_state.dependency_keys
 end
 
 function get_matrix_result(query_state::QueryState)::Tuple{NamedArray, Set{AbstractString}}
     matrix_state = pop!(query_state.stack)
     @assert matrix_state isa MatrixState
-    return matrix_state.named_matrix, matrix_state.dependency_keys
+    return Formats.as_read_only_array(matrix_state.named_matrix), matrix_state.dependency_keys
 end
 
 function apply_query_operation!(query_state::QueryState, ::ModifierQueryOperation)::Nothing
@@ -1865,7 +1866,7 @@ end
 function push_axis(query_state::QueryState, axis::Axis, ::Nothing)::Nothing
     require_axis(query_state.daf, axis.axis_name)
     query_sequence = QuerySequence((axis,))
-    dependency_keys = Set((axis_array_cache_key(axis.axis_name),))
+    dependency_keys = Set((Formats.axis_array_cache_key(axis.axis_name),))
     axis_state = AxisState(query_sequence, dependency_keys, axis.axis_name, nothing)
     push!(query_state.stack, axis_state)
     return nothing
@@ -1875,7 +1876,7 @@ function push_axis(query_state::QueryState, axis::Axis, is_equal::IsEqual)::Noth
     axis_entries = get_vector(query_state.daf, axis.axis_name, "name")
 
     query_sequence = QuerySequence((axis, is_equal))
-    dependency_keys = Set((axis_array_cache_key(axis.axis_name),))
+    dependency_keys = Set((Formats.axis_array_cache_key(axis.axis_name),))
 
     comparison_value = is_equal.comparison_value
     if !(comparison_value isa AbstractString)
@@ -2043,7 +2044,7 @@ end
 function lookup_scalar(query_state::QueryState, lookup::Lookup)::Nothing
     if_missing_value = parse_if_missing_value(query_state)
     scalar_value = get_scalar(query_state.daf, lookup.property_name; default = if_missing_value)
-    dependency_keys = Set((scalar_cache_key(lookup.property_name),))
+    dependency_keys = Set((Formats.scalar_cache_key(lookup.property_name),))
     scalar_state = ScalarState(query_state_sequence(query_state), dependency_keys, scalar_value)
     push!(query_state.stack, scalar_state)
     return nothing
@@ -2073,7 +2074,7 @@ function lookup_axes(query_state::QueryState, lookup::Lookup)::Nothing
     dependency_keys = union(rows_axis_state.dependency_keys, columns_axis_state.dependency_keys)
     push!(
         dependency_keys,
-        matrix_cache_key(rows_axis_state.axis_name, columns_axis_state.axis_name, lookup.property_name),
+        Formats.matrix_cache_key(rows_axis_state.axis_name, columns_axis_state.axis_name, lookup.property_name),
     )
 
     rows_axis_modifier = rows_axis_state.axis_modifier
@@ -2353,7 +2354,7 @@ function fetch_property(query_state::QueryState, axis_state::AxisState, fetch_op
     fetch_property_name = fetch_operation.property_name
 
     while true
-        push!(fetch_state.common.dependency_keys, vector_cache_key(fetch_axis_name, fetch_property_name))
+        push!(fetch_state.common.dependency_keys, Formats.vector_cache_key(fetch_axis_name, fetch_property_name))
 
         if_missing = get_next_operation(query_state, IfMissing)
         if_not = get_next_operation(query_state, IfNot)

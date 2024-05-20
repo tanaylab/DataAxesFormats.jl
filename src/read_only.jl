@@ -13,7 +13,6 @@ using ..Readers
 using ..StorageTypes
 using SparseArrays
 
-import ..Formats.as_read_only_array
 import ..Messages
 
 """
@@ -61,44 +60,79 @@ function read_only(daf::DafReadOnly; name::Maybe{AbstractString} = nothing)::Daf
         return daf
     else
         wrapper = DafReadOnlyWrapper(name, daf.daf)
-        @debug "Daf: $(depict(wrapper)) base: $(daf)"
+        @debug "Daf: $(depict(wrapper)) base: $(daf.daf)"
         return wrapper
     end
 end
 
+function Formats.begin_data_read_lock(read_only_view::DafReadOnlyWrapper, what::AbstractString...)::Nothing
+    Formats.begin_data_read_lock(read_only_view.daf, what...)
+    return nothing
+end
+
+function Formats.end_data_read_lock(read_only_view::DafReadOnlyWrapper, what::AbstractString...)::Nothing
+    Formats.end_data_read_lock(read_only_view.daf, what...)
+    return nothing
+end
+
+function Formats.has_data_read_lock(read_only_view::DafReadOnlyWrapper)::Bool
+    return Formats.has_data_read_lock(read_only_view.daf)
+end
+
+function Formats.begin_data_write_lock(::DafReadOnlyWrapper, ::AbstractString...)::Nothing  # untested
+    @assert false
+end
+
+function Formats.end_data_write_lock(::DafReadOnlyWrapper, ::AbstractString...)::Nothing
+    @assert false
+end
+
+function Formats.has_data_write_lock(::DafReadOnlyWrapper)::Bool  # untested
+    return false
+end
+
 function Formats.format_has_scalar(read_only_view::DafReadOnlyWrapper, name::AbstractString)::Bool
+    @assert Formats.has_data_read_lock(read_only_view)
     return Formats.format_has_scalar(read_only_view.daf, name)
 end
 
 function Formats.format_get_scalar(read_only_view::DafReadOnlyWrapper, name::AbstractString)::StorageScalar
+    @assert Formats.has_data_read_lock(read_only_view)
     return Formats.format_get_scalar(read_only_view.daf, name)
 end
 
 function Formats.format_scalars_set(read_only_view::DafReadOnlyWrapper)::AbstractStringSet
+    @assert Formats.has_data_read_lock(read_only_view)
     return Formats.format_scalars_set(read_only_view.daf)
 end
 
 function Formats.format_has_axis(read_only_view::DafReadOnlyWrapper, axis::AbstractString; for_change::Bool)::Bool
+    @assert Formats.has_data_read_lock(read_only_view)
     return Formats.format_has_axis(read_only_view.daf, axis; for_change = for_change)
 end
 
 function Formats.format_axes_set(read_only_view::DafReadOnlyWrapper)::AbstractStringSet
+    @assert Formats.has_data_read_lock(read_only_view)
     return Formats.format_axes_set(read_only_view.daf)
 end
 
 function Formats.format_axis_array(read_only_view::DafReadOnlyWrapper, axis::AbstractString)::AbstractStringVector
+    @assert Formats.has_data_read_lock(read_only_view)
     return Formats.format_axis_array(read_only_view.daf, axis)
 end
 
 function Formats.format_axis_length(read_only_view::DafReadOnlyWrapper, axis::AbstractString)::Int64
+    @assert Formats.has_data_read_lock(read_only_view)
     return Formats.format_axis_length(read_only_view.daf, axis)
 end
 
 function Formats.format_has_vector(read_only_view::DafReadOnlyWrapper, axis::AbstractString, name::AbstractString)::Bool
+    @assert Formats.has_data_read_lock(read_only_view)
     return Formats.format_has_vector(read_only_view.daf, axis, name)
 end
 
 function Formats.format_vectors_set(read_only_view::DafReadOnlyWrapper, axis::AbstractString)::AbstractStringSet
+    @assert Formats.has_data_read_lock(read_only_view)
     return Formats.format_vectors_set(read_only_view.daf, axis)
 end
 
@@ -107,7 +141,8 @@ function Formats.format_get_vector(
     axis::AbstractString,
     name::AbstractString,
 )::StorageVector
-    return as_read_only_array(Formats.format_get_vector(read_only_view.daf, axis, name))
+    @assert Formats.has_data_read_lock(read_only_view)
+    return Formats.as_read_only_array(Formats.format_get_vector(read_only_view.daf, axis, name))
 end
 
 function Formats.format_has_matrix(
@@ -117,6 +152,7 @@ function Formats.format_has_matrix(
     name::AbstractString;
     for_relayout::Bool = false,
 )::Bool
+    @assert Formats.has_data_read_lock(read_only_view)
     return Formats.format_has_matrix(read_only_view.daf, rows_axis, columns_axis, name; for_relayout = for_relayout)
 end
 
@@ -125,6 +161,7 @@ function Formats.format_matrices_set(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
 )::AbstractStringSet
+    @assert Formats.has_data_read_lock(read_only_view)
     return Formats.format_matrices_set(read_only_view.daf, rows_axis, columns_axis)
 end
 
@@ -134,7 +171,8 @@ function Formats.format_get_matrix(
     columns_axis::AbstractString,
     name::AbstractString,
 )::StorageMatrix
-    return as_read_only_array(Formats.format_get_matrix(read_only_view.daf, rows_axis, columns_axis, name))
+    @assert Formats.has_data_read_lock(read_only_view)
+    return Formats.as_read_only_array(Formats.format_get_matrix(read_only_view.daf, rows_axis, columns_axis, name))
 end
 
 function Formats.format_description_header(
@@ -142,6 +180,7 @@ function Formats.format_description_header(
     indent::AbstractString,
     lines::Vector{String},
 )::Nothing
+    @assert Formats.has_data_read_lock(read_only_view)
     push!(lines, "$(indent)type: ReadOnly $(typeof(read_only_view.daf))")
     return nothing
 end
