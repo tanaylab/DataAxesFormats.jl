@@ -276,7 +276,8 @@ function Formats.format_scalars_set(chain::AnyChain)::AbstractStringSet
             Formats.get_through_cache(daf, Formats.scalars_set_cache_key(), AbstractStringSet) do
                 return Formats.get_scalars_set_through_cache(daf)
             end for daf in chain.dafs
-        ],
+        ];
+        init = Set{AbstractString}(),
     )
 end
 
@@ -315,7 +316,7 @@ end
 
 function Formats.format_axes_set(chain::AnyChain)::AbstractStringSet
     @assert Formats.has_data_read_lock(chain)
-    return reduce(union, [Formats.get_axes_set_through_cache(daf) for daf in chain.dafs])
+    return reduce(union, [Formats.get_axes_set_through_cache(daf) for daf in chain.dafs]; init = Set{AbstractString}())
 end
 
 function Formats.format_axis_array(chain::AnyChain, axis::AbstractString)::AbstractStringVector
@@ -434,7 +435,8 @@ function Formats.format_vectors_set(chain::AnyChain, axis::AbstractString)::Abst
         [
             Formats.get_vectors_set_through_cache(daf, axis) for
             daf in chain.dafs if Formats.format_has_axis(daf, axis; for_change = false)
-        ],
+        ];
+        init = Set{AbstractString}(),
     )
 end
 
@@ -586,7 +588,8 @@ function Formats.format_matrices_set(
             Formats.get_matrices_set_through_cache(daf, rows_axis, columns_axis) for
             daf in chain.dafs if Formats.format_has_axis(daf, rows_axis; for_change = false) &&
             Formats.format_has_axis(daf, columns_axis; for_change = false)
-        ],
+        ];
+        init = Set{AbstractString}(),
     )
 end
 
