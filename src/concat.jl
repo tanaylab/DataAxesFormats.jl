@@ -75,13 +75,13 @@ of other axes). Valid values are:
 """
     concatenate!(
         destination::DafWriter,
-        axis::Union{AbstractString, AbstractStringVector},
+        axis::Union{AbstractString, AbstractVector{<:AbstractString}},
         sources::AbstractVector{<:DafReader};
-        [names::Maybe{AbstractStringVector} = nothing,
+        [names::Maybe{AbstractVector{<:AbstractString}} = nothing,
         dataset_axis::Maybe{AbstractString} = "dataset",
         dataset_property::Bool = true,
         prefix::Union{Bool, AbstractVector{Bool}} = false,
-        prefixed::Maybe{Union{AbstractStringSet, AbstractVector{<:AbstractStringSet}}} = nothing,
+        prefixed::Maybe{Union{AbstractSet{<:AbstractString}, AbstractVector{<:AbstractSet{<:AbstractString}}}} = nothing,
         empty::Maybe{EmptyData} = nothing,
         sparse_if_saves_storage_fraction = 0.25,
         merge::Maybe{MergeData} = nothing,
@@ -136,13 +136,13 @@ By default, concatenation will fail rather than `overwrite` existing properties 
 """
 @logged function concatenate!(
     destination::DafWriter,
-    axis::Union{AbstractString, AbstractStringVector},
+    axis::Union{AbstractString, AbstractVector{<:AbstractString}},
     sources::AbstractVector{<:DafReader};
-    names::Maybe{AbstractStringVector} = nothing,
+    names::Maybe{AbstractVector{<:AbstractString}} = nothing,
     dataset_axis::Maybe{AbstractString} = "dataset",
     dataset_property::Bool = true,
     prefix::Union{Bool, AbstractVector{Bool}} = false,
-    prefixed::Maybe{Union{AbstractStringSet, AbstractVector{<:AbstractStringSet}}} = nothing,
+    prefixed::Maybe{Union{AbstractSet{<:AbstractString}, AbstractVector{<:AbstractSet{<:AbstractString}}}} = nothing,
     empty::Maybe{EmptyData} = nothing,
     sparse_if_saves_storage_fraction = 0.1,
     merge::Maybe{MergeData} = nothing,
@@ -210,7 +210,7 @@ By default, concatenation will fail rather than `overwrite` existing properties 
         end
         @assert length(prefixes) == length(axes)
 
-        if prefixed isa AbstractStringSet
+        if prefixed isa AbstractSet{<:AbstractString}
             prefixed = [prefixed]
         end
         @assert prefixed === nothing || length(prefixed) == length(axes)
@@ -218,7 +218,7 @@ By default, concatenation will fail rather than `overwrite` existing properties 
         @assert empty === nothing || !(CollectAxis in values(empty)) || dataset_axis !== nothing
 
         axes_names_set = Set(axes)
-        other_axes_entry_names = Dict{AbstractString, Tuple{AbstractString, AbstractStringVector}}()
+        other_axes_entry_names = Dict{AbstractString, Tuple{AbstractString, AbstractVector{<:AbstractString}}}()
         for source in sources
             for axis_name in axes_set(source)
                 if !(axis_name in axes_names_set)
@@ -301,14 +301,14 @@ function concatenate_axis(
     destination::DafWriter,
     axis::AbstractString,
     sources::AbstractVector{<:DafReader};
-    axes::AbstractStringVector,
-    other_axes_set::AbstractStringSet,
-    names::AbstractStringVector,
+    axes::AbstractVector{<:AbstractString},
+    other_axes_set::AbstractSet{<:AbstractString},
+    names::AbstractVector{<:AbstractString},
     dataset_axis::Maybe{AbstractString},
     dataset_property::Bool,
     prefix::Bool,
     prefixes::AbstractArray{Bool},
-    prefixed::Maybe{AbstractStringSet},
+    prefixed::Maybe{AbstractSet{<:AbstractString}},
     empty::Maybe{EmptyData},
     sparse_if_saves_storage_fraction::AbstractFloat,
     overwrite::Bool,
@@ -414,7 +414,7 @@ function concatenate_axis_entry_names(
     destination::DafWriter,
     axis::AbstractString,
     sources::AbstractVector{<:DafReader};
-    names::AbstractStringVector,
+    names::AbstractVector{<:AbstractString},
     prefix::Bool,
     sizes::AbstractVector{<:Integer},
     offsets::AbstractVector{<:Integer},
@@ -443,7 +443,7 @@ end
 function concatenate_axis_dataset_property(
     destination::DafWriter,
     axis::AbstractString;
-    names::AbstractStringVector,
+    names::AbstractVector{<:AbstractString},
     dataset_axis::AbstractString,
     offsets::AbstractVector{<:Integer},
     sizes::AbstractVector{<:Integer},
@@ -469,7 +469,7 @@ function concatenate_axis_vector(
     axis::AbstractString,
     vector_property::AbstractString,
     sources::AbstractVector{<:DafReader};
-    names::AbstractStringVector,
+    names::AbstractVector{<:AbstractString},
     prefix::Bool,
     empty_value::Maybe{StorageScalar},
     sparse_if_saves_storage_fraction::AbstractFloat,
@@ -537,7 +537,7 @@ function concatenate_axis_string_vectors(
     axis::AbstractString,
     vector_property::AbstractString,
     sources::AbstractVector{<:DafReader};
-    names::AbstractStringVector,
+    names::AbstractVector{<:AbstractString},
     prefix::Bool,
     empty_value::Maybe{StorageScalar},
     offsets::AbstractVector{<:Integer},
@@ -771,7 +771,7 @@ function concatenate_merge(
     destination::DafWriter,
     sources::AbstractVector{<:DafReader};
     dataset_axis::Maybe{AbstractString},
-    other_axes_set::AbstractStringSet,
+    other_axes_set::AbstractSet{<:AbstractString},
     empty::Maybe{EmptyData},
     merge::MergeData,
     sparse_if_saves_storage_fraction::AbstractFloat,
@@ -1321,7 +1321,7 @@ function nnz_arrays(
     return nnz_offsets, nnz_sizes, total_nnz
 end
 
-function dtype_for_size(size::Integer, types::NTuple{N, Type})::Type where {N}
+function dtype_for_size(size::Integer, types::NTuple{<:Any, Type})::Type
     for type in types[1:(end - 1)]
         if size <= sizeof(type)
             return type

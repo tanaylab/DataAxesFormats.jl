@@ -129,10 +129,10 @@ REDUCTION_REGISTERED_OPERATIONS = Dict{String, RegisteredOperation}()
 
 """
     register_query_operation(
-        type::Type{T},
+        type::Type{<:Union{EltwiseOperation, ReductionOperation}},
         source_file::AbstractString,
         source_line::Integer,
-    )::Nothing where {T <: Union{EltwiseOperation, ReductionOperation}}
+    )::Nothing
 
 Register a specific operation so it would be available inside queries. This is required to be able to parse the
 operation. This is idempotent (safe to invoke multiple times).
@@ -140,15 +140,15 @@ operation. This is idempotent (safe to invoke multiple times).
 This isn't usually called directly. Instead, it is typically invoked by using the [`@query_operation`](@ref) macro.
 """
 function register_query_operation(
-    ::Type{T},
+    type::Type{<:Union{EltwiseOperation, ReductionOperation}},
     source_file::AbstractString,
     source_line::Integer,
-)::Nothing where {T <: Union{EltwiseOperation, ReductionOperation}}
-    if T <: EltwiseOperation
+)::Nothing
+    if type <: EltwiseOperation
         global ELTWISE_REGISTERED_OPERATIONS
         registered_operations = ELTWISE_REGISTERED_OPERATIONS
         kind = "eltwise"
-    elseif T <: ReductionOperation
+    elseif type <: ReductionOperation
         global REDUCTION_REGISTERED_OPERATIONS
         registered_operations = REDUCTION_REGISTERED_OPERATIONS
         kind = "reduction"
@@ -156,10 +156,10 @@ function register_query_operation(
         @assert false
     end
 
-    name = String(T.name.name)
+    name = String(type.name.name)
     if name in keys(registered_operations)
         previous_registration = registered_operations[name]
-        if previous_registration.type != T ||
+        if previous_registration.type != type ||
            previous_registration.source_file != source_file ||
            previous_registration.source_line != source_line
             error(
@@ -170,7 +170,7 @@ function register_query_operation(
         end
     end
 
-    registered_operations[name] = RegisteredOperation(T, source_file, source_line)
+    registered_operations[name] = RegisteredOperation(type, source_file, source_line)
     return nothing
 end
 

@@ -97,8 +97,8 @@ If too much data has been cached, call [`empty_cache!`](@ref) to release it.
 struct CacheEntry
     cache_type::CacheType
     data::Union{
-        AbstractStringSet,
-        AbstractStringVector,
+        AbstractSet{<:AbstractString},
+        AbstractVector{<:AbstractString},
         StorageScalar,
         NamedArray,
         AbstractDict{<:AbstractString, <:Integer},
@@ -228,7 +228,7 @@ This trusts that we have a write lock on the data set, and that the `name` scala
 function format_delete_scalar! end
 
 """
-    format_scalars_set(format::FormatReader)::AbstractStringSet
+    format_scalars_set(format::FormatReader)::AbstractSet{<:AbstractString}
 
 The names of the scalar properties in `format`.
 
@@ -258,7 +258,7 @@ function format_has_axis end
     format_add_axis!(
         format::FormatWriter,
         axis::AbstractString,
-        entries::AbstractStringVector
+        entries::AbstractVector{<:AbstractString}
     )::Nothing
 
 Implement adding a new `axis` to `format`.
@@ -279,7 +279,7 @@ properties that are based on this axis have already been deleted.
 function format_delete_axis! end
 
 """
-    format_axes_set(format::FormatReader)::AbstractStringSet
+    format_axes_set(format::FormatReader)::AbstractSet{<:AbstractString}
 
 The names of the axes of `format`.
 
@@ -288,7 +288,7 @@ This trusts that we have a read lock on the data set.
 function format_axes_set end
 
 """
-    format_axis_array(format::FormatReader, axis::AbstractString)::AbstractStringVector
+    format_axis_array(format::FormatReader, axis::AbstractString)::AbstractVector{<:AbstractString}
 
 Implement fetching the unique names of the entries of some `axis` of `format`.
 
@@ -338,7 +338,7 @@ function format_set_vector! end
         axis::AbstractString,
         name::AbstractString,
         eltype::Type{T},
-    )::VectorVector where {T <: StorageNumber}
+    )::Vector{T} where {T <: StorageNumber}
 
 Implement setting a vector property with some `name` for some `axis` in `format`.
 
@@ -360,8 +360,8 @@ function format_get_empty_dense_vector! end
         daf::DafWriter,
         axis::AbstractString,
         name::AbstractString,
-        filled_vector::AbstractVector{T},
-    )::Nothing where {T <: StorageNumber}
+        filled_vector::AbstractVector{<:StorageNumber},
+    )::Nothing
 
 Allow the `format` to perform caching once the empty dense vector has been `filled`. By default this does nothing.
 """
@@ -369,8 +369,8 @@ function format_filled_empty_dense_vector!(
     ::DafWriter,
     ::AbstractString,
     ::AbstractString,
-    ::AbstractVector{T},
-)::Nothing where {T <: StorageNumber}
+    ::AbstractVector{<:StorageNumber},
+)::Nothing
     return nothing
 end
 
@@ -399,8 +399,8 @@ function format_get_empty_sparse_vector! end
         axis::AbstractString,
         name::AbstractString,
         extra::Any,
-        filled::SparseVector{T, I},
-    )::Nothing where {T <: StorageNumber, I <: StorageInteger}
+        filled::SparseVector{<:StorageNumber, <:StorageInteger},
+    )::Nothing
 
 Allow the `format` to perform caching once the empty sparse vector has been `filled`. By default this does nothing.
 """
@@ -409,8 +409,8 @@ function format_filled_empty_sparse_vector!(  # untested
     ::AbstractString,
     ::AbstractString,
     ::Any,
-    ::SparseVector{T, I},
-)::Nothing where {T <: StorageNumber, I <: StorageInteger}
+    ::SparseVector{<:StorageNumber, <:StorageInteger},
+)::Nothing
     return nothing
 end
 
@@ -431,7 +431,7 @@ isn't `name`, and that the `name` vector exists for the `axis`.
 function format_delete_vector! end
 
 """
-    format_vectors_set(format::FormatReader, axis::AbstractString)::AbstractStringSet
+    format_vectors_set(format::FormatReader, axis::AbstractString)::AbstractSet{<:AbstractString}
 
 Implement fetching the names of the vectors for the `axis` in `format`, **not** including the special `name` property.
 
@@ -511,8 +511,8 @@ function format_get_empty_dense_matrix! end
         rows_axis::AbstractString,
         columns_axis::AbstractString,
         name::AbstractString,
-        filled_matrix::AbstractVector{T},
-    )::Nothing where {T <: StorageNumber}
+        filled_matrix::AbstractVector{<:StorageNumber},
+    )::Nothing
 
 Allow the `format` to perform caching once the empty dense matrix has been `filled`. By default this does nothing.
 """
@@ -521,8 +521,8 @@ function format_filled_empty_dense_matrix!(
     ::AbstractString,
     ::AbstractString,
     ::AbstractString,
-    ::AbstractMatrix{T},
-)::Nothing where {T <: StorageNumber}
+    ::AbstractMatrix{<:StorageNumber},
+)::Nothing
     return nothing
 end
 
@@ -553,8 +553,8 @@ function format_get_empty_sparse_matrix! end
         columns_axis::AbstractString,
         name::AbstractString,
         extra::Any,
-        filled::SparseMatrixCSC{T, I},
-    )::Nothing where {T <: StorageNumber, I <: StorageInteger}
+        filled::SparseMatrixCSC{<:StorageNumber, <:StorageInteger},
+    )::Nothing
 
 Allow the `format` to perform caching once the empty sparse matrix has been `filled`. By default this does nothing.
 """
@@ -564,8 +564,8 @@ function format_filled_empty_sparse_matrix!(  # untested
     ::AbstractString,
     ::AbstractString,
     ::Any,
-    ::SparseMatrixCSC{T, I},
-)::Nothing where {T <: StorageNumber, I <: StorageInteger}
+    ::SparseMatrixCSC{<:StorageNumber, <:StorageInteger},
+)::Nothing
     return nothing
 end
 
@@ -607,7 +607,7 @@ function format_delete_matrix! end
         format::FormatReader,
         rows_axis::AbstractString,
         columns_axis::AbstractString,
-    )::AbstractStringSet
+    )::AbstractSet{<:AbstractString}
 
 Implement fetching the names of the matrix properties for the `rows_axis` and `columns_axis` in `format`.
 
@@ -675,20 +675,20 @@ function get_through_cache(getter::Function, format::FormatReader, cache_key::Ab
     end
 end
 
-function get_scalars_set_through_cache(format::FormatReader)::AbstractStringSet
-    return get_through_cache(format, scalars_set_cache_key(), AbstractStringSet) do
+function get_scalars_set_through_cache(format::FormatReader)::AbstractSet{<:AbstractString}
+    return get_through_cache(format, scalars_set_cache_key(), AbstractSet{<:AbstractString}) do
         return format_scalars_set(format)
     end
 end
 
-function get_axes_set_through_cache(format::FormatReader)::AbstractStringSet
-    return get_through_cache(format, axes_set_cache_key(), AbstractStringSet) do
+function get_axes_set_through_cache(format::FormatReader)::AbstractSet{<:AbstractString}
+    return get_through_cache(format, axes_set_cache_key(), AbstractSet{<:AbstractString}) do
         return format_axes_set(format)
     end
 end
 
-function get_vectors_set_through_cache(format::FormatReader, axis::AbstractString)::AbstractStringSet
-    return get_through_cache(format, vectors_set_cache_key(axis), AbstractStringSet) do
+function get_vectors_set_through_cache(format::FormatReader, axis::AbstractString)::AbstractSet{<:AbstractString}
+    return get_through_cache(format, vectors_set_cache_key(axis), AbstractSet{<:AbstractString}) do
         return format_vectors_set(format, axis)
     end
 end
@@ -697,8 +697,8 @@ function get_matrices_set_through_cache(
     format::FormatReader,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
-)::AbstractStringSet
-    return get_through_cache(format, matrices_set_cache_key(rows_axis, columns_axis), AbstractStringSet) do
+)::AbstractSet{<:AbstractString}
+    return get_through_cache(format, matrices_set_cache_key(rows_axis, columns_axis), AbstractSet{<:AbstractString}) do
         return format_matrices_set(format, rows_axis, columns_axis)
     end
 end
@@ -709,8 +709,8 @@ function get_scalar_through_cache(format::FormatReader, name::AbstractString)::S
     end
 end
 
-function axis_array_through_cache(format::FormatReader, axis::AbstractString)::AbstractStringVector
-    return get_through_cache(format, axis_array_cache_key(axis), AbstractStringVector) do
+function axis_array_through_cache(format::FormatReader, axis::AbstractString)::AbstractVector{<:AbstractString}
+    return get_through_cache(format, axis_array_cache_key(axis), AbstractVector{<:AbstractString}) do
         return format_axis_array(format, axis)
     end
 end
@@ -757,13 +757,13 @@ function get_matrix_through_cache(
     end
 end
 
-function cache_scalars_set!(format::FormatReader, names::AbstractStringSet, cache_type::CacheType)::Nothing
+function cache_scalars_set!(format::FormatReader, names::AbstractSet{<:AbstractString}, cache_type::CacheType)::Nothing
     cache_key = scalars_set_cache_key()
     cache_data!(format, cache_key, names, cache_type)
     return nothing
 end
 
-function cache_axes_set!(format::FormatReader, names::AbstractStringSet, cache_type::CacheType)::Nothing
+function cache_axes_set!(format::FormatReader, names::AbstractSet{<:AbstractString}, cache_type::CacheType)::Nothing
     cache_key = axes_set_cache_key()
     cache_data!(format, cache_key, names, cache_type)
     return nothing
@@ -772,7 +772,7 @@ end
 function cache_axis!(
     format::FormatReader,
     axis::AbstractString,
-    entries::AbstractStringVector,
+    entries::AbstractVector{<:AbstractString},
     cache_type::CacheType,
 )::Nothing
     cache_key = axis_array_cache_key(axis)
@@ -783,7 +783,7 @@ end
 function cache_vectors_set!(
     format::FormatReader,
     axis::AbstractString,
-    names::AbstractStringSet,
+    names::AbstractSet{<:AbstractString},
     cache_type::CacheType,
 )::Nothing
     cache_key = vectors_set_cache_key(axis)
@@ -795,7 +795,7 @@ function cache_matrices_set!(
     format::FormatReader,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
-    names::AbstractStringSet,
+    names::AbstractSet{<:AbstractString},
     cache_type::CacheType,
 )::Nothing
     cache_key = matrices_set_cache_key(rows_axis, columns_axis)
@@ -1100,7 +1100,7 @@ end
 function cache_data!(
     format::FormatReader,
     cache_key::AbstractString,
-    data::Union{AbstractStringSet, AbstractStringVector, StorageScalar, NamedArray},
+    data::Union{AbstractSet{<:AbstractString}, AbstractVector{<:AbstractString}, StorageScalar, NamedArray},
     cache_type::CacheType,
 )::Nothing
     if data isa AbstractArray

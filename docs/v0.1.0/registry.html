@@ -593,10 +593,10 @@ end
 <div>
 <pre>
 <code class="language-julia hljs">register_query_operation(
-    type::Type{T},
+    type::Type{&lt;:Union{EltwiseOperation, ReductionOperation}},
     source_file::AbstractString,
     source_line::Integer,
-)::Nothing where {T &lt;: Union{EltwiseOperation, ReductionOperation}}
+)::Nothing
 </code>
 </pre>
 <p>Register a specific operation so it would be available inside queries. This is required to be able to parse the operation. This is idempotent (safe to invoke multiple times).

@@ -136,7 +136,7 @@ function logged_wrapper(
     _file::AbstractString,
     _line::Integer,
     name::AbstractString,
-    arg_names::AbstractStringVector,
+    arg_names::AbstractVector{<:AbstractString},
     has_result::Bool,
     inner_function,
 )

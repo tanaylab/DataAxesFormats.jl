@@ -34,7 +34,7 @@ struct MemoryDaf <: DafWriter
 
     scalars::Dict{AbstractString, StorageScalar}
 
-    axes::Dict{AbstractString, AbstractStringVector}
+    axes::Dict{AbstractString, AbstractVector{<:AbstractString}}
 
     vectors::Dict{AbstractString, Dict{AbstractString, StorageVector}}
 
@@ -43,7 +43,7 @@ end
 
 function MemoryDaf(; name::AbstractString = "memory")::MemoryDaf
     scalars = Dict{AbstractString, StorageScalar}()
-    axes = Dict{AbstractString, AbstractStringVector}()
+    axes = Dict{AbstractString, AbstractVector{<:AbstractString}}()
     vectors = Dict{AbstractString, Dict{AbstractString, StorageVector}}()
     matrices = Dict{AbstractString, Dict{AbstractString, Dict{AbstractString, StorageMatrix}}}()
     memory = MemoryDaf(Internal(name; is_frozen = false), scalars, axes, vectors, matrices)
@@ -73,7 +73,7 @@ function Formats.format_get_scalar(memory::MemoryDaf, name::AbstractString)::Sto
     return memory.scalars[name]
 end
 
-function Formats.format_scalars_set(memory::MemoryDaf)::AbstractStringSet
+function Formats.format_scalars_set(memory::MemoryDaf)::AbstractSet{<:AbstractString}
     @assert Formats.has_data_read_lock(memory)
     return keys(memory.scalars)
 end
@@ -83,7 +83,11 @@ function Formats.format_has_axis(memory::MemoryDaf, axis::AbstractString; for_ch
     return haskey(memory.axes, axis)
 end
 
-function Formats.format_add_axis!(memory::MemoryDaf, axis::AbstractString, entries::AbstractStringVector)::Nothing
+function Formats.format_add_axis!(
+    memory::MemoryDaf,
+    axis::AbstractString,
+    entries::AbstractVector{<:AbstractString},
+)::Nothing
     @assert Formats.has_data_write_lock(memory)
     memory.axes[axis] = entries
     memory.vectors[axis] = Dict{AbstractString, StorageVector}()
@@ -110,12 +114,12 @@ function Formats.format_delete_axis!(memory::MemoryDaf, axis::AbstractString)::N
     return nothing
 end
 
-function Formats.format_axes_set(memory::MemoryDaf)::AbstractStringSet
+function Formats.format_axes_set(memory::MemoryDaf)::AbstractSet{<:AbstractString}
     @assert Formats.has_data_read_lock(memory)
     return keys(memory.axes)
 end
 
-function Formats.format_axis_array(memory::MemoryDaf, axis::AbstractString)::AbstractStringVector
+function Formats.format_axis_array(memory::MemoryDaf, axis::AbstractString)::AbstractVector{<:AbstractString}
     @assert Formats.has_data_read_lock(memory)
     return memory.axes[axis]
 end
@@ -180,8 +184,8 @@ function Formats.format_filled_empty_sparse_vector!(
     axis::AbstractString,
     name::AbstractString,
     ::Nothing,
-    filled::SparseVector{T, I},
-)::Nothing where {T <: StorageNumber, I <: StorageInteger}
+    filled::SparseVector{<:StorageNumber, <:StorageInteger},
+)::Nothing
     @assert Formats.has_data_write_lock(memory)
     memory.vectors[axis][name] = filled
     return nothing
@@ -198,7 +202,7 @@ function Formats.format_delete_vector!(
     return nothing
 end
 
-function Formats.format_vectors_set(memory::MemoryDaf, axis::AbstractString)::AbstractStringSet
+function Formats.format_vectors_set(memory::MemoryDaf, axis::AbstractString)::AbstractSet{<:AbstractString}
     @assert Formats.has_data_read_lock(memory)
     return keys(memory.vectors[axis])
 end
@@ -290,8 +294,8 @@ function Formats.format_filled_empty_sparse_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     ::Nothing,
-    filled::SparseMatrixCSC{T, I},
-)::Nothing where {T <: StorageNumber, I <: StorageInteger}
+    filled::SparseMatrixCSC{<:StorageNumber, <:StorageInteger},
+)::Nothing
     @assert Formats.has_data_write_lock(memory)
     memory.matrices[rows_axis][columns_axis][name] = filled
     return nothing
@@ -326,7 +330,7 @@ function Formats.format_matrices_set(
     memory::MemoryDaf,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
-)::AbstractStringSet
+)::AbstractSet{<:AbstractString}
     @assert Formats.has_data_read_lock(memory)
     return keys(memory.matrices[rows_axis][columns_axis])
 end

@@ -431,7 +431,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">scalars_set(daf::DafReader)::AbstractStringSet
+<code class="language-julia hljs">scalars_set(daf::DafReader)::AbstractSet{&lt;:AbstractString}
 </code>
 </pre>
 <p>The names of the scalar properties in 
@@ -541,7 +541,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">axes_set(daf::DafReader)::AbstractStringSet
+<code class="language-julia hljs">axes_set(daf::DafReader)::AbstractSet{&lt;:AbstractString}
 </code>
 </pre>
 <p>The names of the axes of 
@@ -579,7 +579,7 @@
     daf::DafReader,
     axis::AbstractString;
     [default::Union{Nothing, UndefInitializer} = undef]
-)::Maybe{AbstractStringVector}
+)::Maybe{AbstractVector{&lt;:AbstractString}}
 </code>
 </pre>
 <p>The array of unique names of the entries of some 
@@ -727,7 +727,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">vectors_set(daf::DafReader, axis::AbstractString)::AbstractStringSet
+<code class="language-julia hljs">vectors_set(daf::DafReader, axis::AbstractString)::AbstractSet{&lt;:AbstractString}
 </code>
 </pre>
 <p>The names of the vector properties for the 
@@ -905,7 +905,7 @@
     rows_axis::AbstractString,
     columns_axis::AbstractString;
     [relayout::Bool = true]
-)::AbstractStringSet
+)::AbstractSet{&lt;:AbstractString}
 </code>
 </pre>
 <p>The names of the matrix properties for the 

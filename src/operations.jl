@@ -70,17 +70,17 @@ FLOAT_DTYPE_FOR = Dict{Type, Type}(
 
 """
     float_dtype_for(
-        element_type::Type{T},
-        dtype::Maybe{Type{D}}
-    )::Type where {T <: StorageNumber, D <: StorageNumber}
+        element_type::Type{<:StorageNumber},
+        dtype::Maybe{Type{<:StorageNumber}}
+    )::Type{<:AbstractFloat}
 
 Given an input `element_type`, return the data type to use for the result of an operation that always produces floating
 point values (e.g., [`Log`](@ref)). If `dtype` isn't  `nothing`, it is returned instead.
 """
 function float_dtype_for(
-    element_type::Type{T},
-    dtype::Maybe{Type{D}},
-)::Type where {T <: StorageNumber, D <: StorageNumber}
+    element_type::Type{<:StorageNumber},
+    dtype::Maybe{Type{<:StorageNumber}},
+)::Type{<:AbstractFloat}
     if dtype === nothing
         global FLOAT_DTYPE_FOR
         return FLOAT_DTYPE_FOR[element_type]
@@ -106,17 +106,14 @@ INT_DTYPE_FOR = Dict{Type, Type}(
 
 """
     int_dtype_for(
-        element_type::Type{T},
-        dtype::Maybe{Type{D}}
-    )::Type where {T <: StorageNumber, D <: StorageNumber}
+        element_type::Type{<:StorageNumber},
+        dtype::Maybe{Type{<:StorageNumber}}
+    )::Type
 
 Given an input `element_type`, return the data type to use for the result of an operation that always produces integer
 values (e.g., [`Round`](@ref)). If `dtype` isn't `nothing`, it is returned instead.
 """
-function int_dtype_for(
-    element_type::Type{T},
-    dtype::Maybe{Type{D}},
-)::Type where {T <: StorageNumber, D <: StorageNumber}
+function int_dtype_for(element_type::Type{<:StorageNumber}, dtype::Maybe{Type{<:StorageNumber}})::Type
     if dtype === nothing
         global INT_DTYPE_FOR
         return INT_DTYPE_FOR[element_type]
@@ -142,9 +139,9 @@ SUM_DTYPE_FOR = Dict{Type, Type}(
 
 """
     sum_dtype_for(
-        element_type::Type{T},
-        dtype::Maybe{Type{D}}
-    )::Type where {T <: StorageNumber, D <: StorageNumber}
+        element_type::Type{<:StorageNumber},
+        dtype::Maybe{Type{<:StorageNumber}}
+    )::Type
 
 Given an input `element_type`, return the data type to use for the result of an operation that sums many such values
 values (e.g., [`Sum`](@ref)). If `dtype` isn't `nothing`, it is returned instead.
@@ -152,10 +149,7 @@ values (e.g., [`Sum`](@ref)). If `dtype` isn't `nothing`, it is returned instead
 This keeps floating point and 64-bit types as-is, but increases any small integer types to the matching 32 bit type
 (e.g., an input type of `UInt8` will have a sum type of `UInt32`).
 """
-function sum_dtype_for(
-    element_type::Type{T},
-    dtype::Maybe{Type{D}},
-)::Type where {T <: StorageNumber, D <: StorageNumber}
+function sum_dtype_for(element_type::Type{<:StorageNumber}, dtype::Maybe{Type{<:StorageNumber}})::Type
     if dtype === nothing
         global SUM_DTYPE_FOR
         return SUM_DTYPE_FOR[element_type]
@@ -180,17 +174,14 @@ UNSIGNED_DTYPE_FOR = Dict{Type, Type}(
 
 """
     unsigned_dtype_for(
-        element_type::Type{T},
-        dtype::Maybe{Type{D}}
-    )::Type where {T <: StorageNumber, D <: StorageNumber}
+        element_type::Type{<:StorageNumber},
+        dtype::Maybe{Type{<:StorageNumber}}
+    )::Type
 
 Given an input `element_type`, return the data type to use for the result of an operation that discards the sign of the
 value (e.g., [`Abs`](@ref)). If `dtype` isn't `nothing`, it is returned instead.
 """
-function unsigned_dtype_for(
-    element_type::Type{T},
-    dtype::Maybe{Type{D}},
-)::Type where {T <: StorageNumber, D <: StorageNumber}
+function unsigned_dtype_for(element_type::Type{<:StorageNumber}, dtype::Maybe{Type{<:StorageNumber}})::Type
     if dtype === nothing
         global UNSIGNED_DTYPE_FOR
         return UNSIGNED_DTYPE_FOR[element_type]
@@ -413,8 +404,8 @@ end
 
 function compute_eltwise(
     operation::Abs,
-    input::Union{StorageMatrix{T}, StorageVector{T}},
-)::Union{StorageMatrix, StorageVector} where {T <: StorageNumber}
+    input::Union{StorageMatrix, StorageVector{<:StorageNumber}},
+)::Union{StorageMatrix, StorageVector{<:StorageNumber}}
     dtype = unsigned_dtype_for(eltype(input), operation.dtype)
     output = similar(input, dtype)
     output .= abs.(input)  # NOJET
@@ -453,8 +444,8 @@ end
 
 function compute_eltwise(
     operation::Round,
-    input::Union{StorageMatrix{T}, StorageVector{T}},
-)::Union{StorageMatrix, StorageVector} where {T <: StorageNumber}
+    input::Union{StorageMatrix, StorageVector{<:StorageNumber}},
+)::Union{StorageMatrix, StorageVector{<:StorageNumber}}
     return round.(int_dtype_for(eltype(input), operation.dtype), input)
 end
 
@@ -530,8 +521,8 @@ function compute_eltwise(
     return output
 end
 
-function compute_eltwise(operation::Clamp, input::T)::StorageNumber where {T <: StorageNumber}
-    dtype = dtype_for_clamp(operation, T)
+function compute_eltwise(operation::Clamp, input::StorageNumber)::StorageNumber
+    dtype = dtype_for_clamp(operation, typeof(input))
     output = clamp(input, operation.min, operation.max)
     return dtype(output)
 end
@@ -550,7 +541,7 @@ struct Convert <: EltwiseOperation
 end
 @query_operation Convert
 
-function Convert(; dtype::Type{T})::Convert where {T <: StorageNumber}
+function Convert(; dtype::Type{<:StorageNumber})::Convert
     return Convert(dtype)
 end
 
@@ -563,8 +554,8 @@ end
 
 function compute_eltwise(
     operation::Convert,
-    input::Union{StorageMatrix{T}, StorageVector{T}},
-)::Union{StorageMatrix, StorageVector} where {T <: StorageNumber}
+    input::Union{StorageMatrix, StorageVector{<:StorageNumber}},
+)::Union{StorageMatrix, StorageVector{<:StorageNumber}}
     return operation.dtype.(input)
 end
 
@@ -590,8 +581,7 @@ struct Fraction <: EltwiseOperation
 end
 @query_operation Fraction
 
-function Fraction(; dtype::Maybe{Type{T}} = nothing)::Fraction where {T <: StorageNumber}
-    @assert dtype === nothing || dtype <: AbstractFloat
+function Fraction(; dtype::Maybe{Type{<:AbstractFloat}} = nothing)::Fraction
     return Fraction(dtype)
 end
 
@@ -602,7 +592,7 @@ function Fraction(operation_name::Token, parameters_values::Dict{String, Token})
     return Fraction(dtype)
 end
 
-function compute_eltwise(operation::Fraction, input::StorageMatrix{T})::StorageMatrix where {T <: StorageNumber}
+function compute_eltwise(operation::Fraction, input::StorageMatrix)::StorageMatrix
     dtype = float_dtype_for(eltype(input), operation.dtype)
     output = similar(input, dtype)
     output .= input
@@ -614,7 +604,7 @@ function compute_eltwise(operation::Fraction, input::StorageMatrix{T})::StorageM
     return output
 end
 
-function compute_eltwise(operation::Fraction, input::StorageVector{T})::StorageVector where {T <: StorageNumber}
+function compute_eltwise(operation::Fraction, input::StorageVector{<:StorageNumber})::StorageVector{<:StorageNumber}
     dtype = float_dtype_for(eltype(input), operation.dtype)
     vector_sum = sum(input)
     if vector_sum == 0
@@ -685,8 +675,8 @@ end
 
 function compute_eltwise(
     operation::Log,
-    input::Union{StorageMatrix{T}, StorageVector{T}},
-)::Union{StorageMatrix, StorageVector} where {T <: StorageNumber}
+    input::Union{StorageMatrix, StorageVector{<:StorageNumber}},
+)::Union{StorageMatrix, StorageVector{<:StorageNumber}}
     dtype = float_dtype_for(eltype(input), operation.dtype)
     output = similar(input, dtype)
     output .= input
@@ -698,8 +688,8 @@ function compute_eltwise(
     return output
 end
 
-function compute_eltwise(operation::Log, input::T)::StorageNumber where {T <: StorageNumber}
-    dtype = float_dtype_for(eltype(input), operation.dtype)
+function compute_eltwise(operation::Log, input::StorageNumber)::StorageNumber
+    dtype = float_dtype_for(typeof(input), operation.dtype)
     return dtype(log(Float64(input) + operation.eps) / log(operation.base))
 end
 
@@ -762,7 +752,7 @@ function Significant(operation_name::Token, parameters_values::Dict{String, Toke
     return Significant(high, low)
 end
 
-function compute_eltwise(operation::Significant, input::StorageMatrix{T})::StorageMatrix{T} where {T <: StorageNumber}
+function compute_eltwise(operation::Significant, input::StorageMatrix)::StorageMatrix
     output = copy_array(input)
     if output isa SparseMatrixCSC
         @threads for column_index in 1:size(output, 2)
@@ -808,11 +798,7 @@ function compute_eltwise(operation::Significant, input::StorageVector{T})::Stora
     end
 end
 
-function significant!(
-    vector::StorageVector{T},
-    high::StorageNumber,
-    low::StorageNumber,
-)::Nothing where {T <: StorageNumber}
+function significant!(vector::StorageVector{<:StorageNumber}, high::StorageNumber, low::StorageNumber)::Nothing
     high = eltype(vector)(high)
     low = eltype(vector)(low)
     not_high_mask = (-high .< vector) .& (vector .< high)
@@ -935,15 +921,15 @@ function Sum(operation_name::Token, parameters_values::Dict{String, Token})::Sum
     return Sum(dtype)
 end
 
-function compute_reduction(operation::Sum, input::StorageMatrix{T})::StorageVector where {T <: StorageNumber}
-    dtype = reduction_result_type(operation, T)
+function compute_reduction(operation::Sum, input::StorageMatrix)::StorageVector{<:StorageNumber}
+    dtype = reduction_result_type(operation, eltype(input))
     result = Vector{dtype}(undef, size(input, 2))
     sum!(transpose(result), input)
     return result
 end
 
-function compute_reduction(operation::Sum, input::StorageVector{T})::StorageNumber where {T <: StorageNumber}
-    dtype = reduction_result_type(operation, T)
+function compute_reduction(operation::Sum, input::StorageVector{<:StorageNumber})::StorageNumber
+    dtype = reduction_result_type(operation, eltype(input))
     return dtype(sum(input))
 end
 
@@ -963,11 +949,11 @@ function Max(::Token, ::Dict{String, Token})::Max
     return Max()
 end
 
-function compute_reduction(::Max, input::StorageMatrix{T})::StorageVector where {T <: StorageNumber}
+function compute_reduction(::Max, input::StorageMatrix)::StorageVector{<:StorageNumber}
     return vec(maximum(input; dims = 1))  # NOJET
 end
 
-function compute_reduction(::Max, input::StorageVector{T})::StorageNumber where {T <: StorageNumber}
+function compute_reduction(::Max, input::StorageVector{<:StorageNumber})::StorageNumber
     return maximum(input)
 end
 
@@ -987,11 +973,11 @@ function Min(::Token, ::Dict{String, Token})::Min
     return Min()
 end
 
-function compute_reduction(::Min, input::StorageMatrix{T})::StorageVector where {T <: StorageNumber}
+function compute_reduction(::Min, input::StorageMatrix)::StorageVector{<:StorageNumber}
     return vec(minimum(input; dims = 1))
 end
 
-function compute_reduction(::Min, input::StorageVector{T})::StorageNumber where {T <: StorageNumber}
+function compute_reduction(::Min, input::StorageVector{<:StorageNumber})::StorageNumber
     return minimum(input)
 end
 
@@ -1025,12 +1011,12 @@ function Median(operation_name::Token, parameters_values::Dict{String, Token})::
     return Median(dtype)
 end
 
-function compute_reduction(operation::Median, input::StorageMatrix{T})::StorageVector where {T <: StorageNumber}
+function compute_reduction(operation::Median, input::StorageMatrix)::StorageVector{<:StorageNumber}
     dtype = reduction_result_type(operation, eltype(input))
     return convert(AbstractVector{dtype}, vec(median(input; dims = 1)))  # NOJET
 end
 
-function compute_reduction(operation::Median, input::StorageVector{T})::StorageNumber where {T <: StorageNumber}
+function compute_reduction(operation::Median, input::StorageVector{<:StorageNumber})::StorageNumber
     dtype = reduction_result_type(operation, eltype(input))
     return dtype(median(input))
 end
@@ -1081,7 +1067,7 @@ function Quantile(operation_name::Token, parameters_values::Dict{String, Token})
     return Quantile(dtype, p)
 end
 
-function compute_reduction(operation::Quantile, input::StorageMatrix{T})::StorageVector where {T <: StorageNumber}
+function compute_reduction(operation::Quantile, input::StorageMatrix)::StorageVector{<:StorageNumber}
     dtype = reduction_result_type(operation, eltype(input))
     output = Vector{dtype}(undef, size(input, 2))
     @threads for column_index in 1:length(output)
@@ -1091,7 +1077,7 @@ function compute_reduction(operation::Quantile, input::StorageMatrix{T})::Storag
     return output
 end
 
-function compute_reduction(operation::Quantile, input::StorageVector{T})::StorageNumber where {T <: StorageNumber}
+function compute_reduction(operation::Quantile, input::StorageVector{<:StorageNumber})::StorageNumber
     dtype = reduction_result_type(operation, eltype(input))
     return dtype(quantile(input, operation.p))
 end
@@ -1126,12 +1112,12 @@ function Mean(operation_name::Token, parameters_values::Dict{String, Token})::Me
     return Mean(dtype)
 end
 
-function compute_reduction(operation::Mean, input::StorageMatrix{T})::StorageVector where {T <: StorageNumber}
+function compute_reduction(operation::Mean, input::StorageMatrix)::StorageVector{<:StorageNumber}
     dtype = reduction_result_type(operation, eltype(input))
     return convert(AbstractVector{dtype}, vec(mean(input; dims = 1)))  # NOJET
 end
 
-function compute_reduction(operation::Mean, input::StorageVector{T})::StorageNumber where {T <: StorageNumber}
+function compute_reduction(operation::Mean, input::StorageVector{<:StorageNumber})::StorageNumber
     dtype = reduction_result_type(operation, eltype(input))
     return dtype(mean(input))  # NOJET
 end
@@ -1177,7 +1163,7 @@ function GeoMean(operation_name::Token, parameters_values::Dict{String, Token}):
     return GeoMean(dtype, eps)
 end
 
-function compute_reduction(operation::GeoMean, input::StorageMatrix{T})::StorageVector where {T <: StorageNumber}
+function compute_reduction(operation::GeoMean, input::StorageMatrix)::StorageVector{<:StorageNumber}
     dtype = reduction_result_type(operation, eltype(input))
     if operation.eps == 0
         return convert(AbstractVector{dtype}, geomean.(eachcol(input)))  # NOJET
@@ -1186,7 +1172,7 @@ function compute_reduction(operation::GeoMean, input::StorageMatrix{T})::Storage
     end
 end
 
-function compute_reduction(operation::GeoMean, input::StorageVector{T})::StorageNumber where {T <: StorageNumber}
+function compute_reduction(operation::GeoMean, input::StorageVector{<:StorageNumber})::StorageNumber
     dtype = reduction_result_type(operation, eltype(input))
     if operation.eps == 0
         return dtype(geomean(input))  # NOJET
@@ -1225,12 +1211,12 @@ function Var(operation_name::Token, parameters_values::Dict{String, Token})::Var
     return Var(dtype)
 end
 
-function compute_reduction(operation::Var, input::StorageMatrix{T})::StorageVector where {T <: StorageNumber}
+function compute_reduction(operation::Var, input::StorageMatrix)::StorageVector{<:StorageNumber}
     dtype = reduction_result_type(operation, eltype(input))
     return convert(AbstractVector{dtype}, vec(var(input; dims = 1, corrected = false)))
 end
 
-function compute_reduction(operation::Var, input::StorageVector{T})::StorageNumber where {T <: StorageNumber}
+function compute_reduction(operation::Var, input::StorageVector{<:StorageNumber})::StorageNumber
     dtype = reduction_result_type(operation, eltype(input))
     return dtype(var(input; corrected = false))
 end
@@ -1277,7 +1263,7 @@ function VarN(operation_name::Token, parameters_values::Dict{String, Token})::Va
     return VarN(dtype, eps)
 end
 
-function compute_reduction(operation::VarN, input::StorageMatrix{T})::StorageVector where {T <: StorageNumber}
+function compute_reduction(operation::VarN, input::StorageMatrix)::StorageVector{<:StorageNumber}
     dtype = reduction_result_type(operation, eltype(input))
     vars = convert(AbstractVector{dtype}, vec(var(input; dims = 1, corrected = false)))
     means = convert(AbstractVector{dtype}, vec(mean(input; dims = 1)))
@@ -1286,7 +1272,7 @@ function compute_reduction(operation::VarN, input::StorageMatrix{T})::StorageVec
     return vars
 end
 
-function compute_reduction(operation::VarN, input::StorageVector{T})::StorageNumber where {T <: StorageNumber}
+function compute_reduction(operation::VarN, input::StorageVector{<:StorageNumber})::StorageNumber
     dtype = reduction_result_type(operation, eltype(input))
     return dtype(var(input; corrected = false)) / dtype((Float64(mean(input)) + operation.eps))
 end
@@ -1321,12 +1307,12 @@ function Std(operation_name::Token, parameters_values::Dict{String, Token})::Std
     return Std(dtype)
 end
 
-function compute_reduction(operation::Std, input::StorageMatrix{T})::StorageVector where {T <: StorageNumber}
+function compute_reduction(operation::Std, input::StorageMatrix)::StorageVector{<:StorageNumber}
     dtype = reduction_result_type(operation, eltype(input))
     return convert(AbstractVector{dtype}, vec(std(input; dims = 1, corrected = false)))
 end
 
-function compute_reduction(operation::Std, input::StorageVector{T})::StorageNumber where {T <: StorageNumber}
+function compute_reduction(operation::Std, input::StorageVector{<:StorageNumber})::StorageNumber
     dtype = reduction_result_type(operation, eltype(input))
     return dtype(std(input; corrected = false))
 end
@@ -1373,7 +1359,7 @@ function StdN(operation_name::Token, parameters_values::Dict{String, Token})::St
     return StdN(dtype, eps)
 end
 
-function compute_reduction(operation::StdN, input::StorageMatrix{T})::StorageVector where {T <: StorageNumber}
+function compute_reduction(operation::StdN, input::StorageMatrix)::StorageVector{<:StorageNumber}
     dtype = reduction_result_type(operation, eltype(input))
     stds = convert(AbstractVector{dtype}, vec(std(input; dims = 1, corrected = false)))
     means = convert(AbstractVector{dtype}, vec(mean(input; dims = 1)))
@@ -1382,7 +1368,7 @@ function compute_reduction(operation::StdN, input::StorageMatrix{T})::StorageVec
     return stds
 end
 
-function compute_reduction(operation::StdN, input::StorageVector{T})::StorageNumber where {T <: StorageNumber}
+function compute_reduction(operation::StdN, input::StorageVector{<:StorageNumber})::StorageNumber
     dtype = reduction_result_type(operation, eltype(input))
     return dtype(std(input; corrected = false)) / dtype(mean(input) + operation.eps)
 end

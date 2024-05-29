@@ -1,7 +1,7 @@
 function get_result(daf::DafReader, query::Union{String, Query}; cache::Bool = true, is_axis::Bool = false)::Any
     @test is_axis_query(query) == is_axis
     value = get_query(daf, query; cache = cache)
-    if value isa AbstractStringSet
+    if value isa AbstractSet{<:AbstractString}
         @test query_result_dimensions(query) == -1
         names = collect(value)
         sort!(names)
@@ -9,7 +9,7 @@ function get_result(daf::DafReader, query::Union{String, Query}; cache::Bool = t
     elseif value isa NamedVector
         @test query_result_dimensions(query) == 1
         return (value.dimnames[1], [(name => value[name]) for name in keys(value.dicts[1])])
-    elseif value isa AbstractStringVector
+    elseif value isa AbstractVector{<:AbstractString}
         @test query_result_dimensions(query) == 1
         return value
     elseif value isa NamedMatrix

@@ -572,7 +572,7 @@
 <code class="language-julia hljs">get_frame(
     daf::DafReader,
     axis::Union{Query, AbstractString},
-    [columns::Maybe{Union{AbstractStringVector, QueryColumns}} = nothing;
+    [columns::Maybe{Union{AbstractVector{&lt;:AbstractString}, QueryColumns}} = nothing;
     cache::Bool = true]
 )::DataFrame end
 </code>
@@ -2496,7 +2496,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">struct QuerySequence{N} &lt;: Query where {N}
+<code class="language-julia hljs">struct QuerySequence{N} &lt;: Query where {N&lt;:Integer}
 </code>
 </pre>
 <p>A sequence of 

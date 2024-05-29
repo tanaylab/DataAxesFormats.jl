@@ -286,7 +286,7 @@ function read_scalar(path::AbstractString)::StorageScalar
     return value
 end
 
-function Formats.format_scalars_set(files::FilesDaf)::AbstractStringSet
+function Formats.format_scalars_set(files::FilesDaf)::AbstractSet{<:AbstractString}
     @assert Formats.has_data_read_lock(files)
     names_set = get_names_set("$(files.path)/scalars", ".json")
     Formats.cache_scalars_set!(files, names_set, MemoryData)
@@ -298,7 +298,11 @@ function Formats.format_has_axis(files::FilesDaf, axis::AbstractString; for_chan
     return ispath("$(files.path)/axes/$(axis).txt")
 end
 
-function Formats.format_add_axis!(files::FilesDaf, axis::AbstractString, entries::AbstractStringVector)::Nothing
+function Formats.format_add_axis!(
+    files::FilesDaf,
+    axis::AbstractString,
+    entries::AbstractVector{<:AbstractString},
+)::Nothing
     @assert Formats.has_data_write_lock(files)
     open("$(files.path)/axes/$(axis).txt", "w") do file
         for entry in entries
@@ -333,14 +337,14 @@ function Formats.format_delete_axis!(files::FilesDaf, axis::AbstractString)::Not
     end
 end
 
-function Formats.format_axes_set(files::FilesDaf)::AbstractStringSet
+function Formats.format_axes_set(files::FilesDaf)::AbstractSet{<:AbstractString}
     @assert Formats.has_data_read_lock(files)
     names_set = get_names_set("$(files.path)/axes", ".txt")
     Formats.cache_axes_set!(files, names_set, MemoryData)
     return names_set
 end
 
-function Formats.format_axis_array(files::FilesDaf, axis::AbstractString)::AbstractStringVector
+function Formats.format_axis_array(files::FilesDaf, axis::AbstractString)::AbstractVector{<:AbstractString}
     @assert Formats.has_data_read_lock(files)
     entries = mmap_file_lines("$(files.path)/axes/$(axis).txt")
     Formats.cache_axis!(files, axis, entries, MappedData)
@@ -447,8 +451,8 @@ function Formats.format_filled_empty_sparse_vector!(
     axis::AbstractString,
     name::AbstractString,
     ::Nothing,
-    filled::SparseVector{T, I},
-)::Nothing where {T <: StorageNumber, I <: StorageInteger}
+    filled::SparseVector{<:StorageNumber, <:StorageInteger},
+)::Nothing
     @assert Formats.has_data_write_lock(files)
     Formats.cache_vector!(files, axis, name, filled, MappedData)
     return nothing
@@ -466,7 +470,7 @@ function Formats.format_delete_vector!(
     end
 end
 
-function Formats.format_vectors_set(files::FilesDaf, axis::AbstractString)::AbstractStringSet
+function Formats.format_vectors_set(files::FilesDaf, axis::AbstractString)::AbstractSet{<:AbstractString}
     @assert Formats.has_data_read_lock(files)
     names_set = get_names_set("$(files.path)/vectors/$(axis)", ".json")
     Formats.cache_vectors_set!(files, axis, names_set, MemoryData)
@@ -681,7 +685,7 @@ function Formats.format_matrices_set(
     files::FilesDaf,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
-)::AbstractStringSet
+)::AbstractSet{<:AbstractString}
     @assert Formats.has_data_read_lock(files)
     names_set = get_names_set("$(files.path)/matrices/$(rows_axis)/$(columns_axis)", ".json")
     Formats.cache_matrices_set!(files, rows_axis, columns_axis, names_set, MemoryData)
@@ -741,7 +745,7 @@ function Formats.format_get_matrix(
     return matrix
 end
 
-function get_names_set(path::AbstractString, suffix::AbstractString)::AbstractStringSet
+function get_names_set(path::AbstractString, suffix::AbstractString)::AbstractSet{<:AbstractString}
     names_set = Set{AbstractString}()
     suffix_length = length(suffix)
 
@@ -754,7 +758,7 @@ function get_names_set(path::AbstractString, suffix::AbstractString)::AbstractSt
     return names_set
 end
 
-function mmap_file_lines(path::AbstractString)::AbstractStringVector
+function mmap_file_lines(path::AbstractString)::AbstractVector{<:AbstractString}
     size = filesize(path)
     text = StringView(mmap_file_data(path, Vector{UInt8}, size, "r"))
     lines = split(text, "\n")
@@ -807,12 +811,12 @@ function write_zeros_file(path::AbstractString, size::Integer)::Nothing
     return nothing
 end
 
-function write_array_json(  # NOLINT
+function write_array_json(
     path::AbstractString,
     format::AbstractString,
-    eltype::Type{T},
-    indtype::Maybe{Type{I}} = nothing,
-)::Nothing where {T <: StorageScalar, I <: StorageInteger}
+    eltype::Type{<:StorageScalar},
+    indtype::Maybe{Type{<:StorageInteger}} = nothing,
+)::Nothing
     if format == "dense"
         @assert indtype === nothing
         write(path, "{\"format\":\"dense\",\"eltype\":\"$(eltype)\"}\n")

@@ -10,7 +10,11 @@ using ..StorageTypes
 using ..Writers
 using Random
 
-function random_entries(gen::MersenneTwister, size::Int, entry_names::AbstractStringVector)::AbstractStringVector
+function random_entries(
+    gen::MersenneTwister,
+    size::Int,
+    entry_names::AbstractVector{<:AbstractString},
+)::AbstractVector{<:AbstractString}
     return entry_names[round.(Int8, rand(gen, size) * length(entry_names) .+ 0.5)]
 end
 

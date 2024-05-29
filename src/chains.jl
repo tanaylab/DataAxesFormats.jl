@@ -56,7 +56,7 @@ struct WriteChain <: DafWriter
 end
 
 """
-    chain_reader(dafs::AbstractVector{F}; name::Maybe{AbstractString} = nothing)::DafReader where {F <: DafReader}
+    chain_reader(dafs::AbstractVector{<:DafReader}; name::Maybe{AbstractString} = nothing)::DafReader
 
 Create a read-only chain wrapper of [`DafReader`](@ref)s, presenting them as a single [`DafReader`](@ref). When
 accessing the content, the exposed value is that provided by the last data set that contains the data, that is, later
@@ -68,10 +68,7 @@ entries must be identical. This isn't typically created manually; instead call [
     While this verifies the axes are consistent at the time of creating the chain, it's no defense against modifying the
     chained data after the fact, creating inconsistent axes. *Don't do that*.
 """
-function chain_reader(
-    dafs::AbstractVector{F};
-    name::Maybe{AbstractString} = nothing,
-)::DafReadOnly where {F <: DafReader}
+function chain_reader(dafs::AbstractVector{<:DafReader}; name::Maybe{AbstractString} = nothing)::DafReadOnly
     if isempty(dafs)
         error("empty chain$(name_suffix(name))")
     end
@@ -92,7 +89,7 @@ function chain_reader(
 end
 
 """
-    chain_writer(dafs::AbstractVector{F}; name::Maybe{AbstractString} = nothing)::DafWriter where {F <: DafReader}
+    chain_writer(dafs::AbstractVector{<:DafReader}; name::Maybe{AbstractString} = nothing)::DafWriter
 
 Create a chain wrapper for a chain of [`DafReader`](@ref) data, presenting them as a single [`DafWriter`](@ref). This
 acts similarly to [`chain_reader`](@ref), but requires the final entry in the chain to be a [`DafWriter`](@ref). Any
@@ -103,7 +100,7 @@ modifications or additions to the chain are directed only at this final writer.
     Deletions are only allowed for data that exists only in the final writer. That is, it is impossible to delete from a
     chain something that exists in any of the readers; it is only possible to override it.
 """
-function chain_writer(dafs::AbstractVector{F}; name::Maybe{AbstractString} = nothing)::DafWriter where {F <: DafReader}
+function chain_writer(dafs::AbstractVector{<:DafReader}; name::Maybe{AbstractString} = nothing)::DafWriter
     if isempty(dafs)
         error("empty chain$(name_suffix(name))")
     end
@@ -127,8 +124,8 @@ function chain_writer(dafs::AbstractVector{F}; name::Maybe{AbstractString} = not
     return chain
 end
 
-function reader_internal_dafs(dafs::AbstractVector{F}, name::AbstractString)::Vector{DafReader} where {F}
-    axes_entries = Dict{AbstractString, Tuple{AbstractString, AbstractStringVector}}()
+function reader_internal_dafs(dafs::AbstractVector, name::AbstractString)::Vector{DafReader}
+    axes_entries = Dict{AbstractString, Tuple{AbstractString, AbstractVector{<:AbstractString}}}()
     internal_dafs = Vector{DafReader}()
     for daf in dafs
         if daf isa DafReadOnlyWrapper
@@ -268,12 +265,12 @@ function Formats.format_get_scalar(chain::AnyChain, name::AbstractString)::Stora
     @assert false
 end
 
-function Formats.format_scalars_set(chain::AnyChain)::AbstractStringSet
+function Formats.format_scalars_set(chain::AnyChain)::AbstractSet{<:AbstractString}
     @assert Formats.has_data_read_lock(chain)
     return reduce(
         union,
         [
-            Formats.get_through_cache(daf, Formats.scalars_set_cache_key(), AbstractStringSet) do
+            Formats.get_through_cache(daf, Formats.scalars_set_cache_key(), AbstractSet{<:AbstractString}) do
                 return Formats.get_scalars_set_through_cache(daf)
             end for daf in chain.dafs
         ];
@@ -292,7 +289,11 @@ function Formats.format_has_axis(chain::AnyChain, axis::AbstractString; for_chan
     return false
 end
 
-function Formats.format_add_axis!(chain::WriteChain, axis::AbstractString, entries::AbstractStringVector)::Nothing
+function Formats.format_add_axis!(
+    chain::WriteChain,
+    axis::AbstractString,
+    entries::AbstractVector{<:AbstractString},
+)::Nothing
     @assert Formats.has_data_write_lock(chain)
     Formats.format_add_axis!(chain.daf, axis, entries)
     return nothing
@@ -314,12 +315,12 @@ function Formats.format_delete_axis!(chain::WriteChain, axis::AbstractString)::N
     return nothing
 end
 
-function Formats.format_axes_set(chain::AnyChain)::AbstractStringSet
+function Formats.format_axes_set(chain::AnyChain)::AbstractSet{<:AbstractString}
     @assert Formats.has_data_read_lock(chain)
     return reduce(union, [Formats.get_axes_set_through_cache(daf) for daf in chain.dafs]; init = Set{AbstractString}())
 end
 
-function Formats.format_axis_array(chain::AnyChain, axis::AbstractString)::AbstractStringVector
+function Formats.format_axis_array(chain::AnyChain, axis::AbstractString)::AbstractVector{<:AbstractString}
     @assert Formats.has_data_read_lock(chain)
     for daf in reverse(chain.dafs)
         if Formats.format_has_axis(daf, axis; for_change = false)
@@ -429,7 +430,7 @@ function Formats.format_delete_vector!(
     return nothing
 end
 
-function Formats.format_vectors_set(chain::AnyChain, axis::AbstractString)::AbstractStringSet
+function Formats.format_vectors_set(chain::AnyChain, axis::AbstractString)::AbstractSet{<:AbstractString}
     return reduce(
         union,
         [
@@ -580,7 +581,7 @@ function Formats.format_matrices_set(
     chain::AnyChain,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
-)::AbstractStringSet
+)::AbstractSet{<:AbstractString}
     @assert Formats.has_data_read_lock(chain)
     return reduce(
         union,

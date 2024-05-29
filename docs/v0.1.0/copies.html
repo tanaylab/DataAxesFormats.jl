@@ -284,10 +284,10 @@
     source::DafReader,
     name::AbstractString,
     [rename::Maybe{AbstractString} = nothing,
-    dtype::Maybe{Type{T}} = nothing,
+    dtype::Maybe{Type{&lt;:StorageScalarBase}} = nothing,
     default::Union{StorageScalar, Nothing, UndefInitializer} = undef,
     overwrite::Bool = false]
-)::Nothing where {T &lt;: StorageScalarBase}
+)::Nothing
 </code>
 </pre>
 <p>Copy a scalar with some 
@@ -392,11 +392,11 @@
     name::AbstractString,
     [reaxis::Maybe{AbstractString} = nothing,
     rename::Maybe{AbstractString} = nothing,
-    dtype::Maybe{Type{T}} = nothing,
+    dtype::Maybe{Type{&lt;:StorageScalarBase}} = nothing,
     default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
     empty::Maybe{StorageScalar} = nothing,
     overwrite::Bool = false]
-)::Nothing where {T &lt;: StorageScalarBase}
+)::Nothing
 </code>
 </pre>
 <p>Copy a vector from some 
@@ -459,12 +459,12 @@
     [rows_reaxis::Maybe{AbstractString} = nothing,
     columns_reaxis::Maybe{AbstractString} = nothing,
     rename::Maybe{AbstractString} = nothing,
-    dtype::Maybe{Type{T}} = nothing,
+    dtype::Maybe{Type{&lt;:StorageScalarBase}} = nothing,
     default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
     empty::Maybe{StorageScalar} = nothing,
     relayout::Bool = true,
     overwrite::Bool = false]
-)::Nothing where {T &lt;: StorageScalarBase}
+)::Nothing
 </code>
 </pre>
 <p>Copy a matrix from some 
@@ -669,7 +669,7 @@
 </strong> to say is:
 </p>
 <pre>
-<code class="nohighlight hljs">DataTypes = AbstractDict{DataKey, Type{T}} where {T &lt;: StorageScalarBase}
+<code class="nohighlight hljs">DataTypes = AbstractDict{DataKey, Type{&lt;:StorageScalarBase}}}
 </code>
 </pre>
 <p>But what we are 
@@ -683,7 +683,7 @@
 <p>That&#39;s 
 <strong>not
 </strong> a mistake. Even 
-<code>DataTypes = AbstractDict{Key, T &lt;: StorageScalarBase} where {Key, T &lt;: StorageScalarBase}
+<code>DataTypes = AbstractDict{&lt;:Any, &lt;: StorageScalarBase}
 </code> fails to work, as do all the (many) possibilities for expressing &quot;this is a dictionary where the key or the value can be one of several things&quot; Sigh. Glory to anyone who figures out an incantation that would force the system to perform 
 <strong>any
 </strong> meaningful type inference here.

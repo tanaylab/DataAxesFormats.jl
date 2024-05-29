@@ -1189,9 +1189,9 @@
 <div>
 <pre>
 <code class="language-julia hljs">float_dtype_for(
-    element_type::Type{T},
-    dtype::Maybe{Type{D}}
-)::Type where {T &lt;: StorageNumber, D &lt;: StorageNumber}
+    element_type::Type{&lt;:StorageNumber},
+    dtype::Maybe{Type{&lt;:StorageNumber}}
+)::Type{&lt;:AbstractFloat}
 </code>
 </pre>
 <p>Given an input 
@@ -1224,9 +1224,9 @@
 <div>
 <pre>
 <code class="language-julia hljs">int_dtype_for(
-    element_type::Type{T},
-    dtype::Maybe{Type{D}}
-)::Type where {T &lt;: StorageNumber, D &lt;: StorageNumber}
+    element_type::Type{&lt;:StorageNumber},
+    dtype::Maybe{Type{&lt;:StorageNumber}}
+)::Type
 </code>
 </pre>
 <p>Given an input 
@@ -1259,9 +1259,9 @@
 <div>
 <pre>
 <code class="language-julia hljs">unsigned_dtype_for(
-    element_type::Type{T},
-    dtype::Maybe{Type{D}}
-)::Type where {T &lt;: StorageNumber, D &lt;: StorageNumber}
+    element_type::Type{&lt;:StorageNumber},
+    dtype::Maybe{Type{&lt;:StorageNumber}}
+)::Type
 </code>
 </pre>
 <p>Given an input 
@@ -1294,9 +1294,9 @@
 <div>
 <pre>
 <code class="language-julia hljs">sum_dtype_for(
-    element_type::Type{T},
-    dtype::Maybe{Type{D}}
-)::Type where {T &lt;: StorageNumber, D &lt;: StorageNumber}
+    element_type::Type{&lt;:StorageNumber},
+    dtype::Maybe{Type{&lt;:StorageNumber}}
+)::Type
 </code>
 </pre>
 <p>Given an input 

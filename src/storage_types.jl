@@ -61,7 +61,7 @@ Number types that can be used as scalars, or elements in stored matrices or vect
 StorageNumber = Union{Bool, StorageInteger, StorageFloat}
 
 """
-    StorageScalar = Union{StorageNumber, S} where {S <: AbstractString}
+    StorageScalar = Union{StorageNumber, <:AbstractString}
 
 Types that can be used as scalars, or elements in stored matrices or vectors.
 
@@ -111,7 +111,7 @@ StorageVector{T} = AbstractVector{T} where {T <: StorageScalar}
 
 Create a sparse vector using the smallest unsigned integer type needed for this size of matrix.
 """
-function sparse_vector(dense::StorageVector{T})::SparseVector where {T <: StorageNumber}
+function sparse_vector(dense::StorageVector{T})::SparseVector{T} where {T <: StorageNumber}
     return SparseVector{eltype(dense), indtype_for_size(length(dense))}(dense)
 end
 

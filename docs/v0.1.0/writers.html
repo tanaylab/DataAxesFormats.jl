@@ -405,7 +405,7 @@
 <code class="language-julia hljs">add_axis!(
     daf::DafWriter,
     axis::AbstractString,
-    entries::AbstractStringVector
+    entries::AbstractVector{&lt;:AbstractString}
 )::Nothing
 </code>
 </pre>
@@ -839,9 +839,9 @@
     daf::DafWriter,
     axis::AbstractString,
     name::AbstractString,
-    eltype::Type{T};
+    eltype::Type{&lt;:StorageNumber};
     [overwrite::Bool = false]
-)::Any where {T &lt;: StorageNumber}
+)::Any
 </code>
 </pre>
 <p>Create an empty dense vector property with some 
@@ -894,11 +894,11 @@
     daf::DafWriter,
     axis::AbstractString,
     name::AbstractString,
-    eltype::Type{T},
+    eltype::Type{&lt;:StorageNumber},
     nnz::StorageInteger,
-    indtype::Maybe{Type{I}} = nothing;
+    indtype::Maybe{Type{&lt;:StorageInteger}} = nothing;
     [overwrite::Bool = false]
-)::Any where {T &lt;: StorageNumber, I &lt;: StorageInteger}
+)::Any
 </code>
 </pre>
 <p>Create an empty sparse vector property with some 
@@ -992,9 +992,9 @@
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    eltype::Type{T};
+    eltype::Type{&lt;:StorageNumber};
     [overwrite::Bool = false]
-)::Any where {T &lt;: StorageNumber}
+)::Any
 </code>
 </pre>
 <p>Create an empty dense matrix property with some 
@@ -1058,11 +1058,11 @@
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    eltype::Type{T},
+    eltype::Type{&lt;:StorageNumber},
     nnz::StorageInteger,
-    intdype::Maybe{Type{I}} = nothing;
+    intdype::Maybe{Type{&lt;:StorageInteger}} = nothing;
     [overwrite::Bool = false]
-)::Any where {T &lt;: StorageNumber, I &lt;: StorageInteger}
+)::Any
 </code>
 </pre>
 <p>Create an empty sparse matrix property with some 

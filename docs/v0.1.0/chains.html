@@ -269,7 +269,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">chain_reader(dafs::AbstractVector{F}; name::Maybe{AbstractString} = nothing)::DafReader where {F &lt;: DafReader}
+<code class="language-julia hljs">chain_reader(dafs::AbstractVector{&lt;:DafReader}; name::Maybe{AbstractString} = nothing)::DafReader
 </code>
 </pre>
 <p>Create a read-only chain wrapper of 
@@ -313,7 +313,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">chain_writer(dafs::AbstractVector{F}; name::Maybe{AbstractString} = nothing)::DafWriter where {F &lt;: DafReader}
+<code class="language-julia hljs">chain_writer(dafs::AbstractVector{&lt;:DafReader}; name::Maybe{AbstractString} = nothing)::DafWriter
 </code>
 </pre>
 <p>Create a chain wrapper for a chain of 

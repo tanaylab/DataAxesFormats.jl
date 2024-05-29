@@ -23,7 +23,7 @@ using ..Writers
         implicit_axis::AbstractString,
         [rename_axis::Maybe{AbstractString} = nothing,
         empty_implicit::Maybe{StorageScalar} = nothing,
-        implicit_properties::Maybe{AbstractStringSet} = nothing,
+        implicit_properties::Maybe{AbstractSet{<:AbstractString}} = nothing,
         properties_defaults::Maybe{AbstractDict} = nothing]
     )::AbstractDict{<:AbstractString, Maybe{StorageScalar}}
 
@@ -75,7 +75,7 @@ doublet score). Not specifying the `implicit_properties` allows the function to 
     implicit_axis::AbstractString,
     rename_axis::Maybe{AbstractString} = nothing,
     empty_implicit::Maybe{StorageScalar} = nothing,
-    implicit_properties::Maybe{AbstractStringSet} = nothing,
+    implicit_properties::Maybe{AbstractSet{<:AbstractString}} = nothing,
     properties_defaults::Maybe{Dict} = nothing,
 )::AbstractDict{<:AbstractString, Maybe{StorageScalar}}
     if rename_axis === nothing
@@ -164,8 +164,8 @@ function collect_property_data(
     existing_axis::AbstractString,
     implicit_axis::AbstractString,
     property::AbstractString,
-    implicit_values::AbstractStringVector,
-    unique_values::AbstractStringVector,
+    implicit_values::AbstractVector{<:AbstractString},
+    unique_values::AbstractVector{<:AbstractString},
     default_value::Maybe{StorageScalar};
     must_be_consistent::Bool,
 )::Maybe{Tuple{Maybe{StorageScalar}, <:StorageVector}}

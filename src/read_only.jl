@@ -207,7 +207,7 @@ function Formats.format_get_scalar(read_only_view::DafReadOnlyWrapper, name::Abs
     return Formats.format_get_scalar(read_only_view.daf, name)
 end
 
-function Formats.format_scalars_set(read_only_view::DafReadOnlyWrapper)::AbstractStringSet
+function Formats.format_scalars_set(read_only_view::DafReadOnlyWrapper)::AbstractSet{<:AbstractString}
     @assert Formats.has_data_read_lock(read_only_view)
     return Formats.format_scalars_set(read_only_view.daf)
 end
@@ -217,12 +217,15 @@ function Formats.format_has_axis(read_only_view::DafReadOnlyWrapper, axis::Abstr
     return Formats.format_has_axis(read_only_view.daf, axis; for_change = for_change)
 end
 
-function Formats.format_axes_set(read_only_view::DafReadOnlyWrapper)::AbstractStringSet
+function Formats.format_axes_set(read_only_view::DafReadOnlyWrapper)::AbstractSet{<:AbstractString}
     @assert Formats.has_data_read_lock(read_only_view)
     return Formats.format_axes_set(read_only_view.daf)
 end
 
-function Formats.format_axis_array(read_only_view::DafReadOnlyWrapper, axis::AbstractString)::AbstractStringVector
+function Formats.format_axis_array(
+    read_only_view::DafReadOnlyWrapper,
+    axis::AbstractString,
+)::AbstractVector{<:AbstractString}
     @assert Formats.has_data_read_lock(read_only_view)
     return Formats.format_axis_array(read_only_view.daf, axis)
 end
@@ -237,7 +240,10 @@ function Formats.format_has_vector(read_only_view::DafReadOnlyWrapper, axis::Abs
     return Formats.format_has_vector(read_only_view.daf, axis, name)
 end
 
-function Formats.format_vectors_set(read_only_view::DafReadOnlyWrapper, axis::AbstractString)::AbstractStringSet
+function Formats.format_vectors_set(
+    read_only_view::DafReadOnlyWrapper,
+    axis::AbstractString,
+)::AbstractSet{<:AbstractString}
     @assert Formats.has_data_read_lock(read_only_view)
     return Formats.format_vectors_set(read_only_view.daf, axis)
 end
@@ -266,7 +272,7 @@ function Formats.format_matrices_set(
     read_only_view::DafReadOnlyWrapper,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
-)::AbstractStringSet
+)::AbstractSet{<:AbstractString}
     @assert Formats.has_data_read_lock(read_only_view)
     return Formats.format_matrices_set(read_only_view.daf, rows_axis, columns_axis)
 end

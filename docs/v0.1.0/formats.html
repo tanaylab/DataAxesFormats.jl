@@ -711,7 +711,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">format_scalars_set(format::FormatReader)::AbstractStringSet
+<code class="language-julia hljs">format_scalars_set(format::FormatReader)::AbstractSet{&lt;:AbstractString}
 </code>
 </pre>
 <p>The names of the scalar properties in 
@@ -807,7 +807,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">format_axes_set(format::FormatReader)::AbstractStringSet
+<code class="language-julia hljs">format_axes_set(format::FormatReader)::AbstractSet{&lt;:AbstractString}
 </code>
 </pre>
 <p>The names of the axes of 
@@ -833,7 +833,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">format_axis_array(format::FormatReader, axis::AbstractString)::AbstractStringVector
+<code class="language-julia hljs">format_axis_array(format::FormatReader, axis::AbstractString)::AbstractVector{&lt;:AbstractString}
 </code>
 </pre>
 <p>Implement fetching the unique names of the entries of some 
@@ -939,7 +939,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">format_vectors_set(format::FormatReader, axis::AbstractString)::AbstractStringSet
+<code class="language-julia hljs">format_vectors_set(format::FormatReader, axis::AbstractString)::AbstractSet{&lt;:AbstractString}
 </code>
 </pre>
 <p>Implement fetching the names of the vectors for the 
@@ -1069,7 +1069,7 @@
     format::FormatReader,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
-)::AbstractStringSet
+)::AbstractSet{&lt;:AbstractString}
 </code>
 </pre>
 <p>Implement fetching the names of the matrix properties for the 
@@ -1299,7 +1299,7 @@
 <code class="language-julia hljs">format_add_axis!(
     format::FormatWriter,
     axis::AbstractString,
-    entries::AbstractStringVector
+    entries::AbstractVector{&lt;:AbstractString}
 )::Nothing
 </code>
 </pre>
@@ -1644,7 +1644,7 @@
     axis::AbstractString,
     name::AbstractString,
     eltype::Type{T},
-)::VectorVector where {T &lt;: StorageNumber}
+)::Vector{T} where {T &lt;: StorageNumber}
 </code>
 </pre>
 <p>Implement setting a vector property with some 
@@ -1716,8 +1716,8 @@
     daf::DafWriter,
     axis::AbstractString,
     name::AbstractString,
-    filled_vector::AbstractVector{T},
-)::Nothing where {T &lt;: StorageNumber}
+    filled_vector::AbstractVector{&lt;:StorageNumber},
+)::Nothing
 </code>
 </pre>
 <p>Allow the 
@@ -1802,8 +1802,8 @@ where {T &lt;: StorageNumber, I &lt;: StorageInteger}
     axis::AbstractString,
     name::AbstractString,
     extra::Any,
-    filled::SparseVector{T, I},
-)::Nothing where {T &lt;: StorageNumber, I &lt;: StorageInteger}
+    filled::SparseVector{&lt;:StorageNumber, &lt;:StorageInteger},
+)::Nothing
 </code>
 </pre>
 <p>Allow the 
@@ -1896,8 +1896,8 @@ where {T &lt;: StorageNumber, I &lt;: StorageInteger}
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    filled_matrix::AbstractVector{T},
-)::Nothing where {T &lt;: StorageNumber}
+    filled_matrix::AbstractVector{&lt;:StorageNumber},
+)::Nothing
 </code>
 </pre>
 <p>Allow the 
@@ -1982,8 +1982,8 @@ where {T &lt;: StorageNumber, I &lt;: StorageInteger}
     columns_axis::AbstractString,
     name::AbstractString,
     extra::Any,
-    filled::SparseMatrixCSC{T, I},
-)::Nothing where {T &lt;: StorageNumber, I &lt;: StorageInteger}
+    filled::SparseMatrixCSC{&lt;:StorageNumber, &lt;:StorageInteger},
+)::Nothing
 </code>
 </pre>
 <p>Allow the 

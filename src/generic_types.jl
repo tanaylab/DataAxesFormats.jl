@@ -7,25 +7,8 @@ code, explicitly write `using Daf.GenericTypes`.
 """
 module GenericTypes
 
-export AbstractStringSet
-export AbstractStringVector
 export Maybe
 export Unsure
-
-"""
-    AbstractStringSet = AbstractSet{S} where {S <: AbstractString}
-
-A set of strings, without commitment to the concrete implementation of either the set or the strings contained in it.
-"""
-AbstractStringSet = AbstractSet{S} where {S <: AbstractString}
-
-"""
-    AbstractStringVector = AbstractVector{S} where {S <: AbstractString}
-
-A vector of strings, without commitment to the concrete implementation of either the vector or the strings contained in
-it.
-"""
-AbstractStringVector = AbstractVector{S} where {S <: AbstractString}
 
 """
     Maybe{T} = Union{T, Nothing}

@@ -124,14 +124,14 @@ end
     add_axis!(
         daf::DafWriter,
         axis::AbstractString,
-        entries::AbstractStringVector
+        entries::AbstractVector{<:AbstractString}
     )::Nothing
 
 Add a new `axis` to `daf`.
 
 This first verifies the `axis` does not exist and that the `entries` are unique.
 """
-function add_axis!(daf::DafWriter, axis::AbstractString, entries::AbstractStringVector)::Nothing
+function add_axis!(daf::DafWriter, axis::AbstractString, entries::AbstractVector{<:AbstractString})::Nothing
     entries = base_array(entries)
     if entries isa SparseVector
         entries = Vector(entries)  # untested
@@ -278,9 +278,9 @@ end
         daf::DafWriter,
         axis::AbstractString,
         name::AbstractString,
-        eltype::Type{T};
+        eltype::Type{<:StorageNumber};
         [overwrite::Bool = false]
-    )::Any where {T <: StorageNumber}
+    )::Any
 
 Create an empty dense vector property with some `name` for some `axis` in `daf`, pass it to `fill`, and return the
 result.
@@ -297,9 +297,9 @@ function empty_dense_vector!(
     daf::DafWriter,
     axis::AbstractString,
     name::AbstractString,
-    eltype::Type{T};
+    eltype::Type{<:StorageNumber};
     overwrite::Bool = false,
-)::Any where {T <: StorageNumber}
+)::Any
     @assert isbitstype(eltype)
     vector = get_empty_dense_vector!(daf, axis, name, eltype; overwrite = overwrite)
     try
@@ -346,8 +346,8 @@ function filled_empty_dense_vector!(
     daf::DafWriter,
     axis::AbstractString,
     name::AbstractString,
-    filled_vector::AbstractVector{T},
-)::Nothing where {T <: StorageNumber}
+    filled_vector::AbstractVector{<:StorageNumber},
+)::Nothing
     Formats.format_filled_empty_dense_vector!(daf, axis, name, filled_vector)
     @debug "empty_dense_vector! filled vector: $(depict(filled_vector)) }"
     return nothing
@@ -359,11 +359,11 @@ end
         daf::DafWriter,
         axis::AbstractString,
         name::AbstractString,
-        eltype::Type{T},
+        eltype::Type{<:StorageNumber},
         nnz::StorageInteger,
-        indtype::Maybe{Type{I}} = nothing;
+        indtype::Maybe{Type{<:StorageInteger}} = nothing;
         [overwrite::Bool = false]
-    )::Any where {T <: StorageNumber, I <: StorageInteger}
+    )::Any
 
 Create an empty sparse vector property with some `name` for some `axis` in `daf`, pass its parts (`nzind` and `nzval`)
 to `fill`, and return the result.
@@ -390,16 +390,16 @@ allows doing so directly into the data vector, avoiding a copy in case of memory
 This first verifies the `axis` exists in `daf` and that the property name isn't `name`. If not `overwrite` (the
 default), this also verifies the `name` vector does not exist for the `axis`.
 """
-function empty_sparse_vector!(  # NOLINT
+function empty_sparse_vector!(
     fill::Function,
     daf::DafWriter,
     axis::AbstractString,
     name::AbstractString,
-    eltype::Type{T},
+    eltype::Type{<:StorageNumber},
     nnz::StorageInteger,
-    indtype::Maybe{Type{I}} = nothing;
+    indtype::Maybe{Type{<:StorageInteger}} = nothing;
     overwrite::Bool = false,
-)::Any where {T <: StorageNumber, I <: StorageInteger}
+)::Any
     if indtype === nothing
         indtype = indtype_for_size(axis_length(daf, axis))
     end
@@ -451,10 +451,10 @@ function filled_empty_sparse_vector!(
     daf::DafWriter,
     axis::AbstractString,
     name::AbstractString,
-    nzind::AbstractVector{I},
-    nzval::AbstractVector{T},
+    nzind::AbstractVector{<:StorageInteger},
+    nzval::AbstractVector{<:StorageNumber},
     extra::Any,
-)::Nothing where {T <: StorageNumber, I <: StorageInteger}
+)::Nothing
     filled = SparseVector(axis_length(daf, axis), nzind, nzval)
     Formats.format_filled_empty_sparse_vector!(daf, axis, name, extra, filled)
     @debug "empty_sparse_vector! filled vector: $(depict(filled)) }"
@@ -605,9 +605,9 @@ end
         rows_axis::AbstractString,
         columns_axis::AbstractString,
         name::AbstractString,
-        eltype::Type{T};
+        eltype::Type{<:StorageNumber};
         [overwrite::Bool = false]
-    )::Any where {T <: StorageNumber}
+    )::Any
 
 Create an empty dense matrix property with some `name` for some `rows_axis` and `columns_axis` in `daf`, pass it to
 `fill`, and return the result. Since this is Julia, this will be a column-major `matrix`.
@@ -626,9 +626,9 @@ function empty_dense_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    eltype::Type{T};
+    eltype::Type{<:StorageNumber};
     overwrite::Bool = false,
-)::Any where {T <: StorageNumber}
+)::Any
     @assert isbitstype(eltype)
     matrix = get_empty_dense_matrix!(daf, rows_axis, columns_axis, name, eltype; overwrite = overwrite)
     try
@@ -645,9 +645,9 @@ function get_empty_dense_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    eltype::Type{T};
+    eltype::Type{<:StorageNumber};
     overwrite::Bool = false,
-)::Any where {T <: StorageNumber}
+)::Any
     Formats.begin_data_write_lock(daf, "empty_dense_matrix! of:", name, "of:", rows_axis, "and:", columns_axis)
     try
         @debug "empty_dense_matrix! daf: $(depict(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) eltype: $(eltype) overwrite: $(overwrite) {"
@@ -673,8 +673,8 @@ function filled_empty_dense_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    filled_matrix::AbstractMatrix{T},
-)::Nothing where {T <: StorageNumber}
+    filled_matrix::AbstractMatrix{<:StorageNumber},
+)::Nothing
     Formats.format_filled_empty_dense_matrix!(daf, rows_axis, columns_axis, name, filled_matrix)
     @debug "empty_dense_matrix! filled matrix: $(depict(filled_matrix)) }"
     return nothing
@@ -687,11 +687,11 @@ end
         rows_axis::AbstractString,
         columns_axis::AbstractString,
         name::AbstractString,
-        eltype::Type{T},
+        eltype::Type{<:StorageNumber},
         nnz::StorageInteger,
-        intdype::Maybe{Type{I}} = nothing;
+        intdype::Maybe{Type{<:StorageInteger}} = nothing;
         [overwrite::Bool = false]
-    )::Any where {T <: StorageNumber, I <: StorageInteger}
+    )::Any
 
 Create an empty sparse matrix property with some `name` for some `rows_axis` and `columns_axis` in `daf`, pass its parts
 (`colptr`, `rowval` and `nzval`) to `fill`, and return the result.
@@ -720,17 +720,17 @@ It is the caller's responsibility to fill the three vectors with valid data. Spe
 This first verifies the `rows_axis` and `columns_axis` exist in `daf`. If not `overwrite` (the default), this also
 verifies the `name` matrix does not exist for the `rows_axis` and `columns_axis`.
 """
-function empty_sparse_matrix!(  # NOLINT
+function empty_sparse_matrix!(
     fill::Function,
     daf::DafWriter,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    eltype::Type{T},
+    eltype::Type{<:StorageNumber},
     nnz::StorageInteger,
-    indtype::Maybe{Type{I}} = nothing;
+    indtype::Maybe{Type{<:StorageInteger}} = nothing;
     overwrite::Bool = false,
-)::Any where {T <: StorageNumber, I <: StorageInteger}
+)::Any
     if indtype === nothing
         nrows = axis_length(daf, rows_axis)
         ncolumns = axis_length(daf, columns_axis)
@@ -786,9 +786,9 @@ function filled_empty_sparse_matrix!(
     name::AbstractString,
     colptr::AbstractVector{I},
     rowval::AbstractVector{I},
-    nzval::AbstractVector{T},
+    nzval::AbstractVector{<:StorageNumber},
     extra::Any,
-)::Nothing where {T <: StorageNumber, I <: StorageInteger}
+)::Nothing where {I <: StorageInteger}
     filled = SparseMatrixCSC(axis_length(daf, rows_axis), axis_length(daf, columns_axis), colptr, rowval, nzval)
     Formats.format_filled_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, extra, filled)
     @debug "empty_sparse_matrix! filled matrix: $(depict(filled)) }"

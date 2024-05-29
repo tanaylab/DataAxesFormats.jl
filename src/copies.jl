@@ -33,10 +33,10 @@ using SparseArrays
         source::DafReader,
         name::AbstractString,
         [rename::Maybe{AbstractString} = nothing,
-        dtype::Maybe{Type{T}} = nothing,
+        dtype::Maybe{Type{<:StorageScalarBase}} = nothing,
         default::Union{StorageScalar, Nothing, UndefInitializer} = undef,
         overwrite::Bool = false]
-    )::Nothing where {T <: StorageScalarBase}
+    )::Nothing
 
 Copy a scalar with some `name` from some `source` [`DafReader`](@ref) into some `destination` [`DafWriter`](@ref).
 
@@ -49,10 +49,10 @@ existing scalar in the target.
     source::DafReader,
     name::AbstractString,
     rename::Maybe{AbstractString} = nothing,
-    dtype::Maybe{Type{T}} = nothing,
+    dtype::Maybe{Type{<:StorageScalarBase}} = nothing,
     default::Union{StorageScalar, Nothing, UndefInitializer} = undef,
     overwrite::Bool = false,
-)::Nothing where {T <: StorageScalarBase}
+)::Nothing
     value = get_scalar(source, name; default = default)
     if value !== nothing
         rename = new_name(rename, name)
@@ -107,11 +107,11 @@ end
         name::AbstractString,
         [reaxis::Maybe{AbstractString} = nothing,
         rename::Maybe{AbstractString} = nothing,
-        dtype::Maybe{Type{T}} = nothing,
+        dtype::Maybe{Type{<:StorageScalarBase}} = nothing,
         default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
         empty::Maybe{StorageScalar} = nothing,
         overwrite::Bool = false]
-    )::Nothing where {T <: StorageScalarBase}
+    )::Nothing
 
 Copy a vector from some `source` [`DafReader`](@ref) into some `destination` [`DafWriter`](@ref).
 
@@ -130,12 +130,12 @@ source axis contains entries that do not exist in the target, they are discarded
     name::AbstractString,
     reaxis::Maybe{AbstractString} = nothing,
     rename::Maybe{AbstractString} = nothing,
-    dtype::Maybe{Type{T}} = nothing,
+    dtype::Maybe{Type{<:StorageScalarBase}} = nothing,
     default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
     empty::Maybe{StorageScalar} = nothing,
     overwrite::Bool = false,
     relation::Maybe{Symbol} = nothing,
-)::Nothing where {T <: StorageScalarBase}
+)::Nothing
     reaxis = new_name(reaxis, axis)
     rename = new_name(rename, name)
 
@@ -220,12 +220,12 @@ end
         [rows_reaxis::Maybe{AbstractString} = nothing,
         columns_reaxis::Maybe{AbstractString} = nothing,
         rename::Maybe{AbstractString} = nothing,
-        dtype::Maybe{Type{T}} = nothing,
+        dtype::Maybe{Type{<:StorageScalarBase}} = nothing,
         default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
         empty::Maybe{StorageScalar} = nothing,
         relayout::Bool = true,
         overwrite::Bool = false]
-    )::Nothing where {T <: StorageScalarBase}
+    )::Nothing
 
 Copy a matrix from some `source` [`DafReader`](@ref) into some `destination` [`DafWriter`](@ref).
 
@@ -253,14 +253,14 @@ axis contains entries that do not exist in the target, they are discarded (not c
     rows_reaxis::Maybe{AbstractString} = nothing,
     columns_reaxis::Maybe{AbstractString} = nothing,
     rename::Maybe{AbstractString} = nothing,
-    dtype::Maybe{Type{T}} = nothing,
+    dtype::Maybe{Type{<:StorageScalarBase}} = nothing,
     default::Union{StorageNumber, StorageMatrix, Nothing, UndefInitializer} = undef,
     empty::Maybe{StorageNumber} = nothing,
     relayout::Bool = true,
     overwrite::Bool = false,
     rows_relation::Maybe{Symbol} = nothing,
     columns_relation::Maybe{Symbol} = nothing,
-)::Nothing where {T <: StorageScalarBase}
+)::Nothing
     relayout = relayout && rows_axis != columns_axis
     rows_reaxis = new_name(rows_reaxis, rows_axis)
     columns_reaxis = new_name(columns_reaxis, columns_axis)
@@ -423,17 +423,16 @@ Specify the data type to use for overriding properties types in a `Daf` data set
     Due to Julia's type system limitations, there's just no way for the system to enforce the type of the pairs when
     initializing this dictionary. That is, what we'd **like** to say is:
 
-        DataTypes = AbstractDict{DataKey, Type{T}} where {T <: StorageScalarBase}
+        DataTypes = AbstractDict{DataKey, Type{<:StorageScalarBase}}}
 
     But what we are **forced** to say is:
 
         DataTypes = AbstractDict
 
-    That's **not** a mistake. Even
-    `DataTypes = AbstractDict{Key, T <: StorageScalarBase} where {Key, T <: StorageScalarBase}` fails to work, as do all
-    the (many) possibilities for expressing "this is a dictionary where the key or the value can be one of several
-    things" Sigh. Glory to anyone who figures out an incantation that would force the system to perform **any**
-    meaningful type inference here.
+    That's **not** a mistake. Even `DataTypes = AbstractDict{<:Any, <: StorageScalarBase}` fails to work, as do all the
+    (many) possibilities for expressing "this is a dictionary where the key or the value can be one of several things"
+    Sigh. Glory to anyone who figures out an incantation that would force the system to perform **any** meaningful type
+    inference here.
 """
 DataTypes = AbstractDict
 

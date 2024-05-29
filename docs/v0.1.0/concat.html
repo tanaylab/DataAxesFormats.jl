@@ -271,13 +271,13 @@
 <pre>
 <code class="language-julia hljs">concatenate!(
     destination::DafWriter,
-    axis::Union{AbstractString, AbstractStringVector},
+    axis::Union{AbstractString, AbstractVector{&lt;:AbstractString}},
     sources::AbstractVector{&lt;:DafReader};
-    [names::Maybe{AbstractStringVector} = nothing,
+    [names::Maybe{AbstractVector{&lt;:AbstractString}} = nothing,
     dataset_axis::Maybe{AbstractString} = &quot;dataset&quot;,
     dataset_property::Bool = true,
     prefix::Union{Bool, AbstractVector{Bool}} = false,
-    prefixed::Maybe{Union{AbstractStringSet, AbstractVector{&lt;:AbstractStringSet}}} = nothing,
+    prefixed::Maybe{Union{AbstractSet{&lt;:AbstractString}, AbstractVector{&lt;:AbstractSet{&lt;:AbstractString}}}} = nothing,
     empty::Maybe{EmptyData} = nothing,
     sparse_if_saves_storage_fraction = 0.25,
     merge::Maybe{MergeData} = nothing,

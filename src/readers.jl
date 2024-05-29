@@ -90,7 +90,7 @@ function has_scalar(daf::DafReader, name::AbstractString)::Bool
 end
 
 """
-    scalars_set(daf::DafReader)::AbstractStringSet
+    scalars_set(daf::DafReader)::AbstractSet{<:AbstractString}
 
 The names of the scalar properties in `daf`.
 
@@ -98,7 +98,7 @@ The names of the scalar properties in `daf`.
 
     There's no immutable set type in Julia for us to return. If you do modify the result set, bad things *will* happen.
 """
-function scalars_set(daf::DafReader)::AbstractStringSet
+function scalars_set(daf::DafReader)::AbstractSet{<:AbstractString}
     return Formats.with_data_read_lock(daf, "scalars_set") do
         result = Formats.get_scalars_set_through_cache(daf)
         @debug "scalars_set daf: $(depict(daf)) result: $(depict(result))"
@@ -174,7 +174,7 @@ function axis_version_counter(daf::DafReader, axis::AbstractString)::UInt32
 end
 
 """
-    axes_set(daf::DafReader)::AbstractStringSet
+    axes_set(daf::DafReader)::AbstractSet{<:AbstractString}
 
 The names of the axes of `daf`.
 
@@ -182,7 +182,7 @@ The names of the axes of `daf`.
 
     There's no immutable set type in Julia for us to return. If you do modify the result set, bad things *will* happen.
 """
-function axes_set(daf::DafReader)::AbstractStringSet
+function axes_set(daf::DafReader)::AbstractSet{<:AbstractString}
     return Formats.with_data_read_lock(daf, "axes_set") do
         result = Formats.get_axes_set_through_cache(daf)
         @debug "axes_set daf: $(depict(daf)) result: $(depict(result))"
@@ -195,7 +195,7 @@ end
         daf::DafReader,
         axis::AbstractString;
         [default::Union{Nothing, UndefInitializer} = undef]
-    )::Maybe{AbstractStringVector}
+    )::Maybe{AbstractVector{<:AbstractString}}
 
 The array of unique names of the entries of some `axis` of `daf`. This is similar to doing [`get_vector`](@ref) for the
 special `name` property, except that it returns a simple vector (array) of strings instead of a `NamedVector`.
@@ -207,7 +207,7 @@ function axis_array(
     daf::DafReader,
     axis::AbstractString;
     default::Union{Nothing, UndefInitializer} = undef,
-)::Maybe{AbstractStringVector}
+)::Maybe{AbstractVector{<:AbstractString}}
     return Formats.with_data_read_lock(daf, "axis_array of:", axis) do
         result_prefix = ""
         if !Formats.format_has_axis(daf, axis; for_change = false)
@@ -301,7 +301,7 @@ function vector_version_counter(daf::DafReader, axis::AbstractString, name::Abst
 end
 
 """
-    vectors_set(daf::DafReader, axis::AbstractString)::AbstractStringSet
+    vectors_set(daf::DafReader, axis::AbstractString)::AbstractSet{<:AbstractString}
 
 The names of the vector properties for the `axis` in `daf`, **not** including the special `name` property.
 
@@ -311,7 +311,7 @@ This first verifies the `axis` exists in `daf`.
 
     There's no immutable set type in Julia for us to return. If you do modify the result set, bad things *will* happen.
 """
-function vectors_set(daf::DafReader, axis::AbstractString)::AbstractStringSet
+function vectors_set(daf::DafReader, axis::AbstractString)::AbstractSet{<:AbstractString}
     return Formats.with_data_read_lock(daf, "vectors_set of:", axis) do
         require_axis(daf, axis)
         result = Formats.get_vectors_set_through_cache(daf, axis)
@@ -468,7 +468,7 @@ end
         rows_axis::AbstractString,
         columns_axis::AbstractString;
         [relayout::Bool = true]
-    )::AbstractStringSet
+    )::AbstractSet{<:AbstractString}
 
 The names of the matrix properties for the `rows_axis` and `columns_axis` in `daf`.
 
@@ -486,7 +486,7 @@ function matrices_set(
     rows_axis::AbstractString,
     columns_axis::AbstractString;
     relayout::Bool = true,
-)::AbstractStringSet
+)::AbstractSet{<:AbstractString}
     return Formats.with_data_read_lock(daf, "matrices_set of:", rows_axis, "and:", columns_axis) do
         relayout = relayout && rows_axis != columns_axis
 
@@ -497,7 +497,7 @@ function matrices_set(
             names = Formats.get_matrices_set_through_cache(daf, rows_axis, columns_axis)
         else
             first_relayout_cache_key = Formats.matrix_relayout_names_cache_key(rows_axis, columns_axis)
-            names = Formats.get_from_cache(daf, first_relayout_cache_key, AbstractStringSet)
+            names = Formats.get_from_cache(daf, first_relayout_cache_key, AbstractSet{<:AbstractString})
             if names === nothing
                 names = with_write_lock(
                     daf.internal.cache_lock,
@@ -821,7 +821,7 @@ function require_axis_names(
     daf::DafReader,
     axis::AbstractString,
     what::AbstractString,
-    names::AbstractStringVector,
+    names::AbstractVector{<:AbstractString},
 )::Nothing
     @assert Formats.has_data_read_lock(daf)
     expected_names = axis_array(daf, axis)
@@ -886,7 +886,7 @@ end
 
 function axes_description(
     daf::DafReader,
-    axes::AbstractStringVector,
+    axes::AbstractVector{<:AbstractString},
     indent::AbstractString,
     lines::Vector{String},
 )::Nothing
@@ -899,7 +899,7 @@ end
 
 function vectors_description(
     daf::DafReader,
-    axes::AbstractStringVector,
+    axes::AbstractVector{<:AbstractString},
     indent::AbstractString,
     lines::Vector{String},
 )::Nothing
@@ -923,7 +923,7 @@ end
 
 function matrices_description(
     daf::DafReader,
-    axes::AbstractStringVector,
+    axes::AbstractVector{<:AbstractString},
     indent::AbstractString,
     lines::Vector{String},
 )::Nothing

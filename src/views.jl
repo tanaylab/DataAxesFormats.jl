@@ -55,7 +55,7 @@ struct DafView <: DafReadOnly
     internal::Internal
     daf::DafReader
     scalars::Dict{AbstractString, Fetch{StorageScalar}}
-    axes::Dict{AbstractString, Fetch{AbstractStringVector}}
+    axes::Dict{AbstractString, Fetch{AbstractVector{<:AbstractString}}}
     vectors::Dict{AbstractString, Dict{AbstractString, Fetch{StorageVector}}}
     matrices::Dict{AbstractString, Dict{AbstractString, Dict{AbstractString, Fetch{StorageMatrix}}}}
 end
@@ -263,7 +263,7 @@ function viewer(
         @assert query isa Maybe{Union{AbstractString, Query}}
     end
 
-    collected_axes::Dict{AbstractString, Fetch{AbstractStringVector}} = collect_axes(name, daf, axes)
+    collected_axes::Dict{AbstractString, Fetch{AbstractVector{<:AbstractString}}} = collect_axes(name, daf, axes)
     collected_scalars::Dict{AbstractString, Fetch{StorageScalar}} = collect_scalars(name, daf, data)
     collected_vectors::Dict{AbstractString, Dict{AbstractString, Fetch{StorageVector}}} =
         collect_vectors(name, daf, collected_axes, data)
@@ -345,8 +345,8 @@ function collect_axes(
     view_name::AbstractString,
     daf::DafReader,
     axes::ViewAxes,
-)::Dict{AbstractString, Fetch{AbstractStringVector}}
-    collected_axes = Dict{AbstractString, Fetch{AbstractStringVector}}()
+)::Dict{AbstractString, Fetch{AbstractVector{<:AbstractString}}}
+    collected_axes = Dict{AbstractString, Fetch{AbstractVector{<:AbstractString}}}()
     for (axis, query) in axes
         @assert axis isa AbstractString
         @assert query isa Maybe{Union{AbstractString, Query}}
@@ -358,7 +358,7 @@ end
 function collect_axis(
     view_name::AbstractString,
     daf::DafReader,
-    collected_axes::Dict{AbstractString, Fetch{AbstractStringVector}},
+    collected_axes::Dict{AbstractString, Fetch{AbstractVector{<:AbstractString}}},
     axis_name::AbstractString,
     axis_query::Maybe{Union{AbstractString, Query}},
 )::Nothing
@@ -382,7 +382,7 @@ function collect_axis(
                 "of the daf data: $(daf.name)",
             )
         end
-        collected_axes[axis_name] = Fetch{AbstractStringVector}(axis_query, nothing)
+        collected_axes[axis_name] = Fetch{AbstractVector{<:AbstractString}}(axis_query, nothing)
     end
     return nothing
 end
@@ -390,7 +390,7 @@ end
 function collect_vectors(
     view_name::AbstractString,
     daf::DafReader,
-    collected_axes::Dict{AbstractString, Fetch{AbstractStringVector}},
+    collected_axes::Dict{AbstractString, Fetch{AbstractVector{<:AbstractString}}},
     data::ViewData,
 )::Dict{AbstractString, Dict{AbstractString, Fetch{StorageVector}}}
     collected_vectors = Dict{AbstractString, Dict{AbstractString, Fetch{StorageVector}}}()
@@ -417,7 +417,7 @@ end
 function collect_vector(
     view_name::AbstractString,
     daf::DafReader,
-    collected_axes::Dict{AbstractString, Fetch{AbstractStringVector}},
+    collected_axes::Dict{AbstractString, Fetch{AbstractVector{<:AbstractString}}},
     collected_vectors::Dict{AbstractString, Dict{AbstractString, Fetch{StorageVector}}},
     axis_name::AbstractString,
     vector_name::AbstractString,
@@ -480,7 +480,7 @@ end
 function collect_matrices(
     view_name::AbstractString,
     daf::DafReader,
-    collected_axes::Dict{AbstractString, Fetch{AbstractStringVector}},
+    collected_axes::Dict{AbstractString, Fetch{AbstractVector{<:AbstractString}}},
     data::ViewData,
 )::Dict{AbstractString, Dict{AbstractString, Dict{AbstractString, Fetch{StorageMatrix}}}}
     collected_matrices = Dict{AbstractString, Dict{AbstractString, Dict{AbstractString, Fetch{StorageMatrix}}}}()
@@ -512,7 +512,7 @@ function collect_matrix(
     view_name::AbstractString,
     daf::DafReader,
     collected_matrices::Dict{AbstractString, Dict{AbstractString, Dict{AbstractString, Fetch{StorageMatrix}}}},
-    collected_axes::Dict{AbstractString, Fetch{AbstractStringVector}},
+    collected_axes::Dict{AbstractString, Fetch{AbstractVector{<:AbstractString}}},
     rows_axis_name::AbstractString,
     columns_axis_name::AbstractString,
     matrix_name::AbstractString,
@@ -609,9 +609,9 @@ end
 function get_fetch_axis(
     view_name::AbstractString,
     daf::DafReader,
-    collected_axes::Dict{AbstractString, Fetch{AbstractStringVector}},
+    collected_axes::Dict{AbstractString, Fetch{AbstractVector{<:AbstractString}}},
     axis::AbstractString,
-)::Fetch{AbstractStringVector}
+)::Fetch{AbstractVector{<:AbstractString}}
     fetch_axis = get(collected_axes, axis, nothing)
     if fetch_axis === nothing
         error("the axis: $(axis)\n" * "is not exposed by the view: $(view_name)\n" * "of the daf data: $(daf.name)")
@@ -663,7 +663,7 @@ function Formats.format_get_scalar(view::DafView, name::AbstractString)::Storage
     return scalar_value
 end
 
-function Formats.format_scalars_set(view::DafView)::AbstractStringSet
+function Formats.format_scalars_set(view::DafView)::AbstractSet{<:AbstractString}
     @assert Formats.has_data_read_lock(view)
     return keys(view.scalars)
 end
@@ -673,12 +673,12 @@ function Formats.format_has_axis(view::DafView, axis::AbstractString; for_change
     return haskey(view.axes, axis)
 end
 
-function Formats.format_axes_set(view::DafView)::AbstractStringSet
+function Formats.format_axes_set(view::DafView)::AbstractSet{<:AbstractString}
     @assert Formats.has_data_read_lock(view)
     return keys(view.axes)
 end
 
-function Formats.format_axis_array(view::DafView, axis::AbstractString)::AbstractStringVector
+function Formats.format_axis_array(view::DafView, axis::AbstractString)::AbstractVector{<:AbstractString}
     @assert Formats.has_data_read_lock(view)
     fetch_axis = view.axes[axis]
     axes_set = fetch_axis.value
@@ -699,7 +699,7 @@ function Formats.format_has_vector(view::DafView, axis::AbstractString, name::Ab
     return haskey(view.vectors[axis], name)
 end
 
-function Formats.format_vectors_set(view::DafView, axis::AbstractString)::AbstractStringSet
+function Formats.format_vectors_set(view::DafView, axis::AbstractString)::AbstractSet{<:AbstractString}
     @assert Formats.has_data_read_lock(view)
     return keys(view.vectors[axis])
 end
@@ -730,7 +730,7 @@ function Formats.format_matrices_set(
     view::DafView,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
-)::AbstractStringSet
+)::AbstractSet{<:AbstractString}
     @assert Formats.has_data_read_lock(view)
     return keys(view.matrices[rows_axis][columns_axis])
 end

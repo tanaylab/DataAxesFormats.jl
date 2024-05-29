@@ -26,16 +26,6 @@ Daf.GenericTypes.Maybe
 Daf.GenericTypes.Unsure
 ```
 
-## Strings
-
-We use the following as type annotations for function arguments to be able to accept "any" concrete string collection
-type.
-
-```@docs
-Daf.GenericTypes.AbstractStringVector
-Daf.GenericTypes.AbstractStringSet
-```
-
 ## Index
 
 ```@index

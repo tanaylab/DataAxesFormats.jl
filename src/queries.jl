@@ -632,7 +632,7 @@ macro q_str(query_string::AbstractString)
 end
 
 """
-    struct QuerySequence{N} <: Query where {N}
+    struct QuerySequence{N} <: Query where {N<:Integer}
 
 A sequence of `N` [`QueryOperation`](@ref)s.
 """
@@ -699,7 +699,7 @@ struct Names <: Query
     end
 end
 
-function get_query(daf::DafReader, names::Names; cache::Bool = true)::AbstractStringSet
+function get_query(daf::DafReader, names::Names; cache::Bool = true)::AbstractSet{<:AbstractString}
     return get_query(daf, QuerySequence((names,)); cache = cache)
 end
 
@@ -938,7 +938,7 @@ struct Axis <: Query
     axis_name::AbstractString
 end
 
-function get_query(daf::DafReader, axis::Axis; cache::Bool = true)::AbstractStringVector
+function get_query(daf::DafReader, axis::Axis; cache::Bool = true)::AbstractVector{<:AbstractString}
     return get_query(daf, QuerySequence((axis,)); cache = cache)
 end
 
@@ -1440,7 +1440,7 @@ end
 
 struct FakeMatrixState end
 
-QueryValue = Union{AbstractStringSet, ScalarState, AxisState, VectorState, MatrixState, AsAxis, GroupBy}
+QueryValue = Union{AbstractSet{<:AbstractString}, ScalarState, AxisState, VectorState, MatrixState, AsAxis, GroupBy}
 
 mutable struct QueryState
     daf::DafReader
@@ -1613,7 +1613,7 @@ end
 function Base.getindex(
     daf::DafReader,
     query::Union{Query, AbstractString},
-)::Union{AbstractStringSet, AbstractStringVector, StorageScalar, NamedArray}
+)::Union{AbstractSet{<:AbstractString}, AbstractVector{<:AbstractString}, StorageScalar, NamedArray}
     return get_query(daf, query)
 end
 
@@ -1635,7 +1635,7 @@ function get_query(
     daf::DafReader,
     query_string::AbstractString;
     cache::Bool = true,
-)::Union{AbstractStringSet, AbstractStringVector, StorageScalar, NamedArray}
+)::Union{AbstractSet{<:AbstractString}, AbstractVector{<:AbstractString}, StorageScalar, NamedArray}
     return get_query(daf, Query(query_string); cache = cache)
 end
 
@@ -1643,7 +1643,7 @@ function get_query(
     daf::DafReader,
     query_sequence::QuerySequence;
     cache::Bool = true,
-)::Union{AbstractStringSet, AbstractStringVector, StorageScalar, NamedArray}
+)::Union{AbstractSet{<:AbstractString}, AbstractVector{<:AbstractString}, StorageScalar, NamedArray}
     cache_key = join([string(query_operation) for query_operation in query_sequence.query_operations], " ")
     result = with_read_lock(daf.internal.cache_lock, daf.name, "cache for:", cache_key) do
         cached_entry = get(daf.internal.cache, cache_key, nothing)
@@ -1755,8 +1755,11 @@ end
 
 function get_query_result(
     query_state::QueryState,
-)::Tuple{Union{AbstractStringSet, AbstractStringVector, StorageScalar, NamedArray}, Set{AbstractString}}
-    if is_all(query_state, (AbstractStringSet,))
+)::Tuple{
+    Union{AbstractSet{<:AbstractString}, AbstractVector{<:AbstractString}, StorageScalar, NamedArray},
+    Set{AbstractString},
+}
+    if is_all(query_state, (AbstractSet{<:AbstractString},))
         return get_names_result(query_state)
     elseif is_all(query_state, (ScalarState,))
         return get_scalar_result(query_state)
@@ -1772,7 +1775,7 @@ function get_query_result(
 end
 
 function get_query_result_dimensions(fake_query_state::FakeQueryState)::Int
-    if is_all(fake_query_state, (AbstractStringSet,))
+    if is_all(fake_query_state, (AbstractSet{<:AbstractString},))
         return -1
     elseif is_all(fake_query_state, (FakeScalarState,))
         return 0
@@ -1793,9 +1796,9 @@ function get_query_result_dimensions(fake_query_state::FakeQueryState)::Int
     end
 end
 
-function get_names_result(query_state::QueryState)::Tuple{AbstractStringSet, Set{AbstractString}}
+function get_names_result(query_state::QueryState)::Tuple{AbstractSet{<:AbstractString}, Set{AbstractString}}
     names = pop!(query_state.stack)
-    @assert names isa AbstractStringSet
+    @assert names isa AbstractSet{<:AbstractString}
     return names, Set{AbstractString}()
 end
 
@@ -1807,7 +1810,7 @@ end
 
 function axis_array_result(
     query_state::QueryState,
-)::Tuple{Union{AbstractString, AbstractStringVector}, Set{AbstractString}}
+)::Tuple{Union{AbstractString, AbstractVector{<:AbstractString}}, Set{AbstractString}}
     axis_state = pop!(query_state.stack)
     @assert axis_state isa AxisState
 
@@ -3354,7 +3357,16 @@ function parse_group_by(
     query_state::QueryState,
     axis_state::AxisState,
     group_by::GroupBy,
-)::Maybe{Tuple{VectorState, StorageVector, AbstractStringVector, AbstractString, ReductionOperation, Maybe{IfMissing}}}
+)::Maybe{
+    Tuple{
+        VectorState,
+        StorageVector,
+        AbstractVector{<:AbstractString},
+        AbstractString,
+        ReductionOperation,
+        Maybe{IfMissing},
+    },
+}
     fetch_property(query_state, axis_state, group_by)
     groups_vector_state = pop!(query_state.stack)
     @assert groups_vector_state isa VectorState
@@ -3734,7 +3746,7 @@ function regex_for(query_state::QueryState, value::StorageScalar)::Regex
     end
 end
 
-function value_for(query_state::QueryState, ::Type{T}, value::StorageScalar)::T where {T <: StorageScalar}
+function value_for(query_state::QueryState, ::Type{T}, value::StorageScalar)::T where {T <: StorageScalarBase}
     if value isa T
         return value
     elseif value isa AbstractString
@@ -3776,7 +3788,7 @@ QueryColumns = AbstractVector{<:Pair}
     get_frame(
         daf::DafReader,
         axis::Union{Query, AbstractString},
-        [columns::Maybe{Union{AbstractStringVector, QueryColumns}} = nothing;
+        [columns::Maybe{Union{AbstractVector{<:AbstractString}, QueryColumns}} = nothing;
         cache::Bool = true]
     )::DataFrame end
 
@@ -3799,7 +3811,7 @@ specifying `cache = false`, or release the cached data using [`empty_cache!`](@r
 function get_frame(
     daf::DafReader,
     axis::Union{Query, AbstractString},
-    columns::Maybe{Union{AbstractStringVector, QueryColumns}} = nothing;
+    columns::Maybe{Union{AbstractVector{<:AbstractString}, QueryColumns}} = nothing;
     cache::Bool = true,
 )::DataFrame
     if axis isa Query
@@ -3817,7 +3829,7 @@ function get_frame(
     end
 
     row_names = get_query(daf, axis_query; cache = cache)
-    @assert row_names isa AbstractStringVector
+    @assert row_names isa AbstractVector{<:AbstractString}
 
     if columns === nothing
         columns = sort!(collect(vectors_set(daf, axis_name)))

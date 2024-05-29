@@ -150,10 +150,10 @@ function verify_scalar_contract(
     daf::DafReader,
     name::AbstractString,
     expectation::ContractExpectation,
-    data_type::T,
+    data_type::Type,
     ::AbstractString;
     is_output::Bool,
-)::Nothing where {T <: Type}
+)::Nothing
     value = get_scalar(daf, name; default = nothing)
     if is_mandatory(expectation; is_output = is_output) && value === nothing
         error(
@@ -199,10 +199,10 @@ function verify_vector_contract(
     axis::AbstractString,
     name::AbstractString,
     expectation::ContractExpectation,
-    data_type::T,
+    data_type::Type,
     ::AbstractString;
     is_output::Bool,
-)::Nothing where {T <: Type}
+)::Nothing
     value = nothing
     if verify_axis_contract(computation, daf, axis, expectation, ""; is_output = is_output)
         value = get_vector(daf, axis, name; default = nothing)
@@ -235,10 +235,10 @@ function verify_matrix_contract(
     columns_axis::AbstractString,
     name::AbstractString,
     expectation::ContractExpectation,
-    data_type::T,
+    data_type::Type,
     ::AbstractString;
     is_output::Bool,
-)::Nothing where {T <: Type}
+)::Nothing
     has_rows_axis = verify_axis_contract(computation, daf, rows_axis, expectation, ""; is_output = is_output)
     has_columns_axis = verify_axis_contract(computation, daf, columns_axis, expectation, ""; is_output = is_output)
     value = nothing
