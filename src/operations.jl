@@ -54,7 +54,7 @@ import ..Tokens.Token
 import Base.MathConstants.e
 import Base.MathConstants.pi
 
-FLOAT_DTYPE_FOR = Dict{Type, Type}(
+FLOAT_DTYPE_FOR = Dict{Type, Type{<:AbstractFloat}}(
     Bool => Float32,
     Int8 => Float32,
     Int16 => Float32,
@@ -85,12 +85,11 @@ function float_dtype_for(
         global FLOAT_DTYPE_FOR
         return FLOAT_DTYPE_FOR[element_type]
     else
-        @assert dtype <: AbstractFloat
         return dtype
     end
 end
 
-INT_DTYPE_FOR = Dict{Type, Type}(
+INT_DTYPE_FOR = Dict{Type, Type{<:Integer}}(
     Bool => Bool,
     Int8 => Int8,
     Int16 => Int16,
@@ -108,22 +107,21 @@ INT_DTYPE_FOR = Dict{Type, Type}(
     int_dtype_for(
         element_type::Type{<:StorageNumber},
         dtype::Maybe{Type{<:StorageNumber}}
-    )::Type
+    )::Type{<:Integer}
 
 Given an input `element_type`, return the data type to use for the result of an operation that always produces integer
 values (e.g., [`Round`](@ref)). If `dtype` isn't `nothing`, it is returned instead.
 """
-function int_dtype_for(element_type::Type{<:StorageNumber}, dtype::Maybe{Type{<:StorageNumber}})::Type
+function int_dtype_for(element_type::Type{<:StorageNumber}, dtype::Maybe{Type{<:StorageNumber}})::Type{<:Integer}
     if dtype === nothing
         global INT_DTYPE_FOR
         return INT_DTYPE_FOR[element_type]
     else
-        @assert dtype <: Integer
         return dtype
     end
 end
 
-SUM_DTYPE_FOR = Dict{Type, Type}(
+SUM_DTYPE_FOR = Dict{Type, Type{<:StorageNumber}}(
     Bool => UInt32,
     Int8 => Int32,
     Int16 => Int32,
@@ -141,7 +139,7 @@ SUM_DTYPE_FOR = Dict{Type, Type}(
     sum_dtype_for(
         element_type::Type{<:StorageNumber},
         dtype::Maybe{Type{<:StorageNumber}}
-    )::Type
+    )::Type{<:StorageNumber}
 
 Given an input `element_type`, return the data type to use for the result of an operation that sums many such values
 values (e.g., [`Sum`](@ref)). If `dtype` isn't `nothing`, it is returned instead.
@@ -149,7 +147,7 @@ values (e.g., [`Sum`](@ref)). If `dtype` isn't `nothing`, it is returned instead
 This keeps floating point and 64-bit types as-is, but increases any small integer types to the matching 32 bit type
 (e.g., an input type of `UInt8` will have a sum type of `UInt32`).
 """
-function sum_dtype_for(element_type::Type{<:StorageNumber}, dtype::Maybe{Type{<:StorageNumber}})::Type
+function sum_dtype_for(element_type::Type{<:StorageNumber}, dtype::Maybe{Type{<:StorageNumber}})::Type{<:StorageNumber}
     if dtype === nothing
         global SUM_DTYPE_FOR
         return SUM_DTYPE_FOR[element_type]
@@ -642,8 +640,11 @@ struct Log <: EltwiseOperation
 end
 @query_operation Log
 
-function Log(; dtype::Maybe{Type} = nothing, base::StorageNumber = Float64(e), eps::StorageNumber = 0.0)::Log
-    @assert dtype === nothing || dtype <: AbstractFloat
+function Log(;
+    dtype::Maybe{Type{<:AbstractFloat}} = nothing,
+    base::StorageNumber = Float64(e),
+    eps::StorageNumber = 0.0,
+)::Log
     @assert base > 0
     @assert eps >= 0
     return Log(dtype, Float64(base), Float64(eps))
@@ -834,8 +835,7 @@ struct Count <: ReductionOperation
 end
 @query_operation Count
 
-function Count(; dtype::Maybe{Type} = nothing)::Count
-    @assert dtype === nothing || dtype <: AbstractFloat
+function Count(; dtype::Maybe{Type{<:StorageNumber}} = nothing)::Count
     return Count(dtype)
 end
 
@@ -909,8 +909,7 @@ struct Sum <: ReductionOperation
 end
 @query_operation Sum
 
-function Sum(; dtype::Maybe{Type} = nothing)::Sum
-    @assert dtype === nothing || dtype <: AbstractFloat
+function Sum(; dtype::Maybe{Type{<:StorageNumber}} = nothing)::Sum
     return Sum(dtype)
 end
 
@@ -999,8 +998,7 @@ struct Median <: ReductionOperation
 end
 @query_operation Median
 
-function Median(; dtype::Maybe{Type} = nothing)::Median
-    @assert dtype === nothing || dtype <: AbstractFloat
+function Median(; dtype::Maybe{Type{<:AbstractFloat}} = nothing)::Median
     return Median(dtype)
 end
 
@@ -1044,8 +1042,7 @@ struct Quantile <: ReductionOperation
 end
 @query_operation Quantile
 
-function Quantile(; dtype::Maybe{Type} = nothing, p::StorageNumber)::Quantile
-    @assert dtype === nothing || dtype <: AbstractFloat
+function Quantile(; dtype::Maybe{Type{<:AbstractFloat}} = nothing, p::StorageNumber)::Quantile
     @assert 0 <= p && p <= 1
     return Quantile(dtype, p)
 end
@@ -1100,8 +1097,7 @@ struct Mean <: ReductionOperation
 end
 @query_operation Mean
 
-function Mean(; dtype::Maybe{Type} = nothing)::Mean
-    @assert dtype === nothing || dtype <: AbstractFloat
+function Mean(; dtype::Maybe{Type{<:AbstractFloat}} = nothing)::Mean
     return Mean(dtype)
 end
 
@@ -1143,8 +1139,7 @@ struct GeoMean <: ReductionOperation
 end
 @query_operation GeoMean
 
-function GeoMean(; dtype::Maybe{Type} = nothing, eps::StorageNumber = 0)::GeoMean
-    @assert dtype === nothing || dtype <: AbstractFloat
+function GeoMean(; dtype::Maybe{Type{<:AbstractFloat}} = nothing, eps::StorageNumber = 0)::GeoMean
     @assert eps >= 0
     return GeoMean(dtype, eps)
 end
@@ -1199,8 +1194,7 @@ struct Var <: ReductionOperation
 end
 @query_operation Var
 
-function Var(; dtype::Maybe{Type} = nothing)::Var
-    @assert dtype === nothing || dtype <: AbstractFloat
+function Var(; dtype::Maybe{Type{<:AbstractFloat}} = nothing)::Var
     return Var(dtype)
 end
 
@@ -1243,8 +1237,7 @@ struct VarN <: ReductionOperation
 end
 @query_operation VarN
 
-function VarN(; dtype::Maybe{Type} = nothing, eps::StorageNumber = 0)::VarN
-    @assert dtype === nothing || dtype <: AbstractFloat
+function VarN(; dtype::Maybe{Type{<:AbstractFloat}} = nothing, eps::StorageNumber = 0)::VarN
     @assert eps >= 0
     return VarN(dtype, eps)
 end
@@ -1295,8 +1288,7 @@ struct Std <: ReductionOperation
 end
 @query_operation Std
 
-function Std(; dtype::Maybe{Type} = nothing)::Std
-    @assert dtype === nothing || dtype <: AbstractFloat
+function Std(; dtype::Maybe{Type{<:AbstractFloat}} = nothing)::Std
     return Std(dtype)
 end
 
@@ -1339,8 +1331,7 @@ struct StdN <: ReductionOperation
 end
 @query_operation StdN
 
-function StdN(; dtype::Maybe{Type} = nothing, eps::StorageNumber = 0)::StdN
-    @assert dtype === nothing || dtype <: AbstractFloat
+function StdN(; dtype::Maybe{Type{<:AbstractFloat}} = nothing, eps::StorageNumber = 0)::StdN
     @assert eps >= 0
     return StdN(dtype, eps)
 end

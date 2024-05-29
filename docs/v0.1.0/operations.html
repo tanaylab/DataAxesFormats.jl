@@ -1226,7 +1226,7 @@
 <code class="language-julia hljs">int_dtype_for(
     element_type::Type{&lt;:StorageNumber},
     dtype::Maybe{Type{&lt;:StorageNumber}}
-)::Type
+)::Type{&lt;:Integer}
 </code>
 </pre>
 <p>Given an input 
@@ -1296,7 +1296,7 @@
 <code class="language-julia hljs">sum_dtype_for(
     element_type::Type{&lt;:StorageNumber},
     dtype::Maybe{Type{&lt;:StorageNumber}}
-)::Type
+)::Type{&lt;:StorageNumber}
 </code>
 </pre>
 <p>Given an input 
