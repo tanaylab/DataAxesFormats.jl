@@ -835,7 +835,7 @@ end
 @query_operation Count
 
 function Count(; dtype::Maybe{Type} = nothing)::Count
-    @assert dtype === nothing || dtype <: Real
+    @assert dtype === nothing || dtype <: AbstractFloat
     return Count(dtype)
 end
 
@@ -910,7 +910,7 @@ end
 @query_operation Sum
 
 function Sum(; dtype::Maybe{Type} = nothing)::Sum
-    @assert dtype === nothing || dtype <: Real
+    @assert dtype === nothing || dtype <: AbstractFloat
     return Sum(dtype)
 end
 
