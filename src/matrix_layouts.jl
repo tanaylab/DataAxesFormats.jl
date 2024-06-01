@@ -37,7 +37,7 @@ export relayout!
 export require_major_axis
 export require_minor_axis
 export Rows
-export transpose!
+export transposer!
 
 using ..GenericFunctions
 using ..GenericTypes
@@ -242,9 +242,9 @@ a gene will be fast, but summing the UMIs of a cell will be slow. A `transpose` 
 a zero-copy wrapper of the matrix with flipped axes, so its rows will be genes and columns will be cells, but in
 row-major layout. Therefore, **still**, summing the UMIs of a gene is fast, and summing the UMIs of a cell is slow.
 
-In contrast, [`transpose!`](@ref) (with a `!`) is slow; it creates a rearranged copy of the data, also returning a matrix whose
-rows are genes and columns are cells, but this time, in column-major layout. Therefore, in this case summing the UMIs of
-a gene will be slow, and summing the UMIs of a cell will be fast.
+In contrast, `transpose!` (with a `!`) (or [`transposer!`](@ref)) is slow; it creates a rearranged copy of the data, also
+returning a matrix whose rows are genes and columns are cells, but this time, in column-major layout. Therefore, in this
+case summing the UMIs of a gene will be slow, and summing the UMIs of a cell will be fast.
 
 !!! note
 
@@ -268,7 +268,7 @@ basically what `relayout!` does for you. In addition, `relayout!` will work for 
     `NamedMatrix` with the same axes. If `destination` is also a `NamedMatrix`, then its axes must match `source`.
 """
 function relayout!(matrix::AbstractMatrix)::AbstractMatrix
-    return transpose(transpose!(matrix))
+    return transpose(transposer!(matrix))
 end
 
 function relayout!(destination::AbstractMatrix, source::NamedMatrix)::NamedArray  # untested
@@ -349,29 +349,29 @@ function relayout!(destination::AbstractMatrix, source::AbstractMatrix)::Abstrac
 end
 
 """
-    transpose!(matrix::AbstractMatrix)::AbstractMatrix
-    transpose!(matrix::NamedMatrix)::NamedMatrix
+    transposer!(matrix::AbstractMatrix)::AbstractMatrix
+    transposer!(matrix::NamedMatrix)::NamedMatrix
 
 This is a shorthand for `LinearAlgebra.transpose!(similar(transpose(m)), m)`. That is, this will return a transpose of a
 matrix, but instead of simply using a zero-copy wrapper, it actually rearranges the data. See [`relayout!`](@ref).
 """
-function transpose!(matrix::AbstractMatrix)::AbstractMatrix
-    @debug "transpose! $(depict(matrix)) {"  # NOLINT
+function transposer!(matrix::AbstractMatrix)::AbstractMatrix
+    @debug "transposer! $(depict(matrix)) {"  # NOLINT
     result = LinearAlgebra.transpose!(similar(transpose(matrix)), matrix)
-    @debug "transpose! $(depict(result)) }"  # NOLINT
+    @debug "transposer! $(depict(result)) }"  # NOLINT
     return result
 end
 
-function transpose!(matrix::AbstractSparseMatrix)::AbstractMatrix
+function transposer!(matrix::AbstractSparseMatrix)::AbstractMatrix
     @assert require_major_axis(matrix) == Columns
-    @debug "transpose! $(depict(matrix)) {"  # NOLINT
+    @debug "transposer! $(depict(matrix)) {"  # NOLINT
     result = SparseMatrixCSC(transpose(matrix))
-    @debug "transpose! $(depict(result)) }"  # NOLINT
+    @debug "transposer! $(depict(result)) }"  # NOLINT
     return result
 end
 
-function transpose!(matrix::NamedMatrix)::NamedArray
-    return NamedArray(transpose!(matrix.array), flip_tuple(matrix.dicts), flip_tuple(matrix.dimnames))
+function transposer!(matrix::NamedMatrix)::NamedArray
+    return NamedArray(transposer!(matrix.array), flip_tuple(matrix.dicts), flip_tuple(matrix.dimnames))
 end
 
 function flip_tuple(tuple::Tuple{T1, T2})::Tuple{T2, T1} where {T1, T2}
@@ -379,16 +379,16 @@ function flip_tuple(tuple::Tuple{T1, T2})::Tuple{T2, T1} where {T1, T2}
     return (value2, value1)
 end
 
-function transpose!(matrix::SparseArrays.ReadOnly)::AbstractMatrix
-    return transpose!(parent(matrix))
+function transposer!(matrix::SparseArrays.ReadOnly)::AbstractMatrix
+    return transposer!(parent(matrix))
 end
 
-function transpose!(matrix::Transpose)::AbstractMatrix
-    return transpose(transpose!(parent(matrix)))
+function transposer!(matrix::Transpose)::AbstractMatrix
+    return transpose(transposer!(parent(matrix)))
 end
 
-function transpose!(matrix::Adjoint)::AbstractMatrix
-    return adjoint(transpose!(parent(matrix)))
+function transposer!(matrix::Adjoint)::AbstractMatrix
+    return adjoint(transposer!(parent(matrix)))
 end
 
 """

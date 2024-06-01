@@ -576,12 +576,14 @@ relayout!(destination::AbstractMatrix, source::NamedMatrix)::NamedMatrix
 </strong>, summing the UMIs of a gene is fast, and summing the UMIs of a cell is slow.
 </p>
 <p>In contrast, 
-<a href="matrix_layouts.html#Daf.MatrixLayouts.transpose!">
 <code>transpose!
-</code>
-</a> (with a 
+</code> (with a 
 <code>!
-</code>) is slow; it creates a rearranged copy of the data, also returning a matrix whose rows are genes and columns are cells, but this time, in column-major layout. Therefore, in this case summing the UMIs of a gene will be slow, and summing the UMIs of a cell will be fast.
+</code>) (or 
+<a href="matrix_layouts.html#Daf.MatrixLayouts.transposer!">
+<code>transposer!
+</code>
+</a>) is slow; it creates a rearranged copy of the data, also returning a matrix whose rows are genes and columns are cells, but this time, in column-major layout. Therefore, in this case summing the UMIs of a gene will be slow, and summing the UMIs of a cell will be fast.
 </p>
 <div class="admonition is-info">
 <header class="admonition-header">Note
@@ -656,8 +658,8 @@ relayout!(destination::AbstractMatrix, source::NamedMatrix)::NamedMatrix
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.MatrixLayouts.transpose!" href="#Daf.MatrixLayouts.transpose!">
-<code>Daf.MatrixLayouts.transpose!
+<a class="docstring-binding" id="Daf.MatrixLayouts.transposer!" href="#Daf.MatrixLayouts.transposer!">
+<code>Daf.MatrixLayouts.transposer!
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -666,8 +668,8 @@ relayout!(destination::AbstractMatrix, source::NamedMatrix)::NamedMatrix
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">transpose!(matrix::AbstractMatrix)::AbstractMatrix
-transpose!(matrix::NamedMatrix)::NamedMatrix
+<code class="language-julia hljs">transposer!(matrix::AbstractMatrix)::AbstractMatrix
+transposer!(matrix::NamedMatrix)::NamedMatrix
 </code>
 </pre>
 <p>This is a shorthand for 
@@ -922,8 +924,8 @@ transpose!(matrix::NamedMatrix)::NamedMatrix
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#Daf.MatrixLayouts.transpose!">
-<code>Daf.MatrixLayouts.transpose!
+<a href="matrix_layouts.html#Daf.MatrixLayouts.transposer!">
+<code>Daf.MatrixLayouts.transposer!
 </code>
 </a>
 </li>
