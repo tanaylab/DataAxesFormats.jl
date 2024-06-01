@@ -21,6 +21,8 @@ export ViewAxes
 export ViewData
 export viewer
 
+using NamedArrays
+
 using ..Formats
 using ..GenericTypes
 using ..Messages
@@ -223,7 +225,7 @@ relatively cheap operation.
 
 If the `name` is not specified, the result name will be based on the name of `daf`, with a `.view` suffix.
 
-Queries are listed separately for axes, and scalars, vector and matrix properties, as follows:
+Queries are listed separately for axes and data.
 
 !!! note
 
@@ -443,8 +445,10 @@ function collect_vector(
             @assert vector_query isa Query
         end
         if vector_query isa QuerySequence && vector_query.query_operations[1] isa Axis  # NOLINT
-            query_prefix, query_suffix = split_vector_query(vector_query)
-            vector_query = query_prefix |> fetch_axis.query |> query_suffix
+            if !any([query_operation isa GroupBy for query_operation in vector_query.query_operations])  # NOLINT
+                query_prefix, query_suffix = split_vector_query(vector_query)
+                vector_query = query_prefix |> fetch_axis.query |> query_suffix
+            end
         else
             vector_query = fetch_axis.query |> vector_query
         end
@@ -681,12 +685,12 @@ end
 function Formats.format_axis_array(view::DafView, axis::AbstractString)::AbstractVector{<:AbstractString}
     @assert Formats.has_data_read_lock(view)
     fetch_axis = view.axes[axis]
-    axes_set = fetch_axis.value
-    if axes_set === nothing
-        axes_set = Formats.read_only_array(get_query(view.daf, fetch_axis.query))
-        fetch_axis.value = axes_set
+    axis_array = fetch_axis.value
+    if axis_array === nothing
+        axis_array = Formats.read_only_array(get_query(view.daf, fetch_axis.query))
+        fetch_axis.value = axis_array
     end
-    return axes_set
+    return axis_array
 end
 
 function Formats.format_axis_length(view::DafView, axis::AbstractString)::Int64
@@ -710,6 +714,13 @@ function Formats.format_get_vector(view::DafView, axis::AbstractString, name::Ab
     vector_value = fetch_vector.value
     if vector_value === nothing
         vector_value = Formats.read_only_array(get_query(view.daf, fetch_vector.query))
+        @assert vector_value isa NamedArray && names(vector_value, 1) == Formats.format_axis_array(view, axis) (
+            "invalid vector query: $(fetch_vector.query)\n" *
+            "for the axis query: $(view.axes[axis].query)\n" *
+            "of the daf data: $(view.daf.name)\n" *
+            "for the axis: $(name)\n" *
+            "of the daf view: $(view.name)"  # NOLINT
+        )
         fetch_vector.value = vector_value
     end
     return vector_value

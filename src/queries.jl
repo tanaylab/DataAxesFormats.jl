@@ -69,6 +69,7 @@ import Base.MathConstants.pi
 
 """
     Query(query_string::AbstractString) <: QueryOperation
+    Query(query::Query) <: QueryOperation
 
 A query is a description of a (sub-)process for extracting some data from a [`DafReader`](@ref). A full query is a
 sequence of [`QueryOperation`](@ref), that when applied one at a time on some [`DafReader`](@ref), result in a scalar,
@@ -445,17 +446,8 @@ Operators used to represent a [`Query`](@ref) as a string.
 """
 QUERY_OPERATORS = r"^(?:=>|\|\||\?\?|%>|&!|\|!|\^!|!=|<=|>=|!~|/|:|!|%|\*|@|&|\||\?|\^|=|<|>|~)"
 
-function Query(query_string::AbstractString)::QuerySequence
-    tokens = tokenize(query_string, QUERY_OPERATORS)
-
-    next_token_index = 1
-    query_operations = Vector{QueryOperation}()
-    while next_token_index <= length(tokens)
-        query_operation, next_token_index = next_query_operation(tokens, next_token_index)
-        push!(query_operations, query_operation)
-    end
-
-    return QuerySequence(Tuple(query_operations))
+function Query(query::Query)::Query
+    return query
 end
 
 function next_query_operation(tokens::Vector{Token}, next_token_index::Int)::Tuple{QueryOperation, Int}
@@ -674,6 +666,33 @@ function Base.:(|>)(first_operation::QueryOperation, second_operation::QueryOper
     return QuerySequence((first_operation, second_operation))
 end
 
+function Query(query_string::AbstractString)::QuerySequence
+    tokens = tokenize(query_string, QUERY_OPERATORS)
+
+    next_token_index = 1
+    query_operations = Vector{QueryOperation}()
+    while next_token_index <= length(tokens)
+        query_operation, next_token_index = next_query_operation(tokens, next_token_index)
+        push!(query_operations, query_operation)
+    end
+
+    return QuerySequence(Tuple(query_operations))
+end
+
+"""
+    is_query_suffix(query::Query)::Bool
+
+Return whether the query is actually a query suffix to be applied to some axis. Such suffix queries are used when
+fetching multiple data for the same axis, e.g. in [`get_frame`](@ref).
+"""
+function is_query_suffix(::QueryOperation)::Bool
+    return false
+end
+
+function is_query_suffix(query_sequence::QuerySequence)::Bool
+    return is_query_suffix(query_sequence.query_operations[1])
+end
+
 """
     Names(kind::Maybe{AbstractString} = nothing) <: Query
 
@@ -753,6 +772,10 @@ end
 
 function is_axis_query(lookup::Lookup)::Bool
     return is_axis_query(QuerySequence((lookup,)))
+end
+
+function is_query_suffix(::Lookup)::Bool
+    return true
 end
 
 function query_result_dimensions(lookup::Lookup)::Int
@@ -3765,8 +3788,22 @@ function value_for(query_state::QueryState, ::Type{T}, value::StorageScalar)::T 
 end
 
 """
-Specify columns for a data frame. This is a vector of pairs, where the key is the column name, and the value is a query
-that computes the data of the column.
+Specify columns for a data frame for some axis. This is a vector of pairs, where the key is the column name, and the
+value is a query that computes the data of the column.
+
+The query is typically a suffix of a query which is combined with the axis lookup. For example, if the axis is `cell`,
+the query suffix may be `q": batch"` to lookup the batch of each cell.
+
+The query may also already be a full query. For example, if the axis is `metacell`, the query may be
+`/ cell : age @ metacell %> Mean` to compute the mean age of the cells of each metacell.
+
+!!! note
+
+    When specifying a full ([`GroupBy`](@ref) query), if the axis is masked, (e.g., `metacell & type = Bcell`, it is
+    your responsibility to include the same mask in the full query, e.g.
+    `/ cell & metacell => type = Bcell : age @ metacell %> Mean`). Sorry for the inconvenience.
+
+In both cases the (full) query must return a value for each entry of the axis.
 
 !!! note
 
@@ -3800,10 +3837,8 @@ names.
 
 If `columns` is not specified, the data frame will contain all the vector properties of the axis, in alphabetical order
 (since `DataFrame` has no concept of named rows, the 1st column will contain the name of the axis entry). Otherwise,
-`columns` may be a vector of names of vector properties (e.g., `["batch", "age"]`), or a vector of pairs mapping a
-column name to a query suffix (e.g., `["color" => q": type => color"]`). This suffix is applied to the `axis` query
-(e.g., if the `axis` is masked as above, the full query for the `color` column would be
-`q"/ cell & age > 1 : type => color`). The result of the full query must be a vector.
+`columns` may be a vector of names of vector properties (e.g., `["batch", "age"]`), or a [`QueryColumns`](@ref) vector
+of pairs mapping a column name to a query that fetches a value for each entry of the `axis`.
 
 By default, this will cache results of all queries. This may consume a large amount of memory. You can disable it by
 specifying `cache = false`, or release the cached data using [`empty_cache!`](@ref).
@@ -3828,8 +3863,8 @@ function get_frame(
         end
     end
 
-    row_names = get_query(daf, axis_query; cache = cache)
-    @assert row_names isa AbstractVector{<:AbstractString}
+    names_of_rows = get_query(daf, axis_query; cache = cache)
+    @assert names_of_rows isa AbstractVector{<:AbstractString}
 
     if columns === nothing
         columns = sort!(collect(vectors_set(daf, axis_name)))
@@ -3842,13 +3877,15 @@ function get_frame(
 
     data = Vector{Pair{AbstractString, StorageVector}}()
     for (column_name, column_query) in columns
-        if column_query isa AbstractString
-            column_query = Query(column_query)
+        column_query = Query(column_query)
+        if is_query_suffix(column_query)
+            column_query = axis_query |> column_query
         end
-        full_query = axis_query |> column_query
-        vector = get_query(daf, full_query; cache = cache)
-        if !(vector isa StorageVector) || length(vector) != length(row_names)
-            error("invalid column query: $(column_query)\nfor the daf data: $(daf.name)")
+        vector = get_query(daf, column_query; cache = cache)
+        if !(vector isa StorageVector) || !(vector isa NamedArray) || names(vector, 1) != names_of_rows
+            error(
+                "invalid column query: $(column_query)\nfor the axis query: $(axis_query)\nof the daf data: $(daf.name)",
+            )
         end
         push!(data, column_name => vector.array)
     end

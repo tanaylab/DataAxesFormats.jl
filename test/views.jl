@@ -121,9 +121,42 @@ nested_test("views") do
         end
 
         nested_test("masked") do
-            view = viewer(daf; axes = ["cell" => "/ cell & batch = 2"], data = [("cell", "age") => "="])
-            @test vectors_set(view, "cell") == Set(["age"])
-            @test get_vector(view, "cell", "age") == [2, 3]
+            set_vector!(daf, "cell", "batch", ["U", "V", "V"]; overwrite = true)
+            nested_test("()") do
+                view = viewer(daf; axes = ["cell" => "/ cell & batch = V"], data = [("cell", "age") => "="])
+                @test vectors_set(view, "cell") == Set(["age"])
+                @test get_vector(view, "cell", "age") == [2, 3]
+            end
+
+            nested_test("query") do
+                add_axis!(daf, "batch", ["U", "V"])
+                set_vector!(daf, "batch", "sex", ["M", "F"])
+
+                nested_test("()") do
+                    view = viewer(
+                        daf;
+                        axes = ["batch" => "/ batch & sex = F"],
+                        data = [("batch", "age") => "/ cell & batch => sex = F : age @ batch %> Mean"],
+                    )
+                    @test get_vector(view, "batch", "age") == [2.5]
+                end
+
+                nested_test("!mask") do
+                    view = viewer(
+                        daf;
+                        name = "view!",
+                        axes = ["batch" => "/ batch & sex = F"],
+                        data = [("batch", "age") => "/ cell : age @ batch %> Mean"],
+                    )
+                    @test_throws dedent("""
+                        invalid vector query: / cell : age @ batch %> Mean
+                        for the axis query: / batch & sex = F
+                        of the daf data: memory!
+                        for the axis: age
+                        of the daf view: view!
+                    """) get_vector(view, "batch", "age")
+                end
+            end
         end
 
         nested_test("reduced") do

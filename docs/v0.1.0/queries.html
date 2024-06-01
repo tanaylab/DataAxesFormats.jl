@@ -302,6 +302,7 @@
 <div>
 <pre>
 <code class="language-julia hljs">Query(query_string::AbstractString) &lt;: QueryOperation
+Query(query::Query) &lt;: QueryOperation
 </code>
 </pre>
 <p>A query is a description of a (sub-)process for extracting some data from a 
@@ -601,17 +602,13 @@
 <code>columns
 </code> may be a vector of names of vector properties (e.g., 
 <code>[&quot;batch&quot;, &quot;age&quot;]
-</code>), or a vector of pairs mapping a column name to a query suffix (e.g., 
-<code>[&quot;color&quot; =&gt; q&quot;: type =&gt; color&quot;]
-</code>). This suffix is applied to the 
+</code>), or a 
+<a href="queries.html#Daf.Queries.QueryColumns">
+<code>QueryColumns
+</code>
+</a> vector of pairs mapping a column name to a query that fetches a value for each entry of the 
 <code>axis
-</code> query (e.g., if the 
-<code>axis
-</code> is masked as above, the full query for the 
-<code>color
-</code> column would be 
-<code>q&quot;/ cell &amp; age &gt; 1 : type =&gt; color
-</code>). The result of the full query must be a vector.
+</code>.
 </p>
 <p>By default, this will cache results of all queries. This may consume a large amount of memory. You can disable it by specifying 
 <code>cache = false
@@ -637,7 +634,37 @@
 </header>
 <section>
 <div>
-<p>Specify columns for a data frame. This is a vector of pairs, where the key is the column name, and the value is a query that computes the data of the column.
+<p>Specify columns for a data frame for some axis. This is a vector of pairs, where the key is the column name, and the value is a query that computes the data of the column.
+</p>
+<p>The query is typically a suffix of a query which is combined with the axis lookup. For example, if the axis is 
+<code>cell
+</code>, the query suffix may be 
+<code>q&quot;: batch&quot;
+</code> to lookup the batch of each cell.
+</p>
+<p>The query may also already be a full query. For example, if the axis is 
+<code>metacell
+</code>, the query may be 
+<code>/ cell : age @ metacell %&gt; Mean
+</code> to compute the mean age of the cells of each metacell.
+</p>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>When specifying a full (
+<a href="queries.html#Daf.Queries.GroupBy">
+<code>GroupBy
+</code>
+</a> query), if the axis is masked, (e.g., 
+<code>metacell &amp; type = Bcell
+</code>, it is your responsibility to include the same mask in the full query, e.g. 
+<code>/ cell &amp; metacell =&gt; type = Bcell : age @ metacell %&gt; Mean
+</code>). Sorry for the inconvenience.
+</p>
+</div>
+</div>
+<p>In both cases the (full) query must return a value for each entry of the axis.
 </p>
 <div class="admonition is-info">
 <header class="admonition-header">Note
@@ -686,6 +713,32 @@
 <p>Return the number of dimensions (-1 - names, 0 - scalar, 1 - vector, 2 - matrix) of the results of a 
 <code>query
 </code>. This also verifies the query is syntactically valid, though it may still fail if applied to specific data due to invalid data values or types.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Queries.is_query_suffix" href="#Daf.Queries.is_query_suffix">
+<code>Daf.Queries.is_query_suffix
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">is_query_suffix(query::Query)::Bool
+</code>
+</pre>
+<p>Return whether the query is actually a query suffix to be applied to some axis. Such suffix queries are used when fetching multiple data for the same axis, e.g. in 
+<a href="queries.html#Daf.Queries.get_frame">
+<code>get_frame
+</code>
+</a>.
 </p>
 </div>
 </section>
@@ -3976,6 +4029,12 @@
 <li>
 <a href="queries.html#Daf.Queries.is_axis_query">
 <code>Daf.Queries.is_axis_query
+</code>
+</a>
+</li>
+<li>
+<a href="queries.html#Daf.Queries.is_query_suffix">
+<code>Daf.Queries.is_query_suffix
 </code>
 </a>
 </li>
