@@ -37,6 +37,7 @@ export relayout!
 export require_major_axis
 export require_minor_axis
 export Rows
+export transpose!
 
 using ..GenericFunctions
 using ..GenericTypes
@@ -267,7 +268,7 @@ basically what `relayout!` does for you. In addition, `relayout!` will work for 
     `NamedMatrix` with the same axes. If `destination` is also a `NamedMatrix`, then its axes must match `source`.
 """
 function relayout!(matrix::AbstractMatrix)::AbstractMatrix
-    return transpose(LinearAlgebra.transpose!(matrix))
+    return transpose(transpose!(matrix))
 end
 
 function relayout!(destination::AbstractMatrix, source::NamedMatrix)::NamedArray  # untested
@@ -354,14 +355,14 @@ end
 This is a shorthand for `LinearAlgebra.transpose!(similar(transpose(m)), m)`. That is, this will return a transpose of a
 matrix, but instead of simply using a zero-copy wrapper, it actually rearranges the data. See [`relayout!`](@ref).
 """
-function LinearAlgebra.transpose!(matrix::AbstractMatrix)::AbstractMatrix
+function transpose!(matrix::AbstractMatrix)::AbstractMatrix
     @debug "transpose! $(depict(matrix)) {"  # NOLINT
     result = LinearAlgebra.transpose!(similar(transpose(matrix)), matrix)
     @debug "transpose! $(depict(result)) }"  # NOLINT
     return result
 end
 
-function LinearAlgebra.transpose!(matrix::AbstractSparseMatrix)::AbstractMatrix
+function transpose!(matrix::AbstractSparseMatrix)::AbstractMatrix
     @assert require_major_axis(matrix) == Columns
     @debug "transpose! $(depict(matrix)) {"  # NOLINT
     result = SparseMatrixCSC(transpose(matrix))
@@ -369,8 +370,8 @@ function LinearAlgebra.transpose!(matrix::AbstractSparseMatrix)::AbstractMatrix
     return result
 end
 
-function LinearAlgebra.transpose!(matrix::NamedMatrix)::NamedArray
-    return NamedArray(LinearAlgebra.transpose!(matrix.array), flip_tuple(matrix.dicts), flip_tuple(matrix.dimnames))
+function transpose!(matrix::NamedMatrix)::NamedArray
+    return NamedArray(transpose!(matrix.array), flip_tuple(matrix.dicts), flip_tuple(matrix.dimnames))
 end
 
 function flip_tuple(tuple::Tuple{T1, T2})::Tuple{T2, T1} where {T1, T2}
@@ -378,16 +379,16 @@ function flip_tuple(tuple::Tuple{T1, T2})::Tuple{T2, T1} where {T1, T2}
     return (value2, value1)
 end
 
-function LinearAlgebra.transpose!(matrix::SparseArrays.ReadOnly)::AbstractMatrix
-    return LinearAlgebra.transpose!(parent(matrix))
+function transpose!(matrix::SparseArrays.ReadOnly)::AbstractMatrix
+    return transpose!(parent(matrix))
 end
 
-function LinearAlgebra.transpose!(matrix::Transpose)::AbstractMatrix
-    return transpose(LinearAlgebra.transpose!(parent(matrix)))
+function transpose!(matrix::Transpose)::AbstractMatrix
+    return transpose(transpose!(parent(matrix)))
 end
 
-function LinearAlgebra.transpose!(matrix::Adjoint)::AbstractMatrix
-    return adjoint(LinearAlgebra.transpose!(parent(matrix)))
+function transpose!(matrix::Adjoint)::AbstractMatrix
+    return adjoint(transpose!(parent(matrix)))
 end
 
 """
