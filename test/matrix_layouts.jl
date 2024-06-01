@@ -113,6 +113,16 @@ nested_test("matrix_layouts") do
                     @test !issparse(relayout)
                 end
 
+                nested_test("adjoint") do
+                    adjointed_dense = adjoint(dense)
+                    @test major_axis(adjointed_dense) == Rows
+
+                    relayout = relayout!(adjointed_dense)
+                    @test major_axis(relayout) == Columns
+                    @test relayout == adjointed_dense
+                    @test !issparse(relayout)
+                end
+
                 nested_test("transpose") do
                     transposed_dense = transpose(dense)
                     @test major_axis(transposed_dense) == Rows
@@ -150,6 +160,16 @@ nested_test("matrix_layouts") do
                     relayout = relayout!(sparse)
                     @test major_axis(relayout) == Rows
                     @test relayout == sparse
+                    @test issparse(relayout)
+                end
+
+                nested_test("adjoint") do
+                    adjointed_sparse = adjoint(sparse)
+                    @test major_axis(adjointed_sparse) == Rows
+
+                    relayout = relayout!(adjointed_sparse)
+                    @test major_axis(relayout) == Columns
+                    @test relayout == adjointed_sparse
                     @test issparse(relayout)
                 end
 

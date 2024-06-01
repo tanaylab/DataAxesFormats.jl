@@ -35,8 +35,8 @@ export parse_parameter_value
 export sum_dtype_for
 export unsigned_dtype_for
 
+using ..MatrixLayouts
 using ..GenericTypes
-using ..ReadOnly
 using ..Registry
 using ..StorageTypes
 using ..Tokens

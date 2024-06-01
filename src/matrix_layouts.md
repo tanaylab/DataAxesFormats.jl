@@ -26,6 +26,8 @@ Daf.MatrixLayouts.other_axis
 
 ```@docs
 Daf.MatrixLayouts.relayout!
+Daf.MatrixLayouts.transpose!
+Daf.ReadOnly.copy_array
 ```
 
 ## Ensuring code efficiency

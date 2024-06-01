@@ -21,7 +21,6 @@ need to explicitly create a copy. TODO: Explicitly support the concept of in-pla
 ```@docs
 Daf.ReadOnly.read_only_array
 Daf.ReadOnly.is_read_only_array
-Daf.ReadOnly.copy_array
 ```
 
 ## Data

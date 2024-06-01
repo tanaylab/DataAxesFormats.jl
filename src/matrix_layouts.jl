@@ -27,6 +27,7 @@ module MatrixLayouts
 
 export axis_name
 export check_efficient_action
+export copy_array
 export Columns
 export inefficient_action_handler
 export major_axis
@@ -240,7 +241,7 @@ a gene will be fast, but summing the UMIs of a cell will be slow. A `transpose` 
 a zero-copy wrapper of the matrix with flipped axes, so its rows will be genes and columns will be cells, but in
 row-major layout. Therefore, **still**, summing the UMIs of a gene is fast, and summing the UMIs of a cell is slow.
 
-In contrast, `transpose!` (with a `!`) is slow; it creates a rearranged copy of the data, also returning a matrix whose
+In contrast, [`transpose!`](@ref) (with a `!`) is slow; it creates a rearranged copy of the data, also returning a matrix whose
 rows are genes and columns are cells, but this time, in column-major layout. Therefore, in this case summing the UMIs of
 a gene will be slow, and summing the UMIs of a cell will be fast.
 
@@ -265,31 +266,8 @@ basically what `relayout!` does for you. In addition, `relayout!` will work for 
     non-sparse `source`). This can be a transposed matrix. If `source` is a `NamedMatrix`, then the result will be a
     `NamedMatrix` with the same axes. If `destination` is also a `NamedMatrix`, then its axes must match `source`.
 """
-function relayout!(matrix::NamedMatrix)::NamedArray
-    return NamedArray(relayout!(matrix.array), matrix.dicts, matrix.dimnames)
-end
-
-function relayout!(matrix::SparseArrays.ReadOnly)::AbstractMatrix
-    return relayout!(parent(matrix))
-end
-
-function relayout!(matrix::Union{Transpose, Adjoint})::AbstractMatrix
-    return transpose(relayout!(parent(matrix)))
-end
-
-function relayout!(matrix::AbstractSparseMatrix)::AbstractMatrix
-    @assert require_major_axis(matrix) == Columns
-    @debug "relayout! $(depict(matrix)) {"  # NOLINT
-    result = transpose(SparseMatrixCSC(transpose(matrix)))
-    @debug "relayout! $(depict(result)) }"  # NOLINT
-    return result
-end
-
 function relayout!(matrix::AbstractMatrix)::AbstractMatrix
-    @debug "relayout! $(depict(matrix)) {"  # NOLINT
-    result = transpose(transpose!(similar(transpose(matrix)), matrix))
-    @debug "relayout! $(depict(result)) }"  # NOLINT
-    return result
+    return transpose(LinearAlgebra.transpose!(matrix))
 end
 
 function relayout!(destination::AbstractMatrix, source::NamedMatrix)::NamedArray  # untested
@@ -335,7 +313,7 @@ function relayout!(destination::SparseMatrixCSC, source::AbstractMatrix)::Sparse
     end
     base_from = base_sparse_matrix(source)
     transpose_base_from = transpose(base_from)
-    result = transpose!(destination, transpose_base_from)
+    result = LinearAlgebra.transpose!(destination, transpose_base_from)
     @debug "relayout! result: $(depict(result)) }"  # NOLINT
     return result
 end
@@ -348,7 +326,7 @@ function relayout!(destination::DenseMatrix, source::AbstractMatrix)::DenseMatri
     if issparse(source)
         destination .= source
     else
-        transpose!(destination, transpose(source))
+        LinearAlgebra.transpose!(destination, transpose(source))
     end
     @debug "relayout! result: $(depict(destination)) }"  # NOLINT
     return destination
@@ -360,13 +338,137 @@ function relayout!(destination::AbstractMatrix, source::AbstractMatrix)::Abstrac
         into_strides = strides(destination)
         into_size = size(destination)
         if into_strides == (1, into_size[1]) || into_strides == (into_size[2], 1)
-            result = transpose!(destination, transpose(source))
+            result = LinearAlgebra.transpose!(destination, transpose(source))
             @debug "relayout! result: $(depict(result)) }"  # NOLINT
             return result
         end
     catch
     end
     return error("unsupported relayout destination: $(typeof(destination))\nand source: $(typeof(source))")
+end
+
+"""
+    transpose!(matrix::AbstractMatrix)::AbstractMatrix
+    transpose!(matrix::NamedMatrix)::NamedMatrix
+
+This is a shorthand for `LinearAlgebra.transpose!(similar(transpose(m)), m)`. That is, this will return a transpose of a
+matrix, but instead of simply using a zero-copy wrapper, it actually rearranges the data. See [`relayout!`](@ref).
+"""
+function LinearAlgebra.transpose!(matrix::AbstractMatrix)::AbstractMatrix
+    @debug "transpose! $(depict(matrix)) {"  # NOLINT
+    result = LinearAlgebra.transpose!(similar(transpose(matrix)), matrix)
+    @debug "transpose! $(depict(result)) }"  # NOLINT
+    return result
+end
+
+function LinearAlgebra.transpose!(matrix::AbstractSparseMatrix)::AbstractMatrix
+    @assert require_major_axis(matrix) == Columns
+    @debug "transpose! $(depict(matrix)) {"  # NOLINT
+    result = SparseMatrixCSC(transpose(matrix))
+    @debug "transpose! $(depict(result)) }"  # NOLINT
+    return result
+end
+
+function LinearAlgebra.transpose!(matrix::NamedMatrix)::NamedArray
+    return NamedArray(LinearAlgebra.transpose!(matrix.array), flip_tuple(matrix.dicts), flip_tuple(matrix.dimnames))
+end
+
+function flip_tuple(tuple::Tuple{T1, T2})::Tuple{T2, T1} where {T1, T2}
+    value1, value2 = tuple
+    return (value2, value1)
+end
+
+function LinearAlgebra.transpose!(matrix::SparseArrays.ReadOnly)::AbstractMatrix
+    return LinearAlgebra.transpose!(parent(matrix))
+end
+
+function LinearAlgebra.transpose!(matrix::Transpose)::AbstractMatrix
+    return transpose(LinearAlgebra.transpose!(parent(matrix)))
+end
+
+function LinearAlgebra.transpose!(matrix::Adjoint)::AbstractMatrix
+    return adjoint(LinearAlgebra.transpose!(parent(matrix)))
+end
+
+"""
+    copy_array(array::AbstractArray)::AbstractArray
+
+Create a mutable copy of an array. This differs from `Base.copy` in the following:
+
+  - Copying a read-only array is a mutable array. In contrast, both `Base.copy` and `Base.deepcopy` of a
+    read-only array will return a read-only array, which is technically correct, but is rather pointless for
+    `Base.copy`.
+  - Copying will preserve the layout of the data; for example, copying a `Transpose` array is still a `Transpose` array.
+    In contrast, while `Base.deepcopy` will preserve the layout, `Base.copy` will silently [`relayout!`](@ref) the matrix,
+    which is both expensive and confusing.
+  - Copying a sparse vector or matrix gives the same type of sparse array or matrix. Copying anything else gives a
+    simple dense array regardless of the original type. This is done because a `deepcopy` of `PyArray` will still
+    share the underlying buffer. Sigh.
+"""
+function copy_array(array::Union{SparseMatrixCSC, SparseVector})::AbstractArray
+    return deepcopy(array)
+end
+
+function copy_array(array::AbstractMatrix)::Matrix
+    return Matrix(array)
+end
+
+function copy_array(array::AbstractVector)::Vector
+    return Vector(array)
+end
+
+function copy_array(matrix::Transpose)::Transpose
+    return Transpose(copy_array(mutable_array(parent(matrix))))
+end
+
+function copy_array(matrix::Adjoint)::Adjoint
+    return Adjoint(copy_array(mutable_array(parent(matrix))))
+end
+
+function copy_array(array::SparseArrays.ReadOnly)::AbstractArray
+    return copy_array(mutable_array(parent(array)))
+end
+
+function copy_array(array::NamedArray)::NamedArray
+    return NamedArray(copy_array(mutable_array(array.array)), array.dicts, array.dimnames)
+end
+
+function mutable_array(array::AbstractArray)::AbstractArray
+    return array
+end
+
+function mutable_array(array::Transpose)::Transpose
+    parent_array = parent(array)
+    mutable_parent_array = mutable_array(parent_array)
+    if mutable_parent_array === parent_array
+        return array
+    else
+        return Transpose(mutable_parent_array)
+    end
+end
+
+function mutable_array(array::Adjoint)::Adjoint
+    parent_array = parent(array)
+    mutable_parent_array = mutable_array(parent_array)
+    if mutable_parent_array === parent_array
+        return array
+    else
+        return Adjoint(mutable_parent_array)
+    end
+end
+
+function mutable_array(array::SparseArrays.ReadOnly)::AbstractArray
+    return parent(array)
+end
+
+function mutable_array(array::NamedArray)::NamedArray
+    parent_array = array.array
+    mutable_parent_array = mutable_array(parent_array)
+    if mutable_parent_array === parent_array
+        return array
+    else
+        return NamedArray(mutable_parent_array, array.dicts, array.dimnames)
+    end
 end
 
 function base_sparse_matrix(matrix::Union{Transpose, Adjoint})::AbstractMatrix

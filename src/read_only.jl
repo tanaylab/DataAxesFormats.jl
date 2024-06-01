@@ -4,7 +4,6 @@ Read-only `Daf` storage format.
 module ReadOnly
 
 export DafReadOnly
-export copy_array
 export is_read_only_array
 export read_only
 export read_only_array
@@ -20,6 +19,7 @@ using LinearAlgebra
 using SparseArrays
 
 import ..Messages
+import ..MatrixLayouts.mutable_array
 
 """
     read_only_array(array::AbstractArray):AbstractArray
@@ -38,87 +38,6 @@ Return whether an `array` is immutable.
 """
 function is_read_only_array(array::AbstractArray)::Bool
     return mutable_array(array) !== array
-end
-
-"""
-    copy_array(array::AbstractArray)::AbstractArray
-
-Create a mutable copy of an array. This differs from `Base.copy` in the following:
-
-  - Copying a [`read_only_array`](@ref) is a mutable array. In contrast, both `Base.copy` and `Base.deepcopy` of a
-    read-only array will return a read-only array, which is technically correct, but is rather pointless for
-    `Base.copy`.
-  - Copying will preserve the layout of the data; for example, copying a `Transpose` array is still a `Transpose` array.
-    In contrast, while `Base.deepcopy` will preserve the layout, `Base.copy` will silently [`relayout!`](@ref) the matrix,
-    which is both expensive and confusing.
-  - Copying a sparse vector or matrix gives the same type of sparse array or matrix. Copying anything else gives a
-    simple dense array regardless of the original type. This is done because a `deepcopy` of `PyArray` will still
-    share the underlying buffer. Sigh.
-"""
-function copy_array(array::Union{SparseMatrixCSC, SparseVector})::AbstractArray
-    return deepcopy(array)
-end
-
-function copy_array(array::AbstractMatrix)::Matrix
-    return Matrix(array)
-end
-
-function copy_array(array::AbstractVector)::Vector
-    return Vector(array)
-end
-
-function copy_array(matrix::Transpose)::Transpose
-    return Transpose(copy_array(mutable_array(parent(matrix))))
-end
-
-function copy_array(matrix::Adjoint)::Adjoint
-    return Adjoint(copy_array(mutable_array(parent(matrix))))
-end
-
-function copy_array(array::SparseArrays.ReadOnly)::AbstractArray
-    return copy_array(mutable_array(parent(array)))
-end
-
-function copy_array(array::NamedArray)::NamedArray
-    return NamedArray(copy_array(mutable_array(array.array)), array.dicts, array.dimnames)
-end
-
-function mutable_array(array::AbstractArray)::AbstractArray
-    return array
-end
-
-function mutable_array(array::Transpose)::Transpose
-    parent_array = parent(array)
-    mutable_parent_array = mutable_array(parent_array)
-    if mutable_parent_array === parent_array
-        return array
-    else
-        return Transpose(mutable_parent_array)
-    end
-end
-
-function mutable_array(array::Adjoint)::Adjoint
-    parent_array = parent(array)
-    mutable_parent_array = mutable_array(parent_array)
-    if mutable_parent_array === parent_array
-        return array
-    else
-        return Adjoint(mutable_parent_array)
-    end
-end
-
-function mutable_array(array::SparseArrays.ReadOnly)::AbstractArray
-    return parent(array)
-end
-
-function mutable_array(array::NamedArray)::NamedArray
-    parent_array = array.array
-    mutable_parent_array = mutable_array(parent_array)
-    if mutable_parent_array === parent_array
-        return array
-    else
-        return NamedArray(mutable_parent_array, array.dicts, array.dimnames)
-    end
 end
 
 """

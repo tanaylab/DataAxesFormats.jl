@@ -353,64 +353,6 @@
 </div>
 </section>
 </article>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
-<a class="docstring-binding" id="Daf.ReadOnly.copy_array" href="#Daf.ReadOnly.copy_array">
-<code>Daf.ReadOnly.copy_array
-</code>
-</a> — 
-<span class="docstring-category">Function
-</span>
-</header>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">copy_array(array::AbstractArray)::AbstractArray
-</code>
-</pre>
-<p>Create a mutable copy of an array. This differs from 
-<code>Base.copy
-</code> in the following:
-</p>
-<ul>
-<li>Copying a 
-<a href="read_only.html#Daf.ReadOnly.read_only_array">
-<code>read_only_array
-</code>
-</a> is a mutable array. In contrast, both 
-<code>Base.copy
-</code> and 
-<code>Base.deepcopy
-</code> of a read-only array will return a read-only array, which is technically correct, but is rather pointless for 
-<code>Base.copy
-</code>.
-</li>
-<li>Copying will preserve the layout of the data; for example, copying a 
-<code>Transpose
-</code> array is still a 
-<code>Transpose
-</code> array. In contrast, while 
-<code>Base.deepcopy
-</code> will preserve the layout, 
-<code>Base.copy
-</code> will silently 
-<a href="matrix_layouts.html#Daf.MatrixLayouts.relayout!">
-<code>relayout!
-</code>
-</a> the matrix, which is both expensive and confusing.
-</li>
-<li>Copying a sparse vector or matrix gives the same type of sparse array or matrix. Copying anything else gives a simple dense array regardless of the original type. This is done because a 
-<code>deepcopy
-</code> of 
-<code>PyArray
-</code> will still share the underlying buffer. Sigh.
-</li>
-</ul>
-</div>
-</section>
-</article>
 <h2 id="Data">
 <a class="docs-heading-anchor" href="#Data">Data
 </a>
@@ -535,12 +477,6 @@
 <li>
 <a href="read_only.html#Daf.ReadOnly.DafReadOnlyWrapper">
 <code>Daf.ReadOnly.DafReadOnlyWrapper
-</code>
-</a>
-</li>
-<li>
-<a href="read_only.html#Daf.ReadOnly.copy_array">
-<code>Daf.ReadOnly.copy_array
 </code>
 </a>
 </li>

@@ -41,6 +41,7 @@ using ..Readers
 using ..Formats
 using ..GenericLocks
 using ..GenericTypes
+using ..MatrixLayouts
 using ..Messages
 using ..Operations
 using ..ReadOnly
