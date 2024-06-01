@@ -442,10 +442,10 @@ function collect_vector(
         if vector_query == "="
             vector_query = Lookup(vector_name)
         else
-            @assert vector_query isa Query
+            vector_query = Query(vector_query)
         end
-        if vector_query isa QuerySequence && vector_query.query_operations[1] isa Axis  # NOLINT
-            if !any([query_operation isa GroupBy for query_operation in vector_query.query_operations])  # NOLINT
+        if vector_query isa QuerySequence && vector_query.query_operations[1] isa Axis
+            if !any([query_operation isa GroupBy for query_operation in vector_query.query_operations])
                 query_prefix, query_suffix = split_vector_query(vector_query)
                 vector_query = query_prefix |> fetch_axis.query |> query_suffix
             end

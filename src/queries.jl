@@ -94,6 +94,9 @@ Since query strings use `\\` as an escape character, it is easier to use `raw` s
 [`q`](@ref @q_str) macro (e.g., `q"cell = ATGC\\:B1 : batch"`) which works similarly to Julia's standard `r` macro for
 literal `Regex` strings.
 
+As a shorthand, the query of a simple name is interpreted as a lookup of that name (e.g., `q"foo"` is equivalent to
+`q": foo"`). This is convenient when expressing suffix queries (e.g., for [`QueryColumns`](@ref) for [`get_frame`](@ref).
+
 Being able to represent queries as strings allows for reading them from configuration files and letting the user input
 them in an application UI (e.g., allowing the user to specify the X, Y and/or colors of a scatter plot using queries).
 At the same time, being able to incrementally build queries using code allows for convenient reuse (e.g., reusing axis
@@ -666,8 +669,11 @@ function Base.:(|>)(first_operation::QueryOperation, second_operation::QueryOper
     return QuerySequence((first_operation, second_operation))
 end
 
-function Query(query_string::AbstractString)::QuerySequence
+function Query(query_string::AbstractString)::Query
     tokens = tokenize(query_string, QUERY_OPERATORS)
+    if length(tokens) == 1 && !tokens[1].is_operator
+        return Lookup(query_string)
+    end
 
     next_token_index = 1
     query_operations = Vector{QueryOperation}()
@@ -3788,8 +3794,12 @@ function value_for(query_state::QueryState, ::Type{T}, value::StorageScalar)::T 
 end
 
 """
-Specify columns for a data frame for some axis. This is a vector of pairs, where the key is the column name, and the
-value is a query that computes the data of the column.
+Specify columns for [`get_frame`](@ref) for some axis. This is a vector of pairs, where the key is the column name, and
+the value is a query that computes the data of the column.
+
+If the query is a string, then a value of `=` is a shorthand for looking up the column name as a property (e.g.,
+`"age" => "="` is equivalent to `"age" => q": age"`). If the query string is a simple name, it is a shorthand for
+looking up that name as a property (e.g., `"Age" => "age"` is equivalent to `"Age" => q": age"`).
 
 The query is typically a suffix of a query which is combined with the axis lookup. For example, if the axis is `cell`,
 the query suffix may be `q": batch"` to lookup the batch of each cell.
@@ -3877,7 +3887,11 @@ function get_frame(
 
     data = Vector{Pair{AbstractString, StorageVector}}()
     for (column_name, column_query) in columns
-        column_query = Query(column_query)
+        if column_query == "="
+            column_query = Lookup(column_name)
+        else
+            column_query = Query(column_query)
+        end
         if is_query_suffix(column_query)
             column_query = axis_query |> column_query
         end

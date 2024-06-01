@@ -1151,11 +1151,15 @@ nested_test("queries") do
 
     nested_test("!parse") do
         nested_test("operand") do
+            @test string(Query("operand")) == ": operand"
+        end
+
+        nested_test("!operator") do
             @test_throws dedent("""
                 expected: operator
-                in: operand
+                in: operand & operand
                 at: ▲▲▲▲▲▲▲
-            """) Query("operand")
+            """) Query("operand & operand")
         end
 
         nested_test("trailing") do
@@ -1389,6 +1393,17 @@ nested_test("queries") do
 
                 nested_test("queries") do
                     @test "$(get_frame(daf, "cell", ["age" => ": age", "doublet" => ": is_doublet"]))" == dedent("""
+                        2×2 DataFrame
+                         Row │ age    doublet
+                             │ Int64  Bool
+                        ─────┼────────────────
+                           1 │     0     true
+                           2 │     1    false
+                    """)
+                end
+
+                nested_test("shorthands") do
+                    @test "$(get_frame(daf, "cell", ["age" => "=", "doublet" => "is_doublet"]))" == dedent("""
                         2×2 DataFrame
                          Row │ age    doublet
                              │ Int64  Bool

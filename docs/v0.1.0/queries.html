@@ -403,6 +403,20 @@ Query(query::Query) &lt;: QueryOperation
 <code>Regex
 </code> strings.
 </p>
+<p>As a shorthand, the query of a simple name is interpreted as a lookup of that name (e.g., 
+<code>q&quot;foo&quot;
+</code> is equivalent to 
+<code>q&quot;: foo&quot;
+</code>). This is convenient when expressing suffix queries (e.g., for 
+<a href="queries.html#Daf.Queries.QueryColumns">
+<code>QueryColumns
+</code>
+</a> for 
+<a href="queries.html#Daf.Queries.get_frame">
+<code>get_frame
+</code>
+</a>.
+</p>
 <p>Being able to represent queries as strings allows for reading them from configuration files and letting the user input them in an application UI (e.g., allowing the user to specify the X, Y and/or colors of a scatter plot using queries). At the same time, being able to incrementally build queries using code allows for convenient reuse (e.g., reusing axis sub-queries in 
 <code>Daf
 </code> views), without having to go through the string representation.
@@ -634,7 +648,23 @@ Query(query::Query) &lt;: QueryOperation
 </header>
 <section>
 <div>
-<p>Specify columns for a data frame for some axis. This is a vector of pairs, where the key is the column name, and the value is a query that computes the data of the column.
+<p>Specify columns for 
+<a href="queries.html#Daf.Queries.get_frame">
+<code>get_frame
+</code>
+</a> for some axis. This is a vector of pairs, where the key is the column name, and the value is a query that computes the data of the column.
+</p>
+<p>If the query is a string, then a value of 
+<code>=
+</code> is a shorthand for looking up the column name as a property (e.g., 
+<code>&quot;age&quot; =&gt; &quot;=&quot;
+</code> is equivalent to 
+<code>&quot;age&quot; =&gt; q&quot;: age&quot;
+</code>). If the query string is a simple name, it is a shorthand for looking up that name as a property (e.g., 
+<code>&quot;Age&quot; =&gt; &quot;age&quot;
+</code> is equivalent to 
+<code>&quot;Age&quot; =&gt; q&quot;: age&quot;
+</code>).
 </p>
 <p>The query is typically a suffix of a query which is combined with the axis lookup. For example, if the axis is 
 <code>cell
