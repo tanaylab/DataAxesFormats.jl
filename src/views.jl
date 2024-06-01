@@ -35,11 +35,11 @@ using ..Tokens
 import ..Formats
 import ..Formats.Internal
 import ..Messages
+import ..ReadOnly
+import ..ReadOnly.DafReadOnlyWrapper
 import ..Readers.base_array
 import ..Tokens.decode_expression
 import ..Tokens.encode_expression
-import ..ReadOnly
-import ..ReadOnly.DafReadOnlyWrapper
 
 # Something we fetch from the original data.
 mutable struct Fetch{T}
@@ -113,20 +113,9 @@ is replaced by all the vector properties of the exposed axis in the base data. T
 exposed.
 
 The value for vectors must be the suffix of a vector query based on the appropriate axis; a value of `"="` is again used
-to expose the property as-is. That is, the value for the vector will normally start with the `:` ([`Lookup`](@ref))
-query operator.
+to expose the property as-is. This works in the same way as a column query in [`QueryColumns`](@ref).
 
-That is, specifying that `axes = ["gene" => q"/ gene & marker"]`, and then that
-`data = [("gene", "forbidden") => q": lateral"]`, then the view will expose a `forbidden` vector property for the `gene`
-axis, by applying the combined query `/ gene & marker : lateral` to the original `daf` data.
-
-This gets trickier when using a query reducing a matrix to a vector. In these cases, the value query will start with `/`
-([`Axis`](@ref)) query operator to specify the reduced matrix axis, followed by the `:` ([`Lookup`](@ref)) operator.
-When constructing the full query for the data, we can't simply concatenate the suffix to the axis query prefix; instead
-we need to swap the order of the axes (this is because Julia, in its infinite wisdom, uses column-major matrices, like R
-and matlab; so reduction eliminates the rows instead of the columns of the matrix).
-
-That is, specifying `axes = ["cell" => q"/ cell & type = TCell"]`, and then
+For example, specifying `axes = ["cell" => q"/ cell & type = TCell"]`, and then
 `data = [("cell", "total_noisy_UMIs") => q"/ gene & noisy : UMIs %> Sum` will expose `total_noisy_UMIs` as a
 per-`cell` vector property, using the query `/ gene & noisy / cell & type = TCell : UMIs %> Sum`, which will
 compute the sum of the `UMIs` of all the noisy genes for each cell (whose `type` is `TCell`).
@@ -439,19 +428,7 @@ function collect_vector(
         delete!(collected_vectors[axis_name], vector_name)
     else
         fetch_axis = get_fetch_axis(view_name, daf, collected_axes, axis_name)
-        if vector_query == "="
-            vector_query = Lookup(vector_name)
-        else
-            vector_query = Query(vector_query)
-        end
-        if vector_query isa QuerySequence && vector_query.query_operations[1] isa Axis
-            if !any([query_operation isa GroupBy for query_operation in vector_query.query_operations])
-                query_prefix, query_suffix = split_vector_query(vector_query)
-                vector_query = query_prefix |> fetch_axis.query |> query_suffix
-            end
-        else
-            vector_query = fetch_axis.query |> vector_query
-        end
+        vector_query = full_vector_query(fetch_axis.query, vector_query, vector_name)
         dimensions = query_result_dimensions(vector_query)
         if dimensions != 1
             error(
@@ -465,20 +442,6 @@ function collect_vector(
         collected_vectors[axis_name][vector_name] = Fetch{StorageVector}(vector_query, nothing)
     end
     return nothing
-end
-
-function split_vector_query(query_sequence::QuerySequence)::Tuple{QuerySequence, QuerySequence}
-    index = findfirst(query_sequence.query_operations) do query_operation
-        return query_operation isa Lookup
-    end
-    if index === nothing
-        return (query_sequence, QuerySequence(()))  # untested
-    else
-        return (
-            QuerySequence(query_sequence.query_operations[1:(index - 1)]),
-            QuerySequence(query_sequence.query_operations[index:end]),
-        )
-    end
 end
 
 function collect_matrices(

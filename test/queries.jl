@@ -1151,7 +1151,8 @@ nested_test("queries") do
 
     nested_test("!parse") do
         nested_test("operand") do
-            @test string(Query("operand")) == ": operand"
+            @test string(Query("operand", Lookup)) == ": operand"
+            @test string(Query("operand", Axis)) == "/ operand"
         end
 
         nested_test("!operator") do

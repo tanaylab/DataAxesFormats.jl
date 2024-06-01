@@ -17,8 +17,8 @@ Daf.Queries.@q_str
 Daf.Queries.get_query
 Daf.Queries.get_frame
 Daf.Queries.QueryColumns
+Daf.Queries.full_vector_query
 Daf.Queries.query_result_dimensions
-Daf.Queries.is_query_suffix
 Daf.Queries.is_axis_query
 ```
 

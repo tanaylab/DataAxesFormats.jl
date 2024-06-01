@@ -3,15 +3,13 @@ Extract data from a [`DafReader`](@ref).
 """
 module Queries
 
+export @q_str
 export And
 export AndNot
 export AsAxis
 export Axis
-export QueryColumns
 export CountBy
 export Fetch
-export get_frame
-export @q_str
 export GroupBy
 export IfMissing
 export IfNot
@@ -28,9 +26,12 @@ export Names
 export Or
 export OrNot
 export Query
+export QueryColumns
 export QuerySequence
 export Xor
 export XorNot
+export full_vector_query
+export get_frame
 export get_query
 export is_axis_query
 export query_axis_name
@@ -68,12 +69,14 @@ import Base.MathConstants.e
 import Base.MathConstants.pi
 
 """
-    Query(query_string::AbstractString) <: QueryOperation
-    Query(query::Query) <: QueryOperation
+    Query(
+        query::Union{AbstractString, Query},
+        operand_only::Maybe{Type{QueryOperation}} = nothing,
+    ) <: QueryOperation
 
 A query is a description of a (sub-)process for extracting some data from a [`DafReader`](@ref). A full query is a
 sequence of [`QueryOperation`](@ref), that when applied one at a time on some [`DafReader`](@ref), result in a scalar,
-vector or matrix result. A single [`Lookup`](@ref) or a single [`Axis`](@ref) are also valid complete queries.
+vector or matrix result.
 
 To apply a query, invoke [`get_query`](@ref) to apply a query to some [`DafReader`](@ref) data (you can also use the
 shorthand ``daf[query]`` instead of ``get_query(daf, query)``). By default, query operations will cache their results in
@@ -94,8 +97,9 @@ Since query strings use `\\` as an escape character, it is easier to use `raw` s
 [`q`](@ref @q_str) macro (e.g., `q"cell = ATGC\\:B1 : batch"`) which works similarly to Julia's standard `r` macro for
 literal `Regex` strings.
 
-As a shorthand, the query of a simple name is interpreted as a lookup of that name (e.g., `q"foo"` is equivalent to
-`q": foo"`). This is convenient when expressing suffix queries (e.g., for [`QueryColumns`](@ref) for [`get_frame`](@ref).
+If the provided query string contains only an operand, and `operand_only` is specified, it is used as the operator
+(i.e., `Query("metacell")` is an error, but `Query("metacell", Axis)` is the same as `Axis("metacell")`). This is
+useful when providing suffix queries (e.g., for [`get_frame`](@ref)).
 
 Being able to represent queries as strings allows for reading them from configuration files and letting the user input
 them in an application UI (e.g., allowing the user to specify the X, Y and/or colors of a scatter plot using queries).
@@ -449,10 +453,6 @@ Operators used to represent a [`Query`](@ref) as a string.
 """
 QUERY_OPERATORS = r"^(?:=>|\|\||\?\?|%>|&!|\|!|\^!|!=|<=|>=|!~|/|:|!|%|\*|@|&|\||\?|\^|=|<|>|~)"
 
-function Query(query::Query)::Query
-    return query
-end
-
 function next_query_operation(tokens::Vector{Token}, next_token_index::Int)::Tuple{QueryOperation, Int}
     token = next_operator_token(tokens, next_token_index)
     next_token_index += 1
@@ -669,36 +669,6 @@ function Base.:(|>)(first_operation::QueryOperation, second_operation::QueryOper
     return QuerySequence((first_operation, second_operation))
 end
 
-function Query(query_string::AbstractString)::Query
-    tokens = tokenize(query_string, QUERY_OPERATORS)
-    if length(tokens) == 1 && !tokens[1].is_operator
-        return Lookup(query_string)
-    end
-
-    next_token_index = 1
-    query_operations = Vector{QueryOperation}()
-    while next_token_index <= length(tokens)
-        query_operation, next_token_index = next_query_operation(tokens, next_token_index)
-        push!(query_operations, query_operation)
-    end
-
-    return QuerySequence(Tuple(query_operations))
-end
-
-"""
-    is_query_suffix(query::Query)::Bool
-
-Return whether the query is actually a query suffix to be applied to some axis. Such suffix queries are used when
-fetching multiple data for the same axis, e.g. in [`get_frame`](@ref).
-"""
-function is_query_suffix(::QueryOperation)::Bool
-    return false
-end
-
-function is_query_suffix(query_sequence::QuerySequence)::Bool
-    return is_query_suffix(query_sequence.query_operations[1])
-end
-
 """
     Names(kind::Maybe{AbstractString} = nothing) <: Query
 
@@ -778,10 +748,6 @@ end
 
 function is_axis_query(lookup::Lookup)::Bool
     return is_axis_query(QuerySequence((lookup,)))
-end
-
-function is_query_suffix(::Lookup)::Bool
-    return true
 end
 
 function query_result_dimensions(lookup::Lookup)::Int
@@ -3797,23 +3763,26 @@ end
 Specify columns for [`get_frame`](@ref) for some axis. This is a vector of pairs, where the key is the column name, and
 the value is a query that computes the data of the column.
 
-If the query is a string, then a value of `=` is a shorthand for looking up the column name as a property (e.g.,
-`"age" => "="` is equivalent to `"age" => q": age"`). If the query string is a simple name, it is a shorthand for
-looking up that name as a property (e.g., `"Age" => "age"` is equivalent to `"Age" => q": age"`).
+The query is combined with the axis query as follows (using [`full_vector_query`](@ref):
 
-The query is typically a suffix of a query which is combined with the axis lookup. For example, if the axis is `cell`,
-the query suffix may be `q": batch"` to lookup the batch of each cell.
+  - If the query is the special string `=`, then the full query is `axis_query |> Lookup(column_name)`. For example,
+    the full query for the axis query `cell & batch = B1` and the pair `"age" => "="` is `cell & batch = B1 : age`.
 
-The query may also already be a full query. For example, if the axis is `metacell`, the query may be
-`/ cell : age @ metacell %> Mean` to compute the mean age of the cells of each metacell.
+  - If the query contains [`GroupBy`](@ref), then the query must repeat any mask specified for the axis query.
+    That is, if the axis query is `metacell & type = B`, then the column query must be
+    `/ cell & metacell => type = B @ metacell : age %> Mean`. Sorry for the inconvenience. TODO: Automatically inject the
+    mask into [`GroupBy`](@ref) column queries.
+  - Otherwise, if the query starts with a (single) axis, then it should only contain a reduction; the axis query is
+    automatically injected following it. That is, if the axis query is `gene & is_marker`, then the full query for the
+    column query `/ metacell : fraction %> Mean` will be `/ metacell / gene : fraction %> Mean` (the mean gene expression
+    in all metacells). We can't just concatenate the axis query and the columns query here, is because Julia, in its
+    infinite wisdom, uses column-major matrices, like R and matlab; so reduction eliminates the rows instead of the
+    columns of the matrix.
+  - Otherwise, we simply concatenate the axis query and the column query. That is, of the axis query is
+    `cell & batch = B1` and the column query is `: age`, then the full query will be `cell & batch = B1 : age`. This is
+    the simplest and most common case.
 
-!!! note
-
-    When specifying a full ([`GroupBy`](@ref) query), if the axis is masked, (e.g., `metacell & type = Bcell`, it is
-    your responsibility to include the same mask in the full query, e.g.
-    `/ cell & metacell => type = Bcell : age @ metacell %> Mean`). Sorry for the inconvenience.
-
-In both cases the (full) query must return a value for each entry of the axis.
+In all cases the (full) query must return a value for each entry of the axis.
 
 !!! note
 
@@ -3863,14 +3832,8 @@ function get_frame(
         axis_query = axis
         axis_name = query_axis_name(axis)
     else
-        tokens = tokenize(axis, QUERY_OPERATORS)
-        if isempty(tokens) || tokens[1].value != "/"
-            axis_name = axis
-            axis_query = Axis(axis)
-        else
-            axis_query = Query(axis)
-            axis_name = query_axis_name(axis_query)
-        end
+        axis_query = Query(axis, Axis)
+        axis_name = query_axis_name(axis_query)
     end
 
     names_of_rows = get_query(daf, axis_query; cache = cache)
@@ -3887,14 +3850,7 @@ function get_frame(
 
     data = Vector{Pair{AbstractString, StorageVector}}()
     for (column_name, column_query) in columns
-        if column_query == "="
-            column_query = Lookup(column_name)
-        else
-            column_query = Query(column_query)
-        end
-        if is_query_suffix(column_query)
-            column_query = axis_query |> column_query
-        end
+        column_query = full_vector_query(axis_query, column_query, column_name)
         vector = get_query(daf, column_query; cache = cache)
         if !(vector isa StorageVector) || !(vector isa NamedArray) || names(vector, 1) != names_of_rows
             error(
@@ -3927,6 +3883,73 @@ function get_query_axis_name(fake_query_state::FakeQueryState)::AbstractString
     end
 
     return error("invalid axis query: $(fake_query_state.query_sequence)")
+end
+
+"""
+    full_vector_query(
+        axis_query::Query,
+        vector_query::Union{AbstractString, Query},
+        vector_name::Maybe{AbstractString} = nothing,
+    )::Query
+
+Given a query for an axis, and some suffix query for a vector property, combine them into a full query for the vector
+values for the axis. This is used by [`QueryColumns`](@ref) for [`get_frame`](@ref) and also for queries of vector data
+in views.
+"""
+function full_vector_query(
+    axis_query::Query,
+    vector_query::Union{AbstractString, Query},
+    vector_name::Maybe{AbstractString} = nothing,
+)::Query
+    if vector_name !== nothing && vector_query == "="
+        vector_query = Lookup(vector_name)
+    else
+        vector_query = Query(vector_query, Lookup)
+    end
+    if vector_query isa QuerySequence && vector_query.query_operations[1] isa Axis
+        if !any([query_operation isa GroupBy for query_operation in vector_query.query_operations])
+            query_prefix, query_suffix = split_vector_query(vector_query)
+            vector_query = query_prefix |> axis_query |> query_suffix
+        end
+    else
+        vector_query = axis_query |> vector_query
+    end
+
+    return vector_query
+end
+
+function split_vector_query(query_sequence::QuerySequence)::Tuple{QuerySequence, QuerySequence}
+    index = findfirst(query_sequence.query_operations) do query_operation
+        return query_operation isa Lookup
+    end
+    if index === nothing
+        return (query_sequence, QuerySequence(()))  # untested
+    else
+        return (
+            QuerySequence(query_sequence.query_operations[1:(index - 1)]),
+            QuerySequence(query_sequence.query_operations[index:end]),
+        )
+    end
+end
+
+function Query(query::Query, ::Maybe{Union{Type{Lookup}, Type{Axis}}} = nothing)::Query
+    return query
+end
+
+function Query(query_string::AbstractString, operand_only::Maybe{Union{Type{Lookup}, Type{Axis}}} = nothing)::Query
+    tokens = tokenize(query_string, QUERY_OPERATORS)
+    if operand_only !== nothing && length(tokens) == 1 && !tokens[1].is_operator
+        return operand_only(query_string)  # NOJET
+    end
+
+    next_token_index = 1
+    query_operations = Vector{QueryOperation}()
+    while next_token_index <= length(tokens)
+        query_operation, next_token_index = next_query_operation(tokens, next_token_index)
+        push!(query_operations, query_operation)
+    end
+
+    return QuerySequence(Tuple(query_operations))
 end
 
 end  # module

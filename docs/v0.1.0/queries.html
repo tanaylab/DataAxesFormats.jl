@@ -301,8 +301,10 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">Query(query_string::AbstractString) &lt;: QueryOperation
-Query(query::Query) &lt;: QueryOperation
+<code class="language-julia hljs">Query(
+    query::Union{AbstractString, Query},
+    operand_only::Maybe{Type{QueryOperation}} = nothing,
+) &lt;: QueryOperation
 </code>
 </pre>
 <p>A query is a description of a (sub-)process for extracting some data from a 
@@ -317,15 +319,7 @@ Query(query::Query) &lt;: QueryOperation
 <a href="formats.html#Daf.Formats.DafReader">
 <code>DafReader
 </code>
-</a>, result in a scalar, vector or matrix result. A single 
-<a href="queries.html#Daf.Queries.Lookup">
-<code>Lookup
-</code>
-</a> or a single 
-<a href="queries.html#Daf.Queries.Axis">
-<code>Axis
-</code>
-</a> are also valid complete queries.
+</a>, result in a scalar, vector or matrix result.
 </p>
 <p>To apply a query, invoke 
 <a href="queries.html#Daf.Queries.get_query">
@@ -403,19 +397,19 @@ Query(query::Query) &lt;: QueryOperation
 <code>Regex
 </code> strings.
 </p>
-<p>As a shorthand, the query of a simple name is interpreted as a lookup of that name (e.g., 
-<code>q&quot;foo&quot;
-</code> is equivalent to 
-<code>q&quot;: foo&quot;
-</code>). This is convenient when expressing suffix queries (e.g., for 
-<a href="queries.html#Daf.Queries.QueryColumns">
-<code>QueryColumns
-</code>
-</a> for 
+<p>If the provided query string contains only an operand, and 
+<code>operand_only
+</code> is specified, it is used as the operator (i.e., 
+<code>Query(&quot;metacell&quot;)
+</code> is an error, but 
+<code>Query(&quot;metacell&quot;, Axis)
+</code> is the same as 
+<code>Axis(&quot;metacell&quot;)
+</code>). This is useful when providing suffix queries (e.g., for 
 <a href="queries.html#Daf.Queries.get_frame">
 <code>get_frame
 </code>
-</a>.
+</a>).
 </p>
 <p>Being able to represent queries as strings allows for reading them from configuration files and letting the user input them in an application UI (e.g., allowing the user to specify the X, Y and/or colors of a scatter plot using queries). At the same time, being able to incrementally build queries using code allows for convenient reuse (e.g., reusing axis sub-queries in 
 <code>Daf
@@ -654,47 +648,65 @@ Query(query::Query) &lt;: QueryOperation
 </code>
 </a> for some axis. This is a vector of pairs, where the key is the column name, and the value is a query that computes the data of the column.
 </p>
-<p>If the query is a string, then a value of 
+<p>The query is combined with the axis query as follows (using 
+<a href="queries.html#Daf.Queries.full_vector_query">
+<code>full_vector_query
+</code>
+</a>:
+</p>
+<ul>
+<li>
+<p>If the query is the special string 
 <code>=
-</code> is a shorthand for looking up the column name as a property (e.g., 
+</code>, then the full query is 
+<code>axis_query |&gt; Lookup(column_name)
+</code>. For example, the full query for the axis query 
+<code>cell &amp; batch = B1
+</code> and the pair 
 <code>&quot;age&quot; =&gt; &quot;=&quot;
-</code> is equivalent to 
-<code>&quot;age&quot; =&gt; q&quot;: age&quot;
-</code>). If the query string is a simple name, it is a shorthand for looking up that name as a property (e.g., 
-<code>&quot;Age&quot; =&gt; &quot;age&quot;
-</code> is equivalent to 
-<code>&quot;Age&quot; =&gt; q&quot;: age&quot;
-</code>).
+</code> is 
+<code>cell &amp; batch = B1 : age
+</code>.
 </p>
-<p>The query is typically a suffix of a query which is combined with the axis lookup. For example, if the axis is 
-<code>cell
-</code>, the query suffix may be 
-<code>q&quot;: batch&quot;
-</code> to lookup the batch of each cell.
-</p>
-<p>The query may also already be a full query. For example, if the axis is 
-<code>metacell
-</code>, the query may be 
-<code>/ cell : age @ metacell %&gt; Mean
-</code> to compute the mean age of the cells of each metacell.
-</p>
-<div class="admonition is-info">
-<header class="admonition-header">Note
-</header>
-<div class="admonition-body">
-<p>When specifying a full (
+</li>
+<li>
+<p>If the query contains 
 <a href="queries.html#Daf.Queries.GroupBy">
 <code>GroupBy
 </code>
-</a> query), if the axis is masked, (e.g., 
-<code>metacell &amp; type = Bcell
-</code>, it is your responsibility to include the same mask in the full query, e.g. 
-<code>/ cell &amp; metacell =&gt; type = Bcell : age @ metacell %&gt; Mean
-</code>). Sorry for the inconvenience.
+</a>, then the query must repeat any mask specified for the axis query. That is, if the axis query is 
+<code>metacell &amp; type = B
+</code>, then the column query must be 
+<code>/ cell &amp; metacell =&gt; type = B @ metacell : age %&gt; Mean
+</code>. Sorry for the inconvenience. TODO: Automatically inject the mask into 
+<a href="queries.html#Daf.Queries.GroupBy">
+<code>GroupBy
+</code>
+</a> column queries.
 </p>
-</div>
-</div>
-<p>In both cases the (full) query must return a value for each entry of the axis.
+</li>
+<li>
+<p>Otherwise, if the query starts with a (single) axis, then it should only contain a reduction; the axis query is automatically injected following it. That is, if the axis query is 
+<code>gene &amp; is_marker
+</code>, then the full query for the column query 
+<code>/ metacell : fraction %&gt; Mean
+</code> will be 
+<code>/ metacell / gene : fraction %&gt; Mean
+</code> (the mean gene expression in all metacells). We can&#39;t just concatenate the axis query and the columns query here, is because Julia, in its infinite wisdom, uses column-major matrices, like R and matlab; so reduction eliminates the rows instead of the columns of the matrix.
+</p>
+</li>
+<li>
+<p>Otherwise, we simply concatenate the axis query and the column query. That is, of the axis query is 
+<code>cell &amp; batch = B1
+</code> and the column query is 
+<code>: age
+</code>, then the full query will be 
+<code>cell &amp; batch = B1 : age
+</code>. This is the simplest and most common case.
+</p>
+</li>
+</ul>
+<p>In all cases the (full) query must return a value for each entry of the axis.
 </p>
 <div class="admonition is-info">
 <header class="admonition-header">Note
@@ -727,6 +739,40 @@ Query(query::Query) &lt;: QueryOperation
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
+<a class="docstring-binding" id="Daf.Queries.full_vector_query" href="#Daf.Queries.full_vector_query">
+<code>Daf.Queries.full_vector_query
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">full_vector_query(
+    axis_query::Query,
+    vector_query::Union{AbstractString, Query},
+    vector_name::Maybe{AbstractString} = nothing,
+)::Query
+</code>
+</pre>
+<p>Given a query for an axis, and some suffix query for a vector property, combine them into a full query for the vector values for the axis. This is used by 
+<a href="queries.html#Daf.Queries.QueryColumns">
+<code>QueryColumns
+</code>
+</a> for 
+<a href="queries.html#Daf.Queries.get_frame">
+<code>get_frame
+</code>
+</a> and also for queries of vector data in views.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
 <a class="docstring-binding" id="Daf.Queries.query_result_dimensions" href="#Daf.Queries.query_result_dimensions">
 <code>Daf.Queries.query_result_dimensions
 </code>
@@ -743,32 +789,6 @@ Query(query::Query) &lt;: QueryOperation
 <p>Return the number of dimensions (-1 - names, 0 - scalar, 1 - vector, 2 - matrix) of the results of a 
 <code>query
 </code>. This also verifies the query is syntactically valid, though it may still fail if applied to specific data due to invalid data values or types.
-</p>
-</div>
-</section>
-</article>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
-<a class="docstring-binding" id="Daf.Queries.is_query_suffix" href="#Daf.Queries.is_query_suffix">
-<code>Daf.Queries.is_query_suffix
-</code>
-</a> — 
-<span class="docstring-category">Function
-</span>
-</header>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">is_query_suffix(query::Query)::Bool
-</code>
-</pre>
-<p>Return whether the query is actually a query suffix to be applied to some axis. Such suffix queries are used when fetching multiple data for the same axis, e.g. in 
-<a href="queries.html#Daf.Queries.get_frame">
-<code>get_frame
-</code>
-</a>.
 </p>
 </div>
 </section>
@@ -4039,6 +4059,12 @@ Query(query::Query) &lt;: QueryOperation
 </a>
 </li>
 <li>
+<a href="queries.html#Daf.Queries.full_vector_query">
+<code>Daf.Queries.full_vector_query
+</code>
+</a>
+</li>
+<li>
 <a href="queries.html#Daf.Queries.get_frame">
 <code>Daf.Queries.get_frame
 </code>
@@ -4059,12 +4085,6 @@ Query(query::Query) &lt;: QueryOperation
 <li>
 <a href="queries.html#Daf.Queries.is_axis_query">
 <code>Daf.Queries.is_axis_query
-</code>
-</a>
-</li>
-<li>
-<a href="queries.html#Daf.Queries.is_query_suffix">
-<code>Daf.Queries.is_query_suffix
 </code>
 </a>
 </li>
