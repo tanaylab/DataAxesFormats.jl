@@ -879,7 +879,7 @@ function Formats.format_get_matrix(
 end
 
 function dataset_as_vector(dataset::HDF5.Dataset)::Tuple{StorageVector, CacheType}
-    if HDF5.ismmappable(dataset) && HDF5.iscontiguous(dataset)
+    if HDF5.ismmappable(dataset) && HDF5.iscontiguous(dataset) && length(dataset) > 0
         return (HDF5.readmmap(dataset), MappedData)
     else
         return (read(dataset), MemoryData)
@@ -887,7 +887,7 @@ function dataset_as_vector(dataset::HDF5.Dataset)::Tuple{StorageVector, CacheTyp
 end
 
 function dataset_as_matrix(dataset::HDF5.Dataset)::Tuple{StorageMatrix, CacheType}
-    if HDF5.ismmappable(dataset) && HDF5.iscontiguous(dataset)
+    if HDF5.ismmappable(dataset) && HDF5.iscontiguous(dataset) && length(dataset) > 0
         return (HDF5.readmmap(dataset), MappedData)
     else
         return (read(dataset), MemoryData)  # untested
