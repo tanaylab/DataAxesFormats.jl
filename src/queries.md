@@ -9,6 +9,7 @@ Daf.Queries
 ```@docs
 Daf.Queries.Query
 Daf.Queries.@q_str
+Daf.Queries.QueryString
 ```
 
 ## Functions

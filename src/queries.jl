@@ -28,6 +28,7 @@ export OrNot
 export Query
 export QueryColumns
 export QuerySequence
+export QueryString
 export Xor
 export XorNot
 export full_vector_query
@@ -71,7 +72,7 @@ import Base.MathConstants.pi
 
 """
     Query(
-        query::Union{AbstractString, Query},
+        query::QueryString,
         operand_only::Maybe{Type{QueryOperation}} = nothing,
     ) <: QueryOperation
 
@@ -117,6 +118,12 @@ work). For the full list of valid combinations, see [`NAMES_QUERY`](@ref), [`SCA
 [`VECTOR_QUERY`](@ref) and [`MATRIX_QUERY`](@ref) below.
 """
 abstract type Query <: QueryOperation end
+
+"""
+Most operations that take a query allow passing a string to be parsed into a query, or an actual [`Query`](@ref) object.
+This type is used as a convenient notation for such query parameters.
+"""
+QueryString = Union{Query, AbstractString}
 
 """
 `NAMES_QUERY` :=
@@ -1608,7 +1615,7 @@ end
 
 function Base.getindex(
     daf::DafReader,
-    query::Union{Query, AbstractString},
+    query::QueryString,
 )::Union{AbstractSet{<:AbstractString}, AbstractVector{<:AbstractString}, StorageScalar, NamedArray}
     return get_query(daf, query)
 end
@@ -1616,7 +1623,7 @@ end
 """
     get_query(
         daf::DafReader,
-        query::Union{Query, AbstractString};
+        query::QueryString;
         [cache::Bool = true]
     )::Union{StorageScalar, NamedVector, NamedMatrix}
 
@@ -1682,7 +1689,7 @@ function query_result_dimensions(query_string::AbstractString)::Int
 end
 
 """
-    is_axis_query(query::Union{Query, AbstractString})::Bool
+    is_axis_query(query::QueryString)::Bool
 
 Returns whether the `query` specifies a (possibly masked) axis. This also verifies the query is syntactically valid,
 though it may still fail if applied to specific data due to invalid data values or types.
@@ -1704,7 +1711,7 @@ function get_is_axis_query(fake_query_state::FakeQueryState)::Bool
 end
 
 """
-    query_result_dimensions(query::Union{Query, AbstractString})::Int
+    query_result_dimensions(query::QueryString)::Int
 
 Return the number of dimensions (-1 - names, 0 - scalar, 1 - vector, 2 - matrix) of the results of a `query`. This also
 verifies the query is syntactically valid, though it may still fail if applied to specific data due to invalid data
@@ -3790,7 +3797,7 @@ In all cases the (full) query must return a value for each entry of the axis.
     Due to Julia's type system limitations, there's just no way for the system to enforce the type of the pairs
     in this vector. That is, what we'd **like** to say is:
 
-        QueryColumns = AbstractVector{Pair{AbstractString, Union{AbstractString, Query}}}
+        QueryColumns = AbstractVector{Pair{AbstractString, QueryString}}
 
     But what we are **forced** to say is:
 
@@ -3804,7 +3811,7 @@ QueryColumns = AbstractVector{<:Pair}
 """
     get_frame(
         daf::DafReader,
-        axis::Union{Query, AbstractString},
+        axis::QueryString,
         [columns::Maybe{Union{AbstractVector{<:AbstractString}, QueryColumns}} = nothing;
         cache::Bool = true]
     )::DataFrame end
@@ -3825,7 +3832,7 @@ specifying `cache = false`, or release the cached data using [`empty_cache!`](@r
 """
 function get_frame(
     daf::DafReader,
-    axis::Union{Query, AbstractString},
+    axis::QueryString,
     columns::Maybe{Union{AbstractVector{<:AbstractString}, QueryColumns}} = nothing;
     cache::Bool = true,
 )::DataFrame
@@ -3889,7 +3896,7 @@ end
 """
     full_vector_query(
         axis_query::Query,
-        vector_query::Union{AbstractString, Query},
+        vector_query::QueryString,
         vector_name::Maybe{AbstractString} = nothing,
     )::Query
 
@@ -3899,7 +3906,7 @@ in views.
 """
 function full_vector_query(
     axis_query::Query,
-    vector_query::Union{AbstractString, Query},
+    vector_query::QueryString,
     vector_name::Maybe{AbstractString} = nothing,
 )::Query
     if vector_name !== nothing && vector_query == "="

@@ -84,7 +84,7 @@ will expose the `batch` axis, but only including the batches whose `age` propert
     Due to Julia's type system limitations, there's just no way for the system to enforce the type of the pairs
     in this vector. That is, what we'd **like** to say is:
 
-        ViewAxes = AbstractVector{Pair{AbstractString, Maybe{Union{AbstractString, Query}}}}
+        ViewAxes = AbstractVector{Pair{AbstractString, Maybe{QueryString}}}
 
     But what we are **forced** to say is:
 
@@ -138,7 +138,7 @@ The order of the axes does not matter, so
     Due to Julia's type system limitations, there's just no way for the system to enforce the type of the pairs
     in this vector. That is, what we'd **like** to say is:
 
-        ViewData = AbstractVector{Pair{DataKey, Maybe{Union{AbstractString, Query}}}}
+        ViewData = AbstractVector{Pair{DataKey, Maybe{QueryString}}}
 
     But what we are **forced** to say is:
 
@@ -251,7 +251,7 @@ function viewer(
 
     for (key, query) in data
         @assert key isa DataKey
-        @assert query isa Maybe{Union{AbstractString, Query}}
+        @assert query isa Maybe{QueryString}
     end
 
     collected_axes::Dict{AbstractString, Fetch{AbstractVector{<:AbstractString}}} = collect_axes(name, daf, axes)
@@ -287,7 +287,7 @@ function collect_scalars(
     return collected_scalars
 end
 
-function prepare_query(maybe_query::Maybe{Union{AbstractString, Query}})::Maybe{Union{AbstractString, Query}}
+function prepare_query(maybe_query::Maybe{QueryString})::Maybe{QueryString}
     if maybe_query isa AbstractString
         maybe_query = strip(maybe_query)  # NOJET
         if maybe_query != "="
@@ -304,7 +304,7 @@ function collect_scalar(
     daf::DafReader,
     collected_scalars::Dict{AbstractString, Fetch{StorageScalar}},
     scalar_name::AbstractString,
-    scalar_query::Maybe{Union{AbstractString, Query}},
+    scalar_query::Maybe{QueryString},
 )::Nothing
     if scalar_name == "*"
         for scalar_name in scalars_set(daf)
@@ -340,7 +340,7 @@ function collect_axes(
     collected_axes = Dict{AbstractString, Fetch{AbstractVector{<:AbstractString}}}()
     for (axis, query) in axes
         @assert axis isa AbstractString
-        @assert query isa Maybe{Union{AbstractString, Query}}
+        @assert query isa Maybe{QueryString}
         collect_axis(view_name, daf, collected_axes, axis, prepare_query(query))
     end
     return collected_axes
@@ -351,7 +351,7 @@ function collect_axis(
     daf::DafReader,
     collected_axes::Dict{AbstractString, Fetch{AbstractVector{<:AbstractString}}},
     axis_name::AbstractString,
-    axis_query::Maybe{Union{AbstractString, Query}},
+    axis_query::Maybe{QueryString},
 )::Nothing
     if axis_name == "*"
         for axis_name in axes_set(daf)
@@ -412,7 +412,7 @@ function collect_vector(
     collected_vectors::Dict{AbstractString, Dict{AbstractString, Fetch{StorageVector}}},
     axis_name::AbstractString,
     vector_name::AbstractString,
-    vector_query::Maybe{Union{AbstractString, Query}},
+    vector_query::Maybe{QueryString},
 )::Nothing
     if axis_name == "*"
         for axis_name in keys(collected_axes)
@@ -483,7 +483,7 @@ function collect_matrix(
     rows_axis_name::AbstractString,
     columns_axis_name::AbstractString,
     matrix_name::AbstractString,
-    matrix_query::Maybe{Union{AbstractString, Query}},
+    matrix_query::Maybe{QueryString},
 )::Nothing
     if rows_axis_name == "*"
         for rows_axis_name in keys(collected_axes)

@@ -302,7 +302,7 @@
 <div>
 <pre>
 <code class="language-julia hljs">Query(
-    query::Union{AbstractString, Query},
+    query::QueryString,
     operand_only::Maybe{Type{QueryOperation}} = nothing,
 ) &lt;: QueryOperation
 </code>
@@ -510,6 +510,28 @@
 </div>
 </section>
 </article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Queries.QueryString" href="#Daf.Queries.QueryString">
+<code>Daf.Queries.QueryString
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</header>
+<section>
+<div>
+<p>Most operations that take a query allow passing a string to be parsed into a query, or an actual 
+<a href="queries.html#Daf.Queries.Query">
+<code>Query
+</code>
+</a> object. This type is used as a convenient notation for such query parameters.
+</p>
+</div>
+</section>
+</article>
 <h2 id="Functions">
 <a class="docs-heading-anchor" href="#Functions">Functions
 </a>
@@ -534,7 +556,7 @@
 <pre>
 <code class="language-julia hljs">get_query(
     daf::DafReader,
-    query::Union{Query, AbstractString};
+    query::QueryString;
     [cache::Bool = true]
 )::Union{StorageScalar, NamedVector, NamedMatrix}
 </code>
@@ -580,7 +602,7 @@
 <pre>
 <code class="language-julia hljs">get_frame(
     daf::DafReader,
-    axis::Union{Query, AbstractString},
+    axis::QueryString,
     [columns::Maybe{Union{AbstractVector{&lt;:AbstractString}, QueryColumns}} = nothing;
     cache::Bool = true]
 )::DataFrame end
@@ -717,7 +739,7 @@
 </strong> to say is:
 </p>
 <pre>
-<code class="nohighlight hljs">QueryColumns = AbstractVector{Pair{AbstractString, Union{AbstractString, Query}}}
+<code class="nohighlight hljs">QueryColumns = AbstractVector{Pair{AbstractString, QueryString}}
 </code>
 </pre>
 <p>But what we are 
@@ -751,7 +773,7 @@
 <pre>
 <code class="language-julia hljs">full_vector_query(
     axis_query::Query,
-    vector_query::Union{AbstractString, Query},
+    vector_query::QueryString,
     vector_name::Maybe{AbstractString} = nothing,
 )::Query
 </code>
@@ -783,7 +805,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">query_result_dimensions(query::Union{Query, AbstractString})::Int
+<code class="language-julia hljs">query_result_dimensions(query::QueryString)::Int
 </code>
 </pre>
 <p>Return the number of dimensions (-1 - names, 0 - scalar, 1 - vector, 2 - matrix) of the results of a 
@@ -807,7 +829,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">is_axis_query(query::Union{Query, AbstractString})::Bool
+<code class="language-julia hljs">is_axis_query(query::QueryString)::Bool
 </code>
 </pre>
 <p>Returns whether the 
@@ -4043,6 +4065,12 @@
 <li>
 <a href="queries.html#Daf.Queries.QuerySequence">
 <code>Daf.Queries.QuerySequence
+</code>
+</a>
+</li>
+<li>
+<a href="queries.html#Daf.Queries.QueryString">
+<code>Daf.Queries.QueryString
 </code>
 </a>
 </li>
