@@ -548,10 +548,6 @@ function require_matrix(
     return nothing
 end
 
-struct RequiresRelayoutException <: Exception end
-
-struct UpgradeToWriteLockException <: Exception end
-
 """
     get_matrix(
         daf::DafReader,
@@ -583,21 +579,8 @@ function get_matrix(
     default::Union{StorageNumber, StorageMatrix, Nothing, UndefInitializer} = undef,
     relayout::Bool = true,
 )::Maybe{NamedArray}
-    try
-        return Formats.with_data_read_lock(daf, "get_matrix of:", name, "of:", rows_axis, "and:", columns_axis) do
-            return do_get_matrix(daf, rows_axis, columns_axis, name; default = default, relayout = relayout)
-        end
-    catch exception
-        if exception isa UpgradeToWriteLockException
-            if Formats.has_data_read_lock(daf)
-                throw(RequiresRelayoutException())
-            end
-            return Formats.with_data_write_lock(daf, "get_matrix of:", name, "of:", rows_axis, "and:", columns_axis) do
-                return do_get_matrix(daf, rows_axis, columns_axis, name; default = default, relayout = relayout)
-            end
-        else
-            rethrow()
-        end
+    return Formats.with_data_read_lock(daf, "get_matrix of:", name, "of:", rows_axis, "and:", columns_axis) do
+        return do_get_matrix(daf, rows_axis, columns_axis, name; default = default, relayout = relayout)
     end
 end
 
@@ -641,9 +624,7 @@ function do_get_matrix(
             if daf isa DafWriter &&
                !daf.internal.is_frozen &&
                Formats.format_has_matrix(daf, columns_axis, rows_axis, name; for_relayout = true)
-                if !Formats.has_data_write_lock(daf)
-                    throw(UpgradeToWriteLockException())
-                end
+                Formats.upgrade_to_data_write_lock(daf)
                 Formats.format_relayout_matrix!(daf, columns_axis, rows_axis, name)
             else
                 cache_key = Formats.matrix_cache_key(rows_axis, columns_axis, name)
@@ -935,22 +916,16 @@ function matrices_description(
                 sort!(matrices)
                 is_first_axes = true
                 for matrix in matrices
-                    try
-                        data = get_matrix(daf, rows_axis, columns_axis, matrix; relayout = false)
-                        if is_first_matrix
-                            push!(lines, "$(indent)matrices:")
-                            is_first_matrix = false
-                        end
-                        if is_first_axes
-                            push!(lines, "$(indent)  $(rows_axis),$(columns_axis):")
-                            is_first_axes = false
-                        end
-                        push!(lines, "$(indent)    $(matrix): " * depict(base_array(data)))
-                    catch exception
-                        if !(exception isa RequiresRelayoutException)
-                            rethrow()  # untested
-                        end
+                    data = get_matrix(daf, rows_axis, columns_axis, matrix; relayout = false)
+                    if is_first_matrix
+                        push!(lines, "$(indent)matrices:")
+                        is_first_matrix = false
                     end
+                    if is_first_axes
+                        push!(lines, "$(indent)  $(rows_axis),$(columns_axis):")
+                        is_first_axes = false
+                    end
+                    push!(lines, "$(indent)    $(matrix): " * depict(base_array(data)))
                 end
             end
         end

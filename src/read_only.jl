@@ -90,9 +90,8 @@ function read_only(daf::DafReadOnly; name::Maybe{AbstractString} = nothing)::Daf
     end
 end
 
-function Formats.begin_data_read_lock(read_only_view::DafReadOnlyWrapper, what::AbstractString...)::Nothing
-    Formats.begin_data_read_lock(read_only_view.daf, what...)
-    return nothing
+function Formats.begin_data_read_lock(read_only_view::DafReadOnlyWrapper, what::AbstractString...)::Bool
+    return Formats.begin_data_read_lock(read_only_view.daf, what...)
 end
 
 function Formats.end_data_read_lock(read_only_view::DafReadOnlyWrapper, what::AbstractString...)::Nothing

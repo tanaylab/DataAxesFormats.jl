@@ -1032,9 +1032,8 @@ function parse_mode(mode::AbstractString)::Tuple{Bool, Bool, Bool}
     end
 end
 
-function begin_data_read_lock(format::FormatReader, what::AbstractString...)::Nothing
-    read_lock(format.internal.data_lock, format.name, "data for", what...)  # NOJET
-    return nothing
+function begin_data_read_lock(format::FormatReader, what::AbstractString...)::Bool
+    return read_lock(format.internal.data_lock, format.name, "data for", what...)  # NOJET
 end
 
 function end_data_read_lock(format::FormatReader, what::AbstractString...)::Nothing
@@ -1042,13 +1041,20 @@ function end_data_read_lock(format::FormatReader, what::AbstractString...)::Noth
     return nothing
 end
 
+struct UpgradeToWriteLockException <: Exception end
+
 function with_data_read_lock(action::Function, format::FormatReader, what::AbstractString...)::Any
-    begin_data_read_lock(format, what...)
+    is_top_level = begin_data_read_lock(format, what...)
     try
         return action()
+    catch exception
+        if !is_top_level || !(exception isa UpgradeToWriteLockException)
+            rethrow()
+        end
     finally
         end_data_read_lock(format, what...)
     end
+    return with_data_write_lock(action, format, what...)
 end
 
 function has_data_read_lock(format::FormatReader; read_only::Bool = false)::Bool
@@ -1056,12 +1062,12 @@ function has_data_read_lock(format::FormatReader; read_only::Bool = false)::Bool
 end
 
 function begin_data_write_lock(format::FormatReader, what::AbstractString...)::Nothing
-    write_lock(format.internal.data_lock, format.name, "data for", what...)
+    write_lock(format.internal.data_lock, format.name, "data for", what...)  # NOJET
     return nothing
 end
 
 function end_data_write_lock(format::FormatReader, what::AbstractString...)::Nothing
-    write_unlock(format.internal.data_lock, format.name, "data for", what...)
+    write_unlock(format.internal.data_lock, format.name, "data for", what...)  # NOJET
     return nothing
 end
 
@@ -1076,6 +1082,13 @@ end
 
 function has_data_write_lock(format::FormatReader)::Bool
     return has_write_lock(format.internal.data_lock)
+end
+
+function upgrade_to_data_write_lock(format::FormatReader)::Nothing
+    if !has_data_write_lock(format)
+        throw(UpgradeToWriteLockException())
+    end
+    return nothing
 end
 
 function format_get_version_counter(format::FormatReader, version_key::DataKey)::UInt32

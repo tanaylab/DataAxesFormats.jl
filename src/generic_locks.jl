@@ -61,17 +61,18 @@ function write_lock(query_read_write_lock::QueryReadWriteLock, what::AbstractStr
     private_storage = task_local_storage()
     lock_id = objectid(query_read_write_lock.lock)
     write_key = Symbol((lock_id, true))
-    read_key = Symbol((lock_id, false))
-    @assert !haskey(private_storage, read_key)
 
     write_depth = get(private_storage, write_key, nothing)
     if write_depth !== nothing
         write_depth[1] += 1
+        @debug "WLOCKED $(Symbol((lock_id,))) $(write_depth[1]) $(join(what, " ")) {{{"
     else
+        read_key = Symbol((lock_id, false))
+        @assert !haskey(private_storage, read_key)
         private_storage[write_key] = [1]
-        @debug "WLOCK $(lock_id) $(join(what, " ")) {{{"
+        @debug "WLOCK $(Symbol((lock_id,))) 1 $(join(what, " ")) {{{"
         lock(query_read_write_lock.lock)
-        @debug "WLOCKED $(lock_id) $(join(what, " "))"
+        @debug "WLOCKED $(Symbol((lock_id,))) 1 $(join(what, " "))"
     end
 
     return nothing
@@ -89,18 +90,19 @@ function write_unlock(query_read_write_lock::QueryReadWriteLock, what::AbstractS
     private_storage = task_local_storage()
     lock_id = objectid(query_read_write_lock.lock)
     write_key = Symbol((lock_id, true))
-    read_key = Symbol((lock_id, false))
-    @assert !haskey(private_storage, read_key)
     @assert haskey(private_storage, write_key)
 
     write_depth = private_storage[write_key]
     if write_depth[1] > 1
         write_depth[1] -= 1
+        @debug "WUNLOCKED $(Symbol((lock_id,))) $(write_depth[1]) $(join(what, " ")) }}}"
     else
+        read_key = Symbol((lock_id, false))
+        @assert !haskey(private_storage, read_key)
         @assert write_depth[1] == 1
         delete!(private_storage, write_key)
         unlock(query_read_write_lock.lock)
-        @debug "WUNLOCKED $(lock_id) $(join(what, " ")) }}}"
+        @debug "WUNLOCKED $(Symbol((lock_id,))) 0 $(join(what, " ")) }}}"
     end
     return nothing
 end
@@ -118,7 +120,7 @@ function has_write_lock(query_read_write_lock::QueryReadWriteLock)::Bool
 end
 
 """
-    read_lock(query_read_write_lock::QueryReadWriteLock, what::AbstractString...)::Nothing
+    read_lock(query_read_write_lock::QueryReadWriteLock, what::AbstractString...)::Bool
 
 Obtain a read lock. Each call must be matched by [`read_unlock`](@ref). It is possible to nest `read_lock`/`read_unlock`
 call pairs, even inside `write_lock`/`write_unlock` pair(s); however, you can't nest `write_lock`/`write_unlock` inside
@@ -127,8 +129,10 @@ a `read_lock`/`read_unlock` pair.
 When a thread has a read lock, no other thread can have a write lock, but other threads may also have a read lock.
 
 The log messages includes `what` is being locked.
+
+Returns whether this is the top-level read lock (as opposed to a nested one).
 """
-function read_lock(query_read_write_lock::QueryReadWriteLock, what::AbstractString...)::Nothing
+function read_lock(query_read_write_lock::QueryReadWriteLock, what::AbstractString...)::Bool
     private_storage = task_local_storage()
     lock_id = objectid(query_read_write_lock.lock)
     write_key = Symbol((lock_id, true))
@@ -137,16 +141,24 @@ function read_lock(query_read_write_lock::QueryReadWriteLock, what::AbstractStri
     read_depth = get(private_storage, read_key, nothing)
     if read_depth !== nothing
         read_depth[1] += 1
+        @debug "RLOCKED $(Symbol((lock_id,))) $(read_depth[1]) $(join(what, " ")) {{{"
+        return false
     else
         private_storage[read_key] = [1]
         if !haskey(private_storage, write_key)
-            @debug "RLOCK $(lock_id) $(join(what, " ")) {{{"
+            @debug "RLOCK $(Symbol((lock_id,))) 1 $(join(what, " ")) {{{"
             lock_read(query_read_write_lock.lock)
-            @debug "RLOCKED $(lock_id) $(join(what, " "))"
+        end
+        @debug "RLOCKED $(Symbol((lock_id,))) 1 $(join(what, " "))"
+
+        is_top_read_lock = get(private_storage, :generic_locks_top_read_lock, nothing)
+        if is_top_read_lock === nothing
+            private_storage[:generic_locks_top_read_lock] = lock_id
+            return true
+        else
+            return false
         end
     end
-
-    return nothing
 end
 
 """
@@ -167,15 +179,20 @@ function read_unlock(query_read_write_lock::QueryReadWriteLock, what::AbstractSt
     read_depth = private_storage[read_key]
     if read_depth[1] > 1
         read_depth[1] -= 1
+        @debug "RUNLOCKED $(Symbol((lock_id,))) $(read_depth[1]) $(join(what, " ")) }}}"
     else
         @assert read_depth[1] == 1
         delete!(private_storage, read_key)
         if !haskey(private_storage, write_key)
             unlock_read(query_read_write_lock.lock)
-            @debug "RUNLOCKED $(lock_id) $(join(what, " ")) }}}"
+        end
+        @debug "RUNLOCKED $(Symbol((lock_id,))) 0 $(join(what, " ")) }}}"
+
+        is_top_read_lock = private_storage[:generic_locks_top_read_lock]
+        if is_top_read_lock === lock_id
+            delete!(private_storage, :generic_locks_top_read_lock)
         end
     end
-
     return nothing
 end
 

@@ -3231,23 +3231,29 @@ function apply_mask_to_matrix_state_rows(matrix_state::MatrixState, new_rows_mas
 end
 
 function apply_query_operation!(query_state::QueryState, group_by::GroupBy)::Nothing
+    if is_all(query_state, (AxisState,))
+        apply_query_operation!(query_state, Lookup("name"))
+    end
     if is_all(query_state, (VectorState,))
         return fetch_group_by_vector(query_state, group_by)
     elseif is_all(query_state, (MatrixState,))
         return fetch_group_by_matrix(query_state, group_by)
     end
 
-    return error_unexpected_operation(query_state)
+    return error_unexpected_operation(query_state)  # untested
 end
 
 function fake_query_operation!(fake_query_state::FakeQueryState, ::GroupBy)::Nothing
+    if is_all(fake_query_state, (FakeAxisState,))
+        fake_query_operation!(fake_query_state, Lookup("name"))
+    end
     if is_all(fake_query_state, (FakeVectorState,))
         return fake_fetch_group_by_vector(fake_query_state)
     elseif is_all(fake_query_state, (FakeMatrixState,))
         return fake_fetch_group_by_matrix(fake_query_state)
     end
 
-    return error_unexpected_operation(fake_query_state)
+    return error_unexpected_operation(fake_query_state)  # untested
 end
 
 function fetch_group_by_vector(query_state::QueryState, group_by::GroupBy)::Nothing

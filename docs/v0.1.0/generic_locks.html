@@ -467,7 +467,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">read_lock(query_read_write_lock::QueryReadWriteLock, what::AbstractString...)::Nothing
+<code class="language-julia hljs">read_lock(query_read_write_lock::QueryReadWriteLock, what::AbstractString...)::Bool
 </code>
 </pre>
 <p>Obtain a read lock. Each call must be matched by 
@@ -497,6 +497,8 @@
 <p>The log messages includes 
 <code>what
 </code> is being locked.
+</p>
+<p>Returns whether this is the top-level read lock (as opposed to a nested one).
 </p>
 </div>
 </section>

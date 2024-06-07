@@ -177,12 +177,12 @@ end
 
 AnyChain = Union{ReadOnlyChain, WriteChain}
 
-function Formats.begin_data_read_lock(chain::AnyChain, what::AbstractString...)::Nothing
-    invoke(Formats.begin_data_read_lock, Tuple{DafReader, Vararg{AbstractString}}, chain, what...)
+function Formats.begin_data_read_lock(chain::AnyChain, what::AbstractString...)::Bool
+    is_top_level = invoke(Formats.begin_data_read_lock, Tuple{DafReader, Vararg{AbstractString}}, chain, what...)
     for daf in chain.dafs
         Formats.begin_data_read_lock(daf, what...)
     end
-    return nothing
+    return is_top_level
 end
 
 function Formats.end_data_read_lock(chain::AnyChain, what::AbstractString...)::Nothing

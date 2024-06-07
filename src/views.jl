@@ -586,10 +586,10 @@ function get_fetch_axis(
     return fetch_axis
 end
 
-function Formats.begin_data_read_lock(view::DafView, what::AbstractString...)::Nothing
-    invoke(Formats.begin_data_read_lock, Tuple{DafReader, Vararg{AbstractString}}, view, what...)
+function Formats.begin_data_read_lock(view::DafView, what::AbstractString...)::Bool
+    is_top_level = invoke(Formats.begin_data_read_lock, Tuple{DafReader, Vararg{AbstractString}}, view, what...)
     Formats.begin_data_read_lock(view.daf, what...)
-    return nothing
+    return is_top_level
 end
 
 function Formats.end_data_read_lock(view::DafView, what::AbstractString...)::Nothing
@@ -602,12 +602,14 @@ function Formats.has_data_read_lock(view::DafView)::Bool
     return Formats.has_data_read_lock(view.daf)
 end
 
-function Formats.begin_data_write_lock(::DafView, ::AbstractString...)::Nothing  # untested
-    @assert false
+function Formats.begin_data_write_lock(view::DafView, what::AbstractString...)::Nothing
+    invoke(Formats.begin_data_write_lock, Tuple{DafReader, Vararg{AbstractString}}, view, what...)
+    return Formats.begin_data_write_lock(view.daf, what...)
 end
 
-function Formats.end_data_write_lock(::DafView, ::AbstractString...)::Nothing
-    @assert false
+function Formats.end_data_write_lock(view::DafView, what::AbstractString...)::Nothing
+    Formats.end_data_write_lock(view.daf, what...)
+    return invoke(Formats.end_data_write_lock, Tuple{DafReader, Vararg{AbstractString}}, view, what...)
 end
 
 function Formats.has_data_write_lock(::DafView)::Bool  # untested

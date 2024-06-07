@@ -757,18 +757,6 @@ nested_test("queries") do
                             """,
                         )
                     end
-
-                    nested_test("group_by") do
-                        return test_invalid(
-                            daf,
-                            q"/ cell @ age",
-                            """
-                                unexpected operation: GroupBy
-                                in the query: / cell @ age
-                                at operation:        ▲▲▲▲▲
-                            """,
-                        )
-                    end
                 end
             end
         end
@@ -1022,6 +1010,10 @@ nested_test("queries") do
 
             nested_test("()") do
                 @test get_result(daf, q"/ cell : age @ batch %> Count") == ("batch", ["U" => 2, "V" => 1])
+            end
+
+            nested_test("group_by") do
+                @test get_result(daf, q"/ cell @ batch %> Count") == ("batch", ["U" => 2, "V" => 1])
             end
 
             nested_test("!reduction") do
