@@ -18,9 +18,15 @@ end
 
 nested_test("tokens") do
     nested_test("escape") do
+        nested_test("empty") do
+            test_escape_value("", "''")
+            return nothing
+        end
+
         nested_test("unicode") do
             test_escape_value("א", "א")
-            return test_escape_value("ת", "ת")
+            test_escape_value("ת", "ת")
+            return nothing
         end
 
         nested_test("alpha") do

@@ -45,6 +45,10 @@ end
 nested_test("queries") do
     daf = MemoryDaf(; name = "memory!")
 
+    nested_test("empty") do
+        @test string(Query("/ metacell != ''")) == "/ metacell != ''"
+    end
+
     nested_test("combine") do
         nested_test("one") do
             @test string(Lookup("score")) == ": score"
