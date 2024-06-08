@@ -166,7 +166,7 @@ By default, concatenation will fail rather than `overwrite` existing properties 
         for axis in axes
             require_no_axis(destination, axis)
             for source in sources
-                require_axis(source, axis)
+                require_axis(source, "for: concatenate!", axis)
             end
         end
 

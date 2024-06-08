@@ -217,7 +217,7 @@ function axis_array(
             else
                 result_prefix = "default "
                 @assert default == undef
-                require_axis(daf, axis)
+                require_axis(daf, "for: axis_array", axis)
             end
         end
 
@@ -234,7 +234,7 @@ Return a dictionary converting axis entry names to their integer index.
 """
 function axis_dict(daf::DafReader, axis::AbstractString)::AbstractDict{<:AbstractString, <:Integer}
     return Formats.with_data_read_lock(daf, "axis_dict of:", axis) do
-        require_axis(daf, axis)
+        require_axis(daf, "for: axis_dict", axis)
         result = Formats.axis_dict_with_cache(daf, axis)
         @debug "axis_dict daf: $(depict(daf)) result: $(depict(result))"
         return result
@@ -250,16 +250,16 @@ This first verifies the `axis` exists in `daf`.
 """
 function axis_length(daf::DafReader, axis::AbstractString)::Int64
     return Formats.with_data_read_lock(daf, "axis_length of:", axis) do
-        require_axis(daf, axis)
+        require_axis(daf, "for: axis_length", axis)
         result = Formats.format_axis_length(daf, axis)
         @debug "axis_length daf: $(depict(daf)) axis: $(axis) result: $(result)"
         return result
     end
 end
 
-function require_axis(daf::DafReader, axis::AbstractString; for_change::Bool = false)::Nothing
+function require_axis(daf::DafReader, what_for::AbstractString, axis::AbstractString; for_change::Bool = false)::Nothing
     if !Formats.format_has_axis(daf, axis; for_change = for_change)
-        error("missing axis: $(axis)\nin the daf data: $(daf.name)")
+        error("missing axis: $(axis)\n$(what_for)\nof the daf data: $(daf.name)")
     end
     return nothing
 end
@@ -274,7 +274,7 @@ This first verifies the `axis` exists in `daf`.
 """
 function has_vector(daf::DafReader, axis::AbstractString, name::AbstractString)::Bool
     return Formats.with_data_read_lock(daf, "has_vector of:", name, "of:", axis) do
-        require_axis(daf, axis)
+        require_axis(daf, "for has_vector: $(name)", axis)
         result = name == "name" || Formats.format_has_vector(daf, axis, name)
         @debug "has_vector daf: $(depict(daf)) axis: $(axis) name: $(name) result: $(result)"
         return result
@@ -313,7 +313,7 @@ This first verifies the `axis` exists in `daf`.
 """
 function vectors_set(daf::DafReader, axis::AbstractString)::AbstractSet{<:AbstractString}
     return Formats.with_data_read_lock(daf, "vectors_set of:", axis) do
-        require_axis(daf, axis)
+        require_axis(daf, "for: vectors_set", axis)
         result = Formats.get_vectors_set_through_cache(daf, axis)
         @debug "vectors_set daf: $(depict(daf)) axis: $(axis) result: $(depict(result))"
         return result
@@ -344,10 +344,10 @@ function get_vector(
     default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
 )::Maybe{NamedArray}
     return Formats.with_data_read_lock(daf, "get_vector of:", name, "of:", axis) do
-        require_axis(daf, axis)
+        require_axis(daf, "for the vector: $(name)", axis)
 
         if default isa StorageVector
-            require_axis_length(daf, "default length", length(default), axis)
+            require_axis_length(daf, length(default), "default for the vector: $(name)", axis)
             if default isa NamedVector
                 require_dim_name(daf, axis, "default dim name", dimnames(default, 1))
                 require_axis_names(daf, axis, "entry names of the: default", names(default, 1))
@@ -449,8 +449,8 @@ function has_matrix(
     return Formats.with_data_read_lock(daf, "has_matrix of:", name, "of:", rows_axis, "and:", columns_axis) do
         Formats.relayout = relayout && rows_axis != columns_axis
 
-        require_axis(daf, rows_axis)
-        require_axis(daf, columns_axis)
+        require_axis(daf, "for the rows of the matrix: $(name)", rows_axis)
+        require_axis(daf, "for the columns of the matrix: $(name)", columns_axis)
 
         result = with_read_lock(daf.internal.cache_lock) do
             return haskey(daf.internal.cache, Formats.matrix_cache_key(rows_axis, columns_axis, name)) ||
@@ -490,8 +490,8 @@ function matrices_set(
     return Formats.with_data_read_lock(daf, "matrices_set of:", rows_axis, "and:", columns_axis) do
         relayout = relayout && rows_axis != columns_axis
 
-        require_axis(daf, rows_axis)
-        require_axis(daf, columns_axis)
+        require_axis(daf, "for the rows of: matrices_set", rows_axis)
+        require_axis(daf, "for the columns of: matrices_set", columns_axis)
 
         if !relayout
             names = Formats.get_matrices_set_through_cache(daf, rows_axis, columns_axis)
@@ -594,13 +594,13 @@ function do_get_matrix(
 )::Maybe{NamedArray}
     relayout = relayout && rows_axis != columns_axis
 
-    require_axis(daf, rows_axis)
-    require_axis(daf, columns_axis)
+    require_axis(daf, "for the rows of the matrix: $(name)", rows_axis)
+    require_axis(daf, "for the columns of the matrix: $(name)", columns_axis)
 
     if default isa StorageMatrix
         require_column_major(default)
-        require_axis_length(daf, "default rows", size(default, Rows), rows_axis)
-        require_axis_length(daf, "default columns", size(default, Columns), columns_axis)
+        require_axis_length(daf, size(default, Rows), "rows of the default for the matrix: $(name)", rows_axis)
+        require_axis_length(daf, size(default, Columns), "columns of the default for the matrix: $(name)", columns_axis)
         if default isa NamedMatrix
             require_dim_name(daf, rows_axis, "default rows dim name", dimnames(default, 1); prefix = "rows")
             require_dim_name(daf, columns_axis, "default columns dim name", dimnames(default, 2); prefix = "columns")
@@ -767,13 +767,14 @@ end
 
 function require_axis_length(
     daf::DafReader,
-    what_name::AbstractString,
     what_length::StorageInteger,
+    vector_name::AbstractString,
     axis::AbstractString,
 )::Nothing
     if what_length != Formats.format_axis_length(daf, axis)
         error(
-            "$(what_name): $(what_length)\n" *
+            "the length: $(what_length)\n" *
+            "of the $(vector_name)\n" *
             "is different from the length: $(Formats.format_axis_length(daf, axis))\n" *
             "of the axis: $(axis)\n" *
             "in the daf data: $(daf.name)",

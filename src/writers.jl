@@ -168,7 +168,7 @@ function delete_axis!(daf::DafWriter, axis::AbstractString; must_exist::Bool = t
         @debug "delete_axis! daf: $(depict(daf)) axis: $(axis) must exist: $(must_exist)"
 
         if must_exist
-            require_axis(daf, axis; for_change = true)
+            require_axis(daf, "for: delete_axis!", axis; for_change = true)
         elseif !Formats.format_has_axis(daf, axis; for_change = true)
             return nothing
         end
@@ -248,10 +248,10 @@ function set_vector!(
         @debug "set_vector! daf: $(depict(daf)) axis: $(axis) name: $(name) vector: $(depict(vector)) overwrite: $(overwrite)"
 
         require_not_name(daf, axis, name)
-        require_axis(daf, axis)
+        require_axis(daf, "for the vector: $(name)", axis)
 
         if vector isa StorageVector
-            require_axis_length(daf, "vector length", length(vector), axis)
+            require_axis_length(daf, length(vector), "vector: $(name)", axis)
             if vector isa NamedVector
                 require_dim_name(daf, axis, "vector dim name", dimnames(vector, 1))
                 require_axis_names(daf, axis, "entry names of the: vector", names(vector, 1))
@@ -323,7 +323,7 @@ function get_empty_dense_vector!(
     try
         @debug "empty_dense_vector! daf: $(depict(daf)) axis: $(axis) name: $(name) eltype: $(eltype) overwrite: $(overwrite) {"
         require_not_name(daf, axis, name)
-        require_axis(daf, axis)
+        require_axis(daf, "for the vector: $(name)", axis)
 
         Formats.invalidate_cached!(daf, Formats.vectors_set_cache_key(axis))
         Formats.invalidate_cached!(daf, Formats.vector_cache_key(axis, name))
@@ -428,7 +428,7 @@ function get_empty_sparse_vector!(
     try
         @debug "empty_sparse_vector! daf: $(depict(daf)) axis: $(axis) name: $(name) eltype: $(eltype) nnz: $(nnz) indtype: $(indtype) overwrite: $(overwrite) {"
         require_not_name(daf, axis, name)
-        require_axis(daf, axis)
+        require_axis(daf, "for the vector: $(name)", axis)
 
         Formats.invalidate_cached!(daf, Formats.vector_cache_key(axis, name))
         Formats.invalidate_cached!(daf, Formats.vectors_set_cache_key(axis))
@@ -498,7 +498,7 @@ function delete_vector!(
         @debug "delete_vector! $daf: $(depict(daf)) axis: $(axis) name: $(name) must exist: $(must_exist)"
 
         require_not_name(daf, axis, name)
-        require_axis(daf, axis)
+        require_axis(daf, "for the vector: $(name)", axis)
 
         if must_exist
             require_vector(daf, axis, name)
@@ -561,13 +561,13 @@ function set_matrix!(
         relayout = relayout && rows_axis != columns_axis
         @debug "set_matrix! daf: $(depict(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) matrix: $(depict(matrix)) overwrite: $(overwrite) relayout: $(relayout)"
 
-        require_axis(daf, rows_axis)
-        require_axis(daf, columns_axis)
+        require_axis(daf, "for the rows of the matrix: $(name)", rows_axis)
+        require_axis(daf, "for the columns of the matrix: $(name)", columns_axis)
 
         if matrix isa StorageMatrix
             require_column_major(matrix)
-            require_axis_length(daf, "matrix rows", size(matrix, Rows), rows_axis)
-            require_axis_length(daf, "matrix columns", size(matrix, Columns), columns_axis)
+            require_axis_length(daf, size(matrix, Rows), "rows of the matrix: $(name)", rows_axis)
+            require_axis_length(daf, size(matrix, Columns), "columns of the matrix: $(name)", columns_axis)
             if matrix isa NamedMatrix
                 require_dim_name(daf, rows_axis, "matrix rows dim name", dimnames(matrix, 1); prefix = "rows")
                 require_dim_name(daf, columns_axis, "matrix columns dim name", dimnames(matrix, 2); prefix = "columns")
@@ -651,8 +651,8 @@ function get_empty_dense_matrix!(
     Formats.begin_data_write_lock(daf, "empty_dense_matrix! of:", name, "of:", rows_axis, "and:", columns_axis)
     try
         @debug "empty_dense_matrix! daf: $(depict(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) eltype: $(eltype) overwrite: $(overwrite) {"
-        require_axis(daf, rows_axis)
-        require_axis(daf, columns_axis)
+        require_axis(daf, "for the rows of the matrix: $(name)", rows_axis)
+        require_axis(daf, "for the columns of the matrix: $(name)", columns_axis)
 
         if !overwrite
             require_no_matrix(daf, rows_axis, columns_axis, name; relayout = false)
@@ -762,8 +762,8 @@ function get_empty_sparse_matrix!(
     Formats.begin_data_write_lock(daf, "empty_sparse_matrix! of:", name, "of:", rows_axis, "and:", columns_axis)
     try
         @debug "empty_sparse_matrix! daf: $(depict(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) eltype: $(eltype) overwrite: $(overwrite) {"
-        require_axis(daf, rows_axis)
-        require_axis(daf, columns_axis)
+        require_axis(daf, "for the rows of the matrix: $(name)", rows_axis)
+        require_axis(daf, "for the columns of the matrix: $(name)", columns_axis)
 
         if !overwrite
             require_no_matrix(daf, rows_axis, columns_axis, name; relayout = false)
@@ -834,8 +834,8 @@ function relayout_matrix!(
     Formats.with_data_write_lock(daf, "relayout_matrix! of:", name, "of:", rows_axis, "and:", columns_axis) do
         @debug "relayout_matrix! daf: $(depict(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) overwrite: $(overwrite) {"
 
-        require_axis(daf, rows_axis)
-        require_axis(daf, columns_axis)
+        require_axis(daf, "for the rows of the matrix: $(name)", rows_axis)
+        require_axis(daf, "for the columns of the matrix: $(name)", columns_axis)
 
         if rows_axis == columns_axis
             error(
@@ -923,8 +923,8 @@ function delete_matrix!(
         relayout = relayout && rows_axis != columns_axis
         @debug "delete_matrix! daf: $(depict(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) must exist: $(must_exist)"
 
-        require_axis(daf, rows_axis)
-        require_axis(daf, columns_axis)
+        require_axis(daf, "for the rows of the matrix: $(name)", rows_axis)
+        require_axis(daf, "for the columns of the matrix: $(name)", columns_axis)
 
         if must_exist
             require_matrix(daf, rows_axis, columns_axis, name; relayout = relayout)

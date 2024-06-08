@@ -1871,7 +1871,7 @@ function fake_query_operation!(fake_query_state::FakeQueryState, axis::Axis)::No
 end
 
 function push_axis(query_state::QueryState, axis::Axis, ::Nothing)::Nothing
-    require_axis(query_state.daf, axis.axis_name)
+    require_axis(query_state.daf, "for the query: $(query_state.query_sequence)", axis.axis_name)
     query_sequence = QuerySequence((axis,))
     dependency_keys = Set((Formats.axis_array_cache_key(axis.axis_name),))
     axis_state = AxisState(query_sequence, dependency_keys, axis.axis_name, nothing)
