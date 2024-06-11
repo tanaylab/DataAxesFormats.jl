@@ -37,6 +37,7 @@ export get_query
 export is_axis_query
 export query_axis_name
 export query_result_dimensions
+export query_requires_relayout
 
 using ..Readers
 using ..Formats
@@ -714,6 +715,10 @@ function query_result_dimensions(names::Names)::Int
     return query_result_dimensions(QuerySequence((names,)))
 end
 
+function query_requires_relayout(daf::DafReader, names::Names)::Bool
+    return query_requires_relayout(daf, QuerySequence((names,)))
+end
+
 function Base.show(io::IO, names::Names)::Nothing
     kind = names.kind
     if kind === nothing
@@ -760,6 +765,10 @@ end
 
 function query_result_dimensions(lookup::Lookup)::Int
     return query_result_dimensions(QuerySequence((lookup,)))
+end
+
+function query_requires_relayout(daf::DafReader, lookup::Lookup)::Bool
+    return query_requires_relayout(daf, QuerySequence((lookup,)))
 end
 
 function Base.show(io::IO, lookup::Lookup)::Nothing
@@ -951,6 +960,10 @@ end
 
 function query_result_dimensions(axis::Axis)::Int
     return query_result_dimensions(QuerySequence((axis,)))
+end
+
+function query_requires_relayout(daf::DafReader, axis::Axis)::Bool
+    return query_requires_relayout(daf, QuerySequence((axis,)))
 end
 
 function Base.show(io::IO, axis::Axis)::Nothing
@@ -1572,9 +1585,11 @@ FakeQueryValue = Union{
 }
 
 mutable struct FakeQueryState
+    daf::Maybe{DafReader}
     query_sequence::QuerySequence
     next_operation_index::Int
     stack::Vector{FakeQueryValue}
+    requires_relayout::Bool
 end
 
 function query_state_sequence(query_state::Union{QueryState, FakeQueryState}; trim::Int = 0)::QuerySequence
@@ -1688,6 +1703,10 @@ function query_result_dimensions(query_string::AbstractString)::Int
     return query_result_dimensions(Query(query_string))
 end
 
+function query_requires_relayout(daf::DafReader, query_string::AbstractString)::Bool
+    return query_requires_relayout(daf, Query(query_string))
+end
+
 """
     is_axis_query(query::QueryString)::Bool
 
@@ -1721,8 +1740,21 @@ function query_result_dimensions(query_sequence::QuerySequence)::Int
     return get_query_result_dimensions(get_fake_query_result(query_sequence))
 end
 
-function get_fake_query_result(query_sequence::QuerySequence)::FakeQueryState
-    fake_query_state = FakeQueryState(query_sequence, 1, Vector{FakeQueryValue}())
+"""
+    query_requires_relayout(daf::DafReader, query::QueryString)::Bool
+
+Whether computing the `query` for the `daf` data requires [`relayout!`](@ref) of some matrix. This also verifies the
+query is syntactically valid and that the query can be computed, though it may still fail if applied to specific data
+due to invalid values or types.
+"""
+function query_requires_relayout(daf::DafReader, query_sequence::QuerySequence)::Bool
+    return Formats.with_data_read_lock(daf, "query_requires_relayout:", "$(query_sequence)") do
+        return get_fake_query_result(query_sequence; daf = daf).requires_relayout
+    end
+end
+
+function get_fake_query_result(query_sequence::QuerySequence; daf::Maybe{DafReader} = nothing)::FakeQueryState
+    fake_query_state = FakeQueryState(daf, query_sequence, 1, Vector{FakeQueryValue}(), false)
     while fake_query_state.next_operation_index <= length(fake_query_state.query_sequence.query_operations)
         query_operation = query_sequence.query_operations[fake_query_state.next_operation_index]
         fake_query_state.next_operation_index += 1
@@ -1861,6 +1893,10 @@ end
 
 function fake_query_operation!(fake_query_state::FakeQueryState, axis::Axis)::Nothing
     if isempty(fake_query_state.stack) || is_all(fake_query_state, (FakeAxisState,))
+        daf = fake_query_state.daf
+        if daf !== nothing
+            require_axis(daf, "for the query: $(fake_query_state.query_sequence)", axis.axis_name)
+        end
         is_entry = get_next_operation(fake_query_state, IsEqual) !== nothing
         is_slice = peek_next_operation(fake_query_state, MaskOperation) !== nothing
         push!(fake_query_state.stack, FakeAxisState(axis.axis_name, is_entry, is_slice))
@@ -1996,6 +2032,7 @@ function fake_vectors_set(fake_query_state::FakeQueryState, names::Names)::Nothi
 
     fake_axis_state = pop!(fake_query_state.stack)
     @assert fake_axis_state isa FakeAxisState
+
     if fake_axis_state.is_entry || fake_axis_state.is_slice
         error_at_state(fake_query_state, "sliced/masked axis for vector names\n")
     end
@@ -2013,6 +2050,7 @@ function fake_matrices_set(fake_query_state::FakeQueryState, names::Names)::Noth
     @assert fake_rows_axis_state isa FakeAxisState
     fake_columns_axis_state = pop!(fake_query_state.stack)
     @assert fake_columns_axis_state isa FakeAxisState
+
     if fake_rows_axis_state.is_entry ||
        fake_rows_axis_state.is_slice ||
        fake_columns_axis_state.is_entry ||
@@ -2036,13 +2074,13 @@ function apply_query_operation!(query_state::QueryState, lookup::Lookup)::Nothin
     return error_unexpected_operation(query_state)
 end
 
-function fake_query_operation!(fake_query_state::FakeQueryState, ::Lookup)::Nothing
+function fake_query_operation!(fake_query_state::FakeQueryState, lookup::Lookup)::Nothing
     if isempty(fake_query_state.stack)
         return fake_lookup_scalar(fake_query_state)
     elseif is_all(fake_query_state, (FakeAxisState,))
         return fake_lookup_axis(fake_query_state)
     elseif is_all(fake_query_state, (FakeAxisState, FakeAxisState))
-        return fake_lookup_axes(fake_query_state)
+        return fake_lookup_axes(fake_query_state, lookup)
     end
 
     return error_unexpected_operation(fake_query_state)
@@ -2160,11 +2198,22 @@ function lookup_axes(query_state::QueryState, lookup::Lookup)::Nothing
     @assert false
 end
 
-function fake_lookup_axes(fake_query_state::FakeQueryState)::Nothing
+function fake_lookup_axes(fake_query_state::FakeQueryState, lookup::Lookup)::Nothing
     columns_axis_state = pop!(fake_query_state.stack)
     @assert columns_axis_state isa FakeAxisState
     rows_axis_state = pop!(fake_query_state.stack)
     @assert rows_axis_state isa FakeAxisState
+
+    daf = fake_query_state.daf
+    if daf !== nothing
+        rows_axis_name = rows_axis_state.axis_name
+        columns_axis_name = columns_axis_state.axis_name
+        @assert rows_axis_name !== nothing
+        @assert columns_axis_name !== nothing
+        if !has_matrix(daf, rows_axis_name, columns_axis_name, lookup.property_name; relayout = false)
+            fake_query_state.requires_relayout = true
+        end
+    end
 
     get_next_operation(fake_query_state, IfMissing)
 
@@ -2255,6 +2304,7 @@ end
 function fake_lookup_axis(fake_query_state::FakeQueryState)::Nothing
     fake_axis_state = pop!(fake_query_state.stack)
     @assert fake_axis_state isa FakeAxisState
+
     fake_fetch_property(fake_query_state, fake_axis_state)
     return nothing
 end

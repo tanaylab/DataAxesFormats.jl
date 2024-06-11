@@ -819,6 +819,36 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
+<a class="docstring-binding" id="Daf.Queries.query_requires_relayout" href="#Daf.Queries.query_requires_relayout">
+<code>Daf.Queries.query_requires_relayout
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">query_requires_relayout(daf::DafReader, query::QueryString)::Bool
+</code>
+</pre>
+<p>Whether computing the 
+<code>query
+</code> for the 
+<code>daf
+</code> data requires 
+<a href="matrix_layouts.html#Daf.MatrixLayouts.relayout!">
+<code>relayout!
+</code>
+</a> of some matrix. This also verifies the query is syntactically valid and that the query can be computed, though it may still fail if applied to specific data due to invalid values or types.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
 <a class="docstring-binding" id="Daf.Queries.is_axis_query" href="#Daf.Queries.is_axis_query">
 <code>Daf.Queries.is_axis_query
 </code>
@@ -4113,6 +4143,12 @@
 <li>
 <a href="queries.html#Daf.Queries.is_axis_query">
 <code>Daf.Queries.is_axis_query
+</code>
+</a>
+</li>
+<li>
+<a href="queries.html#Daf.Queries.query_requires_relayout">
+<code>Daf.Queries.query_requires_relayout
 </code>
 </a>
 </li>

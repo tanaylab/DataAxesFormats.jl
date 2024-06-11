@@ -20,6 +20,7 @@ Daf.Queries.get_frame
 Daf.Queries.QueryColumns
 Daf.Queries.full_vector_query
 Daf.Queries.query_result_dimensions
+Daf.Queries.query_requires_relayout
 Daf.Queries.is_axis_query
 ```
 

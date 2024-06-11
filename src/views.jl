@@ -552,15 +552,25 @@ function collect_matrix(
                 "of the daf data: $(daf.name)",
             )
         end
-        collected_matrices[rows_axis_name][columns_axis_name][matrix_name] =
-            Fetch{StorageMatrix}(full_matrix_query, nothing)
+
+        did_collect = false
+        if !query_requires_relayout(daf, full_matrix_query)
+            did_collect = true
+            collected_matrices[rows_axis_name][columns_axis_name][matrix_name] =
+                Fetch{StorageMatrix}(full_matrix_query, nothing)
+        end
 
         if rows_axis_name != columns_axis_name
             flipped_matrix_query = fetch_columns_axis.query |> fetch_rows_axis.query |> matrix_query
             @assert query_result_dimensions(flipped_matrix_query) == 2
-            collected_matrices[columns_axis_name][rows_axis_name][matrix_name] =
-                Fetch{StorageMatrix}(flipped_matrix_query, nothing)
+            if !query_requires_relayout(daf, flipped_matrix_query)
+                did_collect = true
+                collected_matrices[columns_axis_name][rows_axis_name][matrix_name] =
+                    Fetch{StorageMatrix}(flipped_matrix_query, nothing)
+            end
         end
+
+        @assert did_collect
     end
     return nothing
 end
@@ -602,12 +612,12 @@ function Formats.has_data_read_lock(view::DafView)::Bool
     return Formats.has_data_read_lock(view.daf)
 end
 
-function Formats.begin_data_write_lock(view::DafView, what::AbstractString...)::Nothing
+function Formats.begin_data_write_lock(view::DafView, what::AbstractString...)::Nothing  # flaky tested
     invoke(Formats.begin_data_write_lock, Tuple{DafReader, Vararg{AbstractString}}, view, what...)
     return Formats.begin_data_write_lock(view.daf, what...)
 end
 
-function Formats.end_data_write_lock(view::DafView, what::AbstractString...)::Nothing
+function Formats.end_data_write_lock(view::DafView, what::AbstractString...)::Nothing  # flaky tested
     Formats.end_data_write_lock(view.daf, what...)
     return invoke(Formats.end_data_write_lock, Tuple{DafReader, Vararg{AbstractString}}, view, what...)
 end

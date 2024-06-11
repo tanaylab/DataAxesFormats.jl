@@ -247,57 +247,75 @@ nested_test("views") do
             data = [ALL_SCALARS => nothing, ALL_VECTORS => "=", ("obs", "var", "X") => ": UMIs"],
         )
 
-        @test description(view) == dedent("""
-            name: view!
-            type: View
-            base: MemoryDaf memory!
-            axes:
-              obs: 2 entries
-              var: 3 entries
-            vectors:
-              obs:
-                age: 2 x Float64 (Dense)
-                batch: 2 x String (Dense)
-            matrices:
-              obs,var:
-                X: 2 x 3 x Int64 in Columns (Dense)
-              var,obs:
-                X: 3 x 2 x Int64 in Columns (Dense)
-        """) * "\n"
+        nested_test("()") do
+            @test description(view) == dedent("""
+                name: view!
+                type: View
+                base: MemoryDaf memory!
+                axes:
+                  obs: 2 entries
+                  var: 3 entries
+                vectors:
+                  obs:
+                    age: 2 x Float64 (Dense)
+                    batch: 2 x String (Dense)
+                matrices:
+                  var,obs:
+                    X: 3 x 2 x Int64 in Columns (Dense)
+            """) * "\n"
 
-        @test description(view; deep = true) == dedent("""
-            name: view!
-            type: View
-            axes:
-              obs: 2 entries
-              var: 3 entries
-            vectors:
-              obs:
-                age: 2 x Float64 (Dense)
-                batch: 2 x String (Dense)
-            matrices:
-              obs,var:
-                X: 2 x 3 x Int64 in Columns (Dense)
-              var,obs:
-                X: 3 x 2 x Int64 in Columns (Dense)
-            base:
-              name: memory!
-              type: MemoryDaf
-              axes:
-                batch: 3 entries
-                cell: 2 entries
-                gene: 3 entries
-              vectors:
-                batch:
-                  sex: 3 x String (Dense)
-                cell:
-                  age: 2 x Float64 (Dense)
-                  batch: 2 x String (Dense)
-              matrices:
-                cell,gene:
-                  UMIs: 2 x 3 x Int64 in Columns (Dense)
-                gene,cell:
-                  UMIs: 3 x 2 x Int64 in Columns (Dense)
-        """) * "\n"
+            @test description(view; deep = true) == dedent("""
+                name: view!
+                type: View
+                axes:
+                  obs: 2 entries
+                  var: 3 entries
+                vectors:
+                  obs:
+                    age: 2 x Float64 (Dense)
+                    batch: 2 x String (Dense)
+                matrices:
+                  var,obs:
+                    X: 3 x 2 x Int64 in Columns (Dense)
+                base:
+                  name: memory!
+                  type: MemoryDaf
+                  axes:
+                    batch: 3 entries
+                    cell: 2 entries
+                    gene: 3 entries
+                  vectors:
+                    batch:
+                      sex: 3 x String (Dense)
+                    cell:
+                      age: 2 x Float64 (Dense)
+                      batch: 2 x String (Dense)
+                  matrices:
+                    gene,cell:
+                      UMIs: 3 x 2 x Int64 in Columns (Dense)
+            """) * "\n"
+        end
+
+        nested_test("realized") do
+            obs_var = get_matrix(view, "obs", "var", "X")
+            var_obs = get_matrix(view, "var", "obs", "X")
+            @test get_matrix(view, "obs", "var", "X") === obs_var
+            @test get_matrix(view, "var", "obs", "X") == var_obs
+            @test description(view) == dedent("""
+                name: view!
+                type: View
+                base: MemoryDaf memory!
+                axes:
+                  obs: 2 entries
+                  var: 3 entries
+                vectors:
+                  obs:
+                    age: 2 x Float64 (Dense)
+                    batch: 2 x String (Dense)
+                matrices:
+                  var,obs:
+                    X: 3 x 2 x Int64 in Columns (Dense)
+            """) * "\n"
+        end
     end
 end

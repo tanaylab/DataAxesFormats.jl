@@ -1,5 +1,12 @@
-function get_result(daf::DafReader, query::Union{String, Query}; cache::Bool = true, is_axis::Bool = false)::Any
+function get_result(
+    daf::DafReader,
+    query::Union{String, Query};
+    cache::Bool = true,
+    is_axis::Bool = false,
+    requires_relayout::Bool = false,
+)::Any
     @test is_axis_query(query) == is_axis
+    @test query_requires_relayout(daf, query) == requires_relayout
     value = get_query(daf, query; cache = cache)
     if value isa AbstractSet{<:AbstractString}
         @test query_result_dimensions(query) == -1
@@ -872,7 +879,7 @@ nested_test("queries") do
         nested_test("-if_missing") do
             add_axis!(daf, "cell", ["A", "B"])
             add_axis!(daf, "gene", ["X", "Y", "Z"])
-            @test get_result(daf, q"/ cell / gene : UMIs || -1") == (
+            @test get_result(daf, q"/ cell / gene : UMIs || -1"; requires_relayout = true) == (
                 ("cell", "gene"),
                 [
                     ("A", "X") => -1,

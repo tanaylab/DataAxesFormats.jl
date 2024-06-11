@@ -627,6 +627,7 @@ function do_get_matrix(
                 Formats.upgrade_to_data_write_lock(daf)
                 Formats.format_relayout_matrix!(daf, columns_axis, rows_axis, name)
             else
+                # TODO: Add the relayout matrix to the reported matrices set!
                 cache_key = Formats.matrix_cache_key(rows_axis, columns_axis, name)
                 cache_entry = with_read_lock(daf.internal.cache_lock, daf.name, "cache for:", cache_key) do
                     return get(daf.internal.cache, cache_key, nothing)
