@@ -631,19 +631,19 @@ the `name` matrix property exists for them.
 function format_get_matrix end
 
 """
-    format_description_header(format::FormatReader, lines::Vector{String})::Nothing
+    format_description_header(format::FormatReader, lines::Vector{String}, deep::Bool)::Nothing
 
 Allow a `format` to amit additional description header lines.
 
 This trusts that we have a read lock on the data set.
 """
-function format_description_header(format::FormatReader, indent::AbstractString, lines::Vector{String})::Nothing
+function format_description_header(format::FormatReader, indent::AbstractString, lines::Vector{String}, ::Bool)::Nothing
     push!(lines, "$(indent)type: $(typeof(format))")
     return nothing
 end
 
 """
-    format_description_footer(format::FormatReader, lines::Vector{String})::Nothing
+    format_description_footer(format::FormatReader, lines::Vector{String}, cache::Bool, deep::Bool)::Nothing
 
 Allow a `format` to amit additional description footer lines. If `deep`, this also emit the description of any data sets
 nested in this one, if any.
@@ -727,7 +727,16 @@ function axis_dict_with_cache(format::FormatReader, axis::AbstractString)::Abstr
 
     if axis_dict === nothing
         axis_dict = with_write_lock(format.internal.cache_lock, format.name, "cache for:", cache_key) do
-            names = read_only_array(axis_array_through_cache(format, axis))
+            cache_entry = get(format.internal.cache, cache_key, nothing)
+            if cache_entry !== nothing
+                return cache_entry.data  # untested
+            end
+
+            names = axis_array_through_cache(format, axis)
+            if eltype(names) != AbstractString
+                names = Vector{AbstractString}(names)  # NOJET
+            end
+            names = read_only_array(names)
             named_array = NamedArray(spzeros(length(names)); names = (names,), dimnames = (axis,))
             axis_dict = named_array.dicts[1]
             format.internal.cache[cache_key] = CacheEntry(MemoryData, axis_dict)

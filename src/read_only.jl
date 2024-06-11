@@ -209,9 +209,11 @@ function Formats.format_description_header(
     read_only_view::DafReadOnlyWrapper,
     indent::AbstractString,
     lines::Vector{String},
+    ::Bool,
 )::Nothing
     @assert Formats.has_data_read_lock(read_only_view)
-    push!(lines, "$(indent)type: ReadOnly $(typeof(read_only_view.daf))")
+    push!(lines, "$(indent)type: ReadOnly")
+    push!(lines, "$(indent)base: $(depict(read_only_view.daf))")
     return nothing
 end
 

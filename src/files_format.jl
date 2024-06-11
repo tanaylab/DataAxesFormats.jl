@@ -168,6 +168,7 @@ The valid `mode` values are as follows (the default mode is `r`):
 struct FilesDaf <: DafWriter
     internal::Internal
     path::AbstractString
+    mode::AbstractString
     files_mode::String
 end
 
@@ -227,9 +228,9 @@ function FilesDaf(
     end
 
     if is_read_only
-        file = read_only(FilesDaf(Internal(name; is_frozen = true), path, "r"))
+        file = read_only(FilesDaf(Internal(name; is_frozen = true), path, mode, "r"))
     else
-        file = FilesDaf(Internal(name; is_frozen = false), path, "r+")
+        file = FilesDaf(Internal(name; is_frozen = false), path, mode, "r+")
     end
     @debug "Daf: $(depict(file)) path: $(path)"
     return file
@@ -825,6 +826,19 @@ function write_array_json(
         @assert indtype !== nothing
         write(path, "{\"format\":\"sparse\",\"eltype\":\"$(eltype)\",\"indtype\":\"$(indtype)\"}\n")
     end
+    return nothing
+end
+
+function Formats.format_description_header(
+    files::FilesDaf,
+    indent::AbstractString,
+    lines::Vector{String},
+    ::Bool,
+)::Nothing
+    @assert Formats.has_data_read_lock(files)
+    push!(lines, "$(indent)type: $(typeof(files))")
+    push!(lines, "$(indent)path: $(files.path)")
+    push!(lines, "$(indent)mode: $(files.mode)")
     return nothing
 end
 

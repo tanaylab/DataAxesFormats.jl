@@ -94,6 +94,9 @@ nested_test("chains") do
                                 @test description(chain) == dedent("""
                                     name: chain!
                                     type: $(type_name) Chain
+                                    chain:
+                                    - MemoryDaf first!
+                                    - MemoryDaf second!
                                     scalars:
                                       version: 2.0 (Float64)
                                 """) * "\n"
@@ -103,6 +106,9 @@ nested_test("chains") do
                                 @test description(chain; deep = false) == dedent("""
                                     name: chain!
                                     type: $(type_name) Chain
+                                    chain:
+                                    - MemoryDaf first!
+                                    - MemoryDaf second!
                                     scalars:
                                       version: 2.0 (Float64)
                                   """) * "\n"

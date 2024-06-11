@@ -249,7 +249,8 @@ nested_test("views") do
 
         @test description(view) == dedent("""
             name: view!
-            type: View MemoryDaf
+            type: View
+            base: MemoryDaf memory!
             axes:
               obs: 2 entries
               var: 3 entries
@@ -262,6 +263,41 @@ nested_test("views") do
                 X: 2 x 3 x Int64 in Columns (Dense)
               var,obs:
                 X: 3 x 2 x Int64 in Columns (Dense)
+        """) * "\n"
+
+        @test description(view; deep = true) == dedent("""
+            name: view!
+            type: View
+            axes:
+              obs: 2 entries
+              var: 3 entries
+            vectors:
+              obs:
+                age: 2 x Float64 (Dense)
+                batch: 2 x String (Dense)
+            matrices:
+              obs,var:
+                X: 2 x 3 x Int64 in Columns (Dense)
+              var,obs:
+                X: 3 x 2 x Int64 in Columns (Dense)
+            base:
+              name: memory!
+              type: MemoryDaf
+              axes:
+                batch: 3 entries
+                cell: 2 entries
+                gene: 3 entries
+              vectors:
+                batch:
+                  sex: 3 x String (Dense)
+                cell:
+                  age: 2 x Float64 (Dense)
+                  batch: 2 x String (Dense)
+              matrices:
+                cell,gene:
+                  UMIs: 2 x 3 x Int64 in Columns (Dense)
+                gene,cell:
+                  UMIs: 3 x 2 x Int64 in Columns (Dense)
         """) * "\n"
     end
 end

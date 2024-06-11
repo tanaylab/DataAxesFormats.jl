@@ -1,7 +1,7 @@
 nested_test("adapters") do
     daf = MemoryDaf(; name = "memory!")
     set_scalar!(daf, "INPUT", 1)
-    result = adapter(viewer(daf; data = ["input" => ": INPUT"]); data = ["OUTPUT" => ": output"]) do adapted
+    result = adapter(daf; input_data = ["input" => ": INPUT"], output_data = ["OUTPUT" => ": output"]) do adapted
         set_scalar!(adapted, "output", get_scalar(adapted, "input"))
         return 7
     end

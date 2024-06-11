@@ -2863,8 +2863,9 @@ function fetch_result(
 
     if_not_values = fetch_state.if_not_values
     if if_not_values !== nothing
-        if !fetch_state.may_modify_named_vector
-            named_vector.array = copy_array(named_vector.array)  # untested
+        if !fetch_state.may_modify_named_vector ||
+           (eltype(named_vector) <: AbstractString && !(eltype(named_vector) in (String, AbstractString)))
+            named_vector = copy_array(named_vector)  # untested
         end
 
         for index in 1:length(named_vector)
@@ -3746,7 +3747,7 @@ function regex_for(query_state::QueryState, value::StorageScalar)::Regex
     comparison_value = value_for(query_state, String, value)  # NOJET
     comparison_value = "^(:?" * comparison_value * ")\$"
     try
-        return Regex(comparison_value)
+        return Regex(comparison_value)  # NOJET
     catch exception
         error_at_state(
             query_state,
@@ -3755,9 +3756,15 @@ function regex_for(query_state::QueryState, value::StorageScalar)::Regex
     end
 end
 
-function value_for(query_state::QueryState, ::Type{T}, value::StorageScalar)::T where {T <: StorageScalarBase}
+function value_for(
+    query_state::QueryState,
+    ::Type{T},
+    value::StorageScalar,
+)::StorageScalar where {T <: StorageScalarBase}
     if value isa T
         return value
+    elseif T <: AbstractString
+        return String(value)  # untested
     elseif value isa AbstractString
         try
             return parse(T, value)

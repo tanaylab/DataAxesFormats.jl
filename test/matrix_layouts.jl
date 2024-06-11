@@ -1,4 +1,9 @@
 nested_test("matrix_layouts") do
+    nested_test("copy_array") do
+        @test eltype(split("a,b", ",")) != AbstractString
+        @test eltype(copy_array(split("a,b", ","))) == AbstractString
+    end
+
     nested_test("axes") do
         nested_test("name") do
             @test axis_name(Rows) == "Rows"

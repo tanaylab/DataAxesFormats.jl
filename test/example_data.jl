@@ -1,12 +1,22 @@
 function test_description(
     daf::DafReader;
     cache::String = "",
-    kind::String = "ReadOnly ",
+    kind::String = "ReadOnly",
     name::String = "example!",
 )::Nothing
-    prefix = dedent("""
-        name: $(name)
-        type: $(kind)MemoryDaf
+    if kind == ""
+        header = dedent("""
+            name: $(name)
+            type: MemoryDaf
+        """)
+    else
+        header = dedent("""
+            name: $(name)
+            type: $(kind)
+            base: MemoryDaf example!
+        """)
+    end
+    prefix = header * "\n" * dedent("""
         scalars:
           version: "1.0"
         axes:
@@ -37,7 +47,6 @@ function test_description(
           gene,cell:
             UMIs: 10 x 20 x Int16 in Columns (Dense)
     """) * "\n"
-
     @test description(daf) == prefix
 
     if cache != ""
@@ -64,7 +73,7 @@ nested_test("example_data") do
 
             nested_test("view") do
                 view = viewer(daf.daf; name = "view!", axes = [VIEW_ALL_AXES], data = VIEW_ALL_DATA)
-                test_description(view; kind = "View ", name = "view!")
+                test_description(view; kind = "View", name = "view!")
                 return nothing
             end
         end
@@ -76,7 +85,7 @@ nested_test("example_data") do
 
             nested_test("view") do
                 view = viewer(daf; name = "view!", axes = [VIEW_ALL_AXES], data = VIEW_ALL_DATA)
-                test_description(view; kind = "View ", name = "view!")
+                test_description(view; kind = "View", name = "view!")
                 return nothing
             end
         end
@@ -109,13 +118,13 @@ nested_test("example_data") do
                 ]
 
                 test_description(daf; cache = dedent("""
-                      cache:
-                        '# batch': (MemoryData) (OrderedCollections.OrderedDict{String, Int64} length: 4)
-                        '# cell': (MemoryData) (OrderedCollections.OrderedDict{String, Int64} length: 20)
-                        '# gene': (MemoryData) (OrderedCollections.OrderedDict{String, Int64} length: 10)
-                        '# type': (MemoryData) (OrderedCollections.OrderedDict{String, Int64} length: 3)
-                        '/ cell / gene : UMIs': (QueryData) 20 x 10 x Int16 in Columns (Dense)
-                  """))
+                    cache:
+                      '# batch': (MemoryData) (OrderedCollections.OrderedDict{AbstractString, Int64} length: 4)
+                      '# cell': (MemoryData) (OrderedCollections.OrderedDict{AbstractString, Int64} length: 20)
+                      '# gene': (MemoryData) (OrderedCollections.OrderedDict{AbstractString, Int64} length: 10)
+                      '# type': (MemoryData) (OrderedCollections.OrderedDict{AbstractString, Int64} length: 3)
+                      '/ cell / gene : UMIs': (QueryData) 20 x 10 x Int16 in Columns (Dense)
+                """))
 
                 return nothing
             end
@@ -146,10 +155,10 @@ nested_test("example_data") do
 
                 test_description(daf; cache = dedent("""
                     cache:
-                      '# batch': (MemoryData) (OrderedCollections.OrderedDict{String, Int64} length: 4)
-                      '# cell': (MemoryData) (OrderedCollections.OrderedDict{String, Int64} length: 20)
-                      '# gene': (MemoryData) (OrderedCollections.OrderedDict{String, Int64} length: 10)
-                      '# type': (MemoryData) (OrderedCollections.OrderedDict{String, Int64} length: 3)
+                      '# batch': (MemoryData) (OrderedCollections.OrderedDict{AbstractString, Int64} length: 4)
+                      '# cell': (MemoryData) (OrderedCollections.OrderedDict{AbstractString, Int64} length: 20)
+                      '# gene': (MemoryData) (OrderedCollections.OrderedDict{AbstractString, Int64} length: 10)
+                      '# type': (MemoryData) (OrderedCollections.OrderedDict{AbstractString, Int64} length: 3)
                       '/ cell / gene : UMIs % Abs': (QueryData) 20 x 10 x UInt16 in Columns (Dense)
                 """))
                 return nothing
@@ -167,10 +176,10 @@ nested_test("example_data") do
 
                 test_description(daf; cache = dedent("""
                     cache:
-                      '# batch': (MemoryData) (OrderedCollections.OrderedDict{String, Int64} length: 4)
-                      '# cell': (MemoryData) (OrderedCollections.OrderedDict{String, Int64} length: 20)
-                      '# gene': (MemoryData) (OrderedCollections.OrderedDict{String, Int64} length: 10)
-                      '# type': (MemoryData) (OrderedCollections.OrderedDict{String, Int64} length: 3)
+                      '# batch': (MemoryData) (OrderedCollections.OrderedDict{AbstractString, Int64} length: 4)
+                      '# cell': (MemoryData) (OrderedCollections.OrderedDict{AbstractString, Int64} length: 20)
+                      '# gene': (MemoryData) (OrderedCollections.OrderedDict{AbstractString, Int64} length: 10)
+                      '# type': (MemoryData) (OrderedCollections.OrderedDict{AbstractString, Int64} length: 3)
                       '/ cell & batch = B1 / gene & module = M1 : UMIs': (QueryData) 6 x 2 x Int16 in Columns (Dense)
                 """))
                 return nothing

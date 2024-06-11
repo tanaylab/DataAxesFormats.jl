@@ -829,13 +829,12 @@ function description(daf::DafReader; cache::Bool = false, deep::Bool = false)::S
 end
 
 function description(daf::DafReader, indent::AbstractString, lines::Vector{String}, cache::Bool, deep::Bool)::Nothing
-    if indent == ""
-        push!(lines, "$(indent)name: $(daf.name)")
-    else
-        push!(lines, "- $(indent[3:end])name: $(daf.name)")
+    push!(lines, "$(indent)name: $(daf.name)")
+    if startswith(indent, "-")
+        indent = " " * indent[2:end]
     end
 
-    Formats.format_description_header(daf, indent, lines)
+    Formats.format_description_header(daf, indent, lines, deep)
 
     scalars_description(daf, indent, lines)
 

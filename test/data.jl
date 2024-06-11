@@ -3037,6 +3037,8 @@ nested_test("data") do
                 @test description(daf) == dedent("""
                     name: h5df!
                     type: H5df
+                    root: HDF5.File: (read-write) $(path)/test.h5df
+                    mode: w+
                 """) * "\n"
                 test_format(daf)
                 daf = H5df(path * "/test.h5df", "r+")
@@ -3057,6 +3059,8 @@ nested_test("data") do
                     @test description(daf) == dedent("""
                         name: $(path)/test.h5df:/root
                         type: H5df
+                        root: HDF5.Group: /root (file: $(path)/test.h5df)
+                        mode: w+
                     """) * "\n"
                     test_format(daf)
 
@@ -3106,6 +3110,8 @@ nested_test("data") do
                 @test description(daf) == dedent("""
                     name: files!
                     type: FilesDaf
+                    path: $(path)
+                    mode: w+
                 """) * "\n"
                 test_format(daf)
                 mkdir(path * "/deleted")

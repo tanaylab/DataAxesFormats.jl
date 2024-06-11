@@ -165,6 +165,7 @@ The valid `mode` values are as follows (the default mode is `r`):
 struct H5df <: DafWriter
     internal::Internal
     root::Union{HDF5.File, HDF5.Group}
+    mode::AbstractString
 end
 
 function H5df(
@@ -175,10 +176,7 @@ function H5df(
     (is_read_only, create_if_missing, truncate_if_exists) = Formats.parse_mode(mode)
 
     if root isa AbstractString
-        if mode == "w+"
-            mode = "cw"
-        end
-        root = h5open(root, mode; fapl = HDF5.FileAccessProperties(; alignment = (1, 8)))  # NOJET
+        root = h5open(root, mode == "w+" ? "cw" : mode; fapl = HDF5.FileAccessProperties(; alignment = (1, 8)))  # NOJET
     end
     verify_alignment(root)
 
@@ -217,7 +215,7 @@ function H5df(
         end
     end
 
-    h5df = H5df(Internal(name; is_frozen = is_read_only), root)
+    h5df = H5df(Internal(name; is_frozen = is_read_only), root, mode)
     @debug "Daf: $(depict(h5df)) root: $(root)"
     if is_read_only
         return read_only(h5df)
@@ -892,6 +890,14 @@ function dataset_as_matrix(dataset::HDF5.Dataset)::Tuple{StorageMatrix, CacheTyp
     else
         return (read(dataset), MemoryData)  # untested
     end
+end
+
+function Formats.format_description_header(h5df::H5df, indent::AbstractString, lines::Vector{String}, ::Bool)::Nothing
+    @assert Formats.has_data_read_lock(h5df)
+    push!(lines, "$(indent)type: $(typeof(h5df))")
+    push!(lines, "$(indent)root: $(h5df.root)")
+    push!(lines, "$(indent)mode: $(h5df.mode)")
+    return nothing
 end
 
 end  # module

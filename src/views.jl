@@ -727,9 +727,32 @@ function Formats.format_get_matrix(
     return matrix_value
 end
 
-function Formats.format_description_header(view::DafView, indent::AbstractString, lines::Vector{String})::Nothing
+function Formats.format_description_header(
+    view::DafView,
+    indent::AbstractString,
+    lines::Vector{String},
+    deep::Bool,
+)::Nothing
     @assert Formats.has_data_read_lock(view)
-    push!(lines, "$(indent)type: View $(typeof(view.daf))")
+    push!(lines, "$(indent)type: View")
+    if !deep
+        push!(lines, "$(indent)base: $(depict(view.daf))")
+    end
+    return nothing
+end
+
+function Formats.format_description_footer(
+    view::DafView,
+    indent::AbstractString,
+    lines::Vector{String},
+    cache::Bool,
+    deep::Bool,
+)::Nothing
+    @assert Formats.has_data_read_lock(view)
+    if deep
+        push!(lines, "$(indent)base:")
+        description(view.daf, indent * "  ", lines, cache, deep)  # NOJET
+    end
     return nothing
 end
 

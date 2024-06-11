@@ -41,7 +41,7 @@ only 1% (unless it is actually identical).
     for (group_index, entries_of_group) in enumerate(entries_of_groups)
         context = SHA2_256_CTX()
         for entry_index in entries_of_group
-            update!(context, transcode(UInt8, names_of_entries[entry_index]))
+            update!(context, transcode(UInt8, String(names_of_entries[entry_index])))
         end
         suffix = sum(digest!(context)) % 100
         names_of_groups[group_index] = "$(prefix)$(group_index).$(lpad(suffix, 2, "0"))"

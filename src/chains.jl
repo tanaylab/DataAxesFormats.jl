@@ -611,15 +611,29 @@ function Formats.format_get_matrix(
     @assert false
 end
 
-function Formats.format_description_header(chain::ReadOnlyChain, indent::AbstractString, lines::Vector{String})::Nothing
+function Formats.format_description_header(
+    chain::AnyChain,
+    indent::AbstractString,
+    lines::Vector{String},
+    deep::Bool,
+)::Nothing
     @assert Formats.has_data_read_lock(chain)
-    push!(lines, "$(indent)type: ReadOnly Chain")
-    return nothing
-end
 
-function Formats.format_description_header(chain::WriteChain, indent::AbstractString, lines::Vector{String})::Nothing
-    @assert Formats.has_data_read_lock(chain)
-    push!(lines, "$(indent)type: Write Chain")
+    if chain isa ReadOnlyChain
+        push!(lines, "$(indent)type: ReadOnly Chain")
+    elseif chain isa WriteChain
+        push!(lines, "$(indent)type: Write Chain")
+    else
+        @assert false
+    end
+
+    if !deep
+        push!(lines, "$(indent)chain:")
+        for daf in chain.dafs
+            push!(lines, "$(indent)- $(depict(daf))")
+        end
+    end
+
     return nothing
 end
 
@@ -634,7 +648,7 @@ function Formats.format_description_footer(
     if deep
         push!(lines, "$(indent)chain:")
         for daf in chain.dafs
-            description(daf, indent * "  ", lines, cache, deep)  # NOJET
+            description(daf, "- " * indent, lines, cache, deep)  # NOJET
         end
     end
     return nothing

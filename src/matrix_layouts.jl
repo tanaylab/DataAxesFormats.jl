@@ -405,6 +405,7 @@ Create a mutable copy of an array. This differs from `Base.copy` in the followin
   - Copying a sparse vector or matrix gives the same type of sparse array or matrix. Copying anything else gives a
     simple dense array regardless of the original type. This is done because a `deepcopy` of `PyArray` will still
     share the underlying buffer. Sigh.
+  - Copying a vector of anything derived from `AbstractString` returns a vector of `AbstractString`.
 """
 function copy_array(array::Union{SparseMatrixCSC, SparseVector})::AbstractArray
     return deepcopy(array)
@@ -416,6 +417,10 @@ end
 
 function copy_array(array::AbstractVector)::Vector
     return Vector(array)
+end
+
+function copy_array(array::AbstractVector{<:AbstractString})::Vector{AbstractString}
+    return Vector{AbstractString}(array)  # NOJET
 end
 
 function copy_array(matrix::Transpose)::Transpose

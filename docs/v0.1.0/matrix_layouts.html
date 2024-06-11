@@ -733,6 +733,12 @@ transposer!(matrix::NamedMatrix)::NamedMatrix
 <code>PyArray
 </code> will still share the underlying buffer. Sigh.
 </li>
+<li>Copying a vector of anything derived from 
+<code>AbstractString
+</code> returns a vector of 
+<code>AbstractString
+</code>.
+</li>
 </ul>
 </div>
 </section>

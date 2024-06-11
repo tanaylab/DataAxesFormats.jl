@@ -27,6 +27,10 @@ using ..Writers
 using NamedArrays
 using SparseArrays
 
+import ..Formats.as_named_matrix
+import ..Formats.as_named_vector
+import ..Formats.with_data_write_lock
+
 """
     copy_scalar(;
         destination::DafWriter,
@@ -191,19 +195,21 @@ source axis contains entries that do not exist in the target, they are discarded
     @assert relation == :source_is_subset
     verify_subset(source.name, axis, destination.name, reaxis, what_for)
 
-    if issparse(value.array) || concrete_dtype <: AbstractString
-        dense = Vector{concrete_dtype}(undef, axis_length(destination, reaxis))
-        named = NamedArray(dense; names = (axis_array(destination, reaxis),))
-        named .= empty
-        named[names(value, 1)] .= value  # NOJET
-        value = issparse(value.array) && !(concrete_dtype <: AbstractString) ? sparse_vector(dense) : dense
-        set_vector!(destination, reaxis, rename, value; overwrite = overwrite)
-    else
-        empty_dense_vector!(destination, reaxis, rename, concrete_dtype; overwrite = overwrite) do empty_vector
-            empty_vector .= empty
-            named_vector = Formats.as_named_vector(destination, axis, empty_vector)
-            named_vector[names(value, 1)] .= value
-            return nothing
+    with_data_write_lock(destination) do
+        if issparse(value.array) || concrete_dtype <: AbstractString
+            dense = Vector{concrete_dtype}(undef, axis_length(destination, reaxis))
+            named = as_named_vector(destination, reaxis, dense)
+            named .= empty
+            named[names(value, 1)] .= value  # NOJET
+            value = issparse(value.array) && !(concrete_dtype <: AbstractString) ? sparse_vector(dense) : dense
+            set_vector!(destination, reaxis, rename, value; overwrite = overwrite)
+        else
+            empty_dense_vector!(destination, reaxis, rename, concrete_dtype; overwrite = overwrite) do empty_vector
+                empty_vector .= empty
+                named_vector = Formats.as_named_vector(destination, axis, empty_vector)
+                named_vector[names(value, 1)] .= value
+                return nothing
+            end
         end
     end
 
@@ -350,42 +356,43 @@ axis contains entries that do not exist in the target, they are discarded (not c
 
     @assert rows_relation == :source_is_subset || columns_relation == :source_is_subset
 
-    if issparse(value) || empty == 0
-        dense = Matrix{concrete_dtype}(
-            undef,
-            axis_length(destination, rows_reaxis),
-            axis_length(destination, columns_reaxis),
-        )
-        named =
-            NamedArray(dense; names = (axis_array(destination, rows_reaxis), axis_array(destination, columns_reaxis)))
-        named .= empty
-        named[names(value, 1), names(value, 2)] .= value  # NOJET
-        sparse = sparse_matrix_csc(dense)
-        set_matrix!(
-            destination,
-            rows_reaxis,
-            columns_reaxis,
-            rename,
-            sparse;
-            overwrite = overwrite,
-            relayout = relayout,
-        )
-    else
-        empty_dense_matrix!(
-            destination,
-            rows_reaxis,
-            columns_reaxis,
-            rename,
-            concrete_dtype;
-            overwrite = overwrite,
-        ) do empty_matrix
-            empty_matrix .= empty
-            named_matrix = Formats.as_named_matrix(destination, rows_axis, columns_axis, empty_matrix)
-            named_matrix[names(value, 1), names(value, 2)] .= value
-            return nothing
-        end
-        if relayout
-            relayout_matrix!(destination, rows_reaxis, columns_reaxis, rename; overwrite = overwrite)  # untested
+    with_data_write_lock(destination) do
+        if issparse(value) || empty == 0
+            dense = Matrix{concrete_dtype}(
+                undef,
+                axis_length(destination, rows_reaxis),
+                axis_length(destination, columns_reaxis),
+            )
+            named = as_named_matrix(destination, rows_reaxis, columns_reaxis, dense)
+            named .= empty
+            named[names(value, 1), names(value, 2)] .= value  # NOJET
+            sparse = sparse_matrix_csc(dense)
+            set_matrix!(
+                destination,
+                rows_reaxis,
+                columns_reaxis,
+                rename,
+                sparse;
+                overwrite = overwrite,
+                relayout = relayout,
+            )
+        else
+            empty_dense_matrix!(
+                destination,
+                rows_reaxis,
+                columns_reaxis,
+                rename,
+                concrete_dtype;
+                overwrite = overwrite,
+            ) do empty_matrix
+                empty_matrix .= empty
+                named_matrix = Formats.as_named_matrix(destination, rows_axis, columns_axis, empty_matrix)
+                named_matrix[names(value, 1), names(value, 2)] .= value
+                return nothing
+            end
+            if relayout
+                relayout_matrix!(destination, rows_reaxis, columns_reaxis, rename; overwrite = overwrite)  # untested
+            end
         end
     end
 
