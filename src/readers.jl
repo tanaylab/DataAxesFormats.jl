@@ -36,6 +36,7 @@ module Readers
 export axes_set
 export axis_array
 export axis_dict
+export axis_indices
 export axis_length
 export axis_version_counter
 export description
@@ -237,6 +238,25 @@ function axis_dict(daf::DafReader, axis::AbstractString)::AbstractDict{<:Abstrac
         require_axis(daf, "for: axis_dict", axis)
         result = Formats.axis_dict_with_cache(daf, axis)
         @debug "axis_dict daf: $(depict(daf)) result: $(depict(result))"
+        return result
+    end
+end
+
+"""
+    function axis_indices(daf::DafReader, axis::AbstractString, entries::AbstractVector{<:AbstractString})::AbstractVector{<:Integer}
+
+Return a vector of the indices of the entries in the axis.
+"""
+function axis_indices(
+    daf::DafReader,
+    axis::AbstractString,
+    entries::AbstractVector{<:AbstractString},
+)::AbstractVector{<:Integer}
+    return Formats.with_data_read_lock(daf, "axis_indices of:", axis) do
+        require_axis(daf, "for: axis_indices", axis)
+        dictionary = Formats.axis_dict_with_cache(daf, axis)
+        result = getindex.(Ref(dictionary), entries)
+        @debug "axis_indices daf: $(depict(daf)) result: $(depict(result))"
         return result
     end
 end

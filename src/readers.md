@@ -20,6 +20,7 @@ Daf.Readers.has_axis
 Daf.Readers.axes_set
 Daf.Readers.axis_array
 Daf.Readers.axis_dict
+Daf.Readers.axis_indices
 Daf.Readers.axis_length
 ```
 
