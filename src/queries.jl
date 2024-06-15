@@ -10,6 +10,7 @@ export AsAxis
 export Axis
 export CountBy
 export Fetch
+export FrameColumns
 export GroupBy
 export IfMissing
 export IfNot
