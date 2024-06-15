@@ -3872,10 +3872,16 @@ In all cases the (full) query must return a value for each entry of the axis.
 QueryColumns = AbstractVector{<:Pair}
 
 """
+Specify the columns of a data frame. This can be either a vector of names of vector properties (e.g., `["batch", "age"]`), or a [`QueryColumns`](@ref) vector of pairs mapping a column name to a query that fetches a value for each
+entry of some axis.
+"""
+FrameColumns = Union{AbstractVector{<:AbstractString}, QueryColumns}
+
+"""
     get_frame(
         daf::DafReader,
         axis::QueryString,
-        [columns::Maybe{Union{AbstractVector{<:AbstractString}, QueryColumns}} = nothing;
+        [columns::Maybe{FrameColumns} = nothing;
         cache::Bool = true]
     )::DataFrame end
 
@@ -3886,9 +3892,7 @@ possibly using a mask (e.g., `q"/ cell & age > 1"`). The result of the query mus
 names.
 
 If `columns` is not specified, the data frame will contain all the vector properties of the axis, in alphabetical order
-(since `DataFrame` has no concept of named rows, the 1st column will contain the name of the axis entry). Otherwise,
-`columns` may be a vector of names of vector properties (e.g., `["batch", "age"]`), or a [`QueryColumns`](@ref) vector
-of pairs mapping a column name to a query that fetches a value for each entry of the `axis`.
+(since `DataFrame` has no concept of named rows, the 1st column will contain the name of the axis entry).
 
 By default, this will cache results of all queries. This may consume a large amount of memory. You can disable it by
 specifying `cache = false`, or release the cached data using [`empty_cache!`](@ref).
@@ -3896,7 +3900,7 @@ specifying `cache = false`, or release the cached data using [`empty_cache!`](@r
 function get_frame(
     daf::DafReader,
     axis::QueryString,
-    columns::Maybe{Union{AbstractVector{<:AbstractString}, QueryColumns}} = nothing;
+    columns::Maybe{FrameColumns} = nothing;
     cache::Bool = true,
 )::DataFrame
     if axis isa Query

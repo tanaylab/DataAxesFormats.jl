@@ -603,7 +603,7 @@
 <code class="language-julia hljs">get_frame(
     daf::DafReader,
     axis::QueryString,
-    [columns::Maybe{Union{AbstractVector{&lt;:AbstractString}, QueryColumns}} = nothing;
+    [columns::Maybe{FrameColumns} = nothing;
     cache::Bool = true]
 )::DataFrame end
 </code>
@@ -628,17 +628,7 @@
 <code>columns
 </code> is not specified, the data frame will contain all the vector properties of the axis, in alphabetical order (since 
 <code>DataFrame
-</code> has no concept of named rows, the 1st column will contain the name of the axis entry). Otherwise, 
-<code>columns
-</code> may be a vector of names of vector properties (e.g., 
-<code>[&quot;batch&quot;, &quot;age&quot;]
-</code>), or a 
-<a href="queries.html#Daf.Queries.QueryColumns">
-<code>QueryColumns
-</code>
-</a> vector of pairs mapping a column name to a query that fetches a value for each entry of the 
-<code>axis
-</code>.
+</code> has no concept of named rows, the 1st column will contain the name of the axis entry).
 </p>
 <p>By default, this will cache results of all queries. This may consume a large amount of memory. You can disable it by specifying 
 <code>cache = false
@@ -647,6 +637,30 @@
 <code>empty_cache!
 </code>
 </a>.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Queries.FrameColumns" href="#Daf.Queries.FrameColumns">
+<code>Daf.Queries.FrameColumns
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</header>
+<section>
+<div>
+<p>Specify the columns of a data frame. This can be either a vector of names of vector properties (e.g., 
+<code>[&quot;batch&quot;, &quot;age&quot;]
+</code>), or a 
+<a href="queries.html#Daf.Queries.QueryColumns">
+<code>QueryColumns
+</code>
+</a> vector of pairs mapping a column name to a query that fetches a value for each entry of some axis.
 </p>
 </div>
 </section>
@@ -3987,6 +4001,12 @@
 <li>
 <a href="queries.html#Daf.Queries.Fetch">
 <code>Daf.Queries.Fetch
+</code>
+</a>
+</li>
+<li>
+<a href="queries.html#Daf.Queries.FrameColumns">
+<code>Daf.Queries.FrameColumns
 </code>
 </a>
 </li>
