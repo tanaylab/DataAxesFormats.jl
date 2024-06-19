@@ -3,11 +3,12 @@ Enforce input and output contracts of computations using `Daf` data.
 """
 module Contracts
 
-using Base: AbstractCmd
+export AxisSpecification
 export Contract
 export ContractAxes
 export ContractData
 export ContractExpectation
+export DataSpecification
 export GuaranteedOutput
 export OptionalInput
 export OptionalOutput
