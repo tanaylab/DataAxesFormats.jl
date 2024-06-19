@@ -4,7 +4,9 @@
 Daf.Contracts
 Daf.Contracts.Contract
 Daf.Contracts.ContractAxes
+Daf.Contracts.AxisSpecification
 Daf.Contracts.ContractData
+Daf.Contracts.DataSpecification
 Daf.Contracts.ContractExpectation
 Daf.Contracts.contractor
 Daf.Contracts.ContractDaf

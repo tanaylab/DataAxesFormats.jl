@@ -66,6 +66,9 @@ include("registry.jl")
 include("tokens.jl")
 @reexport using .Tokens
 
+include("keys.jl")
+@reexport using .Keys
+
 include("formats.jl")
 @reexport using .Formats
 

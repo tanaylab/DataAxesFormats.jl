@@ -5,11 +5,11 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Messages · Daf.jl v0.1.0
+<title>Keys · Daf.jl v0.1.0
 </title>
-<meta name="title" content="Messages · Daf.jl v0.1.0"/>
-<meta property="og:title" content="Messages · Daf.jl v0.1.0"/>
-<meta property="twitter:title" content="Messages · Daf.jl v0.1.0"/>
+<meta name="title" content="Keys · Daf.jl v0.1.0"/>
+<meta property="og:title" content="Keys · Daf.jl v0.1.0"/>
+<meta property="twitter:title" content="Keys · Daf.jl v0.1.0"/>
 <meta name="description" content="Documentation for Daf.jl v0.1.0."/>
 <meta property="og:description" content="Documentation for Daf.jl v0.1.0."/>
 <meta property="twitter:description" content="Documentation for Daf.jl v0.1.0."/>
@@ -107,9 +107,17 @@
 <a class="tocitem" href="formats.html">Formats
 </a>
 </li>
-<li>
+<li class="is-active">
 <a class="tocitem" href="keys.html">Keys
 </a>
+<ul class="internal">
+<li>
+<a class="tocitem" href="#Index">
+<span>Index
+</span>
+</a>
+</li>
+</ul>
 </li>
 <li>
 <a class="tocitem" href="memory_format.html">Memory Format
@@ -151,17 +159,9 @@
 <a class="tocitem" href="groups.html">Groups
 </a>
 </li>
-<li class="is-active">
+<li>
 <a class="tocitem" href="messages.html">Messages
 </a>
-<ul class="internal">
-<li>
-<a class="tocitem" href="#Index">
-<span>Index
-</span>
-</a>
-</li>
-</ul>
 </li>
 <li>
 <a class="tocitem" href="generic_logging.html">Generic Logging
@@ -204,13 +204,13 @@
 <nav class="breadcrumb">
 <ul class="is-hidden-mobile">
 <li class="is-active">
-<a href="messages.html">Messages
+<a href="keys.html">Keys
 </a>
 </li>
 </ul>
 <ul class="is-hidden-tablet">
 <li class="is-active">
-<a href="messages.html">Messages
+<a href="keys.html">Keys
 </a>
 </li>
 </ul>
@@ -229,20 +229,20 @@
 </div>
 </header>
 <article class="content" id="documenter-page">
-<h1 id="Messages">
-<a class="docs-heading-anchor" href="#Messages">Messages
+<h1 id="Keys">
+<a class="docs-heading-anchor" href="#Keys">Keys
 </a>
-<a id="Messages-1">
+<a id="Keys-1">
 </a>
-<a class="docs-heading-anchor-permalink" href="#Messages" title="Permalink">
+<a class="docs-heading-anchor-permalink" href="#Keys" title="Permalink">
 </a>
 </h1>
 <article class="docstring">
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Messages" href="#Daf.Messages">
-<code>Daf.Messages
+<a class="docstring-binding" id="Daf.Keys" href="#Daf.Keys">
+<code>Daf.Keys
 </code>
 </a> — 
 <span class="docstring-category">Module
@@ -250,85 +250,11 @@
 </header>
 <section>
 <div>
-<p>Functions for improving the quality of error and log messages.
-</p>
-</div>
-</section>
-</article>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
-<a class="docstring-binding" id="Daf.Messages.unique_name" href="#Daf.Messages.unique_name">
-<code>Daf.Messages.unique_name
-</code>
-</a> — 
-<span class="docstring-category">Function
-</span>
-</header>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">unique_name(prefix::AbstractString, separator::AbstractString = &quot;#&quot;)::AbstractString
-</code>
-</pre>
-<p>Using short, human-readable unique names for things is a great help when debugging. Normally one has to choose between using a human-provided short non-unique name, and an opaque object identifier, or a combination thereof. This function replaces the opaque object identifier with a short counter, which gives names that are both unique and short.
-</p>
-<p>That is, this will return a unique name starting with the 
-<code>prefix
-</code> and followed by the 
-<code>separator
-</code> (by default, 
-<code>#
-</code>), the process index (if using multiple processes), and an index (how many times this name was used in the process). For example, 
-<code>unique_name(&quot;foo&quot;)
-</code> will return 
-<code>foo
-</code> for the first usage, 
-<code>foo#2
-</code> for the 2nd, etc. If using multiple processes, it will return 
-<code>foo
-</code>, 
-<code>foo#1.2
-</code>, etc.
-</p>
-<p>That is, for code where the names are unique (e.g., a simple script or Jupyter notebook), this doesn&#39;t mess up the names. It only appends a suffix to the names if it is needed to disambiguate between multiple uses of the same name.
-</p>
-<p>To help with tests, if the 
-<code>prefix
-</code> contains 
-<code>!
-</code>, we return it as-is, accepting it may not be unique.
-</p>
-</div>
-</section>
-</article>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
-<a class="docstring-binding" id="Daf.MatrixLayouts.depict" href="#Daf.MatrixLayouts.depict">
-<code>Daf.MatrixLayouts.depict
-</code>
-</a> — 
-<span class="docstring-category">Function
-</span>
-</header>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">depict(value::Any)::String
-</code>
-</pre>
-<p>Depict a 
-<code>value
-</code> in an error message or a log entry. Unlike 
-<code>&quot;$(value)&quot;
-</code>, this focuses on producing a human-readable indication of the type of the value, so it double-quotes strings, prefixes symbols with 
-<code>:
-</code>, and reports the type and sizes of arrays rather than showing their content, as well as having specializations for the various 
+<p>Identify data inside a 
 <code>Daf
-</code> data types.
+</code> data set using a key. These types are used in various high-level API parameters.
+</p>
+<p>A separate key space is used for axes and data; thus, both axes and scalars use a simple string key.
 </p>
 </div>
 </section>
@@ -337,24 +263,98 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Messages.depict_percent" href="#Daf.Messages.depict_percent">
-<code>Daf.Messages.depict_percent
+<a class="docstring-binding" id="Daf.Keys.AxisKey" href="#Daf.Keys.AxisKey">
+<code>Daf.Keys.AxisKey
 </code>
 </a> — 
-<span class="docstring-category">Function
+<span class="docstring-category">Type
 </span>
 </header>
 <section>
 <div>
-<pre>
-<code class="language-julia hljs">depict_percent(used::Integer, out_of::Integer)::String
+<p>A key specifying some axis in 
+<code>Daf
+</code> by its name.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Keys.ScalarKey" href="#Daf.Keys.ScalarKey">
+<code>Daf.Keys.ScalarKey
 </code>
-</pre>
-<p>Describe a fraction of 
-<code>used
-</code> amount 
-<code>out_of
-</code> some total as a percentage.
+</a> — 
+<span class="docstring-category">Type
+</span>
+</header>
+<section>
+<div>
+<p>A key specifying some scalar in 
+<code>Daf
+</code> by its name.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Keys.VectorKey" href="#Daf.Keys.VectorKey">
+<code>Daf.Keys.VectorKey
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</header>
+<section>
+<div>
+<p>A key specifying some vector in 
+<code>Daf
+</code> by its axis and name.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Keys.MatrixKey" href="#Daf.Keys.MatrixKey">
+<code>Daf.Keys.MatrixKey
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</header>
+<section>
+<div>
+<p>A key specifying some matrix in 
+<code>Daf
+</code> by its axes and name. The axes order does not matter.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Keys.DataKey" href="#Daf.Keys.DataKey">
+<code>Daf.Keys.DataKey
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</header>
+<section>
+<div>
+<p>A key specifying some data property in 
+<code>Daf
+</code>.
 </p>
 </div>
 </section>
@@ -369,35 +369,47 @@
 </h2>
 <ul>
 <li>
-<a href="messages.html#Daf.Messages">
-<code>Daf.Messages
+<a href="keys.html#Daf.Keys">
+<code>Daf.Keys
 </code>
 </a>
 </li>
 <li>
-<a href="messages.html#Daf.MatrixLayouts.depict">
-<code>Daf.MatrixLayouts.depict
+<a href="keys.html#Daf.Keys.AxisKey">
+<code>Daf.Keys.AxisKey
 </code>
 </a>
 </li>
 <li>
-<a href="messages.html#Daf.Messages.depict_percent">
-<code>Daf.Messages.depict_percent
+<a href="keys.html#Daf.Keys.DataKey">
+<code>Daf.Keys.DataKey
 </code>
 </a>
 </li>
 <li>
-<a href="messages.html#Daf.Messages.unique_name">
-<code>Daf.Messages.unique_name
+<a href="keys.html#Daf.Keys.MatrixKey">
+<code>Daf.Keys.MatrixKey
+</code>
+</a>
+</li>
+<li>
+<a href="keys.html#Daf.Keys.ScalarKey">
+<code>Daf.Keys.ScalarKey
+</code>
+</a>
+</li>
+<li>
+<a href="keys.html#Daf.Keys.VectorKey">
+<code>Daf.Keys.VectorKey
 </code>
 </a>
 </li>
 </ul>
 </article>
 <nav class="docs-footer">
-<a class="docs-footer-prevpage" href="groups.html">« Groups
+<a class="docs-footer-prevpage" href="formats.html">« Formats
 </a>
-<a class="docs-footer-nextpage" href="generic_logging.html">Generic Logging »
+<a class="docs-footer-nextpage" href="memory_format.html">Memory Format »
 </a>
 <div class="flexbox-break">
 </div>

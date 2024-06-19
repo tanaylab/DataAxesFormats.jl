@@ -7,6 +7,8 @@ Daf.StorageTypes
 # Storable types
 
 ```@docs
+Daf.StorageTypes.StorageSigned
+Daf.StorageTypes.StorageUnsigned
 Daf.StorageTypes.StorageInteger
 Daf.StorageTypes.StorageFloat
 Daf.StorageTypes.StorageNumber

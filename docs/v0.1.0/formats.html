@@ -128,6 +128,10 @@
 </ul>
 </li>
 <li>
+<a class="tocitem" href="keys.html">Keys
+</a>
+</li>
+<li>
 <a class="tocitem" href="memory_format.html">Memory Format
 </a>
 </li>
@@ -349,48 +353,6 @@
 <code>FormatWriter
 </code>
 </a>.
-</p>
-</div>
-</section>
-</article>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
-<a class="docstring-binding" id="Daf.Formats.DataKey" href="#Daf.Formats.DataKey">
-<code>Daf.Formats.DataKey
-</code>
-</a> — 
-<span class="docstring-category">Type
-</span>
-</header>
-<section>
-<div>
-<p>A key specifying some data property in 
-<code>Daf
-</code>.
-</p>
-<p>
-<strong>Scalars
-</strong> are identified by their name.
-</p>
-<p>
-<strong>Vectors
-</strong> are specified as a tuple of the axis name and the property name.
-</p>
-<p>
-<strong>Matrices
-</strong> are specified as a tuple or the rows axis, the columns axis, and the property name.
-</p>
-<p>The 
-<a href="formats.html#Daf.Formats.DafReader">
-<code>DafReader
-</code>
-</a> and 
-<a href="formats.html#Daf.Formats.DafWriter">
-<code>DafWriter
-</code>
-</a> interfaces do not use this type, as each function knows exactly the type of data property it works on. However, higher-level APIs do use this as keys for dictionaries etc.
 </p>
 </div>
 </section>
@@ -2031,12 +1993,6 @@ where {T &lt;: StorageNumber, I &lt;: StorageInteger}
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.DataKey">
-<code>Daf.Formats.DataKey
-</code>
-</a>
-</li>
-<li>
 <a href="formats.html#Daf.Formats.FormatReader">
 <code>Daf.Formats.FormatReader
 </code>
@@ -2257,7 +2213,7 @@ where {T &lt;: StorageNumber, I &lt;: StorageInteger}
 <nav class="docs-footer">
 <a class="docs-footer-prevpage" href="contracts.html">« Contracts
 </a>
-<a class="docs-footer-nextpage" href="memory_format.html">Memory Format »
+<a class="docs-footer-nextpage" href="keys.html">Keys »
 </a>
 <div class="flexbox-break">
 </div>

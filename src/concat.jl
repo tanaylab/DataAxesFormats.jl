@@ -21,6 +21,7 @@ using ..Copies
 using ..Formats
 using ..GenericLogging
 using ..GenericTypes
+using ..Keys
 using ..Readers
 using ..StorageTypes
 using ..Views
@@ -1164,7 +1165,7 @@ function get_merge_action(merge::MergeData, vector_property::Tuple{AbstractStrin
     for (key, merge_action) in reverse(merge)
         @assert key isa DataKey
         @assert merge_action isa MergeAction
-        if key isa Tuple{AbstractString, AbstractString}
+        if key isa VectorKey
             if (key[1] == "*" || key[1] == vector_property[1]) && (key[2] == "*" || key[2] == vector_property[2])
                 return merge_action
             end
@@ -1180,7 +1181,7 @@ function get_merge_action(
     for (key, merge_action) in reverse(merge)
         @assert key isa DataKey
         @assert merge_action isa MergeAction
-        if key isa Tuple{AbstractString, AbstractString, AbstractString}
+        if key isa MatrixKey
             if (key[1] == "*" || key[1] == matrix_property[1]) &&
                (key[2] == "*" || key[2] == matrix_property[2]) &&
                (key[3] == "*" || key[3] == matrix_property[3])

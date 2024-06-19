@@ -19,6 +19,7 @@ export verify_output
 using ..Formats
 using ..GenericFunctions
 using ..GenericTypes
+using ..Keys
 using ..Messages
 using ..Readers
 using ..StorageTypes
@@ -47,6 +48,12 @@ existence of optional input and/or the value of parameters to the computation, a
 @enum ContractExpectation RequiredInput OptionalInput GuaranteedOutput OptionalOutput
 
 """
+The specification of an axis in a [`Contract`](@ref), which is the [`ContractExpectation`](@ref) for enforcement and a
+string description for the generated documentation.
+"""
+AxisSpecification = Tuple{ContractExpectation, AbstractString}
+
+"""
 A vector of pairs where the key is the axis name and the value is a tuple of the [`ContractExpectation`](@ref) and a
 description of the axis (for documentation). Axes are listed mainly for documentation; axes of required or guaranteed
 vectors or matrices are automatically required or guaranteed to match. However it is considered polite to explicitly
@@ -57,7 +64,7 @@ list the axes with their descriptions so the documentation of the contract will 
     Due to Julia's type system limitations, there's just no way for the system to enforce the type of the pairs
     in this vector. That is, what we'd **like** to say is:
 
-        ContractAxes = AbstractVector{Pair{AbstractString, Tuple{ContractExpectation, AbstractString}}}
+        ContractAxes = AbstractVector{Pair{AxisKey, AxisSpecification}}
 
     But what we are **forced** to say is:
 
@@ -69,6 +76,12 @@ list the axes with their descriptions so the documentation of the contract will 
 ContractAxes = AbstractVector{<:Pair}
 
 """
+The specification of some property in a [`Contract`](@ref), which is the [`ContractExpectation`](@ref) and the type for
+enforcement, and a string description for the generated documentation.
+"""
+DataSpecification = Tuple{ContractExpectation, Type, AbstractString}
+
+"""
 A vector of pairs where the key is a [`DataKey`](@ref) identifying some data property, and the value is a tuple of the
 [`ContractExpectation`](@ref), the expected data type, and a description (for documentation).
 
@@ -77,7 +90,7 @@ A vector of pairs where the key is a [`DataKey`](@ref) identifying some data pro
     Due to Julia's type system limitations, there's just no way for the system to enforce the type of the pairs
     in this vector. That is, what we'd **like** to say is:
 
-        ContractData = AbstractVector{Pair{DataKey, Tuple{ContractExpectation, Type, AbstractString}}}
+        ContractData = AbstractVector{Pair{DataKey, DataSpecification}
 
     But what we are **forced** to say is:
 
@@ -123,7 +136,7 @@ function scalar_documentation(contract::Contract, buffer::IOBuffer; is_output::B
     if contract.data !== nothing
         is_first = true
         for (name, (expectation, data_type, description)) in contract.data
-            if name isa AbstractString && (
+            if name isa ScalarKey && (
                 (is_output && (expectation == GuaranteedOutput || expectation == OptionalOutput)) ||
                 (!is_output && (expectation == RequiredInput || expectation == OptionalInput))
             )
@@ -167,7 +180,7 @@ function vectors_documentation(contract::Contract, buffer::IOBuffer; is_output::
     if contract.data !== nothing
         is_first = true
         for (key, (expectation, data_type, description)) in contract.data
-            if key isa Tuple{AbstractString, AbstractString}
+            if key isa VectorKey
                 axis_name, name = key
                 if (is_output && (expectation == GuaranteedOutput || expectation == OptionalOutput)) ||
                    (!is_output && (expectation == RequiredInput || expectation == OptionalInput))
@@ -194,7 +207,7 @@ function matrices_documentation(contract::Contract, buffer::IOBuffer; is_output:
     if contract.data !== nothing
         is_first = true
         for (key, (expectation, data_type, description)) in contract.data
-            if key isa Tuple{AbstractString, AbstractString, AbstractString}
+            if key isa MatrixKey
                 rows_axis_name, columns_axis_name, name = key
                 if (is_output && (expectation == GuaranteedOutput || expectation == OptionalOutput)) ||
                    (!is_output && (expectation == RequiredInput || expectation == OptionalInput))
@@ -301,10 +314,10 @@ end
 function collect_axes(contract::Contract)::Dict{AbstractString, Tracker}
     axes = Dict{AbstractString, Tracker}()
     if contract.axes !== nothing
-        for (axis_name, axis_term) in contract.axes
-            @assert axis_name isa AbstractString
-            @assert axis_term isa Tuple{ContractExpectation, AbstractString}
-            collect_axis(axis_name, axis_term[1], axes)
+        for (axis_name, axis_specification) in contract.axes
+            @assert axis_name isa AxisKey
+            @assert axis_specification isa AxisSpecification
+            collect_axis(axis_name, axis_specification[1], axes)
         end
     end
     return axes
@@ -313,15 +326,15 @@ end
 function collect_data(contract::Contract, axes::Dict{AbstractString, Tracker})::Dict{DataKey, Tracker}
     data = Dict{DataKey, Tracker}()
     if contract.data !== nothing
-        for (data_key, data_term) in contract.data
+        for (data_key, data_specification) in contract.data
             @assert data_key isa DataKey
-            @assert data_term isa Tuple{ContractExpectation, Type, AbstractString}
-            expectation = data_term[1]
-            type = data_term[2]
+            @assert data_specification isa DataSpecification
+            expectation = data_specification[1]
+            type = data_specification[2]
             data[data_key] = Tracker(expectation, type, false)
-            if data_key isa Tuple{AbstractString, AbstractString}
+            if data_key isa VectorKey
                 collect_axis(data_key[1], implicit_axis_expectation(expectation), axes)
-            elseif data_key isa Tuple{AbstractString, AbstractString, AbstractString}
+            elseif data_key isa MatrixKey
                 collect_axis(data_key[1], implicit_axis_expectation(expectation), axes)
                 collect_axis(data_key[2], implicit_axis_expectation(expectation), axes)
             end
@@ -387,11 +400,11 @@ function verify_contract(contract_daf::ContractDaf; is_output::Bool)::Nothing
     end
 
     for (data_key, tracker) in contract_daf.data
-        if data_key isa AbstractString
-            verify_scalar(contract_daf, data_key, tracker; is_output = is_output)
-        elseif data_key isa Tuple{AbstractString, AbstractString}
+        if data_key isa ScalarKey
+            verify_scalar(contract_daf, data_key, tracker; is_output = is_output)  # NOJET
+        elseif data_key isa VectorKey
             verify_vector(contract_daf, data_key..., tracker; is_output = is_output)
-        elseif data_key isa Tuple{AbstractString, AbstractString, AbstractString}
+        elseif data_key isa MatrixKey
             verify_matrix(contract_daf, data_key..., tracker; is_output = is_output)
         else
             @assert false

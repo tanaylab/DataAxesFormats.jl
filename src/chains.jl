@@ -11,6 +11,7 @@ export chain_writer
 
 using ..Formats
 using ..GenericTypes
+using ..Keys
 using ..Messages
 using ..ReadOnly
 using ..Readers

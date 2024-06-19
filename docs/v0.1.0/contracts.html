@@ -116,6 +116,10 @@
 </a>
 </li>
 <li>
+<a class="tocitem" href="keys.html">Keys
+</a>
+</li>
+<li>
 <a class="tocitem" href="memory_format.html">Memory Format
 </a>
 </li>
@@ -314,7 +318,7 @@
 </strong> to say is:
 </p>
 <pre>
-<code class="nohighlight hljs">ContractAxes = AbstractVector{Pair{AbstractString, Tuple{ContractExpectation, AbstractString}}}
+<code class="nohighlight hljs">ContractAxes = AbstractVector{Pair{AxisKey, AxisSpecification}}
 </code>
 </pre>
 <p>But what we are 
@@ -336,6 +340,32 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
+<a class="docstring-binding" id="Daf.Contracts.AxisSpecification" href="#Daf.Contracts.AxisSpecification">
+<code>Daf.Contracts.AxisSpecification
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</header>
+<section>
+<div>
+<p>The specification of an axis in a 
+<a href="contracts.html#Daf.Contracts.Contract">
+<code>Contract
+</code>
+</a>, which is the 
+<a href="contracts.html#Daf.Contracts.ContractExpectation">
+<code>ContractExpectation
+</code>
+</a> for enforcement and a string description for the generated documentation.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
 <a class="docstring-binding" id="Daf.Contracts.ContractData" href="#Daf.Contracts.ContractData">
 <code>Daf.Contracts.ContractData
 </code>
@@ -346,7 +376,7 @@
 <section>
 <div>
 <p>A vector of pairs where the key is a 
-<a href="formats.html#Daf.Formats.DataKey">
+<a href="keys.html#Daf.Keys.DataKey">
 <code>DataKey
 </code>
 </a> identifying some data property, and the value is a tuple of the 
@@ -364,7 +394,7 @@
 </strong> to say is:
 </p>
 <pre>
-<code class="nohighlight hljs">ContractData = AbstractVector{Pair{DataKey, Tuple{ContractExpectation, Type, AbstractString}}}
+<code class="nohighlight hljs">ContractData = AbstractVector{Pair{DataKey, DataSpecification}
 </code>
 </pre>
 <p>But what we are 
@@ -379,6 +409,32 @@
 </p>
 </div>
 </div>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Contracts.DataSpecification" href="#Daf.Contracts.DataSpecification">
+<code>Daf.Contracts.DataSpecification
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</header>
+<section>
+<div>
+<p>The specification of some property in a 
+<a href="contracts.html#Daf.Contracts.Contract">
+<code>Contract
+</code>
+</a>, which is the 
+<a href="contracts.html#Daf.Contracts.ContractExpectation">
+<code>ContractExpectation
+</code>
+</a> and the type for enforcement, and a string description for the generated documentation.
+</p>
 </div>
 </section>
 </article>
@@ -595,6 +651,12 @@
 </a>
 </li>
 <li>
+<a href="contracts.html#Daf.Contracts.AxisSpecification">
+<code>Daf.Contracts.AxisSpecification
+</code>
+</a>
+</li>
+<li>
 <a href="contracts.html#Daf.Contracts.Contract">
 <code>Daf.Contracts.Contract
 </code>
@@ -621,6 +683,12 @@
 <li>
 <a href="contracts.html#Daf.Contracts.ContractExpectation">
 <code>Daf.Contracts.ContractExpectation
+</code>
+</a>
+</li>
+<li>
+<a href="contracts.html#Daf.Contracts.DataSpecification">
+<code>Daf.Contracts.DataSpecification
 </code>
 </a>
 </li>

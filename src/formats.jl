@@ -37,7 +37,6 @@ module Formats
 export CacheType
 export DafReader
 export DafWriter
-export DataKey
 export MappedData
 export MemoryData
 export QueryData
@@ -46,6 +45,7 @@ export end_data_write_lock
 
 using ..GenericLocks
 using ..GenericTypes
+using ..Keys
 using ..MatrixLayouts
 using ..Messages
 using ..StorageTypes
@@ -55,21 +55,6 @@ using LinearAlgebra
 using NamedArrays
 using OrderedCollections
 using SparseArrays
-
-"""
-A key specifying some data property in `Daf`.
-
-**Scalars** are identified by their name.
-
-**Vectors** are specified as a tuple of the axis name and the property name.
-
-**Matrices** are specified as a tuple or the rows axis, the columns axis, and the property name.
-
-The [`DafReader`](@ref) and [`DafWriter`](@ref) interfaces do not use this type, as each function knows exactly the type
-of data property it works on. However, higher-level APIs do use this as keys for dictionaries etc.
-"""
-DataKey =
-    Union{AbstractString, Tuple{AbstractString, AbstractString}, Tuple{AbstractString, AbstractString, AbstractString}}
 
 """
 Types of cached data inside `Daf`.

@@ -25,6 +25,7 @@ using NamedArrays
 
 using ..Formats
 using ..GenericTypes
+using ..Keys
 using ..Messages
 using ..Queries
 using ..Readers
@@ -392,7 +393,7 @@ function collect_vectors(
         collected_vectors[axis] = Dict{AbstractString, Fetch{StorageVector}}()
     end
     for (key, query) in data
-        if key isa Tuple{AbstractString, AbstractString}
+        if key isa VectorKey
             axis_name, vector_name = key
             collect_vector(
                 view_name,
@@ -461,7 +462,7 @@ function collect_matrices(
         end
     end
     for (key, query) in data
-        if key isa Tuple{AbstractString, AbstractString, AbstractString}
+        if key isa MatrixKey
             (rows_axis_name, columns_axis_name, matrix_name) = key
             collect_matrix(
                 view_name,

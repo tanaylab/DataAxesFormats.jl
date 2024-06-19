@@ -108,6 +108,10 @@
 </a>
 </li>
 <li>
+<a class="tocitem" href="keys.html">Keys
+</a>
+</li>
+<li>
 <a class="tocitem" href="memory_format.html">Memory Format
 </a>
 </li>
@@ -323,6 +327,50 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
+<a class="docstring-binding" id="Daf.StorageTypes.StorageSigned" href="#Daf.StorageTypes.StorageSigned">
+<code>Daf.StorageTypes.StorageSigned
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">StorageSigned = Union{Int8, Int16, Int32, Int64}
+</code>
+</pre>
+<p>Signed integer number types that can be used as scalars, or elements in stored matrices or vectors.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.StorageTypes.StorageUnsigned" href="#Daf.StorageTypes.StorageUnsigned">
+<code>Daf.StorageTypes.StorageUnsigned
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">StorageUnsigned = Union{UInt8, UInt16, UInt32, UInt64}
+</code>
+</pre>
+<p>Unsigned integer number types that can be used as scalars, or elements in stored matrices or vectors.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
 <a class="docstring-binding" id="Daf.StorageTypes.StorageInteger" href="#Daf.StorageTypes.StorageInteger">
 <code>Daf.StorageTypes.StorageInteger
 </code>
@@ -333,7 +381,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">StorageInteger = Union{Int8, UInt8, Int16, UInt16, Int32, UInt32, Int64, UInt64}
+<code class="language-julia hljs">StorageInteger = Union{StorageSigned, StorageUnsigned}
 </code>
 </pre>
 <p>Integer number types that can be used as scalars, or elements in stored matrices or vectors.
@@ -629,6 +677,18 @@
 <li>
 <a href="storage_types.html#Daf.StorageTypes.StorageScalarBase">
 <code>Daf.StorageTypes.StorageScalarBase
+</code>
+</a>
+</li>
+<li>
+<a href="storage_types.html#Daf.StorageTypes.StorageSigned">
+<code>Daf.StorageTypes.StorageSigned
+</code>
+</a>
+</li>
+<li>
+<a href="storage_types.html#Daf.StorageTypes.StorageUnsigned">
+<code>Daf.StorageTypes.StorageUnsigned
 </code>
 </a>
 </li>

@@ -34,17 +34,33 @@ export StorageMatrix
 export StorageNumber
 export StorageScalar
 export StorageScalarBase
+export StorageSigned
+export StorageUnsigned
 export StorageVector
 
 using ..MatrixLayouts
 using SparseArrays
 
 """
-    StorageInteger = Union{Int8, UInt8, Int16, UInt16, Int32, UInt32, Int64, UInt64}
+    StorageSigned = Union{Int8, Int16, Int32, Int64}
+
+Signed integer number types that can be used as scalars, or elements in stored matrices or vectors.
+"""
+StorageSigned = Union{Int8, Int16, Int32, Int64}
+
+"""
+    StorageUnsigned = Union{UInt8, UInt16, UInt32, UInt64}
+
+Unsigned integer number types that can be used as scalars, or elements in stored matrices or vectors.
+"""
+StorageUnsigned = Union{UInt8, UInt16, UInt32, UInt64}
+
+"""
+    StorageInteger = Union{StorageSigned, StorageUnsigned}
 
 Integer number types that can be used as scalars, or elements in stored matrices or vectors.
 """
-StorageInteger = Union{Int8, UInt8, Int16, UInt16, Int32, UInt32, Int64, UInt64}
+StorageInteger = Union{StorageSigned, StorageUnsigned}
 
 """
     StorageFloat = Union{Float32, Float64}
