@@ -46,7 +46,7 @@ nested_test("chains") do
     end
 
     nested_test("two") do
-        @test_throws "read-only final data: second!\nin write chain: chain!" chain_writer(
+        @test_throws "read-only final data: second!.read_only\nin write chain: chain!" chain_writer(
             [first, read_only(second)];
             name = "chain!",
         )

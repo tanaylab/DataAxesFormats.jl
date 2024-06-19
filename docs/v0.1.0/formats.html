@@ -449,6 +449,8 @@
 </code> storage formats.
 </p>
 <p>We require each storage format to have a 
+<code>.name
+</code> and an 
 <code>.internal::
 </code>
 <a href="formats.html#Daf.Formats.Internal">
@@ -477,7 +479,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">Internal(name::AbstractString)
+<code class="language-julia hljs">struct Internal ... end
 </code>
 </pre>
 <p>Internal data we need to keep in any concrete 

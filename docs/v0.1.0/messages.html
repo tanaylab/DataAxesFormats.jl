@@ -265,16 +265,18 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">unique_name(prefix::AbstractString)::AbstractString
+<code class="language-julia hljs">unique_name(prefix::AbstractString, separator::AbstractString = &quot;#&quot;)::AbstractString
 </code>
 </pre>
 <p>Using short, human-readable unique names for things is a great help when debugging. Normally one has to choose between using a human-provided short non-unique name, and an opaque object identifier, or a combination thereof. This function replaces the opaque object identifier with a short counter, which gives names that are both unique and short.
 </p>
 <p>That is, this will return a unique name starting with the 
 <code>prefix
-</code> and followed by 
+</code> and followed by the 
+<code>separator
+</code> (by default, 
 <code>#
-</code>, the process index (if using multiple processes), and an index (how many times this name was used in the process). For example, 
+</code>), the process index (if using multiple processes), and an index (how many times this name was used in the process). For example, 
 <code>unique_name(&quot;foo&quot;)
 </code> will return 
 <code>foo
@@ -290,7 +292,7 @@
 </p>
 <p>To help with tests, if the 
 <code>prefix
-</code> ends with 
+</code> contains 
 <code>!
 </code>, we return it as-is, accepting it may not be unique.
 </p>

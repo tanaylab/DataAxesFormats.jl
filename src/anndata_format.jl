@@ -96,7 +96,6 @@ using Muon
 using SparseArrays
 
 import ..Formats
-import ..Formats.Internal
 import ..Readers.require_matrix
 
 """

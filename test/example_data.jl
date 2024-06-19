@@ -80,7 +80,7 @@ nested_test("example_data") do
 
         nested_test("read_only") do
             nested_test("()") do
-                return test_description(daf)
+                return test_description(daf; name = "example!.read_only")
             end
 
             nested_test("view") do
@@ -117,7 +117,7 @@ nested_test("example_data") do
                     12  9   14  43  11  5  2   32  12  4
                 ]
 
-                test_description(daf; cache = dedent("""
+                test_description(daf; name = "example!.read_only", cache = dedent("""
                     cache:
                       '# batch': (MemoryData) (OrderedCollections.OrderedDict{AbstractString, Int64} length: 4)
                       '# cell': (MemoryData) (OrderedCollections.OrderedDict{AbstractString, Int64} length: 20)
@@ -153,7 +153,7 @@ nested_test("example_data") do
                     12  9   14  43  11  5  2   32  12  4
                 ]
 
-                test_description(daf; cache = dedent("""
+                test_description(daf; name = "example!.read_only", cache = dedent("""
                     cache:
                       '# batch': (MemoryData) (OrderedCollections.OrderedDict{AbstractString, Int64} length: 4)
                       '# cell': (MemoryData) (OrderedCollections.OrderedDict{AbstractString, Int64} length: 20)
@@ -174,7 +174,7 @@ nested_test("example_data") do
                     9  12
                 ]
 
-                test_description(daf; cache = dedent("""
+                test_description(daf; name = "example!.read_only", cache = dedent("""
                     cache:
                       '# batch': (MemoryData) (OrderedCollections.OrderedDict{AbstractString, Int64} length: 4)
                       '# cell': (MemoryData) (OrderedCollections.OrderedDict{AbstractString, Int64} length: 20)

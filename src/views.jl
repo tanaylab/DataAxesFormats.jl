@@ -54,6 +54,7 @@ A read-only wrapper for any [`DafReader`](@ref) data, which exposes an arbitrary
 [`DafReadOnly`](@ref). This isn't typically created manually; instead call [`viewer`](@ref).
 """
 struct DafView <: DafReadOnly
+    name::AbstractString
     internal::Internal
     daf::DafReader
     scalars::Dict{AbstractString, Fetch{StorageScalar}}
@@ -248,6 +249,7 @@ function viewer(
     if name === nothing
         name = daf.name * ".view"
     end
+    name = unique_name(name)
 
     for (key, query) in data
         @assert key isa DataKey
@@ -262,7 +264,8 @@ function viewer(
         collect_matrices(name, daf, collected_axes, data)
 
     wrapper = DafView(
-        Internal(name; is_frozen = true),
+        name,
+        Internal(; is_frozen = true),
         daf,
         collected_scalars,
         collected_axes,
@@ -694,7 +697,7 @@ function Formats.format_get_vector(view::DafView, axis::AbstractString, name::Ab
             "for the axis query: $(view.axes[axis].query)\n" *
             "of the daf data: $(view.daf.name)\n" *
             "for the axis: $(name)\n" *
-            "of the daf view: $(view.name)"  # NOLINT
+            "of the daf view: $(view.name)"
         )
         fetch_vector.value = vector_value
     end
@@ -768,7 +771,7 @@ end
 
 function Messages.depict(value::DafView; name::Maybe{AbstractString} = nothing)::String
     if name === nothing
-        name = value.name  # NOLINT
+        name = value.name
     end
     return "View $(depict(value.daf; name = name))"
 end
@@ -777,7 +780,7 @@ function ReadOnly.read_only(daf::DafView; name::Maybe{AbstractString} = nothing)
     if name === nothing
         return daf
     else
-        wrapper = DafReadOnlyWrapper(name, daf)
+        wrapper = DafReadOnlyWrapper(name, daf.internal, daf)
         @debug "Daf: $(depict(wrapper)) base: $(daf)"
         return wrapper
     end

@@ -69,14 +69,6 @@ import ..Formats.CacheEntry
 import ..Formats.FormatReader  # For documentation.
 import ..Messages
 
-function Base.getproperty(daf::DafReader, property::Symbol)::Any
-    if property == :name
-        return daf.internal.name
-    else
-        return getfield(daf, property)
-    end
-end
-
 """
     has_scalar(daf::DafReader, name::AbstractString)::Bool
 

@@ -18,6 +18,7 @@ using NamedArrays
 using LinearAlgebra
 using SparseArrays
 
+import ..Formats.Internal
 import ..Messages
 import ..MatrixLayouts.mutable_array
 
@@ -53,16 +54,8 @@ created manually; instead call [`read_only`](@ref).
 """
 struct DafReadOnlyWrapper <: DafReadOnly
     name::AbstractString
+    internal::Internal
     daf::DafReader
-end
-
-function Base.getproperty(read_only_view::DafReadOnlyWrapper, property::Symbol)::Any
-    if property == :name || property == :daf
-        return getfield(read_only_view, property)
-    else
-        daf = getfield(read_only_view, :daf)
-        return getfield(daf, property)
-    end
 end
 
 """
@@ -73,9 +66,10 @@ Wrap `daf` with a [`DafReadOnlyWrapper`](@ref) to protect it against accidental 
 """
 function read_only(daf::DafReader; name::Maybe{AbstractString} = nothing)::DafReadOnly
     if name === nothing
-        name = daf.internal.name
+        name = daf.name * ".read_only"
     end
-    wrapper = DafReadOnlyWrapper(name, daf)
+    name = unique_name(name)
+    wrapper = DafReadOnlyWrapper(name, daf.internal, daf)
     @debug "Daf: $(depict(wrapper)) base: $(daf)"
     return wrapper
 end
@@ -84,7 +78,7 @@ function read_only(daf::DafReadOnly; name::Maybe{AbstractString} = nothing)::Daf
     if name === nothing
         return daf
     else
-        wrapper = DafReadOnlyWrapper(name, daf.daf)
+        wrapper = DafReadOnlyWrapper(name, daf.internal, daf.daf)
         @debug "Daf: $(depict(wrapper)) base: $(daf.daf)"
         return wrapper
     end

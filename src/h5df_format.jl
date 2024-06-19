@@ -163,6 +163,7 @@ The valid `mode` values are as follows (the default mode is `r`):
     to maximize efficiency of mapped vectors and matrices, and the `w+` mode is converted to `cw`.
 """
 struct H5df <: DafWriter
+    name::AbstractString
     internal::Internal
     root::Union{HDF5.File, HDF5.Group}
     mode::AbstractString
@@ -214,8 +215,9 @@ function H5df(
             name = root.filename
         end
     end
+    name = unique_name(name)
 
-    h5df = H5df(Internal(name; is_frozen = is_read_only), root, mode)
+    h5df = H5df(name, Internal(; is_frozen = is_read_only), root, mode)
     @debug "Daf: $(depict(h5df)) root: $(root)"
     if is_read_only
         return read_only(h5df)

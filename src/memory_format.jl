@@ -30,14 +30,11 @@ object that just keeps references to the data it is given.
 This is the "default" storage type you should use, unless you need to persist the data on the disk.
 """
 struct MemoryDaf <: DafWriter
+    name::AbstractString
     internal::Internal
-
     scalars::Dict{AbstractString, StorageScalar}
-
     axes::Dict{AbstractString, AbstractVector{<:AbstractString}}
-
     vectors::Dict{AbstractString, Dict{AbstractString, StorageVector}}
-
     matrices::Dict{AbstractString, Dict{AbstractString, Dict{AbstractString, StorageMatrix}}}
 end
 
@@ -46,7 +43,8 @@ function MemoryDaf(; name::AbstractString = "memory")::MemoryDaf
     axes = Dict{AbstractString, AbstractVector{<:AbstractString}}()
     vectors = Dict{AbstractString, Dict{AbstractString, StorageVector}}()
     matrices = Dict{AbstractString, Dict{AbstractString, Dict{AbstractString, StorageMatrix}}}()
-    memory = MemoryDaf(Internal(name; is_frozen = false), scalars, axes, vectors, matrices)
+    name = unique_name(name)
+    memory = MemoryDaf(name, Internal(; is_frozen = false), scalars, axes, vectors, matrices)
     @debug "Daf: $(depict(memory))"
     return memory
 end

@@ -262,12 +262,12 @@ This isn't exported and isn't created manually; instead call [`contractor`](@ref
     to avoid code duplication, it is still a [`DafWriter`](@ref) rather than a [`DafReader`](@ref).
 """
 struct ContractDaf <: DafWriter
+    name::AbstractString
+    internal::Formats.Internal
     computation::AbstractString
     axes::Dict{AbstractString, Tracker}
     data::Dict{DataKey, Tracker}
     daf::DafReader
-    name::AbstractString
-    internal::Formats.Internal
     overwrite::Bool
 end
 
@@ -294,7 +294,8 @@ function contractor(
 )::ContractDaf
     axes = collect_axes(contract)
     data = collect_data(contract, axes)
-    return ContractDaf(computation, axes, data, daf, daf.name, daf.internal, overwrite)
+    name = unique_name("$(daf.name).for.$(computation)")
+    return ContractDaf(name, daf.internal, computation, axes, data, daf, overwrite)
 end
 
 function collect_axes(contract::Contract)::Dict{AbstractString, Tracker}

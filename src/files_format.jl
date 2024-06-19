@@ -166,6 +166,7 @@ The valid `mode` values are as follows (the default mode is `r`):
 | `w`  | Yes                  | Yes                       | Yes                 | [`FilesDaf`](@ref)    |
 """
 struct FilesDaf <: DafWriter
+    name::AbstractString
     internal::Internal
     path::AbstractString
     mode::AbstractString
@@ -226,11 +227,12 @@ function FilesDaf(
             name = path
         end
     end
+    name = unique_name(name)
 
     if is_read_only
-        file = read_only(FilesDaf(Internal(name; is_frozen = true), path, mode, "r"))
+        file = read_only(FilesDaf(name, Internal(; is_frozen = true), path, mode, "r"))
     else
-        file = FilesDaf(Internal(name; is_frozen = false), path, mode, "r+")
+        file = FilesDaf(name, Internal(; is_frozen = false), path, mode, "r+")
     end
     @debug "Daf: $(depict(file)) path: $(path)"
     return file

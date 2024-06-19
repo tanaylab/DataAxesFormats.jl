@@ -2995,7 +2995,7 @@ nested_test("data") do
         daf = MemoryDaf(; name = "memory!")
         @test daf.name == "memory!"
         @test string(daf) == "MemoryDaf memory!"
-        @test string(read_only(daf)) == "ReadOnly MemoryDaf memory!"
+        @test string(read_only(daf)) == "ReadOnly MemoryDaf memory!.read_only"
         @test string(read_only(daf; name = "read-only memory!")) == "ReadOnly MemoryDaf read-only memory!"
         @test description(daf) == dedent("""
             name: memory!
@@ -3037,7 +3037,7 @@ nested_test("data") do
                 daf = H5df("$(path)/test.h5df", "w+"; name = "h5df!")
                 @test daf.name == "h5df!"
                 @test string(daf) == "H5df h5df!"
-                @test string(read_only(daf)) == "ReadOnly H5df h5df!"
+                @test string(read_only(daf)) == "ReadOnly H5df h5df!.read_only"
                 @test string(read_only(daf; name = "renamed!")) == "ReadOnly H5df renamed!"
                 @test description(daf) == dedent("""
                     name: h5df!
@@ -3059,7 +3059,7 @@ nested_test("data") do
                     HDF5.create_group(h5file, "root")
                     daf = H5df(h5file["root"], "w+")
                     @test string(daf) == "H5df $(path)/test.h5df:/root"
-                    @test string(read_only(daf)) == "ReadOnly H5df $(path)/test.h5df:/root"
+                    @test string(read_only(daf)) == "ReadOnly H5df $(path)/test.h5df:/root.read_only"
                     @test string(read_only(daf; name = "renamed!")) == "ReadOnly H5df renamed!"
                     @test description(daf) == dedent("""
                         name: $(path)/test.h5df:/root
@@ -3074,7 +3074,7 @@ nested_test("data") do
 
                     h5file["root/scalars/name"] = "h5df!"
                     daf = H5df(h5file["root"], "r")
-                    @test daf.name == "h5df!"
+                    @test daf.name == "h5df!.read_only"
 
                     daf = H5df(h5file["root"], "w"; name = "h5df!")
                     @test daf.name == "h5df!"
@@ -3110,7 +3110,7 @@ nested_test("data") do
                 daf = FilesDaf(path, "w+"; name = "files!")
                 @test daf.name == "files!"
                 @test string(daf) == "FilesDaf files!"
-                @test string(read_only(daf)) == "ReadOnly FilesDaf files!"
+                @test string(read_only(daf)) == "ReadOnly FilesDaf files!.read_only"
                 @test string(read_only(daf; name = "renamed!")) == "ReadOnly FilesDaf renamed!"
                 @test description(daf) == dedent("""
                     name: files!
@@ -3121,11 +3121,11 @@ nested_test("data") do
                 test_format(daf)
                 mkdir(path * "/deleted")
                 daf = FilesDaf(path, "r")
-                @test daf.name == path
+                @test daf.name == "$(path).read_only"
                 write(path * "/scalars/name.json", "{\"type\":\"String\",\"value\":\"files!\"}\n")
                 daf = FilesDaf(path, "r")
                 @test isdir(path * "/deleted")
-                @test string(daf) == "ReadOnly FilesDaf files!"
+                @test string(daf) == "ReadOnly FilesDaf files!.read_only"
                 daf = FilesDaf(path, "w"; name = "empty!")
                 @test string(daf) == "FilesDaf empty!"
                 @test !ispath(path * "/deleted")

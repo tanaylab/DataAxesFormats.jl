@@ -111,7 +111,7 @@ mutable struct WriterThread
 end
 
 """
-    Internal(name::AbstractString)
+    struct Internal ... end
 
 Internal data we need to keep in any concrete [`FormatReader`](@ref). This has to be available as a `.internal` data
 member of the concrete format. This enables all the high-level [`DafReader`](@ref) and [`DafWriter`](@ref) functions.
@@ -120,7 +120,6 @@ The constructor will automatically call [`unique_name`](@ref) to try and make th
 messages.
 """
 struct Internal
-    name::AbstractString
     cache::Dict{AbstractString, CacheEntry}
     dependency_cache_keys::Dict{AbstractString, Set{AbstractString}}
     version_counters::Dict{DataKey, UInt32}
@@ -129,9 +128,8 @@ struct Internal
     is_frozen::Bool
 end
 
-function Internal(name::AbstractString; is_frozen::Bool)::Internal
+function Internal(; is_frozen::Bool)::Internal
     return Internal(
-        unique_name(name),
         Dict{AbstractString, CacheEntry}(),
         Dict{AbstractString, Set{AbstractString}}(),
         Dict{DataKey, UInt32}(),
@@ -141,23 +139,11 @@ function Internal(name::AbstractString; is_frozen::Bool)::Internal
     )
 end
 
-function renamed_internal(internal::Internal, name::AbstractString)::Internal
-    return Internal(
-        name,
-        internal.cache,
-        internal.dependency_cache_keys,
-        internal.version_counters,
-        internal.cache_lock,
-        internal.data_lock,
-        internal.is_frozen,
-    )
-end
-
 """
 An low-level abstract interface for reading from `Daf` storage formats.
 
-We require each storage format to have a `.internal::`[`Internal`](@ref) property. This enables all the high-level
-`DafReader` functions.
+We require each storage format to have a `.name` and an `.internal::`[`Internal`](@ref) property. This enables all the
+high-level `DafReader` functions.
 
 Each storage format must implement the functions listed below for reading from the storage.
 """

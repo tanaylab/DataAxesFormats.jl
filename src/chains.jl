@@ -32,6 +32,7 @@ override earlier data sets. However, if an axis exists in more than one data set
 identical. This isn't typically created manually; instead call [`chain_reader`](@ref).
 """
 struct ReadOnlyChain <: DafReadOnly
+    name::AbstractString
     internal::Internal
     dafs::Vector{DafReader}
 end
@@ -50,6 +51,7 @@ exists only in this writer. That is, it is impossible to delete from a chain som
 readers; it is only possible to override it.
 """
 struct WriteChain <: DafWriter
+    name::AbstractString
     internal::Internal
     dafs::Vector{DafReader}
     daf::DafWriter
@@ -81,9 +83,10 @@ function chain_reader(dafs::AbstractVector{<:DafReader}; name::Maybe{AbstractStr
         name = join([daf.name for daf in dafs], ";")
         @assert name !== nothing
     end
+    name = unique_name(name, ";#")
 
     internal_dafs = reader_internal_dafs(dafs, name)
-    chain = ReadOnlyChain(Internal(name; is_frozen = true), internal_dafs)
+    chain = ReadOnlyChain(name, Internal(; is_frozen = true), internal_dafs)
     @debug "Daf: $(depict(chain)) chain: $(join([daf.name for daf in dafs], ";"))"
     return chain
 end
@@ -115,11 +118,13 @@ function chain_writer(dafs::AbstractVector{<:DafReader}; name::Maybe{AbstractStr
         end
         name = join([daf.name for daf in dafs], ";")
         @assert name !== nothing
+    else
+        name = unique_name(name)
     end
 
     internal_dafs = reader_internal_dafs(dafs, name)
-    reader = ReadOnlyChain(Internal(name; is_frozen = false), internal_dafs)
-    chain = WriteChain(reader.internal, reader.dafs, dafs[end])
+    reader = ReadOnlyChain(name, Internal(; is_frozen = false), internal_dafs)
+    chain = WriteChain(name, reader.internal, reader.dafs, dafs[end])
     @debug "Daf: $(depict(chain)) chain: $(join([daf.name for daf in dafs], ";"))"
     return chain
 end
@@ -245,7 +250,7 @@ function Formats.format_delete_scalar!(chain::WriteChain, name::AbstractString; 
                 error(
                     "failed to delete the scalar: $(name)\n" *
                     "from the daf data: $(chain.daf.name)\n" *
-                    "of the chain: $(chain.name)\n" *  # NOLINT
+                    "of the chain: $(chain.name)\n" *
                     "because it exists in the earlier: $(daf.name)",
                 )
             end
@@ -306,7 +311,7 @@ function Formats.format_delete_axis!(chain::WriteChain, axis::AbstractString)::N
             error(
                 "failed to delete the axis: $(axis)\n" *
                 "from the daf data: $(chain.daf.name)\n" *
-                "of the chain: $(chain.name)\n" *  # NOLINT
+                "of the chain: $(chain.name)\n" *
                 "because it exists in the earlier: $(daf.name)",
             )
         end
@@ -418,7 +423,7 @@ function Formats.format_delete_vector!(
                     "failed to delete the vector: $(name)\n" *
                     "of the axis: $(axis)\n" *
                     "from the daf data: $(chain.daf.name)\n" *
-                    "of the chain: $(chain.name)\n" *  # NOLINT
+                    "of the chain: $(chain.name)\n" *
                     "because it exists in the earlier: $(daf.name)",
                 )
             end
@@ -563,7 +568,7 @@ function Formats.format_delete_matrix!(
                     "for the rows axis: $(rows_axis)\n" *
                     "and the columns axis: $(columns_axis)\n" *
                     "from the daf data: $(chain.daf.name)\n" *
-                    "of the chain: $(chain.name)\n" *  # NOLINT
+                    "of the chain: $(chain.name)\n" *
                     "because it exists in the earlier: $(daf.name)",
                 )
             end
@@ -675,14 +680,14 @@ end
 
 function Messages.depict(value::ReadOnlyChain; name::Maybe{AbstractString} = nothing)::String
     if name === nothing
-        name = value.name  # NOLINT
+        name = value.name
     end
     return "ReadOnly Chain $(name)"
 end
 
 function Messages.depict(value::WriteChain; name::Maybe{AbstractString} = nothing)::String
     if name === nothing
-        name = value.name  # NOLINT
+        name = value.name
     end
     return "Write Chain $(name)"
 end
@@ -691,7 +696,7 @@ function ReadOnly.read_only(daf::ReadOnlyChain; name::Maybe{AbstractString} = no
     if name === nothing
         return daf
     else
-        return ReadOnlyChain(Formats.renamed_internal(daf.internal, name), daf.dafs)
+        return ReadOnlyChain(name, daf.internal, daf.dafs)
     end
 end
 
