@@ -313,6 +313,8 @@ nested_test("views") do
                     age: 2 x Float64 (Dense)
                     batch: 2 x String (Dense)
                 matrices:
+                  obs,var:
+                    X: 2 x 3 x Int64 in Columns (Dense)
                   var,obs:
                     X: 3 x 2 x Int64 in Columns (Dense)
             """) * "\n"
