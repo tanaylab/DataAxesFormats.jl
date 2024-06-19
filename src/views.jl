@@ -636,7 +636,7 @@ function Formats.format_get_scalar(view::DafView, name::AbstractString)::Storage
     fetch_scalar = view.scalars[name]
     scalar_value = fetch_scalar.value
     if scalar_value === nothing
-        scalar_value = get_query(view.daf, fetch_scalar.query)
+        scalar_value = get_query(view.daf, fetch_scalar.query; cache = false)
         fetch_scalar.value = scalar_value
     end
     return scalar_value
@@ -662,7 +662,7 @@ function Formats.format_axis_array(view::DafView, axis::AbstractString)::Abstrac
     fetch_axis = view.axes[axis]
     axis_array = fetch_axis.value
     if axis_array === nothing
-        axis_array = Formats.read_only_array(get_query(view.daf, fetch_axis.query))
+        axis_array = Formats.read_only_array(get_query(view.daf, fetch_axis.query; cache = false))
         fetch_axis.value = axis_array
     end
     return axis_array
@@ -688,7 +688,7 @@ function Formats.format_get_vector(view::DafView, axis::AbstractString, name::Ab
     fetch_vector = view.vectors[axis][name]
     vector_value = fetch_vector.value
     if vector_value === nothing
-        vector_value = Formats.read_only_array(get_query(view.daf, fetch_vector.query))
+        vector_value = Formats.read_only_array(get_query(view.daf, fetch_vector.query; cache = false))
         @assert vector_value isa NamedArray && names(vector_value, 1) == Formats.format_axis_array(view, axis) (
             "invalid vector query: $(fetch_vector.query)\n" *
             "for the axis query: $(view.axes[axis].query)\n" *
@@ -731,7 +731,7 @@ function Formats.format_get_matrix(
     fetch_matrix = view.matrices[rows_axis][columns_axis][name]
     matrix_value = fetch_matrix.value
     if matrix_value === nothing
-        matrix_value = Formats.read_only_array(get_query(view.daf, fetch_matrix.query))
+        matrix_value = Formats.read_only_array(get_query(view.daf, fetch_matrix.query; cache = false))
         fetch_matrix.value = matrix_value
     end
     return matrix_value
