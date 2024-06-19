@@ -25,6 +25,7 @@ $(CONTRACT)
             (RequiredInput, Union{UInt8, UInt16, UInt32, UInt64}, "The number of sampled scRNA molecules."),
     ],
 ) @logged function single(daf::DafWriter, quality::Float64, optional::Int = 1; named::Int = 2)::Nothing
+    get_matrix(daf, "cell", "gene", "UMIs")
     set_scalar!(daf, "quality", quality)
     return nothing
 end
@@ -50,9 +51,9 @@ $(CONTRACT2)
         "version" => (GuaranteedOutput, String, "In major.minor.patch format."),
         "quality" => (RequiredInput, Float64, "Overall output quality score between 0.0 and 1.0."),
     ],
-) function cross(first::DafWriter, second::DafWriter)::Nothing
-    set_scalar!(second, "version", get_scalar(first, "version"))
-    set_scalar!(first, "quality", get_scalar(second, "quality"))
+) function cross(first::DafWriter, second::DafWriter; overwrite::Bool = false)::Nothing
+    set_scalar!(second, "version", get_scalar(first, "version"); overwrite = overwrite)
+    set_scalar!(first, "quality", get_scalar(second, "quality"); overwrite = overwrite)
     return nothing
 end
 
@@ -127,7 +128,7 @@ nested_test("computations") do
 
         nested_test("missing") do
             @test_throws dedent("""
-                missing input axis: cell
+                missing input axis: gene
                 for the computation: Main.single
                 on the daf data: memory!
             """) single(daf, 0.0)
@@ -189,8 +190,34 @@ nested_test("computations") do
 
         nested_test("()") do
             set_scalar!(first, "version", "0.0")
-            set_scalar!(second, "quality", 0.0)
+            set_scalar!(second, "quality", 1.0)
             @test cross(first, second) === nothing
+            @test get_scalar(first, "quality") == 1.0
+            @test get_scalar(second, "version") == "0.0"
+        end
+
+        nested_test("overwrite") do
+            set_scalar!(first, "version", "0.0")
+            set_scalar!(first, "quality", 0.0)
+            set_scalar!(second, "quality", 1.0)
+            set_scalar!(second, "version", "1.0")
+            @test cross(first, second; overwrite = true) === nothing
+            @test get_scalar(first, "quality") == 1.0
+            @test get_scalar(second, "version") == "0.0"
+        end
+
+        nested_test("!overwrite") do
+            set_scalar!(first, "version", "0.0")
+            set_scalar!(first, "quality", 0.0)
+            set_scalar!(second, "quality", 1.0)
+            set_scalar!(second, "version", "1.0")
+            @test_throws dedent("""
+                pre-existing GuaranteedOutput scalar: quality
+                for the computation: Main.cross.1
+                on the daf data: first!
+            """) cross(first, second)
+            @test get_scalar(first, "quality") == 0.0
+            @test get_scalar(second, "version") == "1.0"
         end
 
         nested_test("missing") do
@@ -199,7 +226,7 @@ nested_test("computations") do
                 @test_throws dedent("""
                     missing input scalar: version
                     with type: String
-                    for the computation: Main.cross
+                    for the computation: Main.cross.1
                     on the daf data: first!
                 """) cross(first, second)
             end
@@ -209,7 +236,7 @@ nested_test("computations") do
                 @test_throws dedent("""
                     missing input scalar: quality
                     with type: Float64
-                    for the computation: Main.cross
+                    for the computation: Main.cross.2
                     on the daf data: second!
                 """) cross(first, second)
             end

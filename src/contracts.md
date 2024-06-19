@@ -6,6 +6,8 @@ Daf.Contracts.Contract
 Daf.Contracts.ContractAxes
 Daf.Contracts.ContractData
 Daf.Contracts.ContractExpectation
+Daf.Contracts.contractor
+Daf.Contracts.ContractDaf
 Daf.Contracts.verify_input
 Daf.Contracts.verify_output
 ```

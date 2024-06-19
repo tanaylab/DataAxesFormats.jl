@@ -426,6 +426,115 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
+<a class="docstring-binding" id="Daf.Contracts.contractor" href="#Daf.Contracts.contractor">
+<code>Daf.Contracts.contractor
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">function contractor(
+    computation::AbstractString,
+    contract::Contract,
+    daf::DafReader;
+    overwrite::Bool,
+)::ContractDaf
+</code>
+</pre>
+<p>Wrap a 
+<code>daf
+</code> data set to enforce a 
+<code>contract
+</code> for some 
+<code>computation
+</code>, possibly allowing for 
+<code>overwrite
+</code> of existing outputs.
+</p>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>If the 
+<code>contract
+</code> specifies any outputs, the 
+<code>daf
+</code> needs to be a 
+<code>DafWriter
+</code>.
+</p>
+</div>
+</div>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Contracts.ContractDaf" href="#Daf.Contracts.ContractDaf">
+<code>Daf.Contracts.ContractDaf
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">struct ContractDaf &lt;: DafWriter ... end
+</code>
+</pre>
+<p>A 
+<a href="formats.html#Daf.Formats.DafWriter">
+<code>DafWriter
+</code>
+</a> wrapper which restricts access only to the properties listed in some 
+<a href="contracts.html#Daf.Contracts.Contract">
+<code>Contract
+</code>
+</a>. This also tracks which properties are accessed, so when a computation is done, we can verify that all required inputs were actually accessed. If they weren&#39;t, then they weren&#39;t really required (should have been marked as optional instead).
+</p>
+<p>This isn&#39;t exported and isn&#39;t created manually; instead call 
+<a href="contracts.html#Daf.Contracts.contractor">
+<code>contractor
+</code>
+</a>, or, better yet, use the 
+<code>@computation
+</code> macro.
+</p>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>If the 
+<a href="contracts.html#Daf.Contracts.Contract">
+<code>Contract
+</code>
+</a> specifies no outputs, then this becomes effectively a read-only 
+<code>Daf
+</code> data set; however, to avoid code duplication, it is still a 
+<a href="formats.html#Daf.Formats.DafWriter">
+<code>DafWriter
+</code>
+</a> rather than a 
+<a href="formats.html#Daf.Formats.DafReader">
+<code>DafReader
+</code>
+</a>.
+</p>
+</div>
+</div>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
 <a class="docstring-binding" id="Daf.Contracts.verify_input" href="#Daf.Contracts.verify_input">
 <code>Daf.Contracts.verify_input
 </code>
@@ -436,12 +545,12 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">verify_input(daf::DafReader, contract::Contract, computation::AbstractString)::Nothing
+<code class="language-julia hljs">verify_input(contract_daf::ContractDaf)::Nothing
 </code>
 </pre>
 <p>Verify the 
-<code>daf
-</code> data when a computation is invoked. This verifies that all the required data exists and is of the appropriate type, and that if any of the optional data exists, it has the appropriate type.
+<code>contract_daf
+</code> data before a computation is invoked. This verifies that all the required data exists and is of the appropriate type, and that if any of the optional data exists, it has the appropriate type.
 </p>
 </div>
 </section>
@@ -460,12 +569,12 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">verify_output(daf::DafReader, contract::Contract, computation::AbstractString)::Nothing
+<code class="language-julia hljs">verify_output(contract_daf::ContractDaf)::Nothing
 </code>
 </pre>
 <p>Verify the 
-<code>daf
-</code> data when a computation is complete. This verifies that all the guaranteed output data exists and is of the appropriate type, and that if any of the optional output data exists, it has the appropriate type.
+<code>contract_daf
+</code> data when a computation is complete. This verifies that all the guaranteed output data exists and is of the appropriate type, and that if any of the optional output data exists, it has the appropriate type. It also verifies that all the required inputs were accessed by the computation.
 </p>
 </div>
 </section>
@@ -498,6 +607,12 @@
 </a>
 </li>
 <li>
+<a href="contracts.html#Daf.Contracts.ContractDaf">
+<code>Daf.Contracts.ContractDaf
+</code>
+</a>
+</li>
+<li>
 <a href="contracts.html#Daf.Contracts.ContractData">
 <code>Daf.Contracts.ContractData
 </code>
@@ -506,6 +621,12 @@
 <li>
 <a href="contracts.html#Daf.Contracts.ContractExpectation">
 <code>Daf.Contracts.ContractExpectation
+</code>
+</a>
+</li>
+<li>
+<a href="contracts.html#Daf.Contracts.contractor">
+<code>Daf.Contracts.contractor
 </code>
 </a>
 </li>

@@ -15,6 +15,7 @@ export DEFAULT
 using ..Contracts
 using ..Formats
 using ..Messages
+using ..StorageTypes
 using DocStringExtensions
 using ExprTools
 
@@ -26,20 +27,39 @@ function computation_wrapper(::AbstractString, inner_function)
 end
 
 function computation_wrapper(contract::Contract, name::AbstractString, inner_function)
-    return (daf::DafReader, args...; kwargs...) -> (verify_input(contract, name, daf);
-    result = inner_function(daf, args...; kwargs...);
-    verify_output(contract, name, daf);
-    result)  # flaky tested
+    return (daf::DafReader, args...; kwargs...) -> (
+        #! format: off
+        contract_daf = contractor(name, contract, daf; overwrite = kwargs_overwrite(kwargs));
+        verify_input(contract_daf);
+        result = inner_function(contract_daf, args...; kwargs...);
+        verify_output(contract_daf);
+        result  # flaky tested
+        #! format: on
+    )
 end
 
 function computation_wrapper(first_contract::Contract, second_contract::Contract, name::AbstractString, inner_function)
-    return (first_daf::DafReader, second_daf::DafReader, args...; kwargs...) ->
-        (verify_input(first_contract, name, first_daf);
-        verify_input(second_contract, name, second_daf);
-        result = inner_function(first_daf, second_daf, args...; kwargs...);
-        verify_output(first_contract, name, first_daf);
-        verify_output(second_contract, name, second_daf);
-        result)  # flaky tested
+    return (first_daf::DafReader, second_daf::DafReader, args...; kwargs...) -> (  # NOJET
+        #! format: off
+        first_contract_daf = contractor(name * ".1", first_contract, first_daf; overwrite = kwargs_overwrite(kwargs));
+        second_contract_daf = contractor(name * ".2", second_contract, second_daf; overwrite = kwargs_overwrite(kwargs));  # NOJET
+        verify_input(first_contract_daf);
+        verify_input(second_contract_daf);
+        result = inner_function(first_contract_daf, second_contract_daf, args...; kwargs...);
+        verify_output(first_contract_daf);
+        verify_output(second_contract_daf);
+        result  # flaky tested
+        #! format: on
+    )
+end
+
+function kwargs_overwrite(kwargs::Base.Pairs)::Bool
+    for (name, value) in kwargs
+        if name == :overwrite
+            return value
+        end
+    end
+    return false
 end
 
 struct FunctionMetadata

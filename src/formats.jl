@@ -1148,9 +1148,9 @@ specific [`CacheType`](@ref) (e.g., for clearing only `QueryData`), or `keep`, t
 [`CacheType`](@ref) (e.g., for keeping only `MappedData`). You can't specify both `clear` and `keep`.
 """
 function empty_cache!(daf::DafReader; clear::Maybe{CacheType} = nothing, keep::Maybe{CacheType} = nothing)::Nothing
+    @assert clear === nothing || keep === nothing
     with_write_lock(daf.internal.cache_lock, daf.name, "empty_cache!") do
         @debug "empty_cache! daf: $(depict(daf)) clear: $(clear) keep: $(keep)"
-        @assert clear === nothing || keep === nothing
         if clear === nothing && keep === nothing
             empty!(daf.internal.cache)
         else
