@@ -315,12 +315,16 @@ end
 
 function DocStringExtensions.format(what::DefaultValue, buffer::IOBuffer, doc_str::Base.Docs.DocStr)::Nothing
     full_name, metadata = get_metadata(doc_str)
-    default = get(metadata.defaults, what.name, nothing)
-    if default === nothing
+    default = get(metadata.defaults, what.name, missing)
+    if default === missing
         error(dedent("""
             no default for a parameter: $(what.name)
             in the computation: $(full_name)
         """))
+    end
+    if default isa AbstractString
+        default = replace(default, "\\" => "\\\\", "\"" => "\\\"")
+        default = "\"$(default)\""
     end
     return print(buffer, default)
 end

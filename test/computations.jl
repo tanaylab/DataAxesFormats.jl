@@ -24,7 +24,7 @@ $(CONTRACT)
         ("cell", "gene", "UMIs") =>
             (RequiredInput, Union{UInt8, UInt16, UInt32, UInt64}, "The number of sampled scRNA molecules."),
     ],
-) @logged function single(daf::DafWriter, quality::Float64, optional::Int = 1; named::Int = 2)::Nothing
+) @logged function single(daf::DafWriter, quality::Float64, optional::Int = 1; named::AbstractString = "Foo")::Nothing
     get_matrix(daf, "cell", "gene", "UMIs")
     set_scalar!(daf, "quality", quality)
     return nothing
@@ -149,7 +149,7 @@ nested_test("computations") do
                 """
                    Single
 
-                   The `quality` is mandatory. The default `optional` is `1`. The default `named` is `2`.
+                   The `quality` is mandatory. The default `optional` is `1`. The default `named` is `"Foo"`.
 
                    ## Inputs
 
