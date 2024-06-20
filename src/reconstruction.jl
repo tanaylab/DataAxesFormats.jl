@@ -9,6 +9,7 @@ module Reconstruction
 export reconstruct_axis!
 
 using ..Formats
+using ..GenericFunctions
 using ..GenericLogging
 using ..GenericTypes
 using ..Queries
@@ -102,11 +103,11 @@ doublet score). Not specifying the `implicit_properties` allows the function to 
         axis_values_set = Set(axis_values)
         for unique_value in unique_values
             if !(unique_value in axis_values_set)
-                error(
-                    "missing used entry: $(unique_value)\n" *
-                    "from the existing reconstructed axis: $(implicit_axis)\n" *
-                    "in the daf data: $(daf.name)",
-                )
+                error(dedent("""
+                    missing used entry: $(unique_value)
+                    from the existing reconstructed axis: $(implicit_axis)
+                    in the daf data: $(daf.name)
+                """))
             end
         end
         unique_values = axis_values
@@ -179,12 +180,12 @@ function collect_property_data(
             property_values_of_implicits[implicit_value] = property_value
         elseif property_value_of_implicit != property_value
             if must_be_consistent
-                error(
-                    "inconsistent values of the property: $(property)\n" *
-                    "of the axis: $(existing_axis)\n" *
-                    "for the reconstructed axis: $(implicit_axis)\n" *
-                    "in the daf data: $(daf.name)",
-                )
+                error(dedent("""
+                    inconsistent values of the property: $(property)
+                    of the axis: $(existing_axis)
+                    for the reconstructed axis: $(implicit_axis)
+                    in the daf data: $(daf.name)
+                """))
             end
             return nothing
         end
@@ -207,11 +208,11 @@ function value_of_implicit_property(
 )::StorageScalar
     value = get(property_values_of_implicits, unique_value, default_value)
     if value === nothing
-        error(
-            "no default value specified for the unused entry: $(unique_value)\n" *
-            "of the reconstructed property: $(property)\n" *
-            "in the daf data: $(daf.name)",
-        )
+        error(dedent("""
+            no default value specified for the unused entry: $(unique_value)
+            of the reconstructed property: $(property)
+            in the daf data: $(daf.name)
+        """))
     end
     return value
 end

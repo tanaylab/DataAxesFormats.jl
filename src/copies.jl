@@ -18,6 +18,7 @@ export copy_vector!
 export EmptyData
 
 using ..Formats
+using ..GenericFunctions
 using ..GenericLogging
 using ..GenericTypes
 using ..Keys
@@ -144,7 +145,7 @@ source axis contains entries that do not exist in the target, they are discarded
     reaxis = new_name(reaxis, axis)
     rename = new_name(rename, name)
 
-    what_for = empty === nothing ? "the vector: $(name)\nto the vector: $(rename)" : nothing
+    what_for = empty === nothing ? "the vector: $(name)\n    to the vector: $(rename)" : nothing
     if relation === nothing
         relation = verify_axis(destination, reaxis, source, axis; allow_missing = false, what_for = what_for)
         @assert relation !== nothing
@@ -273,7 +274,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
     columns_reaxis = new_name(columns_reaxis, columns_axis)
     rename = new_name(rename, name)
 
-    what_for = empty === nothing ? "the matrix: $(name)\nto the matrix: $(rename)" : nothing
+    what_for = empty === nothing ? "the matrix: $(name)\n    to the matrix: $(rename)" : nothing
     if rows_relation === nothing
         rows_relation =
             verify_axis(destination, rows_reaxis, source, rows_axis; allow_missing = false, what_for = what_for)
@@ -544,12 +545,12 @@ function verify_axis(
         return :source_is_subset
     end
 
-    return error(
-        "disjoint entries in the axis: $(source_axis)\n" *
-        "of the source daf data: $(source_daf.name)\n" *
-        "and the axis: $(destination_axis)\n" *
-        "of the target daf data: $(destination_daf.name)\n",
-    )
+    return error(dedent("""
+        disjoint entries in the axis: $(source_axis)
+        of the source daf data: $(source_daf.name)
+        and the axis: $(destination_axis)
+        of the target daf data: $(destination_daf.name)
+    """))
 end
 
 function verify_subset(
@@ -560,13 +561,13 @@ function verify_subset(
     what_for::Maybe{AbstractString},
 )::Nothing
     if what_for !== nothing
-        error(
-            "missing entries in the axis: $(source_axis)\n" *
-            "of the source daf data: $(source_name)\n" *
-            "which are needed for copying $(what_for)\n" *
-            "of the axis: $(destination_axis)\n" *
-            "of the target daf data: $(destination_name)\n",
-        )
+        error(dedent("""
+            missing entries in the axis: $(source_axis)
+            of the source daf data: $(source_name)
+            which are needed for copying $(what_for)
+            of the axis: $(destination_axis)
+            of the target daf data: $(destination_name)
+        """))
     end
 end
 

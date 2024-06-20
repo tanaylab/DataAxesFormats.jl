@@ -14,6 +14,7 @@ export DEFAULT
 
 using ..Contracts
 using ..Formats
+using ..GenericFunctions
 using ..Messages
 using ..StorageTypes
 using DocStringExtensions
@@ -56,6 +57,7 @@ end
 function kwargs_overwrite(kwargs::Base.Pairs)::Bool
     for (name, value) in kwargs
         if name == :overwrite
+            @assert value isa Bool "non-Bool overwrite keyword parameter type: $(typeof(value)) = $(value)"
             return value
         end
     end
@@ -262,10 +264,10 @@ function DocStringExtensions.format(which::ContractDocumentation, buffer::IOBuff
     full_name, metadata = get_metadata(doc_str)
     if which.index > length(metadata.contracts)
         @assert which.index == 2
-        error(
-            "no second contract associated with: $(full_name)\n" *
-            "use: @computation Contract(...) Contract(...) function $(full_name)(...)",
-        )
+        error(dedent("""
+            no second contract associated with: $(full_name)
+            use: @computation Contract(...) Contract(...) function $(full_name)(...)
+        """))
     end
     contract_documentation(metadata.contracts[which.index], buffer)
     return nothing
@@ -315,7 +317,10 @@ function DocStringExtensions.format(what::DefaultValue, buffer::IOBuffer, doc_st
     full_name, metadata = get_metadata(doc_str)
     default = get(metadata.defaults, what.name, nothing)
     if default === nothing
-        error("no default for a parameter: $(what.name)\n" * "in the computation: $(full_name)")
+        error(dedent("""
+            no default for a parameter: $(what.name)
+            in the computation: $(full_name)
+        """))
     end
     return print(buffer, default)
 end
@@ -369,10 +374,10 @@ function get_metadata(doc_str::Base.Docs.DocStr)::Tuple{AbstractString, Function
         metadata = get(object_module.__DAF_FUNCTION_METADATA__, Symbol(object), nothing)
     end
     if metadata === nothing
-        error(
-            "no contract(s) associated with: $(object_module).$(object)\n" *
-            "use: @computation Contract(...) function $(object_module).$(object)(...)",
-        )
+        error(dedent("""
+            no contract(s) associated with: $(object_module).$(object)
+            use: @computation Contract(...) function $(object_module).$(object)(...)
+        """))
     end
     return "$(object_module).$(object)", metadata
 end

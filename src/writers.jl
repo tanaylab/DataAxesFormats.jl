@@ -30,6 +30,7 @@ export set_scalar!
 export set_vector!
 
 using ..Formats
+using ..GenericFunctions
 using ..GenericLocks
 using ..GenericTypes
 using ..MatrixLayouts
@@ -838,12 +839,12 @@ function relayout_matrix!(
         require_axis(daf, "for the columns of the matrix: $(name)", columns_axis)
 
         if rows_axis == columns_axis
-            error(
-                "can't relayout square matrix: $(name)\n" *
-                "of the axis: $(rows_axis)\n" *
-                "due to daf representation limitations\n" *
-                "in the daf data: $(daf.name)",
-            )
+            error(dedent("""
+                can't relayout square matrix: $(name)
+                of the axis: $(rows_axis)
+                due to daf representation limitations
+                in the daf data: $(daf.name)
+            """))
         end
 
         require_matrix(daf, rows_axis, columns_axis, name; relayout = false)
@@ -974,12 +975,12 @@ function require_no_matrix(
 )::Nothing
     @assert Formats.has_data_read_lock(daf)
     if Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
-        error(
-            "existing matrix: $(name)\n" *
-            "for the rows axis: $(rows_axis)\n" *
-            "and the columns axis: $(columns_axis)\n" *
-            "in the daf data: $(daf.name)",
-        )
+        error(dedent("""
+            existing matrix: $(name)
+            for the rows axis: $(rows_axis)
+            and the columns axis: $(columns_axis)
+            in the daf data: $(daf.name)
+        """))
     end
     if relayout
         require_no_matrix(daf, columns_axis, rows_axis, name; relayout = false)
@@ -989,7 +990,11 @@ end
 
 function require_not_name(daf::DafReader, axis::AbstractString, name::AbstractString)::Nothing
     if name == "name"
-        error("setting the reserved vector: name\n" * "for the axis: $(axis)\n" * "in the daf data: $(daf.name)")
+        error(dedent("""
+            setting the reserved vector: name
+            for the axis: $(axis)
+            in the daf data: $(daf.name)
+        """))
     end
     return nothing
 end

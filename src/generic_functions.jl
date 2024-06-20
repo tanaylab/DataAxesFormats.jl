@@ -70,7 +70,7 @@ function dedent(string::AbstractString; indent::AbstractString = "")::String
         if first_non_space === nothing || (line_non_space !== nothing && line_non_space < first_non_space)
             first_non_space = line_non_space
         end
-    end
+    end  # NOJET
 
     if first_non_space === nothing
         return indent * string  # untested NOJET

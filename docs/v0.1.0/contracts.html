@@ -271,21 +271,20 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">Contract(;
-    [axes::Maybe{ContractAxes} = nothing,
-    data::Maybe{ContractData} = nothing]
-)::Contract
+<code class="language-julia hljs">@kwdef struct Contract
+    is_relaxed::Bool = false
+    axes::Maybe{ContractAxes} = nothing
+    data::Maybe{ContractData} = nothing
+end
 </code>
 </pre>
 <p>The contract of a computational tool, specifing the 
-<a href="contracts.html#Daf.Contracts.ContractAxes">
-<code>ContractAxes
-</code>
-</a> and 
-<a href="contracts.html#Daf.Contracts.ContractData">
-<code>ContractData
-</code>
-</a>.
+<code>axes
+</code> and and 
+<code>data
+</code>. If 
+<code>is_relaxed
+</code>, this allows for additional unlisted inputs; this is typically used when the computation has query parameters, which may need to access such additional data.
 </p>
 </div>
 </section>

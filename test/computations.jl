@@ -67,6 +67,15 @@ function missing_single(daf::DafWriter)::Nothing
 end
 
 """
+Relaxed
+
+$(CONTRACT)
+"""
+@computation Contract(is_relaxed = true) function relaxed(daf::DafWriter)::Nothing  # untested
+    return nothing
+end
+
+"""
 Missing
 
 $(DEFAULT.x)
@@ -173,6 +182,17 @@ nested_test("computations") do
                    **cell @ special**::Bool (optional): Computed mask of special cells, if requested.
                """,
             ) * "\n"
+        end
+
+        nested_test("relaxed") do
+            @test string(Docs.doc(relaxed)) ==
+                  dedent("""
+                            Relaxed
+
+                            ## Inputs
+
+                            Additional inputs may be used depending to the query parameter(s).
+                        """) * "\n"
         end
 
         nested_test("!docs") do

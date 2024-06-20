@@ -794,6 +794,99 @@ nested_test("contracts") do
         @test set_vector!(daf, "cell", "age", [1.0, 2.0]) === nothing
         @test set_matrix!(daf, "cell", "gene", "UMIs", [0.0 1.0 2.0; 3.0 4.0 5.0]) === nothing
 
+        nested_test("relaxed") do
+            contract = Contract(; is_relaxed = true)
+            contract_daf = contractor("computation", contract, daf)
+
+            nested_test("axes_set") do
+                @test axes_set(contract_daf) === axes_set(daf)
+            end
+
+            nested_test("axis_array") do
+                @test axis_array(contract_daf, "cell") == ["A", "B"]
+            end
+
+            nested_test("axis_dict") do
+                @test axis_dict(contract_daf, "cell") == Dict("A" => 1, "B" => 2)
+            end
+
+            nested_test("axis_indices") do
+                @test axis_indices(contract_daf, "cell", ["A", "B"]) == [1, 2]
+            end
+
+            nested_test("axis_length") do
+                @test axis_length(contract_daf, "cell") == 2
+            end
+
+            nested_test("axis_version_counter") do
+                return axis_version_counter(contract_daf, "cell") == 1
+            end
+
+            nested_test("depict") do
+                @test depict(contract_daf) == "Contract(computation) MemoryDaf memory!"
+            end
+
+            nested_test("description") do
+                @test description(contract_daf) == dedent("""
+                    name: memory!
+                    type: MemoryDaf
+                    scalars:
+                      version: 1 (Int64)
+                    axes:
+                      cell: 2 entries
+                      gene: 3 entries
+                    vectors:
+                      cell:
+                        age: 2 x Float64 (Dense)
+                    matrices:
+                      cell,gene:
+                        UMIs: 2 x 3 x Float64 in Columns (Dense)
+                      gene,cell:
+                        UMIs: 3 x 2 x Float64 in Columns (Dense)
+                """) * "\n"
+            end
+
+            nested_test("empty_cache!") do
+                @test empty_cache!(contract_daf) === nothing
+            end
+
+            nested_test("get_scalar") do
+                @test get_scalar(contract_daf, "version") == 1
+            end
+
+            nested_test("has_scalar") do
+                @test has_scalar(contract_daf, "version")
+                @test !has_scalar(contract_daf, "quality")
+            end
+
+            nested_test("scalars_set") do
+                @test scalars_set(contract_daf) === scalars_set(daf)
+            end
+
+            nested_test("has_axis") do
+                @test has_axis(contract_daf, "cell")
+                @test !has_axis(contract_daf, "type")
+            end
+
+            nested_test("has_vector") do
+                @test has_vector(contract_daf, "cell", "age")
+                @test !has_vector(contract_daf, "cell", "batch")
+            end
+
+            nested_test("vectors_set") do
+                @test vectors_set(contract_daf, "cell") == Set(["age"])
+            end
+
+            nested_test("has_matrix") do
+                @test has_matrix(contract_daf, "cell", "gene", "UMIs")
+                @test !has_matrix(contract_daf, "cell", "gene", "fraction")
+            end
+
+            nested_test("matrices_set") do
+                @test matrices_set(contract_daf, "cell", "gene") == Set(["UMIs"])
+            end
+        end
+
         nested_test("empty") do
             contract = Contract()
             contract_daf = contractor("computation", contract, daf)

@@ -226,20 +226,21 @@ function verify_is_supported_type(
         report_unsupported(  # untested
             name,
             unsupported_handler,
-            "type not in row/column-major layout: $(typeof(value))\n" * "of the property: $(property)\n",
+            dedent("""
+                type not in row/column-major layout: $(typeof(value))
+                of the property: $(property)
+            """),
         )
     end
     if value isa CategoricalArray
         return nothing  # untested
     end
     if !(value isa supported_type)
-        report_unsupported(
-            name,
-            unsupported_handler,
-            "unsupported type: $(typeof(value))\n" *
-            "of the property: $(property)\n" *
-            "supported type is: $(supported_type)\n",
-        )
+        report_unsupported(name, unsupported_handler, dedent("""
+                                                          unsupported type: $(typeof(value))
+                                                          of the property: $(property)
+                                                          supported type is: $(supported_type)
+                                                      """))
     end
     return nothing
 end
@@ -251,7 +252,7 @@ function verify_are_empty(
     unsupported_handler::AbnormalHandler,
 )::Nothing
     for key in keys(dict)
-        report_unsupported(name, unsupported_handler, "unsupported annotation: $(member)[$(key)]\n")
+        report_unsupported(name, unsupported_handler, "unsupported annotation: $(member)[$(key)]")
     end
     return nothing
 end
@@ -262,7 +263,7 @@ function report_unsupported(
     message::AbstractString,
 )::Nothing
     handle_abnormal(unsupported_handler) do
-        return message * "in AnnData for the daf data: $(name)"
+        return message * "\nin AnnData for the daf data: $(name)"
     end
     return nothing
 end

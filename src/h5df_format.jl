@@ -100,6 +100,7 @@ module H5dfFormat
 export H5df
 
 using ..Formats
+using ..GenericFunctions
 using ..GenericTypes
 using ..MatrixLayouts
 using ..Messages
@@ -234,14 +235,14 @@ function verify_alignment(root::HDF5.File)::Nothing
     file_access_properties = HDF5.get_access_properties(root)
     alignment = file_access_properties.alignment
     if alignment[1] > 1 || alignment[2] != 8
-        @warn (
-            "unsafe HDF5 file alignment for Daf: ($(Int(alignment[1])), $(Int(alignment[2])))\n" *
-            "the safe HDF5 file alignment is: (1, 8)\n" *
-            "note that unaligned data is inefficient,\n" *
-            "and will break the empty_* functions;\n" *
-            "to force the alignment, create the file using:\n" *
-            "h5open(...;fapl=HDF5.FileAccessProperties(;alignment=(1,8))"
-        )
+        @warn dedent("""
+            unsafe HDF5 file alignment for Daf: ($(Int(alignment[1])), $(Int(alignment[2])))
+            the safe HDF5 file alignment is: (1, 8)
+            note that unaligned data is inefficient,
+            and will break the empty_* functions;
+            to force the alignment, create the file using:
+            h5open(...;fapl=HDF5.FileAccessProperties(;alignment=(1,8))
+        """)
     end
 end
 
@@ -267,11 +268,11 @@ function verify_daf(root::Union{HDF5.File, HDF5.Group})::Nothing
     @assert length(format_version) == 2
     @assert eltype(format_version) <: Unsigned
     if format_version[1] != MAJOR_VERSION || format_version[2] > MINOR_VERSION
-        error(
-            "incompatible format version: $(format_version[1]).$(format_version[2])\n" *
-            "for the daf data: $(root)\n" *
-            "the code supports version: $(MAJOR_VERSION).$(MINOR_VERSION)",
-        )
+        error(dedent("""
+            incompatible format version: $(format_version[1]).$(format_version[2])
+            for the daf data: $(root)
+            the code supports version: $(MAJOR_VERSION).$(MINOR_VERSION)
+        """))
     end
 end
 

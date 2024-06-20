@@ -55,6 +55,7 @@ export vector_version_counter
 export vectors_set
 
 using ..Formats
+using ..GenericFunctions
 using ..GenericLocks
 using ..GenericTypes
 using ..MatrixLayouts
@@ -132,7 +133,10 @@ end
 
 function require_scalar(daf::DafReader, name::AbstractString)::Nothing
     if !Formats.format_has_scalar(daf, name)
-        error("missing scalar: $(name)\nin the daf data: $(daf.name)")
+        error(dedent("""
+            missing scalar: $(name)
+            in the daf data: $(daf.name)
+        """))
     end
     return nothing
 end
@@ -271,7 +275,11 @@ end
 
 function require_axis(daf::DafReader, what_for::AbstractString, axis::AbstractString; for_change::Bool = false)::Nothing
     if !Formats.format_has_axis(daf, axis; for_change = for_change)
-        error("missing axis: $(axis)\n$(what_for)\nof the daf data: $(daf.name)")
+        error(dedent("""
+            missing axis: $(axis)
+            $(what_for)
+            of the daf data: $(daf.name)
+        """))
     end
     return nothing
 end
@@ -405,17 +413,21 @@ function get_vector(
             vector = Formats.get_vector_through_cache(daf, axis, name)
             if !(vector isa StorageVector)
                 error(  # untested
-                    "format_get_vector for daf format: $(typeof(daf))\n" *
-                    "returned invalid Daf.StorageVector: $(depict(vector))",
+                    dedent("""
+                        format_get_vector for daf format: $(typeof(daf))
+                        returned invalid Daf.StorageVector: $(depict(vector))
+                    """),
                 )
             end
             if length(vector) != Formats.format_axis_length(daf, axis)
-                error( # untested
-                    "format_get_vector for daf format: $(typeof(daf))\n" *
-                    "returned vector length: $(length(vector))\n" *
-                    "instead of axis: $(axis)\n" *
-                    "length: $(axis_length(daf, axis))\n" *
-                    "in the daf data: $(daf.name)",
+                error(  # untested
+                    dedent("""
+                        format_get_vector for daf format: $(typeof(daf))
+                        returned vector length: $(length(vector))
+                        instead of axis: $(axis)
+                        length: $(axis_length(daf, axis))
+                        in the daf data: $(daf.name)
+                    """),
                 )
             end
         end
@@ -563,17 +575,16 @@ function require_matrix(
     @assert Formats.has_data_read_lock(daf)
     if !has_matrix(daf, rows_axis, columns_axis, name; relayout = relayout)
         if relayout
-            extra = "(and the other way around)\n"
+            extra = "\n    (and the other way around)"
         else
             extra = ""
         end
-        error(
-            "missing matrix: $(name)\n" *
-            "for the rows axis: $(rows_axis)\n" *
-            "and the columns axis: $(columns_axis)\n" *
-            extra *
-            "in the daf data: $(daf.name)",
-        )
+        error(dedent("""
+            missing matrix: $(name)
+            for the rows axis: $(rows_axis)
+            and the columns axis: $(columns_axis)$(extra)
+            in the daf data: $(daf.name)
+        """))
     end
     return nothing
 end
@@ -714,36 +725,44 @@ function do_get_matrix(
     if matrix === nothing
         matrix = Formats.get_matrix_through_cache(daf, rows_axis, columns_axis, name)
         if !(matrix isa StorageMatrix)
-            error( # untested
-                "format_get_matrix for daf format: $(typeof(daf))\n" *
-                "returned invalid Daf.StorageMatrix: $(depict(matrix))",
+            error(  # untested
+                dedent("""
+                    format_get_matrix for daf format: $(typeof(daf))
+                    returned invalid Daf.StorageMatrix: $(depict(matrix))
+                """),
             )
         end
 
         if size(matrix, Rows) != Formats.format_axis_length(daf, rows_axis)
-            error( # untested
-                "format_get_matrix for daf format: $(typeof(daf))\n" *
-                "returned matrix rows: $(size(matrix, Rows))\n" *
-                "instead of axis: $(rows_axis)\n" *
-                "length: $(axis_length(daf, rows_axis))\n" *
-                "in the daf data: $(daf.name)",
+            error(  # untested
+                dedent("""
+                    format_get_matrix for daf format: $(typeof(daf))
+                    returned matrix rows: $(size(matrix, Rows))
+                    instead of axis: $(rows_axis)
+                    length: $(axis_length(daf, rows_axis))
+                    in the daf data: $(daf.name)
+                """),
             )
         end
 
         if size(matrix, Columns) != Formats.format_axis_length(daf, columns_axis)
-            error( # untested
-                "format_get_matrix for daf format: $(typeof(daf))\n" *
-                "returned matrix columns: $(size(matrix, Columns))\n" *
-                "instead of axis: $(columns_axis)\n" *
-                "length: $(axis_length(daf, columns_axis))\n" *
-                "in the daf data: $(daf.name)",
+            error(  # untested
+                dedent("""
+                    format_get_matrix for daf format: $(typeof(daf))
+                    returned matrix columns: $(size(matrix, Columns))
+                    instead of axis: $(columns_axis)
+                    length: $(axis_length(daf, columns_axis))
+                    in the daf data: $(daf.name)
+                """),
             )
         end
 
         if major_axis(matrix) != Columns
-            error( # untested
-                "format_get_matrix for daf format: $(typeof(daf))\n" *
-                "returned non column-major matrix: $(depict(matrix))",
+            error(  # untested
+                dedent("""
+                    format_get_matrix for daf format: $(typeof(daf))
+                    returned non column-major matrix: $(depict(matrix))
+                """),
             )
         end
     end
@@ -798,13 +817,13 @@ function require_axis_length(
     axis::AbstractString,
 )::Nothing
     if what_length != Formats.format_axis_length(daf, axis)
-        error(
-            "the length: $(what_length)\n" *
-            "of the $(vector_name)\n" *
-            "is different from the length: $(Formats.format_axis_length(daf, axis))\n" *
-            "of the axis: $(axis)\n" *
-            "in the daf data: $(daf.name)",
-        )
+        error(dedent("""
+            the length: $(what_length)
+            of the $(vector_name)
+            is different from the length: $(Formats.format_axis_length(daf, axis))
+            of the axis: $(axis)
+            in the daf data: $(daf.name)
+        """))
     end
     return nothing
 end

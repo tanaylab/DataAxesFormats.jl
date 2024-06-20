@@ -17,6 +17,7 @@ export reduction_result_type
 export ReductionOperation
 export register_query_operation
 
+using ..GenericFunctions
 using ..StorageTypes
 
 # An operation in the global registry (used for parsing).
@@ -162,11 +163,11 @@ function register_query_operation(
         if previous_registration.type != type ||
            previous_registration.source_file != source_file ||
            previous_registration.source_line != source_line
-            error(
-                "conflicting registrations for the $(kind) operation: $(name)\n" *
-                "1st in: $(previous_registration.source_file):$(previous_registration.source_line)\n" *
-                "2nd in: $(source_file):$(source_line)",
-            )
+            error(dedent("""
+                conflicting registrations for the $(kind) operation: $(name)
+                first in: $(previous_registration.source_file):$(previous_registration.source_line)
+                second in: $(source_file):$(source_line)
+            """))
         end
     end
 

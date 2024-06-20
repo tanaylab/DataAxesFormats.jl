@@ -219,12 +219,12 @@ function check_efficient_action(
     if major_axis(matrix) != axis
         global GLOBAL_INEFFICIENT_ACTION_HANDLER
         handle_abnormal(GLOBAL_INEFFICIENT_ACTION_HANDLER) do
-            return (
-                "the major axis: $(axis_name(axis))\n" *
-                "of the action: $(action)\n" *
-                "is different from the major axis: $(axis_name(major_axis(matrix)))\n" *
-                "of the $(operand) matrix: $(typeof(matrix))"
-            )
+            return (dedent("""
+                the major axis: $(axis_name(axis))
+                of the action: $(action)
+                is different from the major axis: $(axis_name(major_axis(matrix)))
+                of the $(operand) matrix: $(typeof(matrix))
+            """))
         end
     end
 end

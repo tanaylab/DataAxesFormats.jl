@@ -10,6 +10,7 @@ export chain_reader
 export chain_writer
 
 using ..Formats
+using ..GenericFunctions
 using ..GenericTypes
 using ..Keys
 using ..Messages
@@ -110,7 +111,10 @@ function chain_writer(dafs::AbstractVector{<:DafReader}; name::Maybe{AbstractStr
     end
 
     if !(dafs[end] isa DafWriter) || dafs[end].internal.is_frozen
-        error("read-only final data: $(dafs[end].name)\n" * "in write chain$(name_suffix(name))")
+        error(dedent("""
+            read-only final data: $(dafs[end].name)
+            in write chain$(name_suffix(name))
+        """))
     end
 
     if name === nothing
@@ -144,27 +148,27 @@ function reader_internal_dafs(dafs::AbstractVector, name::AbstractString)::Vecto
             if old_axis_entries === nothing
                 axes_entries[axis] = (daf.name, new_axis_entries)
             elseif length(new_axis_entries) != length(old_axis_entries[2])
-                error(  # NOJET
-                    "different number of entries: $(length(new_axis_entries))\n" *
-                    "for the axis: $(axis)\n" *
-                    "in the daf data: $(daf.name)\n" *
-                    "from the number of entries: $(length(old_axis_entries[2]))\n" *
-                    "for the axis: $(axis)\n" *
-                    "in the daf data: $(old_axis_entries[1])\n" *
-                    "in the chain: $(name)",
-                )
+                error(dedent("""
+                    different number of entries: $(length(new_axis_entries))
+                    for the axis: $(axis)
+                    in the daf data: $(daf.name)
+                    from the number of entries: $(length(old_axis_entries[2]))
+                    for the axis: $(axis)
+                    in the daf data: $(old_axis_entries[1])
+                    in the chain: $(name)
+                """))
             else
                 for (index, (new_entry, old_entry)) in enumerate(zip(new_axis_entries, old_axis_entries[2]))
                     if new_entry != old_entry
-                        error(
-                            "different entry#$(index): $(new_entry)\n" *
-                            "for the axis: $(axis)\n" *
-                            "in the daf data: $(daf.name)\n" *
-                            "from the entry#$(index): $(old_entry)\n" *
-                            "for the axis: $(axis)\n" *
-                            "in the daf data: $(old_axis_entries[1])\n" *
-                            "in the chain: $(name)",
-                        )
+                        error(dedent("""
+                            different entry#$(index): $(new_entry)
+                            for the axis: $(axis)
+                            in the daf data: $(daf.name)
+                            from the entry#$(index): $(old_entry)
+                            for the axis: $(axis)
+                            in the daf data: $(old_axis_entries[1])
+                            in the chain: $(name)
+                        """))
                     end
                 end
             end
@@ -248,12 +252,12 @@ function Formats.format_delete_scalar!(chain::WriteChain, name::AbstractString; 
     if !for_set
         for daf in chain.dafs[1:(end - 1)]
             if Formats.format_has_scalar(daf, name)
-                error(
-                    "failed to delete the scalar: $(name)\n" *
-                    "from the daf data: $(chain.daf.name)\n" *
-                    "of the chain: $(chain.name)\n" *
-                    "because it exists in the earlier: $(daf.name)",
-                )
+                error(dedent("""
+                    failed to delete the scalar: $(name)
+                    from the daf data: $(chain.daf.name)
+                    of the chain: $(chain.name)
+                    because it exists in the earlier: $(daf.name)
+                """))
             end
         end
     end
@@ -309,12 +313,12 @@ function Formats.format_delete_axis!(chain::WriteChain, axis::AbstractString)::N
     @assert Formats.has_data_write_lock(chain)
     for daf in chain.dafs[1:(end - 1)]
         if Formats.format_has_axis(daf, axis; for_change = false)
-            error(
-                "failed to delete the axis: $(axis)\n" *
-                "from the daf data: $(chain.daf.name)\n" *
-                "of the chain: $(chain.name)\n" *
-                "because it exists in the earlier: $(daf.name)",
-            )
+            error(dedent("""
+                failed to delete the axis: $(axis)
+                from the daf data: $(chain.daf.name)
+                of the chain: $(chain.name)
+                because it exists in the earlier: $(daf.name)
+            """))
         end
     end
     Formats.format_delete_axis!(chain.daf, axis)
@@ -420,13 +424,13 @@ function Formats.format_delete_vector!(
     if !for_set
         for daf in chain.dafs[1:(end - 1)]
             if Formats.format_has_axis(daf, axis; for_change = false) && Formats.format_has_vector(daf, axis, name)
-                error(
-                    "failed to delete the vector: $(name)\n" *
-                    "of the axis: $(axis)\n" *
-                    "from the daf data: $(chain.daf.name)\n" *
-                    "of the chain: $(chain.name)\n" *
-                    "because it exists in the earlier: $(daf.name)",
-                )
+                error(dedent("""
+                    failed to delete the vector: $(name)
+                    of the axis: $(axis)
+                    from the daf data: $(chain.daf.name)
+                    of the chain: $(chain.name)
+                    because it exists in the earlier: $(daf.name)
+                """))
             end
         end
     end
@@ -564,14 +568,14 @@ function Formats.format_delete_matrix!(
             if Formats.format_has_axis(daf, rows_axis; for_change = false) &&
                Formats.format_has_axis(daf, columns_axis; for_change = false) &&
                Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
-                error(
-                    "failed to delete the matrix: $(name)\n" *
-                    "for the rows axis: $(rows_axis)\n" *
-                    "and the columns axis: $(columns_axis)\n" *
-                    "from the daf data: $(chain.daf.name)\n" *
-                    "of the chain: $(chain.name)\n" *
-                    "because it exists in the earlier: $(daf.name)",
-                )
+                error(dedent("""
+                    failed to delete the matrix: $(name)
+                    for the rows axis: $(rows_axis)
+                    and the columns axis: $(columns_axis)
+                    from the daf data: $(chain.daf.name)
+                    of the chain: $(chain.name)
+                    because it exists in the earlier: $(daf.name)
+                """))
             end
         end
     end
