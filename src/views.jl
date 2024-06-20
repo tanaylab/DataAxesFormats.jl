@@ -286,17 +286,20 @@ function collect_scalars(
     collected_scalars = Dict{AbstractString, Fetch{StorageScalar}}()
     for (key, query) in data
         if key isa AbstractString
-            collect_scalar(view_name, daf, collected_scalars, key, prepare_query(query))
+            collect_scalar(view_name, daf, collected_scalars, key, prepare_query(query, Lookup))
         end
     end
     return collected_scalars
 end
 
-function prepare_query(maybe_query::Maybe{QueryString})::Maybe{QueryString}
+function prepare_query(
+    maybe_query::Maybe{QueryString},
+    operand_only::Union{Type{Axis}, Type{Lookup}},
+)::Maybe{QueryString}
     if maybe_query isa AbstractString
         maybe_query = strip(maybe_query)  # NOJET
         if maybe_query != "="
-            maybe_query = Query(maybe_query)
+            maybe_query = Query(maybe_query, operand_only)
         end
     end
     return maybe_query
@@ -346,7 +349,7 @@ function collect_axes(
     for (axis, query) in axes
         @assert axis isa AbstractString
         @assert query isa Maybe{QueryString}
-        collect_axis(view_name, daf, collected_axes, axis, prepare_query(query))
+        collect_axis(view_name, daf, collected_axes, axis, prepare_query(query, Axis))
     end
     return collected_axes
 end
@@ -403,7 +406,7 @@ function collect_vectors(
                 collected_vectors,
                 axis_name,
                 vector_name,
-                prepare_query(query),
+                prepare_query(query, Lookup),
             )
         end
     end
@@ -473,7 +476,7 @@ function collect_matrices(
                 rows_axis_name,
                 columns_axis_name,
                 matrix_name,
-                prepare_query(query),
+                prepare_query(query, Lookup),
             )
         end
     end

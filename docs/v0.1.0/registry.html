@@ -376,7 +376,7 @@ MyOperation(operation_name::Token, parameter_values::Dict{String, Token})::MyOpe
 <pre>
 <code class="language-julia hljs">compute_eltwise(operation::EltwiseOperation, input::StorageMatrix)::StorageMatrix
 compute_eltwise(operation::EltwiseOperation, input::StorageVector)::StorageVector
-compute_eltwise(operation::EltwiseOperation, input_value::Number)::StorageNumber
+compute_eltwise(operation::EltwiseOperation, input_value::Number)::StorageReal
 </code>
 </pre>
 <p>Compute an 
@@ -477,7 +477,7 @@ MyOperation(operation_name::Token, parameter_values::Dict{String, Token})::MyOpe
 <div>
 <pre>
 <code class="language-julia hljs">compute_reduction(operation::ReductionOperation, input::StorageMatrix)::StorageVector
-compute_reduction(operation::ReductionOperation, input::StorageVector)::StorageNumber
+compute_reduction(operation::ReductionOperation, input::StorageVector)::StorageReal
 </code>
 </pre>
 <p>Since each 

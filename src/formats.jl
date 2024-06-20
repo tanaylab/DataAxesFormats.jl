@@ -309,7 +309,7 @@ function format_set_vector! end
         axis::AbstractString,
         name::AbstractString,
         eltype::Type{T},
-    )::Vector{T} where {T <: StorageNumber}
+    )::Vector{T} where {T <: StorageReal}
 
 Implement setting a vector property with some `name` for some `axis` in `format`.
 
@@ -331,7 +331,7 @@ function format_get_empty_dense_vector! end
         daf::DafWriter,
         axis::AbstractString,
         name::AbstractString,
-        filled_vector::AbstractVector{<:StorageNumber},
+        filled_vector::AbstractVector{<:StorageReal},
     )::Nothing
 
 Allow the `format` to perform caching once the empty dense vector has been `filled`. By default this does nothing.
@@ -340,7 +340,7 @@ function format_filled_empty_dense_vector!(
     ::DafWriter,
     ::AbstractString,
     ::AbstractString,
-    ::AbstractVector{<:StorageNumber},
+    ::AbstractVector{<:StorageReal},
 )::Nothing
     return nothing
 end
@@ -354,7 +354,7 @@ end
         nnz::StorageInteger,
         indtype::Type{I},
     )::Tuple{AbstractVector{I}, AbstractVector{T}, Any}
-    where {T <: StorageNumber, I <: StorageInteger}
+    where {T <: StorageReal, I <: StorageInteger}
 
 Implement creating an empty dense vector property with some `name` for some `rows_axis` and `columns_axis` in
 `format`. The final tuple element is passed to [`format_filled_empty_sparse_vector!`](@ref).
@@ -370,7 +370,7 @@ function format_get_empty_sparse_vector! end
         axis::AbstractString,
         name::AbstractString,
         extra::Any,
-        filled::SparseVector{<:StorageNumber, <:StorageInteger},
+        filled::SparseVector{<:StorageReal, <:StorageInteger},
     )::Nothing
 
 Allow the `format` to perform caching once the empty sparse vector has been `filled`. By default this does nothing.
@@ -380,7 +380,7 @@ function format_filled_empty_sparse_vector!(  # untested
     ::AbstractString,
     ::AbstractString,
     ::Any,
-    ::SparseVector{<:StorageNumber, <:StorageInteger},
+    ::SparseVector{<:StorageReal, <:StorageInteger},
 )::Nothing
     return nothing
 end
@@ -461,7 +461,7 @@ function format_set_matrix! end
         columns_axis::AbstractString,
         name::AbstractString,
         eltype::Type{T},
-    )::AbstractMatrix{T} where {T <: StorageNumber}
+    )::AbstractMatrix{T} where {T <: StorageReal}
 
 Implement creating an empty dense matrix property with some `name` for some `rows_axis` and `columns_axis` in `format`.
 
@@ -482,7 +482,7 @@ function format_get_empty_dense_matrix! end
         rows_axis::AbstractString,
         columns_axis::AbstractString,
         name::AbstractString,
-        filled_matrix::AbstractVector{<:StorageNumber},
+        filled_matrix::AbstractVector{<:StorageReal},
     )::Nothing
 
 Allow the `format` to perform caching once the empty dense matrix has been `filled`. By default this does nothing.
@@ -492,7 +492,7 @@ function format_filled_empty_dense_matrix!(
     ::AbstractString,
     ::AbstractString,
     ::AbstractString,
-    ::AbstractMatrix{<:StorageNumber},
+    ::AbstractMatrix{<:StorageReal},
 )::Nothing
     return nothing
 end
@@ -507,7 +507,7 @@ end
         intdype::Type{I},
         nnz::StorageInteger,
     )::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}, Any}
-    where {T <: StorageNumber, I <: StorageInteger}
+    where {T <: StorageReal, I <: StorageInteger}
 
 Implement creating an empty sparse matrix property with some `name` for some `rows_axis` and `columns_axis` in `format`.
 The final tuple element is passed to [`format_filled_empty_sparse_matrix!`](@ref).
@@ -524,7 +524,7 @@ function format_get_empty_sparse_matrix! end
         columns_axis::AbstractString,
         name::AbstractString,
         extra::Any,
-        filled::SparseMatrixCSC{<:StorageNumber, <:StorageInteger},
+        filled::SparseMatrixCSC{<:StorageReal, <:StorageInteger},
     )::Nothing
 
 Allow the `format` to perform caching once the empty sparse matrix has been `filled`. By default this does nothing.
@@ -535,7 +535,7 @@ function format_filled_empty_sparse_matrix!(  # untested
     ::AbstractString,
     ::AbstractString,
     ::Any,
-    ::SparseMatrixCSC{<:StorageNumber, <:StorageInteger},
+    ::SparseMatrixCSC{<:StorageReal, <:StorageInteger},
 )::Nothing
     return nothing
 end

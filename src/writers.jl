@@ -279,7 +279,7 @@ end
         daf::DafWriter,
         axis::AbstractString,
         name::AbstractString,
-        eltype::Type{<:StorageNumber};
+        eltype::Type{<:StorageReal};
         [overwrite::Bool = false]
     )::Any
 
@@ -298,7 +298,7 @@ function empty_dense_vector!(
     daf::DafWriter,
     axis::AbstractString,
     name::AbstractString,
-    eltype::Type{<:StorageNumber};
+    eltype::Type{<:StorageReal};
     overwrite::Bool = false,
 )::Any
     @assert isbitstype(eltype)
@@ -318,7 +318,7 @@ function get_empty_dense_vector!(
     name::AbstractString,
     eltype::Type{T};
     overwrite::Bool = false,
-)::AbstractVector{T} where {T <: StorageNumber}
+)::AbstractVector{T} where {T <: StorageReal}
     @assert isbitstype(eltype)
     Formats.begin_data_write_lock(daf, "empty_dense_vector! of:", name, "of:", axis)
     try
@@ -347,7 +347,7 @@ function filled_empty_dense_vector!(
     daf::DafWriter,
     axis::AbstractString,
     name::AbstractString,
-    filled_vector::AbstractVector{<:StorageNumber},
+    filled_vector::AbstractVector{<:StorageReal},
 )::Nothing
     Formats.format_filled_empty_dense_vector!(daf, axis, name, filled_vector)
     @debug "empty_dense_vector! filled vector: $(depict(filled_vector)) }"
@@ -360,7 +360,7 @@ end
         daf::DafWriter,
         axis::AbstractString,
         name::AbstractString,
-        eltype::Type{<:StorageNumber},
+        eltype::Type{<:StorageReal},
         nnz::StorageInteger,
         indtype::Maybe{Type{<:StorageInteger}} = nothing;
         [overwrite::Bool = false]
@@ -396,7 +396,7 @@ function empty_sparse_vector!(
     daf::DafWriter,
     axis::AbstractString,
     name::AbstractString,
-    eltype::Type{<:StorageNumber},
+    eltype::Type{<:StorageReal},
     nnz::StorageInteger,
     indtype::Maybe{Type{<:StorageInteger}} = nothing;
     overwrite::Bool = false,
@@ -424,7 +424,7 @@ function get_empty_sparse_vector!(
     nnz::StorageInteger,
     indtype::Type{I};
     overwrite::Bool = false,
-)::Tuple{AbstractVector{I}, AbstractVector{T}, Any} where {T <: StorageNumber, I <: StorageInteger}
+)::Tuple{AbstractVector{I}, AbstractVector{T}, Any} where {T <: StorageReal, I <: StorageInteger}
     Formats.begin_data_write_lock(daf, "empty_sparse_vector! of:", name, "of:", axis)
     try
         @debug "empty_sparse_vector! daf: $(depict(daf)) axis: $(axis) name: $(name) eltype: $(eltype) nnz: $(nnz) indtype: $(indtype) overwrite: $(overwrite) {"
@@ -453,7 +453,7 @@ function filled_empty_sparse_vector!(
     axis::AbstractString,
     name::AbstractString,
     nzind::AbstractVector{<:StorageInteger},
-    nzval::AbstractVector{<:StorageNumber},
+    nzval::AbstractVector{<:StorageReal},
     extra::Any,
 )::Nothing
     filled = SparseVector(axis_length(daf, axis), nzind, nzval)
@@ -530,7 +530,7 @@ end
         rows_axis::AbstractString,
         columns_axis::AbstractString,
         name::AbstractString,
-        matrix::Union{StorageNumber, StorageMatrix};
+        matrix::Union{StorageReal, StorageMatrix};
         [overwrite::Bool = false,
         relayout::Bool = true]
     )::Nothing
@@ -553,7 +553,7 @@ function set_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    matrix::Union{StorageNumber, StorageMatrix};
+    matrix::Union{StorageReal, StorageMatrix};
     overwrite::Bool = false,
     relayout::Bool = true,
 )::Nothing
@@ -606,7 +606,7 @@ end
         rows_axis::AbstractString,
         columns_axis::AbstractString,
         name::AbstractString,
-        eltype::Type{<:StorageNumber};
+        eltype::Type{<:StorageReal};
         [overwrite::Bool = false]
     )::Any
 
@@ -627,7 +627,7 @@ function empty_dense_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    eltype::Type{<:StorageNumber};
+    eltype::Type{<:StorageReal};
     overwrite::Bool = false,
 )::Any
     @assert isbitstype(eltype)
@@ -646,7 +646,7 @@ function get_empty_dense_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    eltype::Type{<:StorageNumber};
+    eltype::Type{<:StorageReal};
     overwrite::Bool = false,
 )::Any
     Formats.begin_data_write_lock(daf, "empty_dense_matrix! of:", name, "of:", rows_axis, "and:", columns_axis)
@@ -674,7 +674,7 @@ function filled_empty_dense_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    filled_matrix::AbstractMatrix{<:StorageNumber},
+    filled_matrix::AbstractMatrix{<:StorageReal},
 )::Nothing
     Formats.format_filled_empty_dense_matrix!(daf, rows_axis, columns_axis, name, filled_matrix)
     @debug "empty_dense_matrix! filled matrix: $(depict(filled_matrix)) }"
@@ -688,7 +688,7 @@ end
         rows_axis::AbstractString,
         columns_axis::AbstractString,
         name::AbstractString,
-        eltype::Type{<:StorageNumber},
+        eltype::Type{<:StorageReal},
         nnz::StorageInteger,
         intdype::Maybe{Type{<:StorageInteger}} = nothing;
         [overwrite::Bool = false]
@@ -727,7 +727,7 @@ function empty_sparse_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    eltype::Type{<:StorageNumber},
+    eltype::Type{<:StorageReal},
     nnz::StorageInteger,
     indtype::Maybe{Type{<:StorageInteger}} = nothing;
     overwrite::Bool = false,
@@ -759,7 +759,7 @@ function get_empty_sparse_matrix!(
     nnz::StorageInteger,
     indtype::Type{I};
     overwrite::Bool = false,
-)::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}, Any} where {T <: StorageNumber, I <: StorageInteger}
+)::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}, Any} where {T <: StorageReal, I <: StorageInteger}
     Formats.begin_data_write_lock(daf, "empty_sparse_matrix! of:", name, "of:", rows_axis, "and:", columns_axis)
     try
         @debug "empty_sparse_matrix! daf: $(depict(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) eltype: $(eltype) overwrite: $(overwrite) {"
@@ -787,7 +787,7 @@ function filled_empty_sparse_matrix!(
     name::AbstractString,
     colptr::AbstractVector{I},
     rowval::AbstractVector{I},
-    nzval::AbstractVector{<:StorageNumber},
+    nzval::AbstractVector{<:StorageReal},
     extra::Any,
 )::Nothing where {I <: StorageInteger}
     filled = SparseMatrixCSC(axis_length(daf, rows_axis), axis_length(daf, columns_axis), colptr, rowval, nzval)

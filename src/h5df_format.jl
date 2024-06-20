@@ -36,7 +36,7 @@ is **not** compatible with `h5ad`):
     column-major layout). Otherwise, it is stored as a group containing three vector "datasets": `colptr` containing the
     indices of the rows of each column in `rowval`, `rowval` containing the indices of the non-zero rows of the columns,
     and `nzval` containing the non-zero matrix entry values. See Julia's `SparseMatrixCSC` implementation for details.
-    The only supported matrix element types are these included in [`StorageNumber`](@ref) - this explicitly excludes
+    The only supported matrix element types are these included in [`StorageReal`](@ref) - this explicitly excludes
     matrices of strings, same as [`StorageMatrix`](@ref).
   - All vectors and matrices are stored in a contiguous way in the file, which allows us to efficiently memory-map
     them.
@@ -484,7 +484,7 @@ function Formats.format_get_empty_dense_vector!(
     axis::AbstractString,
     name::AbstractString,
     eltype::Type{T},
-)::AbstractVector{T} where {T <: StorageNumber}
+)::AbstractVector{T} where {T <: StorageReal}
     @assert Formats.has_data_write_lock(h5df)
     vectors_group = h5df.root["vectors"]
     @assert vectors_group isa HDF5.Group
@@ -510,7 +510,7 @@ function Formats.format_get_empty_sparse_vector!(
     eltype::Type{T},
     nnz::StorageInteger,
     indtype::Type{I},
-)::Tuple{AbstractVector{I}, AbstractVector{T}, CacheType} where {T <: StorageNumber, I <: StorageInteger}
+)::Tuple{AbstractVector{I}, AbstractVector{T}, CacheType} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(h5df)
     vectors_group = h5df.root["vectors"]
     @assert vectors_group isa HDF5.Group
@@ -544,7 +544,7 @@ function Formats.format_filled_empty_sparse_vector!(
     axis::AbstractString,
     name::AbstractString,
     cache_type::CacheType,
-    filled::SparseVector{<:StorageNumber, <:StorageInteger},
+    filled::SparseVector{<:StorageReal, <:StorageInteger},
 )::Nothing
     @assert Formats.has_data_write_lock(h5df)
     Formats.cache_vector!(h5df, axis, name, filled, cache_type)
@@ -635,7 +635,7 @@ function Formats.format_set_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    matrix::Union{StorageNumber, StorageMatrix},
+    matrix::Union{StorageReal, StorageMatrix},
 )::Nothing
     @assert Formats.has_data_write_lock(h5df)
     matrices_group = h5df.root["matrices"]
@@ -647,7 +647,7 @@ function Formats.format_set_matrix!(
     columns_axis_group = rows_axis_group[columns_axis]
     @assert columns_axis_group isa HDF5.Group
 
-    if matrix isa StorageNumber
+    if matrix isa StorageReal
         nrows = Formats.format_axis_length(h5df, rows_axis)
         ncols = Formats.format_axis_length(h5df, columns_axis)
         matrix_dataset = create_dataset(columns_axis_group, name, typeof(matrix), (nrows, ncols))
@@ -674,7 +674,7 @@ function Formats.format_get_empty_dense_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     eltype::Type{T},
-)::AbstractMatrix{T} where {T <: StorageNumber}
+)::AbstractMatrix{T} where {T <: StorageReal}
     @assert Formats.has_data_write_lock(h5df)
     matrices_group = h5df.root["matrices"]
     @assert matrices_group isa HDF5.Group
@@ -709,7 +709,7 @@ function Formats.format_get_empty_sparse_matrix!(
     AbstractVector{I},
     AbstractVector{T},
     CacheType,
-} where {T <: StorageNumber, I <: StorageInteger}
+} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(h5df)
     matrices_group = h5df.root["matrices"]
     @assert matrices_group isa HDF5.Group
@@ -751,7 +751,7 @@ function Formats.format_filled_empty_sparse_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     cache_type::CacheType,
-    filled::SparseMatrixCSC{<:StorageNumber, <:StorageInteger},
+    filled::SparseMatrixCSC{<:StorageReal, <:StorageInteger},
 )::Nothing
     @assert Formats.has_data_write_lock(h5df)
     Formats.cache_matrix!(h5df, rows_axis, columns_axis, name, filled, cache_type)

@@ -26,17 +26,17 @@ ensure it is working "with the grain" of the data, which is **much** more effici
 """
 module StorageTypes
 
-export sparse_matrix_csc
-export sparse_vector
 export StorageFloat
 export StorageInteger
 export StorageMatrix
-export StorageNumber
+export StorageReal
 export StorageScalar
 export StorageScalarBase
 export StorageSigned
 export StorageUnsigned
 export StorageVector
+export sparse_matrix_csc
+export sparse_vector
 
 using ..MatrixLayouts
 using SparseArrays
@@ -70,39 +70,39 @@ Floating point number types that can be used as scalars, or elements in stored m
 StorageFloat = Union{Float32, Float64}
 
 """
-    StorageNumber = Union{Bool, StorageInteger, StorageFloat}
+    StorageReal = Union{Bool, StorageInteger, StorageFloat}
 
 Number types that can be used as scalars, or elements in stored matrices or vectors.
 """
-StorageNumber = Union{Bool, StorageInteger, StorageFloat}
+StorageReal = Union{Bool, StorageInteger, StorageFloat}
 
 """
-    StorageScalar = Union{StorageNumber, <:AbstractString}
+    StorageScalar = Union{StorageReal, <:AbstractString}
 
 Types that can be used as scalars, or elements in stored matrices or vectors.
 
-This is restricted to [`StorageNumber`](@ref) (including Booleans) and strings. It is arguably too restrictive, as in
+This is restricted to [`StorageReal`](@ref) (including Booleans) and strings. It is arguably too restrictive, as in
 principle we could support any arbitrary `isbitstype`. However, in practice this would cause much trouble when accessing
 the data from other systems (specifically Python and R). Since `Daf` targets storing scientific data (especially
 biological data), as opposed to "anything at all", this restriction seems reasonable.
 """
-StorageScalar = Union{StorageNumber, S} where {S <: AbstractString}
+StorageScalar = Union{StorageReal, S} where {S <: AbstractString}
 
 """
-    StorageScalarBase = Union{StorageNumber, AbstractString}
+    StorageScalarBase = Union{StorageReal, AbstractString}
 
 For using in `where` clauses when a type needs to be a [`StorageScalar`](@ref). That is, write
 `where {T <: StorageScalarBase}` instead of `where {T <: StorageScalar}`, because of the
 limitations of Julia's type system.
 """
-StorageScalarBase = Union{StorageNumber, AbstractString}
+StorageScalarBase = Union{StorageReal, AbstractString}
 
 """
-    StorageMatrix{T} = AbstractMatrix{T} where {T <: StorageNumber}
+    StorageMatrix{T} = AbstractMatrix{T} where {T <: StorageReal}
 
 Matrices that can be directly stored (and fetched) from `Daf` storage.
 
-The element type must be a [`StorageNumber`](@ref), to allow efficient storage of the data in disk files. That is,
+The element type must be a [`StorageReal`](@ref), to allow efficient storage of the data in disk files. That is,
 matrices of strings are **not** supported.
 
 !!! note
@@ -110,7 +110,7 @@ matrices of strings are **not** supported.
     All matrices we store must have a clear [`MatrixLayouts`](@ref), that is, must be in either row-major or
     column-major format.
 """
-StorageMatrix{T} = AbstractMatrix{T} where {T <: StorageNumber}
+StorageMatrix{T} = AbstractMatrix{T} where {T <: StorageReal}
 
 """
     StorageVector{T} = AbstractVector{T} where {T <: StorageScalar}
@@ -127,7 +127,7 @@ StorageVector{T} = AbstractVector{T} where {T <: StorageScalar}
 
 Create a sparse vector using the smallest unsigned integer type needed for this size of matrix.
 """
-function sparse_vector(dense::StorageVector{T})::SparseVector{T} where {T <: StorageNumber}
+function sparse_vector(dense::StorageVector{T})::SparseVector{T} where {T <: StorageReal}
     return SparseVector{eltype(dense), indtype_for_size(length(dense))}(dense)
 end
 

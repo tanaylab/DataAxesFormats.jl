@@ -1608,7 +1608,7 @@
     axis::AbstractString,
     name::AbstractString,
     eltype::Type{T},
-)::Vector{T} where {T &lt;: StorageNumber}
+)::Vector{T} where {T &lt;: StorageReal}
 </code>
 </pre>
 <p>Implement setting a vector property with some 
@@ -1680,7 +1680,7 @@
     daf::DafWriter,
     axis::AbstractString,
     name::AbstractString,
-    filled_vector::AbstractVector{&lt;:StorageNumber},
+    filled_vector::AbstractVector{&lt;:StorageReal},
 )::Nothing
 </code>
 </pre>
@@ -1715,7 +1715,7 @@
     nnz::StorageInteger,
     indtype::Type{I},
 )::Tuple{AbstractVector{I}, AbstractVector{T}, Any}
-where {T &lt;: StorageNumber, I &lt;: StorageInteger}
+where {T &lt;: StorageReal, I &lt;: StorageInteger}
 </code>
 </pre>
 <p>Implement creating an empty dense vector property with some 
@@ -1766,7 +1766,7 @@ where {T &lt;: StorageNumber, I &lt;: StorageInteger}
     axis::AbstractString,
     name::AbstractString,
     extra::Any,
-    filled::SparseVector{&lt;:StorageNumber, &lt;:StorageInteger},
+    filled::SparseVector{&lt;:StorageReal, &lt;:StorageInteger},
 )::Nothing
 </code>
 </pre>
@@ -1799,7 +1799,7 @@ where {T &lt;: StorageNumber, I &lt;: StorageInteger}
     columns_axis::AbstractString,
     name::AbstractString,
     eltype::Type{T},
-)::AbstractMatrix{T} where {T &lt;: StorageNumber}
+)::AbstractMatrix{T} where {T &lt;: StorageReal}
 </code>
 </pre>
 <p>Implement creating an empty dense matrix property with some 
@@ -1860,7 +1860,7 @@ where {T &lt;: StorageNumber, I &lt;: StorageInteger}
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    filled_matrix::AbstractVector{&lt;:StorageNumber},
+    filled_matrix::AbstractVector{&lt;:StorageReal},
 )::Nothing
 </code>
 </pre>
@@ -1896,7 +1896,7 @@ where {T &lt;: StorageNumber, I &lt;: StorageInteger}
     intdype::Type{I},
     nnz::StorageInteger,
 )::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}, Any}
-where {T &lt;: StorageNumber, I &lt;: StorageInteger}
+where {T &lt;: StorageReal, I &lt;: StorageInteger}
 </code>
 </pre>
 <p>Implement creating an empty sparse matrix property with some 
@@ -1946,7 +1946,7 @@ where {T &lt;: StorageNumber, I &lt;: StorageInteger}
     columns_axis::AbstractString,
     name::AbstractString,
     extra::Any,
-    filled::SparseMatrixCSC{&lt;:StorageNumber, &lt;:StorageInteger},
+    filled::SparseMatrixCSC{&lt;:StorageReal, &lt;:StorageInteger},
 )::Nothing
 </code>
 </pre>

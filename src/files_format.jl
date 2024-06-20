@@ -383,7 +383,7 @@ function Formats.format_set_vector!(
         fill_file("$(files.path)/vectors/$(axis)/$(name).txt", vector, Formats.format_axis_length(files, axis))
 
     elseif vector isa StorageScalar
-        @assert vector isa StorageNumber
+        @assert vector isa StorageReal
         write_array_json("$(files.path)/vectors/$(axis)/$(name).json", "dense", typeof(vector))
         fill_file("$(files.path)/vectors/$(axis)/$(name).data", vector, Formats.format_axis_length(files, axis))
 
@@ -413,7 +413,7 @@ function Formats.format_get_empty_dense_vector!(
     axis::AbstractString,
     name::AbstractString,
     ::Type{T},
-)::AbstractVector{T} where {T <: StorageNumber}
+)::AbstractVector{T} where {T <: StorageReal}
     @assert Formats.has_data_write_lock(files)
 
     write_array_json("$(files.path)/vectors/$(axis)/$(name).json", "dense", T)
@@ -434,7 +434,7 @@ function Formats.format_get_empty_sparse_vector!(
     ::Type{T},
     nnz::StorageInteger,
     ::Type{I},
-)::Tuple{AbstractVector{I}, AbstractVector{T}, Nothing} where {T <: StorageNumber, I <: StorageInteger}
+)::Tuple{AbstractVector{I}, AbstractVector{T}, Nothing} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(files)
 
     write_array_json("$(files.path)/vectors/$(axis)/$(name).json", "sparse", T, I)
@@ -455,7 +455,7 @@ function Formats.format_filled_empty_sparse_vector!(
     axis::AbstractString,
     name::AbstractString,
     ::Nothing,
-    filled::SparseVector{<:StorageNumber, <:StorageInteger},
+    filled::SparseVector{<:StorageReal, <:StorageInteger},
 )::Nothing
     @assert Formats.has_data_write_lock(files)
     Formats.cache_vector!(files, axis, name, filled, MappedData)
@@ -542,7 +542,7 @@ function Formats.format_set_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    matrix::Union{StorageNumber, StorageMatrix},
+    matrix::Union{StorageReal, StorageMatrix},
 )::Nothing
     @assert Formats.has_data_write_lock(files)
     nrows = Formats.format_axis_length(files, rows_axis)
@@ -562,7 +562,7 @@ function Formats.format_set_matrix!(
         write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).rowval", matrix.rowval)
         write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).nzval", matrix.nzval)
 
-    elseif matrix isa StorageNumber
+    elseif matrix isa StorageReal
         write_array_json("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", "dense", typeof(matrix))
         fill_file("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).data", matrix, nrows * ncols)
 
@@ -580,7 +580,7 @@ function Formats.format_get_empty_dense_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     ::Type{T},
-)::AbstractMatrix{T} where {T <: StorageNumber}
+)::AbstractMatrix{T} where {T <: StorageReal}
     @assert Formats.has_data_write_lock(files)
     write_array_json("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", "dense", T)
     path = "$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).data"
@@ -602,12 +602,7 @@ function Formats.format_get_empty_sparse_matrix!(
     ::Type{T},
     nnz::StorageInteger,
     ::Type{I},
-)::Tuple{
-    AbstractVector{I},
-    AbstractVector{I},
-    AbstractVector{T},
-    Nothing,
-} where {T <: StorageNumber, I <: StorageInteger}
+)::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}, Nothing} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(files)
     write_array_json("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", "sparse", T, I)
 
@@ -634,7 +629,7 @@ function Formats.format_filled_empty_sparse_matrix!(
     name::AbstractString,
     ::Nothing,
     filled::SparseMatrixCSC{T, I},
-)::Nothing where {T <: StorageNumber, I <: StorageInteger}
+)::Nothing where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(files)
     Formats.cache_matrix!(files, rows_axis, columns_axis, name, filled, MappedData)
     return nothing

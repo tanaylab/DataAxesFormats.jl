@@ -339,7 +339,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">Clamp([; min::Maybe{StorageNumber} = nothing, max::Maybe{StorageNumber} = nothing])
+<code class="language-julia hljs">Clamp([; min::Maybe{StorageReal} = nothing, max::Maybe{StorageReal} = nothing])
 </code>
 </pre>
 <p>Element-wise operation that converts every element to a value inside a range.
@@ -451,7 +451,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">Log(; dtype::Maybe{Type} = nothing, base::StorageNumber = e, eps::StorageNumber = 0)
+<code class="language-julia hljs">Log(; dtype::Maybe{Type} = nothing, base::StorageReal = e, eps::StorageReal = 0)
 </code>
 </pre>
 <p>Element-wise operation that converts every element to its logarithm.
@@ -529,7 +529,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">Significant(; high::StorageNumber, low::Maybe{StorageNumber} = nothing)
+<code class="language-julia hljs">Significant(; high::StorageReal, low::Maybe{StorageReal} = nothing)
 </code>
 </pre>
 <p>Element-wise operation that zeros all &quot;insignificant&quot; values. Significant values have a high absolute value. This is typically used to prune matrices of effect sizes (log of ratio between a baseline and some result) for heatmap display. For example, log base 2 of gene expression ratio is typically considered significant if it is at least 3 (that is, a ratio at least 8x or at most 1/8x); for genes that have a significant effect, we typically display all entries with a log of at least 2 (that is, a ratio of at least 4x or at most 1/4x).
@@ -687,7 +687,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">Quantile(; dtype::Maybe{Type} = nothing, p::StorageNumber)
+<code class="language-julia hljs">Quantile(; dtype::Maybe{Type} = nothing, p::StorageReal)
 </code>
 </pre>
 <p>Reduction operation that returns the quantile value, that is, a value such that a certain fraction of the values is lower.
@@ -759,7 +759,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">GeoMean(; dtype::Maybe{Type} = nothing, eps::StorageNumber = 0.0)
+<code class="language-julia hljs">GeoMean(; dtype::Maybe{Type} = nothing, eps::StorageReal = 0.0)
 </code>
 </pre>
 <p>Reduction operation that returns the geometric mean value.
@@ -831,7 +831,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">StdN(; dtype::Maybe{Type} = nothing, eps::StorageNumber = 0)
+<code class="language-julia hljs">StdN(; dtype::Maybe{Type} = nothing, eps::StorageReal = 0)
 </code>
 </pre>
 <p>Reduction operation that returns the (uncorrected) standard deviation of the values, normalized (divided) by the mean value.
@@ -903,7 +903,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">VarN(; dtype::Maybe{Type} = nothing, eps::StorageNumber = 0.0)
+<code class="language-julia hljs">VarN(; dtype::Maybe{Type} = nothing, eps::StorageReal = 0.0)
 </code>
 </pre>
 <p>Reduction operation that returns the (uncorrected) variance of the values, normalized (divided) by the mean of the values.
@@ -1047,7 +1047,7 @@
     parameter_name::AbstractString,
     parameter_value::Token,
     type::Type{T},
-)::T where {T &lt;: StorageNumber}
+)::T where {T &lt;: StorageReal}
 </code>
 </pre>
 <p>Parse a numeric operation parameter.
@@ -1193,8 +1193,8 @@
 <div>
 <pre>
 <code class="language-julia hljs">float_dtype_for(
-    element_type::Type{&lt;:StorageNumber},
-    dtype::Maybe{Type{&lt;:StorageNumber}}
+    element_type::Type{&lt;:StorageReal},
+    dtype::Maybe{Type{&lt;:StorageReal}}
 )::Type{&lt;:AbstractFloat}
 </code>
 </pre>
@@ -1228,8 +1228,8 @@
 <div>
 <pre>
 <code class="language-julia hljs">int_dtype_for(
-    element_type::Type{&lt;:StorageNumber},
-    dtype::Maybe{Type{&lt;:StorageNumber}}
+    element_type::Type{&lt;:StorageReal},
+    dtype::Maybe{Type{&lt;:StorageReal}}
 )::Type{&lt;:Integer}
 </code>
 </pre>
@@ -1263,8 +1263,8 @@
 <div>
 <pre>
 <code class="language-julia hljs">unsigned_dtype_for(
-    element_type::Type{&lt;:StorageNumber},
-    dtype::Maybe{Type{&lt;:StorageNumber}}
+    element_type::Type{&lt;:StorageReal},
+    dtype::Maybe{Type{&lt;:StorageReal}}
 )::Type
 </code>
 </pre>
@@ -1298,9 +1298,9 @@
 <div>
 <pre>
 <code class="language-julia hljs">sum_dtype_for(
-    element_type::Type{&lt;:StorageNumber},
-    dtype::Maybe{Type{&lt;:StorageNumber}}
-)::Type{&lt;:StorageNumber}
+    element_type::Type{&lt;:StorageReal},
+    dtype::Maybe{Type{&lt;:StorageReal}}
+)::Type{&lt;:StorageReal}
 </code>
 </pre>
 <p>Given an input 

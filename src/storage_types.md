@@ -11,7 +11,7 @@ Daf.StorageTypes.StorageSigned
 Daf.StorageTypes.StorageUnsigned
 Daf.StorageTypes.StorageInteger
 Daf.StorageTypes.StorageFloat
-Daf.StorageTypes.StorageNumber
+Daf.StorageTypes.StorageReal
 Daf.StorageTypes.StorageScalar
 Daf.StorageTypes.StorageScalarBase
 Daf.StorageTypes.StorageVector

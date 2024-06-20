@@ -595,7 +595,7 @@ end
         rows_axis::AbstractString,
         columns_axis::AbstractString,
         name::AbstractString;
-        [default::Union{StorageNumber, StorageMatrix, Nothing, UndefInitializer} = undef,
+        [default::Union{StorageReal, StorageMatrix, Nothing, UndefInitializer} = undef,
         relayout::Bool = true]
     )::Maybe{NamedMatrix}
 
@@ -617,7 +617,7 @@ function get_matrix(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString;
-    default::Union{StorageNumber, StorageMatrix, Nothing, UndefInitializer} = undef,
+    default::Union{StorageReal, StorageMatrix, Nothing, UndefInitializer} = undef,
     relayout::Bool = true,
 )::Maybe{NamedArray}
     return Formats.with_data_read_lock(daf, "get_matrix of:", name, "of:", rows_axis, "and:", columns_axis) do
@@ -630,7 +630,7 @@ function do_get_matrix(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString;
-    default::Union{StorageNumber, StorageMatrix, Nothing, UndefInitializer} = undef,
+    default::Union{StorageReal, StorageMatrix, Nothing, UndefInitializer} = undef,
     relayout::Bool = true,
 )::Maybe{NamedArray}
     relayout = relayout && rows_axis != columns_axis

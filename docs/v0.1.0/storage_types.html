@@ -415,8 +415,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.StorageTypes.StorageNumber" href="#Daf.StorageTypes.StorageNumber">
-<code>Daf.StorageTypes.StorageNumber
+<a class="docstring-binding" id="Daf.StorageTypes.StorageReal" href="#Daf.StorageTypes.StorageReal">
+<code>Daf.StorageTypes.StorageReal
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -425,7 +425,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">StorageNumber = Union{Bool, StorageInteger, StorageFloat}
+<code class="language-julia hljs">StorageReal = Union{Bool, StorageInteger, StorageFloat}
 </code>
 </pre>
 <p>Number types that can be used as scalars, or elements in stored matrices or vectors.
@@ -447,14 +447,14 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">StorageScalar = Union{StorageNumber, &lt;:AbstractString}
+<code class="language-julia hljs">StorageScalar = Union{StorageReal, &lt;:AbstractString}
 </code>
 </pre>
 <p>Types that can be used as scalars, or elements in stored matrices or vectors.
 </p>
 <p>This is restricted to 
-<a href="storage_types.html#Daf.StorageTypes.StorageNumber">
-<code>StorageNumber
+<a href="storage_types.html#Daf.StorageTypes.StorageReal">
+<code>StorageReal
 </code>
 </a> (including Booleans) and strings. It is arguably too restrictive, as in principle we could support any arbitrary 
 <code>isbitstype
@@ -479,7 +479,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">StorageScalarBase = Union{StorageNumber, AbstractString}
+<code class="language-julia hljs">StorageScalarBase = Union{StorageReal, AbstractString}
 </code>
 </pre>
 <p>For using in 
@@ -541,7 +541,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">StorageMatrix{T} = AbstractMatrix{T} where {T &lt;: StorageNumber}
+<code class="language-julia hljs">StorageMatrix{T} = AbstractMatrix{T} where {T &lt;: StorageReal}
 </code>
 </pre>
 <p>Matrices that can be directly stored (and fetched) from 
@@ -549,8 +549,8 @@
 </code> storage.
 </p>
 <p>The element type must be a 
-<a href="storage_types.html#Daf.StorageTypes.StorageNumber">
-<code>StorageNumber
+<a href="storage_types.html#Daf.StorageTypes.StorageReal">
+<code>StorageReal
 </code>
 </a>, to allow efficient storage of the data in disk files. That is, matrices of strings are 
 <strong>not
@@ -663,8 +663,8 @@
 </a>
 </li>
 <li>
-<a href="storage_types.html#Daf.StorageTypes.StorageNumber">
-<code>Daf.StorageTypes.StorageNumber
+<a href="storage_types.html#Daf.StorageTypes.StorageReal">
+<code>Daf.StorageTypes.StorageReal
 </code>
 </a>
 </li>

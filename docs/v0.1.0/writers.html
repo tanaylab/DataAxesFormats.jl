@@ -606,7 +606,7 @@
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    matrix::Union{StorageNumber, StorageMatrix};
+    matrix::Union{StorageReal, StorageMatrix};
     [overwrite::Bool = false,
     relayout::Bool = true]
 )::Nothing
@@ -843,7 +843,7 @@
     daf::DafWriter,
     axis::AbstractString,
     name::AbstractString,
-    eltype::Type{&lt;:StorageNumber};
+    eltype::Type{&lt;:StorageReal};
     [overwrite::Bool = false]
 )::Any
 </code>
@@ -898,7 +898,7 @@
     daf::DafWriter,
     axis::AbstractString,
     name::AbstractString,
-    eltype::Type{&lt;:StorageNumber},
+    eltype::Type{&lt;:StorageReal},
     nnz::StorageInteger,
     indtype::Maybe{Type{&lt;:StorageInteger}} = nothing;
     [overwrite::Bool = false]
@@ -996,7 +996,7 @@
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    eltype::Type{&lt;:StorageNumber};
+    eltype::Type{&lt;:StorageReal};
     [overwrite::Bool = false]
 )::Any
 </code>
@@ -1062,7 +1062,7 @@
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    eltype::Type{&lt;:StorageNumber},
+    eltype::Type{&lt;:StorageReal},
     nnz::StorageInteger,
     intdype::Maybe{Type{&lt;:StorageInteger}} = nothing;
     [overwrite::Bool = false]

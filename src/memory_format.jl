@@ -155,7 +155,7 @@ function Formats.format_get_empty_dense_vector!(
     axis::AbstractString,
     name::AbstractString,
     ::Type{T},
-)::AbstractVector{T} where {T <: StorageNumber}
+)::AbstractVector{T} where {T <: StorageReal}
     @assert Formats.has_data_write_lock(memory)
     nelements = Formats.format_axis_length(memory, axis)
     vector = Vector{T}(undef, nelements)
@@ -170,7 +170,7 @@ function Formats.format_get_empty_sparse_vector!(
     ::Type{T},
     nnz::StorageInteger,
     ::Type{I},
-)::Tuple{AbstractVector{I}, AbstractVector{T}, Nothing} where {T <: StorageNumber, I <: StorageInteger}
+)::Tuple{AbstractVector{I}, AbstractVector{T}, Nothing} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(memory)
     nzind = Vector{I}(undef, nnz)
     nzval = Vector{T}(undef, nnz)
@@ -182,7 +182,7 @@ function Formats.format_filled_empty_sparse_vector!(
     axis::AbstractString,
     name::AbstractString,
     ::Nothing,
-    filled::SparseVector{<:StorageNumber, <:StorageInteger},
+    filled::SparseVector{<:StorageReal, <:StorageInteger},
 )::Nothing
     @assert Formats.has_data_write_lock(memory)
     memory.vectors[axis][name] = filled
@@ -226,7 +226,7 @@ function Formats.format_set_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    matrix::Union{StorageNumber, StorageMatrix},
+    matrix::Union{StorageReal, StorageMatrix},
 )::Nothing
     @assert Formats.has_data_write_lock(memory)
     if matrix isa StorageMatrix
@@ -254,7 +254,7 @@ function Formats.format_get_empty_dense_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     ::Type{T},
-)::AbstractMatrix{T} where {T <: StorageNumber}
+)::AbstractMatrix{T} where {T <: StorageReal}
     @assert Formats.has_data_write_lock(memory)
     nrows = Formats.format_axis_length(memory, rows_axis)
     ncols = Formats.format_axis_length(memory, columns_axis)
@@ -271,12 +271,7 @@ function Formats.format_get_empty_sparse_matrix!(
     ::Type{T},
     nnz::StorageInteger,
     ::Type{I},
-)::Tuple{
-    AbstractVector{I},
-    AbstractVector{I},
-    AbstractVector{T},
-    Nothing,
-} where {T <: StorageNumber, I <: StorageInteger}
+)::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}, Nothing} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(memory)
     ncols = Formats.format_axis_length(memory, columns_axis)
     colptr = fill(I(nnz + 1), ncols + 1)
@@ -292,7 +287,7 @@ function Formats.format_filled_empty_sparse_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     ::Nothing,
-    filled::SparseMatrixCSC{<:StorageNumber, <:StorageInteger},
+    filled::SparseMatrixCSC{<:StorageReal, <:StorageInteger},
 )::Nothing
     @assert Formats.has_data_write_lock(memory)
     memory.matrices[rows_axis][columns_axis][name] = filled

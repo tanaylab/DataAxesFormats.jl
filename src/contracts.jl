@@ -661,7 +661,7 @@ function Readers.get_matrix(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString;
-    default::Union{StorageNumber, StorageMatrix, Nothing, UndefInitializer} = undef,
+    default::Union{StorageReal, StorageMatrix, Nothing, UndefInitializer} = undef,
     relayout::Bool = true,
 )::Maybe{NamedArray}
     access_matrix(contract_daf, rows_axis, columns_axis, name; is_modify = false)
@@ -815,7 +815,7 @@ function Writers.empty_dense_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    eltype::Type{<:StorageNumber};
+    eltype::Type{<:StorageReal};
     overwrite::Bool = false,
 )::Any
     access_matrix(contract_daf, rows_axis, columns_axis, name; is_modify = true)
@@ -827,7 +827,7 @@ function Writers.empty_dense_vector!(
     contract_daf::ContractDaf,
     axis::AbstractString,
     name::AbstractString,
-    eltype::Type{<:StorageNumber};
+    eltype::Type{<:StorageReal};
     overwrite::Bool = false,
 )::Any
     access_vector(contract_daf, axis, name; is_modify = true)
@@ -840,7 +840,7 @@ function Writers.empty_sparse_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    eltype::Type{<:StorageNumber},
+    eltype::Type{<:StorageReal},
     nnz::StorageInteger,
     indtype::Maybe{Type{<:StorageInteger}} = nothing;
     overwrite::Bool = false,
@@ -864,7 +864,7 @@ function Writers.empty_sparse_vector!(
     contract_daf::ContractDaf,
     axis::AbstractString,
     name::AbstractString,
-    eltype::Type{<:StorageNumber},
+    eltype::Type{<:StorageReal},
     nnz::StorageInteger,
     indtype::Maybe{Type{<:StorageInteger}} = nothing;
     overwrite::Bool = false,
@@ -878,7 +878,7 @@ function Writers.filled_empty_dense_matrix!(  # untested
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    filled_matrix::AbstractMatrix{<:StorageNumber},
+    filled_matrix::AbstractMatrix{<:StorageReal},
 )::Nothing
     access_matrix(contract_daf, rows_axis, columns_axis, name; is_modify = true)
     filled_empty_dense_matrix!(contract_daf.daf, rows_axis, columns_axis, name, filled_matrix)
@@ -889,7 +889,7 @@ function Writers.filled_empty_dense_vector!(  # untested
     contract_daf::ContractDaf,
     axis::AbstractString,
     name::AbstractString,
-    filled_vector::AbstractVector{<:StorageNumber},
+    filled_vector::AbstractVector{<:StorageReal},
 )::Nothing
     access_vector(contract_daf, axis, name; is_modify = true)
     filled_empty_dense_vector!(contract_daf.daf, axis, name, filled_vector)
@@ -903,7 +903,7 @@ function Writers.filled_empty_sparse_matrix!(  # untested
     name::AbstractString,
     colptr::AbstractVector{I},
     rowval::AbstractVector{I},
-    nzval::AbstractVector{<:StorageNumber},
+    nzval::AbstractVector{<:StorageReal},
     extra::Any,
 )::Nothing where {I <: StorageInteger}
     access_matrix(contract_daf, rows_axis, columns_axis, name; is_modify = true)
@@ -916,7 +916,7 @@ function Writers.filled_empty_sparse_vector!(  # untested
     axis::AbstractString,
     name::AbstractString,
     nzind::AbstractVector{<:StorageInteger},
-    nzval::AbstractVector{<:StorageNumber},
+    nzval::AbstractVector{<:StorageReal},
     extra::Any,
 )::Nothing
     access_vector(contract_daf, axis, name; is_modify = true)
@@ -929,7 +929,7 @@ function Writers.get_empty_dense_matrix!(  # untested
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    eltype::Type{<:StorageNumber};
+    eltype::Type{<:StorageReal};
     overwrite::Bool = false,
 )::Any
     access_matrix(contract_daf, rows_axis, columns_axis, name; is_modify = true)
@@ -943,7 +943,7 @@ function Writers.get_empty_dense_vector!(  # untested
     name::AbstractString,
     eltype::Type{T};
     overwrite::Bool = false,
-)::AbstractVector{T} where {T <: StorageNumber}
+)::AbstractVector{T} where {T <: StorageReal}
     access_vector(contract_daf, axis, name; is_modify = true)
     return get_empty_dense_vector!(contract_daf.daf, axis, name, eltype; overwrite = overwrite)
 end
@@ -957,7 +957,7 @@ function Writers.get_empty_sparse_matrix!(  # untested
     nnz::StorageInteger,
     indtype::Type{I};
     overwrite::Bool = false,
-)::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}, Any} where {T <: StorageNumber, I <: StorageInteger}
+)::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}, Any} where {T <: StorageReal, I <: StorageInteger}
     access_matrix(contract_daf, rows_axis, columns_axis, name; is_modify = true)
     return get_empty_sparse_matrix!(
         contract_daf.daf,
@@ -979,7 +979,7 @@ function Writers.get_empty_sparse_vector!(  # untested
     nnz::StorageInteger,
     indtype::Type{I};
     overwrite::Bool = false,
-)::Tuple{AbstractVector{I}, AbstractVector{T}, Any} where {T <: StorageNumber, I <: StorageInteger}
+)::Tuple{AbstractVector{I}, AbstractVector{T}, Any} where {T <: StorageReal, I <: StorageInteger}
     access_vector(contract_daf, axis, name; is_modify = true)
     return get_empty_sparse_vector!(contract_daf.daf, axis, name, eltype, nnz, indtype; overwrite = overwrite)
 end
@@ -1001,7 +1001,7 @@ function Writers.set_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    matrix::Union{StorageNumber, StorageMatrix};
+    matrix::Union{StorageReal, StorageMatrix};
     overwrite::Bool = false,
     relayout::Bool = true,
 )::Nothing

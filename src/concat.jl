@@ -610,7 +610,7 @@ function concatenate_axis_dense_vectors(
     vector_property::AbstractString,
     sources::AbstractVector{<:DafReader};
     dtype::Type,
-    empty_value::Maybe{StorageNumber},
+    empty_value::Maybe{StorageReal},
     offsets::AbstractVector{<:Integer},
     sizes::AbstractVector{<:Integer},
     vectors::AbstractVector{<:Maybe{<:StorageVector}},
@@ -643,7 +643,7 @@ function concatenate_axis_matrix(
     axis::AbstractString,
     matrix_property::AbstractString,
     sources::AbstractVector{<:DafReader};
-    empty_value::Maybe{StorageNumber},
+    empty_value::Maybe{StorageReal},
     sparse_if_saves_storage_fraction::AbstractFloat,
     offsets::AbstractVector{<:Integer},
     sizes::AbstractVector{<:Integer},
@@ -735,7 +735,7 @@ function concatenate_axis_dense_matrices(
     matrix_property::AbstractString,
     sources::AbstractVector{<:DafReader};
     dtype::Type,
-    empty_value::Maybe{StorageNumber},
+    empty_value::Maybe{StorageReal},
     offsets::AbstractVector{<:Integer},
     sizes::AbstractVector{<:Integer},
     matrices::AbstractVector{<:Maybe{<:StorageMatrix}},
@@ -1120,13 +1120,13 @@ function require_empty_value_for_vector(
 end
 
 function require_empty_value_for_matrix(
-    empty_value::Maybe{StorageNumber},
+    empty_value::Maybe{StorageReal},
     matrix_property::AbstractString,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     daf::DafReader,
     destination::DafWriter,
-)::StorageNumber
+)::StorageReal
     if empty_value === nothing
         error(dedent("""
             no empty value for the matrix: $(matrix_property)
@@ -1230,7 +1230,7 @@ function signed_sizeof(type::Type{<:Unsigned})::Integer
 end
 
 function sparse_storage_fraction(
-    empty_value::Maybe{StorageNumber},
+    empty_value::Maybe{StorageReal},
     dtype::Type,
     sizes::AbstractVector{<:Integer},
     arrays::AbstractVector{<:Maybe{NamedArray}},

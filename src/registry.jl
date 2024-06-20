@@ -68,7 +68,7 @@ abstract type EltwiseOperation <: ComputationOperation end
 """
     compute_eltwise(operation::EltwiseOperation, input::StorageMatrix)::StorageMatrix
     compute_eltwise(operation::EltwiseOperation, input::StorageVector)::StorageVector
-    compute_eltwise(operation::EltwiseOperation, input_value::Number)::StorageNumber
+    compute_eltwise(operation::EltwiseOperation, input_value::Number)::StorageReal
 
 Compute an [`EltwiseOperation`](@ref) `operation`.
 """
@@ -107,7 +107,7 @@ abstract type ReductionOperation <: ComputationOperation end
 
 """
     compute_reduction(operation::ReductionOperation, input::StorageMatrix)::StorageVector
-    compute_reduction(operation::ReductionOperation, input::StorageVector)::StorageNumber
+    compute_reduction(operation::ReductionOperation, input::StorageVector)::StorageReal
 
 Since each `ReductionOperation` isa [`QueryOperation`](@ref), you can directly apply it to a query (e.g.,
 `Axis("cell") |> Axis("gene") |> Lookup("UMIs") |> Sum()`). For this there should be other constructor(s) tailored for
