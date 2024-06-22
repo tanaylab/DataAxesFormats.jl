@@ -22,6 +22,7 @@ using ..GenericFunctions
 using ..GenericTypes
 using ..Keys
 using ..Messages
+using ..Queries
 using ..Readers
 using ..StorageTypes
 using ..Views
@@ -317,7 +318,7 @@ function contractor(
 )::ContractDaf
     axes = collect_axes(contract)
     data = collect_data(contract, axes)
-    name = unique_name("$(daf.name).for.$(computation)")
+    name = unique_name("$(daf.name).for.$(split(computation, '.')[end])")
     return ContractDaf(name, daf.internal, computation, contract.is_relaxed, axes, data, daf, overwrite)
 end
 
@@ -603,7 +604,10 @@ function verify_matrix(
 end
 
 function Messages.depict(contract_daf::ContractDaf; name::Maybe{AbstractString} = nothing)::AbstractString
-    return "Contract($(contract_daf.computation)) $(depict(contract_daf.daf; name = name))"
+    if name === nothing
+        name = contract_daf.name
+    end
+    return "Contract $(depict(contract_daf.daf; name = name))"
 end
 
 function Readers.axes_set(contract_daf::ContractDaf)::AbstractSet{<:AbstractString}
@@ -1087,7 +1091,7 @@ function access_vector(contract_daf::ContractDaf, axis::AbstractString, name::Ab
 
     tracker = get(contract_daf.data, (axis, name), nothing)
     if tracker === nothing
-        if contract_daf.is_relaxed
+        if contract_daf.is_relaxed || name == "name"
             return nothing
         end
         error(dedent("""
@@ -1170,6 +1174,104 @@ function direction_name(is_output::Bool)::String
     else
         return "input"
     end
+end
+
+function Readers.require_scalar(contract_daf::ContractDaf, name::AbstractString)::Nothing  # untested
+    Readers.require_scalar(contract_daf.daf, name)
+    return nothing
+end
+
+function Readers.require_axis(  # untested
+    contract_daf::ContractDaf,
+    what_for::AbstractString,
+    axis::AbstractString;
+    for_change::Bool = false,
+)::Nothing
+    Readers.require_axis(contract_daf.daf, what_for, axis; for_change = for_change)
+    return nothing
+end
+
+function Readers.require_vector(contract_daf::ContractDaf, axis::AbstractString, name::AbstractString)::Nothing  # untested
+    Readers.require_vector(contract_daf, axis, name)
+    return nothing
+end
+
+function Readers.require_matrix(  # untested
+    contract_daf::ContractDaf,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString;
+    relayout::Bool,
+)::Nothing
+    Readers.require_matrix(contract_daf.daf, rows_axis, columns_axis, name; relayout = relayout)
+    return nothing
+end
+
+function Readers.require_axis_length(  # untested
+    contract_daf::ContractDaf,
+    what_length::StorageInteger,
+    vector_name::AbstractString,
+    axis::AbstractString,
+)::Nothing
+    Readers.require_axis_length(contract_daf.daf, what_length, vector_name, axis)
+    return nothing
+end
+
+function Readers.require_dim_name(  # untested
+    contract_daf::ContractDaf,
+    axis::AbstractString,
+    what::AbstractString,
+    name::Union{Symbol, AbstractString};
+    prefix::AbstractString = "",
+)::Nothing
+    Writers.require_dim_name(contract_daf.daf, axis, what, name; prefix = prefix)
+    return nothing
+end
+
+function Writers.require_no_scalar(contract_daf::ContractDaf, name::AbstractString)::Nothing  # untested
+    Writers.require_no_scalar(contract_daf.daf, name)
+    return nothing
+end
+
+function Writers.require_no_axis(contract_daf::ContractDaf, axis::AbstractString; for_change::Bool = false)::Nothing  # untested
+    Writers.require_no_axis(contract_daf.daf, axis; for_change = for_change)
+    return nothing
+end
+
+function Writers.require_no_vector(contract_daf::ContractDaf, axis::AbstractString, name::AbstractString)::Nothing  # untested
+    Writers.require_no_vector(contract_daf, axis, name)
+    return nothing
+end
+
+function Writers.require_no_matrix(  # untested
+    contract_daf::ContractDaf,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString;
+    relayout::Bool,
+)::Nothing
+    Writers.require_no_matrix(contract_daf, rows_axis, columns_axis, name; relayout = relayout)
+    return nothing
+end
+
+function Writers.require_not_name(contract_daf::ContractDaf, axis::AbstractString, name::AbstractString)::Nothing  # untested
+    Writers.require_not_name(contract_daf.daf, axis, name)
+    return nothing
+end
+
+function Base.getindex(  # untested
+    contract_daf::ContractDaf,
+    query::QueryString,
+)::Union{AbstractSet{<:AbstractString}, AbstractVector{<:AbstractString}, StorageScalar, NamedArray}
+    return get_query(contract_daf, query)
+end
+
+function Formats.with_data_read_lock(action::Function, contract_daf::ContractDaf, what::AbstractString...)::Any  # untested
+    return Formats.with_data_read_lock(action, contract_daf.daf, what...)
+end
+
+function Formats.with_data_write_lock(action::Function, contract_daf::ContractDaf, what::AbstractString...)::Any  # untested
+    return Formats.with_data_write_lock(action, contract_daf.daf, what...)
 end
 
 end # module

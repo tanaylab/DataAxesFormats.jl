@@ -823,7 +823,7 @@ nested_test("contracts") do
             end
 
             nested_test("depict") do
-                @test depict(contract_daf) == "Contract(computation) MemoryDaf memory!"
+                @test depict(contract_daf) == "Contract MemoryDaf memory!.for.computation"
             end
 
             nested_test("description") do
@@ -936,7 +936,7 @@ nested_test("contracts") do
             end
 
             nested_test("depict") do
-                @test depict(contract_daf) == "Contract(computation) MemoryDaf memory!"
+                @test depict(contract_daf) == "Contract MemoryDaf memory!.for.computation"
             end
 
             nested_test("description") do
