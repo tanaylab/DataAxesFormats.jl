@@ -782,6 +782,7 @@ function test_missing_vector(daf::DafReader, depth::Int)::Nothing
                 empty_nzval .= sparse.nzval
                 return 7
             end == 7
+
             @test vector_version_counter(daf, "gene", "marker") == previous_version_counter + 1
 
             previous_version_counter = vector_version_counter(daf, "cell", "type")

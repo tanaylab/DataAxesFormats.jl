@@ -1664,37 +1664,107 @@ function get_query(
     query_sequence::QuerySequence;
     cache::Bool = true,
 )::Union{AbstractSet{<:AbstractString}, AbstractVector{<:AbstractString}, StorageScalar, NamedArray}
-    cache_key = join([string(query_operation) for query_operation in query_sequence.query_operations], " ")
-    result = with_read_lock(daf.internal.cache_lock, daf.name, "cache for:", cache_key) do
-        cached_entry = get(daf.internal.cache, cache_key, nothing)
-        if cached_entry !== nothing
-            @debug "get_query daf: $(depict(daf)) query_sequence: $(query_sequence) cache: $(cache) cached result: $(depict(cached_entry.data))"
-            return cached_entry.data
-        end
-    end
-    if result === nothing
-        result = Formats.with_data_read_lock(daf, "get_query of:", cache_key) do
-            query_state = QueryState(daf, query_sequence, 1, Vector{QueryValue}())
-            while query_state.next_operation_index <= length(query_state.query_sequence.query_operations)
-                query_operation = query_sequence.query_operations[query_state.next_operation_index]
-                query_state.next_operation_index += 1
-                apply_query_operation!(query_state, query_operation)
+    cache_key = "$(query_sequence)"
+    return Formats.with_data_read_lock(daf, "get_query of:", cache_key) do
+        if cache
+            result = Formats.get_through_cache(
+                daf,
+                cache_key,
+                Union{AbstractSet{<:AbstractString}, AbstractVector{<:AbstractString}, StorageScalar, NamedArray},
+                QueryData;
+                is_slow = true,
+            ) do
+                return do_get_query(daf, query_sequence)
             end
+        else
+            result = with_read_lock(daf.internal.cache_lock, daf.name, "cache for:", cache_key) do
+                return Formats.get_from_cache(
+                    daf,
+                    cache_key,
+                    Union{AbstractSet{<:AbstractString}, AbstractVector{<:AbstractString}, StorageScalar, NamedArray},
+                )
+            end
+            if result === nothing
+                result, _ = do_get_query(daf, query_sequence)
+            end
+        end
+        @debug "get_query daf: $(depict(daf)) query_sequence: $(query_sequence) cache: $(cache) result: $(depict(result))"
+        return result
+    end
+end
 
-            result, dependency_keys = get_query_result(query_state)
-            if cache
-                with_write_lock(daf.internal.cache_lock, daf.name, "cache for:", cache_key) do
-                    if !haskey(daf.internal.cache, cache_key)
-                        Formats.cache_data!(daf, cache_key, result, QueryData)
-                        Formats.store_cached_dependency_keys!(daf, cache_key, dependency_keys)
-                    end
-                end
-            end
-            @debug "get_query daf: $(depict(daf)) query_sequence: $(query_sequence) cache: $(cache) result: $(depict(result))"
-            return result
-        end
+function do_get_query(
+    daf::DafReader,
+    query_sequence::QuerySequence,
+)::Tuple{
+    Union{AbstractSet{<:AbstractString}, AbstractVector{<:AbstractString}, StorageScalar, NamedArray},
+    Set{AbstractString},
+}
+    query_state = QueryState(daf, query_sequence, 1, Vector{QueryValue}())
+    while query_state.next_operation_index <= length(query_state.query_sequence.query_operations)
+        query_operation = query_sequence.query_operations[query_state.next_operation_index]
+        query_state.next_operation_index += 1
+        apply_query_operation!(query_state, query_operation)
     end
-    return result
+
+    if is_all(query_state, (AbstractSet{<:AbstractString},))
+        return get_names_result(query_state)
+    elseif is_all(query_state, (ScalarState,))
+        return get_scalar_result(query_state)
+    elseif is_all(query_state, (AxisState,))
+        return axis_array_result(query_state)
+    elseif is_all(query_state, (VectorState,))
+        return get_vector_result(query_state)
+    elseif is_all(query_state, (MatrixState,))
+        return get_matrix_result(query_state)
+    else
+        return error(dedent("""
+            partial query: $(query_state.query_sequence)
+            for the daf data: $(query_state.daf.name)
+        """))
+    end
+end
+
+function get_names_result(query_state::QueryState)::Tuple{AbstractSet{<:AbstractString}, Set{AbstractString}}
+    names = pop!(query_state.stack)
+    @assert names isa AbstractSet{<:AbstractString}
+    return names, Set{AbstractString}()
+end
+
+function get_scalar_result(query_state::QueryState)::Tuple{StorageScalar, Set{AbstractString}}
+    scalar_state = pop!(query_state.stack)
+    @assert scalar_state isa ScalarState
+    return scalar_state.scalar_value, scalar_state.dependency_keys
+end
+
+function axis_array_result(
+    query_state::QueryState,
+)::Tuple{Union{AbstractString, AbstractVector{<:AbstractString}}, Set{AbstractString}}
+    axis_state = pop!(query_state.stack)
+    @assert axis_state isa AxisState
+
+    axis_modifier = axis_state.axis_modifier
+    axis_entries = axis_array(query_state.daf, axis_state.axis_name)
+    if axis_modifier isa Int
+        return axis_entries[axis_modifier], axis_state.dependency_keys
+    else
+        if axis_modifier isa AbstractVector{Bool}
+            axis_entries = axis_entries[axis_modifier]
+        end
+        return Formats.read_only_array(axis_entries), axis_state.dependency_keys
+    end
+end
+
+function get_vector_result(query_state::QueryState)::Tuple{NamedArray, Set{AbstractString}}
+    vector_state = pop!(query_state.stack)
+    @assert vector_state isa VectorState
+    return Formats.read_only_array(vector_state.named_vector), vector_state.dependency_keys
+end
+
+function get_matrix_result(query_state::QueryState)::Tuple{NamedArray, Set{AbstractString}}
+    matrix_state = pop!(query_state.stack)
+    @assert matrix_state isa MatrixState
+    return Formats.read_only_array(matrix_state.named_matrix), matrix_state.dependency_keys
 end
 
 function is_axis_query(query_string::AbstractString)::Bool
@@ -1790,30 +1860,6 @@ function peek_next_operation(
     return nothing
 end
 
-function get_query_result(
-    query_state::QueryState,
-)::Tuple{
-    Union{AbstractSet{<:AbstractString}, AbstractVector{<:AbstractString}, StorageScalar, NamedArray},
-    Set{AbstractString},
-}
-    if is_all(query_state, (AbstractSet{<:AbstractString},))
-        return get_names_result(query_state)
-    elseif is_all(query_state, (ScalarState,))
-        return get_scalar_result(query_state)
-    elseif is_all(query_state, (AxisState,))
-        return axis_array_result(query_state)
-    elseif is_all(query_state, (VectorState,))
-        return get_vector_result(query_state)
-    elseif is_all(query_state, (MatrixState,))
-        return get_matrix_result(query_state)
-    else
-        return error(dedent("""
-            partial query: $(query_state.query_sequence)
-            for the daf data: $(query_state.daf.name)
-        """))
-    end
-end
-
 function get_query_result_dimensions(fake_query_state::FakeQueryState)::Int
     if is_all(fake_query_state, (AbstractSet{<:AbstractString},))
         return -1
@@ -1834,48 +1880,6 @@ function get_query_result_dimensions(fake_query_state::FakeQueryState)::Int
     else
         return error("partial query: $(fake_query_state.query_sequence)")
     end
-end
-
-function get_names_result(query_state::QueryState)::Tuple{AbstractSet{<:AbstractString}, Set{AbstractString}}
-    names = pop!(query_state.stack)
-    @assert names isa AbstractSet{<:AbstractString}
-    return names, Set{AbstractString}()
-end
-
-function get_scalar_result(query_state::QueryState)::Tuple{StorageScalar, Set{AbstractString}}
-    scalar_state = pop!(query_state.stack)
-    @assert scalar_state isa ScalarState
-    return scalar_state.scalar_value, scalar_state.dependency_keys
-end
-
-function axis_array_result(
-    query_state::QueryState,
-)::Tuple{Union{AbstractString, AbstractVector{<:AbstractString}}, Set{AbstractString}}
-    axis_state = pop!(query_state.stack)
-    @assert axis_state isa AxisState
-
-    axis_modifier = axis_state.axis_modifier
-    axis_entries = axis_array(query_state.daf, axis_state.axis_name)
-    if axis_modifier isa Int
-        return axis_entries[axis_modifier], axis_state.dependency_keys
-    else
-        if axis_modifier isa AbstractVector{Bool}
-            axis_entries = axis_entries[axis_modifier]
-        end
-        return Formats.read_only_array(axis_entries), axis_state.dependency_keys
-    end
-end
-
-function get_vector_result(query_state::QueryState)::Tuple{NamedArray, Set{AbstractString}}
-    vector_state = pop!(query_state.stack)
-    @assert vector_state isa VectorState
-    return Formats.read_only_array(vector_state.named_vector), vector_state.dependency_keys
-end
-
-function get_matrix_result(query_state::QueryState)::Tuple{NamedArray, Set{AbstractString}}
-    matrix_state = pop!(query_state.stack)
-    @assert matrix_state isa MatrixState
-    return Formats.read_only_array(matrix_state.named_matrix), matrix_state.dependency_keys
 end
 
 function apply_query_operation!(query_state::QueryState, ::ModifierQueryOperation)::Nothing

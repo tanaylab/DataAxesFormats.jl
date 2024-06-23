@@ -1045,7 +1045,7 @@ nested_test("contracts") do
             end
 
             nested_test("matrices_set") do
-                @test matrices_set(contract_daf, "cell", "gene") === matrices_set(daf, "cell", "gene")
+                @test matrices_set(contract_daf, "cell", "gene") == matrices_set(daf, "cell", "gene")
             end
 
             nested_test("get_matrix") do
@@ -1127,7 +1127,7 @@ nested_test("contracts") do
             end
 
             nested_test("scalars_set") do
-                @test scalars_set(contract_daf) === scalars_set(daf)
+                @test scalars_set(contract_daf) == scalars_set(daf)
             end
 
             nested_test("has_axis") do
@@ -1135,11 +1135,11 @@ nested_test("contracts") do
             end
 
             nested_test("vectors_set") do
-                @test vectors_set(contract_daf, "cell") === vectors_set(daf, "cell")
+                @test vectors_set(contract_daf, "cell") == vectors_set(daf, "cell")
             end
 
             nested_test("matrices_set") do
-                @test matrices_set(contract_daf, "cell", "gene") === matrices_set(daf, "cell", "gene")
+                @test matrices_set(contract_daf, "cell", "gene") == matrices_set(daf, "cell", "gene")
             end
 
             nested_test("get_vector") do
@@ -1155,7 +1155,7 @@ nested_test("contracts") do
             end
 
             nested_test("matrices_set") do
-                @test matrices_set(contract_daf, "cell", "gene") === matrices_set(daf, "cell", "gene")
+                @test matrices_set(contract_daf, "cell", "gene") == matrices_set(daf, "cell", "gene")
             end
 
             nested_test("get_matrix") do

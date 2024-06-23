@@ -119,12 +119,19 @@ nested_test("example_data") do
 
                 test_description(daf; name = "example!.read_only", cache = dedent("""
                     cache:
-                      '# batch': (MemoryData) (OrderedCollections.OrderedDict{AbstractString, Int64} length: 4)
-                      '# cell': (MemoryData) (OrderedCollections.OrderedDict{AbstractString, Int64} length: 20)
-                      '# gene': (MemoryData) (OrderedCollections.OrderedDict{AbstractString, Int64} length: 10)
-                      '# type': (MemoryData) (OrderedCollections.OrderedDict{AbstractString, Int64} length: 3)
+                      '# batch': (MemoryData) (OrderedDict length: 4)
+                      '# cell': (MemoryData) (OrderedDict length: 20)
+                      '# gene': (MemoryData) (OrderedDict length: 10)
+                      '# type': (MemoryData) (OrderedDict length: 3)
+                      '/ batch ?': (MemoryData) 2 x AbstractString (KeySet)
                       '/ cell / gene : UMIs': (QueryData) 20 x 10 x Int16 in Columns (Dense)
-                """))
+                      '/ cell ?': (MemoryData) 4 x AbstractString (KeySet)
+                      '/ gene ?': (MemoryData) 4 x AbstractString (KeySet)
+                      '/ module ?': (MemoryData) 0 x AbstractString (KeySet)
+                      '/ type ?': (MemoryData) 1 x AbstractString (KeySet)
+                      '? axes': (MemoryData) 5 x AbstractString (KeySet)
+                      '? scalars': (MemoryData) 1 x AbstractString (KeySet)
+               """))
 
                 return nothing
             end
@@ -155,11 +162,18 @@ nested_test("example_data") do
 
                 test_description(daf; name = "example!.read_only", cache = dedent("""
                     cache:
-                      '# batch': (MemoryData) (OrderedCollections.OrderedDict{AbstractString, Int64} length: 4)
-                      '# cell': (MemoryData) (OrderedCollections.OrderedDict{AbstractString, Int64} length: 20)
-                      '# gene': (MemoryData) (OrderedCollections.OrderedDict{AbstractString, Int64} length: 10)
-                      '# type': (MemoryData) (OrderedCollections.OrderedDict{AbstractString, Int64} length: 3)
+                      '# batch': (MemoryData) (OrderedDict length: 4)
+                      '# cell': (MemoryData) (OrderedDict length: 20)
+                      '# gene': (MemoryData) (OrderedDict length: 10)
+                      '# type': (MemoryData) (OrderedDict length: 3)
+                      '/ batch ?': (MemoryData) 2 x AbstractString (KeySet)
                       '/ cell / gene : UMIs % Abs': (QueryData) 20 x 10 x UInt16 in Columns (Dense)
+                      '/ cell ?': (MemoryData) 4 x AbstractString (KeySet)
+                      '/ gene ?': (MemoryData) 4 x AbstractString (KeySet)
+                      '/ module ?': (MemoryData) 0 x AbstractString (KeySet)
+                      '/ type ?': (MemoryData) 1 x AbstractString (KeySet)
+                      '? axes': (MemoryData) 5 x AbstractString (KeySet)
+                      '? scalars': (MemoryData) 1 x AbstractString (KeySet)
                 """))
                 return nothing
             end
@@ -176,11 +190,18 @@ nested_test("example_data") do
 
                 test_description(daf; name = "example!.read_only", cache = dedent("""
                     cache:
-                      '# batch': (MemoryData) (OrderedCollections.OrderedDict{AbstractString, Int64} length: 4)
-                      '# cell': (MemoryData) (OrderedCollections.OrderedDict{AbstractString, Int64} length: 20)
-                      '# gene': (MemoryData) (OrderedCollections.OrderedDict{AbstractString, Int64} length: 10)
-                      '# type': (MemoryData) (OrderedCollections.OrderedDict{AbstractString, Int64} length: 3)
+                      '# batch': (MemoryData) (OrderedDict length: 4)
+                      '# cell': (MemoryData) (OrderedDict length: 20)
+                      '# gene': (MemoryData) (OrderedDict length: 10)
+                      '# type': (MemoryData) (OrderedDict length: 3)
+                      '/ batch ?': (MemoryData) 2 x AbstractString (KeySet)
                       '/ cell & batch = B1 / gene & module = M1 : UMIs': (QueryData) 6 x 2 x Int16 in Columns (Dense)
+                      '/ cell ?': (MemoryData) 4 x AbstractString (KeySet)
+                      '/ gene ?': (MemoryData) 4 x AbstractString (KeySet)
+                      '/ module ?': (MemoryData) 0 x AbstractString (KeySet)
+                      '/ type ?': (MemoryData) 1 x AbstractString (KeySet)
+                      '? axes': (MemoryData) 5 x AbstractString (KeySet)
+                      '? scalars': (MemoryData) 1 x AbstractString (KeySet)
                 """))
                 return nothing
             end

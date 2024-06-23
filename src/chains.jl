@@ -88,7 +88,7 @@ function chain_reader(dafs::AbstractVector{<:DafReader}; name::Maybe{AbstractStr
     name = unique_name(name, ";#")
 
     internal_dafs = reader_internal_dafs(dafs, name)
-    chain = ReadOnlyChain(name, Internal(; is_frozen = true), internal_dafs)
+    chain = ReadOnlyChain(name, Internal(; cache_type = nothing, is_frozen = true), internal_dafs)
     @debug "Daf: $(depict(chain)) chain: $(join([daf.name for daf in dafs], ";"))"
     return chain
 end
@@ -128,7 +128,7 @@ function chain_writer(dafs::AbstractVector{<:DafReader}; name::Maybe{AbstractStr
     end
 
     internal_dafs = reader_internal_dafs(dafs, name)
-    reader = ReadOnlyChain(name, Internal(; is_frozen = false), internal_dafs)
+    reader = ReadOnlyChain(name, Internal(; cache_type = nothing, is_frozen = false), internal_dafs)
     chain = WriteChain(name, reader.internal, reader.dafs, dafs[end])
     @debug "Daf: $(depict(chain)) chain: $(join([daf.name for daf in dafs], ";"))"
     return chain
@@ -279,11 +279,7 @@ function Formats.format_scalars_set(chain::AnyChain)::AbstractSet{<:AbstractStri
     @assert Formats.has_data_read_lock(chain)
     return reduce(
         union,
-        [
-            Formats.get_through_cache(daf, Formats.scalars_set_cache_key(), AbstractSet{<:AbstractString}) do
-                return Formats.get_scalars_set_through_cache(daf)
-            end for daf in chain.dafs
-        ];
+        [Formats.get_scalars_set_through_cache(daf) for daf in chain.dafs];
         init = Set{AbstractString}(),
     )
 end
@@ -334,7 +330,7 @@ function Formats.format_axis_array(chain::AnyChain, axis::AbstractString)::Abstr
     @assert Formats.has_data_read_lock(chain)
     for daf in reverse(chain.dafs)
         if Formats.format_has_axis(daf, axis; for_change = false)
-            return Formats.axis_array_through_cache(daf, axis)
+            return Formats.get_axis_array_through_cache(daf, axis)
         end
     end
     @assert false
@@ -368,7 +364,7 @@ function Formats.format_set_vector!(
 )::Nothing
     @assert Formats.has_data_write_lock(chain)
     if !Formats.format_has_axis(chain.daf, axis; for_change = false)
-        add_axis!(chain.daf, axis, Formats.axis_array_through_cache(chain, axis))
+        add_axis!(chain.daf, axis, Formats.get_axis_array_through_cache(chain, axis))
     end
     Formats.format_set_vector!(chain.daf, axis, name, vector)
     return nothing
@@ -382,7 +378,7 @@ function Formats.format_get_empty_dense_vector!(
 )::AbstractVector{T} where {T <: StorageReal}
     @assert Formats.has_data_write_lock(chain)
     if !Formats.format_has_axis(chain.daf, axis; for_change = false)
-        add_axis!(chain.daf, axis, Formats.axis_array_through_cache(chain, axis))
+        add_axis!(chain.daf, axis, Formats.get_axis_array_through_cache(chain, axis))
     end
     return Formats.format_get_empty_dense_vector!(chain.daf, axis, name, eltype)
 end
@@ -394,10 +390,10 @@ function Formats.format_get_empty_sparse_vector!(
     eltype::Type{T},
     nnz::StorageInteger,
     indtype::Type{I},
-)::Tuple{AbstractVector{I}, AbstractVector{T}, Any} where {T <: StorageReal, I <: StorageInteger}
+)::Tuple{AbstractVector{I}, AbstractVector{T}} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(chain)
     if !Formats.format_has_axis(chain.daf, axis; for_change = false)
-        add_axis!(chain.daf, axis, Formats.axis_array_through_cache(chain, axis))
+        add_axis!(chain.daf, axis, Formats.get_axis_array_through_cache(chain, axis))
     end
     return Formats.format_get_empty_sparse_vector!(chain.daf, axis, name, eltype, nnz, indtype)
 end
@@ -406,11 +402,10 @@ function Formats.format_filled_empty_sparse_vector!(
     chain::WriteChain,
     axis::AbstractString,
     name::AbstractString,
-    extra::Any,
     filled::SparseVector{T, I},
 )::Nothing where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(chain)
-    Formats.format_filled_empty_sparse_vector!(chain.daf, axis, name, extra, filled)
+    Formats.format_filled_empty_sparse_vector!(chain.daf, axis, name, filled)
     return nothing
 end
 
@@ -490,7 +485,7 @@ function Formats.format_set_matrix!(
     @assert Formats.has_data_write_lock(chain)
     for axis in (rows_axis, columns_axis)
         if !Formats.format_has_axis(chain.daf, axis; for_change = false)
-            add_axis!(chain.daf, axis, Formats.axis_array_through_cache(chain, axis))
+            add_axis!(chain.daf, axis, Formats.get_axis_array_through_cache(chain, axis))
         end
     end
     Formats.format_set_matrix!(chain.daf, rows_axis, columns_axis, name, matrix)
@@ -507,7 +502,7 @@ function Formats.format_get_empty_dense_matrix!(
     @assert Formats.has_data_write_lock(chain)
     for axis in (rows_axis, columns_axis)
         if !Formats.format_has_axis(chain.daf, axis; for_change = false)
-            add_axis!(chain.daf, axis, Formats.axis_array_through_cache(chain, axis))
+            add_axis!(chain.daf, axis, Formats.get_axis_array_through_cache(chain, axis))
         end
     end
     return Formats.format_get_empty_dense_matrix!(chain.daf, rows_axis, columns_axis, name, eltype)
@@ -521,11 +516,11 @@ function Formats.format_get_empty_sparse_matrix!(
     eltype::Type{T},
     nnz::StorageInteger,
     indtype::Type{I},
-)::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}, Any} where {T <: StorageReal, I <: StorageInteger}
+)::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(chain)
     for axis in (rows_axis, columns_axis)
         if !Formats.format_has_axis(chain.daf, axis; for_change = false)
-            add_axis!(chain.daf, axis, Formats.axis_array_through_cache(chain, axis))
+            add_axis!(chain.daf, axis, Formats.get_axis_array_through_cache(chain, axis))
         end
     end
     return Formats.format_get_empty_sparse_matrix!(chain.daf, rows_axis, columns_axis, name, eltype, nnz, indtype)
@@ -536,11 +531,10 @@ function Formats.format_filled_empty_sparse_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    extra::Any,
     filled::SparseMatrixCSC{T, I},
 )::Nothing where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(chain)
-    Formats.format_filled_empty_sparse_matrix!(chain.daf, rows_axis, columns_axis, name, extra, filled)
+    Formats.format_filled_empty_sparse_matrix!(chain.daf, rows_axis, columns_axis, name, filled)
     return nothing
 end
 
@@ -549,10 +543,9 @@ function Formats.format_relayout_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-)::Nothing
+)::StorageMatrix
     @assert Formats.has_data_write_lock(chain)
-    relayout_matrix!(chain.daf, rows_axis, columns_axis, name)
-    return nothing
+    return Formats.format_relayout_matrix!(chain.daf, rows_axis, columns_axis, name)
 end
 
 function Formats.format_delete_matrix!(

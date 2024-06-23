@@ -123,7 +123,7 @@ nested_test("messages") do
         end
 
         nested_test("tensor") do
-            @test depict(zeros(1, 2, 3)) == "1 x 2 x 3 x Float64 (Array{Float64, 3})"
+            @test depict(zeros(1, 2, 3)) == "1 x 2 x 3 x Float64 (Array)"
         end
     end
 end

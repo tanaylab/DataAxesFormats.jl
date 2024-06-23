@@ -68,10 +68,10 @@ sizes of arrays rather than showing their content, as well as having specializat
 """
 function depict(value::Any)::String
     try
-        return "($(typeof(value)) size: $(size(value)))"  # NOJET
+        return "($(nameof(typeof(value))) size: $(size(value)))"  # NOJET
     catch
         try
-            return "($(typeof(value)) length: $(length(value)))"  # NOJET
+            return "($(nameof(typeof(value))) length: $(length(value)))"  # NOJET
         catch
             return "($(typeof(value)))"
         end
@@ -178,12 +178,12 @@ function depict_matrix(matrix::AbstractMatrix, ::AbstractString; transposed::Boo
         matrix_strides = strides(matrix)
         matrix_sizes = size(matrix)
         if matrix_strides == (1, matrix_sizes[1]) || matrix_strides == (matrix_sizes[2], 1)
-            return depict_matrix_size(matrix, "$(typeof(matrix)) - Dense"; transposed = transposed)
+            return depict_matrix_size(matrix, "$(nameof(typeof(matrix))) - Dense"; transposed = transposed)
         else
-            return depict_matrix_size(matrix, "$(typeof(matrix)) - Strided"; transposed = transposed)
+            return depict_matrix_size(matrix, "$(nameof(typeof(matrix))) - Strided"; transposed = transposed)
         end
     catch
-        return depict_matrix_size(matrix, "$(typeof(matrix))"; transposed = transposed)
+        return depict_matrix_size(matrix, "$(nameof(typeof(matrix)))"; transposed = transposed)
     end
 end
 
@@ -196,7 +196,11 @@ function depict(array::AbstractArray)::String
             text = "$(text) x $(dim_size)"
         end
     end
-    return depict_array(array, "$(text) x $(eltype(array)) ($(typeof(array)))")
+    return depict_array(array, "$(text) x $(eltype(array)) ($(nameof(typeof(array))))")
+end
+
+function depict(set::AbstractSet)::String
+    return "$(length(set)) x $(eltype(set)) ($(nameof(typeof(set))))"
 end
 
 function depict_array(array::AbstractArray, text::String)::String

@@ -44,7 +44,7 @@ function MemoryDaf(; name::AbstractString = "memory")::MemoryDaf
     vectors = Dict{AbstractString, Dict{AbstractString, StorageVector}}()
     matrices = Dict{AbstractString, Dict{AbstractString, Dict{AbstractString, StorageMatrix}}}()
     name = unique_name(name)
-    memory = MemoryDaf(name, Internal(; is_frozen = false), scalars, axes, vectors, matrices)
+    memory = MemoryDaf(name, Internal(; cache_type = nothing, is_frozen = false), scalars, axes, vectors, matrices)
     @debug "Daf: $(depict(memory))"
     return memory
 end
@@ -170,18 +170,17 @@ function Formats.format_get_empty_sparse_vector!(
     ::Type{T},
     nnz::StorageInteger,
     ::Type{I},
-)::Tuple{AbstractVector{I}, AbstractVector{T}, Nothing} where {T <: StorageReal, I <: StorageInteger}
+)::Tuple{AbstractVector{I}, AbstractVector{T}} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(memory)
     nzind = Vector{I}(undef, nnz)
     nzval = Vector{T}(undef, nnz)
-    return (nzind, nzval, nothing)
+    return (nzind, nzval)
 end
 
 function Formats.format_filled_empty_sparse_vector!(
     memory::MemoryDaf,
     axis::AbstractString,
     name::AbstractString,
-    ::Nothing,
     filled::SparseVector{<:StorageReal, <:StorageInteger},
 )::Nothing
     @assert Formats.has_data_write_lock(memory)
@@ -271,14 +270,14 @@ function Formats.format_get_empty_sparse_matrix!(
     ::Type{T},
     nnz::StorageInteger,
     ::Type{I},
-)::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}, Nothing} where {T <: StorageReal, I <: StorageInteger}
+)::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(memory)
     ncols = Formats.format_axis_length(memory, columns_axis)
     colptr = fill(I(nnz + 1), ncols + 1)
     colptr[1] = 1
     rowval = fill(I(1), nnz)
     nzval = Vector{T}(undef, nnz)
-    return (colptr, rowval, nzval, nothing)
+    return (colptr, rowval, nzval)
 end
 
 function Formats.format_filled_empty_sparse_matrix!(
@@ -286,7 +285,6 @@ function Formats.format_filled_empty_sparse_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    ::Nothing,
     filled::SparseMatrixCSC{<:StorageReal, <:StorageInteger},
 )::Nothing
     @assert Formats.has_data_write_lock(memory)
@@ -299,12 +297,12 @@ function Formats.format_relayout_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-)::Nothing
+)::StorageMatrix
     @assert Formats.has_data_write_lock(memory)
     matrix = Formats.format_get_matrix(memory, rows_axis, columns_axis, name)
-    relayout = relayout!(matrix)
-    Formats.format_set_matrix!(memory, columns_axis, rows_axis, name, transpose(relayout))
-    return nothing
+    matrix = transposer!(matrix)
+    Formats.format_set_matrix!(memory, columns_axis, rows_axis, name, matrix)
+    return matrix
 end
 
 function Formats.format_delete_matrix!(

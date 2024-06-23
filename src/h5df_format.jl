@@ -218,7 +218,7 @@ function H5df(
     end
     name = unique_name(name)
 
-    h5df = H5df(name, Internal(; is_frozen = is_read_only), root, mode)
+    h5df = H5df(name, Internal(; cache_type = MappedData, is_frozen = is_read_only), root, mode)
     @debug "Daf: $(depict(h5df)) root: $(root)"
     if is_read_only
         return read_only(h5df)
@@ -325,9 +325,7 @@ function Formats.format_scalars_set(h5df::H5df)::AbstractSet{<:AbstractString}
     scalars_group = h5df.root["scalars"]
     @assert scalars_group isa HDF5.Group
 
-    names = Set(keys(scalars_group))
-    Formats.cache_scalars_set!(h5df, names, MemoryData)
-    return names
+    return Set(keys(scalars_group))
 end
 
 function Formats.format_has_axis(h5df::H5df, axis::AbstractString; for_change::Bool)::Bool  # NOLINT
@@ -353,7 +351,6 @@ function Formats.format_add_axis!(h5df::H5df, axis::AbstractString, entries::Abs
     @assert matrices_group isa HDF5.Group
 
     axes = Set(keys(axes_group))
-    Formats.cache_axes_set!(h5df, axes, MemoryData)
     @assert axis in axes
 
     axis_matrices_group = create_group(matrices_group, axis)
@@ -406,9 +403,7 @@ function Formats.format_axes_set(h5df::H5df)::AbstractSet{<:AbstractString}
     axes_group = h5df.root["axes"]
     @assert axes_group isa HDF5.Group
 
-    names = Set(keys(axes_group))
-    Formats.cache_axes_set!(h5df, names, MemoryData)
-    return names
+    return Set(keys(axes_group))
 end
 
 function Formats.format_axis_array(h5df::H5df, axis::AbstractString)::AbstractVector{<:AbstractString}
@@ -419,9 +414,7 @@ function Formats.format_axis_array(h5df::H5df, axis::AbstractString)::AbstractVe
 
     axis_dataset = axes_group[axis]
     @assert axis_dataset isa HDF5.Dataset
-    entries, cache_type = dataset_as_vector(axis_dataset)
-    Formats.cache_axis!(h5df, axis, entries, cache_type)
-    return entries
+    return dataset_as_vector(axis_dataset)
 end
 
 function Formats.format_axis_length(h5df::H5df, axis::AbstractString)::Int64
@@ -496,10 +489,8 @@ function Formats.format_get_empty_dense_vector!(
     @assert vector_dataset isa HDF5.Dataset
     vector_dataset[1] = 0
 
-    vector, cache_type = dataset_as_vector(vector_dataset)
+    vector = dataset_as_vector(vector_dataset)
     close(vector_dataset)
-
-    Formats.cache_vector!(h5df, axis, name, vector, cache_type)
     return vector
 end
 
@@ -510,7 +501,7 @@ function Formats.format_get_empty_sparse_vector!(
     eltype::Type{T},
     nnz::StorageInteger,
     indtype::Type{I},
-)::Tuple{AbstractVector{I}, AbstractVector{T}, CacheType} where {T <: StorageReal, I <: StorageInteger}
+)::Tuple{AbstractVector{I}, AbstractVector{T}} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(h5df)
     vectors_group = h5df.root["vectors"]
     @assert vectors_group isa HDF5.Group
@@ -528,27 +519,14 @@ function Formats.format_get_empty_sparse_vector!(
     nzind_dataset[1] = 0
     nzval_dataset[1] = 0
 
-    nzind_vector, nzind_cache_type = dataset_as_vector(nzind_dataset)
-    nzval_vector, nzval_cache_type = dataset_as_vector(nzval_dataset)
-    cache_type = Formats.combined_cache_type(nzind_cache_type, nzval_cache_type)
+    nzind_vector = dataset_as_vector(nzind_dataset)
+    nzval_vector = dataset_as_vector(nzval_dataset)
 
     close(nzind_dataset)
     close(nzval_dataset)
     close(vector_group)
 
-    return (nzind_vector, nzval_vector, cache_type)
-end
-
-function Formats.format_filled_empty_sparse_vector!(
-    h5df::H5df,
-    axis::AbstractString,
-    name::AbstractString,
-    cache_type::CacheType,
-    filled::SparseVector{<:StorageReal, <:StorageInteger},
-)::Nothing
-    @assert Formats.has_data_write_lock(h5df)
-    Formats.cache_vector!(h5df, axis, name, filled, cache_type)
-    return nothing
+    return (nzind_vector, nzval_vector)
 end
 
 function Formats.format_delete_vector!(h5df::H5df, axis::AbstractString, name::AbstractString; for_set::Bool)::Nothing  # NOLINT
@@ -572,9 +550,7 @@ function Formats.format_vectors_set(h5df::H5df, axis::AbstractString)::AbstractS
     axis_vectors_group = vectors_group[axis]
     @assert axis_vectors_group isa HDF5.Group
 
-    names = Set(keys(axis_vectors_group))
-    Formats.cache_vectors_set!(h5df, axis, names, MemoryData)
-    return names
+    return Set(keys(axis_vectors_group))
 end
 
 function Formats.format_get_vector(h5df::H5df, axis::AbstractString, name::AbstractString)::StorageVector
@@ -588,25 +564,23 @@ function Formats.format_get_vector(h5df::H5df, axis::AbstractString, name::Abstr
 
     vector_object = axis_vectors_group[name]
     if vector_object isa HDF5.Dataset
-        vector, cache_type = dataset_as_vector(vector_object)
+        vector = dataset_as_vector(vector_object)
 
     else
         @assert vector_object isa HDF5.Group
 
         nzind_dataset = vector_object["nzind"]
         @assert nzind_dataset isa HDF5.Dataset
-        nzind_vector, nzind_cache_type = dataset_as_vector(nzind_dataset)
+        nzind_vector = dataset_as_vector(nzind_dataset)
 
         nzval_dataset = vector_object["nzval"]
         @assert nzval_dataset isa HDF5.Dataset
-        nzval_vector, nzval_cache_type = dataset_as_vector(nzval_dataset)
+        nzval_vector = dataset_as_vector(nzval_dataset)
 
         nelements = Formats.format_axis_length(h5df, axis)
         vector = SparseVector(nelements, nzind_vector, nzval_vector)
-        cache_type = Formats.combined_cache_type(nzind_cache_type, nzval_cache_type)
     end
 
-    Formats.cache_vector!(h5df, axis, name, vector, cache_type)
     return vector
 end
 
@@ -689,10 +663,9 @@ function Formats.format_get_empty_dense_matrix!(
     ncols = Formats.format_axis_length(h5df, columns_axis)
     matrix_dataset = create_dataset(columns_axis_group, name, eltype, (nrows, ncols))
     matrix_dataset[1, 1] = 0
-    matrix, cache_type = dataset_as_matrix(matrix_dataset)
+    matrix = dataset_as_matrix(matrix_dataset)
     close(matrix_dataset)
 
-    Formats.cache_matrix!(h5df, rows_axis, columns_axis, name, matrix, cache_type)
     return matrix
 end
 
@@ -704,12 +677,7 @@ function Formats.format_get_empty_sparse_matrix!(
     eltype::Type{T},
     nnz::StorageInteger,
     indtype::Type{I},
-)::Tuple{
-    AbstractVector{I},
-    AbstractVector{I},
-    AbstractVector{T},
-    CacheType,
-} where {T <: StorageReal, I <: StorageInteger}
+)::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(h5df)
     matrices_group = h5df.root["matrices"]
     @assert matrices_group isa HDF5.Group
@@ -732,30 +700,16 @@ function Formats.format_get_empty_sparse_matrix!(
     rowval_dataset[:] = 1
     nzval_dataset[1] = 0
 
-    colptr_vector, colptr_cache_type = dataset_as_vector(colptr_dataset)
-    rowval_vector, rowval_cache_type = dataset_as_vector(rowval_dataset)
-    nzval_vector, nzval_cache_type = dataset_as_vector(nzval_dataset)
-    cache_type = Formats.combined_cache_type(colptr_cache_type, rowval_cache_type, nzval_cache_type)
+    colptr_vector = dataset_as_vector(colptr_dataset)
+    rowval_vector = dataset_as_vector(rowval_dataset)
+    nzval_vector = dataset_as_vector(nzval_dataset)
 
     close(colptr_dataset)
     close(rowval_dataset)
     close(nzval_dataset)
     close(matrix_group)
 
-    return (colptr_vector, rowval_vector, nzval_vector, cache_type)
-end
-
-function Formats.format_filled_empty_sparse_matrix!(
-    h5df::H5df,
-    rows_axis::AbstractString,
-    columns_axis::AbstractString,
-    name::AbstractString,
-    cache_type::CacheType,
-    filled::SparseMatrixCSC{<:StorageReal, <:StorageInteger},
-)::Nothing
-    @assert Formats.has_data_write_lock(h5df)
-    Formats.cache_matrix!(h5df, rows_axis, columns_axis, name, filled, cache_type)
-    return nothing
+    return (colptr_vector, rowval_vector, nzval_vector)
 end
 
 function Formats.format_relayout_matrix!(
@@ -763,7 +717,7 @@ function Formats.format_relayout_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-)::Nothing
+)::StorageMatrix
     @assert Formats.has_data_write_lock(h5df)
     matrix = Formats.get_matrix_through_cache(h5df, rows_axis, columns_axis, name).array
 
@@ -786,7 +740,7 @@ function Formats.format_relayout_matrix!(
     end
 
     relayout!(transpose(relayout_matrix), matrix)
-    return nothing
+    return relayout_matrix
 end
 
 function Formats.format_delete_matrix!(
@@ -826,9 +780,7 @@ function Formats.format_matrices_set(
     columns_axis_group = rows_axis_group[columns_axis]
     @assert columns_axis_group isa HDF5.Group
 
-    names = Set(keys(columns_axis_group))
-    Formats.cache_matrices_set!(h5df, rows_axis, columns_axis, names, MemoryData)
-    return names
+    return Set(keys(columns_axis_group))
 end
 
 function Formats.format_get_matrix(
@@ -850,48 +802,44 @@ function Formats.format_get_matrix(
 
     matrix_object = columns_axis_group[name]
     if matrix_object isa HDF5.Dataset
-        matrix, cache_type = dataset_as_matrix(matrix_object)
-        Formats.cache_matrix!(h5df, rows_axis, columns_axis, name, matrix, cache_type)
-        return matrix
+        return dataset_as_matrix(matrix_object)
 
     else
         @assert matrix_object isa HDF5.Group
 
         colptr_dataset = matrix_object["colptr"]
         @assert colptr_dataset isa HDF5.Dataset
-        colptr_vector, colptr_cache_type = dataset_as_vector(colptr_dataset)
+        colptr_vector = dataset_as_vector(colptr_dataset)
 
         rowval_dataset = matrix_object["rowval"]
         @assert rowval_dataset isa HDF5.Dataset
-        rowval_vector, rowval_cache_type = dataset_as_vector(rowval_dataset)
+        rowval_vector = dataset_as_vector(rowval_dataset)
 
         nzval_dataset = matrix_object["nzval"]
         @assert nzval_dataset isa HDF5.Dataset
-        nzval_vector, nzval_cache_type = dataset_as_vector(nzval_dataset)
+        nzval_vector = dataset_as_vector(nzval_dataset)
 
         nrows = Formats.format_axis_length(h5df, rows_axis)
         ncols = Formats.format_axis_length(h5df, columns_axis)
         matrix = SparseMatrixCSC(nrows, ncols, colptr_vector, rowval_vector, nzval_vector)
-        cache_type = Formats.combined_cache_type(colptr_cache_type, rowval_cache_type, nzval_cache_type)
     end
 
-    Formats.cache_matrix!(h5df, rows_axis, columns_axis, name, matrix, cache_type)
     return matrix
 end
 
-function dataset_as_vector(dataset::HDF5.Dataset)::Tuple{StorageVector, CacheType}
+function dataset_as_vector(dataset::HDF5.Dataset)::StorageVector
     if HDF5.ismmappable(dataset) && HDF5.iscontiguous(dataset) && length(dataset) > 0
-        return (HDF5.readmmap(dataset), MappedData)
+        return HDF5.readmmap(dataset)
     else
-        return (read(dataset), MemoryData)
+        return read(dataset)
     end
 end
 
-function dataset_as_matrix(dataset::HDF5.Dataset)::Tuple{StorageMatrix, CacheType}
+function dataset_as_matrix(dataset::HDF5.Dataset)::StorageMatrix
     if HDF5.ismmappable(dataset) && HDF5.iscontiguous(dataset) && length(dataset) > 0
-        return (HDF5.readmmap(dataset), MappedData)
+        return HDF5.readmmap(dataset)
     else
-        return (read(dataset), MemoryData)  # untested
+        return read(dataset)  # untested
     end
 end
 

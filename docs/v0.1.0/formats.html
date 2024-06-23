@@ -560,6 +560,14 @@
 <code>keep
 </code>.
 </p>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>If there are any slow cache update operations in flight (matrix relayout, queries) then this will wait until they are done to ensure that the cache is in a consistent state.
+</p>
+</div>
+</div>
 </div>
 </section>
 </article>
@@ -1505,7 +1513,7 @@
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString
-)::Nothing
+)::StorageMatrix
 </code>
 </pre>
 <p>
@@ -1553,7 +1561,7 @@
     columns_axis::AbstractString,
     name::AbstractString;
     for_set::Bool
-)::Nothing
+)::StorageMatrix
 </code>
 </pre>
 <p>Implement deleting a matrix property with some 
@@ -1666,37 +1674,6 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_filled_empty_dense_vector!" href="#Daf.Formats.format_filled_empty_dense_vector!">
-<code>Daf.Formats.format_filled_empty_dense_vector!
-</code>
-</a> — 
-<span class="docstring-category">Function
-</span>
-</header>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">format_filled_empty_dense_vector!(
-    daf::DafWriter,
-    axis::AbstractString,
-    name::AbstractString,
-    filled_vector::AbstractVector{&lt;:StorageReal},
-)::Nothing
-</code>
-</pre>
-<p>Allow the 
-<code>format
-</code> to perform caching once the empty dense vector has been 
-<code>filled
-</code>. By default this does nothing.
-</p>
-</div>
-</section>
-</article>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
 <a class="docstring-binding" id="Daf.Formats.format_get_empty_sparse_vector!" href="#Daf.Formats.format_get_empty_sparse_vector!">
 <code>Daf.Formats.format_get_empty_sparse_vector!
 </code>
@@ -1726,11 +1703,7 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
 <code>columns_axis
 </code> in 
 <code>format
-</code>. The final tuple element is passed to 
-<a href="formats.html#Daf.Formats.format_filled_empty_sparse_vector!">
-<code>format_filled_empty_sparse_vector!
-</code>
-</a>.
+</code>.
 </p>
 <p>This trusts we have a write lock on the data set, that the 
 <code>axis
@@ -1765,7 +1738,6 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
     format::FormatWriter,
     axis::AbstractString,
     name::AbstractString,
-    extra::Any,
     filled::SparseVector{&lt;:StorageReal, &lt;:StorageInteger},
 )::Nothing
 </code>
@@ -1845,38 +1817,6 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_filled_empty_dense_matrix!" href="#Daf.Formats.format_filled_empty_dense_matrix!">
-<code>Daf.Formats.format_filled_empty_dense_matrix!
-</code>
-</a> — 
-<span class="docstring-category">Function
-</span>
-</header>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">format_filled_empty_dense_matrix!(
-    daf::DafWriter,
-    rows_axis::AbstractString,
-    columns_axis::AbstractString,
-    name::AbstractString,
-    filled_matrix::AbstractVector{&lt;:StorageReal},
-)::Nothing
-</code>
-</pre>
-<p>Allow the 
-<code>format
-</code> to perform caching once the empty dense matrix has been 
-<code>filled
-</code>. By default this does nothing.
-</p>
-</div>
-</section>
-</article>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
 <a class="docstring-binding" id="Daf.Formats.format_get_empty_sparse_matrix!" href="#Daf.Formats.format_get_empty_sparse_matrix!">
 <code>Daf.Formats.format_get_empty_sparse_matrix!
 </code>
@@ -1907,11 +1847,7 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
 <code>columns_axis
 </code> in 
 <code>format
-</code>. The final tuple element is passed to 
-<a href="formats.html#Daf.Formats.format_filled_empty_sparse_matrix!">
-<code>format_filled_empty_sparse_matrix!
-</code>
-</a>.
+</code>.
 </p>
 <p>This trusts we have a write lock on the data set, that the 
 <code>rows_axis
@@ -1940,12 +1876,11 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">format_filled_empty_dense_matrix!(
+<code class="language-julia hljs">format_filled_empty_sparse_matrix!(
     format::FormatWriter,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    extra::Any,
     filled::SparseMatrixCSC{&lt;:StorageReal, &lt;:StorageInteger},
 )::Nothing
 </code>
@@ -2073,18 +2008,6 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
 <li>
 <a href="formats.html#Daf.Formats.format_description_header">
 <code>Daf.Formats.format_description_header
-</code>
-</a>
-</li>
-<li>
-<a href="formats.html#Daf.Formats.format_filled_empty_dense_matrix!">
-<code>Daf.Formats.format_filled_empty_dense_matrix!
-</code>
-</a>
-</li>
-<li>
-<a href="formats.html#Daf.Formats.format_filled_empty_dense_vector!">
-<code>Daf.Formats.format_filled_empty_dense_vector!
 </code>
 </a>
 </li>

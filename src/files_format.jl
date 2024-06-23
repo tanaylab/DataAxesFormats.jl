@@ -231,9 +231,9 @@ function FilesDaf(
     name = unique_name(name)
 
     if is_read_only
-        file = read_only(FilesDaf(name, Internal(; is_frozen = true), path, mode, "r"))
+        file = read_only(FilesDaf(name, Internal(; cache_type = MappedData, is_frozen = true), path, mode, "r"))
     else
-        file = FilesDaf(name, Internal(; is_frozen = false), path, mode, "r+")
+        file = FilesDaf(name, Internal(; cache_type = MappedData, is_frozen = false), path, mode, "r+")
     end
     @debug "Daf: $(depict(file)) path: $(path)"
     return file
@@ -267,9 +267,7 @@ end
 
 function Formats.format_get_scalar(files::FilesDaf, name::AbstractString)::StorageScalar
     @assert Formats.has_data_read_lock(files)
-    value = read_scalar("$(files.path)/scalars/$(name).json")
-    Formats.cache_scalar!(files, name, value, MemoryData)
-    return value
+    return read_scalar("$(files.path)/scalars/$(name).json")
 end
 
 function read_scalar(path::AbstractString)::StorageScalar
@@ -292,9 +290,7 @@ end
 
 function Formats.format_scalars_set(files::FilesDaf)::AbstractSet{<:AbstractString}
     @assert Formats.has_data_read_lock(files)
-    names_set = get_names_set("$(files.path)/scalars", ".json")
-    Formats.cache_scalars_set!(files, names_set, MemoryData)
-    return names_set
+    return get_names_set("$(files.path)/scalars", ".json")
 end
 
 function Formats.format_has_axis(files::FilesDaf, axis::AbstractString; for_change::Bool)::Bool  # NOLINT
@@ -343,21 +339,17 @@ end
 
 function Formats.format_axes_set(files::FilesDaf)::AbstractSet{<:AbstractString}
     @assert Formats.has_data_read_lock(files)
-    names_set = get_names_set("$(files.path)/axes", ".txt")
-    Formats.cache_axes_set!(files, names_set, MemoryData)
-    return names_set
+    return get_names_set("$(files.path)/axes", ".txt")
 end
 
 function Formats.format_axis_array(files::FilesDaf, axis::AbstractString)::AbstractVector{<:AbstractString}
     @assert Formats.has_data_read_lock(files)
-    entries = mmap_file_lines("$(files.path)/axes/$(axis).txt")
-    Formats.cache_axis!(files, axis, entries, MappedData)
-    return entries
+    return mmap_file_lines("$(files.path)/axes/$(axis).txt")
 end
 
 function Formats.format_axis_length(files::FilesDaf, axis::AbstractString)::Int64
     @assert Formats.has_data_read_lock(files)
-    entries = Formats.axis_array_through_cache(files, axis)
+    entries = Formats.get_axis_array_through_cache(files, axis)
     return length(entries)
 end
 
@@ -422,9 +414,7 @@ function Formats.format_get_empty_dense_vector!(
     size = Formats.format_axis_length(files, axis)
     fill_file(path, T(0), size)
 
-    vector = mmap_file_data(path, Vector{T}, size, "r+")
-    Formats.cache_vector!(files, axis, name, vector, MappedData)
-    return vector
+    return mmap_file_data(path, Vector{T}, size, "r+")
 end
 
 function Formats.format_get_empty_sparse_vector!(
@@ -434,7 +424,7 @@ function Formats.format_get_empty_sparse_vector!(
     ::Type{T},
     nnz::StorageInteger,
     ::Type{I},
-)::Tuple{AbstractVector{I}, AbstractVector{T}, Nothing} where {T <: StorageReal, I <: StorageInteger}
+)::Tuple{AbstractVector{I}, AbstractVector{T}} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(files)
 
     write_array_json("$(files.path)/vectors/$(axis)/$(name).json", "sparse", T, I)
@@ -447,19 +437,7 @@ function Formats.format_get_empty_sparse_vector!(
     nzind_vector = mmap_file_data(nzind_path, Vector{I}, nnz, "r+")
     nzval_vector = mmap_file_data(nzval_path, Vector{T}, nnz, "r+")
 
-    return (nzind_vector, nzval_vector, nothing)
-end
-
-function Formats.format_filled_empty_sparse_vector!(
-    files::FilesDaf,
-    axis::AbstractString,
-    name::AbstractString,
-    ::Nothing,
-    filled::SparseVector{<:StorageReal, <:StorageInteger},
-)::Nothing
-    @assert Formats.has_data_write_lock(files)
-    Formats.cache_vector!(files, axis, name, filled, MappedData)
-    return nothing
+    return (nzind_vector, nzval_vector)
 end
 
 function Formats.format_delete_vector!(
@@ -476,9 +454,7 @@ end
 
 function Formats.format_vectors_set(files::FilesDaf, axis::AbstractString)::AbstractSet{<:AbstractString}
     @assert Formats.has_data_read_lock(files)
-    names_set = get_names_set("$(files.path)/vectors/$(axis)", ".json")
-    Formats.cache_vectors_set!(files, axis, names_set, MemoryData)
-    return names_set
+    return get_names_set("$(files.path)/vectors/$(axis)", ".json")
 end
 
 function Formats.format_get_vector(files::FilesDaf, axis::AbstractString, name::AbstractString)::StorageVector
@@ -522,7 +498,6 @@ function Formats.format_get_vector(files::FilesDaf, axis::AbstractString, name::
         vector = SparseVector(size, nzind_vector, nzval_vector)
     end
 
-    Formats.cache_vector!(files, axis, name, vector, MappedData)
     return vector
 end
 
@@ -589,9 +564,7 @@ function Formats.format_get_empty_dense_matrix!(
     ncols = Formats.format_axis_length(files, columns_axis)
     fill_file(path, T(0), nrows * ncols)
 
-    matrix = mmap_file_data(path, Matrix{T}, (nrows, ncols), "r+")
-    Formats.cache_matrix!(files, rows_axis, columns_axis, name, matrix, MappedData)
-    return matrix
+    return mmap_file_data(path, Matrix{T}, (nrows, ncols), "r+")
 end
 
 function Formats.format_get_empty_sparse_matrix!(
@@ -602,7 +575,7 @@ function Formats.format_get_empty_sparse_matrix!(
     ::Type{T},
     nnz::StorageInteger,
     ::Type{I},
-)::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}, Nothing} where {T <: StorageReal, I <: StorageInteger}
+)::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(files)
     write_array_json("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", "sparse", T, I)
 
@@ -619,20 +592,7 @@ function Formats.format_get_empty_sparse_matrix!(
     colptr_vector = mmap_file_data(colptr_path, Vector{I}, (ncols + 1), "r+")
     rowval_vector = mmap_file_data(rowval_path, Vector{I}, nnz, "r+")
     nzval_vector = mmap_file_data(nzval_path, Vector{T}, nnz, "r+")
-    return (colptr_vector, rowval_vector, nzval_vector, nothing)
-end
-
-function Formats.format_filled_empty_sparse_matrix!(
-    files::FilesDaf,
-    rows_axis::AbstractString,
-    columns_axis::AbstractString,
-    name::AbstractString,
-    ::Nothing,
-    filled::SparseMatrixCSC{T, I},
-)::Nothing where {T <: StorageReal, I <: StorageInteger}
-    @assert Formats.has_data_write_lock(files)
-    Formats.cache_matrix!(files, rows_axis, columns_axis, name, filled, MappedData)
-    return nothing
+    return (colptr_vector, rowval_vector, nzval_vector)
 end
 
 function Formats.format_relayout_matrix!(
@@ -640,7 +600,7 @@ function Formats.format_relayout_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-)::Nothing
+)::StorageMatrix
     @assert Formats.has_data_write_lock(files)
     matrix = Formats.get_matrix_through_cache(files, rows_axis, columns_axis, name).array
 
@@ -663,7 +623,7 @@ function Formats.format_relayout_matrix!(
     end
 
     relayout!(transpose(relayout_matrix), matrix)
-    return nothing
+    return relayout_matrix
 end
 
 function Formats.format_delete_matrix!(
@@ -686,9 +646,7 @@ function Formats.format_matrices_set(
     columns_axis::AbstractString,
 )::AbstractSet{<:AbstractString}
     @assert Formats.has_data_read_lock(files)
-    names_set = get_names_set("$(files.path)/matrices/$(rows_axis)/$(columns_axis)", ".json")
-    Formats.cache_matrices_set!(files, rows_axis, columns_axis, names_set, MemoryData)
-    return names_set
+    return get_names_set("$(files.path)/matrices/$(rows_axis)/$(columns_axis)", ".json")
 end
 
 function Formats.format_get_matrix(
@@ -740,7 +698,6 @@ function Formats.format_get_matrix(
         matrix = SparseMatrixCSC(nrows, ncols, colptr_vector, rowval_vector, nzval_vector)
     end
 
-    Formats.cache_matrix!(files, rows_axis, columns_axis, name, matrix, MappedData)
     return matrix
 end
 

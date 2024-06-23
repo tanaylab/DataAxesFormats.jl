@@ -1,5 +1,4 @@
 """
-filled vector:
 The [`DafWriter`](@ref) interface specify a high-level API for writing `Daf` data. This API is implemented here, on top
 of the low-level [`FormatWriter`](@ref) API. This is an extension of the [`DafReader`](@ref) API and provides provides
 thread safety for reading and writing to the same data set from multiple threads, so the low-level API can (mostly)
@@ -16,8 +15,6 @@ export empty_dense_matrix!
 export empty_dense_vector!
 export empty_sparse_matrix!
 export empty_sparse_vector!
-export filled_empty_dense_matrix!
-export filled_empty_dense_vector!
 export filled_empty_sparse_matrix!
 export filled_empty_sparse_vector!
 export get_empty_dense_matrix!
@@ -44,6 +41,7 @@ using SparseArrays
 import ..Formats
 import ..Formats.FormatWriter  # For documentation.
 import ..Messages
+import ..Readers.assert_valid_matrix
 import ..Readers.base_array
 import ..Readers.require_axis
 import ..Readers.require_axis_length
@@ -305,7 +303,8 @@ function empty_dense_vector!(
     vector = get_empty_dense_vector!(daf, axis, name, eltype; overwrite = overwrite)
     try
         result = fill(vector)
-        filled_empty_dense_vector!(daf, axis, name, vector)
+        Formats.cache_vector!(daf, axis, name, Formats.as_named_vector(daf, axis, vector))
+        @debug "empty_dense_vector! filled vector: $(depict(vector)) }"
         return result
     finally
         Formats.end_data_write_lock(daf, "empty_dense_vector! of:", name, "of:", axis)
@@ -341,17 +340,6 @@ function get_empty_dense_vector!(
         Formats.end_data_write_lock(daf, "empty_dense_vector! of:", name, "of:", axis)
         rethrow()
     end
-end
-
-function filled_empty_dense_vector!(
-    daf::DafWriter,
-    axis::AbstractString,
-    name::AbstractString,
-    filled_vector::AbstractVector{<:StorageReal},
-)::Nothing
-    Formats.format_filled_empty_dense_vector!(daf, axis, name, filled_vector)
-    @debug "empty_dense_vector! filled vector: $(depict(filled_vector)) }"
-    return nothing
 end
 
 """
@@ -406,10 +394,10 @@ function empty_sparse_vector!(
     end
     @assert isbitstype(eltype)
     @assert isbitstype(indtype)
-    nzind, nzval, extra = get_empty_sparse_vector!(daf, axis, name, eltype, nnz, indtype; overwrite = overwrite)
+    nzind, nzval = get_empty_sparse_vector!(daf, axis, name, eltype, nnz, indtype; overwrite = overwrite)
     try
         result = fill(nzind, nzval)
-        filled_empty_sparse_vector!(daf, axis, name, nzind, nzval, extra)
+        filled_empty_sparse_vector!(daf, axis, name, nzind, nzval)
         return result
     finally
         Formats.end_data_write_lock(daf, "empty_sparse_vector! of:", name, "of:", axis)
@@ -424,7 +412,7 @@ function get_empty_sparse_vector!(
     nnz::StorageInteger,
     indtype::Type{I};
     overwrite::Bool = false,
-)::Tuple{AbstractVector{I}, AbstractVector{T}, Any} where {T <: StorageReal, I <: StorageInteger}
+)::Tuple{AbstractVector{I}, AbstractVector{T}} where {T <: StorageReal, I <: StorageInteger}
     Formats.begin_data_write_lock(daf, "empty_sparse_vector! of:", name, "of:", axis)
     try
         @debug "empty_sparse_vector! daf: $(depict(daf)) axis: $(axis) name: $(name) eltype: $(eltype) nnz: $(nnz) indtype: $(indtype) overwrite: $(overwrite) {"
@@ -454,11 +442,11 @@ function filled_empty_sparse_vector!(
     name::AbstractString,
     nzind::AbstractVector{<:StorageInteger},
     nzval::AbstractVector{<:StorageReal},
-    extra::Any,
 )::Nothing
-    filled = SparseVector(axis_length(daf, axis), nzind, nzval)
-    Formats.format_filled_empty_sparse_vector!(daf, axis, name, extra, filled)
-    @debug "empty_sparse_vector! filled vector: $(depict(filled)) }"
+    filled_vector = SparseVector(axis_length(daf, axis), nzind, nzval)
+    Formats.format_filled_empty_sparse_vector!(daf, axis, name, filled_vector)
+    Formats.cache_vector!(daf, axis, name, Formats.as_named_vector(daf, axis, filled_vector))
+    @debug "empty_sparse_vector! filled vector: $(depict(filled_vector)) }"
     return nothing
 end
 
@@ -592,7 +580,15 @@ function set_matrix!(
 
         if relayout
             update_caches_before_set_matrix(daf, columns_axis, rows_axis, name)
-            Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name)
+            matrix = Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name)
+            assert_valid_matrix(daf, columns_axis, rows_axis, name, matrix)
+            Formats.cache_matrix!(
+                daf,
+                columns_axis,
+                rows_axis,
+                name,
+                Formats.as_named_matrix(daf, columns_axis, rows_axis, matrix),
+            )
         end
     end
 
@@ -634,7 +630,14 @@ function empty_dense_matrix!(
     matrix = get_empty_dense_matrix!(daf, rows_axis, columns_axis, name, eltype; overwrite = overwrite)
     try
         result = fill(matrix)
-        filled_empty_dense_matrix!(daf, rows_axis, columns_axis, name, matrix)
+        Formats.cache_matrix!(
+            daf,
+            rows_axis,
+            columns_axis,
+            name,
+            Formats.as_named_matrix(daf, rows_axis, columns_axis, matrix),
+        )
+        @debug "empty_dense_matrix! filled matrix: $(depict(matrix)) }"
         return result
     finally
         Formats.end_data_write_lock(daf, "empty_dense_matrix! of:", name, "of:", rows_axis, "and:", columns_axis)
@@ -667,18 +670,6 @@ function get_empty_dense_matrix!(
         Formats.end_data_write_lock(daf, "empty_dense_matrix! of:", name, "of:", rows_axis, "and:", columns_axis)
         rethrow()
     end
-end
-
-function filled_empty_dense_matrix!(
-    daf::DafWriter,
-    rows_axis::AbstractString,
-    columns_axis::AbstractString,
-    name::AbstractString,
-    filled_matrix::AbstractMatrix{<:StorageReal},
-)::Nothing
-    Formats.format_filled_empty_dense_matrix!(daf, rows_axis, columns_axis, name, filled_matrix)
-    @debug "empty_dense_matrix! filled matrix: $(depict(filled_matrix)) }"
-    return nothing
 end
 
 """
@@ -739,11 +730,11 @@ function empty_sparse_matrix!(
     end
     @assert isbitstype(eltype)
     @assert isbitstype(indtype)
-    colptr, rowval, nzval, extra =
+    colptr, rowval, nzval =
         get_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, eltype, nnz, indtype; overwrite = overwrite)
     try
         result = fill(colptr, rowval, nzval)
-        filled_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, colptr, rowval, nzval, extra)
+        filled_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, colptr, rowval, nzval)
         return result
     finally
         Formats.end_data_write_lock(daf, "empty_sparse_matrix! of:", name, "of:", rows_axis, "and:", columns_axis)
@@ -759,7 +750,7 @@ function get_empty_sparse_matrix!(
     nnz::StorageInteger,
     indtype::Type{I};
     overwrite::Bool = false,
-)::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}, Any} where {T <: StorageReal, I <: StorageInteger}
+)::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}} where {T <: StorageReal, I <: StorageInteger}
     Formats.begin_data_write_lock(daf, "empty_sparse_matrix! of:", name, "of:", rows_axis, "and:", columns_axis)
     try
         @debug "empty_sparse_matrix! daf: $(depict(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) eltype: $(eltype) overwrite: $(overwrite) {"
@@ -788,11 +779,17 @@ function filled_empty_sparse_matrix!(
     colptr::AbstractVector{I},
     rowval::AbstractVector{I},
     nzval::AbstractVector{<:StorageReal},
-    extra::Any,
 )::Nothing where {I <: StorageInteger}
-    filled = SparseMatrixCSC(axis_length(daf, rows_axis), axis_length(daf, columns_axis), colptr, rowval, nzval)
-    Formats.format_filled_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, extra, filled)
-    @debug "empty_sparse_matrix! filled matrix: $(depict(filled)) }"
+    filled_matrix = SparseMatrixCSC(axis_length(daf, rows_axis), axis_length(daf, columns_axis), colptr, rowval, nzval)
+    Formats.format_filled_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, filled_matrix)
+    Formats.cache_matrix!(
+        daf,
+        rows_axis,
+        columns_axis,
+        name,
+        Formats.as_named_matrix(daf, rows_axis, columns_axis, filled_matrix),
+    )
+    @debug "empty_sparse_matrix! filled matrix: $(depict(filled_matrix)) }"
     return nothing
 end
 
@@ -856,7 +853,15 @@ function relayout_matrix!(
         end
 
         update_caches_before_set_matrix(daf, columns_axis, rows_axis, name)
-        Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name)
+        matrix = Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name)
+        assert_valid_matrix(daf, columns_axis, rows_axis, name, matrix)
+        Formats.cache_matrix!(
+            daf,
+            columns_axis,
+            rows_axis,
+            name,
+            Formats.as_named_matrix(daf, columns_axis, rows_axis, matrix),
+        )
 
         @debug "relayout_matrix! }"
     end
