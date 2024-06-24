@@ -31,6 +31,12 @@ using DocStringExtensions
 using ExprTools
 using NamedArrays
 
+import ..Formats.CacheKey
+import ..Formats.CachedAxis
+import ..Formats.CachedData
+import ..Formats.CachedNames
+import ..Formats.CachedQuery
+
 """
 The expectation from a specific property for a computation on `Daf` data.
 
@@ -1193,7 +1199,7 @@ function Writers.require_not_name(contract_daf::ContractDaf, axis::AbstractStrin
     return nothing
 end
 
-function Base.getindex(  # untested
+function Base.getindex(
     contract_daf::ContractDaf,
     query::QueryString,
 )::Union{AbstractSet{<:AbstractString}, AbstractVector{<:AbstractString}, StorageScalar, NamedArray}
@@ -1206,6 +1212,40 @@ end
 
 function Formats.with_data_write_lock(action::Function, contract_daf::ContractDaf, what::AbstractString...)::Any  # untested
     return Formats.with_data_write_lock(action, contract_daf.daf, what...)
+end
+
+function Queries.verify_contract_query(contract_daf::ContractDaf, cache_key::CacheKey)::Nothing
+    dependecies_keys = contract_daf.internal.dependecies_of_query_keys[cache_key]
+    for dependency_key in dependecies_keys
+        type, key = dependency_key
+        if type == CachedAxis
+            access_axis(contract_daf, key[1]; is_modify = false)
+        elseif type == CachedQuery
+            @assert false
+        elseif type == CachedData
+            if key isa AbstractString
+                access_scalar(contract_daf, key; is_modify = false)
+            elseif key isa Tuple{AbstractString, AbstractString}
+                access_vector(contract_daf, key...; is_modify = false)
+            elseif key isa Tuple{AbstractString, AbstractString, AbstractString}
+                access_matrix(contract_daf, key...; is_modify = false)
+            else
+                @assert false
+            end
+        elseif type == CachedNames
+            if key isa AbstractString
+
+            elseif key isa Tuple{AbstractString}  # untested
+                access_axis(contract_daf, key[1]; is_modify = false)  # untested
+            elseif key isa Tuple{AbstractString, AbstractString, Bool}  # untested
+                access_axis(contract_daf, key[1]; is_modify = false)  # untested
+                access_axis(contract_daf, key[2]; is_modify = false)  # untested
+            end
+        else
+            @assert false
+        end
+    end
+    return nothing
 end
 
 end # module

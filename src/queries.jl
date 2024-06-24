@@ -1668,6 +1668,7 @@ function get_query(
 )::Union{AbstractSet{<:AbstractString}, AbstractVector{<:AbstractString}, StorageScalar, NamedArray}
     cache_key = (CachedQuery, "$(query_sequence)")
     return Formats.with_data_read_lock(daf, "get_query of:", query_sequence) do
+        did_compute = [false]
         if cache
             result = Formats.get_through_cache(
                 daf,
@@ -1676,6 +1677,7 @@ function get_query(
                 QueryData;
                 is_slow = true,
             ) do
+                did_compute[1] = true
                 return do_get_query(daf, query_sequence)
             end
         else
@@ -1687,12 +1689,20 @@ function get_query(
                 )
             end
             if result === nothing
+                did_compute[1] = true
                 result, _ = do_get_query(daf, query_sequence)
             end
+        end
+        if !did_compute[1]
+            verify_contract_query(daf, cache_key)
         end
         @debug "get_query daf: $(depict(daf)) query_sequence: $(query_sequence) cache: $(cache) result: $(depict(result))"
         return result
     end
+end
+
+function verify_contract_query(::DafReader, ::CacheKey)::Nothing
+    return nothing
 end
 
 function do_get_query(

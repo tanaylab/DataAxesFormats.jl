@@ -200,7 +200,8 @@ messages.
 struct Internal
     cache::Dict{CacheKey, CacheEntry}
     cache_group::Maybe{CacheGroup}
-    dependency_cache_keys::Dict{CacheKey, Set{CacheKey}}
+    dependents_of_cache_keys::Dict{CacheKey, Set{CacheKey}}
+    dependecies_of_query_keys::Dict{CacheKey, Set{CacheKey}}
     version_counters::Dict{DataKey, UInt32}
     cache_lock::QueryReadWriteLock
     data_lock::QueryReadWriteLock
@@ -213,6 +214,7 @@ function Internal(; cache_group::Maybe{CacheGroup}, is_frozen::Bool)::Internal
     return Internal(
         Dict{CacheKey, CacheEntry}(),
         cache_group,
+        Dict{CacheKey, Set{CacheKey}}(),
         Dict{CacheKey, Set{CacheKey}}(),
         Dict{DataKey, UInt32}(),
         QueryReadWriteLock(),
@@ -761,6 +763,9 @@ function get_through_cache(
                                 for dependency_key in dependency_keys
                                     put_cached_dependency_key!(format, cache_key, dependency_key)
                                 end
+                                if cache_key[1] == CachedQuery
+                                    format.internal.dependecies_of_query_keys[cache_key] = dependency_keys
+                                end
                             end
                             cache_entry.data = cached
                             lock(format.internal.pending_condition) do
@@ -964,7 +969,7 @@ function put_cached_dependency_key!(format::FormatReader, cache_key::CacheKey, d
     if dependency_key == cache_key
         return nothing
     end
-    keys_set = get!(format.internal.dependency_cache_keys, dependency_key) do
+    keys_set = get!(format.internal.dependents_of_cache_keys, dependency_key) do
         return Set{AbstractString}()
     end
     size_before = length(keys_set)
@@ -982,9 +987,9 @@ function invalidate_cached!(format::FormatReader, cache_key::CacheKey)::Nothing
     with_cache_write_lock(format, "cache for invalidate key:", cache_key) do
         delete!(format.internal.cache, cache_key)
 
-        dependent_keys = pop!(format.internal.dependency_cache_keys, cache_key, nothing)
-        if dependent_keys !== nothing
-            for dependent_key in dependent_keys
+        dependents_keys = pop!(format.internal.dependents_of_cache_keys, cache_key, nothing)
+        if dependents_keys !== nothing
+            for dependent_key in dependents_keys
                 @debug "- delete dependent_key: $(dependent_key)"
                 delete!(format.internal.cache, dependent_key)
             end
@@ -1123,16 +1128,16 @@ function empty_cache!(daf::DafReader; clear::Maybe{CacheGroup} = nothing, keep::
             end
 
             if isempty(daf.internal.cache)
-                empty!(daf.internal.dependency_cache_keys)
+                empty!(daf.internal.dependents_of_cache_keys)
             else
-                for (_, dependent_keys) in daf.internal.dependency_cache_keys
-                    filter(dependent_keys) do dependent_key
+                for (_, dependents_keys) in daf.internal.dependents_of_cache_keys
+                    filter(dependents_keys) do dependent_key
                         return haskey(daf.internal.cache, dependent_key)
                     end
                 end
-                filter(daf.internal.dependency_cache_keys) do entry
-                    dependent_keys = entry[2]
-                    return !isempty(dependent_keys)
+                filter(daf.internal.dependents_of_cache_keys) do entry
+                    dependents_keys = entry[2]
+                    return !isempty(dependents_keys)
                 end
             end
         end
