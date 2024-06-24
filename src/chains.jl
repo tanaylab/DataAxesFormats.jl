@@ -660,6 +660,7 @@ function Formats.format_description_footer(
 end
 
 function Formats.invalidate_cached!(chain::AnyChain, cache_key::CacheKey)::Nothing
+    invoke(Formats.invalidate_cached!, Tuple{FormatReader, CacheKey}, chain, cache_key)
     for daf in chain.dafs
         Formats.invalidate_cached!(daf, cache_key)
     end

@@ -66,6 +66,7 @@ using SparseArrays
 
 import ..Formats
 import ..Formats.CacheEntry
+import ..Formats.CacheKey
 import ..Formats.FormatReader  # For documentation.
 import ..Messages
 
@@ -93,8 +94,10 @@ The names of the scalar properties in `daf`.
 """
 function scalars_set(daf::DafReader)::AbstractSet{<:AbstractString}
     return Formats.with_data_read_lock(daf, "scalars_set") do
+        # Formats.assert_valid_cache(daf)
         result = Formats.get_scalars_set_through_cache(daf)
         @debug "scalars_set daf: $(depict(daf)) result: $(depict(result))"
+        # Formats.assert_valid_cache(daf)
         return result
     end
 end
@@ -117,6 +120,7 @@ function get_scalar(
     default::Union{StorageScalar, Nothing, UndefInitializer} = undef,
 )::Maybe{StorageScalar}
     return Formats.with_data_read_lock(daf, "get_scalar of:", name) do
+        # Formats.assert_valid_cache(daf)
         if default == undef
             require_scalar(daf, name)
         elseif !has_scalar(daf, name)
@@ -126,6 +130,7 @@ function get_scalar(
 
         result = Formats.get_scalar_through_cache(daf, name)
         @debug "get_scalar daf: $(depict(daf)) name: $(name) default: $(depict(default)) result: $(depict(result))"
+        # Formats.assert_valid_cache(daf)
         return result
     end
 end
@@ -180,8 +185,10 @@ The names of the axes of `daf`.
 """
 function axes_set(daf::DafReader)::AbstractSet{<:AbstractString}
     return Formats.with_data_read_lock(daf, "axes_set") do
+        # Formats.assert_valid_cache(daf)
         result = Formats.get_axes_set_through_cache(daf)
         @debug "axes_set daf: $(depict(daf)) result: $(depict(result))"
+        # Formats.assert_valid_cache(daf)
         return result
     end
 end
@@ -205,6 +212,7 @@ function axis_array(
     default::Union{Nothing, UndefInitializer} = undef,
 )::Maybe{AbstractVector{<:AbstractString}}
     return Formats.with_data_read_lock(daf, "axis_array of:", axis) do
+        # Formats.assert_valid_cache(daf)
         result_prefix = ""
         if !Formats.format_has_axis(daf, axis; for_change = false)
             if default === nothing
@@ -219,6 +227,7 @@ function axis_array(
 
         result = Formats.get_axis_array_through_cache(daf, axis)
         @debug "axis_array daf: $(depict(daf)) axis: $(axis) default: $(depict(default)) $(result_prefix)result: $(depict(result))"
+        # Formats.assert_valid_cache(daf)
         return result
     end
 end
@@ -230,9 +239,11 @@ Return a dictionary converting axis entry names to their integer index.
 """
 function axis_dict(daf::DafReader, axis::AbstractString)::AbstractDict{<:AbstractString, <:Integer}
     return Formats.with_data_read_lock(daf, "axis_dict of:", axis) do
+        # Formats.assert_valid_cache(daf)
         require_axis(daf, "for: axis_dict", axis)
         result = Formats.get_axis_dict_through_cache(daf, axis)
         @debug "axis_dict daf: $(depict(daf)) result: $(depict(result))"
+        # Formats.assert_valid_cache(daf)
         return result
     end
 end
@@ -248,10 +259,12 @@ function axis_indices(
     entries::AbstractVector{<:AbstractString},
 )::AbstractVector{<:Integer}
     return Formats.with_data_read_lock(daf, "axis_indices of:", axis) do
+        # Formats.assert_valid_cache(daf)
         require_axis(daf, "for: axis_indices", axis)
         dictionary = Formats.get_axis_dict_through_cache(daf, axis)
         result = getindex.(Ref(dictionary), entries)
         @debug "axis_indices daf: $(depict(daf)) result: $(depict(result))"
+        # Formats.assert_valid_cache(daf)
         return result
     end
 end
@@ -265,9 +278,11 @@ This first verifies the `axis` exists in `daf`.
 """
 function axis_length(daf::DafReader, axis::AbstractString)::Int64
     return Formats.with_data_read_lock(daf, "axis_length of:", axis) do
+        # Formats.assert_valid_cache(daf)
         require_axis(daf, "for: axis_length", axis)
         result = Formats.format_axis_length(daf, axis)
         @debug "axis_length daf: $(depict(daf)) axis: $(axis) result: $(result)"
+        # Formats.assert_valid_cache(daf)
         return result
     end
 end
@@ -293,9 +308,11 @@ This first verifies the `axis` exists in `daf`.
 """
 function has_vector(daf::DafReader, axis::AbstractString, name::AbstractString)::Bool
     return Formats.with_data_read_lock(daf, "has_vector of:", name, "of:", axis) do
+        # Formats.assert_valid_cache(daf)
         require_axis(daf, "for has_vector: $(name)", axis)
         result = name == "name" || Formats.format_has_vector(daf, axis, name)
         @debug "has_vector daf: $(depict(daf)) axis: $(axis) name: $(name) result: $(result)"
+        # Formats.assert_valid_cache(daf)
         return result
     end
 end
@@ -332,9 +349,11 @@ This first verifies the `axis` exists in `daf`.
 """
 function vectors_set(daf::DafReader, axis::AbstractString)::AbstractSet{<:AbstractString}
     return Formats.with_data_read_lock(daf, "vectors_set of:", axis) do
+        # Formats.assert_valid_cache(daf)
         require_axis(daf, "for: vectors_set", axis)
         result = Formats.get_vectors_set_through_cache(daf, axis)
         @debug "vectors_set daf: $(depict(daf)) axis: $(axis) result: $(depict(result))"
+        # Formats.assert_valid_cache(daf)
         return result
     end
 end
@@ -363,6 +382,7 @@ function get_vector(
     default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
 )::Maybe{NamedArray}
     return Formats.with_data_read_lock(daf, "get_vector of:", name, "of:", axis) do
+        # Formats.assert_valid_cache(daf)
         require_axis(daf, "for the vector: $(name)", axis)
 
         if default isa StorageVector
@@ -376,6 +396,7 @@ function get_vector(
         if name == "name"
             vector = Formats.as_named_vector(daf, axis, Formats.get_axis_array_through_cache(daf, axis))
             @debug "get_vector daf: $(depict(daf)) axis: $(axis) name: $(name) default: $(depict(default)) result: $(depict(vector))"
+            # Formats.assert_valid_cache(daf)
             return vector
         end
 
@@ -415,6 +436,7 @@ function get_vector(
         end
 
         @debug "get_vector daf: $(depict(daf)) axis: $(axis) name: $(name) default: $(depict(default)) $(result_prefix)result: $(depict(vector))"
+        # Formats.assert_valid_cache(daf)
         return vector
     end
 end
@@ -502,6 +524,7 @@ function matrices_set(
     relayout::Bool = true,
 )::AbstractSet{<:AbstractString}
     return Formats.with_data_read_lock(daf, "matrices_set of:", rows_axis, "and:", columns_axis) do
+        # Formats.assert_valid_cache(daf)
         relayout = relayout && rows_axis != columns_axis
 
         require_axis(daf, "for the rows of: matrices_set", rows_axis)
@@ -526,7 +549,7 @@ function matrices_set(
                 end
             end
         else
-            return Formats.get_through_cache(
+            names = Formats.get_through_cache(
                 daf,
                 Formats.matrices_set_cache_key(rows_axis, columns_axis; relayout = true),
                 AbstractSet{<:AbstractString},
@@ -535,11 +558,12 @@ function matrices_set(
                 first_names = Formats.get_matrices_set_through_cache(daf, rows_axis, columns_axis)
                 second_names = Formats.get_matrices_set_through_cache(daf, columns_axis, rows_axis)
                 names = union(first_names, second_names)
-                return names, (Formats.axis_array_cache_key(rows_axis), Formats.axis_array_cache_key(columns_axis))
+                return names
             end
         end
 
         @debug "matrices_set daf: $(depict(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) relayout: $(relayout) result: $(depict(names))"
+        # Formats.assert_valid_cache(daf)
         return names
     end
 end
@@ -600,6 +624,7 @@ function get_matrix(
     relayout::Bool = true,
 )::Maybe{NamedArray}
     return Formats.with_data_read_lock(daf, "get_matrix of:", name, "of:", rows_axis, "and:", columns_axis) do
+        # Formats.assert_valid_cache(daf)
         relayout = relayout && rows_axis != columns_axis
 
         require_axis(daf, "for the rows of the matrix: $(name)", rows_axis)
@@ -648,21 +673,12 @@ function get_matrix(
                     Formats.as_named_matrix(daf, rows_axis, columns_axis, matrix),
                 )
             else
-                matrix = Formats.get_through_cache(
-                    daf,
-                    cache_key,
-                    StorageMatrix,
-                    daf.internal.cache_group;
-                    is_slow = true,
-                ) do
+                matrix = Formats.get_through_cache(daf, cache_key, StorageMatrix, MemoryData; is_slow = true) do
                     flipped_matrix = Formats.get_matrix_through_cache(daf, columns_axis, rows_axis, name).array
                     assert_valid_matrix(daf, columns_axis, rows_axis, name, flipped_matrix)
                     relayout_matrix = relayout!(flipped_matrix)
                     transposed_matrix = transpose(relayout_matrix)
-                    return (
-                        Formats.as_named_matrix(daf, rows_axis, columns_axis, transposed_matrix),
-                        (Formats.axis_array_cache_key(rows_axis), Formats.axis_array_cache_key(columns_axis)),
-                    )
+                    return (Formats.as_named_matrix(daf, rows_axis, columns_axis, transposed_matrix), nothing)
                 end
             end
         else
@@ -694,6 +710,7 @@ function get_matrix(
             matrix = Formats.as_named_matrix(daf, rows_axis, columns_axis, matrix)
         end
         @debug "get_matrix daf: $(depict(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) default: $(depict(default)) $(result_prefix)result: $(depict(matrix))"
+        # # Formats.assert_valid_cache(daf)
         return matrix
     end
 end
@@ -941,7 +958,7 @@ function cache_description(daf::DafReader, indent::AbstractString, lines::Vector
     is_first = true
     Formats.with_cache_read_lock(daf, "cache for: description") do
         cache_keys = collect(keys(daf.internal.cache))
-        sort!(cache_keys)
+        sort!(cache_keys; lt = cache_key_is_less)
         for key in cache_keys
             if is_first
                 push!(lines, "$(indent)cache:")
@@ -957,6 +974,18 @@ function cache_description(daf::DafReader, indent::AbstractString, lines::Vector
         end
     end
     return nothing
+end
+
+function cache_key_is_less(left::CacheKey, right::CacheKey)::Bool
+    left_type, left_key = left
+    right_type, right_key = right
+    if !(left_key isa Tuple)
+        left_key = (left_key,)
+    end
+    if !(right_key isa Tuple)
+        right_key = (right_key,)
+    end
+    return (left_type, left_key) < (right_type, right_key)
 end
 
 function base_array(array::AbstractArray)::AbstractArray

@@ -1666,7 +1666,7 @@ function get_query(
     query_sequence::QuerySequence;
     cache::Bool = true,
 )::Union{AbstractSet{<:AbstractString}, AbstractVector{<:AbstractString}, StorageScalar, NamedArray}
-    cache_key = CacheKey(CachedQuery, "$(query_sequence)")
+    cache_key = (CachedQuery, "$(query_sequence)")
     return Formats.with_data_read_lock(daf, "get_query of:", query_sequence) do
         if cache
             result = Formats.get_through_cache(
@@ -1822,7 +1822,7 @@ query is syntactically valid and that the query can be computed, though it may s
 due to invalid values or types.
 """
 function query_requires_relayout(daf::DafReader, query_sequence::QuerySequence)::Bool
-    return Formats.with_data_read_lock(daf, "query_requires_relayout:", CacheKey(CachedQuery, "$(query_sequence)")) do
+    return Formats.with_data_read_lock(daf, "query_requires_relayout:", (CachedQuery, "$(query_sequence)")) do
         return get_fake_query_result(query_sequence; daf = daf).requires_relayout
     end
 end
