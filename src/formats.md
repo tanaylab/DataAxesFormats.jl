@@ -15,7 +15,7 @@ Daf.Formats.Internal
 ### Caching
 
 ```@docs
-Daf.Formats.CacheType
+Daf.Formats.CacheGroup
 Daf.Formats.empty_cache!
 ```
 

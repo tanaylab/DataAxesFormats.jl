@@ -56,7 +56,6 @@ export vectors_set
 
 using ..Formats
 using ..GenericFunctions
-using ..GenericLocks
 using ..GenericTypes
 using ..MatrixLayouts
 using ..Messages
@@ -458,8 +457,17 @@ function has_matrix(
         require_axis(daf, "for the rows of the matrix: $(name)", rows_axis)
         require_axis(daf, "for the columns of the matrix: $(name)", columns_axis)
 
-        result = with_read_lock(daf.internal.cache_lock) do
-            return haskey(daf.internal.cache, Formats.matrix_cache_key(rows_axis, columns_axis, name)) ||
+        cache_key = Formats.matrix_cache_key(rows_axis, columns_axis, name)
+        result = Formats.with_cache_read_lock(
+            daf,
+            "cache for has_matrix of:",
+            name,
+            "of:",
+            rows_axis,
+            "and:",
+            columns_axis,
+        ) do
+            return haskey(daf.internal.cache, cache_key) ||
                    Formats.format_has_matrix(daf, rows_axis, columns_axis, name) ||
                    (relayout && Formats.format_has_matrix(daf, columns_axis, rows_axis, name))
         end
@@ -503,7 +511,7 @@ function matrices_set(
             names = Formats.get_matrices_set_through_cache(daf, rows_axis, columns_axis)
             can_modify_names = false
             candidate_cached_names = Formats.get_matrices_set_through_cache(daf, columns_axis, rows_axis)
-            with_read_lock(daf.internal.cache_lock) do
+            Formats.with_cache_read_lock(daf, "cache for matrices_set of:", rows_axis, "and:", columns_axis) do
                 for candidate_cached_name in candidate_cached_names
                     if !(candidate_cached_name in names)
                         candidate_cache_key = Formats.matrix_cache_key(rows_axis, columns_axis, candidate_cached_name)
@@ -518,27 +526,16 @@ function matrices_set(
                 end
             end
         else
-            first_relayout_cache_key = Formats.matrix_relayout_names_cache_key(rows_axis, columns_axis)
             return Formats.get_through_cache(
                 daf,
-                first_relayout_cache_key,
+                Formats.matrices_set_cache_key(rows_axis, columns_axis; relayout = true),
                 AbstractSet{<:AbstractString},
-                daf.internal.cache_type,
+                daf.internal.cache_group,
             ) do
-                second_relayout_cache_key = Formats.matrix_relayout_names_cache_key(columns_axis, rows_axis)
                 first_names = Formats.get_matrices_set_through_cache(daf, rows_axis, columns_axis)
                 second_names = Formats.get_matrices_set_through_cache(daf, columns_axis, rows_axis)
                 names = union(first_names, second_names)
-                with_write_lock(daf.internal.cache_lock, daf.name, "cache for:", first_relayout_cache_key) do  # NOJET
-                    for cache_key in (first_relayout_cache_key, second_relayout_cache_key)
-                        for dependency_key in
-                            (Formats.axis_array_cache_key(rows_axis), Formats.axis_array_cache_key(columns_axis))
-                            Formats.put_cached_dependency_key!(daf, cache_key, dependency_key)
-                        end
-                    end
-                    return Formats.put_in_cache!(daf, second_relayout_cache_key, names, MemoryData)
-                end
-                return names, nothing
+                return names, (Formats.axis_array_cache_key(rows_axis), Formats.axis_array_cache_key(columns_axis))
             end
         end
 
@@ -586,7 +583,7 @@ result axes are the names of the relevant axes entries (same as returned by [`ax
 
 If `relayout` (the default), then if the matrix is only stored in the other memory layout (that is, with flipped axes),
 then automatically call [`relayout!`](@ref) to compute the result. If `daf` isa [`DafWriter`](@ref), then store the
-result for future use; otherwise, just cache it as [`MemoryData`](@ref CacheType). This may lock up very large amounts
+result for future use; otherwise, just cache it as [`MemoryData`](@ref CacheGroup). This may lock up very large amounts
 of memory; you can call [`empty_cache!`](@ref) to release it.
 
 This first verifies the `rows_axis` and `columns_axis` exist in `daf`. If `default` is `undef` (the default), this first
@@ -640,7 +637,8 @@ function get_matrix(
             result_prefix = "relayout "
             if daf isa DafWriter && !daf.internal.is_frozen
                 Formats.upgrade_to_data_write_lock(daf)
-                matrix = Formats.format_relayout_matrix!(daf, columns_axis, rows_axis, name)
+                Formats.format_relayout_matrix!(daf, columns_axis, rows_axis, name)
+                matrix = Formats.format_get_matrix(daf, rows_axis, columns_axis, name)
                 assert_valid_matrix(daf, rows_axis, columns_axis, name, matrix)
                 Formats.cache_matrix!(
                     daf,
@@ -650,17 +648,22 @@ function get_matrix(
                     Formats.as_named_matrix(daf, rows_axis, columns_axis, matrix),
                 )
             else
-                matrix =
-                    Formats.get_through_cache(daf, cache_key, StorageMatrix, daf.internal.cache_type; is_slow = true) do
-                        flipped_matrix = Formats.get_matrix_through_cache(daf, columns_axis, rows_axis, name).array
-                        assert_valid_matrix(daf, columns_axis, rows_axis, name, flipped_matrix)
-                        relayout_matrix = relayout!(flipped_matrix)
-                        transposed_matrix = transpose(relayout_matrix)
-                        return (
-                            Formats.as_named_matrix(daf, rows_axis, columns_axis, transposed_matrix),
-                            (Formats.axis_array_cache_key(rows_axis), Formats.axis_array_cache_key(columns_axis)),
-                        )
-                    end
+                matrix = Formats.get_through_cache(
+                    daf,
+                    cache_key,
+                    StorageMatrix,
+                    daf.internal.cache_group;
+                    is_slow = true,
+                ) do
+                    flipped_matrix = Formats.get_matrix_through_cache(daf, columns_axis, rows_axis, name).array
+                    assert_valid_matrix(daf, columns_axis, rows_axis, name, flipped_matrix)
+                    relayout_matrix = relayout!(flipped_matrix)
+                    transposed_matrix = transpose(relayout_matrix)
+                    return (
+                        Formats.as_named_matrix(daf, rows_axis, columns_axis, transposed_matrix),
+                        (Formats.axis_array_cache_key(rows_axis), Formats.axis_array_cache_key(columns_axis)),
+                    )
+                end
             end
         else
             result_prefix = "default "
@@ -936,7 +939,7 @@ end
 
 function cache_description(daf::DafReader, indent::AbstractString, lines::Vector{String})::Nothing
     is_first = true
-    with_read_lock(daf.internal.cache_lock) do
+    Formats.with_cache_read_lock(daf, "cache for: description") do
         cache_keys = collect(keys(daf.internal.cache))
         sort!(cache_keys)
         for key in cache_keys
@@ -949,8 +952,8 @@ function cache_description(daf::DafReader, indent::AbstractString, lines::Vector
             if value isa AbstractArray
                 value = base_array(value)
             end
-            key = replace(key, "'" => "''")
-            push!(lines, "$(indent)  '$(key)': ($(cache_entry.cache_type)) $(depict(value))")
+            key = replace("$(key)", "'" => "''")
+            push!(lines, "$(indent)  '$(key)': ($(cache_entry.cache_group)) $(depict(value))")
         end
     end
     return nothing

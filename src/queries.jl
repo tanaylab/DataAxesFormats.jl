@@ -43,7 +43,6 @@ export query_requires_relayout
 using ..Readers
 using ..Formats
 using ..GenericFunctions
-using ..GenericLocks
 using ..GenericTypes
 using ..MatrixLayouts
 using ..Messages
@@ -57,6 +56,8 @@ using DataFrames
 using NamedArrays
 
 import ..Formats.CacheEntry
+import ..Formats.CacheKey
+import ..Formats.CachedQuery
 import ..Readers.require_axis
 import ..Readers.require_matrix
 import ..Readers.require_scalar
@@ -85,7 +86,7 @@ vector or matrix result.
 
 To apply a query, invoke [`get_query`](@ref) to apply a query to some [`DafReader`](@ref) data (you can also use the
 shorthand ``daf[query]`` instead of ``get_query(daf, query)``). By default, query operations will cache their results in
-memory as [`QueryData`](@ref CacheType), to speed up repeated queries. This may lock up large amounts of memory; you can
+memory as [`QueryData`](@ref CacheGroup), to speed up repeated queries. This may lock up large amounts of memory; you can
 [`empty_cache!`](@ref) to release it.
 
 Queries can be constructed in two ways. In code, a query can be built by chaining query operations (e.g., the expression
@@ -1414,7 +1415,7 @@ end
 
 mutable struct ScalarState
     query_sequence::QuerySequence
-    dependency_keys::Set{AbstractString}
+    dependency_keys::Set{CacheKey}
     scalar_value::StorageScalar
 end
 
@@ -1422,7 +1423,7 @@ struct FakeScalarState end
 
 mutable struct AxisState
     query_sequence::QuerySequence
-    dependency_keys::Set{AbstractString}
+    dependency_keys::Set{CacheKey}
     axis_name::AbstractString
     axis_modifier::Maybe{Union{AbstractVector{Bool}, Int}}
 end
@@ -1435,7 +1436,7 @@ end
 
 mutable struct VectorState
     query_sequence::QuerySequence
-    dependency_keys::Set{AbstractString}
+    dependency_keys::Set{CacheKey}
     named_vector::NamedArray
     property_name::AbstractString
     axis_state::Maybe{AxisState}
@@ -1448,7 +1449,7 @@ end
 
 mutable struct MatrixState
     query_sequence::QuerySequence
-    dependency_keys::Set{AbstractString}
+    dependency_keys::Set{CacheKey}
     named_matrix::NamedArray
     rows_property_name::AbstractString
     columns_property_name::AbstractString
@@ -1456,9 +1457,14 @@ mutable struct MatrixState
     columns_axis_state::AxisState
 end
 
+mutable struct NamesState
+    dependency_keys::Set{CacheKey}
+    names::AbstractSet{<:AbstractString}
+end
+
 struct FakeMatrixState end
 
-QueryValue = Union{AbstractSet{<:AbstractString}, ScalarState, AxisState, VectorState, MatrixState, AsAxis, GroupBy}
+QueryValue = Union{NamesState, ScalarState, AxisState, VectorState, MatrixState, AsAxis, GroupBy}
 
 mutable struct QueryState
     daf::DafReader
@@ -1507,7 +1513,6 @@ function debug_query(  # untested
         @debug "$(indent)- $(name): ScalarState:"
     end
     @debug "$(indent)  query_sequence: $(scalar_state.query_sequence)"
-    @debug "$(indent)  dependency_keys: $(scalar_state.dependency_keys)"
     @debug "$(indent)  scalar_value: $(scalar_state.scalar_value)"
     return nothing
 end
@@ -1519,7 +1524,6 @@ function debug_query(axis_state::AxisState; name::Maybe{AbstractString} = nothin
         @debug "$(indent)- $(name): AxisState:"
     end
     @debug "$(indent)  query_sequence: $(axis_state.query_sequence)"
-    @debug "$(indent)  dependency_keys: $(axis_state.dependency_keys)"
     @debug "$(indent)  axis_name: $(axis_state.axis_name)"
     @debug "$(indent)  axis_modifier: $(depict(axis_state.axis_modifier))"
     return nothing
@@ -1536,7 +1540,6 @@ function debug_query(  # untested
         @debug "$(indent)- $(name): VectorState:"
     end
     @debug "$(indent)   query_sequence: $(vector_state.query_sequence)"
-    @debug "$(indent)   dependency_keys: $(vector_state.dependency_keys)"
     @debug "$(indent)   named_vector: $(depict(vector_state.named_vector))"
     @debug "$(indent)   property_name: $(vector_state.property_name)"
     @debug "$(indent)  is_processed: $(vector_state.is_processed)"
@@ -1559,7 +1562,6 @@ function debug_query(  # untested
         @debug "$(indent)- $(name): MatrixState:"
     end
     @debug "$(indent)  query_sequence: $(matrix_state.query_sequence)"
-    @debug "$(indent)  dependency_keys: $(matrix_state.dependency_keys)"
     @debug "$(indent)  named_matrix: $(depict(matrix_state.named_matrix))"
     @debug "$(indent)  rows_property_name: $(matrix_state.rows_property_name)"
     @debug "$(indent)  columns_property_name: $(matrix_state.columns_property_name)"
@@ -1664,8 +1666,8 @@ function get_query(
     query_sequence::QuerySequence;
     cache::Bool = true,
 )::Union{AbstractSet{<:AbstractString}, AbstractVector{<:AbstractString}, StorageScalar, NamedArray}
-    cache_key = "$(query_sequence)"
-    return Formats.with_data_read_lock(daf, "get_query of:", cache_key) do
+    cache_key = CacheKey(CachedQuery, "$(query_sequence)")
+    return Formats.with_data_read_lock(daf, "get_query of:", query_sequence) do
         if cache
             result = Formats.get_through_cache(
                 daf,
@@ -1677,7 +1679,7 @@ function get_query(
                 return do_get_query(daf, query_sequence)
             end
         else
-            result = with_read_lock(daf.internal.cache_lock, daf.name, "cache for:", cache_key) do
+            result = Formats.with_cache_read_lock(daf, "cache for query:", query_sequence) do
                 return Formats.get_from_cache(
                     daf,
                     cache_key,
@@ -1698,7 +1700,7 @@ function do_get_query(
     query_sequence::QuerySequence,
 )::Tuple{
     Union{AbstractSet{<:AbstractString}, AbstractVector{<:AbstractString}, StorageScalar, NamedArray},
-    Set{AbstractString},
+    Set{CacheKey},
 }
     query_state = QueryState(daf, query_sequence, 1, Vector{QueryValue}())
     while query_state.next_operation_index <= length(query_state.query_sequence.query_operations)
@@ -1707,7 +1709,7 @@ function do_get_query(
         apply_query_operation!(query_state, query_operation)
     end
 
-    if is_all(query_state, (AbstractSet{<:AbstractString},))
+    if is_all(query_state, (NamesState,))
         return get_names_result(query_state)
     elseif is_all(query_state, (ScalarState,))
         return get_scalar_result(query_state)
@@ -1725,46 +1727,46 @@ function do_get_query(
     end
 end
 
-function get_names_result(query_state::QueryState)::Tuple{AbstractSet{<:AbstractString}, Set{AbstractString}}
-    names = pop!(query_state.stack)
-    @assert names isa AbstractSet{<:AbstractString}
-    return names, Set{AbstractString}()
+function get_names_result(query_state::QueryState)::Tuple{AbstractSet{<:AbstractString}, Set{CacheKey}}
+    names_state = pop!(query_state.stack)
+    @assert names_state isa NamesState
+    return (names_state.names, names_state.dependency_keys)
 end
 
-function get_scalar_result(query_state::QueryState)::Tuple{StorageScalar, Set{AbstractString}}
+function get_scalar_result(query_state::QueryState)::Tuple{StorageScalar, Set{CacheKey}}
     scalar_state = pop!(query_state.stack)
     @assert scalar_state isa ScalarState
-    return scalar_state.scalar_value, scalar_state.dependency_keys
+    return (scalar_state.scalar_value, scalar_state.dependency_keys)
 end
 
 function axis_array_result(
     query_state::QueryState,
-)::Tuple{Union{AbstractString, AbstractVector{<:AbstractString}}, Set{AbstractString}}
+)::Tuple{Union{AbstractString, AbstractVector{<:AbstractString}}, Set{CacheKey}}
     axis_state = pop!(query_state.stack)
     @assert axis_state isa AxisState
 
     axis_modifier = axis_state.axis_modifier
     axis_entries = axis_array(query_state.daf, axis_state.axis_name)
     if axis_modifier isa Int
-        return axis_entries[axis_modifier], axis_state.dependency_keys
+        return (axis_entries[axis_modifier], axis_state.dependency_keys)
     else
         if axis_modifier isa AbstractVector{Bool}
             axis_entries = axis_entries[axis_modifier]
         end
-        return Formats.read_only_array(axis_entries), axis_state.dependency_keys
+        return (Formats.read_only_array(axis_entries), axis_state.dependency_keys)
     end
 end
 
-function get_vector_result(query_state::QueryState)::Tuple{NamedArray, Set{AbstractString}}
+function get_vector_result(query_state::QueryState)::Tuple{NamedArray, Set{CacheKey}}
     vector_state = pop!(query_state.stack)
     @assert vector_state isa VectorState
-    return Formats.read_only_array(vector_state.named_vector), vector_state.dependency_keys
+    return (Formats.read_only_array(vector_state.named_vector), vector_state.dependency_keys)
 end
 
-function get_matrix_result(query_state::QueryState)::Tuple{NamedArray, Set{AbstractString}}
+function get_matrix_result(query_state::QueryState)::Tuple{NamedArray, Set{CacheKey}}
     matrix_state = pop!(query_state.stack)
     @assert matrix_state isa MatrixState
-    return Formats.read_only_array(matrix_state.named_matrix), matrix_state.dependency_keys
+    return (Formats.read_only_array(matrix_state.named_matrix), matrix_state.dependency_keys)
 end
 
 function is_axis_query(query_string::AbstractString)::Bool
@@ -1820,7 +1822,7 @@ query is syntactically valid and that the query can be computed, though it may s
 due to invalid values or types.
 """
 function query_requires_relayout(daf::DafReader, query_sequence::QuerySequence)::Bool
-    return Formats.with_data_read_lock(daf, "query_requires_relayout:", "$(query_sequence)") do
+    return Formats.with_data_read_lock(daf, "query_requires_relayout:", CacheKey(CachedQuery, "$(query_sequence)")) do
         return get_fake_query_result(query_sequence; daf = daf).requires_relayout
     end
 end
@@ -1969,9 +1971,9 @@ function get_kind_names(query_state::QueryState, names::Names)::Nothing
     end
 
     if names.kind == "scalars"
-        push!(query_state.stack, scalars_set(query_state.daf))
+        push!(query_state.stack, NamesState(Set([Formats.scalars_set_cache_key()]), scalars_set(query_state.daf)))
     elseif names.kind == "axes"
-        push!(query_state.stack, axes_set(query_state.daf))
+        push!(query_state.stack, NamesState(Set([Formats.axes_set_cache_key()]), axes_set(query_state.daf)))
     else
         error_at_state(query_state, "invalid kind: $(names.kind)")
     end
@@ -1992,7 +1994,13 @@ function get_vectors_set(query_state::QueryState, names::Names)::Nothing
         error_at_state(query_state, "sliced/masked axis for vector names")
     end
 
-    push!(query_state.stack, vectors_set(query_state.daf, axis_state.axis_name))
+    push!(
+        query_state.stack,
+        NamesState(
+            Set([Formats.vectors_set_cache_key(axis_state.axis_name)]),
+            vectors_set(query_state.daf, axis_state.axis_name),
+        ),
+    )
     return nothing
 end
 
@@ -2012,7 +2020,19 @@ function get_matrices_set(query_state::QueryState, names::Names)::Nothing
         error_at_state(query_state, "sliced/masked axis for matrix names")
     end
 
-    push!(query_state.stack, matrices_set(query_state.daf, rows_axis_state.axis_name, columns_axis_state.axis_name))
+    push!(
+        query_state.stack,
+        NamesState(
+            Set([
+                Formats.matrices_set_cache_key(
+                    rows_axis_state.axis_name,
+                    columns_axis_state.axis_name;
+                    relayout = true,
+                ),
+            ]),
+            matrices_set(query_state.daf, rows_axis_state.axis_name, columns_axis_state.axis_name),
+        ),
+    )
     return nothing
 end
 
@@ -2260,7 +2280,7 @@ function lookup_matrix(
     named_matrix::Maybe{NamedMatrix},
     rows_axis_state::AxisState,
     columns_axis_state::AxisState,
-    dependency_keys::Set{AbstractString},
+    dependency_keys::Set{CacheKey},
 )::Nothing
     matrix_state = MatrixState(
         query_state_sequence(query_state),
@@ -2279,7 +2299,7 @@ function lookup_matrix_slice(
     query_state::QueryState,
     named_vector::NamedVector,
     axis_state::AxisState,
-    dependency_keys::Set{AbstractString},
+    dependency_keys::Set{CacheKey},
 )::Nothing
     vector_state = VectorState(
         query_state_sequence(query_state),
@@ -2296,7 +2316,7 @@ end
 function lookup_matrix_entry(
     query_state::QueryState,
     scalar_value::StorageScalar,
-    dependency_keys::Set{AbstractString},
+    dependency_keys::Set{CacheKey},
 )::Nothing
     scalar_state = ScalarState(query_state_sequence(query_state), dependency_keys, scalar_value)
     push!(query_state.stack, scalar_state)
@@ -2337,7 +2357,7 @@ mutable struct CommonFetchState
     axis_state::AxisState
     axis_name::AbstractString
     property_name::AbstractString
-    dependency_keys::Set{AbstractString}
+    dependency_keys::Set{CacheKey}
 end
 
 mutable struct EntryFetchState
@@ -2748,7 +2768,7 @@ function fetch_first_named_vector(
         fetched_values = base_named_vector.array
     end
 
-    return base_named_vector, fetched_values
+    return (base_named_vector, fetched_values)
 end
 
 function fetch_second_named_vector(
@@ -2862,7 +2882,7 @@ function patch_fetched_values(
         end
     end
 
-    return base_named_vector, fetched_values
+    return (base_named_vector, fetched_values)
 end
 
 function verify_fetched_values(
@@ -3222,12 +3242,12 @@ function unique_values(
                 index_of_value[value] = index
             end
         end
-        return property_name, values, index_of_value
+        return (property_name, values, index_of_value)
 
     else
         axis_name = axis_of_property(query_state.daf, property_name, as_axis)
         entry_names = get_vector(query_state.daf, axis_name, "name")
-        return axis_name, entry_names.array, entry_names.dicts[1]
+        return (axis_name, entry_names.array, entry_names.dicts[1])
     end
 end
 

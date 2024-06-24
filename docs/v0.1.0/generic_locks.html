@@ -337,7 +337,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">write_lock(query_read_write_lock::QueryReadWriteLock, what::AbstractString...)::Nothing
+<code class="language-julia hljs">write_lock(query_read_write_lock::QueryReadWriteLock, what::Any...)::Nothing
 </code>
 </pre>
 <p>Obtain a write lock. Each call must be matched by 
@@ -373,7 +373,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">write_unlock(query_read_write_lock::QueryReadWriteLock, what::AbstractString)::Nothing
+<code class="language-julia hljs">write_unlock(query_read_write_lock::QueryReadWriteLock, what::Any)::Nothing
 </code>
 </pre>
 <p>Release a write lock. Each call must matched a call to 
@@ -407,7 +407,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">with_write_lock(action::Function, query_read_write_lock::QueryReadWriteLock, what::AbstractString...)::Any
+<code class="language-julia hljs">with_write_lock(action::Function, query_read_write_lock::QueryReadWriteLock, what::Any...)::Any
 </code>
 </pre>
 <p>Perform an 
@@ -471,7 +471,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">read_lock(query_read_write_lock::QueryReadWriteLock, what::AbstractString...)::Bool
+<code class="language-julia hljs">read_lock(query_read_write_lock::QueryReadWriteLock, what::Any...)::Bool
 </code>
 </pre>
 <p>Obtain a read lock. Each call must be matched by 
@@ -521,7 +521,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">read_unlock(query_read_write_lock::QueryReadWriteLock, what::AbstractString...)::Nothing
+<code class="language-julia hljs">read_unlock(query_read_write_lock::QueryReadWriteLock, what::Any...)::Nothing
 </code>
 </pre>
 <p>Release a read lock. Each call must matched a call to 
@@ -555,7 +555,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">with_read_lock(action::Function, query_read_write_lock::QueryReadWriteLock, what::AbstractString...)::Any
+<code class="language-julia hljs">with_read_lock(action::Function, query_read_write_lock::QueryReadWriteLock, what::Any...)::Any
 </code>
 </pre>
 <p>Perform an 

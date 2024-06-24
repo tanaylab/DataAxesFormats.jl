@@ -218,7 +218,7 @@ function H5df(
     end
     name = unique_name(name)
 
-    h5df = H5df(name, Internal(; cache_type = MappedData, is_frozen = is_read_only), root, mode)
+    h5df = H5df(name, Internal(; cache_group = MappedData, is_frozen = is_read_only), root, mode)
     @debug "Daf: $(depict(h5df)) root: $(root)"
     if is_read_only
         return read_only(h5df)
@@ -717,7 +717,7 @@ function Formats.format_relayout_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-)::StorageMatrix
+)::Nothing
     @assert Formats.has_data_write_lock(h5df)
     matrix = Formats.get_matrix_through_cache(h5df, rows_axis, columns_axis, name).array
 
@@ -740,7 +740,7 @@ function Formats.format_relayout_matrix!(
     end
 
     relayout!(transpose(relayout_matrix), matrix)
-    return relayout_matrix
+    return nothing
 end
 
 function Formats.format_delete_matrix!(

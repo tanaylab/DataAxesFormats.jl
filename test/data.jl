@@ -91,6 +91,7 @@ function test_missing_scalar(daf::DafReader, depth::Int)::Nothing
     nested_test("set_scalar!") do
         @test set_scalar!(daf, "depth", depth + 1) === nothing
         @test set_scalar!(daf, "version", "1.0") === nothing
+        empty_cache!(daf)
         nested_test("created") do
             test_existing_scalar(daf, depth + 1)
             return nothing
@@ -2792,6 +2793,8 @@ function test_existing_relayout_matrix(daf::DafReader, depth::Int)::Nothing
                         end
 
                         nested_test("false") do
+                            @test delete_matrix!(daf, "cell", "gene", "UMIs"; relayout = true) === nothing
+
                             @test set_matrix!(
                                 daf,
                                 "cell",

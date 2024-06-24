@@ -231,9 +231,9 @@ function FilesDaf(
     name = unique_name(name)
 
     if is_read_only
-        file = read_only(FilesDaf(name, Internal(; cache_type = MappedData, is_frozen = true), path, mode, "r"))
+        file = read_only(FilesDaf(name, Internal(; cache_group = MappedData, is_frozen = true), path, mode, "r"))
     else
-        file = FilesDaf(name, Internal(; cache_type = MappedData, is_frozen = false), path, mode, "r+")
+        file = FilesDaf(name, Internal(; cache_group = MappedData, is_frozen = false), path, mode, "r+")
     end
     @debug "Daf: $(depict(file)) path: $(path)"
     return file
@@ -600,7 +600,7 @@ function Formats.format_relayout_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-)::StorageMatrix
+)::Nothing
     @assert Formats.has_data_write_lock(files)
     matrix = Formats.get_matrix_through_cache(files, rows_axis, columns_axis, name).array
 
@@ -623,7 +623,7 @@ function Formats.format_relayout_matrix!(
     end
 
     relayout!(transpose(relayout_matrix), matrix)
-    return relayout_matrix
+    return nothing
 end
 
 function Formats.format_delete_matrix!(

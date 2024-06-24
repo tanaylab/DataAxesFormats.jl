@@ -481,8 +481,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.CacheType" href="#Daf.Formats.CacheType">
-<code>Daf.Formats.CacheType
+<a class="docstring-binding" id="Daf.Formats.CacheGroup" href="#Daf.Formats.CacheGroup">
+<code>Daf.Formats.CacheGroup
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -533,24 +533,24 @@
 <pre>
 <code class="language-julia hljs">empty_cache!(
     daf::DafReader;
-    [clear::Maybe{CacheType} = nothing,
-    keep::Maybe{CacheType} = nothing]
+    [clear::Maybe{CacheGroup} = nothing,
+    keep::Maybe{CacheGroup} = nothing]
 )::Nothing
 </code>
 </pre>
 <p>Clear some cached data. By default, completely empties the caches. You can specify either 
 <code>clear
 </code>, to only forget a specific 
-<a href="formats.html#Daf.Formats.CacheType">
-<code>CacheType
+<a href="formats.html#Daf.Formats.CacheGroup">
+<code>CacheGroup
 </code>
 </a> (e.g., for clearing only 
 <code>QueryData
 </code>), or 
 <code>keep
 </code>, to forget everything except a specific 
-<a href="formats.html#Daf.Formats.CacheType">
-<code>CacheType
+<a href="formats.html#Daf.Formats.CacheGroup">
+<code>CacheGroup
 </code>
 </a> (e.g., for keeping only 
 <code>MappedData
@@ -1513,7 +1513,7 @@
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString
-)::StorageMatrix
+)::Nothing
 </code>
 </pre>
 <p>
@@ -1910,8 +1910,8 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.CacheType">
-<code>Daf.Formats.CacheType
+<a href="formats.html#Daf.Formats.CacheGroup">
+<code>Daf.Formats.CacheGroup
 </code>
 </a>
 </li>

@@ -653,8 +653,8 @@ end
 
 function Readers.empty_cache!(
     contract_daf::ContractDaf;
-    clear::Maybe{CacheType} = nothing,
-    keep::Maybe{CacheType} = nothing,
+    clear::Maybe{CacheGroup} = nothing,
+    keep::Maybe{CacheGroup} = nothing,
 )::Nothing
     empty_cache!(contract_daf.daf; clear = clear, keep = keep)
     return nothing
@@ -775,29 +775,15 @@ function Writers.delete_matrix!(
     name::AbstractString;
     must_exist::Bool = true,
     relayout::Bool = true,
-    _for_set::Bool = false,
 )::Nothing
     access_matrix(contract_daf, rows_axis, columns_axis, name; is_modify = true)
-    delete_matrix!(
-        contract_daf.daf,
-        rows_axis,
-        columns_axis,
-        name;
-        must_exist = must_exist,
-        relayout = relayout,
-        _for_set = _for_set,
-    )
+    delete_matrix!(contract_daf.daf, rows_axis, columns_axis, name; must_exist = must_exist, relayout = relayout)
     return nothing
 end
 
-function Writers.delete_scalar!(
-    contract_daf::ContractDaf,
-    name::AbstractString;
-    must_exist::Bool = true,
-    _for_set = false,
-)::Nothing
+function Writers.delete_scalar!(contract_daf::ContractDaf, name::AbstractString; must_exist::Bool = true)::Nothing
     access_scalar(contract_daf, name; is_modify = true)
-    delete_scalar!(contract_daf.daf, name; must_exist = must_exist, _for_set = _for_set)
+    delete_scalar!(contract_daf.daf, name; must_exist = must_exist)
     return nothing
 end
 
@@ -806,10 +792,9 @@ function Writers.delete_vector!(
     axis::AbstractString,
     name::AbstractString;
     must_exist::Bool = true,
-    _for_set::Bool = false,
 )::Nothing
     access_vector(contract_daf, axis, name; is_modify = true)
-    delete_vector!(contract_daf.daf, axis, name; must_exist = must_exist, _for_set = _for_set)
+    delete_vector!(contract_daf.daf, axis, name; must_exist = must_exist)
     return nothing
 end
 

@@ -48,7 +48,7 @@ function QueryReadWriteLock()
 end
 
 """
-    write_lock(query_read_write_lock::QueryReadWriteLock, what::AbstractString...)::Nothing
+    write_lock(query_read_write_lock::QueryReadWriteLock, what::Any...)::Nothing
 
 Obtain a write lock. Each call must be matched by [`write_unlock`](@ref). It is possible to nest
 `write_lock`/`write_unlock` call pairs.
@@ -57,7 +57,7 @@ When a thread has a write lock, no other thread can have any lock.
 
 The log messages includes `what` is being locked.
 """
-function write_lock(query_read_write_lock::QueryReadWriteLock, what::AbstractString...)::Nothing
+function write_lock(query_read_write_lock::QueryReadWriteLock, what::Any...)::Nothing
     private_storage = task_local_storage()
     lock_id = objectid(query_read_write_lock.lock)
     write_key = Symbol((lock_id, true))
@@ -79,14 +79,14 @@ function write_lock(query_read_write_lock::QueryReadWriteLock, what::AbstractStr
 end
 
 """
-    write_unlock(query_read_write_lock::QueryReadWriteLock, what::AbstractString)::Nothing
+    write_unlock(query_read_write_lock::QueryReadWriteLock, what::Any)::Nothing
 
 Release a write lock. Each call must matched a call to [`write_lock`](@ref). It is possible to nest
 `write_lock`/`write_unlock` call pairs.
 
 The log messages includes `what` is being unlocked.
 """
-function write_unlock(query_read_write_lock::QueryReadWriteLock, what::AbstractString...)::Nothing
+function write_unlock(query_read_write_lock::QueryReadWriteLock, what::Any...)::Nothing
     private_storage = task_local_storage()
     lock_id = objectid(query_read_write_lock.lock)
     write_key = Symbol((lock_id, true))
@@ -120,7 +120,7 @@ function has_write_lock(query_read_write_lock::QueryReadWriteLock)::Bool
 end
 
 """
-    read_lock(query_read_write_lock::QueryReadWriteLock, what::AbstractString...)::Bool
+    read_lock(query_read_write_lock::QueryReadWriteLock, what::Any...)::Bool
 
 Obtain a read lock. Each call must be matched by [`read_unlock`](@ref). It is possible to nest `read_lock`/`read_unlock`
 call pairs, even inside `write_lock`/`write_unlock` pair(s); however, you can't nest `write_lock`/`write_unlock` inside
@@ -132,7 +132,7 @@ The log messages includes `what` is being locked.
 
 Returns whether this is the top-level read lock (as opposed to a nested one).
 """
-function read_lock(query_read_write_lock::QueryReadWriteLock, what::AbstractString...)::Bool
+function read_lock(query_read_write_lock::QueryReadWriteLock, what::Any...)::Bool
     private_storage = task_local_storage()
     lock_id = objectid(query_read_write_lock.lock)
     write_key = Symbol((lock_id, true))
@@ -162,14 +162,14 @@ function read_lock(query_read_write_lock::QueryReadWriteLock, what::AbstractStri
 end
 
 """
-    read_unlock(query_read_write_lock::QueryReadWriteLock, what::AbstractString...)::Nothing
+    read_unlock(query_read_write_lock::QueryReadWriteLock, what::Any...)::Nothing
 
 Release a read lock. Each call must matched a call to [`read_lock`](@ref). It is possible to nest
 `read_lock`/`read_unlock` call pairs.
 
 The log messages includes `what` is being unlocked.
 """
-function read_unlock(query_read_write_lock::QueryReadWriteLock, what::AbstractString...)::Nothing
+function read_unlock(query_read_write_lock::QueryReadWriteLock, what::Any...)::Nothing
     private_storage = task_local_storage()
     lock_id = objectid(query_read_write_lock.lock)
     write_key = Symbol((lock_id, true))
@@ -210,12 +210,12 @@ function has_read_lock(query_read_write_lock::QueryReadWriteLock; read_only::Boo
 end
 
 """
-    with_write_lock(action::Function, query_read_write_lock::QueryReadWriteLock, what::AbstractString...)::Any
+    with_write_lock(action::Function, query_read_write_lock::QueryReadWriteLock, what::Any...)::Any
 
 Perform an `action` while holding a [`write_lock`](@ref) for the `query_read_write_lock`, return
 its result and [`write_unlock`](@ref).
 """
-function with_write_lock(action::Function, query_read_write_lock::QueryReadWriteLock, what::AbstractString...)::Any
+function with_write_lock(action::Function, query_read_write_lock::QueryReadWriteLock, what::Any...)::Any
     write_lock(query_read_write_lock, what...)
     try
         return action()
@@ -225,12 +225,12 @@ function with_write_lock(action::Function, query_read_write_lock::QueryReadWrite
 end
 
 """
-    with_read_lock(action::Function, query_read_write_lock::QueryReadWriteLock, what::AbstractString...)::Any
+    with_read_lock(action::Function, query_read_write_lock::QueryReadWriteLock, what::Any...)::Any
 
 Perform an `action` while holding a [`read_lock`](@ref) for the `query_read_write_lock`, return
 its result and [`read_unlock`](@ref).
 """
-function with_read_lock(action::Function, query_read_write_lock::QueryReadWriteLock, what::AbstractString...)::Any
+function with_read_lock(action::Function, query_read_write_lock::QueryReadWriteLock, what::Any...)::Any
     read_lock(query_read_write_lock, what...)
     try
         return action()

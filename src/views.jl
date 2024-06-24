@@ -267,7 +267,7 @@ function viewer(
 
     wrapper = DafView(
         name,
-        Internal(; cache_type = MemoryData, is_frozen = true),
+        Internal(; cache_group = MemoryData, is_frozen = true),
         daf,
         collected_scalars,
         collected_axes,

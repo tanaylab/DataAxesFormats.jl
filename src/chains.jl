@@ -20,6 +20,7 @@ using ..StorageTypes
 using ..Writers
 using SparseArrays
 
+import ..Formats.CacheKey
 import ..Formats.FormatReader
 import ..Formats.Internal
 import ..Messages
@@ -88,7 +89,7 @@ function chain_reader(dafs::AbstractVector{<:DafReader}; name::Maybe{AbstractStr
     name = unique_name(name, ";#")
 
     internal_dafs = reader_internal_dafs(dafs, name)
-    chain = ReadOnlyChain(name, Internal(; cache_type = nothing, is_frozen = true), internal_dafs)
+    chain = ReadOnlyChain(name, Internal(; cache_group = nothing, is_frozen = true), internal_dafs)
     @debug "Daf: $(depict(chain)) chain: $(join([daf.name for daf in dafs], ";"))"
     return chain
 end
@@ -128,7 +129,7 @@ function chain_writer(dafs::AbstractVector{<:DafReader}; name::Maybe{AbstractStr
     end
 
     internal_dafs = reader_internal_dafs(dafs, name)
-    reader = ReadOnlyChain(name, Internal(; cache_type = nothing, is_frozen = false), internal_dafs)
+    reader = ReadOnlyChain(name, Internal(; cache_group = nothing, is_frozen = false), internal_dafs)
     chain = WriteChain(name, reader.internal, reader.dafs, dafs[end])
     @debug "Daf: $(depict(chain)) chain: $(join([daf.name for daf in dafs], ";"))"
     return chain
@@ -543,9 +544,10 @@ function Formats.format_relayout_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-)::StorageMatrix
+)::Nothing
     @assert Formats.has_data_write_lock(chain)
-    return Formats.format_relayout_matrix!(chain.daf, rows_axis, columns_axis, name)
+    Formats.format_relayout_matrix!(chain.daf, rows_axis, columns_axis, name)
+    return nothing
 end
 
 function Formats.format_delete_matrix!(
@@ -657,7 +659,7 @@ function Formats.format_description_footer(
     return nothing
 end
 
-function Formats.invalidate_cached!(chain::AnyChain, cache_key::AbstractString)::Nothing
+function Formats.invalidate_cached!(chain::AnyChain, cache_key::CacheKey)::Nothing
     for daf in chain.dafs
         Formats.invalidate_cached!(daf, cache_key)
     end

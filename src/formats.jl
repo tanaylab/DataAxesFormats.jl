@@ -34,7 +34,7 @@ the functions listed here for both [`FormatReader`](@ref) and [`FormatWriter`](@
 """
 module Formats
 
-export CacheType
+export CacheGroup
 export DafReader
 export DafWriter
 export MappedData
@@ -77,7 +77,7 @@ Types of cached data inside `Daf`.
 
 If too much data has been cached, call [`empty_cache!`](@ref) to release it.
 """
-@enum CacheType MappedData MemoryData QueryData
+@enum CacheGroup MappedData MemoryData QueryData
 
 CacheData = Union{
     AbstractSet{<:AbstractString},
@@ -88,8 +88,113 @@ CacheData = Union{
 }
 
 mutable struct CacheEntry
-    cache_type::CacheType
+    cache_group::CacheGroup
     data::Union{ReentrantLock, CacheData}
+end
+
+@enum CacheType CachedAxis CachedData CachedQuery CachedNames
+
+AxisCacheKey = Tuple{AxisKey, Bool}
+
+NamesKey = Union{AbstractString, Tuple{AbstractString}, Tuple{AbstractString, AbstractString, Bool}}
+
+struct CacheKey
+    type::CacheType
+    key::Union{AxisCacheKey, DataKey, AbstractString, NamesKey}
+end
+
+function Base.isless(left::CacheKey, right::CacheKey)::Bool
+    left_key = left.key
+    if left_key isa AbstractString
+        left_key = (left_key,)
+    end
+    right_key = right.key
+    if right_key isa AbstractString
+        right_key = (right_key,)
+    end
+    return (left.type, left_key) < (right.type, right_key)
+end
+
+function Base.show(io::IO, cache_key::CacheKey)::Nothing
+    if cache_key.type == CachedAxis
+        @assert cache_key.key isa AxisCacheKey
+        if cache_key.key[2]
+            print(io, "axis_dict[axis: $(cache_key.key[1])]")
+        else
+            print(io, "axis_array[axis: $(cache_key.key[1])]")  # untested
+        end
+    elseif cache_key.type == CachedQuery
+        @assert cache_key.key isa AbstractString
+        print(io, "query[$(cache_key.key)]")
+    elseif cache_key.type == CachedData
+        if cache_key.key isa AbstractString  # untested
+            print(io, "scalar[$(cache_key.key)]")  # untested
+        elseif cache_key.key isa Tuple{AbstractString, AbstractString}  # untested
+            print(io, "vector[axis: $(cache_key.key[1]) name: $(cache_key.key[2])]")  # untested
+        elseif cache_key.key isa Tuple{AbstractString, AbstractString, AbstractString}  # untested
+            print(  # untested
+                io,
+                "matrix[rows_axis: $(cache_key.key[1]) columns_axis: $(cache_key.key[2]) name: $(cache_key.key[3])]",
+            )
+        else
+            @assert false
+        end
+    elseif cache_key.type == CachedNames
+        if cache_key.key isa AbstractString
+            print(io, "names[$(cache_key.key)]")
+        elseif cache_key.key isa Tuple{AbstractString}
+            print(io, "vectors[axis: $(cache_key.key[1])]")
+        elseif cache_key.key isa Tuple{AbstractString, AbstractString, Bool}  # untested
+            if cache_key.key[3]  # untested
+                print(io, "matrices[relayout rows_axis: $(cache_key.key[1]) columns_axis: $(cache_key.key[2])]")  # untested
+            else
+                print(io, "matrices[rows_axis: $(cache_key.key[1]) columns_axis: $(cache_key.key[2])]")  # untested
+            end
+        end
+    else
+        @assert false
+    end
+
+    return nothing
+end
+
+function scalars_set_cache_key()::CacheKey
+    return CacheKey(CachedNames, "scalars")
+end
+
+function axes_set_cache_key()::CacheKey
+    return CacheKey(CachedNames, "axes")
+end
+
+function vectors_set_cache_key(axis::AbstractString)::CacheKey
+    return CacheKey(CachedNames, (axis,))
+end
+
+function matrices_set_cache_key(rows_axis::AbstractString, columns_axis::AbstractString; relayout::Bool)::CacheKey
+    if relayout && columns_axis < rows_axis
+        rows_axis, columns_axis = columns_axis, rows_axis
+    end
+    return CacheKey(CachedNames, (rows_axis, columns_axis, relayout))
+end
+
+function scalar_cache_key(name::AbstractString)::CacheKey
+    return CacheKey(CachedData, name)
+end
+
+function axis_array_cache_key(axis::AxisKey)::CacheKey
+    return CacheKey(CachedAxis, (axis, false))
+end
+
+function axis_dict_cache_key(axis::AbstractString)::CacheKey
+    return CacheKey(CachedAxis, (axis, true))
+end
+
+function vector_cache_key(axis::AbstractString, name::AbstractString)::CacheKey
+    return CacheKey(CachedData, (axis, name))
+end
+
+function matrix_cache_key(rows_axis::AbstractString, columns_axis::AbstractString, name::AbstractString)::CacheKey
+    return CacheKey(CachedData, (rows_axis, columns_axis, name))
 end
 
 mutable struct WriterThread
@@ -107,9 +212,9 @@ The constructor will automatically call [`unique_name`](@ref) to try and make th
 messages.
 """
 struct Internal
-    cache::Dict{AbstractString, CacheEntry}
-    cache_type::Maybe{CacheType}
-    dependency_cache_keys::Dict{AbstractString, Set{AbstractString}}
+    cache::Dict{CacheKey, CacheEntry}
+    cache_group::Maybe{CacheGroup}
+    dependency_cache_keys::Dict{CacheKey, Set{CacheKey}}
     version_counters::Dict{DataKey, UInt32}
     cache_lock::QueryReadWriteLock
     data_lock::QueryReadWriteLock
@@ -118,11 +223,11 @@ struct Internal
     pending_count::Vector{UInt32}
 end
 
-function Internal(; cache_type::Maybe{CacheType}, is_frozen::Bool)::Internal
+function Internal(; cache_group::Maybe{CacheGroup}, is_frozen::Bool)::Internal
     return Internal(
-        Dict{AbstractString, CacheEntry}(),
-        cache_type,
-        Dict{AbstractString, Set{AbstractString}}(),
+        Dict{CacheKey, CacheEntry}(),
+        cache_group,
+        Dict{CacheKey, Set{CacheKey}}(),
         Dict{DataKey, UInt32}(),
         QueryReadWriteLock(),
         QueryReadWriteLock(),
@@ -509,7 +614,7 @@ end
         rows_axis::AbstractString,
         columns_axis::AbstractString,
         name::AbstractString
-    )::StorageMatrix
+    )::Nothing
 
 [`relayout!`](@ref) the existing `name` column-major matrix property for the `rows_axis` and the `columns_axis` and
 store the results as a row-major matrix property (that is, with flipped axes).
@@ -588,22 +693,18 @@ function format_description_footer(::FormatReader, ::AbstractString, ::Vector{St
     return nothing
 end
 
-function put_in_cache!(format::FormatReader, cache_key::AbstractString, data::CacheData, cache_type::CacheType)::Nothing
+function put_in_cache!(format::FormatReader, cache_key::CacheKey, data::CacheData, cache_group::CacheGroup)::Nothing
     @assert has_data_read_lock(format)
     @assert has_write_lock(format.internal.cache_lock)
     if data isa AbstractArray
         data = read_only_array(data)
     end
-    @debug "put_in_cache! daf: $(depict(format)) cache_key: $(cache_key) data: $(depict(data)) cache_type: $(cache_type)"
-    format.internal.cache[cache_key] = CacheEntry(cache_type, data)
+    @debug "put_in_cache! daf: $(depict(format)) cache_key: $(cache_key) data: $(depict(data)) cache_group: $(cache_group)"
+    format.internal.cache[cache_key] = CacheEntry(cache_group, data)
     return nothing
 end
 
-function get_from_cache(
-    format::FormatReader,
-    cache_key::AbstractString,
-    ::Type{T},
-)::Union{Maybe{T}, ReentrantLock} where {T}
+function get_from_cache(format::FormatReader, cache_key::CacheKey, ::Type{T})::Maybe{T} where {T}
     @assert has_data_read_lock(format)
     @assert has_read_lock(format.internal.cache_lock)
     result = get(format.internal.cache, cache_key, nothing)
@@ -611,11 +712,11 @@ function get_from_cache(
         return nothing
     else
         if result.data isa ReentrantLock
-            result = lock(result.data) do
+            result = lock(result.data) do  # untested
                 return result
             end
         end
-        @debug "get_from_cache! daf: $(depict(format)) cache_key: $(cache_key) data: $(depict(result.data)) cache_type: $(result.cache_type)"
+        @debug "get_from_cache! daf: $(depict(format)) cache_key: $(cache_key) data: $(depict(result.data)) cache_group: $(result.cache_group)"
         return result.data
     end
 end
@@ -623,57 +724,57 @@ end
 function set_in_cache!(
     action::Function,
     format::FormatReader,
-    cache_key::AbstractString,
+    cache_key::CacheKey,
     data::CacheData,
-    cache_type::CacheType,
+    cache_group::CacheGroup,
 )::Nothing
-    return with_write_lock(format.internal.cache_lock, format.name, "cache for:", cache_key) do  # NOJET
+    return with_cache_write_lock(format, "cache for:", cache_key) do  # NOJET
         action(cache_key)
-        return put_in_cache!(format, cache_key, data, cache_type)
+        return put_in_cache!(format, cache_key, data, cache_group)
     end
 end
 
-function set_in_cache!(::Function, ::FormatReader, ::AbstractString, ::CacheData, ::Nothing)::Nothing
+function set_in_cache!(::Function, ::FormatReader, ::CacheKey, ::CacheData, ::Nothing)::Nothing
     return nothing
 end
 
 function get_through_cache(
     getter::Function,
     format::FormatReader,
-    cache_key::AbstractString,
+    cache_key::CacheKey,
     ::Type{T},
-    cache_type::Maybe{CacheType};
+    cache_group::Maybe{CacheGroup};
     is_slow::Bool = false,
 )::T where {T}
-    if cache_type === nothing
+    if cache_group === nothing
         cached, _ = getter()
         return cached
     end
-    cached = with_read_lock(format.internal.cache_lock, format.name, "cache for:", cache_key) do  # NOJET
+    cached = with_cache_read_lock(format, "cache for:", cache_key) do  # NOJET
         return get_from_cache(format, cache_key, T)
     end
-    if cached === nothing || (!is_slow && cached isa ReentrantLock)
-        cached = with_write_lock(format.internal.cache_lock, format.name, "cache for:", cache_key) do  # NOJET
+    if cached === nothing
+        cached = with_cache_write_lock(format, "cache for:", cache_key) do  # NOJET
             cached = get_from_cache(format, cache_key, T)
-            if cached === nothing || (!is_slow && cached isa ReentrantLock)
+            if cached === nothing
                 if is_slow
                     entry_lock = ReentrantLock()
                     lock(entry_lock)
-                    cached = CacheEntry(cache_type, entry_lock)
+                    cached = CacheEntry(cache_group, entry_lock)
                     format.internal.cache[cache_key] = cached
                     lock(format.internal.pending_condition) do
                         return format.internal.pending_count[1] += 1
                     end
                 else
                     cached, dependency_keys = getter()
-                    if dependency_keys isa AbstractString
+                    if dependency_keys isa CacheKey
                         put_cached_dependency_key!(format, cache_key, dependency_keys)
                     elseif dependency_keys !== nothing
                         for dependency_key in dependency_keys
                             put_cached_dependency_key!(format, cache_key, dependency_key)
                         end
                     end
-                    put_in_cache!(format, cache_key, cached, cache_type)
+                    put_in_cache!(format, cache_key, cached, cache_group)
                 end
             end
             return cached
@@ -684,8 +785,8 @@ function get_through_cache(
             if entry_lock isa ReentrantLock
                 try
                     cached, dependency_keys = getter()
-                    with_write_lock(format.internal.cache_lock, format.name, "cache for:", cache_key) do  # NOJET
-                        if dependency_keys isa AbstractString
+                    with_cache_write_lock(format, "cache for:", cache_key) do  # NOJET
+                        if dependency_keys isa CacheKey
                             put_cached_dependency_key!(format, cache_key, dependency_keys)  # untested
                         elseif dependency_keys !== nothing
                             for dependency_key in dependency_keys
@@ -735,9 +836,9 @@ function get_matrices_set_through_cache(
 )::AbstractSet{<:AbstractString}
     return get_through_cache(
         format,
-        matrices_set_cache_key(rows_axis, columns_axis),
+        matrices_set_cache_key(rows_axis, columns_axis; relayout = false),
         AbstractSet{<:AbstractString},
-        format.internal.cache_type,
+        format.internal.cache_group,
     ) do
         return (
             format_matrices_set(format, rows_axis, columns_axis),
@@ -747,7 +848,7 @@ function get_matrices_set_through_cache(
 end
 
 function get_scalar_through_cache(format::FormatReader, name::AbstractString)::StorageScalar
-    return get_through_cache(format, scalar_cache_key(name), StorageScalar, format.internal.cache_type) do
+    return get_through_cache(format, scalar_cache_key(name), StorageScalar, format.internal.cache_group) do
         return format_get_scalar(format, name), nothing
     end
 end
@@ -757,7 +858,7 @@ function get_axis_array_through_cache(format::FormatReader, axis::AbstractString
         format,
         axis_array_cache_key(axis),
         AbstractVector{<:AbstractString},
-        format.internal.cache_type,
+        format.internal.cache_group,
     ) do
         return (read_only_array(format_axis_array(format, axis)), nothing)
     end
@@ -784,7 +885,7 @@ function get_axis_dict_through_cache(
 end
 
 function get_vector_through_cache(format::FormatReader, axis::AbstractString, name::AbstractString)::NamedArray
-    return get_through_cache(format, vector_cache_key(axis, name), StorageVector, format.internal.cache_type) do
+    return get_through_cache(format, vector_cache_key(axis, name), StorageVector, format.internal.cache_group) do
         vector = format_get_vector(format, axis, name)
         return (as_named_vector(format, axis, vector), axis_array_cache_key(axis))
     end
@@ -800,7 +901,7 @@ function get_matrix_through_cache(
         format,
         matrix_cache_key(rows_axis, columns_axis, name),
         StorageMatrix,
-        format.internal.cache_type,
+        format.internal.cache_group,
     ) do
         matrix = format_get_matrix(format, rows_axis, columns_axis, name)
         return (
@@ -810,8 +911,15 @@ function get_matrix_through_cache(
     end
 end
 
+function cache_scalar!(format::FormatReader, name::AbstractString, value::StorageScalar)::Nothing
+    set_in_cache!(format, scalar_cache_key(name), value, format.internal.cache_group) do _
+        return nothing
+    end
+    return nothing
+end
+
 function cache_vector!(format::FormatReader, axis::AbstractString, name::AbstractString, vector::NamedVector)::Nothing
-    set_in_cache!(format, vector_cache_key(axis, name), vector, format.internal.cache_type) do cache_key
+    set_in_cache!(format, vector_cache_key(axis, name), vector, format.internal.cache_group) do cache_key
         put_cached_dependency_key!(format, cache_key, axis_array_cache_key(axis))
         return nothing
     end
@@ -829,7 +937,7 @@ function cache_matrix!(
         format,
         matrix_cache_key(rows_axis, columns_axis, name),
         matrix,
-        format.internal.cache_type,
+        format.internal.cache_group,
     ) do cache_key
         put_cached_dependency_key!(format, cache_key, axis_array_cache_key(rows_axis))
         put_cached_dependency_key!(format, cache_key, axis_array_cache_key(columns_axis))
@@ -900,51 +1008,7 @@ function read_only_array(array::NamedArray)::NamedArray
     end
 end
 
-function scalars_set_cache_key()::String
-    return "? scalars"
-end
-
-function axes_set_cache_key()::String
-    return "? axes"
-end
-
-function vectors_set_cache_key(axis::AbstractString)::String
-    return "/ $(axis) ?"
-end
-
-function matrices_set_cache_key(rows_axis::AbstractString, columns_axis::AbstractString)::String
-    return "? / $(rows_axis) / $(columns_axis)" # TRICKY: NOT the query key, which returns the union.
-end
-
-function matrix_relayout_names_cache_key(rows_axis::AbstractString, columns_axis::AbstractString)::String
-    return "/ $(rows_axis) / $(columns_axis) ?"  # TRICKY: The query key, which returns the union.
-end
-
-function scalar_cache_key(name::AbstractString)::String
-    return ": $(escape_value(name))"
-end
-
-function axis_array_cache_key(axis::AbstractString)::String
-    return "/ $(escape_value(axis))"
-end
-
-function axis_dict_cache_key(axis::AbstractString)::String
-    return "# $(escape_value(axis))"
-end
-
-function vector_cache_key(axis::AbstractString, name::AbstractString)::String
-    return "/ $(escape_value(axis)) : $(escape_value(name))"
-end
-
-function matrix_cache_key(rows_axis::AbstractString, columns_axis::AbstractString, name::AbstractString)::String
-    return "/ $(escape_value(rows_axis)) / $(escape_value(columns_axis)) : $(escape_value(name))"
-end
-
-function put_cached_dependency_key!(
-    format::FormatReader,
-    cache_key::AbstractString,
-    dependency_key::AbstractString,
-)::Nothing
+function put_cached_dependency_key!(format::FormatReader, cache_key::CacheKey, dependency_key::CacheKey)::Nothing
     @assert has_data_read_lock(format)
     @assert has_write_lock(format.internal.cache_lock)
     if dependency_key == cache_key
@@ -962,30 +1026,15 @@ function put_cached_dependency_key!(
     return nothing
 end
 
-function set_cached_dependency_key!(
-    format::FormatReader,
-    cache_key::AbstractString,
-    dependency_key::AbstractString,
-)::Nothing
-    with_write_lock(
-        format.internal.cache_lock,
-        format.name,
-        "cache for dependency key:",
-        dependency_key,
-        "of:",
-        cache_key,
-    ) do
+function set_cached_dependency_key!(format::FormatReader, cache_key::CacheKey, dependency_key::CacheKey)::Nothing
+    with_cache_write_lock(format, "cache for dependency key:", dependency_key, "of:", cache_key) do
         return put_cached_dependency_key!(format, cache_key, dependency_key)
     end
     return nothing
 end
 
-function set_cached_dependency_keys!(
-    format::FormatReader,
-    cache_key::AbstractString,
-    dependency_keys::Set{AbstractString},
-)::Nothing
-    with_write_lock(format.internal.cache_lock, format.name, "cache for dependency keys of:", cache_key) do
+function set_cached_dependency_keys!(format::FormatReader, cache_key::CacheKey, dependency_keys::Set{CacheKey})::Nothing
+    with_cache_write_lock(format, "cache for dependency keys of:", cache_key) do
         for dependency_key in dependency_keys
             put_cached_dependency_key!(format, cache_key, dependency_key)
         end
@@ -993,10 +1042,10 @@ function set_cached_dependency_keys!(
     return nothing
 end
 
-function invalidate_cached!(format::FormatReader, cache_key::AbstractString)::Nothing
+function invalidate_cached!(format::FormatReader, cache_key::CacheKey)::Nothing
     @debug "invalidate_cached! daf: $(depict(format)) cache_key: $(cache_key)"
     @debug "- delete cache_key: $(cache_key)"
-    with_write_lock(format.internal.cache_lock, format.name, "cache for invalidate key:", cache_key) do
+    with_cache_write_lock(format, "cache for invalidate key:", cache_key) do
         delete!(format.internal.cache, cache_key)
 
         dependent_keys = pop!(format.internal.dependency_cache_keys, cache_key, nothing)
@@ -1025,18 +1074,26 @@ function parse_mode(mode::AbstractString)::Tuple{Bool, Bool, Bool}
     end
 end
 
-function begin_data_read_lock(format::FormatReader, what::AbstractString...)::Bool
+function begin_data_read_lock(format::FormatReader, what::Any...)::Bool
     return read_lock(format.internal.data_lock, format.name, "data for", what...)  # NOJET
 end
 
-function end_data_read_lock(format::FormatReader, what::AbstractString...)::Nothing
+function end_data_read_lock(format::FormatReader, what::Any...)::Nothing
     read_unlock(format.internal.data_lock, format.name, "data for", what...)  # NOJET
     return nothing
 end
 
 struct UpgradeToWriteLockException <: Exception end
 
-function with_data_read_lock(action::Function, format::FormatReader, what::AbstractString...)::Any
+function with_cache_read_lock(action::Function, format::FormatReader, what::Any...)::Any
+    return with_read_lock(action, format.internal.cache_lock, format.name, what...)
+end
+
+function with_cache_write_lock(action::Function, format::FormatReader, what::Any...)::Any
+    return with_write_lock(action, format.internal.cache_lock, format.name, what...)
+end
+
+function with_data_read_lock(action::Function, format::FormatReader, what::Any...)::Any
     is_top_level = begin_data_read_lock(format, what...)
     try
         return action()
@@ -1054,17 +1111,17 @@ function has_data_read_lock(format::FormatReader; read_only::Bool = false)::Bool
     return has_read_lock(format.internal.data_lock; read_only = read_only)
 end
 
-function begin_data_write_lock(format::FormatReader, what::AbstractString...)::Nothing
+function begin_data_write_lock(format::FormatReader, what::Any...)::Nothing
     write_lock(format.internal.data_lock, format.name, "data for", what...)  # NOJET
     return nothing
 end
 
-function end_data_write_lock(format::FormatReader, what::AbstractString...)::Nothing
+function end_data_write_lock(format::FormatReader, what::Any...)::Nothing
     write_unlock(format.internal.data_lock, format.name, "data for", what...)  # NOJET
     return nothing
 end
 
-function with_data_write_lock(action::Function, format::FormatReader, what::AbstractString...)::Any
+function with_data_write_lock(action::Function, format::FormatReader, what::Any...)::Any
     begin_data_write_lock(format, what...)
     try
         return action()
@@ -1085,18 +1142,13 @@ function upgrade_to_data_write_lock(format::FormatReader)::Nothing
 end
 
 function format_get_version_counter(format::FormatReader, version_key::DataKey)::UInt32
-    return with_read_lock(
-        format.internal.cache_lock,
-        format.name,
-        "cache for version counter of:",
-        string(version_key),
-    ) do
+    return with_cache_read_lock(format, "cache for version counter of:", string(version_key)) do
         return get(format.internal.version_counters, version_key, UInt32(0))
     end
 end
 
 function format_increment_version_counter(format::FormatWriter, version_key::DataKey)::Nothing
-    with_write_lock(format.internal.cache_lock, format.name, "cache for version counter of:", string(version_key)) do
+    with_cache_write_lock(format, "cache for version counter of:", string(version_key)) do
         previous_version_counter = format_get_version_counter(format, version_key)
         return format.internal.version_counters[version_key] = previous_version_counter + 1
     end
@@ -1106,33 +1158,33 @@ end
 """
     empty_cache!(
         daf::DafReader;
-        [clear::Maybe{CacheType} = nothing,
-        keep::Maybe{CacheType} = nothing]
+        [clear::Maybe{CacheGroup} = nothing,
+        keep::Maybe{CacheGroup} = nothing]
     )::Nothing
 
 Clear some cached data. By default, completely empties the caches. You can specify either `clear`, to only forget a
-specific [`CacheType`](@ref) (e.g., for clearing only `QueryData`), or `keep`, to forget everything except a specific
-[`CacheType`](@ref) (e.g., for keeping only `MappedData`). You can't specify both `clear` and `keep`.
+specific [`CacheGroup`](@ref) (e.g., for clearing only `QueryData`), or `keep`, to forget everything except a specific
+[`CacheGroup`](@ref) (e.g., for keeping only `MappedData`). You can't specify both `clear` and `keep`.
 
 !!! note
 
     If there are any slow cache update operations in flight (matrix relayout, queries) then this will wait until they
     are done to ensure that the cache is in a consistent state.
 """
-function empty_cache!(daf::DafReader; clear::Maybe{CacheType} = nothing, keep::Maybe{CacheType} = nothing)::Nothing
+function empty_cache!(daf::DafReader; clear::Maybe{CacheGroup} = nothing, keep::Maybe{CacheGroup} = nothing)::Nothing
     @assert clear === nothing || keep === nothing
     lock(daf.internal.pending_condition) do
         while daf.internal.pending_count[1] > 0
             wait(daf.internal.pending_condition)  # untested
         end
-        with_write_lock(daf.internal.cache_lock, daf.name, "empty_cache!") do
+        with_cache_write_lock(daf, "empty_cache!") do
             @debug "empty_cache! daf: $(depict(daf)) clear: $(clear) keep: $(keep)"
             if clear === nothing && keep === nothing
                 empty!(daf.internal.cache)
             else
                 filter!(daf.internal.cache) do key_value
-                    cache_type = key_value[2].cache_type
-                    return cache_type == keep || (cache_type != clear && clear !== nothing)
+                    cache_group = key_value[2].cache_group
+                    return cache_group == keep || (cache_group != clear && clear !== nothing)
                 end
             end
 
