@@ -21,10 +21,10 @@ The key features of `Daf` are:
   - There is explicit control over 2D data layout (row or column major), and support for both dense and sparse matrices,
     both of which are crucial for performance.
   - This is implemented in Julia, as a seed for efficient computation pipelines (which are hard to implement in Python
-    without resorting to using C/C++ code). TODO: provide a `daf <https://pypi.org/project/daf/>`_ Python package, which
+    without resorting to using C/C++ code). TODO: provide a [Daf.py](https://pypi.org/project/daf/) Python package, which
     is a thin wrapper around `Daf.jl` allowing efficient (zero-copy) access to the data using `numpy`, `scipy` and
     `pandas` vector and matrix types. TODO: Implement a similar R package using
-    [https://libraries.io/cran/JuliaCall](https://libraries.io/cran/JuliaCall) to allow direct access to `Daf.jl` from R
+    [JuliaCall](https://libraries.io/cran/JuliaCall) to allow direct access to `Daf.jl` from R
     code.
 
 See the [v0.1.0 documentation](https://tanaylab.github.io/Daf.jl/v0.1.0) for details.
