@@ -373,6 +373,64 @@ end
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
+<a class="docstring-binding" id="Daf.Computations.function_contract" href="#Daf.Computations.function_contract">
+<code>Daf.Computations.function_contract
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">function function_contract(func::Function[, index::Integer = 1])::Contract
+</code>
+</pre>
+<p>Access the contract of a function annotated by 
+<a href="computations.html#Daf.Computations.@computation">
+<code>@computation
+</code>
+</a>. By default the first contract is returned. If the 
+<a href="computations.html#Daf.Computations.@computation">
+<code>@computation
+</code>
+</a> has two contracts, you can specify the 
+<code>index
+</code> of the contract to return.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Computations.function_default" href="#Daf.Computations.function_default">
+<code>Daf.Computations.function_default
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">function function_default(func::Function, parameter::Symbol)::Contract
+</code>
+</pre>
+<p>Access the default of a parameter of a function annotated by 
+<a href="computations.html#Daf.Computations.@computation">
+<code>@computation
+</code>
+</a>.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
 <a class="docstring-binding" id="Daf.Computations.DEFAULT" href="#Daf.Computations.DEFAULT">
 <code>Daf.Computations.DEFAULT
 </code>
@@ -565,6 +623,18 @@ end
 <li>
 <a href="computations.html#Daf.Computations.DEFAULT">
 <code>Daf.Computations.DEFAULT
+</code>
+</a>
+</li>
+<li>
+<a href="computations.html#Daf.Computations.function_contract">
+<code>Daf.Computations.function_contract
+</code>
+</a>
+</li>
+<li>
+<a href="computations.html#Daf.Computations.function_default">
+<code>Daf.Computations.function_default
 </code>
 </a>
 </li>

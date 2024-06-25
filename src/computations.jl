@@ -11,6 +11,8 @@ export CONTRACT
 export CONTRACT1
 export CONTRACT2
 export DEFAULT
+export function_contract
+export function_default
 
 using ..Contracts
 using ..Formats
@@ -66,7 +68,7 @@ end
 
 struct FunctionMetadata
     contracts::Vector{Contract}
-    defaults::Dict{AbstractString, Any}
+    defaults::Dict{Symbol, Any}
 end
 
 function set_metadata_of_function(
@@ -226,8 +228,8 @@ macro computation(first_contract, second_contract, definition)
     return esc(ExprTools.combinedef(outer_definition))
 end
 
-function collect_defaults(function_module::Module, inner_definition)::Dict{AbstractString, Any}
-    defaults = Dict{AbstractString, Any}()
+function collect_defaults(function_module::Module, inner_definition)::Dict{Symbol, Any}
+    defaults = Dict{Symbol, Any}()
     for arg in get(inner_definition, :args, [])
         collect_arg_default(function_module, defaults, arg)
     end
@@ -237,11 +239,11 @@ function collect_defaults(function_module::Module, inner_definition)::Dict{Abstr
     return defaults
 end
 
-function collect_arg_default(::Module, ::Dict{AbstractString, Any}, ::Symbol)::Nothing  # untested
+function collect_arg_default(::Module, ::Dict{Symbol, Any}, ::Symbol)::Nothing  # untested
     return nothing
 end
 
-function collect_arg_default(function_module::Module, defaults::Dict{AbstractString, Any}, arg::Expr)::Nothing
+function collect_arg_default(function_module::Module, defaults::Dict{Symbol, Any}, arg::Expr)::Nothing
     if arg.head == :kw
         @assert length(arg.args) == 2
         name = arg.args[1]
@@ -251,7 +253,7 @@ function collect_arg_default(function_module::Module, defaults::Dict{AbstractStr
             @assert length(name.args) == 2
             name = name.args[1]
         end
-        defaults[string(name)] = function_module.eval(value)
+        defaults[name] = function_module.eval(value)
     end
     return nothing
 end
@@ -310,7 +312,7 @@ such arguments.
 const CONTRACT2 = ContractDocumentation(2)
 
 struct DefaultValue <: DocStringExtensions.Abbreviation
-    name::AbstractString
+    name::Symbol
 end
 
 function DocStringExtensions.format(what::DefaultValue, buffer::IOBuffer, doc_str::Base.Docs.DocStr)::Nothing
@@ -332,7 +334,7 @@ end
 struct DefaultContainer end
 
 function Base.getproperty(::DefaultContainer, parameter::Symbol)::DefaultValue
-    return DefaultValue(string(parameter))
+    return DefaultValue(parameter)
 end
 
 """
@@ -384,6 +386,43 @@ function get_metadata(doc_str::Base.Docs.DocStr)::Tuple{AbstractString, Function
         """))
     end
     return "$(object_module).$(object)", metadata
+end
+
+"""
+    function function_contract(func::Function[, index::Integer = 1])::Contract
+
+Access the contract of a function annotated by [`@computation`](@ref). By default the first contract is returned. If the
+[`@computation`](@ref) has two contracts, you can specify the `index` of the contract to return.
+"""
+function function_contract(func::Function, index::Integer = 1)::Contract
+    _, _, metadata = function_metadata(func)
+    return metadata.contracts[index]
+end
+
+"""
+    function function_default(func::Function, parameter::Symbol)::Contract
+
+Access the default of a parameter of a function annotated by [`@computation`](@ref).
+"""
+function function_default(func::Function, parameter::Symbol)::Any
+    function_module, function_name, metadata = function_metadata(func)
+    default = get(metadata.defaults, parameter, missing)
+    if default === missing
+        error(dedent("""
+            no parameter with default: $(parameter)
+            for the function: $(function_module).$(function_name)
+        """))
+    end
+    return default
+end
+
+function function_metadata(func::Function)::Tuple{Module, Symbol, FunctionMetadata}
+    method = methods(func)[1]
+    try
+        return method.module, method.name, method.module.__DAF_FUNCTION_METADATA__[method.name]
+    catch
+        error("not a @computation function: $(method.module).$(method.name)")
+    end
 end
 
 end # module

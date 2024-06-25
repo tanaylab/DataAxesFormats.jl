@@ -286,6 +286,18 @@ end
 <code>is_relaxed
 </code>, this allows for additional unlisted inputs; this is typically used when the computation has query parameters, which may need to access such additional data.
 </p>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>When a function calls several functions in a row, you can compute its contract by using 
+<code>function_contract
+</code> on them and then adding the results in their invocation order using 
+<code>+
+</code>.
+</p>
+</div>
+</div>
 </div>
 </section>
 </article>

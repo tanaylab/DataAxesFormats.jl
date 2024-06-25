@@ -5,6 +5,102 @@ end
 nested_test("contracts") do
     daf = MemoryDaf(; name = "memory!")
 
+    nested_test("add") do
+        nested_test("axes") do
+            nested_test("left") do
+                left = Contract(; axes = ["cell" => (RequiredInput, "description")])
+                right = Contract()
+                @test (left + right).axes == ["cell" => (RequiredInput, "description")]
+                right = Contract(; axes = Pair{AxisKey, AxisSpecification}[])
+                @test (left + right).axes == ["cell" => (RequiredInput, "description")]
+            end
+
+            nested_test("right") do
+                left = Contract()
+                right = Contract(; axes = ["cell" => (RequiredInput, "description")])
+                @test (left + right).axes == ["cell" => (RequiredInput, "description")]
+                left = Contract(; axes = Pair{AxisKey, AxisSpecification}[])
+                @test (left + right).axes == ["cell" => (RequiredInput, "description")]
+            end
+
+            nested_test("required-required") do
+                left = Contract(; axes = ["cell" => (RequiredInput, "description")])
+                right = Contract(; axes = ["cell" => (RequiredInput, "description")])
+                @test (left + right).axes == ["cell" => (RequiredInput, "description")]
+            end
+
+            nested_test("required-optional") do
+                left = Contract(; axes = ["cell" => (RequiredInput, "description")])
+                right = Contract(; axes = ["cell" => (OptionalInput, "description")])
+                @test (left + right).axes == ["cell" => (RequiredInput, "description")]
+            end
+
+            nested_test("optional-required") do
+                left = Contract(; axes = ["cell" => (OptionalInput, "description")])
+                right = Contract(; axes = ["cell" => (RequiredInput, "description")])
+                @test (left + right).axes == ["cell" => (RequiredInput, "description")]
+            end
+
+            nested_test("guaranteed-required") do
+                left = Contract(; axes = ["cell" => (GuaranteedOutput, "description")])
+                right = Contract(; axes = ["cell" => (RequiredInput, "description")])
+                @test (left + right).axes == ["cell" => (GuaranteedOutput, "description")]
+            end
+
+            nested_test("guaranteed-optional") do
+                left = Contract(; axes = ["cell" => (GuaranteedOutput, "description")])
+                right = Contract(; axes = ["cell" => (OptionalInput, "description")])
+                @test (left + right).axes == ["cell" => (GuaranteedOutput, "description")]
+            end
+
+            nested_test("contingent-optional") do
+                left = Contract(; axes = ["cell" => (OptionalOutput, "description")])
+                right = Contract(; axes = ["cell" => (OptionalInput, "description")])
+                @test (left + right).axes == ["cell" => (OptionalOutput, "description")]
+            end
+
+            nested_test("incompatible") do
+                left = Contract(; axes = ["cell" => (OptionalOutput, "description")])
+                right = Contract(; axes = ["cell" => (OptionalOutput, "description")])
+                @test_throws dedent("""
+                    incompatible expectation: OptionalOutput
+                    and expectation: OptionalOutput
+                    for the contracts axis: cell
+                """) left + right
+            end
+        end
+
+        nested_test("data") do
+            nested_test("int32-int32") do
+                left = Contract(; axes = [("cell", "age") => (RequiredInput, Int32, "description")])
+                right = Contract(; axes = [("cell", "age") => (RequiredInput, Int32, "description")])
+                @test (left + right).axes == [("cell", "age") => (RequiredInput, Int32, "description")]
+            end
+
+            nested_test("int32-integer") do
+                left = Contract(; axes = [("cell", "age") => (RequiredInput, Int32, "description")])
+                right = Contract(; axes = [("cell", "age") => (RequiredInput, Integer, "description")])
+                @test (left + right).axes == [("cell", "age") => (RequiredInput, Int32, "description")]
+            end
+
+            nested_test("integer-int32") do
+                left = Contract(; axes = [("cell", "age") => (RequiredInput, Integer, "description")])
+                right = Contract(; axes = [("cell", "age") => (RequiredInput, Int32, "description")])
+                @test (left + right).axes == [("cell", "age") => (RequiredInput, Int32, "description")]
+            end
+
+            nested_test("incompatible") do
+                left = Contract(; axes = [("cell", "age") => (RequiredInput, Int64, "description")])
+                right = Contract(; axes = [("cell", "age") => (RequiredInput, Int32, "description")])
+                @test_throws dedent("""
+                    incompatible type: Int64
+                    and type: Int32
+                    for the contracts data: ("cell", "age")
+                """) left + right
+            end
+        end
+    end
+
     nested_test("scalar") do
         nested_test("()") do
             @test set_scalar!(daf, "version", 1) === nothing

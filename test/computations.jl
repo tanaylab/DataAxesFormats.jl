@@ -7,14 +7,7 @@ Just a function with a default x of `$(DEFAULT.x)`.
     return x
 end
 
-"""
-Single
-
-The `quality` is mandatory. The default `optional` is `$(DEFAULT.optional)`. The default `named` is `$(DEFAULT.named)`.
-
-$(CONTRACT)
-"""
-@computation Contract(
+SINGLE_CONTRACT = Contract(;
     axes = ["cell" => (RequiredInput, "The sampled single cells."), "gene" => (OptionalInput, "The sampled genes.")],
     data = [
         "version" => (OptionalInput, String, "In major.minor.patch format."),
@@ -24,7 +17,21 @@ $(CONTRACT)
         ("cell", "gene", "UMIs") =>
             (RequiredInput, Union{UInt8, UInt16, UInt32, UInt64}, "The number of sampled scRNA molecules."),
     ],
-) @logged function single(daf::DafWriter, quality::Float64, optional::Int = 1; named::AbstractString = "Foo")::Nothing
+)
+
+"""
+Single
+
+The `quality` is mandatory. The default `optional` is `$(DEFAULT.optional)`. The default `named` is `$(DEFAULT.named)`.
+
+$(CONTRACT)
+"""
+@computation SINGLE_CONTRACT @logged function single(
+    daf::DafWriter,
+    quality::Float64,
+    optional::Int = 1;
+    named::AbstractString = "Foo",
+)::Nothing
     get_matrix(daf, "cell", "gene", "UMIs")
     set_scalar!(daf, "quality", quality)
     return nothing
@@ -107,6 +114,27 @@ $(CONTRACT2)
 end
 
 nested_test("computations") do
+    nested_test("access") do
+        nested_test("!contract") do
+            @test_throws "not a @computation function: Base.isless" function_contract(isless)
+        end
+
+        nested_test("contract") do
+            @test function_contract(single) === SINGLE_CONTRACT
+        end
+
+        nested_test("default") do
+            @test function_default(single, :optional) == 1
+        end
+
+        nested_test("!default") do
+            @test_throws dedent("""
+                no parameter with default: quality
+                for the function: Main.single
+                """) function_default(single, :quality)
+        end
+    end
+
     nested_test("none") do
         nested_test("default") do
             @test none() == 1

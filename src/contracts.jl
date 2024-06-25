@@ -119,6 +119,11 @@ ContractData = AbstractVector{<:Pair}
 The contract of a computational tool, specifing the `axes` and and `data`. If `is_relaxed`, this allows for additional
 unlisted inputs; this is typically used when the computation has query parameters, which may need to access such
 additional data.
+
+!!! note
+
+    When a function calls several functions in a row, you can compute its contract by using `function_contract` on them
+    and then adding the results in their invocation order using `+`.
 """
 @kwdef struct Contract
     is_relaxed::Bool = false
@@ -1246,6 +1251,109 @@ function Queries.verify_contract_query(contract_daf::ContractDaf, cache_key::Cac
         end
     end
     return nothing
+end
+
+function Base.:+(left::Contract, right::Contract)::Contract
+    return Contract(
+        left.is_relaxed || right.is_relaxed,
+        add_pairs(left.axes, right.axes),
+        add_pairs(left.data, right.data),
+    )
+end
+
+function add_pairs(::Nothing, ::Nothing)::Nothing
+    return nothing
+end
+
+function add_pairs(::Nothing, right::T)::T where {T <: AbstractVector{<:Pair}}
+    return right
+end
+
+function add_pairs(left::T, ::Nothing)::T where {T <: AbstractVector{<:Pair}}
+    return left
+end
+
+function add_pairs(
+    left::L,
+    right::R,
+)::AbstractVector{<:Pair} where {L <: AbstractVector{<:Pair}, R <: AbstractVector{<:Pair}}
+    merged = Dict(left)
+    for (right_key, right_specification) in right
+        left_specification = get(merged, right_key, nothing)
+        merged[right_key] = merge_specifications(right_key, left_specification, right_specification)
+    end
+    return collect(merged)
+end
+
+function merge_specifications(
+    ::Any,
+    ::Nothing,
+    right_specification::T,
+)::T where {T <: Union{AxisSpecification, DataSpecification}}
+    return right_specification
+end
+
+function merge_specifications(
+    axis_key::AxisKey,
+    left_specification::AxisSpecification,
+    right_specification::AxisSpecification,
+)::AxisSpecification
+    left_expectation, left_description = left_specification
+    right_expectation, right_description = right_specification
+    @assert left_description == right_description "different description for the axis: $(axis_key)"
+    return (merge_expectations("axis", axis_key, left_expectation, right_expectation), left_description)
+end
+
+function merge_specifications(
+    data_key::DataKey,
+    left_specification::DataSpecification,
+    right_specification::DataSpecification,
+)::DataSpecification
+    left_expectation, left_type, left_description = left_specification
+    right_expectation, right_type, right_description = right_specification
+    @assert left_description == right_description "different description for the data: $(data_key)"
+    return (
+        merge_expectations("data", data_key, left_expectation, right_expectation),
+        merge_types(data_key, left_type, right_type),
+        left_description,
+    )
+end
+
+function merge_types(data_key::DataKey, left_type::Type, right_type::Type)::Type
+    if left_type == right_type || left_type <: right_type
+        return left_type
+    elseif right_type <: left_type
+        return right_type
+    else
+        error(dedent("""
+            incompatible type: $(left_type)
+            and type: $(right_type)
+            for the contracts data: $(data_key)
+        """))
+    end
+end
+
+function merge_expectations(
+    what::AbstractString,
+    key::K,
+    left_expectation::ContractExpectation,
+    right_expectation::ContractExpectation,
+)::ContractExpectation where {K <: Union{AxisKey, DataKey}}
+    if left_expectation == RequiredInput && right_expectation in (RequiredInput, OptionalInput)
+        return RequiredInput
+    elseif left_expectation == OptionalInput && right_expectation in (RequiredInput, OptionalInput)
+        return right_expectation
+    elseif left_expectation == GuaranteedOutput && right_expectation in (RequiredInput, OptionalInput)
+        return GuaranteedOutput
+    elseif left_expectation == OptionalOutput && right_expectation == OptionalInput
+        return OptionalOutput
+    else
+        error(dedent("""
+            incompatible expectation: $(left_expectation)
+            and expectation: $(right_expectation)
+            for the contracts $(what): $(key)
+        """))
+    end
 end
 
 end # module
