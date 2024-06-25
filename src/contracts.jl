@@ -123,7 +123,7 @@ additional data.
 !!! note
 
     When a function calls several functions in a row, you can compute its contract by using [`function_contract`](@ref
-    Daf.Computations.function_contract) on them and then adding the results in their invocation order using `+`.
+    Daf.Computations.function_contract) on them and then combining the results in their invocation order using `|>`.
 """
 @kwdef struct Contract
     is_relaxed::Bool = false
@@ -1253,7 +1253,7 @@ function Queries.verify_contract_query(contract_daf::ContractDaf, cache_key::Cac
     return nothing
 end
 
-function Base.:+(left::Contract, right::Contract)::Contract
+function Base.:(|>)(left::Contract, right::Contract)::Contract
     return Contract(
         left.is_relaxed || right.is_relaxed,
         add_pairs(left.axes, right.axes),
