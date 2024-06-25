@@ -122,8 +122,8 @@ additional data.
 
 !!! note
 
-    When a function calls several functions in a row, you can compute its contract by using `function_contract` on them
-    and then adding the results in their invocation order using `+`.
+    When a function calls several functions in a row, you can compute its contract by using [`function_contract`](@ref
+    Daf.Computations.function_contract) on them and then adding the results in their invocation order using `+`.
 """
 @kwdef struct Contract
     is_relaxed::Bool = false
