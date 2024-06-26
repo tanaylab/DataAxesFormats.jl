@@ -403,7 +403,7 @@ function get_vector(
         if Formats.format_has_vector(daf, axis, name)
             vector = Formats.get_vector_through_cache(daf, axis, name)
             @assert length(vector) == Formats.format_axis_length(daf, axis) dedent("""
-                format_get_vector for daf format: $(typeof(daf))
+                format_get_vector for daf format: $(nameof(typeof(daf)))
                 returned vector length: $(length(vector))
                 instead of axis: $(axis)
                 length: $(axis_length(daf, axis))
@@ -490,8 +490,8 @@ function has_matrix(
             columns_axis,
         ) do
             return haskey(daf.internal.cache, cache_key) ||
-                   Formats.format_has_matrix(daf, rows_axis, columns_axis, name) ||
-                   (relayout && Formats.format_has_matrix(daf, columns_axis, rows_axis, name))
+                   Formats.format_has_matrix(daf, rows_axis, columns_axis, name; for_relayout = false) ||
+                   (relayout && Formats.format_has_matrix(daf, columns_axis, rows_axis, name; for_relayout = false))
         end
         @debug "has_matrix daf: $(depict(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) relayout: $(relayout) result: $(depict(result))"
         return result
@@ -654,7 +654,8 @@ function get_matrix(
         end
 
         cache_key = Formats.matrix_cache_key(rows_axis, columns_axis, name)
-        if haskey(daf.internal.cache, cache_key) || Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
+        if haskey(daf.internal.cache, cache_key) ||
+           Formats.format_has_matrix(daf, rows_axis, columns_axis, name; for_relayout = false)
             result_prefix = ""
             matrix = Formats.get_matrix_through_cache(daf, rows_axis, columns_axis, name)
             assert_valid_matrix(daf, rows_axis, columns_axis, name, matrix)
@@ -724,7 +725,7 @@ function assert_valid_matrix(
 )::Nothing
     @assert size(matrix, Rows) == Formats.format_axis_length(daf, rows_axis) dedent("""
         format_get_matrix: $(name)
-        for the daf format: $(typeof(daf))
+        for the daf format: $(nameof(typeof(daf)))
         returned matrix rows: $(size(matrix, Rows))
         instead of axis: $(rows_axis)
         length: $(axis_length(daf, rows_axis))
@@ -733,7 +734,7 @@ function assert_valid_matrix(
 
     @assert size(matrix, Columns) == Formats.format_axis_length(daf, columns_axis) dedent("""
         format_get_matrix: $(name)
-        for the daf format: $(typeof(daf))
+        for the daf format: $(nameof(typeof(daf)))
         returned matrix columns: $(size(matrix, Columns))
         instead of axis: $(columns_axis)
         length: $(axis_length(daf, columns_axis))
@@ -741,7 +742,7 @@ function assert_valid_matrix(
     """)
 
     @assert major_axis(matrix) == Columns dedent("""
-        format_get_matrix for daf format: $(typeof(daf))
+        format_get_matrix for daf format: $(nameof(typeof(daf)))
         returned non column-major matrix: $(depict(matrix))
     """)
 
@@ -1004,7 +1005,7 @@ function Messages.depict(daf::DafReader; name::Maybe{AbstractString} = nothing):
     if name === nothing
         name = daf.name
     end
-    return "$(typeof(daf)) $(name)"
+    return "$(nameof(typeof(daf))) $(name)"
 end
 
 end # module

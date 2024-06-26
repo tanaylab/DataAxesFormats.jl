@@ -206,7 +206,7 @@ struct Internal
     cache_lock::QueryReadWriteLock
     data_lock::QueryReadWriteLock
     is_frozen::Bool
-    pending_condition::Condition
+    pending_condition::Threads.Condition
     pending_count::Vector{UInt32}
 end
 
@@ -220,7 +220,7 @@ function Internal(; cache_group::Maybe{CacheGroup}, is_frozen::Bool)::Internal
         QueryReadWriteLock(),
         QueryReadWriteLock(),
         is_frozen,
-        Condition(),
+        Threads.Condition(),
         UInt32[0],
     )
 end
@@ -506,7 +506,7 @@ function format_get_vector end
         rows_axis::AbstractString,
         columns_axis::AbstractString,
         name::AbstractString;
-        [for_relayout::Bool = false]
+        [for_relayout::Bool]
     )::Bool
 
 Implement checking whether a matrix property with some `name` exists for the `rows_axis` and the `columns_axis` in
@@ -665,7 +665,7 @@ Allow a `format` to amit additional description header lines.
 This trusts that we have a read lock on the data set.
 """
 function format_description_header(format::FormatReader, indent::AbstractString, lines::Vector{String}, ::Bool)::Nothing
-    push!(lines, "$(indent)type: $(typeof(format))")
+    push!(lines, "$(indent)type: $(nameof(typeof(format)))")
     return nothing
 end
 
@@ -692,25 +692,8 @@ function put_in_cache!(format::FormatReader, cache_key::CacheKey, data::CacheDat
     return nothing
 end
 
-function get_from_cache(format::FormatReader, cache_key::CacheKey, ::Type{T})::Maybe{T} where {T}
-    @assert has_data_read_lock(format)
-    @assert has_read_lock(format.internal.cache_lock)
-    result = get(format.internal.cache, cache_key, nothing)
-    if result === nothing
-        return nothing
-    else
-        if result.data isa ReentrantLock
-            result = lock(result.data) do  # untested
-                return result
-            end
-        end
-        @debug "get_from_cache! daf: $(depict(format)) cache_key: $(cache_key) data: $(depict(result.data)) cache_group: $(result.cache_group)"
-        return result.data
-    end
-end
-
 function set_in_cache!(format::FormatReader, cache_key::CacheKey, data::CacheData, cache_group::CacheGroup)::Nothing
-    return with_cache_write_lock(format, "cache for:", cache_key) do  # NOJET
+    return with_cache_write_lock(format, "for set_in_cache!:", cache_key) do  # NOJET
         return put_in_cache!(format, cache_key, data, cache_group)
     end
 end
@@ -727,63 +710,100 @@ function get_through_cache(
     cache_group::Maybe{CacheGroup};
     is_slow::Bool = false,
 )::T where {T}
-    cached = with_cache_read_lock(format, "cache for:", cache_key) do  # NOJET
-        return get_from_cache(format, cache_key, T)
-    end
-    if cached === nothing
-        if cache_group === nothing
-            cached = getter()
-        else
-            cached = with_cache_write_lock(format, "cache for:", cache_key) do  # NOJET
-                cached = get_from_cache(format, cache_key, T)
-                if cached === nothing
-                    if is_slow
-                        entry_lock = ReentrantLock()
-                        lock(entry_lock)
-                        cached = CacheEntry(cache_group, entry_lock)
-                        format.internal.cache[cache_key] = cached
-                        lock(format.internal.pending_condition) do
-                            return format.internal.pending_count[1] += 1
-                        end
-                    else
-                        cached = getter()
-                        put_in_cache!(format, cache_key, cached, cache_group)
-                    end
-                end
-                return cached
-            end
-            if cached isa CacheEntry
-                cache_entry = cached
-                entry_lock = cache_entry.data
-                if entry_lock isa ReentrantLock
-                    try
-                        cached, dependency_keys = getter()
-                        with_cache_write_lock(format, "cache for:", cache_key) do  # NOJET
-                            if dependency_keys !== nothing
-                                for dependency_key in dependency_keys
-                                    put_cached_dependency_key!(format, cache_key, dependency_key)
-                                end
-                                if cache_key[1] == CachedQuery
-                                    format.internal.dependecies_of_query_keys[cache_key] = dependency_keys
-                                end
-                            end
-                            cache_entry.data = cached
-                            lock(format.internal.pending_condition) do
-                                format.internal.pending_count[1] -= 1
-                                if format.internal.pending_count[1] == 0
-                                    notify(format.internal.pending_condition)
-                                end
-                            end
-                            return nothing
-                        end
-                    finally
-                        unlock(entry_lock)
-                    end
-                end
+    @assert has_data_read_lock(format)
+    cached = nothing
+    while cached === nothing
+        cache_entry = with_cache_read_lock(format, "for get_from_cache:", cache_key) do  # NOJET
+            return get(format.internal.cache, cache_key, nothing)
+        end
+        cached = result_from_cache(cache_entry, T)
+        while cached === nothing
+            if cache_group === nothing
+                cached = getter()
+            else
+                cached = write_throgh_cache(getter, format, cache_key, T, cache_group; is_slow = is_slow)
             end
         end
     end
     return cached
+end
+
+function result_from_cache(::Nothing, ::Type{T})::Nothing where {T}
+    return nothing
+end
+
+function result_from_cache(cache_entry::CacheEntry, ::Type{T})::T where {T}
+    if cache_entry.data isa ReentrantLock
+        cache_entry = lock(cache_entry.data) do  # untested
+            return cache_entry
+        end
+    end
+    return cache_entry.data
+end
+
+function write_throgh_cache(
+    getter::Function,
+    format::FormatReader,
+    cache_key::CacheKey,
+    ::Type{T},
+    cache_group::Maybe{CacheGroup};
+    is_slow::Bool = false,
+)::Maybe{T} where {T}
+    result = with_cache_write_lock(format, "for get_through_cache:", cache_key) do  # NOJET
+        cache_entry = get(format.internal.cache, cache_key, nothing)
+        if cache_entry !== nothing
+            if cache_entry.data isa ReentrantLock  # untested
+                return nothing  # untested
+            else
+                return cache_entry.data  # untested
+            end
+        else
+            if is_slow
+                entry_lock = ReentrantLock()
+                lock(entry_lock)
+                cache_entry = CacheEntry(cache_group, entry_lock)
+                format.internal.cache[cache_key] = cache_entry
+                lock(format.internal.pending_condition) do
+                    return format.internal.pending_count[1] += 1
+                end
+                return cache_entry
+            else
+                result = getter()
+                put_in_cache!(format, cache_key, result, cache_group)
+                return result
+            end
+        end
+    end
+    if result isa CacheEntry
+        cache_entry = result
+        entry_lock = cache_entry.data
+        @assert is_slow
+        @assert entry_lock isa ReentrantLock
+        try
+            result, dependency_keys = getter()
+            with_cache_write_lock(format, "for slow:", cache_key) do  # NOJET
+                if dependency_keys !== nothing
+                    for dependency_key in dependency_keys
+                        put_cached_dependency_key!(format, cache_key, dependency_key)
+                    end
+                    if cache_key[1] == CachedQuery
+                        format.internal.dependecies_of_query_keys[cache_key] = dependency_keys
+                    end
+                end
+                cache_entry.data = result
+                lock(format.internal.pending_condition) do
+                    format.internal.pending_count[1] -= 1
+                    if format.internal.pending_count[1] == 0
+                        notify(format.internal.pending_condition)
+                    end
+                end
+                return nothing
+            end
+        finally
+            unlock(entry_lock)
+        end
+    end
+    return result
 end
 
 function get_scalars_set_through_cache(format::FormatReader)::AbstractSet{<:AbstractString}
@@ -984,7 +1004,7 @@ end
 function invalidate_cached!(format::FormatReader, cache_key::CacheKey)::Nothing
     @debug "invalidate_cached! daf: $(depict(format)) cache_key: $(cache_key)"
     @debug "- delete cache_key: $(cache_key)"
-    with_cache_write_lock(format, "cache for invalidate key:", cache_key) do
+    with_cache_write_lock(format, "for invalidate key:", cache_key) do
         delete!(format.internal.cache, cache_key)
 
         dependents_keys = pop!(format.internal.dependents_of_cache_keys, cache_key, nothing)
@@ -1081,13 +1101,13 @@ function upgrade_to_data_write_lock(format::FormatReader)::Nothing
 end
 
 function format_get_version_counter(format::FormatReader, version_key::DataKey)::UInt32
-    return with_cache_read_lock(format, "cache for version counter of:", string(version_key)) do
+    return with_cache_read_lock(format, "for version counter of:", string(version_key)) do
         return get(format.internal.version_counters, version_key, UInt32(0))
     end
 end
 
 function format_increment_version_counter(format::FormatWriter, version_key::DataKey)::Nothing
-    with_cache_write_lock(format, "cache for version counter of:", string(version_key)) do
+    with_cache_write_lock(format, "for version counter of:", string(version_key)) do
         previous_version_counter = format_get_version_counter(format, version_key)
         return format.internal.version_counters[version_key] = previous_version_counter + 1
     end

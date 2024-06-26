@@ -1040,14 +1040,6 @@ nested_test("contracts") do
                 """) axis_length(contract_daf, "cell")
             end
 
-            nested_test("axis_version_counter") do
-                @test_throws dedent("""
-                    accessing non-contract axis: cell
-                    for the computation: computation
-                    on the daf data: memory!
-                """) axis_version_counter(contract_daf, "cell")
-            end
-
             nested_test("depict") do
                 @test depict(contract_daf) == "Contract MemoryDaf memory!.for.computation"
             end
@@ -1161,15 +1153,6 @@ nested_test("contracts") do
                 """) has_vector(contract_daf, "cell", "age")
             end
 
-            nested_test("vector_version_counter") do
-                @test_throws dedent("""
-                    accessing non-contract vector: age
-                    of the axis: cell
-                    for the computation: computation
-                    on the daf data: memory!
-                """) vector_version_counter(contract_daf, "cell", "age")
-            end
-
             nested_test("matrices_set") do
                 @test matrices_set(contract_daf, "cell", "gene") == matrices_set(daf, "cell", "gene")
             end
@@ -1200,16 +1183,6 @@ nested_test("contracts") do
                     for the computation: computation
                     on the daf data: memory!
                 """) has_matrix(contract_daf, "cell", "gene", "UMIs")
-            end
-
-            nested_test("matrix_version_counter") do
-                @test_throws dedent("""
-                    accessing non-contract matrix: UMIs
-                    of the rows axis: cell
-                    and the columns axis: gene
-                    for the computation: computation
-                    on the daf data: memory!
-                """) matrix_version_counter(contract_daf, "cell", "gene", "UMIs")
             end
         end
 
@@ -1348,27 +1321,14 @@ nested_test("contracts") do
                 """) delete_scalar!(contract_daf, "version")
             end
 
-            #src/contracts.jl:787: - function Writers.empty_dense_matrix!(
-            #src/contracts.jl:800: - function Writers.empty_dense_vector!(
-            #src/contracts.jl:812: - function Writers.empty_sparse_matrix!(
-            #src/contracts.jl:837: - function Writers.empty_sparse_vector!(
-            #src/contracts.jl:851: - function Writers.filled_empty_dense_matrix!(
-            #src/contracts.jl:863: - function Writers.filled_empty_dense_vector!(
-            #src/contracts.jl:874: - function Writers.filled_empty_sparse_matrix!(
-            #src/contracts.jl:889: - function Writers.filled_empty_sparse_vector!(
-            #src/contracts.jl:902: - function Writers.get_empty_dense_matrix!(
-            #src/contracts.jl:915: - function Writers.get_empty_dense_vector!(
-            #src/contracts.jl:926: - function Writers.get_empty_sparse_matrix!(
-            #src/contracts.jl:949: - function Writers.get_empty_sparse_vector!(
-
             nested_test("relayout_matrix!") do
                 @test_throws dedent("""
                     modifying OptionalInput matrix: UMIs
-                    of the rows_axis: cell
-                    and the columns_axis: gene
+                    of the rows_axis: gene
+                    and the columns_axis: cell
                     for the computation: computation
                     on the daf data: memory!
-                """) relayout_matrix!(contract_daf, "cell", "gene", "UMIs")
+                """) relayout_matrix!(contract_daf, "cell", "gene", "UMIs"; overwrite = true)
             end
 
             nested_test("set_scalar!") do
@@ -1376,7 +1336,7 @@ nested_test("contracts") do
                     modifying OptionalInput scalar: version
                     for the computation: computation
                     on the daf data: memory!
-                """) set_scalar!(contract_daf, "version", 2)
+                """) set_scalar!(contract_daf, "version", 2; overwrite = true)
             end
 
             nested_test("set_matrix!") do
@@ -1386,7 +1346,7 @@ nested_test("contracts") do
                     and the columns_axis: gene
                     for the computation: computation
                     on the daf data: memory!
-                """) set_matrix!(contract_daf, "cell", "gene", "UMIs", [0 1 2; 3 4 5])
+                """) set_matrix!(contract_daf, "cell", "gene", "UMIs", [0 1 2; 3 4 5]; overwrite = true)
             end
 
             nested_test("set_vector!") do
@@ -1395,7 +1355,7 @@ nested_test("contracts") do
                     of the axis: cell
                     for the computation: computation
                     on the daf data: memory!
-                """) set_vector!(contract_daf, "cell", "age", [1, 2])
+                """) set_vector!(contract_daf, "cell", "age", [1, 2]; overwrite = true)
             end
         end
 

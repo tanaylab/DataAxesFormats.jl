@@ -506,7 +506,7 @@ function Formats.format_has_matrix(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString;
-    for_relayout::Bool = false,  # NOLINT
+    for_relayout::Bool,  # NOLINT
 )::Bool
     @assert Formats.has_data_read_lock(files)
     return ispath("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json")
@@ -791,7 +791,7 @@ function Formats.format_description_header(
     ::Bool,
 )::Nothing
     @assert Formats.has_data_read_lock(files)
-    push!(lines, "$(indent)type: $(typeof(files))")
+    push!(lines, "$(indent)type: FilesDaf")
     push!(lines, "$(indent)path: $(files.path)")
     push!(lines, "$(indent)mode: $(files.mode)")
     return nothing

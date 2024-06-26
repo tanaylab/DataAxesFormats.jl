@@ -1667,7 +1667,7 @@ function get_query(
     cache::Bool = true,
 )::Union{AbstractSet{<:AbstractString}, AbstractVector{<:AbstractString}, StorageScalar, NamedArray}
     cache_key = (CachedQuery, "$(query_sequence)")
-    return Formats.with_data_read_lock(daf, "get_query of:", query_sequence) do
+    return Formats.with_data_read_lock(daf, "for get_query of:", cache_key) do
         did_compute = [false]
         if cache
             result = Formats.get_through_cache(
@@ -1681,12 +1681,8 @@ function get_query(
                 return do_get_query(daf, query_sequence)
             end
         else
-            result = Formats.with_cache_read_lock(daf, "cache for query:", query_sequence) do
-                return Formats.get_from_cache(
-                    daf,
-                    cache_key,
-                    Union{AbstractSet{<:AbstractString}, AbstractVector{<:AbstractString}, StorageScalar, NamedArray},
-                )
+            result = Formats.with_cache_read_lock(daf, "for get_query of:", cache_key) do
+                return get(daf.internal.cache, cache_key, nothing)
             end
             if result === nothing
                 did_compute[1] = true
@@ -1832,7 +1828,7 @@ query is syntactically valid and that the query can be computed, though it may s
 due to invalid values or types.
 """
 function query_requires_relayout(daf::DafReader, query_sequence::QuerySequence)::Bool
-    return Formats.with_data_read_lock(daf, "query_requires_relayout:", (CachedQuery, "$(query_sequence)")) do
+    return Formats.with_data_read_lock(daf, "for query_requires_relayout:", query_sequence) do
         return get_fake_query_result(query_sequence; daf = daf).requires_relayout
     end
 end
@@ -3090,6 +3086,7 @@ function apply_mask_to_axis_state(
     end
 
     axis_state.axis_modifier = axis_mask
+    union!(axis_state.dependency_keys, mask_state.dependency_keys)
     return nothing
 end
 

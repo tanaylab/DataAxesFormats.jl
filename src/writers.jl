@@ -854,7 +854,7 @@ function update_before_set_matrix(
     name::AbstractString,
 )::Nothing
     Formats.invalidate_cached!(daf, Formats.matrix_cache_key(rows_axis, columns_axis, name))
-    if Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
+    if Formats.format_has_matrix(daf, rows_axis, columns_axis, name; for_relayout = false)
         Formats.format_delete_matrix!(daf, rows_axis, columns_axis, name; for_set = true)
     else
         Formats.invalidate_cached!(daf, Formats.matrices_set_cache_key(rows_axis, columns_axis; relayout = false))
@@ -901,11 +901,11 @@ function delete_matrix!(
             require_matrix(daf, rows_axis, columns_axis, name; relayout = relayout)
         end
 
-        if Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
+        if Formats.format_has_matrix(daf, rows_axis, columns_axis, name; for_relayout = false)
             update_caches_and_delete_matrix(daf, rows_axis, columns_axis, name)
         end
 
-        if relayout && Formats.format_has_matrix(daf, columns_axis, rows_axis, name)
+        if relayout && Formats.format_has_matrix(daf, columns_axis, rows_axis, name; for_relayout = false)
             update_caches_and_delete_matrix(daf, columns_axis, rows_axis, name)
         end
         # Formats.assert_valid_cache(daf)
@@ -934,7 +934,7 @@ function require_no_matrix(
     relayout::Bool,
 )::Nothing
     @assert Formats.has_data_read_lock(daf)
-    if Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
+    if Formats.format_has_matrix(daf, rows_axis, columns_axis, name; for_relayout = false)
         error(dedent("""
             existing matrix: $(name)
             for the rows axis: $(rows_axis)

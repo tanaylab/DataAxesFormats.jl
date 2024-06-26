@@ -3009,6 +3009,28 @@ nested_test("data") do
         return nothing
     end
 
+    nested_test("contract") do
+        daf = MemoryDaf(; name = "memory!")
+        contract = Contract(;
+            axes = ["cell" => (OptionalOutput, "cell"), "gene" => (OptionalOutput, "gene")],
+            data = [
+                "depth" => (OptionalOutput, StorageScalar, "depth"),
+                "version" => (OptionalOutput, StorageScalar, "version"),
+                ("gene", "marker") => (OptionalOutput, Bool, "is marker"),
+                ("gene", "noisy") => (OptionalOutput, Bool, "is noisy"),
+                ("cell", "type") => (OptionalOutput, AbstractString, "type"),
+                ("cell", "gene", "UMIs") => (OptionalOutput, StorageReal, "UMIs"),
+                ("cell", "gene", "LogUMIs") => (OptionalOutput, StorageReal, "LogUMIs"),
+                ("cell", "cell", "outgoing_edges") => (OptionalOutput, StorageReal, "UMIs"),
+            ],
+        )
+        contract_daf = contractor("computation", contract, daf; overwrite = true)
+        @test contract_daf.name == "memory!.for.computation"
+        @test string(contract_daf) == "Contract MemoryDaf memory!.for.computation"
+        test_format(contract_daf)
+        return nothing
+    end
+
     nested_test("h5df") do
         nested_test("invalid") do
             mktempdir() do path

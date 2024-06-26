@@ -188,32 +188,32 @@ end
 
 AnyChain = Union{ReadOnlyChain, WriteChain}
 
-function Formats.begin_data_read_lock(chain::AnyChain, what::AbstractString...)::Bool
-    is_top_level = invoke(Formats.begin_data_read_lock, Tuple{DafReader, Vararg{AbstractString}}, chain, what...)
+function Formats.begin_data_read_lock(chain::AnyChain, what::Any...)::Bool
+    is_top_level = invoke(Formats.begin_data_read_lock, Tuple{DafReader, Vararg{Any}}, chain, what...)
     for daf in chain.dafs
         Formats.begin_data_read_lock(daf, what...)
     end
     return is_top_level
 end
 
-function Formats.end_data_read_lock(chain::AnyChain, what::AbstractString...)::Nothing
+function Formats.end_data_read_lock(chain::AnyChain, what::Any...)::Nothing
     for daf in reverse(chain.dafs)
         Formats.end_data_read_lock(daf, what...)
     end
-    invoke(Formats.end_data_read_lock, Tuple{DafReader, Vararg{AbstractString}}, chain, what...)
+    invoke(Formats.end_data_read_lock, Tuple{DafReader, Vararg{Any}}, chain, what...)
     return nothing
 end
 
-function Formats.begin_data_write_lock(::ReadOnlyChain, ::AbstractString...)::Nothing  # untested
+function Formats.begin_data_write_lock(::ReadOnlyChain, ::Any...)::Nothing  # untested
     @assert false
 end
 
-function Formats.end_data_write_lock(::ReadOnlyChain, ::AbstractString...)::Nothing
+function Formats.end_data_write_lock(::ReadOnlyChain, ::Any...)::Nothing
     @assert false
 end
 
-function Formats.begin_data_write_lock(chain::WriteChain, what::AbstractString...)::Nothing
-    invoke(Formats.begin_data_write_lock, Tuple{DafReader, Vararg{AbstractString}}, chain, what...)
+function Formats.begin_data_write_lock(chain::WriteChain, what::Any...)::Nothing
+    invoke(Formats.begin_data_write_lock, Tuple{DafReader, Vararg{Any}}, chain, what...)
     @assert chain.daf === chain.dafs[end]
     Formats.begin_data_write_lock(chain.daf, what...)
     for daf in reverse(chain.dafs[1:(end - 1)])
@@ -222,13 +222,13 @@ function Formats.begin_data_write_lock(chain::WriteChain, what::AbstractString..
     return nothing
 end
 
-function Formats.end_data_write_lock(chain::WriteChain, what::AbstractString...)::Nothing
+function Formats.end_data_write_lock(chain::WriteChain, what::Any...)::Nothing
     for daf in chain.dafs[1:(end - 1)]
         Formats.end_data_read_lock(daf, what...)
     end
     @assert chain.daf === chain.dafs[end]
     Formats.end_data_write_lock(chain.daf, what...)
-    invoke(Formats.end_data_write_lock, Tuple{DafReader, Vararg{AbstractString}}, chain, what...)
+    invoke(Formats.end_data_write_lock, Tuple{DafReader, Vararg{Any}}, chain, what...)
     return nothing
 end
 
@@ -562,7 +562,7 @@ function Formats.format_delete_matrix!(
         for daf in chain.dafs[1:(end - 1)]
             if Formats.format_has_axis(daf, rows_axis; for_change = false) &&
                Formats.format_has_axis(daf, columns_axis; for_change = false) &&
-               Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
+               Formats.format_has_matrix(daf, rows_axis, columns_axis, name; for_relayout = false)
                 error(dedent("""
                     failed to delete the matrix: $(name)
                     for the rows axis: $(rows_axis)
@@ -576,7 +576,7 @@ function Formats.format_delete_matrix!(
     end
     if Formats.format_has_axis(chain.daf, rows_axis; for_change = false) &&
        Formats.format_has_axis(chain.daf, columns_axis; for_change = false) &&
-       Formats.format_has_matrix(chain.daf, rows_axis, columns_axis, name)
+       Formats.format_has_matrix(chain.daf, rows_axis, columns_axis, name; for_relayout = false)
         Formats.format_delete_matrix!(chain.daf, rows_axis, columns_axis, name; for_set = for_set)
     end
     return nothing
@@ -609,7 +609,7 @@ function Formats.format_get_matrix(
     for daf in reverse(chain.dafs)
         if Formats.format_has_axis(daf, rows_axis; for_change = false) &&
            Formats.format_has_axis(daf, columns_axis; for_change = false) &&
-           Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
+           Formats.format_has_matrix(daf, rows_axis, columns_axis, name; for_relayout = false)
             return Formats.read_only_array(Formats.get_matrix_through_cache(daf, rows_axis, columns_axis, name))
         end
     end

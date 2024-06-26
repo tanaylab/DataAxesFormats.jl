@@ -589,7 +589,7 @@ function Formats.format_has_matrix(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString;
-    for_relayout::Bool = false,  # NOLINT
+    for_relayout::Bool,  # NOLINT
 )::Bool
     @assert Formats.has_data_read_lock(h5df)
     matrices_group = h5df.root["matrices"]
@@ -845,7 +845,7 @@ end
 
 function Formats.format_description_header(h5df::H5df, indent::AbstractString, lines::Vector{String}, ::Bool)::Nothing
     @assert Formats.has_data_read_lock(h5df)
-    push!(lines, "$(indent)type: $(typeof(h5df))")
+    push!(lines, "$(indent)type: H5df")
     push!(lines, "$(indent)root: $(h5df.root)")
     push!(lines, "$(indent)mode: $(h5df.mode)")
     return nothing

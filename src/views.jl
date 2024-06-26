@@ -608,15 +608,15 @@ function get_fetch_axis(
     return fetch_axis
 end
 
-function Formats.begin_data_read_lock(view::DafView, what::AbstractString...)::Bool
-    is_top_level = invoke(Formats.begin_data_read_lock, Tuple{DafReader, Vararg{AbstractString}}, view, what...)
+function Formats.begin_data_read_lock(view::DafView, what::Any...)::Bool
+    is_top_level = invoke(Formats.begin_data_read_lock, Tuple{DafReader, Vararg{Any}}, view, what...)
     Formats.begin_data_read_lock(view.daf, what...)
     return is_top_level
 end
 
-function Formats.end_data_read_lock(view::DafView, what::AbstractString...)::Nothing
+function Formats.end_data_read_lock(view::DafView, what::Any...)::Nothing
     Formats.end_data_read_lock(view.daf, what...)
-    invoke(Formats.end_data_read_lock, Tuple{DafReader, Vararg{AbstractString}}, view, what...)
+    invoke(Formats.end_data_read_lock, Tuple{DafReader, Vararg{Any}}, view, what...)
     return nothing
 end
 
@@ -624,14 +624,14 @@ function Formats.has_data_read_lock(view::DafView)::Bool
     return Formats.has_data_read_lock(view.daf)
 end
 
-function Formats.begin_data_write_lock(view::DafView, what::AbstractString...)::Nothing  # flaky tested
-    invoke(Formats.begin_data_write_lock, Tuple{DafReader, Vararg{AbstractString}}, view, what...)
+function Formats.begin_data_write_lock(view::DafView, what::Any...)::Nothing  # flaky tested
+    invoke(Formats.begin_data_write_lock, Tuple{DafReader, Vararg{Any}}, view, what...)
     return Formats.begin_data_write_lock(view.daf, what...)
 end
 
-function Formats.end_data_write_lock(view::DafView, what::AbstractString...)::Nothing  # flaky tested
+function Formats.end_data_write_lock(view::DafView, what::Any...)::Nothing  # flaky tested
     Formats.end_data_write_lock(view.daf, what...)
-    return invoke(Formats.end_data_write_lock, Tuple{DafReader, Vararg{AbstractString}}, view, what...)
+    return invoke(Formats.end_data_write_lock, Tuple{DafReader, Vararg{Any}}, view, what...)
 end
 
 function Formats.has_data_write_lock(::DafView)::Bool  # untested
@@ -720,7 +720,7 @@ function Formats.format_has_matrix(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString;
-    for_relayout::Bool = false,  # NOLINT
+    for_relayout::Bool,  # NOLINT
 )::Bool
     @assert Formats.has_data_read_lock(view)
     return haskey(view.matrices[rows_axis][columns_axis], name)

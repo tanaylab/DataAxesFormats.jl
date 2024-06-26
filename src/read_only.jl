@@ -84,11 +84,11 @@ function read_only(daf::DafReadOnly; name::Maybe{AbstractString} = nothing)::Daf
     end
 end
 
-function Formats.begin_data_read_lock(read_only_view::DafReadOnlyWrapper, what::AbstractString...)::Bool
+function Formats.begin_data_read_lock(read_only_view::DafReadOnlyWrapper, what::Any...)::Bool
     return Formats.begin_data_read_lock(read_only_view.daf, what...)
 end
 
-function Formats.end_data_read_lock(read_only_view::DafReadOnlyWrapper, what::AbstractString...)::Nothing
+function Formats.end_data_read_lock(read_only_view::DafReadOnlyWrapper, what::Any...)::Nothing
     Formats.end_data_read_lock(read_only_view.daf, what...)
     return nothing
 end
@@ -97,11 +97,11 @@ function Formats.has_data_read_lock(read_only_view::DafReadOnlyWrapper)::Bool
     return Formats.has_data_read_lock(read_only_view.daf)
 end
 
-function Formats.begin_data_write_lock(::DafReadOnlyWrapper, ::AbstractString...)::Nothing  # untested
+function Formats.begin_data_write_lock(::DafReadOnlyWrapper, ::Any...)::Nothing  # untested
     @assert false
 end
 
-function Formats.end_data_write_lock(::DafReadOnlyWrapper, ::AbstractString...)::Nothing
+function Formats.end_data_write_lock(::DafReadOnlyWrapper, ::Any...)::Nothing
     @assert false
 end
 
@@ -174,7 +174,7 @@ function Formats.format_has_matrix(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString;
-    for_relayout::Bool = false,
+    for_relayout::Bool,
 )::Bool
     @assert Formats.has_data_read_lock(read_only_view)
     return Formats.format_has_matrix(read_only_view.daf, rows_axis, columns_axis, name; for_relayout = for_relayout)
