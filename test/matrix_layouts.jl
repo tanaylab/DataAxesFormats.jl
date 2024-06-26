@@ -104,7 +104,7 @@ nested_test("matrix_layouts") do
         end
     end
 
-    nested_test("relayout!") do
+    nested_test("relayout") do
         nested_test("automatic") do
             nested_test("dense") do
                 dense = rand(4, 6)
@@ -112,47 +112,47 @@ nested_test("matrix_layouts") do
                 @test !issparse(dense)
 
                 nested_test("base") do
-                    relayout = relayout!(dense)
-                    @test major_axis(relayout) == Rows
-                    @test relayout == dense
-                    @test !issparse(relayout)
+                    result = relayout(dense)
+                    @test major_axis(result) == Rows
+                    @test result == dense
+                    @test !issparse(result)
                 end
 
                 nested_test("adjoint") do
                     adjointed_dense = adjoint(dense)
                     @test major_axis(adjointed_dense) == Rows
 
-                    relayout = relayout!(adjointed_dense)
-                    @test major_axis(relayout) == Columns
-                    @test relayout == adjointed_dense
-                    @test !issparse(relayout)
+                    result = relayout(adjointed_dense)
+                    @test major_axis(result) == Columns
+                    @test result == adjointed_dense
+                    @test !issparse(result)
                 end
 
                 nested_test("transpose") do
                     transposed_dense = transpose(dense)
                     @test major_axis(transposed_dense) == Rows
 
-                    relayout = relayout!(transposed_dense)
-                    @test major_axis(relayout) == Columns
-                    @test relayout == transposed_dense
-                    @test !issparse(relayout)
+                    result = relayout(transposed_dense)
+                    @test major_axis(result) == Columns
+                    @test result == transposed_dense
+                    @test !issparse(result)
                 end
 
                 nested_test("read_only") do
-                    relayout = relayout!(SparseArrays.ReadOnly(dense))
-                    @test major_axis(relayout) == Rows
-                    @test relayout == dense
-                    @test !issparse(relayout)
+                    result = relayout(SparseArrays.ReadOnly(dense))
+                    @test major_axis(result) == Rows
+                    @test result == dense
+                    @test !issparse(result)
                 end
 
                 nested_test("named") do
                     named = NamedArray(dense)
-                    relayout = relayout!(named)
-                    @test major_axis(relayout) == Rows
-                    @test relayout == dense
-                    @test !issparse(relayout.array)
-                    @test relayout.dicts === named.dicts
-                    @test relayout.dimnames === named.dimnames
+                    result = relayout(named)
+                    @test major_axis(result) == Rows
+                    @test result == dense
+                    @test !issparse(result.array)
+                    @test result.dicts === named.dicts
+                    @test result.dimnames === named.dimnames
                 end
             end
 
@@ -162,47 +162,47 @@ nested_test("matrix_layouts") do
                 @test issparse(sparse)
 
                 nested_test("base") do
-                    relayout = relayout!(sparse)
-                    @test major_axis(relayout) == Rows
-                    @test relayout == sparse
-                    @test issparse(relayout)
+                    result = relayout(sparse)
+                    @test major_axis(result) == Rows
+                    @test result == sparse
+                    @test issparse(result)
                 end
 
                 nested_test("adjoint") do
                     adjointed_sparse = adjoint(sparse)
                     @test major_axis(adjointed_sparse) == Rows
 
-                    relayout = relayout!(adjointed_sparse)
-                    @test major_axis(relayout) == Columns
-                    @test relayout == adjointed_sparse
-                    @test issparse(relayout)
+                    result = relayout(adjointed_sparse)
+                    @test major_axis(result) == Columns
+                    @test result == adjointed_sparse
+                    @test issparse(result)
                 end
 
                 nested_test("transpose") do
                     transposed_sparse = transpose(sparse)
                     @test major_axis(transposed_sparse) == Rows
 
-                    relayout = relayout!(transposed_sparse)
-                    @test major_axis(relayout) == Columns
-                    @test relayout == transposed_sparse
-                    @test issparse(relayout)
+                    result = relayout(transposed_sparse)
+                    @test major_axis(result) == Columns
+                    @test result == transposed_sparse
+                    @test issparse(result)
                 end
 
                 nested_test("read_only") do
-                    relayout = relayout!(SparseArrays.ReadOnly(sparse))
-                    @test major_axis(relayout) == Rows
-                    @test relayout == sparse
-                    @test issparse(relayout)
+                    result = relayout(SparseArrays.ReadOnly(sparse))
+                    @test major_axis(result) == Rows
+                    @test result == sparse
+                    @test issparse(result)
                 end
 
                 nested_test("named") do
                     named = NamedArray(sparse)
-                    relayout = relayout!(named)
-                    @test major_axis(relayout) == Rows
-                    @test relayout == sparse
-                    @test issparse(relayout.array)
-                    @test relayout.dicts === named.dicts
-                    @test relayout.dimnames === named.dimnames
+                    result = relayout(named)
+                    @test major_axis(result) == Rows
+                    @test result == sparse
+                    @test issparse(result.array)
+                    @test result.dicts === named.dicts
+                    @test result.dimnames === named.dimnames
                 end
             end
         end

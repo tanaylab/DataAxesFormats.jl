@@ -307,7 +307,7 @@ struct ContractDaf <: DafWriter
 end
 
 """
-    function contractor(
+    contractor(
         computation::AbstractString,
         contract::Contract,
         daf::DafReader;
@@ -897,11 +897,10 @@ function Formats.format_has_matrix(
     contract_daf::ContractDaf,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
-    name::AbstractString;
-    for_relayout::Bool,
+    name::AbstractString,
 )::Bool
     access_matrix(contract_daf, rows_axis, columns_axis, name; is_modify = false)
-    return Formats.format_has_matrix(contract_daf.daf, rows_axis, columns_axis, name; for_relayout = for_relayout)
+    return Formats.format_has_matrix(contract_daf.daf, rows_axis, columns_axis, name)
 end
 
 function Formats.format_set_matrix!(
@@ -954,9 +953,10 @@ function Formats.format_relayout_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-)::Nothing
+    matrix::StorageMatrix,
+)::StorageMatrix
     access_matrix(contract_daf, rows_axis, columns_axis, name; is_modify = false)
-    return Formats.format_relayout_matrix!(contract_daf.daf, rows_axis, columns_axis, name)
+    return Formats.format_relayout_matrix!(contract_daf.daf, rows_axis, columns_axis, name, matrix)
 end
 
 function Formats.format_delete_matrix!(
@@ -967,7 +967,8 @@ function Formats.format_delete_matrix!(
     for_set::Bool,
 )::Nothing
     access_matrix(contract_daf, rows_axis, columns_axis, name; is_modify = true)
-    return Formats.format_delete_matrix!(contract_daf.daf, rows_axis, columns_axis, name; for_set = for_set)
+    Formats.format_delete_matrix!(contract_daf.daf, rows_axis, columns_axis, name; for_set = for_set)
+    return nothing
 end
 
 function Formats.format_matrices_set(

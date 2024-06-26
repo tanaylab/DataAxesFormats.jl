@@ -33,7 +33,7 @@ function read_only_array(array::AbstractArray)::AbstractArray
 end
 
 """
-    function is_read_only_array(array::AbstractArray)::Bool
+    is_read_only_array(array::AbstractArray)::Bool
 
 Return whether an `array` is immutable.
 """
@@ -173,11 +173,10 @@ function Formats.format_has_matrix(
     read_only_view::DafReadOnlyWrapper,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
-    name::AbstractString;
-    for_relayout::Bool,
+    name::AbstractString,
 )::Bool
     @assert Formats.has_data_read_lock(read_only_view)
-    return Formats.format_has_matrix(read_only_view.daf, rows_axis, columns_axis, name; for_relayout = for_relayout)
+    return Formats.format_has_matrix(read_only_view.daf, rows_axis, columns_axis, name)
 end
 
 function Formats.format_matrices_set(

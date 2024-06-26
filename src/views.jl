@@ -719,8 +719,7 @@ function Formats.format_has_matrix(
     view::DafView,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
-    name::AbstractString;
-    for_relayout::Bool,  # NOLINT
+    name::AbstractString,
 )::Bool
     @assert Formats.has_data_read_lock(view)
     return haskey(view.matrices[rows_axis][columns_axis], name)

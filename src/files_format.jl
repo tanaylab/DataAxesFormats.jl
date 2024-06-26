@@ -505,8 +505,7 @@ function Formats.format_has_matrix(
     files::FilesDaf,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
-    name::AbstractString;
-    for_relayout::Bool,  # NOLINT
+    name::AbstractString,
 )::Bool
     @assert Formats.has_data_read_lock(files)
     return ispath("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json")
@@ -600,9 +599,9 @@ function Formats.format_relayout_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-)::Nothing
+    matrix::StorageMatrix,
+)::StorageMatrix
     @assert Formats.has_data_write_lock(files)
-    matrix = Formats.get_matrix_through_cache(files, rows_axis, columns_axis, name).array
 
     if matrix isa SparseMatrixCSC
         colptr, rowval, nzval = Formats.format_get_empty_sparse_matrix!(
@@ -623,7 +622,7 @@ function Formats.format_relayout_matrix!(
     end
 
     relayout!(transpose(relayout_matrix), matrix)
-    return nothing
+    return relayout_matrix
 end
 
 function Formats.format_delete_matrix!(

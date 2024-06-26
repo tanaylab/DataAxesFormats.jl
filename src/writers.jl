@@ -574,7 +574,7 @@ function set_matrix!(
 
         if relayout
             update_before_set_matrix(daf, columns_axis, rows_axis, name)
-            Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name)
+            Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name, matrix)
         end
         # Formats.assert_valid_cache(daf)
     end
@@ -833,13 +833,15 @@ function relayout_matrix!(
         end
 
         require_matrix(daf, rows_axis, columns_axis, name; relayout = false)
-
         if !overwrite
             require_no_matrix(daf, columns_axis, rows_axis, name; relayout = false)
         end
 
+        matrix = Formats.get_matrix_through_cache(daf, rows_axis, columns_axis, name)
+        assert_valid_matrix(daf, rows_axis, columns_axis, name, matrix)
+
         update_before_set_matrix(daf, columns_axis, rows_axis, name)
-        Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name)
+        Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name, matrix.array)
 
         @debug "relayout_matrix! }"
         # Formats.assert_valid_cache(daf)
@@ -853,9 +855,11 @@ function update_before_set_matrix(
     columns_axis::AbstractString,
     name::AbstractString,
 )::Nothing
-    Formats.invalidate_cached!(daf, Formats.matrix_cache_key(rows_axis, columns_axis, name))
-    if Formats.format_has_matrix(daf, rows_axis, columns_axis, name; for_relayout = false)
-        Formats.format_delete_matrix!(daf, rows_axis, columns_axis, name; for_set = true)
+    if Formats.format_has_cached_matrix(daf, rows_axis, columns_axis, name)
+        Formats.invalidate_cached!(daf, Formats.matrix_cache_key(rows_axis, columns_axis, name))
+        if Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
+            Formats.format_delete_matrix!(daf, rows_axis, columns_axis, name; for_set = true)
+        end
     else
         Formats.invalidate_cached!(daf, Formats.matrices_set_cache_key(rows_axis, columns_axis; relayout = false))
         Formats.invalidate_cached!(daf, Formats.matrices_set_cache_key(rows_axis, columns_axis; relayout = true))
@@ -901,11 +905,8 @@ function delete_matrix!(
             require_matrix(daf, rows_axis, columns_axis, name; relayout = relayout)
         end
 
-        if Formats.format_has_matrix(daf, rows_axis, columns_axis, name; for_relayout = false)
-            update_caches_and_delete_matrix(daf, rows_axis, columns_axis, name)
-        end
-
-        if relayout && Formats.format_has_matrix(daf, columns_axis, rows_axis, name; for_relayout = false)
+        update_caches_and_delete_matrix(daf, rows_axis, columns_axis, name)
+        if relayout
             update_caches_and_delete_matrix(daf, columns_axis, rows_axis, name)
         end
         # Formats.assert_valid_cache(daf)
@@ -919,10 +920,14 @@ function update_caches_and_delete_matrix(
     columns_axis::AbstractString,
     name::AbstractString,
 )::Nothing
-    Formats.invalidate_cached!(daf, Formats.matrices_set_cache_key(rows_axis, columns_axis; relayout = true))
-    Formats.invalidate_cached!(daf, Formats.matrices_set_cache_key(rows_axis, columns_axis; relayout = false))
-    Formats.invalidate_cached!(daf, Formats.matrix_cache_key(rows_axis, columns_axis, name))
-    Formats.format_delete_matrix!(daf, rows_axis, columns_axis, name; for_set = false)
+    if Formats.format_has_cached_matrix(daf, rows_axis, columns_axis, name)
+        Formats.invalidate_cached!(daf, Formats.matrices_set_cache_key(rows_axis, columns_axis; relayout = true))
+        Formats.invalidate_cached!(daf, Formats.matrices_set_cache_key(rows_axis, columns_axis; relayout = false))
+        Formats.invalidate_cached!(daf, Formats.matrix_cache_key(rows_axis, columns_axis, name))
+        if Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
+            Formats.format_delete_matrix!(daf, rows_axis, columns_axis, name; for_set = false)
+        end
+    end
     return nothing
 end
 
@@ -934,7 +939,7 @@ function require_no_matrix(
     relayout::Bool,
 )::Nothing
     @assert Formats.has_data_read_lock(daf)
-    if Formats.format_has_matrix(daf, rows_axis, columns_axis, name; for_relayout = false)
+    if Formats.format_has_cached_matrix(daf, rows_axis, columns_axis, name)
         error(dedent("""
             existing matrix: $(name)
             for the rows axis: $(rows_axis)

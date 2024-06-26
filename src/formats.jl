@@ -506,11 +506,10 @@ function format_get_vector end
         rows_axis::AbstractString,
         columns_axis::AbstractString,
         name::AbstractString;
-        [for_relayout::Bool]
     )::Bool
 
 Implement checking whether a matrix property with some `name` exists for the `rows_axis` and the `columns_axis` in
-`format`.
+`format`. If `cache` also checks whether the matrix exists in the cache.
 
 This trusts that we have a read lock on the data set, and that the `rows_axis` and the `columns_axis` exist in `format`.
 """
@@ -601,10 +600,11 @@ end
         format::FormatWriter,
         rows_axis::AbstractString,
         columns_axis::AbstractString,
-        name::AbstractString
-    )::Nothing
+        name::AbstractString,
+        matrix::StorageMatrix,
+    )::StorageMatrix
 
-[`relayout!`](@ref) the existing `name` column-major matrix property for the `rows_axis` and the `columns_axis` and
+[`relayout!`](@ref) the existing `name` column-major `matrix` property for the `rows_axis` and the `columns_axis` and
 store the results as a row-major matrix property (that is, with flipped axes).
 
 This trusts we have a write lock on the data set, that the `rows_axis` and `columns_axis` are different from each other,
@@ -702,6 +702,16 @@ function set_in_cache!(::FormatReader, ::CacheKey, ::CacheData, ::Nothing)::Noth
     return nothing
 end
 
+function format_has_cached_matrix(
+    format::FormatReader,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+)::Bool
+    return format_has_matrix(format, rows_axis, columns_axis, name) ||
+           haskey(format.internal.cache, matrix_cache_key(rows_axis, columns_axis, name))
+end
+
 function get_through_cache(
     getter::Function,
     format::FormatReader,
@@ -733,8 +743,9 @@ function result_from_cache(::Nothing, ::Type{T})::Nothing where {T}
 end
 
 function result_from_cache(cache_entry::CacheEntry, ::Type{T})::T where {T}
-    if cache_entry.data isa ReentrantLock
-        cache_entry = lock(cache_entry.data) do  # untested
+    entry_lock = cache_entry.data
+    if entry_lock isa ReentrantLock
+        cache_entry = lock(entry_lock) do  # untested
             return cache_entry
         end
     end
@@ -760,9 +771,9 @@ function write_throgh_cache(
         else
             if is_slow
                 entry_lock = ReentrantLock()
-                lock(entry_lock)
                 cache_entry = CacheEntry(cache_group, entry_lock)
                 format.internal.cache[cache_key] = cache_entry
+                lock(entry_lock)
                 lock(format.internal.pending_condition) do
                     return format.internal.pending_count[1] += 1
                 end
@@ -799,6 +810,9 @@ function write_throgh_cache(
                 end
                 return nothing
             end
+        catch exception
+            @assert !(exception isa UpgradeToWriteLockException)
+            rethrow()
         finally
             unlock(entry_lock)
         end
@@ -900,6 +914,35 @@ function get_matrix_through_cache(
     end
 end
 
+function get_relayout_matrix_through_cache(
+    format::FormatReader,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+)::NamedArray
+    @assert !format_has_matrix(format, rows_axis, columns_axis, name)
+    matrix = get_matrix_through_cache(format, columns_axis, rows_axis, name).array
+    if format isa FormatWriter && !format.internal.is_frozen
+        upgrade_to_data_write_lock(format)
+    end
+    return get_through_cache(
+        format,
+        matrix_cache_key(rows_axis, columns_axis, name),
+        StorageMatrix,
+        MemoryData;
+        is_slow = true,
+    ) do
+        if format isa FormatWriter && !format.internal.is_frozen
+            @assert has_data_write_lock(format)
+            matrix = format_relayout_matrix!(format, columns_axis, rows_axis, name, matrix)
+            return (as_named_matrix(format, rows_axis, columns_axis, matrix), nothing)
+        else
+            matrix = transposer(matrix)
+            return (as_named_matrix(format, rows_axis, columns_axis, matrix), nothing)
+        end
+    end
+end
+
 function cache_scalar!(format::FormatReader, name::AbstractString, value::StorageScalar)::Nothing
     set_in_cache!(format, scalar_cache_key(name), value, format.internal.cache_group)
     return nothing
@@ -942,6 +985,7 @@ function as_named_matrix(
 )::NamedArray
     rows_axis_dict = get_axis_dict_through_cache(format, rows_axis)
     columns_axis_dict = get_axis_dict_through_cache(format, columns_axis)
+    @assert size(matrix) == (length(rows_axis_dict), length(columns_axis_dict))
     return NamedArray(matrix, (rows_axis_dict, columns_axis_dict), (rows_axis, columns_axis))
 end
 

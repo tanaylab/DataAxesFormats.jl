@@ -13,11 +13,13 @@ using ..Formats
 using ..GenericFunctions
 using ..GenericTypes
 using ..Keys
+using ..MatrixLayouts
 using ..Messages
 using ..ReadOnly
 using ..Readers
 using ..StorageTypes
 using ..Writers
+using NamedArrays
 using SparseArrays
 
 import ..Formats.CacheKey
@@ -460,17 +462,31 @@ function Formats.format_has_matrix(
     chain::AnyChain,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
-    name::AbstractString;
-    for_relayout::Bool = false,
+    name::AbstractString,
 )::Bool
     @assert Formats.has_data_read_lock(chain)
     for daf in reverse(chain.dafs)
         if Formats.format_has_axis(daf, rows_axis; for_change = false) &&
            Formats.format_has_axis(daf, columns_axis; for_change = false) &&
-           Formats.format_has_matrix(daf, rows_axis, columns_axis, name; for_relayout = for_relayout)
+           Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
             return true
-        elseif for_relayout
-            return false  # untested
+        end
+    end
+    return false
+end
+
+function Formats.format_has_cached_matrix(
+    chain::AnyChain,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+)::Bool
+    @assert Formats.has_data_read_lock(chain)
+    for daf in reverse(chain.dafs)
+        if Formats.format_has_axis(daf, rows_axis; for_change = false) &&
+           Formats.format_has_axis(daf, columns_axis; for_change = false) &&
+           Formats.format_has_cached_matrix(daf, rows_axis, columns_axis, name)
+            return true
         end
     end
     return false
@@ -544,10 +560,31 @@ function Formats.format_relayout_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-)::Nothing
+    matrix::StorageMatrix,
+)::StorageMatrix
     @assert Formats.has_data_write_lock(chain)
-    Formats.format_relayout_matrix!(chain.daf, rows_axis, columns_axis, name)
-    return nothing
+
+    for daf in reverse(chain.dafs)
+        if Formats.format_has_axis(daf, rows_axis; for_change = false) &&
+           Formats.format_has_axis(daf, columns_axis; for_change = false) &&
+           Formats.format_has_cached_matrix(daf, rows_axis, columns_axis, name)
+            if daf isa DafWriter && !daf.internal.is_frozen
+                return Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name, matrix)
+            else
+                return Formats.get_through_cache(  # untested
+                    daf,
+                    Formats.matrix_cache_key(columns_axis, rows_axis, name),
+                    StorageMatrix,
+                    MemoryData;
+                    is_slow = true,
+                ) do
+                    return (Formats.as_named_matrix(daf, columns_axis, rows_axis, transposer(matrix)), nothing)
+                end
+            end
+            return nothing
+        end
+    end
+    @assert false
 end
 
 function Formats.format_delete_matrix!(
@@ -558,11 +595,12 @@ function Formats.format_delete_matrix!(
     for_set::Bool,
 )::Nothing
     @assert Formats.has_data_write_lock(chain)
+
     if !for_set
         for daf in chain.dafs[1:(end - 1)]
             if Formats.format_has_axis(daf, rows_axis; for_change = false) &&
                Formats.format_has_axis(daf, columns_axis; for_change = false) &&
-               Formats.format_has_matrix(daf, rows_axis, columns_axis, name; for_relayout = false)
+               Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
                 error(dedent("""
                     failed to delete the matrix: $(name)
                     for the rows axis: $(rows_axis)
@@ -574,11 +612,13 @@ function Formats.format_delete_matrix!(
             end
         end
     end
+
     if Formats.format_has_axis(chain.daf, rows_axis; for_change = false) &&
        Formats.format_has_axis(chain.daf, columns_axis; for_change = false) &&
-       Formats.format_has_matrix(chain.daf, rows_axis, columns_axis, name; for_relayout = false)
+       Formats.format_has_matrix(chain.daf, rows_axis, columns_axis, name)
         Formats.format_delete_matrix!(chain.daf, rows_axis, columns_axis, name; for_set = for_set)
     end
+
     return nothing
 end
 
@@ -609,7 +649,7 @@ function Formats.format_get_matrix(
     for daf in reverse(chain.dafs)
         if Formats.format_has_axis(daf, rows_axis; for_change = false) &&
            Formats.format_has_axis(daf, columns_axis; for_change = false) &&
-           Formats.format_has_matrix(daf, rows_axis, columns_axis, name; for_relayout = false)
+           Formats.format_has_cached_matrix(daf, rows_axis, columns_axis, name)
             return Formats.read_only_array(Formats.get_matrix_through_cache(daf, rows_axis, columns_axis, name))
         end
     end

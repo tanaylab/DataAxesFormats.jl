@@ -34,7 +34,7 @@ end
 function test_invalid(daf::DafReader, query::Union{String, Query}, message::String)::Nothing
     message = dedent(message)
     @test_throws message query_result_dimensions(query)
-    @test_throws (message * "\nfor the daf data: memory!") with_unwrapping_exceptions() do
+    @test_throws message with_unwrapping_exceptions() do
         return daf[query]
     end
     return nothing

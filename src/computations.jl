@@ -285,8 +285,7 @@ When using [`@computation`](@ref):
     \$(CONTRACT)
     ...
     '''
-    @computation Contract(...)
-    function something(daf::DafWriter, ...)
+    @computation Contract(...) function something(daf::DafWriter, ...)
         return ...
     end
 
@@ -349,8 +348,7 @@ When using [`@computation`](@ref):
     If `y` (default: \$(DEFAULT.y)) is set, ...
     ...
     '''
-    @computation Contract(...)
-    function something(daf::DafWriter, x::Int = 0; y::Bool = false)
+    @computation Contract(...) function something(daf::DafWriter, x::Int = 0; y::Bool = false)
         return ...
     end
 
@@ -389,7 +387,7 @@ function get_metadata(doc_str::Base.Docs.DocStr)::Tuple{AbstractString, Function
 end
 
 """
-    function function_contract(func::Function[, index::Integer = 1])::Contract
+    function_contract(func::Function[, index::Integer = 1])::Contract
 
 Access the contract of a function annotated by [`@computation`](@ref). By default the first contract is returned. If the
 [`@computation`](@ref) has two contracts, you can specify the `index` of the contract to return.
@@ -400,7 +398,7 @@ function function_contract(func::Function, index::Integer = 1)::Contract
 end
 
 """
-    function function_default(func::Function, parameter::Symbol)::Contract
+    function_default(func::Function, parameter::Symbol)::Contract
 
 Access the default of a parameter of a function annotated by [`@computation`](@ref).
 """

@@ -12,6 +12,7 @@ using ..Messages
 using ..Readers
 using ..StorageTypes
 using ..Writers
+using NamedArrays
 using SparseArrays
 
 import ..Formats
@@ -213,8 +214,7 @@ function Formats.format_has_matrix(
     memory::MemoryDaf,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
-    name::AbstractString;
-    for_relayout::Bool,  # NOLINT
+    name::AbstractString,
 )::Bool
     @assert Formats.has_data_read_lock(memory)
     return haskey(memory.matrices[rows_axis][columns_axis], name)
@@ -297,12 +297,12 @@ function Formats.format_relayout_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-)::Nothing
+    matrix::StorageMatrix,
+)::StorageMatrix
     @assert Formats.has_data_write_lock(memory)
-    matrix = Formats.format_get_matrix(memory, rows_axis, columns_axis, name)
-    matrix = transposer!(matrix)
+    matrix = transposer(matrix)
     Formats.format_set_matrix!(memory, columns_axis, rows_axis, name, matrix)
-    return nothing
+    return matrix
 end
 
 function Formats.format_delete_matrix!(
