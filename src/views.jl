@@ -608,10 +608,10 @@ function get_fetch_axis(
     return fetch_axis
 end
 
-function Formats.begin_data_read_lock(view::DafView, what::Any...)::Bool
-    is_top_level = invoke(Formats.begin_data_read_lock, Tuple{DafReader, Vararg{Any}}, view, what...)
+function Formats.begin_data_read_lock(view::DafView, what::Any...)::Nothing
+    invoke(Formats.begin_data_read_lock, Tuple{DafReader, Vararg{Any}}, view, what...)
     Formats.begin_data_read_lock(view.daf, what...)
-    return is_top_level
+    return nothing
 end
 
 function Formats.end_data_read_lock(view::DafView, what::Any...)::Nothing

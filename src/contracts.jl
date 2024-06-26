@@ -1129,8 +1129,9 @@ function direction_name(is_output::Bool)::String
     end
 end
 
-function Formats.begin_data_read_lock(contract_daf::ContractDaf, what::Any...)::Bool
-    return Formats.begin_data_read_lock(contract_daf.daf, what...)
+function Formats.begin_data_read_lock(contract_daf::ContractDaf, what::Any...)::Nothing
+    Formats.begin_data_read_lock(contract_daf.daf, what...)
+    return nothing
 end
 
 function Formats.end_data_read_lock(contract_daf::ContractDaf, what::Any...)::Nothing

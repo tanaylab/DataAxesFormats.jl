@@ -1,0 +1,780 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Contracts · Daf.jl v0.1.0
+</title>
+<meta name="title" content="Contracts · Daf.jl v0.1.0"/>
+<meta property="og:title" content="Contracts · Daf.jl v0.1.0"/>
+<meta property="twitter:title" content="Contracts · Daf.jl v0.1.0"/>
+<meta name="description" content="Documentation for Daf.jl v0.1.0."/>
+<meta property="og:description" content="Documentation for Daf.jl v0.1.0."/>
+<meta property="twitter:description" content="Documentation for Daf.jl v0.1.0."/>
+<script data-outdated-warner src="assets/warner.js">
+</script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/>
+<script>documenterBaseURL="."
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="assets/documenter.js">
+</script>
+<script src="search_index.js">
+</script>
+<script src="siteinfo.js">
+</script>
+<script src="../versions.js">
+</script>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/>
+<script src="assets/themeswap.js">
+</script>
+</head>
+<body>
+<div id="documenter">
+<nav class="docs-sidebar">
+<a class="docs-logo" href="index.html">
+<img src="assets/logo.svg" alt="Daf.jl v0.1.0 logo"/>
+</a>
+<div class="docs-package-name">
+<span class="docs-autofit">
+<a href="index.html">Daf.jl v0.1.0
+</a>
+</span>
+</div>
+<button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)
+</button>
+<ul class="docs-menu">
+<li>
+<a class="tocitem" href="index.html">Daf
+</a>
+</li>
+<li>
+<a class="tocitem" href="readers.html">Readers
+</a>
+</li>
+<li>
+<a class="tocitem" href="writers.html">Writers
+</a>
+</li>
+<li>
+<a class="tocitem" href="read_only.html">Read-only
+</a>
+</li>
+<li>
+<a class="tocitem" href="queries.html">Queries
+</a>
+</li>
+<li>
+<a class="tocitem" href="tokens.html">Tokens
+</a>
+</li>
+<li>
+<a class="tocitem" href="views.html">Views
+</a>
+</li>
+<li>
+<a class="tocitem" href="chains.html">Chains
+</a>
+</li>
+<li>
+<a class="tocitem" href="computations.html">Computations
+</a>
+</li>
+<li>
+<a class="tocitem" href="copies.html">Copies
+</a>
+</li>
+<li>
+<a class="tocitem" href="concat.html">Concat
+</a>
+</li>
+<li>
+<a class="tocitem" href="adapters.html">Adapters
+</a>
+</li>
+<li class="is-active">
+<a class="tocitem" href="contracts.html">Contracts
+</a>
+<ul class="internal">
+<li>
+<a class="tocitem" href="#Index">
+<span>Index
+</span>
+</a>
+</li>
+</ul>
+</li>
+<li>
+<a class="tocitem" href="formats.html">Formats
+</a>
+</li>
+<li>
+<a class="tocitem" href="keys.html">Keys
+</a>
+</li>
+<li>
+<a class="tocitem" href="memory_format.html">Memory Format
+</a>
+</li>
+<li>
+<a class="tocitem" href="h5df_format.html">H5DF Format
+</a>
+</li>
+<li>
+<a class="tocitem" href="files_format.html">Files Format
+</a>
+</li>
+<li>
+<a class="tocitem" href="anndata_format.html">AnnData Format
+</a>
+</li>
+<li>
+<a class="tocitem" href="reconstruction.html">Reconstruction
+</a>
+</li>
+<li>
+<a class="tocitem" href="registry.html">Operations registry
+</a>
+</li>
+<li>
+<a class="tocitem" href="operations.html">Query operations
+</a>
+</li>
+<li>
+<a class="tocitem" href="storage_types.html">Storage types
+</a>
+</li>
+<li>
+<a class="tocitem" href="matrix_layouts.html">Matrix layouts
+</a>
+</li>
+<li>
+<a class="tocitem" href="groups.html">Groups
+</a>
+</li>
+<li>
+<a class="tocitem" href="messages.html">Messages
+</a>
+</li>
+<li>
+<a class="tocitem" href="generic_logging.html">Generic Logging
+</a>
+</li>
+<li>
+<a class="tocitem" href="generic_locks.html">Generic Locks
+</a>
+</li>
+<li>
+<a class="tocitem" href="generic_types.html">Generic Types
+</a>
+</li>
+<li>
+<a class="tocitem" href="generic_functions.html">Generic Functions
+</a>
+</li>
+<li>
+<a class="tocitem" href="example_data.html">Example data
+</a>
+</li>
+</ul>
+<div class="docs-version-selector field has-addons">
+<div class="control">
+<span class="docs-label button is-static is-size-7">Version
+</span>
+</div>
+<div class="docs-selector control is-expanded">
+<div class="select is-fullwidth is-size-7">
+<select id="documenter-version-selector">
+</select>
+</div>
+</div>
+</div>
+</nav>
+<div class="docs-main">
+<header class="docs-navbar">
+<a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#">
+</a>
+<nav class="breadcrumb">
+<ul class="is-hidden-mobile">
+<li class="is-active">
+<a href="contracts.html">Contracts
+</a>
+</li>
+</ul>
+<ul class="is-hidden-tablet">
+<li class="is-active">
+<a href="contracts.html">Contracts
+</a>
+</li>
+</ul>
+</nav>
+<div class="docs-right">
+<a class="docs-navbar-link" href="https://github.com/tanaylab/Daf.jl/blob/main{path}?plain=1#L{line}" title="View the repository on GitHub">
+<span class="docs-icon fa-brands">
+</span>
+<span class="docs-label is-hidden-touch">GitHub
+</span>
+</a>
+<a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings">
+</a>
+<a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings">
+</a>
+</div>
+</header>
+<article class="content" id="documenter-page">
+<h1 id="Contracts">
+<a class="docs-heading-anchor" href="#Contracts">Contracts
+</a>
+<a id="Contracts-1">
+</a>
+<a class="docs-heading-anchor-permalink" href="#Contracts" title="Permalink">
+</a>
+</h1>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Contracts" href="#Daf.Contracts">
+<code>Daf.Contracts
+</code>
+</a> — 
+<span class="docstring-category">Module
+</span>
+</header>
+<section>
+<div>
+<p>Enforce input and output contracts of computations using 
+<code>Daf
+</code> data.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Contracts.Contract" href="#Daf.Contracts.Contract">
+<code>Daf.Contracts.Contract
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">@kwdef struct Contract
+    is_relaxed::Bool = false
+    axes::Maybe{ContractAxes} = nothing
+    data::Maybe{ContractData} = nothing
+end
+</code>
+</pre>
+<p>The contract of a computational tool, specifing the 
+<code>axes
+</code> and and 
+<code>data
+</code>. If 
+<code>is_relaxed
+</code>, this allows for additional unlisted inputs; this is typically used when the computation has query parameters, which may need to access such additional data.
+</p>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>When a function calls several functions in a row, you can compute its contract by using 
+<a href="computations.html#Daf.Computations.function_contract">
+<code>function_contract
+</code>
+</a> on them and then combining the results in their invocation order using 
+<code>|&gt;
+</code>.
+</p>
+</div>
+</div>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Contracts.ContractAxes" href="#Daf.Contracts.ContractAxes">
+<code>Daf.Contracts.ContractAxes
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</header>
+<section>
+<div>
+<p>A vector of pairs where the key is the axis name and the value is a tuple of the 
+<a href="contracts.html#Daf.Contracts.ContractExpectation">
+<code>ContractExpectation
+</code>
+</a> and a description of the axis (for documentation). Axes are listed mainly for documentation; axes of required or guaranteed vectors or matrices are automatically required or guaranteed to match. However it is considered polite to explicitly list the axes with their descriptions so the documentation of the contract will be complete.
+</p>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>Due to Julia&#39;s type system limitations, there&#39;s just no way for the system to enforce the type of the pairs in this vector. That is, what we&#39;d 
+<strong>like
+</strong> to say is:
+</p>
+<pre>
+<code class="nohighlight hljs">ContractAxes = AbstractVector{Pair{AxisKey, AxisSpecification}}
+</code>
+</pre>
+<p>But what we are 
+<strong>forced
+</strong> to say is:
+</p>
+<pre>
+<code class="nohighlight hljs">ContractAxes = AbstractVector{&lt;:Pair}
+</code>
+</pre>
+<p>Glory to anyone who figures out an incantation that would force the system to perform more meaningful type inference here.
+</p>
+</div>
+</div>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Contracts.AxisSpecification" href="#Daf.Contracts.AxisSpecification">
+<code>Daf.Contracts.AxisSpecification
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</header>
+<section>
+<div>
+<p>The specification of an axis in a 
+<a href="contracts.html#Daf.Contracts.Contract">
+<code>Contract
+</code>
+</a>, which is the 
+<a href="contracts.html#Daf.Contracts.ContractExpectation">
+<code>ContractExpectation
+</code>
+</a> for enforcement and a string description for the generated documentation.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Contracts.ContractData" href="#Daf.Contracts.ContractData">
+<code>Daf.Contracts.ContractData
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</header>
+<section>
+<div>
+<p>A vector of pairs where the key is a 
+<a href="keys.html#Daf.Keys.DataKey">
+<code>DataKey
+</code>
+</a> identifying some data property, and the value is a tuple of the 
+<a href="contracts.html#Daf.Contracts.ContractExpectation">
+<code>ContractExpectation
+</code>
+</a>, the expected data type, and a description (for documentation).
+</p>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>Due to Julia&#39;s type system limitations, there&#39;s just no way for the system to enforce the type of the pairs in this vector. That is, what we&#39;d 
+<strong>like
+</strong> to say is:
+</p>
+<pre>
+<code class="nohighlight hljs">ContractData = AbstractVector{Pair{DataKey, DataSpecification}
+</code>
+</pre>
+<p>But what we are 
+<strong>forced
+</strong> to say is:
+</p>
+<pre>
+<code class="nohighlight hljs">ContractData = AbstractVector{&lt;:Pair}
+</code>
+</pre>
+<p>Glory to anyone who figures out an incantation that would force the system to perform more meaningful type inference here.
+</p>
+</div>
+</div>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Contracts.DataSpecification" href="#Daf.Contracts.DataSpecification">
+<code>Daf.Contracts.DataSpecification
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</header>
+<section>
+<div>
+<p>The specification of some property in a 
+<a href="contracts.html#Daf.Contracts.Contract">
+<code>Contract
+</code>
+</a>, which is the 
+<a href="contracts.html#Daf.Contracts.ContractExpectation">
+<code>ContractExpectation
+</code>
+</a> and the type for enforcement, and a string description for the generated documentation.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Contracts.ContractExpectation" href="#Daf.Contracts.ContractExpectation">
+<code>Daf.Contracts.ContractExpectation
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</header>
+<section>
+<div>
+<p>The expectation from a specific property for a computation on 
+<code>Daf
+</code> data.
+</p>
+<p>Input data:
+</p>
+<p>
+<code>RequiredInput
+</code> - data that must exist in the data when invoking the computation, will be used as input.
+</p>
+<p>
+<code>OptionalInput
+</code> - data that, if existing in the data when invoking the computation, will be used as an input.
+</p>
+<p>Output data:
+</p>
+<p>
+<code>GuaranteedOutput
+</code> - data that is guaranteed to exist when the computation is done.
+</p>
+<p>
+<code>OptionalOutput
+</code> - data that may exist when the computation is done, depending on some condition, which may include the existence of optional input and/or the value of parameters to the computation, and/or the content of the data.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Contracts.contractor" href="#Daf.Contracts.contractor">
+<code>Daf.Contracts.contractor
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">contractor(
+    computation::AbstractString,
+    contract::Contract,
+    daf::DafReader;
+    overwrite::Bool,
+)::ContractDaf
+</code>
+</pre>
+<p>Wrap a 
+<code>daf
+</code> data set to enforce a 
+<code>contract
+</code> for some 
+<code>computation
+</code>, possibly allowing for 
+<code>overwrite
+</code> of existing outputs.
+</p>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>If the 
+<code>contract
+</code> specifies any outputs, the 
+<code>daf
+</code> needs to be a 
+<code>DafWriter
+</code>.
+</p>
+</div>
+</div>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Contracts.ContractDaf" href="#Daf.Contracts.ContractDaf">
+<code>Daf.Contracts.ContractDaf
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">struct ContractDaf &lt;: DafWriter ... end
+</code>
+</pre>
+<p>A 
+<a href="formats.html#Daf.Formats.DafWriter">
+<code>DafWriter
+</code>
+</a> wrapper which restricts access only to the properties listed in some 
+<a href="contracts.html#Daf.Contracts.Contract">
+<code>Contract
+</code>
+</a>. This also tracks which properties are accessed, so when a computation is done, we can verify that all required inputs were actually accessed. If they weren&#39;t, then they weren&#39;t really required (should have been marked as optional instead).
+</p>
+<p>This isn&#39;t exported and isn&#39;t created manually; instead call 
+<a href="contracts.html#Daf.Contracts.contractor">
+<code>contractor
+</code>
+</a>, or, better yet, use the 
+<code>@computation
+</code> macro.
+</p>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>If the 
+<a href="contracts.html#Daf.Contracts.Contract">
+<code>Contract
+</code>
+</a> specifies no outputs, then this becomes effectively a read-only 
+<code>Daf
+</code> data set; however, to avoid code duplication, it is still a 
+<a href="formats.html#Daf.Formats.DafWriter">
+<code>DafWriter
+</code>
+</a> rather than a 
+<a href="formats.html#Daf.Formats.DafReader">
+<code>DafReader
+</code>
+</a>.
+</p>
+</div>
+</div>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Contracts.verify_input" href="#Daf.Contracts.verify_input">
+<code>Daf.Contracts.verify_input
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">verify_input(contract_daf::ContractDaf)::Nothing
+</code>
+</pre>
+<p>Verify the 
+<code>contract_daf
+</code> data before a computation is invoked. This verifies that all the required data exists and is of the appropriate type, and that if any of the optional data exists, it has the appropriate type.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Contracts.verify_output" href="#Daf.Contracts.verify_output">
+<code>Daf.Contracts.verify_output
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">verify_output(contract_daf::ContractDaf)::Nothing
+</code>
+</pre>
+<p>Verify the 
+<code>contract_daf
+</code> data when a computation is complete. This verifies that all the guaranteed output data exists and is of the appropriate type, and that if any of the optional output data exists, it has the appropriate type. It also verifies that all the required inputs were accessed by the computation.
+</p>
+</div>
+</section>
+</article>
+<h2 id="Index">
+<a class="docs-heading-anchor" href="#Index">Index
+</a>
+<a id="Index-1">
+</a>
+<a class="docs-heading-anchor-permalink" href="#Index" title="Permalink">
+</a>
+</h2>
+<ul>
+<li>
+<a href="contracts.html#Daf.Contracts">
+<code>Daf.Contracts
+</code>
+</a>
+</li>
+<li>
+<a href="contracts.html#Daf.Contracts.AxisSpecification">
+<code>Daf.Contracts.AxisSpecification
+</code>
+</a>
+</li>
+<li>
+<a href="contracts.html#Daf.Contracts.Contract">
+<code>Daf.Contracts.Contract
+</code>
+</a>
+</li>
+<li>
+<a href="contracts.html#Daf.Contracts.ContractAxes">
+<code>Daf.Contracts.ContractAxes
+</code>
+</a>
+</li>
+<li>
+<a href="contracts.html#Daf.Contracts.ContractDaf">
+<code>Daf.Contracts.ContractDaf
+</code>
+</a>
+</li>
+<li>
+<a href="contracts.html#Daf.Contracts.ContractData">
+<code>Daf.Contracts.ContractData
+</code>
+</a>
+</li>
+<li>
+<a href="contracts.html#Daf.Contracts.ContractExpectation">
+<code>Daf.Contracts.ContractExpectation
+</code>
+</a>
+</li>
+<li>
+<a href="contracts.html#Daf.Contracts.DataSpecification">
+<code>Daf.Contracts.DataSpecification
+</code>
+</a>
+</li>
+<li>
+<a href="contracts.html#Daf.Contracts.contractor">
+<code>Daf.Contracts.contractor
+</code>
+</a>
+</li>
+<li>
+<a href="contracts.html#Daf.Contracts.verify_input">
+<code>Daf.Contracts.verify_input
+</code>
+</a>
+</li>
+<li>
+<a href="contracts.html#Daf.Contracts.verify_output">
+<code>Daf.Contracts.verify_output
+</code>
+</a>
+</li>
+</ul>
+</article>
+<nav class="docs-footer">
+<a class="docs-footer-prevpage" href="adapters.html">« Adapters
+</a>
+<a class="docs-footer-nextpage" href="formats.html">Formats »
+</a>
+<div class="flexbox-break">
+</div>
+<p class="footer-message">Powered by 
+<a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl
+</a> and the 
+<a href="https://julialang.org/">Julia Programming Language
+</a>.
+</p>
+</nav>
+</div>
+<div class="modal" id="documenter-settings">
+<div class="modal-background">
+</div>
+<div class="modal-card">
+<header class="modal-card-head">
+<p class="modal-card-title">Settings
+</p>
+<button class="delete">
+</button>
+</header>
+<section class="modal-card-body">
+<p>
+<label class="label">Theme
+</label>
+<div class="select">
+<select id="documenter-themepicker">
+<option value="auto">Automatic (OS)
+</option>
+<option value="documenter-light">documenter-light
+</option>
+<option value="documenter-dark">documenter-dark
+</option>
+</select>
+</div>
+</p>
+<hr/>
+<p>This document was generated with 
+<a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl
+</a> version 1.4.1. Using Julia version 1.10.4.
+</p>
+</section>
+<footer class="modal-card-foot">
+</footer>
+</div>
+</div>
+</div>
+</body>
+</html>

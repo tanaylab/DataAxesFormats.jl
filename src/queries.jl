@@ -1670,14 +1670,6 @@ function get_query(
     return Formats.with_data_read_lock(daf, "for get_query of:", cache_key) do
         did_compute = [false]
         if cache
-            if query_requires_relayout(daf::DafReader, query_sequence)
-                result = Formats.with_cache_read_lock(daf, "for get_query of:", cache_key) do
-                    return get(daf.internal.cache, cache_key, nothing)
-                end
-                if result === nothing && daf isa DafWriter && !daf.internal.is_frozen
-                    Formats.upgrade_to_data_write_lock(daf)
-                end
-            end
             result = Formats.get_through_cache(
                 daf,
                 cache_key,

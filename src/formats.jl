@@ -746,7 +746,7 @@ function result_from_cache(cache_entry::CacheEntry, ::Type{T})::T where {T}
     entry_lock = cache_entry.data
     if entry_lock isa ReentrantLock
         cache_entry = lock(entry_lock) do  # untested
-            return cache_entry
+            return cache_entry  # untested
         end
     end
     return cache_entry.data
@@ -810,9 +810,6 @@ function write_throgh_cache(
                 end
                 return nothing
             end
-        catch exception
-            @assert !(exception isa UpgradeToWriteLockException)
-            rethrow()
         finally
             unlock(entry_lock)
         end
@@ -922,9 +919,6 @@ function get_relayout_matrix_through_cache(
 )::NamedArray
     @assert !format_has_matrix(format, rows_axis, columns_axis, name)
     matrix = get_matrix_through_cache(format, columns_axis, rows_axis, name).array
-    if format isa FormatWriter && !format.internal.is_frozen
-        upgrade_to_data_write_lock(format)
-    end
     return get_through_cache(
         format,
         matrix_cache_key(rows_axis, columns_axis, name),
@@ -932,14 +926,8 @@ function get_relayout_matrix_through_cache(
         MemoryData;
         is_slow = true,
     ) do
-        if format isa FormatWriter && !format.internal.is_frozen
-            @assert has_data_write_lock(format)
-            matrix = format_relayout_matrix!(format, columns_axis, rows_axis, name, matrix)
-            return (as_named_matrix(format, rows_axis, columns_axis, matrix), nothing)
-        else
-            matrix = transposer(matrix)
-            return (as_named_matrix(format, rows_axis, columns_axis, matrix), nothing)
-        end
+        matrix = transposer(matrix)
+        return (as_named_matrix(format, rows_axis, columns_axis, matrix), nothing)
     end
 end
 
@@ -1077,16 +1065,15 @@ function parse_mode(mode::AbstractString)::Tuple{Bool, Bool, Bool}
     end
 end
 
-function begin_data_read_lock(format::FormatReader, what::Any...)::Bool
-    return read_lock(format.internal.data_lock, format.name, "data for", what...)  # NOJET
+function begin_data_read_lock(format::FormatReader, what::Any...)::Nothing
+    read_lock(format.internal.data_lock, format.name, "data for", what...)  # NOJET
+    return nothing
 end
 
 function end_data_read_lock(format::FormatReader, what::Any...)::Nothing
     read_unlock(format.internal.data_lock, format.name, "data for", what...)  # NOJET
     return nothing
 end
-
-struct UpgradeToWriteLockException <: Exception end
 
 function with_cache_read_lock(action::Function, format::FormatReader, what::Any...)::Any
     return with_read_lock(action, format.internal.cache_lock, format.name, what...)
@@ -1097,17 +1084,12 @@ function with_cache_write_lock(action::Function, format::FormatReader, what::Any
 end
 
 function with_data_read_lock(action::Function, format::FormatReader, what::Any...)::Any
-    is_top_level = begin_data_read_lock(format, what...)
+    begin_data_read_lock(format, what...)
     try
         return action()
-    catch exception
-        if !is_top_level || !(exception isa UpgradeToWriteLockException)
-            rethrow()
-        end
     finally
         end_data_read_lock(format, what...)
     end
-    return with_data_write_lock(action, format, what...)
 end
 
 function has_data_read_lock(format::FormatReader; read_only::Bool = false)::Bool
@@ -1135,13 +1117,6 @@ end
 
 function has_data_write_lock(format::FormatReader)::Bool
     return has_write_lock(format.internal.data_lock)
-end
-
-function upgrade_to_data_write_lock(format::FormatReader)::Nothing
-    if !has_data_write_lock(format)
-        throw(UpgradeToWriteLockException())
-    end
-    return nothing
 end
 
 function format_get_version_counter(format::FormatReader, version_key::DataKey)::UInt32
