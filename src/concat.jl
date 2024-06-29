@@ -85,7 +85,7 @@ of other axes). Valid values are:
         prefix::Union{Bool, AbstractVector{Bool}} = false,
         prefixed::Maybe{Union{AbstractSet{<:AbstractString}, AbstractVector{<:AbstractSet{<:AbstractString}}}} = nothing,
         empty::Maybe{EmptyData} = nothing,
-        sparse_if_saves_storage_fraction = 0.25,
+        sparse_if_saves_storage_fraction::AbstractFloat = 0.25,
         merge::Maybe{MergeData} = nothing,
         overwrite::Bool = false]
     )::Nothing
@@ -146,10 +146,11 @@ By default, concatenation will fail rather than `overwrite` existing properties 
     prefix::Union{Bool, AbstractVector{Bool}} = false,
     prefixed::Maybe{Union{AbstractSet{<:AbstractString}, AbstractVector{<:AbstractSet{<:AbstractString}}}} = nothing,
     empty::Maybe{EmptyData} = nothing,
-    sparse_if_saves_storage_fraction = 0.1,
+    sparse_if_saves_storage_fraction::AbstractFloat = 0.25,
     merge::Maybe{MergeData} = nothing,
     overwrite::Bool = false,
 )::Nothing
+    @assert 0 < sparse_if_saves_storage_fraction < 1
     for source in sources
         Formats.begin_data_read_lock(source, "concatenate! of source:", source.name)
     end
@@ -501,7 +502,7 @@ function concatenate_axis_vector(
 
     else
         @assert empty_value isa Maybe{StorageScalar}
-        sparse_saves = sparse_storage_fraction(empty_value, dtype, sizes, vectors, 1, 1)  # NOJET
+        sparse_saves = sparse_vectors_storage_fraction(empty_value, dtype, sizes, vectors)  # NOJET
         if sparse_saves >= sparse_if_saves_storage_fraction
             @assert empty_value === nothing || empty_value == 0
             sparse_vectors = sparsify_vectors(vectors, dtype, sizes)
@@ -653,7 +654,8 @@ function concatenate_axis_matrix(
     dtype = reduce(merge_dtypes, matrices; init = typeof(empty_value))
 
     nrows = axis_length(destination, other_axis)
-    sparse_saves = sparse_storage_fraction(empty_value, dtype, sizes, matrices, axis_length(destination, other_axis), 2)
+    sparse_saves =
+        sparse_matrices_storage_fraction(empty_value, dtype, sizes, matrices, axis_length(destination, other_axis))
     if sparse_saves >= sparse_if_saves_storage_fraction
         @assert empty_value === nothing || empty_value == 0
         sparse_matrices = sparsify_matrices(matrices, dtype, nrows, sizes)
@@ -954,7 +956,7 @@ function concatenate_merge_vector(
         dtype = reduce(merge_dtypes, vectors; init = typeof(empty_value))
 
         if dtype != String
-            sparse_saves = sparse_storage_fraction(empty_value, dtype, sizes, vectors, 1, 1)  # NOJET
+            sparse_saves = sparse_vectors_storage_fraction(empty_value, dtype, sizes, vectors)  # NOJET
             if sparse_saves >= sparse_if_saves_storage_fraction
                 @assert empty_value === nothing || empty_value == 0
                 sparse_vectors = sparsify_vectors(vectors, dtype, sizes)
@@ -1229,34 +1231,64 @@ function signed_sizeof(type::Type{<:Unsigned})::Integer
     return sizeof(type) + 1
 end
 
-function sparse_storage_fraction(
+function sparse_vectors_storage_fraction(
     empty_value::Maybe{StorageReal},
     dtype::Type,
     sizes::AbstractVector{<:Integer},
     arrays::AbstractVector{<:Maybe{NamedArray}},
-    scale::Integer,
-    dimensions::Integer,
 )::Float64
     sparse_size = 0
     dense_size = 0
 
     for (size, array) in zip(sizes, arrays)
-        dense_size += size * scale
+        dense_size += size
         if array !== nothing
             array = array.array
             if array isa AbstractSparseArray
                 sparse_size += nnz(array)
             else
-                sparse_size += size * scale
+                sparse_size += size
             end
         elseif empty_value != 0
-            sparse_size += size * scale
+            sparse_size += size
         end
     end
 
     indtype = indtype_for_size(dense_size)
     dense_bytes = dense_size * sizeof(dtype)
-    sparse_bytes = sparse_size * (sizeof(dtype) + dimensions * sizeof(indtype))
+    sparse_bytes = sparse_size * (sizeof(dtype) + sizeof(indtype))
+    return (dense_bytes - sparse_bytes) / dense_bytes
+end
+
+function sparse_matrices_storage_fraction(
+    empty_value::Maybe{StorageReal},
+    dtype::Type,
+    sizes::AbstractVector{<:Integer},
+    arrays::AbstractVector{<:Maybe{NamedArray}},
+    n_rows::Integer,
+)::Float64
+    sparse_size = 0
+    dense_size = 0
+
+    total_n_columns = 0
+    for (n_columns, array) in zip(sizes, arrays)
+        total_n_columns += n_columns
+        dense_size += n_rows * n_columns
+        if array !== nothing
+            array = array.array
+            if array isa AbstractSparseArray
+                sparse_size += nnz(array)
+            else
+                sparse_size += n_rows * n_columns
+            end
+        elseif empty_value != 0
+            sparse_size += n_rows * n_columns
+        end
+    end
+
+    indtype = indtype_for_size(dense_size)
+    dense_bytes = dense_size * sizeof(dtype)
+    sparse_bytes = sparse_size * (sizeof(dtype) + sizeof(indtype)) + (total_n_columns + 1) * sizeof(indtype)
     return (dense_bytes - sparse_bytes) / dense_bytes
 end
 

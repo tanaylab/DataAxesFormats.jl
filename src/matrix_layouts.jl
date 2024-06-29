@@ -25,10 +25,13 @@ needs.
 """
 module MatrixLayouts
 
+export Columns
+export Rows
 export axis_name
+export bestify
 export check_efficient_action
 export copy_array
-export Columns
+export densify
 export inefficient_action_handler
 export major_axis
 export minor_axis
@@ -37,15 +40,18 @@ export relayout
 export relayout!
 export require_major_axis
 export require_minor_axis
-export Rows
+export sparsify
 export transposer
 
 using ..GenericFunctions
 using ..GenericTypes
+using ..StorageTypes
 using Distributed
 using LinearAlgebra
 using NamedArrays
 using SparseArrays
+
+import ..StorageTypes.indtype_for_size
 
 """
 A symbolic name for the rows axis. It is much more readable to write, say, `size(matrix, Rows)`, instead of
@@ -523,5 +529,190 @@ function depict_matrix_size(matrix::AbstractMatrix, kind::AbstractString; transp
 end
 
 function depict end
+
+"""
+    sparsify(matrix::AbstractMatrix{T}; copy::Bool = false)::AbstractMatrix{T} where {T <: StorageReal}
+    sparsify(vector::AbstractVector{T}; copy::Bool = false)::AbstractVector{T} where {T <: StorageReal}
+
+Return a sparse version of an array. This will preserve the matrix layout. If `copy`, this will create a copy even if it
+is already sparse.
+"""
+function sparsify(matrix::AbstractMatrix{T}; copy::Bool = false)::AbstractMatrix{T} where {T <: StorageReal}  # NOLINT
+    return SparseMatrixCSC(matrix)
+end
+
+function sparsify(
+    matrix::Union{Transpose{T}, Adjoint{T}};
+    copy::Bool = false,
+)::AbstractMatrix{T} where {T <: StorageReal}
+    return typeof(matrix)(sparsify(parent(matrix); copy = copy))
+end
+
+function sparsify(matrix::NamedMatrix{T}; copy::Bool = false)::NamedArray{T} where {T <: StorageReal}  # NOLINT
+    return NamedArray(sparsify(matrix.array), matrix.dicts, matrix.dimnames)  # NOJET
+end
+
+function sparsify(vector::AbstractVector{T}; copy::Bool = false)::AbstractVector{T} where {T <: StorageReal}  # NOLINT
+    return SparseVector(vector)
+end
+
+function sparsify(vector::NamedVector{T}; copy::Bool = false)::NamedArray{T} where {T <: StorageReal}  # NOLINT
+    return NamedArray(sparsify(vector.array), vector.dicts, vector.dimnames)
+end
+
+function sparsify(array::AbstractSparseArray{T}; copy::Bool = false)::AbstractSparseArray{T} where {T <: StorageReal}
+    if copy
+        array = copy_array(array)
+    end
+    return array
+end
+
+"""
+    densify(matrix::AbstractMatrix{T}; copy::Bool = false)::AbstractMatrix{T} where {T <: StorageReal}
+    densify(vector::AbstractVector{T}; copy::Bool = false)::AbstractVector{T} where {T <: StorageReal}
+
+Return a dense version of an array. This will preserve matrix layout. If `copy`, this will create a copy even if it is
+already dense.
+"""
+function densify(matrix::AbstractMatrix{T}; copy::Bool = false)::AbstractMatrix{T} where {T <: StorageReal}
+    if copy || major_axis(matrix) == Nothing
+        matrix = Matrix(matrix)
+    end
+    return matrix
+end
+
+function densify(
+    matrix::Union{Transpose{T}, Adjoint{T}};
+    copy::Bool = false,
+)::AbstractMatrix{T} where {T <: StorageReal}
+    return typeof(matrix)(densify(parent(matrix); copy = copy))
+end
+
+function densify(matrix::NamedMatrix{T}; copy::Bool = false)::AbstractMatrix{T} where {T <: StorageReal}  # NOLINT
+    return NamedArray(densify(matrix.array), matrix.dicts, matrix.dimnames)
+end
+
+function densify(matrix::AbstractSparseMatrix{T}; copy::Bool = false)::AbstractMatrix{T} where {T <: StorageReal}  # NOLINT
+    return Matrix(matrix)
+end
+
+function densify(vector::AbstractVector{T}; copy::Bool = false)::AbstractVector{T} where {T <: StorageReal}
+    if copy
+        vector = Vector(vector)
+    end
+    return vector
+end
+
+function densify(vector::AbstractSparseVector{T}; copy::Bool = false)::AbstractVector{T} where {T <: StorageReal}  # NOLINT
+    return Vector(vector)
+end
+
+function densify(vector::NamedVector{T}; copy::Bool = false)::AbstractVector{T} where {T <: StorageReal}  # NOLINT
+    return NamedArray(densify(vector.array), vector.dicts, vector.dimnames)
+end
+
+"""
+    bestify(
+        matrix::AbstractMatrix{T};
+        copy::Bool = false,
+        sparse_if_saves_storage_fraction::AbstractFloat = 0.25,
+    )::AbstractMatrix{T} where {T <: StorageReal}
+    bestify(
+        matrix::AbstractVector{T};
+        copy::Bool = false,
+        sparse_if_saves_storage_fraction::AbstractFloat = 0.25,
+    )::AbstractVector{T} where {T <: StorageReal}
+
+Return a "best" (dense or sparse) version of an array. The sparse format is chosen if it saves at least
+`sparse_if_saves_storage_fraction` of the storage of the dense format. If `copy`, this will create a copy even if it is
+already in the best format.
+
+!!! note
+
+    If not `copy` and the matrix is already sparse, we do not change the integer index type, even though this may save
+    space.
+"""
+function bestify(
+    matrix::AbstractMatrix{T};
+    copy::Bool = false,
+    sparse_if_saves_storage_fraction::AbstractFloat = 0.25,
+)::AbstractMatrix{T} where {T <: StorageReal}
+    @assert 0 < sparse_if_saves_storage_fraction < 1
+    if sparse_matrix_saves_storage_fraction(matrix; copy = copy) >= sparse_if_saves_storage_fraction
+        return sparsify(matrix; copy = copy)
+    else
+        return densify(matrix; copy = copy)
+    end
+end
+
+function bestify(
+    vector::AbstractVector{T};
+    copy::Bool = false,
+    sparse_if_saves_storage_fraction::AbstractFloat = 0.25,
+)::AbstractVector{T} where {T <: StorageReal}
+    @assert 0 < sparse_if_saves_storage_fraction < 1
+    if sparse_vector_saves_storage_fraction(vector; copy = copy) >= sparse_if_saves_storage_fraction
+        return sparsify(vector; copy = copy)
+    else
+        return densify(vector; copy = copy)
+    end
+end
+
+function sparse_matrix_saves_storage_fraction(
+    matrix::AbstractSparseMatrix{T, I};
+    copy::Bool,
+)::Float64 where {T <: StorageReal, I <: StorageInteger}
+    n_rows, n_columns = size(matrix)
+    dense_bytes = n_rows * n_columns * sizeof(T)
+
+    if copy
+        indtype = indtype_for_size(n_rows * n_columns)
+    else
+        indtype = I
+    end
+
+    n_nz = nnz(matrix)
+    sparse_bytes = n_nz * (sizeof(T) + sizeof(indtype)) + (n_columns + 1) * sizeof(indtype)
+
+    return (dense_bytes - sparse_bytes) / dense_bytes
+end
+
+function sparse_matrix_saves_storage_fraction(matrix::AbstractMatrix; copy::Bool)::Float64  # NOLINT
+    n_rows, n_columns = size(matrix)
+    dense_bytes = n_rows * n_columns * sizeof(eltype(matrix))
+
+    n_nz = sum(matrix .!= 0)
+    indtype = indtype_for_size(n_rows * n_columns)
+    sparse_bytes = n_nz * (sizeof(eltype(matrix)) + sizeof(indtype)) + (n_columns + 1) * sizeof(indtype)
+    return (dense_bytes - sparse_bytes) / dense_bytes
+end
+
+function sparse_vector_saves_storage_fraction(
+    vector::AbstractSparseVector{T, I};
+    copy::Bool,
+)::Float64 where {T <: StorageReal, I <: StorageInteger}
+    size = length(vector)
+    dense_bytes = size * sizeof(T)
+
+    if copy
+        indtype = indtype_for_size(size)
+    else
+        indtype = I
+    end
+
+    n_nz = sum(vector .!= 0)
+    sparse_bytes = n_nz * (sizeof(T) + sizeof(indtype))
+    return (dense_bytes - sparse_bytes) / dense_bytes
+end
+
+function sparse_vector_saves_storage_fraction(vector::AbstractVector; copy::Bool)::Float64  # NOLINT
+    size = length(vector)
+    dense_bytes = size * sizeof(eltype(vector))
+
+    n_nz = sum(vector .!= 0)
+    indtype = indtype_for_size(size)
+    sparse_bytes = n_nz * (sizeof(eltype(vector)) + sizeof(indtype))
+    return (dense_bytes - sparse_bytes) / dense_bytes
+end
 
 end # module

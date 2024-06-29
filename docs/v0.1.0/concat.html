@@ -283,7 +283,7 @@
     prefix::Union{Bool, AbstractVector{Bool}} = false,
     prefixed::Maybe{Union{AbstractSet{&lt;:AbstractString}, AbstractVector{&lt;:AbstractSet{&lt;:AbstractString}}}} = nothing,
     empty::Maybe{EmptyData} = nothing,
-    sparse_if_saves_storage_fraction = 0.25,
+    sparse_if_saves_storage_fraction::AbstractFloat = 0.25,
     merge::Maybe{MergeData} = nothing,
     overwrite::Bool = false]
 )::Nothing

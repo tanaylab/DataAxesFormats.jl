@@ -341,4 +341,188 @@ nested_test("matrix_layouts") do
             end
         end
     end
+
+    nested_test("reformat") do
+        nested_test("densify") do
+            nested_test("dense") do
+                matrix = [1 2 3; 4 5 6]
+                vector = [1, 2, 3]
+
+                nested_test("()") do
+                    @test densify(matrix) === matrix
+                    @test densify(vector) === vector
+                end
+
+                nested_test("transpose") do
+                    matrix = transpose(matrix)
+                    @test parent(densify(matrix)) === parent(matrix)
+                end
+
+                nested_test("named") do
+                    matrix = NamedArray(matrix)
+                    @test densify(matrix).array === matrix.array
+                    vector = NamedArray(vector)
+                    @test densify(vector).array === vector.array
+                end
+
+                nested_test("copy") do
+                    @test densify(matrix; copy = true) !== matrix
+                    @test densify(vector; copy = true) !== vector
+                    @test densify(matrix; copy = true) == matrix
+                    @test densify(vector; copy = true) == vector
+                    @test densify(matrix; copy = true) isa Matrix
+                    @test densify(vector; copy = true) isa Vector
+                end
+            end
+
+            nested_test("sparse") do
+                matrix = SparseMatrixCSC([1 0 0; 0 0 0; 0 0 0])
+                vector = SparseVector([1, 0, 0])
+
+                @test densify(matrix) !== matrix
+                @test densify(vector) !== vector
+                @test densify(matrix) == matrix
+                @test densify(vector) == vector
+                @test densify(matrix) isa Matrix
+                @test densify(vector) isa Vector
+            end
+        end
+
+        nested_test("sparsify") do
+            nested_test("sparse") do
+                matrix = SparseMatrixCSC([1 0 0; 0 0 0; 0 0 0])
+                vector = SparseVector([1, 0, 0])
+
+                nested_test("()") do
+                    @test sparsify(matrix) === matrix
+                    @test sparsify(vector) === vector
+                end
+
+                nested_test("transpose") do
+                    matrix = transpose(matrix)
+                    @test parent(sparsify(matrix)) === parent(matrix)
+                end
+
+                nested_test("named") do
+                    matrix = NamedArray(matrix)
+                    @test sparsify(matrix).array === matrix.array
+                    vector = NamedArray(vector)
+                    @test sparsify(vector).array === vector.array
+                end
+
+                nested_test("copy") do
+                    @test sparsify(matrix; copy = true) !== matrix
+                    @test sparsify(vector; copy = true) !== vector
+                    @test sparsify(matrix; copy = true) == matrix
+                    @test sparsify(vector; copy = true) == vector
+                    @test sparsify(matrix; copy = true) isa SparseMatrixCSC
+                    @test sparsify(vector; copy = true) isa SparseVector
+                end
+            end
+
+            nested_test("dense") do
+                matrix = [1 2 3; 4 5 6]
+                vector = [1, 2, 3]
+
+                @test sparsify(matrix) !== matrix
+                @test sparsify(vector) !== vector
+                @test sparsify(matrix) == matrix
+                @test sparsify(vector) == vector
+                @test sparsify(matrix) isa SparseMatrixCSC
+                @test sparsify(vector) isa SparseVector
+            end
+        end
+
+        nested_test("bestify") do
+            nested_test("light") do
+                nested_test("dense") do
+                    matrix = [1 0 0; 0 0 0; 0 0 0]
+                    vector = [1, 0, 0]
+
+                    @test bestify(matrix) !== matrix
+                    @test bestify(vector) !== vector
+                    @test bestify(matrix) == matrix
+                    @test bestify(vector) == vector
+                    @test bestify(matrix) isa SparseMatrixCSC
+                    @test bestify(vector) isa SparseVector
+                end
+
+                nested_test("sparse") do
+                    matrix = SparseMatrixCSC([1 0 0; 0 0 0; 0 0 0])
+                    vector = SparseVector([1, 0, 0])
+
+                    nested_test("()") do
+                        @test bestify(matrix) === matrix
+                        @test bestify(vector) === vector
+                    end
+
+                    nested_test("transpose") do
+                        matrix = transpose(matrix)
+                        @test parent(bestify(matrix)) === parent(matrix)
+                    end
+
+                    nested_test("named") do
+                        matrix = NamedArray(matrix)
+                        @test bestify(matrix).array === matrix.array
+                        vector = NamedArray(vector)
+                        @test bestify(vector).array === vector.array
+                    end
+
+                    nested_test("copy") do
+                        @test bestify(matrix; copy = true) !== matrix
+                        @test bestify(vector; copy = true) !== vector
+                        @test bestify(matrix; copy = true) == matrix
+                        @test bestify(vector; copy = true) == vector
+                        @test bestify(matrix; copy = true) isa SparseMatrixCSC
+                        @test bestify(vector; copy = true) isa SparseVector
+                    end
+                end
+            end
+
+            nested_test("heavy") do
+                nested_test("dense") do
+                    matrix = [1 2 3; 4 5 6]
+                    vector = [1, 2, 3]
+
+                    nested_test("()") do
+                        @test bestify(matrix) === matrix
+                        @test bestify(vector) === vector
+                    end
+
+                    nested_test("transpose") do
+                        matrix = transpose(matrix)
+                        @test bestify(matrix) === matrix
+                    end
+
+                    nested_test("named") do
+                        matrix = NamedArray(matrix)
+                        @test bestify(matrix).array === matrix.array
+                        vector = NamedArray(vector)
+                        @test bestify(vector).array === vector.array
+                    end
+
+                    nested_test("copy") do
+                        @test bestify(matrix; copy = true) !== matrix
+                        @test bestify(vector; copy = true) !== vector
+                        @test bestify(matrix; copy = true) == matrix
+                        @test bestify(vector; copy = true) == vector
+                        @test bestify(matrix; copy = true) isa Matrix
+                        @test bestify(vector; copy = true) isa Vector
+                    end
+                end
+
+                nested_test("sparse") do
+                    matrix = SparseMatrixCSC([1 2 3; 4 5 6])
+                    vector = SparseVector([1, 2, 3])
+
+                    @test bestify(matrix; copy = true) !== matrix
+                    @test bestify(vector; copy = true) !== vector
+                    @test bestify(matrix; copy = true) == matrix
+                    @test bestify(vector; copy = true) == vector
+                    @test bestify(matrix; copy = true) isa Matrix
+                    @test bestify(vector; copy = true) isa Vector
+                end
+            end
+        end
+    end
 end

@@ -166,6 +166,12 @@
 </a>
 </li>
 <li>
+<a class="tocitem" href="#Changing-format">
+<span>Changing format
+</span>
+</a>
+</li>
+<li>
 <a class="tocitem" href="#Ensuring-code-efficiency">
 <span>Ensuring code efficiency
 </span>
@@ -774,6 +780,109 @@ transposer(matrix::NamedMatrix)::NamedMatrix
 </div>
 </section>
 </article>
+<h2 id="Changing-format">
+<a class="docs-heading-anchor" href="#Changing-format">Changing format
+</a>
+<a id="Changing-format-1">
+</a>
+<a class="docs-heading-anchor-permalink" href="#Changing-format" title="Permalink">
+</a>
+</h2>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.MatrixLayouts.bestify" href="#Daf.MatrixLayouts.bestify">
+<code>Daf.MatrixLayouts.bestify
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">bestify(
+    matrix::AbstractMatrix{T};
+    copy::Bool = false,
+    sparse_if_saves_storage_fraction::AbstractFloat = 0.25,
+)::AbstractMatrix{T} where {T &lt;: StorageReal}
+bestify(
+    matrix::AbstractVector{T};
+    copy::Bool = false,
+    sparse_if_saves_storage_fraction::AbstractFloat = 0.25,
+)::AbstractVector{T} where {T &lt;: StorageReal}
+</code>
+</pre>
+<p>Return a &quot;best&quot; (dense or sparse) version of an array. The sparse format is chosen if it saves at least 
+<code>sparse_if_saves_storage_fraction
+</code> of the storage of the dense format. If 
+<code>copy
+</code>, this will create a copy even if it is already in the best format.
+</p>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>If not 
+<code>copy
+</code> and the matrix is already sparse, we do not change the integer index type, even though this may save space.
+</p>
+</div>
+</div>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.MatrixLayouts.densify" href="#Daf.MatrixLayouts.densify">
+<code>Daf.MatrixLayouts.densify
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">densify(matrix::AbstractMatrix{T}; copy::Bool = false)::AbstractMatrix{T} where {T &lt;: StorageReal}
+densify(vector::AbstractVector{T}; copy::Bool = false)::AbstractVector{T} where {T &lt;: StorageReal}
+</code>
+</pre>
+<p>Return a dense version of an array. This will preserve matrix layout. If 
+<code>copy
+</code>, this will create a copy even if it is already dense.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.MatrixLayouts.sparsify" href="#Daf.MatrixLayouts.sparsify">
+<code>Daf.MatrixLayouts.sparsify
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">sparsify(matrix::AbstractMatrix{T}; copy::Bool = false)::AbstractMatrix{T} where {T &lt;: StorageReal}
+sparsify(vector::AbstractVector{T}; copy::Bool = false)::AbstractVector{T} where {T &lt;: StorageReal}
+</code>
+</pre>
+<p>Return a sparse version of an array. This will preserve the matrix layout. If 
+<code>copy
+</code>, this will create a copy even if it is already sparse.
+</p>
+</div>
+</section>
+</article>
 <h2 id="Ensuring-code-efficiency">
 <a class="docs-heading-anchor" href="#Ensuring-code-efficiency">Ensuring code efficiency
 </a>
@@ -907,6 +1016,12 @@ transposer(matrix::NamedMatrix)::NamedMatrix
 </a>
 </li>
 <li>
+<a href="matrix_layouts.html#Daf.MatrixLayouts.bestify">
+<code>Daf.MatrixLayouts.bestify
+</code>
+</a>
+</li>
+<li>
 <a href="matrix_layouts.html#Daf.MatrixLayouts.check_efficient_action">
 <code>Daf.MatrixLayouts.check_efficient_action
 </code>
@@ -915,6 +1030,12 @@ transposer(matrix::NamedMatrix)::NamedMatrix
 <li>
 <a href="matrix_layouts.html#Daf.MatrixLayouts.copy_array">
 <code>Daf.MatrixLayouts.copy_array
+</code>
+</a>
+</li>
+<li>
+<a href="matrix_layouts.html#Daf.MatrixLayouts.densify">
+<code>Daf.MatrixLayouts.densify
 </code>
 </a>
 </li>
@@ -963,6 +1084,12 @@ transposer(matrix::NamedMatrix)::NamedMatrix
 <li>
 <a href="matrix_layouts.html#Daf.MatrixLayouts.require_minor_axis">
 <code>Daf.MatrixLayouts.require_minor_axis
+</code>
+</a>
+</li>
+<li>
+<a href="matrix_layouts.html#Daf.MatrixLayouts.sparsify">
+<code>Daf.MatrixLayouts.sparsify
 </code>
 </a>
 </li>

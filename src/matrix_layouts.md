@@ -31,6 +31,14 @@ Daf.MatrixLayouts.transposer
 Daf.MatrixLayouts.copy_array
 ```
 
+## Changing format
+
+```@docs
+Daf.MatrixLayouts.bestify
+Daf.MatrixLayouts.densify
+Daf.MatrixLayouts.sparsify
+```
+
 ## Ensuring code efficiency
 
 ```@docs
