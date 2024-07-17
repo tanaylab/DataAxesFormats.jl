@@ -195,16 +195,12 @@ function inefficient_action_handler(handler::AbnormalHandler)::AbnormalHandler
     return previous_inefficient_action_handler
 end
 
-macro assert_is_vector(where, vector)
+macro assert_is_vector(vector)
     vector_name = string(vector)
-    return esc(
-        :(@assert $vector isa AbstractVector (
-            "non-vector " * $vector_name * ": " * depict($vector) * "\nin: " * $where
-        )),
-    )
+    return esc(:(@assert $vector isa AbstractVector ("non-vector " * $vector_name * ": " * depict($vector))))
 end
 
-macro assert_vector_size(where, vector, n_elements)
+macro assert_vector_size(vector, n_elements)
     vector_name = string(vector)
     n_elements_name = string(n_elements)
     return esc(
@@ -216,40 +212,34 @@ macro assert_vector_size(where, vector, n_elements)
             "\nis different from " *
             $n_elements_name *
             ": " *
-            string($n_elements) *
-            "\nin: " *
-            $where
+            string($n_elements)
         )),
     )
 end
 
 """
-    @assert_vector(where::AbstractString, vector::Any, [n_elements::Integer])
+    @assert_vector(vector::Any, [n_elements::Integer])
 
-Assert that the `vector` is an `AbstractVector` and optionally that it has `n_elements` some `where` in the code, with a
-friendly error message if it fails.
+Assert that the `vector` is an `AbstractVector` and optionally that it has `n_elements`, with a friendly error message
+if it fails.
 """
-macro assert_vector(where, vector)
-    return esc(:(Daf.MatrixLayouts.@assert_is_vector($where, $vector)))
+macro assert_vector(vector)
+    return esc(:(Daf.MatrixLayouts.@assert_is_vector($vector)))
 end
 
-macro assert_vector(where, vector, n_elements)
+macro assert_vector(vector, n_elements)
     return esc(:(  #
-        Daf.MatrixLayouts.@assert_is_vector($where, $vector);   #
-        Daf.MatrixLayouts.@assert_vector_size($where, $vector, $n_elements)  #
+        Daf.MatrixLayouts.@assert_is_vector($vector);   #
+        Daf.MatrixLayouts.@assert_vector_size($vector, $n_elements)  #
     ))
 end
 
-macro assert_is_matrix(where, matrix)
+macro assert_is_matrix(matrix)
     matrix_name = string(matrix)
-    return esc(
-        :(@assert $matrix isa AbstractMatrix (
-            "non-matrix " * $matrix_name * ": " * depict($matrix) * "\nin: " * $where
-        )),
-    )
+    return esc(:(@assert $matrix isa AbstractMatrix ("non-matrix " * $matrix_name * ": " * depict($matrix))))
 end
 
-macro assert_matrix_size(where, matrix, n_rows, n_columns)
+macro assert_matrix_size(matrix, n_rows, n_columns)
     matrix_name = string(matrix)
     n_rows_name = string(n_rows)
     n_columns_name = string(n_columns)
@@ -267,60 +257,65 @@ macro assert_matrix_size(where, matrix, n_rows, n_columns)
             string($n_rows) *
             ", " *
             string($n_columns) *
-            ")\nin: " *
-            $where
+            ")"
         )),
     )
 end
 
-macro check_matrix_layout(where, matrix, major_axis)
+macro check_matrix_layout(source_file, source_line, matrix, major_axis)
     matrix_name = string(matrix)
-    return esc(:(Daf.MatrixLayouts.check_efficient_action($where, $matrix_name, $matrix, $major_axis)))
+    return esc(
+        :(Daf.MatrixLayouts.check_efficient_action($source_file, $source_line, $matrix_name, $matrix, $major_axis),),
+    )
 end
 
 """
-    @assert_matrix(where::AbstractString, matrix::Any, [n_rows::Integer, n_columns::Integer], [major_axis::Int8])
+    @assert_matrix(matrix::Any, [n_rows::Integer, n_columns::Integer], [major_axis::Int8])
 
-Assert that the `matrix` is an `AbstractMatrix` and optionally that it has `n_rows` and `n_columns` some `where` in the
-code. If the `major_axis` is given, also calls `check_efficient_action` to verify that the matrix is in an efficient
-layout.
+Assert that the `matrix` is an `AbstractMatrix` and optionally that it has `n_rows` and `n_columns`. If the `major_axis`
+is given, also calls `check_efficient_action` to verify that the matrix is in an efficient layout.
 """
-macro assert_matrix(where, matrix)
-    return esc(:(Daf.MatrixLayouts.@assert_is_matrix($where, $matrix)))
+macro assert_matrix(matrix)
+    return esc(:(Daf.MatrixLayouts.@assert_is_matrix($matrix)))
 end
 
-macro assert_matrix(where, matrix, axis)
-    return esc(:( #
-        Daf.MatrixLayouts.@assert_is_matrix($where, $matrix); #
-        Daf.MatrixLayouts.@check_matrix_layout($where, $matrix, $axis) #
-    ))
+macro assert_matrix(matrix, axis)
+    return esc(
+        :( #
+            Daf.MatrixLayouts.@assert_is_matrix($matrix); #
+            Daf.MatrixLayouts.@check_matrix_layout($(string(__source__.file)), $(__source__.line), $matrix, $axis) #
+        ),
+    )
 end
 
-macro assert_matrix(where, matrix, n_rows, n_columns)
+macro assert_matrix(matrix, n_rows, n_columns)
     return esc(:(  #
-        Daf.MatrixLayouts.@assert_is_matrix($where, $matrix);  #
-        Daf.MatrixLayouts.@assert_matrix_size($where, $matrix, $n_rows, $n_columns)  #
+        Daf.MatrixLayouts.@assert_is_matrix($matrix);  #
+        Daf.MatrixLayouts.@assert_matrix_size($matrix, $n_rows, $n_columns)  #
     ))
 end
 
-macro assert_matrix(where, matrix, n_rows, n_columns, axis)
-    return esc(:( #
-        Daf.MatrixLayouts.@assert_is_matrix($where, $matrix); #
-        Daf.MatrixLayouts.@assert_matrix_size($where, $matrix, $n_rows, $n_columns); #
-        Daf.MatrixLayouts.@check_matrix_layout($where, $matrix, $axis) #
-    ))
+macro assert_matrix(matrix, n_rows, n_columns, axis)
+    return esc(
+        :( #
+            Daf.MatrixLayouts.@assert_is_matrix($matrix); #
+            Daf.MatrixLayouts.@assert_matrix_size($matrix, $n_rows, $n_columns); #
+            Daf.MatrixLayouts.@check_matrix_layout($(string(__source__.file)), $(__source__.line), $matrix, $axis) #
+        ),
+    )
 end
 
 """
     check_efficient_action(
-        where::AbstractString,
+        source_file::AbstractString,
+        source_line::Integer,
         operand::AbstractString,
         matrix::AbstractMatrix,
         axis::Integer,
     )::Nothing
 
-This will check whether the code in `where` about to be executed for an `operand` which is `matrix` works "with the
-grain" of the data, which requires the `matrix` to be in `axis`-major layout. If it isn't, then apply the
+This will check whether the code about to be executed for an `operand` which is `matrix` works "with the grain" of the
+data, which requires the `matrix` to be in `axis`-major layout. If it isn't, then apply the
 [`inefficient_action_handler`](@ref). Typically this isn't invoked directly; instead use [`@assert_matrix`](@ref).
 
 In general, you **really** want operations to go "with the grain" of the data. Unfortunately, Julia (and Python, and R,
@@ -332,11 +327,12 @@ isolate the problem.
 
     This will not prevent the code from performing "against the grain" operations such as `selectdim(matrix, Rows, 1)`
     for a column-major matrix, but if you add this check before performing any (series of) operations on a matrix, then
-    you will have a clear indication of whether (and where) such operations occur. You can then consider whether to
+    you will have a clear indication of whether such operations occur. You can then consider whether to
     invoke [`relayout!`](@ref) on the data, or (for data fetched from `Daf`), simply query for the other memory layout.
 """
 function check_efficient_action(
-    where::AbstractString,
+    source_file::AbstractString,
+    source_line::Integer,
     operand::AbstractString,
     matrix::AbstractMatrix,
     axis::Integer,
@@ -348,7 +344,7 @@ function check_efficient_action(
             return (dedent("""
                 inefficient major axis: $(axis_name(major_axis(matrix)))
                 for $(operand): $(depicted)
-                in: $(where)
+                in: $(source_file):$(source_line)
             """))
         end
     end

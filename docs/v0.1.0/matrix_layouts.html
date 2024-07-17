@@ -905,7 +905,7 @@ sparsify(vector::AbstractVector{T}; copy::Bool = false)::AbstractVector{T} where
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">@assert_vector(where::AbstractString, vector::Any, [n_elements::Integer])
+<code class="language-julia hljs">@assert_vector(vector::Any, [n_elements::Integer])
 </code>
 </pre>
 <p>Assert that the 
@@ -914,9 +914,7 @@ sparsify(vector::AbstractVector{T}; copy::Bool = false)::AbstractVector{T} where
 <code>AbstractVector
 </code> and optionally that it has 
 <code>n_elements
-</code> some 
-<code>where
-</code> in the code, with a friendly error message if it fails.
+</code>, with a friendly error message if it fails.
 </p>
 </div>
 </section>
@@ -935,7 +933,7 @@ sparsify(vector::AbstractVector{T}; copy::Bool = false)::AbstractVector{T} where
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">@assert_matrix(where::AbstractString, matrix::Any, [n_rows::Integer, n_columns::Integer], [major_axis::Int8])
+<code class="language-julia hljs">@assert_matrix(matrix::Any, [n_rows::Integer, n_columns::Integer], [major_axis::Int8])
 </code>
 </pre>
 <p>Assert that the 
@@ -946,9 +944,7 @@ sparsify(vector::AbstractVector{T}; copy::Bool = false)::AbstractVector{T} where
 <code>n_rows
 </code> and 
 <code>n_columns
-</code> some 
-<code>where
-</code> in the code. If the 
+</code>. If the 
 <code>major_axis
 </code> is given, also calls 
 <code>check_efficient_action
@@ -972,16 +968,15 @@ sparsify(vector::AbstractVector{T}; copy::Bool = false)::AbstractVector{T} where
 <div>
 <pre>
 <code class="language-julia hljs">check_efficient_action(
-    where::AbstractString,
+    source_file::AbstractString,
+    source_line::Integer,
     operand::AbstractString,
     matrix::AbstractMatrix,
     axis::Integer,
 )::Nothing
 </code>
 </pre>
-<p>This will check whether the code in 
-<code>where
-</code> about to be executed for an 
+<p>This will check whether the code about to be executed for an 
 <code>operand
 </code> which is 
 <code>matrix
@@ -1011,7 +1006,7 @@ sparsify(vector::AbstractVector{T}; copy::Bool = false)::AbstractVector{T} where
 <div class="admonition-body">
 <p>This will not prevent the code from performing &quot;against the grain&quot; operations such as 
 <code>selectdim(matrix, Rows, 1)
-</code> for a column-major matrix, but if you add this check before performing any (series of) operations on a matrix, then you will have a clear indication of whether (and where) such operations occur. You can then consider whether to invoke 
+</code> for a column-major matrix, but if you add this check before performing any (series of) operations on a matrix, then you will have a clear indication of whether such operations occur. You can then consider whether to invoke 
 <a href="matrix_layouts.html#Daf.MatrixLayouts.relayout!">
 <code>relayout!
 </code>

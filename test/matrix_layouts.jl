@@ -1,3 +1,7 @@
+macro next_line()
+    return :($(string(__source__.file)) * ":" * $(string(__source__.line + 1)))
+end
+
 nested_test("matrix_layouts") do
     nested_test("copy_array") do
         @test eltype(split("a,b", ",")) != AbstractString
@@ -73,22 +77,16 @@ nested_test("matrix_layouts") do
         n_elements = length(vector)
 
         nested_test("()") do
-            @assert_vector("test", vector)
-            @assert_vector("test", vector, n_elements)
+            @assert_vector(vector)
+            @assert_vector(vector, n_elements)
         end
 
         nested_test("!vector") do
             vector = rand(4, 1)
-            @test_throws dedent("""
-                non-vector vector: 4 x 1 x Float64 in Columns (Dense)
-                in: test
-            """) @assert_vector("test", vector)
+            @test_throws "non-vector vector: 4 x 1 x Float64 in Columns (Dense)" @assert_vector(vector)
 
             vector = rand(1, 4)
-            @test_throws dedent("""
-                non-vector vector: 1 x 4 x Float64 in Columns (Dense)
-                in: test
-            """) @assert_vector("test", vector)
+            @test_throws "non-vector vector: 1 x 4 x Float64 in Columns (Dense)" @assert_vector(vector)
         end
 
         nested_test("!size") do
@@ -97,8 +95,7 @@ nested_test("matrix_layouts") do
                 wrong size: 4
                 of the vector: vector
                 is different from m_elements: 5
-                in: test
-            """) @assert_vector("test", vector, m_elements)
+            """) @assert_vector(vector, m_elements)
         end
     end
 
@@ -108,18 +105,15 @@ nested_test("matrix_layouts") do
         inefficient_action_handler(ErrorHandler)
 
         nested_test("()") do
-            @assert_matrix("test", matrix)
-            @assert_matrix("test", matrix, Columns)
-            @assert_matrix("test", matrix, 3, 4)
-            @assert_matrix("test", matrix, 3, 4, Columns)
+            @assert_matrix(matrix)
+            @assert_matrix(matrix, Columns)
+            @assert_matrix(matrix, 3, 4)
+            @assert_matrix(matrix, 3, 4, Columns)
         end
 
         nested_test("!matrix") do
             matrix = [1, 2, 3]
-            @test_throws dedent("""
-                non-matrix matrix: 3 x Int64 (Dense)
-                in: test
-            """) @assert_matrix("test", matrix)
+            @test_throws "non-matrix matrix: 3 x Int64 (Dense)" @assert_matrix(matrix)
         end
 
         nested_test("!size") do
@@ -129,22 +123,20 @@ nested_test("matrix_layouts") do
                 wrong size: (3, 4)
                 of the matrix: matrix
                 is different from (m_rows, m_columns): (5, 6)
-                in: test
-            """) @assert_matrix("test", matrix, m_rows, m_columns)
+            """) @assert_matrix(matrix, m_rows, m_columns)
 
             @test_throws dedent("""
                 wrong size: (3, 4)
                 of the matrix: matrix
                 is different from (m_rows, m_columns): (5, 6)
-                in: test
-            """) @assert_matrix("test", matrix, m_rows, m_columns, Columns)
+            """) @assert_matrix(matrix, m_rows, m_columns, Columns)
         end
 
         nested_test("!layout") do
             nested_test("ignore") do
                 @test inefficient_action_handler(IgnoreHandler) == ErrorHandler
-                @assert_matrix("test", matrix, Rows)
-                @assert_matrix("test", matrix, n_rows, n_columns, Rows)
+                @assert_matrix(matrix, Rows)
+                @assert_matrix(matrix, n_rows, n_columns, Rows)
             end
 
             nested_test("warn") do
@@ -153,14 +145,14 @@ nested_test("matrix_layouts") do
                 @test_logs (:warn, dedent("""
                     inefficient major axis: Columns
                     for matrix: 3 x 4 x Float64 in Columns (Dense)
-                    in: test
-                """)) @assert_matrix("test", matrix, Rows)
+                    in: $(@next_line())
+                """)) @assert_matrix(matrix, Rows)
 
                 @test_logs (:warn, dedent("""
                     inefficient major axis: Columns
                     for matrix: 3 x 4 x Float64 in Columns (Dense)
-                    in: test
-                """)) @assert_matrix("test", matrix, n_rows, n_columns, Rows)
+                    in: $(@next_line())
+                """)) @assert_matrix(matrix, n_rows, n_columns, Rows)
             end
 
             nested_test("error") do
@@ -169,14 +161,14 @@ nested_test("matrix_layouts") do
                 @test_throws dedent("""
                     inefficient major axis: Columns
                     for matrix: 3 x 4 x Float64 in Columns (Dense)
-                    in: test
-                """) @assert_matrix("test", matrix, Rows)
+                    in: $(@next_line())
+                """) @assert_matrix(matrix, Rows)
 
                 @test_throws dedent("""
                     inefficient major axis: Columns
                     for matrix: 3 x 4 x Float64 in Columns (Dense)
-                    in: test
-                """) @assert_matrix("test", matrix, 3, 4, Rows)
+                    in: $(@next_line())
+                """) @assert_matrix(matrix, 3, 4, Rows)
             end
         end
     end
