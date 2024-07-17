@@ -3833,7 +3833,7 @@ end
 
 function regex_for(query_state::QueryState, value::StorageScalar)::Regex
     comparison_value = value_for(query_state, String, value)  # NOJET
-    comparison_value = "^(:?" * comparison_value * ")\$"
+    comparison_value = "^(:?" * comparison_value * ")\$"  # NOJET
     try
         return Regex(comparison_value)  # NOJET
     catch exception

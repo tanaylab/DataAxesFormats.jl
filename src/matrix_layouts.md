@@ -39,9 +39,11 @@ Daf.MatrixLayouts.densify
 Daf.MatrixLayouts.sparsify
 ```
 
-## Ensuring code efficiency
+## Assertions
 
 ```@docs
+Daf.MatrixLayouts.@assert_vector
+Daf.MatrixLayouts.@assert_matrix
 Daf.MatrixLayouts.check_efficient_action
 Daf.MatrixLayouts.inefficient_action_handler
 ```

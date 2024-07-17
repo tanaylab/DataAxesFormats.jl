@@ -172,8 +172,8 @@
 </a>
 </li>
 <li>
-<a class="tocitem" href="#Ensuring-code-efficiency">
-<span>Ensuring code efficiency
+<a class="tocitem" href="#Assertions">
+<span>Assertions
 </span>
 </a>
 </li>
@@ -883,14 +883,80 @@ sparsify(vector::AbstractVector{T}; copy::Bool = false)::AbstractVector{T} where
 </div>
 </section>
 </article>
-<h2 id="Ensuring-code-efficiency">
-<a class="docs-heading-anchor" href="#Ensuring-code-efficiency">Ensuring code efficiency
+<h2 id="Assertions">
+<a class="docs-heading-anchor" href="#Assertions">Assertions
 </a>
-<a id="Ensuring-code-efficiency-1">
+<a id="Assertions-1">
 </a>
-<a class="docs-heading-anchor-permalink" href="#Ensuring-code-efficiency" title="Permalink">
+<a class="docs-heading-anchor-permalink" href="#Assertions" title="Permalink">
 </a>
 </h2>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.MatrixLayouts.@assert_vector" href="#Daf.MatrixLayouts.@assert_vector">
+<code>Daf.MatrixLayouts.@assert_vector
+</code>
+</a> — 
+<span class="docstring-category">Macro
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">@assert_vector(where::AbstractString, vector::Any, [n_elements::Integer])
+</code>
+</pre>
+<p>Assert that the 
+<code>vector
+</code> is an 
+<code>AbstractVector
+</code> and optionally that it has 
+<code>n_elements
+</code> some 
+<code>where
+</code> in the code, with a friendly error message if it fails.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.MatrixLayouts.@assert_matrix" href="#Daf.MatrixLayouts.@assert_matrix">
+<code>Daf.MatrixLayouts.@assert_matrix
+</code>
+</a> — 
+<span class="docstring-category">Macro
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">@assert_matrix(where::AbstractString, matrix::Any, [n_rows::Integer, n_columns::Integer], [major_axis::Int8])
+</code>
+</pre>
+<p>Assert that the 
+<code>matrix
+</code> is an 
+<code>AbstractMatrix
+</code> and optionally that it has 
+<code>n_rows
+</code> and 
+<code>n_columns
+</code> some 
+<code>where
+</code> in the code. If the 
+<code>major_axis
+</code> is given, also calls 
+<code>check_efficient_action
+</code> to verify that the matrix is in an efficient layout.
+</p>
+</div>
+</section>
+</article>
 <article class="docstring">
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
@@ -906,15 +972,15 @@ sparsify(vector::AbstractVector{T}; copy::Bool = false)::AbstractVector{T} where
 <div>
 <pre>
 <code class="language-julia hljs">check_efficient_action(
-    action::AbstractString,
-    axis::Integer,
+    where::AbstractString,
     operand::AbstractString,
     matrix::AbstractMatrix,
+    axis::Integer,
 )::Nothing
 </code>
 </pre>
-<p>This will check whether the 
-<code>action
+<p>This will check whether the code in 
+<code>where
 </code> about to be executed for an 
 <code>operand
 </code> which is 
@@ -926,6 +992,10 @@ sparsify(vector::AbstractVector{T}; copy::Bool = false)::AbstractVector{T} where
 </code>-major layout. If it isn&#39;t, then apply the 
 <a href="matrix_layouts.html#Daf.MatrixLayouts.inefficient_action_handler">
 <code>inefficient_action_handler
+</code>
+</a>. Typically this isn&#39;t invoked directly; instead use 
+<a href="matrix_layouts.html#Daf.MatrixLayouts.@assert_matrix">
+<code>@assert_matrix
 </code>
 </a>.
 </p>
@@ -1096,6 +1166,18 @@ sparsify(vector::AbstractVector{T}; copy::Bool = false)::AbstractVector{T} where
 <li>
 <a href="matrix_layouts.html#Daf.MatrixLayouts.transposer">
 <code>Daf.MatrixLayouts.transposer
+</code>
+</a>
+</li>
+<li>
+<a href="matrix_layouts.html#Daf.MatrixLayouts.@assert_matrix">
+<code>Daf.MatrixLayouts.@assert_matrix
+</code>
+</a>
+</li>
+<li>
+<a href="matrix_layouts.html#Daf.MatrixLayouts.@assert_vector">
+<code>Daf.MatrixLayouts.@assert_vector
 </code>
 </a>
 </li>

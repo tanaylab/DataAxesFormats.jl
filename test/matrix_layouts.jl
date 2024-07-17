@@ -68,39 +68,116 @@ nested_test("matrix_layouts") do
         end
     end
 
-    nested_test("inefficient_action_handler") do
-        matrix = rand(4, 4)
+    nested_test("assert_vector") do
+        vector = rand(4)
+        n_elements = length(vector)
+
+        nested_test("()") do
+            @assert_vector("test", vector)
+            @assert_vector("test", vector, n_elements)
+        end
+
+        nested_test("!vector") do
+            vector = rand(4, 1)
+            @test_throws dedent("""
+                non-vector vector: 4 x 1 x Float64 in Columns (Dense)
+                in: test
+            """) @assert_vector("test", vector)
+
+            vector = rand(1, 4)
+            @test_throws dedent("""
+                non-vector vector: 1 x 4 x Float64 in Columns (Dense)
+                in: test
+            """) @assert_vector("test", vector)
+        end
+
+        nested_test("!size") do
+            m_elements = 5
+            @test_throws dedent("""
+                wrong size: 4
+                of the vector: vector
+                is different from m_elements: 5
+                in: test
+            """) @assert_vector("test", vector, m_elements)
+        end
+    end
+
+    nested_test("assert_matrix") do
+        matrix = rand(3, 4)
+        n_rows, n_columns = size(matrix)
         inefficient_action_handler(ErrorHandler)
 
-        nested_test("ignore") do
-            @test inefficient_action_handler(IgnoreHandler) == ErrorHandler
-
-            check_efficient_action("test", Columns, "input", matrix)
-            return check_efficient_action("test", Rows, "input", matrix)
+        nested_test("()") do
+            @assert_matrix("test", matrix)
+            @assert_matrix("test", matrix, Columns)
+            @assert_matrix("test", matrix, 3, 4)
+            @assert_matrix("test", matrix, 3, 4, Columns)
         end
 
-        nested_test("warn") do
-            @test inefficient_action_handler(WarnHandler) == ErrorHandler
-
-            check_efficient_action("test", Columns, "input", matrix)
-            @test_logs (:warn, dedent("""
-                                   the major axis: Rows
-                                   of the action: test
-                                   is different from the major axis: Columns
-                                   of the input matrix: Matrix{Float64}
-                               """)) check_efficient_action("test", Rows, "input", matrix)
-        end
-
-        nested_test("error") do
-            @test inefficient_action_handler(ErrorHandler) == ErrorHandler
-
-            check_efficient_action("test", Columns, "input", matrix)
+        nested_test("!matrix") do
+            matrix = [1, 2, 3]
             @test_throws dedent("""
-                the major axis: Rows
-                of the action: test
-                is different from the major axis: Columns
-                of the input matrix: Matrix{Float64}
-            """) check_efficient_action("test", Rows, "input", matrix)
+                non-matrix matrix: 3 x Int64 (Dense)
+                in: test
+            """) @assert_matrix("test", matrix)
+        end
+
+        nested_test("!size") do
+            m_rows, m_columns = (5, 6)
+
+            @test_throws dedent("""
+                wrong size: (3, 4)
+                of the matrix: matrix
+                is different from (m_rows, m_columns): (5, 6)
+                in: test
+            """) @assert_matrix("test", matrix, m_rows, m_columns)
+
+            @test_throws dedent("""
+                wrong size: (3, 4)
+                of the matrix: matrix
+                is different from (m_rows, m_columns): (5, 6)
+                in: test
+            """) @assert_matrix("test", matrix, m_rows, m_columns, Columns)
+        end
+
+        nested_test("!layout") do
+            nested_test("ignore") do
+                @test inefficient_action_handler(IgnoreHandler) == ErrorHandler
+                @assert_matrix("test", matrix, Rows)
+                @assert_matrix("test", matrix, n_rows, n_columns, Rows)
+            end
+
+            nested_test("warn") do
+                @test inefficient_action_handler(WarnHandler) == ErrorHandler
+
+                @test_logs (:warn, dedent("""
+                    inefficient major axis: Columns
+                    for matrix: 3 x 4 x Float64 in Columns (Dense)
+                    in: test
+                """)) @assert_matrix("test", matrix, Rows)
+
+                @test_logs (:warn, dedent("""
+                    inefficient major axis: Columns
+                    for matrix: 3 x 4 x Float64 in Columns (Dense)
+                    in: test
+                """)) @assert_matrix("test", matrix, n_rows, n_columns, Rows)
+            end
+
+            nested_test("error") do
+                @test inefficient_action_handler(ErrorHandler) == ErrorHandler
+
+                @test_throws dedent("""
+                    inefficient major axis: Columns
+                    for matrix: 3 x 4 x Float64 in Columns (Dense)
+                    in: test
+                """) @assert_matrix("test", matrix, Rows)
+
+                @test_throws dedent("""
+                    inefficient major axis: Columns
+                    for matrix: 3 x 4 x Float64 in Columns (Dense)
+                    in: test
+                """) @assert_matrix("test", matrix, 3, 4, Rows)
+            end
         end
     end
 
