@@ -83,7 +83,10 @@ nested_test("matrix_layouts") do
 
         nested_test("!vector") do
             vector = rand(4, 1)
-            @test_throws "non-vector vector: 4 x 1 x Float64 in Columns (Dense)" @assert_vector(vector)
+            @test_throws dedent("""
+                non-vector vector: 4 x 1 x Float64 in Columns (Dense)
+                in: $(@next_line())
+            """) @assert_vector(vector)
 
             vector = rand(1, 4)
             @test_throws "non-vector vector: 1 x 4 x Float64 in Columns (Dense)" @assert_vector(vector)
@@ -95,6 +98,7 @@ nested_test("matrix_layouts") do
                 wrong size: 4
                 of the vector: vector
                 is different from m_elements: 5
+                in: $(@next_line())
             """) @assert_vector(vector, m_elements)
         end
     end
@@ -113,7 +117,10 @@ nested_test("matrix_layouts") do
 
         nested_test("!matrix") do
             matrix = [1, 2, 3]
-            @test_throws "non-matrix matrix: 3 x Int64 (Dense)" @assert_matrix(matrix)
+            @test_throws dedent("""
+                non-matrix matrix: 3 x Int64 (Dense)
+                in: $(@next_line())
+            """) @assert_matrix(matrix)
         end
 
         nested_test("!size") do
@@ -123,12 +130,14 @@ nested_test("matrix_layouts") do
                 wrong size: (3, 4)
                 of the matrix: matrix
                 is different from (m_rows, m_columns): (5, 6)
+                in: $(@next_line())
             """) @assert_matrix(matrix, m_rows, m_columns)
 
             @test_throws dedent("""
                 wrong size: (3, 4)
                 of the matrix: matrix
                 is different from (m_rows, m_columns): (5, 6)
+                in: $(@next_line())
             """) @assert_matrix(matrix, m_rows, m_columns, Columns)
         end
 

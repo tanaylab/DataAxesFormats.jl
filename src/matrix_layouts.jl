@@ -195,12 +195,23 @@ function inefficient_action_handler(handler::AbnormalHandler)::AbnormalHandler
     return previous_inefficient_action_handler
 end
 
-macro assert_is_vector(vector)
+macro assert_is_vector(source_file, source_line, vector)
     vector_name = string(vector)
-    return esc(:(@assert $vector isa AbstractVector ("non-vector " * $vector_name * ": " * depict($vector))))
+    return esc(
+        :(@assert $vector isa AbstractVector (
+            "non-vector " *
+            $vector_name *
+            ": " *
+            depict($vector) *
+            "\nin: " *
+            $(string(source_file)) *
+            ":" *
+            $(string(source_line))
+        )),
+    )
 end
 
-macro assert_vector_size(vector, n_elements)
+macro assert_vector_size(source_file, source_line, vector, n_elements)
     vector_name = string(vector)
     n_elements_name = string(n_elements)
     return esc(
@@ -212,7 +223,11 @@ macro assert_vector_size(vector, n_elements)
             "\nis different from " *
             $n_elements_name *
             ": " *
-            string($n_elements)
+            string($n_elements) *
+            "\nin: " *
+            $(string(source_file)) *
+            ":" *
+            $(string(source_line))
         )),
     )
 end
@@ -224,22 +239,33 @@ Assert that the `vector` is an `AbstractVector` and optionally that it has `n_el
 if it fails.
 """
 macro assert_vector(vector)
-    return esc(:(Daf.MatrixLayouts.@assert_is_vector($vector)))
+    return esc(:(Daf.MatrixLayouts.@assert_is_vector($(__source__.file), $(__source__.line), $vector)))
 end
 
 macro assert_vector(vector, n_elements)
     return esc(:(  #
-        Daf.MatrixLayouts.@assert_is_vector($vector);   #
-        Daf.MatrixLayouts.@assert_vector_size($vector, $n_elements)  #
+        Daf.MatrixLayouts.@assert_is_vector($(__source__.file), $(__source__.line), $vector);   #
+        Daf.MatrixLayouts.@assert_vector_size($(__source__.file), $(__source__.line), $vector, $n_elements)  #
     ))
 end
 
-macro assert_is_matrix(matrix)
+macro assert_is_matrix(source_file, source_line, matrix)
     matrix_name = string(matrix)
-    return esc(:(@assert $matrix isa AbstractMatrix ("non-matrix " * $matrix_name * ": " * depict($matrix))))
+    return esc(
+        :(@assert $matrix isa AbstractMatrix (
+            "non-matrix " *
+            $matrix_name *
+            ": " *
+            depict($matrix) *
+            "\nin: " *
+            $(string(source_file)) *
+            ":" *
+            $(string(source_line))
+        )),
+    )
 end
 
-macro assert_matrix_size(matrix, n_rows, n_columns)
+macro assert_matrix_size(source_file, source_line, matrix, n_rows, n_columns)
     matrix_name = string(matrix)
     n_rows_name = string(n_rows)
     n_columns_name = string(n_columns)
@@ -257,7 +283,10 @@ macro assert_matrix_size(matrix, n_rows, n_columns)
             string($n_rows) *
             ", " *
             string($n_columns) *
-            ")"
+            ")\nin: " *
+            $(string(source_file)) *
+            ":" *
+            $(string(source_line))
         )),
     )
 end
@@ -276,30 +305,32 @@ Assert that the `matrix` is an `AbstractMatrix` and optionally that it has `n_ro
 is given, also calls `check_efficient_action` to verify that the matrix is in an efficient layout.
 """
 macro assert_matrix(matrix)
-    return esc(:(Daf.MatrixLayouts.@assert_is_matrix($matrix)))
+    return esc(:(Daf.MatrixLayouts.@assert_is_matrix($(__source__.file), $(__source__.line), $matrix)))
 end
 
 macro assert_matrix(matrix, axis)
     return esc(
         :( #
-            Daf.MatrixLayouts.@assert_is_matrix($matrix); #
+            Daf.MatrixLayouts.@assert_is_matrix($(__source__.file), $(__source__.line), $matrix); #
             Daf.MatrixLayouts.@check_matrix_layout($(string(__source__.file)), $(__source__.line), $matrix, $axis) #
         ),
     )
 end
 
 macro assert_matrix(matrix, n_rows, n_columns)
-    return esc(:(  #
-        Daf.MatrixLayouts.@assert_is_matrix($matrix);  #
-        Daf.MatrixLayouts.@assert_matrix_size($matrix, $n_rows, $n_columns)  #
-    ))
+    return esc(
+        :(  #
+            Daf.MatrixLayouts.@assert_is_matrix($(__source__.file), $(__source__.line), $matrix);  #
+            Daf.MatrixLayouts.@assert_matrix_size($(__source__.file), $(__source__.line), $matrix, $n_rows, $n_columns)  #
+        ),
+    )
 end
 
 macro assert_matrix(matrix, n_rows, n_columns, axis)
     return esc(
         :( #
-            Daf.MatrixLayouts.@assert_is_matrix($matrix); #
-            Daf.MatrixLayouts.@assert_matrix_size($matrix, $n_rows, $n_columns); #
+            Daf.MatrixLayouts.@assert_is_matrix($(__source__.file), $(__source__.line), $matrix); #
+            Daf.MatrixLayouts.@assert_matrix_size($(__source__.file), $(__source__.line), $matrix, $n_rows, $n_columns); #
             Daf.MatrixLayouts.@check_matrix_layout($(string(__source__.file)), $(__source__.line), $matrix, $axis) #
         ),
     )
