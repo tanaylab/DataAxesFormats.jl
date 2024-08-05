@@ -8,7 +8,7 @@ features are:
   - Explicit control over 2D data [`MatrixLayouts`](@ref) (row or column major), with support for both dense and sparse
     matrices, both of which are crucial for performance.
   - Out of the box, allow storing the data in memory (using [`MemoryDaf`](@ref)), directly inside
-    [HDF5](https://www.hdfgroup.org/solutions/hdf5) files (using [`H5df`](@ref)), or as a collection of simple files in
+    [HDF5](https://www.hdfgroup.org/solutions/hdf5/) files (using [`H5df`](@ref)), or as a collection of simple files in
     a directory (using [`FilesDaf`](@ref)), which works nicely with tools like `make` for automating computation
     pipelines.
   - Import and export to/from [`AnnDataFormat`](@ref) for interoperability with non-`Daf` tools.

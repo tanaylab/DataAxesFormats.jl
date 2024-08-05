@@ -17,7 +17,6 @@ for pkg in (
     "LanguageServer",
     "Logging",
     "LoggingExtras",
-    "SnoopCompile",
     "StaticLint",
     "SymbolServer",
 )
