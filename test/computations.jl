@@ -113,10 +113,14 @@ $(CONTRACT2)
     return nothing
 end
 
+function not_computation()::Nothing  # untested
+    return nothing
+end
+
 nested_test("computations") do
     nested_test("access") do
         nested_test("!contract") do
-            @test_throws "not a @computation function: Base.isless" function_contract(isless)
+            @test_throws "not a @computation function: Main.not_computation" function_contract(not_computation)
         end
 
         nested_test("contract") do
