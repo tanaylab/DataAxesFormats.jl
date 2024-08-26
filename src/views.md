@@ -4,7 +4,9 @@
 Daf.Views
 Daf.Views.DafView
 Daf.Views.viewer
+Daf.Views.ViewAxis
 Daf.Views.ViewAxes
+Daf.Views.ViewDatum
 Daf.Views.ViewData
 Daf.Views.ALL_SCALARS
 Daf.Views.VIEW_ALL_SCALARS

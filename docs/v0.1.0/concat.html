@@ -31,6 +31,10 @@
 </script>
 <script src="../versions.js">
 </script>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/>
 <link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/>
 <link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/>
 <script src="assets/themeswap.js">
@@ -386,8 +390,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Concat.MergeData" href="#Daf.Concat.MergeData">
-<code>Daf.Concat.MergeData
+<a class="docstring-binding" id="Daf.Concat.MergeDatum" href="#Daf.Concat.MergeDatum">
+<code>Daf.Concat.MergeDatum
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -395,7 +399,7 @@
 </header>
 <section>
 <div>
-<p>A vector of pairs where the key is a 
+<p>A pair where the key is a 
 <a href="keys.html#Daf.Keys.DataKey">
 <code>DataKey
 </code>
@@ -403,7 +407,11 @@
 <a href="concat.html#Daf.Concat.MergeAction">
 <code>MergeAction
 </code>
-</a>. Similarly to 
+</a>. We also allow specifying tuples instead of pairs to make it easy to invoke the API from other languages such as Python which do not have the concept of a 
+<code>Pair
+</code>.
+</p>
+<p>Similarly to 
 <a href="views.html#Daf.Views.ViewData">
 <code>ViewData
 </code>
@@ -421,30 +429,30 @@
 </code>
 </a> works.
 </p>
-<div class="admonition is-info">
-<header class="admonition-header">Note
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Concat.MergeData" href="#Daf.Concat.MergeData">
+<code>Daf.Concat.MergeData
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
 </header>
-<div class="admonition-body">
-<p>Due to Julia&#39;s type system limitations, there&#39;s just no way for the system to enforce the type of the pairs in this vector. That is, what we&#39;d 
-<strong>like
-</strong> to say is:
+<section>
+<div>
+<p>Specify all the data to merge. We would have liked to specify this as 
+<code>AbstractVector{&lt;:MergeDatum}
+</code> but Julia in its infinite wisdom considers 
+<code>[&quot;a&quot; =&gt; &quot;b&quot;, (&quot;c&quot;, &quot;d&quot;) =&gt; &quot;e&quot;]
+</code> to be a 
+<code>Vector{Any}
+</code>, which would require literals to be annotated with the type.
 </p>
-<pre>
-<code class="nohighlight hljs">MergeData = AbstractVector{Pair{DataKey, MergeAction}}
-</code>
-</pre>
-<p>But what we are 
-<strong>forced
-</strong> to say is:
-</p>
-<pre>
-<code class="nohighlight hljs">ViewData = AbstractVector{&lt;:Pair}
-</code>
-</pre>
-<p>Glory to anyone who figures out an incantation that would force the system to perform more meaningful type inference here.
-</p>
-</div>
-</div>
 </div>
 </section>
 </article>
@@ -510,6 +518,12 @@
 </a>
 </li>
 <li>
+<a href="concat.html#Daf.Concat.MergeDatum">
+<code>Daf.Concat.MergeDatum
+</code>
+</a>
+</li>
+<li>
 <a href="concat.html#Daf.Concat.concatenate!">
 <code>Daf.Concat.concatenate!
 </code>
@@ -554,13 +568,21 @@
 </option>
 <option value="documenter-dark">documenter-dark
 </option>
+<option value="catppuccin-latte">catppuccin-latte
+</option>
+<option value="catppuccin-frappe">catppuccin-frappe
+</option>
+<option value="catppuccin-macchiato">catppuccin-macchiato
+</option>
+<option value="catppuccin-mocha">catppuccin-mocha
+</option>
 </select>
 </div>
 </p>
 <hr/>
 <p>This document was generated with 
 <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl
-</a> version 1.4.1. Using Julia version 1.10.4.
+</a> version 1.5.0. Using Julia version 1.10.4.
 </p>
 </section>
 <footer class="modal-card-foot">

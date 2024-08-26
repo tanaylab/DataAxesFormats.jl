@@ -14,6 +14,7 @@ export CollectAxis
 export concatenate!
 export LastValue
 export MergeAction
+export MergeDatum
 export MergeData
 export SkipProperty
 
@@ -37,29 +38,6 @@ import ..Writers.require_no_axis
 import ..Writers.require_no_matrix
 
 """
-A vector of pairs where the key is a [`DataKey`](@ref) and the value is [`MergeAction`](@ref). Similarly to
-[`ViewData`](@ref), the order of the entries matters (last one wins), and a key containing `"*"` is expanded to all the
-relevant properties. For matrices, merge is done separately for each layout. That is, the order of the key
-`(rows_axis, columns_axis, matrix_name)` key *does* matter in the `MergeData`, which is different from how
-[`ViewData`](@ref) works.
-
-!!! note
-
-    Due to Julia's type system limitations, there's just no way for the system to enforce the type of the pairs
-    in this vector. That is, what we'd **like** to say is:
-
-        MergeData = AbstractVector{Pair{DataKey, MergeAction}}
-
-    But what we are **forced** to say is:
-
-        ViewData = AbstractVector{<:Pair}
-
-    Glory to anyone who figures out an incantation that would force the system to perform more meaningful type inference
-    here.
-"""
-MergeData = AbstractVector{<:Pair}
-
-"""
 The action for merging the values of a property from the concatenated data sets into the result data set. This is used
 to properties that do not apply to the concatenation axis (that is, scalar properties, and vector and matrix properties
 of other axes). Valid values are:
@@ -73,6 +51,25 @@ of other axes). Valid values are:
     and that an empty value is specified for the property if it is missing from any of the concatenated data sets.
 """
 @enum MergeAction SkipProperty LastValue CollectAxis
+
+"""
+A pair where the key is a [`DataKey`](@ref) and the value is [`MergeAction`](@ref). We also allow specifying
+tuples instead of pairs to make it easy to invoke the API from other languages such as Python which do not have the
+concept of a `Pair`.
+
+Similarly to [`ViewData`](@ref), the order of the entries matters (last one wins), and a key containing `"*"` is
+expanded to all the relevant properties. For matrices, merge is done separately for each layout. That is, the order of
+the key `(rows_axis, columns_axis, matrix_name)` key *does* matter in the `MergeData`, which is different from how
+[`ViewData`](@ref) works.
+"""
+MergeDatum = Union{Pair{<:DataKey, <:MergeAction}, Tuple{DataKey, MergeAction}}
+
+"""
+Specify all the data to merge. We would have liked to specify this as `AbstractVector{<:MergeDatum}` but Julia in its
+infinite wisdom considers `["a" => "b", ("c", "d") => "e"]` to be a `Vector{Any}`, which would require literals to be
+annotated with the type.
+"""
+MergeData = AbstractVector
 
 """
     concatenate!(
@@ -151,6 +148,18 @@ By default, concatenation will fail rather than `overwrite` existing properties 
     overwrite::Bool = false,
 )::Nothing
     @assert 0 < sparse_if_saves_storage_fraction < 1
+
+    if merge !== nothing
+        for merge_datum in merge
+            @assert (
+                merge_datum isa Union{Pair, Tuple} &&
+                length(merge_datum) == 2 &&
+                merge_datum[1] isa DataKey &&
+                merge_datum[2] isa MergeAction
+            ) "invalid MergeDatum: $(merge_datum)"
+        end
+    end
+
     for source in sources
         Formats.begin_data_read_lock(source, "concatenate! of source:", source.name)
     end
@@ -1155,8 +1164,6 @@ end
 
 function get_merge_action(merge::MergeData, scalar_property::AbstractString)::MergeAction
     for (key, merge_action) in reverse(merge)
-        @assert key isa DataKey
-        @assert merge_action isa MergeAction
         if key == scalar_property || key == "*"
             return merge_action
         end
@@ -1166,8 +1173,6 @@ end
 
 function get_merge_action(merge::MergeData, vector_property::Tuple{AbstractString, AbstractString})::MergeAction
     for (key, merge_action) in reverse(merge)
-        @assert key isa DataKey
-        @assert merge_action isa MergeAction
         if key isa VectorKey
             if (key[1] == "*" || key[1] == vector_property[1]) && (key[2] == "*" || key[2] == vector_property[2])
                 return merge_action
@@ -1182,8 +1187,6 @@ function get_merge_action(
     matrix_property::Tuple{AbstractString, AbstractString, AbstractString},
 )::MergeAction
     for (key, merge_action) in reverse(merge)
-        @assert key isa DataKey
-        @assert merge_action isa MergeAction
         if key isa MatrixKey
             if (key[1] == "*" || key[1] == matrix_property[1]) &&
                (key[2] == "*" || key[2] == matrix_property[2]) &&

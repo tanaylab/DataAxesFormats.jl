@@ -31,6 +31,10 @@
 </script>
 <script src="../versions.js">
 </script>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/>
 <link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/>
 <link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/>
 <script src="assets/themeswap.js">
@@ -348,9 +352,9 @@
 <code>read_only
 </code>
 </a>. Additionally, saying 
-<code>data = VIEW_ALL_DATA
+<code>data = ALL_DATA
 </code> will expose all the data using any of the exposed axes; you can write 
-<code>data = [VIEW_ALL_DATA..., key =&gt; nothing]
+<code>data = [ALL_DATA..., key =&gt; nothing]
 </code> to hide specific data based on its 
 <code>key
 </code>.
@@ -364,8 +368,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Views.ViewAxes" href="#Daf.Views.ViewAxes">
-<code>Daf.Views.ViewAxes
+<a class="docstring-binding" id="Daf.Views.ViewAxis" href="#Daf.Views.ViewAxis">
+<code>Daf.Views.ViewAxis
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -373,11 +377,13 @@
 </header>
 <section>
 <div>
-<p>Specify axes to expose from a view.
+<p>Specify an axis to expose from a view.
 </p>
 <p>This is specified as a vector of pairs (similar to initializing a 
 <code>Dict
-</code>). The order of the pairs matter (last one wins).
+</code>). The order of the pairs matter (last one wins). We also allow specifying tuples instead of pairs to make it easy to invoke the API from other languages such as Python which do not have the concept of a 
+<code>Pair
+</code>.
 </p>
 <p>If the key is 
 <code>&quot;*&quot;
@@ -395,11 +401,11 @@
 <code>daf
 </code> data. Otherwise the value is any valid query that returns a vector of (unique!) strings to serve as the vector entries.
 </p>
-<p>That is, saying 
-<code>&quot;*&quot; =&gt; &quot;=&quot;
+<p>That is, specifying 
+<code>&quot;*&quot;
 </code> (or, 
-<a href="views.html#Daf.Views.VIEW_ALL_AXES">
-<code>VIEW_ALL_AXES
+<a href="views.html#Daf.Views.ALL_AXES">
+<code>ALL_AXES
 </code>
 </a> will expose all the original 
 <code>daf
@@ -415,30 +421,6 @@
 <code>age
 </code> property is greater than 1.
 </p>
-<div class="admonition is-info">
-<header class="admonition-header">Note
-</header>
-<div class="admonition-body">
-<p>Due to Julia&#39;s type system limitations, there&#39;s just no way for the system to enforce the type of the pairs in this vector. That is, what we&#39;d 
-<strong>like
-</strong> to say is:
-</p>
-<pre>
-<code class="nohighlight hljs">ViewAxes = AbstractVector{Pair{AbstractString, Maybe{QueryString}}}
-</code>
-</pre>
-<p>But what we are 
-<strong>forced
-</strong> to say is:
-</p>
-<pre>
-<code class="nohighlight hljs">ViewAxes = AbstractVector{&lt;:Pair}
-</code>
-</pre>
-<p>Glory to anyone who figures out an incantation that would force the system to perform more meaningful type inference here.
-</p>
-</div>
-</div>
 </div>
 </section>
 </article>
@@ -446,8 +428,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Views.ViewData" href="#Daf.Views.ViewData">
-<code>Daf.Views.ViewData
+<a class="docstring-binding" id="Daf.Views.ViewAxes" href="#Daf.Views.ViewAxes">
+<code>Daf.Views.ViewAxes
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -455,9 +437,35 @@
 </header>
 <section>
 <div>
-<p>Specify data to expose from view. This is specified as a vector of pairs (similar to initializing a 
+<p>Specify all the axes to expose from a view. We would have liked to specify this as 
+<code>AbstractVector{&lt;:ViewAxis}
+</code> but Julia in its infinite wisdom considers 
+<code>[&quot;a&quot;, &quot;b&quot; =&gt; &quot;c&quot;]
+</code> to be a 
+<code>Vector{Any}
+</code>, which would require literals to be annotated with the type.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Views.ViewDatum" href="#Daf.Views.ViewDatum">
+<code>Daf.Views.ViewDatum
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</header>
+<section>
+<div>
+<p>Specify a single datum to expose from view. This is specified as a vector of pairs (similar to initializing a 
 <code>Dict
-</code>). The order of the pairs matter (last one wins).
+</code>). The order of the pairs matter (last one wins). We also allow specifying tuples instead of pairs to make it easy to invoke the API from other languages such as Python which do not have the concept of a 
+<code>Pair
+</code>.
 </p>
 <p>
 <strong>Scalars
@@ -466,10 +474,10 @@
 <code>ViewAxes
 </code>
 </a>, except that the query should return a scalar instead of a vector. That is, saying 
-<code>&quot;*&quot; =&gt; &quot;=&quot;
-</code> (or, 
-<a href="views.html#Daf.Views.VIEW_ALL_SCALARS">
-<code>VIEW_ALL_SCALARS
+<code>&quot;*&quot;
+</code> (or 
+<a href="views.html#Daf.Views.ALL_SCALARS">
+<code>ALL_SCALARS
 </code>
 </a>) will expose all the original 
 <code>daf
@@ -495,21 +503,17 @@
 <code>&quot;*&quot;
 </code> (e.g., 
 <code>(&quot;gene&quot;, &quot;*&quot;)
-</code>), then  it is replaced by all the vector properties of the exposed axis in the base data. Therefore if the pair is 
-<code>(&quot;*&quot;, &quot;*&quot;) =&gt; &quot;=&quot;
+</code>), then  it is replaced by all the vector properties of the exposed axis in the base data. Therefore specifying 
+<code>(&quot;*&quot;, &quot;*&quot;)
 </code> (or 
-<a href="views.html#Daf.Views.VIEW_ALL_VECTORS">
-<code>VIEW_ALL_VECTORS
+<a href="views.html#Daf.Views.ALL_VECTORS">
+<code>ALL_VECTORS
 </code>
 </a>)`, all vector properties of all the (exposed) axes will also be exposed.
 </p>
 <p>The value for vectors must be the suffix of a vector query based on the appropriate axis; a value of 
 <code>&quot;=&quot;
-</code> is again used to expose the property as-is. This works in the same way as a column query in 
-<a href="queries.html#Daf.Queries.QueryColumns">
-<code>QueryColumns
-</code>
-</a>.
+</code> is again used to expose the property as-is.
 </p>
 <p>For example, specifying 
 <code>axes = [&quot;cell&quot; =&gt; q&quot;/ cell &amp; type = TCell&quot;]
@@ -541,10 +545,10 @@
 <code>&quot;*&quot;
 </code>, it replaced by all the matrix properties of the axes. The value for matrices can again be 
 <code>&quot;=&quot;
-</code> to expose the property as is, or the suffix of a matrix query. Therefore if the pair is 
-<code>(&quot;*&quot;, &quot;*&quot;, &quot;*&quot;) =&gt; &quot;=&quot;
+</code> to expose the property as is, or the suffix of a matrix query. Therefore specifying 
+<code>(&quot;*&quot;, &quot;*&quot;, &quot;*&quot;)
 </code> (or, 
-<code>VIEW_ALL_MATRICES
+<code>ALL_MATRICES
 </code>), all matrix properties of all the (exposed) axes will also be exposed.
 </p>
 <p>That is, assuming a 
@@ -565,30 +569,30 @@
 <code>data = [(&quot;cell&quot;, &quot;gene&quot;, &quot;UMIs&quot;) =&gt; &quot;=&quot;]
 </code>.
 </p>
-<div class="admonition is-info">
-<header class="admonition-header">Note
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Views.ViewData" href="#Daf.Views.ViewData">
+<code>Daf.Views.ViewData
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
 </header>
-<div class="admonition-body">
-<p>Due to Julia&#39;s type system limitations, there&#39;s just no way for the system to enforce the type of the pairs in this vector. That is, what we&#39;d 
-<strong>like
-</strong> to say is:
+<section>
+<div>
+<p>Specify all the data to expose from a view. We would have liked to specify this as 
+<code>AbstractVector{&lt;:ViewDatum}
+</code> but Julia in its infinite wisdom considers 
+<code>[&quot;a&quot;, &quot;b&quot; =&gt; &quot;c&quot;]
+</code> to be a 
+<code>Vector{Any}
+</code>, which would require literals to be annotated with the type.
 </p>
-<pre>
-<code class="nohighlight hljs">ViewData = AbstractVector{Pair{DataKey, Maybe{QueryString}}}
-</code>
-</pre>
-<p>But what we are 
-<strong>forced
-</strong> to say is:
-</p>
-<pre>
-<code class="nohighlight hljs">ViewData = AbstractVector{&lt;:Pair}
-</code>
-</pre>
-<p>Glory to anyone who figures out an incantation that would force the system to perform more meaningful type inference here.
-</p>
-</div>
-</div>
 </div>
 </section>
 </article>
@@ -635,7 +639,7 @@
 <a href="views.html#Daf.Views.viewer">
 <code>viewer
 </code>
-</a> to specify the view exposes all the base data scalars.
+</a> to specify all the base data scalars.
 </p>
 </div>
 </section>
@@ -653,7 +657,7 @@
 </header>
 <section>
 <div>
-<p>A pair to use in the 
+<p>A key to use in the 
 <code>axes
 </code> parameter of 
 <a href="views.html#Daf.Views.viewer">
@@ -683,7 +687,7 @@
 <a href="views.html#Daf.Views.viewer">
 <code>viewer
 </code>
-</a> to specify the view exposes all the base data axes.
+</a> to specify all the base data axes.
 </p>
 </div>
 </section>
@@ -731,7 +735,7 @@
 <a href="views.html#Daf.Views.viewer">
 <code>viewer
 </code>
-</a> to specify the view exposes all the vectors of the exposed axes.
+</a> to specify all the vectors of the exposed axes.
 </p>
 </div>
 </section>
@@ -779,7 +783,7 @@
 <a href="views.html#Daf.Views.viewer">
 <code>viewer
 </code>
-</a> to specify the view exposes all the matrices of the exposed axes.
+</a> to specify all the matrices of the exposed axes.
 </p>
 </div>
 </section>
@@ -797,15 +801,15 @@
 </header>
 <section>
 <div>
-<p>A vector of pairs to use in the 
+<p>A vector to use in the 
 <code>data
 </code> parameters of 
 <a href="views.html#Daf.Views.viewer">
 <code>viewer
 </code>
-</a> (using 
-<code>...
-</code>) to specify the view exposes all the data of the exposed axes.
+</a> to specify the view exposes all the data of the exposed axes. This is the default, so the only reason do this is to say 
+<code>VIEW_ALL_DATA...
+</code> followed by some modifications.
 </p>
 </div>
 </section>
@@ -892,8 +896,20 @@
 </a>
 </li>
 <li>
+<a href="views.html#Daf.Views.ViewAxis">
+<code>Daf.Views.ViewAxis
+</code>
+</a>
+</li>
+<li>
 <a href="views.html#Daf.Views.ViewData">
 <code>Daf.Views.ViewData
+</code>
+</a>
+</li>
+<li>
+<a href="views.html#Daf.Views.ViewDatum">
+<code>Daf.Views.ViewDatum
 </code>
 </a>
 </li>
@@ -942,13 +958,21 @@
 </option>
 <option value="documenter-dark">documenter-dark
 </option>
+<option value="catppuccin-latte">catppuccin-latte
+</option>
+<option value="catppuccin-frappe">catppuccin-frappe
+</option>
+<option value="catppuccin-macchiato">catppuccin-macchiato
+</option>
+<option value="catppuccin-mocha">catppuccin-mocha
+</option>
 </select>
 </div>
 </p>
 <hr/>
 <p>This document was generated with 
 <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl
-</a> version 1.4.1. Using Julia version 1.10.4.
+</a> version 1.5.0. Using Julia version 1.10.4.
 </p>
 </section>
 <footer class="modal-card-foot">

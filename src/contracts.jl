@@ -5,6 +5,7 @@ module Contracts
 
 export AxisSpecification
 export Contract
+export ContractAxis
 export ContractAxes
 export ContractData
 export ContractExpectation
@@ -62,26 +63,18 @@ string description for the generated documentation.
 AxisSpecification = Tuple{ContractExpectation, AbstractString}
 
 """
-A vector of pairs where the key is the axis name and the value is a tuple of the [`ContractExpectation`](@ref) and a
-description of the axis (for documentation). Axes are listed mainly for documentation; axes of required or guaranteed
-vectors or matrices are automatically required or guaranteed to match. However it is considered polite to explicitly
-list the axes with their descriptions so the documentation of the contract will be complete.
-
-!!! note
-
-    Due to Julia's type system limitations, there's just no way for the system to enforce the type of the pairs
-    in this vector. That is, what we'd **like** to say is:
-
-        ContractAxes = AbstractVector{Pair{AxisKey, AxisSpecification}}
-
-    But what we are **forced** to say is:
-
-        ContractAxes = AbstractVector{<:Pair}
-
-    Glory to anyone who figures out an incantation that would force the system to perform more meaningful type inference
-    here.
+A pair where the key is the axis name and the value is a tuple of the [`ContractExpectation`](@ref) and a description of
+the axis (for documentation). We also allow specifying a tuple instead of a pairs to make it easy to invoke the API from
+other languages such as Python which do not have the concept of a `Pair`.
 """
-ContractAxes = AbstractVector{<:Pair}
+ContractAxis = Union{Pair{<:AxisKey, <:AxisSpecification}, Tuple{AxisKey, AxisSpecification}}
+
+"""
+Specify all the axes for a contract. We would have liked to specify this as `AbstractVector{<:ContractAxis}`
+but Julia in its infinite wisdom considers `["a" => "b", ("c", "d")]` to be a `Vector{Any}`, which would require literals
+to be annotated with the type.
+"""
+ContractAxes = AbstractVector
 
 """
 The specification of some property in a [`Contract`](@ref), which is the [`ContractExpectation`](@ref) and the type for
@@ -91,23 +84,18 @@ DataSpecification = Tuple{ContractExpectation, Type, AbstractString}
 
 """
 A vector of pairs where the key is a [`DataKey`](@ref) identifying some data property, and the value is a tuple of the
-[`ContractExpectation`](@ref), the expected data type, and a description (for documentation).
-
-!!! note
-
-    Due to Julia's type system limitations, there's just no way for the system to enforce the type of the pairs
-    in this vector. That is, what we'd **like** to say is:
-
-        ContractData = AbstractVector{Pair{DataKey, DataSpecification}
-
-    But what we are **forced** to say is:
-
-        ContractData = AbstractVector{<:Pair}
-
-    Glory to anyone who figures out an incantation that would force the system to perform more meaningful type inference
-    here.
+[`ContractExpectation`](@ref), the expected data type, and a description (for documentation). We also allow specifying a
+tuple instead of a pairs to make it easy to invoke the API from other languages such as Python which do not have the
+concept of a `Pair`.
 """
-ContractData = AbstractVector{<:Pair}
+ContractDatum = Union{Pair{<:DataKey, <:DataSpecification}, Tuple{DataKey, DataSpecification}}
+
+"""
+Specify all the data for a contract. We would have liked to specify this as `AbstractVector{<:ContractDatum}` but Julia
+in its infinite wisdom considers `["a" => "b", ("c", "d") => "e"]` to be a `Vector{Any}`, which would require literals
+to be annotated with the type.
+"""
+ContractData = AbstractVector
 
 """
     @kwdef struct Contract
@@ -117,8 +105,8 @@ ContractData = AbstractVector{<:Pair}
     end
 
 The contract of a computational tool, specifing the `axes` and and `data`. If `is_relaxed`, this allows for additional
-unlisted inputs; this is typically used when the computation has query parameters, which may need to access such
-additional data.
+inputs and/or outputs; this is typically used when the computation has query parameters, which may need to access such
+additional data, or when the computation generates a variable set of data.
 
 !!! note
 
@@ -132,6 +120,20 @@ additional data.
 end
 
 function contract_documentation(contract::Contract, buffer::IOBuffer)::Nothing
+    if contract.axes !== nothing
+        for (axis_key, axis_specification) in contract.axes
+            @assert axis_key isa AxisKey "invalid AxisKey: $(axis_key)"
+            @assert axis_specification isa AxisSpecification "invalid AxisSpecification: $(axis_specification)"
+        end
+    end
+
+    if contract.data !== nothing
+        for (data_key, data_specification) in contract.data
+            @assert data_key isa DataKey "invalid DataKey: $(data_key)"
+            @assert data_specification isa DataSpecification "invalid DataSpecification: $(data_specification)"
+        end
+    end
+
     has_inputs = false
     has_inputs = scalar_documentation(contract, buffer; is_output = false, has_any = has_inputs)
     has_inputs = axes_documentation(contract, buffer; is_output = false, has_any = has_inputs)
@@ -337,8 +339,8 @@ function collect_axes(contract::Contract)::Dict{AbstractString, Tracker}
     axes = Dict{AbstractString, Tracker}()
     if contract.axes !== nothing
         for (axis_name, axis_specification) in contract.axes
-            @assert axis_name isa AxisKey
-            @assert axis_specification isa AxisSpecification
+            @assert axis_name isa AxisKey "invalid AxisKey: $(axis_name)"
+            @assert axis_specification isa AxisSpecification "invalid AxisSpecification: $(axis_specification)"
             collect_axis(axis_name, axis_specification[1], axes)
         end
     end
@@ -349,8 +351,8 @@ function collect_data(contract::Contract, axes::Dict{AbstractString, Tracker})::
     data = Dict{DataKey, Tracker}()
     if contract.data !== nothing
         for (data_key, data_specification) in contract.data
-            @assert data_key isa DataKey
-            @assert data_specification isa DataSpecification
+            @assert data_key isa DataKey "invalid DataKey: $(data_key)"
+            @assert data_specification isa DataSpecification "invalid DataSpecification: $(data_specification)"
             expectation = data_specification[1]
             type = data_specification[2]
             data[data_key] = Tracker(expectation, type, false)
@@ -766,7 +768,6 @@ function merge_expectations(
 end
 
 function Formats.format_has_scalar(contract_daf::ContractDaf, name::AbstractString)::Bool
-    access_scalar(contract_daf, name; is_modify = false)
     return Formats.format_has_scalar(contract_daf.daf, name)
 end
 
@@ -782,8 +783,16 @@ function Formats.format_delete_scalar!(contract_daf::ContractDaf, name::Abstract
     return nothing
 end
 
-function Formats.format_get_scalar(contract_daf::ContractDaf, name::AbstractString)::StorageScalar
+function Readers.get_scalar(
+    contract_daf::ContractDaf,
+    name::AbstractString;
+    default::Union{StorageScalar, Nothing, UndefInitializer} = undef,
+)::Maybe{StorageScalar}
     access_scalar(contract_daf, name; is_modify = false)
+    return invoke(Readers.get_scalar, Tuple{DafReader, AbstractString}, contract_daf, name; default = default)  # NOLINT
+end
+
+function Formats.format_get_scalar(contract_daf::ContractDaf, name::AbstractString)::StorageScalar
     return Formats.format_get_scalar(contract_daf.daf, name)
 end
 
@@ -792,7 +801,9 @@ function Formats.format_scalars_set(contract_daf::ContractDaf)::AbstractSet{<:Ab
 end
 
 function Formats.format_has_axis(contract_daf::ContractDaf, axis::AbstractString; for_change::Bool)::Bool
-    access_axis(contract_daf, axis; is_modify = for_change)
+    if for_change
+        access_axis(contract_daf, axis; is_modify = true)
+    end
     return Formats.format_has_axis(contract_daf.daf, axis; for_change = for_change)
 end
 
@@ -816,18 +827,49 @@ function Formats.format_axes_set(contract_daf::ContractDaf)::AbstractSet{<:Abstr
     return Formats.format_axes_set(contract_daf.daf)
 end
 
-function Formats.format_axis_array(contract_daf::ContractDaf, axis::AbstractString)::AbstractVector{<:AbstractString}
+function Readers.axis_array(
+    contract_daf::ContractDaf,
+    axis::AbstractString;
+    default::Union{Nothing, UndefInitializer} = undef,
+)::Maybe{AbstractVector{<:AbstractString}}
     access_axis(contract_daf, axis; is_modify = false)
+    return invoke(Readers.axis_array, Tuple{DafReader, AbstractString}, contract_daf, axis; default = default)  # NOLINT
+end
+
+function Readers.axis_dict(contract_daf::ContractDaf, axis::AbstractString)::AbstractDict{<:AbstractString, <:Integer}
+    access_axis(contract_daf, axis; is_modify = false)
+    return invoke(Readers.axis_dict, Tuple{DafReader, AbstractString}, contract_daf, axis)
+end
+
+function Readers.axis_indices(
+    contract_daf::ContractDaf,
+    axis::AbstractString,
+    entries::AbstractVector{<:AbstractString},
+)::AbstractVector{<:Integer}
+    access_axis(contract_daf, axis; is_modify = false)
+    return invoke(
+        Readers.axis_indices,
+        Tuple{DafReader, AbstractString, AbstractVector{<:AbstractString}},
+        contract_daf,
+        axis,
+        entries,
+    )
+end
+
+function Formats.format_axis_array(contract_daf::ContractDaf, axis::AbstractString)::AbstractVector{<:AbstractString}
     return Formats.format_axis_array(contract_daf.daf, axis)
 end
 
-function Formats.format_axis_length(contract_daf::ContractDaf, axis::AbstractString)::Int64
+function Readers.axis_length(contract_daf::ContractDaf, axis::AbstractString)::Int64
     access_axis(contract_daf, axis; is_modify = false)
+    return invoke(Readers.axis_length, Tuple{DafReader, AbstractString}, contract_daf, axis)
+end
+
+function Formats.format_axis_length(contract_daf::ContractDaf, axis::AbstractString)::Int64
     return Formats.format_axis_length(contract_daf.daf, axis)
 end
 
 function Formats.format_has_vector(contract_daf::ContractDaf, axis::AbstractString, name::AbstractString)::Bool
-    access_vector(contract_daf, axis, name; is_modify = false)
     return Formats.format_has_vector(contract_daf.daf, axis, name)
 end
 
@@ -884,12 +926,27 @@ function Formats.format_delete_vector!(
 end
 
 function Formats.format_vectors_set(contract_daf::ContractDaf, axis::AbstractString)::AbstractSet{<:AbstractString}
-    access_axis(contract_daf, axis; is_modify = false)
     return Formats.format_vectors_set(contract_daf.daf, axis)
 end
 
-function Formats.format_get_vector(contract_daf::ContractDaf, axis::AbstractString, name::AbstractString)::StorageVector
+function Readers.get_vector(
+    contract_daf::ContractDaf,
+    axis::AbstractString,
+    name::AbstractString;
+    default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
+)::Maybe{NamedArray}
     access_vector(contract_daf, axis, name; is_modify = false)
+    return invoke(  # NOLINT
+        Readers.get_vector,
+        Tuple{DafReader, AbstractString, AbstractString},
+        contract_daf,
+        axis,
+        name;
+        default = default,
+    )
+end
+
+function Formats.format_get_vector(contract_daf::ContractDaf, axis::AbstractString, name::AbstractString)::StorageVector
     return Formats.format_get_vector(contract_daf.daf, axis, name)
 end
 
@@ -899,7 +956,6 @@ function Formats.format_has_matrix(
     columns_axis::AbstractString,
     name::AbstractString,
 )::Bool
-    access_matrix(contract_daf, rows_axis, columns_axis, name; is_modify = false)
     return Formats.format_has_matrix(contract_daf.daf, rows_axis, columns_axis, name)
 end
 
@@ -979,13 +1035,33 @@ function Formats.format_matrices_set(
     return Formats.format_matrices_set(contract_daf.daf, rows_axis, columns_axis)
 end
 
+function Readers.get_matrix(
+    contract_daf::ContractDaf,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString;
+    default::Union{StorageReal, StorageMatrix, Nothing, UndefInitializer} = undef,
+    relayout::Bool = true,
+)::Maybe{NamedArray}
+    access_matrix(contract_daf, rows_axis, columns_axis, name; is_modify = false)
+    return invoke(  # NOLINT
+        Readers.get_matrix,
+        Tuple{DafReader, AbstractString, AbstractString, AbstractString},
+        contract_daf,
+        rows_axis,
+        columns_axis,
+        name;
+        default = default,
+        relayout = relayout,
+    )
+end
+
 function Formats.format_get_matrix(
     contract_daf::ContractDaf,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
 )::StorageMatrix
-    access_matrix(contract_daf, rows_axis, columns_axis, name; is_modify = false)
     return Formats.format_get_matrix(contract_daf.daf, rows_axis, columns_axis, name)
 end
 
@@ -1044,7 +1120,7 @@ function access_vector(contract_daf::ContractDaf, axis::AbstractString, name::Ab
 
     tracker = get(contract_daf.data, (axis, name), nothing)
     if tracker === nothing
-        if contract_daf.is_relaxed || name == "name"
+        if contract_daf.is_relaxed || name == "name" || name == "index"
             return nothing
         end
         error(dedent("""

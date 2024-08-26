@@ -260,7 +260,7 @@ function set_vector!(
         # Formats.assert_valid_cache(daf)
         @debug "set_vector! daf: $(depict(daf)) axis: $(axis) name: $(name) vector: $(depict(vector)) overwrite: $(overwrite)"
 
-        require_not_name(daf, axis, name)
+        require_not_reserved(daf, axis, name)
         require_axis(daf, "for the vector: $(name)", axis)
 
         if vector isa StorageVector
@@ -336,7 +336,7 @@ function get_empty_dense_vector!(
     try
         # Formats.assert_valid_cache(daf)
         @debug "empty_dense_vector! daf: $(depict(daf)) axis: $(axis) name: $(name) eltype: $(eltype) overwrite: $(overwrite) {"
-        require_not_name(daf, axis, name)
+        require_not_reserved(daf, axis, name)
         require_axis(daf, "for the vector: $(name)", axis)
 
         if !overwrite
@@ -427,7 +427,7 @@ function get_empty_sparse_vector!(
     try
         # Formats.assert_valid_cache(daf)
         @debug "empty_sparse_vector! daf: $(depict(daf)) axis: $(axis) name: $(name) eltype: $(eltype) nnz: $(nnz) indtype: $(indtype) overwrite: $(overwrite) {"
-        require_not_name(daf, axis, name)
+        require_not_reserved(daf, axis, name)
         require_axis(daf, "for the vector: $(name)", axis)
 
         if !overwrite
@@ -485,7 +485,7 @@ function delete_vector!(daf::DafWriter, axis::AbstractString, name::AbstractStri
         # Formats.assert_valid_cache(daf)
         @debug "delete_vector! $daf: $(depict(daf)) axis: $(axis) name: $(name) must exist: $(must_exist)"
 
-        require_not_name(daf, axis, name)
+        require_not_reserved(daf, axis, name)
         require_axis(daf, "for the vector: $(name)", axis)
 
         if must_exist
@@ -953,10 +953,10 @@ function require_no_matrix(
     return nothing
 end
 
-function require_not_name(daf::DafReader, axis::AbstractString, name::AbstractString)::Nothing
-    if name == "name"
+function require_not_reserved(daf::DafReader, axis::AbstractString, name::AbstractString)::Nothing
+    if name == "name" || name == "index"
         error(dedent("""
-            setting the reserved vector: name
+            setting the reserved vector: $(name)
             for the axis: $(axis)
             in the daf data: $(daf.name)
         """))

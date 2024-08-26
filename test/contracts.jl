@@ -1017,6 +1017,7 @@ nested_test("contracts") do
             end
 
             nested_test("axis_dict") do
+                println(">>>>>>>>>> HERE:")
                 @test_throws dedent("""
                     accessing non-contract axis: cell
                     for the computation: computation
@@ -1083,11 +1084,7 @@ nested_test("contracts") do
             end
 
             nested_test("has_scalar") do
-                @test_throws dedent("""
-                    accessing non-contract scalar: version
-                    for the computation: computation
-                    on the daf data: memory!
-                """) has_scalar(contract_daf, "version")
+                @test has_scalar(contract_daf, "version") == has_scalar(daf, "version")
             end
 
             nested_test("scalars_set") do
@@ -1095,27 +1092,15 @@ nested_test("contracts") do
             end
 
             nested_test("has_axis") do
-                @test_throws dedent("""
-                    accessing non-contract axis: cell
-                    for the computation: computation
-                    on the daf data: memory!
-                """) has_axis(contract_daf, "cell")
+                @test has_axis(contract_daf, "cell") == has_axis(daf, "cell")
             end
 
             nested_test("vectors_set") do
-                @test_throws dedent("""
-                    accessing non-contract axis: cell
-                    for the computation: computation
-                    on the daf data: memory!
-                """) vectors_set(contract_daf, "cell")
+                @test vectors_set(contract_daf, "cell") == vectors_set(daf, "cell")
             end
 
             nested_test("matrices_set") do
-                @test_throws dedent("""
-                    accessing non-contract axis: cell
-                    for the computation: computation
-                    on the daf data: memory!
-                """) matrices_set(contract_daf, "cell", "gene")
+                @test matrices_set(contract_daf, "cell", "gene") == matrices_set(daf, "cell", "gene")
             end
         end
 
@@ -1145,12 +1130,7 @@ nested_test("contracts") do
             end
 
             nested_test("has_vector") do
-                @test_throws dedent("""
-                    accessing non-contract vector: age
-                    of the axis: cell
-                    for the computation: computation
-                    on the daf data: memory!
-                """) has_vector(contract_daf, "cell", "age")
+                @test has_vector(contract_daf, "cell", "age") == has_vector(daf, "cell", "age")
             end
 
             nested_test("matrices_set") do
@@ -1176,13 +1156,7 @@ nested_test("contracts") do
             end
 
             nested_test("has_matrix") do
-                @test_throws dedent("""
-                    accessing non-contract matrix: UMIs
-                    of the rows axis: cell
-                    and the columns axis: gene
-                    for the computation: computation
-                    on the daf data: memory!
-                """) has_matrix(contract_daf, "cell", "gene", "UMIs")
+                @test has_matrix(contract_daf, "cell", "gene", "UMIs") == has_matrix(daf, "cell", "gene", "UMIs")
             end
         end
 

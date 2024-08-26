@@ -17,8 +17,8 @@ Daf.Queries.QueryString
 ```@docs
 Daf.Queries.get_query
 Daf.Queries.get_frame
+Daf.Queries.FrameColumn
 Daf.Queries.FrameColumns
-Daf.Queries.QueryColumns
 Daf.Queries.full_vector_query
 Daf.Queries.query_result_dimensions
 Daf.Queries.query_requires_relayout

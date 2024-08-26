@@ -3,8 +3,10 @@
 ```@docs
 Daf.Contracts
 Daf.Contracts.Contract
+Daf.Contracts.ContractAxis
 Daf.Contracts.ContractAxes
 Daf.Contracts.AxisSpecification
+Daf.Contracts.ContractDatum
 Daf.Contracts.ContractData
 Daf.Contracts.DataSpecification
 Daf.Contracts.ContractExpectation

@@ -553,6 +553,8 @@ nested_test("queries") do
 
             nested_test("and") do
                 @test get_result(daf, q"/ cell & is_doublet"; is_axis = true) == ["A"]
+                @test get_result(daf, q"/ cell & is_doublet : name"; is_axis = false) == ("cell", ["A" => "A"])
+                @test get_result(daf, q"/ cell & is_doublet : index"; is_axis = false) == ("cell", ["A" => 1])
                 @test get_result(daf, q"/ cell & age"; is_axis = true) == ["B"]
                 @test get_result(daf, q"/ cell & age = 0"; is_axis = true) == ["A"]
                 @test get_result(daf, q"/ cell & age != 0"; is_axis = true) == ["B"]
@@ -560,6 +562,9 @@ nested_test("queries") do
                 @test get_result(daf, q"/ cell & age > 0"; is_axis = true) == ["B"]
                 @test get_result(daf, q"/ cell & age <= 0"; is_axis = true) == ["A"]
                 @test get_result(daf, q"/ cell & age >= 0"; is_axis = true) == ["A", "B"]
+                @test get_result(daf, q"/ cell & age >= 0 : name"; is_axis = false) ==
+                      ("cell", ["A" => "A", "B" => "B"])
+                @test get_result(daf, q"/ cell & age >= 0 : index"; is_axis = false) == ("cell", ["A" => 1, "B" => 2])
             end
 
             nested_test("and_not") do
@@ -601,6 +606,7 @@ nested_test("queries") do
 
                 nested_test("()") do
                     @test get_result(daf, q"/ cell = A : type => color") == "green"
+                    @test get_result(daf, q"/ cell = A : type => index") == 2
                     @test get_result(daf, q"/ cell : type => color") == ("cell", ["A" => "green", "B" => "red"])
                     @test get_result(daf, q"/ cell : type || magenta => color") ==
                           ("cell", ["A" => "green", "B" => "red"])
@@ -879,7 +885,7 @@ nested_test("queries") do
         nested_test("-if_missing") do
             add_axis!(daf, "cell", ["A", "B"])
             add_axis!(daf, "gene", ["X", "Y", "Z"])
-            @test get_result(daf, q"/ cell / gene : UMIs || -1"; requires_relayout = true) == (
+            @test get_result(daf, q"/ cell / gene : UMIs || -1") == (
                 ("cell", "gene"),
                 [
                     ("A", "X") => -1,
@@ -1407,7 +1413,7 @@ nested_test("queries") do
                 end
 
                 nested_test("shorthands") do
-                    @test "$(get_frame(daf, "cell", ["age" => "=", "doublet" => "is_doublet"]))" == dedent("""
+                    @test "$(get_frame(daf, "cell", FrameColumn["age", "doublet" => "is_doublet"]))" == dedent("""
                         2×2 DataFrame
                          Row │ age    doublet
                              │ Int64  Bool

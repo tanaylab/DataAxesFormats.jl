@@ -18,6 +18,12 @@ using ..StorageTypes
 using ..Writers
 
 """
+Map property names to a default value. We would have liked to specify this as `AbstractDict{<:AbstractString, <:StorageScalarBase}` but Julia in its infinite wisdom considers `Dict(["a" => "b", "c" => 1])` to be a
+`Dict{AbstractString, Any}`, which would require literals to be annotated with the type.
+"""
+PropertiesDefaults = AbstractDict
+
+"""
     reconstruct_axis!(
         daf::DafWriter;
         existing_axis::AbstractString,
@@ -28,32 +34,15 @@ using ..Writers
         properties_defaults::Maybe{AbstractDict} = nothing]
     )::AbstractDict{<:AbstractString, Maybe{StorageScalar}}
 
-Given an `existing_axis` in `daf`, which has a property `implicit_axis`, create a new axis with the same name (or, if
-specified, call it `rename_axis`). If `empty_implicit` is specified, this value of the property is replaced by the empty
-string (indicate there is no value associated with the `existing_axis` entry). For each of the `implicit_properties`, we
-collect the mapping between the `implicit_axis` and the property values, and store it as a property of the newly created
-axis.
+Given an `existing_axis` in `daf`, which has a property `implicit_axis`, create a new axis with the same name as the
+property (or, if specified, call it `rename_axis`). If `empty_implicit` is specified, this value of the property is
+replaced by the empty string (indicate there is no value associated with the `existing_axis` entry). For each of the
+`implicit_properties`, we collect the mapping between the `implicit_axis` and the property values, and store it as a
+property of the newly created axis.
 
 If the `implicit_axis` already exists, we verify that all the values provided for it by the `existing_axis` do, in fact,
 exist as names of entries in the `implicit_axis`. This allows manually creating the `implicit_axis` with additional
 entries that are not currently in use.
-
-!!! note
-
-    If the `implicit_axis` already exists and contains entries that aren't currently in use, you must specify
-    `properties_defaults` for the values of these entries of the reconstructed properties.
-
-    Due to Julia's type system limitations, there's just no way for the system to enforce the type of the pairs
-    in this vector. That is, what we'd **like** to say is:
-
-        properties_defaults::Maybe{AbstractDict{<:AbstractString, <:StorageScalar}} = nothing
-
-    But what we are **forced** to say is:
-
-        properties_defaults::Maybe{Dict} = nothing
-
-    Glory to anyone who figures out an incantation that would force the system to perform more meaningful type inference
-    here.
 
 If `implicit_properties` are explicitly specified, then we require the mapping from `implicit_axis` to be consistent.
 Otherwise, we look at all the properties of the `existing_axis`, and check for each one whether the mapping is
@@ -77,7 +66,7 @@ doublet score). Not specifying the `implicit_properties` allows the function to 
     rename_axis::Maybe{AbstractString} = nothing,
     empty_implicit::Maybe{StorageScalar} = nothing,
     implicit_properties::Maybe{AbstractSet{<:AbstractString}} = nothing,
-    properties_defaults::Maybe{Dict} = nothing,
+    properties_defaults::Maybe{PropertiesDefaults} = nothing,
 )::AbstractDict{<:AbstractString, Maybe{StorageScalar}}
     if rename_axis === nothing
         rename_axis = implicit_axis
@@ -85,6 +74,13 @@ doublet score). Not specifying the `implicit_properties` allows the function to 
 
     if implicit_properties !== nothing
         @assert !(implicit_axis in implicit_properties)
+    end
+
+    if properties_defaults !== nothing
+        for (property, default) in properties_defaults
+            @assert property isa AbstractString "invalid property name: $(property)"
+            @assert default isa StorageScalar "invalid property default: $(default)"
+        end
     end
 
     implicit_values = get_vector(daf, existing_axis, implicit_axis)

@@ -13,8 +13,6 @@ detect_problems = EarlyFilteredLogger(global_logger()) do log_args
 end
 global_logger(detect_problems)
 
-using JET
-
 import Pkg
 Pkg.activate(".")
 

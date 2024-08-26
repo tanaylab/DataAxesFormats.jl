@@ -18,7 +18,9 @@ export VIEW_ALL_MATRICES
 export VIEW_ALL_SCALARS
 export VIEW_ALL_VECTORS
 export ViewAxes
+export ViewAxis
 export ViewData
+export ViewDatum
 export viewer
 
 using NamedArrays
@@ -66,10 +68,11 @@ struct DafView <: DafReadOnly
 end
 
 """
-Specify axes to expose from a view.
+Specify an axis to expose from a view.
 
 This is specified as a vector of pairs (similar to initializing a `Dict`). The order of the pairs matter (last one
-wins).
+wins). We also allow specifying tuples instead of pairs to make it easy to invoke the API from other languages such as
+Python which do not have the concept of a `Pair`.
 
 If the key is `"*"`, then it is replaced by all the names of the axes of the wrapped `daf` data. Otherwise, the key is
 just the name of an axis.
@@ -78,32 +81,26 @@ If the value is `nothing`, then the axis will **not** be exposed by the view. If
 be exposed with the same entries as in the original `daf` data. Otherwise the value is any valid query that returns a
 vector of (unique!) strings to serve as the vector entries.
 
-That is, saying `"*" => "="` (or, [`VIEW_ALL_AXES`](@ref) will expose all the original `daf` data axes from the view.
-Following this by saying `"type" => nothing` will hide the `type` from the view. Saying `"batch" => q"/ batch & age > 1`
-will expose the `batch` axis, but only including the batches whose `age` property is greater than 1.
-
-!!! note
-
-    Due to Julia's type system limitations, there's just no way for the system to enforce the type of the pairs
-    in this vector. That is, what we'd **like** to say is:
-
-        ViewAxes = AbstractVector{Pair{AbstractString, Maybe{QueryString}}}
-
-    But what we are **forced** to say is:
-
-        ViewAxes = AbstractVector{<:Pair}
-
-    Glory to anyone who figures out an incantation that would force the system to perform more meaningful type inference
-    here.
+That is, specifying `"*"` (or, [`ALL_AXES`](@ref) will expose all the original `daf` data axes from the view. Following
+this by saying `"type" => nothing` will hide the `type` from the view. Saying `"batch" => q"/ batch & age > 1` will
+expose the `batch` axis, but only including the batches whose `age` property is greater than 1.
 """
-ViewAxes = AbstractVector{<:Pair}
+ViewAxis = Union{Tuple{AbstractString, Maybe{QueryString}}, Pair{<:AbstractString, <:Maybe{QueryString}}}
 
 """
-Specify data to expose from view. This is specified as a vector of pairs (similar to initializing a `Dict`). The order
-of the pairs matter (last one wins).
+Specify all the axes to expose from a view. We would have liked to specify this as `AbstractVector{<:ViewAxis}`
+but Julia in its infinite wisdom considers `["a", "b" => "c"]` to be a `Vector{Any}`, which would require literals
+to be annotated with the type.
+"""
+ViewAxes = AbstractVector
+
+"""
+Specify a single datum to expose from view. This is specified as a vector of pairs (similar to initializing a `Dict`).
+The order of the pairs matter (last one wins). We also allow specifying tuples instead of pairs to make it easy to
+invoke the API from other languages such as Python which do not have the concept of a `Pair`.
 
 **Scalars** are specified similarly to [`ViewAxes`](@ref), except that the query should return a scalar instead of a
-vector. That is, saying `"*" => "="` (or, [`VIEW_ALL_SCALARS`](@ref)) will expose all the original `daf` data scalars
+vector. That is, saying `"*"` (or [`ALL_SCALARS`](@ref)) will expose all the original `daf` data scalars
 from the view. Following this by saying `"version" => nothing` will hide the `version` from the view. Adding
 `"total_umis" => q"/ cell / gene : UMIs %> Sum %> Sum"` will expose a `total_umis` scalar containing the total sum of
 all UMIs of all genes in all cells, etc.
@@ -111,12 +108,11 @@ all UMIs of all genes in all cells, etc.
 **Vectors** are specified similarly to scalars, but require a key specifying both an axis and a property name. The axis
 must be exposed by the view (based on the `axes` parameter). If the axis is `"*"`, it is replaces by all the exposed
 axis names specified by the `axes` parameter. Similarly, if the property name is `"*"` (e.g., `("gene", "*")`), then  it
-is replaced by all the vector properties of the exposed axis in the base data. Therefore if the pair is
-`("*", "*") => "="` (or [`VIEW_ALL_VECTORS`](@ref))`, all vector properties of all the (exposed) axes will also be
-exposed.
+is replaced by all the vector properties of the exposed axis in the base data. Therefore specifying `("*", "*")` (or
+[`ALL_VECTORS`](@ref))`, all vector properties of all the (exposed) axes will also be exposed.
 
 The value for vectors must be the suffix of a vector query based on the appropriate axis; a value of `"="` is again used
-to expose the property as-is. This works in the same way as a column query in [`QueryColumns`](@ref).
+to expose the property as-is.
 
 For example, specifying `axes = ["cell" => q"/ cell & type = TCell"]`, and then
 `data = [("cell", "total_noisy_UMIs") => q"/ gene & noisy : UMIs %> Sum` will expose `total_noisy_UMIs` as a
@@ -126,39 +122,31 @@ compute the sum of the `UMIs` of all the noisy genes for each cell (whose `type`
 **Matrices** require a key specifying both axes and a property name. The axes must both be exposed by the view (based on
 the `axes` parameter). Again if any or both of the axes are `"*"`, they are replaced by all the exposed axes (based on
 the `axes` parameter), and likewise if the name is `"*"`, it replaced by all the matrix properties of the axes. The
-value for matrices can again be `"="` to expose the property as is, or the suffix of a matrix query. Therefore if the
-pair is `("*", "*", "*") => "="` (or, `VIEW_ALL_MATRICES`), all matrix properties of all the (exposed) axes will also be
-exposed.
+value for matrices can again be `"="` to expose the property as is, or the suffix of a matrix query. Therefore
+specifying `("*", "*", "*")` (or, `ALL_MATRICES`), all matrix properties of all the (exposed) axes will also be exposed.
 
 That is, assuming a `gene` and `cell` axes were exposed by the `axes` parameter, then specifying that
 `("cell", "gene", "log_UMIs") => q": UMIs % Log base 2 eps"` will expose the matrix `log_UMIs` for each cell and gene.
 
 The order of the axes does not matter, so
 `data = [("gene", "cell", "UMIs") => "="]` has the same effect as `data = [("cell", "gene", "UMIs") => "="]`.
-
-!!! note
-
-    Due to Julia's type system limitations, there's just no way for the system to enforce the type of the pairs
-    in this vector. That is, what we'd **like** to say is:
-
-        ViewData = AbstractVector{Pair{DataKey, Maybe{QueryString}}}
-
-    But what we are **forced** to say is:
-
-        ViewData = AbstractVector{<:Pair}
-
-    Glory to anyone who figures out an incantation that would force the system to perform more meaningful type inference
-    here.
 """
-ViewData = AbstractVector{<:Pair}
+ViewDatum = Union{Tuple{DataKey, Maybe{QueryString}}, Pair{<:DataKey, <:Maybe{QueryString}}}
 
 """
-A pair to use in the `axes` parameter of [`viewer`](@ref) to specify all the base data axes.
+Specify all the data to expose from a view. We would have liked to specify this as `AbstractVector{<:ViewDatum}` but
+Julia in its infinite wisdom considers `["a", "b" => "c"]` to be a `Vector{Any}`, which would require literals to be
+annotated with the type.
+"""
+ViewData = AbstractVector
+
+"""
+A key to use in the `axes` parameter of [`viewer`](@ref) to specify all the base data axes.
 """
 ALL_AXES = "*"
 
 """
-A pair to use in the `axes` parameter of [`viewer`](@ref) to specify the view exposes all the base data axes.
+A pair to use in the `axes` parameter of [`viewer`](@ref) to specify all the base data axes.
 """
 VIEW_ALL_AXES = ALL_AXES => "="
 
@@ -168,7 +156,7 @@ A key to use in the `data` parameter of [`viewer`](@ref) to specify all the base
 ALL_SCALARS = "*"
 
 """
-A pair to use in the `data` parameter of [`viewer`](@ref) to specify the view exposes all the base data scalars.
+A pair to use in the `data` parameter of [`viewer`](@ref) to specify all the base data scalars.
 """
 VIEW_ALL_SCALARS = ALL_SCALARS => "="
 
@@ -178,8 +166,7 @@ A key to use in the `data` parameter of [`viewer`](@ref) to specify all the vect
 ALL_VECTORS = ("*", "*")
 
 """
-A pair to use in the `data` parameter of [`viewer`](@ref) to specify the view exposes all the vectors of the exposed
-axes.
+A pair to use in the `data` parameter of [`viewer`](@ref) to specify all the vectors of the exposed axes.
 """
 VIEW_ALL_VECTORS = ALL_VECTORS => "="
 
@@ -189,19 +176,15 @@ A key to use in the `data` parameter of [`viewer`](@ref) to specify all the matr
 ALL_MATRICES = ("*", "*", "*")
 
 """
-A pair to use in the `data` parameter of [`viewer`](@ref) to specify the view exposes all the matrices of the exposed
-axes.
+A pair to use in the `data` parameter of [`viewer`](@ref) to specify all the matrices of the exposed axes.
 """
 VIEW_ALL_MATRICES = ALL_MATRICES => "="
 
 """
-A vector of pairs to use in the `data` parameters of [`viewer`](@ref) (using `...`) to specify the view exposes all
-the data of the exposed axes.
+A vector to use in the `data` parameters of [`viewer`](@ref) to specify the view exposes all the data of the exposed
+axes. This is the default, so the only reason do this is to say `VIEW_ALL_DATA...` followed by some modifications.
 """
 VIEW_ALL_DATA = [VIEW_ALL_SCALARS, VIEW_ALL_VECTORS, VIEW_ALL_MATRICES]
-
-EMPTY_AXES = Vector{Pair{String, String}}()
-EMPTY_DATA = Vector{Pair{String, String}}()
 
 """
     viewer(
@@ -223,8 +206,8 @@ Queries are listed separately for axes and data.
 
     As an optimization, calling `viewer` with all-empty (default) arguments returns a simple
     [`DafReadOnlyWrapper`](@ref), that is, it is equivalent to calling [`read_only`](@ref). Additionally, saying
-    `data = VIEW_ALL_DATA` will expose all the data using any of the exposed axes; you can write
-    `data = [VIEW_ALL_DATA..., key => nothing]` to hide specific data based on its `key`.
+    `data = ALL_DATA` will expose all the data using any of the exposed axes; you can write
+    `data = [ALL_DATA..., key => nothing]` to hide specific data based on its `key`.
 """
 function viewer(
     daf::DafReader;
@@ -244,6 +227,24 @@ function viewer(
         data = VIEW_ALL_DATA
     end
 
+    for axis in axes
+        @assert (
+            axis isa Union{Pair, Tuple} &&
+            length(axis) == 2 &&
+            axis[1] isa AbstractString &&
+            axis[1] isa Maybe{QueryString}
+        ) "invalid ViewAxis: $(axis)"
+    end
+
+    for datum in data
+        @assert (
+            datum isa Union{Pair, Tuple} &&
+            length(datum) == 2 &&
+            datum[1] isa DataKey &&
+            datum[2] isa Maybe{QueryString}
+        ) "invalid ViewDatum: $(datum)"
+    end
+
     if daf isa ReadOnly.DafReadOnlyWrapper
         daf = daf.daf
     end
@@ -253,17 +254,10 @@ function viewer(
     end
     name = unique_name(name)
 
-    for (key, query) in data
-        @assert key isa DataKey
-        @assert query isa Maybe{QueryString}
-    end
-
-    collected_axes::Dict{AbstractString, Fetch{AbstractVector{<:AbstractString}}} = collect_axes(name, daf, axes)
-    collected_scalars::Dict{AbstractString, Fetch{StorageScalar}} = collect_scalars(name, daf, data)
-    collected_vectors::Dict{AbstractString, Dict{AbstractString, Fetch{StorageVector}}} =
-        collect_vectors(name, daf, collected_axes, data)
-    collected_matrices::Dict{AbstractString, Dict{AbstractString, Dict{AbstractString, Fetch{StorageMatrix}}}} =
-        collect_matrices(name, daf, collected_axes, data)
+    collected_axes = collect_axes(name, daf, axes)
+    collected_scalars = collect_scalars(name, daf, data)
+    collected_vectors = collect_vectors(name, daf, collected_axes, data)
+    collected_matrices = collect_matrices(name, daf, collected_axes, data)
 
     wrapper = DafView(
         name,
@@ -324,7 +318,7 @@ function collect_scalar(
         if scalar_query == "="
             scalar_query = Lookup(scalar_name)
         else
-            @assert scalar_query isa Query
+            @assert scalar_query isa Query "invalid scalar query: $(scalar_query)"
         end
         dimensions = query_result_dimensions(scalar_query)
         if dimensions != 0
@@ -347,8 +341,6 @@ function collect_axes(
 )::Dict{AbstractString, Fetch{AbstractVector{<:AbstractString}}}
     collected_axes = Dict{AbstractString, Fetch{AbstractVector{<:AbstractString}}}()
     for (axis, query) in axes
-        @assert axis isa AbstractString
-        @assert query isa Maybe{QueryString}
         collect_axis(view_name, daf, collected_axes, axis, prepare_query(query, Axis))
     end
     return collected_axes
@@ -371,7 +363,7 @@ function collect_axis(
         if axis_query == "="
             axis_query = Axis(axis_name)
         else
-            @assert axis_query isa Query
+            @assert axis_query isa Query "invalid axis query: $(axis_query)"
         end
         if !is_axis_query(axis_query)
             error(dedent("""
@@ -545,7 +537,7 @@ function collect_matrix(
         if matrix_query == "="
             matrix_query = Lookup(matrix_name)
         else
-            @assert matrix_query isa Query
+            @assert matrix_query isa Query "invalid matrix query: $(matrix_query)"
         end
 
         full_matrix_query = fetch_rows_axis.query |> fetch_columns_axis.query |> matrix_query
@@ -703,12 +695,12 @@ function Formats.format_get_vector(view::DafView, axis::AbstractString, name::Ab
         vector_value = Formats.read_only_array(get_query(view.daf, fetch_vector.query; cache = false))
         @assert vector_value isa NamedArray && names(vector_value, 1) == Formats.format_axis_array(view, axis) dedent(
             """
-    invalid vector query: $(fetch_vector.query)
-    for the axis query: $(view.axes[axis].query)
-    of the daf data: $(view.daf.name)
-    for the axis: $(name)
-    of the daf view: $(view.name)
-""",
+                invalid vector query: $(fetch_vector.query)
+                for the axis query: $(view.axes[axis].query)
+                of the daf data: $(view.daf.name)
+                for the axis: $(name)
+                of the daf view: $(view.name)
+            """,
         )
         fetch_vector.value = vector_value
     end

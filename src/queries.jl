@@ -10,6 +10,7 @@ export AsAxis
 export Axis
 export CountBy
 export Fetch
+export FrameColumn
 export FrameColumns
 export GroupBy
 export IfMissing
@@ -27,7 +28,6 @@ export Names
 export Or
 export OrNot
 export Query
-export QueryColumns
 export QuerySequence
 export QueryString
 export Xor
@@ -426,7 +426,7 @@ Operators used to represent a [`Query`](@ref) as a string.
 | `?`      | [`Names`](@ref)              | 1. Names of scalars or axes (`? axes`, `? scalars`).                                     |
 |          |                              | 2. Names of vectors of axis (e.g., `/ cell ?`).                                          |
 |          |                              | 3. Names of matrices of axes (e.g., `/ cell / gene ?`).                                  |
-| `:`      | [`Lookup`](@ref)             | Lookup a property (e.g., `@ version`, `/ cell : batch` or `/ cell / gene : UMIs`).       |
+| `:`      | [`Lookup`](@ref)             | Lookup a property (e.g., `: version`, `/ cell : batch` or `/ cell / gene : UMIs`).       |
 | `=>`     | [`Fetch`](@ref)              | Fetch a property from another axis (e.g., `/ cell : batch => age`).                      |
 | `!`      | [`AsAxis`](@ref)             | 1. Specify axis name when fetching a property (e.g., `/ cell : manual ! type => color`). |
 |          |                              | 2. Force all axis values when counting (e.g., `/ cell : batch ! * manual ! type`).       |
@@ -2256,7 +2256,9 @@ function fake_lookup_axes(fake_query_state::FakeQueryState, lookup::Lookup)::Not
         columns_axis_name = columns_axis_state.axis_name
         @assert rows_axis_name !== nothing
         @assert columns_axis_name !== nothing
-        if !has_matrix(daf, rows_axis_name, columns_axis_name, lookup.property_name; relayout = false)
+        if rows_axis_name != columns_axis_name &&
+           !has_matrix(daf, rows_axis_name, columns_axis_name, lookup.property_name; relayout = false) &&
+           has_matrix(daf, columns_axis_name, rows_axis_name, lookup.property_name; relayout = false)
             fake_query_state.requires_relayout = true
         end
     end
@@ -3869,13 +3871,14 @@ function value_for(
 end
 
 """
-Specify columns for [`get_frame`](@ref) for some axis. This is a vector of pairs, where the key is the column name, and
-the value is a query that computes the data of the column.
+Specify a column for [`get_frame`](@ref) for some axis. The most generic form is a pair `"column_name" => query`. Two
+shorthands apply: the pair `"column_name" => "="` is a shorthand for the pair `"column_name" => ": column_name"`, and
+so is the shorthand `"column_name"` (simple string).
+
+We also allow specifying tuples instead of pairs to make it easy to invoke the API from other languages such as Python
+which do not have the concept of a `Pair`.
 
 The query is combined with the axis query as follows (using [`full_vector_query`](@ref):
-
-  - If the query is the special string `=`, then the full query is `axis_query |> Lookup(column_name)`. For example,
-    the full query for the axis query `cell & batch = B1` and the pair `"age" => "="` is `cell & batch = B1 : age`.
 
   - If the query contains [`GroupBy`](@ref), then the query must repeat any mask specified for the axis query.
     That is, if the axis query is `metacell & type = B`, then the column query must be
@@ -3887,33 +3890,20 @@ The query is combined with the axis query as follows (using [`full_vector_query`
     in all metacells). We can't just concatenate the axis query and the columns query here, is because Julia, in its
     infinite wisdom, uses column-major matrices, like R and matlab; so reduction eliminates the rows instead of the
     columns of the matrix.
-  - Otherwise, we simply concatenate the axis query and the column query. That is, of the axis query is
-    `cell & batch = B1` and the column query is `: age`, then the full query will be `cell & batch = B1 : age`. This is
-    the simplest and most common case.
+  - Otherwise (the typical case), we simply concatenate the axis query and the column query. That is, of the axis query
+    is `cell & batch = B1` and the column query is `: age`, then the full query will be `cell & batch = B1 : age`. This
+    is the simplest and most common case.
 
 In all cases the (full) query must return a value for each entry of the axis.
-
-!!! note
-
-    Due to Julia's type system limitations, there's just no way for the system to enforce the type of the pairs
-    in this vector. That is, what we'd **like** to say is:
-
-        QueryColumns = AbstractVector{Pair{AbstractString, QueryString}}
-
-    But what we are **forced** to say is:
-
-        QueryColumns = AbstractVector{<:Pair}
-
-    Glory to anyone who figures out an incantation that would force the system to perform more meaningful type inference
-    here.
 """
-QueryColumns = AbstractVector{<:Pair}
+FrameColumn = Union{AbstractString, Tuple{AbstractString, QueryString}, Pair{<:AbstractString, <:QueryString}}
 
 """
-Specify the columns of a data frame. This can be either a vector of names of vector properties (e.g., `["batch", "age"]`), or a [`QueryColumns`](@ref) vector of pairs mapping a column name to a query that fetches a value for each
-entry of some axis.
+Specify all the columns to collect for a frame. We would have liked to specify this as `AbstractVector{<:FrameColumn}`
+but Julia in its infinite wisdom considers `["a", "b" => "c"]` to be a `Vector{Any}`, which would require literals
+to be annotated with the type.
 """
-FrameColumns = Union{AbstractVector{<:AbstractString}, QueryColumns}
+FrameColumns = AbstractVector
 
 """
     get_frame(
@@ -3941,6 +3931,12 @@ function get_frame(
     columns::Maybe{FrameColumns} = nothing;
     cache::Bool = true,
 )::DataFrame
+    if columns !== nothing
+        for column in columns
+            @assert column isa FrameColumn "invalid FrameColumn: $(column)"
+        end
+    end
+
     if axis isa Query
         axis_query = axis
         axis_name = query_axis_name(axis)
@@ -3962,7 +3958,17 @@ function get_frame(
     end
 
     data = Vector{Pair{AbstractString, StorageVector}}()
-    for (column_name, column_query) in columns
+    for frame_column in columns
+        @assert frame_column isa FrameColumn "invalid FrameColumn: $(frame_column)"
+        if frame_column isa AbstractString
+            column_name = frame_column
+            column_query = "="
+        else
+            column_name, column_query = frame_column
+        end
+        if column_query == "="
+            column_query = ": " * column_name
+        end
         column_query = full_vector_query(axis_query, column_query, column_name)
         vector = get_query(daf, column_query; cache = cache)
         if !(vector isa StorageVector) || !(vector isa NamedArray) || names(vector, 1) != names_of_rows
@@ -4008,7 +4014,7 @@ end
     )::Query
 
 Given a query for an axis, and some suffix query for a vector property, combine them into a full query for the vector
-values for the axis. This is used by [`QueryColumns`](@ref) for [`get_frame`](@ref) and also for queries of vector data
+values for the axis. This is used by [`FrameColumn`](@ref) for [`get_frame`](@ref) and also for queries of vector data
 in views.
 """
 function full_vector_query(

@@ -244,7 +244,7 @@ nested_test("views") do
             daf;
             name = "view!",
             axes = ["obs" => "/ cell", "var" => "/ gene"],
-            data = [ALL_SCALARS => nothing, ALL_VECTORS => "=", ("obs", "var", "X") => ": UMIs"],
+            data = [ALL_SCALARS => nothing, VIEW_ALL_VECTORS, ("obs", "var", "X") => ": UMIs"],
         )
 
         nested_test("()") do

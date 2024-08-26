@@ -368,6 +368,11 @@ function test_existing_axis(daf::DafReader, depth::Int)::Nothing
         @test get_vector(daf, "cell", "name") == CELL_NAMES
     end
 
+    nested_test("index") do
+        @test get_vector(daf, "gene", "index") == collect(1:length(GENE_NAMES))
+        @test get_vector(daf, "cell", "index") == collect(1:length(CELL_NAMES))
+    end
+
     if !(daf isa DafWriter)
         return nothing
     end
@@ -692,6 +697,14 @@ function test_missing_vector(daf::DafReader, depth::Int)::Nothing
                     for the axis: gene
                     in the daf data: $(daf.name)
                 """) set_vector!(daf, "gene", "name", 1)
+            end
+
+            nested_test("index") do
+                @test_throws dedent("""
+                    setting the reserved vector: index
+                    for the axis: gene
+                    in the daf data: $(daf.name)
+                """) set_vector!(daf, "gene", "index", 1)
             end
 
             nested_test("!size") do

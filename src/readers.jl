@@ -310,7 +310,7 @@ function has_vector(daf::DafReader, axis::AbstractString, name::AbstractString):
     return Formats.with_data_read_lock(daf, "has_vector of:", name, "of:", axis) do
         # Formats.assert_valid_cache(daf)
         require_axis(daf, "for has_vector: $(name)", axis)
-        result = name == "name" || Formats.format_has_vector(daf, axis, name)
+        result = name == "name" || name == "index" || Formats.format_has_vector(daf, axis, name)
         @debug "has_vector daf: $(depict(daf)) axis: $(axis) name: $(name) result: $(result)"
         # Formats.assert_valid_cache(daf)
         return result
@@ -393,8 +393,13 @@ function get_vector(
             end
         end
 
-        if name == "name"
-            vector = Formats.as_named_vector(daf, axis, Formats.get_axis_array_through_cache(daf, axis))
+        if name == "name" || name == "index"
+            values = Formats.get_axis_array_through_cache(daf, axis)
+            if name == "index"
+                dictionary = Formats.get_axis_dict_through_cache(daf, axis)
+                values = getindex.(Ref(dictionary), values)
+            end
+            vector = Formats.as_named_vector(daf, axis, values)
             @debug "get_vector daf: $(depict(daf)) axis: $(axis) name: $(name) default: $(depict(default)) result: $(depict(vector))"
             # Formats.assert_valid_cache(daf)
             return vector

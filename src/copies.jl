@@ -171,7 +171,7 @@ source axis contains entries that do not exist in the target, they are discarded
         if eltype(value) <: abstract_dtype
             set_vector!(destination, reaxis, rename, value; overwrite = overwrite)
         elseif issparse(value.array)
-            @assert isbitstype(concrete_dtype)
+            @assert isbitstype(concrete_dtype) "not a bits type: $(concrete_dtype)"
             empty_sparse_vector!(
                 destination,
                 reaxis,
@@ -185,7 +185,7 @@ source axis contains entries that do not exist in the target, they are discarded
                 return nothing
             end
         else
-            @assert isbitstype(concrete_dtype)
+            @assert isbitstype(concrete_dtype) "not a bits type: $(concrete_dtype)"
             empty_dense_vector!(destination, reaxis, rename, concrete_dtype; overwrite = overwrite) do empty_vector
                 empty_vector .= value
                 return nothing
@@ -327,7 +327,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
     end
 
     concrete_dtype, _ = target_types(dtype === nothing ? eltype(value) : dtype)
-    @assert isbitstype(concrete_dtype)
+    @assert isbitstype(concrete_dtype) "not a bits type: $(concrete_dtype)"
 
     if rows_relation == :same && columns_relation == :same
         if eltype(value) == concrete_dtype
@@ -403,45 +403,20 @@ end
 
 """
 Specify the data to use for missing properties in a `Daf` data set. This is a dictionary with an [`DataKey`](@ref)
-specifying for which property we specify a value to, and the value to use.
-
-!!! note
-
-    Due to Julia's type system limitations, there's just no way for the system to enforce the type of the pairs when
-    initializing this dictionary. That is, what we'd **like** to say is:
-
-        EmptyData = AbstractDict{DataKey, StorageScalar}
-
-    But what we are **forced** to say is:
-
-        EmptyData = AbstractDict
-
-    That's **not** a mistake. Even `EmptyData = AbstractDict{Key, StorageScalar} where {Key}` fails to work, as do all
-    the (many) possibilities for expressing "this is a dictionary where the key or the value can be one of several
-    things" Sigh. Glory to anyone who figures out an incantation that would force the system to perform **any**
-    meaningful type inference here.
+specifying for which property we spec,aify a value to, and the value to use. We would have liked to specify this as
+`AbstractDict{<:DataKey, <:StorageScalarBase}` but Julia in its infinite wisdom considers
+`Dict(["a" => "b", ("c", "d") => 1])` to be a `Dict{Any, Any}`, which would require literals to be annotated with the
+type.
 """
 EmptyData = AbstractDict
 
 """
 Specify the data type to use for overriding properties types in a `Daf` data set. This is a dictionary with an
 [`DataKey`](@ref) specifying for which property we specify a value to, and the data type to use.
-
-!!! note
-
-    Due to Julia's type system limitations, there's just no way for the system to enforce the type of the pairs when
-    initializing this dictionary. That is, what we'd **like** to say is:
-
-        DataTypes = AbstractDict{DataKey, Type{<:StorageScalarBase}}}
-
-    But what we are **forced** to say is:
-
-        DataTypes = AbstractDict
-
-    That's **not** a mistake. Even `DataTypes = AbstractDict{<:Any, <: StorageScalarBase}` fails to work, as do all the
-    (many) possibilities for expressing "this is a dictionary where the key or the value can be one of several things"
-    Sigh. Glory to anyone who figures out an incantation that would force the system to perform **any** meaningful type
-    inference here.
+We would have liked to specify this as
+`AbstractDict{<:DataKey, Type{<:StorageScalarBase}}` but Julia in its infinite wisdom considers
+`Dict(["a" => Bool, ("c", "d") => Int32])` to be a `Dict{Any, DataType}`, which would require literals to be annotated
+with the type.
 """
 DataTypes = AbstractDict
 
@@ -481,17 +456,17 @@ If `dtype` is specified, the copied data of the matching property is converted t
 )::Nothing
     if empty !== nothing
         for (key, value) in empty
-            @assert key isa DataKey
-            @assert value isa StorageScalar
+            @assert key isa DataKey "invalid empty DataKey: $(key)"
+            @assert value isa StorageScalar "invalid empty StorageScalar: $(value)"
         end
     end
 
     if dtypes !== nothing
         for (key, value) in dtypes
-            @assert key isa DataKey
-            @assert value isa Type
-            @assert value <: StorageScalarBase
-            @assert value <: AbstractString || isbitstype(value)
+            @assert key isa DataKey "invalid dtype DataKey: $(key)"
+            @assert value isa Type "invalid dtype Type: $(value)"
+            @assert value <: StorageScalarBase "not a StorageScalarBase: $(value)"
+            @assert value <: AbstractString || isbitstype(value) "not a storable type: $(value)"
         end
     end
 
@@ -678,7 +653,7 @@ function target_types(dtype::Type)::Tuple{Type, Type}
     if dtype <: AbstractString
         return (String, AbstractString)
     else
-        @assert isbitstype(dtype)
+        @assert isbitstype(dtype) "not a bits type: $(dtype)"
         return (dtype, dtype)
     end
 end

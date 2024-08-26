@@ -31,6 +31,10 @@
 </script>
 <script src="../versions.js">
 </script>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/>
 <link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/>
 <link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/>
 <script src="assets/themeswap.js">
@@ -649,8 +653,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Queries.FrameColumns" href="#Daf.Queries.FrameColumns">
-<code>Daf.Queries.FrameColumns
+<a class="docstring-binding" id="Daf.Queries.FrameColumn" href="#Daf.Queries.FrameColumn">
+<code>Daf.Queries.FrameColumn
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -658,35 +662,23 @@
 </header>
 <section>
 <div>
-<p>Specify the columns of a data frame. This can be either a vector of names of vector properties (e.g., 
-<code>[&quot;batch&quot;, &quot;age&quot;]
-</code>), or a 
-<a href="queries.html#Daf.Queries.QueryColumns">
-<code>QueryColumns
-</code>
-</a> vector of pairs mapping a column name to a query that fetches a value for each entry of some axis.
-</p>
-</div>
-</section>
-</article>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
-<a class="docstring-binding" id="Daf.Queries.QueryColumns" href="#Daf.Queries.QueryColumns">
-<code>Daf.Queries.QueryColumns
-</code>
-</a> — 
-<span class="docstring-category">Type
-</span>
-</header>
-<section>
-<div>
-<p>Specify columns for 
+<p>Specify a column for 
 <a href="queries.html#Daf.Queries.get_frame">
 <code>get_frame
 </code>
-</a> for some axis. This is a vector of pairs, where the key is the column name, and the value is a query that computes the data of the column.
+</a> for some axis. The most generic form is a pair 
+<code>&quot;column_name&quot; =&gt; query
+</code>. Two shorthands apply: the pair 
+<code>&quot;column_name&quot; =&gt; &quot;=&quot;
+</code> is a shorthand for the pair 
+<code>&quot;column_name&quot; =&gt; &quot;: column_name&quot;
+</code>, and so is the shorthand 
+<code>&quot;column_name&quot;
+</code> (simple string).
+</p>
+<p>We also allow specifying tuples instead of pairs to make it easy to invoke the API from other languages such as Python which do not have the concept of a 
+<code>Pair
+</code>.
 </p>
 <p>The query is combined with the axis query as follows (using 
 <a href="queries.html#Daf.Queries.full_vector_query">
@@ -695,22 +687,7 @@
 </a>:
 </p>
 <ul>
-<li>
-<p>If the query is the special string 
-<code>=
-</code>, then the full query is 
-<code>axis_query |&gt; Lookup(column_name)
-</code>. For example, the full query for the axis query 
-<code>cell &amp; batch = B1
-</code> and the pair 
-<code>&quot;age&quot; =&gt; &quot;=&quot;
-</code> is 
-<code>cell &amp; batch = B1 : age
-</code>.
-</p>
-</li>
-<li>
-<p>If the query contains 
+<li>If the query contains 
 <a href="queries.html#Daf.Queries.GroupBy">
 <code>GroupBy
 </code>
@@ -723,55 +700,50 @@
 <code>GroupBy
 </code>
 </a> column queries.
-</p>
 </li>
-<li>
-<p>Otherwise, if the query starts with a (single) axis, then it should only contain a reduction; the axis query is automatically injected following it. That is, if the axis query is 
+<li>Otherwise, if the query starts with a (single) axis, then it should only contain a reduction; the axis query is automatically injected following it. That is, if the axis query is 
 <code>gene &amp; is_marker
 </code>, then the full query for the column query 
 <code>/ metacell : fraction %&gt; Mean
 </code> will be 
 <code>/ metacell / gene : fraction %&gt; Mean
 </code> (the mean gene expression in all metacells). We can&#39;t just concatenate the axis query and the columns query here, is because Julia, in its infinite wisdom, uses column-major matrices, like R and matlab; so reduction eliminates the rows instead of the columns of the matrix.
-</p>
 </li>
-<li>
-<p>Otherwise, we simply concatenate the axis query and the column query. That is, of the axis query is 
+<li>Otherwise (the typical case), we simply concatenate the axis query and the column query. That is, of the axis query is 
 <code>cell &amp; batch = B1
 </code> and the column query is 
 <code>: age
 </code>, then the full query will be 
 <code>cell &amp; batch = B1 : age
 </code>. This is the simplest and most common case.
-</p>
 </li>
 </ul>
 <p>In all cases the (full) query must return a value for each entry of the axis.
 </p>
-<div class="admonition is-info">
-<header class="admonition-header">Note
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Queries.FrameColumns" href="#Daf.Queries.FrameColumns">
+<code>Daf.Queries.FrameColumns
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
 </header>
-<div class="admonition-body">
-<p>Due to Julia&#39;s type system limitations, there&#39;s just no way for the system to enforce the type of the pairs in this vector. That is, what we&#39;d 
-<strong>like
-</strong> to say is:
+<section>
+<div>
+<p>Specify all the columns to collect for a frame. We would have liked to specify this as 
+<code>AbstractVector{&lt;:FrameColumn}
+</code> but Julia in its infinite wisdom considers 
+<code>[&quot;a&quot;, &quot;b&quot; =&gt; &quot;c&quot;]
+</code> to be a 
+<code>Vector{Any}
+</code>, which would require literals to be annotated with the type.
 </p>
-<pre>
-<code class="nohighlight hljs">QueryColumns = AbstractVector{Pair{AbstractString, QueryString}}
-</code>
-</pre>
-<p>But what we are 
-<strong>forced
-</strong> to say is:
-</p>
-<pre>
-<code class="nohighlight hljs">QueryColumns = AbstractVector{&lt;:Pair}
-</code>
-</pre>
-<p>Glory to anyone who figures out an incantation that would force the system to perform more meaningful type inference here.
-</p>
-</div>
-</div>
 </div>
 </section>
 </article>
@@ -797,8 +769,8 @@
 </code>
 </pre>
 <p>Given a query for an axis, and some suffix query for a vector property, combine them into a full query for the vector values for the axis. This is used by 
-<a href="queries.html#Daf.Queries.QueryColumns">
-<code>QueryColumns
+<a href="queries.html#Daf.Queries.FrameColumn">
+<code>FrameColumn
 </code>
 </a> for 
 <a href="queries.html#Daf.Queries.get_frame">
@@ -991,7 +963,7 @@
 </a>
 </td>
 <td style="text-align: left">Lookup a property (e.g., 
-<code>@ version
+<code>: version
 </code>, 
 <code>/ cell : batch
 </code> or 
@@ -4009,6 +3981,12 @@
 </a>
 </li>
 <li>
+<a href="queries.html#Daf.Queries.FrameColumn">
+<code>Daf.Queries.FrameColumn
+</code>
+</a>
+</li>
+<li>
 <a href="queries.html#Daf.Queries.FrameColumns">
 <code>Daf.Queries.FrameColumns
 </code>
@@ -4107,12 +4085,6 @@
 <li>
 <a href="queries.html#Daf.Queries.Query">
 <code>Daf.Queries.Query
-</code>
-</a>
-</li>
-<li>
-<a href="queries.html#Daf.Queries.QueryColumns">
-<code>Daf.Queries.QueryColumns
 </code>
 </a>
 </li>
@@ -4227,13 +4199,21 @@
 </option>
 <option value="documenter-dark">documenter-dark
 </option>
+<option value="catppuccin-latte">catppuccin-latte
+</option>
+<option value="catppuccin-frappe">catppuccin-frappe
+</option>
+<option value="catppuccin-macchiato">catppuccin-macchiato
+</option>
+<option value="catppuccin-mocha">catppuccin-mocha
+</option>
 </select>
 </div>
 </p>
 <hr/>
 <p>This document was generated with 
 <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl
-</a> version 1.4.1. Using Julia version 1.10.4.
+</a> version 1.5.0. Using Julia version 1.10.4.
 </p>
 </section>
 <footer class="modal-card-foot">

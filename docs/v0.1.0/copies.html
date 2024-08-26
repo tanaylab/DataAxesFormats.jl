@@ -31,6 +31,10 @@
 </script>
 <script src="../versions.js">
 </script>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/>
 <link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/>
 <link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/>
 <script src="assets/themeswap.js">
@@ -608,38 +612,14 @@
 <a href="keys.html#Daf.Keys.DataKey">
 <code>DataKey
 </code>
-</a> specifying for which property we specify a value to, and the value to use.
+</a> specifying for which property we spec,aify a value to, and the value to use. We would have liked to specify this as 
+<code>AbstractDict{&lt;:DataKey, &lt;:StorageScalarBase}
+</code> but Julia in its infinite wisdom considers 
+<code>Dict([&quot;a&quot; =&gt; &quot;b&quot;, (&quot;c&quot;, &quot;d&quot;) =&gt; 1])
+</code> to be a 
+<code>Dict{Any, Any}
+</code>, which would require literals to be annotated with the type.
 </p>
-<div class="admonition is-info">
-<header class="admonition-header">Note
-</header>
-<div class="admonition-body">
-<p>Due to Julia&#39;s type system limitations, there&#39;s just no way for the system to enforce the type of the pairs when initializing this dictionary. That is, what we&#39;d 
-<strong>like
-</strong> to say is:
-</p>
-<pre>
-<code class="nohighlight hljs">EmptyData = AbstractDict{DataKey, StorageScalar}
-</code>
-</pre>
-<p>But what we are 
-<strong>forced
-</strong> to say is:
-</p>
-<pre>
-<code class="nohighlight hljs">EmptyData = AbstractDict
-</code>
-</pre>
-<p>That&#39;s 
-<strong>not
-</strong> a mistake. Even 
-<code>EmptyData = AbstractDict{Key, StorageScalar} where {Key}
-</code> fails to work, as do all the (many) possibilities for expressing &quot;this is a dictionary where the key or the value can be one of several things&quot; Sigh. Glory to anyone who figures out an incantation that would force the system to perform 
-<strong>any
-</strong> meaningful type inference here.
-</p>
-</div>
-</div>
 </div>
 </section>
 </article>
@@ -662,38 +642,14 @@
 <a href="keys.html#Daf.Keys.DataKey">
 <code>DataKey
 </code>
-</a> specifying for which property we specify a value to, and the data type to use.
+</a> specifying for which property we specify a value to, and the data type to use. We would have liked to specify this as 
+<code>AbstractDict{&lt;:DataKey, Type{&lt;:StorageScalarBase}}
+</code> but Julia in its infinite wisdom considers 
+<code>Dict([&quot;a&quot; =&gt; Bool, (&quot;c&quot;, &quot;d&quot;) =&gt; Int32])
+</code> to be a 
+<code>Dict{Any, DataType}
+</code>, which would require literals to be annotated with the type.
 </p>
-<div class="admonition is-info">
-<header class="admonition-header">Note
-</header>
-<div class="admonition-body">
-<p>Due to Julia&#39;s type system limitations, there&#39;s just no way for the system to enforce the type of the pairs when initializing this dictionary. That is, what we&#39;d 
-<strong>like
-</strong> to say is:
-</p>
-<pre>
-<code class="nohighlight hljs">DataTypes = AbstractDict{DataKey, Type{&lt;:StorageScalarBase}}}
-</code>
-</pre>
-<p>But what we are 
-<strong>forced
-</strong> to say is:
-</p>
-<pre>
-<code class="nohighlight hljs">DataTypes = AbstractDict
-</code>
-</pre>
-<p>That&#39;s 
-<strong>not
-</strong> a mistake. Even 
-<code>DataTypes = AbstractDict{&lt;:Any, &lt;: StorageScalarBase}
-</code> fails to work, as do all the (many) possibilities for expressing &quot;this is a dictionary where the key or the value can be one of several things&quot; Sigh. Glory to anyone who figures out an incantation that would force the system to perform 
-<strong>any
-</strong> meaningful type inference here.
-</p>
-</div>
-</div>
 </div>
 </section>
 </article>
@@ -793,13 +749,21 @@
 </option>
 <option value="documenter-dark">documenter-dark
 </option>
+<option value="catppuccin-latte">catppuccin-latte
+</option>
+<option value="catppuccin-frappe">catppuccin-frappe
+</option>
+<option value="catppuccin-macchiato">catppuccin-macchiato
+</option>
+<option value="catppuccin-mocha">catppuccin-mocha
+</option>
 </select>
 </div>
 </p>
 <hr/>
 <p>This document was generated with 
 <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl
-</a> version 1.4.1. Using Julia version 1.10.4.
+</a> version 1.5.0. Using Julia version 1.10.4.
 </p>
 </section>
 <footer class="modal-card-foot">
