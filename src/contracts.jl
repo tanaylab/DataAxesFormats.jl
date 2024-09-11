@@ -620,7 +620,12 @@ function Messages.depict(contract_daf::ContractDaf; name::Maybe{AbstractString} 
     if name === nothing
         name = contract_daf.name
     end
-    return "Contract $(depict(contract_daf.daf; name = name))"
+
+    if contract_daf.daf isa ContractDaf
+        return depict(contract_daf.daf; name = name)
+    else
+        return "Contract $(depict(contract_daf.daf; name = name))"
+    end
 end
 
 function Base.getindex(
@@ -1066,6 +1071,9 @@ function Formats.format_get_matrix(
 end
 
 function access_scalar(contract_daf::ContractDaf, name::AbstractString; is_modify::Bool)::Nothing
+    if contract_daf.daf isa ContractDaf
+        access_scalar(contract_daf.daf, name; is_modify = is_modify)
+    end
     tracker = get(contract_daf.data, name, nothing)
     if tracker === nothing
         if contract_daf.is_relaxed
@@ -1091,6 +1099,9 @@ function access_scalar(contract_daf::ContractDaf, name::AbstractString; is_modif
 end
 
 function access_axis(contract_daf::ContractDaf, axis::AbstractString; is_modify::Bool)::Nothing
+    if contract_daf.daf isa ContractDaf
+        access_axis(contract_daf.daf, axis; is_modify = is_modify)
+    end
     tracker = get(contract_daf.axes, axis, nothing)
     if tracker === nothing
         if contract_daf.is_relaxed
@@ -1116,6 +1127,10 @@ function access_axis(contract_daf::ContractDaf, axis::AbstractString; is_modify:
 end
 
 function access_vector(contract_daf::ContractDaf, axis::AbstractString, name::AbstractString; is_modify::Bool)::Nothing
+    if contract_daf.daf isa ContractDaf
+        access_vector(contract_daf.daf, axis, name; is_modify = is_modify)
+    end
+
     access_axis(contract_daf, axis; is_modify = false)
 
     tracker = get(contract_daf.data, (axis, name), nothing)
@@ -1151,16 +1166,20 @@ function access_matrix(
     name::AbstractString;
     is_modify::Bool,
 )::Nothing
+    if contract_daf.daf isa ContractDaf
+        access_matrix(contract_daf.daf, rows_axis, columns_axis, name; is_modify = is_modify)
+    end
+
     access_axis(contract_daf, rows_axis; is_modify = false)
     access_axis(contract_daf, columns_axis; is_modify = false)
 
     tracker = get(contract_daf.data, (rows_axis, columns_axis, name), nothing)
     if tracker === nothing
-        if contract_daf.is_relaxed
-            return nothing
-        end
         tracker = get(contract_daf.data, (columns_axis, rows_axis, name), nothing)
         if tracker === nothing
+            if contract_daf.is_relaxed
+                return nothing
+            end
             error(dedent("""
                 accessing non-contract matrix: $(name)
                 of the rows axis: $(rows_axis)
@@ -1170,6 +1189,7 @@ function access_matrix(
             """))
         end
     end
+
 
     if is_immutable(tracker.expectation; is_modify = is_modify)
         error(dedent("""

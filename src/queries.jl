@@ -681,6 +681,14 @@ function Base.:(|>)(first_operation::QueryOperation, second_operation::QueryOper
     return QuerySequence((first_operation, second_operation))
 end
 
+function Base.:(|>)(first::Union{QuerySequence, QueryOperation}, second::AbstractString)::QuerySequence
+    return first |> Query(second)
+end
+
+function Base.:(|>)(first::AbstractString, second::Union{QuerySequence, QueryOperation})::QuerySequence
+    return Query(first) |> second
+end
+
 """
     Names(kind::Maybe{AbstractString} = nothing) <: Query
 
@@ -1687,6 +1695,8 @@ function get_query(
             if result === nothing
                 did_compute[1] = true
                 result, _ = do_get_query(daf, query_sequence)
+            else
+                result = result.data
             end
         end
         if !did_compute[1]

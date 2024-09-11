@@ -217,6 +217,12 @@ end
 Describe a fraction of `used` amount `out_of` some total as a percentage.
 """
 function depict_percent(used::Integer, out_of::Integer)::String
+    @assert 0 <= used <= out_of
+
+    if out_of == 0
+        return "0%"
+    end
+
     float_percent = 100.0 * Float64(used) / Float64(out_of)
     int_percent = round(Int64, float_percent)
 
