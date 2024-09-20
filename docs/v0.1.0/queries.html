@@ -2627,72 +2627,6 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Queries.ComparisonOperation" href="#Daf.Queries.ComparisonOperation">
-<code>Daf.Queries.ComparisonOperation
-</code>
-</a> — 
-<span class="docstring-category">Type
-</span>
-</header>
-<section>
-<div>
-<p>
-<code>ComparisonOperation
-</code> := ( 
-<a href="queries.html#Daf.Queries.IsLess">
-<code>IsLess
-</code>
-</a> | 
-<a href="queries.html#Daf.Queries.IsLessEqual">
-<code>IsLessEqual
-</code>
-</a> | 
-<a href="queries.html#Daf.Queries.IsEqual">
-<code>IsEqual
-</code>
-</a> | 
-<a href="queries.html#Daf.Queries.IsNotEqual">
-<code>IsNotEqual
-</code>
-</a> | 
-<a href="queries.html#Daf.Queries.IsGreater">
-<code>IsGreater
-</code>
-</a> | 
-<a href="queries.html#Daf.Queries.IsGreaterEqual">
-<code>IsGreaterEqual
-</code>
-</a> | 
-<a href="queries.html#Daf.Queries.IsMatch">
-<code>IsMatch
-</code>
-</a> | 
-<a href="queries.html#Daf.Queries.IsNotMatch">
-<code>IsNotMatch
-</code>
-</a> )
-</p>
-<p>A query operation computing a mask by comparing the values of a vector with some constant (e.g., 
-<code>/ cell &amp; age &gt; 0
-</code>). In addition, the 
-<a href="queries.html#Daf.Queries.IsEqual">
-<code>IsEqual
-</code>
-</a> operation can be used to slice an entry from a vector (e.g., 
-<code>/ gene = FOX1 : is_marker
-</code>) or a matrix (e.g., 
-<code>/ cell / gene = FOX1 &amp; UMIs
-</code>, 
-<code>/ cell = ATCG / gene = FOX1 : UMIs
-</code>).
-</p>
-</div>
-</section>
-</article>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
 <a class="docstring-binding" id="Daf.Queries.guess_typed_value" href="#Daf.Queries.guess_typed_value">
 <code>Daf.Queries.guess_typed_value
 </code>
@@ -3467,6 +3401,72 @@
 <a class="docs-heading-anchor-permalink" href="#Comparison-Operators" title="Permalink">
 </a>
 </h3>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Queries.ComparisonOperation" href="#Daf.Queries.ComparisonOperation">
+<code>Daf.Queries.ComparisonOperation
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</header>
+<section>
+<div>
+<p>
+<code>ComparisonOperation
+</code> := ( 
+<a href="queries.html#Daf.Queries.IsLess">
+<code>IsLess
+</code>
+</a> | 
+<a href="queries.html#Daf.Queries.IsLessEqual">
+<code>IsLessEqual
+</code>
+</a> | 
+<a href="queries.html#Daf.Queries.IsEqual">
+<code>IsEqual
+</code>
+</a> | 
+<a href="queries.html#Daf.Queries.IsNotEqual">
+<code>IsNotEqual
+</code>
+</a> | 
+<a href="queries.html#Daf.Queries.IsGreater">
+<code>IsGreater
+</code>
+</a> | 
+<a href="queries.html#Daf.Queries.IsGreaterEqual">
+<code>IsGreaterEqual
+</code>
+</a> | 
+<a href="queries.html#Daf.Queries.IsMatch">
+<code>IsMatch
+</code>
+</a> | 
+<a href="queries.html#Daf.Queries.IsNotMatch">
+<code>IsNotMatch
+</code>
+</a> )
+</p>
+<p>A query operation computing a mask by comparing the values of a vector with some constant (e.g., 
+<code>/ cell &amp; age &gt; 0
+</code>). In addition, the 
+<a href="queries.html#Daf.Queries.IsEqual">
+<code>IsEqual
+</code>
+</a> operation can be used to slice an entry from a vector (e.g., 
+<code>/ gene = FOX1 : is_marker
+</code>) or a matrix (e.g., 
+<code>/ cell / gene = FOX1 &amp; UMIs
+</code>, 
+<code>/ cell = ATCG / gene = FOX1 : UMIs
+</code>).
+</p>
+</div>
+</section>
+</article>
 <article class="docstring">
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">

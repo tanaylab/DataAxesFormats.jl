@@ -50,7 +50,6 @@ Daf.Queries.AXIS_MASK
 Daf.Queries.MASK_OPERATION
 Daf.Queries.MASK_SLICE
 Daf.Queries.VECTOR_FETCH
-Daf.Queries.ComparisonOperation
 Daf.Queries.guess_typed_value
 ```
 
@@ -77,6 +76,7 @@ Daf.Queries.Names
 ### Comparison Operators
 
 ```@docs
+Daf.Queries.ComparisonOperation
 Daf.Queries.IsEqual
 Daf.Queries.IsGreater
 Daf.Queries.IsGreaterEqual
