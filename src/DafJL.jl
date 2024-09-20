@@ -1,5 +1,5 @@
 """
-The `Daf.jl` package provides a uniform generic interface for accessing 1D and 2D data arranged along some set of axes.
+The `DafJL` package provides a uniform generic interface for accessing 1D and 2D data arranged along some set of axes.
 This is a much-needed generalization of the [AnnData](https://pypi.org/project/anndata/) functionality. The key
 features are:
 
@@ -24,9 +24,9 @@ features are:
   - Self documenting [`Computations`](@ref) with an explicit [`Contracts`](@ref) describing and enforcing the inputs and
     outputs, and [`Adapters`](@ref) for applying the computation to data of a different format.
 
-The top-level `Daf` module re-exports all(most) everything from the sub-modules, so you can directly access any exported
-symbol by `using Daf` (or `import Daf: MemoryDaf`), instead of having to import or use qualified names (such as
-`Daf.MemoryFormat.MemoryDaf`).
+The top-level `DafJL` module re-exports all(most) everything from the sub-modules, so you can directly access any exported
+symbol by `using DafJL` (or `import DafJL: MemoryDaf`), instead of having to import or use qualified names (such as
+`DafJL.MemoryFormat.MemoryDaf`).
 
 The `Daf` data sets type hierarchy looks like this:
 
@@ -41,7 +41,7 @@ The `Daf` data sets type hierarchy looks like this:
        ├─ FilesDaf
        └─ H5df
 """
-module Daf
+module DafJL
 
 using Reexport
 

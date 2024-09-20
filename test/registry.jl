@@ -1,6 +1,6 @@
-import Daf.Registry.EltwiseOperation
-import Daf.Registry.@query_operation
-import Daf.Registry.ReductionOperation
+import DafJL.Registry.EltwiseOperation
+import DafJL.Registry.@query_operation
+import DafJL.Registry.ReductionOperation
 
 struct TestEltwiseOp <: EltwiseOperation end
 @query_operation TestEltwiseOp

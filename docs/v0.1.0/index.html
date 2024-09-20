@@ -5,14 +5,14 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Daf · Daf.jl v0.1.0
+<title>Daf · DafJL.jl v0.1.0
 </title>
-<meta name="title" content="Daf · Daf.jl v0.1.0"/>
-<meta property="og:title" content="Daf · Daf.jl v0.1.0"/>
-<meta property="twitter:title" content="Daf · Daf.jl v0.1.0"/>
-<meta name="description" content="Documentation for Daf.jl v0.1.0."/>
-<meta property="og:description" content="Documentation for Daf.jl v0.1.0."/>
-<meta property="twitter:description" content="Documentation for Daf.jl v0.1.0."/>
+<meta name="title" content="Daf · DafJL.jl v0.1.0"/>
+<meta property="og:title" content="Daf · DafJL.jl v0.1.0"/>
+<meta property="twitter:title" content="Daf · DafJL.jl v0.1.0"/>
+<meta name="description" content="Documentation for DafJL.jl v0.1.0."/>
+<meta property="og:description" content="Documentation for DafJL.jl v0.1.0."/>
+<meta property="twitter:description" content="Documentation for DafJL.jl v0.1.0."/>
 <script data-outdated-warner src="assets/warner.js">
 </script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/>
@@ -44,11 +44,11 @@
 <div id="documenter">
 <nav class="docs-sidebar">
 <a class="docs-logo" href="index.html">
-<img src="assets/logo.svg" alt="Daf.jl v0.1.0 logo"/>
+<img src="assets/logo.svg" alt="DafJL.jl v0.1.0 logo"/>
 </a>
 <div class="docs-package-name">
 <span class="docs-autofit">
-<a href="index.html">Daf.jl v0.1.0
+<a href="index.html">DafJL.jl v0.1.0
 </a>
 </span>
 </div>
@@ -220,7 +220,7 @@
 </ul>
 </nav>
 <div class="docs-right">
-<a class="docs-navbar-link" href="https://github.com/tanaylab/Daf.jl/blob/main{path}?plain=1#L{line}" title="View the repository on GitHub">
+<a class="docs-navbar-link" href="https://github.com/tanaylab/DafJL.jl/blob/main{path}?plain=1#L{line}" title="View the repository on GitHub">
 <span class="docs-icon fa-brands">
 </span>
 <span class="docs-label is-hidden-touch">GitHub
@@ -245,8 +245,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Daf" href="#Daf.Daf">
-<code>Daf.Daf
+<a class="docstring-binding" id="DafJL.DafJL" href="#DafJL.DafJL">
+<code>DafJL.DafJL
 </code>
 </a> — 
 <span class="docstring-category">Module
@@ -255,36 +255,36 @@
 <section>
 <div>
 <p>The 
-<code>Daf.jl
+<code>DafJL
 </code> package provides a uniform generic interface for accessing 1D and 2D data arranged along some set of axes. This is a much-needed generalization of the 
 <a href="https://pypi.org/project/anndata/">AnnData
 </a> functionality. The key features are:
 </p>
 <ul>
 <li>The data model 
-<a href="storage_types.html#Daf.StorageTypes">
+<a href="storage_types.html#DafJL.StorageTypes">
 <code>StorageTypes
 </code>
 </a> include (1) some axes with named entries, (2) vector data indexed by a single axis, (3) matrix data indexed by a pair of axes, and also (4) scalar data (anything not tied to some axis).
 </li>
 <li>Explicit control over 2D data 
-<a href="matrix_layouts.html#Daf.MatrixLayouts">
+<a href="matrix_layouts.html#DafJL.MatrixLayouts">
 <code>MatrixLayouts
 </code>
 </a> (row or column major), with support for both dense and sparse matrices, both of which are crucial for performance.
 </li>
 <li>Out of the box, allow storing the data in memory (using 
-<a href="memory_format.html#Daf.MemoryFormat.MemoryDaf">
+<a href="memory_format.html#DafJL.MemoryFormat.MemoryDaf">
 <code>MemoryDaf
 </code>
 </a>), directly inside 
 <a href="https://www.hdfgroup.org/solutions/hdf5/">HDF5
 </a> files (using 
-<a href="h5df_format.html#Daf.H5dfFormat.H5df">
+<a href="h5df_format.html#DafJL.H5dfFormat.H5df">
 <code>H5df
 </code>
 </a>), or as a collection of simple files in a directory (using 
-<a href="files_format.html#Daf.FilesFormat.FilesDaf">
+<a href="files_format.html#DafJL.FilesFormat.FilesDaf">
 <code>FilesDaf
 </code>
 </a>), which works nicely with tools like 
@@ -292,7 +292,7 @@
 </code> for automating computation pipelines.
 </li>
 <li>Import and export to/from 
-<a href="anndata_format.html#Daf.AnnDataFormat">
+<a href="anndata_format.html#DafJL.AnnDataFormat">
 <code>AnnDataFormat
 </code>
 </a> for interoperability with non-
@@ -320,7 +320,7 @@
 </a> multiple data sets into a single data set along one or more axes.
 </li>
 <li>A 
-<a href="queries.html#Daf.Queries.Query">
+<a href="queries.html#DafJL.Queries.Query">
 <code>Query
 </code>
 </a> language for accessing the data, providing features such as slicing, aggregation and filtering, and making 
@@ -349,13 +349,13 @@
 </li>
 </ul>
 <p>The top-level 
-<code>Daf
+<code>DafJL
 </code> module re-exports all(most) everything from the sub-modules, so you can directly access any exported symbol by 
-<code>using Daf
+<code>using DafJL
 </code> (or 
-<code>import Daf: MemoryDaf
+<code>import DafJL: MemoryDaf
 </code>), instead of having to import or use qualified names (such as 
-<code>Daf.MemoryFormat.MemoryDaf
+<code>DafJL.MemoryFormat.MemoryDaf
 </code>).
 </p>
 <p>The 
@@ -388,2000 +388,2000 @@
 </h1>
 <ul>
 <li>
-<a href="adapters.html#Daf.Adapters">
-<code>Daf.Adapters
+<a href="adapters.html#DafJL.Adapters">
+<code>DafJL.Adapters
 </code>
 </a>
 </li>
 <li>
-<a href="anndata_format.html#Daf.AnnDataFormat">
-<code>Daf.AnnDataFormat
+<a href="anndata_format.html#DafJL.AnnDataFormat">
+<code>DafJL.AnnDataFormat
 </code>
 </a>
 </li>
 <li>
-<a href="chains.html#Daf.Chains">
-<code>Daf.Chains
+<a href="chains.html#DafJL.Chains">
+<code>DafJL.Chains
 </code>
 </a>
 </li>
 <li>
-<a href="computations.html#Daf.Computations">
-<code>Daf.Computations
+<a href="computations.html#DafJL.Computations">
+<code>DafJL.Computations
 </code>
 </a>
 </li>
 <li>
-<a href="concat.html#Daf.Concat">
-<code>Daf.Concat
+<a href="concat.html#DafJL.Concat">
+<code>DafJL.Concat
 </code>
 </a>
 </li>
 <li>
-<a href="contracts.html#Daf.Contracts">
-<code>Daf.Contracts
+<a href="contracts.html#DafJL.Contracts">
+<code>DafJL.Contracts
 </code>
 </a>
 </li>
 <li>
-<a href="copies.html#Daf.Copies">
-<code>Daf.Copies
+<a href="copies.html#DafJL.Copies">
+<code>DafJL.Copies
 </code>
 </a>
 </li>
 <li>
-<a href="index.html#Daf.Daf">
-<code>Daf.Daf
+<a href="index.html#DafJL.DafJL">
+<code>DafJL.DafJL
 </code>
 </a>
 </li>
 <li>
-<a href="example_data.html#Daf.ExampleData">
-<code>Daf.ExampleData
+<a href="example_data.html#DafJL.ExampleData">
+<code>DafJL.ExampleData
 </code>
 </a>
 </li>
 <li>
-<a href="files_format.html#Daf.FilesFormat">
-<code>Daf.FilesFormat
+<a href="files_format.html#DafJL.FilesFormat">
+<code>DafJL.FilesFormat
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats">
-<code>Daf.Formats
+<a href="formats.html#DafJL.Formats">
+<code>DafJL.Formats
 </code>
 </a>
 </li>
 <li>
-<a href="generic_functions.html#Daf.GenericFunctions">
-<code>Daf.GenericFunctions
+<a href="generic_functions.html#DafJL.GenericFunctions">
+<code>DafJL.GenericFunctions
 </code>
 </a>
 </li>
 <li>
-<a href="generic_locks.html#Daf.GenericLocks">
-<code>Daf.GenericLocks
+<a href="generic_locks.html#DafJL.GenericLocks">
+<code>DafJL.GenericLocks
 </code>
 </a>
 </li>
 <li>
-<a href="generic_logging.html#Daf.GenericLogging">
-<code>Daf.GenericLogging
+<a href="generic_logging.html#DafJL.GenericLogging">
+<code>DafJL.GenericLogging
 </code>
 </a>
 </li>
 <li>
-<a href="generic_types.html#Daf.GenericTypes">
-<code>Daf.GenericTypes
+<a href="generic_types.html#DafJL.GenericTypes">
+<code>DafJL.GenericTypes
 </code>
 </a>
 </li>
 <li>
-<a href="groups.html#Daf.Groups">
-<code>Daf.Groups
+<a href="groups.html#DafJL.Groups">
+<code>DafJL.Groups
 </code>
 </a>
 </li>
 <li>
-<a href="h5df_format.html#Daf.H5dfFormat">
-<code>Daf.H5dfFormat
+<a href="h5df_format.html#DafJL.H5dfFormat">
+<code>DafJL.H5dfFormat
 </code>
 </a>
 </li>
 <li>
-<a href="keys.html#Daf.Keys">
-<code>Daf.Keys
+<a href="keys.html#DafJL.Keys">
+<code>DafJL.Keys
 </code>
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#Daf.MatrixLayouts">
-<code>Daf.MatrixLayouts
+<a href="matrix_layouts.html#DafJL.MatrixLayouts">
+<code>DafJL.MatrixLayouts
 </code>
 </a>
 </li>
 <li>
-<a href="memory_format.html#Daf.MemoryFormat">
-<code>Daf.MemoryFormat
+<a href="memory_format.html#DafJL.MemoryFormat">
+<code>DafJL.MemoryFormat
 </code>
 </a>
 </li>
 <li>
-<a href="messages.html#Daf.Messages">
-<code>Daf.Messages
+<a href="messages.html#DafJL.Messages">
+<code>DafJL.Messages
 </code>
 </a>
 </li>
 <li>
-<a href="operations.html#Daf.Operations">
-<code>Daf.Operations
+<a href="operations.html#DafJL.Operations">
+<code>DafJL.Operations
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries">
-<code>Daf.Queries
+<a href="queries.html#DafJL.Queries">
+<code>DafJL.Queries
 </code>
 </a>
 </li>
 <li>
-<a href="read_only.html#Daf.ReadOnly">
-<code>Daf.ReadOnly
+<a href="read_only.html#DafJL.ReadOnly">
+<code>DafJL.ReadOnly
 </code>
 </a>
 </li>
 <li>
-<a href="readers.html#Daf.Readers">
-<code>Daf.Readers
+<a href="readers.html#DafJL.Readers">
+<code>DafJL.Readers
 </code>
 </a>
 </li>
 <li>
-<a href="reconstruction.html#Daf.Reconstruction">
-<code>Daf.Reconstruction
+<a href="reconstruction.html#DafJL.Reconstruction">
+<code>DafJL.Reconstruction
 </code>
 </a>
 </li>
 <li>
-<a href="registry.html#Daf.Registry">
-<code>Daf.Registry
+<a href="registry.html#DafJL.Registry">
+<code>DafJL.Registry
 </code>
 </a>
 </li>
 <li>
-<a href="storage_types.html#Daf.StorageTypes">
-<code>Daf.StorageTypes
+<a href="storage_types.html#DafJL.StorageTypes">
+<code>DafJL.StorageTypes
 </code>
 </a>
 </li>
 <li>
-<a href="tokens.html#Daf.Tokens">
-<code>Daf.Tokens
+<a href="tokens.html#DafJL.Tokens">
+<code>DafJL.Tokens
 </code>
 </a>
 </li>
 <li>
-<a href="views.html#Daf.Views">
-<code>Daf.Views
+<a href="views.html#DafJL.Views">
+<code>DafJL.Views
 </code>
 </a>
 </li>
 <li>
-<a href="writers.html#Daf.Writers">
-<code>Daf.Writers
+<a href="writers.html#DafJL.Writers">
+<code>DafJL.Writers
 </code>
 </a>
 </li>
 <li>
-<a href="computations.html#Daf.Computations.CONTRACT">
-<code>Daf.Computations.CONTRACT
+<a href="computations.html#DafJL.Computations.CONTRACT">
+<code>DafJL.Computations.CONTRACT
 </code>
 </a>
 </li>
 <li>
-<a href="computations.html#Daf.Computations.CONTRACT1">
-<code>Daf.Computations.CONTRACT1
+<a href="computations.html#DafJL.Computations.CONTRACT1">
+<code>DafJL.Computations.CONTRACT1
 </code>
 </a>
 </li>
 <li>
-<a href="computations.html#Daf.Computations.CONTRACT2">
-<code>Daf.Computations.CONTRACT2
+<a href="computations.html#DafJL.Computations.CONTRACT2">
+<code>DafJL.Computations.CONTRACT2
 </code>
 </a>
 </li>
 <li>
-<a href="computations.html#Daf.Computations.DEFAULT">
-<code>Daf.Computations.DEFAULT
+<a href="computations.html#DafJL.Computations.DEFAULT">
+<code>DafJL.Computations.DEFAULT
 </code>
 </a>
 </li>
 <li>
-<a href="files_format.html#Daf.FilesFormat.MAJOR_VERSION">
-<code>Daf.FilesFormat.MAJOR_VERSION
+<a href="files_format.html#DafJL.FilesFormat.MAJOR_VERSION">
+<code>DafJL.FilesFormat.MAJOR_VERSION
 </code>
 </a>
 </li>
 <li>
-<a href="files_format.html#Daf.FilesFormat.MINOR_VERSION">
-<code>Daf.FilesFormat.MINOR_VERSION
+<a href="files_format.html#DafJL.FilesFormat.MINOR_VERSION">
+<code>DafJL.FilesFormat.MINOR_VERSION
 </code>
 </a>
 </li>
 <li>
-<a href="h5df_format.html#Daf.H5dfFormat.MAJOR_VERSION">
-<code>Daf.H5dfFormat.MAJOR_VERSION
+<a href="h5df_format.html#DafJL.H5dfFormat.MAJOR_VERSION">
+<code>DafJL.H5dfFormat.MAJOR_VERSION
 </code>
 </a>
 </li>
 <li>
-<a href="h5df_format.html#Daf.H5dfFormat.MINOR_VERSION">
-<code>Daf.H5dfFormat.MINOR_VERSION
+<a href="h5df_format.html#DafJL.H5dfFormat.MINOR_VERSION">
+<code>DafJL.H5dfFormat.MINOR_VERSION
 </code>
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#Daf.MatrixLayouts.Columns">
-<code>Daf.MatrixLayouts.Columns
+<a href="matrix_layouts.html#DafJL.MatrixLayouts.Columns">
+<code>DafJL.MatrixLayouts.Columns
 </code>
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#Daf.MatrixLayouts.Rows">
-<code>Daf.MatrixLayouts.Rows
+<a href="matrix_layouts.html#DafJL.MatrixLayouts.Rows">
+<code>DafJL.MatrixLayouts.Rows
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.AXIS_MASK">
-<code>Daf.Queries.AXIS_MASK
+<a href="queries.html#DafJL.Queries.AXIS_MASK">
+<code>DafJL.Queries.AXIS_MASK
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.COUNTS_MATRIX">
-<code>Daf.Queries.COUNTS_MATRIX
+<a href="queries.html#DafJL.Queries.COUNTS_MATRIX">
+<code>DafJL.Queries.COUNTS_MATRIX
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.GROUP_BY">
-<code>Daf.Queries.GROUP_BY
+<a href="queries.html#DafJL.Queries.GROUP_BY">
+<code>DafJL.Queries.GROUP_BY
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.LOOKUP_PROPERTY">
-<code>Daf.Queries.LOOKUP_PROPERTY
+<a href="queries.html#DafJL.Queries.LOOKUP_PROPERTY">
+<code>DafJL.Queries.LOOKUP_PROPERTY
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.MASK_OPERATION">
-<code>Daf.Queries.MASK_OPERATION
+<a href="queries.html#DafJL.Queries.MASK_OPERATION">
+<code>DafJL.Queries.MASK_OPERATION
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.MASK_SLICE">
-<code>Daf.Queries.MASK_SLICE
+<a href="queries.html#DafJL.Queries.MASK_SLICE">
+<code>DafJL.Queries.MASK_SLICE
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.MATRIX_COLUMN">
-<code>Daf.Queries.MATRIX_COLUMN
+<a href="queries.html#DafJL.Queries.MATRIX_COLUMN">
+<code>DafJL.Queries.MATRIX_COLUMN
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.MATRIX_ENTRY">
-<code>Daf.Queries.MATRIX_ENTRY
+<a href="queries.html#DafJL.Queries.MATRIX_ENTRY">
+<code>DafJL.Queries.MATRIX_ENTRY
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.MATRIX_LOOKUP">
-<code>Daf.Queries.MATRIX_LOOKUP
+<a href="queries.html#DafJL.Queries.MATRIX_LOOKUP">
+<code>DafJL.Queries.MATRIX_LOOKUP
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.MATRIX_QUERY">
-<code>Daf.Queries.MATRIX_QUERY
+<a href="queries.html#DafJL.Queries.MATRIX_QUERY">
+<code>DafJL.Queries.MATRIX_QUERY
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.MATRIX_ROW">
-<code>Daf.Queries.MATRIX_ROW
+<a href="queries.html#DafJL.Queries.MATRIX_ROW">
+<code>DafJL.Queries.MATRIX_ROW
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.NAMES_QUERY">
-<code>Daf.Queries.NAMES_QUERY
+<a href="queries.html#DafJL.Queries.NAMES_QUERY">
+<code>DafJL.Queries.NAMES_QUERY
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.POST_PROCESS">
-<code>Daf.Queries.POST_PROCESS
+<a href="queries.html#DafJL.Queries.POST_PROCESS">
+<code>DafJL.Queries.POST_PROCESS
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.QUERY_OPERATORS">
-<code>Daf.Queries.QUERY_OPERATORS
+<a href="queries.html#DafJL.Queries.QUERY_OPERATORS">
+<code>DafJL.Queries.QUERY_OPERATORS
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.REDUCE_MATRIX">
-<code>Daf.Queries.REDUCE_MATRIX
+<a href="queries.html#DafJL.Queries.REDUCE_MATRIX">
+<code>DafJL.Queries.REDUCE_MATRIX
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.REDUCE_VECTOR">
-<code>Daf.Queries.REDUCE_VECTOR
+<a href="queries.html#DafJL.Queries.REDUCE_VECTOR">
+<code>DafJL.Queries.REDUCE_VECTOR
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.SCALAR_QUERY">
-<code>Daf.Queries.SCALAR_QUERY
+<a href="queries.html#DafJL.Queries.SCALAR_QUERY">
+<code>DafJL.Queries.SCALAR_QUERY
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.VECTOR_ENTRY">
-<code>Daf.Queries.VECTOR_ENTRY
+<a href="queries.html#DafJL.Queries.VECTOR_ENTRY">
+<code>DafJL.Queries.VECTOR_ENTRY
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.VECTOR_FETCH">
-<code>Daf.Queries.VECTOR_FETCH
+<a href="queries.html#DafJL.Queries.VECTOR_FETCH">
+<code>DafJL.Queries.VECTOR_FETCH
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.VECTOR_LOOKUP">
-<code>Daf.Queries.VECTOR_LOOKUP
+<a href="queries.html#DafJL.Queries.VECTOR_LOOKUP">
+<code>DafJL.Queries.VECTOR_LOOKUP
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.VECTOR_PROPERTY">
-<code>Daf.Queries.VECTOR_PROPERTY
+<a href="queries.html#DafJL.Queries.VECTOR_PROPERTY">
+<code>DafJL.Queries.VECTOR_PROPERTY
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.VECTOR_QUERY">
-<code>Daf.Queries.VECTOR_QUERY
+<a href="queries.html#DafJL.Queries.VECTOR_QUERY">
+<code>DafJL.Queries.VECTOR_QUERY
 </code>
 </a>
 </li>
 <li>
-<a href="tokens.html#Daf.Tokens.SPACE_REGEX">
-<code>Daf.Tokens.SPACE_REGEX
+<a href="tokens.html#DafJL.Tokens.SPACE_REGEX">
+<code>DafJL.Tokens.SPACE_REGEX
 </code>
 </a>
 </li>
 <li>
-<a href="tokens.html#Daf.Tokens.VALUE_REGEX">
-<code>Daf.Tokens.VALUE_REGEX
+<a href="tokens.html#DafJL.Tokens.VALUE_REGEX">
+<code>DafJL.Tokens.VALUE_REGEX
 </code>
 </a>
 </li>
 <li>
-<a href="views.html#Daf.Views.ALL_AXES">
-<code>Daf.Views.ALL_AXES
+<a href="views.html#DafJL.Views.ALL_AXES">
+<code>DafJL.Views.ALL_AXES
 </code>
 </a>
 </li>
 <li>
-<a href="views.html#Daf.Views.ALL_MATRICES">
-<code>Daf.Views.ALL_MATRICES
+<a href="views.html#DafJL.Views.ALL_MATRICES">
+<code>DafJL.Views.ALL_MATRICES
 </code>
 </a>
 </li>
 <li>
-<a href="views.html#Daf.Views.ALL_SCALARS">
-<code>Daf.Views.ALL_SCALARS
+<a href="views.html#DafJL.Views.ALL_SCALARS">
+<code>DafJL.Views.ALL_SCALARS
 </code>
 </a>
 </li>
 <li>
-<a href="views.html#Daf.Views.ALL_VECTORS">
-<code>Daf.Views.ALL_VECTORS
+<a href="views.html#DafJL.Views.ALL_VECTORS">
+<code>DafJL.Views.ALL_VECTORS
 </code>
 </a>
 </li>
 <li>
-<a href="views.html#Daf.Views.VIEW_ALL_AXES">
-<code>Daf.Views.VIEW_ALL_AXES
+<a href="views.html#DafJL.Views.VIEW_ALL_AXES">
+<code>DafJL.Views.VIEW_ALL_AXES
 </code>
 </a>
 </li>
 <li>
-<a href="views.html#Daf.Views.VIEW_ALL_DATA">
-<code>Daf.Views.VIEW_ALL_DATA
+<a href="views.html#DafJL.Views.VIEW_ALL_DATA">
+<code>DafJL.Views.VIEW_ALL_DATA
 </code>
 </a>
 </li>
 <li>
-<a href="views.html#Daf.Views.VIEW_ALL_MATRICES">
-<code>Daf.Views.VIEW_ALL_MATRICES
+<a href="views.html#DafJL.Views.VIEW_ALL_MATRICES">
+<code>DafJL.Views.VIEW_ALL_MATRICES
 </code>
 </a>
 </li>
 <li>
-<a href="views.html#Daf.Views.VIEW_ALL_SCALARS">
-<code>Daf.Views.VIEW_ALL_SCALARS
+<a href="views.html#DafJL.Views.VIEW_ALL_SCALARS">
+<code>DafJL.Views.VIEW_ALL_SCALARS
 </code>
 </a>
 </li>
 <li>
-<a href="views.html#Daf.Views.VIEW_ALL_VECTORS">
-<code>Daf.Views.VIEW_ALL_VECTORS
+<a href="views.html#DafJL.Views.VIEW_ALL_VECTORS">
+<code>DafJL.Views.VIEW_ALL_VECTORS
 </code>
 </a>
 </li>
 <li>
-<a href="chains.html#Daf.Chains.ReadOnlyChain">
-<code>Daf.Chains.ReadOnlyChain
+<a href="chains.html#DafJL.Chains.ReadOnlyChain">
+<code>DafJL.Chains.ReadOnlyChain
 </code>
 </a>
 </li>
 <li>
-<a href="chains.html#Daf.Chains.WriteChain">
-<code>Daf.Chains.WriteChain
+<a href="chains.html#DafJL.Chains.WriteChain">
+<code>DafJL.Chains.WriteChain
 </code>
 </a>
 </li>
 <li>
-<a href="concat.html#Daf.Concat.MergeAction">
-<code>Daf.Concat.MergeAction
+<a href="concat.html#DafJL.Concat.MergeAction">
+<code>DafJL.Concat.MergeAction
 </code>
 </a>
 </li>
 <li>
-<a href="concat.html#Daf.Concat.MergeData">
-<code>Daf.Concat.MergeData
+<a href="concat.html#DafJL.Concat.MergeData">
+<code>DafJL.Concat.MergeData
 </code>
 </a>
 </li>
 <li>
-<a href="concat.html#Daf.Concat.MergeDatum">
-<code>Daf.Concat.MergeDatum
+<a href="concat.html#DafJL.Concat.MergeDatum">
+<code>DafJL.Concat.MergeDatum
 </code>
 </a>
 </li>
 <li>
-<a href="contracts.html#Daf.Contracts.AxisSpecification">
-<code>Daf.Contracts.AxisSpecification
+<a href="contracts.html#DafJL.Contracts.AxisSpecification">
+<code>DafJL.Contracts.AxisSpecification
 </code>
 </a>
 </li>
 <li>
-<a href="contracts.html#Daf.Contracts.Contract">
-<code>Daf.Contracts.Contract
+<a href="contracts.html#DafJL.Contracts.Contract">
+<code>DafJL.Contracts.Contract
 </code>
 </a>
 </li>
 <li>
-<a href="contracts.html#Daf.Contracts.ContractAxes">
-<code>Daf.Contracts.ContractAxes
+<a href="contracts.html#DafJL.Contracts.ContractAxes">
+<code>DafJL.Contracts.ContractAxes
 </code>
 </a>
 </li>
 <li>
-<a href="contracts.html#Daf.Contracts.ContractAxis">
-<code>Daf.Contracts.ContractAxis
+<a href="contracts.html#DafJL.Contracts.ContractAxis">
+<code>DafJL.Contracts.ContractAxis
 </code>
 </a>
 </li>
 <li>
-<a href="contracts.html#Daf.Contracts.ContractDaf">
-<code>Daf.Contracts.ContractDaf
+<a href="contracts.html#DafJL.Contracts.ContractDaf">
+<code>DafJL.Contracts.ContractDaf
 </code>
 </a>
 </li>
 <li>
-<a href="contracts.html#Daf.Contracts.ContractData">
-<code>Daf.Contracts.ContractData
+<a href="contracts.html#DafJL.Contracts.ContractData">
+<code>DafJL.Contracts.ContractData
 </code>
 </a>
 </li>
 <li>
-<a href="contracts.html#Daf.Contracts.ContractDatum">
-<code>Daf.Contracts.ContractDatum
+<a href="contracts.html#DafJL.Contracts.ContractDatum">
+<code>DafJL.Contracts.ContractDatum
 </code>
 </a>
 </li>
 <li>
-<a href="contracts.html#Daf.Contracts.ContractExpectation">
-<code>Daf.Contracts.ContractExpectation
+<a href="contracts.html#DafJL.Contracts.ContractExpectation">
+<code>DafJL.Contracts.ContractExpectation
 </code>
 </a>
 </li>
 <li>
-<a href="contracts.html#Daf.Contracts.DataSpecification">
-<code>Daf.Contracts.DataSpecification
+<a href="contracts.html#DafJL.Contracts.DataSpecification">
+<code>DafJL.Contracts.DataSpecification
 </code>
 </a>
 </li>
 <li>
-<a href="copies.html#Daf.Copies.DataTypes">
-<code>Daf.Copies.DataTypes
+<a href="copies.html#DafJL.Copies.DataTypes">
+<code>DafJL.Copies.DataTypes
 </code>
 </a>
 </li>
 <li>
-<a href="copies.html#Daf.Copies.EmptyData">
-<code>Daf.Copies.EmptyData
+<a href="copies.html#DafJL.Copies.EmptyData">
+<code>DafJL.Copies.EmptyData
 </code>
 </a>
 </li>
 <li>
-<a href="files_format.html#Daf.FilesFormat.FilesDaf">
-<code>Daf.FilesFormat.FilesDaf
+<a href="files_format.html#DafJL.FilesFormat.FilesDaf">
+<code>DafJL.FilesFormat.FilesDaf
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.CacheGroup">
-<code>Daf.Formats.CacheGroup
+<a href="formats.html#DafJL.Formats.CacheGroup">
+<code>DafJL.Formats.CacheGroup
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.DafReader">
-<code>Daf.Formats.DafReader
+<a href="formats.html#DafJL.Formats.DafReader">
+<code>DafJL.Formats.DafReader
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.DafWriter">
-<code>Daf.Formats.DafWriter
+<a href="formats.html#DafJL.Formats.DafWriter">
+<code>DafJL.Formats.DafWriter
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.FormatReader">
-<code>Daf.Formats.FormatReader
+<a href="formats.html#DafJL.Formats.FormatReader">
+<code>DafJL.Formats.FormatReader
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.FormatWriter">
-<code>Daf.Formats.FormatWriter
+<a href="formats.html#DafJL.Formats.FormatWriter">
+<code>DafJL.Formats.FormatWriter
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.Internal">
-<code>Daf.Formats.Internal
+<a href="formats.html#DafJL.Formats.Internal">
+<code>DafJL.Formats.Internal
 </code>
 </a>
 </li>
 <li>
-<a href="generic_functions.html#Daf.GenericFunctions.AbnormalHandler">
-<code>Daf.GenericFunctions.AbnormalHandler
+<a href="generic_functions.html#DafJL.GenericFunctions.AbnormalHandler">
+<code>DafJL.GenericFunctions.AbnormalHandler
 </code>
 </a>
 </li>
 <li>
-<a href="generic_locks.html#Daf.GenericLocks.QueryReadWriteLock">
-<code>Daf.GenericLocks.QueryReadWriteLock
+<a href="generic_locks.html#DafJL.GenericLocks.QueryReadWriteLock">
+<code>DafJL.GenericLocks.QueryReadWriteLock
 </code>
 </a>
 </li>
 <li>
-<a href="generic_types.html#Daf.GenericTypes.Maybe">
-<code>Daf.GenericTypes.Maybe
+<a href="generic_types.html#DafJL.GenericTypes.Maybe">
+<code>DafJL.GenericTypes.Maybe
 </code>
 </a>
 </li>
 <li>
-<a href="generic_types.html#Daf.GenericTypes.Unsure">
-<code>Daf.GenericTypes.Unsure
+<a href="generic_types.html#DafJL.GenericTypes.Unsure">
+<code>DafJL.GenericTypes.Unsure
 </code>
 </a>
 </li>
 <li>
-<a href="h5df_format.html#Daf.H5dfFormat.H5df">
-<code>Daf.H5dfFormat.H5df
+<a href="h5df_format.html#DafJL.H5dfFormat.H5df">
+<code>DafJL.H5dfFormat.H5df
 </code>
 </a>
 </li>
 <li>
-<a href="keys.html#Daf.Keys.AxisKey">
-<code>Daf.Keys.AxisKey
+<a href="keys.html#DafJL.Keys.AxisKey">
+<code>DafJL.Keys.AxisKey
 </code>
 </a>
 </li>
 <li>
-<a href="keys.html#Daf.Keys.DataKey">
-<code>Daf.Keys.DataKey
+<a href="keys.html#DafJL.Keys.DataKey">
+<code>DafJL.Keys.DataKey
 </code>
 </a>
 </li>
 <li>
-<a href="keys.html#Daf.Keys.MatrixKey">
-<code>Daf.Keys.MatrixKey
+<a href="keys.html#DafJL.Keys.MatrixKey">
+<code>DafJL.Keys.MatrixKey
 </code>
 </a>
 </li>
 <li>
-<a href="keys.html#Daf.Keys.ScalarKey">
-<code>Daf.Keys.ScalarKey
+<a href="keys.html#DafJL.Keys.ScalarKey">
+<code>DafJL.Keys.ScalarKey
 </code>
 </a>
 </li>
 <li>
-<a href="keys.html#Daf.Keys.VectorKey">
-<code>Daf.Keys.VectorKey
+<a href="keys.html#DafJL.Keys.VectorKey">
+<code>DafJL.Keys.VectorKey
 </code>
 </a>
 </li>
 <li>
-<a href="memory_format.html#Daf.MemoryFormat.MemoryDaf">
-<code>Daf.MemoryFormat.MemoryDaf
+<a href="memory_format.html#DafJL.MemoryFormat.MemoryDaf">
+<code>DafJL.MemoryFormat.MemoryDaf
 </code>
 </a>
 </li>
 <li>
-<a href="operations.html#Daf.Operations.Abs">
-<code>Daf.Operations.Abs
+<a href="operations.html#DafJL.Operations.Abs">
+<code>DafJL.Operations.Abs
 </code>
 </a>
 </li>
 <li>
-<a href="operations.html#Daf.Operations.Clamp">
-<code>Daf.Operations.Clamp
+<a href="operations.html#DafJL.Operations.Clamp">
+<code>DafJL.Operations.Clamp
 </code>
 </a>
 </li>
 <li>
-<a href="operations.html#Daf.Operations.Convert">
-<code>Daf.Operations.Convert
+<a href="operations.html#DafJL.Operations.Convert">
+<code>DafJL.Operations.Convert
 </code>
 </a>
 </li>
 <li>
-<a href="operations.html#Daf.Operations.Count">
-<code>Daf.Operations.Count
+<a href="operations.html#DafJL.Operations.Count">
+<code>DafJL.Operations.Count
 </code>
 </a>
 </li>
 <li>
-<a href="operations.html#Daf.Operations.Fraction">
-<code>Daf.Operations.Fraction
+<a href="operations.html#DafJL.Operations.Fraction">
+<code>DafJL.Operations.Fraction
 </code>
 </a>
 </li>
 <li>
-<a href="operations.html#Daf.Operations.GeoMean">
-<code>Daf.Operations.GeoMean
+<a href="operations.html#DafJL.Operations.GeoMean">
+<code>DafJL.Operations.GeoMean
 </code>
 </a>
 </li>
 <li>
-<a href="operations.html#Daf.Operations.Log">
-<code>Daf.Operations.Log
+<a href="operations.html#DafJL.Operations.Log">
+<code>DafJL.Operations.Log
 </code>
 </a>
 </li>
 <li>
-<a href="operations.html#Daf.Operations.Max">
-<code>Daf.Operations.Max
+<a href="operations.html#DafJL.Operations.Max">
+<code>DafJL.Operations.Max
 </code>
 </a>
 </li>
 <li>
-<a href="operations.html#Daf.Operations.Mean">
-<code>Daf.Operations.Mean
+<a href="operations.html#DafJL.Operations.Mean">
+<code>DafJL.Operations.Mean
 </code>
 </a>
 </li>
 <li>
-<a href="operations.html#Daf.Operations.Median">
-<code>Daf.Operations.Median
+<a href="operations.html#DafJL.Operations.Median">
+<code>DafJL.Operations.Median
 </code>
 </a>
 </li>
 <li>
-<a href="operations.html#Daf.Operations.Min">
-<code>Daf.Operations.Min
+<a href="operations.html#DafJL.Operations.Min">
+<code>DafJL.Operations.Min
 </code>
 </a>
 </li>
 <li>
-<a href="operations.html#Daf.Operations.Mode">
-<code>Daf.Operations.Mode
+<a href="operations.html#DafJL.Operations.Mode">
+<code>DafJL.Operations.Mode
 </code>
 </a>
 </li>
 <li>
-<a href="operations.html#Daf.Operations.Quantile">
-<code>Daf.Operations.Quantile
+<a href="operations.html#DafJL.Operations.Quantile">
+<code>DafJL.Operations.Quantile
 </code>
 </a>
 </li>
 <li>
-<a href="operations.html#Daf.Operations.Round">
-<code>Daf.Operations.Round
+<a href="operations.html#DafJL.Operations.Round">
+<code>DafJL.Operations.Round
 </code>
 </a>
 </li>
 <li>
-<a href="operations.html#Daf.Operations.Significant">
-<code>Daf.Operations.Significant
+<a href="operations.html#DafJL.Operations.Significant">
+<code>DafJL.Operations.Significant
 </code>
 </a>
 </li>
 <li>
-<a href="operations.html#Daf.Operations.Std">
-<code>Daf.Operations.Std
+<a href="operations.html#DafJL.Operations.Std">
+<code>DafJL.Operations.Std
 </code>
 </a>
 </li>
 <li>
-<a href="operations.html#Daf.Operations.StdN">
-<code>Daf.Operations.StdN
+<a href="operations.html#DafJL.Operations.StdN">
+<code>DafJL.Operations.StdN
 </code>
 </a>
 </li>
 <li>
-<a href="operations.html#Daf.Operations.Sum">
-<code>Daf.Operations.Sum
+<a href="operations.html#DafJL.Operations.Sum">
+<code>DafJL.Operations.Sum
 </code>
 </a>
 </li>
 <li>
-<a href="operations.html#Daf.Operations.Var">
-<code>Daf.Operations.Var
+<a href="operations.html#DafJL.Operations.Var">
+<code>DafJL.Operations.Var
 </code>
 </a>
 </li>
 <li>
-<a href="operations.html#Daf.Operations.VarN">
-<code>Daf.Operations.VarN
+<a href="operations.html#DafJL.Operations.VarN">
+<code>DafJL.Operations.VarN
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.And">
-<code>Daf.Queries.And
+<a href="queries.html#DafJL.Queries.And">
+<code>DafJL.Queries.And
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.AndNot">
-<code>Daf.Queries.AndNot
+<a href="queries.html#DafJL.Queries.AndNot">
+<code>DafJL.Queries.AndNot
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.AsAxis">
-<code>Daf.Queries.AsAxis
+<a href="queries.html#DafJL.Queries.AsAxis">
+<code>DafJL.Queries.AsAxis
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.Axis">
-<code>Daf.Queries.Axis
+<a href="queries.html#DafJL.Queries.Axis">
+<code>DafJL.Queries.Axis
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.ComparisonOperation">
-<code>Daf.Queries.ComparisonOperation
+<a href="queries.html#DafJL.Queries.ComparisonOperation">
+<code>DafJL.Queries.ComparisonOperation
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.CountBy">
-<code>Daf.Queries.CountBy
+<a href="queries.html#DafJL.Queries.CountBy">
+<code>DafJL.Queries.CountBy
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.Fetch">
-<code>Daf.Queries.Fetch
+<a href="queries.html#DafJL.Queries.Fetch">
+<code>DafJL.Queries.Fetch
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.FrameColumn">
-<code>Daf.Queries.FrameColumn
+<a href="queries.html#DafJL.Queries.FrameColumn">
+<code>DafJL.Queries.FrameColumn
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.FrameColumns">
-<code>Daf.Queries.FrameColumns
+<a href="queries.html#DafJL.Queries.FrameColumns">
+<code>DafJL.Queries.FrameColumns
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.GroupBy">
-<code>Daf.Queries.GroupBy
+<a href="queries.html#DafJL.Queries.GroupBy">
+<code>DafJL.Queries.GroupBy
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.IfMissing">
-<code>Daf.Queries.IfMissing
+<a href="queries.html#DafJL.Queries.IfMissing">
+<code>DafJL.Queries.IfMissing
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.IfNot">
-<code>Daf.Queries.IfNot
+<a href="queries.html#DafJL.Queries.IfNot">
+<code>DafJL.Queries.IfNot
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.IsEqual">
-<code>Daf.Queries.IsEqual
+<a href="queries.html#DafJL.Queries.IsEqual">
+<code>DafJL.Queries.IsEqual
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.IsGreater">
-<code>Daf.Queries.IsGreater
+<a href="queries.html#DafJL.Queries.IsGreater">
+<code>DafJL.Queries.IsGreater
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.IsGreaterEqual">
-<code>Daf.Queries.IsGreaterEqual
+<a href="queries.html#DafJL.Queries.IsGreaterEqual">
+<code>DafJL.Queries.IsGreaterEqual
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.IsLess">
-<code>Daf.Queries.IsLess
+<a href="queries.html#DafJL.Queries.IsLess">
+<code>DafJL.Queries.IsLess
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.IsLessEqual">
-<code>Daf.Queries.IsLessEqual
+<a href="queries.html#DafJL.Queries.IsLessEqual">
+<code>DafJL.Queries.IsLessEqual
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.IsMatch">
-<code>Daf.Queries.IsMatch
+<a href="queries.html#DafJL.Queries.IsMatch">
+<code>DafJL.Queries.IsMatch
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.IsNotEqual">
-<code>Daf.Queries.IsNotEqual
+<a href="queries.html#DafJL.Queries.IsNotEqual">
+<code>DafJL.Queries.IsNotEqual
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.IsNotMatch">
-<code>Daf.Queries.IsNotMatch
+<a href="queries.html#DafJL.Queries.IsNotMatch">
+<code>DafJL.Queries.IsNotMatch
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.Lookup">
-<code>Daf.Queries.Lookup
+<a href="queries.html#DafJL.Queries.Lookup">
+<code>DafJL.Queries.Lookup
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.MaskSlice">
-<code>Daf.Queries.MaskSlice
+<a href="queries.html#DafJL.Queries.MaskSlice">
+<code>DafJL.Queries.MaskSlice
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.Names">
-<code>Daf.Queries.Names
+<a href="queries.html#DafJL.Queries.Names">
+<code>DafJL.Queries.Names
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.Or">
-<code>Daf.Queries.Or
+<a href="queries.html#DafJL.Queries.Or">
+<code>DafJL.Queries.Or
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.OrNot">
-<code>Daf.Queries.OrNot
+<a href="queries.html#DafJL.Queries.OrNot">
+<code>DafJL.Queries.OrNot
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.Query">
-<code>Daf.Queries.Query
+<a href="queries.html#DafJL.Queries.Query">
+<code>DafJL.Queries.Query
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.QuerySequence">
-<code>Daf.Queries.QuerySequence
+<a href="queries.html#DafJL.Queries.QuerySequence">
+<code>DafJL.Queries.QuerySequence
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.QueryString">
-<code>Daf.Queries.QueryString
+<a href="queries.html#DafJL.Queries.QueryString">
+<code>DafJL.Queries.QueryString
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.SquareMaskColumn">
-<code>Daf.Queries.SquareMaskColumn
+<a href="queries.html#DafJL.Queries.SquareMaskColumn">
+<code>DafJL.Queries.SquareMaskColumn
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.SquareMaskRow">
-<code>Daf.Queries.SquareMaskRow
+<a href="queries.html#DafJL.Queries.SquareMaskRow">
+<code>DafJL.Queries.SquareMaskRow
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.Xor">
-<code>Daf.Queries.Xor
+<a href="queries.html#DafJL.Queries.Xor">
+<code>DafJL.Queries.Xor
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.XorNot">
-<code>Daf.Queries.XorNot
+<a href="queries.html#DafJL.Queries.XorNot">
+<code>DafJL.Queries.XorNot
 </code>
 </a>
 </li>
 <li>
-<a href="read_only.html#Daf.ReadOnly.DafReadOnly">
-<code>Daf.ReadOnly.DafReadOnly
+<a href="read_only.html#DafJL.ReadOnly.DafReadOnly">
+<code>DafJL.ReadOnly.DafReadOnly
 </code>
 </a>
 </li>
 <li>
-<a href="read_only.html#Daf.ReadOnly.DafReadOnlyWrapper">
-<code>Daf.ReadOnly.DafReadOnlyWrapper
+<a href="read_only.html#DafJL.ReadOnly.DafReadOnlyWrapper">
+<code>DafJL.ReadOnly.DafReadOnlyWrapper
 </code>
 </a>
 </li>
 <li>
-<a href="reconstruction.html#Daf.Reconstruction.PropertiesDefaults">
-<code>Daf.Reconstruction.PropertiesDefaults
+<a href="reconstruction.html#DafJL.Reconstruction.PropertiesDefaults">
+<code>DafJL.Reconstruction.PropertiesDefaults
 </code>
 </a>
 </li>
 <li>
-<a href="registry.html#Daf.Registry.EltwiseOperation">
-<code>Daf.Registry.EltwiseOperation
+<a href="registry.html#DafJL.Registry.EltwiseOperation">
+<code>DafJL.Registry.EltwiseOperation
 </code>
 </a>
 </li>
 <li>
-<a href="registry.html#Daf.Registry.QueryOperation">
-<code>Daf.Registry.QueryOperation
+<a href="registry.html#DafJL.Registry.QueryOperation">
+<code>DafJL.Registry.QueryOperation
 </code>
 </a>
 </li>
 <li>
-<a href="registry.html#Daf.Registry.ReductionOperation">
-<code>Daf.Registry.ReductionOperation
+<a href="registry.html#DafJL.Registry.ReductionOperation">
+<code>DafJL.Registry.ReductionOperation
 </code>
 </a>
 </li>
 <li>
-<a href="storage_types.html#Daf.StorageTypes.StorageFloat">
-<code>Daf.StorageTypes.StorageFloat
+<a href="storage_types.html#DafJL.StorageTypes.StorageFloat">
+<code>DafJL.StorageTypes.StorageFloat
 </code>
 </a>
 </li>
 <li>
-<a href="storage_types.html#Daf.StorageTypes.StorageInteger">
-<code>Daf.StorageTypes.StorageInteger
+<a href="storage_types.html#DafJL.StorageTypes.StorageInteger">
+<code>DafJL.StorageTypes.StorageInteger
 </code>
 </a>
 </li>
 <li>
-<a href="storage_types.html#Daf.StorageTypes.StorageMatrix">
-<code>Daf.StorageTypes.StorageMatrix
+<a href="storage_types.html#DafJL.StorageTypes.StorageMatrix">
+<code>DafJL.StorageTypes.StorageMatrix
 </code>
 </a>
 </li>
 <li>
-<a href="storage_types.html#Daf.StorageTypes.StorageReal">
-<code>Daf.StorageTypes.StorageReal
+<a href="storage_types.html#DafJL.StorageTypes.StorageReal">
+<code>DafJL.StorageTypes.StorageReal
 </code>
 </a>
 </li>
 <li>
-<a href="storage_types.html#Daf.StorageTypes.StorageScalar">
-<code>Daf.StorageTypes.StorageScalar
+<a href="storage_types.html#DafJL.StorageTypes.StorageScalar">
+<code>DafJL.StorageTypes.StorageScalar
 </code>
 </a>
 </li>
 <li>
-<a href="storage_types.html#Daf.StorageTypes.StorageScalarBase">
-<code>Daf.StorageTypes.StorageScalarBase
+<a href="storage_types.html#DafJL.StorageTypes.StorageScalarBase">
+<code>DafJL.StorageTypes.StorageScalarBase
 </code>
 </a>
 </li>
 <li>
-<a href="storage_types.html#Daf.StorageTypes.StorageSigned">
-<code>Daf.StorageTypes.StorageSigned
+<a href="storage_types.html#DafJL.StorageTypes.StorageSigned">
+<code>DafJL.StorageTypes.StorageSigned
 </code>
 </a>
 </li>
 <li>
-<a href="storage_types.html#Daf.StorageTypes.StorageUnsigned">
-<code>Daf.StorageTypes.StorageUnsigned
+<a href="storage_types.html#DafJL.StorageTypes.StorageUnsigned">
+<code>DafJL.StorageTypes.StorageUnsigned
 </code>
 </a>
 </li>
 <li>
-<a href="storage_types.html#Daf.StorageTypes.StorageVector">
-<code>Daf.StorageTypes.StorageVector
+<a href="storage_types.html#DafJL.StorageTypes.StorageVector">
+<code>DafJL.StorageTypes.StorageVector
 </code>
 </a>
 </li>
 <li>
-<a href="tokens.html#Daf.Tokens.Token">
-<code>Daf.Tokens.Token
+<a href="tokens.html#DafJL.Tokens.Token">
+<code>DafJL.Tokens.Token
 </code>
 </a>
 </li>
 <li>
-<a href="views.html#Daf.Views.DafView">
-<code>Daf.Views.DafView
+<a href="views.html#DafJL.Views.DafView">
+<code>DafJL.Views.DafView
 </code>
 </a>
 </li>
 <li>
-<a href="views.html#Daf.Views.ViewAxes">
-<code>Daf.Views.ViewAxes
+<a href="views.html#DafJL.Views.ViewAxes">
+<code>DafJL.Views.ViewAxes
 </code>
 </a>
 </li>
 <li>
-<a href="views.html#Daf.Views.ViewAxis">
-<code>Daf.Views.ViewAxis
+<a href="views.html#DafJL.Views.ViewAxis">
+<code>DafJL.Views.ViewAxis
 </code>
 </a>
 </li>
 <li>
-<a href="views.html#Daf.Views.ViewData">
-<code>Daf.Views.ViewData
+<a href="views.html#DafJL.Views.ViewData">
+<code>DafJL.Views.ViewData
 </code>
 </a>
 </li>
 <li>
-<a href="views.html#Daf.Views.ViewDatum">
-<code>Daf.Views.ViewDatum
+<a href="views.html#DafJL.Views.ViewDatum">
+<code>DafJL.Views.ViewDatum
 </code>
 </a>
 </li>
 <li>
-<a href="adapters.html#Daf.Adapters.adapter">
-<code>Daf.Adapters.adapter
+<a href="adapters.html#DafJL.Adapters.adapter">
+<code>DafJL.Adapters.adapter
 </code>
 </a>
 </li>
 <li>
-<a href="anndata_format.html#Daf.AnnDataFormat.anndata_as_daf">
-<code>Daf.AnnDataFormat.anndata_as_daf
+<a href="anndata_format.html#DafJL.AnnDataFormat.anndata_as_daf">
+<code>DafJL.AnnDataFormat.anndata_as_daf
 </code>
 </a>
 </li>
 <li>
-<a href="anndata_format.html#Daf.AnnDataFormat.daf_as_anndata">
-<code>Daf.AnnDataFormat.daf_as_anndata
+<a href="anndata_format.html#DafJL.AnnDataFormat.daf_as_anndata">
+<code>DafJL.AnnDataFormat.daf_as_anndata
 </code>
 </a>
 </li>
 <li>
-<a href="chains.html#Daf.Chains.chain_reader">
-<code>Daf.Chains.chain_reader
+<a href="chains.html#DafJL.Chains.chain_reader">
+<code>DafJL.Chains.chain_reader
 </code>
 </a>
 </li>
 <li>
-<a href="chains.html#Daf.Chains.chain_writer">
-<code>Daf.Chains.chain_writer
+<a href="chains.html#DafJL.Chains.chain_writer">
+<code>DafJL.Chains.chain_writer
 </code>
 </a>
 </li>
 <li>
-<a href="computations.html#Daf.Computations.function_contract">
-<code>Daf.Computations.function_contract
+<a href="computations.html#DafJL.Computations.function_contract">
+<code>DafJL.Computations.function_contract
 </code>
 </a>
 </li>
 <li>
-<a href="computations.html#Daf.Computations.function_default">
-<code>Daf.Computations.function_default
+<a href="computations.html#DafJL.Computations.function_default">
+<code>DafJL.Computations.function_default
 </code>
 </a>
 </li>
 <li>
-<a href="concat.html#Daf.Concat.concatenate!">
-<code>Daf.Concat.concatenate!
+<a href="concat.html#DafJL.Concat.concatenate!">
+<code>DafJL.Concat.concatenate!
 </code>
 </a>
 </li>
 <li>
-<a href="contracts.html#Daf.Contracts.contractor">
-<code>Daf.Contracts.contractor
+<a href="contracts.html#DafJL.Contracts.contractor">
+<code>DafJL.Contracts.contractor
 </code>
 </a>
 </li>
 <li>
-<a href="contracts.html#Daf.Contracts.verify_input">
-<code>Daf.Contracts.verify_input
+<a href="contracts.html#DafJL.Contracts.verify_input">
+<code>DafJL.Contracts.verify_input
 </code>
 </a>
 </li>
 <li>
-<a href="contracts.html#Daf.Contracts.verify_output">
-<code>Daf.Contracts.verify_output
+<a href="contracts.html#DafJL.Contracts.verify_output">
+<code>DafJL.Contracts.verify_output
 </code>
 </a>
 </li>
 <li>
-<a href="copies.html#Daf.Copies.copy_all!">
-<code>Daf.Copies.copy_all!
+<a href="copies.html#DafJL.Copies.copy_all!">
+<code>DafJL.Copies.copy_all!
 </code>
 </a>
 </li>
 <li>
-<a href="copies.html#Daf.Copies.copy_axis!">
-<code>Daf.Copies.copy_axis!
+<a href="copies.html#DafJL.Copies.copy_axis!">
+<code>DafJL.Copies.copy_axis!
 </code>
 </a>
 </li>
 <li>
-<a href="copies.html#Daf.Copies.copy_matrix!">
-<code>Daf.Copies.copy_matrix!
+<a href="copies.html#DafJL.Copies.copy_matrix!">
+<code>DafJL.Copies.copy_matrix!
 </code>
 </a>
 </li>
 <li>
-<a href="copies.html#Daf.Copies.copy_scalar!">
-<code>Daf.Copies.copy_scalar!
+<a href="copies.html#DafJL.Copies.copy_scalar!">
+<code>DafJL.Copies.copy_scalar!
 </code>
 </a>
 </li>
 <li>
-<a href="copies.html#Daf.Copies.copy_vector!">
-<code>Daf.Copies.copy_vector!
+<a href="copies.html#DafJL.Copies.copy_vector!">
+<code>DafJL.Copies.copy_vector!
 </code>
 </a>
 </li>
 <li>
-<a href="example_data.html#Daf.ExampleData.example_daf">
-<code>Daf.ExampleData.example_daf
+<a href="example_data.html#DafJL.ExampleData.example_daf">
+<code>DafJL.ExampleData.example_daf
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.empty_cache!">
-<code>Daf.Formats.empty_cache!
+<a href="formats.html#DafJL.Formats.empty_cache!">
+<code>DafJL.Formats.empty_cache!
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_add_axis!">
-<code>Daf.Formats.format_add_axis!
+<a href="formats.html#DafJL.Formats.format_add_axis!">
+<code>DafJL.Formats.format_add_axis!
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_axes_set">
-<code>Daf.Formats.format_axes_set
+<a href="formats.html#DafJL.Formats.format_axes_set">
+<code>DafJL.Formats.format_axes_set
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_axis_array">
-<code>Daf.Formats.format_axis_array
+<a href="formats.html#DafJL.Formats.format_axis_array">
+<code>DafJL.Formats.format_axis_array
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_axis_length">
-<code>Daf.Formats.format_axis_length
+<a href="formats.html#DafJL.Formats.format_axis_length">
+<code>DafJL.Formats.format_axis_length
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_delete_axis!">
-<code>Daf.Formats.format_delete_axis!
+<a href="formats.html#DafJL.Formats.format_delete_axis!">
+<code>DafJL.Formats.format_delete_axis!
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_delete_matrix!">
-<code>Daf.Formats.format_delete_matrix!
+<a href="formats.html#DafJL.Formats.format_delete_matrix!">
+<code>DafJL.Formats.format_delete_matrix!
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_delete_scalar!">
-<code>Daf.Formats.format_delete_scalar!
+<a href="formats.html#DafJL.Formats.format_delete_scalar!">
+<code>DafJL.Formats.format_delete_scalar!
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_delete_vector!">
-<code>Daf.Formats.format_delete_vector!
+<a href="formats.html#DafJL.Formats.format_delete_vector!">
+<code>DafJL.Formats.format_delete_vector!
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_description_footer">
-<code>Daf.Formats.format_description_footer
+<a href="formats.html#DafJL.Formats.format_description_footer">
+<code>DafJL.Formats.format_description_footer
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_description_header">
-<code>Daf.Formats.format_description_header
+<a href="formats.html#DafJL.Formats.format_description_header">
+<code>DafJL.Formats.format_description_header
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_filled_empty_sparse_matrix!">
-<code>Daf.Formats.format_filled_empty_sparse_matrix!
+<a href="formats.html#DafJL.Formats.format_filled_empty_sparse_matrix!">
+<code>DafJL.Formats.format_filled_empty_sparse_matrix!
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_filled_empty_sparse_vector!">
-<code>Daf.Formats.format_filled_empty_sparse_vector!
+<a href="formats.html#DafJL.Formats.format_filled_empty_sparse_vector!">
+<code>DafJL.Formats.format_filled_empty_sparse_vector!
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_get_empty_dense_matrix!">
-<code>Daf.Formats.format_get_empty_dense_matrix!
+<a href="formats.html#DafJL.Formats.format_get_empty_dense_matrix!">
+<code>DafJL.Formats.format_get_empty_dense_matrix!
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_get_empty_dense_vector!">
-<code>Daf.Formats.format_get_empty_dense_vector!
+<a href="formats.html#DafJL.Formats.format_get_empty_dense_vector!">
+<code>DafJL.Formats.format_get_empty_dense_vector!
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_get_empty_sparse_matrix!">
-<code>Daf.Formats.format_get_empty_sparse_matrix!
+<a href="formats.html#DafJL.Formats.format_get_empty_sparse_matrix!">
+<code>DafJL.Formats.format_get_empty_sparse_matrix!
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_get_empty_sparse_vector!">
-<code>Daf.Formats.format_get_empty_sparse_vector!
+<a href="formats.html#DafJL.Formats.format_get_empty_sparse_vector!">
+<code>DafJL.Formats.format_get_empty_sparse_vector!
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_get_matrix">
-<code>Daf.Formats.format_get_matrix
+<a href="formats.html#DafJL.Formats.format_get_matrix">
+<code>DafJL.Formats.format_get_matrix
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_get_scalar">
-<code>Daf.Formats.format_get_scalar
+<a href="formats.html#DafJL.Formats.format_get_scalar">
+<code>DafJL.Formats.format_get_scalar
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_get_vector">
-<code>Daf.Formats.format_get_vector
+<a href="formats.html#DafJL.Formats.format_get_vector">
+<code>DafJL.Formats.format_get_vector
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_has_axis">
-<code>Daf.Formats.format_has_axis
+<a href="formats.html#DafJL.Formats.format_has_axis">
+<code>DafJL.Formats.format_has_axis
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_has_matrix">
-<code>Daf.Formats.format_has_matrix
+<a href="formats.html#DafJL.Formats.format_has_matrix">
+<code>DafJL.Formats.format_has_matrix
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_has_scalar">
-<code>Daf.Formats.format_has_scalar
+<a href="formats.html#DafJL.Formats.format_has_scalar">
+<code>DafJL.Formats.format_has_scalar
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_has_vector">
-<code>Daf.Formats.format_has_vector
+<a href="formats.html#DafJL.Formats.format_has_vector">
+<code>DafJL.Formats.format_has_vector
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_matrices_set">
-<code>Daf.Formats.format_matrices_set
+<a href="formats.html#DafJL.Formats.format_matrices_set">
+<code>DafJL.Formats.format_matrices_set
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_relayout_matrix!">
-<code>Daf.Formats.format_relayout_matrix!
+<a href="formats.html#DafJL.Formats.format_relayout_matrix!">
+<code>DafJL.Formats.format_relayout_matrix!
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_scalars_set">
-<code>Daf.Formats.format_scalars_set
+<a href="formats.html#DafJL.Formats.format_scalars_set">
+<code>DafJL.Formats.format_scalars_set
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_set_matrix!">
-<code>Daf.Formats.format_set_matrix!
+<a href="formats.html#DafJL.Formats.format_set_matrix!">
+<code>DafJL.Formats.format_set_matrix!
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_set_scalar!">
-<code>Daf.Formats.format_set_scalar!
+<a href="formats.html#DafJL.Formats.format_set_scalar!">
+<code>DafJL.Formats.format_set_scalar!
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_set_vector!">
-<code>Daf.Formats.format_set_vector!
+<a href="formats.html#DafJL.Formats.format_set_vector!">
+<code>DafJL.Formats.format_set_vector!
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_vectors_set">
-<code>Daf.Formats.format_vectors_set
+<a href="formats.html#DafJL.Formats.format_vectors_set">
+<code>DafJL.Formats.format_vectors_set
 </code>
 </a>
 </li>
 <li>
-<a href="generic_functions.html#Daf.GenericFunctions.dedent">
-<code>Daf.GenericFunctions.dedent
+<a href="generic_functions.html#DafJL.GenericFunctions.dedent">
+<code>DafJL.GenericFunctions.dedent
 </code>
 </a>
 </li>
 <li>
-<a href="generic_functions.html#Daf.GenericFunctions.handle_abnormal">
-<code>Daf.GenericFunctions.handle_abnormal
+<a href="generic_functions.html#DafJL.GenericFunctions.handle_abnormal">
+<code>DafJL.GenericFunctions.handle_abnormal
 </code>
 </a>
 </li>
 <li>
-<a href="generic_locks.html#Daf.GenericLocks.has_read_lock">
-<code>Daf.GenericLocks.has_read_lock
+<a href="generic_locks.html#DafJL.GenericLocks.has_read_lock">
+<code>DafJL.GenericLocks.has_read_lock
 </code>
 </a>
 </li>
 <li>
-<a href="generic_locks.html#Daf.GenericLocks.has_write_lock">
-<code>Daf.GenericLocks.has_write_lock
+<a href="generic_locks.html#DafJL.GenericLocks.has_write_lock">
+<code>DafJL.GenericLocks.has_write_lock
 </code>
 </a>
 </li>
 <li>
-<a href="generic_locks.html#Daf.GenericLocks.read_lock">
-<code>Daf.GenericLocks.read_lock
+<a href="generic_locks.html#DafJL.GenericLocks.read_lock">
+<code>DafJL.GenericLocks.read_lock
 </code>
 </a>
 </li>
 <li>
-<a href="generic_locks.html#Daf.GenericLocks.read_unlock">
-<code>Daf.GenericLocks.read_unlock
+<a href="generic_locks.html#DafJL.GenericLocks.read_unlock">
+<code>DafJL.GenericLocks.read_unlock
 </code>
 </a>
 </li>
 <li>
-<a href="generic_locks.html#Daf.GenericLocks.with_read_lock">
-<code>Daf.GenericLocks.with_read_lock
+<a href="generic_locks.html#DafJL.GenericLocks.with_read_lock">
+<code>DafJL.GenericLocks.with_read_lock
 </code>
 </a>
 </li>
 <li>
-<a href="generic_locks.html#Daf.GenericLocks.with_write_lock">
-<code>Daf.GenericLocks.with_write_lock
+<a href="generic_locks.html#DafJL.GenericLocks.with_write_lock">
+<code>DafJL.GenericLocks.with_write_lock
 </code>
 </a>
 </li>
 <li>
-<a href="generic_locks.html#Daf.GenericLocks.write_lock">
-<code>Daf.GenericLocks.write_lock
+<a href="generic_locks.html#DafJL.GenericLocks.write_lock">
+<code>DafJL.GenericLocks.write_lock
 </code>
 </a>
 </li>
 <li>
-<a href="generic_locks.html#Daf.GenericLocks.write_unlock">
-<code>Daf.GenericLocks.write_unlock
+<a href="generic_locks.html#DafJL.GenericLocks.write_unlock">
+<code>DafJL.GenericLocks.write_unlock
 </code>
 </a>
 </li>
 <li>
-<a href="generic_logging.html#Daf.GenericLogging.setup_logger">
-<code>Daf.GenericLogging.setup_logger
+<a href="generic_logging.html#DafJL.GenericLogging.setup_logger">
+<code>DafJL.GenericLogging.setup_logger
 </code>
 </a>
 </li>
 <li>
-<a href="groups.html#Daf.Groups.collect_group_members">
-<code>Daf.Groups.collect_group_members
+<a href="groups.html#DafJL.Groups.collect_group_members">
+<code>DafJL.Groups.collect_group_members
 </code>
 </a>
 </li>
 <li>
-<a href="groups.html#Daf.Groups.compact_groups!">
-<code>Daf.Groups.compact_groups!
+<a href="groups.html#DafJL.Groups.compact_groups!">
+<code>DafJL.Groups.compact_groups!
 </code>
 </a>
 </li>
 <li>
-<a href="groups.html#Daf.Groups.group_names">
-<code>Daf.Groups.group_names
+<a href="groups.html#DafJL.Groups.group_names">
+<code>DafJL.Groups.group_names
 </code>
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#Daf.MatrixLayouts.axis_name">
-<code>Daf.MatrixLayouts.axis_name
+<a href="matrix_layouts.html#DafJL.MatrixLayouts.axis_name">
+<code>DafJL.MatrixLayouts.axis_name
 </code>
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#Daf.MatrixLayouts.bestify">
-<code>Daf.MatrixLayouts.bestify
+<a href="matrix_layouts.html#DafJL.MatrixLayouts.bestify">
+<code>DafJL.MatrixLayouts.bestify
 </code>
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#Daf.MatrixLayouts.check_efficient_action">
-<code>Daf.MatrixLayouts.check_efficient_action
+<a href="matrix_layouts.html#DafJL.MatrixLayouts.check_efficient_action">
+<code>DafJL.MatrixLayouts.check_efficient_action
 </code>
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#Daf.MatrixLayouts.copy_array">
-<code>Daf.MatrixLayouts.copy_array
+<a href="matrix_layouts.html#DafJL.MatrixLayouts.copy_array">
+<code>DafJL.MatrixLayouts.copy_array
 </code>
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#Daf.MatrixLayouts.densify">
-<code>Daf.MatrixLayouts.densify
+<a href="matrix_layouts.html#DafJL.MatrixLayouts.densify">
+<code>DafJL.MatrixLayouts.densify
 </code>
 </a>
 </li>
 <li>
-<a href="messages.html#Daf.MatrixLayouts.depict">
-<code>Daf.MatrixLayouts.depict
+<a href="messages.html#DafJL.MatrixLayouts.depict">
+<code>DafJL.MatrixLayouts.depict
 </code>
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#Daf.MatrixLayouts.inefficient_action_handler">
-<code>Daf.MatrixLayouts.inefficient_action_handler
+<a href="matrix_layouts.html#DafJL.MatrixLayouts.inefficient_action_handler">
+<code>DafJL.MatrixLayouts.inefficient_action_handler
 </code>
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#Daf.MatrixLayouts.major_axis">
-<code>Daf.MatrixLayouts.major_axis
+<a href="matrix_layouts.html#DafJL.MatrixLayouts.major_axis">
+<code>DafJL.MatrixLayouts.major_axis
 </code>
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#Daf.MatrixLayouts.minor_axis">
-<code>Daf.MatrixLayouts.minor_axis
+<a href="matrix_layouts.html#DafJL.MatrixLayouts.minor_axis">
+<code>DafJL.MatrixLayouts.minor_axis
 </code>
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#Daf.MatrixLayouts.other_axis">
-<code>Daf.MatrixLayouts.other_axis
+<a href="matrix_layouts.html#DafJL.MatrixLayouts.other_axis">
+<code>DafJL.MatrixLayouts.other_axis
 </code>
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#Daf.MatrixLayouts.relayout">
-<code>Daf.MatrixLayouts.relayout
+<a href="matrix_layouts.html#DafJL.MatrixLayouts.relayout">
+<code>DafJL.MatrixLayouts.relayout
 </code>
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#Daf.MatrixLayouts.relayout!">
-<code>Daf.MatrixLayouts.relayout!
+<a href="matrix_layouts.html#DafJL.MatrixLayouts.relayout!">
+<code>DafJL.MatrixLayouts.relayout!
 </code>
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#Daf.MatrixLayouts.require_major_axis">
-<code>Daf.MatrixLayouts.require_major_axis
+<a href="matrix_layouts.html#DafJL.MatrixLayouts.require_major_axis">
+<code>DafJL.MatrixLayouts.require_major_axis
 </code>
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#Daf.MatrixLayouts.require_minor_axis">
-<code>Daf.MatrixLayouts.require_minor_axis
+<a href="matrix_layouts.html#DafJL.MatrixLayouts.require_minor_axis">
+<code>DafJL.MatrixLayouts.require_minor_axis
 </code>
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#Daf.MatrixLayouts.sparsify">
-<code>Daf.MatrixLayouts.sparsify
+<a href="matrix_layouts.html#DafJL.MatrixLayouts.sparsify">
+<code>DafJL.MatrixLayouts.sparsify
 </code>
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#Daf.MatrixLayouts.transposer">
-<code>Daf.MatrixLayouts.transposer
+<a href="matrix_layouts.html#DafJL.MatrixLayouts.transposer">
+<code>DafJL.MatrixLayouts.transposer
 </code>
 </a>
 </li>
 <li>
-<a href="messages.html#Daf.Messages.depict_percent">
-<code>Daf.Messages.depict_percent
+<a href="messages.html#DafJL.Messages.depict_percent">
+<code>DafJL.Messages.depict_percent
 </code>
 </a>
 </li>
 <li>
-<a href="messages.html#Daf.Messages.unique_name">
-<code>Daf.Messages.unique_name
+<a href="messages.html#DafJL.Messages.unique_name">
+<code>DafJL.Messages.unique_name
 </code>
 </a>
 </li>
 <li>
-<a href="operations.html#Daf.Operations.error_invalid_parameter_value">
-<code>Daf.Operations.error_invalid_parameter_value
+<a href="operations.html#DafJL.Operations.error_invalid_parameter_value">
+<code>DafJL.Operations.error_invalid_parameter_value
 </code>
 </a>
 </li>
 <li>
-<a href="operations.html#Daf.Operations.float_dtype_for">
-<code>Daf.Operations.float_dtype_for
+<a href="operations.html#DafJL.Operations.float_dtype_for">
+<code>DafJL.Operations.float_dtype_for
 </code>
 </a>
 </li>
 <li>
-<a href="operations.html#Daf.Operations.int_dtype_for">
-<code>Daf.Operations.int_dtype_for
+<a href="operations.html#DafJL.Operations.int_dtype_for">
+<code>DafJL.Operations.int_dtype_for
 </code>
 </a>
 </li>
 <li>
-<a href="operations.html#Daf.Operations.parse_float_dtype_value">
-<code>Daf.Operations.parse_float_dtype_value
+<a href="operations.html#DafJL.Operations.parse_float_dtype_value">
+<code>DafJL.Operations.parse_float_dtype_value
 </code>
 </a>
 </li>
 <li>
-<a href="operations.html#Daf.Operations.parse_int_dtype_value">
-<code>Daf.Operations.parse_int_dtype_value
+<a href="operations.html#DafJL.Operations.parse_int_dtype_value">
+<code>DafJL.Operations.parse_int_dtype_value
 </code>
 </a>
 </li>
 <li>
-<a href="operations.html#Daf.Operations.parse_number_dtype_value">
-<code>Daf.Operations.parse_number_dtype_value
+<a href="operations.html#DafJL.Operations.parse_number_dtype_value">
+<code>DafJL.Operations.parse_number_dtype_value
 </code>
 </a>
 </li>
 <li>
-<a href="operations.html#Daf.Operations.parse_number_value">
-<code>Daf.Operations.parse_number_value
+<a href="operations.html#DafJL.Operations.parse_number_value">
+<code>DafJL.Operations.parse_number_value
 </code>
 </a>
 </li>
 <li>
-<a href="operations.html#Daf.Operations.parse_parameter_value">
-<code>Daf.Operations.parse_parameter_value
+<a href="operations.html#DafJL.Operations.parse_parameter_value">
+<code>DafJL.Operations.parse_parameter_value
 </code>
 </a>
 </li>
 <li>
-<a href="operations.html#Daf.Operations.sum_dtype_for">
-<code>Daf.Operations.sum_dtype_for
+<a href="operations.html#DafJL.Operations.sum_dtype_for">
+<code>DafJL.Operations.sum_dtype_for
 </code>
 </a>
 </li>
 <li>
-<a href="operations.html#Daf.Operations.unsigned_dtype_for">
-<code>Daf.Operations.unsigned_dtype_for
+<a href="operations.html#DafJL.Operations.unsigned_dtype_for">
+<code>DafJL.Operations.unsigned_dtype_for
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.full_vector_query">
-<code>Daf.Queries.full_vector_query
+<a href="queries.html#DafJL.Queries.full_vector_query">
+<code>DafJL.Queries.full_vector_query
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.get_frame">
-<code>Daf.Queries.get_frame
+<a href="queries.html#DafJL.Queries.get_frame">
+<code>DafJL.Queries.get_frame
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.get_query">
-<code>Daf.Queries.get_query
+<a href="queries.html#DafJL.Queries.get_query">
+<code>DafJL.Queries.get_query
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.guess_typed_value">
-<code>Daf.Queries.guess_typed_value
+<a href="queries.html#DafJL.Queries.guess_typed_value">
+<code>DafJL.Queries.guess_typed_value
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.is_axis_query">
-<code>Daf.Queries.is_axis_query
+<a href="queries.html#DafJL.Queries.is_axis_query">
+<code>DafJL.Queries.is_axis_query
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.query_requires_relayout">
-<code>Daf.Queries.query_requires_relayout
+<a href="queries.html#DafJL.Queries.query_requires_relayout">
+<code>DafJL.Queries.query_requires_relayout
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.query_result_dimensions">
-<code>Daf.Queries.query_result_dimensions
+<a href="queries.html#DafJL.Queries.query_result_dimensions">
+<code>DafJL.Queries.query_result_dimensions
 </code>
 </a>
 </li>
 <li>
-<a href="read_only.html#Daf.ReadOnly.is_read_only_array">
-<code>Daf.ReadOnly.is_read_only_array
+<a href="read_only.html#DafJL.ReadOnly.is_read_only_array">
+<code>DafJL.ReadOnly.is_read_only_array
 </code>
 </a>
 </li>
 <li>
-<a href="read_only.html#Daf.ReadOnly.read_only">
-<code>Daf.ReadOnly.read_only
+<a href="read_only.html#DafJL.ReadOnly.read_only">
+<code>DafJL.ReadOnly.read_only
 </code>
 </a>
 </li>
 <li>
-<a href="read_only.html#Daf.ReadOnly.read_only_array">
-<code>Daf.ReadOnly.read_only_array
+<a href="read_only.html#DafJL.ReadOnly.read_only_array">
+<code>DafJL.ReadOnly.read_only_array
 </code>
 </a>
 </li>
 <li>
-<a href="readers.html#Daf.Readers.axes_set">
-<code>Daf.Readers.axes_set
+<a href="readers.html#DafJL.Readers.axes_set">
+<code>DafJL.Readers.axes_set
 </code>
 </a>
 </li>
 <li>
-<a href="readers.html#Daf.Readers.axis_array">
-<code>Daf.Readers.axis_array
+<a href="readers.html#DafJL.Readers.axis_array">
+<code>DafJL.Readers.axis_array
 </code>
 </a>
 </li>
 <li>
-<a href="readers.html#Daf.Readers.axis_dict">
-<code>Daf.Readers.axis_dict
+<a href="readers.html#DafJL.Readers.axis_dict">
+<code>DafJL.Readers.axis_dict
 </code>
 </a>
 </li>
 <li>
-<a href="readers.html#Daf.Readers.axis_indices">
-<code>Daf.Readers.axis_indices
+<a href="readers.html#DafJL.Readers.axis_indices">
+<code>DafJL.Readers.axis_indices
 </code>
 </a>
 </li>
 <li>
-<a href="readers.html#Daf.Readers.axis_length">
-<code>Daf.Readers.axis_length
+<a href="readers.html#DafJL.Readers.axis_length">
+<code>DafJL.Readers.axis_length
 </code>
 </a>
 </li>
 <li>
-<a href="readers.html#Daf.Readers.axis_version_counter">
-<code>Daf.Readers.axis_version_counter
+<a href="readers.html#DafJL.Readers.axis_version_counter">
+<code>DafJL.Readers.axis_version_counter
 </code>
 </a>
 </li>
 <li>
-<a href="readers.html#Daf.Readers.description">
-<code>Daf.Readers.description
+<a href="readers.html#DafJL.Readers.description">
+<code>DafJL.Readers.description
 </code>
 </a>
 </li>
 <li>
-<a href="readers.html#Daf.Readers.get_matrix">
-<code>Daf.Readers.get_matrix
+<a href="readers.html#DafJL.Readers.get_matrix">
+<code>DafJL.Readers.get_matrix
 </code>
 </a>
 </li>
 <li>
-<a href="readers.html#Daf.Readers.get_scalar">
-<code>Daf.Readers.get_scalar
+<a href="readers.html#DafJL.Readers.get_scalar">
+<code>DafJL.Readers.get_scalar
 </code>
 </a>
 </li>
 <li>
-<a href="readers.html#Daf.Readers.get_vector">
-<code>Daf.Readers.get_vector
+<a href="readers.html#DafJL.Readers.get_vector">
+<code>DafJL.Readers.get_vector
 </code>
 </a>
 </li>
 <li>
-<a href="readers.html#Daf.Readers.has_axis">
-<code>Daf.Readers.has_axis
+<a href="readers.html#DafJL.Readers.has_axis">
+<code>DafJL.Readers.has_axis
 </code>
 </a>
 </li>
 <li>
-<a href="readers.html#Daf.Readers.has_matrix">
-<code>Daf.Readers.has_matrix
+<a href="readers.html#DafJL.Readers.has_matrix">
+<code>DafJL.Readers.has_matrix
 </code>
 </a>
 </li>
 <li>
-<a href="readers.html#Daf.Readers.has_scalar">
-<code>Daf.Readers.has_scalar
+<a href="readers.html#DafJL.Readers.has_scalar">
+<code>DafJL.Readers.has_scalar
 </code>
 </a>
 </li>
 <li>
-<a href="readers.html#Daf.Readers.has_vector">
-<code>Daf.Readers.has_vector
+<a href="readers.html#DafJL.Readers.has_vector">
+<code>DafJL.Readers.has_vector
 </code>
 </a>
 </li>
 <li>
-<a href="readers.html#Daf.Readers.matrices_set">
-<code>Daf.Readers.matrices_set
+<a href="readers.html#DafJL.Readers.matrices_set">
+<code>DafJL.Readers.matrices_set
 </code>
 </a>
 </li>
 <li>
-<a href="readers.html#Daf.Readers.matrix_version_counter">
-<code>Daf.Readers.matrix_version_counter
+<a href="readers.html#DafJL.Readers.matrix_version_counter">
+<code>DafJL.Readers.matrix_version_counter
 </code>
 </a>
 </li>
 <li>
-<a href="readers.html#Daf.Readers.scalars_set">
-<code>Daf.Readers.scalars_set
+<a href="readers.html#DafJL.Readers.scalars_set">
+<code>DafJL.Readers.scalars_set
 </code>
 </a>
 </li>
 <li>
-<a href="readers.html#Daf.Readers.vector_version_counter">
-<code>Daf.Readers.vector_version_counter
+<a href="readers.html#DafJL.Readers.vector_version_counter">
+<code>DafJL.Readers.vector_version_counter
 </code>
 </a>
 </li>
 <li>
-<a href="readers.html#Daf.Readers.vectors_set">
-<code>Daf.Readers.vectors_set
+<a href="readers.html#DafJL.Readers.vectors_set">
+<code>DafJL.Readers.vectors_set
 </code>
 </a>
 </li>
 <li>
-<a href="reconstruction.html#Daf.Reconstruction.reconstruct_axis!">
-<code>Daf.Reconstruction.reconstruct_axis!
+<a href="reconstruction.html#DafJL.Reconstruction.reconstruct_axis!">
+<code>DafJL.Reconstruction.reconstruct_axis!
 </code>
 </a>
 </li>
 <li>
-<a href="registry.html#Daf.Registry.compute_eltwise">
-<code>Daf.Registry.compute_eltwise
+<a href="registry.html#DafJL.Registry.compute_eltwise">
+<code>DafJL.Registry.compute_eltwise
 </code>
 </a>
 </li>
 <li>
-<a href="registry.html#Daf.Registry.compute_reduction">
-<code>Daf.Registry.compute_reduction
+<a href="registry.html#DafJL.Registry.compute_reduction">
+<code>DafJL.Registry.compute_reduction
 </code>
 </a>
 </li>
 <li>
-<a href="registry.html#Daf.Registry.reduction_result_type">
-<code>Daf.Registry.reduction_result_type
+<a href="registry.html#DafJL.Registry.reduction_result_type">
+<code>DafJL.Registry.reduction_result_type
 </code>
 </a>
 </li>
 <li>
-<a href="registry.html#Daf.Registry.register_query_operation">
-<code>Daf.Registry.register_query_operation
+<a href="registry.html#DafJL.Registry.register_query_operation">
+<code>DafJL.Registry.register_query_operation
 </code>
 </a>
 </li>
 <li>
-<a href="storage_types.html#Daf.StorageTypes.sparse_matrix_csc">
-<code>Daf.StorageTypes.sparse_matrix_csc
+<a href="storage_types.html#DafJL.StorageTypes.sparse_matrix_csc">
+<code>DafJL.StorageTypes.sparse_matrix_csc
 </code>
 </a>
 </li>
 <li>
-<a href="storage_types.html#Daf.StorageTypes.sparse_vector">
-<code>Daf.StorageTypes.sparse_vector
+<a href="storage_types.html#DafJL.StorageTypes.sparse_vector">
+<code>DafJL.StorageTypes.sparse_vector
 </code>
 </a>
 </li>
 <li>
-<a href="tokens.html#Daf.Tokens.decode_expression">
-<code>Daf.Tokens.decode_expression
+<a href="tokens.html#DafJL.Tokens.decode_expression">
+<code>DafJL.Tokens.decode_expression
 </code>
 </a>
 </li>
 <li>
-<a href="tokens.html#Daf.Tokens.encode_expression">
-<code>Daf.Tokens.encode_expression
+<a href="tokens.html#DafJL.Tokens.encode_expression">
+<code>DafJL.Tokens.encode_expression
 </code>
 </a>
 </li>
 <li>
-<a href="tokens.html#Daf.Tokens.escape_value">
-<code>Daf.Tokens.escape_value
+<a href="tokens.html#DafJL.Tokens.escape_value">
+<code>DafJL.Tokens.escape_value
 </code>
 </a>
 </li>
 <li>
-<a href="tokens.html#Daf.Tokens.is_value_char">
-<code>Daf.Tokens.is_value_char
+<a href="tokens.html#DafJL.Tokens.is_value_char">
+<code>DafJL.Tokens.is_value_char
 </code>
 </a>
 </li>
 <li>
-<a href="tokens.html#Daf.Tokens.tokenize">
-<code>Daf.Tokens.tokenize
+<a href="tokens.html#DafJL.Tokens.tokenize">
+<code>DafJL.Tokens.tokenize
 </code>
 </a>
 </li>
 <li>
-<a href="tokens.html#Daf.Tokens.unescape_value">
-<code>Daf.Tokens.unescape_value
+<a href="tokens.html#DafJL.Tokens.unescape_value">
+<code>DafJL.Tokens.unescape_value
 </code>
 </a>
 </li>
 <li>
-<a href="views.html#Daf.Views.viewer">
-<code>Daf.Views.viewer
+<a href="views.html#DafJL.Views.viewer">
+<code>DafJL.Views.viewer
 </code>
 </a>
 </li>
 <li>
-<a href="writers.html#Daf.Writers.add_axis!">
-<code>Daf.Writers.add_axis!
+<a href="writers.html#DafJL.Writers.add_axis!">
+<code>DafJL.Writers.add_axis!
 </code>
 </a>
 </li>
 <li>
-<a href="writers.html#Daf.Writers.delete_axis!">
-<code>Daf.Writers.delete_axis!
+<a href="writers.html#DafJL.Writers.delete_axis!">
+<code>DafJL.Writers.delete_axis!
 </code>
 </a>
 </li>
 <li>
-<a href="writers.html#Daf.Writers.delete_matrix!">
-<code>Daf.Writers.delete_matrix!
+<a href="writers.html#DafJL.Writers.delete_matrix!">
+<code>DafJL.Writers.delete_matrix!
 </code>
 </a>
 </li>
 <li>
-<a href="writers.html#Daf.Writers.delete_scalar!">
-<code>Daf.Writers.delete_scalar!
+<a href="writers.html#DafJL.Writers.delete_scalar!">
+<code>DafJL.Writers.delete_scalar!
 </code>
 </a>
 </li>
 <li>
-<a href="writers.html#Daf.Writers.delete_vector!">
-<code>Daf.Writers.delete_vector!
+<a href="writers.html#DafJL.Writers.delete_vector!">
+<code>DafJL.Writers.delete_vector!
 </code>
 </a>
 </li>
 <li>
-<a href="writers.html#Daf.Writers.empty_dense_matrix!">
-<code>Daf.Writers.empty_dense_matrix!
+<a href="writers.html#DafJL.Writers.empty_dense_matrix!">
+<code>DafJL.Writers.empty_dense_matrix!
 </code>
 </a>
 </li>
 <li>
-<a href="writers.html#Daf.Writers.empty_dense_vector!">
-<code>Daf.Writers.empty_dense_vector!
+<a href="writers.html#DafJL.Writers.empty_dense_vector!">
+<code>DafJL.Writers.empty_dense_vector!
 </code>
 </a>
 </li>
 <li>
-<a href="writers.html#Daf.Writers.empty_sparse_matrix!">
-<code>Daf.Writers.empty_sparse_matrix!
+<a href="writers.html#DafJL.Writers.empty_sparse_matrix!">
+<code>DafJL.Writers.empty_sparse_matrix!
 </code>
 </a>
 </li>
 <li>
-<a href="writers.html#Daf.Writers.empty_sparse_vector!">
-<code>Daf.Writers.empty_sparse_vector!
+<a href="writers.html#DafJL.Writers.empty_sparse_vector!">
+<code>DafJL.Writers.empty_sparse_vector!
 </code>
 </a>
 </li>
 <li>
-<a href="writers.html#Daf.Writers.relayout_matrix!">
-<code>Daf.Writers.relayout_matrix!
+<a href="writers.html#DafJL.Writers.relayout_matrix!">
+<code>DafJL.Writers.relayout_matrix!
 </code>
 </a>
 </li>
 <li>
-<a href="writers.html#Daf.Writers.set_matrix!">
-<code>Daf.Writers.set_matrix!
+<a href="writers.html#DafJL.Writers.set_matrix!">
+<code>DafJL.Writers.set_matrix!
 </code>
 </a>
 </li>
 <li>
-<a href="writers.html#Daf.Writers.set_scalar!">
-<code>Daf.Writers.set_scalar!
+<a href="writers.html#DafJL.Writers.set_scalar!">
+<code>DafJL.Writers.set_scalar!
 </code>
 </a>
 </li>
 <li>
-<a href="writers.html#Daf.Writers.set_vector!">
-<code>Daf.Writers.set_vector!
+<a href="writers.html#DafJL.Writers.set_vector!">
+<code>DafJL.Writers.set_vector!
 </code>
 </a>
 </li>
 <li>
-<a href="computations.html#Daf.Computations.@computation">
-<code>Daf.Computations.@computation
+<a href="computations.html#DafJL.Computations.@computation">
+<code>DafJL.Computations.@computation
 </code>
 </a>
 </li>
 <li>
-<a href="generic_logging.html#Daf.GenericLogging.@logged">
-<code>Daf.GenericLogging.@logged
+<a href="generic_logging.html#DafJL.GenericLogging.@logged">
+<code>DafJL.GenericLogging.@logged
 </code>
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#Daf.MatrixLayouts.@assert_matrix">
-<code>Daf.MatrixLayouts.@assert_matrix
+<a href="matrix_layouts.html#DafJL.MatrixLayouts.@assert_matrix">
+<code>DafJL.MatrixLayouts.@assert_matrix
 </code>
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#Daf.MatrixLayouts.@assert_vector">
-<code>Daf.MatrixLayouts.@assert_vector
+<a href="matrix_layouts.html#DafJL.MatrixLayouts.@assert_vector">
+<code>DafJL.MatrixLayouts.@assert_vector
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#Daf.Queries.@q_str">
-<code>Daf.Queries.@q_str
+<a href="queries.html#DafJL.Queries.@q_str">
+<code>DafJL.Queries.@q_str
 </code>
 </a>
 </li>
 <li>
-<a href="registry.html#Daf.Registry.@query_operation">
-<code>Daf.Registry.@query_operation
+<a href="registry.html#DafJL.Registry.@query_operation">
+<code>DafJL.Registry.@query_operation
 </code>
 </a>
 </li>

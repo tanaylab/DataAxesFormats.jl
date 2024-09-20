@@ -25,7 +25,7 @@ operations into a `Daf` storage. This is a low-level API, not meant to be used f
 is not re-exported from the top-level `Daf` namespace.
 
 In contrast, the functions using [`DafReader`](@ref) and [`DafWriter`](@ref) describe the high-level API meant to be
-used from outside the package, and are re-exported. These functions are listed in the `Daf.Readers` and `Daf.Writers`
+used from outside the package, and are re-exported. These functions are listed in the `DafJL.Readers` and `DafJL.Writers`
 modules. These functions provide all the logic common to any storage format, allowing us to keep the format-specific
 functions as simple as possible.
 
@@ -239,7 +239,7 @@ abstract type FormatReader end
 A high-level abstract interface for read-only access to `Daf` data.
 
 All the functions for this type are provided based on the functions required for [`FormatReader`](@ref). See the
-`Daf.Readers` module for their description.
+`DafJL.Readers` module for their description.
 """
 abstract type DafReader <: FormatReader end
 
@@ -254,7 +254,7 @@ abstract type FormatWriter <: DafReader end
 A high-level abstract interface for write access to `Daf` data.
 
 All the functions for this type are provided based on the functions required for [`FormatWriter`](@ref). See the
-`Daf.Writers` module for their description.
+`DafJL.Writers` module for their description.
 """
 abstract type DafWriter <: FormatWriter end
 

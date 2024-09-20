@@ -5,14 +5,14 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Chains · Daf.jl v0.1.0
+<title>Chains · DafJL.jl v0.1.0
 </title>
-<meta name="title" content="Chains · Daf.jl v0.1.0"/>
-<meta property="og:title" content="Chains · Daf.jl v0.1.0"/>
-<meta property="twitter:title" content="Chains · Daf.jl v0.1.0"/>
-<meta name="description" content="Documentation for Daf.jl v0.1.0."/>
-<meta property="og:description" content="Documentation for Daf.jl v0.1.0."/>
-<meta property="twitter:description" content="Documentation for Daf.jl v0.1.0."/>
+<meta name="title" content="Chains · DafJL.jl v0.1.0"/>
+<meta property="og:title" content="Chains · DafJL.jl v0.1.0"/>
+<meta property="twitter:title" content="Chains · DafJL.jl v0.1.0"/>
+<meta name="description" content="Documentation for DafJL.jl v0.1.0."/>
+<meta property="og:description" content="Documentation for DafJL.jl v0.1.0."/>
+<meta property="twitter:description" content="Documentation for DafJL.jl v0.1.0."/>
 <script data-outdated-warner src="assets/warner.js">
 </script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/>
@@ -44,11 +44,11 @@
 <div id="documenter">
 <nav class="docs-sidebar">
 <a class="docs-logo" href="index.html">
-<img src="assets/logo.svg" alt="Daf.jl v0.1.0 logo"/>
+<img src="assets/logo.svg" alt="DafJL.jl v0.1.0 logo"/>
 </a>
 <div class="docs-package-name">
 <span class="docs-autofit">
-<a href="index.html">Daf.jl v0.1.0
+<a href="index.html">DafJL.jl v0.1.0
 </a>
 </span>
 </div>
@@ -220,7 +220,7 @@
 </ul>
 </nav>
 <div class="docs-right">
-<a class="docs-navbar-link" href="https://github.com/tanaylab/Daf.jl/blob/main{path}?plain=1#L{line}" title="View the repository on GitHub">
+<a class="docs-navbar-link" href="https://github.com/tanaylab/DafJL.jl/blob/main{path}?plain=1#L{line}" title="View the repository on GitHub">
 <span class="docs-icon fa-brands">
 </span>
 <span class="docs-label is-hidden-touch">GitHub
@@ -245,8 +245,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Chains" href="#Daf.Chains">
-<code>Daf.Chains
+<a class="docstring-binding" id="DafJL.Chains" href="#DafJL.Chains">
+<code>DafJL.Chains
 </code>
 </a> — 
 <span class="docstring-category">Module
@@ -267,8 +267,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Chains.chain_reader" href="#Daf.Chains.chain_reader">
-<code>Daf.Chains.chain_reader
+<a class="docstring-binding" id="DafJL.Chains.chain_reader" href="#DafJL.Chains.chain_reader">
+<code>DafJL.Chains.chain_reader
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -281,15 +281,15 @@
 </code>
 </pre>
 <p>Create a read-only chain wrapper of 
-<a href="formats.html#Daf.Formats.DafReader">
+<a href="formats.html#DafJL.Formats.DafReader">
 <code>DafReader
 </code>
 </a>s, presenting them as a single 
-<a href="formats.html#Daf.Formats.DafReader">
+<a href="formats.html#DafJL.Formats.DafReader">
 <code>DafReader
 </code>
 </a>. When accessing the content, the exposed value is that provided by the last data set that contains the data, that is, later data sets can override earlier data sets. However, if an axis exists in more than one data set in the chain, then its entries must be identical. This isn&#39;t typically created manually; instead call 
-<a href="chains.html#Daf.Chains.chain_reader">
+<a href="chains.html#DafJL.Chains.chain_reader">
 <code>chain_reader
 </code>
 </a>.
@@ -311,8 +311,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Chains.chain_writer" href="#Daf.Chains.chain_writer">
-<code>Daf.Chains.chain_writer
+<a class="docstring-binding" id="DafJL.Chains.chain_writer" href="#DafJL.Chains.chain_writer">
+<code>DafJL.Chains.chain_writer
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -325,19 +325,19 @@
 </code>
 </pre>
 <p>Create a chain wrapper for a chain of 
-<a href="formats.html#Daf.Formats.DafReader">
+<a href="formats.html#DafJL.Formats.DafReader">
 <code>DafReader
 </code>
 </a> data, presenting them as a single 
-<a href="formats.html#Daf.Formats.DafWriter">
+<a href="formats.html#DafJL.Formats.DafWriter">
 <code>DafWriter
 </code>
 </a>. This acts similarly to 
-<a href="chains.html#Daf.Chains.chain_reader">
+<a href="chains.html#DafJL.Chains.chain_reader">
 <code>chain_reader
 </code>
 </a>, but requires the final entry in the chain to be a 
-<a href="formats.html#Daf.Formats.DafWriter">
+<a href="formats.html#DafJL.Formats.DafWriter">
 <code>DafWriter
 </code>
 </a>. Any modifications or additions to the chain are directed only at this final writer.
@@ -357,8 +357,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Chains.ReadOnlyChain" href="#Daf.Chains.ReadOnlyChain">
-<code>Daf.Chains.ReadOnlyChain
+<a class="docstring-binding" id="DafJL.Chains.ReadOnlyChain" href="#DafJL.Chains.ReadOnlyChain">
+<code>DafJL.Chains.ReadOnlyChain
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -371,13 +371,13 @@
 </code>
 </pre>
 <p>A wrapper for a chain of 
-<a href="formats.html#Daf.Formats.DafReader">
+<a href="formats.html#DafJL.Formats.DafReader">
 <code>DafReader
 </code>
 </a> data, presenting them as a single 
 <code>DafReadOnly
 </code>. When accessing the content, the exposed value is that provided by the last data set that contains the data, that is, later data sets can override earlier data sets. However, if an axis exists in more than one data set in the chain, then its entries must be identical. This isn&#39;t typically created manually; instead call 
-<a href="chains.html#Daf.Chains.chain_reader">
+<a href="chains.html#DafJL.Chains.chain_reader">
 <code>chain_reader
 </code>
 </a>.
@@ -389,8 +389,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Chains.WriteChain" href="#Daf.Chains.WriteChain">
-<code>Daf.Chains.WriteChain
+<a class="docstring-binding" id="DafJL.Chains.WriteChain" href="#DafJL.Chains.WriteChain">
+<code>DafJL.Chains.WriteChain
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -403,19 +403,19 @@
 </code>
 </pre>
 <p>A wrapper for a chain of 
-<a href="formats.html#Daf.Formats.DafReader">
+<a href="formats.html#DafJL.Formats.DafReader">
 <code>DafReader
 </code>
 </a> data, with a final 
-<a href="formats.html#Daf.Formats.DafWriter">
+<a href="formats.html#DafJL.Formats.DafWriter">
 <code>DafWriter
 </code>
 </a>, presenting them as a single 
-<a href="formats.html#Daf.Formats.DafWriter">
+<a href="formats.html#DafJL.Formats.DafWriter">
 <code>DafWriter
 </code>
 </a>. When accessing the content, the exposed value is that provided by the last data set that contains the data, that is, later data sets can override earlier data sets (where the writer has the final word). However, if an axis exists in more than one data set in the chain, then its entries must be identical. This isn&#39;t typically created manually; instead call 
-<a href="chains.html#Daf.Chains.chain_reader">
+<a href="chains.html#DafJL.Chains.chain_reader">
 <code>chain_reader
 </code>
 </a>.
@@ -435,32 +435,32 @@
 </h2>
 <ul>
 <li>
-<a href="chains.html#Daf.Chains">
-<code>Daf.Chains
+<a href="chains.html#DafJL.Chains">
+<code>DafJL.Chains
 </code>
 </a>
 </li>
 <li>
-<a href="chains.html#Daf.Chains.ReadOnlyChain">
-<code>Daf.Chains.ReadOnlyChain
+<a href="chains.html#DafJL.Chains.ReadOnlyChain">
+<code>DafJL.Chains.ReadOnlyChain
 </code>
 </a>
 </li>
 <li>
-<a href="chains.html#Daf.Chains.WriteChain">
-<code>Daf.Chains.WriteChain
+<a href="chains.html#DafJL.Chains.WriteChain">
+<code>DafJL.Chains.WriteChain
 </code>
 </a>
 </li>
 <li>
-<a href="chains.html#Daf.Chains.chain_reader">
-<code>Daf.Chains.chain_reader
+<a href="chains.html#DafJL.Chains.chain_reader">
+<code>DafJL.Chains.chain_reader
 </code>
 </a>
 </li>
 <li>
-<a href="chains.html#Daf.Chains.chain_writer">
-<code>Daf.Chains.chain_writer
+<a href="chains.html#DafJL.Chains.chain_writer">
+<code>DafJL.Chains.chain_writer
 </code>
 </a>
 </li>

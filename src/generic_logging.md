@@ -1,9 +1,9 @@
 # Generic Logging
 
 ```@docs
-Daf.GenericLogging
-Daf.GenericLogging.setup_logger
-Daf.GenericLogging.@logged
+DafJL.GenericLogging
+DafJL.GenericLogging.setup_logger
+DafJL.GenericLogging.@logged
 ```
 
 ## Index

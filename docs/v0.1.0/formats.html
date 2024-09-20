@@ -5,14 +5,14 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Formats · Daf.jl v0.1.0
+<title>Formats · DafJL.jl v0.1.0
 </title>
-<meta name="title" content="Formats · Daf.jl v0.1.0"/>
-<meta property="og:title" content="Formats · Daf.jl v0.1.0"/>
-<meta property="twitter:title" content="Formats · Daf.jl v0.1.0"/>
-<meta name="description" content="Documentation for Daf.jl v0.1.0."/>
-<meta property="og:description" content="Documentation for Daf.jl v0.1.0."/>
-<meta property="twitter:description" content="Documentation for Daf.jl v0.1.0."/>
+<meta name="title" content="Formats · DafJL.jl v0.1.0"/>
+<meta property="og:title" content="Formats · DafJL.jl v0.1.0"/>
+<meta property="twitter:title" content="Formats · DafJL.jl v0.1.0"/>
+<meta name="description" content="Documentation for DafJL.jl v0.1.0."/>
+<meta property="og:description" content="Documentation for DafJL.jl v0.1.0."/>
+<meta property="twitter:description" content="Documentation for DafJL.jl v0.1.0."/>
 <script data-outdated-warner src="assets/warner.js">
 </script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/>
@@ -44,11 +44,11 @@
 <div id="documenter">
 <nav class="docs-sidebar">
 <a class="docs-logo" href="index.html">
-<img src="assets/logo.svg" alt="Daf.jl v0.1.0 logo"/>
+<img src="assets/logo.svg" alt="DafJL.jl v0.1.0 logo"/>
 </a>
 <div class="docs-package-name">
 <span class="docs-autofit">
-<a href="index.html">Daf.jl v0.1.0
+<a href="index.html">DafJL.jl v0.1.0
 </a>
 </span>
 </div>
@@ -232,7 +232,7 @@
 </ul>
 </nav>
 <div class="docs-right">
-<a class="docs-navbar-link" href="https://github.com/tanaylab/Daf.jl/blob/main{path}?plain=1#L{line}" title="View the repository on GitHub">
+<a class="docs-navbar-link" href="https://github.com/tanaylab/DafJL.jl/blob/main{path}?plain=1#L{line}" title="View the repository on GitHub">
 <span class="docs-icon fa-brands">
 </span>
 <span class="docs-label is-hidden-touch">GitHub
@@ -257,8 +257,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats" href="#Daf.Formats">
-<code>Daf.Formats
+<a class="docstring-binding" id="DafJL.Formats" href="#DafJL.Formats">
+<code>DafJL.Formats
 </code>
 </a> — 
 <span class="docstring-category">Module
@@ -267,11 +267,11 @@
 <section>
 <div>
 <p>The 
-<a href="formats.html#Daf.Formats.FormatReader">
+<a href="formats.html#DafJL.Formats.FormatReader">
 <code>FormatReader
 </code>
 </a> and 
-<a href="formats.html#Daf.Formats.FormatWriter">
+<a href="formats.html#DafJL.Formats.FormatWriter">
 <code>FormatWriter
 </code>
 </a> interfaces specify a low-level API for storing 
@@ -285,7 +285,7 @@
 <p>Data properties are identified by a unique name given the axes they are based on. That is, there is a separate namespace for scalar properties, vector properties for each specific axis, and matrix properties for each (ordered) pair of axes.
 </p>
 <p>For matrices, we keep careful track of their 
-<a href="matrix_layouts.html#Daf.MatrixLayouts">
+<a href="matrix_layouts.html#DafJL.MatrixLayouts">
 <code>MatrixLayouts
 </code>
 </a>. Specifically, a storage format only deals with column-major matrices, listed under the rows axis first and the columns axis second. A storage format object may hold two copies of the same matrix, in both possible memory layouts, in which case it will be listed twice, under both axes orders.
@@ -293,35 +293,35 @@
 <p>In general, storage format objects are as &quot;dumb&quot; as possible, to make it easier to support new storage formats. The required functions implement a glorified key-value repository, with the absolutely minimal necessary logic to deal with the separate property namespaces listed above.
 </p>
 <p>For clarity of documentation, we split the type hierarchy to 
-<a href="formats.html#Daf.Formats.DafWriter">
+<a href="formats.html#DafJL.Formats.DafWriter">
 <code>DafWriter
 </code>
 </a> 
 <code>&lt;:
 </code> 
-<a href="formats.html#Daf.Formats.FormatWriter">
+<a href="formats.html#DafJL.Formats.FormatWriter">
 <code>FormatWriter
 </code>
 </a> 
 <code>&lt;:
 </code> 
-<a href="formats.html#Daf.Formats.DafReader">
+<a href="formats.html#DafJL.Formats.DafReader">
 <code>DafReader
 </code>
 </a> 
 <code>&lt;:
 </code> 
-<a href="formats.html#Daf.Formats.FormatReader">
+<a href="formats.html#DafJL.Formats.FormatReader">
 <code>FormatReader
 </code>
 </a>.
 </p>
 <p>The functions listed here use the 
-<a href="formats.html#Daf.Formats.FormatReader">
+<a href="formats.html#DafJL.Formats.FormatReader">
 <code>FormatReader
 </code>
 </a> for read-only operations and 
-<a href="formats.html#Daf.Formats.FormatWriter">
+<a href="formats.html#DafJL.Formats.FormatWriter">
 <code>FormatWriter
 </code>
 </a> for write operations into a 
@@ -331,17 +331,17 @@
 </code> namespace.
 </p>
 <p>In contrast, the functions using 
-<a href="formats.html#Daf.Formats.DafReader">
+<a href="formats.html#DafJL.Formats.DafReader">
 <code>DafReader
 </code>
 </a> and 
-<a href="formats.html#Daf.Formats.DafWriter">
+<a href="formats.html#DafJL.Formats.DafWriter">
 <code>DafWriter
 </code>
 </a> describe the high-level API meant to be used from outside the package, and are re-exported. These functions are listed in the 
-<code>Daf.Readers
+<code>DafJL.Readers
 </code> and 
-<code>Daf.Writers
+<code>DafJL.Writers
 </code> modules. These functions provide all the logic common to any storage format, allowing us to keep the format-specific functions as simple as possible.
 </p>
 <p>That is, when implementing a new 
@@ -349,11 +349,11 @@
 </code> storage format, you should write 
 <code>struct MyFormat &lt;: DafWriter
 </code>, and implement the functions listed here for both 
-<a href="formats.html#Daf.Formats.FormatReader">
+<a href="formats.html#DafJL.Formats.FormatReader">
 <code>FormatReader
 </code>
 </a> and 
-<a href="formats.html#Daf.Formats.FormatWriter">
+<a href="formats.html#DafJL.Formats.FormatWriter">
 <code>FormatWriter
 </code>
 </a>.
@@ -373,8 +373,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.DafReader" href="#Daf.Formats.DafReader">
-<code>Daf.Formats.DafReader
+<a class="docstring-binding" id="DafJL.Formats.DafReader" href="#DafJL.Formats.DafReader">
+<code>DafJL.Formats.DafReader
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -387,11 +387,11 @@
 </code> data.
 </p>
 <p>All the functions for this type are provided based on the functions required for 
-<a href="formats.html#Daf.Formats.FormatReader">
+<a href="formats.html#DafJL.Formats.FormatReader">
 <code>FormatReader
 </code>
 </a>. See the 
-<code>Daf.Readers
+<code>DafJL.Readers
 </code> module for their description.
 </p>
 </div>
@@ -401,8 +401,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.FormatReader" href="#Daf.Formats.FormatReader">
-<code>Daf.Formats.FormatReader
+<a class="docstring-binding" id="DafJL.Formats.FormatReader" href="#DafJL.Formats.FormatReader">
+<code>DafJL.Formats.FormatReader
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -419,7 +419,7 @@
 </code> and an 
 <code>.internal::
 </code>
-<a href="formats.html#Daf.Formats.Internal">
+<a href="formats.html#DafJL.Formats.Internal">
 <code>Internal
 </code>
 </a> property. This enables all the high-level 
@@ -435,8 +435,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.Internal" href="#Daf.Formats.Internal">
-<code>Daf.Formats.Internal
+<a class="docstring-binding" id="DafJL.Formats.Internal" href="#DafJL.Formats.Internal">
+<code>DafJL.Formats.Internal
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -449,23 +449,23 @@
 </code>
 </pre>
 <p>Internal data we need to keep in any concrete 
-<a href="formats.html#Daf.Formats.FormatReader">
+<a href="formats.html#DafJL.Formats.FormatReader">
 <code>FormatReader
 </code>
 </a>. This has to be available as a 
 <code>.internal
 </code> data member of the concrete format. This enables all the high-level 
-<a href="formats.html#Daf.Formats.DafReader">
+<a href="formats.html#DafJL.Formats.DafReader">
 <code>DafReader
 </code>
 </a> and 
-<a href="formats.html#Daf.Formats.DafWriter">
+<a href="formats.html#DafJL.Formats.DafWriter">
 <code>DafWriter
 </code>
 </a> functions.
 </p>
 <p>The constructor will automatically call 
-<a href="messages.html#Daf.Messages.unique_name">
+<a href="messages.html#DafJL.Messages.unique_name">
 <code>unique_name
 </code>
 </a> to try and make the names unique for improved error messages.
@@ -485,8 +485,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.CacheGroup" href="#Daf.Formats.CacheGroup">
-<code>Daf.Formats.CacheGroup
+<a class="docstring-binding" id="DafJL.Formats.CacheGroup" href="#DafJL.Formats.CacheGroup">
+<code>DafJL.Formats.CacheGroup
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -513,7 +513,7 @@
 </li>
 </ul>
 <p>If too much data has been cached, call 
-<a href="formats.html#Daf.Formats.empty_cache!">
+<a href="formats.html#DafJL.Formats.empty_cache!">
 <code>empty_cache!
 </code>
 </a> to release it.
@@ -525,8 +525,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.empty_cache!" href="#Daf.Formats.empty_cache!">
-<code>Daf.Formats.empty_cache!
+<a class="docstring-binding" id="DafJL.Formats.empty_cache!" href="#DafJL.Formats.empty_cache!">
+<code>DafJL.Formats.empty_cache!
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -545,7 +545,7 @@
 <p>Clear some cached data. By default, completely empties the caches. You can specify either 
 <code>clear
 </code>, to only forget a specific 
-<a href="formats.html#Daf.Formats.CacheGroup">
+<a href="formats.html#DafJL.Formats.CacheGroup">
 <code>CacheGroup
 </code>
 </a> (e.g., for clearing only 
@@ -553,7 +553,7 @@
 </code>), or 
 <code>keep
 </code>, to forget everything except a specific 
-<a href="formats.html#Daf.Formats.CacheGroup">
+<a href="formats.html#DafJL.Formats.CacheGroup">
 <code>CacheGroup
 </code>
 </a> (e.g., for keeping only 
@@ -587,8 +587,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_description_header" href="#Daf.Formats.format_description_header">
-<code>Daf.Formats.format_description_header
+<a class="docstring-binding" id="DafJL.Formats.format_description_header" href="#DafJL.Formats.format_description_header">
+<code>DafJL.Formats.format_description_header
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -613,8 +613,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_description_footer" href="#Daf.Formats.format_description_footer">
-<code>Daf.Formats.format_description_footer
+<a class="docstring-binding" id="DafJL.Formats.format_description_footer" href="#DafJL.Formats.format_description_footer">
+<code>DafJL.Formats.format_description_footer
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -649,8 +649,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_has_scalar" href="#Daf.Formats.format_has_scalar">
-<code>Daf.Formats.format_has_scalar
+<a class="docstring-binding" id="DafJL.Formats.format_has_scalar" href="#DafJL.Formats.format_has_scalar">
+<code>DafJL.Formats.format_has_scalar
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -677,8 +677,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_scalars_set" href="#Daf.Formats.format_scalars_set">
-<code>Daf.Formats.format_scalars_set
+<a class="docstring-binding" id="DafJL.Formats.format_scalars_set" href="#DafJL.Formats.format_scalars_set">
+<code>DafJL.Formats.format_scalars_set
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -703,8 +703,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_get_scalar" href="#Daf.Formats.format_get_scalar">
-<code>Daf.Formats.format_get_scalar
+<a class="docstring-binding" id="DafJL.Formats.format_get_scalar" href="#DafJL.Formats.format_get_scalar">
+<code>DafJL.Formats.format_get_scalar
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -743,8 +743,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_has_axis" href="#Daf.Formats.format_has_axis">
-<code>Daf.Formats.format_has_axis
+<a class="docstring-binding" id="DafJL.Formats.format_has_axis" href="#DafJL.Formats.format_has_axis">
+<code>DafJL.Formats.format_has_axis
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -773,8 +773,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_axes_set" href="#Daf.Formats.format_axes_set">
-<code>Daf.Formats.format_axes_set
+<a class="docstring-binding" id="DafJL.Formats.format_axes_set" href="#DafJL.Formats.format_axes_set">
+<code>DafJL.Formats.format_axes_set
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -799,8 +799,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_axis_array" href="#Daf.Formats.format_axis_array">
-<code>Daf.Formats.format_axis_array
+<a class="docstring-binding" id="DafJL.Formats.format_axis_array" href="#DafJL.Formats.format_axis_array">
+<code>DafJL.Formats.format_axis_array
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -831,8 +831,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_axis_length" href="#Daf.Formats.format_axis_length">
-<code>Daf.Formats.format_axis_length
+<a class="docstring-binding" id="DafJL.Formats.format_axis_length" href="#DafJL.Formats.format_axis_length">
+<code>DafJL.Formats.format_axis_length
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -869,8 +869,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_has_vector" href="#Daf.Formats.format_has_vector">
-<code>Daf.Formats.format_has_vector
+<a class="docstring-binding" id="DafJL.Formats.format_has_vector" href="#DafJL.Formats.format_has_vector">
+<code>DafJL.Formats.format_has_vector
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -905,8 +905,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_vectors_set" href="#Daf.Formats.format_vectors_set">
-<code>Daf.Formats.format_vectors_set
+<a class="docstring-binding" id="DafJL.Formats.format_vectors_set" href="#DafJL.Formats.format_vectors_set">
+<code>DafJL.Formats.format_vectors_set
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -941,8 +941,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_get_vector" href="#Daf.Formats.format_get_vector">
-<code>Daf.Formats.format_get_vector
+<a class="docstring-binding" id="DafJL.Formats.format_get_vector" href="#DafJL.Formats.format_get_vector">
+<code>DafJL.Formats.format_get_vector
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -987,8 +987,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_has_matrix" href="#Daf.Formats.format_has_matrix">
-<code>Daf.Formats.format_has_matrix
+<a class="docstring-binding" id="DafJL.Formats.format_has_matrix" href="#DafJL.Formats.format_has_matrix">
+<code>DafJL.Formats.format_has_matrix
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -1032,8 +1032,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_matrices_set" href="#Daf.Formats.format_matrices_set">
-<code>Daf.Formats.format_matrices_set
+<a class="docstring-binding" id="DafJL.Formats.format_matrices_set" href="#DafJL.Formats.format_matrices_set">
+<code>DafJL.Formats.format_matrices_set
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -1072,8 +1072,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_get_matrix" href="#Daf.Formats.format_get_matrix">
-<code>Daf.Formats.format_get_matrix
+<a class="docstring-binding" id="DafJL.Formats.format_get_matrix" href="#DafJL.Formats.format_get_matrix">
+<code>DafJL.Formats.format_get_matrix
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -1125,8 +1125,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.DafWriter" href="#Daf.Formats.DafWriter">
-<code>Daf.Formats.DafWriter
+<a class="docstring-binding" id="DafJL.Formats.DafWriter" href="#DafJL.Formats.DafWriter">
+<code>DafJL.Formats.DafWriter
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -1139,11 +1139,11 @@
 </code> data.
 </p>
 <p>All the functions for this type are provided based on the functions required for 
-<a href="formats.html#Daf.Formats.FormatWriter">
+<a href="formats.html#DafJL.Formats.FormatWriter">
 <code>FormatWriter
 </code>
 </a>. See the 
-<code>Daf.Writers
+<code>DafJL.Writers
 </code> module for their description.
 </p>
 </div>
@@ -1153,8 +1153,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.FormatWriter" href="#Daf.Formats.FormatWriter">
-<code>Daf.Formats.FormatWriter
+<a class="docstring-binding" id="DafJL.Formats.FormatWriter" href="#DafJL.Formats.FormatWriter">
+<code>DafJL.Formats.FormatWriter
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -1181,8 +1181,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_set_scalar!" href="#Daf.Formats.format_set_scalar!">
-<code>Daf.Formats.format_set_scalar!
+<a class="docstring-binding" id="DafJL.Formats.format_set_scalar!" href="#DafJL.Formats.format_set_scalar!">
+<code>DafJL.Formats.format_set_scalar!
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -1219,8 +1219,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_delete_scalar!" href="#Daf.Formats.format_delete_scalar!">
-<code>Daf.Formats.format_delete_scalar!
+<a class="docstring-binding" id="DafJL.Formats.format_delete_scalar!" href="#DafJL.Formats.format_delete_scalar!">
+<code>DafJL.Formats.format_delete_scalar!
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -1263,8 +1263,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_add_axis!" href="#Daf.Formats.format_add_axis!">
-<code>Daf.Formats.format_add_axis!
+<a class="docstring-binding" id="DafJL.Formats.format_add_axis!" href="#DafJL.Formats.format_add_axis!">
+<code>DafJL.Formats.format_add_axis!
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -1301,8 +1301,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_delete_axis!" href="#Daf.Formats.format_delete_axis!">
-<code>Daf.Formats.format_delete_axis!
+<a class="docstring-binding" id="DafJL.Formats.format_delete_axis!" href="#DafJL.Formats.format_delete_axis!">
+<code>DafJL.Formats.format_delete_axis!
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -1339,8 +1339,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_set_vector!" href="#Daf.Formats.format_set_vector!">
-<code>Daf.Formats.format_set_vector!
+<a class="docstring-binding" id="DafJL.Formats.format_set_vector!" href="#DafJL.Formats.format_set_vector!">
+<code>DafJL.Formats.format_set_vector!
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -1368,7 +1368,7 @@
 <p>If the 
 <code>vector
 </code> specified is actually a 
-<a href="storage_types.html#Daf.StorageTypes.StorageScalar">
+<a href="storage_types.html#DafJL.StorageTypes.StorageScalar">
 <code>StorageScalar
 </code>
 </a>, the stored vector is filled with this value.
@@ -1394,8 +1394,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_delete_vector!" href="#Daf.Formats.format_delete_vector!">
-<code>Daf.Formats.format_delete_vector!
+<a class="docstring-binding" id="DafJL.Formats.format_delete_vector!" href="#DafJL.Formats.format_delete_vector!">
+<code>DafJL.Formats.format_delete_vector!
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -1447,8 +1447,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_set_matrix!" href="#Daf.Formats.format_set_matrix!">
-<code>Daf.Formats.format_set_matrix!
+<a class="docstring-binding" id="DafJL.Formats.format_set_matrix!" href="#DafJL.Formats.format_set_matrix!">
+<code>DafJL.Formats.format_set_matrix!
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -1479,7 +1479,7 @@
 <p>If the 
 <code>matrix
 </code> specified is actually a 
-<a href="storage_types.html#Daf.StorageTypes.StorageScalar">
+<a href="storage_types.html#DafJL.StorageTypes.StorageScalar">
 <code>StorageScalar
 </code>
 </a>, the stored matrix is filled with this value.
@@ -1503,8 +1503,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_relayout_matrix!" href="#Daf.Formats.format_relayout_matrix!">
-<code>Daf.Formats.format_relayout_matrix!
+<a class="docstring-binding" id="DafJL.Formats.format_relayout_matrix!" href="#DafJL.Formats.format_relayout_matrix!">
+<code>DafJL.Formats.format_relayout_matrix!
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -1523,7 +1523,7 @@
 </code>
 </pre>
 <p>
-<a href="matrix_layouts.html#Daf.MatrixLayouts.relayout!">
+<a href="matrix_layouts.html#DafJL.MatrixLayouts.relayout!">
 <code>relayout!
 </code>
 </a> the existing 
@@ -1553,8 +1553,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_delete_matrix!" href="#Daf.Formats.format_delete_matrix!">
-<code>Daf.Formats.format_delete_matrix!
+<a class="docstring-binding" id="DafJL.Formats.format_delete_matrix!" href="#DafJL.Formats.format_delete_matrix!">
+<code>DafJL.Formats.format_delete_matrix!
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -1609,8 +1609,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_get_empty_dense_vector!" href="#Daf.Formats.format_get_empty_dense_vector!">
-<code>Daf.Formats.format_get_empty_dense_vector!
+<a class="docstring-binding" id="DafJL.Formats.format_get_empty_dense_vector!" href="#DafJL.Formats.format_get_empty_dense_vector!">
+<code>DafJL.Formats.format_get_empty_dense_vector!
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -1682,8 +1682,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_get_empty_sparse_vector!" href="#Daf.Formats.format_get_empty_sparse_vector!">
-<code>Daf.Formats.format_get_empty_sparse_vector!
+<a class="docstring-binding" id="DafJL.Formats.format_get_empty_sparse_vector!" href="#DafJL.Formats.format_get_empty_sparse_vector!">
+<code>DafJL.Formats.format_get_empty_sparse_vector!
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -1732,8 +1732,8 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_filled_empty_sparse_vector!" href="#Daf.Formats.format_filled_empty_sparse_vector!">
-<code>Daf.Formats.format_filled_empty_sparse_vector!
+<a class="docstring-binding" id="DafJL.Formats.format_filled_empty_sparse_vector!" href="#DafJL.Formats.format_filled_empty_sparse_vector!">
+<code>DafJL.Formats.format_filled_empty_sparse_vector!
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -1763,8 +1763,8 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_get_empty_dense_matrix!" href="#Daf.Formats.format_get_empty_dense_matrix!">
-<code>Daf.Formats.format_get_empty_dense_matrix!
+<a class="docstring-binding" id="DafJL.Formats.format_get_empty_dense_matrix!" href="#DafJL.Formats.format_get_empty_dense_matrix!">
+<code>DafJL.Formats.format_get_empty_dense_matrix!
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -1825,8 +1825,8 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_get_empty_sparse_matrix!" href="#Daf.Formats.format_get_empty_sparse_matrix!">
-<code>Daf.Formats.format_get_empty_sparse_matrix!
+<a class="docstring-binding" id="DafJL.Formats.format_get_empty_sparse_matrix!" href="#DafJL.Formats.format_get_empty_sparse_matrix!">
+<code>DafJL.Formats.format_get_empty_sparse_matrix!
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -1874,8 +1874,8 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Formats.format_filled_empty_sparse_matrix!" href="#Daf.Formats.format_filled_empty_sparse_matrix!">
-<code>Daf.Formats.format_filled_empty_sparse_matrix!
+<a class="docstring-binding" id="DafJL.Formats.format_filled_empty_sparse_matrix!" href="#DafJL.Formats.format_filled_empty_sparse_matrix!">
+<code>DafJL.Formats.format_filled_empty_sparse_matrix!
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -1912,230 +1912,230 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
 </h2>
 <ul>
 <li>
-<a href="formats.html#Daf.Formats">
-<code>Daf.Formats
+<a href="formats.html#DafJL.Formats">
+<code>DafJL.Formats
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.CacheGroup">
-<code>Daf.Formats.CacheGroup
+<a href="formats.html#DafJL.Formats.CacheGroup">
+<code>DafJL.Formats.CacheGroup
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.DafReader">
-<code>Daf.Formats.DafReader
+<a href="formats.html#DafJL.Formats.DafReader">
+<code>DafJL.Formats.DafReader
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.DafWriter">
-<code>Daf.Formats.DafWriter
+<a href="formats.html#DafJL.Formats.DafWriter">
+<code>DafJL.Formats.DafWriter
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.FormatReader">
-<code>Daf.Formats.FormatReader
+<a href="formats.html#DafJL.Formats.FormatReader">
+<code>DafJL.Formats.FormatReader
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.FormatWriter">
-<code>Daf.Formats.FormatWriter
+<a href="formats.html#DafJL.Formats.FormatWriter">
+<code>DafJL.Formats.FormatWriter
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.Internal">
-<code>Daf.Formats.Internal
+<a href="formats.html#DafJL.Formats.Internal">
+<code>DafJL.Formats.Internal
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.empty_cache!">
-<code>Daf.Formats.empty_cache!
+<a href="formats.html#DafJL.Formats.empty_cache!">
+<code>DafJL.Formats.empty_cache!
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_add_axis!">
-<code>Daf.Formats.format_add_axis!
+<a href="formats.html#DafJL.Formats.format_add_axis!">
+<code>DafJL.Formats.format_add_axis!
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_axes_set">
-<code>Daf.Formats.format_axes_set
+<a href="formats.html#DafJL.Formats.format_axes_set">
+<code>DafJL.Formats.format_axes_set
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_axis_array">
-<code>Daf.Formats.format_axis_array
+<a href="formats.html#DafJL.Formats.format_axis_array">
+<code>DafJL.Formats.format_axis_array
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_axis_length">
-<code>Daf.Formats.format_axis_length
+<a href="formats.html#DafJL.Formats.format_axis_length">
+<code>DafJL.Formats.format_axis_length
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_delete_axis!">
-<code>Daf.Formats.format_delete_axis!
+<a href="formats.html#DafJL.Formats.format_delete_axis!">
+<code>DafJL.Formats.format_delete_axis!
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_delete_matrix!">
-<code>Daf.Formats.format_delete_matrix!
+<a href="formats.html#DafJL.Formats.format_delete_matrix!">
+<code>DafJL.Formats.format_delete_matrix!
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_delete_scalar!">
-<code>Daf.Formats.format_delete_scalar!
+<a href="formats.html#DafJL.Formats.format_delete_scalar!">
+<code>DafJL.Formats.format_delete_scalar!
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_delete_vector!">
-<code>Daf.Formats.format_delete_vector!
+<a href="formats.html#DafJL.Formats.format_delete_vector!">
+<code>DafJL.Formats.format_delete_vector!
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_description_footer">
-<code>Daf.Formats.format_description_footer
+<a href="formats.html#DafJL.Formats.format_description_footer">
+<code>DafJL.Formats.format_description_footer
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_description_header">
-<code>Daf.Formats.format_description_header
+<a href="formats.html#DafJL.Formats.format_description_header">
+<code>DafJL.Formats.format_description_header
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_filled_empty_sparse_matrix!">
-<code>Daf.Formats.format_filled_empty_sparse_matrix!
+<a href="formats.html#DafJL.Formats.format_filled_empty_sparse_matrix!">
+<code>DafJL.Formats.format_filled_empty_sparse_matrix!
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_filled_empty_sparse_vector!">
-<code>Daf.Formats.format_filled_empty_sparse_vector!
+<a href="formats.html#DafJL.Formats.format_filled_empty_sparse_vector!">
+<code>DafJL.Formats.format_filled_empty_sparse_vector!
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_get_empty_dense_matrix!">
-<code>Daf.Formats.format_get_empty_dense_matrix!
+<a href="formats.html#DafJL.Formats.format_get_empty_dense_matrix!">
+<code>DafJL.Formats.format_get_empty_dense_matrix!
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_get_empty_dense_vector!">
-<code>Daf.Formats.format_get_empty_dense_vector!
+<a href="formats.html#DafJL.Formats.format_get_empty_dense_vector!">
+<code>DafJL.Formats.format_get_empty_dense_vector!
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_get_empty_sparse_matrix!">
-<code>Daf.Formats.format_get_empty_sparse_matrix!
+<a href="formats.html#DafJL.Formats.format_get_empty_sparse_matrix!">
+<code>DafJL.Formats.format_get_empty_sparse_matrix!
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_get_empty_sparse_vector!">
-<code>Daf.Formats.format_get_empty_sparse_vector!
+<a href="formats.html#DafJL.Formats.format_get_empty_sparse_vector!">
+<code>DafJL.Formats.format_get_empty_sparse_vector!
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_get_matrix">
-<code>Daf.Formats.format_get_matrix
+<a href="formats.html#DafJL.Formats.format_get_matrix">
+<code>DafJL.Formats.format_get_matrix
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_get_scalar">
-<code>Daf.Formats.format_get_scalar
+<a href="formats.html#DafJL.Formats.format_get_scalar">
+<code>DafJL.Formats.format_get_scalar
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_get_vector">
-<code>Daf.Formats.format_get_vector
+<a href="formats.html#DafJL.Formats.format_get_vector">
+<code>DafJL.Formats.format_get_vector
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_has_axis">
-<code>Daf.Formats.format_has_axis
+<a href="formats.html#DafJL.Formats.format_has_axis">
+<code>DafJL.Formats.format_has_axis
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_has_matrix">
-<code>Daf.Formats.format_has_matrix
+<a href="formats.html#DafJL.Formats.format_has_matrix">
+<code>DafJL.Formats.format_has_matrix
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_has_scalar">
-<code>Daf.Formats.format_has_scalar
+<a href="formats.html#DafJL.Formats.format_has_scalar">
+<code>DafJL.Formats.format_has_scalar
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_has_vector">
-<code>Daf.Formats.format_has_vector
+<a href="formats.html#DafJL.Formats.format_has_vector">
+<code>DafJL.Formats.format_has_vector
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_matrices_set">
-<code>Daf.Formats.format_matrices_set
+<a href="formats.html#DafJL.Formats.format_matrices_set">
+<code>DafJL.Formats.format_matrices_set
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_relayout_matrix!">
-<code>Daf.Formats.format_relayout_matrix!
+<a href="formats.html#DafJL.Formats.format_relayout_matrix!">
+<code>DafJL.Formats.format_relayout_matrix!
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_scalars_set">
-<code>Daf.Formats.format_scalars_set
+<a href="formats.html#DafJL.Formats.format_scalars_set">
+<code>DafJL.Formats.format_scalars_set
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_set_matrix!">
-<code>Daf.Formats.format_set_matrix!
+<a href="formats.html#DafJL.Formats.format_set_matrix!">
+<code>DafJL.Formats.format_set_matrix!
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_set_scalar!">
-<code>Daf.Formats.format_set_scalar!
+<a href="formats.html#DafJL.Formats.format_set_scalar!">
+<code>DafJL.Formats.format_set_scalar!
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_set_vector!">
-<code>Daf.Formats.format_set_vector!
+<a href="formats.html#DafJL.Formats.format_set_vector!">
+<code>DafJL.Formats.format_set_vector!
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#Daf.Formats.format_vectors_set">
-<code>Daf.Formats.format_vectors_set
+<a href="formats.html#DafJL.Formats.format_vectors_set">
+<code>DafJL.Formats.format_vectors_set
 </code>
 </a>
 </li>

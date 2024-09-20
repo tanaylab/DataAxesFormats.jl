@@ -1,10 +1,10 @@
 # Files Format
 
 ```@docs
-Daf.FilesFormat
-Daf.FilesFormat.MAJOR_VERSION
-Daf.FilesFormat.MINOR_VERSION
-Daf.FilesFormat.FilesDaf
+DafJL.FilesFormat
+DafJL.FilesFormat.MAJOR_VERSION
+DafJL.FilesFormat.MINOR_VERSION
+DafJL.FilesFormat.FilesDaf
 ```
 
 ## Index

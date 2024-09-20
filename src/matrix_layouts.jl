@@ -239,13 +239,13 @@ Assert that the `vector` is an `AbstractVector` and optionally that it has `n_el
 if it fails.
 """
 macro assert_vector(vector)
-    return esc(:(Daf.MatrixLayouts.@assert_is_vector($(__source__.file), $(__source__.line), $vector)))
+    return esc(:(DafJL.MatrixLayouts.@assert_is_vector($(__source__.file), $(__source__.line), $vector)))
 end
 
 macro assert_vector(vector, n_elements)
     return esc(:(  #
-        Daf.MatrixLayouts.@assert_is_vector($(__source__.file), $(__source__.line), $vector);   #
-        Daf.MatrixLayouts.@assert_vector_size($(__source__.file), $(__source__.line), $vector, $n_elements)  #
+        DafJL.MatrixLayouts.@assert_is_vector($(__source__.file), $(__source__.line), $vector);   #
+        DafJL.MatrixLayouts.@assert_vector_size($(__source__.file), $(__source__.line), $vector, $n_elements)  #
     ))
 end
 
@@ -294,7 +294,7 @@ end
 macro check_matrix_layout(source_file, source_line, matrix, major_axis)
     matrix_name = string(matrix)
     return esc(
-        :(Daf.MatrixLayouts.check_efficient_action($source_file, $source_line, $matrix_name, $matrix, $major_axis),),
+        :(DafJL.MatrixLayouts.check_efficient_action($source_file, $source_line, $matrix_name, $matrix, $major_axis),),
     )
 end
 
@@ -305,14 +305,14 @@ Assert that the `matrix` is an `AbstractMatrix` and optionally that it has `n_ro
 is given, also calls `check_efficient_action` to verify that the matrix is in an efficient layout.
 """
 macro assert_matrix(matrix)
-    return esc(:(Daf.MatrixLayouts.@assert_is_matrix($(__source__.file), $(__source__.line), $matrix)))
+    return esc(:(DafJL.MatrixLayouts.@assert_is_matrix($(__source__.file), $(__source__.line), $matrix)))
 end
 
 macro assert_matrix(matrix, axis)
     return esc(
         :( #
-            Daf.MatrixLayouts.@assert_is_matrix($(__source__.file), $(__source__.line), $matrix); #
-            Daf.MatrixLayouts.@check_matrix_layout($(string(__source__.file)), $(__source__.line), $matrix, $axis) #
+            DafJL.MatrixLayouts.@assert_is_matrix($(__source__.file), $(__source__.line), $matrix); #
+            DafJL.MatrixLayouts.@check_matrix_layout($(string(__source__.file)), $(__source__.line), $matrix, $axis) #
         ),
     )
 end
@@ -320,8 +320,14 @@ end
 macro assert_matrix(matrix, n_rows, n_columns)
     return esc(
         :(  #
-            Daf.MatrixLayouts.@assert_is_matrix($(__source__.file), $(__source__.line), $matrix);  #
-            Daf.MatrixLayouts.@assert_matrix_size($(__source__.file), $(__source__.line), $matrix, $n_rows, $n_columns)  #
+            DafJL.MatrixLayouts.@assert_is_matrix($(__source__.file), $(__source__.line), $matrix);  #
+            DafJL.MatrixLayouts.@assert_matrix_size(
+                $(__source__.file),
+                $(__source__.line),
+                $matrix,
+                $n_rows,
+                $n_columns
+            )  #
         ),
     )
 end
@@ -329,9 +335,15 @@ end
 macro assert_matrix(matrix, n_rows, n_columns, axis)
     return esc(
         :( #
-            Daf.MatrixLayouts.@assert_is_matrix($(__source__.file), $(__source__.line), $matrix); #
-            Daf.MatrixLayouts.@assert_matrix_size($(__source__.file), $(__source__.line), $matrix, $n_rows, $n_columns); #
-            Daf.MatrixLayouts.@check_matrix_layout($(string(__source__.file)), $(__source__.line), $matrix, $axis) #
+            DafJL.MatrixLayouts.@assert_is_matrix($(__source__.file), $(__source__.line), $matrix); #
+            DafJL.MatrixLayouts.@assert_matrix_size(
+                $(__source__.file),
+                $(__source__.line),
+                $matrix,
+                $n_rows,
+                $n_columns
+            ); #
+            DafJL.MatrixLayouts.@check_matrix_layout($(string(__source__.file)), $(__source__.line), $matrix, $axis) #
         ),
     )
 end

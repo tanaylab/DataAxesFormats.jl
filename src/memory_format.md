@@ -1,8 +1,8 @@
 # Memory Format
 
 ```@docs
-Daf.MemoryFormat
-Daf.MemoryFormat.MemoryDaf
+DafJL.MemoryFormat
+DafJL.MemoryFormat.MemoryDaf
 ```
 
 ## Index

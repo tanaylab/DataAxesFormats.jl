@@ -1,19 +1,19 @@
 # Contracts
 
 ```@docs
-Daf.Contracts
-Daf.Contracts.Contract
-Daf.Contracts.ContractAxis
-Daf.Contracts.ContractAxes
-Daf.Contracts.AxisSpecification
-Daf.Contracts.ContractDatum
-Daf.Contracts.ContractData
-Daf.Contracts.DataSpecification
-Daf.Contracts.ContractExpectation
-Daf.Contracts.contractor
-Daf.Contracts.ContractDaf
-Daf.Contracts.verify_input
-Daf.Contracts.verify_output
+DafJL.Contracts
+DafJL.Contracts.Contract
+DafJL.Contracts.ContractAxis
+DafJL.Contracts.ContractAxes
+DafJL.Contracts.AxisSpecification
+DafJL.Contracts.ContractDatum
+DafJL.Contracts.ContractData
+DafJL.Contracts.DataSpecification
+DafJL.Contracts.ContractExpectation
+DafJL.Contracts.contractor
+DafJL.Contracts.ContractDaf
+DafJL.Contracts.verify_input
+DafJL.Contracts.verify_output
 ```
 
 ## Index

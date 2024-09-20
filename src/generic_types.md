@@ -1,7 +1,7 @@
 # Generic Types
 
 ```@docs
-Daf.GenericTypes
+DafJL.GenericTypes
 ```
 
 ## Unions
@@ -22,8 +22,8 @@ also added `Unsure` as a shorthand for `Union{..., Missing}` for completeness, b
 We assume it is useful for Julia code dealing specifically with statistical analysis.
 
 ```@docs
-Daf.GenericTypes.Maybe
-Daf.GenericTypes.Unsure
+DafJL.GenericTypes.Maybe
+DafJL.GenericTypes.Unsure
 ```
 
 ## Index

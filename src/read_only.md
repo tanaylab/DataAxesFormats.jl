@@ -1,7 +1,7 @@
 # Read-only
 
 ```@docs
-Daf.ReadOnly
+DafJL.ReadOnly
 ```
 
 ## Arrays
@@ -19,16 +19,16 @@ need to explicitly create a copy. TODO: Explicitly support the concept of in-pla
     cover such types as well.
 
 ```@docs
-Daf.ReadOnly.read_only_array
-Daf.ReadOnly.is_read_only_array
+DafJL.ReadOnly.read_only_array
+DafJL.ReadOnly.is_read_only_array
 ```
 
 ## Data
 
 ```@docs
-Daf.ReadOnly.DafReadOnly
-Daf.ReadOnly.read_only
-Daf.ReadOnly.DafReadOnlyWrapper
+DafJL.ReadOnly.DafReadOnly
+DafJL.ReadOnly.read_only
+DafJL.ReadOnly.DafReadOnlyWrapper
 ```
 
 ## Index

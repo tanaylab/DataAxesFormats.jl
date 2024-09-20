@@ -1,8 +1,8 @@
 # Adapters
 
 ```@docs
-Daf.Adapters
-Daf.Adapters.adapter
+DafJL.Adapters
+DafJL.Adapters.adapter
 ```
 
 ## Index

@@ -1,109 +1,109 @@
 # Formats
 
 ```@docs
-Daf.Formats
+DafJL.Formats
 ```
 
 ## Read API
 
 ```@docs
-Daf.Formats.DafReader
-Daf.Formats.FormatReader
-Daf.Formats.Internal
+DafJL.Formats.DafReader
+DafJL.Formats.FormatReader
+DafJL.Formats.Internal
 ```
 
 ### Caching
 
 ```@docs
-Daf.Formats.CacheGroup
-Daf.Formats.empty_cache!
+DafJL.Formats.CacheGroup
+DafJL.Formats.empty_cache!
 ```
 
 ### Description
 
 ```@docs
-Daf.Formats.format_description_header
-Daf.Formats.format_description_footer
+DafJL.Formats.format_description_header
+DafJL.Formats.format_description_footer
 ```
 
 ### Scalar properties
 
 ```@docs
-Daf.Formats.format_has_scalar
-Daf.Formats.format_scalars_set
-Daf.Formats.format_get_scalar
+DafJL.Formats.format_has_scalar
+DafJL.Formats.format_scalars_set
+DafJL.Formats.format_get_scalar
 ```
 
 ### Data axes
 
 ```@docs
-Daf.Formats.format_has_axis
-Daf.Formats.format_axes_set
-Daf.Formats.format_axis_array
-Daf.Formats.format_axis_length
+DafJL.Formats.format_has_axis
+DafJL.Formats.format_axes_set
+DafJL.Formats.format_axis_array
+DafJL.Formats.format_axis_length
 ```
 
 ### Vector properties
 
 ```@docs
-Daf.Formats.format_has_vector
-Daf.Formats.format_vectors_set
-Daf.Formats.format_get_vector
+DafJL.Formats.format_has_vector
+DafJL.Formats.format_vectors_set
+DafJL.Formats.format_get_vector
 ```
 
 ### Matrix properties
 
 ```@docs
-Daf.Formats.format_has_matrix
-Daf.Formats.format_matrices_set
-Daf.Formats.format_get_matrix
+DafJL.Formats.format_has_matrix
+DafJL.Formats.format_matrices_set
+DafJL.Formats.format_get_matrix
 ```
 
 ## Write API
 
 ```@docs
-Daf.Formats.DafWriter
-Daf.Formats.FormatWriter
+DafJL.Formats.DafWriter
+DafJL.Formats.FormatWriter
 ```
 
 ### Scalar properties
 
 ```@docs
-Daf.Formats.format_set_scalar!
-Daf.Formats.format_delete_scalar!
+DafJL.Formats.format_set_scalar!
+DafJL.Formats.format_delete_scalar!
 ```
 
 ### Data axes
 
 ```@docs
-Daf.Formats.format_add_axis!
-Daf.Formats.format_delete_axis!
+DafJL.Formats.format_add_axis!
+DafJL.Formats.format_delete_axis!
 ```
 
 ### Vector properties
 
 ```@docs
-Daf.Formats.format_set_vector!
-Daf.Formats.format_delete_vector!
+DafJL.Formats.format_set_vector!
+DafJL.Formats.format_delete_vector!
 ```
 
 ### Matrix properties
 
 ```@docs
-Daf.Formats.format_set_matrix!
-Daf.Formats.format_relayout_matrix!
-Daf.Formats.format_delete_matrix!
+DafJL.Formats.format_set_matrix!
+DafJL.Formats.format_relayout_matrix!
+DafJL.Formats.format_delete_matrix!
 ```
 
 ### Creating properties
 
 ```@docs
-Daf.Formats.format_get_empty_dense_vector!
-Daf.Formats.format_get_empty_sparse_vector!
-Daf.Formats.format_filled_empty_sparse_vector!
-Daf.Formats.format_get_empty_dense_matrix!
-Daf.Formats.format_get_empty_sparse_matrix!
-Daf.Formats.format_filled_empty_sparse_matrix!
+DafJL.Formats.format_get_empty_dense_vector!
+DafJL.Formats.format_get_empty_sparse_vector!
+DafJL.Formats.format_filled_empty_sparse_vector!
+DafJL.Formats.format_get_empty_dense_matrix!
+DafJL.Formats.format_get_empty_sparse_matrix!
+DafJL.Formats.format_filled_empty_sparse_matrix!
 ```
 
 ## Index

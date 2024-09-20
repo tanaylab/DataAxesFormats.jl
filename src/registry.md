@@ -1,30 +1,30 @@
 # Operations registry
 
 ```@docs
-Daf.Registry
+DafJL.Registry
 ```
 
 ## Element-wise operations
 
 ```@docs
-Daf.Registry.EltwiseOperation
-Daf.Registry.compute_eltwise
+DafJL.Registry.EltwiseOperation
+DafJL.Registry.compute_eltwise
 ```
 
 ## Reduction operations
 
 ```@docs
-Daf.Registry.ReductionOperation
-Daf.Registry.compute_reduction
-Daf.Registry.reduction_result_type
+DafJL.Registry.ReductionOperation
+DafJL.Registry.compute_reduction
+DafJL.Registry.reduction_result_type
 ```
 
 ## Registering operations
 
 ```@docs
-Daf.Registry.QueryOperation
-Daf.Registry.@query_operation
-Daf.Registry.register_query_operation
+DafJL.Registry.QueryOperation
+DafJL.Registry.@query_operation
+DafJL.Registry.register_query_operation
 ```
 
 ## Index

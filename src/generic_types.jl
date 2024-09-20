@@ -2,8 +2,8 @@
 Generic types that arguably should belong in a more general-purpose package.
 
 We do not re-export the types and functions defined here from the top-level `Daf` namespace. That is, even if
-`using Daf`, you will **not** have these generic names polluting your namespace. If you do want to reuse them in your
-code, explicitly write `using Daf.GenericTypes`.
+`using DafJL`, you will **not** have these generic names polluting your namespace. If you do want to reuse them
+in your code, explicitly write `using DafJL.GenericTypes`.
 """
 module GenericTypes
 

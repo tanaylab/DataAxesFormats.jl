@@ -17,9 +17,9 @@ global_logger(detect_problems)
 push!(LOAD_PATH, ".")
 
 using JET
-using Daf
+using DafJL
 
-println(report_package("Daf"))
+println(report_package("DafJL"))
 
 if seen_problems
     exit(1)

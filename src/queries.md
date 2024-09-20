@@ -1,104 +1,104 @@
 # Queries
 
 ```@docs
-Daf.Queries
+DafJL.Queries
 ```
 
 ## Construction
 
 ```@docs
-Daf.Queries.Query
-Daf.Queries.@q_str
-Daf.Queries.QueryString
+DafJL.Queries.Query
+DafJL.Queries.@q_str
+DafJL.Queries.QueryString
 ```
 
 ## Functions
 
 ```@docs
-Daf.Queries.get_query
-Daf.Queries.get_frame
-Daf.Queries.FrameColumn
-Daf.Queries.FrameColumns
-Daf.Queries.full_vector_query
-Daf.Queries.query_result_dimensions
-Daf.Queries.query_requires_relayout
-Daf.Queries.is_axis_query
+DafJL.Queries.get_query
+DafJL.Queries.get_frame
+DafJL.Queries.FrameColumn
+DafJL.Queries.FrameColumns
+DafJL.Queries.full_vector_query
+DafJL.Queries.query_result_dimensions
+DafJL.Queries.query_requires_relayout
+DafJL.Queries.is_axis_query
 ```
 
 ## Syntax
 
 ```@docs
-Daf.Queries.QUERY_OPERATORS
-Daf.Queries.NAMES_QUERY
-Daf.Queries.SCALAR_QUERY
-Daf.Queries.LOOKUP_PROPERTY
-Daf.Queries.VECTOR_ENTRY
-Daf.Queries.MATRIX_ENTRY
-Daf.Queries.REDUCE_VECTOR
-Daf.Queries.VECTOR_QUERY
-Daf.Queries.VECTOR_PROPERTY
-Daf.Queries.VECTOR_LOOKUP
-Daf.Queries.MATRIX_ROW
-Daf.Queries.MATRIX_COLUMN
-Daf.Queries.REDUCE_MATRIX
-Daf.Queries.MATRIX_QUERY
-Daf.Queries.MATRIX_LOOKUP
-Daf.Queries.COUNTS_MATRIX
-Daf.Queries.POST_PROCESS
-Daf.Queries.GROUP_BY
-Daf.Queries.AXIS_MASK
-Daf.Queries.MASK_OPERATION
-Daf.Queries.MASK_SLICE
-Daf.Queries.VECTOR_FETCH
-Daf.Queries.guess_typed_value
+DafJL.Queries.QUERY_OPERATORS
+DafJL.Queries.NAMES_QUERY
+DafJL.Queries.SCALAR_QUERY
+DafJL.Queries.LOOKUP_PROPERTY
+DafJL.Queries.VECTOR_ENTRY
+DafJL.Queries.MATRIX_ENTRY
+DafJL.Queries.REDUCE_VECTOR
+DafJL.Queries.VECTOR_QUERY
+DafJL.Queries.VECTOR_PROPERTY
+DafJL.Queries.VECTOR_LOOKUP
+DafJL.Queries.MATRIX_ROW
+DafJL.Queries.MATRIX_COLUMN
+DafJL.Queries.REDUCE_MATRIX
+DafJL.Queries.MATRIX_QUERY
+DafJL.Queries.MATRIX_LOOKUP
+DafJL.Queries.COUNTS_MATRIX
+DafJL.Queries.POST_PROCESS
+DafJL.Queries.GROUP_BY
+DafJL.Queries.AXIS_MASK
+DafJL.Queries.MASK_OPERATION
+DafJL.Queries.MASK_SLICE
+DafJL.Queries.VECTOR_FETCH
+DafJL.Queries.guess_typed_value
 ```
 
 ## Query Operators
 
 ```@docs
-Daf.Queries.QuerySequence
+DafJL.Queries.QuerySequence
 ```
 
 ### Data Operators
 
 ```@docs
-Daf.Queries.AsAxis
-Daf.Queries.Axis
-Daf.Queries.CountBy
-Daf.Queries.Fetch
-Daf.Queries.GroupBy
-Daf.Queries.IfMissing
-Daf.Queries.IfNot
-Daf.Queries.Lookup
-Daf.Queries.Names
+DafJL.Queries.AsAxis
+DafJL.Queries.Axis
+DafJL.Queries.CountBy
+DafJL.Queries.Fetch
+DafJL.Queries.GroupBy
+DafJL.Queries.IfMissing
+DafJL.Queries.IfNot
+DafJL.Queries.Lookup
+DafJL.Queries.Names
 ```
 
 ### Comparison Operators
 
 ```@docs
-Daf.Queries.ComparisonOperation
-Daf.Queries.IsEqual
-Daf.Queries.IsGreater
-Daf.Queries.IsGreaterEqual
-Daf.Queries.IsLess
-Daf.Queries.IsLessEqual
-Daf.Queries.IsMatch
-Daf.Queries.IsNotEqual
-Daf.Queries.IsNotMatch
+DafJL.Queries.ComparisonOperation
+DafJL.Queries.IsEqual
+DafJL.Queries.IsGreater
+DafJL.Queries.IsGreaterEqual
+DafJL.Queries.IsLess
+DafJL.Queries.IsLessEqual
+DafJL.Queries.IsMatch
+DafJL.Queries.IsNotEqual
+DafJL.Queries.IsNotMatch
 ```
 
 ### Mask Operators
 
 ```@docs
-Daf.Queries.And
-Daf.Queries.AndNot
-Daf.Queries.Or
-Daf.Queries.OrNot
-Daf.Queries.Xor
-Daf.Queries.XorNot
-Daf.Queries.MaskSlice
-Daf.Queries.SquareMaskColumn
-Daf.Queries.SquareMaskRow
+DafJL.Queries.And
+DafJL.Queries.AndNot
+DafJL.Queries.Or
+DafJL.Queries.OrNot
+DafJL.Queries.Xor
+DafJL.Queries.XorNot
+DafJL.Queries.MaskSlice
+DafJL.Queries.SquareMaskColumn
+DafJL.Queries.SquareMaskRow
 ```
 
 ## Index

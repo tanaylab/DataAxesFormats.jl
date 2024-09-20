@@ -1,7 +1,7 @@
 # Daf
 
 ```@docs
-Daf.Daf
+DafJL.DafJL
 ```
 
 # Index

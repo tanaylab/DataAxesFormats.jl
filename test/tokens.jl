@@ -5,15 +5,15 @@ function test_escape_value(unescaped::String, escaped::String)::Nothing
 end
 
 function test_encode_expression(decoded::String, encoded::String)::Nothing
-    @test Daf.Tokens.encode_expression(decoded) == encoded
-    @test Daf.Tokens.decode_expression(encoded) == decoded
+    @test DafJL.Tokens.encode_expression(decoded) == encoded
+    @test DafJL.Tokens.decode_expression(encoded) == decoded
     return nothing
 end
 
 OPERATORS = r"^(?:\*\*|\*)"
 
 function token_strings(string::AbstractString)::Vector{String}
-    return [token.value for token in Daf.Tokens.tokenize(string, OPERATORS)]
+    return [token.value for token in DafJL.Tokens.tokenize(string, OPERATORS)]
 end
 
 nested_test("tokens") do

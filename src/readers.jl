@@ -161,7 +161,7 @@ end
 """
     axis_version_counter(daf::DafReader, axis::AbstractString)::UInt32
 
-Return the version number of the axis. This is incremented every time [`delete_axis!`](@ref Daf.Writers.delete_axis!) is
+Return the version number of the axis. This is incremented every time [`delete_axis!`](@ref DafJL.Writers.delete_axis!) is
 called. It is used by interfaces to other programming languages to minimize copying data.
 
 !!! note
@@ -320,9 +320,9 @@ end
 """
     vector_version_counter(daf::DafReader, axis::AbstractString, name::AbstractString)::UInt32
 
-Return the version number of the vector. This is incremented every time [`set_vector!`](@ref Daf.Writers.set_vector!),
-[`empty_dense_vector!`](@ref Daf.Writers.empty_dense_vector!) or
-[`empty_sparse_vector!`](@ref Daf.Writers.empty_sparse_vector!) are called. It is used by interfaces to other
+Return the version number of the vector. This is incremented every time [`set_vector!`](@ref DafJL.Writers.set_vector!),
+[`empty_dense_vector!`](@ref DafJL.Writers.empty_dense_vector!) or
+[`empty_sparse_vector!`](@ref DafJL.Writers.empty_sparse_vector!) are called. It is used by interfaces to other
 programming languages to minimize copying data.
 
 !!! note
@@ -741,8 +741,8 @@ end
     )::UInt32
 
 Return the version number of the matrix. The order of the axes does not matter. This is incremented every time
-[`set_matrix!`](@ref Daf.Writers.set_matrix!), [`empty_dense_matrix!`](@ref Daf.Writers.empty_dense_matrix!) or
-[`empty_sparse_matrix!`](@ref Daf.Writers.empty_sparse_matrix!) are called. It is used by interfaces to other
+[`set_matrix!`](@ref DafJL.Writers.set_matrix!), [`empty_dense_matrix!`](@ref DafJL.Writers.empty_dense_matrix!) or
+[`empty_sparse_matrix!`](@ref DafJL.Writers.empty_sparse_matrix!) are called. It is used by interfaces to other
 programming languages to minimize copying data.
 
 !!! note

@@ -1,10 +1,10 @@
 # Groups
 
 ```@docs
-Daf.Groups
-Daf.Groups.group_names
-Daf.Groups.compact_groups!
-Daf.Groups.collect_group_members
+DafJL.Groups
+DafJL.Groups.group_names
+DafJL.Groups.compact_groups!
+DafJL.Groups.collect_group_members
 ```
 
 ## Index

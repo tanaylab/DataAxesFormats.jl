@@ -1,9 +1,9 @@
 # Reconstruction
 
 ```@docs
-Daf.Reconstruction
-Daf.Reconstruction.reconstruct_axis!
-Daf.Reconstruction.PropertiesDefaults
+DafJL.Reconstruction
+DafJL.Reconstruction.reconstruct_axis!
+DafJL.Reconstruction.PropertiesDefaults
 ```
 
 ## Index

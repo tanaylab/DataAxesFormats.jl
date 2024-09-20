@@ -1,11 +1,11 @@
 # Chains
 
 ```@docs
-Daf.Chains
-Daf.Chains.chain_reader
-Daf.Chains.chain_writer
-Daf.Chains.ReadOnlyChain
-Daf.Chains.WriteChain
+DafJL.Chains
+DafJL.Chains.chain_reader
+DafJL.Chains.chain_writer
+DafJL.Chains.ReadOnlyChain
+DafJL.Chains.WriteChain
 ```
 
 ## Index

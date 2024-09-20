@@ -1,52 +1,52 @@
 # Query operations
 
 ```@docs
-Daf.Operations
+DafJL.Operations
 ```
 
 ## Element-wise operations
 
 ```@docs
-Daf.Operations.Abs
-Daf.Operations.Clamp
-Daf.Operations.Convert
-Daf.Operations.Fraction
-Daf.Operations.Log
-Daf.Operations.Round
-Daf.Operations.Significant
+DafJL.Operations.Abs
+DafJL.Operations.Clamp
+DafJL.Operations.Convert
+DafJL.Operations.Fraction
+DafJL.Operations.Log
+DafJL.Operations.Round
+DafJL.Operations.Significant
 ```
 
 ## Reduction operations
 
 ```@docs
-Daf.Operations.Sum
-Daf.Operations.Max
-Daf.Operations.Min
-Daf.Operations.Median
-Daf.Operations.Quantile
-Daf.Operations.Mean
-Daf.Operations.GeoMean
-Daf.Operations.Std
-Daf.Operations.StdN
-Daf.Operations.Var
-Daf.Operations.VarN
-Daf.Operations.Mode
-Daf.Operations.Count
+DafJL.Operations.Sum
+DafJL.Operations.Max
+DafJL.Operations.Min
+DafJL.Operations.Median
+DafJL.Operations.Quantile
+DafJL.Operations.Mean
+DafJL.Operations.GeoMean
+DafJL.Operations.Std
+DafJL.Operations.StdN
+DafJL.Operations.Var
+DafJL.Operations.VarN
+DafJL.Operations.Mode
+DafJL.Operations.Count
 ```
 
 ## Support functions
 
 ```@docs
-Daf.Operations.parse_parameter_value
-Daf.Operations.parse_number_value
-Daf.Operations.parse_number_dtype_value
-Daf.Operations.parse_float_dtype_value
-Daf.Operations.parse_int_dtype_value
-Daf.Operations.error_invalid_parameter_value
-Daf.Operations.float_dtype_for
-Daf.Operations.int_dtype_for
-Daf.Operations.unsigned_dtype_for
-Daf.Operations.sum_dtype_for
+DafJL.Operations.parse_parameter_value
+DafJL.Operations.parse_number_value
+DafJL.Operations.parse_number_dtype_value
+DafJL.Operations.parse_float_dtype_value
+DafJL.Operations.parse_int_dtype_value
+DafJL.Operations.error_invalid_parameter_value
+DafJL.Operations.float_dtype_for
+DafJL.Operations.int_dtype_for
+DafJL.Operations.unsigned_dtype_for
+DafJL.Operations.sum_dtype_for
 ```
 
 ## Index

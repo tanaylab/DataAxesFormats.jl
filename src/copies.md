@@ -1,14 +1,14 @@
 # Copies
 
 ```@docs
-Daf.Copies
-Daf.Copies.copy_scalar!
-Daf.Copies.copy_axis!
-Daf.Copies.copy_vector!
-Daf.Copies.copy_matrix!
-Daf.Copies.copy_all!
-Daf.Copies.EmptyData
-Daf.Copies.DataTypes
+DafJL.Copies
+DafJL.Copies.copy_scalar!
+DafJL.Copies.copy_axis!
+DafJL.Copies.copy_vector!
+DafJL.Copies.copy_matrix!
+DafJL.Copies.copy_all!
+DafJL.Copies.EmptyData
+DafJL.Copies.DataTypes
 ```
 
 ## Index

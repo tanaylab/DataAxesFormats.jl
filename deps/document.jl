@@ -20,7 +20,7 @@ global_logger(detect_problems)
 
 push!(LOAD_PATH, ".")
 
-using Daf
+using DafJL
 using Pkg
 
 PROJECT_TOML = Pkg.TOML.parsefile(joinpath(@__DIR__, "..", "Project.toml"))
@@ -36,7 +36,7 @@ makedocs(;
     source = "../src",
     clean = true,
     doctest = true,
-    modules = [Daf],
+    modules = [DafJL],
     highlightsig = true,
     sitename = "$(NAME).jl v$(VERSION)",
     draft = false,

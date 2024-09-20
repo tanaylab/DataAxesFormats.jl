@@ -1,10 +1,10 @@
 # DAF - Data in Axes in Formats
 
-The `Daf.jl` package provides a uniform generic interface for accessing 1D and 2D data arranged along some set of axes.
+The `DafJL` package provides a uniform generic interface for accessing 1D and 2D data arranged along some set of axes.
 This is a much-needed generalization of the [AnnData](https://github.com/scverse/anndata) functionality. Unlike other
 generalizations (e.g., [Muon](https://github.com/scverse/mudata)), `Daf` attempts to provide a simple generic unified 1D
 and 2D data storage, which can be used for "any" purpose, not necessarily scRNA and/or ATAC data, though such use cases
-were the driving force for the development of `Daf.`
+were the driving force for the development of `Daf`.
 
 The key features of `Daf` are:
 
@@ -26,13 +26,13 @@ The key features of `Daf` are:
   - There is explicit control over 2D data layout (row or column major), and support for both dense and sparse matrices,
     both of which are crucial for performance.
   - This is implemented in Julia, as a seed for efficient computation pipelines (which are hard to implement in Python
-    without resorting to using C/C++ code). WIP: a [Daf.py](https://pypi.org/project/daf/) Python package, which
-    is a thin wrapper around `Daf.jl` allowing efficient (zero-copy) access to the data using `numpy`, `scipy` and
+    without resorting to using C/C++ code). WIP: a [DafPY](https://pypi.org/project/dafpy/) Python package, which
+    is a thin wrapper around `DafJL` allowing efficient (zero-copy) access to the data using `numpy`, `scipy` and
     `pandas` vector and matrix types. WIP: Implement a similar R package using
-    [JuliaCall](https://libraries.io/cran/JuliaCall) to allow direct access to `Daf.jl` from R
+    [JuliaCall](https://libraries.io/cran/JuliaCall) to allow direct access to `DafJL` from R
     code.
 
-See the [v0.1.0 documentation](https://tanaylab.github.io/Daf.jl/v0.1.0) for details.
+See the [v0.1.0 documentation](https://tanaylab.github.io/DafJL/v0.1.0) for details.
 
 ## Status
 
@@ -125,9 +125,9 @@ interoperability with legacy computation pipelines.
 
 ## Installation
 
-Just `Pkg.add("Daf")`, like installing any other Julia package.
+Just `Pkg.add("DafJ")`, like installing any other Julia package.
 
-To install the Python `Daf` [package](https://github.com/tanaylab/Daf.py), just `pip install daf`, like installing any
+To install the Python `Daf` [package](https://github.com/tanaylab/DafPY), just `pip install dafpy`, like installing any
 other Python package.
 
 TODO: To install the R wrappers...

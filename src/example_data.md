@@ -1,13 +1,13 @@
 # Example data
 
 ```@docs
-Daf.ExampleData
+DafJL.ExampleData
 ```
 
 ## Example Storage
 
 ```@docs
-Daf.ExampleData.example_daf
+DafJL.ExampleData.example_daf
 ```
 
 ## Index

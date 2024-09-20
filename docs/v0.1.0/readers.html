@@ -5,14 +5,14 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Readers · Daf.jl v0.1.0
+<title>Readers · DafJL.jl v0.1.0
 </title>
-<meta name="title" content="Readers · Daf.jl v0.1.0"/>
-<meta property="og:title" content="Readers · Daf.jl v0.1.0"/>
-<meta property="twitter:title" content="Readers · Daf.jl v0.1.0"/>
-<meta name="description" content="Documentation for Daf.jl v0.1.0."/>
-<meta property="og:description" content="Documentation for Daf.jl v0.1.0."/>
-<meta property="twitter:description" content="Documentation for Daf.jl v0.1.0."/>
+<meta name="title" content="Readers · DafJL.jl v0.1.0"/>
+<meta property="og:title" content="Readers · DafJL.jl v0.1.0"/>
+<meta property="twitter:title" content="Readers · DafJL.jl v0.1.0"/>
+<meta name="description" content="Documentation for DafJL.jl v0.1.0."/>
+<meta property="og:description" content="Documentation for DafJL.jl v0.1.0."/>
+<meta property="twitter:description" content="Documentation for DafJL.jl v0.1.0."/>
 <script data-outdated-warner src="assets/warner.js">
 </script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/>
@@ -44,11 +44,11 @@
 <div id="documenter">
 <nav class="docs-sidebar">
 <a class="docs-logo" href="index.html">
-<img src="assets/logo.svg" alt="Daf.jl v0.1.0 logo"/>
+<img src="assets/logo.svg" alt="DafJL.jl v0.1.0 logo"/>
 </a>
 <div class="docs-package-name">
 <span class="docs-autofit">
-<a href="index.html">Daf.jl v0.1.0
+<a href="index.html">DafJL.jl v0.1.0
 </a>
 </span>
 </div>
@@ -250,7 +250,7 @@
 </ul>
 </nav>
 <div class="docs-right">
-<a class="docs-navbar-link" href="https://github.com/tanaylab/Daf.jl/blob/main{path}?plain=1#L{line}" title="View the repository on GitHub">
+<a class="docs-navbar-link" href="https://github.com/tanaylab/DafJL.jl/blob/main{path}?plain=1#L{line}" title="View the repository on GitHub">
 <span class="docs-icon fa-brands">
 </span>
 <span class="docs-label is-hidden-touch">GitHub
@@ -275,8 +275,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Readers" href="#Daf.Readers">
-<code>Daf.Readers
+<a class="docstring-binding" id="DafJL.Readers" href="#DafJL.Readers">
+<code>DafJL.Readers
 </code>
 </a> — 
 <span class="docstring-category">Module
@@ -285,13 +285,13 @@
 <section>
 <div>
 <p>The 
-<a href="formats.html#Daf.Formats.DafReader">
+<a href="formats.html#DafJL.Formats.DafReader">
 <code>DafReader
 </code>
 </a> interface specifies a high-level API for reading 
 <code>Daf
 </code> data. This API is implemented here, on top of the low-level 
-<a href="formats.html#Daf.Formats.FormatReader">
+<a href="formats.html#DafJL.Formats.FormatReader">
 <code>FormatReader
 </code>
 </a> API. The high-level API provides thread safety so the low-level API can (mostly) ignore this issue.
@@ -299,7 +299,7 @@
 <p>Each data set is given a name to use in error messages etc. You can explicitly set this name when creating a 
 <code>Daf
 </code> object. Otherwise, when opening an existing data set, if it contains a scalar &quot;name&quot; property, it is used. Otherwise some reasonable default is used. In all cases, object names are passed through 
-<a href="messages.html#Daf.Messages.unique_name">
+<a href="messages.html#DafJL.Messages.unique_name">
 <code>unique_name
 </code>
 </a> to avoid ambiguity.
@@ -309,11 +309,11 @@
 </strong> pair of axes.
 </p>
 <p>For matrices, we keep careful track of their 
-<a href="matrix_layouts.html#Daf.MatrixLayouts">
+<a href="matrix_layouts.html#DafJL.MatrixLayouts">
 <code>MatrixLayouts
 </code>
 </a>. Returned matrices are always in column-major layout, using 
-<a href="matrix_layouts.html#Daf.MatrixLayouts.relayout!">
+<a href="matrix_layouts.html#DafJL.MatrixLayouts.relayout!">
 <code>relayout!
 </code>
 </a> if necessary. As this is an expensive operation, we&#39;ll cache the result in memory. Similarly, we cache the results of applying a query to the data. We allow clearing the cache to reduce memory usage, if necessary.
@@ -321,11 +321,11 @@
 <p>The data API is the high-level API intended to be used from outside the package, and is therefore re-exported from the top-level 
 <code>Daf
 </code> namespace. It provides additional functionality on top of the low-level 
-<a href="formats.html#Daf.Formats.FormatReader">
+<a href="formats.html#DafJL.Formats.FormatReader">
 <code>FormatReader
 </code>
 </a> implementation, accepting more general data types, automatically dealing with 
-<a href="matrix_layouts.html#Daf.MatrixLayouts.relayout!">
+<a href="matrix_layouts.html#DafJL.MatrixLayouts.relayout!">
 <code>relayout!
 </code>
 </a> when needed. In particular, it enforces single-writer multiple-readers for each data set, so the format code can ignore multi-threading and still be thread-safe.
@@ -367,8 +367,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Readers.description" href="#Daf.Readers.description">
-<code>Daf.Readers.description
+<a class="docstring-binding" id="DafJL.Readers.description" href="#DafJL.Readers.description">
+<code>DafJL.Readers.description
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -403,8 +403,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Readers.has_scalar" href="#Daf.Readers.has_scalar">
-<code>Daf.Readers.has_scalar
+<a class="docstring-binding" id="DafJL.Readers.has_scalar" href="#DafJL.Readers.has_scalar">
+<code>DafJL.Readers.has_scalar
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -429,8 +429,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Readers.scalars_set" href="#Daf.Readers.scalars_set">
-<code>Daf.Readers.scalars_set
+<a class="docstring-binding" id="DafJL.Readers.scalars_set" href="#DafJL.Readers.scalars_set">
+<code>DafJL.Readers.scalars_set
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -463,8 +463,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Readers.get_scalar" href="#Daf.Readers.get_scalar">
-<code>Daf.Readers.get_scalar
+<a class="docstring-binding" id="DafJL.Readers.get_scalar" href="#DafJL.Readers.get_scalar">
+<code>DafJL.Readers.get_scalar
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -513,8 +513,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Readers.has_axis" href="#Daf.Readers.has_axis">
-<code>Daf.Readers.has_axis
+<a class="docstring-binding" id="DafJL.Readers.has_axis" href="#DafJL.Readers.has_axis">
+<code>DafJL.Readers.has_axis
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -539,8 +539,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Readers.axes_set" href="#Daf.Readers.axes_set">
-<code>Daf.Readers.axes_set
+<a class="docstring-binding" id="DafJL.Readers.axes_set" href="#DafJL.Readers.axes_set">
+<code>DafJL.Readers.axes_set
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -573,8 +573,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Readers.axis_array" href="#Daf.Readers.axis_array">
-<code>Daf.Readers.axis_array
+<a class="docstring-binding" id="DafJL.Readers.axis_array" href="#DafJL.Readers.axis_array">
+<code>DafJL.Readers.axis_array
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -595,7 +595,7 @@
 </code> of 
 <code>daf
 </code>. This is similar to doing 
-<a href="readers.html#Daf.Readers.get_vector">
+<a href="readers.html#DafJL.Readers.get_vector">
 <code>get_vector
 </code>
 </a> for the special 
@@ -627,8 +627,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Readers.axis_dict" href="#Daf.Readers.axis_dict">
-<code>Daf.Readers.axis_dict
+<a class="docstring-binding" id="DafJL.Readers.axis_dict" href="#DafJL.Readers.axis_dict">
+<code>DafJL.Readers.axis_dict
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -649,8 +649,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Readers.axis_indices" href="#Daf.Readers.axis_indices">
-<code>Daf.Readers.axis_indices
+<a class="docstring-binding" id="DafJL.Readers.axis_indices" href="#DafJL.Readers.axis_indices">
+<code>DafJL.Readers.axis_indices
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -675,8 +675,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Readers.axis_length" href="#Daf.Readers.axis_length">
-<code>Daf.Readers.axis_length
+<a class="docstring-binding" id="DafJL.Readers.axis_length" href="#DafJL.Readers.axis_length">
+<code>DafJL.Readers.axis_length
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -715,8 +715,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Readers.has_vector" href="#Daf.Readers.has_vector">
-<code>Daf.Readers.has_vector
+<a class="docstring-binding" id="DafJL.Readers.has_vector" href="#DafJL.Readers.has_vector">
+<code>DafJL.Readers.has_vector
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -751,8 +751,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Readers.vectors_set" href="#Daf.Readers.vectors_set">
-<code>Daf.Readers.vectors_set
+<a class="docstring-binding" id="DafJL.Readers.vectors_set" href="#DafJL.Readers.vectors_set">
+<code>DafJL.Readers.vectors_set
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -797,8 +797,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Readers.get_vector" href="#Daf.Readers.get_vector">
-<code>Daf.Readers.get_vector
+<a class="docstring-binding" id="DafJL.Readers.get_vector" href="#DafJL.Readers.get_vector">
+<code>DafJL.Readers.get_vector
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -822,7 +822,7 @@
 </code> in 
 <code>daf
 </code>. The names of the result are the names of the vector entries (same as returned by 
-<a href="readers.html#Daf.Readers.axis_array">
+<a href="readers.html#DafJL.Readers.axis_array">
 <code>axis_array
 </code>
 </a>). The special property 
@@ -846,13 +846,13 @@
 </code> is 
 <code>nothing
 </code>, it will be returned. If it is a 
-<a href="storage_types.html#Daf.StorageTypes.StorageVector">
+<a href="storage_types.html#DafJL.StorageTypes.StorageVector">
 <code>StorageVector
 </code>
 </a>, it has to be of the same size as the 
 <code>axis
 </code>, and is returned. If it is a 
-<a href="storage_types.html#Daf.StorageTypes.StorageScalar">
+<a href="storage_types.html#DafJL.StorageTypes.StorageScalar">
 <code>StorageScalar
 </code>
 </a>. Otherwise, a new 
@@ -876,8 +876,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Readers.has_matrix" href="#Daf.Readers.has_matrix">
-<code>Daf.Readers.has_matrix
+<a class="docstring-binding" id="DafJL.Readers.has_matrix" href="#DafJL.Readers.has_matrix">
+<code>DafJL.Readers.has_matrix
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -924,8 +924,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Readers.matrices_set" href="#Daf.Readers.matrices_set">
-<code>Daf.Readers.matrices_set
+<a class="docstring-binding" id="DafJL.Readers.matrices_set" href="#DafJL.Readers.matrices_set">
+<code>DafJL.Readers.matrices_set
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -979,8 +979,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Readers.get_matrix" href="#Daf.Readers.get_matrix">
-<code>Daf.Readers.get_matrix
+<a class="docstring-binding" id="DafJL.Readers.get_matrix" href="#DafJL.Readers.get_matrix">
+<code>DafJL.Readers.get_matrix
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -1008,7 +1008,7 @@
 </code> in 
 <code>daf
 </code>. The names of the result axes are the names of the relevant axes entries (same as returned by 
-<a href="readers.html#Daf.Readers.axis_array">
+<a href="readers.html#DafJL.Readers.axis_array">
 <code>axis_array
 </code>
 </a>).
@@ -1016,21 +1016,21 @@
 <p>If 
 <code>relayout
 </code> (the default), then if the matrix is only stored in the other memory layout (that is, with flipped axes), then automatically call 
-<a href="matrix_layouts.html#Daf.MatrixLayouts.relayout!">
+<a href="matrix_layouts.html#DafJL.MatrixLayouts.relayout!">
 <code>relayout!
 </code>
 </a> to compute the result. If 
 <code>daf
 </code> isa 
-<a href="formats.html#Daf.Formats.DafWriter">
+<a href="formats.html#DafJL.Formats.DafWriter">
 <code>DafWriter
 </code>
 </a>, then store the result for future use; otherwise, just cache it as 
-<a href="formats.html#Daf.Formats.CacheGroup">
+<a href="formats.html#DafJL.Formats.CacheGroup">
 <code>MemoryData
 </code>
 </a>. This may lock up very large amounts of memory; you can call 
-<a href="formats.html#Daf.Formats.empty_cache!">
+<a href="formats.html#DafJL.Formats.empty_cache!">
 <code>empty_cache!
 </code>
 </a> to release it.
@@ -1082,8 +1082,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Readers.axis_version_counter" href="#Daf.Readers.axis_version_counter">
-<code>Daf.Readers.axis_version_counter
+<a class="docstring-binding" id="DafJL.Readers.axis_version_counter" href="#DafJL.Readers.axis_version_counter">
+<code>DafJL.Readers.axis_version_counter
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -1096,7 +1096,7 @@
 </code>
 </pre>
 <p>Return the version number of the axis. This is incremented every time 
-<a href="writers.html#Daf.Writers.delete_axis!">
+<a href="writers.html#DafJL.Writers.delete_axis!">
 <code>delete_axis!
 </code>
 </a> is called. It is used by interfaces to other programming languages to minimize copying data.
@@ -1120,8 +1120,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Readers.vector_version_counter" href="#Daf.Readers.vector_version_counter">
-<code>Daf.Readers.vector_version_counter
+<a class="docstring-binding" id="DafJL.Readers.vector_version_counter" href="#DafJL.Readers.vector_version_counter">
+<code>DafJL.Readers.vector_version_counter
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -1134,15 +1134,15 @@
 </code>
 </pre>
 <p>Return the version number of the vector. This is incremented every time 
-<a href="writers.html#Daf.Writers.set_vector!">
+<a href="writers.html#DafJL.Writers.set_vector!">
 <code>set_vector!
 </code>
 </a>, 
-<a href="writers.html#Daf.Writers.empty_dense_vector!">
+<a href="writers.html#DafJL.Writers.empty_dense_vector!">
 <code>empty_dense_vector!
 </code>
 </a> or 
-<a href="writers.html#Daf.Writers.empty_sparse_vector!">
+<a href="writers.html#DafJL.Writers.empty_sparse_vector!">
 <code>empty_sparse_vector!
 </code>
 </a> are called. It is used by interfaces to other programming languages to minimize copying data.
@@ -1166,8 +1166,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Readers.matrix_version_counter" href="#Daf.Readers.matrix_version_counter">
-<code>Daf.Readers.matrix_version_counter
+<a class="docstring-binding" id="DafJL.Readers.matrix_version_counter" href="#DafJL.Readers.matrix_version_counter">
+<code>DafJL.Readers.matrix_version_counter
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -1185,15 +1185,15 @@
 </code>
 </pre>
 <p>Return the version number of the matrix. The order of the axes does not matter. This is incremented every time 
-<a href="writers.html#Daf.Writers.set_matrix!">
+<a href="writers.html#DafJL.Writers.set_matrix!">
 <code>set_matrix!
 </code>
 </a>, 
-<a href="writers.html#Daf.Writers.empty_dense_matrix!">
+<a href="writers.html#DafJL.Writers.empty_dense_matrix!">
 <code>empty_dense_matrix!
 </code>
 </a> or 
-<a href="writers.html#Daf.Writers.empty_sparse_matrix!">
+<a href="writers.html#DafJL.Writers.empty_sparse_matrix!">
 <code>empty_sparse_matrix!
 </code>
 </a> are called. It is used by interfaces to other programming languages to minimize copying data.
@@ -1223,122 +1223,122 @@
 </h2>
 <ul>
 <li>
-<a href="readers.html#Daf.Readers">
-<code>Daf.Readers
+<a href="readers.html#DafJL.Readers">
+<code>DafJL.Readers
 </code>
 </a>
 </li>
 <li>
-<a href="readers.html#Daf.Readers.axes_set">
-<code>Daf.Readers.axes_set
+<a href="readers.html#DafJL.Readers.axes_set">
+<code>DafJL.Readers.axes_set
 </code>
 </a>
 </li>
 <li>
-<a href="readers.html#Daf.Readers.axis_array">
-<code>Daf.Readers.axis_array
+<a href="readers.html#DafJL.Readers.axis_array">
+<code>DafJL.Readers.axis_array
 </code>
 </a>
 </li>
 <li>
-<a href="readers.html#Daf.Readers.axis_dict">
-<code>Daf.Readers.axis_dict
+<a href="readers.html#DafJL.Readers.axis_dict">
+<code>DafJL.Readers.axis_dict
 </code>
 </a>
 </li>
 <li>
-<a href="readers.html#Daf.Readers.axis_indices">
-<code>Daf.Readers.axis_indices
+<a href="readers.html#DafJL.Readers.axis_indices">
+<code>DafJL.Readers.axis_indices
 </code>
 </a>
 </li>
 <li>
-<a href="readers.html#Daf.Readers.axis_length">
-<code>Daf.Readers.axis_length
+<a href="readers.html#DafJL.Readers.axis_length">
+<code>DafJL.Readers.axis_length
 </code>
 </a>
 </li>
 <li>
-<a href="readers.html#Daf.Readers.axis_version_counter">
-<code>Daf.Readers.axis_version_counter
+<a href="readers.html#DafJL.Readers.axis_version_counter">
+<code>DafJL.Readers.axis_version_counter
 </code>
 </a>
 </li>
 <li>
-<a href="readers.html#Daf.Readers.description">
-<code>Daf.Readers.description
+<a href="readers.html#DafJL.Readers.description">
+<code>DafJL.Readers.description
 </code>
 </a>
 </li>
 <li>
-<a href="readers.html#Daf.Readers.get_matrix">
-<code>Daf.Readers.get_matrix
+<a href="readers.html#DafJL.Readers.get_matrix">
+<code>DafJL.Readers.get_matrix
 </code>
 </a>
 </li>
 <li>
-<a href="readers.html#Daf.Readers.get_scalar">
-<code>Daf.Readers.get_scalar
+<a href="readers.html#DafJL.Readers.get_scalar">
+<code>DafJL.Readers.get_scalar
 </code>
 </a>
 </li>
 <li>
-<a href="readers.html#Daf.Readers.get_vector">
-<code>Daf.Readers.get_vector
+<a href="readers.html#DafJL.Readers.get_vector">
+<code>DafJL.Readers.get_vector
 </code>
 </a>
 </li>
 <li>
-<a href="readers.html#Daf.Readers.has_axis">
-<code>Daf.Readers.has_axis
+<a href="readers.html#DafJL.Readers.has_axis">
+<code>DafJL.Readers.has_axis
 </code>
 </a>
 </li>
 <li>
-<a href="readers.html#Daf.Readers.has_matrix">
-<code>Daf.Readers.has_matrix
+<a href="readers.html#DafJL.Readers.has_matrix">
+<code>DafJL.Readers.has_matrix
 </code>
 </a>
 </li>
 <li>
-<a href="readers.html#Daf.Readers.has_scalar">
-<code>Daf.Readers.has_scalar
+<a href="readers.html#DafJL.Readers.has_scalar">
+<code>DafJL.Readers.has_scalar
 </code>
 </a>
 </li>
 <li>
-<a href="readers.html#Daf.Readers.has_vector">
-<code>Daf.Readers.has_vector
+<a href="readers.html#DafJL.Readers.has_vector">
+<code>DafJL.Readers.has_vector
 </code>
 </a>
 </li>
 <li>
-<a href="readers.html#Daf.Readers.matrices_set">
-<code>Daf.Readers.matrices_set
+<a href="readers.html#DafJL.Readers.matrices_set">
+<code>DafJL.Readers.matrices_set
 </code>
 </a>
 </li>
 <li>
-<a href="readers.html#Daf.Readers.matrix_version_counter">
-<code>Daf.Readers.matrix_version_counter
+<a href="readers.html#DafJL.Readers.matrix_version_counter">
+<code>DafJL.Readers.matrix_version_counter
 </code>
 </a>
 </li>
 <li>
-<a href="readers.html#Daf.Readers.scalars_set">
-<code>Daf.Readers.scalars_set
+<a href="readers.html#DafJL.Readers.scalars_set">
+<code>DafJL.Readers.scalars_set
 </code>
 </a>
 </li>
 <li>
-<a href="readers.html#Daf.Readers.vector_version_counter">
-<code>Daf.Readers.vector_version_counter
+<a href="readers.html#DafJL.Readers.vector_version_counter">
+<code>DafJL.Readers.vector_version_counter
 </code>
 </a>
 </li>
 <li>
-<a href="readers.html#Daf.Readers.vectors_set">
-<code>Daf.Readers.vectors_set
+<a href="readers.html#DafJL.Readers.vectors_set">
+<code>DafJL.Readers.vectors_set
 </code>
 </a>
 </li>

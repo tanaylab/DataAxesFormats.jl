@@ -1,45 +1,45 @@
 # Writers
 
 ```@docs
-Daf.Writers
+DafJL.Writers
 ```
 
 ## Scalar properties
 
 ```@docs
-Daf.Writers.set_scalar!
-Daf.Writers.delete_scalar!
+DafJL.Writers.set_scalar!
+DafJL.Writers.delete_scalar!
 ```
 
 ## Writers axes
 
 ```@docs
-Daf.Writers.add_axis!
-Daf.Writers.delete_axis!
+DafJL.Writers.add_axis!
+DafJL.Writers.delete_axis!
 ```
 
 ## Vector properties
 
 ```@docs
-Daf.Writers.set_vector!
-Daf.Writers.delete_vector!
+DafJL.Writers.set_vector!
+DafJL.Writers.delete_vector!
 ```
 
 ## Matrix properties
 
 ```@docs
-Daf.Writers.set_matrix!
-Daf.Writers.relayout_matrix!
-Daf.Writers.delete_matrix!
+DafJL.Writers.set_matrix!
+DafJL.Writers.relayout_matrix!
+DafJL.Writers.delete_matrix!
 ```
 
 ## Creating properties
 
 ```@docs
-Daf.Writers.empty_dense_vector!
-Daf.Writers.empty_sparse_vector!
-Daf.Writers.empty_dense_matrix!
-Daf.Writers.empty_sparse_matrix!
+DafJL.Writers.empty_dense_vector!
+DafJL.Writers.empty_sparse_vector!
+DafJL.Writers.empty_dense_matrix!
+DafJL.Writers.empty_sparse_matrix!
 ```
 
 ## Index

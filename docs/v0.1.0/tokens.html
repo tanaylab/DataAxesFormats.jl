@@ -5,14 +5,14 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Tokens · Daf.jl v0.1.0
+<title>Tokens · DafJL.jl v0.1.0
 </title>
-<meta name="title" content="Tokens · Daf.jl v0.1.0"/>
-<meta property="og:title" content="Tokens · Daf.jl v0.1.0"/>
-<meta property="twitter:title" content="Tokens · Daf.jl v0.1.0"/>
-<meta name="description" content="Documentation for Daf.jl v0.1.0."/>
-<meta property="og:description" content="Documentation for Daf.jl v0.1.0."/>
-<meta property="twitter:description" content="Documentation for Daf.jl v0.1.0."/>
+<meta name="title" content="Tokens · DafJL.jl v0.1.0"/>
+<meta property="og:title" content="Tokens · DafJL.jl v0.1.0"/>
+<meta property="twitter:title" content="Tokens · DafJL.jl v0.1.0"/>
+<meta name="description" content="Documentation for DafJL.jl v0.1.0."/>
+<meta property="og:description" content="Documentation for DafJL.jl v0.1.0."/>
+<meta property="twitter:description" content="Documentation for DafJL.jl v0.1.0."/>
 <script data-outdated-warner src="assets/warner.js">
 </script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/>
@@ -44,11 +44,11 @@
 <div id="documenter">
 <nav class="docs-sidebar">
 <a class="docs-logo" href="index.html">
-<img src="assets/logo.svg" alt="Daf.jl v0.1.0 logo"/>
+<img src="assets/logo.svg" alt="DafJL.jl v0.1.0 logo"/>
 </a>
 <div class="docs-package-name">
 <span class="docs-autofit">
-<a href="index.html">Daf.jl v0.1.0
+<a href="index.html">DafJL.jl v0.1.0
 </a>
 </span>
 </div>
@@ -238,7 +238,7 @@
 </ul>
 </nav>
 <div class="docs-right">
-<a class="docs-navbar-link" href="https://github.com/tanaylab/Daf.jl/blob/main{path}?plain=1#L{line}" title="View the repository on GitHub">
+<a class="docs-navbar-link" href="https://github.com/tanaylab/DafJL.jl/blob/main{path}?plain=1#L{line}" title="View the repository on GitHub">
 <span class="docs-icon fa-brands">
 </span>
 <span class="docs-label is-hidden-touch">GitHub
@@ -263,8 +263,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Tokens" href="#Daf.Tokens">
-<code>Daf.Tokens
+<a class="docstring-binding" id="DafJL.Tokens" href="#DafJL.Tokens">
+<code>DafJL.Tokens
 </code>
 </a> — 
 <span class="docstring-category">Module
@@ -273,15 +273,15 @@
 <section>
 <div>
 <p>The only exported functions from this module are 
-<a href="tokens.html#Daf.Tokens.escape_value">
+<a href="tokens.html#DafJL.Tokens.escape_value">
 <code>escape_value
 </code>
 </a> and 
-<a href="tokens.html#Daf.Tokens.unescape_value">
+<a href="tokens.html#DafJL.Tokens.unescape_value">
 <code>unescape_value
 </code>
 </a> which are useful when embedding values into query strings. The rest of the module is documented to give insight into how a query string is broken into 
-<a href="tokens.html#Daf.Tokens.Token">
+<a href="tokens.html#DafJL.Tokens.Token">
 <code>Token
 </code>
 </a>s.
@@ -289,7 +289,7 @@
 <p>Ideally 
 <code>Daf
 </code> should have used some established parser generator module for parsing queries, making all this unnecessary. However, As of writing this code, Julia doesn&#39;t seem to have such a parser generator solution. Therefore, this module provides a simple 
-<a href="tokens.html#Daf.Tokens.tokenize">
+<a href="tokens.html#DafJL.Tokens.tokenize">
 <code>tokenize
 </code>
 </a> function with rudimentary pattern matching which is all we need to parse queries (whose structure is &quot;trivial&quot;).
@@ -309,8 +309,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Tokens.escape_value" href="#Daf.Tokens.escape_value">
-<code>Daf.Tokens.escape_value
+<a class="docstring-binding" id="DafJL.Tokens.escape_value" href="#DafJL.Tokens.escape_value">
+<code>DafJL.Tokens.escape_value
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -325,7 +325,7 @@
 <p>Given some raw 
 <code>value
 </code> (name of an axis, axis entry or property, or a parameter value), which may contain special characters, return an escaped version to be used as a single value 
-<a href="tokens.html#Daf.Tokens.Token">
+<a href="tokens.html#DafJL.Tokens.Token">
 <code>Token
 </code>
 </a>.
@@ -337,7 +337,7 @@
 <p>
 <strong>Safe
 </strong> (
-<a href="tokens.html#Daf.Tokens.is_value_char">
+<a href="tokens.html#DafJL.Tokens.is_value_char">
 <code>is_value_char
 </code>
 </a>) characters include 
@@ -361,7 +361,7 @@
 </code>, and 
 <code>.
 </code>, as well as any non-ASCII (that is, Unicode) characters. Any sequence of these characters will be considered a single value 
-<a href="tokens.html#Daf.Tokens.Token">
+<a href="tokens.html#DafJL.Tokens.Token">
 <code>Token
 </code>
 </a>. These cover all the common cases (including signed integer and floating point values).
@@ -379,7 +379,7 @@
 </strong> character with a 
 <code>\
 </code> allows using it inside a value 
-<a href="tokens.html#Daf.Tokens.Token">
+<a href="tokens.html#DafJL.Tokens.Token">
 <code>Token
 </code>
 </a>. This is useful if some name or value contains a special character. For example, if you have a cell whose name is 
@@ -445,8 +445,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Tokens.unescape_value" href="#Daf.Tokens.unescape_value">
-<code>Daf.Tokens.unescape_value
+<a class="docstring-binding" id="DafJL.Tokens.unescape_value" href="#DafJL.Tokens.unescape_value">
+<code>DafJL.Tokens.unescape_value
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -459,7 +459,7 @@
 </code>
 </pre>
 <p>Undo 
-<a href="tokens.html#Daf.Tokens.escape_value">
+<a href="tokens.html#DafJL.Tokens.escape_value">
 <code>escape_value
 </code>
 </a>, that is, given an 
@@ -477,8 +477,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Tokens.is_value_char" href="#Daf.Tokens.is_value_char">
-<code>Daf.Tokens.is_value_char
+<a class="docstring-binding" id="DafJL.Tokens.is_value_char" href="#DafJL.Tokens.is_value_char">
+<code>DafJL.Tokens.is_value_char
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -491,7 +491,7 @@
 </code>
 </pre>
 <p>Return whether a character is safe to use inside a value 
-<a href="tokens.html#Daf.Tokens.Token">
+<a href="tokens.html#DafJL.Tokens.Token">
 <code>Token
 </code>
 </a> (name of an axis, axis entry or property, or a parameter value).
@@ -525,8 +525,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Tokens.VALUE_REGEX" href="#Daf.Tokens.VALUE_REGEX">
-<code>Daf.Tokens.VALUE_REGEX
+<a class="docstring-binding" id="DafJL.Tokens.VALUE_REGEX" href="#DafJL.Tokens.VALUE_REGEX">
+<code>DafJL.Tokens.VALUE_REGEX
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -539,15 +539,15 @@
 </code>
 </pre>
 <p>A sequence of 
-<a href="tokens.html#Daf.Tokens.is_value_char">
+<a href="tokens.html#DafJL.Tokens.is_value_char">
 <code>is_value_char
 </code>
 </a> is considered to be a single value 
-<a href="tokens.html#Daf.Tokens.Token">
+<a href="tokens.html#DafJL.Tokens.Token">
 <code>Token
 </code>
 </a>. This set of characters was chosen to allow expressing numbers, Booleans and simple names. Any other (ASCII, non-space) character may in principle be used as an operator (possibly in a future version of the code). Therefore, use 
-<a href="tokens.html#Daf.Tokens.escape_value">
+<a href="tokens.html#DafJL.Tokens.escape_value">
 <code>escape_value
 </code>
 </a> to protect any value you embed into the expression.
@@ -567,8 +567,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Tokens.encode_expression" href="#Daf.Tokens.encode_expression">
-<code>Daf.Tokens.encode_expression
+<a class="docstring-binding" id="DafJL.Tokens.encode_expression" href="#DafJL.Tokens.encode_expression">
+<code>DafJL.Tokens.encode_expression
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -583,7 +583,7 @@
 <p>Given an expression string to parse, encode any non-ASCII (that is, Unicode) character, as well as any character escaped by a 
 <code>\
 </code>, such that the result will only use 
-<a href="tokens.html#Daf.Tokens.is_value_char">
+<a href="tokens.html#DafJL.Tokens.is_value_char">
 <code>is_value_char
 </code>
 </a> characters. Every encoded character is replaced by 
@@ -613,8 +613,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Tokens.decode_expression" href="#Daf.Tokens.decode_expression">
-<code>Daf.Tokens.decode_expression
+<a class="docstring-binding" id="DafJL.Tokens.decode_expression" href="#DafJL.Tokens.decode_expression">
+<code>DafJL.Tokens.decode_expression
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -627,7 +627,7 @@
 </code>
 </pre>
 <p>Given the results of 
-<a href="tokens.html#Daf.Tokens.encode_expression">
+<a href="tokens.html#DafJL.Tokens.encode_expression">
 <code>encode_expression
 </code>
 </a>, decode it back to its original form.
@@ -647,8 +647,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Tokens.Token" href="#Daf.Tokens.Token">
-<code>Daf.Tokens.Token
+<a class="docstring-binding" id="DafJL.Tokens.Token" href="#DafJL.Tokens.Token">
+<code>DafJL.Tokens.Token
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -674,11 +674,11 @@ end
 </code>. A value token holds the name of an axis, axis entry or property, or a parameter value, while an operator token is used to identify a query operation to perform. In both cases, the 
 <code>value
 </code> contains the token string. This goes through both 
-<a href="tokens.html#Daf.Tokens.decode_expression">
+<a href="tokens.html#DafJL.Tokens.decode_expression">
 <code>decode_expression
 </code>
 </a> and 
-<a href="tokens.html#Daf.Tokens.unescape_value">
+<a href="tokens.html#DafJL.Tokens.unescape_value">
 <code>unescape_value
 </code>
 </a> so it can be directly used as-is for value tokens.
@@ -698,8 +698,8 @@ end
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Tokens.tokenize" href="#Daf.Tokens.tokenize">
-<code>Daf.Tokens.tokenize
+<a class="docstring-binding" id="DafJL.Tokens.tokenize" href="#DafJL.Tokens.tokenize">
+<code>DafJL.Tokens.tokenize
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -712,13 +712,13 @@ end
 </code>
 </pre>
 <p>Given an expression string, convert it into a vector of 
-<a href="tokens.html#Daf.Tokens.Token">
+<a href="tokens.html#DafJL.Tokens.Token">
 <code>Token
 </code>
 </a>.
 </p>
 <p>We first convert everything that matches the 
-<a href="tokens.html#Daf.Tokens.SPACE_REGEX">
+<a href="tokens.html#DafJL.Tokens.SPACE_REGEX">
 <code>SPACE_REGEX
 </code>
 </a> into a single space. This squashed the expression into a single line (discarding line breaks and comments), and the squashed expression is used for reporting errors. This is reasonable for dealing with 
@@ -726,17 +726,17 @@ end
 </code> queries which are expected to be &quot;relatively simple&quot;.
 </p>
 <p>When tokenizing, we discard the spaces. Anything that matches the 
-<a href="tokens.html#Daf.Tokens.VALUE_REGEX">
+<a href="tokens.html#DafJL.Tokens.VALUE_REGEX">
 <code>VALUE_REGEX
 </code>
 </a> is considered to be a value 
-<a href="tokens.html#Daf.Tokens.Token">
+<a href="tokens.html#DafJL.Tokens.Token">
 <code>Token
 </code>
 </a>. Anything that matches the 
 <code>operators
 </code> is considered to be an operator 
-<a href="tokens.html#Daf.Tokens.Token">
+<a href="tokens.html#DafJL.Tokens.Token">
 <code>Token
 </code>
 </a>. As a special case, 
@@ -770,8 +770,8 @@ end
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Tokens.SPACE_REGEX" href="#Daf.Tokens.SPACE_REGEX">
-<code>Daf.Tokens.SPACE_REGEX
+<a class="docstring-binding" id="DafJL.Tokens.SPACE_REGEX" href="#DafJL.Tokens.SPACE_REGEX">
+<code>DafJL.Tokens.SPACE_REGEX
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -784,7 +784,7 @@ end
 </code>
 </pre>
 <p>Optional white space can separate 
-<a href="tokens.html#Daf.Tokens.Token">
+<a href="tokens.html#DafJL.Tokens.Token">
 <code>Token
 </code>
 </a>. It is required when there are two consecutive value tokens, but is typically optional around operators. White space includes spaces, tabs, line breaks, and a 
@@ -804,62 +804,62 @@ end
 </h2>
 <ul>
 <li>
-<a href="tokens.html#Daf.Tokens">
-<code>Daf.Tokens
+<a href="tokens.html#DafJL.Tokens">
+<code>DafJL.Tokens
 </code>
 </a>
 </li>
 <li>
-<a href="tokens.html#Daf.Tokens.SPACE_REGEX">
-<code>Daf.Tokens.SPACE_REGEX
+<a href="tokens.html#DafJL.Tokens.SPACE_REGEX">
+<code>DafJL.Tokens.SPACE_REGEX
 </code>
 </a>
 </li>
 <li>
-<a href="tokens.html#Daf.Tokens.VALUE_REGEX">
-<code>Daf.Tokens.VALUE_REGEX
+<a href="tokens.html#DafJL.Tokens.VALUE_REGEX">
+<code>DafJL.Tokens.VALUE_REGEX
 </code>
 </a>
 </li>
 <li>
-<a href="tokens.html#Daf.Tokens.Token">
-<code>Daf.Tokens.Token
+<a href="tokens.html#DafJL.Tokens.Token">
+<code>DafJL.Tokens.Token
 </code>
 </a>
 </li>
 <li>
-<a href="tokens.html#Daf.Tokens.decode_expression">
-<code>Daf.Tokens.decode_expression
+<a href="tokens.html#DafJL.Tokens.decode_expression">
+<code>DafJL.Tokens.decode_expression
 </code>
 </a>
 </li>
 <li>
-<a href="tokens.html#Daf.Tokens.encode_expression">
-<code>Daf.Tokens.encode_expression
+<a href="tokens.html#DafJL.Tokens.encode_expression">
+<code>DafJL.Tokens.encode_expression
 </code>
 </a>
 </li>
 <li>
-<a href="tokens.html#Daf.Tokens.escape_value">
-<code>Daf.Tokens.escape_value
+<a href="tokens.html#DafJL.Tokens.escape_value">
+<code>DafJL.Tokens.escape_value
 </code>
 </a>
 </li>
 <li>
-<a href="tokens.html#Daf.Tokens.is_value_char">
-<code>Daf.Tokens.is_value_char
+<a href="tokens.html#DafJL.Tokens.is_value_char">
+<code>DafJL.Tokens.is_value_char
 </code>
 </a>
 </li>
 <li>
-<a href="tokens.html#Daf.Tokens.tokenize">
-<code>Daf.Tokens.tokenize
+<a href="tokens.html#DafJL.Tokens.tokenize">
+<code>DafJL.Tokens.tokenize
 </code>
 </a>
 </li>
 <li>
-<a href="tokens.html#Daf.Tokens.unescape_value">
-<code>Daf.Tokens.unescape_value
+<a href="tokens.html#DafJL.Tokens.unescape_value">
+<code>DafJL.Tokens.unescape_value
 </code>
 </a>
 </li>

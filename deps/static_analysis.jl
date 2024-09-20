@@ -8,7 +8,7 @@ language_server.global_env.symbols = symbols
 language_server.global_env.extended_methods = SymbolServer.collect_extended_methods(language_server.global_env.symbols)
 language_server.global_env.project_deps = collect(keys(language_server.global_env.symbols))
 
-file = StaticLint.loadfile(language_server, abspath("src/Daf.jl"))
+file = StaticLint.loadfile(language_server, abspath("src/DafJL.jl"))
 StaticLint.semantic_pass(LanguageServer.getroot(file))
 
 global errors = 0

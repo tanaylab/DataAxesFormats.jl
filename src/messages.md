@@ -1,13 +1,13 @@
 # Messages
 
 ```@docs
-Daf.Messages
+DafJL.Messages
 ```
 
 ```@docs
-Daf.Messages.unique_name
-Daf.Messages.depict
-Daf.Messages.depict_percent
+DafJL.Messages.unique_name
+DafJL.Messages.depict
+DafJL.Messages.depict_percent
 ```
 
 ## Index

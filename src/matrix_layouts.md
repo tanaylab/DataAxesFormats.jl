@@ -1,51 +1,51 @@
 # Matrix layouts
 
 ```@docs
-Daf.MatrixLayouts
+DafJL.MatrixLayouts
 ```
 
 ## Symbolic names for axes
 
 ```@docs
-Daf.MatrixLayouts.Rows
-Daf.MatrixLayouts.Columns
-Daf.MatrixLayouts.axis_name
+DafJL.MatrixLayouts.Rows
+DafJL.MatrixLayouts.Columns
+DafJL.MatrixLayouts.axis_name
 ```
 
 ## Checking layout
 
 ```@docs
-Daf.MatrixLayouts.major_axis
-Daf.MatrixLayouts.require_major_axis
-Daf.MatrixLayouts.minor_axis
-Daf.MatrixLayouts.require_minor_axis
-Daf.MatrixLayouts.other_axis
+DafJL.MatrixLayouts.major_axis
+DafJL.MatrixLayouts.require_major_axis
+DafJL.MatrixLayouts.minor_axis
+DafJL.MatrixLayouts.require_minor_axis
+DafJL.MatrixLayouts.other_axis
 ```
 
 ## Changing layout
 
 ```@docs
-Daf.MatrixLayouts.relayout!
-Daf.MatrixLayouts.relayout
-Daf.MatrixLayouts.transposer
-Daf.MatrixLayouts.copy_array
+DafJL.MatrixLayouts.relayout!
+DafJL.MatrixLayouts.relayout
+DafJL.MatrixLayouts.transposer
+DafJL.MatrixLayouts.copy_array
 ```
 
 ## Changing format
 
 ```@docs
-Daf.MatrixLayouts.bestify
-Daf.MatrixLayouts.densify
-Daf.MatrixLayouts.sparsify
+DafJL.MatrixLayouts.bestify
+DafJL.MatrixLayouts.densify
+DafJL.MatrixLayouts.sparsify
 ```
 
 ## Assertions
 
 ```@docs
-Daf.MatrixLayouts.@assert_vector
-Daf.MatrixLayouts.@assert_matrix
-Daf.MatrixLayouts.check_efficient_action
-Daf.MatrixLayouts.inefficient_action_handler
+DafJL.MatrixLayouts.@assert_vector
+DafJL.MatrixLayouts.@assert_matrix
+DafJL.MatrixLayouts.check_efficient_action
+DafJL.MatrixLayouts.inefficient_action_handler
 ```
 
 ## Index

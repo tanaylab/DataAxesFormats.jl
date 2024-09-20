@@ -1,10 +1,10 @@
 # Generic Functions
 
 ```@docs
-Daf.GenericFunctions
-Daf.GenericFunctions.dedent
-Daf.GenericFunctions.AbnormalHandler
-Daf.GenericFunctions.handle_abnormal
+DafJL.GenericFunctions
+DafJL.GenericFunctions.dedent
+DafJL.GenericFunctions.AbnormalHandler
+DafJL.GenericFunctions.handle_abnormal
 ```
 
 ## Index

@@ -183,7 +183,7 @@ end
 
 Automatically call [`register_query_operation`](@ref) for `MyOperation`.
 
-Note this will import `Daf.Registry.register_query_operation`, so it may only be called from the top level scope of a
+Note this will import `DafJL.Registry.register_query_operation`, so it may only be called from the top level scope of a
 module.
 """
 macro query_operation(operation_type_name)
@@ -194,7 +194,7 @@ macro query_operation(operation_type_name)
     source_file = file === nothing ? "-" : String(file)
 
     return quote
-        import Daf.Registry.register_query_operation
+        import DafJL.Registry.register_query_operation
         register_query_operation($name_reference, $source_file, $source_line)
     end
 end

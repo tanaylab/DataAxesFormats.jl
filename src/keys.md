@@ -1,12 +1,12 @@
 # Keys
 
 ```@docs
-Daf.Keys
-Daf.Keys.AxisKey
-Daf.Keys.ScalarKey
-Daf.Keys.VectorKey
-Daf.Keys.MatrixKey
-Daf.Keys.DataKey
+DafJL.Keys
+DafJL.Keys.AxisKey
+DafJL.Keys.ScalarKey
+DafJL.Keys.VectorKey
+DafJL.Keys.MatrixKey
+DafJL.Keys.DataKey
 ```
 
 ## Index
