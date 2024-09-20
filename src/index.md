@@ -1,7 +1,7 @@
 # Daf
 
 ```@docs
-DafJL.DafJL
+DataAxesFormats.DataAxesFormats
 ```
 
 # Index

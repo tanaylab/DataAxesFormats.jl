@@ -1,6 +1,6 @@
-import DafJL.Registry.EltwiseOperation
-import DafJL.Registry.@query_operation
-import DafJL.Registry.ReductionOperation
+import DataAxesFormats.Registry.EltwiseOperation
+import DataAxesFormats.Registry.@query_operation
+import DataAxesFormats.Registry.ReductionOperation
 
 struct TestEltwiseOp <: EltwiseOperation end
 @query_operation TestEltwiseOp

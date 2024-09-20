@@ -1,26 +1,26 @@
 # Generic Locks
 
 ```@docs
-DafJL.GenericLocks
-DafJL.GenericLocks.QueryReadWriteLock
+DataAxesFormats.GenericLocks
+DataAxesFormats.GenericLocks.QueryReadWriteLock
 ```
 
 ## Write Lock
 
 ```@docs
-DafJL.GenericLocks.write_lock
-DafJL.GenericLocks.write_unlock
-DafJL.GenericLocks.with_write_lock
-DafJL.GenericLocks.has_write_lock
+DataAxesFormats.GenericLocks.write_lock
+DataAxesFormats.GenericLocks.write_unlock
+DataAxesFormats.GenericLocks.with_write_lock
+DataAxesFormats.GenericLocks.has_write_lock
 ```
 
 ## Read Locks
 
 ```@docs
-DafJL.GenericLocks.read_lock
-DafJL.GenericLocks.read_unlock
-DafJL.GenericLocks.with_read_lock
-DafJL.GenericLocks.has_read_lock
+DataAxesFormats.GenericLocks.read_lock
+DataAxesFormats.GenericLocks.read_unlock
+DataAxesFormats.GenericLocks.with_read_lock
+DataAxesFormats.GenericLocks.has_read_lock
 ```
 
 ## Index

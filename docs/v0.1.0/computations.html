@@ -5,14 +5,14 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Computations · DafJL.jl v0.1.0
+<title>Computations · DataAxesFormats.jl v0.1.0
 </title>
-<meta name="title" content="Computations · DafJL.jl v0.1.0"/>
-<meta property="og:title" content="Computations · DafJL.jl v0.1.0"/>
-<meta property="twitter:title" content="Computations · DafJL.jl v0.1.0"/>
-<meta name="description" content="Documentation for DafJL.jl v0.1.0."/>
-<meta property="og:description" content="Documentation for DafJL.jl v0.1.0."/>
-<meta property="twitter:description" content="Documentation for DafJL.jl v0.1.0."/>
+<meta name="title" content="Computations · DataAxesFormats.jl v0.1.0"/>
+<meta property="og:title" content="Computations · DataAxesFormats.jl v0.1.0"/>
+<meta property="twitter:title" content="Computations · DataAxesFormats.jl v0.1.0"/>
+<meta name="description" content="Documentation for DataAxesFormats.jl v0.1.0."/>
+<meta property="og:description" content="Documentation for DataAxesFormats.jl v0.1.0."/>
+<meta property="twitter:description" content="Documentation for DataAxesFormats.jl v0.1.0."/>
 <script data-outdated-warner src="assets/warner.js">
 </script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/>
@@ -44,11 +44,11 @@
 <div id="documenter">
 <nav class="docs-sidebar">
 <a class="docs-logo" href="index.html">
-<img src="assets/logo.svg" alt="DafJL.jl v0.1.0 logo"/>
+<img src="assets/logo.svg" alt="DataAxesFormats.jl v0.1.0 logo"/>
 </a>
 <div class="docs-package-name">
 <span class="docs-autofit">
-<a href="index.html">DafJL.jl v0.1.0
+<a href="index.html">DataAxesFormats.jl v0.1.0
 </a>
 </span>
 </div>
@@ -220,7 +220,7 @@
 </ul>
 </nav>
 <div class="docs-right">
-<a class="docs-navbar-link" href="https://github.com/tanaylab/DafJL.jl/blob/main{path}?plain=1#L{line}" title="View the repository on GitHub">
+<a class="docs-navbar-link" href="https://github.com/tanaylab/DataAxesFormats.jl/blob/main{path}?plain=1#L{line}" title="View the repository on GitHub">
 <span class="docs-icon fa-brands">
 </span>
 <span class="docs-label is-hidden-touch">GitHub
@@ -245,8 +245,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Computations" href="#DafJL.Computations">
-<code>DafJL.Computations
+<a class="docstring-binding" id="DataAxesFormats.Computations" href="#DataAxesFormats.Computations">
+<code>DataAxesFormats.Computations
 </code>
 </a> — 
 <span class="docstring-category">Module
@@ -257,7 +257,7 @@
 <section>
 <div>
 <p>Support writing &quot;well-behaved&quot; computations. Such computations declare a 
-<a href="contracts.html#DafJL.Contracts.Contract">
+<a href="contracts.html#DataAxesFormats.Contracts.Contract">
 <code>Contract
 </code>
 </a> describing their inputs and outputs. This is enforced, so that the implementation need not worry about missing inputs, and the caller can rely on the results. It is also self-documenting, so the generated documentation is always contains a clear up-to-date description of the contract.
@@ -269,8 +269,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Computations.@computation" href="#DafJL.Computations.@computation">
-<code>DafJL.Computations.@computation
+<a class="docstring-binding" id="DataAxesFormats.Computations.@computation" href="#DataAxesFormats.Computations.@computation">
+<code>DataAxesFormats.Computations.@computation
 </code>
 </a> — 
 <span class="docstring-category">Macro
@@ -305,15 +305,15 @@ end
 <p>It verifies that the 
 <code>Daf
 </code> data satisfies the 
-<a href="contracts.html#DafJL.Contracts.Contract">
+<a href="contracts.html#DataAxesFormats.Contracts.Contract">
 <code>Contract
 </code>
 </a>, when the computation is invoked and when it is complete (using 
-<a href="contracts.html#DafJL.Contracts.verify_input">
+<a href="contracts.html#DataAxesFormats.Contracts.verify_input">
 <code>verify_input
 </code>
 </a> and 
-<a href="contracts.html#DafJL.Contracts.verify_output">
+<a href="contracts.html#DataAxesFormats.Contracts.verify_output">
 <code>verify_output
 </code>
 </a>).
@@ -321,15 +321,15 @@ end
 </li>
 <li>
 <p>It stashes the contract(s) (if any) in a global variable. This allows expanding 
-<a href="computations.html#DafJL.Computations.CONTRACT">
+<a href="computations.html#DataAxesFormats.Computations.CONTRACT">
 <code>CONTRACT
 </code>
 </a> in the documentation string (for a single contract case), or 
-<a href="computations.html#DafJL.Computations.CONTRACT1">
+<a href="computations.html#DataAxesFormats.Computations.CONTRACT1">
 <code>CONTRACT1
 </code>
 </a> and 
-<a href="computations.html#DafJL.Computations.CONTRACT2">
+<a href="computations.html#DataAxesFormats.Computations.CONTRACT2">
 <code>CONTRACT2
 </code>
 </a> (for the dual contract case).
@@ -337,7 +337,7 @@ end
 </li>
 <li>
 <p>It stashes the default value of named arguments. This allows expanding 
-<a href="computations.html#DafJL.Computations.DEFAULT">
+<a href="computations.html#DataAxesFormats.Computations.DEFAULT">
 <code>DEFAULT
 </code>
 </a> in the documentation string, which is especially useful if these defaults are computed, read from global constants, etc.
@@ -347,7 +347,7 @@ end
 <p>It logs the invocation of the function (using 
 <code>@debug
 </code>), including the actual values of the named arguments (using 
-<a href="messages.html#DafJL.MatrixLayouts.depict">
+<a href="messages.html#DataAxesFormats.MatrixLayouts.depict">
 <code>depict
 </code>
 </a>).
@@ -359,15 +359,15 @@ end
 </header>
 <div class="admonition-body">
 <p>For each 
-<a href="contracts.html#DafJL.Contracts.Contract">
+<a href="contracts.html#DataAxesFormats.Contracts.Contract">
 <code>Contract
 </code>
 </a> parameter (if any), there needs to be a 
-<a href="formats.html#DafJL.Formats.DafReader">
+<a href="formats.html#DataAxesFormats.Formats.DafReader">
 <code>DafReader
 </code>
 </a> or 
-<a href="formats.html#DafJL.Formats.DafWriter">
+<a href="formats.html#DataAxesFormats.Formats.DafWriter">
 <code>DafWriter
 </code>
 </a>, which the contract(s) will be applied to. These parameters should be the initial positional parameters of the function.
@@ -381,8 +381,8 @@ end
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Computations.function_contract" href="#DafJL.Computations.function_contract">
-<code>DafJL.Computations.function_contract
+<a class="docstring-binding" id="DataAxesFormats.Computations.function_contract" href="#DataAxesFormats.Computations.function_contract">
+<code>DataAxesFormats.Computations.function_contract
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -397,11 +397,11 @@ end
 </code>
 </pre>
 <p>Access the contract of a function annotated by 
-<a href="computations.html#DafJL.Computations.@computation">
+<a href="computations.html#DataAxesFormats.Computations.@computation">
 <code>@computation
 </code>
 </a>. By default the first contract is returned. If the 
-<a href="computations.html#DafJL.Computations.@computation">
+<a href="computations.html#DataAxesFormats.Computations.@computation">
 <code>@computation
 </code>
 </a> has two contracts, you can specify the 
@@ -415,8 +415,8 @@ end
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Computations.function_default" href="#DafJL.Computations.function_default">
-<code>DafJL.Computations.function_default
+<a class="docstring-binding" id="DataAxesFormats.Computations.function_default" href="#DataAxesFormats.Computations.function_default">
+<code>DataAxesFormats.Computations.function_default
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -431,7 +431,7 @@ end
 </code>
 </pre>
 <p>Access the default of a parameter of a function annotated by 
-<a href="computations.html#DafJL.Computations.@computation">
+<a href="computations.html#DataAxesFormats.Computations.@computation">
 <code>@computation
 </code>
 </a>.
@@ -443,8 +443,8 @@ end
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Computations.DEFAULT" href="#DafJL.Computations.DEFAULT">
-<code>DafJL.Computations.DEFAULT
+<a class="docstring-binding" id="DataAxesFormats.Computations.DEFAULT" href="#DataAxesFormats.Computations.DEFAULT">
+<code>DataAxesFormats.Computations.DEFAULT
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -455,7 +455,7 @@ end
 <section>
 <div>
 <p>When using 
-<a href="computations.html#DafJL.Computations.@computation">
+<a href="computations.html#DataAxesFormats.Computations.@computation">
 <code>@computation
 </code>
 </a>:
@@ -490,8 +490,8 @@ end
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Computations.CONTRACT" href="#DafJL.Computations.CONTRACT">
-<code>DafJL.Computations.CONTRACT
+<a class="docstring-binding" id="DataAxesFormats.Computations.CONTRACT" href="#DataAxesFormats.Computations.CONTRACT">
+<code>DataAxesFormats.Computations.CONTRACT
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -502,7 +502,7 @@ end
 <section>
 <div>
 <p>When using 
-<a href="computations.html#DafJL.Computations.@computation">
+<a href="computations.html#DataAxesFormats.Computations.@computation">
 <code>@computation
 </code>
 </a>:
@@ -523,7 +523,7 @@ end
 <p>Then 
 <code>$(CONTRACT)
 </code> will be expanded with a description of the 
-<a href="contracts.html#DafJL.Contracts.Contract">
+<a href="contracts.html#DataAxesFormats.Contracts.Contract">
 <code>Contract
 </code>
 </a>. This is based on 
@@ -535,7 +535,7 @@ end
 </header>
 <div class="admonition-body">
 <p>The first argument of the function must be a 
-<a href="formats.html#DafJL.Formats.DafWriter">
+<a href="formats.html#DataAxesFormats.Formats.DafWriter">
 <code>DafWriter
 </code>
 </a>, which the contract will be applied to.
@@ -549,8 +549,8 @@ end
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Computations.CONTRACT1" href="#DafJL.Computations.CONTRACT1">
-<code>DafJL.Computations.CONTRACT1
+<a class="docstring-binding" id="DataAxesFormats.Computations.CONTRACT1" href="#DataAxesFormats.Computations.CONTRACT1">
+<code>DataAxesFormats.Computations.CONTRACT1
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -561,13 +561,13 @@ end
 <section>
 <div>
 <p>Same as 
-<a href="computations.html#DafJL.Computations.CONTRACT">
+<a href="computations.html#DataAxesFormats.Computations.CONTRACT">
 <code>CONTRACT
 </code>
 </a>, but reference the contract for the 1st 
 <code>Daf
 </code> argument for a 
-<a href="computations.html#DafJL.Computations.@computation">
+<a href="computations.html#DataAxesFormats.Computations.@computation">
 <code>@computation
 </code>
 </a> with two such arguments.
@@ -579,8 +579,8 @@ end
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Computations.CONTRACT2" href="#DafJL.Computations.CONTRACT2">
-<code>DafJL.Computations.CONTRACT2
+<a class="docstring-binding" id="DataAxesFormats.Computations.CONTRACT2" href="#DataAxesFormats.Computations.CONTRACT2">
+<code>DataAxesFormats.Computations.CONTRACT2
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -591,13 +591,13 @@ end
 <section>
 <div>
 <p>Same as 
-<a href="computations.html#DafJL.Computations.CONTRACT">
+<a href="computations.html#DataAxesFormats.Computations.CONTRACT">
 <code>CONTRACT
 </code>
 </a>, but reference the contract for the 2nd 
 <code>Daf
 </code> argument for a 
-<a href="computations.html#DafJL.Computations.@computation">
+<a href="computations.html#DataAxesFormats.Computations.@computation">
 <code>@computation
 </code>
 </a> with two such arguments.
@@ -615,50 +615,50 @@ end
 </h2>
 <ul>
 <li>
-<a href="computations.html#DafJL.Computations">
-<code>DafJL.Computations
+<a href="computations.html#DataAxesFormats.Computations">
+<code>DataAxesFormats.Computations
 </code>
 </a>
 </li>
 <li>
-<a href="computations.html#DafJL.Computations.CONTRACT">
-<code>DafJL.Computations.CONTRACT
+<a href="computations.html#DataAxesFormats.Computations.CONTRACT">
+<code>DataAxesFormats.Computations.CONTRACT
 </code>
 </a>
 </li>
 <li>
-<a href="computations.html#DafJL.Computations.CONTRACT1">
-<code>DafJL.Computations.CONTRACT1
+<a href="computations.html#DataAxesFormats.Computations.CONTRACT1">
+<code>DataAxesFormats.Computations.CONTRACT1
 </code>
 </a>
 </li>
 <li>
-<a href="computations.html#DafJL.Computations.CONTRACT2">
-<code>DafJL.Computations.CONTRACT2
+<a href="computations.html#DataAxesFormats.Computations.CONTRACT2">
+<code>DataAxesFormats.Computations.CONTRACT2
 </code>
 </a>
 </li>
 <li>
-<a href="computations.html#DafJL.Computations.DEFAULT">
-<code>DafJL.Computations.DEFAULT
+<a href="computations.html#DataAxesFormats.Computations.DEFAULT">
+<code>DataAxesFormats.Computations.DEFAULT
 </code>
 </a>
 </li>
 <li>
-<a href="computations.html#DafJL.Computations.function_contract">
-<code>DafJL.Computations.function_contract
+<a href="computations.html#DataAxesFormats.Computations.function_contract">
+<code>DataAxesFormats.Computations.function_contract
 </code>
 </a>
 </li>
 <li>
-<a href="computations.html#DafJL.Computations.function_default">
-<code>DafJL.Computations.function_default
+<a href="computations.html#DataAxesFormats.Computations.function_default">
+<code>DataAxesFormats.Computations.function_default
 </code>
 </a>
 </li>
 <li>
-<a href="computations.html#DafJL.Computations.@computation">
-<code>DafJL.Computations.@computation
+<a href="computations.html#DataAxesFormats.Computations.@computation">
+<code>DataAxesFormats.Computations.@computation
 </code>
 </a>
 </li>

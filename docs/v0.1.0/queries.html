@@ -5,14 +5,14 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Queries · DafJL.jl v0.1.0
+<title>Queries · DataAxesFormats.jl v0.1.0
 </title>
-<meta name="title" content="Queries · DafJL.jl v0.1.0"/>
-<meta property="og:title" content="Queries · DafJL.jl v0.1.0"/>
-<meta property="twitter:title" content="Queries · DafJL.jl v0.1.0"/>
-<meta name="description" content="Documentation for DafJL.jl v0.1.0."/>
-<meta property="og:description" content="Documentation for DafJL.jl v0.1.0."/>
-<meta property="twitter:description" content="Documentation for DafJL.jl v0.1.0."/>
+<meta name="title" content="Queries · DataAxesFormats.jl v0.1.0"/>
+<meta property="og:title" content="Queries · DataAxesFormats.jl v0.1.0"/>
+<meta property="twitter:title" content="Queries · DataAxesFormats.jl v0.1.0"/>
+<meta name="description" content="Documentation for DataAxesFormats.jl v0.1.0."/>
+<meta property="og:description" content="Documentation for DataAxesFormats.jl v0.1.0."/>
+<meta property="twitter:description" content="Documentation for DataAxesFormats.jl v0.1.0."/>
 <script data-outdated-warner src="assets/warner.js">
 </script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/>
@@ -44,11 +44,11 @@
 <div id="documenter">
 <nav class="docs-sidebar">
 <a class="docs-logo" href="index.html">
-<img src="assets/logo.svg" alt="DafJL.jl v0.1.0 logo"/>
+<img src="assets/logo.svg" alt="DataAxesFormats.jl v0.1.0 logo"/>
 </a>
 <div class="docs-package-name">
 <span class="docs-autofit">
-<a href="index.html">DafJL.jl v0.1.0
+<a href="index.html">DataAxesFormats.jl v0.1.0
 </a>
 </span>
 </div>
@@ -244,7 +244,7 @@
 </ul>
 </nav>
 <div class="docs-right">
-<a class="docs-navbar-link" href="https://github.com/tanaylab/DafJL.jl/blob/main{path}?plain=1#L{line}" title="View the repository on GitHub">
+<a class="docs-navbar-link" href="https://github.com/tanaylab/DataAxesFormats.jl/blob/main{path}?plain=1#L{line}" title="View the repository on GitHub">
 <span class="docs-icon fa-brands">
 </span>
 <span class="docs-label is-hidden-touch">GitHub
@@ -269,8 +269,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries" href="#DafJL.Queries">
-<code>DafJL.Queries
+<a class="docstring-binding" id="DataAxesFormats.Queries" href="#DataAxesFormats.Queries">
+<code>DataAxesFormats.Queries
 </code>
 </a> — 
 <span class="docstring-category">Module
@@ -281,7 +281,7 @@
 <section>
 <div>
 <p>Extract data from a 
-<a href="formats.html#DafJL.Formats.DafReader">
+<a href="formats.html#DataAxesFormats.Formats.DafReader">
 <code>DafReader
 </code>
 </a>.
@@ -301,8 +301,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.Query" href="#DafJL.Queries.Query">
-<code>DafJL.Queries.Query
+<a class="docstring-binding" id="DataAxesFormats.Queries.Query" href="#DataAxesFormats.Queries.Query">
+<code>DataAxesFormats.Queries.Query
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -320,25 +320,25 @@
 </code>
 </pre>
 <p>A query is a description of a (sub-)process for extracting some data from a 
-<a href="formats.html#DafJL.Formats.DafReader">
+<a href="formats.html#DataAxesFormats.Formats.DafReader">
 <code>DafReader
 </code>
 </a>. A full query is a sequence of 
-<a href="registry.html#DafJL.Registry.QueryOperation">
+<a href="registry.html#DataAxesFormats.Registry.QueryOperation">
 <code>QueryOperation
 </code>
 </a>, that when applied one at a time on some 
-<a href="formats.html#DafJL.Formats.DafReader">
+<a href="formats.html#DataAxesFormats.Formats.DafReader">
 <code>DafReader
 </code>
 </a>, result in a scalar, vector or matrix result.
 </p>
 <p>To apply a query, invoke 
-<a href="queries.html#DafJL.Queries.get_query">
+<a href="queries.html#DataAxesFormats.Queries.get_query">
 <code>get_query
 </code>
 </a> to apply a query to some 
-<a href="formats.html#DafJL.Formats.DafReader">
+<a href="formats.html#DataAxesFormats.Formats.DafReader">
 <code>DafReader
 </code>
 </a> data (you can also use the shorthand 
@@ -346,11 +346,11 @@
 </span> instead of 
 <span>$get_query(daf, query)$
 </span>). By default, query operations will cache their results in memory as 
-<a href="formats.html#DafJL.Formats.CacheGroup">
+<a href="formats.html#DataAxesFormats.Formats.CacheGroup">
 <code>QueryData
 </code>
 </a>, to speed up repeated queries. This may lock up large amounts of memory; you can 
-<a href="formats.html#DafJL.Formats.empty_cache!">
+<a href="formats.html#DataAxesFormats.Formats.empty_cache!">
 <code>empty_cache!
 </code>
 </a> to release it.
@@ -364,21 +364,21 @@
 </code> axis).
 </p>
 <p>Alternatively, a query can be parsed from a string, which needs to be parsed into a 
-<a href="queries.html#DafJL.Queries.Query">
+<a href="queries.html#DataAxesFormats.Queries.Query">
 <code>Query
 </code>
 </a> object (e.g., the above can be written as 
 <code>Query(&quot;/gene:is_marker&quot;)
 </code>). See the 
-<a href="queries.html#DafJL.Queries.QUERY_OPERATORS">
+<a href="queries.html#DataAxesFormats.Queries.QUERY_OPERATORS">
 <code>QUERY_OPERATORS
 </code>
 </a> for a table of supported operators. Spaces (and comments) around the operators are optional; see 
-<a href="tokens.html#DafJL.Tokens.tokenize">
+<a href="tokens.html#DataAxesFormats.Tokens.tokenize">
 <code>tokenize
 </code>
 </a> for details. You can also convert a 
-<a href="queries.html#DafJL.Queries.Query">
+<a href="queries.html#DataAxesFormats.Queries.Query">
 <code>Query
 </code>
 </a> to a 
@@ -398,7 +398,7 @@
 </code> vs. 
 <code>Query(&quot;cell = ATCG\\:B1 : age&quot;)
 </code>). To make this even easier we provide the 
-<a href="queries.html#DafJL.Queries.@q_str">
+<a href="queries.html#DataAxesFormats.Queries.@q_str">
 <code>q
 </code>
 </a> macro (e.g., 
@@ -418,7 +418,7 @@
 </code> is the same as 
 <code>Axis(&quot;metacell&quot;)
 </code>). This is useful when providing suffix queries (e.g., for 
-<a href="queries.html#DafJL.Queries.get_frame">
+<a href="queries.html#DataAxesFormats.Queries.get_frame">
 <code>get_frame
 </code>
 </a>).
@@ -430,29 +430,29 @@
 <p>
 <code>Daf
 </code> provides a comprehensive set of 
-<a href="registry.html#DafJL.Registry.QueryOperation">
+<a href="registry.html#DataAxesFormats.Registry.QueryOperation">
 <code>QueryOperation
 </code>
 </a>s that can be used to construct queries. The 
-<a href="queries.html#DafJL.Queries.QUERY_OPERATORS">
+<a href="queries.html#DataAxesFormats.Queries.QUERY_OPERATORS">
 <code>QUERY_OPERATORS
 </code>
 </a> listed below provide the basic functionality (e.g., specifying an 
-<a href="queries.html#DafJL.Queries.Axis">
+<a href="queries.html#DataAxesFormats.Queries.Axis">
 <code>Axis
 </code>
 </a> or a property 
-<a href="queries.html#DafJL.Queries.Lookup">
+<a href="queries.html#DataAxesFormats.Queries.Lookup">
 <code>Lookup
 </code>
 </a>). In addition, 
 <code>Daf
 </code> provides computation operations (
-<a href="registry.html#DafJL.Registry.EltwiseOperation">
+<a href="registry.html#DataAxesFormats.Registry.EltwiseOperation">
 <code>EltwiseOperation
 </code>
 </a> and 
-<a href="registry.html#DafJL.Registry.ReductionOperation">
+<a href="registry.html#DataAxesFormats.Registry.ReductionOperation">
 <code>ReductionOperation
 </code>
 </a>), allowing for additional operations to be provided by external packages.
@@ -460,19 +460,19 @@
 <p>Obviously not all possible combinations of operations make sense (e.g., 
 <code>Lookup(&quot;is_marker&quot;) |&gt; Axis(&quot;cell&quot;)
 </code> will not work). For the full list of valid combinations, see 
-<a href="queries.html#DafJL.Queries.NAMES_QUERY">
+<a href="queries.html#DataAxesFormats.Queries.NAMES_QUERY">
 <code>NAMES_QUERY
 </code>
 </a>, 
-<a href="queries.html#DafJL.Queries.SCALAR_QUERY">
+<a href="queries.html#DataAxesFormats.Queries.SCALAR_QUERY">
 <code>SCALAR_QUERY
 </code>
 </a>, 
-<a href="queries.html#DafJL.Queries.VECTOR_QUERY">
+<a href="queries.html#DataAxesFormats.Queries.VECTOR_QUERY">
 <code>VECTOR_QUERY
 </code>
 </a> and 
-<a href="queries.html#DafJL.Queries.MATRIX_QUERY">
+<a href="queries.html#DataAxesFormats.Queries.MATRIX_QUERY">
 <code>MATRIX_QUERY
 </code>
 </a> below.
@@ -496,8 +496,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.@q_str" href="#DafJL.Queries.@q_str">
-<code>DafJL.Queries.@q_str
+<a class="docstring-binding" id="DataAxesFormats.Queries.@q_str" href="#DataAxesFormats.Queries.@q_str">
+<code>DataAxesFormats.Queries.@q_str
 </code>
 </a> — 
 <span class="docstring-category">Macro
@@ -512,11 +512,11 @@
 </code>
 </pre>
 <p>Shorthand for parsing a literal string as a 
-<a href="queries.html#DafJL.Queries.Query">
+<a href="queries.html#DataAxesFormats.Queries.Query">
 <code>Query
 </code>
 </a>. This is equivalent to 
-<a href="queries.html#DafJL.Queries.Query">
+<a href="queries.html#DataAxesFormats.Queries.Query">
 <code>Query
 </code>
 </a>
@@ -540,8 +540,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.QueryString" href="#DafJL.Queries.QueryString">
-<code>DafJL.Queries.QueryString
+<a class="docstring-binding" id="DataAxesFormats.Queries.QueryString" href="#DataAxesFormats.Queries.QueryString">
+<code>DataAxesFormats.Queries.QueryString
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -552,7 +552,7 @@
 <section>
 <div>
 <p>Most operations that take a query allow passing a string to be parsed into a query, or an actual 
-<a href="queries.html#DafJL.Queries.Query">
+<a href="queries.html#DataAxesFormats.Queries.Query">
 <code>Query
 </code>
 </a> object. This type is used as a convenient notation for such query parameters.
@@ -572,8 +572,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.get_query" href="#DafJL.Queries.get_query">
-<code>DafJL.Queries.get_query
+<a class="docstring-binding" id="DataAxesFormats.Queries.get_query" href="#DataAxesFormats.Queries.get_query">
+<code>DataAxesFormats.Queries.get_query
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -598,7 +598,7 @@
 </code> data and return the result. By default, this will cache results, so repeated queries will be accelerated. This may consume a large amount of memory. You can disable it by specifying 
 <code>cache = false
 </code>, or release the cached data using 
-<a href="formats.html#DafJL.Formats.empty_cache!">
+<a href="formats.html#DataAxesFormats.Formats.empty_cache!">
 <code>empty_cache!
 </code>
 </a>.
@@ -620,8 +620,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.get_frame" href="#DafJL.Queries.get_frame">
-<code>DafJL.Queries.get_frame
+<a class="docstring-binding" id="DataAxesFormats.Queries.get_frame" href="#DataAxesFormats.Queries.get_frame">
+<code>DataAxesFormats.Queries.get_frame
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -665,7 +665,7 @@
 <p>By default, this will cache results of all queries. This may consume a large amount of memory. You can disable it by specifying 
 <code>cache = false
 </code>, or release the cached data using 
-<a href="formats.html#DafJL.Formats.empty_cache!">
+<a href="formats.html#DataAxesFormats.Formats.empty_cache!">
 <code>empty_cache!
 </code>
 </a>.
@@ -677,8 +677,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.FrameColumn" href="#DafJL.Queries.FrameColumn">
-<code>DafJL.Queries.FrameColumn
+<a class="docstring-binding" id="DataAxesFormats.Queries.FrameColumn" href="#DataAxesFormats.Queries.FrameColumn">
+<code>DataAxesFormats.Queries.FrameColumn
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -689,7 +689,7 @@
 <section>
 <div>
 <p>Specify a column for 
-<a href="queries.html#DafJL.Queries.get_frame">
+<a href="queries.html#DataAxesFormats.Queries.get_frame">
 <code>get_frame
 </code>
 </a> for some axis. The most generic form is a pair 
@@ -707,14 +707,14 @@
 </code>.
 </p>
 <p>The query is combined with the axis query as follows (using 
-<a href="queries.html#DafJL.Queries.full_vector_query">
+<a href="queries.html#DataAxesFormats.Queries.full_vector_query">
 <code>full_vector_query
 </code>
 </a>:
 </p>
 <ul>
 <li>If the query contains 
-<a href="queries.html#DafJL.Queries.GroupBy">
+<a href="queries.html#DataAxesFormats.Queries.GroupBy">
 <code>GroupBy
 </code>
 </a>, then the query must repeat any mask specified for the axis query. That is, if the axis query is 
@@ -722,7 +722,7 @@
 </code>, then the column query must be 
 <code>/ cell &amp; metacell =&gt; type = B @ metacell : age %&gt; Mean
 </code>. Sorry for the inconvenience. TODO: Automatically inject the mask into 
-<a href="queries.html#DafJL.Queries.GroupBy">
+<a href="queries.html#DataAxesFormats.Queries.GroupBy">
 <code>GroupBy
 </code>
 </a> column queries.
@@ -753,8 +753,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.FrameColumns" href="#DafJL.Queries.FrameColumns">
-<code>DafJL.Queries.FrameColumns
+<a class="docstring-binding" id="DataAxesFormats.Queries.FrameColumns" href="#DataAxesFormats.Queries.FrameColumns">
+<code>DataAxesFormats.Queries.FrameColumns
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -779,8 +779,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.full_vector_query" href="#DafJL.Queries.full_vector_query">
-<code>DafJL.Queries.full_vector_query
+<a class="docstring-binding" id="DataAxesFormats.Queries.full_vector_query" href="#DataAxesFormats.Queries.full_vector_query">
+<code>DataAxesFormats.Queries.full_vector_query
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -799,11 +799,11 @@
 </code>
 </pre>
 <p>Given a query for an axis, and some suffix query for a vector property, combine them into a full query for the vector values for the axis. This is used by 
-<a href="queries.html#DafJL.Queries.FrameColumn">
+<a href="queries.html#DataAxesFormats.Queries.FrameColumn">
 <code>FrameColumn
 </code>
 </a> for 
-<a href="queries.html#DafJL.Queries.get_frame">
+<a href="queries.html#DataAxesFormats.Queries.get_frame">
 <code>get_frame
 </code>
 </a> and also for queries of vector data in views.
@@ -815,8 +815,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.query_result_dimensions" href="#DafJL.Queries.query_result_dimensions">
-<code>DafJL.Queries.query_result_dimensions
+<a class="docstring-binding" id="DataAxesFormats.Queries.query_result_dimensions" href="#DataAxesFormats.Queries.query_result_dimensions">
+<code>DataAxesFormats.Queries.query_result_dimensions
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -841,8 +841,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.query_requires_relayout" href="#DafJL.Queries.query_requires_relayout">
-<code>DafJL.Queries.query_requires_relayout
+<a class="docstring-binding" id="DataAxesFormats.Queries.query_requires_relayout" href="#DataAxesFormats.Queries.query_requires_relayout">
+<code>DataAxesFormats.Queries.query_requires_relayout
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -861,7 +861,7 @@
 </code> for the 
 <code>daf
 </code> data requires 
-<a href="matrix_layouts.html#DafJL.MatrixLayouts.relayout!">
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.relayout!">
 <code>relayout!
 </code>
 </a> of some matrix. This also verifies the query is syntactically valid and that the query can be computed, though it may still fail if applied to specific data due to invalid values or types.
@@ -873,8 +873,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.is_axis_query" href="#DafJL.Queries.is_axis_query">
-<code>DafJL.Queries.is_axis_query
+<a class="docstring-binding" id="DataAxesFormats.Queries.is_axis_query" href="#DataAxesFormats.Queries.is_axis_query">
+<code>DataAxesFormats.Queries.is_axis_query
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -907,8 +907,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.QUERY_OPERATORS" href="#DafJL.Queries.QUERY_OPERATORS">
-<code>DafJL.Queries.QUERY_OPERATORS
+<a class="docstring-binding" id="DataAxesFormats.Queries.QUERY_OPERATORS" href="#DataAxesFormats.Queries.QUERY_OPERATORS">
+<code>DataAxesFormats.Queries.QUERY_OPERATORS
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -919,7 +919,7 @@
 <section>
 <div>
 <p>Operators used to represent a 
-<a href="queries.html#DafJL.Queries.Query">
+<a href="queries.html#DataAxesFormats.Queries.Query">
 <code>Query
 </code>
 </a> as a string.
@@ -939,7 +939,7 @@
 </code>
 </td>
 <td style="text-align: center">
-<a href="queries.html#DafJL.Queries.Axis">
+<a href="queries.html#DataAxesFormats.Queries.Axis">
 <code>Axis
 </code>
 </a>
@@ -957,7 +957,7 @@
 </code>
 </td>
 <td style="text-align: center">
-<a href="queries.html#DafJL.Queries.Names">
+<a href="queries.html#DataAxesFormats.Queries.Names">
 <code>Names
 </code>
 </a>
@@ -995,7 +995,7 @@
 </code>
 </td>
 <td style="text-align: center">
-<a href="queries.html#DafJL.Queries.Lookup">
+<a href="queries.html#DataAxesFormats.Queries.Lookup">
 <code>Lookup
 </code>
 </a>
@@ -1015,7 +1015,7 @@
 </code>
 </td>
 <td style="text-align: center">
-<a href="queries.html#DafJL.Queries.Fetch">
+<a href="queries.html#DataAxesFormats.Queries.Fetch">
 <code>Fetch
 </code>
 </a>
@@ -1031,7 +1031,7 @@
 </code>
 </td>
 <td style="text-align: center">
-<a href="queries.html#DafJL.Queries.MaskSlice">
+<a href="queries.html#DataAxesFormats.Queries.MaskSlice">
 <code>MaskSlice
 </code>
 </a>
@@ -1047,7 +1047,7 @@
 </code>
 </td>
 <td style="text-align: center">
-<a href="queries.html#DafJL.Queries.SquareMaskColumn">
+<a href="queries.html#DataAxesFormats.Queries.SquareMaskColumn">
 <code>SquareMaskColumn
 </code>
 </a>
@@ -1063,7 +1063,7 @@
 </code>
 </td>
 <td style="text-align: center">
-<a href="queries.html#DafJL.Queries.SquareMaskRow">
+<a href="queries.html#DataAxesFormats.Queries.SquareMaskRow">
 <code>SquareMaskRow
 </code>
 </a>
@@ -1079,7 +1079,7 @@
 </code>
 </td>
 <td style="text-align: center">
-<a href="queries.html#DafJL.Queries.AsAxis">
+<a href="queries.html#DataAxesFormats.Queries.AsAxis">
 <code>AsAxis
 </code>
 </a>
@@ -1115,7 +1115,7 @@
 </code>
 </td>
 <td style="text-align: center">
-<a href="queries.html#DafJL.Queries.IfNot">
+<a href="queries.html#DataAxesFormats.Queries.IfNot">
 <code>IfNot
 </code>
 </a>
@@ -1151,7 +1151,7 @@
 </code>
 </td>
 <td style="text-align: center">
-<a href="queries.html#DafJL.Queries.IfMissing">
+<a href="queries.html#DataAxesFormats.Queries.IfMissing">
 <code>IfMissing
 </code>
 </a>
@@ -1183,7 +1183,7 @@
 </code>
 </td>
 <td style="text-align: center">
-<a href="registry.html#DafJL.Registry.EltwiseOperation">
+<a href="registry.html#DataAxesFormats.Registry.EltwiseOperation">
 <code>EltwiseOperation
 </code>
 </a>
@@ -1199,7 +1199,7 @@
 </code>
 </td>
 <td style="text-align: center">
-<a href="registry.html#DafJL.Registry.ReductionOperation">
+<a href="registry.html#DataAxesFormats.Registry.ReductionOperation">
 <code>ReductionOperation
 </code>
 </a>
@@ -1215,7 +1215,7 @@
 </code>
 </td>
 <td style="text-align: center">
-<a href="queries.html#DafJL.Queries.CountBy">
+<a href="queries.html#DataAxesFormats.Queries.CountBy">
 <code>CountBy
 </code>
 </a>
@@ -1231,7 +1231,7 @@
 </code>
 </td>
 <td style="text-align: center">
-<a href="queries.html#DafJL.Queries.GroupBy">
+<a href="queries.html#DataAxesFormats.Queries.GroupBy">
 <code>GroupBy
 </code>
 </a>
@@ -1257,7 +1257,7 @@
 </code>
 </td>
 <td style="text-align: center">
-<a href="queries.html#DafJL.Queries.And">
+<a href="queries.html#DataAxesFormats.Queries.And">
 <code>And
 </code>
 </a>
@@ -1273,7 +1273,7 @@
 </code>
 </td>
 <td style="text-align: center">
-<a href="queries.html#DafJL.Queries.AndNot">
+<a href="queries.html#DataAxesFormats.Queries.AndNot">
 <code>AndNot
 </code>
 </a>
@@ -1289,7 +1289,7 @@
 </code>
 </td>
 <td style="text-align: center">
-<a href="queries.html#DafJL.Queries.Or">
+<a href="queries.html#DataAxesFormats.Queries.Or">
 <code>Or
 </code>
 </a>
@@ -1305,7 +1305,7 @@
 </code>
 </td>
 <td style="text-align: center">
-<a href="queries.html#DafJL.Queries.OrNot">
+<a href="queries.html#DataAxesFormats.Queries.OrNot">
 <code>OrNot
 </code>
 </a>
@@ -1321,7 +1321,7 @@
 </code>
 </td>
 <td style="text-align: center">
-<a href="queries.html#DafJL.Queries.Xor">
+<a href="queries.html#DataAxesFormats.Queries.Xor">
 <code>Xor
 </code>
 </a>
@@ -1337,7 +1337,7 @@
 </code>
 </td>
 <td style="text-align: center">
-<a href="queries.html#DafJL.Queries.XorNot">
+<a href="queries.html#DataAxesFormats.Queries.XorNot">
 <code>XorNot
 </code>
 </a>
@@ -1353,7 +1353,7 @@
 </code>
 </td>
 <td style="text-align: center">
-<a href="queries.html#DafJL.Queries.IsEqual">
+<a href="queries.html#DataAxesFormats.Queries.IsEqual">
 <code>IsEqual
 </code>
 </a>
@@ -1379,7 +1379,7 @@
 </code>
 </td>
 <td style="text-align: center">
-<a href="queries.html#DafJL.Queries.IsNotEqual">
+<a href="queries.html#DataAxesFormats.Queries.IsNotEqual">
 <code>IsNotEqual
 </code>
 </a>
@@ -1395,7 +1395,7 @@
 </code>
 </td>
 <td style="text-align: center">
-<a href="queries.html#DafJL.Queries.IsLess">
+<a href="queries.html#DataAxesFormats.Queries.IsLess">
 <code>IsLess
 </code>
 </a>
@@ -1411,7 +1411,7 @@
 </code>
 </td>
 <td style="text-align: center">
-<a href="queries.html#DafJL.Queries.IsLessEqual">
+<a href="queries.html#DataAxesFormats.Queries.IsLessEqual">
 <code>IsLessEqual
 </code>
 </a>
@@ -1427,7 +1427,7 @@
 </code>
 </td>
 <td style="text-align: center">
-<a href="queries.html#DafJL.Queries.IsGreater">
+<a href="queries.html#DataAxesFormats.Queries.IsGreater">
 <code>IsGreater
 </code>
 </a>
@@ -1443,7 +1443,7 @@
 </code>
 </td>
 <td style="text-align: center">
-<a href="queries.html#DafJL.Queries.IsGreaterEqual">
+<a href="queries.html#DataAxesFormats.Queries.IsGreaterEqual">
 <code>IsGreaterEqual
 </code>
 </a>
@@ -1459,7 +1459,7 @@
 </code>
 </td>
 <td style="text-align: center">
-<a href="queries.html#DafJL.Queries.IsMatch">
+<a href="queries.html#DataAxesFormats.Queries.IsMatch">
 <code>IsMatch
 </code>
 </a>
@@ -1475,7 +1475,7 @@
 </code>
 </td>
 <td style="text-align: center">
-<a href="queries.html#DafJL.Queries.IsNotMatch">
+<a href="queries.html#DataAxesFormats.Queries.IsNotMatch">
 <code>IsNotMatch
 </code>
 </a>
@@ -1509,8 +1509,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.NAMES_QUERY" href="#DafJL.Queries.NAMES_QUERY">
-<code>DafJL.Queries.NAMES_QUERY
+<a class="docstring-binding" id="DataAxesFormats.Queries.NAMES_QUERY" href="#DataAxesFormats.Queries.NAMES_QUERY">
+<code>DataAxesFormats.Queries.NAMES_QUERY
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -1523,35 +1523,35 @@
 <p>
 <code>NAMES_QUERY
 </code> := ( 
-<a href="queries.html#DafJL.Queries.Names">
+<a href="queries.html#DataAxesFormats.Queries.Names">
 <code>Names
 </code>
 </a> 
 <code>scalars
 </code> | 
-<a href="queries.html#DafJL.Queries.Names">
+<a href="queries.html#DataAxesFormats.Queries.Names">
 <code>Names
 </code>
 </a> 
 <code>axes
 </code> | 
-<a href="queries.html#DafJL.Queries.Axis">
+<a href="queries.html#DataAxesFormats.Queries.Axis">
 <code>Axis
 </code>
 </a> 
-<a href="queries.html#DafJL.Queries.Names">
+<a href="queries.html#DataAxesFormats.Queries.Names">
 <code>Names
 </code>
 </a> | 
-<a href="queries.html#DafJL.Queries.Axis">
+<a href="queries.html#DataAxesFormats.Queries.Axis">
 <code>Axis
 </code>
 </a> 
-<a href="queries.html#DafJL.Queries.Axis">
+<a href="queries.html#DataAxesFormats.Queries.Axis">
 <code>Axis
 </code>
 </a> 
-<a href="queries.html#DafJL.Queries.Names">
+<a href="queries.html#DataAxesFormats.Queries.Names">
 <code>Names
 </code>
 </a> )
@@ -1583,8 +1583,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.SCALAR_QUERY" href="#DafJL.Queries.SCALAR_QUERY">
-<code>DafJL.Queries.SCALAR_QUERY
+<a class="docstring-binding" id="DataAxesFormats.Queries.SCALAR_QUERY" href="#DataAxesFormats.Queries.SCALAR_QUERY">
+<code>DataAxesFormats.Queries.SCALAR_QUERY
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -1599,19 +1599,19 @@
 </code> := ( 
 <code>LOOKUP_PROPERTY
 </code>](@ref) | 
-<a href="queries.html#DafJL.Queries.VECTOR_ENTRY">
+<a href="queries.html#DataAxesFormats.Queries.VECTOR_ENTRY">
 <code>VECTOR_ENTRY
 </code>
 </a> | 
-<a href="queries.html#DafJL.Queries.MATRIX_ENTRY">
+<a href="queries.html#DataAxesFormats.Queries.MATRIX_ENTRY">
 <code>MATRIX_ENTRY
 </code>
 </a> | 
-<a href="queries.html#DafJL.Queries.REDUCE_VECTOR">
+<a href="queries.html#DataAxesFormats.Queries.REDUCE_VECTOR">
 <code>REDUCE_VECTOR
 </code>
 </a> ) 
-<a href="registry.html#DafJL.Registry.EltwiseOperation">
+<a href="registry.html#DataAxesFormats.Registry.EltwiseOperation">
 <code>EltwiseOperation
 </code>
 </a>*
@@ -1637,7 +1637,7 @@
 </li>
 </ul>
 <p>Either way, this can be followed by a series of 
-<a href="registry.html#DafJL.Registry.EltwiseOperation">
+<a href="registry.html#DataAxesFormats.Registry.EltwiseOperation">
 <code>EltwiseOperation
 </code>
 </a> to modify the scalar result (e.g., 
@@ -1651,8 +1651,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.LOOKUP_PROPERTY" href="#DafJL.Queries.LOOKUP_PROPERTY">
-<code>DafJL.Queries.LOOKUP_PROPERTY
+<a class="docstring-binding" id="DataAxesFormats.Queries.LOOKUP_PROPERTY" href="#DataAxesFormats.Queries.LOOKUP_PROPERTY">
+<code>DataAxesFormats.Queries.LOOKUP_PROPERTY
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -1665,11 +1665,11 @@
 <p>
 <code>LOOKUP_PROPERTY
 </code> := 
-<a href="queries.html#DafJL.Queries.Lookup">
+<a href="queries.html#DataAxesFormats.Queries.Lookup">
 <code>Lookup
 </code>
 </a> 
-<a href="queries.html#DafJL.Queries.IfMissing">
+<a href="queries.html#DataAxesFormats.Queries.IfMissing">
 <code>IfMissing
 </code>
 </a>?
@@ -1681,7 +1681,7 @@
 </code>).
 </p>
 <p>By default, it is an error if the property does not exist. However, if an 
-<a href="queries.html#DafJL.Queries.IfMissing">
+<a href="queries.html#DataAxesFormats.Queries.IfMissing">
 <code>IfMissing
 </code>
 </a> is provided, then this value is used instead (e.g., 
@@ -1697,7 +1697,7 @@
 </code> matrix property).
 </p>
 <p>Accessing a 
-<a href="queries.html#DafJL.Queries.VECTOR_PROPERTY">
+<a href="queries.html#DataAxesFormats.Queries.VECTOR_PROPERTY">
 <code>VECTOR_PROPERTY
 </code>
 </a> allows for more complex operations.
@@ -1709,8 +1709,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.VECTOR_ENTRY" href="#DafJL.Queries.VECTOR_ENTRY">
-<code>DafJL.Queries.VECTOR_ENTRY
+<a class="docstring-binding" id="DataAxesFormats.Queries.VECTOR_ENTRY" href="#DataAxesFormats.Queries.VECTOR_ENTRY">
+<code>DataAxesFormats.Queries.VECTOR_ENTRY
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -1723,15 +1723,15 @@
 <p>
 <code>VECTOR_ENTRY
 </code> := 
-<a href="queries.html#DafJL.Queries.Axis">
+<a href="queries.html#DataAxesFormats.Queries.Axis">
 <code>Axis
 </code>
 </a> 
-<a href="queries.html#DafJL.Queries.IsEqual">
+<a href="queries.html#DataAxesFormats.Queries.IsEqual">
 <code>IsEqual
 </code>
 </a> 
-<a href="queries.html#DafJL.Queries.VECTOR_LOOKUP">
+<a href="queries.html#DataAxesFormats.Queries.VECTOR_LOOKUP">
 <code>VECTOR_LOOKUP
 </code>
 </a>
@@ -1747,8 +1747,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.MATRIX_ENTRY" href="#DafJL.Queries.MATRIX_ENTRY">
-<code>DafJL.Queries.MATRIX_ENTRY
+<a class="docstring-binding" id="DataAxesFormats.Queries.MATRIX_ENTRY" href="#DataAxesFormats.Queries.MATRIX_ENTRY">
+<code>DataAxesFormats.Queries.MATRIX_ENTRY
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -1761,23 +1761,23 @@
 <p>
 <code>MATRIX_ENTRY
 </code> := 
-<a href="queries.html#DafJL.Queries.Axis">
+<a href="queries.html#DataAxesFormats.Queries.Axis">
 <code>Axis
 </code>
 </a> 
-<a href="queries.html#DafJL.Queries.IsEqual">
+<a href="queries.html#DataAxesFormats.Queries.IsEqual">
 <code>IsEqual
 </code>
 </a> 
-<a href="queries.html#DafJL.Queries.Axis">
+<a href="queries.html#DataAxesFormats.Queries.Axis">
 <code>Axis
 </code>
 </a> 
-<a href="queries.html#DafJL.Queries.IsEqual">
+<a href="queries.html#DataAxesFormats.Queries.IsEqual">
 <code>IsEqual
 </code>
 </a> 
-<a href="queries.html#DafJL.Queries.LOOKUP_PROPERTY">
+<a href="queries.html#DataAxesFormats.Queries.LOOKUP_PROPERTY">
 <code>LOOKUP_PROPERTY
 </code>
 </a>
@@ -1793,8 +1793,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.REDUCE_VECTOR" href="#DafJL.Queries.REDUCE_VECTOR">
-<code>DafJL.Queries.REDUCE_VECTOR
+<a class="docstring-binding" id="DataAxesFormats.Queries.REDUCE_VECTOR" href="#DataAxesFormats.Queries.REDUCE_VECTOR">
+<code>DataAxesFormats.Queries.REDUCE_VECTOR
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -1817,7 +1817,7 @@
 </code> will compute the mean age of the ages of the donors).
 </p>
 <p>By default, it is an error if the vector query results in an empty vector. However, if an 
-<a href="queries.html#DafJL.Queries.IfMissing">
+<a href="queries.html#DataAxesFormats.Queries.IfMissing">
 <code>IfMissing
 </code>
 </a> suffix is provided, then this value is used instead (e.g., 
@@ -1831,8 +1831,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.VECTOR_QUERY" href="#DafJL.Queries.VECTOR_QUERY">
-<code>DafJL.Queries.VECTOR_QUERY
+<a class="docstring-binding" id="DataAxesFormats.Queries.VECTOR_QUERY" href="#DataAxesFormats.Queries.VECTOR_QUERY">
+<code>DataAxesFormats.Queries.VECTOR_QUERY
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -1845,23 +1845,23 @@
 <p>
 <code>VECTOR_QUERY
 </code> := ( 
-<a href="queries.html#DafJL.Queries.VECTOR_PROPERTY">
+<a href="queries.html#DataAxesFormats.Queries.VECTOR_PROPERTY">
 <code>VECTOR_PROPERTY
 </code>
 </a> | 
-<a href="queries.html#DafJL.Queries.MATRIX_ROW">
+<a href="queries.html#DataAxesFormats.Queries.MATRIX_ROW">
 <code>MATRIX_ROW
 </code>
 </a> | 
-<a href="queries.html#DafJL.Queries.MATRIX_COLUMN">
+<a href="queries.html#DataAxesFormats.Queries.MATRIX_COLUMN">
 <code>MATRIX_COLUMN
 </code>
 </a> | 
-<a href="queries.html#DafJL.Queries.REDUCE_MATRIX">
+<a href="queries.html#DataAxesFormats.Queries.REDUCE_MATRIX">
 <code>REDUCE_MATRIX
 </code>
 </a> ) 
-<a href="queries.html#DafJL.Queries.POST_PROCESS">
+<a href="queries.html#DataAxesFormats.Queries.POST_PROCESS">
 <code>POST_PROCESS
 </code>
 </a>*
@@ -1893,8 +1893,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.VECTOR_PROPERTY" href="#DafJL.Queries.VECTOR_PROPERTY">
-<code>DafJL.Queries.VECTOR_PROPERTY
+<a class="docstring-binding" id="DataAxesFormats.Queries.VECTOR_PROPERTY" href="#DataAxesFormats.Queries.VECTOR_PROPERTY">
+<code>DataAxesFormats.Queries.VECTOR_PROPERTY
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -1907,19 +1907,19 @@
 <p>
 <code>VECTOR_PROPERTY
 </code> := 
-<a href="queries.html#DafJL.Queries.Axis">
+<a href="queries.html#DataAxesFormats.Queries.Axis">
 <code>Axis
 </code>
 </a> 
-<a href="queries.html#DafJL.Queries.AXIS_MASK">
+<a href="queries.html#DataAxesFormats.Queries.AXIS_MASK">
 <code>AXIS_MASK
 </code>
 </a>* 
-<a href="queries.html#DafJL.Queries.VECTOR_LOOKUP">
+<a href="queries.html#DataAxesFormats.Queries.VECTOR_LOOKUP">
 <code>VECTOR_LOOKUP
 </code>
 </a> 
-<a href="queries.html#DafJL.Queries.VECTOR_FETCH">
+<a href="queries.html#DataAxesFormats.Queries.VECTOR_FETCH">
 <code>VECTOR_FETCH
 </code>
 </a>*
@@ -1939,8 +1939,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.VECTOR_LOOKUP" href="#DafJL.Queries.VECTOR_LOOKUP">
-<code>DafJL.Queries.VECTOR_LOOKUP
+<a class="docstring-binding" id="DataAxesFormats.Queries.VECTOR_LOOKUP" href="#DataAxesFormats.Queries.VECTOR_LOOKUP">
+<code>DataAxesFormats.Queries.VECTOR_LOOKUP
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -1953,25 +1953,25 @@
 <p>
 <code>VECTOR_LOOKUP
 </code> := 
-<a href="queries.html#DafJL.Queries.Lookup">
+<a href="queries.html#DataAxesFormats.Queries.Lookup">
 <code>Lookup
 </code>
 </a> 
-<a href="queries.html#DafJL.Queries.IfMissing">
+<a href="queries.html#DataAxesFormats.Queries.IfMissing">
 <code>IfMissing
 </code>
 </a>? ( 
-<a href="queries.html#DafJL.Queries.IfNot">
+<a href="queries.html#DataAxesFormats.Queries.IfNot">
 <code>IfNot
 </code>
 </a> | 
-<a href="queries.html#DafJL.Queries.AsAxis">
+<a href="queries.html#DataAxesFormats.Queries.AsAxis">
 <code>AsAxis
 </code>
 </a> )?
 </p>
 <p>A 
-<a href="queries.html#DafJL.Queries.Lookup">
+<a href="queries.html#DataAxesFormats.Queries.Lookup">
 <code>Lookup
 </code>
 </a> of a vector property (e.g., 
@@ -1979,7 +1979,7 @@
 </code> will return the type of each cell).
 </p>
 <p>By default, it is an error if the property does not exist. However, if an 
-<a href="queries.html#DafJL.Queries.IfMissing">
+<a href="queries.html#DataAxesFormats.Queries.IfMissing">
 <code>IfMissing
 </code>
 </a> is provided, then this value is used instead (e.g., 
@@ -1993,7 +1993,7 @@
 </code> axis).
 </p>
 <p>If the 
-<a href="queries.html#DafJL.Queries.IfNot">
+<a href="queries.html#DataAxesFormats.Queries.IfNot">
 <code>IfNot
 </code>
 </a> suffix is provided, it controls how to modify &quot;false-ish&quot; (empty string, zero numeric value, or false Boolean value) entries (e.g., 
@@ -2005,19 +2005,19 @@
 </code>).
 </p>
 <p>Only when the vector property is used for 
-<a href="queries.html#DafJL.Queries.CountBy">
+<a href="queries.html#DataAxesFormats.Queries.CountBy">
 <code>CountBy
 </code>
 </a> or for 
-<a href="queries.html#DafJL.Queries.GroupBy">
+<a href="queries.html#DataAxesFormats.Queries.GroupBy">
 <code>GroupBy
 </code>
 </a>, providing the 
-<a href="queries.html#DafJL.Queries.AsAxis">
+<a href="queries.html#DataAxesFormats.Queries.AsAxis">
 <code>AsAxis
 </code>
 </a> suffix indicates that the property is associated with an axis (similar to an indirect axis in 
-<a href="queries.html#DafJL.Queries.Fetch">
+<a href="queries.html#DataAxesFormats.Queries.Fetch">
 <code>Fetch
 </code>
 </a>), and the set of groups is forced to be the values of that axis; in this case, empty string values are always ignored (e.g., 
@@ -2033,8 +2033,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.MATRIX_ROW" href="#DafJL.Queries.MATRIX_ROW">
-<code>DafJL.Queries.MATRIX_ROW
+<a class="docstring-binding" id="DataAxesFormats.Queries.MATRIX_ROW" href="#DataAxesFormats.Queries.MATRIX_ROW">
+<code>DataAxesFormats.Queries.MATRIX_ROW
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -2047,23 +2047,23 @@
 <p>
 <code>MATRIX_ROW
 </code> := 
-<a href="queries.html#DafJL.Queries.Axis">
+<a href="queries.html#DataAxesFormats.Queries.Axis">
 <code>Axis
 </code>
 </a> 
-<a href="queries.html#DafJL.Queries.IsEqual">
+<a href="queries.html#DataAxesFormats.Queries.IsEqual">
 <code>IsEqual
 </code>
 </a> 
-<a href="queries.html#DafJL.Queries.Axis">
+<a href="queries.html#DataAxesFormats.Queries.Axis">
 <code>Axis
 </code>
 </a> 
-<a href="queries.html#DafJL.Queries.AXIS_MASK">
+<a href="queries.html#DataAxesFormats.Queries.AXIS_MASK">
 <code>AXIS_MASK
 </code>
 </a>* 
-<a href="queries.html#DafJL.Queries.Lookup">
+<a href="queries.html#DataAxesFormats.Queries.Lookup">
 <code>Lookup
 </code>
 </a>
@@ -2079,8 +2079,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.MATRIX_COLUMN" href="#DafJL.Queries.MATRIX_COLUMN">
-<code>DafJL.Queries.MATRIX_COLUMN
+<a class="docstring-binding" id="DataAxesFormats.Queries.MATRIX_COLUMN" href="#DataAxesFormats.Queries.MATRIX_COLUMN">
+<code>DataAxesFormats.Queries.MATRIX_COLUMN
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -2093,23 +2093,23 @@
 <p>
 <code>MATRIX_COLUMN
 </code> := 
-<a href="queries.html#DafJL.Queries.Axis">
+<a href="queries.html#DataAxesFormats.Queries.Axis">
 <code>Axis
 </code>
 </a> 
-<a href="queries.html#DafJL.Queries.AXIS_MASK">
+<a href="queries.html#DataAxesFormats.Queries.AXIS_MASK">
 <code>AXIS_MASK
 </code>
 </a>* 
-<a href="queries.html#DafJL.Queries.Axis">
+<a href="queries.html#DataAxesFormats.Queries.Axis">
 <code>Axis
 </code>
 </a> 
-<a href="queries.html#DafJL.Queries.IsEqual">
+<a href="queries.html#DataAxesFormats.Queries.IsEqual">
 <code>IsEqual
 </code>
 </a> 
-<a href="queries.html#DafJL.Queries.Lookup">
+<a href="queries.html#DataAxesFormats.Queries.Lookup">
 <code>Lookup
 </code>
 </a>
@@ -2125,8 +2125,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.REDUCE_MATRIX" href="#DafJL.Queries.REDUCE_MATRIX">
-<code>DafJL.Queries.REDUCE_MATRIX
+<a class="docstring-binding" id="DataAxesFormats.Queries.REDUCE_MATRIX" href="#DataAxesFormats.Queries.REDUCE_MATRIX">
+<code>DataAxesFormats.Queries.REDUCE_MATRIX
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -2139,11 +2139,11 @@
 <p>
 <code>REDUCE_MATRIX
 </code> := 
-<a href="queries.html#DafJL.Queries.MATRIX_QUERY">
+<a href="queries.html#DataAxesFormats.Queries.MATRIX_QUERY">
 <code>MATRIX_QUERY
 </code>
 </a> 
-<a href="registry.html#DafJL.Registry.ReductionOperation">
+<a href="registry.html#DataAxesFormats.Registry.ReductionOperation">
 <code>ReductionOperation
 </code>
 </a>
@@ -2159,8 +2159,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.MATRIX_QUERY" href="#DafJL.Queries.MATRIX_QUERY">
-<code>DafJL.Queries.MATRIX_QUERY
+<a class="docstring-binding" id="DataAxesFormats.Queries.MATRIX_QUERY" href="#DataAxesFormats.Queries.MATRIX_QUERY">
+<code>DataAxesFormats.Queries.MATRIX_QUERY
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -2173,15 +2173,15 @@
 <p>
 <code>MATRIX_QUERY
 </code> := ( 
-<a href="queries.html#DafJL.Queries.MATRIX_LOOKUP">
+<a href="queries.html#DataAxesFormats.Queries.MATRIX_LOOKUP">
 <code>MATRIX_LOOKUP
 </code>
 </a> | 
-<a href="queries.html#DafJL.Queries.COUNTS_MATRIX">
+<a href="queries.html#DataAxesFormats.Queries.COUNTS_MATRIX">
 <code>COUNTS_MATRIX
 </code>
 </a> ) 
-<a href="queries.html#DafJL.Queries.POST_PROCESS">
+<a href="queries.html#DataAxesFormats.Queries.POST_PROCESS">
 <code>POST_PROCESS
 </code>
 </a>*
@@ -2199,7 +2199,7 @@
 </li>
 </ul>
 <p>Either way, this can be followed by a series of 
-<a href="registry.html#DafJL.Registry.EltwiseOperation">
+<a href="registry.html#DataAxesFormats.Registry.EltwiseOperation">
 <code>EltwiseOperation
 </code>
 </a> to modify the results (e.g., 
@@ -2213,8 +2213,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.MATRIX_LOOKUP" href="#DafJL.Queries.MATRIX_LOOKUP">
-<code>DafJL.Queries.MATRIX_LOOKUP
+<a class="docstring-binding" id="DataAxesFormats.Queries.MATRIX_LOOKUP" href="#DataAxesFormats.Queries.MATRIX_LOOKUP">
+<code>DataAxesFormats.Queries.MATRIX_LOOKUP
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -2227,23 +2227,23 @@
 <p>
 <code>MATRIX_LOOKUP
 </code> := 
-<a href="queries.html#DafJL.Queries.Axis">
+<a href="queries.html#DataAxesFormats.Queries.Axis">
 <code>Axis
 </code>
 </a> 
-<a href="queries.html#DafJL.Queries.AXIS_MASK">
+<a href="queries.html#DataAxesFormats.Queries.AXIS_MASK">
 <code>AXIS_MASK
 </code>
 </a>* 
-<a href="queries.html#DafJL.Queries.Axis">
+<a href="queries.html#DataAxesFormats.Queries.Axis">
 <code>Axis
 </code>
 </a> 
-<a href="queries.html#DafJL.Queries.AXIS_MASK">
+<a href="queries.html#DataAxesFormats.Queries.AXIS_MASK">
 <code>AXIS_MASK
 </code>
 </a>* 
-<a href="queries.html#DafJL.Queries.Lookup">
+<a href="queries.html#DataAxesFormats.Queries.Lookup">
 <code>Lookup
 </code>
 </a>
@@ -2261,8 +2261,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.COUNTS_MATRIX" href="#DafJL.Queries.COUNTS_MATRIX">
-<code>DafJL.Queries.COUNTS_MATRIX
+<a class="docstring-binding" id="DataAxesFormats.Queries.COUNTS_MATRIX" href="#DataAxesFormats.Queries.COUNTS_MATRIX">
+<code>DataAxesFormats.Queries.COUNTS_MATRIX
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -2275,15 +2275,15 @@
 <p>
 <code>COUNTS_MATRIX
 </code> := 
-<a href="queries.html#DafJL.Queries.VECTOR_QUERY">
+<a href="queries.html#DataAxesFormats.Queries.VECTOR_QUERY">
 <code>VECTOR_QUERY
 </code>
 </a> 
-<a href="queries.html#DafJL.Queries.CountBy">
+<a href="queries.html#DataAxesFormats.Queries.CountBy">
 <code>CountBy
 </code>
 </a> 
-<a href="queries.html#DafJL.Queries.VECTOR_FETCH">
+<a href="queries.html#DataAxesFormats.Queries.VECTOR_FETCH">
 <code>VECTOR_FETCH
 </code>
 </a>*
@@ -2299,8 +2299,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.POST_PROCESS" href="#DafJL.Queries.POST_PROCESS">
-<code>DafJL.Queries.POST_PROCESS
+<a class="docstring-binding" id="DataAxesFormats.Queries.POST_PROCESS" href="#DataAxesFormats.Queries.POST_PROCESS">
+<code>DataAxesFormats.Queries.POST_PROCESS
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -2313,11 +2313,11 @@
 <p>
 <code>POST_PROCESS
 </code> := 
-<a href="registry.html#DafJL.Registry.EltwiseOperation">
+<a href="registry.html#DataAxesFormats.Registry.EltwiseOperation">
 <code>EltwiseOperation
 </code>
 </a> | 
-<a href="queries.html#DafJL.Queries.GROUP_BY">
+<a href="queries.html#DataAxesFormats.Queries.GROUP_BY">
 <code>GROUP_BY
 </code>
 </a>
@@ -2326,7 +2326,7 @@
 </p>
 <ul>
 <li>Applying an 
-<a href="registry.html#DafJL.Registry.EltwiseOperation">
+<a href="registry.html#DataAxesFormats.Registry.EltwiseOperation">
 <code>EltwiseOperation
 </code>
 </a> operation to each value (e.g., 
@@ -2349,8 +2349,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.GROUP_BY" href="#DafJL.Queries.GROUP_BY">
-<code>DafJL.Queries.GROUP_BY
+<a class="docstring-binding" id="DataAxesFormats.Queries.GROUP_BY" href="#DataAxesFormats.Queries.GROUP_BY">
+<code>DataAxesFormats.Queries.GROUP_BY
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -2363,25 +2363,25 @@
 <p>
 <code>GROUP_BY
 </code> := 
-<a href="queries.html#DafJL.Queries.GroupBy">
+<a href="queries.html#DataAxesFormats.Queries.GroupBy">
 <code>GroupBy
 </code>
 </a> 
-<a href="queries.html#DafJL.Queries.VECTOR_FETCH">
+<a href="queries.html#DataAxesFormats.Queries.VECTOR_FETCH">
 <code>VECTOR_FETCH
 </code>
 </a>* 
-<a href="registry.html#DafJL.Registry.ReductionOperation">
+<a href="registry.html#DataAxesFormats.Registry.ReductionOperation">
 <code>ReductionOperation
 </code>
 </a> 
-<a href="queries.html#DafJL.Queries.IfMissing">
+<a href="queries.html#DataAxesFormats.Queries.IfMissing">
 <code>IfMissing
 </code>
 </a>
 </p>
 <p>The entries of a vector or the rows of a matrix result may be grouped, where all the values that have the same group value are reduced to a single value using a 
-<a href="registry.html#DafJL.Registry.ReductionOperation">
+<a href="registry.html#DataAxesFormats.Registry.ReductionOperation">
 <code>ReductionOperation
 </code>
 </a> (e.g., 
@@ -2391,13 +2391,13 @@
 </code> will compute a matrix of the mean UMIs of each gene for the cells of each type).
 </p>
 <p>If the group property is suffixed by 
-<a href="queries.html#DafJL.Queries.AsAxis">
+<a href="queries.html#DataAxesFormats.Queries.AsAxis">
 <code>AsAxis
 </code>
 </a>, then the result will have a value for each entry of the axis (e.g., 
 <code>/ cell : age @ type ! %&gt; Mean
 </code> will compute the mean age of the cells of each type). In this case, some groups may have no values at all, which by default, is an error. Providing an 
-<a href="queries.html#DafJL.Queries.IfMissing">
+<a href="queries.html#DataAxesFormats.Queries.IfMissing">
 <code>IfMissing
 </code>
 </a> suffix will use the specified value for such empty groups instead (e.g., 
@@ -2411,8 +2411,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.AXIS_MASK" href="#DafJL.Queries.AXIS_MASK">
-<code>DafJL.Queries.AXIS_MASK
+<a class="docstring-binding" id="DataAxesFormats.Queries.AXIS_MASK" href="#DataAxesFormats.Queries.AXIS_MASK">
+<code>DataAxesFormats.Queries.AXIS_MASK
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -2425,19 +2425,19 @@
 <p>
 <code>AXIS_MASK
 </code> := 
-<a href="queries.html#DafJL.Queries.MASK_OPERATION">
+<a href="queries.html#DataAxesFormats.Queries.MASK_OPERATION">
 <code>MASK_OPERATION
 </code>
 </a> ( 
-<a href="queries.html#DafJL.Queries.VECTOR_FETCH">
+<a href="queries.html#DataAxesFormats.Queries.VECTOR_FETCH">
 <code>VECTOR_FETCH
 </code>
 </a> )* ( 
-<a href="queries.html#DafJL.Queries.MASK_SLICE">
+<a href="queries.html#DataAxesFormats.Queries.MASK_SLICE">
 <code>MASK_SLICE
 </code>
 </a> )? ( 
-<a href="queries.html#DafJL.Queries.ComparisonOperation">
+<a href="queries.html#DataAxesFormats.Queries.ComparisonOperation">
 <code>ComparisonOperation
 </code>
 </a> )?
@@ -2457,8 +2457,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.MASK_OPERATION" href="#DafJL.Queries.MASK_OPERATION">
-<code>DafJL.Queries.MASK_OPERATION
+<a class="docstring-binding" id="DataAxesFormats.Queries.MASK_OPERATION" href="#DataAxesFormats.Queries.MASK_OPERATION">
+<code>DataAxesFormats.Queries.MASK_OPERATION
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -2471,33 +2471,33 @@
 <p>
 <code>MASK_OPERATION
 </code> := 
-<a href="queries.html#DafJL.Queries.And">
+<a href="queries.html#DataAxesFormats.Queries.And">
 <code>And
 </code>
 </a> | 
-<a href="queries.html#DafJL.Queries.AndNot">
+<a href="queries.html#DataAxesFormats.Queries.AndNot">
 <code>AndNot
 </code>
 </a> | 
-<a href="queries.html#DafJL.Queries.Or">
+<a href="queries.html#DataAxesFormats.Queries.Or">
 <code>Or
 </code>
 </a> | 
-<a href="queries.html#DafJL.Queries.OrNot">
+<a href="queries.html#DataAxesFormats.Queries.OrNot">
 <code>OrNot
 </code>
 </a> | 
-<a href="queries.html#DafJL.Queries.Xor">
+<a href="queries.html#DataAxesFormats.Queries.Xor">
 <code>Xor
 </code>
 </a> | 
-<a href="queries.html#DafJL.Queries.XorNot">
+<a href="queries.html#DataAxesFormats.Queries.XorNot">
 <code>XorNot
 </code>
 </a>
 </p>
 <p>A query operation for restricting the set of entries of an 
-<a href="queries.html#DafJL.Queries.Axis">
+<a href="queries.html#DataAxesFormats.Queries.Axis">
 <code>Axis
 </code>
 </a>. The mask operations are applied to the current mask, so if several operations are applied, they are applied in order from left to right (e.g., 
@@ -2513,8 +2513,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.MASK_SLICE" href="#DafJL.Queries.MASK_SLICE">
-<code>DafJL.Queries.MASK_SLICE
+<a class="docstring-binding" id="DataAxesFormats.Queries.MASK_SLICE" href="#DataAxesFormats.Queries.MASK_SLICE">
+<code>DataAxesFormats.Queries.MASK_SLICE
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -2527,39 +2527,39 @@
 <p>
 <code>MASK_SLICE
 </code> := 
-<a href="queries.html#DafJL.Queries.MaskSlice">
+<a href="queries.html#DataAxesFormats.Queries.MaskSlice">
 <code>MaskSlice
 </code>
 </a> 
-<a href="queries.html#DafJL.Queries.IsEqual">
+<a href="queries.html#DataAxesFormats.Queries.IsEqual">
 <code>IsEqual
 </code>
 </a> | 
-<a href="queries.html#DafJL.Queries.SquareMaskColumn">
+<a href="queries.html#DataAxesFormats.Queries.SquareMaskColumn">
 <code>SquareMaskColumn
 </code>
 </a> | 
-<a href="queries.html#DafJL.Queries.SquareMaskRow">
+<a href="queries.html#DataAxesFormats.Queries.SquareMaskRow">
 <code>SquareMaskRow
 </code>
 </a>
 </p>
 <p>Allow using a row or a column of a matrix as a mask. If the matrix uses a different axis, then use 
-<a href="queries.html#DafJL.Queries.MaskSlice">
+<a href="queries.html#DataAxesFormats.Queries.MaskSlice">
 <code>MaskSlice
 </code>
 </a> to specify the axis followed by 
-<a href="queries.html#DafJL.Queries.IsEqual">
+<a href="queries.html#DataAxesFormats.Queries.IsEqual">
 <code>IsEqual
 </code>
 </a> to specify the slice to use (e.g., 
 <code>/ cell &amp; UMIs ; gene &gt; 0
 </code>). If the matrix is square use 
-<a href="queries.html#DafJL.Queries.SquareMaskColumn">
+<a href="queries.html#DataAxesFormats.Queries.SquareMaskColumn">
 <code>SquareMaskColumn
 </code>
 </a> or 
-<a href="queries.html#DafJL.Queries.SquareMaskRow">
+<a href="queries.html#DataAxesFormats.Queries.SquareMaskRow">
 <code>SquareMaskRow
 </code>
 </a> to slice a column or a row of the matrix (e.g., 
@@ -2575,8 +2575,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.VECTOR_FETCH" href="#DafJL.Queries.VECTOR_FETCH">
-<code>DafJL.Queries.VECTOR_FETCH
+<a class="docstring-binding" id="DataAxesFormats.Queries.VECTOR_FETCH" href="#DataAxesFormats.Queries.VECTOR_FETCH">
+<code>DataAxesFormats.Queries.VECTOR_FETCH
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -2589,23 +2589,23 @@
 <p>
 <code>VECTOR_FETCH
 </code> := 
-<a href="queries.html#DafJL.Queries.AsAxis">
+<a href="queries.html#DataAxesFormats.Queries.AsAxis">
 <code>AsAxis
 </code>
 </a>? 
-<a href="queries.html#DafJL.Queries.Fetch">
+<a href="queries.html#DataAxesFormats.Queries.Fetch">
 <code>Fetch
 </code>
 </a> 
-<a href="queries.html#DafJL.Queries.IfMissing">
+<a href="queries.html#DataAxesFormats.Queries.IfMissing">
 <code>IfMissing
 </code>
 </a>? ( 
-<a href="queries.html#DafJL.Queries.IfNot">
+<a href="queries.html#DataAxesFormats.Queries.IfNot">
 <code>IfNot
 </code>
 </a> | 
-<a href="queries.html#DafJL.Queries.AsAxis">
+<a href="queries.html#DataAxesFormats.Queries.AsAxis">
 <code>AsAxis
 </code>
 </a> )?
@@ -2623,7 +2623,7 @@
 </code> will fetch the color of the manual type of each cell, still using the type axis).
 </p>
 <p>If the property does not follow this convention, it is possible to manually specify the name of the axis using an 
-<a href="queries.html#DafJL.Queries.AsAxis">
+<a href="queries.html#DataAxesFormats.Queries.AsAxis">
 <code>AsAxis
 </code>
 </a> prefix (e.g., 
@@ -2635,7 +2635,7 @@
 </code> axis).
 </p>
 <p>As usual, if the property does not exist, this is an error, unless an 
-<a href="queries.html#DafJL.Queries.IfMissing">
+<a href="queries.html#DataAxesFormats.Queries.IfMissing">
 <code>IfMissing
 </code>
 </a> suffix is provided (e.g., 
@@ -2647,7 +2647,7 @@
 </code> property does not exist).
 </p>
 <p>If the value of the property is the empty string for some vector entries, by default this is again an error (as the empty string is not one of the values of the indirect axis). If an 
-<a href="queries.html#DafJL.Queries.IfNot">
+<a href="queries.html#DataAxesFormats.Queries.IfNot">
 <code>IfNot
 </code>
 </a> suffix is provided, such entries can be removed from the result (e.g., 
@@ -2659,11 +2659,11 @@
 </code> color to cells with an empty type).
 </p>
 <p>When using 
-<a href="queries.html#DafJL.Queries.IfMissing">
+<a href="queries.html#DataAxesFormats.Queries.IfMissing">
 <code>IfMissing
 </code>
 </a> and/or 
-<a href="queries.html#DafJL.Queries.IfNot">
+<a href="queries.html#DataAxesFormats.Queries.IfNot">
 <code>IfNot
 </code>
 </a>, the default value provided is always of the final value (e.g., 
@@ -2695,8 +2695,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.guess_typed_value" href="#DafJL.Queries.guess_typed_value">
-<code>DafJL.Queries.guess_typed_value
+<a class="docstring-binding" id="DataAxesFormats.Queries.guess_typed_value" href="#DataAxesFormats.Queries.guess_typed_value">
+<code>DataAxesFormats.Queries.guess_typed_value
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -2737,7 +2737,7 @@
 </li>
 </ul>
 <p>This doesn&#39;t have to be 100% accurate; it is intended to allow omitting the data type in most cases when specifying an 
-<a href="queries.html#DafJL.Queries.IfMissing">
+<a href="queries.html#DataAxesFormats.Queries.IfMissing">
 <code>IfMissing
 </code>
 </a> value. If it guesses wrong, just specify an explicit type (e.g., 
@@ -2759,8 +2759,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.QuerySequence" href="#DafJL.Queries.QuerySequence">
-<code>DafJL.Queries.QuerySequence
+<a class="docstring-binding" id="DataAxesFormats.Queries.QuerySequence" href="#DataAxesFormats.Queries.QuerySequence">
+<code>DataAxesFormats.Queries.QuerySequence
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -2777,7 +2777,7 @@
 <p>A sequence of 
 <code>N
 </code> 
-<a href="registry.html#DafJL.Registry.QueryOperation">
+<a href="registry.html#DataAxesFormats.Registry.QueryOperation">
 <code>QueryOperation
 </code>
 </a>s.
@@ -2797,8 +2797,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.AsAxis" href="#DafJL.Queries.AsAxis">
-<code>DafJL.Queries.AsAxis
+<a class="docstring-binding" id="DataAxesFormats.Queries.AsAxis" href="#DataAxesFormats.Queries.AsAxis">
+<code>DataAxesFormats.Queries.AsAxis
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -2813,19 +2813,19 @@
 </code>
 </pre>
 <p>There are three cases where we may want to take a vector property and consider each value to be the name of an entry of some axis: 
-<a href="queries.html#DafJL.Queries.Fetch">
+<a href="queries.html#DataAxesFormats.Queries.Fetch">
 <code>Fetch
 </code>
 </a>, 
-<a href="queries.html#DafJL.Queries.CountBy">
+<a href="queries.html#DataAxesFormats.Queries.CountBy">
 <code>CountBy
 </code>
 </a> and 
-<a href="queries.html#DafJL.Queries.GroupBy">
+<a href="queries.html#DataAxesFormats.Queries.GroupBy">
 <code>GroupBy
 </code>
 </a>. In a string 
-<a href="queries.html#DafJL.Queries.Query">
+<a href="queries.html#DataAxesFormats.Queries.Query">
 <code>Query
 </code>
 </a>, this is indicated by the 
@@ -2833,11 +2833,11 @@
 </code> operators, optionally followed by the name of the axis to use.
 </p>
 <p>When using 
-<a href="queries.html#DafJL.Queries.Fetch">
+<a href="queries.html#DataAxesFormats.Queries.Fetch">
 <code>Fetch
 </code>
 </a>, we always lookup in some axis, so 
-<a href="queries.html#DafJL.Queries.AsAxis">
+<a href="queries.html#DataAxesFormats.Queries.AsAxis">
 <code>AsAxis
 </code>
 </a> is implied (e.g., 
@@ -2845,11 +2845,11 @@
 </code> is identical to 
 <code>/ cell : type ! =&gt; color
 </code>). In contrast, when using 
-<a href="queries.html#DafJL.Queries.CountBy">
+<a href="queries.html#DataAxesFormats.Queries.CountBy">
 <code>CountBy
 </code>
 </a> and 
-<a href="queries.html#DafJL.Queries.GroupBy">
+<a href="queries.html#DataAxesFormats.Queries.GroupBy">
 <code>GroupBy
 </code>
 </a>, one has to explicitly specify 
@@ -2865,11 +2865,11 @@
 </code> will generate a counts matrix whose rows are exactly the entries of the type axis).
 </p>
 <p>Since the set of values is fixed by the axis matching the vector property, it is possible that, when using this for 
-<a href="queries.html#DafJL.Queries.GroupBy">
+<a href="queries.html#DataAxesFormats.Queries.GroupBy">
 <code>GroupBy
 </code>
 </a>, some groups would have no values, causing an error. This can be avoided by providing an 
-<a href="queries.html#DafJL.Queries.IfMissing">
+<a href="queries.html#DataAxesFormats.Queries.IfMissing">
 <code>IfMissing
 </code>
 </a> suffix to the reduction (e.g., 
@@ -2915,8 +2915,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.Axis" href="#DafJL.Queries.Axis">
-<code>DafJL.Queries.Axis
+<a class="docstring-binding" id="DataAxesFormats.Queries.Axis" href="#DataAxesFormats.Queries.Axis">
+<code>DataAxesFormats.Queries.Axis
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -2931,7 +2931,7 @@
 </code>
 </pre>
 <p>A query operation for specifying a result axis. In a string 
-<a href="queries.html#DafJL.Queries.Query">
+<a href="queries.html#DataAxesFormats.Queries.Query">
 <code>Query
 </code>
 </a>, this is specified using the 
@@ -2943,33 +2943,33 @@
 </code>), and twice for a matrix (e.g., 
 <code>/ cell / gene : UMIs
 </code>). Axes can be filtered using Boolean masks using 
-<a href="queries.html#DafJL.Queries.And">
+<a href="queries.html#DataAxesFormats.Queries.And">
 <code>And
 </code>
 </a>, 
-<a href="queries.html#DafJL.Queries.AndNot">
+<a href="queries.html#DataAxesFormats.Queries.AndNot">
 <code>AndNot
 </code>
 </a>, 
-<a href="queries.html#DafJL.Queries.Or">
+<a href="queries.html#DataAxesFormats.Queries.Or">
 <code>Or
 </code>
 </a>, 
-<a href="queries.html#DafJL.Queries.OrNot">
+<a href="queries.html#DataAxesFormats.Queries.OrNot">
 <code>OrNot
 </code>
 </a>, 
-<a href="queries.html#DafJL.Queries.Xor">
+<a href="queries.html#DataAxesFormats.Queries.Xor">
 <code>Xor
 </code>
 </a> and 
-<a href="queries.html#DafJL.Queries.XorNot">
+<a href="queries.html#DataAxesFormats.Queries.XorNot">
 <code>XorNot
 </code>
 </a> (e.g., 
 <code>/ gene &amp; is_marker : is_noisy
 </code>). Alternatively, a single entry can be selected from the axis using 
-<a href="queries.html#DafJL.Queries.IsEqual">
+<a href="queries.html#DataAxesFormats.Queries.IsEqual">
 <code>IsEqual
 </code>
 </a> (e.g., 
@@ -2979,7 +2979,7 @@
 </code>, 
 <code>/ cell = C1 / gene = FOX1 : UMIs
 </code>). Finally, a matrix can be reduced into a vector, and a vector to a scalar, using 
-<a href="registry.html#DafJL.Registry.ReductionOperation">
+<a href="registry.html#DataAxesFormats.Registry.ReductionOperation">
 <code>ReductionOperation
 </code>
 </a> (e.g., 
@@ -2991,19 +2991,19 @@
 </header>
 <div class="admonition-body">
 <p>This, 
-<a href="queries.html#DafJL.Queries.Names">
+<a href="queries.html#DataAxesFormats.Queries.Names">
 <code>Names
 </code>
 </a> and 
-<a href="queries.html#DafJL.Queries.Lookup">
+<a href="queries.html#DataAxesFormats.Queries.Lookup">
 <code>Lookup
 </code>
 </a> are the only 
-<a href="registry.html#DafJL.Registry.QueryOperation">
+<a href="registry.html#DataAxesFormats.Registry.QueryOperation">
 <code>QueryOperation
 </code>
 </a>s that also works as a complete 
-<a href="queries.html#DafJL.Queries.Query">
+<a href="queries.html#DataAxesFormats.Queries.Query">
 <code>Query
 </code>
 </a>.
@@ -3017,8 +3017,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.CountBy" href="#DafJL.Queries.CountBy">
-<code>DafJL.Queries.CountBy
+<a class="docstring-binding" id="DataAxesFormats.Queries.CountBy" href="#DataAxesFormats.Queries.CountBy">
+<code>DataAxesFormats.Queries.CountBy
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -3033,7 +3033,7 @@
 </code>
 </pre>
 <p>A query operation that generates a matrix of counts of combinations of pairs of values for the same entries of an axis. That is, it follows fetching some vector property, and is followed by fetching a second vector property of the same axis. The result is a matrix whose rows are the values of the 1st property and the columns are the values of the 2nd property, and the values are the number of times the combination of values appears. In a string 
-<a href="queries.html#DafJL.Queries.Query">
+<a href="queries.html#DataAxesFormats.Queries.Query">
 <code>Query
 </code>
 </a>, this is specified using the 
@@ -3043,7 +3043,7 @@
 </code> will generate a matrix whose rows correspond to cell types, whose columns correspond to cell batches, and whose values are the number of cells of each combination of batch and type).
 </p>
 <p>By default, the rows and/or columns only contain actually seen values and are ordered alphabetically. However, it is common that one or both of the properties correspond to an axis. In this case, you can use an 
-<a href="queries.html#DafJL.Queries.AsAxis">
+<a href="queries.html#DataAxesFormats.Queries.AsAxis">
 <code>AsAxis
 </code>
 </a> suffix to force the rows and/or columns of the matrix to be exactly the entries of the specific axis (e.g., 
@@ -3057,11 +3057,11 @@
 </code>).
 </p>
 <p>The raw counts matrix can be post-processed like any other matrix (using 
-<a href="registry.html#DafJL.Registry.ReductionOperation">
+<a href="registry.html#DataAxesFormats.Registry.ReductionOperation">
 <code>ReductionOperation
 </code>
 </a> or an 
-<a href="registry.html#DafJL.Registry.EltwiseOperation">
+<a href="registry.html#DataAxesFormats.Registry.EltwiseOperation">
 <code>EltwiseOperation
 </code>
 </a>). This allows computing useful aggregate properties (e.g., 
@@ -3075,8 +3075,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.Fetch" href="#DafJL.Queries.Fetch">
-<code>DafJL.Queries.Fetch
+<a class="docstring-binding" id="DataAxesFormats.Queries.Fetch" href="#DataAxesFormats.Queries.Fetch">
+<code>DataAxesFormats.Queries.Fetch
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -3091,7 +3091,7 @@
 </code>
 </pre>
 <p>A query operation for fetching the value of a property from another axis, based on a vector property whose values are entry names of the axis. In a string 
-<a href="queries.html#DafJL.Queries.Query">
+<a href="queries.html#DataAxesFormats.Queries.Query">
 <code>Query
 </code>
 </a>, this is specified using the 
@@ -3141,13 +3141,13 @@
 </code>).
 </p>
 <p>If the property does not exist, this is an error, unless this is followed by 
-<a href="queries.html#DafJL.Queries.IfMissing">
+<a href="queries.html#DataAxesFormats.Queries.IfMissing">
 <code>IfMissing
 </code>
 </a> (e.g., 
 <code>/ cell : type =&gt; color || red
 </code>). If the property contains an empty value, this is also an error, unless it is followed by an 
-<a href="queries.html#DafJL.Queries.IfNot">
+<a href="queries.html#DataAxesFormats.Queries.IfNot">
 <code>IfNot
 </code>
 </a> (e.g., 
@@ -3163,8 +3163,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.GroupBy" href="#DafJL.Queries.GroupBy">
-<code>DafJL.Queries.GroupBy
+<a class="docstring-binding" id="DataAxesFormats.Queries.GroupBy" href="#DataAxesFormats.Queries.GroupBy">
+<code>DataAxesFormats.Queries.GroupBy
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -3179,13 +3179,13 @@
 </code>
 </pre>
 <p>A query operation that uses a (following) 
-<a href="registry.html#DafJL.Registry.ReductionOperation">
+<a href="registry.html#DataAxesFormats.Registry.ReductionOperation">
 <code>ReductionOperation
 </code>
 </a> to aggregate the values of each group of values. Will fetch the specified 
 <code>property_name
 </code> (possibly followed by additional 
-<a href="queries.html#DafJL.Queries.Fetch">
+<a href="queries.html#DataAxesFormats.Queries.Fetch">
 <code>Fetch
 </code>
 </a> operations) and use the resulting vector for the name of the group of each value.
@@ -3197,15 +3197,15 @@
 </code> will generate a matrix with one row per type and one column per gene, whose values are the maximal UMIs count of the gene in the cells of each type).
 </p>
 <p>By default, the result uses only group values we actually observe, in sorted order. However, if the operation is followed by an 
-<a href="queries.html#DafJL.Queries.AsAxis">
+<a href="queries.html#DataAxesFormats.Queries.AsAxis">
 <code>AsAxis
 </code>
 </a> suffix, then the fetched property must correspond to an existing axis (similar to when using 
-<a href="queries.html#DafJL.Queries.Fetch">
+<a href="queries.html#DataAxesFormats.Queries.Fetch">
 <code>Fetch
 </code>
 </a>), and the result will use the entries of the axis, even if we do not observe them in the data (and will ignore vector entries with an empty value). In this case, the reduction operation will fail if there are no values for some group, unless it is followed by an 
-<a href="queries.html#DafJL.Queries.IfMissing">
+<a href="queries.html#DataAxesFormats.Queries.IfMissing">
 <code>IfMissing
 </code>
 </a> suffix (e.g., 
@@ -3223,8 +3223,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.IfMissing" href="#DafJL.Queries.IfMissing">
-<code>DafJL.Queries.IfMissing
+<a class="docstring-binding" id="DataAxesFormats.Queries.IfMissing" href="#DataAxesFormats.Queries.IfMissing">
+<code>DataAxesFormats.Queries.IfMissing
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -3239,7 +3239,7 @@
 </code>
 </pre>
 <p>A query operation providing a value to use if the data is missing some property. In a string 
-<a href="queries.html#DafJL.Queries.Query">
+<a href="queries.html#DataAxesFormats.Queries.Query">
 <code>Query
 </code>
 </a>, this is specified using the 
@@ -3253,7 +3253,7 @@
 </code> isa 
 <code>AbstractString
 </code>, then the data type is deduced using 
-<a href="queries.html#DafJL.Queries.guess_typed_value">
+<a href="queries.html#DataAxesFormats.Queries.guess_typed_value">
 <code>guess_typed_value
 </code>
 </a> of the 
@@ -3267,8 +3267,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.IfNot" href="#DafJL.Queries.IfNot">
-<code>DafJL.Queries.IfNot
+<a class="docstring-binding" id="DataAxesFormats.Queries.IfNot" href="#DataAxesFormats.Queries.IfNot">
+<code>DataAxesFormats.Queries.IfNot
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -3283,7 +3283,7 @@
 </code>
 </pre>
 <p>A query operation providing a value to use for &quot;false-ish&quot; values in a vector (empty strings, zero numeric values, or false Boolean values). In a string 
-<a href="queries.html#DafJL.Queries.Query">
+<a href="queries.html#DataAxesFormats.Queries.Query">
 <code>Query
 </code>
 </a>, this is indicated using the 
@@ -3319,8 +3319,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.Lookup" href="#DafJL.Queries.Lookup">
-<code>DafJL.Queries.Lookup
+<a class="docstring-binding" id="DataAxesFormats.Queries.Lookup" href="#DataAxesFormats.Queries.Lookup">
+<code>DataAxesFormats.Queries.Lookup
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -3335,7 +3335,7 @@
 </code>
 </pre>
 <p>A query operation for looking up the value of a property with some name. In a string 
-<a href="queries.html#DafJL.Queries.Query">
+<a href="queries.html#DataAxesFormats.Queries.Query">
 <code>Query
 </code>
 </a>, this is specified using the 
@@ -3357,7 +3357,7 @@
 </li>
 </ul>
 <p>If the property does not exist, this is an error, unless this is followed by 
-<a href="queries.html#DafJL.Queries.IfMissing">
+<a href="queries.html#DataAxesFormats.Queries.IfMissing">
 <code>IfMissing
 </code>
 </a> (e.g., 
@@ -3365,7 +3365,7 @@
 </code>).
 </p>
 <p>If any of the axes has a single entry selected using 
-<a href="queries.html#DafJL.Queries.IsEqual">
+<a href="queries.html#DataAxesFormats.Queries.IsEqual">
 <code>IsEqual
 </code>
 </a>, this will reduce the dimension of the result (e.g., 
@@ -3381,19 +3381,19 @@
 </header>
 <div class="admonition-body">
 <p>This, 
-<a href="queries.html#DafJL.Queries.Names">
+<a href="queries.html#DataAxesFormats.Queries.Names">
 <code>Names
 </code>
 </a> and 
-<a href="queries.html#DafJL.Queries.Axis">
+<a href="queries.html#DataAxesFormats.Queries.Axis">
 <code>Axis
 </code>
 </a> are the only 
-<a href="registry.html#DafJL.Registry.QueryOperation">
+<a href="registry.html#DataAxesFormats.Registry.QueryOperation">
 <code>QueryOperation
 </code>
 </a>s that also works as a complete 
-<a href="queries.html#DafJL.Queries.Query">
+<a href="queries.html#DataAxesFormats.Queries.Query">
 <code>Query
 </code>
 </a>.
@@ -3407,8 +3407,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.Names" href="#DafJL.Queries.Names">
-<code>DafJL.Queries.Names
+<a class="docstring-binding" id="DataAxesFormats.Queries.Names" href="#DataAxesFormats.Queries.Names">
+<code>DataAxesFormats.Queries.Names
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -3423,7 +3423,7 @@
 </code>
 </pre>
 <p>A query operation for looking up a set of names. In a string 
-<a href="queries.html#DafJL.Queries.Query">
+<a href="queries.html#DataAxesFormats.Queries.Query">
 <code>Query
 </code>
 </a>, this is specified using the 
@@ -3461,19 +3461,19 @@
 </header>
 <div class="admonition-body">
 <p>This, 
-<a href="queries.html#DafJL.Queries.Lookup">
+<a href="queries.html#DataAxesFormats.Queries.Lookup">
 <code>Lookup
 </code>
 </a> and 
-<a href="queries.html#DafJL.Queries.Axis">
+<a href="queries.html#DataAxesFormats.Queries.Axis">
 <code>Axis
 </code>
 </a> are the only 
-<a href="registry.html#DafJL.Registry.QueryOperation">
+<a href="registry.html#DataAxesFormats.Registry.QueryOperation">
 <code>QueryOperation
 </code>
 </a>s that also works as a complete 
-<a href="queries.html#DafJL.Queries.Query">
+<a href="queries.html#DataAxesFormats.Queries.Query">
 <code>Query
 </code>
 </a>.
@@ -3495,8 +3495,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.ComparisonOperation" href="#DafJL.Queries.ComparisonOperation">
-<code>DafJL.Queries.ComparisonOperation
+<a class="docstring-binding" id="DataAxesFormats.Queries.ComparisonOperation" href="#DataAxesFormats.Queries.ComparisonOperation">
+<code>DataAxesFormats.Queries.ComparisonOperation
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -3509,35 +3509,35 @@
 <p>
 <code>ComparisonOperation
 </code> := ( 
-<a href="queries.html#DafJL.Queries.IsLess">
+<a href="queries.html#DataAxesFormats.Queries.IsLess">
 <code>IsLess
 </code>
 </a> | 
-<a href="queries.html#DafJL.Queries.IsLessEqual">
+<a href="queries.html#DataAxesFormats.Queries.IsLessEqual">
 <code>IsLessEqual
 </code>
 </a> | 
-<a href="queries.html#DafJL.Queries.IsEqual">
+<a href="queries.html#DataAxesFormats.Queries.IsEqual">
 <code>IsEqual
 </code>
 </a> | 
-<a href="queries.html#DafJL.Queries.IsNotEqual">
+<a href="queries.html#DataAxesFormats.Queries.IsNotEqual">
 <code>IsNotEqual
 </code>
 </a> | 
-<a href="queries.html#DafJL.Queries.IsGreater">
+<a href="queries.html#DataAxesFormats.Queries.IsGreater">
 <code>IsGreater
 </code>
 </a> | 
-<a href="queries.html#DafJL.Queries.IsGreaterEqual">
+<a href="queries.html#DataAxesFormats.Queries.IsGreaterEqual">
 <code>IsGreaterEqual
 </code>
 </a> | 
-<a href="queries.html#DafJL.Queries.IsMatch">
+<a href="queries.html#DataAxesFormats.Queries.IsMatch">
 <code>IsMatch
 </code>
 </a> | 
-<a href="queries.html#DafJL.Queries.IsNotMatch">
+<a href="queries.html#DataAxesFormats.Queries.IsNotMatch">
 <code>IsNotMatch
 </code>
 </a> )
@@ -3545,7 +3545,7 @@
 <p>A query operation computing a mask by comparing the values of a vector with some constant (e.g., 
 <code>/ cell &amp; age &gt; 0
 </code>). In addition, the 
-<a href="queries.html#DafJL.Queries.IsEqual">
+<a href="queries.html#DataAxesFormats.Queries.IsEqual">
 <code>IsEqual
 </code>
 </a> operation can be used to slice an entry from a vector (e.g., 
@@ -3563,8 +3563,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.IsEqual" href="#DafJL.Queries.IsEqual">
-<code>DafJL.Queries.IsEqual
+<a class="docstring-binding" id="DataAxesFormats.Queries.IsEqual" href="#DataAxesFormats.Queries.IsEqual">
+<code>DataAxesFormats.Queries.IsEqual
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -3582,7 +3582,7 @@
 </p>
 <ul>
 <li>As a comparison operator, similar to 
-<a href="queries.html#DafJL.Queries.IsLess">
+<a href="queries.html#DataAxesFormats.Queries.IsLess">
 <code>IsLess
 </code>
 </a> except that uses 
@@ -3609,8 +3609,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.IsGreater" href="#DafJL.Queries.IsGreater">
-<code>DafJL.Queries.IsGreater
+<a class="docstring-binding" id="DataAxesFormats.Queries.IsGreater" href="#DataAxesFormats.Queries.IsGreater">
+<code>DataAxesFormats.Queries.IsGreater
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -3625,7 +3625,7 @@
 </code>
 </pre>
 <p>Similar to 
-<a href="queries.html#DafJL.Queries.IsLess">
+<a href="queries.html#DataAxesFormats.Queries.IsLess">
 <code>IsLess
 </code>
 </a> except that uses 
@@ -3641,8 +3641,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.IsGreaterEqual" href="#DafJL.Queries.IsGreaterEqual">
-<code>DafJL.Queries.IsGreaterEqual
+<a class="docstring-binding" id="DataAxesFormats.Queries.IsGreaterEqual" href="#DataAxesFormats.Queries.IsGreaterEqual">
+<code>DataAxesFormats.Queries.IsGreaterEqual
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -3657,7 +3657,7 @@
 </code>
 </pre>
 <p>Similar to 
-<a href="queries.html#DafJL.Queries.IsLess">
+<a href="queries.html#DataAxesFormats.Queries.IsLess">
 <code>IsLess
 </code>
 </a> except that uses 
@@ -3673,8 +3673,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.IsLess" href="#DafJL.Queries.IsLess">
-<code>DafJL.Queries.IsLess
+<a class="docstring-binding" id="DataAxesFormats.Queries.IsLess" href="#DataAxesFormats.Queries.IsLess">
+<code>DataAxesFormats.Queries.IsLess
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -3689,7 +3689,7 @@
 </code>
 </pre>
 <p>A query operation for converting a vector value to a Boolean mask by comparing it some value. In a string 
-<a href="queries.html#DafJL.Queries.Query">
+<a href="queries.html#DataAxesFormats.Queries.Query">
 <code>Query
 </code>
 </a>, this is specified using the 
@@ -3707,8 +3707,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.IsLessEqual" href="#DafJL.Queries.IsLessEqual">
-<code>DafJL.Queries.IsLessEqual
+<a class="docstring-binding" id="DataAxesFormats.Queries.IsLessEqual" href="#DataAxesFormats.Queries.IsLessEqual">
+<code>DataAxesFormats.Queries.IsLessEqual
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -3723,7 +3723,7 @@
 </code>
 </pre>
 <p>Similar to 
-<a href="queries.html#DafJL.Queries.IsLess">
+<a href="queries.html#DataAxesFormats.Queries.IsLess">
 <code>IsLess
 </code>
 </a> except that uses 
@@ -3739,8 +3739,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.IsMatch" href="#DafJL.Queries.IsMatch">
-<code>DafJL.Queries.IsMatch
+<a class="docstring-binding" id="DataAxesFormats.Queries.IsMatch" href="#DataAxesFormats.Queries.IsMatch">
+<code>DataAxesFormats.Queries.IsMatch
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -3755,7 +3755,7 @@
 </code>
 </pre>
 <p>Similar to 
-<a href="queries.html#DafJL.Queries.IsLess">
+<a href="queries.html#DataAxesFormats.Queries.IsLess">
 <code>IsLess
 </code>
 </a> except that the compared values must be strings, and the mask is of the values that match the given regular expression.
@@ -3767,8 +3767,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.IsNotEqual" href="#DafJL.Queries.IsNotEqual">
-<code>DafJL.Queries.IsNotEqual
+<a class="docstring-binding" id="DataAxesFormats.Queries.IsNotEqual" href="#DataAxesFormats.Queries.IsNotEqual">
+<code>DataAxesFormats.Queries.IsNotEqual
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -3783,7 +3783,7 @@
 </code>
 </pre>
 <p>Similar to 
-<a href="queries.html#DafJL.Queries.IsLess">
+<a href="queries.html#DataAxesFormats.Queries.IsLess">
 <code>IsLess
 </code>
 </a> except that uses 
@@ -3799,8 +3799,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.IsNotMatch" href="#DafJL.Queries.IsNotMatch">
-<code>DafJL.Queries.IsNotMatch
+<a class="docstring-binding" id="DataAxesFormats.Queries.IsNotMatch" href="#DataAxesFormats.Queries.IsNotMatch">
+<code>DataAxesFormats.Queries.IsNotMatch
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -3815,7 +3815,7 @@
 </code>
 </pre>
 <p>Similar to 
-<a href="queries.html#DafJL.Queries.IsMatch">
+<a href="queries.html#DataAxesFormats.Queries.IsMatch">
 <code>IsMatch
 </code>
 </a> except that looks for entries that do not match the pattern.
@@ -3835,8 +3835,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.And" href="#DafJL.Queries.And">
-<code>DafJL.Queries.And
+<a class="docstring-binding" id="DataAxesFormats.Queries.And" href="#DataAxesFormats.Queries.And">
+<code>DataAxesFormats.Queries.And
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -3851,11 +3851,11 @@
 </code>
 </pre>
 <p>A query operation for restricting the set of entries of an 
-<a href="queries.html#DafJL.Queries.Axis">
+<a href="queries.html#DataAxesFormats.Queries.Axis">
 <code>Axis
 </code>
 </a>. In a string 
-<a href="queries.html#DafJL.Queries.Query">
+<a href="queries.html#DataAxesFormats.Queries.Query">
 <code>Query
 </code>
 </a>, this is specified using the 
@@ -3869,7 +3869,7 @@
 </code> or the empty string, depending on its type (e.g., 
 <code>/ cell &amp; type
 </code> will restrict the result vector to only cells which were given a non-empty-string type annotation). It is also possible to fetch properties from other axes, and use an explicit 
-<a href="queries.html#DafJL.Queries.ComparisonOperation">
+<a href="queries.html#DataAxesFormats.Queries.ComparisonOperation">
 <code>ComparisonOperation
 </code>
 </a> to compute the Boolean mask (e.g., 
@@ -3883,8 +3883,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.AndNot" href="#DafJL.Queries.AndNot">
-<code>DafJL.Queries.AndNot
+<a class="docstring-binding" id="DataAxesFormats.Queries.AndNot" href="#DataAxesFormats.Queries.AndNot">
+<code>DataAxesFormats.Queries.AndNot
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -3899,11 +3899,11 @@
 </code>
 </pre>
 <p>Same as 
-<a href="queries.html#DafJL.Queries.And">
+<a href="queries.html#DataAxesFormats.Queries.And">
 <code>And
 </code>
 </a> but use the inverse of the mask. In a string 
-<a href="queries.html#DafJL.Queries.Query">
+<a href="queries.html#DataAxesFormats.Queries.Query">
 <code>Query
 </code>
 </a>, this is specified using the 
@@ -3917,8 +3917,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.Or" href="#DafJL.Queries.Or">
-<code>DafJL.Queries.Or
+<a class="docstring-binding" id="DataAxesFormats.Queries.Or" href="#DataAxesFormats.Queries.Or">
+<code>DataAxesFormats.Queries.Or
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -3933,11 +3933,11 @@
 </code>
 </pre>
 <p>A query operation for expanding the set of entries of an 
-<a href="queries.html#DafJL.Queries.Axis">
+<a href="queries.html#DataAxesFormats.Queries.Axis">
 <code>Axis
 </code>
 </a>. In a string 
-<a href="queries.html#DafJL.Queries.Query">
+<a href="queries.html#DataAxesFormats.Queries.Query">
 <code>Query
 </code>
 </a>, this is specified using the 
@@ -3945,7 +3945,7 @@
 </code> operator, followed by the name of an axis property to look up to compute the mask.
 </p>
 <p>This works similarly to 
-<a href="queries.html#DafJL.Queries.And">
+<a href="queries.html#DataAxesFormats.Queries.And">
 <code>And
 </code>
 </a>, except that it adds to the mask (e.g., 
@@ -3959,8 +3959,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.OrNot" href="#DafJL.Queries.OrNot">
-<code>DafJL.Queries.OrNot
+<a class="docstring-binding" id="DataAxesFormats.Queries.OrNot" href="#DataAxesFormats.Queries.OrNot">
+<code>DataAxesFormats.Queries.OrNot
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -3975,11 +3975,11 @@
 </code>
 </pre>
 <p>Same as 
-<a href="queries.html#DafJL.Queries.Or">
+<a href="queries.html#DataAxesFormats.Queries.Or">
 <code>Or
 </code>
 </a> but use the inverse of the mask. In a string 
-<a href="queries.html#DafJL.Queries.Query">
+<a href="queries.html#DataAxesFormats.Queries.Query">
 <code>Query
 </code>
 </a>, this is specified using the 
@@ -3993,8 +3993,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.Xor" href="#DafJL.Queries.Xor">
-<code>DafJL.Queries.Xor
+<a class="docstring-binding" id="DataAxesFormats.Queries.Xor" href="#DataAxesFormats.Queries.Xor">
+<code>DataAxesFormats.Queries.Xor
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -4009,11 +4009,11 @@
 </code>
 </pre>
 <p>A query operation for flipping the set of entries of an 
-<a href="queries.html#DafJL.Queries.Axis">
+<a href="queries.html#DataAxesFormats.Queries.Axis">
 <code>Axis
 </code>
 </a>. In a string 
-<a href="queries.html#DafJL.Queries.Query">
+<a href="queries.html#DataAxesFormats.Queries.Query">
 <code>Query
 </code>
 </a>, this is specified using the 
@@ -4021,7 +4021,7 @@
 </code> operator, followed by the name of an axis property to look up to compute the mask.
 </p>
 <p>This works similarly to 
-<a href="queries.html#DafJL.Queries.Or">
+<a href="queries.html#DataAxesFormats.Queries.Or">
 <code>Or
 </code>
 </a>, except that it flips entries in the mask (e.g., 
@@ -4035,8 +4035,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.XorNot" href="#DafJL.Queries.XorNot">
-<code>DafJL.Queries.XorNot
+<a class="docstring-binding" id="DataAxesFormats.Queries.XorNot" href="#DataAxesFormats.Queries.XorNot">
+<code>DataAxesFormats.Queries.XorNot
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -4051,11 +4051,11 @@
 </code>
 </pre>
 <p>Same as 
-<a href="queries.html#DafJL.Queries.Xor">
+<a href="queries.html#DataAxesFormats.Queries.Xor">
 <code>Xor
 </code>
 </a> but use the inverse of the mask. In a string 
-<a href="queries.html#DafJL.Queries.Query">
+<a href="queries.html#DataAxesFormats.Queries.Query">
 <code>Query
 </code>
 </a>, this is specified using the 
@@ -4069,8 +4069,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.MaskSlice" href="#DafJL.Queries.MaskSlice">
-<code>DafJL.Queries.MaskSlice
+<a class="docstring-binding" id="DataAxesFormats.Queries.MaskSlice" href="#DataAxesFormats.Queries.MaskSlice">
+<code>DataAxesFormats.Queries.MaskSlice
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -4085,7 +4085,7 @@
 </code>
 </pre>
 <p>A query operation for using a slice of a matrix as a mask, when the other axis of the matrix is different from the mask axis. This needs to be followed by the axis entry to slice. In a string 
-<a href="queries.html#DafJL.Queries.Query">
+<a href="queries.html#DataAxesFormats.Queries.Query">
 <code>Query
 </code>
 </a>, this is specified using the 
@@ -4107,8 +4107,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.SquareMaskColumn" href="#DafJL.Queries.SquareMaskColumn">
-<code>DafJL.Queries.SquareMaskColumn
+<a class="docstring-binding" id="DataAxesFormats.Queries.SquareMaskColumn" href="#DataAxesFormats.Queries.SquareMaskColumn">
+<code>DataAxesFormats.Queries.SquareMaskColumn
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -4123,11 +4123,11 @@
 </code>
 </pre>
 <p>Similar to 
-<a href="queries.html#DafJL.Queries.MaskSlice">
+<a href="queries.html#DataAxesFormats.Queries.MaskSlice">
 <code>MaskSlice
 </code>
 </a> but is used when the mask matrix is square and we&#39;d like to use a column as a mask. This therefore only needs specifying the column to slice. In a string 
-<a href="queries.html#DafJL.Queries.Query">
+<a href="queries.html#DataAxesFormats.Queries.Query">
 <code>Query
 </code>
 </a>, this is specified using the 
@@ -4149,8 +4149,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Queries.SquareMaskRow" href="#DafJL.Queries.SquareMaskRow">
-<code>DafJL.Queries.SquareMaskRow
+<a class="docstring-binding" id="DataAxesFormats.Queries.SquareMaskRow" href="#DataAxesFormats.Queries.SquareMaskRow">
+<code>DataAxesFormats.Queries.SquareMaskRow
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -4165,11 +4165,11 @@
 </code>
 </pre>
 <p>Similar to 
-<a href="queries.html#DafJL.Queries.SquareMaskRow">
+<a href="queries.html#DataAxesFormats.Queries.SquareMaskRow">
 <code>SquareMaskRow
 </code>
 </a> but is used when the mask matrix is square and we&#39;d like to use a row as a mask. This therefore only needs specifying the row to slice. In a string 
-<a href="queries.html#DafJL.Queries.Query">
+<a href="queries.html#DataAxesFormats.Queries.Query">
 <code>Query
 </code>
 </a>, this is specified using the 
@@ -4197,380 +4197,380 @@
 </h2>
 <ul>
 <li>
-<a href="queries.html#DafJL.Queries">
-<code>DafJL.Queries
+<a href="queries.html#DataAxesFormats.Queries">
+<code>DataAxesFormats.Queries
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.AXIS_MASK">
-<code>DafJL.Queries.AXIS_MASK
+<a href="queries.html#DataAxesFormats.Queries.AXIS_MASK">
+<code>DataAxesFormats.Queries.AXIS_MASK
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.COUNTS_MATRIX">
-<code>DafJL.Queries.COUNTS_MATRIX
+<a href="queries.html#DataAxesFormats.Queries.COUNTS_MATRIX">
+<code>DataAxesFormats.Queries.COUNTS_MATRIX
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.GROUP_BY">
-<code>DafJL.Queries.GROUP_BY
+<a href="queries.html#DataAxesFormats.Queries.GROUP_BY">
+<code>DataAxesFormats.Queries.GROUP_BY
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.LOOKUP_PROPERTY">
-<code>DafJL.Queries.LOOKUP_PROPERTY
+<a href="queries.html#DataAxesFormats.Queries.LOOKUP_PROPERTY">
+<code>DataAxesFormats.Queries.LOOKUP_PROPERTY
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.MASK_OPERATION">
-<code>DafJL.Queries.MASK_OPERATION
+<a href="queries.html#DataAxesFormats.Queries.MASK_OPERATION">
+<code>DataAxesFormats.Queries.MASK_OPERATION
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.MASK_SLICE">
-<code>DafJL.Queries.MASK_SLICE
+<a href="queries.html#DataAxesFormats.Queries.MASK_SLICE">
+<code>DataAxesFormats.Queries.MASK_SLICE
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.MATRIX_COLUMN">
-<code>DafJL.Queries.MATRIX_COLUMN
+<a href="queries.html#DataAxesFormats.Queries.MATRIX_COLUMN">
+<code>DataAxesFormats.Queries.MATRIX_COLUMN
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.MATRIX_ENTRY">
-<code>DafJL.Queries.MATRIX_ENTRY
+<a href="queries.html#DataAxesFormats.Queries.MATRIX_ENTRY">
+<code>DataAxesFormats.Queries.MATRIX_ENTRY
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.MATRIX_LOOKUP">
-<code>DafJL.Queries.MATRIX_LOOKUP
+<a href="queries.html#DataAxesFormats.Queries.MATRIX_LOOKUP">
+<code>DataAxesFormats.Queries.MATRIX_LOOKUP
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.MATRIX_QUERY">
-<code>DafJL.Queries.MATRIX_QUERY
+<a href="queries.html#DataAxesFormats.Queries.MATRIX_QUERY">
+<code>DataAxesFormats.Queries.MATRIX_QUERY
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.MATRIX_ROW">
-<code>DafJL.Queries.MATRIX_ROW
+<a href="queries.html#DataAxesFormats.Queries.MATRIX_ROW">
+<code>DataAxesFormats.Queries.MATRIX_ROW
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.NAMES_QUERY">
-<code>DafJL.Queries.NAMES_QUERY
+<a href="queries.html#DataAxesFormats.Queries.NAMES_QUERY">
+<code>DataAxesFormats.Queries.NAMES_QUERY
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.POST_PROCESS">
-<code>DafJL.Queries.POST_PROCESS
+<a href="queries.html#DataAxesFormats.Queries.POST_PROCESS">
+<code>DataAxesFormats.Queries.POST_PROCESS
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.QUERY_OPERATORS">
-<code>DafJL.Queries.QUERY_OPERATORS
+<a href="queries.html#DataAxesFormats.Queries.QUERY_OPERATORS">
+<code>DataAxesFormats.Queries.QUERY_OPERATORS
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.REDUCE_MATRIX">
-<code>DafJL.Queries.REDUCE_MATRIX
+<a href="queries.html#DataAxesFormats.Queries.REDUCE_MATRIX">
+<code>DataAxesFormats.Queries.REDUCE_MATRIX
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.REDUCE_VECTOR">
-<code>DafJL.Queries.REDUCE_VECTOR
+<a href="queries.html#DataAxesFormats.Queries.REDUCE_VECTOR">
+<code>DataAxesFormats.Queries.REDUCE_VECTOR
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.SCALAR_QUERY">
-<code>DafJL.Queries.SCALAR_QUERY
+<a href="queries.html#DataAxesFormats.Queries.SCALAR_QUERY">
+<code>DataAxesFormats.Queries.SCALAR_QUERY
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.VECTOR_ENTRY">
-<code>DafJL.Queries.VECTOR_ENTRY
+<a href="queries.html#DataAxesFormats.Queries.VECTOR_ENTRY">
+<code>DataAxesFormats.Queries.VECTOR_ENTRY
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.VECTOR_FETCH">
-<code>DafJL.Queries.VECTOR_FETCH
+<a href="queries.html#DataAxesFormats.Queries.VECTOR_FETCH">
+<code>DataAxesFormats.Queries.VECTOR_FETCH
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.VECTOR_LOOKUP">
-<code>DafJL.Queries.VECTOR_LOOKUP
+<a href="queries.html#DataAxesFormats.Queries.VECTOR_LOOKUP">
+<code>DataAxesFormats.Queries.VECTOR_LOOKUP
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.VECTOR_PROPERTY">
-<code>DafJL.Queries.VECTOR_PROPERTY
+<a href="queries.html#DataAxesFormats.Queries.VECTOR_PROPERTY">
+<code>DataAxesFormats.Queries.VECTOR_PROPERTY
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.VECTOR_QUERY">
-<code>DafJL.Queries.VECTOR_QUERY
+<a href="queries.html#DataAxesFormats.Queries.VECTOR_QUERY">
+<code>DataAxesFormats.Queries.VECTOR_QUERY
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.And">
-<code>DafJL.Queries.And
+<a href="queries.html#DataAxesFormats.Queries.And">
+<code>DataAxesFormats.Queries.And
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.AndNot">
-<code>DafJL.Queries.AndNot
+<a href="queries.html#DataAxesFormats.Queries.AndNot">
+<code>DataAxesFormats.Queries.AndNot
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.AsAxis">
-<code>DafJL.Queries.AsAxis
+<a href="queries.html#DataAxesFormats.Queries.AsAxis">
+<code>DataAxesFormats.Queries.AsAxis
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.Axis">
-<code>DafJL.Queries.Axis
+<a href="queries.html#DataAxesFormats.Queries.Axis">
+<code>DataAxesFormats.Queries.Axis
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.ComparisonOperation">
-<code>DafJL.Queries.ComparisonOperation
+<a href="queries.html#DataAxesFormats.Queries.ComparisonOperation">
+<code>DataAxesFormats.Queries.ComparisonOperation
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.CountBy">
-<code>DafJL.Queries.CountBy
+<a href="queries.html#DataAxesFormats.Queries.CountBy">
+<code>DataAxesFormats.Queries.CountBy
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.Fetch">
-<code>DafJL.Queries.Fetch
+<a href="queries.html#DataAxesFormats.Queries.Fetch">
+<code>DataAxesFormats.Queries.Fetch
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.FrameColumn">
-<code>DafJL.Queries.FrameColumn
+<a href="queries.html#DataAxesFormats.Queries.FrameColumn">
+<code>DataAxesFormats.Queries.FrameColumn
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.FrameColumns">
-<code>DafJL.Queries.FrameColumns
+<a href="queries.html#DataAxesFormats.Queries.FrameColumns">
+<code>DataAxesFormats.Queries.FrameColumns
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.GroupBy">
-<code>DafJL.Queries.GroupBy
+<a href="queries.html#DataAxesFormats.Queries.GroupBy">
+<code>DataAxesFormats.Queries.GroupBy
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.IfMissing">
-<code>DafJL.Queries.IfMissing
+<a href="queries.html#DataAxesFormats.Queries.IfMissing">
+<code>DataAxesFormats.Queries.IfMissing
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.IfNot">
-<code>DafJL.Queries.IfNot
+<a href="queries.html#DataAxesFormats.Queries.IfNot">
+<code>DataAxesFormats.Queries.IfNot
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.IsEqual">
-<code>DafJL.Queries.IsEqual
+<a href="queries.html#DataAxesFormats.Queries.IsEqual">
+<code>DataAxesFormats.Queries.IsEqual
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.IsGreater">
-<code>DafJL.Queries.IsGreater
+<a href="queries.html#DataAxesFormats.Queries.IsGreater">
+<code>DataAxesFormats.Queries.IsGreater
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.IsGreaterEqual">
-<code>DafJL.Queries.IsGreaterEqual
+<a href="queries.html#DataAxesFormats.Queries.IsGreaterEqual">
+<code>DataAxesFormats.Queries.IsGreaterEqual
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.IsLess">
-<code>DafJL.Queries.IsLess
+<a href="queries.html#DataAxesFormats.Queries.IsLess">
+<code>DataAxesFormats.Queries.IsLess
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.IsLessEqual">
-<code>DafJL.Queries.IsLessEqual
+<a href="queries.html#DataAxesFormats.Queries.IsLessEqual">
+<code>DataAxesFormats.Queries.IsLessEqual
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.IsMatch">
-<code>DafJL.Queries.IsMatch
+<a href="queries.html#DataAxesFormats.Queries.IsMatch">
+<code>DataAxesFormats.Queries.IsMatch
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.IsNotEqual">
-<code>DafJL.Queries.IsNotEqual
+<a href="queries.html#DataAxesFormats.Queries.IsNotEqual">
+<code>DataAxesFormats.Queries.IsNotEqual
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.IsNotMatch">
-<code>DafJL.Queries.IsNotMatch
+<a href="queries.html#DataAxesFormats.Queries.IsNotMatch">
+<code>DataAxesFormats.Queries.IsNotMatch
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.Lookup">
-<code>DafJL.Queries.Lookup
+<a href="queries.html#DataAxesFormats.Queries.Lookup">
+<code>DataAxesFormats.Queries.Lookup
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.MaskSlice">
-<code>DafJL.Queries.MaskSlice
+<a href="queries.html#DataAxesFormats.Queries.MaskSlice">
+<code>DataAxesFormats.Queries.MaskSlice
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.Names">
-<code>DafJL.Queries.Names
+<a href="queries.html#DataAxesFormats.Queries.Names">
+<code>DataAxesFormats.Queries.Names
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.Or">
-<code>DafJL.Queries.Or
+<a href="queries.html#DataAxesFormats.Queries.Or">
+<code>DataAxesFormats.Queries.Or
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.OrNot">
-<code>DafJL.Queries.OrNot
+<a href="queries.html#DataAxesFormats.Queries.OrNot">
+<code>DataAxesFormats.Queries.OrNot
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.Query">
-<code>DafJL.Queries.Query
+<a href="queries.html#DataAxesFormats.Queries.Query">
+<code>DataAxesFormats.Queries.Query
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.QuerySequence">
-<code>DafJL.Queries.QuerySequence
+<a href="queries.html#DataAxesFormats.Queries.QuerySequence">
+<code>DataAxesFormats.Queries.QuerySequence
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.QueryString">
-<code>DafJL.Queries.QueryString
+<a href="queries.html#DataAxesFormats.Queries.QueryString">
+<code>DataAxesFormats.Queries.QueryString
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.SquareMaskColumn">
-<code>DafJL.Queries.SquareMaskColumn
+<a href="queries.html#DataAxesFormats.Queries.SquareMaskColumn">
+<code>DataAxesFormats.Queries.SquareMaskColumn
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.SquareMaskRow">
-<code>DafJL.Queries.SquareMaskRow
+<a href="queries.html#DataAxesFormats.Queries.SquareMaskRow">
+<code>DataAxesFormats.Queries.SquareMaskRow
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.Xor">
-<code>DafJL.Queries.Xor
+<a href="queries.html#DataAxesFormats.Queries.Xor">
+<code>DataAxesFormats.Queries.Xor
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.XorNot">
-<code>DafJL.Queries.XorNot
+<a href="queries.html#DataAxesFormats.Queries.XorNot">
+<code>DataAxesFormats.Queries.XorNot
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.full_vector_query">
-<code>DafJL.Queries.full_vector_query
+<a href="queries.html#DataAxesFormats.Queries.full_vector_query">
+<code>DataAxesFormats.Queries.full_vector_query
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.get_frame">
-<code>DafJL.Queries.get_frame
+<a href="queries.html#DataAxesFormats.Queries.get_frame">
+<code>DataAxesFormats.Queries.get_frame
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.get_query">
-<code>DafJL.Queries.get_query
+<a href="queries.html#DataAxesFormats.Queries.get_query">
+<code>DataAxesFormats.Queries.get_query
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.guess_typed_value">
-<code>DafJL.Queries.guess_typed_value
+<a href="queries.html#DataAxesFormats.Queries.guess_typed_value">
+<code>DataAxesFormats.Queries.guess_typed_value
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.is_axis_query">
-<code>DafJL.Queries.is_axis_query
+<a href="queries.html#DataAxesFormats.Queries.is_axis_query">
+<code>DataAxesFormats.Queries.is_axis_query
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.query_requires_relayout">
-<code>DafJL.Queries.query_requires_relayout
+<a href="queries.html#DataAxesFormats.Queries.query_requires_relayout">
+<code>DataAxesFormats.Queries.query_requires_relayout
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.query_result_dimensions">
-<code>DafJL.Queries.query_result_dimensions
+<a href="queries.html#DataAxesFormats.Queries.query_result_dimensions">
+<code>DataAxesFormats.Queries.query_result_dimensions
 </code>
 </a>
 </li>
 <li>
-<a href="queries.html#DafJL.Queries.@q_str">
-<code>DafJL.Queries.@q_str
+<a href="queries.html#DataAxesFormats.Queries.@q_str">
+<code>DataAxesFormats.Queries.@q_str
 </code>
 </a>
 </li>

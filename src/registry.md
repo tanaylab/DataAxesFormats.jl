@@ -1,30 +1,30 @@
 # Operations registry
 
 ```@docs
-DafJL.Registry
+DataAxesFormats.Registry
 ```
 
 ## Element-wise operations
 
 ```@docs
-DafJL.Registry.EltwiseOperation
-DafJL.Registry.compute_eltwise
+DataAxesFormats.Registry.EltwiseOperation
+DataAxesFormats.Registry.compute_eltwise
 ```
 
 ## Reduction operations
 
 ```@docs
-DafJL.Registry.ReductionOperation
-DafJL.Registry.compute_reduction
-DafJL.Registry.reduction_result_type
+DataAxesFormats.Registry.ReductionOperation
+DataAxesFormats.Registry.compute_reduction
+DataAxesFormats.Registry.reduction_result_type
 ```
 
 ## Registering operations
 
 ```@docs
-DafJL.Registry.QueryOperation
-DafJL.Registry.@query_operation
-DafJL.Registry.register_query_operation
+DataAxesFormats.Registry.QueryOperation
+DataAxesFormats.Registry.@query_operation
+DataAxesFormats.Registry.register_query_operation
 ```
 
 ## Index

@@ -5,14 +5,14 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Views · DafJL.jl v0.1.0
+<title>Views · DataAxesFormats.jl v0.1.0
 </title>
-<meta name="title" content="Views · DafJL.jl v0.1.0"/>
-<meta property="og:title" content="Views · DafJL.jl v0.1.0"/>
-<meta property="twitter:title" content="Views · DafJL.jl v0.1.0"/>
-<meta name="description" content="Documentation for DafJL.jl v0.1.0."/>
-<meta property="og:description" content="Documentation for DafJL.jl v0.1.0."/>
-<meta property="twitter:description" content="Documentation for DafJL.jl v0.1.0."/>
+<meta name="title" content="Views · DataAxesFormats.jl v0.1.0"/>
+<meta property="og:title" content="Views · DataAxesFormats.jl v0.1.0"/>
+<meta property="twitter:title" content="Views · DataAxesFormats.jl v0.1.0"/>
+<meta name="description" content="Documentation for DataAxesFormats.jl v0.1.0."/>
+<meta property="og:description" content="Documentation for DataAxesFormats.jl v0.1.0."/>
+<meta property="twitter:description" content="Documentation for DataAxesFormats.jl v0.1.0."/>
 <script data-outdated-warner src="assets/warner.js">
 </script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/>
@@ -44,11 +44,11 @@
 <div id="documenter">
 <nav class="docs-sidebar">
 <a class="docs-logo" href="index.html">
-<img src="assets/logo.svg" alt="DafJL.jl v0.1.0 logo"/>
+<img src="assets/logo.svg" alt="DataAxesFormats.jl v0.1.0 logo"/>
 </a>
 <div class="docs-package-name">
 <span class="docs-autofit">
-<a href="index.html">DafJL.jl v0.1.0
+<a href="index.html">DataAxesFormats.jl v0.1.0
 </a>
 </span>
 </div>
@@ -220,7 +220,7 @@
 </ul>
 </nav>
 <div class="docs-right">
-<a class="docs-navbar-link" href="https://github.com/tanaylab/DafJL.jl/blob/main{path}?plain=1#L{line}" title="View the repository on GitHub">
+<a class="docs-navbar-link" href="https://github.com/tanaylab/DataAxesFormats.jl/blob/main{path}?plain=1#L{line}" title="View the repository on GitHub">
 <span class="docs-icon fa-brands">
 </span>
 <span class="docs-label is-hidden-touch">GitHub
@@ -245,8 +245,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Views" href="#DafJL.Views">
-<code>DafJL.Views
+<a class="docstring-binding" id="DataAxesFormats.Views" href="#DataAxesFormats.Views">
+<code>DataAxesFormats.Views
 </code>
 </a> — 
 <span class="docstring-category">Module
@@ -269,8 +269,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Views.DafView" href="#DafJL.Views.DafView">
-<code>DafJL.Views.DafView
+<a class="docstring-binding" id="DataAxesFormats.Views.DafView" href="#DataAxesFormats.Views.DafView">
+<code>DataAxesFormats.Views.DafView
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -285,15 +285,15 @@
 </code>
 </pre>
 <p>A read-only wrapper for any 
-<a href="formats.html#DafJL.Formats.DafReader">
+<a href="formats.html#DataAxesFormats.Formats.DafReader">
 <code>DafReader
 </code>
 </a> data, which exposes an arbitrary view of it as another 
-<a href="read_only.html#DafJL.ReadOnly.DafReadOnly">
+<a href="read_only.html#DataAxesFormats.ReadOnly.DafReadOnly">
 <code>DafReadOnly
 </code>
 </a>. This isn&#39;t typically created manually; instead call 
-<a href="views.html#DafJL.Views.viewer">
+<a href="views.html#DataAxesFormats.Views.viewer">
 <code>viewer
 </code>
 </a>.
@@ -305,8 +305,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Views.viewer" href="#DafJL.Views.viewer">
-<code>DafJL.Views.viewer
+<a class="docstring-binding" id="DataAxesFormats.Views.viewer" href="#DataAxesFormats.Views.viewer">
+<code>DataAxesFormats.Views.viewer
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -328,7 +328,7 @@
 <p>Wrap 
 <code>daf
 </code> data with a read-only 
-<a href="views.html#DafJL.Views.DafView">
+<a href="views.html#DataAxesFormats.Views.DafView">
 <code>DafView
 </code>
 </a>. The exposed view is defined by a set of queries applied to the original data. These queries are evaluated only when data is actually accessed. Therefore, creating a view is a relatively cheap operation.
@@ -350,11 +350,11 @@
 <p>As an optimization, calling 
 <code>viewer
 </code> with all-empty (default) arguments returns a simple 
-<a href="read_only.html#DafJL.ReadOnly.DafReadOnlyWrapper">
+<a href="read_only.html#DataAxesFormats.ReadOnly.DafReadOnlyWrapper">
 <code>DafReadOnlyWrapper
 </code>
 </a>, that is, it is equivalent to calling 
-<a href="read_only.html#DafJL.ReadOnly.read_only">
+<a href="read_only.html#DataAxesFormats.ReadOnly.read_only">
 <code>read_only
 </code>
 </a>. Additionally, saying 
@@ -374,8 +374,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Views.ViewAxis" href="#DafJL.Views.ViewAxis">
-<code>DafJL.Views.ViewAxis
+<a class="docstring-binding" id="DataAxesFormats.Views.ViewAxis" href="#DataAxesFormats.Views.ViewAxis">
+<code>DataAxesFormats.Views.ViewAxis
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -412,7 +412,7 @@
 <p>That is, specifying 
 <code>&quot;*&quot;
 </code> (or, 
-<a href="views.html#DafJL.Views.ALL_AXES">
+<a href="views.html#DataAxesFormats.Views.ALL_AXES">
 <code>ALL_AXES
 </code>
 </a> will expose all the original 
@@ -436,8 +436,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Views.ViewAxes" href="#DafJL.Views.ViewAxes">
-<code>DafJL.Views.ViewAxes
+<a class="docstring-binding" id="DataAxesFormats.Views.ViewAxes" href="#DataAxesFormats.Views.ViewAxes">
+<code>DataAxesFormats.Views.ViewAxes
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -462,8 +462,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Views.ViewDatum" href="#DafJL.Views.ViewDatum">
-<code>DafJL.Views.ViewDatum
+<a class="docstring-binding" id="DataAxesFormats.Views.ViewDatum" href="#DataAxesFormats.Views.ViewDatum">
+<code>DataAxesFormats.Views.ViewDatum
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -482,13 +482,13 @@
 <p>
 <strong>Scalars
 </strong> are specified similarly to 
-<a href="views.html#DafJL.Views.ViewAxes">
+<a href="views.html#DataAxesFormats.Views.ViewAxes">
 <code>ViewAxes
 </code>
 </a>, except that the query should return a scalar instead of a vector. That is, saying 
 <code>&quot;*&quot;
 </code> (or 
-<a href="views.html#DafJL.Views.ALL_SCALARS">
+<a href="views.html#DataAxesFormats.Views.ALL_SCALARS">
 <code>ALL_SCALARS
 </code>
 </a>) will expose all the original 
@@ -518,7 +518,7 @@
 </code>), then  it is replaced by all the vector properties of the exposed axis in the base data. Therefore specifying 
 <code>(&quot;*&quot;, &quot;*&quot;)
 </code> (or 
-<a href="views.html#DafJL.Views.ALL_VECTORS">
+<a href="views.html#DataAxesFormats.Views.ALL_VECTORS">
 <code>ALL_VECTORS
 </code>
 </a>)`, all vector properties of all the (exposed) axes will also be exposed.
@@ -588,8 +588,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Views.ViewData" href="#DafJL.Views.ViewData">
-<code>DafJL.Views.ViewData
+<a class="docstring-binding" id="DataAxesFormats.Views.ViewData" href="#DataAxesFormats.Views.ViewData">
+<code>DataAxesFormats.Views.ViewData
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -614,8 +614,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Views.ALL_SCALARS" href="#DafJL.Views.ALL_SCALARS">
-<code>DafJL.Views.ALL_SCALARS
+<a class="docstring-binding" id="DataAxesFormats.Views.ALL_SCALARS" href="#DataAxesFormats.Views.ALL_SCALARS">
+<code>DataAxesFormats.Views.ALL_SCALARS
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -628,7 +628,7 @@
 <p>A key to use in the 
 <code>data
 </code> parameter of 
-<a href="views.html#DafJL.Views.viewer">
+<a href="views.html#DataAxesFormats.Views.viewer">
 <code>viewer
 </code>
 </a> to specify all the base data scalars.
@@ -640,8 +640,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Views.VIEW_ALL_SCALARS" href="#DafJL.Views.VIEW_ALL_SCALARS">
-<code>DafJL.Views.VIEW_ALL_SCALARS
+<a class="docstring-binding" id="DataAxesFormats.Views.VIEW_ALL_SCALARS" href="#DataAxesFormats.Views.VIEW_ALL_SCALARS">
+<code>DataAxesFormats.Views.VIEW_ALL_SCALARS
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -654,7 +654,7 @@
 <p>A pair to use in the 
 <code>data
 </code> parameter of 
-<a href="views.html#DafJL.Views.viewer">
+<a href="views.html#DataAxesFormats.Views.viewer">
 <code>viewer
 </code>
 </a> to specify all the base data scalars.
@@ -666,8 +666,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Views.ALL_AXES" href="#DafJL.Views.ALL_AXES">
-<code>DafJL.Views.ALL_AXES
+<a class="docstring-binding" id="DataAxesFormats.Views.ALL_AXES" href="#DataAxesFormats.Views.ALL_AXES">
+<code>DataAxesFormats.Views.ALL_AXES
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -680,7 +680,7 @@
 <p>A key to use in the 
 <code>axes
 </code> parameter of 
-<a href="views.html#DafJL.Views.viewer">
+<a href="views.html#DataAxesFormats.Views.viewer">
 <code>viewer
 </code>
 </a> to specify all the base data axes.
@@ -692,8 +692,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Views.VIEW_ALL_AXES" href="#DafJL.Views.VIEW_ALL_AXES">
-<code>DafJL.Views.VIEW_ALL_AXES
+<a class="docstring-binding" id="DataAxesFormats.Views.VIEW_ALL_AXES" href="#DataAxesFormats.Views.VIEW_ALL_AXES">
+<code>DataAxesFormats.Views.VIEW_ALL_AXES
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -706,7 +706,7 @@
 <p>A pair to use in the 
 <code>axes
 </code> parameter of 
-<a href="views.html#DafJL.Views.viewer">
+<a href="views.html#DataAxesFormats.Views.viewer">
 <code>viewer
 </code>
 </a> to specify all the base data axes.
@@ -718,8 +718,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Views.ALL_VECTORS" href="#DafJL.Views.ALL_VECTORS">
-<code>DafJL.Views.ALL_VECTORS
+<a class="docstring-binding" id="DataAxesFormats.Views.ALL_VECTORS" href="#DataAxesFormats.Views.ALL_VECTORS">
+<code>DataAxesFormats.Views.ALL_VECTORS
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -732,7 +732,7 @@
 <p>A key to use in the 
 <code>data
 </code> parameter of 
-<a href="views.html#DafJL.Views.viewer">
+<a href="views.html#DataAxesFormats.Views.viewer">
 <code>viewer
 </code>
 </a> to specify all the vectors of the exposed axes.
@@ -744,8 +744,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Views.VIEW_ALL_VECTORS" href="#DafJL.Views.VIEW_ALL_VECTORS">
-<code>DafJL.Views.VIEW_ALL_VECTORS
+<a class="docstring-binding" id="DataAxesFormats.Views.VIEW_ALL_VECTORS" href="#DataAxesFormats.Views.VIEW_ALL_VECTORS">
+<code>DataAxesFormats.Views.VIEW_ALL_VECTORS
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -758,7 +758,7 @@
 <p>A pair to use in the 
 <code>data
 </code> parameter of 
-<a href="views.html#DafJL.Views.viewer">
+<a href="views.html#DataAxesFormats.Views.viewer">
 <code>viewer
 </code>
 </a> to specify all the vectors of the exposed axes.
@@ -770,8 +770,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Views.ALL_MATRICES" href="#DafJL.Views.ALL_MATRICES">
-<code>DafJL.Views.ALL_MATRICES
+<a class="docstring-binding" id="DataAxesFormats.Views.ALL_MATRICES" href="#DataAxesFormats.Views.ALL_MATRICES">
+<code>DataAxesFormats.Views.ALL_MATRICES
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -784,7 +784,7 @@
 <p>A key to use in the 
 <code>data
 </code> parameter of 
-<a href="views.html#DafJL.Views.viewer">
+<a href="views.html#DataAxesFormats.Views.viewer">
 <code>viewer
 </code>
 </a> to specify all the matrices of the exposed axes.
@@ -796,8 +796,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Views.VIEW_ALL_MATRICES" href="#DafJL.Views.VIEW_ALL_MATRICES">
-<code>DafJL.Views.VIEW_ALL_MATRICES
+<a class="docstring-binding" id="DataAxesFormats.Views.VIEW_ALL_MATRICES" href="#DataAxesFormats.Views.VIEW_ALL_MATRICES">
+<code>DataAxesFormats.Views.VIEW_ALL_MATRICES
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -810,7 +810,7 @@
 <p>A pair to use in the 
 <code>data
 </code> parameter of 
-<a href="views.html#DafJL.Views.viewer">
+<a href="views.html#DataAxesFormats.Views.viewer">
 <code>viewer
 </code>
 </a> to specify all the matrices of the exposed axes.
@@ -822,8 +822,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Views.VIEW_ALL_DATA" href="#DafJL.Views.VIEW_ALL_DATA">
-<code>DafJL.Views.VIEW_ALL_DATA
+<a class="docstring-binding" id="DataAxesFormats.Views.VIEW_ALL_DATA" href="#DataAxesFormats.Views.VIEW_ALL_DATA">
+<code>DataAxesFormats.Views.VIEW_ALL_DATA
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -836,7 +836,7 @@
 <p>A vector to use in the 
 <code>data
 </code> parameters of 
-<a href="views.html#DafJL.Views.viewer">
+<a href="views.html#DataAxesFormats.Views.viewer">
 <code>viewer
 </code>
 </a> to specify the view exposes all the data of the exposed axes. This is the default, so the only reason do this is to say 
@@ -856,98 +856,98 @@
 </h2>
 <ul>
 <li>
-<a href="views.html#DafJL.Views">
-<code>DafJL.Views
+<a href="views.html#DataAxesFormats.Views">
+<code>DataAxesFormats.Views
 </code>
 </a>
 </li>
 <li>
-<a href="views.html#DafJL.Views.ALL_AXES">
-<code>DafJL.Views.ALL_AXES
+<a href="views.html#DataAxesFormats.Views.ALL_AXES">
+<code>DataAxesFormats.Views.ALL_AXES
 </code>
 </a>
 </li>
 <li>
-<a href="views.html#DafJL.Views.ALL_MATRICES">
-<code>DafJL.Views.ALL_MATRICES
+<a href="views.html#DataAxesFormats.Views.ALL_MATRICES">
+<code>DataAxesFormats.Views.ALL_MATRICES
 </code>
 </a>
 </li>
 <li>
-<a href="views.html#DafJL.Views.ALL_SCALARS">
-<code>DafJL.Views.ALL_SCALARS
+<a href="views.html#DataAxesFormats.Views.ALL_SCALARS">
+<code>DataAxesFormats.Views.ALL_SCALARS
 </code>
 </a>
 </li>
 <li>
-<a href="views.html#DafJL.Views.ALL_VECTORS">
-<code>DafJL.Views.ALL_VECTORS
+<a href="views.html#DataAxesFormats.Views.ALL_VECTORS">
+<code>DataAxesFormats.Views.ALL_VECTORS
 </code>
 </a>
 </li>
 <li>
-<a href="views.html#DafJL.Views.VIEW_ALL_AXES">
-<code>DafJL.Views.VIEW_ALL_AXES
+<a href="views.html#DataAxesFormats.Views.VIEW_ALL_AXES">
+<code>DataAxesFormats.Views.VIEW_ALL_AXES
 </code>
 </a>
 </li>
 <li>
-<a href="views.html#DafJL.Views.VIEW_ALL_DATA">
-<code>DafJL.Views.VIEW_ALL_DATA
+<a href="views.html#DataAxesFormats.Views.VIEW_ALL_DATA">
+<code>DataAxesFormats.Views.VIEW_ALL_DATA
 </code>
 </a>
 </li>
 <li>
-<a href="views.html#DafJL.Views.VIEW_ALL_MATRICES">
-<code>DafJL.Views.VIEW_ALL_MATRICES
+<a href="views.html#DataAxesFormats.Views.VIEW_ALL_MATRICES">
+<code>DataAxesFormats.Views.VIEW_ALL_MATRICES
 </code>
 </a>
 </li>
 <li>
-<a href="views.html#DafJL.Views.VIEW_ALL_SCALARS">
-<code>DafJL.Views.VIEW_ALL_SCALARS
+<a href="views.html#DataAxesFormats.Views.VIEW_ALL_SCALARS">
+<code>DataAxesFormats.Views.VIEW_ALL_SCALARS
 </code>
 </a>
 </li>
 <li>
-<a href="views.html#DafJL.Views.VIEW_ALL_VECTORS">
-<code>DafJL.Views.VIEW_ALL_VECTORS
+<a href="views.html#DataAxesFormats.Views.VIEW_ALL_VECTORS">
+<code>DataAxesFormats.Views.VIEW_ALL_VECTORS
 </code>
 </a>
 </li>
 <li>
-<a href="views.html#DafJL.Views.DafView">
-<code>DafJL.Views.DafView
+<a href="views.html#DataAxesFormats.Views.DafView">
+<code>DataAxesFormats.Views.DafView
 </code>
 </a>
 </li>
 <li>
-<a href="views.html#DafJL.Views.ViewAxes">
-<code>DafJL.Views.ViewAxes
+<a href="views.html#DataAxesFormats.Views.ViewAxes">
+<code>DataAxesFormats.Views.ViewAxes
 </code>
 </a>
 </li>
 <li>
-<a href="views.html#DafJL.Views.ViewAxis">
-<code>DafJL.Views.ViewAxis
+<a href="views.html#DataAxesFormats.Views.ViewAxis">
+<code>DataAxesFormats.Views.ViewAxis
 </code>
 </a>
 </li>
 <li>
-<a href="views.html#DafJL.Views.ViewData">
-<code>DafJL.Views.ViewData
+<a href="views.html#DataAxesFormats.Views.ViewData">
+<code>DataAxesFormats.Views.ViewData
 </code>
 </a>
 </li>
 <li>
-<a href="views.html#DafJL.Views.ViewDatum">
-<code>DafJL.Views.ViewDatum
+<a href="views.html#DataAxesFormats.Views.ViewDatum">
+<code>DataAxesFormats.Views.ViewDatum
 </code>
 </a>
 </li>
 <li>
-<a href="views.html#DafJL.Views.viewer">
-<code>DafJL.Views.viewer
+<a href="views.html#DataAxesFormats.Views.viewer">
+<code>DataAxesFormats.Views.viewer
 </code>
 </a>
 </li>

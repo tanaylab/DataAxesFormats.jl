@@ -1,51 +1,51 @@
 # Readers
 
 ```@docs
-DafJL.Readers
-DafJL.Readers.description
+DataAxesFormats.Readers
+DataAxesFormats.Readers.description
 ```
 
 ## Scalar properties
 
 ```@docs
-DafJL.Readers.has_scalar
-DafJL.Readers.scalars_set
-DafJL.Readers.get_scalar
+DataAxesFormats.Readers.has_scalar
+DataAxesFormats.Readers.scalars_set
+DataAxesFormats.Readers.get_scalar
 ```
 
 # Readers axes
 
 ```@docs
-DafJL.Readers.has_axis
-DafJL.Readers.axes_set
-DafJL.Readers.axis_array
-DafJL.Readers.axis_dict
-DafJL.Readers.axis_indices
-DafJL.Readers.axis_length
+DataAxesFormats.Readers.has_axis
+DataAxesFormats.Readers.axes_set
+DataAxesFormats.Readers.axis_array
+DataAxesFormats.Readers.axis_dict
+DataAxesFormats.Readers.axis_indices
+DataAxesFormats.Readers.axis_length
 ```
 
 ## Vector properties
 
 ```@docs
-DafJL.Readers.has_vector
-DafJL.Readers.vectors_set
-DafJL.Readers.get_vector
+DataAxesFormats.Readers.has_vector
+DataAxesFormats.Readers.vectors_set
+DataAxesFormats.Readers.get_vector
 ```
 
 ## Matrix properties
 
 ```@docs
-DafJL.Readers.has_matrix
-DafJL.Readers.matrices_set
-DafJL.Readers.get_matrix
+DataAxesFormats.Readers.has_matrix
+DataAxesFormats.Readers.matrices_set
+DataAxesFormats.Readers.get_matrix
 ```
 
 ## Utilities
 
 ```@docs
-DafJL.Readers.axis_version_counter
-DafJL.Readers.vector_version_counter
-DafJL.Readers.matrix_version_counter
+DataAxesFormats.Readers.axis_version_counter
+DataAxesFormats.Readers.vector_version_counter
+DataAxesFormats.Readers.matrix_version_counter
 ```
 
 ## Index

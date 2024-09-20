@@ -1,9 +1,9 @@
 # AnnData Format
 
 ```@docs
-DafJL.AnnDataFormat
-DafJL.AnnDataFormat.anndata_as_daf
-DafJL.AnnDataFormat.daf_as_anndata
+DataAxesFormats.AnnDataFormat
+DataAxesFormats.AnnDataFormat.anndata_as_daf
+DataAxesFormats.AnnDataFormat.daf_as_anndata
 ```
 
 ## Index

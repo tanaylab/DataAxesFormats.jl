@@ -1,9 +1,11 @@
 """
 Functions that arguably should belong in a more general-purpose package.
 
-We do not re-export the functions and supporting types defined here from the top-level `Daf` namespace. That is, even if
-`using DafJL`, you will **not** have these generic names polluting your namespace. If you do want to reuse them in your
-code, explicitly write `using DafJL.GenericFunctions`.
+!!! note
+
+    We do not re-export the functions and supporting types defined here from the top-level `DataAxesFormats` namespace.
+    That is, even if `using DataAxesFormats`, you will **not** have these generic names polluting your namespace. If you
+    do want to reuse them in your code, explicitly write `using DataAxesFormats.GenericFunctions`.
 """
 module GenericFunctions
 

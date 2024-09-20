@@ -3,14 +3,16 @@ Generic (enhanced) read-write locks, which arguably should belong in a more gene
 
 These add functionality on top of `ConcurrentUtils`; specifically, they allow querying the status of the lock.
 
-We do not re-export the types and functions defined here from the top-level `Daf` namespace. That is, even if
-`using DafJL`, you will **not** have these generic names polluting your namespace. If you do want to reuse them in your
-code, explicitly write `using DafJL.GenericLocks`.
+!!! warning
+
+    This code relies on tasks staying on the same thread, so **always** specify `@threads :static` when using them,
+    otherwise bad things *will* happen.
 
 !!! note
 
-    This code relies on tasks staying on the same thread, so **always** specify `@threads :static` when using them,
-    otherwise bad things will happen when Mercury is in retrograde.
+    We do not re-export the types and functions defined here from the top-level `DataAxesFormats` namespace. That is,
+    even if `using DataAxesFormats`, you will **not** have these generic names polluting your namespace. If you do want
+    to reuse them in your code, explicitly write `using DataAxesFormats.GenericLocks`.
 """
 module GenericLocks
 

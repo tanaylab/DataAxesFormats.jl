@@ -1,10 +1,10 @@
 # Generic Functions
 
 ```@docs
-DafJL.GenericFunctions
-DafJL.GenericFunctions.dedent
-DafJL.GenericFunctions.AbnormalHandler
-DafJL.GenericFunctions.handle_abnormal
+DataAxesFormats.GenericFunctions
+DataAxesFormats.GenericFunctions.dedent
+DataAxesFormats.GenericFunctions.AbnormalHandler
+DataAxesFormats.GenericFunctions.handle_abnormal
 ```
 
 ## Index

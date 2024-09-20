@@ -5,14 +5,14 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Adapters · DafJL.jl v0.1.0
+<title>Adapters · DataAxesFormats.jl v0.1.0
 </title>
-<meta name="title" content="Adapters · DafJL.jl v0.1.0"/>
-<meta property="og:title" content="Adapters · DafJL.jl v0.1.0"/>
-<meta property="twitter:title" content="Adapters · DafJL.jl v0.1.0"/>
-<meta name="description" content="Documentation for DafJL.jl v0.1.0."/>
-<meta property="og:description" content="Documentation for DafJL.jl v0.1.0."/>
-<meta property="twitter:description" content="Documentation for DafJL.jl v0.1.0."/>
+<meta name="title" content="Adapters · DataAxesFormats.jl v0.1.0"/>
+<meta property="og:title" content="Adapters · DataAxesFormats.jl v0.1.0"/>
+<meta property="twitter:title" content="Adapters · DataAxesFormats.jl v0.1.0"/>
+<meta name="description" content="Documentation for DataAxesFormats.jl v0.1.0."/>
+<meta property="og:description" content="Documentation for DataAxesFormats.jl v0.1.0."/>
+<meta property="twitter:description" content="Documentation for DataAxesFormats.jl v0.1.0."/>
 <script data-outdated-warner src="assets/warner.js">
 </script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/>
@@ -44,11 +44,11 @@
 <div id="documenter">
 <nav class="docs-sidebar">
 <a class="docs-logo" href="index.html">
-<img src="assets/logo.svg" alt="DafJL.jl v0.1.0 logo"/>
+<img src="assets/logo.svg" alt="DataAxesFormats.jl v0.1.0 logo"/>
 </a>
 <div class="docs-package-name">
 <span class="docs-autofit">
-<a href="index.html">DafJL.jl v0.1.0
+<a href="index.html">DataAxesFormats.jl v0.1.0
 </a>
 </span>
 </div>
@@ -220,7 +220,7 @@
 </ul>
 </nav>
 <div class="docs-right">
-<a class="docs-navbar-link" href="https://github.com/tanaylab/DafJL.jl/blob/main{path}?plain=1#L{line}" title="View the repository on GitHub">
+<a class="docs-navbar-link" href="https://github.com/tanaylab/DataAxesFormats.jl/blob/main{path}?plain=1#L{line}" title="View the repository on GitHub">
 <span class="docs-icon fa-brands">
 </span>
 <span class="docs-label is-hidden-touch">GitHub
@@ -245,8 +245,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Adapters" href="#DafJL.Adapters">
-<code>DafJL.Adapters
+<a class="docstring-binding" id="DataAxesFormats.Adapters" href="#DataAxesFormats.Adapters">
+<code>DataAxesFormats.Adapters
 </code>
 </a> — 
 <span class="docstring-category">Module
@@ -259,7 +259,7 @@
 <p>Adapt 
 <code>Daf
 </code> data to a 
-<a href="computations.html#DafJL.Computations.@computation">
+<a href="computations.html#DataAxesFormats.Computations.@computation">
 <code>@computation
 </code>
 </a>.
@@ -271,8 +271,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Adapters.adapter" href="#DafJL.Adapters.adapter">
-<code>DafJL.Adapters.adapter
+<a class="docstring-binding" id="DataAxesFormats.Adapters.adapter" href="#DataAxesFormats.Adapters.adapter">
+<code>DataAxesFormats.Adapters.adapter
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -329,11 +329,11 @@
 </code>. If the 
 <code>computation
 </code> was annotated by 
-<a href="computations.html#DafJL.Computations.@computation">
+<a href="computations.html#DataAxesFormats.Computations.@computation">
 <code>@computation
 </code>
 </a>, then its 
-<a href="contracts.html#DafJL.Contracts.Contract">
+<a href="contracts.html#DataAxesFormats.Contracts.Contract">
 <code>Contract
 </code>
 </a> will be explicitly documented so you will know exactly what to provide.
@@ -341,7 +341,7 @@
 <li>Chain this read-only view with an empty 
 <code>capture
 </code> writable data set (by default, 
-<a href="memory_format.html#DafJL.MemoryFormat.MemoryDaf">
+<a href="memory_format.html#DataAxesFormats.MemoryFormat.MemoryDaf">
 <code>MemoryDaf
 </code>
 </a>) and pass the result to the 
@@ -357,7 +357,7 @@
 </code> to create a view of the output, and copy this subset to the original 
 <code>daf
 </code> data set, using (using 
-<a href="copies.html#DafJL.Copies.copy_all!">
+<a href="copies.html#DataAxesFormats.Copies.copy_all!">
 <code>copy_all!
 </code>
 </a>, 
@@ -396,7 +396,7 @@ end
 </code>
 </pre>
 <p>This idiom allows 
-<a href="computations.html#DafJL.Computations.@computation">
+<a href="computations.html#DataAxesFormats.Computations.@computation">
 <code>@computation
 </code>
 </a> functions to use clear generic names for their inputs and outputs, and still apply them to arbitrary data sets that use more specific names. One can even invoke the same computation with different parameter values, and store the different results in the same data set under different names.

@@ -5,14 +5,14 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>H5DF Format · DafJL.jl v0.1.0
+<title>H5DF Format · DataAxesFormats.jl v0.1.0
 </title>
-<meta name="title" content="H5DF Format · DafJL.jl v0.1.0"/>
-<meta property="og:title" content="H5DF Format · DafJL.jl v0.1.0"/>
-<meta property="twitter:title" content="H5DF Format · DafJL.jl v0.1.0"/>
-<meta name="description" content="Documentation for DafJL.jl v0.1.0."/>
-<meta property="og:description" content="Documentation for DafJL.jl v0.1.0."/>
-<meta property="twitter:description" content="Documentation for DafJL.jl v0.1.0."/>
+<meta name="title" content="H5DF Format · DataAxesFormats.jl v0.1.0"/>
+<meta property="og:title" content="H5DF Format · DataAxesFormats.jl v0.1.0"/>
+<meta property="twitter:title" content="H5DF Format · DataAxesFormats.jl v0.1.0"/>
+<meta name="description" content="Documentation for DataAxesFormats.jl v0.1.0."/>
+<meta property="og:description" content="Documentation for DataAxesFormats.jl v0.1.0."/>
+<meta property="twitter:description" content="Documentation for DataAxesFormats.jl v0.1.0."/>
 <script data-outdated-warner src="assets/warner.js">
 </script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/>
@@ -44,11 +44,11 @@
 <div id="documenter">
 <nav class="docs-sidebar">
 <a class="docs-logo" href="index.html">
-<img src="assets/logo.svg" alt="DafJL.jl v0.1.0 logo"/>
+<img src="assets/logo.svg" alt="DataAxesFormats.jl v0.1.0 logo"/>
 </a>
 <div class="docs-package-name">
 <span class="docs-autofit">
-<a href="index.html">DafJL.jl v0.1.0
+<a href="index.html">DataAxesFormats.jl v0.1.0
 </a>
 </span>
 </div>
@@ -220,7 +220,7 @@
 </ul>
 </nav>
 <div class="docs-right">
-<a class="docs-navbar-link" href="https://github.com/tanaylab/DafJL.jl/blob/main{path}?plain=1#L{line}" title="View the repository on GitHub">
+<a class="docs-navbar-link" href="https://github.com/tanaylab/DataAxesFormats.jl/blob/main{path}?plain=1#L{line}" title="View the repository on GitHub">
 <span class="docs-icon fa-brands">
 </span>
 <span class="docs-label is-hidden-touch">GitHub
@@ -245,8 +245,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.H5dfFormat" href="#DafJL.H5dfFormat">
-<code>DafJL.H5dfFormat
+<a class="docstring-binding" id="DataAxesFormats.H5dfFormat" href="#DataAxesFormats.H5dfFormat">
+<code>DataAxesFormats.H5dfFormat
 </code>
 </a> — 
 <span class="docstring-category">Module
@@ -328,7 +328,7 @@
 <li>The 
 <code>scalars
 </code> group contains scalar properties, each as its own &quot;dataset&quot;. The only supported scalar data types are these included in 
-<a href="storage_types.html#DafJL.StorageTypes.StorageScalar">
+<a href="storage_types.html#DataAxesFormats.StorageTypes.StorageScalar">
 <code>StorageScalar
 </code>
 </a>. If you 
@@ -350,11 +350,11 @@
 </code> containing the actual values. See Julia&#39;s 
 <code>SparseVector
 </code> implementation for details. The only supported vector element types are these included in 
-<a href="storage_types.html#DafJL.StorageTypes.StorageScalar">
+<a href="storage_types.html#DataAxesFormats.StorageTypes.StorageScalar">
 <code>StorageScalar
 </code>
 </a>, same as 
-<a href="storage_types.html#DafJL.StorageTypes.StorageVector">
+<a href="storage_types.html#DataAxesFormats.StorageTypes.StorageVector">
 <code>StorageVector
 </code>
 </a>.
@@ -372,11 +372,11 @@
 </code> containing the non-zero matrix entry values. See Julia&#39;s 
 <code>SparseMatrixCSC
 </code> implementation for details. The only supported matrix element types are these included in 
-<a href="storage_types.html#DafJL.StorageTypes.StorageReal">
+<a href="storage_types.html#DataAxesFormats.StorageTypes.StorageReal">
 <code>StorageReal
 </code>
 </a> - this explicitly excludes matrices of strings, same as 
-<a href="storage_types.html#DafJL.StorageTypes.StorageMatrix">
+<a href="storage_types.html#DataAxesFormats.StorageTypes.StorageMatrix">
 <code>StorageMatrix
 </code>
 </a>.
@@ -437,7 +437,7 @@
 </header>
 <div class="admonition-body">
 <p>Deleting data from an HDF5 file does not reuse the abandoned storage. In general if you want to reclaim that storage, you will need to repack the file, which will invalidate any memory-mapped buffers created for it. Therefore, if you delete data (e.g. using 
-<a href="writers.html#DafJL.Writers.delete_vector!">
+<a href="writers.html#DataAxesFormats.Writers.delete_vector!">
 <code>delete_vector!
 </code>
 </a>), you should eventually abandon the 
@@ -455,7 +455,7 @@
 <p>The code here assumes the HDF5 data obeys all the above conventions and restrictions (that said, code will be able to access vectors and matrices stored in unaligned, chunked and/or compressed formats, but this will be much less efficient). As long as you only create and access 
 <code>Daf
 </code> data in HDF5 files using 
-<a href="h5df_format.html#DafJL.H5dfFormat.H5df">
+<a href="h5df_format.html#DataAxesFormats.H5dfFormat.H5df">
 <code>H5df
 </code>
 </a>, then the code will work as expected (assuming no bugs). However, if you do this in some other way (e.g., directly using some HDF5 API in some arbitrary programming language), and the result is invalid, then the code here may fails with &quot;less than friendly&quot; error messages.
@@ -469,8 +469,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.H5dfFormat.MAJOR_VERSION" href="#DafJL.H5dfFormat.MAJOR_VERSION">
-<code>DafJL.H5dfFormat.MAJOR_VERSION
+<a class="docstring-binding" id="DataAxesFormats.H5dfFormat.MAJOR_VERSION" href="#DataAxesFormats.H5dfFormat.MAJOR_VERSION">
+<code>DataAxesFormats.H5dfFormat.MAJOR_VERSION
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -481,7 +481,7 @@
 <section>
 <div>
 <p>The specific major version of the 
-<a href="h5df_format.html#DafJL.H5dfFormat.H5df">
+<a href="h5df_format.html#DataAxesFormats.H5dfFormat.H5df">
 <code>H5df
 </code>
 </a> format that is supported by this code (
@@ -495,8 +495,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.H5dfFormat.MINOR_VERSION" href="#DafJL.H5dfFormat.MINOR_VERSION">
-<code>DafJL.H5dfFormat.MINOR_VERSION
+<a class="docstring-binding" id="DataAxesFormats.H5dfFormat.MINOR_VERSION" href="#DataAxesFormats.H5dfFormat.MINOR_VERSION">
+<code>DataAxesFormats.H5dfFormat.MINOR_VERSION
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -507,7 +507,7 @@
 <section>
 <div>
 <p>The maximal minor version of the 
-<a href="h5df_format.html#DafJL.H5dfFormat.H5df">
+<a href="h5df_format.html#DataAxesFormats.H5dfFormat.H5df">
 <code>H5df
 </code>
 </a> format that is supported by this code (
@@ -533,8 +533,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.H5dfFormat.H5df" href="#DafJL.H5dfFormat.H5df">
-<code>DafJL.H5dfFormat.H5df
+<a class="docstring-binding" id="DataAxesFormats.H5dfFormat.H5df" href="#DataAxesFormats.H5dfFormat.H5df">
+<code>DataAxesFormats.H5dfFormat.H5df
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -605,7 +605,7 @@
 <td style="text-align: left">No
 </td>
 <td style="text-align: left">
-<a href="read_only.html#DafJL.ReadOnly.DafReadOnly">
+<a href="read_only.html#DataAxesFormats.ReadOnly.DafReadOnly">
 <code>DafReadOnly
 </code>
 </a>
@@ -623,7 +623,7 @@
 <td style="text-align: left">No
 </td>
 <td style="text-align: left">
-<a href="h5df_format.html#DafJL.H5dfFormat.H5df">
+<a href="h5df_format.html#DataAxesFormats.H5dfFormat.H5df">
 <code>H5df
 </code>
 </a>
@@ -641,7 +641,7 @@
 <td style="text-align: left">No
 </td>
 <td style="text-align: left">
-<a href="h5df_format.html#DafJL.H5dfFormat.H5df">
+<a href="h5df_format.html#DataAxesFormats.H5dfFormat.H5df">
 <code>H5df
 </code>
 </a>
@@ -659,7 +659,7 @@
 <td style="text-align: left">Yes
 </td>
 <td style="text-align: left">
-<a href="h5df_format.html#DafJL.H5dfFormat.H5df">
+<a href="h5df_format.html#DataAxesFormats.H5dfFormat.H5df">
 <code>H5df
 </code>
 </a>
@@ -697,26 +697,26 @@
 </h2>
 <ul>
 <li>
-<a href="h5df_format.html#DafJL.H5dfFormat">
-<code>DafJL.H5dfFormat
+<a href="h5df_format.html#DataAxesFormats.H5dfFormat">
+<code>DataAxesFormats.H5dfFormat
 </code>
 </a>
 </li>
 <li>
-<a href="h5df_format.html#DafJL.H5dfFormat.MAJOR_VERSION">
-<code>DafJL.H5dfFormat.MAJOR_VERSION
+<a href="h5df_format.html#DataAxesFormats.H5dfFormat.MAJOR_VERSION">
+<code>DataAxesFormats.H5dfFormat.MAJOR_VERSION
 </code>
 </a>
 </li>
 <li>
-<a href="h5df_format.html#DafJL.H5dfFormat.MINOR_VERSION">
-<code>DafJL.H5dfFormat.MINOR_VERSION
+<a href="h5df_format.html#DataAxesFormats.H5dfFormat.MINOR_VERSION">
+<code>DataAxesFormats.H5dfFormat.MINOR_VERSION
 </code>
 </a>
 </li>
 <li>
-<a href="h5df_format.html#DafJL.H5dfFormat.H5df">
-<code>DafJL.H5dfFormat.H5df
+<a href="h5df_format.html#DataAxesFormats.H5dfFormat.H5df">
+<code>DataAxesFormats.H5dfFormat.H5df
 </code>
 </a>
 </li>

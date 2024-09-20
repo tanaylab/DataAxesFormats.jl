@@ -1,9 +1,11 @@
 """
 Generic macros and functions for logging, that arguably should belong in a more general-purpose package.
 
-We do not re-export the macros and functions defined here from the top-level `Daf` namespace. That is, even if
-`using DafJL`, you will **not** have these generic names polluting your namespace. If you do want to reuse them
-in your code, explicitly write `using DafJL.GenericLogging`.
+!!! note
+
+    We do not re-export the macros and functions defined here from the top-level `DataAxesFormats` namespace. That is,
+    even if `using DataAxesFormats`, you will **not** have these generic names polluting your namespace. If you do want
+    to reuse them in your code, explicitly write `using DataAxesFormats.GenericLogging`.
 """
 module GenericLogging
 
@@ -88,7 +90,7 @@ macro logged(definition)
     has_result = get(inner_definition, :rtype, :Any) != :Nothing
     arg_names = [parse_arg(arg) for arg in get(outer_definition, :args, [])]
     inner_definition[:name] = Symbol(function_name, :_logged)
-    if startswith(full_name, "DafJL.") || contains(full_name, ".DafJL.")
+    if startswith(full_name, "DataAxesFormats.") || contains(full_name, ".DataAxesFormats.")
         outer_definition[:body] = Expr(
             :call,
             :(GenericLogging.logged_wrapper(
@@ -106,7 +108,7 @@ macro logged(definition)
     else
         outer_definition[:body] = Expr(
             :call,
-            :(DafJL.GenericLogging.logged_wrapper(
+            :(DataAxesFormats.GenericLogging.logged_wrapper(
                 $function_module,
                 $function_file,
                 $function_line,

@@ -1,8 +1,8 @@
 # Adapters
 
 ```@docs
-DafJL.Adapters
-DafJL.Adapters.adapter
+DataAxesFormats.Adapters
+DataAxesFormats.Adapters.adapter
 ```
 
 ## Index

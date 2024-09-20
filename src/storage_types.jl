@@ -21,8 +21,8 @@ restricted to specific representations. This has several advantages:
 This has the downside that `Daf` doesn't support efficient storage of specialized matrices (to pick a random example,
 upper triangular matrices). This isn't a great loss, since `Daf` targets storing arbitrary scientific data (especially
 biological data), which in general is not of any such special shape. The upside is that all matrices stored and returned
-by `Daf` have a clear [`MatrixLayouts`](@ref DafJL.MatrixLayouts) (regardless of whether they are dense or sparse). This
-allows user code to ensure it is working "with the grain" of the data, which is **much** more efficient.
+by `Daf` have a clear [`MatrixLayouts`](@ref DataAxesFormats.MatrixLayouts) (regardless of whether they are dense or
+sparse). This allows user code to ensure it is working "with the grain" of the data, which is **much** more efficient.
 """
 module StorageTypes
 
@@ -106,8 +106,8 @@ matrices of strings are **not** supported.
 
 !!! note
 
-    All matrices we store must have a clear [`MatrixLayouts`](@ref DafJL.MatrixLayouts), that is, must be in either
-    row-major or column-major format.
+    All matrices we store must have a clear [`MatrixLayouts`](@ref DataAxesFormats.MatrixLayouts), that is, must be in
+    either row-major or column-major format.
 """
 StorageMatrix{T} = AbstractMatrix{T} where {T <: StorageReal}
 

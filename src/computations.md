@@ -1,14 +1,14 @@
 # Computations
 
 ```@docs
-DafJL.Computations
-DafJL.Computations.@computation
-DafJL.Computations.function_contract
-DafJL.Computations.function_default
-DafJL.Computations.DEFAULT
-DafJL.Computations.CONTRACT
-DafJL.Computations.CONTRACT1
-DafJL.Computations.CONTRACT2
+DataAxesFormats.Computations
+DataAxesFormats.Computations.@computation
+DataAxesFormats.Computations.function_contract
+DataAxesFormats.Computations.function_default
+DataAxesFormats.Computations.DEFAULT
+DataAxesFormats.Computations.CONTRACT
+DataAxesFormats.Computations.CONTRACT1
+DataAxesFormats.Computations.CONTRACT2
 ```
 
 ## Index

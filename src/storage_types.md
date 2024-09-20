@@ -1,21 +1,21 @@
 # Storage types
 
 ```@docs
-DafJL.StorageTypes
+DataAxesFormats.StorageTypes
 ```
 
 # Storable types
 
 ```@docs
-DafJL.StorageTypes.StorageSigned
-DafJL.StorageTypes.StorageUnsigned
-DafJL.StorageTypes.StorageInteger
-DafJL.StorageTypes.StorageFloat
-DafJL.StorageTypes.StorageReal
-DafJL.StorageTypes.StorageScalar
-DafJL.StorageTypes.StorageScalarBase
-DafJL.StorageTypes.StorageVector
-DafJL.StorageTypes.StorageMatrix
+DataAxesFormats.StorageTypes.StorageSigned
+DataAxesFormats.StorageTypes.StorageUnsigned
+DataAxesFormats.StorageTypes.StorageInteger
+DataAxesFormats.StorageTypes.StorageFloat
+DataAxesFormats.StorageTypes.StorageReal
+DataAxesFormats.StorageTypes.StorageScalar
+DataAxesFormats.StorageTypes.StorageScalarBase
+DataAxesFormats.StorageTypes.StorageVector
+DataAxesFormats.StorageTypes.StorageMatrix
 ```
 
 # Constructors
@@ -23,8 +23,8 @@ DafJL.StorageTypes.StorageMatrix
 # Storable types
 
 ```@docs
-DafJL.StorageTypes.sparse_vector
-DafJL.StorageTypes.sparse_matrix_csc
+DataAxesFormats.StorageTypes.sparse_vector
+DataAxesFormats.StorageTypes.sparse_matrix_csc
 ```
 
 ## Index

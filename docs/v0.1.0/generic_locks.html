@@ -5,14 +5,14 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Generic Locks · DafJL.jl v0.1.0
+<title>Generic Locks · DataAxesFormats.jl v0.1.0
 </title>
-<meta name="title" content="Generic Locks · DafJL.jl v0.1.0"/>
-<meta property="og:title" content="Generic Locks · DafJL.jl v0.1.0"/>
-<meta property="twitter:title" content="Generic Locks · DafJL.jl v0.1.0"/>
-<meta name="description" content="Documentation for DafJL.jl v0.1.0."/>
-<meta property="og:description" content="Documentation for DafJL.jl v0.1.0."/>
-<meta property="twitter:description" content="Documentation for DafJL.jl v0.1.0."/>
+<meta name="title" content="Generic Locks · DataAxesFormats.jl v0.1.0"/>
+<meta property="og:title" content="Generic Locks · DataAxesFormats.jl v0.1.0"/>
+<meta property="twitter:title" content="Generic Locks · DataAxesFormats.jl v0.1.0"/>
+<meta name="description" content="Documentation for DataAxesFormats.jl v0.1.0."/>
+<meta property="og:description" content="Documentation for DataAxesFormats.jl v0.1.0."/>
+<meta property="twitter:description" content="Documentation for DataAxesFormats.jl v0.1.0."/>
 <script data-outdated-warner src="assets/warner.js">
 </script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/>
@@ -44,11 +44,11 @@
 <div id="documenter">
 <nav class="docs-sidebar">
 <a class="docs-logo" href="index.html">
-<img src="assets/logo.svg" alt="DafJL.jl v0.1.0 logo"/>
+<img src="assets/logo.svg" alt="DataAxesFormats.jl v0.1.0 logo"/>
 </a>
 <div class="docs-package-name">
 <span class="docs-autofit">
-<a href="index.html">DafJL.jl v0.1.0
+<a href="index.html">DataAxesFormats.jl v0.1.0
 </a>
 </span>
 </div>
@@ -232,7 +232,7 @@
 </ul>
 </nav>
 <div class="docs-right">
-<a class="docs-navbar-link" href="https://github.com/tanaylab/DafJL.jl/blob/main{path}?plain=1#L{line}" title="View the repository on GitHub">
+<a class="docs-navbar-link" href="https://github.com/tanaylab/DataAxesFormats.jl/blob/main{path}?plain=1#L{line}" title="View the repository on GitHub">
 <span class="docs-icon fa-brands">
 </span>
 <span class="docs-label is-hidden-touch">GitHub
@@ -257,8 +257,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.GenericLocks" href="#DafJL.GenericLocks">
-<code>DafJL.GenericLocks
+<a class="docstring-binding" id="DataAxesFormats.GenericLocks" href="#DataAxesFormats.GenericLocks">
+<code>DataAxesFormats.GenericLocks
 </code>
 </a> — 
 <span class="docstring-category">Module
@@ -274,25 +274,33 @@
 <code>ConcurrentUtils
 </code>; specifically, they allow querying the status of the lock.
 </p>
-<p>We do not re-export the types and functions defined here from the top-level 
-<code>Daf
-</code> namespace. That is, even if 
-<code>using DafJL
-</code>, you will 
-<strong>not
-</strong> have these generic names polluting your namespace. If you do want to reuse them in your code, explicitly write 
-<code>using DafJL.GenericLocks
-</code>.
-</p>
-<div class="admonition is-info">
-<header class="admonition-header">Note
+<div class="admonition is-warning">
+<header class="admonition-header">Warning
 </header>
 <div class="admonition-body">
 <p>This code relies on tasks staying on the same thread, so 
 <strong>always
 </strong> specify 
 <code>@threads :static
-</code> when using them, otherwise bad things will happen when Mercury is in retrograde.
+</code> when using them, otherwise bad things 
+<em>will
+</em> happen.
+</p>
+</div>
+</div>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>We do not re-export the types and functions defined here from the top-level 
+<code>DataAxesFormats
+</code> namespace. That is, even if 
+<code>using DataAxesFormats
+</code>, you will 
+<strong>not
+</strong> have these generic names polluting your namespace. If you do want to reuse them in your code, explicitly write 
+<code>using DataAxesFormats.GenericLocks
+</code>.
 </p>
 </div>
 </div>
@@ -303,8 +311,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.GenericLocks.QueryReadWriteLock" href="#DafJL.GenericLocks.QueryReadWriteLock">
-<code>DafJL.GenericLocks.QueryReadWriteLock
+<a class="docstring-binding" id="DataAxesFormats.GenericLocks.QueryReadWriteLock" href="#DataAxesFormats.GenericLocks.QueryReadWriteLock">
+<code>DataAxesFormats.GenericLocks.QueryReadWriteLock
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -335,8 +343,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.GenericLocks.write_lock" href="#DafJL.GenericLocks.write_lock">
-<code>DafJL.GenericLocks.write_lock
+<a class="docstring-binding" id="DataAxesFormats.GenericLocks.write_lock" href="#DataAxesFormats.GenericLocks.write_lock">
+<code>DataAxesFormats.GenericLocks.write_lock
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -351,7 +359,7 @@
 </code>
 </pre>
 <p>Obtain a write lock. Each call must be matched by 
-<a href="generic_locks.html#DafJL.GenericLocks.write_unlock">
+<a href="generic_locks.html#DataAxesFormats.GenericLocks.write_unlock">
 <code>write_unlock
 </code>
 </a>. It is possible to nest 
@@ -373,8 +381,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.GenericLocks.write_unlock" href="#DafJL.GenericLocks.write_unlock">
-<code>DafJL.GenericLocks.write_unlock
+<a class="docstring-binding" id="DataAxesFormats.GenericLocks.write_unlock" href="#DataAxesFormats.GenericLocks.write_unlock">
+<code>DataAxesFormats.GenericLocks.write_unlock
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -389,7 +397,7 @@
 </code>
 </pre>
 <p>Release a write lock. Each call must matched a call to 
-<a href="generic_locks.html#DafJL.GenericLocks.write_lock">
+<a href="generic_locks.html#DataAxesFormats.GenericLocks.write_lock">
 <code>write_lock
 </code>
 </a>. It is possible to nest 
@@ -409,8 +417,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.GenericLocks.with_write_lock" href="#DafJL.GenericLocks.with_write_lock">
-<code>DafJL.GenericLocks.with_write_lock
+<a class="docstring-binding" id="DataAxesFormats.GenericLocks.with_write_lock" href="#DataAxesFormats.GenericLocks.with_write_lock">
+<code>DataAxesFormats.GenericLocks.with_write_lock
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -427,13 +435,13 @@
 <p>Perform an 
 <code>action
 </code> while holding a 
-<a href="generic_locks.html#DafJL.GenericLocks.write_lock">
+<a href="generic_locks.html#DataAxesFormats.GenericLocks.write_lock">
 <code>write_lock
 </code>
 </a> for the 
 <code>query_read_write_lock
 </code>, return its result and 
-<a href="generic_locks.html#DafJL.GenericLocks.write_unlock">
+<a href="generic_locks.html#DataAxesFormats.GenericLocks.write_unlock">
 <code>write_unlock
 </code>
 </a>.
@@ -445,8 +453,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.GenericLocks.has_write_lock" href="#DafJL.GenericLocks.has_write_lock">
-<code>DafJL.GenericLocks.has_write_lock
+<a class="docstring-binding" id="DataAxesFormats.GenericLocks.has_write_lock" href="#DataAxesFormats.GenericLocks.has_write_lock">
+<code>DataAxesFormats.GenericLocks.has_write_lock
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -477,8 +485,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.GenericLocks.read_lock" href="#DafJL.GenericLocks.read_lock">
-<code>DafJL.GenericLocks.read_lock
+<a class="docstring-binding" id="DataAxesFormats.GenericLocks.read_lock" href="#DataAxesFormats.GenericLocks.read_lock">
+<code>DataAxesFormats.GenericLocks.read_lock
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -493,7 +501,7 @@
 </code>
 </pre>
 <p>Obtain a read lock. Each call must be matched by 
-<a href="generic_locks.html#DafJL.GenericLocks.read_unlock">
+<a href="generic_locks.html#DataAxesFormats.GenericLocks.read_unlock">
 <code>read_unlock
 </code>
 </a>. It is possible to nest 
@@ -529,8 +537,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.GenericLocks.read_unlock" href="#DafJL.GenericLocks.read_unlock">
-<code>DafJL.GenericLocks.read_unlock
+<a class="docstring-binding" id="DataAxesFormats.GenericLocks.read_unlock" href="#DataAxesFormats.GenericLocks.read_unlock">
+<code>DataAxesFormats.GenericLocks.read_unlock
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -545,7 +553,7 @@
 </code>
 </pre>
 <p>Release a read lock. Each call must matched a call to 
-<a href="generic_locks.html#DafJL.GenericLocks.read_lock">
+<a href="generic_locks.html#DataAxesFormats.GenericLocks.read_lock">
 <code>read_lock
 </code>
 </a>. It is possible to nest 
@@ -565,8 +573,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.GenericLocks.with_read_lock" href="#DafJL.GenericLocks.with_read_lock">
-<code>DafJL.GenericLocks.with_read_lock
+<a class="docstring-binding" id="DataAxesFormats.GenericLocks.with_read_lock" href="#DataAxesFormats.GenericLocks.with_read_lock">
+<code>DataAxesFormats.GenericLocks.with_read_lock
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -583,13 +591,13 @@
 <p>Perform an 
 <code>action
 </code> while holding a 
-<a href="generic_locks.html#DafJL.GenericLocks.read_lock">
+<a href="generic_locks.html#DataAxesFormats.GenericLocks.read_lock">
 <code>read_lock
 </code>
 </a> for the 
 <code>query_read_write_lock
 </code>, return its result and 
-<a href="generic_locks.html#DafJL.GenericLocks.read_unlock">
+<a href="generic_locks.html#DataAxesFormats.GenericLocks.read_unlock">
 <code>read_unlock
 </code>
 </a>.
@@ -601,8 +609,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.GenericLocks.has_read_lock" href="#DafJL.GenericLocks.has_read_lock">
-<code>DafJL.GenericLocks.has_read_lock
+<a class="docstring-binding" id="DataAxesFormats.GenericLocks.has_read_lock" href="#DataAxesFormats.GenericLocks.has_read_lock">
+<code>DataAxesFormats.GenericLocks.has_read_lock
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -633,62 +641,62 @@
 </h2>
 <ul>
 <li>
-<a href="generic_locks.html#DafJL.GenericLocks">
-<code>DafJL.GenericLocks
+<a href="generic_locks.html#DataAxesFormats.GenericLocks">
+<code>DataAxesFormats.GenericLocks
 </code>
 </a>
 </li>
 <li>
-<a href="generic_locks.html#DafJL.GenericLocks.QueryReadWriteLock">
-<code>DafJL.GenericLocks.QueryReadWriteLock
+<a href="generic_locks.html#DataAxesFormats.GenericLocks.QueryReadWriteLock">
+<code>DataAxesFormats.GenericLocks.QueryReadWriteLock
 </code>
 </a>
 </li>
 <li>
-<a href="generic_locks.html#DafJL.GenericLocks.has_read_lock">
-<code>DafJL.GenericLocks.has_read_lock
+<a href="generic_locks.html#DataAxesFormats.GenericLocks.has_read_lock">
+<code>DataAxesFormats.GenericLocks.has_read_lock
 </code>
 </a>
 </li>
 <li>
-<a href="generic_locks.html#DafJL.GenericLocks.has_write_lock">
-<code>DafJL.GenericLocks.has_write_lock
+<a href="generic_locks.html#DataAxesFormats.GenericLocks.has_write_lock">
+<code>DataAxesFormats.GenericLocks.has_write_lock
 </code>
 </a>
 </li>
 <li>
-<a href="generic_locks.html#DafJL.GenericLocks.read_lock">
-<code>DafJL.GenericLocks.read_lock
+<a href="generic_locks.html#DataAxesFormats.GenericLocks.read_lock">
+<code>DataAxesFormats.GenericLocks.read_lock
 </code>
 </a>
 </li>
 <li>
-<a href="generic_locks.html#DafJL.GenericLocks.read_unlock">
-<code>DafJL.GenericLocks.read_unlock
+<a href="generic_locks.html#DataAxesFormats.GenericLocks.read_unlock">
+<code>DataAxesFormats.GenericLocks.read_unlock
 </code>
 </a>
 </li>
 <li>
-<a href="generic_locks.html#DafJL.GenericLocks.with_read_lock">
-<code>DafJL.GenericLocks.with_read_lock
+<a href="generic_locks.html#DataAxesFormats.GenericLocks.with_read_lock">
+<code>DataAxesFormats.GenericLocks.with_read_lock
 </code>
 </a>
 </li>
 <li>
-<a href="generic_locks.html#DafJL.GenericLocks.with_write_lock">
-<code>DafJL.GenericLocks.with_write_lock
+<a href="generic_locks.html#DataAxesFormats.GenericLocks.with_write_lock">
+<code>DataAxesFormats.GenericLocks.with_write_lock
 </code>
 </a>
 </li>
 <li>
-<a href="generic_locks.html#DafJL.GenericLocks.write_lock">
-<code>DafJL.GenericLocks.write_lock
+<a href="generic_locks.html#DataAxesFormats.GenericLocks.write_lock">
+<code>DataAxesFormats.GenericLocks.write_lock
 </code>
 </a>
 </li>
 <li>
-<a href="generic_locks.html#DafJL.GenericLocks.write_unlock">
-<code>DafJL.GenericLocks.write_unlock
+<a href="generic_locks.html#DataAxesFormats.GenericLocks.write_unlock">
+<code>DataAxesFormats.GenericLocks.write_unlock
 </code>
 </a>
 </li>

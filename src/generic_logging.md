@@ -1,9 +1,9 @@
 # Generic Logging
 
 ```@docs
-DafJL.GenericLogging
-DafJL.GenericLogging.setup_logger
-DafJL.GenericLogging.@logged
+DataAxesFormats.GenericLogging
+DataAxesFormats.GenericLogging.setup_logger
+DataAxesFormats.GenericLogging.@logged
 ```
 
 ## Index

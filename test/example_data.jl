@@ -57,7 +57,7 @@ function test_description(
 end
 
 nested_test("example_data") do
-    daf = read_only(DafJL.ExampleData.example_daf())
+    daf = read_only(DataAxesFormats.ExampleData.example_daf())
     @test read_only(daf) === daf
     renamed = read_only(daf; name = "new name!")
     @test renamed !== daf

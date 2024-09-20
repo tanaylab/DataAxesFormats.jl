@@ -111,7 +111,8 @@ additional data, or when the computation generates a variable set of data.
 !!! note
 
     When a function calls several functions in a row, you can compute its contract by using [`function_contract`](@ref
-    DafJL.Computations.function_contract) on them and then combining the results in their invocation order using `|>`.
+    DataAxesFormats.Computations.function_contract) on them and then combining the results in their invocation order
+    using `|>`.
 """
 @kwdef struct Contract
     is_relaxed::Bool = false

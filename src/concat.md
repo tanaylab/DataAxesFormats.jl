@@ -1,11 +1,11 @@
 # Concat
 
 ```@docs
-DafJL.Concat
-DafJL.Concat.concatenate!
-DafJL.Concat.MergeDatum
-DafJL.Concat.MergeData
-DafJL.Concat.MergeAction
+DataAxesFormats.Concat
+DataAxesFormats.Concat.concatenate!
+DataAxesFormats.Concat.MergeDatum
+DataAxesFormats.Concat.MergeData
+DataAxesFormats.Concat.MergeAction
 ```
 
 ## Index

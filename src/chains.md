@@ -1,11 +1,11 @@
 # Chains
 
 ```@docs
-DafJL.Chains
-DafJL.Chains.chain_reader
-DafJL.Chains.chain_writer
-DafJL.Chains.ReadOnlyChain
-DafJL.Chains.WriteChain
+DataAxesFormats.Chains
+DataAxesFormats.Chains.chain_reader
+DataAxesFormats.Chains.chain_writer
+DataAxesFormats.Chains.ReadOnlyChain
+DataAxesFormats.Chains.WriteChain
 ```
 
 ## Index

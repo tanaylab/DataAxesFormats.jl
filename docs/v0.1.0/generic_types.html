@@ -5,14 +5,14 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Generic Types · DafJL.jl v0.1.0
+<title>Generic Types · DataAxesFormats.jl v0.1.0
 </title>
-<meta name="title" content="Generic Types · DafJL.jl v0.1.0"/>
-<meta property="og:title" content="Generic Types · DafJL.jl v0.1.0"/>
-<meta property="twitter:title" content="Generic Types · DafJL.jl v0.1.0"/>
-<meta name="description" content="Documentation for DafJL.jl v0.1.0."/>
-<meta property="og:description" content="Documentation for DafJL.jl v0.1.0."/>
-<meta property="twitter:description" content="Documentation for DafJL.jl v0.1.0."/>
+<meta name="title" content="Generic Types · DataAxesFormats.jl v0.1.0"/>
+<meta property="og:title" content="Generic Types · DataAxesFormats.jl v0.1.0"/>
+<meta property="twitter:title" content="Generic Types · DataAxesFormats.jl v0.1.0"/>
+<meta name="description" content="Documentation for DataAxesFormats.jl v0.1.0."/>
+<meta property="og:description" content="Documentation for DataAxesFormats.jl v0.1.0."/>
+<meta property="twitter:description" content="Documentation for DataAxesFormats.jl v0.1.0."/>
 <script data-outdated-warner src="assets/warner.js">
 </script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/>
@@ -44,11 +44,11 @@
 <div id="documenter">
 <nav class="docs-sidebar">
 <a class="docs-logo" href="index.html">
-<img src="assets/logo.svg" alt="DafJL.jl v0.1.0 logo"/>
+<img src="assets/logo.svg" alt="DataAxesFormats.jl v0.1.0 logo"/>
 </a>
 <div class="docs-package-name">
 <span class="docs-autofit">
-<a href="index.html">DafJL.jl v0.1.0
+<a href="index.html">DataAxesFormats.jl v0.1.0
 </a>
 </span>
 </div>
@@ -172,12 +172,6 @@
 </a>
 <ul class="internal">
 <li>
-<a class="tocitem" href="#Unions">
-<span>Unions
-</span>
-</a>
-</li>
-<li>
 <a class="tocitem" href="#Index">
 <span>Index
 </span>
@@ -226,7 +220,7 @@
 </ul>
 </nav>
 <div class="docs-right">
-<a class="docs-navbar-link" href="https://github.com/tanaylab/DafJL.jl/blob/main{path}?plain=1#L{line}" title="View the repository on GitHub">
+<a class="docs-navbar-link" href="https://github.com/tanaylab/DataAxesFormats.jl/blob/main{path}?plain=1#L{line}" title="View the repository on GitHub">
 <span class="docs-icon fa-brands">
 </span>
 <span class="docs-label is-hidden-touch">GitHub
@@ -251,8 +245,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.GenericTypes" href="#DafJL.GenericTypes">
-<code>DafJL.GenericTypes
+<a class="docstring-binding" id="DataAxesFormats.GenericTypes" href="#DataAxesFormats.GenericTypes">
+<code>DataAxesFormats.GenericTypes
 </code>
 </a> — 
 <span class="docstring-category">Module
@@ -264,27 +258,22 @@
 <div>
 <p>Generic types that arguably should belong in a more general-purpose package.
 </p>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
 <p>We do not re-export the types and functions defined here from the top-level 
-<code>Daf
+<code>DataAxesFormats
 </code> namespace. That is, even if 
-<code>using DafJL
+<code>using DataAxesFormats
 </code>, you will 
 <strong>not
 </strong> have these generic names polluting your namespace. If you do want to reuse them in your code, explicitly write 
-<code>using DafJL.GenericTypes
+<code>using DataAxesFormats.GenericTypes
 </code>.
 </p>
 </div>
-</section>
-</article>
-<h2 id="Unions">
-<a class="docs-heading-anchor" href="#Unions">Unions
-</a>
-<a id="Unions-1">
-</a>
-<a class="docs-heading-anchor-permalink" href="#Unions" title="Permalink">
-</a>
-</h2>
+</div>
 <p>We got sick and tired of writing 
 <code>Union{..., Nothing}
 </code> everywhere. We therefore created this shorthand unions listed below and used them throughout the code. We&#39;re well aware there was a religious war of whether there should be a standard shorthand for this, vs. a standard shorthand for 
@@ -317,12 +306,15 @@
 <code>Union{..., Missing}
 </code> for completeness, but we do not actually use it anywhere. We assume it is useful for Julia code dealing specifically with statistical analysis.
 </p>
+</div>
+</section>
+</article>
 <article class="docstring">
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.GenericTypes.Maybe" href="#DafJL.GenericTypes.Maybe">
-<code>DafJL.GenericTypes.Maybe
+<a class="docstring-binding" id="DataAxesFormats.GenericTypes.Maybe" href="#DataAxesFormats.GenericTypes.Maybe">
+<code>DataAxesFormats.GenericTypes.Maybe
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -349,8 +341,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.GenericTypes.Unsure" href="#DafJL.GenericTypes.Unsure">
-<code>DafJL.GenericTypes.Unsure
+<a class="docstring-binding" id="DataAxesFormats.GenericTypes.Unsure" href="#DataAxesFormats.GenericTypes.Unsure">
+<code>DataAxesFormats.GenericTypes.Unsure
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -383,20 +375,20 @@
 </h2>
 <ul>
 <li>
-<a href="generic_types.html#DafJL.GenericTypes">
-<code>DafJL.GenericTypes
+<a href="generic_types.html#DataAxesFormats.GenericTypes">
+<code>DataAxesFormats.GenericTypes
 </code>
 </a>
 </li>
 <li>
-<a href="generic_types.html#DafJL.GenericTypes.Maybe">
-<code>DafJL.GenericTypes.Maybe
+<a href="generic_types.html#DataAxesFormats.GenericTypes.Maybe">
+<code>DataAxesFormats.GenericTypes.Maybe
 </code>
 </a>
 </li>
 <li>
-<a href="generic_types.html#DafJL.GenericTypes.Unsure">
-<code>DafJL.GenericTypes.Unsure
+<a href="generic_types.html#DataAxesFormats.GenericTypes.Unsure">
+<code>DataAxesFormats.GenericTypes.Unsure
 </code>
 </a>
 </li>

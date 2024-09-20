@@ -142,7 +142,7 @@ macro computation(definition)
     inner_definition[:name] = Symbol(function_name, :_compute)
     outer_definition[:body] = Expr(
         :call,
-        :(DafJL.Computations.computation_wrapper($full_name, $(ExprTools.combinedef(inner_definition)))),
+        :(DataAxesFormats.Computations.computation_wrapper($full_name, $(ExprTools.combinedef(inner_definition)))),
         pass_args(false, get(outer_definition, :args, []))...,
         pass_args(true, get(outer_definition, :kwargs, []))...,
     )
@@ -175,7 +175,7 @@ macro computation(contract, definition)
     inner_definition[:name] = Symbol(function_name, :_compute)
     outer_definition[:body] = Expr(
         :call,
-        :(DafJL.Computations.computation_wrapper(
+        :(DataAxesFormats.Computations.computation_wrapper(
             $function_module.__DAF_FUNCTION_METADATA__[Symbol($function_name)].contracts[1],
             $full_name,
             $(ExprTools.combinedef(inner_definition)),
@@ -215,7 +215,7 @@ macro computation(first_contract, second_contract, definition)
     inner_definition[:name] = Symbol(function_name, :_compute)
     outer_definition[:body] = Expr(
         :call,
-        :(DafJL.Computations.computation_wrapper(
+        :(DataAxesFormats.Computations.computation_wrapper(
             $function_module.__DAF_FUNCTION_METADATA__[Symbol($function_name)].contracts[1],
             $function_module.__DAF_FUNCTION_METADATA__[Symbol($function_name)].contracts[2],
             $full_name,

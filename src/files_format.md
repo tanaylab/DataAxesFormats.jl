@@ -1,10 +1,10 @@
 # Files Format
 
 ```@docs
-DafJL.FilesFormat
-DafJL.FilesFormat.MAJOR_VERSION
-DafJL.FilesFormat.MINOR_VERSION
-DafJL.FilesFormat.FilesDaf
+DataAxesFormats.FilesFormat
+DataAxesFormats.FilesFormat.MAJOR_VERSION
+DataAxesFormats.FilesFormat.MINOR_VERSION
+DataAxesFormats.FilesFormat.FilesDaf
 ```
 
 ## Index

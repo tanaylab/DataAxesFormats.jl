@@ -8,11 +8,10 @@ whenever possible for increased performance.
 
 !!! note
 
-
-We use the `AnnData` Julia implementation from [Muon.jl](https://docs.juliahub.com/Muon/QfqCh/0.1.1/). The last
-published released for this package is from 2021, and lacks features added over the years, which we use. Therefore,
-currently `Daf` uses the head revision of Muon from [github](https://github.com/scverse/Muon.jl), with all that
-implies. We'll change this to a proper registry dependency if/when a new Muon version is released.
+    We use the `AnnData` Julia implementation from [Muon.jl](https://docs.juliahub.com/Muon/QfqCh/0.1.1/). The last
+    published released for this package is from 2021, and lacks features added over the years, which we use. Therefore,
+    currently `Daf` uses the head revision of Muon from [github](https://github.com/scverse/Muon.jl), with all that
+    implies. We'll change this to a proper registry dependency if/when a new Muon version is released.
 
 The following `Daf` data can't be naively stored in `AnnData`:
 
@@ -20,7 +19,8 @@ The following `Daf` data can't be naively stored in `AnnData`:
     In contrast, `Daf` can store data for an arbitrary set of meaningfully named axes.
   - `Anndata` always contains a matrix property for these two axes called "X". Mercifully, the rest of the matrices are
     allowed to have meaningful names. In contrast, `Daf` allows storing an arbitrary set of meaningfully named matrices.
-  - `AnnData` can only hold row-major matrices, while Julia defaults to column-major layout.
+  - `AnnData` can only hold row-major matrices, while Julia defaults to column-major layout; `Daf` allows storing both
+    layouts, sacrificing disk storage for performance.
 
 Therefore, when viewing `Daf` data as `AnnData`, we pick two specific axes and rename them to "obs" and "var", pick a
 specific matrix property of these axes and rename it to "X", and [`relayout!`](@ref) it if needed so `AnnData` would be
@@ -44,11 +44,10 @@ The following `AnnData` can't be naively stored in `Daf`:
 
 When viewing `AnnData` as `Daf`, we either ignore, warn, or treat as an error any such unsupported data.
 
-!!! warning "DANGER, WILL ROBINSON"
+!!! warning
 
-
-Square matrices accessed via `Daf` APIs will be the (column-major) **transpose** of the original `AnnData`
-(row-major) matrix.
+    Square matrices accessed via `Daf` APIs will be the (column-major) **transpose** of the original `AnnData`
+    (row-major) matrix.
 
 Due to limitations of the `Daf` data model, square matrices are stored only in column-major layout. In contrast,
 `AnnData` square matrices (`obsp`, `varp`), are stored in row-major layout. We have several bad options to address

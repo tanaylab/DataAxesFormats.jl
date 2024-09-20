@@ -2,10 +2,10 @@ using Test
 
 using Base: elsize
 using Base.MathConstants
-using DafJL
-using DafJL.GenericFunctions
-using DafJL.GenericLogging
-using DafJL.GenericTypes
+using DataAxesFormats
+using DataAxesFormats.GenericFunctions
+using DataAxesFormats.GenericLogging
+using DataAxesFormats.GenericTypes
 using ExceptionUnwrapping
 using HDF5
 using LinearAlgebra

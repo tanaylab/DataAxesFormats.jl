@@ -1,10 +1,10 @@
 # H5DF Format
 
 ```@docs
-DafJL.H5dfFormat
-DafJL.H5dfFormat.MAJOR_VERSION
-DafJL.H5dfFormat.MINOR_VERSION
-DafJL.H5dfFormat.H5df
+DataAxesFormats.H5dfFormat
+DataAxesFormats.H5dfFormat.MAJOR_VERSION
+DataAxesFormats.H5dfFormat.MINOR_VERSION
+DataAxesFormats.H5dfFormat.H5df
 ```
 
 ## Index

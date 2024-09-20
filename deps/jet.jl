@@ -17,9 +17,9 @@ global_logger(detect_problems)
 push!(LOAD_PATH, ".")
 
 using JET
-using DafJL
+using DataAxesFormats
 
-println(report_package("DafJL"))
+println(report_package("DataAxesFormats"))
 
 if seen_problems
     exit(1)

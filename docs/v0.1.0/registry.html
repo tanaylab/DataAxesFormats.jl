@@ -5,14 +5,14 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Operations registry · DafJL.jl v0.1.0
+<title>Operations registry · DataAxesFormats.jl v0.1.0
 </title>
-<meta name="title" content="Operations registry · DafJL.jl v0.1.0"/>
-<meta property="og:title" content="Operations registry · DafJL.jl v0.1.0"/>
-<meta property="twitter:title" content="Operations registry · DafJL.jl v0.1.0"/>
-<meta name="description" content="Documentation for DafJL.jl v0.1.0."/>
-<meta property="og:description" content="Documentation for DafJL.jl v0.1.0."/>
-<meta property="twitter:description" content="Documentation for DafJL.jl v0.1.0."/>
+<meta name="title" content="Operations registry · DataAxesFormats.jl v0.1.0"/>
+<meta property="og:title" content="Operations registry · DataAxesFormats.jl v0.1.0"/>
+<meta property="twitter:title" content="Operations registry · DataAxesFormats.jl v0.1.0"/>
+<meta name="description" content="Documentation for DataAxesFormats.jl v0.1.0."/>
+<meta property="og:description" content="Documentation for DataAxesFormats.jl v0.1.0."/>
+<meta property="twitter:description" content="Documentation for DataAxesFormats.jl v0.1.0."/>
 <script data-outdated-warner src="assets/warner.js">
 </script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/>
@@ -44,11 +44,11 @@
 <div id="documenter">
 <nav class="docs-sidebar">
 <a class="docs-logo" href="index.html">
-<img src="assets/logo.svg" alt="DafJL.jl v0.1.0 logo"/>
+<img src="assets/logo.svg" alt="DataAxesFormats.jl v0.1.0 logo"/>
 </a>
 <div class="docs-package-name">
 <span class="docs-autofit">
-<a href="index.html">DafJL.jl v0.1.0
+<a href="index.html">DataAxesFormats.jl v0.1.0
 </a>
 </span>
 </div>
@@ -238,7 +238,7 @@
 </ul>
 </nav>
 <div class="docs-right">
-<a class="docs-navbar-link" href="https://github.com/tanaylab/DafJL.jl/blob/main{path}?plain=1#L{line}" title="View the repository on GitHub">
+<a class="docs-navbar-link" href="https://github.com/tanaylab/DataAxesFormats.jl/blob/main{path}?plain=1#L{line}" title="View the repository on GitHub">
 <span class="docs-icon fa-brands">
 </span>
 <span class="docs-label is-hidden-touch">GitHub
@@ -263,8 +263,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Registry" href="#DafJL.Registry">
-<code>DafJL.Registry
+<a class="docstring-binding" id="DataAxesFormats.Registry" href="#DataAxesFormats.Registry">
+<code>DataAxesFormats.Registry
 </code>
 </a> — 
 <span class="docstring-category">Module
@@ -303,8 +303,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Registry.EltwiseOperation" href="#DafJL.Registry.EltwiseOperation">
-<code>DafJL.Registry.EltwiseOperation
+<a class="docstring-binding" id="DataAxesFormats.Registry.EltwiseOperation" href="#DataAxesFormats.Registry.EltwiseOperation">
+<code>DataAxesFormats.Registry.EltwiseOperation
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -333,7 +333,7 @@
 <p>Since each 
 <code>EltwiseOperation
 </code> isa 
-<a href="registry.html#DafJL.Registry.QueryOperation">
+<a href="registry.html#DataAxesFormats.Registry.QueryOperation">
 <code>QueryOperation
 </code>
 </a>, you can directly apply it to a query (e.g., 
@@ -360,7 +360,7 @@ MyOperation(operation_name::Token, parameter_values::Dict{String, Token})::MyOpe
 </code> for each of the parameters (for example, using 
 <code>parse_number_assignment
 </code>). In addition you will need to invoke 
-<a href="registry.html#DafJL.Registry.@query_operation">
+<a href="registry.html#DataAxesFormats.Registry.@query_operation">
 <code>@query_operation
 </code>
 </a> to register the operation so it can be used in a query, and implement the functions listed below. See the query operations module for details and examples.
@@ -372,8 +372,8 @@ MyOperation(operation_name::Token, parameter_values::Dict{String, Token})::MyOpe
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Registry.compute_eltwise" href="#DafJL.Registry.compute_eltwise">
-<code>DafJL.Registry.compute_eltwise
+<a class="docstring-binding" id="DataAxesFormats.Registry.compute_eltwise" href="#DataAxesFormats.Registry.compute_eltwise">
+<code>DataAxesFormats.Registry.compute_eltwise
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -390,7 +390,7 @@ compute_eltwise(operation::EltwiseOperation, input_value::Number)::StorageReal
 </code>
 </pre>
 <p>Compute an 
-<a href="registry.html#DafJL.Registry.EltwiseOperation">
+<a href="registry.html#DataAxesFormats.Registry.EltwiseOperation">
 <code>EltwiseOperation
 </code>
 </a> 
@@ -412,8 +412,8 @@ compute_eltwise(operation::EltwiseOperation, input_value::Number)::StorageReal
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Registry.ReductionOperation" href="#DafJL.Registry.ReductionOperation">
-<code>DafJL.Registry.ReductionOperation
+<a class="docstring-binding" id="DataAxesFormats.Registry.ReductionOperation" href="#DataAxesFormats.Registry.ReductionOperation">
+<code>DataAxesFormats.Registry.ReductionOperation
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -442,7 +442,7 @@ compute_eltwise(operation::EltwiseOperation, input_value::Number)::StorageReal
 <p>Since each 
 <code>ReductionOperation
 </code> isa 
-<a href="registry.html#DafJL.Registry.QueryOperation">
+<a href="registry.html#DataAxesFormats.Registry.QueryOperation">
 <code>QueryOperation
 </code>
 </a>, you can directly apply it to a query (e.g., 
@@ -466,7 +466,7 @@ MyOperation(operation_name::Token, parameter_values::Dict{String, Token})::MyOpe
 </code> for each of the parameters (for example, using typically 
 <code>parse_number_assignment
 </code>). In addition you will need to invoke 
-<a href="registry.html#DafJL.Registry.@query_operation">
+<a href="registry.html#DataAxesFormats.Registry.@query_operation">
 <code>@query_operation
 </code>
 </a> to register the operation so it can be used in a query, and implement the functions listed below. See the query operations module for details and examples.
@@ -478,8 +478,8 @@ MyOperation(operation_name::Token, parameter_values::Dict{String, Token})::MyOpe
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Registry.compute_reduction" href="#DafJL.Registry.compute_reduction">
-<code>DafJL.Registry.compute_reduction
+<a class="docstring-binding" id="DataAxesFormats.Registry.compute_reduction" href="#DataAxesFormats.Registry.compute_reduction">
+<code>DataAxesFormats.Registry.compute_reduction
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -497,7 +497,7 @@ compute_reduction(operation::ReductionOperation, input::StorageVector)::StorageR
 <p>Since each 
 <code>ReductionOperation
 </code> isa 
-<a href="registry.html#DafJL.Registry.QueryOperation">
+<a href="registry.html#DataAxesFormats.Registry.QueryOperation">
 <code>QueryOperation
 </code>
 </a>, you can directly apply it to a query (e.g., 
@@ -511,8 +511,8 @@ compute_reduction(operation::ReductionOperation, input::StorageVector)::StorageR
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Registry.reduction_result_type" href="#DafJL.Registry.reduction_result_type">
-<code>DafJL.Registry.reduction_result_type
+<a class="docstring-binding" id="DataAxesFormats.Registry.reduction_result_type" href="#DataAxesFormats.Registry.reduction_result_type">
+<code>DataAxesFormats.Registry.reduction_result_type
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -547,8 +547,8 @@ compute_reduction(operation::ReductionOperation, input::StorageVector)::StorageR
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Registry.QueryOperation" href="#DafJL.Registry.QueryOperation">
-<code>DafJL.Registry.QueryOperation
+<a class="docstring-binding" id="DataAxesFormats.Registry.QueryOperation" href="#DataAxesFormats.Registry.QueryOperation">
+<code>DataAxesFormats.Registry.QueryOperation
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -569,8 +569,8 @@ compute_reduction(operation::ReductionOperation, input::StorageVector)::StorageR
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Registry.@query_operation" href="#DafJL.Registry.@query_operation">
-<code>DafJL.Registry.@query_operation
+<a class="docstring-binding" id="DataAxesFormats.Registry.@query_operation" href="#DataAxesFormats.Registry.@query_operation">
+<code>DataAxesFormats.Registry.@query_operation
 </code>
 </a> — 
 <span class="docstring-category">Macro
@@ -588,7 +588,7 @@ end
 </code>
 </pre>
 <p>Automatically call 
-<a href="registry.html#DafJL.Registry.register_query_operation">
+<a href="registry.html#DataAxesFormats.Registry.register_query_operation">
 <code>register_query_operation
 </code>
 </a> for 
@@ -596,7 +596,7 @@ end
 </code>.
 </p>
 <p>Note this will import 
-<code>DafJL.Registry.register_query_operation
+<code>DataAxesFormats.Registry.register_query_operation
 </code>, so it may only be called from the top level scope of a module.
 </p>
 </div>
@@ -606,8 +606,8 @@ end
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.Registry.register_query_operation" href="#DafJL.Registry.register_query_operation">
-<code>DafJL.Registry.register_query_operation
+<a class="docstring-binding" id="DataAxesFormats.Registry.register_query_operation" href="#DataAxesFormats.Registry.register_query_operation">
+<code>DataAxesFormats.Registry.register_query_operation
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -628,7 +628,7 @@ end
 <p>Register a specific operation so it would be available inside queries. This is required to be able to parse the operation. This is idempotent (safe to invoke multiple times).
 </p>
 <p>This isn&#39;t usually called directly. Instead, it is typically invoked by using the 
-<a href="registry.html#DafJL.Registry.@query_operation">
+<a href="registry.html#DataAxesFormats.Registry.@query_operation">
 <code>@query_operation
 </code>
 </a> macro.
@@ -646,56 +646,56 @@ end
 </h2>
 <ul>
 <li>
-<a href="registry.html#DafJL.Registry">
-<code>DafJL.Registry
+<a href="registry.html#DataAxesFormats.Registry">
+<code>DataAxesFormats.Registry
 </code>
 </a>
 </li>
 <li>
-<a href="registry.html#DafJL.Registry.EltwiseOperation">
-<code>DafJL.Registry.EltwiseOperation
+<a href="registry.html#DataAxesFormats.Registry.EltwiseOperation">
+<code>DataAxesFormats.Registry.EltwiseOperation
 </code>
 </a>
 </li>
 <li>
-<a href="registry.html#DafJL.Registry.QueryOperation">
-<code>DafJL.Registry.QueryOperation
+<a href="registry.html#DataAxesFormats.Registry.QueryOperation">
+<code>DataAxesFormats.Registry.QueryOperation
 </code>
 </a>
 </li>
 <li>
-<a href="registry.html#DafJL.Registry.ReductionOperation">
-<code>DafJL.Registry.ReductionOperation
+<a href="registry.html#DataAxesFormats.Registry.ReductionOperation">
+<code>DataAxesFormats.Registry.ReductionOperation
 </code>
 </a>
 </li>
 <li>
-<a href="registry.html#DafJL.Registry.compute_eltwise">
-<code>DafJL.Registry.compute_eltwise
+<a href="registry.html#DataAxesFormats.Registry.compute_eltwise">
+<code>DataAxesFormats.Registry.compute_eltwise
 </code>
 </a>
 </li>
 <li>
-<a href="registry.html#DafJL.Registry.compute_reduction">
-<code>DafJL.Registry.compute_reduction
+<a href="registry.html#DataAxesFormats.Registry.compute_reduction">
+<code>DataAxesFormats.Registry.compute_reduction
 </code>
 </a>
 </li>
 <li>
-<a href="registry.html#DafJL.Registry.reduction_result_type">
-<code>DafJL.Registry.reduction_result_type
+<a href="registry.html#DataAxesFormats.Registry.reduction_result_type">
+<code>DataAxesFormats.Registry.reduction_result_type
 </code>
 </a>
 </li>
 <li>
-<a href="registry.html#DafJL.Registry.register_query_operation">
-<code>DafJL.Registry.register_query_operation
+<a href="registry.html#DataAxesFormats.Registry.register_query_operation">
+<code>DataAxesFormats.Registry.register_query_operation
 </code>
 </a>
 </li>
 <li>
-<a href="registry.html#DafJL.Registry.@query_operation">
-<code>DafJL.Registry.@query_operation
+<a href="registry.html#DataAxesFormats.Registry.@query_operation">
+<code>DataAxesFormats.Registry.@query_operation
 </code>
 </a>
 </li>

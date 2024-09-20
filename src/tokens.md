@@ -1,31 +1,31 @@
 # Tokens
 
 ```@docs
-DafJL.Tokens
+DataAxesFormats.Tokens
 ```
 
 ## Escaping
 
 ```@docs
-DafJL.Tokens.escape_value
-DafJL.Tokens.unescape_value
-DafJL.Tokens.is_value_char
-DafJL.Tokens.VALUE_REGEX
+DataAxesFormats.Tokens.escape_value
+DataAxesFormats.Tokens.unescape_value
+DataAxesFormats.Tokens.is_value_char
+DataAxesFormats.Tokens.VALUE_REGEX
 ```
 
 ## Encoding
 
 ```@docs
-DafJL.Tokens.encode_expression
-DafJL.Tokens.decode_expression
+DataAxesFormats.Tokens.encode_expression
+DataAxesFormats.Tokens.decode_expression
 ```
 
 ## Tokenization
 
 ```@docs
-DafJL.Tokens.Token
-DafJL.Tokens.tokenize
-DafJL.Tokens.SPACE_REGEX
+DataAxesFormats.Tokens.Token
+DataAxesFormats.Tokens.tokenize
+DataAxesFormats.Tokens.SPACE_REGEX
 ```
 
 ## Index

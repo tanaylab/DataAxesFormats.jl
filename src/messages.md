@@ -1,13 +1,13 @@
 # Messages
 
 ```@docs
-DafJL.Messages
+DataAxesFormats.Messages
 ```
 
 ```@docs
-DafJL.Messages.unique_name
-DafJL.Messages.depict
-DafJL.Messages.depict_percent
+DataAxesFormats.Messages.unique_name
+DataAxesFormats.Messages.depict
+DataAxesFormats.Messages.depict_percent
 ```
 
 ## Index

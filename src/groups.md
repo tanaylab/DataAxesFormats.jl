@@ -1,10 +1,10 @@
 # Groups
 
 ```@docs
-DafJL.Groups
-DafJL.Groups.group_names
-DafJL.Groups.compact_groups!
-DafJL.Groups.collect_group_members
+DataAxesFormats.Groups
+DataAxesFormats.Groups.group_names
+DataAxesFormats.Groups.compact_groups!
+DataAxesFormats.Groups.collect_group_members
 ```
 
 ## Index

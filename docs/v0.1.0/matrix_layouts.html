@@ -5,14 +5,14 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Matrix layouts · DafJL.jl v0.1.0
+<title>Matrix layouts · DataAxesFormats.jl v0.1.0
 </title>
-<meta name="title" content="Matrix layouts · DafJL.jl v0.1.0"/>
-<meta property="og:title" content="Matrix layouts · DafJL.jl v0.1.0"/>
-<meta property="twitter:title" content="Matrix layouts · DafJL.jl v0.1.0"/>
-<meta name="description" content="Documentation for DafJL.jl v0.1.0."/>
-<meta property="og:description" content="Documentation for DafJL.jl v0.1.0."/>
-<meta property="twitter:description" content="Documentation for DafJL.jl v0.1.0."/>
+<meta name="title" content="Matrix layouts · DataAxesFormats.jl v0.1.0"/>
+<meta property="og:title" content="Matrix layouts · DataAxesFormats.jl v0.1.0"/>
+<meta property="twitter:title" content="Matrix layouts · DataAxesFormats.jl v0.1.0"/>
+<meta name="description" content="Documentation for DataAxesFormats.jl v0.1.0."/>
+<meta property="og:description" content="Documentation for DataAxesFormats.jl v0.1.0."/>
+<meta property="twitter:description" content="Documentation for DataAxesFormats.jl v0.1.0."/>
 <script data-outdated-warner src="assets/warner.js">
 </script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/>
@@ -44,11 +44,11 @@
 <div id="documenter">
 <nav class="docs-sidebar">
 <a class="docs-logo" href="index.html">
-<img src="assets/logo.svg" alt="DafJL.jl v0.1.0 logo"/>
+<img src="assets/logo.svg" alt="DataAxesFormats.jl v0.1.0 logo"/>
 </a>
 <div class="docs-package-name">
 <span class="docs-autofit">
-<a href="index.html">DafJL.jl v0.1.0
+<a href="index.html">DataAxesFormats.jl v0.1.0
 </a>
 </span>
 </div>
@@ -250,7 +250,7 @@
 </ul>
 </nav>
 <div class="docs-right">
-<a class="docs-navbar-link" href="https://github.com/tanaylab/DafJL.jl/blob/main{path}?plain=1#L{line}" title="View the repository on GitHub">
+<a class="docs-navbar-link" href="https://github.com/tanaylab/DataAxesFormats.jl/blob/main{path}?plain=1#L{line}" title="View the repository on GitHub">
 <span class="docs-icon fa-brands">
 </span>
 <span class="docs-label is-hidden-touch">GitHub
@@ -275,8 +275,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.MatrixLayouts" href="#DafJL.MatrixLayouts">
-<code>DafJL.MatrixLayouts
+<a class="docstring-binding" id="DataAxesFormats.MatrixLayouts" href="#DataAxesFormats.MatrixLayouts">
+<code>DataAxesFormats.MatrixLayouts
 </code>
 </a> — 
 <span class="docstring-category">Module
@@ -289,19 +289,19 @@
 <p>All stored 
 <code>Daf
 </code> matrix data has a clear matrix layout, that is, a 
-<a href="matrix_layouts.html#DafJL.MatrixLayouts.major_axis">
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.major_axis">
 <code>major_axis
 </code>
 </a>, regardless of whether it is dense or sparse.
 </p>
 <p>That is, for 
-<a href="matrix_layouts.html#DafJL.MatrixLayouts.Columns">
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.Columns">
 <code>Columns
 </code>
 </a>-major data, the values of each column are laid out consecutively in memory (each column is a single contiguous vector), so any operation that works on whole columns will be fast (e.g., summing the value of each column). In contrast, the values of each row are stored far apart from each other, so any operation that works on whole rows will be very slow in comparison (e.g., summing the value of each row).
 </p>
 <p>For 
-<a href="matrix_layouts.html#DafJL.MatrixLayouts.Rows">
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.Rows">
 <code>Rows
 </code>
 </a>-major data, the values of each row are laid out consecutively in memory (each row is a single contiguous vector). In contrast, the values of each column are stored far apart from each other. In this case, summing columns would be slow, and summing rows would be fast.
@@ -335,8 +335,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.MatrixLayouts.Rows" href="#DafJL.MatrixLayouts.Rows">
-<code>DafJL.MatrixLayouts.Rows
+<a class="docstring-binding" id="DataAxesFormats.MatrixLayouts.Rows" href="#DataAxesFormats.MatrixLayouts.Rows">
+<code>DataAxesFormats.MatrixLayouts.Rows
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -359,8 +359,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.MatrixLayouts.Columns" href="#DafJL.MatrixLayouts.Columns">
-<code>DafJL.MatrixLayouts.Columns
+<a class="docstring-binding" id="DataAxesFormats.MatrixLayouts.Columns" href="#DataAxesFormats.MatrixLayouts.Columns">
+<code>DataAxesFormats.MatrixLayouts.Columns
 </code>
 </a> — 
 <span class="docstring-category">Constant
@@ -383,8 +383,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.MatrixLayouts.axis_name" href="#DafJL.MatrixLayouts.axis_name">
-<code>DafJL.MatrixLayouts.axis_name
+<a class="docstring-binding" id="DataAxesFormats.MatrixLayouts.axis_name" href="#DataAxesFormats.MatrixLayouts.axis_name">
+<code>DataAxesFormats.MatrixLayouts.axis_name
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -415,8 +415,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.MatrixLayouts.major_axis" href="#DafJL.MatrixLayouts.major_axis">
-<code>DafJL.MatrixLayouts.major_axis
+<a class="docstring-binding" id="DataAxesFormats.MatrixLayouts.major_axis" href="#DataAxesFormats.MatrixLayouts.major_axis">
+<code>DataAxesFormats.MatrixLayouts.major_axis
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -443,8 +443,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.MatrixLayouts.require_major_axis" href="#DafJL.MatrixLayouts.require_major_axis">
-<code>DafJL.MatrixLayouts.require_major_axis
+<a class="docstring-binding" id="DataAxesFormats.MatrixLayouts.require_major_axis" href="#DataAxesFormats.MatrixLayouts.require_major_axis">
+<code>DataAxesFormats.MatrixLayouts.require_major_axis
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -459,7 +459,7 @@
 </code>
 </pre>
 <p>Similar to 
-<a href="matrix_layouts.html#DafJL.MatrixLayouts.major_axis">
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.major_axis">
 <code>major_axis
 </code>
 </a> but will 
@@ -473,8 +473,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.MatrixLayouts.minor_axis" href="#DafJL.MatrixLayouts.minor_axis">
-<code>DafJL.MatrixLayouts.minor_axis
+<a class="docstring-binding" id="DataAxesFormats.MatrixLayouts.minor_axis" href="#DataAxesFormats.MatrixLayouts.minor_axis">
+<code>DataAxesFormats.MatrixLayouts.minor_axis
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -501,8 +501,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.MatrixLayouts.require_minor_axis" href="#DafJL.MatrixLayouts.require_minor_axis">
-<code>DafJL.MatrixLayouts.require_minor_axis
+<a class="docstring-binding" id="DataAxesFormats.MatrixLayouts.require_minor_axis" href="#DataAxesFormats.MatrixLayouts.require_minor_axis">
+<code>DataAxesFormats.MatrixLayouts.require_minor_axis
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -517,7 +517,7 @@
 </code>
 </pre>
 <p>Similar to 
-<a href="matrix_layouts.html#DafJL.MatrixLayouts.minor_axis">
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.minor_axis">
 <code>minor_axis
 </code>
 </a> but will 
@@ -531,8 +531,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.MatrixLayouts.other_axis" href="#DafJL.MatrixLayouts.other_axis">
-<code>DafJL.MatrixLayouts.other_axis
+<a class="docstring-binding" id="DataAxesFormats.MatrixLayouts.other_axis" href="#DataAxesFormats.MatrixLayouts.other_axis">
+<code>DataAxesFormats.MatrixLayouts.other_axis
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -551,11 +551,11 @@
 </code> 
 <code>axis
 </code> (that is, convert between 
-<a href="matrix_layouts.html#DafJL.MatrixLayouts.Rows">
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.Rows">
 <code>Rows
 </code>
 </a> and 
-<a href="matrix_layouts.html#DafJL.MatrixLayouts.Columns">
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.Columns">
 <code>Columns
 </code>
 </a>). If given 
@@ -579,8 +579,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.MatrixLayouts.relayout!" href="#DafJL.MatrixLayouts.relayout!">
-<code>DafJL.MatrixLayouts.relayout!
+<a class="docstring-binding" id="DataAxesFormats.MatrixLayouts.relayout!" href="#DataAxesFormats.MatrixLayouts.relayout!">
+<code>DataAxesFormats.MatrixLayouts.relayout!
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -612,7 +612,7 @@ relayout!(destination::AbstractMatrix, source::NamedMatrix)::NamedMatrix
 </code> (with a 
 <code>!
 </code>) (or 
-<a href="matrix_layouts.html#DafJL.MatrixLayouts.transposer">
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.transposer">
 <code>transposer
 </code>
 </a>) is slow; it creates a rearranged copy of the data, also returning a matrix whose rows are genes and columns are cells, but this time, in column-major layout. Therefore, in this case summing the UMIs of a gene will be slow, and summing the UMIs of a cell will be fast.
@@ -690,8 +690,8 @@ relayout!(destination::AbstractMatrix, source::NamedMatrix)::NamedMatrix
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.MatrixLayouts.relayout" href="#DafJL.MatrixLayouts.relayout">
-<code>DafJL.MatrixLayouts.relayout
+<a class="docstring-binding" id="DataAxesFormats.MatrixLayouts.relayout" href="#DataAxesFormats.MatrixLayouts.relayout">
+<code>DataAxesFormats.MatrixLayouts.relayout
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -707,7 +707,7 @@ relayout(matrix::NamedMatrix)::NamedMatrix
 </code>
 </pre>
 <p>Same as 
-<a href="matrix_layouts.html#DafJL.MatrixLayouts.relayout!">
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.relayout!">
 <code>relayout!
 </code>
 </a> but allocates the destination matrix for you. Is equivalent to 
@@ -721,8 +721,8 @@ relayout(matrix::NamedMatrix)::NamedMatrix
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.MatrixLayouts.transposer" href="#DafJL.MatrixLayouts.transposer">
-<code>DafJL.MatrixLayouts.transposer
+<a class="docstring-binding" id="DataAxesFormats.MatrixLayouts.transposer" href="#DataAxesFormats.MatrixLayouts.transposer">
+<code>DataAxesFormats.MatrixLayouts.transposer
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -740,7 +740,7 @@ transposer(matrix::NamedMatrix)::NamedMatrix
 <p>This is a shorthand for 
 <code>LinearAlgebra.transpose!(similar(transpose(m)), m)
 </code>. That is, this will return a transpose of a matrix, but instead of simply using a zero-copy wrapper, it actually rearranges the data. See 
-<a href="matrix_layouts.html#DafJL.MatrixLayouts.relayout!">
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.relayout!">
 <code>relayout!
 </code>
 </a>.
@@ -752,8 +752,8 @@ transposer(matrix::NamedMatrix)::NamedMatrix
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.MatrixLayouts.copy_array" href="#DafJL.MatrixLayouts.copy_array">
-<code>DafJL.MatrixLayouts.copy_array
+<a class="docstring-binding" id="DataAxesFormats.MatrixLayouts.copy_array" href="#DataAxesFormats.MatrixLayouts.copy_array">
+<code>DataAxesFormats.MatrixLayouts.copy_array
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -789,7 +789,7 @@ transposer(matrix::NamedMatrix)::NamedMatrix
 </code> will preserve the layout, 
 <code>Base.copy
 </code> will silently 
-<a href="matrix_layouts.html#DafJL.MatrixLayouts.relayout!">
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.relayout!">
 <code>relayout!
 </code>
 </a> the matrix, which is both expensive and confusing.
@@ -822,8 +822,8 @@ transposer(matrix::NamedMatrix)::NamedMatrix
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.MatrixLayouts.bestify" href="#DafJL.MatrixLayouts.bestify">
-<code>DafJL.MatrixLayouts.bestify
+<a class="docstring-binding" id="DataAxesFormats.MatrixLayouts.bestify" href="#DataAxesFormats.MatrixLayouts.bestify">
+<code>DataAxesFormats.MatrixLayouts.bestify
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -869,8 +869,8 @@ bestify(
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.MatrixLayouts.densify" href="#DafJL.MatrixLayouts.densify">
-<code>DafJL.MatrixLayouts.densify
+<a class="docstring-binding" id="DataAxesFormats.MatrixLayouts.densify" href="#DataAxesFormats.MatrixLayouts.densify">
+<code>DataAxesFormats.MatrixLayouts.densify
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -896,8 +896,8 @@ densify(vector::AbstractVector{T}; copy::Bool = false)::AbstractVector{T} where 
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.MatrixLayouts.sparsify" href="#DafJL.MatrixLayouts.sparsify">
-<code>DafJL.MatrixLayouts.sparsify
+<a class="docstring-binding" id="DataAxesFormats.MatrixLayouts.sparsify" href="#DataAxesFormats.MatrixLayouts.sparsify">
+<code>DataAxesFormats.MatrixLayouts.sparsify
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -931,8 +931,8 @@ sparsify(vector::AbstractVector{T}; copy::Bool = false)::AbstractVector{T} where
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.MatrixLayouts.@assert_vector" href="#DafJL.MatrixLayouts.@assert_vector">
-<code>DafJL.MatrixLayouts.@assert_vector
+<a class="docstring-binding" id="DataAxesFormats.MatrixLayouts.@assert_vector" href="#DataAxesFormats.MatrixLayouts.@assert_vector">
+<code>DataAxesFormats.MatrixLayouts.@assert_vector
 </code>
 </a> — 
 <span class="docstring-category">Macro
@@ -961,8 +961,8 @@ sparsify(vector::AbstractVector{T}; copy::Bool = false)::AbstractVector{T} where
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.MatrixLayouts.@assert_matrix" href="#DafJL.MatrixLayouts.@assert_matrix">
-<code>DafJL.MatrixLayouts.@assert_matrix
+<a class="docstring-binding" id="DataAxesFormats.MatrixLayouts.@assert_matrix" href="#DataAxesFormats.MatrixLayouts.@assert_matrix">
+<code>DataAxesFormats.MatrixLayouts.@assert_matrix
 </code>
 </a> — 
 <span class="docstring-category">Macro
@@ -997,8 +997,8 @@ sparsify(vector::AbstractVector{T}; copy::Bool = false)::AbstractVector{T} where
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.MatrixLayouts.check_efficient_action" href="#DafJL.MatrixLayouts.check_efficient_action">
-<code>DafJL.MatrixLayouts.check_efficient_action
+<a class="docstring-binding" id="DataAxesFormats.MatrixLayouts.check_efficient_action" href="#DataAxesFormats.MatrixLayouts.check_efficient_action">
+<code>DataAxesFormats.MatrixLayouts.check_efficient_action
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -1027,11 +1027,11 @@ sparsify(vector::AbstractVector{T}; copy::Bool = false)::AbstractVector{T} where
 </code> to be in 
 <code>axis
 </code>-major layout. If it isn&#39;t, then apply the 
-<a href="matrix_layouts.html#DafJL.MatrixLayouts.inefficient_action_handler">
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.inefficient_action_handler">
 <code>inefficient_action_handler
 </code>
 </a>. Typically this isn&#39;t invoked directly; instead use 
-<a href="matrix_layouts.html#DafJL.MatrixLayouts.@assert_matrix">
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.@assert_matrix">
 <code>@assert_matrix
 </code>
 </a>.
@@ -1049,7 +1049,7 @@ sparsify(vector::AbstractVector{T}; copy::Bool = false)::AbstractVector{T} where
 <p>This will not prevent the code from performing &quot;against the grain&quot; operations such as 
 <code>selectdim(matrix, Rows, 1)
 </code> for a column-major matrix, but if you add this check before performing any (series of) operations on a matrix, then you will have a clear indication of whether such operations occur. You can then consider whether to invoke 
-<a href="matrix_layouts.html#DafJL.MatrixLayouts.relayout!">
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.relayout!">
 <code>relayout!
 </code>
 </a> on the data, or (for data fetched from 
@@ -1065,8 +1065,8 @@ sparsify(vector::AbstractVector{T}; copy::Bool = false)::AbstractVector{T} where
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DafJL.MatrixLayouts.inefficient_action_handler" href="#DafJL.MatrixLayouts.inefficient_action_handler">
-<code>DafJL.MatrixLayouts.inefficient_action_handler
+<a class="docstring-binding" id="DataAxesFormats.MatrixLayouts.inefficient_action_handler" href="#DataAxesFormats.MatrixLayouts.inefficient_action_handler">
+<code>DataAxesFormats.MatrixLayouts.inefficient_action_handler
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -1081,7 +1081,7 @@ sparsify(vector::AbstractVector{T}; copy::Bool = false)::AbstractVector{T} where
 </code>
 </pre>
 <p>Specify the 
-<a href="generic_functions.html#DafJL.GenericFunctions.AbnormalHandler">
+<a href="generic_functions.html#DataAxesFormats.GenericFunctions.AbnormalHandler">
 <code>AbnormalHandler
 </code>
 </a> to use when accessing a matrix in an inefficient way (&quot;against the grain&quot;). Returns the previous handler. The default handler is 
@@ -1101,122 +1101,122 @@ sparsify(vector::AbstractVector{T}; copy::Bool = false)::AbstractVector{T} where
 </h2>
 <ul>
 <li>
-<a href="matrix_layouts.html#DafJL.MatrixLayouts">
-<code>DafJL.MatrixLayouts
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts">
+<code>DataAxesFormats.MatrixLayouts
 </code>
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#DafJL.MatrixLayouts.Columns">
-<code>DafJL.MatrixLayouts.Columns
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.Columns">
+<code>DataAxesFormats.MatrixLayouts.Columns
 </code>
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#DafJL.MatrixLayouts.Rows">
-<code>DafJL.MatrixLayouts.Rows
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.Rows">
+<code>DataAxesFormats.MatrixLayouts.Rows
 </code>
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#DafJL.MatrixLayouts.axis_name">
-<code>DafJL.MatrixLayouts.axis_name
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.axis_name">
+<code>DataAxesFormats.MatrixLayouts.axis_name
 </code>
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#DafJL.MatrixLayouts.bestify">
-<code>DafJL.MatrixLayouts.bestify
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.bestify">
+<code>DataAxesFormats.MatrixLayouts.bestify
 </code>
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#DafJL.MatrixLayouts.check_efficient_action">
-<code>DafJL.MatrixLayouts.check_efficient_action
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.check_efficient_action">
+<code>DataAxesFormats.MatrixLayouts.check_efficient_action
 </code>
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#DafJL.MatrixLayouts.copy_array">
-<code>DafJL.MatrixLayouts.copy_array
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.copy_array">
+<code>DataAxesFormats.MatrixLayouts.copy_array
 </code>
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#DafJL.MatrixLayouts.densify">
-<code>DafJL.MatrixLayouts.densify
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.densify">
+<code>DataAxesFormats.MatrixLayouts.densify
 </code>
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#DafJL.MatrixLayouts.inefficient_action_handler">
-<code>DafJL.MatrixLayouts.inefficient_action_handler
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.inefficient_action_handler">
+<code>DataAxesFormats.MatrixLayouts.inefficient_action_handler
 </code>
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#DafJL.MatrixLayouts.major_axis">
-<code>DafJL.MatrixLayouts.major_axis
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.major_axis">
+<code>DataAxesFormats.MatrixLayouts.major_axis
 </code>
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#DafJL.MatrixLayouts.minor_axis">
-<code>DafJL.MatrixLayouts.minor_axis
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.minor_axis">
+<code>DataAxesFormats.MatrixLayouts.minor_axis
 </code>
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#DafJL.MatrixLayouts.other_axis">
-<code>DafJL.MatrixLayouts.other_axis
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.other_axis">
+<code>DataAxesFormats.MatrixLayouts.other_axis
 </code>
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#DafJL.MatrixLayouts.relayout">
-<code>DafJL.MatrixLayouts.relayout
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.relayout">
+<code>DataAxesFormats.MatrixLayouts.relayout
 </code>
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#DafJL.MatrixLayouts.relayout!">
-<code>DafJL.MatrixLayouts.relayout!
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.relayout!">
+<code>DataAxesFormats.MatrixLayouts.relayout!
 </code>
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#DafJL.MatrixLayouts.require_major_axis">
-<code>DafJL.MatrixLayouts.require_major_axis
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.require_major_axis">
+<code>DataAxesFormats.MatrixLayouts.require_major_axis
 </code>
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#DafJL.MatrixLayouts.require_minor_axis">
-<code>DafJL.MatrixLayouts.require_minor_axis
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.require_minor_axis">
+<code>DataAxesFormats.MatrixLayouts.require_minor_axis
 </code>
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#DafJL.MatrixLayouts.sparsify">
-<code>DafJL.MatrixLayouts.sparsify
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.sparsify">
+<code>DataAxesFormats.MatrixLayouts.sparsify
 </code>
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#DafJL.MatrixLayouts.transposer">
-<code>DafJL.MatrixLayouts.transposer
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.transposer">
+<code>DataAxesFormats.MatrixLayouts.transposer
 </code>
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#DafJL.MatrixLayouts.@assert_matrix">
-<code>DafJL.MatrixLayouts.@assert_matrix
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.@assert_matrix">
+<code>DataAxesFormats.MatrixLayouts.@assert_matrix
 </code>
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#DafJL.MatrixLayouts.@assert_vector">
-<code>DafJL.MatrixLayouts.@assert_vector
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.@assert_vector">
+<code>DataAxesFormats.MatrixLayouts.@assert_vector
 </code>
 </a>
 </li>

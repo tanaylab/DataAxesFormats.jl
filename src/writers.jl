@@ -688,13 +688,12 @@ allows doing so directly into the data, avoiding a copy in case of memory-mapped
 
 !!! warning
 
+    It is the caller's responsibility to fill the three vectors with valid data. Specifically, you must ensure:
 
-It is the caller's responsibility to fill the three vectors with valid data. Specifically, you must ensure:
-
-  - `colptr[1] == 1`
-  - `colptr[end] == nnz + 1`
-  - `colptr[i] <= colptr[i + 1]`
-  - for all `j`, for all `i` such that `colptr[j] <= i` and `i + 1 < colptr[j + 1]`, `1 <= rowptr[i] < rowptr[i + 1] <= nrows`
+      - `colptr[1] == 1`
+      - `colptr[end] == nnz + 1`
+      - `colptr[i] <= colptr[i + 1]`
+      - for all `j`, for all `i` such that `colptr[j] <= i` and `i + 1 < colptr[j + 1]`, `1 <= rowptr[i] < rowptr[i + 1] <= nrows`
 
 This first verifies the `rows_axis` and `columns_axis` exist in `daf`. If not `overwrite` (the default), this also
 verifies the `name` matrix does not exist for the `rows_axis` and `columns_axis`.

@@ -1,45 +1,45 @@
 # Writers
 
 ```@docs
-DafJL.Writers
+DataAxesFormats.Writers
 ```
 
 ## Scalar properties
 
 ```@docs
-DafJL.Writers.set_scalar!
-DafJL.Writers.delete_scalar!
+DataAxesFormats.Writers.set_scalar!
+DataAxesFormats.Writers.delete_scalar!
 ```
 
 ## Writers axes
 
 ```@docs
-DafJL.Writers.add_axis!
-DafJL.Writers.delete_axis!
+DataAxesFormats.Writers.add_axis!
+DataAxesFormats.Writers.delete_axis!
 ```
 
 ## Vector properties
 
 ```@docs
-DafJL.Writers.set_vector!
-DafJL.Writers.delete_vector!
+DataAxesFormats.Writers.set_vector!
+DataAxesFormats.Writers.delete_vector!
 ```
 
 ## Matrix properties
 
 ```@docs
-DafJL.Writers.set_matrix!
-DafJL.Writers.relayout_matrix!
-DafJL.Writers.delete_matrix!
+DataAxesFormats.Writers.set_matrix!
+DataAxesFormats.Writers.relayout_matrix!
+DataAxesFormats.Writers.delete_matrix!
 ```
 
 ## Creating properties
 
 ```@docs
-DafJL.Writers.empty_dense_vector!
-DafJL.Writers.empty_sparse_vector!
-DafJL.Writers.empty_dense_matrix!
-DafJL.Writers.empty_sparse_matrix!
+DataAxesFormats.Writers.empty_dense_vector!
+DataAxesFormats.Writers.empty_sparse_vector!
+DataAxesFormats.Writers.empty_dense_matrix!
+DataAxesFormats.Writers.empty_sparse_matrix!
 ```
 
 ## Index
