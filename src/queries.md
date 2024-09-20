@@ -48,6 +48,7 @@ Daf.Queries.POST_PROCESS
 Daf.Queries.GROUP_BY
 Daf.Queries.AXIS_MASK
 Daf.Queries.MASK_OPERATION
+Daf.Queries.MASK_SLICE
 Daf.Queries.VECTOR_FETCH
 Daf.Queries.ComparisonOperation
 Daf.Queries.guess_typed_value
@@ -57,9 +58,11 @@ Daf.Queries.guess_typed_value
 
 ```@docs
 Daf.Queries.QuerySequence
+```
 
-Daf.Queries.And
-Daf.Queries.AndNot
+### Data Operators
+
+```@docs
 Daf.Queries.AsAxis
 Daf.Queries.Axis
 Daf.Queries.CountBy
@@ -67,6 +70,13 @@ Daf.Queries.Fetch
 Daf.Queries.GroupBy
 Daf.Queries.IfMissing
 Daf.Queries.IfNot
+Daf.Queries.Lookup
+Daf.Queries.Names
+```
+
+### Comparison Operators
+
+```@docs
 Daf.Queries.IsEqual
 Daf.Queries.IsGreater
 Daf.Queries.IsGreaterEqual
@@ -75,12 +85,20 @@ Daf.Queries.IsLessEqual
 Daf.Queries.IsMatch
 Daf.Queries.IsNotEqual
 Daf.Queries.IsNotMatch
-Daf.Queries.Lookup
-Daf.Queries.Names
+```
+
+### Mask Operators
+
+```@docs
+Daf.Queries.And
+Daf.Queries.AndNot
 Daf.Queries.Or
 Daf.Queries.OrNot
 Daf.Queries.Xor
 Daf.Queries.XorNot
+Daf.Queries.MaskSlice
+Daf.Queries.SquareMaskColumn
+Daf.Queries.SquareMaskRow
 ```
 
 ## Index

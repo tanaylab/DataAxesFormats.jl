@@ -622,7 +622,7 @@ function Messages.depict(contract_daf::ContractDaf; name::Maybe{AbstractString} 
     end
 
     if contract_daf.daf isa ContractDaf
-        return depict(contract_daf.daf; name = name)
+        return depict(contract_daf.daf; name = name)  # untested
     else
         return "Contract $(depict(contract_daf.daf; name = name))"
     end
@@ -1072,7 +1072,7 @@ end
 
 function access_scalar(contract_daf::ContractDaf, name::AbstractString; is_modify::Bool)::Nothing
     if contract_daf.daf isa ContractDaf
-        access_scalar(contract_daf.daf, name; is_modify = is_modify)
+        access_scalar(contract_daf.daf, name; is_modify = is_modify)  # untested
     end
     tracker = get(contract_daf.data, name, nothing)
     if tracker === nothing
@@ -1100,7 +1100,7 @@ end
 
 function access_axis(contract_daf::ContractDaf, axis::AbstractString; is_modify::Bool)::Nothing
     if contract_daf.daf isa ContractDaf
-        access_axis(contract_daf.daf, axis; is_modify = is_modify)
+        access_axis(contract_daf.daf, axis; is_modify = is_modify)  # untested
     end
     tracker = get(contract_daf.axes, axis, nothing)
     if tracker === nothing
@@ -1128,7 +1128,7 @@ end
 
 function access_vector(contract_daf::ContractDaf, axis::AbstractString, name::AbstractString; is_modify::Bool)::Nothing
     if contract_daf.daf isa ContractDaf
-        access_vector(contract_daf.daf, axis, name; is_modify = is_modify)
+        access_vector(contract_daf.daf, axis, name; is_modify = is_modify)  # untested
     end
 
     access_axis(contract_daf, axis; is_modify = false)
@@ -1167,7 +1167,7 @@ function access_matrix(
     is_modify::Bool,
 )::Nothing
     if contract_daf.daf isa ContractDaf
-        access_matrix(contract_daf.daf, rows_axis, columns_axis, name; is_modify = is_modify)
+        access_matrix(contract_daf.daf, rows_axis, columns_axis, name; is_modify = is_modify)  # untested
     end
 
     access_axis(contract_daf, rows_axis; is_modify = false)
@@ -1189,7 +1189,6 @@ function access_matrix(
             """))
         end
     end
-
 
     if is_immutable(tracker.expectation; is_modify = is_modify)
         error(dedent("""

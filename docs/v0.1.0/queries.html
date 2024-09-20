@@ -390,15 +390,15 @@
 </code> as an escape character, it is easier to use 
 <code>raw
 </code> string literals for queries (e.g., 
-<code>Query(raw&quot;cell = ATGC\:B1 : age&quot;)
+<code>Query(raw&quot;cell = ATCG\:B1 : age&quot;)
 </code> vs. 
-<code>Query(&quot;cell = ATGC\\:B1 : age&quot;)
+<code>Query(&quot;cell = ATCG\\:B1 : age&quot;)
 </code>). To make this even easier we provide the 
 <a href="queries.html#Daf.Queries.@q_str">
 <code>q
 </code>
 </a> macro (e.g., 
-<code>q&quot;cell = ATGC\:B1 : batch&quot;
+<code>q&quot;cell = ATCG\:B1 : batch&quot;
 </code>) which works similarly to Julia&#39;s standard 
 <code>r
 </code> macro for literal 
@@ -473,6 +473,18 @@
 </code>
 </a> below.
 </p>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>This has started as a very simple query language (which it still is, for the simple cases) but became complex to allow for useful but complicated scenarios. In particular, the approach here of using a concatenative language (similar to 
+<code>ggplot
+</code>) makes simple things simpler, but becames somewhat unnatural and restrictive for some of the more advanced operations. However, using an RPN or a LISP notation to better support such cases would have ended up with a much less nice syntax for the simple cases.
+</p>
+<p>Hopefully we have covered sufficient ground so that we won&#39;t need to add further operations. Also, In most cases, you can write code that accesses the vectors/matrix data and performs whatever computation you want instead of writing a complex query; however, this isn&#39;t an option when defining views or adapters, which rely on the query mechanism for specifying the data.
+</p>
+</div>
+</div>
 </div>
 </section>
 </article>
@@ -508,12 +520,12 @@
 </code> can be placed in the string without escaping it (except for before a 
 <code>&quot;
 </code>). This is very convenient for literal queries (e.g., 
-<code>q&quot;/ cell = ATGC\:B1 : batch&quot;
+<code>q&quot;/ cell = ATCG\:B1 : batch&quot;
 </code> == 
-<code>Query(raw&quot;/ cell = ATGC\:B1 : batch&quot;)
+<code>Query(raw&quot;/ cell = ATCG\:B1 : batch&quot;)
 </code> == 
-<code>Query(&quot;/ cell = ATGC\\:B1 : batch&quot;)
-</code> == `Axis(&quot;cell&quot;) |&gt; IsEqual(&quot;ATGC:B1&quot;) |&gt; Lookup(&quot;batch&quot;)).
+<code>Query(&quot;/ cell = ATCG\\:B1 : batch&quot;)
+</code> == `Axis(&quot;cell&quot;) |&gt; IsEqual(&quot;ATCG:B1&quot;) |&gt; Lookup(&quot;batch&quot;)).
 </p>
 </div>
 </section>
@@ -984,6 +996,54 @@
 </td>
 <td style="text-align: left">Fetch a property from another axis (e.g., 
 <code>/ cell : batch =&gt; age
+</code>).
+</td>
+</tr>
+<tr>
+<td style="text-align: left">
+<code>;
+</code>
+</td>
+<td style="text-align: center">
+<a href="queries.html#Daf.Queries.MaskSlice">
+<code>MaskSlice
+</code>
+</a>
+</td>
+<td style="text-align: left">Slice a matrix mask (e.g. 
+<code>/ cell &amp; UMIs ; gene = FOX1 &gt; 0
+</code>).
+</td>
+</tr>
+<tr>
+<td style="text-align: left">
+<code>;=
+</code>
+</td>
+<td style="text-align: center">
+<a href="queries.html#Daf.Queries.SquareMaskColumn">
+<code>SquareMaskColumn
+</code>
+</a>
+</td>
+<td style="text-align: left">Slice a square matrix mask column (e.g. 
+<code>/ cell &amp; outgoing ;= ATCG &gt; 0
+</code>).
+</td>
+</tr>
+<tr>
+<td style="text-align: left">
+<code>,=
+</code>
+</td>
+<td style="text-align: center">
+<a href="queries.html#Daf.Queries.SquareMaskRow">
+<code>SquareMaskRow
+</code>
+</a>
+</td>
+<td style="text-align: left">Slice a square matrix mask column (e.g. 
+<code>/ cell &amp; outgoing ,= ATCG &gt; 0
 </code>).
 </td>
 </tr>
@@ -1538,8 +1598,8 @@
 </code> will return whether the gene named FOX1 is a marker gene).
 </li>
 <li>Picking a single entry of a matrix property (e.g., 
-<code>/ gene = FOX1 / cell = ATGC : UMIs
-</code> will return the number of UMIs of the FOX1 gene of the ATGC cell).
+<code>/ gene = FOX1 / cell = ATCG : UMIs
+</code> will return the number of UMIs of the FOX1 gene of the ATCG cell).
 </li>
 <li>Reducing some vector into a single value (e.g., 
 <code>/ donor : age %&gt; Mean
@@ -1687,8 +1747,8 @@
 </a>
 </p>
 <p>Lookup the scalar value of the named entry of a matrix property (e.g., 
-<code>/ gene = FOX1 / cell = ATGC : UMIs
-</code> will return the number of UMIs of the FOX1 gene of the ATGC cell).
+<code>/ gene = FOX1 / cell = ATCG : UMIs
+</code> will return the number of UMIs of the FOX1 gene of the ATCG cell).
 </p>
 </div>
 </section>
@@ -2007,8 +2067,8 @@
 </a>
 </p>
 <p>Lookup the values of a single column of a matrix property, eliminating the columns axis (e.g., 
-<code>/ gene / cell = ATGC : UMIs
-</code> will evaluate to a vector of the UMIs of all the genes of the ATGC cell).
+<code>/ gene / cell = ATCG : UMIs
+</code> will evaluate to a vector of the UMIs of all the genes of the ATCG cell).
 </p>
 </div>
 </section>
@@ -2311,6 +2371,10 @@
 <code>VECTOR_FETCH
 </code>
 </a> )* ( 
+<a href="queries.html#Daf.Queries.MASK_SLICE">
+<code>MASK_SLICE
+</code>
+</a> )? ( 
 <a href="queries.html#Daf.Queries.ComparisonOperation">
 <code>ComparisonOperation
 </code>
@@ -2377,6 +2441,66 @@
 </code> will first restrict the set of genes to marker genes, then expand it to include noisy genes as well, then remove all the lateral genes; this would be different from 
 <code>/ gene &amp; is_marker &amp;! is_lateral | is_noisy
 </code>, which will include all noisy genes even if they are lateral).
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Queries.MASK_SLICE" href="#Daf.Queries.MASK_SLICE">
+<code>Daf.Queries.MASK_SLICE
+</code>
+</a> — 
+<span class="docstring-category">Constant
+</span>
+</header>
+<section>
+<div>
+<p>
+<code>MASK_SLICE
+</code> := 
+<a href="queries.html#Daf.Queries.MaskSlice">
+<code>MaskSlice
+</code>
+</a> 
+<a href="queries.html#Daf.Queries.IsEqual">
+<code>IsEqual
+</code>
+</a> | 
+<a href="queries.html#Daf.Queries.SquareMaskColumn">
+<code>SquareMaskColumn
+</code>
+</a> | 
+<a href="queries.html#Daf.Queries.SquareMaskRow">
+<code>SquareMaskRow
+</code>
+</a>
+</p>
+<p>Allow using a row or a column of a matrix as a mask. If the matrix uses a different axis, then use 
+<a href="queries.html#Daf.Queries.MaskSlice">
+<code>MaskSlice
+</code>
+</a> to specify the axis followed by 
+<a href="queries.html#Daf.Queries.IsEqual">
+<code>IsEqual
+</code>
+</a> to specify the slice to use (e.g., 
+<code>/ cell &amp; UMIs ; gene &gt; 0
+</code>). If the matrix is square use 
+<a href="queries.html#Daf.Queries.SquareMaskColumn">
+<code>SquareMaskColumn
+</code>
+</a> or 
+<a href="queries.html#Daf.Queries.SquareMaskRow">
+<code>SquareMaskRow
+</code>
+</a> to slice a column or a row of the matrix (e.g., 
+<code>/ cell &amp; outgoing ;= ATCG
+</code> or 
+<code>/ cell &amp; outgoing ,= ATCG
+</code>).
 </p>
 </div>
 </section>
@@ -2559,7 +2683,7 @@
 </code>) or a matrix (e.g., 
 <code>/ cell / gene = FOX1 &amp; UMIs
 </code>, 
-<code>/ cell = ATGC / gene = FOX1 : UMIs
+<code>/ cell = ATCG / gene = FOX1 : UMIs
 </code>).
 </p>
 </div>
@@ -2655,84 +2779,14 @@
 </div>
 </section>
 </article>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+<h3 id="Data-Operators">
+<a class="docs-heading-anchor" href="#Data-Operators">Data Operators
 </a>
-<a class="docstring-binding" id="Daf.Queries.And" href="#Daf.Queries.And">
-<code>Daf.Queries.And
-</code>
-</a> — 
-<span class="docstring-category">Type
-</span>
-</header>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">And(property::AbstractString) &lt;: QueryOperation
-</code>
-</pre>
-<p>A query operation for restricting the set of entries of an 
-<a href="queries.html#Daf.Queries.Axis">
-<code>Axis
-</code>
-</a>. In a string 
-<a href="queries.html#Daf.Queries.Query">
-<code>Query
-</code>
-</a>, this is specified using the 
-<code>&amp;
-</code> operator, followed by the name of an axis property to look up to compute the mask.
-</p>
-<p>The mask may be just the fetched property (e.g., 
-<code>/ gene &amp; is_marker
-</code> will restrict the result vector to only marker genes). If the value of the property is not Boolean, it is automatically compared to 
-<code>0
-</code> or the empty string, depending on its type (e.g., 
-<code>/ cell &amp; type
-</code> will restrict the result vector to only cells which were given a non-empty-string type annotation). It is also possible to fetch properties from other axes, and use an explicit 
-<a href="queries.html#Daf.Queries.ComparisonOperation">
-<code>ComparisonOperation
-</code>
-</a> to compute the Boolean mask (e.g., 
-<code>/ cell &amp; batch =&gt; age &gt; 1
-</code> will restrict the result vector to cells whose batch has an age larger than 1).
-</p>
-</div>
-</section>
-</article>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+<a id="Data-Operators-1">
 </a>
-<a class="docstring-binding" id="Daf.Queries.AndNot" href="#Daf.Queries.AndNot">
-<code>Daf.Queries.AndNot
-</code>
-</a> — 
-<span class="docstring-category">Type
-</span>
-</header>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">AndNot(property::AbstractString) &lt;: QueryOperation
-</code>
-</pre>
-<p>Same as 
-<a href="queries.html#Daf.Queries.And">
-<code>And
-</code>
-</a> but use the inverse of the mask. In a string 
-<a href="queries.html#Daf.Queries.Query">
-<code>Query
-</code>
-</a>, this is specified using the 
-<code>&amp;!
-</code> operator, followed by the name of an axis property to look up to compute the mask.
-</p>
-</div>
-</section>
-</article>
+<a class="docs-heading-anchor-permalink" href="#Data-Operators" title="Permalink">
+</a>
+</h3>
 <article class="docstring">
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
@@ -3245,6 +3299,178 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
+<a class="docstring-binding" id="Daf.Queries.Lookup" href="#Daf.Queries.Lookup">
+<code>Daf.Queries.Lookup
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">Lookup(property::AbstractString) &lt;: Query
+</code>
+</pre>
+<p>A query operation for looking up the value of a property with some name. In a string 
+<a href="queries.html#Daf.Queries.Query">
+<code>Query
+</code>
+</a>, this is specified using the 
+<code>:
+</code> operator, followed by the property name to look up.
+</p>
+<ul>
+<li>If the query state is empty, this looks up the value of a scalar property (e.g., 
+<code>: version
+</code>).
+</li>
+<li>If the query state contains a single axis, this looks up the value of a vector property (e.g., 
+<code>/ cell : batch
+</code>).
+</li>
+<li>If the query state contains two axes, this looks up the value of a matrix property (e.g., 
+<code>/ cell / gene : UMIs
+</code>).
+</li>
+</ul>
+<p>If the property does not exist, this is an error, unless this is followed by 
+<a href="queries.html#Daf.Queries.IfMissing">
+<code>IfMissing
+</code>
+</a> (e.g., 
+<code>: version || 1.0
+</code>).
+</p>
+<p>If any of the axes has a single entry selected using 
+<a href="queries.html#Daf.Queries.IsEqual">
+<code>IsEqual
+</code>
+</a>, this will reduce the dimension of the result (e.g., 
+<code>/ cell / gene = FOX1 : UMIs
+</code> is a vector, and both 
+<code>/ cell = C1 / gene = FOX1 : UMIs
+</code> and 
+<code>/ gene = FOX1 : is_marker
+</code> are scalars).
+</p>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>This, 
+<a href="queries.html#Daf.Queries.Names">
+<code>Names
+</code>
+</a> and 
+<a href="queries.html#Daf.Queries.Axis">
+<code>Axis
+</code>
+</a> are the only 
+<a href="registry.html#Daf.Registry.QueryOperation">
+<code>QueryOperation
+</code>
+</a>s that also works as a complete 
+<a href="queries.html#Daf.Queries.Query">
+<code>Query
+</code>
+</a>.
+</p>
+</div>
+</div>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Queries.Names" href="#Daf.Queries.Names">
+<code>Daf.Queries.Names
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">Names(kind::Maybe{AbstractString} = nothing) &lt;: Query
+</code>
+</pre>
+<p>A query operation for looking up a set of names. In a string 
+<a href="queries.html#Daf.Queries.Query">
+<code>Query
+</code>
+</a>, this is specified using the 
+<code>?
+</code> operator, optionally followed by the kind of objects to name.
+</p>
+<ul>
+<li>If the query state is empty, a 
+<code>kind
+</code> must be specified, one of 
+<code>scalars
+</code> or 
+<code>axes
+</code>, and the result is the set of their names (
+<code>? scalars
+</code>, 
+<code>? axes
+</code>).
+</li>
+<li>If the query state contains a single axis (without any masks), the 
+<code>kind
+</code> must not be specified, and the result is the set of names of vector properties of the axis (e.g., 
+<code>/ cell ?
+</code>).
+</li>
+<li>If the query state contains two axes (without any masks), the 
+<code>kind
+</code> must not be specified, and the result is the set of names of matrix properties of the axes (e.g., 
+<code>/ cell / gene ?
+</code>).
+</li>
+</ul>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>This, 
+<a href="queries.html#Daf.Queries.Lookup">
+<code>Lookup
+</code>
+</a> and 
+<a href="queries.html#Daf.Queries.Axis">
+<code>Axis
+</code>
+</a> are the only 
+<a href="registry.html#Daf.Registry.QueryOperation">
+<code>QueryOperation
+</code>
+</a>s that also works as a complete 
+<a href="queries.html#Daf.Queries.Query">
+<code>Query
+</code>
+</a>.
+</p>
+</div>
+</div>
+</div>
+</section>
+</article>
+<h3 id="Comparison-Operators">
+<a class="docs-heading-anchor" href="#Comparison-Operators">Comparison Operators
+</a>
+<a id="Comparison-Operators-1">
+</a>
+<a class="docs-heading-anchor-permalink" href="#Comparison-Operators" title="Permalink">
+</a>
+</h3>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
 <a class="docstring-binding" id="Daf.Queries.IsEqual" href="#Daf.Queries.IsEqual">
 <code>Daf.Queries.IsEqual
 </code>
@@ -3274,9 +3500,9 @@
 <li>To select a single entry from a vector. This allows a query to select a single scalar from a vector (e.g., 
 <code>/ gene = FOX1 : is_marker
 </code>) or from a matrix (e.g., 
-<code>/ cell = ATGC / gene = FOX1 : UMIs
+<code>/ cell = ATCG / gene = FOX1 : UMIs
 </code>); or to slice a single vector from a matrix (e.g., 
-<code>/ cell = ATGC / gene : UMIs
+<code>/ cell = ATCG / gene : UMIs
 </code> or 
 <code>/ cell / gene = FOX1 : UMIs
 </code>).
@@ -3489,12 +3715,20 @@
 </div>
 </section>
 </article>
+<h3 id="Mask-Operators">
+<a class="docs-heading-anchor" href="#Mask-Operators">Mask Operators
+</a>
+<a id="Mask-Operators-1">
+</a>
+<a class="docs-heading-anchor-permalink" href="#Mask-Operators" title="Permalink">
+</a>
+</h3>
 <article class="docstring">
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Queries.Lookup" href="#Daf.Queries.Lookup">
-<code>Daf.Queries.Lookup
+<a class="docstring-binding" id="Daf.Queries.And" href="#Daf.Queries.And">
+<code>Daf.Queries.And
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -3503,75 +3737,35 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">Lookup(property::AbstractString) &lt;: Query
+<code class="language-julia hljs">And(property::AbstractString) &lt;: QueryOperation
 </code>
 </pre>
-<p>A query operation for looking up the value of a property with some name. In a string 
+<p>A query operation for restricting the set of entries of an 
+<a href="queries.html#Daf.Queries.Axis">
+<code>Axis
+</code>
+</a>. In a string 
 <a href="queries.html#Daf.Queries.Query">
 <code>Query
 </code>
 </a>, this is specified using the 
-<code>:
-</code> operator, followed by the property name to look up.
+<code>&amp;
+</code> operator, followed by the name of an axis property to look up to compute the mask.
 </p>
-<ul>
-<li>If the query state is empty, this looks up the value of a scalar property (e.g., 
-<code>: version
-</code>).
-</li>
-<li>If the query state contains a single axis, this looks up the value of a vector property (e.g., 
-<code>/ cell : batch
-</code>).
-</li>
-<li>If the query state contains two axes, this looks up the value of a matrix property (e.g., 
-<code>/ cell / gene : UMIs
-</code>).
-</li>
-</ul>
-<p>If the property does not exist, this is an error, unless this is followed by 
-<a href="queries.html#Daf.Queries.IfMissing">
-<code>IfMissing
+<p>The mask may be just the fetched property (e.g., 
+<code>/ gene &amp; is_marker
+</code> will restrict the result vector to only marker genes). If the value of the property is not Boolean, it is automatically compared to 
+<code>0
+</code> or the empty string, depending on its type (e.g., 
+<code>/ cell &amp; type
+</code> will restrict the result vector to only cells which were given a non-empty-string type annotation). It is also possible to fetch properties from other axes, and use an explicit 
+<a href="queries.html#Daf.Queries.ComparisonOperation">
+<code>ComparisonOperation
 </code>
-</a> (e.g., 
-<code>: version || 1.0
-</code>).
+</a> to compute the Boolean mask (e.g., 
+<code>/ cell &amp; batch =&gt; age &gt; 1
+</code> will restrict the result vector to cells whose batch has an age larger than 1).
 </p>
-<p>If any of the axes has a single entry selected using 
-<a href="queries.html#Daf.Queries.IsEqual">
-<code>IsEqual
-</code>
-</a>, this will reduce the dimension of the result (e.g., 
-<code>/ cell / gene = FOX1 : UMIs
-</code> is a vector, and both 
-<code>/ cell = C1 / gene = FOX1 : UMI
-</code> and 
-<code>/ gene = FOX1 : is_marker
-</code> are scalars).
-</p>
-<div class="admonition is-info">
-<header class="admonition-header">Note
-</header>
-<div class="admonition-body">
-<p>This, 
-<a href="queries.html#Daf.Queries.Names">
-<code>Names
-</code>
-</a> and 
-<a href="queries.html#Daf.Queries.Axis">
-<code>Axis
-</code>
-</a> are the only 
-<a href="registry.html#Daf.Registry.QueryOperation">
-<code>QueryOperation
-</code>
-</a>s that also works as a complete 
-<a href="queries.html#Daf.Queries.Query">
-<code>Query
-</code>
-</a>.
-</p>
-</div>
-</div>
 </div>
 </section>
 </article>
@@ -3579,8 +3773,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="Daf.Queries.Names" href="#Daf.Queries.Names">
-<code>Daf.Queries.Names
+<a class="docstring-binding" id="Daf.Queries.AndNot" href="#Daf.Queries.AndNot">
+<code>Daf.Queries.AndNot
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -3589,67 +3783,21 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">Names(kind::Maybe{AbstractString} = nothing) &lt;: Query
+<code class="language-julia hljs">AndNot(property::AbstractString) &lt;: QueryOperation
 </code>
 </pre>
-<p>A query operation for looking up a set of names. In a string 
+<p>Same as 
+<a href="queries.html#Daf.Queries.And">
+<code>And
+</code>
+</a> but use the inverse of the mask. In a string 
 <a href="queries.html#Daf.Queries.Query">
 <code>Query
 </code>
 </a>, this is specified using the 
-<code>?
-</code> operator, optionally followed by the kind of objects to name.
+<code>&amp;!
+</code> operator, followed by the name of an axis property to look up to compute the mask.
 </p>
-<ul>
-<li>If the query state is empty, a 
-<code>kind
-</code> must be specified, one of 
-<code>scalars
-</code> or 
-<code>axes
-</code>, and the result is the set of their names (
-<code>? scalars
-</code>, 
-<code>? axes
-</code>).
-</li>
-<li>If the query state contains a single axis (without any masks), the 
-<code>kind
-</code> must not be specified, and the result is the set of names of vector properties of the axis (e.g., 
-<code>/ cell ?
-</code>).
-</li>
-<li>If the query state contains two axes (without any masks), the 
-<code>kind
-</code> must not be specified, and the result is the set of names of matrix properties of the axes (e.g., 
-<code>/ cell / gene ?
-</code>).
-</li>
-</ul>
-<div class="admonition is-info">
-<header class="admonition-header">Note
-</header>
-<div class="admonition-body">
-<p>This, 
-<a href="queries.html#Daf.Queries.Lookup">
-<code>Lookup
-</code>
-</a> and 
-<a href="queries.html#Daf.Queries.Axis">
-<code>Axis
-</code>
-</a> are the only 
-<a href="registry.html#Daf.Registry.QueryOperation">
-<code>QueryOperation
-</code>
-</a>s that also works as a complete 
-<a href="queries.html#Daf.Queries.Query">
-<code>Query
-</code>
-</a>.
-</p>
-</div>
-</div>
 </div>
 </section>
 </article>
@@ -3797,6 +3945,122 @@
 </div>
 </section>
 </article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Queries.MaskSlice" href="#Daf.Queries.MaskSlice">
+<code>Daf.Queries.MaskSlice
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">MaskSlice(axis_name::AbstractString) &lt;: QueryOperation
+</code>
+</pre>
+<p>A query operation for using a slice of a matrix as a mask, when the other axis of the matrix is different from the mask axis. This needs to be followed by the axis entry to slice. In a string 
+<a href="queries.html#Daf.Queries.Query">
+<code>Query
+</code>
+</a>, this is specified using the 
+<code>;
+</code> operator, followed by the name of the axis for looking up the matrix, then followed by 
+<code>=
+</code> and the value identifying the slice.
+</p>
+<p>That is, suppose we have a UMIs matrix per cell per gene, and we&#39;d like to select all the cells which have non-zero UMIs for the FOX1 gene. Then we can say 
+<code>/ cell &amp; UMIs ; gene = FOX1 &gt; 0
+</code> (or just 
+<code>/ cell &amp; UMIs ; gene = FOX1
+</code>.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Queries.SquareMaskColumn" href="#Daf.Queries.SquareMaskColumn">
+<code>Daf.Queries.SquareMaskColumn
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">SquareMaskColumn(comparison_value::AbstractString) &lt;: QueryOperation
+</code>
+</pre>
+<p>Similar to 
+<a href="queries.html#Daf.Queries.MaskSlice">
+<code>MaskSlice
+</code>
+</a> but is used when the mask matrix is square and we&#39;d like to use a column as a mask. This therefore only needs specifying the column to slice. In a string 
+<a href="queries.html#Daf.Queries.Query">
+<code>Query
+</code>
+</a>, this is specified using the 
+<code>;=
+</code> operator followed by the value identifying the slice.
+</p>
+<p>That is, suppose we have a KNN graph between cells as a cell-cell matrix where each column contains the weights of the outgoing edges from each cell to the rest. To select all the cells reachable from a particular one. Then we can say 
+<code>/ cell &amp; outgoing ;= ATCG &gt; 0
+</code> (or just 
+<code>/ cell &amp; outgoing ;= ATCG
+</code>). If we also want to include the source cell we&#39;d need to say 
+<code>/ cell &amp; name = ATCG | outgoing ;= ATCG
+</code>, etc.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="Daf.Queries.SquareMaskRow" href="#Daf.Queries.SquareMaskRow">
+<code>Daf.Queries.SquareMaskRow
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">SquareMaskRow(comparison_value::AbstractString) &lt;: QueryOperation
+</code>
+</pre>
+<p>Similar to 
+<a href="queries.html#Daf.Queries.SquareMaskRow">
+<code>SquareMaskRow
+</code>
+</a> but is used when the mask matrix is square and we&#39;d like to use a row as a mask. This therefore only needs specifying the row to slice. In a string 
+<a href="queries.html#Daf.Queries.Query">
+<code>Query
+</code>
+</a>, this is specified using the 
+<code>,=
+</code> operator followed by the value identifying the slice.
+</p>
+<p>That is, suppose we have a KNN graph as above and we&#39;d like to select all cells that can reach a particular one. Then 
+<code>/ cell &amp; outgoing ,= ATCG &gt; 0
+</code> (or just 
+<code>/ cell &amp; outgoing ,= ATCG
+</code>). If we also want to include the source cell we&#39;d need to say 
+<code>/ cell &amp; name = ATCG | outgoing ,= ATCG
+</code>, etc.
+</p>
+</div>
+</section>
+</article>
 <h2 id="Index">
 <a class="docs-heading-anchor" href="#Index">Index
 </a>
@@ -3839,6 +4103,12 @@
 <li>
 <a href="queries.html#Daf.Queries.MASK_OPERATION">
 <code>Daf.Queries.MASK_OPERATION
+</code>
+</a>
+</li>
+<li>
+<a href="queries.html#Daf.Queries.MASK_SLICE">
+<code>Daf.Queries.MASK_SLICE
 </code>
 </a>
 </li>
@@ -4065,6 +4335,12 @@
 </a>
 </li>
 <li>
+<a href="queries.html#Daf.Queries.MaskSlice">
+<code>Daf.Queries.MaskSlice
+</code>
+</a>
+</li>
+<li>
 <a href="queries.html#Daf.Queries.Names">
 <code>Daf.Queries.Names
 </code>
@@ -4097,6 +4373,18 @@
 <li>
 <a href="queries.html#Daf.Queries.QueryString">
 <code>Daf.Queries.QueryString
+</code>
+</a>
+</li>
+<li>
+<a href="queries.html#Daf.Queries.SquareMaskColumn">
+<code>Daf.Queries.SquareMaskColumn
+</code>
+</a>
+</li>
+<li>
+<a href="queries.html#Daf.Queries.SquareMaskRow">
+<code>Daf.Queries.SquareMaskRow
 </code>
 </a>
 </li>

@@ -61,6 +61,11 @@ nested_test("queries") do
             @test string(Lookup("score")) == ": score"
         end
 
+        nested_test("str") do
+            @test string(Axis("cell") |> ": age") == "/ cell : age"
+            @test string("/ cell" |> Lookup("age")) == "/ cell : age"
+        end
+
         nested_test("two") do
             @test string(QuerySequence(Axis("cell"), Lookup("age"))) == "/ cell : age"
             @test string(Query(QuerySequence(Axis("cell"), Lookup("age")))) == "/ cell : age"
@@ -586,6 +591,72 @@ nested_test("queries") do
 
             nested_test("xor_not") do
                 @test get_result(daf, q"/ cell & age ^! is_doublet"; is_axis = true) == []
+            end
+
+            nested_test("slice") do
+                add_axis!(daf, "gene", ["X", "Y", "Z"])
+                set_matrix!(daf, "cell", "gene", "UMIs", [0 1 2; 3 4 5])
+
+                nested_test("()") do
+                    @test get_result(daf, q"/ cell & UMIs ; gene = Z > 3"; is_axis = true) == ["B"]
+                end
+
+                nested_test("!value") do
+                    return test_invalid(
+                        daf,
+                        q"/ cell & UMIs ; gene = U > 3",
+                        1,
+                        """
+                            invalid value: U
+                            is missing from the axis: gene
+                            in the query: / cell & UMIs ; gene = U > 3
+                        """,
+                    )
+                end
+            end
+
+            nested_test("slice_column") do
+                set_matrix!(daf, "cell", "cell", "outgoing", [0 0; 1 1])
+
+                nested_test("()") do
+                    @test get_result(daf, q"/ cell & outgoing ;= A > 0"; is_axis = true) == ["B"]
+                    @test get_result(daf, q"/ cell & outgoing ;= B"; is_axis = true) == ["B"]
+                end
+
+                nested_test("!value") do
+                    return test_invalid(
+                        daf,
+                        q"/ cell & outgoing ;= U > 0",
+                        1,
+                        """
+                            invalid value: U
+                            is missing from the axis: cell
+                            in the query: / cell & outgoing ;= U > 0
+                        """,
+                    )
+                end
+            end
+
+            nested_test("slice_row") do
+                set_matrix!(daf, "cell", "cell", "outgoing", [0 0; 1 1])
+
+                nested_test("()") do
+                    @test get_result(daf, q"/ cell & outgoing ,= A > 0"; is_axis = true) == []
+                    @test get_result(daf, q"/ cell & outgoing ,= B"; is_axis = true) == ["A", "B"]
+                end
+
+                nested_test("!value") do
+                    return test_invalid(
+                        daf,
+                        q"/ cell & outgoing ,= U > 0",
+                        1,
+                        """
+                            invalid value: U
+                            is missing from the axis: cell
+                            in the query: / cell & outgoing ,= U > 0
+                        """,
+                    )
+                end
             end
         end
 

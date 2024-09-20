@@ -220,7 +220,7 @@ function depict_percent(used::Integer, out_of::Integer)::String
     @assert 0 <= used <= out_of
 
     if out_of == 0
-        return "0%"
+        return "0%"  # untested
     end
 
     float_percent = 100.0 * Float64(used) / Float64(out_of)

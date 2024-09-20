@@ -99,8 +99,8 @@ convert a [`Query`](@ref) to a `string` (or `print` it, etc.) to see its represe
 messages and as a key when caching query results.
 
 Since query strings use `\\` as an escape character, it is easier to use `raw` string literals for queries (e.g.,
-`Query(raw"cell = ATGC\\:B1 : age")` vs. `Query("cell = ATGC\\\\:B1 : age")`). To make this even easier we provide the
-[`q`](@ref @q_str) macro (e.g., `q"cell = ATGC\\:B1 : batch"`) which works similarly to Julia's standard `r` macro for
+`Query(raw"cell = ATCG\\:B1 : age")` vs. `Query("cell = ATCG\\\\:B1 : age")`). To make this even easier we provide the
+[`q`](@ref @q_str) macro (e.g., `q"cell = ATCG\\:B1 : batch"`) which works similarly to Julia's standard `r` macro for
 literal `Regex` strings.
 
 If the provided query string contains only an operand, and `operand_only` is specified, it is used as the operator
@@ -120,6 +120,19 @@ sub-queries in `Daf` views), without having to go through the string representat
 Obviously not all possible combinations of operations make sense (e.g., `Lookup("is_marker") |> Axis("cell")` will not
 work). For the full list of valid combinations, see [`NAMES_QUERY`](@ref), [`SCALAR_QUERY`](@ref),
 [`VECTOR_QUERY`](@ref) and [`MATRIX_QUERY`](@ref) below.
+
+!!! note
+
+    This has started as a very simple query language (which it still is, for the simple cases) but became complex to
+    allow for useful but complicated scenarios. In particular, the approach here of using a concatenative language
+    (similar to `ggplot`) makes simple things simpler, but becames somewhat unnatural and restrictive for some of the
+    more advanced operations. However, using an RPN or a LISP notation to better support such cases would have ended up
+    with a much less nice syntax for the simple cases.
+
+    Hopefully we have covered sufficient ground so that we won't need to add further operations. Also, In most cases,
+    you can write code that accesses the vectors/matrix data and performs whatever computation you want instead of
+    writing a complex query; however, this isn't an option when defining views or adapters, which rely on the query
+    mechanism for specifying the data.
 """
 abstract type Query <: QueryOperation end
 
@@ -159,8 +172,8 @@ A query returning a scalar can be one of:
   - Looking up the value of a scalar property (e.g., `: version` will return the value of the version scalar property).
   - Picking a single entry of a vector property (e.g., `/ gene = FOX1 : is_marker` will return whether the gene named
     FOX1 is a marker gene).
-  - Picking a single entry of a matrix property (e.g., `/ gene = FOX1 / cell = ATGC : UMIs` will return the number of
-    UMIs of the FOX1 gene of the ATGC cell).
+  - Picking a single entry of a matrix property (e.g., `/ gene = FOX1 / cell = ATCG : UMIs` will return the number of
+    UMIs of the FOX1 gene of the ATCG cell).
   - Reducing some vector into a single value (e.g., `/ donor : age %> Mean` will compute the mean age of all the
     donors).
 
@@ -195,8 +208,8 @@ VECTOR_ENTRY = nothing
 """
 `MATRIX_ENTRY` := [`Axis`](@ref) [`IsEqual`](@ref) [`Axis`](@ref) [`IsEqual`](@ref) [`LOOKUP_PROPERTY`](@ref)
 
-Lookup the scalar value of the named entry of a matrix property (e.g., `/ gene = FOX1 / cell = ATGC : UMIs` will return
-the number of UMIs of the FOX1 gene of the ATGC cell).
+Lookup the scalar value of the named entry of a matrix property (e.g., `/ gene = FOX1 / cell = ATCG : UMIs` will return
+the number of UMIs of the FOX1 gene of the ATCG cell).
 """
 MATRIX_ENTRY = nothing
 
@@ -280,7 +293,7 @@ MATRIX_ROW = nothing
 `MATRIX_COLUMN` := [`Axis`](@ref) [`AXIS_MASK`](@ref)* [`Axis`](@ref) [`IsEqual`](@ref) [`Lookup`](@ref)
 
 Lookup the values of a single column of a matrix property, eliminating the columns axis (e.g.,
-`/ gene / cell = ATGC : UMIs` will evaluate to a vector of the UMIs of all the genes of the ATGC cell).
+`/ gene / cell = ATCG : UMIs` will evaluate to a vector of the UMIs of all the genes of the ATCG cell).
 """
 MATRIX_COLUMN = nothing
 
@@ -361,7 +374,7 @@ of each type, with a zero value for types for which there are no cells).
 GROUP_BY = nothing
 
 """
-`AXIS_MASK` := [`MASK_OPERATION`](@ref) ( [`VECTOR_FETCH`](@ref) )* ( [`ComparisonOperation`](@ref) )?
+`AXIS_MASK` := [`MASK_OPERATION`](@ref) ( [`VECTOR_FETCH`](@ref) )* ( [`MASK_SLICE`](@ref) )? ( [`ComparisonOperation`](@ref) )?
 
 Restrict the set of entries of an axis to lookup results for (e.g., `/ gene & is_marker`). If the mask is based on a
 non-`Bool` property, it is converted to a Boolean by comparing with the empty string or a zero value (depending on its
@@ -380,6 +393,16 @@ include noisy genes as well, then remove all the lateral genes; this would be di
 `/ gene & is_marker &! is_lateral | is_noisy`, which will include all noisy genes even if they are lateral).
 """
 MASK_OPERATION = nothing
+
+"""
+`MASK_SLICE` := [`MaskSlice`](@ref) [`IsEqual`](@ref) | [`SquareMaskColumn`](@ref) | [`SquareMaskRow`](@ref)
+
+Allow using a row or a column of a matrix as a mask. If the matrix uses a different axis, then use [`MaskSlice`](@ref)
+to specify the axis followed by [`IsEqual`](@ref) to specify the slice to use (e.g., `/ cell & UMIs ; gene > 0`). If
+the matrix is square use [`SquareMaskColumn`](@ref) or [`SquareMaskRow`](@ref) to slice a column or a row of the matrix
+(e.g., `/ cell & outgoing ;= ATCG` or `/ cell & outgoing ,= ATCG`).
+"""
+MASK_SLICE = nothing
 
 """
 `VECTOR_FETCH` := [`AsAxis`](@ref)? [`Fetch`](@ref) [`IfMissing`](@ref)? ( [`IfNot`](@ref) | [`AsAxis`](@ref) )?
@@ -428,6 +451,9 @@ Operators used to represent a [`Query`](@ref) as a string.
 |          |                              | 3. Names of matrices of axes (e.g., `/ cell / gene ?`).                                  |
 | `:`      | [`Lookup`](@ref)             | Lookup a property (e.g., `: version`, `/ cell : batch` or `/ cell / gene : UMIs`).       |
 | `=>`     | [`Fetch`](@ref)              | Fetch a property from another axis (e.g., `/ cell : batch => age`).                      |
+| `;`      | [`MaskSlice`](@ref)          | Slice a matrix mask (e.g. `/ cell & UMIs ; gene = FOX1 > 0`).                            |
+| `;=`     | [`SquareMaskColumn`](@ref)   | Slice a square matrix mask column (e.g. `/ cell & outgoing ;= ATCG > 0`).                |
+| `,=`     | [`SquareMaskRow`](@ref)      | Slice a square matrix mask column (e.g. `/ cell & outgoing ,= ATCG > 0`).                |
 | `!`      | [`AsAxis`](@ref)             | 1. Specify axis name when fetching a property (e.g., `/ cell : manual ! type => color`). |
 |          |                              | 2. Force all axis values when counting (e.g., `/ cell : batch ! * manual ! type`).       |
 |          |                              | 3. Force all axis values when grouping (e.g., `/ cell : age @ batch ! %> Mean`).         |
@@ -463,7 +489,7 @@ Operators used to represent a [`Query`](@ref) as a string.
     Due to Julia's Documenter limitations, the ASCII `|` character (`&#124;`) is replaced by the Unicode `│` character
     (`&#9474;`) in the above table. Sigh.
 """
-QUERY_OPERATORS = r"^(?:=>|\|\||\?\?|%>|&!|\|!|\^!|!=|<=|>=|!~|/|:|!|%|\*|@|&|\||\?|\^|=|<|>|~)"
+QUERY_OPERATORS = r"^(?:=>|\|\||\?\?|%>|&!|\|!|\^!|;=|,=|!=|<=|>=|!~|/|:|!|%|\*|@|&|\||\?|\^|;|=|<|>|~)"
 
 function next_query_operation(tokens::Vector{Token}, next_token_index::Int)::Tuple{QueryOperation, Int}
     token = next_operator_token(tokens, next_token_index)
@@ -472,6 +498,9 @@ function next_query_operation(tokens::Vector{Token}, next_token_index::Int)::Tup
     for (operator, operation_type) in (
         ("/", Axis),
         (":", Lookup),
+        (";", MaskSlice),
+        (";=", SquareMaskColumn),
+        (",=", SquareMaskRow),
         ("=>", Fetch),
         ("*", CountBy),
         ("@", GroupBy),
@@ -631,8 +660,8 @@ end
 
 Shorthand for parsing a literal string as a [`Query`](@ref). This is equivalent to [`Query`](@ref)`(raw"...")`, that is,
 a `\\` can be placed in the string without escaping it (except for before a `"`). This is very convenient for literal
-queries (e.g., `q"/ cell = ATGC\\:B1 : batch"` == `Query(raw"/ cell = ATGC\\:B1 : batch")` ==
-`Query("/ cell = ATGC\\\\:B1 : batch")` == `Axis("cell") |> IsEqual("ATGC:B1") |> Lookup("batch")).
+queries (e.g., `q"/ cell = ATCG\\:B1 : batch"` == `Query(raw"/ cell = ATCG\\:B1 : batch")` ==
+`Query("/ cell = ATCG\\\\:B1 : batch")` == `Axis("cell") |> IsEqual("ATCG:B1") |> Lookup("batch")).
 """
 macro q_str(query_string::AbstractString)
     return Query(query_string)
@@ -754,7 +783,7 @@ If the property does not exist, this is an error, unless this is followed by [`I
 `: version || 1.0`).
 
 If any of the axes has a single entry selected using [`IsEqual`](@ref), this will reduce the dimension of the result
-(e.g., `/ cell / gene = FOX1 : UMIs` is a vector, and both `/ cell = C1 / gene = FOX1 : UMI` and
+(e.g., `/ cell / gene = FOX1 : UMIs` is a vector, and both `/ cell = C1 / gene = FOX1 : UMIs` and
 `/ gene = FOX1 : is_marker` are scalars).
 
 !!! note
@@ -820,6 +849,68 @@ end
 
 function Base.show(io::IO, fetch::Fetch)::Nothing
     print(io, "=> $(escape_value(fetch.property_name))")
+    return nothing
+end
+
+"""
+    MaskSlice(axis_name::AbstractString) <: QueryOperation
+
+A query operation for using a slice of a matrix as a mask, when the other axis of the matrix is different from the mask axis. This needs
+to be followed by the axis entry to slice. In a string [`Query`](@ref), this is specified using the `;` operator, followed
+by the name of the axis for looking up the matrix, then followed by `=` and the value identifying the slice.
+
+That is, suppose we have a UMIs matrix per cell per gene, and we'd like to select all the cells which have non-zero UMIs
+for the FOX1 gene. Then we can say `/ cell & UMIs ; gene = FOX1 > 0` (or just `/ cell & UMIs ; gene = FOX1`.
+"""
+struct MaskSlice <: ModifierQueryOperation
+    axis_name::AbstractString
+end
+
+function Base.show(io::IO, mask_slice::MaskSlice)::Nothing
+    print(io, "; $(escape_value(mask_slice.axis_name))")
+    return nothing
+end
+
+abstract type SquareMaskSlice <: ModifierQueryOperation end
+
+"""
+    SquareMaskColumn(comparison_value::AbstractString) <: QueryOperation
+
+Similar to [`MaskSlice`](@ref) but is used when the mask matrix is square and we'd like to use a column as a mask. This therefore
+only needs specifying the column to slice. In a string [`Query`](@ref), this is specified using the `;=` operator followed by the
+value identifying the slice.
+
+That is, suppose we have a KNN graph between cells as a cell-cell matrix where each column contains the weights of the
+outgoing edges from each cell to the rest. To select all the cells reachable from a particular one. Then we can say
+`/ cell & outgoing ;= ATCG > 0` (or just `/ cell & outgoing ;= ATCG`). If we also want to include the source cell we'd
+need to say `/ cell & name = ATCG | outgoing ;= ATCG`, etc.
+"""
+struct SquareMaskColumn <: SquareMaskSlice
+    comparison_value::AbstractString
+end
+
+function Base.show(io::IO, square_mask_column::SquareMaskColumn)::Nothing
+    print(io, ";= $(escape_value(square_mask_column.comparison_value))")
+    return nothing
+end
+
+"""
+    SquareMaskRow(comparison_value::AbstractString) <: QueryOperation
+
+Similar to [`SquareMaskRow`](@ref) but is used when the mask matrix is square and we'd like to use a row as a mask. This therefore
+only needs specifying the row to slice. In a string [`Query`](@ref), this is specified using the `,=` operator followed by the
+value identifying the slice.
+
+That is, suppose we have a KNN graph as above and we'd like to select all cells that can reach a particular one. Then
+`/ cell & outgoing ,= ATCG > 0` (or just `/ cell & outgoing ,= ATCG`). If we also want to include the source cell we'd
+need to say `/ cell & name = ATCG | outgoing ,= ATCG`, etc.
+"""
+struct SquareMaskRow <: SquareMaskSlice
+    comparison_value::StorageScalar
+end
+
+function Base.show(io::IO, square_mask_row::SquareMaskRow)::Nothing
+    print(io, ",= $(escape_value(square_mask_row.comparison_value))")
     return nothing
 end
 
@@ -1154,7 +1245,7 @@ end
 
 A query operation computing a mask by comparing the values of a vector with some constant (e.g., `/ cell & age > 0`).
 In addition, the [`IsEqual`](@ref) operation can be used to slice an entry from a vector (e.g.,
-`/ gene = FOX1 : is_marker`) or a matrix (e.g., `/ cell / gene = FOX1 & UMIs`, `/ cell = ATGC / gene = FOX1 : UMIs`).
+`/ gene = FOX1 : is_marker`) or a matrix (e.g., `/ cell / gene = FOX1 & UMIs`, `/ cell = ATCG / gene = FOX1 : UMIs`).
 """
 abstract type ComparisonOperation <: ModifierQueryOperation end
 
@@ -1211,8 +1302,8 @@ Equality is used for two purposes:
 
   - As a comparison operator, similar to [`IsLess`](@ref) except that uses `=` instead of `<` for the comparison.
   - To select a single entry from a vector. This allows a query to select a single scalar from a vector (e.g.,
-    `/ gene = FOX1 : is_marker`) or from a matrix (e.g., `/ cell = ATGC / gene = FOX1 : UMIs`); or to slice a single
-    vector from a matrix (e.g., `/ cell = ATGC / gene : UMIs` or `/ cell / gene = FOX1 : UMIs`).
+    `/ gene = FOX1 : is_marker`) or from a matrix (e.g., `/ cell = ATCG / gene = FOX1 : UMIs`); or to slice a single
+    vector from a matrix (e.g., `/ cell = ATCG / gene : UMIs` or `/ cell / gene = FOX1 : UMIs`).
 """
 struct IsEqual <: ComparisonOperation
     comparison_value::StorageScalar
@@ -1696,7 +1787,7 @@ function get_query(
                 did_compute[1] = true
                 result, _ = do_get_query(daf, query_sequence)
             else
-                result = result.data
+                result = result.data  # untested
             end
         end
         if !did_compute[1]
@@ -2496,7 +2587,66 @@ function fetch_property(query_state::QueryState, axis_state::AxisState, fetch_op
             if_missing_value = value_for_if_missing(query_state, if_missing)
             default_value = nothing
         end
-        next_named_vector = get_vector(query_state.daf, fetch_axis_name, fetch_property_name; default = default_value)
+
+        next_named_vector = nothing
+        if is_final && as_axis === nothing
+            if peek_next_operation(query_state, MaskSlice) !== nothing &&
+               peek_next_operation(query_state, IsEqual; skip = 1) !== nothing
+                mask_slice = get_next_operation(query_state, MaskSlice)
+                @assert mask_slice !== nothing
+
+                slice_is_equal = get_next_operation(query_state, IsEqual)
+                @assert slice_is_equal !== nothing
+
+                next_named_matrix = get_matrix(
+                    query_state.daf,
+                    fetch_axis_name,
+                    mask_slice.axis_name,
+                    fetch_property_name;
+                    default = default_value,
+                )
+
+                slice_comparison_value = slice_is_equal.comparison_value
+                if !(slice_comparison_value in names(next_named_matrix, 2))
+                    error_at_state(query_state, dedent("""
+                                            invalid value: $(slice_comparison_value)
+                                            is missing from the axis: $(mask_slice.axis_name)
+                                        """))
+                end
+                next_named_vector = next_named_matrix[:, slice_comparison_value]
+
+            elseif peek_next_operation(query_state, SquareMaskSlice) !== nothing
+                mask_slice = get_next_operation(query_state, SquareMaskSlice)
+                next_named_matrix = get_matrix(
+                    query_state.daf,
+                    fetch_axis_name,
+                    fetch_axis_name,
+                    fetch_property_name;
+                    default = default_value,
+                )
+
+                slice_comparison_value = mask_slice.comparison_value
+                if !(slice_comparison_value in names(next_named_matrix, 2))
+                    error_at_state(query_state, dedent("""
+                                            invalid value: $(slice_comparison_value)
+                                            is missing from the axis: $(fetch_axis_name)
+                                        """))
+                end
+
+                if mask_slice isa SquareMaskColumn
+                    next_named_vector = next_named_matrix[:, slice_comparison_value]
+                elseif mask_slice isa SquareMaskRow
+                    next_named_vector = next_named_matrix[slice_comparison_value, :]
+                else
+                    @assert false
+                end
+            end
+        end
+
+        if next_named_vector === nothing
+            next_named_vector =
+                get_vector(query_state.daf, fetch_axis_name, fetch_property_name; default = default_value)
+        end
 
         if !is_final && next_named_vector !== nothing && !(eltype(next_named_vector) <: AbstractString)
             query_state.next_operation_index += 1
@@ -2554,6 +2704,18 @@ function fake_fetch_property(fake_query_state::FakeQueryState, fake_axis_state::
         is_final = next_fetch_operation === nothing
         if is_final && if_not !== nothing
             error_unexpected_operation(fake_query_state)
+        end
+
+        if is_final && as_axis === nothing
+            if peek_next_operation(fake_query_state, MaskSlice) !== nothing &&
+               peek_next_operation(fake_query_state, IsEqual; skip = 1) !== nothing
+                mask_slice = get_next_operation(fake_query_state, MaskSlice)
+                @assert mask_slice !== nothing
+                slice_is_equal = get_next_operation(fake_query_state, IsEqual)
+                @assert slice_is_equal !== nothing
+            else
+                get_next_operation(fake_query_state, SquareMaskSlice)
+            end
         end
 
         if next_fetch_operation === nothing
