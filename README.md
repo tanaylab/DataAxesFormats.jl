@@ -10,8 +10,13 @@ The key features of `Daf` are:
 
   - Support both in-memory and persistent data storage of "any" format (given an adapter implementation).
   - The implementation is thread-safe, using read/write locks, to allow safe and efficient parallel processing.
-  - Out of the box, allow storing the data in memory, in `AnnData` objects (e.g., using `h5ad` files), directly inside
-    [H5FS](https://hdfgroup.org/) files, or as a collection of simple memory-mapped files in a directory.
+  - Out of the box, allow importing and exporting `AnnData` objects (e.g., using `h5ad` files), storing the data in
+    memory, directly inside [H5FS](https://hdfgroup.org/) files, or as a collection of simple memory-mapped files in a
+    directory.
+  - Support views and adapters for applying generic algorithms to your specific data while using your own specific names
+    for the data properties.
+  - Support chaining repositories for reusing a large base repository with one or more smaller computed results
+    repositories, possibly computed in several ways for comparison of the results.
   - The data model is based on (1) some axes with named entries, (2) vector data indexed by a single axis, (3) matrix
     data indexed by a pair of axes, and also (4) scalar data (anything not tied to some axis).
   - The common case where one axis is a group of another is explicitly supported (e.g., storing a type for each cell,
@@ -21,13 +26,19 @@ The key features of `Daf` are:
   - There is explicit control over 2D data layout (row or column major), and support for both dense and sparse matrices,
     both of which are crucial for performance.
   - This is implemented in Julia, as a seed for efficient computation pipelines (which are hard to implement in Python
-    without resorting to using C/C++ code). TODO: provide a [Daf.py](https://pypi.org/project/daf/) Python package, which
+    without resorting to using C/C++ code). WIP: a [Daf.py](https://pypi.org/project/daf/) Python package, which
     is a thin wrapper around `Daf.jl` allowing efficient (zero-copy) access to the data using `numpy`, `scipy` and
-    `pandas` vector and matrix types. TODO: Implement a similar R package using
+    `pandas` vector and matrix types. WIP: Implement a similar R package using
     [JuliaCall](https://libraries.io/cran/JuliaCall) to allow direct access to `Daf.jl` from R
     code.
 
 See the [v0.1.0 documentation](https://tanaylab.github.io/Daf.jl/v0.1.0) for details.
+
+## Status
+
+Version 0.1.0 is an alpha release. We hope it is feature complete and have started using it for internal projects.
+However, everything is subject to change based on user feedback (so don't be shy). Comments, bug reports and PRs
+are welcome!
 
 ## Motivation
 
