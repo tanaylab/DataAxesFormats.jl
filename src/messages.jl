@@ -127,12 +127,12 @@ end
 function depict_vector(vector::AbstractVector, prefix::AbstractString)::String  # untested
     try
         if strides(vector) == (1,)
-            return depict_vector_size(vector, concat_prefixes(prefix, "$(typeof(vector)) - Dense"))
+            return depict_vector_size(vector, concat_prefixes(prefix, "$(nameof(typeof(vector))) - Dense"))
         else
-            return depict_vector_size(vector, concat_prefixes(prefix, "$(typeof(vector)) - Strided"))
+            return depict_vector_size(vector, concat_prefixes(prefix, "$(nameof(typeof(vector))) - Strided"))
         end
     catch
-        return depict_vector_size(vector, concat_prefixes(prefix, "$(typeof(vector))"))
+        return depict_vector_size(vector, concat_prefixes(prefix, "$(nameof(typeof(vector)))"))
     end
 end
 
