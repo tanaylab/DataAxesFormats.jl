@@ -98,7 +98,7 @@ AxisCacheKey = Tuple{AxisKey, Bool}
 
 NamesKey = Union{AbstractString, Tuple{AbstractString}, Tuple{AbstractString, AbstractString, Bool}}
 
-CacheKey = Tuple{CacheType, Union{AxisCacheKey, DataKey, AbstractString, NamesKey}}
+CacheKey = Tuple{CacheType, Union{AxisCacheKey, PropertyKey, AbstractString, NamesKey}}
 
 function Base.show(io::IO, cache_key::CacheKey)::Nothing
     type, key = cache_key
@@ -202,7 +202,7 @@ struct Internal
     cache_group::Maybe{CacheGroup}
     dependents_of_cache_keys::Dict{CacheKey, Set{CacheKey}}
     dependecies_of_query_keys::Dict{CacheKey, Set{CacheKey}}
-    version_counters::Dict{DataKey, UInt32}
+    version_counters::Dict{PropertyKey, UInt32}
     cache_lock::QueryReadWriteLock
     data_lock::QueryReadWriteLock
     is_frozen::Bool
@@ -216,7 +216,7 @@ function Internal(; cache_group::Maybe{CacheGroup}, is_frozen::Bool)::Internal
         cache_group,
         Dict{CacheKey, Set{CacheKey}}(),
         Dict{CacheKey, Set{CacheKey}}(),
-        Dict{DataKey, UInt32}(),
+        Dict{PropertyKey, UInt32}(),
         QueryReadWriteLock(),
         QueryReadWriteLock(),
         is_frozen,
@@ -1119,13 +1119,13 @@ function has_data_write_lock(format::FormatReader)::Bool
     return has_write_lock(format.internal.data_lock)
 end
 
-function format_get_version_counter(format::FormatReader, version_key::DataKey)::UInt32
+function format_get_version_counter(format::FormatReader, version_key::PropertyKey)::UInt32
     return with_cache_read_lock(format, "for version counter of:", string(version_key)) do
         return get(format.internal.version_counters, version_key, UInt32(0))
     end
 end
 
-function format_increment_version_counter(format::FormatWriter, version_key::DataKey)::Nothing
+function format_increment_version_counter(format::FormatWriter, version_key::PropertyKey)::Nothing
     with_cache_write_lock(format, "for version counter of:", string(version_key)) do
         previous_version_counter = format_get_version_counter(format, version_key)
         return format.internal.version_counters[version_key] = previous_version_counter + 1

@@ -130,6 +130,15 @@ That is, assuming a `gene` and `cell` axes were exposed by the `axes` parameter,
 
 The order of the axes does not matter, so
 `data = [("gene", "cell", "UMIs") => "="]` has the same effect as `data = [("cell", "gene", "UMIs") => "="]`.
+
+**3D Tensors** require a key specifying the main axis, followed by two axes, and a property name. All the axes must be
+exposed by the view (based on the `axes` parameter). In this cases, none of the axes may be `"*"`. The value can only be
+be `"="` to expose all the matrix properties of the tensor as they are or `nothing` to hide all of them; that is, views
+can expose or hide existing (possibly masked) 3D tensors, but can't be used to create new ones.
+
+That is, assuming a `gene`, `cell` and `batch` axes were exposed by the `axes` parameters, then specifying that
+`("batch", "cell", "gene", "is_measured") => "="` will expose the set of per-cell-per-gene matrices
+`batch1_is_measured`, `batch2_is_measured`, etc.
 """
 ViewDatum = Union{Tuple{DataKey, Maybe{QueryString}}, Pair{<:DataKey, <:Maybe{QueryString}}}
 
@@ -137,6 +146,11 @@ ViewDatum = Union{Tuple{DataKey, Maybe{QueryString}}, Pair{<:DataKey, <:Maybe{Qu
 Specify all the data to expose from a view. We would have liked to specify this as `AbstractVector{<:ViewDatum}` but
 Julia in its infinite wisdom considers `["a", "b" => "c"]` to be a `Vector{Any}`, which would require literals to be
 annotated with the type.
+
+!!! note
+
+    [`TensorKey`](@ref)s are interpreted after interpreting all [`MatrixKey`](@ref)s, so they will override them even if
+    they appear earlier in the list of keys. For clarity it is best to list them at the very end of the list.
 """
 ViewData = AbstractVector
 
@@ -258,6 +272,7 @@ function viewer(
     collected_scalars = collect_scalars(name, daf, data)
     collected_vectors = collect_vectors(name, daf, collected_axes, data)
     collected_matrices = collect_matrices(name, daf, collected_axes, data)
+    collect_tensors(name, daf, collected_axes, collected_matrices, data)
 
     wrapper = DafView(
         name,
@@ -473,6 +488,58 @@ function collect_matrices(
         end
     end
     return collected_matrices
+end
+
+function collect_tensors(
+    view_name::AbstractString,
+    daf::DafReader,
+    collected_axes::Dict{AbstractString, Fetch{AbstractVector{<:AbstractString}}},
+    collected_matrices::Dict{AbstractString, Dict{AbstractString, Dict{AbstractString, Fetch{StorageMatrix}}}},
+    data::ViewData,
+)::Nothing
+    for (key, query) in data
+        if key isa TensorKey
+            (main_axis_name, rows_axis_name, columns_axis_name, matrix_name) = key
+
+            if "*" in key
+                error(dedent("""
+                    unsupported "*" wildcard for tensor
+                    for the matrix: $(matrix_name)
+                    for the main axis: $(main_axis_name)
+                    and the rows axis: $(rows_axis_name)
+                    and the columns axis: $(columns_axis_name)
+                    for the view: $(view_name)
+                    of the daf data: $(daf.name)
+                """))
+            end
+
+            if query != "=" && query !== nothing
+                error(dedent("""
+                    unsupported query: $(query)
+                    for the matrix: $(matrix_name)
+                    for the main axis: $(main_axis_name)
+                    and the rows axis: $(rows_axis_name)
+                    and the columns axis: $(columns_axis_name)
+                    for the view: $(view_name)
+                    of the daf data: $(daf.name)
+                """))
+            end
+
+            main_axis_entries = axis_array(daf, main_axis_name)
+            for entry_name in main_axis_entries
+                collect_matrix(
+                    view_name,
+                    daf,
+                    collected_matrices,
+                    collected_axes,
+                    rows_axis_name,
+                    columns_axis_name,
+                    "$(entry_name)_$(matrix_name)",
+                    prepare_query(query, Lookup),
+                )
+            end
+        end
+    end
 end
 
 function collect_matrix(

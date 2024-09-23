@@ -147,7 +147,14 @@ source axis contains entries that do not exist in the target, they are discarded
 
     what_for = empty === nothing ? "the vector: $(name)\n    to the vector: $(rename)" : nothing
     if relation === nothing
-        relation = verify_axis(destination, reaxis, source, axis; allow_missing = false, what_for = what_for)
+        relation = verify_axis(;
+            destination = destination,
+            destination_axis = reaxis,
+            source = source,
+            source_axis = axis,
+            allow_missing = false,
+            what_for = what_for,
+        )
         @assert relation !== nothing
     end
 
@@ -195,7 +202,13 @@ source axis contains entries that do not exist in the target, they are discarded
     end
 
     @assert relation == :source_is_subset
-    verify_subset(source.name, axis, destination.name, reaxis, what_for)
+    verify_subset(;
+        source_name = source.name,
+        source_axis = axis,
+        destination_name = destination.name,
+        destination_axis = reaxis,
+        what_for = what_for,
+    )
 
     with_data_write_lock(destination) do
         if issparse(value.array) || concrete_dtype <: AbstractString
@@ -276,13 +289,25 @@ axis contains entries that do not exist in the target, they are discarded (not c
 
     what_for = empty === nothing ? "the matrix: $(name)\n    to the matrix: $(rename)" : nothing
     if rows_relation === nothing
-        rows_relation =
-            verify_axis(destination, rows_reaxis, source, rows_axis; allow_missing = false, what_for = what_for)
+        rows_relation = verify_axis(;
+            destination = destination,
+            destination_axis = rows_reaxis,
+            source = source,
+            source_axis = rows_axis,
+            allow_missing = false,
+            what_for = what_for,
+        )
         @assert rows_relation !== nothing
     end
     if columns_relation === nothing
-        columns_relation =
-            verify_axis(destination, columns_reaxis, source, columns_axis; allow_missing = false, what_for = what_for)
+        columns_relation = verify_axis(;
+            destination = destination,
+            destination_axis = columns_reaxis,
+            source = source,
+            source_axis = columns_axis,
+            allow_missing = false,
+            what_for = what_for,
+        )
         @assert columns_relation !== nothing
     end
 
@@ -312,11 +337,23 @@ axis contains entries that do not exist in the target, they are discarded (not c
     end
 
     if columns_relation == :source_is_subset
-        verify_subset(source.name, columns_axis, destination.name, columns_reaxis, what_for)
+        verify_subset(;
+            source_name = source.name,
+            source_axis = columns_axis,
+            destination_name = destination.name,
+            destination_axis = columns_reaxis,
+            what_for = what_for,
+        )
     end
 
     if rows_relation == :source_is_subset
-        verify_subset(source.name, rows_axis, destination.name, rows_reaxis, what_for)
+        verify_subset(;
+            source_name = source.name,
+            source_axis = rows_axis,
+            destination_name = destination.name,
+            destination_axis = rows_reaxis,
+            what_for = what_for,
+        )
     end
 
     if (rows_relation == :destination_is_subset || rows_relation == :same) &&
@@ -407,6 +444,11 @@ specifying for which property we spec,aify a value to, and the value to use. We 
 `AbstractDict{<:DataKey, <:StorageScalarBase}` but Julia in its infinite wisdom considers
 `Dict(["a" => "b", ("c", "d") => 1])` to be a `Dict{Any, Any}`, which would require literals to be annotated with the
 type.
+
+!!! note
+
+    A [`TensorKey`](@ref) is interpreted as if it as the set of [`MatrixKey`](@ref)s that are included in the tensor.
+    These are expanded in an internal copy of the dictionary and will override any other specified [`MatrixKey`](@ref).
 """
 EmptyData = AbstractDict
 
@@ -417,6 +459,11 @@ We would have liked to specify this as
 `AbstractDict{<:DataKey, Type{<:StorageScalarBase}}` but Julia in its infinite wisdom considers
 `Dict(["a" => Bool, ("c", "d") => Int32])` to be a `Dict{Any, DataType}`, which would require literals to be annotated
 with the type.
+
+!!! note
+
+    A [`TensorKey`](@ref) is interpreted as if it as the set of [`MatrixKey`](@ref)s that are included in the tensor.
+    These are expanded in an internal copy of the dictionary and will override any other specified [`MatrixKey`](@ref).
 """
 DataTypes = AbstractDict
 
@@ -445,6 +492,9 @@ specified using a `(axis, property) => value` entry for specifying an empty valu
 axes for matrix properties doesn't matter (the same empty value is automatically used for both axes orders).
 
 If `dtype` is specified, the copied data of the matching property is converted to the specified data type.
+
+If a [`TensorKey`](@ref) is specified, this will create an matrix full of the empty value for any entries of the main
+axis which exist in the destination but do not exist in the source.
 """
 @logged function copy_all!(;
     destination::DafWriter,
@@ -454,6 +504,20 @@ If `dtype` is specified, the copied data of the matching property is converted t
     overwrite::Bool = false,
     relayout::Bool = true,
 )::Nothing
+    tensor_keys = Vector{TensorKey}()
+    empty = expand_tensors(;
+        dafs = DafReader[destination, source],
+        data = empty,
+        tensor_keys = tensor_keys,
+        what_for = "empty",
+    )
+    dtypes = expand_tensors(;
+        dafs = DafReader[destination, source],
+        data = dtypes,
+        tensor_keys = tensor_keys,
+        what_for = "dtypes",
+    )
+
     if empty !== nothing
         for (key, value) in empty
             @assert key isa DataKey "invalid empty DataKey: $(key)"
@@ -471,41 +535,118 @@ If `dtype` is specified, the copied data of the matching property is converted t
     end
 
     what_for = empty === nothing ? ": data" : nothing
-    axis_relations = verify_axes(destination, source; what_for = what_for)
-    copy_scalars(destination, source, dtypes, overwrite)
-    copy_axes(destination, source)
-    copy_vectors(destination, source, axis_relations, empty, dtypes, overwrite)
-    copy_matrices(destination, source, axis_relations, empty, dtypes, overwrite, relayout)
+    axis_relations = verify_axes(; destination = destination, source = source, what_for = what_for)
+    copy_scalars(; destination = destination, source = source, dtypes = dtypes, overwrite = overwrite)
+    copy_axes(; destination = destination, source = source)
+    copy_vectors(;
+        destination = destination,
+        source = source,
+        axis_relations = axis_relations,
+        empty = empty,
+        dtypes = dtypes,
+        overwrite = overwrite,
+    )
+    copy_matrices(;
+        destination = destination,
+        source = source,
+        axis_relations = axis_relations,
+        empty = empty,
+        dtypes = dtypes,
+        overwrite = overwrite,
+        relayout = relayout,
+    )
+    ensure_tensors(;
+        destination = destination,
+        source = source,
+        axis_relations = axis_relations,
+        empty = empty,
+        dtypes = dtypes,
+        overwrite = overwrite,
+        relayout = relayout,
+        tensor_keys = tensor_keys,
+    )
 
     return nothing
 end
 
-function verify_axes(
+function expand_tensors(;
+    dafs::AbstractVector{DafReader},
+    data::Maybe{AbstractDict},
+    tensor_keys::AbstractVector{TensorKey},
+    what_for::AbstractString,
+)::Maybe{EmptyData}
+    if data === nothing
+        return nothing
+    end
+
+    first_tensor_key_index = length(tensor_keys)
+    for (key, value) in data
+        @assert key isa DataKey "invalid $(what_for) DataKey: $(key)"
+        if what_for == "empty"
+            @assert value isa StorageScalar "invalid empty StorageScalar: $(value)"
+        end
+        if key isa TensorKey
+            push!(tensor_keys, key)
+        end
+    end
+
+    if length(tensor_keys) == first_tensor_key_index
+        return data
+    end
+
+    new_data = Dict{Any, Any}(data)
+
+    for (key, value) in data
+        if key isa TensorKey
+            delete!(new_data, key)
+            (main_axis, row_axis, column_axis, matrix_name) = key
+            for daf in dafs
+                if has_axis(daf, main_axis)
+                    main_axis_entries = axis_array(daf, main_axis)
+                    for entry in main_axis_entries
+                        new_data[(row_axis, column_axis, "$(entry)_$(matrix_name)")] = value
+                    end
+                end
+            end
+        end
+    end
+
+    return new_data
+end
+
+function verify_axes(;
     destination::DafWriter,
-    source::DafReader;
+    source::DafReader,
     what_for::Maybe{AbstractString},
 )::Dict{AbstractString, Symbol}
     axis_relations = Dict{AbstractString, Symbol}()
     for axis in axes_set(source)
-        axis_relations[axis] = verify_axis(destination, axis, source, axis; allow_missing = true, what_for = what_for)
+        axis_relations[axis] = verify_axis(;
+            destination = destination,
+            destination_axis = axis,
+            source = source,
+            source_axis = axis,
+            allow_missing = true,
+            what_for = what_for,
+        )
     end
     return axis_relations
 end
 
-function verify_axis(
-    destination_daf::DafWriter,
+function verify_axis(;
+    destination::DafWriter,
     destination_axis::AbstractString,
-    source_daf::DafReader,
-    source_axis::AbstractString;
+    source::DafReader,
+    source_axis::AbstractString,
     allow_missing::Bool,
     what_for::Maybe{AbstractString},
 )::Maybe{Symbol}
-    if allow_missing && !has_axis(destination_daf, destination_axis)
+    if allow_missing && !has_axis(destination, destination_axis)
         return :same
     end
 
-    source_entries = Set(axis_array(source_daf, source_axis))
-    destination_entries = Set(axis_array(destination_daf, destination_axis))
+    source_entries = Set(axis_array(source, source_axis))
+    destination_entries = Set(axis_array(destination, destination_axis))
 
     if destination_entries == source_entries
         return :same
@@ -516,19 +657,25 @@ function verify_axis(
     end
 
     if source_entries < destination_entries
-        verify_subset(source_daf.name, source_axis, destination_daf.name, destination_axis, what_for)
+        verify_subset(;
+            source_name = source.name,
+            source_axis = source_axis,
+            destination_name = destination.name,
+            destination_axis = destination_axis,
+            what_for = what_for,
+        )
         return :source_is_subset
     end
 
     return error(dedent("""
         disjoint entries in the axis: $(source_axis)
-        of the source daf data: $(source_daf.name)
+        of the source daf data: $(source.name)
         and the axis: $(destination_axis)
-        of the target daf data: $(destination_daf.name)
+        of the target daf data: $(destination.name)
     """))
 end
 
-function verify_subset(
+function verify_subset(;
     source_name::AbstractString,
     source_axis::AbstractString,
     destination_name::AbstractString,
@@ -546,7 +693,7 @@ function verify_subset(
     end
 end
 
-function copy_scalars(destination::DafWriter, source::DafReader, dtypes::Maybe{DataTypes}, overwrite::Bool)::Nothing
+function copy_scalars(; destination::DafWriter, source::DafReader, dtypes::Maybe{DataTypes}, overwrite::Bool)::Nothing
     for name in scalars_set(source)
         dtype = nothing
         if dtypes !== nothing
@@ -556,7 +703,7 @@ function copy_scalars(destination::DafWriter, source::DafReader, dtypes::Maybe{D
     end
 end
 
-function copy_axes(destination::DafWriter, source::DafReader)::Nothing
+function copy_axes(; destination::DafWriter, source::DafReader)::Nothing
     for axis in axes_set(source)
         if !has_axis(destination, axis)
             copy_axis!(; source = source, destination = destination, axis = axis)
@@ -564,7 +711,7 @@ function copy_axes(destination::DafWriter, source::DafReader)::Nothing
     end
 end
 
-function copy_vectors(
+function copy_vectors(;
     destination::DafWriter,
     source::DafReader,
     axis_relations::Dict{AbstractString, Symbol},
@@ -598,7 +745,7 @@ function copy_vectors(
     end
 end
 
-function copy_matrices(
+function copy_matrices(;
     destination::DafWriter,
     source::DafReader,
     axis_relations::Dict{AbstractString, Symbol},
@@ -611,38 +758,103 @@ function copy_matrices(
         for (columns_axis, columns_relation) in axis_relations
             if !relayout || columns_axis >= rows_axis
                 for name in matrices_set(source, rows_axis, columns_axis; relayout = relayout)
-                    empty_value = nothing
-                    if empty !== nothing
-                        empty_value = get(empty, (rows_axis, columns_axis, name), nothing)
-                        if empty_value === nothing
-                            empty_value = get(empty, (columns_axis, rows_axis, name), nothing)
-                        end
-                    end
-
-                    dtype = nothing
-                    if dtypes !== nothing
-                        dtype = get(dtypes, (rows_axis, columns_axis, name), nothing)
-                        if dtype === nothing
-                            dtype = get(dtypes, (columns_axis, rows_axis, name), nothing)
-                        end
-                    end
-
-                    copy_matrix!(;
+                    copy_single_matrix(;
                         destination = destination,
                         source = source,
-                        rows_axis = rows_axis,
-                        columns_axis = columns_axis,
-                        name = name,
-                        empty = empty_value,
-                        dtype = dtype,
+                        empty = empty,
+                        dtypes = dtypes,
                         overwrite = overwrite,
+                        rows_axis = rows_axis,
                         rows_relation = rows_relation,
+                        columns_axis = columns_axis,
                         columns_relation = columns_relation,
+                        name = name,
                     )
                 end
             end
         end
     end
+end
+
+function ensure_tensors(;
+    destination::DafWriter,
+    source::DafReader,
+    axis_relations::Dict{AbstractString, Symbol},
+    empty::Maybe{EmptyData},
+    dtypes::Maybe{DataTypes},
+    overwrite::Bool,
+    relayout::Bool,
+    tensor_keys::AbstractVector{TensorKey},
+)::Nothing
+    for (main_axis, rows_axis, columns_axis, matrix_name) in tensor_keys
+        main_axis_entries = axis_array(destination, main_axis)
+        for entry in main_axis_entries
+            name = "$(entry)_$(matrix_name)"
+            if !has_matrix(destination, rows_axis, columns_axis, name; relayout = relayout)
+                copy_single_matrix(;
+                    destination = destination,
+                    source = source,
+                    empty = empty,
+                    dtypes = dtypes,
+                    overwrite = overwrite,
+                    rows_axis = rows_axis,
+                    rows_relation = axis_relations[rows_axis],
+                    columns_axis = columns_axis,
+                    columns_relation = axis_relations[columns_axis],
+                    name = name,
+                )
+            end
+        end
+    end
+end
+
+function copy_single_matrix(;
+    destination::DafWriter,
+    source::DafReader,
+    empty::Maybe{EmptyData},
+    dtypes::Maybe{DataTypes},
+    overwrite::Bool,
+    rows_axis::AbstractString,
+    rows_relation::Symbol,
+    columns_axis::AbstractString,
+    columns_relation::Symbol,
+    name::AbstractString,
+)::Nothing
+    empty_value = nothing
+    if empty !== nothing
+        empty_value = get(empty, (rows_axis, columns_axis, name), nothing)
+        if empty_value === nothing
+            empty_value = get(empty, (columns_axis, rows_axis, name), nothing)
+        end
+    end
+
+    dtype = nothing
+    if dtypes !== nothing
+        dtype = get(dtypes, (rows_axis, columns_axis, name), nothing)
+        if dtype === nothing
+            dtype = get(dtypes, (columns_axis, rows_axis, name), nothing)
+        end
+    end
+
+    if empty_value === nothing
+        default = undef
+    else
+        default = empty_value
+    end
+
+    return copy_matrix!(;
+        destination = destination,
+        source = source,
+        rows_axis = rows_axis,
+        columns_axis = columns_axis,
+        name = name,
+        default = default,
+        empty = empty_value,
+        dtype = dtype,
+        overwrite = overwrite,
+        rows_relation = rows_relation,
+        columns_relation = columns_relation,
+    )
 end
 
 function new_name(rename::Maybe{AbstractString}, name::AbstractString)::AbstractString

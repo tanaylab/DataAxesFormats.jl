@@ -602,6 +602,12 @@
 <code>dtype
 </code> is specified, the copied data of the matching property is converted to the specified data type.
 </p>
+<p>If a 
+<a href="keys.html#DataAxesFormats.Keys.TensorKey">
+<code>TensorKey
+</code>
+</a> is specified, this will create an matrix full of the empty value for any entries of the main axis which exist in the destination but do not exist in the source.
+</p>
 </div>
 </section>
 </article>
@@ -634,6 +640,26 @@
 <code>Dict{Any, Any}
 </code>, which would require literals to be annotated with the type.
 </p>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>A 
+<a href="keys.html#DataAxesFormats.Keys.TensorKey">
+<code>TensorKey
+</code>
+</a> is interpreted as if it as the set of 
+<a href="keys.html#DataAxesFormats.Keys.MatrixKey">
+<code>MatrixKey
+</code>
+</a>s that are included in the tensor. These are expanded in an internal copy of the dictionary and will override any other specified 
+<a href="keys.html#DataAxesFormats.Keys.MatrixKey">
+<code>MatrixKey
+</code>
+</a>.
+</p>
+</div>
+</div>
 </div>
 </section>
 </article>
@@ -666,6 +692,26 @@
 <code>Dict{Any, DataType}
 </code>, which would require literals to be annotated with the type.
 </p>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>A 
+<a href="keys.html#DataAxesFormats.Keys.TensorKey">
+<code>TensorKey
+</code>
+</a> is interpreted as if it as the set of 
+<a href="keys.html#DataAxesFormats.Keys.MatrixKey">
+<code>MatrixKey
+</code>
+</a>s that are included in the tensor. These are expanded in an internal copy of the dictionary and will override any other specified 
+<a href="keys.html#DataAxesFormats.Keys.MatrixKey">
+<code>MatrixKey
+</code>
+</a>.
+</p>
+</div>
+</div>
 </div>
 </section>
 </article>

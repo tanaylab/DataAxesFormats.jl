@@ -1292,6 +1292,21 @@ nested_test("copies") do
         end
     end
 
+    nested_test("tensor") do
+        @test add_axis!(source, "cell", ["A", "B"]) === nothing
+        @test add_axis!(source, "gene", ["X", "Y", "Z"]) === nothing
+        @test add_axis!(source, "batch", ["U", "V"]) === nothing
+        @test set_matrix!(source, "gene", "cell", "U_is_high", [true false; false true; true false]) == nothing
+
+        copy_all!(;
+            source = source,
+            destination = destination,
+            empty = Dict(("batch", "cell", "gene", "is_high") => false),
+        )
+
+        @test all(.!(get_matrix(destination, "cell", "gene", "V_is_high")))
+    end
+
     nested_test("all") do
         nested_test("empty") do
             @test set_scalar!(source, "version", "1.0") === nothing

@@ -32,6 +32,7 @@ using Base.Threads
 using NamedArrays
 using SparseArrays
 
+import ..Copies.expand_tensors
 import ..Readers.require_axis
 import ..StorageTypes.indtype_for_size
 import ..Writers.require_no_axis
@@ -53,7 +54,7 @@ of other axes). Valid values are:
 @enum MergeAction SkipProperty LastValue CollectAxis
 
 """
-A pair where the key is a [`DataKey`](@ref) and the value is [`MergeAction`](@ref). We also allow specifying
+A pair where the key is a [`PropertyKey`](@ref) and the value is [`MergeAction`](@ref). We also allow specifying
 tuples instead of pairs to make it easy to invoke the API from other languages such as Python which do not have the
 concept of a `Pair`.
 
@@ -62,7 +63,7 @@ expanded to all the relevant properties. For matrices, merge is done separately 
 the key `(rows_axis, columns_axis, matrix_name)` key *does* matter in the `MergeData`, which is different from how
 [`ViewData`](@ref) works.
 """
-MergeDatum = Union{Pair{<:DataKey, <:MergeAction}, Tuple{DataKey, MergeAction}}
+MergeDatum = Union{Pair{<:PropertyKey, <:MergeAction}, Tuple{PropertyKey, MergeAction}}
 
 """
 Specify all the data to merge. We would have liked to specify this as `AbstractVector{<:MergeDatum}` but Julia in its
@@ -149,12 +150,20 @@ By default, concatenation will fail rather than `overwrite` existing properties 
 )::Nothing
     @assert 0 < sparse_if_saves_storage_fraction < 1
 
+    tensor_keys = Vector{TensorKey}()
+    empty = expand_tensors(;
+        dafs = DafReader[destination, sources...],
+        data = empty,
+        tensor_keys = tensor_keys,
+        what_for = "empty",
+    )
+
     if merge !== nothing
         for merge_datum in merge
             @assert (
                 merge_datum isa Union{Pair, Tuple} &&
                 length(merge_datum) == 2 &&
-                merge_datum[1] isa DataKey &&
+                merge_datum[1] isa PropertyKey &&
                 merge_datum[2] isa MergeAction
             ) "invalid MergeDatum: $(merge_datum)"
         end

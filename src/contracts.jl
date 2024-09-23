@@ -161,8 +161,8 @@ function scalar_documentation(contract::Contract, buffer::IOBuffer; is_output::B
         is_first = true
         for (name, (expectation, data_type, description)) in contract.data
             if name isa ScalarKey && (
-                (is_output && (expectation == GuaranteedOutput || expectation == OptionalOutput)) ||
-                (!is_output && (expectation == RequiredInput || expectation == OptionalInput))
+                (is_output && expectation in (GuaranteedOutput, OptionalOutput)) ||
+                (!is_output && expectation in (RequiredInput, OptionalInput))
             )
                 has_any = direction_header(buffer; is_output = is_output, has_any = has_any)
                 if is_first
@@ -183,8 +183,8 @@ function axes_documentation(contract::Contract, buffer::IOBuffer; is_output::Boo
     if contract.axes !== nothing
         is_first = true
         for (name, (expectation, description)) in contract.axes
-            if (is_output && (expectation == GuaranteedOutput || expectation == OptionalOutput)) ||
-               (!is_output && (expectation == RequiredInput || expectation == OptionalInput))
+            if (is_output && expectation in (GuaranteedOutput, OptionalOutput)) ||
+               (!is_output && expectation in (RequiredInput, OptionalInput))
                 has_any = direction_header(buffer; is_output = is_output, has_any = has_any)
                 if is_first
                     is_first = false
@@ -206,8 +206,8 @@ function vectors_documentation(contract::Contract, buffer::IOBuffer; is_output::
         for (key, (expectation, data_type, description)) in contract.data
             if key isa VectorKey
                 axis_name, name = key
-                if (is_output && (expectation == GuaranteedOutput || expectation == OptionalOutput)) ||
-                   (!is_output && (expectation == RequiredInput || expectation == OptionalInput))
+                if (is_output && expectation in (GuaranteedOutput, OptionalOutput)) ||
+                   (!is_output && expectation in (RequiredInput, OptionalInput))
                     has_any = direction_header(buffer; is_output = is_output, has_any = has_any)
                     if is_first
                         is_first = false
@@ -233,8 +233,8 @@ function matrices_documentation(contract::Contract, buffer::IOBuffer; is_output:
         for (key, (expectation, data_type, description)) in contract.data
             if key isa MatrixKey
                 rows_axis_name, columns_axis_name, name = key
-                if (is_output && (expectation == GuaranteedOutput || expectation == OptionalOutput)) ||
-                   (!is_output && (expectation == RequiredInput || expectation == OptionalInput))
+                if (is_output && expectation in (GuaranteedOutput, OptionalOutput)) ||
+                   (!is_output && expectation in (RequiredInput, OptionalInput))
                     has_any = direction_header(buffer; is_output = is_output, has_any = has_any)
                     if is_first
                         is_first = false
@@ -271,7 +271,7 @@ function short(expectation::ContractExpectation)::String
         return "required"
     elseif expectation == GuaranteedOutput
         return "guaranteed"
-    elseif expectation == OptionalInput || expectation == OptionalOutput
+    elseif expectation in (OptionalInput, OptionalOutput)
         return "optional"
     else
         @assert false
@@ -282,6 +282,7 @@ mutable struct Tracker
     expectation::ContractExpectation
     type::Maybe{Type{<:StorageScalarBase}}
     accessed::Bool
+    main_axis::Maybe{AbstractString}
 end
 
 """
@@ -331,7 +332,8 @@ function contractor(
     overwrite::Bool = false,
 )::ContractDaf
     axes = collect_axes(contract)
-    data = collect_data(contract, axes)
+    data = collect_data(computation, contract, daf, axes)
+    expand_input_tensors(data, daf)
     name = unique_name("$(daf.name).for.$(split(computation, '.')[end])")
     return ContractDaf(name, daf.internal, computation, contract.is_relaxed, axes, data, daf, overwrite)
 end
@@ -342,13 +344,18 @@ function collect_axes(contract::Contract)::Dict{AbstractString, Tracker}
         for (axis_name, axis_specification) in contract.axes
             @assert axis_name isa AxisKey "invalid AxisKey: $(axis_name)"
             @assert axis_specification isa AxisSpecification "invalid AxisSpecification: $(axis_specification)"
-            collect_axis(axis_name, axis_specification[1], axes)
+            axes[axis_name] = Tracker(axis_specification[1], nothing, false, nothing)
         end
     end
     return axes
 end
 
-function collect_data(contract::Contract, axes::Dict{AbstractString, Tracker})::Dict{DataKey, Tracker}
+function collect_data(
+    computation::AbstractString,
+    contract::Contract,
+    daf::DafReader,
+    axes::Dict{AbstractString, Tracker},
+)::Dict{DataKey, Tracker}
     data = Dict{DataKey, Tracker}()
     if contract.data !== nothing
         for (data_key, data_specification) in contract.data
@@ -356,46 +363,145 @@ function collect_data(contract::Contract, axes::Dict{AbstractString, Tracker})::
             @assert data_specification isa DataSpecification "invalid DataSpecification: $(data_specification)"
             expectation = data_specification[1]
             type = data_specification[2]
-            data[data_key] = Tracker(expectation, type, false)
+            data[data_key] = Tracker(expectation, type, false, nothing)
             if data_key isa VectorKey
-                collect_axis(data_key[1], implicit_axis_expectation(expectation), axes)
+                ensure_axis(
+                    computation,
+                    daf,
+                    axes,
+                    data_key[1],
+                    expectation,
+                    "for the $(expectation) vector: $(data_key[2])",
+                )
             elseif data_key isa MatrixKey
-                collect_axis(data_key[1], implicit_axis_expectation(expectation), axes)
-                collect_axis(data_key[2], implicit_axis_expectation(expectation), axes)
+                ensure_axis(
+                    computation,
+                    daf,
+                    axes,
+                    data_key[1],
+                    expectation,
+                    """
+                    for the rows of the $(expectation) matrix: $(data_key[3])
+                    with the columns axis: $(data_key[2])
+                    """,
+                )
+                ensure_axis(
+                    computation,
+                    daf,
+                    axes,
+                    data_key[2],
+                    expectation,
+                    """
+                    for the columns of the $(expectation) matrix: $(data_key[3])
+                    with the rows axis: $(data_key[1])
+                    """,
+                )
+            elseif data_key isa TensorKey
+                ensure_axis(
+                    computation,
+                    daf,
+                    axes,
+                    data_key[1],
+                    expectation,
+                    """
+                    for the main of the $(expectation) tensor: $(data_key[4])
+                    with the rows axis: $(data_key[2])
+                    and the columns axis: $(data_key[3])
+                    """,
+                )
+                ensure_axis(
+                    computation,
+                    daf,
+                    axes,
+                    data_key[2],
+                    expectation,
+                    """
+                    for the rows of the $(expectation) tensor: $(data_key[4])
+                    with the main axis: $(data_key[1])
+                    and the columns axis: $(data_key[3])
+                    """,
+                )
+                ensure_axis(
+                    computation,
+                    daf,
+                    axes,
+                    data_key[3],
+                    expectation,
+                    """
+                    for the columns of the $(expectation) tensor: $(data_key[4])
+                    with the main axis: $(data_key[1])
+                    and the rows axis: $(data_key[2])
+                    """,
+                )
+            else
+                @assert data_key isa ScalarKey
             end
         end
     end
     return data
 end
 
-function implicit_axis_expectation(expectation::ContractExpectation)::ContractExpectation
-    if expectation == GuaranteedOutput || expectation == OptionalOutput
-        return OptionalInput
-    else
-        return expectation
+function ensure_axis(
+    computation::AbstractString,
+    daf::DafReader,
+    axes::Dict{AbstractString, Tracker},
+    axis::AbstractString,
+    expectation::ContractExpectation,
+    what_for::AbstractString,
+)::Nothing
+    tracker = get(axes, axis, nothing)
+    if tracker === nothing
+        error(
+            "non-contract axis: $(axis)\n" *
+            dedent(what_for) *
+            "\nfor the computation: $(computation)\n" *
+            "on the daf data: $(daf.name)",
+        )
     end
+
+    if !is_compatible_axis_expectation(expectation, tracker.expectation)
+        error(
+            "incompatible $(tracker.expectation) axis: $(axis)\n" *
+            dedent(what_for) *
+            "\nfor the computation: $(computation)\n" *
+            "on the daf data: $(daf.name)",
+        )
+    end
+
+    return nothing
 end
 
-function collect_axis(
-    name::AbstractString,
-    expectation::ContractExpectation,
-    axes::Dict{AbstractString, Tracker},
-)::Nothing
-    tracker = get(axes, name, nothing)
-    if tracker === nothing
-        axes[name] = Tracker(expectation, nothing, false)
-    elseif expectation == RequiredInput || tracker.expectation == RequiredInput
-        tracker.expectation = RequiredInput
-    elseif expectation == GuaranteedOutput || tracker.expectation == GuaranteedOutput
-        tracker.expectation = GuaranteedOutput  # untested
-    elseif expectation == OptionalOutput || tracker.expectation == OptionalOutput
-        tracker.expectation = OptionalOutput
-    elseif expectation == OptionalInput || tracker.expectation == OptionalInput
-        tracker.expectation = OptionalInput
+function is_compatible_axis_expectation(
+    data_expectation::ContractExpectation,
+    axis_expectation::ContractExpectation,
+)::Bool
+    if data_expectation in (OptionalInput, OptionalOutput)
+        return true
+    elseif data_expectation == RequiredInput
+        return axis_expectation == RequiredInput
+    elseif data_expectation == GuaranteedOutput
+        return axis_expectation in (RequiredInput, GuaranteedOutput)
     else
         @assert false
     end
-    return nothing
+end
+
+function expand_input_tensors(data::Dict{DataKey, Tracker}, daf::DafReader)::Nothing
+    tensors = Vector{Tuple{TensorKey, Tracker}}()
+    for (data_key, tracker) in data
+        if data_key isa TensorKey && has_axis(daf, data_key[1])
+            push!(tensors, (data_key, tracker))
+        end
+    end
+    for (tensor_key, tracker) in tensors
+        (main_axis, rows_axis, columns_axis, matrix_name) = tensor_key
+        tracker.main_axis = main_axis
+        entries = axis_array(daf, main_axis)
+        for entry in entries
+            data[(rows_axis, columns_axis, "$(entry)_$(matrix_name)")] = tracker
+        end
+        delete!(data, tensor_key)
+    end
 end
 
 """
@@ -421,35 +527,46 @@ end
 
 function verify_contract(contract_daf::ContractDaf; is_output::Bool)::Nothing
     for (axis, tracker) in contract_daf.axes
-        verify_axis(contract_daf, axis, tracker; is_output = is_output)
+        verify_axis_data(contract_daf, axis, tracker; is_output = is_output)
     end
 
     for (data_key, tracker) in contract_daf.data
         if data_key isa ScalarKey
-            verify_scalar(contract_daf, data_key, tracker; is_output = is_output)  # NOJET
+            verify_scalar_data(contract_daf, data_key, tracker; is_output = is_output)  # NOJET
         elseif data_key isa VectorKey
-            verify_vector(contract_daf, data_key..., tracker; is_output = is_output)
+            verify_vector_data(contract_daf, data_key..., tracker; is_output = is_output)
         elseif data_key isa MatrixKey
-            verify_matrix(contract_daf, data_key..., tracker; is_output = is_output)
+            verify_matrix_data(contract_daf, data_key..., tracker; is_output = is_output)
         else
-            @assert false
+            @assert data_key isa TensorKey
+        end
+    end
+
+    if is_output
+        for (data_key, tracker) in contract_daf.data
+            if data_key isa ScalarKey
+                verify_scalar_access(contract_daf, data_key, tracker)  # NOJET
+            elseif data_key isa VectorKey
+                verify_vector_access(contract_daf, data_key..., tracker)
+            elseif data_key isa MatrixKey
+                verify_matrix_access(contract_daf, data_key..., tracker)
+            else
+                @assert data_key isa TensorKey
+            end
+        end
+
+        for (axis, tracker) in contract_daf.axes
+            verify_axis_access(contract_daf, axis, tracker)
         end
     end
 end
 
-function verify_axis(contract_daf::ContractDaf, axis::AbstractString, tracker::Tracker; is_output::Bool)::Nothing
+function verify_axis_data(contract_daf::ContractDaf, axis::AbstractString, tracker::Tracker; is_output::Bool)::Nothing
     if has_axis(contract_daf.daf, axis)
         if is_forbidden(tracker.expectation; is_output = is_output, overwrite = contract_daf.overwrite)
             error(dedent("""
                 pre-existing $(tracker.expectation) axis: $(axis)
                 for the computation: $(contract_daf.computation)
-                on the daf data: $(contract_daf.daf.name)
-            """))
-        end
-        if is_output && !tracker.accessed && tracker.expectation == RequiredInput
-            error(dedent("""
-                unused RequiredInput axis: $(axis)
-                of the computation: $(contract_daf.computation)
                 on the daf data: $(contract_daf.daf.name)
             """))
         end
@@ -464,7 +581,17 @@ function verify_axis(contract_daf::ContractDaf, axis::AbstractString, tracker::T
     end
 end
 
-function verify_scalar(contract_daf::ContractDaf, name::AbstractString, tracker::Tracker; is_output::Bool)::Nothing
+function verify_axis_access(contract_daf::ContractDaf, axis::AbstractString, tracker::Tracker)::Nothing
+    if has_axis(contract_daf.daf, axis) && !tracker.accessed && tracker.expectation == RequiredInput
+        error(dedent("""
+            unused RequiredInput axis: $(axis)
+            of the computation: $(contract_daf.computation)
+            on the daf data: $(contract_daf.daf.name)
+        """))
+    end
+end
+
+function verify_scalar_data(contract_daf::ContractDaf, name::AbstractString, tracker::Tracker; is_output::Bool)::Nothing
     value = get_scalar(contract_daf.daf, name; default = nothing)
     if value === nothing
         if is_mandatory(tracker.expectation; is_output = is_output) && value === nothing
@@ -494,17 +621,20 @@ function verify_scalar(contract_daf::ContractDaf, name::AbstractString, tracker:
                 on the daf data: $(contract_daf.daf.name)
             """))
         end
-        if is_output && !tracker.accessed && tracker.expectation == RequiredInput
-            error(dedent("""
-                unused RequiredInput scalar: $(name)
-                of the computation: $(contract_daf.computation)
-                on the daf data: $(contract_daf.daf.name)
-            """))
-        end
     end
 end
 
-function verify_vector(
+function verify_scalar_access(contract_daf::ContractDaf, name::AbstractString, tracker::Tracker)::Nothing
+    if has_scalar(contract_daf.daf, name) && !tracker.accessed && tracker.expectation == RequiredInput
+        error(dedent("""
+            unused RequiredInput scalar: $(name)
+            of the computation: $(contract_daf.computation)
+            on the daf data: $(contract_daf.daf.name)
+        """))
+    end
+end
+
+function verify_vector_data(
     contract_daf::ContractDaf,
     axis::AbstractString,
     name::AbstractString,
@@ -547,18 +677,29 @@ function verify_vector(
                 on the daf data: $(contract_daf.daf.name)
             """))
         end
-        if is_output && !tracker.accessed && tracker.expectation == RequiredInput
-            error(dedent("""
-                unused RequiredInput vector: $(name)
-                of the axis: $(axis)
-                of the computation: $(contract_daf.computation)
-                on the daf data: $(contract_daf.daf.name)
-            """))
-        end
     end
 end
 
-function verify_matrix(
+function verify_vector_access(
+    contract_daf::ContractDaf,
+    axis::AbstractString,
+    name::AbstractString,
+    tracker::Tracker,
+)::Nothing
+    if has_axis(contract_daf.daf, axis) &&
+       has_vector(contract_daf.daf, axis, name) &&
+       !tracker.accessed &&
+       tracker.expectation == RequiredInput
+        error(dedent("""
+            unused RequiredInput vector: $(name)
+            of the axis: $(axis)
+            of the computation: $(contract_daf.computation)
+            on the daf data: $(contract_daf.daf.name)
+        """))
+    end
+end
+
+function verify_matrix_data(
     contract_daf::ContractDaf,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
@@ -605,15 +746,28 @@ function verify_matrix(
                 on the daf data: $(contract_daf.daf.name)
             """))
         end
-        if is_output && !tracker.accessed && tracker.expectation == RequiredInput
-            error(dedent("""
-                unused RequiredInput matrix: $(name)
-                of the rows axis: $(rows_axis)
-                and the columns axis: $(columns_axis)
-                of the computation: $(contract_daf.computation)
-                on the daf data: $(contract_daf.daf.name)
-            """))
-        end
+    end
+end
+
+function verify_matrix_access(
+    contract_daf::ContractDaf,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+    tracker::Tracker,
+)::Nothing
+    if has_axis(contract_daf.daf, rows_axis) &&
+       has_axis(contract_daf.daf, columns_axis) &&
+       has_matrix(contract_daf.daf, rows_axis, columns_axis, name) &&
+       !tracker.accessed &&
+       tracker.expectation == RequiredInput
+        error(dedent("""
+            unused RequiredInput matrix: $(name)
+            of the rows axis: $(rows_axis)
+            and the columns axis: $(columns_axis)
+            of the computation: $(contract_daf.computation)
+            on the daf data: $(contract_daf.daf.name)
+        """))
     end
 end
 
@@ -820,7 +974,31 @@ function Formats.format_add_axis!(
 )::Nothing
     access_axis(contract_daf, axis; is_modify = true)
     Formats.format_add_axis!(contract_daf.daf, axis, entries)
+    expand_axis_tensors(contract_daf, axis, entries)
     return nothing
+end
+
+function expand_axis_tensors(
+    contract_daf::ContractDaf,
+    axis::AbstractString,
+    entries::AbstractVector{<:AbstractString},
+)::Nothing
+    tensors = Vector{Tuple{TensorKey, Tracker}}()
+    for (data_key, tracker) in contract_daf.data
+        if data_key isa TensorKey &&
+           axis in data_key[1:3] &&
+           all([has_axis(contract_daf.daf, data_axis) for data_axis in data_key[1:3]])
+            @assert tracker.expectation in (GuaranteedOutput, OptionalOutput)
+            push!(tensors, (data_key, tracker))
+        end
+    end
+    for (tensor_key, tracker) in tensors
+        (_, rows_axis, columns_axis, matrix_name) = tensor_key
+        for entry in entries
+            contract_daf.data[(rows_axis, columns_axis, "$(entry)_$(matrix_name)")] = tracker
+        end
+        delete!(contract_daf.data, tensor_key)
+    end
 end
 
 function Formats.format_delete_axis!(contract_daf::ContractDaf, axis::AbstractString)::Nothing
@@ -1202,6 +1380,12 @@ function access_matrix(
     end
 
     tracker.accessed = true
+
+    main_axis = tracker.main_axis
+    if main_axis !== nothing
+        access_axis(contract_daf, main_axis; is_modify = false)
+    end
+
     return nothing
 end
 

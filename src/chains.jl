@@ -705,7 +705,7 @@ function Formats.invalidate_cached!(chain::AnyChain, cache_key::CacheKey)::Nothi
     end
 end
 
-function Formats.format_get_version_counter(chain::AnyChain, version_key::Formats.DataKey)::UInt32
+function Formats.format_get_version_counter(chain::AnyChain, version_key::PropertyKey)::UInt32
     version_counter = UInt32(0)
     for daf in chain.dafs
         version_counter += Formats.format_get_version_counter(daf, version_key)
@@ -713,7 +713,7 @@ function Formats.format_get_version_counter(chain::AnyChain, version_key::Format
     return version_counter
 end
 
-function Formats.format_increment_version_counter(chain::WriteChain, version_key::DataKey)::Nothing
+function Formats.format_increment_version_counter(chain::WriteChain, version_key::PropertyKey)::Nothing
     Formats.format_increment_version_counter(chain.daf, version_key)
     return nothing
 end

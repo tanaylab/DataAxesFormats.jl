@@ -411,8 +411,31 @@ nested_test("contracts") do
         end
     end
 
-    nested_test("vectors") do
+    nested_test("vector") do
         @test add_axis!(daf, "cell", ["A", "B"]) === nothing
+
+        nested_test("!axis") do
+            contract = Contract(; data = [("cell", "age") => (RequiredInput, Int64, "description")])
+            @test_throws dedent("""
+                non-contract axis: cell
+                for the RequiredInput vector: age
+                for the computation: computation
+                on the daf data: memory!
+            """) contractor("computation", contract, daf)
+        end
+
+        nested_test("~axis") do
+            contract = Contract(;
+                axes = ["cell" => (OptionalInput, "description")],
+                data = [("cell", "age") => (RequiredInput, Int64, "description")],
+            )
+            @test_throws dedent("""
+                incompatible OptionalInput axis: cell
+                for the RequiredInput vector: age
+                for the computation: computation
+                on the daf data: memory!
+            """) contractor("computation", contract, daf)
+        end
 
         nested_test("()") do
             @test set_vector!(daf, "cell", "age", [1, 2]) === nothing
@@ -422,7 +445,10 @@ nested_test("contracts") do
                 ("guaranteed", GuaranteedOutput),
                 ("contingent", OptionalOutput),
             )
-                contract = Contract(; data = [("cell", "age") => (expectation, Int64, "description")])
+                contract = Contract(;
+                    axes = ["cell" => (RequiredInput, "description")],
+                    data = [("cell", "age") => (expectation, Int64, "description")],
+                )
 
                 nested_test(name) do
                     nested_test("overwrite") do
@@ -498,7 +524,10 @@ nested_test("contracts") do
 
         nested_test("missing") do
             nested_test("required") do
-                contract = Contract(; data = [("cell", "age") => (RequiredInput, Int64, "description")])
+                contract = Contract(;
+                    axes = ["cell" => (RequiredInput, "description")],
+                    data = [("cell", "age") => (RequiredInput, Int64, "description")],
+                )
                 contract_daf = contractor("computation", contract, daf)
                 @assert axis_length(contract_daf, "cell") == 2
 
@@ -518,7 +547,10 @@ nested_test("contracts") do
             end
 
             nested_test("optional") do
-                contract = Contract(; data = [("cell", "age") => (OptionalInput, Int64, "description")])
+                contract = Contract(;
+                    axes = ["cell" => (OptionalInput, "description")],
+                    data = [("cell", "age") => (OptionalInput, Int64, "description")],
+                )
                 contract_daf = contractor("computation", contract, daf)
 
                 nested_test("input") do
@@ -531,7 +563,10 @@ nested_test("contracts") do
             end
 
             nested_test("guaranteed") do
-                contract = Contract(; data = [("cell", "age") => (GuaranteedOutput, Int64, "description")])
+                contract = Contract(;
+                    axes = ["cell" => (RequiredInput, "description")],
+                    data = [("cell", "age") => (GuaranteedOutput, Int64, "description")],
+                )
                 contract_daf = contractor("computation", contract, daf)
                 @assert axis_length(contract_daf, "cell") == 2
 
@@ -551,7 +586,10 @@ nested_test("contracts") do
             end
 
             nested_test("contingent") do
-                contract = Contract(; data = [("cell", "age") => (OptionalOutput, Int64, "description")])
+                contract = Contract(;
+                    axes = ["cell" => (OptionalInput, "description")],
+                    data = [("cell", "age") => (OptionalOutput, Int64, "description")],
+                )
                 contract_daf = contractor("computation", contract, daf)
 
                 nested_test("input") do
@@ -570,7 +608,10 @@ nested_test("contracts") do
             nested_test("input") do
                 for (name, expectation) in (("required", RequiredInput), ("optional", OptionalInput))
                     nested_test(name) do
-                        contract = Contract(; data = [("cell", "age") => (expectation, Int64, "description")])
+                        contract = Contract(;
+                            axes = ["cell" => (RequiredInput, "description")],
+                            data = [("cell", "age") => (expectation, Int64, "description")],
+                        )
                         contract_daf = contractor("computation", contract, daf)
                         @assert axis_length(contract_daf, "cell") == 2
                         @test_throws dedent("""
@@ -588,7 +629,10 @@ nested_test("contracts") do
             nested_test("output") do
                 for (name, expectation) in (("guaranteed", GuaranteedOutput), ("contingent", OptionalOutput))
                     nested_test(name) do
-                        contract = Contract(; data = [("cell", "age") => (expectation, Int64, "description")])
+                        contract = Contract(;
+                            axes = ["cell" => (RequiredInput, "description")],
+                            data = [("cell", "age") => (expectation, Int64, "description")],
+                        )
                         contract_daf = contractor("computation", contract, daf)
                         @assert axis_length(contract_daf, "cell") == 2
                         @test_throws dedent("""
@@ -617,7 +661,10 @@ nested_test("contracts") do
                 ("guaranteed", GuaranteedOutput),
                 ("contingent", OptionalOutput),
             )
-                contract = Contract(; data = [("cell", "gene", "UMIs") => (expectation, Int64, "description")])
+                contract = Contract(;
+                    axes = ["cell" => (RequiredInput, "description"), "gene" => (RequiredInput, "description")],
+                    data = [("cell", "gene", "UMIs") => (expectation, Int64, "description")],
+                )
 
                 nested_test(name) do
                     nested_test("overwrite") do
@@ -699,7 +746,10 @@ nested_test("contracts") do
 
         nested_test("missing") do
             nested_test("required") do
-                contract = Contract(; data = [("cell", "gene", "UMIs") => (RequiredInput, Int64, "description")])
+                contract = Contract(;
+                    axes = ["cell" => (RequiredInput, "description"), "gene" => (RequiredInput, "description")],
+                    data = [("cell", "gene", "UMIs") => (RequiredInput, Int64, "description")],
+                )
                 contract_daf = contractor("computation", contract, daf)
                 @assert axis_length(contract_daf, "cell") == 2
                 @assert axis_length(contract_daf, "gene") == 3
@@ -721,7 +771,10 @@ nested_test("contracts") do
             end
 
             nested_test("optional") do
-                contract = Contract(; data = [("cell", "gene", "UMIs") => (OptionalInput, Int64, "description")])
+                contract = Contract(;
+                    axes = ["cell" => (OptionalInput, "description"), "gene" => (OptionalInput, "description")],
+                    data = [("cell", "gene", "UMIs") => (OptionalInput, Int64, "description")],
+                )
                 contract_daf = contractor("computation", contract, daf)
 
                 nested_test("input") do
@@ -734,7 +787,10 @@ nested_test("contracts") do
             end
 
             nested_test("guaranteed") do
-                contract = Contract(; data = [("cell", "gene", "UMIs") => (GuaranteedOutput, Int64, "description")])
+                contract = Contract(;
+                    axes = ["cell" => (RequiredInput, "description"), "gene" => (RequiredInput, "description")],
+                    data = [("cell", "gene", "UMIs") => (GuaranteedOutput, Int64, "description")],
+                )
                 contract_daf = contractor("computation", contract, daf)
                 @assert axis_length(contract_daf, "cell") == 2
                 @assert axis_length(contract_daf, "gene") == 3
@@ -756,7 +812,10 @@ nested_test("contracts") do
             end
 
             nested_test("contingent") do
-                contract = Contract(; data = [("cell", "gene", "UMIs") => (OptionalOutput, Int64, "description")])
+                contract = Contract(;
+                    axes = ["cell" => (OptionalInput, "description"), "gene" => (OptionalInput, "description")],
+                    data = [("cell", "gene", "UMIs") => (OptionalOutput, Int64, "description")],
+                )
                 contract_daf = contractor("computation", contract, daf)
 
                 nested_test("input") do
@@ -775,8 +834,10 @@ nested_test("contracts") do
                     @test delete_axis!(daf, axis) === nothing
 
                     nested_test("required") do
-                        contract =
-                            Contract(; data = [("cell", "gene", "UMIs") => (RequiredInput, Int64, "description")])
+                        contract = Contract(;
+                            axes = ["cell" => (RequiredInput, "description"), "gene" => (RequiredInput, "description")],
+                            data = [("cell", "gene", "UMIs") => (RequiredInput, Int64, "description")],
+                        )
                         contract_daf = contractor("computation", contract, daf)
 
                         nested_test("input") do
@@ -789,8 +850,10 @@ nested_test("contracts") do
                     end
 
                     nested_test("optional") do
-                        contract =
-                            Contract(; data = [("cell", "gene", "UMIs") => (OptionalInput, Int64, "description")])
+                        contract = Contract(;
+                            axes = ["cell" => (OptionalInput, "description"), "gene" => (OptionalInput, "description")],
+                            data = [("cell", "gene", "UMIs") => (OptionalInput, Int64, "description")],
+                        )
                         contract_daf = contractor("computation", contract, daf)
 
                         nested_test("input") do
@@ -802,30 +865,11 @@ nested_test("contracts") do
                         end
                     end
 
-                    nested_test("guaranteed") do
-                        contract =
-                            Contract(; data = [("cell", "gene", "UMIs") => (GuaranteedOutput, Int64, "description")])
-                        contract_daf = contractor("computation", contract, daf)
-
-                        nested_test("input") do
-                            @test verify_input(contract_daf) === nothing
-                        end
-
-                        nested_test("output") do
-                            @test_throws dedent("""
-                                missing output matrix: UMIs
-                                of the rows axis: cell
-                                and the columns axis: gene
-                                with element type: Int64
-                                for the computation: computation
-                                on the daf data: memory!
-                            """) verify_output(contract_daf)
-                        end
-                    end
-
                     nested_test("contingent") do
-                        contract =
-                            Contract(; data = [("cell", "gene", "UMIs") => (OptionalOutput, Int64, "description")])
+                        contract = Contract(;
+                            axes = ["cell" => (OptionalInput, "description"), "gene" => (OptionalInput, "description")],
+                            data = [("cell", "gene", "UMIs") => (OptionalOutput, Int64, "description")],
+                        )
                         contract_daf = contractor("computation", contract, daf)
 
                         nested_test("input") do
@@ -845,7 +889,10 @@ nested_test("contracts") do
 
             for (name, expectation) in (("required", RequiredInput), ("optional", OptionalInput))
                 nested_test(name) do
-                    contract = Contract(; data = [("cell", "gene", "UMIs") => (expectation, Int64, "description")])
+                    contract = Contract(;
+                        axes = ["cell" => (RequiredInput, "description"), "gene" => (RequiredInput, "description")],
+                        data = [("cell", "gene", "UMIs") => (expectation, Int64, "description")],
+                    )
                     contract_daf = contractor("computation", contract, daf)
 
                     nested_test("input") do
@@ -864,7 +911,10 @@ nested_test("contracts") do
 
             for (name, expectation) in (("guaranteed", GuaranteedOutput), ("contingent", OptionalOutput))
                 nested_test(name) do
-                    contract = Contract(; data = [("cell", "gene", "UMIs") => (expectation, Int64, "description")])
+                    contract = Contract(;
+                        axes = ["cell" => (RequiredInput, "description"), "gene" => (RequiredInput, "description")],
+                        data = [("cell", "gene", "UMIs") => (expectation, Int64, "description")],
+                    )
                     contract_daf = contractor("computation", contract, daf)
 
                     nested_test("output") do
@@ -1017,7 +1067,6 @@ nested_test("contracts") do
             end
 
             nested_test("axis_dict") do
-                println(">>>>>>>>>> HERE:")
                 @test_throws dedent("""
                     accessing non-contract axis: cell
                     for the computation: computation
@@ -1428,6 +1477,154 @@ nested_test("contracts") do
 
             nested_test("relayout_matrix!") do
                 @test relayout_matrix!(contract_daf, "cell", "gene", "UMIs"; overwrite = true) == nothing
+            end
+        end
+    end
+
+    nested_test("tensor") do
+        @test add_axis!(daf, "cell", ["A", "B"]) === nothing
+        @test add_axis!(daf, "gene", ["X", "Y", "Z"]) === nothing
+        @test add_axis!(daf, "batch", ["U", "V"]) === nothing
+
+        contract = Contract(;
+            axes = [
+                "gene" => (RequiredInput, "description"),
+                "cell" => (RequiredInput, "description"),
+                "batch" => (RequiredInput, "description"),
+            ],
+            data = [("batch", "cell", "gene", "is_high") => (RequiredInput, Bool, "description")],
+        )
+
+        nested_test("input") do
+            @test set_matrix!(daf, "gene", "cell", "U_is_high", [true false; false true; true false]) == nothing
+
+            nested_test("()") do
+                @test set_matrix!(daf, "gene", "cell", "V_is_high", [false false; true true; false true]) == nothing
+                contract_daf = contractor("computation", contract, daf)
+                get_matrix(contract_daf, "gene", "cell", "U_is_high")
+                @assert verify_input(contract_daf) === nothing
+                @assert verify_output(contract_daf) === nothing
+            end
+
+            nested_test("missing") do
+                contract_daf = contractor("computation", contract, daf)
+                get_matrix(contract_daf, "gene", "cell", "U_is_high")
+                @test_throws dedent("""
+                    missing input matrix: V_is_high
+                    of the rows axis: cell
+                    and the columns axis: gene
+                    with element type: Bool
+                    for the computation: computation
+                    on the daf data: memory!
+                """) verify_input(contract_daf)
+            end
+        end
+
+        nested_test("output") do
+            contract = Contract(;
+                axes = [
+                    "gene" => (RequiredInput, "description"),
+                    "cell" => (RequiredInput, "description"),
+                    "batch" => (RequiredInput, "description"),
+                ],
+                data = [("batch", "cell", "gene", "is_high") => (GuaranteedOutput, Bool, "description")],
+            )
+
+            contract_daf = contractor("computation", contract, daf)
+            @test verify_input(contract_daf) === nothing
+
+            @test set_matrix!(contract_daf, "gene", "cell", "U_is_high", [true false; false true; true false]) ==
+                  nothing
+
+            nested_test("()") do
+                @test set_matrix!(contract_daf, "gene", "cell", "V_is_high", [false false; true true; false true]) ==
+                      nothing
+                @assert verify_output(contract_daf) === nothing
+            end
+
+            nested_test("missing") do
+                @test_throws dedent("""
+                    missing output matrix: V_is_high
+                    of the rows axis: cell
+                    and the columns axis: gene
+                    with element type: Bool
+                    for the computation: computation
+                    on the daf data: memory!
+                """) verify_output(contract_daf)
+            end
+        end
+
+        nested_test("!axis") do
+            delete_axis!(daf, "batch")
+
+            nested_test("guaranteed") do
+                contract = Contract(;
+                    axes = [
+                        "gene" => (RequiredInput, "description"),
+                        "cell" => (RequiredInput, "description"),
+                        "batch" => (GuaranteedOutput, "description"),
+                    ],
+                    data = [("batch", "cell", "gene", "is_high") => (GuaranteedOutput, Bool, "description")],
+                )
+
+                contract_daf = contractor("computation", contract, daf)
+                @test verify_input(contract_daf) === nothing
+
+                nested_test("()") do
+                    @test_throws dedent("""
+                        missing output axis: batch
+                        for the computation: computation
+                        on the daf data: memory!
+                    """) verify_output(contract_daf)
+                end
+
+                nested_test("add") do
+                    @test add_axis!(contract_daf, "batch", ["U", "V"]) === nothing
+
+                    nested_test("()") do
+                        @test_throws dedent("""
+                            missing output matrix: U_is_high
+                            of the rows axis: cell
+                            and the columns axis: gene
+                            with element type: Bool
+                            for the computation: computation
+                            on the daf data: memory!
+                        """) verify_output(contract_daf)
+                    end
+
+                    nested_test("create") do
+                        @test set_matrix!(
+                            contract_daf,
+                            "gene",
+                            "cell",
+                            "U_is_high",
+                            [true false; false true; true false],
+                        ) == nothing
+                        @test set_matrix!(
+                            contract_daf,
+                            "gene",
+                            "cell",
+                            "V_is_high",
+                            [false false; true true; false true],
+                        ) == nothing
+                        @test verify_output(contract_daf) === nothing
+                    end
+                end
+            end
+
+            nested_test("optional") do
+                contract = Contract(;
+                    axes = [
+                        "gene" => (OptionalInput, "description"),
+                        "cell" => (OptionalInput, "description"),
+                        "batch" => (OptionalOutput, "description"),
+                    ],
+                    data = [("batch", "cell", "gene", "is_high") => (OptionalOutput, Bool, "description")],
+                )
+
+                contract_daf = contractor("computation", contract, daf)
+                @test verify_input(contract_daf) === nothing
+                @test verify_output(contract_daf) === nothing
             end
         end
     end

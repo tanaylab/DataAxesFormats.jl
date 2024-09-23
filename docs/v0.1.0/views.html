@@ -581,6 +581,34 @@
 <code>data = [(&quot;cell&quot;, &quot;gene&quot;, &quot;UMIs&quot;) =&gt; &quot;=&quot;]
 </code>.
 </p>
+<p>
+<strong>3D Tensors
+</strong> require a key specifying the main axis, followed by two axes, and a property name. All the axes must be exposed by the view (based on the 
+<code>axes
+</code> parameter). In this cases, none of the axes may be 
+<code>&quot;*&quot;
+</code>. The value can only be be 
+<code>&quot;=&quot;
+</code> to expose all the matrix properties of the tensor as they are or 
+<code>nothing
+</code> to hide all of them; that is, views can expose or hide existing (possibly masked) 3D tensors, but can&#39;t be used to create new ones.
+</p>
+<p>That is, assuming a 
+<code>gene
+</code>, 
+<code>cell
+</code> and 
+<code>batch
+</code> axes were exposed by the 
+<code>axes
+</code> parameters, then specifying that 
+<code>(&quot;batch&quot;, &quot;cell&quot;, &quot;gene&quot;, &quot;is_measured&quot;) =&gt; &quot;=&quot;
+</code> will expose the set of per-cell-per-gene matrices 
+<code>batch1_is_measured
+</code>, 
+<code>batch2_is_measured
+</code>, etc.
+</p>
 </div>
 </section>
 </article>
@@ -607,6 +635,22 @@
 <code>Vector{Any}
 </code>, which would require literals to be annotated with the type.
 </p>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>
+<a href="keys.html#DataAxesFormats.Keys.TensorKey">
+<code>TensorKey
+</code>
+</a>s are interpreted after interpreting all 
+<a href="keys.html#DataAxesFormats.Keys.MatrixKey">
+<code>MatrixKey
+</code>
+</a>s, so they will override them even if they appear earlier in the list of keys. For clarity it is best to list them at the very end of the list.
+</p>
+</div>
+</div>
 </div>
 </section>
 </article>

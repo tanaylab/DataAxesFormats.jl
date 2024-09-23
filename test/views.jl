@@ -320,4 +320,66 @@ nested_test("views") do
             """) * "\n"
         end
     end
+
+    nested_test("tensor") do
+        add_axis!(daf, "cell", ["X", "Y"])
+        add_axis!(daf, "gene", ["A", "B", "C"])
+        add_axis!(daf, "batch", ["U", "V"])
+        set_matrix!(daf, "gene", "cell", "U_is_high", [true false; false true; true false]; relayout = false)
+        set_matrix!(daf, "gene", "cell", "V_is_high", [true true; false false; true false]; relayout = false)
+
+        nested_test("=") do
+            view = viewer(daf; axes = [VIEW_ALL_AXES], data = [("batch", "cell", "gene", "is_high") => "="])
+            @test description(view) == dedent("""
+                name: memory!.view
+                type: View
+                base: MemoryDaf memory!
+                axes:
+                  batch: 2 entries
+                  cell: 2 entries
+                  gene: 3 entries
+                matrices:
+                  gene,cell:
+                    U_is_high: 3 x 2 x Bool in Columns (Dense) (3 true, 50%)
+                    V_is_high: 3 x 2 x Bool in Columns (Dense) (3 true, 50%)
+            """) * "\n"
+        end
+
+        nested_test("!") do
+            view = viewer(daf; axes = [VIEW_ALL_AXES], data = [("batch", "cell", "gene", "is_high") => nothing])
+            @test description(view) == dedent("""
+                name: memory!.view
+                type: View
+                base: MemoryDaf memory!
+                axes:
+                  batch: 2 entries
+                  cell: 2 entries
+                  gene: 3 entries
+            """) * "\n"
+        end
+
+        nested_test("!*") do
+            @test_throws dedent("""
+                unsupported "*" wildcard for tensor
+                for the matrix: is_high
+                for the main axis: batch
+                and the rows axis: *
+                and the columns axis: gene
+                for the view: memory!.view
+                of the daf data: memory!
+            """) viewer(daf; axes = [VIEW_ALL_AXES], data = [("batch", "*", "gene", "is_high") => "="])
+        end
+
+        nested_test("!query") do
+            @test_throws dedent("""
+                unsupported query: foo
+                for the matrix: is_high
+                for the main axis: batch
+                and the rows axis: cell
+                and the columns axis: gene
+                for the view: memory!.view
+                of the daf data: memory!
+            """) viewer(daf; axes = [VIEW_ALL_AXES], data = [("batch", "cell", "gene", "is_high") => "foo"])
+        end
+    end
 end

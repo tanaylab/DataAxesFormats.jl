@@ -8,7 +8,7 @@ Just a function with a default x of `$(DEFAULT.x)`.
 end
 
 SINGLE_CONTRACT = Contract(;
-    axes = ["cell" => (RequiredInput, "The sampled single cells."), "gene" => (OptionalInput, "The sampled genes.")],
+    axes = ["cell" => (RequiredInput, "The sampled single cells."), "gene" => (RequiredInput, "The sampled genes.")],
     data = [
         "version" => (OptionalInput, String, "In major.minor.patch format."),
         "quality" => (GuaranteedOutput, Float64, "Overall output quality score between 0.0 and 1.0."),
@@ -193,7 +193,7 @@ nested_test("computations") do
 
                    **cell** (required): The sampled single cells.
 
-                   **gene** (optional): The sampled genes.
+                   **gene** (required): The sampled genes.
 
                    ### Vectors
 
