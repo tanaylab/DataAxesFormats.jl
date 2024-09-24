@@ -1295,16 +1295,35 @@ nested_test("copies") do
     nested_test("tensor") do
         @test add_axis!(source, "cell", ["A", "B"]) === nothing
         @test add_axis!(source, "gene", ["X", "Y", "Z"]) === nothing
-        @test add_axis!(source, "batch", ["U", "V"]) === nothing
         @test set_matrix!(source, "gene", "cell", "U_is_high", [true false; false true; true false]) == nothing
 
-        copy_all!(;
-            source = source,
-            destination = destination,
-            empty = Dict(("batch", "cell", "gene", "is_high") => false),
-        )
+        nested_test("()") do
+            @test add_axis!(destination, "cell", ["A", "B"]) === nothing
+            @test add_axis!(destination, "gene", ["X", "Y", "Z"]) === nothing
+            @test add_axis!(destination, "batch", ["U", "V"]) === nothing
+            copy_tensor!(;
+                source = source,
+                destination = destination,
+                main_axis = "batch",
+                rows_axis = "gene",
+                columns_axis = "cell",
+                name = "is_high",
+                empty = false,
+            )
 
-        @test all(.!(get_matrix(destination, "cell", "gene", "V_is_high")))
+            @test all(.!(get_matrix(destination, "cell", "gene", "V_is_high")))
+        end
+
+        nested_test("all") do
+            @test add_axis!(source, "batch", ["U", "V"]) === nothing
+            copy_all!(;
+                source = source,
+                destination = destination,
+                empty = Dict(("batch", "cell", "gene", "is_high") => false),
+            )
+
+            @test all(.!(get_matrix(destination, "cell", "gene", "V_is_high")))
+        end
     end
 
     nested_test("all") do

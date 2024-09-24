@@ -14,6 +14,7 @@ export copy_all!
 export copy_axis!
 export copy_matrix!
 export copy_scalar!
+export copy_tensor!
 export copy_vector!
 export EmptyData
 
@@ -439,6 +440,69 @@ axis contains entries that do not exist in the target, they are discarded (not c
 end
 
 """
+    copy_tensor(;
+        destination::DafWriter,
+        source::DafReader,
+        main_axis::AbstractString,
+        rows_axis::AbstractString,
+        columns_axis::AbstractString,
+        name::AbstractString,
+        [rows_reaxis::Maybe{AbstractString} = nothing,
+        columns_reaxis::Maybe{AbstractString} = nothing,
+        rename::Maybe{AbstractString} = nothing,
+        dtype::Maybe{Type{<:StorageScalarBase}} = nothing,
+        default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
+        empty::Maybe{StorageScalar} = nothing,
+        relayout::Bool = true,
+        overwrite::Bool = false]
+    )::Nothing
+
+Copy a tensor from some `source` [`DafReader`](@ref) into some `destination` [`DafWriter`](@ref).
+
+This is basically a loop that calls [`copy_matrix!`](@ref) for each of the tensor matrices, based on the entries of the
+`main_axis` in the `destination`. This will create an matrix full of the `empty` value for any entries of the main axis
+which exist in the destination but do not exist in the source.
+"""
+@logged function copy_tensor!(;
+    destination::DafWriter,
+    source::DafReader,
+    main_axis::AbstractString,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+    rows_reaxis::Maybe{AbstractString} = nothing,
+    columns_reaxis::Maybe{AbstractString} = nothing,
+    rename::Maybe{AbstractString} = nothing,
+    dtype::Maybe{Type{<:StorageScalarBase}} = nothing,
+    empty::Maybe{StorageReal} = nothing,
+    relayout::Bool = true,
+    overwrite::Bool = false,
+    rows_relation::Maybe{Symbol} = nothing,
+    columns_relation::Maybe{Symbol} = nothing,
+)::Nothing
+    entries = axis_array(destination, main_axis)
+    for entry in entries
+        copy_matrix!(;
+            destination = destination,
+            source = source,
+            rows_axis = rows_axis,
+            columns_axis = columns_axis,
+            name = "$(entry)_$(name)",
+            rows_reaxis = rows_reaxis,
+            columns_reaxis = columns_reaxis,
+            rename = rename === nothing ? nothing : "$(entry)_$(rename)",
+            dtype = dtype,
+            default = empty,
+            empty = empty,
+            relayout = relayout,
+            overwrite = overwrite,
+            rows_relation = rows_relation,
+            columns_relation = columns_relation,
+        )
+    end
+end
+
+"""
 Specify the data to use for missing properties in a `Daf` data set. This is a dictionary with an [`DataKey`](@ref)
 specifying for which property we spec,aify a value to, and the value to use. We would have liked to specify this as
 `AbstractDict{<:DataKey, <:StorageScalarBase}` but Julia in its infinite wisdom considers
@@ -487,13 +551,13 @@ same axis in the source.
 
 If the source has axes which are a subset of the same axes in the target, then you must specify a dictionary of values
 for the `empty` entries that will be created in the target when copying any vector and/or matrix properties. This is
-specified using a `(axis, property) => value` entry for specifying an empty value for a vector property and a
-`(rows_axis, columns_axis, property) => entry` for specifying an empty value for a matrix property. The order of the
-axes for matrix properties doesn't matter (the same empty value is automatically used for both axes orders).
+specified using a `(axis, property) => value` entry for specifying an `empty` value for a vector property and a
+`(rows_axis, columns_axis, property) => entry` for specifying an `empty` value for a matrix property. The order of the
+axes for matrix properties doesn't matter (the same `empty` value is automatically used for both axes orders).
 
 If `dtype` is specified, the copied data of the matching property is converted to the specified data type.
 
-If a [`TensorKey`](@ref) is specified, this will create an matrix full of the empty value for any entries of the main
+If a [`TensorKey`](@ref) is specified, this will create an matrix full of the `empty` value for any entries of the main
 axis which exist in the destination but do not exist in the source.
 """
 @logged function copy_all!(;

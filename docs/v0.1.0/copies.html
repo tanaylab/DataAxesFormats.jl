@@ -544,6 +544,69 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
+<a class="docstring-binding" id="DataAxesFormats.Copies.copy_tensor!" href="#DataAxesFormats.Copies.copy_tensor!">
+<code>DataAxesFormats.Copies.copy_tensor!
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">copy_tensor(;
+    destination::DafWriter,
+    source::DafReader,
+    main_axis::AbstractString,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+    [rows_reaxis::Maybe{AbstractString} = nothing,
+    columns_reaxis::Maybe{AbstractString} = nothing,
+    rename::Maybe{AbstractString} = nothing,
+    dtype::Maybe{Type{&lt;:StorageScalarBase}} = nothing,
+    default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
+    empty::Maybe{StorageScalar} = nothing,
+    relayout::Bool = true,
+    overwrite::Bool = false]
+)::Nothing
+</code>
+</pre>
+<p>Copy a tensor from some 
+<code>source
+</code> 
+<a href="formats.html#DataAxesFormats.Formats.DafReader">
+<code>DafReader
+</code>
+</a> into some 
+<code>destination
+</code> 
+<a href="formats.html#DataAxesFormats.Formats.DafWriter">
+<code>DafWriter
+</code>
+</a>.
+</p>
+<p>This is basically a loop that calls 
+<a href="copies.html#DataAxesFormats.Copies.copy_matrix!">
+<code>copy_matrix!
+</code>
+</a> for each of the tensor matrices, based on the entries of the 
+<code>main_axis
+</code> in the 
+<code>destination
+</code>. This will create an matrix full of the 
+<code>empty
+</code> value for any entries of the main axis which exist in the destination but do not exist in the source.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
 <a class="docstring-binding" id="DataAxesFormats.Copies.copy_all!" href="#DataAxesFormats.Copies.copy_all!">
 <code>DataAxesFormats.Copies.copy_all!
 </code>
@@ -594,9 +657,15 @@
 <code>empty
 </code> entries that will be created in the target when copying any vector and/or matrix properties. This is specified using a 
 <code>(axis, property) =&gt; value
-</code> entry for specifying an empty value for a vector property and a 
+</code> entry for specifying an 
+<code>empty
+</code> value for a vector property and a 
 <code>(rows_axis, columns_axis, property) =&gt; entry
-</code> for specifying an empty value for a matrix property. The order of the axes for matrix properties doesn&#39;t matter (the same empty value is automatically used for both axes orders).
+</code> for specifying an 
+<code>empty
+</code> value for a matrix property. The order of the axes for matrix properties doesn&#39;t matter (the same 
+<code>empty
+</code> value is automatically used for both axes orders).
 </p>
 <p>If 
 <code>dtype
@@ -606,7 +675,9 @@
 <a href="keys.html#DataAxesFormats.Keys.TensorKey">
 <code>TensorKey
 </code>
-</a> is specified, this will create an matrix full of the empty value for any entries of the main axis which exist in the destination but do not exist in the source.
+</a> is specified, this will create an matrix full of the 
+<code>empty
+</code> value for any entries of the main axis which exist in the destination but do not exist in the source.
 </p>
 </div>
 </section>
@@ -763,6 +834,12 @@
 <li>
 <a href="copies.html#DataAxesFormats.Copies.copy_scalar!">
 <code>DataAxesFormats.Copies.copy_scalar!
+</code>
+</a>
+</li>
+<li>
+<a href="copies.html#DataAxesFormats.Copies.copy_tensor!">
+<code>DataAxesFormats.Copies.copy_tensor!
 </code>
 </a>
 </li>

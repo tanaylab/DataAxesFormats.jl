@@ -6,6 +6,7 @@ DataAxesFormats.Copies.copy_scalar!
 DataAxesFormats.Copies.copy_axis!
 DataAxesFormats.Copies.copy_vector!
 DataAxesFormats.Copies.copy_matrix!
+DataAxesFormats.Copies.copy_tensor!
 DataAxesFormats.Copies.copy_all!
 DataAxesFormats.Copies.EmptyData
 DataAxesFormats.Copies.DataTypes
