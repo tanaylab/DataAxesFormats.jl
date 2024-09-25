@@ -1,0 +1,1447 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Readers · DataAxesFormats.jl v0.1.1
+</title>
+<meta name="title" content="Readers · DataAxesFormats.jl v0.1.1"/>
+<meta property="og:title" content="Readers · DataAxesFormats.jl v0.1.1"/>
+<meta property="twitter:title" content="Readers · DataAxesFormats.jl v0.1.1"/>
+<meta name="description" content="Documentation for DataAxesFormats.jl v0.1.1."/>
+<meta property="og:description" content="Documentation for DataAxesFormats.jl v0.1.1."/>
+<meta property="twitter:description" content="Documentation for DataAxesFormats.jl v0.1.1."/>
+<script data-outdated-warner src="assets/warner.js">
+</script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/>
+<script>documenterBaseURL="."
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="assets/documenter.js">
+</script>
+<script src="search_index.js">
+</script>
+<script src="siteinfo.js">
+</script>
+<script src="../versions.js">
+</script>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/>
+<script src="assets/themeswap.js">
+</script>
+</head>
+<body>
+<div id="documenter">
+<nav class="docs-sidebar">
+<a class="docs-logo" href="index.html">
+<img src="assets/logo.svg" alt="DataAxesFormats.jl v0.1.1 logo"/>
+</a>
+<div class="docs-package-name">
+<span class="docs-autofit">
+<a href="index.html">DataAxesFormats.jl v0.1.1
+</a>
+</span>
+</div>
+<button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)
+</button>
+<ul class="docs-menu">
+<li>
+<a class="tocitem" href="index.html">Daf
+</a>
+</li>
+<li class="is-active">
+<a class="tocitem" href="readers.html">Readers
+</a>
+<ul class="internal">
+<li>
+<a class="tocitem" href="#Scalar-properties">
+<span>Scalar properties
+</span>
+</a>
+</li>
+<li class="toplevel">
+<a class="tocitem" href="#Readers-axes">
+<span>Readers axes
+</span>
+</a>
+</li>
+<li>
+<a class="tocitem" href="#Vector-properties">
+<span>Vector properties
+</span>
+</a>
+</li>
+<li>
+<a class="tocitem" href="#Matrix-properties">
+<span>Matrix properties
+</span>
+</a>
+</li>
+<li>
+<a class="tocitem" href="#Utilities">
+<span>Utilities
+</span>
+</a>
+</li>
+<li>
+<a class="tocitem" href="#Index">
+<span>Index
+</span>
+</a>
+</li>
+</ul>
+</li>
+<li>
+<a class="tocitem" href="writers.html">Writers
+</a>
+</li>
+<li>
+<a class="tocitem" href="read_only.html">Read-only
+</a>
+</li>
+<li>
+<a class="tocitem" href="queries.html">Queries
+</a>
+</li>
+<li>
+<a class="tocitem" href="tokens.html">Tokens
+</a>
+</li>
+<li>
+<a class="tocitem" href="views.html">Views
+</a>
+</li>
+<li>
+<a class="tocitem" href="chains.html">Chains
+</a>
+</li>
+<li>
+<a class="tocitem" href="computations.html">Computations
+</a>
+</li>
+<li>
+<a class="tocitem" href="copies.html">Copies
+</a>
+</li>
+<li>
+<a class="tocitem" href="concat.html">Concat
+</a>
+</li>
+<li>
+<a class="tocitem" href="adapters.html">Adapters
+</a>
+</li>
+<li>
+<a class="tocitem" href="contracts.html">Contracts
+</a>
+</li>
+<li>
+<a class="tocitem" href="formats.html">Formats
+</a>
+</li>
+<li>
+<a class="tocitem" href="keys.html">Keys
+</a>
+</li>
+<li>
+<a class="tocitem" href="memory_format.html">Memory Format
+</a>
+</li>
+<li>
+<a class="tocitem" href="h5df_format.html">H5DF Format
+</a>
+</li>
+<li>
+<a class="tocitem" href="files_format.html">Files Format
+</a>
+</li>
+<li>
+<a class="tocitem" href="anndata_format.html">AnnData Format
+</a>
+</li>
+<li>
+<a class="tocitem" href="reconstruction.html">Reconstruction
+</a>
+</li>
+<li>
+<a class="tocitem" href="registry.html">Operations registry
+</a>
+</li>
+<li>
+<a class="tocitem" href="operations.html">Query operations
+</a>
+</li>
+<li>
+<a class="tocitem" href="storage_types.html">Storage types
+</a>
+</li>
+<li>
+<a class="tocitem" href="matrix_layouts.html">Matrix layouts
+</a>
+</li>
+<li>
+<a class="tocitem" href="groups.html">Groups
+</a>
+</li>
+<li>
+<a class="tocitem" href="messages.html">Messages
+</a>
+</li>
+<li>
+<a class="tocitem" href="generic_logging.html">Generic Logging
+</a>
+</li>
+<li>
+<a class="tocitem" href="generic_locks.html">Generic Locks
+</a>
+</li>
+<li>
+<a class="tocitem" href="generic_types.html">Generic Types
+</a>
+</li>
+<li>
+<a class="tocitem" href="generic_functions.html">Generic Functions
+</a>
+</li>
+<li>
+<a class="tocitem" href="example_data.html">Example data
+</a>
+</li>
+</ul>
+<div class="docs-version-selector field has-addons">
+<div class="control">
+<span class="docs-label button is-static is-size-7">Version
+</span>
+</div>
+<div class="docs-selector control is-expanded">
+<div class="select is-fullwidth is-size-7">
+<select id="documenter-version-selector">
+</select>
+</div>
+</div>
+</div>
+</nav>
+<div class="docs-main">
+<header class="docs-navbar">
+<a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#">
+</a>
+<nav class="breadcrumb">
+<ul class="is-hidden-mobile">
+<li class="is-active">
+<a href="readers.html">Readers
+</a>
+</li>
+</ul>
+<ul class="is-hidden-tablet">
+<li class="is-active">
+<a href="readers.html">Readers
+</a>
+</li>
+</ul>
+</nav>
+<div class="docs-right">
+<a class="docs-navbar-link" href="https://github.com/tanaylab/DataAxesFormats.jl/blob/main{path}?plain=1#L{line}" title="View the repository on GitHub">
+<span class="docs-icon fa-brands">
+</span>
+<span class="docs-label is-hidden-touch">GitHub
+</span>
+</a>
+<a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings">
+</a>
+<a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings">
+</a>
+</div>
+</header>
+<article class="content" id="documenter-page">
+<h1 id="Readers">
+<a class="docs-heading-anchor" href="#Readers">Readers
+</a>
+<a id="Readers-1">
+</a>
+<a class="docs-heading-anchor-permalink" href="#Readers" title="Permalink">
+</a>
+</h1>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Readers" href="#DataAxesFormats.Readers">
+<code>DataAxesFormats.Readers
+</code>
+</a> — 
+<span class="docstring-category">Module
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<p>The 
+<a href="formats.html#DataAxesFormats.Formats.DafReader">
+<code>DafReader
+</code>
+</a> interface specifies a high-level API for reading 
+<code>Daf
+</code> data. This API is implemented here, on top of the low-level 
+<a href="formats.html#DataAxesFormats.Formats.FormatReader">
+<code>FormatReader
+</code>
+</a> API. The high-level API provides thread safety so the low-level API can (mostly) ignore this issue.
+</p>
+<p>Each data set is given a name to use in error messages etc. You can explicitly set this name when creating a 
+<code>Daf
+</code> object. Otherwise, when opening an existing data set, if it contains a scalar &quot;name&quot; property, it is used. Otherwise some reasonable default is used. In all cases, object names are passed through 
+<a href="messages.html#DataAxesFormats.Messages.unique_name">
+<code>unique_name
+</code>
+</a> to avoid ambiguity.
+</p>
+<p>Data properties are identified by a unique name given the axes they are based on. That is, there is a separate namespace for scalar properties, vector properties for each specific axis, and matrix properties for each 
+<strong>unordered
+</strong> pair of axes.
+</p>
+<p>For matrices, we keep careful track of their 
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts">
+<code>MatrixLayouts
+</code>
+</a>. Returned matrices are always in column-major layout, using 
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.relayout!">
+<code>relayout!
+</code>
+</a> if necessary. As this is an expensive operation, we&#39;ll cache the result in memory. Similarly, we cache the results of applying a query to the data. We allow clearing the cache to reduce memory usage, if necessary.
+</p>
+<p>The data API is the high-level API intended to be used from outside the package, and is therefore re-exported from the top-level 
+<code>Daf
+</code> namespace. It provides additional functionality on top of the low-level 
+<a href="formats.html#DataAxesFormats.Formats.FormatReader">
+<code>FormatReader
+</code>
+</a> implementation, accepting more general data types, automatically dealing with 
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.relayout!">
+<code>relayout!
+</code>
+</a> when needed. In particular, it enforces single-writer multiple-readers for each data set, so the format code can ignore multi-threading and still be thread-safe.
+</p>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>In the APIs below, when getting a value, specifying a 
+<code>default
+</code> of 
+<code>undef
+</code> means that it is an 
+<code>error
+</code> for the value not to exist. In contrast, specifying a 
+<code>default
+</code> of 
+<code>nothing
+</code> means it is OK for the value not to exist, returning 
+<code>nothing
+</code>. Specifying an actual value for 
+<code>default
+</code> means it is OK for the value not to exist, returning the 
+<code>default
+</code> instead. This is in spirit with, but not identical to, 
+<code>undef
+</code> being used as a flag for array construction saying &quot;there is no initializer&quot;. If you feel this is an abuse of the 
+<code>undef
+</code> value, take some comfort in that it is the default value for the 
+<code>default
+</code>, so you almost never have to write it explicitly in your code.
+</p>
+</div>
+</div>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Readers.description" href="#DataAxesFormats.Readers.description">
+<code>DataAxesFormats.Readers.description
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">description(daf::DafReader[; deep::Bool = false, cache::Bool = false])::AbstractString
+</code>
+</pre>
+<p>Return a (multi-line) description of the contents of 
+<code>daf
+</code>. This tries to hit a sweet spot between usefulness and terseness. If 
+<code>cache
+</code>, also describes the content of the cache. If 
+<code>deep
+</code>, also describes any data set nested inside this one (if any).
+</p>
+</div>
+</section>
+</article>
+<h2 id="Scalar-properties">
+<a class="docs-heading-anchor" href="#Scalar-properties">Scalar properties
+</a>
+<a id="Scalar-properties-1">
+</a>
+<a class="docs-heading-anchor-permalink" href="#Scalar-properties" title="Permalink">
+</a>
+</h2>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Readers.has_scalar" href="#DataAxesFormats.Readers.has_scalar">
+<code>DataAxesFormats.Readers.has_scalar
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">has_scalar(daf::DafReader, name::AbstractString)::Bool
+</code>
+</pre>
+<p>Check whether a scalar property with some 
+<code>name
+</code> exists in 
+<code>daf
+</code>.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Readers.scalars_set" href="#DataAxesFormats.Readers.scalars_set">
+<code>DataAxesFormats.Readers.scalars_set
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">scalars_set(daf::DafReader)::AbstractSet{&lt;:AbstractString}
+</code>
+</pre>
+<p>The names of the scalar properties in 
+<code>daf
+</code>.
+</p>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>There&#39;s no immutable set type in Julia for us to return. If you do modify the result set, bad things 
+<em>will
+</em> happen.
+</p>
+</div>
+</div>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Readers.get_scalar" href="#DataAxesFormats.Readers.get_scalar">
+<code>DataAxesFormats.Readers.get_scalar
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">get_scalar(
+    daf::DafReader,
+    name::AbstractString;
+    [default::Union{StorageScalar, Nothing, UndefInitializer} = undef]
+)::Maybe{StorageScalar}
+</code>
+</pre>
+<p>Get the value of a scalar property with some 
+<code>name
+</code> in 
+<code>daf
+</code>.
+</p>
+<p>If 
+<code>default
+</code> is 
+<code>undef
+</code> (the default), this first verifies the 
+<code>name
+</code> scalar property exists in 
+<code>daf
+</code>. Otherwise 
+<code>default
+</code> will be returned if the property does not exist.
+</p>
+</div>
+</section>
+</article>
+<h1 id="Readers-axes">
+<a class="docs-heading-anchor" href="#Readers-axes">Readers axes
+</a>
+<a id="Readers-axes-1">
+</a>
+<a class="docs-heading-anchor-permalink" href="#Readers-axes" title="Permalink">
+</a>
+</h1>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Readers.has_axis" href="#DataAxesFormats.Readers.has_axis">
+<code>DataAxesFormats.Readers.has_axis
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">has_axis(daf::DafReader, axis::AbstractString)::Bool
+</code>
+</pre>
+<p>Check whether some 
+<code>axis
+</code> exists in 
+<code>daf
+</code>.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Readers.axes_set" href="#DataAxesFormats.Readers.axes_set">
+<code>DataAxesFormats.Readers.axes_set
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">axes_set(daf::DafReader)::AbstractSet{&lt;:AbstractString}
+</code>
+</pre>
+<p>The names of the axes of 
+<code>daf
+</code>.
+</p>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>There&#39;s no immutable set type in Julia for us to return. If you do modify the result set, bad things 
+<em>will
+</em> happen.
+</p>
+</div>
+</div>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Readers.axis_array" href="#DataAxesFormats.Readers.axis_array">
+<code>DataAxesFormats.Readers.axis_array
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">axis_array(
+    daf::DafReader,
+    axis::AbstractString;
+    [default::Union{Nothing, UndefInitializer} = undef]
+)::Maybe{AbstractVector{&lt;:AbstractString}}
+</code>
+</pre>
+<p>The array of unique names of the entries of some 
+<code>axis
+</code> of 
+<code>daf
+</code>. This is similar to doing 
+<a href="readers.html#DataAxesFormats.Readers.get_vector">
+<code>get_vector
+</code>
+</a> for the special 
+<code>name
+</code> property, except that it returns a simple vector (array) of strings instead of a 
+<code>NamedVector
+</code>.
+</p>
+<p>If 
+<code>default
+</code> is 
+<code>undef
+</code> (the default), this verifies the 
+<code>axis
+</code> exists in 
+<code>daf
+</code>. Otherwise, the 
+<code>default
+</code> is 
+<code>nothing
+</code>, which is returned if the 
+<code>axis
+</code> does not exist.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Readers.axis_dict" href="#DataAxesFormats.Readers.axis_dict">
+<code>DataAxesFormats.Readers.axis_dict
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">axis_dict(daf::DafReader, axis::AbstractString)::AbstractDict{&lt;:AbstractString, &lt;:Integer}
+</code>
+</pre>
+<p>Return a dictionary converting axis entry names to their integer index.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Readers.axis_indices" href="#DataAxesFormats.Readers.axis_indices">
+<code>DataAxesFormats.Readers.axis_indices
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">axis_indices(daf::DafReader, axis::AbstractString, entries::AbstractVector{&lt;:AbstractString})::AbstractVector{&lt;:Integer}
+</code>
+</pre>
+<p>Return a vector of the indices of the 
+<code>entries
+</code> in the 
+<code>axis
+</code>.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Readers.axis_length" href="#DataAxesFormats.Readers.axis_length">
+<code>DataAxesFormats.Readers.axis_length
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">axis_length(daf::DafReader, axis::AbstractString)::Int64
+</code>
+</pre>
+<p>The number of entries along the 
+<code>axis
+</code> in 
+<code>daf
+</code>.
+</p>
+<p>This first verifies the 
+<code>axis
+</code> exists in 
+<code>daf
+</code>.
+</p>
+</div>
+</section>
+</article>
+<h2 id="Vector-properties">
+<a class="docs-heading-anchor" href="#Vector-properties">Vector properties
+</a>
+<a id="Vector-properties-1">
+</a>
+<a class="docs-heading-anchor-permalink" href="#Vector-properties" title="Permalink">
+</a>
+</h2>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Readers.has_vector" href="#DataAxesFormats.Readers.has_vector">
+<code>DataAxesFormats.Readers.has_vector
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">has_vector(daf::DafReader, axis::AbstractString, name::AbstractString)::Bool
+</code>
+</pre>
+<p>Check whether a vector property with some 
+<code>name
+</code> exists for the 
+<code>axis
+</code> in 
+<code>daf
+</code>. This is always true for the special 
+<code>name
+</code> property.
+</p>
+<p>This first verifies the 
+<code>axis
+</code> exists in 
+<code>daf
+</code>.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Readers.vectors_set" href="#DataAxesFormats.Readers.vectors_set">
+<code>DataAxesFormats.Readers.vectors_set
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">vectors_set(daf::DafReader, axis::AbstractString)::AbstractSet{&lt;:AbstractString}
+</code>
+</pre>
+<p>The names of the vector properties for the 
+<code>axis
+</code> in 
+<code>daf
+</code>, 
+<strong>not
+</strong> including the special 
+<code>name
+</code> property.
+</p>
+<p>This first verifies the 
+<code>axis
+</code> exists in 
+<code>daf
+</code>.
+</p>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>There&#39;s no immutable set type in Julia for us to return. If you do modify the result set, bad things 
+<em>will
+</em> happen.
+</p>
+</div>
+</div>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Readers.get_vector" href="#DataAxesFormats.Readers.get_vector">
+<code>DataAxesFormats.Readers.get_vector
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">get_vector(
+    daf::DafReader,
+    axis::AbstractString,
+    name::AbstractString;
+    [default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef]
+)::Maybe{NamedVector}
+</code>
+</pre>
+<p>Get the vector property with some 
+<code>name
+</code> for some 
+<code>axis
+</code> in 
+<code>daf
+</code>. The names of the result are the names of the vector entries (same as returned by 
+<a href="readers.html#DataAxesFormats.Readers.axis_array">
+<code>axis_array
+</code>
+</a>). The special property 
+<code>name
+</code> returns an array whose values are also the (read-only) names of the entries of the axis.
+</p>
+<p>This first verifies the 
+<code>axis
+</code> exists in 
+<code>daf
+</code>. If 
+<code>default
+</code> is 
+<code>undef
+</code> (the default), this first verifies the 
+<code>name
+</code> vector exists in 
+<code>daf
+</code>. Otherwise, if 
+<code>default
+</code> is 
+<code>nothing
+</code>, it will be returned. If it is a 
+<a href="storage_types.html#DataAxesFormats.StorageTypes.StorageVector">
+<code>StorageVector
+</code>
+</a>, it has to be of the same size as the 
+<code>axis
+</code>, and is returned. If it is a 
+<a href="storage_types.html#DataAxesFormats.StorageTypes.StorageScalar">
+<code>StorageScalar
+</code>
+</a>. Otherwise, a new 
+<code>Vector
+</code> is created of the correct size containing the 
+<code>default
+</code>, and is returned.
+</p>
+</div>
+</section>
+</article>
+<h2 id="Matrix-properties">
+<a class="docs-heading-anchor" href="#Matrix-properties">Matrix properties
+</a>
+<a id="Matrix-properties-1">
+</a>
+<a class="docs-heading-anchor-permalink" href="#Matrix-properties" title="Permalink">
+</a>
+</h2>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Readers.has_matrix" href="#DataAxesFormats.Readers.has_matrix">
+<code>DataAxesFormats.Readers.has_matrix
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">has_matrix(
+    daf::DafReader,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString;
+    [relayout::Bool = true]
+)::Bool
+</code>
+</pre>
+<p>Check whether a matrix property with some 
+<code>name
+</code> exists for the 
+<code>rows_axis
+</code> and the 
+<code>columns_axis
+</code> in 
+<code>daf
+</code>. Since this is Julia, this means a column-major matrix. A daf may contain two copies of the same data, in which case it would report the matrix under both axis orders.
+</p>
+<p>If 
+<code>relayout
+</code> (the default), this will also check whether the data exists in the other layout (that is, with flipped axes).
+</p>
+<p>This first verifies the 
+<code>rows_axis
+</code> and 
+<code>columns_axis
+</code> exists in 
+<code>daf
+</code>.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Readers.matrices_set" href="#DataAxesFormats.Readers.matrices_set">
+<code>DataAxesFormats.Readers.matrices_set
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">matrices_set(
+    daf::DafReader,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString;
+    [relayout::Bool = true]
+)::AbstractSet{&lt;:AbstractString}
+</code>
+</pre>
+<p>The names of the matrix properties for the 
+<code>rows_axis
+</code> and 
+<code>columns_axis
+</code> in 
+<code>daf
+</code>.
+</p>
+<p>If 
+<code>relayout
+</code> (default), then this will include the names of matrices that exist in the other layout (that is, with flipped axes).
+</p>
+<p>This first verifies the 
+<code>rows_axis
+</code> and 
+<code>columns_axis
+</code> exist in 
+<code>daf
+</code>.
+</p>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>There&#39;s no immutable set type in Julia for us to return. If you do modify the result set, bad things 
+<em>will
+</em> happen.
+</p>
+</div>
+</div>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Readers.get_matrix" href="#DataAxesFormats.Readers.get_matrix">
+<code>DataAxesFormats.Readers.get_matrix
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">get_matrix(
+    daf::DafReader,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString;
+    [default::Union{StorageReal, StorageMatrix, Nothing, UndefInitializer} = undef,
+    relayout::Bool = true]
+)::Maybe{NamedMatrix}
+</code>
+</pre>
+<p>Get the column-major matrix property with some 
+<code>name
+</code> for some 
+<code>rows_axis
+</code> and 
+<code>columns_axis
+</code> in 
+<code>daf
+</code>. The names of the result axes are the names of the relevant axes entries (same as returned by 
+<a href="readers.html#DataAxesFormats.Readers.axis_array">
+<code>axis_array
+</code>
+</a>).
+</p>
+<p>If 
+<code>relayout
+</code> (the default), then if the matrix is only stored in the other memory layout (that is, with flipped axes), then automatically call 
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.relayout!">
+<code>relayout!
+</code>
+</a> to compute the result. If 
+<code>daf
+</code> isa 
+<a href="formats.html#DataAxesFormats.Formats.DafWriter">
+<code>DafWriter
+</code>
+</a>, then store the result for future use; otherwise, just cache it as 
+<a href="formats.html#DataAxesFormats.Formats.CacheGroup">
+<code>MemoryData
+</code>
+</a>. This may lock up very large amounts of memory; you can call 
+<a href="formats.html#DataAxesFormats.Formats.empty_cache!">
+<code>empty_cache!
+</code>
+</a> to release it.
+</p>
+<p>This first verifies the 
+<code>rows_axis
+</code> and 
+<code>columns_axis
+</code> exist in 
+<code>daf
+</code>. If 
+<code>default
+</code> is 
+<code>undef
+</code> (the default), this first verifies the 
+<code>name
+</code> matrix exists in 
+<code>daf
+</code>. Otherwise, if 
+<code>default
+</code> is 
+<code>nothing
+</code>, it is returned. If 
+<code>default
+</code> is a 
+<code>StorageMatrix
+</code>, it has to be of the same size as the 
+<code>rows_axis
+</code> and 
+<code>columns_axis
+</code>, and is returned. Otherwise, a new 
+<code>Matrix
+</code> is created of the correct size containing the 
+<code>default
+</code>, and is returned.
+</p>
+</div>
+</section>
+</article>
+<h2 id="Utilities">
+<a class="docs-heading-anchor" href="#Utilities">Utilities
+</a>
+<a id="Utilities-1">
+</a>
+<a class="docs-heading-anchor-permalink" href="#Utilities" title="Permalink">
+</a>
+</h2>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Readers.axis_version_counter" href="#DataAxesFormats.Readers.axis_version_counter">
+<code>DataAxesFormats.Readers.axis_version_counter
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">axis_version_counter(daf::DafReader, axis::AbstractString)::UInt32
+</code>
+</pre>
+<p>Return the version number of the axis. This is incremented every time 
+<a href="writers.html#DataAxesFormats.Writers.delete_axis!">
+<code>delete_axis!
+</code>
+</a> is called. It is used by interfaces to other programming languages to minimize copying data.
+</p>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>This is purely in-memory per-instance, and 
+<strong>not
+</strong> a global persistent version counter. That is, the version counter starts at zero even if opening a persistent disk 
+<code>daf
+</code> data set.
+</p>
+</div>
+</div>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Readers.vector_version_counter" href="#DataAxesFormats.Readers.vector_version_counter">
+<code>DataAxesFormats.Readers.vector_version_counter
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">vector_version_counter(daf::DafReader, axis::AbstractString, name::AbstractString)::UInt32
+</code>
+</pre>
+<p>Return the version number of the vector. This is incremented every time 
+<a href="writers.html#DataAxesFormats.Writers.set_vector!">
+<code>set_vector!
+</code>
+</a>, 
+<a href="writers.html#DataAxesFormats.Writers.empty_dense_vector!">
+<code>empty_dense_vector!
+</code>
+</a> or 
+<a href="writers.html#DataAxesFormats.Writers.empty_sparse_vector!">
+<code>empty_sparse_vector!
+</code>
+</a> are called. It is used by interfaces to other programming languages to minimize copying data.
+</p>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>This is purely in-memory per-instance, and 
+<strong>not
+</strong> a global persistent version counter. That is, the version counter starts at zero even if opening a persistent disk 
+<code>daf
+</code> data set.
+</p>
+</div>
+</div>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Readers.matrix_version_counter" href="#DataAxesFormats.Readers.matrix_version_counter">
+<code>DataAxesFormats.Readers.matrix_version_counter
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">matrix_version_counter(
+    daf::DafReader,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString
+)::UInt32
+</code>
+</pre>
+<p>Return the version number of the matrix. The order of the axes does not matter. This is incremented every time 
+<a href="writers.html#DataAxesFormats.Writers.set_matrix!">
+<code>set_matrix!
+</code>
+</a>, 
+<a href="writers.html#DataAxesFormats.Writers.empty_dense_matrix!">
+<code>empty_dense_matrix!
+</code>
+</a> or 
+<a href="writers.html#DataAxesFormats.Writers.empty_sparse_matrix!">
+<code>empty_sparse_matrix!
+</code>
+</a> are called. It is used by interfaces to other programming languages to minimize copying data.
+</p>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>This is purely in-memory per-instance, and 
+<strong>not
+</strong> a global persistent version counter. That is, the version counter starts at zero even if opening a persistent disk 
+<code>daf
+</code> data set.
+</p>
+</div>
+</div>
+</div>
+</section>
+</article>
+<h2 id="Index">
+<a class="docs-heading-anchor" href="#Index">Index
+</a>
+<a id="Index-1">
+</a>
+<a class="docs-heading-anchor-permalink" href="#Index" title="Permalink">
+</a>
+</h2>
+<ul>
+<li>
+<a href="readers.html#DataAxesFormats.Readers">
+<code>DataAxesFormats.Readers
+</code>
+</a>
+</li>
+<li>
+<a href="readers.html#DataAxesFormats.Readers.axes_set">
+<code>DataAxesFormats.Readers.axes_set
+</code>
+</a>
+</li>
+<li>
+<a href="readers.html#DataAxesFormats.Readers.axis_array">
+<code>DataAxesFormats.Readers.axis_array
+</code>
+</a>
+</li>
+<li>
+<a href="readers.html#DataAxesFormats.Readers.axis_dict">
+<code>DataAxesFormats.Readers.axis_dict
+</code>
+</a>
+</li>
+<li>
+<a href="readers.html#DataAxesFormats.Readers.axis_indices">
+<code>DataAxesFormats.Readers.axis_indices
+</code>
+</a>
+</li>
+<li>
+<a href="readers.html#DataAxesFormats.Readers.axis_length">
+<code>DataAxesFormats.Readers.axis_length
+</code>
+</a>
+</li>
+<li>
+<a href="readers.html#DataAxesFormats.Readers.axis_version_counter">
+<code>DataAxesFormats.Readers.axis_version_counter
+</code>
+</a>
+</li>
+<li>
+<a href="readers.html#DataAxesFormats.Readers.description">
+<code>DataAxesFormats.Readers.description
+</code>
+</a>
+</li>
+<li>
+<a href="readers.html#DataAxesFormats.Readers.get_matrix">
+<code>DataAxesFormats.Readers.get_matrix
+</code>
+</a>
+</li>
+<li>
+<a href="readers.html#DataAxesFormats.Readers.get_scalar">
+<code>DataAxesFormats.Readers.get_scalar
+</code>
+</a>
+</li>
+<li>
+<a href="readers.html#DataAxesFormats.Readers.get_vector">
+<code>DataAxesFormats.Readers.get_vector
+</code>
+</a>
+</li>
+<li>
+<a href="readers.html#DataAxesFormats.Readers.has_axis">
+<code>DataAxesFormats.Readers.has_axis
+</code>
+</a>
+</li>
+<li>
+<a href="readers.html#DataAxesFormats.Readers.has_matrix">
+<code>DataAxesFormats.Readers.has_matrix
+</code>
+</a>
+</li>
+<li>
+<a href="readers.html#DataAxesFormats.Readers.has_scalar">
+<code>DataAxesFormats.Readers.has_scalar
+</code>
+</a>
+</li>
+<li>
+<a href="readers.html#DataAxesFormats.Readers.has_vector">
+<code>DataAxesFormats.Readers.has_vector
+</code>
+</a>
+</li>
+<li>
+<a href="readers.html#DataAxesFormats.Readers.matrices_set">
+<code>DataAxesFormats.Readers.matrices_set
+</code>
+</a>
+</li>
+<li>
+<a href="readers.html#DataAxesFormats.Readers.matrix_version_counter">
+<code>DataAxesFormats.Readers.matrix_version_counter
+</code>
+</a>
+</li>
+<li>
+<a href="readers.html#DataAxesFormats.Readers.scalars_set">
+<code>DataAxesFormats.Readers.scalars_set
+</code>
+</a>
+</li>
+<li>
+<a href="readers.html#DataAxesFormats.Readers.vector_version_counter">
+<code>DataAxesFormats.Readers.vector_version_counter
+</code>
+</a>
+</li>
+<li>
+<a href="readers.html#DataAxesFormats.Readers.vectors_set">
+<code>DataAxesFormats.Readers.vectors_set
+</code>
+</a>
+</li>
+</ul>
+</article>
+<nav class="docs-footer">
+<a class="docs-footer-prevpage" href="index.html">« Daf
+</a>
+<a class="docs-footer-nextpage" href="writers.html">Writers »
+</a>
+<div class="flexbox-break">
+</div>
+<p class="footer-message">Powered by 
+<a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl
+</a> and the 
+<a href="https://julialang.org/">Julia Programming Language
+</a>.
+</p>
+</nav>
+</div>
+<div class="modal" id="documenter-settings">
+<div class="modal-background">
+</div>
+<div class="modal-card">
+<header class="modal-card-head">
+<p class="modal-card-title">Settings
+</p>
+<button class="delete">
+</button>
+</header>
+<section class="modal-card-body">
+<p>
+<label class="label">Theme
+</label>
+<div class="select">
+<select id="documenter-themepicker">
+<option value="auto">Automatic (OS)
+</option>
+<option value="documenter-light">documenter-light
+</option>
+<option value="documenter-dark">documenter-dark
+</option>
+<option value="catppuccin-latte">catppuccin-latte
+</option>
+<option value="catppuccin-frappe">catppuccin-frappe
+</option>
+<option value="catppuccin-macchiato">catppuccin-macchiato
+</option>
+<option value="catppuccin-mocha">catppuccin-mocha
+</option>
+</select>
+</div>
+</p>
+<hr/>
+<p>This document was generated with 
+<a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl
+</a> version 1.7.0. Using Julia version 1.10.5.
+</p>
+</section>
+<footer class="modal-card-foot">
+</footer>
+</div>
+</div>
+</div>
+</body>
+</html>

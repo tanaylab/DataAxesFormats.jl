@@ -68,9 +68,9 @@ deps/.did.untested: deps/.did.coverage deps/untested_lines.sh
 coverage: untested_lines line_coverage
 
 .PHONY: docs
-docs: docs/v0.1.0/index.html
+docs: docs/v0.1.1/index.html
 
-docs/v0.1.0/index.html: src/*.jl src/*.md deps/document.sh deps/document.jl docs/make.jl
+docs/v0.1.1/index.html: src/*.jl src/*.md deps/document.sh deps/document.jl docs/make.jl
 	deps/document.sh
 
 .PHONY: clean

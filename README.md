@@ -31,11 +31,11 @@ The key features of `Daf` are:
     `pandas` vector and matrix types. WIP: Implement a similar R package using
     [JuliaCall](https://libraries.io/cran/JuliaCall) to allow direct access to `DataAxesFormats` from R code.
 
-See the [v0.1.0 documentation](https://tanaylab.github.io/DataAxesFormats.jl/v0.1.0) for details.
+See the [v0.1.1 documentation](https://tanaylab.github.io/DataAxesFormats.jl/v0.1.1) for details.
 
 ## Status
 
-Version 0.1.0 is an alpha release. We hope it is feature complete and have started using it for internal projects.
+Version 0.1.1 is an alpha release. We hope it is feature complete and have started using it for internal projects.
 However, everything is subject to change based on user feedback (so don't be shy). Comments, bug reports and PRs
 are welcome!
 
@@ -124,7 +124,7 @@ interoperability with legacy computation pipelines.
 
 ## Installation
 
-Just `Pkg.add("DafJ")`, like installing any other Julia package.
+Just `Pkg.add("DataAxesFormats")`, like installing any other Julia package.
 
 To install the Python `Daf` [package](https://github.com/tanaylab/DafPY), just `pip install dafpy`, like installing any
 other Python package.
