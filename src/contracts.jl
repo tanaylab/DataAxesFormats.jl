@@ -140,11 +140,12 @@ function contract_documentation(contract::Contract, buffer::IOBuffer)::Nothing
     has_inputs = axes_documentation(contract, buffer; is_output = false, has_any = has_inputs)
     has_inputs = vectors_documentation(contract, buffer; is_output = false, has_any = has_inputs)
     has_inputs = matrices_documentation(contract, buffer; is_output = false, has_any = has_inputs)
+    has_inputs = tensors_documentation(contract, buffer; is_output = false, has_any = has_inputs)
 
     if contract.is_relaxed
         direction_header(buffer; is_output = false, has_any = has_inputs)
         println(buffer)
-        println(buffer, "Additional inputs may be used depending to the query parameter(s).")
+        println(buffer, "Additional inputs may be used depending on the parameter(s).")
     end
 
     has_outputs = false
@@ -152,6 +153,13 @@ function contract_documentation(contract::Contract, buffer::IOBuffer)::Nothing
     has_outputs = axes_documentation(contract, buffer; is_output = true, has_any = has_outputs)
     has_outputs = vectors_documentation(contract, buffer; is_output = true, has_any = has_outputs)
     has_outputs = matrices_documentation(contract, buffer; is_output = true, has_any = has_outputs)
+    has_outputs = tensors_documentation(contract, buffer; is_output = true, has_any = has_outputs)
+
+    if contract.is_relaxed
+        direction_header(buffer; is_output = true, has_any = has_inputs)
+        println(buffer)
+        println(buffer, "Additional outputs may be created depending on the parameter(s).")
+    end
 
     return nothing
 end
@@ -245,6 +253,33 @@ function matrices_documentation(contract::Contract, buffer::IOBuffer; is_output:
                     println(
                         buffer,
                         "**$(rows_axis_name), $(columns_axis_name) @ $(name)**::$(data_type) ($(short(expectation))): $(dedent(description))",
+                    )
+                end
+            end
+        end
+    end
+
+    return has_any
+end
+
+function tensors_documentation(contract::Contract, buffer::IOBuffer; is_output::Bool, has_any::Bool)::Bool
+    if contract.data !== nothing
+        is_first = true
+        for (key, (expectation, data_type, description)) in contract.data
+            if key isa TensorKey
+                main_axis_name, rows_axis_name, columns_axis_name, name = key
+                if (is_output && expectation in (GuaranteedOutput, OptionalOutput)) ||
+                   (!is_output && expectation in (RequiredInput, OptionalInput))
+                    has_any = direction_header(buffer; is_output = is_output, has_any = has_any)
+                    if is_first
+                        is_first = false
+                        println(buffer)
+                        println(buffer, "### Tensors")
+                    end
+                    println(buffer)
+                    println(
+                        buffer,
+                        "**$(main_axis_name); $(rows_axis_name), $(columns_axis_name) @ $(name)**::$(data_type) ($(short(expectation))): $(dedent(description))",
                     )
                 end
             end

@@ -8,7 +8,11 @@ Just a function with a default x of `$(DEFAULT.x)`.
 end
 
 SINGLE_CONTRACT = Contract(;
-    axes = ["cell" => (RequiredInput, "The sampled single cells."), "gene" => (RequiredInput, "The sampled genes.")],
+    axes = [
+        "cell" => (RequiredInput, "The sampled single cells."),
+        "gene" => (RequiredInput, "The sampled genes."),
+        "block" => (OptionalOutput, "Blocks of cells."),
+    ],
     data = [
         "version" => (OptionalInput, String, "In major.minor.patch format."),
         "quality" => (GuaranteedOutput, Float64, "Overall output quality score between 0.0 and 1.0."),
@@ -16,6 +20,8 @@ SINGLE_CONTRACT = Contract(;
         ("cell", "special") => (OptionalOutput, Bool, "Computed mask of special cells, if requested."),
         ("cell", "gene", "UMIs") =>
             (RequiredInput, Union{UInt8, UInt16, UInt32, UInt64}, "The number of sampled scRNA molecules."),
+        ("block", "cell", "gene", "match") =>
+            (OptionalOutput, StorageFloat, "How well the gene of the cell match the block."),
     ],
 )
 
@@ -179,40 +185,48 @@ nested_test("computations") do
             @test string(Docs.doc(single)) ==
                   dedent(
                 """
-                   Single
+                Single
 
-                   The `quality` is mandatory. The default `optional` is `1`. The default `named` is `"Foo"`.
+                The `quality` is mandatory. The default `optional` is `1`. The default `named` is `\"Foo\"`.
 
-                   ## Inputs
+                ## Inputs
 
-                   ### Scalars
+                ### Scalars
 
-                   **version**::String (optional): In major.minor.patch format.
+                **version**::String (optional): In major.minor.patch format.
 
-                   ### Axes
+                ### Axes
 
-                   **cell** (required): The sampled single cells.
+                **cell** (required): The sampled single cells.
 
-                   **gene** (required): The sampled genes.
+                **gene** (required): The sampled genes.
 
-                   ### Vectors
+                ### Vectors
 
-                   **gene @ noisy**::Bool (optional): Mask of genes with high variability.
+                **gene @ noisy**::Bool (optional): Mask of genes with high variability.
 
-                   ### Matrices
+                ### Matrices
 
-                   **cell, gene @ UMIs**::Union{UInt16, UInt32, UInt64, UInt8} (required): The number of sampled scRNA molecules.
+                **cell, gene @ UMIs**::Union{UInt16, UInt32, UInt64, UInt8} (required): The number of sampled scRNA molecules.
 
-                   ## Outputs
+                ## Outputs
 
-                   ### Scalars
+                ### Scalars
 
-                   **quality**::Float64 (guaranteed): Overall output quality score between 0.0 and 1.0.
+                **quality**::Float64 (guaranteed): Overall output quality score between 0.0 and 1.0.
 
-                   ### Vectors
+                ### Axes
 
-                   **cell @ special**::Bool (optional): Computed mask of special cells, if requested.
-               """,
+                **block** (optional): Blocks of cells.
+
+                ### Vectors
+
+                **cell @ special**::Bool (optional): Computed mask of special cells, if requested.
+
+                ### Tensors
+
+                **block; cell, gene @ match**::Union{Float32, Float64} (optional): How well the gene of the cell match the block.
+                """,
             ) * "\n"
         end
 
@@ -223,7 +237,11 @@ nested_test("computations") do
 
                             ## Inputs
 
-                            Additional inputs may be used depending to the query parameter(s).
+                            Additional inputs may be used depending on the parameter(s).
+
+                            ## Outputs
+
+                            Additional outputs may be created depending on the parameter(s).
                         """) * "\n"
         end
 

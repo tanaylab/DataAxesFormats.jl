@@ -451,7 +451,6 @@ end
         columns_reaxis::Maybe{AbstractString} = nothing,
         rename::Maybe{AbstractString} = nothing,
         dtype::Maybe{Type{<:StorageScalarBase}} = nothing,
-        default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
         empty::Maybe{StorageScalar} = nothing,
         relayout::Bool = true,
         overwrite::Bool = false]
