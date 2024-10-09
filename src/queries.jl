@@ -2174,7 +2174,7 @@ function fake_vectors_set(fake_query_state::FakeQueryState, names::Names)::Nothi
         """))
     end
 
-    fake_axis_state = pop!(fake_query_state.stack)
+    fake_axis_state = pop!(fake_query_state.stack)  # NOJET
     @assert fake_axis_state isa FakeAxisState
 
     if fake_axis_state.is_entry || fake_axis_state.is_slice
@@ -4153,7 +4153,7 @@ function get_frame(
         push!(data, column_name => vector.array)
     end
 
-    result = DataFrame(data)
+    result = DataFrame(data)  # NOJET
     @debug "get_frame daf: $(depict(daf)) axis: $(axis) columns: $(columns) result: $(depict(result))"
     return result
 end

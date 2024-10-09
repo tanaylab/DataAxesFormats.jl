@@ -266,7 +266,7 @@ function viewer(
     if name === nothing
         name = daf.name * ".view"
     end
-    name = unique_name(name)
+    name = unique_name(name)  # NOJET
 
     collected_axes = collect_axes(name, daf, axes)
     collected_scalars = collect_scalars(name, daf, data)

@@ -1,7 +1,16 @@
+# TODO: Using `REPL` magically changes `@doc` to return `Markdown.MD`. Up to Julia 1.10 we could just call `doc(foo)`
+# and get the Markdown string. As of Julia 1.11 we need to do this instead. Sigh. There's probably a better way but life
+# is too short.
+using REPL
+using Markdown
+function formatdoc(md::Markdown.MD)::String
+    return dedent(repr("text/markdown", md)) * "\n"
+end
+
 """
 None
 
-Just a function with a default x of `$(DEFAULT.x)`.
+Just a function with a default `x` of $(DEFAULT.x).
 """
 @computation function none(; x = 1)
     return x
@@ -28,7 +37,7 @@ SINGLE_CONTRACT = Contract(;
 """
 Single
 
-The `quality` is mandatory. The default `optional` is `$(DEFAULT.optional)`. The default `named` is `$(DEFAULT.named)`.
+The `quality` is mandatory. The default `optional` is $(DEFAULT.optional). The default `named` is $(DEFAULT.named).
 
 $(CONTRACT)
 """
@@ -155,11 +164,11 @@ nested_test("computations") do
         end
 
         nested_test("docs") do
-            @test string(Docs.doc(none)) == dedent("""
-                                             None
+            @test formatdoc(@doc none) == dedent("""
+                                                 None
 
-                                             Just a function with a default x of `1`.
-                                             """) * "\n"
+                                                 Just a function with a default `x` of `1`.
+                                                 """) * "\n"
         end
     end
 
@@ -182,7 +191,7 @@ nested_test("computations") do
         end
 
         nested_test("docs") do
-            @test string(Docs.doc(single)) ==
+            @test formatdoc(@doc single) ==
                   dedent(
                 """
                 Single
@@ -231,18 +240,18 @@ nested_test("computations") do
         end
 
         nested_test("relaxed") do
-            @test string(Docs.doc(relaxed)) ==
+            @test formatdoc(@doc relaxed) ==
                   dedent("""
-                            Relaxed
+                         Relaxed
 
-                            ## Inputs
+                         ## Inputs
 
-                            Additional inputs may be used depending on the parameter(s).
+                         Additional inputs may be used depending on the parameter(s).
 
-                            ## Outputs
+                         ## Outputs
 
-                            Additional outputs may be created depending on the parameter(s).
-                        """) * "\n"
+                         Additional outputs may be created depending on the parameter(s).
+                         """) * "\n"
         end
 
         nested_test("!docs") do
@@ -250,7 +259,7 @@ nested_test("computations") do
             @test_throws dedent("""
                 no contract(s) associated with: Main.missing_single
                 use: @computation Contract(...) function Main.missing_single(...)
-            """) Docs.doc(missing_single)
+            """) formatdoc(@doc missing_single)
         end
     end
 
@@ -313,7 +322,7 @@ nested_test("computations") do
         end
 
         nested_test("docs") do
-            @test string(Docs.doc(cross)) == dedent("""
+            @test formatdoc(@doc cross) == dedent("""
                 Dual
 
                 # First
@@ -350,21 +359,21 @@ nested_test("computations") do
             @test_throws dedent("""
                 no contract(s) associated with: Main.missing_both
                 use: @computation Contract(...) function Main.missing_both(...)
-            """) Docs.doc(missing_both)
+            """) formatdoc(@doc missing_both)
         end
 
         nested_test("!doc2") do
             @test_throws dedent("""
                 no second contract associated with: Main.missing_second
                 use: @computation Contract(...) Contract(...) function Main.missing_second(...)
-            """) Docs.doc(missing_second)
+            """) formatdoc(@doc missing_second)
         end
 
         nested_test("!default") do
             @test_throws dedent("""
                 no default for a parameter: x
                 in the computation: Main.missing_default
-            """) Docs.doc(missing_default)
+            """) formatdoc(@doc missing_default)
         end
     end
 end

@@ -77,7 +77,7 @@ function set_metadata_of_function(
     function_metadata::FunctionMetadata,
 )::Nothing
     if !isdefined(function_module, :__DAF_FUNCTION_METADATA__)
-        function_module.__DAF_FUNCTION_METADATA__ = Dict{Symbol, FunctionMetadata}()
+        @eval function_module __DAF_FUNCTION_METADATA__ = Dict{Symbol, Any}()
     end
     function_module.__DAF_FUNCTION_METADATA__[function_name] = function_metadata
     return nothing
@@ -323,11 +323,17 @@ function DocStringExtensions.format(what::DefaultValue, buffer::IOBuffer, doc_st
             in the computation: $(full_name)
         """))
     end
+
     if default isa AbstractString
         default = replace(default, "\\" => "\\\\", "\"" => "\\\"")
         default = "\"$(default)\""
     end
-    return print(buffer, default)
+
+    print(buffer, "```")
+    print(buffer, default)
+    print(buffer, "```")
+
+    return nothing
 end
 
 struct DefaultContainer end

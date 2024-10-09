@@ -123,7 +123,7 @@ function major_axis(matrix::AbstractMatrix)::Maybe{Int8}
         if matrix_strides[2] == 1
             return Rows
         end
-        return nothing
+        return nothing  # untested
 
     catch MethodError  # NOLINT
         return nothing

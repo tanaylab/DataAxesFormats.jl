@@ -35,10 +35,10 @@ function test_description(
             batch.partial: 20 x String (Dense)
             type: 20 x String (Dense)
           gene:
-            lateral: 10 x Bool (Dense) (7 true, 70%)
+            lateral: 10 x Bool (Dense) (5 true, 50%)
             marker: 10 x Bool (Dense) (4 true, 40%)
             module: 10 x String (Dense)
-            noisy: 10 x Bool (Dense) (4 true, 40%)
+            noisy: 10 x Bool (Dense) (5 true, 50%)
           type:
             color: 3 x String (Dense)
         matrices:
@@ -95,26 +95,26 @@ nested_test("example_data") do
         nested_test("matrix") do
             nested_test("()") do
                 @test get_query(daf, q"/ cell / gene : UMIs") == Int16[
-                    1   23  9   5   50  4  13  12  12  2
-                    20  3   2   16  17  6  3   4   2   22
-                    5   2   2   3   4   29 14  0   2   15
-                    8   14  13  0   12  5  1   34  26  6
-                    7   6   4   11  5   57 1   0   3   1
-                    9   6   3   13  8   16 7   21  3   10
-                    4   26  1   20  4   11 1   0   2   17
-                    2   62  18  19  20  9  15  30  23  14
-                    4   19  56  6   8   12 12  1   2   8
-                    1   27  19  46  2   8  8   8   2   12
-                    3   5   1   6   16  0  19  4   5   0
-                    5   3   1   1   10  3  7   2   5   38
-                    13  1   16  10  4   3  6   21  3   1
-                    3   29  8   52  17  1  5   2   6   20
-                    5   7   0   0   2   11 0   11  21  4
-                    4   1   3   10  21  15 4   1   5   4
-                    4   13  11  35  18  5  12  13  4   7
-                    3   11  4   6   2   1  4   14  9   13
-                    13  2   9   5   1   28 9   10  0   14
-                    12  9   14  43  11  5  2   32  12  4
+                    4   4   8   31  6   8   3   16  18  16
+                    18  33  1   16  18  18  19  15  2   14
+                    1   22  7   5   1   1   2   11  0   5
+                    1   1   3   23  47  0   4   7   10  9
+                    11  1   11  5   4   16  22  10  5   5
+                    17  0   7   17  6   2   5   13  6   8
+                    6   28  13  3   33  3   4   19  9   9
+                    9   22  1   16  27  1   14  18  24  16
+                    15  12  1   72  28  5   12  7   5   12
+                    22  1   1   2   2   7   9   33  6   13
+                    12  12  11  1   2   7   3   9   5   9
+                    21  2   1   7   25  36  15  4   1   20
+                    19  5   12  37  9   11  31  15  17  13
+                    8   18  4   4   14  6   21  3   14  9
+                    23  7   5   8   3   25  3   2   11  7
+                    9   7   17  12  4   10  3   2   2   2
+                    11  11  6   10  5   15  36  4   2   24
+                    10  9   2   12  3   3   16  17  2   4
+                    2   4   20  1   6   23  4   15  16  19
+                    18  8   20  3   8   6   1   18  2   1
                 ]
 
                 test_description(daf; name = "example!.read_only", cache = dedent("""
@@ -138,26 +138,26 @@ nested_test("example_data") do
 
             nested_test("eltwise") do
                 @test get_query(daf, q"/ cell / gene : UMIs % Abs") == UInt16[
-                    1   23  9   5   50  4  13  12  12  2
-                    20  3   2   16  17  6  3   4   2   22
-                    5   2   2   3   4   29 14  0   2   15
-                    8   14  13  0   12  5  1   34  26  6
-                    7   6   4   11  5   57 1   0   3   1
-                    9   6   3   13  8   16 7   21  3   10
-                    4   26  1   20  4   11 1   0   2   17
-                    2   62  18  19  20  9  15  30  23  14
-                    4   19  56  6   8   12 12  1   2   8
-                    1   27  19  46  2   8  8   8   2   12
-                    3   5   1   6   16  0  19  4   5   0
-                    5   3   1   1   10  3  7   2   5   38
-                    13  1   16  10  4   3  6   21  3   1
-                    3   29  8   52  17  1  5   2   6   20
-                    5   7   0   0   2   11 0   11  21  4
-                    4   1   3   10  21  15 4   1   5   4
-                    4   13  11  35  18  5  12  13  4   7
-                    3   11  4   6   2   1  4   14  9   13
-                    13  2   9   5   1   28 9   10  0   14
-                    12  9   14  43  11  5  2   32  12  4
+                    4   4   8   31  6   8   3   16  18  16
+                    18  33  1   16  18  18  19  15   2  14
+                    1   22  7   5   1   1   2   11   0  5
+                    1   1   3   23  47  0   4   7   10  9
+                    11  1   11  5   4   16  22  10  5   5
+                    17  0   7   17  6   2   5   13  6   8
+                    6   28  13  3   33  3   4   19  9   9
+                    9   22  1   16  27  1   14  18  24  16
+                    15  12  1   72  28  5   12  7   5   12
+                    22  1   1   2   2   7   9   33  6   13
+                    12  12  11  1   2   7   3   9   5   9
+                    21  2   1   7   25  36  15  4   1   20
+                    19  5   12  37  9   11  31  15  17  13
+                    8   18  4   4   14  6   21  3   14  9
+                    23  7   5   8   3   25  3   2   11  7
+                    9   7   17  12  4   10  3   2   2   2
+                    11  11  6   10  5   15  36  4   2   24
+                    10  9   2   12  3   3   16  17  2   4
+                    2   4   20  1   6   23  4   15  16  19
+                    18  8   20  3   8   6   1   18  2   1
                 ]
 
                 test_description(daf; name = "example!.read_only", cache = dedent("""
@@ -180,12 +180,12 @@ nested_test("example_data") do
 
             nested_test("mask") do
                 @test get_query(daf, q"/ cell & batch = B1 / gene & module = M1 : UMIs") == Int16[
-                    3  2
-                    2  2
-                    6  3
-                    5  5
-                    1  5
-                    9  12
+                    4  8  6  3  16
+                    1  3  47 4  9
+                    11 11 4  22 5
+                    9  17 4  3  2
+                    11 6  5  36 24
+                    10 2  3  16 4
                 ]
 
                 test_description(
@@ -198,7 +198,7 @@ nested_test("example_data") do
                               'axis_dict[axis: cell]': (MemoryData) (OrderedDict length: 20)
                               'axis_dict[axis: gene]': (MemoryData) (OrderedDict length: 10)
                               'axis_dict[axis: type]': (MemoryData) (OrderedDict length: 3)
-                              'query[/ cell & batch = B1 / gene & module = M1 : UMIs]': (QueryData) 6 x 2 x Int16 in Columns (Dense)
+                              'query[/ cell & batch = B1 / gene & module = M1 : UMIs]': (QueryData) 6 x 5 x Int16 in Columns (Dense)
                               'names[axes]': (MemoryData) 5 x AbstractString (KeySet)
                               'vectors[axis: batch]': (MemoryData) 2 x AbstractString (KeySet)
                               'vectors[axis: cell]': (MemoryData) 4 x AbstractString (KeySet)

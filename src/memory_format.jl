@@ -63,7 +63,7 @@ end
 
 function Formats.format_delete_scalar!(memory::MemoryDaf, name::AbstractString; for_set::Bool)::Nothing  # NOLINT
     @assert Formats.has_data_write_lock(memory)
-    delete!(memory.scalars, name)
+    delete!(memory.scalars, name)  # NOJET
     return nothing
 end
 
@@ -102,7 +102,7 @@ end
 
 function Formats.format_delete_axis!(memory::MemoryDaf, axis::AbstractString)::Nothing
     @assert Formats.has_data_write_lock(memory)
-    delete!(memory.axes, axis)
+    delete!(memory.axes, axis)  # NOJET
     delete!(memory.vectors, axis)
     delete!(memory.matrices, axis)
 
@@ -196,7 +196,7 @@ function Formats.format_delete_vector!(
     for_set::Bool,  # NOLINT
 )::Nothing
     @assert Formats.has_data_write_lock(memory)
-    delete!(memory.vectors[axis], name)
+    delete!(memory.vectors[axis], name)  # NOJET
     return nothing
 end
 
@@ -313,7 +313,7 @@ function Formats.format_delete_matrix!(
     for_set::Bool,  # NOLINT
 )::Nothing
     @assert Formats.has_data_write_lock(memory)
-    delete!(memory.matrices[rows_axis][columns_axis], name)
+    delete!(memory.matrices[rows_axis][columns_axis], name)  # NOJET
     return nothing
 end
 

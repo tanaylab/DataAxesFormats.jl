@@ -1,0 +1,473 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Reconstruction · DataAxesFormats.jl v0.1.2
+</title>
+<meta name="title" content="Reconstruction · DataAxesFormats.jl v0.1.2"/>
+<meta property="og:title" content="Reconstruction · DataAxesFormats.jl v0.1.2"/>
+<meta property="twitter:title" content="Reconstruction · DataAxesFormats.jl v0.1.2"/>
+<meta name="description" content="Documentation for DataAxesFormats.jl v0.1.2."/>
+<meta property="og:description" content="Documentation for DataAxesFormats.jl v0.1.2."/>
+<meta property="twitter:description" content="Documentation for DataAxesFormats.jl v0.1.2."/>
+<script data-outdated-warner src="assets/warner.js">
+</script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/>
+<script>documenterBaseURL="."
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="assets/documenter.js">
+</script>
+<script src="search_index.js">
+</script>
+<script src="siteinfo.js">
+</script>
+<script src="../versions.js">
+</script>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/>
+<script src="assets/themeswap.js">
+</script>
+</head>
+<body>
+<div id="documenter">
+<nav class="docs-sidebar">
+<a class="docs-logo" href="index.html">
+<img src="assets/logo.svg" alt="DataAxesFormats.jl v0.1.2 logo"/>
+</a>
+<div class="docs-package-name">
+<span class="docs-autofit">
+<a href="index.html">DataAxesFormats.jl v0.1.2
+</a>
+</span>
+</div>
+<button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)
+</button>
+<ul class="docs-menu">
+<li>
+<a class="tocitem" href="index.html">Daf
+</a>
+</li>
+<li>
+<a class="tocitem" href="readers.html">Readers
+</a>
+</li>
+<li>
+<a class="tocitem" href="writers.html">Writers
+</a>
+</li>
+<li>
+<a class="tocitem" href="read_only.html">Read-only
+</a>
+</li>
+<li>
+<a class="tocitem" href="queries.html">Queries
+</a>
+</li>
+<li>
+<a class="tocitem" href="tokens.html">Tokens
+</a>
+</li>
+<li>
+<a class="tocitem" href="views.html">Views
+</a>
+</li>
+<li>
+<a class="tocitem" href="chains.html">Chains
+</a>
+</li>
+<li>
+<a class="tocitem" href="computations.html">Computations
+</a>
+</li>
+<li>
+<a class="tocitem" href="copies.html">Copies
+</a>
+</li>
+<li>
+<a class="tocitem" href="concat.html">Concat
+</a>
+</li>
+<li>
+<a class="tocitem" href="adapters.html">Adapters
+</a>
+</li>
+<li>
+<a class="tocitem" href="contracts.html">Contracts
+</a>
+</li>
+<li>
+<a class="tocitem" href="formats.html">Formats
+</a>
+</li>
+<li>
+<a class="tocitem" href="keys.html">Keys
+</a>
+</li>
+<li>
+<a class="tocitem" href="memory_format.html">Memory Format
+</a>
+</li>
+<li>
+<a class="tocitem" href="h5df_format.html">H5DF Format
+</a>
+</li>
+<li>
+<a class="tocitem" href="files_format.html">Files Format
+</a>
+</li>
+<li>
+<a class="tocitem" href="anndata_format.html">AnnData Format
+</a>
+</li>
+<li class="is-active">
+<a class="tocitem" href="reconstruction.html">Reconstruction
+</a>
+<ul class="internal">
+<li>
+<a class="tocitem" href="#Index">
+<span>Index
+</span>
+</a>
+</li>
+</ul>
+</li>
+<li>
+<a class="tocitem" href="registry.html">Operations registry
+</a>
+</li>
+<li>
+<a class="tocitem" href="operations.html">Query operations
+</a>
+</li>
+<li>
+<a class="tocitem" href="storage_types.html">Storage types
+</a>
+</li>
+<li>
+<a class="tocitem" href="matrix_layouts.html">Matrix layouts
+</a>
+</li>
+<li>
+<a class="tocitem" href="groups.html">Groups
+</a>
+</li>
+<li>
+<a class="tocitem" href="messages.html">Messages
+</a>
+</li>
+<li>
+<a class="tocitem" href="generic_logging.html">Generic Logging
+</a>
+</li>
+<li>
+<a class="tocitem" href="generic_locks.html">Generic Locks
+</a>
+</li>
+<li>
+<a class="tocitem" href="generic_types.html">Generic Types
+</a>
+</li>
+<li>
+<a class="tocitem" href="generic_functions.html">Generic Functions
+</a>
+</li>
+<li>
+<a class="tocitem" href="example_data.html">Example data
+</a>
+</li>
+</ul>
+<div class="docs-version-selector field has-addons">
+<div class="control">
+<span class="docs-label button is-static is-size-7">Version
+</span>
+</div>
+<div class="docs-selector control is-expanded">
+<div class="select is-fullwidth is-size-7">
+<select id="documenter-version-selector">
+</select>
+</div>
+</div>
+</div>
+</nav>
+<div class="docs-main">
+<header class="docs-navbar">
+<a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#">
+</a>
+<nav class="breadcrumb">
+<ul class="is-hidden-mobile">
+<li class="is-active">
+<a href="reconstruction.html">Reconstruction
+</a>
+</li>
+</ul>
+<ul class="is-hidden-tablet">
+<li class="is-active">
+<a href="reconstruction.html">Reconstruction
+</a>
+</li>
+</ul>
+</nav>
+<div class="docs-right">
+<a class="docs-navbar-link" href="https://github.com/tanaylab/DataAxesFormats.jl/blob/main{path}?plain=1#L{line}" title="View the repository on GitHub">
+<span class="docs-icon fa-brands">
+</span>
+<span class="docs-label is-hidden-touch">GitHub
+</span>
+</a>
+<a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings">
+</a>
+<a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings">
+</a>
+</div>
+</header>
+<article class="content" id="documenter-page">
+<h1 id="Reconstruction">
+<a class="docs-heading-anchor" href="#Reconstruction">Reconstruction
+</a>
+<a id="Reconstruction-1">
+</a>
+<a class="docs-heading-anchor-permalink" href="#Reconstruction" title="Permalink">
+</a>
+</h1>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Reconstruction" href="#DataAxesFormats.Reconstruction">
+<code>DataAxesFormats.Reconstruction
+</code>
+</a> — 
+<span class="docstring-category">Module
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<p>Reconstruct implicit axes. Due to 
+<code>AnnData
+</code> two-axes limitations, other axes are often represented by storing their expanded data (e.g., a type for each cell, and a color for each cell, where the color is actually per type). When converting such data to 
+<code>Daf
+</code>, it is useful to reconstruct such axes (e.g., create a type axis, assign a color for each type, and delete the per-cell color property).
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Reconstruction.reconstruct_axis!" href="#DataAxesFormats.Reconstruction.reconstruct_axis!">
+<code>DataAxesFormats.Reconstruction.reconstruct_axis!
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">reconstruct_axis!(
+    daf::DafWriter;
+    existing_axis::AbstractString,
+    implicit_axis::AbstractString,
+    [rename_axis::Maybe{AbstractString} = nothing,
+    empty_implicit::Maybe{StorageScalar} = nothing,
+    implicit_properties::Maybe{AbstractSet{&lt;:AbstractString}} = nothing,
+    properties_defaults::Maybe{AbstractDict} = nothing]
+)::AbstractDict{&lt;:AbstractString, Maybe{StorageScalar}}
+</code>
+</pre>
+<p>Given an 
+<code>existing_axis
+</code> in 
+<code>daf
+</code>, which has a property 
+<code>implicit_axis
+</code>, create a new axis with the same name as the property (or, if specified, call it 
+<code>rename_axis
+</code>). If 
+<code>empty_implicit
+</code> is specified, this value of the property is replaced by the empty string (indicate there is no value associated with the 
+<code>existing_axis
+</code> entry). For each of the 
+<code>implicit_properties
+</code>, we collect the mapping between the 
+<code>implicit_axis
+</code> and the property values, and store it as a property of the newly created axis.
+</p>
+<p>If the 
+<code>implicit_axis
+</code> already exists, we verify that all the values provided for it by the 
+<code>existing_axis
+</code> do, in fact, exist as names of entries in the 
+<code>implicit_axis
+</code>. This allows manually creating the 
+<code>implicit_axis
+</code> with additional entries that are not currently in use.
+</p>
+<p>If 
+<code>implicit_properties
+</code> are explicitly specified, then we require the mapping from 
+<code>implicit_axis
+</code> to be consistent. Otherwise, we look at all the properties of the 
+<code>existing_axis
+</code>, and check for each one whether the mapping is consistent; if it is, we migrate the property to the new axis. For example, when importing 
+<code>AnnData
+</code> containing per-cell data, it isn&#39;t always clear which property is actually per-batch (e.g., cell age) and which is actually per cell (e.g., doublet score). Not specifying the 
+<code>implicit_properties
+</code> allows the function to figure it out on its own.
+</p>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>For each converted property, the value associated with 
+<code>existing_axis
+</code> entries which have no 
+<code>implicit_axis
+</code> value (that is, have an empty string or 
+<code>empty_implicit
+</code> value) is lost. For example, if each cell type has a color, but some cells do not have a type, then the color of &quot;cells with no type&quot; is lost. We still require this value to be consistent, and return a mapping between each migrated property name and the value of such entries (if any exist). When reconstructing the original property, specify this value using 
+<a href="queries.html#DataAxesFormats.Queries.IfNot">
+<code>IfNot
+</code>
+</a> (e.g., 
+<code>/ cell : type =&gt; color ?? magenta
+</code>).
+</p>
+</div>
+</div>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Reconstruction.PropertiesDefaults" href="#DataAxesFormats.Reconstruction.PropertiesDefaults">
+<code>DataAxesFormats.Reconstruction.PropertiesDefaults
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<p>Map property names to a default value. We would have liked to specify this as 
+<code>AbstractDict{&lt;:AbstractString, &lt;:StorageScalarBase}
+</code> but Julia in its infinite wisdom considers 
+<code>Dict([&quot;a&quot; =&gt; &quot;b&quot;, &quot;c&quot; =&gt; 1])
+</code> to be a 
+<code>Dict{AbstractString, Any}
+</code>, which would require literals to be annotated with the type.
+</p>
+</div>
+</section>
+</article>
+<h2 id="Index">
+<a class="docs-heading-anchor" href="#Index">Index
+</a>
+<a id="Index-1">
+</a>
+<a class="docs-heading-anchor-permalink" href="#Index" title="Permalink">
+</a>
+</h2>
+<ul>
+<li>
+<a href="reconstruction.html#DataAxesFormats.Reconstruction">
+<code>DataAxesFormats.Reconstruction
+</code>
+</a>
+</li>
+<li>
+<a href="reconstruction.html#DataAxesFormats.Reconstruction.PropertiesDefaults">
+<code>DataAxesFormats.Reconstruction.PropertiesDefaults
+</code>
+</a>
+</li>
+<li>
+<a href="reconstruction.html#DataAxesFormats.Reconstruction.reconstruct_axis!">
+<code>DataAxesFormats.Reconstruction.reconstruct_axis!
+</code>
+</a>
+</li>
+</ul>
+</article>
+<nav class="docs-footer">
+<a class="docs-footer-prevpage" href="anndata_format.html">« AnnData Format
+</a>
+<a class="docs-footer-nextpage" href="registry.html">Operations registry »
+</a>
+<div class="flexbox-break">
+</div>
+<p class="footer-message">Powered by 
+<a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl
+</a> and the 
+<a href="https://julialang.org/">Julia Programming Language
+</a>.
+</p>
+</nav>
+</div>
+<div class="modal" id="documenter-settings">
+<div class="modal-background">
+</div>
+<div class="modal-card">
+<header class="modal-card-head">
+<p class="modal-card-title">Settings
+</p>
+<button class="delete">
+</button>
+</header>
+<section class="modal-card-body">
+<p>
+<label class="label">Theme
+</label>
+<div class="select">
+<select id="documenter-themepicker">
+<option value="auto">Automatic (OS)
+</option>
+<option value="documenter-light">documenter-light
+</option>
+<option value="documenter-dark">documenter-dark
+</option>
+<option value="catppuccin-latte">catppuccin-latte
+</option>
+<option value="catppuccin-frappe">catppuccin-frappe
+</option>
+<option value="catppuccin-macchiato">catppuccin-macchiato
+</option>
+<option value="catppuccin-mocha">catppuccin-mocha
+</option>
+</select>
+</div>
+</p>
+<hr/>
+<p>This document was generated with 
+<a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl
+</a> version 1.7.0. Using Julia version 1.11.0.
+</p>
+</section>
+<footer class="modal-card-foot">
+</footer>
+</div>
+</div>
+</div>
+</body>
+</html>

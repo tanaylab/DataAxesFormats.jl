@@ -68,7 +68,7 @@ function read_only(daf::DafReader; name::Maybe{AbstractString} = nothing)::DafRe
     if name === nothing
         name = daf.name * ".read_only"
     end
-    name = unique_name(name)
+    name = unique_name(name)  # NOJET
     wrapper = DafReadOnlyWrapper(name, daf.internal, daf)
     @debug "Daf: $(depict(wrapper)) base: $(daf)"
     return wrapper

@@ -535,7 +535,7 @@ function expand_input_tensors(data::Dict{DataKey, Tracker}, daf::DafReader)::Not
         for entry in entries
             data[(rows_axis, columns_axis, "$(entry)_$(matrix_name)")] = tracker
         end
-        delete!(data, tensor_key)
+        delete!(data, tensor_key)  # NOJET
     end
 end
 

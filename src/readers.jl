@@ -844,20 +844,20 @@ function description(daf::DafReader, indent::AbstractString, lines::Vector{Strin
 
     Formats.format_description_header(daf, indent, lines, deep)
 
-    scalars_description(daf, indent, lines)
+    scalars_description(daf, indent, lines) # NOJET
 
     axes = collect(axes_set(daf))
     sort!(axes)
     if !isempty(axes)
-        axes_description(daf, axes, indent, lines)
-        vectors_description(daf, axes, indent, lines)
-        matrices_description(daf, axes, indent, lines)
+        axes_description(daf, axes, indent, lines) # NOJET
+        vectors_description(daf, axes, indent, lines) # NOJET
+        matrices_description(daf, axes, indent, lines) # NOJET
         if cache
-            cache_description(daf, indent, lines)
+            cache_description(daf, indent, lines)  # NOJET
         end
     end
 
-    Formats.format_description_footer(daf, indent, lines, cache, deep)
+    Formats.format_description_footer(daf, indent, lines, cache, deep)  # NOJET
     return nothing
 end
 

@@ -455,12 +455,12 @@ function Formats.format_set_vector!(
         vector_dataset =
             create_dataset(axis_vectors_group, name, typeof(vector), (Formats.format_axis_length(h5df, axis),))
 
-        vector_dataset[:] = vector
+        vector_dataset[:] = vector  # NOJET
         close(vector_dataset)
 
     elseif vector isa SparseVector
         vector_group = create_group(axis_vectors_group, name)
-        vector_group["nzind"] = vector.nzind
+        vector_group["nzind"] = vector.nzind  # NOJET
         vector_group["nzval"] = vector.nzval
         close(vector_group)
 
@@ -635,7 +635,7 @@ function Formats.format_set_matrix!(
         close(matrix_group)
 
     else
-        columns_axis_group[name] = matrix
+        columns_axis_group[name] = matrix  # NOJET
     end
 
     return nothing

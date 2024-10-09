@@ -1,17 +1,11 @@
 """
-Import/export `Daf` data from/to [AnnData](https://pypi.org/project/anndata/).
+Import/export `Daf` data from/to [AnnData](https://pypi.org/project/anndata/). We use the `AnnData` Julia implementation
+from [Muon.jl](https://github.com/scverse/Muon.jl).
 
 Due to the different data models, not all the content of `AnnData` can be represented as `Daf`, and vice-versa. However,
 "most" of the data can be automatically converted from one form to the other. In both directions, conversion is
 zero-copy; that is, we merely create a different view for the same vectors and matrices. We also use memory-mapping
 whenever possible for increased performance.
-
-!!! note
-
-    We use the `AnnData` Julia implementation from [Muon.jl](https://docs.juliahub.com/Muon/QfqCh/0.1.1/). The last
-    published released for this package is from 2021, and lacks features added over the years, which we use. Therefore,
-    currently `Daf` uses the head revision of Muon from [github](https://github.com/scverse/Muon.jl), with all that
-    implies. We'll change this to a proper registry dependency if/when a new Muon version is released.
 
 The following `Daf` data can't be naively stored in `AnnData`:
 

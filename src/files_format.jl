@@ -538,7 +538,7 @@ function Formats.format_set_matrix!(
 
     elseif matrix isa StorageReal
         write_array_json("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", "dense", typeof(matrix))
-        fill_file("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).data", matrix, nrows * ncols)
+        fill_file("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).data", matrix, nrows * ncols)  # NOJET
 
     else
         write_array_json("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", "dense", eltype(matrix))
@@ -694,7 +694,7 @@ function Formats.format_get_matrix(
         rowval_vector = mmap_file_data(rowval_path, Vector{indtype}, nnz, files.files_mode)
         nzval_vector = mmap_file_data(nzval_path, Vector{eltype}, nnz, files.files_mode)
 
-        matrix = SparseMatrixCSC(nrows, ncols, colptr_vector, rowval_vector, nzval_vector)
+        matrix = SparseMatrixCSC(nrows, ncols, colptr_vector, rowval_vector, nzval_vector)  # NOJET
     end
 
     return matrix

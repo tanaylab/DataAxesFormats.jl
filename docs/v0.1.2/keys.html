@@ -1,0 +1,551 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Keys · DataAxesFormats.jl v0.1.2
+</title>
+<meta name="title" content="Keys · DataAxesFormats.jl v0.1.2"/>
+<meta property="og:title" content="Keys · DataAxesFormats.jl v0.1.2"/>
+<meta property="twitter:title" content="Keys · DataAxesFormats.jl v0.1.2"/>
+<meta name="description" content="Documentation for DataAxesFormats.jl v0.1.2."/>
+<meta property="og:description" content="Documentation for DataAxesFormats.jl v0.1.2."/>
+<meta property="twitter:description" content="Documentation for DataAxesFormats.jl v0.1.2."/>
+<script data-outdated-warner src="assets/warner.js">
+</script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/>
+<script>documenterBaseURL="."
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="assets/documenter.js">
+</script>
+<script src="search_index.js">
+</script>
+<script src="siteinfo.js">
+</script>
+<script src="../versions.js">
+</script>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/>
+<script src="assets/themeswap.js">
+</script>
+</head>
+<body>
+<div id="documenter">
+<nav class="docs-sidebar">
+<a class="docs-logo" href="index.html">
+<img src="assets/logo.svg" alt="DataAxesFormats.jl v0.1.2 logo"/>
+</a>
+<div class="docs-package-name">
+<span class="docs-autofit">
+<a href="index.html">DataAxesFormats.jl v0.1.2
+</a>
+</span>
+</div>
+<button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)
+</button>
+<ul class="docs-menu">
+<li>
+<a class="tocitem" href="index.html">Daf
+</a>
+</li>
+<li>
+<a class="tocitem" href="readers.html">Readers
+</a>
+</li>
+<li>
+<a class="tocitem" href="writers.html">Writers
+</a>
+</li>
+<li>
+<a class="tocitem" href="read_only.html">Read-only
+</a>
+</li>
+<li>
+<a class="tocitem" href="queries.html">Queries
+</a>
+</li>
+<li>
+<a class="tocitem" href="tokens.html">Tokens
+</a>
+</li>
+<li>
+<a class="tocitem" href="views.html">Views
+</a>
+</li>
+<li>
+<a class="tocitem" href="chains.html">Chains
+</a>
+</li>
+<li>
+<a class="tocitem" href="computations.html">Computations
+</a>
+</li>
+<li>
+<a class="tocitem" href="copies.html">Copies
+</a>
+</li>
+<li>
+<a class="tocitem" href="concat.html">Concat
+</a>
+</li>
+<li>
+<a class="tocitem" href="adapters.html">Adapters
+</a>
+</li>
+<li>
+<a class="tocitem" href="contracts.html">Contracts
+</a>
+</li>
+<li>
+<a class="tocitem" href="formats.html">Formats
+</a>
+</li>
+<li class="is-active">
+<a class="tocitem" href="keys.html">Keys
+</a>
+<ul class="internal">
+<li>
+<a class="tocitem" href="#Index">
+<span>Index
+</span>
+</a>
+</li>
+</ul>
+</li>
+<li>
+<a class="tocitem" href="memory_format.html">Memory Format
+</a>
+</li>
+<li>
+<a class="tocitem" href="h5df_format.html">H5DF Format
+</a>
+</li>
+<li>
+<a class="tocitem" href="files_format.html">Files Format
+</a>
+</li>
+<li>
+<a class="tocitem" href="anndata_format.html">AnnData Format
+</a>
+</li>
+<li>
+<a class="tocitem" href="reconstruction.html">Reconstruction
+</a>
+</li>
+<li>
+<a class="tocitem" href="registry.html">Operations registry
+</a>
+</li>
+<li>
+<a class="tocitem" href="operations.html">Query operations
+</a>
+</li>
+<li>
+<a class="tocitem" href="storage_types.html">Storage types
+</a>
+</li>
+<li>
+<a class="tocitem" href="matrix_layouts.html">Matrix layouts
+</a>
+</li>
+<li>
+<a class="tocitem" href="groups.html">Groups
+</a>
+</li>
+<li>
+<a class="tocitem" href="messages.html">Messages
+</a>
+</li>
+<li>
+<a class="tocitem" href="generic_logging.html">Generic Logging
+</a>
+</li>
+<li>
+<a class="tocitem" href="generic_locks.html">Generic Locks
+</a>
+</li>
+<li>
+<a class="tocitem" href="generic_types.html">Generic Types
+</a>
+</li>
+<li>
+<a class="tocitem" href="generic_functions.html">Generic Functions
+</a>
+</li>
+<li>
+<a class="tocitem" href="example_data.html">Example data
+</a>
+</li>
+</ul>
+<div class="docs-version-selector field has-addons">
+<div class="control">
+<span class="docs-label button is-static is-size-7">Version
+</span>
+</div>
+<div class="docs-selector control is-expanded">
+<div class="select is-fullwidth is-size-7">
+<select id="documenter-version-selector">
+</select>
+</div>
+</div>
+</div>
+</nav>
+<div class="docs-main">
+<header class="docs-navbar">
+<a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#">
+</a>
+<nav class="breadcrumb">
+<ul class="is-hidden-mobile">
+<li class="is-active">
+<a href="keys.html">Keys
+</a>
+</li>
+</ul>
+<ul class="is-hidden-tablet">
+<li class="is-active">
+<a href="keys.html">Keys
+</a>
+</li>
+</ul>
+</nav>
+<div class="docs-right">
+<a class="docs-navbar-link" href="https://github.com/tanaylab/DataAxesFormats.jl/blob/main{path}?plain=1#L{line}" title="View the repository on GitHub">
+<span class="docs-icon fa-brands">
+</span>
+<span class="docs-label is-hidden-touch">GitHub
+</span>
+</a>
+<a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings">
+</a>
+<a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings">
+</a>
+</div>
+</header>
+<article class="content" id="documenter-page">
+<h1 id="Keys">
+<a class="docs-heading-anchor" href="#Keys">Keys
+</a>
+<a id="Keys-1">
+</a>
+<a class="docs-heading-anchor-permalink" href="#Keys" title="Permalink">
+</a>
+</h1>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Keys" href="#DataAxesFormats.Keys">
+<code>DataAxesFormats.Keys
+</code>
+</a> — 
+<span class="docstring-category">Module
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<p>Identify data inside a 
+<code>Daf
+</code> data set using a key. These types are used in various high-level API parameters.
+</p>
+<p>A separate key space is used for axes and data; thus, both axes and scalars use a simple string key.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Keys.AxisKey" href="#DataAxesFormats.Keys.AxisKey">
+<code>DataAxesFormats.Keys.AxisKey
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<p>A key specifying some axis in 
+<code>Daf
+</code> by its name.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Keys.ScalarKey" href="#DataAxesFormats.Keys.ScalarKey">
+<code>DataAxesFormats.Keys.ScalarKey
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<p>A key specifying some scalar in 
+<code>Daf
+</code> by its name.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Keys.VectorKey" href="#DataAxesFormats.Keys.VectorKey">
+<code>DataAxesFormats.Keys.VectorKey
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<p>A key specifying some vector in 
+<code>Daf
+</code> by its axis and name.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Keys.MatrixKey" href="#DataAxesFormats.Keys.MatrixKey">
+<code>DataAxesFormats.Keys.MatrixKey
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<p>A key specifying some matrix in 
+<code>Daf
+</code> by its axes and name. The axes order does not matter.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Keys.PropertyKey" href="#DataAxesFormats.Keys.PropertyKey">
+<code>DataAxesFormats.Keys.PropertyKey
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<p>A key specifying some atomic data property in 
+<code>Daf
+</code>. That is, these keys refer to data we can directly get or set using the APIs.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Keys.TensorKey" href="#DataAxesFormats.Keys.TensorKey">
+<code>DataAxesFormats.Keys.TensorKey
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<p>A key specifying some tensor in 
+<code>Daf
+</code> by its axes and name. 
+<code>Daf
+</code> is restricted to storing 0D, 1D and 2D data, for good reasons; higher dimensional data raises sticky issues about layout and there is no support for any sparse representation (which is even more important for this kind of data). However, sometimes it is necessary to store 3D data in 
+<code>Daf
+</code>. In this case, we pick the 1st axis as the main one, and store a series of 
+<code>&lt;main-axis-entry&gt;_&lt;property_name&gt;
+</code> matrices using the other two axes (whose order doesn&#39;t matter). Access is only to each specific matrix, not to the whole 3D tensor. However, it is useful to be able to specify the whole set of matrices for copying, views, cobtracts, etc.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Keys.DataKey" href="#DataAxesFormats.Keys.DataKey">
+<code>DataAxesFormats.Keys.DataKey
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<p>A key specifying some data property in 
+<code>Daf
+</code>. This includes 
+<a href="keys.html#DataAxesFormats.Keys.TensorKey">
+<code>TensorKey
+</code>
+</a> which actually refers to a series of matrix properties instead of a single data property.
+</p>
+</div>
+</section>
+</article>
+<h2 id="Index">
+<a class="docs-heading-anchor" href="#Index">Index
+</a>
+<a id="Index-1">
+</a>
+<a class="docs-heading-anchor-permalink" href="#Index" title="Permalink">
+</a>
+</h2>
+<ul>
+<li>
+<a href="keys.html#DataAxesFormats.Keys">
+<code>DataAxesFormats.Keys
+</code>
+</a>
+</li>
+<li>
+<a href="keys.html#DataAxesFormats.Keys.AxisKey">
+<code>DataAxesFormats.Keys.AxisKey
+</code>
+</a>
+</li>
+<li>
+<a href="keys.html#DataAxesFormats.Keys.DataKey">
+<code>DataAxesFormats.Keys.DataKey
+</code>
+</a>
+</li>
+<li>
+<a href="keys.html#DataAxesFormats.Keys.MatrixKey">
+<code>DataAxesFormats.Keys.MatrixKey
+</code>
+</a>
+</li>
+<li>
+<a href="keys.html#DataAxesFormats.Keys.PropertyKey">
+<code>DataAxesFormats.Keys.PropertyKey
+</code>
+</a>
+</li>
+<li>
+<a href="keys.html#DataAxesFormats.Keys.ScalarKey">
+<code>DataAxesFormats.Keys.ScalarKey
+</code>
+</a>
+</li>
+<li>
+<a href="keys.html#DataAxesFormats.Keys.TensorKey">
+<code>DataAxesFormats.Keys.TensorKey
+</code>
+</a>
+</li>
+<li>
+<a href="keys.html#DataAxesFormats.Keys.VectorKey">
+<code>DataAxesFormats.Keys.VectorKey
+</code>
+</a>
+</li>
+</ul>
+</article>
+<nav class="docs-footer">
+<a class="docs-footer-prevpage" href="formats.html">« Formats
+</a>
+<a class="docs-footer-nextpage" href="memory_format.html">Memory Format »
+</a>
+<div class="flexbox-break">
+</div>
+<p class="footer-message">Powered by 
+<a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl
+</a> and the 
+<a href="https://julialang.org/">Julia Programming Language
+</a>.
+</p>
+</nav>
+</div>
+<div class="modal" id="documenter-settings">
+<div class="modal-background">
+</div>
+<div class="modal-card">
+<header class="modal-card-head">
+<p class="modal-card-title">Settings
+</p>
+<button class="delete">
+</button>
+</header>
+<section class="modal-card-body">
+<p>
+<label class="label">Theme
+</label>
+<div class="select">
+<select id="documenter-themepicker">
+<option value="auto">Automatic (OS)
+</option>
+<option value="documenter-light">documenter-light
+</option>
+<option value="documenter-dark">documenter-dark
+</option>
+<option value="catppuccin-latte">catppuccin-latte
+</option>
+<option value="catppuccin-frappe">catppuccin-frappe
+</option>
+<option value="catppuccin-macchiato">catppuccin-macchiato
+</option>
+<option value="catppuccin-mocha">catppuccin-mocha
+</option>
+</select>
+</div>
+</p>
+<hr/>
+<p>This document was generated with 
+<a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl
+</a> version 1.7.0. Using Julia version 1.11.0.
+</p>
+</section>
+<footer class="modal-card-foot">
+</footer>
+</div>
+</div>
+</div>
+</body>
+</html>
