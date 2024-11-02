@@ -39,7 +39,7 @@ DataAxesFormats.Formats.format_get_scalar
 ```@docs
 DataAxesFormats.Formats.format_has_axis
 DataAxesFormats.Formats.format_axes_set
-DataAxesFormats.Formats.format_axis_array
+DataAxesFormats.Formats.format_axis_vector
 DataAxesFormats.Formats.format_axis_length
 ```
 

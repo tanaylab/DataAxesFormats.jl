@@ -172,7 +172,7 @@ function scalar_documentation(contract::Contract, buffer::IOBuffer; is_output::B
                 (is_output && expectation in (GuaranteedOutput, OptionalOutput)) ||
                 (!is_output && expectation in (RequiredInput, OptionalInput))
             )
-                has_any = direction_header(buffer; is_output = is_output, has_any = has_any)
+                has_any = direction_header(buffer; is_output, has_any = has_any)
                 if is_first
                     is_first = false
                     println(buffer)
@@ -193,7 +193,7 @@ function axes_documentation(contract::Contract, buffer::IOBuffer; is_output::Boo
         for (name, (expectation, description)) in contract.axes
             if (is_output && expectation in (GuaranteedOutput, OptionalOutput)) ||
                (!is_output && expectation in (RequiredInput, OptionalInput))
-                has_any = direction_header(buffer; is_output = is_output, has_any = has_any)
+                has_any = direction_header(buffer; is_output, has_any = has_any)
                 if is_first
                     is_first = false
                     println(buffer)
@@ -216,7 +216,7 @@ function vectors_documentation(contract::Contract, buffer::IOBuffer; is_output::
                 axis_name, name = key
                 if (is_output && expectation in (GuaranteedOutput, OptionalOutput)) ||
                    (!is_output && expectation in (RequiredInput, OptionalInput))
-                    has_any = direction_header(buffer; is_output = is_output, has_any = has_any)
+                    has_any = direction_header(buffer; is_output, has_any = has_any)
                     if is_first
                         is_first = false
                         println(buffer)
@@ -243,7 +243,7 @@ function matrices_documentation(contract::Contract, buffer::IOBuffer; is_output:
                 rows_axis_name, columns_axis_name, name = key
                 if (is_output && expectation in (GuaranteedOutput, OptionalOutput)) ||
                    (!is_output && expectation in (RequiredInput, OptionalInput))
-                    has_any = direction_header(buffer; is_output = is_output, has_any = has_any)
+                    has_any = direction_header(buffer; is_output, has_any = has_any)
                     if is_first
                         is_first = false
                         println(buffer)
@@ -270,7 +270,7 @@ function tensors_documentation(contract::Contract, buffer::IOBuffer; is_output::
                 main_axis_name, rows_axis_name, columns_axis_name, name = key
                 if (is_output && expectation in (GuaranteedOutput, OptionalOutput)) ||
                    (!is_output && expectation in (RequiredInput, OptionalInput))
-                    has_any = direction_header(buffer; is_output = is_output, has_any = has_any)
+                    has_any = direction_header(buffer; is_output, has_any = has_any)
                     if is_first
                         is_first = false
                         println(buffer)
@@ -531,7 +531,7 @@ function expand_input_tensors(data::Dict{DataKey, Tracker}, daf::DafReader)::Not
     for (tensor_key, tracker) in tensors
         (main_axis, rows_axis, columns_axis, matrix_name) = tensor_key
         tracker.main_axis = main_axis
-        entries = axis_array(daf, main_axis)
+        entries = axis_vector(daf, main_axis)
         for entry in entries
             data[(rows_axis, columns_axis, "$(entry)_$(matrix_name)")] = tracker
         end
@@ -562,16 +562,16 @@ end
 
 function verify_contract(contract_daf::ContractDaf; is_output::Bool)::Nothing
     for (axis, tracker) in contract_daf.axes
-        verify_axis_data(contract_daf, axis, tracker; is_output = is_output)
+        verify_axis_data(contract_daf, axis, tracker; is_output)
     end
 
     for (data_key, tracker) in contract_daf.data
         if data_key isa ScalarKey
-            verify_scalar_data(contract_daf, data_key, tracker; is_output = is_output)  # NOJET
+            verify_scalar_data(contract_daf, data_key, tracker; is_output)  # NOJET
         elseif data_key isa VectorKey
-            verify_vector_data(contract_daf, data_key..., tracker; is_output = is_output)
+            verify_vector_data(contract_daf, data_key..., tracker; is_output)
         elseif data_key isa MatrixKey
-            verify_matrix_data(contract_daf, data_key..., tracker; is_output = is_output)
+            verify_matrix_data(contract_daf, data_key..., tracker; is_output)
         else
             @assert data_key isa TensorKey
         end
@@ -598,7 +598,7 @@ end
 
 function verify_axis_data(contract_daf::ContractDaf, axis::AbstractString, tracker::Tracker; is_output::Bool)::Nothing
     if has_axis(contract_daf.daf, axis)
-        if is_forbidden(tracker.expectation; is_output = is_output, overwrite = contract_daf.overwrite)
+        if is_forbidden(tracker.expectation; is_output, overwrite = contract_daf.overwrite)
             error(dedent("""
                 pre-existing $(tracker.expectation) axis: $(axis)
                 for the computation: $(contract_daf.computation)
@@ -606,7 +606,7 @@ function verify_axis_data(contract_daf::ContractDaf, axis::AbstractString, track
             """))
         end
     else
-        if is_mandatory(tracker.expectation; is_output = is_output)
+        if is_mandatory(tracker.expectation; is_output)
             error(dedent("""
                 missing $(direction_name(is_output)) axis: $(axis)
                 for the computation: $(contract_daf.computation)
@@ -629,7 +629,7 @@ end
 function verify_scalar_data(contract_daf::ContractDaf, name::AbstractString, tracker::Tracker; is_output::Bool)::Nothing
     value = get_scalar(contract_daf.daf, name; default = nothing)
     if value === nothing
-        if is_mandatory(tracker.expectation; is_output = is_output) && value === nothing
+        if is_mandatory(tracker.expectation; is_output) && value === nothing
             error(dedent("""
                 missing $(direction_name(is_output)) scalar: $(name)
                 with type: $(tracker.type)
@@ -638,7 +638,7 @@ function verify_scalar_data(contract_daf::ContractDaf, name::AbstractString, tra
             """))
         end
     else
-        if is_forbidden(tracker.expectation; is_output = is_output, overwrite = contract_daf.overwrite)
+        if is_forbidden(tracker.expectation; is_output, overwrite = contract_daf.overwrite)
             error(dedent("""
                 pre-existing $(tracker.expectation) scalar: $(name)
                 for the computation: $(contract_daf.computation)
@@ -682,7 +682,7 @@ function verify_vector_data(
         value = nothing  # untested
     end
     if value === nothing
-        if is_mandatory(tracker.expectation; is_output = is_output)
+        if is_mandatory(tracker.expectation; is_output)
             error(dedent("""
                 missing $(direction_name(is_output)) vector: $(name)
                 of the axis: $(axis)
@@ -692,7 +692,7 @@ function verify_vector_data(
             """))
         end
     else
-        if is_forbidden(tracker.expectation; is_output = is_output, overwrite = contract_daf.overwrite)
+        if is_forbidden(tracker.expectation; is_output, overwrite = contract_daf.overwrite)
             error(dedent("""
                 pre-existing $(tracker.expectation) vector: $(name)
                 of the axis: $(axis)
@@ -748,7 +748,7 @@ function verify_matrix_data(
         value = nothing
     end
     if value === nothing
-        if is_mandatory(tracker.expectation; is_output = is_output) && value === nothing
+        if is_mandatory(tracker.expectation; is_output) && value === nothing
             error(dedent("""
                 missing $(direction_name(is_output)) matrix: $(name)
                 of the rows axis: $(rows_axis)
@@ -759,7 +759,7 @@ function verify_matrix_data(
             """))
         end
     else
-        if is_forbidden(tracker.expectation; is_output = is_output, overwrite = contract_daf.overwrite)
+        if is_forbidden(tracker.expectation; is_output, overwrite = contract_daf.overwrite)
             error(dedent("""
                 pre-existing $(tracker.expectation) matrix: $(name)
                 of the rows axis: $(rows_axis)
@@ -812,9 +812,9 @@ function Messages.depict(contract_daf::ContractDaf; name::Maybe{AbstractString} 
     end
 
     if contract_daf.daf isa ContractDaf
-        return depict(contract_daf.daf; name = name)  # untested
+        return depict(contract_daf.daf; name)  # untested
     else
-        return "Contract $(depict(contract_daf.daf; name = name))"
+        return "Contract $(depict(contract_daf.daf; name))"
     end
 end
 
@@ -974,7 +974,7 @@ end
 
 function Formats.format_delete_scalar!(contract_daf::ContractDaf, name::AbstractString; for_set::Bool)::Nothing
     access_scalar(contract_daf, name; is_modify = true)
-    Formats.format_delete_scalar!(contract_daf.daf, name; for_set = for_set)
+    Formats.format_delete_scalar!(contract_daf.daf, name; for_set)
     return nothing
 end
 
@@ -999,7 +999,7 @@ function Formats.format_has_axis(contract_daf::ContractDaf, axis::AbstractString
     if for_change
         access_axis(contract_daf, axis; is_modify = true)
     end
-    return Formats.format_has_axis(contract_daf.daf, axis; for_change = for_change)
+    return Formats.format_has_axis(contract_daf.daf, axis; for_change)
 end
 
 function Formats.format_add_axis!(
@@ -1046,13 +1046,13 @@ function Formats.format_axes_set(contract_daf::ContractDaf)::AbstractSet{<:Abstr
     return Formats.format_axes_set(contract_daf.daf)
 end
 
-function Readers.axis_array(
+function Readers.axis_vector(
     contract_daf::ContractDaf,
     axis::AbstractString;
     default::Union{Nothing, UndefInitializer} = undef,
 )::Maybe{AbstractVector{<:AbstractString}}
     access_axis(contract_daf, axis; is_modify = false)
-    return invoke(Readers.axis_array, Tuple{DafReader, AbstractString}, contract_daf, axis; default = default)  # NOLINT
+    return invoke(Readers.axis_vector, Tuple{DafReader, AbstractString}, contract_daf, axis; default)
 end
 
 function Readers.axis_dict(contract_daf::ContractDaf, axis::AbstractString)::AbstractDict{<:AbstractString, <:Integer}
@@ -1075,8 +1075,8 @@ function Readers.axis_indices(
     )
 end
 
-function Formats.format_axis_array(contract_daf::ContractDaf, axis::AbstractString)::AbstractVector{<:AbstractString}
-    return Formats.format_axis_array(contract_daf.daf, axis)
+function Formats.format_axis_vector(contract_daf::ContractDaf, axis::AbstractString)::AbstractVector{<:AbstractString}
+    return Formats.format_axis_vector(contract_daf.daf, axis)
 end
 
 function Readers.axis_length(contract_daf::ContractDaf, axis::AbstractString)::Int64
@@ -1141,7 +1141,7 @@ function Formats.format_delete_vector!(
     for_set::Bool,
 )::Nothing
     access_vector(contract_daf, axis, name; is_modify = true)
-    return Formats.format_delete_vector!(contract_daf.daf, axis, name; for_set = for_set)
+    return Formats.format_delete_vector!(contract_daf.daf, axis, name; for_set)
 end
 
 function Formats.format_vectors_set(contract_daf::ContractDaf, axis::AbstractString)::AbstractSet{<:AbstractString}
@@ -1155,13 +1155,13 @@ function Readers.get_vector(
     default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
 )::Maybe{NamedArray}
     access_vector(contract_daf, axis, name; is_modify = false)
-    return invoke(  # NOLINT
+    return invoke(
         Readers.get_vector,
         Tuple{DafReader, AbstractString, AbstractString},
         contract_daf,
         axis,
         name;
-        default = default,
+        default,
     )
 end
 
@@ -1242,7 +1242,7 @@ function Formats.format_delete_matrix!(
     for_set::Bool,
 )::Nothing
     access_matrix(contract_daf, rows_axis, columns_axis, name; is_modify = true)
-    Formats.format_delete_matrix!(contract_daf.daf, rows_axis, columns_axis, name; for_set = for_set)
+    Formats.format_delete_matrix!(contract_daf.daf, rows_axis, columns_axis, name; for_set)
     return nothing
 end
 
@@ -1263,15 +1263,15 @@ function Readers.get_matrix(
     relayout::Bool = true,
 )::Maybe{NamedArray}
     access_matrix(contract_daf, rows_axis, columns_axis, name; is_modify = false)
-    return invoke(  # NOLINT
+    return invoke(
         Readers.get_matrix,
         Tuple{DafReader, AbstractString, AbstractString, AbstractString},
         contract_daf,
         rows_axis,
         columns_axis,
         name;
-        default = default,
-        relayout = relayout,
+        default,
+        relayout,
     )
 end
 
@@ -1286,7 +1286,7 @@ end
 
 function access_scalar(contract_daf::ContractDaf, name::AbstractString; is_modify::Bool)::Nothing
     if contract_daf.daf isa ContractDaf
-        access_scalar(contract_daf.daf, name; is_modify = is_modify)  # untested
+        access_scalar(contract_daf.daf, name; is_modify)  # untested
     end
     tracker = get(contract_daf.data, name, nothing)
     if tracker === nothing
@@ -1300,7 +1300,7 @@ function access_scalar(contract_daf::ContractDaf, name::AbstractString; is_modif
         """))
     end
 
-    if is_immutable(tracker.expectation; is_modify = is_modify)
+    if is_immutable(tracker.expectation; is_modify)
         error(dedent("""
             modifying $(tracker.expectation) scalar: $(name)
             for the computation: $(contract_daf.computation)
@@ -1314,7 +1314,7 @@ end
 
 function access_axis(contract_daf::ContractDaf, axis::AbstractString; is_modify::Bool)::Nothing
     if contract_daf.daf isa ContractDaf
-        access_axis(contract_daf.daf, axis; is_modify = is_modify)  # untested
+        access_axis(contract_daf.daf, axis; is_modify)  # untested
     end
     tracker = get(contract_daf.axes, axis, nothing)
     if tracker === nothing
@@ -1328,7 +1328,7 @@ function access_axis(contract_daf::ContractDaf, axis::AbstractString; is_modify:
         """))
     end
 
-    if is_immutable(tracker.expectation; is_modify = is_modify)
+    if is_immutable(tracker.expectation; is_modify)
         error(dedent("""
             modifying $(tracker.expectation) axis: $(axis)
             for the computation: $(contract_daf.computation)
@@ -1342,7 +1342,7 @@ end
 
 function access_vector(contract_daf::ContractDaf, axis::AbstractString, name::AbstractString; is_modify::Bool)::Nothing
     if contract_daf.daf isa ContractDaf
-        access_vector(contract_daf.daf, axis, name; is_modify = is_modify)  # untested
+        access_vector(contract_daf.daf, axis, name; is_modify)  # untested
     end
 
     access_axis(contract_daf, axis; is_modify = false)
@@ -1360,7 +1360,7 @@ function access_vector(contract_daf::ContractDaf, axis::AbstractString, name::Ab
         """))
     end
 
-    if is_immutable(tracker.expectation; is_modify = is_modify)
+    if is_immutable(tracker.expectation; is_modify)
         error(dedent("""
             modifying $(tracker.expectation) vector: $(name)
             of the axis: $(axis)
@@ -1381,7 +1381,7 @@ function access_matrix(
     is_modify::Bool,
 )::Nothing
     if contract_daf.daf isa ContractDaf
-        access_matrix(contract_daf.daf, rows_axis, columns_axis, name; is_modify = is_modify)  # untested
+        access_matrix(contract_daf.daf, rows_axis, columns_axis, name; is_modify)  # untested
     end
 
     access_axis(contract_daf, rows_axis; is_modify = false)
@@ -1404,7 +1404,7 @@ function access_matrix(
         end
     end
 
-    if is_immutable(tracker.expectation; is_modify = is_modify)
+    if is_immutable(tracker.expectation; is_modify)
         error(dedent("""
             modifying $(tracker.expectation) matrix: $(name)
             of the rows_axis: $(rows_axis)
@@ -1463,7 +1463,7 @@ function Formats.end_data_write_lock(contract_daf::ContractDaf, what::Any...)::N
 end
 
 function Readers.description(contract_daf::ContractDaf; cache::Bool = false, deep::Bool = false)::String
-    return description(contract_daf.daf; cache = cache, deep = deep)
+    return description(contract_daf.daf; cache, deep)
 end
 
 end # module

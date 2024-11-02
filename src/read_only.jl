@@ -127,7 +127,7 @@ end
 
 function Formats.format_has_axis(read_only_view::DafReadOnlyWrapper, axis::AbstractString; for_change::Bool)::Bool
     @assert Formats.has_data_read_lock(read_only_view)
-    return Formats.format_has_axis(read_only_view.daf, axis; for_change = for_change)
+    return Formats.format_has_axis(read_only_view.daf, axis; for_change)
 end
 
 function Formats.format_axes_set(read_only_view::DafReadOnlyWrapper)::AbstractSet{<:AbstractString}
@@ -135,12 +135,12 @@ function Formats.format_axes_set(read_only_view::DafReadOnlyWrapper)::AbstractSe
     return Formats.format_axes_set(read_only_view.daf)
 end
 
-function Formats.format_axis_array(
+function Formats.format_axis_vector(
     read_only_view::DafReadOnlyWrapper,
     axis::AbstractString,
 )::AbstractVector{<:AbstractString}
     @assert Formats.has_data_read_lock(read_only_view)
-    return Formats.format_axis_array(read_only_view.daf, axis)
+    return Formats.format_axis_vector(read_only_view.daf, axis)
 end
 
 function Formats.format_axis_length(read_only_view::DafReadOnlyWrapper, axis::AbstractString)::Int64
@@ -215,7 +215,7 @@ function Messages.depict(value::DafReadOnlyWrapper; name::Maybe{AbstractString} 
     if name === nothing
         name = value.name
     end
-    return "ReadOnly $(depict(value.daf; name = name))"
+    return "ReadOnly $(depict(value.daf; name))"
 end
 
 end  # module

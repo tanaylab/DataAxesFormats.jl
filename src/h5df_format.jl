@@ -406,7 +406,7 @@ function Formats.format_axes_set(h5df::H5df)::AbstractSet{<:AbstractString}
     return Set(keys(axes_group))
 end
 
-function Formats.format_axis_array(h5df::H5df, axis::AbstractString)::AbstractVector{<:AbstractString}
+function Formats.format_axis_vector(h5df::H5df, axis::AbstractString)::AbstractVector{<:AbstractString}
     @assert Formats.has_data_read_lock(h5df)
 
     axes_group = h5df.root["axes"]

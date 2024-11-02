@@ -29,23 +29,23 @@ nested_test("concat") do
     nested_test("concatenate") do
         nested_test("empty") do
             concatenate!(destination, "cell", sources)
-            @test axis_array(destination, "cell") == ["A", "B", "C", "D", "E"]
-            @test axis_array(destination, "dataset") == ["source.1!", "source.2!"]
+            @test axis_vector(destination, "cell") == ["A", "B", "C", "D", "E"]
+            @test axis_vector(destination, "dataset") == ["source.1!", "source.2!"]
             @test get_vector(destination, "cell", "dataset") ==
                   ["source.1!", "source.1!", "source.2!", "source.2!", "source.2!"]
         end
 
         nested_test("!dataset_axis") do
             concatenate!(destination, "cell", sources; dataset_axis = nothing)
-            @test axis_array(destination, "cell") == ["A", "B", "C", "D", "E"]
+            @test axis_vector(destination, "cell") == ["A", "B", "C", "D", "E"]
             @test !has_axis(destination, "dataset")
             @test !has_vector(destination, "cell", "dataset")
         end
 
         nested_test("!dataset_property") do
             concatenate!(destination, "cell", sources; dataset_property = false)
-            @test axis_array(destination, "cell") == ["A", "B", "C", "D", "E"]
-            @test axis_array(destination, "dataset") == ["source.1!", "source.2!"]
+            @test axis_vector(destination, "cell") == ["A", "B", "C", "D", "E"]
+            @test axis_vector(destination, "dataset") == ["source.1!", "source.2!"]
             @test !has_vector(destination, "cell", "dataset")
         end
 
@@ -115,9 +115,9 @@ nested_test("concat") do
 
         nested_test("true") do
             concatenate!(destination, ["cell", "metacell"], sources; prefix = [false, true])
-            @test axis_array(destination, "cell") == ["A", "B", "C", "D", "E"]
-            @test axis_array(destination, "metacell") == ["source.1!.M1", "source.2!.M1", "source.2!.M2"]
-            @test axis_array(destination, "dataset") == ["source.1!", "source.2!"]
+            @test axis_vector(destination, "cell") == ["A", "B", "C", "D", "E"]
+            @test axis_vector(destination, "metacell") == ["source.1!.M1", "source.2!.M1", "source.2!.M2"]
+            @test axis_vector(destination, "dataset") == ["source.1!", "source.2!"]
             @test get_vector(destination, "cell", "dataset") ==
                   ["source.1!", "source.1!", "source.2!", "source.2!", "source.2!"]
             @test get_vector(destination, "metacell", "dataset") == ["source.1!", "source.2!", "source.2!"]
@@ -128,9 +128,9 @@ nested_test("concat") do
 
         nested_test("names") do
             concatenate!(destination, ["cell", "metacell"], sources; prefix = [false, true], names = ["D1", "D2"])
-            @test axis_array(destination, "cell") == ["A", "B", "C", "D", "E"]
-            @test axis_array(destination, "metacell") == ["D1.M1", "D2.M1", "D2.M2"]
-            @test axis_array(destination, "dataset") == ["D1", "D2"]
+            @test axis_vector(destination, "cell") == ["A", "B", "C", "D", "E"]
+            @test axis_vector(destination, "metacell") == ["D1.M1", "D2.M1", "D2.M2"]
+            @test axis_vector(destination, "dataset") == ["D1", "D2"]
             @test get_vector(destination, "cell", "dataset") == ["D1", "D1", "D2", "D2", "D2"]
             @test get_vector(destination, "metacell", "dataset") == ["D1", "D2", "D2"]
             @test get_vector(destination, "cell", "metacell") == ["D1.M1", "D1.M1", "D2.M1", "D2.M2", "D2.M1"]
@@ -145,9 +145,9 @@ nested_test("concat") do
                 prefix = [false, true],
                 prefixed = [Set(["metacell", "!metacell"]), Set{String}()],
             )
-            @test axis_array(destination, "cell") == ["A", "B", "C", "D", "E"]
-            @test axis_array(destination, "metacell") == ["source.1!.M1", "source.2!.M1", "source.2!.M2"]
-            @test axis_array(destination, "dataset") == ["source.1!", "source.2!"]
+            @test axis_vector(destination, "cell") == ["A", "B", "C", "D", "E"]
+            @test axis_vector(destination, "metacell") == ["source.1!.M1", "source.2!.M1", "source.2!.M2"]
+            @test axis_vector(destination, "dataset") == ["source.1!", "source.2!"]
             @test get_vector(destination, "cell", "dataset") ==
                   ["source.1!", "source.1!", "source.2!", "source.2!", "source.2!"]
             @test get_vector(destination, "metacell", "dataset") == ["source.1!", "source.2!", "source.2!"]

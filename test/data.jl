@@ -239,26 +239,26 @@ function test_missing_axis(daf::DafReader, depth::Int)::Nothing
         """) vectors_set(daf, "gene")
     end
 
-    nested_test("axis_array") do
+    nested_test("axis_vector") do
         nested_test("()") do
             @test_throws dedent("""
                 missing axis: gene
-                for: axis_array
+                for: axis_vector
                 of the daf data: $(daf.name)
-            """) axis_array(daf, "gene")
+            """) axis_vector(daf, "gene")
         end
 
         nested_test("default") do
             nested_test("undef") do
                 @test_throws dedent("""
                     missing axis: gene
-                    for: axis_array
+                    for: axis_vector
                     of the daf data: $(daf.name)
-                """) axis_array(daf, "gene"; default = undef)
+                """) axis_vector(daf, "gene"; default = undef)
             end
 
             nested_test("nothing") do
-                @test axis_array(daf, "gene"; default = nothing) === nothing
+                @test axis_vector(daf, "gene"; default = nothing) === nothing
             end
         end
     end
@@ -348,9 +348,9 @@ function test_existing_axis(daf::DafReader, depth::Int)::Nothing
         @test axes_set(daf) == Set(["gene", "cell"])
     end
 
-    nested_test("axis_array") do
-        @test axis_array(daf, "gene") == GENE_NAMES
-        @test axis_array(daf, "cell") == CELL_NAMES
+    nested_test("axis_vector") do
+        @test axis_vector(daf, "gene") == GENE_NAMES
+        @test axis_vector(daf, "cell") == CELL_NAMES
     end
 
     nested_test("axis_dict") do

@@ -342,14 +342,14 @@ function Formats.format_axes_set(files::FilesDaf)::AbstractSet{<:AbstractString}
     return get_names_set("$(files.path)/axes", ".txt")
 end
 
-function Formats.format_axis_array(files::FilesDaf, axis::AbstractString)::AbstractVector{<:AbstractString}
+function Formats.format_axis_vector(files::FilesDaf, axis::AbstractString)::AbstractVector{<:AbstractString}
     @assert Formats.has_data_read_lock(files)
     return mmap_file_lines("$(files.path)/axes/$(axis).txt")
 end
 
 function Formats.format_axis_length(files::FilesDaf, axis::AbstractString)::Int64
     @assert Formats.has_data_read_lock(files)
-    entries = Formats.get_axis_array_through_cache(files, axis)
+    entries = Formats.get_axis_vector_through_cache(files, axis)
     return length(entries)
 end
 

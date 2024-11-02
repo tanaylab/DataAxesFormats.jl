@@ -453,7 +453,7 @@ Operators used to represent a [`Query`](@ref) as a string.
 | `=>`     | [`Fetch`](@ref)              | Fetch a property from another axis (e.g., `/ cell : batch => age`).                      |
 | `;`      | [`MaskSlice`](@ref)          | Slice a matrix mask (e.g. `/ cell & UMIs ; gene = FOX1 > 0`).                            |
 | `;=`     | [`SquareMaskColumn`](@ref)   | Slice a square matrix mask column (e.g. `/ cell & outgoing ;= ATCG > 0`).                |
-| `,=`     | [`SquareMaskRow`](@ref)      | Slice a square matrix mask column (e.g. `/ cell & outgoing ,= ATCG > 0`).                |
+| `,=`     | [`SquareMaskRow`](@ref)      | Slice a square matrix mask row (e.g. `/ cell & outgoing ,= ATCG > 0`).                   |
 | `!`      | [`AsAxis`](@ref)             | 1. Specify axis name when fetching a property (e.g., `/ cell : manual ! type => color`). |
 |          |                              | 2. Force all axis values when counting (e.g., `/ cell : batch ! * manual ! type`).       |
 |          |                              | 3. Force all axis values when grouping (e.g., `/ cell : age @ batch ! %> Mean`).         |
@@ -565,7 +565,7 @@ function next_query_operation(tokens::Vector{Token}, next_token_index::Int)::Tup
             dtype = nothing
         end
 
-        return (IfMissing(value; dtype = dtype), next_token_index)
+        return (IfMissing(value; dtype), next_token_index)
     end
 
     return error_at_token(tokens[next_token_index - 1], "bug when parsing query"; at_end = true)  # untested
@@ -744,7 +744,7 @@ struct Names <: Query
 end
 
 function get_query(daf::DafReader, names::Names; cache::Bool = true)::AbstractSet{<:AbstractString}
-    return get_query(daf, QuerySequence((names,)); cache = cache)
+    return get_query(daf, QuerySequence((names,)); cache)
 end
 
 function is_axis_query(names::Names)::Bool
@@ -796,7 +796,7 @@ struct Lookup <: Query
 end
 
 function get_query(daf::DafReader, lookup::Lookup; cache::Bool = true)::StorageScalar
-    return get_query(daf, QuerySequence((lookup,)); cache = cache)
+    return get_query(daf, QuerySequence((lookup,)); cache)
 end
 
 function is_axis_query(lookup::Lookup)::Bool
@@ -1053,7 +1053,7 @@ struct Axis <: Query
 end
 
 function get_query(daf::DafReader, axis::Axis; cache::Bool = true)::AbstractVector{<:AbstractString}
-    return get_query(daf, QuerySequence((axis,)); cache = cache)
+    return get_query(daf, QuerySequence((axis,)); cache)
 end
 
 function is_axis_query(axis::Axis)::Bool
@@ -1757,7 +1757,7 @@ function get_query(
     query_string::AbstractString;
     cache::Bool = true,
 )::Union{AbstractSet{<:AbstractString}, AbstractVector{<:AbstractString}, StorageScalar, NamedArray}
-    return get_query(daf, Query(query_string); cache = cache)
+    return get_query(daf, Query(query_string); cache)
 end
 
 function get_query(
@@ -1821,7 +1821,7 @@ function do_get_query(
     elseif is_all(query_state, (ScalarState,))
         return get_scalar_result(query_state)
     elseif is_all(query_state, (AxisState,))
-        return axis_array_result(query_state)
+        return axis_vector_result(query_state)
     elseif is_all(query_state, (VectorState,))
         return get_vector_result(query_state)
     elseif is_all(query_state, (MatrixState,))
@@ -1846,14 +1846,14 @@ function get_scalar_result(query_state::QueryState)::Tuple{StorageScalar, Set{Ca
     return (scalar_state.scalar_value, scalar_state.dependency_keys)
 end
 
-function axis_array_result(
+function axis_vector_result(
     query_state::QueryState,
 )::Tuple{Union{AbstractString, AbstractVector{<:AbstractString}}, Set{CacheKey}}
     axis_state = pop!(query_state.stack)
     @assert axis_state isa AxisState
 
     axis_modifier = axis_state.axis_modifier
-    axis_entries = axis_array(query_state.daf, axis_state.axis_name)
+    axis_entries = axis_vector(query_state.daf, axis_state.axis_name)
     if axis_modifier isa Int
         return (axis_entries[axis_modifier], axis_state.dependency_keys)
     else
@@ -1930,7 +1930,7 @@ due to invalid values or types.
 """
 function query_requires_relayout(daf::DafReader, query_sequence::QuerySequence)::Bool
     return Formats.with_data_read_lock(daf, "for query_requires_relayout:", query_sequence) do
-        return get_fake_query_result(query_sequence; daf = daf).requires_relayout
+        return get_fake_query_result(query_sequence; daf).requires_relayout
     end
 end
 
@@ -2027,7 +2027,7 @@ end
 function push_axis(query_state::QueryState, axis::Axis, ::Nothing)::Nothing
     require_axis(query_state.daf, "for the query: $(query_state.query_sequence)", axis.axis_name)
     query_sequence = QuerySequence((axis,))
-    dependency_keys = Set((Formats.axis_array_cache_key(axis.axis_name),))
+    dependency_keys = Set((Formats.axis_vector_cache_key(axis.axis_name),))
     axis_state = AxisState(query_sequence, dependency_keys, axis.axis_name, nothing)
     push!(query_state.stack, axis_state)
     return nothing
@@ -2037,7 +2037,7 @@ function push_axis(query_state::QueryState, axis::Axis, is_equal::IsEqual)::Noth
     axis_entries = get_vector(query_state.daf, axis.axis_name, "name")
 
     query_sequence = QuerySequence((axis, is_equal))
-    dependency_keys = Set((Formats.axis_array_cache_key(axis.axis_name),))
+    dependency_keys = Set((Formats.axis_vector_cache_key(axis.axis_name),))
 
     comparison_value = is_equal.comparison_value
     if !(comparison_value isa AbstractString)
@@ -3584,7 +3584,7 @@ function fetch_group_by_matrix(query_state::QueryState, group_by::GroupBy)::Noth
     columns_axis_state = values_matrix_state.columns_axis_state
     @assert columns_axis_state !== nothing
 
-    columns_names = axis_array(query_state.daf, columns_axis_state.axis_name)
+    columns_names = axis_vector(query_state.daf, columns_axis_state.axis_name)
     axis_mask = columns_axis_state.axis_modifier
     if axis_mask !== nothing
         @assert axis_mask isa AbstractVector{Bool}
@@ -3698,7 +3698,7 @@ function compute_vector_group_by(
     if if_missing === nothing
         empty_group_value = nothing
     else
-        empty_group_value = value_for_if_missing(query_state, if_missing; dtype = dtype)
+        empty_group_value = value_for_if_missing(query_state, if_missing; dtype)
     end
 
     collect_vector_group_by(
@@ -3728,7 +3728,7 @@ function compute_matrix_group_by(
     if if_missing === nothing
         empty_group_value = nothing
     else
-        empty_group_value = value_for_if_missing(query_state, if_missing; dtype = dtype)
+        empty_group_value = value_for_if_missing(query_state, if_missing; dtype)
     end
 
     @threads for column_index in 1:size(values_matrix)[2]
@@ -4117,7 +4117,7 @@ function get_frame(
         axis_name = query_axis_name(axis_query)
     end
 
-    names_of_rows = get_query(daf, axis_query; cache = cache)
+    names_of_rows = get_query(daf, axis_query; cache)
     @assert names_of_rows isa AbstractVector{<:AbstractString}
 
     if columns === nothing
@@ -4142,7 +4142,7 @@ function get_frame(
             column_query = ": " * column_name
         end
         column_query = full_vector_query(axis_query, column_query, column_name)
-        vector = get_query(daf, column_query; cache = cache)
+        vector = get_query(daf, column_query; cache)
         if !(vector isa StorageVector) || !(vector isa NamedArray) || names(vector, 1) != names_of_rows
             error(dedent("""
                 invalid column query: $(column_query)

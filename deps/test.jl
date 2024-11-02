@@ -1,3 +1,6 @@
+import Pkg
+Pkg.activate(".")
+
 using Logging
 using LoggingExtras
 
@@ -12,9 +15,6 @@ detect_problems = EarlyFilteredLogger(global_logger()) do log_args
     return true
 end
 global_logger(detect_problems)
-
-import Pkg
-Pkg.activate(".")
 
 Pkg.test(; coverage = true, test_args = Base.ARGS)
 

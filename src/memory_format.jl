@@ -118,7 +118,7 @@ function Formats.format_axes_set(memory::MemoryDaf)::AbstractSet{<:AbstractStrin
     return keys(memory.axes)
 end
 
-function Formats.format_axis_array(memory::MemoryDaf, axis::AbstractString)::AbstractVector{<:AbstractString}
+function Formats.format_axis_vector(memory::MemoryDaf, axis::AbstractString)::AbstractVector{<:AbstractString}
     @assert Formats.has_data_read_lock(memory)
     return memory.axes[axis]
 end

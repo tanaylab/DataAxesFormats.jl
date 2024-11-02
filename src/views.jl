@@ -230,7 +230,7 @@ function viewer(
     data::Maybe{ViewData} = nothing,
 )::DafReadOnly
     if axes === nothing && data === nothing
-        return read_only(daf; name = name)
+        return read_only(daf; name)
     end
 
     if axes === nothing
@@ -525,7 +525,7 @@ function collect_tensors(
                 """))
             end
 
-            main_axis_entries = axis_array(daf, main_axis_name)
+            main_axis_entries = axis_vector(daf, main_axis_name)
             for entry_name in main_axis_entries
                 collect_matrix(
                     view_name,
@@ -728,20 +728,20 @@ function Formats.format_axes_set(view::DafView)::AbstractSet{<:AbstractString}
     return keys(view.axes)
 end
 
-function Formats.format_axis_array(view::DafView, axis::AbstractString)::AbstractVector{<:AbstractString}
+function Formats.format_axis_vector(view::DafView, axis::AbstractString)::AbstractVector{<:AbstractString}
     @assert Formats.has_data_read_lock(view)
     fetch_axis = view.axes[axis]
-    axis_array = fetch_axis.value
-    if axis_array === nothing
-        axis_array = Formats.read_only_array(get_query(view.daf, fetch_axis.query; cache = false))
-        fetch_axis.value = axis_array
+    axis_vector = fetch_axis.value
+    if axis_vector === nothing
+        axis_vector = Formats.read_only_array(get_query(view.daf, fetch_axis.query; cache = false))
+        fetch_axis.value = axis_vector
     end
-    return axis_array
+    return axis_vector
 end
 
 function Formats.format_axis_length(view::DafView, axis::AbstractString)::Int64
     @assert Formats.has_data_read_lock(view)
-    return length(Formats.format_axis_array(view, axis))
+    return length(Formats.format_axis_vector(view, axis))
 end
 
 function Formats.format_has_vector(view::DafView, axis::AbstractString, name::AbstractString)::Bool
@@ -760,7 +760,7 @@ function Formats.format_get_vector(view::DafView, axis::AbstractString, name::Ab
     vector_value = fetch_vector.value
     if vector_value === nothing
         vector_value = Formats.read_only_array(get_query(view.daf, fetch_vector.query; cache = false))
-        @assert vector_value isa NamedArray && names(vector_value, 1) == Formats.format_axis_array(view, axis) dedent(
+        @assert vector_value isa NamedArray && names(vector_value, 1) == Formats.format_axis_vector(view, axis) dedent(
             """
                 invalid vector query: $(fetch_vector.query)
                 for the axis query: $(view.axes[axis].query)
@@ -842,7 +842,7 @@ function Messages.depict(value::DafView; name::Maybe{AbstractString} = nothing):
     if name === nothing
         name = value.name
     end
-    return "View $(depict(value.daf; name = name))"
+    return "View $(depict(value.daf; name))"
 end
 
 function ReadOnly.read_only(daf::DafView; name::Maybe{AbstractString} = nothing)::Union{DafView, DafReadOnlyWrapper}

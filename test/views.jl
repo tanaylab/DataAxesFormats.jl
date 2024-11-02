@@ -65,7 +65,7 @@ nested_test("views") do
 
         nested_test("masked") do
             view = viewer(daf; axes = ["gene" => "/ gene & marker"])
-            @test axis_array(view, "gene") == ["A", "C"]
+            @test axis_vector(view, "gene") == ["A", "C"]
         end
 
         nested_test("scalar") do

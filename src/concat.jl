@@ -151,12 +151,7 @@ By default, concatenation will fail rather than `overwrite` existing properties 
     @assert 0 < sparse_if_saves_storage_fraction < 1
 
     tensor_keys = Vector{TensorKey}()
-    empty = expand_tensors(;
-        dafs = DafReader[destination, sources...],
-        data = empty,
-        tensor_keys = tensor_keys,
-        what_for = "empty",
-    )
+    empty = expand_tensors(; dafs = DafReader[destination, sources...], data = empty, tensor_keys, what_for = "empty")
 
     if merge !== nothing
         for merge_datum in merge
@@ -243,7 +238,7 @@ By default, concatenation will fail rather than `overwrite` existing properties 
         for source in sources
             for axis_name in axes_set(source)
                 if !(axis_name in axes_names_set)
-                    other_axis_entry_names = axis_array(source, axis_name)
+                    other_axis_entry_names = axis_vector(source, axis_name)
                     previous_axis_data = get(other_axes_entry_names, axis_name, nothing)
                     if previous_axis_data === nothing
                         other_axes_entry_names[axis_name] = (source.name, other_axis_entry_names)
@@ -281,17 +276,17 @@ By default, concatenation will fail rather than `overwrite` existing properties 
                 destination,
                 axis,
                 sources;
-                axes = axes,
-                other_axes_set = other_axes_set,
-                names = names,
-                dataset_axis = dataset_axis,
-                dataset_property = dataset_property,
+                axes,
+                other_axes_set,
+                names,
+                dataset_axis,
+                dataset_property,
                 prefix,
-                prefixes = prefixes,
+                prefixes,
                 prefixed = axis_prefixed,
-                empty = empty,
-                sparse_if_saves_storage_fraction = sparse_if_saves_storage_fraction,
-                overwrite = overwrite,
+                empty,
+                sparse_if_saves_storage_fraction,
+                overwrite,
             )
         end
 
@@ -299,12 +294,12 @@ By default, concatenation will fail rather than `overwrite` existing properties 
             concatenate_merge(
                 destination,
                 sources;
-                dataset_axis = dataset_axis,
-                other_axes_set = other_axes_set,
-                empty = empty,
-                merge = merge,
-                sparse_if_saves_storage_fraction = sparse_if_saves_storage_fraction,
-                overwrite = overwrite,
+                dataset_axis,
+                other_axes_set,
+                empty,
+                merge,
+                sparse_if_saves_storage_fraction,
+                overwrite,
             )
         end
 
@@ -341,27 +336,18 @@ function concatenate_axis(
     offsets[2:end] = offsets[1:(end - 1)]
     offsets[1] = 0
 
-    concatenate_axis_entry_names(
-        destination,
-        axis,
-        sources;
-        names = names,
-        prefix = prefix,
-        sizes = sizes,
-        offsets = offsets,
-        concatenated_axis_size = concatenated_axis_size,
-    )
+    concatenate_axis_entry_names(destination, axis, sources; names, prefix, sizes, offsets, concatenated_axis_size)
 
     if dataset_axis !== nothing && dataset_property
         concatenate_axis_dataset_property(
             destination,
             axis;
-            names = names,
-            dataset_axis = dataset_axis,
-            offsets = offsets,
-            sizes = sizes,
-            concatenated_axis_size = concatenated_axis_size,
-            overwrite = overwrite,
+            names,
+            dataset_axis,
+            offsets,
+            sizes,
+            concatenated_axis_size,
+            overwrite,
         )
     end
 
@@ -393,14 +379,14 @@ function concatenate_axis(
             axis,
             vector_property,
             sources;
-            names = names,
+            names,
             prefix = prefix_axis,
-            empty_value = empty_value,
-            sparse_if_saves_storage_fraction = sparse_if_saves_storage_fraction,
-            offsets = offsets,
-            sizes = sizes,
-            concatenated_axis_size = concatenated_axis_size,
-            overwrite = overwrite,
+            empty_value,
+            sparse_if_saves_storage_fraction,
+            offsets,
+            sizes,
+            concatenated_axis_size,
+            overwrite,
         )
     end
 
@@ -419,11 +405,11 @@ function concatenate_axis(
                 axis,
                 matrix_property,
                 sources;
-                empty_value = empty_value,
-                sparse_if_saves_storage_fraction = sparse_if_saves_storage_fraction,
-                offsets = offsets,
-                sizes = sizes,
-                overwrite = overwrite,
+                empty_value,
+                sparse_if_saves_storage_fraction,
+                offsets,
+                sizes,
+                overwrite,
             )
         end
     end
@@ -447,7 +433,7 @@ function concatenate_axis_entry_names(
         source = sources[index]
         offset = offsets[index]
         size = sizes[index]
-        from_axis_entry_names = axis_array(source, axis)
+        from_axis_entry_names = axis_vector(source, axis)
         if prefix
             name = names[index]
             axis_entry_names[(offset + 1):(offset + size)] = (name * ".") .* from_axis_entry_names
@@ -481,7 +467,7 @@ function concatenate_axis_dataset_property(
         axis_datasets[(offset + 1):(offset + size)] .= name
     end
 
-    set_vector!(destination, axis, dataset_axis, axis_datasets; overwrite = overwrite)
+    set_vector!(destination, axis, dataset_axis, axis_datasets; overwrite)
     return nothing
 end
 
@@ -508,14 +494,14 @@ function concatenate_axis_vector(
             axis,
             vector_property,
             sources;
-            names = names,
-            prefix = prefix,
-            empty_value = empty_value,
-            offsets = offsets,
-            sizes = sizes,
-            vectors = vectors,
-            concatenated_axis_size = concatenated_axis_size,
-            overwrite = overwrite,
+            names,
+            prefix,
+            empty_value,
+            offsets,
+            sizes,
+            vectors,
+            concatenated_axis_size,
+            overwrite,
         )
 
     else
@@ -528,10 +514,10 @@ function concatenate_axis_vector(
                 destination,
                 axis,
                 vector_property;
-                dtype = dtype,
-                offsets = offsets,
+                dtype,
+                offsets,
                 vectors = sparse_vectors,
-                overwrite = overwrite,
+                overwrite,
             )
 
         else
@@ -540,12 +526,12 @@ function concatenate_axis_vector(
                 axis,
                 vector_property,
                 sources;
-                dtype = dtype,
-                empty_value = empty_value,
-                offsets = offsets,
-                sizes = sizes,
-                vectors = vectors,
-                overwrite = overwrite,
+                dtype,
+                empty_value,
+                offsets,
+                sizes,
+                vectors,
+                overwrite,
             )
         end
     end
@@ -592,7 +578,7 @@ function concatenate_axis_string_vectors(
         end
     end
 
-    set_vector!(destination, axis, vector_property, concatenated_vector; overwrite = overwrite)
+    set_vector!(destination, axis, vector_property, concatenated_vector; overwrite)
     return nothing
 end
 
@@ -607,7 +593,7 @@ function concatenate_axis_sparse_vectors(
 )::Nothing
     nnz_offsets, nnz_sizes, total_nnz = nnz_arrays(vectors)
 
-    empty_sparse_vector!(destination, axis, vector_property, dtype, total_nnz; overwrite = overwrite) do nzind, nzval
+    empty_sparse_vector!(destination, axis, vector_property, dtype, total_nnz; overwrite) do nzind, nzval
         n_sources = length(vectors)
         @threads for index in 1:n_sources
             vector = vectors[index]
@@ -635,7 +621,7 @@ function concatenate_axis_dense_vectors(
     vectors::AbstractVector{<:Maybe{<:StorageVector}},
     overwrite::Bool,
 )::Nothing
-    empty_dense_vector!(destination, axis, vector_property, dtype; overwrite = overwrite) do concatenated_vector
+    empty_dense_vector!(destination, axis, vector_property, dtype; overwrite) do concatenated_vector
         n_sources = length(sources)
         @threads for index in 1:n_sources
             source = sources[index]
@@ -682,11 +668,11 @@ function concatenate_axis_matrix(
             other_axis,
             axis,
             matrix_property;
-            dtype = dtype,
-            offsets = offsets,
-            sizes = sizes,
+            dtype,
+            offsets,
+            sizes,
             matrices = sparse_matrices,
-            overwrite = overwrite,
+            overwrite,
         )
 
     else
@@ -696,12 +682,12 @@ function concatenate_axis_matrix(
             axis,
             matrix_property,
             sources;
-            dtype = dtype,
-            empty_value = empty_value,
-            offsets = offsets,
-            sizes = sizes,
-            matrices = matrices,
-            overwrite = overwrite,
+            dtype,
+            empty_value,
+            offsets,
+            sizes,
+            matrices,
+            overwrite,
         )
     end
 
@@ -728,7 +714,7 @@ function concatenate_axis_sparse_matrices(
         matrix_property,
         dtype,
         total_nnz;
-        overwrite = overwrite,
+        overwrite,
     ) do colptr, rowval, nzval
         n_sources = length(matrices)
         @threads for index in 1:n_sources
@@ -761,14 +747,7 @@ function concatenate_axis_dense_matrices(
     matrices::AbstractVector{<:Maybe{<:StorageMatrix}},
     overwrite::Bool,
 )::Nothing
-    empty_dense_matrix!(
-        destination,
-        other_axis,
-        axis,
-        matrix_property,
-        dtype;
-        overwrite = overwrite,
-    ) do concatenated_matrix
+    empty_dense_matrix!(destination, other_axis, axis, matrix_property, dtype; overwrite) do concatenated_matrix
         n_sources = length(sources)
         @threads for index in 1:n_sources
             source = sources[index]
@@ -811,10 +790,10 @@ function concatenate_merge(
                 destination,
                 scalar_property,
                 sources;
-                dataset_axis = dataset_axis,
-                empty_value = empty_value,
-                merge_action = merge_action,
-                overwrite = overwrite,
+                dataset_axis,
+                empty_value,
+                merge_action,
+                overwrite,
             )
         end
     end
@@ -836,11 +815,11 @@ function concatenate_merge(
                     axis,
                     vector_property,
                     sources;
-                    dataset_axis = dataset_axis,
-                    empty_value = empty_value,
-                    merge_action = merge_action,
-                    sparse_if_saves_storage_fraction = sparse_if_saves_storage_fraction,
-                    overwrite = overwrite,
+                    dataset_axis,
+                    empty_value,
+                    merge_action,
+                    sparse_if_saves_storage_fraction,
+                    overwrite,
                 )
             end
         end
@@ -854,8 +833,8 @@ function concatenate_merge(
                     axis,
                     square_matrix_property,
                     sources;
-                    merge_action = merge_action,
-                    overwrite = overwrite,
+                    merge_action,
+                    overwrite,
                 )
             end
         end
@@ -878,8 +857,8 @@ function concatenate_merge(
                             columns_axis,
                             matrix_property,
                             sources;
-                            merge_action = merge_action,
-                            overwrite = overwrite,
+                            merge_action,
+                            overwrite,
                         )
                     end
                 end
@@ -903,7 +882,7 @@ function concatenate_merge_scalar(
         for source in reverse(sources)
             value = get_scalar(source, scalar_property; default = nothing)
             if value !== nothing
-                set_scalar!(destination, scalar_property, value; overwrite = overwrite)
+                set_scalar!(destination, scalar_property, value; overwrite)
                 return nothing
             end
         end
@@ -921,7 +900,7 @@ function concatenate_merge_scalar(
         scalars = [get_scalar(source, scalar_property; default = nothing) for source in sources]
         dtype = reduce(merge_dtypes, scalars; init = typeof(empty_value))
         scalars = [dtype(scalar) for scalar in scalars]
-        set_vector!(destination, dataset_axis, scalar_property, scalars; overwrite = overwrite)
+        set_vector!(destination, dataset_axis, scalar_property, scalars; overwrite)
         return nothing
 
     else
@@ -944,7 +923,7 @@ function concatenate_merge_vector(
         for source in reverse(sources)
             value = get_vector(source, axis, vector_property; default = nothing)
             if value !== nothing
-                set_vector!(destination, axis, vector_property, value; overwrite = overwrite)
+                set_vector!(destination, axis, vector_property, value; overwrite)
                 return nothing
             end
         end
@@ -983,9 +962,9 @@ function concatenate_merge_vector(
                     axis,
                     dataset_axis,
                     vector_property;
-                    dtype = dtype,
+                    dtype,
                     vectors = sparse_vectors,
-                    overwrite = overwrite,
+                    overwrite,
                 )
                 return nothing
             end
@@ -997,10 +976,10 @@ function concatenate_merge_vector(
             dataset_axis,
             vector_property,
             sources;
-            dtype = dtype,
-            empty_value = empty_value,
-            vectors = vectors,
-            overwrite = overwrite,
+            dtype,
+            empty_value,
+            vectors,
+            overwrite,
         )
         return nothing
 
@@ -1027,7 +1006,7 @@ function concatenate_merge_sparse_vector(
         vector_property,
         dtype,
         total_nnz;
-        overwrite = overwrite,
+        overwrite,
     ) do colptr, rowval, nzval
         colptr[1] == 1
         n_sources = length(vectors)
@@ -1055,14 +1034,7 @@ function concatenate_merge_dense_vector(
     vectors::AbstractVector{<:Maybe{<:NamedVector}},
     overwrite::Bool,
 )::Nothing
-    empty_dense_matrix!(
-        destination,
-        axis,
-        dataset_axis,
-        vector_property,
-        dtype;
-        overwrite = overwrite,
-    ) do concatenated_matrix
+    empty_dense_matrix!(destination, axis, dataset_axis, vector_property, dtype; overwrite) do concatenated_matrix
         n_sources = length(sources)
         @threads for index in 1:n_sources
             source = sources[index]
@@ -1093,15 +1065,7 @@ function concatenate_merge_matrix(
         for source in reverse(sources)
             matrix = get_matrix(source, rows_axis, columns_axis, matrix_property; relayout = false, default = nothing)
             if matrix !== nothing
-                set_matrix!(
-                    destination,
-                    rows_axis,
-                    columns_axis,
-                    matrix_property,
-                    matrix;
-                    relayout = false,
-                    overwrite = overwrite,
-                )
+                set_matrix!(destination, rows_axis, columns_axis, matrix_property, matrix; relayout = false, overwrite)
                 return nothing
             end
         end

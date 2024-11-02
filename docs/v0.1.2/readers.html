@@ -587,8 +587,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DataAxesFormats.Readers.axis_array" href="#DataAxesFormats.Readers.axis_array">
-<code>DataAxesFormats.Readers.axis_array
+<a class="docstring-binding" id="DataAxesFormats.Readers.axis_vector" href="#DataAxesFormats.Readers.axis_vector">
+<code>DataAxesFormats.Readers.axis_vector
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -599,7 +599,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">axis_array(
+<code class="language-julia hljs">axis_vector(
     daf::DafReader,
     axis::AbstractString;
     [default::Union{Nothing, UndefInitializer} = undef]
@@ -850,8 +850,8 @@
 </code> in 
 <code>daf
 </code>. The names of the result are the names of the vector entries (same as returned by 
-<a href="readers.html#DataAxesFormats.Readers.axis_array">
-<code>axis_array
+<a href="readers.html#DataAxesFormats.Readers.axis_vector">
+<code>axis_vector
 </code>
 </a>). The special property 
 <code>name
@@ -1042,8 +1042,8 @@
 </code> in 
 <code>daf
 </code>. The names of the result axes are the names of the relevant axes entries (same as returned by 
-<a href="readers.html#DataAxesFormats.Readers.axis_array">
-<code>axis_array
+<a href="readers.html#DataAxesFormats.Readers.axis_vector">
+<code>axis_vector
 </code>
 </a>).
 </p>
@@ -1275,12 +1275,6 @@
 </a>
 </li>
 <li>
-<a href="readers.html#DataAxesFormats.Readers.axis_array">
-<code>DataAxesFormats.Readers.axis_array
-</code>
-</a>
-</li>
-<li>
 <a href="readers.html#DataAxesFormats.Readers.axis_dict">
 <code>DataAxesFormats.Readers.axis_dict
 </code>
@@ -1295,6 +1289,12 @@
 <li>
 <a href="readers.html#DataAxesFormats.Readers.axis_length">
 <code>DataAxesFormats.Readers.axis_length
+</code>
+</a>
+</li>
+<li>
+<a href="readers.html#DataAxesFormats.Readers.axis_vector">
+<code>DataAxesFormats.Readers.axis_vector
 </code>
 </a>
 </li>
@@ -1435,7 +1435,7 @@
 <hr/>
 <p>This document was generated with 
 <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl
-</a> version 1.7.0. Using Julia version 1.11.0.
+</a> version 1.7.0. Using Julia version 1.11.1.
 </p>
 </section>
 <footer class="modal-card-foot">

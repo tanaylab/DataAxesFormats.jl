@@ -107,7 +107,7 @@ function Base.show(io::IO, cache_key::CacheKey)::Nothing
         if key[2]
             print(io, "axis_dict[axis: $(key[1])]")
         else
-            print(io, "axis_array[axis: $(key[1])]")  # untested
+            print(io, "axis_vector[axis: $(key[1])]")  # untested
         end
     elseif type == CachedQuery
         @assert key isa AbstractString
@@ -167,7 +167,7 @@ function scalar_cache_key(name::AbstractString)::CacheKey
     return (CachedData, name)
 end
 
-function axis_array_cache_key(axis::AxisKey)::CacheKey
+function axis_vector_cache_key(axis::AxisKey)::CacheKey
     return (CachedAxis, (axis, false))
 end
 
@@ -360,13 +360,13 @@ This trusts that we have a read lock on the data set.
 function format_axes_set end
 
 """
-    format_axis_array(format::FormatReader, axis::AbstractString)::AbstractVector{<:AbstractString}
+    format_axis_vector(format::FormatReader, axis::AbstractString)::AbstractVector{<:AbstractString}
 
 Implement fetching the unique names of the entries of some `axis` of `format`.
 
 This trusts that we have a read lock on the data set, and that the `axis` exists in `format`.
 """
-function format_axis_array end
+function format_axis_vector end
 
 """
     format_axis_length(format::FormatReader, axis::AbstractString)::Int64
@@ -731,7 +731,7 @@ function get_through_cache(
             if cache_group === nothing
                 cached = getter()
             else
-                cached = write_throgh_cache(getter, format, cache_key, T, cache_group; is_slow = is_slow)
+                cached = write_throgh_cache(getter, format, cache_key, T, cache_group; is_slow)
             end
         end
     end
@@ -856,14 +856,14 @@ function get_scalar_through_cache(format::FormatReader, name::AbstractString)::S
     end
 end
 
-function get_axis_array_through_cache(format::FormatReader, axis::AbstractString)::AbstractVector{<:AbstractString}
+function get_axis_vector_through_cache(format::FormatReader, axis::AbstractString)::AbstractVector{<:AbstractString}
     return get_through_cache(
         format,
-        axis_array_cache_key(axis),
+        axis_vector_cache_key(axis),
         AbstractVector{<:AbstractString},
         format.internal.cache_group,
     ) do
-        return read_only_array(format_axis_array(format, axis))
+        return read_only_array(format_axis_vector(format, axis))
     end
 end
 
@@ -877,7 +877,7 @@ function get_axis_dict_through_cache(
         AbstractDict{<:AbstractString, <:Integer},
         MemoryData,
     ) do
-        names = get_axis_array_through_cache(format, axis)
+        names = get_axis_vector_through_cache(format, axis)
         if eltype(names) != AbstractString
             names = Vector{AbstractString}(names)  # NOJET
         end
@@ -1093,7 +1093,7 @@ function with_data_read_lock(action::Function, format::FormatReader, what::Any..
 end
 
 function has_data_read_lock(format::FormatReader; read_only::Bool = false)::Bool
-    return has_read_lock(format.internal.data_lock; read_only = read_only)
+    return has_read_lock(format.internal.data_lock; read_only)
 end
 
 function begin_data_write_lock(format::FormatReader, what::Any...)::Nothing

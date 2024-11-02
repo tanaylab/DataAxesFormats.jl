@@ -12,8 +12,8 @@ function test_adata(adata::AnnData)::Nothing
 end
 
 function test_daf(daf::DafReader)::Nothing
-    @test axis_array(daf, "cell") == ["A", "B"]
-    @test axis_array(daf, "gene") == ["X", "Y", "Z"]
+    @test axis_vector(daf, "cell") == ["A", "B"]
+    @test axis_vector(daf, "gene") == ["X", "Y", "Z"]
     @test get_scalar(daf, "obs_is") == "cell"
     @test get_scalar(daf, "var_is") == "gene"
     @test get_scalar(daf, "X_is") == "UMIs"

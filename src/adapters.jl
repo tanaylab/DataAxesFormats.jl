@@ -98,7 +98,7 @@ parameter values, and store the different results in the same data set under dif
     adapted = chain_writer([input, captured]; name = base_name * ".adapted")
     result = computation(adapted)
     output = viewer(adapted; axes = output_axes, data = output_data, name = base_name * ".output")
-    copy_all!(; source = output, destination = daf, empty = empty, relayout = relayout, overwrite = overwrite)
+    copy_all!(; source = output, destination = daf, empty, relayout, overwrite)
     return result
 end
 

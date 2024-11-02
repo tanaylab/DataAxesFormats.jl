@@ -60,7 +60,7 @@ existing scalar in the target.
     default::Union{StorageScalar, Nothing, UndefInitializer} = undef,
     overwrite::Bool = false,
 )::Nothing
-    value = get_scalar(source, name; default = default)
+    value = get_scalar(source, name; default)
     if value !== nothing
         rename = new_name(rename, name)
         if dtype !== nothing
@@ -75,7 +75,7 @@ existing scalar in the target.
                 end
             end
         end
-        set_scalar!(destination, rename, value; overwrite = overwrite)
+        set_scalar!(destination, rename, value; overwrite)
     end
 end
 
@@ -99,7 +99,7 @@ The axis is fetched using the `name` and the `default`. If `rename` is specified
     rename::Maybe{AbstractString} = nothing,
     default::Union{Nothing, UndefInitializer} = undef,
 )::Nothing
-    value = axis_array(source, axis; default = default)
+    value = axis_vector(source, axis; default)
     if value !== nothing
         rename = new_name(rename, axis)
         add_axis!(destination, rename, value)
@@ -149,23 +149,23 @@ source axis contains entries that do not exist in the target, they are discarded
     what_for = empty === nothing ? "the vector: $(name)\n    to the vector: $(rename)" : nothing
     if relation === nothing
         relation = verify_axis(;
-            destination = destination,
+            destination,
             destination_axis = reaxis,
-            source = source,
+            source,
             source_axis = axis,
             allow_missing = false,
-            what_for = what_for,
+            what_for,
         )
         @assert relation !== nothing
     end
 
-    value = get_vector(source, axis, name; default = default)
+    value = get_vector(source, axis, name; default)
     if value === nothing
         return nothing
     end
 
     if relation == :destination_is_subset
-        value = value[axis_array(destination, reaxis)]
+        value = value[axis_vector(destination, reaxis)]
         relation = :same
     end
 
@@ -177,7 +177,7 @@ source axis contains entries that do not exist in the target, they are discarded
 
     if relation == :same
         if eltype(value) <: abstract_dtype
-            set_vector!(destination, reaxis, rename, value; overwrite = overwrite)
+            set_vector!(destination, reaxis, rename, value; overwrite)
         elseif issparse(value.array)
             @assert isbitstype(concrete_dtype) "not a bits type: $(concrete_dtype)"
             empty_sparse_vector!(
@@ -186,7 +186,7 @@ source axis contains entries that do not exist in the target, they are discarded
                 rename,
                 concrete_dtype,
                 nnz(value.array);
-                overwrite = overwrite,
+                overwrite,
             ) do nzind, nzval
                 nzind .= value.array.nzind
                 nzval .= value.array.nzval
@@ -194,7 +194,7 @@ source axis contains entries that do not exist in the target, they are discarded
             end
         else
             @assert isbitstype(concrete_dtype) "not a bits type: $(concrete_dtype)"
-            empty_dense_vector!(destination, reaxis, rename, concrete_dtype; overwrite = overwrite) do empty_vector
+            empty_dense_vector!(destination, reaxis, rename, concrete_dtype; overwrite) do empty_vector
                 empty_vector .= value
                 return nothing
             end
@@ -208,7 +208,7 @@ source axis contains entries that do not exist in the target, they are discarded
         source_axis = axis,
         destination_name = destination.name,
         destination_axis = reaxis,
-        what_for = what_for,
+        what_for,
     )
 
     with_data_write_lock(destination) do
@@ -218,9 +218,9 @@ source axis contains entries that do not exist in the target, they are discarded
             named .= empty
             named[names(value, 1)] .= value  # NOJET
             value = issparse(value.array) && !(concrete_dtype <: AbstractString) ? sparse_vector(dense) : dense
-            set_vector!(destination, reaxis, rename, value; overwrite = overwrite)
+            set_vector!(destination, reaxis, rename, value; overwrite)
         else
-            empty_dense_vector!(destination, reaxis, rename, concrete_dtype; overwrite = overwrite) do empty_vector
+            empty_dense_vector!(destination, reaxis, rename, concrete_dtype; overwrite) do empty_vector
                 empty_vector .= empty
                 named_vector = Formats.as_named_vector(destination, axis, empty_vector)
                 named_vector[names(value, 1)] .= value
@@ -283,7 +283,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
     rows_relation::Maybe{Symbol} = nothing,
     columns_relation::Maybe{Symbol} = nothing,
 )::Nothing
-    relayout = relayout && rows_axis != columns_axis
+    relayout && rows_axis != columns_axis
     rows_reaxis = new_name(rows_reaxis, rows_axis)
     columns_reaxis = new_name(columns_reaxis, columns_axis)
     rename = new_name(rename, name)
@@ -291,48 +291,48 @@ axis contains entries that do not exist in the target, they are discarded (not c
     what_for = empty === nothing ? "the matrix: $(name)\n    to the matrix: $(rename)" : nothing
     if rows_relation === nothing
         rows_relation = verify_axis(;
-            destination = destination,
+            destination,
             destination_axis = rows_reaxis,
-            source = source,
+            source,
             source_axis = rows_axis,
             allow_missing = false,
-            what_for = what_for,
+            what_for,
         )
         @assert rows_relation !== nothing
     end
     if columns_relation === nothing
         columns_relation = verify_axis(;
-            destination = destination,
+            destination,
             destination_axis = columns_reaxis,
-            source = source,
+            source,
             source_axis = columns_axis,
             allow_missing = false,
-            what_for = what_for,
+            what_for,
         )
         @assert columns_relation !== nothing
     end
 
-    value = get_matrix(source, rows_axis, columns_axis, name; default = default, relayout = relayout)
+    value = get_matrix(source, rows_axis, columns_axis, name; default, relayout)
     if value === nothing
         return nothing
     end
 
     if relayout && has_matrix(source, columns_axis, rows_axis, name; relayout = false)
         copy_matrix!(;
-            destination = destination,
-            source = source,
+            destination,
+            source,
             rows_axis = columns_axis,
             columns_axis = rows_axis,
-            name = name,
+            name,
             rows_reaxis = columns_reaxis,
             columns_reaxis = rows_reaxis,
-            rename = rename,
+            rename,
             default = nothing,
             relayout = false,
-            empty = empty,
-            overwrite = overwrite,
-            rows_relation = rows_relation,
-            columns_relation = columns_relation,
+            empty,
+            overwrite,
+            rows_relation = columns_relation,
+            columns_relation = rows_relation,
         )
         relayout = false
     end
@@ -343,7 +343,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
             source_axis = columns_axis,
             destination_name = destination.name,
             destination_axis = columns_reaxis,
-            what_for = what_for,
+            what_for,
         )
     end
 
@@ -353,13 +353,13 @@ axis contains entries that do not exist in the target, they are discarded (not c
             source_axis = rows_axis,
             destination_name = destination.name,
             destination_axis = rows_reaxis,
-            what_for = what_for,
+            what_for,
         )
     end
 
     if (rows_relation == :destination_is_subset || rows_relation == :same) &&
        (columns_relation == :destination_is_subset || columns_relation == :same)
-        value = value[axis_array(destination, rows_reaxis), axis_array(destination, columns_reaxis)]
+        value = value[axis_vector(destination, rows_reaxis), axis_vector(destination, columns_reaxis)]
         rows_relation = :same
         columns_relation = :same
     end
@@ -369,15 +369,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
 
     if rows_relation == :same && columns_relation == :same
         if eltype(value) == concrete_dtype
-            set_matrix!(
-                destination,
-                rows_reaxis,
-                columns_reaxis,
-                rename,
-                value;
-                overwrite = overwrite,
-                relayout = relayout,
-            )
+            set_matrix!(destination, rows_reaxis, columns_reaxis, rename, value; overwrite, relayout)
         else
             empty_dense_matrix!(
                 destination,
@@ -385,7 +377,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
                 columns_reaxis,
                 rename,
                 concrete_dtype;
-                overwrite = overwrite,
+                overwrite,
             ) do empty_matrix
                 empty_matrix .= value
                 return nothing
@@ -407,15 +399,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
             named .= empty
             named[names(value, 1), names(value, 2)] .= value  # NOJET
             sparse = sparse_matrix_csc(dense)
-            set_matrix!(
-                destination,
-                rows_reaxis,
-                columns_reaxis,
-                rename,
-                sparse;
-                overwrite = overwrite,
-                relayout = relayout,
-            )
+            set_matrix!(destination, rows_reaxis, columns_reaxis, rename, sparse; overwrite, relayout)
         else
             empty_dense_matrix!(
                 destination,
@@ -423,7 +407,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
                 columns_reaxis,
                 rename,
                 concrete_dtype;
-                overwrite = overwrite,
+                overwrite,
             ) do empty_matrix
                 empty_matrix .= empty
                 named_matrix = Formats.as_named_matrix(destination, rows_axis, columns_axis, empty_matrix)
@@ -431,7 +415,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
                 return nothing
             end
             if relayout
-                relayout_matrix!(destination, rows_reaxis, columns_reaxis, rename; overwrite = overwrite)  # untested
+                relayout_matrix!(destination, rows_reaxis, columns_reaxis, rename; overwrite)  # untested
             end
         end
     end
@@ -479,24 +463,24 @@ which exist in the destination but do not exist in the source.
     rows_relation::Maybe{Symbol} = nothing,
     columns_relation::Maybe{Symbol} = nothing,
 )::Nothing
-    entries = axis_array(destination, main_axis)
+    entries = axis_vector(destination, main_axis)
     for entry in entries
         copy_matrix!(;
-            destination = destination,
-            source = source,
-            rows_axis = rows_axis,
-            columns_axis = columns_axis,
+            destination,
+            source,
+            rows_axis,
+            columns_axis,
             name = "$(entry)_$(name)",
-            rows_reaxis = rows_reaxis,
-            columns_reaxis = columns_reaxis,
+            rows_reaxis,
+            columns_reaxis,
             rename = rename === nothing ? nothing : "$(entry)_$(rename)",
-            dtype = dtype,
+            dtype,
             default = empty,
-            empty = empty,
-            relayout = relayout,
-            overwrite = overwrite,
-            rows_relation = rows_relation,
-            columns_relation = columns_relation,
+            empty,
+            relayout,
+            overwrite,
+            rows_relation,
+            columns_relation,
         )
     end
 end
@@ -568,18 +552,8 @@ axis which exist in the destination but do not exist in the source.
     relayout::Bool = true,
 )::Nothing
     tensor_keys = Vector{TensorKey}()
-    empty = expand_tensors(;
-        dafs = DafReader[destination, source],
-        data = empty,
-        tensor_keys = tensor_keys,
-        what_for = "empty",
-    )
-    dtypes = expand_tensors(;
-        dafs = DafReader[destination, source],
-        data = dtypes,
-        tensor_keys = tensor_keys,
-        what_for = "dtypes",
-    )
+    empty = expand_tensors(; dafs = DafReader[destination, source], data = empty, tensor_keys, what_for = "empty")
+    dtypes = expand_tensors(; dafs = DafReader[destination, source], data = dtypes, tensor_keys, what_for = "dtypes")
 
     if empty !== nothing
         for (key, value) in empty
@@ -598,36 +572,12 @@ axis which exist in the destination but do not exist in the source.
     end
 
     what_for = empty === nothing ? ": data" : nothing
-    axis_relations = verify_axes(; destination = destination, source = source, what_for = what_for)
-    copy_scalars(; destination = destination, source = source, dtypes = dtypes, overwrite = overwrite)
-    copy_axes(; destination = destination, source = source)
-    copy_vectors(;
-        destination = destination,
-        source = source,
-        axis_relations = axis_relations,
-        empty = empty,
-        dtypes = dtypes,
-        overwrite = overwrite,
-    )
-    copy_matrices(;
-        destination = destination,
-        source = source,
-        axis_relations = axis_relations,
-        empty = empty,
-        dtypes = dtypes,
-        overwrite = overwrite,
-        relayout = relayout,
-    )
-    ensure_tensors(;
-        destination = destination,
-        source = source,
-        axis_relations = axis_relations,
-        empty = empty,
-        dtypes = dtypes,
-        overwrite = overwrite,
-        relayout = relayout,
-        tensor_keys = tensor_keys,
-    )
+    axis_relations = verify_axes(; destination, source, what_for)
+    copy_scalars(; destination, source, dtypes, overwrite)
+    copy_axes(; destination, source)
+    copy_vectors(; destination, source, axis_relations, empty, dtypes, overwrite)
+    copy_matrices(; destination, source, axis_relations, empty, dtypes, overwrite, relayout)
+    ensure_tensors(; destination, source, axis_relations, empty, dtypes, overwrite, relayout, tensor_keys)
 
     return nothing
 end
@@ -665,7 +615,7 @@ function expand_tensors(;
             (main_axis, row_axis, column_axis, matrix_name) = key
             for daf in dafs
                 if has_axis(daf, main_axis)
-                    main_axis_entries = axis_array(daf, main_axis)
+                    main_axis_entries = axis_vector(daf, main_axis)
                     for entry in main_axis_entries
                         new_data[(row_axis, column_axis, "$(entry)_$(matrix_name)")] = value
                     end
@@ -685,12 +635,12 @@ function verify_axes(;
     axis_relations = Dict{AbstractString, Symbol}()
     for axis in axes_set(source)
         axis_relations[axis] = verify_axis(;
-            destination = destination,
+            destination,
             destination_axis = axis,
-            source = source,
+            source,
             source_axis = axis,
             allow_missing = true,
-            what_for = what_for,
+            what_for,
         )
     end
     return axis_relations
@@ -708,8 +658,8 @@ function verify_axis(;
         return :same
     end
 
-    source_entries = Set(axis_array(source, source_axis))
-    destination_entries = Set(axis_array(destination, destination_axis))
+    source_entries = Set(axis_vector(source, source_axis))
+    destination_entries = Set(axis_vector(destination, destination_axis))
 
     if destination_entries == source_entries
         return :same
@@ -722,10 +672,10 @@ function verify_axis(;
     if source_entries < destination_entries
         verify_subset(;
             source_name = source.name,
-            source_axis = source_axis,
+            source_axis,
             destination_name = destination.name,
-            destination_axis = destination_axis,
-            what_for = what_for,
+            destination_axis,
+            what_for,
         )
         return :source_is_subset
     end
@@ -762,14 +712,14 @@ function copy_scalars(; destination::DafWriter, source::DafReader, dtypes::Maybe
         if dtypes !== nothing
             dtype = get(dtypes, name, nothing)
         end
-        copy_scalar!(; destination = destination, source = source, name = name, dtype = dtype, overwrite = overwrite)
+        copy_scalar!(; destination, source, name, dtype, overwrite)
     end
 end
 
 function copy_axes(; destination::DafWriter, source::DafReader)::Nothing
     for axis in axes_set(source)
         if !has_axis(destination, axis)
-            copy_axis!(; source = source, destination = destination, axis = axis)
+            copy_axis!(; source, destination, axis)
         end
     end
 end
@@ -794,16 +744,7 @@ function copy_vectors(;
                 dtype = get(dtypes, (axis, name), nothing)
             end
 
-            copy_vector!(;
-                destination = destination,
-                source = source,
-                axis = axis,
-                name = name,
-                empty = empty_value,
-                dtype = dtype,
-                overwrite = overwrite,
-                relation = relation,
-            )
+            copy_vector!(; destination, source, axis, name, empty = empty_value, dtype, overwrite, relation)
         end
     end
 end
@@ -820,18 +761,18 @@ function copy_matrices(;
     for (rows_axis, rows_relation) in axis_relations
         for (columns_axis, columns_relation) in axis_relations
             if !relayout || columns_axis >= rows_axis
-                for name in matrices_set(source, rows_axis, columns_axis; relayout = relayout)
+                for name in matrices_set(source, rows_axis, columns_axis; relayout)
                     copy_single_matrix(;
-                        destination = destination,
-                        source = source,
-                        empty = empty,
-                        dtypes = dtypes,
-                        overwrite = overwrite,
-                        rows_axis = rows_axis,
-                        rows_relation = rows_relation,
-                        columns_axis = columns_axis,
-                        columns_relation = columns_relation,
-                        name = name,
+                        destination,
+                        source,
+                        empty,
+                        dtypes,
+                        overwrite,
+                        rows_axis,
+                        rows_relation,
+                        columns_axis,
+                        columns_relation,
+                        name,
                     )
                 end
             end
@@ -850,21 +791,21 @@ function ensure_tensors(;
     tensor_keys::AbstractVector{TensorKey},
 )::Nothing
     for (main_axis, rows_axis, columns_axis, matrix_name) in tensor_keys
-        main_axis_entries = axis_array(destination, main_axis)
+        main_axis_entries = axis_vector(destination, main_axis)
         for entry in main_axis_entries
             name = "$(entry)_$(matrix_name)"
-            if !has_matrix(destination, rows_axis, columns_axis, name; relayout = relayout)
+            if !has_matrix(destination, rows_axis, columns_axis, name; relayout)
                 copy_single_matrix(;
-                    destination = destination,
-                    source = source,
-                    empty = empty,
-                    dtypes = dtypes,
-                    overwrite = overwrite,
-                    rows_axis = rows_axis,
+                    destination,
+                    source,
+                    empty,
+                    dtypes,
+                    overwrite,
+                    rows_axis,
                     rows_relation = axis_relations[rows_axis],
-                    columns_axis = columns_axis,
+                    columns_axis,
                     columns_relation = axis_relations[columns_axis],
-                    name = name,
+                    name,
                 )
             end
         end
@@ -906,17 +847,17 @@ function copy_single_matrix(;
     end
 
     return copy_matrix!(;
-        destination = destination,
-        source = source,
-        rows_axis = rows_axis,
-        columns_axis = columns_axis,
-        name = name,
-        default = default,
+        destination,
+        source,
+        rows_axis,
+        columns_axis,
+        name,
+        default,
         empty = empty_value,
-        dtype = dtype,
-        overwrite = overwrite,
-        rows_relation = rows_relation,
-        columns_relation = columns_relation,
+        dtype,
+        overwrite,
+        rows_relation,
+        columns_relation,
     )
 end
 

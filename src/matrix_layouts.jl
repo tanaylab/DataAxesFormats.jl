@@ -727,7 +727,7 @@ function sparsify(
     matrix::Union{Transpose{T}, Adjoint{T}};
     copy::Bool = false,
 )::AbstractMatrix{T} where {T <: StorageReal}
-    return typeof(matrix)(sparsify(parent(matrix); copy = copy))
+    return typeof(matrix)(sparsify(parent(matrix); copy))
 end
 
 function sparsify(matrix::NamedMatrix{T}; copy::Bool = false)::NamedArray{T} where {T <: StorageReal}  # NOLINT
@@ -767,7 +767,7 @@ function densify(
     matrix::Union{Transpose{T}, Adjoint{T}};
     copy::Bool = false,
 )::AbstractMatrix{T} where {T <: StorageReal}
-    return typeof(matrix)(densify(parent(matrix); copy = copy))
+    return typeof(matrix)(densify(parent(matrix); copy))
 end
 
 function densify(matrix::NamedMatrix{T}; copy::Bool = false)::AbstractMatrix{T} where {T <: StorageReal}  # NOLINT
@@ -820,10 +820,10 @@ function bestify(
     sparse_if_saves_storage_fraction::AbstractFloat = 0.25,
 )::AbstractMatrix{T} where {T <: StorageReal}
     @assert 0 < sparse_if_saves_storage_fraction < 1
-    if sparse_matrix_saves_storage_fraction(matrix; copy = copy) >= sparse_if_saves_storage_fraction
-        return sparsify(matrix; copy = copy)
+    if sparse_matrix_saves_storage_fraction(matrix; copy) >= sparse_if_saves_storage_fraction
+        return sparsify(matrix; copy)
     else
-        return densify(matrix; copy = copy)
+        return densify(matrix; copy)
     end
 end
 
@@ -833,10 +833,10 @@ function bestify(
     sparse_if_saves_storage_fraction::AbstractFloat = 0.25,
 )::AbstractVector{T} where {T <: StorageReal}
     @assert 0 < sparse_if_saves_storage_fraction < 1
-    if sparse_vector_saves_storage_fraction(vector; copy = copy) >= sparse_if_saves_storage_fraction
-        return sparsify(vector; copy = copy)
+    if sparse_vector_saves_storage_fraction(vector; copy) >= sparse_if_saves_storage_fraction
+        return sparsify(vector; copy)
     else
-        return densify(vector; copy = copy)
+        return densify(vector; copy)
     end
 end
 

@@ -34,10 +34,10 @@ and still be thread-safe.
 module Readers
 
 export axes_set
-export axis_array
 export axis_dict
 export axis_indices
 export axis_length
+export axis_vector
 export axis_version_counter
 export description
 export empty_cache!
@@ -195,7 +195,7 @@ function axes_set(daf::DafReader)::AbstractSet{<:AbstractString}
 end
 
 """
-    axis_array(
+    axis_vector(
         daf::DafReader,
         axis::AbstractString;
         [default::Union{Nothing, UndefInitializer} = undef]
@@ -207,27 +207,27 @@ special `name` property, except that it returns a simple vector (array) of strin
 If `default` is `undef` (the default), this verifies the `axis` exists in `daf`. Otherwise, the `default` is `nothing`,
 which is returned if the `axis` does not exist.
 """
-function axis_array(
+function axis_vector(
     daf::DafReader,
     axis::AbstractString;
     default::Union{Nothing, UndefInitializer} = undef,
 )::Maybe{AbstractVector{<:AbstractString}}
-    return Formats.with_data_read_lock(daf, "axis_array of:", axis) do
+    return Formats.with_data_read_lock(daf, "axis_vector of:", axis) do
         # Formats.assert_valid_cache(daf)
         result_prefix = ""
         if !Formats.format_has_axis(daf, axis; for_change = false)
             if default === nothing
-                @debug "axis_array daf: $(depict(daf)) axis: $(axis) default: nothing result: nothing"
+                @debug "axis_vector daf: $(depict(daf)) axis: $(axis) default: nothing result: nothing"
                 return nothing
             else
                 result_prefix = "default "
                 @assert default == undef
-                require_axis(daf, "for: axis_array", axis)
+                require_axis(daf, "for: axis_vector", axis)
             end
         end
 
-        result = Formats.get_axis_array_through_cache(daf, axis)
-        @debug "axis_array daf: $(depict(daf)) axis: $(axis) default: $(depict(default)) $(result_prefix)result: $(depict(result))"
+        result = Formats.get_axis_vector_through_cache(daf, axis)
+        @debug "axis_vector daf: $(depict(daf)) axis: $(axis) default: $(depict(default)) $(result_prefix)result: $(depict(result))"
         # Formats.assert_valid_cache(daf)
         return result
     end
@@ -289,7 +289,7 @@ function axis_length(daf::DafReader, axis::AbstractString)::Int64
 end
 
 function require_axis(daf::DafReader, what_for::AbstractString, axis::AbstractString; for_change::Bool = false)::Nothing
-    if !Formats.format_has_axis(daf, axis; for_change = for_change)
+    if !Formats.format_has_axis(daf, axis; for_change)
         error(dedent("""
             missing axis: $(axis)
             $(what_for)
@@ -369,7 +369,7 @@ end
     )::Maybe{NamedVector}
 
 Get the vector property with some `name` for some `axis` in `daf`. The names of the result are the names of the vector
-entries (same as returned by [`axis_array`](@ref)). The special property `name` returns an array whose values are also the
+entries (same as returned by [`axis_vector`](@ref)). The special property `name` returns an array whose values are also the
 (read-only) names of the entries of the axis.
 
 This first verifies the `axis` exists in `daf`. If `default` is `undef` (the default), this first verifies the `name`
@@ -396,7 +396,7 @@ function get_vector(
         end
 
         if name == "name" || name == "index"
-            values = Formats.get_axis_array_through_cache(daf, axis)
+            values = Formats.get_axis_vector_through_cache(daf, axis)
             if name == "index"
                 dictionary = Formats.get_axis_dict_through_cache(daf, axis)
                 values = getindex.(Ref(dictionary), values)
@@ -581,7 +581,7 @@ function require_matrix(
     relayout::Bool,
 )::Nothing
     @assert Formats.has_data_read_lock(daf)
-    if !has_matrix(daf, rows_axis, columns_axis, name; relayout = relayout)
+    if !has_matrix(daf, rows_axis, columns_axis, name; relayout)
         if relayout
             extra = "\n    (and the other way around)"
         else
@@ -608,7 +608,7 @@ end
     )::Maybe{NamedMatrix}
 
 Get the column-major matrix property with some `name` for some `rows_axis` and `columns_axis` in `daf`. The names of the
-result axes are the names of the relevant axes entries (same as returned by [`axis_array`](@ref)).
+result axes are the names of the relevant axes entries (same as returned by [`axis_vector`](@ref)).
 
 If `relayout` (the default), then if the matrix is only stored in the other memory layout (that is, with flipped axes),
 then automatically call [`relayout!`](@ref) to compute the result. If `daf` isa [`DafWriter`](@ref), then store the
@@ -671,7 +671,7 @@ function get_matrix(
             if default === nothing
                 matrix = nothing
             elseif default == undef
-                require_matrix(daf, rows_axis, columns_axis, name; relayout = relayout)
+                require_matrix(daf, rows_axis, columns_axis, name; relayout)
                 @assert false
             elseif default isa StorageMatrix
                 matrix = default
@@ -814,7 +814,7 @@ function require_axis_names(
     names::AbstractVector{<:AbstractString},
 )::Nothing
     @assert Formats.has_data_read_lock(daf)
-    expected_names = axis_array(daf, axis)
+    expected_names = axis_vector(daf, axis)
     if names != expected_names
         error("$(what)\nmismatch the entry names of the axis: $(axis)\nin the daf data: $(daf.name)")
     end

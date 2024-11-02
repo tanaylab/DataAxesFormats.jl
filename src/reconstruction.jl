@@ -95,7 +95,7 @@ doublet score). Not specifying the `implicit_properties` allows the function to 
         unique_values = [string(unique_value) for unique_value in unique_values]
     end
     if has_axis(daf, rename_axis)
-        axis_values = axis_array(daf, rename_axis)
+        axis_values = axis_vector(daf, rename_axis)
         axis_values_set = Set(axis_values)
         for unique_value in unique_values
             if !(unique_value in axis_values_set)

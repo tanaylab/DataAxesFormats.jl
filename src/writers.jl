@@ -214,7 +214,7 @@ function delete_axis!(daf::DafWriter, axis::AbstractString; must_exist::Bool = t
         end
 
         Formats.invalidate_cached!(daf, Formats.axis_dict_cache_key(axis))
-        Formats.invalidate_cached!(daf, Formats.axis_array_cache_key(axis))
+        Formats.invalidate_cached!(daf, Formats.axis_vector_cache_key(axis))
         Formats.invalidate_cached!(daf, Formats.axes_set_cache_key())
         Formats.format_increment_version_counter(daf, axis)
 
@@ -225,7 +225,7 @@ function delete_axis!(daf::DafWriter, axis::AbstractString; must_exist::Bool = t
 end
 
 function require_no_axis(daf::DafReader, axis::AbstractString; for_change::Bool = false)::Nothing
-    if Formats.format_has_axis(daf, axis; for_change = for_change)
+    if Formats.format_has_axis(daf, axis; for_change)
         error("existing axis: $(axis)\nin the daf data: $(daf.name)")
     end
     return nothing
@@ -312,7 +312,7 @@ function empty_dense_vector!(
     overwrite::Bool = false,
 )::Any
     @assert isbitstype(eltype)
-    vector = get_empty_dense_vector!(daf, axis, name, eltype; overwrite = overwrite)
+    vector = get_empty_dense_vector!(daf, axis, name, eltype; overwrite)
     try
         result = fill(vector)
         Formats.cache_vector!(daf, axis, name, Formats.as_named_vector(daf, axis, vector))
@@ -403,7 +403,7 @@ function empty_sparse_vector!(
     end
     @assert isbitstype(eltype)
     @assert isbitstype(indtype)
-    nzind, nzval = get_empty_sparse_vector!(daf, axis, name, eltype, nnz, indtype; overwrite = overwrite)
+    nzind, nzval = get_empty_sparse_vector!(daf, axis, name, eltype, nnz, indtype; overwrite)
     try
         result = fill(nzind, nzval)
         filled_empty_sparse_vector!(daf, axis, name, nzind, nzval)
@@ -566,7 +566,7 @@ function set_matrix!(
         end
 
         if !overwrite
-            require_no_matrix(daf, rows_axis, columns_axis, name; relayout = relayout)
+            require_no_matrix(daf, rows_axis, columns_axis, name; relayout)
         end
 
         update_before_set_matrix(daf, rows_axis, columns_axis, name)
@@ -614,7 +614,7 @@ function empty_dense_matrix!(
     overwrite::Bool = false,
 )::Any
     @assert isbitstype(eltype)
-    matrix = get_empty_dense_matrix!(daf, rows_axis, columns_axis, name, eltype; overwrite = overwrite)
+    matrix = get_empty_dense_matrix!(daf, rows_axis, columns_axis, name, eltype; overwrite)
     try
         result = fill(matrix)
         Formats.cache_matrix!(
@@ -717,7 +717,7 @@ function empty_sparse_matrix!(
     @assert isbitstype(eltype)
     @assert isbitstype(indtype)
     colptr, rowval, nzval =
-        get_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, eltype, nnz, indtype; overwrite = overwrite)
+        get_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, eltype, nnz, indtype; overwrite)
     try
         result = fill(colptr, rowval, nzval)
         filled_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, colptr, rowval, nzval)
@@ -901,7 +901,7 @@ function delete_matrix!(
         require_axis(daf, "for the columns of the matrix: $(name)", columns_axis)
 
         if must_exist
-            require_matrix(daf, rows_axis, columns_axis, name; relayout = relayout)
+            require_matrix(daf, rows_axis, columns_axis, name; relayout)
         end
 
         update_caches_and_delete_matrix(daf, rows_axis, columns_axis, name)

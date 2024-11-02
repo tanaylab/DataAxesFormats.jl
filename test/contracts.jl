@@ -941,7 +941,7 @@ nested_test("contracts") do
         @test set_matrix!(daf, "cell", "gene", "UMIs", [0.0 1.0 2.0; 3.0 4.0 5.0]) === nothing
 
         @assert daf["? axes"] == axes_set(daf)
-        @assert daf["/ cell"] == axis_array(daf, "cell")
+        @assert daf["/ cell"] == axis_vector(daf, "cell")
         @assert daf[": version"] == get_scalar(daf, "version")
         @assert daf["/ cell : age"] == get_vector(daf, "cell", "age")
         @assert daf["/ cell / gene : UMIs"] == get_matrix(daf, "cell", "gene", "UMIs")
@@ -955,8 +955,8 @@ nested_test("contracts") do
                 @test contract_daf["? axes"] == axes_set(daf)
             end
 
-            nested_test("axis_array") do
-                @test axis_array(contract_daf, "cell") == ["A", "B"]
+            nested_test("axis_vector") do
+                @test axis_vector(contract_daf, "cell") == ["A", "B"]
                 @test contract_daf["/ cell"] == ["A", "B"]
             end
 
@@ -1052,12 +1052,12 @@ nested_test("contracts") do
                 @test axes_set(contract_daf) === axes_set(daf)
             end
 
-            nested_test("axis_array") do
+            nested_test("axis_vector") do
                 @test_throws dedent("""
                     accessing non-contract axis: cell
                     for the computation: computation
                     on the daf data: memory!
-                """) axis_array(contract_daf, "cell")
+                """) axis_vector(contract_daf, "cell")
 
                 @test_throws dedent("""
                     accessing non-contract axis: cell
@@ -1224,8 +1224,8 @@ nested_test("contracts") do
                 @test axes_set(contract_daf) === axes_set(daf)
             end
 
-            nested_test("axis_array") do
-                @test axis_array(contract_daf, "cell") === axis_array(daf, "cell")
+            nested_test("axis_vector") do
+                @test axis_vector(contract_daf, "cell") === axis_vector(daf, "cell")
             end
 
             nested_test("axis_dict") do

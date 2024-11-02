@@ -145,11 +145,11 @@ function depict(matrix::AbstractMatrix)::String
 end
 
 function depict_matrix(matrix::SparseArrays.ReadOnly, prefix::AbstractString; transposed::Bool = false)::String
-    return depict_matrix(parent(matrix), concat_prefixes(prefix, "ReadOnly"); transposed = transposed)
+    return depict_matrix(parent(matrix), concat_prefixes(prefix, "ReadOnly"); transposed)
 end
 
 function depict_matrix(matrix::NamedMatrix, prefix::AbstractString; transposed::Bool = false)::String
-    return depict_matrix(matrix.array, concat_prefixes(prefix, "Named"); transposed = transposed)
+    return depict_matrix(matrix.array, concat_prefixes(prefix, "Named"); transposed)
 end
 
 function depict_matrix(matrix::Transpose, prefix::AbstractString; transposed::Bool = false)::String
@@ -161,7 +161,7 @@ function depict_matrix(matrix::Adjoint, prefix::AbstractString; transposed::Bool
 end
 
 function depict_matrix(matrix::DenseMatrix, prefix::AbstractString; transposed::Bool = false)::String
-    return depict_matrix_size(matrix, concat_prefixes(prefix, "Dense"); transposed = transposed)
+    return depict_matrix_size(matrix, concat_prefixes(prefix, "Dense"); transposed)
 end
 
 function depict_matrix(matrix::SparseMatrixCSC, prefix::AbstractString; transposed::Bool = false)::String
@@ -169,7 +169,7 @@ function depict_matrix(matrix::SparseMatrixCSC, prefix::AbstractString; transpos
     return depict_matrix_size(
         matrix,
         concat_prefixes(prefix, "Sparse $(SparseArrays.indtype(matrix)) $(nnz)");
-        transposed = transposed,
+        transposed,
     )
 end
 
@@ -178,12 +178,12 @@ function depict_matrix(matrix::AbstractMatrix, ::AbstractString; transposed::Boo
         matrix_strides = strides(matrix)
         matrix_sizes = size(matrix)
         if matrix_strides == (1, matrix_sizes[1]) || matrix_strides == (matrix_sizes[2], 1)
-            return depict_matrix_size(matrix, "$(nameof(typeof(matrix))) - Dense"; transposed = transposed)
+            return depict_matrix_size(matrix, "$(nameof(typeof(matrix))) - Dense"; transposed)
         else
-            return depict_matrix_size(matrix, "$(nameof(typeof(matrix))) - Strided"; transposed = transposed)
+            return depict_matrix_size(matrix, "$(nameof(typeof(matrix))) - Strided"; transposed)
         end
     catch
-        return depict_matrix_size(matrix, "$(nameof(typeof(matrix)))"; transposed = transposed)
+        return depict_matrix_size(matrix, "$(nameof(typeof(matrix)))"; transposed)
     end
 end
 

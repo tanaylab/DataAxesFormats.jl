@@ -144,7 +144,7 @@ otherwise, it will be "X".
     @assert obs_is != var_is
 
     verify_unsupported(adata, name, unsupported_handler)
-    memory = MemoryDaf(; name = name)
+    memory = MemoryDaf(; name)
     copy_supported(adata, memory, obs_is, var_is, X_is)
     return memory
 end
@@ -440,7 +440,7 @@ stored in the returned new `AnnData` object.
         require_matrix(daf, obs_is, var_is, X_is; relayout = true)
 
         matrix = transpose(get_matrix(daf, var_is, obs_is, X_is))
-        adata = AnnData(; X = matrix, obs_names = axis_array(daf, obs_is), var_names = axis_array(daf, var_is))
+        adata = AnnData(; X = matrix, obs_names = axis_vector(daf, obs_is), var_names = axis_vector(daf, var_is))
 
         copy_scalars(daf, adata.uns)
 
@@ -475,7 +475,7 @@ function by_scalar(
     default::AbstractString,
 )::AbstractString
     if value === nothing
-        value = get_scalar(daf, name; default = default)
+        value = get_scalar(daf, name; default)
         @assert value !== nothing
     end
     return value
