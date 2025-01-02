@@ -760,8 +760,10 @@ end
 
 function write_zeros_file(path::AbstractString, size::Integer)::Nothing
     open(path, "w") do file
-        seek(file, size - 1)
-        return write(file, UInt8(0))
+        if size > 0
+            seek(file, size - 1)
+            write(file, UInt8(0))
+        end
     end
     return nothing
 end

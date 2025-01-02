@@ -140,6 +140,17 @@ function depict_vector_size(vector::AbstractVector, kind::AbstractString)::Strin
     return "$(length(vector)) x $(eltype(vector)) ($(kind))"
 end
 
+function depict(transposed::Transpose)::String
+    parent = transposed.parent
+    if parent isa AbstractVector
+        return depict_vector(parent, "Transpose")  # untested
+    elseif parent isa AbstractMatrix
+        return depict_matrix(transposed.parent, "Transpose"; transposed = true)
+    else
+        @assert false
+    end
+end
+
 function depict(matrix::AbstractMatrix)::String
     return depict_array(matrix, depict_matrix(matrix, ""; transposed = false))
 end

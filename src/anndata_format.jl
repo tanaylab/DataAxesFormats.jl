@@ -162,17 +162,20 @@ function by_annotation(
     return value
 end
 
+SupportedVector{T} = AbstractVector{T} where {T <: Union{StorageScalar, Nothing, Missing}}
+SupportedMatrix{T} = AbstractMatrix{T} where {T <: Union{StorageReal, Nothing, Missing}}
+
 function verify_unsupported(adata::AnnData, name::AbstractString, unsupported_handler::AbnormalHandler)::Nothing
     if unsupported_handler != IgnoreHandler
         verify_are_supported_type(adata.uns, "uns", StorageScalar, name, unsupported_handler)
 
-        verify_are_supported_type(adata.obs, "obs", StorageVector, name, unsupported_handler)
-        verify_are_supported_type(adata.var, "var", StorageVector, name, unsupported_handler)
+        verify_are_supported_type(adata.obs, "obs", SupportedVector, name, unsupported_handler)
+        verify_are_supported_type(adata.var, "var", SupportedVector, name, unsupported_handler)
 
-        verify_is_supported_type(adata.X, StorageMatrix, name, "X", unsupported_handler)
-        verify_are_supported_type(adata.layers, "layers", StorageMatrix, name, unsupported_handler)
-        verify_are_supported_type(adata.obsp, "obsp", StorageMatrix, name, unsupported_handler)
-        verify_are_supported_type(adata.varp, "varp", StorageMatrix, name, unsupported_handler)
+        verify_is_supported_type(adata.X, SupportedMatrix, name, "X", unsupported_handler)
+        verify_are_supported_type(adata.layers, "layers", SupportedMatrix, name, unsupported_handler)
+        verify_are_supported_type(adata.obsp, "obsp", SupportedMatrix, name, unsupported_handler)
+        verify_are_supported_type(adata.varp, "varp", SupportedMatrix, name, unsupported_handler)
 
         verify_are_empty(adata.obsm, "obsm", name, unsupported_handler)
         verify_are_empty(adata.varm, "varm", name, unsupported_handler)
@@ -296,15 +299,52 @@ end
 function copy_supported_vectors(frame::DataFrame, memory::MemoryDaf, axis::AbstractString)::Nothing
     for column in names(frame)
         vector = frame[!, column]
-        if vector isa CategoricalVector
-            vector = [value === missing ? "" : string(value) for value in vector]  # untested
+
+        if !(vector isa SupportedVector)
+            continue  # untested
         end
-        if vector isa BitVector
-            vector = Vector{Bool}(vector)  # untested
+
+        n_values = length(vector)
+        element_type = eltype(vector)
+        if missing isa element_type || nothing isa element_type
+            for index in 1:n_values  # untested
+                try  # untested
+                    value = vector[index]  # untested
+                    if value !== missing && value !== nothing  # untested
+                        element_type = typeof(value)  # untested
+                        break  # untested
+                    end
+                catch UndefRefError  # NOLINT  # untested
+                end
+            end
         end
-        if vector isa StorageVector
-            set_vector!(memory, axis, column, vector)
+
+        @assert element_type <: StorageScalar
+        if element_type <: AbstractString
+            empty_value = ""  # untested
+        else
+            empty_value = element_type(0)
         end
+
+        if vector isa CategoricalVector || element_type == Bool || !(vector isa StorageVector)
+            proper_vector = Vector{element_type}(undef, n_values)  # untested
+            for index in 1:n_values  # untested
+                try  # untested
+                    value = vector[index]  # untested
+                    if value !== missing && value !== nothing  # untested
+                        proper_vector[index] = value  # untested
+                    else
+                        proper_vector[index] = empty_value  # untested
+                    end
+                catch UndefRefError  # NOLINT
+                    proper_vector[index] = empty_value  # untested
+                end
+            end
+            vector = proper_vector  # untested
+        end
+
+        @assert vector isa StorageVector
+        set_vector!(memory, axis, column, vector)
     end
 end
 

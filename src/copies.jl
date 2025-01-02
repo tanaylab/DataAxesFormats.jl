@@ -283,7 +283,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
     rows_relation::Maybe{Symbol} = nothing,
     columns_relation::Maybe{Symbol} = nothing,
 )::Nothing
-    relayout && rows_axis != columns_axis
+    relayout = relayout && rows_axis != columns_axis
     rows_reaxis = new_name(rows_reaxis, rows_axis)
     columns_reaxis = new_name(columns_reaxis, columns_axis)
     rename = new_name(rename, name)
