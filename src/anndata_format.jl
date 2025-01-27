@@ -133,7 +133,7 @@ otherwise, it will be "X".
     if adata isa AbstractString
         path = adata
         @debug "readh5ad $(path) {"
-        adata = readh5ad(path; backed = true)  # NOJET
+        adata = readh5ad(path; backed = false)  # NOJET
         @debug "readh5ad $(path) }"
     end
 
@@ -393,7 +393,7 @@ function copy_supported_matrix(  # untested
     return nothing
 end
 
-function copy_supported_matrix(
+function copy_supported_matrix(  # untested
     matrix::Muon.TransposedDataset,
     memory::MemoryDaf,
     rows_axis::AbstractString,
@@ -421,12 +421,14 @@ function copy_supported_matrix(
     end
 end
 
-function access_matrix(matrix::Muon.TransposedDataset)::AbstractMatrix
+function access_matrix( # only seems untested
+    matrix::Muon.TransposedDataset,
+)::AbstractMatrix
     dataset = matrix.dset
     if HDF5.ismmappable(dataset) && HDF5.iscontiguous(dataset)
         return transpose(HDF5.readmmap(dataset))
     else
-        return transpose(read(dataset))  # untested
+        return transpose(read(dataset))
     end
 end
 

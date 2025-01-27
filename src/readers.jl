@@ -263,7 +263,7 @@ function axis_indices(
         # Formats.assert_valid_cache(daf)
         require_axis(daf, "for: axis_indices", axis)
         dictionary = Formats.get_axis_dict_through_cache(daf, axis)
-        result = getindex.(Ref(dictionary), entries)
+        result = [dictionary[entry] for entry in entries]
         @debug "axis_indices daf: $(depict(daf)) result: $(depict(result))"
         # Formats.assert_valid_cache(daf)
         return result

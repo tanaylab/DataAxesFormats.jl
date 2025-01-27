@@ -126,7 +126,7 @@ function major_axis(matrix::AbstractMatrix)::Maybe{Int8}
         return nothing  # untested
 
     catch MethodError  # NOLINT
-        return nothing
+        return nothing  # untested
     end
 end
 
@@ -546,12 +546,23 @@ end
     transposer(matrix::AbstractMatrix)::AbstractMatrix
     transposer(matrix::NamedMatrix)::NamedMatrix
 
-This is a shorthand for `LinearAlgebra.transpose!(similar(transpose(m)), m)`. That is, this will return a transpose of a
-matrix, but instead of simply using a zero-copy wrapper, it actually rearranges the data. See [`relayout!`](@ref).
+Return a transpose of a matrix, but instead of simply using a zero-copy wrapper, it actually rearranges the data. See
+[`relayout!`](@ref).
 """
 function transposer(matrix::AbstractMatrix)::AbstractMatrix
     @debug "transposer $(depict(matrix)) {"  # NOLINT
-    result = LinearAlgebra.transpose!(similar(transpose(matrix)), matrix)
+    axis = major_axis(matrix)
+    if axis == Columns
+        result = Matrix{eltype(matrix)}(undef, size(matrix, 2), size(matrix, 1))
+    elseif axis == Rows
+        result = transpose(Matrix{eltype(matrix)}(undef, size(matrix, 1), size(matrix, 2)))
+    else
+        @assert false "transposer of a matrix w/o clear layout: $(depict(matrix))" # UNTESTED NOLINT
+    end
+    LinearAlgebra.transpose!(result, matrix)
+    @assert size(result, 1) == size(matrix, 2)
+    @assert size(result, 2) == size(matrix, 1)
+    @assert major_axis(result) == major_axis(matrix)
     @debug "transposer $(depict(result)) }"  # NOLINT
     return result
 end
@@ -561,6 +572,9 @@ function transposer(matrix::AbstractSparseMatrix)::AbstractMatrix
     @debug "transposer $(depict(matrix)) {"  # NOLINT
     result = SparseMatrixCSC(transpose(matrix))
     @debug "transposer $(depict(result)) }"  # NOLINT
+    @assert size(result, 1) == size(matrix, 2)
+    @assert size(result, 2) == size(matrix, 1)
+    @assert major_axis(result) == major_axis(matrix)
     return result
 end
 

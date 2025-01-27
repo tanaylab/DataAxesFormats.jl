@@ -907,7 +907,8 @@ function get_matrix_through_cache(
         format.internal.cache_group,
     ) do
         matrix = format_get_matrix(format, rows_axis, columns_axis, name)
-        return as_named_matrix(format, rows_axis, columns_axis, matrix)
+        matrix = as_named_matrix(format, rows_axis, columns_axis, matrix)
+        return matrix
     end
 end
 
@@ -927,7 +928,8 @@ function get_relayout_matrix_through_cache(
         is_slow = true,
     ) do
         matrix = transposer(matrix)
-        return (as_named_matrix(format, rows_axis, columns_axis, matrix), nothing)
+        matrix = as_named_matrix(format, rows_axis, columns_axis, matrix)
+        return (matrix, nothing)
     end
 end
 
