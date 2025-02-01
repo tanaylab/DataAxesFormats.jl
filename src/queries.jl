@@ -3762,7 +3762,7 @@ function collect_vector_group_by(
         group_value = groups_values[group_index]
         group_mask = groups_vector .== group_value
         values_of_group = values_vector[group_mask]
-        if length(values_of_group) > 0
+        if !isempty(values_of_group)
             results_vector[group_index] = compute_reduction(reduction_operation, read_only_array(values_of_group))  # NOLINT
         elseif empty_group_value !== nothing
             results_vector[group_index] = empty_group_value

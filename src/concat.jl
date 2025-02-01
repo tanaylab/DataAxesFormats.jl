@@ -176,7 +176,7 @@ By default, concatenation will fail rather than `overwrite` existing properties 
             axes = axis
         end
 
-        @assert length(axes) > 0
+        @assert !isempty(axes)
         @assert allunique(axes)
 
         for axis in axes
@@ -203,7 +203,7 @@ By default, concatenation will fail rather than `overwrite` existing properties 
             end
         end
 
-        @assert length(sources) > 0
+        @assert !isempty(sources)
 
         if names === nothing
             names = [source.name for source in sources]

@@ -827,7 +827,7 @@ function Formats.format_get_matrix(
 end
 
 function dataset_as_vector(dataset::HDF5.Dataset)::StorageVector
-    if HDF5.ismmappable(dataset) && HDF5.iscontiguous(dataset) && length(dataset) > 0
+    if HDF5.ismmappable(dataset) && HDF5.iscontiguous(dataset) && !isempty(dataset)
         return HDF5.readmmap(dataset)
     else
         return read(dataset)
@@ -835,7 +835,7 @@ function dataset_as_vector(dataset::HDF5.Dataset)::StorageVector
 end
 
 function dataset_as_matrix(dataset::HDF5.Dataset)::StorageMatrix
-    if HDF5.ismmappable(dataset) && HDF5.iscontiguous(dataset) && length(dataset) > 0
+    if HDF5.ismmappable(dataset) && HDF5.iscontiguous(dataset) && !isempty(dataset)
         return HDF5.readmmap(dataset)
     else
         return read(dataset)  # untested
