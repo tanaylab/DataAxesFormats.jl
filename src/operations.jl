@@ -50,6 +50,7 @@ using StatsBase
 import ..Registry.compute_eltwise
 import ..Registry.compute_reduction
 import ..Registry.reduction_result_type
+import ..Registry.supports_strings
 import ..Tokens.error_at_token
 import ..Tokens.Token
 import Base.MathConstants.e
@@ -822,6 +823,10 @@ end
 Reduction operation that counts elements. This is useful when using `GroupBy` queries to count the number of elements in
 each group.
 
+!!! note
+
+    This operation supports strings; most operations do not.
+
 **Parameters**
 
 `dtype` - By default, uses `UInt32`.
@@ -858,6 +863,10 @@ function reduction_result_type(operation::Count, ::Type)::Type
     return operation.dtype === nothing ? UInt32 : operation.dtype
 end
 
+function supports_strings(::Count)::Bool
+    return true
+end
+
 """
     Mode()
 
@@ -889,6 +898,10 @@ end
 
 function reduction_result_type(::Mode, eltype::Type)::Type
     return eltype
+end
+
+function supports_strings(::Mode)::Bool
+    return true
 end
 
 """

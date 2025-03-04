@@ -535,6 +535,30 @@ compute_reduction(operation::ReductionOperation, input::StorageVector)::StorageR
 </div>
 </section>
 </article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Registry.supports_strings" href="#DataAxesFormats.Registry.supports_strings">
+<code>DataAxesFormats.Registry.supports_strings
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">supports_strings(operation::ComputationOperation)::Bool
+</code>
+</pre>
+<p>Most operations do not support string operands. The very few that do are explicitly marked in the documentation.
+</p>
+</div>
+</section>
+</article>
 <h2 id="Registering-operations">
 <a class="docs-heading-anchor" href="#Registering-operations">Registering operations
 </a>
@@ -690,6 +714,12 @@ end
 <li>
 <a href="registry.html#DataAxesFormats.Registry.register_query_operation">
 <code>DataAxesFormats.Registry.register_query_operation
+</code>
+</a>
+</li>
+<li>
+<a href="registry.html#DataAxesFormats.Registry.supports_strings">
+<code>DataAxesFormats.Registry.supports_strings
 </code>
 </a>
 </li>

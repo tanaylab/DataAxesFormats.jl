@@ -317,8 +317,15 @@ nested_test("operations") do
     nested_test("reduction") do
         nested_test("most_frequent") do
             nested_test("vector") do
-                set_vector!(daf, "gene", "value", [1, 1, 3])
-                @test with_type(daf[Axis("gene") |> Lookup("value") |> Mode()]) == (1, Int64)
+                nested_test("numeric") do
+                    set_vector!(daf, "gene", "value", [1, 1, 3])
+                    @test with_type(daf[Axis("gene") |> Lookup("value") |> Mode()]) == (1, Int64)
+                end
+
+                nested_test("string") do
+                    set_vector!(daf, "gene", "value", ["Foo", "Foo", "Bar"])
+                    @test with_type(daf[Axis("gene") |> Lookup("value") |> Mode()]) == ("Foo", String)
+                end
             end
 
             nested_test("matrix") do
@@ -329,9 +336,17 @@ nested_test("operations") do
 
         nested_test("count") do
             nested_test("vector") do
-                set_vector!(daf, "cell", "value", [1, 3])
-                @test with_type(daf[Axis("cell") |> Lookup("value") |> Count()]) == (2, UInt32)
-                @test with_type(daf["/ cell : value %> Count dtype Int8"]) == (2, Int8)
+                nested_test("numeric") do
+                    set_vector!(daf, "cell", "value", [1, 3])
+                    @test with_type(daf[Axis("cell") |> Lookup("value") |> Count()]) == (2, UInt32)
+                    @test with_type(daf["/ cell : value %> Count dtype Int8"]) == (2, Int8)
+                end
+
+                nested_test("string") do
+                    set_vector!(daf, "cell", "value", ["Foo", "Bar"])
+                    @test with_type(daf[Axis("cell") |> Lookup("value") |> Count()]) == (2, UInt32)
+                    @test with_type(daf["/ cell %> Count dtype Int8"]) == (2, Int8)
+                end
             end
 
             nested_test("matrix") do

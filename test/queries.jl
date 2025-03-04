@@ -205,6 +205,11 @@ nested_test("queries") do
             end
         end
 
+        nested_test("default") do
+            add_axis!(daf, "cell", ["A", "B"])
+            @test get_result(daf, q"/ cell %> Count") == 2
+        end
+
         nested_test("scalars") do
             @test get_result(daf, q"? scalars") == []
             set_scalar!(daf, "score", 1.0)
@@ -1321,18 +1326,6 @@ nested_test("queries") do
                         unexpected operation: EltwiseOperation
                         in the query: / cell % Log base e eps 0.0
                         at operation:        ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
-                    """,
-                )
-            end
-
-            nested_test("reduction") do
-                return test_invalid(
-                    daf,
-                    q"/ cell %> Sum",
-                    """
-                        unexpected operation: ReductionOperation
-                        in the query: / cell %> Sum
-                        at operation:        ▲▲▲▲▲▲
                     """,
                 )
             end

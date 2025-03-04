@@ -17,6 +17,7 @@ DataAxesFormats.Registry.compute_eltwise
 DataAxesFormats.Registry.ReductionOperation
 DataAxesFormats.Registry.compute_reduction
 DataAxesFormats.Registry.reduction_result_type
+DataAxesFormats.Registry.supports_strings
 ```
 
 ## Registering operations

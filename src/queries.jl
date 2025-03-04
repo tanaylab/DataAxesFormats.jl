@@ -1724,7 +1724,7 @@ function error_unexpected_operation(query_state::Union{QueryState, FakeQueryStat
     if query_operation isa EltwiseOperation
         query_operation_type = EltwiseOperation
     elseif query_operation isa ReductionOperation
-        query_operation_type = ReductionOperation
+        query_operation_type = ReductionOperation  # untested
     else
         query_operation_type = typeof(query_operation)
     end
@@ -3809,7 +3809,7 @@ function eltwise_scalar(query_state::QueryState, eltwise_operation::EltwiseOpera
     @assert scalar_state isa ScalarState
 
     scalar_value = scalar_state.scalar_value
-    if scalar_value isa AbstractString
+    if scalar_value isa AbstractString && !supports_strings(eltwise_operation)
         error_at_state(query_state, dedent("""
                                         unsupported input type: String
                                         for the eltwise operation: $(typeof(eltwise_operation))
@@ -3826,7 +3826,7 @@ function eltwise_vector(query_state::QueryState, eltwise_operation::EltwiseOpera
     vector_state = pop!(query_state.stack)
     @assert vector_state isa VectorState
 
-    if eltype(vector_state.named_vector) <: AbstractString
+    if eltype(vector_state.named_vector) <: AbstractString && !supports_strings(eltwise_operation)
         error_at_state(query_state, dedent("""
                                         unsupported input type: $(eltype(vector_state.named_vector))
                                         for the eltwise operation: $(typeof(eltwise_operation))
@@ -3855,6 +3855,10 @@ function eltwise_matrix(query_state::QueryState, eltwise_operation::EltwiseOpera
 end
 
 function apply_query_operation!(query_state::QueryState, reduction_operation::ReductionOperation)::Nothing
+    if is_all(query_state, (AxisState,))
+        lookup_axis(query_state, Lookup("name"))
+    end
+
     if is_all(query_state, (VectorState,))
         reduce_vector(query_state, reduction_operation)
         return nothing
@@ -3865,10 +3869,14 @@ function apply_query_operation!(query_state::QueryState, reduction_operation::Re
         return nothing
     end
 
-    return error_unexpected_operation(query_state)
+    return error_unexpected_operation(query_state)  # untested
 end
 
 function fake_query_operation!(fake_query_state::FakeQueryState, reduction_operation::ReductionOperation)::Nothing  # NOLINT
+    if is_all(fake_query_state, (FakeAxisState,))
+        fake_lookup_axis(fake_query_state)
+    end
+
     if is_all(fake_query_state, (FakeVectorState,))
         fake_reduce_vector(fake_query_state)
         return nothing
@@ -3877,14 +3885,14 @@ function fake_query_operation!(fake_query_state::FakeQueryState, reduction_opera
         return nothing
     end
 
-    return error_unexpected_operation(fake_query_state)
+    return error_unexpected_operation(fake_query_state)  # untested
 end
 
 function reduce_vector(query_state::QueryState, reduction_operation::ReductionOperation)::Nothing
     vector_state = pop!(query_state.stack)
     @assert vector_state isa VectorState
 
-    if eltype(vector_state.named_vector) <: AbstractString
+    if eltype(vector_state.named_vector) <: AbstractString && !supports_strings(reduction_operation)
         error_at_state(query_state, dedent("""
                                         unsupported input type: $(eltype(vector_state.named_vector))
                                         for the reduction operation: $(typeof(reduction_operation))

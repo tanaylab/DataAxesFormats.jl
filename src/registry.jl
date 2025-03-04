@@ -16,6 +16,7 @@ export @query_operation
 export reduction_result_type
 export ReductionOperation
 export register_query_operation
+export supports_strings
 
 using ..GenericFunctions
 using ..StorageTypes
@@ -35,6 +36,15 @@ abstract type QueryOperation end
 
 # Abstract interface for all query computation (element-wise and reduction) operations.
 abstract type ComputationOperation <: QueryOperation end
+
+"""
+    supports_strings(operation::ComputationOperation)::Bool
+
+Most operations do not support string operands. The very few that do are explicitly marked in the documentation.
+"""
+function supports_strings(::ComputationOperation)::Bool
+    return false
+end
 
 """
 Abstract type for all element-wise operations.
