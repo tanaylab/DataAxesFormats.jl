@@ -125,6 +125,10 @@ using StringViews
 
 import ..Formats
 import ..Formats.Internal
+import ..MatrixLayouts.colptr
+import ..MatrixLayouts.nzind
+import ..MatrixLayouts.nzval
+import ..MatrixLayouts.rowval
 import ..Operations.DTYPE_BY_NAME
 import ..Readers.base_array
 import SparseArrays.indtype
@@ -379,10 +383,10 @@ function Formats.format_set_vector!(
         write_array_json("$(files.path)/vectors/$(axis)/$(name).json", "dense", typeof(vector))
         fill_file("$(files.path)/vectors/$(axis)/$(name).data", vector, Formats.format_axis_length(files, axis))
 
-    elseif vector isa SparseVector
+    elseif issparse(vector)
         write_array_json("$(files.path)/vectors/$(axis)/$(name).json", "sparse", eltype(vector), indtype(vector))
-        write("$(files.path)/vectors/$(axis)/$(name).nzind", vector.nzind)
-        write("$(files.path)/vectors/$(axis)/$(name).nzval", vector.nzval)
+        write("$(files.path)/vectors/$(axis)/$(name).nzind", nzind(vector))
+        write("$(files.path)/vectors/$(axis)/$(name).nzval", nzval(vector))
 
     elseif eltype(vector) <: AbstractString
         write_array_json("$(files.path)/vectors/$(axis)/$(name).json", "dense", String)
@@ -525,20 +529,21 @@ function Formats.format_set_matrix!(
         matrix = spzeros(typeof(matrix), nrows, ncols)
     end
 
-    if matrix isa SparseMatrixCSC
-        write_array_json(
+    if matrix isa StorageReal
+        write_array_json("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", "dense", typeof(matrix))
+        fill_file("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).data", matrix, nrows * ncols)  # NOJET
+
+    elseif issparse(matrix)
+        @assert matrix isa AbstractMatrix
+        write_array_json(  # NOJET
             "$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json",
             "sparse",
             eltype(matrix),
             indtype(matrix),
         )
-        write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).colptr", matrix.colptr)
-        write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).rowval", matrix.rowval)
-        write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).nzval", matrix.nzval)
-
-    elseif matrix isa StorageReal
-        write_array_json("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", "dense", typeof(matrix))
-        fill_file("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).data", matrix, nrows * ncols)  # NOJET
+        write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).colptr", colptr(matrix))
+        write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).rowval", rowval(matrix))
+        write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).nzval", nzval(matrix))
 
     else
         write_array_json("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", "dense", eltype(matrix))
@@ -603,7 +608,7 @@ function Formats.format_relayout_matrix!(
 )::StorageMatrix
     @assert Formats.has_data_write_lock(files)
 
-    if matrix isa SparseMatrixCSC
+    if issparse(matrix)
         colptr, rowval, nzval = Formats.format_get_empty_sparse_matrix!(
             files,
             columns_axis,

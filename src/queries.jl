@@ -568,12 +568,12 @@ function next_query_operation(tokens::Vector{Token}, next_token_index::Int)::Tup
         return (IfMissing(value; dtype), next_token_index)
     end
 
-    return error_at_token(tokens[next_token_index - 1], "bug when parsing query"; at_end = true)  # untested
+    return error_at_token(tokens[next_token_index - 1], "bug when parsing query"; at_end = true)  # UNTESTED
 end
 
 function next_operator_token(tokens::Vector{Token}, next_token_index::Int)::Token
     if next_token_index > length(tokens)
-        error_at_token(tokens[next_token_index - 1], "expected: operator"; at_end = true)  # untested
+        error_at_token(tokens[next_token_index - 1], "expected: operator"; at_end = true)  # UNTESTED
     elseif !tokens[next_token_index].is_operator
         error_at_token(tokens[next_token_index], "expected: operator")
     end
@@ -582,7 +582,7 @@ end
 
 function next_value_token(tokens::Vector{Token}, next_token_index::Int)::Token
     if next_token_index > length(tokens)
-        error_at_token(tokens[next_token_index - 1], "expected: value"; at_end = true)  # untested
+        error_at_token(tokens[next_token_index - 1], "expected: value"; at_end = true)  # UNTESTED
     elseif tokens[next_token_index].is_operator
         error_at_token(tokens[next_token_index], "expected: value")
     end
@@ -933,7 +933,7 @@ function IfMissing(value::StorageScalar; dtype::Maybe{Type} = nothing)::IfMissin
     if dtype !== nothing
         @assert value isa dtype
     elseif !(value isa AbstractString)
-        dtype = typeof(value)  # untested
+        dtype = typeof(value)  # UNTESTED
     end
     return IfMissing(value, dtype)
 end
@@ -1502,7 +1502,7 @@ function show_computation_operation(
             elseif field_value == Float64(pi)
                 print(io, "pi")
             elseif field_value isa AbstractString
-                print(io, escape_value(field_value))  # untested
+                print(io, escape_value(field_value))  # UNTESTED
             else
                 print(io, field_value)
             end
@@ -1572,7 +1572,7 @@ mutable struct QueryState
     stack::Vector{QueryValue}
 end
 
-function debug_query(object::Any; name::Maybe{AbstractString} = nothing, indent::AbstractString = "")::Nothing  # untested
+function debug_query(object::Any; name::Maybe{AbstractString} = nothing, indent::AbstractString = "")::Nothing  # UNTESTED
     if name === nothing
         @debug "$(indent)- $(depict(object))"
     else
@@ -1581,7 +1581,7 @@ function debug_query(object::Any; name::Maybe{AbstractString} = nothing, indent:
     return nothing
 end
 
-function debug_query(  # untested
+function debug_query(  # UNTESTED
     query_state::QueryState;
     name::Maybe{AbstractString} = nothing,
     indent::AbstractString = "",
@@ -1601,7 +1601,7 @@ function debug_query(  # untested
     return nothing
 end
 
-function debug_query(  # untested
+function debug_query(  # UNTESTED
     scalar_state::ScalarState;
     name::Maybe{AbstractString} = nothing,
     indent::AbstractString = "",
@@ -1616,7 +1616,7 @@ function debug_query(  # untested
     return nothing
 end
 
-function debug_query(axis_state::AxisState; name::Maybe{AbstractString} = nothing, indent::AbstractString = "")::Nothing  # untested
+function debug_query(axis_state::AxisState; name::Maybe{AbstractString} = nothing, indent::AbstractString = "")::Nothing  # UNTESTED
     if name === nothing
         @debug "$(indent)- AxisState:"
     else
@@ -1628,7 +1628,7 @@ function debug_query(axis_state::AxisState; name::Maybe{AbstractString} = nothin
     return nothing
 end
 
-function debug_query(  # untested
+function debug_query(  # UNTESTED
     vector_state::VectorState;
     name::Maybe{AbstractString} = nothing,
     indent::AbstractString = "",
@@ -1650,7 +1650,7 @@ function debug_query(  # untested
     return nothing
 end
 
-function debug_query(  # untested
+function debug_query(  # UNTESTED
     matrix_state::MatrixState;
     name::Maybe{AbstractString} = nothing,
     indent::AbstractString = "",
@@ -1724,7 +1724,7 @@ function error_unexpected_operation(query_state::Union{QueryState, FakeQueryStat
     if query_operation isa EltwiseOperation
         query_operation_type = EltwiseOperation
     elseif query_operation isa ReductionOperation
-        query_operation_type = ReductionOperation  # untested
+        query_operation_type = ReductionOperation  # UNTESTED
     else
         query_operation_type = typeof(query_operation)
     end
@@ -1735,7 +1735,7 @@ function Base.getindex(
     daf::DafReader,
     query::QueryString,
 )::Union{AbstractSet{<:AbstractString}, AbstractVector{<:AbstractString}, StorageScalar, NamedArray}
-    return get_query(daf, query)
+    return get_query(daf, query; cache = false)
 end
 
 """
@@ -1751,6 +1751,12 @@ release the cached data using [`empty_cache!`](@ref).
 
 As a shorthand syntax you can also invoke this using `getindex`, that is, using the `[]` operator (e.g.,
 `daf[q"/ cell"]` is equivalent to `get_query(daf, q"/ cell")`).
+
+!!! note
+
+    Using `get_query`, the query *is* cached (by default). Using `[...]`, the query is *not* cached. That is, `[...]` is
+    mostly used for one-off queries (and in interactive sessions, etc.) while `get_query` is used for more "fundamental"
+    queries that are expected to be re-used.
 """
 function get_query(
     daf::DafReader,
@@ -1766,6 +1772,7 @@ function get_query(
     cache::Bool = true,
 )::Union{AbstractSet{<:AbstractString}, AbstractVector{<:AbstractString}, StorageScalar, NamedArray}
     cache_key = (CachedQuery, "$(query_sequence)")
+    verify_contract_query(daf, cache_key)
     return Formats.with_data_read_lock(daf, "for get_query of:", cache_key) do
         did_compute = [false]
         if cache
@@ -1787,11 +1794,8 @@ function get_query(
                 did_compute[1] = true
                 result, _ = do_get_query(daf, query_sequence)
             else
-                result = result.data  # untested
+                result = result.data
             end
-        end
-        if !did_compute[1]
-            verify_contract_query(daf, cache_key)
         end
         @debug "get_query daf: $(depict(daf)) query_sequence: $(query_sequence) cache: $(cache) result: $(depict(result))"
         return result
@@ -2484,7 +2488,7 @@ mutable struct VectorFetchState
     if_not_values::Maybe{Vector{Maybe{IfNot}}}
 end
 
-function debug_query(  # untested
+function debug_query(  # UNTESTED
     common_fetch_state::CommonFetchState;
     name::Maybe{AbstractString} = nothing,
     indent::AbstractString = "",
@@ -2503,7 +2507,7 @@ function debug_query(  # untested
     return nothing
 end
 
-function debug_query(  # untested
+function debug_query(  # UNTESTED
     entry_fetch_state::EntryFetchState;
     name::Maybe{AbstractString} = nothing,
     indent::AbstractString = "",
@@ -2520,7 +2524,7 @@ function debug_query(  # untested
     return nothing
 end
 
-function debug_query(  # untested
+function debug_query(  # UNTESTED
     vector_fetch_state::VectorFetchState;
     name::Maybe{AbstractString} = nothing,
     indent::AbstractString = "",
@@ -3052,7 +3056,7 @@ function patch_fetched_values(
                 if is_fetched
                     masked_index += 1
                     if if_not_values[unmasked_index] === nothing
-                        masked_fetched_values[masked_index] = fetched_values[unmasked_index]  # untested
+                        masked_fetched_values[masked_index] = fetched_values[unmasked_index]  # UNTESTED
                     end
                 end
             end
@@ -3130,7 +3134,7 @@ function fetch_result(
     if if_not_values !== nothing
         if !fetch_state.may_modify_named_vector ||
            (eltype(named_vector) <: AbstractString && !(eltype(named_vector) in (String, AbstractString)))
-            named_vector = copy_array(named_vector)  # untested
+            named_vector = copy_array(named_vector)  # UNTESTED
         end
 
         for index in 1:length(named_vector)
@@ -3506,7 +3510,7 @@ function apply_query_operation!(query_state::QueryState, group_by::GroupBy)::Not
         return fetch_group_by_matrix(query_state, group_by)
     end
 
-    return error_unexpected_operation(query_state)  # untested
+    return error_unexpected_operation(query_state)  # UNTESTED
 end
 
 function fake_query_operation!(fake_query_state::FakeQueryState, ::GroupBy)::Nothing
@@ -3519,7 +3523,7 @@ function fake_query_operation!(fake_query_state::FakeQueryState, ::GroupBy)::Not
         return fake_fetch_group_by_matrix(fake_query_state)
     end
 
-    return error_unexpected_operation(fake_query_state)  # untested
+    return error_unexpected_operation(fake_query_state)  # UNTESTED
 end
 
 function fetch_group_by_vector(query_state::QueryState, group_by::GroupBy)::Nothing
@@ -3743,7 +3747,7 @@ function compute_matrix_group_by(
             empty_group_value,
             reduction_operation,
         )
-    end  # untested
+    end  # UNTESTED
 
     return results_matrix
 end
@@ -3772,7 +3776,7 @@ function collect_vector_group_by(
                                             and no IfMissing value was specified: || value_for_empty_groups
                                         """))
         end
-    end  # untested
+    end  # UNTESTED
 end
 
 function apply_query_operation!(query_state::QueryState, eltwise_operation::EltwiseOperation)::Nothing
@@ -3869,7 +3873,7 @@ function apply_query_operation!(query_state::QueryState, reduction_operation::Re
         return nothing
     end
 
-    return error_unexpected_operation(query_state)  # untested
+    return error_unexpected_operation(query_state)  # UNTESTED
 end
 
 function fake_query_operation!(fake_query_state::FakeQueryState, reduction_operation::ReductionOperation)::Nothing  # NOLINT
@@ -3885,7 +3889,7 @@ function fake_query_operation!(fake_query_state::FakeQueryState, reduction_opera
         return nothing
     end
 
-    return error_unexpected_operation(fake_query_state)  # untested
+    return error_unexpected_operation(fake_query_state)  # UNTESTED
 end
 
 function reduce_vector(query_state::QueryState, reduction_operation::ReductionOperation)::Nothing
@@ -3947,7 +3951,7 @@ end
 
 function has_top(query_state::Union{QueryState, FakeQueryState}, types::NTuple{N, Type})::Bool where {N}
     if length(query_state.stack) < length(types)
-        return false  # untested
+        return false  # UNTESTED
     end
 
     for (query_operation, type) in zip(query_state.stack, types)
@@ -4007,7 +4011,7 @@ function value_for_if_missing(
     end
 
     if if_missing.missing_value isa dtype
-        return if_missing.missing_value  # untested
+        return if_missing.missing_value  # UNTESTED
     end
 
     return value_for(query_state, dtype, if_missing.missing_value)
@@ -4034,7 +4038,7 @@ function value_for(
     if value isa T
         return value
     elseif T <: AbstractString
-        return String(value)  # untested
+        return String(value)  # UNTESTED
     elseif value isa AbstractString
         try
             return parse(T, value)
@@ -4042,10 +4046,10 @@ function value_for(
             error_at_state(query_state, "$(typeof(exception)): $(exception.msg)")
         end
     else
-        try  # untested
-            return T(value)  # untested
+        try  # UNTESTED
+            return T(value)  # UNTESTED
         catch exception
-            error_at_state(query_state, "$(typeof(exception)): $(exception.msg)")  # untested
+            error_at_state(query_state, "$(typeof(exception)): $(exception.msg)")  # UNTESTED
         end
     end
 end
@@ -4224,7 +4228,7 @@ function split_vector_query(query_sequence::QuerySequence)::Tuple{QuerySequence,
         return query_operation isa Lookup
     end
     if index === nothing
-        return (query_sequence, QuerySequence(()))  # untested
+        return (query_sequence, QuerySequence(()))  # UNTESTED
     else
         return (
             QuerySequence(query_sequence.query_operations[1:(index - 1)]),

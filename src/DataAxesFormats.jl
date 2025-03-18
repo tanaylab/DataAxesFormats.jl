@@ -47,20 +47,22 @@ module DataAxesFormats
 
 using Reexport
 
-include("generic_types.jl")
-include("generic_functions.jl")
-include("generic_locks.jl")
-
 include("storage_types.jl")
 @reexport using .StorageTypes
-
-include("matrix_layouts.jl")
-@reexport using .MatrixLayouts
 
 include("messages.jl")
 @reexport using .Messages
 
+include("generic_types.jl")
 include("generic_logging.jl")
+include("generic_functions.jl")
+include("generic_locks.jl")
+
+include("documentation.jl")
+@reexport using .Documentation
+
+include("matrix_layouts.jl")
+@reexport using .MatrixLayouts
 
 include("registry.jl")
 @reexport using .Registry: EltwiseOperation, ReductionOperation
@@ -71,6 +73,9 @@ include("tokens.jl")
 include("keys.jl")
 @reexport using .Keys
 
+include("operations.jl")
+@reexport using .Operations
+
 include("formats.jl")
 @reexport using .Formats
 
@@ -80,35 +85,35 @@ include("readers.jl")
 include("read_only.jl")
 @reexport using .ReadOnly
 
-include("operations.jl")
-@reexport using .Operations
-
-include("queries.jl")
-@reexport using .Queries
+include("groups.jl")
+@reexport using .Groups
 
 include("writers.jl")
 @reexport using .Writers
 
-include("views.jl")
-@reexport using .Views
-
-include("chains.jl")
-@reexport using .Chains
-
-include("memory_format.jl")
-@reexport using .MemoryFormat
-
-include("h5df_format.jl")
-@reexport using .H5dfFormat
+include("queries.jl")
+@reexport using .Queries
 
 include("files_format.jl")
 @reexport using .FilesFormat
 
-include("anndata_format.jl")
-@reexport using .AnnDataFormat
+include("chains.jl")
+@reexport using .Chains
+
+include("h5df_format.jl")
+@reexport using .H5dfFormat
+
+include("memory_format.jl")
+@reexport using .MemoryFormat
+
+include("views.jl")
+@reexport using .Views
 
 include("reconstruction.jl")
 @reexport using .Reconstruction
+
+include("anndata_format.jl")
+@reexport using .AnnDataFormat
 
 include("contracts.jl")
 @reexport using .Contracts
@@ -124,9 +129,6 @@ include("concat.jl")
 
 include("adapters.jl")
 @reexport using .Adapters
-
-include("groups.jl")
-@reexport using .Groups
 
 include("example_data.jl")
 @reexport using .ExampleData

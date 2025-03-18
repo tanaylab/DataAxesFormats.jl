@@ -957,7 +957,7 @@ nested_test("contracts") do
 
             nested_test("axis_vector") do
                 @test axis_vector(contract_daf, "cell") == ["A", "B"]
-                @test contract_daf["/ cell"] == ["A", "B"]
+                @test get_query(contract_daf, "/ cell") == ["A", "B"]
             end
 
             nested_test("axis_dict") do
@@ -1036,7 +1036,7 @@ nested_test("contracts") do
             nested_test("has_matrix") do
                 @test has_matrix(contract_daf, "cell", "gene", "UMIs")
                 @test !has_matrix(contract_daf, "cell", "gene", "fraction")
-                @test contract_daf["/ cell / gene : UMIs"] == get_matrix(daf, "cell", "gene", "UMIs")
+                @test get_query(contract_daf, "/ cell / gene : UMIs") == get_matrix(daf, "cell", "gene", "UMIs")
             end
 
             nested_test("matrices_set") do

@@ -93,6 +93,7 @@ import ..Readers.require_matrix
 
 """
     anndata_as_daf(
+        [filter::Maybe{Function} = nothing,]
         adata::Union{AnnData, AbstractString};
         [name::Maybe{AbstractString} = nothing,
         obs_is::Maybe{AbstractString} = nothing,
@@ -121,8 +122,37 @@ otherwise, it will be "var".
 
 If not specified, `X_is` (the name of the "X" matrix) will be the value of the "X_is" `uns` property, if it exists,
 otherwise, it will be "X".
+
+If `filter` is specified, it is a function that is given two parameters. The first is the name of the `anndata` member
+(`X`, `obs`, `var`, `obsp`, `varp`, `layer`) and the second is the key (`X` for the `X` member). It should return
+`false` if the data is to be ignored. This allows skipping unwanted data (or data that can't be converted for any
+reason). This doesn't speed things up
 """
 @logged function anndata_as_daf(
+    adata::Union{AnnData, AbstractString};
+    name::Maybe{AbstractString} = nothing,
+    obs_is::Maybe{AbstractString} = nothing,
+    var_is::Maybe{AbstractString} = nothing,
+    X_is::Maybe{AbstractString} = nothing,
+    unsupported_handler::AbnormalHandler = WarnHandler,
+)::MemoryDaf
+    return do_anndata_as_daf(nothing, adata; name, obs_is, var_is, X_is, unsupported_handler)
+end
+
+@logged function anndata_as_daf(  # UNTESTED
+    filter::Maybe{Function},
+    adata::Union{AnnData, AbstractString};
+    name::Maybe{AbstractString} = nothing,
+    obs_is::Maybe{AbstractString} = nothing,
+    var_is::Maybe{AbstractString} = nothing,
+    X_is::Maybe{AbstractString} = nothing,
+    unsupported_handler::AbnormalHandler = WarnHandler,
+)::MemoryDaf
+    return do_anndata_as_daf(filter, adata; name, obs_is, var_is, X_is, unsupported_handler)
+end
+
+function do_anndata_as_daf(
+    filter::Maybe{Function},
     adata::Union{AnnData, AbstractString};
     name::Maybe{AbstractString} = nothing,
     obs_is::Maybe{AbstractString} = nothing,
@@ -143,9 +173,9 @@ otherwise, it will be "X".
     X_is = by_annotation(adata, X_is, "X_is", "X")
     @assert obs_is != var_is
 
-    verify_unsupported(adata, name, unsupported_handler)
+    verify_unsupported(adata, name, unsupported_handler, filter)
     memory = MemoryDaf(; name)
-    copy_supported(adata, memory, obs_is, var_is, X_is)
+    copy_supported(adata, memory, obs_is, var_is, X_is, filter)
     return memory
 end
 
@@ -165,20 +195,27 @@ end
 SupportedVector{T} = AbstractVector{T} where {T <: Union{StorageScalar, Nothing, Missing}}
 SupportedMatrix{T} = AbstractMatrix{T} where {T <: Union{StorageReal, Nothing, Missing}}
 
-function verify_unsupported(adata::AnnData, name::AbstractString, unsupported_handler::AbnormalHandler)::Nothing
+function verify_unsupported(
+    adata::AnnData,
+    name::AbstractString,
+    unsupported_handler::AbnormalHandler,
+    filter::Maybe{Function},
+)::Nothing
     if unsupported_handler != IgnoreHandler
-        verify_are_supported_type(adata.uns, "uns", StorageScalar, name, unsupported_handler)
+        verify_are_supported_type(adata.uns, "uns", StorageScalar, name, unsupported_handler, filter)
 
-        verify_are_supported_type(adata.obs, "obs", SupportedVector, name, unsupported_handler)
-        verify_are_supported_type(adata.var, "var", SupportedVector, name, unsupported_handler)
+        verify_are_supported_type(adata.obs, "obs", SupportedVector, name, unsupported_handler, filter)
+        verify_are_supported_type(adata.var, "var", SupportedVector, name, unsupported_handler, filter)
 
-        verify_is_supported_type(adata.X, SupportedMatrix, name, "X", unsupported_handler)
-        verify_are_supported_type(adata.layers, "layers", SupportedMatrix, name, unsupported_handler)
-        verify_are_supported_type(adata.obsp, "obsp", SupportedMatrix, name, unsupported_handler)
-        verify_are_supported_type(adata.varp, "varp", SupportedMatrix, name, unsupported_handler)
+        if filter === nothing || filter("X", "X")
+            verify_is_supported_type(adata.X, SupportedMatrix, name, "X", unsupported_handler)
+        end
+        verify_are_supported_type(adata.layers, "layers", SupportedMatrix, name, unsupported_handler, filter)
+        verify_are_supported_type(adata.obsp, "obsp", SupportedMatrix, name, unsupported_handler, filter)
+        verify_are_supported_type(adata.varp, "varp", SupportedMatrix, name, unsupported_handler, filter)
 
-        verify_are_empty(adata.obsm, "obsm", name, unsupported_handler)
-        verify_are_empty(adata.varm, "varm", name, unsupported_handler)
+        verify_are_empty(adata.obsm, "obsm", name, unsupported_handler, filter)
+        verify_are_empty(adata.varm, "varm", name, unsupported_handler, filter)
     end
 end
 
@@ -188,9 +225,12 @@ function verify_are_supported_type(
     supported_type::Type,
     name::AbstractString,
     unsupported_handler::AbnormalHandler,
+    filter::Maybe{Function},
 )::Nothing
     for (key, value) in dict  # NOJET
-        verify_is_supported_type(value, supported_type, name, "$(member)[$(key)]", unsupported_handler)
+        if filter === nothing || filter(member, key)
+            verify_is_supported_type(value, supported_type, name, "$(member)[$(key)]", unsupported_handler)
+        end
     end
     return nothing
 end
@@ -201,9 +241,18 @@ function verify_are_supported_type(
     supported_type::Type,
     name::AbstractString,
     unsupported_handler::AbnormalHandler,
+    filter::Maybe{Function},
 )::Nothing
     for column in names(frame)
-        verify_is_supported_type(frame[!, column], supported_type, name, "$(member)[$(column)]", unsupported_handler)
+        if filter === nothing || filter(member, column)
+            verify_is_supported_type(
+                frame[!, column],
+                supported_type,
+                name,
+                "$(member)[$(column)]",
+                unsupported_handler,
+            )
+        end
     end
     return nothing
 end
@@ -219,7 +268,7 @@ function verify_is_supported_type(
        major_axis(value) === nothing &&
        !(value isa Muon.TransposedDataset) &&
        !(value isa Muon.SparseDataset)
-        report_unsupported(  # untested
+        report_unsupported(  # UNTESTED
             name,
             unsupported_handler,
             dedent("""
@@ -229,7 +278,7 @@ function verify_is_supported_type(
         )
     end
     if value isa CategoricalArray
-        return nothing  # untested
+        return nothing  # UNTESTED
     end
     if !(value isa supported_type)
         report_unsupported(name, unsupported_handler, dedent("""
@@ -246,9 +295,12 @@ function verify_are_empty(
     member::AbstractString,
     name::AbstractString,
     unsupported_handler::AbnormalHandler,
+    filter::Maybe{Function},
 )::Nothing
     for key in keys(dict)
-        report_unsupported(name, unsupported_handler, "unsupported annotation: $(member)[$(key)]")
+        if filter === nothing || filter(member, key)
+            report_unsupported(name, unsupported_handler, "unsupported annotation: $(member)[$(key)]")
+        end
     end
     return nothing
 end
@@ -270,77 +322,90 @@ function copy_supported(
     obs_is::AbstractString,
     var_is::AbstractString,
     X_is::AbstractString,
+    filter::Maybe{Function},
 )::Nothing
-    copy_supported_scalars(adata.uns, memory)
+    copy_supported_scalars(adata.uns, memory, filter)
 
     add_axis!(memory, obs_is, adata.obs_names)
     add_axis!(memory, var_is, adata.var_names)
 
-    copy_supported_vectors(adata.obs, memory, obs_is)
-    copy_supported_vectors(adata.var, memory, var_is)
+    copy_supported_vectors(adata.obs, memory, obs_is, "obs", filter)
+    copy_supported_vectors(adata.var, memory, var_is, "var", filter)
 
-    copy_supported_square_matrices(adata.obsp, memory, obs_is)
-    copy_supported_square_matrices(adata.varp, memory, var_is)
+    copy_supported_square_matrices(adata.obsp, memory, obs_is, "obsp", filter)
+    copy_supported_square_matrices(adata.varp, memory, var_is, "varp", filter)
 
-    copy_supported_matrices(adata.layers, memory, obs_is, var_is)
-    copy_supported_matrix(adata.X, memory, obs_is, var_is, X_is)  # NOJET
+    copy_supported_matrices(adata.layers, memory, obs_is, var_is, "layers", filter)
+    if filter === nothing || filter("X", "X")
+        copy_supported_matrix(adata.X, memory, obs_is, var_is, X_is)  # NOJET
+    end
 
     return nothing
 end
 
-function copy_supported_scalars(uns::AbstractDict, memory::MemoryDaf)::Nothing
+function copy_supported_scalars(uns::AbstractDict, memory::MemoryDaf, filter::Maybe{Function})::Nothing
     for (name, value) in uns
-        if value isa StorageScalar
+        if (filter === nothing || filter("uns", name)) && value isa StorageScalar
             set_scalar!(memory, name, value)
         end
     end
 end
 
-function copy_supported_vectors(frame::DataFrame, memory::MemoryDaf, axis::AbstractString)::Nothing
+function copy_supported_vectors(
+    frame::DataFrame,
+    memory::MemoryDaf,
+    axis::AbstractString,
+    member::AbstractString,
+    filter::Maybe{Function},
+)::Nothing
     for column in names(frame)
+        if filter !== nothing && !filter(member, column)
+            continue  # UNTESTED
+        end
+
         vector = frame[!, column]
 
         if !(vector isa SupportedVector)
-            continue  # untested
+            continue  # UNTESTED
         end
 
         n_values = length(vector)
         element_type = eltype(vector)
         if missing isa element_type || nothing isa element_type
-            for index in 1:n_values  # untested
-                try  # untested
-                    value = vector[index]  # untested
-                    if value !== missing && value !== nothing  # untested
-                        element_type = typeof(value)  # untested
-                        break  # untested
+            for index in 1:n_values  # UNTESTED
+                try  # UNTESTED
+                    value = vector[index]  # UNTESTED
+                    if value !== missing && value !== nothing  # UNTESTED
+                        element_type = typeof(value)  # UNTESTED
+                        break  # UNTESTED
                     end
-                catch UndefRefError  # NOLINT  # untested
+                catch UndefRefError  # NOLINT  # UNTESTED
                 end
             end
         end
 
         @assert element_type <: StorageScalar
         if element_type <: AbstractString
-            empty_value = ""  # untested
+            empty_value = ""  # UNTESTED
         else
             empty_value = element_type(0)
         end
 
         if vector isa CategoricalVector || element_type == Bool || !(vector isa StorageVector)
-            proper_vector = Vector{element_type}(undef, n_values)  # untested
-            for index in 1:n_values  # untested
-                try  # untested
-                    value = vector[index]  # untested
-                    if value !== missing && value !== nothing  # untested
-                        proper_vector[index] = value  # untested
+            proper_vector = Vector{element_type}(undef, n_values)  # UNTESTED
+            for index in 1:n_values  # UNTESTED
+                try  # UNTESTED
+                    value = vector[index]  # UNTESTED
+                    if value !== missing && value !== nothing  # UNTESTED
+                        proper_vector[index] = value  # UNTESTED
                     else
-                        proper_vector[index] = empty_value  # untested
+                        proper_vector[index] = empty_value  # UNTESTED
                     end
                 catch UndefRefError  # NOLINT
-                    proper_vector[index] = empty_value  # untested
+                    proper_vector[index] = empty_value  # UNTESTED
                 end
             end
-            vector = proper_vector  # untested
+            vector = proper_vector  # UNTESTED
         end
 
         @assert vector isa StorageVector
@@ -348,9 +413,15 @@ function copy_supported_vectors(frame::DataFrame, memory::MemoryDaf, axis::Abstr
     end
 end
 
-function copy_supported_square_matrices(dict::AbstractDict, memory::MemoryDaf, axis::AbstractString)::Nothing
+function copy_supported_square_matrices(
+    dict::AbstractDict,
+    memory::MemoryDaf,
+    axis::AbstractString,
+    member::AbstractString,
+    filter::Maybe{Function},
+)::Nothing
     for (name, matrix) in dict
-        if matrix isa StorageMatrix
+        if (filter === nothing || filter(member, name)) && matrix isa StorageMatrix
             set_matrix!(memory, axis, axis, name, transpose(access_matrix(matrix)); relayout = false)
         end
     end
@@ -361,13 +432,17 @@ function copy_supported_matrices(
     memory::MemoryDaf,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
+    member::AbstractString,
+    filter::Maybe{Function},
 )::Nothing
     for (name, matrix) in dict  # NOJET
-        copy_supported_matrix(access_matrix(matrix), memory, rows_axis, columns_axis, name)
+        if filter === nothing || filter(member, name)
+            copy_supported_matrix(access_matrix(matrix), memory, rows_axis, columns_axis, name)
+        end
     end
 end
 
-function copy_supported_matrix(  # untested
+function copy_supported_matrix(  # UNTESTED
     ::Any,
     ::MemoryDaf,
     ::AbstractString,
@@ -377,7 +452,7 @@ function copy_supported_matrix(  # untested
     return nothing
 end
 
-function copy_supported_matrix(  # untested
+function copy_supported_matrix(  # UNTESTED
     matrix::Muon.SparseDataset,
     memory::MemoryDaf,
     rows_axis::AbstractString,
@@ -393,7 +468,7 @@ function copy_supported_matrix(  # untested
     return nothing
 end
 
-function copy_supported_matrix(  # untested
+function copy_supported_matrix(  # UNTESTED
     matrix::Muon.TransposedDataset,
     memory::MemoryDaf,
     rows_axis::AbstractString,
@@ -536,7 +611,7 @@ function store_rename_scalar(
     default::AbstractString,
 )::Nothing
     if value == default
-        delete!(dict, name)  # untested
+        delete!(dict, name)  # UNTESTED
     else
         dict[name] = value
     end

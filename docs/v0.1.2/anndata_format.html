@@ -88,6 +88,10 @@
 </a>
 </li>
 <li>
+<a class="tocitem" href="documentation.html">Documentation
+</a>
+</li>
+<li>
 <a class="tocitem" href="computations.html">Computations
 </a>
 </li>
@@ -458,6 +462,7 @@
 <div>
 <pre>
 <code class="language-julia hljs">anndata_as_daf(
+    [filter::Maybe{Function} = nothing,]
     adata::Union{AnnData, AbstractString};
     [name::Maybe{AbstractString} = nothing,
     obs_is::Maybe{AbstractString} = nothing,
@@ -516,6 +521,30 @@
 </code> (the name of the &quot;X&quot; matrix) will be the value of the &quot;X_is&quot; 
 <code>uns
 </code> property, if it exists, otherwise, it will be &quot;X&quot;.
+</p>
+<p>If 
+<code>filter
+</code> is specified, it is a function that is given two parameters. The first is the name of the 
+<code>anndata
+</code> member (
+<code>X
+</code>, 
+<code>obs
+</code>, 
+<code>var
+</code>, 
+<code>obsp
+</code>, 
+<code>varp
+</code>, 
+<code>layer
+</code>) and the second is the key (
+<code>X
+</code> for the 
+<code>X
+</code> member). It should return 
+<code>false
+</code> if the data is to be ignored. This allows skipping unwanted data (or data that can&#39;t be converted for any reason). This doesn&#39;t speed things up
 </p>
 </div>
 </section>
@@ -666,7 +695,7 @@
 <hr/>
 <p>This document was generated with 
 <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl
-</a> version 1.8.0. Using Julia version 1.11.3.
+</a> version 1.8.0. Using Julia version 1.11.4.
 </p>
 </section>
 <footer class="modal-card-foot">

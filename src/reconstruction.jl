@@ -44,8 +44,8 @@ If the `implicit_axis` already exists, we verify that all the values provided fo
 exist as names of entries in the `implicit_axis`. This allows manually creating the `implicit_axis` with additional
 entries that are not currently in use.
 
-If `implicit_properties` are explicitly specified, then we require the mapping from `implicit_axis` to be consistent.
-Otherwise, we look at all the properties of the `existing_axis`, and check for each one whether the mapping is
+If `implicit_properties` are explicitly specified, then we require the mapping from `implicit_axis` to be consistent for
+them. Otherwise, we look at all the properties of the `existing_axis`, and check for each one whether the mapping is
 consistent; if it is, we migrate the property to the new axis. For example, when importing `AnnData` containing per-cell
 data, it isn't always clear which property is actually per-batch (e.g., cell age) and which is actually per cell (e.g.,
 doublet score). Not specifying the `implicit_properties` allows the function to figure it out on its own.
@@ -177,7 +177,9 @@ function collect_property_data(
         elseif property_value_of_implicit != property_value
             if must_be_consistent
                 error(dedent("""
-                    inconsistent values of the property: $(property)
+                    inconsistent values: $(property_value) != $(property_value_of_implicit)
+                    of the property: $(property)
+                    for the same implicit axis value: $(implicit_value)
                     of the axis: $(existing_axis)
                     for the reconstructed axis: $(implicit_axis)
                     in the daf data: $(daf.name)

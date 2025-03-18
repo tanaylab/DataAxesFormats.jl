@@ -23,6 +23,12 @@ upper triangular matrices). This isn't a great loss, since `Daf` targets storing
 biological data), which in general is not of any such special shape. The upside is that all matrices stored and returned
 by `Daf` have a clear [`MatrixLayouts`](@ref DataAxesFormats.MatrixLayouts) (regardless of whether they are dense or
 sparse). This allows user code to ensure it is working "with the grain" of the data, which is **much** more efficient.
+
+!!! note
+
+    Currently all boolean vectors are matrices are stored internally using one byte per entry (that is, as
+    `Vector{Bool}` and `Matrix{Bool}` rather than `BitVector` and `BitMatrix`. This is somewhat less efficient, but is
+    simpler and Boolean data is rarely a significant part of either storage or processing.
 """
 module StorageTypes
 
@@ -145,7 +151,7 @@ function indtype_for_size(size::Integer)::Type
             return type
         end
     end
-    return UInt64  # untested
+    return UInt64  # UNTESTED
 end
 
 end # module

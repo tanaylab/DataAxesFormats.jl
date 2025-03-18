@@ -60,7 +60,7 @@ replace it with `indent`. Will also strip any initial and/or final line breaks.
 function dedent(string::AbstractString; indent::AbstractString = "")::String
     lines = split(string, "\n")
     while !isempty(lines) && isempty(lines[1])
-        @views lines = lines[2:end]  # untested
+        @views lines = lines[2:end]  # UNTESTED
     end
     while !isempty(lines) && isempty(lines[end])
         @views lines = lines[1:(end - 1)]
@@ -75,7 +75,7 @@ function dedent(string::AbstractString; indent::AbstractString = "")::String
     end  # NOJET
 
     if first_non_space === nothing
-        return indent * string  # untested NOJET
+        return indent * string  # UNTESTED NOJET
     else
         return join([indent * line[first_non_space:end] for line in lines], "\n")  # NOJET
     end

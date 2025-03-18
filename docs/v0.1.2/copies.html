@@ -88,6 +88,10 @@
 </a>
 </li>
 <li>
+<a class="tocitem" href="documentation.html">Documentation
+</a>
+</li>
+<li>
 <a class="tocitem" href="computations.html">Computations
 </a>
 </li>
@@ -298,7 +302,8 @@
     [rename::Maybe{AbstractString} = nothing,
     dtype::Maybe{Type{&lt;:StorageScalarBase}} = nothing,
     default::Union{StorageScalar, Nothing, UndefInitializer} = undef,
-    overwrite::Bool = false]
+    overwrite::Bool = false,
+    insist::Bool = true]
 )::Nothing
 </code>
 </pre>
@@ -326,9 +331,11 @@
 <code>rename
 </code> is specified, store the scalar using this new name. If 
 <code>dtype
-</code> is specified, the data is converted to this type. If 
+</code> is specified, the data is converted to this type. If the scalar already exists in the target, if 
 <code>overwrite
-</code> (not the default), overwrite an existing scalar in the target.
+</code>, it will be replaced; otherwise, if not 
+<code>insist
+</code>, skip the copy; otherwise, fail.
 </p>
 </div>
 </section>
@@ -401,7 +408,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">copy_vector(;
+<code class="language-julia hljs">copy_vector!(;
     destination::DafWriter,
     source::DafReader,
     axis::AbstractString,
@@ -411,7 +418,10 @@
     dtype::Maybe{Type{&lt;:StorageScalarBase}} = nothing,
     default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
     empty::Maybe{StorageScalar} = nothing,
-    overwrite::Bool = false]
+    bestify::Bool = false,
+    sparse_if_saves_storage_fraction::AbstractFloat = ```0.25```,
+    overwrite::Bool = false,
+    insist::Bool = true]
 )::Nothing
 </code>
 </pre>
@@ -441,9 +451,21 @@
 <code>rename
 </code> is specified, store the vector using this name. If 
 <code>dtype
-</code> is specified, the data is converted to this type. If 
+</code> is specified, the data is converted to this type. If the vector already exists in the target, if 
 <code>overwrite
-</code> (not the default), overwrite an existing vector in the target.
+</code>, it will be replaced; otherwise, if not 
+<code>insist
+</code>, skip the copy; otherwise, fail.
+</p>
+<p>If 
+<code>bestify
+</code> is set, then 
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.bestify">
+<code>bestify
+</code>
+</a> the data before writing it, using 
+<code>sparse_if_saves_storage_fraction
+</code>.
 </p>
 <p>This requires the axis of one data set is the same, or is a superset of, or a subset of, the other. If the target axis contains entries that do not exist in the source, then 
 <code>empty
@@ -480,8 +502,11 @@
     dtype::Maybe{Type{&lt;:StorageScalarBase}} = nothing,
     default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
     empty::Maybe{StorageScalar} = nothing,
+    bestify::Bool = false,
+    sparse_if_saves_storage_fraction::AbstractFloat = ```0.25```,
     relayout::Bool = true,
-    overwrite::Bool = false]
+    overwrite::Bool = false,
+    insist::Bool = true]
 )::Nothing
 </code>
 </pre>
@@ -517,10 +542,20 @@
 <code>rename
 </code> is specified, store the matrix using this name. If 
 <code>dtype
-</code> is specified, the data is converted to this type. If 
+</code> is specified, the data is converted to this type. If the matrix already exists in the target, if 
 <code>overwrite
-</code> (not the default), overwrite an existing matrix in the target. The matrix is stored with the same 
-<code>relayout
+</code>, it will be replaced; otherwise, if not 
+<code>insist
+</code>, skip the copy; otherwise, fail.
+</p>
+<p>If 
+<code>bestify
+</code> is set, then 
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.bestify">
+<code>bestify
+</code>
+</a> the data before writing it, using 
+<code>sparse_if_saves_storage_fraction
 </code>.
 </p>
 <p>This requires each axis of one data set is the same, or is a superset of, or a subset of, the other. If a target axis contains entries that do not exist in the source, then 
@@ -568,8 +603,11 @@
     rename::Maybe{AbstractString} = nothing,
     dtype::Maybe{Type{&lt;:StorageScalarBase}} = nothing,
     empty::Maybe{StorageScalar} = nothing,
+    bestify::Bool = false,
+    sparse_if_saves_storage_fraction::AbstractFloat = ```0.25```,
     relayout::Bool = true,
-    overwrite::Bool = false]
+    overwrite::Bool = false,
+    insist::Bool = true]
 )::Nothing
 </code>
 </pre>
@@ -587,6 +625,16 @@
 </code>
 </a>.
 </p>
+<p>If 
+<code>bestify
+</code> is set, then 
+<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.bestify">
+<code>bestify
+</code>
+</a> the data before writing it, using 
+<code>sparse_if_saves_storage_fraction
+</code>.
+</p>
 <p>This is basically a loop that calls 
 <a href="copies.html#DataAxesFormats.Copies.copy_matrix!">
 <code>copy_matrix!
@@ -597,7 +645,11 @@
 <code>destination
 </code>. This will create an matrix full of the 
 <code>empty
-</code> value for any entries of the main axis which exist in the destination but do not exist in the source.
+</code> value for any entries of the main axis which exist in the destination but do not exist in the source. If a tensor matrix already exists in the target, if 
+<code>overwrite
+</code>, it will be replaced; otherwise, if not 
+<code>insist
+</code>, skip the copy; otherwise, fail.
 </p>
 </div>
 </section>
@@ -624,6 +676,7 @@
     [empty::Maybe{EmptyData} = nothing,
     dtypes::Maybe{DataTypes} = nothing,
     overwrite::Bool = false,
+    insist::Bool = true,
     relayout::Bool = true]
 )::Nothing
 </code>
@@ -640,11 +693,11 @@
 <a href="formats.html#DataAxesFormats.Formats.DafWriter">
 <code>DafWriter
 </code>
-</a>. If 
+</a>. If some data already exists in the target, if 
 <code>overwrite
-</code>, this will overwrite existing data in the target. If 
-<code>relayout
-</code>, matrices will be stored in the target both layouts, regardless of how they were stored in the source.
+</code>, it will be replaced; otherwise, if not 
+<code>insist
+</code>, skip the copy; otherwise, fail.
 </p>
 <p>This will create target axes that exist in only in the source, but will 
 <strong>not
@@ -901,7 +954,7 @@
 <hr/>
 <p>This document was generated with 
 <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl
-</a> version 1.8.0. Using Julia version 1.11.3.
+</a> version 1.8.0. Using Julia version 1.11.4.
 </p>
 </section>
 <footer class="modal-card-foot">

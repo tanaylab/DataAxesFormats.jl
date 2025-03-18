@@ -28,6 +28,9 @@ for doc in LanguageServer.getdocuments_value(language_server)
             push!(no_lint_lines, line_number)
             push!(unused_no_lint_lines, line_number)
         end
+        if contains(line_text, "DEFAULT")
+            push!(no_lint_lines, line_number)
+        end
     end
     for diagnostic in doc.diagnostics
         line_number = diagnostic.range.start.line + 1

@@ -541,9 +541,9 @@ nested_test("matrix_layouts") do
 
                     nested_test("named") do
                         matrix = NamedArray(matrix)
-                        @test bestify(matrix).array === matrix.array
+                        @test bestify(matrix) === matrix
                         vector = NamedArray(vector)
-                        @test bestify(vector).array === vector.array
+                        @test bestify(vector) === vector
                     end
 
                     nested_test("copy") do
@@ -599,6 +599,14 @@ nested_test("matrix_layouts") do
                     @test bestify(vector; copy = true) == vector
                     @test bestify(matrix; copy = true) isa Matrix
                     @test bestify(vector; copy = true) isa Vector
+
+                    matrix = NamedArray(matrix)
+                    @test bestify(matrix) !== matrix
+                    @test bestify(matrix) == matrix
+
+                    vector = NamedArray(vector)
+                    @test bestify(vector) !== vector
+                    @test bestify(vector) == vector
                 end
             end
         end

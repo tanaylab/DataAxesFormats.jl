@@ -178,7 +178,7 @@ function metafmt(
         push!(prefix_parts, Dates.format(now(), "yyyy-mm-dd HH:MM:SS.sss"))
     end
     if nprocs() > 1
-        push!(prefix_parts, "P$(myid())")  # untested
+        push!(prefix_parts, "P$(myid())")  # UNTESTED
     end
     if nthreads() > 1
         push!(prefix_parts, "T$(threadid())")
@@ -192,7 +192,7 @@ function metafmt(
         push!(prefix_parts, string(_module))
     end
     if show_location
-        push!(prefix_parts, "$(file):$(line)")  # untested
+        push!(prefix_parts, "$(file):$(line)")  # UNTESTED
     end
     prefix = join(prefix_parts, ": ") * ":"
     return color, prefix, ""

@@ -45,8 +45,10 @@ export require_minor_axis
 export sparsify
 export transposer
 
+using ..Documentation
 using ..GenericFunctions
 using ..GenericTypes
+using ..Messages
 using ..StorageTypes
 using Distributed
 using LinearAlgebra
@@ -110,23 +112,23 @@ function major_axis(::AbstractSparseMatrix)::Maybe{Int8}
     return Columns
 end
 
-function major_axis(::BitMatrix)::Maybe{Int8}  # untested
+function major_axis(::BitMatrix)::Maybe{Int8}  # UNTESTED
     return Columns
 end
 
 function major_axis(matrix::AbstractMatrix)::Maybe{Int8}
     try
         matrix_strides = strides(matrix)
-        if matrix_strides[1] == 1
+        if matrix_strides[1] == 1  # NOJET
             return Columns
         end
         if matrix_strides[2] == 1
             return Rows
         end
-        return nothing  # untested
+        return nothing  # UNTESTED
 
     catch MethodError  # NOLINT
-        return nothing  # untested
+        return nothing  # UNTESTED
     end
 end
 
@@ -138,7 +140,7 @@ Similar to [`major_axis`](@ref) but will `error` if the matrix isn't in either r
 function require_major_axis(matrix::AbstractMatrix)::Int8
     axis = major_axis(matrix)
     if axis === nothing
-        error("type: $(typeof(matrix)) is not in any-major layout")  # untested
+        error("type: $(typeof(matrix)) is not in any-major layout")  # UNTESTED
     end
     return axis
 end
@@ -158,7 +160,7 @@ end
 
 Similar to [`minor_axis`](@ref) but will `error` if the matrix isn't in either row-major or column-major layout.
 """
-function require_minor_axis(matrix::AbstractMatrix)::Int8  # untested
+function require_minor_axis(matrix::AbstractMatrix)::Int8  # UNTESTED
     return other_axis(require_major_axis(matrix))
 end
 
@@ -408,7 +410,7 @@ function check_efficient_action(
     if major_axis(matrix) != axis
         global GLOBAL_INEFFICIENT_ACTION_HANDLER
         handle_abnormal(GLOBAL_INEFFICIENT_ACTION_HANDLER) do
-            depicted = depict(matrix)  # NOLINT
+            depicted = depict(matrix)
             return (dedent("""
                 inefficient major axis: $(axis_name(major_axis(matrix)))
                 for $(operand): $(depicted)
@@ -454,11 +456,11 @@ basically what `relayout!` does for you. In addition, `relayout!` will work for 
     non-sparse `source`). This can be a transposed matrix. If `source` is a `NamedMatrix`, then the result will be a
     `NamedMatrix` with the same axes. If `destination` is also a `NamedMatrix`, then its axes must match `source`.
 """
-function relayout!(destination::AbstractMatrix, source::NamedMatrix)::NamedArray  # untested
+function relayout!(destination::AbstractMatrix, source::NamedMatrix)::NamedArray  # UNTESTED
     return NamedArray(relayout!(destination, source.array), source.dicts, source.dimnames)
 end
 
-function relayout!(destination::DenseMatrix, source::NamedArrays.NamedMatrix)  # untested
+function relayout!(destination::DenseMatrix, source::NamedArrays.NamedMatrix)  # UNTESTED
     return NamedArray(relayout!(destination, source.array), source.dicts, source.dimnames)
 end
 
@@ -467,7 +469,7 @@ function relayout!(destination::Union{Transpose, Adjoint}, source::NamedMatrix):
     return destination
 end
 
-function relayout!(destination::SparseMatrixCSC, source::NamedMatrix)::AbstractMatrix  # untested
+function relayout!(destination::SparseMatrixCSC, source::NamedMatrix)::AbstractMatrix  # UNTESTED
     relayout!(destination, source.array)
     return destination
 end
@@ -488,7 +490,7 @@ function relayout!(destination::Union{Transpose, Adjoint}, source::AbstractMatri
 end
 
 function relayout!(destination::SparseMatrixCSC, source::AbstractMatrix)::SparseMatrixCSC
-    @debug "relayout! destination: $(depict(destination)) source: $(depict(source)) {"  # NOLINT
+    @debug "relayout! destination: $(depict(destination)) source: $(depict(source)) {"
     if size(destination) != size(source)
         error("relayout destination size: $(size(destination))\nis different from source size: $(size(source))")
     end
@@ -497,13 +499,13 @@ function relayout!(destination::SparseMatrixCSC, source::AbstractMatrix)::Sparse
     end
     base_from = base_sparse_matrix(source)
     transpose_base_from = transpose(base_from)
-    result = LinearAlgebra.transpose!(destination, transpose_base_from)
-    @debug "relayout! result: $(depict(result)) }"  # NOLINT
+    result = LinearAlgebra.transpose!(destination, transpose_base_from)  # NOJET
+    @debug "relayout! result: $(depict(result)) }"
     return result
 end
 
 function relayout!(destination::DenseMatrix, source::AbstractMatrix)::DenseMatrix
-    @debug "relayout! destination: $(depict(destination)) source: $(depict(source)) {"  # NOLINT
+    @debug "relayout! destination: $(depict(destination)) source: $(depict(source)) {"
     if size(destination) != size(source)
         error("relayout destination size: $(size(destination))\nis different from source size: $(size(source))")
     end
@@ -512,18 +514,18 @@ function relayout!(destination::DenseMatrix, source::AbstractMatrix)::DenseMatri
     else
         LinearAlgebra.transpose!(destination, transpose(source))
     end
-    @debug "relayout! result: $(depict(destination)) }"  # NOLINT
+    @debug "relayout! result: $(depict(destination)) }"
     return destination
 end
 
-function relayout!(destination::AbstractMatrix, source::AbstractMatrix)::AbstractMatrix  # untested
-    @debug "relayout! destination: $(depict(destination)) source: $(depict(source)) {"  # NOLINT
+function relayout!(destination::AbstractMatrix, source::AbstractMatrix)::AbstractMatrix  # UNTESTED
+    @debug "relayout! destination: $(depict(destination)) source: $(depict(source)) {"
     try
         into_strides = strides(destination)
         into_size = size(destination)
         if into_strides == (1, into_size[1]) || into_strides == (into_size[2], 1)
             result = LinearAlgebra.transpose!(destination, transpose(source))
-            @debug "relayout! result: $(depict(result)) }"  # NOLINT
+            @debug "relayout! result: $(depict(result)) }"
             return result
         end
     catch
@@ -550,28 +552,28 @@ Return a transpose of a matrix, but instead of simply using a zero-copy wrapper,
 [`relayout!`](@ref).
 """
 function transposer(matrix::AbstractMatrix)::AbstractMatrix
-    @debug "transposer $(depict(matrix)) {"  # NOLINT
+    @debug "transposer $(depict(matrix)) {"
     axis = major_axis(matrix)
     if axis == Columns
         result = Matrix{eltype(matrix)}(undef, size(matrix, 2), size(matrix, 1))
     elseif axis == Rows
         result = transpose(Matrix{eltype(matrix)}(undef, size(matrix, 1), size(matrix, 2)))
     else
-        @assert false "transposer of a matrix w/o clear layout: $(depict(matrix))" # UNTESTED NOLINT
+        @assert false "transposer of a matrix w/o clear layout: $(depict(matrix))"  # UNTESTED
     end
     LinearAlgebra.transpose!(result, matrix)
     @assert size(result, 1) == size(matrix, 2)
     @assert size(result, 2) == size(matrix, 1)
     @assert major_axis(result) == major_axis(matrix)
-    @debug "transposer $(depict(result)) }"  # NOLINT
+    @debug "transposer $(depict(result)) }"
     return result
 end
 
 function transposer(matrix::AbstractSparseMatrix)::AbstractMatrix
     @assert require_major_axis(matrix) == Columns
-    @debug "transposer $(depict(matrix)) {"  # NOLINT
+    @debug "transposer $(depict(matrix)) {"
     result = SparseMatrixCSC(transpose(matrix))
-    @debug "transposer $(depict(result)) }"  # NOLINT
+    @debug "transposer $(depict(result)) }"
     @assert size(result, 1) == size(matrix, 2)
     @assert size(result, 2) == size(matrix, 1)
     @assert major_axis(result) == major_axis(matrix)
@@ -689,7 +691,7 @@ function base_sparse_matrix(matrix::Union{Transpose, Adjoint})::AbstractMatrix
     return transpose(base_sparse_matrix(matrix.parent))
 end
 
-function base_sparse_matrix(matrix::NamedMatrix)::AbstractMatrix  # untested
+function base_sparse_matrix(matrix::NamedMatrix)::AbstractMatrix  # UNTESTED
     return base_sparse_matrix(matrix.array)
 end
 
@@ -701,8 +703,103 @@ function base_sparse_matrix(matrix::AbstractSparseMatrix)::AbstractMatrix
     return matrix
 end
 
-function base_sparse_matrix(matrix::AbstractMatrix)::AbstractMatrix  # untested
+function base_sparse_matrix(matrix::AbstractMatrix)::AbstractMatrix  # UNTESTED
     return error("unsupported relayout sparse matrix: $(typeof(matrix))")
+end
+
+function Messages.depict(vector::AbstractVector)::String
+    return Messages.depict_array(vector, depict_vector(vector, ""))
+end
+
+function depict_vector(vector::SparseArrays.ReadOnly, prefix::AbstractString)::String
+    return depict_vector(parent(vector), Messages.concat_prefixes(prefix, "ReadOnly"))
+end
+
+function depict_vector(vector::NamedArray, prefix::AbstractString)::String
+    return depict_vector(vector.array, Messages.concat_prefixes(prefix, "Named"))
+end
+
+function depict_vector(vector::DenseVector, prefix::AbstractString)::String
+    return depict_vector_size(vector, Messages.concat_prefixes(prefix, "Dense"))
+end
+
+function depict_vector(vector::SparseVector, prefix::AbstractString)::String
+    nnz = depict_percent(length(vector.nzval), length(vector))
+    return depict_vector_size(vector, Messages.concat_prefixes(prefix, "Sparse $(SparseArrays.indtype(vector)) $(nnz)"))
+end
+
+function depict_vector(vector::AbstractVector, prefix::AbstractString)::String  # UNTESTED
+    try
+        if strides(vector) == (1,)
+            return depict_vector_size(vector, Messages.concat_prefixes(prefix, "$(nameof(typeof(vector))) - Dense"))
+        else
+            return depict_vector_size(vector, Messages.concat_prefixes(prefix, "$(nameof(typeof(vector))) - Strided"))
+        end
+    catch
+        return depict_vector_size(vector, Messages.concat_prefixes(prefix, "$(nameof(typeof(vector)))"))
+    end
+end
+
+function depict_vector_size(vector::AbstractVector, kind::AbstractString)::String
+    return "$(length(vector)) x $(eltype(vector)) ($(kind))"
+end
+
+function Messages.depict(transposed::Transpose)::String
+    parent = transposed.parent
+    if parent isa AbstractVector
+        return depict_vector(parent, "Transpose")  # UNTESTED
+    elseif parent isa AbstractMatrix
+        return depict_matrix(transposed.parent, "Transpose"; transposed = true)
+    else
+        @assert false
+    end
+end
+
+function Messages.depict(matrix::AbstractMatrix)::String
+    return Messages.depict_array(matrix, depict_matrix(matrix, ""; transposed = false))
+end
+
+function depict_matrix(matrix::SparseArrays.ReadOnly, prefix::AbstractString; transposed::Bool = false)::String
+    return depict_matrix(parent(matrix), Messages.concat_prefixes(prefix, "ReadOnly"); transposed)
+end
+
+function depict_matrix(matrix::NamedMatrix, prefix::AbstractString; transposed::Bool = false)::String
+    return depict_matrix(matrix.array, Messages.concat_prefixes(prefix, "Named"); transposed)
+end
+
+function depict_matrix(matrix::Transpose, prefix::AbstractString; transposed::Bool = false)::String
+    return depict_matrix(parent(matrix), Messages.concat_prefixes(prefix, "Transpose"); transposed = !transposed)
+end
+
+function depict_matrix(matrix::Adjoint, prefix::AbstractString; transposed::Bool = false)::String
+    return depict_matrix(parent(matrix), Messages.concat_prefixes(prefix, "Adjoint"); transposed = !transposed)
+end
+
+function depict_matrix(matrix::DenseMatrix, prefix::AbstractString; transposed::Bool = false)::String
+    return depict_matrix_size(matrix, Messages.concat_prefixes(prefix, "Dense"); transposed)
+end
+
+function depict_matrix(matrix::SparseMatrixCSC, prefix::AbstractString; transposed::Bool = false)::String
+    nnz = depict_percent(length(matrix.nzval), length(matrix))
+    return depict_matrix_size(
+        matrix,
+        Messages.concat_prefixes(prefix, "Sparse $(SparseArrays.indtype(matrix)) $(nnz)");
+        transposed,
+    )
+end
+
+function depict_matrix(matrix::AbstractMatrix, ::AbstractString; transposed::Bool = false)::String  # UNTESTED
+    try
+        matrix_strides = strides(matrix)
+        matrix_sizes = size(matrix)
+        if matrix_strides == (1, matrix_sizes[1]) || matrix_strides == (matrix_sizes[2], 1)
+            return depict_matrix_size(matrix, "$(nameof(typeof(matrix))) - Dense"; transposed)
+        else
+            return depict_matrix_size(matrix, "$(nameof(typeof(matrix))) - Strided"; transposed)
+        end
+    catch
+        return depict_matrix_size(matrix, "$(nameof(typeof(matrix)))"; transposed)
+    end
 end
 
 function depict_matrix_size(matrix::AbstractMatrix, kind::AbstractString; transposed::Bool = false)::String
@@ -712,7 +809,7 @@ function depict_matrix_size(matrix::AbstractMatrix, kind::AbstractString; transp
     end
 
     if layout === nothing
-        layout_suffix = "w/o major axis"  # untested
+        layout_suffix = "w/o major axis"  # UNTESTED
     else
         layout_suffix = "in $(axis_name(layout))"
     end
@@ -723,8 +820,6 @@ function depict_matrix_size(matrix::AbstractMatrix, kind::AbstractString; transp
         return "$(size(matrix, 1)) x $(size(matrix, 2)) x $(eltype(matrix)) $(layout_suffix) ($(kind))"
     end
 end
-
-function depict end
 
 """
     sparsify(matrix::AbstractMatrix{T}; copy::Bool = false)::AbstractMatrix{T} where {T <: StorageReal}
@@ -828,16 +923,32 @@ already in the best format.
     If not `copy` and the matrix is already sparse, we do not change the integer index type, even though this may save
     space.
 """
-function bestify(
+@documented function bestify(
     matrix::AbstractMatrix{T};
     copy::Bool = false,
     sparse_if_saves_storage_fraction::AbstractFloat = 0.25,
 )::AbstractMatrix{T} where {T <: StorageReal}
+    @debug "bestify $(depict(matrix)) {"
     @assert 0 < sparse_if_saves_storage_fraction < 1
     if sparse_matrix_saves_storage_fraction(matrix; copy) >= sparse_if_saves_storage_fraction
-        return sparsify(matrix; copy)
+        result = sparsify(matrix; copy)
     else
-        return densify(matrix; copy)
+        result = densify(matrix; copy)
+    end
+    @debug "bestify $(depict(result)) }"
+    return result
+end
+
+@documented function bestify(
+    named::Union{NamedVector{T}, NamedMatrix{T}};
+    copy::Bool = false,
+    sparse_if_saves_storage_fraction::AbstractFloat = 0.25,
+)::AbstractArray{T} where {T <: StorageReal}
+    result = bestify(named.array; copy, sparse_if_saves_storage_fraction)
+    if result === named.array
+        return named
+    else
+        return NamedArray(result, named.dicts, named.dimnames)
     end
 end
 
@@ -846,12 +957,15 @@ function bestify(
     copy::Bool = false,
     sparse_if_saves_storage_fraction::AbstractFloat = 0.25,
 )::AbstractVector{T} where {T <: StorageReal}
+    @debug "bestify $(depict(vector)) {"
     @assert 0 < sparse_if_saves_storage_fraction < 1
     if sparse_vector_saves_storage_fraction(vector; copy) >= sparse_if_saves_storage_fraction
-        return sparsify(vector; copy)
+        result = sparsify(vector; copy)
     else
-        return densify(vector; copy)
+        result = densify(vector; copy)
     end
+    @debug "bestify $(depict(result)) }"
+    return result
 end
 
 function sparse_matrix_saves_storage_fraction(
@@ -870,7 +984,9 @@ function sparse_matrix_saves_storage_fraction(
     n_nz = nnz(matrix)
     sparse_bytes = n_nz * (sizeof(T) + sizeof(indtype)) + (n_columns + 1) * sizeof(indtype)
 
-    return (dense_bytes - sparse_bytes) / dense_bytes
+    saved_fraction = (dense_bytes - sparse_bytes) / dense_bytes
+    @debug "(sparse) dense_bytes: $(dense_bytes) sparse_bytes: $(sparse_bytes) saved_fraction: $(saved_fraction)"
+    return saved_fraction
 end
 
 function sparse_matrix_saves_storage_fraction(matrix::AbstractMatrix; copy::Bool)::Float64  # NOLINT
@@ -880,7 +996,10 @@ function sparse_matrix_saves_storage_fraction(matrix::AbstractMatrix; copy::Bool
     n_nz = sum(matrix .!= 0)
     indtype = indtype_for_size(n_rows * n_columns)
     sparse_bytes = n_nz * (sizeof(eltype(matrix)) + sizeof(indtype)) + (n_columns + 1) * sizeof(indtype)
-    return (dense_bytes - sparse_bytes) / dense_bytes
+
+    saved_fraction = (dense_bytes - sparse_bytes) / dense_bytes
+    @debug "(dense?) dense_bytes: $(dense_bytes) sparse_bytes: $(sparse_bytes) saved_fraction: $(saved_fraction)"
+    return saved_fraction
 end
 
 function sparse_vector_saves_storage_fraction(
@@ -898,7 +1017,10 @@ function sparse_vector_saves_storage_fraction(
 
     n_nz = sum(vector .!= 0)
     sparse_bytes = n_nz * (sizeof(T) + sizeof(indtype))
-    return (dense_bytes - sparse_bytes) / dense_bytes
+
+    saved_fraction = (dense_bytes - sparse_bytes) / dense_bytes
+    @debug "(sparse) dense_bytes: $(dense_bytes) sparse_bytes: $(sparse_bytes) saved_fraction: $(saved_fraction)"
+    return saved_fraction
 end
 
 function sparse_vector_saves_storage_fraction(vector::AbstractVector; copy::Bool)::Float64  # NOLINT
@@ -908,7 +1030,88 @@ function sparse_vector_saves_storage_fraction(vector::AbstractVector; copy::Bool
     n_nz = sum(vector .!= 0)
     indtype = indtype_for_size(size)
     sparse_bytes = n_nz * (sizeof(eltype(vector)) + sizeof(indtype))
-    return (dense_bytes - sparse_bytes) / dense_bytes
+
+    saved_fraction = (dense_bytes - sparse_bytes) / dense_bytes
+    @debug "(dense?) dense_bytes: $(dense_bytes) sparse_bytes: $(sparse_bytes) saved_fraction: $(saved_fraction)"
+    return saved_fraction
+end
+
+# WHY do we have to define these ourselves... Sigh.
+
+function SparseArrays.indtype(read_only::SparseArrays.ReadOnly)::Type  # UNTESTED
+    return SparseArrays.indtype(parent(read_only))
+end
+
+function SparseArrays.nnz(read_only::SparseArrays.ReadOnly)::Integer
+    return SparseArrays.nnz(parent(read_only))
+end
+
+# These we can excuse...
+
+function SparseArrays.indtype(named::NamedArray)::Type  # UNTESTED
+    @assert issparse(named.array)
+    return SparseArrays.indtype(named.array)
+end
+
+function SparseArrays.nnz(named::NamedArray)::Integer
+    @assert issparse(named.array)
+    return SparseArrays.nnz(named.array)
+end
+
+function colptr(read_only::SparseArrays.ReadOnly)::AbstractVector
+    return colptr(parent(read_only))
+end
+
+function colptr(matrix::SparseMatrixCSC)::AbstractVector
+    return matrix.colptr
+end
+
+function colptr(named::NamedArray)::AbstractVector
+    @assert issparse(named.array)
+    return colptr(named.array)
+end
+
+function nzind(read_only::SparseArrays.ReadOnly)::AbstractVector  # UNTESTED
+    return nzind(parent(read_only))
+end
+
+function nzind(vector::SparseVector)::AbstractVector
+    return vector.nzind
+end
+
+function nzind(named::NamedArray)::AbstractVector  # UNTESTED
+    @assert issparse(named.array)
+    return nzind(named.array)
+end
+
+function nzval(vector::SparseVector)::AbstractVector
+    return vector.nzval
+end
+
+function nzval(matrix::SparseMatrixCSC)::AbstractVector
+    return matrix.nzval
+end
+
+function nzval(read_only::SparseArrays.ReadOnly)::AbstractVector  # UNTESTED
+    return nzval(parent(read_only))
+end
+
+function nzval(named::NamedArray)::AbstractVector
+    @assert issparse(named.array)
+    return nzval(named.array)
+end
+
+function rowval(matrix::SparseMatrixCSC)::AbstractVector
+    return matrix.rowval
+end
+
+function rowval(read_only::SparseArrays.ReadOnly)::AbstractVector  # UNTESTED
+    return rowval(parent(read_only))
+end
+
+function rowval(named::NamedArray)::AbstractVector
+    @assert issparse(named.array)
+    return rowval(named.array)
 end
 
 end # module

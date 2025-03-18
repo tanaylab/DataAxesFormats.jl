@@ -47,6 +47,8 @@ using SparseArrays
 using Statistics
 using StatsBase
 
+import ..MatrixLayouts.colptr
+import ..MatrixLayouts.nzval
 import ..Registry.compute_eltwise
 import ..Registry.compute_reduction
 import ..Registry.reduction_result_type
@@ -271,7 +273,7 @@ end
 
 Similar to [`parse_number_dtype_value`](@ref), but only accept integer (signed or unsigned) types.
 """
-function parse_int_dtype_value(  # untested
+function parse_int_dtype_value(  # UNTESTED
     operation_name::Token,
     parameter_name::AbstractString,
     parameter_value::Token,
@@ -752,12 +754,12 @@ end
 
 function compute_eltwise(operation::Significant, input::StorageMatrix)::StorageMatrix
     output = copy_array(input)
-    if output isa SparseMatrixCSC
+    if issparse(output)
         @threads for column_index in 1:size(output, 2)
-            first = output.colptr[column_index]
-            last = output.colptr[column_index + 1] - 1
+            first = colptr(output)[column_index]
+            last = colptr(output)[column_index + 1] - 1
             if first <= last
-                column_vector = @view output.nzval[first:last]
+                column_vector = @view nzval(output)[first:last]
                 significant!(column_vector, operation.high, operation.low)
             end
         end
@@ -772,7 +774,7 @@ function compute_eltwise(operation::Significant, input::StorageMatrix)::StorageM
             is_dense_of_columns[column_index] = all(column_vector .!= 0)
         end
         if all(is_dense_of_columns)
-            return output  # untested
+            return output  # UNTESTED
         else
             return SparseMatrixCSC(output)
         end
@@ -782,8 +784,8 @@ end
 function compute_eltwise(operation::Significant, input::StorageVector{T})::StorageVector{T} where {T <: StorageReal}
     output = copy_array(input)
 
-    if output isa SparseVector
-        significant!(output.nzval, operation.high, operation.low)
+    if issparse(output)
+        significant!(nzval(output), operation.high, operation.low)
         dropzeros!(output)
         return output
     else

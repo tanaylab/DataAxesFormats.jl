@@ -996,6 +996,19 @@ nested_test("copies") do
                     @test nnz(get_matrix(destination, "cell", "gene", "UMIs").array) == 4
                 end
 
+                nested_test("dtype") do
+                    @test copy_matrix!(;
+                        source = source,
+                        destination = destination,
+                        rows_axis = "cell",
+                        columns_axis = "gene",
+                        dtype = Float32,
+                        name = "UMIs",
+                    ) === nothing
+                    @test get_matrix(destination, "cell", "gene", "UMIs") == [0 1 2; 3 4 0]
+                    @test nnz(get_matrix(destination, "cell", "gene", "UMIs").array) == 4
+                end
+
                 nested_test("default") do
                     @test copy_matrix!(;
                         source = source,

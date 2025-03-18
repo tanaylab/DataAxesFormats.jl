@@ -107,18 +107,18 @@ function Base.show(io::IO, cache_key::CacheKey)::Nothing
         if key[2]
             print(io, "axis_dict[axis: $(key[1])]")
         else
-            print(io, "axis_vector[axis: $(key[1])]")  # untested
+            print(io, "axis_vector[axis: $(key[1])]")  # UNTESTED
         end
     elseif type == CachedQuery
         @assert key isa AbstractString
         print(io, "query[$(key)]")
     elseif type == CachedData
-        if key isa AbstractString  # untested
-            print(io, "scalar[$(key)]")  # untested
-        elseif key isa Tuple{AbstractString, AbstractString}  # untested
-            print(io, "vector[axis: $(key[1]) name: $(key[2])]")  # untested
-        elseif key isa Tuple{AbstractString, AbstractString, AbstractString}  # untested
-            print(  # untested
+        if key isa AbstractString  # UNTESTED
+            print(io, "scalar[$(key)]")  # UNTESTED
+        elseif key isa Tuple{AbstractString, AbstractString}  # UNTESTED
+            print(io, "vector[axis: $(key[1]) name: $(key[2])]")  # UNTESTED
+        elseif key isa Tuple{AbstractString, AbstractString, AbstractString}  # UNTESTED
+            print(  # UNTESTED
                 io,
                 "matrix[rows_axis: $(key[1]) columns_axis: $(key[2]) name: $(key[3])]",
             )
@@ -130,11 +130,11 @@ function Base.show(io::IO, cache_key::CacheKey)::Nothing
             print(io, "names[$(key)]")
         elseif key isa Tuple{AbstractString}
             print(io, "vectors[axis: $(key[1])]")
-        elseif key isa Tuple{AbstractString, AbstractString, Bool}  # untested
-            if key[3]  # untested
-                print(io, "matrices[relayout rows_axis: $(key[1]) columns_axis: $(key[2])]")  # untested
+        elseif key isa Tuple{AbstractString, AbstractString, Bool}  # UNTESTED
+            if key[3]  # UNTESTED
+                print(io, "matrices[relayout rows_axis: $(key[1]) columns_axis: $(key[2])]")  # UNTESTED
             else
-                print(io, "matrices[rows_axis: $(key[1]) columns_axis: $(key[2])]")  # untested
+                print(io, "matrices[rows_axis: $(key[1]) columns_axis: $(key[2])]")  # UNTESTED
             end
         end
     else
@@ -201,7 +201,7 @@ struct Internal
     cache::Dict{CacheKey, CacheEntry}
     cache_group::Maybe{CacheGroup}
     dependents_of_cache_keys::Dict{CacheKey, Set{CacheKey}}
-    dependecies_of_query_keys::Dict{CacheKey, Set{CacheKey}}
+    dependencies_of_query_keys::Dict{CacheKey, Set{CacheKey}}
     version_counters::Dict{PropertyKey, UInt32}
     cache_lock::QueryReadWriteLock
     data_lock::QueryReadWriteLock
@@ -745,8 +745,8 @@ end
 function result_from_cache(cache_entry::CacheEntry, ::Type{T})::T where {T}
     entry_lock = cache_entry.data
     if entry_lock isa ReentrantLock
-        cache_entry = lock(entry_lock) do  # untested
-            return cache_entry  # untested
+        cache_entry = lock(entry_lock) do  # UNTESTED
+            return cache_entry  # UNTESTED
         end
     end
     return cache_entry.data
@@ -763,10 +763,10 @@ function write_throgh_cache(
     result = with_cache_write_lock(format, "for get_through_cache:", cache_key) do  # NOJET
         cache_entry = get(format.internal.cache, cache_key, nothing)
         if cache_entry !== nothing
-            if cache_entry.data isa ReentrantLock  # untested
-                return nothing  # untested
+            if cache_entry.data isa ReentrantLock  # UNTESTED
+                return nothing  # UNTESTED
             else
-                return cache_entry.data  # untested
+                return cache_entry.data  # UNTESTED
             end
         else
             if is_slow
@@ -775,7 +775,8 @@ function write_throgh_cache(
                 format.internal.cache[cache_key] = cache_entry
                 lock(entry_lock)
                 lock(format.internal.pending_condition) do
-                    return format.internal.pending_count[1] += 1
+                    format.internal.pending_count[1] += 1
+                    return nothing
                 end
                 return cache_entry
             else
@@ -798,7 +799,7 @@ function write_throgh_cache(
                         put_cached_dependency_key!(format, cache_key, dependency_key)
                     end
                     if cache_key[1] == CachedQuery
-                        format.internal.dependecies_of_query_keys[cache_key] = dependency_keys
+                        format.internal.dependencies_of_query_keys[cache_key] = dependency_keys
                     end
                 end
                 cache_entry.data = result
@@ -1155,7 +1156,7 @@ function empty_cache!(daf::DafReader; clear::Maybe{CacheGroup} = nothing, keep::
     @assert clear === nothing || keep === nothing
     lock(daf.internal.pending_condition) do
         while daf.internal.pending_count[1] > 0
-            wait(daf.internal.pending_condition)  # untested
+            wait(daf.internal.pending_condition)  # UNTESTED
         end
         with_cache_write_lock(daf, "empty_cache!") do
             @debug "empty_cache! daf: $(depict(daf)) clear: $(clear) keep: $(keep)"
@@ -1186,7 +1187,7 @@ function empty_cache!(daf::DafReader; clear::Maybe{CacheGroup} = nothing, keep::
     return nothing
 end
 
-function assert_valid_cache(format::FormatReader)::Nothing  # untested
+function assert_valid_cache(format::FormatReader)::Nothing  # UNTESTED
     for cache_key in keys(format.internal.cache)
         type, key = cache_key
         if type == CachedAxis

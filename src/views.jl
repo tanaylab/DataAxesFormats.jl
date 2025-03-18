@@ -693,7 +693,7 @@ function Formats.end_data_write_lock(view::DafView, what::Any...)::Nothing  # fl
     return invoke(Formats.end_data_write_lock, Tuple{DafReader, Vararg{Any}}, view, what...)
 end
 
-function Formats.has_data_write_lock(::DafView)::Bool  # untested
+function Formats.has_data_write_lock(::DafView)::Bool  # UNTESTED
     return false
 end
 

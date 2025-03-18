@@ -29,7 +29,9 @@ nested_test("reconstruction") do
     nested_test("inconsistent") do
         set_vector!(memory, "cell", "batch", ["X", "X", "Y", ""])
         @test_throws dedent("""
-            inconsistent values of the property: score
+            inconsistent values: 0.5 != 0.0
+            of the property: score
+            for the same implicit axis value: X
             of the axis: cell
             for the reconstructed axis: batch
             in the daf data: memory!

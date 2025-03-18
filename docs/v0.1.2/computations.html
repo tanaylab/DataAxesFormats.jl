@@ -87,6 +87,10 @@
 <a class="tocitem" href="chains.html">Chains
 </a>
 </li>
+<li>
+<a class="tocitem" href="documentation.html">Documentation
+</a>
+</li>
 <li class="is-active">
 <a class="tocitem" href="computations.html">Computations
 </a>
@@ -281,11 +285,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">@computation function something(...)
-    return ...
-end
-
-@computation Contract(...) function something(daf::DafWriter, ...)
+<code class="language-julia hljs">@computation Contract(...) function something(daf::DafWriter, ...)
     return ...
 end
 
@@ -301,6 +301,20 @@ end
 </code> computation. This has the following effects:
 </p>
 <ul>
+<li>
+<p>It has the same effect as 
+<a href="documentation.html#DataAxesFormats.Documentation.@documented">
+<code>@documented
+</code>
+</a>, that is, allows using 
+<code>DEFAULT
+</code> in the documentation string, and using 
+<a href="documentation.html#DataAxesFormats.Documentation.function_default">
+<code>function_default
+</code>
+</a> to access the default value of named parameters.
+</p>
+</li>
 <li>
 <p>It verifies that the 
 <code>Daf
@@ -336,18 +350,10 @@ end
 </p>
 </li>
 <li>
-<p>It stashes the default value of named arguments. This allows expanding 
-<a href="computations.html#DataAxesFormats.Computations.DEFAULT">
-<code>DEFAULT
-</code>
-</a> in the documentation string, which is especially useful if these defaults are computed, read from global constants, etc.
-</p>
-</li>
-<li>
 <p>It logs the invocation of the function (using 
 <code>@debug
 </code>), including the actual values of the named arguments (using 
-<a href="messages.html#DataAxesFormats.MatrixLayouts.depict">
+<a href="messages.html#DataAxesFormats.Messages.depict">
 <code>depict
 </code>
 </a>).
@@ -407,81 +413,6 @@ end
 </a> has two contracts, you can specify the 
 <code>index
 </code> of the contract to return.
-</p>
-</div>
-</section>
-</article>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
-<a class="docstring-binding" id="DataAxesFormats.Computations.function_default" href="#DataAxesFormats.Computations.function_default">
-<code>DataAxesFormats.Computations.function_default
-</code>
-</a> — 
-<span class="docstring-category">Function
-</span>
-<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
-</span>
-</header>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">function_default(func::Function, parameter::Symbol)::Contract
-</code>
-</pre>
-<p>Access the default of a parameter of a function annotated by 
-<a href="computations.html#DataAxesFormats.Computations.@computation">
-<code>@computation
-</code>
-</a>.
-</p>
-</div>
-</section>
-</article>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
-<a class="docstring-binding" id="DataAxesFormats.Computations.DEFAULT" href="#DataAxesFormats.Computations.DEFAULT">
-<code>DataAxesFormats.Computations.DEFAULT
-</code>
-</a> — 
-<span class="docstring-category">Constant
-</span>
-<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
-</span>
-</header>
-<section>
-<div>
-<p>When using 
-<a href="computations.html#DataAxesFormats.Computations.@computation">
-<code>@computation
-</code>
-</a>:
-</p>
-<pre>
-<code class="nohighlight hljs">&#39;&#39;&#39;
-    something(daf::DafWriter, x::Int = $(DEFAULT.x); y::Bool = $(DEFAULT.y))
-
-...
-If `x` (default: $(DEFAULT.y)) is even, ...
-...
-If `y` (default: $(DEFAULT.y)) is set, ...
-...
-&#39;&#39;&#39;
-@computation Contract(...) function something(daf::DafWriter, x::Int = 0; y::Bool = false)
-    return ...
-end
-</code>
-</pre>
-<p>Then 
-<code>$(DEFAULT.x)
-</code> will be expanded with the default value of the parameter 
-<code>x
-</code>. It is good practice to contain a description of the effects of each parameter somewhere in the documentation, and it is polite to also provide its default value. This can be done in either the signature line or in the text, or both. Using 
-<code>DEFAULT
-</code> ensures that the correct value is used in the documentation.
 </p>
 </div>
 </section>
@@ -639,20 +570,8 @@ end
 </a>
 </li>
 <li>
-<a href="computations.html#DataAxesFormats.Computations.DEFAULT">
-<code>DataAxesFormats.Computations.DEFAULT
-</code>
-</a>
-</li>
-<li>
 <a href="computations.html#DataAxesFormats.Computations.function_contract">
 <code>DataAxesFormats.Computations.function_contract
-</code>
-</a>
-</li>
-<li>
-<a href="computations.html#DataAxesFormats.Computations.function_default">
-<code>DataAxesFormats.Computations.function_default
 </code>
 </a>
 </li>
@@ -665,7 +584,7 @@ end
 </ul>
 </article>
 <nav class="docs-footer">
-<a class="docs-footer-prevpage" href="chains.html">« Chains
+<a class="docs-footer-prevpage" href="documentation.html">« Documentation
 </a>
 <a class="docs-footer-nextpage" href="copies.html">Copies »
 </a>
@@ -715,7 +634,7 @@ end
 <hr/>
 <p>This document was generated with 
 <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl
-</a> version 1.8.0. Using Julia version 1.11.3.
+</a> version 1.8.0. Using Julia version 1.11.4.
 </p>
 </section>
 <footer class="modal-card-foot">

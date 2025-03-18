@@ -18,11 +18,13 @@ export copy_tensor!
 export copy_vector!
 export EmptyData
 
+using ..Documentation
 using ..Formats
 using ..GenericFunctions
 using ..GenericLogging
 using ..GenericTypes
 using ..Keys
+using ..MatrixLayouts
 using ..Messages
 using ..Readers
 using ..StorageTypes
@@ -33,6 +35,10 @@ using SparseArrays
 import ..Formats.as_named_matrix
 import ..Formats.as_named_vector
 import ..Formats.with_data_write_lock
+import ..MatrixLayouts.colptr
+import ..MatrixLayouts.nzind
+import ..MatrixLayouts.nzval
+import ..MatrixLayouts.rowval
 
 """
     copy_scalar(;
@@ -42,14 +48,15 @@ import ..Formats.with_data_write_lock
         [rename::Maybe{AbstractString} = nothing,
         dtype::Maybe{Type{<:StorageScalarBase}} = nothing,
         default::Union{StorageScalar, Nothing, UndefInitializer} = undef,
-        overwrite::Bool = false]
+        overwrite::Bool = false,
+        insist::Bool = true]
     )::Nothing
 
 Copy a scalar with some `name` from some `source` [`DafReader`](@ref) into some `destination` [`DafWriter`](@ref).
 
 The scalar is fetched using the `name` and the `default`. If `rename` is specified, store the scalar using this new
-name. If `dtype` is specified, the data is converted to this type. If `overwrite` (not the default), overwrite an
-existing scalar in the target.
+name. If `dtype` is specified, the data is converted to this type. If the scalar already exists in the target, if
+`overwrite`, it will be replaced; otherwise, if not `insist`, skip the copy; otherwise, fail.
 """
 @logged function copy_scalar!(;
     destination::DafWriter,
@@ -59,10 +66,16 @@ existing scalar in the target.
     dtype::Maybe{Type{<:StorageScalarBase}} = nothing,
     default::Union{StorageScalar, Nothing, UndefInitializer} = undef,
     overwrite::Bool = false,
+    insist::Bool = true,
 )::Nothing
+    rename = new_name(rename, name)
+
+    if !overwrite && !insist && has_scalar(destination, rename)
+        return nothing  # UNTESTED
+    end
+
     value = get_scalar(source, name; default)
     if value !== nothing
-        rename = new_name(rename, name)
         if dtype !== nothing
             concrete_dtype, abstract_dtype = target_types(dtype)
             if !(typeof(value) <: abstract_dtype)
@@ -107,7 +120,7 @@ The axis is fetched using the `name` and the `default`. If `rename` is specified
 end
 
 """
-    copy_vector(;
+    copy_vector!(;
         destination::DafWriter,
         source::DafReader,
         axis::AbstractString,
@@ -117,20 +130,26 @@ end
         dtype::Maybe{Type{<:StorageScalarBase}} = nothing,
         default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
         empty::Maybe{StorageScalar} = nothing,
-        overwrite::Bool = false]
+        bestify::Bool = false,
+        sparse_if_saves_storage_fraction::AbstractFloat = $(DEFAULT.sparse_if_saves_storage_fraction),
+        overwrite::Bool = false,
+        insist::Bool = true]
     )::Nothing
 
 Copy a vector from some `source` [`DafReader`](@ref) into some `destination` [`DafWriter`](@ref).
 
 The vector is fetched using the `axis`, `name` and the `default`. If `reaxis` is specified, store the vector using this
 axis. If `rename` is specified, store the vector using this name. If `dtype` is specified, the data is converted to this
-type. If `overwrite` (not the default), overwrite an existing vector in the target.
+type. If the vector already exists in the target, if `overwrite`, it will be replaced; otherwise, if not `insist`, skip
+the copy; otherwise, fail.
+
+If `bestify` is set, then [`bestify`](@ref) the data before writing it, using `sparse_if_saves_storage_fraction`.
 
 This requires the axis of one data set is the same, or is a superset of, or a subset of, the other. If the target axis
 contains entries that do not exist in the source, then `empty` must be specified to fill the missing values. If the
 source axis contains entries that do not exist in the target, they are discarded (not copied).
 """
-@logged function copy_vector!(;
+@logged @documented function copy_vector!(;
     destination::DafWriter,
     source::DafReader,
     axis::AbstractString,
@@ -140,11 +159,21 @@ source axis contains entries that do not exist in the target, they are discarded
     dtype::Maybe{Type{<:StorageScalarBase}} = nothing,
     default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
     empty::Maybe{StorageScalar} = nothing,
+    bestify::Bool = false,
+    sparse_if_saves_storage_fraction::AbstractFloat = function_default(
+        MatrixLayouts.bestify,
+        :sparse_if_saves_storage_fraction,
+    ),
     overwrite::Bool = false,
+    insist::Bool = true,
     relation::Maybe{Symbol} = nothing,
 )::Nothing
     reaxis = new_name(reaxis, axis)
     rename = new_name(rename, name)
+
+    if !overwrite && !insist && has_vector(destination, reaxis, rename)
+        return nothing  # UNTESTED
+    end
 
     what_for = empty === nothing ? "the vector: $(name)\n    to the vector: $(rename)" : nothing
     if relation === nothing
@@ -175,6 +204,14 @@ source axis contains entries that do not exist in the target, they are discarded
         value = NamedArray(string_vector, value.dicts, value.dimnames)
     end
 
+    if !overwrite && !insist && has_vector(destination, reaxis, rename)
+        return nothing  # UNTESTED
+    end
+
+    if bestify && eltype(value) <: Real
+        value = MatrixLayouts.bestify(value; sparse_if_saves_storage_fraction)  # UNTESTED
+    end
+
     if relation == :same
         if eltype(value) <: abstract_dtype
             set_vector!(destination, reaxis, rename, value; overwrite)
@@ -187,9 +224,9 @@ source axis contains entries that do not exist in the target, they are discarded
                 concrete_dtype,
                 nnz(value.array);
                 overwrite,
-            ) do nzind, nzval
-                nzind .= value.array.nzind
-                nzval .= value.array.nzval
+            ) do sparse_nzind, sparse_nzval
+                sparse_nzind .= nzind(value.array)
+                sparse_nzval .= nzval(value.array)
                 return nothing
             end
         else
@@ -245,16 +282,21 @@ end
         dtype::Maybe{Type{<:StorageScalarBase}} = nothing,
         default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
         empty::Maybe{StorageScalar} = nothing,
+        bestify::Bool = false,
+        sparse_if_saves_storage_fraction::AbstractFloat = $(DEFAULT.sparse_if_saves_storage_fraction),
         relayout::Bool = true,
-        overwrite::Bool = false]
+        overwrite::Bool = false,
+        insist::Bool = true]
     )::Nothing
 
 Copy a matrix from some `source` [`DafReader`](@ref) into some `destination` [`DafWriter`](@ref).
 
 The matrix is fetched using the `rows_axis`, `columns_axis`, `name`, `relayout` and the `default`. If `rows_reaxis`
 and/or `columns_reaxis` are specified, store the vector using these axes. If `rename` is specified, store the matrix
-using this name. If `dtype` is specified, the data is converted to this type. If `overwrite` (not the default),
-overwrite an existing matrix in the target. The matrix is stored with the same `relayout`.
+using this name. If `dtype` is specified, the data is converted to this type. If the matrix already exists in the
+target, if `overwrite`, it will be replaced; otherwise, if not `insist`, skip the copy; otherwise, fail.
+
+If `bestify` is set, then [`bestify`](@ref) the data before writing it, using `sparse_if_saves_storage_fraction`.
 
 This requires each axis of one data set is the same, or is a superset of, or a subset of, the other. If a target axis
 contains entries that do not exist in the source, then `empty` must be specified to fill the missing values. If a source
@@ -266,7 +308,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
     the destination. However, currently we create a temporary dense matrix for this; this is inefficient and should be
     replaced by a more efficient method.
 """
-@logged function copy_matrix!(;
+@logged @documented function copy_matrix!(;
     destination::DafWriter,
     source::DafReader,
     rows_axis::AbstractString,
@@ -278,8 +320,14 @@ axis contains entries that do not exist in the target, they are discarded (not c
     dtype::Maybe{Type{<:StorageScalarBase}} = nothing,
     default::Union{StorageReal, StorageMatrix, Nothing, UndefInitializer} = undef,
     empty::Maybe{StorageReal} = nothing,
+    bestify::Bool = false,
+    sparse_if_saves_storage_fraction::AbstractFloat = function_default(
+        MatrixLayouts.bestify,
+        :sparse_if_saves_storage_fraction,
+    ),
     relayout::Bool = true,
     overwrite::Bool = false,
+    insist::Bool = true,
     rows_relation::Maybe{Symbol} = nothing,
     columns_relation::Maybe{Symbol} = nothing,
 )::Nothing
@@ -287,6 +335,10 @@ axis contains entries that do not exist in the target, they are discarded (not c
     rows_reaxis = new_name(rows_reaxis, rows_axis)
     columns_reaxis = new_name(columns_reaxis, columns_axis)
     rename = new_name(rename, name)
+
+    if !overwrite && !insist && has_matrix(destination, rows_reaxis, columns_reaxis, rename)
+        return nothing  # UNTESTED
+    end
 
     what_for = empty === nothing ? "the matrix: $(name)\n    to the matrix: $(rename)" : nothing
     if rows_relation === nothing
@@ -315,6 +367,10 @@ axis contains entries that do not exist in the target, they are discarded (not c
     value = get_matrix(source, rows_axis, columns_axis, name; default, relayout)
     if value === nothing
         return nothing
+    end
+
+    if bestify
+        value = MatrixLayouts.bestify(value; sparse_if_saves_storage_fraction)  # UNTESTED
     end
 
     if relayout && has_matrix(source, columns_axis, rows_axis, name; relayout = false)
@@ -358,7 +414,8 @@ axis contains entries that do not exist in the target, they are discarded (not c
     end
 
     if (rows_relation == :destination_is_subset || rows_relation == :same) &&
-       (columns_relation == :destination_is_subset || columns_relation == :same)
+       (columns_relation == :destination_is_subset || columns_relation == :same) &&
+       (rows_relation == :destination_is_subset || columns_relation == :destination_is_subset)
         value = value[axis_vector(destination, rows_reaxis), axis_vector(destination, columns_reaxis)]
         rows_relation = :same
         columns_relation = :same
@@ -370,6 +427,21 @@ axis contains entries that do not exist in the target, they are discarded (not c
     if rows_relation == :same && columns_relation == :same
         if eltype(value) == concrete_dtype
             set_matrix!(destination, rows_reaxis, columns_reaxis, rename, value; overwrite, relayout)
+        elseif issparse(value)
+            empty_sparse_matrix!(
+                destination,
+                rows_reaxis,
+                columns_reaxis,
+                rename,
+                concrete_dtype,
+                nnz(value);
+                overwrite,
+            ) do sparse_colptr, sparse_rowval, sparse_nzval
+                sparse_colptr .= colptr(value)
+                sparse_rowval .= rowval(value)
+                sparse_nzval .= nzval(value)
+                return nothing
+            end
         else
             empty_dense_matrix!(
                 destination,
@@ -415,7 +487,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
                 return nothing
             end
             if relayout
-                relayout_matrix!(destination, rows_reaxis, columns_reaxis, rename; overwrite)  # untested
+                relayout_matrix!(destination, rows_reaxis, columns_reaxis, rename; overwrite)  # UNTESTED
             end
         end
     end
@@ -436,17 +508,23 @@ end
         rename::Maybe{AbstractString} = nothing,
         dtype::Maybe{Type{<:StorageScalarBase}} = nothing,
         empty::Maybe{StorageScalar} = nothing,
+        bestify::Bool = false,
+        sparse_if_saves_storage_fraction::AbstractFloat = $(DEFAULT.sparse_if_saves_storage_fraction),
         relayout::Bool = true,
-        overwrite::Bool = false]
+        overwrite::Bool = false,
+        insist::Bool = true]
     )::Nothing
 
 Copy a tensor from some `source` [`DafReader`](@ref) into some `destination` [`DafWriter`](@ref).
 
+If `bestify` is set, then [`bestify`](@ref) the data before writing it, using `sparse_if_saves_storage_fraction`.
+
 This is basically a loop that calls [`copy_matrix!`](@ref) for each of the tensor matrices, based on the entries of the
 `main_axis` in the `destination`. This will create an matrix full of the `empty` value for any entries of the main axis
-which exist in the destination but do not exist in the source.
+which exist in the destination but do not exist in the source. If a tensor matrix already exists in the target, if
+`overwrite`, it will be replaced; otherwise, if not `insist`, skip the copy; otherwise, fail.
 """
-@logged function copy_tensor!(;
+@logged @documented function copy_tensor!(;
     destination::DafWriter,
     source::DafReader,
     main_axis::AbstractString,
@@ -458,8 +536,14 @@ which exist in the destination but do not exist in the source.
     rename::Maybe{AbstractString} = nothing,
     dtype::Maybe{Type{<:StorageScalarBase}} = nothing,
     empty::Maybe{StorageReal} = nothing,
+    bestify::Bool = false,
+    sparse_if_saves_storage_fraction::AbstractFloat = function_default(
+        MatrixLayouts.bestify,
+        :sparse_if_saves_storage_fraction,
+    ),
     relayout::Bool = true,
     overwrite::Bool = false,
+    insist::Bool = true,
     rows_relation::Maybe{Symbol} = nothing,
     columns_relation::Maybe{Symbol} = nothing,
 )::Nothing
@@ -477,8 +561,11 @@ which exist in the destination but do not exist in the source.
             dtype,
             default = empty,
             empty,
+            bestify,
+            sparse_if_saves_storage_fraction,
             relayout,
             overwrite,
+            insist,
             rows_relation,
             columns_relation,
         )
@@ -521,12 +608,12 @@ DataTypes = AbstractDict
         [empty::Maybe{EmptyData} = nothing,
         dtypes::Maybe{DataTypes} = nothing,
         overwrite::Bool = false,
+        insist::Bool = true,
         relayout::Bool = true]
     )::Nothing
 
-Copy all the content of a `source` [`DafReader`](@ref) into a `destination` [`DafWriter`](@ref). If `overwrite`, this
-will overwrite existing data in the target. If `relayout`, matrices will be stored in the target both layouts,
-regardless of how they were stored in the source.
+Copy all the content of a `source` [`DafReader`](@ref) into a `destination` [`DafWriter`](@ref). If some data already
+exists in the target, if `overwrite`, it will be replaced; otherwise, if not `insist`, skip the copy; otherwise, fail.
 
 This will create target axes that exist in only in the source, but will **not** overwrite existing target axes,
 regardless of the value of `overwrite`. An axis that exists in the target must be identical to, or be a subset of, the
@@ -549,6 +636,7 @@ axis which exist in the destination but do not exist in the source.
     empty::Maybe{EmptyData} = nothing,
     dtypes::Maybe{DataTypes} = nothing,
     overwrite::Bool = false,
+    insist::Bool = true,
     relayout::Bool = true,
 )::Nothing
     tensor_keys = Vector{TensorKey}()
@@ -573,11 +661,11 @@ axis which exist in the destination but do not exist in the source.
 
     what_for = empty === nothing ? ": data" : nothing
     axis_relations = verify_axes(; destination, source, what_for)
-    copy_scalars(; destination, source, dtypes, overwrite)
+    copy_scalars(; destination, source, dtypes, overwrite, insist)
     copy_axes(; destination, source)
-    copy_vectors(; destination, source, axis_relations, empty, dtypes, overwrite)
-    copy_matrices(; destination, source, axis_relations, empty, dtypes, overwrite, relayout)
-    ensure_tensors(; destination, source, axis_relations, empty, dtypes, overwrite, relayout, tensor_keys)
+    copy_vectors(; destination, source, axis_relations, empty, dtypes, overwrite, insist)
+    copy_matrices(; destination, source, axis_relations, empty, dtypes, overwrite, insist, relayout)
+    ensure_tensors(; destination, source, axis_relations, empty, dtypes, overwrite, insist, relayout, tensor_keys)
 
     return nothing
 end
@@ -706,13 +794,19 @@ function verify_subset(;
     end
 end
 
-function copy_scalars(; destination::DafWriter, source::DafReader, dtypes::Maybe{DataTypes}, overwrite::Bool)::Nothing
+function copy_scalars(;
+    destination::DafWriter,
+    source::DafReader,
+    dtypes::Maybe{DataTypes},
+    overwrite::Bool,
+    insist::Bool,
+)::Nothing
     for name in scalars_set(source)
         dtype = nothing
         if dtypes !== nothing
             dtype = get(dtypes, name, nothing)
         end
-        copy_scalar!(; destination, source, name, dtype, overwrite)
+        copy_scalar!(; destination, source, name, dtype, overwrite, insist)
     end
 end
 
@@ -731,6 +825,7 @@ function copy_vectors(;
     empty::Maybe{EmptyData},
     dtypes::Maybe{DataTypes},
     overwrite::Bool,
+    insist::Bool,
 )::Nothing
     for (axis, relation) in axis_relations
         for name in vectors_set(source, axis)
@@ -744,7 +839,7 @@ function copy_vectors(;
                 dtype = get(dtypes, (axis, name), nothing)
             end
 
-            copy_vector!(; destination, source, axis, name, empty = empty_value, dtype, overwrite, relation)
+            copy_vector!(; destination, source, axis, name, empty = empty_value, dtype, overwrite, insist, relation)
         end
     end
 end
@@ -756,6 +851,7 @@ function copy_matrices(;
     empty::Maybe{EmptyData},
     dtypes::Maybe{DataTypes},
     overwrite::Bool,
+    insist::Bool,
     relayout::Bool,
 )::Nothing
     for (rows_axis, rows_relation) in axis_relations
@@ -768,6 +864,7 @@ function copy_matrices(;
                         empty,
                         dtypes,
                         overwrite,
+                        insist,
                         rows_axis,
                         rows_relation,
                         columns_axis,
@@ -787,6 +884,7 @@ function ensure_tensors(;
     empty::Maybe{EmptyData},
     dtypes::Maybe{DataTypes},
     overwrite::Bool,
+    insist::Bool,
     relayout::Bool,
     tensor_keys::AbstractVector{TensorKey},
 )::Nothing
@@ -801,6 +899,7 @@ function ensure_tensors(;
                     empty,
                     dtypes,
                     overwrite,
+                    insist,
                     rows_axis,
                     rows_relation = axis_relations[rows_axis],
                     columns_axis,
@@ -818,6 +917,7 @@ function copy_single_matrix(;
     empty::Maybe{EmptyData},
     dtypes::Maybe{DataTypes},
     overwrite::Bool,
+    insist::Bool,
     rows_axis::AbstractString,
     rows_relation::Symbol,
     columns_axis::AbstractString,
@@ -856,6 +956,7 @@ function copy_single_matrix(;
         empty = empty_value,
         dtype,
         overwrite,
+        insist,
         rows_relation,
         columns_relation,
     )

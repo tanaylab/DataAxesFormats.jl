@@ -136,8 +136,8 @@ This first verifies the `axis` does not exist and that the `entries` are unique.
 """
 function add_axis!(daf::DafWriter, axis::AbstractString, entries::AbstractVector{<:AbstractString})::Nothing
     entries = base_array(entries)
-    if entries isa SparseVector
-        entries = Vector(entries)  # untested
+    if issparse(entries)
+        entries = Vector(entries)  # UNTESTED
     end
     return Formats.with_data_write_lock(daf, "add_axis! of:", axis) do
         # Formats.assert_valid_cache(daf)
@@ -270,6 +270,9 @@ function set_vector!(
                 require_axis_names(daf, axis, "entry names of the: vector", names(vector, 1))
             end
             vector = base_array(vector)
+            if vector isa BitVector
+                vector = Vector{Bool}(vector)  # UNTESTED
+            end
         end
 
         if !overwrite
@@ -563,6 +566,9 @@ function set_matrix!(
                 require_axis_names(daf, columns_axis, "column names of the: matrix", names(matrix, 2))
             end
             matrix = base_array(matrix)
+            if matrix isa BitMatrix
+                matrix = Matrix{Bool}(matrix)  # UNTESTED
+            end
         end
 
         if !overwrite

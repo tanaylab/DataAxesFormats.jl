@@ -206,7 +206,7 @@ function Formats.end_data_read_lock(chain::AnyChain, what::Any...)::Nothing
     return nothing
 end
 
-function Formats.begin_data_write_lock(::ReadOnlyChain, ::Any...)::Nothing  # untested
+function Formats.begin_data_write_lock(::ReadOnlyChain, ::Any...)::Nothing  # UNTESTED
     @assert false
 end
 
@@ -571,7 +571,7 @@ function Formats.format_relayout_matrix!(
             if daf isa DafWriter && !daf.internal.is_frozen
                 return Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name, matrix)
             else
-                return Formats.get_through_cache(  # untested
+                return Formats.get_through_cache(  # UNTESTED
                     daf,
                     Formats.matrix_cache_key(columns_axis, rows_axis, name),
                     StorageMatrix,

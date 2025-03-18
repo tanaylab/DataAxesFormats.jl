@@ -33,6 +33,10 @@ using NamedArrays
 using SparseArrays
 
 import ..Copies.expand_tensors
+import ..MatrixLayouts.colptr
+import ..MatrixLayouts.nzind
+import ..MatrixLayouts.nzval
+import ..MatrixLayouts.rowval
 import ..Readers.require_axis
 import ..StorageTypes.indtype_for_size
 import ..Writers.require_no_axis
@@ -588,21 +592,22 @@ function concatenate_axis_sparse_vectors(
     vector_property::AbstractString;
     dtype::Type,
     offsets::AbstractVector{<:Integer},
-    vectors::AbstractVector{<:SparseVector},
+    vectors::AbstractVector{<:AbstractVector},
     overwrite::Bool,
 )::Nothing
     nnz_offsets, nnz_sizes, total_nnz = nnz_arrays(vectors)
 
-    empty_sparse_vector!(destination, axis, vector_property, dtype, total_nnz; overwrite) do nzind, nzval
+    empty_sparse_vector!(destination, axis, vector_property, dtype, total_nnz; overwrite) do sparse_nzind, sparse_nzval
         n_sources = length(vectors)
         @threads for index in 1:n_sources
             vector = vectors[index]
+            @assert issparse(vector)
             offset = offsets[index]
             nnz_offset = nnz_offsets[index]
             nnz_size = nnz_sizes[index]
-            nzval[(nnz_offset + 1):(nnz_offset + nnz_size)] = vector.nzval
-            nzind[(nnz_offset + 1):(nnz_offset + nnz_size)] = vector.nzind
-            nzind[(nnz_offset + 1):(nnz_offset + nnz_size)] .+= offset
+            sparse_nzval[(nnz_offset + 1):(nnz_offset + nnz_size)] = nzval(vector)
+            sparse_nzind[(nnz_offset + 1):(nnz_offset + nnz_size)] = nzind(vector)
+            sparse_nzind[(nnz_offset + 1):(nnz_offset + nnz_size)] .+= offset
         end
     end
 
@@ -702,7 +707,7 @@ function concatenate_axis_sparse_matrices(
     dtype::Type,
     offsets::AbstractVector{<:Integer},
     sizes::AbstractVector{<:Integer},
-    matrices::AbstractVector{<:SparseMatrixCSC},
+    matrices::AbstractVector{<:AbstractMatrix},
     overwrite::Bool,
 )::Nothing
     nnz_offsets, nnz_sizes, total_nnz = nnz_arrays(matrices)
@@ -715,20 +720,22 @@ function concatenate_axis_sparse_matrices(
         dtype,
         total_nnz;
         overwrite,
-    ) do colptr, rowval, nzval
+    ) do sparse_colptr, sparse_rowval, sparse_nzval
         n_sources = length(matrices)
         @threads for index in 1:n_sources
             matrix = matrices[index]
+            @assert issparse(matrix)
             column_offset = offsets[index]
             ncols = sizes[index]
             nnz_offset = nnz_offsets[index]
             nnz_size = nnz_sizes[index]
-            nzval[(nnz_offset + 1):(nnz_offset + nnz_size)] = matrix.nzval
-            rowval[(nnz_offset + 1):(nnz_offset + nnz_size)] = matrix.rowval
-            colptr[(column_offset + 1):(column_offset + ncols)] = matrix.colptr[1:ncols]
-            colptr[(column_offset + 1):(column_offset + ncols)] .+= nnz_offset
+            sparse_nzval[(nnz_offset + 1):(nnz_offset + nnz_size)] = nzval(matrix)
+            sparse_rowval[(nnz_offset + 1):(nnz_offset + nnz_size)] = rowval(matrix)
+            sparse_colptr[(column_offset + 1):(column_offset + ncols)] = colptr(matrix)[1:ncols]
+            sparse_colptr[(column_offset + 1):(column_offset + ncols)] .+= nnz_offset
         end
-        return colptr[end] = total_nnz + 1
+        sparse_colptr[end] = total_nnz + 1
+        return nothing
     end
 
     return nothing
@@ -994,7 +1001,7 @@ function concatenate_merge_sparse_vector(
     dataset_axis::AbstractString,
     vector_property::AbstractString;
     dtype::Type,
-    vectors::AbstractVector{<:SparseVector},
+    vectors::AbstractVector{<:AbstractVector},
     overwrite::Bool,
 )::Nothing
     nnz_offsets, nnz_sizes, total_nnz = nnz_arrays(vectors)
@@ -1007,16 +1014,17 @@ function concatenate_merge_sparse_vector(
         dtype,
         total_nnz;
         overwrite,
-    ) do colptr, rowval, nzval
-        colptr[1] == 1
+    ) do sparse_colptr, sparse_rowval, sparse_nzval
+        sparse_colptr[1] == 1
         n_sources = length(vectors)
         @threads for index in 1:n_sources
             vector = vectors[index]
+            @assert issparse(vector)
             nnz_offset = nnz_offsets[index]
             nnz_size = nnz_sizes[index]
-            nzval[(nnz_offset + 1):(nnz_offset + nnz_size)] = vector.nzval
-            rowval[(nnz_offset + 1):(nnz_offset + nnz_size)] = vector.nzind
-            colptr[index + 1] = nnz_offset + nnz_size + 1
+            sparse_nzval[(nnz_offset + 1):(nnz_offset + nnz_size)] = nzval(vector)
+            sparse_rowval[(nnz_offset + 1):(nnz_offset + nnz_size)] = nzind(vector)
+            sparse_colptr[index + 1] = nnz_offset + nnz_size + 1
         end
     end
 
@@ -1284,7 +1292,7 @@ function sparsify_vectors(
         else
             @assert length(vector) == size
             vector = vector.array
-            if !(vector isa SparseVector)
+            if !issparse(vector)
                 vector = sparse_vector(vector)
             end
             sparse_vectors[index] = vector

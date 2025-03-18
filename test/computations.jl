@@ -12,7 +12,7 @@ None
 
 Just a function with a default `x` of $(DEFAULT.x).
 """
-@computation function none(; x = 1)
+@documented function none(; x = 1)
     return x
 end
 
@@ -135,7 +135,9 @@ end
 nested_test("computations") do
     nested_test("access") do
         nested_test("!contract") do
-            @test_throws "not a @computation function: Main.not_computation" function_contract(not_computation)
+            @test_throws "not a @documented or @computation function: Main.not_computation" function_contract(
+                not_computation,
+            )
         end
 
         nested_test("contract") do
@@ -149,7 +151,7 @@ nested_test("computations") do
         nested_test("!default") do
             @test_throws dedent("""
                 no parameter with default: quality
-                for the function: Main.single
+                exists for the function: Main.single
                 """) function_default(single, :quality)
         end
     end

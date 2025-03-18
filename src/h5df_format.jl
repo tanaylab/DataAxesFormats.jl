@@ -113,6 +113,10 @@ using SparseArrays
 
 import ..Formats
 import ..Formats.Internal
+import ..MatrixLayouts.colptr
+import ..MatrixLayouts.nzind
+import ..MatrixLayouts.nzval
+import ..MatrixLayouts.rowval
 import ..Readers.base_array
 
 """
@@ -458,10 +462,11 @@ function Formats.format_set_vector!(
         vector_dataset[:] = vector  # NOJET
         close(vector_dataset)
 
-    elseif vector isa SparseVector
+    elseif issparse(vector)
+        @assert vector isa AbstractVector
         vector_group = create_group(axis_vectors_group, name)
-        vector_group["nzind"] = vector.nzind  # NOJET
-        vector_group["nzval"] = vector.nzval
+        vector_group["nzind"] = nzind(vector)  # NOJET
+        vector_group["nzval"] = nzval(vector)
         close(vector_group)
 
     else
@@ -627,11 +632,12 @@ function Formats.format_set_matrix!(
         matrix_dataset[:, :] = matrix
         close(matrix_dataset)
 
-    elseif matrix isa SparseMatrixCSC
+    elseif issparse(matrix)
+        @assert matrix isa AbstractMatrix
         matrix_group = create_group(columns_axis_group, name)
-        matrix_group["colptr"] = matrix.colptr
-        matrix_group["rowval"] = matrix.rowval
-        matrix_group["nzval"] = matrix.nzval
+        matrix_group["colptr"] = colptr(matrix)
+        matrix_group["rowval"] = rowval(matrix)
+        matrix_group["nzval"] = nzval(matrix)
         close(matrix_group)
 
     else
@@ -720,20 +726,25 @@ function Formats.format_relayout_matrix!(
 )::StorageMatrix
     @assert Formats.has_data_write_lock(h5df)
 
-    if matrix isa SparseMatrixCSC
-        colptr, rowval, nzval = Formats.format_get_empty_sparse_matrix!(
+    if issparse(matrix)
+        sparse_colptr, sparse_rowval, sparse_nzval = Formats.format_get_empty_sparse_matrix!(
             h5df,
             columns_axis,
             rows_axis,
             name,
             eltype(matrix),
             nnz(matrix),
-            eltype(matrix.colptr),
+            eltype(colptr(matrix)),
         )
-        colptr[1] = 1
-        colptr[2:end] .= length(nzval) + 1
-        relayout_matrix =
-            SparseMatrixCSC(axis_length(h5df, columns_axis), axis_length(h5df, rows_axis), colptr, rowval, nzval)
+        sparse_colptr[1] = 1
+        sparse_colptr[2:end] .= length(sparse_nzval) + 1
+        relayout_matrix = SparseMatrixCSC(
+            axis_length(h5df, columns_axis),
+            axis_length(h5df, rows_axis),
+            sparse_colptr,
+            sparse_rowval,
+            sparse_nzval,
+        )
     else
         relayout_matrix = Formats.format_get_empty_dense_matrix!(h5df, columns_axis, rows_axis, name, eltype(matrix))
     end
@@ -838,7 +849,7 @@ function dataset_as_matrix(dataset::HDF5.Dataset)::StorageMatrix
     if HDF5.ismmappable(dataset) && HDF5.iscontiguous(dataset) && !isempty(dataset)
         return HDF5.readmmap(dataset)
     else
-        return read(dataset)  # untested
+        return read(dataset)  # UNTESTED
     end
 end
 

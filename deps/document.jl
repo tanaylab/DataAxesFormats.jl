@@ -55,6 +55,7 @@ makedocs(;
         "tokens.md",
         "views.md",
         "chains.md",
+        "documentation.md",
         "computations.md",
         "copies.md",
         "concat.md",

@@ -98,7 +98,7 @@ function Formats.has_data_read_lock(read_only_view::DafReadOnlyWrapper)::Bool
     return Formats.has_data_read_lock(read_only_view.daf)
 end
 
-function Formats.begin_data_write_lock(::DafReadOnlyWrapper, ::Any...)::Nothing  # untested
+function Formats.begin_data_write_lock(::DafReadOnlyWrapper, ::Any...)::Nothing  # UNTESTED
     @assert false
 end
 
@@ -106,7 +106,7 @@ function Formats.end_data_write_lock(::DafReadOnlyWrapper, ::Any...)::Nothing
     @assert false
 end
 
-function Formats.has_data_write_lock(::DafReadOnlyWrapper)::Bool  # untested
+function Formats.has_data_write_lock(::DafReadOnlyWrapper)::Bool  # UNTESTED
     return false
 end
 
