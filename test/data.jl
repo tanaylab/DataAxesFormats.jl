@@ -669,26 +669,49 @@ function test_missing_vector(daf::DafReader, depth::Int)::Nothing
         nested_test("scalar") do
             @test set_vector!(daf, "gene", "marker", 1.0) === nothing
             @test get_vector(daf, "gene", "marker") == [1.0, 1.0, 1.0, 1.0]
-            @test set_vector!(daf, "gene", "noisy", 0.0) === nothing
+            @test set_vector!(daf, "gene", "noisy", 0.0; eltype = Int32) === nothing
             @test get_vector(daf, "gene", "noisy") == [0.0, 0.0, 0.0, 0.0]
+            @test eltype(get_vector(daf, "gene", "noisy")) == Int32
             @test set_vector!(daf, "cell", "type", "TCell") === nothing
             @test get_vector(daf, "cell", "type") == ["TCell", "TCell", "TCell"]
         end
 
         nested_test("vector") do
             nested_test("dense") do
-                @test set_vector!(daf, "gene", "marker", MARKER_GENES_BY_DEPTH[depth]) === nothing
-                @test set_vector!(daf, "cell", "type", CELL_TYPES_BY_DEPTH[depth]) === nothing
-                test_existing_vector(daf, depth + 1)
-                return nothing
+                nested_test("exists") do
+                    @test set_vector!(daf, "gene", "marker", MARKER_GENES_BY_DEPTH[depth]) === nothing
+                    @test set_vector!(daf, "cell", "type", CELL_TYPES_BY_DEPTH[depth]) === nothing
+                    test_existing_vector(daf, depth + 1)
+                    return nothing
+                end
+
+                nested_test("eltype") do
+                    @test set_vector!(daf, "gene", "marker", MARKER_GENES_BY_DEPTH[depth]; eltype = Float32) === nothing
+                    @test eltype(get_vector(daf, "gene", "marker")) == Float32
+                    return nothing
+                end
             end
 
             nested_test("sparse") do
-                @test set_vector!(daf, "gene", "marker", sparse_vector(MARKER_GENES_BY_DEPTH[depth])) === nothing
-                # TODO: When SparseArrays supports strings, test it.
-                @test set_vector!(daf, "cell", "type", CELL_TYPES_BY_DEPTH[depth]) === nothing
-                test_existing_vector(daf, depth + 1)
-                return nothing
+                nested_test("exists") do
+                    @test set_vector!(daf, "gene", "marker", sparse_vector(MARKER_GENES_BY_DEPTH[depth])) === nothing
+                    # TODO: When SparseArrays supports strings, test it.
+                    @test set_vector!(daf, "cell", "type", CELL_TYPES_BY_DEPTH[depth]) === nothing
+                    test_existing_vector(daf, depth + 1)
+                    return nothing
+                end
+
+                nested_test("eltype") do
+                    @test set_vector!(
+                        daf,
+                        "gene",
+                        "marker",
+                        sparse_vector(MARKER_GENES_BY_DEPTH[depth]);
+                        eltype = Float32,
+                    ) === nothing
+                    @test eltype(get_vector(daf, "gene", "marker")) == Float32
+                    return nothing
+                end
             end
 
             nested_test("name") do
@@ -1514,29 +1537,68 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
             @test set_matrix!(daf, "cell", "gene", "UMIs", 1.0; relayout = false) === nothing
             @test get_matrix(daf, "cell", "gene", "UMIs"; relayout = false) ==
                   [1.0 1.0 1.0 1.0; 1.0 1.0 1.0 1.0; 1.0 1.0 1.0 1.0]
-            @test set_matrix!(daf, "cell", "gene", "LogUMIs", 0.0; relayout = false) === nothing
-            @test get_matrix(daf, "cell", "gene", "LogUMIs"; relayout = false) ==
-                  [0.0 0.0 0.0 0.0; 0.0 0.0 0.0 0.0; 0.0 0.0 0.0 0.0]
+            @test set_matrix!(daf, "cell", "gene", "LogUMIs", 0.0; relayout = false, eltype = Int32) === nothing
+            @test get_matrix(daf, "cell", "gene", "LogUMIs"; relayout = false) == [0 0 0 0; 0 0 0 0; 0 0 0 0]
+            @test eltype(get_matrix(daf, "cell", "gene", "LogUMIs"; relayout = false)) == Int32
         end
 
         nested_test("matrix") do
             nested_test("relayout") do
                 nested_test("dense") do
-                    @test set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[depth]) === nothing
-                    test_existing_relayout_matrix(daf, depth + 1)
-                    return nothing
+                    nested_test("exists") do
+                        @test set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[depth]) === nothing
+                        test_existing_relayout_matrix(daf, depth + 1)
+                        return nothing
+                    end
+
+                    nested_test("eltype") do
+                        @test set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[depth]; eltype = UInt32) ===
+                              nothing
+                        @test eltype(get_matrix(daf, "cell", "gene", "UMIs")) == UInt32
+                    end
                 end
 
                 nested_test("sparse") do
-                    @test set_matrix!(daf, "cell", "gene", "UMIs", sparse_matrix_csc(UMIS_BY_DEPTH[depth])) === nothing
-                    test_existing_relayout_matrix(daf, depth + 1)
-                    return nothing
+                    nested_test("exists") do
+                        @test set_matrix!(daf, "cell", "gene", "UMIs", sparse_matrix_csc(UMIS_BY_DEPTH[depth])) ===
+                              nothing
+                        test_existing_relayout_matrix(daf, depth + 1)
+                        return nothing
+                    end
+
+                    nested_test("eltype") do
+                        @test set_matrix!(
+                            daf,
+                            "cell",
+                            "gene",
+                            "UMIs",
+                            sparse_matrix_csc(UMIS_BY_DEPTH[depth]);
+                            eltype = UInt32,
+                        ) === nothing
+                        @test eltype(get_matrix(daf, "cell", "gene", "UMIs")) == UInt32
+                    end
                 end
 
                 nested_test("true") do
-                    @test set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[depth]; relayout = true) === nothing
-                    test_existing_relayout_matrix(daf, depth + 1)
-                    return nothing
+                    nested_test("exists") do
+                        @test set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[depth]; relayout = true) ===
+                              nothing
+                        test_existing_relayout_matrix(daf, depth + 1)
+                        return nothing
+                    end
+
+                    nested_test("eltype") do
+                        @test set_matrix!(
+                            daf,
+                            "cell",
+                            "gene",
+                            "UMIs",
+                            UMIS_BY_DEPTH[depth];
+                            relayout = true,
+                            eltype = Float32,
+                        ) === nothing
+                        @test eltype(get_matrix(daf, "cell", "gene", "UMIs")) == Float32
+                    end
                 end
 
                 nested_test("false") do

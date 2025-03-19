@@ -237,7 +237,8 @@ end
         axis::AbstractString,
         name::AbstractString,
         vector::Union{StorageScalar, StorageVector};
-        [overwrite::Bool = false]
+        [eltype::Maybe{Type{<:StorageReal}} = nothing,
+        overwrite::Bool = false]
     )::Nothing
 
 Set a vector property with some `name` for some `axis` in `daf`.
@@ -247,15 +248,19 @@ If the `vector` specified is actually a [`StorageScalar`](@ref), the stored vect
 This first verifies the `axis` exists in `daf`, that the property name isn't `name`, and that the `vector` has the
 appropriate length. If not `overwrite` (the default), this also verifies the `name` vector does not exist for the
 `axis`.
+
+If `eltype` is specified, and the data is of another type, then the data is converted to this data type before being
+stored.
 """
 function set_vector!(
     daf::DafWriter,
     axis::AbstractString,
     name::AbstractString,
     vector::Union{StorageScalar, StorageVector};
+    eltype::Maybe{Type{<:StorageReal}} = nothing,
     overwrite::Bool = false,
 )::Nothing
-    @assert eltype(vector) <: AbstractString || isbitstype(eltype(vector))
+    @assert Base.eltype(vector) <: AbstractString || isbitstype(Base.eltype(vector))
     return Formats.with_data_write_lock(daf, "set_vector! of:", name, "of:", axis) do
         # Formats.assert_valid_cache(daf)
         @debug "set_vector! daf: $(depict(daf)) axis: $(axis) name: $(name) vector: $(depict(vector)) overwrite: $(overwrite)"
@@ -270,8 +275,20 @@ function set_vector!(
                 require_axis_names(daf, axis, "entry names of the: vector", names(vector, 1))
             end
             vector = base_array(vector)
-            if vector isa BitVector
-                vector = Vector{Bool}(vector)  # UNTESTED
+            if eltype === nothing
+                eltype = Base.eltype(vector)
+            end
+            if vector isa BitVector || Base.eltype(vector) != eltype
+                if issparse(vector)
+                    vector = SparseVector{eltype}(vector)
+                else
+                    vector = Vector{eltype}(vector)
+                end
+            end
+        else
+            @assert vector isa StorageScalar
+            if eltype !== nothing
+                vector = eltype(vector)
             end
         end
 
@@ -520,7 +537,8 @@ end
         columns_axis::AbstractString,
         name::AbstractString,
         matrix::Union{StorageReal, StorageMatrix};
-        [overwrite::Bool = false,
+        [eltype::Maybe{Type{<:StorageReal}} = nothing,
+        overwrite::Bool = false,
         relayout::Bool = true]
     )::Nothing
 
@@ -543,10 +561,11 @@ function set_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     matrix::Union{StorageReal, StorageMatrix};
+    eltype::Maybe{Type{<:StorageReal}} = nothing,
     overwrite::Bool = false,
     relayout::Bool = true,
 )::Nothing
-    @assert isbitstype(eltype(matrix))
+    @assert isbitstype(Base.eltype(matrix))
     Formats.with_data_write_lock(daf, "set_matrix! of:", name, "of:", rows_axis, "and:", columns_axis) do
         # Formats.assert_valid_cache(daf)
         relayout = relayout && rows_axis != columns_axis
@@ -566,8 +585,20 @@ function set_matrix!(
                 require_axis_names(daf, columns_axis, "column names of the: matrix", names(matrix, 2))
             end
             matrix = base_array(matrix)
-            if matrix isa BitMatrix
-                matrix = Matrix{Bool}(matrix)  # UNTESTED
+            if eltype === nothing
+                eltype = Base.eltype(matrix)
+            end
+            if matrix isa BitMatrix || Base.eltype(matrix) != eltype
+                if issparse(matrix)
+                    matrix = SparseMatrixCSC{eltype}(matrix)
+                else
+                    matrix = Matrix{eltype}(matrix)
+                end
+            end
+        else
+            @assert matrix isa StorageReal
+            if eltype !== nothing
+                matrix = eltype(matrix)
             end
         end
 
