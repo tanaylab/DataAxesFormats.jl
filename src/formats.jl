@@ -48,6 +48,7 @@ using ..GenericTypes
 using ..Keys
 using ..MatrixLayouts
 using ..Messages
+using ..ReadOnlyArrays
 using ..StorageTypes
 using ..Tokens
 using Base.Threads
@@ -978,44 +979,6 @@ function as_named_matrix(
     columns_axis_dict = get_axis_dict_through_cache(format, columns_axis)
     @assert size(matrix) == (length(rows_axis_dict), length(columns_axis_dict))
     return NamedArray(matrix, (rows_axis_dict, columns_axis_dict), (rows_axis, columns_axis))
-end
-
-function read_only_array(array::AbstractArray)::AbstractArray
-    return SparseArrays.ReadOnly(array)
-end
-
-function read_only_array(array::Transpose)::Transpose
-    parent_array = parent(array)
-    read_only_parent_array = read_only_array(parent_array)
-    if read_only_parent_array === parent_array
-        return array
-    else
-        return Transpose(read_only_parent_array)
-    end
-end
-
-function read_only_array(array::Adjoint)::Adjoint
-    parent_array = parent(array)
-    read_only_parent_array = read_only_array(parent_array)
-    if read_only_parent_array === parent_array
-        return array
-    else
-        return Adjoint(read_only_parent_array)
-    end
-end
-
-function read_only_array(array::SparseArrays.ReadOnly)::SparseArrays.ReadOnly
-    return array
-end
-
-function read_only_array(array::NamedArray)::NamedArray
-    parent_array = array.array
-    read_only_parent_array = read_only_array(parent_array)
-    if read_only_parent_array === parent_array
-        return array
-    else
-        return NamedArray(read_only_parent_array, array.dicts, array.dimnames)
-    end
 end
 
 function put_cached_dependency_key!(format::FormatReader, cache_key::CacheKey, dependency_key::CacheKey)::Nothing

@@ -6,6 +6,7 @@ function get_result(
     requires_relayout::Bool = false,
 )::Any
     @test is_axis_query(query) == is_axis
+    @test has_query(daf, query)
     @test query_requires_relayout(daf, query) == requires_relayout
     value = get_query(daf, query; cache = cache)
     if value isa AbstractSet{<:AbstractString}
@@ -32,6 +33,7 @@ function get_result(
 end
 
 function test_invalid(daf::DafReader, query::Union{String, Query}, message::String)::Nothing
+    @test !has_query(daf, query)
     message = dedent(message)
     @test_throws message query_result_dimensions(query)
     @test_throws (message * "\nfor the daf data: memory!") with_unwrapping_exceptions() do

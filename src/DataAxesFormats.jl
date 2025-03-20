@@ -58,6 +58,9 @@ include("generic_logging.jl")
 include("generic_functions.jl")
 include("generic_locks.jl")
 
+include("read_only_arrays.jl")
+@reexport using .ReadOnlyArrays
+
 include("documentation.jl")
 @reexport using .Documentation
 

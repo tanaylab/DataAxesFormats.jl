@@ -72,18 +72,6 @@
 </a>
 <ul class="internal">
 <li>
-<a class="tocitem" href="#Arrays">
-<span>Arrays
-</span>
-</a>
-</li>
-<li>
-<a class="tocitem" href="#Data">
-<span>Data
-</span>
-</a>
-</li>
-<li>
 <a class="tocitem" href="#Index">
 <span>Index
 </span>
@@ -173,6 +161,10 @@
 </li>
 <li>
 <a class="tocitem" href="matrix_layouts.html">Matrix layouts
+</a>
+</li>
+<li>
+<a class="tocitem" href="read_only_arrays.html">Read-Only Arrays
 </a>
 </li>
 <li>
@@ -279,106 +271,6 @@
 </div>
 </section>
 </article>
-<h2 id="Arrays">
-<a class="docs-heading-anchor" href="#Arrays">Arrays
-</a>
-<a id="Arrays-1">
-</a>
-<a class="docs-heading-anchor-permalink" href="#Arrays" title="Permalink">
-</a>
-</h2>
-<p>
-<code>Daf
-</code> access operations return a read-only result; this allows 
-<code>Daf
-</code> to cache results for efficiency, which is important when getting the data is slow (e.g., accessing disk data or aggregating data). If you want to modify such results, you need to explicitly create a copy. TODO: Explicitly support the concept of in-place modifications of data in 
-<code>Daf
-</code> (building on the memory-mapped implementation).
-</p>
-<div class="admonition is-info">
-<header class="admonition-header">Note
-</header>
-<div class="admonition-body">
-<p>The read-only array functions below are restricted to dealing with normal (dense) arrays, 
-<code>SparseArrays
-</code>, 
-<code>NamedArrays
-</code>, and 
-<code>LinearAlgebra
-</code> arrays (specifically, 
-<code>Transpose
-</code> and 
-<code>Adjoint
-</code>), as these are the types actually used in 
-<code>Daf
-</code> storage. YMMV if using more exotic matrix types. In theory you could extend the implementation to cover such types as well.
-</p>
-</div>
-</div>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
-<a class="docstring-binding" id="DataAxesFormats.ReadOnly.read_only_array" href="#DataAxesFormats.ReadOnly.read_only_array">
-<code>DataAxesFormats.ReadOnly.read_only_array
-</code>
-</a> — 
-<span class="docstring-category">Function
-</span>
-<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
-</span>
-</header>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">read_only_array(array::AbstractArray):AbstractArray
-</code>
-</pre>
-<p>Return an immutable view of an 
-<code>array
-</code>. This uses 
-<code>SparseArrays.ReadOnly
-</code>, and properly deals with 
-<code>NamedArray
-</code>. If the array is already immutable, it is returned as-is.
-</p>
-</div>
-</section>
-</article>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
-<a class="docstring-binding" id="DataAxesFormats.ReadOnly.is_read_only_array" href="#DataAxesFormats.ReadOnly.is_read_only_array">
-<code>DataAxesFormats.ReadOnly.is_read_only_array
-</code>
-</a> — 
-<span class="docstring-category">Function
-</span>
-<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
-</span>
-</header>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">is_read_only_array(array::AbstractArray)::Bool
-</code>
-</pre>
-<p>Return whether an 
-<code>array
-</code> is immutable.
-</p>
-</div>
-</section>
-</article>
-<h2 id="Data">
-<a class="docs-heading-anchor" href="#Data">Data
-</a>
-<a id="Data-1">
-</a>
-<a class="docs-heading-anchor-permalink" href="#Data" title="Permalink">
-</a>
-</h2>
 <article class="docstring">
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
@@ -505,20 +397,8 @@
 </a>
 </li>
 <li>
-<a href="read_only.html#DataAxesFormats.ReadOnly.is_read_only_array">
-<code>DataAxesFormats.ReadOnly.is_read_only_array
-</code>
-</a>
-</li>
-<li>
 <a href="read_only.html#DataAxesFormats.ReadOnly.read_only">
 <code>DataAxesFormats.ReadOnly.read_only
-</code>
-</a>
-</li>
-<li>
-<a href="read_only.html#DataAxesFormats.ReadOnly.read_only_array">
-<code>DataAxesFormats.ReadOnly.read_only_array
 </code>
 </a>
 </li>

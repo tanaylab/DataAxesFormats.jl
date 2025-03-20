@@ -6,13 +6,13 @@ module ReadOnly
 export DafReadOnly
 export is_read_only_array
 export read_only
-export read_only_array
 
 using ..Formats
 using ..GenericTypes
-using ..MatrixLayouts  # For documentation.
+using ..MatrixLayouts
 using ..Messages
 using ..Readers
+using ..ReadOnlyArrays
 using ..StorageTypes
 using NamedArrays
 using LinearAlgebra
@@ -20,26 +20,6 @@ using SparseArrays
 
 import ..Formats.Internal
 import ..Messages
-import ..MatrixLayouts.mutable_array
-
-"""
-    read_only_array(array::AbstractArray):AbstractArray
-
-Return an immutable view of an `array`. This uses `SparseArrays.ReadOnly`, and properly deals with `NamedArray`. If the
-array is already immutable, it is returned as-is.
-"""
-function read_only_array(array::AbstractArray)::AbstractArray
-    return Formats.read_only_array(array)
-end
-
-"""
-    is_read_only_array(array::AbstractArray)::Bool
-
-Return whether an `array` is immutable.
-"""
-function is_read_only_array(array::AbstractArray)::Bool
-    return mutable_array(array) !== array
-end
 
 """
 A common base type for a read-only [`DafReader`](@ref), which doesn't allow any modification of the data.
@@ -167,7 +147,7 @@ function Formats.format_get_vector(
     name::AbstractString,
 )::StorageVector
     @assert Formats.has_data_read_lock(read_only_view)
-    return Formats.read_only_array(Formats.format_get_vector(read_only_view.daf, axis, name))
+    return read_only_array(Formats.format_get_vector(read_only_view.daf, axis, name))
 end
 
 function Formats.format_has_matrix(
@@ -196,7 +176,7 @@ function Formats.format_get_matrix(
     name::AbstractString,
 )::StorageMatrix
     @assert Formats.has_data_read_lock(read_only_view)
-    return Formats.read_only_array(Formats.format_get_matrix(read_only_view.daf, rows_axis, columns_axis, name))
+    return read_only_array(Formats.format_get_matrix(read_only_view.daf, rows_axis, columns_axis, name))
 end
 
 function Formats.format_description_header(

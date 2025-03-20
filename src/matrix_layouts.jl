@@ -44,11 +44,14 @@ export require_major_axis
 export require_minor_axis
 export sparsify
 export transposer
+export read_only_array
+export is_read_only_array
 
 using ..Documentation
 using ..GenericFunctions
 using ..GenericTypes
 using ..Messages
+using ..ReadOnlyArrays
 using ..StorageTypes
 using Distributed
 using LinearAlgebra
@@ -647,44 +650,6 @@ end
 
 function copy_array(array::NamedArray)::NamedArray
     return NamedArray(copy_array(mutable_array(array.array)), array.dicts, array.dimnames)
-end
-
-function mutable_array(array::AbstractArray)::AbstractArray
-    return array
-end
-
-function mutable_array(array::Transpose)::Transpose
-    parent_array = parent(array)
-    mutable_parent_array = mutable_array(parent_array)
-    if mutable_parent_array === parent_array
-        return array
-    else
-        return Transpose(mutable_parent_array)
-    end
-end
-
-function mutable_array(array::Adjoint)::Adjoint
-    parent_array = parent(array)
-    mutable_parent_array = mutable_array(parent_array)
-    if mutable_parent_array === parent_array
-        return array
-    else
-        return Adjoint(mutable_parent_array)
-    end
-end
-
-function mutable_array(array::SparseArrays.ReadOnly)::AbstractArray
-    return parent(array)
-end
-
-function mutable_array(array::NamedArray)::NamedArray
-    parent_array = array.array
-    mutable_parent_array = mutable_array(parent_array)
-    if mutable_parent_array === parent_array
-        return array
-    else
-        return NamedArray(mutable_parent_array, array.dicts, array.dimnames)
-    end
 end
 
 function base_sparse_matrix(matrix::Union{Transpose, Adjoint})::AbstractMatrix

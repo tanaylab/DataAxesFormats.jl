@@ -5,11 +5,11 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Generic Logging · DataAxesFormats.jl v0.1.2
+<title>Read-Only Arrays · DataAxesFormats.jl v0.1.2
 </title>
-<meta name="title" content="Generic Logging · DataAxesFormats.jl v0.1.2"/>
-<meta property="og:title" content="Generic Logging · DataAxesFormats.jl v0.1.2"/>
-<meta property="twitter:title" content="Generic Logging · DataAxesFormats.jl v0.1.2"/>
+<meta name="title" content="Read-Only Arrays · DataAxesFormats.jl v0.1.2"/>
+<meta property="og:title" content="Read-Only Arrays · DataAxesFormats.jl v0.1.2"/>
+<meta property="twitter:title" content="Read-Only Arrays · DataAxesFormats.jl v0.1.2"/>
 <meta name="description" content="Documentation for DataAxesFormats.jl v0.1.2."/>
 <meta property="og:description" content="Documentation for DataAxesFormats.jl v0.1.2."/>
 <meta property="twitter:description" content="Documentation for DataAxesFormats.jl v0.1.2."/>
@@ -155,20 +155,8 @@
 <a class="tocitem" href="matrix_layouts.html">Matrix layouts
 </a>
 </li>
-<li>
-<a class="tocitem" href="read_only_arrays.html">Read-Only Arrays
-</a>
-</li>
-<li>
-<a class="tocitem" href="groups.html">Groups
-</a>
-</li>
-<li>
-<a class="tocitem" href="messages.html">Messages
-</a>
-</li>
 <li class="is-active">
-<a class="tocitem" href="generic_logging.html">Generic Logging
+<a class="tocitem" href="read_only_arrays.html">Read-Only Arrays
 </a>
 <ul class="internal">
 <li>
@@ -178,6 +166,18 @@
 </a>
 </li>
 </ul>
+</li>
+<li>
+<a class="tocitem" href="groups.html">Groups
+</a>
+</li>
+<li>
+<a class="tocitem" href="messages.html">Messages
+</a>
+</li>
+<li>
+<a class="tocitem" href="generic_logging.html">Generic Logging
+</a>
 </li>
 <li>
 <a class="tocitem" href="generic_locks.html">Generic Locks
@@ -216,13 +216,13 @@
 <nav class="breadcrumb">
 <ul class="is-hidden-mobile">
 <li class="is-active">
-<a href="generic_logging.html">Generic Logging
+<a href="read_only_arrays.html">Read-Only Arrays
 </a>
 </li>
 </ul>
 <ul class="is-hidden-tablet">
 <li class="is-active">
-<a href="generic_logging.html">Generic Logging
+<a href="read_only_arrays.html">Read-Only Arrays
 </a>
 </li>
 </ul>
@@ -241,20 +241,20 @@
 </div>
 </header>
 <article class="content" id="documenter-page">
-<h1 id="Generic-Logging">
-<a class="docs-heading-anchor" href="#Generic-Logging">Generic Logging
+<h1 id="Read-Only-Arrays">
+<a class="docs-heading-anchor" href="#Read-Only-Arrays">Read-Only Arrays
 </a>
-<a id="Generic-Logging-1">
+<a id="Read-Only-Arrays-1">
 </a>
-<a class="docs-heading-anchor-permalink" href="#Generic-Logging" title="Permalink">
+<a class="docs-heading-anchor-permalink" href="#Read-Only-Arrays" title="Permalink">
 </a>
 </h1>
 <article class="docstring">
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DataAxesFormats.GenericLogging" href="#DataAxesFormats.GenericLogging">
-<code>DataAxesFormats.GenericLogging
+<a class="docstring-binding" id="DataAxesFormats.ReadOnlyArrays" href="#DataAxesFormats.ReadOnlyArrays">
+<code>DataAxesFormats.ReadOnlyArrays
 </code>
 </a> — 
 <span class="docstring-category">Module
@@ -264,21 +264,35 @@
 </header>
 <section>
 <div>
-<p>Generic macros and functions for logging, that arguably should belong in a more general-purpose package.
+<p>Read-only vectors and matrices, by ab/using 
+<code>SparseArrays.ReadOnly
+</code>. We need this because we want access to 
+<code>Daf
+</code> data to be copy-free (and cache results) for efficiency (in particular, matrices can be several GBs). However, it would be very easy for the user code to access vector or matrix data and accidentally modify it in-place, thereby corrupting it and causing all sort of hard-to-debug hilarity. Julia in its infinite wisdom takes the view that &quot;everything is mutable&quot; so has no builtin notion of &quot;read-only view of an array&quot;, probably due to the general weakness of its type system (which might be a price paid for efficient multiple dispatch?). However the 
+<code>SparseArrays
+</code> package happens to implement something along these lines, which we shamelessly ab/use for our purposes.
+</p>
+<p>TODO: Explicitly support the concept of in-place modifications of data in 
+<code>Daf
+</code> (building on the memory-mapped implementation).
 </p>
 <div class="admonition is-info">
 <header class="admonition-header">Note
 </header>
 <div class="admonition-body">
-<p>We do not re-export the macros and functions defined here from the top-level 
-<code>DataAxesFormats
-</code> namespace. That is, even if 
-<code>using DataAxesFormats
-</code>, you will 
-<strong>not
-</strong> have these generic names polluting your namespace. If you do want to reuse them in your code, explicitly write 
-<code>using DataAxesFormats.GenericLogging
-</code>.
+<p>The read-only array functions below are restricted to dealing with normal (dense) arrays, 
+<code>SparseArrays
+</code>, 
+<code>NamedArrays
+</code>, and 
+<code>LinearAlgebra
+</code> arrays (specifically, 
+<code>Transpose
+</code> and 
+<code>Adjoint
+</code>), as these are the types actually used in 
+<code>Daf
+</code> storage. YMMV if using more exotic matrix types. In theory you could extend the implementation to cover such types as well.
 </p>
 </div>
 </div>
@@ -289,8 +303,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DataAxesFormats.GenericLogging.setup_logger" href="#DataAxesFormats.GenericLogging.setup_logger">
-<code>DataAxesFormats.GenericLogging.setup_logger
+<a class="docstring-binding" id="DataAxesFormats.ReadOnlyArrays.read_only_array" href="#DataAxesFormats.ReadOnlyArrays.read_only_array">
+<code>DataAxesFormats.ReadOnlyArrays.read_only_array
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -301,57 +315,17 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">setup_logger(
-    io::IO = stderr;
-    [level::LogLevel = Warn,
-    show_time::Bool = true,
-    show_module::Bool = true,
-    show_location::Bool = false]
-)::Nothing
+<code class="language-julia hljs">read_only_array(array::AbstractArray):AbstractArray
 </code>
 </pre>
-<p>Setup a global logger that will print into 
-<code>io
-</code>, printing messages with a timestamp prefix.
+<p>Return an immutable view of an 
+<code>array
+</code>. This uses 
+<code>SparseArrays.ReadOnly
+</code>, and properly deals with 
+<code>NamedArray
+</code>. If the array is already immutable, it is returned as-is.
 </p>
-<p>By default, this will only print warnings. Note that increasing the log level will apply to 
-<strong>everything
-</strong>. An alternative is to set up the environment variable 
-<code>JULIA_DEBUG
-</code> to a comma-separated list of modules you wish to see the debug messages of.
-</p>
-<p>If 
-<code>show_time
-</code>, each message will be prefixed with a 
-<code>yyyy-dd-mm HH:MM:SS.sss
-</code> timestamp prefix.
-</p>
-<p>If 
-<code>show_module
-</code>, each message will be prefixed with the name of the module emitting the message.
-</p>
-<p>If 
-<code>show_location
-</code>, each message will be prefixed with the file name and the line number emitting the message.
-</p>
-<div class="admonition is-info">
-<header class="admonition-header">Note
-</header>
-<div class="admonition-body">
-<p>When multi-processing is used, a 
-<code>P&lt;id&gt;:
-</code> process index is added to the log entries. When multi-threading is used, a 
-<code>T&lt;id&gt;:
-</code> thread index is added to the log entries, as well as a 
-<code>K&lt;id&gt;:
-</code> task index. To generate the latter, this stores a unique 
-<code>:task_id
-</code> index in the 
-<code>task_local_storage
-</code>. This is important since a task may migrate between threads.
-</p>
-</div>
-</div>
 </div>
 </section>
 </article>
@@ -359,11 +333,11 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DataAxesFormats.GenericLogging.@logged" href="#DataAxesFormats.GenericLogging.@logged">
-<code>DataAxesFormats.GenericLogging.@logged
+<a class="docstring-binding" id="DataAxesFormats.ReadOnlyArrays.is_read_only_array" href="#DataAxesFormats.ReadOnlyArrays.is_read_only_array">
+<code>DataAxesFormats.ReadOnlyArrays.is_read_only_array
 </code>
 </a> — 
-<span class="docstring-category">Macro
+<span class="docstring-category">Function
 </span>
 <span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
 </span>
@@ -371,14 +345,38 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">@logged function something(...)
-    return ...
-end
+<code class="language-julia hljs">is_read_only_array(array::AbstractArray)::Bool
 </code>
 </pre>
-<p>Automatically log (in 
-<code>Debug
-</code> level) every invocation to the function. This will also log the values of the arguments. Emits a second log entry when the function returns, with the result (if any).
+<p>Return whether an 
+<code>array
+</code> is immutable.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.ReadOnlyArrays.mutable_array" href="#DataAxesFormats.ReadOnlyArrays.mutable_array">
+<code>DataAxesFormats.ReadOnlyArrays.mutable_array
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">mutable_array(array::AbstractArray)::AbstractArray
+</code>
+</pre>
+<p>Return mutable access to an array, even if it is a read-only array. 
+<strong>This should be used with great care
+</strong> because the code depends on read-only arrays not changing their values.
 </p>
 </div>
 </section>
@@ -393,29 +391,35 @@ end
 </h2>
 <ul>
 <li>
-<a href="generic_logging.html#DataAxesFormats.GenericLogging">
-<code>DataAxesFormats.GenericLogging
+<a href="read_only_arrays.html#DataAxesFormats.ReadOnlyArrays">
+<code>DataAxesFormats.ReadOnlyArrays
 </code>
 </a>
 </li>
 <li>
-<a href="generic_logging.html#DataAxesFormats.GenericLogging.setup_logger">
-<code>DataAxesFormats.GenericLogging.setup_logger
+<a href="read_only_arrays.html#DataAxesFormats.ReadOnlyArrays.is_read_only_array">
+<code>DataAxesFormats.ReadOnlyArrays.is_read_only_array
 </code>
 </a>
 </li>
 <li>
-<a href="generic_logging.html#DataAxesFormats.GenericLogging.@logged">
-<code>DataAxesFormats.GenericLogging.@logged
+<a href="read_only_arrays.html#DataAxesFormats.ReadOnlyArrays.mutable_array">
+<code>DataAxesFormats.ReadOnlyArrays.mutable_array
+</code>
+</a>
+</li>
+<li>
+<a href="read_only_arrays.html#DataAxesFormats.ReadOnlyArrays.read_only_array">
+<code>DataAxesFormats.ReadOnlyArrays.read_only_array
 </code>
 </a>
 </li>
 </ul>
 </article>
 <nav class="docs-footer">
-<a class="docs-footer-prevpage" href="messages.html">« Messages
+<a class="docs-footer-prevpage" href="matrix_layouts.html">« Matrix layouts
 </a>
-<a class="docs-footer-nextpage" href="generic_locks.html">Generic Locks »
+<a class="docs-footer-nextpage" href="groups.html">Groups »
 </a>
 <div class="flexbox-break">
 </div>

@@ -16,6 +16,7 @@ DataAxesFormats.Queries.QueryString
 
 ```@docs
 DataAxesFormats.Queries.get_query
+DataAxesFormats.Queries.has_query
 DataAxesFormats.Queries.get_frame
 DataAxesFormats.Queries.FrameColumn
 DataAxesFormats.Queries.FrameColumns

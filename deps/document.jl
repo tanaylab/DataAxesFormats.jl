@@ -72,6 +72,7 @@ makedocs(;
         "operations.md",
         "storage_types.md",
         "matrix_layouts.md",
+        "read_only_arrays.md",
         "groups.md",
         "messages.md",
         "generic_logging.md",

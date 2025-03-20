@@ -699,7 +699,8 @@ end
 
 function Formats.format_has_scalar(view::DafView, name::AbstractString)::Bool
     @assert Formats.has_data_read_lock(view)
-    return haskey(view.scalars, name)
+    fetch = get(view.scalars, name, nothing)
+    return fetch !== nothing && has_query(view.daf, fetch.query)
 end
 
 function Formats.format_get_scalar(view::DafView, name::AbstractString)::StorageScalar
@@ -720,7 +721,8 @@ end
 
 function Formats.format_has_axis(view::DafView, axis::AbstractString; for_change::Bool)::Bool  # NOLINT
     @assert Formats.has_data_read_lock(view)
-    return haskey(view.axes, axis)
+    fetch = get(view.axes, axis, nothing)
+    return fetch !== nothing && has_query(view.daf, fetch.query)
 end
 
 function Formats.format_axes_set(view::DafView)::AbstractSet{<:AbstractString}
@@ -746,7 +748,8 @@ end
 
 function Formats.format_has_vector(view::DafView, axis::AbstractString, name::AbstractString)::Bool
     @assert Formats.has_data_read_lock(view)
-    return haskey(view.vectors[axis], name)
+    fetch = get(view.vectors[axis], name, nothing)
+    return fetch !== nothing && has_query(view.daf, fetch.query)
 end
 
 function Formats.format_vectors_set(view::DafView, axis::AbstractString)::AbstractSet{<:AbstractString}
@@ -781,7 +784,8 @@ function Formats.format_has_matrix(
     name::AbstractString,
 )::Bool
     @assert Formats.has_data_read_lock(view)
-    return haskey(view.matrices[rows_axis][columns_axis], name)
+    fetch = get(view.matrices[rows_axis][columns_axis], name, nothing)
+    return fetch !== nothing && has_query(view.daf, fetch.query)
 end
 
 function Formats.format_matrices_set(
