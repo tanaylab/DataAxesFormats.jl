@@ -9,6 +9,7 @@ use cases were the driving force for the development of `Daf`.
 The key features of `Daf` are:
 
   - Support both in-memory and persistent data storage of "any" format (given an adapter implementation).
+
   - The implementation is thread-safe, using read/write locks, to allow safe and efficient parallel processing.
   - Out of the box, allow importing and exporting `AnnData` objects (e.g., using `h5ad` files), storing the data in
     memory, directly inside [H5FS](https://hdfgroup.org/) files, or as a collection of simple memory-mapped files in a

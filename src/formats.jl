@@ -230,7 +230,7 @@ end
 An low-level abstract interface for reading from `Daf` storage formats.
 
 We require each storage format to have a `.name` and an `.internal::`[`Internal`](@ref) property. This enables all the
-high-level `DafReader` functions.
+high-level [`DafReader`](@ref) functions.
 
 Each storage format must implement the functions listed below for reading from the storage.
 """
@@ -240,7 +240,7 @@ abstract type FormatReader end
 A high-level abstract interface for read-only access to `Daf` data.
 
 All the functions for this type are provided based on the functions required for [`FormatReader`](@ref). See the
-`DataAxesFormats.Readers` module for their description.
+[`Readers`](@ref DataAxesFormats.Readers) module for their description.
 """
 abstract type DafReader <: FormatReader end
 
@@ -255,7 +255,7 @@ abstract type FormatWriter <: DafReader end
 A high-level abstract interface for write access to `Daf` data.
 
 All the functions for this type are provided based on the functions required for [`FormatWriter`](@ref). See the
-`DataAxesFormats.Writers` module for their description.
+[`Writers`](@ref DataAxesFormats.Writers) module for their description.
 """
 abstract type DafWriter <: FormatWriter end
 

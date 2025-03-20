@@ -5,6 +5,7 @@ features are:
 
   - The data model [`StorageTypes`](@ref) include (1) some axes with named entries, (2) vector data indexed by a single
     axis, (3) matrix data indexed by a pair of axes, and also (4) scalar data (anything not tied to some axis).
+
   - Explicit control over 2D data [`MatrixLayouts`](@ref) (row or column major), with support for both dense and sparse
     matrices, both of which are crucial for performance.
   - Out of the box, allow storing the data in memory (using [`MemoryDaf`](@ref)), directly inside
@@ -27,21 +28,30 @@ features are:
 !!! note
 
     The top-level `DataAxesFormats` module re-exports all(most) everything from the sub-modules, so you can directly
-    access any exported symbol by `using DataAxesFormats` (or `import DataAxesFormats: MemoryDaf`), instead of having to
-    import or use qualified names (such as `DataAxesFormats.MemoryFormat.MemoryDaf`).
+    access any exported symbol by `using DataAxesFormats` (or, say, `import DataAxesFormats: MemoryDaf`), instead of
+    having to import or use qualified names (such as `DataAxesFormats.MemoryFormat.MemoryDaf`).
 
-The `Daf` data sets type hierarchy looks like this:
+The `Daf` datasets type hierarchy looks like this:
 
-    DafReader (abstract type)
-    ├─ DafReadOnly (abstract type)
-    │  ├─ DafReadOnlyWrapper (created by read_only)
-    │  ├─ DafView (created by viewer)
-    │  └─ DafChainReader (created by chain_reader)
-    └─ DafWriter (abstract type)
-       ├─ DafChainWriter (created by chain_writer)
-       ├─ MemoryDaf
-       ├─ FilesDaf
-       └─ H5df
+  - [`DafReader`](@ref DataAxesFormats.Formats.DafReader)
+
+      + [`DafReadOnly`](@ref DataAxesFormats.ReadOnly.DafReadOnly) (abstract type)
+
+          * [`DafReadOnlyWrapper`](@ref DataAxesFormats.ReadOnly.DafReadOnly) (created by [`read_only`](@ref DataAxesFormats.ReadOnly.read_only))
+          * [`DafView`](@ref DataAxesFormats.Views.DafView) (created by [`viewer`](@ref DataAxesFormats.Views.viewer))
+          * [`ReadOnlyChain`](@ref DataAxesFormats.Chains.ReadOnlyChain) (created by [`chain_reader`](@ref DataAxesFormats.Chains.chain_reader))
+
+      + [`DafWriter`](@ref DataAxesFormats.Formats.DafWriter) (abstract type)
+
+          * [`WriteChain`](@ref DataAxesFormats.Chains.WriteChain) (created by [`chain_writer`](@ref DataAxesFormats.Chains.chain_writer))
+          * [`MemoryDaf`](@ref DataAxesFormats.MemoryFormat.MemoryDaf)
+          * [`FilesDaf`](@ref DataAxesFormats.FilesFormat.FilesDaf)
+          * [`H5df`](@ref DataAxesFormats.H5dfFormat.H5df)
+
+Here are all the internal modules implementing this package and the relationship between them (linking to their
+documentation). They are also listed in the quick access bar on the left.
+
+![](assets/modules.svg)
 """
 module DataAxesFormats
 

@@ -271,19 +271,24 @@
 </a> functionality. The key features are:
 </p>
 <ul>
-<li>The data model 
+<li>
+<p>The data model 
 <a href="storage_types.html#DataAxesFormats.StorageTypes">
 <code>StorageTypes
 </code>
 </a> include (1) some axes with named entries, (2) vector data indexed by a single axis, (3) matrix data indexed by a pair of axes, and also (4) scalar data (anything not tied to some axis).
+</p>
 </li>
-<li>Explicit control over 2D data 
+<li>
+<p>Explicit control over 2D data 
 <a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts">
 <code>MatrixLayouts
 </code>
 </a> (row or column major), with support for both dense and sparse matrices, both of which are crucial for performance.
+</p>
 </li>
-<li>Out of the box, allow storing the data in memory (using 
+<li>
+<p>Out of the box, allow storing the data in memory (using 
 <a href="memory_format.html#DataAxesFormats.MemoryFormat.MemoryDaf">
 <code>MemoryDaf
 </code>
@@ -300,36 +305,48 @@
 </a>), which works nicely with tools like 
 <code>make
 </code> for automating computation pipelines.
+</p>
 </li>
-<li>Import and export to/from 
+<li>
+<p>Import and export to/from 
 <a href="anndata_format.html#DataAxesFormats.AnnDataFormat">
 <code>AnnDataFormat
 </code>
 </a> for interoperability with non-
 <code>Daf
 </code> tools.
+</p>
 </li>
-<li>Implementation with a focus on memory-mapping to allow for efficient processing of large data sets (in theory, larger than the system&#39;s memory). In particular, merely opening a data set is a fast operation (almost) regardless of its size.
+<li>
+<p>Implementation with a focus on memory-mapping to allow for efficient processing of large data sets (in theory, larger than the system&#39;s memory). In particular, merely opening a data set is a fast operation (almost) regardless of its size.
+</p>
 </li>
-<li>Well-defined interfaces for implementing additional storage 
+<li>
+<p>Well-defined interfaces for implementing additional storage 
 <a href="formats.html#Formats">
 <code>Formats
 </code>
 </a>.
+</p>
 </li>
-<li>Creating 
+<li>
+<p>Creating 
 <a href="chains.html#Chains">
 <code>Chains
 </code>
 </a> of data sets, allowing zero-copy reuse of common data between multiple computation pipelines.
+</p>
 </li>
 <li>
+<p>
 <a href="concat.html#Concat">
 <code>Concat
 </code>
 </a> multiple data sets into a single data set along one or more axes.
+</p>
 </li>
-<li>A 
+<li>
+<p>A 
 <a href="queries.html#DataAxesFormats.Queries.Query">
 <code>Query
 </code>
@@ -342,8 +359,10 @@
 <code>Copies
 </code>
 </a> based on these queries.
+</p>
 </li>
-<li>Self documenting 
+<li>
+<p>Self documenting 
 <a href="computations.html#Computations">
 <code>Computations
 </code>
@@ -356,6 +375,7 @@
 <code>Adapters
 </code>
 </a> for applying the computation to data of a different format.
+</p>
 </li>
 </ul>
 <div class="admonition is-info">
@@ -366,7 +386,7 @@
 <code>DataAxesFormats
 </code> module re-exports all(most) everything from the sub-modules, so you can directly access any exported symbol by 
 <code>using DataAxesFormats
-</code> (or 
+</code> (or, say, 
 <code>import DataAxesFormats: MemoryDaf
 </code>), instead of having to import or use qualified names (such as 
 <code>DataAxesFormats.MemoryFormat.MemoryDaf
@@ -376,21 +396,103 @@
 </div>
 <p>The 
 <code>Daf
-</code> data sets type hierarchy looks like this:
+</code> datasets type hierarchy looks like this:
 </p>
-<pre>
-<code class="nohighlight hljs">DafReader (abstract type)
-├─ DafReadOnly (abstract type)
-│  ├─ DafReadOnlyWrapper (created by read_only)
-│  ├─ DafView (created by viewer)
-│  └─ DafChainReader (created by chain_reader)
-└─ DafWriter (abstract type)
-   ├─ DafChainWriter (created by chain_writer)
-   ├─ MemoryDaf
-   ├─ FilesDaf
-   └─ H5df
+<ul>
+<li>
+<p>
+<a href="formats.html#DataAxesFormats.Formats.DafReader">
+<code>DafReader
 </code>
-</pre>
+</a>
+</p>
+<ul>
+<li>
+<p>
+<a href="read_only.html#DataAxesFormats.ReadOnly.DafReadOnly">
+<code>DafReadOnly
+</code>
+</a> (abstract type)
+</p>
+<ul>
+<li>
+<a href="read_only.html#DataAxesFormats.ReadOnly.DafReadOnly">
+<code>DafReadOnlyWrapper
+</code>
+</a> (created by 
+<a href="read_only.html#DataAxesFormats.ReadOnly.read_only">
+<code>read_only
+</code>
+</a>)
+</li>
+<li>
+<a href="views.html#DataAxesFormats.Views.DafView">
+<code>DafView
+</code>
+</a> (created by 
+<a href="views.html#DataAxesFormats.Views.viewer">
+<code>viewer
+</code>
+</a>)
+</li>
+<li>
+<a href="chains.html#DataAxesFormats.Chains.ReadOnlyChain">
+<code>ReadOnlyChain
+</code>
+</a> (created by 
+<a href="chains.html#DataAxesFormats.Chains.chain_reader">
+<code>chain_reader
+</code>
+</a>)
+</li>
+</ul>
+</li>
+<li>
+<p>
+<a href="formats.html#DataAxesFormats.Formats.DafWriter">
+<code>DafWriter
+</code>
+</a> (abstract type)
+</p>
+<ul>
+<li>
+<a href="chains.html#DataAxesFormats.Chains.WriteChain">
+<code>WriteChain
+</code>
+</a> (created by 
+<a href="chains.html#DataAxesFormats.Chains.chain_writer">
+<code>chain_writer
+</code>
+</a>)
+</li>
+<li>
+<a href="memory_format.html#DataAxesFormats.MemoryFormat.MemoryDaf">
+<code>MemoryDaf
+</code>
+</a>
+</li>
+<li>
+<a href="files_format.html#DataAxesFormats.FilesFormat.FilesDaf">
+<code>FilesDaf
+</code>
+</a>
+</li>
+<li>
+<a href="h5df_format.html#DataAxesFormats.H5dfFormat.H5df">
+<code>H5df
+</code>
+</a>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p>Here are all the internal modules implementing this package and the relationship between them (linking to their documentation). They are also listed in the quick access bar on the left.
+</p>
+<p>
+<embed src="assets/modules.svg" alt/>
+</p>
 </div>
 </section>
 </article>

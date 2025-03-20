@@ -70,7 +70,7 @@ coverage: untested_lines line_coverage
 .PHONY: docs
 docs: docs/v0.1.2/index.html
 
-docs/v0.1.2/index.html: src/*.jl src/*.md deps/document.sh deps/document.jl docs/make.jl
+docs/v0.1.2/index.html: src/*.jl src/*.md deps/document.sh deps/document.jl docs/make.jl deps/modules_to_dot.py
 	deps/document.sh
 
 .PHONY: clean
