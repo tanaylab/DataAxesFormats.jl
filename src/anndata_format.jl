@@ -345,7 +345,12 @@ end
 
 function copy_supported_scalars(uns::AbstractDict, memory::MemoryDaf, filter::Maybe{Function})::Nothing
     for (name, value) in uns
-        if (filter === nothing || filter("uns", name)) && value isa StorageScalar
+        if !(value isa StorageScalar)
+            @info "skip unsupported scalar: $(name) type: $(typeof(value))"
+        elseif filter !== nothing && !filter("uns", name)
+            @info "skip filtered scalar: $(name)"  # UNTESTED
+        else
+            @info "copy scalar: $(name)"
             set_scalar!(memory, name, value)
         end
     end
@@ -360,12 +365,14 @@ function copy_supported_vectors(
 )::Nothing
     for column in names(frame)
         if filter !== nothing && !filter(member, column)
+            @info "skip filtered $(member) vector: $(column)"  # UNTESTED
             continue  # UNTESTED
         end
 
         vector = frame[!, column]
 
         if !(vector isa SupportedVector)
+            @info "skip unsupported $(member) vector: $(column) type: $(typeof(vector))"  # UNTESTED
             continue  # UNTESTED
         end
 
@@ -409,6 +416,7 @@ function copy_supported_vectors(
         end
 
         @assert vector isa StorageVector
+        @info "copy $(member) vector: $(column)"
         set_vector!(memory, axis, column, vector)
     end
 end
@@ -421,7 +429,12 @@ function copy_supported_square_matrices(
     filter::Maybe{Function},
 )::Nothing
     for (name, matrix) in dict
-        if (filter === nothing || filter(member, name)) && matrix isa StorageMatrix
+        if !(matrix isa StorageMatrix)
+            @info "skip unsupported $(member) matrix: $(name)"  # UNTESTED
+        elseif filter !== nothing && !filter(member, name)
+            @info "skip filtered $(member) matrix: $(name)"  # UNTESTED
+        else
+            @info "copy $(member) matrix: $(name)"
             set_matrix!(memory, axis, axis, name, transpose(access_matrix(matrix)); relayout = false)
         end
     end
@@ -436,7 +449,12 @@ function copy_supported_matrices(
     filter::Maybe{Function},
 )::Nothing
     for (name, matrix) in dict  # NOJET
-        if filter === nothing || filter(member, name)
+        if !(matrix isa StorageMatrix)
+            @info "skip unsupported $(member) matrix: $(name)"  # UNTESTED
+        elseif filter !== nothing && !filter(member, name)
+            @info "skip filtered $(member) matrix: $(name)"  # UNTESTED
+        else
+            @info "copy $(member) matrix: $(name)"
             copy_supported_matrix(access_matrix(matrix), memory, rows_axis, columns_axis, name)
         end
     end

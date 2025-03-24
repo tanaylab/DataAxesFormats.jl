@@ -87,7 +87,7 @@ nested_test("anndata") do
                 end
 
                 nested_test("warn") do
-                    back = @test_logs (
+                    back = @test_logs min_level = Logging.Warn (
                         :warn,
                         dedent(
                             """
@@ -124,10 +124,10 @@ nested_test("anndata") do
                 end
 
                 nested_test("warn") do
-                    back = @test_logs (:warn, dedent("""
-                        unsupported annotation: obsm[unknown_axis]
-                        in AnnData for the daf data: anndata
-                    """)) anndata_as_daf(adata; unsupported_handler = WarnHandler)
+                    back = @test_logs min_level = Logging.Warn (:warn, dedent("""
+                          unsupported annotation: obsm[unknown_axis]
+                          in AnnData for the daf data: anndata
+                      """)) anndata_as_daf(adata; unsupported_handler = WarnHandler)
                     test_daf(back)
                     return nothing
                 end

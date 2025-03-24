@@ -51,6 +51,15 @@ We use multiple files to store `Daf` data, under some root directory, as follows
     values, and `name.nzval` containing the values of the non-zero entries (which we can memory-map for direct access).
     See Julia's `SparseMatrixCSC` implementation for details.
 
+!!! note
+
+    Since data is stored in files using the property names, we are sadly susceptible to the operating system vagaries
+    when it comes to "what is a valid property name" (e.g., no `/` characters allowed) and whether property names
+    are/not case sensitive. In theory, we could just encode the property names somehow but that would make the file
+    names opaque which would lose out on a lot of the benefit of using files. It **always** pays to have "sane", simple,
+    unique property names, using only alphanumeric characters, that would be a valid variable name in most programming
+    languages.
+
 Example directory structure:
 
     example-daf-dataset-root-directory/

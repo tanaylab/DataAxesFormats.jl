@@ -296,6 +296,7 @@
     [rename_axis::Maybe{AbstractString} = nothing,
     empty_implicit::Maybe{StorageScalar} = nothing,
     implicit_properties::Maybe{AbstractSet{&lt;:AbstractString}} = nothing,
+    skipped_properties::Maybe{AbstractSet{&lt;:AbstractString}} = nothing,
     properties_defaults::Maybe{AbstractDict} = nothing]
 )::AbstractDict{&lt;:AbstractString, Maybe{StorageScalar}}
 </code>
@@ -318,11 +319,7 @@
 <code>implicit_axis
 </code> and the property values, and store it as a property of the newly created axis.
 </p>
-<p>If the 
-<code>implicit_axis
-</code> already exists, we verify that all the values provided for it by the 
-<code>existing_axis
-</code> do, in fact, exist as names of entries in the 
+<p>exist as names of entries in the 
 <code>implicit_axis
 </code>. This allows manually creating the 
 <code>implicit_axis
@@ -338,7 +335,23 @@
 <code>AnnData
 </code> containing per-cell data, it isn&#39;t always clear which property is actually per-batch (e.g., cell age) and which is actually per cell (e.g., doublet score). Not specifying the 
 <code>implicit_properties
-</code> allows the function to figure it out on its own.
+</code> allows the function to figure it out on its own. If 
+<code>skipped_properties
+</code> are specified, they are skipped, then these properties are skipped even if they happen (accidentally) to have a consistent mapping with the type.
+</p>
+<p>If the 
+<code>implicit_axis
+</code> already exists, we verify that all the values provided for it by the 
+<code>existing_axis
+</code> do, in fact,
+</p>
+<p>If the reconstructed 
+<code>implicit_axis
+</code> axis already exists, it may contain values that don&#39;t exist in the property of the 
+<code>existing_axis
+</code>. In this case, for each reconstructed property, you should specify an entry in the 
+<code>properties_defaults
+</code> to use for these values.
 </p>
 <div class="admonition is-info">
 <header class="admonition-header">Note

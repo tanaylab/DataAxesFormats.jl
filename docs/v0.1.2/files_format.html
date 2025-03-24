@@ -420,6 +420,18 @@
 </p>
 </li>
 </ul>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>Since data is stored in files using the property names, we are sadly susceptible to the operating system vagaries when it comes to &quot;what is a valid property name&quot; (e.g., no 
+<code>/
+</code> characters allowed) and whether property names are/not case sensitive. In theory, we could just encode the property names somehow but that would make the file names opaque which would lose out on a lot of the benefit of using files. It 
+<strong>always
+</strong> pays to have &quot;sane&quot;, simple, unique property names, using only alphanumeric characters, that would be a valid variable name in most programming languages.
+</p>
+</div>
+</div>
 <p>Example directory structure:
 </p>
 <pre>

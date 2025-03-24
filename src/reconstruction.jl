@@ -31,6 +31,7 @@ PropertiesDefaults = AbstractDict
         [rename_axis::Maybe{AbstractString} = nothing,
         empty_implicit::Maybe{StorageScalar} = nothing,
         implicit_properties::Maybe{AbstractSet{<:AbstractString}} = nothing,
+        skipped_properties::Maybe{AbstractSet{<:AbstractString}} = nothing,
         properties_defaults::Maybe{AbstractDict} = nothing]
     )::AbstractDict{<:AbstractString, Maybe{StorageScalar}}
 
@@ -40,7 +41,6 @@ replaced by the empty string (indicate there is no value associated with the `ex
 `implicit_properties`, we collect the mapping between the `implicit_axis` and the property values, and store it as a
 property of the newly created axis.
 
-If the `implicit_axis` already exists, we verify that all the values provided for it by the `existing_axis` do, in fact,
 exist as names of entries in the `implicit_axis`. This allows manually creating the `implicit_axis` with additional
 entries that are not currently in use.
 
@@ -48,7 +48,15 @@ If `implicit_properties` are explicitly specified, then we require the mapping f
 them. Otherwise, we look at all the properties of the `existing_axis`, and check for each one whether the mapping is
 consistent; if it is, we migrate the property to the new axis. For example, when importing `AnnData` containing per-cell
 data, it isn't always clear which property is actually per-batch (e.g., cell age) and which is actually per cell (e.g.,
-doublet score). Not specifying the `implicit_properties` allows the function to figure it out on its own.
+doublet score). Not specifying the `implicit_properties` allows the function to figure it out on its own. If
+`skipped_properties` are specified, they are skipped, then these properties are skipped even if they happen
+(accidentally) to have a consistent mapping with the type.
+
+If the `implicit_axis` already exists, we verify that all the values provided for it by the `existing_axis` do, in fact,
+
+If the reconstructed `implicit_axis` axis already exists, it may contain values that don't exist in the property of the
+`existing_axis`. In this case, for each reconstructed property, you should specify an entry in the `properties_defaults`
+to use for these values.
 
 !!! note
 
@@ -66,6 +74,7 @@ doublet score). Not specifying the `implicit_properties` allows the function to 
     rename_axis::Maybe{AbstractString} = nothing,
     empty_implicit::Maybe{StorageScalar} = nothing,
     implicit_properties::Maybe{AbstractSet{<:AbstractString}} = nothing,
+    skipped_properties::Maybe{AbstractSet{<:AbstractString}} = nothing,
     properties_defaults::Maybe{PropertiesDefaults} = nothing,
 )::AbstractDict{<:AbstractString, Maybe{StorageScalar}}
     if rename_axis === nothing
@@ -74,6 +83,10 @@ doublet score). Not specifying the `implicit_properties` allows the function to 
 
     if implicit_properties !== nothing
         @assert !(implicit_axis in implicit_properties)
+    end
+
+    if skipped_properties !== nothing
+        @assert !(implicit_axis in skipped_properties)  # UNTESTED
     end
 
     if properties_defaults !== nothing
@@ -115,6 +128,9 @@ doublet score). Not specifying the `implicit_properties` allows the function to 
     value_of_empties_of_properties = Dict{AbstractString, Maybe{StorageScalar}}()
     vector_values_of_properties = Dict{AbstractString, StorageVector}()
     for property in vectors_set(daf, existing_axis)
+        if skipped_properties !== nothing && property in skipped_properties
+            continue  # UNTESTED
+        end
         is_explicit = implicit_properties !== nothing && property in implicit_properties
         if is_explicit || (implicit_properties === nothing && property != implicit_axis)
             if properties_defaults === nothing
@@ -149,6 +165,7 @@ doublet score). Not specifying the `implicit_properties` allows the function to 
     end
 
     for (property, vector_value) in vector_values_of_properties
+        @info "reconstruct $(rename_axis) vector: $(property)"
         set_vector!(daf, rename_axis, property, vector_value)
         delete_vector!(daf, existing_axis, property)
     end

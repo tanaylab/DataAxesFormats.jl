@@ -98,12 +98,17 @@ end
         source::DafReader,
         axis::AbstractString,
         [rename::Maybe{AbstractString} = nothing,
-        default::Union{Nothing, UndefInitializer} = undef]
+        default::Union{Nothing, UndefInitializer} = undef,
+        overwrite::Bool = false,
+        insist::Bool = true]
     )::Nothing
 
 Copy an `axis` from some `source` [`DafReader`](@ref) into some `destination` [`DafWriter`](@ref).
 
 The axis is fetched using the `name` and the `default`. If `rename` is specified, store the axis using this name.
+
+If the axis already exists in the target, if `overwrite`, it will be replaced (erasing all data for that axis);
+otherwise, if not `insist`, skip the copy; otherwise, fail.
 """
 @logged function copy_axis!(;
     destination::DafWriter,
@@ -111,12 +116,25 @@ The axis is fetched using the `name` and the `default`. If `rename` is specified
     axis::AbstractString,
     rename::Maybe{AbstractString} = nothing,
     default::Union{Nothing, UndefInitializer} = undef,
+    overwrite::Bool = false,
+    insist::Bool = true,
 )::Nothing
+    rename = new_name(rename, axis)
+
+    if has_axis(destination, rename)
+        if overwrite  # UNTESTED
+            delete_axis!(destination, rename)  # UNTESTED
+        elseif !insist  # UNTESTED
+            return nothing  # UNTESTED
+        end
+    end
+
     value = axis_vector(source, axis; default)
     if value !== nothing
-        rename = new_name(rename, axis)
         add_axis!(destination, rename, value)
     end
+
+    return nothing
 end
 
 """
@@ -336,7 +354,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
     columns_reaxis = new_name(columns_reaxis, columns_axis)
     rename = new_name(rename, name)
 
-    if !overwrite && !insist && has_matrix(destination, rows_reaxis, columns_reaxis, rename)
+    if !overwrite && !insist && has_matrix(destination, rows_reaxis, columns_reaxis, rename; relayout)
         return nothing  # UNTESTED
     end
 
@@ -427,32 +445,37 @@ axis contains entries that do not exist in the target, they are discarded (not c
     if rows_relation == :same && columns_relation == :same
         if eltype(value) == concrete_dtype
             set_matrix!(destination, rows_reaxis, columns_reaxis, rename, value; overwrite, relayout)
-        elseif issparse(value)
-            empty_sparse_matrix!(
-                destination,
-                rows_reaxis,
-                columns_reaxis,
-                rename,
-                concrete_dtype,
-                nnz(value);
-                overwrite,
-            ) do sparse_colptr, sparse_rowval, sparse_nzval
-                sparse_colptr .= colptr(value)
-                sparse_rowval .= rowval(value)
-                sparse_nzval .= nzval(value)
-                return nothing
-            end
         else
-            empty_dense_matrix!(
-                destination,
-                rows_reaxis,
-                columns_reaxis,
-                rename,
-                concrete_dtype;
-                overwrite,
-            ) do empty_matrix
-                empty_matrix .= value
-                return nothing
+            if issparse(value)
+                empty_sparse_matrix!(
+                    destination,
+                    rows_reaxis,
+                    columns_reaxis,
+                    rename,
+                    concrete_dtype,
+                    nnz(value);
+                    overwrite,
+                ) do sparse_colptr, sparse_rowval, sparse_nzval
+                    sparse_colptr .= colptr(value)
+                    sparse_rowval .= rowval(value)
+                    sparse_nzval .= nzval(value)
+                    return nothing
+                end
+            else
+                empty_dense_matrix!(
+                    destination,
+                    rows_reaxis,
+                    columns_reaxis,
+                    rename,
+                    concrete_dtype;
+                    overwrite,
+                ) do empty_matrix
+                    empty_matrix .= value
+                    return nothing
+                end
+            end
+            if relayout
+                relayout_matrix!(destination, rows_reaxis, columns_reaxis, rename; overwrite)  # UNTESTED
             end
         end
         return nothing
@@ -662,7 +685,7 @@ axis which exist in the destination but do not exist in the source.
     what_for = empty === nothing ? ": data" : nothing
     axis_relations = verify_axes(; destination, source, what_for)
     copy_scalars(; destination, source, dtypes, overwrite, insist)
-    copy_axes(; destination, source)
+    copy_axes(; destination, source, overwrite, insist)
     copy_vectors(; destination, source, axis_relations, empty, dtypes, overwrite, insist)
     copy_matrices(; destination, source, axis_relations, empty, dtypes, overwrite, insist, relayout)
     ensure_tensors(; destination, source, axis_relations, empty, dtypes, overwrite, insist, relayout, tensor_keys)
@@ -810,10 +833,10 @@ function copy_scalars(;
     end
 end
 
-function copy_axes(; destination::DafWriter, source::DafReader)::Nothing
+function copy_axes(; destination::DafWriter, source::DafReader, overwrite::Bool = false, insist::Bool = true)::Nothing
     for axis in axes_set(source)
         if !has_axis(destination, axis)
-            copy_axis!(; source, destination, axis)
+            copy_axis!(; source, destination, axis, overwrite, insist)
         end
     end
 end
@@ -870,6 +893,7 @@ function copy_matrices(;
                         columns_axis,
                         columns_relation,
                         name,
+                        relayout,
                     )
                 end
             end
@@ -905,6 +929,7 @@ function ensure_tensors(;
                     columns_axis,
                     columns_relation = axis_relations[columns_axis],
                     name,
+                    relayout,
                 )
             end
         end
@@ -923,6 +948,7 @@ function copy_single_matrix(;
     columns_axis::AbstractString,
     columns_relation::Symbol,
     name::AbstractString,
+    relayout::Bool,
 )::Nothing
     empty_value = nothing
     if empty !== nothing
@@ -959,6 +985,7 @@ function copy_single_matrix(;
         insist,
         rows_relation,
         columns_relation,
+        relayout,
     )
 end
 

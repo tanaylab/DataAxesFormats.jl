@@ -365,7 +365,9 @@
     source::DafReader,
     axis::AbstractString,
     [rename::Maybe{AbstractString} = nothing,
-    default::Union{Nothing, UndefInitializer} = undef]
+    default::Union{Nothing, UndefInitializer} = undef,
+    overwrite::Bool = false,
+    insist::Bool = true]
 )::Nothing
 </code>
 </pre>
@@ -392,6 +394,12 @@
 </code>. If 
 <code>rename
 </code> is specified, store the axis using this name.
+</p>
+<p>If the axis already exists in the target, if 
+<code>overwrite
+</code>, it will be replaced (erasing all data for that axis); otherwise, if not 
+<code>insist
+</code>, skip the copy; otherwise, fail.
 </p>
 </div>
 </section>
