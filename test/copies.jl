@@ -55,14 +55,10 @@ nested_test("copies") do
                 @test get_scalar(destination, "version") == "1.0"
             end
 
-            nested_test("dtype") do
+            nested_test("type") do
                 nested_test("same") do
-                    @test copy_scalar!(;
-                        source = source,
-                        destination = destination,
-                        name = "version",
-                        dtype = String,
-                    ) == nothing
+                    @test copy_scalar!(; source = source, destination = destination, name = "version", type = String) ==
+                          nothing
                     @test get_scalar(destination, "version") == "1.0"
                 end
 
@@ -71,7 +67,7 @@ nested_test("copies") do
                         source = source,
                         destination = destination,
                         name = "version",
-                        dtype = Float32,
+                        type = Float32,
                     ) == nothing
                     @test get_scalar(destination, "version") isa Float32
                     @test get_scalar(destination, "version") == 1.0
@@ -79,18 +75,14 @@ nested_test("copies") do
 
                 nested_test("string") do
                     @test set_scalar!(source, "version", 1.0; overwrite = true) === nothing
-                    @test copy_scalar!(;
-                        source = source,
-                        destination = destination,
-                        name = "version",
-                        dtype = String,
-                    ) == nothing
+                    @test copy_scalar!(; source = source, destination = destination, name = "version", type = String) ==
+                          nothing
                     @test get_scalar(destination, "version") == "1.0"
                 end
 
                 nested_test("convert") do
                     @test set_scalar!(source, "version", 1.0; overwrite = true) === nothing
-                    @test copy_scalar!(; source = source, destination = destination, name = "version", dtype = Int32) ==
+                    @test copy_scalar!(; source = source, destination = destination, name = "version", type = Int32) ==
                           nothing
                     @test get_scalar(destination, "version") isa Int32
                     @test get_scalar(destination, "version") == 1
@@ -251,7 +243,7 @@ nested_test("copies") do
                         destination = destination,
                         axis = "cell",
                         name = "age",
-                        dtype = Float32,
+                        eltype = Float32,
                     ) == nothing
                     @test get_vector(destination, "cell", "age") == [1.0, 2.0]
                     @test eltype(get_vector(destination, "cell", "age")) == Float32
@@ -382,14 +374,14 @@ nested_test("copies") do
                     @test nnz(get_vector(destination, "cell", "age").array) == 1
                 end
 
-                nested_test("dtype") do
+                nested_test("type") do
                     nested_test("string") do
                         @test copy_vector!(;
                             source = source,
                             destination = destination,
                             axis = "cell",
                             name = "age",
-                            dtype = String,
+                            eltype = String,
                         ) == nothing
                         @test get_vector(destination, "cell", "age") == ["1", "0"]
                     end
@@ -400,7 +392,7 @@ nested_test("copies") do
                             destination = destination,
                             axis = "cell",
                             name = "age",
-                            dtype = Float32,
+                            eltype = Float32,
                         ) == nothing
                         @test get_vector(destination, "cell", "age") == [1.0, 0.0]
                         @test eltype(get_vector(destination, "cell", "age")) == Float32
@@ -719,7 +711,7 @@ nested_test("copies") do
                         rows_axis = "cell",
                         columns_axis = "gene",
                         name = "UMIs",
-                        dtype = Float32,
+                        eltype = Float32,
                     ) === nothing
                     @test get_matrix(destination, "cell", "gene", "UMIs") == [1.0 2.0 3.0; 4.0 5.0 6.0]
                     @test eltype(get_matrix(destination, "cell", "gene", "UMIs")) == Float32
@@ -996,13 +988,13 @@ nested_test("copies") do
                     @test nnz(get_matrix(destination, "cell", "gene", "UMIs").array) == 4
                 end
 
-                nested_test("dtype") do
+                nested_test("type") do
                     @test copy_matrix!(;
                         source = source,
                         destination = destination,
                         rows_axis = "cell",
                         columns_axis = "gene",
-                        dtype = Float32,
+                        eltype = Float32,
                         name = "UMIs",
                     ) === nothing
                     @test get_matrix(destination, "cell", "gene", "UMIs") == [0 1 2; 3 4 0]
@@ -1369,7 +1361,7 @@ nested_test("copies") do
                 source = source,
                 destination = destination,
                 empty = Dict(("cell", "age") => 0.0, ("gene", "cell", "UMIs") => 0),
-                dtypes = Dict("version" => Float32),
+                types = Dict("version" => Float32),
             )
 
             @test get_scalar(destination, "version") == 1.5

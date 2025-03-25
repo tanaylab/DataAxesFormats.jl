@@ -555,18 +555,18 @@ function next_query_operation(tokens::Vector{Token}, next_token_index::Int)::Tup
             type_token = tokens[next_token_index]
             next_token_index += 1
             if type_token.value == "String"
-                dtype = String
+                type = String
             else
-                dtype = parse_number_dtype_value(token, "dtype", type_token)
-                if dtype !== nothing
-                    value = parse_number_value(token, "value", value_token, dtype)
+                type = parse_number_type_value(token, "type", type_token)
+                if type !== nothing
+                    value = parse_number_value(token, "value", value_token, type)
                 end
             end
         else
-            dtype = nothing
+            type = nothing
         end
 
-        return (IfMissing(value; dtype), next_token_index)
+        return (IfMissing(value; type), next_token_index)
     end
 
     return error_at_token(tokens[next_token_index - 1], "bug when parsing query"; at_end = true)  # UNTESTED
@@ -924,7 +924,7 @@ function Base.show(io::IO, square_mask_row::SquareMaskRow)::Nothing
 end
 
 """
-    IfMissing(value::StorageScalar; dtype::Maybe{Type} = nothing) <: QueryOperation
+    IfMissing(value::StorageScalar; type::Maybe{Type} = nothing) <: QueryOperation
 
 A query operation providing a value to use if the data is missing some property. In a string [`Query`](@ref), this is
 specified using the `||` operator, followed by the value to use, and optionally followed by the data type of the value
@@ -935,22 +935,22 @@ If the data type is not specified, and the `value` isa `AbstractString`, then th
 """
 struct IfMissing <: ModifierQueryOperation
     missing_value::StorageScalar
-    dtype::Maybe{Type}
+    type::Maybe{Type}
 end
 
-function IfMissing(value::StorageScalar; dtype::Maybe{Type} = nothing)::IfMissing
-    if dtype !== nothing
-        @assert value isa dtype
+function IfMissing(value::StorageScalar; type::Maybe{Type} = nothing)::IfMissing
+    if type !== nothing
+        @assert value isa type
     elseif !(value isa AbstractString)
-        dtype = typeof(value)  # UNTESTED
+        type = typeof(value)  # UNTESTED
     end
-    return IfMissing(value, dtype)
+    return IfMissing(value, type)
 end
 
 function Base.show(io::IO, if_missing::IfMissing)::Nothing
     print(io, "|| $(escape_value(string(if_missing.missing_value)))")
-    if if_missing.dtype !== nothing
-        print(io, " $(if_missing.dtype)")
+    if if_missing.type !== nothing
+        print(io, " $(if_missing.type)")
     end
     return nothing
 end
@@ -1505,7 +1505,7 @@ function show_computation_operation(
     print(io, operation_type)
 
     for field_name in fieldnames(operation_type)
-        if field_name != :dtype || getfield(computation_operation, :dtype) !== nothing
+        if field_name != :type || getfield(computation_operation, :type) !== nothing
             print(io, " ")
             print(io, escape_value(string(field_name)))
             print(io, " ")
@@ -2886,13 +2886,13 @@ function if_not_scalar_value(
     else
         if next_named_vector === nothing
             @assert if_missing_value != undef
-            dtype = typeof(if_missing_value)
+            type = typeof(if_missing_value)
         else
-            dtype = eltype(next_named_vector)
+            type = eltype(next_named_vector)
         end
         if_not_value = entry_fetch_state.if_not_value
         @assert if_not_value !== nothing
-        return value_for(query_state, dtype, if_not_value)  # NOJET
+        return value_for(query_state, type, if_not_value)  # NOJET
     end
 end
 
@@ -3787,13 +3787,13 @@ function compute_vector_group_by(
     reduction_operation::ReductionOperation,
     if_missing::Maybe{IfMissing},
 )::StorageVector
-    dtype = reduction_result_type(reduction_operation, eltype(values_vector))
-    results_vector = Vector{dtype}(undef, length(groups_values))
+    type = reduction_result_type(reduction_operation, eltype(values_vector))
+    results_vector = Vector{type}(undef, length(groups_values))
 
     if if_missing === nothing
         empty_group_value = nothing
     else
-        empty_group_value = value_for_if_missing(query_state, if_missing; dtype)
+        empty_group_value = value_for_if_missing(query_state, if_missing; type)
     end
 
     collect_vector_group_by(
@@ -3817,13 +3817,13 @@ function compute_matrix_group_by(
     reduction_operation::ReductionOperation,
     if_missing::Maybe{IfMissing},
 )::StorageMatrix
-    dtype = reduction_result_type(reduction_operation, eltype(values_matrix))
-    results_matrix = Matrix{dtype}(undef, length(groups_values), size(values_matrix)[2])
+    type = reduction_result_type(reduction_operation, eltype(values_matrix))
+    results_matrix = Matrix{type}(undef, length(groups_values), size(values_matrix)[2])
 
     if if_missing === nothing
         empty_group_value = nothing
     else
-        empty_group_value = value_for_if_missing(query_state, if_missing; dtype)
+        empty_group_value = value_for_if_missing(query_state, if_missing; type)
     end
 
     @threads for column_index in 1:size(values_matrix)[2]
@@ -4090,22 +4090,22 @@ end
 function value_for_if_missing(
     query_state::QueryState,
     if_missing::IfMissing;
-    dtype::Maybe{Type} = nothing,
+    type::Maybe{Type} = nothing,
 )::StorageScalar
-    if if_missing.dtype !== nothing
-        @assert if_missing.missing_value isa if_missing.dtype
+    if if_missing.type !== nothing
+        @assert if_missing.missing_value isa if_missing.type
         return if_missing.missing_value
     end
 
-    if dtype === nothing
+    if type === nothing
         return guess_typed_value(if_missing.missing_value)
     end
 
-    if if_missing.missing_value isa dtype
+    if if_missing.missing_value isa type
         return if_missing.missing_value  # UNTESTED
     end
 
-    return value_for(query_state, dtype, if_missing.missing_value)
+    return value_for(query_state, type, if_missing.missing_value)
 end
 
 function regex_for(query_state::QueryState, value::StorageScalar)::Regex

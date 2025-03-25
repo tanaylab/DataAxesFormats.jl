@@ -39,14 +39,14 @@ DataAxesFormats.Operations.Count
 ```@docs
 DataAxesFormats.Operations.parse_parameter_value
 DataAxesFormats.Operations.parse_number_value
-DataAxesFormats.Operations.parse_number_dtype_value
-DataAxesFormats.Operations.parse_float_dtype_value
-DataAxesFormats.Operations.parse_int_dtype_value
+DataAxesFormats.Operations.parse_number_type_value
+DataAxesFormats.Operations.parse_float_type_value
+DataAxesFormats.Operations.parse_int_type_value
 DataAxesFormats.Operations.error_invalid_parameter_value
-DataAxesFormats.Operations.float_dtype_for
-DataAxesFormats.Operations.int_dtype_for
-DataAxesFormats.Operations.unsigned_dtype_for
-DataAxesFormats.Operations.sum_dtype_for
+DataAxesFormats.Operations.float_type_for
+DataAxesFormats.Operations.int_type_for
+DataAxesFormats.Operations.unsigned_type_for
+DataAxesFormats.Operations.sum_type_for
 ```
 
 ## Index

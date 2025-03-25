@@ -770,7 +770,7 @@ transposer(matrix::NamedMatrix)::NamedMatrix
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">copy_array(array::AbstractArray)::AbstractArray
+<code class="language-julia hljs">copy_array(array::AbstractArray; eltype::Maybe{Type} = nothing)::AbstractArray
 </code>
 </pre>
 <p>Create a mutable copy of an array. This differs from 
@@ -812,6 +812,10 @@ transposer(matrix::NamedMatrix)::NamedMatrix
 <code>AbstractString
 </code>.
 </li>
+<li>If 
+<code>eltype
+</code> is specified, the returned copy will use this element type instead.
+</li>
 </ul>
 </div>
 </section>
@@ -841,15 +845,18 @@ transposer(matrix::NamedMatrix)::NamedMatrix
 <div>
 <pre>
 <code class="language-julia hljs">bestify(
-    matrix::AbstractMatrix{T};
+    matrix::AbstractMatrix{&lt;:StorageReal};
     copy::Bool = false,
     sparse_if_saves_storage_fraction::AbstractFloat = 0.25,
-)::AbstractMatrix{T} where {T &lt;: StorageReal}
+    eltype::Maybe{Type{&lt;:StorageReal}} = nothing,
+)::AbstractMatrix{StorageReal}
+
 bestify(
-    matrix::AbstractVector{T};
+    matrix::AbstractVector{&lt;:StorageReal};
     copy::Bool = false,
     sparse_if_saves_storage_fraction::AbstractFloat = 0.25,
-)::AbstractVector{T} where {T &lt;: StorageReal}
+    eltype::Maybe{Type{&lt;:StorageReal}} = nothing,
+)::AbstractVector{&lt;:StorageReal}
 </code>
 </pre>
 <p>Return a &quot;best&quot; (dense or sparse) version of an array. The sparse format is chosen if it saves at least 
@@ -857,6 +864,10 @@ bestify(
 </code> of the storage of the dense format. If 
 <code>copy
 </code>, this will create a copy even if it is already in the best format.
+</p>
+<p>If 
+<code>eltype
+</code> is specified, computes the savings assuming that this will be the element type. Otherwise, returns the data in this type. This may also affect the saving computations.
 </p>
 <div class="admonition is-info">
 <header class="admonition-header">Note
@@ -887,13 +898,26 @@ bestify(
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">densify(matrix::AbstractMatrix{T}; copy::Bool = false)::AbstractMatrix{T} where {T &lt;: StorageReal}
-densify(vector::AbstractVector{T}; copy::Bool = false)::AbstractVector{T} where {T &lt;: StorageReal}
+<code class="language-julia hljs">densify(
+    matrix::AbstractMatrix{&lt;:StorageReal};
+    copy::Bool = false,
+    eltype::Maybe{Type{&lt;:StorageReal}} = nothing,
+)::AbstractMatrix{&lt;:StorageReal}
+
+densify(
+    vector::AbstractVector{&lt;:StorageReal};
+    copy::Bool = false,
+    eltype::Maybe{Type{&lt;:StorageReal}} = nothing,
+)::AbstractVector{&lt;:StorageReal}
 </code>
 </pre>
-<p>Return a dense version of an array. This will preserve matrix layout. If 
+<p>Return a dense version of an array, possibly forcing a different 
+<code>eltype
+</code>. This will preserve the matrix layout. If 
 <code>copy
-</code>, this will create a copy even if it is already dense.
+</code>, this will create a copy even if it is already dense and has the correct 
+<code>eltype
+</code>.
 </p>
 </div>
 </section>
@@ -914,13 +938,26 @@ densify(vector::AbstractVector{T}; copy::Bool = false)::AbstractVector{T} where 
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">sparsify(matrix::AbstractMatrix{T}; copy::Bool = false)::AbstractMatrix{T} where {T &lt;: StorageReal}
-sparsify(vector::AbstractVector{T}; copy::Bool = false)::AbstractVector{T} where {T &lt;: StorageReal}
+<code class="language-julia hljs">sparsify(
+    matrix::AbstractMatrix{&lt;:StorageReal};
+    copy::Bool = false,
+    eltype::Maybe{Type{&lt;:StorageReal}} = nothing
+)::AbstractMatrix{&lt;:StorageReal}
+
+sparsify(
+    vector::AbstractVector{&lt;:StorageReal};
+    copy::Bool = false,
+    eltype::Maybe{Type{&lt;:StorageReal}} = nothing
+)::AbstractVector{&lt;:StorageReal}
 </code>
 </pre>
-<p>Return a sparse version of an array. This will preserve the matrix layout. If 
+<p>Return a sparse version of an array, possibly forcing a different 
+<code>eltype
+</code>. This will preserve the matrix layout. If 
 <code>copy
-</code>, this will create a copy even if it is already sparse.
+</code>, this will create a copy even if it is already sparse and has the correct 
+<code>eltype
+</code>.
 </p>
 </div>
 </section>
@@ -1279,7 +1316,7 @@ sparsify(vector::AbstractVector{T}; copy::Bool = false)::AbstractVector{T} where
 <hr/>
 <p>This document was generated with 
 <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl
-</a> version 1.8.0. Using Julia version 1.11.4.
+</a> version 1.9.0. Using Julia version 1.11.4.
 </p>
 </section>
 <footer class="modal-card-foot">

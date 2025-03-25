@@ -321,7 +321,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">Abs([; dtype::Maybe{Type} = nothing])
+<code class="language-julia hljs">Abs([; type::Maybe{Type} = nothing])
 </code>
 </pre>
 <p>Element-wise operation that converts every element to its absolute value.
@@ -331,10 +331,10 @@
 </strong>
 </p>
 <p>
-<code>dtype
+<code>type
 </code> - The default output data type is the 
-<a href="operations.html#DataAxesFormats.Operations.unsigned_dtype_for">
-<code>unsigned_dtype_for
+<a href="operations.html#DataAxesFormats.Operations.unsigned_type_for">
+<code>unsigned_type_for
 </code>
 </a> the input data type.
 </p>
@@ -405,7 +405,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">Convert([; dtype::Type])
+<code class="language-julia hljs">Convert([; type::Type])
 </code>
 </pre>
 <p>Element-wise operation that converts every element to a given data type.
@@ -415,7 +415,7 @@
 </strong>
 </p>
 <p>
-<code>dtype
+<code>type
 </code> - The data type to convert to. There&#39;s no default.
 </p>
 </div>
@@ -437,7 +437,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">Fraction([; dtype::Type])
+<code class="language-julia hljs">Fraction([; type::Type])
 </code>
 </pre>
 <p>Element-wise operation that converts every element to its fraction out of the total. If the total is zero, all the fractions are also set to zero. This implicitly assumes (but does not enforce) that all the entry value(s) are positive.
@@ -449,10 +449,10 @@
 </strong>
 </p>
 <p>
-<code>dtype
+<code>type
 </code> - The default output data type is the 
-<a href="operations.html#DataAxesFormats.Operations.float_dtype_for">
-<code>float_dtype_for
+<a href="operations.html#DataAxesFormats.Operations.float_type_for">
+<code>float_type_for
 </code>
 </a> of the input data type.
 </p>
@@ -475,7 +475,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">Log(; dtype::Maybe{Type} = nothing, base::StorageReal = e, eps::StorageReal = 0)
+<code class="language-julia hljs">Log(; type::Maybe{Type} = nothing, base::StorageReal = e, eps::StorageReal = 0)
 </code>
 </pre>
 <p>Element-wise operation that converts every element to its logarithm.
@@ -485,10 +485,10 @@
 </strong>:
 </p>
 <p>
-<code>dtype
+<code>type
 </code> - The default output data type is the 
-<a href="operations.html#DataAxesFormats.Operations.float_dtype_for">
-<code>float_dtype_for
+<a href="operations.html#DataAxesFormats.Operations.float_type_for">
+<code>float_type_for
 </code>
 </a> of the input data type.
 </p>
@@ -521,7 +521,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">Round([; dtype::Maybe{Type} = nothing])
+<code class="language-julia hljs">Round([; type::Maybe{Type} = nothing])
 </code>
 </pre>
 <p>Element-wise operation that converts every element to the nearest integer value.
@@ -531,10 +531,10 @@
 </strong>
 </p>
 <p>
-<code>dtype
+<code>type
 </code> - By default, uses the 
-<a href="operations.html#DataAxesFormats.Operations.int_dtype_for">
-<code>int_dtype_for
+<a href="operations.html#DataAxesFormats.Operations.int_type_for">
+<code>int_type_for
 </code>
 </a> the input data type.
 </p>
@@ -605,7 +605,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">Sum(; dtype::Maybe{Type} = nothing)
+<code class="language-julia hljs">Sum(; type::Maybe{Type} = nothing)
 </code>
 </pre>
 <p>Reduction operation that sums elements.
@@ -615,10 +615,10 @@
 </strong>
 </p>
 <p>
-<code>dtype
+<code>type
 </code> - By default, uses the 
-<a href="operations.html#DataAxesFormats.Operations.sum_dtype_for">
-<code>sum_dtype_for
+<a href="operations.html#DataAxesFormats.Operations.sum_type_for">
+<code>sum_type_for
 </code>
 </a> the input data type.
 </p>
@@ -689,7 +689,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">Median(; dtype::Maybe{Type} = nothing)
+<code class="language-julia hljs">Median(; type::Maybe{Type} = nothing)
 </code>
 </pre>
 <p>Reduction operation that returns the median value.
@@ -699,10 +699,10 @@
 </strong>
 </p>
 <p>
-<code>dtype
+<code>type
 </code> - The default output data type is the 
-<a href="operations.html#DataAxesFormats.Operations.float_dtype_for">
-<code>float_dtype_for
+<a href="operations.html#DataAxesFormats.Operations.float_type_for">
+<code>float_type_for
 </code>
 </a> of the input data type.
 </p>
@@ -725,7 +725,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">Quantile(; dtype::Maybe{Type} = nothing, p::StorageReal)
+<code class="language-julia hljs">Quantile(; type::Maybe{Type} = nothing, p::StorageReal)
 </code>
 </pre>
 <p>Reduction operation that returns the quantile value, that is, a value such that a certain fraction of the values is lower.
@@ -735,10 +735,10 @@
 </strong>
 </p>
 <p>
-<code>dtype
+<code>type
 </code> - The default output data type is the 
-<a href="operations.html#DataAxesFormats.Operations.float_dtype_for">
-<code>float_dtype_for
+<a href="operations.html#DataAxesFormats.Operations.float_type_for">
+<code>float_type_for
 </code>
 </a> of the input data type.
 </p>
@@ -765,7 +765,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">Mean(; dtype::Maybe{Type} = nothing)
+<code class="language-julia hljs">Mean(; type::Maybe{Type} = nothing)
 </code>
 </pre>
 <p>Reduction operation that returns the mean value.
@@ -775,10 +775,10 @@
 </strong>
 </p>
 <p>
-<code>dtype
+<code>type
 </code> - The default output data type is the 
-<a href="operations.html#DataAxesFormats.Operations.float_dtype_for">
-<code>float_dtype_for
+<a href="operations.html#DataAxesFormats.Operations.float_type_for">
+<code>float_type_for
 </code>
 </a> of the input data type.
 </p>
@@ -801,7 +801,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">GeoMean(; dtype::Maybe{Type} = nothing, eps::StorageReal = 0.0)
+<code class="language-julia hljs">GeoMean(; type::Maybe{Type} = nothing, eps::StorageReal = 0.0)
 </code>
 </pre>
 <p>Reduction operation that returns the geometric mean value.
@@ -811,10 +811,10 @@
 </strong>
 </p>
 <p>
-<code>dtype
+<code>type
 </code> - The default output data type is the 
-<a href="operations.html#DataAxesFormats.Operations.float_dtype_for">
-<code>float_dtype_for
+<a href="operations.html#DataAxesFormats.Operations.float_type_for">
+<code>float_type_for
 </code>
 </a> of the input data type.
 </p>
@@ -841,7 +841,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">Std(; dtype::Maybe{Type} = nothing)
+<code class="language-julia hljs">Std(; type::Maybe{Type} = nothing)
 </code>
 </pre>
 <p>Reduction operation that returns the (uncorrected) standard deviation of the values.
@@ -851,10 +851,10 @@
 </strong>
 </p>
 <p>
-<code>dtype
+<code>type
 </code> - The default output data type is the 
-<a href="operations.html#DataAxesFormats.Operations.float_dtype_for">
-<code>float_dtype_for
+<a href="operations.html#DataAxesFormats.Operations.float_type_for">
+<code>float_type_for
 </code>
 </a> of the input data type.
 </p>
@@ -877,7 +877,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">StdN(; dtype::Maybe{Type} = nothing, eps::StorageReal = 0)
+<code class="language-julia hljs">StdN(; type::Maybe{Type} = nothing, eps::StorageReal = 0)
 </code>
 </pre>
 <p>Reduction operation that returns the (uncorrected) standard deviation of the values, normalized (divided) by the mean value.
@@ -887,10 +887,10 @@
 </strong>
 </p>
 <p>
-<code>dtype
+<code>type
 </code> - The default output data type is the 
-<a href="operations.html#DataAxesFormats.Operations.float_dtype_for">
-<code>float_dtype_for
+<a href="operations.html#DataAxesFormats.Operations.float_type_for">
+<code>float_type_for
 </code>
 </a> of the input data type.
 </p>
@@ -917,7 +917,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">Var(; dtype::Maybe{Type} = nothing)
+<code class="language-julia hljs">Var(; type::Maybe{Type} = nothing)
 </code>
 </pre>
 <p>Reduction operation that returns the (uncorrected) variance of the values.
@@ -927,10 +927,10 @@
 </strong>
 </p>
 <p>
-<code>dtype
+<code>type
 </code> - The default output data type is the 
-<a href="operations.html#DataAxesFormats.Operations.float_dtype_for">
-<code>float_dtype_for
+<a href="operations.html#DataAxesFormats.Operations.float_type_for">
+<code>float_type_for
 </code>
 </a> of the input data type.
 </p>
@@ -953,7 +953,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">VarN(; dtype::Maybe{Type} = nothing, eps::StorageReal = 0.0)
+<code class="language-julia hljs">VarN(; type::Maybe{Type} = nothing, eps::StorageReal = 0.0)
 </code>
 </pre>
 <p>Reduction operation that returns the (uncorrected) variance of the values, normalized (divided) by the mean of the values.
@@ -963,10 +963,10 @@
 </strong>
 </p>
 <p>
-<code>dtype
+<code>type
 </code> - The default output data type is the 
-<a href="operations.html#DataAxesFormats.Operations.float_dtype_for">
-<code>float_dtype_for
+<a href="operations.html#DataAxesFormats.Operations.float_type_for">
+<code>float_type_for
 </code>
 </a> of the input data type.
 </p>
@@ -1025,7 +1025,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">Count(; dtype::Maybe{Type} = nothing)
+<code class="language-julia hljs">Count(; type::Maybe{Type} = nothing)
 </code>
 </pre>
 <p>Reduction operation that counts elements. This is useful when using 
@@ -1045,7 +1045,7 @@
 </strong>
 </p>
 <p>
-<code>dtype
+<code>type
 </code> - By default, uses 
 <code>UInt32
 </code>.
@@ -1125,8 +1125,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DataAxesFormats.Operations.parse_number_dtype_value" href="#DataAxesFormats.Operations.parse_number_dtype_value">
-<code>DataAxesFormats.Operations.parse_number_dtype_value
+<a class="docstring-binding" id="DataAxesFormats.Operations.parse_number_type_value" href="#DataAxesFormats.Operations.parse_number_type_value">
+<code>DataAxesFormats.Operations.parse_number_type_value
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -1137,7 +1137,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">parse_number_dtype_value(
+<code class="language-julia hljs">parse_number_type_value(
     operation_name::AbstractString,
     parameter_name::AbstractString,
     parameter_value::Token,
@@ -1145,7 +1145,7 @@
 </code>
 </pre>
 <p>Parse the 
-<code>dtype
+<code>type
 </code> operation parameter.
 </p>
 <p>Valid names are 
@@ -1163,8 +1163,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DataAxesFormats.Operations.parse_float_dtype_value" href="#DataAxesFormats.Operations.parse_float_dtype_value">
-<code>DataAxesFormats.Operations.parse_float_dtype_value
+<a class="docstring-binding" id="DataAxesFormats.Operations.parse_float_type_value" href="#DataAxesFormats.Operations.parse_float_type_value">
+<code>DataAxesFormats.Operations.parse_float_type_value
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -1175,7 +1175,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">parse_float_dtype_value(
+<code class="language-julia hljs">parse_float_type_value(
     operation_name::AbstractString,
     parameter_name::AbstractString,
     parameter_value::Token,
@@ -1183,8 +1183,8 @@
 </code>
 </pre>
 <p>Similar to 
-<a href="operations.html#DataAxesFormats.Operations.parse_number_dtype_value">
-<code>parse_number_dtype_value
+<a href="operations.html#DataAxesFormats.Operations.parse_number_type_value">
+<code>parse_number_type_value
 </code>
 </a>, but only accept floating point types.
 </p>
@@ -1195,8 +1195,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DataAxesFormats.Operations.parse_int_dtype_value" href="#DataAxesFormats.Operations.parse_int_dtype_value">
-<code>DataAxesFormats.Operations.parse_int_dtype_value
+<a class="docstring-binding" id="DataAxesFormats.Operations.parse_int_type_value" href="#DataAxesFormats.Operations.parse_int_type_value">
+<code>DataAxesFormats.Operations.parse_int_type_value
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -1207,7 +1207,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">parse_int_dtype_value(
+<code class="language-julia hljs">parse_int_type_value(
     operation_name::AbstractString,
     parameter_name::AbstractString,
     parameter_value::Token,
@@ -1215,8 +1215,8 @@
 </code>
 </pre>
 <p>Similar to 
-<a href="operations.html#DataAxesFormats.Operations.parse_number_dtype_value">
-<code>parse_number_dtype_value
+<a href="operations.html#DataAxesFormats.Operations.parse_number_type_value">
+<code>parse_number_type_value
 </code>
 </a>, but only accept integer (signed or unsigned) types.
 </p>
@@ -1256,8 +1256,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DataAxesFormats.Operations.float_dtype_for" href="#DataAxesFormats.Operations.float_dtype_for">
-<code>DataAxesFormats.Operations.float_dtype_for
+<a class="docstring-binding" id="DataAxesFormats.Operations.float_type_for" href="#DataAxesFormats.Operations.float_type_for">
+<code>DataAxesFormats.Operations.float_type_for
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -1268,9 +1268,9 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">float_dtype_for(
+<code class="language-julia hljs">float_type_for(
     element_type::Type{&lt;:StorageReal},
-    dtype::Maybe{Type{&lt;:StorageReal}}
+    type::Maybe{Type{&lt;:StorageReal}}
 )::Type{&lt;:AbstractFloat}
 </code>
 </pre>
@@ -1281,7 +1281,7 @@
 <code>Log
 </code>
 </a>). If 
-<code>dtype
+<code>type
 </code> isn&#39;t  
 <code>nothing
 </code>, it is returned instead.
@@ -1293,8 +1293,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DataAxesFormats.Operations.int_dtype_for" href="#DataAxesFormats.Operations.int_dtype_for">
-<code>DataAxesFormats.Operations.int_dtype_for
+<a class="docstring-binding" id="DataAxesFormats.Operations.int_type_for" href="#DataAxesFormats.Operations.int_type_for">
+<code>DataAxesFormats.Operations.int_type_for
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -1305,9 +1305,9 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">int_dtype_for(
+<code class="language-julia hljs">int_type_for(
     element_type::Type{&lt;:StorageReal},
-    dtype::Maybe{Type{&lt;:StorageReal}}
+    type::Maybe{Type{&lt;:StorageReal}}
 )::Type{&lt;:Integer}
 </code>
 </pre>
@@ -1318,7 +1318,7 @@
 <code>Round
 </code>
 </a>). If 
-<code>dtype
+<code>type
 </code> isn&#39;t 
 <code>nothing
 </code>, it is returned instead.
@@ -1330,8 +1330,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DataAxesFormats.Operations.unsigned_dtype_for" href="#DataAxesFormats.Operations.unsigned_dtype_for">
-<code>DataAxesFormats.Operations.unsigned_dtype_for
+<a class="docstring-binding" id="DataAxesFormats.Operations.unsigned_type_for" href="#DataAxesFormats.Operations.unsigned_type_for">
+<code>DataAxesFormats.Operations.unsigned_type_for
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -1342,9 +1342,9 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">unsigned_dtype_for(
+<code class="language-julia hljs">unsigned_type_for(
     element_type::Type{&lt;:StorageReal},
-    dtype::Maybe{Type{&lt;:StorageReal}}
+    type::Maybe{Type{&lt;:StorageReal}}
 )::Type
 </code>
 </pre>
@@ -1355,7 +1355,7 @@
 <code>Abs
 </code>
 </a>). If 
-<code>dtype
+<code>type
 </code> isn&#39;t 
 <code>nothing
 </code>, it is returned instead.
@@ -1367,8 +1367,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DataAxesFormats.Operations.sum_dtype_for" href="#DataAxesFormats.Operations.sum_dtype_for">
-<code>DataAxesFormats.Operations.sum_dtype_for
+<a class="docstring-binding" id="DataAxesFormats.Operations.sum_type_for" href="#DataAxesFormats.Operations.sum_type_for">
+<code>DataAxesFormats.Operations.sum_type_for
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -1379,9 +1379,9 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">sum_dtype_for(
+<code class="language-julia hljs">sum_type_for(
     element_type::Type{&lt;:StorageReal},
-    dtype::Maybe{Type{&lt;:StorageReal}}
+    type::Maybe{Type{&lt;:StorageReal}}
 )::Type{&lt;:StorageReal}
 </code>
 </pre>
@@ -1392,7 +1392,7 @@
 <code>Sum
 </code>
 </a>). If 
-<code>dtype
+<code>type
 </code> isn&#39;t 
 <code>nothing
 </code>, it is returned instead.
@@ -1548,32 +1548,32 @@
 </a>
 </li>
 <li>
-<a href="operations.html#DataAxesFormats.Operations.float_dtype_for">
-<code>DataAxesFormats.Operations.float_dtype_for
+<a href="operations.html#DataAxesFormats.Operations.float_type_for">
+<code>DataAxesFormats.Operations.float_type_for
 </code>
 </a>
 </li>
 <li>
-<a href="operations.html#DataAxesFormats.Operations.int_dtype_for">
-<code>DataAxesFormats.Operations.int_dtype_for
+<a href="operations.html#DataAxesFormats.Operations.int_type_for">
+<code>DataAxesFormats.Operations.int_type_for
 </code>
 </a>
 </li>
 <li>
-<a href="operations.html#DataAxesFormats.Operations.parse_float_dtype_value">
-<code>DataAxesFormats.Operations.parse_float_dtype_value
+<a href="operations.html#DataAxesFormats.Operations.parse_float_type_value">
+<code>DataAxesFormats.Operations.parse_float_type_value
 </code>
 </a>
 </li>
 <li>
-<a href="operations.html#DataAxesFormats.Operations.parse_int_dtype_value">
-<code>DataAxesFormats.Operations.parse_int_dtype_value
+<a href="operations.html#DataAxesFormats.Operations.parse_int_type_value">
+<code>DataAxesFormats.Operations.parse_int_type_value
 </code>
 </a>
 </li>
 <li>
-<a href="operations.html#DataAxesFormats.Operations.parse_number_dtype_value">
-<code>DataAxesFormats.Operations.parse_number_dtype_value
+<a href="operations.html#DataAxesFormats.Operations.parse_number_type_value">
+<code>DataAxesFormats.Operations.parse_number_type_value
 </code>
 </a>
 </li>
@@ -1590,14 +1590,14 @@
 </a>
 </li>
 <li>
-<a href="operations.html#DataAxesFormats.Operations.sum_dtype_for">
-<code>DataAxesFormats.Operations.sum_dtype_for
+<a href="operations.html#DataAxesFormats.Operations.sum_type_for">
+<code>DataAxesFormats.Operations.sum_type_for
 </code>
 </a>
 </li>
 <li>
-<a href="operations.html#DataAxesFormats.Operations.unsigned_dtype_for">
-<code>DataAxesFormats.Operations.unsigned_dtype_for
+<a href="operations.html#DataAxesFormats.Operations.unsigned_type_for">
+<code>DataAxesFormats.Operations.unsigned_type_for
 </code>
 </a>
 </li>
@@ -1654,7 +1654,7 @@
 <hr/>
 <p>This document was generated with 
 <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl
-</a> version 1.8.0. Using Julia version 1.11.4.
+</a> version 1.9.0. Using Julia version 1.11.4.
 </p>
 </section>
 <footer class="modal-card-foot">

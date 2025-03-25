@@ -490,9 +490,9 @@ function concatenate_axis_vector(
     overwrite::Bool,
 )::Nothing
     vectors = [get_vector(source, axis, vector_property; default = nothing) for source in sources]
-    dtype = reduce(merge_dtypes, vectors; init = typeof(empty_value))
+    eltype = reduce(merge_dtypes, vectors; init = typeof(empty_value))
 
-    if dtype == String
+    if eltype == String
         concatenate_axis_string_vectors(
             destination,
             axis,
@@ -510,15 +510,15 @@ function concatenate_axis_vector(
 
     else
         @assert empty_value isa Maybe{StorageScalar}
-        sparse_saves = sparse_vectors_storage_fraction(empty_value, dtype, sizes, vectors)  # NOJET
+        sparse_saves = sparse_vectors_storage_fraction(empty_value, eltype, sizes, vectors)  # NOJET
         if sparse_saves >= sparse_if_saves_storage_fraction
             @assert empty_value === nothing || empty_value == 0
-            sparse_vectors = sparsify_vectors(vectors, dtype, sizes)
+            sparse_vectors = sparsify_vectors(vectors, eltype, sizes)
             concatenate_axis_sparse_vectors(
                 destination,
                 axis,
                 vector_property;
-                dtype,
+                eltype,
                 offsets,
                 vectors = sparse_vectors,
                 overwrite,
@@ -530,7 +530,7 @@ function concatenate_axis_vector(
                 axis,
                 vector_property,
                 sources;
-                dtype,
+                eltype,
                 empty_value,
                 offsets,
                 sizes,
@@ -590,14 +590,14 @@ function concatenate_axis_sparse_vectors(
     destination::DafWriter,
     axis::AbstractString,
     vector_property::AbstractString;
-    dtype::Type,
+    eltype::Type,
     offsets::AbstractVector{<:Integer},
     vectors::AbstractVector{<:AbstractVector},
     overwrite::Bool,
 )::Nothing
     nnz_offsets, nnz_sizes, total_nnz = nnz_arrays(vectors)
 
-    empty_sparse_vector!(destination, axis, vector_property, dtype, total_nnz; overwrite) do sparse_nzind, sparse_nzval
+    empty_sparse_vector!(destination, axis, vector_property, eltype, total_nnz; overwrite) do sparse_nzind, sparse_nzval
         n_sources = length(vectors)
         @threads for index in 1:n_sources
             vector = vectors[index]
@@ -619,14 +619,14 @@ function concatenate_axis_dense_vectors(
     axis::AbstractString,
     vector_property::AbstractString,
     sources::AbstractVector{<:DafReader};
-    dtype::Type,
+    eltype::Type,
     empty_value::Maybe{StorageReal},
     offsets::AbstractVector{<:Integer},
     sizes::AbstractVector{<:Integer},
     vectors::AbstractVector{<:Maybe{<:StorageVector}},
     overwrite::Bool,
 )::Nothing
-    empty_dense_vector!(destination, axis, vector_property, dtype; overwrite) do concatenated_vector
+    empty_dense_vector!(destination, axis, vector_property, eltype; overwrite) do concatenated_vector
         n_sources = length(sources)
         @threads for index in 1:n_sources
             source = sources[index]
@@ -660,20 +660,20 @@ function concatenate_axis_matrix(
     overwrite::Bool,
 )::Nothing
     matrices = [get_matrix(source, other_axis, axis, matrix_property; default = nothing) for source in sources]
-    dtype = reduce(merge_dtypes, matrices; init = typeof(empty_value))
+    eltype = reduce(merge_dtypes, matrices; init = typeof(empty_value))
 
     nrows = axis_length(destination, other_axis)
     sparse_saves =
-        sparse_matrices_storage_fraction(empty_value, dtype, sizes, matrices, axis_length(destination, other_axis))
+        sparse_matrices_storage_fraction(empty_value, eltype, sizes, matrices, axis_length(destination, other_axis))
     if sparse_saves >= sparse_if_saves_storage_fraction
         @assert empty_value === nothing || empty_value == 0
-        sparse_matrices = sparsify_matrices(matrices, dtype, nrows, sizes)
+        sparse_matrices = sparsify_matrices(matrices, eltype, nrows, sizes)
         concatenate_axis_sparse_matrices(
             destination,
             other_axis,
             axis,
             matrix_property;
-            dtype,
+            eltype,
             offsets,
             sizes,
             matrices = sparse_matrices,
@@ -687,7 +687,7 @@ function concatenate_axis_matrix(
             axis,
             matrix_property,
             sources;
-            dtype,
+            eltype,
             empty_value,
             offsets,
             sizes,
@@ -704,7 +704,7 @@ function concatenate_axis_sparse_matrices(
     other_axis::AbstractString,
     axis::AbstractString,
     matrix_property::AbstractString;
-    dtype::Type,
+    eltype::Type,
     offsets::AbstractVector{<:Integer},
     sizes::AbstractVector{<:Integer},
     matrices::AbstractVector{<:AbstractMatrix},
@@ -717,7 +717,7 @@ function concatenate_axis_sparse_matrices(
         other_axis,
         axis,
         matrix_property,
-        dtype,
+        eltype,
         total_nnz;
         overwrite,
     ) do sparse_colptr, sparse_rowval, sparse_nzval
@@ -747,14 +747,14 @@ function concatenate_axis_dense_matrices(
     axis::AbstractString,
     matrix_property::AbstractString,
     sources::AbstractVector{<:DafReader};
-    dtype::Type,
+    eltype::Type,
     empty_value::Maybe{StorageReal},
     offsets::AbstractVector{<:Integer},
     sizes::AbstractVector{<:Integer},
     matrices::AbstractVector{<:Maybe{<:StorageMatrix}},
     overwrite::Bool,
 )::Nothing
-    empty_dense_matrix!(destination, other_axis, axis, matrix_property, dtype; overwrite) do concatenated_matrix
+    empty_dense_matrix!(destination, other_axis, axis, matrix_property, eltype; overwrite) do concatenated_matrix
         n_sources = length(sources)
         @threads for index in 1:n_sources
             source = sources[index]
@@ -905,8 +905,8 @@ function concatenate_merge_scalar(
         end
 
         scalars = [get_scalar(source, scalar_property; default = nothing) for source in sources]
-        dtype = reduce(merge_dtypes, scalars; init = typeof(empty_value))
-        scalars = [dtype(scalar) for scalar in scalars]
+        eltype = reduce(merge_dtypes, scalars; init = typeof(empty_value))
+        scalars = [eltype(scalar) for scalar in scalars]
         set_vector!(destination, dataset_axis, scalar_property, scalars; overwrite)
         return nothing
 
@@ -957,19 +957,19 @@ function concatenate_merge_vector(
         end
         @assert size !== nothing
         sizes = repeat([size]; outer = length(vectors))
-        dtype = reduce(merge_dtypes, vectors; init = typeof(empty_value))
+        eltype = reduce(merge_dtypes, vectors; init = typeof(empty_value))
 
-        if dtype != String
-            sparse_saves = sparse_vectors_storage_fraction(empty_value, dtype, sizes, vectors)  # NOJET
+        if eltype != String
+            sparse_saves = sparse_vectors_storage_fraction(empty_value, eltype, sizes, vectors)  # NOJET
             if sparse_saves >= sparse_if_saves_storage_fraction
                 @assert empty_value === nothing || empty_value == 0
-                sparse_vectors = sparsify_vectors(vectors, dtype, sizes)
+                sparse_vectors = sparsify_vectors(vectors, eltype, sizes)
                 concatenate_merge_sparse_vector(
                     destination,
                     axis,
                     dataset_axis,
                     vector_property;
-                    dtype,
+                    eltype,
                     vectors = sparse_vectors,
                     overwrite,
                 )
@@ -983,7 +983,7 @@ function concatenate_merge_vector(
             dataset_axis,
             vector_property,
             sources;
-            dtype,
+            eltype,
             empty_value,
             vectors,
             overwrite,
@@ -1000,7 +1000,7 @@ function concatenate_merge_sparse_vector(
     axis::AbstractString,
     dataset_axis::AbstractString,
     vector_property::AbstractString;
-    dtype::Type,
+    eltype::Type,
     vectors::AbstractVector{<:AbstractVector},
     overwrite::Bool,
 )::Nothing
@@ -1011,7 +1011,7 @@ function concatenate_merge_sparse_vector(
         axis,
         dataset_axis,
         vector_property,
-        dtype,
+        eltype,
         total_nnz;
         overwrite,
     ) do sparse_colptr, sparse_rowval, sparse_nzval
@@ -1037,12 +1037,12 @@ function concatenate_merge_dense_vector(
     dataset_axis::AbstractString,
     vector_property::AbstractString,
     sources::AbstractVector{<:DafReader};
-    dtype::Type,
+    eltype::Type,
     empty_value::Maybe{StorageScalar},
     vectors::AbstractVector{<:Maybe{<:NamedVector}},
     overwrite::Bool,
 )::Nothing
-    empty_dense_matrix!(destination, axis, dataset_axis, vector_property, dtype; overwrite) do concatenated_matrix
+    empty_dense_matrix!(destination, axis, dataset_axis, vector_property, eltype; overwrite) do concatenated_matrix
         n_sources = length(sources)
         @threads for index in 1:n_sources
             source = sources[index]
@@ -1217,7 +1217,7 @@ end
 
 function sparse_vectors_storage_fraction(
     empty_value::Maybe{StorageReal},
-    dtype::Type,
+    eltype::Type,
     sizes::AbstractVector{<:Integer},
     arrays::AbstractVector{<:Maybe{NamedArray}},
 )::Float64
@@ -1239,14 +1239,14 @@ function sparse_vectors_storage_fraction(
     end
 
     indtype = indtype_for_size(dense_size)
-    dense_bytes = dense_size * sizeof(dtype)
-    sparse_bytes = sparse_size * (sizeof(dtype) + sizeof(indtype))
+    dense_bytes = dense_size * sizeof(eltype)
+    sparse_bytes = sparse_size * (sizeof(eltype) + sizeof(indtype))
     return (dense_bytes - sparse_bytes) / dense_bytes
 end
 
 function sparse_matrices_storage_fraction(
     empty_value::Maybe{StorageReal},
-    dtype::Type,
+    eltype::Type,
     sizes::AbstractVector{<:Integer},
     arrays::AbstractVector{<:Maybe{NamedArray}},
     n_rows::Integer,
@@ -1271,14 +1271,14 @@ function sparse_matrices_storage_fraction(
     end
 
     indtype = indtype_for_size(dense_size)
-    dense_bytes = dense_size * sizeof(dtype)
-    sparse_bytes = sparse_size * (sizeof(dtype) + sizeof(indtype)) + (total_n_columns + 1) * sizeof(indtype)
+    dense_bytes = dense_size * sizeof(eltype)
+    sparse_bytes = sparse_size * (sizeof(eltype) + sizeof(indtype)) + (total_n_columns + 1) * sizeof(indtype)
     return (dense_bytes - sparse_bytes) / dense_bytes
 end
 
 function sparsify_vectors(
     vectors::AbstractArray{<:Maybe{<:NamedVector}},
-    dtype::Type,
+    eltype::Type,
     sizes::AbstractArray{<:Integer},
 )::Vector{SparseVector}
     sparse_vectors = Vector{SparseVector}(undef, length(vectors))
@@ -1288,7 +1288,7 @@ function sparsify_vectors(
         vector = vectors[index]
         size = sizes[index]
         if vector === nothing
-            sparse_vectors[index] = spzeros(dtype, size)
+            sparse_vectors[index] = spzeros(eltype, size)
         else
             @assert length(vector) == size
             vector = vector.array
@@ -1304,7 +1304,7 @@ end
 
 function sparsify_matrices(
     matrices::AbstractArray{<:Maybe{<:NamedMatrix}},
-    dtype::Type,
+    eltype::Type,
     nrows::Integer,
     sizes::AbstractArray{<:Integer},
 )::Vector{SparseMatrixCSC}
@@ -1315,7 +1315,7 @@ function sparsify_matrices(
         matrix = matrices[index]
         ncols = sizes[index]
         if matrix === nothing
-            sparse_matrices[index] = spzeros(dtype, nrows, ncols)
+            sparse_matrices[index] = spzeros(eltype, nrows, ncols)
         else
             @assert size(matrix) == (nrows, ncols)
             sparse_matrices[index] = matrix.array

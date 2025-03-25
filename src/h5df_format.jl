@@ -458,20 +458,35 @@ function Formats.format_set_vector!(
     if vector isa StorageScalar
         vector_dataset =
             create_dataset(axis_vectors_group, name, typeof(vector), (Formats.format_axis_length(h5df, axis),))
-
         vector_dataset[:] = vector  # NOJET
         close(vector_dataset)
 
-    elseif issparse(vector)
-        @assert vector isa AbstractVector
-        vector_group = create_group(axis_vectors_group, name)
-        vector_group["nzind"] = nzind(vector)  # NOJET
-        vector_group["nzval"] = nzval(vector)
-        close(vector_group)
-
     else
         @assert vector isa AbstractVector
-        axis_vectors_group[name] = base_array(vector)
+
+        vector = base_array(vector)
+
+        if issparse(vector)
+            @assert vector isa AbstractVector
+            vector_group = create_group(axis_vectors_group, name)
+            vector_group["nzind"] = nzind(vector)  # NOJET
+            vector_group["nzval"] = nzval(vector)
+            close(vector_group)
+
+        else
+            nice_vector = nothing
+            if eltype(vector) <: AbstractString && !(vector isa Vector{String})
+                nice_vector = Vector{String}(vector)  # UNTESTED
+            else
+                try
+                    base = pointer(vector)
+                    nice_vector = Base.unsafe_wrap(Array, base, size(vector))
+                catch
+                    nice_vector = Vector(vector)  # NOJET # UNTESTED
+                end
+            end
+            axis_vectors_group[name] = nice_vector  # NOJET
+        end
     end
 
     return nothing
@@ -492,7 +507,7 @@ function Formats.format_get_empty_dense_vector!(
 
     vector_dataset = create_dataset(axis_vectors_group, name, eltype, (Formats.format_axis_length(h5df, axis),))
     @assert vector_dataset isa HDF5.Dataset
-    vector_dataset[1] = 0
+    vector_dataset[:] = 0
 
     vector = dataset_as_vector(vector_dataset)
     close(vector_dataset)
@@ -521,8 +536,8 @@ function Formats.format_get_empty_sparse_vector!(
     @assert nzind_dataset isa HDF5.Dataset
     @assert nzval_dataset isa HDF5.Dataset
 
-    nzind_dataset[1] = 0
-    nzval_dataset[1] = 0
+    nzind_dataset[:] = 0
+    nzval_dataset[:] = 0
 
     nzind_vector = dataset_as_vector(nzind_dataset)
     nzval_vector = dataset_as_vector(nzval_dataset)
@@ -632,16 +647,30 @@ function Formats.format_set_matrix!(
         matrix_dataset[:, :] = matrix
         close(matrix_dataset)
 
-    elseif issparse(matrix)
-        @assert matrix isa AbstractMatrix
-        matrix_group = create_group(columns_axis_group, name)
-        matrix_group["colptr"] = colptr(matrix)
-        matrix_group["rowval"] = rowval(matrix)
-        matrix_group["nzval"] = nzval(matrix)
-        close(matrix_group)
-
     else
-        columns_axis_group[name] = matrix  # NOJET
+        @assert matrix isa AbstractMatrix
+        @assert major_axis(matrix) != Rows
+
+        matrix = base_array(matrix)
+
+        if issparse(matrix)
+            @assert matrix isa AbstractMatrix
+            matrix_group = create_group(columns_axis_group, name)
+            matrix_group["colptr"] = colptr(matrix)
+            matrix_group["rowval"] = rowval(matrix)
+            matrix_group["nzval"] = nzval(matrix)
+            close(matrix_group)
+
+        else
+            nice_matrix = nothing
+            try
+                base = pointer(matrix)
+                nice_matrix = Base.unsafe_wrap(Array, base, size(matrix))
+            catch
+                nice_matrix = Matrix(matrix) # UNTESTED
+            end
+            columns_axis_group[name] = nice_matrix  # NOJET
+        end
     end
 
     return nothing
@@ -667,7 +696,7 @@ function Formats.format_get_empty_dense_matrix!(
     nrows = Formats.format_axis_length(h5df, rows_axis)
     ncols = Formats.format_axis_length(h5df, columns_axis)
     matrix_dataset = create_dataset(columns_axis_group, name, eltype, (nrows, ncols))
-    matrix_dataset[1, 1] = 0
+    matrix_dataset[:, :] = 0
     matrix = dataset_as_matrix(matrix_dataset)
     close(matrix_dataset)
 
@@ -703,7 +732,7 @@ function Formats.format_get_empty_sparse_matrix!(
     colptr_dataset[:] = nnz + 1
     colptr_dataset[1] = 1
     rowval_dataset[:] = 1
-    nzval_dataset[1] = 0
+    nzval_dataset[:] = 0
 
     colptr_vector = dataset_as_vector(colptr_dataset)
     rowval_vector = dataset_as_vector(rowval_dataset)
@@ -736,8 +765,8 @@ function Formats.format_relayout_matrix!(
             nnz(matrix),
             eltype(colptr(matrix)),
         )
+        sparse_colptr .= length(sparse_nzval) + 1
         sparse_colptr[1] = 1
-        sparse_colptr[2:end] .= length(sparse_nzval) + 1
         relayout_matrix = SparseMatrixCSC(
             axis_length(h5df, columns_axis),
             axis_length(h5df, rows_axis),

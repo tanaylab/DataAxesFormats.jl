@@ -107,6 +107,16 @@ function major_axis(matrix::SparseArrays.ReadOnly)::Maybe{Int8}
     return major_axis(parent(matrix))
 end
 
+function major_axis(matrix::PermutedDimsArray{T, 2, P, IP, A})::Maybe{Int8} where {T, P, IP, A}
+    if P == (1, 2)
+        return major_axis(parent(matrix))
+    elseif P == (2, 1)
+        return other_axis(major_axis(parent(matrix)))
+    else
+        @assert false "can't handle matrix type: $(typeof(matrix))"  # UNTESTED
+    end
+end
+
 function major_axis(matrix::Union{Transpose, Adjoint})::Maybe{Int8}
     return other_axis(major_axis(matrix.parent))
 end
@@ -125,8 +135,8 @@ function major_axis(matrix::AbstractMatrix)::Maybe{Int8}
         if matrix_strides[1] == 1  # NOJET
             return Columns
         end
-        if matrix_strides[2] == 1
-            return Rows
+        if matrix_strides[2] == 1  # UNTESTED
+            return Rows  # UNTESTED
         end
         return nothing  # UNTESTED
 
@@ -467,8 +477,27 @@ function relayout!(destination::DenseMatrix, source::NamedArrays.NamedMatrix)  #
     return NamedArray(relayout!(destination, source.array), source.dicts, source.dimnames)
 end
 
-function relayout!(destination::Union{Transpose, Adjoint}, source::NamedMatrix)::AbstractMatrix
+function relayout!(  # UNTESTED
+    destination::PermutedDimsArray{T, 2, P, IP, A},
+    source::NamedMatrix,
+)::AbstractMatrix where {T, P, IP, A}
+    if P == (1, 2)
+        relayout!(parent(destination), source.array)
+    elseif P == (2, 1)
+        relayout!(parent(destination), transpose(source.array))
+    else
+        @assert false "can't handle matrix type: $(typeof(destination))"
+    end
+    return destination
+end
+
+function relayout!(destination::Transpose, source::NamedMatrix)::AbstractMatrix
     relayout!(parent(destination), transpose(source.array))
+    return destination
+end
+
+function relayout!(destination::Adjoint, source::NamedMatrix)::AbstractMatrix  # UNTESTED
+    relayout!(parent(destination), adjoint(source.array))
     return destination
 end
 
@@ -487,8 +516,27 @@ function relayout!(destination::NamedArray, source::AbstractMatrix)::NamedArray
     return NamedArray(relayout!(destination.array, source), destination.dicts, destination.dimnames)
 end
 
-function relayout!(destination::Union{Transpose, Adjoint}, source::AbstractMatrix)::AbstractMatrix
+function relayout!(
+    destination::PermutedDimsArray{T, 2, P, IP, A},
+    source::AbstractMatrix,
+)::AbstractMatrix where {T, P, IP, A}
+    if P == (1, 2)
+        relayout!(parent(destination), source)
+    elseif P == (2, 1)
+        relayout!(parent(destination), transpose(source))
+    else
+        @assert false "can't handle matrix type: $(typeof(destination))"  # UNTESTED
+    end
+    return destination
+end
+
+function relayout!(destination::Transpose, source::AbstractMatrix)::AbstractMatrix
     relayout!(parent(destination), transpose(source))
+    return destination
+end
+
+function relayout!(destination::Adjoint, source::AbstractMatrix)::AbstractMatrix  # UNTESTED
+    relayout!(parent(destination), adjoint(source))
     return destination
 end
 
@@ -559,8 +607,8 @@ function transposer(matrix::AbstractMatrix)::AbstractMatrix
     axis = major_axis(matrix)
     if axis == Columns
         result = Matrix{eltype(matrix)}(undef, size(matrix, 2), size(matrix, 1))
-    elseif axis == Rows
-        result = transpose(Matrix{eltype(matrix)}(undef, size(matrix, 1), size(matrix, 2)))
+    elseif axis == Rows  # UNTESTED
+        result = transpose(Matrix{eltype(matrix)}(undef, size(matrix, 1), size(matrix, 2)))  # UNTESTED
     else
         @assert false "transposer of a matrix w/o clear layout: $(depict(matrix))"  # UNTESTED
     end
@@ -596,6 +644,16 @@ function transposer(matrix::SparseArrays.ReadOnly)::AbstractMatrix
     return transposer(parent(matrix))
 end
 
+function transposer(matrix::PermutedDimsArray{T, 2, P, IP, A})::AbstractMatrix where {T, P, IP, A}
+    if P == (1, 2)
+        return transposer(parent(matrix))
+    elseif P == (2, 1)
+        return transpose(transposer(parent(matrix)))
+    else
+        @assert false "can't handle matrix type: $(typeof(matrix))"  # UNTESTED
+    end
+end
+
 function transposer(matrix::Transpose)::AbstractMatrix
     return transpose(transposer(parent(matrix)))
 end
@@ -605,7 +663,7 @@ function transposer(matrix::Adjoint)::AbstractMatrix
 end
 
 """
-    copy_array(array::AbstractArray)::AbstractArray
+    copy_array(array::AbstractArray; eltype::Maybe{Type} = nothing)::AbstractArray
 
 Create a mutable copy of an array. This differs from `Base.copy` in the following:
 
@@ -619,41 +677,76 @@ Create a mutable copy of an array. This differs from `Base.copy` in the followin
     simple dense array regardless of the original type. This is done because a `deepcopy` of `PyArray` will still
     share the underlying buffer. Sigh.
   - Copying a vector of anything derived from `AbstractString` returns a vector of `AbstractString`.
+  - If `eltype` is specified, the returned copy will use this element type instead.
 """
-function copy_array(array::Union{SparseMatrixCSC, SparseVector})::AbstractArray
-    return deepcopy(array)
+function copy_array(matrix::SparseMatrixCSC; eltype::Maybe{Type} = nothing)::AbstractArray
+    if eltype === nothing
+        eltype = Base.eltype(matrix)
+    end
+    return SparseMatrixCSC{eltype}(matrix)
 end
 
-function copy_array(array::AbstractMatrix)::Matrix
-    return Matrix(array)
+function copy_array(vector::SparseVector; eltype::Maybe{Type} = nothing)::AbstractArray
+    if eltype === nothing
+        eltype = Base.eltype(vector)
+    end
+    return SparseVector{eltype}(vector)
 end
 
-function copy_array(array::AbstractVector)::Vector
-    return Vector(array)
+function copy_array(matrix::AbstractMatrix; eltype::Maybe{Type} = nothing)::Matrix
+    if eltype === nothing
+        eltype = Base.eltype(matrix)
+    end
+    return Matrix{eltype}(matrix)
 end
 
-function copy_array(array::AbstractVector{<:AbstractString})::Vector{AbstractString}
-    return Vector{AbstractString}(array)  # NOJET
+function copy_array(vector::AbstractVector; eltype::Maybe{Type} = nothing)::Vector
+    if eltype === nothing
+        eltype = Base.eltype(vector)
+    end
+    return Vector{eltype}(vector)
 end
 
-function copy_array(matrix::Transpose)::Transpose
-    return Transpose(copy_array(mutable_array(parent(matrix))))
+function copy_array(vector::AbstractVector{<:AbstractString}; eltype::Maybe{Type} = nothing)::Vector{AbstractString}
+    if eltype === nothing
+        eltype = AbstractString
+    end
+    return Vector{eltype}(vector)  # NOJET
 end
 
-function copy_array(matrix::Adjoint)::Adjoint
-    return Adjoint(copy_array(mutable_array(parent(matrix))))
+function copy_array(
+    matrix::PermutedDimsArray{T, 2, P, IP, A};
+    eltype::Maybe{Type} = nothing,
+)::PermutedDimsArray where {T, P, IP, A}
+    return PermutedDimsArray(copy_array(mutable_array(parent(matrix)); eltype), P)
 end
 
-function copy_array(array::SparseArrays.ReadOnly)::AbstractArray
-    return copy_array(mutable_array(parent(array)))
+function copy_array(matrix::Transpose; eltype::Maybe{Type} = nothing)::Transpose
+    return Transpose(copy_array(mutable_array(parent(matrix)); eltype))
 end
 
-function copy_array(array::NamedArray)::NamedArray
-    return NamedArray(copy_array(mutable_array(array.array)), array.dicts, array.dimnames)
+function copy_array(matrix::Adjoint; eltype::Maybe{Type} = nothing)::Adjoint
+    return Adjoint(copy_array(mutable_array(parent(matrix)); eltype))
 end
 
-function base_sparse_matrix(matrix::Union{Transpose, Adjoint})::AbstractMatrix
-    return transpose(base_sparse_matrix(matrix.parent))
+function copy_array(array::SparseArrays.ReadOnly; eltype::Maybe{Type} = nothing)::AbstractArray
+    return copy_array(mutable_array(parent(array)); eltype)
+end
+
+function copy_array(array::NamedArray; eltype::Maybe{Type} = nothing)::NamedArray
+    return NamedArray(copy_array(mutable_array(array.array); eltype), array.dicts, array.dimnames)
+end
+
+function base_sparse_matrix(matrix::PermutedDimsArray{T, 2, P, IP, A})::AbstractMatrix where {T, P, IP, A}
+    return PermutedDimsArray(base_sparse_matrix(matrix.parent), P)
+end
+
+function base_sparse_matrix(matrix::Transpose)::AbstractMatrix
+    return Transpose(base_sparse_matrix(matrix.parent))
+end
+
+function base_sparse_matrix(matrix::Adjoint)::AbstractMatrix
+    return Adjoint(base_sparse_matrix(matrix.parent))
 end
 
 function base_sparse_matrix(matrix::NamedMatrix)::AbstractMatrix  # UNTESTED
@@ -709,6 +802,16 @@ function depict_vector_size(vector::AbstractVector, kind::AbstractString)::Strin
     return "$(length(vector)) x $(eltype(vector)) ($(kind))"
 end
 
+function Messages.depict(permuted::PermutedDimsArray{T, 2, P, IP, A})::String where {T, P, IP, A}
+    if P == (1, 2)
+        return depict_matrix(permuted.parent, "!Permuted")
+    elseif P == (2, 1)
+        return depict_matrix(permuted.parent, "Permuted"; transposed = true)
+    else
+        @assert false "can't handle matrix type: $(typeof(permuted))"  # UNTESTED
+    end
+end
+
 function Messages.depict(transposed::Transpose)::String
     parent = transposed.parent
     if parent isa AbstractVector
@@ -730,6 +833,20 @@ end
 
 function depict_matrix(matrix::NamedMatrix, prefix::AbstractString; transposed::Bool = false)::String
     return depict_matrix(matrix.array, Messages.concat_prefixes(prefix, "Named"); transposed)
+end
+
+function depict_matrix(
+    matrix::PermutedDimsArray{T, 2, P, IP, A},
+    prefix::AbstractString;
+    transposed::Bool = false,
+)::String where {T, P, IP, A}
+    if P == (1, 2)
+        return depict_matrix(parent(matrix), Messages.concat_prefixes(prefix, "!Permuted"); transposed)
+    elseif P == (2, 1)
+        return depict_matrix(parent(matrix), Messages.concat_prefixes(prefix, "Permuted"); transposed = !transposed)
+    else
+        @assert false "can't handle matrix type: $(typeof(matrix))"  # UNTESTED
+    end
 end
 
 function depict_matrix(matrix::Transpose, prefix::AbstractString; transposed::Bool = false)::String
@@ -787,101 +904,250 @@ function depict_matrix_size(matrix::AbstractMatrix, kind::AbstractString; transp
 end
 
 """
-    sparsify(matrix::AbstractMatrix{T}; copy::Bool = false)::AbstractMatrix{T} where {T <: StorageReal}
-    sparsify(vector::AbstractVector{T}; copy::Bool = false)::AbstractVector{T} where {T <: StorageReal}
+    sparsify(
+        matrix::AbstractMatrix{<:StorageReal};
+        copy::Bool = false,
+        eltype::Maybe{Type{<:StorageReal}} = nothing
+    )::AbstractMatrix{<:StorageReal}
 
-Return a sparse version of an array. This will preserve the matrix layout. If `copy`, this will create a copy even if it
-is already sparse.
+    sparsify(
+        vector::AbstractVector{<:StorageReal};
+        copy::Bool = false,
+        eltype::Maybe{Type{<:StorageReal}} = nothing
+    )::AbstractVector{<:StorageReal}
+
+Return a sparse version of an array, possibly forcing a different `eltype`. This will preserve the matrix layout. If
+`copy`, this will create a copy even if it is already sparse and has the correct `eltype`.
 """
-function sparsify(matrix::AbstractMatrix{T}; copy::Bool = false)::AbstractMatrix{T} where {T <: StorageReal}  # NOLINT
-    return SparseMatrixCSC(matrix)
+function sparsify(
+    matrix::AbstractMatrix{<:StorageReal};
+    copy::Bool = false,  # NOLINT
+    eltype::Maybe{Type{<:StorageReal}} = nothing,
+)::AbstractMatrix{<:StorageReal}
+    if eltype === nothing
+        eltype = Base.eltype(matrix)
+    end
+    return SparseMatrixCSC{eltype}(matrix)
 end
 
 function sparsify(
-    matrix::Union{Transpose{T}, Adjoint{T}};
+    matrix::PermutedDimsArray{T, 2, P, IP, A};
     copy::Bool = false,
-)::AbstractMatrix{T} where {T <: StorageReal}
-    return typeof(matrix)(sparsify(parent(matrix); copy))
+    eltype::Maybe{Type{<:StorageReal}} = nothing,
+)::AbstractMatrix{<:StorageReal} where {T <: StorageReal, P, IP, A}
+    return PermutedDimsArray(sparsify(parent(matrix); copy, eltype), P)
 end
 
-function sparsify(matrix::NamedMatrix{T}; copy::Bool = false)::NamedArray{T} where {T <: StorageReal}  # NOLINT
-    return NamedArray(sparsify(matrix.array), matrix.dicts, matrix.dimnames)  # NOJET
+function sparsify(
+    matrix::Transpose{<:StorageReal};
+    copy::Bool = false,
+    eltype::Maybe{Type{<:StorageReal}} = nothing,
+)::AbstractMatrix{<:StorageReal}
+    return Transpose(sparsify(parent(matrix); copy, eltype))
 end
 
-function sparsify(vector::AbstractVector{T}; copy::Bool = false)::AbstractVector{T} where {T <: StorageReal}  # NOLINT
-    return SparseVector(vector)
+function sparsify(
+    matrix::Adjoint{<:StorageReal};
+    copy::Bool = false,
+    eltype::Maybe{Type{<:StorageReal}} = nothing,
+)::AbstractMatrix{<:StorageReal}
+    return Adjoint(sparsify(parent(matrix); copy, eltype))
 end
 
-function sparsify(vector::NamedVector{T}; copy::Bool = false)::NamedArray{T} where {T <: StorageReal}  # NOLINT
-    return NamedArray(sparsify(vector.array), vector.dicts, vector.dimnames)
+function sparsify(
+    matrix::NamedMatrix{<:StorageReal};
+    copy::Bool = false,
+    eltype::Maybe{Type{<:StorageReal}} = nothing,
+)::NamedArray{<:StorageReal}
+    array = sparsify(matrix.array; copy, eltype)
+    if array === matrix.array
+        return matrix
+    else
+        return NamedArray(array, matrix.dicts, matrix.dimnames)  # UNTESTED
+    end
 end
 
-function sparsify(array::AbstractSparseArray{T}; copy::Bool = false)::AbstractSparseArray{T} where {T <: StorageReal}
-    if copy
-        array = copy_array(array)
+function sparsify(
+    vector::AbstractVector{<:StorageReal};
+    copy::Bool = false,  # NOLINT
+    eltype::Maybe{Type{<:StorageReal}} = nothing,
+)::AbstractVector{<:StorageReal}
+    if eltype === nothing
+        eltype = Base.eltype(vector)
+    end
+    return SparseVector{eltype}(vector)
+end
+
+function sparsify(
+    vector::NamedVector{<:StorageReal};
+    copy::Bool = false,
+    eltype::Maybe{Type{<:StorageReal}} = nothing,
+)::NamedArray{<:StorageReal}
+    array = sparsify(vector.array; copy, eltype)
+    if array === vector.array
+        return vector
+    else
+        return NamedArray(array, vector.dicts, vector.dimnames)  # UNTESTED
+    end
+end
+
+function sparsify(
+    array::AbstractSparseArray{<:StorageReal};
+    copy::Bool = false,
+    eltype::Maybe{Type{<:StorageReal}} = nothing,
+)::AbstractSparseArray{<:StorageReal}
+    if copy || (eltype !== nothing && eltype !== Base.eltype(array))
+        array = copy_array(array; eltype)
     end
     return array
 end
 
 """
-    densify(matrix::AbstractMatrix{T}; copy::Bool = false)::AbstractMatrix{T} where {T <: StorageReal}
-    densify(vector::AbstractVector{T}; copy::Bool = false)::AbstractVector{T} where {T <: StorageReal}
+    densify(
+        matrix::AbstractMatrix{<:StorageReal};
+        copy::Bool = false,
+        eltype::Maybe{Type{<:StorageReal}} = nothing,
+    )::AbstractMatrix{<:StorageReal}
 
-Return a dense version of an array. This will preserve matrix layout. If `copy`, this will create a copy even if it is
-already dense.
+    densify(
+        vector::AbstractVector{<:StorageReal};
+        copy::Bool = false,
+        eltype::Maybe{Type{<:StorageReal}} = nothing,
+    )::AbstractVector{<:StorageReal}
+
+Return a dense version of an array, possibly forcing a different `eltype`. This will preserve the matrix layout. If
+`copy`, this will create a copy even if it is already dense and has the correct `eltype`.
 """
-function densify(matrix::AbstractMatrix{T}; copy::Bool = false)::AbstractMatrix{T} where {T <: StorageReal}
-    if copy || major_axis(matrix) == Nothing
-        matrix = Matrix(matrix)
+function densify(
+    matrix::AbstractMatrix{<:StorageReal};
+    copy::Bool = false,
+    eltype::Maybe{Type{<:StorageReal}} = nothing,
+)::AbstractMatrix{<:StorageReal}
+    if eltype === nothing
+        eltype = Base.eltype(matrix)
+    end
+    if copy || major_axis(matrix) == Nothing || eltype !== Base.eltype(matrix)
+        matrix = Matrix{eltype}(matrix)
     end
     return matrix
 end
 
 function densify(
-    matrix::Union{Transpose{T}, Adjoint{T}};
+    matrix::PermutedDimsArray{T, 2, P, IP, A};
     copy::Bool = false,
-)::AbstractMatrix{T} where {T <: StorageReal}
-    return typeof(matrix)(densify(parent(matrix); copy))
+    eltype::Maybe{Type{<:StorageReal}} = nothing,
+)::AbstractMatrix{<:StorageReal} where {T <: StorageReal, P, IP, A}
+    if eltype === nothing
+        eltype = Base.eltype(matrix)
+    end
+    return PermutedDimsArray(densify(parent(matrix); copy, eltype), P)
 end
 
-function densify(matrix::NamedMatrix{T}; copy::Bool = false)::AbstractMatrix{T} where {T <: StorageReal}  # NOLINT
-    return NamedArray(densify(matrix.array), matrix.dicts, matrix.dimnames)
+function densify(
+    matrix::Transpose{<:StorageReal};
+    copy::Bool = false,
+    eltype::Maybe{Type{<:StorageReal}} = nothing,
+)::AbstractMatrix{<:StorageReal}
+    if eltype === nothing
+        eltype = Base.eltype(matrix)
+    end
+    return Transpose(densify(parent(matrix); copy, eltype))
 end
 
-function densify(matrix::AbstractSparseMatrix{T}; copy::Bool = false)::AbstractMatrix{T} where {T <: StorageReal}  # NOLINT
-    return Matrix(matrix)
+function densify(
+    matrix::Adjoint{<:StorageReal};
+    copy::Bool = false,
+    eltype::Maybe{Type{<:StorageReal}} = nothing,
+)::AbstractMatrix{<:StorageReal}
+    if eltype === nothing
+        eltype = Base.eltype(matrix)
+    end
+    return Adjoint(densify(parent(matrix); copy, eltype))
 end
 
-function densify(vector::AbstractVector{T}; copy::Bool = false)::AbstractVector{T} where {T <: StorageReal}
-    if copy
-        vector = Vector(vector)
+function densify(
+    matrix::NamedMatrix{<:StorageReal};
+    copy::Bool = false,
+    eltype::Maybe{Type{<:StorageReal}} = nothing,
+)::AbstractMatrix{<:StorageReal}
+    array = densify(matrix.array; copy, eltype)
+    if array === matrix.array
+        return matrix
+    else
+        return NamedArray(array, matrix.dicts, matrix.dimnames)  # UNTESTED
+    end
+end
+
+function densify(
+    matrix::AbstractSparseMatrix{<:StorageReal};
+    copy::Bool = false,  # NOLINT
+    eltype::Maybe{Type{<:StorageReal}} = nothing,
+)::AbstractMatrix{<:StorageReal}
+    if eltype === nothing
+        eltype = Base.eltype(matrix)
+    end
+    return Matrix{eltype}(matrix)
+end
+
+function densify(
+    vector::AbstractVector{<:StorageReal};
+    copy::Bool = false,
+    eltype::Maybe{Type{<:StorageReal}} = nothing,
+)::AbstractVector{<:StorageReal}
+    if eltype === nothing
+        eltype = Base.eltype(vector)
+    end
+    if copy || eltype != Base.eltype(vector)
+        vector = Vector{eltype}(vector)
     end
     return vector
 end
 
-function densify(vector::AbstractSparseVector{T}; copy::Bool = false)::AbstractVector{T} where {T <: StorageReal}  # NOLINT
-    return Vector(vector)
+function densify(
+    vector::AbstractSparseVector{<:StorageReal};
+    copy::Bool = false,  # NOLINT
+    eltype::Maybe{Type{<:StorageReal}} = nothing,
+)::AbstractVector{<:StorageReal}
+    if eltype === nothing
+        eltype = Base.eltype(vector)
+    end
+    return Vector{eltype}(vector)
 end
 
-function densify(vector::NamedVector{T}; copy::Bool = false)::AbstractVector{T} where {T <: StorageReal}  # NOLINT
-    return NamedArray(densify(vector.array), vector.dicts, vector.dimnames)
+function densify(
+    vector::NamedVector{<:StorageReal};
+    copy::Bool = false,
+    eltype::Maybe{Type{<:StorageReal}} = nothing,
+)::AbstractVector{<:StorageReal}
+    array = densify(vector.array; copy, eltype)
+    if array === vector.array
+        return vector
+    else
+        return NamedArray(array, vector.dicts, vector.dimnames)  # UNTESTED
+    end
 end
 
 """
     bestify(
-        matrix::AbstractMatrix{T};
+        matrix::AbstractMatrix{<:StorageReal};
         copy::Bool = false,
         sparse_if_saves_storage_fraction::AbstractFloat = 0.25,
-    )::AbstractMatrix{T} where {T <: StorageReal}
+        eltype::Maybe{Type{<:StorageReal}} = nothing,
+    )::AbstractMatrix{StorageReal}
+
     bestify(
-        matrix::AbstractVector{T};
+        matrix::AbstractVector{<:StorageReal};
         copy::Bool = false,
         sparse_if_saves_storage_fraction::AbstractFloat = 0.25,
-    )::AbstractVector{T} where {T <: StorageReal}
+        eltype::Maybe{Type{<:StorageReal}} = nothing,
+    )::AbstractVector{<:StorageReal}
 
 Return a "best" (dense or sparse) version of an array. The sparse format is chosen if it saves at least
 `sparse_if_saves_storage_fraction` of the storage of the dense format. If `copy`, this will create a copy even if it is
 already in the best format.
+
+If `eltype` is specified, computes the savings assuming that this will be the element type. Otherwise, returns the data
+in this type. This may also affect the saving computations.
 
 !!! note
 
@@ -889,27 +1155,29 @@ already in the best format.
     space.
 """
 @documented function bestify(
-    matrix::AbstractMatrix{T};
+    matrix::AbstractMatrix{<:StorageReal};
     copy::Bool = false,
     sparse_if_saves_storage_fraction::AbstractFloat = 0.25,
-)::AbstractMatrix{T} where {T <: StorageReal}
+    eltype::Maybe{Type{<:StorageReal}} = nothing,
+)::AbstractMatrix{<:StorageReal}
     @debug "bestify $(depict(matrix)) {"
     @assert 0 < sparse_if_saves_storage_fraction < 1
-    if sparse_matrix_saves_storage_fraction(matrix; copy) >= sparse_if_saves_storage_fraction
-        result = sparsify(matrix; copy)
+    if sparse_matrix_saves_storage_fraction(matrix; copy, eltype) >= sparse_if_saves_storage_fraction
+        result = sparsify(matrix; copy, eltype)
     else
-        result = densify(matrix; copy)
+        result = densify(matrix; copy, eltype)
     end
     @debug "bestify $(depict(result)) }"
     return result
 end
 
 @documented function bestify(
-    named::Union{NamedVector{T}, NamedMatrix{T}};
+    named::Union{NamedVector{<:StorageReal}, NamedMatrix{<:StorageReal}};
     copy::Bool = false,
     sparse_if_saves_storage_fraction::AbstractFloat = 0.25,
-)::AbstractArray{T} where {T <: StorageReal}
-    result = bestify(named.array; copy, sparse_if_saves_storage_fraction)
+    eltype::Maybe{Type{<:StorageReal}} = nothing,
+)::AbstractArray{<:StorageReal}
+    result = bestify(named.array; copy, sparse_if_saves_storage_fraction, eltype)
     if result === named.array
         return named
     else
@@ -918,13 +1186,14 @@ end
 end
 
 function bestify(
-    vector::AbstractVector{T};
+    vector::AbstractVector{<:StorageReal};
     copy::Bool = false,
     sparse_if_saves_storage_fraction::AbstractFloat = 0.25,
-)::AbstractVector{T} where {T <: StorageReal}
+    eltype::Maybe{Type{<:StorageReal}} = nothing,
+)::AbstractVector{<:StorageReal}
     @debug "bestify $(depict(vector)) {"
     @assert 0 < sparse_if_saves_storage_fraction < 1
-    if sparse_vector_saves_storage_fraction(vector; copy) >= sparse_if_saves_storage_fraction
+    if sparse_vector_saves_storage_fraction(vector; copy, eltype) >= sparse_if_saves_storage_fraction
         result = sparsify(vector; copy)
     else
         result = densify(vector; copy)
@@ -936,9 +1205,14 @@ end
 function sparse_matrix_saves_storage_fraction(
     matrix::AbstractSparseMatrix{T, I};
     copy::Bool,
+    eltype::Maybe{Type{<:StorageReal}},
 )::Float64 where {T <: StorageReal, I <: StorageInteger}
+    if eltype === nothing
+        eltype = T
+    end
+
     n_rows, n_columns = size(matrix)
-    dense_bytes = n_rows * n_columns * sizeof(T)
+    dense_bytes = n_rows * n_columns * sizeof(eltype)
 
     if copy
         indtype = indtype_for_size(n_rows * n_columns)
@@ -947,20 +1221,28 @@ function sparse_matrix_saves_storage_fraction(
     end
 
     n_nz = nnz(matrix)
-    sparse_bytes = n_nz * (sizeof(T) + sizeof(indtype)) + (n_columns + 1) * sizeof(indtype)
+    sparse_bytes = n_nz * (sizeof(eltype) + sizeof(indtype)) + (n_columns + 1) * sizeof(indtype)
 
     saved_fraction = (dense_bytes - sparse_bytes) / dense_bytes
     @debug "(sparse) dense_bytes: $(dense_bytes) sparse_bytes: $(sparse_bytes) saved_fraction: $(saved_fraction)"
     return saved_fraction
 end
 
-function sparse_matrix_saves_storage_fraction(matrix::AbstractMatrix; copy::Bool)::Float64  # NOLINT
+function sparse_matrix_saves_storage_fraction(
+    matrix::AbstractMatrix;
+    copy::Bool,  # NOLINT
+    eltype::Maybe{Type{<:StorageReal}},
+)::Float64
+    if eltype === nothing
+        eltype = Base.eltype(matrix)
+    end
+
     n_rows, n_columns = size(matrix)
-    dense_bytes = n_rows * n_columns * sizeof(eltype(matrix))
+    dense_bytes = n_rows * n_columns * sizeof(eltype)
 
     n_nz = sum(matrix .!= 0)
     indtype = indtype_for_size(n_rows * n_columns)
-    sparse_bytes = n_nz * (sizeof(eltype(matrix)) + sizeof(indtype)) + (n_columns + 1) * sizeof(indtype)
+    sparse_bytes = n_nz * (sizeof(eltype) + sizeof(indtype)) + (n_columns + 1) * sizeof(indtype)
 
     saved_fraction = (dense_bytes - sparse_bytes) / dense_bytes
     @debug "(dense?) dense_bytes: $(dense_bytes) sparse_bytes: $(sparse_bytes) saved_fraction: $(saved_fraction)"
@@ -970,9 +1252,14 @@ end
 function sparse_vector_saves_storage_fraction(
     vector::AbstractSparseVector{T, I};
     copy::Bool,
+    eltype::Maybe{Type{<:StorageReal}},
 )::Float64 where {T <: StorageReal, I <: StorageInteger}
+    if eltype === nothing
+        eltype = T
+    end
+
     size = length(vector)
-    dense_bytes = size * sizeof(T)
+    dense_bytes = size * sizeof(eltype)
 
     if copy
         indtype = indtype_for_size(size)
@@ -981,27 +1268,35 @@ function sparse_vector_saves_storage_fraction(
     end
 
     n_nz = sum(vector .!= 0)
-    sparse_bytes = n_nz * (sizeof(T) + sizeof(indtype))
+    sparse_bytes = n_nz * (sizeof(eltype) + sizeof(indtype))
 
     saved_fraction = (dense_bytes - sparse_bytes) / dense_bytes
     @debug "(sparse) dense_bytes: $(dense_bytes) sparse_bytes: $(sparse_bytes) saved_fraction: $(saved_fraction)"
     return saved_fraction
 end
 
-function sparse_vector_saves_storage_fraction(vector::AbstractVector; copy::Bool)::Float64  # NOLINT
+function sparse_vector_saves_storage_fraction(
+    vector::AbstractVector;
+    copy::Bool,  # NOLINT
+    eltype::Maybe{Type{<:StorageReal}},
+)::Float64
+    if eltype === nothing
+        eltype = Base.eltype(vector)
+    end
+
     size = length(vector)
-    dense_bytes = size * sizeof(eltype(vector))
+    dense_bytes = size * sizeof(eltype)
 
     n_nz = sum(vector .!= 0)
     indtype = indtype_for_size(size)
-    sparse_bytes = n_nz * (sizeof(eltype(vector)) + sizeof(indtype))
+    sparse_bytes = n_nz * (sizeof(eltype) + sizeof(indtype))
 
     saved_fraction = (dense_bytes - sparse_bytes) / dense_bytes
     @debug "(dense?) dense_bytes: $(dense_bytes) sparse_bytes: $(sparse_bytes) saved_fraction: $(saved_fraction)"
     return saved_fraction
 end
 
-# WHY do we have to define these ourselves... Sigh.
+# Why do we have to define these ourselves... Sigh.
 
 function SparseArrays.indtype(read_only::SparseArrays.ReadOnly)::Type  # UNTESTED
     return SparseArrays.indtype(parent(read_only))

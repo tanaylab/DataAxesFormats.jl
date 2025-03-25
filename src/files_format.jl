@@ -259,13 +259,13 @@ end
 
 function Formats.format_set_scalar!(files::FilesDaf, name::AbstractString, value::StorageScalar)::Nothing
     @assert Formats.has_data_write_lock(files)
-    dtype = typeof(value)
-    if dtype <: AbstractString
-        dtype = String
+    type = typeof(value)
+    if type <: AbstractString
+        type = String
     end
 
     open("$(files.path)/scalars/$(name).json", "w") do file
-        JSON.Writer.print(file, Dict("type" => "$(dtype)", "value" => value))
+        JSON.Writer.print(file, Dict("type" => "$(type)", "value" => value))
         write(file, '\n')
         return nothing
     end
@@ -293,9 +293,9 @@ function read_scalar(path::AbstractString)::StorageScalar
         @assert json_value isa AbstractString
         value = json_value
     else
-        dtype = get(DTYPE_BY_NAME, dtype_name, nothing)
-        @assert dtype !== nothing
-        value = convert(dtype, json_value)
+        type = get(DTYPE_BY_NAME, dtype_name, nothing)
+        @assert type !== nothing
+        value = convert(type, json_value)
     end
 
     return value

@@ -13,9 +13,9 @@ implementation).
 !!! note
 
     The read-only array functions below are restricted to dealing with normal (dense) arrays, `SparseArrays`,
-    `NamedArrays`, and `LinearAlgebra` arrays (specifically, `Transpose` and `Adjoint`), as these are the types actually
-    used in `Daf` storage. YMMV if using more exotic matrix types. In theory you could extend the implementation to
-    cover such types as well.
+    `NamedArrays`, `PermutedDimsArray`, and `LinearAlgebra` arrays (specifically, `Transpose` and `Adjoint`), as these
+    are the types actually used in `Daf` storage. YMMV if using more exotic matrix types. In theory you could extend the
+    implementation to cover such types as well.
 """
 module ReadOnlyArrays
 ## Arrays
@@ -36,6 +36,16 @@ array is already immutable, it is returned as-is.
 """
 function read_only_array(array::AbstractArray)::AbstractArray
     return SparseArrays.ReadOnly(array)
+end
+
+function read_only_array(array::PermutedDimsArray{T, 2, P, IP, A})::PermutedDimsArray where {T, P, IP, A}
+    parent_array = parent(array)
+    read_only_parent_array = read_only_array(parent_array)
+    if read_only_parent_array === parent_array
+        return array
+    else
+        return PermutedDimsArray(read_only_parent_array, P)
+    end
 end
 
 function read_only_array(array::Transpose)::Transpose
@@ -89,6 +99,16 @@ code depends on read-only arrays not changing their values.
 """
 function mutable_array(array::AbstractArray)::AbstractArray
     return array
+end
+
+function mutable_array(array::PermutedDimsArray{T, 2, P, IP, A})::PermutedDimsArray where {T, P, IP, A}
+    parent_array = parent(array)
+    mutable_parent_array = mutable_array(parent_array)
+    if mutable_parent_array === parent_array
+        return array
+    else
+        return PermutedDimsArray(mutable_parent_array, P)
+    end
 end
 
 function mutable_array(array::Transpose)::Transpose

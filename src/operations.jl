@@ -25,15 +25,15 @@ export Sum
 export Var
 export VarN
 export error_invalid_parameter_value
-export float_dtype_for
-export int_dtype_for
-export parse_float_dtype_value
-export parse_int_dtype_value
-export parse_number_dtype_value
+export float_type_for
+export int_type_for
+export parse_float_type_value
+export parse_int_type_value
+export parse_number_type_value
 export parse_number_value
 export parse_parameter_value
-export sum_dtype_for
-export unsigned_dtype_for
+export sum_type_for
+export unsigned_type_for
 
 using ..MatrixLayouts
 using ..GenericFunctions
@@ -73,20 +73,20 @@ FLOAT_DTYPE_FOR = Dict{Type, Type{<:AbstractFloat}}(
 )
 
 """
-    float_dtype_for(
+    float_type_for(
         element_type::Type{<:StorageReal},
-        dtype::Maybe{Type{<:StorageReal}}
+        type::Maybe{Type{<:StorageReal}}
     )::Type{<:AbstractFloat}
 
 Given an input `element_type`, return the data type to use for the result of an operation that always produces floating
-point values (e.g., [`Log`](@ref)). If `dtype` isn't  `nothing`, it is returned instead.
+point values (e.g., [`Log`](@ref)). If `type` isn't  `nothing`, it is returned instead.
 """
-function float_dtype_for(element_type::Type{<:StorageReal}, dtype::Maybe{Type{<:StorageReal}})::Type{<:AbstractFloat}
-    if dtype === nothing
+function float_type_for(element_type::Type{<:StorageReal}, type::Maybe{Type{<:StorageReal}})::Type{<:AbstractFloat}
+    if type === nothing
         global FLOAT_DTYPE_FOR
         return FLOAT_DTYPE_FOR[element_type]
     else
-        return dtype
+        return type
     end
 end
 
@@ -105,20 +105,20 @@ INT_DTYPE_FOR = Dict{Type, Type{<:Integer}}(
 )
 
 """
-    int_dtype_for(
+    int_type_for(
         element_type::Type{<:StorageReal},
-        dtype::Maybe{Type{<:StorageReal}}
+        type::Maybe{Type{<:StorageReal}}
     )::Type{<:Integer}
 
 Given an input `element_type`, return the data type to use for the result of an operation that always produces integer
-values (e.g., [`Round`](@ref)). If `dtype` isn't `nothing`, it is returned instead.
+values (e.g., [`Round`](@ref)). If `type` isn't `nothing`, it is returned instead.
 """
-function int_dtype_for(element_type::Type{<:StorageReal}, dtype::Maybe{Type{<:StorageReal}})::Type{<:Integer}
-    if dtype === nothing
+function int_type_for(element_type::Type{<:StorageReal}, type::Maybe{Type{<:StorageReal}})::Type{<:Integer}
+    if type === nothing
         global INT_DTYPE_FOR
         return INT_DTYPE_FOR[element_type]
     else
-        return dtype
+        return type
     end
 end
 
@@ -137,23 +137,23 @@ SUM_DTYPE_FOR = Dict{Type, Type{<:StorageReal}}(
 )
 
 """
-    sum_dtype_for(
+    sum_type_for(
         element_type::Type{<:StorageReal},
-        dtype::Maybe{Type{<:StorageReal}}
+        type::Maybe{Type{<:StorageReal}}
     )::Type{<:StorageReal}
 
 Given an input `element_type`, return the data type to use for the result of an operation that sums many such values
-values (e.g., [`Sum`](@ref)). If `dtype` isn't `nothing`, it is returned instead.
+values (e.g., [`Sum`](@ref)). If `type` isn't `nothing`, it is returned instead.
 
 This keeps floating point and 64-bit types as-is, but increases any small integer types to the matching 32 bit type
 (e.g., an input type of `UInt8` will have a sum type of `UInt32`).
 """
-function sum_dtype_for(element_type::Type{<:StorageReal}, dtype::Maybe{Type{<:StorageReal}})::Type{<:StorageReal}
-    if dtype === nothing
+function sum_type_for(element_type::Type{<:StorageReal}, type::Maybe{Type{<:StorageReal}})::Type{<:StorageReal}
+    if type === nothing
         global SUM_DTYPE_FOR
         return SUM_DTYPE_FOR[element_type]
     else
-        return dtype
+        return type
     end
 end
 
@@ -172,20 +172,20 @@ UNSIGNED_DTYPE_FOR = Dict{Type, Type}(
 )
 
 """
-    unsigned_dtype_for(
+    unsigned_type_for(
         element_type::Type{<:StorageReal},
-        dtype::Maybe{Type{<:StorageReal}}
+        type::Maybe{Type{<:StorageReal}}
     )::Type
 
 Given an input `element_type`, return the data type to use for the result of an operation that discards the sign of the
-value (e.g., [`Abs`](@ref)). If `dtype` isn't `nothing`, it is returned instead.
+value (e.g., [`Abs`](@ref)). If `type` isn't `nothing`, it is returned instead.
 """
-function unsigned_dtype_for(element_type::Type{<:StorageReal}, dtype::Maybe{Type{<:StorageReal}})::Type
-    if dtype === nothing
+function unsigned_type_for(element_type::Type{<:StorageReal}, type::Maybe{Type{<:StorageReal}})::Type
+    if type === nothing
         global UNSIGNED_DTYPE_FOR
         return UNSIGNED_DTYPE_FOR[element_type]
     else
-        return dtype
+        return type
     end
 end
 
@@ -240,69 +240,69 @@ DTYPE_BY_NAME = Dict{String, Maybe{Type}}(
 )
 
 """
-    parse_number_dtype_value(
+    parse_number_type_value(
         operation_name::AbstractString,
         parameter_name::AbstractString,
         parameter_value::Token,
     )::Maybe{Type}
 
-Parse the `dtype` operation parameter.
+Parse the `type` operation parameter.
 
 Valid names are `{B,b}ool`, `{UI,ui,I,i}nt{8,16,32,64}` and `{F,f}loat{32,64}`.
 """
-function parse_number_dtype_value(
+function parse_number_type_value(
     operation_name::Token,
     parameter_name::AbstractString,
     parameter_value::Token,
 )::Maybe{Type}
-    dtype_name = parameter_value.value
+    type_name = parameter_value.value
     global DTYPE_BY_NAME
-    dtype_type = get(DTYPE_BY_NAME, dtype_name, missing)
-    if dtype_type === missing
+    type = get(DTYPE_BY_NAME, type_name, missing)
+    if type === missing
         error_invalid_parameter_value(operation_name, parameter_name, parameter_value, "a number type")
     end
-    return DTYPE_BY_NAME[dtype_name]
+    return type
 end
 
 """
-    parse_int_dtype_value(
+    parse_int_type_value(
         operation_name::AbstractString,
         parameter_name::AbstractString,
         parameter_value::Token,
     )::Maybe{Type}
 
-Similar to [`parse_number_dtype_value`](@ref), but only accept integer (signed or unsigned) types.
+Similar to [`parse_number_type_value`](@ref), but only accept integer (signed or unsigned) types.
 """
-function parse_int_dtype_value(  # UNTESTED
+function parse_int_type_value(  # UNTESTED
     operation_name::Token,
     parameter_name::AbstractString,
     parameter_value::Token,
 )::Maybe{Type}
-    dtype = parse_number_dtype_value(operation_name, parameter_name, parameter_value)
-    if dtype <: Integer
-        return dtype
+    type = parse_number_type_value(operation_name, parameter_name, parameter_value)
+    if type <: Integer
+        return type
     else
         error_invalid_parameter_value(operation_name, parameter_name, parameter_value, "an integer type")
     end
 end
 
 """
-    parse_float_dtype_value(
+    parse_float_type_value(
         operation_name::AbstractString,
         parameter_name::AbstractString,
         parameter_value::Token,
     )::Maybe{Type}
 
-Similar to [`parse_number_dtype_value`](@ref), but only accept floating point types.
+Similar to [`parse_number_type_value`](@ref), but only accept floating point types.
 """
-function parse_float_dtype_value(
+function parse_float_type_value(
     operation_name::Token,
     parameter_name::AbstractString,
     parameter_value::Token,
 )::Maybe{Type}
-    dtype = parse_number_dtype_value(operation_name, parameter_name, parameter_value)
-    if dtype <: AbstractFloat
-        return dtype
+    type = parse_number_type_value(operation_name, parameter_name, parameter_value)
+    if type <: AbstractFloat
+        return type
     else
         error_invalid_parameter_value(operation_name, parameter_name, parameter_value, "a float type")
     end
@@ -375,79 +375,79 @@ function parse_parameter_value(
 end
 
 """
-    Abs([; dtype::Maybe{Type} = nothing])
+    Abs([; type::Maybe{Type} = nothing])
 
 Element-wise operation that converts every element to its absolute value.
 
 **Parameters**
 
-`dtype` - The default output data type is the [`unsigned_dtype_for`](@ref) the input data type.
+`type` - The default output data type is the [`unsigned_type_for`](@ref) the input data type.
 """
 struct Abs <: EltwiseOperation
-    dtype::Maybe{Type}
+    type::Maybe{Type}
 end
 @query_operation Abs
 
-function Abs(; dtype::Maybe{Type} = nothing)::Abs
-    return Abs(dtype)
+function Abs(; type::Maybe{Type} = nothing)::Abs
+    return Abs(type)
 end
 
 function Abs(operation_name::Token, parameters_values::Dict{String, Token})::Abs
-    dtype = parse_parameter_value(operation_name, "eltwise", parameters_values, "dtype", nothing) do parameter_value
-        return parse_number_dtype_value(operation_name, "dtype", parameter_value)
+    type = parse_parameter_value(operation_name, "eltwise", parameters_values, "type", nothing) do parameter_value
+        return parse_number_type_value(operation_name, "type", parameter_value)
     end
-    return Abs(dtype)
+    return Abs(type)
 end
 
 function compute_eltwise(
     operation::Abs,
     input::Union{StorageMatrix, StorageVector{<:StorageReal}},
 )::Union{StorageMatrix, StorageVector{<:StorageReal}}
-    dtype = unsigned_dtype_for(eltype(input), operation.dtype)
-    output = similar(input, dtype)
+    type = unsigned_type_for(eltype(input), operation.type)
+    output = similar(input, type)
     output .= abs.(input)  # NOJET
     return output
 end
 
 function compute_eltwise(operation::Abs, input::StorageReal)::StorageReal
-    dtype = unsigned_dtype_for(eltype(input), operation.dtype)
-    return dtype(abs(input))
+    type = unsigned_type_for(eltype(input), operation.type)
+    return type(abs(input))
 end
 
 """
-    Round([; dtype::Maybe{Type} = nothing])
+    Round([; type::Maybe{Type} = nothing])
 
 Element-wise operation that converts every element to the nearest integer value.
 
 **Parameters**
 
-`dtype` - By default, uses the [`int_dtype_for`](@ref) the input data type.
+`type` - By default, uses the [`int_type_for`](@ref) the input data type.
 """
 struct Round <: EltwiseOperation
-    dtype::Maybe{Type}
+    type::Maybe{Type}
 end
 @query_operation Round
 
-function Round(; dtype::Maybe{Type} = nothing)::Round
-    return Round(dtype)
+function Round(; type::Maybe{Type} = nothing)::Round
+    return Round(type)
 end
 
 function Round(operation_name::Token, parameters_values::Dict{String, Token})::Round
-    dtype = parse_parameter_value(operation_name, "eltwise", parameters_values, "dtype", nothing) do parameter_value
-        return parse_number_dtype_value(operation_name, "dtype", parameter_value)
+    type = parse_parameter_value(operation_name, "eltwise", parameters_values, "type", nothing) do parameter_value
+        return parse_number_type_value(operation_name, "type", parameter_value)
     end
-    return Round(dtype)
+    return Round(type)
 end
 
 function compute_eltwise(
     operation::Round,
     input::Union{StorageMatrix, StorageVector{<:StorageReal}},
 )::Union{StorageMatrix, StorageVector{<:StorageReal}}
-    return round.(int_dtype_for(eltype(input), operation.dtype), input)
+    return round.(int_type_for(eltype(input), operation.type), input)
 end
 
 function compute_eltwise(operation::Round, input::StorageReal)::StorageReal
-    return round(int_dtype_for(eltype(input), operation.dtype), input)
+    return round(int_type_for(eltype(input), operation.type), input)
 end
 
 """
@@ -466,20 +466,20 @@ Element-wise operation that converts every element to a value inside a range.
     At least one of `min` and `max` must be specified.
 """
 struct Clamp <: EltwiseOperation
-    dtype::Maybe{Type}
+    type::Maybe{Type}
     min::Float64
     max::Float64
 end
 @query_operation Clamp
 
-function Clamp(; dtype::Maybe{Type} = nothing, min::StorageReal = -Inf, max::StorageReal = Inf)::Clamp
+function Clamp(; type::Maybe{Type} = nothing, min::StorageReal = -Inf, max::StorageReal = Inf)::Clamp
     @assert min < max
-    return Clamp(dtype, Float64(min), Float64(max))
+    return Clamp(type, Float64(min), Float64(max))
 end
 
 function Clamp(operation_name::Token, parameters_values::Dict{String, Token})::Clamp
-    dtype = parse_parameter_value(operation_name, "eltwise", parameters_values, "dtype", nothing) do parameter_value
-        return parse_number_dtype_value(operation_name, "dtype", parameter_value)
+    type = parse_parameter_value(operation_name, "eltwise", parameters_values, "type", nothing) do parameter_value
+        return parse_number_type_value(operation_name, "type", parameter_value)
     end
     min = parse_parameter_value(operation_name, "eltwise", parameters_values, "min", -Inf) do parameter_value
         return parse_number_value(operation_name, "min", parameter_value, Float64)
@@ -491,20 +491,20 @@ function Clamp(operation_name::Token, parameters_values::Dict{String, Token})::C
         end
         return value
     end
-    return Clamp(dtype, min, max)
+    return Clamp(type, min, max)
 end
 
 function is_int(value::Float64)::Bool
     return value == -Inf || value == Inf || isinteger(value)
 end
 
-function dtype_for_clamp(operation::Clamp, input_type::Type)::Type
-    if operation.dtype !== nothing
-        return operation.dtype
+function type_for_clamp(operation::Clamp, input_type::Type)::Type
+    if operation.type !== nothing
+        return operation.type
     elseif input_type <: Integer && is_int(operation.min) && is_int(operation.max)
-        return int_dtype_for(input_type, nothing)
+        return int_type_for(input_type, nothing)
     else
-        return float_dtype_for(input_type, nothing)
+        return float_type_for(input_type, nothing)
     end
 end
 
@@ -512,56 +512,56 @@ function compute_eltwise(
     operation::Clamp,
     input::Union{StorageMatrix, StorageVector},
 )::Union{StorageMatrix, StorageVector}
-    dtype = dtype_for_clamp(operation, eltype(input))
-    output = similar(input, dtype)
+    type = type_for_clamp(operation, eltype(input))
+    output = similar(input, type)
     output .= clamp.(input, operation.min, operation.max)
     return output
 end
 
 function compute_eltwise(operation::Clamp, input::StorageReal)::StorageReal
-    dtype = dtype_for_clamp(operation, typeof(input))
+    type = type_for_clamp(operation, typeof(input))
     output = clamp(input, operation.min, operation.max)
-    return dtype(output)
+    return type(output)
 end
 
 """
-    Convert([; dtype::Type])
+    Convert([; type::Type])
 
 Element-wise operation that converts every element to a given data type.
 
 **Parameters**
 
-`dtype` - The data type to convert to. There's no default.
+`type` - The data type to convert to. There's no default.
 """
 struct Convert <: EltwiseOperation
-    dtype::Type
+    type::Type
 end
 @query_operation Convert
 
-function Convert(; dtype::Type{<:StorageReal})::Convert
-    return Convert(dtype)
+function Convert(; type::Type{<:StorageReal})::Convert
+    return Convert(type)
 end
 
 function Convert(operation_name::Token, parameters_values::Dict{String, Token})::Convert
-    dtype = parse_parameter_value(operation_name, "eltwise", parameters_values, "dtype", missing) do parameter_value
-        return parse_number_dtype_value(operation_name, "dtype", parameter_value)
+    type = parse_parameter_value(operation_name, "eltwise", parameters_values, "type", missing) do parameter_value
+        return parse_number_type_value(operation_name, "type", parameter_value)
     end
-    return Convert(dtype)
+    return Convert(type)
 end
 
 function compute_eltwise(
     operation::Convert,
     input::Union{StorageMatrix, StorageVector{<:StorageReal}},
 )::Union{StorageMatrix, StorageVector{<:StorageReal}}
-    return operation.dtype.(input)
+    return operation.type.(input)
 end
 
 function compute_eltwise(operation::Convert, input::StorageReal)::StorageReal
-    return operation.dtype(input)
+    return operation.type(input)
 end
 
 """
-    Fraction([; dtype::Type])
+    Fraction([; type::Type])
 
 Element-wise operation that converts every element to its fraction out of the total. If the total is zero, all the
 fractions are also set to zero. This implicitly assumes (but does not enforce) that all the entry value(s) are positive.
@@ -571,27 +571,27 @@ becomes its fraction out of the total of the vector. For scalars, this operation
 
 **Parameters**
 
-`dtype` - The default output data type is the [`float_dtype_for`](@ref) of the input data type.
+`type` - The default output data type is the [`float_type_for`](@ref) of the input data type.
 """
 struct Fraction <: EltwiseOperation
-    dtype::Maybe{Type}
+    type::Maybe{Type}
 end
 @query_operation Fraction
 
-function Fraction(; dtype::Maybe{Type{<:AbstractFloat}} = nothing)::Fraction
-    return Fraction(dtype)
+function Fraction(; type::Maybe{Type{<:AbstractFloat}} = nothing)::Fraction
+    return Fraction(type)
 end
 
 function Fraction(operation_name::Token, parameters_values::Dict{String, Token})::Fraction
-    dtype = parse_parameter_value(operation_name, "eltwise", parameters_values, "dtype", nothing) do parameter_value
-        return parse_float_dtype_value(operation_name, "dtype", parameter_value)
+    type = parse_parameter_value(operation_name, "eltwise", parameters_values, "type", nothing) do parameter_value
+        return parse_float_type_value(operation_name, "type", parameter_value)
     end
-    return Fraction(dtype)
+    return Fraction(type)
 end
 
 function compute_eltwise(operation::Fraction, input::StorageMatrix)::StorageMatrix
-    dtype = float_dtype_for(eltype(input), operation.dtype)
-    output = similar(input, dtype)
+    type = float_type_for(eltype(input), operation.type)
+    output = similar(input, type)
     output .= input
     columns_sums = sum(output; dims = 1)
     columns_sums[columns_sums .== 0] .= 1
@@ -602,12 +602,12 @@ function compute_eltwise(operation::Fraction, input::StorageMatrix)::StorageMatr
 end
 
 function compute_eltwise(operation::Fraction, input::StorageVector{<:StorageReal})::StorageVector{<:StorageReal}
-    dtype = float_dtype_for(eltype(input), operation.dtype)
+    type = float_type_for(eltype(input), operation.type)
     vector_sum = sum(input)
     if vector_sum == 0
-        output = zeros(dtype, length(input))
+        output = zeros(type, length(input))
     else
-        output = similar(input, dtype)
+        output = similar(input, type)
         output .= input
         output ./= vector_sum
     end
@@ -619,13 +619,13 @@ function compute_eltwise(::Fraction, ::StorageReal)::StorageReal
 end
 
 """
-    Log(; dtype::Maybe{Type} = nothing, base::StorageReal = e, eps::StorageReal = 0)
+    Log(; type::Maybe{Type} = nothing, base::StorageReal = e, eps::StorageReal = 0)
 
 Element-wise operation that converts every element to its logarithm.
 
 **Parameters**:
 
-`dtype` - The default output data type is the [`float_dtype_for`](@ref) of the input data type.
+`type` - The default output data type is the [`float_type_for`](@ref) of the input data type.
 
 `base` - The base of the logarithm. By default uses `e` (that is, computes the natural logarithm), which isn't
 convenient, but is the standard.
@@ -633,25 +633,25 @@ convenient, but is the standard.
 `eps` - Added to the input before computing the logarithm, to handle zero input data. By default is zero.
 """
 struct Log <: EltwiseOperation
-    dtype::Maybe{Type}
+    type::Maybe{Type}
     base::Float64
     eps::Float64
 end
 @query_operation Log
 
 function Log(;
-    dtype::Maybe{Type{<:AbstractFloat}} = nothing,
+    type::Maybe{Type{<:AbstractFloat}} = nothing,
     base::StorageReal = Float64(e),
     eps::StorageReal = 0.0,
 )::Log
     @assert base > 0
     @assert eps >= 0
-    return Log(dtype, Float64(base), Float64(eps))
+    return Log(type, Float64(base), Float64(eps))
 end
 
 function Log(operation_name::Token, parameters_values::Dict{String, Token})::Log
-    dtype = parse_parameter_value(operation_name, "eltwise", parameters_values, "dtype", nothing) do parameter_value
-        return parse_float_dtype_value(operation_name, "dtype", parameter_value)
+    type = parse_parameter_value(operation_name, "eltwise", parameters_values, "type", nothing) do parameter_value
+        return parse_float_type_value(operation_name, "type", parameter_value)
     end
 
     base = parse_parameter_value(operation_name, "eltwise", parameters_values, "base", Float64(e)) do parameter_value
@@ -670,15 +670,15 @@ function Log(operation_name::Token, parameters_values::Dict{String, Token})::Log
         return eps
     end
 
-    return Log(dtype, base, eps)
+    return Log(type, base, eps)
 end
 
 function compute_eltwise(
     operation::Log,
     input::Union{StorageMatrix, StorageVector{<:StorageReal}},
 )::Union{StorageMatrix, StorageVector{<:StorageReal}}
-    dtype = float_dtype_for(eltype(input), operation.dtype)
-    output = similar(input, dtype)
+    type = float_type_for(eltype(input), operation.type)
+    output = similar(input, type)
     output .= input
     output .+= operation.eps
     map!(log, output, output)
@@ -689,8 +689,8 @@ function compute_eltwise(
 end
 
 function compute_eltwise(operation::Log, input::StorageReal)::StorageReal
-    dtype = float_dtype_for(typeof(input), operation.dtype)
-    return dtype(log(Float64(input) + operation.eps) / log(operation.base))
+    type = float_type_for(typeof(input), operation.type)
+    return type(log(Float64(input) + operation.eps) / log(operation.base))
 end
 
 """
@@ -820,7 +820,7 @@ function compute_eltwise(::Significant, ::T)::T where {T <: StorageReal}
 end
 
 """
-    Count(; dtype::Maybe{Type} = nothing)
+    Count(; type::Maybe{Type} = nothing)
 
 Reduction operation that counts elements. This is useful when using `GroupBy` queries to count the number of elements in
 each group.
@@ -831,38 +831,38 @@ each group.
 
 **Parameters**
 
-`dtype` - By default, uses `UInt32`.
+`type` - By default, uses `UInt32`.
 """
 struct Count <: ReductionOperation
-    dtype::Maybe{Type}
+    type::Maybe{Type}
 end
 @query_operation Count
 
-function Count(; dtype::Maybe{Type{<:StorageReal}} = nothing)::Count
-    return Count(dtype)
+function Count(; type::Maybe{Type{<:StorageReal}} = nothing)::Count
+    return Count(type)
 end
 
 function Count(operation_name::Token, parameters_values::Dict{String, Token})::Count
-    dtype = parse_parameter_value(operation_name, "reduction", parameters_values, "dtype", nothing) do parameter_value
-        return parse_number_dtype_value(operation_name, "dtype", parameter_value)
+    type = parse_parameter_value(operation_name, "reduction", parameters_values, "type", nothing) do parameter_value
+        return parse_number_type_value(operation_name, "type", parameter_value)
     end
-    return Count(dtype)
+    return Count(type)
 end
 
 function compute_reduction(operation::Count, input::StorageMatrix)::StorageVector
-    dtype = reduction_result_type(operation, eltype(input))
-    result = Vector{dtype}(undef, size(input, 2))
+    type = reduction_result_type(operation, eltype(input))
+    result = Vector{type}(undef, size(input, 2))
     result .= size(input, 1)
     return result
 end
 
 function compute_reduction(operation::Count, input::StorageVector)::StorageReal
-    dtype = reduction_result_type(operation, eltype(input))
-    return dtype(length(input))
+    type = reduction_result_type(operation, eltype(input))
+    return type(length(input))
 end
 
 function reduction_result_type(operation::Count, ::Type)::Type
-    return operation.dtype === nothing ? UInt32 : operation.dtype
+    return operation.type === nothing ? UInt32 : operation.type
 end
 
 function supports_strings(::Count)::Bool
@@ -907,44 +907,44 @@ function supports_strings(::Mode)::Bool
 end
 
 """
-    Sum(; dtype::Maybe{Type} = nothing)
+    Sum(; type::Maybe{Type} = nothing)
 
 Reduction operation that sums elements.
 
 **Parameters**
 
-`dtype` - By default, uses the [`sum_dtype_for`](@ref) the input data type.
+`type` - By default, uses the [`sum_type_for`](@ref) the input data type.
 """
 struct Sum <: ReductionOperation
-    dtype::Maybe{Type}
+    type::Maybe{Type}
 end
 @query_operation Sum
 
-function Sum(; dtype::Maybe{Type{<:StorageReal}} = nothing)::Sum
-    return Sum(dtype)
+function Sum(; type::Maybe{Type{<:StorageReal}} = nothing)::Sum
+    return Sum(type)
 end
 
 function Sum(operation_name::Token, parameters_values::Dict{String, Token})::Sum
-    dtype = parse_parameter_value(operation_name, "reduction", parameters_values, "dtype", nothing) do parameter_value
-        return parse_number_dtype_value(operation_name, "dtype", parameter_value)
+    type = parse_parameter_value(operation_name, "reduction", parameters_values, "type", nothing) do parameter_value
+        return parse_number_type_value(operation_name, "type", parameter_value)
     end
-    return Sum(dtype)
+    return Sum(type)
 end
 
 function compute_reduction(operation::Sum, input::StorageMatrix)::StorageVector{<:StorageReal}
-    dtype = reduction_result_type(operation, eltype(input))
-    result = Vector{dtype}(undef, size(input, 2))
+    type = reduction_result_type(operation, eltype(input))
+    result = Vector{type}(undef, size(input, 2))
     sum!(transpose(result), input)
     return result
 end
 
 function compute_reduction(operation::Sum, input::StorageVector{<:StorageReal})::StorageReal
-    dtype = reduction_result_type(operation, eltype(input))
-    return dtype(sum(input))
+    type = reduction_result_type(operation, eltype(input))
+    return type(sum(input))
 end
 
 function reduction_result_type(operation::Sum, eltype::Type)::Type
-    return sum_dtype_for(eltype, operation.dtype)
+    return sum_type_for(eltype, operation.type)
 end
 
 """
@@ -996,71 +996,71 @@ function reduction_result_type(::Min, eltype::Type)::Type
 end
 
 """
-    Median(; dtype::Maybe{Type} = nothing)
+    Median(; type::Maybe{Type} = nothing)
 
 Reduction operation that returns the median value.
 
 **Parameters**
 
-`dtype` - The default output data type is the [`float_dtype_for`](@ref) of the input data type.
+`type` - The default output data type is the [`float_type_for`](@ref) of the input data type.
 """
 struct Median <: ReductionOperation
-    dtype::Maybe{Type}
+    type::Maybe{Type}
 end
 @query_operation Median
 
-function Median(; dtype::Maybe{Type{<:AbstractFloat}} = nothing)::Median
-    return Median(dtype)
+function Median(; type::Maybe{Type{<:AbstractFloat}} = nothing)::Median
+    return Median(type)
 end
 
 function Median(operation_name::Token, parameters_values::Dict{String, Token})::Median
-    dtype = parse_parameter_value(operation_name, "eltwise", parameters_values, "dtype", nothing) do parameter_value
-        return parse_float_dtype_value(operation_name, "dtype", parameter_value)
+    type = parse_parameter_value(operation_name, "eltwise", parameters_values, "type", nothing) do parameter_value
+        return parse_float_type_value(operation_name, "type", parameter_value)
     end
-    return Median(dtype)
+    return Median(type)
 end
 
 function compute_reduction(operation::Median, input::StorageMatrix)::StorageVector{<:StorageReal}
-    dtype = reduction_result_type(operation, eltype(input))
-    return convert(AbstractVector{dtype}, vec(median(input; dims = 1)))  # NOJET
+    type = reduction_result_type(operation, eltype(input))
+    return convert(AbstractVector{type}, vec(median(input; dims = 1)))  # NOJET
 end
 
 function compute_reduction(operation::Median, input::StorageVector{<:StorageReal})::StorageReal
-    dtype = reduction_result_type(operation, eltype(input))
-    return dtype(median(input))
+    type = reduction_result_type(operation, eltype(input))
+    return type(median(input))
 end
 
 function reduction_result_type(operation::Median, eltype::Type)::Type
-    return float_dtype_for(eltype, operation.dtype)
+    return float_type_for(eltype, operation.type)
 end
 
 """
-    Quantile(; dtype::Maybe{Type} = nothing, p::StorageReal)
+    Quantile(; type::Maybe{Type} = nothing, p::StorageReal)
 
 Reduction operation that returns the quantile value, that is, a value such that a certain fraction of the values is
 lower.
 
 **Parameters**
 
-`dtype` - The default output data type is the [`float_dtype_for`](@ref) of the input data type.
+`type` - The default output data type is the [`float_type_for`](@ref) of the input data type.
 
 `p` - The fraction of values below the result (e.g., the 0 computes the minimum, the 0.5 computes the median, and 1.0
 computes the maximum). There's no default.
 """
 struct Quantile <: ReductionOperation
-    dtype::Maybe{Type}
+    type::Maybe{Type}
     p::Float64
 end
 @query_operation Quantile
 
-function Quantile(; dtype::Maybe{Type{<:AbstractFloat}} = nothing, p::StorageReal)::Quantile
+function Quantile(; type::Maybe{Type{<:AbstractFloat}} = nothing, p::StorageReal)::Quantile
     @assert 0 <= p && p <= 1
-    return Quantile(dtype, p)
+    return Quantile(type, p)
 end
 
 function Quantile(operation_name::Token, parameters_values::Dict{String, Token})::Quantile
-    dtype = parse_parameter_value(operation_name, "eltwise", parameters_values, "dtype", nothing) do parameter_value
-        return parse_float_dtype_value(operation_name, "dtype", parameter_value)
+    type = parse_parameter_value(operation_name, "eltwise", parameters_values, "type", nothing) do parameter_value
+        return parse_float_type_value(operation_name, "type", parameter_value)
     end
     p = parse_parameter_value(operation_name, "eltwise", parameters_values, "p", missing) do parameter_value
         p = parse_number_value(operation_name, "p", parameter_value, Float64)
@@ -1072,12 +1072,12 @@ function Quantile(operation_name::Token, parameters_values::Dict{String, Token})
         end
         return p
     end
-    return Quantile(dtype, p)
+    return Quantile(type, p)
 end
 
 function compute_reduction(operation::Quantile, input::StorageMatrix)::StorageVector{<:StorageReal}
-    dtype = reduction_result_type(operation, eltype(input))
-    output = Vector{dtype}(undef, size(input, 2))
+    type = reduction_result_type(operation, eltype(input))
+    output = Vector{type}(undef, size(input, 2))
     @threads for column_index in 1:length(output)
         column_vector = @view input[:, column_index]
         output[column_index] = quantile(column_vector, operation.p)  # NOJET
@@ -1086,78 +1086,78 @@ function compute_reduction(operation::Quantile, input::StorageMatrix)::StorageVe
 end
 
 function compute_reduction(operation::Quantile, input::StorageVector{<:StorageReal})::StorageReal
-    dtype = reduction_result_type(operation, eltype(input))
-    return dtype(quantile(input, operation.p))
+    type = reduction_result_type(operation, eltype(input))
+    return type(quantile(input, operation.p))
 end
 
 function reduction_result_type(operation::Quantile, eltype::Type)::Type
-    return float_dtype_for(eltype, operation.dtype)
+    return float_type_for(eltype, operation.type)
 end
 
 """
-    Mean(; dtype::Maybe{Type} = nothing)
+    Mean(; type::Maybe{Type} = nothing)
 
 Reduction operation that returns the mean value.
 
 **Parameters**
 
-`dtype` - The default output data type is the [`float_dtype_for`](@ref) of the input data type.
+`type` - The default output data type is the [`float_type_for`](@ref) of the input data type.
 """
 struct Mean <: ReductionOperation
-    dtype::Maybe{Type}
+    type::Maybe{Type}
 end
 @query_operation Mean
 
-function Mean(; dtype::Maybe{Type{<:AbstractFloat}} = nothing)::Mean
-    return Mean(dtype)
+function Mean(; type::Maybe{Type{<:AbstractFloat}} = nothing)::Mean
+    return Mean(type)
 end
 
 function Mean(operation_name::Token, parameters_values::Dict{String, Token})::Mean
-    dtype = parse_parameter_value(operation_name, "eltwise", parameters_values, "dtype", nothing) do parameter_value
-        return parse_float_dtype_value(operation_name, "dtype", parameter_value)
+    type = parse_parameter_value(operation_name, "eltwise", parameters_values, "type", nothing) do parameter_value
+        return parse_float_type_value(operation_name, "type", parameter_value)
     end
-    return Mean(dtype)
+    return Mean(type)
 end
 
 function compute_reduction(operation::Mean, input::StorageMatrix)::StorageVector{<:StorageReal}
-    dtype = reduction_result_type(operation, eltype(input))
-    return convert(AbstractVector{dtype}, vec(mean(input; dims = 1)))  # NOJET
+    type = reduction_result_type(operation, eltype(input))
+    return convert(AbstractVector{type}, vec(mean(input; dims = 1)))  # NOJET
 end
 
 function compute_reduction(operation::Mean, input::StorageVector{<:StorageReal})::StorageReal
-    dtype = reduction_result_type(operation, eltype(input))
-    return dtype(mean(input))  # NOJET
+    type = reduction_result_type(operation, eltype(input))
+    return type(mean(input))  # NOJET
 end
 
 function reduction_result_type(operation::Mean, eltype::Type)::Type
-    return float_dtype_for(eltype, operation.dtype)
+    return float_type_for(eltype, operation.type)
 end
 
 """
-    GeoMean(; dtype::Maybe{Type} = nothing, eps::StorageReal = 0.0)
+    GeoMean(; type::Maybe{Type} = nothing, eps::StorageReal = 0.0)
 
 Reduction operation that returns the geometric mean value.
 
 **Parameters**
 
-`dtype` - The default output data type is the [`float_dtype_for`](@ref) of the input data type.
+`type` - The default output data type is the [`float_type_for`](@ref) of the input data type.
 
 `eps` - The regularization factor added to each value and subtracted from the raw geo-mean, to deal with zero values.
 """
 struct GeoMean <: ReductionOperation
-    dtype::Maybe{Type}
+    type::Maybe{Type}
     eps::Float64
 end
 @query_operation GeoMean
 
-function GeoMean(; dtype::Maybe{Type{<:AbstractFloat}} = nothing, eps::StorageReal = 0)::GeoMean
+function GeoMean(; type::Maybe{Type{<:AbstractFloat}} = nothing, eps::StorageReal = 0)::GeoMean
     @assert eps >= 0
-    return GeoMean(dtype, eps)
+    return GeoMean(type, eps)
 end
 
 function GeoMean(operation_name::Token, parameters_values::Dict{String, Token})::GeoMean
-    dtype = parse_parameter_value(operation_name, "eltwise", parameters_values, "dtype", nothing) do parameter_value
-        return parse_float_dtype_value(operation_name, "dtype", parameter_value)
+    type = parse_parameter_value(operation_name, "eltwise", parameters_values, "type", nothing) do parameter_value
+        return parse_float_type_value(operation_name, "type", parameter_value)
     end
     eps = parse_parameter_value(operation_name, "eltwise", parameters_values, "eps", 0.0) do parameter_value
         eps = parse_number_value(operation_name, "eps", parameter_value, Float64)
@@ -1166,96 +1166,96 @@ function GeoMean(operation_name::Token, parameters_values::Dict{String, Token}):
         end
         return eps
     end
-    return GeoMean(dtype, eps)
+    return GeoMean(type, eps)
 end
 
 function compute_reduction(operation::GeoMean, input::StorageMatrix)::StorageVector{<:StorageReal}
-    dtype = reduction_result_type(operation, eltype(input))
+    type = reduction_result_type(operation, eltype(input))
     if operation.eps == 0
-        return convert(AbstractVector{dtype}, geomean.(eachcol(input)))  # NOJET
+        return convert(AbstractVector{type}, geomean.(eachcol(input)))  # NOJET
     else
-        return convert(AbstractVector{dtype}, geomean.(eachcol(input .+ operation.eps)) .- operation.eps)  # NOJET
+        return convert(AbstractVector{type}, geomean.(eachcol(input .+ operation.eps)) .- operation.eps)  # NOJET
     end
 end
 
 function compute_reduction(operation::GeoMean, input::StorageVector{<:StorageReal})::StorageReal
-    dtype = reduction_result_type(operation, eltype(input))
+    type = reduction_result_type(operation, eltype(input))
     if operation.eps == 0
-        return dtype(geomean(input))  # NOJET
+        return type(geomean(input))  # NOJET
     else
-        return dtype(geomean(input .+ operation.eps) - operation.eps)  # NOJET
+        return type(geomean(input .+ operation.eps) - operation.eps)  # NOJET
     end
 end
 
 function reduction_result_type(operation::GeoMean, eltype::Type)::Type
-    return float_dtype_for(eltype, operation.dtype)
+    return float_type_for(eltype, operation.type)
 end
 
 """
-    Var(; dtype::Maybe{Type} = nothing)
+    Var(; type::Maybe{Type} = nothing)
 
 Reduction operation that returns the (uncorrected) variance of the values.
 
 **Parameters**
 
-`dtype` - The default output data type is the [`float_dtype_for`](@ref) of the input data type.
+`type` - The default output data type is the [`float_type_for`](@ref) of the input data type.
 """
 struct Var <: ReductionOperation
-    dtype::Maybe{Type}
+    type::Maybe{Type}
 end
 @query_operation Var
 
-function Var(; dtype::Maybe{Type{<:AbstractFloat}} = nothing)::Var
-    return Var(dtype)
+function Var(; type::Maybe{Type{<:AbstractFloat}} = nothing)::Var
+    return Var(type)
 end
 
 function Var(operation_name::Token, parameters_values::Dict{String, Token})::Var
-    dtype = parse_parameter_value(operation_name, "eltwise", parameters_values, "dtype", nothing) do parameter_value
-        return parse_float_dtype_value(operation_name, "dtype", parameter_value)
+    type = parse_parameter_value(operation_name, "eltwise", parameters_values, "type", nothing) do parameter_value
+        return parse_float_type_value(operation_name, "type", parameter_value)
     end
-    return Var(dtype)
+    return Var(type)
 end
 
 function compute_reduction(operation::Var, input::StorageMatrix)::StorageVector{<:StorageReal}
-    dtype = reduction_result_type(operation, eltype(input))
-    return convert(AbstractVector{dtype}, vec(var(input; dims = 1, corrected = false)))
+    type = reduction_result_type(operation, eltype(input))
+    return convert(AbstractVector{type}, vec(var(input; dims = 1, corrected = false)))
 end
 
 function compute_reduction(operation::Var, input::StorageVector{<:StorageReal})::StorageReal
-    dtype = reduction_result_type(operation, eltype(input))
-    return dtype(var(input; corrected = false))
+    type = reduction_result_type(operation, eltype(input))
+    return type(var(input; corrected = false))
 end
 
 function reduction_result_type(operation::Var, eltype::Type)::Type
-    return float_dtype_for(eltype, operation.dtype)
+    return float_type_for(eltype, operation.type)
 end
 
 """
-    VarN(; dtype::Maybe{Type} = nothing, eps::StorageReal = 0.0)
+    VarN(; type::Maybe{Type} = nothing, eps::StorageReal = 0.0)
 
 Reduction operation that returns the (uncorrected) variance of the values, normalized (divided) by the mean of the
 values.
 
 **Parameters**
 
-`dtype` - The default output data type is the [`float_dtype_for`](@ref) of the input data type.
+`type` - The default output data type is the [`float_type_for`](@ref) of the input data type.
 
 `eps` - Added to the mean before computing the division, to handle zero input data. By default is zero.
 """
 struct VarN <: ReductionOperation
-    dtype::Maybe{Type}
+    type::Maybe{Type}
     eps::Float64
 end
 @query_operation VarN
 
-function VarN(; dtype::Maybe{Type{<:AbstractFloat}} = nothing, eps::StorageReal = 0)::VarN
+function VarN(; type::Maybe{Type{<:AbstractFloat}} = nothing, eps::StorageReal = 0)::VarN
     @assert eps >= 0
-    return VarN(dtype, eps)
+    return VarN(type, eps)
 end
 
 function VarN(operation_name::Token, parameters_values::Dict{String, Token})::VarN
-    dtype = parse_parameter_value(operation_name, "eltwise", parameters_values, "dtype", nothing) do parameter_value
-        return parse_float_dtype_value(operation_name, "dtype", parameter_value)
+    type = parse_parameter_value(operation_name, "eltwise", parameters_values, "type", nothing) do parameter_value
+        return parse_float_type_value(operation_name, "type", parameter_value)
     end
     eps = parse_parameter_value(operation_name, "eltwise", parameters_values, "eps", 0.0) do parameter_value
         eps = parse_number_value(operation_name, "eps", parameter_value, Float64)
@@ -1264,92 +1264,92 @@ function VarN(operation_name::Token, parameters_values::Dict{String, Token})::Va
         end
         return eps
     end
-    return VarN(dtype, eps)
+    return VarN(type, eps)
 end
 
 function compute_reduction(operation::VarN, input::StorageMatrix)::StorageVector{<:StorageReal}
-    dtype = reduction_result_type(operation, eltype(input))
-    vars = convert(AbstractVector{dtype}, vec(var(input; dims = 1, corrected = false)))
-    means = convert(AbstractVector{dtype}, vec(mean(input; dims = 1)))
+    type = reduction_result_type(operation, eltype(input))
+    vars = convert(AbstractVector{type}, vec(var(input; dims = 1, corrected = false)))
+    means = convert(AbstractVector{type}, vec(mean(input; dims = 1)))
     means .+= operation.eps
     vars ./= means
     return vars
 end
 
 function compute_reduction(operation::VarN, input::StorageVector{<:StorageReal})::StorageReal
-    dtype = reduction_result_type(operation, eltype(input))
-    return dtype(var(input; corrected = false)) / dtype((Float64(mean(input)) + operation.eps))
+    type = reduction_result_type(operation, eltype(input))
+    return type(var(input; corrected = false)) / type((Float64(mean(input)) + operation.eps))
 end
 
 function reduction_result_type(operation::VarN, eltype::Type)::Type
-    return float_dtype_for(eltype, operation.dtype)
+    return float_type_for(eltype, operation.type)
 end
 
 """
-    Std(; dtype::Maybe{Type} = nothing)
+    Std(; type::Maybe{Type} = nothing)
 
 Reduction operation that returns the (uncorrected) standard deviation of the values.
 
 **Parameters**
 
-`dtype` - The default output data type is the [`float_dtype_for`](@ref) of the input data type.
+`type` - The default output data type is the [`float_type_for`](@ref) of the input data type.
 """
 struct Std <: ReductionOperation
-    dtype::Maybe{Type}
+    type::Maybe{Type}
 end
 @query_operation Std
 
-function Std(; dtype::Maybe{Type{<:AbstractFloat}} = nothing)::Std
-    return Std(dtype)
+function Std(; type::Maybe{Type{<:AbstractFloat}} = nothing)::Std
+    return Std(type)
 end
 
 function Std(operation_name::Token, parameters_values::Dict{String, Token})::Std
-    dtype = parse_parameter_value(operation_name, "eltwise", parameters_values, "dtype", nothing) do parameter_value
-        return parse_float_dtype_value(operation_name, "dtype", parameter_value)
+    type = parse_parameter_value(operation_name, "eltwise", parameters_values, "type", nothing) do parameter_value
+        return parse_float_type_value(operation_name, "type", parameter_value)
     end
-    return Std(dtype)
+    return Std(type)
 end
 
 function compute_reduction(operation::Std, input::StorageMatrix)::StorageVector{<:StorageReal}
-    dtype = reduction_result_type(operation, eltype(input))
-    return convert(AbstractVector{dtype}, vec(std(input; dims = 1, corrected = false)))
+    type = reduction_result_type(operation, eltype(input))
+    return convert(AbstractVector{type}, vec(std(input; dims = 1, corrected = false)))
 end
 
 function compute_reduction(operation::Std, input::StorageVector{<:StorageReal})::StorageReal
-    dtype = reduction_result_type(operation, eltype(input))
-    return dtype(std(input; corrected = false))
+    type = reduction_result_type(operation, eltype(input))
+    return type(std(input; corrected = false))
 end
 
 function reduction_result_type(operation::Std, eltype::Type)::Type
-    return float_dtype_for(eltype, operation.dtype)
+    return float_type_for(eltype, operation.type)
 end
 
 """
-    StdN(; dtype::Maybe{Type} = nothing, eps::StorageReal = 0)
+    StdN(; type::Maybe{Type} = nothing, eps::StorageReal = 0)
 
 Reduction operation that returns the (uncorrected) standard deviation of the values, normalized (divided) by the mean
 value.
 
 **Parameters**
 
-`dtype` - The default output data type is the [`float_dtype_for`](@ref) of the input data type.
+`type` - The default output data type is the [`float_type_for`](@ref) of the input data type.
 
 `eps` - Added to the mean before computing the division, to handle zero input data. By default is zero.
 """
 struct StdN <: ReductionOperation
-    dtype::Maybe{Type}
+    type::Maybe{Type}
     eps::Float64
 end
 @query_operation StdN
 
-function StdN(; dtype::Maybe{Type{<:AbstractFloat}} = nothing, eps::StorageReal = 0)::StdN
+function StdN(; type::Maybe{Type{<:AbstractFloat}} = nothing, eps::StorageReal = 0)::StdN
     @assert eps >= 0
-    return StdN(dtype, eps)
+    return StdN(type, eps)
 end
 
 function StdN(operation_name::Token, parameters_values::Dict{String, Token})::StdN
-    dtype = parse_parameter_value(operation_name, "eltwise", parameters_values, "dtype", nothing) do parameter_value
-        return parse_float_dtype_value(operation_name, "dtype", parameter_value)
+    type = parse_parameter_value(operation_name, "eltwise", parameters_values, "type", nothing) do parameter_value
+        return parse_float_type_value(operation_name, "type", parameter_value)
     end
     eps = parse_parameter_value(operation_name, "eltwise", parameters_values, "eps", 0.0) do parameter_value
         eps = parse_number_value(operation_name, "eps", parameter_value, Float64)
@@ -1358,25 +1358,25 @@ function StdN(operation_name::Token, parameters_values::Dict{String, Token})::St
         end
         return eps
     end
-    return StdN(dtype, eps)
+    return StdN(type, eps)
 end
 
 function compute_reduction(operation::StdN, input::StorageMatrix)::StorageVector{<:StorageReal}
-    dtype = reduction_result_type(operation, eltype(input))
-    stds = convert(AbstractVector{dtype}, vec(std(input; dims = 1, corrected = false)))
-    means = convert(AbstractVector{dtype}, vec(mean(input; dims = 1)))
+    type = reduction_result_type(operation, eltype(input))
+    stds = convert(AbstractVector{type}, vec(std(input; dims = 1, corrected = false)))
+    means = convert(AbstractVector{type}, vec(mean(input; dims = 1)))
     means .+= operation.eps
     stds ./= means
     return stds
 end
 
 function compute_reduction(operation::StdN, input::StorageVector{<:StorageReal})::StorageReal
-    dtype = reduction_result_type(operation, eltype(input))
-    return dtype(std(input; corrected = false)) / dtype(mean(input) + operation.eps)
+    type = reduction_result_type(operation, eltype(input))
+    return type(std(input; corrected = false)) / type(mean(input) + operation.eps)
 end
 
 function reduction_result_type(operation::StdN, eltype::Type)::Type
-    return float_dtype_for(eltype, operation.dtype)
+    return float_type_for(eltype, operation.type)
 end
 
 end # module

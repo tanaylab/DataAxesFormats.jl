@@ -31,9 +31,26 @@ nested_test("matrix_layouts") do
                 @test minor_axis(dense) == Rows
             end
 
+            nested_test("permuted_dims") do
+                nested_test("1,2") do
+                    @test major_axis(PermutedDimsArray(dense, (1, 2))) == Columns
+                    @test minor_axis(PermutedDimsArray(dense, (1, 2))) == Rows
+                end
+
+                nested_test("2,1") do
+                    @test major_axis(PermutedDimsArray(dense, (2, 1))) == Rows
+                    @test minor_axis(PermutedDimsArray(dense, (2, 1))) == Columns
+                end
+            end
+
             nested_test("transpose") do
                 @test major_axis(transpose(dense)) == Rows
                 @test minor_axis(transpose(dense)) == Columns
+            end
+
+            nested_test("adjoint") do
+                @test major_axis(adjoint(dense)) == Rows
+                @test minor_axis(adjoint(dense)) == Columns
             end
 
             nested_test("read_only") do
@@ -55,9 +72,26 @@ nested_test("matrix_layouts") do
                 @test minor_axis(sparse) == Rows
             end
 
+            nested_test("permuted_dims") do
+                nested_test("2,1") do
+                    @test major_axis(PermutedDimsArray(sparse, (1, 2))) == Columns
+                    @test minor_axis(PermutedDimsArray(sparse, (1, 2))) == Rows
+                end
+
+                nested_test("2,1") do
+                    @test major_axis(PermutedDimsArray(sparse, (2, 1))) == Rows
+                    @test minor_axis(PermutedDimsArray(sparse, (2, 1))) == Columns
+                end
+            end
+
             nested_test("transpose") do
                 @test major_axis(transpose(sparse)) == Rows
                 @test minor_axis(transpose(sparse)) == Columns
+            end
+
+            nested_test("adjoint") do
+                @test major_axis(adjoint(sparse)) == Rows
+                @test minor_axis(adjoint(sparse)) == Columns
             end
 
             nested_test("read_only") do
@@ -196,14 +230,26 @@ nested_test("matrix_layouts") do
                     @test !issparse(result)
                 end
 
-                nested_test("adjoint") do
-                    adjointed_dense = adjoint(dense)
-                    @test major_axis(adjointed_dense) == Rows
+                nested_test("permuted_dims") do
+                    nested_test("1,2") do
+                        permuted_dense = PermutedDimsArray(dense, (1, 2))
+                        @test major_axis(permuted_dense) == Columns
 
-                    result = relayout(adjointed_dense)
-                    @test major_axis(result) == Columns
-                    @test result == adjointed_dense
-                    @test !issparse(result)
+                        result = relayout(permuted_dense)
+                        @test major_axis(result) == Rows
+                        @test result == permuted_dense
+                        @test !issparse(result)
+                    end
+
+                    nested_test("2,1") do
+                        permuted_dense = PermutedDimsArray(dense, (2, 1))
+                        @test major_axis(permuted_dense) == Rows
+
+                        result = relayout(permuted_dense)
+                        @test major_axis(result) == Columns
+                        @test result == permuted_dense
+                        @test !issparse(result)
+                    end
                 end
 
                 nested_test("transpose") do
@@ -213,6 +259,16 @@ nested_test("matrix_layouts") do
                     result = relayout(transposed_dense)
                     @test major_axis(result) == Columns
                     @test result == transposed_dense
+                    @test !issparse(result)
+                end
+
+                nested_test("adjoint") do
+                    adjointed_dense = adjoint(dense)
+                    @test major_axis(adjointed_dense) == Rows
+
+                    result = relayout(adjointed_dense)
+                    @test major_axis(result) == Columns
+                    @test result == adjointed_dense
                     @test !issparse(result)
                 end
 
@@ -246,14 +302,26 @@ nested_test("matrix_layouts") do
                     @test issparse(result)
                 end
 
-                nested_test("adjoint") do
-                    adjointed_sparse = adjoint(sparse)
-                    @test major_axis(adjointed_sparse) == Rows
+                nested_test("permuted_dims") do
+                    nested_test("1,2") do
+                        permuted_sparse = PermutedDimsArray(sparse, (1, 2))
+                        @test major_axis(permuted_sparse) == Columns
 
-                    result = relayout(adjointed_sparse)
-                    @test major_axis(result) == Columns
-                    @test result == adjointed_sparse
-                    @test issparse(result)
+                        result = relayout(permuted_sparse)
+                        @test major_axis(result) == Rows
+                        @test result == permuted_sparse
+                        @test issparse(result)
+                    end
+
+                    nested_test("2,1") do
+                        permuted_sparse = PermutedDimsArray(sparse, (2, 1))
+                        @test major_axis(permuted_sparse) == Rows
+
+                        result = relayout(permuted_sparse)
+                        @test major_axis(result) == Columns
+                        @test result == permuted_sparse
+                        @test issparse(result)
+                    end
                 end
 
                 nested_test("transpose") do
@@ -263,6 +331,16 @@ nested_test("matrix_layouts") do
                     result = relayout(transposed_sparse)
                     @test major_axis(result) == Columns
                     @test result == transposed_sparse
+                    @test issparse(result)
+                end
+
+                nested_test("adjoint") do
+                    adjointed_sparse = adjoint(sparse)
+                    @test major_axis(adjointed_sparse) == Rows
+
+                    result = relayout(adjointed_sparse)
+                    @test major_axis(result) == Columns
+                    @test result == adjointed_sparse
                     @test issparse(result)
                 end
 
@@ -315,6 +393,12 @@ nested_test("matrix_layouts") do
 
                 nested_test("read_only") do
                     relayout!(destination, SparseArrays.ReadOnly(source))
+                    @test major_axis(destination) == Rows
+                    @test destination == source
+                end
+
+                nested_test("permuted_dims") do
+                    relayout!(PermutedDimsArray(destination, (2, 1)), PermutedDimsArray(source, (2, 1)))
                     @test major_axis(destination) == Rows
                     @test destination == source
                 end
@@ -387,8 +471,28 @@ nested_test("matrix_layouts") do
                     @test destination == source
                 end
 
+                nested_test("permuted_dims") do
+                    nested_test("1,2") do
+                        relayout!(PermutedDimsArray(destination, (1, 2)), PermutedDimsArray(source, (1, 2)))
+                        @test major_axis(destination) == Rows
+                        @test destination == source
+                    end
+
+                    nested_test("2,1") do
+                        relayout!(PermutedDimsArray(destination, (2, 1)), PermutedDimsArray(source, (2, 1)))
+                        @test major_axis(destination) == Rows
+                        @test destination == source
+                    end
+                end
+
                 nested_test("transpose") do
                     relayout!(transpose(destination), transpose(source))
+                    @test major_axis(destination) == Rows
+                    @test destination == source
+                end
+
+                nested_test("adjoint") do
+                    relayout!(adjoint(destination), adjoint(source))
                     @test major_axis(destination) == Rows
                     @test destination == source
                 end
@@ -431,16 +535,33 @@ nested_test("matrix_layouts") do
                     @test densify(vector) === vector
                 end
 
+                nested_test("permuted_dims") do
+                    nested_test("1,2") do
+                        matrix = PermutedDimsArray(matrix, (1, 2))
+                        @test densify(matrix) === matrix
+                    end
+
+                    nested_test("2,1") do
+                        matrix = PermutedDimsArray(matrix, (2, 1))
+                        @test densify(matrix) === matrix
+                    end
+                end
+
                 nested_test("transpose") do
                     matrix = transpose(matrix)
-                    @test parent(densify(matrix)) === parent(matrix)
+                    @test densify(matrix) === matrix
+                end
+
+                nested_test("adjoint") do
+                    matrix = adjoint(matrix)
+                    @test densify(matrix) === matrix
                 end
 
                 nested_test("named") do
                     matrix = NamedArray(matrix)
-                    @test densify(matrix).array === matrix.array
+                    @test densify(matrix) === matrix
                     vector = NamedArray(vector)
-                    @test densify(vector).array === vector.array
+                    @test densify(vector) === vector
                 end
 
                 nested_test("copy") do
@@ -476,16 +597,33 @@ nested_test("matrix_layouts") do
                     @test sparsify(vector) === vector
                 end
 
+                nested_test("permuted_dims") do
+                    nested_test("1,2") do
+                        matrix = PermutedDimsArray(matrix, (1, 2))
+                        @test sparsify(matrix) === matrix
+                    end
+
+                    nested_test("2,1") do
+                        matrix = PermutedDimsArray(matrix, (2, 1))
+                        @test sparsify(matrix) === matrix
+                    end
+                end
+
                 nested_test("transpose") do
                     matrix = transpose(matrix)
-                    @test parent(sparsify(matrix)) === parent(matrix)
+                    @test sparsify(matrix) === matrix
+                end
+
+                nested_test("adjoint") do
+                    matrix = adjoint(matrix)
+                    @test sparsify(matrix) === matrix
                 end
 
                 nested_test("named") do
                     matrix = NamedArray(matrix)
-                    @test sparsify(matrix).array === matrix.array
+                    @test sparsify(matrix) === matrix
                     vector = NamedArray(vector)
-                    @test sparsify(vector).array === vector.array
+                    @test sparsify(vector) === vector
                 end
 
                 nested_test("copy") do
@@ -534,8 +672,25 @@ nested_test("matrix_layouts") do
                         @test bestify(vector) === vector
                     end
 
+                    nested_test("permuted_dims") do
+                        nested_test("1,2") do
+                            matrix = PermutedDimsArray(matrix, (1, 2))
+                            @test bestify(matrix) === matrix
+                        end
+
+                        nested_test("2,1") do
+                            matrix = PermutedDimsArray(matrix, (2, 1))
+                            @test bestify(matrix) === matrix
+                        end
+                    end
+
                     nested_test("transpose") do
                         matrix = transpose(matrix)
+                        @test parent(bestify(matrix)) === parent(matrix)
+                    end
+
+                    nested_test("adjoint") do
+                        matrix = adjoint(matrix)
                         @test parent(bestify(matrix)) === parent(matrix)
                     end
 
@@ -567,8 +722,25 @@ nested_test("matrix_layouts") do
                         @test bestify(vector) === vector
                     end
 
+                    nested_test("permuted_dims") do
+                        nested_test("1,2") do
+                            matrix = PermutedDimsArray(matrix, (1, 2))
+                            @test bestify(matrix) === matrix
+                        end
+
+                        nested_test("2,1") do
+                            matrix = PermutedDimsArray(matrix, (2, 1))
+                            @test bestify(matrix) === matrix
+                        end
+                    end
+
                     nested_test("transpose") do
                         matrix = transpose(matrix)
+                        @test bestify(matrix) === matrix
+                    end
+
+                    nested_test("adjoint") do
+                        matrix = adjoint(matrix)
                         @test bestify(matrix) === matrix
                     end
 

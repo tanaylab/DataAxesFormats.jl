@@ -304,7 +304,7 @@
     source::DafReader,
     name::AbstractString,
     [rename::Maybe{AbstractString} = nothing,
-    dtype::Maybe{Type{&lt;:StorageScalarBase}} = nothing,
+    type::Maybe{Type{&lt;:StorageScalarBase}} = nothing,
     default::Union{StorageScalar, Nothing, UndefInitializer} = undef,
     overwrite::Bool = false,
     insist::Bool = true]
@@ -334,7 +334,7 @@
 </code>. If 
 <code>rename
 </code> is specified, store the scalar using this new name. If 
-<code>dtype
+<code>type
 </code> is specified, the data is converted to this type. If the scalar already exists in the target, if 
 <code>overwrite
 </code>, it will be replaced; otherwise, if not 
@@ -427,7 +427,7 @@
     name::AbstractString,
     [reaxis::Maybe{AbstractString} = nothing,
     rename::Maybe{AbstractString} = nothing,
-    dtype::Maybe{Type{&lt;:StorageScalarBase}} = nothing,
+    type::Maybe{Type{&lt;:StorageScalarBase}} = nothing,
     default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
     empty::Maybe{StorageScalar} = nothing,
     bestify::Bool = false,
@@ -462,7 +462,7 @@
 </code> is specified, store the vector using this axis. If 
 <code>rename
 </code> is specified, store the vector using this name. If 
-<code>dtype
+<code>type
 </code> is specified, the data is converted to this type. If the vector already exists in the target, if 
 <code>overwrite
 </code>, it will be replaced; otherwise, if not 
@@ -511,7 +511,7 @@
     [rows_reaxis::Maybe{AbstractString} = nothing,
     columns_reaxis::Maybe{AbstractString} = nothing,
     rename::Maybe{AbstractString} = nothing,
-    dtype::Maybe{Type{&lt;:StorageScalarBase}} = nothing,
+    eltype::Maybe{Type{&lt;:StorageScalarBase}} = nothing,
     default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
     empty::Maybe{StorageScalar} = nothing,
     bestify::Bool = false,
@@ -553,7 +553,7 @@
 </code> are specified, store the vector using these axes. If 
 <code>rename
 </code> is specified, store the matrix using this name. If 
-<code>dtype
+<code>eltype
 </code> is specified, the data is converted to this type. If the matrix already exists in the target, if 
 <code>overwrite
 </code>, it will be replaced; otherwise, if not 
@@ -613,7 +613,7 @@
     [rows_reaxis::Maybe{AbstractString} = nothing,
     columns_reaxis::Maybe{AbstractString} = nothing,
     rename::Maybe{AbstractString} = nothing,
-    dtype::Maybe{Type{&lt;:StorageScalarBase}} = nothing,
+    eltype::Maybe{Type{&lt;:StorageScalarBase}} = nothing,
     empty::Maybe{StorageScalar} = nothing,
     bestify::Bool = false,
     sparse_if_saves_storage_fraction::AbstractFloat = ```0.25```,
@@ -686,7 +686,7 @@
     destination::DafWriter,
     source::DafReader
     [empty::Maybe{EmptyData} = nothing,
-    dtypes::Maybe{DataTypes} = nothing,
+    types::Maybe{DataTypes} = nothing,
     overwrite::Bool = false,
     insist::Bool = true,
     relayout::Bool = true]
@@ -732,8 +732,8 @@
 </code> value is automatically used for both axes orders).
 </p>
 <p>If 
-<code>dtype
-</code> is specified, the copied data of the matching property is converted to the specified data type.
+<code>types
+</code> are specified, the copied data of the matching property is converted to the specified data type.
 </p>
 <p>If a 
 <a href="keys.html#DataAxesFormats.Keys.TensorKey">
@@ -966,7 +966,7 @@
 <hr/>
 <p>This document was generated with 
 <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl
-</a> version 1.8.0. Using Julia version 1.11.4.
+</a> version 1.9.0. Using Julia version 1.11.4.
 </p>
 </section>
 <footer class="modal-card-foot">

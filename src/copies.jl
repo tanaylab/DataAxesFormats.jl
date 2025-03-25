@@ -46,7 +46,7 @@ import ..MatrixLayouts.rowval
         source::DafReader,
         name::AbstractString,
         [rename::Maybe{AbstractString} = nothing,
-        dtype::Maybe{Type{<:StorageScalarBase}} = nothing,
+        type::Maybe{Type{<:StorageScalarBase}} = nothing,
         default::Union{StorageScalar, Nothing, UndefInitializer} = undef,
         overwrite::Bool = false,
         insist::Bool = true]
@@ -55,7 +55,7 @@ import ..MatrixLayouts.rowval
 Copy a scalar with some `name` from some `source` [`DafReader`](@ref) into some `destination` [`DafWriter`](@ref).
 
 The scalar is fetched using the `name` and the `default`. If `rename` is specified, store the scalar using this new
-name. If `dtype` is specified, the data is converted to this type. If the scalar already exists in the target, if
+name. If `type` is specified, the data is converted to this type. If the scalar already exists in the target, if
 `overwrite`, it will be replaced; otherwise, if not `insist`, skip the copy; otherwise, fail.
 """
 @logged function copy_scalar!(;
@@ -63,7 +63,7 @@ name. If `dtype` is specified, the data is converted to this type. If the scalar
     source::DafReader,
     name::AbstractString,
     rename::Maybe{AbstractString} = nothing,
-    dtype::Maybe{Type{<:StorageScalarBase}} = nothing,
+    type::Maybe{Type{<:StorageScalarBase}} = nothing,
     default::Union{StorageScalar, Nothing, UndefInitializer} = undef,
     overwrite::Bool = false,
     insist::Bool = true,
@@ -76,15 +76,15 @@ name. If `dtype` is specified, the data is converted to this type. If the scalar
 
     value = get_scalar(source, name; default)
     if value !== nothing
-        if dtype !== nothing
-            concrete_dtype, abstract_dtype = target_types(dtype)
-            if !(typeof(value) <: abstract_dtype)
-                if concrete_dtype == String
+        if type !== nothing
+            concrete_type, abstract_type = target_types(type)
+            if !(typeof(value) <: abstract_type)
+                if concrete_type == String
                     value = string(value)
                 elseif typeof(value) <: AbstractString
-                    value = parse(concrete_dtype, value)
+                    value = parse(concrete_type, value)
                 else
-                    value = concrete_dtype(value)
+                    value = concrete_type(value)
                 end
             end
         end
@@ -145,7 +145,7 @@ end
         name::AbstractString,
         [reaxis::Maybe{AbstractString} = nothing,
         rename::Maybe{AbstractString} = nothing,
-        dtype::Maybe{Type{<:StorageScalarBase}} = nothing,
+        type::Maybe{Type{<:StorageScalarBase}} = nothing,
         default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
         empty::Maybe{StorageScalar} = nothing,
         bestify::Bool = false,
@@ -157,7 +157,7 @@ end
 Copy a vector from some `source` [`DafReader`](@ref) into some `destination` [`DafWriter`](@ref).
 
 The vector is fetched using the `axis`, `name` and the `default`. If `reaxis` is specified, store the vector using this
-axis. If `rename` is specified, store the vector using this name. If `dtype` is specified, the data is converted to this
+axis. If `rename` is specified, store the vector using this name. If `type` is specified, the data is converted to this
 type. If the vector already exists in the target, if `overwrite`, it will be replaced; otherwise, if not `insist`, skip
 the copy; otherwise, fail.
 
@@ -174,7 +174,7 @@ source axis contains entries that do not exist in the target, they are discarded
     name::AbstractString,
     reaxis::Maybe{AbstractString} = nothing,
     rename::Maybe{AbstractString} = nothing,
-    dtype::Maybe{Type{<:StorageScalarBase}} = nothing,
+    eltype::Maybe{Type{<:StorageScalarBase}} = nothing,
     default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
     empty::Maybe{StorageScalar} = nothing,
     bestify::Bool = false,
@@ -216,8 +216,8 @@ source axis contains entries that do not exist in the target, they are discarded
         relation = :same
     end
 
-    concrete_dtype, abstract_dtype = target_types(dtype === nothing ? eltype(value) : dtype)
-    if concrete_dtype <: AbstractString && (issparse(value) || !(eltype(value) <: AbstractString))
+    concrete_eltype, abstract_eltype = target_types(eltype === nothing ? Base.eltype(value) : eltype)
+    if concrete_eltype <: AbstractString && (issparse(value) || !(Base.eltype(value) <: AbstractString))
         string_vector = [string(element) for element in value]
         value = NamedArray(string_vector, value.dicts, value.dimnames)
     end
@@ -226,20 +226,20 @@ source axis contains entries that do not exist in the target, they are discarded
         return nothing  # UNTESTED
     end
 
-    if bestify && eltype(value) <: Real
-        value = MatrixLayouts.bestify(value; sparse_if_saves_storage_fraction)  # UNTESTED
+    if bestify && Base.eltype(value) <: Real
+        value = MatrixLayouts.bestify(value; sparse_if_saves_storage_fraction, eltype)  # UNTESTED
     end
 
     if relation == :same
-        if eltype(value) <: abstract_dtype
+        if Base.eltype(value) <: abstract_eltype
             set_vector!(destination, reaxis, rename, value; overwrite)
         elseif issparse(value.array)
-            @assert isbitstype(concrete_dtype) "not a bits type: $(concrete_dtype)"
+            @assert isbitstype(concrete_eltype) "not a bits type: $(concrete_eltype)"
             empty_sparse_vector!(
                 destination,
                 reaxis,
                 rename,
-                concrete_dtype,
+                concrete_eltype,
                 nnz(value.array);
                 overwrite,
             ) do sparse_nzind, sparse_nzval
@@ -248,8 +248,8 @@ source axis contains entries that do not exist in the target, they are discarded
                 return nothing
             end
         else
-            @assert isbitstype(concrete_dtype) "not a bits type: $(concrete_dtype)"
-            empty_dense_vector!(destination, reaxis, rename, concrete_dtype; overwrite) do empty_vector
+            @assert isbitstype(concrete_eltype) "not a bits type: $(concrete_eltype)"
+            empty_dense_vector!(destination, reaxis, rename, concrete_eltype; overwrite) do empty_vector
                 empty_vector .= value
                 return nothing
             end
@@ -267,15 +267,15 @@ source axis contains entries that do not exist in the target, they are discarded
     )
 
     with_data_write_lock(destination) do
-        if issparse(value.array) || concrete_dtype <: AbstractString
-            dense = Vector{concrete_dtype}(undef, axis_length(destination, reaxis))
+        if issparse(value.array) || concrete_eltype <: AbstractString
+            dense = Vector{concrete_eltype}(undef, axis_length(destination, reaxis))
             named = as_named_vector(destination, reaxis, dense)
             named .= empty
             named[names(value, 1)] .= value  # NOJET
-            value = issparse(value.array) && !(concrete_dtype <: AbstractString) ? sparse_vector(dense) : dense
+            value = issparse(value.array) && !(concrete_eltype <: AbstractString) ? sparse_vector(dense) : dense
             set_vector!(destination, reaxis, rename, value; overwrite)
         else
-            empty_dense_vector!(destination, reaxis, rename, concrete_dtype; overwrite) do empty_vector
+            empty_dense_vector!(destination, reaxis, rename, concrete_eltype; overwrite) do empty_vector
                 empty_vector .= empty
                 named_vector = Formats.as_named_vector(destination, axis, empty_vector)
                 named_vector[names(value, 1)] .= value
@@ -297,7 +297,7 @@ end
         [rows_reaxis::Maybe{AbstractString} = nothing,
         columns_reaxis::Maybe{AbstractString} = nothing,
         rename::Maybe{AbstractString} = nothing,
-        dtype::Maybe{Type{<:StorageScalarBase}} = nothing,
+        eltype::Maybe{Type{<:StorageScalarBase}} = nothing,
         default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
         empty::Maybe{StorageScalar} = nothing,
         bestify::Bool = false,
@@ -311,7 +311,7 @@ Copy a matrix from some `source` [`DafReader`](@ref) into some `destination` [`D
 
 The matrix is fetched using the `rows_axis`, `columns_axis`, `name`, `relayout` and the `default`. If `rows_reaxis`
 and/or `columns_reaxis` are specified, store the vector using these axes. If `rename` is specified, store the matrix
-using this name. If `dtype` is specified, the data is converted to this type. If the matrix already exists in the
+using this name. If `eltype` is specified, the data is converted to this type. If the matrix already exists in the
 target, if `overwrite`, it will be replaced; otherwise, if not `insist`, skip the copy; otherwise, fail.
 
 If `bestify` is set, then [`bestify`](@ref) the data before writing it, using `sparse_if_saves_storage_fraction`.
@@ -335,7 +335,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
     rows_reaxis::Maybe{AbstractString} = nothing,
     columns_reaxis::Maybe{AbstractString} = nothing,
     rename::Maybe{AbstractString} = nothing,
-    dtype::Maybe{Type{<:StorageScalarBase}} = nothing,
+    eltype::Maybe{Type{<:StorageScalarBase}} = nothing,
     default::Union{StorageReal, StorageMatrix, Nothing, UndefInitializer} = undef,
     empty::Maybe{StorageReal} = nothing,
     bestify::Bool = false,
@@ -388,7 +388,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
     end
 
     if bestify
-        value = MatrixLayouts.bestify(value; sparse_if_saves_storage_fraction)  # UNTESTED
+        value = MatrixLayouts.bestify(value; sparse_if_saves_storage_fraction, eltype)  # UNTESTED
     end
 
     if relayout && has_matrix(source, columns_axis, rows_axis, name; relayout = false)
@@ -439,11 +439,11 @@ axis contains entries that do not exist in the target, they are discarded (not c
         columns_relation = :same
     end
 
-    concrete_dtype, _ = target_types(dtype === nothing ? eltype(value) : dtype)
-    @assert isbitstype(concrete_dtype) "not a bits type: $(concrete_dtype)"
+    concrete_eltype, _ = target_types(eltype === nothing ? Base.eltype(value) : eltype)
+    @assert isbitstype(concrete_eltype) "not a bits type: $(concrete_eltype)"
 
     if rows_relation == :same && columns_relation == :same
-        if eltype(value) == concrete_dtype
+        if Base.eltype(value) == concrete_eltype
             set_matrix!(destination, rows_reaxis, columns_reaxis, rename, value; overwrite, relayout)
         else
             if issparse(value)
@@ -452,7 +452,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
                     rows_reaxis,
                     columns_reaxis,
                     rename,
-                    concrete_dtype,
+                    concrete_eltype,
                     nnz(value);
                     overwrite,
                 ) do sparse_colptr, sparse_rowval, sparse_nzval
@@ -467,7 +467,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
                     rows_reaxis,
                     columns_reaxis,
                     rename,
-                    concrete_dtype;
+                    concrete_eltype;
                     overwrite,
                 ) do empty_matrix
                     empty_matrix .= value
@@ -485,7 +485,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
 
     with_data_write_lock(destination) do
         if issparse(value) || empty == 0
-            dense = Matrix{concrete_dtype}(
+            dense = Matrix{concrete_eltype}(
                 undef,
                 axis_length(destination, rows_reaxis),
                 axis_length(destination, columns_reaxis),
@@ -501,7 +501,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
                 rows_reaxis,
                 columns_reaxis,
                 rename,
-                concrete_dtype;
+                concrete_eltype;
                 overwrite,
             ) do empty_matrix
                 empty_matrix .= empty
@@ -529,7 +529,7 @@ end
         [rows_reaxis::Maybe{AbstractString} = nothing,
         columns_reaxis::Maybe{AbstractString} = nothing,
         rename::Maybe{AbstractString} = nothing,
-        dtype::Maybe{Type{<:StorageScalarBase}} = nothing,
+        eltype::Maybe{Type{<:StorageScalarBase}} = nothing,
         empty::Maybe{StorageScalar} = nothing,
         bestify::Bool = false,
         sparse_if_saves_storage_fraction::AbstractFloat = $(DEFAULT.sparse_if_saves_storage_fraction),
@@ -557,7 +557,7 @@ which exist in the destination but do not exist in the source. If a tensor matri
     rows_reaxis::Maybe{AbstractString} = nothing,
     columns_reaxis::Maybe{AbstractString} = nothing,
     rename::Maybe{AbstractString} = nothing,
-    dtype::Maybe{Type{<:StorageScalarBase}} = nothing,
+    eltype::Maybe{Type{<:StorageScalarBase}} = nothing,
     empty::Maybe{StorageReal} = nothing,
     bestify::Bool = false,
     sparse_if_saves_storage_fraction::AbstractFloat = function_default(
@@ -581,7 +581,7 @@ which exist in the destination but do not exist in the source. If a tensor matri
             rows_reaxis,
             columns_reaxis,
             rename = rename === nothing ? nothing : "$(entry)_$(rename)",
-            dtype,
+            eltype,
             default = empty,
             empty,
             bestify,
@@ -629,7 +629,7 @@ DataTypes = AbstractDict
         destination::DafWriter,
         source::DafReader
         [empty::Maybe{EmptyData} = nothing,
-        dtypes::Maybe{DataTypes} = nothing,
+        types::Maybe{DataTypes} = nothing,
         overwrite::Bool = false,
         insist::Bool = true,
         relayout::Bool = true]
@@ -648,7 +648,7 @@ specified using a `(axis, property) => value` entry for specifying an `empty` va
 `(rows_axis, columns_axis, property) => entry` for specifying an `empty` value for a matrix property. The order of the
 axes for matrix properties doesn't matter (the same `empty` value is automatically used for both axes orders).
 
-If `dtype` is specified, the copied data of the matching property is converted to the specified data type.
+If `types` are specified, the copied data of the matching property is converted to the specified data type.
 
 If a [`TensorKey`](@ref) is specified, this will create an matrix full of the `empty` value for any entries of the main
 axis which exist in the destination but do not exist in the source.
@@ -657,14 +657,14 @@ axis which exist in the destination but do not exist in the source.
     destination::DafWriter,
     source::DafReader,
     empty::Maybe{EmptyData} = nothing,
-    dtypes::Maybe{DataTypes} = nothing,
+    types::Maybe{DataTypes} = nothing,
     overwrite::Bool = false,
     insist::Bool = true,
     relayout::Bool = true,
 )::Nothing
     tensor_keys = Vector{TensorKey}()
     empty = expand_tensors(; dafs = DafReader[destination, source], data = empty, tensor_keys, what_for = "empty")
-    dtypes = expand_tensors(; dafs = DafReader[destination, source], data = dtypes, tensor_keys, what_for = "dtypes")
+    types = expand_tensors(; dafs = DafReader[destination, source], data = types, tensor_keys, what_for = "types")
 
     if empty !== nothing
         for (key, value) in empty
@@ -673,10 +673,10 @@ axis which exist in the destination but do not exist in the source.
         end
     end
 
-    if dtypes !== nothing
-        for (key, value) in dtypes
-            @assert key isa DataKey "invalid dtype DataKey: $(key)"
-            @assert value isa Type "invalid dtype Type: $(value)"
+    if types !== nothing
+        for (key, value) in types
+            @assert key isa DataKey "invalid types DataKey: $(key)"
+            @assert value isa Type "invalid types Type: $(value)"
             @assert value <: StorageScalarBase "not a StorageScalarBase: $(value)"
             @assert value <: AbstractString || isbitstype(value) "not a storable type: $(value)"
         end
@@ -684,11 +684,11 @@ axis which exist in the destination but do not exist in the source.
 
     what_for = empty === nothing ? ": data" : nothing
     axis_relations = verify_axes(; destination, source, what_for)
-    copy_scalars(; destination, source, dtypes, overwrite, insist)
+    copy_scalars(; destination, source, types, overwrite, insist)
     copy_axes(; destination, source, overwrite, insist)
-    copy_vectors(; destination, source, axis_relations, empty, dtypes, overwrite, insist)
-    copy_matrices(; destination, source, axis_relations, empty, dtypes, overwrite, insist, relayout)
-    ensure_tensors(; destination, source, axis_relations, empty, dtypes, overwrite, insist, relayout, tensor_keys)
+    copy_vectors(; destination, source, axis_relations, empty, types, overwrite, insist)
+    copy_matrices(; destination, source, axis_relations, empty, types, overwrite, insist, relayout)
+    ensure_tensors(; destination, source, axis_relations, empty, types, overwrite, insist, relayout, tensor_keys)
 
     return nothing
 end
@@ -820,16 +820,16 @@ end
 function copy_scalars(;
     destination::DafWriter,
     source::DafReader,
-    dtypes::Maybe{DataTypes},
+    types::Maybe{DataTypes},
     overwrite::Bool,
     insist::Bool,
 )::Nothing
     for name in scalars_set(source)
-        dtype = nothing
-        if dtypes !== nothing
-            dtype = get(dtypes, name, nothing)
+        type = nothing
+        if types !== nothing
+            type = get(types, name, nothing)
         end
-        copy_scalar!(; destination, source, name, dtype, overwrite, insist)
+        copy_scalar!(; destination, source, name, type, overwrite, insist)
     end
 end
 
@@ -846,7 +846,7 @@ function copy_vectors(;
     source::DafReader,
     axis_relations::Dict{AbstractString, Symbol},
     empty::Maybe{EmptyData},
-    dtypes::Maybe{DataTypes},
+    types::Maybe{DataTypes},
     overwrite::Bool,
     insist::Bool,
 )::Nothing
@@ -857,12 +857,22 @@ function copy_vectors(;
                 empty_value = get(empty, (axis, name), nothing)
             end
 
-            dtype = nothing
-            if dtypes !== nothing
-                dtype = get(dtypes, (axis, name), nothing)
+            type = nothing
+            if types !== nothing
+                type = get(types, (axis, name), nothing)
             end
 
-            copy_vector!(; destination, source, axis, name, empty = empty_value, dtype, overwrite, insist, relation)
+            copy_vector!(;
+                destination,
+                source,
+                axis,
+                name,
+                empty = empty_value,
+                eltype = type,
+                overwrite,
+                insist,
+                relation,
+            )
         end
     end
 end
@@ -872,7 +882,7 @@ function copy_matrices(;
     source::DafReader,
     axis_relations::Dict{AbstractString, Symbol},
     empty::Maybe{EmptyData},
-    dtypes::Maybe{DataTypes},
+    types::Maybe{DataTypes},
     overwrite::Bool,
     insist::Bool,
     relayout::Bool,
@@ -885,7 +895,7 @@ function copy_matrices(;
                         destination,
                         source,
                         empty,
-                        dtypes,
+                        types,
                         overwrite,
                         insist,
                         rows_axis,
@@ -906,7 +916,7 @@ function ensure_tensors(;
     source::DafReader,
     axis_relations::Dict{AbstractString, Symbol},
     empty::Maybe{EmptyData},
-    dtypes::Maybe{DataTypes},
+    types::Maybe{DataTypes},
     overwrite::Bool,
     insist::Bool,
     relayout::Bool,
@@ -921,7 +931,7 @@ function ensure_tensors(;
                     destination,
                     source,
                     empty,
-                    dtypes,
+                    types,
                     overwrite,
                     insist,
                     rows_axis,
@@ -940,7 +950,7 @@ function copy_single_matrix(;
     destination::DafWriter,
     source::DafReader,
     empty::Maybe{EmptyData},
-    dtypes::Maybe{DataTypes},
+    types::Maybe{DataTypes},
     overwrite::Bool,
     insist::Bool,
     rows_axis::AbstractString,
@@ -958,11 +968,11 @@ function copy_single_matrix(;
         end
     end
 
-    dtype = nothing
-    if dtypes !== nothing
-        dtype = get(dtypes, (rows_axis, columns_axis, name), nothing)
-        if dtype === nothing
-            dtype = get(dtypes, (columns_axis, rows_axis, name), nothing)
+    type = nothing
+    if types !== nothing
+        type = get(types, (rows_axis, columns_axis, name), nothing)
+        if type === nothing
+            type = get(types, (columns_axis, rows_axis, name), nothing)
         end
     end
 
@@ -980,7 +990,7 @@ function copy_single_matrix(;
         name,
         default,
         empty = empty_value,
-        dtype,
+        eltype = type,
         overwrite,
         insist,
         rows_relation,
@@ -993,12 +1003,12 @@ function new_name(rename::Maybe{AbstractString}, name::AbstractString)::Abstract
     return rename === nothing ? name : rename
 end
 
-function target_types(dtype::Type)::Tuple{Type, Type}
-    if dtype <: AbstractString
+function target_types(type::Type)::Tuple{Type, Type}
+    if type <: AbstractString
         return (String, AbstractString)
     else
-        @assert isbitstype(dtype) "not a bits type: $(dtype)"
-        return (dtype, dtype)
+        @assert isbitstype(type) "not a bits type: $(type)"
+        return (type, type)
     end
 end
 
