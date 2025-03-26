@@ -429,7 +429,8 @@
 <code class="language-julia hljs">add_axis!(
     daf::DafWriter,
     axis::AbstractString,
-    entries::AbstractVector{&lt;:AbstractString}
+    entries::AbstractVector{&lt;:AbstractString};
+    overwrite::Bool = false,
 )::Nothing
 </code>
 </pre>
@@ -439,11 +440,13 @@
 <code>daf
 </code>.
 </p>
-<p>This first verifies the 
-<code>axis
-</code> does not exist and that the 
+<p>This verifies the 
 <code>entries
-</code> are unique.
+</code> are unique. If 
+<code>overwrite
+</code>, this will first delete an existing axis with the same name (which will also delete any data associated with this axis!). Otherwise, this verifies the the 
+<code>axis
+</code> does not exist.
 </p>
 </div>
 </section>

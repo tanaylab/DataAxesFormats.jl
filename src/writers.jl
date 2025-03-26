@@ -127,18 +127,30 @@ end
     add_axis!(
         daf::DafWriter,
         axis::AbstractString,
-        entries::AbstractVector{<:AbstractString}
+        entries::AbstractVector{<:AbstractString};
+        overwrite::Bool = false,
     )::Nothing
 
 Add a new `axis` to `daf`.
 
-This first verifies the `axis` does not exist and that the `entries` are unique.
+This verifies the `entries` are unique. If `overwrite`, this will first delete an existing axis with the same name
+(which will also delete any data associated with this axis!). Otherwise, this verifies the the `axis` does not exist.
 """
-function add_axis!(daf::DafWriter, axis::AbstractString, entries::AbstractVector{<:AbstractString})::Nothing
+function add_axis!(
+    daf::DafWriter,
+    axis::AbstractString,
+    entries::AbstractVector{<:AbstractString};
+    overwrite::Bool = false,
+)::Nothing
+    if overwrite
+        delete_axis!(daf, axis; must_exist = false)
+    end
+
     entries = base_array(entries)
     if issparse(entries)
         entries = Vector(entries)  # UNTESTED
     end
+
     return Formats.with_data_write_lock(daf, "add_axis! of:", axis) do
         # Formats.assert_valid_cache(daf)
         @debug "add_axis! daf: $(depict(daf)) axis: $(axis) entries: $(depict(entries))"

@@ -409,10 +409,17 @@ function test_existing_axis(daf::DafReader, depth::Int)::Nothing
     end
 
     nested_test("add_axis!") do
-        @test_throws dedent("""
-            existing axis: gene
-            in the daf data: $(daf.name)
-        """) add_axis!(daf, "gene", ["FOXA1", "CATD2", "BATF3"])
+        nested_test("()") do
+            @test_throws dedent("""
+                existing axis: gene
+                in the daf data: $(daf.name)
+            """) add_axis!(daf, "gene", ["Foo", "Bar", "Baz"])
+        end
+
+        nested_test("overwrite") do
+            add_axis!(daf, "gene", ["Foo", "Bar", "Baz"]; overwrite = true)
+            @test axis_vector(daf, "gene") == ["Foo", "Bar", "Baz"]
+        end
     end
 end
 
