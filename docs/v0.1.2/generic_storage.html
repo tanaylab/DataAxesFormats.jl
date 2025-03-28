@@ -5,11 +5,11 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Read-only · DataAxesFormats.jl v0.1.2
+<title>Generic Storage · DataAxesFormats.jl v0.1.2
 </title>
-<meta name="title" content="Read-only · DataAxesFormats.jl v0.1.2"/>
-<meta property="og:title" content="Read-only · DataAxesFormats.jl v0.1.2"/>
-<meta property="twitter:title" content="Read-only · DataAxesFormats.jl v0.1.2"/>
+<meta name="title" content="Generic Storage · DataAxesFormats.jl v0.1.2"/>
+<meta property="og:title" content="Generic Storage · DataAxesFormats.jl v0.1.2"/>
+<meta property="twitter:title" content="Generic Storage · DataAxesFormats.jl v0.1.2"/>
 <meta name="description" content="Documentation for DataAxesFormats.jl v0.1.2."/>
 <meta property="og:description" content="Documentation for DataAxesFormats.jl v0.1.2."/>
 <meta property="twitter:description" content="Documentation for DataAxesFormats.jl v0.1.2."/>
@@ -67,17 +67,9 @@
 <a class="tocitem" href="writers.html">Writers
 </a>
 </li>
-<li class="is-active">
+<li>
 <a class="tocitem" href="read_only.html">Read-only
 </a>
-<ul class="internal">
-<li>
-<a class="tocitem" href="#Index">
-<span>Index
-</span>
-</a>
-</li>
-</ul>
 </li>
 <li>
 <a class="tocitem" href="queries.html">Queries
@@ -183,9 +175,17 @@
 <a class="tocitem" href="generic_locks.html">Generic Locks
 </a>
 </li>
-<li>
+<li class="is-active">
 <a class="tocitem" href="generic_storage.html">Generic Storage
 </a>
+<ul class="internal">
+<li>
+<a class="tocitem" href="#Index">
+<span>Index
+</span>
+</a>
+</li>
+</ul>
 </li>
 <li>
 <a class="tocitem" href="generic_types.html">Generic Types
@@ -220,13 +220,13 @@
 <nav class="breadcrumb">
 <ul class="is-hidden-mobile">
 <li class="is-active">
-<a href="read_only.html">Read-only
+<a href="generic_storage.html">Generic Storage
 </a>
 </li>
 </ul>
 <ul class="is-hidden-tablet">
 <li class="is-active">
-<a href="read_only.html">Read-only
+<a href="generic_storage.html">Generic Storage
 </a>
 </li>
 </ul>
@@ -245,20 +245,20 @@
 </div>
 </header>
 <article class="content" id="documenter-page">
-<h1 id="Read-only">
-<a class="docs-heading-anchor" href="#Read-only">Read-only
+<h1 id="Generic-Storage">
+<a class="docs-heading-anchor" href="#Generic-Storage">Generic Storage
 </a>
-<a id="Read-only-1">
+<a id="Generic-Storage-1">
 </a>
-<a class="docs-heading-anchor-permalink" href="#Read-only" title="Permalink">
+<a class="docs-heading-anchor-permalink" href="#Generic-Storage" title="Permalink">
 </a>
 </h1>
 <article class="docstring">
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DataAxesFormats.ReadOnly" href="#DataAxesFormats.ReadOnly">
-<code>DataAxesFormats.ReadOnly
+<a class="docstring-binding" id="DataAxesFormats.GenericStorage" href="#DataAxesFormats.GenericStorage">
+<code>DataAxesFormats.GenericStorage
 </code>
 </a> — 
 <span class="docstring-category">Module
@@ -268,9 +268,29 @@
 </header>
 <section>
 <div>
-<p>Read-only 
-<code>Daf
-</code> storage format.
+<p>Allow reusing large data between parallel tasks, which arguably should belong in a more general-purpose package.
+</p>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>We do not re-export the types and functions defined here from the top-level 
+<code>DataAxesFormats
+</code> namespace. That is, even if 
+<code>using DataAxesFormats
+</code>, you will 
+<strong>not
+</strong> have these generic names polluting your namespace. If you do want to reuse them in your code, explicitly write 
+<code>using DataAxesFormats.GenericTypes
+</code>.
+</p>
+</div>
+</div>
+<p>Using task local storage will re-allocate and re-initialize this data for each iteration, which is slow. Using thread local storage is no longer safe because Julia has moved away from &quot;sticky&quot; threads (that is, a task may migrate between threads); if naively implemented, it also create an instance per thread regardless whether it is actually used. The 
+<a href="generic_storage.html#DataAxesFormats.GenericStorage.ReusableStorage">
+<code>ReusableStorage
+</code>
+</a> allows allocating the minimal number of instances, reusing them in multiple tasks, and automates resetting the data each time it is used by a new task.
 </p>
 </div>
 </section>
@@ -279,8 +299,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DataAxesFormats.ReadOnly.DafReadOnly" href="#DataAxesFormats.ReadOnly.DafReadOnly">
-<code>DataAxesFormats.ReadOnly.DafReadOnly
+<a class="docstring-binding" id="DataAxesFormats.GenericStorage.ReusableStorage" href="#DataAxesFormats.GenericStorage.ReusableStorage">
+<code>DataAxesFormats.GenericStorage.ReusableStorage
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -290,12 +310,28 @@
 </header>
 <section>
 <div>
-<p>A common base type for a read-only 
-<a href="formats.html#DataAxesFormats.Formats.DafReader">
-<code>DafReader
+<pre>
+<code class="language-julia hljs">ReusableStorage(create::Function)::ReusableStorage
 </code>
-</a>, which doesn&#39;t allow any modification of the data.
+</pre>
+<p>Implement resuable storage for parallel computations. This allocates and reuses the minimal number of instances of some data for (re)use by parallel tasks. The 
+<code>create
+</code> function should return a new instance of the data. If a previous task has used the data, we will 
+<code>reset
+</code> it to bring it back it to its initial state.
 </p>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>The 
+<code>create
+</code> and 
+<code>reset
+</code> functions must be thread safe. We intentionally do not
+</p>
+</div>
+</div>
 </div>
 </section>
 </article>
@@ -303,8 +339,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DataAxesFormats.ReadOnly.read_only" href="#DataAxesFormats.ReadOnly.read_only">
-<code>DataAxesFormats.ReadOnly.read_only
+<a class="docstring-binding" id="DataAxesFormats.GenericStorage.get_reusable!" href="#DataAxesFormats.GenericStorage.get_reusable!">
+<code>DataAxesFormats.GenericStorage.get_reusable!
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -315,28 +351,14 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">read_only(daf::DafReader[; name::Maybe{AbstractString]} = nothing)::DafReadOnlyWrapper
+<code class="language-julia hljs">get_reusable!(reusable_storage::ReusableStorage{T})::T where{T}
 </code>
 </pre>
-<p>Wrap 
-<code>daf
-</code> with a 
-<a href="read_only.html#DataAxesFormats.ReadOnly.DafReadOnlyWrapper">
-<code>DafReadOnlyWrapper
-</code>
-</a> to protect it against accidental modification. If not specified, the 
-<code>name
-</code> of the 
-<code>daf
-</code> is reused. If 
-<code>name
-</code> is not specified and 
-<code>daf
-</code> isa 
-<a href="read_only.html#DataAxesFormats.ReadOnly.DafReadOnly">
-<code>DafReadOnly
-</code>
-</a>, return it as-is.
+<p>Get a private instance of the data from the reusable storage. Will prefer to return an existing instance of the data, after being 
+<code>reset
+</code> if used by a previous task. If all instances are currently being used by other tasks, will 
+<code>create
+</code> a new instance instead.
 </p>
 </div>
 </section>
@@ -345,11 +367,11 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DataAxesFormats.ReadOnly.DafReadOnlyWrapper" href="#DataAxesFormats.ReadOnly.DafReadOnlyWrapper">
-<code>DataAxesFormats.ReadOnly.DafReadOnlyWrapper
+<a class="docstring-binding" id="DataAxesFormats.GenericStorage.put_reusable!" href="#DataAxesFormats.GenericStorage.put_reusable!">
+<code>DataAxesFormats.GenericStorage.put_reusable!
 </code>
 </a> — 
-<span class="docstring-category">Type
+<span class="docstring-category">Function
 </span>
 <span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
 </span>
@@ -357,18 +379,52 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">struct DafReadOnlyWrapper &lt;: DafReader ... end
+<code class="language-julia hljs">put_reusable!(reusable_storage::ReusableStorage{T}, data::T)::Nothing
 </code>
 </pre>
-<p>A wrapper for any 
-<a href="formats.html#DataAxesFormats.Formats.DafWriter">
-<code>DafWriter
+<p>Put back data into the 
+<code>reusable_storage
+</code> once a task is done with it. This will allow other tasks to reuse this data (after being 
+<code>reset
+</code>).
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.GenericStorage.with_reusable" href="#DataAxesFormats.GenericStorage.with_reusable">
+<code>DataAxesFormats.GenericStorage.with_reusable
 </code>
-</a> data, protecting it against accidental modification. This isn&#39;t exported and isn&#39;t created manually; instead call 
-<a href="read_only.html#DataAxesFormats.ReadOnly.read_only">
-<code>read_only
+</a> — 
+<span class="docstring-category">Function
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">with_reusable(action::Function, reusable_storage::ReusableStorage)::Any
 </code>
-</a>.
+</pre>
+<p>Invoke the 
+<code>action
+</code> function with data fetched from the 
+<code>reusable_storage
+</code>. Returns whatever the 
+<code>action
+</code> returns. This just pairs 
+<a href="generic_storage.html#DataAxesFormats.GenericStorage.get_reusable!">
+<code>get_reusable!
+</code>
+</a> and 
+<a href="generic_storage.html#DataAxesFormats.GenericStorage.put_reusable!">
+<code>put_reusable!
+</code>
+</a>, even in the presence of exceptions.
 </p>
 </div>
 </section>
@@ -383,35 +439,41 @@
 </h2>
 <ul>
 <li>
-<a href="read_only.html#DataAxesFormats.ReadOnly">
-<code>DataAxesFormats.ReadOnly
+<a href="generic_storage.html#DataAxesFormats.GenericStorage">
+<code>DataAxesFormats.GenericStorage
 </code>
 </a>
 </li>
 <li>
-<a href="read_only.html#DataAxesFormats.ReadOnly.DafReadOnly">
-<code>DataAxesFormats.ReadOnly.DafReadOnly
+<a href="generic_storage.html#DataAxesFormats.GenericStorage.ReusableStorage">
+<code>DataAxesFormats.GenericStorage.ReusableStorage
 </code>
 </a>
 </li>
 <li>
-<a href="read_only.html#DataAxesFormats.ReadOnly.DafReadOnlyWrapper">
-<code>DataAxesFormats.ReadOnly.DafReadOnlyWrapper
+<a href="generic_storage.html#DataAxesFormats.GenericStorage.get_reusable!">
+<code>DataAxesFormats.GenericStorage.get_reusable!
 </code>
 </a>
 </li>
 <li>
-<a href="read_only.html#DataAxesFormats.ReadOnly.read_only">
-<code>DataAxesFormats.ReadOnly.read_only
+<a href="generic_storage.html#DataAxesFormats.GenericStorage.put_reusable!">
+<code>DataAxesFormats.GenericStorage.put_reusable!
+</code>
+</a>
+</li>
+<li>
+<a href="generic_storage.html#DataAxesFormats.GenericStorage.with_reusable">
+<code>DataAxesFormats.GenericStorage.with_reusable
 </code>
 </a>
 </li>
 </ul>
 </article>
 <nav class="docs-footer">
-<a class="docs-footer-prevpage" href="writers.html">« Writers
+<a class="docs-footer-prevpage" href="generic_locks.html">« Generic Locks
 </a>
-<a class="docs-footer-nextpage" href="queries.html">Queries »
+<a class="docs-footer-nextpage" href="generic_types.html">Generic Types »
 </a>
 <div class="flexbox-break">
 </div>

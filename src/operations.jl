@@ -755,7 +755,7 @@ end
 function compute_eltwise(operation::Significant, input::StorageMatrix)::StorageMatrix
     output = copy_array(input)
     if issparse(output)
-        @threads for column_index in 1:size(output, 2)
+        @threads :greedy for column_index in 1:size(output, 2)
             first = colptr(output)[column_index]
             last = colptr(output)[column_index + 1] - 1
             if first <= last
@@ -768,7 +768,7 @@ function compute_eltwise(operation::Significant, input::StorageMatrix)::StorageM
     else
         n_columns = size(output, 2)
         is_dense_of_columns = zeros(Bool, n_columns)
-        @threads for column_index in 1:n_columns
+        @threads :greedy for column_index in 1:n_columns
             column_vector = @view output[:, column_index]
             significant!(column_vector, operation.high, operation.low)
             is_dense_of_columns[column_index] = all(column_vector .!= 0)
@@ -887,7 +887,7 @@ end
 
 function compute_reduction(operation::Mode, input::StorageMatrix)::StorageVector
     output = Vector{reduction_result_type(operation, eltype(input))}(undef, size(input, 2))
-    @threads for column_index in 1:length(output)
+    @threads :greedy for column_index in 1:length(output)
         column_vector = @view input[:, column_index]
         output[column_index] = mode(column_vector)
     end
@@ -1078,7 +1078,7 @@ end
 function compute_reduction(operation::Quantile, input::StorageMatrix)::StorageVector{<:StorageReal}
     type = reduction_result_type(operation, eltype(input))
     output = Vector{type}(undef, size(input, 2))
-    @threads for column_index in 1:length(output)
+    @threads :greedy for column_index in 1:length(output)
         column_vector = @view input[:, column_index]
         output[column_index] = quantile(column_vector, operation.p)  # NOJET
     end

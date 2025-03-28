@@ -1,12 +1,9 @@
 """
-Generic (enhanced) read-write locks, which arguably should belong in a more general-purpose package.
+Generic (reentrant) read-write locks, which arguably should belong in a more general-purpose package.
 
-These add functionality on top of `ConcurrentUtils`; specifically, they allow querying the status of the lock.
-
-!!! warning
-
-    This code relies on tasks staying on the same thread, so **always** specify `@threads :static` when using them,
-    otherwise bad things *will* happen.
+These add functionality on top of `ConcurrentUtils`; specifically, they allow querying the status of the lock, and
+querying the status of the lock. We also provide explicit `write_*` and `read_*` functions instead of relying on `lock`
+to be `write_lock`. That is, [`ReentrantReadWriteLock`](@ref) is **not** an `AbstractLock`.
 
 !!! note
 
@@ -16,7 +13,7 @@ These add functionality on top of `ConcurrentUtils`; specifically, they allow qu
 """
 module GenericLocks
 
-export QueryReadWriteLock
+export ReentrantReadWriteLock
 export has_read_lock
 export has_write_lock
 export read_lock
@@ -29,37 +26,31 @@ export write_unlock
 using Base.Threads
 using ConcurrentUtils
 
-mutable struct WriterThread
-    thread_id::Integer
-    depth::Int
-end
-
 """
-    struct QueryReadWriteLock <: AbstractLock ... end
+    struct ReentrantReadWriteLock <: AbstractLock ... end
 
-A read-write lock with queries.
+A read-write lock that supports nested calls. You can nest read locks, write locks, and read locks inside write locks.
+However, you can't nest write locks in read locks.
 """
-struct QueryReadWriteLock
+struct ReentrantReadWriteLock
     lock::ReadWriteLock
-    writer_thread::Vector{WriterThread}
-    read_depth_of_threads::Vector{Int}
 end
 
-function QueryReadWriteLock()
-    return QueryReadWriteLock(ReadWriteLock(), [WriterThread(0, 0)], fill(0, nthreads()))
+function ReentrantReadWriteLock()
+    return ReentrantReadWriteLock(ReadWriteLock())
 end
 
 """
-    write_lock(query_read_write_lock::QueryReadWriteLock, what::Any...)::Nothing
+    write_lock(query_read_write_lock::ReentrantReadWriteLock, what::Any...)::Nothing
 
 Obtain a write lock. Each call must be matched by [`write_unlock`](@ref). It is possible to nest
 `write_lock`/`write_unlock` call pairs.
 
-When a thread has a write lock, no other thread can have any lock.
+When a task has a write lock, no other task can have any lock.
 
 The log messages includes `what` is being locked.
 """
-function write_lock(query_read_write_lock::QueryReadWriteLock, what::Any...)::Nothing
+function write_lock(query_read_write_lock::ReentrantReadWriteLock, what::Any...)::Nothing
     private_storage = task_local_storage()
     lock_id = objectid(query_read_write_lock.lock)
     write_key = Symbol((lock_id, true))
@@ -81,14 +72,14 @@ function write_lock(query_read_write_lock::QueryReadWriteLock, what::Any...)::No
 end
 
 """
-    write_unlock(query_read_write_lock::QueryReadWriteLock, what::Any)::Nothing
+    write_unlock(query_read_write_lock::ReentrantReadWriteLock, what::Any)::Nothing
 
 Release a write lock. Each call must matched a call to [`write_lock`](@ref). It is possible to nest
 `write_lock`/`write_unlock` call pairs.
 
 The log messages includes `what` is being unlocked.
 """
-function write_unlock(query_read_write_lock::QueryReadWriteLock, what::Any...)::Nothing
+function write_unlock(query_read_write_lock::ReentrantReadWriteLock, what::Any...)::Nothing
     private_storage = task_local_storage()
     lock_id = objectid(query_read_write_lock.lock)
     write_key = Symbol((lock_id, true))
@@ -110,11 +101,11 @@ function write_unlock(query_read_write_lock::QueryReadWriteLock, what::Any...)::
 end
 
 """
-    has_write_lock(query_read_write_lock::QueryReadWriteLock)::Bool
+    has_write_lock(query_read_write_lock::ReentrantReadWriteLock)::Bool
 
-Return whether the current thread has the write lock.
+Return whether the current task has the write lock.
 """
-function has_write_lock(query_read_write_lock::QueryReadWriteLock)::Bool
+function has_write_lock(query_read_write_lock::ReentrantReadWriteLock)::Bool
     private_storage = task_local_storage()
     lock_id = objectid(query_read_write_lock.lock)
     write_key = Symbol((lock_id, true))
@@ -122,19 +113,19 @@ function has_write_lock(query_read_write_lock::QueryReadWriteLock)::Bool
 end
 
 """
-    read_lock(query_read_write_lock::QueryReadWriteLock, what::Any...)::Bool
+    read_lock(query_read_write_lock::ReentrantReadWriteLock, what::Any...)::Bool
 
 Obtain a read lock. Each call must be matched by [`read_unlock`](@ref). It is possible to nest `read_lock`/`read_unlock`
 call pairs, even inside `write_lock`/`write_unlock` pair(s); however, you can't nest `write_lock`/`write_unlock` inside
 a `read_lock`/`read_unlock` pair.
 
-When a thread has a read lock, no other thread can have a write lock, but other threads may also have a read lock.
+When a task has a read lock, no other task can have a write lock, but other tasks may also have a read lock.
 
 The log messages includes `what` is being locked.
 
 Returns whether this is the top-level read lock (as opposed to a nested one).
 """
-function read_lock(query_read_write_lock::QueryReadWriteLock, what::Any...)::Bool
+function read_lock(query_read_write_lock::ReentrantReadWriteLock, what::Any...)::Bool
     private_storage = task_local_storage()
     lock_id = objectid(query_read_write_lock.lock)
     write_key = Symbol((lock_id, true))
@@ -164,14 +155,14 @@ function read_lock(query_read_write_lock::QueryReadWriteLock, what::Any...)::Boo
 end
 
 """
-    read_unlock(query_read_write_lock::QueryReadWriteLock, what::Any...)::Nothing
+    read_unlock(query_read_write_lock::ReentrantReadWriteLock, what::Any...)::Nothing
 
 Release a read lock. Each call must matched a call to [`read_lock`](@ref). It is possible to nest
 `read_lock`/`read_unlock` call pairs.
 
 The log messages includes `what` is being unlocked.
 """
-function read_unlock(query_read_write_lock::QueryReadWriteLock, what::Any...)::Nothing
+function read_unlock(query_read_write_lock::ReentrantReadWriteLock, what::Any...)::Nothing
     private_storage = task_local_storage()
     lock_id = objectid(query_read_write_lock.lock)
     write_key = Symbol((lock_id, true))
@@ -199,12 +190,12 @@ function read_unlock(query_read_write_lock::QueryReadWriteLock, what::Any...)::N
 end
 
 """
-    has_read_lock(query_read_write_lock::QueryReadWriteLock; read_only::Bool = false)::Bool
+    has_read_lock(query_read_write_lock::ReentrantReadWriteLock; read_only::Bool = false)::Bool
 
-Return whether the current thread has a read lock or the write lock. If `read_only` is set, then this will only return
-whether the current thread as a read lock.
+Return whether the current task has a read lock or the write lock. If `read_only` is set, then this will only return
+whether the current task as a read lock.
 """
-function has_read_lock(query_read_write_lock::QueryReadWriteLock; read_only::Bool = false)::Bool
+function has_read_lock(query_read_write_lock::ReentrantReadWriteLock; read_only::Bool = false)::Bool
     private_storage = task_local_storage()
     lock_id = objectid(query_read_write_lock.lock)
     return haskey(private_storage, Symbol((lock_id, false))) ||
@@ -212,12 +203,12 @@ function has_read_lock(query_read_write_lock::QueryReadWriteLock; read_only::Boo
 end
 
 """
-    with_write_lock(action::Function, query_read_write_lock::QueryReadWriteLock, what::Any...)::Any
+    with_write_lock(action::Function, query_read_write_lock::ReentrantReadWriteLock, what::Any...)::Any
 
 Perform an `action` while holding a [`write_lock`](@ref) for the `query_read_write_lock`, return
 its result and [`write_unlock`](@ref).
 """
-function with_write_lock(action::Function, query_read_write_lock::QueryReadWriteLock, what::Any...)::Any
+function with_write_lock(action::Function, query_read_write_lock::ReentrantReadWriteLock, what::Any...)::Any
     write_lock(query_read_write_lock, what...)
     try
         return action()
@@ -227,12 +218,12 @@ function with_write_lock(action::Function, query_read_write_lock::QueryReadWrite
 end
 
 """
-    with_read_lock(action::Function, query_read_write_lock::QueryReadWriteLock, what::Any...)::Any
+    with_read_lock(action::Function, query_read_write_lock::ReentrantReadWriteLock, what::Any...)::Any
 
 Perform an `action` while holding a [`read_lock`](@ref) for the `query_read_write_lock`, return
 its result and [`read_unlock`](@ref).
 """
-function with_read_lock(action::Function, query_read_write_lock::QueryReadWriteLock, what::Any...)::Any
+function with_read_lock(action::Function, query_read_write_lock::ReentrantReadWriteLock, what::Any...)::Any
     read_lock(query_read_write_lock, what...)
     try
         return action()

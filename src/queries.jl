@@ -3826,7 +3826,7 @@ function compute_matrix_group_by(
         empty_group_value = value_for_if_missing(query_state, if_missing; type)
     end
 
-    @threads for column_index in 1:size(values_matrix)[2]
+    @threads :greedy for column_index in 1:size(values_matrix)[2]
         values_column = @views values_matrix[:, column_index]
         results_column = @views results_matrix[:, column_index]
         collect_vector_group_by(
@@ -3853,7 +3853,7 @@ function collect_vector_group_by(
     reduction_operation::ReductionOperation,
 )::Nothing
     n_groups = length(groups_values)
-    @threads for group_index in 1:n_groups
+    @threads :greedy for group_index in 1:n_groups
         group_value = groups_values[group_index]
         group_mask = groups_vector .== group_value
         values_of_group = values_vector[group_mask]

@@ -2,7 +2,7 @@
 
 ```@docs
 DataAxesFormats.GenericLocks
-DataAxesFormats.GenericLocks.QueryReadWriteLock
+DataAxesFormats.GenericLocks.ReentrantReadWriteLock
 ```
 
 ## Write Lock

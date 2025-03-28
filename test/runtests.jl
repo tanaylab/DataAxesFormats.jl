@@ -5,6 +5,7 @@ using Base.MathConstants
 using DataAxesFormats
 using DataAxesFormats.GenericFunctions
 using DataAxesFormats.GenericLogging
+using DataAxesFormats.GenericStorage
 using DataAxesFormats.GenericTypes
 using ExceptionUnwrapping
 using HDF5
@@ -48,6 +49,7 @@ function with_unwrapping_exceptions(action::Function)::Any
     end
 end
 
+include("generic_storage.jl")
 include("matrix_layouts.jl")
 include("messages.jl")
 include("read_only.jl")

@@ -184,11 +184,6 @@ function matrix_cache_key(rows_axis::AbstractString, columns_axis::AbstractStrin
     return (CachedData, (rows_axis, columns_axis, name))
 end
 
-mutable struct WriterThread
-    thread_id::Int
-    depth::Int
-end
-
 """
     struct Internal ... end
 
@@ -204,8 +199,8 @@ struct Internal
     dependents_of_cache_keys::Dict{CacheKey, Set{CacheKey}}
     dependencies_of_query_keys::Dict{CacheKey, Set{CacheKey}}
     version_counters::Dict{PropertyKey, UInt32}
-    cache_lock::QueryReadWriteLock
-    data_lock::QueryReadWriteLock
+    cache_lock::ReentrantReadWriteLock
+    data_lock::ReentrantReadWriteLock
     is_frozen::Bool
     pending_condition::Threads.Condition
     pending_count::Vector{UInt32}
@@ -218,8 +213,8 @@ function Internal(; cache_group::Maybe{CacheGroup}, is_frozen::Bool)::Internal
         Dict{CacheKey, Set{CacheKey}}(),
         Dict{CacheKey, Set{CacheKey}}(),
         Dict{PropertyKey, UInt32}(),
-        QueryReadWriteLock(),
-        QueryReadWriteLock(),
+        ReentrantReadWriteLock(),
+        ReentrantReadWriteLock(),
         is_frozen,
         Threads.Condition(),
         UInt32[0],

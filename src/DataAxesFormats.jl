@@ -64,6 +64,7 @@ include("messages.jl")
 @reexport using .Messages
 
 include("generic_types.jl")
+include("generic_storage.jl")
 include("generic_logging.jl")
 include("generic_functions.jl")
 include("generic_locks.jl")

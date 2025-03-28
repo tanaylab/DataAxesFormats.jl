@@ -77,6 +77,7 @@ makedocs(;
         "messages.md",
         "generic_logging.md",
         "generic_locks.md",
+        "generic_storage.md",
         "generic_types.md",
         "generic_functions.md",
         "example_data.md",

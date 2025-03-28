@@ -196,6 +196,10 @@
 </ul>
 </li>
 <li>
+<a class="tocitem" href="generic_storage.html">Generic Storage
+</a>
+</li>
+<li>
 <a class="tocitem" href="generic_types.html">Generic Types
 </a>
 </li>
@@ -276,26 +280,28 @@
 </header>
 <section>
 <div>
-<p>Generic (enhanced) read-write locks, which arguably should belong in a more general-purpose package.
+<p>Generic (reentrant) read-write locks, which arguably should belong in a more general-purpose package.
 </p>
 <p>These add functionality on top of 
 <code>ConcurrentUtils
-</code>; specifically, they allow querying the status of the lock.
+</code>; specifically, they allow querying the status of the lock, and querying the status of the lock. We also provide explicit 
+<code>write_*
+</code> and 
+<code>read_*
+</code> functions instead of relying on 
+<code>lock
+</code> to be 
+<code>write_lock
+</code>. That is, 
+<a href="generic_locks.html#DataAxesFormats.GenericLocks.ReentrantReadWriteLock">
+<code>ReentrantReadWriteLock
+</code>
+</a> is 
+<strong>not
+</strong> an 
+<code>AbstractLock
+</code>.
 </p>
-<div class="admonition is-warning">
-<header class="admonition-header">Warning
-</header>
-<div class="admonition-body">
-<p>This code relies on tasks staying on the same thread, so 
-<strong>always
-</strong> specify 
-<code>@threads :static
-</code> when using them, otherwise bad things 
-<em>will
-</em> happen.
-</p>
-</div>
-</div>
 <div class="admonition is-info">
 <header class="admonition-header">Note
 </header>
@@ -319,8 +325,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DataAxesFormats.GenericLocks.QueryReadWriteLock" href="#DataAxesFormats.GenericLocks.QueryReadWriteLock">
-<code>DataAxesFormats.GenericLocks.QueryReadWriteLock
+<a class="docstring-binding" id="DataAxesFormats.GenericLocks.ReentrantReadWriteLock" href="#DataAxesFormats.GenericLocks.ReentrantReadWriteLock">
+<code>DataAxesFormats.GenericLocks.ReentrantReadWriteLock
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -331,10 +337,10 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">struct QueryReadWriteLock &lt;: AbstractLock ... end
+<code class="language-julia hljs">struct ReentrantReadWriteLock &lt;: AbstractLock ... end
 </code>
 </pre>
-<p>A read-write lock with queries.
+<p>A read-write lock that supports nested calls. You can nest read locks, write locks, and read locks inside write locks. However, you can&#39;t nest write locks in read locks.
 </p>
 </div>
 </section>
@@ -363,7 +369,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">write_lock(query_read_write_lock::QueryReadWriteLock, what::Any...)::Nothing
+<code class="language-julia hljs">write_lock(query_read_write_lock::ReentrantReadWriteLock, what::Any...)::Nothing
 </code>
 </pre>
 <p>Obtain a write lock. Each call must be matched by 
@@ -376,7 +382,7 @@
 <code>write_unlock
 </code> call pairs.
 </p>
-<p>When a thread has a write lock, no other thread can have any lock.
+<p>When a task has a write lock, no other task can have any lock.
 </p>
 <p>The log messages includes 
 <code>what
@@ -401,7 +407,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">write_unlock(query_read_write_lock::QueryReadWriteLock, what::Any)::Nothing
+<code class="language-julia hljs">write_unlock(query_read_write_lock::ReentrantReadWriteLock, what::Any)::Nothing
 </code>
 </pre>
 <p>Release a write lock. Each call must matched a call to 
@@ -437,7 +443,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">with_write_lock(action::Function, query_read_write_lock::QueryReadWriteLock, what::Any...)::Any
+<code class="language-julia hljs">with_write_lock(action::Function, query_read_write_lock::ReentrantReadWriteLock, what::Any...)::Any
 </code>
 </pre>
 <p>Perform an 
@@ -473,10 +479,10 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">has_write_lock(query_read_write_lock::QueryReadWriteLock)::Bool
+<code class="language-julia hljs">has_write_lock(query_read_write_lock::ReentrantReadWriteLock)::Bool
 </code>
 </pre>
-<p>Return whether the current thread has the write lock.
+<p>Return whether the current task has the write lock.
 </p>
 </div>
 </section>
@@ -505,7 +511,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">read_lock(query_read_write_lock::QueryReadWriteLock, what::Any...)::Bool
+<code class="language-julia hljs">read_lock(query_read_write_lock::ReentrantReadWriteLock, what::Any...)::Bool
 </code>
 </pre>
 <p>Obtain a read lock. Each call must be matched by 
@@ -530,7 +536,7 @@
 <code>read_unlock
 </code> pair.
 </p>
-<p>When a thread has a read lock, no other thread can have a write lock, but other threads may also have a read lock.
+<p>When a task has a read lock, no other task can have a write lock, but other tasks may also have a read lock.
 </p>
 <p>The log messages includes 
 <code>what
@@ -557,7 +563,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">read_unlock(query_read_write_lock::QueryReadWriteLock, what::Any...)::Nothing
+<code class="language-julia hljs">read_unlock(query_read_write_lock::ReentrantReadWriteLock, what::Any...)::Nothing
 </code>
 </pre>
 <p>Release a read lock. Each call must matched a call to 
@@ -593,7 +599,7 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">with_read_lock(action::Function, query_read_write_lock::QueryReadWriteLock, what::Any...)::Any
+<code class="language-julia hljs">with_read_lock(action::Function, query_read_write_lock::ReentrantReadWriteLock, what::Any...)::Any
 </code>
 </pre>
 <p>Perform an 
@@ -629,12 +635,12 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">has_read_lock(query_read_write_lock::QueryReadWriteLock; read_only::Bool = false)::Bool
+<code class="language-julia hljs">has_read_lock(query_read_write_lock::ReentrantReadWriteLock; read_only::Bool = false)::Bool
 </code>
 </pre>
-<p>Return whether the current thread has a read lock or the write lock. If 
+<p>Return whether the current task has a read lock or the write lock. If 
 <code>read_only
-</code> is set, then this will only return whether the current thread as a read lock.
+</code> is set, then this will only return whether the current task as a read lock.
 </p>
 </div>
 </section>
@@ -655,8 +661,8 @@
 </a>
 </li>
 <li>
-<a href="generic_locks.html#DataAxesFormats.GenericLocks.QueryReadWriteLock">
-<code>DataAxesFormats.GenericLocks.QueryReadWriteLock
+<a href="generic_locks.html#DataAxesFormats.GenericLocks.ReentrantReadWriteLock">
+<code>DataAxesFormats.GenericLocks.ReentrantReadWriteLock
 </code>
 </a>
 </li>
@@ -713,7 +719,7 @@
 <nav class="docs-footer">
 <a class="docs-footer-prevpage" href="generic_logging.html">« Generic Logging
 </a>
-<a class="docs-footer-nextpage" href="generic_types.html">Generic Types »
+<a class="docs-footer-nextpage" href="generic_storage.html">Generic Storage »
 </a>
 <div class="flexbox-break">
 </div>

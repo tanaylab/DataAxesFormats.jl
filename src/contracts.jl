@@ -998,8 +998,13 @@ function expand_axis_tensors(
         end
     end
     for (tensor_key, tracker) in tensors
-        (_, rows_axis, columns_axis, matrix_name) = tensor_key
-        for entry in entries
+        (tensor_axis, rows_axis, columns_axis, matrix_name) = tensor_key
+        if tensor_axis == axis
+            tensor_entries = entries
+        else
+            tensor_entries = Formats.format_axis_vector(contract_daf.daf, tensor_axis)  # UNTESTED
+        end
+        for entry in tensor_entries
             contract_daf.data[(rows_axis, columns_axis, "$(entry)_$(matrix_name)")] = tracker
         end
         delete!(contract_daf.data, tensor_key)

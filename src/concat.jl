@@ -433,7 +433,7 @@ function concatenate_axis_entry_names(
 )::Nothing
     axis_entry_names = Vector{AbstractString}(undef, concatenated_axis_size)
     n_sources = length(sources)
-    @threads for index in 1:n_sources
+    @threads :greedy for index in 1:n_sources
         source = sources[index]
         offset = offsets[index]
         size = sizes[index]
@@ -464,7 +464,7 @@ function concatenate_axis_dataset_property(
     axis_datasets = Vector{AbstractString}(undef, concatenated_axis_size)
 
     n_sources = length(offsets)
-    @threads for index in 1:n_sources
+    @threads :greedy for index in 1:n_sources
         offset = offsets[index]
         size = sizes[index]
         name = names[index]
@@ -560,7 +560,7 @@ function concatenate_axis_string_vectors(
     concatenated_vector = Vector{AbstractString}(undef, concatenated_axis_size)
 
     n_sources = length(sources)
-    @threads for index in 1:n_sources
+    @threads :greedy for index in 1:n_sources
         vector = vectors[index]
         source = sources[index]
         offset = offsets[index]
@@ -599,7 +599,7 @@ function concatenate_axis_sparse_vectors(
 
     empty_sparse_vector!(destination, axis, vector_property, eltype, total_nnz; overwrite) do sparse_nzind, sparse_nzval
         n_sources = length(vectors)
-        @threads for index in 1:n_sources
+        @threads :greedy for index in 1:n_sources
             vector = vectors[index]
             @assert issparse(vector)
             offset = offsets[index]
@@ -628,7 +628,7 @@ function concatenate_axis_dense_vectors(
 )::Nothing
     empty_dense_vector!(destination, axis, vector_property, eltype; overwrite) do concatenated_vector
         n_sources = length(sources)
-        @threads for index in 1:n_sources
+        @threads :greedy for index in 1:n_sources
             source = sources[index]
             vector = vectors[index]
             offset = offsets[index]
@@ -722,7 +722,7 @@ function concatenate_axis_sparse_matrices(
         overwrite,
     ) do sparse_colptr, sparse_rowval, sparse_nzval
         n_sources = length(matrices)
-        @threads for index in 1:n_sources
+        @threads :greedy for index in 1:n_sources
             matrix = matrices[index]
             @assert issparse(matrix)
             column_offset = offsets[index]
@@ -756,7 +756,7 @@ function concatenate_axis_dense_matrices(
 )::Nothing
     empty_dense_matrix!(destination, other_axis, axis, matrix_property, eltype; overwrite) do concatenated_matrix
         n_sources = length(sources)
-        @threads for index in 1:n_sources
+        @threads :greedy for index in 1:n_sources
             source = sources[index]
             matrix = matrices[index]
             column_offset = offsets[index]
@@ -1017,7 +1017,7 @@ function concatenate_merge_sparse_vector(
     ) do sparse_colptr, sparse_rowval, sparse_nzval
         sparse_colptr[1] == 1
         n_sources = length(vectors)
-        @threads for index in 1:n_sources
+        @threads :greedy for index in 1:n_sources
             vector = vectors[index]
             @assert issparse(vector)
             nnz_offset = nnz_offsets[index]
@@ -1044,7 +1044,7 @@ function concatenate_merge_dense_vector(
 )::Nothing
     empty_dense_matrix!(destination, axis, dataset_axis, vector_property, eltype; overwrite) do concatenated_matrix
         n_sources = length(sources)
-        @threads for index in 1:n_sources
+        @threads :greedy for index in 1:n_sources
             source = sources[index]
             vector = vectors[index]
             if vector === nothing
@@ -1284,7 +1284,7 @@ function sparsify_vectors(
     sparse_vectors = Vector{SparseVector}(undef, length(vectors))
 
     n_sources = length(vectors)
-    @threads for index in 1:n_sources
+    @threads :greedy for index in 1:n_sources
         vector = vectors[index]
         size = sizes[index]
         if vector === nothing
@@ -1311,7 +1311,7 @@ function sparsify_matrices(
     sparse_matrices = Vector{SparseMatrixCSC}(undef, length(matrices))
 
     n_sources = length(matrices)
-    @threads for index in 1:n_sources
+    @threads :greedy for index in 1:n_sources
         matrix = matrices[index]
         ncols = sizes[index]
         if matrix === nothing
