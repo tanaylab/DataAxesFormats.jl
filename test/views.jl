@@ -299,8 +299,8 @@ nested_test("views") do
         nested_test("realized") do
             obs_var = get_matrix(view, "obs", "var", "X")
             var_obs = get_matrix(view, "var", "obs", "X")
-            @test get_matrix(view, "obs", "var", "X") === obs_var
-            @test get_matrix(view, "var", "obs", "X") == var_obs
+            @test get_matrix(view, "obs", "var", "X").array === obs_var.array
+            @test get_matrix(view, "var", "obs", "X").array == var_obs.array
             @test description(view) == dedent("""
                 name: view!
                 type: View

@@ -1480,11 +1480,4 @@ function Queries.verify_contract_query(contract_daf::ContractDaf, cache_key::Cac
     return nothing  # UNTESTED
 end
 
-function Base.getindex(
-    contract_daf::ContractDaf,
-    query::QueryString,
-)::Union{AbstractSet{<:AbstractString}, AbstractVector{<:AbstractString}, StorageScalar, NamedArray}
-    return get_query(contract_daf, query)
-end
-
 end # module

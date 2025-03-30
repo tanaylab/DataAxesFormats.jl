@@ -951,7 +951,10 @@ function cache_matrix!(
     return nothing
 end
 
-function as_named_vector(::FormatReader, ::AbstractString, vector::NamedVector)::NamedArray
+function as_named_vector(::FormatReader, axis::AbstractString, vector::NamedVector)::NamedArray
+    if dimnames(vector) != axis
+        vector = NamedArray(vector.array, vector.dicts, (axis,))
+    end
     return vector
 end
 
@@ -960,7 +963,15 @@ function as_named_vector(format::FormatReader, axis::AbstractString, vector::Abs
     return NamedArray(vector, (axis_dict,), (axis,))
 end
 
-function as_named_matrix(::FormatReader, ::AbstractString, ::AbstractString, matrix::NamedMatrix)::NamedArray
+function as_named_matrix(
+    ::FormatReader,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    matrix::NamedMatrix,
+)::NamedArray
+    if dimnames(matrix) != (rows_axis, columns_axis)
+        matrix = NamedArray(matrix.array, matrix.dicts, (rows_axis, columns_axis))
+    end
     return matrix
 end
 

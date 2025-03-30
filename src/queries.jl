@@ -1791,7 +1791,6 @@ function get_query(
     cache_key = (CachedQuery, "$(query_sequence)")
     verify_contract_query(daf, cache_key)
     return Formats.with_data_read_lock(daf, "for get_query of:", cache_key) do
-        did_compute = [false]
         if cache
             result = Formats.get_through_cache(
                 daf,
@@ -1800,7 +1799,6 @@ function get_query(
                 QueryData;
                 is_slow = true,
             ) do
-                did_compute[1] = true
                 return do_get_query(daf, query_sequence)
             end
         else
@@ -1808,7 +1806,6 @@ function get_query(
                 return get(daf.internal.cache, cache_key, nothing)
             end
             if result === nothing
-                did_compute[1] = true
                 result, _ = do_get_query(daf, query_sequence)
             else
                 result = result.data
@@ -2618,8 +2615,6 @@ function fetch_property(query_state::QueryState, axis_state::AxisState, fetch_op
     fetch_property_name = fetch_operation.property_name
 
     while true
-        push!(fetch_state.common.dependency_keys, Formats.vector_cache_key(fetch_axis_name, fetch_property_name))
-
         if_missing = get_next_operation(query_state, IfMissing)
         if_not = get_next_operation(query_state, IfNot)
 
@@ -2646,6 +2641,7 @@ function fetch_property(query_state::QueryState, axis_state::AxisState, fetch_op
             default_value = nothing
         end
 
+        slice_axis_name = nothing
         next_named_vector = nothing
         if is_final && as_axis === nothing
             if peek_next_operation(query_state, MaskSlice) !== nothing &&
@@ -2655,6 +2651,7 @@ function fetch_property(query_state::QueryState, axis_state::AxisState, fetch_op
 
                 slice_is_equal = get_next_operation(query_state, IsEqual)
                 @assert slice_is_equal !== nothing
+                slice_axis_name = mask_slice.axis_name
 
                 next_named_matrix = get_matrix(
                     query_state.daf,
@@ -2675,6 +2672,7 @@ function fetch_property(query_state::QueryState, axis_state::AxisState, fetch_op
 
             elseif peek_next_operation(query_state, SquareMaskSlice) !== nothing
                 mask_slice = get_next_operation(query_state, SquareMaskSlice)
+                slice_axis_name = fetch_axis_name
                 next_named_matrix = get_matrix(
                     query_state.daf,
                     fetch_axis_name,
@@ -2699,6 +2697,15 @@ function fetch_property(query_state::QueryState, axis_state::AxisState, fetch_op
                     @assert false
                 end
             end
+        end
+
+        if slice_axis_name === nothing
+            push!(fetch_state.common.dependency_keys, Formats.vector_cache_key(fetch_axis_name, fetch_property_name))
+        else
+            push!(
+                fetch_state.common.dependency_keys,
+                Formats.matrix_cache_key(fetch_axis_name, fetch_property_name, slice_axis_name),
+            )
         end
 
         if next_named_vector === nothing
