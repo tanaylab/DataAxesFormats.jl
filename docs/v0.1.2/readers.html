@@ -599,6 +599,83 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
+<a class="docstring-binding" id="DataAxesFormats.Readers.axis_length" href="#DataAxesFormats.Readers.axis_length">
+<code>DataAxesFormats.Readers.axis_length
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">axis_length(daf::DafReader, axis::AbstractString)::Int64
+</code>
+</pre>
+<p>The number of entries along the 
+<code>axis
+</code> in 
+<code>daf
+</code>.
+</p>
+<p>This first verifies the 
+<code>axis
+</code> exists in 
+<code>daf
+</code>.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Readers.axis_entries" href="#DataAxesFormats.Readers.axis_entries">
+<code>DataAxesFormats.Readers.axis_entries
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">axis_entries(
+    daf::DafReader,
+    axis::AbstractString,
+    indices::Maybe{AbstractVector{&lt;:Integer}} = nothing;
+    allow_empty::Bool = false,
+)::AbstractVector{&lt;:AbstractString}
+</code>
+</pre>
+<p>Return a vector of the names of the entries with 
+<code>indices
+</code> in the 
+<code>axis
+</code>. If 
+<code>allow_empty
+</code>, the zero (or negative) index is converted to the empty string. Otherwise, all 
+<code>indices
+</code> must be valid. If 
+<code>indices
+</code> are no specified, returns the vector of entry names. That is, 
+<code>axis_entries(daf, axis)
+</code> is the same as 
+<code>axis_vector(daf, axis)
+</code>.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
 <a class="docstring-binding" id="DataAxesFormats.Readers.axis_vector" href="#DataAxesFormats.Readers.axis_vector">
 <code>DataAxesFormats.Readers.axis_vector
 </code>
@@ -655,6 +732,45 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
+<a class="docstring-binding" id="DataAxesFormats.Readers.axis_indices" href="#DataAxesFormats.Readers.axis_indices">
+<code>DataAxesFormats.Readers.axis_indices
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">axis_indices(
+    daf::DafReader,
+    axis::AbstractString,
+    entries::AbstractVector{&lt;:AbstractString};
+    allow_empty::Bool = false,
+)::AbstractVector{&lt;:Integer}
+</code>
+</pre>
+<p>Return a vector of the indices of the 
+<code>entries
+</code> in the 
+<code>axis
+</code>. If 
+<code>allow_empty
+</code>, the empty string is converted to a zero index. Otherwise, all 
+<code>entries
+</code> must exist in the 
+<code>axis
+</code>.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
 <a class="docstring-binding" id="DataAxesFormats.Readers.axis_dict" href="#DataAxesFormats.Readers.axis_dict">
 <code>DataAxesFormats.Readers.axis_dict
 </code>
@@ -671,68 +787,6 @@
 </code>
 </pre>
 <p>Return a dictionary converting axis entry names to their integer index.
-</p>
-</div>
-</section>
-</article>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
-<a class="docstring-binding" id="DataAxesFormats.Readers.axis_indices" href="#DataAxesFormats.Readers.axis_indices">
-<code>DataAxesFormats.Readers.axis_indices
-</code>
-</a> — 
-<span class="docstring-category">Function
-</span>
-<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
-</span>
-</header>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">axis_indices(daf::DafReader, axis::AbstractString, entries::AbstractVector{&lt;:AbstractString})::AbstractVector{&lt;:Integer}
-</code>
-</pre>
-<p>Return a vector of the indices of the 
-<code>entries
-</code> in the 
-<code>axis
-</code>.
-</p>
-</div>
-</section>
-</article>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
-<a class="docstring-binding" id="DataAxesFormats.Readers.axis_length" href="#DataAxesFormats.Readers.axis_length">
-<code>DataAxesFormats.Readers.axis_length
-</code>
-</a> — 
-<span class="docstring-category">Function
-</span>
-<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
-</span>
-</header>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">axis_length(daf::DafReader, axis::AbstractString)::Int64
-</code>
-</pre>
-<p>The number of entries along the 
-<code>axis
-</code> in 
-<code>daf
-</code>.
-</p>
-<p>This first verifies the 
-<code>axis
-</code> exists in 
-<code>daf
-</code>.
 </p>
 </div>
 </section>
@@ -1289,6 +1343,12 @@
 <li>
 <a href="readers.html#DataAxesFormats.Readers.axis_dict">
 <code>DataAxesFormats.Readers.axis_dict
+</code>
+</a>
+</li>
+<li>
+<a href="readers.html#DataAxesFormats.Readers.axis_entries">
+<code>DataAxesFormats.Readers.axis_entries
 </code>
 </a>
 </li>

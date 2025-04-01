@@ -18,10 +18,11 @@ DataAxesFormats.Readers.get_scalar
 ```@docs
 DataAxesFormats.Readers.has_axis
 DataAxesFormats.Readers.axes_set
-DataAxesFormats.Readers.axis_vector
-DataAxesFormats.Readers.axis_dict
-DataAxesFormats.Readers.axis_indices
 DataAxesFormats.Readers.axis_length
+DataAxesFormats.Readers.axis_entries
+DataAxesFormats.Readers.axis_vector
+DataAxesFormats.Readers.axis_indices
+DataAxesFormats.Readers.axis_dict
 ```
 
 ## Vector properties

@@ -35,6 +35,7 @@ module Readers
 
 export axes_set
 export axis_dict
+export axis_entries
 export axis_indices
 export axis_length
 export axis_vector
@@ -250,24 +251,66 @@ function axis_dict(daf::DafReader, axis::AbstractString)::AbstractDict{<:Abstrac
 end
 
 """
-    axis_indices(daf::DafReader, axis::AbstractString, entries::AbstractVector{<:AbstractString})::AbstractVector{<:Integer}
+    axis_indices(
+        daf::DafReader,
+        axis::AbstractString,
+        entries::AbstractVector{<:AbstractString};
+        allow_empty::Bool = false,
+    )::AbstractVector{<:Integer}
 
-Return a vector of the indices of the `entries` in the `axis`.
+Return a vector of the indices of the `entries` in the `axis`. If `allow_empty`, the empty string is converted to a zero
+index. Otherwise, all `entries` must exist in the `axis`.
 """
 function axis_indices(
     daf::DafReader,
     axis::AbstractString,
-    entries::AbstractVector{<:AbstractString},
+    entries::AbstractVector{<:AbstractString};
+    allow_empty::Bool = false,
 )::AbstractVector{<:Integer}
-    return Formats.with_data_read_lock(daf, "axis_indices of:", axis) do
-        # Formats.assert_valid_cache(daf)
-        require_axis(daf, "for: axis_indices", axis)
-        dictionary = Formats.get_axis_dict_through_cache(daf, axis)
+    dictionary = axis_dict(daf, axis)
+
+    if allow_empty
+        result = [entry == "" ? 0 : dictionary[entry] for entry in entries]
+    else
         result = [dictionary[entry] for entry in entries]
-        @debug "axis_indices daf: $(depict(daf)) result: $(depict(result))"
-        # Formats.assert_valid_cache(daf)
-        return result
     end
+
+    @debug "axis_indices daf: $(depict(daf)) allow_empty: $(allow_empty) result: $(depict(result))"
+    return result
+end
+
+"""
+    axis_entries(
+        daf::DafReader,
+        axis::AbstractString,
+        indices::Maybe{AbstractVector{<:Integer}} = nothing;
+        allow_empty::Bool = false,
+    )::AbstractVector{<:AbstractString}
+
+Return a vector of the names of the entries with `indices` in the `axis`. If `allow_empty`, the zero (or negative) index
+is converted to the empty string. Otherwise, all `indices` must be valid. If `indices` are no specified, returns the
+vector of entry names. That is, `axis_entries(daf, axis)` is the same as `axis_vector(daf, axis)`.
+"""
+function axis_entries(
+    daf::DafReader,
+    axis::AbstractString,
+    indices::Maybe{AbstractVector{<:Integer}} = nothing;
+    allow_empty::Bool = false,
+)::AbstractVector{<:AbstractString}
+    entries = axis_vector(daf, axis)
+
+    if indices === nothing
+        result = entries
+
+    elseif allow_empty
+        result = AbstractString[index <= 0 ? "" : entries[index] for index in indices]
+
+    else
+        result = entries[indices]
+    end
+
+    @debug "axis_entries daf: $(depict(daf)) allow_empty: $(allow_empty) result: $(depict(result))"
+    return result
 end
 
 """

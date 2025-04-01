@@ -353,6 +353,12 @@ function test_existing_axis(daf::DafReader, depth::Int)::Nothing
         @test axis_vector(daf, "cell") == CELL_NAMES
     end
 
+    nested_test("axis_entries") do
+        @test axis_entries(daf, "gene", 1:length(GENE_NAMES)) == GENE_NAMES
+        @test axis_entries(daf, "cell", [0]; allow_empty = true) == [""]
+        @test axis_entries(daf, "cell") == axis_vector(daf, "cell")
+    end
+
     nested_test("axis_dict") do
         @test collect(axis_dict(daf, "gene")) == [name => index for (index, name) in enumerate(GENE_NAMES)]
         @test collect(axis_dict(daf, "cell")) == [name => index for (index, name) in enumerate(CELL_NAMES)]
@@ -361,6 +367,7 @@ function test_existing_axis(daf::DafReader, depth::Int)::Nothing
     nested_test("axis_indices") do
         @test axis_indices(daf, "gene", GENE_NAMES) == collect(1:length(GENE_NAMES))
         @test axis_indices(daf, "cell", reverse(CELL_NAMES)) == collect(reverse(1:length(CELL_NAMES)))
+        @test axis_indices(daf, "cell", [""]; allow_empty = true) == [0]
     end
 
     nested_test("name") do
