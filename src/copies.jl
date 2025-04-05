@@ -782,12 +782,12 @@ function verify_axis(;
         return :source_is_subset
     end
 
-    return error("""
+    return error(chomp("""
                  disjoint entries in the axis: $(source_axis)
                  of the source daf data: $(source.name)
                  and the axis: $(destination_axis)
                  of the target daf data: $(destination.name)
-                 """)
+                 """))
 end
 
 function verify_subset(;
@@ -798,13 +798,13 @@ function verify_subset(;
     what_for::Maybe{AbstractString},
 )::Nothing
     if what_for !== nothing
-        error("""
+        error(chomp("""
               missing entries in the axis: $(source_axis)
               of the source daf data: $(source_name)
               which are needed for copying $(what_for)
               of the axis: $(destination_axis)
               of the target daf data: $(destination_name)
-              """)
+              """))
     end
 end
 

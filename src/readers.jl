@@ -133,10 +133,10 @@ end
 
 function require_scalar(daf::DafReader, name::AbstractString)::Nothing
     if !Formats.format_has_scalar(daf, name)
-        error("""
+        error(chomp("""
             missing scalar: $(name)
             in the daf data: $(daf.name)
-            """)
+            """))
     end
     return nothing
 end
@@ -328,11 +328,11 @@ end
 
 function require_axis(daf::DafReader, what_for::AbstractString, axis::AbstractString; for_change::Bool = false)::Nothing
     if !Formats.format_has_axis(daf, axis; for_change)
-        error("""
+        error(chomp("""
             missing axis: $(axis)
             $(what_for)
             of the daf data: $(daf.name)
-            """)
+            """))
     end
     return nothing
 end
@@ -625,12 +625,12 @@ function require_matrix(
         else
             extra = ""
         end
-        error("""
+        error(chomp("""
               missing matrix: $(name)
               for the rows axis: $(rows_axis)
               and the columns axis: $(columns_axis)$(extra)
               in the daf data: $(daf.name)
-              """)
+              """))
     end
     return nothing
 end
@@ -818,13 +818,13 @@ function require_axis_length(
     axis::AbstractString,
 )::Nothing
     if what_length != Formats.format_axis_length(daf, axis)
-        error("""
+        error(chomp("""
             the length: $(what_length)
             of the $(vector_name)
             is different from the length: $(Formats.format_axis_length(daf, axis))
             of the axis: $(axis)
             in the daf data: $(daf.name)
-            """)
+            """))
     end
     return nothing
 end

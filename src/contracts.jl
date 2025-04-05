@@ -598,30 +598,30 @@ end
 function verify_axis_data(contract_daf::ContractDaf, axis::AbstractString, tracker::Tracker; is_output::Bool)::Nothing
     if has_axis(contract_daf.daf, axis)
         if is_forbidden(tracker.expectation; is_output, overwrite = contract_daf.overwrite)
-            error("""
+            error(chomp("""
                   pre-existing $(tracker.expectation) axis: $(axis)
                   for the computation: $(contract_daf.computation)
                   on the daf data: $(contract_daf.daf.name)
-                  """)
+                  """))
         end
     else
         if is_mandatory(tracker.expectation; is_output)
-            error("""
+            error(chomp("""
                   missing $(direction_name(is_output)) axis: $(axis)
                   for the computation: $(contract_daf.computation)
                   on the daf data: $(contract_daf.daf.name)
-                  """)
+                  """))
         end
     end
 end
 
 function verify_axis_access(contract_daf::ContractDaf, axis::AbstractString, tracker::Tracker)::Nothing
     if has_axis(contract_daf.daf, axis) && !tracker.accessed && tracker.expectation == RequiredInput
-        error("""
+        error(chomp("""
               unused RequiredInput axis: $(axis)
               of the computation: $(contract_daf.computation)
               on the daf data: $(contract_daf.daf.name)
-              """)
+              """))
     end
 end
 
@@ -629,42 +629,42 @@ function verify_scalar_data(contract_daf::ContractDaf, name::AbstractString, tra
     value = get_scalar(contract_daf.daf, name; default = nothing)
     if value === nothing
         if is_mandatory(tracker.expectation; is_output) && value === nothing
-            error("""
+            error(chomp("""
                   missing $(direction_name(is_output)) scalar: $(name)
                   with type: $(tracker.type)
                   for the computation: $(contract_daf.computation)
                   on the daf data: $(contract_daf.daf.name)
-                  """)
+                  """))
         end
     else
         if is_forbidden(tracker.expectation; is_output, overwrite = contract_daf.overwrite)
-            error("""
+            error(chomp("""
                   pre-existing $(tracker.expectation) scalar: $(name)
                   for the computation: $(contract_daf.computation)
                   on the daf data: $(contract_daf.daf.name)
-                  """)
+                  """))
         end
         type = tracker.type
         @assert type !== nothing
         if !(value isa type)
-            error("""
+            error(chomp("""
                   unexpected type: $(typeof(value))
                   instead of type: $(type)
                   for the $(direction_name(is_output)) scalar: $(name)
                   for the computation: $(contract_daf.computation)
                   on the daf data: $(contract_daf.daf.name)
-                  """)
+                  """))
         end
     end
 end
 
 function verify_scalar_access(contract_daf::ContractDaf, name::AbstractString, tracker::Tracker)::Nothing
     if has_scalar(contract_daf.daf, name) && !tracker.accessed && tracker.expectation == RequiredInput
-        error("""
+        error(chomp("""
               unused RequiredInput scalar: $(name)
               of the computation: $(contract_daf.computation)
               on the daf data: $(contract_daf.daf.name)
-              """)
+              """))
     end
 end
 
@@ -682,34 +682,34 @@ function verify_vector_data(
     end
     if value === nothing
         if is_mandatory(tracker.expectation; is_output)
-            error("""
+            error(chomp("""
                   missing $(direction_name(is_output)) vector: $(name)
                   of the axis: $(axis)
                   with element type: $(tracker.type)
                   for the computation: $(contract_daf.computation)
                   on the daf data: $(contract_daf.daf.name)
-                  """)
+                  """))
         end
     else
         if is_forbidden(tracker.expectation; is_output, overwrite = contract_daf.overwrite)
-            error("""
+            error(chomp("""
                   pre-existing $(tracker.expectation) vector: $(name)
                   of the axis: $(axis)
                   for the computation: $(contract_daf.computation)
                   on the daf data: $(contract_daf.daf.name)
-                  """)
+                  """))
         end
         type = tracker.type
         @assert type !== nothing
         if !(eltype(value) <: type)
-            error("""
+            error(chomp("""
                   unexpected type: $(eltype(value))
                   instead of type: $(type)
                   for the $(direction_name(is_output)) vector: $(name)
                   of the axis: $(axis)
                   for the computation: $(contract_daf.computation)
                   on the daf data: $(contract_daf.daf.name)
-                  """)
+                  """))
         end
     end
 end
@@ -724,12 +724,12 @@ function verify_vector_access(
        has_vector(contract_daf.daf, axis, name) &&
        !tracker.accessed &&
        tracker.expectation == RequiredInput
-        error("""
+        error(chomp("""
               unused RequiredInput vector: $(name)
               of the axis: $(axis)
               of the computation: $(contract_daf.computation)
               on the daf data: $(contract_daf.daf.name)
-              """)
+              """))
     end
 end
 
@@ -748,29 +748,29 @@ function verify_matrix_data(
     end
     if value === nothing
         if is_mandatory(tracker.expectation; is_output) && value === nothing
-            error("""
+            error(chomp("""
                   missing $(direction_name(is_output)) matrix: $(name)
                   of the rows axis: $(rows_axis)
                   and the columns axis: $(columns_axis)
                   with element type: $(tracker.type)
                   for the computation: $(contract_daf.computation)
                   on the daf data: $(contract_daf.daf.name)
-                  """)
+                  """))
         end
     else
         if is_forbidden(tracker.expectation; is_output, overwrite = contract_daf.overwrite)
-            error("""
+            error(chomp("""
                   pre-existing $(tracker.expectation) matrix: $(name)
                   of the rows axis: $(rows_axis)
                   and the columns axis: $(columns_axis)
                   for the computation: $(contract_daf.computation)
                   on the daf data: $(contract_daf.daf.name)
-                  """)
+                  """))
         end
         type = tracker.type
         @assert type !== nothing
         if !(eltype(value) <: type)
-            error("""
+            error(chomp("""
                   unexpected type: $(eltype(value))
                   instead of type: $(type)
                   for the $(direction_name(is_output)) matrix: $(name)
@@ -778,7 +778,7 @@ function verify_matrix_data(
                   and the columns axis: $(columns_axis)
                   for the computation: $(contract_daf.computation)
                   on the daf data: $(contract_daf.daf.name)
-                  """)
+                  """))
         end
     end
 end
@@ -795,13 +795,13 @@ function verify_matrix_access(
        has_matrix(contract_daf.daf, rows_axis, columns_axis, name) &&
        !tracker.accessed &&
        tracker.expectation == RequiredInput
-        error("""
+        error(chomp("""
               unused RequiredInput matrix: $(name)
               of the rows axis: $(rows_axis)
               and the columns axis: $(columns_axis)
               of the computation: $(contract_daf.computation)
               on the daf data: $(contract_daf.daf.name)
-              """)
+              """))
     end
 end
 
@@ -889,11 +889,11 @@ function merge_types(data_key::DataKey, left_type::Type, right_type::Type)::Type
     elseif right_type <: left_type
         return right_type
     else
-        error("""
+        error(chomp("""
               incompatible type: $(left_type)
               and type: $(right_type)
               for the contracts data: $(data_key)
-              """)
+              """))
     end
 end
 
@@ -912,11 +912,11 @@ function merge_expectations(
     elseif left_expectation == OptionalOutput && right_expectation == OptionalInput
         return OptionalOutput
     else
-        error("""
+        error(chomp("""
               incompatible expectation: $(left_expectation)
               and expectation: $(right_expectation)
               for the contracts $(what): $(key)
-              """)
+              """))
     end
 end
 
@@ -1266,19 +1266,19 @@ function access_scalar(contract_daf::ContractDaf, name::AbstractString; is_modif
         if contract_daf.is_relaxed
             return nothing
         end
-        error("""
+        error(chomp("""
               accessing non-contract scalar: $(name)
               for the computation: $(contract_daf.computation)
               on the daf data: $(contract_daf.daf.name)
-              """)
+              """))
     end
 
     if is_immutable(tracker.expectation; is_modify)
-        error("""
+        error(chomp("""
               modifying $(tracker.expectation) scalar: $(name)
               for the computation: $(contract_daf.computation)
               on the daf data: $(contract_daf.daf.name)
-              """)
+              """))
     end
 
     tracker.accessed = true
@@ -1294,19 +1294,19 @@ function access_axis(contract_daf::ContractDaf, axis::AbstractString; is_modify:
         if contract_daf.is_relaxed
             return nothing
         end
-        error("""
+        error(chomp("""
               accessing non-contract axis: $(axis)
               for the computation: $(contract_daf.computation)
               on the daf data: $(contract_daf.daf.name)
-              """)
+              """))
     end
 
     if is_immutable(tracker.expectation; is_modify)
-        error("""
+        error(chomp("""
               modifying $(tracker.expectation) axis: $(axis)
               for the computation: $(contract_daf.computation)
               on the daf data: $(contract_daf.daf.name)
-              """)
+              """))
     end
 
     tracker.accessed = true
@@ -1325,21 +1325,21 @@ function access_vector(contract_daf::ContractDaf, axis::AbstractString, name::Ab
         if contract_daf.is_relaxed || name == "name" || name == "index"
             return nothing
         end
-        error("""
+        error(chomp("""
               accessing non-contract vector: $(name)
               of the axis: $(axis)
               for the computation: $(contract_daf.computation)
               on the daf data: $(contract_daf.daf.name)
-              """)
+              """))
     end
 
     if is_immutable(tracker.expectation; is_modify)
-        error("""
+        error(chomp("""
               modifying $(tracker.expectation) vector: $(name)
               of the axis: $(axis)
               for the computation: $(contract_daf.computation)
               on the daf data: $(contract_daf.daf.name)
-              """)
+              """))
     end
 
     tracker.accessed = true
@@ -1367,24 +1367,24 @@ function access_matrix(
             if contract_daf.is_relaxed
                 return nothing
             end
-            error("""
+            error(chomp("""
                   accessing non-contract matrix: $(name)
                   of the rows axis: $(rows_axis)
                   and the columns axis: $(columns_axis)
                   for the computation: $(contract_daf.computation)
                   on the daf data: $(contract_daf.daf.name)
-                  """)
+                  """))
         end
     end
 
     if is_immutable(tracker.expectation; is_modify)
-        error("""
+        error(chomp("""
               modifying $(tracker.expectation) matrix: $(name)
               of the rows_axis: $(rows_axis)
               and the columns_axis: $(columns_axis)
               for the computation: $(contract_daf.computation)
               on the daf data: $(contract_daf.daf.name)
-              """)
+              """))
     end
 
     tracker.accessed = true

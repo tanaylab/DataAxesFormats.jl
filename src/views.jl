@@ -334,12 +334,12 @@ function collect_scalar(
         end
         dimensions = query_result_dimensions(scalar_query)
         if dimensions != 0
-            error("""
+            error(chomp("""
                 $(QUERY_TYPE_BY_DIMENSIONS[dimensions + 1]) query: $(scalar_query)
                 for the scalar: $(scalar_name)
                 for the view: $(view_name)
                 of the daf data: $(daf.name)
-                """)
+                """))
         end
         collected_scalars[scalar_name] = Fetch{StorageScalar}(scalar_query, nothing)
     end
@@ -378,12 +378,12 @@ function collect_axis(
             @assert axis_query isa Query "invalid axis query: $(axis_query)"
         end
         if !is_axis_query(axis_query)
-            error("""
+            error(chomp("""
                 not an axis query: $(axis_query)
                 for the axis: $(axis_name)
                 for the view: $(view_name)
                 of the daf data: $(daf.name)
-                """)
+                """))
         end
         collected_axes[axis_name] = Fetch{AbstractVector{<:AbstractString}}(axis_query, nothing)
     end
@@ -443,13 +443,13 @@ function collect_vector(
         vector_query = full_vector_query(fetch_axis.query, vector_query, vector_name)
         dimensions = query_result_dimensions(vector_query)
         if dimensions != 1
-            error("""
+            error(chomp("""
                 $(QUERY_TYPE_BY_DIMENSIONS[dimensions + 1]) query: $(vector_query)
                 for the vector: $(vector_name)
                 for the axis: $(axis_name)
                 for the view: $(view_name)
                 of the daf data: $(daf.name)
-                """)
+                """))
         end
         collected_vectors[axis_name][vector_name] = Fetch{StorageVector}(vector_query, nothing)
     end
@@ -499,7 +499,7 @@ function collect_tensors(
             (main_axis_name, rows_axis_name, columns_axis_name, matrix_name) = key
 
             if "*" in key
-                error("""
+                error(chomp("""
                     unsupported "*" wildcard for tensor
                     for the matrix: $(matrix_name)
                     for the main axis: $(main_axis_name)
@@ -507,11 +507,11 @@ function collect_tensors(
                     and the columns axis: $(columns_axis_name)
                     for the view: $(view_name)
                     of the daf data: $(daf.name)
-                    """)
+                    """))
             end
 
             if query != "=" && query !== nothing
-                error("""
+                error(chomp("""
                     unsupported query: $(query)
                     for the matrix: $(matrix_name)
                     for the main axis: $(main_axis_name)
@@ -519,7 +519,7 @@ function collect_tensors(
                     and the columns axis: $(columns_axis_name)
                     for the view: $(view_name)
                     of the daf data: $(daf.name)
-                    """)
+                    """))
             end
 
             main_axis_entries = axis_vector(daf, main_axis_name)
@@ -607,14 +607,14 @@ function collect_matrix(
         full_matrix_query = fetch_rows_axis.query |> fetch_columns_axis.query |> matrix_query
         dimensions = query_result_dimensions(full_matrix_query)
         if dimensions != 2
-            error("""
+            error(chomp("""
                 $(QUERY_TYPE_BY_DIMENSIONS[dimensions + 1]) query: $(full_matrix_query)
                 for the matrix: $(matrix_name)
                 for the rows axis: $(rows_axis_name)
                 and the columns axis: $(columns_axis_name)
                 for the view: $(view_name)
                 of the daf data: $(daf.name)
-                """)
+                """))
         end
 
         did_collect = false
@@ -655,11 +655,11 @@ function get_fetch_axis(
 )::Fetch{AbstractVector{<:AbstractString}}
     fetch_axis = get(collected_axes, axis, nothing)
     if fetch_axis === nothing
-        error("""
+        error(chomp("""
             the axis: $(axis)
             is not exposed by the view: $(view_name)
             of the daf data: $(daf.name)
-            """)
+            """))
     end
     return fetch_axis
 end

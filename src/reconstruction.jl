@@ -110,11 +110,11 @@ to use for these values.
         axis_values_set = Set(axis_values)
         for unique_value in unique_values
             if !(unique_value in axis_values_set)
-                error("""
+                error(chomp("""
                     missing used entry: $(unique_value)
                     from the existing reconstructed axis: $(implicit_axis)
                     in the daf data: $(daf.name)
-                    """)
+                    """))
             end
         end
         unique_values = axis_values
@@ -191,14 +191,14 @@ function collect_property_data(
             property_values_of_implicits[implicit_value] = property_value
         elseif property_value_of_implicit != property_value
             if must_be_consistent
-                error("""
+                error(chomp("""
                     inconsistent values: $(property_value) != $(property_value_of_implicit)
                     of the property: $(property)
                     for the same implicit axis value: $(implicit_value)
                     of the axis: $(existing_axis)
                     for the reconstructed axis: $(implicit_axis)
                     in the daf data: $(daf.name)
-                    """)
+                    """))
             end
             return nothing
         end
@@ -221,11 +221,11 @@ function value_of_implicit_property(
 )::StorageScalar
     value = get(property_values_of_implicits, unique_value, default_value)
     if value === nothing
-        error("""
+        error(chomp("""
             no default value specified for the unused entry: $(unique_value)
             of the reconstructed property: $(property)
             in the daf data: $(daf.name)
-            """)
+            """))
     end
     return value
 end

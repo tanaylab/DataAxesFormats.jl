@@ -219,11 +219,11 @@ function FilesDaf(
     @assert length(daf_version) == 2
 
     if Int(daf_version[1]) != MAJOR_VERSION || Int(daf_version[2]) > MINOR_VERSION
-        error("""
+        error(chomp("""
               incompatible format version: $(daf_version[1]).$(daf_version[2])
               for the daf directory: $(path)
               the code supports version: $(MAJOR_VERSION).$(MINOR_VERSION)
-              """)
+              """))
     end
 
     if name === nothing

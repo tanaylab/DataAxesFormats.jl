@@ -867,12 +867,12 @@ function relayout_matrix!(
         require_axis(daf, "for the columns of the matrix: $(name)", columns_axis)
 
         if rows_axis == columns_axis
-            error("""
+            error(chomp("""
                 can't relayout square matrix: $(name)
                 of the axis: $(rows_axis)
                 due to daf representation limitations
                 in the daf data: $(daf.name)
-                """)
+                """))
         end
 
         require_matrix(daf, rows_axis, columns_axis, name; relayout = false)
@@ -983,12 +983,12 @@ function require_no_matrix(
 )::Nothing
     @assert Formats.has_data_read_lock(daf)
     if Formats.format_has_cached_matrix(daf, rows_axis, columns_axis, name)
-        error("""
+        error(chomp("""
             existing matrix: $(name)
             for the rows axis: $(rows_axis)
             and the columns axis: $(columns_axis)
             in the daf data: $(daf.name)
-            """)
+            """))
     end
     if relayout
         require_no_matrix(daf, columns_axis, rows_axis, name; relayout = false)
@@ -998,11 +998,11 @@ end
 
 function require_not_reserved(daf::DafReader, axis::AbstractString, name::AbstractString)::Nothing
     if name == "name" || name == "index"
-        error("""
+        error(chomp("""
             setting the reserved vector: $(name)
             for the axis: $(axis)
             in the daf data: $(daf.name)
-            """)
+            """))
     end
     return nothing
 end

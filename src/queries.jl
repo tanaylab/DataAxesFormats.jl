@@ -1871,10 +1871,10 @@ function do_get_query(
     elseif is_all(query_state, (MatrixState,))
         return get_matrix_result(query_state)
     else
-        return error("""
+        return error(chomp("""
                      partial query: $(query_state.query_sequence)
                      for the daf data: $(query_state.daf.name)
-                     """)
+                     """))
     end
 end
 
@@ -4314,11 +4314,11 @@ function get_frame(
         column_query = full_vector_query(axis_query, column_query, column_name)
         vector = get_query(daf, column_query; cache)
         if !(vector isa StorageVector) || !(vector isa NamedArray) || names(vector, 1) != names_of_rows
-            error("""
+            error(chomp("""
                   invalid column query: $(column_query)
                   for the axis query: $(axis_query)
                   of the daf data: $(daf.name)
-                  """)
+                  """))
         end
         push!(data, column_name => vector.array)
     end

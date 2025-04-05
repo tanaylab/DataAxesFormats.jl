@@ -180,10 +180,10 @@ function DocStringExtensions.format(which::ContractDocumentation, buffer::IOBuff
     full_name, metadata = get_metadata(doc_str)
     if which.index > length(metadata.contracts)
         @assert which.index == 2
-        error("""
+        error(chomp("""
               no second contract associated with: $(full_name)
               use: @computation Contract(...) Contract(...) function $(full_name)(...)
-              """)
+              """))
     end
     contract_documentation(metadata.contracts[which.index], buffer)
     return nothing

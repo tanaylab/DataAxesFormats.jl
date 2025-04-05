@@ -265,11 +265,11 @@ function verify_daf(root::Union{HDF5.File, HDF5.Group})::Nothing
     @assert length(format_version) == 2
     @assert eltype(format_version) <: Unsigned
     if format_version[1] != MAJOR_VERSION || format_version[2] > MINOR_VERSION
-        error("""
+        error(chomp("""
               incompatible format version: $(format_version[1]).$(format_version[2])
               for the daf data: $(root)
               the code supports version: $(MAJOR_VERSION).$(MINOR_VERSION)
-              """)
+              """))
     end
 end
 

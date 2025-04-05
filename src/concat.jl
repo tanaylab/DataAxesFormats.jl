@@ -188,13 +188,13 @@ By default, concatenation will fail rather than `overwrite` existing properties 
                 for source in sources
                     invalid_matrices_set = matrices_set(source, rows_axis, columns_axis; relayout = false)
                     for invalid_matrix_name in invalid_matrices_set
-                        error("""
+                        error(chomp("""
                               can't concatenate the matrix: $(invalid_matrix_name)
                               for the concatenated rows axis: $(rows_axis)
                               and the concatenated columns axis: $(columns_axis)
                               in the daf data: $(source.name)
                               concatenated into the daf data: $(destination.name)
-                              """)
+                              """))
                     end
                 end
             end
@@ -242,12 +242,12 @@ By default, concatenation will fail rather than `overwrite` existing properties 
                     else
                         (previous_source_name, previous_axis_entry_names) = previous_axis_data
                         if other_axis_entry_names != previous_axis_entry_names
-                            error("""
+                            error(chomp("""
                                   different entries for the axis: $(axis_name)
                                   between the daf data: $(previous_source_name)
                                   and the daf data: $(source.name)
                                   concatenated into the daf data: $(destination.name)
-                                  """)
+                                  """))
                         end
                     end
                 end
@@ -890,11 +890,11 @@ function concatenate_merge_scalar(
 
     elseif merge_action == CollectAxis
         if dataset_axis === nothing
-            error("""
+            error(chomp("""
                   can't collect axis for the scalar: $(scalar_property)
                   of the daf data sets concatenated into the daf data: $(destination.name)
                   because no data set axis was created
-                  """)
+                  """))
         end
 
         scalars = [get_scalar(source, scalar_property; default = nothing) for source in sources]
@@ -931,12 +931,12 @@ function concatenate_merge_vector(
 
     elseif merge_action == CollectAxis
         if dataset_axis === nothing
-            error("""
+            error(chomp("""
                   can't collect axis for the vector: $(vector_property)
                   of the axis: $(axis)
                   of the daf data sets concatenated into the daf data: $(destination.name)
                   because no data set axis was created
-                  """)
+                  """))
         end
 
         vectors = [get_vector(source, axis, vector_property; default = nothing) for source in sources]
@@ -1073,13 +1073,13 @@ function concatenate_merge_matrix(
         @assert false
 
     elseif merge_action == CollectAxis
-        error("""
+        error(chomp("""
               can't collect axis for the matrix: $(matrix_property)
               of the rows axis: $(rows_axis)
               and the columns axis: $(columns_axis)
               of the daf data sets concatenated into the daf data: $(destination.name)
               because that would create a 3D tensor, which is not supported
-              """)
+              """))
 
     else
         @assert false
@@ -1094,12 +1094,12 @@ function require_empty_value_for_vector(
     destination::DafWriter,
 )::StorageScalar
     if empty_value === nothing
-        error("""
+        error(chomp("""
               no empty value for the vector: $(vector_property)
               of the axis: $(axis)
               which is missing from the daf data: $(daf.name)
               concatenated into the daf data: $(destination.name)
-              """)
+              """))
     end
     return empty_value
 end
@@ -1113,13 +1113,13 @@ function require_empty_value_for_matrix(
     destination::DafWriter,
 )::StorageReal
     if empty_value === nothing
-        error("""
+        error(chomp("""
               no empty value for the matrix: $(matrix_property)
               of the rows axis: $(rows_axis)
               and the columns axis: $(columns_axis)
               which is missing from the daf data: $(daf.name)
               concatenated into the daf data: $(destination.name)
-              """)
+              """))
     end
     return empty_value
 end
