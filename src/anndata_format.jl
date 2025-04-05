@@ -17,7 +17,7 @@ The following `Daf` data can't be naively stored in `AnnData`:
     layouts, sacrificing disk storage for performance.
 
 Therefore, when viewing `Daf` data as `AnnData`, we pick two specific axes and rename them to "obs" and "var", pick a
-specific matrix property of these axes and rename it to "X", and [`relayout!`](@ref) it if needed so `AnnData` would be
+specific matrix property of these axes and rename it to "X", and `relayout!` it if needed so `AnnData` would be
 happy. We store the discarded names of the axes and matrix in unstructured annotations called `obs_is`, `var_is` and
 `X_is`. This allows us to reconstruct the original names when re-viewing the `AnnData` as `Daf` data.
 
@@ -49,12 +49,12 @@ this:
 
   - We can break the `Daf` invariant that all accessed data is column-major, at least for square matrices. This is
     bad because the invariant greatly simplifies `Daf` client code. Forcing clients to check the data layout and
-    calling [`relayout!`](@ref) would add a lot of error-prone boilerplate to our users.
-  - We can [`relayout!`](@ref) the data when copying it between `AnnData` and `Daf`. This is bad because it would force
+    calling `relayout!` would add a lot of error-prone boilerplate to our users.
+  - We can `relayout!` the data when copying it between `AnnData` and `Daf`. This is bad because it would force
     us to duplicate the data. More importantly, there is typically a good reason for the layout of the data. For
     example, assume a directed graph between cells. A common way to store is is to have a square matrix where each row
     contains the weights of the edges originating in one cell, connecting it to all other cells. This allows code to
-    efficiently "loop on all cells; loop on all outgoing edges". If we [`relayout!`](@ref) the data, then such a loop
+    efficiently "loop on all cells; loop on all outgoing edges". If we `relayout!` the data, then such a loop
     would become extremely inefficient.
   - We can return the transposed matrix from `Daf`. This is bad because Julia code and Python code processing the "same"
     data would need to flip the indices (e.g., `outgoing_weight[from_cell, to_cell]` in Python vs.
@@ -66,7 +66,7 @@ would work (efficiently!) - that is, as long as the developer read this warning 
 
 We do **not** have this problem with non-square matrices (e.g., the per-cell-per-gene `UMIs` matrix), since `Daf` allows
 for storing and accessing both layouts of the same data in this case. We simply populate `Daf` with the row-major data
-from `AnnData` and if asked for the outher layout, will [`relayout!`](@ref) it (and store/cache the result).
+from `AnnData` and if asked for the outher layout, will `relayout!` it (and store/cache the result).
 """
 module AnnDataFormat
 
@@ -74,10 +74,6 @@ export anndata_as_daf
 export daf_as_anndata
 
 using ..Formats
-using ..GenericFunctions
-using ..GenericLogging
-using ..GenericTypes
-using ..MatrixLayouts
 using ..MemoryFormat
 using ..Readers
 using ..StorageTypes
@@ -87,6 +83,7 @@ using DataFrames
 using HDF5
 using Muon
 using SparseArrays
+using TanayLabUtilities
 
 import ..Formats
 import ..Readers.require_matrix
@@ -271,21 +268,25 @@ function verify_is_supported_type(
         report_unsupported(  # UNTESTED
             name,
             unsupported_handler,
-            dedent("""
-                type not in row/column-major layout: $(typeof(value))
-                of the property: $(property)
-            """),
+            """
+            type not in row/column-major layout: $(typeof(value))
+            of the property: $(property)
+            """,
         )
     end
     if value isa CategoricalArray
         return nothing  # UNTESTED
     end
     if !(value isa supported_type)
-        report_unsupported(name, unsupported_handler, dedent("""
-                                                          unsupported type: $(typeof(value))
-                                                          of the property: $(property)
-                                                          supported type is: $(supported_type)
-                                                      """))
+        report_unsupported(
+            name,
+            unsupported_handler,
+            """
+            unsupported type: $(typeof(value))
+            of the property: $(property)
+            supported type is: $(supported_type)
+            """,
+        )
     end
     return nothing
 end
@@ -299,7 +300,7 @@ function verify_are_empty(
 )::Nothing
     for key in keys(dict)
         if filter === nothing || filter(member, key)
-            report_unsupported(name, unsupported_handler, "unsupported annotation: $(member)[$(key)]")
+            report_unsupported(name, unsupported_handler, "unsupported annotation: $(member)[$(key)]\n")
         end
     end
     return nothing
@@ -311,7 +312,7 @@ function report_unsupported(
     message::AbstractString,
 )::Nothing
     handle_abnormal(unsupported_handler) do
-        return message * "\nin AnnData for the daf data: $(name)"
+        return message * "in AnnData for the daf data: $(name)"
     end
     return nothing
 end

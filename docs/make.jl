@@ -9,7 +9,7 @@ push!(LOAD_PATH, "..")
 
 using NestedTests
 using Pkg
-using Daf
+using DataAxesFormats
 
 for file in readdir("docs"; join = true)
     if !endswith(file, "make.jl")
@@ -26,28 +26,39 @@ makedocs(;
     source = "../src",
     clean = true,
     doctest = true,
-    modules = [NestedTests],
+    modules = [DataAxesFormats],
     highlightsig = true,
     sitename = "$(NAME).jl",
     draft = false,
     strict = true,
     linkcheck = true,
-    format = Documenter.HTML(; prettyurls = false),
+    format = Documenter.HTML(; prettyurls = false, size_threshold_warn = 200 * 2^10),
     pages = [
         "index.md",
-        "data.md",
+        "readers.md",
+        "writers.md",
         "read_only.md",
-        "formats.md",
-        "memory_format.md",
         "queries.md",
+        "tokens.md",
+        "views.md",
+        "chains.md",
+        "computations.md",
+        "copies.md",
+        "concat.md",
+        "adapters.md",
+        "contracts.md",
+        "formats.md",
+        "keys.md",
+        "memory_format.md",
+        "h5df_format.md",
+        "files_format.md",
+        "anndata_format.md",
+        "reconstruction.md",
         "registry.md",
         "operations.md",
         "storage_types.md",
-        "matrix_layouts.md",
-        "oprec.md",
-        "messages.md",
+        "groups.md",
         "example_data.md",
-        "todo.md",
     ],
 )
 

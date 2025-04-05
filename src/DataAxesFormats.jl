@@ -5,9 +5,8 @@ features are:
 
   - The data model [`StorageTypes`](@ref) include (1) some axes with named entries, (2) vector data indexed by a single
     axis, (3) matrix data indexed by a pair of axes, and also (4) scalar data (anything not tied to some axis).
-
-  - Explicit control over 2D data [`MatrixLayouts`](@ref) (row or column major), with support for both dense and sparse
-    matrices, both of which are crucial for performance.
+  - Explicit control over 2D data (row or column major), with support for both dense and sparse matrices, both of which
+    are crucial for performance.
   - Out of the box, allow storing the data in memory (using [`MemoryDaf`](@ref)), directly inside
     [HDF5](https://www.hdfgroup.org/solutions/hdf5/) files (using [`H5df`](@ref)), or as a collection of simple files in
     a directory (using [`FilesDaf`](@ref)), which works nicely with tools like `make` for automating computation
@@ -59,24 +58,6 @@ using Reexport
 
 include("storage_types.jl")
 @reexport using .StorageTypes
-
-include("messages.jl")
-@reexport using .Messages
-
-include("generic_types.jl")
-include("generic_storage.jl")
-include("generic_logging.jl")
-include("generic_functions.jl")
-include("generic_locks.jl")
-
-include("read_only_arrays.jl")
-@reexport using .ReadOnlyArrays
-
-include("documentation.jl")
-@reexport using .Documentation
-
-include("matrix_layouts.jl")
-@reexport using .MatrixLayouts
 
 include("registry.jl")
 @reexport using .Registry: EltwiseOperation, ReductionOperation

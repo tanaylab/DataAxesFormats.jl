@@ -5,29 +5,21 @@ nested_test("chains") do
     nested_test("empty") do
         nested_test("name") do
             nested_test("reader") do
-                @test_throws dedent("""
-                    empty chain: chain!
-                """) chain_reader(Vector{DafReader}(); name = "chain!")
+                @test_throws "empty chain: chain!" chain_reader(Vector{DafReader}(); name = "chain!")
             end
 
             nested_test("writer") do
-                @test_throws dedent("""
-                    empty chain: chain!
-                """) chain_writer(Vector{DafWriter}(); name = "chain!")
+                @test_throws "empty chain: chain!" chain_writer(Vector{DafWriter}(); name = "chain!")
             end
         end
 
         nested_test("!name") do
             nested_test("reader") do
-                @test_throws dedent("""
-                    empty chain
-                """) chain_reader(Vector{DafReader}())
+                @test_throws "empty chain" chain_reader(Vector{DafReader}())
             end
 
             nested_test("writer") do
-                @test_throws dedent("""
-                    empty chain
-                """) chain_writer(Vector{DafWriter}())
+                @test_throws "empty chain" chain_writer(Vector{DafWriter}())
             end
         end
     end
@@ -46,10 +38,10 @@ nested_test("chains") do
     end
 
     nested_test("two") do
-        @test_throws "read-only final data: second!.read_only\nin write chain: chain!" chain_writer(
-            [first, read_only(second)];
-            name = "chain!",
-        )
+        @test_throws chomp("""
+                     read-only final data: second!.read_only
+                     in write chain: chain!
+                     """) chain_writer([first, read_only(second)]; name = "chain!")
         read_chain = chain_reader([first, second])
         @test read_only(read_chain) === read_chain
         @test read_only(read_chain; name = "read-only first!;second!") !== read_chain
@@ -63,7 +55,7 @@ nested_test("chains") do
             ("write", "Write", chain_writer([first, second]; name = "chain!")),
         ]
             nested_test(name) do
-                @test depict(chain) == "$(type_name) Chain chain!"
+                @test brief(chain) == "$(type_name) Chain chain!"
 
                 nested_test("scalar") do
                     nested_test("first") do
@@ -91,45 +83,45 @@ nested_test("chains") do
                         @test !has_scalar(chain, "author")
                         nested_test("description") do
                             nested_test("()") do
-                                @test description(chain) == dedent("""
+                                @test description(chain) == """
                                     name: chain!
                                     type: $(type_name) Chain
                                     chain:
                                     - MemoryDaf first!
                                     - MemoryDaf second!
                                     scalars:
-                                      version: 2.0 (Float64)
-                                """) * "\n"
+                                      version: 2.0
+                                    """
                             end
 
                             nested_test("!deep") do
-                                @test description(chain; deep = false) == dedent("""
+                                @test description(chain; deep = false) == """
                                     name: chain!
                                     type: $(type_name) Chain
                                     chain:
                                     - MemoryDaf first!
                                     - MemoryDaf second!
                                     scalars:
-                                      version: 2.0 (Float64)
-                                  """) * "\n"
+                                      version: 2.0
+                                    """
                             end
 
                             nested_test("deep") do
-                                @test description(chain; deep = true) == dedent("""
+                                @test description(chain; deep = true) == """
                                     name: chain!
                                     type: $(type_name) Chain
                                     scalars:
-                                      version: 2.0 (Float64)
+                                      version: 2.0
                                     chain:
                                     - name: first!
                                       type: MemoryDaf
                                       scalars:
-                                        version: 1.0 (Float64)
+                                        version: 1.0
                                     - name: second!
                                       type: MemoryDaf
                                       scalars:
-                                        version: 2.0 (Float64)
-                                  """) * "\n"
+                                        version: 2.0
+                                    """
                             end
                         end
                     end
@@ -164,30 +156,30 @@ nested_test("chains") do
                     nested_test("!both") do
                         add_axis!(first, "cell", ["A", "B"])
                         add_axis!(second, "cell", ["A", "C"])
-                        @test_throws dedent("""
-                            different entry#2: C
-                            for the axis: cell
-                            in the daf data: second!
-                            from the entry#2: B
-                            for the axis: cell
-                            in the daf data: first!
-                            in the chain: chain!
-                        """) chain_reader([first, second]; name = "chain!")
+                        @test_throws chomp("""
+                                     different entry#2: C
+                                     for the axis: cell
+                                     in the daf data: second!
+                                     from the entry#2: B
+                                     for the axis: cell
+                                     in the daf data: first!
+                                     in the chain: chain!
+                                     """) chain_reader([first, second]; name = "chain!")
                         @test !has_axis(chain, "gene")
                     end
 
                     nested_test("!same") do
                         add_axis!(first, "cell", ["A", "B"])
                         add_axis!(second, "cell", ["A"])
-                        @test_throws dedent("""
-                            different number of entries: 1
-                            for the axis: cell
-                            in the daf data: second!
-                            from the number of entries: 2
-                            for the axis: cell
-                            in the daf data: first!
-                            in the chain: chain!
-                        """) chain_reader([first, second]; name = "chain!")
+                        @test_throws chomp("""
+                                     different number of entries: 1
+                                     for the axis: cell
+                                     in the daf data: second!
+                                     from the number of entries: 2
+                                     for the axis: cell
+                                     in the daf data: first!
+                                     in the chain: chain!
+                                     """) chain_reader([first, second]; name = "chain!")
                         @test !has_axis(chain, "gene")
                     end
                 end
@@ -287,22 +279,22 @@ nested_test("chains") do
                 set_scalar!(first, "version", 1.0)
                 @test get_scalar(first, "version") == 1.0
                 @test get_scalar(chain, "version") == 1.0
-                @test_throws dedent("""
-                    failed to delete the scalar: version
-                    from the daf data: second!
-                    of the chain: chain!
-                    because it exists in the earlier: first!
-                """) delete_scalar!(chain, "version")
+                @test_throws chomp("""
+                             failed to delete the scalar: version
+                             from the daf data: second!
+                             of the chain: chain!
+                             because it exists in the earlier: first!
+                             """) delete_scalar!(chain, "version")
                 set_scalar!(chain, "version", 2.0; overwrite = true)
                 @test get_scalar(first, "version") == 1.0
                 @test get_scalar(second, "version") == 2.0
                 @test get_scalar(chain, "version") == 2.0
-                @test_throws dedent("""
-                    failed to delete the scalar: version
-                    from the daf data: second!
-                    of the chain: chain!
-                    because it exists in the earlier: first!
-                """) delete_scalar!(chain, "version")
+                @test_throws chomp("""
+                             failed to delete the scalar: version
+                             from the daf data: second!
+                             of the chain: chain!
+                             because it exists in the earlier: first!
+                             """) delete_scalar!(chain, "version")
             end
 
             nested_test("change") do
@@ -311,22 +303,22 @@ nested_test("chains") do
                 @test get_scalar(first, "version") == 1.0
                 @test get_scalar(second, "version") == 2.0
                 @test get_scalar(chain, "version") == 2.0
-                @test_throws dedent("""
-                    failed to delete the scalar: version
-                    from the daf data: second!
-                    of the chain: chain!
-                    because it exists in the earlier: first!
-                """) delete_scalar!(chain, "version")
+                @test_throws chomp("""
+                             failed to delete the scalar: version
+                             from the daf data: second!
+                             of the chain: chain!
+                             because it exists in the earlier: first!
+                             """) delete_scalar!(chain, "version")
                 set_scalar!(chain, "version", 3.0; overwrite = true)
                 @test get_scalar(first, "version") == 1.0
                 @test get_scalar(second, "version") == 3.0
                 @test get_scalar(chain, "version") == 3.0
-                @test_throws dedent("""
-                    failed to delete the scalar: version
-                    from the daf data: second!
-                    of the chain: chain!
-                    because it exists in the earlier: first!
-                """) delete_scalar!(chain, "version")
+                @test_throws chomp("""
+                             failed to delete the scalar: version
+                             from the daf data: second!
+                             of the chain: chain!
+                             because it exists in the earlier: first!
+                             """) delete_scalar!(chain, "version")
             end
         end
 
@@ -350,12 +342,12 @@ nested_test("chains") do
                 @test axis_vector(first, "cell") == ["A", "B"]
                 @test !has_axis(second, "cell")
                 @test axis_vector(chain, "cell") == ["A", "B"]
-                @test_throws dedent("""
-                    failed to delete the axis: cell
-                    from the daf data: second!
-                    of the chain: chain!
-                    because it exists in the earlier: first!
-                """) delete_axis!(chain, "cell")
+                @test_throws chomp("""
+                             failed to delete the axis: cell
+                             from the daf data: second!
+                             of the chain: chain!
+                             because it exists in the earlier: first!
+                             """) delete_axis!(chain, "cell")
             end
 
             nested_test("both") do
@@ -364,12 +356,12 @@ nested_test("chains") do
                 @test axis_vector(first, "cell") == ["A", "B"]
                 @test axis_vector(second, "cell") == ["A", "B"]
                 @test axis_vector(chain, "cell") == ["A", "B"]
-                @test_throws dedent("""
-                    failed to delete the axis: cell
-                    from the daf data: second!
-                    of the chain: chain!
-                    because it exists in the earlier: first!
-                """) delete_axis!(chain, "cell")
+                @test_throws chomp("""
+                             failed to delete the axis: cell
+                             from the daf data: second!
+                             of the chain: chain!
+                             because it exists in the earlier: first!
+                             """) delete_axis!(chain, "cell")
             end
         end
 
@@ -422,13 +414,13 @@ nested_test("chains") do
                 @test set_vector!(chain, "cell", "age", [2, 3]; overwrite = true) === nothing
                 @test get_vector(second, "cell", "age") == [2, 3]
                 @test get_vector(chain, "cell", "age") == [2, 3]
-                @test_throws dedent("""
-                    failed to delete the vector: age
-                    of the axis: cell
-                    from the daf data: second!
-                    of the chain: chain!
-                    because it exists in the earlier: first!
-                """) delete_vector!(chain, "cell", "age")
+                @test_throws chomp("""
+                             failed to delete the vector: age
+                             of the axis: cell
+                             from the daf data: second!
+                             of the chain: chain!
+                             because it exists in the earlier: first!
+                             """) delete_vector!(chain, "cell", "age")
             end
 
             nested_test("change") do
@@ -440,13 +432,13 @@ nested_test("chains") do
                 @test get_vector(first, "cell", "age") == [1, 2]
                 @test get_vector(second, "cell", "age") == [3, 4]
                 @test get_vector(chain, "cell", "age") == [3, 4]
-                @test_throws dedent("""
-                    failed to delete the vector: age
-                    of the axis: cell
-                    from the daf data: second!
-                    of the chain: chain!
-                    because it exists in the earlier: first!
-                """) delete_vector!(chain, "cell", "age")
+                @test_throws chomp("""
+                             failed to delete the vector: age
+                             of the axis: cell
+                             from the daf data: second!
+                             of the chain: chain!
+                             because it exists in the earlier: first!
+                             """) delete_vector!(chain, "cell", "age")
             end
         end
 
@@ -507,14 +499,14 @@ nested_test("chains") do
                 @test set_matrix!(chain, "cell", "gene", "UMIs", [1 2 3; 4 5 6]; overwrite = true) === nothing
                 @test get_matrix(second, "cell", "gene", "UMIs") == [1 2 3; 4 5 6]
                 @test get_matrix(chain, "cell", "gene", "UMIs") == [1 2 3; 4 5 6]
-                @test_throws dedent("""
-                    failed to delete the matrix: UMIs
-                    for the rows axis: cell
-                    and the columns axis: gene
-                    from the daf data: second!
-                    of the chain: chain!
-                    because it exists in the earlier: first!
-                """) delete_matrix!(chain, "cell", "gene", "UMIs")
+                @test_throws chomp("""
+                             failed to delete the matrix: UMIs
+                             for the rows axis: cell
+                             and the columns axis: gene
+                             from the daf data: second!
+                             of the chain: chain!
+                             because it exists in the earlier: first!
+                             """) delete_matrix!(chain, "cell", "gene", "UMIs")
             end
 
             nested_test("change") do
@@ -527,14 +519,14 @@ nested_test("chains") do
                 @test get_matrix(first, "cell", "gene", "UMIs") == [0 1 2; 3 4 5]
                 @test get_matrix(second, "cell", "gene", "UMIs") == [2 3 4; 5 6 7]
                 @test get_matrix(chain, "cell", "gene", "UMIs") == [2 3 4; 5 6 7]
-                @test_throws dedent("""
-                    failed to delete the matrix: UMIs
-                    for the rows axis: cell
-                    and the columns axis: gene
-                    from the daf data: second!
-                    of the chain: chain!
-                    because it exists in the earlier: first!
-                """) delete_matrix!(chain, "cell", "gene", "UMIs")
+                @test_throws chomp("""
+                             failed to delete the matrix: UMIs
+                             for the rows axis: cell
+                             and the columns axis: gene
+                             from the daf data: second!
+                             of the chain: chain!
+                             because it exists in the earlier: first!
+                             """) delete_matrix!(chain, "cell", "gene", "UMIs")
             end
         end
     end

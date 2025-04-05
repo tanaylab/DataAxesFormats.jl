@@ -42,12 +42,7 @@ export query_result_dimensions
 export query_requires_relayout
 
 using ..Formats
-using ..GenericFunctions
-using ..GenericTypes
-using ..MatrixLayouts
-using ..Messages
 using ..Operations
-using ..ReadOnlyArrays
 using ..Readers
 using ..Registry
 using ..StorageTypes
@@ -55,6 +50,7 @@ using ..Tokens
 using Base.Threads
 using DataFrames
 using NamedArrays
+using TanayLabUtilities
 
 import ..Formats.CacheEntry
 import ..Formats.CacheKey
@@ -617,16 +613,22 @@ function parse_registered_operation(
     parameter_symbols = fieldnames(operation_type)
     for (name_token, value_token) in parameters_values
         if !(Symbol(name_token.value) in parameter_symbols)
-            error_at_token(name_token, dedent("""
-                                          the parameter: $(name_token.value)
-                                          does not exist for the operation: $(operation_name.value)
-                                       """))
+            error_at_token(
+                name_token,
+                """
+                the parameter: $(name_token.value)
+                does not exist for the operation: $(operation_name.value)
+                """,
+            )
         end
         if haskey(parameters_dict, name_token.value)
-            error_at_token(name_token, dedent("""
-                                           repeated parameter: $(name_token.value)
-                                           for the operation: $(operation_name.value)
-                                       """))
+            error_at_token(
+                name_token,
+                """
+                repeated parameter: $(name_token.value)
+                for the operation: $(operation_name.value)
+                """,
+            )
         end
         parameters_dict[name_token.value] = value_token
     end
@@ -1589,11 +1591,11 @@ mutable struct QueryState
     stack::Vector{QueryValue}
 end
 
-function debug_query(object::Any; name::Maybe{AbstractString} = nothing, indent::AbstractString = "")::Nothing  # UNTESTED
+function debug_query(object::Any; name::Maybe{AbstractString} = nothing, indent::AbstractString = "")::Nothing  # UNTESTED # NOJET
     if name === nothing
-        @debug "$(indent)- $(depict(object))"
+        @debug "$(indent)- $(brief(object))"
     else
-        @debug "$(indent)- $(name): $(depict(object))"
+        @debug "$(indent)- $(name): $(brief(object))"
     end
     return nothing
 end
@@ -1641,7 +1643,7 @@ function debug_query(axis_state::AxisState; name::Maybe{AbstractString} = nothin
     end
     @debug "$(indent)  query_sequence: $(axis_state.query_sequence)"
     @debug "$(indent)  axis_name: $(axis_state.axis_name)"
-    @debug "$(indent)  axis_modifier: $(depict(axis_state.axis_modifier))"
+    @debug "$(indent)  axis_modifier: $(brief(axis_state.axis_modifier))"
     return nothing
 end
 
@@ -1656,7 +1658,7 @@ function debug_query(  # UNTESTED
         @debug "$(indent)- $(name): VectorState:"
     end
     @debug "$(indent)   query_sequence: $(vector_state.query_sequence)"
-    @debug "$(indent)   named_vector: $(depict(vector_state.named_vector))"
+    @debug "$(indent)   named_vector: $(brief(vector_state.named_vector))"
     @debug "$(indent)   property_name: $(vector_state.property_name)"
     @debug "$(indent)  is_processed: $(vector_state.is_processed)"
     if vector_state.axis_state === nothing
@@ -1678,7 +1680,7 @@ function debug_query(  # UNTESTED
         @debug "$(indent)- $(name): MatrixState:"
     end
     @debug "$(indent)  query_sequence: $(matrix_state.query_sequence)"
-    @debug "$(indent)  named_matrix: $(depict(matrix_state.named_matrix))"
+    @debug "$(indent)  named_matrix: $(brief(matrix_state.named_matrix))"
     @debug "$(indent)  rows_property_name: $(matrix_state.rows_property_name)"
     @debug "$(indent)  columns_property_name: $(matrix_state.columns_property_name)"
     if matrix_state.rows_axis_state === nothing
@@ -1728,6 +1730,7 @@ function error_at_state(query_state::Union{QueryState, FakeQueryState}, message:
     indent = repeat(" ", query_state_first_offset)
     marker = repeat("▲", query_state_last_offset - query_state_first_offset)
 
+    message = chomp(message)
     message *= "\nin the query: $(query_state.query_sequence)\nat operation: $(indent)$(marker)"
     if query_state isa QueryState
         message *= "\nfor the daf data: $(query_state.daf.name)"
@@ -1811,7 +1814,7 @@ function get_query(
                 result = result.data
             end
         end
-        @debug "get_query daf: $(depict(daf)) query_sequence: $(query_sequence) cache: $(cache) result: $(depict(result))"
+        @debug "get_query daf: $(brief(daf)) query_sequence: $(query_sequence) cache: $(cache) result: $(brief(result))"
         return result
     end
 end
@@ -1868,10 +1871,10 @@ function do_get_query(
     elseif is_all(query_state, (MatrixState,))
         return get_matrix_result(query_state)
     else
-        return error(dedent("""
-            partial query: $(query_state.query_sequence)
-            for the daf data: $(query_state.daf.name)
-        """))
+        return error("""
+                     partial query: $(query_state.query_sequence)
+                     for the daf data: $(query_state.daf.name)
+                     """)
     end
 end
 
@@ -1965,7 +1968,7 @@ end
 """
     query_requires_relayout(daf::DafReader, query::QueryString)::Bool
 
-Whether computing the `query` for the `daf` data requires [`relayout!`](@ref) of some matrix. This also verifies the
+Whether computing the `query` for the `daf` data requires `relayout!` of some matrix. This also verifies the
 query is syntactically valid and that the query can be computed, though it may still fail if applied to specific data
 due to invalid values or types.
 """
@@ -2095,18 +2098,24 @@ function push_axis(query_state::QueryState, axis::Axis, is_equal::IsEqual)::Noth
 
     comparison_value = is_equal.comparison_value
     if !(comparison_value isa AbstractString)
-        error_at_state(query_state, dedent("""
-                                        comparing a non-String ($(typeof(comparison_value))): $(comparison_value)
-                                        with entries of the axis: $(axis.axis_name)
-                                    """))
+        error_at_state(
+            query_state,
+            """
+            comparing a non-String ($(typeof(comparison_value))): $(comparison_value)
+            with entries of the axis: $(axis.axis_name)
+            """,
+        )
     end
 
     axis_entry_index = get(axis_entries.dicts[1], comparison_value, nothing)
     if axis_entry_index === nothing
-        error_at_state(query_state, dedent("""
-                                        the entry: $(comparison_value)
-                                        does not exist in the axis: $(axis.axis_name)
-                                    """))
+        error_at_state(
+            query_state,
+            """
+            the entry: $(comparison_value)
+            does not exist in the axis: $(axis.axis_name)
+            """,
+        )
     end
 
     axis_state = AxisState(query_sequence, dependency_keys, axis.axis_name, axis_entry_index)
@@ -2144,10 +2153,13 @@ end
 
 function get_vectors_set(query_state::QueryState, names::Names)::Nothing
     if names.kind !== nothing
-        error_at_state(query_state, dedent("""
+        error_at_state(
+            query_state,
+            """
             unexpected kind: $(names.kind)
             specified for vector names
-        """))
+            """,
+        )
     end
     axis_state = pop!(query_state.stack)
     @assert axis_state isa AxisState
@@ -2167,10 +2179,13 @@ end
 
 function get_matrices_set(query_state::QueryState, names::Names)::Nothing
     if names.kind !== nothing
-        error_at_state(query_state, dedent("""
+        error_at_state(
+            query_state,
+            """
             unexpected kind: $(names.kind)
             specified for matrix names
-        """))
+            """,
+        )
     end
 
     rows_axis_state = pop!(query_state.stack)
@@ -2222,10 +2237,13 @@ end
 
 function fake_vectors_set(fake_query_state::FakeQueryState, names::Names)::Nothing
     if names.kind !== nothing
-        error_at_state(fake_query_state, dedent("""
+        error_at_state(
+            fake_query_state,
+            """
             unexpected kind: $(names.kind)
             specified for vector names
-        """))
+            """,
+        )
     end
 
     fake_axis_state = pop!(fake_query_state.stack)  # NOJET
@@ -2241,10 +2259,13 @@ end
 
 function fake_matrices_set(fake_query_state::FakeQueryState, names::Names)::Nothing
     if names.kind !== nothing
-        error_at_state(fake_query_state, dedent("""
+        error_at_state(
+            fake_query_state,
+            """
             unexpected kind: $(names.kind)
             specified for matrix names
-        """))
+            """,
+        )
     end
 
     fake_rows_axis_state = pop!(fake_query_state.stack)
@@ -2553,8 +2574,8 @@ function debug_query(  # UNTESTED
     @debug "$(indent)  first_operation_index: $(common_fetch_state.first_operation_index)"
     debug_query(common_fetch_state.axis_state; name = "axis_state", indent = indent * "  ")
     @debug "$(indent)  axis_name: $(common_fetch_state.axis_name)"
-    @debug "$(indent)  property_name: $(depict(common_fetch_state.property_name))"
-    @debug "$(indent)  dependency_keys: $(depict(common_fetch_state.dependency_keys))"
+    @debug "$(indent)  property_name: $(brief(common_fetch_state.property_name))"
+    @debug "$(indent)  dependency_keys: $(brief(common_fetch_state.dependency_keys))"
     return nothing
 end
 
@@ -2587,9 +2608,9 @@ function debug_query(  # UNTESTED
     end
     debug_query(vector_fetch_state.common; name = "common", indent = indent * "  ")
     @debug "$(indent)  may_modify_axis_mask: $(vector_fetch_state.may_modify_axis_mask)"
-    @debug "$(indent)  named_vector: $(depict(vector_fetch_state.named_vector))"
+    @debug "$(indent)  named_vector: $(brief(vector_fetch_state.named_vector))"
     @debug "$(indent)  may_modify_named_vector: $(vector_fetch_state.may_modify_named_vector)"
-    @debug "$(indent)  if_not_values: $(depict(vector_fetch_state.if_not_values))"
+    @debug "$(indent)  if_not_values: $(brief(vector_fetch_state.if_not_values))"
     return nothing
 end
 
@@ -2663,10 +2684,13 @@ function fetch_property(query_state::QueryState, axis_state::AxisState, fetch_op
 
                 slice_comparison_value = slice_is_equal.comparison_value
                 if !(slice_comparison_value in names(next_named_matrix, 2))
-                    error_at_state(query_state, dedent("""
-                                            invalid value: $(slice_comparison_value)
-                                            is missing from the axis: $(mask_slice.axis_name)
-                                        """))
+                    error_at_state(
+                        query_state,
+                        """
+                        invalid value: $(slice_comparison_value)
+                        is missing from the axis: $(mask_slice.axis_name)
+                        """,
+                    )
                 end
                 next_named_vector = next_named_matrix[:, slice_comparison_value]
 
@@ -2683,10 +2707,13 @@ function fetch_property(query_state::QueryState, axis_state::AxisState, fetch_op
 
                 slice_comparison_value = mask_slice.comparison_value
                 if !(slice_comparison_value in names(next_named_matrix, 2))
-                    error_at_state(query_state, dedent("""
-                                            invalid value: $(slice_comparison_value)
-                                            is missing from the axis: $(fetch_axis_name)
-                                        """))
+                    error_at_state(
+                        query_state,
+                        """
+                        invalid value: $(slice_comparison_value)
+                        is missing from the axis: $(fetch_axis_name)
+                        """,
+                    )
                 end
 
                 if mask_slice isa SquareMaskColumn
@@ -2715,11 +2742,14 @@ function fetch_property(query_state::QueryState, axis_state::AxisState, fetch_op
 
         if !is_final && next_named_vector !== nothing && !(eltype(next_named_vector) <: AbstractString)
             query_state.next_operation_index += 1
-            error_at_state(query_state, dedent("""
-                                            fetching with a non-String vector of: $(eltype(next_named_vector))
-                                            of the vector: $(fetch_property_name)
-                                            of the axis: $(fetch_axis_name)
-                                        """))
+            error_at_state(
+                query_state,
+                """
+                fetching with a non-String vector of: $(eltype(next_named_vector))
+                of the vector: $(fetch_property_name)
+                of the axis: $(fetch_axis_name)
+                """,
+            )
         end
 
         next_fetch_state(
@@ -2938,12 +2968,15 @@ function entry_scalar_value(
 
         index_in_fetched = get(next_named_vector.dicts[1], previous_scalar_value, nothing)
         if index_in_fetched === nothing
-            error_at_state(query_state, dedent("""
-                                            invalid value: $(previous_scalar_value)
-                                            of the vector: $(entry_fetch_state.common.property_name)
-                                            of the axis: $(entry_fetch_state.common.axis_name)
-                                            is missing from the fetched axis: $(fetch_axis_name)
-                                        """))
+            error_at_state(
+                query_state,
+                """
+                invalid value: $(previous_scalar_value)
+                of the vector: $(entry_fetch_state.common.property_name)
+                of the axis: $(entry_fetch_state.common.axis_name)
+                is missing from the fetched axis: $(fetch_axis_name)
+                """,
+            )
         end
         scalar_value = next_named_vector[index_in_fetched]
     end
@@ -2958,11 +2991,14 @@ function entry_scalar_value(
         fetch = get_next_operation(query_state, Fetch)
         @assert fetch !== nothing
         next_axis_name = axis_of_property(query_state.daf, fetch_property_name, as_axis)
-        error_at_state(query_state, dedent("""
-                                        empty value of the vector: $(fetch_property_name)
-                                        of the axis: $(fetch_axis_name)
-                                        used for the fetched axis: $(next_axis_name)
-                                    """))
+        error_at_state(
+            query_state,
+            """
+            empty value of the vector: $(fetch_property_name)
+            of the axis: $(fetch_axis_name)
+            used for the fetched axis: $(next_axis_name)
+            """,
+        )
     end
 
     return scalar_value
@@ -3085,12 +3121,15 @@ function fetch_second_named_vector(
 
                 index_in_fetch = get(next_named_vector.dicts[1], previous_value, nothing)
                 if index_in_fetch === nothing
-                    error_at_state(query_state, dedent("""
-                                                    invalid value: $(previous_value)
-                                                    of the vector: $(vector_fetch_state.common.property_name)
-                                                    of the axis: $(vector_fetch_state.common.axis_name)
-                                                    is missing from the fetched axis: $(fetch_axis_name)
-                                                """))
+                    error_at_state(
+                        query_state,
+                        """
+                        invalid value: $(previous_value)
+                        of the vector: $(vector_fetch_state.common.property_name)
+                        of the axis: $(vector_fetch_state.common.axis_name)
+                        is missing from the fetched axis: $(fetch_axis_name)
+                        """,
+                    )
                 end
 
                 fetched_values[index] = next_named_vector.array[index_in_fetch]
@@ -3180,11 +3219,14 @@ function verify_fetched_values(
             fetch = get_next_operation(query_state, Fetch)
             @assert fetch !== nothing
             next_axis_name = axis_of_property(query_state.daf, fetch_property_name, as_axis)
-            error_at_state(query_state, dedent("""
-                                            empty value of the vector: $(fetch_property_name)
-                                            of the axis: $(fetch_axis_name)
-                                            used for the fetched axis: $(next_axis_name)
-                                        """))
+            error_at_state(
+                query_state,
+                """
+                empty value of the vector: $(fetch_property_name)
+                of the axis: $(fetch_axis_name)
+                used for the fetched axis: $(next_axis_name)
+                """,
+            )
         end
     end
     return nothing
@@ -3308,11 +3350,14 @@ function apply_comparison(query_state::QueryState)::Nothing
         if !(eltype(vector_state.named_vector) <: AbstractString)
             axis_state = vector_state.axis_state
             @assert axis_state !== nothing
-            error_at_state(query_state, dedent("""
-                                            matching non-string vector: $(eltype(vector_state.named_vector))
-                                            of the vector: $(vector_state.property_name)
-                                            of the axis: $(axis_state.axis_name)
-                                        """))
+            error_at_state(
+                query_state,
+                """
+                matching non-string vector: $(eltype(vector_state.named_vector))
+                of the vector: $(vector_state.property_name)
+                of the axis: $(axis_state.axis_name)
+                """,
+            )
         end
         compare_with = regex_for(query_state, comparison_operation.comparison_value)
 
@@ -3869,10 +3914,13 @@ function collect_vector_group_by(
         elseif empty_group_value !== nothing
             results_vector[group_index] = empty_group_value
         else
-            error_at_state(query_state, dedent("""
-                                            no values for the group: $(group_value)
-                                            and no IfMissing value was specified: || value_for_empty_groups
-                                        """))
+            error_at_state(
+                query_state,
+                """
+                no values for the group: $(group_value)
+                and no IfMissing value was specified: || value_for_empty_groups
+                """,
+            )
         end
     end  # UNTESTED
 end
@@ -3912,10 +3960,13 @@ function eltwise_scalar(query_state::QueryState, eltwise_operation::EltwiseOpera
 
     scalar_value = scalar_state.scalar_value
     if scalar_value isa AbstractString && !supports_strings(eltwise_operation)
-        error_at_state(query_state, dedent("""
-                                        unsupported input type: String
-                                        for the eltwise operation: $(typeof(eltwise_operation))
-                                    """))
+        error_at_state(
+            query_state,
+            """
+            unsupported input type: String
+            for the eltwise operation: $(typeof(eltwise_operation))
+            """,
+        )
     end
 
     scalar_state.scalar_value = compute_eltwise(eltwise_operation, scalar_value)  # NOLINT
@@ -3929,10 +3980,13 @@ function eltwise_vector(query_state::QueryState, eltwise_operation::EltwiseOpera
     @assert vector_state isa VectorState
 
     if eltype(vector_state.named_vector) <: AbstractString && !supports_strings(eltwise_operation)
-        error_at_state(query_state, dedent("""
-                                        unsupported input type: $(eltype(vector_state.named_vector))
-                                        for the eltwise operation: $(typeof(eltwise_operation))
-                                    """))
+        error_at_state(
+            query_state,
+            """
+            unsupported input type: $(eltype(vector_state.named_vector))
+            for the eltwise operation: $(typeof(eltwise_operation))
+            """,
+        )
     end
 
     vector_value = compute_eltwise(eltwise_operation, read_only_array(vector_state.named_vector.array))  # NOLINT
@@ -3995,10 +4049,13 @@ function reduce_vector(query_state::QueryState, reduction_operation::ReductionOp
     @assert vector_state isa VectorState
 
     if eltype(vector_state.named_vector) <: AbstractString && !supports_strings(reduction_operation)
-        error_at_state(query_state, dedent("""
-                                        unsupported input type: $(eltype(vector_state.named_vector))
-                                        for the reduction operation: $(typeof(reduction_operation))
-                                    """))
+        error_at_state(
+            query_state,
+            """
+            unsupported input type: $(eltype(vector_state.named_vector))
+            for the reduction operation: $(typeof(reduction_operation))
+            """,
+        )
     end
 
     scalar_value = compute_reduction(reduction_operation, read_only_array(vector_state.named_vector.array))  # NOLINT
@@ -4121,10 +4178,13 @@ function regex_for(query_state::QueryState, value::StorageScalar)::Regex
     try
         return Regex(comparison_value)  # NOJET
     catch exception
-        error_at_state(query_state, dedent("""
-                                        $(typeof(exception)): $(exception.msg)
-                                        in the regular expression: $(comparison_value)
-                                    """))
+        error_at_state(
+            query_state,
+            """
+            $(typeof(exception)): $(exception.msg)
+            in the regular expression: $(comparison_value)
+            """,
+        )
     end
 end
 
@@ -4254,17 +4314,17 @@ function get_frame(
         column_query = full_vector_query(axis_query, column_query, column_name)
         vector = get_query(daf, column_query; cache)
         if !(vector isa StorageVector) || !(vector isa NamedArray) || names(vector, 1) != names_of_rows
-            error(dedent("""
-                invalid column query: $(column_query)
-                for the axis query: $(axis_query)
-                of the daf data: $(daf.name)
-            """))
+            error("""
+                  invalid column query: $(column_query)
+                  for the axis query: $(axis_query)
+                  of the daf data: $(daf.name)
+                  """)
         end
         push!(data, column_name => vector.array)
     end
 
     result = DataFrame(data)  # NOJET
-    @debug "get_frame daf: $(depict(daf)) axis: $(axis) columns: $(columns) result: $(depict(result))"
+    @debug "get_frame daf: $(brief(daf)) axis: $(axis) columns: $(columns) result: $(brief(result))"
     return result
 end
 

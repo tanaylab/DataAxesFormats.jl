@@ -6,14 +6,12 @@ module MemoryFormat
 export MemoryDaf
 
 using ..Formats
-using ..GenericTypes
-using ..MatrixLayouts
-using ..Messages
 using ..Readers
 using ..StorageTypes
 using ..Writers
 using NamedArrays
 using SparseArrays
+using TanayLabUtilities
 
 import ..Formats
 import ..Formats.Internal
@@ -46,7 +44,7 @@ function MemoryDaf(; name::AbstractString = "memory")::MemoryDaf
     matrices = Dict{AbstractString, Dict{AbstractString, Dict{AbstractString, StorageMatrix}}}()
     name = unique_name(name)
     memory = MemoryDaf(name, Internal(; cache_group = nothing, is_frozen = false), scalars, axes, vectors, matrices)
-    @debug "Daf: $(depict(memory))"
+    @debug "Daf: $(brief(memory))"
     return memory
 end
 

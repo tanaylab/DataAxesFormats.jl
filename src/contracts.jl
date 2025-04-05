@@ -19,10 +19,7 @@ export verify_input
 export verify_output
 
 using ..Formats
-using ..GenericFunctions
-using ..GenericTypes
 using ..Keys
-using ..Messages
 using ..Queries
 using ..Readers
 using ..StorageTypes
@@ -31,6 +28,7 @@ using DocStringExtensions
 using ExprTools
 using NamedArrays
 using SparseArrays
+using TanayLabUtilities
 
 import ..Formats.CacheKey
 import ..Formats.CachedAxis
@@ -489,7 +487,7 @@ function ensure_axis(
     if tracker === nothing
         error(
             "non-contract axis: $(axis)\n" *
-            dedent(what_for) *
+            what_for *
             "\nfor the computation: $(computation)\n" *
             "on the daf data: $(daf.name)",
         )
@@ -498,7 +496,7 @@ function ensure_axis(
     if !is_compatible_axis_expectation(expectation, tracker.expectation)
         error(
             "incompatible $(tracker.expectation) axis: $(axis)\n" *
-            dedent(what_for) *
+            what_for *
             "\nfor the computation: $(computation)\n" *
             "on the daf data: $(daf.name)",
         )
@@ -600,30 +598,30 @@ end
 function verify_axis_data(contract_daf::ContractDaf, axis::AbstractString, tracker::Tracker; is_output::Bool)::Nothing
     if has_axis(contract_daf.daf, axis)
         if is_forbidden(tracker.expectation; is_output, overwrite = contract_daf.overwrite)
-            error(dedent("""
-                pre-existing $(tracker.expectation) axis: $(axis)
-                for the computation: $(contract_daf.computation)
-                on the daf data: $(contract_daf.daf.name)
-            """))
+            error("""
+                  pre-existing $(tracker.expectation) axis: $(axis)
+                  for the computation: $(contract_daf.computation)
+                  on the daf data: $(contract_daf.daf.name)
+                  """)
         end
     else
         if is_mandatory(tracker.expectation; is_output)
-            error(dedent("""
-                missing $(direction_name(is_output)) axis: $(axis)
-                for the computation: $(contract_daf.computation)
-                on the daf data: $(contract_daf.daf.name)
-            """))
+            error("""
+                  missing $(direction_name(is_output)) axis: $(axis)
+                  for the computation: $(contract_daf.computation)
+                  on the daf data: $(contract_daf.daf.name)
+                  """)
         end
     end
 end
 
 function verify_axis_access(contract_daf::ContractDaf, axis::AbstractString, tracker::Tracker)::Nothing
     if has_axis(contract_daf.daf, axis) && !tracker.accessed && tracker.expectation == RequiredInput
-        error(dedent("""
-            unused RequiredInput axis: $(axis)
-            of the computation: $(contract_daf.computation)
-            on the daf data: $(contract_daf.daf.name)
-        """))
+        error("""
+              unused RequiredInput axis: $(axis)
+              of the computation: $(contract_daf.computation)
+              on the daf data: $(contract_daf.daf.name)
+              """)
     end
 end
 
@@ -631,42 +629,42 @@ function verify_scalar_data(contract_daf::ContractDaf, name::AbstractString, tra
     value = get_scalar(contract_daf.daf, name; default = nothing)
     if value === nothing
         if is_mandatory(tracker.expectation; is_output) && value === nothing
-            error(dedent("""
-                missing $(direction_name(is_output)) scalar: $(name)
-                with type: $(tracker.type)
-                for the computation: $(contract_daf.computation)
-                on the daf data: $(contract_daf.daf.name)
-            """))
+            error("""
+                  missing $(direction_name(is_output)) scalar: $(name)
+                  with type: $(tracker.type)
+                  for the computation: $(contract_daf.computation)
+                  on the daf data: $(contract_daf.daf.name)
+                  """)
         end
     else
         if is_forbidden(tracker.expectation; is_output, overwrite = contract_daf.overwrite)
-            error(dedent("""
-                pre-existing $(tracker.expectation) scalar: $(name)
-                for the computation: $(contract_daf.computation)
-                on the daf data: $(contract_daf.daf.name)
-            """))
+            error("""
+                  pre-existing $(tracker.expectation) scalar: $(name)
+                  for the computation: $(contract_daf.computation)
+                  on the daf data: $(contract_daf.daf.name)
+                  """)
         end
         type = tracker.type
         @assert type !== nothing
         if !(value isa type)
-            error(dedent("""
-                unexpected type: $(typeof(value))
-                instead of type: $(type)
-                for the $(direction_name(is_output)) scalar: $(name)
-                for the computation: $(contract_daf.computation)
-                on the daf data: $(contract_daf.daf.name)
-            """))
+            error("""
+                  unexpected type: $(typeof(value))
+                  instead of type: $(type)
+                  for the $(direction_name(is_output)) scalar: $(name)
+                  for the computation: $(contract_daf.computation)
+                  on the daf data: $(contract_daf.daf.name)
+                  """)
         end
     end
 end
 
 function verify_scalar_access(contract_daf::ContractDaf, name::AbstractString, tracker::Tracker)::Nothing
     if has_scalar(contract_daf.daf, name) && !tracker.accessed && tracker.expectation == RequiredInput
-        error(dedent("""
-            unused RequiredInput scalar: $(name)
-            of the computation: $(contract_daf.computation)
-            on the daf data: $(contract_daf.daf.name)
-        """))
+        error("""
+              unused RequiredInput scalar: $(name)
+              of the computation: $(contract_daf.computation)
+              on the daf data: $(contract_daf.daf.name)
+              """)
     end
 end
 
@@ -684,34 +682,34 @@ function verify_vector_data(
     end
     if value === nothing
         if is_mandatory(tracker.expectation; is_output)
-            error(dedent("""
-                missing $(direction_name(is_output)) vector: $(name)
-                of the axis: $(axis)
-                with element type: $(tracker.type)
-                for the computation: $(contract_daf.computation)
-                on the daf data: $(contract_daf.daf.name)
-            """))
+            error("""
+                  missing $(direction_name(is_output)) vector: $(name)
+                  of the axis: $(axis)
+                  with element type: $(tracker.type)
+                  for the computation: $(contract_daf.computation)
+                  on the daf data: $(contract_daf.daf.name)
+                  """)
         end
     else
         if is_forbidden(tracker.expectation; is_output, overwrite = contract_daf.overwrite)
-            error(dedent("""
-                pre-existing $(tracker.expectation) vector: $(name)
-                of the axis: $(axis)
-                for the computation: $(contract_daf.computation)
-                on the daf data: $(contract_daf.daf.name)
-            """))
+            error("""
+                  pre-existing $(tracker.expectation) vector: $(name)
+                  of the axis: $(axis)
+                  for the computation: $(contract_daf.computation)
+                  on the daf data: $(contract_daf.daf.name)
+                  """)
         end
         type = tracker.type
         @assert type !== nothing
         if !(eltype(value) <: type)
-            error(dedent("""
-                unexpected type: $(eltype(value))
-                instead of type: $(type)
-                for the $(direction_name(is_output)) vector: $(name)
-                of the axis: $(axis)
-                for the computation: $(contract_daf.computation)
-                on the daf data: $(contract_daf.daf.name)
-            """))
+            error("""
+                  unexpected type: $(eltype(value))
+                  instead of type: $(type)
+                  for the $(direction_name(is_output)) vector: $(name)
+                  of the axis: $(axis)
+                  for the computation: $(contract_daf.computation)
+                  on the daf data: $(contract_daf.daf.name)
+                  """)
         end
     end
 end
@@ -726,12 +724,12 @@ function verify_vector_access(
        has_vector(contract_daf.daf, axis, name) &&
        !tracker.accessed &&
        tracker.expectation == RequiredInput
-        error(dedent("""
-            unused RequiredInput vector: $(name)
-            of the axis: $(axis)
-            of the computation: $(contract_daf.computation)
-            on the daf data: $(contract_daf.daf.name)
-        """))
+        error("""
+              unused RequiredInput vector: $(name)
+              of the axis: $(axis)
+              of the computation: $(contract_daf.computation)
+              on the daf data: $(contract_daf.daf.name)
+              """)
     end
 end
 
@@ -750,37 +748,37 @@ function verify_matrix_data(
     end
     if value === nothing
         if is_mandatory(tracker.expectation; is_output) && value === nothing
-            error(dedent("""
-                missing $(direction_name(is_output)) matrix: $(name)
-                of the rows axis: $(rows_axis)
-                and the columns axis: $(columns_axis)
-                with element type: $(tracker.type)
-                for the computation: $(contract_daf.computation)
-                on the daf data: $(contract_daf.daf.name)
-            """))
+            error("""
+                  missing $(direction_name(is_output)) matrix: $(name)
+                  of the rows axis: $(rows_axis)
+                  and the columns axis: $(columns_axis)
+                  with element type: $(tracker.type)
+                  for the computation: $(contract_daf.computation)
+                  on the daf data: $(contract_daf.daf.name)
+                  """)
         end
     else
         if is_forbidden(tracker.expectation; is_output, overwrite = contract_daf.overwrite)
-            error(dedent("""
-                pre-existing $(tracker.expectation) matrix: $(name)
-                of the rows axis: $(rows_axis)
-                and the columns axis: $(columns_axis)
-                for the computation: $(contract_daf.computation)
-                on the daf data: $(contract_daf.daf.name)
-            """))
+            error("""
+                  pre-existing $(tracker.expectation) matrix: $(name)
+                  of the rows axis: $(rows_axis)
+                  and the columns axis: $(columns_axis)
+                  for the computation: $(contract_daf.computation)
+                  on the daf data: $(contract_daf.daf.name)
+                  """)
         end
         type = tracker.type
         @assert type !== nothing
         if !(eltype(value) <: type)
-            error(dedent("""
-                unexpected type: $(eltype(value))
-                instead of type: $(type)
-                for the $(direction_name(is_output)) matrix: $(name)
-                of the rows axis: $(rows_axis)
-                and the columns axis: $(columns_axis)
-                for the computation: $(contract_daf.computation)
-                on the daf data: $(contract_daf.daf.name)
-            """))
+            error("""
+                  unexpected type: $(eltype(value))
+                  instead of type: $(type)
+                  for the $(direction_name(is_output)) matrix: $(name)
+                  of the rows axis: $(rows_axis)
+                  and the columns axis: $(columns_axis)
+                  for the computation: $(contract_daf.computation)
+                  on the daf data: $(contract_daf.daf.name)
+                  """)
         end
     end
 end
@@ -797,25 +795,25 @@ function verify_matrix_access(
        has_matrix(contract_daf.daf, rows_axis, columns_axis, name) &&
        !tracker.accessed &&
        tracker.expectation == RequiredInput
-        error(dedent("""
-            unused RequiredInput matrix: $(name)
-            of the rows axis: $(rows_axis)
-            and the columns axis: $(columns_axis)
-            of the computation: $(contract_daf.computation)
-            on the daf data: $(contract_daf.daf.name)
-        """))
+        error("""
+              unused RequiredInput matrix: $(name)
+              of the rows axis: $(rows_axis)
+              and the columns axis: $(columns_axis)
+              of the computation: $(contract_daf.computation)
+              on the daf data: $(contract_daf.daf.name)
+              """)
     end
 end
 
-function Messages.depict(contract_daf::ContractDaf; name::Maybe{AbstractString} = nothing)::AbstractString
+function TanayLabUtilities.Brief.brief(contract_daf::ContractDaf; name::Maybe{AbstractString} = nothing)::AbstractString
     if name === nothing
         name = contract_daf.name
     end
 
     if contract_daf.daf isa ContractDaf
-        return depict(contract_daf.daf; name)  # UNTESTED
+        return brief(contract_daf.daf; name)  # UNTESTED
     else
-        return "Contract $(depict(contract_daf.daf; name))"
+        return "Contract $(brief(contract_daf.daf; name))"
     end
 end
 
@@ -891,11 +889,11 @@ function merge_types(data_key::DataKey, left_type::Type, right_type::Type)::Type
     elseif right_type <: left_type
         return right_type
     else
-        error(dedent("""
-            incompatible type: $(left_type)
-            and type: $(right_type)
-            for the contracts data: $(data_key)
-        """))
+        error("""
+              incompatible type: $(left_type)
+              and type: $(right_type)
+              for the contracts data: $(data_key)
+              """)
     end
 end
 
@@ -914,11 +912,11 @@ function merge_expectations(
     elseif left_expectation == OptionalOutput && right_expectation == OptionalInput
         return OptionalOutput
     else
-        error(dedent("""
-            incompatible expectation: $(left_expectation)
-            and expectation: $(right_expectation)
-            for the contracts $(what): $(key)
-        """))
+        error("""
+              incompatible expectation: $(left_expectation)
+              and expectation: $(right_expectation)
+              for the contracts $(what): $(key)
+              """)
     end
 end
 
@@ -1268,19 +1266,19 @@ function access_scalar(contract_daf::ContractDaf, name::AbstractString; is_modif
         if contract_daf.is_relaxed
             return nothing
         end
-        error(dedent("""
-            accessing non-contract scalar: $(name)
-            for the computation: $(contract_daf.computation)
-            on the daf data: $(contract_daf.daf.name)
-        """))
+        error("""
+              accessing non-contract scalar: $(name)
+              for the computation: $(contract_daf.computation)
+              on the daf data: $(contract_daf.daf.name)
+              """)
     end
 
     if is_immutable(tracker.expectation; is_modify)
-        error(dedent("""
-            modifying $(tracker.expectation) scalar: $(name)
-            for the computation: $(contract_daf.computation)
-            on the daf data: $(contract_daf.daf.name)
-        """))
+        error("""
+              modifying $(tracker.expectation) scalar: $(name)
+              for the computation: $(contract_daf.computation)
+              on the daf data: $(contract_daf.daf.name)
+              """)
     end
 
     tracker.accessed = true
@@ -1296,19 +1294,19 @@ function access_axis(contract_daf::ContractDaf, axis::AbstractString; is_modify:
         if contract_daf.is_relaxed
             return nothing
         end
-        error(dedent("""
-            accessing non-contract axis: $(axis)
-            for the computation: $(contract_daf.computation)
-            on the daf data: $(contract_daf.daf.name)
-        """))
+        error("""
+              accessing non-contract axis: $(axis)
+              for the computation: $(contract_daf.computation)
+              on the daf data: $(contract_daf.daf.name)
+              """)
     end
 
     if is_immutable(tracker.expectation; is_modify)
-        error(dedent("""
-            modifying $(tracker.expectation) axis: $(axis)
-            for the computation: $(contract_daf.computation)
-            on the daf data: $(contract_daf.daf.name)
-        """))
+        error("""
+              modifying $(tracker.expectation) axis: $(axis)
+              for the computation: $(contract_daf.computation)
+              on the daf data: $(contract_daf.daf.name)
+              """)
     end
 
     tracker.accessed = true
@@ -1327,21 +1325,21 @@ function access_vector(contract_daf::ContractDaf, axis::AbstractString, name::Ab
         if contract_daf.is_relaxed || name == "name" || name == "index"
             return nothing
         end
-        error(dedent("""
-            accessing non-contract vector: $(name)
-            of the axis: $(axis)
-            for the computation: $(contract_daf.computation)
-            on the daf data: $(contract_daf.daf.name)
-        """))
+        error("""
+              accessing non-contract vector: $(name)
+              of the axis: $(axis)
+              for the computation: $(contract_daf.computation)
+              on the daf data: $(contract_daf.daf.name)
+              """)
     end
 
     if is_immutable(tracker.expectation; is_modify)
-        error(dedent("""
-            modifying $(tracker.expectation) vector: $(name)
-            of the axis: $(axis)
-            for the computation: $(contract_daf.computation)
-            on the daf data: $(contract_daf.daf.name)
-        """))
+        error("""
+              modifying $(tracker.expectation) vector: $(name)
+              of the axis: $(axis)
+              for the computation: $(contract_daf.computation)
+              on the daf data: $(contract_daf.daf.name)
+              """)
     end
 
     tracker.accessed = true
@@ -1369,24 +1367,24 @@ function access_matrix(
             if contract_daf.is_relaxed
                 return nothing
             end
-            error(dedent("""
-                accessing non-contract matrix: $(name)
-                of the rows axis: $(rows_axis)
-                and the columns axis: $(columns_axis)
-                for the computation: $(contract_daf.computation)
-                on the daf data: $(contract_daf.daf.name)
-            """))
+            error("""
+                  accessing non-contract matrix: $(name)
+                  of the rows axis: $(rows_axis)
+                  and the columns axis: $(columns_axis)
+                  for the computation: $(contract_daf.computation)
+                  on the daf data: $(contract_daf.daf.name)
+                  """)
         end
     end
 
     if is_immutable(tracker.expectation; is_modify)
-        error(dedent("""
-            modifying $(tracker.expectation) matrix: $(name)
-            of the rows_axis: $(rows_axis)
-            and the columns_axis: $(columns_axis)
-            for the computation: $(contract_daf.computation)
-            on the daf data: $(contract_daf.daf.name)
-        """))
+        error("""
+              modifying $(tracker.expectation) matrix: $(name)
+              of the rows_axis: $(rows_axis)
+              and the columns_axis: $(columns_axis)
+              for the computation: $(contract_daf.computation)
+              on the daf data: $(contract_daf.daf.name)
+              """)
     end
 
     tracker.accessed = true
@@ -1478,6 +1476,30 @@ function Queries.verify_contract_query(contract_daf::ContractDaf, cache_key::Cac
     end
 
     return nothing  # UNTESTED
+end
+
+function dedent(string::AbstractString; indent::AbstractString = "")::String
+    lines = split(string, "\n")
+    while !isempty(lines) && isempty(lines[1])
+        @views lines = lines[2:end]  # UNTESTED
+    end
+    while !isempty(lines) && isempty(lines[end])
+        @views lines = lines[1:(end - 1)]  # UNTESTED
+    end
+
+    first_non_space = nothing
+    for line in lines
+        line_non_space = findfirst(character -> character != ' ', line)
+        if first_non_space === nothing || (line_non_space !== nothing && line_non_space < first_non_space)
+            first_non_space = line_non_space
+        end
+    end  # NOJET
+
+    if first_non_space === nothing
+        return indent * string  # UNTESTED NOJET
+    else
+        return join([indent * line[first_non_space:end] for line in lines], "\n")  # NOJET
+    end
 end
 
 end # module

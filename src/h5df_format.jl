@@ -100,10 +100,6 @@ module H5dfFormat
 export H5df
 
 using ..Formats
-using ..GenericFunctions
-using ..GenericTypes
-using ..MatrixLayouts
-using ..Messages
 using ..ReadOnly
 using ..Readers
 using ..StorageTypes
@@ -113,11 +109,8 @@ using SparseArrays
 
 import ..Formats
 import ..Formats.Internal
-import ..MatrixLayouts.colptr
-import ..MatrixLayouts.nzind
-import ..MatrixLayouts.nzval
-import ..MatrixLayouts.rowval
 import ..Readers.base_array
+using TanayLabUtilities
 
 """
 The specific major version of the [`H5df`](@ref) format that is supported by this code (`1`). The code will refuse to
@@ -223,7 +216,7 @@ function H5df(
     name = unique_name(name)
 
     h5df = H5df(name, Internal(; cache_group = MappedData, is_frozen = is_read_only), root, mode)
-    @debug "Daf: $(depict(h5df)) root: $(root)"
+    @debug "Daf: $(brief(h5df)) root: $(root)"
     if is_read_only
         return read_only(h5df)
     else
@@ -239,14 +232,14 @@ function verify_alignment(root::HDF5.File)::Nothing
     file_access_properties = HDF5.get_access_properties(root)
     alignment = file_access_properties.alignment
     if alignment[1] > 1 || alignment[2] != 8
-        @warn dedent("""
-            unsafe HDF5 file alignment for Daf: ($(Int(alignment[1])), $(Int(alignment[2])))
-            the safe HDF5 file alignment is: (1, 8)
-            note that unaligned data is inefficient,
-            and will break the empty_* functions;
-            to force the alignment, create the file using:
-            h5open(...;fapl=HDF5.FileAccessProperties(;alignment=(1,8))
-        """)
+        @warn """
+              unsafe HDF5 file alignment for Daf: ($(Int(alignment[1])), $(Int(alignment[2])))
+              the safe HDF5 file alignment is: (1, 8)
+              note that unaligned data is inefficient,
+              and will break the empty_* functions;
+              to force the alignment, create the file using:
+              h5open(...;fapl=HDF5.FileAccessProperties(;alignment=(1,8))
+              """
     end
 end
 
@@ -272,11 +265,11 @@ function verify_daf(root::Union{HDF5.File, HDF5.Group})::Nothing
     @assert length(format_version) == 2
     @assert eltype(format_version) <: Unsigned
     if format_version[1] != MAJOR_VERSION || format_version[2] > MINOR_VERSION
-        error(dedent("""
-            incompatible format version: $(format_version[1]).$(format_version[2])
-            for the daf data: $(root)
-            the code supports version: $(MAJOR_VERSION).$(MINOR_VERSION)
-        """))
+        error("""
+              incompatible format version: $(format_version[1]).$(format_version[2])
+              for the daf data: $(root)
+              the code supports version: $(MAJOR_VERSION).$(MINOR_VERSION)
+              """)
     end
 end
 

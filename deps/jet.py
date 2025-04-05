@@ -1,6 +1,6 @@
 from glob import glob
-from os.path import relpath
 import fileinput
+import os
 import re
 import sys
 
@@ -34,8 +34,11 @@ def load_file(path):
         bad_paths.add(path)
         return False
 
+def is_local(line):
+    return os.path.basename(os.getcwd()) in line
+
 def is_disabled(path, line):
-    path = relpath(path)
+    path = os.path.relpath(path)
     if not load_file(path):
         return False
 
@@ -44,18 +47,20 @@ def is_disabled(path, line):
     return "NOJET" in read_lines[path][line]
 
 for path in glob("src/*.jl"):
-    path = relpath(path)
+    path = os.path.relpath(path)
     load_file(path)
 
 for path in glob("test/*.jl"):
-    path = relpath(path)
+    path = os.path.relpath(path)
     load_file(path)
 
 context_lines = []
 context_disabled = []
+context_is_local = []
 context_changed = False
 
 errors = 0
+non_local = 0
 skipped = 0
 
 for line in fileinput.input():
@@ -75,23 +80,30 @@ for line in fileinput.input():
         while len(context_lines) >= depth:
             context_lines.pop()
             context_disabled.pop()
+            context_is_local.pop()
 
         context_lines.append(line)
         context_disabled.append(is_disabled(*match.groups()))
+        context_is_local.append(is_local(line))
         continue
 
     if any(context_disabled):
         if context_changed:
             skipped += 1
-            context_changed = False
-    else:
+
+    elif any(context_is_local):
         if context_changed:
-            context_changed = False
             errors += 1
             print("")
             for context_line in context_lines:
                 print(context_line[:-1])
         print(line[:-1])
+
+    else:
+        if context_changed:
+            non_local += 1
+
+    context_changed = False
 
 unused = 0
 for path, lines in unused_lines.items():
@@ -112,10 +124,12 @@ if errors > 0:
 if skipped > 0:
     message += f"{separator} {skipped} skipped"
     separator = ","
+if non_local > 0:
+    message += f"{separator} {non_local} non_local"
 if unused > 0:
     message += f"{separator} {unused} unused"
 
-if errors + skipped + unused > 0:
+if errors + skipped + non_local + unused > 0:
     print(message)
 else:
     print("JET: clean!")

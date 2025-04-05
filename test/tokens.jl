@@ -136,11 +136,11 @@ nested_test("tokens") do
         end
 
         nested_test("unexpected") do
-            @test_throws dedent("""
-                unexpected character: ':'
-                in: א : x
-                at:   ▲
-            """) token_strings("א : x")
+            @test_throws chomp("""
+                         unexpected character: ':'
+                         in: א : x
+                         at:   ▲
+                         """) token_strings("א : x")
         end
     end
 end

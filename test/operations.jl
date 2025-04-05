@@ -14,14 +14,14 @@ nested_test("operations") do
     nested_test("eltwise") do
         nested_test("abs") do
             nested_test("string") do
-                @test_throws dedent("""
-                    invalid value: "String"
-                    value must be: a number type
-                    for the parameter: type
-                    for the operation: Abs
-                    in: / cell : value % Abs type String
-                    at:                           ▲▲▲▲▲▲
-                """) daf["/ cell : value % Abs type String"]
+                @test_throws chomp("""
+                             invalid value: "String"
+                             value must be: a number type
+                             for the parameter: type
+                             for the operation: Abs
+                             in: / cell : value % Abs type String
+                             at:                           ▲▲▲▲▲▲
+                             """) daf["/ cell : value % Abs type String"]
             end
 
             nested_test("scalar") do
@@ -68,25 +68,25 @@ nested_test("operations") do
 
         nested_test("clamp") do
             nested_test("!number") do
-                @test_throws dedent("""
-                    invalid value: "q"
-                    value must be: a valid Float64
-                    for the parameter: max
-                    for the operation: Clamp
-                    in: : value % Clamp max q
-                    at:                     ▲
-                """) daf[": value % Clamp max q"]
+                @test_throws chomp("""
+                             invalid value: "q"
+                             value must be: a valid Float64
+                             for the parameter: max
+                             for the operation: Clamp
+                             in: : value % Clamp max q
+                             at:                     ▲
+                             """) daf[": value % Clamp max q"]
             end
 
             nested_test("!max") do
-                @test_throws dedent("""
-                    invalid value: "0"
-                    value must be: larger than min (1.0)
-                    for the parameter: max
-                    for the operation: Clamp
-                    in: : value % Clamp min 1 max 0
-                    at:                           ▲
-                """) daf[": value % Clamp min 1 max 0"]
+                @test_throws chomp("""
+                             invalid value: "0"
+                             value must be: larger than min (1.0)
+                             for the parameter: max
+                             for the operation: Clamp
+                             in: : value % Clamp min 1 max 0
+                             at:                           ▲
+                             """) daf[": value % Clamp min 1 max 0"]
             end
 
             nested_test("scalar") do
@@ -130,12 +130,12 @@ nested_test("operations") do
 
         nested_test("convert") do
             nested_test("invalid") do
-                @test_throws dedent("""
-                    missing required parameter: type
-                    for the eltwise operation: Convert
-                    in: / cell : value % Convert
-                    at:                  ▲▲▲▲▲▲▲
-                """) daf["/ cell : value % Convert"]
+                @test_throws chomp("""
+                             missing required parameter: type
+                             for the eltwise operation: Convert
+                             in: / cell : value % Convert
+                             at:                  ▲▲▲▲▲▲▲
+                             """) daf["/ cell : value % Convert"]
             end
 
             nested_test("scalar") do
@@ -157,14 +157,14 @@ nested_test("operations") do
 
         nested_test("fraction") do
             nested_test("integer") do
-                @test_throws dedent("""
-                    invalid value: "Int32"
-                    value must be: a float type
-                    for the parameter: type
-                    for the operation: Fraction
-                    in: / cell : value % Fraction type Int32
-                    at:                                ▲▲▲▲▲
-                """) with_type(daf["/ cell : value % Fraction type Int32"])
+                @test_throws chomp("""
+                             invalid value: "Int32"
+                             value must be: a float type
+                             for the parameter: type
+                             for the operation: Fraction
+                             in: / cell : value % Fraction type Int32
+                             at:                                ▲▲▲▲▲
+                             """) with_type(daf["/ cell : value % Fraction type Int32"])
             end
 
             nested_test("scalar") do
@@ -194,25 +194,25 @@ nested_test("operations") do
 
         nested_test("log") do
             nested_test("!positive") do
-                @test_throws dedent("""
-                    invalid value: "0"
-                    value must be: positive
-                    for the parameter: base
-                    for the operation: Log
-                    in: : value % Log base 0
-                    at:                    ▲
-                """) daf[": value % Log base 0"]
+                @test_throws chomp("""
+                             invalid value: "0"
+                             value must be: positive
+                             for the parameter: base
+                             for the operation: Log
+                             in: : value % Log base 0
+                             at:                    ▲
+                             """) daf[": value % Log base 0"]
             end
 
             nested_test("negative") do
-                @test_throws dedent("""
-                    invalid value: "-1"
-                    value must be: not negative
-                    for the parameter: eps
-                    for the operation: Log
-                    in: : value % Log eps -1
-                    at:                   ▲▲
-                """) daf[": value % Log eps -1"]
+                @test_throws chomp("""
+                             invalid value: "-1"
+                             value must be: not negative
+                             for the parameter: eps
+                             for the operation: Log
+                             in: : value % Log eps -1
+                             at:                   ▲▲
+                             """) daf[": value % Log eps -1"]
             end
 
             nested_test("special") do
@@ -242,36 +242,36 @@ nested_test("operations") do
 
         nested_test("significant") do
             nested_test("!positive") do
-                @test_throws dedent("""
-                    invalid value: "0"
-                    value must be: positive
-                    for the parameter: high
-                    for the operation: Significant
-                    in: / cell : value % Significant high 0
-                    at:                                   ▲
-                """) daf["/ cell : value % Significant high 0"]
+                @test_throws chomp("""
+                             invalid value: "0"
+                             value must be: positive
+                             for the parameter: high
+                             for the operation: Significant
+                             in: / cell : value % Significant high 0
+                             at:                                   ▲
+                             """) daf["/ cell : value % Significant high 0"]
             end
 
             nested_test("negative") do
-                @test_throws dedent("""
-                    invalid value: "-1"
-                    value must be: not negative
-                    for the parameter: low
-                    for the operation: Significant
-                    in: / cell : value % Significant high 1 low -1
-                    at:                                         ▲▲
-                """) daf["/ cell : value % Significant high 1 low -1"]
+                @test_throws chomp("""
+                             invalid value: "-1"
+                             value must be: not negative
+                             for the parameter: low
+                             for the operation: Significant
+                             in: / cell : value % Significant high 1 low -1
+                             at:                                         ▲▲
+                             """) daf["/ cell : value % Significant high 1 low -1"]
             end
 
             nested_test("!low") do
-                @test_throws dedent("""
-                    invalid value: "2"
-                    value must be: at most high (1.0)
-                    for the parameter: low
-                    for the operation: Significant
-                    in: / cell : value % Significant high 1 low 2
-                    at:                                         ▲
-                """) daf["/ cell : value % Significant high 1 low 2"]
+                @test_throws chomp("""
+                             invalid value: "2"
+                             value must be: at most high (1.0)
+                             for the parameter: low
+                             for the operation: Significant
+                             in: / cell : value % Significant high 1 low 2
+                             at:                                         ▲
+                             """) daf["/ cell : value % Significant high 1 low 2"]
             end
 
             nested_test("scalar") do
@@ -405,25 +405,25 @@ nested_test("operations") do
 
         nested_test("quantile") do
             nested_test("negative") do
-                @test_throws dedent("""
-                    invalid value: "-0.5"
-                    value must be: at least 0
-                    for the parameter: p
-                    for the operation: Quantile
-                    in: / gene / cell : value %> Quantile p -0.5
-                    at:                                     ▲▲▲▲
-                """) daf["/ gene / cell : value %> Quantile p -0.5"]
+                @test_throws chomp("""
+                             invalid value: "-0.5"
+                             value must be: at least 0
+                             for the parameter: p
+                             for the operation: Quantile
+                             in: / gene / cell : value %> Quantile p -0.5
+                             at:                                     ▲▲▲▲
+                             """) daf["/ gene / cell : value %> Quantile p -0.5"]
             end
 
             nested_test("high") do
-                @test_throws dedent("""
-                    invalid value: "1.5"
-                    value must be: at most 1
-                    for the parameter: p
-                    for the operation: Quantile
-                    in: / gene / cell : value %> Quantile p 1.5
-                    at:                                     ▲▲▲
-                """) daf["/ gene / cell : value %> Quantile p 1.5"]
+                @test_throws chomp("""
+                             invalid value: "1.5"
+                             value must be: at most 1
+                             for the parameter: p
+                             for the operation: Quantile
+                             in: / gene / cell : value %> Quantile p 1.5
+                             at:                                     ▲▲▲
+                             """) daf["/ gene / cell : value %> Quantile p 1.5"]
             end
 
             nested_test("vector") do
@@ -454,14 +454,14 @@ nested_test("operations") do
 
         nested_test("geomean") do
             nested_test("negative") do
-                @test_throws dedent("""
-                    invalid value: "-1"
-                    value must be: not negative
-                    for the parameter: eps
-                    for the operation: GeoMean
-                    in: / cell / gene : value %> GeoMean eps -1
-                    at:                                      ▲▲
-                """) daf["/ cell / gene : value %> GeoMean eps -1"]
+                @test_throws chomp("""
+                             invalid value: "-1"
+                             value must be: not negative
+                             for the parameter: eps
+                             for the operation: GeoMean
+                             in: / cell / gene : value %> GeoMean eps -1
+                             at:                                      ▲▲
+                             """) daf["/ cell / gene : value %> GeoMean eps -1"]
             end
 
             nested_test("vector") do
@@ -504,14 +504,14 @@ nested_test("operations") do
 
         nested_test("var_n") do
             nested_test("negative") do
-                @test_throws dedent("""
-                    invalid value: "-1"
-                    value must be: not negative
-                    for the parameter: eps
-                    for the operation: VarN
-                    in: / cell / gene : value %> VarN eps -1
-                    at:                                   ▲▲
-                """) daf["/ cell / gene : value %> VarN eps -1"]
+                @test_throws chomp("""
+                             invalid value: "-1"
+                             value must be: not negative
+                             for the parameter: eps
+                             for the operation: VarN
+                             in: / cell / gene : value %> VarN eps -1
+                             at:                                   ▲▲
+                             """) daf["/ cell / gene : value %> VarN eps -1"]
             end
 
             nested_test("vector") do
@@ -539,14 +539,14 @@ nested_test("operations") do
 
         nested_test("std_n") do
             nested_test("negative") do
-                @test_throws dedent("""
-                    invalid value: "-1"
-                    value must be: not negative
-                    for the parameter: eps
-                    for the operation: StdN
-                    in: / cell / gene : value %> StdN eps -1
-                    at:                                   ▲▲
-                """) daf["/ cell / gene : value %> StdN eps -1"]
+                @test_throws chomp("""
+                             invalid value: "-1"
+                             value must be: not negative
+                             for the parameter: eps
+                             for the operation: StdN
+                             in: / cell / gene : value %> StdN eps -1
+                             at:                                   ▲▲
+                             """) daf["/ cell / gene : value %> StdN eps -1"]
             end
 
             nested_test("vector") do

@@ -18,8 +18,8 @@ export ReductionOperation
 export register_query_operation
 export supports_strings
 
-using ..GenericFunctions
 using ..StorageTypes
+using TanayLabUtilities
 
 # An operation in the global registry (used for parsing).
 struct RegisteredOperation
@@ -173,11 +173,11 @@ function register_query_operation(
         if previous_registration.type != type ||
            previous_registration.source_file != source_file ||
            previous_registration.source_line != source_line
-            error(dedent("""
+            error("""
                 conflicting registrations for the $(kind) operation: $(name)
                 first in: $(previous_registration.source_file):$(previous_registration.source_line)
                 second in: $(source_file):$(source_line)
-            """))
+                """)
         end
     end
 

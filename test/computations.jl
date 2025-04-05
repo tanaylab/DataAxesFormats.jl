@@ -3,8 +3,9 @@
 # is too short.
 using REPL
 using Markdown
+
 function formatdoc(md::Markdown.MD)::String
-    return dedent(repr("text/markdown", md)) * "\n"
+    return repr("text/markdown", md)
 end
 
 """
@@ -80,15 +81,6 @@ $(CONTRACT2)
 end
 
 """
-Missing
-
-$(CONTRACT)
-"""
-function missing_single(daf::DafWriter)::Nothing
-    return nothing
-end
-
-"""
 Relaxed
 
 $(CONTRACT)
@@ -113,17 +105,6 @@ $(CONTRACT1)
 
 $(CONTRACT2)
 """
-function missing_both(first::DafWriter, second::DafWriter)::Nothing  # untested
-    return nothing
-end
-
-"""
-Missing
-
-$(CONTRACT1)
-
-$(CONTRACT2)
-"""
 @computation Contract() function missing_second(first::DafWriter, second::DafWriter)::Nothing  # untested
     return nothing
 end
@@ -135,9 +116,7 @@ end
 nested_test("computations") do
     nested_test("access") do
         nested_test("!contract") do
-            @test_throws "not a @documented or @computation function: Main.not_computation" function_contract(
-                not_computation,
-            )
+            @test_throws "not a @documented function: Main.not_computation" function_contract(not_computation)
         end
 
         nested_test("contract") do
@@ -149,10 +128,10 @@ nested_test("computations") do
         end
 
         nested_test("!default") do
-            @test_throws dedent("""
-                no parameter with default: quality
-                exists for the function: Main.single
-                """) function_default(single, :quality)
+            @test_throws chomp("""
+                         no parameter (with default): quality
+                         exists for the function: Main.single
+                         """) function_default(single, :quality)
         end
     end
 
@@ -166,11 +145,11 @@ nested_test("computations") do
         end
 
         nested_test("docs") do
-            @test formatdoc(@doc none) == dedent("""
-                                                 None
+            @test formatdoc(@doc none) == """
+                                          None
 
-                                                 Just a function with a default `x` of `1`.
-                                                 """) * "\n"
+                                          Just a function with a default `x` of `1`.
+                                          """
         end
     end
 
@@ -185,83 +164,71 @@ nested_test("computations") do
         end
 
         nested_test("missing") do
-            @test_throws dedent("""
-                missing input axis: gene
-                for the computation: Main.single
-                on the daf data: memory!
-            """) single(daf, 0.0)
+            @test_throws chomp("""
+                         missing input axis: gene
+                         for the computation: Main.single
+                         on the daf data: memory!
+                         """) single(daf, 0.0)
         end
 
         nested_test("docs") do
-            @test formatdoc(@doc single) ==
-                  dedent(
-                """
-                Single
+            @test formatdoc(@doc single) == """
+                                            Single
 
-                The `quality` is mandatory. The default `optional` is `1`. The default `named` is `\"Foo\"`.
+                                            The `quality` is mandatory. The default `optional` is `1`. The default `named` is `\"Foo\"`.
 
-                ## Inputs
+                                            ## Inputs
 
-                ### Scalars
+                                            ### Scalars
 
-                **version**::String (optional): In major.minor.patch format.
+                                            **version**::String (optional): In major.minor.patch format.
 
-                ### Axes
+                                            ### Axes
 
-                **cell** (required): The sampled single cells.
+                                            **cell** (required): The sampled single cells.
 
-                **gene** (required): The sampled genes.
+                                            **gene** (required): The sampled genes.
 
-                ### Vectors
+                                            ### Vectors
 
-                **gene @ noisy**::Bool (optional): Mask of genes with high variability.
+                                            **gene @ noisy**::Bool (optional): Mask of genes with high variability.
 
-                ### Matrices
+                                            ### Matrices
 
-                **cell, gene @ UMIs**::Union{UInt16, UInt32, UInt64, UInt8} (required): The number of sampled scRNA molecules.
+                                            **cell, gene @ UMIs**::Union{UInt16, UInt32, UInt64, UInt8} (required): The number of sampled scRNA molecules.
 
-                ## Outputs
+                                            ## Outputs
 
-                ### Scalars
+                                            ### Scalars
 
-                **quality**::Float64 (guaranteed): Overall output quality score between 0.0 and 1.0.
+                                            **quality**::Float64 (guaranteed): Overall output quality score between 0.0 and 1.0.
 
-                ### Axes
+                                            ### Axes
 
-                **block** (optional): Blocks of cells.
+                                            **block** (optional): Blocks of cells.
 
-                ### Vectors
+                                            ### Vectors
 
-                **cell @ special**::Bool (optional): Computed mask of special cells, if requested.
+                                            **cell @ special**::Bool (optional): Computed mask of special cells, if requested.
 
-                ### Tensors
+                                            ### Tensors
 
-                **block; cell, gene @ match**::Union{Float32, Float64} (optional): How well the gene of the cell match the block.
-                """,
-            ) * "\n"
+                                            **block; cell, gene @ match**::Union{Float32, Float64} (optional): How well the gene of the cell match the block.
+                                            """
         end
 
         nested_test("relaxed") do
-            @test formatdoc(@doc relaxed) ==
-                  dedent("""
-                         Relaxed
+            @test formatdoc(@doc relaxed) == """
+                                             Relaxed
 
-                         ## Inputs
+                                             ## Inputs
 
-                         Additional inputs may be used depending on the parameter(s).
+                                             Additional inputs may be used depending on the parameter(s).
 
-                         ## Outputs
+                                             ## Outputs
 
-                         Additional outputs may be created depending on the parameter(s).
-                         """) * "\n"
-        end
-
-        nested_test("!docs") do
-            @test missing_single(daf) === nothing
-            @test_throws dedent("""
-                no contract(s) associated with: Main.missing_single
-                use: @computation Contract(...) function Main.missing_single(...)
-            """) formatdoc(@doc missing_single)
+                                             Additional outputs may be created depending on the parameter(s).
+                                             """
         end
     end
 
@@ -292,11 +259,11 @@ nested_test("computations") do
             set_scalar!(first, "quality", 0.0)
             set_scalar!(second, "quality", 1.0)
             set_scalar!(second, "version", "1.0")
-            @test_throws dedent("""
-                pre-existing GuaranteedOutput scalar: quality
-                for the computation: Main.cross.1
-                on the daf data: first!
-            """) cross(first, second)
+            @test_throws chomp("""
+                         pre-existing GuaranteedOutput scalar: quality
+                         for the computation: Main.cross.1
+                         on the daf data: first!
+                         """) cross(first, second)
             @test get_scalar(first, "quality") == 0.0
             @test get_scalar(second, "version") == "1.0"
         end
@@ -304,27 +271,27 @@ nested_test("computations") do
         nested_test("missing") do
             nested_test("first") do
                 set_scalar!(second, "quality", 0.0)
-                @test_throws dedent("""
-                    missing input scalar: version
-                    with type: String
-                    for the computation: Main.cross.1
-                    on the daf data: first!
-                """) cross(first, second)
+                @test_throws chomp("""
+                             missing input scalar: version
+                             with type: String
+                             for the computation: Main.cross.1
+                             on the daf data: first!
+                             """) cross(first, second)
             end
 
             nested_test("second") do
                 set_scalar!(first, "version", "0.0")
-                @test_throws dedent("""
-                    missing input scalar: quality
-                    with type: Float64
-                    for the computation: Main.cross.2
-                    on the daf data: second!
-                """) cross(first, second)
+                @test_throws chomp("""
+                             missing input scalar: quality
+                             with type: Float64
+                             for the computation: Main.cross.2
+                             on the daf data: second!
+                             """) cross(first, second)
             end
         end
 
         nested_test("docs") do
-            @test formatdoc(@doc cross) == dedent("""
+            @test formatdoc(@doc cross) == """
                 Dual
 
                 # First
@@ -354,28 +321,21 @@ nested_test("computations") do
                 ### Scalars
 
                 **version**::String (guaranteed): In major.minor.patch format.
-            """) * "\n"
-        end
-
-        nested_test("!doc1") do
-            @test_throws dedent("""
-                no contract(s) associated with: Main.missing_both
-                use: @computation Contract(...) function Main.missing_both(...)
-            """) formatdoc(@doc missing_both)
+                """
         end
 
         nested_test("!doc2") do
-            @test_throws dedent("""
-                no second contract associated with: Main.missing_second
-                use: @computation Contract(...) Contract(...) function Main.missing_second(...)
-            """) formatdoc(@doc missing_second)
+            @test_throws chomp("""
+                         no second contract associated with: Main.missing_second
+                         use: @computation Contract(...) Contract(...) function Main.missing_second(...)
+                         """) formatdoc(@doc missing_second)
         end
 
         nested_test("!default") do
-            @test_throws dedent("""
-                no default for a parameter: x
-                in the computation: Main.missing_default
-            """) formatdoc(@doc missing_default)
+            @test_throws chomp("""
+                         no parameter (with default): x
+                         exists for the function: Main.missing_default
+                         """) formatdoc(@doc missing_default)
         end
     end
 end

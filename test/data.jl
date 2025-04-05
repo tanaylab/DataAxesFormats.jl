@@ -30,14 +30,14 @@ function test_missing_scalar(daf::DafReader, depth::Int)::Nothing
 
     nested_test("get_scalar") do
         nested_test("()") do
-            @test_throws dedent("""
-                missing scalar: depth
-                in the daf data: $(daf.name)
-            """) get_scalar(daf, "depth")
-            @test_throws dedent("""
-                missing scalar: version
-                in the daf data: $(daf.name)
-            """) get_scalar(daf, "version")
+            @test_throws chomp("""
+                         missing scalar: depth
+                         in the daf data: $(daf.name)
+                         """) get_scalar(daf, "depth")
+            @test_throws chomp("""
+                         missing scalar: version
+                         in the daf data: $(daf.name)
+                         """) get_scalar(daf, "version")
         end
 
         nested_test("default") do
@@ -59,26 +59,26 @@ function test_missing_scalar(daf::DafReader, depth::Int)::Nothing
 
     nested_test("delete_scalar!") do
         nested_test("()") do
-            @test_throws dedent("""
-                missing scalar: depth
-                in the daf data: $(daf.name)
-            """) delete_scalar!(daf, "depth")
-            @test_throws dedent("""
-                missing scalar: version
-                in the daf data: $(daf.name)
-            """) delete_scalar!(daf, "version")
+            @test_throws chomp("""
+                         missing scalar: depth
+                         in the daf data: $(daf.name)
+                         """) delete_scalar!(daf, "depth")
+            @test_throws chomp("""
+                         missing scalar: version
+                         in the daf data: $(daf.name)
+                         """) delete_scalar!(daf, "version")
         end
 
         nested_test("must_exist") do
             nested_test("true") do
-                @test_throws dedent("""
-                    missing scalar: depth
-                    in the daf data: $(daf.name)
-                """) delete_scalar!(daf, "depth"; must_exist = true)
-                @test_throws dedent("""
-                    missing scalar: version
-                    in the daf data: $(daf.name)
-                """) delete_scalar!(daf, "version"; must_exist = true)
+                @test_throws chomp("""
+                             missing scalar: depth
+                             in the daf data: $(daf.name)
+                             """) delete_scalar!(daf, "depth"; must_exist = true)
+                @test_throws chomp("""
+                             missing scalar: version
+                             in the daf data: $(daf.name)
+                             """) delete_scalar!(daf, "version"; must_exist = true)
             end
 
             nested_test("false") do
@@ -169,26 +169,26 @@ function test_existing_scalar(daf::DafReader, depth::Int)::Nothing
 
     nested_test("set_scalar!") do
         nested_test("()") do
-            @test_throws dedent("""
-                existing scalar: depth
-                in the daf data: $(daf.name)
-            """) set_scalar!(daf, "depth", -1)
-            @test_throws dedent("""
-                existing scalar: version
-                in the daf data: $(daf.name)
-            """) set_scalar!(daf, "version", -1)
+            @test_throws chomp("""
+                         existing scalar: depth
+                         in the daf data: $(daf.name)
+                         """) set_scalar!(daf, "depth", -1)
+            @test_throws chomp("""
+                         existing scalar: version
+                         in the daf data: $(daf.name)
+                         """) set_scalar!(daf, "version", -1)
         end
 
         nested_test("overwrite") do
             nested_test("false") do
-                @test_throws dedent("""
-                    existing scalar: depth
-                    in the daf data: $(daf.name)
-                """) set_scalar!(daf, "depth", -1; overwrite = false)
-                @test_throws dedent("""
-                    existing scalar: version
-                    in the daf data: $(daf.name)
-                """) set_scalar!(daf, "version", -1; overwrite = false)
+                @test_throws chomp("""
+                             existing scalar: depth
+                             in the daf data: $(daf.name)
+                             """) set_scalar!(daf, "depth", -1; overwrite = false)
+                @test_throws chomp("""
+                             existing scalar: version
+                             in the daf data: $(daf.name)
+                             """) set_scalar!(daf, "version", -1; overwrite = false)
             end
 
             nested_test("true") do
@@ -220,11 +220,11 @@ function test_missing_axis(daf::DafReader, depth::Int)::Nothing
     end
 
     nested_test("axis_length") do
-        @test_throws dedent("""
-            missing axis: gene
-            for: axis_length
-            of the daf data: $(daf.name)
-        """) axis_length(daf, "gene")
+        @test_throws chomp("""
+                     missing axis: gene
+                     for: axis_length
+                     of the daf data: $(daf.name)
+                     """) axis_length(daf, "gene")
     end
 
     nested_test("axes_set") do
@@ -232,29 +232,29 @@ function test_missing_axis(daf::DafReader, depth::Int)::Nothing
     end
 
     nested_test("vectors_set") do
-        @test_throws dedent("""
-            missing axis: gene
-            for: vectors_set
-            of the daf data: $(daf.name)
-        """) vectors_set(daf, "gene")
+        @test_throws chomp("""
+                     missing axis: gene
+                     for: vectors_set
+                     of the daf data: $(daf.name)
+                     """) vectors_set(daf, "gene")
     end
 
     nested_test("axis_vector") do
         nested_test("()") do
-            @test_throws dedent("""
-                missing axis: gene
-                for: axis_vector
-                of the daf data: $(daf.name)
-            """) axis_vector(daf, "gene")
+            @test_throws chomp("""
+                         missing axis: gene
+                         for: axis_vector
+                         of the daf data: $(daf.name)
+                         """) axis_vector(daf, "gene")
         end
 
         nested_test("default") do
             nested_test("undef") do
-                @test_throws dedent("""
-                    missing axis: gene
-                    for: axis_vector
-                    of the daf data: $(daf.name)
-                """) axis_vector(daf, "gene"; default = undef)
+                @test_throws chomp("""
+                             missing axis: gene
+                             for: axis_vector
+                             of the daf data: $(daf.name)
+                             """) axis_vector(daf, "gene"; default = undef)
             end
 
             nested_test("nothing") do
@@ -264,11 +264,11 @@ function test_missing_axis(daf::DafReader, depth::Int)::Nothing
     end
 
     nested_test("axis_dict") do
-        @test_throws dedent("""
-            missing axis: gene
-            for: axis_dict
-            of the daf data: $(daf.name)
-        """) axis_dict(daf, "gene")
+        @test_throws chomp("""
+                     missing axis: gene
+                     for: axis_dict
+                     of the daf data: $(daf.name)
+                     """) axis_dict(daf, "gene")
     end
 
     if !(daf isa DafWriter)
@@ -277,20 +277,20 @@ function test_missing_axis(daf::DafReader, depth::Int)::Nothing
 
     nested_test("delete_axis") do
         nested_test("()") do
-            @test_throws dedent("""
-                missing axis: gene
-                for: delete_axis!
-                of the daf data: $(daf.name)
-            """) delete_axis!(daf, "gene")
+            @test_throws chomp("""
+                         missing axis: gene
+                         for: delete_axis!
+                         of the daf data: $(daf.name)
+                         """) delete_axis!(daf, "gene")
         end
 
         nested_test("must_exist") do
             nested_test("true") do
-                @test_throws dedent("""
-                    missing axis: gene
-                    for: delete_axis!
-                    of the daf data: $(daf.name)
-                """) delete_axis!(daf, "gene"; must_exist = true)
+                @test_throws chomp("""
+                             missing axis: gene
+                             for: delete_axis!
+                             of the daf data: $(daf.name)
+                             """) delete_axis!(daf, "gene"; must_exist = true)
             end
 
             nested_test("false") do
@@ -312,10 +312,10 @@ function test_missing_axis(daf::DafReader, depth::Int)::Nothing
         end
 
         nested_test("duplicated") do
-            @test_throws dedent("""
-                non-unique entries for new axis: gene
-                in the daf data: $(daf.name)
-            """) add_axis!(daf, "gene", ["FOXA1", "BATF3", "CATD2", "BATF3"])
+            @test_throws chomp("""
+                         non-unique entries for new axis: gene
+                         in the daf data: $(daf.name)
+                         """) add_axis!(daf, "gene", ["FOXA1", "BATF3", "CATD2", "BATF3"])
         end
     end
 end
@@ -417,10 +417,10 @@ function test_existing_axis(daf::DafReader, depth::Int)::Nothing
 
     nested_test("add_axis!") do
         nested_test("()") do
-            @test_throws dedent("""
-                existing axis: gene
-                in the daf data: $(daf.name)
-            """) add_axis!(daf, "gene", ["Foo", "Bar", "Baz"])
+            @test_throws chomp("""
+                         existing axis: gene
+                         in the daf data: $(daf.name)
+                         """) add_axis!(daf, "gene", ["Foo", "Bar", "Baz"])
         end
 
         nested_test("overwrite") do
@@ -443,27 +443,27 @@ function test_missing_vector_axis(daf::DafReader, depth::Int)::Nothing
     end
 
     nested_test("has_vector") do
-        @test_throws dedent("""
-            missing axis: gene
-            for has_vector: marker
-            of the daf data: $(daf.name)
-        """) has_vector(daf, "gene", "marker")
+        @test_throws chomp("""
+                     missing axis: gene
+                     for has_vector: marker
+                     of the daf data: $(daf.name)
+                     """) has_vector(daf, "gene", "marker")
     end
 
     nested_test("vectors_set") do
-        @test_throws dedent("""
-            missing axis: gene
-            for: vectors_set
-            of the daf data: $(daf.name)
-        """) vectors_set(daf, "gene")
+        @test_throws chomp("""
+                     missing axis: gene
+                     for: vectors_set
+                     of the daf data: $(daf.name)
+                     """) vectors_set(daf, "gene")
     end
 
     nested_test("get_vector") do
-        @test_throws dedent("""
-            missing axis: gene
-            for the vector: marker
-            of the daf data: $(daf.name)
-        """) get_vector(daf, "gene", "marker")
+        @test_throws chomp("""
+                     missing axis: gene
+                     for the vector: marker
+                     of the daf data: $(daf.name)
+                     """) get_vector(daf, "gene", "marker")
     end
 
     if !(daf isa DafWriter)
@@ -472,56 +472,56 @@ function test_missing_vector_axis(daf::DafReader, depth::Int)::Nothing
 
     nested_test("delete_vector") do
         nested_test("()") do
-            @test_throws dedent("""
-                missing axis: gene
-                for the vector: marker
-                of the daf data: $(daf.name)
-            """) delete_vector!(daf, "gene", "marker")
+            @test_throws chomp("""
+                         missing axis: gene
+                         for the vector: marker
+                         of the daf data: $(daf.name)
+                         """) delete_vector!(daf, "gene", "marker")
         end
 
         nested_test("must_exist") do
             nested_test("true") do
-                @test_throws dedent("""
-                    missing axis: gene
-                    for the vector: marker
-                    of the daf data: $(daf.name)
-                """) delete_vector!(daf, "gene", "marker"; must_exist = true)
+                @test_throws chomp("""
+                             missing axis: gene
+                             for the vector: marker
+                             of the daf data: $(daf.name)
+                             """) delete_vector!(daf, "gene", "marker"; must_exist = true)
             end
 
             nested_test("false") do
-                @test_throws dedent("""
-                    missing axis: gene
-                    for the vector: marker
-                    of the daf data: $(daf.name)
-                """) delete_vector!(daf, "gene", "marker"; must_exist = false)
+                @test_throws chomp("""
+                             missing axis: gene
+                             for the vector: marker
+                             of the daf data: $(daf.name)
+                             """) delete_vector!(daf, "gene", "marker"; must_exist = false)
             end
         end
     end
 
     nested_test("set_vector!") do
         nested_test("()") do
-            @test_throws dedent("""
-                missing axis: gene
-                for the vector: marker
-                of the daf data: $(daf.name)
-            """) set_vector!(daf, "gene", "marker", MARKER_GENES_BY_DEPTH[depth])
+            @test_throws chomp("""
+                         missing axis: gene
+                         for the vector: marker
+                         of the daf data: $(daf.name)
+                         """) set_vector!(daf, "gene", "marker", MARKER_GENES_BY_DEPTH[depth])
         end
 
         nested_test("overwrite") do
             nested_test("true") do
-                @test_throws dedent("""
-                    missing axis: gene
-                    for the vector: marker
-                    of the daf data: $(daf.name)
-                """) set_vector!(daf, "gene", "marker", MARKER_GENES_BY_DEPTH[depth]; overwrite = false)
+                @test_throws chomp("""
+                             missing axis: gene
+                             for the vector: marker
+                             of the daf data: $(daf.name)
+                             """) set_vector!(daf, "gene", "marker", MARKER_GENES_BY_DEPTH[depth]; overwrite = false)
             end
 
             nested_test("false") do
-                @test_throws dedent("""
-                    missing axis: gene
-                    for the vector: marker
-                    of the daf data: $(daf.name)
-                """) set_vector!(daf, "gene", "marker", MARKER_GENES_BY_DEPTH[depth]; overwrite = true)
+                @test_throws chomp("""
+                             missing axis: gene
+                             for the vector: marker
+                             of the daf data: $(daf.name)
+                             """) set_vector!(daf, "gene", "marker", MARKER_GENES_BY_DEPTH[depth]; overwrite = true)
             end
         end
     end
@@ -549,20 +549,20 @@ function test_missing_vector(daf::DafReader, depth::Int)::Nothing
 
     nested_test("get_vector") do
         nested_test("()") do
-            @test_throws dedent("""
-                missing vector: marker
-                for the axis: gene
-                in the daf data: $(daf.name)
-            """) get_vector(daf, "gene", "marker")
+            @test_throws chomp("""
+                         missing vector: marker
+                         for the axis: gene
+                         in the daf data: $(daf.name)
+                         """) get_vector(daf, "gene", "marker")
         end
 
         nested_test("default") do
             nested_test("undef") do
-                @test_throws dedent("""
-                    missing vector: marker
-                    for the axis: gene
-                    in the daf data: $(daf.name)
-                """) get_vector(daf, "gene", "marker"; default = undef)
+                @test_throws chomp("""
+                             missing vector: marker
+                             for the axis: gene
+                             in the daf data: $(daf.name)
+                             """) get_vector(daf, "gene", "marker"; default = undef)
             end
 
             nested_test("nothing") do
@@ -618,11 +618,11 @@ function test_missing_vector(daf::DafReader, depth::Int)::Nothing
                 end
 
                 nested_test("!dim") do
-                    @test_throws dedent("""
-                        default dim name: A
-                        is different from the axis: gene
-                        in the daf data: $(daf.name)
-                    """) get_vector(
+                    @test_throws chomp("""
+                                 default dim name: A
+                                 is different from the axis: gene
+                                 in the daf data: $(daf.name)
+                                 """) get_vector(
                         daf,
                         "gene",
                         "marker",
@@ -631,11 +631,11 @@ function test_missing_vector(daf::DafReader, depth::Int)::Nothing
                 end
 
                 nested_test("!names") do
-                    @test_throws dedent("""
-                        entry names of the: default
-                        mismatch the entry names of the axis: gene
-                        in the daf data: $(daf.name)
-                    """) get_vector(
+                    @test_throws chomp("""
+                                 entry names of the: default
+                                 mismatch the entry names of the axis: gene
+                                 in the daf data: $(daf.name)
+                                 """) get_vector(
                         daf,
                         "gene",
                         "marker";
@@ -656,20 +656,20 @@ function test_missing_vector(daf::DafReader, depth::Int)::Nothing
 
     nested_test("delete_vector") do
         nested_test("()") do
-            @test_throws dedent("""
-                missing vector: marker
-                for the axis: gene
-                in the daf data: $(daf.name)
-            """) delete_vector!(daf, "gene", "marker")
+            @test_throws chomp("""
+                         missing vector: marker
+                         for the axis: gene
+                         in the daf data: $(daf.name)
+                         """) delete_vector!(daf, "gene", "marker")
         end
 
         nested_test("must_exist") do
             nested_test("true") do
-                @test_throws dedent("""
-                    missing vector: marker
-                    for the axis: gene
-                    in the daf data: $(daf.name)
-                """) delete_vector!(daf, "gene", "marker"; must_exist = true)
+                @test_throws chomp("""
+                             missing vector: marker
+                             for the axis: gene
+                             in the daf data: $(daf.name)
+                             """) delete_vector!(daf, "gene", "marker"; must_exist = true)
             end
 
             nested_test("false") do
@@ -729,29 +729,29 @@ function test_missing_vector(daf::DafReader, depth::Int)::Nothing
             end
 
             nested_test("name") do
-                @test_throws dedent("""
-                    setting the reserved vector: name
-                    for the axis: gene
-                    in the daf data: $(daf.name)
-                """) set_vector!(daf, "gene", "name", 1)
+                @test_throws chomp("""
+                             setting the reserved vector: name
+                             for the axis: gene
+                             in the daf data: $(daf.name)
+                             """) set_vector!(daf, "gene", "name", 1)
             end
 
             nested_test("index") do
-                @test_throws dedent("""
-                    setting the reserved vector: index
-                    for the axis: gene
-                    in the daf data: $(daf.name)
-                """) set_vector!(daf, "gene", "index", 1)
+                @test_throws chomp("""
+                             setting the reserved vector: index
+                             for the axis: gene
+                             in the daf data: $(daf.name)
+                             """) set_vector!(daf, "gene", "index", 1)
             end
 
             nested_test("!size") do
-                @test_throws dedent("""
-                    the length: 3
-                    of the vector: marker
-                    is different from the length: 4
-                    of the axis: gene
-                    in the daf data: $(daf.name)
-                """) set_vector!(daf, "gene", "marker", [true, true, true])
+                @test_throws chomp("""
+                             the length: 3
+                             of the vector: marker
+                             is different from the length: 4
+                             of the axis: gene
+                             in the daf data: $(daf.name)
+                             """) set_vector!(daf, "gene", "marker", [true, true, true])
             end
 
             nested_test("named") do
@@ -773,11 +773,11 @@ function test_missing_vector(daf::DafReader, depth::Int)::Nothing
                 end
 
                 nested_test("!dim") do
-                    @test_throws dedent("""
-                        vector dim name: A
-                        is different from the axis: gene
-                        in the daf data: $(daf.name)
-                    """) set_vector!(
+                    @test_throws chomp("""
+                                 vector dim name: A
+                                 is different from the axis: gene
+                                 in the daf data: $(daf.name)
+                                 """) set_vector!(
                         daf,
                         "gene",
                         "marker",
@@ -786,11 +786,11 @@ function test_missing_vector(daf::DafReader, depth::Int)::Nothing
                 end
 
                 nested_test("!names") do
-                    @test_throws dedent("""
-                        entry names of the: vector
-                        mismatch the entry names of the axis: gene
-                        in the daf data: $(daf.name)
-                    """) set_vector!(
+                    @test_throws chomp("""
+                                 entry names of the: vector
+                                 mismatch the entry names of the axis: gene
+                                 in the daf data: $(daf.name)
+                                 """) set_vector!(
                         daf,
                         "gene",
                         "marker",
@@ -885,13 +885,13 @@ function test_existing_vector(daf::DafReader, depth::Int)::Nothing
             end
 
             nested_test("!size") do
-                @test_throws dedent("""
-                    the length: 3
-                    of the default for the vector: marker
-                    is different from the length: 4
-                    of the axis: gene
-                    in the daf data: $(daf.name)
-                """) get_vector(daf, "gene", "marker"; default = [false, false, false])
+                @test_throws chomp("""
+                             the length: 3
+                             of the default for the vector: marker
+                             is different from the length: 4
+                             of the axis: gene
+                             in the daf data: $(daf.name)
+                             """) get_vector(daf, "gene", "marker"; default = [false, false, false])
             end
         end
     end
@@ -939,20 +939,20 @@ function test_existing_vector(daf::DafReader, depth::Int)::Nothing
 
     nested_test("set_vector!") do
         nested_test("()") do
-            @test_throws dedent("""
-                existing vector: marker
-                for the axis: gene
-                in the daf data: $(daf.name)
-            """) set_vector!(daf, "gene", "marker", MARKER_GENES_BY_DEPTH[depth])
+            @test_throws chomp("""
+                         existing vector: marker
+                         for the axis: gene
+                         in the daf data: $(daf.name)
+                         """) set_vector!(daf, "gene", "marker", MARKER_GENES_BY_DEPTH[depth])
         end
 
         nested_test("overwrite") do
             nested_test("false") do
-                @test_throws dedent("""
-                    existing vector: marker
-                    for the axis: gene
-                    in the daf data: $(daf.name)
-                """) set_vector!(daf, "gene", "marker", MARKER_GENES_BY_DEPTH[depth]; overwrite = false)
+                @test_throws chomp("""
+                             existing vector: marker
+                             for the axis: gene
+                             in the daf data: $(daf.name)
+                             """) set_vector!(daf, "gene", "marker", MARKER_GENES_BY_DEPTH[depth]; overwrite = false)
             end
 
             nested_test("true") do
@@ -969,24 +969,32 @@ function test_existing_vector(daf::DafReader, depth::Int)::Nothing
     nested_test("empty_vector!") do
         nested_test("dense") do
             nested_test("()") do
-                return @test_throws dedent("""
-                    existing vector: marker
-                    for the axis: gene
-                    in the daf data: $(daf.name)
-                """) empty_dense_vector!(daf, "gene", "marker", Bool) do empty_vector
+                @test_throws chomp("""
+                             existing vector: marker
+                             for the axis: gene
+                             in the daf data: $(daf.name)
+                             """) empty_dense_vector!(daf, "gene", "marker", Bool) do empty_vector
                     @assert false
                 end
+                return nothing
             end
 
             nested_test("overwrite") do
                 nested_test("false") do
-                    return @test_throws dedent("""
-                        existing vector: marker
-                        for the axis: gene
-                        in the daf data: $(daf.name)
-                    """) empty_dense_vector!(daf, "gene", "marker", Bool; overwrite = false) do empty_vector
+                    @test_throws chomp("""
+                                 existing vector: marker
+                                 for the axis: gene
+                                 in the daf data: $(daf.name)
+                                 """) empty_dense_vector!(
+                        daf,
+                        "gene",
+                        "marker",
+                        Bool;
+                        overwrite = false,
+                    ) do empty_vector
                         @assert false
                     end
+                    return nothing
                 end
 
                 nested_test("true") do
@@ -1006,11 +1014,11 @@ function test_existing_vector(daf::DafReader, depth::Int)::Nothing
 
         nested_test("sparse") do
             nested_test("()") do
-                return @test_throws dedent("""
-                    existing vector: marker
-                    for the axis: gene
-                    in the daf data: $(daf.name)
-                """) empty_sparse_vector!(
+                @test_throws chomp("""
+                             existing vector: marker
+                             for the axis: gene
+                             in the daf data: $(daf.name)
+                             """) empty_sparse_vector!(
                     daf,
                     "gene",
                     "marker",
@@ -1020,15 +1028,16 @@ function test_existing_vector(daf::DafReader, depth::Int)::Nothing
                 ) do empty_nzind, empty_nzval
                     @assert false
                 end
+                return nothing
             end
 
             nested_test("overwrite") do
                 nested_test("false") do
-                    @test_throws dedent("""
-                        existing vector: marker
-                        for the axis: gene
-                        in the daf data: $(daf.name)
-                    """) empty_sparse_vector!(
+                    @test_throws chomp("""
+                                 existing vector: marker
+                                 for the axis: gene
+                                 in the daf data: $(daf.name)
+                                 """) empty_sparse_vector!(
                         daf,
                         "gene",
                         "marker",
@@ -1078,53 +1087,53 @@ function test_missing_matrix_axis(daf::DafReader, depth::Int)::Nothing
     end
 
     nested_test("has_matrix") do
-        @test_throws dedent("""
-            missing axis: cell
-            for the rows of the matrix: UMIs
-            of the daf data: $(daf.name)
-        """) has_matrix(daf, "cell", "gene", "UMIs")
+        @test_throws chomp("""
+                     missing axis: cell
+                     for the rows of the matrix: UMIs
+                     of the daf data: $(daf.name)
+                     """) has_matrix(daf, "cell", "gene", "UMIs")
 
         if daf isa DafWriter
             @test add_axis!(daf, "cell", CELL_NAMES) === nothing
-            @test_throws dedent("""
-                missing axis: gene
-                for the columns of the matrix: UMIs
-                of the daf data: $(daf.name)
-            """) has_matrix(daf, "cell", "gene", "UMIs")
+            @test_throws chomp("""
+                         missing axis: gene
+                         for the columns of the matrix: UMIs
+                         of the daf data: $(daf.name)
+                         """) has_matrix(daf, "cell", "gene", "UMIs")
         end
     end
 
     nested_test("matrices_set") do
-        @test_throws dedent("""
-            missing axis: cell
-            for the rows of: matrices_set
-            of the daf data: $(daf.name)
-        """) matrices_set(daf, "cell", "gene")
+        @test_throws chomp("""
+                     missing axis: cell
+                     for the rows of: matrices_set
+                     of the daf data: $(daf.name)
+                     """) matrices_set(daf, "cell", "gene")
 
         if daf isa DafWriter
             @test add_axis!(daf, "cell", CELL_NAMES) === nothing
-            @test_throws dedent("""
-                missing axis: gene
-                for the columns of: matrices_set
-                of the daf data: $(daf.name)
-            """) matrices_set(daf, "cell", "gene")
+            @test_throws chomp("""
+                         missing axis: gene
+                         for the columns of: matrices_set
+                         of the daf data: $(daf.name)
+                         """) matrices_set(daf, "cell", "gene")
         end
     end
 
     nested_test("get_matrix") do
-        @test_throws dedent("""
-            missing axis: cell
-            for the rows of the matrix: UMIs
-            of the daf data: $(daf.name)
-        """) get_matrix(daf, "cell", "gene", "UMIs")
+        @test_throws chomp("""
+                     missing axis: cell
+                     for the rows of the matrix: UMIs
+                     of the daf data: $(daf.name)
+                     """) get_matrix(daf, "cell", "gene", "UMIs")
 
         if daf isa DafWriter
             @test add_axis!(daf, "cell", CELL_NAMES) === nothing
-            @test_throws dedent("""
-                missing axis: gene
-                for the columns of the matrix: UMIs
-                of the daf data: $(daf.name)
-            """) get_matrix(daf, "cell", "gene", "UMIs")
+            @test_throws chomp("""
+                         missing axis: gene
+                         for the columns of the matrix: UMIs
+                         of the daf data: $(daf.name)
+                         """) get_matrix(daf, "cell", "gene", "UMIs")
         end
     end
 
@@ -1134,92 +1143,92 @@ function test_missing_matrix_axis(daf::DafReader, depth::Int)::Nothing
 
     nested_test("delete_matrix") do
         nested_test("()") do
-            @test_throws dedent("""
-                missing axis: cell
-                for the rows of the matrix: UMIs
-                of the daf data: $(daf.name)
-            """) delete_matrix!(daf, "cell", "gene", "UMIs")
+            @test_throws chomp("""
+                         missing axis: cell
+                         for the rows of the matrix: UMIs
+                         of the daf data: $(daf.name)
+                         """) delete_matrix!(daf, "cell", "gene", "UMIs")
             @test add_axis!(daf, "cell", CELL_NAMES) === nothing
-            @test_throws dedent("""
-                missing axis: gene
-                for the columns of the matrix: UMIs
-                of the daf data: $(daf.name)
-            """) delete_matrix!(daf, "cell", "gene", "UMIs")
+            @test_throws chomp("""
+                         missing axis: gene
+                         for the columns of the matrix: UMIs
+                         of the daf data: $(daf.name)
+                         """) delete_matrix!(daf, "cell", "gene", "UMIs")
         end
 
         nested_test("must_exist") do
             nested_test("true") do
-                @test_throws dedent("""
-                    missing axis: cell
-                    for the rows of the matrix: UMIs
-                    of the daf data: $(daf.name)
-                """) delete_matrix!(daf, "cell", "gene", "UMIs"; must_exist = true)
+                @test_throws chomp("""
+                             missing axis: cell
+                             for the rows of the matrix: UMIs
+                             of the daf data: $(daf.name)
+                             """) delete_matrix!(daf, "cell", "gene", "UMIs"; must_exist = true)
                 @test add_axis!(daf, "cell", CELL_NAMES) === nothing
-                @test_throws dedent("""
-                    missing axis: gene
-                    for the columns of the matrix: UMIs
-                    of the daf data: $(daf.name)
-                """) delete_matrix!(daf, "cell", "gene", "UMIs"; must_exist = true)
+                @test_throws chomp("""
+                             missing axis: gene
+                             for the columns of the matrix: UMIs
+                             of the daf data: $(daf.name)
+                             """) delete_matrix!(daf, "cell", "gene", "UMIs"; must_exist = true)
             end
 
             nested_test("false") do
-                @test_throws dedent("""
-                    missing axis: cell
-                    for the rows of the matrix: UMIs
-                    of the daf data: $(daf.name)
-                """) delete_matrix!(daf, "cell", "gene", "UMIs"; must_exist = false)
+                @test_throws chomp("""
+                             missing axis: cell
+                             for the rows of the matrix: UMIs
+                             of the daf data: $(daf.name)
+                             """) delete_matrix!(daf, "cell", "gene", "UMIs"; must_exist = false)
                 @test add_axis!(daf, "cell", CELL_NAMES) === nothing
-                @test_throws dedent("""
-                    missing axis: gene
-                    for the columns of the matrix: UMIs
-                    of the daf data: $(daf.name)
-                """) delete_matrix!(daf, "cell", "gene", "UMIs"; must_exist = false)
+                @test_throws chomp("""
+                             missing axis: gene
+                             for the columns of the matrix: UMIs
+                             of the daf data: $(daf.name)
+                             """) delete_matrix!(daf, "cell", "gene", "UMIs"; must_exist = false)
             end
         end
     end
 
     nested_test("set_matrix!") do
         nested_test("()") do
-            @test_throws dedent("""
-                missing axis: cell
-                for the rows of the matrix: UMIs
-                of the daf data: $(daf.name)
-            """) set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[depth])
+            @test_throws chomp("""
+                         missing axis: cell
+                         for the rows of the matrix: UMIs
+                         of the daf data: $(daf.name)
+                         """) set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[depth])
             @test add_axis!(daf, "cell", CELL_NAMES) === nothing
-            @test_throws dedent("""
-                missing axis: gene
-                for the columns of the matrix: UMIs
-                of the daf data: $(daf.name)
-            """) set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[depth])
+            @test_throws chomp("""
+                         missing axis: gene
+                         for the columns of the matrix: UMIs
+                         of the daf data: $(daf.name)
+                         """) set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[depth])
         end
 
         nested_test("overwrite") do
             nested_test("false") do
-                @test_throws dedent("""
-                    missing axis: cell
-                    for the rows of the matrix: UMIs
-                    of the daf data: $(daf.name)
-                """) set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[depth]; overwrite = false)
+                @test_throws chomp("""
+                             missing axis: cell
+                             for the rows of the matrix: UMIs
+                             of the daf data: $(daf.name)
+                             """) set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[depth]; overwrite = false)
                 @test add_axis!(daf, "cell", CELL_NAMES) === nothing
-                @test_throws dedent("""
-                    missing axis: gene
-                    for the columns of the matrix: UMIs
-                    of the daf data: $(daf.name)
-                """) set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[depth]; overwrite = false)
+                @test_throws chomp("""
+                             missing axis: gene
+                             for the columns of the matrix: UMIs
+                             of the daf data: $(daf.name)
+                             """) set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[depth]; overwrite = false)
             end
 
             nested_test("true") do
-                @test_throws dedent("""
-                    missing axis: cell
-                    for the rows of the matrix: UMIs
-                    of the daf data: $(daf.name)
-                """) set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[depth]; overwrite = true)
+                @test_throws chomp("""
+                             missing axis: cell
+                             for the rows of the matrix: UMIs
+                             of the daf data: $(daf.name)
+                             """) set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[depth]; overwrite = true)
                 @test add_axis!(daf, "cell", CELL_NAMES) === nothing
-                @test_throws dedent("""
-                    missing axis: gene
-                    for the columns of the matrix: UMIs
-                    of the daf data: $(daf.name)
-                """) set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[depth]; overwrite = true)
+                @test_throws chomp("""
+                             missing axis: gene
+                             for the columns of the matrix: UMIs
+                             of the daf data: $(daf.name)
+                             """) set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[depth]; overwrite = true)
             end
         end
     end
@@ -1248,43 +1257,43 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
     nested_test("get_matrix") do
         nested_test("relayout") do
             nested_test("default") do
-                @test_throws dedent("""
-                    missing matrix: UMIs
-                    for the rows axis: cell
-                    and the columns axis: gene
-                    (and the other way around)
-                    in the daf data: $(daf.name)
-                """) get_matrix(daf, "cell", "gene", "UMIs")
+                @test_throws chomp("""
+                             missing matrix: UMIs
+                             for the rows axis: cell
+                             and the columns axis: gene
+                             (and the other way around)
+                             in the daf data: $(daf.name)
+                             """) get_matrix(daf, "cell", "gene", "UMIs")
             end
 
             nested_test("true") do
-                @test_throws dedent("""
-                    missing matrix: UMIs
-                    for the rows axis: cell
-                    and the columns axis: gene
-                    (and the other way around)
-                    in the daf data: $(daf.name)
-                """) get_matrix(daf, "cell", "gene", "UMIs"; relayout = true)
+                @test_throws chomp("""
+                             missing matrix: UMIs
+                             for the rows axis: cell
+                             and the columns axis: gene
+                             (and the other way around)
+                             in the daf data: $(daf.name)
+                             """) get_matrix(daf, "cell", "gene", "UMIs"; relayout = true)
             end
 
             nested_test("false") do
-                @test_throws dedent("""
-                    missing matrix: UMIs
-                    for the rows axis: cell
-                    and the columns axis: gene
-                    in the daf data: $(daf.name)
-                """) get_matrix(daf, "cell", "gene", "UMIs"; relayout = false)
+                @test_throws chomp("""
+                             missing matrix: UMIs
+                             for the rows axis: cell
+                             and the columns axis: gene
+                             in the daf data: $(daf.name)
+                             """) get_matrix(daf, "cell", "gene", "UMIs"; relayout = false)
             end
 
             if daf isa DafWriter
                 nested_test("square") do
                     set_matrix!(daf, "cell", "cell", "outgoing_edges", [0 1 2; 1 0 2; 1 2 0])
-                    @test_throws dedent("""
-                        can't relayout square matrix: outgoing_edges
-                        of the axis: cell
-                        due to daf representation limitations
-                        in the daf data: $(daf.name)
-                    """) relayout_matrix!(daf, "cell", "cell", "outgoing_edges")
+                    @test_throws chomp("""
+                                 can't relayout square matrix: outgoing_edges
+                                 of the axis: cell
+                                 due to daf representation limitations
+                                 in the daf data: $(daf.name)
+                                 """) relayout_matrix!(daf, "cell", "cell", "outgoing_edges")
                 end
             end
         end
@@ -1320,7 +1329,7 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
                 end
 
                 nested_test("transpose") do
-                    @test_throws "type not in column-major layout: 3 x 4 x Int64 in Rows (Transpose Dense)" get_matrix(
+                    @test_throws "type not in column-major layout: 3 x 4 x Int64 in Rows (Transpose, Dense)" get_matrix(
                         daf,
                         "cell",
                         "gene",
@@ -1330,23 +1339,23 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
                 end
 
                 nested_test("!rows") do
-                    @test_throws dedent("""
-                        the length: 2
-                        of the rows of the default for the matrix: UMIs
-                        is different from the length: 3
-                        of the axis: cell
-                        in the daf data: $(daf.name)
-                    """) get_matrix(daf, "cell", "gene", "UMIs"; default = [1 2 3 4; 2 3 4 5])
+                    @test_throws chomp("""
+                                 the length: 2
+                                 of the rows of the default for the matrix: UMIs
+                                 is different from the length: 3
+                                 of the axis: cell
+                                 in the daf data: $(daf.name)
+                                 """) get_matrix(daf, "cell", "gene", "UMIs"; default = [1 2 3 4; 2 3 4 5])
                 end
 
                 nested_test("!columns") do
-                    @test_throws dedent("""
-                        the length: 2
-                        of the columns of the default for the matrix: UMIs
-                        is different from the length: 4
-                        of the axis: gene
-                        in the daf data: $(daf.name)
-                    """) get_matrix(daf, "cell", "gene", "UMIs"; default = [1 2; 2 3; 3 4])
+                    @test_throws chomp("""
+                                 the length: 2
+                                 of the columns of the default for the matrix: UMIs
+                                 is different from the length: 4
+                                 of the axis: gene
+                                 in the daf data: $(daf.name)
+                                 """) get_matrix(daf, "cell", "gene", "UMIs"; default = [1 2; 2 3; 3 4])
                 end
             end
 
@@ -1393,11 +1402,11 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
 
                 nested_test("!rows") do
                     nested_test("name") do
-                        @test_throws dedent("""
-                            row names of the: default
-                            mismatch the entry names of the axis: cell
-                            in the daf data: $(daf.name)
-                        """) get_matrix(
+                        @test_throws chomp("""
+                                     row names of the: default
+                                     mismatch the entry names of the axis: cell
+                                     in the daf data: $(daf.name)
+                                     """) get_matrix(
                             daf,
                             "cell",
                             "gene",
@@ -1411,11 +1420,11 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
                     end
 
                     nested_test("dim") do
-                        @test_throws dedent("""
-                            default rows dim name: A
-                            is different from the rows axis: cell
-                            in the daf data: $(daf.name)
-                        """) get_matrix(
+                        @test_throws chomp("""
+                                     default rows dim name: A
+                                     is different from the rows axis: cell
+                                     in the daf data: $(daf.name)
+                                     """) get_matrix(
                             daf,
                             "cell",
                             "gene",
@@ -1431,11 +1440,11 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
 
                 nested_test("!columns") do
                     nested_test("name") do
-                        @test_throws dedent("""
-                            column names of the: default
-                            mismatch the entry names of the axis: gene
-                            in the daf data: $(daf.name)
-                        """) get_matrix(
+                        @test_throws chomp("""
+                                     column names of the: default
+                                     mismatch the entry names of the axis: gene
+                                     in the daf data: $(daf.name)
+                                     """) get_matrix(
                             daf,
                             "cell",
                             "gene",
@@ -1449,11 +1458,11 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
                     end
 
                     nested_test("dim") do
-                        @test_throws dedent("""
-                            default columns dim name: B
-                            is different from the columns axis: gene
-                            in the daf data: $(daf.name)
-                        """) get_matrix(
+                        @test_throws chomp("""
+                                     default columns dim name: B
+                                     is different from the columns axis: gene
+                                     in the daf data: $(daf.name)
+                                     """) get_matrix(
                             daf,
                             "cell",
                             "gene",
@@ -1477,32 +1486,32 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
     nested_test("delete_matrix") do
         nested_test("relayout") do
             nested_test("default") do
-                @test_throws dedent("""
-                    missing matrix: UMIs
-                    for the rows axis: cell
-                    and the columns axis: gene
-                    (and the other way around)
-                    in the daf data: $(daf.name)
-                """) delete_matrix!(daf, "cell", "gene", "UMIs")
+                @test_throws chomp("""
+                             missing matrix: UMIs
+                             for the rows axis: cell
+                             and the columns axis: gene
+                             (and the other way around)
+                             in the daf data: $(daf.name)
+                             """) delete_matrix!(daf, "cell", "gene", "UMIs")
             end
 
             nested_test("true") do
-                @test_throws dedent("""
-                    missing matrix: UMIs
-                    for the rows axis: cell
-                    and the columns axis: gene
-                    (and the other way around)
-                    in the daf data: $(daf.name)
-                """) delete_matrix!(daf, "cell", "gene", "UMIs"; relayout = true)
+                @test_throws chomp("""
+                             missing matrix: UMIs
+                             for the rows axis: cell
+                             and the columns axis: gene
+                             (and the other way around)
+                             in the daf data: $(daf.name)
+                             """) delete_matrix!(daf, "cell", "gene", "UMIs"; relayout = true)
             end
 
             nested_test("false") do
-                @test_throws dedent("""
-                    missing matrix: UMIs
-                    for the rows axis: cell
-                    and the columns axis: gene
-                    in the daf data: $(daf.name)
-                """) delete_matrix!(daf, "cell", "gene", "UMIs"; relayout = false)
+                @test_throws chomp("""
+                             missing matrix: UMIs
+                             for the rows axis: cell
+                             and the columns axis: gene
+                             in the daf data: $(daf.name)
+                             """) delete_matrix!(daf, "cell", "gene", "UMIs"; relayout = false)
             end
         end
 
@@ -1510,32 +1519,46 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
             nested_test("true") do
                 nested_test("relayout") do
                     nested_test("default") do
-                        @test_throws dedent("""
-                            missing matrix: UMIs
-                            for the rows axis: cell
-                            and the columns axis: gene
-                            (and the other way around)
-                            in the daf data: $(daf.name)
-                        """) delete_matrix!(daf, "cell", "gene", "UMIs"; must_exist = true)
+                        @test_throws chomp("""
+                                     missing matrix: UMIs
+                                     for the rows axis: cell
+                                     and the columns axis: gene
+                                     (and the other way around)
+                                     in the daf data: $(daf.name)
+                                     """) delete_matrix!(daf, "cell", "gene", "UMIs"; must_exist = true)
                     end
 
                     nested_test("true") do
-                        @test_throws dedent("""
-                            missing matrix: UMIs
-                            for the rows axis: cell
-                            and the columns axis: gene
-                            (and the other way around)
-                            in the daf data: $(daf.name)
-                        """) delete_matrix!(daf, "cell", "gene", "UMIs"; must_exist = true, relayout = true)
+                        @test_throws chomp("""
+                                     missing matrix: UMIs
+                                     for the rows axis: cell
+                                     and the columns axis: gene
+                                     (and the other way around)
+                                     in the daf data: $(daf.name)
+                                     """) delete_matrix!(
+                            daf,
+                            "cell",
+                            "gene",
+                            "UMIs";
+                            must_exist = true,
+                            relayout = true,
+                        )
                     end
 
                     nested_test("false") do
-                        @test_throws dedent("""
-                            missing matrix: UMIs
-                            for the rows axis: cell
-                            and the columns axis: gene
-                            in the daf data: $(daf.name)
-                        """) delete_matrix!(daf, "cell", "gene", "UMIs"; must_exist = true, relayout = false)
+                        @test_throws chomp("""
+                                     missing matrix: UMIs
+                                     for the rows axis: cell
+                                     and the columns axis: gene
+                                     in the daf data: $(daf.name)
+                                     """) delete_matrix!(
+                            daf,
+                            "cell",
+                            "gene",
+                            "UMIs";
+                            must_exist = true,
+                            relayout = false,
+                        )
                     end
                 end
             end
@@ -1632,33 +1655,29 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
             end
 
             nested_test("transpose") do
-                @test_throws "type not in column-major layout: 3 x 4 x Int64 in Rows (Transpose Dense)" set_matrix!(
-                    daf,
-                    "cell",
-                    "gene",
-                    "UMIs",
-                    transpose([0 1 2; 1 2 3; 2 3 4; 4 5 6]),
-                )
+                @test_throws chomp("""
+                             type not in column-major layout: 3 x 4 x Int64 in Rows (Transpose, Dense)
+                             """) set_matrix!(daf, "cell", "gene", "UMIs", transpose([0 1 2; 1 2 3; 2 3 4; 4 5 6]))
             end
 
             nested_test("!rows") do
-                @test_throws dedent("""
-                    the length: 2
-                    of the rows of the matrix: UMIs
-                    is different from the length: 3
-                    of the axis: cell
-                    in the daf data: $(daf.name)
-                """) set_matrix!(daf, "cell", "gene", "UMIs", [1 2 3 4; 2 3 4 5])
+                @test_throws chomp("""
+                             the length: 2
+                             of the rows of the matrix: UMIs
+                             is different from the length: 3
+                             of the axis: cell
+                             in the daf data: $(daf.name)
+                             """) set_matrix!(daf, "cell", "gene", "UMIs", [1 2 3 4; 2 3 4 5])
             end
 
             nested_test("!columns") do
-                @test_throws dedent("""
-                    the length: 2
-                    of the columns of the matrix: UMIs
-                    is different from the length: 4
-                    of the axis: gene
-                    in the daf data: $(daf.name)
-                """) set_matrix!(daf, "cell", "gene", "UMIs", [1 2; 2 3; 3 4])
+                @test_throws chomp("""
+                             the length: 2
+                             of the columns of the matrix: UMIs
+                             is different from the length: 4
+                             of the axis: gene
+                             in the daf data: $(daf.name)
+                             """) set_matrix!(daf, "cell", "gene", "UMIs", [1 2; 2 3; 3 4])
             end
         end
 
@@ -1716,11 +1735,11 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
 
             nested_test("!rows") do
                 nested_test("name") do
-                    @test_throws dedent("""
-                        row names of the: matrix
-                        mismatch the entry names of the axis: cell
-                        in the daf data: $(daf.name)
-                    """) set_matrix!(
+                    @test_throws chomp("""
+                                 row names of the: matrix
+                                 mismatch the entry names of the axis: cell
+                                 in the daf data: $(daf.name)
+                                 """) set_matrix!(
                         daf,
                         "cell",
                         "gene",
@@ -1734,11 +1753,11 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
                 end
 
                 nested_test("dim") do
-                    @test_throws dedent("""
-                        matrix rows dim name: A
-                        is different from the rows axis: cell
-                        in the daf data: $(daf.name)
-                    """) set_matrix!(
+                    @test_throws chomp("""
+                                 matrix rows dim name: A
+                                 is different from the rows axis: cell
+                                 in the daf data: $(daf.name)
+                                 """) set_matrix!(
                         daf,
                         "cell",
                         "gene",
@@ -1750,11 +1769,11 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
 
             nested_test("!columns") do
                 nested_test("name") do
-                    @test_throws dedent("""
-                        column names of the: matrix
-                        mismatch the entry names of the axis: gene
-                        in the daf data: $(daf.name)
-                    """) set_matrix!(
+                    @test_throws chomp("""
+                                 column names of the: matrix
+                                 mismatch the entry names of the axis: gene
+                                 in the daf data: $(daf.name)
+                                 """) set_matrix!(
                         daf,
                         "cell",
                         "gene",
@@ -1768,11 +1787,11 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
                 end
 
                 nested_test("dim") do
-                    @test_throws dedent("""
-                        matrix columns dim name: B
-                        is different from the columns axis: gene
-                        in the daf data: $(daf.name)
-                    """) set_matrix!(
+                    @test_throws chomp("""
+                                 matrix columns dim name: B
+                                 is different from the columns axis: gene
+                                 in the daf data: $(daf.name)
+                                 """) set_matrix!(
                         daf,
                         "cell",
                         "gene",
@@ -1937,12 +1956,12 @@ function test_existing_matrix(daf::DafReader, depth::Int)::Nothing
                 @test dimnames(get_matrix(daf, "cell", "gene", "UMIs"; relayout = false)) == ["cell", "gene"]
                 @test names(get_matrix(daf, "cell", "gene", "UMIs"; relayout = false)) == [CELL_NAMES, GENE_NAMES]
 
-                @test_throws dedent("""
-                    missing matrix: UMIs
-                    for the rows axis: gene
-                    and the columns axis: cell
-                    in the daf data: $(daf.name)
-                """) get_matrix(daf, "gene", "cell", "UMIs"; relayout = false)
+                @test_throws chomp("""
+                             missing matrix: UMIs
+                             for the rows axis: gene
+                             and the columns axis: cell
+                             in the daf data: $(daf.name)
+                             """) get_matrix(daf, "gene", "cell", "UMIs"; relayout = false)
             end
         end
 
@@ -2136,23 +2155,23 @@ function test_existing_matrix(daf::DafReader, depth::Int)::Nothing
                 end
 
                 nested_test("!rows") do
-                    @test_throws dedent("""
-                        the length: 2
-                        of the rows of the default for the matrix: UMIs
-                        is different from the length: 3
-                        of the axis: cell
-                        in the daf data: $(daf.name)
-                    """) get_matrix(daf, "cell", "gene", "UMIs"; default = [0 1 2 3; 4 5 6 7])
+                    @test_throws chomp("""
+                                 the length: 2
+                                 of the rows of the default for the matrix: UMIs
+                                 is different from the length: 3
+                                 of the axis: cell
+                                 in the daf data: $(daf.name)
+                                 """) get_matrix(daf, "cell", "gene", "UMIs"; default = [0 1 2 3; 4 5 6 7])
                 end
 
                 nested_test("!columns") do
-                    @test_throws dedent("""
-                        the length: 2
-                        of the columns of the default for the matrix: UMIs
-                        is different from the length: 4
-                        of the axis: gene
-                        in the daf data: $(daf.name)
-                    """) get_matrix(daf, "cell", "gene", "UMIs"; default = [0 1; 2 3; 4 5])
+                    @test_throws chomp("""
+                                 the length: 2
+                                 of the columns of the default for the matrix: UMIs
+                                 is different from the length: 4
+                                 of the axis: gene
+                                 in the daf data: $(daf.name)
+                                 """) get_matrix(daf, "cell", "gene", "UMIs"; default = [0 1; 2 3; 4 5])
                 end
             end
         end
@@ -2201,21 +2220,21 @@ function test_existing_matrix(daf::DafReader, depth::Int)::Nothing
         nested_test("scalar") do
             nested_test("overwrite") do
                 nested_test("default") do
-                    @test_throws dedent("""
-                        existing matrix: UMIs
-                        for the rows axis: cell
-                        and the columns axis: gene
-                        in the daf data: $(daf.name)
-                    """) set_matrix!(daf, "cell", "gene", "UMIs", 1)
+                    @test_throws chomp("""
+                                 existing matrix: UMIs
+                                 for the rows axis: cell
+                                 and the columns axis: gene
+                                 in the daf data: $(daf.name)
+                                 """) set_matrix!(daf, "cell", "gene", "UMIs", 1)
                 end
 
                 nested_test("false") do
-                    @test_throws dedent("""
-                        existing matrix: UMIs
-                        for the rows axis: cell
-                        and the columns axis: gene
-                        in the daf data: $(daf.name)
-                    """) set_matrix!(daf, "cell", "gene", "UMIs", 1; overwrite = false)
+                    @test_throws chomp("""
+                                 existing matrix: UMIs
+                                 for the rows axis: cell
+                                 and the columns axis: gene
+                                 in the daf data: $(daf.name)
+                                 """) set_matrix!(daf, "cell", "gene", "UMIs", 1; overwrite = false)
                 end
 
                 nested_test("true") do
@@ -2228,21 +2247,21 @@ function test_existing_matrix(daf::DafReader, depth::Int)::Nothing
         nested_test("matrix") do
             nested_test("overwrite") do
                 nested_test("default") do
-                    @test_throws dedent("""
-                        existing matrix: UMIs
-                        for the rows axis: cell
-                        and the columns axis: gene
-                        in the daf data: $(daf.name)
-                    """) set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[depth])
+                    @test_throws chomp("""
+                                 existing matrix: UMIs
+                                 for the rows axis: cell
+                                 and the columns axis: gene
+                                 in the daf data: $(daf.name)
+                                 """) set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[depth])
                 end
 
                 nested_test("false") do
-                    @test_throws dedent("""
-                        existing matrix: UMIs
-                        for the rows axis: cell
-                        and the columns axis: gene
-                        in the daf data: $(daf.name)
-                    """) set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[depth]; overwrite = false)
+                    @test_throws chomp("""
+                                 existing matrix: UMIs
+                                 for the rows axis: cell
+                                 and the columns axis: gene
+                                 in the daf data: $(daf.name)
+                                 """) set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[depth]; overwrite = false)
                 end
 
                 nested_test("true") do
@@ -2297,25 +2316,34 @@ function test_existing_matrix(daf::DafReader, depth::Int)::Nothing
         nested_test("dense") do
             nested_test("overwrite") do
                 nested_test("default") do
-                    return @test_throws dedent("""
-                        existing matrix: UMIs
-                        for the rows axis: cell
-                        and the columns axis: gene
-                        in the daf data: $(daf.name)
-                    """) empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16) do empty_matrix
+                    @test_throws chomp("""
+                                 existing matrix: UMIs
+                                 for the rows axis: cell
+                                 and the columns axis: gene
+                                 in the daf data: $(daf.name)
+                                 """) empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16) do empty_matrix
                         @assert false
                     end
+                    return nothing
                 end
 
                 nested_test("false") do
-                    return @test_throws dedent("""
-                        existing matrix: UMIs
-                        for the rows axis: cell
-                        and the columns axis: gene
-                        in the daf data: $(daf.name)
-                    """) empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16; overwrite = false) do empty_matrix
+                    @test_throws chomp("""
+                                 existing matrix: UMIs
+                                 for the rows axis: cell
+                                 and the columns axis: gene
+                                 in the daf data: $(daf.name)
+                                 """) empty_dense_matrix!(
+                        daf,
+                        "cell",
+                        "gene",
+                        "UMIs",
+                        Int16;
+                        overwrite = false,
+                    ) do empty_matrix
                         @assert false
                     end
+                    return nothing
                 end
 
                 nested_test("true") do
@@ -2341,12 +2369,12 @@ function test_existing_matrix(daf::DafReader, depth::Int)::Nothing
         nested_test("sparse") do
             nested_test("overwrite") do
                 nested_test("default") do
-                    return @test_throws dedent("""
-                        existing matrix: UMIs
-                        for the rows axis: cell
-                        and the columns axis: gene
-                        in the daf data: $(daf.name)
-                    """) empty_sparse_matrix!(
+                    @test_throws chomp("""
+                                 existing matrix: UMIs
+                                 for the rows axis: cell
+                                 and the columns axis: gene
+                                 in the daf data: $(daf.name)
+                                 """) empty_sparse_matrix!(
                         daf,
                         "cell",
                         "gene",
@@ -2357,15 +2385,16 @@ function test_existing_matrix(daf::DafReader, depth::Int)::Nothing
                     ) do empty_colptr, empty_rowval, empty_nzval
                         @assert false
                     end
+                    return nothing
                 end
 
                 nested_test("false") do
-                    return @test_throws dedent("""
-                        existing matrix: UMIs
-                        for the rows axis: cell
-                        and the columns axis: gene
-                        in the daf data: $(daf.name)
-                    """) empty_sparse_matrix!(
+                    @test_throws chomp("""
+                                 existing matrix: UMIs
+                                 for the rows axis: cell
+                                 and the columns axis: gene
+                                 in the daf data: $(daf.name)
+                                 """) empty_sparse_matrix!(
                         daf,
                         "cell",
                         "gene",
@@ -2377,6 +2406,7 @@ function test_existing_matrix(daf::DafReader, depth::Int)::Nothing
                     ) do empty_colptr, empty_rowval, empty_nzval
                         @assert false
                     end
+                    return nothing
                 end
 
                 nested_test("true") do
@@ -2697,23 +2727,23 @@ function test_existing_relayout_matrix(daf::DafReader, depth::Int)::Nothing
                 end
 
                 nested_test("!rows") do
-                    @test_throws dedent("""
-                        the length: 2
-                        of the rows of the default for the matrix: UMIs
-                        is different from the length: 3
-                        of the axis: cell
-                        in the daf data: $(daf.name)
-                    """) get_matrix(daf, "cell", "gene", "UMIs"; default = [0 1 2 3; 4 5 6 7])
+                    @test_throws chomp("""
+                                 the length: 2
+                                 of the rows of the default for the matrix: UMIs
+                                 is different from the length: 3
+                                 of the axis: cell
+                                 in the daf data: $(daf.name)
+                                 """) get_matrix(daf, "cell", "gene", "UMIs"; default = [0 1 2 3; 4 5 6 7])
                 end
 
                 nested_test("!columns") do
-                    @test_throws dedent("""
-                        the length: 2
-                        of the columns of the default for the matrix: UMIs
-                        is different from the length: 4
-                        of the axis: gene
-                        in the daf data: $(daf.name)
-                    """) get_matrix(daf, "cell", "gene", "UMIs"; default = [0 1; 2 3; 4 5])
+                    @test_throws chomp("""
+                                 the length: 2
+                                 of the columns of the default for the matrix: UMIs
+                                 is different from the length: 4
+                                 of the axis: gene
+                                 in the daf data: $(daf.name)
+                                 """) get_matrix(daf, "cell", "gene", "UMIs"; default = [0 1; 2 3; 4 5])
                 end
             end
         end
@@ -2780,21 +2810,21 @@ function test_existing_relayout_matrix(daf::DafReader, depth::Int)::Nothing
         nested_test("scalar") do
             nested_test("overwrite") do
                 nested_test("default") do
-                    @test_throws dedent("""
-                        existing matrix: UMIs
-                        for the rows axis: cell
-                        and the columns axis: gene
-                        in the daf data: $(daf.name)
-                    """) set_matrix!(daf, "cell", "gene", "UMIs", 1)
+                    @test_throws chomp("""
+                                 existing matrix: UMIs
+                                 for the rows axis: cell
+                                 and the columns axis: gene
+                                 in the daf data: $(daf.name)
+                                 """) set_matrix!(daf, "cell", "gene", "UMIs", 1)
                 end
 
                 nested_test("false") do
-                    @test_throws dedent("""
-                        existing matrix: UMIs
-                        for the rows axis: cell
-                        and the columns axis: gene
-                        in the daf data: $(daf.name)
-                    """) set_matrix!(daf, "cell", "gene", "UMIs", 1; overwrite = false)
+                    @test_throws chomp("""
+                                 existing matrix: UMIs
+                                 for the rows axis: cell
+                                 and the columns axis: gene
+                                 in the daf data: $(daf.name)
+                                 """) set_matrix!(daf, "cell", "gene", "UMIs", 1; overwrite = false)
                 end
 
                 nested_test("true") do
@@ -2807,21 +2837,21 @@ function test_existing_relayout_matrix(daf::DafReader, depth::Int)::Nothing
         nested_test("matrix") do
             nested_test("overwrite") do
                 nested_test("default") do
-                    @test_throws dedent("""
-                        existing matrix: UMIs
-                        for the rows axis: cell
-                        and the columns axis: gene
-                        in the daf data: $(daf.name)
-                    """) set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[depth])
+                    @test_throws chomp("""
+                                 existing matrix: UMIs
+                                 for the rows axis: cell
+                                 and the columns axis: gene
+                                 in the daf data: $(daf.name)
+                                 """) set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[depth])
                 end
 
                 nested_test("false") do
-                    @test_throws dedent("""
-                        existing matrix: UMIs
-                        for the rows axis: cell
-                        and the columns axis: gene
-                        in the daf data: $(daf.name)
-                    """) set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[depth]; overwrite = false)
+                    @test_throws chomp("""
+                                 existing matrix: UMIs
+                                 for the rows axis: cell
+                                 and the columns axis: gene
+                                 in the daf data: $(daf.name)
+                                 """) set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[depth]; overwrite = false)
                 end
 
                 nested_test("true") do
@@ -2853,22 +2883,27 @@ function test_existing_relayout_matrix(daf::DafReader, depth::Int)::Nothing
                             nested_test("relayout") do
                                 nested_test("overwrite") do
                                     nested_test("default") do
-                                        @test_throws dedent("""
-                                            existing matrix: UMIs
-                                            for the rows axis: gene
-                                            and the columns axis: cell
-                                            in the daf data: $(daf.name)
-                                        """) relayout_matrix!(daf, "cell", "gene", "UMIs") === nothing
+                                        @test_throws chomp("""
+                                                     existing matrix: UMIs
+                                                     for the rows axis: gene
+                                                     and the columns axis: cell
+                                                     in the daf data: $(daf.name)
+                                                     """) relayout_matrix!(daf, "cell", "gene", "UMIs") === nothing
                                     end
 
                                     nested_test("false") do
-                                        @test_throws dedent("""
-                                            existing matrix: UMIs
-                                            for the rows axis: gene
-                                            and the columns axis: cell
-                                            in the daf data: $(daf.name)
-                                        """) relayout_matrix!(daf, "cell", "gene", "UMIs"; overwrite = false) ===
-                                             nothing
+                                        @test_throws chomp("""
+                                                     existing matrix: UMIs
+                                                     for the rows axis: gene
+                                                     and the columns axis: cell
+                                                     in the daf data: $(daf.name)
+                                                     """) relayout_matrix!(
+                                            daf,
+                                            "cell",
+                                            "gene",
+                                            "UMIs";
+                                            overwrite = false,
+                                        ) === nothing
                                     end
 
                                     nested_test("true") do
@@ -2895,12 +2930,13 @@ function test_existing_relayout_matrix(daf::DafReader, depth::Int)::Nothing
                             ) === nothing
 
                             nested_test("delete") do
-                                @test_throws dedent("""
-                                    missing matrix: UMIs
-                                    for the rows axis: gene
-                                    and the columns axis: cell
-                                    in the daf data: $(daf.name)
-                                """) delete_matrix!(daf, "gene", "cell", "UMIs"; relayout = false) === nothing
+                                @test_throws chomp("""
+                                             missing matrix: UMIs
+                                             for the rows axis: gene
+                                             and the columns axis: cell
+                                             in the daf data: $(daf.name)
+                                             """) delete_matrix!(daf, "gene", "cell", "UMIs"; relayout = false) ===
+                                                  nothing
                                 test_existing_matrix(daf, depth + 1)
                                 return nothing
                             end
@@ -2921,25 +2957,34 @@ function test_existing_relayout_matrix(daf::DafReader, depth::Int)::Nothing
         nested_test("dense") do
             nested_test("overwrite") do
                 nested_test("default") do
-                    return @test_throws dedent("""
-                        existing matrix: UMIs
-                        for the rows axis: cell
-                        and the columns axis: gene
-                        in the daf data: $(daf.name)
-                    """) empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16) do empty_matrix
+                    @test_throws chomp("""
+                                 existing matrix: UMIs
+                                 for the rows axis: cell
+                                 and the columns axis: gene
+                                 in the daf data: $(daf.name)
+                                 """) empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16) do empty_matrix
                         @assert false
                     end
+                    return nothing
                 end
 
                 nested_test("false") do
-                    return @test_throws dedent("""
-                        existing matrix: UMIs
-                        for the rows axis: cell
-                        and the columns axis: gene
-                        in the daf data: $(daf.name)
-                    """) empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16; overwrite = false) do empty_matrix
+                    @test_throws chomp("""
+                                 existing matrix: UMIs
+                                 for the rows axis: cell
+                                 and the columns axis: gene
+                                 in the daf data: $(daf.name)
+                                 """) empty_dense_matrix!(
+                        daf,
+                        "cell",
+                        "gene",
+                        "UMIs",
+                        Int16;
+                        overwrite = false,
+                    ) do empty_matrix
                         @assert false
                     end
+                    return nothing
                 end
 
                 nested_test("true") do
@@ -2966,12 +3011,12 @@ function test_existing_relayout_matrix(daf::DafReader, depth::Int)::Nothing
         nested_test("sparse") do
             nested_test("overwrite") do
                 nested_test("default") do
-                    return @test_throws dedent("""
-                        existing matrix: UMIs
-                        for the rows axis: cell
-                        and the columns axis: gene
-                        in the daf data: $(daf.name)
-                    """) empty_sparse_matrix!(
+                    @test_throws chomp("""
+                                 existing matrix: UMIs
+                                 for the rows axis: cell
+                                 and the columns axis: gene
+                                 in the daf data: $(daf.name)
+                                 """) empty_sparse_matrix!(
                         daf,
                         "cell",
                         "gene",
@@ -2982,15 +3027,16 @@ function test_existing_relayout_matrix(daf::DafReader, depth::Int)::Nothing
                     ) do empty_colptr, empty_rowval, empty_nzval
                         @assert false
                     end
+                    return nothing
                 end
 
                 nested_test("false") do
-                    return @test_throws dedent("""
-                        existing matrix: UMIs
-                        for the rows axis: cell
-                        and the columns axis: gene
-                        in the daf data: $(daf.name)
-                    """) empty_sparse_matrix!(
+                    @test_throws chomp("""
+                                 existing matrix: UMIs
+                                 for the rows axis: cell
+                                 and the columns axis: gene
+                                 in the daf data: $(daf.name)
+                                 """) empty_sparse_matrix!(
                         daf,
                         "cell",
                         "gene",
@@ -3002,6 +3048,7 @@ function test_existing_relayout_matrix(daf::DafReader, depth::Int)::Nothing
                     ) do empty_colptr, empty_rowval, empty_nzval
                         @assert false
                     end
+                    return nothing
                 end
 
                 nested_test("true") do
@@ -3090,10 +3137,10 @@ nested_test("data") do
         @test string(daf) == "MemoryDaf memory!"
         @test string(read_only(daf)) == "ReadOnly MemoryDaf memory!.read_only"
         @test string(read_only(daf; name = "read-only memory!")) == "ReadOnly MemoryDaf read-only memory!"
-        @test description(daf) == dedent("""
+        @test description(daf) == """
             name: memory!
             type: MemoryDaf
-        """) * "\n"
+            """
         test_format(daf)
         return nothing
     end
@@ -3128,21 +3175,24 @@ nested_test("data") do
                     println("Ignore the following warning:")
                     @test_throws "not a daf data set: HDF5.File: (read-write) $(path)/test.h5df" H5df(h5file)
                     println("Ignore the following warning:")
-                    @test_logs (:warn, dedent("""
-                        unsafe HDF5 file alignment for Daf: (1, 1)
-                        the safe HDF5 file alignment is: (1, 8)
-                        note that unaligned data is inefficient,
-                        and will break the empty_* functions;
-                        to force the alignment, create the file using:
-                        h5open(...;fapl=HDF5.FileAccessProperties(;alignment=(1,8))
-                    """)) H5df(h5file, "w+"; name = "h5df!")
+                    @test_logs (
+                        :warn,
+                        """
+         unsafe HDF5 file alignment for Daf: (1, 1)
+         the safe HDF5 file alignment is: (1, 8)
+         note that unaligned data is inefficient,
+         and will break the empty_* functions;
+         to force the alignment, create the file using:
+         h5open(...;fapl=HDF5.FileAccessProperties(;alignment=(1,8))
+         """,
+                    ) H5df(h5file, "w+"; name = "h5df!")
                     delete_object(h5file, "daf")
                     h5file["daf"] = [UInt(2), UInt(0)]
-                    @test_throws dedent("""
-                        incompatible format version: 2.0
-                        for the daf data: HDF5.File: (read-write) $(path)/test.h5df
-                        the code supports version: 1.0
-                    """) H5df(h5file; name = "version!")
+                    @test_throws chomp("""
+                                 incompatible format version: 2.0
+                                 for the daf data: HDF5.File: (read-write) $(path)/test.h5df
+                                 the code supports version: 1.0
+                                 """) H5df(h5file; name = "version!")
                 end
             end
         end
@@ -3154,12 +3204,12 @@ nested_test("data") do
                 @test string(daf) == "H5df h5df!"
                 @test string(read_only(daf)) == "ReadOnly H5df h5df!.read_only"
                 @test string(read_only(daf; name = "renamed!")) == "ReadOnly H5df renamed!"
-                @test description(daf) == dedent("""
+                @test description(daf) == """
                     name: h5df!
                     type: H5df
                     root: HDF5.File: (read-write) $(path)/test.h5df
                     mode: w+
-                """) * "\n"
+                    """
                 test_format(daf)
                 daf = H5df(path * "/test.h5df", "r+")
                 @test daf.name == "$(path)/test.h5df"
@@ -3176,12 +3226,12 @@ nested_test("data") do
                     @test string(daf) == "H5df $(path)/test.h5df:/root"
                     @test string(read_only(daf)) == "ReadOnly H5df $(path)/test.h5df:/root.read_only"
                     @test string(read_only(daf; name = "renamed!")) == "ReadOnly H5df renamed!"
-                    @test description(daf) == dedent("""
+                    @test description(daf) == """
                         name: $(path)/test.h5df:/root
                         type: H5df
                         root: HDF5.Group: /root (file: $(path)/test.h5df)
                         mode: w+
-                    """) * "\n"
+                        """
                     test_format(daf)
 
                     attributes(h5file["root"])["will_be_deleted"] = 1
@@ -3206,16 +3256,17 @@ nested_test("data") do
             mktempdir() do path
                 @test_throws "invalid mode: a" FilesDaf(path, "a")
                 write("$(path)/file", "")
-                @test_throws "not a directory: $(path)/file" FilesDaf("$(path)/file")
-                @test_throws "not a daf directory: $(path)" FilesDaf(path)
+                @test_throws "not a directory: $path/file" FilesDaf("$(path)/file")
+                @test_throws "not a daf directory: $path" FilesDaf(path)
                 open("$(path)/daf.json", "w") do file
-                    return println(file, "{\"version\":[2,0]}")
+                    println(file, "{\"version\":[2,0]}")
+                    return nothing
                 end
-                @test_throws dedent("""
-                    incompatible format version: 2.0
-                    for the daf directory: $(path)
-                    the code supports version: 1.0
-                """) FilesDaf(path; name = "version!")
+                @test_throws chomp("""
+                             incompatible format version: 2.0
+                             for the daf directory: $(path)
+                             the code supports version: 1.0
+                             """) FilesDaf(path; name = "version!")
             end
         end
 
@@ -3227,12 +3278,12 @@ nested_test("data") do
                 @test string(daf) == "FilesDaf files!"
                 @test string(read_only(daf)) == "ReadOnly FilesDaf files!.read_only"
                 @test string(read_only(daf; name = "renamed!")) == "ReadOnly FilesDaf renamed!"
-                @test description(daf) == dedent("""
+                @test description(daf) == """
                     name: files!
                     type: FilesDaf
                     path: $(path)
                     mode: w+
-                """) * "\n"
+                    """
                 test_format(daf)
                 mkdir(path * "/deleted")
                 daf = FilesDaf(path, "r")

@@ -3,12 +3,12 @@ Example data for doctest tests.
 """
 module ExampleData
 
-using ..GenericTypes
 using ..MemoryFormat
 using ..Readers
 using ..StorageTypes
 using ..Writers
 using Random
+using TanayLabUtilities
 
 function random_entries(
     gen::MersenneTwister,

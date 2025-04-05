@@ -18,27 +18,18 @@ export copy_tensor!
 export copy_vector!
 export EmptyData
 
-using ..Documentation
 using ..Formats
-using ..GenericFunctions
-using ..GenericLogging
-using ..GenericTypes
 using ..Keys
-using ..MatrixLayouts
-using ..Messages
 using ..Readers
 using ..StorageTypes
 using ..Writers
 using NamedArrays
 using SparseArrays
+using TanayLabUtilities
 
 import ..Formats.as_named_matrix
 import ..Formats.as_named_vector
 import ..Formats.with_data_write_lock
-import ..MatrixLayouts.colptr
-import ..MatrixLayouts.nzind
-import ..MatrixLayouts.nzval
-import ..MatrixLayouts.rowval
 
 """
     copy_scalar(;
@@ -149,7 +140,7 @@ end
         default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
         empty::Maybe{StorageScalar} = nothing,
         bestify::Bool = false,
-        sparse_if_saves_storage_fraction::AbstractFloat = $(DEFAULT.sparse_if_saves_storage_fraction),
+        min_sparse_saving_fraction::AbstractFloat = $(DEFAULT.min_sparse_saving_fraction),
         overwrite::Bool = false,
         insist::Bool = true]
     )::Nothing
@@ -161,7 +152,7 @@ axis. If `rename` is specified, store the vector using this name. If `type` is s
 type. If the vector already exists in the target, if `overwrite`, it will be replaced; otherwise, if not `insist`, skip
 the copy; otherwise, fail.
 
-If `bestify` is set, then [`bestify`](@ref) the data before writing it, using `sparse_if_saves_storage_fraction`.
+If `bestify` is set, then `bestify` the data before writing it, using `min_sparse_saving_fraction`.
 
 This requires the axis of one data set is the same, or is a superset of, or a subset of, the other. If the target axis
 contains entries that do not exist in the source, then `empty` must be specified to fill the missing values. If the
@@ -178,9 +169,9 @@ source axis contains entries that do not exist in the target, they are discarded
     default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
     empty::Maybe{StorageScalar} = nothing,
     bestify::Bool = false,
-    sparse_if_saves_storage_fraction::AbstractFloat = function_default(
-        MatrixLayouts.bestify,
-        :sparse_if_saves_storage_fraction,
+    min_sparse_saving_fraction::AbstractFloat = function_default(
+        TanayLabUtilities.MatrixFormats.bestify,
+        :min_sparse_saving_fraction,
     ),
     overwrite::Bool = false,
     insist::Bool = true,
@@ -193,7 +184,7 @@ source axis contains entries that do not exist in the target, they are discarded
         return nothing  # UNTESTED
     end
 
-    what_for = empty === nothing ? "the vector: $(name)\n    to the vector: $(rename)" : nothing
+    what_for = empty === nothing ? "the vector: $(name)\nto the vector: $(rename)" : nothing
     if relation === nothing
         relation = verify_axis(;
             destination,
@@ -227,7 +218,7 @@ source axis contains entries that do not exist in the target, they are discarded
     end
 
     if bestify && Base.eltype(value) <: Real
-        value = MatrixLayouts.bestify(value; sparse_if_saves_storage_fraction, eltype)  # UNTESTED
+        value = TanayLabUtilities.MatrixFormats.bestify(value; min_sparse_saving_fraction, eltype)  # UNTESTED
     end
 
     if relation == :same
@@ -301,7 +292,7 @@ end
         default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
         empty::Maybe{StorageScalar} = nothing,
         bestify::Bool = false,
-        sparse_if_saves_storage_fraction::AbstractFloat = $(DEFAULT.sparse_if_saves_storage_fraction),
+        min_sparse_saving_fraction::AbstractFloat = $(DEFAULT.min_sparse_saving_fraction),
         relayout::Bool = true,
         overwrite::Bool = false,
         insist::Bool = true]
@@ -314,7 +305,7 @@ and/or `columns_reaxis` are specified, store the vector using these axes. If `re
 using this name. If `eltype` is specified, the data is converted to this type. If the matrix already exists in the
 target, if `overwrite`, it will be replaced; otherwise, if not `insist`, skip the copy; otherwise, fail.
 
-If `bestify` is set, then [`bestify`](@ref) the data before writing it, using `sparse_if_saves_storage_fraction`.
+If `bestify` is set, then `bestify` the data before writing it, using `min_sparse_saving_fraction`.
 
 This requires each axis of one data set is the same, or is a superset of, or a subset of, the other. If a target axis
 contains entries that do not exist in the source, then `empty` must be specified to fill the missing values. If a source
@@ -339,9 +330,9 @@ axis contains entries that do not exist in the target, they are discarded (not c
     default::Union{StorageReal, StorageMatrix, Nothing, UndefInitializer} = undef,
     empty::Maybe{StorageReal} = nothing,
     bestify::Bool = false,
-    sparse_if_saves_storage_fraction::AbstractFloat = function_default(
-        MatrixLayouts.bestify,
-        :sparse_if_saves_storage_fraction,
+    min_sparse_saving_fraction::AbstractFloat = function_default(
+        TanayLabUtilities.MatrixFormats.bestify,
+        :min_sparse_saving_fraction,
     ),
     relayout::Bool = true,
     overwrite::Bool = false,
@@ -358,7 +349,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
         return nothing  # UNTESTED
     end
 
-    what_for = empty === nothing ? "the matrix: $(name)\n    to the matrix: $(rename)" : nothing
+    what_for = empty === nothing ? "the matrix: $(name)\nto the matrix: $(rename)" : nothing
     if rows_relation === nothing
         rows_relation = verify_axis(;
             destination,
@@ -388,7 +379,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
     end
 
     if bestify
-        value = MatrixLayouts.bestify(value; sparse_if_saves_storage_fraction, eltype)  # UNTESTED
+        value = TanayLabUtilities.MatrixFormats.bestify(value; min_sparse_saving_fraction, eltype)  # UNTESTED
     end
 
     if relayout && has_matrix(source, columns_axis, rows_axis, name; relayout = false)
@@ -532,7 +523,7 @@ end
         eltype::Maybe{Type{<:StorageScalarBase}} = nothing,
         empty::Maybe{StorageScalar} = nothing,
         bestify::Bool = false,
-        sparse_if_saves_storage_fraction::AbstractFloat = $(DEFAULT.sparse_if_saves_storage_fraction),
+        min_sparse_saving_fraction::AbstractFloat = $(DEFAULT.min_sparse_saving_fraction),
         relayout::Bool = true,
         overwrite::Bool = false,
         insist::Bool = true]
@@ -540,7 +531,7 @@ end
 
 Copy a tensor from some `source` [`DafReader`](@ref) into some `destination` [`DafWriter`](@ref).
 
-If `bestify` is set, then [`bestify`](@ref) the data before writing it, using `sparse_if_saves_storage_fraction`.
+If `bestify` is set, then `bestify` the data before writing it, using `min_sparse_saving_fraction`.
 
 This is basically a loop that calls [`copy_matrix!`](@ref) for each of the tensor matrices, based on the entries of the
 `main_axis` in the `destination`. This will create an matrix full of the `empty` value for any entries of the main axis
@@ -560,9 +551,9 @@ which exist in the destination but do not exist in the source. If a tensor matri
     eltype::Maybe{Type{<:StorageScalarBase}} = nothing,
     empty::Maybe{StorageReal} = nothing,
     bestify::Bool = false,
-    sparse_if_saves_storage_fraction::AbstractFloat = function_default(
-        MatrixLayouts.bestify,
-        :sparse_if_saves_storage_fraction,
+    min_sparse_saving_fraction::AbstractFloat = function_default(
+        TanayLabUtilities.MatrixFormats.bestify,
+        :min_sparse_saving_fraction,
     ),
     relayout::Bool = true,
     overwrite::Bool = false,
@@ -585,7 +576,7 @@ which exist in the destination but do not exist in the source. If a tensor matri
             default = empty,
             empty,
             bestify,
-            sparse_if_saves_storage_fraction,
+            min_sparse_saving_fraction,
             relayout,
             overwrite,
             insist,
@@ -791,12 +782,12 @@ function verify_axis(;
         return :source_is_subset
     end
 
-    return error(dedent("""
-        disjoint entries in the axis: $(source_axis)
-        of the source daf data: $(source.name)
-        and the axis: $(destination_axis)
-        of the target daf data: $(destination.name)
-    """))
+    return error("""
+                 disjoint entries in the axis: $(source_axis)
+                 of the source daf data: $(source.name)
+                 and the axis: $(destination_axis)
+                 of the target daf data: $(destination.name)
+                 """)
 end
 
 function verify_subset(;
@@ -807,13 +798,13 @@ function verify_subset(;
     what_for::Maybe{AbstractString},
 )::Nothing
     if what_for !== nothing
-        error(dedent("""
-            missing entries in the axis: $(source_axis)
-            of the source daf data: $(source_name)
-            which are needed for copying $(what_for)
-            of the axis: $(destination_axis)
-            of the target daf data: $(destination_name)
-        """))
+        error("""
+              missing entries in the axis: $(source_axis)
+              of the source daf data: $(source_name)
+              which are needed for copying $(what_for)
+              of the axis: $(destination_axis)
+              of the target daf data: $(destination_name)
+              """)
     end
 end
 

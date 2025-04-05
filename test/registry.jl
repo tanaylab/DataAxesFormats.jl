@@ -11,19 +11,19 @@ struct TestReductionOp <: ReductionOperation end
 nested_test("registry") do
     nested_test("conflicting") do
         nested_test("eltwise") do
-            @test_throws dedent("""
-                conflicting registrations for the eltwise operation: TestEltwiseOp
-                first in: $(@__FILE__):6
-                second in: $(@__FILE__):-1
-            """) register_query_operation(TestEltwiseOp, @__FILE__, -1)
+            @test_throws chomp("""
+                         conflicting registrations for the eltwise operation: TestEltwiseOp
+                         first in: $(@__FILE__):6
+                         second in: $(@__FILE__):-1
+                         """) register_query_operation(TestEltwiseOp, @__FILE__, -1)
         end
 
         nested_test("reduction") do
-            @test_throws dedent("""
-                conflicting registrations for the reduction operation: TestReductionOp
-                first in: $(@__FILE__):9
-                second in: $(@__FILE__):-1
-            """) register_query_operation(TestReductionOp, @__FILE__, -1)
+            @test_throws chomp("""
+                         conflicting registrations for the reduction operation: TestReductionOp
+                         first in: $(@__FILE__):9
+                         second in: $(@__FILE__):-1
+                         """) register_query_operation(TestReductionOp, @__FILE__, -1)
         end
     end
 end

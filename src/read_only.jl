@@ -8,18 +8,14 @@ export is_read_only_array
 export read_only
 
 using ..Formats
-using ..GenericTypes
-using ..MatrixLayouts
-using ..Messages
 using ..Readers
-using ..ReadOnlyArrays
 using ..StorageTypes
 using NamedArrays
 using LinearAlgebra
 using SparseArrays
+using TanayLabUtilities
 
 import ..Formats.Internal
-import ..Messages
 
 """
 A common base type for a read-only [`DafReader`](@ref), which doesn't allow any modification of the data.
@@ -50,7 +46,7 @@ function read_only(daf::DafReader; name::Maybe{AbstractString} = nothing)::DafRe
     end
     name = unique_name(name)  # NOJET
     wrapper = DafReadOnlyWrapper(name, daf.internal, daf)
-    @debug "Daf: $(depict(wrapper)) base: $(daf)"
+    @debug "Daf: $(brief(wrapper)) base: $(daf)"
     return wrapper
 end
 
@@ -59,7 +55,7 @@ function read_only(daf::DafReadOnly; name::Maybe{AbstractString} = nothing)::Daf
         return daf
     else
         wrapper = DafReadOnlyWrapper(name, daf.internal, daf.daf)
-        @debug "Daf: $(depict(wrapper)) base: $(daf.daf)"
+        @debug "Daf: $(brief(wrapper)) base: $(daf.daf)"
         return wrapper
     end
 end
@@ -187,15 +183,15 @@ function Formats.format_description_header(
 )::Nothing
     @assert Formats.has_data_read_lock(read_only_view)
     push!(lines, "$(indent)type: ReadOnly")
-    push!(lines, "$(indent)base: $(depict(read_only_view.daf))")
+    push!(lines, "$(indent)base: $(brief(read_only_view.daf))")
     return nothing
 end
 
-function Messages.depict(value::DafReadOnlyWrapper; name::Maybe{AbstractString} = nothing)::String
+function TanayLabUtilities.Brief.brief(value::DafReadOnlyWrapper; name::Maybe{AbstractString} = nothing)::String
     if name === nothing
         name = value.name
     end
-    return "ReadOnly $(depict(value.daf; name))"
+    return "ReadOnly $(brief(value.daf; name))"
 end
 
 end  # module

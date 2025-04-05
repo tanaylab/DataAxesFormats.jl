@@ -35,9 +35,6 @@ export parse_parameter_value
 export sum_type_for
 export unsigned_type_for
 
-using ..MatrixLayouts
-using ..GenericFunctions
-using ..GenericTypes
 using ..Registry
 using ..StorageTypes
 using ..Tokens
@@ -46,9 +43,8 @@ using Base.Threads
 using SparseArrays
 using Statistics
 using StatsBase
+using TanayLabUtilities
 
-import ..MatrixLayouts.colptr
-import ..MatrixLayouts.nzval
 import ..Registry.compute_eltwise
 import ..Registry.compute_reduction
 import ..Registry.reduction_result_type
@@ -205,12 +201,15 @@ function error_invalid_parameter_value(
     parameter_value::Token,
     must_be::AbstractString,
 )::Union{}
-    return error_at_token(parameter_value, dedent("""
-                                               invalid value: "$(escape_string(parameter_value.value))"
-                                               value must be: $(must_be)
-                                               for the parameter: $(parameter_name)
-                                               for the operation: $(operation_name.value)
-                                           """))
+    return error_at_token(
+        parameter_value,
+        """
+        invalid value: "$(escape_string(parameter_value.value))"
+        value must be: $(must_be)
+        for the parameter: $(parameter_name)
+        for the operation: $(operation_name.value)
+        """,
+    )
 end
 
 DTYPE_BY_NAME = Dict{String, Maybe{Type}}(
@@ -367,10 +366,13 @@ function parse_parameter_value(
     elseif default !== missing
         return default
     else
-        error_at_token(operation_name, dedent("""
-                                           missing required parameter: $(parameter_name)
-                                           for the $(operation_kind) operation: $(operation_name.value)
-                                       """))
+        error_at_token(
+            operation_name,
+            """
+            missing required parameter: $(parameter_name)
+            for the $(operation_kind) operation: $(operation_name.value)
+            """,
+        )
     end
 end
 

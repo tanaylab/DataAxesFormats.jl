@@ -5,20 +5,19 @@ top of the low-level [`FormatReader`](@ref) API. The high-level API provides thr
 
 Each data set is given a name to use in error messages etc. You can explicitly set this name when creating a `Daf`
 object. Otherwise, when opening an existing data set, if it contains a scalar "name" property, it is used. Otherwise
-some reasonable default is used. In all cases, object names are passed through [`unique_name`](@ref) to avoid ambiguity.
+some reasonable default is used. In all cases, object names are passed through `unique_name` to avoid ambiguity.
 
 Data properties are identified by a unique name given the axes they are based on. That is, there is a separate namespace
 for scalar properties, vector properties for each specific axis, and matrix properties for each **unordered** pair of
 axes.
 
-For matrices, we keep careful track of their [`MatrixLayouts`](@ref). Returned matrices are always in column-major
-layout, using [`relayout!`](@ref) if necessary. As this is an expensive operation, we'll cache the result in memory.
-Similarly, we cache the results of applying a query to the data. We allow clearing the cache to reduce memory usage, if
-necessary.
+For matrices, we keep careful track of their layout. Returned matrices are always in column-major layout, using
+`relayout!` if necessary. As this is an expensive operation, we'll cache the result in memory. Similarly, we
+cache the results of applying a query to the data. We allow clearing the cache to reduce memory usage, if necessary.
 
 The data API is the high-level API intended to be used from outside the package, and is therefore re-exported from the
 top-level `Daf` namespace. It provides additional functionality on top of the low-level [`FormatReader`](@ref)
-implementation, accepting more general data types, automatically dealing with [`relayout!`](@ref) when needed. In
+implementation, accepting more general data types, automatically dealing with `relayout!` when needed. In
 particular, it enforces single-writer multiple-readers for each data set, so the format code can ignore multi-threading
 and still be thread-safe.
 
@@ -56,20 +55,16 @@ export vector_version_counter
 export vectors_set
 
 using ..Formats
-using ..GenericFunctions
-using ..GenericTypes
-using ..MatrixLayouts
-using ..Messages
 using ..StorageTypes
 using ConcurrentUtils
 using NamedArrays
 using SparseArrays
+using TanayLabUtilities
 
 import ..Formats
 import ..Formats.CacheEntry
 import ..Formats.CacheKey
 import ..Formats.FormatReader  # For documentation.
-import ..Messages
 
 """
     has_scalar(daf::DafReader, name::AbstractString)::Bool
@@ -79,7 +74,7 @@ Check whether a scalar property with some `name` exists in `daf`.
 function has_scalar(daf::DafReader, name::AbstractString)::Bool
     return Formats.with_data_read_lock(daf, "has_scalar of:", name) do
         result = Formats.format_has_scalar(daf, name)
-        @debug "has_scalar daf: $(depict(daf)) name: $(name) result: $(result)"
+        @debug "has_scalar daf: $(brief(daf)) name: $(name) result: $(result)"
         return result
     end
 end
@@ -97,7 +92,7 @@ function scalars_set(daf::DafReader)::AbstractSet{<:AbstractString}
     return Formats.with_data_read_lock(daf, "scalars_set") do
         # Formats.assert_valid_cache(daf)
         result = Formats.get_scalars_set_through_cache(daf)
-        @debug "scalars_set daf: $(depict(daf)) result: $(depict(result))"
+        @debug "scalars_set daf: $(brief(daf)) result: $(brief(result))"
         # Formats.assert_valid_cache(daf)
         return result
     end
@@ -125,12 +120,12 @@ function get_scalar(
         if default == undef
             require_scalar(daf, name)
         elseif !has_scalar(daf, name)
-            @debug "get_scalar daf: $(depict(daf)) name: $(name) default result: $(depict(default))"
+            @debug "get_scalar daf: $(brief(daf)) name: $(name) default result: $(brief(default))"
             return default
         end
 
         result = Formats.get_scalar_through_cache(daf, name)
-        @debug "get_scalar daf: $(depict(daf)) name: $(name) default: $(depict(default)) result: $(depict(result))"
+        @debug "get_scalar daf: $(brief(daf)) name: $(name) default: $(brief(default)) result: $(brief(result))"
         # Formats.assert_valid_cache(daf)
         return result
     end
@@ -138,10 +133,10 @@ end
 
 function require_scalar(daf::DafReader, name::AbstractString)::Nothing
     if !Formats.format_has_scalar(daf, name)
-        error(dedent("""
+        error("""
             missing scalar: $(name)
             in the daf data: $(daf.name)
-        """))
+            """)
     end
     return nothing
 end
@@ -154,7 +149,7 @@ Check whether some `axis` exists in `daf`.
 function has_axis(daf::DafReader, axis::AbstractString)::Bool
     return Formats.with_data_read_lock(daf, "has_axis of:", axis) do
         result = Formats.format_has_axis(daf, axis; for_change = false)
-        @debug "has_axis daf: $(depict(daf)) axis: $(axis) result: $(result)"
+        @debug "has_axis daf: $(brief(daf)) axis: $(axis) result: $(result)"
         return result
     end
 end
@@ -189,7 +184,7 @@ function axes_set(daf::DafReader)::AbstractSet{<:AbstractString}
     return Formats.with_data_read_lock(daf, "axes_set") do
         # Formats.assert_valid_cache(daf)
         result = Formats.get_axes_set_through_cache(daf)
-        @debug "axes_set daf: $(depict(daf)) result: $(depict(result))"
+        @debug "axes_set daf: $(brief(daf)) result: $(brief(result))"
         # Formats.assert_valid_cache(daf)
         return result
     end
@@ -218,7 +213,7 @@ function axis_vector(
         result_prefix = ""
         if !Formats.format_has_axis(daf, axis; for_change = false)
             if default === nothing
-                @debug "axis_vector daf: $(depict(daf)) axis: $(axis) default: nothing result: nothing"
+                @debug "axis_vector daf: $(brief(daf)) axis: $(axis) default: nothing result: nothing"
                 return nothing
             else
                 result_prefix = "default "
@@ -228,7 +223,7 @@ function axis_vector(
         end
 
         result = Formats.get_axis_vector_through_cache(daf, axis)
-        @debug "axis_vector daf: $(depict(daf)) axis: $(axis) default: $(depict(default)) $(result_prefix)result: $(depict(result))"
+        @debug "axis_vector daf: $(brief(daf)) axis: $(axis) default: $(brief(default)) $(result_prefix)result: $(brief(result))"
         # Formats.assert_valid_cache(daf)
         return result
     end
@@ -244,7 +239,7 @@ function axis_dict(daf::DafReader, axis::AbstractString)::AbstractDict{<:Abstrac
         # Formats.assert_valid_cache(daf)
         require_axis(daf, "for: axis_dict", axis)
         result = Formats.get_axis_dict_through_cache(daf, axis)
-        @debug "axis_dict daf: $(depict(daf)) result: $(depict(result))"
+        @debug "axis_dict daf: $(brief(daf)) result: $(brief(result))"
         # Formats.assert_valid_cache(daf)
         return result
     end
@@ -275,7 +270,7 @@ function axis_indices(
         result = [dictionary[entry] for entry in entries]
     end
 
-    @debug "axis_indices daf: $(depict(daf)) allow_empty: $(allow_empty) result: $(depict(result))"
+    @debug "axis_indices daf: $(brief(daf)) allow_empty: $(allow_empty) result: $(brief(result))"
     return result
 end
 
@@ -309,7 +304,7 @@ function axis_entries(
         result = entries[indices]
     end
 
-    @debug "axis_entries daf: $(depict(daf)) allow_empty: $(allow_empty) result: $(depict(result))"
+    @debug "axis_entries daf: $(brief(daf)) allow_empty: $(allow_empty) result: $(brief(result))"
     return result
 end
 
@@ -325,7 +320,7 @@ function axis_length(daf::DafReader, axis::AbstractString)::Int64
         # Formats.assert_valid_cache(daf)
         require_axis(daf, "for: axis_length", axis)
         result = Formats.format_axis_length(daf, axis)
-        @debug "axis_length daf: $(depict(daf)) axis: $(axis) result: $(result)"
+        @debug "axis_length daf: $(brief(daf)) axis: $(axis) result: $(result)"
         # Formats.assert_valid_cache(daf)
         return result
     end
@@ -333,11 +328,11 @@ end
 
 function require_axis(daf::DafReader, what_for::AbstractString, axis::AbstractString; for_change::Bool = false)::Nothing
     if !Formats.format_has_axis(daf, axis; for_change)
-        error(dedent("""
+        error("""
             missing axis: $(axis)
             $(what_for)
             of the daf data: $(daf.name)
-        """))
+            """)
     end
     return nothing
 end
@@ -355,7 +350,7 @@ function has_vector(daf::DafReader, axis::AbstractString, name::AbstractString):
         # Formats.assert_valid_cache(daf)
         require_axis(daf, "for has_vector: $(name)", axis)
         result = name == "name" || name == "index" || Formats.format_has_vector(daf, axis, name)
-        @debug "has_vector daf: $(depict(daf)) axis: $(axis) name: $(name) result: $(result)"
+        @debug "has_vector daf: $(brief(daf)) axis: $(axis) name: $(name) result: $(result)"
         # Formats.assert_valid_cache(daf)
         return result
     end
@@ -377,7 +372,7 @@ other programming languages to minimize copying data.
 """
 function vector_version_counter(daf::DafReader, axis::AbstractString, name::AbstractString)::UInt32
     result = Formats.format_get_version_counter(daf, (axis, name))
-    @debug "vector_version_counter daf: $(depict(daf)) axis: $(axis) name: $(name) result: $(result)"
+    @debug "vector_version_counter daf: $(brief(daf)) axis: $(axis) name: $(name) result: $(result)"
     return result
 end
 
@@ -397,7 +392,7 @@ function vectors_set(daf::DafReader, axis::AbstractString)::AbstractSet{<:Abstra
         # Formats.assert_valid_cache(daf)
         require_axis(daf, "for: vectors_set", axis)
         result = Formats.get_vectors_set_through_cache(daf, axis)
-        @debug "vectors_set daf: $(depict(daf)) axis: $(axis) result: $(depict(result))"
+        @debug "vectors_set daf: $(brief(daf)) axis: $(axis) result: $(brief(result))"
         # Formats.assert_valid_cache(daf)
         return result
     end
@@ -445,7 +440,7 @@ function get_vector(
                 values = getindex.(Ref(dictionary), values)
             end
             vector = Formats.as_named_vector(daf, axis, values)
-            @debug "get_vector daf: $(depict(daf)) axis: $(axis) name: $(name) default: $(depict(default)) result: $(depict(vector))"
+            @debug "get_vector daf: $(brief(daf)) axis: $(axis) name: $(name) default: $(brief(default)) result: $(brief(vector))"
             # Formats.assert_valid_cache(daf)
             return vector
         end
@@ -453,13 +448,13 @@ function get_vector(
         if Formats.format_has_vector(daf, axis, name)
             result_prefix = ""
             vector = Formats.get_vector_through_cache(daf, axis, name)
-            @assert length(vector) == Formats.format_axis_length(daf, axis) dedent("""
+            @assert length(vector) == Formats.format_axis_length(daf, axis) """
                 format_get_vector for daf format: $(nameof(typeof(daf)))
                 returned vector length: $(length(vector))
                 instead of axis: $(axis)
                 length: $(axis_length(daf, axis))
                 in the daf data: $(daf.name)
-            """)
+                """
         else
             result_prefix = "default "
             if default === nothing
@@ -485,7 +480,7 @@ function get_vector(
             vector = Formats.as_named_vector(daf, axis, vector)
         end
 
-        @debug "get_vector daf: $(depict(daf)) axis: $(axis) name: $(name) default: $(depict(default)) $(result_prefix)result: $(depict(vector))"
+        @debug "get_vector daf: $(brief(daf)) axis: $(axis) name: $(name) default: $(brief(default)) $(result_prefix)result: $(brief(vector))"
         # Formats.assert_valid_cache(daf)
         return vector
     end
@@ -541,7 +536,7 @@ function has_matrix(
             return Formats.format_has_matrix(daf, rows_axis, columns_axis, name) ||
                    (relayout && Formats.format_has_matrix(daf, columns_axis, rows_axis, name))
         end
-        @debug "has_matrix daf: $(depict(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) relayout: $(relayout) result: $(depict(result))"
+        @debug "has_matrix daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) relayout: $(relayout) result: $(brief(result))"
         return result
     end
 end
@@ -610,7 +605,7 @@ function matrices_set(
             end
         end
 
-        @debug "matrices_set daf: $(depict(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) relayout: $(relayout) result: $(depict(names))"
+        @debug "matrices_set daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) relayout: $(relayout) result: $(brief(names))"
         # Formats.assert_valid_cache(daf)
         return names
     end
@@ -626,16 +621,16 @@ function require_matrix(
     @assert Formats.has_data_read_lock(daf)
     if !has_matrix(daf, rows_axis, columns_axis, name; relayout)
         if relayout
-            extra = "\n    (and the other way around)"
+            extra = "\n(and the other way around)"
         else
             extra = ""
         end
-        error(dedent("""
-            missing matrix: $(name)
-            for the rows axis: $(rows_axis)
-            and the columns axis: $(columns_axis)$(extra)
-            in the daf data: $(daf.name)
-        """))
+        error("""
+              missing matrix: $(name)
+              for the rows axis: $(rows_axis)
+              and the columns axis: $(columns_axis)$(extra)
+              in the daf data: $(daf.name)
+              """)
     end
     return nothing
 end
@@ -654,7 +649,7 @@ Get the column-major matrix property with some `name` for some `rows_axis` and `
 result axes are the names of the relevant axes entries (same as returned by [`axis_vector`](@ref)).
 
 If `relayout` (the default), then if the matrix is only stored in the other memory layout (that is, with flipped axes),
-then automatically call [`relayout!`](@ref) to compute the result. If `daf` isa [`DafWriter`](@ref), then store the
+then automatically call `relayout!` to compute the result. If `daf` isa [`DafWriter`](@ref), then store the
 result for future use; otherwise, just cache it as [`MemoryData`](@ref CacheGroup). This may lock up very large amounts
 of memory; you can call [`empty_cache!`](@ref) to release it.
 
@@ -738,7 +733,7 @@ function get_matrix(
             matrix = Formats.as_named_matrix(daf, rows_axis, columns_axis, matrix)
         end
 
-        @debug "get_matrix daf: $(depict(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) default: $(depict(default)) $(result_prefix)result: $(depict(matrix))"
+        @debug "get_matrix daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) default: $(brief(default)) $(result_prefix)result: $(brief(matrix))"
         # # Formats.assert_valid_cache(daf)
         return matrix
     end
@@ -751,28 +746,28 @@ function assert_valid_matrix(
     name::AbstractString,
     matrix::AbstractMatrix,
 )::Nothing
-    @assert size(matrix, Rows) == Formats.format_axis_length(daf, rows_axis) dedent("""
+    @assert size(matrix, Rows) == Formats.format_axis_length(daf, rows_axis) """
         format_get_matrix: $(name)
         for the daf format: $(nameof(typeof(daf)))
         returned matrix rows: $(size(matrix, Rows))
         instead of axis: $(rows_axis)
         length: $(axis_length(daf, rows_axis))
         in the daf data: $(daf.name)
-    """)
+        """
 
-    @assert size(matrix, Columns) == Formats.format_axis_length(daf, columns_axis) dedent("""
+    @assert size(matrix, Columns) == Formats.format_axis_length(daf, columns_axis) """
         format_get_matrix: $(name)
         for the daf format: $(nameof(typeof(daf)))
         returned matrix columns: $(size(matrix, Columns))
         instead of axis: $(columns_axis)
         length: $(axis_length(daf, columns_axis))
         in the daf data: $(daf.name)
-    """)
+        """
 
-    @assert major_axis(matrix) == Columns dedent("""
+    @assert major_axis(matrix) == Columns """
         format_get_matrix for daf format: $(nameof(typeof(daf)))
-        returned non column-major matrix: $(depict(matrix))
-    """)
+        returned non column-major matrix: $(brief(matrix))
+        """
 
     return nothing
 end
@@ -806,13 +801,13 @@ function matrix_version_counter(
         rows_axis, columns_axis = columns_axis, rows_axis
     end
     result = Formats.format_get_version_counter(daf, (rows_axis, columns_axis, name))
-    @debug "matrix_version_counter daf: $(depict(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) result: $(result)"
+    @debug "matrix_version_counter daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) result: $(result)"
     return result
 end
 
 function require_column_major(matrix::StorageMatrix)::Nothing
     if major_axis(matrix) != Columns
-        error("type not in column-major layout: $(depict(matrix))")
+        error("type not in column-major layout: $(brief(matrix))")
     end
 end
 
@@ -823,13 +818,13 @@ function require_axis_length(
     axis::AbstractString,
 )::Nothing
     if what_length != Formats.format_axis_length(daf, axis)
-        error(dedent("""
+        error("""
             the length: $(what_length)
             of the $(vector_name)
             is different from the length: $(Formats.format_axis_length(daf, axis))
             of the axis: $(axis)
             in the daf data: $(daf.name)
-        """))
+            """)
     end
     return nothing
 end
@@ -910,7 +905,7 @@ function scalars_description(daf::DafReader, indent::AbstractString, lines::Vect
         sort!(scalars)
         push!(lines, "$(indent)scalars:")
         for scalar in scalars
-            push!(lines, "$(indent)  $(scalar): $(depict(get_scalar(daf, scalar)))")
+            push!(lines, "$(indent)  $(scalar): $(brief(get_scalar(daf, scalar)))")
         end
     end
     return nothing
@@ -946,7 +941,7 @@ function vectors_description(
             sort!(vectors)
             push!(lines, "$(indent)  $(axis):")
             for vector in vectors
-                push!(lines, "$(indent)    $(vector): $(depict(base_array(get_vector(daf, axis, vector))))")
+                push!(lines, "$(indent)    $(vector): $(brief(base_array(get_vector(daf, axis, vector))))")
             end
         end
     end
@@ -976,7 +971,7 @@ function matrices_description(
                         push!(lines, "$(indent)  $(rows_axis),$(columns_axis):")
                         is_first_axes = false
                     end
-                    push!(lines, "$(indent)    $(matrix): " * depict(base_array(data)))
+                    push!(lines, "$(indent)    $(matrix): " * brief(base_array(data)))
                 end
             end
         end
@@ -1000,7 +995,7 @@ function cache_description(daf::DafReader, indent::AbstractString, lines::Vector
                 value = base_array(value)
             end
             key = replace("$(key)", "'" => "''")
-            push!(lines, "$(indent)  '$(key)': ($(cache_entry.cache_group)) $(depict(value))")
+            push!(lines, "$(indent)  '$(key)': ($(cache_entry.cache_group)) $(brief(value))")
         end
     end
     return nothing
@@ -1030,7 +1025,7 @@ function base_array(array::NamedArray)::AbstractArray
     return base_array(array.array)
 end
 
-function Messages.depict(daf::DafReader; name::Maybe{AbstractString} = nothing)::AbstractString
+function TanayLabUtilities.Brief.brief(daf::DafReader; name::Maybe{AbstractString} = nothing)::AbstractString
     if name === nothing
         name = daf.name
     end

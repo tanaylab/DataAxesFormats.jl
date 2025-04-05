@@ -88,10 +88,6 @@
 </a>
 </li>
 <li>
-<a class="tocitem" href="documentation.html">Documentation
-</a>
-</li>
-<li>
 <a class="tocitem" href="computations.html">Computations
 </a>
 </li>
@@ -160,39 +156,7 @@
 </a>
 </li>
 <li>
-<a class="tocitem" href="matrix_layouts.html">Matrix layouts
-</a>
-</li>
-<li>
-<a class="tocitem" href="read_only_arrays.html">Read-Only Arrays
-</a>
-</li>
-<li>
 <a class="tocitem" href="groups.html">Groups
-</a>
-</li>
-<li>
-<a class="tocitem" href="messages.html">Messages
-</a>
-</li>
-<li>
-<a class="tocitem" href="generic_logging.html">Generic Logging
-</a>
-</li>
-<li>
-<a class="tocitem" href="generic_locks.html">Generic Locks
-</a>
-</li>
-<li>
-<a class="tocitem" href="generic_storage.html">Generic Storage
-</a>
-</li>
-<li>
-<a class="tocitem" href="generic_types.html">Generic Types
-</a>
-</li>
-<li>
-<a class="tocitem" href="generic_functions.html">Generic Functions
 </a>
 </li>
 <li>
@@ -435,7 +399,7 @@
     default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
     empty::Maybe{StorageScalar} = nothing,
     bestify::Bool = false,
-    sparse_if_saves_storage_fraction::AbstractFloat = ```0.25```,
+    min_sparse_saving_fraction::AbstractFloat = ```0.25```,
     overwrite::Bool = false,
     insist::Bool = true]
 )::Nothing
@@ -476,11 +440,9 @@
 <p>If 
 <code>bestify
 </code> is set, then 
-<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.bestify">
 <code>bestify
-</code>
-</a> the data before writing it, using 
-<code>sparse_if_saves_storage_fraction
+</code> the data before writing it, using 
+<code>min_sparse_saving_fraction
 </code>.
 </p>
 <p>This requires the axis of one data set is the same, or is a superset of, or a subset of, the other. If the target axis contains entries that do not exist in the source, then 
@@ -519,7 +481,7 @@
     default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
     empty::Maybe{StorageScalar} = nothing,
     bestify::Bool = false,
-    sparse_if_saves_storage_fraction::AbstractFloat = ```0.25```,
+    min_sparse_saving_fraction::AbstractFloat = ```0.25```,
     relayout::Bool = true,
     overwrite::Bool = false,
     insist::Bool = true]
@@ -567,11 +529,9 @@
 <p>If 
 <code>bestify
 </code> is set, then 
-<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.bestify">
 <code>bestify
-</code>
-</a> the data before writing it, using 
-<code>sparse_if_saves_storage_fraction
+</code> the data before writing it, using 
+<code>min_sparse_saving_fraction
 </code>.
 </p>
 <p>This requires each axis of one data set is the same, or is a superset of, or a subset of, the other. If a target axis contains entries that do not exist in the source, then 
@@ -620,7 +580,7 @@
     eltype::Maybe{Type{&lt;:StorageScalarBase}} = nothing,
     empty::Maybe{StorageScalar} = nothing,
     bestify::Bool = false,
-    sparse_if_saves_storage_fraction::AbstractFloat = ```0.25```,
+    min_sparse_saving_fraction::AbstractFloat = ```0.25```,
     relayout::Bool = true,
     overwrite::Bool = false,
     insist::Bool = true]
@@ -644,11 +604,9 @@
 <p>If 
 <code>bestify
 </code> is set, then 
-<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.bestify">
 <code>bestify
-</code>
-</a> the data before writing it, using 
-<code>sparse_if_saves_storage_fraction
+</code> the data before writing it, using 
+<code>min_sparse_saving_fraction
 </code>.
 </p>
 <p>This is basically a loop that calls 
@@ -970,7 +928,7 @@
 <hr/>
 <p>This document was generated with 
 <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl
-</a> version 1.9.0. Using Julia version 1.11.4.
+</a> version 1.10.1. Using Julia version 1.11.4.
 </p>
 </section>
 <footer class="modal-card-foot">

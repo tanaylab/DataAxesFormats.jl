@@ -11,7 +11,7 @@ nested_test("reconstruction") do
         @test keys(results) == Set(["age"])
         @test results["age"] == 3
 
-        @test description(memory) == dedent("""
+        @test description(memory) == """
             name: memory!
             type: MemoryDaf
             axes:
@@ -21,21 +21,21 @@ nested_test("reconstruction") do
               batch:
                 age: 2 x Int64 (Dense)
               cell:
-                batch: 4 x String (Dense)
+                batch: 4 x Str (Dense)
                 score: 4 x Float64 (Dense)
-        """) * "\n"
+            """
     end
 
     nested_test("inconsistent") do
         set_vector!(memory, "cell", "batch", ["X", "X", "Y", ""])
-        @test_throws dedent("""
-            inconsistent values: 0.5 != 0.0
-            of the property: score
-            for the same implicit axis value: X
-            of the axis: cell
-            for the reconstructed axis: batch
-            in the daf data: memory!
-        """) reconstruct_axis!(
+        @test_throws chomp("""
+                     inconsistent values: 0.5 != 0.0
+                     of the property: score
+                     for the same implicit axis value: X
+                     of the axis: cell
+                     for the reconstructed axis: batch
+                     in the daf data: memory!
+                     """) reconstruct_axis!(
             memory,
             existing_axis = "cell",
             implicit_axis = "batch",
@@ -49,7 +49,7 @@ nested_test("reconstruction") do
         @test keys(results) == Set(["age"])
         @test results["age"] == 3
 
-        @test description(memory) == dedent("""
+        @test description(memory) == """
             name: memory!
             type: MemoryDaf
             axes:
@@ -59,9 +59,9 @@ nested_test("reconstruction") do
               batch:
                 age: 2 x Int64 (Dense)
               cell:
-                batch: 4 x String (Dense)
+                batch: 4 x Str (Dense)
                 score: 4 x Float64 (Dense)
-        """) * "\n"
+            """
     end
 
     nested_test("manual") do
@@ -69,20 +69,20 @@ nested_test("reconstruction") do
 
         nested_test("!entry") do
             add_axis!(memory, "batch", ["X", "Z"])
-            @test_throws dedent("""
-                missing used entry: Y
-                from the existing reconstructed axis: batch
-                in the daf data: memory!
-            """) reconstruct_axis!(memory; existing_axis = "cell", implicit_axis = "batch")
+            @test_throws chomp("""
+                         missing used entry: Y
+                         from the existing reconstructed axis: batch
+                         in the daf data: memory!
+                         """) reconstruct_axis!(memory; existing_axis = "cell", implicit_axis = "batch")
         end
 
         nested_test("!default") do
             add_axis!(memory, "batch", ["X", "Y", "Z"])
-            @test_throws dedent("""
-                no default value specified for the unused entry: Z
-                of the reconstructed property: age
-                in the daf data: memory!
-            """) reconstruct_axis!(memory; existing_axis = "cell", implicit_axis = "batch")
+            @test_throws chomp("""
+                         no default value specified for the unused entry: Z
+                         of the reconstructed property: age
+                         in the daf data: memory!
+                         """) reconstruct_axis!(memory; existing_axis = "cell", implicit_axis = "batch")
         end
 
         nested_test("default") do
@@ -96,7 +96,7 @@ nested_test("reconstruction") do
             @test keys(results) == Set(["age"])
             @test results["age"] == 3
 
-            @test description(memory) == dedent("""
+            @test description(memory) == """
                 name: memory!
                 type: MemoryDaf
                 axes:
@@ -106,9 +106,9 @@ nested_test("reconstruction") do
                   batch:
                     age: 3 x Int64 (Dense)
                   cell:
-                    batch: 4 x String (Dense)
+                    batch: 4 x Str (Dense)
                     score: 4 x Float64 (Dense)
-            """) * "\n"
+                """
         end
     end
 end

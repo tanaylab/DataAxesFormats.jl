@@ -10,22 +10,18 @@ export chain_reader
 export chain_writer
 
 using ..Formats
-using ..GenericFunctions
-using ..GenericTypes
 using ..Keys
-using ..MatrixLayouts
-using ..Messages
 using ..ReadOnly
 using ..Readers
 using ..StorageTypes
 using ..Writers
 using NamedArrays
 using SparseArrays
+using TanayLabUtilities
 
 import ..Formats.CacheKey
 import ..Formats.FormatReader
 import ..Formats.Internal
-import ..Messages
 import ..ReadOnly.DafReadOnlyWrapper
 
 """
@@ -92,7 +88,7 @@ function chain_reader(dafs::AbstractVector{<:DafReader}; name::Maybe{AbstractStr
 
     internal_dafs = reader_internal_dafs(dafs, name)
     chain = ReadOnlyChain(name, Internal(; cache_group = nothing, is_frozen = true), internal_dafs)
-    @debug "Daf: $(depict(chain)) chain: $(join([daf.name for daf in dafs], ";"))"
+    @debug "Daf: $(brief(chain)) chain: $(join([daf.name for daf in dafs], ";"))"
     return chain
 end
 
@@ -114,10 +110,10 @@ function chain_writer(dafs::AbstractVector{<:DafReader}; name::Maybe{AbstractStr
     end
 
     if !(dafs[end] isa DafWriter) || dafs[end].internal.is_frozen
-        error(dedent("""
-            read-only final data: $(dafs[end].name)
-            in write chain$(name_suffix(name))
-        """))
+        error("""
+              read-only final data: $(dafs[end].name)
+              in write chain$(name_suffix(name))
+              """)
     end
 
     if name === nothing
@@ -133,7 +129,7 @@ function chain_writer(dafs::AbstractVector{<:DafReader}; name::Maybe{AbstractStr
     internal_dafs = reader_internal_dafs(dafs, name)
     reader = ReadOnlyChain(name, Internal(; cache_group = nothing, is_frozen = false), internal_dafs)
     chain = WriteChain(name, reader.internal, reader.dafs, dafs[end])
-    @debug "Daf: $(depict(chain)) chain: $(join([daf.name for daf in dafs], ";"))"
+    @debug "Daf: $(brief(chain)) chain: $(join([daf.name for daf in dafs], ";"))"
     return chain
 end
 
@@ -151,27 +147,27 @@ function reader_internal_dafs(dafs::AbstractVector, name::AbstractString)::Vecto
             if old_axis_entries === nothing
                 axes_entries[axis] = (daf.name, new_axis_entries)
             elseif length(new_axis_entries) != length(old_axis_entries[2])
-                error(dedent("""
-                    different number of entries: $(length(new_axis_entries))
-                    for the axis: $(axis)
-                    in the daf data: $(daf.name)
-                    from the number of entries: $(length(old_axis_entries[2]))
-                    for the axis: $(axis)
-                    in the daf data: $(old_axis_entries[1])
-                    in the chain: $(name)
-                """))
+                error("""
+                      different number of entries: $(length(new_axis_entries))
+                      for the axis: $(axis)
+                      in the daf data: $(daf.name)
+                      from the number of entries: $(length(old_axis_entries[2]))
+                      for the axis: $(axis)
+                      in the daf data: $(old_axis_entries[1])
+                      in the chain: $(name)
+                      """)
             else
                 for (index, (new_entry, old_entry)) in enumerate(zip(new_axis_entries, old_axis_entries[2]))
                     if new_entry != old_entry
-                        error(dedent("""
-                            different entry#$(index): $(new_entry)
-                            for the axis: $(axis)
-                            in the daf data: $(daf.name)
-                            from the entry#$(index): $(old_entry)
-                            for the axis: $(axis)
-                            in the daf data: $(old_axis_entries[1])
-                            in the chain: $(name)
-                        """))
+                        error("""
+                              different entry#$(index): $(new_entry)
+                              for the axis: $(axis)
+                              in the daf data: $(daf.name)
+                              from the entry#$(index): $(old_entry)
+                              for the axis: $(axis)
+                              in the daf data: $(old_axis_entries[1])
+                              in the chain: $(name)
+                              """)
                     end
                 end
             end
@@ -255,12 +251,12 @@ function Formats.format_delete_scalar!(chain::WriteChain, name::AbstractString; 
     if !for_set
         for daf in chain.dafs[1:(end - 1)]
             if Formats.format_has_scalar(daf, name)
-                error(dedent("""
-                    failed to delete the scalar: $(name)
-                    from the daf data: $(chain.daf.name)
-                    of the chain: $(chain.name)
-                    because it exists in the earlier: $(daf.name)
-                """))
+                error("""
+                      failed to delete the scalar: $(name)
+                      from the daf data: $(chain.daf.name)
+                      of the chain: $(chain.name)
+                      because it exists in the earlier: $(daf.name)
+                      """)
             end
         end
     end
@@ -312,12 +308,12 @@ function Formats.format_delete_axis!(chain::WriteChain, axis::AbstractString)::N
     @assert Formats.has_data_write_lock(chain)
     for daf in chain.dafs[1:(end - 1)]
         if Formats.format_has_axis(daf, axis; for_change = false)
-            error(dedent("""
-                failed to delete the axis: $(axis)
-                from the daf data: $(chain.daf.name)
-                of the chain: $(chain.name)
-                because it exists in the earlier: $(daf.name)
-            """))
+            error("""
+                  failed to delete the axis: $(axis)
+                  from the daf data: $(chain.daf.name)
+                  of the chain: $(chain.name)
+                  because it exists in the earlier: $(daf.name)
+                  """)
         end
     end
     Formats.format_delete_axis!(chain.daf, axis)
@@ -422,13 +418,13 @@ function Formats.format_delete_vector!(
     if !for_set
         for daf in chain.dafs[1:(end - 1)]
             if Formats.format_has_axis(daf, axis; for_change = false) && Formats.format_has_vector(daf, axis, name)
-                error(dedent("""
-                    failed to delete the vector: $(name)
-                    of the axis: $(axis)
-                    from the daf data: $(chain.daf.name)
-                    of the chain: $(chain.name)
-                    because it exists in the earlier: $(daf.name)
-                """))
+                error("""
+                      failed to delete the vector: $(name)
+                      of the axis: $(axis)
+                      from the daf data: $(chain.daf.name)
+                      of the chain: $(chain.name)
+                      because it exists in the earlier: $(daf.name)
+                      """)
             end
         end
     end
@@ -600,14 +596,14 @@ function Formats.format_delete_matrix!(
             if Formats.format_has_axis(daf, rows_axis; for_change = false) &&
                Formats.format_has_axis(daf, columns_axis; for_change = false) &&
                Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
-                error(dedent("""
-                    failed to delete the matrix: $(name)
-                    for the rows axis: $(rows_axis)
-                    and the columns axis: $(columns_axis)
-                    from the daf data: $(chain.daf.name)
-                    of the chain: $(chain.name)
-                    because it exists in the earlier: $(daf.name)
-                """))
+                error("""
+                      failed to delete the matrix: $(name)
+                      for the rows axis: $(rows_axis)
+                      and the columns axis: $(columns_axis)
+                      from the daf data: $(chain.daf.name)
+                      of the chain: $(chain.name)
+                      because it exists in the earlier: $(daf.name)
+                      """)
             end
         end
     end
@@ -674,7 +670,7 @@ function Formats.format_description_header(
     if !deep
         push!(lines, "$(indent)chain:")
         for daf in chain.dafs
-            push!(lines, "$(indent)- $(depict(daf))")
+            push!(lines, "$(indent)- $(brief(daf))")
         end
     end
 
@@ -718,14 +714,14 @@ function Formats.format_increment_version_counter(chain::WriteChain, version_key
     return nothing
 end
 
-function Messages.depict(value::ReadOnlyChain; name::Maybe{AbstractString} = nothing)::String
+function TanayLabUtilities.Brief.brief(value::ReadOnlyChain; name::Maybe{AbstractString} = nothing)::String
     if name === nothing
         name = value.name
     end
     return "ReadOnly Chain $(name)"
 end
 
-function Messages.depict(value::WriteChain; name::Maybe{AbstractString} = nothing)::String
+function TanayLabUtilities.Brief.brief(value::WriteChain; name::Maybe{AbstractString} = nothing)::String
     if name === nothing
         name = value.name
     end

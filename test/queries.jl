@@ -32,9 +32,9 @@ function get_result(
     end
 end
 
-function test_invalid(daf::DafReader, query::Union{String, Query}, message::String)::Nothing
+function test_invalid(daf::DafReader, query::Union{AbstractString, Query}, message::AbstractString)::Nothing
     @test !has_query(daf, query)
-    message = dedent(message)
+    message = chomp(message)
     @test_throws message query_result_dimensions(query)
     @test_throws (message * "\nfor the daf data: memory!") with_unwrapping_exceptions() do
         return daf[query]
@@ -42,9 +42,8 @@ function test_invalid(daf::DafReader, query::Union{String, Query}, message::Stri
     return nothing
 end
 
-function test_invalid(daf::DafReader, query::Union{String, Query}, dimensions::Int, message::String)::Nothing
+function test_invalid(daf::DafReader, query::Union{AbstractString, Query}, dimensions::Int, message::String)::Nothing
     @test query_result_dimensions(query) == dimensions
-    message = dedent(message)
     @test_throws message with_unwrapping_exceptions() do
         return daf[query]
     end
@@ -91,9 +90,9 @@ nested_test("queries") do
                     daf,
                     Names(),
                     """
-                        no kind specified for names
-                        in the query: ?
-                        at operation: ▲
+                    no kind specified for names
+                    in the query: ?
+                    at operation: ▲
                     """,
                 )
             end
@@ -104,9 +103,9 @@ nested_test("queries") do
                     daf,
                     q": score ?",
                     """
-                        unexpected operation: Names
-                        in the query: : score ?
-                        at operation:         ▲
+                    unexpected operation: Names
+                    in the query: : score ?
+                    at operation:         ▲
                     """,
                 )
             end
@@ -116,9 +115,9 @@ nested_test("queries") do
                     daf,
                     q"? vectors",
                     """
-                        invalid kind: vectors
-                        in the query: ? vectors
-                        at operation: ▲▲▲▲▲▲▲▲▲
+                    invalid kind: vectors
+                    in the query: ? vectors
+                    at operation: ▲▲▲▲▲▲▲▲▲
                     """,
                 )
             end
@@ -131,10 +130,10 @@ nested_test("queries") do
                         daf,
                         q"/ cell ? vectors",
                         """
-                            unexpected kind: vectors
-                            specified for vector names
-                            in the query: / cell ? vectors
-                            at operation:        ▲▲▲▲▲▲▲▲▲
+                        unexpected kind: vectors
+                        specified for vector names
+                        in the query: / cell ? vectors
+                        at operation:        ▲▲▲▲▲▲▲▲▲
                         """,
                     )
                 end
@@ -144,9 +143,9 @@ nested_test("queries") do
                         daf,
                         q"/ cell = A ?",
                         """
-                            sliced/masked axis for vector names
-                            in the query: / cell = A ?
-                            at operation:            ▲
+                        sliced/masked axis for vector names
+                        in the query: / cell = A ?
+                        at operation:            ▲
                         """,
                     )
                 end
@@ -156,9 +155,9 @@ nested_test("queries") do
                         daf,
                         q"/ cell & name != A ?",
                         """
-                            sliced/masked axis for vector names
-                            in the query: / cell & name != A ?
-                            at operation:                    ▲
+                        sliced/masked axis for vector names
+                        in the query: / cell & name != A ?
+                        at operation:                    ▲
                         """,
                     )
                 end
@@ -173,10 +172,10 @@ nested_test("queries") do
                         daf,
                         q"/ cell / gene ? matrices",
                         """
-                            unexpected kind: matrices
-                            specified for matrix names
-                            in the query: / cell / gene ? matrices
-                            at operation:               ▲▲▲▲▲▲▲▲▲▲
+                        unexpected kind: matrices
+                        specified for matrix names
+                        in the query: / cell / gene ? matrices
+                        at operation:               ▲▲▲▲▲▲▲▲▲▲
                         """,
                     )
                 end
@@ -186,9 +185,9 @@ nested_test("queries") do
                         daf,
                         q"/ cell = A / gene ?",
                         """
-                            sliced/masked axis for matrix names
-                            in the query: / cell = A / gene ?
-                            at operation:                   ▲
+                        sliced/masked axis for matrix names
+                        in the query: / cell = A / gene ?
+                        at operation:                   ▲
                         """,
                     )
                 end
@@ -198,9 +197,9 @@ nested_test("queries") do
                         daf,
                         q"/ gene / cell & name != A ?",
                         """
-                            sliced/masked axis for matrix names
-                            in the query: / gene / cell & name != A ?
-                            at operation:                           ▲
+                        sliced/masked axis for matrix names
+                        in the query: / gene / cell & name != A ?
+                        at operation:                           ▲
                         """,
                     )
                 end
@@ -270,10 +269,10 @@ nested_test("queries") do
                         q": version % Abs",
                         0,
                         """
-                            unsupported input type: String
-                            for the eltwise operation: Abs
-                            in the query: : version % Abs
-                            at operation:           ▲▲▲▲▲
+                        unsupported input type: String
+                        for the eltwise operation: Abs
+                        in the query: : version % Abs
+                        at operation:           ▲▲▲▲▲
                         """,
                     )
                 end
@@ -287,9 +286,9 @@ nested_test("queries") do
                 daf,
                 q": score : version",
                 """
-                    unexpected operation: Lookup
-                    in the query: : score : version
-                    at operation:         ▲▲▲▲▲▲▲▲▲
+                unexpected operation: Lookup
+                in the query: : score : version
+                at operation:         ▲▲▲▲▲▲▲▲▲
                 """,
             )
         end
@@ -349,10 +348,10 @@ nested_test("queries") do
                         q"/ cell : type % Abs",
                         1,
                         """
-                            unsupported input type: String
-                            for the eltwise operation: Abs
-                            in the query: / cell : type % Abs
-                            at operation:               ▲▲▲▲▲
+                        unsupported input type: String
+                        for the eltwise operation: Abs
+                        in the query: / cell : type % Abs
+                        at operation:               ▲▲▲▲▲
                         """,
                     )
                 end
@@ -370,10 +369,10 @@ nested_test("queries") do
                         q"/ cell : type %> Sum",
                         0,
                         """
-                            unsupported input type: String
-                            for the reduction operation: Sum
-                            in the query: / cell : type %> Sum
-                            at operation:               ▲▲▲▲▲▲
+                        unsupported input type: String
+                        for the reduction operation: Sum
+                        in the query: / cell : type %> Sum
+                        at operation:               ▲▲▲▲▲▲
                         """,
                     )
                 end
@@ -393,10 +392,10 @@ nested_test("queries") do
                     q"/ cell = 1.0",
                     0,
                     """
-                        the entry: 1.0
-                        does not exist in the axis: cell
-                        in the query: / cell = 1.0
-                        at operation:        ▲▲▲▲▲
+                    the entry: 1.0
+                    does not exist in the axis: cell
+                    in the query: / cell = 1.0
+                    at operation:        ▲▲▲▲▲
                     """,
                 )
             end
@@ -407,10 +406,10 @@ nested_test("queries") do
                     Axis("cell") |> IsEqual(1.0),
                     0,
                     """
-                        comparing a non-String (Float64): 1.0
-                        with entries of the axis: cell
-                        in the query: / cell = 1.0
-                        at operation:        ▲▲▲▲▲
+                    comparing a non-String (Float64): 1.0
+                    with entries of the axis: cell
+                    in the query: / cell = 1.0
+                    at operation:        ▲▲▲▲▲
                     """,
                 )
             end
@@ -435,11 +434,11 @@ nested_test("queries") do
                         q"/ cell : age => batch",
                         1,
                         """
-                            fetching with a non-String vector of: Int64
-                            of the vector: age
-                            of the axis: cell
-                            in the query: / cell : age => batch
-                            at operation:              ▲▲▲▲▲▲▲▲
+                        fetching with a non-String vector of: Int64
+                        of the vector: age
+                        of the axis: cell
+                        in the query: / cell : age => batch
+                        at operation:              ▲▲▲▲▲▲▲▲
                         """,
                     )
                 end
@@ -479,12 +478,12 @@ nested_test("queries") do
                         q"/ cell = B : batch => donor",
                         0,
                         """
-                            invalid value: W
-                            of the vector: batch
-                            of the axis: cell
-                            is missing from the fetched axis: batch
-                            in the query: / cell = B : batch => donor
-                            at operation:                    ▲▲▲▲▲▲▲▲
+                        invalid value: W
+                        of the vector: batch
+                        of the axis: cell
+                        is missing from the fetched axis: batch
+                        in the query: / cell = B : batch => donor
+                        at operation:                    ▲▲▲▲▲▲▲▲
                         """,
                     )
                 end
@@ -498,11 +497,11 @@ nested_test("queries") do
                         q"/ cell = B : batch => donor",
                         0,
                         """
-                            empty value of the vector: batch
-                            of the axis: cell
-                            used for the fetched axis: batch
-                            in the query: / cell = B : batch => donor
-                            at operation:                    ▲▲▲▲▲▲▲▲
+                        empty value of the vector: batch
+                        of the axis: cell
+                        used for the fetched axis: batch
+                        in the query: / cell = B : batch => donor
+                        at operation:                    ▲▲▲▲▲▲▲▲
                         """,
                     )
                 end
@@ -526,10 +525,10 @@ nested_test("queries") do
                         q"/ cell & type ~ \[",
                         1,
                         """
-                            ErrorException: PCRE compilation error: missing terminating ] for character class at offset 7
-                            in the regular expression: ^(:?[)\$
-                            in the query: / cell & type ~ \\[
-                            at operation:               ▲▲▲▲
+                        ErrorException: PCRE compilation error: missing terminating ] for character class at offset 7
+                        in the regular expression: ^(:?[)\$
+                        in the query: / cell & type ~ \\[
+                        at operation:               ▲▲▲▲
                         """,
                     )
                 end
@@ -540,11 +539,11 @@ nested_test("queries") do
                         q"/ cell & age ~ T.\*",
                         1,
                         """
-                            matching non-string vector: Int64
-                            of the vector: age
-                            of the axis: cell
-                            in the query: / cell & age ~ T.\\*
-                            at operation:              ▲▲▲▲▲▲
+                        matching non-string vector: Int64
+                        of the vector: age
+                        of the axis: cell
+                        in the query: / cell & age ~ T.\\*
+                        at operation:              ▲▲▲▲▲▲
                         """,
                     )
                 end
@@ -556,9 +555,9 @@ nested_test("queries") do
                     q"/ cell & age < Q",
                     1,
                     """
-                        ArgumentError: invalid base 10 digit 'Q' in "Q"
-                        in the query: / cell & age < Q
-                        at operation:              ▲▲▲
+                    ArgumentError: invalid base 10 digit 'Q' in "Q"
+                    in the query: / cell & age < Q
+                    at operation:              ▲▲▲
                     """,
                 )
             end
@@ -614,9 +613,9 @@ nested_test("queries") do
                         q"/ cell & UMIs ; gene = U > 3",
                         1,
                         """
-                            invalid value: U
-                            is missing from the axis: gene
-                            in the query: / cell & UMIs ; gene = U > 3
+                        invalid value: U
+                        is missing from the axis: gene
+                        in the query: / cell & UMIs ; gene = U > 3
                         """,
                     )
                 end
@@ -636,9 +635,9 @@ nested_test("queries") do
                         q"/ cell & outgoing ;= U > 0",
                         1,
                         """
-                            invalid value: U
-                            is missing from the axis: cell
-                            in the query: / cell & outgoing ;= U > 0
+                        invalid value: U
+                        is missing from the axis: cell
+                        in the query: / cell & outgoing ;= U > 0
                         """,
                     )
                 end
@@ -658,9 +657,9 @@ nested_test("queries") do
                         q"/ cell & outgoing ,= U > 0",
                         1,
                         """
-                            invalid value: U
-                            is missing from the axis: cell
-                            in the query: / cell & outgoing ,= U > 0
+                        invalid value: U
+                        is missing from the axis: cell
+                        in the query: / cell & outgoing ,= U > 0
                         """,
                     )
                 end
@@ -718,12 +717,12 @@ nested_test("queries") do
                     q"/ cell : type => color",
                     1,
                     """
-                        invalid value: W
-                        of the vector: type
-                        of the axis: cell
-                        is missing from the fetched axis: type
-                        in the query: / cell : type => color
-                        at operation:               ▲▲▲▲▲▲▲▲
+                    invalid value: W
+                    of the vector: type
+                    of the axis: cell
+                    is missing from the fetched axis: type
+                    in the query: / cell : type => color
+                    at operation:               ▲▲▲▲▲▲▲▲
                     """,
                 )
             end
@@ -737,11 +736,11 @@ nested_test("queries") do
                     q"/ cell : type => color",
                     1,
                     """
-                        empty value of the vector: type
-                        of the axis: cell
-                        used for the fetched axis: type
-                        in the query: / cell : type => color
-                        at operation:               ▲▲▲▲▲▲▲▲
+                    empty value of the vector: type
+                    of the axis: cell
+                    used for the fetched axis: type
+                    in the query: / cell : type => color
+                    at operation:               ▲▲▲▲▲▲▲▲
                     """,
                 )
             end
@@ -777,27 +776,27 @@ nested_test("queries") do
                         daf,
                         q"/ cell : type => color ??",
                         """
-                            unexpected operation: IfNot
-                            in the query: / cell : type => color ??
-                            at operation:                        ▲▲
+                        unexpected operation: IfNot
+                        in the query: / cell : type => color ??
+                        at operation:                        ▲▲
                         """,
                     )
                     return test_invalid(
                         daf,
                         q"/ cell : type => color !",
                         """
-                            unexpected operation: AsAxis
-                            in the query: / cell : type => color !
-                            at operation:                        ▲
+                        unexpected operation: AsAxis
+                        in the query: / cell : type => color !
+                        at operation:                        ▲
                         """,
                     )
                     return test_invalid(
                         daf,
                         q"/ cell : type => color ?? !",
                         """
-                            unexpected operation: IfNot
-                            in the query: / cell : type => color ?? !
-                            at operation:                        ▲
+                        unexpected operation: IfNot
+                        in the query: / cell : type => color ?? !
+                        at operation:                        ▲
                         """,
                     )
                 end
@@ -822,9 +821,9 @@ nested_test("queries") do
                             daf,
                             q"/ cell ??",
                             """
-                                unexpected operation: IfNot
-                                in the query: / cell ??
-                                at operation:        ▲▲
+                            unexpected operation: IfNot
+                            in the query: / cell ??
+                            at operation:        ▲▲
                             """,
                         )
                     end
@@ -834,9 +833,9 @@ nested_test("queries") do
                             daf,
                             q"/ cell !",
                             """
-                                unexpected operation: AsAxis
-                                in the query: / cell !
-                                at operation:        ▲
+                            unexpected operation: AsAxis
+                            in the query: / cell !
+                            at operation:        ▲
                             """,
                         )
                     end
@@ -846,9 +845,9 @@ nested_test("queries") do
                             daf,
                             q"/ cell * age",
                             """
-                                unexpected operation: CountBy
-                                in the query: / cell * age
-                                at operation:        ▲▲▲▲▲
+                            unexpected operation: CountBy
+                            in the query: / cell * age
+                            at operation:        ▲▲▲▲▲
                             """,
                         )
                     end
@@ -1116,9 +1115,9 @@ nested_test("queries") do
                     daf,
                     q"/ cell : age @ batch % Abs",
                     """
-                        unexpected operation: EltwiseOperation
-                        in the query: / cell : age @ batch % Abs
-                        at operation:                      ▲▲▲▲▲
+                    unexpected operation: EltwiseOperation
+                    in the query: / cell : age @ batch % Abs
+                    at operation:                      ▲▲▲▲▲
                     """,
                 )
             end
@@ -1166,9 +1165,9 @@ nested_test("queries") do
                     daf,
                     q"/ cell / gene : UMIs @ batch % Abs",
                     """
-                        unexpected operation: EltwiseOperation
-                        in the query: / cell / gene : UMIs @ batch % Abs
-                        at operation:                              ▲▲▲▲▲
+                    unexpected operation: EltwiseOperation
+                    in the query: / cell / gene : UMIs @ batch % Abs
+                    at operation:                              ▲▲▲▲▲
                     """,
                 )
             end
@@ -1225,10 +1224,10 @@ nested_test("queries") do
                         q"/ cell / gene : UMIs @ batch ! %> Sum",
                         2,
                         """
-                            no values for the group: W
-                            and no IfMissing value was specified: || value_for_empty_groups
-                            in the query: / cell / gene : UMIs @ batch ! %> Sum
-                            at operation:                                ▲▲▲▲▲▲
+                        no values for the group: W
+                        and no IfMissing value was specified: || value_for_empty_groups
+                        in the query: / cell / gene : UMIs @ batch ! %> Sum
+                        at operation:                                ▲▲▲▲▲▲
                         """,
                     )
                 end
@@ -1243,53 +1242,53 @@ nested_test("queries") do
         end
 
         nested_test("!operator") do
-            @test_throws dedent("""
-                expected: operator
-                in: operand & operand
-                at: ▲▲▲▲▲▲▲
-            """) Query("operand & operand")
+            @test_throws chomp("""
+                     expected: operator
+                     in: operand & operand
+                     at: ▲▲▲▲▲▲▲
+                     """) Query("operand & operand")
         end
 
         nested_test("trailing") do
-            @test_throws dedent("""
-                expected: operator
-                in: : operand trailing
-                at:           ▲▲▲▲▲▲▲▲
-            """) Query(": operand trailing")
+            @test_throws chomp("""
+                         expected: operator
+                         in: : operand trailing
+                         at:           ▲▲▲▲▲▲▲▲
+                         """) Query(": operand trailing")
         end
 
         nested_test("operator") do
-            @test_throws dedent("""
-                expected: value
-                in: : :
-                at:   ▲
-            """) Query(": :")
+            @test_throws chomp("""
+                         expected: value
+                         in: : :
+                         at:   ▲
+                         """) Query(": :")
         end
 
         nested_test("operation") do
-            @test_throws dedent("""
-                unknown eltwise operation: Frobulate
-                in: : score % Frobulate
-                at:           ▲▲▲▲▲▲▲▲▲
-            """) Query(": score % Frobulate")
+            @test_throws chomp("""
+                         unknown eltwise operation: Frobulate
+                         in: : score % Frobulate
+                         at:           ▲▲▲▲▲▲▲▲▲
+                         """) Query(": score % Frobulate")
         end
 
         nested_test("parameter") do
-            @test_throws dedent("""
-                the parameter: phase
-                does not exist for the operation: Log
-                in: : score % Log phase 2
-                at:               ▲▲▲▲▲
-            """) Query(": score % Log phase 2")
+            @test_throws chomp("""
+                         the parameter: phase
+                         does not exist for the operation: Log
+                         in: : score % Log phase 2
+                         at:               ▲▲▲▲▲
+                         """) Query(": score % Log phase 2")
         end
 
         nested_test("parameters") do
-            @test_throws dedent("""
-                repeated parameter: base
-                for the operation: Log
-                in: : score % Log base pi base e
-                at:                       ▲▲▲▲
-            """) Query(": score % Log base pi base e")
+            @test_throws chomp("""
+                         repeated parameter: base
+                         for the operation: Log
+                         in: : score % Log base pi base e
+                         at:                       ▲▲▲▲
+                         """) Query(": score % Log base pi base e")
         end
     end
 
@@ -1298,51 +1297,33 @@ nested_test("queries") do
 
         nested_test("partial") do
             add_axis!(daf, "gene", ["X", "Y", "Z"])
-            return test_invalid(
-                daf,
-                q"/ cell / gene",
-                """
-                    partial query: / cell / gene
-                """,
-            )
+            return test_invalid(daf, q"/ cell / gene", "partial query: / cell / gene")
         end
 
         nested_test("unexpected") do
             nested_test("comparison") do
-                return test_invalid(
-                    daf,
-                    q"/ cell > 0",
-                    """
-                        unexpected operation: IsGreater
-                        in the query: / cell > 0
-                        at operation:        ▲▲▲
-                    """,
-                )
+                return test_invalid(daf, q"/ cell > 0", chomp("""
+                                                        unexpected operation: IsGreater
+                                                        in the query: / cell > 0
+                                                        at operation:        ▲▲▲
+                                                        """))
             end
 
             nested_test("eltwise") do
-                return test_invalid(
-                    daf,
-                    q"/ cell % Log",
-                    """
-                        unexpected operation: EltwiseOperation
-                        in the query: / cell % Log base e eps 0.0
-                        at operation:        ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
-                    """,
-                )
+                return test_invalid(daf, q"/ cell % Log", chomp("""
+                                                          unexpected operation: EltwiseOperation
+                                                          in the query: / cell % Log base e eps 0.0
+                                                          at operation:        ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+                                                          """))
             end
 
             nested_test("mask") do
                 set_scalar!(daf, "score", 1.0)
-                return test_invalid(
-                    daf,
-                    q": score & is_first",
-                    """
-                        unexpected operation: And
-                        in the query: : score & is_first
-                        at operation:         ▲▲▲▲▲▲▲▲▲▲
-                    """,
-                )
+                return test_invalid(daf, q": score & is_first", chomp("""
+                                                                unexpected operation: And
+                                                                in the query: : score & is_first
+                                                                at operation:         ▲▲▲▲▲▲▲▲▲▲
+                                                                """))
             end
         end
 
@@ -1350,15 +1331,11 @@ nested_test("queries") do
             add_axis!(daf, "gene", ["X", "Y", "Z"])
             add_axis!(daf, "batch", ["U", "V"])
 
-            return test_invalid(
-                daf,
-                q"/ cell / gene / batch",
-                """
-                    unexpected operation: Axis
-                    in the query: / cell / gene / batch
-                    at operation:               ▲▲▲▲▲▲▲
-                """,
-            )
+            return test_invalid(daf, q"/ cell / gene / batch", chomp("""
+                                                               unexpected operation: Axis
+                                                               in the query: / cell / gene / batch
+                                                               at operation:               ▲▲▲▲▲▲▲
+                                                               """))
         end
     end
 
@@ -1419,25 +1396,25 @@ nested_test("queries") do
 
             nested_test("axis") do
                 nested_test("name") do
-                    @test "$(get_frame(daf, "cell"))" == dedent("""
+                    @test "$(get_frame(daf, "cell"))" == chomp("""
                         2×3 DataFrame
                          Row │ name    age    is_doublet
                              │ String  Int64  Bool
                         ─────┼───────────────────────────
                            1 │ A           0        true
                            2 │ B           1       false
-                    """)
+                        """)
                 end
 
                 nested_test("query") do
-                    @test "$(get_frame(daf, Axis("cell")))" == dedent("""
+                    @test "$(get_frame(daf, Axis("cell")))" == chomp("""
                         2×3 DataFrame
                          Row │ name    age    is_doublet
                              │ String  Int64  Bool
                         ─────┼───────────────────────────
                            1 │ A           0        true
                            2 │ B           1       false
-                    """)
+                        """)
                 end
 
                 nested_test("!query") do
@@ -1445,56 +1422,56 @@ nested_test("queries") do
                 end
 
                 nested_test("mask") do
-                    @test "$(get_frame(daf, q"/ cell & is_doublet"))" == dedent("""
+                    @test "$(get_frame(daf, q"/ cell & is_doublet"))" == chomp("""
                         1×3 DataFrame
                          Row │ name    age    is_doublet
                              │ String  Int64  Bool
                         ─────┼───────────────────────────
                            1 │ A           0        true
-                    """)
+                        """)
                 end
             end
 
             nested_test("columns") do
                 nested_test("names") do
-                    @test "$(get_frame(daf, "cell", ["age", "is_doublet"]))" == dedent("""
+                    @test "$(get_frame(daf, "cell", ["age", "is_doublet"]))" == chomp("""
                         2×2 DataFrame
                          Row │ age    is_doublet
                              │ Int64  Bool
                         ─────┼───────────────────
                            1 │     0        true
                            2 │     1       false
-                    """)
+                        """)
                 end
 
                 nested_test("queries") do
-                    @test "$(get_frame(daf, "cell", ["age" => ": age", "doublet" => ": is_doublet"]))" == dedent("""
+                    @test "$(get_frame(daf, "cell", ["age" => ": age", "doublet" => ": is_doublet"]))" == chomp("""
                         2×2 DataFrame
                          Row │ age    doublet
                              │ Int64  Bool
                         ─────┼────────────────
                            1 │     0     true
                            2 │     1    false
-                    """)
+                        """)
                 end
 
                 nested_test("shorthands") do
-                    @test "$(get_frame(daf, "cell", FrameColumn["age", "doublet" => "is_doublet"]))" == dedent("""
+                    @test "$(get_frame(daf, "cell", FrameColumn["age", "doublet" => "is_doublet"]))" == chomp("""
                         2×2 DataFrame
                          Row │ age    doublet
                              │ Int64  Bool
                         ─────┼────────────────
                            1 │     0     true
                            2 │     1    false
-                    """)
+                        """)
                 end
 
                 nested_test("!queries") do
-                    @test_throws dedent("""
-                        invalid column query: / cell : age %> Sum
-                        for the axis query: / cell
-                        of the daf data: memory!
-                    """) get_frame(daf, "cell", ["age" => ": age %> Sum", "doublet" => ": is_doublet"])
+                    @test_throws chomp("""
+                                 invalid column query: / cell : age %> Sum
+                                 for the axis query: / cell
+                                 of the daf data: memory!
+                                 """) get_frame(daf, "cell", ["age" => ": age %> Sum", "doublet" => ": is_doublet"])
                 end
             end
         end
@@ -1507,33 +1484,33 @@ nested_test("queries") do
             set_vector!(daf, "cell", "age", [0, 1, 2, 3])
 
             nested_test("axis") do
-                @test "$(get_frame(daf, "metacell", ["mean_age" => "/ cell : age @ metacell %> Mean"]))" == dedent("""
+                @test "$(get_frame(daf, "metacell", ["mean_age" => "/ cell : age @ metacell %> Mean"]))" == chomp("""
                     2×1 DataFrame
                      Row │ mean_age
                          │ Float64
                     ─────┼──────────
                        1 │      0.5
                        2 │      2.5
-                """)
+                    """)
             end
 
             nested_test("masked") do
                 @test "$(get_frame(daf, "/ metacell & type = U", ["mean_age" => "/ cell & metacell => type = U : age @ metacell %> Mean"]))" ==
-                      dedent("""
-                          1×1 DataFrame
-                           Row │ mean_age
-                               │ Float64
-                          ─────┼──────────
-                             1 │      0.5
+                      chomp("""
+                      1×1 DataFrame
+                       Row │ mean_age
+                           │ Float64
+                      ─────┼──────────
+                         1 │      0.5
                       """)
             end
 
             nested_test("!masked") do
-                @test_throws dedent("""
-                    invalid column query: / cell & metacell : age @ metacell %> Mean
-                    for the axis query: / metacell & type = U
-                    of the daf data: memory!
-                """) get_frame(
+                @test_throws chomp("""
+                             invalid column query: / cell & metacell : age @ metacell %> Mean
+                             for the axis query: / metacell & type = U
+                             of the daf data: memory!
+                             """) get_frame(
                     daf,
                     q"/ metacell & type = U",
                     ["mean_age" => "/ cell & metacell : age @ metacell %> Mean"],

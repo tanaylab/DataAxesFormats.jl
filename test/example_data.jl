@@ -5,18 +5,18 @@ function test_description(
     name::String = "example!",
 )::Nothing
     if kind == ""
-        header = dedent("""
+        header = """
             name: $(name)
             type: MemoryDaf
-        """)
+            """
     else
-        header = dedent("""
+        header = """
             name: $(name)
             type: $(kind)
             base: MemoryDaf example!
-        """)
+            """
     end
-    prefix = header * "\n" * dedent("""
+    prefix = header * """
         scalars:
           version: "1.0"
         axes:
@@ -28,29 +28,29 @@ function test_description(
         vectors:
           batch:
             age: 4 x Int8 (Dense)
-            sex: 4 x String (Dense)
+            sex: 4 x Str (Dense)
           cell:
-            batch: 20 x String (Dense)
-            batch.invalid: 20 x String (Dense)
-            batch.partial: 20 x String (Dense)
-            type: 20 x String (Dense)
+            batch: 20 x Str (Dense)
+            batch.invalid: 20 x Str (Dense)
+            batch.partial: 20 x Str (Dense)
+            type: 20 x Str (Dense)
           gene:
-            lateral: 10 x Bool (Dense) (5 true, 50%)
-            marker: 10 x Bool (Dense) (4 true, 40%)
-            module: 10 x String (Dense)
-            noisy: 10 x Bool (Dense) (5 true, 50%)
+            lateral: 10 x Bool (Dense; 50% true)
+            marker: 10 x Bool (Dense; 40% true)
+            module: 10 x Str (Dense)
+            noisy: 10 x Bool (Dense; 50% true)
           type:
-            color: 3 x String (Dense)
+            color: 3 x Str (Dense)
         matrices:
           cell,gene:
             UMIs: 20 x 10 x Int16 in Columns (Dense)
           gene,cell:
             UMIs: 10 x 20 x Int16 in Columns (Dense)
-    """) * "\n"
+        """
     @test description(daf) == prefix
 
     if cache != ""
-        @test description(daf; cache = true) == prefix * cache * "\n"
+        @test description(daf; cache = true) == prefix * cache
     end
 
     return nothing
@@ -117,21 +117,21 @@ nested_test("example_data") do
                     18  8   20  3   8   6   1   18  2   1
                 ]
 
-                test_description(daf; name = "example!.read_only", cache = dedent("""
+                test_description(daf; name = "example!.read_only", cache = """
                     cache:
-                      'axis_dict[axis: batch]': (MemoryData) (OrderedDict length: 4)
-                      'axis_dict[axis: cell]': (MemoryData) (OrderedDict length: 20)
-                      'axis_dict[axis: gene]': (MemoryData) (OrderedDict length: 10)
-                      'axis_dict[axis: type]': (MemoryData) (OrderedDict length: 3)
+                      'axis_dict[axis: batch]': (MemoryData) 4 x Str => Int64 (OrderedDict)
+                      'axis_dict[axis: cell]': (MemoryData) 20 x Str => Int64 (OrderedDict)
+                      'axis_dict[axis: gene]': (MemoryData) 10 x Str => Int64 (OrderedDict)
+                      'axis_dict[axis: type]': (MemoryData) 3 x Str => Int64 (OrderedDict)
                       'query[/ cell / gene : UMIs]': (QueryData) 20 x 10 x Int16 in Columns (Dense)
-                      'names[axes]': (MemoryData) 5 x AbstractString (KeySet)
-                      'vectors[axis: batch]': (MemoryData) 2 x AbstractString (KeySet)
-                      'vectors[axis: cell]': (MemoryData) 4 x AbstractString (KeySet)
-                      'vectors[axis: gene]': (MemoryData) 4 x AbstractString (KeySet)
-                      'vectors[axis: module]': (MemoryData) 0 x AbstractString (KeySet)
-                      'names[scalars]': (MemoryData) 1 x AbstractString (KeySet)
-                      'vectors[axis: type]': (MemoryData) 1 x AbstractString (KeySet)
-               """))
+                      'names[axes]': (MemoryData) 5 x Str (KeySet)
+                      'vectors[axis: batch]': (MemoryData) 2 x Str (KeySet)
+                      'vectors[axis: cell]': (MemoryData) 4 x Str (KeySet)
+                      'vectors[axis: gene]': (MemoryData) 4 x Str (KeySet)
+                      'vectors[axis: module]': (MemoryData) 0 x Str (KeySet)
+                      'names[scalars]': (MemoryData) 1 x Str (KeySet)
+                      'vectors[axis: type]': (MemoryData) 1 x Str (KeySet)
+                    """)
 
                 return nothing
             end
@@ -160,21 +160,21 @@ nested_test("example_data") do
                     18  8   20  3   8   6   1   18  2   1
                 ]
 
-                test_description(daf; name = "example!.read_only", cache = dedent("""
+                test_description(daf; name = "example!.read_only", cache = """
                     cache:
-                      'axis_dict[axis: batch]': (MemoryData) (OrderedDict length: 4)
-                      'axis_dict[axis: cell]': (MemoryData) (OrderedDict length: 20)
-                      'axis_dict[axis: gene]': (MemoryData) (OrderedDict length: 10)
-                      'axis_dict[axis: type]': (MemoryData) (OrderedDict length: 3)
+                      'axis_dict[axis: batch]': (MemoryData) 4 x Str => Int64 (OrderedDict)
+                      'axis_dict[axis: cell]': (MemoryData) 20 x Str => Int64 (OrderedDict)
+                      'axis_dict[axis: gene]': (MemoryData) 10 x Str => Int64 (OrderedDict)
+                      'axis_dict[axis: type]': (MemoryData) 3 x Str => Int64 (OrderedDict)
                       'query[/ cell / gene : UMIs % Abs]': (QueryData) 20 x 10 x UInt16 in Columns (Dense)
-                      'names[axes]': (MemoryData) 5 x AbstractString (KeySet)
-                      'vectors[axis: batch]': (MemoryData) 2 x AbstractString (KeySet)
-                      'vectors[axis: cell]': (MemoryData) 4 x AbstractString (KeySet)
-                      'vectors[axis: gene]': (MemoryData) 4 x AbstractString (KeySet)
-                      'vectors[axis: module]': (MemoryData) 0 x AbstractString (KeySet)
-                      'names[scalars]': (MemoryData) 1 x AbstractString (KeySet)
-                      'vectors[axis: type]': (MemoryData) 1 x AbstractString (KeySet)
-                """))
+                      'names[axes]': (MemoryData) 5 x Str (KeySet)
+                      'vectors[axis: batch]': (MemoryData) 2 x Str (KeySet)
+                      'vectors[axis: cell]': (MemoryData) 4 x Str (KeySet)
+                      'vectors[axis: gene]': (MemoryData) 4 x Str (KeySet)
+                      'vectors[axis: module]': (MemoryData) 0 x Str (KeySet)
+                      'names[scalars]': (MemoryData) 1 x Str (KeySet)
+                      'vectors[axis: type]': (MemoryData) 1 x Str (KeySet)
+                    """)
                 return nothing
             end
 
@@ -191,23 +191,21 @@ nested_test("example_data") do
                 test_description(
                     daf;
                     name = "example!.read_only",
-                    cache = dedent(
-                        """
+                    cache = """
                             cache:
-                              'axis_dict[axis: batch]': (MemoryData) (OrderedDict length: 4)
-                              'axis_dict[axis: cell]': (MemoryData) (OrderedDict length: 20)
-                              'axis_dict[axis: gene]': (MemoryData) (OrderedDict length: 10)
-                              'axis_dict[axis: type]': (MemoryData) (OrderedDict length: 3)
+                              'axis_dict[axis: batch]': (MemoryData) 4 x Str => Int64 (OrderedDict)
+                              'axis_dict[axis: cell]': (MemoryData) 20 x Str => Int64 (OrderedDict)
+                              'axis_dict[axis: gene]': (MemoryData) 10 x Str => Int64 (OrderedDict)
+                              'axis_dict[axis: type]': (MemoryData) 3 x Str => Int64 (OrderedDict)
                               'query[/ cell & batch = B1 / gene & module = M1 : UMIs]': (QueryData) 6 x 5 x Int16 in Columns (Dense)
-                              'names[axes]': (MemoryData) 5 x AbstractString (KeySet)
-                              'vectors[axis: batch]': (MemoryData) 2 x AbstractString (KeySet)
-                              'vectors[axis: cell]': (MemoryData) 4 x AbstractString (KeySet)
-                              'vectors[axis: gene]': (MemoryData) 4 x AbstractString (KeySet)
-                              'vectors[axis: module]': (MemoryData) 0 x AbstractString (KeySet)
-                              'names[scalars]': (MemoryData) 1 x AbstractString (KeySet)
-                              'vectors[axis: type]': (MemoryData) 1 x AbstractString (KeySet)
-                         """,
-                    ),
+                              'names[axes]': (MemoryData) 5 x Str (KeySet)
+                              'vectors[axis: batch]': (MemoryData) 2 x Str (KeySet)
+                              'vectors[axis: cell]': (MemoryData) 4 x Str (KeySet)
+                              'vectors[axis: gene]': (MemoryData) 4 x Str (KeySet)
+                              'vectors[axis: module]': (MemoryData) 0 x Str (KeySet)
+                              'names[scalars]': (MemoryData) 1 x Str (KeySet)
+                              'vectors[axis: type]': (MemoryData) 1 x Str (KeySet)
+                            """,
                 )
                 return nothing
             end

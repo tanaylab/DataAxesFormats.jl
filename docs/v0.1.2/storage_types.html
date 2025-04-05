@@ -88,10 +88,6 @@
 </a>
 </li>
 <li>
-<a class="tocitem" href="documentation.html">Documentation
-</a>
-</li>
-<li>
 <a class="tocitem" href="computations.html">Computations
 </a>
 </li>
@@ -151,24 +147,6 @@
 <a class="tocitem" href="storage_types.html">Storage types
 </a>
 <ul class="internal">
-<li class="toplevel">
-<a class="tocitem" href="#Storable-types">
-<span>Storable types
-</span>
-</a>
-</li>
-<li class="toplevel">
-<a class="tocitem" href="#Constructors">
-<span>Constructors
-</span>
-</a>
-</li>
-<li class="toplevel">
-<a class="tocitem" href="#Storable-types-2">
-<span>Storable types
-</span>
-</a>
-</li>
 <li>
 <a class="tocitem" href="#Index">
 <span>Index
@@ -178,39 +156,7 @@
 </ul>
 </li>
 <li>
-<a class="tocitem" href="matrix_layouts.html">Matrix layouts
-</a>
-</li>
-<li>
-<a class="tocitem" href="read_only_arrays.html">Read-Only Arrays
-</a>
-</li>
-<li>
 <a class="tocitem" href="groups.html">Groups
-</a>
-</li>
-<li>
-<a class="tocitem" href="messages.html">Messages
-</a>
-</li>
-<li>
-<a class="tocitem" href="generic_logging.html">Generic Logging
-</a>
-</li>
-<li>
-<a class="tocitem" href="generic_locks.html">Generic Locks
-</a>
-</li>
-<li>
-<a class="tocitem" href="generic_storage.html">Generic Storage
-</a>
-</li>
-<li>
-<a class="tocitem" href="generic_types.html">Generic Types
-</a>
-</li>
-<li>
-<a class="tocitem" href="generic_functions.html">Generic Functions
 </a>
 </li>
 <li>
@@ -322,11 +268,7 @@
 <code>Daf
 </code> targets storing arbitrary scientific data (especially biological data), which in general is not of any such special shape. The upside is that all matrices stored and returned by 
 <code>Daf
-</code> have a clear 
-<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts">
-<code>MatrixLayouts
-</code>
-</a> (regardless of whether they are dense or sparse). This allows user code to ensure it is working &quot;with the grain&quot; of the data, which is 
+</code> have a clear layout (regardless of whether they are dense or sparse). This allows user code to ensure it is working &quot;with the grain&quot; of the data, which is 
 <strong>much
 </strong> more efficient.
 </p>
@@ -349,14 +291,6 @@
 </div>
 </section>
 </article>
-<h1 id="Storable-types">
-<a class="docs-heading-anchor" href="#Storable-types">Storable types
-</a>
-<a id="Storable-types-1">
-</a>
-<a class="docs-heading-anchor-permalink" href="#Storable-types" title="Permalink">
-</a>
-</h1>
 <article class="docstring">
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
@@ -612,76 +546,10 @@
 <header class="admonition-header">Note
 </header>
 <div class="admonition-body">
-<p>All matrices we store must have a clear 
-<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts">
-<code>MatrixLayouts
-</code>
-</a>, that is, must be in either row-major or column-major format.
+<p>All matrices we store must have a clear layout, that is, must be in either row-major or column-major format.
 </p>
 </div>
 </div>
-</div>
-</section>
-</article>
-<h1 id="Constructors">
-<a class="docs-heading-anchor" href="#Constructors">Constructors
-</a>
-<a id="Constructors-1">
-</a>
-<a class="docs-heading-anchor-permalink" href="#Constructors" title="Permalink">
-</a>
-</h1>
-<h1 id="Storable-types-2">
-<a class="docs-heading-anchor" href="#Storable-types-2">Storable types
-</a>
-<a class="docs-heading-anchor-permalink" href="#Storable-types-2" title="Permalink">
-</a>
-</h1>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
-<a class="docstring-binding" id="DataAxesFormats.StorageTypes.sparse_vector" href="#DataAxesFormats.StorageTypes.sparse_vector">
-<code>DataAxesFormats.StorageTypes.sparse_vector
-</code>
-</a> — 
-<span class="docstring-category">Function
-</span>
-<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
-</span>
-</header>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">sparse_vector(dense::StorageMatrix)::SparseVector
-</code>
-</pre>
-<p>Create a sparse vector using the smallest unsigned integer type needed for this size of matrix.
-</p>
-</div>
-</section>
-</article>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
-<a class="docstring-binding" id="DataAxesFormats.StorageTypes.sparse_matrix_csc" href="#DataAxesFormats.StorageTypes.sparse_matrix_csc">
-<code>DataAxesFormats.StorageTypes.sparse_matrix_csc
-</code>
-</a> — 
-<span class="docstring-category">Function
-</span>
-<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
-</span>
-</header>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">sparse_matrix_csc(dense::StorageMatrix)::SparseMatrixCSC
-</code>
-</pre>
-<p>Create a sparse matrix using the smallest unsigned integer type needed for this size of matrix.
-</p>
 </div>
 </section>
 </article>
@@ -754,24 +622,12 @@
 </code>
 </a>
 </li>
-<li>
-<a href="storage_types.html#DataAxesFormats.StorageTypes.sparse_matrix_csc">
-<code>DataAxesFormats.StorageTypes.sparse_matrix_csc
-</code>
-</a>
-</li>
-<li>
-<a href="storage_types.html#DataAxesFormats.StorageTypes.sparse_vector">
-<code>DataAxesFormats.StorageTypes.sparse_vector
-</code>
-</a>
-</li>
 </ul>
 </article>
 <nav class="docs-footer">
 <a class="docs-footer-prevpage" href="operations.html">« Query operations
 </a>
-<a class="docs-footer-nextpage" href="matrix_layouts.html">Matrix layouts »
+<a class="docs-footer-nextpage" href="groups.html">Groups »
 </a>
 <div class="flexbox-break">
 </div>
@@ -819,7 +675,7 @@
 <hr/>
 <p>This document was generated with 
 <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl
-</a> version 1.9.0. Using Julia version 1.11.4.
+</a> version 1.10.1. Using Julia version 1.11.4.
 </p>
 </section>
 <footer class="modal-card-foot">

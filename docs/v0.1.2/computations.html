@@ -87,10 +87,6 @@
 <a class="tocitem" href="chains.html">Chains
 </a>
 </li>
-<li>
-<a class="tocitem" href="documentation.html">Documentation
-</a>
-</li>
 <li class="is-active">
 <a class="tocitem" href="computations.html">Computations
 </a>
@@ -160,39 +156,7 @@
 </a>
 </li>
 <li>
-<a class="tocitem" href="matrix_layouts.html">Matrix layouts
-</a>
-</li>
-<li>
-<a class="tocitem" href="read_only_arrays.html">Read-Only Arrays
-</a>
-</li>
-<li>
 <a class="tocitem" href="groups.html">Groups
-</a>
-</li>
-<li>
-<a class="tocitem" href="messages.html">Messages
-</a>
-</li>
-<li>
-<a class="tocitem" href="generic_logging.html">Generic Logging
-</a>
-</li>
-<li>
-<a class="tocitem" href="generic_locks.html">Generic Locks
-</a>
-</li>
-<li>
-<a class="tocitem" href="generic_storage.html">Generic Storage
-</a>
-</li>
-<li>
-<a class="tocitem" href="generic_types.html">Generic Types
-</a>
-</li>
-<li>
-<a class="tocitem" href="generic_functions.html">Generic Functions
 </a>
 </li>
 <li>
@@ -309,22 +273,15 @@ end
 </code> computation. This has the following effects:
 </p>
 <ul>
-<li>
-<p>It has the same effect as 
-<a href="documentation.html#DataAxesFormats.Documentation.@documented">
+<li>It has the same effect as 
 <code>@documented
-</code>
-</a>, that is, allows using 
+</code>, that is, allows using 
 <code>DEFAULT
 </code> in the documentation string, and using 
-<a href="documentation.html#DataAxesFormats.Documentation.function_default">
 <code>function_default
-</code>
-</a> to access the default value of named parameters.
-</p>
+</code> to access the default value of named parameters.
 </li>
-<li>
-<p>It verifies that the 
+<li>It verifies that the 
 <code>Daf
 </code> data satisfies the 
 <a href="contracts.html#DataAxesFormats.Contracts.Contract">
@@ -339,10 +296,8 @@ end
 <code>verify_output
 </code>
 </a>).
-</p>
 </li>
-<li>
-<p>It stashes the contract(s) (if any) in a global variable. This allows expanding 
+<li>It stashes the contract(s) (if any) in a global variable. This allows expanding 
 <a href="computations.html#DataAxesFormats.Computations.CONTRACT">
 <code>CONTRACT
 </code>
@@ -355,17 +310,12 @@ end
 <code>CONTRACT2
 </code>
 </a> (for the dual contract case).
-</p>
 </li>
-<li>
-<p>It logs the invocation of the function (using 
+<li>It logs the invocation of the function (using 
 <code>@debug
 </code>), including the actual values of the named arguments (using 
-<a href="messages.html#DataAxesFormats.Messages.depict">
-<code>depict
-</code>
-</a>).
-</p>
+<code>brief
+</code>).
 </li>
 </ul>
 <div class="admonition is-info">
@@ -592,7 +542,7 @@ end
 </ul>
 </article>
 <nav class="docs-footer">
-<a class="docs-footer-prevpage" href="documentation.html">« Documentation
+<a class="docs-footer-prevpage" href="chains.html">« Chains
 </a>
 <a class="docs-footer-nextpage" href="copies.html">Copies »
 </a>
@@ -642,7 +592,7 @@ end
 <hr/>
 <p>This document was generated with 
 <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl
-</a> version 1.9.0. Using Julia version 1.11.4.
+</a> version 1.10.1. Using Julia version 1.11.4.
 </p>
 </section>
 <footer class="modal-card-foot">

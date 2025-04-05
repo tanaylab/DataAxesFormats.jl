@@ -96,10 +96,6 @@
 </a>
 </li>
 <li>
-<a class="tocitem" href="documentation.html">Documentation
-</a>
-</li>
-<li>
 <a class="tocitem" href="computations.html">Computations
 </a>
 </li>
@@ -160,39 +156,7 @@
 </a>
 </li>
 <li>
-<a class="tocitem" href="matrix_layouts.html">Matrix layouts
-</a>
-</li>
-<li>
-<a class="tocitem" href="read_only_arrays.html">Read-Only Arrays
-</a>
-</li>
-<li>
 <a class="tocitem" href="groups.html">Groups
-</a>
-</li>
-<li>
-<a class="tocitem" href="messages.html">Messages
-</a>
-</li>
-<li>
-<a class="tocitem" href="generic_logging.html">Generic Logging
-</a>
-</li>
-<li>
-<a class="tocitem" href="generic_locks.html">Generic Locks
-</a>
-</li>
-<li>
-<a class="tocitem" href="generic_storage.html">Generic Storage
-</a>
-</li>
-<li>
-<a class="tocitem" href="generic_types.html">Generic Types
-</a>
-</li>
-<li>
-<a class="tocitem" href="generic_functions.html">Generic Functions
 </a>
 </li>
 <li>
@@ -275,24 +239,15 @@
 </a> functionality. The key features are:
 </p>
 <ul>
-<li>
-<p>The data model 
+<li>The data model 
 <a href="storage_types.html#DataAxesFormats.StorageTypes">
 <code>StorageTypes
 </code>
 </a> include (1) some axes with named entries, (2) vector data indexed by a single axis, (3) matrix data indexed by a pair of axes, and also (4) scalar data (anything not tied to some axis).
-</p>
 </li>
-<li>
-<p>Explicit control over 2D data 
-<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts">
-<code>MatrixLayouts
-</code>
-</a> (row or column major), with support for both dense and sparse matrices, both of which are crucial for performance.
-</p>
+<li>Explicit control over 2D data (row or column major), with support for both dense and sparse matrices, both of which are crucial for performance.
 </li>
-<li>
-<p>Out of the box, allow storing the data in memory (using 
+<li>Out of the box, allow storing the data in memory (using 
 <a href="memory_format.html#DataAxesFormats.MemoryFormat.MemoryDaf">
 <code>MemoryDaf
 </code>
@@ -309,48 +264,36 @@
 </a>), which works nicely with tools like 
 <code>make
 </code> for automating computation pipelines.
-</p>
 </li>
-<li>
-<p>Import and export to/from 
+<li>Import and export to/from 
 <a href="anndata_format.html#DataAxesFormats.AnnDataFormat">
 <code>AnnDataFormat
 </code>
 </a> for interoperability with non-
 <code>Daf
 </code> tools.
-</p>
 </li>
-<li>
-<p>Implementation with a focus on memory-mapping to allow for efficient processing of large data sets (in theory, larger than the system&#39;s memory). In particular, merely opening a data set is a fast operation (almost) regardless of its size.
-</p>
+<li>Implementation with a focus on memory-mapping to allow for efficient processing of large data sets (in theory, larger than the system&#39;s memory). In particular, merely opening a data set is a fast operation (almost) regardless of its size.
 </li>
-<li>
-<p>Well-defined interfaces for implementing additional storage 
+<li>Well-defined interfaces for implementing additional storage 
 <a href="formats.html#Formats">
 <code>Formats
 </code>
 </a>.
-</p>
 </li>
-<li>
-<p>Creating 
+<li>Creating 
 <a href="chains.html#Chains">
 <code>Chains
 </code>
 </a> of data sets, allowing zero-copy reuse of common data between multiple computation pipelines.
-</p>
 </li>
 <li>
-<p>
 <a href="concat.html#Concat">
 <code>Concat
 </code>
 </a> multiple data sets into a single data set along one or more axes.
-</p>
 </li>
-<li>
-<p>A 
+<li>A 
 <a href="queries.html#DataAxesFormats.Queries.Query">
 <code>Query
 </code>
@@ -363,10 +306,8 @@
 <code>Copies
 </code>
 </a> based on these queries.
-</p>
 </li>
-<li>
-<p>Self documenting 
+<li>Self documenting 
 <a href="computations.html#Computations">
 <code>Computations
 </code>
@@ -379,7 +320,6 @@
 <code>Adapters
 </code>
 </a> for applying the computation to data of a different format.
-</p>
 </li>
 </ul>
 <div class="admonition is-info">
@@ -558,12 +498,6 @@
 </a>
 </li>
 <li>
-<a href="documentation.html#DataAxesFormats.Documentation">
-<code>DataAxesFormats.Documentation
-</code>
-</a>
-</li>
-<li>
 <a href="example_data.html#DataAxesFormats.ExampleData">
 <code>DataAxesFormats.ExampleData
 </code>
@@ -578,36 +512,6 @@
 <li>
 <a href="formats.html#DataAxesFormats.Formats">
 <code>DataAxesFormats.Formats
-</code>
-</a>
-</li>
-<li>
-<a href="generic_functions.html#DataAxesFormats.GenericFunctions">
-<code>DataAxesFormats.GenericFunctions
-</code>
-</a>
-</li>
-<li>
-<a href="generic_locks.html#DataAxesFormats.GenericLocks">
-<code>DataAxesFormats.GenericLocks
-</code>
-</a>
-</li>
-<li>
-<a href="generic_logging.html#DataAxesFormats.GenericLogging">
-<code>DataAxesFormats.GenericLogging
-</code>
-</a>
-</li>
-<li>
-<a href="generic_storage.html#DataAxesFormats.GenericStorage">
-<code>DataAxesFormats.GenericStorage
-</code>
-</a>
-</li>
-<li>
-<a href="generic_types.html#DataAxesFormats.GenericTypes">
-<code>DataAxesFormats.GenericTypes
 </code>
 </a>
 </li>
@@ -630,20 +534,8 @@
 </a>
 </li>
 <li>
-<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts">
-<code>DataAxesFormats.MatrixLayouts
-</code>
-</a>
-</li>
-<li>
 <a href="memory_format.html#DataAxesFormats.MemoryFormat">
 <code>DataAxesFormats.MemoryFormat
-</code>
-</a>
-</li>
-<li>
-<a href="messages.html#DataAxesFormats.Messages">
-<code>DataAxesFormats.Messages
 </code>
 </a>
 </li>
@@ -662,12 +554,6 @@
 <li>
 <a href="read_only.html#DataAxesFormats.ReadOnly">
 <code>DataAxesFormats.ReadOnly
-</code>
-</a>
-</li>
-<li>
-<a href="read_only_arrays.html#DataAxesFormats.ReadOnlyArrays">
-<code>DataAxesFormats.ReadOnlyArrays
 </code>
 </a>
 </li>
@@ -732,12 +618,6 @@
 </a>
 </li>
 <li>
-<a href="documentation.html#DataAxesFormats.Documentation.DEFAULT">
-<code>DataAxesFormats.Documentation.DEFAULT
-</code>
-</a>
-</li>
-<li>
 <a href="files_format.html#DataAxesFormats.FilesFormat.MAJOR_VERSION">
 <code>DataAxesFormats.FilesFormat.MAJOR_VERSION
 </code>
@@ -758,18 +638,6 @@
 <li>
 <a href="h5df_format.html#DataAxesFormats.H5dfFormat.MINOR_VERSION">
 <code>DataAxesFormats.H5dfFormat.MINOR_VERSION
-</code>
-</a>
-</li>
-<li>
-<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.Columns">
-<code>DataAxesFormats.MatrixLayouts.Columns
-</code>
-</a>
-</li>
-<li>
-<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.Rows">
-<code>DataAxesFormats.MatrixLayouts.Rows
 </code>
 </a>
 </li>
@@ -1106,36 +974,6 @@
 <li>
 <a href="formats.html#DataAxesFormats.Formats.Internal">
 <code>DataAxesFormats.Formats.Internal
-</code>
-</a>
-</li>
-<li>
-<a href="generic_functions.html#DataAxesFormats.GenericFunctions.AbnormalHandler">
-<code>DataAxesFormats.GenericFunctions.AbnormalHandler
-</code>
-</a>
-</li>
-<li>
-<a href="generic_locks.html#DataAxesFormats.GenericLocks.ReentrantReadWriteLock">
-<code>DataAxesFormats.GenericLocks.ReentrantReadWriteLock
-</code>
-</a>
-</li>
-<li>
-<a href="generic_storage.html#DataAxesFormats.GenericStorage.ReusableStorage">
-<code>DataAxesFormats.GenericStorage.ReusableStorage
-</code>
-</a>
-</li>
-<li>
-<a href="generic_types.html#DataAxesFormats.GenericTypes.Maybe">
-<code>DataAxesFormats.GenericTypes.Maybe
-</code>
-</a>
-</li>
-<li>
-<a href="generic_types.html#DataAxesFormats.GenericTypes.Unsure">
-<code>DataAxesFormats.GenericTypes.Unsure
 </code>
 </a>
 </li>
@@ -1728,12 +1566,6 @@
 </a>
 </li>
 <li>
-<a href="documentation.html#DataAxesFormats.Documentation.function_default">
-<code>DataAxesFormats.Documentation.function_default
-</code>
-</a>
-</li>
-<li>
 <a href="example_data.html#DataAxesFormats.ExampleData.example_daf">
 <code>DataAxesFormats.ExampleData.example_daf
 </code>
@@ -1926,90 +1758,6 @@
 </a>
 </li>
 <li>
-<a href="generic_functions.html#DataAxesFormats.GenericFunctions.dedent">
-<code>DataAxesFormats.GenericFunctions.dedent
-</code>
-</a>
-</li>
-<li>
-<a href="generic_functions.html#DataAxesFormats.GenericFunctions.handle_abnormal">
-<code>DataAxesFormats.GenericFunctions.handle_abnormal
-</code>
-</a>
-</li>
-<li>
-<a href="generic_locks.html#DataAxesFormats.GenericLocks.has_read_lock">
-<code>DataAxesFormats.GenericLocks.has_read_lock
-</code>
-</a>
-</li>
-<li>
-<a href="generic_locks.html#DataAxesFormats.GenericLocks.has_write_lock">
-<code>DataAxesFormats.GenericLocks.has_write_lock
-</code>
-</a>
-</li>
-<li>
-<a href="generic_locks.html#DataAxesFormats.GenericLocks.read_lock">
-<code>DataAxesFormats.GenericLocks.read_lock
-</code>
-</a>
-</li>
-<li>
-<a href="generic_locks.html#DataAxesFormats.GenericLocks.read_unlock">
-<code>DataAxesFormats.GenericLocks.read_unlock
-</code>
-</a>
-</li>
-<li>
-<a href="generic_locks.html#DataAxesFormats.GenericLocks.with_read_lock">
-<code>DataAxesFormats.GenericLocks.with_read_lock
-</code>
-</a>
-</li>
-<li>
-<a href="generic_locks.html#DataAxesFormats.GenericLocks.with_write_lock">
-<code>DataAxesFormats.GenericLocks.with_write_lock
-</code>
-</a>
-</li>
-<li>
-<a href="generic_locks.html#DataAxesFormats.GenericLocks.write_lock">
-<code>DataAxesFormats.GenericLocks.write_lock
-</code>
-</a>
-</li>
-<li>
-<a href="generic_locks.html#DataAxesFormats.GenericLocks.write_unlock">
-<code>DataAxesFormats.GenericLocks.write_unlock
-</code>
-</a>
-</li>
-<li>
-<a href="generic_logging.html#DataAxesFormats.GenericLogging.setup_logger">
-<code>DataAxesFormats.GenericLogging.setup_logger
-</code>
-</a>
-</li>
-<li>
-<a href="generic_storage.html#DataAxesFormats.GenericStorage.get_reusable!">
-<code>DataAxesFormats.GenericStorage.get_reusable!
-</code>
-</a>
-</li>
-<li>
-<a href="generic_storage.html#DataAxesFormats.GenericStorage.put_reusable!">
-<code>DataAxesFormats.GenericStorage.put_reusable!
-</code>
-</a>
-</li>
-<li>
-<a href="generic_storage.html#DataAxesFormats.GenericStorage.with_reusable">
-<code>DataAxesFormats.GenericStorage.with_reusable
-</code>
-</a>
-</li>
-<li>
 <a href="groups.html#DataAxesFormats.Groups.collect_group_members">
 <code>DataAxesFormats.Groups.collect_group_members
 </code>
@@ -2024,114 +1772,6 @@
 <li>
 <a href="groups.html#DataAxesFormats.Groups.group_names">
 <code>DataAxesFormats.Groups.group_names
-</code>
-</a>
-</li>
-<li>
-<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.axis_name">
-<code>DataAxesFormats.MatrixLayouts.axis_name
-</code>
-</a>
-</li>
-<li>
-<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.bestify">
-<code>DataAxesFormats.MatrixLayouts.bestify
-</code>
-</a>
-</li>
-<li>
-<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.check_efficient_action">
-<code>DataAxesFormats.MatrixLayouts.check_efficient_action
-</code>
-</a>
-</li>
-<li>
-<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.copy_array">
-<code>DataAxesFormats.MatrixLayouts.copy_array
-</code>
-</a>
-</li>
-<li>
-<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.densify">
-<code>DataAxesFormats.MatrixLayouts.densify
-</code>
-</a>
-</li>
-<li>
-<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.inefficient_action_handler">
-<code>DataAxesFormats.MatrixLayouts.inefficient_action_handler
-</code>
-</a>
-</li>
-<li>
-<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.major_axis">
-<code>DataAxesFormats.MatrixLayouts.major_axis
-</code>
-</a>
-</li>
-<li>
-<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.minor_axis">
-<code>DataAxesFormats.MatrixLayouts.minor_axis
-</code>
-</a>
-</li>
-<li>
-<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.other_axis">
-<code>DataAxesFormats.MatrixLayouts.other_axis
-</code>
-</a>
-</li>
-<li>
-<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.relayout">
-<code>DataAxesFormats.MatrixLayouts.relayout
-</code>
-</a>
-</li>
-<li>
-<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.relayout!">
-<code>DataAxesFormats.MatrixLayouts.relayout!
-</code>
-</a>
-</li>
-<li>
-<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.require_major_axis">
-<code>DataAxesFormats.MatrixLayouts.require_major_axis
-</code>
-</a>
-</li>
-<li>
-<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.require_minor_axis">
-<code>DataAxesFormats.MatrixLayouts.require_minor_axis
-</code>
-</a>
-</li>
-<li>
-<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.sparsify">
-<code>DataAxesFormats.MatrixLayouts.sparsify
-</code>
-</a>
-</li>
-<li>
-<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.transposer">
-<code>DataAxesFormats.MatrixLayouts.transposer
-</code>
-</a>
-</li>
-<li>
-<a href="messages.html#DataAxesFormats.Messages.depict">
-<code>DataAxesFormats.Messages.depict
-</code>
-</a>
-</li>
-<li>
-<a href="messages.html#DataAxesFormats.Messages.depict_percent">
-<code>DataAxesFormats.Messages.depict_percent
-</code>
-</a>
-</li>
-<li>
-<a href="messages.html#DataAxesFormats.Messages.unique_name">
-<code>DataAxesFormats.Messages.unique_name
 </code>
 </a>
 </li>
@@ -2246,24 +1886,6 @@
 <li>
 <a href="read_only.html#DataAxesFormats.ReadOnly.read_only">
 <code>DataAxesFormats.ReadOnly.read_only
-</code>
-</a>
-</li>
-<li>
-<a href="read_only_arrays.html#DataAxesFormats.ReadOnlyArrays.is_read_only_array">
-<code>DataAxesFormats.ReadOnlyArrays.is_read_only_array
-</code>
-</a>
-</li>
-<li>
-<a href="read_only_arrays.html#DataAxesFormats.ReadOnlyArrays.mutable_array">
-<code>DataAxesFormats.ReadOnlyArrays.mutable_array
-</code>
-</a>
-</li>
-<li>
-<a href="read_only_arrays.html#DataAxesFormats.ReadOnlyArrays.read_only_array">
-<code>DataAxesFormats.ReadOnlyArrays.read_only_array
 </code>
 </a>
 </li>
@@ -2424,18 +2046,6 @@
 </a>
 </li>
 <li>
-<a href="storage_types.html#DataAxesFormats.StorageTypes.sparse_matrix_csc">
-<code>DataAxesFormats.StorageTypes.sparse_matrix_csc
-</code>
-</a>
-</li>
-<li>
-<a href="storage_types.html#DataAxesFormats.StorageTypes.sparse_vector">
-<code>DataAxesFormats.StorageTypes.sparse_vector
-</code>
-</a>
-</li>
-<li>
 <a href="tokens.html#DataAxesFormats.Tokens.decode_expression">
 <code>DataAxesFormats.Tokens.decode_expression
 </code>
@@ -2562,30 +2172,6 @@
 </a>
 </li>
 <li>
-<a href="documentation.html#DataAxesFormats.Documentation.@documented">
-<code>DataAxesFormats.Documentation.@documented
-</code>
-</a>
-</li>
-<li>
-<a href="generic_logging.html#DataAxesFormats.GenericLogging.@logged">
-<code>DataAxesFormats.GenericLogging.@logged
-</code>
-</a>
-</li>
-<li>
-<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.@assert_matrix">
-<code>DataAxesFormats.MatrixLayouts.@assert_matrix
-</code>
-</a>
-</li>
-<li>
-<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.@assert_vector">
-<code>DataAxesFormats.MatrixLayouts.@assert_vector
-</code>
-</a>
-</li>
-<li>
 <a href="queries.html#DataAxesFormats.Queries.@q_str">
 <code>DataAxesFormats.Queries.@q_str
 </code>
@@ -2648,7 +2234,7 @@
 <hr/>
 <p>This document was generated with 
 <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl
-</a> version 1.9.0. Using Julia version 1.11.4.
+</a> version 1.10.1. Using Julia version 1.11.4.
 </p>
 </section>
 <footer class="modal-card-foot">

@@ -13,8 +13,6 @@ module Tokens
 export escape_value
 export unescape_value
 
-using ..GenericFunctions
-
 using URIs
 
 """
@@ -262,11 +260,11 @@ function tokenize(string::AbstractString, operators::Regex)::Vector{Token}
         end
 
         indent = repeat(" ", decode_index(encoded_string, first_index - 1))
-        error(dedent("""
+        error(chomp("""
                 unexpected character: \'$(escape_string(rest_of_string[1:1]))\'
                 in: $(decode_expression(encoded_string))
                 at: $(indent)▲
-        """))
+                """))
     end
 
     return tokens
@@ -280,10 +278,12 @@ function error_at_token(token::Token, message::AbstractString; at_end::Bool = fa
         indent = repeat(" ", decode_index(token.encoded_string, token.first_index - 1))
         marker = repeat("▲", length(token.value))
     end
-    return error(message * "\n" * dedent("""
-        in: $(decode_expression(token.encoded_string))
-        at: $(indent)$(marker)
-    """))
+    return error(chomp(message) *  # NOJET
+                 "\n" *
+                 """
+                 in: $(decode_expression(token.encoded_string))
+                 at: $(indent)$(marker)
+                 """)
 end
 
 end  # module

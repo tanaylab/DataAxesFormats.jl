@@ -118,10 +118,6 @@ module FilesFormat
 export FilesDaf
 
 using ..Formats
-using ..GenericFunctions
-using ..GenericTypes
-using ..MatrixLayouts
-using ..Messages
 using ..ReadOnly
 using ..Readers
 using ..StorageTypes
@@ -131,13 +127,10 @@ using JSON
 using Mmap
 using SparseArrays
 using StringViews
+using TanayLabUtilities
 
 import ..Formats
 import ..Formats.Internal
-import ..MatrixLayouts.colptr
-import ..MatrixLayouts.nzind
-import ..MatrixLayouts.nzval
-import ..MatrixLayouts.rowval
 import ..Operations.DTYPE_BY_NAME
 import ..Readers.base_array
 import SparseArrays.indtype
@@ -226,11 +219,11 @@ function FilesDaf(
     @assert length(daf_version) == 2
 
     if Int(daf_version[1]) != MAJOR_VERSION || Int(daf_version[2]) > MINOR_VERSION
-        error(dedent("""
-            incompatible format version: $(daf_version[1]).$(daf_version[2])
-            for the daf directory: $(path)
-            the code supports version: $(MAJOR_VERSION).$(MINOR_VERSION)
-        """))
+        error("""
+              incompatible format version: $(daf_version[1]).$(daf_version[2])
+              for the daf directory: $(path)
+              the code supports version: $(MAJOR_VERSION).$(MINOR_VERSION)
+              """)
     end
 
     if name === nothing
@@ -248,7 +241,7 @@ function FilesDaf(
     else
         file = FilesDaf(name, Internal(; cache_group = MappedData, is_frozen = false), path, mode, "r+")
     end
-    @debug "Daf: $(depict(file)) path: $(path)"
+    @debug "Daf: $(brief(file)) path: $(path)"
     return file
 end
 

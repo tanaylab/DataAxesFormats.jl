@@ -62,11 +62,11 @@ nested_test("contracts") do
             nested_test("incompatible") do
                 left = Contract(; axes = ["cell" => (OptionalOutput, "description")])
                 right = Contract(; axes = ["cell" => (OptionalOutput, "description")])
-                @test_throws dedent("""
-                    incompatible expectation: OptionalOutput
-                    and expectation: OptionalOutput
-                    for the contracts axis: cell
-                """) (left |> right)
+                @test_throws chomp("""
+                             incompatible expectation: OptionalOutput
+                             and expectation: OptionalOutput
+                             for the contracts axis: cell
+                             """) (left |> right)
             end
         end
 
@@ -92,11 +92,11 @@ nested_test("contracts") do
             nested_test("incompatible") do
                 left = Contract(; axes = [("cell", "age") => (RequiredInput, Int64, "description")])
                 right = Contract(; axes = [("cell", "age") => (RequiredInput, Int32, "description")])
-                @test_throws dedent("""
-                    incompatible type: Int64
-                    and type: Int32
-                    for the contracts data: ("cell", "age")
-                """) (left |> right)
+                @test_throws chomp("""
+                             incompatible type: Int64
+                             and type: Int32
+                             for the contracts data: ("cell", "age")
+                             """) (left |> right)
             end
         end
     end
@@ -119,11 +119,11 @@ nested_test("contracts") do
                             nested_test(direction) do
                                 nested_test("!accessed") do
                                     if direction == "output" && expectation == RequiredInput
-                                        @test_throws dedent("""
-                                            unused RequiredInput scalar: version
-                                            of the computation: computation
-                                            on the daf data: memory!
-                                        """) verify(contract_daf)
+                                        @test_throws chomp("""
+                                                     unused RequiredInput scalar: version
+                                                     of the computation: computation
+                                                     on the daf data: memory!
+                                                     """) verify(contract_daf)
                                     else
                                         @test verify(contract_daf) === nothing
                                     end
@@ -143,17 +143,17 @@ nested_test("contracts") do
                             nested_test(direction) do
                                 nested_test("!accessed") do
                                     if direction == "output" && expectation == RequiredInput
-                                        @test_throws dedent("""
-                                            unused RequiredInput scalar: version
-                                            of the computation: computation
-                                            on the daf data: memory!
-                                        """) verify(contract_daf)
+                                        @test_throws chomp("""
+                                                     unused RequiredInput scalar: version
+                                                     of the computation: computation
+                                                     on the daf data: memory!
+                                                     """) verify(contract_daf)
                                     elseif is_output(expectation)
-                                        @test_throws dedent("""
-                                            pre-existing $(expectation) scalar: version
-                                            for the computation: computation
-                                            on the daf data: memory!
-                                        """) verify_input(contract_daf)
+                                        @test_throws chomp("""
+                                                     pre-existing $(expectation) scalar: version
+                                                     for the computation: computation
+                                                     on the daf data: memory!
+                                                     """) verify_input(contract_daf)
                                     else
                                         @test verify(contract_daf) === nothing
                                     end
@@ -162,11 +162,11 @@ nested_test("contracts") do
                                 nested_test("accessed") do
                                     @assert get_scalar(contract_daf, "version") == 1
                                     if is_output(expectation)
-                                        @test_throws dedent("""
-                                            pre-existing $(expectation) scalar: version
-                                            for the computation: computation
-                                            on the daf data: memory!
-                                        """) verify_input(contract_daf)
+                                        @test_throws chomp("""
+                                                     pre-existing $(expectation) scalar: version
+                                                     for the computation: computation
+                                                     on the daf data: memory!
+                                                     """) verify_input(contract_daf)
                                     else
                                         @test verify(contract_daf) === nothing
                                     end
@@ -184,12 +184,12 @@ nested_test("contracts") do
                 contract_daf = contractor("computation", contract, daf)
 
                 nested_test("input") do
-                    @test_throws dedent("""
-                        missing input scalar: version
-                        with type: Int64
-                        for the computation: computation
-                        on the daf data: memory!
-                    """) verify_input(contract_daf)
+                    @test_throws chomp("""
+                                 missing input scalar: version
+                                 with type: Int64
+                                 for the computation: computation
+                                 on the daf data: memory!
+                                 """) verify_input(contract_daf)
                 end
 
                 nested_test("output") do
@@ -219,12 +219,12 @@ nested_test("contracts") do
                 end
 
                 nested_test("output") do
-                    @test_throws dedent("""
-                        missing output scalar: version
-                        with type: Int64
-                        for the computation: computation
-                        on the daf data: memory!
-                    """) verify_output(contract_daf)
+                    @test_throws chomp("""
+                                 missing output scalar: version
+                                 with type: Int64
+                                 for the computation: computation
+                                 on the daf data: memory!
+                                 """) verify_output(contract_daf)
                 end
             end
 
@@ -257,13 +257,13 @@ nested_test("contracts") do
 
                     for (direction, verify) in (("input", verify_input), ("output", verify_output))
                         nested_test(direction) do
-                            @test_throws dedent("""
-                                unexpected type: String
-                                instead of type: Int64
-                                for the $(direction) scalar: version
-                                for the computation: computation
-                                on the daf data: memory!
-                            """) verify(contract_daf)
+                            @test_throws chomp("""
+                                         unexpected type: String
+                                         instead of type: Int64
+                                         for the $(direction) scalar: version
+                                         for the computation: computation
+                                         on the daf data: memory!
+                                         """) verify(contract_daf)
                         end
                     end
                 end
@@ -289,11 +289,11 @@ nested_test("contracts") do
                             nested_test(direction) do
                                 nested_test("!accessed") do
                                     if direction == "output" && expectation == RequiredInput
-                                        @test_throws dedent("""
-                                            unused RequiredInput axis: cell
-                                            of the computation: computation
-                                            on the daf data: memory!
-                                        """) verify(contract_daf)
+                                        @test_throws chomp("""
+                                                     unused RequiredInput axis: cell
+                                                     of the computation: computation
+                                                     on the daf data: memory!
+                                                     """) verify(contract_daf)
                                     else
                                         @test verify(contract_daf) === nothing
                                     end
@@ -313,17 +313,17 @@ nested_test("contracts") do
                             nested_test(direction) do
                                 nested_test("!accessed") do
                                     if direction == "output" && expectation == RequiredInput
-                                        @test_throws dedent("""
-                                            unused RequiredInput axis: cell
-                                            of the computation: computation
-                                            on the daf data: memory!
-                                        """) verify(contract_daf)
+                                        @test_throws chomp("""
+                                                     unused RequiredInput axis: cell
+                                                     of the computation: computation
+                                                     on the daf data: memory!
+                                                     """) verify(contract_daf)
                                     elseif is_output(expectation)
-                                        @test_throws dedent("""
-                                            pre-existing $(expectation) axis: cell
-                                            for the computation: computation
-                                            on the daf data: memory!
-                                        """) verify_input(contract_daf)
+                                        @test_throws chomp("""
+                                                     pre-existing $(expectation) axis: cell
+                                                     for the computation: computation
+                                                     on the daf data: memory!
+                                                     """) verify_input(contract_daf)
                                     else
                                         @test verify(contract_daf) === nothing
                                     end
@@ -332,11 +332,11 @@ nested_test("contracts") do
                                 nested_test("accessed") do
                                     @assert axis_length(contract_daf, "cell") == 2
                                     if is_output(expectation)
-                                        @test_throws dedent("""
-                                            pre-existing $(expectation) axis: cell
-                                            for the computation: computation
-                                            on the daf data: memory!
-                                        """) verify_input(contract_daf)
+                                        @test_throws chomp("""
+                                                     pre-existing $(expectation) axis: cell
+                                                     for the computation: computation
+                                                     on the daf data: memory!
+                                                     """) verify_input(contract_daf)
                                     else
                                         @test verify(contract_daf) === nothing
                                     end
@@ -354,11 +354,11 @@ nested_test("contracts") do
                 contract_daf = contractor("computation", contract, daf)
 
                 nested_test("input") do
-                    @test_throws dedent("""
-                        missing input axis: cell
-                        for the computation: computation
-                        on the daf data: memory!
-                    """) verify_input(contract_daf)
+                    @test_throws chomp("""
+                                 missing input axis: cell
+                                 for the computation: computation
+                                 on the daf data: memory!
+                                 """) verify_input(contract_daf)
                 end
 
                 nested_test("output") do
@@ -388,11 +388,11 @@ nested_test("contracts") do
                 end
 
                 nested_test("output") do
-                    @test_throws dedent("""
-                        missing output axis: cell
-                        for the computation: computation
-                        on the daf data: memory!
-                    """) verify_output(contract_daf)
+                    @test_throws chomp("""
+                                 missing output axis: cell
+                                 for the computation: computation
+                                 on the daf data: memory!
+                                 """) verify_output(contract_daf)
                 end
             end
 
@@ -416,12 +416,12 @@ nested_test("contracts") do
 
         nested_test("!axis") do
             contract = Contract(; data = [("cell", "age") => (RequiredInput, Int64, "description")])
-            @test_throws dedent("""
-                non-contract axis: cell
-                for the RequiredInput vector: age
-                for the computation: computation
-                on the daf data: memory!
-            """) contractor("computation", contract, daf)
+            @test_throws chomp("""
+                         non-contract axis: cell
+                         for the RequiredInput vector: age
+                         for the computation: computation
+                         on the daf data: memory!
+                         """) contractor("computation", contract, daf)
         end
 
         nested_test("~axis") do
@@ -429,12 +429,12 @@ nested_test("contracts") do
                 axes = ["cell" => (OptionalInput, "description")],
                 data = [("cell", "age") => (RequiredInput, Int64, "description")],
             )
-            @test_throws dedent("""
-                incompatible OptionalInput axis: cell
-                for the RequiredInput vector: age
-                for the computation: computation
-                on the daf data: memory!
-            """) contractor("computation", contract, daf)
+            @test_throws chomp("""
+                         incompatible OptionalInput axis: cell
+                         for the RequiredInput vector: age
+                         for the computation: computation
+                         on the daf data: memory!
+                         """) contractor("computation", contract, daf)
         end
 
         nested_test("()") do
@@ -458,12 +458,12 @@ nested_test("contracts") do
                             nested_test(direction) do
                                 nested_test("!accessed") do
                                     if direction == "output" && expectation == RequiredInput
-                                        @test_throws dedent("""
-                                            unused RequiredInput vector: age
-                                            of the axis: cell
-                                            of the computation: computation
-                                            on the daf data: memory!
-                                        """) verify(contract_daf)
+                                        @test_throws chomp("""
+                                                     unused RequiredInput vector: age
+                                                     of the axis: cell
+                                                     of the computation: computation
+                                                     on the daf data: memory!
+                                                     """) verify(contract_daf)
                                     else
                                         @test verify(contract_daf) === nothing
                                     end
@@ -484,19 +484,19 @@ nested_test("contracts") do
                             nested_test(direction) do
                                 nested_test("!accessed") do
                                     if direction == "output" && expectation == RequiredInput
-                                        @test_throws dedent("""
-                                            unused RequiredInput vector: age
-                                            of the axis: cell
-                                            of the computation: computation
-                                            on the daf data: memory!
-                                        """) verify(contract_daf)
+                                        @test_throws chomp("""
+                                                     unused RequiredInput vector: age
+                                                     of the axis: cell
+                                                     of the computation: computation
+                                                     on the daf data: memory!
+                                                     """) verify(contract_daf)
                                     elseif is_output(expectation)
-                                        @test_throws dedent("""
-                                            pre-existing $(expectation) vector: age
-                                            of the axis: cell
-                                            for the computation: computation
-                                            on the daf data: memory!
-                                        """) verify_input(contract_daf)
+                                        @test_throws chomp("""
+                                                     pre-existing $(expectation) vector: age
+                                                     of the axis: cell
+                                                     for the computation: computation
+                                                     on the daf data: memory!
+                                                     """) verify_input(contract_daf)
                                     else
                                         @test verify(contract_daf) === nothing
                                     end
@@ -505,12 +505,12 @@ nested_test("contracts") do
                                 nested_test("accessed") do
                                     @assert get_vector(contract_daf, "cell", "age") == [1, 2]
                                     if is_output(expectation)
-                                        @test_throws dedent("""
-                                            pre-existing $(expectation) vector: age
-                                            of the axis: cell
-                                            for the computation: computation
-                                            on the daf data: memory!
-                                        """) verify_input(contract_daf)
+                                        @test_throws chomp("""
+                                                     pre-existing $(expectation) vector: age
+                                                     of the axis: cell
+                                                     for the computation: computation
+                                                     on the daf data: memory!
+                                                     """) verify_input(contract_daf)
                                     else
                                         @test verify(contract_daf) === nothing
                                     end
@@ -532,13 +532,13 @@ nested_test("contracts") do
                 @assert axis_length(contract_daf, "cell") == 2
 
                 nested_test("input") do
-                    @test_throws dedent("""
-                        missing input vector: age
-                        of the axis: cell
-                        with element type: Int64
-                        for the computation: computation
-                        on the daf data: memory!
-                    """) verify_input(contract_daf)
+                    @test_throws chomp("""
+                                 missing input vector: age
+                                 of the axis: cell
+                                 with element type: Int64
+                                 for the computation: computation
+                                 on the daf data: memory!
+                                 """) verify_input(contract_daf)
                 end
 
                 nested_test("output") do
@@ -575,13 +575,13 @@ nested_test("contracts") do
                 end
 
                 nested_test("output") do
-                    @test_throws dedent("""
-                        missing output vector: age
-                        of the axis: cell
-                        with element type: Int64
-                        for the computation: computation
-                        on the daf data: memory!
-                    """) verify_output(contract_daf)
+                    @test_throws chomp("""
+                                 missing output vector: age
+                                 of the axis: cell
+                                 with element type: Int64
+                                 for the computation: computation
+                                 on the daf data: memory!
+                                 """) verify_output(contract_daf)
                 end
             end
 
@@ -614,14 +614,14 @@ nested_test("contracts") do
                         )
                         contract_daf = contractor("computation", contract, daf)
                         @assert axis_length(contract_daf, "cell") == 2
-                        @test_throws dedent("""
-                            unexpected type: Float64
-                            instead of type: Int64
-                            for the input vector: age
-                            of the axis: cell
-                            for the computation: computation
-                            on the daf data: memory!
-                        """) verify_input(contract_daf)
+                        @test_throws chomp("""
+                                     unexpected type: Float64
+                                     instead of type: Int64
+                                     for the input vector: age
+                                     of the axis: cell
+                                     for the computation: computation
+                                     on the daf data: memory!
+                                     """) verify_input(contract_daf)
                     end
                 end
             end
@@ -635,14 +635,14 @@ nested_test("contracts") do
                         )
                         contract_daf = contractor("computation", contract, daf)
                         @assert axis_length(contract_daf, "cell") == 2
-                        @test_throws dedent("""
-                            unexpected type: Float64
-                            instead of type: Int64
-                            for the output vector: age
-                            of the axis: cell
-                            for the computation: computation
-                            on the daf data: memory!
-                        """) verify_output(contract_daf)
+                        @test_throws chomp("""
+                                     unexpected type: Float64
+                                     instead of type: Int64
+                                     for the output vector: age
+                                     of the axis: cell
+                                     for the computation: computation
+                                     on the daf data: memory!
+                                     """) verify_output(contract_daf)
                     end
                 end
             end
@@ -675,13 +675,13 @@ nested_test("contracts") do
                             nested_test(direction) do
                                 nested_test("!accessed") do
                                     if direction == "output" && expectation == RequiredInput
-                                        @test_throws dedent("""
-                                            unused RequiredInput matrix: UMIs
-                                            of the rows axis: cell
-                                            and the columns axis: gene
-                                            of the computation: computation
-                                            on the daf data: memory!
-                                        """) verify(contract_daf)
+                                        @test_throws chomp("""
+                                                     unused RequiredInput matrix: UMIs
+                                                     of the rows axis: cell
+                                                     and the columns axis: gene
+                                                     of the computation: computation
+                                                     on the daf data: memory!
+                                                     """) verify(contract_daf)
                                     else
                                         @test verify(contract_daf) === nothing
                                     end
@@ -703,21 +703,21 @@ nested_test("contracts") do
                             nested_test(direction) do
                                 nested_test("!accessed") do
                                     if direction == "output" && expectation == RequiredInput
-                                        @test_throws dedent("""
-                                            unused RequiredInput matrix: UMIs
-                                            of the rows axis: cell
-                                            and the columns axis: gene
-                                            of the computation: computation
-                                            on the daf data: memory!
-                                        """) verify(contract_daf)
+                                        @test_throws chomp("""
+                                                     unused RequiredInput matrix: UMIs
+                                                     of the rows axis: cell
+                                                     and the columns axis: gene
+                                                     of the computation: computation
+                                                     on the daf data: memory!
+                                                     """) verify(contract_daf)
                                     elseif is_output(expectation)
-                                        @test_throws dedent("""
-                                            pre-existing $(expectation) matrix: UMIs
-                                            of the rows axis: cell
-                                            and the columns axis: gene
-                                            for the computation: computation
-                                            on the daf data: memory!
-                                        """) verify_input(contract_daf)
+                                        @test_throws chomp("""
+                                                     pre-existing $(expectation) matrix: UMIs
+                                                     of the rows axis: cell
+                                                     and the columns axis: gene
+                                                     for the computation: computation
+                                                     on the daf data: memory!
+                                                     """) verify_input(contract_daf)
                                     else
                                         @test verify(contract_daf) === nothing
                                     end
@@ -726,13 +726,13 @@ nested_test("contracts") do
                                 nested_test("accessed") do
                                     @assert get_matrix(contract_daf, "cell", "gene", "UMIs") == [0 1 2; 3 4 5]
                                     if is_output(expectation)
-                                        @test_throws dedent("""
-                                            pre-existing $(expectation) matrix: UMIs
-                                            of the rows axis: cell
-                                            and the columns axis: gene
-                                            for the computation: computation
-                                            on the daf data: memory!
-                                        """) verify_input(contract_daf)
+                                        @test_throws chomp("""
+                                                     pre-existing $(expectation) matrix: UMIs
+                                                     of the rows axis: cell
+                                                     and the columns axis: gene
+                                                     for the computation: computation
+                                                     on the daf data: memory!
+                                                     """) verify_input(contract_daf)
                                     else
                                         @test verify(contract_daf) === nothing
                                     end
@@ -755,14 +755,14 @@ nested_test("contracts") do
                 @assert axis_length(contract_daf, "gene") == 3
 
                 nested_test("input") do
-                    @test_throws dedent("""
-                        missing input matrix: UMIs
-                        of the rows axis: cell
-                        and the columns axis: gene
-                        with element type: Int64
-                        for the computation: computation
-                        on the daf data: memory!
-                    """) verify_input(contract_daf)
+                    @test_throws chomp("""
+                                 missing input matrix: UMIs
+                                 of the rows axis: cell
+                                 and the columns axis: gene
+                                 with element type: Int64
+                                 for the computation: computation
+                                 on the daf data: memory!
+                                 """) verify_input(contract_daf)
                 end
 
                 nested_test("output") do
@@ -800,14 +800,14 @@ nested_test("contracts") do
                 end
 
                 nested_test("output") do
-                    @test_throws dedent("""
-                        missing output matrix: UMIs
-                        of the rows axis: cell
-                        and the columns axis: gene
-                        with element type: Int64
-                        for the computation: computation
-                        on the daf data: memory!
-                    """) verify_output(contract_daf)
+                    @test_throws chomp("""
+                                 missing output matrix: UMIs
+                                 of the rows axis: cell
+                                 and the columns axis: gene
+                                 with element type: Int64
+                                 for the computation: computation
+                                 on the daf data: memory!
+                                 """) verify_output(contract_daf)
                 end
             end
 
@@ -841,11 +841,11 @@ nested_test("contracts") do
                         contract_daf = contractor("computation", contract, daf)
 
                         nested_test("input") do
-                            @test_throws dedent("""
-                                missing input axis: $(axis)
-                                for the computation: computation
-                                on the daf data: memory!
-                            """) verify_input(contract_daf)
+                            @test_throws chomp("""
+                                         missing input axis: $(axis)
+                                         for the computation: computation
+                                         on the daf data: memory!
+                                         """) verify_input(contract_daf)
                         end
                     end
 
@@ -896,15 +896,15 @@ nested_test("contracts") do
                     contract_daf = contractor("computation", contract, daf)
 
                     nested_test("input") do
-                        @test_throws dedent("""
-                            unexpected type: Float64
-                            instead of type: Int64
-                            for the input matrix: UMIs
-                            of the rows axis: cell
-                            and the columns axis: gene
-                            for the computation: computation
-                            on the daf data: memory!
-                        """) verify_input(contract_daf)
+                        @test_throws chomp("""
+                                     unexpected type: Float64
+                                     instead of type: Int64
+                                     for the input matrix: UMIs
+                                     of the rows axis: cell
+                                     and the columns axis: gene
+                                     for the computation: computation
+                                     on the daf data: memory!
+                                     """) verify_input(contract_daf)
                     end
                 end
             end
@@ -918,15 +918,15 @@ nested_test("contracts") do
                     contract_daf = contractor("computation", contract, daf)
 
                     nested_test("output") do
-                        @test_throws dedent("""
-                            unexpected type: Float64
-                            instead of type: Int64
-                            for the output matrix: UMIs
-                            of the rows axis: cell
-                            and the columns axis: gene
-                            for the computation: computation
-                            on the daf data: memory!
-                        """) verify_output(contract_daf)
+                        @test_throws chomp("""
+                                     unexpected type: Float64
+                                     instead of type: Int64
+                                     for the output matrix: UMIs
+                                     of the rows axis: cell
+                                     and the columns axis: gene
+                                     for the computation: computation
+                                     on the daf data: memory!
+                                     """) verify_output(contract_daf)
                     end
                 end
             end
@@ -976,16 +976,16 @@ nested_test("contracts") do
                 return axis_version_counter(contract_daf, "cell") == 1
             end
 
-            nested_test("depict") do
-                @test depict(contract_daf) == "Contract MemoryDaf memory!.for.computation"
+            nested_test("brief") do
+                @test brief(contract_daf) == "Contract MemoryDaf memory!.for.computation"
             end
 
             nested_test("description") do
-                @test description(contract_daf) == dedent("""
+                @test description(contract_daf) == """
                     name: memory!
                     type: MemoryDaf
                     scalars:
-                      version: 1 (Int64)
+                      version: 1
                     axes:
                       cell: 2 entries
                       gene: 3 entries
@@ -997,7 +997,7 @@ nested_test("contracts") do
                         UMIs: 2 x 3 x Float64 in Columns (Dense)
                       gene,cell:
                         UMIs: 3 x 2 x Float64 in Columns (Dense)
-                """) * "\n"
+                    """
             end
 
             nested_test("empty_cache!") do
@@ -1053,53 +1053,53 @@ nested_test("contracts") do
             end
 
             nested_test("axis_vector") do
-                @test_throws dedent("""
-                    accessing non-contract axis: cell
-                    for the computation: computation
-                    on the daf data: memory!
-                """) axis_vector(contract_daf, "cell")
+                @test_throws chomp("""
+                             accessing non-contract axis: cell
+                             for the computation: computation
+                             on the daf data: memory!
+                             """) axis_vector(contract_daf, "cell")
 
-                @test_throws dedent("""
-                    accessing non-contract axis: cell
-                    for the computation: computation
-                    on the daf data: memory!
-                """) contract_daf["/ cell"]
+                @test_throws chomp("""
+                             accessing non-contract axis: cell
+                             for the computation: computation
+                             on the daf data: memory!
+                             """) contract_daf["/ cell"]
             end
 
             nested_test("axis_dict") do
-                @test_throws dedent("""
-                    accessing non-contract axis: cell
-                    for the computation: computation
-                    on the daf data: memory!
-                """) axis_dict(contract_daf, "cell")
+                @test_throws chomp("""
+                             accessing non-contract axis: cell
+                             for the computation: computation
+                             on the daf data: memory!
+                             """) axis_dict(contract_daf, "cell")
             end
 
             nested_test("axis_indices") do
-                @test_throws dedent("""
-                    accessing non-contract axis: cell
-                    for the computation: computation
-                    on the daf data: memory!
-                """) axis_indices(contract_daf, "cell", ["A", "B"])
+                @test_throws chomp("""
+                             accessing non-contract axis: cell
+                             for the computation: computation
+                             on the daf data: memory!
+                             """) axis_indices(contract_daf, "cell", ["A", "B"])
             end
 
             nested_test("axis_length") do
-                @test_throws dedent("""
-                    accessing non-contract axis: cell
-                    for the computation: computation
-                    on the daf data: memory!
-                """) axis_length(contract_daf, "cell")
+                @test_throws chomp("""
+                             accessing non-contract axis: cell
+                             for the computation: computation
+                             on the daf data: memory!
+                             """) axis_length(contract_daf, "cell")
             end
 
-            nested_test("depict") do
-                @test depict(contract_daf) == "Contract MemoryDaf memory!.for.computation"
+            nested_test("brief") do
+                @test brief(contract_daf) == "Contract MemoryDaf memory!.for.computation"
             end
 
             nested_test("description") do
-                @test description(contract_daf) == dedent("""
+                @test description(contract_daf) == """
                     name: memory!
                     type: MemoryDaf
                     scalars:
-                      version: 1 (Int64)
+                      version: 1
                     axes:
                       cell: 2 entries
                       gene: 3 entries
@@ -1111,7 +1111,7 @@ nested_test("contracts") do
                         UMIs: 2 x 3 x Float64 in Columns (Dense)
                       gene,cell:
                         UMIs: 3 x 2 x Float64 in Columns (Dense)
-                """) * "\n"
+                    """
             end
 
             nested_test("empty_cache!") do
@@ -1119,17 +1119,17 @@ nested_test("contracts") do
             end
 
             nested_test("get_scalar") do
-                @test_throws dedent("""
-                    accessing non-contract scalar: version
-                    for the computation: computation
-                    on the daf data: memory!
-                """) get_scalar(contract_daf, "version")
+                @test_throws chomp("""
+                             accessing non-contract scalar: version
+                             for the computation: computation
+                             on the daf data: memory!
+                             """) get_scalar(contract_daf, "version")
 
-                @test_throws dedent("""
-                    accessing non-contract scalar: version
-                    for the computation: computation
-                    on the daf data: memory!
-                """) contract_daf[": version"]
+                @test_throws chomp("""
+                             accessing non-contract scalar: version
+                             for the computation: computation
+                             on the daf data: memory!
+                             """) contract_daf[": version"]
             end
 
             nested_test("has_scalar") do
@@ -1163,19 +1163,19 @@ nested_test("contracts") do
             end
 
             nested_test("get_vector") do
-                @test_throws dedent("""
-                    accessing non-contract vector: age
-                    of the axis: cell
-                    for the computation: computation
-                    on the daf data: memory!
-                """) get_vector(contract_daf, "cell", "age")
+                @test_throws chomp("""
+                             accessing non-contract vector: age
+                             of the axis: cell
+                             for the computation: computation
+                             on the daf data: memory!
+                             """) get_vector(contract_daf, "cell", "age")
 
-                @test_throws dedent("""
-                    accessing non-contract vector: age
-                    of the axis: cell
-                    for the computation: computation
-                    on the daf data: memory!
-                """) contract_daf["/ cell : age"]
+                @test_throws chomp("""
+                             accessing non-contract vector: age
+                             of the axis: cell
+                             for the computation: computation
+                             on the daf data: memory!
+                             """) contract_daf["/ cell : age"]
             end
 
             nested_test("has_vector") do
@@ -1187,21 +1187,21 @@ nested_test("contracts") do
             end
 
             nested_test("get_matrix") do
-                @test_throws dedent("""
-                    accessing non-contract matrix: UMIs
-                    of the rows axis: cell
-                    and the columns axis: gene
-                    for the computation: computation
-                    on the daf data: memory!
-                """) get_matrix(contract_daf, "cell", "gene", "UMIs")
+                @test_throws chomp("""
+                             accessing non-contract matrix: UMIs
+                             of the rows axis: cell
+                             and the columns axis: gene
+                             for the computation: computation
+                             on the daf data: memory!
+                             """) get_matrix(contract_daf, "cell", "gene", "UMIs")
 
-                @test_throws dedent("""
-                    accessing non-contract matrix: UMIs
-                    of the rows axis: cell
-                    and the columns axis: gene
-                    for the computation: computation
-                    on the daf data: memory!
-                """) contract_daf["/ cell / gene : UMIs"]
+                @test_throws chomp("""
+                             accessing non-contract matrix: UMIs
+                             of the rows axis: cell
+                             and the columns axis: gene
+                             for the computation: computation
+                             on the daf data: memory!
+                             """) contract_daf["/ cell / gene : UMIs"]
             end
 
             nested_test("has_matrix") do
@@ -1302,83 +1302,83 @@ nested_test("contracts") do
             end
 
             nested_test("add_axis!") do
-                @test_throws dedent("""
-                    modifying OptionalInput axis: cell
-                    for the computation: computation
-                    on the daf data: memory!
-                """) add_axis!(contract_daf, "cell", ["C", "D"])
+                @test_throws chomp("""
+                             modifying OptionalInput axis: cell
+                             for the computation: computation
+                             on the daf data: memory!
+                             """) add_axis!(contract_daf, "cell", ["C", "D"])
             end
 
             nested_test("delete_axis!") do
-                @test_throws dedent("""
-                    modifying OptionalInput axis: cell
-                    for the computation: computation
-                    on the daf data: memory!
-                """) delete_axis!(contract_daf, "cell")
+                @test_throws chomp("""
+                             modifying OptionalInput axis: cell
+                             for the computation: computation
+                             on the daf data: memory!
+                             """) delete_axis!(contract_daf, "cell")
             end
 
             nested_test("delete_matrix!") do
-                @test_throws dedent("""
-                    modifying OptionalInput matrix: UMIs
-                    of the rows_axis: cell
-                    and the columns_axis: gene
-                    for the computation: computation
-                    on the daf data: memory!
-                """) delete_matrix!(contract_daf, "cell", "gene", "UMIs")
+                @test_throws chomp("""
+                             modifying OptionalInput matrix: UMIs
+                             of the rows_axis: cell
+                             and the columns_axis: gene
+                             for the computation: computation
+                             on the daf data: memory!
+                             """) delete_matrix!(contract_daf, "cell", "gene", "UMIs")
             end
 
             nested_test("delete_vector!") do
-                @test_throws dedent("""
-                    modifying OptionalInput vector: age
-                    of the axis: cell
-                    for the computation: computation
-                    on the daf data: memory!
-                """) delete_vector!(contract_daf, "cell", "age")
+                @test_throws chomp("""
+                             modifying OptionalInput vector: age
+                             of the axis: cell
+                             for the computation: computation
+                             on the daf data: memory!
+                             """) delete_vector!(contract_daf, "cell", "age")
             end
 
             nested_test("delete_scalar!") do
-                @test_throws dedent("""
-                    modifying OptionalInput scalar: version
-                    for the computation: computation
-                    on the daf data: memory!
-                """) delete_scalar!(contract_daf, "version")
+                @test_throws chomp("""
+                             modifying OptionalInput scalar: version
+                             for the computation: computation
+                             on the daf data: memory!
+                             """) delete_scalar!(contract_daf, "version")
             end
 
             nested_test("relayout_matrix!") do
-                @test_throws dedent("""
-                    modifying OptionalInput matrix: UMIs
-                    of the rows_axis: gene
-                    and the columns_axis: cell
-                    for the computation: computation
-                    on the daf data: memory!
-                """) relayout_matrix!(contract_daf, "cell", "gene", "UMIs"; overwrite = true)
+                @test_throws chomp("""
+                             modifying OptionalInput matrix: UMIs
+                             of the rows_axis: gene
+                             and the columns_axis: cell
+                             for the computation: computation
+                             on the daf data: memory!
+                             """) relayout_matrix!(contract_daf, "cell", "gene", "UMIs"; overwrite = true)
             end
 
             nested_test("set_scalar!") do
-                @test_throws dedent("""
-                    modifying OptionalInput scalar: version
-                    for the computation: computation
-                    on the daf data: memory!
-                """) set_scalar!(contract_daf, "version", 2; overwrite = true)
+                @test_throws chomp("""
+                             modifying OptionalInput scalar: version
+                             for the computation: computation
+                             on the daf data: memory!
+                             """) set_scalar!(contract_daf, "version", 2; overwrite = true)
             end
 
             nested_test("set_matrix!") do
-                @test_throws dedent("""
-                    modifying OptionalInput matrix: UMIs
-                    of the rows_axis: cell
-                    and the columns_axis: gene
-                    for the computation: computation
-                    on the daf data: memory!
-                """) set_matrix!(contract_daf, "cell", "gene", "UMIs", [0 1 2; 3 4 5]; overwrite = true)
+                @test_throws chomp("""
+                             modifying OptionalInput matrix: UMIs
+                             of the rows_axis: cell
+                             and the columns_axis: gene
+                             for the computation: computation
+                             on the daf data: memory!
+                             """) set_matrix!(contract_daf, "cell", "gene", "UMIs", [0 1 2; 3 4 5]; overwrite = true)
             end
 
             nested_test("set_vector!") do
-                @test_throws dedent("""
-                    modifying OptionalInput vector: age
-                    of the axis: cell
-                    for the computation: computation
-                    on the daf data: memory!
-                """) set_vector!(contract_daf, "cell", "age", [1, 2]; overwrite = true)
+                @test_throws chomp("""
+                             modifying OptionalInput vector: age
+                             of the axis: cell
+                             for the computation: computation
+                             on the daf data: memory!
+                             """) set_vector!(contract_daf, "cell", "age", [1, 2]; overwrite = true)
             end
         end
 
@@ -1509,14 +1509,14 @@ nested_test("contracts") do
             nested_test("missing") do
                 contract_daf = contractor("computation", contract, daf)
                 get_matrix(contract_daf, "gene", "cell", "U_is_high")
-                @test_throws dedent("""
-                    missing input matrix: V_is_high
-                    of the rows axis: cell
-                    and the columns axis: gene
-                    with element type: Bool
-                    for the computation: computation
-                    on the daf data: memory!
-                """) verify_input(contract_daf)
+                @test_throws chomp("""
+                             missing input matrix: V_is_high
+                             of the rows axis: cell
+                             and the columns axis: gene
+                             with element type: Bool
+                             for the computation: computation
+                             on the daf data: memory!
+                             """) verify_input(contract_daf)
             end
         end
 
@@ -1543,14 +1543,14 @@ nested_test("contracts") do
             end
 
             nested_test("missing") do
-                @test_throws dedent("""
-                    missing output matrix: V_is_high
-                    of the rows axis: cell
-                    and the columns axis: gene
-                    with element type: Bool
-                    for the computation: computation
-                    on the daf data: memory!
-                """) verify_output(contract_daf)
+                @test_throws chomp("""
+                             missing output matrix: V_is_high
+                             of the rows axis: cell
+                             and the columns axis: gene
+                             with element type: Bool
+                             for the computation: computation
+                             on the daf data: memory!
+                             """) verify_output(contract_daf)
             end
         end
 
@@ -1571,25 +1571,25 @@ nested_test("contracts") do
                 @test verify_input(contract_daf) === nothing
 
                 nested_test("()") do
-                    @test_throws dedent("""
-                        missing output axis: batch
-                        for the computation: computation
-                        on the daf data: memory!
-                    """) verify_output(contract_daf)
+                    @test_throws chomp("""
+                                 missing output axis: batch
+                                 for the computation: computation
+                                 on the daf data: memory!
+                                 """) verify_output(contract_daf)
                 end
 
                 nested_test("add") do
                     @test add_axis!(contract_daf, "batch", ["U", "V"]) === nothing
 
                     nested_test("()") do
-                        @test_throws dedent("""
-                            missing output matrix: U_is_high
-                            of the rows axis: cell
-                            and the columns axis: gene
-                            with element type: Bool
-                            for the computation: computation
-                            on the daf data: memory!
-                        """) verify_output(contract_daf)
+                        @test_throws chomp("""
+                                     missing output matrix: U_is_high
+                                     of the rows axis: cell
+                                     and the columns axis: gene
+                                     with element type: Bool
+                                     for the computation: computation
+                                     on the daf data: memory!
+                                     """) verify_output(contract_daf)
                     end
 
                     nested_test("create") do

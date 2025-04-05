@@ -8,10 +8,9 @@ named vector and matrix data based on these axes.
 Data properties are identified by a unique name given the axes they are based on. That is, there is a separate namespace
 for scalar properties, vector properties for each specific axis, and matrix properties for each (ordered) pair of axes.
 
-For matrices, we keep careful track of their [`MatrixLayouts`](@ref). Specifically, a storage format only deals with
-column-major matrices, listed under the rows axis first and the columns axis second. A storage format object may hold
-two copies of the same matrix, in both possible memory layouts, in which case it will be listed twice, under both axes
-orders.
+For matrices, we keep careful track of their layout(@ref). Specifically, a storage format only deals with column-major
+matrices, listed under the rows axis first and the columns axis second. A storage format object may hold two copies of
+the same matrix, in both possible memory layouts, in which case it will be listed twice, under both axes orders.
 
 In general, storage format objects are as "dumb" as possible, to make it easier to support new storage formats. The
 required functions implement a glorified key-value repository, with the absolutely minimal necessary logic to deal with
@@ -43,12 +42,7 @@ export QueryData
 export empty_cache!
 export end_data_write_lock
 
-using ..GenericLocks
-using ..GenericTypes
 using ..Keys
-using ..MatrixLayouts
-using ..Messages
-using ..ReadOnlyArrays
 using ..StorageTypes
 using ..Tokens
 using Base.Threads
@@ -56,6 +50,7 @@ using LinearAlgebra
 using NamedArrays
 using OrderedCollections
 using SparseArrays
+using TanayLabUtilities
 
 """
 Types of cached data inside `Daf`.
@@ -190,8 +185,7 @@ end
 Internal data we need to keep in any concrete [`FormatReader`](@ref). This has to be available as a `.internal` data
 member of the concrete format. This enables all the high-level [`DafReader`](@ref) and [`DafWriter`](@ref) functions.
 
-The constructor will automatically call [`unique_name`](@ref) to try and make the names unique for improved error
-messages.
+The constructor will automatically call `unique_name` to try and make the names unique for improved error messages.
 """
 struct Internal
     cache::Dict{CacheKey, CacheEntry}
@@ -255,7 +249,7 @@ All the functions for this type are provided based on the functions required for
 abstract type DafWriter <: FormatWriter end
 
 function Base.show(io::IO, format_reader::FormatReader)::Nothing
-    print(io, depict(format_reader))
+    print(io, brief(format_reader))
     return nothing
 end
 
@@ -600,7 +594,7 @@ end
         matrix::StorageMatrix,
     )::StorageMatrix
 
-[`relayout!`](@ref) the existing `name` column-major `matrix` property for the `rows_axis` and the `columns_axis` and
+`relayout!` the existing `name` column-major `matrix` property for the `rows_axis` and the `columns_axis` and
 store the results as a row-major matrix property (that is, with flipped axes).
 
 This trusts we have a write lock on the data set, that the `rows_axis` and `columns_axis` are different from each other,
@@ -683,7 +677,7 @@ function put_in_cache!(format::FormatReader, cache_key::CacheKey, data::CacheDat
     if data isa AbstractArray
         data = read_only_array(data)
     end
-    @debug "put_in_cache! daf: $(depict(format)) cache_key: $(cache_key) data: $(depict(data)) cache_group: $(cache_group)"
+    @debug "put_in_cache! daf: $(brief(format)) cache_key: $(cache_key) data: $(brief(data)) cache_group: $(cache_group)"
     format.internal.cache[cache_key] = CacheEntry(cache_group, data)
     return nothing
 end
@@ -1000,13 +994,13 @@ function put_cached_dependency_key!(format::FormatReader, cache_key::CacheKey, d
     push!(keys_set, cache_key)
     size_after = length(keys_set)
     if size_after > size_before
-        @debug "put_cached_dependency_key! daf: $(depict(format)) cache_key: $(cache_key) dependency_key: $(dependency_key)"
+        @debug "put_cached_dependency_key! daf: $(brief(format)) cache_key: $(cache_key) dependency_key: $(dependency_key)"
     end
     return nothing
 end
 
 function invalidate_cached!(format::FormatReader, cache_key::CacheKey)::Nothing
-    @debug "invalidate_cached! daf: $(depict(format)) cache_key: $(cache_key)"
+    @debug "invalidate_cached! daf: $(brief(format)) cache_key: $(cache_key)"
     @debug "- delete cache_key: $(cache_key)"
     with_cache_write_lock(format, "for invalidate key:", cache_key) do
         delete!(format.internal.cache, cache_key)
@@ -1128,7 +1122,7 @@ function empty_cache!(daf::DafReader; clear::Maybe{CacheGroup} = nothing, keep::
             wait(daf.internal.pending_condition)  # UNTESTED
         end
         with_cache_write_lock(daf, "empty_cache!") do
-            @debug "empty_cache! daf: $(depict(daf)) clear: $(clear) keep: $(keep)"
+            @debug "empty_cache! daf: $(brief(daf)) clear: $(clear) keep: $(keep)"
             if clear === nothing && keep === nothing
                 empty!(daf.internal.cache)
             else

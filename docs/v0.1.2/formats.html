@@ -88,10 +88,6 @@
 </a>
 </li>
 <li>
-<a class="tocitem" href="documentation.html">Documentation
-</a>
-</li>
-<li>
 <a class="tocitem" href="computations.html">Computations
 </a>
 </li>
@@ -172,39 +168,7 @@
 </a>
 </li>
 <li>
-<a class="tocitem" href="matrix_layouts.html">Matrix layouts
-</a>
-</li>
-<li>
-<a class="tocitem" href="read_only_arrays.html">Read-Only Arrays
-</a>
-</li>
-<li>
 <a class="tocitem" href="groups.html">Groups
-</a>
-</li>
-<li>
-<a class="tocitem" href="messages.html">Messages
-</a>
-</li>
-<li>
-<a class="tocitem" href="generic_logging.html">Generic Logging
-</a>
-</li>
-<li>
-<a class="tocitem" href="generic_locks.html">Generic Locks
-</a>
-</li>
-<li>
-<a class="tocitem" href="generic_storage.html">Generic Storage
-</a>
-</li>
-<li>
-<a class="tocitem" href="generic_types.html">Generic Types
-</a>
-</li>
-<li>
-<a class="tocitem" href="generic_functions.html">Generic Functions
 </a>
 </li>
 <li>
@@ -298,11 +262,7 @@
 </p>
 <p>Data properties are identified by a unique name given the axes they are based on. That is, there is a separate namespace for scalar properties, vector properties for each specific axis, and matrix properties for each (ordered) pair of axes.
 </p>
-<p>For matrices, we keep careful track of their 
-<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts">
-<code>MatrixLayouts
-</code>
-</a>. Specifically, a storage format only deals with column-major matrices, listed under the rows axis first and the columns axis second. A storage format object may hold two copies of the same matrix, in both possible memory layouts, in which case it will be listed twice, under both axes orders.
+<p>For matrices, we keep careful track of their layout(@ref). Specifically, a storage format only deals with column-major matrices, listed under the rows axis first and the columns axis second. A storage format object may hold two copies of the same matrix, in both possible memory layouts, in which case it will be listed twice, under both axes orders.
 </p>
 <p>In general, storage format objects are as &quot;dumb&quot; as possible, to make it easier to support new storage formats. The required functions implement a glorified key-value repository, with the absolutely minimal necessary logic to deal with the separate property namespaces listed above.
 </p>
@@ -489,10 +449,8 @@
 </a> functions.
 </p>
 <p>The constructor will automatically call 
-<a href="messages.html#DataAxesFormats.Messages.unique_name">
 <code>unique_name
-</code>
-</a> to try and make the names unique for improved error messages.
+</code> to try and make the names unique for improved error messages.
 </p>
 </div>
 </section>
@@ -1603,10 +1561,8 @@
 </code>
 </pre>
 <p>
-<a href="matrix_layouts.html#DataAxesFormats.MatrixLayouts.relayout!">
 <code>relayout!
-</code>
-</a> the existing 
+</code> the existing 
 <code>name
 </code> column-major 
 <code>matrix
@@ -2286,7 +2242,7 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
 <hr/>
 <p>This document was generated with 
 <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl
-</a> version 1.9.0. Using Julia version 1.11.4.
+</a> version 1.10.1. Using Julia version 1.11.4.
 </p>
 </section>
 <footer class="modal-card-foot">

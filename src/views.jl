@@ -26,19 +26,16 @@ export viewer
 using NamedArrays
 
 using ..Formats
-using ..GenericFunctions
-using ..GenericTypes
 using ..Keys
-using ..Messages
 using ..Queries
 using ..Readers
 using ..ReadOnly
 using ..StorageTypes
 using ..Tokens
+using TanayLabUtilities
 
 import ..Formats
 import ..Formats.Internal
-import ..Messages
 import ..ReadOnly
 import ..ReadOnly.DafReadOnlyWrapper
 import ..Readers.base_array
@@ -283,7 +280,7 @@ function viewer(
         collected_vectors,
         collected_matrices,
     )
-    @debug "Daf: $(depict(wrapper)) base: $(depict(daf))"
+    @debug "Daf: $(brief(wrapper)) base: $(brief(daf))"
     return wrapper
 end
 
@@ -337,12 +334,12 @@ function collect_scalar(
         end
         dimensions = query_result_dimensions(scalar_query)
         if dimensions != 0
-            error(dedent("""
+            error("""
                 $(QUERY_TYPE_BY_DIMENSIONS[dimensions + 1]) query: $(scalar_query)
                 for the scalar: $(scalar_name)
                 for the view: $(view_name)
                 of the daf data: $(daf.name)
-            """))
+                """)
         end
         collected_scalars[scalar_name] = Fetch{StorageScalar}(scalar_query, nothing)
     end
@@ -381,12 +378,12 @@ function collect_axis(
             @assert axis_query isa Query "invalid axis query: $(axis_query)"
         end
         if !is_axis_query(axis_query)
-            error(dedent("""
+            error("""
                 not an axis query: $(axis_query)
                 for the axis: $(axis_name)
                 for the view: $(view_name)
                 of the daf data: $(daf.name)
-            """))
+                """)
         end
         collected_axes[axis_name] = Fetch{AbstractVector{<:AbstractString}}(axis_query, nothing)
     end
@@ -446,13 +443,13 @@ function collect_vector(
         vector_query = full_vector_query(fetch_axis.query, vector_query, vector_name)
         dimensions = query_result_dimensions(vector_query)
         if dimensions != 1
-            error(dedent("""
+            error("""
                 $(QUERY_TYPE_BY_DIMENSIONS[dimensions + 1]) query: $(vector_query)
                 for the vector: $(vector_name)
                 for the axis: $(axis_name)
                 for the view: $(view_name)
                 of the daf data: $(daf.name)
-            """))
+                """)
         end
         collected_vectors[axis_name][vector_name] = Fetch{StorageVector}(vector_query, nothing)
     end
@@ -502,7 +499,7 @@ function collect_tensors(
             (main_axis_name, rows_axis_name, columns_axis_name, matrix_name) = key
 
             if "*" in key
-                error(dedent("""
+                error("""
                     unsupported "*" wildcard for tensor
                     for the matrix: $(matrix_name)
                     for the main axis: $(main_axis_name)
@@ -510,11 +507,11 @@ function collect_tensors(
                     and the columns axis: $(columns_axis_name)
                     for the view: $(view_name)
                     of the daf data: $(daf.name)
-                """))
+                    """)
             end
 
             if query != "=" && query !== nothing
-                error(dedent("""
+                error("""
                     unsupported query: $(query)
                     for the matrix: $(matrix_name)
                     for the main axis: $(main_axis_name)
@@ -522,7 +519,7 @@ function collect_tensors(
                     and the columns axis: $(columns_axis_name)
                     for the view: $(view_name)
                     of the daf data: $(daf.name)
-                """))
+                    """)
             end
 
             main_axis_entries = axis_vector(daf, main_axis_name)
@@ -610,14 +607,14 @@ function collect_matrix(
         full_matrix_query = fetch_rows_axis.query |> fetch_columns_axis.query |> matrix_query
         dimensions = query_result_dimensions(full_matrix_query)
         if dimensions != 2
-            error(dedent("""
+            error("""
                 $(QUERY_TYPE_BY_DIMENSIONS[dimensions + 1]) query: $(full_matrix_query)
                 for the matrix: $(matrix_name)
                 for the rows axis: $(rows_axis_name)
                 and the columns axis: $(columns_axis_name)
                 for the view: $(view_name)
                 of the daf data: $(daf.name)
-            """))
+                """)
         end
 
         did_collect = false
@@ -658,11 +655,11 @@ function get_fetch_axis(
 )::Fetch{AbstractVector{<:AbstractString}}
     fetch_axis = get(collected_axes, axis, nothing)
     if fetch_axis === nothing
-        error(dedent("""
+        error("""
             the axis: $(axis)
             is not exposed by the view: $(view_name)
             of the daf data: $(daf.name)
-        """))
+            """)
     end
     return fetch_axis
 end
@@ -763,15 +760,13 @@ function Formats.format_get_vector(view::DafView, axis::AbstractString, name::Ab
     vector_value = fetch_vector.value
     if vector_value === nothing
         vector_value = Formats.read_only_array(get_query(view.daf, fetch_vector.query; cache = false))
-        @assert vector_value isa NamedArray && names(vector_value, 1) == Formats.format_axis_vector(view, axis) dedent(
-            """
+        @assert vector_value isa NamedArray && names(vector_value, 1) == Formats.format_axis_vector(view, axis) """
                 invalid vector query: $(fetch_vector.query)
                 for the axis query: $(view.axes[axis].query)
                 of the daf data: $(view.daf.name)
                 for the axis: $(name)
                 of the daf view: $(view.name)
-            """,
-        )
+                """
         fetch_vector.value = vector_value
     end
     return vector_value
@@ -822,7 +817,7 @@ function Formats.format_description_header(
     @assert Formats.has_data_read_lock(view)
     push!(lines, "$(indent)type: View")
     if !deep
-        push!(lines, "$(indent)base: $(depict(view.daf))")
+        push!(lines, "$(indent)base: $(brief(view.daf))")
     end
     return nothing
 end
@@ -842,11 +837,11 @@ function Formats.format_description_footer(
     return nothing
 end
 
-function Messages.depict(value::DafView; name::Maybe{AbstractString} = nothing)::String
+function TanayLabUtilities.Brief.brief(value::DafView; name::Maybe{AbstractString} = nothing)::String
     if name === nothing
         name = value.name
     end
-    return "View $(depict(value.daf; name))"
+    return "View $(brief(value.daf; name))"
 end
 
 function ReadOnly.read_only(daf::DafView; name::Maybe{AbstractString} = nothing)::Union{DafView, DafReadOnlyWrapper}
@@ -854,7 +849,7 @@ function ReadOnly.read_only(daf::DafView; name::Maybe{AbstractString} = nothing)
         return daf
     else
         wrapper = DafReadOnlyWrapper(name, daf.internal, daf)
-        @debug "Daf: $(depict(wrapper)) base: $(daf)"
+        @debug "Daf: $(brief(wrapper)) base: $(daf)"
         return wrapper
     end
 end

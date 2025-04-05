@@ -89,13 +89,13 @@ nested_test("anndata") do
                 nested_test("warn") do
                     back = @test_logs min_level = Logging.Warn (
                         :warn,
-                        dedent(
+                        chomp(
                             """
-                            unsupported type: Dict{String, Int64}
-                            of the property: uns[mapping]
-                            supported type is: Union{Bool, Float32, Float64, Int16, Int32, Int64, Int8, UInt16, UInt32, UInt64, UInt8, S} where S<:AbstractString
-                            in AnnData for the daf data: anndata
-                            """,
+                      unsupported type: Dict{String, Int64}
+                      of the property: uns[mapping]
+                      supported type is: Union{Bool, Float32, Float64, Int16, Int32, Int64, Int8, UInt16, UInt32, UInt64, UInt8, S} where S<:AbstractString
+                      in AnnData for the daf data: anndata
+                      """,
                         ),
                     ) anndata_as_daf(adata; unsupported_handler = WarnHandler)
                     test_daf(back)
@@ -103,13 +103,13 @@ nested_test("anndata") do
                 end
 
                 nested_test("error") do
-                    @test_throws dedent(
+                    @test_throws chomp(
                         """
-                        unsupported type: Dict{String, Int64}
-                        of the property: uns[mapping]
-                        supported type is: Union{Bool, Float32, Float64, Int16, Int32, Int64, Int8, UInt16, UInt32, UInt64, UInt8, S} where S<:AbstractString
-                        in AnnData for the daf data: anndata
-                        """,
+                  unsupported type: Dict{String, Int64}
+                  of the property: uns[mapping]
+                  supported type is: Union{Bool, Float32, Float64, Int16, Int32, Int64, Int8, UInt16, UInt32, UInt64, UInt8, S} where S<:AbstractString
+                  in AnnData for the daf data: anndata
+                  """,
                     ) anndata_as_daf(adata; unsupported_handler = ErrorHandler)
                 end
             end
@@ -124,19 +124,22 @@ nested_test("anndata") do
                 end
 
                 nested_test("warn") do
-                    back = @test_logs min_level = Logging.Warn (:warn, dedent("""
-                          unsupported annotation: obsm[unknown_axis]
-                          in AnnData for the daf data: anndata
-                      """)) anndata_as_daf(adata; unsupported_handler = WarnHandler)
+                    back = @test_logs min_level = Logging.Warn (:warn, chomp("""
+                                                                       unsupported annotation: obsm[unknown_axis]
+                                                                       in AnnData for the daf data: anndata
+                                                                       """)) anndata_as_daf(
+                        adata;
+                        unsupported_handler = WarnHandler,
+                    )
                     test_daf(back)
                     return nothing
                 end
 
                 nested_test("error") do
-                    @test_throws dedent("""
-                        unsupported annotation: obsm[unknown_axis]
-                        in AnnData for the daf data: anndata
-                    """) anndata_as_daf(adata; unsupported_handler = ErrorHandler)
+                    @test_throws chomp("""
+                                 unsupported annotation: obsm[unknown_axis]
+                                 in AnnData for the daf data: anndata
+                                 """) anndata_as_daf(adata; unsupported_handler = ErrorHandler)
                 end
             end
         end

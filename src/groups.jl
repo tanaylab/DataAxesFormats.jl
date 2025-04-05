@@ -4,9 +4,9 @@ Functions for dealing with computing groups of axis entries (typically for creat
 module Groups
 
 using ..Formats
-using ..GenericLogging
 using ..Readers
 using SHA
+using TanayLabUtilities
 
 export collect_group_members
 export compact_groups!

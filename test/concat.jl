@@ -6,24 +6,24 @@ nested_test("concat") do
 
     nested_test("!square") do
         set_matrix!(sources[1], "cell", "cell", "outgoing_edges", [1.0 0.0; 0.0 1.0])
-        @test_throws dedent("""
-            can't concatenate the matrix: outgoing_edges
-            for the concatenated rows axis: cell
-            and the concatenated columns axis: cell
-            in the daf data: source.1!
-            concatenated into the daf data: destination!
-        """) concatenate!(destination, "cell", sources)
+        @test_throws chomp("""
+                     can't concatenate the matrix: outgoing_edges
+                     for the concatenated rows axis: cell
+                     and the concatenated columns axis: cell
+                     in the daf data: source.1!
+                     concatenated into the daf data: destination!
+                     """) concatenate!(destination, "cell", sources)
     end
 
     nested_test("!entries") do
         add_axis!(sources[1], "gene", ["X", "Y"])
         add_axis!(sources[2], "gene", ["X", "Y", "Z"])
-        @test_throws dedent("""
-            different entries for the axis: gene
-            between the daf data: source.1!
-            and the daf data: source.2!
-            concatenated into the daf data: destination!
-        """) concatenate!(destination, "cell", sources)
+        @test_throws chomp("""
+                     different entries for the axis: gene
+                     between the daf data: source.1!
+                     and the daf data: source.2!
+                     concatenated into the daf data: destination!
+                     """) concatenate!(destination, "cell", sources)
     end
 
     nested_test("concatenate") do
@@ -73,12 +73,14 @@ nested_test("concat") do
 
             nested_test("!empty") do
                 set_vector!(sources[1], "cell", "color", ["red", "green"])
-                @test_throws dedent("""
-                    no empty value for the vector: color
-                        of the axis: cell
-                        which is missing from the daf data: source.2!
-                        concatenated into the daf data: destination!
-                """) concatenate!(destination, "cell", sources)
+                @test_throws chomp("""
+                             no empty value for the vector: color
+                             of the axis: cell
+                             which is missing from the daf data: source.2!
+                             concatenated into the daf data: destination!
+                             """) with_unwrapping_exceptions() do
+                    return concatenate!(destination, "cell", sources)
+                end
             end
 
             nested_test("empty") do
@@ -107,10 +109,10 @@ nested_test("concat") do
         set_vector!(sources[2], "cell", "!metacell", ["M1", "M2", "M1"])
 
         nested_test("false") do
-            @test_throws dedent("""
-                non-unique entries for new axis: metacell
-                in the daf data: destination!
-            """) concatenate!(destination, ["cell", "metacell"], sources)
+            @test_throws chomp("""
+                         non-unique entries for new axis: metacell
+                         in the daf data: destination!
+                         """) concatenate!(destination, ["cell", "metacell"], sources)
         end
 
         nested_test("true") do
@@ -178,22 +180,26 @@ nested_test("concat") do
 
             nested_test("!empty") do
                 set_vector!(sources[1], "cell", "age", [1, 2])
-                @test_throws dedent("""
-                    nested task error: no empty value for the vector: age
-                        of the axis: cell
-                        which is missing from the daf data: source.2!
-                        concatenated into the daf data: destination!
-                """) concatenate!(destination, "cell", sources)
+                @test_throws chomp("""
+                             empty value for the vector: age
+                             of the axis: cell
+                             which is missing from the daf data: source.2!
+                             concatenated into the daf data: destination!
+                             """) with_unwrapping_exceptions() do
+                    return concatenate!(destination, "cell", sources)
+                end
             end
 
             nested_test("~empty") do
                 set_vector!(sources[1], "cell", "age", [1, 2])
-                @test_throws dedent("""
-                    nested task error: no empty value for the vector: age
-                        of the axis: cell
-                        which is missing from the daf data: source.2!
-                        concatenated into the daf data: destination!
-                """) concatenate!(destination, "cell", sources; empty = Dict("version" => 0))
+                @test_throws chomp("""
+                             no empty value for the vector: age
+                             of the axis: cell
+                             which is missing from the daf data: source.2!
+                             concatenated into the daf data: destination!
+                             """) with_unwrapping_exceptions() do
+                    return concatenate!(destination, "cell", sources; empty = Dict("version" => 0))
+                end
             end
 
             nested_test("empty") do
@@ -226,41 +232,45 @@ nested_test("concat") do
             end
 
             nested_test("sparse") do
-                set_matrix!(sources[1], "cell", "gene", "UMIs", sparse_matrix_csc([1 0; 0 2]))
-                set_matrix!(sources[2], "cell", "gene", "UMIs", sparse_matrix_csc([0 3; 4 0; 0 5]))
+                set_matrix!(sources[1], "cell", "gene", "UMIs", sparse_matrix_csc([1 0; 0 0]))
+                set_matrix!(sources[2], "cell", "gene", "UMIs", sparse_matrix_csc([0 2; 3 0; 0 0]))
                 concatenate!(destination, "cell", sources)
-                @test get_matrix(destination, "cell", "gene", "UMIs") == [1 0; 0 2; 0 3; 4 0; 0 5]
-                @test get_matrix(destination, "cell", "gene", "UMIs").array isa SparseMatrixCSC
+                @test get_matrix(destination, "cell", "gene", "UMIs") == [1 0; 0 0; 0 2; 3 0; 0 0]
+                @test issparse(get_matrix(destination, "cell", "gene", "UMIs").array)
             end
 
             nested_test("!empty") do
                 set_matrix!(sources[1], "cell", "gene", "UMIs", sparse_matrix_csc([1 2; 3 4]))
-                @test_throws dedent("""
-                    nested task error: no empty value for the matrix: UMIs
-                        of the rows axis: gene
-                        and the columns axis: cell
-                        which is missing from the daf data: source.2!
-                        concatenated into the daf data: destination!
-                """) concatenate!(destination, "cell", sources)
+                @test_throws chomp("""
+                             no empty value for the matrix: UMIs
+                             of the rows axis: gene
+                             and the columns axis: cell
+                             which is missing from the daf data: source.2!
+                             concatenated into the daf data: destination!
+                             """) with_unwrapping_exceptions() do
+                    return concatenate!(destination, "cell", sources)
+                end
             end
 
             nested_test("~empty") do
                 set_matrix!(sources[1], "cell", "gene", "UMIs", sparse_matrix_csc([1 2; 3 4]))
-                @test_throws dedent("""
-                    nested task error: no empty value for the matrix: UMIs
-                        of the rows axis: gene
-                        and the columns axis: cell
-                        which is missing from the daf data: source.2!
-                        concatenated into the daf data: destination!
-                """) concatenate!(destination, "cell", sources; empty = Dict("version" => 0))
+                @test_throws chomp("""
+                             no empty value for the matrix: UMIs
+                             of the rows axis: gene
+                             and the columns axis: cell
+                             which is missing from the daf data: source.2!
+                             concatenated into the daf data: destination!
+                             """) with_unwrapping_exceptions() do
+                    return concatenate!(destination, "cell", sources; empty = Dict("version" => 0))
+                end
             end
 
             nested_test("empty") do
                 nested_test("zero") do
-                    set_matrix!(sources[1], "cell", "gene", "UMIs", sparse_matrix_csc([1 2; 3 4]))
+                    set_matrix!(sources[1], "cell", "gene", "UMIs", sparse_matrix_csc([1 2; 0 0]))
                     concatenate!(destination, "cell", sources; empty = Dict(("cell", "gene", "UMIs") => 0))
-                    @test get_matrix(destination, "cell", "gene", "UMIs") == [1 2; 3 4; 0 0; 0 0; 0 0]
-                    @test get_matrix(destination, "cell", "gene", "UMIs").array isa SparseMatrixCSC
+                    @test get_matrix(destination, "cell", "gene", "UMIs") == [1 2; 0 0; 0 0; 0 0; 0 0]
+                    @test issparse(get_matrix(destination, "cell", "gene", "UMIs").array)
                 end
 
                 nested_test("!zero") do
@@ -297,11 +307,11 @@ nested_test("concat") do
             end
 
             nested_test("!collect") do
-                @test_throws dedent("""
-                    can't collect axis for the scalar: version
-                    of the daf data sets concatenated into the daf data: destination!
-                    because no data set axis was created
-                """) concatenate!(
+                @test_throws chomp("""
+                             can't collect axis for the scalar: version
+                             of the daf data sets concatenated into the daf data: destination!
+                             because no data set axis was created
+                             """) concatenate!(
                     destination,
                     "cell",
                     sources;
@@ -383,12 +393,12 @@ nested_test("concat") do
             end
 
             nested_test("!collect") do
-                @test_throws dedent("""
-                    can't collect axis for the vector: weight
-                    of the axis: gene
-                    of the daf data sets concatenated into the daf data: destination!
-                    because no data set axis was created
-                """) concatenate!(
+                @test_throws chomp("""
+                             can't collect axis for the vector: weight
+                             of the axis: gene
+                             of the daf data sets concatenated into the daf data: destination!
+                             because no data set axis was created
+                             """) concatenate!(
                     destination,
                     "cell",
                     sources;
@@ -422,13 +432,13 @@ nested_test("concat") do
                 end
 
                 nested_test("!collect") do
-                    @test_throws dedent("""
-                        can't collect axis for the matrix: outgoing_edges
-                        of the rows axis: gene
-                        and the columns axis: gene
-                        of the daf data sets concatenated into the daf data: destination!
-                        because that would create a 3D tensor, which is not supported
-                    """) concatenate!(destination, "cell", sources; merge = [ALL_MATRICES => CollectAxis])
+                    @test_throws chomp("""
+                                 can't collect axis for the matrix: outgoing_edges
+                                 of the rows axis: gene
+                                 and the columns axis: gene
+                                 of the daf data sets concatenated into the daf data: destination!
+                                 because that would create a 3D tensor, which is not supported
+                                 """) concatenate!(destination, "cell", sources; merge = [ALL_MATRICES => CollectAxis])
                 end
             end
 
@@ -450,13 +460,13 @@ nested_test("concat") do
                 end
 
                 nested_test("!collect") do
-                    @test_throws dedent("""
-                        can't collect axis for the matrix: scale
-                        of the rows axis: batch
-                        and the columns axis: gene
-                        of the daf data sets concatenated into the daf data: destination!
-                        because that would create a 3D tensor, which is not supported
-                    """) concatenate!(destination, "cell", sources; merge = [ALL_MATRICES => CollectAxis])
+                    @test_throws chomp("""
+                                 can't collect axis for the matrix: scale
+                                 of the rows axis: batch
+                                 and the columns axis: gene
+                                 of the daf data sets concatenated into the daf data: destination!
+                                 because that would create a 3D tensor, which is not supported
+                                 """) concatenate!(destination, "cell", sources; merge = [ALL_MATRICES => CollectAxis])
                 end
             end
         end

@@ -13,23 +13,30 @@ export CONTRACT2
 export function_contract
 
 using ..Contracts
-using ..Documentation
 using ..Formats
-using ..GenericFunctions
-using ..Messages
 using ..StorageTypes
 using DocStringExtensions
 using ExprTools
+using TanayLabUtilities
 
 import ..Contracts.contract_documentation
-import ..Documentation.DefaultValue
-import ..Documentation.FunctionMetadata
-import ..Documentation.collect_defaults
-import ..Documentation.function_metadata
-import ..Documentation.get_metadata
-import ..Documentation.kwargs_overwrite
-import ..Documentation.set_metadata_of_function
-import ..GenericLogging.pass_args
+import TanayLabUtilities.Documentation.DefaultValue
+import TanayLabUtilities.Documentation.FunctionMetadata
+import TanayLabUtilities.Documentation.collect_defaults
+import TanayLabUtilities.Documentation.function_metadata
+import TanayLabUtilities.Documentation.get_metadata
+import TanayLabUtilities.Documentation.set_metadata_of_function
+import TanayLabUtilities.Logger.pass_args
+
+function kwargs_overwrite(kwargs::Base.Pairs)::Bool
+    for (name, value) in kwargs
+        if name == :overwrite
+            @assert value isa Bool "non-Bool overwrite keyword parameter type: $(typeof(value)) = $(value)"
+            return value
+        end
+    end
+    return false
+end
 
 function computation_wrapper(contract::Contract, name::AbstractString, inner_function)
     return (daf::DafReader, args...; kwargs...) -> (
@@ -71,16 +78,15 @@ end
 
 Mark a function as a `Daf` computation. This has the following effects:
 
-  - It has the same effect as [`@documented`](@ref), that is, allows using `DEFAULT` in the documentation string,
-    and using [`function_default`](@ref) to access the default value of named parameters.
-
+  - It has the same effect as `@documented`, that is, allows using `DEFAULT` in the documentation string,
+    and using `function_default` to access the default value of named parameters.
   - It verifies that the `Daf` data satisfies the [`Contract`](@ref), when the computation is invoked and when it is
     complete (using [`verify_input`](@ref) and [`verify_output`](@ref)).
   - It stashes the contract(s) (if any) in a global variable. This allows expanding [`CONTRACT`](@ref) in the
     documentation string (for a single contract case), or [`CONTRACT1`](@ref) and [`CONTRACT2`](@ref) (for the dual
     contract case).
   - It logs the invocation of the function (using `@debug`), including the actual values of the named arguments (using
-    [`depict`](@ref)).
+    `brief`).
 
 !!! note
 
@@ -114,7 +120,7 @@ macro computation(contract, definition)
     outer_definition[:body] = Expr(
         :call,
         :(DataAxesFormats.Computations.computation_wrapper(
-            $function_module.__DAF_FUNCTION_METADATA__[Symbol($function_name)].contracts[1],
+            $function_module.__TLU_FUNCTION_METADATA__[Symbol($function_name)].contracts[1],
             $full_name,
             $(ExprTools.combinedef(inner_definition)),
         )),
@@ -154,8 +160,8 @@ macro computation(first_contract, second_contract, definition)
     outer_definition[:body] = Expr(
         :call,
         :(DataAxesFormats.Computations.computation_wrapper(
-            $function_module.__DAF_FUNCTION_METADATA__[Symbol($function_name)].contracts[1],
-            $function_module.__DAF_FUNCTION_METADATA__[Symbol($function_name)].contracts[2],
+            $function_module.__TLU_FUNCTION_METADATA__[Symbol($function_name)].contracts[1],
+            $function_module.__TLU_FUNCTION_METADATA__[Symbol($function_name)].contracts[2],
             $full_name,
             $(ExprTools.combinedef(inner_definition)),
         )),
@@ -174,10 +180,10 @@ function DocStringExtensions.format(which::ContractDocumentation, buffer::IOBuff
     full_name, metadata = get_metadata(doc_str)
     if which.index > length(metadata.contracts)
         @assert which.index == 2
-        error(dedent("""
-            no second contract associated with: $(full_name)
-            use: @computation Contract(...) Contract(...) function $(full_name)(...)
-        """))
+        error("""
+              no second contract associated with: $(full_name)
+              use: @computation Contract(...) Contract(...) function $(full_name)(...)
+              """)
     end
     contract_documentation(metadata.contracts[which.index], buffer)
     return nothing
@@ -217,28 +223,6 @@ Same as [`CONTRACT`](@ref), but reference the contract for the 2nd `Daf` argumen
 such arguments.
 """
 const CONTRACT2 = ContractDocumentation(2)
-
-function DocStringExtensions.format(what::DefaultValue, buffer::IOBuffer, doc_str::Base.Docs.DocStr)::Nothing
-    full_name, metadata = get_metadata(doc_str)
-    default = get(metadata.defaults, what.name, missing)
-    if default === missing
-        error(dedent("""
-            no default for a parameter: $(what.name)
-            in the computation: $(full_name)
-        """))
-    end
-
-    if default isa AbstractString
-        default = replace(default, "\\" => "\\\\", "\"" => "\\\"")
-        default = "\"$(default)\""
-    end
-
-    print(buffer, "```")
-    print(buffer, default)
-    print(buffer, "```")
-
-    return nothing
-end
 
 """
     function_contract(func::Function[, index::Integer = 1])::Contract

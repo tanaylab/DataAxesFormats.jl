@@ -21,8 +21,8 @@ restricted to specific representations. This has several advantages:
 This has the downside that `Daf` doesn't support efficient storage of specialized matrices (to pick a random example,
 upper triangular matrices). This isn't a great loss, since `Daf` targets storing arbitrary scientific data (especially
 biological data), which in general is not of any such special shape. The upside is that all matrices stored and returned
-by `Daf` have a clear [`MatrixLayouts`](@ref DataAxesFormats.MatrixLayouts) (regardless of whether they are dense or
-sparse). This allows user code to ensure it is working "with the grain" of the data, which is **much** more efficient.
+by `Daf` have a clear layout (regardless of whether they are dense or sparse). This allows user code to ensure it is
+working "with the grain" of the data, which is **much** more efficient.
 
 !!! note
 
@@ -41,8 +41,6 @@ export StorageScalarBase
 export StorageSigned
 export StorageUnsigned
 export StorageVector
-export sparse_matrix_csc
-export sparse_vector
 
 using SparseArrays
 
@@ -112,8 +110,7 @@ matrices of strings are **not** supported.
 
 !!! note
 
-    All matrices we store must have a clear [`MatrixLayouts`](@ref DataAxesFormats.MatrixLayouts), that is, must be in
-    either row-major or column-major format.
+    All matrices we store must have a clear layout, that is, must be in either row-major or column-major format.
 """
 StorageMatrix{T} = AbstractMatrix{T} where {T <: StorageReal}
 
@@ -126,32 +123,5 @@ The element type must be a [`StorageScalar`](@ref), to allow storing the data in
 are supported but will be less efficient.
 """
 StorageVector{T} = AbstractVector{T} where {T <: StorageScalar}
-
-"""
-    sparse_vector(dense::StorageMatrix)::SparseVector
-
-Create a sparse vector using the smallest unsigned integer type needed for this size of matrix.
-"""
-function sparse_vector(dense::StorageVector{T})::SparseVector{T} where {T <: StorageReal}
-    return SparseVector{eltype(dense), indtype_for_size(length(dense))}(dense)
-end
-
-"""
-    sparse_matrix_csc(dense::StorageMatrix)::SparseMatrixCSC
-
-Create a sparse matrix using the smallest unsigned integer type needed for this size of matrix.
-"""
-function sparse_matrix_csc(dense::StorageMatrix)::SparseMatrixCSC
-    return SparseMatrixCSC{eltype(dense), indtype_for_size(length(dense))}(dense)
-end
-
-function indtype_for_size(size::Integer)::Type
-    for type in (UInt8, UInt16, UInt32)
-        if size <= typemax(type)
-            return type
-        end
-    end
-    return UInt64  # UNTESTED
-end
 
 end # module

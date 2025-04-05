@@ -27,19 +27,15 @@ export set_scalar!
 export set_vector!
 
 using ..Formats
-using ..GenericFunctions
-using ..GenericTypes
-using ..MatrixLayouts
-using ..Messages
 using ..Readers
 using ..StorageTypes
 using ConcurrentUtils
 using NamedArrays
 using SparseArrays
+using TanayLabUtilities
 
 import ..Formats
 import ..Formats.FormatWriter  # For documentation.
-import ..Messages
 import ..Readers.assert_valid_matrix
 import ..Readers.base_array
 import ..Readers.require_axis
@@ -50,7 +46,6 @@ import ..Readers.require_dim_name
 import ..Readers.require_matrix
 import ..Readers.require_scalar
 import ..Readers.require_vector
-import ..StorageTypes.indtype_for_size
 
 """
     set_scalar!(
@@ -68,7 +63,7 @@ function set_scalar!(daf::DafWriter, name::AbstractString, value::StorageScalar;
     @assert value isa AbstractString || isbits(value)
     return Formats.with_data_write_lock(daf, "set_scalar! of:", name) do
         # Formats.assert_valid_cache(daf)
-        @debug "set_scalar! daf: $(depict(daf)) name: $(name) value: $(depict(value)) overwrite: $(overwrite)"
+        @debug "set_scalar! daf: $(brief(daf)) name: $(name) value: $(brief(value)) overwrite: $(overwrite)"
 
         if !overwrite
             require_no_scalar(daf, name)
@@ -99,7 +94,7 @@ If `must_exist` (the default), this first verifies the `name` scalar property ex
 function delete_scalar!(daf::DafWriter, name::AbstractString; must_exist::Bool = true, _for_set = false)::Nothing
     return Formats.with_data_write_lock(daf, "delete_scalar! of:", name) do
         # Formats.assert_valid_cache(daf)
-        @debug "delete_scalar! daf: $(depict(daf)) name: $(name) must exist: $(must_exist)"
+        @debug "delete_scalar! daf: $(brief(daf)) name: $(name) must exist: $(must_exist)"
 
         if must_exist
             require_scalar(daf, name)
@@ -153,7 +148,7 @@ function add_axis!(
 
     return Formats.with_data_write_lock(daf, "add_axis! of:", axis) do
         # Formats.assert_valid_cache(daf)
-        @debug "add_axis! daf: $(depict(daf)) axis: $(axis) entries: $(depict(entries))"
+        @debug "add_axis! daf: $(brief(daf)) axis: $(axis) entries: $(brief(entries))"
 
         require_no_axis(daf, axis; for_change = true)
 
@@ -183,7 +178,7 @@ If `must_exist` (the default), this first verifies the `axis` exists in the `daf
 function delete_axis!(daf::DafWriter, axis::AbstractString; must_exist::Bool = true)::Nothing
     return Formats.with_data_write_lock(daf, "delete_axis! of:", axis) do
         # Formats.assert_valid_cache(daf)
-        @debug "delete_axis! daf: $(depict(daf)) axis: $(axis) must exist: $(must_exist)"
+        @debug "delete_axis! daf: $(brief(daf)) axis: $(axis) must exist: $(must_exist)"
 
         if must_exist
             require_axis(daf, "for: delete_axis!", axis; for_change = true)
@@ -275,7 +270,7 @@ function set_vector!(
     @assert Base.eltype(vector) <: AbstractString || isbitstype(Base.eltype(vector))
     return Formats.with_data_write_lock(daf, "set_vector! of:", name, "of:", axis) do
         # Formats.assert_valid_cache(daf)
-        @debug "set_vector! daf: $(depict(daf)) axis: $(axis) name: $(name) vector: $(depict(vector)) overwrite: $(overwrite)"
+        @debug "set_vector! daf: $(brief(daf)) axis: $(axis) name: $(name) vector: $(brief(vector)) overwrite: $(overwrite)"
 
         require_not_reserved(daf, axis, name)
         require_axis(daf, "for the vector: $(name)", axis)
@@ -348,7 +343,7 @@ function empty_dense_vector!(
     try
         result = fill(vector)
         Formats.cache_vector!(daf, axis, name, Formats.as_named_vector(daf, axis, vector))
-        @debug "empty_dense_vector! filled vector: $(depict(vector)) }"
+        @debug "empty_dense_vector! filled vector: $(brief(vector)) }"
         return result
     finally
         # Formats.assert_valid_cache(daf)
@@ -367,7 +362,7 @@ function get_empty_dense_vector!(
     Formats.begin_data_write_lock(daf, "empty_dense_vector! of:", name, "of:", axis)
     try
         # Formats.assert_valid_cache(daf)
-        @debug "empty_dense_vector! daf: $(depict(daf)) axis: $(axis) name: $(name) eltype: $(eltype) overwrite: $(overwrite) {"
+        @debug "empty_dense_vector! daf: $(brief(daf)) axis: $(axis) name: $(name) eltype: $(eltype) overwrite: $(overwrite) {"
         require_not_reserved(daf, axis, name)
         require_axis(daf, "for the vector: $(name)", axis)
 
@@ -458,7 +453,7 @@ function get_empty_sparse_vector!(
     Formats.begin_data_write_lock(daf, "empty_sparse_vector! of:", name, "of:", axis)
     try
         # Formats.assert_valid_cache(daf)
-        @debug "empty_sparse_vector! daf: $(depict(daf)) axis: $(axis) name: $(name) eltype: $(eltype) nnz: $(nnz) indtype: $(indtype) overwrite: $(overwrite) {"
+        @debug "empty_sparse_vector! daf: $(brief(daf)) axis: $(axis) name: $(name) eltype: $(eltype) nnz: $(nnz) indtype: $(indtype) overwrite: $(overwrite) {"
         require_not_reserved(daf, axis, name)
         require_axis(daf, "for the vector: $(name)", axis)
 
@@ -484,7 +479,7 @@ function filled_empty_sparse_vector!(
     filled_vector = SparseVector(axis_length(daf, axis), nzind, nzval)
     Formats.format_filled_empty_sparse_vector!(daf, axis, name, filled_vector)
     Formats.cache_vector!(daf, axis, name, Formats.as_named_vector(daf, axis, filled_vector))
-    @debug "empty_sparse_vector! filled vector: $(depict(filled_vector)) }"
+    @debug "empty_sparse_vector! filled vector: $(brief(filled_vector)) }"
     return nothing
 end
 
@@ -515,7 +510,7 @@ this also verifies the `name` vector exists for the `axis`.
 function delete_vector!(daf::DafWriter, axis::AbstractString, name::AbstractString; must_exist::Bool = true)::Nothing
     return Formats.with_data_write_lock(daf, "delete_vector! of:", name, "of:", axis) do
         # Formats.assert_valid_cache(daf)
-        @debug "delete_vector! $daf: $(depict(daf)) axis: $(axis) name: $(name) must exist: $(must_exist)"
+        @debug "delete_vector! $daf: $(brief(daf)) axis: $(axis) name: $(name) must exist: $(must_exist)"
 
         require_not_reserved(daf, axis, name)
         require_axis(daf, "for the vector: $(name)", axis)
@@ -559,9 +554,9 @@ should be a column-major `matrix`.
 
 If the `matrix` specified is actually a [`StorageScalar`](@ref), the stored matrix is filled with this value.
 
-If `relayout` (the default), this will also automatically [`relayout!`](@ref) the matrix and store the result, so the
+If `relayout` (the default), this will also automatically `relayout!` the matrix and store the result, so the
 data would also be stored in row-major layout (that is, with the axes flipped), similarly to calling
-[`relayout_matrix!`](@ref).
+`relayout!`.
 
 This first verifies the `rows_axis` and `columns_axis` exist in `daf`, that the `matrix` is column-major of the
 appropriate size. If not `overwrite` (the default), this also verifies the `name` matrix does not exist for the
@@ -581,7 +576,7 @@ function set_matrix!(
     Formats.with_data_write_lock(daf, "set_matrix! of:", name, "of:", rows_axis, "and:", columns_axis) do
         # Formats.assert_valid_cache(daf)
         relayout = relayout && rows_axis != columns_axis
-        @debug "set_matrix! daf: $(depict(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) matrix: $(depict(matrix)) overwrite: $(overwrite) relayout: $(relayout)"
+        @debug "set_matrix! daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) matrix: $(brief(matrix)) overwrite: $(overwrite) relayout: $(relayout)"
 
         require_axis(daf, "for the rows of the matrix: $(name)", rows_axis)
         require_axis(daf, "for the columns of the matrix: $(name)", columns_axis)
@@ -673,7 +668,7 @@ function empty_dense_matrix!(
             name,
             Formats.as_named_matrix(daf, rows_axis, columns_axis, matrix),
         )
-        @debug "empty_dense_matrix! filled matrix: $(depict(matrix)) }"
+        @debug "empty_dense_matrix! filled matrix: $(brief(matrix)) }"
         return result
     finally
         # Formats.assert_valid_cache(daf)
@@ -692,7 +687,7 @@ function get_empty_dense_matrix!(
     Formats.begin_data_write_lock(daf, "empty_dense_matrix! of:", name, "of:", rows_axis, "and:", columns_axis)
     try
         # Formats.assert_valid_cache(daf)
-        @debug "empty_dense_matrix! daf: $(depict(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) eltype: $(eltype) overwrite: $(overwrite) {"
+        @debug "empty_dense_matrix! daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) eltype: $(eltype) overwrite: $(overwrite) {"
         require_axis(daf, "for the rows of the matrix: $(name)", rows_axis)
         require_axis(daf, "for the columns of the matrix: $(name)", columns_axis)
 
@@ -790,7 +785,7 @@ function get_empty_sparse_matrix!(
     Formats.begin_data_write_lock(daf, "empty_sparse_matrix! of:", name, "of:", rows_axis, "and:", columns_axis)
     try
         # Formats.assert_valid_cache(daf)
-        @debug "empty_sparse_matrix! daf: $(depict(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) eltype: $(eltype) overwrite: $(overwrite) {"
+        @debug "empty_sparse_matrix! daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) eltype: $(eltype) overwrite: $(overwrite) {"
         require_axis(daf, "for the rows of the matrix: $(name)", rows_axis)
         require_axis(daf, "for the columns of the matrix: $(name)", columns_axis)
 
@@ -824,7 +819,7 @@ function filled_empty_sparse_matrix!(
         name,
         Formats.as_named_matrix(daf, rows_axis, columns_axis, filled_matrix),
     )
-    @debug "empty_sparse_matrix! filled matrix: $(depict(filled_matrix)) }"
+    @debug "empty_sparse_matrix! filled matrix: $(brief(filled_matrix)) }"
     return nothing
 end
 
@@ -838,7 +833,7 @@ end
     )::Nothing
 
 Given a matrix property with some `name` exists (in column-major layout) in `daf` for the `rows_axis` and the
-`columns_axis`, then [`relayout!`](@ref) it and store the row-major result as well (that is, with flipped axes).
+`columns_axis`, then `relayout!` it and store the row-major result as well (that is, with flipped axes).
 
 This is useful following calling [`empty_dense_matrix!`](@ref) or [`empty_sparse_matrix!`](@ref) to ensure both layouts
 of the matrix are stored in `def`. When calling [`set_matrix!`](@ref), it is simpler to just specify (the default)
@@ -866,18 +861,18 @@ function relayout_matrix!(
 )::Nothing
     Formats.with_data_write_lock(daf, "relayout_matrix! of:", name, "of:", rows_axis, "and:", columns_axis) do
         # Formats.assert_valid_cache(daf)
-        @debug "relayout_matrix! daf: $(depict(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) overwrite: $(overwrite) {"
+        @debug "relayout_matrix! daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) overwrite: $(overwrite) {"
 
         require_axis(daf, "for the rows of the matrix: $(name)", rows_axis)
         require_axis(daf, "for the columns of the matrix: $(name)", columns_axis)
 
         if rows_axis == columns_axis
-            error(dedent("""
+            error("""
                 can't relayout square matrix: $(name)
                 of the axis: $(rows_axis)
                 due to daf representation limitations
                 in the daf data: $(daf.name)
-            """))
+                """)
         end
 
         require_matrix(daf, rows_axis, columns_axis, name; relayout = false)
@@ -944,7 +939,7 @@ function delete_matrix!(
     Formats.with_data_write_lock(daf, "delete_matrix! of:", name, "of:", rows_axis, "and:", columns_axis) do
         # Formats.assert_valid_cache(daf)
         relayout = relayout && rows_axis != columns_axis
-        @debug "delete_matrix! daf: $(depict(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) must exist: $(must_exist)"
+        @debug "delete_matrix! daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) must exist: $(must_exist)"
 
         require_axis(daf, "for the rows of the matrix: $(name)", rows_axis)
         require_axis(daf, "for the columns of the matrix: $(name)", columns_axis)
@@ -988,12 +983,12 @@ function require_no_matrix(
 )::Nothing
     @assert Formats.has_data_read_lock(daf)
     if Formats.format_has_cached_matrix(daf, rows_axis, columns_axis, name)
-        error(dedent("""
+        error("""
             existing matrix: $(name)
             for the rows axis: $(rows_axis)
             and the columns axis: $(columns_axis)
             in the daf data: $(daf.name)
-        """))
+            """)
     end
     if relayout
         require_no_matrix(daf, columns_axis, rows_axis, name; relayout = false)
@@ -1003,11 +998,11 @@ end
 
 function require_not_reserved(daf::DafReader, axis::AbstractString, name::AbstractString)::Nothing
     if name == "name" || name == "index"
-        error(dedent("""
+        error("""
             setting the reserved vector: $(name)
             for the axis: $(axis)
             in the daf data: $(daf.name)
-        """))
+            """)
     end
     return nothing
 end

@@ -1,12 +1,7 @@
 using Test
 
-using Base: elsize
 using Base.MathConstants
 using DataAxesFormats
-using DataAxesFormats.GenericFunctions
-using DataAxesFormats.GenericLogging
-using DataAxesFormats.GenericStorage
-using DataAxesFormats.GenericTypes
 using ExceptionUnwrapping
 using HDF5
 using LinearAlgebra
@@ -15,8 +10,7 @@ using Muon
 using NamedArrays
 using NestedTests
 using SparseArrays
-using Statistics
-using TestContexts
+using TanayLabUtilities
 
 import Random
 
@@ -25,8 +19,7 @@ setup_logger(; level = Info)
 test_prefixes(ARGS)
 
 Random.seed!(123456)
-
-inefficient_action_handler(ErrorHandler)
+TanayLabUtilities.MatrixLayouts.GLOBAL_INEFFICIENT_ACTION_HANDLER = ErrorHandler
 abort_on_first_failure(true)
 
 function with_unwrapping_exceptions(action::Function)::Any
@@ -49,9 +42,6 @@ function with_unwrapping_exceptions(action::Function)::Any
     end
 end
 
-include("generic_storage.jl")
-include("matrix_layouts.jl")
-include("messages.jl")
 include("read_only.jl")
 include("data.jl")
 include("anndata.jl")
