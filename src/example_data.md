@@ -7,7 +7,8 @@ DataAxesFormats.ExampleData
 ## Example Storage
 
 ```@docs
-DataAxesFormats.ExampleData.example_daf
+DataAxesFormats.ExampleData.example_cells_daf
+DataAxesFormats.ExampleData.example_metacells_daf
 ```
 
 ## Index
