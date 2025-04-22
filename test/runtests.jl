@@ -2,6 +2,7 @@ using Test
 
 using Base.MathConstants
 using DataAxesFormats
+using Documenter
 using ExceptionUnwrapping
 using HDF5
 using LinearAlgebra
@@ -42,6 +43,11 @@ function with_unwrapping_exceptions(action::Function)::Any
     end
 end
 
+@testset "doctests" begin
+    DocMeta.setdocmeta!(DataAxesFormats, :DocTestSetup, :(using DataAxesFormats); recursive = true)
+    return doctest(DataAxesFormats; manual = false)
+end
+
 include("read_only.jl")
 include("data.jl")
 include("anndata.jl")
@@ -59,3 +65,4 @@ include("concat.jl")
 include("adapters.jl")
 include("groups.jl")
 include("example_data.jl")
+include("old_example_data.jl")

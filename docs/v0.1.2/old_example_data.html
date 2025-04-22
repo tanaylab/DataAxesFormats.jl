@@ -5,11 +5,11 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Memory Format · DataAxesFormats.jl v0.1.2
+<title>Old Example data · DataAxesFormats.jl v0.1.2
 </title>
-<meta name="title" content="Memory Format · DataAxesFormats.jl v0.1.2"/>
-<meta property="og:title" content="Memory Format · DataAxesFormats.jl v0.1.2"/>
-<meta property="twitter:title" content="Memory Format · DataAxesFormats.jl v0.1.2"/>
+<meta name="title" content="Old Example data · DataAxesFormats.jl v0.1.2"/>
+<meta property="og:title" content="Old Example data · DataAxesFormats.jl v0.1.2"/>
+<meta property="twitter:title" content="Old Example data · DataAxesFormats.jl v0.1.2"/>
 <meta name="description" content="Documentation for DataAxesFormats.jl v0.1.2."/>
 <meta property="og:description" content="Documentation for DataAxesFormats.jl v0.1.2."/>
 <meta property="twitter:description" content="Documentation for DataAxesFormats.jl v0.1.2."/>
@@ -115,17 +115,9 @@
 <a class="tocitem" href="keys.html">Keys
 </a>
 </li>
-<li class="is-active">
+<li>
 <a class="tocitem" href="memory_format.html">Memory Format
 </a>
-<ul class="internal">
-<li>
-<a class="tocitem" href="#Index">
-<span>Index
-</span>
-</a>
-</li>
-</ul>
 </li>
 <li>
 <a class="tocitem" href="h5df_format.html">H5DF Format
@@ -163,9 +155,23 @@
 <a class="tocitem" href="example_data.html">Example data
 </a>
 </li>
-<li>
+<li class="is-active">
 <a class="tocitem" href="old_example_data.html">Old Example data
 </a>
+<ul class="internal">
+<li>
+<a class="tocitem" href="#Example-Storage">
+<span>Example Storage
+</span>
+</a>
+</li>
+<li>
+<a class="tocitem" href="#Index">
+<span>Index
+</span>
+</a>
+</li>
+</ul>
 </li>
 </ul>
 <div class="docs-version-selector field has-addons">
@@ -188,13 +194,13 @@
 <nav class="breadcrumb">
 <ul class="is-hidden-mobile">
 <li class="is-active">
-<a href="memory_format.html">Memory Format
+<a href="old_example_data.html">Old Example data
 </a>
 </li>
 </ul>
 <ul class="is-hidden-tablet">
 <li class="is-active">
-<a href="memory_format.html">Memory Format
+<a href="old_example_data.html">Old Example data
 </a>
 </li>
 </ul>
@@ -213,20 +219,20 @@
 </div>
 </header>
 <article class="content" id="documenter-page">
-<h1 id="Memory-Format">
-<a class="docs-heading-anchor" href="#Memory-Format">Memory Format
+<h1 id="Old-Example-data">
+<a class="docs-heading-anchor" href="#Old-Example-data">Old Example data
 </a>
-<a id="Memory-Format-1">
+<a id="Old-Example-data-1">
 </a>
-<a class="docs-heading-anchor-permalink" href="#Memory-Format" title="Permalink">
+<a class="docs-heading-anchor-permalink" href="#Old-Example-data" title="Permalink">
 </a>
 </h1>
 <article class="docstring">
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DataAxesFormats.MemoryFormat" href="#DataAxesFormats.MemoryFormat">
-<code>DataAxesFormats.MemoryFormat
+<a class="docstring-binding" id="DataAxesFormats.OldExampleData" href="#DataAxesFormats.OldExampleData">
+<code>DataAxesFormats.OldExampleData
 </code>
 </a> — 
 <span class="docstring-category">Module
@@ -236,41 +242,39 @@
 </header>
 <section>
 <div>
-<p>In-memory 
-<code>Daf
-</code> storage format.
+<p>Example data for doctest tests.
 </p>
 </div>
 </section>
 </article>
+<h2 id="Example-Storage">
+<a class="docs-heading-anchor" href="#Example-Storage">Example Storage
+</a>
+<a id="Example-Storage-1">
+</a>
+<a class="docs-heading-anchor-permalink" href="#Example-Storage" title="Permalink">
+</a>
+</h2>
 <article class="docstring">
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DataAxesFormats.MemoryFormat.MemoryDaf" href="#DataAxesFormats.MemoryFormat.MemoryDaf">
-<code>DataAxesFormats.MemoryFormat.MemoryDaf
+<a class="docstring-binding" id="DataAxesFormats.OldExampleData.example_daf" href="#DataAxesFormats.OldExampleData.example_daf">
+<code>DataAxesFormats.OldExampleData.example_daf
 </code>
 </a> — 
-<span class="docstring-category">Type
+<span class="docstring-category">Function
 </span>
 <span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
 </span>
 </header>
 <section>
 <div>
-<pre>
-<code class="language-julia hljs">struct MemoryDaf &lt;: DafWriter ... end
-
-MemoryDaf(; name = &quot;memory&quot;)
+<p>Create an example 
+<a href="memory_format.html#DataAxesFormats.MemoryFormat.MemoryDaf">
+<code>MemoryDaf
 </code>
-</pre>
-<p>Simple in-memory storage.
-</p>
-<p>This just keeps everything in-memory, similarly to the way an 
-<code>AnnData
-</code> object works; that is, this is a lightweight object that just keeps references to the data it is given.
-</p>
-<p>This is the &quot;default&quot; storage type you should use, unless you need to persist the data on the disk.
+</a> to use for doctest tests.
 </p>
 </div>
 </section>
@@ -285,23 +289,21 @@ MemoryDaf(; name = &quot;memory&quot;)
 </h2>
 <ul>
 <li>
-<a href="memory_format.html#DataAxesFormats.MemoryFormat">
-<code>DataAxesFormats.MemoryFormat
+<a href="old_example_data.html#DataAxesFormats.OldExampleData">
+<code>DataAxesFormats.OldExampleData
 </code>
 </a>
 </li>
 <li>
-<a href="memory_format.html#DataAxesFormats.MemoryFormat.MemoryDaf">
-<code>DataAxesFormats.MemoryFormat.MemoryDaf
+<a href="old_example_data.html#DataAxesFormats.OldExampleData.example_daf">
+<code>DataAxesFormats.OldExampleData.example_daf
 </code>
 </a>
 </li>
 </ul>
 </article>
 <nav class="docs-footer">
-<a class="docs-footer-prevpage" href="keys.html">« Keys
-</a>
-<a class="docs-footer-nextpage" href="h5df_format.html">H5DF Format »
+<a class="docs-footer-prevpage" href="example_data.html">« Example data
 </a>
 <div class="flexbox-break">
 </div>

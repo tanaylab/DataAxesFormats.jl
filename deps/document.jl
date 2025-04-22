@@ -72,6 +72,7 @@ makedocs(;
         "storage_types.md",
         "groups.md",
         "example_data.md",
+        "old_example_data.md",
     ],
 )
 

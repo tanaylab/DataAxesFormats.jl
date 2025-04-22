@@ -128,4 +128,7 @@ include("adapters.jl")
 include("example_data.jl")
 @reexport using .ExampleData
 
+include("old_example_data.jl")
+@reexport using .OldExampleData
+
 end  # module

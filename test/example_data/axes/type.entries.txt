@@ -1,0 +1,4 @@
+MEBEMP-E
+MEBEMP-L
+MPP
+memory-B
