@@ -8,7 +8,13 @@ function get_result(
     @test is_axis_query(query) == is_axis
     @test has_query(daf, query)
     @test query_requires_relayout(daf, query) == requires_relayout
-    value = get_query(daf, query; cache = cache)
+
+    if is_axis
+        value = query |> get_query(daf; cache)
+    else
+        value = get_query(daf, query; cache)
+    end
+
     if value isa AbstractSet{<:AbstractString}
         @test query_result_dimensions(query) == -1
         names = collect(value)

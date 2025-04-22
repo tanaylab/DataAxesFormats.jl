@@ -43,7 +43,7 @@ function with_unwrapping_exceptions(action::Function)::Any
     end
 end
 
-@testset "doctests" begin
+nested_test("doctests") do
     DocMeta.setdocmeta!(DataAxesFormats, :DocTestSetup, :(using DataAxesFormats); recursive = true)
     return doctest(DataAxesFormats; manual = false)
 end

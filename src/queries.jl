@@ -82,15 +82,16 @@ sequence of [`QueryOperation`](@ref), that when applied one at a time on some [`
 vector or matrix result.
 
 To apply a query, invoke [`get_query`](@ref) to apply a query to some [`DafReader`](@ref) data (you can also use the
-shorthand ``daf[query]`` instead of ``get_query(daf, query)``). By default, query operations will cache their results in
-memory as [`QueryData`](@ref CacheGroup), to speed up repeated queries. This may lock up large amounts of memory; you can
-[`empty_cache!`](@ref) to release it.
+shorthand `daf[query]` instead of `get_query(daf, query)` and also write `query |> get_query(daf)` which is useful
+when constructing a query from parts using `|>`). By default, [`get_query`](@ref) will cache their results in memory
+as [`QueryData`](@ref CacheGroup), to speed up repeated queries. This may lock up large amounts of memory. Using
+`daf[query]` does not cache the results; you can also use [`empty_cache!`](@ref) to release the memory.
 
 Queries can be constructed in two ways. In code, a query can be built by chaining query operations (e.g., the expression
-`Axis("gene") |> Lookup("is_marker")` looks up the `is_marker` vector property of the `gene` axis).
+`Axis("gene") |> Lookup("is_marker") |> get_query(daf)` looks up the `is_marker` vector property of the `gene` axis).
 
 Alternatively, a query can be parsed from a string, which needs to be parsed into a [`Query`](@ref) object (e.g., the
-above can be written as `Query("/gene:is_marker")`). See the [`QUERY_OPERATORS`](@ref) for a table of supported
+above can be written as `daf["/gene:is_marker"]`). See the [`QUERY_OPERATORS`](@ref) for a table of supported
 operators. Spaces (and comments) around the operators are optional; see [`tokenize`](@ref) for details. You can also
 convert a [`Query`](@ref) to a `string` (or `print` it, etc.) to see its representation. This is used for `error`
 messages and as a key when caching query results.
@@ -121,15 +122,15 @@ work). For the full list of valid combinations, see [`NAMES_QUERY`](@ref), [`SCA
 !!! note
 
     This has started as a very simple query language (which it still is, for the simple cases) but became complex to
-    allow for useful but complicated scenarios. In particular, the approach here of using a concatenative language
-    (similar to `ggplot`) makes simple things simpler, but becames somewhat unnatural and restrictive for some of the
-    more advanced operations. However, using an RPN or a LISP notation to better support such cases would have ended up
-    with a much less nice syntax for the simple cases.
+    allow for useful but complex scenarios. In particular, the approach here of using a concatenative language (similar
+    to `ggplot`) makes simple things simpler, but became less unnatural for some of the more advanced operations.
+    However, using an RPN or a LISP notation to better support such cases would have ended up with a much less nice
+    syntax for the simple cases.
 
-    Hopefully we have covered sufficient ground so that we won't need to add further operations. Also, In most cases,
-    you can write code that accesses the vectors/matrix data and performs whatever computation you want instead of
-    writing a complex query; however, this isn't an option when defining views or adapters, which rely on the query
-    mechanism for specifying the data.
+    Hopefully we have covered sufficient ground so that we won't need to add further operations (except for more
+    element-wise and reduction operations). In most cases, you can write code that accesses the vectors/matrix data and
+    performs whatever computation you want instead of writing a complex query; however, this isn't an option when
+    defining views or adapters, which rely on the query mechanism for specifying the data.
 """
 abstract type Query <: QueryOperation end
 
@@ -1758,6 +1759,14 @@ function Base.getindex(
     return get_query(daf, query; cache = false)
 end
 
+function Base.:(|>)(
+    query::QueryString,
+    daf_cache::Tuple{DafReader, Bool},
+)::Union{AbstractSet{<:AbstractString}, AbstractVector{<:AbstractString}, StorageScalar, NamedArray}
+    daf, cache = daf_cache
+    return get_query(daf, query; cache)
+end
+
 """
     get_query(
         daf::DafReader,
@@ -1765,12 +1774,19 @@ end
         [cache::Bool = true]
     )::Union{StorageScalar, NamedVector, NamedMatrix}
 
+    get_query(
+        daf::DafReader;
+        cache::Bool = true,
+    )
+
 Apply the full `query` to the `Daf` data and return the result. By default, this will cache results, so repeated queries
 will be accelerated. This may consume a large amount of memory. You can disable it by specifying `cache = false`, or
 release the cached data using [`empty_cache!`](@ref).
 
 As a shorthand syntax you can also invoke this using `getindex`, that is, using the `[]` operator (e.g.,
-`daf[q"/ cell"]` is equivalent to `get_query(daf, q"/ cell")`).
+`daf[q"/ cell"]` is equivalent to `get_query(daf, q"/ cell"; cache = false)`). Finally, you can use `|>` to
+invoke the query, which is especially useful when constructing it from the operations `Axis("cell") |> get_query(daf)`
+or even `"/ cell" |> get_query(daf)`.
 
 !!! note
 
@@ -1778,6 +1794,10 @@ As a shorthand syntax you can also invoke this using `getindex`, that is, using 
     mostly used for one-off queries (and in interactive sessions, etc.) while `get_query` is used for more "fundamental"
     queries that are expected to be re-used.
 """
+function get_query(daf::DafReader; cache::Bool = true)::Tuple{DafReader, Bool}
+    return (daf, cache)
+end
+
 function get_query(
     daf::DafReader,
     query_string::AbstractString;
