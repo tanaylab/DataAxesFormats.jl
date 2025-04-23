@@ -8,8 +8,18 @@ language_server.global_env.symbols = symbols
 language_server.global_env.extended_methods = SymbolServer.collect_extended_methods(language_server.global_env.symbols)
 language_server.global_env.project_deps = collect(keys(language_server.global_env.symbols))
 
-file = StaticLint.loadfile(language_server, abspath("src/DataAxesFormats.jl"))
-StaticLint.semantic_pass(LanguageServer.getroot(file))
+root_file = nothing
+for file_name in readdir("src")
+    if endswith(file_name, ".jl")
+        file = StaticLint.loadfile(language_server, abspath("src/$(file_name)"))
+        if file_name == "DataAxesFormats.jl"
+            global root_file
+            root_file = file
+        end
+    end
+end
+@assert root_file !== nothing
+StaticLint.semantic_pass(LanguageServer.getroot(root_file))
 
 global errors = 0
 global skipped = 0
