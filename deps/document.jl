@@ -65,6 +65,7 @@ makedocs(;
         "memory_format.md",
         "h5df_format.md",
         "files_format.md",
+        "complete.md",
         "anndata_format.md",
         "reconstruction.md",
         "registry.md",
