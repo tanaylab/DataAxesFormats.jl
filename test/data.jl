@@ -3178,13 +3178,13 @@ nested_test("data") do
                     @test_logs (
                         :warn,
                         """
-         unsafe HDF5 file alignment for Daf: (1, 1)
-         the safe HDF5 file alignment is: (1, 8)
-         note that unaligned data is inefficient,
-         and will break the empty_* functions;
-         to force the alignment, create the file using:
-         h5open(...;fapl=HDF5.FileAccessProperties(;alignment=(1,8))
-         """,
+                        unsafe HDF5 file alignment for Daf: (1, 1)
+                        the safe HDF5 file alignment is: (1, 8)
+                        note that unaligned data is inefficient,
+                        and will break the empty_* functions;
+                        to force the alignment, create the file using:
+                        h5open(...;fapl=HDF5.FileAccessProperties(;alignment=(1,8))
+                        """,
                     ) H5df(h5file, "w+"; name = "h5df!")
                     delete_object(h5file, "daf")
                     h5file["daf"] = [UInt(2), UInt(0)]
@@ -3220,20 +3220,24 @@ nested_test("data") do
 
         nested_test("nested") do
             mktempdir() do path
-                h5open(path * "/test.h5df", "w"; fapl = HDF5.FileAccessProperties(; alignment = (1, 8))) do h5file
+                h5open(path * "/test.h5dfs", "w"; fapl = HDF5.FileAccessProperties(; alignment = (1, 8))) do h5file
                     HDF5.create_group(h5file, "root")
-                    daf = H5df(h5file["root"], "w+")
-                    @test string(daf) == "H5df $(path)/test.h5df:/root"
-                    @test string(read_only(daf)) == "ReadOnly H5df $(path)/test.h5df:/root.read_only"
-                    @test string(read_only(daf; name = "renamed!")) == "ReadOnly H5df renamed!"
-                    @test description(daf) == """
-                        name: $(path)/test.h5df:/root
-                        type: H5df
-                        root: HDF5.Group: /root (file: $(path)/test.h5df)
-                        mode: w+
-                        """
-                    test_format(daf)
+                    return nothing
+                end
 
+                daf = H5df(path * "/test.h5dfs#/root", "w")
+                @test string(daf) == "H5df $(path)/test.h5dfs#/root"
+                @test string(read_only(daf)) == "ReadOnly H5df $(path)/test.h5dfs#/root.read_only"
+                @test string(read_only(daf; name = "renamed!")) == "ReadOnly H5df renamed!"
+                @test description(daf) == """
+                    name: $(path)/test.h5dfs#/root
+                    type: H5df
+                    root: HDF5.Group: /root (file: $(path)/test.h5dfs)
+                    mode: w+
+                    """
+                test_format(daf)
+
+                h5open(path * "/test.h5dfs", "r+"; fapl = HDF5.FileAccessProperties(; alignment = (1, 8))) do h5file
                     attributes(h5file["root"])["will_be_deleted"] = 1
                     @test length(attributes(h5file["root"])) == 1
 
@@ -3247,6 +3251,8 @@ nested_test("data") do
                     @test length(attributes(h5file["root"])) == 0
                     return nothing
                 end
+
+                return nothing
             end
         end
     end

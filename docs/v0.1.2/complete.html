@@ -5,11 +5,11 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Read-only · DataAxesFormats.jl v0.1.2
+<title>Complete Repositories · DataAxesFormats.jl v0.1.2
 </title>
-<meta name="title" content="Read-only · DataAxesFormats.jl v0.1.2"/>
-<meta property="og:title" content="Read-only · DataAxesFormats.jl v0.1.2"/>
-<meta property="twitter:title" content="Read-only · DataAxesFormats.jl v0.1.2"/>
+<meta name="title" content="Complete Repositories · DataAxesFormats.jl v0.1.2"/>
+<meta property="og:title" content="Complete Repositories · DataAxesFormats.jl v0.1.2"/>
+<meta property="twitter:title" content="Complete Repositories · DataAxesFormats.jl v0.1.2"/>
 <meta name="description" content="Documentation for DataAxesFormats.jl v0.1.2."/>
 <meta property="og:description" content="Documentation for DataAxesFormats.jl v0.1.2."/>
 <meta property="twitter:description" content="Documentation for DataAxesFormats.jl v0.1.2."/>
@@ -67,17 +67,9 @@
 <a class="tocitem" href="writers.html">Writers
 </a>
 </li>
-<li class="is-active">
+<li>
 <a class="tocitem" href="read_only.html">Read-only
 </a>
-<ul class="internal">
-<li>
-<a class="tocitem" href="#Index">
-<span>Index
-</span>
-</a>
-</li>
-</ul>
 </li>
 <li>
 <a class="tocitem" href="queries.html">Queries
@@ -135,9 +127,17 @@
 <a class="tocitem" href="files_format.html">Files Format
 </a>
 </li>
-<li>
+<li class="is-active">
 <a class="tocitem" href="complete.html">Complete Repositories
 </a>
+<ul class="internal">
+<li>
+<a class="tocitem" href="#Index">
+<span>Index
+</span>
+</a>
+</li>
+</ul>
 </li>
 <li>
 <a class="tocitem" href="anndata_format.html">AnnData Format
@@ -192,13 +192,13 @@
 <nav class="breadcrumb">
 <ul class="is-hidden-mobile">
 <li class="is-active">
-<a href="read_only.html">Read-only
+<a href="complete.html">Complete Repositories
 </a>
 </li>
 </ul>
 <ul class="is-hidden-tablet">
 <li class="is-active">
-<a href="read_only.html">Read-only
+<a href="complete.html">Complete Repositories
 </a>
 </li>
 </ul>
@@ -217,20 +217,20 @@
 </div>
 </header>
 <article class="content" id="documenter-page">
-<h1 id="Read-only">
-<a class="docs-heading-anchor" href="#Read-only">Read-only
+<h1 id="Complete-Repositories">
+<a class="docs-heading-anchor" href="#Complete-Repositories">Complete Repositories
 </a>
-<a id="Read-only-1">
+<a id="Complete-Repositories-1">
 </a>
-<a class="docs-heading-anchor-permalink" href="#Read-only" title="Permalink">
+<a class="docs-heading-anchor-permalink" href="#Complete-Repositories" title="Permalink">
 </a>
 </h1>
 <article class="docstring">
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DataAxesFormats.ReadOnly" href="#DataAxesFormats.ReadOnly">
-<code>DataAxesFormats.ReadOnly
+<a class="docstring-binding" id="DataAxesFormats.CompleteDaf" href="#DataAxesFormats.CompleteDaf">
+<code>DataAxesFormats.CompleteDaf
 </code>
 </a> — 
 <span class="docstring-category">Module
@@ -240,9 +240,21 @@
 </header>
 <section>
 <div>
-<p>Read-only 
+<p>The common idiom in 
 <code>Daf
-</code> storage format.
+</code> is to have multiple repositories in a chain; actually, they typically form a tree where different leaf repositories are based on common ancestor repositories. For example, a base cells repository can be used by multiple alternative metacells repositories.
+</p>
+<p>Tracking this tree manually is possible, by using naming conventions (which is always a good idea). However, this gets tedious. The code here automates this by using an additional convention - each repository contains a scalar property called 
+<code>base_daf_repository
+</code> which identifies its parent repository (if any). This path is relative to the directory containing the child repository. See 
+<a href="complete.html#DataAxesFormats.CompleteDaf.open_daf">
+<code>open_daf
+</code>
+</a> for details.
+</p>
+<p>Since the same base repository can be used by multiple other repositories, we use the 
+<code>GlobalWeakCache
+</code> to avoid needlessly re-opening the same repository more than once.
 </p>
 </div>
 </section>
@@ -251,32 +263,8 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DataAxesFormats.ReadOnly.DafReadOnly" href="#DataAxesFormats.ReadOnly.DafReadOnly">
-<code>DataAxesFormats.ReadOnly.DafReadOnly
-</code>
-</a> — 
-<span class="docstring-category">Type
-</span>
-<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
-</span>
-</header>
-<section>
-<div>
-<p>A common base type for a read-only 
-<a href="formats.html#DataAxesFormats.Formats.DafReader">
-<code>DafReader
-</code>
-</a>, which doesn&#39;t allow any modification of the data.
-</p>
-</div>
-</section>
-</article>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
-<a class="docstring-binding" id="DataAxesFormats.ReadOnly.read_only" href="#DataAxesFormats.ReadOnly.read_only">
-<code>DataAxesFormats.ReadOnly.read_only
+<a class="docstring-binding" id="DataAxesFormats.CompleteDaf.complete_daf" href="#DataAxesFormats.CompleteDaf.complete_daf">
+<code>DataAxesFormats.CompleteDaf.complete_daf
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -287,28 +275,14 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">read_only(daf::DafReader[; name::Maybe{AbstractString]} = nothing)::DafReadOnlyWrapper
+<code class="language-julia hljs">complete_daf(leaf::AbstractString, mode::AbstractString = &quot;r&quot;; name::Maybe{AbstractString} = nothing)::Union{DafReader, DafWriter}
 </code>
 </pre>
-<p>Wrap 
-<code>daf
-</code> with a 
-<a href="read_only.html#DataAxesFormats.ReadOnly.DafReadOnlyWrapper">
-<code>DafReadOnlyWrapper
-</code>
-</a> to protect it against accidental modification. If not specified, the 
-<code>name
-</code> of the 
-<code>daf
-</code> is reused. If 
-<code>name
-</code> is not specified and 
-<code>daf
-</code> isa 
-<a href="read_only.html#DataAxesFormats.ReadOnly.DafReadOnly">
-<code>DafReadOnly
-</code>
-</a>, return it as-is.
+<p>Open a complete chain of 
+<code>Daf
+</code> repositories by tracing back through the 
+<code>base_daf_repository
+</code>. Valid modes are only &quot;r&quot; and &quot;r+&quot;; if the latter, only the first (leaf) repository is opened in write mode.
 </p>
 </div>
 </section>
@@ -317,11 +291,11 @@
 <header>
 <a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
 </a>
-<a class="docstring-binding" id="DataAxesFormats.ReadOnly.DafReadOnlyWrapper" href="#DataAxesFormats.ReadOnly.DafReadOnlyWrapper">
-<code>DataAxesFormats.ReadOnly.DafReadOnlyWrapper
+<a class="docstring-binding" id="DataAxesFormats.CompleteDaf.open_daf" href="#DataAxesFormats.CompleteDaf.open_daf">
+<code>DataAxesFormats.CompleteDaf.open_daf
 </code>
 </a> — 
-<span class="docstring-category">Type
+<span class="docstring-category">Function
 </span>
 <span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
 </span>
@@ -329,18 +303,38 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">struct DafReadOnlyWrapper &lt;: DafReader ... end
+<code class="language-julia hljs">open_daf(
+    path::AbstractString,
+    mode::AbstractString = &quot;r&quot;;
+    name::Maybe{AbstractString} = nothing
+)::Union{DafReader, DafWriter}
 </code>
 </pre>
-<p>A wrapper for any 
-<a href="formats.html#DataAxesFormats.Formats.DafWriter">
-<code>DafWriter
+<p>Open either a 
+<a href="files_format.html#DataAxesFormats.FilesFormat.FilesDaf">
+<code>FilesDaf
 </code>
-</a> data, protecting it against accidental modification. This isn&#39;t exported and isn&#39;t created manually; instead call 
-<a href="read_only.html#DataAxesFormats.ReadOnly.read_only">
-<code>read_only
+</a> or an 
+<a href="h5df_format.html#DataAxesFormats.H5dfFormat.H5df">
+<code>H5df
 </code>
-</a>.
+</a>. If the 
+<code>path
+</code> ends with 
+<code>.h5df
+</code> or contains 
+<code>.h5dfs#
+</code> (followed by a group path), then it opens an 
+<a href="h5df_format.html#DataAxesFormats.H5dfFormat">
+<code>H5dfFormat
+</code>
+</a> file (or a group in one). Otherwise, it opens a 
+<a href="files_format.html#DataAxesFormats.FilesFormat">
+<code>FilesFormat
+</code>
+</a> 
+<code>Daf
+</code>.
 </p>
 </div>
 </section>
@@ -355,35 +349,29 @@
 </h2>
 <ul>
 <li>
-<a href="read_only.html#DataAxesFormats.ReadOnly">
-<code>DataAxesFormats.ReadOnly
+<a href="complete.html#DataAxesFormats.CompleteDaf">
+<code>DataAxesFormats.CompleteDaf
 </code>
 </a>
 </li>
 <li>
-<a href="read_only.html#DataAxesFormats.ReadOnly.DafReadOnly">
-<code>DataAxesFormats.ReadOnly.DafReadOnly
+<a href="complete.html#DataAxesFormats.CompleteDaf.complete_daf">
+<code>DataAxesFormats.CompleteDaf.complete_daf
 </code>
 </a>
 </li>
 <li>
-<a href="read_only.html#DataAxesFormats.ReadOnly.DafReadOnlyWrapper">
-<code>DataAxesFormats.ReadOnly.DafReadOnlyWrapper
-</code>
-</a>
-</li>
-<li>
-<a href="read_only.html#DataAxesFormats.ReadOnly.read_only">
-<code>DataAxesFormats.ReadOnly.read_only
+<a href="complete.html#DataAxesFormats.CompleteDaf.open_daf">
+<code>DataAxesFormats.CompleteDaf.open_daf
 </code>
 </a>
 </li>
 </ul>
 </article>
 <nav class="docs-footer">
-<a class="docs-footer-prevpage" href="writers.html">« Writers
+<a class="docs-footer-prevpage" href="files_format.html">« Files Format
 </a>
-<a class="docs-footer-nextpage" href="queries.html">Queries »
+<a class="docs-footer-nextpage" href="anndata_format.html">AnnData Format »
 </a>
 <div class="flexbox-break">
 </div>

@@ -142,12 +142,16 @@ which cases the `Daf` data set will be stored directly in the root of the file (
 suffix). Alternatively, the `root` can be a group inside an HDF5 file, which allows to store multiple `Daf` data sets
 inside the same HDF5 file (by convention, using a `.h5dfs` file name suffix).
 
-As a shorthand, you can also specify a `root` which is the path of the HDF5 file followed by `//` followed by the path
-of the group. An advantage of this is that we'll use the `GlobalWeakCache` to hold on to the opened HDF5 file and reuse
-it when opening other repositories.
+As a shorthand, you can also specify a `root` which is the path of a HDF5 file with a `.h5dfs` suffix, followed by `#`
+and the path of the group in the file.
+
+!!! note
+
+    If you create a directory whose name is `something.h5dfs#` and place `Daf` HDF5 files in it, this scheme will fail.
+    So don't.
 
 When opening an existing data set, if `name` is not specified, and there exists a "name" scalar property, it is used as
-the name. Otherwise, the path of the HDF5 file will be used as the name, followed by `//` and the internal path of the
+the name. Otherwise, the path of the HDF5 file will be used as the name, followed by `#` and the internal path of the
 group (if any).
 
 The valid `mode` values are as follows (the default mode is `r`):
@@ -159,7 +163,7 @@ The valid `mode` values are as follows (the default mode is `r`):
 | `w+` | Yes                  | Yes                       | No                  | [`H5df`](@ref)        |
 | `w`  | Yes                  | Yes                       | Yes                 | [`H5df`](@ref)        |
 
-If the `root` is a path followed by `//` and a group, then `w` mode will *not* truncate the whole file if it exists;
+If the `root` is a path followed by `#` and a group, then `w` mode will *not* truncate the whole file if it exists;
 instead, it will only truncate the group.
 
 !!! note
@@ -182,24 +186,26 @@ function H5df(
     (is_read_only, create_if_missing, truncate_if_exists) = Formats.parse_mode(mode)
 
     if root isa AbstractString
-        parts = split(root, "//")
+        parts = split(root, ".h5dfs#/")
         if length(parts) == 1
             group = nothing
         else
+            @assert length(parts) == 2 "can't parse as <file-path>.h5dfs#/<group-path>: $(root)"
             root, group = parts
+            root *= ".h5dfs"
         end
 
-        key = (:daf, :hdf5, root, is_read_only ? "r" : "w")
+        key = (:daf, :hdf5, is_read_only ? "r" : "r+")
         if !truncate_if_exists
             purge = false
         elseif group === nothing
-            purge =  true
+            purge = true  # UNTESTED
         else
             mode = "w+"
             purge = false
         end
 
-        root = get_through_global_weak_cache(key; purge) do _
+        root = get_through_global_weak_cache(abspath(root), key; purge) do _
             return h5open(root, mode == "w+" ? "cw" : mode; fapl = HDF5.FileAccessProperties(; alignment = (1, 8)))  # NOJET
         end
 
@@ -210,8 +216,8 @@ function H5df(
                     create_group(root, group)
                 end
             else
-                if create_if_missing
-                    create_group(root, group)
+                if create_if_missing  # UNTESTED
+                    create_group(root, group)  # UNTESTED
                 end
             end
             root = root[group]
@@ -248,7 +254,7 @@ function H5df(
 
     if name === nothing
         if root isa HDF5.Group
-            name = "$(root.file.filename):$(HDF5.name(root))"
+            name = "$(root.file.filename)#$(HDF5.name(root))"
         else
             @assert root isa HDF5.File
             name = root.filename
@@ -267,13 +273,13 @@ end
 
 function group_exists(h5file::HDF5.File, path::AbstractString)
     try
-        h5file[path]
+        h5file[path]  # NOJET
         return true
     catch exception
-        if isa(exception, KeyError)
-            return false
+        if isa(exception, KeyError)  # UNTESTED
+            return false  # UNTESTED
         else
-            rethrow(exception)
+            rethrow(exception)  # UNTESTED
         end
     end
 end

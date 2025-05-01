@@ -454,7 +454,8 @@ function Formats.format_delete_vector!(
 )::Nothing
     @assert Formats.has_data_write_lock(files)
     for suffix in (".json", ".data", ".nzind", ".nzval")
-        rm("$(files.path)/vectors/$(axis)/$(name)$(suffix)"; force = true)
+        path = "$(files.path)/vectors/$(axis)/$(name)$(suffix)"
+        rm(path; force = true)
     end
 end
 
@@ -641,7 +642,8 @@ function Formats.format_delete_matrix!(
 )::Nothing
     @assert Formats.has_data_write_lock(files)
     for suffix in (".json", ".data", ".colptr", ".rowval", "nzval")
-        rm("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name)$(suffix)"; force = true)
+        path = "$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name)$(suffix)"
+        rm(path; force = true)
     end
     return nothing
 end
@@ -721,12 +723,15 @@ function get_names_set(path::AbstractString, suffix::AbstractString)::AbstractSe
 end
 
 function mmap_file_lines(path::AbstractString)::AbstractVector{<:AbstractString}
-    size = filesize(path)
-    text = StringView(mmap_file_data(path, Vector{UInt8}, size, "r"))
-    lines = split(text, "\n")
-    last_line = pop!(lines)
-    @assert last_line == ""
-    return lines
+    key = (:daf, :mmap_lines, "r")
+    return get_through_global_weak_cache(abspath(path), key) do _
+        size = filesize(path)
+        text = StringView(mmap_file_data(path, Vector{UInt8}, size, "r"))
+        lines = split(text, "\n")
+        last_line = pop!(lines)
+        @assert last_line == ""
+        return lines
+    end
 end
 
 function mmap_file_data(
@@ -735,8 +740,12 @@ function mmap_file_data(
     size::Union{Integer, Tuple{<:Integer, <:Integer}},
     mode::AbstractString,
 )::T where {T <: Union{StorageVector, StorageMatrix}}
-    return open(path, mode) do file
-        return mmap(file, T, size)  # NOJET
+    @assert mode in ("r", "r+")
+    key = (:daf, :mmap_data, mode)
+    return get_through_global_weak_cache(abspath(path), key) do _
+        return open(path, mode) do file  # NOJET
+            return mmap(file, T, size)  # NOJET
+        end
     end
 end
 

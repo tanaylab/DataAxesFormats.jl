@@ -136,6 +136,10 @@
 </a>
 </li>
 <li>
+<a class="tocitem" href="complete.html">Complete Repositories
+</a>
+</li>
+<li>
 <a class="tocitem" href="anndata_format.html">AnnData Format
 </a>
 </li>
@@ -550,9 +554,31 @@
 <code>.h5dfs
 </code> file name suffix).
 </p>
+<p>As a shorthand, you can also specify a 
+<code>root
+</code> which is the path of a HDF5 file with a 
+<code>.h5dfs
+</code> suffix, followed by 
+<code>#
+</code> and the path of the group in the file.
+</p>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>If you create a directory whose name is 
+<code>something.h5dfs#
+</code> and place 
+<code>Daf
+</code> HDF5 files in it, this scheme will fail. So don&#39;t.
+</p>
+</div>
+</div>
 <p>When opening an existing data set, if 
 <code>name
-</code> is not specified, and there exists a &quot;name&quot; scalar property, it is used as the name. Otherwise, the path of the HDF5 file will be used as the name, followed by the internal path of the group (if any).
+</code> is not specified, and there exists a &quot;name&quot; scalar property, it is used as the name. Otherwise, the path of the HDF5 file will be used as the name, followed by 
+<code>#
+</code> and the internal path of the group (if any).
 </p>
 <p>The valid 
 <code>mode
@@ -646,6 +672,16 @@
 </td>
 </tr>
 </table>
+<p>If the 
+<code>root
+</code> is a path followed by 
+<code>#
+</code> and a group, then 
+<code>w
+</code> mode will 
+<em>not
+</em> truncate the whole file if it exists; instead, it will only truncate the group.
+</p>
 <div class="admonition is-info">
 <header class="admonition-header">Note
 </header>
