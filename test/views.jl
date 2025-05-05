@@ -333,9 +333,23 @@ nested_test("views") do
         set_matrix!(daf, "gene", "cell", "U_is_high", [true false; false true; true false]; relayout = false)
         set_matrix!(daf, "gene", "cell", "V_is_high", [true true; false false; true false]; relayout = false)
 
-        nested_test("=") do
+        nested_test("dense") do
             view = viewer(daf; axes = [VIEW_ALL_AXES], data = [("batch", "cell", "gene", "is_high") => "="])
             @test description(view) == """
+                name: memory!.view
+                type: View
+                base: MemoryDaf memory!
+                axes:
+                  batch: 2 entries
+                  cell: 2 entries
+                  gene: 3 entries
+                tensors:
+                  batch:
+                    gene,cell:
+                      is_high: 2 X 3 x 2 x Bool in Columns (Dense; 50% true)
+                """
+
+            @test description(view; tensors = false) == """
                 name: memory!.view
                 type: View
                 base: MemoryDaf memory!
@@ -346,6 +360,97 @@ nested_test("views") do
                 matrices:
                   gene,cell:
                     U_is_high: 3 x 2 x Bool in Columns (Dense; 50% true)
+                    V_is_high: 3 x 2 x Bool in Columns (Dense; 50% true)
+                """
+        end
+
+        nested_test("sparse") do
+            set_matrix!(
+                daf,
+                "gene",
+                "cell",
+                "U_is_high",
+                SparseMatrixCSC([true false; false true; true false]);
+                overwrite = true,
+                relayout = false,
+            )
+            set_matrix!(
+                daf,
+                "gene",
+                "cell",
+                "V_is_high",
+                SparseMatrixCSC([false true; false false; true false]);
+                overwrite = true,
+                relayout = false,
+            )
+            view = viewer(daf; axes = [VIEW_ALL_AXES], data = [("batch", "cell", "gene", "is_high") => "="])
+            @test description(view) == """
+                name: memory!.view
+                type: View
+                base: MemoryDaf memory!
+                axes:
+                  batch: 2 entries
+                  cell: 2 entries
+                  gene: 3 entries
+                tensors:
+                  batch:
+                    gene,cell:
+                      is_high: 2 X 3 x 2 x Bool in Columns (Sparse Int64 42%)
+                """
+
+            @test description(view; tensors = false) == """
+                name: memory!.view
+                type: View
+                base: MemoryDaf memory!
+                axes:
+                  batch: 2 entries
+                  cell: 2 entries
+                  gene: 3 entries
+                matrices:
+                  gene,cell:
+                    U_is_high: 3 x 2 x Bool in Columns (Sparse Int64 50%)
+                    V_is_high: 3 x 2 x Bool in Columns (Sparse Int64 33%)
+                """
+        end
+
+        nested_test("both") do
+            set_matrix!(
+                daf,
+                "gene",
+                "cell",
+                "U_is_high",
+                SparseMatrixCSC([true false; false true; true false]);
+                overwrite = true,
+                relayout = false,
+            )
+            view = viewer(daf; axes = [VIEW_ALL_AXES], data = [("batch", "cell", "gene", "is_high") => "="])
+            @test description(view) == """
+                name: memory!.view
+                type: View
+                base: MemoryDaf memory!
+                axes:
+                  batch: 2 entries
+                  cell: 2 entries
+                  gene: 3 entries
+                tensors:
+                  batch:
+                    gene,cell:
+                      is_high:
+                      - 1 X 3 x 2 x Bool in Columns (Dense; 50% true)
+                      - 1 X 3 x 2 x Bool in Columns (Sparse Int64 50%)
+                """
+
+            @test description(view; tensors = false) == """
+                name: memory!.view
+                type: View
+                base: MemoryDaf memory!
+                axes:
+                  batch: 2 entries
+                  cell: 2 entries
+                  gene: 3 entries
+                matrices:
+                  gene,cell:
+                    U_is_high: 3 x 2 x Bool in Columns (Sparse Int64 50%)
                     V_is_high: 3 x 2 x Bool in Columns (Dense; 50% true)
                 """
         end

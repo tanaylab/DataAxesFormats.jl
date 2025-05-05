@@ -488,7 +488,11 @@ end
 
 function require_vector(daf::DafReader, axis::AbstractString, name::AbstractString)::Nothing
     if !Formats.format_has_vector(daf, axis, name)
-        error("missing vector: $(name)\nfor the axis: $(axis)\nin the daf data: $(daf.name)")
+        error(chomp("""
+                    missing vector: $(name)
+                    for the axis: $(axis)
+                    in the daf data: $(daf.name)
+                    """))
     end
     return nothing
 end
@@ -841,7 +845,11 @@ function require_dim_name(
     end
     string_name = String(name)
     if string_name != axis
-        error("$(what): $(string_name)\nis different from the $(prefix)axis: $(axis)\nin the daf data: $(daf.name)")
+        error(chomp("""
+                    $(what): $(string_name)
+                    is different from the $(prefix)axis: $(axis)
+                    in the daf data: $(daf.name)
+                    """))
     end
 end
 
@@ -854,30 +862,49 @@ function require_axis_names(
     @assert Formats.has_data_read_lock(daf)
     expected_names = axis_vector(daf, axis)
     if names != expected_names
-        error("$(what)\nmismatch the entry names of the axis: $(axis)\nin the daf data: $(daf.name)")
+        error(chomp("""
+                    $(what)
+                    mismatch the entry names of the axis: $(axis)
+                    in the daf data: $(daf.name)
+                    """))
     end
 end
 
 """
-    description(daf::DafReader[; deep::Bool = false, cache::Bool = false])::AbstractString
+    description(
+        daf::DafReader[;
+        deep::Bool = false,
+        cache::Bool = false,
+        tensors::Bool = true,
+    )::AbstractString
 
 Return a (multi-line) description of the contents of `daf`. This tries to hit a sweet spot between usefulness and
 terseness. If `cache`, also describes the content of the cache. If `deep`, also describes any data set nested inside
 this one (if any).
+
+If `tensors` is set, this will include a `tensors` section which will condense the long list of tensor matrices.
 """
-function description(daf::DafReader; cache::Bool = false, deep::Bool = false)::String
+function description(daf::DafReader; cache::Bool = false, deep::Bool = false, tensors::Bool = true)::String
     return Formats.with_data_read_lock(daf, "description") do
         lines = String[]
-        description(daf, "", lines, cache, deep)
+        description(daf, "", lines; cache, deep, tensors)
         push!(lines, "")
         return join(lines, "\n")
     end
 end
 
-function description(daf::DafReader, indent::AbstractString, lines::Vector{String}, cache::Bool, deep::Bool)::Nothing
+function description(
+    daf::DafReader,
+    indent::AbstractString,
+    lines::Vector{String};
+    cache::Bool,
+    deep::Bool,
+    tensors::Bool,
+)::Nothing
     push!(lines, "$(indent)name: $(daf.name)")
     if startswith(indent, "-")
         indent = " " * indent[2:end]
+        @assert indent isa AbstractString
     end
 
     Formats.format_description_header(daf, indent, lines, deep)
@@ -885,17 +912,44 @@ function description(daf::DafReader, indent::AbstractString, lines::Vector{Strin
     scalars_description(daf, indent, lines) # NOJET
 
     axes = collect(axes_set(daf))
-    sort!(axes)
+
     if !isempty(axes)
+        sort!(axes)
+
+        if tensors
+            all_tensor_matrices = Set{AbstractString}()
+            matrices_per_tensor_per_axes_per_axis = Dict{
+                AbstractString,
+                Dict{Tuple{AbstractString, AbstractString}, Dict{AbstractString, Set{AbstractString}}},
+            }()
+            for rows_axis in axes
+                for columns_axis in axes
+                    collect_tensors(
+                        daf,
+                        rows_axis,
+                        columns_axis;
+                        matrices_per_tensor_per_axes_per_axis,
+                        all_tensor_matrices,
+                    )
+                end
+            end
+        else
+            all_tensor_matrices = nothing
+        end
+
         axes_description(daf, axes, indent, lines) # NOJET
         vectors_description(daf, axes, indent, lines) # NOJET
-        matrices_description(daf, axes, indent, lines) # NOJET
+        matrices_description(daf, axes, indent, lines, all_tensor_matrices) # NOJET
         if cache
             cache_description(daf, indent, lines)  # NOJET
         end
+
+        if tensors && !isempty(matrices_per_tensor_per_axes_per_axis)
+            tensors_description(daf, indent, lines, matrices_per_tensor_per_axes_per_axis)  # NOJET
+        end
     end
 
-    Formats.format_description_footer(daf, indent, lines, cache, deep)  # NOJET
+    Formats.format_description_footer(daf, indent, lines; cache, deep, tensors)  # NOJET
     return nothing
 end
 
@@ -953,6 +1007,7 @@ function matrices_description(
     axes::AbstractVector{<:AbstractString},
     indent::AbstractString,
     lines::Vector{String},
+    all_tensor_matrices::Maybe{AbstractSet{<:AbstractString}},
 )::Nothing
     is_first_matrix = true
     for rows_axis in axes
@@ -962,7 +1017,10 @@ function matrices_description(
                 sort!(matrices)
                 is_first_axes = true
                 for matrix in matrices
-                    data = get_matrix(daf, rows_axis, columns_axis, matrix; relayout = false)
+                    if all_tensor_matrices !== nothing && matrix in all_tensor_matrices
+                        continue
+                    end
+                    data = base_array(get_matrix(daf, rows_axis, columns_axis, matrix; relayout = false))
                     if is_first_matrix
                         push!(lines, "$(indent)matrices:")
                         is_first_matrix = false
@@ -971,12 +1029,121 @@ function matrices_description(
                         push!(lines, "$(indent)  $(rows_axis),$(columns_axis):")
                         is_first_axes = false
                     end
-                    push!(lines, "$(indent)    $(matrix): " * brief(base_array(data)))
+                    push!(lines, "$(indent)    $(matrix): " * brief(data))
                 end
             end
         end
     end
     return nothing
+end
+
+function tensors_description(
+    daf::DafReader,
+    indent::AbstractString,
+    lines::Vector{String},
+    matrices_per_tensor_per_axes_per_axis::Dict{
+        AbstractString,
+        Dict{Tuple{AbstractString, AbstractString}, Dict{AbstractString, Set{AbstractString}}},
+    },
+)::Nothing
+    tensor_axes = collect(keys(matrices_per_tensor_per_axes_per_axis))
+    sort!(tensor_axes)
+    push!(lines, "$(indent)tensors:")
+    for tensor_axis in tensor_axes
+        tensor_axis_entries_set = keys(axis_dict(daf, tensor_axis))
+        n_tensor_axis_entries = length(tensor_axis_entries_set)
+
+        push!(lines, "$(indent)  $(tensor_axis):")
+
+        matrices_per_tensor_per_axes = matrices_per_tensor_per_axes_per_axis[tensor_axis]
+        axes = collect(keys(matrices_per_tensor_per_axes))
+        sort!(axes)
+
+        for (rows_axis, columns_axis) in axes
+            push!(lines, "$(indent)    $(rows_axis),$(columns_axis):")
+
+            matrices_per_tensor = matrices_per_tensor_per_axes[(rows_axis, columns_axis)]
+            tensors = collect(keys(matrices_per_tensor))
+            sort!(tensors)
+            for tensor_name in tensors
+                matrices = matrices_per_tensor[tensor_name]
+                n_tensor_matrices = length(matrices)
+
+                if n_tensor_matrices == n_tensor_axis_entries
+                    suffix = ""
+                else
+                    suffix = " ($(n_tensor_matrices) out of $(n_tensor_axis_entries))"  # UNTESTED
+                end
+
+                counters_per_text = Dict{AbstractString, Union{Int, Tuple{Int, Int, Int64, Int64}}}()
+                for matrix in values(matrices)
+                    data = base_array(get_matrix(daf, rows_axis, columns_axis, matrix; relayout = false))
+                    text = brief(data)
+                    parts = split(text, " ")
+                    sparse_index = findfirst((parts .== "Sparse") .| (parts .== "(Sparse"))
+                    if sparse_index !== nothing
+                        counted = nnz(data)
+                        percent_index = sparse_index + 2
+                        @assert endswith(parts[percent_index], "%)")
+                        parts[percent_index] = ")"
+                    else
+                        true_index = findfirst(parts .== "true)")
+                        if true_index !== nothing
+                            counted = sum(data)
+                            percent_index = true_index - 1
+                            @assert endswith(parts[percent_index], "%")
+                            parts[percent_index] = "."
+                        else
+                            counted = nothing  # UNTESTED
+                            percent_index = nothing  # UNTESTED
+                        end
+                    end
+
+                    if percent_index !== nothing
+                        @assert counted !== nothing
+                        text = join(parts, " ")
+                        counters = get(counters_per_text, text, (0, percent_index, Int64(0), Int64(0)))
+                        counters_per_text[text] =
+                            (counters[1] + 1, counters[2], counters[3] + counted, counters[4] + length(data))
+                    else
+                        counters_per_text[text] = get(counters_per_text, text, 0) + 1  # NOJET # UNTESTED
+                    end
+                end
+
+                if length(counters_per_text) == 1
+                    for (text, counters) in counters_per_text
+                        push!(lines, "$(indent)      $(tensor_name)$(suffix): $(format_counters(counters, text))")
+                    end
+                else
+                    push!(lines, "$(indent)      $(tensor_name)$(suffix):")
+
+                    texts = collect(keys(counters_per_text))
+                    sort!(texts)
+                    for text in texts
+                        counters = counters_per_text[text]
+                        push!(lines, "$(indent)      - $(format_counters(counters, text))")
+                    end
+                end
+            end
+        end
+    end
+
+    return nothing
+end
+
+function format_counters(counters::Int, text::AbstractString)::AbstractString  # UNTESTED
+    return "$(counters) X $(text)"
+end
+
+function format_counters(counters::Tuple{Int, Int, Int64, Int64}, text::AbstractString)::AbstractString
+    count, percent_index, counted, out_of = counters
+    parts = split(text, " ")
+    suffix = parts[percent_index]
+    if suffix == "."
+        suffix = ""
+    end
+    parts[percent_index] = "$(percent(counted, out_of))$(suffix)"
+    return "$(count) X $(join(parts, " "))"
 end
 
 function cache_description(daf::DafReader, indent::AbstractString, lines::Vector{String})::Nothing
@@ -1030,6 +1197,62 @@ function TanayLabUtilities.Brief.brief(daf::DafReader; name::Maybe{AbstractStrin
         name = daf.name
     end
     return "$(nameof(typeof(daf))) $(name)"
+end
+
+function collect_tensors(
+    daf::DafReader,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString;
+    matrices_per_tensor_per_axes_per_axis::Dict{
+        AbstractString,
+        Dict{Tuple{AbstractString, AbstractString}, Dict{AbstractString, Set{AbstractString}}},
+    },
+    all_tensor_matrices::AbstractSet{<:AbstractString},
+)::Nothing
+    @assert Formats.has_data_read_lock(daf)
+
+    all_axes = axes_set(daf)
+    all_matrices = matrices_set(daf, rows_axis, columns_axis; relayout = false)
+
+    for tensor_axis in all_axes
+        tensor_axis_entries_set = keys(axis_dict(daf, tensor_axis))
+        matrices_per_tensor = Dict{AbstractString, Set{AbstractString}}()
+
+        for matrix_name in all_matrices
+            @assert matrix_name isa AbstractString
+            separators_positions = findall("_", matrix_name)
+            if separators_positions !== nothing
+                for position in separators_positions
+                    @views entry_name = matrix_name[1:(position[1] - 1)]
+                    if entry_name in tensor_axis_entries_set
+                        @views tensor_name = matrix_name[(position[1] + 1):end]
+                        matrices = get(matrices_per_tensor, tensor_name, nothing)
+                        if matrices === nothing
+                            matrices = Set{AbstractString}()
+                            matrices_per_tensor[tensor_name] = matrices
+                        end
+                        push!(matrices, matrix_name)
+                    end
+                end
+            end
+        end
+
+        if !isempty(matrices_per_tensor)
+            matrices_per_tensor_per_axes = get(matrices_per_tensor_per_axes_per_axis, tensor_axis, nothing)
+            if matrices_per_tensor_per_axes === nothing
+                matrices_per_tensor_per_axes =
+                    Dict{Tuple{AbstractString, AbstractString}, Dict{AbstractString, Set{AbstractString}}}()
+                matrices_per_tensor_per_axes_per_axis[tensor_axis] = matrices_per_tensor_per_axes
+            end
+
+            matrices_per_tensor_per_axes[(rows_axis, columns_axis)] = matrices_per_tensor
+            for matrices in values(matrices_per_tensor)
+                union!(all_tensor_matrices, matrices)
+            end
+        end
+    end
+
+    return nothing
 end
 
 end # module

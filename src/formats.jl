@@ -660,14 +660,21 @@ function format_description_header(format::FormatReader, indent::AbstractString,
 end
 
 """
-    format_description_footer(format::FormatReader, lines::Vector{String}, cache::Bool, deep::Bool)::Nothing
+    format_description_footer(format::FormatReader, lines::Vector{String}; cache::Bool, deep::Bool, tensors::Bool)::Nothing
 
 Allow a `format` to amit additional description footer lines. If `deep`, this also emit the description of any data sets
 nested in this one, if any.
 
 This trusts that we have a read lock on the data set.
 """
-function format_description_footer(::FormatReader, ::AbstractString, ::Vector{String}, ::Bool, ::Bool)::Nothing
+function format_description_footer(
+    ::FormatReader,
+    ::AbstractString,
+    ::AbstractVector{<:AbstractString};
+    cache::Bool,  # NOLINT
+    deep::Bool,  # NOLINT
+    tensors::Bool,  # NOLINT
+)::Nothing
     return nothing
 end
 
@@ -683,7 +690,7 @@ function put_in_cache!(format::FormatReader, cache_key::CacheKey, data::CacheDat
 end
 
 function set_in_cache!(format::FormatReader, cache_key::CacheKey, data::CacheData, cache_group::CacheGroup)::Nothing
-    return with_cache_write_lock(format, "for set_in_cache!:", cache_key) do                    # NOJET
+    return with_cache_write_lock(format, "for set_in_cache!:", cache_key) do                                                       # NOJET
         return put_in_cache!(format, cache_key, data, cache_group)
     end
 end
@@ -713,7 +720,7 @@ function get_through_cache(
     @assert has_data_read_lock(format)
     cached = nothing
     while cached === nothing
-        cache_entry = with_cache_read_lock(format, "for get_from_cache:", cache_key) do                    # NOJET
+        cache_entry = with_cache_read_lock(format, "for get_from_cache:", cache_key) do                                                       # NOJET
             return get(format.internal.cache, cache_key, nothing)
         end
         cached = result_from_cache(cache_entry, T)
@@ -735,7 +742,7 @@ end
 function result_from_cache(cache_entry::CacheEntry, ::Type{T})::T where {T}
     entry_lock = cache_entry.data
     if entry_lock isa ReentrantLock
-        cache_entry = lock(entry_lock) do                    # UNTESTED
+        cache_entry = lock(entry_lock) do                                                       # UNTESTED
             return cache_entry  # UNTESTED
         end
     end
@@ -750,7 +757,7 @@ function write_throgh_cache(
     cache_group::Maybe{CacheGroup};
     is_slow::Bool = false,
 )::Maybe{T} where {T}
-    result = with_cache_write_lock(format, "for get_through_cache:", cache_key) do                    # NOJET
+    result = with_cache_write_lock(format, "for get_through_cache:", cache_key) do                                                       # NOJET
         cache_entry = get(format.internal.cache, cache_key, nothing)
         if cache_entry !== nothing
             if cache_entry.data isa ReentrantLock  # UNTESTED
@@ -783,7 +790,7 @@ function write_throgh_cache(
         @assert entry_lock isa ReentrantLock
         try
             result, dependency_keys = getter()
-            with_cache_write_lock(format, "for slow:", cache_key) do                    # NOJET
+            with_cache_write_lock(format, "for slow:", cache_key) do                                                       # NOJET
                 if dependency_keys !== nothing
                     for dependency_key in dependency_keys
                         put_cached_dependency_key!(format, cache_key, dependency_key)

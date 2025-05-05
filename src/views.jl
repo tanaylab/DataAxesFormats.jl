@@ -825,14 +825,15 @@ end
 function Formats.format_description_footer(
     view::DafView,
     indent::AbstractString,
-    lines::Vector{String},
+    lines::Vector{String};
     cache::Bool,
     deep::Bool,
+    tensors::Bool,
 )::Nothing
     @assert Formats.has_data_read_lock(view)
     if deep
         push!(lines, "$(indent)base:")
-        description(view.daf, indent * "  ", lines, cache, deep)  # NOJET
+        description(view.daf, indent * "  ", lines; cache, deep, tensors)  # NOJET
     end
     return nothing
 end

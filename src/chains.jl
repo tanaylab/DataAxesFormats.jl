@@ -680,15 +680,16 @@ end
 function Formats.format_description_footer(
     chain::AnyChain,
     indent::AbstractString,
-    lines::Vector{String},
+    lines::Vector{String};
     cache::Bool,
     deep::Bool,
+    tensors::Bool,
 )::Nothing
     @assert Formats.has_data_read_lock(chain)
     if deep
         push!(lines, "$(indent)chain:")
         for daf in chain.dafs
-            description(daf, "- " * indent, lines, cache, deep)  # NOJET
+            description(daf, "- " * indent, lines; cache, deep, tensors)  # NOJET
         end
     end
     return nothing

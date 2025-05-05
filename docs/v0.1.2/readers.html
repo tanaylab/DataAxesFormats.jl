@@ -355,7 +355,12 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">description(daf::DafReader[; deep::Bool = false, cache::Bool = false])::AbstractString
+<code class="language-julia hljs">description(
+    daf::DafReader[;
+    deep::Bool = false,
+    cache::Bool = false,
+    tensors::Bool = true,
+)::AbstractString
 </code>
 </pre>
 <p>Return a (multi-line) description of the contents of 
@@ -365,6 +370,12 @@
 </code>, also describes the content of the cache. If 
 <code>deep
 </code>, also describes any data set nested inside this one (if any).
+</p>
+<p>If 
+<code>tensors
+</code> is set, this will include a 
+<code>tensors
+</code> section which will condense the long list of tensor matrices.
 </p>
 </div>
 </section>

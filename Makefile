@@ -80,3 +80,7 @@ clean:
 .PHONY: add_pkgs
 add_pkgs:
 	deps/add_pkgs.sh
+
+tags: */*.jl
+	ctags */*.jl
+	sed -i 's/!\t/\t/' tags
