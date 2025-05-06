@@ -70,6 +70,22 @@ import ..Formats.FormatReader  # For documentation.
     has_scalar(daf::DafReader, name::AbstractString)::Bool
 
 Check whether a scalar property with some `name` exists in `daf`.
+
+```jldoctest
+has_scalar(example_cells_daf(), "organism")
+
+# output
+
+true
+```
+
+```jldoctest
+has_scalar(example_metacells_daf(), "organism")
+
+# output
+
+false
+```
 """
 function has_scalar(daf::DafReader, name::AbstractString)::Bool
     return Formats.with_data_read_lock(daf, "has_scalar of:", name) do
@@ -87,6 +103,15 @@ The names of the scalar properties in `daf`.
 !!! note
 
     There's no immutable set type in Julia for us to return. If you do modify the result set, bad things *will* happen.
+
+```jldoctest
+string.(scalars_set(example_cells_daf()))
+
+# output
+
+1-element Vector{String}:
+ "organism"
+```
 """
 function scalars_set(daf::DafReader)::AbstractSet{<:AbstractString}
     return Formats.with_data_read_lock(daf, "scalars_set") do
@@ -109,6 +134,22 @@ Get the value of a scalar property with some `name` in `daf`.
 
 If `default` is `undef` (the default), this first verifies the `name` scalar property exists in `daf`. Otherwise
 `default` will be returned if the property does not exist.
+
+```jldoctest
+get_scalar(example_cells_daf(), "organism")
+
+# output
+
+"human"
+```
+
+```jldoctest
+println(get_scalar(example_metacells_daf(), "organism"; default = nothing))
+
+# output
+
+nothing
+```
 """
 function get_scalar(
     daf::DafReader,
@@ -145,6 +186,22 @@ end
     has_axis(daf::DafReader, axis::AbstractString)::Bool
 
 Check whether some `axis` exists in `daf`.
+
+```jldoctest
+has_axis(example_cells_daf(), "metacell")
+
+# output
+
+false
+```
+
+```jldoctest
+has_axis(example_metacells_daf(), "metacell")
+
+# output
+
+true
+```
 """
 function has_axis(daf::DafReader, axis::AbstractString)::Bool
     return Formats.with_data_read_lock(daf, "has_axis of:", axis) do
@@ -158,13 +215,26 @@ end
     axis_version_counter(daf::DafReader, axis::AbstractString)::UInt32
 
 Return the version number of the axis. This is incremented every time [`delete_axis!`](@ref
-DataAxesFormats.Writers.delete_axis!) is called. It is used by interfaces to other programming languages to minimize
-copying data.
+DataAxesFormats.Writers.delete_axis!) is called. It is used by interfaces to other programming languages to safely cache
+per-axis data.
 
 !!! note
 
     This is purely in-memory per-instance, and **not** a global persistent version counter. That is, the version counter
     starts at zero even if opening a persistent disk `daf` data set.
+
+```jldoctest
+metacells = example_metacells_daf()
+println(axis_version_counter(metacells, "type"))
+delete_axis!(metacells, "type")
+add_axis!(metacells, "type", ["Foo", "Bar", "Baz"])
+println(axis_version_counter(metacells, "type"))
+
+# output
+
+0
+1
+```
 """
 function axis_version_counter(daf::DafReader, axis::AbstractString)::UInt32
     # TRICKY: We don't track versions for scalars so we can use the string keys for the axes.
@@ -179,6 +249,18 @@ The names of the axes of `daf`.
 !!! note
 
     There's no immutable set type in Julia for us to return. If you do modify the result set, bad things *will* happen.
+
+```jldoctest
+sort!(string.(axes_set(example_cells_daf())))
+
+# output
+
+4-element Vector{String}:
+ "cell"
+ "donor"
+ "experiment"
+ "gene"
+```
 """
 function axes_set(daf::DafReader)::AbstractSet{<:AbstractString}
     return Formats.with_data_read_lock(daf, "axes_set") do
@@ -202,6 +284,18 @@ special `name` property, except that it returns a simple vector (array) of strin
 
 If `default` is `undef` (the default), this verifies the `axis` exists in `daf`. Otherwise, the `default` is `nothing`,
 which is returned if the `axis` does not exist.
+
+```jldoctest
+string.(axis_vector(example_metacells_daf(), "type"))
+
+# output
+
+4-element Vector{SubString{StringViews.StringView{Vector{UInt8}}}}:
+ "MEBEMP-E"
+ "MEBEMP-L"
+ "MPP"
+ "memory-B"
+```
 """
 function axis_vector(
     daf::DafReader,
@@ -233,6 +327,18 @@ end
     axis_dict(daf::DafReader, axis::AbstractString)::AbstractDict{<:AbstractString, <:Integer}
 
 Return a dictionary converting axis entry names to their integer index.
+
+```jldoctest
+axis_dict(example_metacells_daf(), "type")
+
+# output
+
+OrderedCollections.OrderedDict{AbstractString, Int64} with 4 entries:
+  "MEBEMP-E" => 1
+  "MEBEMP-L" => 2
+  "MPP"      => 3
+  "memory-B" => 4
+```
 """
 function axis_dict(daf::DafReader, axis::AbstractString)::AbstractDict{<:AbstractString, <:Integer}
     return Formats.with_data_read_lock(daf, "axis_dict of:", axis) do
@@ -255,6 +361,16 @@ end
 
 Return a vector of the indices of the `entries` in the `axis`. If `allow_empty`, the empty string is converted to a zero
 index. Otherwise, all `entries` must exist in the `axis`.
+
+```jldoctest
+axis_indices(example_metacells_daf(), "type", ["MPP", ""]; allow_empty = true)
+
+# output
+
+2-element Vector{Int64}:
+ 3
+ 0
+```
 """
 function axis_indices(
     daf::DafReader,
@@ -285,6 +401,16 @@ end
 Return a vector of the names of the entries with `indices` in the `axis`. If `allow_empty`, the zero (or negative) index
 is converted to the empty string. Otherwise, all `indices` must be valid. If `indices` are no specified, returns the
 vector of entry names. That is, `axis_entries(daf, axis)` is the same as `axis_vector(daf, axis)`.
+
+```jldoctest
+axis_entries(example_metacells_daf(), "type", [3, 0]; allow_empty = true)
+
+# output
+
+2-element Vector{AbstractString}:
+ "MPP"
+ ""
+```
 """
 function axis_entries(
     daf::DafReader,
@@ -314,6 +440,14 @@ end
 The number of entries along the `axis` in `daf`.
 
 This first verifies the `axis` exists in `daf`.
+
+```jldoctest
+axis_length(example_metacells_daf(), "type")
+
+# output
+
+4
+```
 """
 function axis_length(daf::DafReader, axis::AbstractString)::Int64
     return Formats.with_data_read_lock(daf, "axis_length of:", axis) do
@@ -344,6 +478,22 @@ Check whether a vector property with some `name` exists for the `axis` in `daf`.
 `name` property.
 
 This first verifies the `axis` exists in `daf`.
+
+```jldoctest
+has_vector(example_cells_daf(), "cell", "type")
+
+# output
+
+false
+```
+
+```jldoctest
+has_vector(example_metacells_daf(), "metacell", "type")
+
+# output
+
+true
+```
 """
 function has_vector(daf::DafReader, axis::AbstractString, name::AbstractString)::Bool
     return Formats.with_data_read_lock(daf, "has_vector of:", name, "of:", axis) do
@@ -363,12 +513,24 @@ Return the version number of the vector. This is incremented every time
 [`set_vector!`](@ref DataAxesFormats.Writers.set_vector!),
 [`empty_dense_vector!`](@ref DataAxesFormats.Writers.empty_dense_vector!) or
 [`empty_sparse_vector!`](@ref DataAxesFormats.Writers.empty_sparse_vector!) are called. It is used by interfaces to
-other programming languages to minimize copying data.
+safely cache per-vector data.
 
 !!! note
 
     This is purely in-memory per-instance, and **not** a global persistent version counter. That is, the version counter
     starts at zero even if opening a persistent disk `daf` data set.
+
+```jldoctest
+metacells = example_metacells_daf()
+println(vector_version_counter(metacells, "type", "color"))
+set_vector!(metacells, "type", "color", string.(collect(1:4)); overwrite = true)
+println(vector_version_counter(metacells, "type", "color"))
+
+# output
+
+1
+2
+```
 """
 function vector_version_counter(daf::DafReader, axis::AbstractString, name::AbstractString)::UInt32
     result = Formats.format_get_version_counter(daf, (axis, name))
@@ -386,6 +548,16 @@ This first verifies the `axis` exists in `daf`.
 !!! note
 
     There's no immutable set type in Julia for us to return. If you do modify the result set, bad things *will* happen.
+
+```jldoctest
+sort!(string.(vectors_set(example_cells_daf(), "cell")))
+
+# output
+
+2-element Vector{String}:
+ "donor"
+ "experiment"
+```
 """
 function vectors_set(daf::DafReader, axis::AbstractString)::AbstractSet{<:AbstractString}
     return Formats.with_data_read_lock(daf, "vectors_set of:", axis) do
@@ -414,6 +586,20 @@ This first verifies the `axis` exists in `daf`. If `default` is `undef` (the def
 vector exists in `daf`. Otherwise, if `default` is `nothing`, it will be returned. If it is a [`StorageVector`](@ref),
 it has to be of the same size as the `axis`, and is returned. If it is a [`StorageScalar`](@ref). Otherwise, a new
 `Vector` is created of the correct size containing the `default`, and is returned.
+
+```jldoctest
+get_vector(example_metacells_daf(), "type", "color")
+
+# output
+
+4-element Named SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}
+type     │
+─────────┼────────────
+MEBEMP-E │   "#eebb6e"
+MEBEMP-L │      "plum"
+MPP      │      "gold"
+memory-B │ "steelblue"
+```
 """
 function get_vector(
     daf::DafReader,
@@ -514,6 +700,14 @@ If `relayout` (the default), this will also check whether the data exists in the
 axes).
 
 This first verifies the `rows_axis` and `columns_axis` exists in `daf`.
+
+```jldoctest
+has_matrix(example_cells_daf(), "gene", "cell", "UMIs")
+
+# output
+
+true
+```
 """
 function has_matrix(
     daf::DafReader,
@@ -563,6 +757,15 @@ This first verifies the `rows_axis` and `columns_axis` exist in `daf`.
 !!! note
 
     There's no immutable set type in Julia for us to return. If you do modify the result set, bad things *will* happen.
+
+```jldoctest
+string.(matrices_set(example_cells_daf(), "gene", "cell"))
+
+# output
+
+1-element Vector{String}:
+ "UMIs"
+```
 """
 function matrices_set(
     daf::DafReader,
@@ -661,6 +864,33 @@ This first verifies the `rows_axis` and `columns_axis` exist in `daf`. If `defau
 verifies the `name` matrix exists in `daf`. Otherwise, if `default` is `nothing`, it is returned. If `default` is a
 `StorageMatrix`, it has to be of the same size as the `rows_axis` and `columns_axis`, and is returned. Otherwise, a new
 `Matrix` is created of the correct size containing the `default`, and is returned.
+
+```jldoctest
+get_matrix(example_metacells_daf(), "gene", "metacell", "fraction")
+
+# output
+
+683×7 Named Matrix{Float32}
+gene ╲ metacell │    M1671.28     M2357.20  …      M756.63      M412.08
+────────────────┼──────────────────────────────────────────────────────
+RPL22           │  0.00447666    0.0041286  …   0.00434327   0.00373581
+PARK7           │  8.52301f-5  0.000154199     0.000108019   6.50531f-5
+ENO1            │ 0.000464448  0.000482609     0.000248241   4.22228f-5
+PRDM2           │    2.053f-5   2.85439f-5      2.46575f-5  0.000151486
+HP1BP3          │ 0.000107137  0.000110915       8.9043f-5   0.00012099
+CDC42           │ 0.000153017  0.000207847     0.000152447  0.000176377
+HNRNPR          │ 0.000122974    6.7171f-5      7.09771f-5    6.7083f-5
+RPL11           │    0.010306    0.0110606       0.0109086    0.0124251
+⋮                           ⋮            ⋮  ⋱            ⋮            ⋮
+NRIP1           │ 0.000155974  0.000361428     0.000197766   2.79487f-5
+ATP5PF          │  8.62855f-5  0.000125912     0.000121949   8.22312f-5
+CCT8            │ 0.000104152   7.55233f-5      0.00011572   4.13243f-5
+SOD1            │ 0.000177344  0.000147838     0.000104723  0.000103708
+SON             │ 0.000280491  0.000262015     0.000170829   0.00032361
+ATP5PO          │ 0.000134007  0.000123143      0.00018833   9.73498f-5
+TTC3            │ 0.000111978   0.00011131     0.000100166  0.000122469
+HMGN1           │ 0.000345676  0.000287754  …  0.000264526  0.000160654
+```
 """
 function get_matrix(
     daf::DafReader,
@@ -788,12 +1018,24 @@ Return the version number of the matrix. The order of the axes does not matter. 
 [`set_matrix!`](@ref DataAxesFormats.Writers.set_matrix!),
 [`empty_dense_matrix!`](@ref DataAxesFormats.Writers.empty_dense_matrix!) or
 [`empty_sparse_matrix!`](@ref DataAxesFormats.Writers.empty_sparse_matrix!) are called. It is used by interfaces to other
-programming languages to minimize copying data.
+programming languages to safely cache per-matrix data.
 
 !!! note
 
     This is purely in-memory per-instance, and **not** a global persistent version counter. That is, the version counter
     starts at zero even if opening a persistent disk `daf` data set.
+
+```jldoctest
+metacells = example_metacells_daf()
+println(matrix_version_counter(metacells, "gene", "metacell", "fraction"))
+set_matrix!(metacells, "gene", "metacell", "fraction", rand(Float32, 683, 7); overwrite = true)
+println(matrix_version_counter(metacells, "gene", "metacell", "fraction"))
+
+# output
+
+1
+2
+```
 """
 function matrix_version_counter(
     daf::DafReader,
@@ -883,6 +1125,89 @@ terseness. If `cache`, also describes the content of the cache. If `deep`, also 
 this one (if any).
 
 If `tensors` is set, this will include a `tensors` section which will condense the long list of tensor matrices.
+
+```jldoctest
+print(description(example_chain_daf(); deep = true))
+
+# output
+
+name: chain!
+type: Write Chain
+scalars:
+  organism: "human"
+axes:
+  cell: 856 entries
+  donor: 95 entries
+  experiment: 23 entries
+  gene: 683 entries
+  metacell: 7 entries
+  type: 4 entries
+vectors:
+  cell:
+    donor: 856 x Str (Dense)
+    experiment: 856 x Str (Dense)
+    metacell: 856 x Str (Dense)
+  donor:
+    age: 95 x UInt32 (Dense)
+    sex: 95 x Str (Dense)
+  gene:
+    is_lateral: 683 x Bool (Dense; 64% true)
+    is_marker: 683 x Bool (Dense; 95% true)
+  metacell:
+    type: 7 x Str (Dense)
+  type:
+    color: 4 x Str (Dense)
+matrices:
+  cell,gene:
+    UMIs: 856 x 683 x UInt8 in Columns (Dense)
+  gene,cell:
+    UMIs: 683 x 856 x UInt8 in Columns (Dense)
+  gene,metacell:
+    fraction: 683 x 7 x Float32 in Columns (Dense)
+chain:
+- name: cells!
+  type: MemoryDaf
+  scalars:
+    organism: "human"
+  axes:
+    cell: 856 entries
+    donor: 95 entries
+    experiment: 23 entries
+    gene: 683 entries
+  vectors:
+    cell:
+      donor: 856 x Str (Dense)
+      experiment: 856 x Str (Dense)
+    donor:
+      age: 95 x UInt32 (Dense)
+      sex: 95 x Str (Dense)
+    gene:
+      is_lateral: 683 x Bool (Dense; 64% true)
+  matrices:
+    cell,gene:
+      UMIs: 856 x 683 x UInt8 in Columns (Dense)
+    gene,cell:
+      UMIs: 683 x 856 x UInt8 in Columns (Dense)
+- name: metacells!
+  type: MemoryDaf
+  axes:
+    cell: 856 entries
+    gene: 683 entries
+    metacell: 7 entries
+    type: 4 entries
+  vectors:
+    cell:
+      metacell: 856 x Str (Dense)
+    gene:
+      is_marker: 683 x Bool (Dense; 95% true)
+    metacell:
+      type: 7 x Str (Dense)
+    type:
+      color: 4 x Str (Dense)
+  matrices:
+    gene,metacell:
+      fraction: 683 x 7 x Float32 in Columns (Dense)
+```
 """
 function description(daf::DafReader; cache::Bool = false, deep::Bool = false, tensors::Bool = true)::String
     return Formats.with_data_read_lock(daf, "description") do

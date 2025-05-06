@@ -1,5 +1,11 @@
 # Example data
 
+```@meta
+DocTestSetup = quote
+  using DataAxesFormats
+end
+```
+
 ```@docs
 DataAxesFormats.ExampleData
 ```
@@ -9,6 +15,7 @@ DataAxesFormats.ExampleData
 ```@docs
 DataAxesFormats.ExampleData.example_cells_daf
 DataAxesFormats.ExampleData.example_metacells_daf
+DataAxesFormats.ExampleData.example_chain_daf
 ```
 
 ## Index

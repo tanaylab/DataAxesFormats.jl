@@ -5,7 +5,9 @@ module ExampleData
 
 export example_cells_daf
 export example_metacells_daf
+export example_chain_daf
 
+using ..Chains
 using ..Formats
 using ..MemoryFormat
 using ..Writers
@@ -16,6 +18,36 @@ import ..FilesFormat.mmap_file_lines
     example_cells_daf(; name::AbstractString = "cells!")::MemoryDaf
 
 Load the cells example data into a `MemoryDaf`.
+
+```jldoctest
+print(description(example_cells_daf()))
+
+# output
+
+name: cells!
+type: MemoryDaf
+scalars:
+  organism: "human"
+axes:
+  cell: 856 entries
+  donor: 95 entries
+  experiment: 23 entries
+  gene: 683 entries
+vectors:
+  cell:
+    donor: 856 x Str (Dense)
+    experiment: 856 x Str (Dense)
+  donor:
+    age: 95 x UInt32 (Dense)
+    sex: 95 x Str (Dense)
+  gene:
+    is_lateral: 683 x Bool (Dense; 64% true)
+matrices:
+  cell,gene:
+    UMIs: 856 x 683 x UInt8 in Columns (Dense)
+  gene,cell:
+    UMIs: 683 x 856 x UInt8 in Columns (Dense)
+```
 """
 function example_cells_daf(; name::AbstractString = "cells!")::MemoryDaf
     return example_daf('c'; name)
@@ -25,6 +57,32 @@ end
     example_metacells_daf(; name::AbstractString = "cells!")::MemoryDaf
 
 Load the metacells example data into a `MemoryDaf`.
+
+```jldoctest
+print(description(example_metacells_daf()))
+
+# output
+
+name: metacells!
+type: MemoryDaf
+axes:
+  cell: 856 entries
+  gene: 683 entries
+  metacell: 7 entries
+  type: 4 entries
+vectors:
+  cell:
+    metacell: 856 x Str (Dense)
+  gene:
+    is_marker: 683 x Bool (Dense; 95% true)
+  metacell:
+    type: 7 x Str (Dense)
+  type:
+    color: 4 x Str (Dense)
+matrices:
+  gene,metacell:
+    fraction: 683 x 7 x Float32 in Columns (Dense)
+```
 """
 function example_metacells_daf(; name::AbstractString = "metacells!")::MemoryDaf
     return example_daf('m'; name)
@@ -32,6 +90,10 @@ end
 
 function example_daf(which::Char; name::AbstractString)::MemoryDaf
     daf = MemoryDaf(; name)
+
+    if which == 'c'
+        set_scalar!(daf, "organism", "human")
+    end
 
     for file in readdir(joinpath(@__DIR__, "..", "test", "example_data", "axes"))
         load_axis(daf, which, file)
@@ -129,6 +191,58 @@ function cast_matrix(matrix::AbstractMatrix{<:Real})::AbstractMatrix
         end
     end
     return matrix
+end
+
+"""
+    example_chain_daf(; name::AbstractString = "chain!")::DafWriter
+
+Load a chain of both the cells and metacells example data.
+
+```jldoctest
+print(description(example_chain_daf()))
+
+# output
+
+name: chain!
+type: Write Chain
+chain:
+- MemoryDaf cells!
+- MemoryDaf metacells!
+scalars:
+  organism: "human"
+axes:
+  cell: 856 entries
+  donor: 95 entries
+  experiment: 23 entries
+  gene: 683 entries
+  metacell: 7 entries
+  type: 4 entries
+vectors:
+  cell:
+    donor: 856 x Str (Dense)
+    experiment: 856 x Str (Dense)
+    metacell: 856 x Str (Dense)
+  donor:
+    age: 95 x UInt32 (Dense)
+    sex: 95 x Str (Dense)
+  gene:
+    is_lateral: 683 x Bool (Dense; 64% true)
+    is_marker: 683 x Bool (Dense; 95% true)
+  metacell:
+    type: 7 x Str (Dense)
+  type:
+    color: 4 x Str (Dense)
+matrices:
+  cell,gene:
+    UMIs: 856 x 683 x UInt8 in Columns (Dense)
+  gene,cell:
+    UMIs: 683 x 856 x UInt8 in Columns (Dense)
+  gene,metacell:
+    fraction: 683 x 7 x Float32 in Columns (Dense)
+```
+"""
+function example_chain_daf(; name::AbstractString = "chain!")::DafWriter
+    return chain_writer([example_cells_daf(), example_metacells_daf()]; name)
 end
 
 end  # module

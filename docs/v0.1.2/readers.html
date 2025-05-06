@@ -377,6 +377,89 @@
 <code>tensors
 </code> section which will condense the long list of tensor matrices.
 </p>
+<pre>
+<code class="language-julia hljs">print(description(example_chain_daf(); deep = true))
+
+# output
+
+name: chain!
+type: Write Chain
+scalars:
+  organism: &quot;human&quot;
+axes:
+  cell: 856 entries
+  donor: 95 entries
+  experiment: 23 entries
+  gene: 683 entries
+  metacell: 7 entries
+  type: 4 entries
+vectors:
+  cell:
+    donor: 856 x Str (Dense)
+    experiment: 856 x Str (Dense)
+    metacell: 856 x Str (Dense)
+  donor:
+    age: 95 x UInt32 (Dense)
+    sex: 95 x Str (Dense)
+  gene:
+    is_lateral: 683 x Bool (Dense; 64% true)
+    is_marker: 683 x Bool (Dense; 95% true)
+  metacell:
+    type: 7 x Str (Dense)
+  type:
+    color: 4 x Str (Dense)
+matrices:
+  cell,gene:
+    UMIs: 856 x 683 x UInt8 in Columns (Dense)
+  gene,cell:
+    UMIs: 683 x 856 x UInt8 in Columns (Dense)
+  gene,metacell:
+    fraction: 683 x 7 x Float32 in Columns (Dense)
+chain:
+- name: cells!
+  type: MemoryDaf
+  scalars:
+    organism: &quot;human&quot;
+  axes:
+    cell: 856 entries
+    donor: 95 entries
+    experiment: 23 entries
+    gene: 683 entries
+  vectors:
+    cell:
+      donor: 856 x Str (Dense)
+      experiment: 856 x Str (Dense)
+    donor:
+      age: 95 x UInt32 (Dense)
+      sex: 95 x Str (Dense)
+    gene:
+      is_lateral: 683 x Bool (Dense; 64% true)
+  matrices:
+    cell,gene:
+      UMIs: 856 x 683 x UInt8 in Columns (Dense)
+    gene,cell:
+      UMIs: 683 x 856 x UInt8 in Columns (Dense)
+- name: metacells!
+  type: MemoryDaf
+  axes:
+    cell: 856 entries
+    gene: 683 entries
+    metacell: 7 entries
+    type: 4 entries
+  vectors:
+    cell:
+      metacell: 856 x Str (Dense)
+    gene:
+      is_marker: 683 x Bool (Dense; 95% true)
+    metacell:
+      type: 7 x Str (Dense)
+    type:
+      color: 4 x Str (Dense)
+  matrices:
+    gene,metacell:
+      fraction: 683 x 7 x Float32 in Columns (Dense)
+</code>
+</pre>
 </div>
 </section>
 </article>
@@ -413,6 +496,22 @@
 <code>daf
 </code>.
 </p>
+<pre>
+<code class="language-julia hljs">has_scalar(example_cells_daf(), &quot;organism&quot;)
+
+# output
+
+true
+</code>
+</pre>
+<pre>
+<code class="language-julia hljs">has_scalar(example_metacells_daf(), &quot;organism&quot;)
+
+# output
+
+false
+</code>
+</pre>
 </div>
 </section>
 </article>
@@ -449,6 +548,15 @@
 </p>
 </div>
 </div>
+<pre>
+<code class="language-julia hljs">string.(scalars_set(example_cells_daf()))
+
+# output
+
+1-element Vector{String}:
+ &quot;organism&quot;
+</code>
+</pre>
 </div>
 </section>
 </article>
@@ -493,6 +601,22 @@
 <code>default
 </code> will be returned if the property does not exist.
 </p>
+<pre>
+<code class="language-julia hljs">get_scalar(example_cells_daf(), &quot;organism&quot;)
+
+# output
+
+&quot;human&quot;
+</code>
+</pre>
+<pre>
+<code class="language-julia hljs">println(get_scalar(example_metacells_daf(), &quot;organism&quot;; default = nothing))
+
+# output
+
+nothing
+</code>
+</pre>
 </div>
 </section>
 </article>
@@ -529,6 +653,22 @@
 <code>daf
 </code>.
 </p>
+<pre>
+<code class="language-julia hljs">has_axis(example_cells_daf(), &quot;metacell&quot;)
+
+# output
+
+false
+</code>
+</pre>
+<pre>
+<code class="language-julia hljs">has_axis(example_metacells_daf(), &quot;metacell&quot;)
+
+# output
+
+true
+</code>
+</pre>
 </div>
 </section>
 </article>
@@ -565,6 +705,18 @@
 </p>
 </div>
 </div>
+<pre>
+<code class="language-julia hljs">sort!(string.(axes_set(example_cells_daf())))
+
+# output
+
+4-element Vector{String}:
+ &quot;cell&quot;
+ &quot;donor&quot;
+ &quot;experiment&quot;
+ &quot;gene&quot;
+</code>
+</pre>
 </div>
 </section>
 </article>
@@ -599,6 +751,14 @@
 <code>daf
 </code>.
 </p>
+<pre>
+<code class="language-julia hljs">axis_length(example_metacells_daf(), &quot;type&quot;)
+
+# output
+
+4
+</code>
+</pre>
 </div>
 </section>
 </article>
@@ -642,6 +802,16 @@
 <code>axis_vector(daf, axis)
 </code>.
 </p>
+<pre>
+<code class="language-julia hljs">axis_entries(example_metacells_daf(), &quot;type&quot;, [3, 0]; allow_empty = true)
+
+# output
+
+2-element Vector{AbstractString}:
+ &quot;MPP&quot;
+ &quot;&quot;
+</code>
+</pre>
 </div>
 </section>
 </article>
@@ -698,6 +868,18 @@
 <code>axis
 </code> does not exist.
 </p>
+<pre>
+<code class="language-julia hljs">string.(axis_vector(example_metacells_daf(), &quot;type&quot;))
+
+# output
+
+4-element Vector{SubString{StringViews.StringView{Vector{UInt8}}}}:
+ &quot;MEBEMP-E&quot;
+ &quot;MEBEMP-L&quot;
+ &quot;MPP&quot;
+ &quot;memory-B&quot;
+</code>
+</pre>
 </div>
 </section>
 </article>
@@ -737,6 +919,16 @@
 <code>axis
 </code>.
 </p>
+<pre>
+<code class="language-julia hljs">axis_indices(example_metacells_daf(), &quot;type&quot;, [&quot;MPP&quot;, &quot;&quot;]; allow_empty = true)
+
+# output
+
+2-element Vector{Int64}:
+ 3
+ 0
+</code>
+</pre>
 </div>
 </section>
 </article>
@@ -761,6 +953,18 @@
 </pre>
 <p>Return a dictionary converting axis entry names to their integer index.
 </p>
+<pre>
+<code class="language-julia hljs">axis_dict(example_metacells_daf(), &quot;type&quot;)
+
+# output
+
+OrderedCollections.OrderedDict{AbstractString, Int64} with 4 entries:
+  &quot;MEBEMP-E&quot; =&gt; 1
+  &quot;MEBEMP-L&quot; =&gt; 2
+  &quot;MPP&quot;      =&gt; 3
+  &quot;memory-B&quot; =&gt; 4
+</code>
+</pre>
 </div>
 </section>
 </article>
@@ -807,6 +1011,22 @@
 <code>daf
 </code>.
 </p>
+<pre>
+<code class="language-julia hljs">has_vector(example_cells_daf(), &quot;cell&quot;, &quot;type&quot;)
+
+# output
+
+false
+</code>
+</pre>
+<pre>
+<code class="language-julia hljs">has_vector(example_metacells_daf(), &quot;metacell&quot;, &quot;type&quot;)
+
+# output
+
+true
+</code>
+</pre>
 </div>
 </section>
 </article>
@@ -855,6 +1075,16 @@
 </p>
 </div>
 </div>
+<pre>
+<code class="language-julia hljs">sort!(string.(vectors_set(example_cells_daf(), &quot;cell&quot;)))
+
+# output
+
+2-element Vector{String}:
+ &quot;donor&quot;
+ &quot;experiment&quot;
+</code>
+</pre>
 </div>
 </section>
 </article>
@@ -928,6 +1158,20 @@
 <code>default
 </code>, and is returned.
 </p>
+<pre>
+<code class="language-julia hljs">get_vector(example_metacells_daf(), &quot;type&quot;, &quot;color&quot;)
+
+# output
+
+4-element Named SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}
+type     │
+─────────┼────────────
+MEBEMP-E │   &quot;#eebb6e&quot;
+MEBEMP-L │      &quot;plum&quot;
+MPP      │      &quot;gold&quot;
+memory-B │ &quot;steelblue&quot;
+</code>
+</pre>
 </div>
 </section>
 </article>
@@ -986,6 +1230,14 @@
 <code>daf
 </code>.
 </p>
+<pre>
+<code class="language-julia hljs">has_matrix(example_cells_daf(), &quot;gene&quot;, &quot;cell&quot;, &quot;UMIs&quot;)
+
+# output
+
+true
+</code>
+</pre>
 </div>
 </section>
 </article>
@@ -1043,6 +1295,15 @@
 </p>
 </div>
 </div>
+<pre>
+<code class="language-julia hljs">string.(matrices_set(example_cells_daf(), &quot;gene&quot;, &quot;cell&quot;))
+
+# output
+
+1-element Vector{String}:
+ &quot;UMIs&quot;
+</code>
+</pre>
 </div>
 </section>
 </article>
@@ -1138,6 +1399,33 @@
 <code>default
 </code>, and is returned.
 </p>
+<pre>
+<code class="language-julia hljs">get_matrix(example_metacells_daf(), &quot;gene&quot;, &quot;metacell&quot;, &quot;fraction&quot;)
+
+# output
+
+683×7 Named Matrix{Float32}
+gene ╲ metacell │    M1671.28     M2357.20  …      M756.63      M412.08
+────────────────┼──────────────────────────────────────────────────────
+RPL22           │  0.00447666    0.0041286  …   0.00434327   0.00373581
+PARK7           │  8.52301f-5  0.000154199     0.000108019   6.50531f-5
+ENO1            │ 0.000464448  0.000482609     0.000248241   4.22228f-5
+PRDM2           │    2.053f-5   2.85439f-5      2.46575f-5  0.000151486
+HP1BP3          │ 0.000107137  0.000110915       8.9043f-5   0.00012099
+CDC42           │ 0.000153017  0.000207847     0.000152447  0.000176377
+HNRNPR          │ 0.000122974    6.7171f-5      7.09771f-5    6.7083f-5
+RPL11           │    0.010306    0.0110606       0.0109086    0.0124251
+⋮                           ⋮            ⋮  ⋱            ⋮            ⋮
+NRIP1           │ 0.000155974  0.000361428     0.000197766   2.79487f-5
+ATP5PF          │  8.62855f-5  0.000125912     0.000121949   8.22312f-5
+CCT8            │ 0.000104152   7.55233f-5      0.00011572   4.13243f-5
+SOD1            │ 0.000177344  0.000147838     0.000104723  0.000103708
+SON             │ 0.000280491  0.000262015     0.000170829   0.00032361
+ATP5PO          │ 0.000134007  0.000123143      0.00018833   9.73498f-5
+TTC3            │ 0.000111978   0.00011131     0.000100166  0.000122469
+HMGN1           │ 0.000345676  0.000287754  …  0.000264526  0.000160654
+</code>
+</pre>
 </div>
 </section>
 </article>
@@ -1172,7 +1460,7 @@
 <a href="writers.html#DataAxesFormats.Writers.delete_axis!">
 <code>delete_axis!
 </code>
-</a> is called. It is used by interfaces to other programming languages to minimize copying data.
+</a> is called. It is used by interfaces to other programming languages to safely cache per-axis data.
 </p>
 <div class="admonition is-info">
 <header class="admonition-header">Note
@@ -1186,6 +1474,19 @@
 </p>
 </div>
 </div>
+<pre>
+<code class="language-julia hljs">metacells = example_metacells_daf()
+println(axis_version_counter(metacells, &quot;type&quot;))
+delete_axis!(metacells, &quot;type&quot;)
+add_axis!(metacells, &quot;type&quot;, [&quot;Foo&quot;, &quot;Bar&quot;, &quot;Baz&quot;])
+println(axis_version_counter(metacells, &quot;type&quot;))
+
+# output
+
+0
+1
+</code>
+</pre>
 </div>
 </section>
 </article>
@@ -1220,7 +1521,7 @@
 <a href="writers.html#DataAxesFormats.Writers.empty_sparse_vector!">
 <code>empty_sparse_vector!
 </code>
-</a> are called. It is used by interfaces to other programming languages to minimize copying data.
+</a> are called. It is used by interfaces to safely cache per-vector data.
 </p>
 <div class="admonition is-info">
 <header class="admonition-header">Note
@@ -1234,6 +1535,18 @@
 </p>
 </div>
 </div>
+<pre>
+<code class="language-julia hljs">metacells = example_metacells_daf()
+println(vector_version_counter(metacells, &quot;type&quot;, &quot;color&quot;))
+set_vector!(metacells, &quot;type&quot;, &quot;color&quot;, string.(collect(1:4)); overwrite = true)
+println(vector_version_counter(metacells, &quot;type&quot;, &quot;color&quot;))
+
+# output
+
+1
+2
+</code>
+</pre>
 </div>
 </section>
 </article>
@@ -1273,7 +1586,7 @@
 <a href="writers.html#DataAxesFormats.Writers.empty_sparse_matrix!">
 <code>empty_sparse_matrix!
 </code>
-</a> are called. It is used by interfaces to other programming languages to minimize copying data.
+</a> are called. It is used by interfaces to other programming languages to safely cache per-matrix data.
 </p>
 <div class="admonition is-info">
 <header class="admonition-header">Note
@@ -1287,6 +1600,18 @@
 </p>
 </div>
 </div>
+<pre>
+<code class="language-julia hljs">metacells = example_metacells_daf()
+println(matrix_version_counter(metacells, &quot;gene&quot;, &quot;metacell&quot;, &quot;fraction&quot;))
+set_matrix!(metacells, &quot;gene&quot;, &quot;metacell&quot;, &quot;fraction&quot;, rand(Float32, 683, 7); overwrite = true)
+println(matrix_version_counter(metacells, &quot;gene&quot;, &quot;metacell&quot;, &quot;fraction&quot;))
+
+# output
+
+1
+2
+</code>
+</pre>
 </div>
 </section>
 </article>

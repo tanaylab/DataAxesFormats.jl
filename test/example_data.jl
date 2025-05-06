@@ -4,6 +4,8 @@ nested_test("example_data") do
         @test description(daf) == """
                                   name: cells!
                                   type: MemoryDaf
+                                  scalars:
+                                    organism: "human"
                                   axes:
                                     cell: 856 entries
                                     donor: 95 entries
@@ -59,6 +61,8 @@ nested_test("example_data") do
                                   chain:
                                   - MemoryDaf cells!
                                   - MemoryDaf metacells!
+                                  scalars:
+                                    organism: "human"
                                   axes:
                                     cell: 856 entries
                                     donor: 95 entries

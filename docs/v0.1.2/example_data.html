@@ -282,6 +282,36 @@
 <code>MemoryDaf
 </code>.
 </p>
+<pre>
+<code class="language-julia hljs">print(description(example_cells_daf()))
+
+# output
+
+name: cells!
+type: MemoryDaf
+scalars:
+  organism: &quot;human&quot;
+axes:
+  cell: 856 entries
+  donor: 95 entries
+  experiment: 23 entries
+  gene: 683 entries
+vectors:
+  cell:
+    donor: 856 x Str (Dense)
+    experiment: 856 x Str (Dense)
+  donor:
+    age: 95 x UInt32 (Dense)
+    sex: 95 x Str (Dense)
+  gene:
+    is_lateral: 683 x Bool (Dense; 64% true)
+matrices:
+  cell,gene:
+    UMIs: 856 x 683 x UInt8 in Columns (Dense)
+  gene,cell:
+    UMIs: 683 x 856 x UInt8 in Columns (Dense)
+</code>
+</pre>
 </div>
 </section>
 </article>
@@ -308,6 +338,99 @@
 <code>MemoryDaf
 </code>.
 </p>
+<pre>
+<code class="language-julia hljs">print(description(example_metacells_daf()))
+
+# output
+
+name: metacells!
+type: MemoryDaf
+axes:
+  cell: 856 entries
+  gene: 683 entries
+  metacell: 7 entries
+  type: 4 entries
+vectors:
+  cell:
+    metacell: 856 x Str (Dense)
+  gene:
+    is_marker: 683 x Bool (Dense; 95% true)
+  metacell:
+    type: 7 x Str (Dense)
+  type:
+    color: 4 x Str (Dense)
+matrices:
+  gene,metacell:
+    fraction: 683 x 7 x Float32 in Columns (Dense)
+</code>
+</pre>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.ExampleData.example_chain_daf" href="#DataAxesFormats.ExampleData.example_chain_daf">
+<code>DataAxesFormats.ExampleData.example_chain_daf
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">example_chain_daf(; name::AbstractString = &quot;chain!&quot;)::DafWriter
+</code>
+</pre>
+<p>Load a chain of both the cells and metacells example data.
+</p>
+<pre>
+<code class="language-julia hljs">print(description(example_chain_daf()))
+
+# output
+
+name: chain!
+type: Write Chain
+chain:
+- MemoryDaf cells!
+- MemoryDaf metacells!
+scalars:
+  organism: &quot;human&quot;
+axes:
+  cell: 856 entries
+  donor: 95 entries
+  experiment: 23 entries
+  gene: 683 entries
+  metacell: 7 entries
+  type: 4 entries
+vectors:
+  cell:
+    donor: 856 x Str (Dense)
+    experiment: 856 x Str (Dense)
+    metacell: 856 x Str (Dense)
+  donor:
+    age: 95 x UInt32 (Dense)
+    sex: 95 x Str (Dense)
+  gene:
+    is_lateral: 683 x Bool (Dense; 64% true)
+    is_marker: 683 x Bool (Dense; 95% true)
+  metacell:
+    type: 7 x Str (Dense)
+  type:
+    color: 4 x Str (Dense)
+matrices:
+  cell,gene:
+    UMIs: 856 x 683 x UInt8 in Columns (Dense)
+  gene,cell:
+    UMIs: 683 x 856 x UInt8 in Columns (Dense)
+  gene,metacell:
+    fraction: 683 x 7 x Float32 in Columns (Dense)
+</code>
+</pre>
 </div>
 </section>
 </article>
@@ -329,6 +452,12 @@
 <li>
 <a href="example_data.html#DataAxesFormats.ExampleData.example_cells_daf">
 <code>DataAxesFormats.ExampleData.example_cells_daf
+</code>
+</a>
+</li>
+<li>
+<a href="example_data.html#DataAxesFormats.ExampleData.example_chain_daf">
+<code>DataAxesFormats.ExampleData.example_chain_daf
 </code>
 </a>
 </li>

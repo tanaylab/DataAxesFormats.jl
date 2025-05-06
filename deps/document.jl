@@ -22,12 +22,15 @@ push!(LOAD_PATH, ".")
 
 using DataAxesFormats
 using Pkg
+using Test
 
 PROJECT_TOML = Pkg.TOML.parsefile(joinpath(@__DIR__, "..", "Project.toml"))
 VERSION = PROJECT_TOML["version"]
 NAME = PROJECT_TOML["name"]
 AUTHORS = PROJECT_TOML["authors"]
 REPO = "https://github.com/tanaylab/$(NAME).jl"
+
+DocMeta.setdocmeta!(DataAxesFormats, :DocTestSetup, :(using DataAxesFormats); recursive = true)
 
 makedocs(;
     authors = join(" ", AUTHORS),
