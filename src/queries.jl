@@ -168,10 +168,10 @@ NAMES_QUERY = nothing
 A query returning a scalar can be one of:
 
   - Looking up the value of a scalar property (e.g., `: version` will return the value of the version scalar property).
-  - Picking a single entry of a vector property (e.g., `/ gene = FOX1 : is_marker` will return whether the gene named
-    FOX1 is a marker gene).
-  - Picking a single entry of a matrix property (e.g., `/ gene = FOX1 / cell = ATCG : UMIs` will return the number of
-    UMIs of the FOX1 gene of the ATCG cell).
+  - Picking a single entry of a vector property (e.g., `/ gene = FOXP1 : is_marker` will return whether the gene named
+    FOXP1 is a marker gene).
+  - Picking a single entry of a matrix property (e.g., `/ gene = FOXP1 / cell = ATCG : UMIs` will return the number of
+    UMIs of the FOXP1 gene of the ATCG cell).
   - Reducing some vector into a single value (e.g., `/ donor : age %> Mean` will compute the mean age of all the
     donors).
 
@@ -198,16 +198,16 @@ LOOKUP_PROPERTY = nothing
 """
 `VECTOR_ENTRY` := [`Axis`](@ref) [`IsEqual`](@ref) [`VECTOR_LOOKUP`](@ref)
 
-Lookup the scalar value of some entry of a vector property of some axis (e.g., `/ gene = FOX1 : is_marker` will return
-whether the FOX1 gene is a marker gene).
+Lookup the scalar value of some entry of a vector property of some axis (e.g., `/ gene = FOXP1 : is_marker` will return
+whether the FOXP1 gene is a marker gene).
 """
 VECTOR_ENTRY = nothing
 
 """
 `MATRIX_ENTRY` := [`Axis`](@ref) [`IsEqual`](@ref) [`Axis`](@ref) [`IsEqual`](@ref) [`LOOKUP_PROPERTY`](@ref)
 
-Lookup the scalar value of the named entry of a matrix property (e.g., `/ gene = FOX1 / cell = ATCG : UMIs` will return
-the number of UMIs of the FOX1 gene of the ATCG cell).
+Lookup the scalar value of the named entry of a matrix property (e.g., `/ gene = FOXP1 / cell = ATCG : UMIs` will return
+the number of UMIs of the FOXP1 gene of the ATCG cell).
 """
 MATRIX_ENTRY = nothing
 
@@ -234,8 +234,8 @@ REDUCE_VECTOR = nothing
 A query returning a vector can be one of:
 
   - Looking up the value of a vector property (e.g., `/ gene : is_marker` will return a mask of the marker genes).
-  - Picking a single row or column of a matrix property (e.g., `/ gene = FOX1 / cell : UMIs` will return a vector of the
-    UMIs of the FOX1 gene of all the cells).
+  - Picking a single row or column of a matrix property (e.g., `/ gene = FOXP1 / cell : UMIs` will return a vector of the
+    UMIs of the FOXP1 gene of all the cells).
   - Reducing each column of some matrix into a scalar, resulting in a vector (e.g., `/ gene / cell : UMIs %> Sum` will
     compute the sum of the UMIs of all the genes in each cell).
 
@@ -282,8 +282,8 @@ VECTOR_LOOKUP = nothing
 """
 `MATRIX_ROW` := [`Axis`](@ref) [`IsEqual`](@ref) [`Axis`](@ref) [`AXIS_MASK`](@ref)* [`Lookup`](@ref)
 
-Lookup the values of a single row of a matrix property, eliminating the rows axis (e.g., `/ gene = FOX1 / cell : UMIs`
-will evaluate to a vector of the UMIs of the FOX1 gene of all the cells).
+Lookup the values of a single row of a matrix property, eliminating the rows axis (e.g., `/ gene = FOXP1 / cell : UMIs`
+will evaluate to a vector of the UMIs of the FOXP1 gene of all the cells).
 """
 MATRIX_ROW = nothing
 
@@ -449,7 +449,7 @@ Operators used to represent a [`Query`](@ref) as a string.
 |          |                              | 3. Names of matrices of axes (e.g., `/ cell / gene ?`).                                  |
 | `:`      | [`Lookup`](@ref)             | Lookup a property (e.g., `: version`, `/ cell : batch` or `/ cell / gene : UMIs`).       |
 | `=>`     | [`Fetch`](@ref)              | Fetch a property from another axis (e.g., `/ cell : batch => age`).                      |
-| `;`      | [`MaskSlice`](@ref)          | Slice a matrix mask (e.g. `/ cell & UMIs ; gene = FOX1 > 0`).                            |
+| `;`      | [`MaskSlice`](@ref)          | Slice a matrix mask (e.g. `/ cell & UMIs ; gene = FOXP1 > 0`).                           |
 | `;=`     | [`SquareMaskColumn`](@ref)   | Slice a square matrix mask column (e.g. `/ cell & outgoing ;= ATCG > 0`).                |
 | `,=`     | [`SquareMaskRow`](@ref)      | Slice a square matrix mask row (e.g. `/ cell & outgoing ,= ATCG > 0`).                   |
 | `!`      | [`AsAxis`](@ref)             | 1. Specify axis name when fetching a property (e.g., `/ cell : manual ! type => color`). |
@@ -472,7 +472,7 @@ Operators used to represent a [`Query`](@ref) as a string.
 | `│!`     | [`OrNot`](@ref)              | Expand axis entries (e.g., `/ gene & is_marker │! is_noisy`).                            |
 | `^`      | [`Xor`](@ref)                | Flip axis entries (e.g., `/ gene & is_marker ^ is_noisy`).                               |
 | `^!`     | [`XorNot`](@ref)             | Flip axis entries (e.g., `/ gene & is_marker ^! is_noisy`).                              |
-| `=`      | [`IsEqual`](@ref)            | 1. Select an entry from an axis (e.g., `/ cell / gene = FOX1 : UMIs`).                   |
+| `=`      | [`IsEqual`](@ref)            | 1. Select an entry from an axis (e.g., `/ cell / gene = FOXP1 : UMIs`).                  |
 |          |                              | 2. Compare equal (e.g., `/ cell & age = 1`).                                             |
 | `!=`     | [`IsNotEqual`](@ref)         | Compare not equal (e.g., `/ cell & age != 1`).                                           |
 | `<`      | [`IsLess`](@ref)             | Compare less than (e.g., `/ cell & age < 1`).                                            |
@@ -665,7 +665,17 @@ end
 Shorthand for parsing a literal string as a [`Query`](@ref). This is equivalent to [`Query`](@ref)`(raw"...")`, that is,
 a `\\` can be placed in the string without escaping it (except for before a `"`). This is very convenient for literal
 queries (e.g., `q"/ cell = ATCG\\:B1 : batch"` == `Query(raw"/ cell = ATCG\\:B1 : batch")` ==
-`Query("/ cell = ATCG\\\\:B1 : batch")` == `Axis("cell") |> IsEqual("ATCG:B1") |> Lookup("batch")).
+`Query("/ cell = ATCG\\\\:B1 : batch")` == `Axis("cell") |> IsEqual("ATCG:B1") |> Lookup("batch"))`.
+
+```jldoctest
+println("/ cell = ATCG\\\\:B1 : batch")
+println(q"/ cell = ATCG\\:B1 : batch")
+
+# output
+
+/ cell = ATCG\\:B1 : batch
+/ cell = ATCG\\:B1 : batch
+```
 """
 macro q_str(query_string::AbstractString)
     return Query(query_string)
@@ -674,7 +684,7 @@ end
 """
     struct QuerySequence{N} <: Query where {N<:Integer}
 
-A sequence of `N` [`QueryOperation`](@ref)s.
+A sequence of `N` [`QueryOperation`](@ref)s. This is the internal representation of the query as of itself (without applying it).
 """
 struct QuerySequence{N} <: Query where {N}
     query_operations::NTuple{N, QueryOperation}
@@ -739,6 +749,45 @@ operator, optionally followed by the kind of objects to name.
 
     This, [`Lookup`](@ref) and [`Axis`](@ref) are the only [`QueryOperation`](@ref)s that also works as a complete
     [`Query`](@ref).
+
+```jldoctest
+cells = example_cells_daf()
+println(Names("scalars") |> get_query(cells))
+println(sort!(string.(cells["? axes"])))
+
+# output
+
+AbstractString["organism"]
+["cell", "donor", "experiment", "gene"]
+```
+
+```jldoctest
+cells = example_cells_daf()
+println(sort!(string.(Axis("cell") |> Names() |> get_query(cells))))
+println(sort!(string.(cells["/ cell ?"])))
+
+# output
+
+["donor", "experiment"]
+["donor", "experiment"]
+```
+
+```jldoctest
+cells = example_cells_daf()
+println(Axis("cell") |> Axis("gene") |> Names() |> get_query(cells))
+println(cells["/ cell / gene ?"])
+
+# output
+
+Set(AbstractString["UMIs"])
+Set(AbstractString["UMIs"])
+```
+
+!!! note
+
+    The results are always a set of strings, never a vector. We sort them to force reproducible results across Julia
+    versions. Even when we don't (in single-result cases), sometimes `println` shows them as a vector, because
+    "reasons".
 """
 struct Names <: Query
     kind::Maybe{AbstractString}
@@ -791,13 +840,54 @@ If the property does not exist, this is an error, unless this is followed by [`I
 `: version || 1.0`).
 
 If any of the axes has a single entry selected using [`IsEqual`](@ref), this will reduce the dimension of the result
-(e.g., `/ cell / gene = FOX1 : UMIs` is a vector, and both `/ cell = C1 / gene = FOX1 : UMIs` and
-`/ gene = FOX1 : is_marker` are scalars).
+(e.g., `/ cell / gene = FOXP1 : UMIs` is a vector, and both `/ cell = C1 / gene = FOXP1 : UMIs` and
+`/ gene = FOXP1 : is_marker` are scalars).
 
 !!! note
 
     This, [`Names`](@ref) and [`Axis`](@ref) are the only [`QueryOperation`](@ref)s that also works as a complete
     [`Query`](@ref).
+
+```jldoctest
+cells = example_cells_daf()
+println(Lookup("organism") |> get_query(cells))
+println(cells[": organism"])
+
+# output
+
+human
+human
+```
+
+```jldoctest
+metacells = example_metacells_daf()
+println(Axis("type") |> Lookup("color") |> get_query(metacells))
+println(metacells["/ type : color"])
+
+# output
+
+SubString{StringViews.StringView{Vector{UInt8}}}["#eebb6e", "plum", "gold", "steelblue"]
+SubString{StringViews.StringView{Vector{UInt8}}}["#eebb6e", "plum", "gold", "steelblue"]
+```
+
+```jldoctest
+metacells = example_metacells_daf()
+# Axis("metacell") |> Axis("gene") |> Lookup("fraction") |> get_query(metacells)
+metacells["/ metacell / gene : fraction"]
+
+# output
+
+7×683 Named SparseArrays.ReadOnly{Float32, 2, Matrix{Float32}}
+metacell ╲ gene │        RPL22         PARK7  …          TTC3         HMGN1
+────────────────┼──────────────────────────────────────────────────────────
+M1671.28        │   0.00447666    8.52301f-5  …   0.000111978   0.000345676
+M2357.20        │    0.0041286   0.000154199       0.00011131   0.000287754
+M2169.56        │   0.00474096   0.000110458      0.000108683   0.000415481
+M2576.86        │   0.00441595   0.000122259      0.000144736   0.000317384
+M1440.15        │   0.00455642   0.000116962       8.57345f-5   0.000320543
+M756.63         │   0.00434327   0.000108019      0.000100166   0.000264526
+M412.08         │   0.00373581    6.50531f-5  …   0.000122469   0.000160654
+```
 """
 struct Lookup <: Query
     property_name::AbstractString
@@ -854,6 +944,35 @@ If the property does not exist, this is an error, unless this is followed by [`I
 by an [`IfNot`](@ref) (e.g., `/ cell : type ? => color` will compute a vector of the colors of the type of the cells
 that have a non-empty type, and `/ cell : batch ? 0 => donor => age` will assign a zero age for cells which have an
 empty batch).
+
+```jldoctest
+metacells = example_metacells_daf()
+# Axis("cell") |> Lookup("metacell") |> Fetch("type") |> Fetch("color") |> get_query(metacells)
+metacells["/ cell : metacell => type => color"]
+
+# output
+
+856-element Named SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}
+cell                                │
+────────────────────────────────────┼──────────
+demux_07_12_20_1_AACAAGATCCATTTCA-1 │ "#eebb6e"
+demux_07_12_20_1_AACGAAAGTCCAATCA-1 │ "#eebb6e"
+demux_07_12_20_1_AAGACAAAGTTCCGTA-1 │ "#eebb6e"
+demux_07_12_20_1_AGACTCATCTATTGTC-1 │    "gold"
+demux_07_12_20_1_AGATAGACATTCCTCG-1 │ "#eebb6e"
+demux_07_12_20_1_ATCGTAGTCCAGTGCG-1 │    "gold"
+demux_07_12_20_1_CACAGGCGTCCTACAA-1 │ "#eebb6e"
+demux_07_12_20_1_CCTACGTAGCCAACCC-1 │ "#eebb6e"
+⋮                                             ⋮
+demux_11_04_21_2_GGGTCACCACCACATA-1 │    "gold"
+demux_11_04_21_2_TACAACGGTTACACAC-1 │    "plum"
+demux_11_04_21_2_TAGAGTCAGAACGCGT-1 │ "#eebb6e"
+demux_11_04_21_2_TGATGCAAGGCCTGCT-1 │    "gold"
+demux_11_04_21_2_TGCCGAGAGTCGCGAA-1 │    "gold"
+demux_11_04_21_2_TGCTGAAAGCCGCACT-1 │    "gold"
+demux_11_04_21_2_TTCAGGACAGGAATAT-1 │ "#eebb6e"
+demux_11_04_21_2_TTTAGTCGTCTAGTGT-1 │ "#eebb6e"
+```
 """
 struct Fetch <: ModifierQueryOperation
     property_name::AbstractString
@@ -872,7 +991,38 @@ to be followed by the axis entry to slice. In a string [`Query`](@ref), this is 
 by the name of the axis for looking up the matrix, then followed by `=` and the value identifying the slice.
 
 That is, suppose we have a UMIs matrix per cell per gene, and we'd like to select all the cells which have non-zero UMIs
-for the FOX1 gene. Then we can say `/ cell & UMIs ; gene = FOX1 > 0` (or just `/ cell & UMIs ; gene = FOX1`.
+for the FOXP1 gene. Then we can say `/ cell & UMIs ; gene = FOXP1 > 0` (or just `/ cell & UMIs ; gene = FOXP1` since the
+`> 0` is implicit).
+
+```jldoctest
+cells = example_cells_daf()
+# Axis("cell") |> And("UMIs") |> MaskSlice("gene") |> IsEqual("FOXP1") |> get_query(cells)
+cells["/ cell & UMIs ; gene = FOXP1"]
+
+# output
+
+372-element SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}:
+ "demux_07_12_20_1_AACAAGATCCATTTCA-1"
+ "demux_07_12_20_1_AACGAAAGTCCAATCA-1"
+ "demux_07_12_20_1_AGACTCATCTATTGTC-1"
+ "demux_07_12_20_1_ATCGTAGTCCAGTGCG-1"
+ "demux_07_12_20_1_CACAGGCGTCCTACAA-1"
+ "demux_07_12_20_1_CTTTCAAGTGAGGAAA-1"
+ "demux_07_12_20_1_GAAGGGTGTCCCTGAG-1"
+ "demux_07_12_20_1_GCAGCCAGTGTTACAC-1"
+ "demux_07_12_20_1_GTTAGACGTCGGCACT-1"
+ "demux_07_12_20_1_TCCTTCTTCTACTGAG-1"
+ ⋮
+ "demux_11_04_21_2_ATGGGAGTCCTGTTAT-1"
+ "demux_11_04_21_2_CATGGTATCGTTAGAC-1"
+ "demux_11_04_21_2_CCTACGTCAGACCAGA-1"
+ "demux_11_04_21_2_CGTGAATGTGAGTGAC-1"
+ "demux_11_04_21_2_GGCTTGGTCGTTCCTG-1"
+ "demux_11_04_21_2_GGGTCACCACCACATA-1"
+ "demux_11_04_21_2_TACAACGGTTACACAC-1"
+ "demux_11_04_21_2_TGCTGAAAGCCGCACT-1"
+ "demux_11_04_21_2_TTTAGTCGTCTAGTGT-1"
+```
 """
 struct MaskSlice <: ModifierQueryOperation
     axis_name::AbstractString
@@ -1051,8 +1201,8 @@ followed by the axis name.
 This needs to be specified at least once for a vector query (e.g., `/ cell : batch`), and twice for a matrix (e.g.,
 `/ cell / gene : UMIs`). Axes can be filtered using Boolean masks using [`And`](@ref), [`AndNot`](@ref), [`Or`](@ref),
 [`OrNot`](@ref), [`Xor`](@ref) and [`XorNot`](@ref) (e.g., `/ gene & is_marker : is_noisy`). Alternatively, a single
-entry can be selected from the axis using [`IsEqual`](@ref) (e.g., `/ gene = FOX1 : is_noisy`,
-`/ cell / gene = FOX1 : UMIs`, `/ cell = C1 / gene = FOX1 : UMIs`). Finally, a matrix can be reduced into a vector, and
+entry can be selected from the axis using [`IsEqual`](@ref) (e.g., `/ gene = FOXP1 : is_noisy`,
+`/ cell / gene = FOXP1 : UMIs`, `/ cell = C1 / gene = FOXP1 : UMIs`). Finally, a matrix can be reduced into a vector, and
 a vector to a scalar, using [`ReductionOperation`](@ref) (e.g., `/ gene / cell : UMIs %> Sum %> Mean`).
 
 !!! note
@@ -1261,7 +1411,7 @@ end
 
 A query operation computing a mask by comparing the values of a vector with some constant (e.g., `/ cell & age > 0`).
 In addition, the [`IsEqual`](@ref) operation can be used to slice an entry from a vector (e.g.,
-`/ gene = FOX1 : is_marker`) or a matrix (e.g., `/ cell / gene = FOX1 & UMIs`, `/ cell = ATCG / gene = FOX1 : UMIs`).
+`/ gene = FOXP1 : is_marker`) or a matrix (e.g., `/ cell / gene = FOXP1 & UMIs`, `/ cell = ATCG / gene = FOXP1 : UMIs`).
 """
 abstract type ComparisonOperation <: ModifierQueryOperation end
 
@@ -1318,8 +1468,8 @@ Equality is used for two purposes:
 
   - As a comparison operator, similar to [`IsLess`](@ref) except that uses `=` instead of `<` for the comparison.
   - To select a single entry from a vector. This allows a query to select a single scalar from a vector (e.g.,
-    `/ gene = FOX1 : is_marker`) or from a matrix (e.g., `/ cell = ATCG / gene = FOX1 : UMIs`); or to slice a single
-    vector from a matrix (e.g., `/ cell = ATCG / gene : UMIs` or `/ cell / gene = FOX1 : UMIs`).
+    `/ gene = FOXP1 : is_marker`) or from a matrix (e.g., `/ cell = ATCG / gene = FOXP1 : UMIs`); or to slice a single
+    vector from a matrix (e.g., `/ cell = ATCG / gene : UMIs` or `/ cell / gene = FOXP1 : UMIs`).
 """
 struct IsEqual <: ComparisonOperation
     comparison_value::StorageScalar

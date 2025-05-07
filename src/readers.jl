@@ -1164,6 +1164,8 @@ matrices:
     UMIs: 683 x 856 x UInt8 in Columns (Dense)
   gene,metacell:
     fraction: 683 x 7 x Float32 in Columns (Dense)
+  metacell,metacell:
+    edge_weight: 7 x 7 x Float32 in Columns (Dense)
 chain:
 - name: cells!
   type: MemoryDaf
@@ -1207,6 +1209,8 @@ chain:
   matrices:
     gene,metacell:
       fraction: 683 x 7 x Float32 in Columns (Dense)
+    metacell,metacell:
+      edge_weight: 7 x 7 x Float32 in Columns (Dense)
 ```
 """
 function description(daf::DafReader; cache::Bool = false, deep::Bool = false, tensors::Bool = true)::String

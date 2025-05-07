@@ -525,8 +525,20 @@
 <code>Query(raw&quot;/ cell = ATCG\:B1 : batch&quot;)
 </code> == 
 <code>Query(&quot;/ cell = ATCG\\:B1 : batch&quot;)
-</code> == `Axis(&quot;cell&quot;) |&gt; IsEqual(&quot;ATCG:B1&quot;) |&gt; Lookup(&quot;batch&quot;)).
+</code> == 
+<code>Axis(&quot;cell&quot;) |&gt; IsEqual(&quot;ATCG:B1&quot;) |&gt; Lookup(&quot;batch&quot;))
+</code>.
 </p>
+<pre>
+<code class="language-julia hljs">println(&quot;/ cell = ATCG\\:B1 : batch&quot;)
+println(q&quot;/ cell = ATCG\:B1 : batch&quot;)
+
+# output
+
+/ cell = ATCG\:B1 : batch
+/ cell = ATCG\:B1 : batch
+</code>
+</pre>
 </div>
 </section>
 </article>
@@ -1088,7 +1100,7 @@ get_query(
 </a>
 </td>
 <td style="text-align: left">Slice a matrix mask (e.g. 
-<code>/ cell &amp; UMIs ; gene = FOX1 &gt; 0
+<code>/ cell &amp; UMIs ; gene = FOXP1 &gt; 0
 </code>).
 </td>
 </tr>
@@ -1410,7 +1422,7 @@ get_query(
 </a>
 </td>
 <td style="text-align: left">1. Select an entry from an axis (e.g., 
-<code>/ cell / gene = FOX1 : UMIs
+<code>/ cell / gene = FOXP1 : UMIs
 </code>).
 </td>
 </tr>
@@ -1675,12 +1687,12 @@ get_query(
 </code> will return the value of the version scalar property).
 </li>
 <li>Picking a single entry of a vector property (e.g., 
-<code>/ gene = FOX1 : is_marker
-</code> will return whether the gene named FOX1 is a marker gene).
+<code>/ gene = FOXP1 : is_marker
+</code> will return whether the gene named FOXP1 is a marker gene).
 </li>
 <li>Picking a single entry of a matrix property (e.g., 
-<code>/ gene = FOX1 / cell = ATCG : UMIs
-</code> will return the number of UMIs of the FOX1 gene of the ATCG cell).
+<code>/ gene = FOXP1 / cell = ATCG : UMIs
+</code> will return the number of UMIs of the FOXP1 gene of the ATCG cell).
 </li>
 <li>Reducing some vector into a single value (e.g., 
 <code>/ donor : age %&gt; Mean
@@ -1788,8 +1800,8 @@ get_query(
 </a>
 </p>
 <p>Lookup the scalar value of some entry of a vector property of some axis (e.g., 
-<code>/ gene = FOX1 : is_marker
-</code> will return whether the FOX1 gene is a marker gene).
+<code>/ gene = FOXP1 : is_marker
+</code> will return whether the FOXP1 gene is a marker gene).
 </p>
 </div>
 </section>
@@ -1834,8 +1846,8 @@ get_query(
 </a>
 </p>
 <p>Lookup the scalar value of the named entry of a matrix property (e.g., 
-<code>/ gene = FOX1 / cell = ATCG : UMIs
-</code> will return the number of UMIs of the FOX1 gene of the ATCG cell).
+<code>/ gene = FOXP1 / cell = ATCG : UMIs
+</code> will return the number of UMIs of the FOXP1 gene of the ATCG cell).
 </p>
 </div>
 </section>
@@ -1925,8 +1937,8 @@ get_query(
 </code> will return a mask of the marker genes).
 </li>
 <li>Picking a single row or column of a matrix property (e.g., 
-<code>/ gene = FOX1 / cell : UMIs
-</code> will return a vector of the UMIs of the FOX1 gene of all the cells).
+<code>/ gene = FOXP1 / cell : UMIs
+</code> will return a vector of the UMIs of the FOXP1 gene of all the cells).
 </li>
 <li>Reducing each column of some matrix into a scalar, resulting in a vector (e.g., 
 <code>/ gene / cell : UMIs %&gt; Sum
@@ -2120,8 +2132,8 @@ get_query(
 </a>
 </p>
 <p>Lookup the values of a single row of a matrix property, eliminating the rows axis (e.g., 
-<code>/ gene = FOX1 / cell : UMIs
-</code> will evaluate to a vector of the UMIs of the FOX1 gene of all the cells).
+<code>/ gene = FOXP1 / cell : UMIs
+</code> will evaluate to a vector of the UMIs of the FOXP1 gene of all the cells).
 </p>
 </div>
 </section>
@@ -2831,7 +2843,7 @@ get_query(
 <a href="registry.html#DataAxesFormats.Registry.QueryOperation">
 <code>QueryOperation
 </code>
-</a>s.
+</a>s. This is the internal representation of the query as of itself (without applying it).
 </p>
 </div>
 </section>
@@ -3024,11 +3036,11 @@ get_query(
 <code>IsEqual
 </code>
 </a> (e.g., 
-<code>/ gene = FOX1 : is_noisy
+<code>/ gene = FOXP1 : is_noisy
 </code>, 
-<code>/ cell / gene = FOX1 : UMIs
+<code>/ cell / gene = FOXP1 : UMIs
 </code>, 
-<code>/ cell = C1 / gene = FOX1 : UMIs
+<code>/ cell = C1 / gene = FOXP1 : UMIs
 </code>). Finally, a matrix can be reduced into a vector, and a vector to a scalar, using 
 <a href="registry.html#DataAxesFormats.Registry.ReductionOperation">
 <code>ReductionOperation
@@ -3207,6 +3219,35 @@ get_query(
 <code>/ cell : batch ? 0 =&gt; donor =&gt; age
 </code> will assign a zero age for cells which have an empty batch).
 </p>
+<pre>
+<code class="language-julia hljs">metacells = example_metacells_daf()
+# Axis(&quot;cell&quot;) |&gt; Lookup(&quot;metacell&quot;) |&gt; Fetch(&quot;type&quot;) |&gt; Fetch(&quot;color&quot;) |&gt; get_query(metacells)
+metacells[&quot;/ cell : metacell =&gt; type =&gt; color&quot;]
+
+# output
+
+856-element Named SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}
+cell                                │
+────────────────────────────────────┼──────────
+demux_07_12_20_1_AACAAGATCCATTTCA-1 │ &quot;#eebb6e&quot;
+demux_07_12_20_1_AACGAAAGTCCAATCA-1 │ &quot;#eebb6e&quot;
+demux_07_12_20_1_AAGACAAAGTTCCGTA-1 │ &quot;#eebb6e&quot;
+demux_07_12_20_1_AGACTCATCTATTGTC-1 │    &quot;gold&quot;
+demux_07_12_20_1_AGATAGACATTCCTCG-1 │ &quot;#eebb6e&quot;
+demux_07_12_20_1_ATCGTAGTCCAGTGCG-1 │    &quot;gold&quot;
+demux_07_12_20_1_CACAGGCGTCCTACAA-1 │ &quot;#eebb6e&quot;
+demux_07_12_20_1_CCTACGTAGCCAACCC-1 │ &quot;#eebb6e&quot;
+⋮                                             ⋮
+demux_11_04_21_2_GGGTCACCACCACATA-1 │    &quot;gold&quot;
+demux_11_04_21_2_TACAACGGTTACACAC-1 │    &quot;plum&quot;
+demux_11_04_21_2_TAGAGTCAGAACGCGT-1 │ &quot;#eebb6e&quot;
+demux_11_04_21_2_TGATGCAAGGCCTGCT-1 │    &quot;gold&quot;
+demux_11_04_21_2_TGCCGAGAGTCGCGAA-1 │    &quot;gold&quot;
+demux_11_04_21_2_TGCTGAAAGCCGCACT-1 │    &quot;gold&quot;
+demux_11_04_21_2_TTCAGGACAGGAATAT-1 │ &quot;#eebb6e&quot;
+demux_11_04_21_2_TTTAGTCGTCTAGTGT-1 │ &quot;#eebb6e&quot;
+</code>
+</pre>
 </div>
 </section>
 </article>
@@ -3420,11 +3461,11 @@ get_query(
 <code>IsEqual
 </code>
 </a>, this will reduce the dimension of the result (e.g., 
-<code>/ cell / gene = FOX1 : UMIs
+<code>/ cell / gene = FOXP1 : UMIs
 </code> is a vector, and both 
-<code>/ cell = C1 / gene = FOX1 : UMIs
+<code>/ cell = C1 / gene = FOXP1 : UMIs
 </code> and 
-<code>/ gene = FOX1 : is_marker
+<code>/ gene = FOXP1 : is_marker
 </code> are scalars).
 </p>
 <div class="admonition is-info">
@@ -3451,6 +3492,47 @@ get_query(
 </p>
 </div>
 </div>
+<pre>
+<code class="language-julia hljs">cells = example_cells_daf()
+println(Lookup(&quot;organism&quot;) |&gt; get_query(cells))
+println(cells[&quot;: organism&quot;])
+
+# output
+
+human
+human
+</code>
+</pre>
+<pre>
+<code class="language-julia hljs">metacells = example_metacells_daf()
+println(Axis(&quot;type&quot;) |&gt; Lookup(&quot;color&quot;) |&gt; get_query(metacells))
+println(metacells[&quot;/ type : color&quot;])
+
+# output
+
+SubString{StringViews.StringView{Vector{UInt8}}}[&quot;#eebb6e&quot;, &quot;plum&quot;, &quot;gold&quot;, &quot;steelblue&quot;]
+SubString{StringViews.StringView{Vector{UInt8}}}[&quot;#eebb6e&quot;, &quot;plum&quot;, &quot;gold&quot;, &quot;steelblue&quot;]
+</code>
+</pre>
+<pre>
+<code class="language-julia hljs">metacells = example_metacells_daf()
+# Axis(&quot;metacell&quot;) |&gt; Axis(&quot;gene&quot;) |&gt; Lookup(&quot;fraction&quot;) |&gt; get_query(metacells)
+metacells[&quot;/ metacell / gene : fraction&quot;]
+
+# output
+
+7×683 Named SparseArrays.ReadOnly{Float32, 2, Matrix{Float32}}
+metacell ╲ gene │        RPL22         PARK7  …          TTC3         HMGN1
+────────────────┼──────────────────────────────────────────────────────────
+M1671.28        │   0.00447666    8.52301f-5  …   0.000111978   0.000345676
+M2357.20        │    0.0041286   0.000154199       0.00011131   0.000287754
+M2169.56        │   0.00474096   0.000110458      0.000108683   0.000415481
+M2576.86        │   0.00441595   0.000122259      0.000144736   0.000317384
+M1440.15        │   0.00455642   0.000116962       8.57345f-5   0.000320543
+M756.63         │   0.00434327   0.000108019      0.000100166   0.000264526
+M412.08         │   0.00373581    6.50531f-5  …   0.000122469   0.000160654
+</code>
+</pre>
 </div>
 </section>
 </article>
@@ -3531,6 +3613,49 @@ get_query(
 </p>
 </div>
 </div>
+<pre>
+<code class="language-julia hljs">cells = example_cells_daf()
+println(Names(&quot;scalars&quot;) |&gt; get_query(cells))
+println(sort!(string.(cells[&quot;? axes&quot;])))
+
+# output
+
+AbstractString[&quot;organism&quot;]
+[&quot;cell&quot;, &quot;donor&quot;, &quot;experiment&quot;, &quot;gene&quot;]
+</code>
+</pre>
+<pre>
+<code class="language-julia hljs">cells = example_cells_daf()
+println(sort!(string.(Axis(&quot;cell&quot;) |&gt; Names() |&gt; get_query(cells))))
+println(sort!(string.(cells[&quot;/ cell ?&quot;])))
+
+# output
+
+[&quot;donor&quot;, &quot;experiment&quot;]
+[&quot;donor&quot;, &quot;experiment&quot;]
+</code>
+</pre>
+<pre>
+<code class="language-julia hljs">cells = example_cells_daf()
+println(Axis(&quot;cell&quot;) |&gt; Axis(&quot;gene&quot;) |&gt; Names() |&gt; get_query(cells))
+println(cells[&quot;/ cell / gene ?&quot;])
+
+# output
+
+Set(AbstractString[&quot;UMIs&quot;])
+Set(AbstractString[&quot;UMIs&quot;])
+</code>
+</pre>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>The results are always a set of strings, never a vector. We sort them to force reproducible results across Julia versions. Even when we don&#39;t (in single-result cases), sometimes 
+<code>println
+</code> shows them as a vector, because &quot;reasons&quot;.
+</p>
+</div>
+</div>
 </div>
 </section>
 </article>
@@ -3600,11 +3725,11 @@ get_query(
 <code>IsEqual
 </code>
 </a> operation can be used to slice an entry from a vector (e.g., 
-<code>/ gene = FOX1 : is_marker
+<code>/ gene = FOXP1 : is_marker
 </code>) or a matrix (e.g., 
-<code>/ cell / gene = FOX1 &amp; UMIs
+<code>/ cell / gene = FOXP1 &amp; UMIs
 </code>, 
-<code>/ cell = ATCG / gene = FOX1 : UMIs
+<code>/ cell = ATCG / gene = FOXP1 : UMIs
 </code>).
 </p>
 </div>
@@ -3643,13 +3768,13 @@ get_query(
 </code> for the comparison.
 </li>
 <li>To select a single entry from a vector. This allows a query to select a single scalar from a vector (e.g., 
-<code>/ gene = FOX1 : is_marker
+<code>/ gene = FOXP1 : is_marker
 </code>) or from a matrix (e.g., 
-<code>/ cell = ATCG / gene = FOX1 : UMIs
+<code>/ cell = ATCG / gene = FOXP1 : UMIs
 </code>); or to slice a single vector from a matrix (e.g., 
 <code>/ cell = ATCG / gene : UMIs
 </code> or 
-<code>/ cell / gene = FOX1 : UMIs
+<code>/ cell / gene = FOXP1 : UMIs
 </code>).
 </li>
 </ul>
@@ -4145,12 +4270,44 @@ get_query(
 <code>=
 </code> and the value identifying the slice.
 </p>
-<p>That is, suppose we have a UMIs matrix per cell per gene, and we&#39;d like to select all the cells which have non-zero UMIs for the FOX1 gene. Then we can say 
-<code>/ cell &amp; UMIs ; gene = FOX1 &gt; 0
+<p>That is, suppose we have a UMIs matrix per cell per gene, and we&#39;d like to select all the cells which have non-zero UMIs for the FOXP1 gene. Then we can say 
+<code>/ cell &amp; UMIs ; gene = FOXP1 &gt; 0
 </code> (or just 
-<code>/ cell &amp; UMIs ; gene = FOX1
-</code>.
+<code>/ cell &amp; UMIs ; gene = FOXP1
+</code> since the 
+<code>&gt; 0
+</code> is implicit).
 </p>
+<pre>
+<code class="language-julia hljs">cells = example_cells_daf()
+# Axis(&quot;cell&quot;) |&gt; And(&quot;UMIs&quot;) |&gt; MaskSlice(&quot;gene&quot;) |&gt; IsEqual(&quot;FOXP1&quot;) |&gt; get_query(cells)
+cells[&quot;/ cell &amp; UMIs ; gene = FOXP1&quot;]
+
+# output
+
+372-element SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}:
+ &quot;demux_07_12_20_1_AACAAGATCCATTTCA-1&quot;
+ &quot;demux_07_12_20_1_AACGAAAGTCCAATCA-1&quot;
+ &quot;demux_07_12_20_1_AGACTCATCTATTGTC-1&quot;
+ &quot;demux_07_12_20_1_ATCGTAGTCCAGTGCG-1&quot;
+ &quot;demux_07_12_20_1_CACAGGCGTCCTACAA-1&quot;
+ &quot;demux_07_12_20_1_CTTTCAAGTGAGGAAA-1&quot;
+ &quot;demux_07_12_20_1_GAAGGGTGTCCCTGAG-1&quot;
+ &quot;demux_07_12_20_1_GCAGCCAGTGTTACAC-1&quot;
+ &quot;demux_07_12_20_1_GTTAGACGTCGGCACT-1&quot;
+ &quot;demux_07_12_20_1_TCCTTCTTCTACTGAG-1&quot;
+ ⋮
+ &quot;demux_11_04_21_2_ATGGGAGTCCTGTTAT-1&quot;
+ &quot;demux_11_04_21_2_CATGGTATCGTTAGAC-1&quot;
+ &quot;demux_11_04_21_2_CCTACGTCAGACCAGA-1&quot;
+ &quot;demux_11_04_21_2_CGTGAATGTGAGTGAC-1&quot;
+ &quot;demux_11_04_21_2_GGCTTGGTCGTTCCTG-1&quot;
+ &quot;demux_11_04_21_2_GGGTCACCACCACATA-1&quot;
+ &quot;demux_11_04_21_2_TACAACGGTTACACAC-1&quot;
+ &quot;demux_11_04_21_2_TGCTGAAAGCCGCACT-1&quot;
+ &quot;demux_11_04_21_2_TTTAGTCGTCTAGTGT-1&quot;
+</code>
+</pre>
 </div>
 </section>
 </article>

@@ -50,6 +50,8 @@ nested_test("example_data") do
                                   matrices:
                                     gene,metacell:
                                       fraction: 683 x 7 x Float32 in Columns (Dense)
+                                    metacell,metacell:
+                                      edge_weight: 7 x 7 x Float32 in Columns (Dense)
                                   """
     end
 
@@ -92,6 +94,8 @@ nested_test("example_data") do
                                       UMIs: 683 x 856 x UInt8 in Columns (Dense)
                                     gene,metacell:
                                       fraction: 683 x 7 x Float32 in Columns (Dense)
+                                    metacell,metacell:
+                                      edge_weight: 7 x 7 x Float32 in Columns (Dense)
                                   """
     end
 end

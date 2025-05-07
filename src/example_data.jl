@@ -82,6 +82,8 @@ vectors:
 matrices:
   gene,metacell:
     fraction: 683 x 7 x Float32 in Columns (Dense)
+  metacell,metacell:
+    edge_weight: 7 x 7 x Float32 in Columns (Dense)
 ```
 """
 function example_metacells_daf(; name::AbstractString = "metacells!")::MemoryDaf
@@ -239,6 +241,8 @@ matrices:
     UMIs: 683 x 856 x UInt8 in Columns (Dense)
   gene,metacell:
     fraction: 683 x 7 x Float32 in Columns (Dense)
+  metacell,metacell:
+    edge_weight: 7 x 7 x Float32 in Columns (Dense)
 ```
 """
 function example_chain_daf(; name::AbstractString = "chain!")::DafWriter
