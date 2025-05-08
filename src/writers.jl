@@ -58,6 +58,19 @@ import ..Readers.require_vector
 Set the `value` of a scalar property with some `name` in `daf`.
 
 If not `overwrite` (the default), this first verifies the `name` scalar property does not exist.
+
+```jldoctest
+cells = example_cells_daf()
+set_scalar!(cells, "version", 1.0)
+println(get_scalar(cells, "version"))
+set_scalar!(cells, "version", 2.0; overwrite = true)
+println(get_scalar(cells, "version"))
+
+# output
+
+1.0
+2.0
+```
 """
 function set_scalar!(daf::DafWriter, name::AbstractString, value::StorageScalar; overwrite::Bool = false)::Nothing
     @assert value isa AbstractString || isbits(value)
@@ -90,6 +103,18 @@ end
 Delete a scalar property with some `name` from `daf`.
 
 If `must_exist` (the default), this first verifies the `name` scalar property exists in `daf`.
+
+```jldoctest
+cells = example_cells_daf()
+println(has_scalar(cells, "organism"))
+delete_scalar!(cells, "organism")
+println(has_scalar(cells, "organism"))
+
+# output
+
+true
+false
+```
 """
 function delete_scalar!(daf::DafWriter, name::AbstractString; must_exist::Bool = true, _for_set = false)::Nothing
     return Formats.with_data_write_lock(daf, "delete_scalar! of:", name) do
@@ -130,6 +155,18 @@ Add a new `axis` to `daf`.
 
 This verifies the `entries` are unique. If `overwrite`, this will first delete an existing axis with the same name
 (which will also delete any data associated with this axis!). Otherwise, this verifies the the `axis` does not exist.
+
+```jldoctest
+metacells = example_cells_daf()
+println(has_axis(metacells, "block"))
+add_axis!(metacells, "block", ["B1", "B2"])
+println(has_axis(metacells, "block"))
+
+# output
+
+false
+true
+```
 """
 function add_axis!(
     daf::DafWriter,
@@ -174,6 +211,18 @@ end
 Delete an `axis` from the `daf`. This will also delete any vector or matrix properties that are based on this axis.
 
 If `must_exist` (the default), this first verifies the `axis` exists in the `daf`.
+
+```jldoctest
+metacells = example_metacells_daf()
+println(has_axis(metacells, "type"))
+delete_axis!(metacells, "type")
+println(has_axis(metacells, "type"))
+
+# output
+
+true
+false
+```
 """
 function delete_axis!(daf::DafWriter, axis::AbstractString; must_exist::Bool = true)::Nothing
     return Formats.with_data_write_lock(daf, "delete_axis! of:", axis) do
@@ -258,6 +307,21 @@ appropriate length. If not `overwrite` (the default), this also verifies the `na
 
 If `eltype` is specified, and the data is of another type, then the data is converted to this data type before being
 stored.
+
+```jldoctest
+metacells = example_metacells_daf()
+println(has_vector(metacells, "type", "is_mebemp"))
+set_vector!(metacells, "type", "is_mebemp", [true, true, false, false])
+println(has_vector(metacells, "type", "is_mebemp"))
+set_vector!(metacells, "type", "is_mebemp", [true, true, true, false]; overwrite = true)
+println(has_vector(metacells, "type", "is_mebemp"))
+
+# output
+
+false
+true
+true
+```
 """
 function set_vector!(
     daf::DafWriter,
@@ -506,6 +570,18 @@ Delete a vector property with some `name` for some `axis` from `daf`.
 
 This first verifies the `axis` exists in `daf` and that the property name isn't `name`. If `must_exist` (the default),
 this also verifies the `name` vector exists for the `axis`.
+
+```jldoctest
+metacells = example_metacells_daf()
+println(has_vector(metacells, "type", "color"))
+delete_vector!(metacells, "type", "color")
+println(has_vector(metacells, "type", "color"))
+
+# output
+
+true
+false
+```
 """
 function delete_vector!(daf::DafWriter, axis::AbstractString, name::AbstractString; must_exist::Bool = true)::Nothing
     return Formats.with_data_write_lock(daf, "delete_vector! of:", name, "of:", axis) do
@@ -561,6 +637,39 @@ data would also be stored in row-major layout (that is, with the axes flipped), 
 This first verifies the `rows_axis` and `columns_axis` exist in `daf`, that the `matrix` is column-major of the
 appropriate size. If not `overwrite` (the default), this also verifies the `name` matrix does not exist for the
 `rows_axis` and `columns_axis`.
+
+```jldoctest
+metacells = example_metacells_daf()
+println(has_matrix(metacells, "gene", "metacell", "confidence"))
+println(has_matrix(metacells, "gene", "metacell", "confidence"; relayout = false))
+println(has_matrix(metacells, "metacell", "gene", "confidence"; relayout = false))
+
+set_matrix!(metacells, "metacell", "gene", "confidence", rand(7, 683); relayout = false)
+println()
+println(has_matrix(metacells, "gene", "metacell", "confidence"))
+println(has_matrix(metacells, "gene", "metacell", "confidence"; relayout = false))
+println(has_matrix(metacells, "metacell", "gene", "confidence"; relayout = false))
+
+set_matrix!(metacells, "metacell", "gene", "confidence", rand(7, 683); overwrite = true)
+println()
+println(has_matrix(metacells, "gene", "metacell", "confidence"))
+println(has_matrix(metacells, "gene", "metacell", "confidence"; relayout = false))
+println(has_matrix(metacells, "metacell", "gene", "confidence"; relayout = false))
+
+# output
+
+false
+false
+false
+
+true
+false
+true
+
+true
+true
+true
+```
 """
 function set_matrix!(
     daf::DafWriter,
@@ -927,6 +1036,39 @@ If `relayout` (the default), this will also delete the matrix in the other layou
 
 This first verifies the `rows_axis` and `columns_axis` exist in `daf`. If `must_exist` (the default), this also verifies
 the `name` matrix exists for the `rows_axis` and `columns_axis`.
+
+```jldoctest
+cells = example_cells_daf()
+println(has_matrix(cells, "gene", "cell", "UMIs"))
+println(has_matrix(cells, "gene", "cell", "UMIs"; relayout = false))
+println(has_matrix(cells, "cell", "gene", "UMIs"; relayout = false))
+
+delete_matrix!(cells, "gene", "cell", "UMIs"; relayout = false)
+println()
+println(has_matrix(cells, "gene", "cell", "UMIs"))
+println(has_matrix(cells, "gene", "cell", "UMIs"; relayout = false))
+println(has_matrix(cells, "cell", "gene", "UMIs"; relayout = false))
+
+delete_matrix!(cells, "gene", "cell", "UMIs"; must_exist = false)
+println()
+println(has_matrix(cells, "gene", "cell", "UMIs"))
+println(has_matrix(cells, "gene", "cell", "UMIs"; relayout = false))
+println(has_matrix(cells, "cell", "gene", "UMIs"; relayout = false))
+
+# output
+
+true
+true
+true
+
+true
+false
+true
+
+false
+false
+false
+```
 """
 function delete_matrix!(
     daf::DafWriter,

@@ -335,6 +335,19 @@
 <code>name
 </code> scalar property does not exist.
 </p>
+<pre>
+<code class="language-julia hljs">cells = example_cells_daf()
+set_scalar!(cells, &quot;version&quot;, 1.0)
+println(get_scalar(cells, &quot;version&quot;))
+set_scalar!(cells, &quot;version&quot;, 2.0; overwrite = true)
+println(get_scalar(cells, &quot;version&quot;))
+
+# output
+
+1.0
+2.0
+</code>
+</pre>
 </div>
 </section>
 </article>
@@ -375,6 +388,18 @@
 <code>daf
 </code>.
 </p>
+<pre>
+<code class="language-julia hljs">cells = example_cells_daf()
+println(has_scalar(cells, &quot;organism&quot;))
+delete_scalar!(cells, &quot;organism&quot;)
+println(has_scalar(cells, &quot;organism&quot;))
+
+# output
+
+true
+false
+</code>
+</pre>
 </div>
 </section>
 </article>
@@ -424,6 +449,18 @@
 <code>axis
 </code> does not exist.
 </p>
+<pre>
+<code class="language-julia hljs">metacells = example_cells_daf()
+println(has_axis(metacells, &quot;block&quot;))
+add_axis!(metacells, &quot;block&quot;, [&quot;B1&quot;, &quot;B2&quot;])
+println(has_axis(metacells, &quot;block&quot;))
+
+# output
+
+false
+true
+</code>
+</pre>
 </div>
 </section>
 </article>
@@ -464,6 +501,18 @@
 <code>daf
 </code>.
 </p>
+<pre>
+<code class="language-julia hljs">metacells = example_metacells_daf()
+println(has_axis(metacells, &quot;type&quot;))
+delete_axis!(metacells, &quot;type&quot;)
+println(has_axis(metacells, &quot;type&quot;))
+
+# output
+
+true
+false
+</code>
+</pre>
 </div>
 </section>
 </article>
@@ -537,6 +586,21 @@
 <code>eltype
 </code> is specified, and the data is of another type, then the data is converted to this data type before being stored.
 </p>
+<pre>
+<code class="language-julia hljs">metacells = example_metacells_daf()
+println(has_vector(metacells, &quot;type&quot;, &quot;is_mebemp&quot;))
+set_vector!(metacells, &quot;type&quot;, &quot;is_mebemp&quot;, [true, true, false, false])
+println(has_vector(metacells, &quot;type&quot;, &quot;is_mebemp&quot;))
+set_vector!(metacells, &quot;type&quot;, &quot;is_mebemp&quot;, [true, true, true, false]; overwrite = true)
+println(has_vector(metacells, &quot;type&quot;, &quot;is_mebemp&quot;))
+
+# output
+
+false
+true
+true
+</code>
+</pre>
 </div>
 </section>
 </article>
@@ -586,6 +650,18 @@
 <code>axis
 </code>.
 </p>
+<pre>
+<code class="language-julia hljs">metacells = example_metacells_daf()
+println(has_vector(metacells, &quot;type&quot;, &quot;color&quot;))
+delete_vector!(metacells, &quot;type&quot;, &quot;color&quot;)
+println(has_vector(metacells, &quot;type&quot;, &quot;color&quot;))
+
+# output
+
+true
+false
+</code>
+</pre>
 </div>
 </section>
 </article>
@@ -671,6 +747,39 @@
 <code>columns_axis
 </code>.
 </p>
+<pre>
+<code class="language-julia hljs">metacells = example_metacells_daf()
+println(has_matrix(metacells, &quot;gene&quot;, &quot;metacell&quot;, &quot;confidence&quot;))
+println(has_matrix(metacells, &quot;gene&quot;, &quot;metacell&quot;, &quot;confidence&quot;; relayout = false))
+println(has_matrix(metacells, &quot;metacell&quot;, &quot;gene&quot;, &quot;confidence&quot;; relayout = false))
+
+set_matrix!(metacells, &quot;metacell&quot;, &quot;gene&quot;, &quot;confidence&quot;, rand(7, 683); relayout = false)
+println()
+println(has_matrix(metacells, &quot;gene&quot;, &quot;metacell&quot;, &quot;confidence&quot;))
+println(has_matrix(metacells, &quot;gene&quot;, &quot;metacell&quot;, &quot;confidence&quot;; relayout = false))
+println(has_matrix(metacells, &quot;metacell&quot;, &quot;gene&quot;, &quot;confidence&quot;; relayout = false))
+
+set_matrix!(metacells, &quot;metacell&quot;, &quot;gene&quot;, &quot;confidence&quot;, rand(7, 683); overwrite = true)
+println()
+println(has_matrix(metacells, &quot;gene&quot;, &quot;metacell&quot;, &quot;confidence&quot;))
+println(has_matrix(metacells, &quot;gene&quot;, &quot;metacell&quot;, &quot;confidence&quot;; relayout = false))
+println(has_matrix(metacells, &quot;metacell&quot;, &quot;gene&quot;, &quot;confidence&quot;; relayout = false))
+
+# output
+
+false
+false
+false
+
+true
+false
+true
+
+true
+true
+true
+</code>
+</pre>
 </div>
 </section>
 </article>
@@ -824,6 +933,39 @@
 <code>columns_axis
 </code>.
 </p>
+<pre>
+<code class="language-julia hljs">cells = example_cells_daf()
+println(has_matrix(cells, &quot;gene&quot;, &quot;cell&quot;, &quot;UMIs&quot;))
+println(has_matrix(cells, &quot;gene&quot;, &quot;cell&quot;, &quot;UMIs&quot;; relayout = false))
+println(has_matrix(cells, &quot;cell&quot;, &quot;gene&quot;, &quot;UMIs&quot;; relayout = false))
+
+delete_matrix!(cells, &quot;gene&quot;, &quot;cell&quot;, &quot;UMIs&quot;; relayout = false)
+println()
+println(has_matrix(cells, &quot;gene&quot;, &quot;cell&quot;, &quot;UMIs&quot;))
+println(has_matrix(cells, &quot;gene&quot;, &quot;cell&quot;, &quot;UMIs&quot;; relayout = false))
+println(has_matrix(cells, &quot;cell&quot;, &quot;gene&quot;, &quot;UMIs&quot;; relayout = false))
+
+delete_matrix!(cells, &quot;gene&quot;, &quot;cell&quot;, &quot;UMIs&quot;; must_exist = false)
+println()
+println(has_matrix(cells, &quot;gene&quot;, &quot;cell&quot;, &quot;UMIs&quot;))
+println(has_matrix(cells, &quot;gene&quot;, &quot;cell&quot;, &quot;UMIs&quot;; relayout = false))
+println(has_matrix(cells, &quot;cell&quot;, &quot;gene&quot;, &quot;UMIs&quot;; relayout = false))
+
+# output
+
+true
+true
+true
+
+true
+false
+true
+
+false
+false
+false
+</code>
+</pre>
 </div>
 </section>
 </article>
