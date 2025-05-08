@@ -30,6 +30,9 @@ export OrNot
 export Query
 export QuerySequence
 export QueryString
+export SquareMaskColumn
+export SquareMaskRow
+export SquareMaskSlice
 export Xor
 export XorNot
 export full_vector_query
@@ -753,7 +756,7 @@ operator, optionally followed by the kind of objects to name.
 ```jldoctest
 cells = example_cells_daf()
 println(Names("scalars") |> get_query(cells))
-println(sort!(string.(cells["? axes"])))
+println(sort!(String.(cells["? axes"])))
 
 # output
 
@@ -763,8 +766,8 @@ AbstractString["organism"]
 
 ```jldoctest
 cells = example_cells_daf()
-println(sort!(string.(Axis("cell") |> Names() |> get_query(cells))))
-println(sort!(string.(cells["/ cell ?"])))
+println(sort!(String.(Axis("cell") |> Names() |> get_query(cells))))
+println(sort!(String.(cells["/ cell ?"])))
 
 # output
 
@@ -861,13 +864,13 @@ human
 
 ```jldoctest
 metacells = example_metacells_daf()
-println(Axis("type") |> Lookup("color") |> get_query(metacells))
-println(metacells["/ type : color"])
+println(String.(Axis("type") |> Lookup("color") |> get_query(metacells)))
+println(String.(metacells["/ type : color"]))
 
 # output
 
-SubString{StringViews.StringView{Vector{UInt8}}}["#eebb6e", "plum", "gold", "steelblue"]
-SubString{StringViews.StringView{Vector{UInt8}}}["#eebb6e", "plum", "gold", "steelblue"]
+["#eebb6e", "plum", "gold", "steelblue"]
+["#eebb6e", "plum", "gold", "steelblue"]
 ```
 
 ```jldoctest
@@ -945,33 +948,37 @@ by an [`IfNot`](@ref) (e.g., `/ cell : type ? => color` will compute a vector of
 that have a non-empty type, and `/ cell : batch ? 0 => donor => age` will assign a zero age for cells which have an
 empty batch).
 
+If the property exists but contains empty values (e.g., outlier cells which are not assigned to any metacell),
+then you need to deal with them by either masking them from the results, or providing an explicit value for
+them. See [`IfNot`](@ref) for details. The example below just masks such cells out.
+
 ```jldoctest
 metacells = example_metacells_daf()
-# Axis("cell") |> Lookup("metacell") |> Fetch("type") |> Fetch("color") |> get_query(metacells)
-metacells["/ cell : metacell => type => color"]
+# Axis("cell") |> Lookup("metacell") |> IfNot() |> Fetch("type") |> Fetch("color") |> get_query(metacells)
+metacells["/ cell : metacell ?? => type => color"]
 
 # output
 
-856-element Named SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}
+852-element Named SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}
 cell                                │
-────────────────────────────────────┼──────────
-demux_07_12_20_1_AACAAGATCCATTTCA-1 │ "#eebb6e"
-demux_07_12_20_1_AACGAAAGTCCAATCA-1 │ "#eebb6e"
-demux_07_12_20_1_AAGACAAAGTTCCGTA-1 │ "#eebb6e"
-demux_07_12_20_1_AGACTCATCTATTGTC-1 │    "gold"
-demux_07_12_20_1_AGATAGACATTCCTCG-1 │ "#eebb6e"
-demux_07_12_20_1_ATCGTAGTCCAGTGCG-1 │    "gold"
-demux_07_12_20_1_CACAGGCGTCCTACAA-1 │ "#eebb6e"
-demux_07_12_20_1_CCTACGTAGCCAACCC-1 │ "#eebb6e"
-⋮                                             ⋮
-demux_11_04_21_2_GGGTCACCACCACATA-1 │    "gold"
-demux_11_04_21_2_TACAACGGTTACACAC-1 │    "plum"
-demux_11_04_21_2_TAGAGTCAGAACGCGT-1 │ "#eebb6e"
-demux_11_04_21_2_TGATGCAAGGCCTGCT-1 │    "gold"
-demux_11_04_21_2_TGCCGAGAGTCGCGAA-1 │    "gold"
-demux_11_04_21_2_TGCTGAAAGCCGCACT-1 │    "gold"
-demux_11_04_21_2_TTCAGGACAGGAATAT-1 │ "#eebb6e"
-demux_11_04_21_2_TTTAGTCGTCTAGTGT-1 │ "#eebb6e"
+────────────────────────────────────┼────────────
+demux_07_12_20_1_AACAAGATCCATTTCA-1 │   "#eebb6e"
+demux_07_12_20_1_AAGACAAAGTTCCGTA-1 │   "#eebb6e"
+demux_07_12_20_1_AGACTCATCTATTGTC-1 │      "gold"
+demux_07_12_20_1_AGATAGACATTCCTCG-1 │   "#eebb6e"
+demux_07_12_20_1_CACAGGCGTCCTACAA-1 │   "#eebb6e"
+demux_07_12_20_1_CCTACGTAGCCAACCC-1 │   "#eebb6e"
+demux_07_12_20_1_CTTTCAAGTGAGGAAA-1 │ "steelblue"
+demux_07_12_20_1_GAAGGGTGTCCCTGAG-1 │   "#eebb6e"
+⋮                                               ⋮
+demux_11_04_21_2_GGCTTGGTCGTTCCTG-1 │   "#eebb6e"
+demux_11_04_21_2_GGGACTCTCTCATGGA-1 │      "gold"
+demux_11_04_21_2_GGGTCACCACCACATA-1 │      "gold"
+demux_11_04_21_2_TACAACGGTTACACAC-1 │      "plum"
+demux_11_04_21_2_TAGAGTCAGAACGCGT-1 │   "#eebb6e"
+demux_11_04_21_2_TGCCGAGAGTCGCGAA-1 │      "gold"
+demux_11_04_21_2_TGCTGAAAGCCGCACT-1 │      "gold"
+demux_11_04_21_2_TTTAGTCGTCTAGTGT-1 │   "#eebb6e"
 ```
 """
 struct Fetch <: ModifierQueryOperation
@@ -1042,10 +1049,22 @@ Similar to [`MaskSlice`](@ref) but is used when the mask matrix is square and we
 only needs specifying the column to slice. In a string [`Query`](@ref), this is specified using the `;=` operator followed by the
 value identifying the slice.
 
-That is, suppose we have a KNN graph between cells as a cell-cell matrix where each column contains the weights of the
-outgoing edges from each cell to the rest. To select all the cells reachable from a particular one. Then we can say
-`/ cell & outgoing ;= ATCG > 0` (or just `/ cell & outgoing ;= ATCG`). If we also want to include the source cell we'd
-need to say `/ cell & name = ATCG | outgoing ;= ATCG`, etc.
+That is, suppose we have a KNN graph between metacells as a metacell-metacell matrix where each column contains the weights of the
+outgoing edges from each metacell to the rest. To select all the metacells reachable from a particular one, we can say
+`/ metacell & edge_weight ;= M2169.56 > 0` (or just `/ metacell & edge_weight ;= M2169.56` as the `> 0` is implicit).
+If we also want to include the source cell we'd need to say `/ metacell & name = M2169.56 | edge_weight ;= M2169.56`,
+etc.
+
+```jldoctest
+metacells = example_metacells_daf()
+println(String.(Axis("metacell") |> And("edge_weight") |> SquareMaskColumn("M2169.56") |> get_query(metacells)))
+println(String.(metacells["/ metacell & edge_weight ;= M2169.56"]))
+
+# output
+
+["M2357.20", "M756.63", "M412.08"]
+["M2357.20", "M756.63", "M412.08"]
+```
 """
 struct SquareMaskColumn <: SquareMaskSlice
     comparison_value::AbstractString
@@ -1064,8 +1083,20 @@ only needs specifying the row to slice. In a string [`Query`](@ref), this is spe
 value identifying the slice.
 
 That is, suppose we have a KNN graph as above and we'd like to select all cells that can reach a particular one. Then
-`/ cell & outgoing ,= ATCG > 0` (or just `/ cell & outgoing ,= ATCG`). If we also want to include the source cell we'd
-need to say `/ cell & name = ATCG | outgoing ,= ATCG`, etc.
+`/ metacell & edge_weight ,= M2169.56 > 0` (or just `/ metacell & edge_weight ,= M2169.56` as the `> 0` is implicit).
+If we also want to include the source cell we'd need to say `/ metacell & name = M2169.56 | edge_weight ,= M2169.56`,
+etc.
+
+```jldoctest
+metacells = example_metacells_daf()
+println(String.(Axis("metacell") |> And("edge_weight") |> SquareMaskRow("M2169.56") |> get_query(metacells)))
+println(String.(metacells["/ metacell & edge_weight ,= M2169.56"]))
+
+# output
+
+["M1671.28", "M1440.15"]
+["M1671.28", "M1440.15"]
+```
 """
 struct SquareMaskRow <: SquareMaskSlice
     comparison_value::StorageScalar
@@ -1085,6 +1116,21 @@ specified using the `||` operator, followed by the value to use, and optionally 
 
 If the data type is not specified, and the `value` isa `AbstractString`, then the data type is deduced using
 [`guess_typed_value`](@ref) of the `value`.
+
+```jldoctest
+cells = example_cells_daf()
+println(Lookup("version") |> IfMissing(1) |> get_query(cells))
+println(Lookup("version") |> IfMissing(Float32(1)) |> get_query(cells))
+println(cells[": version || 1"])
+println(cells[": version || 1 Float32"])
+
+# output
+
+1
+1.0
+1
+1.0
+```
 """
 struct IfMissing <: ModifierQueryOperation
     missing_value::StorageScalar
@@ -1095,7 +1141,7 @@ function IfMissing(value::StorageScalar; type::Maybe{Type} = nothing)::IfMissing
     if type !== nothing
         @assert value isa type
     elseif !(value isa AbstractString)
-        type = typeof(value)  # UNTESTED
+        type = typeof(value)
     end
     return IfMissing(value, type)
 end
@@ -1116,14 +1162,43 @@ false Boolean values). In a string [`Query`](@ref), this is indicated using the 
 value to use.
 
 If the value is `nothing` (the default), then these entries are dropped (masked out) of the result (e.g.,
-`/ cell : type ?` behaves the same as `/ cell & type : type`, that is, returns the type of the cells which have a
-non-empty type). Otherwise, this value is used instead of the "false-ish" value (e.g., `/ cell : type ? Outlier` will
+`/ cell : type ??` behaves the same as `/ cell & type : type`, that is, returns the type of the cells which have a
+non-empty type). Otherwise, this value is used instead of the "false-ish" value (e.g., `/ cell : type ?? Outlier` will
 return a vector of the type of each cell, with the value `Outlier` for cells with an empty type). When fetching
-properties, this is the final value (e.g., `/ cell : type ? red => color` will return a vector of the color of the type
+properties, this is the final value (e.g., `/ cell : type ?? red => color` will return a vector of the color of the type
 of each cell, with a `red` color for the cells with an empty type).
 
 If the `value` isa `AbstractString`, then it is automatically converted to the data type of the elements of the results
 vector.
+
+```jldoctest
+metacells = example_metacells_daf()
+# Axis("cell") |> Lookup("metacell") |> IfNot("magenta") |> Fetch("type") |> Fetch("color") |> get_query(metacells)
+metacells["/ cell : metacell ?? magenta => type => color"]
+
+# output
+
+856-element Named SparseArrays.ReadOnly{AbstractString, 1, Vector{AbstractString}}
+cell                                │
+────────────────────────────────────┼──────────
+demux_07_12_20_1_AACAAGATCCATTTCA-1 │ "#eebb6e"
+demux_07_12_20_1_AACGAAAGTCCAATCA-1 │ "magenta"
+demux_07_12_20_1_AAGACAAAGTTCCGTA-1 │ "#eebb6e"
+demux_07_12_20_1_AGACTCATCTATTGTC-1 │    "gold"
+demux_07_12_20_1_AGATAGACATTCCTCG-1 │ "#eebb6e"
+demux_07_12_20_1_ATCGTAGTCCAGTGCG-1 │ "magenta"
+demux_07_12_20_1_CACAGGCGTCCTACAA-1 │ "#eebb6e"
+demux_07_12_20_1_CCTACGTAGCCAACCC-1 │ "#eebb6e"
+⋮                                             ⋮
+demux_11_04_21_2_GGGTCACCACCACATA-1 │    "gold"
+demux_11_04_21_2_TACAACGGTTACACAC-1 │    "plum"
+demux_11_04_21_2_TAGAGTCAGAACGCGT-1 │ "#eebb6e"
+demux_11_04_21_2_TGATGCAAGGCCTGCT-1 │ "magenta"
+demux_11_04_21_2_TGCCGAGAGTCGCGAA-1 │    "gold"
+demux_11_04_21_2_TGCTGAAAGCCGCACT-1 │    "gold"
+demux_11_04_21_2_TTCAGGACAGGAATAT-1 │ "magenta"
+demux_11_04_21_2_TTTAGTCGTCTAGTGT-1 │ "#eebb6e"
+```
 """
 struct IfNot <: ModifierQueryOperation
     not_value::Maybe{StorageScalar}
@@ -1174,6 +1249,47 @@ the `color` of the `type` of some property of the `cell` axis - either "the" `ty
 If the property name does not follow the above conventions, then it is possible to explicitly specify the name of the
 axis (e.g., `/ cell : manual ! type => color` will consider each value of the `manual` property as the name of an entry
 of the `type` axis and look up the matching `color` property value of this axis).
+
+```jldoctest
+metacells = example_metacells_daf()
+type_per_metacell = metacells["/ metacell : type"]
+set_vector!(metacells, "metacell", "kind", reverse(type_per_metacell.array))
+
+# Axis("metacell") |> Lookup("kind") |> AsAxis("type") |> Fetch("color") |> get_query(metacells)
+metacells["/ metacell : kind ! type => color"]
+
+# output
+
+7-element Named SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}
+metacell  │
+──────────┼────────────
+M1671.28  │ "steelblue"
+M2357.20  │   "#eebb6e"
+M2169.56  │      "gold"
+M2576.86  │   "#eebb6e"
+M1440.15  │      "plum"
+M756.63   │      "gold"
+M412.08   │      "gold"
+```
+
+```jldoctest
+chain = example_chain_daf()
+type_per_metacell = chain["/ metacell : type"]
+set_vector!(chain, "metacell", "kind", reverse(type_per_metacell.array))
+
+# Axis("cell") |> Lookup("donor") |> Fetch("age") |> GroupBy("kind") |> IfNot() |> AsType("type") |> Mean() |> get_query(chain)
+chain["/ cell : donor => age @ metacell ?? => kind ! type %> Mean"]
+
+# output
+
+4-element Named SparseArrays.ReadOnly{Float32, 1, Vector{Float32}}
+type     │
+─────────┼────────
+MEBEMP-E │ 64.5693
+MEBEMP-L │ 66.0219
+MPP      │ 62.7153
+memory-B │ 62.2593
+```
 """
 struct AsAxis <: QueryOperation
     axis_name::Maybe{AbstractString}
@@ -1209,6 +1325,17 @@ a vector to a scalar, using [`ReductionOperation`](@ref) (e.g., `/ gene / cell :
 
     This, [`Names`](@ref) and [`Lookup`](@ref) are the only [`QueryOperation`](@ref)s that also works as a complete
     [`Query`](@ref).
+
+```jldoctest
+metacells = example_metacells_daf()
+println(String.(Axis("metacell") |> get_query(metacells)))
+println(String.(metacells["/ metacell"]))
+
+# output
+
+["M1671.28", "M2357.20", "M2169.56", "M2576.86", "M1440.15", "M756.63", "M412.08"]
+["M1671.28", "M2357.20", "M2169.56", "M2576.86", "M1440.15", "M756.63", "M412.08"]
+```
 """
 struct Axis <: Query
     axis_name::AbstractString
@@ -1258,6 +1385,26 @@ on its type (e.g., `/ cell & type` will restrict the result vector to only cells
 type annotation). It is also possible to fetch properties from other axes, and use an explicit
 [`ComparisonOperation`](@ref) to compute the Boolean mask (e.g., `/ cell & batch => age > 1` will restrict the result
 vector to cells whose batch has an age larger than 1).
+
+```jldoctest
+chain = example_chain_daf()
+# Axis("cell") |> And("donor") |> IsEqual("N16") |> get_query(chain)
+chain["/ cell & donor = N16"]
+
+# output
+
+10-element SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}:
+ "demux_21_01_21_1_AACCCAATCGAGAATA-1"
+ "demux_21_01_21_1_CACAGGCTCTTAGCCC-1"
+ "demux_21_01_21_1_CTACGGGTCGTGCGAC-1"
+ "demux_21_01_21_1_GAGATGGAGGGATCAC-1"
+ "demux_21_01_21_1_GCCAGGTAGCGGTAGT-1"
+ "demux_21_01_21_1_GCGTGCATCCGGCAGT-1"
+ "demux_21_01_21_1_TCAATTCAGCTTCTAG-1"
+ "demux_21_01_21_1_TCGCTTGGTCTTGTCC-1"
+ "demux_21_01_21_1_TCTTTGAAGCGGGTAT-1"
+ "demux_21_01_21_1_TTCTCTCCAACGGCCT-1"
+```
 """
 struct And <: MaskOperation
     property_name::AbstractString
@@ -1281,6 +1428,36 @@ end
 
 Same as [`And`](@ref) but use the inverse of the mask. In a string [`Query`](@ref), this is specified using the `&!`
 operator, followed by the name of an axis property to look up to compute the mask.
+
+```jldoctest
+chain = example_chain_daf()
+# Axis("cell") |> AndNot("donor") &> IsEqual("N16") |> get_query(chain)
+chain["/ cell &! donor = N16"]
+
+# output
+
+846-element SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}:
+ "demux_07_12_20_1_AACAAGATCCATTTCA-1"
+ "demux_07_12_20_1_AACGAAAGTCCAATCA-1"
+ "demux_07_12_20_1_AAGACAAAGTTCCGTA-1"
+ "demux_07_12_20_1_AGACTCATCTATTGTC-1"
+ "demux_07_12_20_1_AGATAGACATTCCTCG-1"
+ "demux_07_12_20_1_ATCGTAGTCCAGTGCG-1"
+ "demux_07_12_20_1_CACAGGCGTCCTACAA-1"
+ "demux_07_12_20_1_CCTACGTAGCCAACCC-1"
+ "demux_07_12_20_1_CTTTCAAGTGAGGAAA-1"
+ "demux_07_12_20_1_GAAGGGTGTCCCTGAG-1"
+ ⋮
+ "demux_11_04_21_2_GGGACTCTCTCATGGA-1"
+ "demux_11_04_21_2_GGGTCACCACCACATA-1"
+ "demux_11_04_21_2_TACAACGGTTACACAC-1"
+ "demux_11_04_21_2_TAGAGTCAGAACGCGT-1"
+ "demux_11_04_21_2_TGATGCAAGGCCTGCT-1"
+ "demux_11_04_21_2_TGCCGAGAGTCGCGAA-1"
+ "demux_11_04_21_2_TGCTGAAAGCCGCACT-1"
+ "demux_11_04_21_2_TTCAGGACAGGAATAT-1"
+ "demux_11_04_21_2_TTTAGTCGTCTAGTGT-1"
+```
 """
 struct AndNot <: MaskOperation
     property_name::AbstractString
@@ -1307,6 +1484,36 @@ using the `|` operator, followed by the name of an axis property to look up to c
 
 This works similarly to [`And`](@ref), except that it adds to the mask (e.g., `/ gene & is_marker | is_noisy` will
 restrict the result vector to either marker or noisy genes).
+
+```jldoctest
+chain = example_chain_daf()
+# Axis("cell") |> And("donor") |> IsEqual("N16") |> Or("donor") |> IsEqual("N15") |> get_query(chain)
+chain["/ cell & donor = N16 | donor = N17"]
+
+# output
+
+20-element SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}:
+ "demux_21_01_21_1_AACCCAATCGAGAATA-1"
+ "demux_21_01_21_1_AACGTCACATCCGAGC-1"
+ "demux_21_01_21_1_ACCCAAAAGGTCCCGT-1"
+ "demux_21_01_21_1_ACTTTCAAGTCCCAGC-1"
+ "demux_21_01_21_1_AGATCGTGTACTCCGG-1"
+ "demux_21_01_21_1_AGTAGCTGTATCAGGG-1"
+ "demux_21_01_21_1_CACAGGCTCTTAGCCC-1"
+ "demux_21_01_21_1_CTACGGGTCGTGCGAC-1"
+ "demux_21_01_21_1_CTGCCTACACGCAGTC-1"
+ "demux_21_01_21_1_GAGATGGAGGGATCAC-1"
+ "demux_21_01_21_1_GATCAGTAGTCGAAAT-1"
+ "demux_21_01_21_1_GCCAGGTAGCGGTAGT-1"
+ "demux_21_01_21_1_GCGTGCATCCGGCAGT-1"
+ "demux_21_01_21_1_GTTCTATGTATCCCTC-1"
+ "demux_21_01_21_1_TCAATTCAGCTTCTAG-1"
+ "demux_21_01_21_1_TCGCTTGGTCTTGTCC-1"
+ "demux_21_01_21_1_TCTTTGAAGCGGGTAT-1"
+ "demux_21_01_21_1_TGTAACGCATGGCCAC-1"
+ "demux_21_01_21_1_TGTACAGGTTTGAACC-1"
+ "demux_21_01_21_1_TTCTCTCCAACGGCCT-1"
+```
 """
 struct Or <: MaskOperation
     property_name::AbstractString
@@ -1330,6 +1537,30 @@ end
 
 Same as [`Or`](@ref) but use the inverse of the mask. In a string [`Query`](@ref), this is specified using the `|!`
 operator, followed by the name of an axis property to look up to compute the mask.
+
+```jldoctest
+chain = example_chain_daf()
+# Axis("cell") |> And("donor") |> IsEqual("N16") |> OrNot("metacell") |> get_query(chain)
+chain["/ cell & donor = N16 |! metacell"]
+
+# output
+
+14-element SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}:
+ "demux_07_12_20_1_AACGAAAGTCCAATCA-1"
+ "demux_07_12_20_1_ATCGTAGTCCAGTGCG-1"
+ "demux_21_01_21_1_AACCCAATCGAGAATA-1"
+ "demux_21_01_21_1_CACAGGCTCTTAGCCC-1"
+ "demux_21_01_21_1_CTACGGGTCGTGCGAC-1"
+ "demux_21_01_21_1_GAGATGGAGGGATCAC-1"
+ "demux_21_01_21_1_GCCAGGTAGCGGTAGT-1"
+ "demux_21_01_21_1_GCGTGCATCCGGCAGT-1"
+ "demux_21_01_21_1_TCAATTCAGCTTCTAG-1"
+ "demux_21_01_21_1_TCGCTTGGTCTTGTCC-1"
+ "demux_21_01_21_1_TCTTTGAAGCGGGTAT-1"
+ "demux_21_01_21_1_TTCTCTCCAACGGCCT-1"
+ "demux_11_04_21_2_TGATGCAAGGCCTGCT-1"
+ "demux_11_04_21_2_TTCAGGACAGGAATAT-1"
+```
 """
 struct OrNot <: MaskOperation
     property_name::AbstractString
@@ -1541,6 +1772,41 @@ abstract type MatchOperation <: ComparisonOperation end
 
 Similar to [`IsLess`](@ref) except that the compared values must be strings, and the mask
 is of the values that match the given regular expression.
+
+!!! note
+
+    This will succeed on partial matches. You therefore typically need to add `^` and/or `\$` to the regular expression
+    to avoid matching in the middle of the value.
+
+```jldoctest
+cells = example_cells_daf()
+#Axis("gene") |> And("name") |> IsMatch(r"^RP[LS]") |> get_query(cells)
+cells[q"/ gene & name ~ \\^RP\\[LS\\]"]
+
+# output
+
+78-element SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}:
+ "RPL22"
+ "RPL11"
+ "RPS8"
+ "RPL5"
+ "RPS27"
+ "RPS7"
+ "RPS27A"
+ "RPL31"
+ "RPL37A"
+ "RPL32"
+ ⋮
+ "RPS19"
+ "RPL18"
+ "RPL13A"
+ "RPS11"
+ "RPS9"
+ "RPL28"
+ "RPS5"
+ "RPS4Y1"
+ "RPL3"
+```
 """
 struct IsMatch <: MatchOperation
     comparison_value::Union{AbstractString, Regex}
@@ -1595,6 +1861,43 @@ The raw counts matrix can be post-processed like any other matrix (using [`Reduc
 [`EltwiseOperation`](@ref)). This allows computing useful aggregate properties (e.g.,
 `/ cell : type * batch % Fractions` will generate a matrix whose columns correspond to batches and whose rows are the
 fraction of the cells from each type within each batch).
+
+```jldoctest
+chain = example_chain_daf()
+
+# Axis("cell") |> Lookup("donor") |> CountBy("metacell") |> IfNot("Outlier") |> Fetch("type") |> Convert(type = Int) |> get_query(chain)
+chain["/ cell : donor * metacell ?? Outlier => type % Convert type Int"]
+
+# output
+
+95×5 Named SparseArrays.ReadOnly{Int64, 2, Matrix{Int64}}
+donor ╲ type │ MEBEMP-E  MEBEMP-L       MPP   Outlier  memory-B
+─────────────┼─────────────────────────────────────────────────
+N100         │        2         2         8         0         2
+N101         │        0         1         6         0         9
+N102         │        4         0         3         0         0
+N103         │        4         2         2         0         2
+N104         │        2         2         3         0        27
+N105         │        3         1         1         0         4
+N106         │        3         1         7         0         2
+N107         │        2         1         4         0         7
+⋮                     ⋮         ⋮         ⋮         ⋮         ⋮
+N92          │        4         0         2         0         0
+N93          │        0         1         0         0         2
+N94          │        5         1         2         0         3
+N95          │        2         0         3         0         0
+N96          │        6         2        12         0         1
+N97          │        0         2         2         0         1
+N98          │        2         0         4         0         0
+N99          │        4         0         7         0        16
+```
+
+!!! note
+
+    We use unsigned integers for values-that-can't-be-negative in `Daf` so that trying to feed negative data into such
+    places will be an error as soon as possible. However, Julia in its infinite wisdom prints unsigned ints in
+    hexadecimal, which is an abomination. In the example above we convert the result to `Int` so it will be displayed
+    properly; in actual code this step should be avoided.
 """
 struct CountBy <: QueryOperation
     property_name::AbstractString
@@ -1626,6 +1929,23 @@ for some group, unless it is followed by an [`IfMissing`](@ref) suffix (e.g., `/
 generate a vector whose entries are all the entries of the `type` axis, and will ignore cells with an empty type; this
 will fail if there are types which are not associated with any cell. In contrast, `/ cell : age @ type ! %> Mean || 0`
 will succeed, assigning a value of zero for types which have no cells associated with them).
+
+```jldoctest
+chain = example_chain_daf()
+
+# Axis("cell") |> Lookup("donor") |> Fetch("age") |> GroupBy("metacell") |> IfNot() |> Fetch("type") |> Mean() |> get_query(chain)
+chain["/ cell : donor => age @ metacell ?? => type %> Mean"]
+
+# output
+
+4-element Named SparseArrays.ReadOnly{Float32, 1, Vector{Float32}}
+type     │
+─────────┼────────
+MEBEMP-E │ 63.9767
+MEBEMP-L │ 63.9524
+MPP      │  64.238
+memory-B │ 62.3077
+```
 """
 struct GroupBy <: QueryOperation
     property_name::AbstractString
@@ -3442,7 +3762,7 @@ function fetch_result(
     if if_not_values !== nothing
         if !fetch_state.may_modify_named_vector ||
            (eltype(named_vector) <: AbstractString && !(eltype(named_vector) in (String, AbstractString)))
-            named_vector = copy_array(named_vector)  # UNTESTED
+            named_vector = copy_array(named_vector)
         end
 
         for index in 1:length(named_vector)
@@ -4342,9 +4662,12 @@ function value_for_if_missing(
     return value_for(query_state, type, if_missing.missing_value)
 end
 
+function regex_for(::QueryState, value::Regex)::Regex  # UNTESTED
+    return value
+end
+
 function regex_for(query_state::QueryState, value::StorageScalar)::Regex
     comparison_value = value_for(query_state, String, value)  # NOJET
-    comparison_value = "^(:?" * comparison_value * ")\$"  # NOJET
     try
         return Regex(comparison_value)  # NOJET
     catch exception
@@ -4366,7 +4689,7 @@ function value_for(
     if value isa T
         return value
     elseif T <: AbstractString
-        return String(value)  # UNTESTED
+        return String(value)
     elseif value isa AbstractString
         try
             return parse(T, value)

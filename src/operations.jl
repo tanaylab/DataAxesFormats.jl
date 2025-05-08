@@ -215,6 +215,8 @@ end
 DTYPE_BY_NAME = Dict{String, Maybe{Type}}(
     "bool" => Bool,
     "Bool" => Bool,
+    "int" => Int,
+    "Int" => Int,
     "int8" => Int8,
     "Int8" => Int8,
     "int16" => Int16,

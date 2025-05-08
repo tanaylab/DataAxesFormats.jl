@@ -2971,6 +2971,47 @@ get_query(
 <code>color
 </code> property value of this axis).
 </p>
+<pre>
+<code class="language-julia hljs">metacells = example_metacells_daf()
+type_per_metacell = metacells[&quot;/ metacell : type&quot;]
+set_vector!(metacells, &quot;metacell&quot;, &quot;kind&quot;, reverse(type_per_metacell.array))
+
+# Axis(&quot;metacell&quot;) |&gt; Lookup(&quot;kind&quot;) |&gt; AsAxis(&quot;type&quot;) |&gt; Fetch(&quot;color&quot;) |&gt; get_query(metacells)
+metacells[&quot;/ metacell : kind ! type =&gt; color&quot;]
+
+# output
+
+7-element Named SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}
+metacell  │
+──────────┼────────────
+M1671.28  │ &quot;steelblue&quot;
+M2357.20  │   &quot;#eebb6e&quot;
+M2169.56  │      &quot;gold&quot;
+M2576.86  │   &quot;#eebb6e&quot;
+M1440.15  │      &quot;plum&quot;
+M756.63   │      &quot;gold&quot;
+M412.08   │      &quot;gold&quot;
+</code>
+</pre>
+<pre>
+<code class="language-julia hljs">chain = example_chain_daf()
+type_per_metacell = chain[&quot;/ metacell : type&quot;]
+set_vector!(chain, &quot;metacell&quot;, &quot;kind&quot;, reverse(type_per_metacell.array))
+
+# Axis(&quot;cell&quot;) |&gt; Lookup(&quot;donor&quot;) |&gt; Fetch(&quot;age&quot;) |&gt; GroupBy(&quot;kind&quot;) |&gt; IfNot() |&gt; AsType(&quot;type&quot;) |&gt; Mean() |&gt; get_query(chain)
+chain[&quot;/ cell : donor =&gt; age @ metacell ?? =&gt; kind ! type %&gt; Mean&quot;]
+
+# output
+
+4-element Named SparseArrays.ReadOnly{Float32, 1, Vector{Float32}}
+type     │
+─────────┼────────
+MEBEMP-E │ 64.5693
+MEBEMP-L │ 66.0219
+MPP      │ 62.7153
+memory-B │ 62.2593
+</code>
+</pre>
 </div>
 </section>
 </article>
@@ -3073,6 +3114,17 @@ get_query(
 </p>
 </div>
 </div>
+<pre>
+<code class="language-julia hljs">metacells = example_metacells_daf()
+println(String.(Axis(&quot;metacell&quot;) |&gt; get_query(metacells)))
+println(String.(metacells[&quot;/ metacell&quot;]))
+
+# output
+
+[&quot;M1671.28&quot;, &quot;M2357.20&quot;, &quot;M2169.56&quot;, &quot;M2576.86&quot;, &quot;M1440.15&quot;, &quot;M756.63&quot;, &quot;M412.08&quot;]
+[&quot;M1671.28&quot;, &quot;M2357.20&quot;, &quot;M2169.56&quot;, &quot;M2576.86&quot;, &quot;M1440.15&quot;, &quot;M756.63&quot;, &quot;M412.08&quot;]
+</code>
+</pre>
 </div>
 </section>
 </article>
@@ -3131,6 +3183,48 @@ get_query(
 <code>/ cell : type * batch % Fractions
 </code> will generate a matrix whose columns correspond to batches and whose rows are the fraction of the cells from each type within each batch).
 </p>
+<pre>
+<code class="language-julia hljs">chain = example_chain_daf()
+
+# Axis(&quot;cell&quot;) |&gt; Lookup(&quot;donor&quot;) |&gt; CountBy(&quot;metacell&quot;) |&gt; IfNot(&quot;Outlier&quot;) |&gt; Fetch(&quot;type&quot;) |&gt; Convert(type = Int) |&gt; get_query(chain)
+chain[&quot;/ cell : donor * metacell ?? Outlier =&gt; type % Convert type Int&quot;]
+
+# output
+
+95×5 Named SparseArrays.ReadOnly{Int64, 2, Matrix{Int64}}
+donor ╲ type │ MEBEMP-E  MEBEMP-L       MPP   Outlier  memory-B
+─────────────┼─────────────────────────────────────────────────
+N100         │        2         2         8         0         2
+N101         │        0         1         6         0         9
+N102         │        4         0         3         0         0
+N103         │        4         2         2         0         2
+N104         │        2         2         3         0        27
+N105         │        3         1         1         0         4
+N106         │        3         1         7         0         2
+N107         │        2         1         4         0         7
+⋮                     ⋮         ⋮         ⋮         ⋮         ⋮
+N92          │        4         0         2         0         0
+N93          │        0         1         0         0         2
+N94          │        5         1         2         0         3
+N95          │        2         0         3         0         0
+N96          │        6         2        12         0         1
+N97          │        0         2         2         0         1
+N98          │        2         0         4         0         0
+N99          │        4         0         7         0        16
+</code>
+</pre>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>We use unsigned integers for values-that-can&#39;t-be-negative in 
+<code>Daf
+</code> so that trying to feed negative data into such places will be an error as soon as possible. However, Julia in its infinite wisdom prints unsigned ints in hexadecimal, which is an abomination. In the example above we convert the result to 
+<code>Int
+</code> so it will be displayed properly; in actual code this step should be avoided.
+</p>
+</div>
+</div>
 </div>
 </section>
 </article>
@@ -3219,33 +3313,39 @@ get_query(
 <code>/ cell : batch ? 0 =&gt; donor =&gt; age
 </code> will assign a zero age for cells which have an empty batch).
 </p>
+<p>If the property exists but contains empty values (e.g., outlier cells which are not assigned to any metacell), then you need to deal with them by either masking them from the results, or providing an explicit value for them. See 
+<a href="queries.html#DataAxesFormats.Queries.IfNot">
+<code>IfNot
+</code>
+</a> for details. The example below just masks such cells out.
+</p>
 <pre>
 <code class="language-julia hljs">metacells = example_metacells_daf()
-# Axis(&quot;cell&quot;) |&gt; Lookup(&quot;metacell&quot;) |&gt; Fetch(&quot;type&quot;) |&gt; Fetch(&quot;color&quot;) |&gt; get_query(metacells)
-metacells[&quot;/ cell : metacell =&gt; type =&gt; color&quot;]
+# Axis(&quot;cell&quot;) |&gt; Lookup(&quot;metacell&quot;) |&gt; IfNot() |&gt; Fetch(&quot;type&quot;) |&gt; Fetch(&quot;color&quot;) |&gt; get_query(metacells)
+metacells[&quot;/ cell : metacell ?? =&gt; type =&gt; color&quot;]
 
 # output
 
-856-element Named SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}
+852-element Named SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}
 cell                                │
-────────────────────────────────────┼──────────
-demux_07_12_20_1_AACAAGATCCATTTCA-1 │ &quot;#eebb6e&quot;
-demux_07_12_20_1_AACGAAAGTCCAATCA-1 │ &quot;#eebb6e&quot;
-demux_07_12_20_1_AAGACAAAGTTCCGTA-1 │ &quot;#eebb6e&quot;
-demux_07_12_20_1_AGACTCATCTATTGTC-1 │    &quot;gold&quot;
-demux_07_12_20_1_AGATAGACATTCCTCG-1 │ &quot;#eebb6e&quot;
-demux_07_12_20_1_ATCGTAGTCCAGTGCG-1 │    &quot;gold&quot;
-demux_07_12_20_1_CACAGGCGTCCTACAA-1 │ &quot;#eebb6e&quot;
-demux_07_12_20_1_CCTACGTAGCCAACCC-1 │ &quot;#eebb6e&quot;
-⋮                                             ⋮
-demux_11_04_21_2_GGGTCACCACCACATA-1 │    &quot;gold&quot;
-demux_11_04_21_2_TACAACGGTTACACAC-1 │    &quot;plum&quot;
-demux_11_04_21_2_TAGAGTCAGAACGCGT-1 │ &quot;#eebb6e&quot;
-demux_11_04_21_2_TGATGCAAGGCCTGCT-1 │    &quot;gold&quot;
-demux_11_04_21_2_TGCCGAGAGTCGCGAA-1 │    &quot;gold&quot;
-demux_11_04_21_2_TGCTGAAAGCCGCACT-1 │    &quot;gold&quot;
-demux_11_04_21_2_TTCAGGACAGGAATAT-1 │ &quot;#eebb6e&quot;
-demux_11_04_21_2_TTTAGTCGTCTAGTGT-1 │ &quot;#eebb6e&quot;
+────────────────────────────────────┼────────────
+demux_07_12_20_1_AACAAGATCCATTTCA-1 │   &quot;#eebb6e&quot;
+demux_07_12_20_1_AAGACAAAGTTCCGTA-1 │   &quot;#eebb6e&quot;
+demux_07_12_20_1_AGACTCATCTATTGTC-1 │      &quot;gold&quot;
+demux_07_12_20_1_AGATAGACATTCCTCG-1 │   &quot;#eebb6e&quot;
+demux_07_12_20_1_CACAGGCGTCCTACAA-1 │   &quot;#eebb6e&quot;
+demux_07_12_20_1_CCTACGTAGCCAACCC-1 │   &quot;#eebb6e&quot;
+demux_07_12_20_1_CTTTCAAGTGAGGAAA-1 │ &quot;steelblue&quot;
+demux_07_12_20_1_GAAGGGTGTCCCTGAG-1 │   &quot;#eebb6e&quot;
+⋮                                               ⋮
+demux_11_04_21_2_GGCTTGGTCGTTCCTG-1 │   &quot;#eebb6e&quot;
+demux_11_04_21_2_GGGACTCTCTCATGGA-1 │      &quot;gold&quot;
+demux_11_04_21_2_GGGTCACCACCACATA-1 │      &quot;gold&quot;
+demux_11_04_21_2_TACAACGGTTACACAC-1 │      &quot;plum&quot;
+demux_11_04_21_2_TAGAGTCAGAACGCGT-1 │   &quot;#eebb6e&quot;
+demux_11_04_21_2_TGCCGAGAGTCGCGAA-1 │      &quot;gold&quot;
+demux_11_04_21_2_TGCTGAAAGCCGCACT-1 │      &quot;gold&quot;
+demux_11_04_21_2_TTTAGTCGTCTAGTGT-1 │   &quot;#eebb6e&quot;
 </code>
 </pre>
 </div>
@@ -3308,6 +3408,23 @@ demux_11_04_21_2_TTTAGTCGTCTAGTGT-1 │ &quot;#eebb6e&quot;
 <code>/ cell : age @ type ! %&gt; Mean || 0
 </code> will succeed, assigning a value of zero for types which have no cells associated with them).
 </p>
+<pre>
+<code class="language-julia hljs">chain = example_chain_daf()
+
+# Axis(&quot;cell&quot;) |&gt; Lookup(&quot;donor&quot;) |&gt; Fetch(&quot;age&quot;) |&gt; GroupBy(&quot;metacell&quot;) |&gt; IfNot() |&gt; Fetch(&quot;type&quot;) |&gt; Mean() |&gt; get_query(chain)
+chain[&quot;/ cell : donor =&gt; age @ metacell ?? =&gt; type %&gt; Mean&quot;]
+
+# output
+
+4-element Named SparseArrays.ReadOnly{Float32, 1, Vector{Float32}}
+type     │
+─────────┼────────
+MEBEMP-E │ 63.9767
+MEBEMP-L │ 63.9524
+MPP      │  64.238
+memory-B │ 62.3077
+</code>
+</pre>
 </div>
 </section>
 </article>
@@ -3352,6 +3469,21 @@ demux_11_04_21_2_TTTAGTCGTCTAGTGT-1 │ &quot;#eebb6e&quot;
 <code>value
 </code>.
 </p>
+<pre>
+<code class="language-julia hljs">cells = example_cells_daf()
+println(Lookup(&quot;version&quot;) |&gt; IfMissing(1) |&gt; get_query(cells))
+println(Lookup(&quot;version&quot;) |&gt; IfMissing(Float32(1)) |&gt; get_query(cells))
+println(cells[&quot;: version || 1&quot;])
+println(cells[&quot;: version || 1 Float32&quot;])
+
+# output
+
+1
+1.0
+1
+1.0
+</code>
+</pre>
 </div>
 </section>
 </article>
@@ -3385,15 +3517,15 @@ demux_11_04_21_2_TTTAGTCGTCTAGTGT-1 │ &quot;#eebb6e&quot;
 <p>If the value is 
 <code>nothing
 </code> (the default), then these entries are dropped (masked out) of the result (e.g., 
-<code>/ cell : type ?
+<code>/ cell : type ??
 </code> behaves the same as 
 <code>/ cell &amp; type : type
 </code>, that is, returns the type of the cells which have a non-empty type). Otherwise, this value is used instead of the &quot;false-ish&quot; value (e.g., 
-<code>/ cell : type ? Outlier
+<code>/ cell : type ?? Outlier
 </code> will return a vector of the type of each cell, with the value 
 <code>Outlier
 </code> for cells with an empty type). When fetching properties, this is the final value (e.g., 
-<code>/ cell : type ? red =&gt; color
+<code>/ cell : type ?? red =&gt; color
 </code> will return a vector of the color of the type of each cell, with a 
 <code>red
 </code> color for the cells with an empty type).
@@ -3404,6 +3536,35 @@ demux_11_04_21_2_TTTAGTCGTCTAGTGT-1 │ &quot;#eebb6e&quot;
 <code>AbstractString
 </code>, then it is automatically converted to the data type of the elements of the results vector.
 </p>
+<pre>
+<code class="language-julia hljs">metacells = example_metacells_daf()
+# Axis(&quot;cell&quot;) |&gt; Lookup(&quot;metacell&quot;) |&gt; IfNot(&quot;magenta&quot;) |&gt; Fetch(&quot;type&quot;) |&gt; Fetch(&quot;color&quot;) |&gt; get_query(metacells)
+metacells[&quot;/ cell : metacell ?? magenta =&gt; type =&gt; color&quot;]
+
+# output
+
+856-element Named SparseArrays.ReadOnly{AbstractString, 1, Vector{AbstractString}}
+cell                                │
+────────────────────────────────────┼──────────
+demux_07_12_20_1_AACAAGATCCATTTCA-1 │ &quot;#eebb6e&quot;
+demux_07_12_20_1_AACGAAAGTCCAATCA-1 │ &quot;magenta&quot;
+demux_07_12_20_1_AAGACAAAGTTCCGTA-1 │ &quot;#eebb6e&quot;
+demux_07_12_20_1_AGACTCATCTATTGTC-1 │    &quot;gold&quot;
+demux_07_12_20_1_AGATAGACATTCCTCG-1 │ &quot;#eebb6e&quot;
+demux_07_12_20_1_ATCGTAGTCCAGTGCG-1 │ &quot;magenta&quot;
+demux_07_12_20_1_CACAGGCGTCCTACAA-1 │ &quot;#eebb6e&quot;
+demux_07_12_20_1_CCTACGTAGCCAACCC-1 │ &quot;#eebb6e&quot;
+⋮                                             ⋮
+demux_11_04_21_2_GGGTCACCACCACATA-1 │    &quot;gold&quot;
+demux_11_04_21_2_TACAACGGTTACACAC-1 │    &quot;plum&quot;
+demux_11_04_21_2_TAGAGTCAGAACGCGT-1 │ &quot;#eebb6e&quot;
+demux_11_04_21_2_TGATGCAAGGCCTGCT-1 │ &quot;magenta&quot;
+demux_11_04_21_2_TGCCGAGAGTCGCGAA-1 │    &quot;gold&quot;
+demux_11_04_21_2_TGCTGAAAGCCGCACT-1 │    &quot;gold&quot;
+demux_11_04_21_2_TTCAGGACAGGAATAT-1 │ &quot;magenta&quot;
+demux_11_04_21_2_TTTAGTCGTCTAGTGT-1 │ &quot;#eebb6e&quot;
+</code>
+</pre>
 </div>
 </section>
 </article>
@@ -3505,13 +3666,13 @@ human
 </pre>
 <pre>
 <code class="language-julia hljs">metacells = example_metacells_daf()
-println(Axis(&quot;type&quot;) |&gt; Lookup(&quot;color&quot;) |&gt; get_query(metacells))
-println(metacells[&quot;/ type : color&quot;])
+println(String.(Axis(&quot;type&quot;) |&gt; Lookup(&quot;color&quot;) |&gt; get_query(metacells)))
+println(String.(metacells[&quot;/ type : color&quot;]))
 
 # output
 
-SubString{StringViews.StringView{Vector{UInt8}}}[&quot;#eebb6e&quot;, &quot;plum&quot;, &quot;gold&quot;, &quot;steelblue&quot;]
-SubString{StringViews.StringView{Vector{UInt8}}}[&quot;#eebb6e&quot;, &quot;plum&quot;, &quot;gold&quot;, &quot;steelblue&quot;]
+[&quot;#eebb6e&quot;, &quot;plum&quot;, &quot;gold&quot;, &quot;steelblue&quot;]
+[&quot;#eebb6e&quot;, &quot;plum&quot;, &quot;gold&quot;, &quot;steelblue&quot;]
 </code>
 </pre>
 <pre>
@@ -3616,7 +3777,7 @@ M412.08         │   0.00373581    6.50531f-5  …   0.000122469   0.000160654
 <pre>
 <code class="language-julia hljs">cells = example_cells_daf()
 println(Names(&quot;scalars&quot;) |&gt; get_query(cells))
-println(sort!(string.(cells[&quot;? axes&quot;])))
+println(sort!(String.(cells[&quot;? axes&quot;])))
 
 # output
 
@@ -3626,8 +3787,8 @@ AbstractString[&quot;organism&quot;]
 </pre>
 <pre>
 <code class="language-julia hljs">cells = example_cells_daf()
-println(sort!(string.(Axis(&quot;cell&quot;) |&gt; Names() |&gt; get_query(cells))))
-println(sort!(string.(cells[&quot;/ cell ?&quot;])))
+println(sort!(String.(Axis(&quot;cell&quot;) |&gt; Names() |&gt; get_query(cells))))
+println(sort!(String.(cells[&quot;/ cell ?&quot;])))
 
 # output
 
@@ -3656,6 +3817,532 @@ Set(AbstractString[&quot;UMIs&quot;])
 </p>
 </div>
 </div>
+</div>
+</section>
+</article>
+<h3 id="Mask-Operators">
+<a class="docs-heading-anchor" href="#Mask-Operators">Mask Operators
+</a>
+<a id="Mask-Operators-1">
+</a>
+<a class="docs-heading-anchor-permalink" href="#Mask-Operators" title="Permalink">
+</a>
+</h3>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Queries.And" href="#DataAxesFormats.Queries.And">
+<code>DataAxesFormats.Queries.And
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">And(property::AbstractString) &lt;: QueryOperation
+</code>
+</pre>
+<p>A query operation for restricting the set of entries of an 
+<a href="queries.html#DataAxesFormats.Queries.Axis">
+<code>Axis
+</code>
+</a>. In a string 
+<a href="queries.html#DataAxesFormats.Queries.Query">
+<code>Query
+</code>
+</a>, this is specified using the 
+<code>&amp;
+</code> operator, followed by the name of an axis property to look up to compute the mask.
+</p>
+<p>The mask may be just the fetched property (e.g., 
+<code>/ gene &amp; is_marker
+</code> will restrict the result vector to only marker genes). If the value of the property is not Boolean, it is automatically compared to 
+<code>0
+</code> or the empty string, depending on its type (e.g., 
+<code>/ cell &amp; type
+</code> will restrict the result vector to only cells which were given a non-empty-string type annotation). It is also possible to fetch properties from other axes, and use an explicit 
+<a href="queries.html#DataAxesFormats.Queries.ComparisonOperation">
+<code>ComparisonOperation
+</code>
+</a> to compute the Boolean mask (e.g., 
+<code>/ cell &amp; batch =&gt; age &gt; 1
+</code> will restrict the result vector to cells whose batch has an age larger than 1).
+</p>
+<pre>
+<code class="language-julia hljs">chain = example_chain_daf()
+# Axis(&quot;cell&quot;) |&gt; And(&quot;donor&quot;) |&gt; IsEqual(&quot;N16&quot;) |&gt; get_query(chain)
+chain[&quot;/ cell &amp; donor = N16&quot;]
+
+# output
+
+10-element SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}:
+ &quot;demux_21_01_21_1_AACCCAATCGAGAATA-1&quot;
+ &quot;demux_21_01_21_1_CACAGGCTCTTAGCCC-1&quot;
+ &quot;demux_21_01_21_1_CTACGGGTCGTGCGAC-1&quot;
+ &quot;demux_21_01_21_1_GAGATGGAGGGATCAC-1&quot;
+ &quot;demux_21_01_21_1_GCCAGGTAGCGGTAGT-1&quot;
+ &quot;demux_21_01_21_1_GCGTGCATCCGGCAGT-1&quot;
+ &quot;demux_21_01_21_1_TCAATTCAGCTTCTAG-1&quot;
+ &quot;demux_21_01_21_1_TCGCTTGGTCTTGTCC-1&quot;
+ &quot;demux_21_01_21_1_TCTTTGAAGCGGGTAT-1&quot;
+ &quot;demux_21_01_21_1_TTCTCTCCAACGGCCT-1&quot;
+</code>
+</pre>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Queries.AndNot" href="#DataAxesFormats.Queries.AndNot">
+<code>DataAxesFormats.Queries.AndNot
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">AndNot(property::AbstractString) &lt;: QueryOperation
+</code>
+</pre>
+<p>Same as 
+<a href="queries.html#DataAxesFormats.Queries.And">
+<code>And
+</code>
+</a> but use the inverse of the mask. In a string 
+<a href="queries.html#DataAxesFormats.Queries.Query">
+<code>Query
+</code>
+</a>, this is specified using the 
+<code>&amp;!
+</code> operator, followed by the name of an axis property to look up to compute the mask.
+</p>
+<pre>
+<code class="language-julia hljs">chain = example_chain_daf()
+# Axis(&quot;cell&quot;) |&gt; AndNot(&quot;donor&quot;) &amp;&gt; IsEqual(&quot;N16&quot;) |&gt; get_query(chain)
+chain[&quot;/ cell &amp;! donor = N16&quot;]
+
+# output
+
+846-element SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}:
+ &quot;demux_07_12_20_1_AACAAGATCCATTTCA-1&quot;
+ &quot;demux_07_12_20_1_AACGAAAGTCCAATCA-1&quot;
+ &quot;demux_07_12_20_1_AAGACAAAGTTCCGTA-1&quot;
+ &quot;demux_07_12_20_1_AGACTCATCTATTGTC-1&quot;
+ &quot;demux_07_12_20_1_AGATAGACATTCCTCG-1&quot;
+ &quot;demux_07_12_20_1_ATCGTAGTCCAGTGCG-1&quot;
+ &quot;demux_07_12_20_1_CACAGGCGTCCTACAA-1&quot;
+ &quot;demux_07_12_20_1_CCTACGTAGCCAACCC-1&quot;
+ &quot;demux_07_12_20_1_CTTTCAAGTGAGGAAA-1&quot;
+ &quot;demux_07_12_20_1_GAAGGGTGTCCCTGAG-1&quot;
+ ⋮
+ &quot;demux_11_04_21_2_GGGACTCTCTCATGGA-1&quot;
+ &quot;demux_11_04_21_2_GGGTCACCACCACATA-1&quot;
+ &quot;demux_11_04_21_2_TACAACGGTTACACAC-1&quot;
+ &quot;demux_11_04_21_2_TAGAGTCAGAACGCGT-1&quot;
+ &quot;demux_11_04_21_2_TGATGCAAGGCCTGCT-1&quot;
+ &quot;demux_11_04_21_2_TGCCGAGAGTCGCGAA-1&quot;
+ &quot;demux_11_04_21_2_TGCTGAAAGCCGCACT-1&quot;
+ &quot;demux_11_04_21_2_TTCAGGACAGGAATAT-1&quot;
+ &quot;demux_11_04_21_2_TTTAGTCGTCTAGTGT-1&quot;
+</code>
+</pre>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Queries.Or" href="#DataAxesFormats.Queries.Or">
+<code>DataAxesFormats.Queries.Or
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">Or(property::AbstractString) &lt;: QueryOperation
+</code>
+</pre>
+<p>A query operation for expanding the set of entries of an 
+<a href="queries.html#DataAxesFormats.Queries.Axis">
+<code>Axis
+</code>
+</a>. In a string 
+<a href="queries.html#DataAxesFormats.Queries.Query">
+<code>Query
+</code>
+</a>, this is specified using the 
+<code>|
+</code> operator, followed by the name of an axis property to look up to compute the mask.
+</p>
+<p>This works similarly to 
+<a href="queries.html#DataAxesFormats.Queries.And">
+<code>And
+</code>
+</a>, except that it adds to the mask (e.g., 
+<code>/ gene &amp; is_marker | is_noisy
+</code> will restrict the result vector to either marker or noisy genes).
+</p>
+<pre>
+<code class="language-julia hljs">chain = example_chain_daf()
+# Axis(&quot;cell&quot;) |&gt; And(&quot;donor&quot;) |&gt; IsEqual(&quot;N16&quot;) |&gt; Or(&quot;donor&quot;) |&gt; IsEqual(&quot;N15&quot;) |&gt; get_query(chain)
+chain[&quot;/ cell &amp; donor = N16 | donor = N17&quot;]
+
+# output
+
+20-element SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}:
+ &quot;demux_21_01_21_1_AACCCAATCGAGAATA-1&quot;
+ &quot;demux_21_01_21_1_AACGTCACATCCGAGC-1&quot;
+ &quot;demux_21_01_21_1_ACCCAAAAGGTCCCGT-1&quot;
+ &quot;demux_21_01_21_1_ACTTTCAAGTCCCAGC-1&quot;
+ &quot;demux_21_01_21_1_AGATCGTGTACTCCGG-1&quot;
+ &quot;demux_21_01_21_1_AGTAGCTGTATCAGGG-1&quot;
+ &quot;demux_21_01_21_1_CACAGGCTCTTAGCCC-1&quot;
+ &quot;demux_21_01_21_1_CTACGGGTCGTGCGAC-1&quot;
+ &quot;demux_21_01_21_1_CTGCCTACACGCAGTC-1&quot;
+ &quot;demux_21_01_21_1_GAGATGGAGGGATCAC-1&quot;
+ &quot;demux_21_01_21_1_GATCAGTAGTCGAAAT-1&quot;
+ &quot;demux_21_01_21_1_GCCAGGTAGCGGTAGT-1&quot;
+ &quot;demux_21_01_21_1_GCGTGCATCCGGCAGT-1&quot;
+ &quot;demux_21_01_21_1_GTTCTATGTATCCCTC-1&quot;
+ &quot;demux_21_01_21_1_TCAATTCAGCTTCTAG-1&quot;
+ &quot;demux_21_01_21_1_TCGCTTGGTCTTGTCC-1&quot;
+ &quot;demux_21_01_21_1_TCTTTGAAGCGGGTAT-1&quot;
+ &quot;demux_21_01_21_1_TGTAACGCATGGCCAC-1&quot;
+ &quot;demux_21_01_21_1_TGTACAGGTTTGAACC-1&quot;
+ &quot;demux_21_01_21_1_TTCTCTCCAACGGCCT-1&quot;
+</code>
+</pre>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Queries.OrNot" href="#DataAxesFormats.Queries.OrNot">
+<code>DataAxesFormats.Queries.OrNot
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">OrNot(property::AbstractString) &lt;: QueryOperation
+</code>
+</pre>
+<p>Same as 
+<a href="queries.html#DataAxesFormats.Queries.Or">
+<code>Or
+</code>
+</a> but use the inverse of the mask. In a string 
+<a href="queries.html#DataAxesFormats.Queries.Query">
+<code>Query
+</code>
+</a>, this is specified using the 
+<code>|!
+</code> operator, followed by the name of an axis property to look up to compute the mask.
+</p>
+<pre>
+<code class="language-julia hljs">chain = example_chain_daf()
+# Axis(&quot;cell&quot;) |&gt; And(&quot;donor&quot;) |&gt; IsEqual(&quot;N16&quot;) |&gt; OrNot(&quot;metacell&quot;) |&gt; get_query(chain)
+chain[&quot;/ cell &amp; donor = N16 |! metacell&quot;]
+
+# output
+
+14-element SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}:
+ &quot;demux_07_12_20_1_AACGAAAGTCCAATCA-1&quot;
+ &quot;demux_07_12_20_1_ATCGTAGTCCAGTGCG-1&quot;
+ &quot;demux_21_01_21_1_AACCCAATCGAGAATA-1&quot;
+ &quot;demux_21_01_21_1_CACAGGCTCTTAGCCC-1&quot;
+ &quot;demux_21_01_21_1_CTACGGGTCGTGCGAC-1&quot;
+ &quot;demux_21_01_21_1_GAGATGGAGGGATCAC-1&quot;
+ &quot;demux_21_01_21_1_GCCAGGTAGCGGTAGT-1&quot;
+ &quot;demux_21_01_21_1_GCGTGCATCCGGCAGT-1&quot;
+ &quot;demux_21_01_21_1_TCAATTCAGCTTCTAG-1&quot;
+ &quot;demux_21_01_21_1_TCGCTTGGTCTTGTCC-1&quot;
+ &quot;demux_21_01_21_1_TCTTTGAAGCGGGTAT-1&quot;
+ &quot;demux_21_01_21_1_TTCTCTCCAACGGCCT-1&quot;
+ &quot;demux_11_04_21_2_TGATGCAAGGCCTGCT-1&quot;
+ &quot;demux_11_04_21_2_TTCAGGACAGGAATAT-1&quot;
+</code>
+</pre>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Queries.Xor" href="#DataAxesFormats.Queries.Xor">
+<code>DataAxesFormats.Queries.Xor
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">Xor(property::AbstractString) &lt;: QueryOperation
+</code>
+</pre>
+<p>A query operation for flipping the set of entries of an 
+<a href="queries.html#DataAxesFormats.Queries.Axis">
+<code>Axis
+</code>
+</a>. In a string 
+<a href="queries.html#DataAxesFormats.Queries.Query">
+<code>Query
+</code>
+</a>, this is specified using the 
+<code>^
+</code> operator, followed by the name of an axis property to look up to compute the mask.
+</p>
+<p>This works similarly to 
+<a href="queries.html#DataAxesFormats.Queries.Or">
+<code>Or
+</code>
+</a>, except that it flips entries in the mask (e.g., 
+<code>/ gene &amp; is_marker ^ is_noisy
+</code> will restrict the result vector to either marker or noisy genes, but not both).
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Queries.XorNot" href="#DataAxesFormats.Queries.XorNot">
+<code>DataAxesFormats.Queries.XorNot
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">XorNot(property::AbstractString) &lt;: QueryOperation
+</code>
+</pre>
+<p>Same as 
+<a href="queries.html#DataAxesFormats.Queries.Xor">
+<code>Xor
+</code>
+</a> but use the inverse of the mask. In a string 
+<a href="queries.html#DataAxesFormats.Queries.Query">
+<code>Query
+</code>
+</a>, this is specified using the 
+<code>^!
+</code> operator, followed by the name of an axis property to look up to compute the mask.
+</p>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Queries.MaskSlice" href="#DataAxesFormats.Queries.MaskSlice">
+<code>DataAxesFormats.Queries.MaskSlice
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">MaskSlice(axis_name::AbstractString) &lt;: QueryOperation
+</code>
+</pre>
+<p>A query operation for using a slice of a matrix as a mask, when the other axis of the matrix is different from the mask axis. This needs to be followed by the axis entry to slice. In a string 
+<a href="queries.html#DataAxesFormats.Queries.Query">
+<code>Query
+</code>
+</a>, this is specified using the 
+<code>;
+</code> operator, followed by the name of the axis for looking up the matrix, then followed by 
+<code>=
+</code> and the value identifying the slice.
+</p>
+<p>That is, suppose we have a UMIs matrix per cell per gene, and we&#39;d like to select all the cells which have non-zero UMIs for the FOXP1 gene. Then we can say 
+<code>/ cell &amp; UMIs ; gene = FOXP1 &gt; 0
+</code> (or just 
+<code>/ cell &amp; UMIs ; gene = FOXP1
+</code> since the 
+<code>&gt; 0
+</code> is implicit).
+</p>
+<pre>
+<code class="language-julia hljs">cells = example_cells_daf()
+# Axis(&quot;cell&quot;) |&gt; And(&quot;UMIs&quot;) |&gt; MaskSlice(&quot;gene&quot;) |&gt; IsEqual(&quot;FOXP1&quot;) |&gt; get_query(cells)
+cells[&quot;/ cell &amp; UMIs ; gene = FOXP1&quot;]
+
+# output
+
+372-element SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}:
+ &quot;demux_07_12_20_1_AACAAGATCCATTTCA-1&quot;
+ &quot;demux_07_12_20_1_AACGAAAGTCCAATCA-1&quot;
+ &quot;demux_07_12_20_1_AGACTCATCTATTGTC-1&quot;
+ &quot;demux_07_12_20_1_ATCGTAGTCCAGTGCG-1&quot;
+ &quot;demux_07_12_20_1_CACAGGCGTCCTACAA-1&quot;
+ &quot;demux_07_12_20_1_CTTTCAAGTGAGGAAA-1&quot;
+ &quot;demux_07_12_20_1_GAAGGGTGTCCCTGAG-1&quot;
+ &quot;demux_07_12_20_1_GCAGCCAGTGTTACAC-1&quot;
+ &quot;demux_07_12_20_1_GTTAGACGTCGGCACT-1&quot;
+ &quot;demux_07_12_20_1_TCCTTCTTCTACTGAG-1&quot;
+ ⋮
+ &quot;demux_11_04_21_2_ATGGGAGTCCTGTTAT-1&quot;
+ &quot;demux_11_04_21_2_CATGGTATCGTTAGAC-1&quot;
+ &quot;demux_11_04_21_2_CCTACGTCAGACCAGA-1&quot;
+ &quot;demux_11_04_21_2_CGTGAATGTGAGTGAC-1&quot;
+ &quot;demux_11_04_21_2_GGCTTGGTCGTTCCTG-1&quot;
+ &quot;demux_11_04_21_2_GGGTCACCACCACATA-1&quot;
+ &quot;demux_11_04_21_2_TACAACGGTTACACAC-1&quot;
+ &quot;demux_11_04_21_2_TGCTGAAAGCCGCACT-1&quot;
+ &quot;demux_11_04_21_2_TTTAGTCGTCTAGTGT-1&quot;
+</code>
+</pre>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Queries.SquareMaskColumn" href="#DataAxesFormats.Queries.SquareMaskColumn">
+<code>DataAxesFormats.Queries.SquareMaskColumn
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">SquareMaskColumn(comparison_value::AbstractString) &lt;: QueryOperation
+</code>
+</pre>
+<p>Similar to 
+<a href="queries.html#DataAxesFormats.Queries.MaskSlice">
+<code>MaskSlice
+</code>
+</a> but is used when the mask matrix is square and we&#39;d like to use a column as a mask. This therefore only needs specifying the column to slice. In a string 
+<a href="queries.html#DataAxesFormats.Queries.Query">
+<code>Query
+</code>
+</a>, this is specified using the 
+<code>;=
+</code> operator followed by the value identifying the slice.
+</p>
+<p>That is, suppose we have a KNN graph between metacells as a metacell-metacell matrix where each column contains the weights of the outgoing edges from each metacell to the rest. To select all the metacells reachable from a particular one, we can say 
+<code>/ metacell &amp; edge_weight ;= M2169.56 &gt; 0
+</code> (or just 
+<code>/ metacell &amp; edge_weight ;= M2169.56
+</code> as the 
+<code>&gt; 0
+</code> is implicit). If we also want to include the source cell we&#39;d need to say 
+<code>/ metacell &amp; name = M2169.56 | edge_weight ;= M2169.56
+</code>, etc.
+</p>
+<pre>
+<code class="language-julia hljs">metacells = example_metacells_daf()
+println(String.(Axis(&quot;metacell&quot;) |&gt; And(&quot;edge_weight&quot;) |&gt; SquareMaskColumn(&quot;M2169.56&quot;) |&gt; get_query(metacells)))
+println(String.(metacells[&quot;/ metacell &amp; edge_weight ;= M2169.56&quot;]))
+
+# output
+
+[&quot;M2357.20&quot;, &quot;M756.63&quot;, &quot;M412.08&quot;]
+[&quot;M2357.20&quot;, &quot;M756.63&quot;, &quot;M412.08&quot;]
+</code>
+</pre>
+</div>
+</section>
+</article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Queries.SquareMaskRow" href="#DataAxesFormats.Queries.SquareMaskRow">
+<code>DataAxesFormats.Queries.SquareMaskRow
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">SquareMaskRow(comparison_value::AbstractString) &lt;: QueryOperation
+</code>
+</pre>
+<p>Similar to 
+<a href="queries.html#DataAxesFormats.Queries.SquareMaskRow">
+<code>SquareMaskRow
+</code>
+</a> but is used when the mask matrix is square and we&#39;d like to use a row as a mask. This therefore only needs specifying the row to slice. In a string 
+<a href="queries.html#DataAxesFormats.Queries.Query">
+<code>Query
+</code>
+</a>, this is specified using the 
+<code>,=
+</code> operator followed by the value identifying the slice.
+</p>
+<p>That is, suppose we have a KNN graph as above and we&#39;d like to select all cells that can reach a particular one. Then 
+<code>/ metacell &amp; edge_weight ,= M2169.56 &gt; 0
+</code> (or just 
+<code>/ metacell &amp; edge_weight ,= M2169.56
+</code> as the 
+<code>&gt; 0
+</code> is implicit). If we also want to include the source cell we&#39;d need to say 
+<code>/ metacell &amp; name = M2169.56 | edge_weight ,= M2169.56
+</code>, etc.
+</p>
+<pre>
+<code class="language-julia hljs">metacells = example_metacells_daf()
+println(String.(Axis(&quot;metacell&quot;) |&gt; And(&quot;edge_weight&quot;) |&gt; SquareMaskRow(&quot;M2169.56&quot;) |&gt; get_query(metacells)))
+println(String.(metacells[&quot;/ metacell &amp; edge_weight ,= M2169.56&quot;]))
+
+# output
+
+[&quot;M1671.28&quot;, &quot;M1440.15&quot;]
+[&quot;M1671.28&quot;, &quot;M1440.15&quot;]
+</code>
+</pre>
 </div>
 </section>
 </article>
@@ -3936,6 +4623,48 @@ Set(AbstractString[&quot;UMIs&quot;])
 </code>
 </a> except that the compared values must be strings, and the mask is of the values that match the given regular expression.
 </p>
+<div class="admonition is-info">
+<header class="admonition-header">Note
+</header>
+<div class="admonition-body">
+<p>This will succeed on partial matches. You therefore typically need to add 
+<code>^
+</code> and/or 
+<code>$
+</code> to the regular expression to avoid matching in the middle of the value.
+</p>
+</div>
+</div>
+<pre>
+<code class="language-julia hljs">cells = example_cells_daf()
+#Axis(&quot;gene&quot;) |&gt; And(&quot;name&quot;) |&gt; IsMatch(r&quot;^RP[LS]&quot;) |&gt; get_query(cells)
+cells[q&quot;/ gene &amp; name ~ \^RP\[LS\]&quot;]
+
+# output
+
+78-element SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}:
+ &quot;RPL22&quot;
+ &quot;RPL11&quot;
+ &quot;RPS8&quot;
+ &quot;RPL5&quot;
+ &quot;RPS27&quot;
+ &quot;RPS7&quot;
+ &quot;RPS27A&quot;
+ &quot;RPL31&quot;
+ &quot;RPL37A&quot;
+ &quot;RPL32&quot;
+ ⋮
+ &quot;RPS19&quot;
+ &quot;RPL18&quot;
+ &quot;RPL13A&quot;
+ &quot;RPS11&quot;
+ &quot;RPS9&quot;
+ &quot;RPL28&quot;
+ &quot;RPS5&quot;
+ &quot;RPS4Y1&quot;
+ &quot;RPL3&quot;
+</code>
+</pre>
 </div>
 </section>
 </article>
@@ -3995,402 +4724,6 @@ Set(AbstractString[&quot;UMIs&quot;])
 <code>IsMatch
 </code>
 </a> except that looks for entries that do not match the pattern.
-</p>
-</div>
-</section>
-</article>
-<h3 id="Mask-Operators">
-<a class="docs-heading-anchor" href="#Mask-Operators">Mask Operators
-</a>
-<a id="Mask-Operators-1">
-</a>
-<a class="docs-heading-anchor-permalink" href="#Mask-Operators" title="Permalink">
-</a>
-</h3>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
-<a class="docstring-binding" id="DataAxesFormats.Queries.And" href="#DataAxesFormats.Queries.And">
-<code>DataAxesFormats.Queries.And
-</code>
-</a> — 
-<span class="docstring-category">Type
-</span>
-<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
-</span>
-</header>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">And(property::AbstractString) &lt;: QueryOperation
-</code>
-</pre>
-<p>A query operation for restricting the set of entries of an 
-<a href="queries.html#DataAxesFormats.Queries.Axis">
-<code>Axis
-</code>
-</a>. In a string 
-<a href="queries.html#DataAxesFormats.Queries.Query">
-<code>Query
-</code>
-</a>, this is specified using the 
-<code>&amp;
-</code> operator, followed by the name of an axis property to look up to compute the mask.
-</p>
-<p>The mask may be just the fetched property (e.g., 
-<code>/ gene &amp; is_marker
-</code> will restrict the result vector to only marker genes). If the value of the property is not Boolean, it is automatically compared to 
-<code>0
-</code> or the empty string, depending on its type (e.g., 
-<code>/ cell &amp; type
-</code> will restrict the result vector to only cells which were given a non-empty-string type annotation). It is also possible to fetch properties from other axes, and use an explicit 
-<a href="queries.html#DataAxesFormats.Queries.ComparisonOperation">
-<code>ComparisonOperation
-</code>
-</a> to compute the Boolean mask (e.g., 
-<code>/ cell &amp; batch =&gt; age &gt; 1
-</code> will restrict the result vector to cells whose batch has an age larger than 1).
-</p>
-</div>
-</section>
-</article>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
-<a class="docstring-binding" id="DataAxesFormats.Queries.AndNot" href="#DataAxesFormats.Queries.AndNot">
-<code>DataAxesFormats.Queries.AndNot
-</code>
-</a> — 
-<span class="docstring-category">Type
-</span>
-<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
-</span>
-</header>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">AndNot(property::AbstractString) &lt;: QueryOperation
-</code>
-</pre>
-<p>Same as 
-<a href="queries.html#DataAxesFormats.Queries.And">
-<code>And
-</code>
-</a> but use the inverse of the mask. In a string 
-<a href="queries.html#DataAxesFormats.Queries.Query">
-<code>Query
-</code>
-</a>, this is specified using the 
-<code>&amp;!
-</code> operator, followed by the name of an axis property to look up to compute the mask.
-</p>
-</div>
-</section>
-</article>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
-<a class="docstring-binding" id="DataAxesFormats.Queries.Or" href="#DataAxesFormats.Queries.Or">
-<code>DataAxesFormats.Queries.Or
-</code>
-</a> — 
-<span class="docstring-category">Type
-</span>
-<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
-</span>
-</header>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">Or(property::AbstractString) &lt;: QueryOperation
-</code>
-</pre>
-<p>A query operation for expanding the set of entries of an 
-<a href="queries.html#DataAxesFormats.Queries.Axis">
-<code>Axis
-</code>
-</a>. In a string 
-<a href="queries.html#DataAxesFormats.Queries.Query">
-<code>Query
-</code>
-</a>, this is specified using the 
-<code>|
-</code> operator, followed by the name of an axis property to look up to compute the mask.
-</p>
-<p>This works similarly to 
-<a href="queries.html#DataAxesFormats.Queries.And">
-<code>And
-</code>
-</a>, except that it adds to the mask (e.g., 
-<code>/ gene &amp; is_marker | is_noisy
-</code> will restrict the result vector to either marker or noisy genes).
-</p>
-</div>
-</section>
-</article>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
-<a class="docstring-binding" id="DataAxesFormats.Queries.OrNot" href="#DataAxesFormats.Queries.OrNot">
-<code>DataAxesFormats.Queries.OrNot
-</code>
-</a> — 
-<span class="docstring-category">Type
-</span>
-<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
-</span>
-</header>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">OrNot(property::AbstractString) &lt;: QueryOperation
-</code>
-</pre>
-<p>Same as 
-<a href="queries.html#DataAxesFormats.Queries.Or">
-<code>Or
-</code>
-</a> but use the inverse of the mask. In a string 
-<a href="queries.html#DataAxesFormats.Queries.Query">
-<code>Query
-</code>
-</a>, this is specified using the 
-<code>|!
-</code> operator, followed by the name of an axis property to look up to compute the mask.
-</p>
-</div>
-</section>
-</article>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
-<a class="docstring-binding" id="DataAxesFormats.Queries.Xor" href="#DataAxesFormats.Queries.Xor">
-<code>DataAxesFormats.Queries.Xor
-</code>
-</a> — 
-<span class="docstring-category">Type
-</span>
-<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
-</span>
-</header>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">Xor(property::AbstractString) &lt;: QueryOperation
-</code>
-</pre>
-<p>A query operation for flipping the set of entries of an 
-<a href="queries.html#DataAxesFormats.Queries.Axis">
-<code>Axis
-</code>
-</a>. In a string 
-<a href="queries.html#DataAxesFormats.Queries.Query">
-<code>Query
-</code>
-</a>, this is specified using the 
-<code>^
-</code> operator, followed by the name of an axis property to look up to compute the mask.
-</p>
-<p>This works similarly to 
-<a href="queries.html#DataAxesFormats.Queries.Or">
-<code>Or
-</code>
-</a>, except that it flips entries in the mask (e.g., 
-<code>/ gene &amp; is_marker ^ is_noisy
-</code> will restrict the result vector to either marker or noisy genes, but not both).
-</p>
-</div>
-</section>
-</article>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
-<a class="docstring-binding" id="DataAxesFormats.Queries.XorNot" href="#DataAxesFormats.Queries.XorNot">
-<code>DataAxesFormats.Queries.XorNot
-</code>
-</a> — 
-<span class="docstring-category">Type
-</span>
-<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
-</span>
-</header>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">XorNot(property::AbstractString) &lt;: QueryOperation
-</code>
-</pre>
-<p>Same as 
-<a href="queries.html#DataAxesFormats.Queries.Xor">
-<code>Xor
-</code>
-</a> but use the inverse of the mask. In a string 
-<a href="queries.html#DataAxesFormats.Queries.Query">
-<code>Query
-</code>
-</a>, this is specified using the 
-<code>^!
-</code> operator, followed by the name of an axis property to look up to compute the mask.
-</p>
-</div>
-</section>
-</article>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
-<a class="docstring-binding" id="DataAxesFormats.Queries.MaskSlice" href="#DataAxesFormats.Queries.MaskSlice">
-<code>DataAxesFormats.Queries.MaskSlice
-</code>
-</a> — 
-<span class="docstring-category">Type
-</span>
-<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
-</span>
-</header>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">MaskSlice(axis_name::AbstractString) &lt;: QueryOperation
-</code>
-</pre>
-<p>A query operation for using a slice of a matrix as a mask, when the other axis of the matrix is different from the mask axis. This needs to be followed by the axis entry to slice. In a string 
-<a href="queries.html#DataAxesFormats.Queries.Query">
-<code>Query
-</code>
-</a>, this is specified using the 
-<code>;
-</code> operator, followed by the name of the axis for looking up the matrix, then followed by 
-<code>=
-</code> and the value identifying the slice.
-</p>
-<p>That is, suppose we have a UMIs matrix per cell per gene, and we&#39;d like to select all the cells which have non-zero UMIs for the FOXP1 gene. Then we can say 
-<code>/ cell &amp; UMIs ; gene = FOXP1 &gt; 0
-</code> (or just 
-<code>/ cell &amp; UMIs ; gene = FOXP1
-</code> since the 
-<code>&gt; 0
-</code> is implicit).
-</p>
-<pre>
-<code class="language-julia hljs">cells = example_cells_daf()
-# Axis(&quot;cell&quot;) |&gt; And(&quot;UMIs&quot;) |&gt; MaskSlice(&quot;gene&quot;) |&gt; IsEqual(&quot;FOXP1&quot;) |&gt; get_query(cells)
-cells[&quot;/ cell &amp; UMIs ; gene = FOXP1&quot;]
-
-# output
-
-372-element SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}:
- &quot;demux_07_12_20_1_AACAAGATCCATTTCA-1&quot;
- &quot;demux_07_12_20_1_AACGAAAGTCCAATCA-1&quot;
- &quot;demux_07_12_20_1_AGACTCATCTATTGTC-1&quot;
- &quot;demux_07_12_20_1_ATCGTAGTCCAGTGCG-1&quot;
- &quot;demux_07_12_20_1_CACAGGCGTCCTACAA-1&quot;
- &quot;demux_07_12_20_1_CTTTCAAGTGAGGAAA-1&quot;
- &quot;demux_07_12_20_1_GAAGGGTGTCCCTGAG-1&quot;
- &quot;demux_07_12_20_1_GCAGCCAGTGTTACAC-1&quot;
- &quot;demux_07_12_20_1_GTTAGACGTCGGCACT-1&quot;
- &quot;demux_07_12_20_1_TCCTTCTTCTACTGAG-1&quot;
- ⋮
- &quot;demux_11_04_21_2_ATGGGAGTCCTGTTAT-1&quot;
- &quot;demux_11_04_21_2_CATGGTATCGTTAGAC-1&quot;
- &quot;demux_11_04_21_2_CCTACGTCAGACCAGA-1&quot;
- &quot;demux_11_04_21_2_CGTGAATGTGAGTGAC-1&quot;
- &quot;demux_11_04_21_2_GGCTTGGTCGTTCCTG-1&quot;
- &quot;demux_11_04_21_2_GGGTCACCACCACATA-1&quot;
- &quot;demux_11_04_21_2_TACAACGGTTACACAC-1&quot;
- &quot;demux_11_04_21_2_TGCTGAAAGCCGCACT-1&quot;
- &quot;demux_11_04_21_2_TTTAGTCGTCTAGTGT-1&quot;
-</code>
-</pre>
-</div>
-</section>
-</article>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
-<a class="docstring-binding" id="DataAxesFormats.Queries.SquareMaskColumn" href="#DataAxesFormats.Queries.SquareMaskColumn">
-<code>DataAxesFormats.Queries.SquareMaskColumn
-</code>
-</a> — 
-<span class="docstring-category">Type
-</span>
-<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
-</span>
-</header>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">SquareMaskColumn(comparison_value::AbstractString) &lt;: QueryOperation
-</code>
-</pre>
-<p>Similar to 
-<a href="queries.html#DataAxesFormats.Queries.MaskSlice">
-<code>MaskSlice
-</code>
-</a> but is used when the mask matrix is square and we&#39;d like to use a column as a mask. This therefore only needs specifying the column to slice. In a string 
-<a href="queries.html#DataAxesFormats.Queries.Query">
-<code>Query
-</code>
-</a>, this is specified using the 
-<code>;=
-</code> operator followed by the value identifying the slice.
-</p>
-<p>That is, suppose we have a KNN graph between cells as a cell-cell matrix where each column contains the weights of the outgoing edges from each cell to the rest. To select all the cells reachable from a particular one. Then we can say 
-<code>/ cell &amp; outgoing ;= ATCG &gt; 0
-</code> (or just 
-<code>/ cell &amp; outgoing ;= ATCG
-</code>). If we also want to include the source cell we&#39;d need to say 
-<code>/ cell &amp; name = ATCG | outgoing ;= ATCG
-</code>, etc.
-</p>
-</div>
-</section>
-</article>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
-<a class="docstring-binding" id="DataAxesFormats.Queries.SquareMaskRow" href="#DataAxesFormats.Queries.SquareMaskRow">
-<code>DataAxesFormats.Queries.SquareMaskRow
-</code>
-</a> — 
-<span class="docstring-category">Type
-</span>
-<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
-</span>
-</header>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">SquareMaskRow(comparison_value::AbstractString) &lt;: QueryOperation
-</code>
-</pre>
-<p>Similar to 
-<a href="queries.html#DataAxesFormats.Queries.SquareMaskRow">
-<code>SquareMaskRow
-</code>
-</a> but is used when the mask matrix is square and we&#39;d like to use a row as a mask. This therefore only needs specifying the row to slice. In a string 
-<a href="queries.html#DataAxesFormats.Queries.Query">
-<code>Query
-</code>
-</a>, this is specified using the 
-<code>,=
-</code> operator followed by the value identifying the slice.
-</p>
-<p>That is, suppose we have a KNN graph as above and we&#39;d like to select all cells that can reach a particular one. Then 
-<code>/ cell &amp; outgoing ,= ATCG &gt; 0
-</code> (or just 
-<code>/ cell &amp; outgoing ,= ATCG
-</code>). If we also want to include the source cell we&#39;d need to say 
-<code>/ cell &amp; name = ATCG | outgoing ,= ATCG
-</code>, etc.
 </p>
 </div>
 </section>

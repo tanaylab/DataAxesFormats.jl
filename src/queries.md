@@ -74,20 +74,6 @@ DataAxesFormats.Queries.Lookup
 DataAxesFormats.Queries.Names
 ```
 
-### Comparison Operators
-
-```@docs
-DataAxesFormats.Queries.ComparisonOperation
-DataAxesFormats.Queries.IsEqual
-DataAxesFormats.Queries.IsGreater
-DataAxesFormats.Queries.IsGreaterEqual
-DataAxesFormats.Queries.IsLess
-DataAxesFormats.Queries.IsLessEqual
-DataAxesFormats.Queries.IsMatch
-DataAxesFormats.Queries.IsNotEqual
-DataAxesFormats.Queries.IsNotMatch
-```
-
 ### Mask Operators
 
 ```@docs
@@ -100,6 +86,20 @@ DataAxesFormats.Queries.XorNot
 DataAxesFormats.Queries.MaskSlice
 DataAxesFormats.Queries.SquareMaskColumn
 DataAxesFormats.Queries.SquareMaskRow
+```
+
+### Comparison Operators
+
+```@docs
+DataAxesFormats.Queries.ComparisonOperation
+DataAxesFormats.Queries.IsEqual
+DataAxesFormats.Queries.IsGreater
+DataAxesFormats.Queries.IsGreaterEqual
+DataAxesFormats.Queries.IsLess
+DataAxesFormats.Queries.IsLessEqual
+DataAxesFormats.Queries.IsMatch
+DataAxesFormats.Queries.IsNotEqual
+DataAxesFormats.Queries.IsNotMatch
 ```
 
 ## Index

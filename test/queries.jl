@@ -48,7 +48,12 @@ function test_invalid(daf::DafReader, query::Union{AbstractString, Query}, messa
     return nothing
 end
 
-function test_invalid(daf::DafReader, query::Union{AbstractString, Query}, dimensions::Int, message::String)::Nothing
+function test_invalid(
+    daf::DafReader,
+    query::Union{AbstractString, Query},
+    dimensions::Int,
+    message::AbstractString,
+)::Nothing
     @test query_result_dimensions(query) == dimensions
     @test_throws message with_unwrapping_exceptions() do
         return daf[query]
@@ -530,12 +535,15 @@ nested_test("queries") do
                         daf,
                         q"/ cell & type ~ \[",
                         1,
-                        """
-                        ErrorException: PCRE compilation error: missing terminating ] for character class at offset 7
-                        in the regular expression: ^(:?[)\$
-                        in the query: / cell & type ~ \\[
-                        at operation:               ▲▲▲▲
-                        """,
+                        chomp(
+                            """
+                            ErrorException: PCRE compilation error: missing terminating ] for character class at offset 1
+                            in the regular expression: [
+                            in the query: / cell & type ~ \\[
+                            at operation:               ▲▲▲▲
+                            for the daf data: memory!
+                            """,
+                        ),
                     )
                 end
 
