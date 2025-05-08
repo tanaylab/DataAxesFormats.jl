@@ -96,28 +96,25 @@ NamesKey = Union{AbstractString, Tuple{AbstractString}, Tuple{AbstractString, Ab
 
 CacheKey = Tuple{CacheType, Union{AxisCacheKey, PropertyKey, AbstractString, NamesKey}}
 
-function Base.show(io::IO, cache_key::CacheKey)::Nothing
+function Base.show(io::IO, cache_key::CacheKey)::Nothing  # UNTESTED
     type, key = cache_key
     if type == CachedAxis
         @assert key isa AxisCacheKey
         if key[2]
             print(io, "axis_dict[axis: $(key[1])]")
         else
-            print(io, "axis_vector[axis: $(key[1])]")  # UNTESTED
+            print(io, "axis_vector[axis: $(key[1])]")
         end
     elseif type == CachedQuery
         @assert key isa AbstractString
         print(io, "query[$(key)]")
     elseif type == CachedData
-        if key isa AbstractString  # UNTESTED
-            print(io, "scalar[$(key)]")  # UNTESTED
-        elseif key isa Tuple{AbstractString, AbstractString}  # UNTESTED
-            print(io, "vector[axis: $(key[1]) name: $(key[2])]")  # UNTESTED
-        elseif key isa Tuple{AbstractString, AbstractString, AbstractString}  # UNTESTED
-            print(  # UNTESTED
-                io,
-                "matrix[rows_axis: $(key[1]) columns_axis: $(key[2]) name: $(key[3])]",
-            )
+        if key isa AbstractString
+            print(io, "scalar[$(key)]")
+        elseif key isa Tuple{AbstractString, AbstractString}
+            print(io, "vector[axis: $(key[1]) name: $(key[2])]")
+        elseif key isa Tuple{AbstractString, AbstractString, AbstractString}
+            print(io, "matrix[rows_axis: $(key[1]) columns_axis: $(key[2]) name: $(key[3])]")
         else
             @assert false
         end
@@ -126,11 +123,11 @@ function Base.show(io::IO, cache_key::CacheKey)::Nothing
             print(io, "names[$(key)]")
         elseif key isa Tuple{AbstractString}
             print(io, "vectors[axis: $(key[1])]")
-        elseif key isa Tuple{AbstractString, AbstractString, Bool}  # UNTESTED
-            if key[3]  # UNTESTED
-                print(io, "matrices[relayout rows_axis: $(key[1]) columns_axis: $(key[2])]")  # UNTESTED
+        elseif key isa Tuple{AbstractString, AbstractString, Bool}
+            if key[3]
+                print(io, "matrices[relayout rows_axis: $(key[1]) columns_axis: $(key[2])]")
             else
-                print(io, "matrices[rows_axis: $(key[1]) columns_axis: $(key[2])]")  # UNTESTED
+                print(io, "matrices[rows_axis: $(key[1]) columns_axis: $(key[2])]")
             end
         end
     else
@@ -690,7 +687,7 @@ function put_in_cache!(format::FormatReader, cache_key::CacheKey, data::CacheDat
 end
 
 function set_in_cache!(format::FormatReader, cache_key::CacheKey, data::CacheData, cache_group::CacheGroup)::Nothing
-    return with_cache_write_lock(format, "for set_in_cache!:", cache_key) do                                                                  # NOJET
+    return with_cache_write_lock(format, "for set_in_cache!:", cache_key) do                                                                    # NOJET
         return put_in_cache!(format, cache_key, data, cache_group)
     end
 end
@@ -720,7 +717,7 @@ function get_through_cache(
     @assert has_data_read_lock(format)
     cached = nothing
     while cached === nothing
-        cache_entry = with_cache_read_lock(format, "for get_from_cache:", cache_key) do                                                                  # NOJET
+        cache_entry = with_cache_read_lock(format, "for get_from_cache:", cache_key) do                                                                    # NOJET
             return get(format.internal.cache, cache_key, nothing)
         end
         cached = result_from_cache(cache_entry, T)
@@ -742,7 +739,7 @@ end
 function result_from_cache(cache_entry::CacheEntry, ::Type{T})::T where {T}
     entry_lock = cache_entry.data
     if entry_lock isa ReentrantLock
-        cache_entry = lock(entry_lock) do                                                                  # UNTESTED
+        cache_entry = lock(entry_lock) do                                                                    # UNTESTED
             return cache_entry  # UNTESTED
         end
     end
@@ -757,7 +754,7 @@ function write_throgh_cache(
     cache_group::Maybe{CacheGroup};
     is_slow::Bool = false,
 )::Maybe{T} where {T}
-    result = with_cache_write_lock(format, "for get_through_cache:", cache_key) do                                                                  # NOJET
+    result = with_cache_write_lock(format, "for get_through_cache:", cache_key) do                                                                    # NOJET
         cache_entry = get(format.internal.cache, cache_key, nothing)
         if cache_entry !== nothing
             if cache_entry.data isa ReentrantLock  # UNTESTED
@@ -790,7 +787,7 @@ function write_throgh_cache(
         @assert entry_lock isa ReentrantLock
         try
             result, dependency_keys = getter()
-            with_cache_write_lock(format, "for slow:", cache_key) do                                                                  # NOJET
+            with_cache_write_lock(format, "for slow:", cache_key) do                                                                    # NOJET
                 if dependency_keys !== nothing
                     for dependency_key in dependency_keys
                         put_cached_dependency_key!(format, cache_key, dependency_key)

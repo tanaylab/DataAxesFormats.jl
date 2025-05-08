@@ -175,7 +175,7 @@ function Formats.format_get_matrix(
     return read_only_array(Formats.format_get_matrix(read_only_view.daf, rows_axis, columns_axis, name))
 end
 
-function Formats.format_description_header(
+function Formats.format_description_header(  # UNTESTED
     read_only_view::DafReadOnlyWrapper,
     indent::AbstractString,
     lines::Vector{String},
