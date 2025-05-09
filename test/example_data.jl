@@ -56,10 +56,10 @@ nested_test("example_data") do
     end
 
     nested_test("chain") do
-        daf = chain_reader([example_cells_daf(), example_metacells_daf()]; name = "chain!")
+        daf = example_chain_daf()
         @test description(daf) == """
                                   name: chain!
-                                  type: ReadOnly Chain
+                                  type: Write Chain
                                   chain:
                                   - MemoryDaf cells!
                                   - MemoryDaf metacells!
