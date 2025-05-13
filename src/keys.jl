@@ -53,5 +53,5 @@ A key specifying some data property in `Daf`. This includes [`TensorKey`](@ref) 
 matrix properties instead of a single data property.
 """
 DataKey = Union{PropertyKey, TensorKey}
-DataKey
+
 end  # module

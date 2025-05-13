@@ -12,8 +12,8 @@
 <g id="node1" class="node">
 <title>Copies</title>
 <g id="a_node1"><a xlink:href="../copies.html" xlink:title="Copies" target="_top">
-<polygon fill="none" stroke="white" points="477.07,-185.28 430.75,-185.28 430.75,-165.96 477.07,-165.96 477.07,-185.28"/>
-<text text-anchor="middle" x="453.91" y="-169.82" font-family="Sans-Serif" font-size="14.00">Copies</text>
+<polygon fill="none" stroke="white" points="419.07,-185.28 372.75,-185.28 372.75,-165.96 419.07,-165.96 419.07,-185.28"/>
+<text text-anchor="middle" x="395.91" y="-169.82" font-family="Sans-Serif" font-size="14.00">Copies</text>
 </a>
 </g>
 </g>
@@ -21,31 +21,31 @@
 <g id="node3" class="node">
 <title>Adapters</title>
 <g id="a_node3"><a xlink:href="../adapters.html" xlink:title="Adapters" target="_top">
-<polygon fill="none" stroke="white" points="371.07,-19.32 312.75,-19.32 312.75,0 371.07,0 371.07,-19.32"/>
-<text text-anchor="middle" x="341.91" y="-3.86" font-family="Sans-Serif" font-size="14.00">Adapters</text>
+<polygon fill="none" stroke="white" points="420.07,-19.32 361.75,-19.32 361.75,0 420.07,0 420.07,-19.32"/>
+<text text-anchor="middle" x="390.91" y="-3.86" font-family="Sans-Serif" font-size="14.00">Adapters</text>
 </a>
 </g>
 </g>
 <!-- Copies&#45;&gt;Adapters -->
-<g id="edge2" class="edge">
+<g id="edge4" class="edge">
 <title>Copies&#45;&gt;Adapters</title>
-<path fill="none" stroke="black" d="M477.37,-168.06C507.22,-158.41 553.09,-138.49 536.91,-110.64 504.52,-54.87 429.52,-29.12 382.54,-18.09"/>
-<polygon fill="black" stroke="black" points="383.53,-14.72 373.01,-15.98 382.02,-21.56 383.53,-14.72"/>
+<path fill="none" stroke="black" d="M395.64,-165.8C394.87,-140.45 392.62,-66.85 391.53,-30.9"/>
+<polygon fill="black" stroke="black" points="395.03,-30.92 391.23,-21.03 388.03,-31.13 395.03,-30.92"/>
 </g>
 <!-- Concat -->
 <g id="node24" class="node">
 <title>Concat</title>
 <g id="a_node24"><a xlink:href="../concat.html" xlink:title="Concat" target="_top">
-<polygon fill="none" stroke="white" points="527.44,-129.96 480.37,-129.96 480.37,-110.64 527.44,-110.64 527.44,-129.96"/>
-<text text-anchor="middle" x="503.91" y="-114.5" font-family="Sans-Serif" font-size="14.00">Concat</text>
+<polygon fill="none" stroke="white" points="485.44,-129.96 438.37,-129.96 438.37,-110.64 485.44,-110.64 485.44,-129.96"/>
+<text text-anchor="middle" x="461.91" y="-114.5" font-family="Sans-Serif" font-size="14.00">Concat</text>
 </a>
 </g>
 </g>
 <!-- Copies&#45;&gt;Concat -->
-<g id="edge35" class="edge">
+<g id="edge34" class="edge">
 <title>Copies&#45;&gt;Concat</title>
-<path fill="none" stroke="black" d="M462.17,-165.82C469.07,-158.45 479.13,-147.72 487.65,-138.64"/>
-<polygon fill="black" stroke="black" points="490.15,-141.09 494.44,-131.4 485.05,-136.3 490.15,-141.09"/>
+<path fill="none" stroke="black" d="M407.11,-165.57C416.65,-157.87 430.58,-146.61 442.02,-137.37"/>
+<polygon fill="black" stroke="black" points="444.12,-140.17 449.7,-131.16 439.72,-134.72 444.12,-140.17"/>
 </g>
 <!-- Writers -->
 <g id="node2" class="node">
@@ -59,13 +59,13 @@
 <!-- Writers&#45;&gt;Copies -->
 <g id="edge1" class="edge">
 <title>Writers&#45;&gt;Copies</title>
-<path fill="none" stroke="black" d="M313.76,-222.19C341.65,-213.12 388.04,-198.04 419.75,-187.73"/>
-<polygon fill="black" stroke="black" points="420.43,-191.18 428.86,-184.76 418.27,-184.53 420.43,-191.18"/>
+<path fill="none" stroke="black" d="M307.89,-220.89C324.26,-212.66 348.7,-200.37 367.67,-190.82"/>
+<polygon fill="black" stroke="black" points="369.13,-194.01 376.49,-186.39 365.98,-187.76 369.13,-194.01"/>
 </g>
 <!-- MemoryFormat -->
-<g id="node4" class="node">
+<g id="node5" class="node">
 <title>MemoryFormat</title>
-<g id="a_node4"><a xlink:href="../memory_format.html" xlink:title="MemoryFormat" target="_top">
+<g id="a_node5"><a xlink:href="../memory_format.html" xlink:title="MemoryFormat" target="_top">
 <polygon fill="none" stroke="white" points="354.94,-185.28 256.88,-185.28 256.88,-165.96 354.94,-165.96 354.94,-185.28"/>
 <text text-anchor="middle" x="305.91" y="-169.82" font-family="Sans-Serif" font-size="14.00">MemoryFormat</text>
 </a>
@@ -87,7 +87,7 @@
 </g>
 </g>
 <!-- Writers&#45;&gt;Chains -->
-<g id="edge28" class="edge">
+<g id="edge29" class="edge">
 <title>Writers&#45;&gt;Chains</title>
 <path fill="none" stroke="black" d="M277.36,-220.89C266.45,-213.03 250.41,-201.48 237.45,-192.14"/>
 <polygon fill="black" stroke="black" points="239.67,-189.42 229.51,-186.42 235.57,-195.1 239.67,-189.42"/>
@@ -102,7 +102,7 @@
 </g>
 </g>
 <!-- Writers&#45;&gt;H5dfFormat -->
-<g id="edge24" class="edge">
+<g id="edge25" class="edge">
 <title>Writers&#45;&gt;H5dfFormat</title>
 <path fill="none" stroke="black" d="M266,-221.61C241.3,-213 202.4,-199.44 173.76,-189.46"/>
 <polygon fill="black" stroke="black" points="174.98,-186.18 164.38,-186.19 172.67,-192.79 174.98,-186.18"/>
@@ -117,7 +117,7 @@
 </g>
 </g>
 <!-- Writers&#45;&gt;FilesFormat -->
-<g id="edge32" class="edge">
+<g id="edge33" class="edge">
 <title>Writers&#45;&gt;FilesFormat</title>
 <path fill="none" stroke="black" d="M266.18,-223.35C263.4,-222.63 260.6,-221.92 257.91,-221.28 201.58,-207.82 136.39,-194.61 92.69,-186.09"/>
 <polygon fill="black" stroke="black" points="93.48,-182.68 83,-184.21 92.15,-189.55 93.48,-182.68"/>
@@ -132,16 +132,31 @@
 </g>
 </g>
 <!-- Writers&#45;&gt;Reconstruction -->
-<g id="edge38" class="edge">
+<g id="edge37" class="edge">
 <title>Writers&#45;&gt;Reconstruction</title>
 <path fill="none" stroke="black" d="M313.62,-224.92C353.2,-216.55 433.7,-199.52 487.74,-188.08"/>
 <polygon fill="black" stroke="black" points="488.31,-191.54 497.37,-186.04 486.86,-184.69 488.31,-191.54"/>
 </g>
+<!-- Computations -->
+<g id="node4" class="node">
+<title>Computations</title>
+<g id="a_node4"><a xlink:href="../computations.html" xlink:title="Computations" target="_top">
+<polygon fill="none" stroke="white" points="552.07,-74.64 463.75,-74.64 463.75,-55.32 552.07,-55.32 552.07,-74.64"/>
+<text text-anchor="middle" x="507.91" y="-59.18" font-family="Sans-Serif" font-size="14.00">Computations</text>
+</a>
+</g>
+</g>
+<!-- Computations&#45;&gt;Adapters -->
+<g id="edge2" class="edge">
+<title>Computations&#45;&gt;Adapters</title>
+<path fill="none" stroke="black" d="M488.06,-54.93C469.74,-46.59 442.26,-34.06 421.2,-24.46"/>
+<polygon fill="black" stroke="black" points="422.78,-21.34 412.23,-20.38 419.88,-27.71 422.78,-21.34"/>
+</g>
 <!-- MemoryFormat&#45;&gt;Adapters -->
 <g id="edge3" class="edge">
 <title>MemoryFormat&#45;&gt;Adapters</title>
-<path fill="none" stroke="black" d="M296.58,-165.72C288.55,-157.36 277.55,-144.06 272.91,-129.96 270.22,-121.8 270.36,-118.84 272.91,-110.64 283.05,-78.08 307.91,-46.77 324.84,-28.12"/>
-<polygon fill="black" stroke="black" points="327.32,-30.59 331.61,-20.9 322.21,-25.81 327.32,-30.59"/>
+<path fill="none" stroke="black" d="M318.38,-165.68C328.96,-157.48 343.83,-144.46 352.91,-129.96 372.66,-98.43 382.99,-55.73 387.66,-30.89"/>
+<polygon fill="black" stroke="black" points="391.09,-31.63 389.35,-21.18 384.19,-30.43 391.09,-31.63"/>
 </g>
 <!-- ExampleData -->
 <g id="node21" class="node">
@@ -153,7 +168,7 @@
 </g>
 </g>
 <!-- MemoryFormat&#45;&gt;ExampleData -->
-<g id="edge19" class="edge">
+<g id="edge20" class="edge">
 <title>MemoryFormat&#45;&gt;ExampleData</title>
 <path fill="none" stroke="black" d="M278.6,-165.57C252.35,-156.88 212.43,-143.66 183.05,-133.93"/>
 <polygon fill="black" stroke="black" points="184.39,-130.69 173.79,-130.87 182.18,-137.33 184.39,-130.69"/>
@@ -162,37 +177,22 @@
 <g id="node23" class="node">
 <title>AnnDataFormat</title>
 <g id="a_node23"><a xlink:href="../anndata_format.html" xlink:title="AnnDataFormat" target="_top">
-<polygon fill="none" stroke="white" points="382.07,-129.96 281.75,-129.96 281.75,-110.64 382.07,-110.64 382.07,-129.96"/>
-<text text-anchor="middle" x="331.91" y="-114.5" font-family="Sans-Serif" font-size="14.00">AnnDataFormat</text>
+<polygon fill="none" stroke="white" points="344.07,-129.96 243.75,-129.96 243.75,-110.64 344.07,-110.64 344.07,-129.96"/>
+<text text-anchor="middle" x="293.91" y="-114.5" font-family="Sans-Serif" font-size="14.00">AnnDataFormat</text>
 </a>
 </g>
 </g>
 <!-- MemoryFormat&#45;&gt;AnnDataFormat -->
 <g id="edge30" class="edge">
 <title>MemoryFormat&#45;&gt;AnnDataFormat</title>
-<path fill="none" stroke="black" d="M310.2,-165.82C313.57,-158.91 318.38,-149.05 322.62,-140.36"/>
-<polygon fill="black" stroke="black" points="325.62,-142.18 326.86,-131.66 319.33,-139.11 325.62,-142.18"/>
-</g>
-<!-- Computations -->
-<g id="node5" class="node">
-<title>Computations</title>
-<g id="a_node5"><a xlink:href="../computations.html" xlink:title="Computations" target="_top">
-<polygon fill="none" stroke="white" points="431.07,-74.64 342.75,-74.64 342.75,-55.32 431.07,-55.32 431.07,-74.64"/>
-<text text-anchor="middle" x="386.91" y="-59.18" font-family="Sans-Serif" font-size="14.00">Computations</text>
-</a>
-</g>
-</g>
-<!-- Computations&#45;&gt;Adapters -->
-<g id="edge4" class="edge">
-<title>Computations&#45;&gt;Adapters</title>
-<path fill="none" stroke="black" d="M379.48,-55.18C373.33,-47.89 364.4,-37.3 356.78,-28.28"/>
-<polygon fill="black" stroke="black" points="359.6,-26.2 350.48,-20.81 354.25,-30.71 359.6,-26.2"/>
+<path fill="none" stroke="black" d="M303.93,-165.82C302.44,-159.22 300.35,-149.92 298.46,-141.53"/>
+<polygon fill="black" stroke="black" points="301.88,-140.76 296.27,-131.77 295.05,-142.3 301.88,-140.76"/>
 </g>
 <!-- Chains&#45;&gt;Adapters -->
 <g id="edge5" class="edge">
 <title>Chains&#45;&gt;Adapters</title>
-<path fill="none" stroke="black" d="M219.84,-165.52C229.17,-144.54 254.3,-91.8 285.91,-55.32 295.39,-44.38 307.82,-34.16 318.56,-26.26"/>
-<polygon fill="black" stroke="black" points="320.45,-29.22 326.59,-20.59 316.4,-23.51 320.45,-29.22"/>
+<path fill="none" stroke="black" d="M216.58,-165.9C217.98,-152.72 222.24,-127.49 234.91,-110.64 266.36,-68.82 320.83,-39.78 356.37,-24.16"/>
+<polygon fill="black" stroke="black" points="357.52,-27.47 365.35,-20.34 354.78,-21.03 357.52,-27.47"/>
 </g>
 <!-- CompleteDaf -->
 <g id="node14" class="node">
@@ -204,13 +204,13 @@
 </g>
 </g>
 <!-- Chains&#45;&gt;CompleteDaf -->
-<g id="edge13" class="edge">
+<g id="edge14" class="edge">
 <title>Chains&#45;&gt;CompleteDaf</title>
 <path fill="none" stroke="black" d="M192.44,-167.43C164.24,-158.78 116.43,-144.14 82.26,-133.67"/>
 <polygon fill="black" stroke="black" points="83.72,-130.45 73.14,-130.87 81.67,-137.15 83.72,-130.45"/>
 </g>
 <!-- Chains&#45;&gt;ExampleData -->
-<g id="edge20" class="edge">
+<g id="edge21" class="edge">
 <title>Chains&#45;&gt;ExampleData</title>
 <path fill="none" stroke="black" d="M203.87,-165.57C193.5,-157.79 178.31,-146.38 165.94,-137.09"/>
 <polygon fill="black" stroke="black" points="168.08,-134.33 157.99,-131.12 163.88,-139.92 168.08,-134.33"/>
@@ -219,8 +219,8 @@
 <g id="node7" class="node">
 <title>Views</title>
 <g id="a_node7"><a xlink:href="../views.html" xlink:title="Views" target="_top">
-<polygon fill="none" stroke="white" points="413.07,-185.28 372.75,-185.28 372.75,-165.96 413.07,-165.96 413.07,-185.28"/>
-<text text-anchor="middle" x="392.91" y="-169.82" font-family="Sans-Serif" font-size="14.00">Views</text>
+<polygon fill="none" stroke="white" points="477.07,-185.28 436.75,-185.28 436.75,-165.96 477.07,-165.96 477.07,-185.28"/>
+<text text-anchor="middle" x="456.91" y="-169.82" font-family="Sans-Serif" font-size="14.00">Views</text>
 </a>
 </g>
 </g>
@@ -228,76 +228,76 @@
 <g id="node17" class="node">
 <title>Contracts</title>
 <g id="a_node17"><a xlink:href="../contracts.html" xlink:title="Contracts" target="_top">
-<polygon fill="none" stroke="white" points="461.94,-129.96 399.87,-129.96 399.87,-110.64 461.94,-110.64 461.94,-129.96"/>
-<text text-anchor="middle" x="430.91" y="-114.5" font-family="Sans-Serif" font-size="14.00">Contracts</text>
+<polygon fill="none" stroke="white" points="565.94,-129.96 503.87,-129.96 503.87,-110.64 565.94,-110.64 565.94,-129.96"/>
+<text text-anchor="middle" x="534.91" y="-114.5" font-family="Sans-Serif" font-size="14.00">Contracts</text>
 </a>
 </g>
 </g>
 <!-- Views&#45;&gt;Contracts -->
 <g id="edge15" class="edge">
 <title>Views&#45;&gt;Contracts</title>
-<path fill="none" stroke="black" d="M399.18,-165.82C404.27,-158.68 411.61,-148.39 417.94,-139.5"/>
-<polygon fill="black" stroke="black" points="420.67,-141.7 423.62,-131.53 414.97,-137.64 420.67,-141.7"/>
+<path fill="none" stroke="black" d="M470.14,-165.57C481.68,-157.69 498.68,-146.07 512.36,-136.72"/>
+<polygon fill="black" stroke="black" points="514.08,-139.78 520.36,-131.24 510.13,-134 514.08,-139.78"/>
 </g>
 <!-- Views&#45;&gt;Concat -->
-<g id="edge34" class="edge">
+<g id="edge35" class="edge">
 <title>Views&#45;&gt;Concat</title>
-<path fill="none" stroke="black" d="M411.74,-165.57C428.96,-157.3 454.71,-144.93 474.62,-135.37"/>
-<polygon fill="black" stroke="black" points="476.13,-138.53 483.62,-131.04 473.09,-132.22 476.13,-138.53"/>
-</g>
-<!-- Queries -->
-<g id="node8" class="node">
-<title>Queries</title>
-<g id="a_node8"><a xlink:href="../queries.html" xlink:title="Queries" target="_top">
-<polygon fill="none" stroke="white" points="401.07,-240.6 348.75,-240.6 348.75,-221.28 401.07,-221.28 401.07,-240.6"/>
-<text text-anchor="middle" x="374.91" y="-225.14" font-family="Sans-Serif" font-size="14.00">Queries</text>
-</a>
-</g>
-</g>
-<!-- Queries&#45;&gt;Views -->
-<g id="edge6" class="edge">
-<title>Queries&#45;&gt;Views</title>
-<path fill="none" stroke="black" d="M377.88,-221.14C380.16,-214.38 383.4,-204.81 386.28,-196.26"/>
-<polygon fill="black" stroke="black" points="389.51,-197.64 389.39,-187.05 382.87,-195.41 389.51,-197.64"/>
-</g>
-<!-- Queries&#45;&gt;Reconstruction -->
-<g id="edge37" class="edge">
-<title>Queries&#45;&gt;Reconstruction</title>
-<path fill="none" stroke="black" d="M401.37,-221.49C428.57,-212.81 471.22,-199.19 502.41,-189.23"/>
-<polygon fill="black" stroke="black" points="503.43,-192.58 511.89,-186.2 501.3,-185.91 503.43,-192.58"/>
+<path fill="none" stroke="black" d="M457.74,-165.82C458.35,-159.22 459.23,-149.92 460.01,-141.53"/>
+<polygon fill="black" stroke="black" points="463.48,-142.09 460.93,-131.8 456.51,-141.43 463.48,-142.09"/>
 </g>
 <!-- ReadOnly -->
-<g id="node9" class="node">
+<g id="node8" class="node">
 <title>ReadOnly</title>
-<g id="a_node9"><a xlink:href="../read_only.html" xlink:title="ReadOnly" target="_top">
+<g id="a_node8"><a xlink:href="../read_only.html" xlink:title="ReadOnly" target="_top">
 <polygon fill="none" stroke="white" points="248.44,-240.6 183.38,-240.6 183.38,-221.28 248.44,-221.28 248.44,-240.6"/>
 <text text-anchor="middle" x="215.91" y="-225.14" font-family="Sans-Serif" font-size="14.00">ReadOnly</text>
 </a>
 </g>
 </g>
 <!-- ReadOnly&#45;&gt;Chains -->
-<g id="edge29" class="edge">
+<g id="edge28" class="edge">
 <title>ReadOnly&#45;&gt;Chains</title>
 <path fill="none" stroke="black" d="M215.91,-221.14C215.91,-214.54 215.91,-205.24 215.91,-196.85"/>
 <polygon fill="black" stroke="black" points="219.41,-197.13 215.91,-187.13 212.41,-197.13 219.41,-197.13"/>
 </g>
 <!-- ReadOnly&#45;&gt;Views -->
-<g id="edge7" class="edge">
+<g id="edge6" class="edge">
 <title>ReadOnly&#45;&gt;Views</title>
-<path fill="none" stroke="black" d="M245.94,-220.89C278.14,-211.19 329.04,-195.86 361.69,-186.02"/>
-<polygon fill="black" stroke="black" points="362.41,-189.46 370.97,-183.23 360.39,-182.76 362.41,-189.46"/>
+<path fill="none" stroke="black" d="M248.58,-223.04C251.4,-222.44 254.2,-221.85 256.91,-221.28 329.49,-205.97 350.75,-204.51 425.46,-185.75"/>
+<polygon fill="black" stroke="black" points="426.07,-189.2 434.91,-183.35 424.35,-182.42 426.07,-189.2"/>
 </g>
 <!-- ReadOnly&#45;&gt;H5dfFormat -->
-<g id="edge25" class="edge">
+<g id="edge24" class="edge">
 <title>ReadOnly&#45;&gt;H5dfFormat</title>
 <path fill="none" stroke="black" d="M202.51,-220.89C190.82,-213.01 173.61,-201.39 159.75,-192.04"/>
 <polygon fill="black" stroke="black" points="161.88,-189.25 151.63,-186.56 157.96,-195.05 161.88,-189.25"/>
 </g>
 <!-- ReadOnly&#45;&gt;FilesFormat -->
-<g id="edge33" class="edge">
+<g id="edge31" class="edge">
 <title>ReadOnly&#45;&gt;FilesFormat</title>
 <path fill="none" stroke="black" d="M186.56,-220.89C158.11,-212.12 114.71,-198.75 83.06,-189"/>
 <polygon fill="black" stroke="black" points="84.43,-185.76 73.85,-186.16 82.37,-192.45 84.43,-185.76"/>
+</g>
+<!-- Queries -->
+<g id="node9" class="node">
+<title>Queries</title>
+<g id="a_node9"><a xlink:href="../queries.html" xlink:title="Queries" target="_top">
+<polygon fill="none" stroke="white" points="433.07,-240.6 380.75,-240.6 380.75,-221.28 433.07,-221.28 433.07,-240.6"/>
+<text text-anchor="middle" x="406.91" y="-225.14" font-family="Sans-Serif" font-size="14.00">Queries</text>
+</a>
+</g>
+</g>
+<!-- Queries&#45;&gt;Views -->
+<g id="edge7" class="edge">
+<title>Queries&#45;&gt;Views</title>
+<path fill="none" stroke="black" d="M415.17,-221.14C422.07,-213.77 432.13,-203.04 440.65,-193.96"/>
+<polygon fill="black" stroke="black" points="443.15,-196.41 447.44,-186.72 438.05,-191.62 443.15,-196.41"/>
+</g>
+<!-- Queries&#45;&gt;Reconstruction -->
+<g id="edge38" class="edge">
+<title>Queries&#45;&gt;Reconstruction</title>
+<path fill="none" stroke="black" d="M429.81,-220.89C451.34,-212.39 483.82,-199.56 508.29,-189.9"/>
+<polygon fill="black" stroke="black" points="509.47,-193.19 517.49,-186.27 506.9,-186.68 509.47,-193.19"/>
 </g>
 <!-- Operations -->
 <g id="node10" class="node">
@@ -311,11 +311,11 @@
 <!-- Operations&#45;&gt;Queries -->
 <g id="edge10" class="edge">
 <title>Operations&#45;&gt;Queries</title>
-<path fill="none" stroke="black" d="M184.72,-276.81C226.45,-266.97 295.08,-250.77 337.48,-240.77"/>
-<polygon fill="black" stroke="black" points="338.05,-244.23 346.97,-238.53 336.44,-237.42 338.05,-244.23"/>
+<path fill="none" stroke="black" d="M184.78,-277.85C233.37,-267.81 319.68,-249.97 369.19,-239.73"/>
+<polygon fill="black" stroke="black" points="369.79,-243.19 378.87,-237.73 368.37,-236.33 369.79,-243.19"/>
 </g>
 <!-- Operations&#45;&gt;FilesFormat -->
-<g id="edge31" class="edge">
+<g id="edge32" class="edge">
 <title>Operations&#45;&gt;FilesFormat</title>
 <path fill="none" stroke="black" d="M140.24,-276.37C122.61,-258.31 82.35,-217.04 59.52,-193.64"/>
 <polygon fill="black" stroke="black" points="62.25,-191.43 52.76,-186.72 57.24,-196.32 62.25,-191.43"/>
@@ -360,7 +360,7 @@
 </g>
 </g>
 <!-- Tokens&#45;&gt;Formats -->
-<g id="edge18" class="edge">
+<g id="edge17" class="edge">
 <title>Tokens&#45;&gt;Formats</title>
 <path fill="none" stroke="black" d="M147.45,-386.85C167.52,-378.43 197.71,-365.75 220.66,-356.12"/>
 <polygon fill="black" stroke="black" points="222,-359.35 229.86,-352.26 219.29,-352.9 222,-359.35"/>
@@ -380,17 +380,17 @@
 <path fill="none" stroke="black" d="M259.02,-276.46C263.97,-269.32 271.11,-259.03 277.28,-250.14"/>
 <polygon fill="black" stroke="black" points="279.98,-252.39 282.8,-242.18 274.23,-248.4 279.98,-252.39"/>
 </g>
-<!-- Readers&#45;&gt;Queries -->
-<g id="edge11" class="edge">
-<title>Readers&#45;&gt;Queries</title>
-<path fill="none" stroke="black" d="M273.61,-276.21C292.8,-267.83 321.62,-255.23 343.63,-245.61"/>
-<polygon fill="black" stroke="black" points="344.96,-248.85 352.73,-241.64 342.16,-242.43 344.96,-248.85"/>
-</g>
 <!-- Readers&#45;&gt;ReadOnly -->
 <g id="edge39" class="edge">
 <title>Readers&#45;&gt;ReadOnly</title>
 <path fill="none" stroke="black" d="M246.8,-276.46C241.85,-269.32 234.71,-259.03 228.54,-250.14"/>
 <polygon fill="black" stroke="black" points="231.59,-248.4 223.02,-242.18 225.84,-252.39 231.59,-248.4"/>
+</g>
+<!-- Readers&#45;&gt;Queries -->
+<g id="edge11" class="edge">
+<title>Readers&#45;&gt;Queries</title>
+<path fill="none" stroke="black" d="M279.03,-276.21C304.03,-267.56 341.99,-254.42 370.06,-244.7"/>
+<polygon fill="black" stroke="black" points="370.92,-248.1 379.23,-241.52 368.63,-241.49 370.92,-248.1"/>
 </g>
 <!-- Groups -->
 <g id="node22" class="node">
@@ -414,13 +414,13 @@
 <polygon fill="black" stroke="black" points="69.86,-132.97 59.42,-131.13 66.43,-139.08 69.86,-132.97"/>
 </g>
 <!-- FilesFormat&#45;&gt;CompleteDaf -->
-<g id="edge14" class="edge">
+<g id="edge13" class="edge">
 <title>FilesFormat&#45;&gt;CompleteDaf</title>
 <path fill="none" stroke="black" d="M42.74,-165.82C42.62,-159.22 42.45,-149.92 42.29,-141.53"/>
 <polygon fill="black" stroke="black" points="45.79,-141.74 42.11,-131.81 38.8,-141.87 45.79,-141.74"/>
 </g>
 <!-- FilesFormat&#45;&gt;ExampleData -->
-<g id="edge21" class="edge">
+<g id="edge19" class="edge">
 <title>FilesFormat&#45;&gt;ExampleData</title>
 <path fill="none" stroke="black" d="M60.21,-165.57C75.89,-157.38 99.26,-145.16 117.49,-135.64"/>
 <polygon fill="black" stroke="black" points="118.94,-138.83 126.18,-131.09 115.7,-132.62 118.94,-138.83"/>
@@ -428,8 +428,8 @@
 <!-- Contracts&#45;&gt;Computations -->
 <g id="edge36" class="edge">
 <title>Contracts&#45;&gt;Computations</title>
-<path fill="none" stroke="black" d="M423.64,-110.5C417.63,-103.21 408.9,-92.62 401.45,-83.6"/>
-<polygon fill="black" stroke="black" points="404.36,-81.63 395.3,-76.14 398.96,-86.08 404.36,-81.63"/>
+<path fill="none" stroke="black" d="M530.45,-110.5C526.96,-103.59 521.96,-93.73 517.56,-85.04"/>
+<polygon fill="black" stroke="black" points="520.79,-83.67 513.15,-76.33 514.54,-86.83 520.79,-83.67"/>
 </g>
 <!-- Formats&#45;&gt;Readers -->
 <g id="edge40" class="edge">
@@ -437,10 +437,25 @@
 <path fill="none" stroke="black" d="M252.91,-331.78C252.91,-325.18 252.91,-315.88 252.91,-307.49"/>
 <polygon fill="black" stroke="black" points="256.41,-307.77 252.91,-297.77 249.41,-307.77 256.41,-307.77"/>
 </g>
-<!-- StorageTypes -->
+<!-- Keys -->
 <g id="node19" class="node">
+<title>Keys</title>
+<g id="a_node19"><a xlink:href="../keys.html" xlink:title="Keys" target="_top">
+<polygon fill="none" stroke="white" points="308.07,-406.56 273.75,-406.56 273.75,-387.24 308.07,-387.24 308.07,-406.56"/>
+<text text-anchor="middle" x="290.91" y="-391.1" font-family="Sans-Serif" font-size="14.00">Keys</text>
+</a>
+</g>
+</g>
+<!-- Keys&#45;&gt;Formats -->
+<g id="edge16" class="edge">
+<title>Keys&#45;&gt;Formats</title>
+<path fill="none" stroke="black" d="M284.64,-387.1C279.55,-379.96 272.21,-369.67 265.88,-360.78"/>
+<polygon fill="black" stroke="black" points="268.85,-358.92 260.2,-352.81 263.15,-362.98 268.85,-358.92"/>
+</g>
+<!-- StorageTypes -->
+<g id="node20" class="node">
 <title>StorageTypes</title>
-<g id="a_node19"><a xlink:href="../storage_types.html" xlink:title="StorageTypes" target="_top">
+<g id="a_node20"><a xlink:href="../storage_types.html" xlink:title="StorageTypes" target="_top">
 <polygon fill="none" stroke="white" points="256.07,-406.56 167.75,-406.56 167.75,-387.24 256.07,-387.24 256.07,-406.56"/>
 <text text-anchor="middle" x="211.91" y="-391.1" font-family="Sans-Serif" font-size="14.00">StorageTypes</text>
 </a>
@@ -453,25 +468,10 @@
 <polygon fill="black" stroke="black" points="194.95,-359.77 186.9,-352.88 188.9,-363.29 194.95,-359.77"/>
 </g>
 <!-- StorageTypes&#45;&gt;Formats -->
-<g id="edge16" class="edge">
+<g id="edge18" class="edge">
 <title>StorageTypes&#45;&gt;Formats</title>
 <path fill="none" stroke="black" d="M218.68,-387.1C224.23,-379.88 232.25,-369.45 239.14,-360.49"/>
 <polygon fill="black" stroke="black" points="241.75,-362.84 245.07,-352.78 236.2,-358.57 241.75,-362.84"/>
-</g>
-<!-- Keys -->
-<g id="node20" class="node">
-<title>Keys</title>
-<g id="a_node20"><a xlink:href="../keys.html" xlink:title="Keys" target="_top">
-<polygon fill="none" stroke="white" points="308.07,-406.56 273.75,-406.56 273.75,-387.24 308.07,-387.24 308.07,-406.56"/>
-<text text-anchor="middle" x="290.91" y="-391.1" font-family="Sans-Serif" font-size="14.00">Keys</text>
-</a>
-</g>
-</g>
-<!-- Keys&#45;&gt;Formats -->
-<g id="edge17" class="edge">
-<title>Keys&#45;&gt;Formats</title>
-<path fill="none" stroke="black" d="M284.64,-387.1C279.55,-379.96 272.21,-369.67 265.88,-360.78"/>
-<polygon fill="black" stroke="black" points="268.85,-358.92 260.2,-352.81 263.15,-362.98 268.85,-358.92"/>
 </g>
 </g>
 </svg>
