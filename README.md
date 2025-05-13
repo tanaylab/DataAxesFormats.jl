@@ -127,7 +127,7 @@ interoperability with legacy computation pipelines.
 
 Just `Pkg.add("DataAxesFormats")`, like installing any other Julia package.
 
-To install the Python `Daf` [package](https://github.com/tanaylab/DafPY), just `pip install dafpy`, like installing any
+To install the Python `Daf` [package](https://github.com/tanaylab/dafpy), just `pip install dafpy`, like installing any
 other Python package.
 
 TODO: To install the R wrappers...
