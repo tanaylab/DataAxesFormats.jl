@@ -396,8 +396,10 @@
       └─ gene/
 </code>
 </pre>
-<div class="admonition is-info">
+<div class="admonition is-info" id="Note-9456d3340abc1ba9">
 <header class="admonition-header">Note
+<a class="admonition-anchor" href="#Note-9456d3340abc1ba9" title="Permalink">
+</a>
 </header>
 <div class="admonition-body">
 <p>When creating an HDF5 file to contain 
@@ -412,8 +414,10 @@
 </p>
 </div>
 </div>
-<div class="admonition is-info">
+<div class="admonition is-info" id="Note-7e4beae9a3c8e7be">
 <header class="admonition-header">Note
+<a class="admonition-anchor" href="#Note-7e4beae9a3c8e7be" title="Permalink">
+</a>
 </header>
 <div class="admonition-body">
 <p>Deleting data from an HDF5 file does not reuse the abandoned storage. In general if you want to reclaim that storage, you will need to repack the file, which will invalidate any memory-mapped buffers created for it. Therefore, if you delete data (e.g. using 
@@ -428,8 +432,10 @@
 </p>
 </div>
 </div>
-<div class="admonition is-info">
+<div class="admonition is-info" id="Note-b19bfb19e122299f">
 <header class="admonition-header">Note
+<a class="admonition-anchor" href="#Note-b19bfb19e122299f" title="Permalink">
+</a>
 </header>
 <div class="admonition-body">
 <p>The code here assumes the HDF5 data obeys all the above conventions and restrictions (that said, code will be able to access vectors and matrices stored in unaligned, chunked and/or compressed formats, but this will be much less efficient). As long as you only create and access 
@@ -496,8 +502,10 @@
 <code>1
 </code>), but that uses a higher minor version.
 </p>
-<div class="admonition is-info">
+<div class="admonition is-info" id="Note-4cebc51d7a6b2f6a">
 <header class="admonition-header">Note
+<a class="admonition-anchor" href="#Note-4cebc51d7a6b2f6a" title="Permalink">
+</a>
 </header>
 <div class="admonition-body">
 <p>Modifying data that is stored with a lower minor version number 
@@ -558,8 +566,10 @@
 <code>#
 </code> and the path of the group in the file.
 </p>
-<div class="admonition is-info">
+<div class="admonition is-info" id="Note-f78c230c2893e6ae">
 <header class="admonition-header">Note
+<a class="admonition-anchor" href="#Note-f78c230c2893e6ae" title="Permalink">
+</a>
 </header>
 <div class="admonition-body">
 <p>If you create a directory whose name is 
@@ -678,8 +688,10 @@
 <em>not
 </em> truncate the whole file if it exists; instead, it will only truncate the group.
 </p>
-<div class="admonition is-info">
+<div class="admonition is-info" id="Note-c64255ad4ea6e20d">
 <header class="admonition-header">Note
+<a class="admonition-anchor" href="#Note-c64255ad4ea6e20d" title="Permalink">
+</a>
 </header>
 <div class="admonition-body">
 <p>If specifying a path (string) 
@@ -785,7 +797,7 @@
 <hr/>
 <p>This document was generated with 
 <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl
-</a> version 1.10.1. Using Julia version 1.11.5.
+</a> version 1.12.0. Using Julia version 1.11.5.
 </p>
 </section>
 <footer class="modal-card-foot">
