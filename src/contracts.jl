@@ -1257,6 +1257,59 @@ function Formats.format_get_matrix(
     return Formats.format_get_matrix(contract_daf.daf, rows_axis, columns_axis, name)
 end
 
+function Formats.get_scalar_through_cache(contract_daf::ContractDaf, name::AbstractString)::StorageScalar
+    access_scalar(contract_daf, name; is_modify = false)
+    return invoke(Formats.get_scalar_through_cache, Tuple{FormatReader, AbstractString}, contract_daf, name)
+end
+
+function Formats.get_axis_vector_through_cache(
+    contract_daf::ContractDaf,
+    axis::AbstractString,
+)::AbstractVector{<:AbstractString}
+    access_axis(contract_daf, axis; is_modify = false)
+    return invoke(Formats.get_axis_vector_through_cache, Tuple{FormatReader, AbstractString}, contract_daf, axis)
+end
+
+function Formats.get_axis_dict_through_cache(
+    contract_daf::ContractDaf,
+    axis::AbstractString,
+)::AbstractDict{<:AbstractString, <:Integer}
+    access_axis(contract_daf, axis; is_modify = false)
+    return invoke(Formats.get_axis_dict_through_cache, Tuple{FormatReader, AbstractString}, contract_daf, axis)
+end
+
+function Formats.get_vector_through_cache(
+    contract_daf::ContractDaf,
+    axis::AbstractString,
+    name::AbstractString,
+)::NamedArray
+    access_vector(contract_daf, axis, name; is_modify = false)
+    return invoke(
+        Formats.get_vector_through_cache,
+        Tuple{FormatReader, AbstractString, AbstractString},
+        contract_daf,
+        axis,
+        name,
+    )
+end
+
+function Formats.get_matrix_through_cache(
+    contract_daf::ContractDaf,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+)::NamedArray
+    access_matrix(contract_daf, rows_axis, columns_axis, name; is_modify = false)
+    return invoke(
+        Formats.get_matrix_through_cache,
+        Tuple{FormatReader, AbstractString, AbstractString, AbstractString},
+        contract_daf,
+        rows_axis,
+        columns_axis,
+        name,
+    )
+end
+
 function access_scalar(contract_daf::ContractDaf, name::AbstractString; is_modify::Bool)::Nothing
     if contract_daf.daf isa ContractDaf
         access_scalar(contract_daf.daf, name; is_modify)  # UNTESTED
