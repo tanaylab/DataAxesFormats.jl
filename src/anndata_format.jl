@@ -190,7 +190,7 @@ function by_annotation(
 end
 
 SupportedVector{T} = AbstractVector{T} where {T <: Union{StorageScalar, Nothing, Missing}}
-SupportedMatrix{T} = AbstractMatrix{T} where {T <: Union{StorageReal, Nothing, Missing}}
+SupportedMatrix{T} = AbstractMatrix{T} where {T <: Union{StorageScalar, Nothing, Missing}}
 
 function verify_unsupported(
     adata::AnnData,

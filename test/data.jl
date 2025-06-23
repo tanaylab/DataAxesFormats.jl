@@ -1312,6 +1312,15 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
                 @test names(get_matrix(daf, "cell", "gene", "UMIs"; default = 0.0)) == [CELL_NAMES, GENE_NAMES]
             end
 
+            nested_test("string") do
+                @test get_matrix(daf, "cell", "gene", "UMIs"; default = "X") ==
+                      ["X" "X" "X" "X"; "X" "X" "X" "X"; "X" "X" "X" "X"]
+                @test get_matrix(daf, "cell", "gene", "UMIs"; default = "Y") ==
+                      ["Y" "Y" "Y" "Y"; "Y" "Y" "Y" "Y"; "Y" "Y" "Y" "Y"]
+                @test dimnames(get_matrix(daf, "cell", "gene", "UMIs"; default = "X")) == ["cell", "gene"]
+                @test names(get_matrix(daf, "cell", "gene", "UMIs"; default = "Y")) == [CELL_NAMES, GENE_NAMES]
+            end
+
             nested_test("matrix") do
                 nested_test("()") do
                     @test get_matrix(
@@ -1579,6 +1588,16 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
             @test eltype(get_matrix(daf, "cell", "gene", "LogUMIs"; relayout = false)) == Int32
         end
 
+        nested_test("string") do
+            @test set_matrix!(daf, "cell", "gene", "UMIs", "X"; relayout = false) === nothing
+            @test get_matrix(daf, "cell", "gene", "UMIs"; relayout = false) ==
+                  ["X" "X" "X" "X"; "X" "X" "X" "X"; "X" "X" "X" "X"]
+            @test set_matrix!(daf, "cell", "gene", "LogUMIs", "Y"; relayout = false, eltype = Int32) === nothing
+            @test get_matrix(daf, "cell", "gene", "LogUMIs"; relayout = false) ==
+                  ["Y" "Y" "Y" "Y"; "Y" "Y" "Y" "Y"; "Y" "Y" "Y" "Y"]
+            @test eltype(get_matrix(daf, "cell", "gene", "LogUMIs"; relayout = false)) <: AbstractString
+        end
+
         nested_test("matrix") do
             nested_test("relayout") do
                 nested_test("dense") do
@@ -1592,6 +1611,11 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
                         @test set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[depth]; eltype = UInt32) ===
                               nothing
                         @test eltype(get_matrix(daf, "cell", "gene", "UMIs")) == UInt32
+                    end
+
+                    nested_test("string") do
+                        @test set_matrix!(daf, "cell", "gene", "UMIs", string.(UMIS_BY_DEPTH[depth])) === nothing
+                        @test eltype(get_matrix(daf, "cell", "gene", "UMIs")) <: AbstractString
                     end
                 end
 

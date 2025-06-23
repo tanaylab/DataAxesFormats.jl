@@ -256,7 +256,7 @@
 <code>Daf
 </code> storage formats need only implement storing these restricted representations, which lend themselves to simple storage in consecutive bytes (in memory and/or on disk). These representations also allow for memory-mapping the data from disk files, which allows 
 <code>Daf
-</code> to deal with data sets larger than the available memory.
+</code> to deal with data sets larger than the available memory. However, we also allow storing vectors and matrices of strings. We try to make as efficient as possible (which isn&#39;t saying much).
 </p>
 </li>
 <li>
@@ -533,28 +533,20 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">StorageMatrix{T} = AbstractMatrix{T} where {T &lt;: StorageReal}
+<code class="language-julia hljs">StorageMatrix{T} = AbstractMatrix{T} where {T &lt;: StorageScalar}
 </code>
 </pre>
 <p>Matrices that can be directly stored (and fetched) from 
 <code>Daf
 </code> storage.
 </p>
-<p>The element type must be a 
-<a href="storage_types.html#DataAxesFormats.StorageTypes.StorageReal">
-<code>StorageReal
-</code>
-</a>, to allow efficient storage of the data in disk files. That is, matrices of strings are 
-<strong>not
-</strong> supported.
-</p>
-<div class="admonition is-info" id="Note-216137c33ae32b52">
+<div class="admonition is-info" id="Note-417ce96456d2ab70">
 <header class="admonition-header">Note
-<a class="admonition-anchor" href="#Note-216137c33ae32b52" title="Permalink">
+<a class="admonition-anchor" href="#Note-417ce96456d2ab70" title="Permalink">
 </a>
 </header>
 <div class="admonition-body">
-<p>All matrices we store must have a clear layout, that is, must be in either row-major or column-major format.
+<p>All matrices we store must have a clear layout, that is, must be in either row-major or column-major format. There&#39;s no support for sparse matrices of strings, because &quot;reasons&quot;.
 </p>
 </div>
 </div>

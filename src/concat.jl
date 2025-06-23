@@ -1244,6 +1244,10 @@ function sparse_matrices_storage_fraction(
     arrays::AbstractVector{<:Maybe{NamedArray}},
     n_rows::Integer,
 )::Float64
+    if eltype <: AbstractString
+        return -1.0  # UNTESTED
+    end
+
     sparse_size = 0
     dense_size = 0
 
@@ -1301,6 +1305,7 @@ function sparsify_matrices(
     nrows::Integer,
     sizes::AbstractArray{<:Integer},
 )::Vector{SparseMatrixCSC}
+    @assert eltype <: Real
     sparse_matrices = Vector{SparseMatrixCSC}(undef, length(matrices))
 
     n_sources = length(matrices)

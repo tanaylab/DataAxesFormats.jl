@@ -619,8 +619,8 @@ end
         rows_axis::AbstractString,
         columns_axis::AbstractString,
         name::AbstractString,
-        matrix::Union{StorageReal, StorageMatrix};
-        [eltype::Maybe{Type{<:StorageReal}} = nothing,
+        matrix::Union{StorageScalarBase, StorageMatrix};
+        [eltype::Maybe{Type{<:StorageScalarBase}} = nothing,
         overwrite::Bool = false,
         relayout::Bool = true]
     )::Nothing
@@ -676,12 +676,11 @@ function set_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    matrix::Union{StorageReal, StorageMatrix};
-    eltype::Maybe{Type{<:StorageReal}} = nothing,
+    matrix::Union{StorageScalarBase, StorageMatrix};
+    eltype::Maybe{Type{<:StorageScalarBase}} = nothing,
     overwrite::Bool = false,
     relayout::Bool = true,
 )::Nothing
-    @assert isbitstype(Base.eltype(matrix))
     Formats.with_data_write_lock(daf, "set_matrix! of:", name, "of:", rows_axis, "and:", columns_axis) do
         # Formats.assert_valid_cache(daf)
         relayout = relayout && rows_axis != columns_axis
@@ -711,11 +710,14 @@ function set_matrix!(
                     matrix = Matrix{eltype}(matrix)
                 end
             end
-        else
-            @assert matrix isa StorageReal
+        elseif matrix isa StorageReal
             if eltype !== nothing
                 matrix = eltype(matrix)
             end
+        elseif matrix isa AbstractString
+            matrix = string(matrix)
+        else
+            @assert false
         end
 
         if !overwrite

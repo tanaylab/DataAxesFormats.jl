@@ -11,7 +11,8 @@ restricted to specific representations. This has several advantages:
 
   - `Daf` storage formats need only implement storing these restricted representations, which lend themselves to simple
     storage in consecutive bytes (in memory and/or on disk). These representations also allow for memory-mapping the
-    data from disk files, which allows `Daf` to deal with data sets larger than the available memory.
+    data from disk files, which allows `Daf` to deal with data sets larger than the available memory. However, we also
+    allow storing vectors and matrices of strings. We try to make as efficient as possible (which isn't saying much).
 
   - Client code need only worry about dealing with these restricted representations, which limits the amount of code
     paths required for efficient algorithm implementations. However, you (mostly) need not worry about this when
@@ -101,18 +102,16 @@ limitations of Julia's type system.
 StorageScalarBase = Union{StorageReal, AbstractString}
 
 """
-    StorageMatrix{T} = AbstractMatrix{T} where {T <: StorageReal}
+    StorageMatrix{T} = AbstractMatrix{T} where {T <: StorageScalar}
 
 Matrices that can be directly stored (and fetched) from `Daf` storage.
 
-The element type must be a [`StorageReal`](@ref), to allow efficient storage of the data in disk files. That is,
-matrices of strings are **not** supported.
-
 !!! note
 
-    All matrices we store must have a clear layout, that is, must be in either row-major or column-major format.
+    All matrices we store must have a clear layout, that is, must be in either row-major or column-major format. There's
+    no support for sparse matrices of strings, because "reasons".
 """
-StorageMatrix{T} = AbstractMatrix{T} where {T <: StorageReal}
+StorageMatrix{T} = AbstractMatrix{T} where {T <: StorageScalar}
 
 """
     StorageVector{T} = AbstractVector{T} where {T <: StorageScalar}

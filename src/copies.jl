@@ -379,7 +379,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
         return nothing
     end
 
-    if bestify
+    if bestify && Base.eltype(value) <: Real
         value = TanayLabUtilities.MatrixFormats.bestify(value; min_sparse_saving_fraction, eltype)  # UNTESTED
     end
 

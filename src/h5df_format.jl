@@ -681,7 +681,7 @@ function Formats.format_set_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    matrix::Union{StorageReal, StorageMatrix},
+    matrix::Union{StorageScalarBase, StorageMatrix},
 )::Nothing
     @assert Formats.has_data_write_lock(h5df)
     matrices_group = h5df.root["matrices"]
@@ -697,6 +697,13 @@ function Formats.format_set_matrix!(
         nrows = Formats.format_axis_length(h5df, rows_axis)
         ncols = Formats.format_axis_length(h5df, columns_axis)
         matrix_dataset = create_dataset(columns_axis_group, name, typeof(matrix), (nrows, ncols))
+        matrix_dataset[:, :] = matrix
+        close(matrix_dataset)
+
+    elseif matrix isa AbstractString
+        nrows = Formats.format_axis_length(h5df, rows_axis)
+        ncols = Formats.format_axis_length(h5df, columns_axis)
+        matrix_dataset = create_dataset(columns_axis_group, name, String, (nrows, ncols))
         matrix_dataset[:, :] = matrix
         close(matrix_dataset)
 
@@ -827,11 +834,32 @@ function Formats.format_relayout_matrix!(
             sparse_rowval,
             sparse_nzval,
         )
+        relayout!(transpose(relayout_matrix), matrix)
+
+    elseif eltype(matrix) <: AbstractString
+        relayout_matrix = transposer(matrix)
+
+        matrices_group = h5df.root["matrices"]
+        @assert matrices_group isa HDF5.Group
+
+        columns_axis_group = matrices_group[columns_axis]
+        @assert columns_axis_group isa HDF5.Group
+
+        rows_axis_group = columns_axis_group[rows_axis]
+        @assert rows_axis_group isa HDF5.Group
+
+        nrows = Formats.format_axis_length(h5df, rows_axis)
+        ncols = Formats.format_axis_length(h5df, columns_axis)
+
+        matrix_dataset = create_dataset(rows_axis_group, name, String, (ncols, nrows))
+        matrix_dataset[:, :] = relayout_matrix
+        close(matrix_dataset)
+
     else
         relayout_matrix = Formats.format_get_empty_dense_matrix!(h5df, columns_axis, rows_axis, name, eltype(matrix))
+        relayout!(transpose(relayout_matrix), matrix)
     end
 
-    relayout!(transpose(relayout_matrix), matrix)
     return relayout_matrix
 end
 
@@ -931,7 +959,7 @@ function dataset_as_matrix(dataset::HDF5.Dataset)::StorageMatrix
     if HDF5.ismmappable(dataset) && HDF5.iscontiguous(dataset) && !isempty(dataset)
         return HDF5.readmmap(dataset)
     else
-        return read(dataset)  # UNTESTED
+        return read(dataset)
     end
 end
 

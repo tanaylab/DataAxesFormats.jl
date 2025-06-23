@@ -223,7 +223,7 @@ function Formats.format_set_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    matrix::Union{StorageReal, StorageMatrix},
+    matrix::Union{StorageScalarBase, StorageMatrix},
 )::Nothing
     @assert Formats.has_data_write_lock(memory)
     if matrix isa StorageMatrix

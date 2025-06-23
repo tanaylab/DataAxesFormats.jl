@@ -1156,7 +1156,7 @@ function Formats.format_set_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    matrix::Union{StorageReal, StorageMatrix},
+    matrix::Union{StorageScalarBase, StorageMatrix},
 )::Nothing
     access_matrix(contract_daf, rows_axis, columns_axis, name; is_modify = true)
     return Formats.format_set_matrix!(contract_daf.daf, rows_axis, columns_axis, name, matrix)
@@ -1168,7 +1168,7 @@ function Formats.format_get_empty_dense_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     ::Type{T},
-)::AbstractMatrix{T} where {T <: StorageReal}
+)::AbstractMatrix{T} where {T <: StorageScalarBase}
     access_matrix(contract_daf, rows_axis, columns_axis, name; is_modify = true)
     return Formats.format_get_empty_dense_matrix!(contract_daf.daf, rows_axis, columns_axis, name, T)
 end
@@ -1232,7 +1232,7 @@ function Readers.get_matrix(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString;
-    default::Union{StorageReal, StorageMatrix, Nothing, UndefInitializer} = undef,
+    default::Union{StorageScalarBase, StorageMatrix, Nothing, UndefInitializer} = undef,
     relayout::Bool = true,
 )::Maybe{NamedArray}
     access_matrix(contract_daf, rows_axis, columns_axis, name; is_modify = false)

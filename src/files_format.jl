@@ -282,7 +282,7 @@ function read_scalar(path::AbstractString)::StorageScalar
     dtype_name = json["type"]
     json_value = json["value"]
 
-    if dtype_name == "String"
+    if dtype_name == "String" || dtype_name == "string"
         @assert json_value isa AbstractString
         value = json_value
     else
@@ -523,7 +523,7 @@ function Formats.format_set_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    matrix::Union{StorageReal, StorageMatrix},
+    matrix::Union{StorageScalarBase, StorageMatrix},
 )::Nothing
     @assert Formats.has_data_write_lock(files)
     nrows = Formats.format_axis_length(files, rows_axis)
@@ -535,6 +535,10 @@ function Formats.format_set_matrix!(
     if matrix isa StorageReal
         write_array_json("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", "dense", typeof(matrix))
         fill_file("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).data", matrix, nrows * ncols)  # NOJET
+
+    elseif matrix isa AbstractString
+        write_array_json("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", "dense", String)
+        fill_file("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).txt", matrix, nrows * ncols)  # NOJET
 
     elseif issparse(matrix)
         @assert matrix isa AbstractMatrix
@@ -548,7 +552,18 @@ function Formats.format_set_matrix!(
         write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).rowval", rowval(matrix))
         write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).nzval", nzval(matrix))
 
+    elseif eltype(matrix) <: AbstractString
+        write_array_json("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", "dense", String)
+        open("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).txt", "w") do file
+            for value in matrix
+                @assert !(contains(value, '\n'))
+                println(file, value)
+            end
+            return nothing
+        end
+
     else
+        @assert eltype(matrix) <: Real
         write_array_json("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", "dense", eltype(matrix))
         write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).data", matrix)
     end
@@ -625,11 +640,25 @@ function Formats.format_relayout_matrix!(
         colptr[2:end] .= length(nzval) + 1
         relayout_matrix =
             SparseMatrixCSC(axis_length(files, columns_axis), axis_length(files, rows_axis), colptr, rowval, nzval)
+        relayout!(transpose(relayout_matrix), matrix)
+
+    elseif eltype(matrix) <: AbstractString
+        relayout_matrix = transposer(matrix)
+        write_array_json("$(files.path)/matrices/$(columns_axis)/$(rows_axis)/$(name).json", "dense", String)
+        open("$(files.path)/matrices/$(columns_axis)/$(rows_axis)/$(name).txt", "w") do file
+            for value in relayout_matrix
+                @assert !(contains(value, '\n'))
+                println(file, value)
+            end
+            return nothing
+        end
+
     else
+        @assert eltype(matrix) <: Real
         relayout_matrix = Formats.format_get_empty_dense_matrix!(files, columns_axis, rows_axis, name, eltype(matrix))
+        relayout!(transpose(relayout_matrix), matrix)
     end
 
-    relayout!(transpose(relayout_matrix), matrix)
     return relayout_matrix
 end
 
@@ -641,7 +670,7 @@ function Formats.format_delete_matrix!(
     for_set::Bool,  # NOLINT
 )::Nothing
     @assert Formats.has_data_write_lock(files)
-    for suffix in (".json", ".data", ".colptr", ".rowval", "nzval")
+    for suffix in (".json", ".data", ".txt", ".colptr", ".rowval", "nzval")
         path = "$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name)$(suffix)"
         rm(path; force = true)
     end
@@ -665,16 +694,25 @@ function Formats.format_get_matrix(
 )::StorageMatrix
     @assert Formats.has_data_read_lock(files)
 
+    nrows = Formats.format_axis_length(files, rows_axis)
+    ncols = Formats.format_axis_length(files, columns_axis)
+
     json = JSON.parsefile("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json")
     @assert json isa AbstractDict
     format = json["format"]
     @assert format == "dense" || format == "sparse"
     eltype_name = json["eltype"]
+
+    if eltype_name == "String" || eltype_name == "string"
+        @assert format == "dense"
+        vector = mmap_file_lines("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).txt")
+        @assert length(vector) == nrows * ncols
+        matrix = reshape(vector, (nrows, ncols))
+        return matrix
+    end
+
     eltype = DTYPE_BY_NAME[eltype_name]
     @assert eltype !== nothing
-
-    nrows = Formats.format_axis_length(files, rows_axis)
-    ncols = Formats.format_axis_length(files, columns_axis)
 
     if format == "dense"
         matrix = mmap_file_data(
@@ -787,7 +825,7 @@ end
 function write_array_json(
     path::AbstractString,
     format::AbstractString,
-    eltype::Type{<:StorageScalar},
+    eltype::Type{<:StorageScalarBase},
     indtype::Maybe{Type{<:StorageInteger}} = nothing,
 )::Nothing
     if format == "dense"
