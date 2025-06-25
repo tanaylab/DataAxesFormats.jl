@@ -97,7 +97,7 @@ nested_test("queries") do
     nested_test("names") do
         nested_test("invalid") do
             nested_test("!kind") do
-                return test_invalid(
+                test_invalid(
                     daf,
                     Names(),
                     """
@@ -106,11 +106,12 @@ nested_test("queries") do
                     at operation: ▲
                     """,
                 )
+                return nothing
             end
 
             nested_test("unexpected") do
                 set_scalar!(daf, "score", 1.0)
-                return test_invalid(
+                test_invalid(
                     daf,
                     q": score ?",
                     """
@@ -119,10 +120,11 @@ nested_test("queries") do
                     at operation:         ▲
                     """,
                 )
+                return nothing
             end
 
             nested_test("kind") do
-                return test_invalid(
+                test_invalid(
                     daf,
                     q"? vectors",
                     """
@@ -131,13 +133,14 @@ nested_test("queries") do
                     at operation: ▲▲▲▲▲▲▲▲▲
                     """,
                 )
+                return nothing
             end
 
             nested_test("vectors") do
                 add_axis!(daf, "cell", ["A", "B"])
 
                 nested_test("kind") do
-                    return test_invalid(
+                    test_invalid(
                         daf,
                         q"/ cell ? vectors",
                         """
@@ -147,10 +150,11 @@ nested_test("queries") do
                         at operation:        ▲▲▲▲▲▲▲▲▲
                         """,
                     )
+                    return nothing
                 end
 
                 nested_test("entry") do
-                    return test_invalid(
+                    test_invalid(
                         daf,
                         q"/ cell = A ?",
                         """
@@ -159,10 +163,11 @@ nested_test("queries") do
                         at operation:            ▲
                         """,
                     )
+                    return nothing
                 end
 
                 nested_test("slice") do
-                    return test_invalid(
+                    test_invalid(
                         daf,
                         q"/ cell & name != A ?",
                         """
@@ -171,6 +176,7 @@ nested_test("queries") do
                         at operation:                    ▲
                         """,
                     )
+                    return nothing
                 end
             end
 
@@ -179,7 +185,7 @@ nested_test("queries") do
                 add_axis!(daf, "gene", ["X", "Y", "Z"])
 
                 nested_test("kind") do
-                    return test_invalid(
+                    test_invalid(
                         daf,
                         q"/ cell / gene ? matrices",
                         """
@@ -189,10 +195,11 @@ nested_test("queries") do
                         at operation:               ▲▲▲▲▲▲▲▲▲▲
                         """,
                     )
+                    return nothing
                 end
 
                 nested_test("entry") do
-                    return test_invalid(
+                    test_invalid(
                         daf,
                         q"/ cell = A / gene ?",
                         """
@@ -201,10 +208,11 @@ nested_test("queries") do
                         at operation:                   ▲
                         """,
                     )
+                    return nothing
                 end
 
                 nested_test("slice") do
-                    return test_invalid(
+                    test_invalid(
                         daf,
                         q"/ gene / cell & name != A ?",
                         """
@@ -213,6 +221,7 @@ nested_test("queries") do
                         at operation:                           ▲
                         """,
                     )
+                    return nothing
                 end
             end
         end
@@ -275,7 +284,7 @@ nested_test("queries") do
 
                 nested_test("string") do
                     set_scalar!(daf, "version", "1.0.1")
-                    return test_invalid(
+                    test_invalid(
                         daf,
                         q": version % Abs",
                         0,
@@ -286,6 +295,7 @@ nested_test("queries") do
                         at operation:           ▲▲▲▲▲
                         """,
                     )
+                    return nothing
                 end
             end
         end
@@ -293,7 +303,7 @@ nested_test("queries") do
         nested_test("over") do
             set_scalar!(daf, "score", 1.0)
 
-            return test_invalid(
+            test_invalid(
                 daf,
                 q": score : version",
                 """
@@ -302,6 +312,7 @@ nested_test("queries") do
                 at operation:         ▲▲▲▲▲▲▲▲▲
                 """,
             )
+            return nothing
         end
 
         nested_test("+if_missing") do
@@ -354,7 +365,7 @@ nested_test("queries") do
 
                 nested_test("string") do
                     set_vector!(daf, "cell", "type", ["U", "V"])
-                    return test_invalid(
+                    test_invalid(
                         daf,
                         q"/ cell : type % Abs",
                         1,
@@ -365,6 +376,7 @@ nested_test("queries") do
                         at operation:               ▲▲▲▲▲
                         """,
                     )
+                    return nothing
                 end
             end
 
@@ -375,7 +387,7 @@ nested_test("queries") do
 
                 nested_test("string") do
                     set_vector!(daf, "cell", "type", ["U", "V"])
-                    return test_invalid(
+                    test_invalid(
                         daf,
                         q"/ cell : type %> Sum",
                         0,
@@ -386,6 +398,7 @@ nested_test("queries") do
                         at operation:               ▲▲▲▲▲▲
                         """,
                     )
+                    return nothing
                 end
             end
         end
@@ -398,7 +411,7 @@ nested_test("queries") do
             end
 
             nested_test("!value") do
-                return test_invalid(
+                test_invalid(
                     daf,
                     q"/ cell = 1.0",
                     0,
@@ -409,10 +422,11 @@ nested_test("queries") do
                     at operation:        ▲▲▲▲▲
                     """,
                 )
+                return nothing
             end
 
             nested_test("non-String") do
-                return test_invalid(
+                test_invalid(
                     daf,
                     Axis("cell") |> IsEqual(1.0),
                     0,
@@ -423,6 +437,7 @@ nested_test("queries") do
                     at operation:        ▲▲▲▲▲
                     """,
                 )
+                return nothing
             end
 
             nested_test("fetch") do
@@ -440,7 +455,7 @@ nested_test("queries") do
                 end
 
                 nested_test("!String") do
-                    return test_invalid(
+                    test_invalid(
                         daf,
                         q"/ cell : age => batch",
                         1,
@@ -452,6 +467,7 @@ nested_test("queries") do
                         at operation:              ▲▲▲▲▲▲▲▲
                         """,
                     )
+                    return nothing
                 end
 
                 nested_test("+if_missing") do
@@ -484,7 +500,7 @@ nested_test("queries") do
                     add_axis!(daf, "batch", ["U", "V"])
                     set_vector!(daf, "batch", "donor", ["M", "N"])
                     set_vector!(daf, "cell", "batch", ["V", "W"])
-                    return test_invalid(
+                    test_invalid(
                         daf,
                         q"/ cell = B : batch => donor",
                         0,
@@ -497,13 +513,14 @@ nested_test("queries") do
                         at operation:                    ▲▲▲▲▲▲▲▲
                         """,
                     )
+                    return nothing
                 end
 
                 nested_test("empty") do
                     add_axis!(daf, "batch", ["U", "V"])
                     set_vector!(daf, "batch", "donor", ["M", "N"])
                     set_vector!(daf, "cell", "batch", ["V", ""])
-                    return test_invalid(
+                    test_invalid(
                         daf,
                         q"/ cell = B : batch => donor",
                         0,
@@ -515,6 +532,7 @@ nested_test("queries") do
                         at operation:                    ▲▲▲▲▲▲▲▲
                         """,
                     )
+                    return nothing
                 end
             end
         end
@@ -531,7 +549,7 @@ nested_test("queries") do
                 end
 
                 nested_test("!regex") do
-                    return test_invalid(
+                    test_invalid(
                         daf,
                         q"/ cell & type ~ \[",
                         1,
@@ -545,10 +563,11 @@ nested_test("queries") do
                             """,
                         ),
                     )
+                    return nothing
                 end
 
                 nested_test("!String") do
-                    return test_invalid(
+                    test_invalid(
                         daf,
                         q"/ cell & age ~ T.\*",
                         1,
@@ -560,11 +579,12 @@ nested_test("queries") do
                         at operation:              ▲▲▲▲▲▲
                         """,
                     )
+                    return nothing
                 end
             end
 
             nested_test("!type") do
-                return test_invalid(
+                test_invalid(
                     daf,
                     q"/ cell & age < Q",
                     1,
@@ -574,6 +594,7 @@ nested_test("queries") do
                     at operation:              ▲▲▲
                     """,
                 )
+                return nothing
             end
 
             nested_test("and") do
@@ -622,7 +643,7 @@ nested_test("queries") do
                 end
 
                 nested_test("!value") do
-                    return test_invalid(
+                    test_invalid(
                         daf,
                         q"/ cell & UMIs ; gene = U > 3",
                         1,
@@ -632,6 +653,7 @@ nested_test("queries") do
                         in the query: / cell & UMIs ; gene = U > 3
                         """,
                     )
+                    return nothing
                 end
             end
 
@@ -644,7 +666,7 @@ nested_test("queries") do
                 end
 
                 nested_test("!value") do
-                    return test_invalid(
+                    test_invalid(
                         daf,
                         q"/ cell & outgoing ;= U > 0",
                         1,
@@ -654,6 +676,7 @@ nested_test("queries") do
                         in the query: / cell & outgoing ;= U > 0
                         """,
                     )
+                    return nothing
                 end
             end
 
@@ -666,7 +689,7 @@ nested_test("queries") do
                 end
 
                 nested_test("!value") do
-                    return test_invalid(
+                    test_invalid(
                         daf,
                         q"/ cell & outgoing ,= U > 0",
                         1,
@@ -676,6 +699,7 @@ nested_test("queries") do
                         in the query: / cell & outgoing ,= U > 0
                         """,
                     )
+                    return nothing
                 end
             end
         end
@@ -704,14 +728,17 @@ nested_test("queries") do
                 end
 
                 nested_test("as_axis") do
-                    nested_test("()") do
-                        @test get_result(daf, q"/ cell : type ! => color") == ("cell", ["A" => "green", "B" => "red"])
-                    end
-
-                    nested_test("implicit") do
-                        set_vector!(daf, "cell", "type.manual", ["V", "U"])
-                        @test get_result(daf, q"/ cell : type.manual ! => color") ==
-                              ("cell", ["A" => "green", "B" => "red"])
+                    nested_test("missing") do
+                        test_invalid(
+                            daf,
+                            q"/ cell : type ! => color",
+                            """
+                            expected AsAxis name
+                            in the query: / cell : type ! => color
+                            at operation:               ▲
+                            """,
+                        )
+                        return nothing
                     end
 
                     nested_test("explicit") do
@@ -726,7 +753,7 @@ nested_test("queries") do
                 add_axis!(daf, "type", ["U", "V"])
                 set_vector!(daf, "type", "color", ["red", "green"])
                 set_vector!(daf, "cell", "type", ["V", "W"])
-                return test_invalid(
+                test_invalid(
                     daf,
                     q"/ cell : type => color",
                     1,
@@ -739,13 +766,14 @@ nested_test("queries") do
                     at operation:               ▲▲▲▲▲▲▲▲
                     """,
                 )
+                return nothing
             end
 
             nested_test("empty") do
                 add_axis!(daf, "type", ["U", "V"])
                 set_vector!(daf, "type", "color", ["red", "green"])
                 set_vector!(daf, "cell", "type", ["V", ""])
-                return test_invalid(
+                test_invalid(
                     daf,
                     q"/ cell : type => color",
                     1,
@@ -757,6 +785,7 @@ nested_test("queries") do
                     at operation:               ▲▲▲▲▲▲▲▲
                     """,
                 )
+                return nothing
             end
 
             nested_test("-if_missing") do
@@ -786,7 +815,7 @@ nested_test("queries") do
                     add_axis!(daf, "type", ["U", "V"])
                     set_vector!(daf, "type", "color", ["red", "green"])
                     set_vector!(daf, "cell", "type", ["V", "U"])
-                    return test_invalid(
+                    test_invalid(
                         daf,
                         q"/ cell : type => color ??",
                         """
@@ -795,7 +824,7 @@ nested_test("queries") do
                         at operation:                        ▲▲
                         """,
                     )
-                    return test_invalid(
+                    test_invalid(
                         daf,
                         q"/ cell : type => color !",
                         """
@@ -810,7 +839,7 @@ nested_test("queries") do
                         """
                         unexpected operation: IfNot
                         in the query: / cell : type => color ?? !
-                        at operation:                        ▲
+                        at operation:                        ▲▲
                         """,
                     )
                 end
@@ -831,7 +860,7 @@ nested_test("queries") do
                     set_vector!(daf, "cell", "type", ["V", "U"])
 
                     nested_test("if_not") do
-                        return test_invalid(
+                        test_invalid(
                             daf,
                             q"/ cell ??",
                             """
@@ -840,10 +869,11 @@ nested_test("queries") do
                             at operation:        ▲▲
                             """,
                         )
+                        return nothing
                     end
 
                     nested_test("as_axis") do
-                        return test_invalid(
+                        test_invalid(
                             daf,
                             q"/ cell !",
                             """
@@ -852,10 +882,11 @@ nested_test("queries") do
                             at operation:        ▲
                             """,
                         )
+                        return nothing
                     end
 
                     nested_test("count_by") do
-                        return test_invalid(
+                        test_invalid(
                             daf,
                             q"/ cell * age",
                             """
@@ -864,6 +895,7 @@ nested_test("queries") do
                             at operation:        ▲▲▲▲▲
                             """,
                         )
+                        return nothing
                     end
                 end
             end
@@ -987,6 +1019,67 @@ nested_test("queries") do
                     ("B", "Z") => -1,
                 ],
             )
+        end
+
+        nested_test("fetch") do
+            add_axis!(daf, "cell", ["A", "B"])
+            add_axis!(daf, "gene", ["X", "Y", "Z"])
+            add_axis!(daf, "active", ["yes", "no", "maybe"])
+            set_vector!(daf, "active", "color", ["green", "red", "yellow"])
+            set_matrix!(daf, "cell", "gene", "active", ["yes" "" "maybe"; "no" "maybe" "yes"])
+
+            nested_test("entry") do
+                nested_test("()") do
+                    @test get_result(daf, q"/ cell = A / gene = X : active => color") == "green"
+                end
+
+                nested_test("if_not") do
+                    @test get_result(daf, q"/ cell = A / gene = Y : active ?? blue => color") == "blue"
+                end
+
+                nested_test("~if_not") do
+                    test_invalid(
+                        daf,
+                        q"/ cell = A / gene = Y : active ?? => color",
+                        """
+                        expected IfNot value
+                        in the query: / cell = A / gene = Y : active ?? => color
+                        at operation:                                ▲▲
+                        """,
+                    )
+                    return nothing
+                end
+
+                nested_test("!as_axis") do
+                    test_invalid(
+                        daf,
+                        q"/ cell = A / gene = X : active => color ! shade",
+                        """
+                        unexpected operation: AsAxis
+                        in the query: / cell = A / gene = X : active => color ! shade
+                        at operation:                                         ▲▲▲▲▲▲▲
+                        """,
+                    )
+                    return nothing
+                end
+
+                nested_test("~as_axis") do
+                    test_invalid(
+                        daf,
+                        q"/ cell = A / gene = X : active ! => color",
+                        """
+                        expected AsAxis name
+                        in the query: / cell = A / gene = X : active ! => color
+                        at operation:                                ▲
+                        """,
+                    )
+                    return nothing
+                end
+
+                nested_test("if_missing") do
+                    @test get_result(daf, q"/ cell = A / gene = X : active => shade || purple") == "purple"
+                end
+            end
         end
     end
 
@@ -1125,7 +1218,7 @@ nested_test("queries") do
             end
 
             nested_test("!reduction") do
-                return test_invalid(
+                test_invalid(
                     daf,
                     q"/ cell : age @ batch % Abs",
                     """
@@ -1134,6 +1227,7 @@ nested_test("queries") do
                     at operation:                      ▲▲▲▲▲
                     """,
                 )
+                return nothing
             end
 
             nested_test("as_axis") do
@@ -1175,7 +1269,7 @@ nested_test("queries") do
             end
 
             nested_test("!reduction") do
-                return test_invalid(
+                test_invalid(
                     daf,
                     q"/ cell / gene : UMIs @ batch % Abs",
                     """
@@ -1184,6 +1278,7 @@ nested_test("queries") do
                     at operation:                              ▲▲▲▲▲
                     """,
                 )
+                return nothing
             end
 
             nested_test("partial") do
@@ -1233,7 +1328,7 @@ nested_test("queries") do
                 end
 
                 nested_test("!if_missing") do
-                    return test_invalid(
+                    test_invalid(
                         daf,
                         q"/ cell / gene : UMIs @ batch ! %> Sum",
                         2,
@@ -1244,6 +1339,7 @@ nested_test("queries") do
                         at operation:                                ▲▲▲▲▲▲
                         """,
                     )
+                    return nothing
                 end
             end
         end
@@ -1311,33 +1407,37 @@ nested_test("queries") do
 
         nested_test("partial") do
             add_axis!(daf, "gene", ["X", "Y", "Z"])
-            return test_invalid(daf, q"/ cell / gene", "partial query: / cell / gene")
+            test_invalid(daf, q"/ cell / gene", "partial query: / cell / gene")
+            return nothing
         end
 
         nested_test("unexpected") do
             nested_test("comparison") do
-                return test_invalid(daf, q"/ cell > 0", chomp("""
+                test_invalid(daf, q"/ cell > 0", chomp("""
                                                         unexpected operation: IsGreater
                                                         in the query: / cell > 0
                                                         at operation:        ▲▲▲
                                                         """))
+                return nothing
             end
 
             nested_test("eltwise") do
-                return test_invalid(daf, q"/ cell % Log", chomp("""
+                test_invalid(daf, q"/ cell % Log", chomp("""
                                                           unexpected operation: EltwiseOperation
                                                           in the query: / cell % Log base e eps 0.0
                                                           at operation:        ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
                                                           """))
+                return nothing
             end
 
             nested_test("mask") do
                 set_scalar!(daf, "score", 1.0)
-                return test_invalid(daf, q": score & is_first", chomp("""
+                test_invalid(daf, q": score & is_first", chomp("""
                                                                 unexpected operation: And
                                                                 in the query: : score & is_first
                                                                 at operation:         ▲▲▲▲▲▲▲▲▲▲
                                                                 """))
+                return nothing
             end
         end
 
@@ -1345,11 +1445,12 @@ nested_test("queries") do
             add_axis!(daf, "gene", ["X", "Y", "Z"])
             add_axis!(daf, "batch", ["U", "V"])
 
-            return test_invalid(daf, q"/ cell / gene / batch", chomp("""
+            test_invalid(daf, q"/ cell / gene / batch", chomp("""
                                                                unexpected operation: Axis
                                                                in the query: / cell / gene / batch
                                                                at operation:               ▲▲▲▲▲▲▲
                                                                """))
+            return nothing
         end
     end
 

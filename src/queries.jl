@@ -2866,9 +2866,10 @@ function lookup_axes(query_state::QueryState, lookup::Lookup)::Nothing
                 dependency_keys,
             )
         elseif columns_axis_modifier isa Int
-            return lookup_matrix_entry(
+            return fetch_matrix_entry(
                 query_state,
                 named_matrix[rows_axis_modifier, columns_axis_modifier],
+                lookup.property_name,
                 dependency_keys,
             )
         elseif columns_axis_modifier isa AbstractVector{Bool}
@@ -2934,7 +2935,7 @@ function fake_lookup_axes(fake_query_state::FakeQueryState, lookup::Lookup)::Not
 
     if rows_axis_state.is_entry
         if columns_axis_state.is_entry
-            push!(fake_query_state.stack, FakeScalarState())
+            fake_fetch_matrix_entry(fake_query_state)
         else
             push!(fake_query_state.stack, FakeVectorState(columns_axis_state, false))
         end
@@ -2948,6 +2949,35 @@ function fake_lookup_axes(fake_query_state::FakeQueryState, lookup::Lookup)::Not
     end
 
     return nothing
+end
+
+function fake_fetch_matrix_entry(fake_query_state::FakeQueryState)::Nothing
+    push!(fake_query_state.stack, FakeScalarState())
+
+    while true
+        if_not = get_next_operation(fake_query_state, IfNot)
+        if if_not !== nothing && if_not.not_value === nothing
+            error_at_state(fake_query_state, "expected IfNot value")
+        end
+
+        as_axis = get_next_operation(fake_query_state, AsAxis)
+        if as_axis !== nothing && as_axis.axis_name === nothing
+            error_at_state(fake_query_state, "expected AsAxis name")
+        end
+        next_fetch_operation = peek_next_operation(fake_query_state, Fetch)
+        is_final = next_fetch_operation === nothing
+
+        get_next_operation(fake_query_state, IfMissing)
+
+        if is_final
+            if if_not !== nothing || as_axis !== nothing
+                error_unexpected_operation(fake_query_state)
+            end
+            return nothing
+        end
+
+        fake_query_state.next_operation_index += 1
+    end
 end
 
 function lookup_matrix(
@@ -2988,14 +3018,67 @@ function lookup_matrix_slice(
     return nothing
 end
 
-function lookup_matrix_entry(
+function fetch_matrix_entry(
     query_state::QueryState,
     scalar_value::StorageScalar,
+    fetch_property_name::AbstractString,
     dependency_keys::Set{CacheKey},
 )::Nothing
     scalar_state = ScalarState(query_state_sequence(query_state), dependency_keys, scalar_value)
     push!(query_state.stack, scalar_state)
-    return nothing
+    is_if_not = false
+
+    while true
+        if_not = get_next_operation(query_state, IfNot)
+        if if_not !== nothing && if_not.not_value === nothing
+            error_at_state(query_state, "expected IfNot value")
+        end
+
+        as_axis = get_next_operation(query_state, AsAxis)
+        if as_axis !== nothing && as_axis.axis_name === nothing
+            error_at_state(query_state, "expected AsAxis name")
+        end
+
+        fetch_operation = peek_next_operation(query_state, Fetch)
+        is_final = fetch_operation === nothing
+
+        if is_final
+            if if_not !== nothing || as_axis !== nothing
+                error_unexpected_operation(query_state)
+            end
+            return nothing
+        end
+
+        query_state.next_operation_index += 1
+        if_missing = get_next_operation(query_state, IfMissing)
+
+        if !is_if_not
+            if if_missing === nothing
+                if_missing_value = undef
+                default_value = undef
+            else
+                @assert if_missing isa IfMissing
+                if_missing_value = value_for_if_missing(query_state, if_missing)
+                default_value = nothing
+            end
+
+            if scalar_state.scalar_value == "" && if_not !== nothing
+                is_if_not = true
+                scalar_state.scalar_value = if_not.not_value
+            else
+                fetch_axis_name = axis_of_property(query_state.daf, fetch_property_name, as_axis)
+                fetch_property_name = fetch_operation.property_name
+                named_vector =
+                    get_vector(query_state.daf, fetch_axis_name, fetch_property_name; default = default_value)
+                push!(scalar_state.dependency_keys, Formats.vector_cache_key(fetch_axis_name, fetch_property_name))
+                if named_vector === nothing
+                    scalar_state.scalar_value = if_missing_value
+                else
+                    scalar_state.scalar_value = named_vector[scalar_state.scalar_value]
+                end
+            end
+        end
+    end
 end
 
 function parse_if_missing_value(query_state::QueryState)::Union{UndefInitializer, StorageScalar}
@@ -3133,6 +3216,9 @@ function fetch_property(query_state::QueryState, axis_state::AxisState, fetch_op
            peek_next_operation(query_state, Fetch; skip = 1) !== nothing
             as_axis = get_next_operation(query_state, AsAxis)
             @assert as_axis !== nothing
+            if as_axis.axis_name === nothing
+                error_at_state(query_state, "expected AsAxis name")
+            end
         else
             as_axis = nothing
         end
@@ -3294,6 +3380,9 @@ function fake_fetch_property(
            peek_next_operation(fake_query_state, Fetch; skip = 1) !== nothing
             as_axis = get_next_operation(fake_query_state, AsAxis)
             @assert as_axis !== nothing
+            if as_axis.axis_name === nothing
+                error_at_state(fake_query_state, "expected AsAxis name")
+            end
         else
             as_axis = nothing
         end
