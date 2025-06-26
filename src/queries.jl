@@ -2839,7 +2839,14 @@ function lookup_axes(query_state::QueryState, lookup::Lookup)::Nothing
 
     if rows_axis_modifier === nothing
         if columns_axis_modifier === nothing
-            return lookup_matrix(query_state, named_matrix, rows_axis_state, columns_axis_state, dependency_keys)
+            return fetch_matrix(
+                query_state,
+                named_matrix,
+                rows_axis_state,
+                columns_axis_state,
+                lookup.property_name,
+                dependency_keys,
+            )
         elseif columns_axis_modifier isa Int
             return lookup_matrix_slice(
                 query_state,
@@ -2848,11 +2855,12 @@ function lookup_axes(query_state::QueryState, lookup::Lookup)::Nothing
                 dependency_keys,
             )
         elseif columns_axis_modifier isa AbstractVector{Bool}
-            return lookup_matrix(
+            return fetch_matrix(
                 query_state,
                 named_matrix[:, columns_axis_modifier],
                 rows_axis_state,
                 columns_axis_state,
+                lookup.property_name,
                 dependency_keys,
             )
         end
@@ -2883,11 +2891,12 @@ function lookup_axes(query_state::QueryState, lookup::Lookup)::Nothing
 
     elseif rows_axis_modifier isa AbstractVector{Bool}
         if columns_axis_modifier === nothing
-            return lookup_matrix(
+            return fetch_matrix(
                 query_state,
                 named_matrix[rows_axis_modifier, :],
                 rows_axis_state,
                 columns_axis_state,
+                lookup.property_name,
                 dependency_keys,
             )
         elseif columns_axis_modifier isa Int
@@ -2898,11 +2907,12 @@ function lookup_axes(query_state::QueryState, lookup::Lookup)::Nothing
                 dependency_keys,
             )
         elseif columns_axis_modifier isa AbstractVector{Bool}
-            return lookup_matrix(
+            return fetch_matrix(
                 query_state,
                 named_matrix[rows_axis_modifier, columns_axis_modifier],
                 rows_axis_state,
                 columns_axis_state,
+                lookup.property_name,
                 dependency_keys,
             )
         end
@@ -2935,7 +2945,8 @@ function fake_lookup_axes(fake_query_state::FakeQueryState, lookup::Lookup)::Not
 
     if rows_axis_state.is_entry
         if columns_axis_state.is_entry
-            fake_fetch_matrix_entry(fake_query_state)
+            push!(fake_query_state.stack, FakeScalarState())
+            fake_fetch_matrix_operations(fake_query_state)
         else
             push!(fake_query_state.stack, FakeVectorState(columns_axis_state, false))
         end
@@ -2945,15 +2956,14 @@ function fake_lookup_axes(fake_query_state::FakeQueryState, lookup::Lookup)::Not
             push!(fake_query_state.stack, FakeVectorState(rows_axis_state, false))
         else
             push!(fake_query_state.stack, FakeMatrixState(rows_axis_state, columns_axis_state))
+            fake_fetch_matrix_operations(fake_query_state)
         end
     end
 
     return nothing
 end
 
-function fake_fetch_matrix_entry(fake_query_state::FakeQueryState)::Nothing
-    push!(fake_query_state.stack, FakeScalarState())
-
+function fake_fetch_matrix_operations(fake_query_state::FakeQueryState)::Nothing
     while true
         if_not = get_next_operation(fake_query_state, IfNot)
         if if_not !== nothing && if_not.not_value === nothing
@@ -2978,44 +2988,6 @@ function fake_fetch_matrix_entry(fake_query_state::FakeQueryState)::Nothing
 
         fake_query_state.next_operation_index += 1
     end
-end
-
-function lookup_matrix(
-    query_state::QueryState,
-    named_matrix::Maybe{NamedMatrix},
-    rows_axis_state::AxisState,
-    columns_axis_state::AxisState,
-    dependency_keys::Set{CacheKey},
-)::Nothing
-    matrix_state = MatrixState(
-        query_state_sequence(query_state),
-        dependency_keys,
-        named_matrix,
-        rows_axis_state.axis_name,
-        columns_axis_state.axis_name,
-        rows_axis_state,
-        columns_axis_state,
-    )
-    push!(query_state.stack, matrix_state)
-    return nothing
-end
-
-function lookup_matrix_slice(
-    query_state::QueryState,
-    named_vector::NamedVector,
-    axis_state::AxisState,
-    dependency_keys::Set{CacheKey},
-)::Nothing
-    vector_state = VectorState(
-        query_state_sequence(query_state),
-        dependency_keys,
-        named_vector,
-        axis_state.axis_name,
-        axis_state,
-        false,
-    )
-    push!(query_state.stack, vector_state)
-    return nothing
 end
 
 function fetch_matrix_entry(
@@ -3079,6 +3051,120 @@ function fetch_matrix_entry(
             end
         end
     end
+end
+
+function fetch_matrix(
+    query_state::QueryState,
+    named_matrix::Maybe{NamedMatrix},
+    rows_axis_state::AxisState,
+    columns_axis_state::AxisState,
+    fetch_property_name::AbstractString,
+    dependency_keys::Set{CacheKey},
+)::Nothing
+    matrix_state = MatrixState(
+        query_state_sequence(query_state),
+        dependency_keys,
+        named_matrix,
+        rows_axis_state.axis_name,
+        columns_axis_state.axis_name,
+        rows_axis_state,
+        columns_axis_state,
+    )
+    push!(query_state.stack, matrix_state)
+    if_not_entries = nothing
+    n_not_if_not = length(matrix_state.named_matrix)
+
+    while true
+        if_not = get_next_operation(query_state, IfNot)
+        if if_not !== nothing && if_not.not_value === nothing
+            error_at_state(query_state, "expected IfNot value")
+        end
+
+        as_axis = get_next_operation(query_state, AsAxis)
+        if as_axis !== nothing && as_axis.axis_name === nothing
+            error_at_state(query_state, "expected AsAxis name")
+        end
+
+        fetch_operation = peek_next_operation(query_state, Fetch)
+        is_final = fetch_operation === nothing
+
+        if is_final
+            if if_not !== nothing || as_axis !== nothing
+                error_unexpected_operation(query_state)
+            end
+            if if_not_entries !== nothing
+                for (index, value) in enumerate(if_not_entries)
+                    if value !== nothing
+                        matrix_state.named_matrix.array[index] = value
+                    end
+                end
+            end
+            return nothing
+        end
+
+        query_state.next_operation_index += 1
+        if_missing = get_next_operation(query_state, IfMissing)
+
+        if n_not_if_not > 0
+            if if_missing === nothing
+                if_missing_value = undef
+                default_value = undef
+            else
+                @assert if_missing isa IfMissing
+                if_missing_value = value_for_if_missing(query_state, if_missing)
+                default_value = nothing
+            end
+
+            fetch_axis_name = axis_of_property(query_state.daf, fetch_property_name, as_axis)
+            fetch_property_name = fetch_operation.property_name
+            named_vector = get_vector(query_state.daf, fetch_axis_name, fetch_property_name; default = default_value)
+            if named_vector === nothing
+                result_type = typeof(if_missing_value)
+            else
+                result_type = eltype(named_vector)
+            end
+            result_matrix = Matrix{result_type}(undef, size(matrix_state.named_matrix))
+
+            for index in 1:length(result_matrix)
+                if if_not_entries === nothing || if_not_entries[index] === nothing
+                    value = matrix_state.named_matrix.array[index]
+                    if value == "" && if_not !== nothing
+                        if if_not_entries === nothing
+                            if_not_entries = Matrix{Any}(undef, size(matrix_state.named_matrix))
+                            fill!(if_not_entries, nothing)
+                        end
+                        if_not_entries[index] = if_not.not_value
+                        n_not_if_not -= 1
+                    elseif named_vector === nothing
+                        result_matrix[index] = if_missing_value
+                    else
+                        result_matrix[index] = named_vector[value]
+                    end
+                end
+            end
+
+            matrix_state.named_matrix =
+                NamedArray(result_matrix, matrix_state.named_matrix.dicts, matrix_state.named_matrix.dimnames)
+        end
+    end
+end
+
+function lookup_matrix_slice(
+    query_state::QueryState,
+    named_vector::NamedVector,
+    axis_state::AxisState,
+    dependency_keys::Set{CacheKey},
+)::Nothing
+    vector_state = VectorState(
+        query_state_sequence(query_state),
+        dependency_keys,
+        named_vector,
+        axis_state.axis_name,
+        axis_state,
+        false,
+    )
+    push!(query_state.stack, vector_state)
+    return nothing
 end
 
 function parse_if_missing_value(query_state::QueryState)::Union{UndefInitializer, StorageScalar}

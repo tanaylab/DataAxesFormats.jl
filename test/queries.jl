@@ -900,6 +900,95 @@ nested_test("queries") do
                 end
             end
         end
+
+        nested_test("fetch") do
+            add_axis!(daf, "gene", ["X", "Y", "Z"])
+            add_axis!(daf, "active", ["yes", "no", "maybe"])
+            set_vector!(daf, "active", "color", ["green", "red", "yellow"])
+            set_matrix!(daf, "cell", "gene", "active", ["yes" "no" "maybe"; "no" "maybe" "yes"])
+
+            nested_test("matrix") do
+                @test get_result(daf, q"/ cell / gene : active => color") == (
+                    ("cell", "gene"),
+                    [
+                        ("A", "X") => "green",
+                        ("A", "Y") => "red",
+                        ("A", "Z") => "yellow",
+                        ("B", "X") => "red",
+                        ("B", "Y") => "yellow",
+                        ("B", "Z") => "green",
+                    ],
+                )
+            end
+
+            nested_test("if_not") do
+                set_matrix!(daf, "cell", "gene", "active", ["yes" "" "maybe"; "no" "maybe" "yes"]; overwrite = true)
+                @test get_result(daf, q"/ cell / gene : active ?? blue => color") == (
+                    ("cell", "gene"),
+                    [
+                        ("A", "X") => "green",
+                        ("A", "Y") => "blue",
+                        ("A", "Z") => "yellow",
+                        ("B", "X") => "red",
+                        ("B", "Y") => "yellow",
+                        ("B", "Z") => "green",
+                    ],
+                )
+            end
+
+            nested_test("~if_not") do
+                test_invalid(
+                    daf,
+                    q"/ cell / gene : active ?? => color",
+                    """
+                    expected IfNot value
+                    in the query: / cell / gene : active ?? => color
+                    at operation:                        ▲▲
+                    """,
+                )
+                return nothing
+            end
+
+            nested_test("!as_axis") do
+                test_invalid(
+                    daf,
+                    q"/ cell / gene : active => color ! shade",
+                    """
+                    unexpected operation: AsAxis
+                    in the query: / cell / gene : active => color ! shade
+                    at operation:                                 ▲▲▲▲▲▲▲
+                    """,
+                )
+                return nothing
+            end
+
+            nested_test("~as_axis") do
+                test_invalid(
+                    daf,
+                    q"/ cell / gene : active ! => color",
+                    """
+                    expected AsAxis name
+                    in the query: / cell / gene : active ! => color
+                    at operation:                        ▲
+                    """,
+                )
+                return nothing
+            end
+
+            nested_test("if_missing") do
+                @test get_result(daf, q"/ cell / gene : active => shade || purple") == (
+                    ("cell", "gene"),
+                    [
+                        ("A", "X") => "purple",
+                        ("A", "Y") => "purple",
+                        ("A", "Z") => "purple",
+                        ("B", "X") => "purple",
+                        ("B", "Y") => "purple",
+                        ("B", "Z") => "purple",
+                    ],
+                )
+            end
+        end
     end
 
     nested_test("matrix") do
@@ -1029,56 +1118,54 @@ nested_test("queries") do
             set_matrix!(daf, "cell", "gene", "active", ["yes" "" "maybe"; "no" "maybe" "yes"])
 
             nested_test("entry") do
-                nested_test("()") do
-                    @test get_result(daf, q"/ cell = A / gene = X : active => color") == "green"
-                end
+                @test get_result(daf, q"/ cell = A / gene = X : active => color") == "green"
+            end
 
-                nested_test("if_not") do
-                    @test get_result(daf, q"/ cell = A / gene = Y : active ?? blue => color") == "blue"
-                end
+            nested_test("if_not") do
+                @test get_result(daf, q"/ cell = A / gene = Y : active ?? blue => color") == "blue"
+            end
 
-                nested_test("~if_not") do
-                    test_invalid(
-                        daf,
-                        q"/ cell = A / gene = Y : active ?? => color",
-                        """
-                        expected IfNot value
-                        in the query: / cell = A / gene = Y : active ?? => color
-                        at operation:                                ▲▲
-                        """,
-                    )
-                    return nothing
-                end
+            nested_test("~if_not") do
+                test_invalid(
+                    daf,
+                    q"/ cell = A / gene = Y : active ?? => color",
+                    """
+                    expected IfNot value
+                    in the query: / cell = A / gene = Y : active ?? => color
+                    at operation:                                ▲▲
+                    """,
+                )
+                return nothing
+            end
 
-                nested_test("!as_axis") do
-                    test_invalid(
-                        daf,
-                        q"/ cell = A / gene = X : active => color ! shade",
-                        """
-                        unexpected operation: AsAxis
-                        in the query: / cell = A / gene = X : active => color ! shade
-                        at operation:                                         ▲▲▲▲▲▲▲
-                        """,
-                    )
-                    return nothing
-                end
+            nested_test("!as_axis") do
+                test_invalid(
+                    daf,
+                    q"/ cell = A / gene = X : active => color ! shade",
+                    """
+                    unexpected operation: AsAxis
+                    in the query: / cell = A / gene = X : active => color ! shade
+                    at operation:                                         ▲▲▲▲▲▲▲
+                    """,
+                )
+                return nothing
+            end
 
-                nested_test("~as_axis") do
-                    test_invalid(
-                        daf,
-                        q"/ cell = A / gene = X : active ! => color",
-                        """
-                        expected AsAxis name
-                        in the query: / cell = A / gene = X : active ! => color
-                        at operation:                                ▲
-                        """,
-                    )
-                    return nothing
-                end
+            nested_test("~as_axis") do
+                test_invalid(
+                    daf,
+                    q"/ cell = A / gene = X : active ! => color",
+                    """
+                    expected AsAxis name
+                    in the query: / cell = A / gene = X : active ! => color
+                    at operation:                                ▲
+                    """,
+                )
+                return nothing
+            end
 
-                nested_test("if_missing") do
-                    @test get_result(daf, q"/ cell = A / gene = X : active => shade || purple") == "purple"
-                end
+            nested_test("if_missing") do
+                @test get_result(daf, q"/ cell = A / gene = X : active => shade || purple") == "purple"
             end
         end
     end
