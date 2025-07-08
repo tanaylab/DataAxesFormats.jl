@@ -432,10 +432,9 @@ axis contains entries that do not exist in the target, they are discarded (not c
     end
 
     concrete_eltype, _ = target_types(eltype === nothing ? Base.eltype(value) : eltype)
-    @assert isbitstype(concrete_eltype) "not a bits type: $(concrete_eltype)"
 
     if rows_relation == :same && columns_relation == :same
-        if Base.eltype(value) == concrete_eltype
+        if Base.eltype(value) == concrete_eltype || concrete_eltype <: AbstractString
             set_matrix!(destination, rows_reaxis, columns_reaxis, rename, value; overwrite, relayout)
         else
             if issparse(value)
@@ -476,7 +475,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
     @assert rows_relation == :source_is_subset || columns_relation == :source_is_subset
 
     with_data_write_lock(destination) do
-        if issparse(value) || empty == 0
+        if issparse(value) || empty == 0 || concrete_eltype <: AbstractString
             dense = Matrix{concrete_eltype}(
                 undef,
                 axis_length(destination, rows_reaxis),
@@ -485,8 +484,12 @@ axis contains entries that do not exist in the target, they are discarded (not c
             named = as_named_matrix(destination, rows_reaxis, columns_reaxis, dense)
             named .= empty
             named[names(value, 1), names(value, 2)] .= value  # NOJET
-            sparse = sparse_matrix_csc(dense)
-            set_matrix!(destination, rows_reaxis, columns_reaxis, rename, sparse; overwrite, relayout)
+            if concrete_eltype <: AbstractString
+                set_matrix!(destination, rows_reaxis, columns_reaxis, rename, dense; overwrite, relayout)
+            else
+                sparse = sparse_matrix_csc(dense)
+                set_matrix!(destination, rows_reaxis, columns_reaxis, rename, sparse; overwrite, relayout)
+            end
         else
             empty_dense_matrix!(
                 destination,

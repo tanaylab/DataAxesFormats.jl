@@ -3098,7 +3098,8 @@ function fetch_matrix(
             if if_not_entries !== nothing
                 for (index, value) in enumerate(if_not_entries)
                     if value !== nothing
-                        matrix_state.named_matrix.array[index] = value
+                        matrix_state.named_matrix.array[index] =
+                            cast_value_to_type(query_state, value, eltype(matrix_state.named_matrix.array))
                     end
                 end
             end
@@ -3192,7 +3193,8 @@ function fetch_matrix_slice(
             if if_not_entries !== nothing
                 for (index, value) in enumerate(if_not_entries)
                     if value !== nothing
-                        vector_state.named_vector.array[index] = value
+                        vector_state.named_vector.array[index] =
+                            cast_value_to_type(query_state, value, eltype(vector_state.named_vector.array))
                     end
                 end
             end
@@ -3244,6 +3246,30 @@ function fetch_matrix_slice(
                 NamedArray(result_vector, vector_state.named_vector.dicts, vector_state.named_vector.dimnames)
         end
     end
+end
+
+function cast_value_to_type(query_state::QueryState, value::Any, type::Type)::Any
+    if !(value isa type)
+        try
+            if type <: AbstractString
+                value = String(value)
+            elseif value isa AbstractString
+                value = parse(type, value)
+            else
+                value = type(value)
+            end
+        catch
+            error_at_state(
+                query_state,
+                """
+                invalid if_not_value: $(value)
+                of type: $(typeof(value))
+                can't be cast to result type: $(type)
+                """,
+            )
+        end
+    end
+    return value
 end
 
 function parse_if_missing_value(query_state::QueryState)::Union{UndefInitializer, StorageScalar}
