@@ -11,6 +11,7 @@ is **not** compatible with `h5ad`):
   - The HDF5 file may contain `Daf` data directly in the root group, in which case, it is restricted to holding just a
     single `Daf` data set. When using such a file, you automatically access the single `Daf` data set contained in it.
     By convention such files are given a `.h5df` suffix.
+
   - Alternatively, the HDF5 file may contain `Daf` data inside some arbitrary group, in which case, there's no
     restriction on the content of other groups in the file. Such groups may contain other `Daf` data (allowing for
     multiple `Daf` data sets in a single file), and/or non-`Daf` data. When using such a file, you need to specify the
@@ -30,14 +31,18 @@ is **not** compatible with `h5ad`):
     vector is dense, it is stored directly as a "dataset". Otherwise, it is stored as a group containing two vector
     "datasets": `nzind` is containing the indices of the non-zero values, and `nzval` containing the actual values. See
     Julia's `SparseVector` implementation for details. The only supported vector element types are these included in
-    [`StorageScalar`](@ref), same as [`StorageVector`](@ref).
+    [`StorageScalar`](@ref), same as [`StorageVector`](@ref). If the data type is `Bool` then the data vector is
+    typically all-`true` values; in this case we simply skip storing it.
   - The `matrices` group contains a sub-group for each rows axis, which contains a sub-group for each columns axis. Each
     such sub-sub group contains matrix properties. If the matrix is dense, it is stored directly as a "dataset" (in
     column-major layout). Otherwise, it is stored as a group containing three vector "datasets": `colptr` containing the
     indices of the rows of each column in `rowval`, `rowval` containing the indices of the non-zero rows of the columns,
     and `nzval` containing the non-zero matrix entry values. See Julia's `SparseMatrixCSC` implementation for details.
     The only supported matrix element types are these included in [`StorageReal`](@ref) - this explicitly excludes
-    matrices of strings, same as [`StorageMatrix`](@ref).
+    matrices of strings, same as [`StorageMatrix`](@ref). If the data type is `Bool` then the data vector is typically
+    all-`true` values; in this case we simply skip storing it. We also allow using this sparse format for string data
+    (where the zero value is the empty string). This isn't supported by `SparseMatrixCSC` because "reasons" so we load
+    it into a dense matrix.
   - All vectors and matrices are stored in a contiguous way in the file, which allows us to efficiently memory-map
     them.
 
@@ -210,7 +215,7 @@ function H5df(
         end
 
         if group !== nothing
-            if group_exists(root, group)
+            if haskey(root, group)
                 if truncate_if_exists
                     delete_object(root, group)
                     create_group(root, group)
@@ -268,19 +273,6 @@ function H5df(
         return read_only(h5df)
     else
         return h5df
-    end
-end
-
-function group_exists(h5file::HDF5.File, path::AbstractString)
-    try
-        h5file[path]  # NOJET
-        return true
-    catch exception
-        if isa(exception, KeyError)  # UNTESTED
-            return false  # UNTESTED
-        else
-            rethrow(exception)  # UNTESTED
-        end
     end
 end
 
@@ -523,7 +515,9 @@ function Formats.format_set_vector!(
             @assert vector isa AbstractVector
             vector_group = create_group(axis_vectors_group, name)
             vector_group["nzind"] = nzind(vector)  # NOJET
-            vector_group["nzval"] = nzval(vector)
+            if eltype(vector) != Bool || !all(nzval(vector))
+                vector_group["nzval"] = nzval(vector)
+            end
             close(vector_group)
 
         else
@@ -646,9 +640,13 @@ function Formats.format_get_vector(h5df::H5df, axis::AbstractString, name::Abstr
         @assert nzind_dataset isa HDF5.Dataset
         nzind_vector = dataset_as_vector(nzind_dataset)
 
-        nzval_dataset = vector_object["nzval"]
-        @assert nzval_dataset isa HDF5.Dataset
-        nzval_vector = dataset_as_vector(nzval_dataset)
+        if haskey(vector_object, "nzval")
+            nzval_dataset = vector_object["nzval"]
+            @assert nzval_dataset isa HDF5.Dataset
+            nzval_vector = dataset_as_vector(nzval_dataset)
+        else
+            nzval_vector = fill(true, length(nzind_vector))
+        end
 
         nelements = Formats.format_axis_length(h5df, axis)
         vector = SparseVector(nelements, nzind_vector, nzval_vector)
@@ -718,7 +716,9 @@ function Formats.format_set_matrix!(
             matrix_group = create_group(columns_axis_group, name)
             matrix_group["colptr"] = colptr(matrix)
             matrix_group["rowval"] = rowval(matrix)
-            matrix_group["nzval"] = nzval(matrix)
+            if eltype(matrix) != Bool || !all(nzval(matrix))
+                matrix_group["nzval"] = nzval(matrix)
+            end
             close(matrix_group)
 
         else
@@ -935,9 +935,13 @@ function Formats.format_get_matrix(
         @assert rowval_dataset isa HDF5.Dataset
         rowval_vector = dataset_as_vector(rowval_dataset)
 
-        nzval_dataset = matrix_object["nzval"]
-        @assert nzval_dataset isa HDF5.Dataset
-        nzval_vector = dataset_as_vector(nzval_dataset)
+        if haskey(matrix_object, "nzval")
+            nzval_dataset = matrix_object["nzval"]
+            @assert nzval_dataset isa HDF5.Dataset
+            nzval_vector = dataset_as_vector(nzval_dataset)
+        else
+            nzval_vector = fill(true, length(rowval_vector))  # UNTESTED
+        end
 
         nrows = Formats.format_axis_length(h5df, rows_axis)
         ncols = Formats.format_axis_length(h5df, columns_axis)

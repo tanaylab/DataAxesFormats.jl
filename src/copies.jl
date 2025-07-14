@@ -485,7 +485,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
             named .= empty
             named[names(value, 1), names(value, 2)] .= value  # NOJET
             if concrete_eltype <: AbstractString
-                set_matrix!(destination, rows_reaxis, columns_reaxis, rename, dense; overwrite, relayout)
+                set_matrix!(destination, rows_reaxis, columns_reaxis, rename, dense; overwrite, relayout)  # UNTESTED
             else
                 sparse = sparse_matrix_csc(dense)
                 set_matrix!(destination, rows_reaxis, columns_reaxis, rename, sparse; overwrite, relayout)

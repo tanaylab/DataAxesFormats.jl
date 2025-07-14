@@ -3250,16 +3250,16 @@ end
 
 function cast_value_to_type(query_state::QueryState, value::Any, type::Type)::Any
     if !(value isa type)
-        try
-            if type <: AbstractString
-                value = String(value)
-            elseif value isa AbstractString
-                value = parse(type, value)
+        try  # UNTESTED
+            if type <: AbstractString  # UNTESTED
+                value = String(value)  # UNTESTED
+            elseif value isa AbstractString  # UNTESTED
+                value = parse(type, value)  # UNTESTED
             else
-                value = type(value)
+                value = type(value)  # UNTESTED
             end
         catch
-            error_at_state(
+            error_at_state(  # UNTESTED
                 query_state,
                 """
                 invalid if_not_value: $(value)

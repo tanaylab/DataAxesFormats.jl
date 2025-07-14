@@ -37,7 +37,8 @@ We use multiple files to store `Daf` data, under some root directory, as follows
     If the format is `sparse`, then there will also be an `indtype` key specifying the data type of the indices of the
     non-zero values, and two binary data files, `name.nzind` containing the indices of the non-zero entries, and
     `name.nzval` containing the values of the non-zero entries (which we can memory-map for direct access). See Julia's
-    `SparseVector` implementation for details.
+    `SparseVector` implementation for details. If the data type is `Bool` then the data vector is typically all-`true`
+    values; in this case we simply skip storing it.
   - The `matrices` directly contains a directory per rows axis, which contains a directory per columns axis, which
     contains the matrices. For each matrix, a `name.json` file will contain a mapping with an `eltype` key specifying
     the type of the matrix element, and a `format` key specifying how the data is stored on disk, one of `dense` and
@@ -49,16 +50,19 @@ We use multiple files to store `Daf` data, under some root directory, as follows
     If the format is `sparse`, then there will also be an `indtype` key specifying the data type of the indices of the
     non-zero values, and three binary data files, `name.colptr`, `name.rowval` containing the indices of the non-zero
     values, and `name.nzval` containing the values of the non-zero entries (which we can memory-map for direct access).
-    See Julia's `SparseMatrixCSC` implementation for details.
+    See Julia's `SparseMatrixCSC` implementation for details. If the data type is `Bool` then the data vector is
+    typically all-`true` values; in this case we simply skip storing it. We also allow using this sparse format for
+    string data (where the zero value is the empty string). This isn't supported by `SparseMatrixCSC` because "reasons"
+    so we load it into a dense matrix.
 
 !!! note
 
     Since data is stored in files using the property names, we are sadly susceptible to the operating system vagaries
     when it comes to "what is a valid property name" (e.g., no `/` characters allowed) and whether property names
     are/not case sensitive. In theory, we could just encode the property names somehow but that would make the file
-    names opaque which would lose out on a lot of the benefit of using files. It **always** pays to have "sane", simple,
-    unique property names, using only alphanumeric characters, that would be a valid variable name in most programming
-    languages.
+    names opaque, which would lose out on a lot of the benefit of using files. It **always** pays to have "sane",
+    simple, unique property names, using only alphanumeric characters, that would be a valid variable name in most
+    programming languages.
 
 Example directory structure:
 
@@ -97,11 +101,6 @@ Example directory structure:
     All string data is stored in lines, one entry per line, separated by a `\n` character (regardless of the OS used).
     Therefore, you can't have a line break inside an axis entry name or in a vector property value, at least not
     when storing it in `FilesDaf`.
-
-    When creating an HDF5 file to contain `Daf` data, you should specify
-    `;fapl=HDF5.FileAccessProperties(;alignment=(1,8))`. This ensures all the memory buffers are properly aligned for
-    efficient access. Otherwise, memory mapping will be **much** less efficient. A warning is therefore generated
-    whenever you try to access `Daf` data stored in an HDF5 file which does not enforce proper alignment.
 
 That's all there is to it. The format is intentionally simple and transparent to maximize its accessibility by other
 (standard) tools. Still, it is easiest to create the data using the Julia `Daf` package.
@@ -388,7 +387,9 @@ function Formats.format_set_vector!(
     elseif issparse(vector)
         write_array_json("$(files.path)/vectors/$(axis)/$(name).json", "sparse", eltype(vector), indtype(vector))
         write("$(files.path)/vectors/$(axis)/$(name).nzind", nzind(vector))
-        write("$(files.path)/vectors/$(axis)/$(name).nzval", nzval(vector))
+        if eltype(vector) != Bool || !all(nzval(vector))
+            write("$(files.path)/vectors/$(axis)/$(name).nzval", nzval(vector))
+        end
 
     elseif eltype(vector) <: AbstractString
         write_array_json("$(files.path)/vectors/$(axis)/$(name).json", "dense", String)
@@ -495,12 +496,15 @@ function Formats.format_get_vector(files::FilesDaf, axis::AbstractString, name::
         @assert indtype !== nothing
 
         nzind_path = "$(files.path)/vectors/$(axis)/$(name).nzind"
-        nzval_path = "$(files.path)/vectors/$(axis)/$(name).nzval"
-
-        nnz = div(filesize(nzval_path), sizeof(eltype))
-
+        nnz = div(filesize(nzind_path), sizeof(indtype))
         nzind_vector = mmap_file_data(nzind_path, Vector{indtype}, nnz, files.files_mode)
-        nzval_vector = mmap_file_data(nzval_path, Vector{eltype}, nnz, files.files_mode)
+
+        nzval_path = "$(files.path)/vectors/$(axis)/$(name).nzval"
+        if isfile(nzval_path)
+            nzval_vector = mmap_file_data(nzval_path, Vector{eltype}, nnz, files.files_mode)
+        else
+            nzval_vector = fill(true, nnz)
+        end
 
         vector = SparseVector(size, nzind_vector, nzval_vector)
     end
@@ -550,7 +554,9 @@ function Formats.format_set_matrix!(
         )
         write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).colptr", colptr(matrix))
         write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).rowval", rowval(matrix))
-        write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).nzval", nzval(matrix))
+        if eltype(matrix) != Bool || !all(nzval(matrix))
+            write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).nzval", nzval(matrix))
+        end
 
     elseif eltype(matrix) <: AbstractString
         write_array_json("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", "dense", String)
@@ -694,6 +700,8 @@ function Formats.format_get_matrix(
 )::StorageMatrix
     @assert Formats.has_data_read_lock(files)
 
+    println("??? $(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).*")
+
     nrows = Formats.format_axis_length(files, rows_axis)
     ncols = Formats.format_axis_length(files, columns_axis)
 
@@ -732,14 +740,18 @@ function Formats.format_get_matrix(
         @assert indtype !== nothing
 
         colptr_path = "$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).colptr"
-        rowval_path = "$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).rowval"
-        nzval_path = "$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).nzval"
-
-        nnz = div(filesize(nzval_path), sizeof(eltype))
-
         colptr_vector = mmap_file_data(colptr_path, Vector{indtype}, ncols + 1, files.files_mode)
+
+        rowval_path = "$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).rowval"
+        nnz = div(filesize(rowval_path), sizeof(indtype))
         rowval_vector = mmap_file_data(rowval_path, Vector{indtype}, nnz, files.files_mode)
-        nzval_vector = mmap_file_data(nzval_path, Vector{eltype}, nnz, files.files_mode)
+
+        nzval_path = "$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).nzval"
+        if isfile(nzval_path)
+            nzval_vector = mmap_file_data(nzval_path, Vector{eltype}, nnz, files.files_mode)
+        else
+            nzval_vector = fill(true, nnz)  # UNTESTED
+        end
 
         matrix = SparseMatrixCSC(nrows, ncols, colptr_vector, rowval_vector, nzval_vector)  # NOJET
     end

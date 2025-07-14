@@ -255,7 +255,8 @@
 </code>):
 </p>
 <ul>
-<li>The HDF5 file may contain 
+<li>
+<p>The HDF5 file may contain 
 <code>Daf
 </code> data directly in the root group, in which case, it is restricted to holding just a single 
 <code>Daf
@@ -264,8 +265,10 @@
 </code> data set contained in it. By convention such files are given a 
 <code>.h5df
 </code> suffix.
+</p>
 </li>
-<li>Alternatively, the HDF5 file may contain 
+<li>
+<p>Alternatively, the HDF5 file may contain 
 <code>Daf
 </code> data inside some arbitrary group, in which case, there&#39;s no restriction on the content of other groups in the file. Such groups may contain other 
 <code>Daf
@@ -280,8 +283,10 @@
 </code> data sets, they are given a 
 <code>.h5dfs
 </code> suffix, and are accompanied by some documentation describing the top-level groups in the file.
+</p>
 </li>
-<li>Under the 
+<li>
+<p>Under the 
 <code>Daf
 </code> data group, there are 4 sub-groups: 
 <code>scalars
@@ -294,8 +299,10 @@
 </code> and a 
 <code>daf
 </code> dataset.
+</p>
 </li>
-<li>To future-proof the format, the 
+<li>
+<p>To future-proof the format, the 
 <code>daf
 </code> dataset will contain a vector of two integers, the first acting as the major version number and the second as the minor version number, using 
 <a href="https://semver.org/">semantic versioning
@@ -304,8 +311,10 @@
 </code> data, and which version of the internal structure it is using. Currently the only defined version is 
 <code>[1,0]
 </code>.
+</p>
 </li>
-<li>The 
+<li>
+<p>The 
 <code>scalars
 </code> group contains scalar properties, each as its own &quot;dataset&quot;. The only supported scalar data types are these included in 
 <a href="storage_types.html#DataAxesFormats.StorageTypes.StorageScalar">
@@ -316,12 +325,16 @@
 </strong> need something else, serialize it to JSON and store the result as a string scalar. This should be 
 <strong>extremely
 </strong> rare.
+</p>
 </li>
-<li>The 
+<li>
+<p>The 
 <code>axes
 </code> group contains a &quot;dataset&quot; per axis, which contains a vector of strings (the names of the axis entries).
+</p>
 </li>
-<li>The 
+<li>
+<p>The 
 <code>vectors
 </code> group contains a sub-group for each axis. Each such sub-group contains vector properties. If the vector is dense, it is stored directly as a &quot;dataset&quot;. Otherwise, it is stored as a group containing two vector &quot;datasets&quot;: 
 <code>nzind
@@ -337,9 +350,15 @@
 <a href="storage_types.html#DataAxesFormats.StorageTypes.StorageVector">
 <code>StorageVector
 </code>
-</a>.
+</a>. If the data type is 
+<code>Bool
+</code> then the data vector is typically all-
+<code>true
+</code> values; in this case we simply skip storing it.
+</p>
 </li>
-<li>The 
+<li>
+<p>The 
 <code>matrices
 </code> group contains a sub-group for each rows axis, which contains a sub-group for each columns axis. Each such sub-sub group contains matrix properties. If the matrix is dense, it is stored directly as a &quot;dataset&quot; (in column-major layout). Otherwise, it is stored as a group containing three vector &quot;datasets&quot;: 
 <code>colptr
@@ -359,9 +378,18 @@
 <a href="storage_types.html#DataAxesFormats.StorageTypes.StorageMatrix">
 <code>StorageMatrix
 </code>
-</a>.
+</a>. If the data type is 
+<code>Bool
+</code> then the data vector is typically all-
+<code>true
+</code> values; in this case we simply skip storing it. We also allow using this sparse format for string data (where the zero value is the empty string). This isn&#39;t supported by 
+<code>SparseMatrixCSC
+</code> because &quot;reasons&quot; so we load it into a dense matrix.
+</p>
 </li>
-<li>All vectors and matrices are stored in a contiguous way in the file, which allows us to efficiently memory-map them.
+<li>
+<p>All vectors and matrices are stored in a contiguous way in the file, which allows us to efficiently memory-map them.
+</p>
 </li>
 </ul>
 <p>That&#39;s all there is to it. Due to the above restrictions on types and layout, the metadata provided by HDF5 for each &quot;dataset&quot; is sufficient to fully describe the data, and one should be able to directly access it using any HDF5 API in any programming language, if needed. Typically, however, it is easiest to simply use the Julia 
@@ -797,7 +825,7 @@
 <hr/>
 <p>This document was generated with 
 <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl
-</a> version 1.12.0. Using Julia version 1.11.5.
+</a> version 1.13.0. Using Julia version 1.11.5.
 </p>
 </section>
 <footer class="modal-card-foot">
