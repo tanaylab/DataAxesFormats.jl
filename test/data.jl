@@ -6,6 +6,7 @@ MARKER_GENES_BY_DEPTH =
     [[true, false, true, false], [false, true, false, true], [false, false, true, true], [true, true, false, false]]
 UMIS_BY_DEPTH =
     [[0 1 2 3; 1 2 3 0; 2 3 0 1], [1 2 3 0; 2 3 0 1; 3 0 1 2], [2 3 0 1; 3 0 1 2; 0 1 2 3], [3 0 1 2; 0 1 2 3; 1 2 3 0]]
+MASKS_BY_DEPTH = [Matrix{Bool}(Bool.(UMIS .% 2)) for UMIS in UMIS_BY_DEPTH]
 
 function test_missing_scalar(daf::DafReader, depth::Int)::Nothing
     if depth > 2
@@ -688,6 +689,24 @@ function test_missing_vector(daf::DafReader, depth::Int)::Nothing
             @test eltype(get_vector(daf, "gene", "noisy")) == Int32
             @test set_vector!(daf, "cell", "type", "TCell") === nothing
             @test get_vector(daf, "cell", "type") == ["TCell", "TCell", "TCell"]
+        end
+
+        nested_test("special") do
+            add_axis!(daf, "long", string.(collect(1:100)))
+
+            nested_test("bool") do
+                vector = fill(false, 100)
+                vector[10] = true
+                @test set_vector!(daf, "long", "value", SparseVector(vector)) == nothing
+                @test get_vector(daf, "long", "value") == vector
+            end
+
+            nested_test("string") do
+                vector = fill("", 100)
+                vector[10] = "value"
+                @test set_vector!(daf, "long", "value", vector) == nothing
+                @test get_vector(daf, "long", "value") == vector
+            end
         end
 
         nested_test("vector") do
@@ -1598,6 +1617,24 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
             @test eltype(get_matrix(daf, "cell", "gene", "LogUMIs"; relayout = false)) <: AbstractString
         end
 
+        nested_test("special") do
+            add_axis!(daf, "long", string.(collect(1:200)))
+
+            nested_test("bool") do
+                matrix = rand(1:100, 200, 4) .< 10
+                @test set_matrix!(daf, "long", "gene", "mask", sparse_matrix_csc(matrix)) === nothing
+                @test get_matrix(daf, "long", "gene", "mask") == matrix
+                @test issparse(get_matrix(daf, "gene", "long", "mask"))
+            end
+
+            nested_test("string") do
+                matrix = rand(1:100, 200, 4)
+                matrix = map(x -> x < 10 ? string(x) : "", matrix)
+                @test set_matrix!(daf, "long", "gene", "value", matrix) === nothing
+                @test get_matrix(daf, "long", "gene", "value") == matrix
+            end
+        end
+
         nested_test("matrix") do
             nested_test("relayout") do
                 nested_test("dense") do
@@ -1621,7 +1658,7 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
 
                 nested_test("sparse") do
                     nested_test("exists") do
-                        @test set_matrix!(daf, "cell", "gene", "UMIs", sparse_matrix_csc(UMIS_BY_DEPTH[depth])) ===
+                        @test set_matrix!(daf, "cell", "gene", "UMIs", sparse_matrix_csc(UMIS_BY_DEPTH[depth])) ==
                               nothing
                         test_existing_relayout_matrix(daf, depth + 1)
                         return nothing
@@ -3172,14 +3209,23 @@ nested_test("data") do
     nested_test("contract") do
         daf = MemoryDaf(; name = "memory!")
         contract = Contract(;
-            axes = ["cell" => (OptionalOutput, "cell"), "gene" => (OptionalOutput, "gene")],
+            axes = [
+                "cell" => (OptionalOutput, "cell"),
+                "gene" => (OptionalOutput, "gene"),
+                "long" => (OptionalOutput, "long"),
+            ],
             data = [
                 "depth" => (OptionalOutput, StorageScalar, "depth"),
                 "version" => (OptionalOutput, StorageScalar, "version"),
+                ("long", "mask") => (OptionalOutput, Bool, "mask"),
+                ("long", "value") => (OptionalOutput, AbstractString, "value"),
+                ("long", "gene", "mask") => (OptionalOutput, Bool, "value"),
+                ("long", "gene", "value") => (OptionalOutput, AbstractString, "value"),
                 ("gene", "marker") => (OptionalOutput, Bool, "is marker"),
                 ("gene", "noisy") => (OptionalOutput, Bool, "is noisy"),
                 ("cell", "type") => (OptionalOutput, AbstractString, "type"),
                 ("cell", "gene", "UMIs") => (OptionalOutput, StorageReal, "UMIs"),
+                ("cell", "gene", "value") => (OptionalOutput, AbstractString, "value"),
                 ("cell", "gene", "LogUMIs") => (OptionalOutput, StorageReal, "LogUMIs"),
                 ("cell", "cell", "outgoing_edges") => (OptionalOutput, StorageReal, "UMIs"),
             ],

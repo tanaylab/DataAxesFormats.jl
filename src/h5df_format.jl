@@ -31,18 +31,28 @@ is **not** compatible with `h5ad`):
     vector is dense, it is stored directly as a "dataset". Otherwise, it is stored as a group containing two vector
     "datasets": `nzind` is containing the indices of the non-zero values, and `nzval` containing the actual values. See
     Julia's `SparseVector` implementation for details. The only supported vector element types are these included in
-    [`StorageScalar`](@ref), same as [`StorageVector`](@ref). If the data type is `Bool` then the data vector is
-    typically all-`true` values; in this case we simply skip storing it.
+    [`StorageScalar`](@ref), same as [`StorageVector`](@ref).
+
+    If the data type is `Bool` then the data vector is typically all-`true` values; in this case we simply skip storing
+    it.
+
+    We switch to using this sparse format for sufficiently sparse string data (where the zero value is the empty
+    string). This isn't supported by `SparseVector` because "reasons" so we load it into a dense vector. In this case we
+    name the values vector `nztxt`.
   - The `matrices` group contains a sub-group for each rows axis, which contains a sub-group for each columns axis. Each
     such sub-sub group contains matrix properties. If the matrix is dense, it is stored directly as a "dataset" (in
     column-major layout). Otherwise, it is stored as a group containing three vector "datasets": `colptr` containing the
     indices of the rows of each column in `rowval`, `rowval` containing the indices of the non-zero rows of the columns,
     and `nzval` containing the non-zero matrix entry values. See Julia's `SparseMatrixCSC` implementation for details.
     The only supported matrix element types are these included in [`StorageReal`](@ref) - this explicitly excludes
-    matrices of strings, same as [`StorageMatrix`](@ref). If the data type is `Bool` then the data vector is typically
-    all-`true` values; in this case we simply skip storing it. We also allow using this sparse format for string data
-    (where the zero value is the empty string). This isn't supported by `SparseMatrixCSC` because "reasons" so we load
-    it into a dense matrix.
+    matrices of strings, same as [`StorageMatrix`](@ref).
+
+    If the data type is `Bool` then the data vector is typically all-`true` values; in this case we simply skip storing
+    it.
+
+    We switch to using this sparse format for sufficiently sparse string data (where the zero value is the empty
+    string). This isn't supported by `SparseMatrixCSC` because "reasons" so we load it into a dense matrix. In this case
+    we name the values vector `nztxt`.
   - All vectors and matrices are stored in a contiguous way in the file, which allows us to efficiently memory-map
     them.
 
@@ -520,17 +530,54 @@ function Formats.format_set_vector!(
             end
             close(vector_group)
 
+        elseif eltype(vector) <: AbstractString
+            n_empty = 0
+            nonempty_size = 0
+            for value in vector
+                value_size = length(value)
+                if value_size > 0
+                    nonempty_size += value_size
+                else
+                    n_empty += 1
+                end
+            end
+
+            n_values = length(vector)
+            n_nonempty = n_values - n_empty
+            indtype = indtype_for_size(n_values)
+
+            dense_size = nonempty_size + length(vector)
+            sparse_size = nonempty_size + n_nonempty * (1 + sizeof(indtype))
+
+            if sparse_size <= dense_size * 0.75
+                nzind_vector = Vector{indtype}(undef, n_nonempty)
+                nztxt_vector = Vector{String}(undef, n_nonempty)
+                position = 1
+                for (index, value) in enumerate(vector)
+                    if length(value) > 0
+                        nzind_vector[position] = index
+                        nztxt_vector[position] = string.(value)
+                        position += 1
+                    end
+                end
+                @assert position == n_nonempty + 1
+
+                vector_group = create_group(axis_vectors_group, name)
+                vector_group["nzind"] = nzind_vector  # NOJET
+                vector_group["nztxt"] = nztxt_vector
+
+            else
+                nice_vector = string.(vector)
+                axis_vectors_group[name] = nice_vector  # NOJET
+            end
+
         else
             nice_vector = nothing
-            if eltype(vector) <: AbstractString && !(vector isa Vector{String})
-                nice_vector = Vector{String}(vector)  # UNTESTED
-            else
-                try
-                    base = pointer(vector)
-                    nice_vector = Base.unsafe_wrap(Array, base, size(vector))
-                catch
-                    nice_vector = Vector(vector)  # NOJET # UNTESTED
-                end
+            try
+                base = pointer(vector)
+                nice_vector = Base.unsafe_wrap(Array, base, size(vector))
+            catch
+                nice_vector = Vector(vector)  # NOJET # UNTESTED
             end
             axis_vectors_group[name] = nice_vector  # NOJET
         end
@@ -635,21 +682,31 @@ function Formats.format_get_vector(h5df::H5df, axis::AbstractString, name::Abstr
 
     else
         @assert vector_object isa HDF5.Group
+        nelements = Formats.format_axis_length(h5df, axis)
 
         nzind_dataset = vector_object["nzind"]
         @assert nzind_dataset isa HDF5.Dataset
         nzind_vector = dataset_as_vector(nzind_dataset)
 
-        if haskey(vector_object, "nzval")
-            nzval_dataset = vector_object["nzval"]
-            @assert nzval_dataset isa HDF5.Dataset
-            nzval_vector = dataset_as_vector(nzval_dataset)
-        else
-            nzval_vector = fill(true, length(nzind_vector))
-        end
+        if haskey(vector_object, "nztxt")
+            nztxt_dataset = vector_object["nztxt"]
+            @assert nztxt_dataset isa HDF5.Dataset
+            nztxt_vector = dataset_as_vector(nztxt_dataset)
+            vector = Vector{AbstractString}(undef, nelements)
+            fill!(vector, "")
+            vector[nzind_vector] .= nztxt_vector
 
-        nelements = Formats.format_axis_length(h5df, axis)
-        vector = SparseVector(nelements, nzind_vector, nzval_vector)
+        else
+            if haskey(vector_object, "nzval")
+                nzval_dataset = vector_object["nzval"]
+                @assert nzval_dataset isa HDF5.Dataset
+                nzval_vector = dataset_as_vector(nzval_dataset)
+            else
+                nzval_vector = fill(true, length(nzind_vector))
+            end
+
+            vector = SparseVector(nelements, nzind_vector, nzval_vector)
+        end
     end
 
     return vector
@@ -691,19 +748,68 @@ function Formats.format_set_matrix!(
     columns_axis_group = rows_axis_group[columns_axis]
     @assert columns_axis_group isa HDF5.Group
 
+    nrows = Formats.format_axis_length(h5df, rows_axis)
+    ncols = Formats.format_axis_length(h5df, columns_axis)
+
     if matrix isa StorageReal
-        nrows = Formats.format_axis_length(h5df, rows_axis)
-        ncols = Formats.format_axis_length(h5df, columns_axis)
         matrix_dataset = create_dataset(columns_axis_group, name, typeof(matrix), (nrows, ncols))
         matrix_dataset[:, :] = matrix
         close(matrix_dataset)
 
     elseif matrix isa AbstractString
-        nrows = Formats.format_axis_length(h5df, rows_axis)
-        ncols = Formats.format_axis_length(h5df, columns_axis)
         matrix_dataset = create_dataset(columns_axis_group, name, String, (nrows, ncols))
         matrix_dataset[:, :] = matrix
         close(matrix_dataset)
+
+    elseif eltype(matrix) <: AbstractString
+        n_empty = 0
+        nonempty_size = 0
+        for value in matrix
+            value_size = length(value)
+            if value_size > 0
+                nonempty_size += value_size
+            else
+                n_empty += 1
+            end
+        end
+
+        n_values = nrows * ncols
+        n_nonempty = n_values - n_empty
+        indtype = indtype_for_size(n_values)
+
+        dense_size = nonempty_size + length(matrix)
+        sparse_size = nonempty_size + n_nonempty + (ncols + 1 + n_nonempty) * sizeof(indtype)
+
+        if sparse_size <= dense_size * 0.75
+            colptr_vector = Vector{indtype}(undef, ncols + 1)
+            rowval_vector = Vector{indtype}(undef, n_nonempty)
+            nztxt_vector = Vector{String}(undef, n_nonempty)
+
+            position = 1
+            for column_index in 1:ncols
+                colptr_vector[column_index] = position
+                for row_index in 1:nrows
+                    value = matrix[row_index, column_index]
+                    if length(value) > 0
+                        @assert !(contains(value, '\n'))
+                        rowval_vector[position] = row_index
+                        nztxt_vector[position] = string.(value)
+                        position += 1
+                    end
+                end
+            end
+            @assert position == n_nonempty + 1
+            colptr_vector[ncols + 1] = n_nonempty + 1
+
+            matrix_group = create_group(columns_axis_group, name)
+            matrix_group["colptr"] = colptr_vector
+            matrix_group["rowval"] = rowval_vector
+            matrix_group["nztxt"] = nztxt_vector
+
+        else
+            nice_matrix = string.(matrix)
+            columns_axis_group[name] = nice_matrix  # NOJET
+        end
 
     else
         @assert matrix isa AbstractMatrix
@@ -935,17 +1041,38 @@ function Formats.format_get_matrix(
         @assert rowval_dataset isa HDF5.Dataset
         rowval_vector = dataset_as_vector(rowval_dataset)
 
-        if haskey(matrix_object, "nzval")
-            nzval_dataset = matrix_object["nzval"]
-            @assert nzval_dataset isa HDF5.Dataset
-            nzval_vector = dataset_as_vector(nzval_dataset)
-        else
-            nzval_vector = fill(true, length(rowval_vector))  # UNTESTED
-        end
-
         nrows = Formats.format_axis_length(h5df, rows_axis)
         ncols = Formats.format_axis_length(h5df, columns_axis)
-        matrix = SparseMatrixCSC(nrows, ncols, colptr_vector, rowval_vector, nzval_vector)
+
+        if haskey(matrix_object, "nztxt")
+            nztxt_dataset = matrix_object["nztxt"]
+            @assert nztxt_dataset isa HDF5.Dataset
+            nztxt_vector = dataset_as_vector(nztxt_dataset)
+
+            matrix = Matrix{AbstractString}(undef, nrows, ncols)
+            fill!(matrix, "")
+
+            index = 0
+            for column in 1:ncols
+                first_row_position = colptr_vector[column]
+                last_row_position = colptr_vector[column + 1] - 1
+                for row in rowval_vector[first_row_position:last_row_position]
+                    index += 1
+                    matrix[row, column] = nztxt_vector[index]
+                end
+            end
+
+        else
+            if haskey(matrix_object, "nzval")
+                nzval_dataset = matrix_object["nzval"]
+                @assert nzval_dataset isa HDF5.Dataset
+                nzval_vector = dataset_as_vector(nzval_dataset)
+            else
+                nzval_vector = fill(true, length(rowval_vector))
+            end
+
+            matrix = SparseMatrixCSC(nrows, ncols, colptr_vector, rowval_vector, nzval_vector)
+        end
     end
 
     return matrix

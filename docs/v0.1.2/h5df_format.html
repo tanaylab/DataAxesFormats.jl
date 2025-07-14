@@ -350,11 +350,19 @@
 <a href="storage_types.html#DataAxesFormats.StorageTypes.StorageVector">
 <code>StorageVector
 </code>
-</a>. If the data type is 
+</a>.
+</p>
+<p>If the data type is 
 <code>Bool
 </code> then the data vector is typically all-
 <code>true
 </code> values; in this case we simply skip storing it.
+</p>
+<p>We switch to using this sparse format for sufficiently sparse string data (where the zero value is the empty string). This isn&#39;t supported by 
+<code>SparseVector
+</code> because &quot;reasons&quot; so we load it into a dense vector. In this case we name the values vector 
+<code>nztxt
+</code>.
 </p>
 </li>
 <li>
@@ -378,13 +386,19 @@
 <a href="storage_types.html#DataAxesFormats.StorageTypes.StorageMatrix">
 <code>StorageMatrix
 </code>
-</a>. If the data type is 
+</a>.
+</p>
+<p>If the data type is 
 <code>Bool
 </code> then the data vector is typically all-
 <code>true
-</code> values; in this case we simply skip storing it. We also allow using this sparse format for string data (where the zero value is the empty string). This isn&#39;t supported by 
+</code> values; in this case we simply skip storing it.
+</p>
+<p>We switch to using this sparse format for sufficiently sparse string data (where the zero value is the empty string). This isn&#39;t supported by 
 <code>SparseMatrixCSC
-</code> because &quot;reasons&quot; so we load it into a dense matrix.
+</code> because &quot;reasons&quot; so we load it into a dense matrix. In this case we name the values vector 
+<code>nztxt
+</code>.
 </p>
 </li>
 <li>

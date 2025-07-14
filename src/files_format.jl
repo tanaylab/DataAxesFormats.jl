@@ -37,8 +37,14 @@ We use multiple files to store `Daf` data, under some root directory, as follows
     If the format is `sparse`, then there will also be an `indtype` key specifying the data type of the indices of the
     non-zero values, and two binary data files, `name.nzind` containing the indices of the non-zero entries, and
     `name.nzval` containing the values of the non-zero entries (which we can memory-map for direct access). See Julia's
-    `SparseVector` implementation for details. If the data type is `Bool` then the data vector is typically all-`true`
-    values; in this case we simply skip storing it.
+    `SparseVector` implementation for details.
+
+    If the data type is `Bool` then the data vector is typically all-`true` values; in this case we simply skip storing
+    it.
+
+    We switch to using this sparse format for sufficiently sparse string data (where the zero value is the empty
+    string). This isn't supported by `SparseVector` because "reasons" so we load it into a dense vector. In this case we
+    name the values file `name.nztxt`.
   - The `matrices` directly contains a directory per rows axis, which contains a directory per columns axis, which
     contains the matrices. For each matrix, a `name.json` file will contain a mapping with an `eltype` key specifying
     the type of the matrix element, and a `format` key specifying how the data is stored on disk, one of `dense` and
@@ -50,10 +56,14 @@ We use multiple files to store `Daf` data, under some root directory, as follows
     If the format is `sparse`, then there will also be an `indtype` key specifying the data type of the indices of the
     non-zero values, and three binary data files, `name.colptr`, `name.rowval` containing the indices of the non-zero
     values, and `name.nzval` containing the values of the non-zero entries (which we can memory-map for direct access).
-    See Julia's `SparseMatrixCSC` implementation for details. If the data type is `Bool` then the data vector is
-    typically all-`true` values; in this case we simply skip storing it. We also allow using this sparse format for
-    string data (where the zero value is the empty string). This isn't supported by `SparseMatrixCSC` because "reasons"
-    so we load it into a dense matrix.
+    See Julia's `SparseMatrixCSC` implementation for details.
+
+    If the data type is `Bool` then the data vector is typically all-`true` values; in this case we simply skip storing
+    it.
+
+    We switch to using this sparse format for sufficiently sparse string data (where the zero value is the empty
+    string). This isn't supported by `SparseMatrixCSC` because "reasons" so we load it into a dense matrix. In this case
+    we name the values file `name.nztxt`.
 
 !!! note
 
@@ -392,14 +402,54 @@ function Formats.format_set_vector!(
         end
 
     elseif eltype(vector) <: AbstractString
-        write_array_json("$(files.path)/vectors/$(axis)/$(name).json", "dense", String)
-        open("$(files.path)/vectors/$(axis)/$(name).txt", "w") do file
-            for value in vector
-                @assert !(contains(value, '\n'))
-                println(file, value)
+        n_empty = 0
+        nonempty_size = 0
+        for value in vector
+            value_size = length(value)
+            if value_size > 0
+                nonempty_size += value_size
+            else
+                n_empty += 1
             end
-            return nothing
         end
+
+        n_values = length(vector)
+        n_nonempty = n_values - n_empty
+        ind_type = indtype_for_size(n_values)
+
+        dense_size = nonempty_size + length(vector)
+        sparse_size = nonempty_size + n_nonempty * (1 + sizeof(ind_type))
+
+        if sparse_size <= dense_size * 0.75
+            write_array_json("$(files.path)/vectors/$(axis)/$(name).json", "sparse", String, ind_type)
+
+            nzind_vector = Vector{ind_type}(undef, n_nonempty)
+            open("$(files.path)/vectors/$(axis)/$(name).nztxt", "w") do file
+                position = 1
+                for (index, value) in enumerate(vector)
+                    if length(value) > 0
+                        @assert !(contains(value, '\n'))
+                        println(file, value)
+                        nzind_vector[position] = index
+                        position += 1
+                    end
+                end
+                @assert position == n_nonempty + 1
+            end
+
+            write("$(files.path)/vectors/$(axis)/$(name).nzind", nzind_vector)
+
+        else
+            write_array_json("$(files.path)/vectors/$(axis)/$(name).json", "dense", String)
+            open("$(files.path)/vectors/$(axis)/$(name).txt", "w") do file
+                for value in vector
+                    @assert !(contains(value, '\n'))
+                    println(file, value)
+                end
+                return nothing
+            end
+        end
+
     else
         write_array_json("$(files.path)/vectors/$(axis)/$(name).json", "dense", eltype(vector))
         write("$(files.path)/vectors/$(axis)/$(name).data", vector)
@@ -489,24 +539,32 @@ function Formats.format_get_vector(files::FilesDaf, axis::AbstractString, name::
         @assert format == "sparse"
         indtype_name = json["indtype"]
 
-        eltype = DTYPE_BY_NAME[eltype_name]
-        @assert eltype !== nothing
-
-        indtype = DTYPE_BY_NAME[indtype_name]
-        @assert indtype !== nothing
+        ind_type = DTYPE_BY_NAME[indtype_name]
+        @assert ind_type !== nothing
 
         nzind_path = "$(files.path)/vectors/$(axis)/$(name).nzind"
-        nnz = div(filesize(nzind_path), sizeof(indtype))
-        nzind_vector = mmap_file_data(nzind_path, Vector{indtype}, nnz, files.files_mode)
+        nnz = div(filesize(nzind_path), sizeof(ind_type))
+        nzind_vector = mmap_file_data(nzind_path, Vector{ind_type}, nnz, files.files_mode)
 
-        nzval_path = "$(files.path)/vectors/$(axis)/$(name).nzval"
-        if isfile(nzval_path)
-            nzval_vector = mmap_file_data(nzval_path, Vector{eltype}, nnz, files.files_mode)
+        if eltype_name == "string" || eltype_name == "String"
+            vector = Vector{AbstractString}(undef, size)
+            fill!(vector, "")
+            vector[nzind_vector] .= mmap_file_lines("$(files.path)/vectors/$(axis)/$(name).nztxt")
+
         else
-            nzval_vector = fill(true, nnz)
-        end
+            nzval_path = "$(files.path)/vectors/$(axis)/$(name).nzval"
 
-        vector = SparseVector(size, nzind_vector, nzval_vector)
+            eltype = DTYPE_BY_NAME[eltype_name]
+            @assert eltype !== nothing
+
+            if isfile(nzval_path)
+                nzval_vector = mmap_file_data(nzval_path, Vector{eltype}, nnz, files.files_mode)
+            else
+                nzval_vector = fill(true, nnz)
+            end
+
+            vector = SparseVector(size, nzind_vector, nzval_vector)
+        end
     end
 
     return vector
@@ -559,13 +617,66 @@ function Formats.format_set_matrix!(
         end
 
     elseif eltype(matrix) <: AbstractString
-        write_array_json("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", "dense", String)
-        open("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).txt", "w") do file
-            for value in matrix
-                @assert !(contains(value, '\n'))
-                println(file, value)
+        n_empty = 0
+        nonempty_size = 0
+
+        for value in matrix
+            value_size = length(value)
+            if value_size > 0
+                nonempty_size += value_size
+            else
+                n_empty += 1
             end
-            return nothing
+        end
+
+        n_values = nrows * ncols
+        n_nonempty = n_values - n_empty
+        ind_type = indtype_for_size(n_values)
+
+        dense_size = nonempty_size + nrows * ncols
+        sparse_size = nonempty_size + n_nonempty + (ncols + 1 + n_nonempty) * sizeof(ind_type)
+
+        if sparse_size <= dense_size * 0.75
+            write_array_json(
+                "$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json",
+                "sparse",
+                String,
+                ind_type,
+            )
+
+            colptr_vector = Vector{ind_type}(undef, ncols + 1)
+            rowval_vector = Vector{ind_type}(undef, n_nonempty)
+            open("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).nztxt", "w") do file
+                position = 1
+                for column_index in 1:ncols
+                    colptr_vector[column_index] = position
+                    for row_index in 1:nrows
+                        value = matrix[row_index, column_index]
+                        if length(value) > 0
+                            @assert !(contains(value, '\n'))
+                            println(file, value)
+                            rowval_vector[position] = row_index
+                            position += 1
+                        end
+                    end
+                end
+                @assert position == n_nonempty + 1
+                colptr_vector[ncols + 1] = n_nonempty + 1
+                return nothing
+            end
+
+            write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).colptr", colptr_vector)
+            write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).rowval", rowval_vector)
+
+        else
+            write_array_json("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", "dense", String)
+            open("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).txt", "w") do file
+                for value in matrix
+                    @assert !(contains(value, '\n'))
+                    println(file, value)
+                end
+                return nothing
+            end
         end
 
     else
@@ -700,8 +811,6 @@ function Formats.format_get_matrix(
 )::StorageMatrix
     @assert Formats.has_data_read_lock(files)
 
-    println("??? $(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).*")
-
     nrows = Formats.format_axis_length(files, rows_axis)
     ncols = Formats.format_axis_length(files, columns_axis)
 
@@ -711,49 +820,66 @@ function Formats.format_get_matrix(
     @assert format == "dense" || format == "sparse"
     eltype_name = json["eltype"]
 
-    if eltype_name == "String" || eltype_name == "string"
-        @assert format == "dense"
-        vector = mmap_file_lines("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).txt")
-        @assert length(vector) == nrows * ncols
-        matrix = reshape(vector, (nrows, ncols))
-        return matrix
-    end
-
-    eltype = DTYPE_BY_NAME[eltype_name]
-    @assert eltype !== nothing
-
     if format == "dense"
-        matrix = mmap_file_data(
-            "$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).data",
-            Matrix{eltype},
-            (nrows, ncols),
-            files.files_mode,
-        )
+        if eltype_name == "String" || eltype_name == "string"
+            @assert format == "dense"
+            vector = mmap_file_lines("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).txt")
+            @assert length(vector) == nrows * ncols
+            matrix = reshape(vector, (nrows, ncols))
+
+        else
+            eltype = DTYPE_BY_NAME[eltype_name]
+            @assert eltype !== nothing
+            matrix = mmap_file_data(
+                "$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).data",
+                Matrix{eltype},
+                (nrows, ncols),
+                files.files_mode,
+            )
+        end
+
     else
         @assert format == "sparse"
         indtype_name = json["indtype"]
 
-        eltype = DTYPE_BY_NAME[eltype_name]
-        @assert eltype !== nothing
-
-        indtype = DTYPE_BY_NAME[indtype_name]
-        @assert indtype !== nothing
+        ind_type = DTYPE_BY_NAME[indtype_name]
+        @assert ind_type !== nothing
 
         colptr_path = "$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).colptr"
-        colptr_vector = mmap_file_data(colptr_path, Vector{indtype}, ncols + 1, files.files_mode)
+        colptr_vector = mmap_file_data(colptr_path, Vector{ind_type}, ncols + 1, files.files_mode)
 
         rowval_path = "$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).rowval"
-        nnz = div(filesize(rowval_path), sizeof(indtype))
-        rowval_vector = mmap_file_data(rowval_path, Vector{indtype}, nnz, files.files_mode)
+        nnz = div(filesize(rowval_path), sizeof(ind_type))
+        rowval_vector = mmap_file_data(rowval_path, Vector{ind_type}, nnz, files.files_mode)
 
-        nzval_path = "$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).nzval"
-        if isfile(nzval_path)
-            nzval_vector = mmap_file_data(nzval_path, Vector{eltype}, nnz, files.files_mode)
+        if eltype_name == "string" || eltype_name == "String"
+            matrix = Matrix{AbstractString}(undef, nrows, ncols)
+            fill!(matrix, "")
+
+            nztxt_vector = mmap_file_lines("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).nztxt")
+            position = 1
+            for column_index in 1:ncols
+                first_row_position = colptr_vector[column_index]
+                last_row_position = colptr_vector[column_index + 1] - 1
+                for row_index in rowval_vector[first_row_position:last_row_position]
+                    matrix[row_index, column_index] = nztxt_vector[position]
+                    position += 1
+                end
+            end
+
         else
-            nzval_vector = fill(true, nnz)  # UNTESTED
-        end
+            eltype = DTYPE_BY_NAME[eltype_name]
+            @assert eltype !== nothing
 
-        matrix = SparseMatrixCSC(nrows, ncols, colptr_vector, rowval_vector, nzval_vector)  # NOJET
+            nzval_path = "$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).nzval"
+            if isfile(nzval_path)
+                nzval_vector = mmap_file_data(nzval_path, Vector{eltype}, nnz, files.files_mode)
+            else
+                nzval_vector = fill(true, nnz)
+            end
+
+            matrix = SparseMatrixCSC(nrows, ncols, colptr_vector, rowval_vector, nzval_vector)  # NOJET
+        end
     end
 
     return matrix
@@ -838,15 +964,15 @@ function write_array_json(
     path::AbstractString,
     format::AbstractString,
     eltype::Type{<:StorageScalarBase},
-    indtype::Maybe{Type{<:StorageInteger}} = nothing,
+    ind_type::Maybe{Type{<:StorageInteger}} = nothing,
 )::Nothing
     if format == "dense"
-        @assert indtype === nothing
+        @assert ind_type === nothing
         write(path, "{\"format\":\"dense\",\"eltype\":\"$(eltype)\"}\n")
     else
         @assert format == "sparse"
-        @assert indtype !== nothing
-        write(path, "{\"format\":\"sparse\",\"eltype\":\"$(eltype)\",\"indtype\":\"$(indtype)\"}\n")
+        @assert ind_type !== nothing
+        write(path, "{\"format\":\"sparse\",\"eltype\":\"$(eltype)\",\"indtype\":\"$(ind_type)\"}\n")
     end
     return nothing
 end
