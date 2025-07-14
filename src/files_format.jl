@@ -392,68 +392,79 @@ function Formats.format_set_vector!(
     elseif vector isa StorageScalar
         @assert vector isa StorageReal
         write_array_json("$(files.path)/vectors/$(axis)/$(name).json", "dense", typeof(vector))
-        fill_file("$(files.path)/vectors/$(axis)/$(name).data", vector, Formats.format_axis_length(files, axis))
+        fill_file("$(files.path)/vectors/$(axis)/$(name).data", vector, Formats.format_axis_length(files, axis))  # NOJET
 
     elseif issparse(vector)
         write_array_json("$(files.path)/vectors/$(axis)/$(name).json", "sparse", eltype(vector), indtype(vector))
-        write("$(files.path)/vectors/$(axis)/$(name).nzind", nzind(vector))
-        if eltype(vector) != Bool || !all(nzval(vector))
-            write("$(files.path)/vectors/$(axis)/$(name).nzval", nzval(vector))
+        write("$(files.path)/vectors/$(axis)/$(name).nzind", nzind(vector))  # NOJET
+        if eltype(vector) != Bool || !all(nzval(vector))  # NOJET
+            write("$(files.path)/vectors/$(axis)/$(name).nzval", nzval(vector))  # NOJET
         end
 
     elseif eltype(vector) <: AbstractString
-        n_empty = 0
-        nonempty_size = 0
-        for value in vector
-            value_size = length(value)
-            if value_size > 0
-                nonempty_size += value_size
-            else
-                n_empty += 1
-            end
-        end
-
-        n_values = length(vector)
-        n_nonempty = n_values - n_empty
-        ind_type = indtype_for_size(n_values)
-
-        dense_size = nonempty_size + length(vector)
-        sparse_size = nonempty_size + n_nonempty * (1 + sizeof(ind_type))
-
-        if sparse_size <= dense_size * 0.75
-            write_array_json("$(files.path)/vectors/$(axis)/$(name).json", "sparse", String, ind_type)
-
-            nzind_vector = Vector{ind_type}(undef, n_nonempty)
-            open("$(files.path)/vectors/$(axis)/$(name).nztxt", "w") do file
-                position = 1
-                for (index, value) in enumerate(vector)
-                    if length(value) > 0
-                        @assert !(contains(value, '\n'))
-                        println(file, value)
-                        nzind_vector[position] = index
-                        position += 1
-                    end
-                end
-                @assert position == n_nonempty + 1
-            end
-
-            write("$(files.path)/vectors/$(axis)/$(name).nzind", nzind_vector)
-
-        else
-            write_array_json("$(files.path)/vectors/$(axis)/$(name).json", "dense", String)
-            open("$(files.path)/vectors/$(axis)/$(name).txt", "w") do file
-                for value in vector
-                    @assert !(contains(value, '\n'))
-                    println(file, value)
-                end
-                return nothing
-            end
-        end
+        write_string_vector(files, axis, name, vector)
 
     else
         write_array_json("$(files.path)/vectors/$(axis)/$(name).json", "dense", eltype(vector))
         write("$(files.path)/vectors/$(axis)/$(name).data", vector)
     end
+    return nothing
+end
+
+function write_string_vector(
+    files::FilesDaf,
+    axis::AbstractString,
+    name::AbstractString,
+    vector::Union{StorageScalar, StorageVector},
+)::Nothing
+    n_empty = 0
+    nonempty_size = 0
+    for value in vector
+        value_size = length(value)
+        if value_size > 0
+            nonempty_size += value_size
+        else
+            n_empty += 1
+        end
+    end
+
+    n_values = length(vector)
+    n_nonempty = n_values - n_empty
+    ind_type = indtype_for_size(n_values)
+
+    dense_size = nonempty_size + length(vector)
+    sparse_size = nonempty_size + n_nonempty * (1 + sizeof(ind_type))
+
+    if sparse_size <= dense_size * 0.75
+        write_array_json("$(files.path)/vectors/$(axis)/$(name).json", "sparse", String, ind_type)
+
+        nzind_vector = Vector{ind_type}(undef, n_nonempty)
+        open("$(files.path)/vectors/$(axis)/$(name).nztxt", "w") do file
+            position = 1
+            for (index, value) in enumerate(vector)
+                if length(value) > 0
+                    @assert !(contains(value, '\n'))
+                    println(file, value)
+                    nzind_vector[position] = index
+                    position += 1
+                end
+            end
+            @assert position == n_nonempty + 1
+        end
+
+        write("$(files.path)/vectors/$(axis)/$(name).nzind", nzind_vector)
+
+    else
+        write_array_json("$(files.path)/vectors/$(axis)/$(name).json", "dense", String)
+        open("$(files.path)/vectors/$(axis)/$(name).txt", "w") do file  # NOJET
+            for value in vector
+                @assert !(contains(value, '\n'))
+                println(file, value)
+            end
+            return nothing
+        end
+    end
+
     return nothing
 end
 
@@ -617,72 +628,81 @@ function Formats.format_set_matrix!(
         end
 
     elseif eltype(matrix) <: AbstractString
-        n_empty = 0
-        nonempty_size = 0
-
-        for value in matrix
-            value_size = length(value)
-            if value_size > 0
-                nonempty_size += value_size
-            else
-                n_empty += 1
-            end
-        end
-
-        n_values = nrows * ncols
-        n_nonempty = n_values - n_empty
-        ind_type = indtype_for_size(n_values)
-
-        dense_size = nonempty_size + nrows * ncols
-        sparse_size = nonempty_size + n_nonempty + (ncols + 1 + n_nonempty) * sizeof(ind_type)
-
-        if sparse_size <= dense_size * 0.75
-            write_array_json(
-                "$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json",
-                "sparse",
-                String,
-                ind_type,
-            )
-
-            colptr_vector = Vector{ind_type}(undef, ncols + 1)
-            rowval_vector = Vector{ind_type}(undef, n_nonempty)
-            open("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).nztxt", "w") do file
-                position = 1
-                for column_index in 1:ncols
-                    colptr_vector[column_index] = position
-                    for row_index in 1:nrows
-                        value = matrix[row_index, column_index]
-                        if length(value) > 0
-                            @assert !(contains(value, '\n'))
-                            println(file, value)
-                            rowval_vector[position] = row_index
-                            position += 1
-                        end
-                    end
-                end
-                @assert position == n_nonempty + 1
-                colptr_vector[ncols + 1] = n_nonempty + 1
-                return nothing
-            end
-
-            write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).colptr", colptr_vector)
-            write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).rowval", rowval_vector)
-
-        else
-            write_array_json("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", "dense", String)
-            open("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).txt", "w") do file
-                for value in matrix
-                    @assert !(contains(value, '\n'))
-                    println(file, value)
-                end
-                return nothing
-            end
-        end
+        write_string_matrix(files, rows_axis, columns_axis, name, matrix)  # NOJET
 
     else
         @assert eltype(matrix) <: Real
         write_array_json("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", "dense", eltype(matrix))
         write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).data", matrix)
+    end
+
+    return nothing
+end
+
+function write_string_matrix(
+    files::FilesDaf,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+    matrix::AbstractMatrix{<:AbstractString},
+)::Nothing
+    nrows, ncols = size(matrix)
+
+    n_empty = 0
+    nonempty_size = 0
+
+    for value in matrix
+        value_size = length(value)
+        if value_size > 0
+            nonempty_size += value_size
+        else
+            n_empty += 1
+        end
+    end
+
+    n_values = nrows * ncols
+    n_nonempty = n_values - n_empty
+    ind_type = indtype_for_size(n_values)
+
+    dense_size = nonempty_size + nrows * ncols
+    sparse_size = nonempty_size + n_nonempty + (ncols + 1 + n_nonempty) * sizeof(ind_type)
+
+    if sparse_size <= dense_size * 0.75
+        write_array_json("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", "sparse", String, ind_type)
+
+        colptr_vector = Vector{ind_type}(undef, ncols + 1)
+        rowval_vector = Vector{ind_type}(undef, n_nonempty)
+        open("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).nztxt", "w") do file
+            position = 1
+            for column_index in 1:ncols
+                colptr_vector[column_index] = position
+                for row_index in 1:nrows
+                    value = matrix[row_index, column_index]
+                    if length(value) > 0
+                        @assert !(contains(value, '\n'))
+                        println(file, value)
+                        rowval_vector[position] = row_index
+                        position += 1
+                    end
+                end
+            end
+            @assert position == n_nonempty + 1
+            colptr_vector[ncols + 1] = n_nonempty + 1
+            return nothing
+        end
+
+        write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).colptr", colptr_vector)
+        write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).rowval", rowval_vector)
+
+    else
+        write_array_json("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", "dense", String)
+        open("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).txt", "w") do file
+            for value in matrix
+                @assert !(contains(value, '\n'))
+                println(file, value)
+            end
+            return nothing
+        end
     end
 
     return nothing
@@ -761,14 +781,7 @@ function Formats.format_relayout_matrix!(
 
     elseif eltype(matrix) <: AbstractString
         relayout_matrix = transposer(matrix)
-        write_array_json("$(files.path)/matrices/$(columns_axis)/$(rows_axis)/$(name).json", "dense", String)
-        open("$(files.path)/matrices/$(columns_axis)/$(rows_axis)/$(name).txt", "w") do file
-            for value in relayout_matrix
-                @assert !(contains(value, '\n'))
-                println(file, value)
-            end
-            return nothing
-        end
+        write_string_matrix(files, columns_axis, rows_axis, name, relayout_matrix)
 
     else
         @assert eltype(matrix) <: Real

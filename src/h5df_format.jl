@@ -531,45 +531,7 @@ function Formats.format_set_vector!(
             close(vector_group)
 
         elseif eltype(vector) <: AbstractString
-            n_empty = 0
-            nonempty_size = 0
-            for value in vector
-                value_size = length(value)
-                if value_size > 0
-                    nonempty_size += value_size
-                else
-                    n_empty += 1
-                end
-            end
-
-            n_values = length(vector)
-            n_nonempty = n_values - n_empty
-            indtype = indtype_for_size(n_values)
-
-            dense_size = nonempty_size + length(vector)
-            sparse_size = nonempty_size + n_nonempty * (1 + sizeof(indtype))
-
-            if sparse_size <= dense_size * 0.75
-                nzind_vector = Vector{indtype}(undef, n_nonempty)
-                nztxt_vector = Vector{String}(undef, n_nonempty)
-                position = 1
-                for (index, value) in enumerate(vector)
-                    if length(value) > 0
-                        nzind_vector[position] = index
-                        nztxt_vector[position] = string.(value)
-                        position += 1
-                    end
-                end
-                @assert position == n_nonempty + 1
-
-                vector_group = create_group(axis_vectors_group, name)
-                vector_group["nzind"] = nzind_vector  # NOJET
-                vector_group["nztxt"] = nztxt_vector
-
-            else
-                nice_vector = string.(vector)
-                axis_vectors_group[name] = nice_vector  # NOJET
-            end
+            write_string_vector(axis_vectors_group, name, vector)
 
         else
             nice_vector = nothing
@@ -581,6 +543,55 @@ function Formats.format_set_vector!(
             end
             axis_vectors_group[name] = nice_vector  # NOJET
         end
+    end
+
+    return nothing
+end
+
+function write_string_vector(
+    axis_vectors_group::HDF5.Group,
+    name::AbstractString,
+    vector::AbstractVector{<:AbstractString},
+)::Nothing
+    n_empty = 0
+    nonempty_size = 0
+    for value in vector
+        value_size = length(value)
+        if value_size > 0
+            nonempty_size += value_size
+        else
+            n_empty += 1
+        end
+    end
+
+    n_values = length(vector)
+    n_nonempty = n_values - n_empty
+    indtype = indtype_for_size(n_values)
+
+    dense_size = nonempty_size + length(vector)
+    sparse_size = nonempty_size + n_nonempty * (1 + sizeof(indtype))
+
+    if sparse_size <= dense_size * 0.75
+        nzind_vector = Vector{indtype}(undef, n_nonempty)
+        nztxt_vector = Vector{String}(undef, n_nonempty)
+        position = 1
+        for (index, value) in enumerate(vector)
+            if length(value) > 0
+                nzind_vector[position] = index
+                nztxt_vector[position] = string.(value)
+                position += 1
+            end
+        end
+        @assert position == n_nonempty + 1
+
+        vector_group = create_group(axis_vectors_group, name)
+        vector_group["nzind"] = nzind_vector  # NOJET
+        vector_group["nztxt"] = nztxt_vector
+        close(vector_group)
+
+    else
+        nice_vector = string.(vector)
+        axis_vectors_group[name] = nice_vector  # NOJET
     end
 
     return nothing
@@ -762,54 +773,7 @@ function Formats.format_set_matrix!(
         close(matrix_dataset)
 
     elseif eltype(matrix) <: AbstractString
-        n_empty = 0
-        nonempty_size = 0
-        for value in matrix
-            value_size = length(value)
-            if value_size > 0
-                nonempty_size += value_size
-            else
-                n_empty += 1
-            end
-        end
-
-        n_values = nrows * ncols
-        n_nonempty = n_values - n_empty
-        indtype = indtype_for_size(n_values)
-
-        dense_size = nonempty_size + length(matrix)
-        sparse_size = nonempty_size + n_nonempty + (ncols + 1 + n_nonempty) * sizeof(indtype)
-
-        if sparse_size <= dense_size * 0.75
-            colptr_vector = Vector{indtype}(undef, ncols + 1)
-            rowval_vector = Vector{indtype}(undef, n_nonempty)
-            nztxt_vector = Vector{String}(undef, n_nonempty)
-
-            position = 1
-            for column_index in 1:ncols
-                colptr_vector[column_index] = position
-                for row_index in 1:nrows
-                    value = matrix[row_index, column_index]
-                    if length(value) > 0
-                        @assert !(contains(value, '\n'))
-                        rowval_vector[position] = row_index
-                        nztxt_vector[position] = string.(value)
-                        position += 1
-                    end
-                end
-            end
-            @assert position == n_nonempty + 1
-            colptr_vector[ncols + 1] = n_nonempty + 1
-
-            matrix_group = create_group(columns_axis_group, name)
-            matrix_group["colptr"] = colptr_vector
-            matrix_group["rowval"] = rowval_vector
-            matrix_group["nztxt"] = nztxt_vector
-
-        else
-            nice_matrix = string.(matrix)
-            columns_axis_group[name] = nice_matrix  # NOJET
-        end
+        write_string_matrix(columns_axis_group, name, matrix)  # NOJET
 
     else
         @assert matrix isa AbstractMatrix
@@ -837,6 +801,66 @@ function Formats.format_set_matrix!(
             end
             columns_axis_group[name] = nice_matrix  # NOJET
         end
+    end
+
+    return nothing
+end
+
+function write_string_matrix(
+    columns_axis_group::HDF5.Group,
+    name::AbstractString,
+    matrix::AbstractMatrix{<:AbstractString},
+)::Nothing
+    nrows, ncols = size(matrix)
+
+    n_empty = 0
+    nonempty_size = 0
+    for value in matrix
+        value_size = length(value)
+        if value_size > 0
+            nonempty_size += value_size
+        else
+            n_empty += 1
+        end
+    end
+
+    n_values = nrows * ncols
+    n_nonempty = n_values - n_empty
+    indtype = indtype_for_size(n_values)
+
+    dense_size = nonempty_size + length(matrix)
+    sparse_size = nonempty_size + n_nonempty + (ncols + 1 + n_nonempty) * sizeof(indtype)
+
+    if sparse_size <= dense_size * 0.75
+        colptr_vector = Vector{indtype}(undef, ncols + 1)
+        rowval_vector = Vector{indtype}(undef, n_nonempty)
+        nztxt_vector = Vector{String}(undef, n_nonempty)
+
+        position = 1
+        for column_index in 1:ncols
+            colptr_vector[column_index] = position
+            for row_index in 1:nrows
+                value = matrix[row_index, column_index]
+                if length(value) > 0
+                    @assert !(contains(value, '\n'))
+                    rowval_vector[position] = row_index
+                    nztxt_vector[position] = string.(value)
+                    position += 1
+                end
+            end
+        end
+        @assert position == n_nonempty + 1
+        colptr_vector[ncols + 1] = n_nonempty + 1
+
+        matrix_group = create_group(columns_axis_group, name)
+        matrix_group["colptr"] = colptr_vector
+        matrix_group["rowval"] = rowval_vector
+        matrix_group["nztxt"] = nztxt_vector
+        close(matrix_group)
+
+    else
+        nice_matrix = string.(matrix)
+        columns_axis_group[name] = nice_matrix  # NOJET
     end
 
     return nothing
@@ -943,8 +967,6 @@ function Formats.format_relayout_matrix!(
         relayout!(transpose(relayout_matrix), matrix)
 
     elseif eltype(matrix) <: AbstractString
-        relayout_matrix = transposer(matrix)
-
         matrices_group = h5df.root["matrices"]
         @assert matrices_group isa HDF5.Group
 
@@ -954,12 +976,8 @@ function Formats.format_relayout_matrix!(
         rows_axis_group = columns_axis_group[rows_axis]
         @assert rows_axis_group isa HDF5.Group
 
-        nrows = Formats.format_axis_length(h5df, rows_axis)
-        ncols = Formats.format_axis_length(h5df, columns_axis)
-
-        matrix_dataset = create_dataset(rows_axis_group, name, String, (ncols, nrows))
-        matrix_dataset[:, :] = relayout_matrix
-        close(matrix_dataset)
+        relayout_matrix = transposer(matrix)
+        write_string_matrix(rows_axis_group, name, relayout_matrix)
 
     else
         relayout_matrix = Formats.format_get_empty_dense_matrix!(h5df, columns_axis, rows_axis, name, eltype(matrix))

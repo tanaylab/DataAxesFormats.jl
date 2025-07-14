@@ -1624,6 +1624,7 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
                 matrix = rand(1:100, 200, 4) .< 10
                 @test set_matrix!(daf, "long", "gene", "mask", sparse_matrix_csc(matrix)) === nothing
                 @test get_matrix(daf, "long", "gene", "mask") == matrix
+                @test get_matrix(daf, "gene", "long", "mask") == permutedims(matrix)
                 @test issparse(get_matrix(daf, "gene", "long", "mask"))
             end
 
@@ -1632,6 +1633,7 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
                 matrix = map(x -> x < 10 ? string(x) : "", matrix)
                 @test set_matrix!(daf, "long", "gene", "value", matrix) === nothing
                 @test get_matrix(daf, "long", "gene", "value") == matrix
+                @test get_matrix(daf, "gene", "long", "value") == permutedims(matrix)
             end
         end
 
