@@ -903,7 +903,11 @@ function compute_reduction(::Mode, input::StorageVector)::StorageScalar
 end
 
 function reduction_result_type(::Mode, eltype::Type)::Type
-    return eltype
+    if eltype <: AbstractString
+        return AbstractString  # UNTESTED
+    else
+        return eltype
+    end
 end
 
 function supports_strings(::Mode)::Bool

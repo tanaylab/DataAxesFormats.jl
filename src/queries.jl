@@ -4682,7 +4682,7 @@ function collect_vector_group_by(
         if !isempty(values_of_group)
             results_vector[group_index] = compute_reduction(reduction_operation, read_only_array(values_of_group))  # NOLINT
         elseif empty_group_value !== nothing
-            results_vector[group_index] = empty_group_value
+            results_vector[group_index] = cast_value_to_type(query_state, empty_group_value, eltype(results_vector))
         else
             error_at_state(
                 query_state,
