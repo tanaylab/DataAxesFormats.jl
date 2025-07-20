@@ -10,6 +10,7 @@ export @computation
 export CONTRACT
 export CONTRACT1
 export CONTRACT2
+export CONTRACT3
 export function_contract
 
 using ..Contracts
@@ -65,6 +66,30 @@ function computation_wrapper(first_contract::Contract, second_contract::Contract
     )
 end
 
+function computation_wrapper(
+    first_contract::Contract,
+    second_contract::Contract,
+    third_contract::Contract,
+    name::AbstractString,
+    inner_function,
+)
+    return (first_daf::DafReader, second_daf::DafReader, third_daf::DafReader, args...; kwargs...) -> (  # NOJET
+        #! format: off
+        first_contract_daf = contractor(name * ".1", first_contract, first_daf; overwrite = kwargs_overwrite(kwargs));
+        second_contract_daf = contractor(name * ".2", second_contract, second_daf; overwrite = kwargs_overwrite(kwargs));  # NOJET
+        third_contract_daf = contractor(name * ".3", third_contract, third_daf; overwrite = kwargs_overwrite(kwargs));  # NOJET
+        verify_input(first_contract_daf);
+        verify_input(second_contract_daf);
+        verify_input(third_contract_daf);
+        result = inner_function(first_contract_daf, second_contract_daf, third_contract_daf, args...; kwargs...);
+        verify_output(first_contract_daf);
+        verify_output(second_contract_daf);
+        verify_output(third_contract_daf);
+        result  # flaky tested
+        #! format: on
+    )
+end
+
 """
     @computation Contract(...) function something(daf::DafWriter, ...)
         return ...
@@ -72,6 +97,12 @@ end
 
     @computation Contract(...) Contract(...) function something(
         first::DafReader/DafWriter, second::DafReader/DafWriter, ...
+    )
+        return ...
+    end
+
+    @computation Contract(...) Contract(...) Contract(...) function something(
+        first::DafReader/DafWriter, second::DafReader/DafWriter, third::DafReader/DafWriter, ...
     )
         return ...
     end
@@ -84,7 +115,8 @@ Mark a function as a `Daf` computation. This has the following effects:
     complete (using [`verify_input`](@ref) and [`verify_output`](@ref)).
   - It stashes the contract(s) (if any) in a global variable. This allows expanding [`CONTRACT`](@ref) in the
     documentation string (for a single contract case), or [`CONTRACT1`](@ref) and [`CONTRACT2`](@ref) (for the dual
-    contract case).
+    contract case), or [`CONTRACT1`](@ref) and [`CONTRACT2`](@ref) and [`CONTRACT3`](@ref) (for the triple contract
+    case).
   - It logs the invocation of the function (using `@debug`), including the actual values of the named arguments (using
     `brief`).
 
@@ -172,6 +204,52 @@ macro computation(first_contract, second_contract, definition)
     return esc(ExprTools.combinedef(outer_definition))
 end
 
+macro computation(first_contract, second_contract, third_contract, definition)
+    while definition.head === :macrocall
+        definition = macroexpand(__module__, definition)
+    end
+
+    inner_definition = ExprTools.splitdef(definition)
+    outer_definition = copy(inner_definition)
+
+    function_name = get(inner_definition, :name, nothing)
+    if function_name === nothing
+        error("@computation requires a named function")
+    end
+    @assert function_name isa Symbol
+    function_module = __module__
+    full_name = "$(function_module).$(function_name)"
+
+    set_metadata_of_function(
+        function_module,
+        function_name,
+        FunctionMetadata(
+            [
+                function_module.eval(first_contract),
+                function_module.eval(second_contract),
+                function_module.eval(third_contract),
+            ],
+            collect_defaults(function_module, inner_definition),
+        ),
+    )
+
+    inner_definition[:name] = Symbol(function_name, :_compute)
+    outer_definition[:body] = Expr(
+        :call,
+        :(DataAxesFormats.Computations.computation_wrapper(
+            $function_module.__TLU_FUNCTION_METADATA__[Symbol($function_name)].contracts[1],
+            $function_module.__TLU_FUNCTION_METADATA__[Symbol($function_name)].contracts[2],
+            $function_module.__TLU_FUNCTION_METADATA__[Symbol($function_name)].contracts[3],
+            $full_name,
+            $(ExprTools.combinedef(inner_definition)),
+        )),
+        pass_args(false, get(outer_definition, :args, []))...,
+        pass_args(true, get(outer_definition, :kwargs, []))...,
+    )
+
+    return esc(ExprTools.combinedef(outer_definition))
+end
+
 struct ContractDocumentation <: DocStringExtensions.Abbreviation
     index::Int
 end
@@ -179,11 +257,17 @@ end
 function DocStringExtensions.format(which::ContractDocumentation, buffer::IOBuffer, doc_str::Base.Docs.DocStr)::Nothing
     full_name, metadata = get_metadata(doc_str)
     if which.index > length(metadata.contracts)
-        @assert which.index == 2
-        error(chomp("""
-              no second contract associated with: $(full_name)
-              use: @computation Contract(...) Contract(...) function $(full_name)(...)
-              """))
+        if which.index == 2
+            error(chomp("""
+                  no second contract associated with: $(full_name)
+                  use: @computation Contract(...) Contract(...) function $(full_name)(...)
+                  """))
+        else
+            error(chomp("""  # UNTESTED
+                  no third contract associated with: $(full_name)
+                  use: @computation Contract(...) Contract(...) Contract(...) function $(full_name)(...)
+                  """))
+        end
     end
     contract_documentation(metadata.contracts[which.index], buffer)
     return nothing
@@ -223,6 +307,12 @@ Same as [`CONTRACT`](@ref), but reference the contract for the 2nd `Daf` argumen
 such arguments.
 """
 const CONTRACT2 = ContractDocumentation(2)
+
+"""
+Same as [`CONTRACT2`](@ref), but reference the contract for the 3rd `Daf` argument for a [`@computation`](@ref) with three
+such arguments.
+"""
+const CONTRACT3 = ContractDocumentation(3)
 
 """
     function_contract(func::Function[, index::Integer = 1])::Contract

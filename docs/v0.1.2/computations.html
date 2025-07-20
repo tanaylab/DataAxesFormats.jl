@@ -270,6 +270,12 @@ end
 )
     return ...
 end
+
+@computation Contract(...) Contract(...) Contract(...) function something(
+    first::DafReader/DafWriter, second::DafReader/DafWriter, third::DafReader/DafWriter, ...
+)
+    return ...
+end
 </code>
 </pre>
 <p>Mark a function as a 
@@ -313,7 +319,19 @@ end
 <a href="computations.html#DataAxesFormats.Computations.CONTRACT2">
 <code>CONTRACT2
 </code>
-</a> (for the dual contract case).
+</a> (for the dual contract case), or 
+<a href="computations.html#DataAxesFormats.Computations.CONTRACT1">
+<code>CONTRACT1
+</code>
+</a> and 
+<a href="computations.html#DataAxesFormats.Computations.CONTRACT2">
+<code>CONTRACT2
+</code>
+</a> and 
+<a href="computations.html#DataAxesFormats.Computations.CONTRACT3">
+<code>CONTRACT3
+</code>
+</a> (for the triple contract case).
 </li>
 <li>It logs the invocation of the function (using 
 <code>@debug
@@ -502,6 +520,36 @@ end
 </div>
 </section>
 </article>
+<article class="docstring">
+<header>
+<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
+</a>
+<a class="docstring-binding" id="DataAxesFormats.Computations.CONTRACT3" href="#DataAxesFormats.Computations.CONTRACT3">
+<code>DataAxesFormats.Computations.CONTRACT3
+</code>
+</a> — 
+<span class="docstring-category">Constant
+</span>
+<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
+</span>
+</header>
+<section>
+<div>
+<p>Same as 
+<a href="computations.html#DataAxesFormats.Computations.CONTRACT2">
+<code>CONTRACT2
+</code>
+</a>, but reference the contract for the 3rd 
+<code>Daf
+</code> argument for a 
+<a href="computations.html#DataAxesFormats.Computations.@computation">
+<code>@computation
+</code>
+</a> with three such arguments.
+</p>
+</div>
+</section>
+</article>
 <h2 id="Index">
 <a class="docs-heading-anchor" href="#Index">Index
 </a>
@@ -532,6 +580,12 @@ end
 <li>
 <a href="computations.html#DataAxesFormats.Computations.CONTRACT2">
 <code>DataAxesFormats.Computations.CONTRACT2
+</code>
+</a>
+</li>
+<li>
+<a href="computations.html#DataAxesFormats.Computations.CONTRACT3">
+<code>DataAxesFormats.Computations.CONTRACT3
 </code>
 </a>
 </li>

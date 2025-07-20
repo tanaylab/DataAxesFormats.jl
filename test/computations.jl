@@ -81,6 +81,43 @@ $(CONTRACT2)
 end
 
 """
+Triple
+
+# First
+
+$(CONTRACT1)
+
+# Second
+
+$(CONTRACT2)
+
+# Third
+
+$(CONTRACT3)
+"""
+@logged @computation Contract(
+    data = [
+        "version" => (RequiredInput, String, "In major.minor.patch format."),
+        "quality" => (GuaranteedOutput, Float64, "Overall output quality score between 0.0 and 1.0."),
+    ],
+) Contract(
+    data = [
+        "version" => (GuaranteedOutput, String, "In major.minor.patch format."),
+        "quality" => (RequiredInput, Float64, "Overall output quality score between 0.0 and 1.0."),
+    ],
+) Contract(data = ["note" => (GuaranteedOutput, String, "Some note.")]) function cross_note(
+    first::DafWriter,
+    second::DafWriter,
+    third::DafWriter;
+    overwrite::Bool = false,
+)::Nothing
+    set_scalar!(third, "note", "Noteworthy.")
+    set_scalar!(second, "version", get_scalar(first, "version"); overwrite = overwrite)
+    set_scalar!(first, "quality", get_scalar(second, "quality"); overwrite = overwrite)
+    return nothing
+end
+
+"""
 Relaxed
 
 $(CONTRACT)
@@ -244,6 +281,16 @@ nested_test("computations") do
             @test get_scalar(second, "version") == "0.0"
         end
 
+        nested_test("note") do
+            third = MemoryDaf(; name = "third!")
+            set_scalar!(first, "version", "0.0")
+            set_scalar!(second, "quality", 1.0)
+            @test cross_note(first, second, third) === nothing
+            @test get_scalar(first, "quality") == 1.0
+            @test get_scalar(second, "version") == "0.0"
+            @test get_scalar(third, "note") == "Noteworthy."
+        end
+
         nested_test("overwrite") do
             set_scalar!(first, "version", "0.0")
             set_scalar!(first, "quality", 0.0)
@@ -291,37 +338,81 @@ nested_test("computations") do
         end
 
         nested_test("docs") do
-            @test formatdoc(@doc cross) == """
-                Dual
+            nested_test("dual") do
+                @test formatdoc(@doc cross) == """
+                    Dual
 
-                # First
+                    # First
 
-                ## Inputs
+                    ## Inputs
 
-                ### Scalars
+                    ### Scalars
 
-                **version**::String (required): In major.minor.patch format.
+                    **version**::String (required): In major.minor.patch format.
 
-                ## Outputs
+                    ## Outputs
 
-                ### Scalars
+                    ### Scalars
 
-                **quality**::Float64 (guaranteed): Overall output quality score between 0.0 and 1.0.
+                    **quality**::Float64 (guaranteed): Overall output quality score between 0.0 and 1.0.
 
-                # Second
+                    # Second
 
-                ## Inputs
+                    ## Inputs
 
-                ### Scalars
+                    ### Scalars
 
-                **quality**::Float64 (required): Overall output quality score between 0.0 and 1.0.
+                    **quality**::Float64 (required): Overall output quality score between 0.0 and 1.0.
 
-                ## Outputs
+                    ## Outputs
 
-                ### Scalars
+                    ### Scalars
 
-                **version**::String (guaranteed): In major.minor.patch format.
-                """
+                    **version**::String (guaranteed): In major.minor.patch format.
+                    """
+            end
+
+            nested_test("triple") do
+                @test formatdoc(@doc cross_note) == """
+                    Triple
+
+                    # First
+
+                    ## Inputs
+
+                    ### Scalars
+
+                    **version**::String (required): In major.minor.patch format.
+
+                    ## Outputs
+
+                    ### Scalars
+
+                    **quality**::Float64 (guaranteed): Overall output quality score between 0.0 and 1.0.
+
+                    # Second
+
+                    ## Inputs
+
+                    ### Scalars
+
+                    **quality**::Float64 (required): Overall output quality score between 0.0 and 1.0.
+
+                    ## Outputs
+
+                    ### Scalars
+
+                    **version**::String (guaranteed): In major.minor.patch format.
+
+                    # Third
+
+                    ## Outputs
+
+                    ### Scalars
+
+                    **note**::String (guaranteed): Some note.
+                    """
+            end
         end
 
         nested_test("!doc2") do

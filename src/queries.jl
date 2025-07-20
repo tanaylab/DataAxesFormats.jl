@@ -2774,24 +2774,28 @@ function fake_matrices_set(fake_query_state::FakeQueryState, names::Names)::Noth
     return nothing
 end
 
-function apply_query_operation!(query_state::QueryState, lookup::Lookup)::Nothing
+function apply_query_operation!(query_state::QueryState, lookup::Lookup; maybe_fetch::Bool = true)::Nothing
     if isempty(query_state.stack)
+        @assert maybe_fetch
         return lookup_scalar(query_state, lookup)
     elseif is_all(query_state, (AxisState,))
-        return lookup_axis(query_state, lookup)
+        return lookup_axis(query_state, lookup; maybe_fetch)
     elseif is_all(query_state, (AxisState, AxisState))
+        @assert maybe_fetch
         return lookup_axes(query_state, lookup)
     end
 
     return error_unexpected_operation(query_state)
 end
 
-function fake_query_operation!(fake_query_state::FakeQueryState, lookup::Lookup)::Nothing
+function fake_query_operation!(fake_query_state::FakeQueryState, lookup::Lookup; maybe_fetch::Bool = true)::Nothing
     if isempty(fake_query_state.stack)
+        @assert maybe_fetch
         return fake_lookup_scalar(fake_query_state)
     elseif is_all(fake_query_state, (FakeAxisState,))
-        return fake_lookup_axis(fake_query_state, lookup)
+        return fake_lookup_axis(fake_query_state, lookup; maybe_fetch)
     elseif is_all(fake_query_state, (FakeAxisState, FakeAxisState))
+        @assert maybe_fetch
         return fake_lookup_axes(fake_query_state, lookup)
     end
 
@@ -3283,18 +3287,27 @@ function parse_if_missing_value(query_state::QueryState)::Union{UndefInitializer
     return if_missing_value
 end
 
-function lookup_axis(query_state::QueryState, lookup::Lookup)::Nothing
+function lookup_axis(query_state::QueryState, lookup::Lookup; maybe_fetch::Bool)::Nothing
     axis_state = pop!(query_state.stack)
     @assert axis_state isa AxisState
-    fetch_property(query_state, axis_state, lookup)
+    fetch_property(query_state, axis_state, lookup; maybe_fetch)
     return nothing
 end
 
-function fake_lookup_axis(fake_query_state::FakeQueryState, lookup::Maybe{Lookup} = nothing)::Nothing
+function fake_lookup_axis(
+    fake_query_state::FakeQueryState,
+    lookup::Maybe{Lookup} = nothing;
+    maybe_fetch::Bool = true,
+)::Nothing
     fake_axis_state = pop!(fake_query_state.stack)
     @assert fake_axis_state isa FakeAxisState
 
-    fake_fetch_property(fake_query_state, fake_axis_state, lookup === nothing ? nothing : lookup.property_name)
+    fake_fetch_property(
+        fake_query_state,
+        fake_axis_state,
+        lookup === nothing ? nothing : lookup.property_name;
+        maybe_fetch,
+    )
     return nothing
 end
 
@@ -3378,7 +3391,12 @@ function debug_query(  # UNTESTED
     return nothing
 end
 
-function fetch_property(query_state::QueryState, axis_state::AxisState, fetch_operation::FetchBaseOperation)::Nothing
+function fetch_property(
+    query_state::QueryState,
+    axis_state::AxisState,
+    fetch_operation::FetchBaseOperation;
+    maybe_fetch::Bool = true,
+)::Nothing
     base_query_sequence = QuerySequence((axis_state.query_sequence.query_operations..., fetch_operation))
     common_fetch_state = CommonFetchState(
         base_query_sequence,
@@ -3400,10 +3418,16 @@ function fetch_property(query_state::QueryState, axis_state::AxisState, fetch_op
     fetch_property_name = fetch_operation.property_name
 
     while true
-        if_missing = get_next_operation(query_state, IfMissing)
-        if_not = get_next_operation(query_state, IfNot)
+        if maybe_fetch
+            if_missing = get_next_operation(query_state, IfMissing)
+            if_not = get_next_operation(query_state, IfNot)
+        else
+            if_missing = nothing
+            if_not = nothing
+        end
 
-        if peek_next_operation(query_state, AsAxis) !== nothing &&
+        if maybe_fetch &&
+           peek_next_operation(query_state, AsAxis) !== nothing &&
            peek_next_operation(query_state, Fetch; skip = 1) !== nothing
             as_axis = get_next_operation(query_state, AsAxis)
             @assert as_axis !== nothing
@@ -3414,7 +3438,11 @@ function fetch_property(query_state::QueryState, axis_state::AxisState, fetch_op
             as_axis = nothing
         end
 
-        next_fetch_operation = peek_next_operation(query_state, Fetch)
+        if maybe_fetch
+            next_fetch_operation = peek_next_operation(query_state, Fetch)
+        else
+            next_fetch_operation = nothing
+        end
         is_final = next_fetch_operation === nothing
         if is_final && if_not !== nothing
             error_unexpected_operation(query_state)
@@ -3431,7 +3459,7 @@ function fetch_property(query_state::QueryState, axis_state::AxisState, fetch_op
 
         slice_axis_name = nothing
         next_named_vector = nothing
-        if is_final && as_axis === nothing
+        if is_final && as_axis === nothing && maybe_fetch
             if peek_next_operation(query_state, MaskSlice) !== nothing &&
                peek_next_operation(query_state, IsEqual; skip = 1) !== nothing
                 mask_slice = get_next_operation(query_state, MaskSlice)
@@ -3552,7 +3580,8 @@ end
 function fake_fetch_property(
     fake_query_state::FakeQueryState,
     fake_axis_state::FakeAxisState,
-    fetch_property_name::Maybe{AbstractString},
+    fetch_property_name::Maybe{AbstractString};
+    maybe_fetch::Bool = true,
 )::Nothing
     daf = fake_query_state.daf
     fetch_axis_name = fake_axis_state.axis_name
@@ -3561,13 +3590,22 @@ function fake_fetch_property(
     second_axis_name = nothing
 
     while true
-        if_missing = get_next_operation(fake_query_state, IfMissing)
+        if maybe_fetch
+            if_missing = get_next_operation(fake_query_state, IfMissing)
+        else
+            if_missing = nothing
+        end
         if if_missing !== nothing
             any_if_missing = true
         end
-        if_not = get_next_operation(fake_query_state, IfNot)
+        if maybe_fetch
+            if_not = get_next_operation(fake_query_state, IfNot)
+        else
+            if_not = nothing
+        end
 
-        if peek_next_operation(fake_query_state, AsAxis) !== nothing &&
+        if maybe_fetch &&
+           peek_next_operation(fake_query_state, AsAxis) !== nothing &&
            peek_next_operation(fake_query_state, Fetch; skip = 1) !== nothing
             as_axis = get_next_operation(fake_query_state, AsAxis)
             @assert as_axis !== nothing
@@ -3578,7 +3616,11 @@ function fake_fetch_property(
             as_axis = nothing
         end
 
-        next_fetch_operation = peek_next_operation(fake_query_state, Fetch)
+        if maybe_fetch
+            next_fetch_operation = peek_next_operation(fake_query_state, Fetch)
+        else
+            next_fetch_operation = nothing
+        end
 
         is_final = next_fetch_operation === nothing
         if is_final && if_not !== nothing
@@ -3586,7 +3628,7 @@ function fake_fetch_property(
         end
 
         second_axis_name = nothing
-        if is_final && as_axis === nothing
+        if is_final && as_axis === nothing && maybe_fetch
             if peek_next_operation(fake_query_state, MaskSlice) !== nothing &&
                peek_next_operation(fake_query_state, IsEqual; skip = 1) !== nothing
                 mask_slice = get_next_operation(fake_query_state, MaskSlice)
@@ -4415,7 +4457,7 @@ end
 
 function apply_query_operation!(query_state::QueryState, group_by::GroupBy)::Nothing
     if is_all(query_state, (AxisState,))
-        apply_query_operation!(query_state, Lookup("name"))
+        apply_query_operation!(query_state, Lookup("name"); maybe_fetch = false)
     end
     if is_all(query_state, (VectorState,))
         return fetch_group_by_vector(query_state, group_by)
@@ -4428,7 +4470,7 @@ end
 
 function fake_query_operation!(fake_query_state::FakeQueryState, group_by::GroupBy)::Nothing
     if is_all(fake_query_state, (FakeAxisState,))
-        fake_query_operation!(fake_query_state, Lookup("name"))
+        fake_query_operation!(fake_query_state, Lookup("name"); maybe_fetch = false)
     end
     if is_all(fake_query_state, (FakeVectorState,))
         return fake_fetch_group_by_vector(fake_query_state, group_by)
@@ -4781,17 +4823,19 @@ function eltwise_matrix(query_state::QueryState, eltwise_operation::EltwiseOpera
 end
 
 function apply_query_operation!(query_state::QueryState, reduction_operation::ReductionOperation)::Nothing
+    if_missing = get_next_operation(query_state, IfMissing)
+
     if is_all(query_state, (AxisState,))
-        lookup_axis(query_state, Lookup("name"))
+        lookup_axis(query_state, Lookup("name"); maybe_fetch = false)
     end
 
     if is_all(query_state, (VectorState,))
-        reduce_vector(query_state, reduction_operation)
+        reduce_vector(query_state, reduction_operation, if_missing)
         return nothing
     end
 
     if is_all(query_state, (MatrixState,))
-        reduce_matrix(query_state, reduction_operation)
+        reduce_matrix(query_state, reduction_operation, if_missing)
         return nothing
     end
 
@@ -4799,6 +4843,8 @@ function apply_query_operation!(query_state::QueryState, reduction_operation::Re
 end
 
 function fake_query_operation!(fake_query_state::FakeQueryState, reduction_operation::ReductionOperation)::Nothing  # NOLINT
+    get_next_operation(fake_query_state, IfMissing)
+
     if is_all(fake_query_state, (FakeAxisState,))
         fake_lookup_axis(fake_query_state)
     end
@@ -4814,21 +4860,36 @@ function fake_query_operation!(fake_query_state::FakeQueryState, reduction_opera
     return error_unexpected_operation(fake_query_state)  # UNTESTED
 end
 
-function reduce_vector(query_state::QueryState, reduction_operation::ReductionOperation)::Nothing
+function reduce_vector(
+    query_state::QueryState,
+    reduction_operation::ReductionOperation,
+    if_missing::Maybe{IfMissing},
+)::Nothing
     vector_state = pop!(query_state.stack)
     @assert vector_state isa VectorState
+    named_vector = vector_state.named_vector
 
-    if eltype(vector_state.named_vector) <: AbstractString && !supports_strings(reduction_operation)
+    if eltype(named_vector) <: AbstractString && !supports_strings(reduction_operation)
         error_at_state(
             query_state,
             """
-            unsupported input type: $(eltype(vector_state.named_vector))
+            unsupported input type: $(eltype(named_vector))
             for the reduction operation: $(typeof(reduction_operation))
             """,
         )
     end
 
-    scalar_value = compute_reduction(reduction_operation, read_only_array(vector_state.named_vector.array))  # NOLINT
+    if !isempty(named_vector.array)
+        scalar_value = compute_reduction(reduction_operation, read_only_array(named_vector.array))  # NOLINT
+    elseif if_missing !== nothing  # UNTESTED
+        type = reduction_result_type(reduction_operation, eltype(named_vector.array))  # UNTESTED
+        scalar_value = value_for_if_missing(query_state, if_missing; type)  # UNTESTED
+    else
+        error_at_state(  # UNTESTED
+            query_state,
+            "no values in the vector and no IfMissing value was specified: || value_for_empty_vector",
+        )
+    end
 
     scalar_state = ScalarState(query_state.query_sequence, vector_state.dependency_keys, scalar_value)
     push!(query_state.stack, scalar_state)
@@ -4842,12 +4903,30 @@ function fake_reduce_vector(fake_query_state::FakeQueryState)::Nothing
     return nothing
 end
 
-function reduce_matrix(query_state::QueryState, reduction_operation::ReductionOperation)::Nothing
+function reduce_matrix(
+    query_state::QueryState,
+    reduction_operation::ReductionOperation,
+    if_missing::Maybe{IfMissing},
+)::Nothing
     matrix_state = pop!(query_state.stack)
     @assert matrix_state isa MatrixState
 
     named_matrix = matrix_state.named_matrix
-    vector_value = compute_reduction(reduction_operation, read_only_array(named_matrix.array))  # NOLINT
+
+    n_rows, n_columns = size(named_matrix)
+    if n_rows > 0 && n_columns > 0
+        vector_value = compute_reduction(reduction_operation, read_only_array(named_matrix.array))  # NOLINT
+    elseif n_columns == 0  # UNTESTED
+        type = reduction_result_type(reduction_operation, eltype(named_matrix.array))  # UNTESTED
+        vector_value = Vector{type}()  # UNTESTED
+    elseif if_missing !== nothing  # UNTESTED
+        type = reduction_result_type(reduction_operation, eltype(named_matrix.array))  # UNTESTED
+        scalar_value = value_for_if_missing(query_state, if_missing; type)  # UNTESTED
+        vector_value = fill(scalar_value, n_columns)  # UNTESTED
+    else
+        error_at_state(query_state, "empty matrix and no IfMissing value was specified: || value_for_empty_matrix")  # UNTESTED
+    end
+
     named_vector = NamedArray(vector_value, named_matrix.dicts[2:2], named_matrix.dimnames[2:2])
 
     vector_state = VectorState(
