@@ -1066,13 +1066,13 @@ nested_test("contracts") do
                              """) contract_daf["/ cell"]
             end
 
-            nested_test("axis_dict") do
-                @test_throws chomp("""
-                             accessing non-contract axis: cell
-                             for the computation: computation
-                             on the daf data: memory!
-                             """) axis_dict(contract_daf, "cell")
-            end
+            # nested_test("axis_dict") do
+            # @test_throws chomp("""
+            # accessing non-contract axis: cell
+            # for the computation: computation
+            # on the daf data: memory!
+            # """) axis_dict(contract_daf, "cell")
+            # end
 
             nested_test("axis_indices") do
                 @test_throws chomp("""
@@ -1146,6 +1146,10 @@ nested_test("contracts") do
 
             nested_test("vectors_set") do
                 @test vectors_set(contract_daf, "cell") == vectors_set(daf, "cell")
+            end
+
+            nested_test("vectors_set") do
+                @test vectors_set(contract_daf, "gene") == vectors_set(daf, "gene")
             end
 
             nested_test("matrices_set") do

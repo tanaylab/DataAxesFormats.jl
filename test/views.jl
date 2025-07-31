@@ -333,6 +333,12 @@ nested_test("views") do
         set_matrix!(daf, "gene", "cell", "U_is_high", [true false; false true; true false]; relayout = false)
         set_matrix!(daf, "gene", "cell", "V_is_high", [true true; false false; true false]; relayout = false)
 
+        nested_test("set") do
+            @test isempty(matrices_set(daf, "gene", "cell"))
+            @test matrices_set(daf, "gene", "cell"; tensors = false) == Set(["U_is_high", "V_is_high"])
+            @test tensors_set(daf, "batch", "gene", "cell") == Set(["is_high"])
+        end
+
         nested_test("dense") do
             view = viewer(daf; axes = [VIEW_ALL_AXES], data = [("batch", "cell", "gene", "is_high") => "="])
             @test description(view) == """

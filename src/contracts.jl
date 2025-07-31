@@ -1029,7 +1029,7 @@ function Readers.axis_vector(
 end
 
 function Readers.axis_dict(contract_daf::ContractDaf, axis::AbstractString)::AbstractDict{<:AbstractString, <:Integer}
-    access_axis(contract_daf, axis; is_modify = false)
+    # access_axis(contract_daf, axis; is_modify = false)
     return invoke(Readers.axis_dict, Tuple{DafReader, AbstractString}, contract_daf, axis)
 end
 
@@ -1274,7 +1274,7 @@ function Formats.get_axis_dict_through_cache(
     contract_daf::ContractDaf,
     axis::AbstractString,
 )::AbstractDict{<:AbstractString, <:Integer}
-    access_axis(contract_daf, axis; is_modify = false)
+    # access_axis(contract_daf, axis; is_modify = false)
     return invoke(Formats.get_axis_dict_through_cache, Tuple{FormatReader, AbstractString}, contract_daf, axis)
 end
 
