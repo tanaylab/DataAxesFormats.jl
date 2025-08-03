@@ -1283,11 +1283,25 @@ true
 </p>
 <p>If 
 <code>tensors
-</code>, this will exclude the name of tensor matrices (use 
-<a href="readers.html#DataAxesFormats.Readers.tensors_set">
-<code>tensors_set
+</code>, this will condense the list of tensor matrices (
+<code>&lt;
 </code>
-</a> to get a condensed list of these).
+<em>tensor
+</em>axis
+<em>entry
+</em>
+<code>&gt;_name
+</code>) into a single entry called 
+<code>/&lt;
+</code>
+<em>tensor
+</em>axis
+<em>name
+</em>
+<code>&gt;/_matrix
+</code>. This makes the reasonable assumption that names do not contain the 
+<code>/
+</code> character (which wouldn&#39;t work in files and H5DF storage formats, anyway).
 </p>
 <p>If 
 <code>relayout
@@ -1322,72 +1336,6 @@ true
  &quot;UMIs&quot;
 </code>
 </pre>
-</div>
-</section>
-</article>
-<article class="docstring">
-<header>
-<a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring">
-</a>
-<a class="docstring-binding" id="DataAxesFormats.Readers.tensors_set" href="#DataAxesFormats.Readers.tensors_set">
-<code>DataAxesFormats.Readers.tensors_set
-</code>
-</a> — 
-<span class="docstring-category">Function
-</span>
-<span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring">
-</span>
-</header>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">tensors_set(
-    daf::DafReader,
-    tensor_axis::AbstractString,
-    rows_axis::AbstractString,
-    columns_axis::AbstractString;
-    [relayout::Bool = true]
-)::AbstractSet{&lt;:AbstractString}
-</code>
-</pre>
-<p>The names of the tensor matrix properties for the 
-<code>tensor_axis
-</code>, 
-<code>rows_axis
-</code> and 
-<code>columns_axis
-</code> in 
-<code>daf
-</code>. Each tensor is actually a set of matrices whose name starts with the name of the tensor axis entry, followed by 
-<code>_
-</code>, followed by the matrix name.
-</p>
-<p>If 
-<code>relayout
-</code> (default), then this will include the names of matrices that exist in the other layout (that is, with flipped axes).
-</p>
-<p>This first verifies the 
-<code>tensor_axis
-</code>, 
-<code>rows_axis
-</code> and 
-<code>columns_axis
-</code> exist in 
-<code>daf
-</code>.
-</p>
-<div class="admonition is-info" id="Note-a6add4e4e2e7206d">
-<header class="admonition-header">Note
-<a class="admonition-anchor" href="#Note-a6add4e4e2e7206d" title="Permalink">
-</a>
-</header>
-<div class="admonition-body">
-<p>There&#39;s no immutable set type in Julia for us to return. If you do modify the result set, bad things 
-<em>will
-</em> happen.
-</p>
-</div>
-</div>
 </div>
 </section>
 </article>
@@ -1825,12 +1773,6 @@ println(matrix_version_counter(metacells, &quot;gene&quot;, &quot;metacell&quot;
 <li>
 <a href="readers.html#DataAxesFormats.Readers.scalars_set">
 <code>DataAxesFormats.Readers.scalars_set
-</code>
-</a>
-</li>
-<li>
-<a href="readers.html#DataAxesFormats.Readers.tensors_set">
-<code>DataAxesFormats.Readers.tensors_set
 </code>
 </a>
 </li>

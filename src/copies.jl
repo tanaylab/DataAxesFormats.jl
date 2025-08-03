@@ -886,20 +886,22 @@ function copy_matrices(;
         for (columns_axis, columns_relation) in axis_relations
             if !relayout || columns_axis >= rows_axis
                 for name in matrices_set(source, rows_axis, columns_axis; relayout)
-                    copy_single_matrix(;
-                        destination,
-                        source,
-                        empty,
-                        types,
-                        overwrite,
-                        insist,
-                        rows_axis,
-                        rows_relation,
-                        columns_axis,
-                        columns_relation,
-                        name,
-                        relayout,
-                    )
+                    if name[1] != '/'
+                        copy_single_matrix(;
+                            destination,
+                            source,
+                            empty,
+                            types,
+                            overwrite,
+                            insist,
+                            rows_axis,
+                            rows_relation,
+                            columns_axis,
+                            columns_relation,
+                            name,
+                            relayout,
+                        )
+                    end
                 end
             end
         end

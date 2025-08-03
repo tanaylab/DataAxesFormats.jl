@@ -38,7 +38,6 @@ DataAxesFormats.Readers.get_vector
 ```@docs
 DataAxesFormats.Readers.has_matrix
 DataAxesFormats.Readers.matrices_set
-DataAxesFormats.Readers.tensors_set
 DataAxesFormats.Readers.get_matrix
 ```
 

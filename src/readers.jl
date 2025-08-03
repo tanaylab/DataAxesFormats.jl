@@ -51,7 +51,6 @@ export has_vector
 export matrices_set
 export matrix_version_counter
 export scalars_set
-export tensors_set
 export vector_version_counter
 export vectors_set
 
@@ -750,8 +749,9 @@ end
 
 The names of the matrix properties for the `rows_axis` and `columns_axis` in `daf`.
 
-If `tensors`, this will exclude the name of tensor matrices (use [`tensors_set`](@ref) to get a condensed list of
-these).
+If `tensors`, this will condense the list of tensor matrices (`<`_tensor_axis_entry_`>_name`) into a single entry called
+`/<`_tensor_axis_name_`>/_matrix`. This makes the reasonable assumption that names do not contain the `/` character
+(which wouldn't work in files and H5DF storage formats, anyway).
 
 If `relayout` (default), then this will include the names of matrices that exist in the other layout (that is, with
 flipped axes).
@@ -819,67 +819,29 @@ function matrices_set(
         end
 
         if tensors
-            all_tensor_matrices = Set{Tuple{<:AbstractString, <:AbstractString, <:AbstractString}}()
-            collect_tensors(daf, rows_axis, columns_axis; all_tensor_matrices)
+            matrices_per_tensor_per_axes_per_axis = Dict{
+                AbstractString,
+                Dict{Tuple{AbstractString, AbstractString}, Dict{AbstractString, Set{AbstractString}}},
+            }()
+            all_tensor_matrices = Set{AbstractString}()
+            collect_tensors(daf, rows_axis, columns_axis; matrices_per_tensor_per_axes_per_axis, all_tensor_matrices)
             if !can_modify_names
                 names = Set{AbstractString}(names)
             end
             filter!(names) do name
-                return !((rows_axis, columns_axis, name) in all_tensor_matrices) &&
-                       !((columns_axis, rows_axis, name) in all_tensor_matrices)
+                return !(name in all_tensor_matrices)
+            end
+            for (tensor, matrices_per_tensor) in matrices_per_tensor_per_axes_per_axis
+                matrices = get(matrices_per_tensor, (rows_axis, columns_axis), nothing)
+                if matrices !== nothing
+                    for matrix in keys(matrices)
+                        push!(names, "/$(tensor)/_$(matrix)")
+                    end
+                end
             end
         end
 
         @debug "matrices_set daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) relayout: $(relayout) result: $(brief(names))"
-        # Formats.assert_valid_cache(daf)
-        return names
-    end
-end
-
-"""
-    tensors_set(
-        daf::DafReader,
-        tensor_axis::AbstractString,
-        rows_axis::AbstractString,
-        columns_axis::AbstractString;
-        [relayout::Bool = true]
-    )::AbstractSet{<:AbstractString}
-
-The names of the tensor matrix properties for the `tensor_axis`, `rows_axis` and `columns_axis` in `daf`. Each tensor is
-actually a set of matrices whose name starts with the name of the tensor axis entry, followed by `_`, followed by the
-matrix name.
-
-If `relayout` (default), then this will include the names of matrices that exist in the other layout (that is, with
-flipped axes).
-
-This first verifies the `tensor_axis`, `rows_axis` and `columns_axis` exist in `daf`.
-
-!!! note
-
-    There's no immutable set type in Julia for us to return. If you do modify the result set, bad things *will* happen.
-"""
-function tensors_set(
-    daf::DafReader,
-    tensor_axis::AbstractString,
-    rows_axis::AbstractString,
-    columns_axis::AbstractString;
-    relayout::Bool = true,
-)::AbstractSet{<:AbstractString}
-    return Formats.with_data_read_lock(daf, "tensors_set of:", tensor_axis, "and:", rows_axis, "and:", columns_axis) do
-        # Formats.assert_valid_cache(daf)
-        relayout = relayout && rows_axis != columns_axis
-
-        require_axis(daf, "for the tensors of: matrices_set", tensor_axis)
-        require_axis(daf, "for the rows of: matrices_set", rows_axis)
-        require_axis(daf, "for the columns of: matrices_set", columns_axis)
-
-        names = Set{AbstractString}()
-        collect_tensors(daf, rows_axis, columns_axis; all_tensors = names)
-        if relayout
-            collect_tensors(daf, columns_axis, rows_axis; all_tensors = names)
-        end
-
-        @debug "tensors_set daf: $(brief(daf)) tensor_axis: $(tensor_axis) rows_axis: $(rows_axis) columns_axis: $(columns_axis) relayout: $(relayout) result: $(brief(names))"
         # Formats.assert_valid_cache(daf)
         return names
     end
@@ -1404,16 +1366,18 @@ function matrices_description(
                 sort!(matrices)
                 is_first_axes = true
                 for matrix in matrices
-                    data = base_array(get_matrix(daf, rows_axis, columns_axis, matrix; relayout = false))
-                    if is_first_matrix
-                        push!(lines, "$(indent)matrices:")
-                        is_first_matrix = false
+                    if !tensors || matrix[1] != '/'
+                        data = base_array(get_matrix(daf, rows_axis, columns_axis, matrix; relayout = false))
+                        if is_first_matrix
+                            push!(lines, "$(indent)matrices:")
+                            is_first_matrix = false
+                        end
+                        if is_first_axes
+                            push!(lines, "$(indent)  $(rows_axis),$(columns_axis):")
+                            is_first_axes = false
+                        end
+                        push!(lines, "$(indent)    $(matrix): " * brief(data))
                     end
-                    if is_first_axes
-                        push!(lines, "$(indent)  $(rows_axis),$(columns_axis):")
-                        is_first_axes = false
-                    end
-                    push!(lines, "$(indent)    $(matrix): " * brief(data))
                 end
             end
         end
@@ -1590,8 +1554,7 @@ function collect_tensors(
     matrices_per_tensor_per_axes_per_axis::Maybe{
         Dict{AbstractString, Dict{Tuple{AbstractString, AbstractString}, Dict{AbstractString, Set{AbstractString}}}},
     } = nothing,
-    all_tensor_matrices::Maybe{AbstractSet{Tuple{<:AbstractString, <:AbstractString, <:AbstractString}}} = nothing,
-    all_tensors::Maybe{AbstractSet{<:AbstractString}} = nothing,
+    all_tensor_matrices::Maybe{AbstractSet{<:AbstractString}} = nothing,
 )::Nothing
     @assert Formats.has_data_read_lock(daf)
 
@@ -1617,10 +1580,7 @@ function collect_tensors(
                         end
                         push!(matrices, matrix_name)
                         if all_tensor_matrices !== nothing
-                            push!(all_tensor_matrices, (rows_axis, columns_axis, matrix_name))
-                        end
-                        if all_tensors !== nothing
-                            push!(all_tensors, tensor_name)
+                            push!(all_tensor_matrices, matrix_name)
                         end
                     end
                 end

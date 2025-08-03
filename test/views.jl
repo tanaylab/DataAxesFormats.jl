@@ -334,9 +334,8 @@ nested_test("views") do
         set_matrix!(daf, "gene", "cell", "V_is_high", [true true; false false; true false]; relayout = false)
 
         nested_test("set") do
-            @test isempty(matrices_set(daf, "gene", "cell"))
+            @test matrices_set(daf, "gene", "cell") == Set(["/batch/_is_high"])
             @test matrices_set(daf, "gene", "cell"; tensors = false) == Set(["U_is_high", "V_is_high"])
-            @test tensors_set(daf, "batch", "gene", "cell") == Set(["is_high"])
         end
 
         nested_test("dense") do
