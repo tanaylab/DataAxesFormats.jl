@@ -298,7 +298,7 @@ function Formats.format_relayout_matrix!(
     matrix::StorageMatrix,
 )::StorageMatrix
     @assert Formats.has_data_write_lock(memory)
-    matrix = transposer(matrix)
+    matrix = flipped(matrix)
     Formats.format_set_matrix!(memory, columns_axis, rows_axis, name, matrix)
     return matrix
 end

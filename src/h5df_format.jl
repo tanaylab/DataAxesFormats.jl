@@ -964,7 +964,7 @@ function Formats.format_relayout_matrix!(
             sparse_rowval,
             sparse_nzval,
         )
-        relayout!(transpose(relayout_matrix), matrix)
+        relayout!(flip(relayout_matrix), matrix)
 
     elseif eltype(matrix) <: AbstractString
         matrices_group = h5df.root["matrices"]
@@ -976,12 +976,12 @@ function Formats.format_relayout_matrix!(
         rows_axis_group = columns_axis_group[rows_axis]
         @assert rows_axis_group isa HDF5.Group
 
-        relayout_matrix = transposer(matrix)
+        relayout_matrix = flipped(matrix)
         write_string_matrix(rows_axis_group, name, relayout_matrix)
 
     else
         relayout_matrix = Formats.format_get_empty_dense_matrix!(h5df, columns_axis, rows_axis, name, eltype(matrix))
-        relayout!(transpose(relayout_matrix), matrix)
+        relayout!(flip(relayout_matrix), matrix)
     end
 
     return relayout_matrix

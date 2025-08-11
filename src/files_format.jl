@@ -777,16 +777,16 @@ function Formats.format_relayout_matrix!(
         colptr[2:end] .= length(nzval) + 1
         relayout_matrix =
             SparseMatrixCSC(axis_length(files, columns_axis), axis_length(files, rows_axis), colptr, rowval, nzval)
-        relayout!(transpose(relayout_matrix), matrix)
+        relayout!(flip(relayout_matrix), matrix)
 
     elseif eltype(matrix) <: AbstractString
-        relayout_matrix = transposer(matrix)
+        relayout_matrix = flipped(matrix)
         write_string_matrix(files, columns_axis, rows_axis, name, relayout_matrix)
 
     else
         @assert eltype(matrix) <: Real
         relayout_matrix = Formats.format_get_empty_dense_matrix!(files, columns_axis, rows_axis, name, eltype(matrix))
-        relayout!(transpose(relayout_matrix), matrix)
+        relayout!(flip(relayout_matrix), matrix)
     end
 
     return relayout_matrix

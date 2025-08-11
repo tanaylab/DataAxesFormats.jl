@@ -81,6 +81,7 @@ using ..Writers
 using CategoricalArrays
 using DataFrames
 using HDF5
+using LinearAlgebra
 using Muon
 using SparseArrays
 using TanayLabUtilities
@@ -436,7 +437,7 @@ function copy_supported_square_matrices(
             @info "skip filtered $(member) matrix: $(name)"  # UNTESTED
         else
             @info "copy $(member) matrix: $(name)"
-            set_matrix!(memory, axis, axis, name, transpose(access_matrix(matrix)); relayout = false)
+            set_matrix!(memory, axis, axis, name, flip(access_matrix(matrix)); relayout = false)
         end
     end
 end
@@ -480,7 +481,7 @@ function copy_supported_matrix(  # UNTESTED
 )::Nothing
     sparse_matrix = read(matrix)
     if matrix.csr
-        copy_supported_matrix(transpose(sparse_matrix), memory, columns_axis, rows_axis, name)
+        copy_supported_matrix(flip(sparse_matrix), memory, columns_axis, rows_axis, name)
     else
         copy_supported_matrix(sparse_matrix, memory, rows_axis, columns_axis, name)
     end
@@ -507,7 +508,7 @@ function copy_supported_matrix(
 )::Nothing
     matrix_major_axis = major_axis(matrix)
     if matrix_major_axis == Rows
-        matrix = transpose(matrix)
+        matrix = flip(matrix)
         rows_axis, columns_axis = columns_axis, rows_axis
     end
     if matrix_major_axis !== nothing
@@ -520,9 +521,9 @@ function access_matrix( # only seems untested
 )::AbstractMatrix
     dataset = matrix.dset
     if HDF5.ismmappable(dataset) && HDF5.iscontiguous(dataset)
-        return transpose(HDF5.readmmap(dataset))
+        return flip(HDF5.readmmap(dataset))
     else
-        return transpose(read(dataset))
+        return flip(read(dataset))
     end
 end
 
@@ -575,7 +576,7 @@ stored in the returned new `AnnData` object.
         @assert obs_is != var_is
         require_matrix(daf, obs_is, var_is, X_is; relayout = true)
 
-        matrix = transpose(get_matrix(daf, var_is, obs_is, X_is))
+        matrix = flip(get_matrix(daf, var_is, obs_is, X_is))
         adata = AnnData(; X = matrix, obs_names = axis_vector(daf, obs_is), var_names = axis_vector(daf, var_is))
 
         copy_scalars(daf, adata.uns)
@@ -639,7 +640,7 @@ end
 
 function copy_square_matrices(daf::DafReader, axis::AbstractString, dict::AbstractDict)::Nothing
     for name in matrices_set(daf, axis, axis)
-        dict[name] = transpose(get_matrix(daf, axis, axis, name))
+        dict[name] = flip(get_matrix(daf, axis, axis, name))
     end
 end
 
@@ -658,7 +659,7 @@ function copy_matrices(
 )::Nothing
     for name in matrices_set(daf, rows_axis, columns_axis; relayout = true)
         if name != skip_name
-            dict[name] = transpose(get_matrix(daf, columns_axis, rows_axis, name))
+            dict[name] = flip(get_matrix(daf, columns_axis, rows_axis, name))
         end
     end
 end

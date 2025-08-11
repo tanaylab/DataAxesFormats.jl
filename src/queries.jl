@@ -5254,7 +5254,7 @@ end
 function Query(query_string::AbstractString, operand_only::Maybe{Union{Type{Lookup}, Type{Axis}}} = nothing)::Query
     tokens = tokenize(query_string, QUERY_OPERATORS)
     if operand_only !== nothing && length(tokens) == 1 && !tokens[1].is_operator
-        return operand_only(query_string)  # NOJET
+        return QuerySequence((operand_only(query_string),))  # NOJET
     end
 
     next_token_index = 1

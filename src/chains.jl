@@ -574,7 +574,7 @@ function Formats.format_relayout_matrix!(
                     MemoryData;
                     is_slow = true,
                 ) do
-                    return (Formats.as_named_matrix(daf, columns_axis, rows_axis, transposer(matrix)), nothing)
+                    return (Formats.as_named_matrix(daf, columns_axis, rows_axis, flipped(matrix)), nothing)
                 end
             end
         end
