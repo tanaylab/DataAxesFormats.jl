@@ -117,7 +117,7 @@ by a `\\`, such that the result will only use [`is_value_char`](@ref) characters
 need to encode `_` as `_5F`, so we need to encode `\\_` as `_5C_5F`. Isn't encoding **fun**?
 """
 function encode_expression(expr_string::AbstractString)::String
-    return replace(expr_string, "\\_" => "_5C_5F", "_" => "_5F", r"\\." => encode_expression_char)
+    return replace(expr_string, "\\_" => "_5C_5F", "_" => "_5F", r"\\." => encode_expression_char)  # NOJET
 end
 
 function encode_expression_char(escaped_char::AbstractString)::AbstractString

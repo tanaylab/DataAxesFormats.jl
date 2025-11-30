@@ -98,14 +98,14 @@ include("chains.jl")
 include("h5df_format.jl")
 @reexport using .H5dfFormat
 
-include("complete.jl")
-@reexport using .CompleteDaf
-
 include("memory_format.jl")
 @reexport using .MemoryFormat
 
 include("views.jl")
 @reexport using .Views
+
+include("complete.jl")
+@reexport using .CompleteDaf
 
 include("reconstruction.jl")
 @reexport using .Reconstruction

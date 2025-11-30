@@ -3526,7 +3526,7 @@ function fetch_property(
         else
             push!(
                 fetch_state.common.dependency_keys,
-                Formats.matrix_cache_key(fetch_axis_name, fetch_property_name, slice_axis_name),
+                Formats.matrix_cache_key(fetch_axis_name, slice_axis_name, fetch_property_name),
             )
         end
 

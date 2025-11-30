@@ -566,6 +566,7 @@ stored in the returned new `AnnData` object.
     obs_is::Maybe{AbstractString} = nothing,
     var_is::Maybe{AbstractString} = nothing,
     X_is::Maybe{AbstractString} = nothing,
+    X_eltype::Maybe{Type} = nothing,
     h5ad::Maybe{AbstractString} = nothing,
 )::AnnData
     adata = Formats.with_data_read_lock(daf, "daf_as_anndata") do
@@ -576,7 +577,10 @@ stored in the returned new `AnnData` object.
         @assert obs_is != var_is
         require_matrix(daf, obs_is, var_is, X_is; relayout = true)
 
-        matrix = flip(get_matrix(daf, var_is, obs_is, X_is))
+        matrix = flip(get_matrix(daf, var_is, obs_is, X_is).array)
+        if X_eltype !== nothing && X_eltype != eltype(matrix)
+            matrix = X_eltype.(matrix)  # UNTESTED
+        end
         adata = AnnData(; X = matrix, obs_names = axis_vector(daf, obs_is), var_names = axis_vector(daf, var_is))
 
         copy_scalars(daf, adata.uns)
@@ -620,6 +624,7 @@ end
 
 function copy_scalars(daf::DafReader, dict::AbstractDict)::Nothing
     for name in scalars_set(daf)
+        @debug "Scalar: $(name)"
         dict[name] = get_scalar(daf, name)
     end
 end
@@ -640,13 +645,15 @@ end
 
 function copy_square_matrices(daf::DafReader, axis::AbstractString, dict::AbstractDict)::Nothing
     for name in matrices_set(daf, axis, axis)
-        dict[name] = flip(get_matrix(daf, axis, axis, name))
+        @debug "Square $(axis): $(name)"
+        dict[name] = flip(get_matrix(daf, axis, axis, name).array)
     end
 end
 
 function copy_vectors(daf::DafReader, axis::AbstractString, frame::DataFrame)::Nothing
     for name in vectors_set(daf, axis)
-        frame[!, name] = get_vector(daf, axis, name)
+        @debug "Vector $(axis): $(name)"
+        frame[!, name] = densify(get_vector(daf, axis, name).array)
     end
 end
 
@@ -659,7 +666,8 @@ function copy_matrices(
 )::Nothing
     for name in matrices_set(daf, rows_axis, columns_axis; relayout = true)
         if name != skip_name
-            dict[name] = flip(get_matrix(daf, columns_axis, rows_axis, name))
+            @debug "Matrix $(rows_axis) $(columns_axis): $(name)"
+            dict[name] = flip(get_matrix(daf, columns_axis, rows_axis, name).array)
         end
     end
 end

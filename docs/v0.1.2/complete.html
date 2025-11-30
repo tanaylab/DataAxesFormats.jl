@@ -248,6 +248,12 @@
 </code>
 </a> for details.
 </p>
+<p>In addition, it is possible to have another scalar property, 
+<code>base_daf_view
+</code>. If specified, this should contain JSON serialization of the parameters of a 
+<code>DafView
+</code> to apply to the base repository. This allows the child repository to be based on a subset of the base data, and/or rename the base data.
+</p>
 <p>Since the same base repository can be used by multiple other repositories, we use the 
 <code>GlobalWeakCache
 </code> to avoid needlessly re-opening the same repository more than once.
@@ -278,6 +284,8 @@
 <code>Daf
 </code> repositories by tracing back through the 
 <code>base_daf_repository
+</code> and the optional 
+<code>base_daf_view
 </code>. Valid modes are only &quot;r&quot; and &quot;r+&quot;; if the latter, only the first (leaf) repository is opened in write mode.
 </p>
 </div>
@@ -415,7 +423,7 @@
 <hr/>
 <p>This document was generated with 
 <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl
-</a> version 1.13.0. Using Julia version 1.11.6.
+</a> version 1.14.1. Using Julia version 1.11.7.
 </p>
 </section>
 <footer class="modal-card-foot">

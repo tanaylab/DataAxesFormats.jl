@@ -8,6 +8,10 @@ tedious. The code here automates this by using an additional convention - each r
 called `base_daf_repository` which identifies its parent repository (if any). This path is relative to the directory
 containing the child repository. See [`open_daf`](@ref) for details.
 
+In addition, it is possible to have another scalar property, `base_daf_view`. If specified, this should contain JSON
+serialization of the parameters of a `DafView` to apply to the base repository. This allows the child repository to be
+based on a subset of the base data, and/or rename the base data.
+
 Since the same base repository can be used by multiple other repositories, we use the `GlobalWeakCache` to avoid
 needlessly re-opening the same repository more than once.
 """
@@ -16,11 +20,14 @@ module CompleteDaf
 export complete_daf
 export open_daf
 
+using JSON
+
 using ..Chains
 using ..FilesFormat
 using ..Formats
 using ..H5dfFormat
 using ..Readers
+using ..Views
 using ..Writers
 
 using TanayLabUtilities
@@ -28,8 +35,9 @@ using TanayLabUtilities
 """
     complete_daf(leaf::AbstractString, mode::AbstractString = "r"; name::Maybe{AbstractString} = nothing)::Union{DafReader, DafWriter}
 
-Open a complete chain of `Daf` repositories by tracing back through the `base_daf_repository`. Valid modes are only "r"
-and "r+"; if the latter, only the first (leaf) repository is opened in write mode.
+Open a complete chain of `Daf` repositories by tracing back through the `base_daf_repository` and the optional
+`base_daf_view`. Valid modes are only "r" and "r+"; if the latter, only the first (leaf) repository is opened in write
+mode.
 """
 function complete_daf(
     leaf::AbstractString,
@@ -39,11 +47,17 @@ function complete_daf(
     @assert mode in ("r", "r+")
     is_writer = mode == "r+"
     base_daf_repository = leaf
+    base_daf_view = nothing
     dafs = DafReader[]
     @info "Open complete $(name === nothing ? leaf : name):"
     while true
         @info "- Open $(base_daf_repository)"
         daf = open_daf(base_daf_repository, mode)
+        if base_daf_view !== nothing
+            @info "  View $(base_daf_view)"
+            daf = viewer(daf; base_daf_view...)
+        end
+
         push!(dafs, daf)
         mode = "r"
 
@@ -51,6 +65,7 @@ function complete_daf(
         base_daf_repository = get_scalar(daf, "base_daf_repository"; default = nothing)
         if base_daf_repository !== nothing
             base_daf_repository = joinpath(base_directory, base_daf_repository)
+            base_daf_view = parse_view_parameters(get_scalar(daf, "base_daf_view"; default = nothing))
             continue
         end
 
@@ -61,6 +76,20 @@ function complete_daf(
             return chain_reader(dafs; name)
         end
     end
+end
+
+function parse_view_parameters(::Nothing)::Nothing
+    return nothing
+end
+
+function parse_view_parameters(json::AbstractString)::AbstractDict
+    parameters = Dict{Symbol, Any}()
+    json_parameters = JSON.parse(json)
+    @assert json_parameters isa AbstractDict
+    for (key, value) in json_parameters
+        parameters[Symbol(key)] = value
+    end
+    return parameters
 end
 
 """

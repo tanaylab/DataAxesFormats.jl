@@ -1231,7 +1231,7 @@ end
 
 function compute_reduction(operation::Var, input::StorageVector{<:StorageReal})::StorageReal
     type = reduction_result_type(operation, eltype(input))
-    return type(var(input; corrected = false))
+    return type(var(input; corrected = false))  # NOJET
 end
 
 function reduction_result_type(operation::Var, eltype::Type)::Type
