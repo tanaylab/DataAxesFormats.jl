@@ -959,7 +959,7 @@ metacells["/ cell : metacell ?? => type => color"]
 
 # output
 
-852-element Named SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}
+852-element Named SparseArrays.ReadOnly{String, 1, Vector{String}}
 cell                                │
 ────────────────────────────────────┼────────────
 demux_07_12_20_1_AACAAGATCCATTTCA-1 │   "#eebb6e"
@@ -1008,7 +1008,7 @@ cells["/ cell & UMIs ; gene = FOXP1"]
 
 # output
 
-372-element SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}:
+372-element SparseArrays.ReadOnly{String, 1, Vector{String}}
  "demux_07_12_20_1_AACAAGATCCATTTCA-1"
  "demux_07_12_20_1_AACGAAAGTCCAATCA-1"
  "demux_07_12_20_1_AGACTCATCTATTGTC-1"
@@ -1260,7 +1260,7 @@ metacells["/ metacell : kind ! type => color"]
 
 # output
 
-7-element Named SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}
+7-element Named SparseArrays.ReadOnly{String, 1, Vector{String}}
 metacell  │
 ──────────┼────────────
 M1671.28  │ "steelblue"
@@ -1393,7 +1393,7 @@ chain["/ cell & donor = N16"]
 
 # output
 
-10-element SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}:
+10-element SparseArrays.ReadOnly{String, 1, Vector{String}}
  "demux_21_01_21_1_AACCCAATCGAGAATA-1"
  "demux_21_01_21_1_CACAGGCTCTTAGCCC-1"
  "demux_21_01_21_1_CTACGGGTCGTGCGAC-1"
@@ -1436,7 +1436,7 @@ chain["/ cell &! donor = N16"]
 
 # output
 
-846-element SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}:
+846-element SparseArrays.ReadOnly{String, 1, Vector{String}}
  "demux_07_12_20_1_AACAAGATCCATTTCA-1"
  "demux_07_12_20_1_AACGAAAGTCCAATCA-1"
  "demux_07_12_20_1_AAGACAAAGTTCCGTA-1"
@@ -1492,7 +1492,7 @@ chain["/ cell & donor = N16 | donor = N17"]
 
 # output
 
-20-element SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}:
+20-element SparseArrays.ReadOnly{String, 1, Vector{String}}
  "demux_21_01_21_1_AACCCAATCGAGAATA-1"
  "demux_21_01_21_1_AACGTCACATCCGAGC-1"
  "demux_21_01_21_1_ACCCAAAAGGTCCCGT-1"
@@ -1545,7 +1545,7 @@ chain["/ cell & donor = N16 |! metacell"]
 
 # output
 
-14-element SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}:
+14-element SparseArrays.ReadOnly{String, 1, Vector{String}}
  "demux_07_12_20_1_AACGAAAGTCCAATCA-1"
  "demux_07_12_20_1_ATCGTAGTCCAGTGCG-1"
  "demux_21_01_21_1_AACCCAATCGAGAATA-1"
@@ -1785,7 +1785,7 @@ cells[q"/ gene & name ~ \\^RP\\[LS\\]"]
 
 # output
 
-78-element SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}:
+78-element SparseArrays.ReadOnly{String, 1, Vector{String}}
  "RPL22"
  "RPL11"
  "RPS8"

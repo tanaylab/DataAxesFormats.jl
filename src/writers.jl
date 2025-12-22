@@ -341,6 +341,7 @@ function set_vector!(
 
         if vector isa StorageVector
             require_axis_length(daf, length(vector), "vector: $(name)", axis)
+            require_axis_length(daf, length(vector), "vector: $(name)", axis)
             if vector isa NamedVector
                 require_dim_name(daf, axis, "vector dim name", dimnames(vector, 1))
                 require_axis_names(daf, axis, "entry names of the: vector", names(vector, 1))
@@ -368,6 +369,11 @@ function set_vector!(
         end
 
         update_before_set_vector(daf, axis, name)
+        if occursin("Chain", "$(brief(daf))")
+        end
+        if Base.eltype(vector) <: AbstractString
+            vector = String.(vector)
+        end
         Formats.format_set_vector!(daf, axis, name, vector)
         # Formats.assert_valid_cache(daf)
         return nothing

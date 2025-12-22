@@ -44,38 +44,54 @@ function complete_daf(
     mode::AbstractString = "r";
     name::Maybe{AbstractString} = nothing,
 )::Union{DafReader, DafWriter}
+    if name === nothing
+        name = leaf
+    end
     @assert mode in ("r", "r+")
-    is_writer = mode == "r+"
-    base_daf_repository = leaf
-    base_daf_view = nothing
+    @info "Open complete $(name):"
+    dafs = reverse!(collect_dafs(; name, base_daf_repository = leaf, mode, indent = "", index = 0))
+    if mode == "r+"
+        return chain_writer(dafs; name = name * ".complete")
+    else
+        return chain_reader(dafs; name = name * ".complete")
+    end
+end
+
+function collect_dafs(;
+    name::AbstractString,
+    base_daf_repository::Union{AbstractString, DafReader},
+    mode::AbstractString,
+    indent::AbstractString,
+    index::Integer,
+)::AbstractVector{<:DafReader}
     dafs = DafReader[]
-    @info "Open complete $(name === nothing ? leaf : name):"
     while true
-        @info "- Open $(base_daf_repository)"
-        daf = open_daf(base_daf_repository, mode)
-        if base_daf_view !== nothing
-            @info "  View $(base_daf_view)"
-            daf = viewer(daf; base_daf_view...)
-        end
+        @info "$(indent)- Open $(base_daf_repository) $(mode)"
+        daf = open_daf(base_daf_repository, mode)  # NOJET
+        base_directory = dirname(base_daf_repository)  # NOJET
 
         push!(dafs, daf)
-        mode = "r"
-
-        base_directory = dirname(base_daf_repository)
         base_daf_repository = get_scalar(daf, "base_daf_repository"; default = nothing)
-        if base_daf_repository !== nothing
-            base_daf_repository = joinpath(base_directory, base_daf_repository)
+        if base_daf_repository === nothing
+            return dafs
+        end
+        base_daf_repository = joinpath(base_directory, base_daf_repository)
+
+        base_daf_view = parse_view_parameters(get_scalar(daf, "base_daf_view"; default = nothing))
+        if base_daf_view !== nothing
+            @debug "$(indent)  View"
             base_daf_view = parse_view_parameters(get_scalar(daf, "base_daf_view"; default = nothing))
-            continue
+            base_dafs = reverse!(
+                collect_dafs(; name, base_daf_repository, mode = "r", indent = indent * "  ", index = index + 1),
+            )
+            chain = chain_reader(base_dafs; name = "$(name).chain_$(index)")
+            daf = viewer(chain; name = "$(name).view_$(index)", base_daf_view...)  # NOJET
+            return push!(dafs, daf)
         end
 
-        reverse!(dafs)
-        if is_writer
-            return chain_writer(dafs; name)
-        else
-            return chain_reader(dafs; name)
-        end
+        mode = "r"
     end
+    return dafs
 end
 
 function parse_view_parameters(::Nothing)::Nothing
@@ -87,7 +103,18 @@ function parse_view_parameters(json::AbstractString)::AbstractDict
     json_parameters = JSON.parse(json)
     @assert json_parameters isa AbstractDict
     for (key, value) in json_parameters
-        parameters[Symbol(key)] = value
+        pairs = Pair[]
+        for pair in value
+            for (pattern, value) in pair
+                if contains(pattern, "(")
+                    pattern = replace(pattern, "(" => "[", ")" => "]")
+                    pattern = JSON.parse(pattern)
+                    pattern = Tuple(pattern)
+                end
+                push!(pairs, pattern => value)
+            end
+        end
+        parameters[Symbol(key)] = pairs
     end
     return parameters
 end

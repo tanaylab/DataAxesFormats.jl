@@ -526,7 +526,11 @@ function Formats.format_set_vector!(
             vector_group = create_group(axis_vectors_group, name)
             vector_group["nzind"] = nzind(vector)  # NOJET
             if eltype(vector) != Bool || !all(nzval(vector))
-                vector_group["nzval"] = nzval(vector)
+                if eltype(vector) <: AbstractString
+                    vector_group["nzval"] = String.(nzval(vector))  # NOJET
+                else
+                    vector_group["nzval"] = nzval(vector)
+                end
             end
             close(vector_group)
 
@@ -578,7 +582,7 @@ function write_string_vector(
         for (index, value) in enumerate(vector)
             if length(value) > 0
                 nzind_vector[position] = index
-                nztxt_vector[position] = string.(value)
+                nztxt_vector[position] = String.(value)
                 position += 1
             end
         end
@@ -590,7 +594,7 @@ function write_string_vector(
         close(vector_group)
 
     else
-        nice_vector = string.(vector)
+        nice_vector = String.(vector)
         axis_vectors_group[name] = nice_vector  # NOJET
     end
 
@@ -787,7 +791,11 @@ function Formats.format_set_matrix!(
             matrix_group["colptr"] = colptr(matrix)
             matrix_group["rowval"] = rowval(matrix)
             if eltype(matrix) != Bool || !all(nzval(matrix))
-                matrix_group["nzval"] = nzval(matrix)
+                if eltype(matrix) <: AbstractString
+                    matrix_group["nzval"] = String.(nzval(matrix))
+                else
+                    matrix_group["nzval"] = nzval(matrix)
+                end
             end
             close(matrix_group)
 
@@ -844,7 +852,7 @@ function write_string_matrix(
                 if length(value) > 0
                     @assert !(contains(value, '\n'))
                     rowval_vector[position] = row_index
-                    nztxt_vector[position] = string.(value)
+                    nztxt_vector[position] = String.(value)
                     position += 1
                 end
             end
@@ -859,7 +867,7 @@ function write_string_matrix(
         close(matrix_group)
 
     else
-        nice_matrix = string.(matrix)
+        nice_matrix = String.(matrix)
         columns_axis_group[name] = nice_matrix  # NOJET
     end
 

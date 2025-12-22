@@ -565,7 +565,7 @@ function concatenate_axis_string_vectors(
         else
             @assert length(vector) == size
             if !(eltype(vector) <: AbstractString)
-                vector = string.(vector)
+                vector = String.(vector)
             end
             if prefix
                 concatenated_vector[(offset + 1):(offset + size)] = (name * ".") .* vector

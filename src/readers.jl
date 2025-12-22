@@ -105,7 +105,7 @@ The names of the scalar properties in `daf`.
     There's no immutable set type in Julia for us to return. If you do modify the result set, bad things *will* happen.
 
 ```jldoctest
-string.(scalars_set(example_cells_daf()))
+String.(scalars_set(example_cells_daf()))
 
 # output
 
@@ -251,7 +251,7 @@ The names of the axes of `daf`.
     There's no immutable set type in Julia for us to return. If you do modify the result set, bad things *will* happen.
 
 ```jldoctest
-sort!(string.(axes_set(example_cells_daf())))
+sort!(String.(axes_set(example_cells_daf())))
 
 # output
 
@@ -286,11 +286,11 @@ If `default` is `undef` (the default), this verifies the `axis` exists in `daf`.
 which is returned if the `axis` does not exist.
 
 ```jldoctest
-string.(axis_vector(example_metacells_daf(), "type"))
+String.(axis_vector(example_metacells_daf(), "type"))
 
 # output
 
-4-element Vector{SubString{StringViews.StringView{Vector{UInt8}}}}:
+4-element Vector{String}:
  "MEBEMP-E"
  "MEBEMP-L"
  "MPP"
@@ -550,7 +550,7 @@ This first verifies the `axis` exists in `daf`.
     There's no immutable set type in Julia for us to return. If you do modify the result set, bad things *will* happen.
 
 ```jldoctest
-sort!(string.(vectors_set(example_cells_daf(), "cell")))
+sort!(String.(vectors_set(example_cells_daf(), "cell")))
 
 # output
 
@@ -592,7 +592,7 @@ get_vector(example_metacells_daf(), "type", "color")
 
 # output
 
-4-element Named SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}
+4-element Named SparseArrays.ReadOnly{String, 1, Vector{String}}
 type     │
 ─────────┼────────────
 MEBEMP-E │   "#eebb6e"
@@ -763,7 +763,7 @@ This first verifies the `rows_axis` and `columns_axis` exist in `daf`.
     There's no immutable set type in Julia for us to return. If you do modify the result set, bad things *will* happen.
 
 ```jldoctest
-string.(matrices_set(example_cells_daf(), "gene", "cell"))
+String.(matrices_set(example_cells_daf(), "gene", "cell"))
 
 # output
 

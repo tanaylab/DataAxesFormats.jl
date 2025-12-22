@@ -121,8 +121,7 @@ to use for these values.
     end
 
     implicit_values =
-        [implicit_value == empty_implicit ? "" : string(implicit_value) for implicit_value in implicit_values]
-
+        [implicit_value == empty_implicit ? "" : String(implicit_value) for implicit_value in implicit_values]
     value_of_empties_of_properties = Dict{AbstractString, Maybe{StorageScalar}}()
     vector_values_of_properties = Dict{AbstractString, StorageVector}()
     for property in vectors_set(daf, existing_axis)

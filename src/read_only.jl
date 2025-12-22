@@ -179,11 +179,29 @@ function Formats.format_description_header(  # UNTESTED
     read_only_view::DafReadOnlyWrapper,
     indent::AbstractString,
     lines::Vector{String},
-    ::Bool,
+    deep::Bool,
 )::Nothing
     @assert Formats.has_data_read_lock(read_only_view)
     push!(lines, "$(indent)type: ReadOnly")
-    push!(lines, "$(indent)base: $(brief(read_only_view.daf))")
+    if !deep
+        push!(lines, "$(indent)base: $(brief(read_only_view.daf))")
+    end
+    return nothing
+end
+
+function Formats.format_description_footer(
+    read_only_view::DafReadOnlyWrapper,
+    indent::AbstractString,
+    lines::Vector{String};
+    cache::Bool,
+    deep::Bool,
+    tensors::Bool,
+)::Nothing
+    @assert Formats.has_data_read_lock(read_only_view)
+    if deep
+        push!(lines, "$(indent)base:")
+        description(read_only_view.daf, indent * "  ", lines; cache, deep, tensors)  # NOJET
+    end
     return nothing
 end
 
