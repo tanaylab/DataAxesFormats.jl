@@ -189,7 +189,7 @@ function Formats.format_description_header(  # UNTESTED
     return nothing
 end
 
-function Formats.format_description_footer(
+function Formats.format_description_footer(  # UNTESTED
     read_only_view::DafReadOnlyWrapper,
     indent::AbstractString,
     lines::Vector{String};

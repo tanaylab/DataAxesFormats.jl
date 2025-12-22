@@ -527,7 +527,7 @@ function Formats.format_set_vector!(
             vector_group["nzind"] = nzind(vector)  # NOJET
             if eltype(vector) != Bool || !all(nzval(vector))
                 if eltype(vector) <: AbstractString
-                    vector_group["nzval"] = String.(nzval(vector))  # NOJET
+                    vector_group["nzval"] = String.(nzval(vector))  # NOJET # UNTESTED
                 else
                     vector_group["nzval"] = nzval(vector)
                 end
@@ -582,7 +582,7 @@ function write_string_vector(
         for (index, value) in enumerate(vector)
             if length(value) > 0
                 nzind_vector[position] = index
-                nztxt_vector[position] = String.(value)
+                nztxt_vector[position] = String(value)
                 position += 1
             end
         end
@@ -792,7 +792,7 @@ function Formats.format_set_matrix!(
             matrix_group["rowval"] = rowval(matrix)
             if eltype(matrix) != Bool || !all(nzval(matrix))
                 if eltype(matrix) <: AbstractString
-                    matrix_group["nzval"] = String.(nzval(matrix))
+                    matrix_group["nzval"] = String.(nzval(matrix))  # UNTESTED
                 else
                     matrix_group["nzval"] = nzval(matrix)
                 end
@@ -852,7 +852,7 @@ function write_string_matrix(
                 if length(value) > 0
                     @assert !(contains(value, '\n'))
                     rowval_vector[position] = row_index
-                    nztxt_vector[position] = String.(value)
+                    nztxt_vector[position] = String(value)
                     position += 1
                 end
             end

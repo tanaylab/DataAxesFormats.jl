@@ -1008,7 +1008,7 @@ cells["/ cell & UMIs ; gene = FOXP1"]
 
 # output
 
-372-element SparseArrays.ReadOnly{String, 1, Vector{String}}
+372-element SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}:
  "demux_07_12_20_1_AACAAGATCCATTTCA-1"
  "demux_07_12_20_1_AACGAAAGTCCAATCA-1"
  "demux_07_12_20_1_AGACTCATCTATTGTC-1"
@@ -1178,7 +1178,7 @@ metacells["/ cell : metacell ?? magenta => type => color"]
 
 # output
 
-856-element Named SparseArrays.ReadOnly{AbstractString, 1, Vector{AbstractString}}
+856-element Named SparseArrays.ReadOnly{String, 1, Vector{String}}
 cell                                │
 ────────────────────────────────────┼──────────
 demux_07_12_20_1_AACAAGATCCATTTCA-1 │ "#eebb6e"
@@ -1393,7 +1393,7 @@ chain["/ cell & donor = N16"]
 
 # output
 
-10-element SparseArrays.ReadOnly{String, 1, Vector{String}}
+10-element SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}:
  "demux_21_01_21_1_AACCCAATCGAGAATA-1"
  "demux_21_01_21_1_CACAGGCTCTTAGCCC-1"
  "demux_21_01_21_1_CTACGGGTCGTGCGAC-1"
@@ -1436,7 +1436,7 @@ chain["/ cell &! donor = N16"]
 
 # output
 
-846-element SparseArrays.ReadOnly{String, 1, Vector{String}}
+846-element SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}:
  "demux_07_12_20_1_AACAAGATCCATTTCA-1"
  "demux_07_12_20_1_AACGAAAGTCCAATCA-1"
  "demux_07_12_20_1_AAGACAAAGTTCCGTA-1"
@@ -1492,7 +1492,7 @@ chain["/ cell & donor = N16 | donor = N17"]
 
 # output
 
-20-element SparseArrays.ReadOnly{String, 1, Vector{String}}
+20-element SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}:
  "demux_21_01_21_1_AACCCAATCGAGAATA-1"
  "demux_21_01_21_1_AACGTCACATCCGAGC-1"
  "demux_21_01_21_1_ACCCAAAAGGTCCCGT-1"
@@ -1545,7 +1545,7 @@ chain["/ cell & donor = N16 |! metacell"]
 
 # output
 
-14-element SparseArrays.ReadOnly{String, 1, Vector{String}}
+14-element SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}:
  "demux_07_12_20_1_AACGAAAGTCCAATCA-1"
  "demux_07_12_20_1_ATCGTAGTCCAGTGCG-1"
  "demux_21_01_21_1_AACCCAATCGAGAATA-1"
@@ -1785,7 +1785,7 @@ cells[q"/ gene & name ~ \\^RP\\[LS\\]"]
 
 # output
 
-78-element SparseArrays.ReadOnly{String, 1, Vector{String}}
+78-element SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}:
  "RPL22"
  "RPL11"
  "RPS8"
@@ -4082,9 +4082,10 @@ function fetch_result(
 
     if_not_values = fetch_state.if_not_values
     if if_not_values !== nothing
-        if !fetch_state.may_modify_named_vector ||
-           (eltype(named_vector) <: AbstractString && !(eltype(named_vector) in (String, AbstractString)))
-            named_vector = copy_array(named_vector)
+        if (eltype(named_vector) <: AbstractString && !(eltype(named_vector) in (String, AbstractString)))
+            named_vector = String.(named_vector)  # NOJET # UNTESTED
+        elseif !fetch_state.may_modify_named_vector
+            named_vector = copy_array(named_vector)  # UNTESTED
         end
 
         for index in 1:length(named_vector)
@@ -5048,7 +5049,7 @@ function value_for(
     if value isa T
         return value
     elseif T <: AbstractString
-        return String(value)
+        return String(value)  # UNTESTED
     elseif value isa AbstractString
         try
             return parse(T, value)

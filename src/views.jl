@@ -365,18 +365,13 @@ function collect_axis(
     axis_name::AbstractString,
     axis_query::Maybe{QueryString},
 )::Nothing
-    #println("TODOX A collect_axis: axis_name: $(axis_name) axis_query: $(axis_query)")
     if axis_name == "*"
-        #println("TODOX B{ collect_axis: axis_name: $(axis_name) axis_query: $(axis_query)")
         for axis_name in axes_set(daf)
             collect_axis(view_name, daf, collected_axes, axis_name, axis_query)
         end
-        #println("TODOX B} collect_axis: axis_name: $(axis_name) axis_query: $(axis_query)")
     elseif axis_query === nothing
-        #println("TODOX C collect_axis: axis_name: $(axis_name) axis_query: $(axis_query)")
         delete!(collected_axes, axis_name)
     else
-        #println("TODOX D collect_axis: axis_name: $(axis_name) axis_query: $(axis_query)")
         if axis_query == "="
             axis_query = Axis(axis_name)
         else
@@ -403,7 +398,6 @@ function collect_vectors(
 )::Dict{AbstractString, Dict{AbstractString, Fetch{StorageVector}}}
     collected_vectors = Dict{AbstractString, Dict{AbstractString, Fetch{StorageVector}}}()
     for axis in keys(collected_axes)
-        #println("TODOX COLLECTED_AXIS $(axis)")
         collected_vectors[axis] = Dict{AbstractString, Fetch{StorageVector}}()
     end
     for (key, query) in data
@@ -432,26 +426,19 @@ function collect_vector(
     vector_name::AbstractString,
     vector_query::Maybe{QueryString},
 )::Nothing
-    #println("TODOX collect_vector: A axis_name: $(axis_name) vector_name: $(vector_name) vector_query: $(vector_query)")
     if axis_name == "*"
-        #println("TODOX collect_vector: B{ axis_name: $(axis_name) vector_name: $(vector_name) vector_query: $(vector_query)")
         for axis_name in keys(collected_axes)
             collect_vector(view_name, daf, collected_axes, collected_vectors, axis_name, vector_name, vector_query)
         end
-        #println("TODOX collect_vector: B} axis_name: $(axis_name) vector_name: $(vector_name) vector_query: $(vector_query)")
     elseif vector_name == "*"
-        #println("TODOX collect_vector: C{ axis_name: $(axis_name) vector_name: $(vector_name) vector_query: $(vector_query)")
         fetch_axis = get_fetch_axis(view_name, daf, collected_axes, axis_name)
         base_axis = base_axis_of_query(fetch_axis.query)
         for vector_name in vectors_set(daf, base_axis)
             collect_vector(view_name, daf, collected_axes, collected_vectors, axis_name, vector_name, vector_query)
         end
-        #println("TODOX collect_vector: C} axis_name: $(axis_name) vector_name: $(vector_name) vector_query: $(vector_query)")
     elseif vector_query === nothing
-        #println("TODOX collect_vector: D axis_name: $(axis_name) vector_name: $(vector_name) vector_query: $(vector_query)")
         delete!(collected_vectors[axis_name], vector_name)
     else
-        #println("TODOX collect_vector: E axis_name: $(axis_name) vector_name: $(vector_name) vector_query: $(vector_query)")
         fetch_axis = get_fetch_axis(view_name, daf, collected_axes, axis_name)
         vector_query = full_vector_query(fetch_axis.query, vector_query, vector_name)
         dimensions = query_result_dimensions(vector_query)
