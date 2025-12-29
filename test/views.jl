@@ -351,7 +351,7 @@ nested_test("views") do
                 tensors:
                   batch:
                     gene,cell:
-                      is_high: 2 X 3 x 2 x Bool in Columns (Dense; 50% true)
+                      is_high: 2 X 3 x 2 x Bool in Columns (Dense; 6 (50%) true)
                 """
 
             @test description(view; tensors = false) == """
@@ -364,8 +364,8 @@ nested_test("views") do
                   gene: 3 entries
                 matrices:
                   gene,cell:
-                    U_is_high: 3 x 2 x Bool in Columns (Dense; 50% true)
-                    V_is_high: 3 x 2 x Bool in Columns (Dense; 50% true)
+                    U_is_high: 3 x 2 x Bool in Columns (Dense; 3 (50%) true)
+                    V_is_high: 3 x 2 x Bool in Columns (Dense; 3 (50%) true)
                 """
         end
 
@@ -400,7 +400,7 @@ nested_test("views") do
                 tensors:
                   batch:
                     gene,cell:
-                      is_high: 2 X 3 x 2 x Bool in Columns (Sparse Int64 42%)
+                      is_high: 2 X 3 x 2 x Bool in Columns (Sparse 5 (42%) [Int64])
                 """
 
             @test description(view; tensors = false) == """
@@ -413,8 +413,8 @@ nested_test("views") do
                   gene: 3 entries
                 matrices:
                   gene,cell:
-                    U_is_high: 3 x 2 x Bool in Columns (Sparse Int64 50%)
-                    V_is_high: 3 x 2 x Bool in Columns (Sparse Int64 33%)
+                    U_is_high: 3 x 2 x Bool in Columns (Sparse 3 (50%) [Int64])
+                    V_is_high: 3 x 2 x Bool in Columns (Sparse 2 (33%) [Int64])
                 """
         end
 
@@ -441,8 +441,8 @@ nested_test("views") do
                   batch:
                     gene,cell:
                       is_high:
-                      - 1 X 3 x 2 x Bool in Columns (Dense; 50% true)
-                      - 1 X 3 x 2 x Bool in Columns (Sparse Int64 50%)
+                      - 1 X 3 x 2 x Bool in Columns (Dense; 3 (50%) true)
+                      - 1 X 3 x 2 x Bool in Columns (Sparse 3 (50%) [Int64])
                 """
 
             @test description(view; tensors = false) == """
@@ -455,8 +455,8 @@ nested_test("views") do
                   gene: 3 entries
                 matrices:
                   gene,cell:
-                    U_is_high: 3 x 2 x Bool in Columns (Sparse Int64 50%)
-                    V_is_high: 3 x 2 x Bool in Columns (Dense; 50% true)
+                    U_is_high: 3 x 2 x Bool in Columns (Sparse 3 (50%) [Int64])
+                    V_is_high: 3 x 2 x Bool in Columns (Dense; 3 (50%) true)
                 """
         end
 

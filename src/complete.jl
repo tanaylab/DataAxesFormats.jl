@@ -100,7 +100,7 @@ end
 
 function parse_view_parameters(json::AbstractString)::AbstractDict
     parameters = Dict{Symbol, Any}()
-    json_parameters = JSON.parse(json)
+    json_parameters = JSON.parse(json)  # NOLINT
     @assert json_parameters isa AbstractDict
     for (key, value) in json_parameters
         pairs = Pair[]
@@ -108,7 +108,7 @@ function parse_view_parameters(json::AbstractString)::AbstractDict
             for (pattern, value) in pair
                 if contains(pattern, "(")
                     pattern = replace(pattern, "(" => "[", ")" => "]")
-                    pattern = JSON.parse(pattern)
+                    pattern = JSON.parse(pattern)  # NOLINT
                     pattern = Tuple(pattern)
                 end
                 push!(pairs, pattern => value)

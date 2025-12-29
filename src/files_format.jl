@@ -221,7 +221,7 @@ function FilesDaf(
     if !isfile(daf_file_path)
         error("not a daf directory: $(path)")
     end
-    daf_json = JSON.parsefile(daf_file_path)  # NOJET
+    daf_json = JSON.parsefile(daf_file_path)  # NOJET # NOLINT
     @assert daf_json isa AbstractDict
     daf_version = daf_json["version"]
     @assert daf_version isa AbstractVector
@@ -267,7 +267,7 @@ function Formats.format_set_scalar!(files::FilesDaf, name::AbstractString, value
     end
 
     open("$(files.path)/scalars/$(name).json", "w") do file
-        JSON.Writer.print(file, Dict("type" => "$(type)", "value" => value))
+        JSON.Writer.print(file, Dict("type" => "$(type)", "value" => value))  # NOLINT
         write(file, '\n')
         return nothing
     end
@@ -286,7 +286,7 @@ function Formats.format_get_scalar(files::FilesDaf, name::AbstractString)::Stora
 end
 
 function read_scalar(path::AbstractString)::StorageScalar
-    json = JSON.parsefile(path)
+    json = JSON.parsefile(path)  # NOLINT
     @assert json isa AbstractDict
     dtype_name = json["type"]
     json_value = json["value"]
@@ -529,7 +529,7 @@ end
 function Formats.format_get_vector(files::FilesDaf, axis::AbstractString, name::AbstractString)::StorageVector
     @assert Formats.has_data_read_lock(files)
 
-    json = JSON.parsefile("$(files.path)/vectors/$(axis)/$(name).json")
+    json = JSON.parsefile("$(files.path)/vectors/$(axis)/$(name).json")  # NOLINT
     @assert json isa AbstractDict
     eltype_name = json["eltype"]
     format = json["format"]
@@ -827,7 +827,7 @@ function Formats.format_get_matrix(
     nrows = Formats.format_axis_length(files, rows_axis)
     ncols = Formats.format_axis_length(files, columns_axis)
 
-    json = JSON.parsefile("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json")
+    json = JSON.parsefile("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json")  # NOLINT
     @assert json isa AbstractDict
     format = json["format"]
     @assert format == "dense" || format == "sparse"

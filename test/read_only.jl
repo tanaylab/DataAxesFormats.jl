@@ -13,11 +13,11 @@ nested_test("read_only") do
 
         nested_test("sparse") do
             mutable_vector = SparseVector(mutable_vector)
-            @test brief(mutable_vector) == "2 x Int64 (Sparse Int64 50%)"
+            @test brief(mutable_vector) == "2 x Int64 (Sparse 1 (50%) [Int64])"
             @test !is_read_only_array(mutable_vector)
 
             read_only_vector = SparseArrays.ReadOnly(mutable_vector)
-            @test brief(read_only_vector) == "2 x Int64 (ReadOnly, Sparse Int64 50%)"
+            @test brief(read_only_vector) == "2 x Int64 (ReadOnly, Sparse 1 (50%) [Int64])"
             @test is_read_only_array(read_only_vector)
             @test read_only_array(read_only_vector) === read_only_vector
         end
@@ -44,18 +44,18 @@ nested_test("read_only") do
             nested_test("sparse") do
                 nested_test("()") do
                     mutable_vector = NamedArray(SparseVector(mutable_vector))
-                    @test brief(mutable_vector) == "2 x Int64 (Named, Sparse Int64 50%)"
+                    @test brief(mutable_vector) == "2 x Int64 (Named, Sparse 1 (50%) [Int64])"
                     @test !is_read_only_array(mutable_vector)
 
                     read_only_vector = SparseArrays.ReadOnly(mutable_vector)
-                    @test brief(read_only_vector) == "2 x Int64 (ReadOnly, Named, Sparse Int64 50%)"
+                    @test brief(read_only_vector) == "2 x Int64 (ReadOnly, Named, Sparse 1 (50%) [Int64])"
                     @test is_read_only_array(read_only_vector)
                     @test read_only_array(read_only_vector) === read_only_vector
                 end
 
                 nested_test("read_only") do
                     read_only_vector = NamedArray(SparseArrays.ReadOnly(SparseVector(mutable_vector)))
-                    @test brief(read_only_vector) == "2 x Int64 (Named, ReadOnly, Sparse Int64 50%)"
+                    @test brief(read_only_vector) == "2 x Int64 (Named, ReadOnly, Sparse 1 (50%) [Int64])"
                     @test is_read_only_array(read_only_vector)
                     @test read_only_array(read_only_vector) === read_only_vector
                 end
@@ -143,11 +143,11 @@ nested_test("read_only") do
             mutable_matrix = SparseMatrixCSC(mutable_matrix)
 
             nested_test("()") do
-                @test brief(mutable_matrix) == "2 x 3 x Int64 in Columns (Sparse Int64 50%)"
+                @test brief(mutable_matrix) == "2 x 3 x Int64 in Columns (Sparse 3 (50%) [Int64])"
                 @test !is_read_only_array(mutable_matrix)
 
                 read_only_matrix = SparseArrays.ReadOnly(mutable_matrix)
-                @test brief(read_only_matrix) == "2 x 3 x Int64 in Columns (ReadOnly, Sparse Int64 50%)"
+                @test brief(read_only_matrix) == "2 x 3 x Int64 in Columns (ReadOnly, Sparse 3 (50%) [Int64])"
                 @test is_read_only_array(read_only_matrix)
                 @test read_only_array(read_only_matrix) === read_only_matrix
             end
@@ -155,29 +155,29 @@ nested_test("read_only") do
             nested_test("permuted_dims") do
                 nested_test("1,2") do
                     permuted_matrix = PermutedDimsArray(mutable_matrix, (1, 2))
-                    @test brief(permuted_matrix) == "2 x 3 x Int64 in Columns (!Permute, Sparse Int64 50%)"
+                    @test brief(permuted_matrix) == "2 x 3 x Int64 in Columns (!Permute, Sparse 3 (50%) [Int64])"
                     @test !is_read_only_array(mutable_matrix)
 
                     read_only_matrix = SparseArrays.ReadOnly(mutable_matrix)
-                    @test brief(read_only_matrix) == "2 x 3 x Int64 in Columns (ReadOnly, Sparse Int64 50%)"
+                    @test brief(read_only_matrix) == "2 x 3 x Int64 in Columns (ReadOnly, Sparse 3 (50%) [Int64])"
                     @test is_read_only_array(read_only_matrix)
                     @test read_only_array(read_only_matrix) === read_only_matrix
                 end
 
                 nested_test("2,1") do
                     permuted_matrix = PermutedDimsArray(mutable_matrix, (2, 1))
-                    @test brief(permuted_matrix) == "3 x 2 x Int64 in Rows (Permute, Sparse Int64 50%)"
+                    @test brief(permuted_matrix) == "3 x 2 x Int64 in Rows (Permute, Sparse 3 (50%) [Int64])"
                     @test !is_read_only_array(mutable_matrix)
 
                     read_only_permuted_matrix = SparseArrays.ReadOnly(permuted_matrix)
                     @test brief(read_only_permuted_matrix) ==
-                          "3 x 2 x Int64 in Rows (ReadOnly, Permute, Sparse Int64 50%)"
+                          "3 x 2 x Int64 in Rows (ReadOnly, Permute, Sparse 3 (50%) [Int64])"
                     @test is_read_only_array(read_only_permuted_matrix)
                     @test read_only_array(read_only_permuted_matrix) === read_only_permuted_matrix
 
                     permuted_read_only_matrix = PermutedDimsArray(SparseArrays.ReadOnly(mutable_matrix), (2, 1))
                     @test brief(permuted_read_only_matrix) ==
-                          "3 x 2 x Int64 in Rows (Permute, ReadOnly, Sparse Int64 50%)"
+                          "3 x 2 x Int64 in Rows (Permute, ReadOnly, Sparse 3 (50%) [Int64])"
                     @test is_read_only_array(permuted_read_only_matrix)
                     @test read_only_array(permuted_read_only_matrix) === permuted_read_only_matrix
                 end
@@ -185,34 +185,36 @@ nested_test("read_only") do
 
             nested_test("transpose") do
                 transpose_matrix = transpose(mutable_matrix)
-                @test brief(transpose_matrix) == "3 x 2 x Int64 in Rows (Transpose, Sparse Int64 50%)"
+                @test brief(transpose_matrix) == "3 x 2 x Int64 in Rows (Transpose, Sparse 3 (50%) [Int64])"
                 @test !is_read_only_array(mutable_matrix)
 
                 read_only_transpose_matrix = SparseArrays.ReadOnly(transpose_matrix)
                 @test brief(read_only_transpose_matrix) ==
-                      "3 x 2 x Int64 in Rows (ReadOnly, Transpose, Sparse Int64 50%)"
+                      "3 x 2 x Int64 in Rows (ReadOnly, Transpose, Sparse 3 (50%) [Int64])"
                 @test is_read_only_array(read_only_transpose_matrix)
                 @test read_only_array(read_only_transpose_matrix) === read_only_transpose_matrix
 
                 transpose_read_only_matrix = transpose(SparseArrays.ReadOnly(mutable_matrix))
                 @test brief(transpose_read_only_matrix) ==
-                      "3 x 2 x Int64 in Rows (Transpose, ReadOnly, Sparse Int64 50%)"
+                      "3 x 2 x Int64 in Rows (Transpose, ReadOnly, Sparse 3 (50%) [Int64])"
                 @test is_read_only_array(transpose_read_only_matrix)
                 @test read_only_array(transpose_read_only_matrix) === transpose_read_only_matrix
             end
 
             nested_test("adjoint") do
                 adjoint_matrix = adjoint(mutable_matrix)
-                @test brief(adjoint_matrix) == "3 x 2 x Int64 in Rows (Adjoint, Sparse Int64 50%)"
+                @test brief(adjoint_matrix) == "3 x 2 x Int64 in Rows (Adjoint, Sparse 3 (50%) [Int64])"
                 @test !is_read_only_array(adjoint_matrix)
 
                 read_only_adjoint_matrix = SparseArrays.ReadOnly(adjoint_matrix)
-                @test brief(read_only_adjoint_matrix) == "3 x 2 x Int64 in Rows (ReadOnly, Adjoint, Sparse Int64 50%)"
+                @test brief(read_only_adjoint_matrix) ==
+                      "3 x 2 x Int64 in Rows (ReadOnly, Adjoint, Sparse 3 (50%) [Int64])"
                 @test is_read_only_array(read_only_adjoint_matrix)
                 @test read_only_array(read_only_adjoint_matrix) === read_only_adjoint_matrix
 
                 adjoint_read_only_matrix = adjoint(SparseArrays.ReadOnly(mutable_matrix))
-                @test brief(adjoint_read_only_matrix) == "3 x 2 x Int64 in Rows (Adjoint, ReadOnly, Sparse Int64 50%)"
+                @test brief(adjoint_read_only_matrix) ==
+                      "3 x 2 x Int64 in Rows (Adjoint, ReadOnly, Sparse 3 (50%) [Int64])"
                 @test is_read_only_array(adjoint_read_only_matrix)
                 @test read_only_array(adjoint_read_only_matrix) === adjoint_read_only_matrix
             end
@@ -484,16 +486,16 @@ nested_test("read_only") do
             nested_test("sparse") do
                 mutable_vector = SparseVector(mutable_vector)
                 @test !is_read_only_array(mutable_vector)
-                @test brief(mutable_vector) == "2 x Int64 (Sparse Int64 50%)"
+                @test brief(mutable_vector) == "2 x Int64 (Sparse 1 (50%) [Int64])"
 
                 read_only_vector = read_only_array(mutable_vector)
                 @test is_read_only_array(read_only_vector)
-                @test brief(read_only_vector) == "2 x Int64 (ReadOnly, Sparse Int64 50%)"
+                @test brief(read_only_vector) == "2 x Int64 (ReadOnly, Sparse 1 (50%) [Int64])"
                 @test parent(read_only_vector) === mutable_vector
 
                 copy_read_only_vector = copy_array(read_only_vector)
                 @test !is_read_only_array(copy_read_only_vector)
-                @test brief(copy_read_only_vector) == "2 x Int64 (Sparse Int64 50%)"
+                @test brief(copy_read_only_vector) == "2 x Int64 (Sparse 1 (50%) [Int64])"
                 @test copy_read_only_vector !== mutable_vector
             end
         end
@@ -589,16 +591,16 @@ nested_test("read_only") do
 
                 nested_test("()") do
                     @test !is_read_only_array(mutable_matrix)
-                    @test brief(mutable_matrix) == "2 x 3 x Int64 in Columns (Sparse Int64 50%)"
+                    @test brief(mutable_matrix) == "2 x 3 x Int64 in Columns (Sparse 3 (50%) [Int64])"
 
                     read_only_matrix = read_only_array(mutable_matrix)
                     @test is_read_only_array(read_only_matrix)
-                    @test brief(read_only_matrix) == "2 x 3 x Int64 in Columns (ReadOnly, Sparse Int64 50%)"
+                    @test brief(read_only_matrix) == "2 x 3 x Int64 in Columns (ReadOnly, Sparse 3 (50%) [Int64])"
                     @test parent(read_only_matrix) === mutable_matrix
 
                     copy_read_only_matrix = copy_array(read_only_matrix)
                     @test !is_read_only_array(copy_read_only_matrix)
-                    @test brief(copy_read_only_matrix) == "2 x 3 x Int64 in Columns (Sparse Int64 50%)"
+                    @test brief(copy_read_only_matrix) == "2 x 3 x Int64 in Columns (Sparse 3 (50%) [Int64])"
                     @test copy_read_only_matrix !== mutable_matrix
                 end
 
@@ -606,33 +608,35 @@ nested_test("read_only") do
                     nested_test("1,2") do
                         mutable_matrix = PermutedDimsArray(mutable_matrix, (1, 2))
                         @test !is_read_only_array(mutable_matrix)
-                        @test brief(mutable_matrix) == "2 x 3 x Int64 in Columns (!Permute, Sparse Int64 50%)"
+                        @test brief(mutable_matrix) == "2 x 3 x Int64 in Columns (!Permute, Sparse 3 (50%) [Int64])"
 
                         read_only_matrix = read_only_array(mutable_matrix)
                         @test is_read_only_array(read_only_matrix)
                         @test brief(read_only_matrix) ==
-                              "2 x 3 x Int64 in Columns (!Permute, ReadOnly, Sparse Int64 50%)"
+                              "2 x 3 x Int64 in Columns (!Permute, ReadOnly, Sparse 3 (50%) [Int64])"
                         @test parent(parent(read_only_matrix)) === parent(mutable_matrix)
 
                         copy_read_only_matrix = copy_array(read_only_matrix)
                         @test !is_read_only_array(copy_read_only_matrix)
-                        @test brief(copy_read_only_matrix) == "2 x 3 x Int64 in Columns (!Permute, Sparse Int64 50%)"
+                        @test brief(copy_read_only_matrix) ==
+                              "2 x 3 x Int64 in Columns (!Permute, Sparse 3 (50%) [Int64])"
                         @test copy_read_only_matrix !== mutable_matrix
                     end
 
                     nested_test("2,1") do
                         mutable_matrix = PermutedDimsArray(mutable_matrix, (2, 1))
                         @test !is_read_only_array(mutable_matrix)
-                        @test brief(mutable_matrix) == "3 x 2 x Int64 in Rows (Permute, Sparse Int64 50%)"
+                        @test brief(mutable_matrix) == "3 x 2 x Int64 in Rows (Permute, Sparse 3 (50%) [Int64])"
 
                         read_only_matrix = read_only_array(mutable_matrix)
                         @test is_read_only_array(read_only_matrix)
-                        @test brief(read_only_matrix) == "3 x 2 x Int64 in Rows (Permute, ReadOnly, Sparse Int64 50%)"
+                        @test brief(read_only_matrix) ==
+                              "3 x 2 x Int64 in Rows (Permute, ReadOnly, Sparse 3 (50%) [Int64])"
                         @test parent(parent(read_only_matrix)) === parent(mutable_matrix)
 
                         copy_read_only_matrix = copy_array(read_only_matrix)
                         @test !is_read_only_array(copy_read_only_matrix)
-                        @test brief(copy_read_only_matrix) == "3 x 2 x Int64 in Rows (Permute, Sparse Int64 50%)"
+                        @test brief(copy_read_only_matrix) == "3 x 2 x Int64 in Rows (Permute, Sparse 3 (50%) [Int64])"
                         @test copy_read_only_matrix !== mutable_matrix
                     end
                 end
@@ -640,32 +644,33 @@ nested_test("read_only") do
                 nested_test("transpose") do
                     mutable_matrix = transpose(mutable_matrix)
                     @test !is_read_only_array(mutable_matrix)
-                    @test brief(mutable_matrix) == "3 x 2 x Int64 in Rows (Transpose, Sparse Int64 50%)"
+                    @test brief(mutable_matrix) == "3 x 2 x Int64 in Rows (Transpose, Sparse 3 (50%) [Int64])"
 
                     read_only_matrix = read_only_array(mutable_matrix)
                     @test is_read_only_array(read_only_matrix)
-                    @test brief(read_only_matrix) == "3 x 2 x Int64 in Rows (Transpose, ReadOnly, Sparse Int64 50%)"
+                    @test brief(read_only_matrix) ==
+                          "3 x 2 x Int64 in Rows (Transpose, ReadOnly, Sparse 3 (50%) [Int64])"
                     @test parent(parent(read_only_matrix)) === parent(mutable_matrix)
 
                     copy_read_only_matrix = copy_array(read_only_matrix)
                     @test !is_read_only_array(copy_read_only_matrix)
-                    @test brief(copy_read_only_matrix) == "3 x 2 x Int64 in Rows (Transpose, Sparse Int64 50%)"
+                    @test brief(copy_read_only_matrix) == "3 x 2 x Int64 in Rows (Transpose, Sparse 3 (50%) [Int64])"
                     @test copy_read_only_matrix !== mutable_matrix
                 end
 
                 nested_test("adjoint") do
                     mutable_matrix = adjoint(mutable_matrix)
                     @test !is_read_only_array(mutable_matrix)
-                    @test brief(mutable_matrix) == "3 x 2 x Int64 in Rows (Adjoint, Sparse Int64 50%)"
+                    @test brief(mutable_matrix) == "3 x 2 x Int64 in Rows (Adjoint, Sparse 3 (50%) [Int64])"
 
                     read_only_matrix = read_only_array(mutable_matrix)
                     @test is_read_only_array(read_only_matrix)
-                    @test brief(read_only_matrix) == "3 x 2 x Int64 in Rows (Adjoint, ReadOnly, Sparse Int64 50%)"
+                    @test brief(read_only_matrix) == "3 x 2 x Int64 in Rows (Adjoint, ReadOnly, Sparse 3 (50%) [Int64])"
                     @test parent(parent(read_only_matrix)) === parent(mutable_matrix)
 
                     copy_read_only_matrix = copy_array(read_only_matrix)
                     @test !is_read_only_array(copy_read_only_matrix)
-                    @test brief(copy_read_only_matrix) == "3 x 2 x Int64 in Rows (Adjoint, Sparse Int64 50%)"
+                    @test brief(copy_read_only_matrix) == "3 x 2 x Int64 in Rows (Adjoint, Sparse 3 (50%) [Int64])"
                     @test copy_read_only_matrix !== mutable_matrix
                 end
             end

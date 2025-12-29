@@ -1180,8 +1180,8 @@ vectors:
     age: 95 x UInt32 (Dense)
     sex: 95 x Str (Dense)
   gene:
-    is_lateral: 683 x Bool (Dense; 64% true)
-    is_marker: 683 x Bool (Dense; 95% true)
+    is_lateral: 683 x Bool (Dense; 438 (64%) true)
+    is_marker: 683 x Bool (Dense; 650 (95%) true)
   metacell:
     type: 7 x Str (Dense)
   type:
@@ -1213,7 +1213,7 @@ chain:
       age: 95 x UInt32 (Dense)
       sex: 95 x Str (Dense)
     gene:
-      is_lateral: 683 x Bool (Dense; 64% true)
+      is_lateral: 683 x Bool (Dense; 438 (64%) true)
   matrices:
     cell,gene:
       UMIs: 856 x 683 x UInt8 in Columns (Dense)
@@ -1230,7 +1230,7 @@ chain:
     cell:
       metacell: 856 x Str (Dense)
     gene:
-      is_marker: 683 x Bool (Dense; 95% true)
+      is_marker: 683 x Bool (Dense; 650 (95%) true)
     metacell:
       type: 7 x Str (Dense)
     type:
@@ -1429,31 +1429,33 @@ function tensors_description(
                     text = brief(data)
                     parts = split(text, " ")
                     sparse_index = findfirst((parts .== "Sparse") .| (parts .== "(Sparse"))
+                    counted = nothing
+                    counted_index = nothing
                     if sparse_index !== nothing
                         counted = nnz(data)
-                        percent_index = sparse_index + 2
-                        @assert endswith(parts[percent_index], "%)")
-                        parts[percent_index] = ")"
+                        counted_index = sparse_index + 1
+                        parts[counted_index] = "."
+                        parts[counted_index + 1] = "."
                     else
                         true_index = findfirst(parts .== "true)")
                         if true_index !== nothing
                             counted = sum(data)
-                            percent_index = true_index - 1
-                            @assert endswith(parts[percent_index], "%")
-                            parts[percent_index] = "."
-                        else
-                            counted = nothing  # UNTESTED
-                            percent_index = nothing  # UNTESTED
+                            counted_index = true_index - 2
+                            parts[true_index - 1] = "."
+                            parts[true_index - 2] = "."
                         end
                     end
 
-                    if percent_index !== nothing
-                        @assert counted !== nothing
+                    if counted !== nothing
+                        @assert counted_index !== nothing
+                        parts[counted_index] = "."
+                        parts[counted_index + 1] = "."
                         text = join(parts, " ")
-                        counters = get(counters_per_text, text, (0, percent_index, Int64(0), Int64(0)))
+                        counters = get(counters_per_text, text, (0, counted_index, Int64(0), Int64(0)))
                         counters_per_text[text] =
                             (counters[1] + 1, counters[2], counters[3] + counted, counters[4] + length(data))
                     else
+                        @assert counted_index === nothing  # UNTESTED
                         counters_per_text[text] = get(counters_per_text, text, 0) + 1  # NOJET # UNTESTED
                     end
                 end
@@ -1484,13 +1486,12 @@ function format_counters(counters::Int, text::AbstractString)::AbstractString  #
 end
 
 function format_counters(counters::Tuple{Int, Int, Int64, Int64}, text::AbstractString)::AbstractString
-    count, percent_index, counted, out_of = counters
+    count, counted_index, counted, out_of = counters
     parts = split(text, " ")
-    suffix = parts[percent_index]
-    if suffix == "."
-        suffix = ""
-    end
-    parts[percent_index] = "$(percent(counted, out_of))$(suffix)"
+    @assert parts[counted_index] == "."
+    @assert parts[counted_index + 1] == "."
+    parts[counted_index] = "$(counted)"
+    parts[counted_index + 1] = "($(percent(counted, out_of)))"
     return "$(count) X $(join(parts, " "))"
 end
 
