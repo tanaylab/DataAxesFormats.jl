@@ -618,19 +618,6 @@ function test_missing_vector(daf::DafReader, depth::Int)::Nothing
                     ) == [GENE_NAMES]
                 end
 
-                nested_test("!dim") do
-                    @test_throws chomp("""
-                                 default dim name: A
-                                 is different from the axis: gene
-                                 in the daf data: $(daf.name)
-                                 """) get_vector(
-                        daf,
-                        "gene",
-                        "marker",
-                        default = NamedArray([true, true, false, false]; names = (GENE_NAMES,)),
-                    )
-                end
-
                 nested_test("!names") do
                     @test_throws chomp("""
                                  entry names of the: default
@@ -789,19 +776,6 @@ function test_missing_vector(daf::DafReader, depth::Int)::Nothing
                     ) === nothing
                     test_existing_vector(daf, depth + 1)
                     return nothing
-                end
-
-                nested_test("!dim") do
-                    @test_throws chomp("""
-                                 vector dim name: A
-                                 is different from the axis: gene
-                                 in the daf data: $(daf.name)
-                                 """) set_vector!(
-                        daf,
-                        "gene",
-                        "marker",
-                        NamedArray(MARKER_GENES_BY_DEPTH[depth]; names = (GENE_NAMES,)),
-                    )
                 end
 
                 nested_test("!names") do
@@ -1446,24 +1420,6 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
                             ),
                         )
                     end
-
-                    nested_test("dim") do
-                        @test_throws chomp("""
-                                     default rows dim name: A
-                                     is different from the rows axis: cell
-                                     in the daf data: $(daf.name)
-                                     """) get_matrix(
-                            daf,
-                            "cell",
-                            "gene",
-                            "UMIs";
-                            default = NamedArray(
-                                [0 1 2 3; 1 2 3 4; 2 3 4 5];
-                                names = (CELL_NAMES, GENE_NAMES),
-                                dimnames = ("A", "gene"),
-                            ),
-                        )
-                    end
                 end
 
                 nested_test("!columns") do
@@ -1481,24 +1437,6 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
                                 [0 1 2 3; 1 2 3 4; 2 3 4 5];
                                 names = (CELL_NAMES, ["A", "B", "C", "D"]),
                                 dimnames = ("cell", "gene"),
-                            ),
-                        )
-                    end
-
-                    nested_test("dim") do
-                        @test_throws chomp("""
-                                     default columns dim name: B
-                                     is different from the columns axis: gene
-                                     in the daf data: $(daf.name)
-                                     """) get_matrix(
-                            daf,
-                            "cell",
-                            "gene",
-                            "UMIs";
-                            default = NamedArray(
-                                [0 1 2 3; 1 2 3 4; 2 3 4 5];
-                                names = (CELL_NAMES, GENE_NAMES),
-                                dimnames = ("cell", "B"),
                             ),
                         )
                     end
@@ -1814,20 +1752,6 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
                         ),
                     )
                 end
-
-                nested_test("dim") do
-                    @test_throws chomp("""
-                                 matrix rows dim name: A
-                                 is different from the rows axis: cell
-                                 in the daf data: $(daf.name)
-                                 """) set_matrix!(
-                        daf,
-                        "cell",
-                        "gene",
-                        "UMIs",
-                        NamedArray(UMIS_BY_DEPTH[depth]; names = (CELL_NAMES, GENE_NAMES), dimnames = ("A", "gene")),
-                    )
-                end
             end
 
             nested_test("!columns") do
@@ -1846,20 +1770,6 @@ function test_missing_matrix(daf::DafReader, depth::Int)::Nothing
                             names = (CELL_NAMES, ["A", "B", "C", "D"]),
                             dimnames = ("cell", "gene"),
                         ),
-                    )
-                end
-
-                nested_test("dim") do
-                    @test_throws chomp("""
-                                 matrix columns dim name: B
-                                 is different from the columns axis: gene
-                                 in the daf data: $(daf.name)
-                                 """) set_matrix!(
-                        daf,
-                        "cell",
-                        "gene",
-                        "UMIs",
-                        NamedArray(UMIS_BY_DEPTH[depth]; names = (CELL_NAMES, GENE_NAMES), dimnames = ("cell", "B")),
                     )
                 end
             end
@@ -3367,6 +3277,7 @@ nested_test("data") do
                 daf = FilesDaf(path, "r")
                 @test daf.name == "$(path).read_only"
                 write(path * "/scalars/name.json", "{\"type\":\"String\",\"value\":\"files!\"}\n")
+                empty_ispath_cache!(path * "/scalars/*")
                 daf = FilesDaf(path, "r")
                 @test isdir(path * "/deleted")
                 @test string(daf) == "ReadOnly FilesDaf files!.read_only"

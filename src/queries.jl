@@ -4083,7 +4083,9 @@ function fetch_result(
     if_not_values = fetch_state.if_not_values
     if if_not_values !== nothing
         if (eltype(named_vector) <: AbstractString && !(eltype(named_vector) in (String, AbstractString)))
-            named_vector = String.(named_vector)  # NOJET # UNTESTED
+            if eltype(named_vector) !== String  # UNTESTED
+                named_vector = copy_array(named_vector; eltype = String)  # NOJET # UNTESTED
+            end
         elseif !fetch_state.may_modify_named_vector
             named_vector = copy_array(named_vector)  # UNTESTED
         end

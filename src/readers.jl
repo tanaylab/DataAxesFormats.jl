@@ -614,7 +614,6 @@ function get_vector(
         if default isa StorageVector
             require_axis_length(daf, length(default), "default for the vector: $(name)", axis)
             if default isa NamedVector
-                require_dim_name(daf, axis, "default dim name", dimnames(default, 1))
                 require_axis_names(daf, axis, "entry names of the: default", names(default, 1))
             end
         end
@@ -946,14 +945,6 @@ function get_matrix(
                 columns_axis,
             )
             if default isa NamedMatrix
-                require_dim_name(daf, rows_axis, "default rows dim name", dimnames(default, 1); prefix = "rows")
-                require_dim_name(
-                    daf,
-                    columns_axis,
-                    "default columns dim name",
-                    dimnames(default, 2);
-                    prefix = "columns",
-                )
                 require_axis_names(daf, rows_axis, "row names of the: default", names(default, 1))
                 require_axis_names(daf, columns_axis, "column names of the: default", names(default, 2))
             end
@@ -1102,26 +1093,6 @@ function require_axis_length(
             """))
     end
     return nothing
-end
-
-function require_dim_name(
-    daf::DafReader,
-    axis::AbstractString,
-    what::AbstractString,
-    name::Union{Symbol, AbstractString};
-    prefix::AbstractString = "",
-)::Nothing
-    if prefix != ""
-        prefix = prefix * " "
-    end
-    string_name = String(name)
-    if string_name != axis
-        error(chomp("""
-                    $(what): $(string_name)
-                    is different from the $(prefix)axis: $(axis)
-                    in the daf data: $(daf.name)
-                    """))
-    end
 end
 
 function require_axis_names(

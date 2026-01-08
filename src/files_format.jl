@@ -120,7 +120,7 @@ That's all there is to it. The format is intentionally simple and transparent to
     The code here assumes the files data obeys all the above conventions and restrictions. As long as you only create
     and access `Daf` data in files using [`FilesDaf`](@ref), then the code will work as expected (assuming no bugs).
     However, if you do this in some other way (e.g., directly using the filesystem and custom tools), and the result is
-    invalid, then the code here may fails with "less than friendly" error messages.
+    invalid, then the code here may fail with "less than friendly" error messages.
 """
 module FilesFormat
 
@@ -202,6 +202,7 @@ function FilesDaf(
 
     if truncate_if_exists && isdir(path)
         rm(path; force = true, recursive = true)
+        empty_ispath_cache!()
     end
 
     daf_file_path = "$(path)/daf.json"
@@ -210,8 +211,9 @@ function FilesDaf(
             mkpath(path)
         end
 
-        if !ispath(daf_file_path)
-            write("$(path)/daf.json", "{\"version\":[$(MAJOR_VERSION),$(MINOR_VERSION)]}\n")
+        if !cached_ispath(daf_file_path)
+            write(daf_file_path, "{\"version\":[$(MAJOR_VERSION),$(MINOR_VERSION)]}\n")
+            empty_ispath_cache!(daf_file_path)
             for directory in ("scalars", "axes", "vectors", "matrices")
                 mkdir("$(path)/$(directory)")
             end
@@ -237,7 +239,7 @@ function FilesDaf(
 
     if name === nothing
         name_path = "$(path)/scalars/name.json"
-        if ispath(name_path)
+        if cached_ispath(name_path)
             name = string(read_scalar(name_path))
         else
             name = path
@@ -256,7 +258,7 @@ end
 
 function Formats.format_has_scalar(files::FilesDaf, name::AbstractString)::Bool
     @assert Formats.has_data_read_lock(files)
-    return ispath("$(files.path)/scalars/$(name).json")
+    return cached_ispath("$(files.path)/scalars/$(name).json")
 end
 
 function Formats.format_set_scalar!(files::FilesDaf, name::AbstractString, value::StorageScalar)::Nothing
@@ -266,7 +268,9 @@ function Formats.format_set_scalar!(files::FilesDaf, name::AbstractString, value
         type = String
     end
 
-    open("$(files.path)/scalars/$(name).json", "w") do file
+    json_path = "$(files.path)/scalars/$(name).json"
+    open(json_path, "w") do file
+        empty_ispath_cache!(json_path)
         JSON.Writer.print(file, Dict("type" => "$(type)", "value" => value))  # NOLINT
         write(file, '\n')
         return nothing
@@ -277,7 +281,10 @@ end
 
 function Formats.format_delete_scalar!(files::FilesDaf, name::AbstractString; for_set::Bool)::Nothing  # NOLINT
     @assert Formats.has_data_write_lock(files)
-    return rm("$(files.path)/scalars/$(name).json"; force = true)
+    json_path = "$(files.path)/scalars/$(name).json"
+    rm(json_path; force = true)
+    empty_ispath_cache!(json_path)
+    return nothing
 end
 
 function Formats.format_get_scalar(files::FilesDaf, name::AbstractString)::StorageScalar
@@ -310,7 +317,7 @@ end
 
 function Formats.format_has_axis(files::FilesDaf, axis::AbstractString; for_change::Bool)::Bool  # NOLINT
     @assert Formats.has_data_read_lock(files)
-    return ispath("$(files.path)/axes/$(axis).txt")
+    return cached_ispath("$(files.path)/axes/$(axis).txt")
 end
 
 function Formats.format_add_axis!(
@@ -319,7 +326,9 @@ function Formats.format_add_axis!(
     entries::AbstractVector{<:AbstractString},
 )::Nothing
     @assert Formats.has_data_write_lock(files)
-    open("$(files.path)/axes/$(axis).txt", "w") do file
+    txt_path = "$(files.path)/axes/$(axis).txt"
+    open(txt_path, "w") do file
+        empty_ispath_cache!(txt_path)
         for entry in entries
             @assert !contains(entry, '\n')
             println(file, entry)
@@ -350,6 +359,8 @@ function Formats.format_delete_axis!(files::FilesDaf, axis::AbstractString)::Not
     for other_axis in axes_set
         rm("$(files.path)/matrices/$(other_axis)/$(axis)"; force = true, recursive = true)
     end
+
+    return empty_ispath_cache!()
 end
 
 function Formats.format_axes_set(files::FilesDaf)::AbstractSet{<:AbstractString}
@@ -370,7 +381,7 @@ end
 
 function Formats.format_has_vector(files::FilesDaf, axis::AbstractString, name::AbstractString)::Bool
     @assert Formats.has_data_read_lock(files)
-    return ispath("$(files.path)/vectors/$(axis)/$(name).json")
+    return cached_ispath("$(files.path)/vectors/$(axis)/$(name).json")
 end
 
 function Formats.format_set_vector!(
@@ -519,6 +530,7 @@ function Formats.format_delete_vector!(
         path = "$(files.path)/vectors/$(axis)/$(name)$(suffix)"
         rm(path; force = true)
     end
+    return empty_ispath_cache!("$(files.path)/vectors/$(axis)/$(name).*")
 end
 
 function Formats.format_vectors_set(files::FilesDaf, axis::AbstractString)::AbstractSet{<:AbstractString}
@@ -588,7 +600,7 @@ function Formats.format_has_matrix(
     name::AbstractString,
 )::Bool
     @assert Formats.has_data_read_lock(files)
-    return ispath("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json")
+    return cached_ispath("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json")
 end
 
 function Formats.format_set_matrix!(
@@ -804,6 +816,7 @@ function Formats.format_delete_matrix!(
         path = "$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name)$(suffix)"
         rm(path; force = true)
     end
+    empty_ispath_cache!("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).*")
     return nothing
 end
 
@@ -987,6 +1000,7 @@ function write_array_json(
         @assert ind_type !== nothing
         write(path, "{\"format\":\"sparse\",\"eltype\":\"$(eltype)\",\"indtype\":\"$(ind_type)\"}\n")
     end
+    empty_ispath_cache!(path)
     return nothing
 end
 

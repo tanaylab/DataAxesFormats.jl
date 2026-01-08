@@ -42,7 +42,6 @@ import ..Readers.require_axis
 import ..Readers.require_axis_length
 import ..Readers.require_axis_names
 import ..Readers.require_column_major
-import ..Readers.require_dim_name
 import ..Readers.require_matrix
 import ..Readers.require_scalar
 import ..Readers.require_vector
@@ -343,7 +342,6 @@ function set_vector!(
             require_axis_length(daf, length(vector), "vector: $(name)", axis)
             require_axis_length(daf, length(vector), "vector: $(name)", axis)
             if vector isa NamedVector
-                require_dim_name(daf, axis, "vector dim name", dimnames(vector, 1))
                 require_axis_names(daf, axis, "entry names of the: vector", names(vector, 1))
             end
             vector = base_array(vector)
@@ -700,8 +698,6 @@ function set_matrix!(
             require_axis_length(daf, size(matrix, Rows), "rows of the matrix: $(name)", rows_axis)
             require_axis_length(daf, size(matrix, Columns), "columns of the matrix: $(name)", columns_axis)
             if matrix isa NamedMatrix
-                require_dim_name(daf, rows_axis, "matrix rows dim name", dimnames(matrix, 1); prefix = "rows")
-                require_dim_name(daf, columns_axis, "matrix columns dim name", dimnames(matrix, 2); prefix = "columns")
                 require_axis_names(daf, rows_axis, "row names of the: matrix", names(matrix, 1))
                 require_axis_names(daf, columns_axis, "column names of the: matrix", names(matrix, 2))
             end
