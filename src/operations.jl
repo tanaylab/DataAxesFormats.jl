@@ -759,23 +759,33 @@ end
 function compute_eltwise(operation::Significant, input::StorageMatrix)::StorageMatrix
     output = copy_array(input)
     if issparse(output)
-        @threads :greedy for column_index in 1:size(output, 2)
+        parallel_loop_wo_rng(
+            "Significant",
+            1:size(output, 2);
+            progress = DebugProgress(size(output, 2); desc = "Significant"),
+        ) do column_index
             first = colptr(output)[column_index]
             last = colptr(output)[column_index + 1] - 1
             if first <= last
                 column_vector = @view nzval(output)[first:last]
                 significant!(column_vector, operation.high, operation.low)
             end
+            return nothing
         end
         dropzeros!(output)
         return output
     else
         n_columns = size(output, 2)
         is_dense_of_columns = zeros(Bool, n_columns)
-        @threads :greedy for column_index in 1:n_columns
+        parallel_loop_wo_rng(
+            "Significant",
+            1:size(output, 2);
+            progress = DebugProgress(size(output, 2); desc = "Significant"),
+        ) do column_index
             column_vector = @view output[:, column_index]
             significant!(column_vector, operation.high, operation.low)
             is_dense_of_columns[column_index] = all(column_vector .!= 0)
+            return nothing
         end
         if all(is_dense_of_columns)
             return output  # UNTESTED
@@ -891,9 +901,14 @@ end
 
 function compute_reduction(operation::Mode, input::StorageMatrix)::StorageVector
     output = Vector{reduction_result_type(operation, eltype(input))}(undef, size(input, 2))
-    @threads :greedy for column_index in 1:length(output)
+    parallel_loop_wo_rng(
+        "Mode",
+        1:length(output);
+        progress = DebugProgress(length(output); desc = "Mode"),
+    ) do column_index
         column_vector = @view input[:, column_index]
         output[column_index] = mode(column_vector)
+        return nothing
     end
     return output
 end
@@ -1086,9 +1101,14 @@ end
 function compute_reduction(operation::Quantile, input::StorageMatrix)::StorageVector{<:StorageReal}
     type = reduction_result_type(operation, eltype(input))
     output = Vector{type}(undef, size(input, 2))
-    @threads :greedy for column_index in 1:length(output)
+    parallel_loop_wo_rng(
+        "Quantile",
+        1:length(output);
+        progress = DebugProgress(length(output); desc = "Quantile"),
+    ) do column_index
         column_vector = @view input[:, column_index]
         output[column_index] = quantile(column_vector, operation.p)  # NOJET
+        return nothing
     end
     return output
 end

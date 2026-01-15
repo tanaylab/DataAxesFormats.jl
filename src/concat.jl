@@ -426,17 +426,22 @@ function concatenate_axis_entry_names(
 )::Nothing
     axis_entry_names = Vector{AbstractString}(undef, concatenated_axis_size)
     n_sources = length(sources)
-    @threads :greedy for index in 1:n_sources
-        source = sources[index]
-        offset = offsets[index]
-        size = sizes[index]
+    parallel_loop_wo_rng(
+        "concatenate_axis_entry_names",
+        1:n_sources;
+        progress = DebugProgress(n_sources; desc = "concatenate_axis_entry_names"),
+    ) do source_index
+        source = sources[source_index]
+        offset = offsets[source_index]
+        size = sizes[source_index]
         from_axis_entry_names = axis_vector(source, axis)
         if prefix
-            name = names[index]
+            name = names[source_index]
             axis_entry_names[(offset + 1):(offset + size)] = (name * ".") .* from_axis_entry_names
         else
             axis_entry_names[(offset + 1):(offset + size)] .= from_axis_entry_names[:]
         end
+        return nothing
     end
 
     add_axis!(destination, axis, axis_entry_names)
@@ -457,11 +462,16 @@ function concatenate_axis_dataset_property(
     axis_datasets = Vector{AbstractString}(undef, concatenated_axis_size)
 
     n_sources = length(offsets)
-    @threads :greedy for index in 1:n_sources
-        offset = offsets[index]
-        size = sizes[index]
-        name = names[index]
+    parallel_loop_wo_rng(
+        "concatenate_axis_dataset_property",
+        1:n_sources;
+        progress = DebugProgress(n_sources; desc = "concatenate_axis_dataset_property"),
+    ) do source_index
+        offset = offsets[source_index]
+        size = sizes[source_index]
+        name = names[source_index]
         axis_datasets[(offset + 1):(offset + size)] .= name
+        return nothing
     end
 
     set_vector!(destination, axis, dataset_axis, axis_datasets; overwrite)
@@ -506,7 +516,7 @@ function concatenate_axis_vector(
         sparse_saves = sparse_vectors_storage_fraction(empty_value, eltype, sizes, vectors)  # NOJET
         if sparse_saves >= sparse_if_saves_storage_fraction
             @assert empty_value === nothing || empty_value == 0
-            sparse_vectors = sparsify_vectors(vectors, eltype, sizes)
+            sparse_vectors = sparsify_concatenated_vectors(vectors, eltype, sizes)
             concatenate_axis_sparse_vectors(
                 destination,
                 axis,
@@ -553,12 +563,16 @@ function concatenate_axis_string_vectors(
     concatenated_vector = Vector{AbstractString}(undef, concatenated_axis_size)
 
     n_sources = length(sources)
-    @threads :greedy for index in 1:n_sources
-        vector = vectors[index]
-        source = sources[index]
-        offset = offsets[index]
-        size = sizes[index]
-        name = names[index]
+    parallel_loop_wo_rng(
+        "concatenate_axis_string_vectors",
+        1:n_sources;
+        progress = DebugProgress(n_sources; desc = "concatenate_axis_string_vectors"),
+    ) do source_index
+        vector = vectors[source_index]
+        source = sources[source_index]
+        offset = offsets[source_index]
+        size = sizes[source_index]
+        name = names[source_index]
         if vector === nothing
             concatenated_vector[(offset + 1):(offset + size)] .=
                 require_empty_value_for_vector(empty_value, vector_property, axis, source, destination)
@@ -573,6 +587,7 @@ function concatenate_axis_string_vectors(
                 concatenated_vector[(offset + 1):(offset + size)] = vector
             end
         end
+        return nothing
     end
 
     set_vector!(destination, axis, vector_property, concatenated_vector; overwrite)
@@ -592,15 +607,20 @@ function concatenate_axis_sparse_vectors(
 
     empty_sparse_vector!(destination, axis, vector_property, eltype, total_nnz; overwrite) do sparse_nzind, sparse_nzval
         n_sources = length(vectors)
-        @threads :greedy for index in 1:n_sources
-            vector = vectors[index]
+        parallel_loop_wo_rng(
+            "concatenate_axis_sparse_vectors",
+            1:n_sources;
+            progress = DebugProgress(n_sources; desc = "concatenate_axis_sparse_vectors"),
+        ) do source_index
+            vector = vectors[source_index]
             @assert issparse(vector)
-            offset = offsets[index]
-            nnz_offset = nnz_offsets[index]
-            nnz_size = nnz_sizes[index]
+            offset = offsets[source_index]
+            nnz_offset = nnz_offsets[source_index]
+            nnz_size = nnz_sizes[source_index]
             sparse_nzval[(nnz_offset + 1):(nnz_offset + nnz_size)] = nzval(vector)
             sparse_nzind[(nnz_offset + 1):(nnz_offset + nnz_size)] = nzind(vector)
             sparse_nzind[(nnz_offset + 1):(nnz_offset + nnz_size)] .+= offset
+            return nothing
         end
     end
 
@@ -621,11 +641,15 @@ function concatenate_axis_dense_vectors(
 )::Nothing
     empty_dense_vector!(destination, axis, vector_property, eltype; overwrite) do concatenated_vector
         n_sources = length(sources)
-        @threads :greedy for index in 1:n_sources
-            source = sources[index]
-            vector = vectors[index]
-            offset = offsets[index]
-            size = sizes[index]
+        parallel_loop_wo_rng(
+            "concatenate_axis_dense_vectors",
+            1:n_sources;
+            progress = DebugProgress(n_sources; desc = "concatenate_axis_dense_vectors"),
+        ) do source_index
+            source = sources[source_index]
+            vector = vectors[source_index]
+            offset = offsets[source_index]
+            size = sizes[source_index]
             if vector === nothing
                 concatenated_vector[(offset + 1):(offset + size)] .=
                     require_empty_value_for_vector(empty_value, vector_property, axis, source, destination)
@@ -633,6 +657,7 @@ function concatenate_axis_dense_vectors(
                 @assert length(vector) == size
                 concatenated_vector[(offset + 1):(offset + size)] = vector
             end
+            return nothing
         end
         return nothing
     end
@@ -660,7 +685,7 @@ function concatenate_axis_matrix(
         sparse_matrices_storage_fraction(empty_value, eltype, sizes, matrices, axis_length(destination, other_axis))
     if sparse_saves >= sparse_if_saves_storage_fraction
         @assert empty_value === nothing || empty_value == 0
-        sparse_matrices = sparsify_matrices(matrices, eltype, nrows, sizes)
+        sparse_matrices = sparsify_concatenated_matrices(matrices, eltype, nrows, sizes)
         concatenate_axis_sparse_matrices(
             destination,
             other_axis,
@@ -715,17 +740,22 @@ function concatenate_axis_sparse_matrices(
         overwrite,
     ) do sparse_colptr, sparse_rowval, sparse_nzval
         n_sources = length(matrices)
-        @threads :greedy for index in 1:n_sources
-            matrix = matrices[index]
+        parallel_loop_wo_rng(
+            "concatenate_axis_sparse_matrices",
+            1:n_sources;
+            progress = DebugProgress(n_sources; desc = "concatenate_axis_sparse_matrices"),
+        ) do source_index
+            matrix = matrices[source_index]
             @assert issparse(matrix)
-            column_offset = offsets[index]
-            ncols = sizes[index]
-            nnz_offset = nnz_offsets[index]
-            nnz_size = nnz_sizes[index]
+            column_offset = offsets[source_index]
+            ncols = sizes[source_index]
+            nnz_offset = nnz_offsets[source_index]
+            nnz_size = nnz_sizes[source_index]
             sparse_nzval[(nnz_offset + 1):(nnz_offset + nnz_size)] = nzval(matrix)
             sparse_rowval[(nnz_offset + 1):(nnz_offset + nnz_size)] = rowval(matrix)
             sparse_colptr[(column_offset + 1):(column_offset + ncols)] = colptr(matrix)[1:ncols]
             sparse_colptr[(column_offset + 1):(column_offset + ncols)] .+= nnz_offset
+            return nothing
         end
         sparse_colptr[end] = total_nnz + 1
         return nothing
@@ -749,11 +779,15 @@ function concatenate_axis_dense_matrices(
 )::Nothing
     empty_dense_matrix!(destination, other_axis, axis, matrix_property, eltype; overwrite) do concatenated_matrix
         n_sources = length(sources)
-        @threads :greedy for index in 1:n_sources
-            source = sources[index]
-            matrix = matrices[index]
-            column_offset = offsets[index]
-            ncols = sizes[index]
+        parallel_loop_wo_rng(
+            "concatenate_axis_dense_matrices",
+            1:n_sources;
+            progress = DebugProgress(n_sources; desc = "concatenate_axis_dense_matrices"),
+        ) do source_index
+            source = sources[source_index]
+            matrix = matrices[source_index]
+            column_offset = offsets[source_index]
+            ncols = sizes[source_index]
             if matrix === nothing
                 concatenated_matrix[:, (column_offset + 1):(column_offset + ncols)] .=
                     require_empty_value_for_matrix(empty_value, matrix_property, other_axis, axis, source, destination)
@@ -761,6 +795,7 @@ function concatenate_axis_dense_matrices(
                 @assert size(matrix)[2] == ncols
                 concatenated_matrix[:, (column_offset + 1):(column_offset + ncols)] = matrix
             end
+            return nothing
         end
         return nothing
     end
@@ -956,7 +991,7 @@ function concatenate_merge_vector(
             sparse_saves = sparse_vectors_storage_fraction(empty_value, eltype, sizes, vectors)  # NOJET
             if sparse_saves >= sparse_if_saves_storage_fraction
                 @assert empty_value === nothing || empty_value == 0
-                sparse_vectors = sparsify_vectors(vectors, eltype, sizes)
+                sparse_vectors = sparsify_concatenated_vectors(vectors, eltype, sizes)
                 concatenate_merge_sparse_vector(
                     destination,
                     axis,
@@ -1010,14 +1045,19 @@ function concatenate_merge_sparse_vector(
     ) do sparse_colptr, sparse_rowval, sparse_nzval
         sparse_colptr[1] == 1
         n_sources = length(vectors)
-        @threads :greedy for index in 1:n_sources
-            vector = vectors[index]
+        parallel_loop_wo_rng(
+            "concatenate_merge_sparse_vector",
+            1:n_sources;
+            progress = DebugProgress(n_sources; desc = "concatenate_merge_sparse_vector"),
+        ) do source_index
+            vector = vectors[source_index]
             @assert issparse(vector)
-            nnz_offset = nnz_offsets[index]
-            nnz_size = nnz_sizes[index]
+            nnz_offset = nnz_offsets[source_index]
+            nnz_size = nnz_sizes[source_index]
             sparse_nzval[(nnz_offset + 1):(nnz_offset + nnz_size)] = nzval(vector)
             sparse_rowval[(nnz_offset + 1):(nnz_offset + nnz_size)] = nzind(vector)
-            sparse_colptr[index + 1] = nnz_offset + nnz_size + 1
+            sparse_colptr[source_index + 1] = nnz_offset + nnz_size + 1
+            return nothing
         end
     end
 
@@ -1037,15 +1077,20 @@ function concatenate_merge_dense_vector(
 )::Nothing
     empty_dense_matrix!(destination, axis, dataset_axis, vector_property, eltype; overwrite) do concatenated_matrix
         n_sources = length(sources)
-        @threads :greedy for index in 1:n_sources
-            source = sources[index]
-            vector = vectors[index]
+        parallel_loop_wo_rng(
+            "concatenate_merge_dense_vector",
+            1:n_sources;
+            progress = DebugProgress(n_sources; desc = "concatenate_merge_dense_vector"),
+        ) do source_index
+            source = sources[source_index]
+            vector = vectors[source_index]
             if vector === nothing
-                concatenated_matrix[:, index] .=
+                concatenated_matrix[:, source_index] .=
                     require_empty_value_for_vector(empty_value, vector_property, axis, source, destination)
             else
-                concatenated_matrix[:, index] = vector
+                concatenated_matrix[:, source_index] = vector
             end
+            return nothing
         end
         return nothing
     end
@@ -1273,7 +1318,7 @@ function sparse_matrices_storage_fraction(
     return (dense_bytes - sparse_bytes) / dense_bytes
 end
 
-function sparsify_vectors(
+function sparsify_concatenated_vectors(
     vectors::AbstractArray{<:Maybe{<:NamedVector}},
     eltype::Type,
     sizes::AbstractArray{<:Integer},
@@ -1281,25 +1326,30 @@ function sparsify_vectors(
     sparse_vectors = Vector{SparseVector}(undef, length(vectors))
 
     n_sources = length(vectors)
-    @threads :greedy for index in 1:n_sources
-        vector = vectors[index]
-        size = sizes[index]
+    parallel_loop_wo_rng(
+        "sparsify_concatenated_vectors",
+        1:n_sources;
+        progress = DebugProgress(n_sources; desc = "sparsify_concatenated_vectors"),
+    ) do source_index
+        vector = vectors[source_index]
+        size = sizes[source_index]
         if vector === nothing
-            sparse_vectors[index] = spzeros(eltype, size)
+            sparse_vectors[source_index] = spzeros(eltype, size)
         else
             @assert length(vector) == size
             vector = vector.array
             if !issparse(vector)
                 vector = sparse_vector(vector)
             end
-            sparse_vectors[index] = vector
+            sparse_vectors[source_index] = vector
         end
+        return nothing
     end
 
     return sparse_vectors
 end
 
-function sparsify_matrices(
+function sparsify_concatenated_matrices(
     matrices::AbstractArray{<:Maybe{<:NamedMatrix}},
     eltype::Type,
     nrows::Integer,
@@ -1309,15 +1359,20 @@ function sparsify_matrices(
     sparse_matrices = Vector{SparseMatrixCSC}(undef, length(matrices))
 
     n_sources = length(matrices)
-    @threads :greedy for index in 1:n_sources
-        matrix = matrices[index]
-        ncols = sizes[index]
+    parallel_loop_wo_rng(
+        "sparsify_concatenated_matrices",
+        1:n_sources;
+        progress = DebugProgress(n_sources; desc = "sparsify_concatenated_matrices"),
+    ) do source_index
+        matrix = matrices[source_index]
+        ncols = sizes[source_index]
         if matrix === nothing
-            sparse_matrices[index] = spzeros(eltype, nrows, ncols)
+            sparse_matrices[source_index] = spzeros(eltype, nrows, ncols)
         else
             @assert size(matrix) == (nrows, ncols)
-            sparse_matrices[index] = matrix.array
+            sparse_matrices[source_index] = matrix.array
         end
+        return nothing
     end
 
     return sparse_matrices

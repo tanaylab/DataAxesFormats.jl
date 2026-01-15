@@ -4693,7 +4693,11 @@ function compute_matrix_group_by(
         empty_group_value = value_for_if_missing(query_state, if_missing; type)
     end
 
-    @threads :greedy for column_index in 1:size(values_matrix)[2]
+    parallel_loop_wo_rng(
+        "compute_matrix_group_by.$(reduction_operation)",
+        1:size(values_matrix, 2);
+        progress = DebugProgress(size(values_matrix, 2); desc = "compute_matrix_group_by.$(reduction_operation)"),
+    ) do column_index
         values_column = @views values_matrix[:, column_index]
         results_column = @views results_matrix[:, column_index]
         collect_vector_group_by(
@@ -4705,7 +4709,8 @@ function compute_matrix_group_by(
             empty_group_value,
             reduction_operation,
         )
-    end  # UNTESTED
+        return nothing
+    end
 
     return results_matrix
 end
@@ -4720,7 +4725,11 @@ function collect_vector_group_by(
     reduction_operation::ReductionOperation,
 )::Nothing
     n_groups = length(groups_values)
-    @threads :greedy for group_index in 1:n_groups
+    parallel_loop_wo_rng(
+        "compute_vector_group_by.$(reduction_operation)",
+        1:n_groups;
+        progress = DebugProgress(n_groups; desc = "compute_vector_group_by.$(reduction_operation)"),
+    ) do group_index
         group_value = groups_values[group_index]
         group_mask = groups_vector .== group_value
         values_of_group = values_vector[group_mask]
@@ -4737,7 +4746,8 @@ function collect_vector_group_by(
                 """,
             )
         end
-    end  # UNTESTED
+        return nothing
+    end
 end
 
 function apply_query_operation!(query_state::QueryState, eltwise_operation::EltwiseOperation)::Nothing
@@ -4804,7 +4814,9 @@ function eltwise_vector(query_state::QueryState, eltwise_operation::EltwiseOpera
         )
     end
 
-    vector_value = compute_eltwise(eltwise_operation, read_only_array(vector_state.named_vector.array))  # NOLINT
+    vector_value = flame_timed("eltwise_vector.$(eltwise_operation)") do
+        return compute_eltwise(eltwise_operation, read_only_array(vector_state.named_vector.array))  # NOLINT
+    end
     vector_state.named_vector =
         NamedArray(vector_value, vector_state.named_vector.dicts, vector_state.named_vector.dimnames)
     vector_state.is_processed = true
@@ -4817,7 +4829,9 @@ function eltwise_matrix(query_state::QueryState, eltwise_operation::EltwiseOpera
     matrix_state = pop!(query_state.stack)
     @assert matrix_state isa MatrixState
 
-    matrix_value = compute_eltwise(eltwise_operation, read_only_array(matrix_state.named_matrix.array))  # NOLINT
+    matrix_value = flame_timed("eltwise_matrix.$(eltwise_operation)") do
+        return compute_eltwise(eltwise_operation, read_only_array(matrix_state.named_matrix.array))  # NOLINT
+    end
     matrix_state.named_matrix =
         NamedArray(matrix_value, matrix_state.named_matrix.dicts, matrix_state.named_matrix.dimnames)
 
@@ -4883,7 +4897,9 @@ function reduce_vector(
     end
 
     if !isempty(named_vector.array)
-        scalar_value = compute_reduction(reduction_operation, read_only_array(named_vector.array))  # NOLINT
+        scalar_value = flame_timed("reduce_vector.$(reduction_operation)") do
+            return compute_reduction(reduction_operation, read_only_array(named_vector.array))  # NOLINT
+        end
     elseif if_missing !== nothing  # UNTESTED
         type = reduction_result_type(reduction_operation, eltype(named_vector.array))  # UNTESTED
         scalar_value = value_for_if_missing(query_state, if_missing; type)  # UNTESTED
@@ -4918,7 +4934,9 @@ function reduce_matrix(
 
     n_rows, n_columns = size(named_matrix)
     if n_rows > 0 && n_columns > 0
-        vector_value = compute_reduction(reduction_operation, read_only_array(named_matrix.array))  # NOLINT
+        vector_value = flame_timed("reduce_matrix.$(reduction_operation)") do
+            return compute_reduction(reduction_operation, read_only_array(named_matrix.array))  # NOLINT
+        end
     elseif n_columns == 0  # UNTESTED
         type = reduction_result_type(reduction_operation, eltype(named_matrix.array))  # UNTESTED
         vector_value = Vector{type}()  # UNTESTED
