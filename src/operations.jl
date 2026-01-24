@@ -760,8 +760,8 @@ function compute_eltwise(operation::Significant, input::StorageMatrix)::StorageM
     output = copy_array(input)
     if issparse(output)
         parallel_loop_wo_rng(
-            "Significant",
             1:size(output, 2);
+            name = "Significant",
             progress = DebugProgress(size(output, 2); desc = "Significant"),
         ) do column_index
             first = colptr(output)[column_index]
@@ -778,8 +778,8 @@ function compute_eltwise(operation::Significant, input::StorageMatrix)::StorageM
         n_columns = size(output, 2)
         is_dense_of_columns = zeros(Bool, n_columns)
         parallel_loop_wo_rng(
-            "Significant",
             1:size(output, 2);
+            name = "Significant",
             progress = DebugProgress(size(output, 2); desc = "Significant"),
         ) do column_index
             column_vector = @view output[:, column_index]
@@ -902,8 +902,8 @@ end
 function compute_reduction(operation::Mode, input::StorageMatrix)::StorageVector
     output = Vector{reduction_result_type(operation, eltype(input))}(undef, size(input, 2))
     parallel_loop_wo_rng(
-        "Mode",
         1:length(output);
+        name = "Mode",
         progress = DebugProgress(length(output); desc = "Mode"),
     ) do column_index
         column_vector = @view input[:, column_index]
@@ -1102,8 +1102,8 @@ function compute_reduction(operation::Quantile, input::StorageMatrix)::StorageVe
     type = reduction_result_type(operation, eltype(input))
     output = Vector{type}(undef, size(input, 2))
     parallel_loop_wo_rng(
-        "Quantile",
         1:length(output);
+        name = "Quantile",
         progress = DebugProgress(length(output); desc = "Quantile"),
     ) do column_index
         column_vector = @view input[:, column_index]

@@ -22,6 +22,7 @@ using TanayLabUtilities
     adapter(
         computation::Function,
         daf::DafWriter;
+        name::AbstractString = ".adapter",
         input_axes::Maybe{ViewAxes} = nothing,
         input_data::Maybe{ViewData} = nothing,
         capture = MemoryDaf,
@@ -70,6 +71,8 @@ result = adapter(
     return ...                 # An additional result outside `daf`.
 end
 
+The `name` parameter is used for [`flame_timed`](@ref).
+
 # Here `daf` will contain the specific renamed outputs specified in `adapter`,
 # and you can also access the additional non-`daf` data `result`.
 ```
@@ -78,9 +81,10 @@ This idiom allows [`@computation`](@ref) functions to use clear generic names fo
 apply them to arbitrary data sets that use more specific names. One can even invoke the same computation with different
 parameter values, and store the different results in the same data set under different names.
 """
-@logged function adapter(
+function adapter(
     computation::Function,
     daf::DafWriter;
+    name::AbstractString = ".adapter",
     input_axes::Maybe{ViewAxes} = nothing,
     input_data::Maybe{ViewData} = nothing,
     capture = MemoryDaf,
@@ -90,15 +94,23 @@ parameter values, and store the different results in the same data set under dif
     relayout::Bool = true,
     overwrite::Bool = false,
 )::Any
-    base_name = daf.name
-    @assert input_axes !== nothing || input_data !== nothing || output_axes !== nothing || output_data !== nothing "no-op adapter"
-    input = viewer(daf; axes = input_axes, data = input_data, name = base_name * ".input")
-    captured = capture(; name = base_name * ".capture")
-    adapted = chain_writer([input, captured]; name = base_name * ".adapted")
-    result = computation(adapted)
-    output = viewer(adapted; axes = output_axes, data = output_data, name = base_name * ".output")
-    copy_all!(; source = output, destination = daf, empty, relayout, overwrite)
-    return result
+    flame_timed(name) do
+        local adapted;
+        local base_name;
+        flame_timed("input") do
+            base_name = daf.name
+            @assert input_axes !== nothing || input_data !== nothing || output_axes !== nothing || output_data !== nothing "no-op adapter"
+            input = viewer(daf; axes = input_axes, data = input_data, name = base_name * ".input")
+            captured = capture(; name = base_name * ".capture")
+            adapted = chain_writer([input, captured]; name = base_name * ".adapted")
+        end
+        result = computation(adapted)
+        flame_timed("output") do
+            output = viewer(adapted; axes = output_axes, data = output_data, name = base_name * ".output")
+            copy_all!(; source = output, destination = daf, empty, relayout, overwrite)
+        end
+        return result
+    end
 end
 
 end # module

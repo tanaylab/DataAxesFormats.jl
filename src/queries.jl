@@ -2226,7 +2226,9 @@ function Base.getindex(
     daf::DafReader,
     query::QueryString,
 )::Union{AbstractSet{<:AbstractString}, AbstractVector{<:AbstractString}, StorageScalar, NamedArray}
-    return get_query(daf, query; cache = false)
+    return flame_timed("todox_getindex") do
+        return get_query(daf, query; cache = false)
+    end
 end
 
 function Base.:(|>)(
@@ -2295,8 +2297,11 @@ function get_query(
                 return do_get_query(daf, query_sequence)
             end
         else
-            result = Formats.with_cache_read_lock(daf, "for get_query of:", cache_key) do
-                return get(daf.internal.cache, cache_key, nothing)
+            local result
+            flame_timed("todox_peek_cache") do
+                result = Formats.with_cache_read_lock(daf, "for get_query of:", cache_key) do
+                    return get(daf.internal.cache, cache_key, nothing)
+                end
             end
             if result === nothing
                 result, _ = do_get_query(daf, query_sequence)
@@ -2343,28 +2348,36 @@ function do_get_query(
     Union{AbstractSet{<:AbstractString}, AbstractVector{<:AbstractString}, StorageScalar, NamedArray},
     Set{CacheKey},
 }
-    query_state = QueryState(daf, query_sequence, 1, Vector{QueryValue}())
-    while query_state.next_operation_index <= length(query_state.query_sequence.query_operations)
-        query_operation = query_sequence.query_operations[query_state.next_operation_index]
-        query_state.next_operation_index += 1
-        apply_query_operation!(query_state, query_operation)
-    end
+    return flame_timed("query") do
+        local query_state
 
-    if is_all(query_state, (NamesState,))
-        return get_names_result(query_state)
-    elseif is_all(query_state, (ScalarState,))
-        return get_scalar_result(query_state)
-    elseif is_all(query_state, (AxisState,))
-        return axis_vector_result(query_state)
-    elseif is_all(query_state, (VectorState,))
-        return get_vector_result(query_state)
-    elseif is_all(query_state, (MatrixState,))
-        return get_matrix_result(query_state)
-    else
-        return error(chomp("""
-                     partial query: $(query_state.query_sequence)
-                     for the daf data: $(query_state.daf.name)
-                     """))
+        flame_timed("query.operations") do
+            query_state = QueryState(daf, query_sequence, 1, Vector{QueryValue}())
+            while query_state.next_operation_index <= length(query_state.query_sequence.query_operations)
+                query_operation = query_sequence.query_operations[query_state.next_operation_index]
+                query_state.next_operation_index += 1
+                apply_query_operation!(query_state, query_operation)
+            end
+        end
+
+        return flame_timed("query.results") do
+            if is_all(query_state, (NamesState,))
+                return get_names_result(query_state)
+            elseif is_all(query_state, (ScalarState,))
+                return get_scalar_result(query_state)
+            elseif is_all(query_state, (AxisState,))
+                return axis_vector_result(query_state)
+            elseif is_all(query_state, (VectorState,))
+                return get_vector_result(query_state)
+            elseif is_all(query_state, (MatrixState,))
+                return get_matrix_result(query_state)
+            else
+                return error(chomp("""
+                             partial query: $(query_state.query_sequence)
+                             for the daf data: $(query_state.daf.name)
+                             """))
+            end
+        end
     end
 end
 
@@ -2852,7 +2865,7 @@ function lookup_axes(query_state::QueryState, lookup::Lookup)::Nothing
                 dependency_keys,
             )
         elseif columns_axis_modifier isa Int
-            return fetch_matrix_slice(
+            @views return fetch_matrix_slice(
                 query_state,
                 named_matrix[:, columns_axis_modifier],
                 rows_axis_state,
@@ -2860,7 +2873,7 @@ function lookup_axes(query_state::QueryState, lookup::Lookup)::Nothing
                 dependency_keys,
             )
         elseif columns_axis_modifier isa AbstractVector{Bool}
-            return fetch_matrix(
+            @views return fetch_matrix(
                 query_state,
                 named_matrix[:, columns_axis_modifier],
                 rows_axis_state,
@@ -2872,7 +2885,7 @@ function lookup_axes(query_state::QueryState, lookup::Lookup)::Nothing
 
     elseif rows_axis_modifier isa Int
         if columns_axis_modifier === nothing
-            return fetch_matrix_slice(
+            @views return fetch_matrix_slice(
                 query_state,
                 named_matrix[rows_axis_modifier, :],
                 columns_axis_state,
@@ -2880,14 +2893,14 @@ function lookup_axes(query_state::QueryState, lookup::Lookup)::Nothing
                 dependency_keys,
             )
         elseif columns_axis_modifier isa Int
-            return fetch_matrix_entry(
+            @views return fetch_matrix_entry(
                 query_state,
                 named_matrix[rows_axis_modifier, columns_axis_modifier],
                 lookup.property_name,
                 dependency_keys,
             )
         elseif columns_axis_modifier isa AbstractVector{Bool}
-            return fetch_matrix_slice(
+            @views return fetch_matrix_slice(
                 query_state,
                 named_matrix[rows_axis_modifier, columns_axis_modifier],
                 columns_axis_state,
@@ -2898,7 +2911,7 @@ function lookup_axes(query_state::QueryState, lookup::Lookup)::Nothing
 
     elseif rows_axis_modifier isa AbstractVector{Bool}
         if columns_axis_modifier === nothing
-            return fetch_matrix(
+            @views return fetch_matrix(
                 query_state,
                 named_matrix[rows_axis_modifier, :],
                 rows_axis_state,
@@ -2907,7 +2920,7 @@ function lookup_axes(query_state::QueryState, lookup::Lookup)::Nothing
                 dependency_keys,
             )
         elseif columns_axis_modifier isa Int
-            return fetch_matrix_slice(
+            @views return fetch_matrix_slice(
                 query_state,
                 named_matrix[rows_axis_modifier, columns_axis_modifier],
                 rows_axis_state,
@@ -2915,7 +2928,7 @@ function lookup_axes(query_state::QueryState, lookup::Lookup)::Nothing
                 dependency_keys,
             )
         elseif columns_axis_modifier isa AbstractVector{Bool}
-            return fetch_matrix(
+            @views return fetch_matrix(
                 query_state,
                 named_matrix[rows_axis_modifier, columns_axis_modifier],
                 rows_axis_state,
@@ -3487,7 +3500,7 @@ function fetch_property(
                         """,
                     )
                 end
-                next_named_vector = next_named_matrix[:, slice_comparison_value]
+                @views next_named_vector = next_named_matrix[:, slice_comparison_value]
 
             elseif peek_next_operation(query_state, SquareMaskSlice) !== nothing
                 mask_slice = get_next_operation(query_state, SquareMaskSlice)
@@ -3512,9 +3525,9 @@ function fetch_property(
                 end
 
                 if mask_slice isa SquareMaskColumn
-                    next_named_vector = next_named_matrix[:, slice_comparison_value]
+                    @views next_named_vector = next_named_matrix[:, slice_comparison_value]
                 elseif mask_slice isa SquareMaskRow
-                    next_named_vector = next_named_matrix[slice_comparison_value, :]
+                    @views next_named_vector = next_named_matrix[slice_comparison_value, :]
                 else
                     @assert false
                 end
@@ -3875,7 +3888,7 @@ function fetch_first_named_vector(
         else
             @assert axis_mask isa AbstractVector{Bool}
             size = sum(axis_mask)
-            base_named_vector = base_named_vector[axis_mask]
+            @views base_named_vector = base_named_vector[axis_mask]  # TODOX
         end
         fetched_values = Vector{typeof(if_missing_value)}(undef, size)
         vector_fetch_state.may_modify_named_vector = true
@@ -3890,8 +3903,8 @@ function fetch_first_named_vector(
             vector_fetch_state.may_modify_named_vector = false
         else
             @assert axis_mask isa AbstractVector{Bool}
-            base_named_vector = base_named_vector[axis_mask]  # NOJET
-            vector_fetch_state.may_modify_named_vector = true
+            @views base_named_vector = base_named_vector[axis_mask]  # NOJET  # TODOX
+            #TODOX vector_fetch_state.may_modify_named_vector = true
         end
         fetched_values = base_named_vector.array
     end
@@ -3992,10 +4005,10 @@ function patch_fetched_values(
         vector_fetch_state.common.axis_state =
             AxisState(axis_state.query_sequence, axis_state.dependency_keys, axis_state.axis_name, axis_mask)
 
-        base_named_vector = base_named_vector[fetched_mask]
+        @views base_named_vector = base_named_vector[fetched_mask]
         if_not_values = vector_fetch_state.if_not_values
         if if_not_values === nothing
-            fetched_values = fetched_values[fetched_mask]
+            @views fetched_values = fetched_values[fetched_mask]
         else
             masked_fetched_values = Vector{eltype(fetched_values)}(undef, sum(fetched_mask))
             masked_index = 0
@@ -4008,7 +4021,7 @@ function patch_fetched_values(
                 end
             end
             @assert masked_index == length(masked_fetched_values)
-            vector_fetch_state.if_not_values = if_not_values[fetched_mask]  # NOJET
+            @views vector_fetch_state.if_not_values = if_not_values[fetched_mask]  # NOJET
             fetched_values = masked_fetched_values
         end
     end
@@ -4433,11 +4446,11 @@ function apply_mask_to_vector_state(vector_state::VectorState, new_axis_mask::Ab
     @assert axis_state !== nothing
     old_axis_mask = axis_state.axis_modifier
     if old_axis_mask === nothing
-        vector_state.named_vector = vector_state.named_vector[new_axis_mask]  # NOJET
+        @views vector_state.named_vector = vector_state.named_vector[new_axis_mask]  # NOJET
         axis_state.axis_modifier = new_axis_mask
     else
-        sub_axis_mask = new_axis_mask[old_axis_mask]
-        vector_state.named_vector = vector_state.named_vector[sub_axis_mask]
+        @views sub_axis_mask = new_axis_mask[old_axis_mask]
+        @views vector_state.named_vector = vector_state.named_vector[sub_axis_mask]
         axis_state.axis_modifier = new_axis_mask
     end
     return nothing
@@ -4448,11 +4461,11 @@ function apply_mask_to_matrix_state_rows(matrix_state::MatrixState, new_rows_mas
     @assert rows_axis_state !== nothing
     old_rows_mask = rows_axis_state.axis_modifier
     if old_rows_mask === nothing
-        matrix_state.named_matrix = matrix_state.named_matrix[new_rows_mask, :]  # NOJET
+        @views matrix_state.named_matrix = matrix_state.named_matrix[new_rows_mask, :]  # NOJET
         rows_axis_state.axis_modifier = new_rows_mask
     else
-        sub_rows_mask = new_rows_mask[old_rows_mask]
-        matrix_state.named_matrix = matrix_state.named_matrix[sub_rows_mask, :]
+        @views sub_rows_mask = new_rows_mask[old_rows_mask]
+        @views matrix_state.named_matrix = matrix_state.named_matrix[sub_rows_mask, :]
         rows_axis_state.axis_modifier = new_rows_mask
     end
     return nothing
@@ -4550,7 +4563,7 @@ function fetch_group_by_matrix(query_state::QueryState, group_by::GroupBy)::Noth
     axis_mask = columns_axis_state.axis_modifier
     if axis_mask !== nothing
         @assert axis_mask isa AbstractVector{Bool}
-        columns_names = columns_names[axis_mask]
+        @views columns_names = columns_names[axis_mask]
     end
 
     apply_mask_to_base_matrix_state(values_matrix_state, groups_vector_state)
@@ -4694,9 +4707,9 @@ function compute_matrix_group_by(
     end
 
     parallel_loop_wo_rng(
-        "compute_matrix_group_by.$(reduction_operation)",
         1:size(values_matrix, 2);
-        progress = DebugProgress(size(values_matrix, 2); desc = "compute_matrix_group_by.$(reduction_operation)"),
+        name = "compute_matrix_group_by.$(nameof(typeof(reduction_operation)))",
+        progress = DebugProgress(size(values_matrix, 2); desc = "compute_matrix_group_by.$(nameof(typeof(reduction_operation)))"),
     ) do column_index
         values_column = @views values_matrix[:, column_index]
         results_column = @views results_matrix[:, column_index]
@@ -4726,9 +4739,9 @@ function collect_vector_group_by(
 )::Nothing
     n_groups = length(groups_values)
     parallel_loop_wo_rng(
-        "compute_vector_group_by.$(reduction_operation)",
         1:n_groups;
-        progress = DebugProgress(n_groups; desc = "compute_vector_group_by.$(reduction_operation)"),
+        name = "compute_vector_group_by.$(nameof(typeof(reduction_operation)))",
+        progress = DebugProgress(n_groups; desc = "compute_vector_group_by.$(nameof(typeof(reduction_operation)))"),
     ) do group_index
         group_value = groups_values[group_index]
         group_mask = groups_vector .== group_value
@@ -4814,7 +4827,7 @@ function eltwise_vector(query_state::QueryState, eltwise_operation::EltwiseOpera
         )
     end
 
-    vector_value = flame_timed("eltwise_vector.$(eltwise_operation)") do
+    vector_value = flame_timed("eltwise_vector.$(nameof(typeof(eltwise_operation)))") do
         return compute_eltwise(eltwise_operation, read_only_array(vector_state.named_vector.array))  # NOLINT
     end
     vector_state.named_vector =
@@ -4829,7 +4842,7 @@ function eltwise_matrix(query_state::QueryState, eltwise_operation::EltwiseOpera
     matrix_state = pop!(query_state.stack)
     @assert matrix_state isa MatrixState
 
-    matrix_value = flame_timed("eltwise_matrix.$(eltwise_operation)") do
+    matrix_value = flame_timed("eltwise_matrix.$(nameof(typeof(eltwise_operation)))") do
         return compute_eltwise(eltwise_operation, read_only_array(matrix_state.named_matrix.array))  # NOLINT
     end
     matrix_state.named_matrix =
@@ -4897,7 +4910,7 @@ function reduce_vector(
     end
 
     if !isempty(named_vector.array)
-        scalar_value = flame_timed("reduce_vector.$(reduction_operation)") do
+        scalar_value = flame_timed("reduce_vector.$(nameof(typeof(reduction_operation)))") do
             return compute_reduction(reduction_operation, read_only_array(named_vector.array))  # NOLINT
         end
     elseif if_missing !== nothing  # UNTESTED
@@ -4934,7 +4947,7 @@ function reduce_matrix(
 
     n_rows, n_columns = size(named_matrix)
     if n_rows > 0 && n_columns > 0
-        vector_value = flame_timed("reduce_matrix.$(reduction_operation)") do
+        vector_value = flame_timed("reduce_matrix.$(nameof(typeof(reduction_operation)))") do
             return compute_reduction(reduction_operation, read_only_array(named_matrix.array))  # NOLINT
         end
     elseif n_columns == 0  # UNTESTED

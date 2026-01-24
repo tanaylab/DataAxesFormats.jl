@@ -477,15 +477,34 @@ function Formats.format_has_cached_matrix(
     columns_axis::AbstractString,
     name::AbstractString,
 )::Bool
-    @assert Formats.has_data_read_lock(chain)
-    for daf in reverse(chain.dafs)
-        if Formats.format_has_axis(daf, rows_axis; for_change = false) &&
-           Formats.format_has_axis(daf, columns_axis; for_change = false) &&
-           Formats.format_has_cached_matrix(daf, rows_axis, columns_axis, name)
-            return true
+    return flame_timed("todox_format_has_cached_matrix_CHAIN") do
+        @assert Formats.has_data_read_lock(chain)
+        for daf in reverse(chain.dafs)
+            todox_has_rows = flame_timed("todox_has_axis.$(nameof(typeof(daf)))") do
+                return Formats.format_has_axis(daf, rows_axis; for_change = false)
+            end
+            if todox_has_rows
+                todox_has_columns = flame_timed("todox_has_axis.$(nameof(typeof(daf)))") do
+                    return Formats.format_has_axis(daf, columns_axis; for_change = false)
+                end
+                if todox_has_columns
+                    has_matrix = flame_timed("todox_has_cached_matrix.$(nameof(typeof(daf)))") do
+                        return Formats.format_has_cached_matrix(daf, rows_axis, columns_axis, name)
+                    end
+                    if has_matrix
+                        return true
+                    end
+                end
+            end
+#           TODOX
+#           if Formats.format_has_axis(daf, rows_axis; for_change = false)
+#              Formats.format_has_axis(daf, columns_axis; for_change = false) &&
+#              Formats.format_has_cached_matrix(daf, rows_axis, columns_axis, name)
+#               return true
+#           end
         end
+        return false
     end
-    return false
 end
 
 function Formats.format_set_matrix!(

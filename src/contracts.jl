@@ -365,11 +365,13 @@ function contractor(
     daf::DafReader;
     overwrite::Bool = false,
 )::ContractDaf
-    axes = collect_axes(contract)
-    data = collect_data(computation, contract, daf, axes)
-    expand_input_tensors(data, daf)
-    name = unique_name("$(daf.name).for.$(split(computation, '.')[end])")
-    return ContractDaf(name, daf.internal, computation, contract.is_relaxed, axes, data, daf, overwrite)
+    return flame_timed("contractor") do
+        axes = collect_axes(contract)
+        data = collect_data(computation, contract, daf, axes)
+        expand_input_tensors(data, daf)
+        name = unique_name("$(daf.name).for.$(split(computation, '.')[end])")
+        return ContractDaf(name, daf.internal, computation, contract.is_relaxed, axes, data, daf, overwrite)
+    end
 end
 
 function collect_axes(contract::Contract)::Dict{AbstractString, Tracker}
@@ -545,7 +547,9 @@ Verify the `contract_daf` data before a computation is invoked. This verifies th
 of the appropriate type, and that if any of the optional data exists, it has the appropriate type.
 """
 function verify_input(contract_daf::ContractDaf)::Nothing
-    return verify_contract(contract_daf; is_output = false)
+    return flame_timed("verify_input") do
+        return verify_contract(contract_daf; is_output = false)
+    end
 end
 
 """
@@ -556,7 +560,9 @@ and is of the appropriate type, and that if any of the optional output data exis
 verifies that all the required inputs were accessed by the computation.
 """
 function verify_output(contract_daf::ContractDaf)::Nothing
-    return verify_contract(contract_daf; is_output = true)
+    return flame_timed("verify_output") do
+        return verify_contract(contract_daf; is_output = true)
+    end
 end
 
 function verify_contract(contract_daf::ContractDaf; is_output::Bool)::Nothing
@@ -1406,6 +1412,7 @@ function access_matrix(
     name::AbstractString;
     is_modify::Bool,
 )::Nothing
+    flame_timed("todox_access_matrix") do
     if contract_daf.daf isa ContractDaf
         access_matrix(contract_daf.daf, rows_axis, columns_axis, name; is_modify)  # UNTESTED
     end
@@ -1448,6 +1455,7 @@ function access_matrix(
     end
 
     return nothing
+    end  # TODOX
 end
 
 function is_mandatory(expectation::ContractExpectation; is_output::Bool)::Bool

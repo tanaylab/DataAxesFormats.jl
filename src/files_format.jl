@@ -327,11 +327,13 @@ function Formats.format_add_axis!(
 )::Nothing
     @assert Formats.has_data_write_lock(files)
     txt_path = "$(files.path)/axes/$(axis).txt"
-    open(txt_path, "w") do file
-        empty_ispath_cache!(txt_path)
-        for entry in entries
-            @assert !contains(entry, '\n')
-            println(file, entry)
+    flame_timed("FilesDaf.write_axis_vector") do
+        open(txt_path, "w") do file
+            empty_ispath_cache!(txt_path)
+            for entry in entries
+                @assert !contains(entry, '\n')
+                println(file, entry)
+            end
         end
     end
 
@@ -428,51 +430,53 @@ function write_string_vector(
     name::AbstractString,
     vector::Union{StorageScalar, StorageVector},
 )::Nothing
-    n_empty = 0
-    nonempty_size = 0
-    for value in vector
-        value_size = length(value)
-        if value_size > 0
-            nonempty_size += value_size
-        else
-            n_empty += 1
+    flame_timed("FilesDaf.write_string_vector") do
+        n_empty = 0
+        nonempty_size = 0
+        for value in vector
+            value_size = length(value)
+            if value_size > 0
+                nonempty_size += value_size
+            else
+                n_empty += 1
+            end
         end
-    end
 
-    n_values = length(vector)
-    n_nonempty = n_values - n_empty
-    ind_type = indtype_for_size(n_values)
+        n_values = length(vector)
+        n_nonempty = n_values - n_empty
+        ind_type = indtype_for_size(n_values)
 
-    dense_size = nonempty_size + length(vector)
-    sparse_size = nonempty_size + n_nonempty * (1 + sizeof(ind_type))
+        dense_size = nonempty_size + length(vector)
+        sparse_size = nonempty_size + n_nonempty * (1 + sizeof(ind_type))
 
-    if sparse_size <= dense_size * 0.75
-        write_array_json("$(files.path)/vectors/$(axis)/$(name).json", "sparse", String, ind_type)
+        if sparse_size <= dense_size * 0.75
+            write_array_json("$(files.path)/vectors/$(axis)/$(name).json", "sparse", String, ind_type)
 
-        nzind_vector = Vector{ind_type}(undef, n_nonempty)
-        open("$(files.path)/vectors/$(axis)/$(name).nztxt", "w") do file
-            position = 1
-            for (index, value) in enumerate(vector)
-                if length(value) > 0
+            nzind_vector = Vector{ind_type}(undef, n_nonempty)
+            open("$(files.path)/vectors/$(axis)/$(name).nztxt", "w") do file
+                position = 1
+                for (index, value) in enumerate(vector)
+                    if length(value) > 0
+                        @assert !(contains(value, '\n'))
+                        println(file, value)
+                        nzind_vector[position] = index
+                        position += 1
+                    end
+                end
+                @assert position == n_nonempty + 1
+            end
+
+            write("$(files.path)/vectors/$(axis)/$(name).nzind", nzind_vector)
+
+        else
+            write_array_json("$(files.path)/vectors/$(axis)/$(name).json", "dense", String)
+            open("$(files.path)/vectors/$(axis)/$(name).txt", "w") do file  # NOJET
+                for value in vector
                     @assert !(contains(value, '\n'))
                     println(file, value)
-                    nzind_vector[position] = index
-                    position += 1
                 end
+                return nothing
             end
-            @assert position == n_nonempty + 1
-        end
-
-        write("$(files.path)/vectors/$(axis)/$(name).nzind", nzind_vector)
-
-    else
-        write_array_json("$(files.path)/vectors/$(axis)/$(name).json", "dense", String)
-        open("$(files.path)/vectors/$(axis)/$(name).txt", "w") do file  # NOJET
-            for value in vector
-                @assert !(contains(value, '\n'))
-                println(file, value)
-            end
-            return nothing
         end
     end
 
@@ -684,23 +688,26 @@ function write_string_matrix(
 
         colptr_vector = Vector{ind_type}(undef, ncols + 1)
         rowval_vector = Vector{ind_type}(undef, n_nonempty)
-        open("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).nztxt", "w") do file
-            position = 1
-            for column_index in 1:ncols
-                colptr_vector[column_index] = position
-                for row_index in 1:nrows
-                    value = matrix[row_index, column_index]
-                    if length(value) > 0
-                        @assert !(contains(value, '\n'))
-                        println(file, value)
-                        rowval_vector[position] = row_index
-                        position += 1
+
+        flame_timed("FilesDaf.write_sparse_string_matrix") do
+            open("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).nztxt", "w") do file
+                position = 1
+                for column_index in 1:ncols
+                    colptr_vector[column_index] = position
+                    for row_index in 1:nrows
+                        value = matrix[row_index, column_index]
+                        if length(value) > 0
+                            @assert !(contains(value, '\n'))
+                            println(file, value)
+                            rowval_vector[position] = row_index
+                            position += 1
+                        end
                     end
                 end
+                @assert position == n_nonempty + 1
+                colptr_vector[ncols + 1] = n_nonempty + 1
+                return nothing
             end
-            @assert position == n_nonempty + 1
-            colptr_vector[ncols + 1] = n_nonempty + 1
-            return nothing
         end
 
         write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).colptr", colptr_vector)
@@ -708,12 +715,14 @@ function write_string_matrix(
 
     else
         write_array_json("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", "dense", String)
-        open("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).txt", "w") do file
-            for value in matrix
-                @assert !(contains(value, '\n'))
-                println(file, value)
+        flame_timed("FilesDaf.write_dense_string_matrix") do
+            open("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).txt", "w") do file
+                for value in matrix
+                    @assert !(contains(value, '\n'))
+                    println(file, value)
+                end
+                return nothing
             end
-            return nothing
         end
     end
 
@@ -785,8 +794,10 @@ function Formats.format_relayout_matrix!(
             nnz(matrix),
             eltype(matrix.colptr),
         )
-        colptr[1] = 1
-        colptr[2:end] .= length(nzval) + 1
+        flame_timed("FilesDaf.init_empty_sparse_matrix") do
+            colptr[1] = 1
+            colptr[2:end] .= length(nzval) + 1
+        end
         relayout_matrix =
             SparseMatrixCSC(axis_length(files, columns_axis), axis_length(files, rows_axis), colptr, rowval, nzval)
         relayout!(flip(relayout_matrix), matrix)
@@ -912,27 +923,31 @@ function Formats.format_get_matrix(
 end
 
 function get_names_set(path::AbstractString, suffix::AbstractString)::AbstractSet{<:AbstractString}
-    names_set = Set{AbstractString}()
-    suffix_length = length(suffix)
+    return flame_timed("FilesDaf.get_names_set") do
+        names_set = Set{AbstractString}()
+        suffix_length = length(suffix)
 
-    for file_name in readdir(path)
-        if endswith(file_name, suffix)
-            push!(names_set, chop(file_name; tail = suffix_length))
+        for file_name in readdir(path)
+            if endswith(file_name, suffix)
+                push!(names_set, chop(file_name; tail = suffix_length))
+            end
         end
-    end
 
-    return names_set
+        return names_set
+    end
 end
 
 function mmap_file_lines(path::AbstractString)::AbstractVector{<:AbstractString}
-    key = (:daf, :mmap_lines, "r")
-    return get_through_global_weak_cache(abspath(path), key) do _
-        size = filesize(path)
-        text = StringView(mmap_file_data(path, Vector{UInt8}, size, "r"))
-        lines = split(text, "\n")
-        last_line = pop!(lines)
-        @assert last_line == ""
-        return lines
+    return flame_timed("FilesDaf.mmap_file_lines") do
+        key = (:daf, :mmap_lines, "r")
+        return get_through_global_weak_cache(abspath(path), key) do _
+            size = filesize(path)
+            text = StringView(mmap_file_data(path, Vector{UInt8}, size, "r"))
+            lines = split(text, "\n")
+            last_line = pop!(lines)
+            @assert last_line == ""
+            return lines
+        end
     end
 end
 
@@ -942,45 +957,51 @@ function mmap_file_data(
     size::Union{Integer, Tuple{<:Integer, <:Integer}},
     mode::AbstractString,
 )::T where {T <: Union{StorageVector, StorageMatrix}}
-    @assert mode in ("r", "r+")
-    key = (:daf, :mmap_data, mode)
-    return get_through_global_weak_cache(abspath(path), key) do _
-        return open(path, mode) do file  # NOJET
-            return mmap(file, T, size)  # NOJET
+    return flame_timed("FilesDaf.mmap_file_data") do
+        @assert mode in ("r", "r+")
+        key = (:daf, :mmap_data, mode)
+        return get_through_global_weak_cache(abspath(path), key) do _
+            return open(path, mode) do file  # NOJET
+                return mmap(file, T, size)  # NOJET
+            end
         end
     end
 end
 
 function fill_file(path::AbstractString, value::StorageScalar, size::Integer)::Nothing
-    if value isa AbstractString
-        @assert !contains(value, '\n')
-        open(path, "w") do file
-            for _ in 1:size
-                println(file, value)
+    flame_timed("FilesDaf.fill_file") do
+        if value isa AbstractString
+            @assert !contains(value, '\n')
+            open(path, "w") do file
+                for _ in 1:size
+                    println(file, value)
+                end
             end
-        end
 
-    elseif value == 0
-        write_zeros_file(path, size * sizeof(value))
+        elseif value == 0
+            write_zeros_file(path, size * sizeof(value))
 
-    else
-        buffer_size = min(div(8192, sizeof(value)), size)
-        buffer = fill(value, buffer_size)
-        written = 0
-        open(path, "w") do file
-            while written < size
-                write(file, buffer)
-                written += buffer_size
+        else
+            buffer_size = min(div(8192, sizeof(value)), size)
+            buffer = fill(value, buffer_size)
+            written = 0
+            open(path, "w") do file
+                while written < size
+                    write(file, buffer)
+                    written += buffer_size
+                end
             end
         end
     end
 end
 
 function write_zeros_file(path::AbstractString, size::Integer)::Nothing
-    open(path, "w") do file
-        if size > 0
-            seek(file, size - 1)
-            write(file, UInt8(0))
+    flame_timed("FilesDaf.write_zeros_file") do
+        open(path, "w") do file
+            if size > 0
+                seek(file, size - 1)
+                write(file, UInt8(0))
+            end
         end
     end
     return nothing
@@ -992,15 +1013,17 @@ function write_array_json(
     eltype::Type{<:StorageScalarBase},
     ind_type::Maybe{Type{<:StorageInteger}} = nothing,
 )::Nothing
-    if format == "dense"
-        @assert ind_type === nothing
-        write(path, "{\"format\":\"dense\",\"eltype\":\"$(eltype)\"}\n")
-    else
-        @assert format == "sparse"
-        @assert ind_type !== nothing
-        write(path, "{\"format\":\"sparse\",\"eltype\":\"$(eltype)\",\"indtype\":\"$(ind_type)\"}\n")
+    flame_timed("FilesDaf.write_array_json") do
+        if format == "dense"
+            @assert ind_type === nothing
+            write(path, "{\"format\":\"dense\",\"eltype\":\"$(eltype)\"}\n")
+        else
+            @assert format == "sparse"
+            @assert ind_type !== nothing
+            write(path, "{\"format\":\"sparse\",\"eltype\":\"$(eltype)\",\"indtype\":\"$(ind_type)\"}\n")
+        end
+        empty_ispath_cache!(path)
     end
-    empty_ispath_cache!(path)
     return nothing
 end
 

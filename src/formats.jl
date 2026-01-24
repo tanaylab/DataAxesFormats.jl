@@ -702,8 +702,12 @@ function format_has_cached_matrix(
     columns_axis::AbstractString,
     name::AbstractString,
 )::Bool
-    return format_has_matrix(format, rows_axis, columns_axis, name) ||
-           haskey(format.internal.cache, matrix_cache_key(rows_axis, columns_axis, name))
+    return flame_timed("todox_format_has_cached_matrix_GENERIC") do
+        todox_has_matrix = flame_timed("has_matrix.$(nameof(typeof(format)))") do
+            return format_has_matrix(format, rows_axis, columns_axis, name)
+        end
+        return todox_has_matrix || haskey(format.internal.cache, matrix_cache_key(rows_axis, columns_axis, name))
+    end
 end
 
 function get_through_cache(
@@ -895,15 +899,19 @@ function get_matrix_through_cache(
     columns_axis::AbstractString,
     name::AbstractString,
 )::NamedArray
+    return flame_timed("todox_get_matrix_through_cache") do
     return get_through_cache(
         format,
         matrix_cache_key(rows_axis, columns_axis, name),
         StorageMatrix,
         format.internal.cache_group,
     ) do
-        matrix = format_get_matrix(format, rows_axis, columns_axis, name)
+        matrix = flame_timed("todox_format_get_matrix_$(nameof(typeof(format)))") do
+            return format_get_matrix(format, rows_axis, columns_axis, name)
+        end  # TODOX
         matrix = as_named_matrix(format, rows_axis, columns_axis, matrix)
         return matrix
+    end
     end
 end
 
@@ -967,10 +975,12 @@ function as_named_matrix(
     columns_axis::AbstractString,
     matrix::NamedMatrix,
 )::NamedArray
+    return flame_timed("todox_1_as_named_matrix") do
     if dimnames(matrix) != (rows_axis, columns_axis)
         matrix = NamedArray(matrix.array, matrix.dicts, (rows_axis, columns_axis))
     end
     return matrix
+    end  # TODOX
 end
 
 function as_named_matrix(
@@ -979,10 +989,12 @@ function as_named_matrix(
     columns_axis::AbstractString,
     matrix::AbstractMatrix,
 )::NamedArray
+    return flame_timed("todox_2_as_named_matrix") do
     rows_axis_dict = get_axis_dict_through_cache(format, rows_axis)
     columns_axis_dict = get_axis_dict_through_cache(format, columns_axis)
     @assert size(matrix) == (length(rows_axis_dict), length(columns_axis_dict))
     return NamedArray(matrix, (rows_axis_dict, columns_axis_dict), (rows_axis, columns_axis))
+    end # TODOX
 end
 
 function put_cached_dependency_key!(format::FormatReader, cache_key::CacheKey, dependency_key::CacheKey)::Nothing
