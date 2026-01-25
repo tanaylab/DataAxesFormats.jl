@@ -496,12 +496,12 @@ function Formats.format_has_cached_matrix(
                     end
                 end
             end
-#           TODOX
-#           if Formats.format_has_axis(daf, rows_axis; for_change = false)
-#              Formats.format_has_axis(daf, columns_axis; for_change = false) &&
-#              Formats.format_has_cached_matrix(daf, rows_axis, columns_axis, name)
-#               return true
-#           end
+            #           TODOX
+            #           if Formats.format_has_axis(daf, rows_axis; for_change = false)
+            #              Formats.format_has_axis(daf, columns_axis; for_change = false) &&
+            #              Formats.format_has_cached_matrix(daf, rows_axis, columns_axis, name)
+            #               return true
+            #           end
         end
         return false
     end

@@ -935,13 +935,18 @@ function get_matrix(
 
             flame_timed("todox_before") do
                 require_axis(daf, "for the rows of the matrix: $(name)", rows_axis)
-                require_axis(daf, "for the columns of the matrix: $(name)", columns_axis)
+                return require_axis(daf, "for the columns of the matrix: $(name)", columns_axis)
             end
 
             flame_timed("todox_default") do
                 if default isa StorageMatrix
                     require_column_major(default)
-                    require_axis_length(daf, size(default, Rows), "rows of the default for the matrix: $(name)", rows_axis)
+                    require_axis_length(
+                        daf,
+                        size(default, Rows),
+                        "rows of the default for the matrix: $(name)",
+                        rows_axis,
+                    )
                     require_axis_length(
                         daf,
                         size(default, Columns),
@@ -965,9 +970,10 @@ function get_matrix(
                 end
                 assert_valid_matrix(daf, rows_axis, columns_axis, name, matrix)
             else
-                todox1 = !relayout ? false : flame_timed("todox_has_cached_matrix.$(nameof(typeof(daf)))") do
-                    return Formats.format_has_cached_matrix(daf, columns_axis, rows_axis, name)
-                end
+                todox1 =
+                    !relayout ? false : flame_timed("todox_has_cached_matrix.$(nameof(typeof(daf)))") do
+                        return Formats.format_has_cached_matrix(daf, columns_axis, rows_axis, name)
+                    end
                 if relayout && todox1
                     result_prefix = "relayout "
                     matrix = flame_timed("todox_2_get_matrix_through_cache") do

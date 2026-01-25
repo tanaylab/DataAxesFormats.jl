@@ -4709,7 +4709,10 @@ function compute_matrix_group_by(
     parallel_loop_wo_rng(
         1:size(values_matrix, 2);
         name = "compute_matrix_group_by.$(nameof(typeof(reduction_operation)))",
-        progress = DebugProgress(size(values_matrix, 2); desc = "compute_matrix_group_by.$(nameof(typeof(reduction_operation)))"),
+        progress = DebugProgress(
+            size(values_matrix, 2);
+            desc = "compute_matrix_group_by.$(nameof(typeof(reduction_operation)))",
+        ),
     ) do column_index
         values_column = @views values_matrix[:, column_index]
         results_column = @views results_matrix[:, column_index]

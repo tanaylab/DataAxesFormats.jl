@@ -99,15 +99,18 @@ function adapter(
         local base_name;
         flame_timed("input") do
             base_name = daf.name
-            @assert input_axes !== nothing || input_data !== nothing || output_axes !== nothing || output_data !== nothing "no-op adapter"
+            @assert input_axes !== nothing ||
+                    input_data !== nothing ||
+                    output_axes !== nothing ||
+                    output_data !== nothing "no-op adapter"
             input = viewer(daf; axes = input_axes, data = input_data, name = base_name * ".input")
             captured = capture(; name = base_name * ".capture")
-            adapted = chain_writer([input, captured]; name = base_name * ".adapted")
+            return adapted = chain_writer([input, captured]; name = base_name * ".adapted")
         end
         result = computation(adapted)
         flame_timed("output") do
             output = viewer(adapted; axes = output_axes, data = output_data, name = base_name * ".output")
-            copy_all!(; source = output, destination = daf, empty, relayout, overwrite)
+            return copy_all!(; source = output, destination = daf, empty, relayout, overwrite)
         end
         return result
     end

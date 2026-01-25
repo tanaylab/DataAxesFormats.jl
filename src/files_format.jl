@@ -796,7 +796,7 @@ function Formats.format_relayout_matrix!(
         )
         flame_timed("FilesDaf.init_empty_sparse_matrix") do
             colptr[1] = 1
-            colptr[2:end] .= length(nzval) + 1
+            return colptr[2:end] .= length(nzval) + 1
         end
         relayout_matrix =
             SparseMatrixCSC(axis_length(files, columns_axis), axis_length(files, rows_axis), colptr, rowval, nzval)
@@ -1022,7 +1022,7 @@ function write_array_json(
             @assert ind_type !== nothing
             write(path, "{\"format\":\"sparse\",\"eltype\":\"$(eltype)\",\"indtype\":\"$(ind_type)\"}\n")
         end
-        empty_ispath_cache!(path)
+        return empty_ispath_cache!(path)
     end
     return nothing
 end

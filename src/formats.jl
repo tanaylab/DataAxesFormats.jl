@@ -46,11 +46,14 @@ using ..Keys
 using ..StorageTypes
 using ..Tokens
 using Base.Threads
+using ConcurrentUtils
 using LinearAlgebra
 using NamedArrays
 using OrderedCollections
 using SparseArrays
 using TanayLabUtilities
+
+import Base.AbstractLock
 
 """
 Types of cached data inside `Daf`.
@@ -85,7 +88,7 @@ CacheData = Union{
 
 mutable struct CacheEntry
     cache_group::CacheGroup
-    data::Union{ReentrantLock, CacheData}
+    data::Union{AbstractLock, CacheData}
 end
 
 @enum CacheType CachedAxis CachedData CachedQuery CachedNames
@@ -190,8 +193,8 @@ struct Internal
     dependents_of_cache_keys::Dict{CacheKey, Set{CacheKey}}
     dependencies_of_query_keys::Dict{CacheKey, Set{CacheKey}}
     version_counters::Dict{PropertyKey, UInt32}
-    cache_lock::ReentrantReadWriteLock
-    data_lock::ReentrantReadWriteLock
+    cache_lock::ExtendedReadWriteLock
+    data_lock::ExtendedReadWriteLock
     is_frozen::Bool
     pending_condition::Threads.Condition
     pending_count::Vector{UInt32}
@@ -204,8 +207,8 @@ function Internal(; cache_group::Maybe{CacheGroup}, is_frozen::Bool)::Internal
         Dict{CacheKey, Set{CacheKey}}(),
         Dict{CacheKey, Set{CacheKey}}(),
         Dict{PropertyKey, UInt32}(),
-        ReentrantReadWriteLock(),
-        ReentrantReadWriteLock(),
+        ExtendedReadWriteLock(),
+        ExtendedReadWriteLock(),
         is_frozen,
         Threads.Condition(),
         UInt32[0],
@@ -687,7 +690,7 @@ function put_in_cache!(format::FormatReader, cache_key::CacheKey, data::CacheDat
 end
 
 function set_in_cache!(format::FormatReader, cache_key::CacheKey, data::CacheData, cache_group::CacheGroup)::Nothing
-    return with_cache_write_lock(format, "for set_in_cache!:", cache_key) do                                                    # NOJET
+    return with_cache_write_lock(format, "for set_in_cache!:", cache_key) do                                                      # NOJET
         return put_in_cache!(format, cache_key, data, cache_group)
     end
 end
@@ -721,7 +724,7 @@ function get_through_cache(
     @assert has_data_read_lock(format)
     cached = nothing
     while cached === nothing
-        cache_entry = with_cache_read_lock(format, "for get_from_cache:", cache_key) do                                                    # NOJET
+        cache_entry = with_cache_read_lock(format, "for get_from_cache:", cache_key) do                                                      # NOJET
             return get(format.internal.cache, cache_key, nothing)
         end
         cached = result_from_cache(cache_entry, T)
@@ -742,8 +745,8 @@ end
 
 function result_from_cache(cache_entry::CacheEntry, ::Type{T})::T where {T}
     entry_lock = cache_entry.data
-    if entry_lock isa ReentrantLock
-        cache_entry = lock(entry_lock) do                                                    # UNTESTED
+    if entry_lock isa AbstractLock
+        cache_entry = lock(entry_lock) do                                                      # UNTESTED
             return cache_entry  # UNTESTED
         end
     end
@@ -758,17 +761,17 @@ function write_throgh_cache(
     cache_group::Maybe{CacheGroup};
     is_slow::Bool = false,
 )::Maybe{T} where {T}
-    result = with_cache_write_lock(format, "for get_through_cache:", cache_key) do                                                    # NOJET
+    result = with_cache_write_lock(format, "for get_through_cache:", cache_key) do                                                      # NOJET
         cache_entry = get(format.internal.cache, cache_key, nothing)
         if cache_entry !== nothing
-            if cache_entry.data isa ReentrantLock  # UNTESTED
+            if cache_entry.data isa AbstractLock  # UNTESTED
                 return nothing  # UNTESTED
             else
                 return cache_entry.data  # UNTESTED
             end
         else
             if is_slow
-                entry_lock = ReentrantLock()
+                entry_lock = SpinLock()
                 cache_entry = CacheEntry(cache_group, entry_lock)
                 format.internal.cache[cache_key] = cache_entry
                 lock(entry_lock)
@@ -788,10 +791,10 @@ function write_throgh_cache(
         cache_entry = result
         entry_lock = cache_entry.data
         @assert is_slow
-        @assert entry_lock isa ReentrantLock
+        @assert entry_lock isa AbstractLock
         try
             result, dependency_keys = getter()
-            with_cache_write_lock(format, "for slow:", cache_key) do                                                    # NOJET
+            with_cache_write_lock(format, "for slow:", cache_key) do                                                      # NOJET
                 if dependency_keys !== nothing
                     for dependency_key in dependency_keys
                         put_cached_dependency_key!(format, cache_key, dependency_key)
@@ -900,18 +903,18 @@ function get_matrix_through_cache(
     name::AbstractString,
 )::NamedArray
     return flame_timed("todox_get_matrix_through_cache") do
-    return get_through_cache(
-        format,
-        matrix_cache_key(rows_axis, columns_axis, name),
-        StorageMatrix,
-        format.internal.cache_group,
-    ) do
-        matrix = flame_timed("todox_format_get_matrix_$(nameof(typeof(format)))") do
-            return format_get_matrix(format, rows_axis, columns_axis, name)
-        end  # TODOX
-        matrix = as_named_matrix(format, rows_axis, columns_axis, matrix)
-        return matrix
-    end
+        return get_through_cache(
+            format,
+            matrix_cache_key(rows_axis, columns_axis, name),
+            StorageMatrix,
+            format.internal.cache_group,
+        ) do
+            matrix = flame_timed("todox_format_get_matrix_$(nameof(typeof(format)))") do
+                return format_get_matrix(format, rows_axis, columns_axis, name)
+            end  # TODOX
+            matrix = as_named_matrix(format, rows_axis, columns_axis, matrix)
+            return matrix
+        end
     end
 end
 
@@ -976,10 +979,10 @@ function as_named_matrix(
     matrix::NamedMatrix,
 )::NamedArray
     return flame_timed("todox_1_as_named_matrix") do
-    if dimnames(matrix) != (rows_axis, columns_axis)
-        matrix = NamedArray(matrix.array, matrix.dicts, (rows_axis, columns_axis))
-    end
-    return matrix
+        if dimnames(matrix) != (rows_axis, columns_axis)
+            matrix = NamedArray(matrix.array, matrix.dicts, (rows_axis, columns_axis))
+        end
+        return matrix
     end  # TODOX
 end
 
@@ -990,10 +993,10 @@ function as_named_matrix(
     matrix::AbstractMatrix,
 )::NamedArray
     return flame_timed("todox_2_as_named_matrix") do
-    rows_axis_dict = get_axis_dict_through_cache(format, rows_axis)
-    columns_axis_dict = get_axis_dict_through_cache(format, columns_axis)
-    @assert size(matrix) == (length(rows_axis_dict), length(columns_axis_dict))
-    return NamedArray(matrix, (rows_axis_dict, columns_axis_dict), (rows_axis, columns_axis))
+        rows_axis_dict = get_axis_dict_through_cache(format, rows_axis)
+        columns_axis_dict = get_axis_dict_through_cache(format, columns_axis)
+        @assert size(matrix) == (length(rows_axis_dict), length(columns_axis_dict))
+        return NamedArray(matrix, (rows_axis_dict, columns_axis_dict), (rows_axis, columns_axis))
     end # TODOX
 end
 
@@ -1048,29 +1051,54 @@ function parse_mode(mode::AbstractString)::Tuple{Bool, Bool, Bool}
 end
 
 function begin_data_read_lock(format::FormatReader, what::Any...)::Nothing
-    read_lock(format.internal.data_lock, format.name, "data for", what...)  # NOJET
+    if isempty(what)
+        what = "$(format.name) data"
+    else
+        what = join([format.name, "data for", what...], " ")
+    end
+    lock_read(format.internal.data_lock; what)  # NOJET
     return nothing
 end
 
 function end_data_read_lock(format::FormatReader, what::Any...)::Nothing
-    read_unlock(format.internal.data_lock, format.name, "data for", what...)  # NOJET
+    if isempty(what)
+        what = "$(format.name) data"
+    else
+        what = join([format.name, "data for", what...], " ")
+    end
+    unlock_read(format.internal.data_lock; what)  # NOJET
     return nothing
 end
 
 function with_cache_read_lock(action::Function, format::FormatReader, what::Any...)::Any
-    return with_read_lock(action, format.internal.cache_lock, format.name, what...)
+    if isempty(what)
+        what = "$(format.name) cache"
+    else
+        what = join([format.name, "cache for", what...], " ")
+    end
+    return lock_read(action, format.internal.cache_lock; what)
 end
 
 function with_cache_write_lock(action::Function, format::FormatReader, what::Any...)::Any
-    return with_write_lock(action, format.internal.cache_lock, format.name, what...)
+    if isempty(what)
+        what = "$(format.name) cache"
+    else
+        what = join([format.name, "cache for", what...], " ")
+    end
+    return lock_write(action, format.internal.cache_lock; what)
 end
 
 function with_data_read_lock(action::Function, format::FormatReader, what::Any...)::Any
-    begin_data_read_lock(format, what...)
+    if isempty(what)
+        what = "$(format.name) data"
+    else
+        what = join([format.name, "data for", what...], " ")
+    end
+    begin_data_read_lock(format, what)
     try
         return action()
     finally
-        end_data_read_lock(format, what...)
+        end_data_read_lock(format, what)
     end
 end
 
@@ -1079,12 +1107,22 @@ function has_data_read_lock(format::FormatReader; read_only::Bool = false)::Bool
 end
 
 function begin_data_write_lock(format::FormatReader, what::Any...)::Nothing
-    write_lock(format.internal.data_lock, format.name, "data for", what...)  # NOJET
+    if isempty(what)
+        what = "$(format.name) data"
+    else
+        what = join([format.name, "data for", what...], " ")
+    end
+    lock_write(format.internal.data_lock; what)  # NOJET
     return nothing
 end
 
 function end_data_write_lock(format::FormatReader, what::Any...)::Nothing
-    write_unlock(format.internal.data_lock, format.name, "data for", what...)  # NOJET
+    if isempty(what)
+        what = "$(format.name) data"
+    else
+        what = join([format.name, "data for", what...], " ")
+    end
+    unlock_write(format.internal.data_lock; what)  # NOJET
     return nothing
 end
 

@@ -404,7 +404,7 @@ function Formats.format_add_axis!(h5df::H5df, axis::AbstractString, entries::Abs
     flame_timed("H5df.create_axis_vector") do
         axis_dataset = create_dataset(axes_group, axis, String, (length(entries)))
         axis_dataset[:] = entries
-        close(axis_dataset)
+        return close(axis_dataset)
     end
 
     vectors_group = h5df.root["vectors"]
@@ -525,7 +525,7 @@ function Formats.format_set_vector!(
             vector_dataset =
                 create_dataset(axis_vectors_group, name, typeof(vector), (Formats.format_axis_length(h5df, axis),))
             vector_dataset[:] = vector  # NOJET
-            close(vector_dataset)
+            return close(vector_dataset)
         end
 
     else
@@ -545,7 +545,7 @@ function Formats.format_set_vector!(
                         vector_group["nzval"] = nzval(vector)
                     end
                 end
-                close(vector_group)
+                return close(vector_group)
             end
 
         elseif eltype(vector) <: AbstractString
@@ -560,7 +560,7 @@ function Formats.format_set_vector!(
                 catch
                     nice_vector = Vector(vector)  # NOJET # UNTESTED
                 end
-                axis_vectors_group[name] = nice_vector  # NOJET
+                return axis_vectors_group[name] = nice_vector  # NOJET
             end
         end
     end
@@ -636,7 +636,7 @@ function Formats.format_get_empty_dense_vector!(
     flame_timed("H5df.create_empty_dense_vector") do
         vector_dataset = create_dataset(axis_vectors_group, name, eltype, (Formats.format_axis_length(h5df, axis),))
         @assert vector_dataset isa HDF5.Dataset
-        vector_dataset[:] = 0
+        return vector_dataset[:] = 0
     end
 
     vector = dataset_as_vector(vector_dataset)
@@ -670,7 +670,7 @@ function Formats.format_get_empty_sparse_vector!(
         @assert nzval_dataset isa HDF5.Dataset
 
         nzind_dataset[:] = 0
-        nzval_dataset[:] = 0
+        return nzval_dataset[:] = 0
     end
 
     nzind_vector = dataset_as_vector(nzind_dataset)
@@ -797,14 +797,14 @@ function Formats.format_set_matrix!(
         flame_timed("H5df.fill_real_matrix") do
             matrix_dataset = create_dataset(columns_axis_group, name, typeof(matrix), (nrows, ncols))
             matrix_dataset[:, :] = matrix
-            close(matrix_dataset)
+            return close(matrix_dataset)
         end
 
     elseif matrix isa AbstractString
         flame_timed("H5df.fill_string_matrix") do
             matrix_dataset = create_dataset(columns_axis_group, name, String, (nrows, ncols))
             matrix_dataset[:, :] = matrix
-            close(matrix_dataset)
+            return close(matrix_dataset)
         end
 
     elseif eltype(matrix) <: AbstractString
@@ -829,7 +829,7 @@ function Formats.format_set_matrix!(
                         matrix_group["nzval"] = nzval(matrix)
                     end
                 end
-                close(matrix_group)
+                return close(matrix_group)
             end
 
         else
@@ -841,7 +841,7 @@ function Formats.format_set_matrix!(
                 catch
                     nice_matrix = Matrix(matrix) # UNTESTED
                 end
-                columns_axis_group[name] = nice_matrix  # NOJET
+                return columns_axis_group[name] = nice_matrix  # NOJET
             end
         end
     end
@@ -933,7 +933,7 @@ function Formats.format_get_empty_dense_matrix!(
     local matrix_dataset
     flame_timed("H5df.create_empty_dense_matrix") do
         matrix_dataset = create_dataset(columns_axis_group, name, eltype, (nrows, ncols))
-        matrix_dataset[:, :] = 0
+        return matrix_dataset[:, :] = 0
     end
 
     matrix = dataset_as_matrix(matrix_dataset)
@@ -976,7 +976,7 @@ function Formats.format_get_empty_sparse_matrix!(
         colptr_dataset[:] = nnz + 1
         colptr_dataset[1] = 1
         rowval_dataset[:] = 1
-        nzval_dataset[:] = 0
+        return nzval_dataset[:] = 0
     end
 
     colptr_vector = dataset_as_vector(colptr_dataset)

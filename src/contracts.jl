@@ -1413,48 +1413,48 @@ function access_matrix(
     is_modify::Bool,
 )::Nothing
     flame_timed("todox_access_matrix") do
-    if contract_daf.daf isa ContractDaf
-        access_matrix(contract_daf.daf, rows_axis, columns_axis, name; is_modify)  # UNTESTED
-    end
+        if contract_daf.daf isa ContractDaf
+            access_matrix(contract_daf.daf, rows_axis, columns_axis, name; is_modify)  # UNTESTED
+        end
 
-    access_axis(contract_daf, rows_axis; is_modify = false)
-    access_axis(contract_daf, columns_axis; is_modify = false)
+        access_axis(contract_daf, rows_axis; is_modify = false)
+        access_axis(contract_daf, columns_axis; is_modify = false)
 
-    tracker = get(contract_daf.data, (rows_axis, columns_axis, name), nothing)
-    if tracker === nothing
-        tracker = get(contract_daf.data, (columns_axis, rows_axis, name), nothing)
+        tracker = get(contract_daf.data, (rows_axis, columns_axis, name), nothing)
         if tracker === nothing
-            if contract_daf.is_relaxed
-                return nothing
+            tracker = get(contract_daf.data, (columns_axis, rows_axis, name), nothing)
+            if tracker === nothing
+                if contract_daf.is_relaxed
+                    return nothing
+                end
+                error(chomp("""
+                      accessing non-contract matrix: $(name)
+                      of the rows axis: $(rows_axis)
+                      and the columns axis: $(columns_axis)
+                      for the computation: $(contract_daf.computation)
+                      on the daf data: $(contract_daf.daf.name)
+                      """))
             end
+        end
+
+        if is_immutable(tracker.expectation; is_modify)
             error(chomp("""
-                  accessing non-contract matrix: $(name)
-                  of the rows axis: $(rows_axis)
-                  and the columns axis: $(columns_axis)
+                  modifying $(tracker.expectation) matrix: $(name)
+                  of the rows_axis: $(rows_axis)
+                  and the columns_axis: $(columns_axis)
                   for the computation: $(contract_daf.computation)
                   on the daf data: $(contract_daf.daf.name)
                   """))
         end
-    end
 
-    if is_immutable(tracker.expectation; is_modify)
-        error(chomp("""
-              modifying $(tracker.expectation) matrix: $(name)
-              of the rows_axis: $(rows_axis)
-              and the columns_axis: $(columns_axis)
-              for the computation: $(contract_daf.computation)
-              on the daf data: $(contract_daf.daf.name)
-              """))
-    end
+        tracker.accessed = true
 
-    tracker.accessed = true
+        main_axis = tracker.main_axis
+        if main_axis !== nothing
+            access_axis(contract_daf, main_axis; is_modify = false)
+        end
 
-    main_axis = tracker.main_axis
-    if main_axis !== nothing
-        access_axis(contract_daf, main_axis; is_modify = false)
-    end
-
-    return nothing
+        return nothing
     end  # TODOX
 end
 
