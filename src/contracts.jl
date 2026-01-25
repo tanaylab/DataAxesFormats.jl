@@ -1501,42 +1501,44 @@ function Readers.description(contract_daf::ContractDaf; cache::Bool = false, dee
 end
 
 function Queries.verify_contract_query(contract_daf::ContractDaf, cache_key::CacheKey)::Nothing
-    dependecies_keys = get(contract_daf.internal.dependencies_of_query_keys, cache_key, nothing)
-    if dependecies_keys === nothing
-        return nothing
-    end
+    flame_timed("verify_contract_query") do
+        dependecies_keys = get(contract_daf.internal.dependencies_of_query_keys, cache_key, nothing)
+        if dependecies_keys === nothing
+            return nothing
+        end
 
-    for dependency_key in dependecies_keys  # UNTESTED
-        type, key = dependency_key  # UNTESTED
-        if type == CachedAxis  # UNTESTED
-            access_axis(contract_daf, key[1]; is_modify = false)  # UNTESTED
-        elseif type == CachedQuery  # UNTESTED
-            @assert false
-        elseif type == CachedData  # UNTESTED
-            if key isa AbstractString  # UNTESTED
-                access_scalar(contract_daf, key; is_modify = false)  # UNTESTED
-            elseif key isa Tuple{AbstractString, AbstractString}  # UNTESTED
-                access_vector(contract_daf, key...; is_modify = false)  # UNTESTED
-            elseif key isa Tuple{AbstractString, AbstractString, AbstractString}  # UNTESTED
-                access_matrix(contract_daf, key...; is_modify = false)  # UNTESTED
+        for dependency_key in dependecies_keys  # UNTESTED
+            type, key = dependency_key  # UNTESTED
+            if type == CachedAxis  # UNTESTED
+                access_axis(contract_daf, key[1]; is_modify = false)  # UNTESTED
+            elseif type == CachedQuery  # UNTESTED
+                @assert false
+            elseif type == CachedData  # UNTESTED
+                if key isa AbstractString  # UNTESTED
+                    access_scalar(contract_daf, key; is_modify = false)  # UNTESTED
+                elseif key isa Tuple{AbstractString, AbstractString}  # UNTESTED
+                    access_vector(contract_daf, key...; is_modify = false)  # UNTESTED
+                elseif key isa Tuple{AbstractString, AbstractString, AbstractString}  # UNTESTED
+                    access_matrix(contract_daf, key...; is_modify = false)  # UNTESTED
+                else
+                    @assert false
+                end
+            elseif type == CachedNames  # UNTESTED
+                if key isa AbstractString  # UNTESTED
+
+                elseif key isa Tuple{AbstractString}  # UNTESTED
+                    access_axis(contract_daf, key[1]; is_modify = false)  # UNTESTED
+                elseif key isa Tuple{AbstractString, AbstractString, Bool}  # UNTESTED
+                    access_axis(contract_daf, key[1]; is_modify = false)  # UNTESTED
+                    access_axis(contract_daf, key[2]; is_modify = false)  # UNTESTED
+                end
             else
                 @assert false
             end
-        elseif type == CachedNames  # UNTESTED
-            if key isa AbstractString  # UNTESTED
-
-            elseif key isa Tuple{AbstractString}  # UNTESTED
-                access_axis(contract_daf, key[1]; is_modify = false)  # UNTESTED
-            elseif key isa Tuple{AbstractString, AbstractString, Bool}  # UNTESTED
-                access_axis(contract_daf, key[1]; is_modify = false)  # UNTESTED
-                access_axis(contract_daf, key[2]; is_modify = false)  # UNTESTED
-            end
-        else
-            @assert false
         end
     end
 
-    return nothing  # UNTESTED
+    return nothing
 end
 
 function dedent(string::AbstractString; indent::AbstractString = "")::String
