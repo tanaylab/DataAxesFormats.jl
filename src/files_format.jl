@@ -409,9 +409,11 @@ function Formats.format_set_vector!(
 
     elseif issparse(vector)
         write_array_json("$(files.path)/vectors/$(axis)/$(name).json", "sparse", eltype(vector), indtype(vector))
-        write("$(files.path)/vectors/$(axis)/$(name).nzind", nzind(vector))  # NOJET
-        if eltype(vector) != Bool || !all(nzval(vector))  # NOJET
-            write("$(files.path)/vectors/$(axis)/$(name).nzval", nzval(vector))  # NOJET
+        flame_timed("FilesDaf.write_sparse_vector") do
+            write("$(files.path)/vectors/$(axis)/$(name).nzind", nzind(vector))  # NOJET
+            if eltype(vector) != Bool || !all(nzval(vector))  # NOJET
+                write("$(files.path)/vectors/$(axis)/$(name).nzval", nzval(vector))  # NOJET
+            end
         end
 
     elseif eltype(vector) <: AbstractString
@@ -419,7 +421,9 @@ function Formats.format_set_vector!(
 
     else
         write_array_json("$(files.path)/vectors/$(axis)/$(name).json", "dense", eltype(vector))
-        write("$(files.path)/vectors/$(axis)/$(name).data", vector)
+        flame_timed("FilesDaf.write_dense_vector") do
+            write("$(files.path)/vectors/$(axis)/$(name).data", vector)
+        end
     end
     return nothing
 end
@@ -637,10 +641,12 @@ function Formats.format_set_matrix!(
             eltype(matrix),
             indtype(matrix),
         )
-        write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).colptr", colptr(matrix))
-        write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).rowval", rowval(matrix))
-        if eltype(matrix) != Bool || !all(nzval(matrix))
-            write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).nzval", nzval(matrix))
+        flame_timed("FilesDaf.write_sparse_matrix") do
+            write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).colptr", colptr(matrix))
+            write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).rowval", rowval(matrix))
+            if eltype(matrix) != Bool || !all(nzval(matrix))
+                write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).nzval", nzval(matrix))
+            end
         end
 
     elseif eltype(matrix) <: AbstractString
@@ -649,7 +655,9 @@ function Formats.format_set_matrix!(
     else
         @assert eltype(matrix) <: Real
         write_array_json("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", "dense", eltype(matrix))
-        write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).data", matrix)
+        flame_timed("FilesDaf.write_dense_matrix") do
+            write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).data", matrix)
+        end
     end
 
     return nothing
@@ -708,10 +716,10 @@ function write_string_matrix(
                 colptr_vector[ncols + 1] = n_nonempty + 1
                 return nothing
             end
-        end
 
-        write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).colptr", colptr_vector)
-        write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).rowval", rowval_vector)
+            write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).colptr", colptr_vector)
+            write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).rowval", rowval_vector)
+        end
 
     else
         write_array_json("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", "dense", String)
