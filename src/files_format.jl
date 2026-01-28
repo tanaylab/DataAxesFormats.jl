@@ -328,7 +328,7 @@ function Formats.format_add_axis!(
     @assert Formats.has_data_write_lock(files)
     txt_path = "$(files.path)/axes/$(axis).txt"
     flame_timed("FilesDaf.write_axis_vector") do
-        open(txt_path, "w") do file
+        open(txt_path, "w") do file  # NOJET
             empty_ispath_cache!(txt_path)
             for entry in entries
                 @assert !contains(entry, '\n')
@@ -422,7 +422,7 @@ function Formats.format_set_vector!(
     else
         write_array_json("$(files.path)/vectors/$(axis)/$(name).json", "dense", eltype(vector))
         flame_timed("FilesDaf.write_dense_vector") do
-            write("$(files.path)/vectors/$(axis)/$(name).data", vector)
+            return write("$(files.path)/vectors/$(axis)/$(name).data", vector)
         end
     end
     return nothing
@@ -656,7 +656,7 @@ function Formats.format_set_matrix!(
         @assert eltype(matrix) <: Real
         write_array_json("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", "dense", eltype(matrix))
         flame_timed("FilesDaf.write_dense_matrix") do
-            write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).data", matrix)
+            return write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).data", matrix)
         end
     end
 
@@ -718,7 +718,7 @@ function write_string_matrix(
             end
 
             write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).colptr", colptr_vector)
-            write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).rowval", rowval_vector)
+            return write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).rowval", rowval_vector)
         end
 
     else

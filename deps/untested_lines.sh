@@ -72,7 +72,7 @@ $3 == "-" && tolower($4) ~ /# untested|# only seems untested/ {
     print $1, $2, " ! " $4
     useless_untested += 1;
 }
-$3 == 0 && tolower($4) ~ /@assert false([ ]*#.*)?$|^[ ]*end([ ]*#.*)?$|# untested|# only seems untested/ { ok_untested += 1; next }
+$3 == 0 && tolower($4) ~ /@assert false([ ]*#.*)?$|^[ ]*end([ ]*#.*)?$|^[ ]*local [^ =]*$|# untested|# only seems untested/ { ok_untested += 1; next }
 $3 == 0 {
     print $1, $2, " - " $4
     untested += 1

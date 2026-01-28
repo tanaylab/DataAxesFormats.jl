@@ -10,6 +10,7 @@ DataAxesFormats.Contracts.ContractDatum
 DataAxesFormats.Contracts.ContractData
 DataAxesFormats.Contracts.DataSpecification
 DataAxesFormats.Contracts.ContractExpectation
+DataAxesFormats.Contracts.DAF_ENFORCE_CONTRACTS
 DataAxesFormats.Contracts.contractor
 DataAxesFormats.Contracts.ContractDaf
 DataAxesFormats.Contracts.verify_input

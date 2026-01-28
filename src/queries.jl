@@ -2226,9 +2226,7 @@ function Base.getindex(
     daf::DafReader,
     query::QueryString,
 )::Union{AbstractSet{<:AbstractString}, AbstractVector{<:AbstractString}, StorageScalar, NamedArray}
-    return flame_timed("todox_getindex") do
-        return get_query(daf, query; cache = false)
-    end
+    return get_query(daf, query; cache = false)
 end
 
 function Base.:(|>)(
@@ -2297,11 +2295,8 @@ function get_query(
                 return do_get_query(daf, query_sequence)
             end
         else
-            local result
-            flame_timed("todox_peek_cache") do
-                result = Formats.with_cache_read_lock(daf, "for get_query of:", cache_key) do
-                    return get(daf.internal.cache, cache_key, nothing)
-                end
+            result = Formats.with_cache_read_lock(daf, "for get_query of:", cache_key) do
+                return get(daf.internal.cache, cache_key, nothing)
             end
             if result === nothing
                 result, _ = do_get_query(daf, query_sequence)
@@ -3888,7 +3883,7 @@ function fetch_first_named_vector(
         else
             @assert axis_mask isa AbstractVector{Bool}
             size = sum(axis_mask)
-            @views base_named_vector = base_named_vector[axis_mask]  # TODOX
+            @views base_named_vector = base_named_vector[axis_mask]
         end
         fetched_values = Vector{typeof(if_missing_value)}(undef, size)
         vector_fetch_state.may_modify_named_vector = true
@@ -3903,8 +3898,7 @@ function fetch_first_named_vector(
             vector_fetch_state.may_modify_named_vector = false
         else
             @assert axis_mask isa AbstractVector{Bool}
-            @views base_named_vector = base_named_vector[axis_mask]  # NOJET  # TODOX
-            #TODOX vector_fetch_state.may_modify_named_vector = true
+            @views base_named_vector = base_named_vector[axis_mask]  # NOJET
         end
         fetched_values = base_named_vector.array
     end

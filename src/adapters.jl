@@ -95,8 +95,8 @@ function adapter(
     overwrite::Bool = false,
 )::Any
     flame_timed(name) do
-        local adapted;
-        local base_name;
+        local adapted
+        local base_name
         flame_timed("input") do
             base_name = daf.name
             @assert input_axes !== nothing ||
@@ -105,7 +105,8 @@ function adapter(
                     output_data !== nothing "no-op adapter"
             input = viewer(daf; axes = input_axes, data = input_data, name = base_name * ".input")
             captured = capture(; name = base_name * ".capture")
-            return adapted = chain_writer([input, captured]; name = base_name * ".adapted")
+            adapted = chain_writer([input, captured]; name = base_name * ".adapted")  # NOLINT
+            return nothing
         end
         result = computation(adapted)
         flame_timed("output") do

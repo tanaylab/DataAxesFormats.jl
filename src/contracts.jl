@@ -5,16 +5,17 @@ module Contracts
 
 export AxisSpecification
 export Contract
-export ContractAxis
 export ContractAxes
+export ContractAxis
 export ContractData
 export ContractExpectation
+export contractor
+export DAF_ENFORCE_CONTRACTS
 export DataSpecification
 export GuaranteedOutput
 export OptionalInput
 export OptionalOutput
 export RequiredInput
-export contractor
 export verify_input
 export verify_output
 
@@ -36,6 +37,21 @@ import ..Formats.CachedData
 import ..Formats.CachedNames
 import ..Formats.CachedQuery
 import ..Formats.FormatReader
+
+import Base.get_bool_env
+
+"""
+Whether to enforce contracts. By defaults, contracts are *not* enforced, as this imposes a run-time overhead on
+computational pipelines. You can set this manually to `true`, or set the environment variable `DAF_ENFORCE_CONTRACTS` to
+a "truthy" value.
+"""
+DAF_ENFORCE_CONTRACTS = false
+
+function __init__()::Nothing
+    global DAF_ENFORCE_CONTRACTS
+    DAF_ENFORCE_CONTRACTS = get_bool_env("DAF_ENFORCE_CONTRACTS", false)  # NOLINT
+    return nothing
+end
 
 """
 The expectation from a specific property for a computation on `Daf` data.
@@ -350,27 +366,26 @@ end
         contract::Contract,
         daf::DafReader;
         overwrite::Bool,
-    )::ContractDaf
+    )::DafReader
 
 Wrap a `daf` data set to enforce a `contract` for some `computation`, possibly allowing for `overwrite` of existing
-outputs.
+outputs. If [`DAF_ENFORCE_CONTRACTS`](@ref) is not set, this just returns the original `daf`.
 
 !!! note
 
     If the `contract` specifies any outputs, the `daf` needs to be a `DafWriter`.
 """
-function contractor(
-    computation::AbstractString,
-    contract::Contract,
-    daf::DafReader;
-    overwrite::Bool = false,
-)::ContractDaf
-    return flame_timed("contractor") do
-        axes = collect_axes(contract)
-        data = collect_data(computation, contract, daf, axes)
-        expand_input_tensors(data, daf)
-        name = unique_name("$(daf.name).for.$(split(computation, '.')[end])")
-        return ContractDaf(name, daf.internal, computation, contract.is_relaxed, axes, data, daf, overwrite)
+function contractor(computation::AbstractString, contract::Contract, daf::DafReader; overwrite::Bool = false)::DafReader
+    if DAF_ENFORCE_CONTRACTS
+        return flame_timed("contractor") do
+            axes = collect_axes(contract)
+            data = collect_data(computation, contract, daf, axes)
+            expand_input_tensors(data, daf)
+            name = unique_name("$(daf.name).for.$(split(computation, '.')[end])")
+            return ContractDaf(name, daf.internal, computation, contract.is_relaxed, axes, data, daf, overwrite)
+        end
+    else
+        return daf  # UNTESTED
     end
 end
 
@@ -542,27 +557,37 @@ end
 
 """
     verify_input(contract_daf::ContractDaf)::Nothing
+    verify_input(contract_daf::DafReader)::Nothing
 
 Verify the `contract_daf` data before a computation is invoked. This verifies that all the required data exists and is
-of the appropriate type, and that if any of the optional data exists, it has the appropriate type.
+of the appropriate type, and that if any of the optional data exists, it has the appropriate type. This is a no-op if
+the `contract_daf` is just a `DafReader` (that is, if [`DAF_ENFORCE_CONTRACTS`](@ref) was not set).
 """
 function verify_input(contract_daf::ContractDaf)::Nothing
     return flame_timed("verify_input") do
         return verify_contract(contract_daf; is_output = false)
     end
 end
+function verify_input(::DafReader)::Nothing  # UNTESTED
+    return nothing
+end
 
 """
     verify_output(contract_daf::ContractDaf)::Nothing
+    verify_output(contract_daf::DafWriter)::Nothing
 
 Verify the `contract_daf` data when a computation is complete. This verifies that all the guaranteed output data exists
 and is of the appropriate type, and that if any of the optional output data exists, it has the appropriate type. It also
-verifies that all the required inputs were accessed by the computation.
+verifies that all the required inputs were accessed by the computation. This is a no-op if the `contract_daf` is just a
+`DafReader` (that is, if [`DAF_ENFORCE_CONTRACTS`](@ref) was not set).
 """
 function verify_output(contract_daf::ContractDaf)::Nothing
     return flame_timed("verify_output") do
         return verify_contract(contract_daf; is_output = true)
     end
+end
+function verify_output(::DafReader)::Nothing  # UNTESTED
+    return nothing
 end
 
 function verify_contract(contract_daf::ContractDaf; is_output::Bool)::Nothing
@@ -1412,50 +1437,48 @@ function access_matrix(
     name::AbstractString;
     is_modify::Bool,
 )::Nothing
-    flame_timed("todox_access_matrix") do
-        if contract_daf.daf isa ContractDaf
-            access_matrix(contract_daf.daf, rows_axis, columns_axis, name; is_modify)  # UNTESTED
-        end
+    if contract_daf.daf isa ContractDaf
+        access_matrix(contract_daf.daf, rows_axis, columns_axis, name; is_modify)  # UNTESTED
+    end
 
-        access_axis(contract_daf, rows_axis; is_modify = false)
-        access_axis(contract_daf, columns_axis; is_modify = false)
+    access_axis(contract_daf, rows_axis; is_modify = false)
+    access_axis(contract_daf, columns_axis; is_modify = false)
 
-        tracker = get(contract_daf.data, (rows_axis, columns_axis, name), nothing)
+    tracker = get(contract_daf.data, (rows_axis, columns_axis, name), nothing)
+    if tracker === nothing
+        tracker = get(contract_daf.data, (columns_axis, rows_axis, name), nothing)
         if tracker === nothing
-            tracker = get(contract_daf.data, (columns_axis, rows_axis, name), nothing)
-            if tracker === nothing
-                if contract_daf.is_relaxed
-                    return nothing
-                end
-                error(chomp("""
-                      accessing non-contract matrix: $(name)
-                      of the rows axis: $(rows_axis)
-                      and the columns axis: $(columns_axis)
-                      for the computation: $(contract_daf.computation)
-                      on the daf data: $(contract_daf.daf.name)
-                      """))
+            if contract_daf.is_relaxed
+                return nothing
             end
-        end
-
-        if is_immutable(tracker.expectation; is_modify)
             error(chomp("""
-                  modifying $(tracker.expectation) matrix: $(name)
-                  of the rows_axis: $(rows_axis)
-                  and the columns_axis: $(columns_axis)
+                  accessing non-contract matrix: $(name)
+                  of the rows axis: $(rows_axis)
+                  and the columns axis: $(columns_axis)
                   for the computation: $(contract_daf.computation)
                   on the daf data: $(contract_daf.daf.name)
                   """))
         end
+    end
 
-        tracker.accessed = true
+    if is_immutable(tracker.expectation; is_modify)
+        error(chomp("""
+              modifying $(tracker.expectation) matrix: $(name)
+              of the rows_axis: $(rows_axis)
+              and the columns_axis: $(columns_axis)
+              for the computation: $(contract_daf.computation)
+              on the daf data: $(contract_daf.daf.name)
+              """))
+    end
 
-        main_axis = tracker.main_axis
-        if main_axis !== nothing
-            access_axis(contract_daf, main_axis; is_modify = false)
-        end
+    tracker.accessed = true
 
-        return nothing
-    end  # TODOX
+    main_axis = tracker.main_axis
+    if main_axis !== nothing
+        access_axis(contract_daf, main_axis; is_modify = false)
+    end
+
+    return nothing
 end
 
 function is_mandatory(expectation::ContractExpectation; is_output::Bool)::Bool

@@ -1156,7 +1156,7 @@ end
 function dataset_as_vector(dataset::HDF5.Dataset)::StorageVector
     return flame_timed("H5df.dataset_as_vector") do
         if HDF5.ismmappable(dataset) && HDF5.iscontiguous(dataset) && !isempty(dataset)
-            return HDF5.readmmap(dataset)
+            return HDF5.readmmap(dataset)  # NOJET
         else
             return read(dataset)
         end
@@ -1166,7 +1166,7 @@ end
 function dataset_as_matrix(dataset::HDF5.Dataset)::StorageMatrix
     return flame_timed("H5df.dataset_as_matrix") do
         if HDF5.ismmappable(dataset) && HDF5.iscontiguous(dataset) && !isempty(dataset)
-            return HDF5.readmmap(dataset)
+            return HDF5.readmmap(dataset)  # NOJET
         else
             return read(dataset)
         end

@@ -929,94 +929,69 @@ function get_matrix(
     relayout::Bool = true,
 )::Maybe{NamedArray}
     return Formats.with_data_read_lock(daf, "get_matrix of:", name, "of:", rows_axis, "and:", columns_axis) do
-        return flame_timed("todox_locked_get_matrix") do
-            relayout = relayout && rows_axis != columns_axis
-            # Formats.assert_valid_cache(daf)
+        relayout = relayout && rows_axis != columns_axis
+        # Formats.assert_valid_cache(daf)
 
-            flame_timed("todox_before") do
-                require_axis(daf, "for the rows of the matrix: $(name)", rows_axis)
-                return require_axis(daf, "for the columns of the matrix: $(name)", columns_axis)
-            end
+        require_axis(daf, "for the rows of the matrix: $(name)", rows_axis)
+        require_axis(daf, "for the columns of the matrix: $(name)", columns_axis)
 
-            flame_timed("todox_default") do
-                if default isa StorageMatrix
-                    require_column_major(default)
-                    require_axis_length(
-                        daf,
-                        size(default, Rows),
-                        "rows of the default for the matrix: $(name)",
-                        rows_axis,
-                    )
-                    require_axis_length(
-                        daf,
-                        size(default, Columns),
-                        "columns of the default for the matrix: $(name)",
-                        columns_axis,
-                    )
-                    if default isa NamedMatrix
-                        require_axis_names(daf, rows_axis, "row names of the: default", names(default, 1))
-                        require_axis_names(daf, columns_axis, "column names of the: default", names(default, 2))
-                    end
-                end
+        if default isa StorageMatrix
+            require_column_major(default)
+            require_axis_length(daf, size(default, Rows), "rows of the default for the matrix: $(name)", rows_axis)
+            require_axis_length(
+                daf,
+                size(default, Columns),
+                "columns of the default for the matrix: $(name)",
+                columns_axis,
+            )
+            if default isa NamedMatrix
+                require_axis_names(daf, rows_axis, "row names of the: default", names(default, 1))
+                require_axis_names(daf, columns_axis, "column names of the: default", names(default, 2))
             end
+        end
 
-            todox = flame_timed("todox_has_cached_matrix.$(nameof(typeof(daf)))") do
-                return Formats.format_has_cached_matrix(daf, rows_axis, columns_axis, name)
-            end
-            if todox
-                result_prefix = ""
-                matrix = flame_timed("todox_1_get_matrix_through_cache") do
-                    return Formats.get_matrix_through_cache(daf, rows_axis, columns_axis, name)
-                end
+        if Formats.format_has_cached_matrix(daf, rows_axis, columns_axis, name)
+            result_prefix = ""
+            matrix = Formats.get_matrix_through_cache(daf, rows_axis, columns_axis, name)
+            assert_valid_matrix(daf, rows_axis, columns_axis, name, matrix)
+        else
+            if relayout && Formats.format_has_cached_matrix(daf, columns_axis, rows_axis, name)
+                result_prefix = "relayout "
+                matrix = Formats.get_relayout_matrix_through_cache(daf, rows_axis, columns_axis, name)
                 assert_valid_matrix(daf, rows_axis, columns_axis, name, matrix)
             else
-                todox1 =
-                    !relayout ? false : flame_timed("todox_has_cached_matrix.$(nameof(typeof(daf)))") do
-                        return Formats.format_has_cached_matrix(daf, columns_axis, rows_axis, name)
-                    end
-                if relayout && todox1
-                    result_prefix = "relayout "
-                    matrix = flame_timed("todox_2_get_matrix_through_cache") do
-                        return Formats.get_relayout_matrix_through_cache(daf, rows_axis, columns_axis, name)
-                    end
-                    assert_valid_matrix(daf, rows_axis, columns_axis, name, matrix)
+                result_prefix = "default "
+                if default === nothing
+                    matrix = nothing
+                elseif default == undef
+                    require_matrix(daf, rows_axis, columns_axis, name; relayout)
+                    @assert false
+                elseif default isa StorageMatrix
+                    matrix = default
+                elseif default == 0
+                    matrix = spzeros(
+                        typeof(default),
+                        Formats.format_axis_length(daf, rows_axis),
+                        Formats.format_axis_length(daf, columns_axis),
+                    )
                 else
-                    local matrix
-                    flame_timed("todox_3_default") do
-                        result_prefix = "default "
-                        if default === nothing
-                            matrix = nothing
-                        elseif default == undef
-                            require_matrix(daf, rows_axis, columns_axis, name; relayout)
-                            @assert false
-                        elseif default isa StorageMatrix
-                            matrix = default
-                        elseif default == 0
-                            matrix = spzeros(
-                                typeof(default),
-                                Formats.format_axis_length(daf, rows_axis),
-                                Formats.format_axis_length(daf, columns_axis),
-                            )
-                        else
-                            @assert default isa StorageScalar
-                            matrix = fill(  # NOJET
-                                default,
-                                Formats.format_axis_length(daf, rows_axis),
-                                Formats.format_axis_length(daf, columns_axis),
-                            )
-                        end
-                    end
+                    @assert default isa StorageScalar
+                    matrix = fill(  # NOJET
+                        default,
+                        Formats.format_axis_length(daf, rows_axis),
+                        Formats.format_axis_length(daf, columns_axis),
+                    )
                 end
             end
+        end
 
-            if matrix !== nothing
-                matrix = Formats.as_named_matrix(daf, rows_axis, columns_axis, matrix)
-            end
+        if matrix !== nothing
+            matrix = Formats.as_named_matrix(daf, rows_axis, columns_axis, matrix)
+        end
 
-            @debug "get_matrix daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) default: $(brief(default)) $(result_prefix)result: $(brief(matrix))"
-            # # Formats.assert_valid_cache(daf)
-            return matrix
-        end  # TODOX
+        @debug "get_matrix daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) default: $(brief(default)) $(result_prefix)result: $(brief(matrix))"
+        # # Formats.assert_valid_cache(daf)
+        return matrix
     end
 end
 
