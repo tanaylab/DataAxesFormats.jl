@@ -65,7 +65,7 @@ to use for these values.
     When reconstructing the original property, specify this value using [`IfNot`](@ref) (e.g.,
     `/ cell : type => color ?? magenta`).
 """
-@logged function reconstruct_axis!(
+@logged function reconstruct_axis!(  # NOLINT
     daf::DafWriter;
     existing_axis::AbstractString,
     implicit_axis::AbstractString,

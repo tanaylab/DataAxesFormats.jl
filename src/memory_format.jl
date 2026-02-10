@@ -42,7 +42,7 @@ function MemoryDaf(; name::AbstractString = "memory")::MemoryDaf
     axes = Dict{AbstractString, AbstractVector{<:AbstractString}}()
     vectors = Dict{AbstractString, Dict{AbstractString, StorageVector}}()
     matrices = Dict{AbstractString, Dict{AbstractString, Dict{AbstractString, StorageMatrix}}}()
-    name = unique_name(name)
+    name = unique_name(name)  # NOLINT
     memory = MemoryDaf(name, Internal(; cache_group = nothing, is_frozen = false), scalars, axes, vectors, matrices)
     @debug "Daf: $(brief(memory))"
     return memory
@@ -298,7 +298,7 @@ function Formats.format_relayout_matrix!(
     matrix::StorageMatrix,
 )::StorageMatrix
     @assert Formats.has_data_write_lock(memory)
-    matrix = flipped(matrix)
+    matrix = flipped(matrix)  # NOLINT
     Formats.format_set_matrix!(memory, columns_axis, rows_axis, name, matrix)
     return matrix
 end

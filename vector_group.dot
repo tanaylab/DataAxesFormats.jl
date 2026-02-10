@@ -1,0 +1,99 @@
+digraph {
+rankdir = LR
+node [ shape = box, fontname = "Sans-Serif" ]
+
+"..., vector_is_axis" [ label = <
+...
+<br/>
+VectorState <i><font color="gray"><sub>axis&nbsp;&nbsp;&nbsp;</sub></font></i>
+<br/>&nbsp;<br/>
+> ]
+
+"..., VectorState" [ label = <
+...
+<br/>
+VectorState
+> ]
+
+"..., base_vector" [ label = <
+...
+<br/>
+VectorState <i><font color="gray"><sub>base&nbsp;&nbsp;&nbsp;</sub></font></i>
+<br/>&nbsp;<br/>
+> ]
+
+subgraph cluster_component {
+fontname = "Sans-Serif"
+label = "VectorGroup"
+fontsize = 28
+
+"..., VectorState, GroupBy, VectorState" [ label = <
+...
+<br/>
+VectorState <i><font color="gray"><sub>base&nbsp;&nbsp;&nbsp;</sub></font></i>
+<br/>&nbsp;<br/>
+GroupBy
+<br/>
+VectorState <i><font color="gray"><sub>groups&nbsp;&nbsp;&nbsp;</sub></font></i>
+<br/>&nbsp;<br/>
+> ]
+
+"VG1" [ shape = box, style = dotted, fontname = "Courier", label = <
+/ matrix_property <font color="gray">|| default_value</font> @ columns_axis = column_name<br/>&nbsp;<br/><font
+color="gray">IfEmpty(final_value) |&gt;</font> GroupBy(matrix_property) <font color="gray">|&gt; IfMissing(default_value)</font> |&gt; Axis(columns_axis) |&gt; IsEqual(column_name)
+> ]
+"VG1_" [ shape = cds, label = "group_vector_by_matrix_column" ]
+"VG1":e -> "VG1_":w
+"VG1_":e -> "..., VectorState, GroupBy, VectorState"
+
+"VG2" [ shape = box, style = dotted, fontname = "Courier", label = <
+/ square_matrix_property <font color="gray">|| default_value</font> |= column_name<br/>&nbsp;<br/>GroupBy(square_matrix_property) <font color="gray">|&gt; IfMissing(default_value)</font> |&gt; ColumnIsEqual(column_name)
+> ]
+"VG2_" [ shape = cds, label = "group_vector_by_square_column" ]
+"VG2":e -> "VG2_":w
+"VG2_":e -> "..., VectorState, GroupBy, VectorState"
+
+"VG3" [ shape = box, style = dotted, fontname = "Courier", label = <
+/ square_matrix_property <font color="gray">|| default_value</font> -= row_name<br/>&nbsp;<br/>GroupBy(square_matrix_property) <font color="gray">|&gt; IfMissing(default_value) |&gt;</font> RowIsEqual(row_name)
+> ]
+"VG3_" [ shape = cds, label = "group_vector_by_square_row" ]
+"VG3":e -> "VG3_":w
+"VG3_":e -> "..., VectorState, GroupBy, VectorState"
+
+"VG4" [ shape = box, style = dotted, fontname = "Courier", label = <
+/ vector_property <font color="gray">|| default_value</font><br/>&nbsp;<br/><font color="gray"> IfEmpty(final_value) |&gt; </font>GroupBy(vector_property)<font color="gray"> |&gt; IfMissing(default_value)</font>
+> ]
+"VG4_" [ shape = cds, label = "group_vector_by_vector" ]
+"VG4":e -> "VG4_":w
+"VG4_":e -> "..., VectorState, GroupBy, VectorState"
+
+"VectorLookup" [ shape = component ]
+"VectorAxis" [ shape = component ]
+"..., VectorState, GroupBy, VectorState" -> "VectorAxis"
+"VectorAxis" -> "VectorLookup"
+"VectorLookup" -> "..., VectorState, GroupBy, VectorState" [ constraint = false ]
+
+"VG5" [ shape = box, style = dotted, fontname = "Courier", label = <
+&gt;&gt; Reduction <font color="gray">param value ... || default_value</font><br/>&nbsp;<br/>Reduction(<font color="gray">param = value, ...</font>) <font color="gray">|&gt; IfMissing(default_value)</font>
+> ]
+"VG5_" [ shape = cds, label = "reduce_grouped_vector" ]
+"..., VectorState, GroupBy, VectorState" -> "VG5":w
+"VG5":e -> "VG5_":w
+
+"VG6" [ shape = box, style = dotted, fontname = "Courier", label = <
+@ <font color="gray">axis</font> &gt;&gt; Reduction <font color="gray">param value ... || default_value</font><br/>&nbsp;<br/>Axis(<font color = "gray">axis</font>) |&gt; Reduction(<font color="gray">param = value, ...</font>) <font color="gray">|&gt; IfMissing(default_value)</font>
+> ]
+"VG6_" [ shape = cds, label = "reduce_grouped_vector" ]
+"..., VectorState, GroupBy, VectorState" -> "VG6":w
+"VG6":e -> "VG6_":w
+
+}
+
+"..., base_vector" -> "VG1":w
+"..., base_vector" -> "VG2":w
+"..., base_vector" -> "VG3":w
+"..., base_vector" -> "VG4":w
+"VG6_":e -> "..., vector_is_axis":w
+"VG5_":e -> "..., VectorState":w
+
+}

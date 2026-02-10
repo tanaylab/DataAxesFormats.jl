@@ -4,17 +4,25 @@ Extract data from a [`DafReader`](@ref).
 module Queries
 
 export @q_str
-export And
-export AndNot
+export AndMask
+export AndNegatedMask
 export AsAxis
 export Axis
+export BeginMask
+export BeginNegatedMask
 export CountBy
-export Fetch
+export EndMask
 export FrameColumn
-export FrameColumns
+export full_vector_query
+export get_frame
+export get_query
 export GroupBy
+export GroupColumnsBy
+export GroupRowsBy
+export has_query
 export IfMissing
 export IfNot
+export is_axis_query
 export IsEqual
 export IsGreater
 export IsGreaterEqual
@@ -23,26 +31,25 @@ export IsLessEqual
 export IsMatch
 export IsNotEqual
 export IsNotMatch
-export Lookup
+export LookupMatrix
+export LookupScalar
+export LookupVector
 export Names
-export Or
-export OrNot
+export OrMask
+export OrNegatedMask
+export parse_query
 export Query
+export query_axis_name
+export query_requires_relayout
+export query_result_dimensions
 export QuerySequence
 export QueryString
-export SquareMaskColumn
-export SquareMaskRow
-export SquareMaskSlice
-export Xor
-export XorNot
-export full_vector_query
-export get_frame
-export get_query
-export has_query
-export is_axis_query
-export query_axis_name
-export query_result_dimensions
-export query_requires_relayout
+export ReduceToColumn
+export ReduceToRow
+export SquareColumnIs
+export SquareRowIs
+export XorMask
+export XorNegatedMask
 
 using ..Formats
 using ..Operations
@@ -53,6 +60,7 @@ using ..Tokens
 using Base.Threads
 using DataFrames
 using NamedArrays
+using SparseArrays
 using TanayLabUtilities
 
 import ..Formats.CacheEntry
@@ -75,65 +83,943 @@ import Base.MathConstants.e
 import Base.MathConstants.pi
 
 """
-    Query(
-        query::QueryString,
-        operand_only::Maybe{Type{QueryOperation}} = nothing,
-    ) <: QueryOperation
+A query returning a set of names. Valid phrases are:
 
-A query is a description of a (sub-)process for extracting some data from a [`DafReader`](@ref). A full query is a
-sequence of [`QueryOperation`](@ref), that when applied one at a time on some [`DafReader`](@ref), result in a scalar,
-vector or matrix result.
+  - Looking up the set of names of the scalar properties (`?`). Example:
 
-To apply a query, invoke [`get_query`](@ref) to apply a query to some [`DafReader`](@ref) data (you can also use the
-shorthand `daf[query]` instead of `get_query(daf, query)` and also write `query |> get_query(daf)` which is useful
-when constructing a query from parts using `|>`). By default, [`get_query`](@ref) will cache their results in memory
-as [`QueryData`](@ref CacheGroup), to speed up repeated queries. This may lock up large amounts of memory. Using
-`daf[query]` does not cache the results; you can also use [`empty_cache!`](@ref) to release the memory.
+```jldoctest
+cells = example_cells_daf()
+cells["?"]
 
-Queries can be constructed in two ways. In code, a query can be built by chaining query operations (e.g., the expression
-`Axis("gene") |> Lookup("is_marker") |> get_query(daf)` looks up the `is_marker` vector property of the `gene` axis).
+# output
 
+KeySet for a Dict{AbstractString, Union{Bool, Float32, Float64, Int16, Int32, Int64, Int8, UInt16, UInt32, UInt64, UInt8, AbstractString}} with 2 entries. Keys:
+  "organism"
+  "reference"
+```
+
+  - Looking up the set of names of the axes (`@ ?`). Example:
+
+```jldoctest
+cells = example_cells_daf()
+cells["@ ?"]
+
+# output
+
+KeySet for a Dict{AbstractString, AbstractVector{<:AbstractString}} with 4 entries. Keys:
+  "gene"
+  "experiment"
+  "donor"
+  "cell"
+```
+
+  - Looking up the set of names of the vector properties of an axis (e.g., `@ cell ?`).
+
+```jldoctest
+cells = example_cells_daf()
+cells["@ gene ?"]
+
+# output
+
+KeySet for a Dict{AbstractString, AbstractVector{T} where T<:(Union{Bool, Float32, Float64, Int16, Int32, Int64, Int8, UInt16, UInt32, UInt64, UInt8, S} where S<:AbstractString)} with 1 entry. Keys:
+  "is_lateral"
+```
+
+  - Looking up the set of names of the matrix properties of a pair of axes (e.g., `@ cell @ gene ?`).
+
+```jldoctest
+cells = example_cells_daf()
+cells["@ cell @ gene ?"]
+
+# output
+
+Set{AbstractString} with 1 element:
+  "UMIs"
+```
+
+[**Syntax diagram:**](assets/names.svg)
+
+![](assets/names.svg)
+"""
+const NAMES_QUERY = nothing
+
+"""
+A query returning a scalar result. Valid phrases are:
+
+  - Looking up a scalar property (`. scalar-property`, `. scalar-property || default-value`).
+  - Looking up a vector, and picking a specific entry in it (`: vector-property @ axis = entry`, `: vector-property || default-value @ axis = entry`).
+  - Looking up a matrix, and picking a specific entry in it (`:: matrix-property @ rows-axis = row-entry @ columns-axis = column-entry`, `:: matrix-property || default-value @ rows-axis = row-entry @ columns-axis = column-entry`).
+
+In addition, you can use [`EltwiseOperation`](@ref) and [`ReductionOperation`](@ref):
+
+  - Transform any scalar (...scalar... `% Eltwise operation...`). Actually, we don't currently have any element-wise
+    operations that apply to strings, but we can add some if useful.
+
+  - Reduce any vector to a scalar (...vector... `>> Reduction operation...`) - see [`VECTOR_QUERY`](@ref). Example:
+
+```jldoctest
+cells = example_cells_daf()
+# Number of genes which are marked as lateral.
+cells["@ gene : is_lateral >> Sum type Int64"]
+
+# output
+
+438
+```
+
+  - Reduce any matrix to a scalar (...matrix... `>> Reduction operation...`) - see [`MATRIX_QUERY`](@ref). Example:
+
+```jldoctest
+cells = example_cells_daf()
+# Total number of measured UMIs in the data.
+cells["@ cell @ gene :: UMIs >> Sum type Int64"]
+
+# output
+
+1171936
+```
+
+[**Syntax diagram:**](assets/scalar.svg)
+
+![](assets/scalar.svg)
+"""
+const SCALAR_QUERY = nothing
+
+"""
+A query returning a vector result. Valid phrases are:
+
+  - Looking up a vector axis (`@ axis`). This gives us a vector of the axis entries. Example:
+
+```jldoctest
+cells = example_cells_daf()
+cells["@ experiment"]
+
+# output
+
+23-element Named SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}
+experiment       │
+─────────────────┼───────────────────
+demux_01_02_21_1 │ "demux_01_02_21_1"
+demux_01_02_21_2 │ "demux_01_02_21_2"
+demux_01_03_21_1 │ "demux_01_03_21_1"
+demux_04_01_21_1 │ "demux_04_01_21_1"
+demux_04_01_21_2 │ "demux_04_01_21_2"
+demux_07_03_21_1 │ "demux_07_03_21_1"
+demux_07_03_21_2 │ "demux_07_03_21_2"
+demux_07_12_20_1 │ "demux_07_12_20_1"
+⋮                                   ⋮
+demux_21_02_21_1 │ "demux_21_02_21_1"
+demux_21_02_21_2 │ "demux_21_02_21_2"
+demux_21_12_20_1 │ "demux_21_12_20_1"
+demux_21_12_20_2 │ "demux_21_12_20_2"
+demux_22_02_21_1 │ "demux_22_02_21_1"
+demux_22_02_21_2 │ "demux_22_02_21_2"
+demux_28_12_20_1 │ "demux_28_12_20_1"
+demux_28_12_20_2 │ "demux_28_12_20_2"
+```
+
+  - Applying a mask to an axis (...axis... `[` ...mask... `]`) - see [`VECTOR_MASK`](@ref).
+  - Looking up the values of a property based on a (possibly masked) axis (...axis... `:` ...lookup...) - see [`VECTOR_LOOKUP`](@ref).
+  - Applying some operation to a vector we looked up (...vector... `% Eltwise operation...`) - see [`VECTOR_OPERATION`](@ref).
+  - Taking any matrix query and reducing it to a column or a row vector (...matrix... `>| Reduction operation...`,
+    ...matrix... `>- Reduction operation...`) - see [`VECTOR_FROM_MATRIX`](@ref).
+
+[**Syntax diagram:**](assets/vector.svg)
+
+![](assets/vector.svg)
+"""
+const VECTOR_QUERY = nothing
+
+"""
+A query fragment specifying a mask to apply to an axis. Valid phrases are:
+
+  - Beginning a mask by looking up some vector property for each entry (...axis... `[ vector-property`, ...axis... `[ ! vector-property`) - see [`VECTOR_MASK_LOOKUP`](@ref).
+  - Applying some operation to a vector we looked up (...mask... `> value`) - see [`VECTOR_OPERATION`](@ref).
+  - Combining the mask with another one (...mask... `&` ...mask..., ...mask... `& !` ...mask...) - see
+    [`VECTOR_MASK_OPERATION`](@ref).
+  - Ending the mask (...mask... `]`).
+
+[**Syntax diagram:**](assets/vector_mask.svg)
+
+![](assets/vector_mask.svg)
+"""
+const VECTOR_MASK = nothing
+
+"""
+A query fragment specifying looking up a vector for a mask to apply to an axis. Valid phrases are similar to [`VECTOR_LOOKUP`](@ref),
+except that they start with `[` instead of `:` (starting with `[ !` reverses the mask). Example:
+
+```jldoctest
+cells = example_cells_daf()
+cells["@ gene [ ! is_lateral ]"]
+
+# output
+
+245-element Named Vector{SubString{StringViews.StringView{Vector{UInt8}}}}
+gene       │
+───────────┼────────────
+ENO1       │      "ENO1"
+PRDM2      │     "PRDM2"
+HP1BP3     │    "HP1BP3"
+HNRNPR     │    "HNRNPR"
+RSRP1      │     "RSRP1"
+KHDRBS1    │   "KHDRBS1"
+THRAP3     │    "THRAP3"
+SMAP2      │     "SMAP2"
+⋮                      ⋮
+MYADM      │     "MYADM"
+DDT        │       "DDT"
+UQCR10     │    "UQCR10"
+EIF3L      │     "EIF3L"
+TNRC6B     │    "TNRC6B"
+TNFRSF13C  │ "TNFRSF13C"
+SOD1       │      "SOD1"
+ATP5PO     │    "ATP5PO"
+```
+
+[**Syntax diagram:**](assets/vector_mask_lookup.svg)
+
+![](assets/vector_mask_lookup.svg)
+"""
+const VECTOR_MASK_LOOKUP = nothing
+
+"""
+A query fragment specifying combining a mask with a second mask. Valid phrases are similar to [`VECTOR_MASK_LOOKUP`](@ref),
+except that they start with the logical combination operator (`&`, `|`, `^`), with an optional `!` suffix for negating
+the second mask. Operations are evaluated in order (left to right). Example:
+
+```jldoctest
+cells = example_cells_daf()
+cells["@ donor [ age > 60 & sex = male ]"]
+
+# output
+
+29-element Named Vector{SubString{StringViews.StringView{Vector{UInt8}}}}
+donor  │
+───────┼───────
+N16    │  "N16"
+N17    │  "N17"
+N59    │  "N59"
+N86    │  "N86"
+N88    │  "N88"
+N91    │  "N91"
+N92    │  "N92"
+N95    │  "N95"
+⋮             ⋮
+N163   │ "N163"
+N164   │ "N164"
+N169   │ "N169"
+N172   │ "N172"
+N174   │ "N174"
+N175   │ "N175"
+N179   │ "N179"
+N181   │ "N181"
+```
+
+[**Syntax diagram:**](assets/vector_mask_operation.svg)
+
+![](assets/vector_mask_operation.svg)
+"""
+const VECTOR_MASK_OPERATION = nothing
+
+"""
+A query fragment specifying looking up vector properties. Valid phrases are:
+
+  - Looking up a vector property based on an axis (...axis... `: vector-property`). Example:
+
+```jldoctest
+metacells = example_metacells_daf()
+metacells["@ metacell : type"]
+
+# output
+
+7-element Named SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}
+metacell  │
+──────────┼───────────
+M1671.28  │      "MPP"
+M2357.20  │      "MPP"
+M2169.56  │ "MEBEMP-L"
+M2576.86  │ "MEBEMP-E"
+M1440.15  │      "MPP"
+M756.63   │ "MEBEMP-E"
+M412.08   │ "memory-B"
+```
+
+This can be further embellished:
+
+  - Looking up a matrix property based on an axis, and slicing a column based on an explicit entry of the other axis of
+    the matrix (...axis... `:: matrix-property @ columns-axis = columns-axis-entry`). Example:
+
+```jldoctest
+metacells = example_metacells_daf()
+metacells["@ gene :: fraction @ metacell = M412.08"]
+
+# output
+
+683-element Named Vector{Float32}
+gene         │
+─────────────┼────────────
+RPL22        │  0.00373581
+PARK7        │  6.50531f-5
+ENO1         │  4.22228f-5
+PRDM2        │ 0.000151486
+HP1BP3       │  0.00012099
+CDC42        │ 0.000176377
+HNRNPR       │   6.7083f-5
+RPL11        │   0.0124251
+⋮                        ⋮
+NRIP1        │  2.79487f-5
+ATP5PF       │  8.22312f-5
+CCT8         │  4.13243f-5
+SOD1         │ 0.000103708
+SON          │  0.00032361
+ATP5PO       │  9.73498f-5
+TTC3         │ 0.000122469
+HMGN1        │ 0.000160654
+```
+
+  - Looking up a square matrix property, and slicing a column based on an explicit entry of the (column) axis of the
+    matrix (...axis... `:: square-matrix-property @| column-axis-entry`).
+
+```jldoctest
+metacells = example_metacells_daf()
+# Outgoing weights from the M412.08 metacell.
+metacells["@ metacell :: edge_weight @| M412.08"]
+
+# output
+
+7-element Named Vector{Float32}
+metacell  │
+──────────┼────
+M1671.28  │ 0.0
+M2357.20  │ 0.0
+M2169.56  │ 0.0
+M2576.86  │ 0.0
+M1440.15  │ 0.5
+M756.63   │ 0.1
+M412.08   │ 0.0
+```
+
+  - Looking up a square matrix property, and slicing a row based on an explicit entry of the (column) axis of the
+    matrix (...vector... `:: square-matrix-property @- row-axis-entry`).
+
+```jldoctest
+metacells = example_metacells_daf()
+# Incoming weights into the M412.08 metacell.
+metacells["@ metacell :: edge_weight @- M412.08"]
+
+# output
+
+7-element Named Vector{Float32}
+metacell  │
+──────────┼────
+M1671.28  │ 0.0
+M2357.20  │ 0.0
+M2169.56  │ 0.1
+M2576.86  │ 0.0
+M1440.15  │ 0.0
+M756.63   │ 0.9
+M412.08   │ 0.0
+```
+
+In all of these, the lookup operation (`:`, `::`) can be followed by `|| default-value` to specify a value to use if the
+property we look up doesn't exist (...vector... `: vector-property || default-value`, ...vector... `:: square-matrix-property || default-value @| column-entry`).
+
+If the base axis is the result of looking up some property, then some of the entries may have an empty string value.
+Looking up the vector property based on this will cause an error. To overcome this, you can request that these entries
+will be masked out of the result by prefixing the query with `??` (...vector... `?? : vector-property`, ...vector... `?? :: matrix-property ...`), or specify the *final* value of these entries (...vector... `?? final-value : vector-property`, ...vector... `?? final-value :: matrix-property ...`). Since it is possible to chain lookup operations
+(see [`VECTOR_OPERATION`](@ref)), the final value is applied at the end of the lookup chain (`?? final-value : vector-property-which-holds-axis-entries : vector-property-of-that-axis-which-holds-another-axis-entries : vector-property-of-the-other-axis`).
+
+[**Syntax diagram:**](assets/vector_lookup.svg)
+
+![](assets/vector_lookup.svg)
+"""
+const VECTOR_LOOKUP = nothing
+
+"""
+A query fragment specifying some operation on a vector of values. Valid phrases are:
+
+  - Treating the vector values as names of some axis entries and looking up some property of that axis
+    (...vector... `@ axis-values-are-entries-of : vector-property-of-that-axis || default-value`) - see
+    [`VECTOR_AS_AXIS`](@ref) and [`VECTOR_LOOKUP`](@ref)).
+
+```jldoctest
+metacells = example_metacells_daf()
+metacells["@ metacell : type : color"]
+
+# output
+
+7-element Named Vector{SubString{StringViews.StringView{Vector{UInt8}}}}
+metacell  │
+──────────┼────────────
+M1671.28  │      "gold"
+M2357.20  │      "gold"
+M2169.56  │      "plum"
+M2576.86  │   "#eebb6e"
+M1440.15  │      "gold"
+M756.63   │   "#eebb6e"
+M412.08   │ "steelblue"
+```
+
+  - Applying some operation to a vector we looked up (...vector... `% Eltwise ...`).
+
+```jldoctest
+cells = example_cells_daf()
+cells["@ donor : age % Clamp min 40 max 60 type Int64"]
+
+# output
+
+95-element Named Vector{Int64}
+donor  │
+───────┼───
+N16    │ 60
+N17    │ 60
+N18    │ 60
+N59    │ 60
+N79    │ 60
+N83    │ 42
+N84    │ 60
+N85    │ 60
+⋮         ⋮
+N176   │ 60
+N177   │ 58
+N178   │ 40
+N179   │ 60
+N181   │ 60
+N182   │ 60
+N183   │ 60
+N184   │ 60
+```
+
+  - Comparing the values in the vector with some constant (...vector... `> value`).
+
+```jldoctest
+cells = example_cells_daf()
+cells["@ donor : age > 60"]
+
+# output
+
+95-element Named Vector{Bool}
+donor  │
+───────┼──────
+N16    │  true
+N17    │  true
+N18    │  true
+N59    │  true
+N79    │  true
+N83    │ false
+N84    │  true
+N85    │  true
+⋮            ⋮
+N176   │  true
+N177   │ false
+N178   │ false
+N179   │  true
+N181   │  true
+N182   │  true
+N183   │  true
+N184   │  true
+```
+
+  - Grouping the vector values by something and reducing each group to a single value
+    (...vector... `/ vector-property >> Sum`) - see [`VECTOR_GROUP`](@ref).
+
+[**Syntax diagram:**](assets/vector_operation.svg)
+
+![](assets/vector_operation.svg)
+"""
+const VECTOR_OPERATION = nothing
+
+"""
+A query fragment for explicitly specifying that the values or a vector are entries of an axis. Valid phrases are:
+
+  - Using the name of the property of the vector as the axis name (...vector... `@`). The convention is that the
+    property name is the name of the axis, or starts with the name of the axis followed by `.` and some suffix
+  - Specifying an explicit axis name (...vector... `@ axis`) ignoring the vector property name.
+
+When the values of a vector are entries in some axis, we can use it to look up some property based on it. For simple
+lookups the `@` can be omitted (e.g. `@ cell : metacell`). This can be chained (`@ cell : metacell : type : color`).
+When grouping a vector or matrix rows or columns, explicitly associating an axis with the values causes creating a group
+for each axis entry in the right order so that the result is a proper values vector for the
+axis (`@ metacell / type @ >> Count`).
+
+```jldoctest
+metacells = example_metacells_daf()
+metacells["@ metacell : type =@ : color"]
+
+# output
+
+7-element Named Vector{SubString{StringViews.StringView{Vector{UInt8}}}}
+metacell  │
+──────────┼────────────
+M1671.28  │      "gold"
+M2357.20  │      "gold"
+M2169.56  │      "plum"
+M2576.86  │   "#eebb6e"
+M1440.15  │      "gold"
+M756.63   │   "#eebb6e"
+M412.08   │ "steelblue"
+```
+
+```jldoctest
+metacells = example_metacells_daf()
+metacells["@ metacell : type =@ type : color"]
+
+# output
+
+7-element Named Vector{SubString{StringViews.StringView{Vector{UInt8}}}}
+metacell  │
+──────────┼────────────
+M1671.28  │      "gold"
+M2357.20  │      "gold"
+M2169.56  │      "plum"
+M2576.86  │   "#eebb6e"
+M1440.15  │      "gold"
+M756.63   │   "#eebb6e"
+M412.08   │ "steelblue"
+```
+
+[**Syntax diagram:**](assets/vector_as_axis.svg)
+
+![](assets/vector_as_axis.svg)
+"""
+const VECTOR_AS_AXIS = nothing
+
+"""
+A query fragment for grouping vector values by some property and computing a single value per group. Valid phrases
+for fetching the group values are similar to [`VECTOR_LOOKUP`](@ref) but start with a `/` instead of `:`. This
+can be followed by any [`VECTOR_OPERATION`](@ref) (in particular, additional lookups). Once the final group value
+is established for each vector entry, the values of all entries with the same group value are reduced using a
+[`ReductionOperation`](@ref) to a single value. The result vector has this reduced value per group. E.g.,
+`@ cell : age / type >> Mean`.
+
+```jldoctest
+chain = example_chain_daf()
+chain["@ cell : donor : age / metacell ?? : type >> Mean"]
+
+# output
+
+4-element Named Vector{Float32}
+A        │
+─────────┼────────
+MEBEMP-E │ 63.9767
+MEBEMP-L │ 63.9524
+MPP      │  64.238
+memory-B │ 62.3077
+```
+
+By default the result vector is sorted by the group value (this is also used as the name in the result `NamedArray`).
+Specifying an [`VECTOR_AS_AXIS`](@ref) before the reduction operation changes this to require that the group values be
+entries in some axis. In this case the result vector will have one entry for each entry of the axis, in the axis order.
+If some axis entries do not have any vector values associated with them, then the reduction will fail (e.g. "mean of an
+empty vector"). In this case, you should specify a default value for the reduction.
+E.g., `@ cell : age / type @ >> Mean || 0`. Example:
+
+```jldoctest
+chain = example_chain_daf()
+chain["@ cell [ metacell ?? : type != memory-B ] : donor : age / metacell : type =@ >> Mean || 0"]
+
+# output
+
+4-element Named Vector{Float32}
+type     │
+─────────┼────────
+memory-B │     0.0
+MEBEMP-E │ 63.9767
+MEBEMP-L │ 63.9524
+MPP      │  64.238
+```
+
+[**Syntax diagram:**](assets/vector_group.svg)
+
+![](assets/vector_group.svg)
+"""
+const VECTOR_GROUP = nothing
+
+"""
+A query fragment for reducing a matrix to a vector. Valid phrases are:
+
+  - Reduce each row into a single value, resulting in an entry for each column of the matrix
+    (...matrix... `>| ReductionOperation ...`). Example:
+
+```jldoctest
+metacells = example_metacells_daf()
+metacells["@ metacell @ gene :: fraction >| Max"]
+
+# output
+
+7-element Named Vector{Float32}
+metacell  │
+──────────┼──────────
+M1671.28  │  0.023321
+M2357.20  │ 0.0233425
+M2169.56  │ 0.0219235
+M2576.86  │ 0.0236719
+M1440.15  │ 0.0227677
+M756.63   │ 0.0249121
+M412.08   │ 0.0284936
+```
+
+  - Reduce each column into a single value, resulting in an entry for each row of the matrix
+    (...matrix... `>- ReductionOperation ...`).
+
+```jldoctest
+metacells = example_metacells_daf()
+metacells["@ metacell @ gene :: fraction >- Max"]
+
+# output
+
+683-element Named Vector{Float32}
+gene         │
+─────────────┼────────────
+RPL22        │  0.00474096
+PARK7        │ 0.000154199
+ENO1         │ 0.000533887
+PRDM2        │ 0.000151486
+HP1BP3       │ 0.000248206
+CDC42        │ 0.000207847
+HNRNPR       │ 0.000129013
+RPL11        │   0.0124251
+⋮                        ⋮
+NRIP1        │ 0.000361428
+ATP5PF       │ 0.000170554
+CCT8         │ 0.000142851
+SOD1         │ 0.000177344
+SON          │  0.00032361
+ATP5PO       │  0.00018833
+TTC3         │ 0.000144736
+HMGN1        │ 0.000415481
+```
+
+[**Syntax diagram:**](assets/vector_from_matrix.svg)
+
+![](assets/vector_from_matrix.svg)
+"""
+const VECTOR_FROM_MATRIX = nothing
+
+"""
+A query returning a matrix result. Valid phrases are:
+
+  - Lookup a matrix property after specifying its rows and columns axes
+    (...rows_axis... ...columns_axis... `:: matrix-property`,
+    ...rows_axis... ...columns_axis... `:: matrix-property || default-value`). Example:
+
+```jldoctest
+cells = example_cells_daf()
+cells["@ cell @ gene :: UMIs"]
+
+# output
+
+856×683 Named Matrix{UInt8}
+                        cell ╲ gene │        RPL22  …         HMGN1
+────────────────────────────────────┼──────────────────────────────
+demux_07_12_20_1_AACAAGATCCATTTCA-1 │         0x0c  …          0x02
+demux_07_12_20_1_AACGAAAGTCCAATCA-1 │         0x08             0x01
+demux_07_12_20_1_AAGACAAAGTTCCGTA-1 │         0x03             0x03
+demux_07_12_20_1_AGACTCATCTATTGTC-1 │         0x08             0x01
+demux_07_12_20_1_AGATAGACATTCCTCG-1 │         0x08             0x00
+demux_07_12_20_1_ATCGTAGTCCAGTGCG-1 │         0x0e             0x02
+demux_07_12_20_1_CACAGGCGTCCTACAA-1 │         0x0b             0x03
+demux_07_12_20_1_CCTACGTAGCCAACCC-1 │         0x03             0x01
+⋮                                                ⋮  ⋱             ⋮
+demux_11_04_21_2_GGGTCACCACCACATA-1 │         0x05             0x03
+demux_11_04_21_2_TACAACGGTTACACAC-1 │         0x01             0x00
+demux_11_04_21_2_TAGAGTCAGAACGCGT-1 │         0x09             0x00
+demux_11_04_21_2_TGATGCAAGGCCTGCT-1 │         0x07             0x00
+demux_11_04_21_2_TGCCGAGAGTCGCGAA-1 │         0x01             0x00
+demux_11_04_21_2_TGCTGAAAGCCGCACT-1 │         0x01             0x03
+demux_11_04_21_2_TTCAGGACAGGAATAT-1 │         0x06             0x00
+demux_11_04_21_2_TTTAGTCGTCTAGTGT-1 │         0x06  …          0x00
+```
+
+  - Given a vector of values, lookup another vector of the same size and generate a matrix of the number of times each
+    combination of values appears (...vector... `* vector-property ...`) - see [`MATRIX_COUNT`](@ref). Example:
+
+Matrices can then be modified by applying any [`MATRIX_OPERATION`](@ref) to it.
+
+[**Syntax diagram:**](assets/matrix.svg)
+
+![](assets/matrix.svg)
+"""
+const MATRIX_QUERY = nothing
+
+"""
+A query fragment for computing a matrix of the number of times a combination of values appears in the same index in the
+first and second vectors. Valid phrases are similar to [`VECTOR_LOOKUP`](@ref) except they start with `*` instead of
+`:`. This can be followed by any [`VECTOR_OPERATION`](@ref) for computing the final second vector. E.g.,
+`@ cell : age * metacell : type`. Example:
+
+```jldoctest
+cells = example_cells_daf()
+cells["@ cell : experiment * donor : sex"]
+
+# output
+
+23×2 Named Matrix{UInt16}
+           A ╲ B │ female    male
+─────────────────┼───────────────
+demux_01_02_21_1 │ 0x0017  0x000e
+demux_01_02_21_2 │ 0x000a  0x001a
+demux_01_03_21_1 │ 0x0012  0x001b
+demux_04_01_21_1 │ 0x0013  0x0016
+demux_04_01_21_2 │ 0x0006  0x0012
+demux_07_03_21_1 │ 0x000a  0x0016
+demux_07_03_21_2 │ 0x000d  0x001b
+demux_07_12_20_1 │ 0x0006  0x0011
+⋮                       ⋮       ⋮
+demux_21_02_21_1 │ 0x0012  0x0005
+demux_21_02_21_2 │ 0x0009  0x002a
+demux_21_12_20_1 │ 0x001e  0x0005
+demux_21_12_20_2 │ 0x0000  0x0026
+demux_22_02_21_1 │ 0x0012  0x0009
+demux_22_02_21_2 │ 0x001c  0x0013
+demux_28_12_20_1 │ 0x0018  0x0022
+demux_28_12_20_2 │ 0x003f  0x0009
+```
+
+By default, the matrix rows and columns are sorted by the unique values. Explicitly specifying [`VECTOR_AS_AXIS`](@ref)
+for either the first or second vector will change the rows or columns to the axis entries in the right (axis) order.
+This may create rows or columns with all-zero values. E.g., `@ cell : batch @ * metacell : type @`. Example:
+
+```jldoctest
+cells = example_cells_daf()
+cells["@ cell : experiment =@ * donor : sex"]
+
+# output
+
+23×2 Named Matrix{UInt16}
+  experiment ╲ B │ female    male
+─────────────────┼───────────────
+demux_01_02_21_1 │ 0x0017  0x000e
+demux_01_02_21_2 │ 0x000a  0x001a
+demux_01_03_21_1 │ 0x0012  0x001b
+demux_04_01_21_1 │ 0x0013  0x0016
+demux_04_01_21_2 │ 0x0006  0x0012
+demux_07_03_21_1 │ 0x000a  0x0016
+demux_07_03_21_2 │ 0x000d  0x001b
+demux_07_12_20_1 │ 0x0006  0x0011
+⋮                       ⋮       ⋮
+demux_21_02_21_1 │ 0x0012  0x0005
+demux_21_02_21_2 │ 0x0009  0x002a
+demux_21_12_20_1 │ 0x001e  0x0005
+demux_21_12_20_2 │ 0x0000  0x0026
+demux_22_02_21_1 │ 0x0012  0x0009
+demux_22_02_21_2 │ 0x001c  0x0013
+demux_28_12_20_1 │ 0x0018  0x0022
+demux_28_12_20_2 │ 0x003f  0x0009
+```
+
+[**Syntax diagram:**](assets/matrix_count.svg)
+
+![](assets/matrix_count.svg)
+"""
+const MATRIX_COUNT = nothing
+
+"""
+A query fragment specifying some operation on a matrix of values. Valid phrases are:
+
+  - Treating the matrix values as names of some axis entries and looking up some property of that axis
+    (...matrix... `@ axis-values-are-entries-of : vector-property-of-that-axis || default-value`) - see
+    [`VECTOR_AS_AXIS`](@ref) and [`VECTOR_LOOKUP`](@ref)) (while the matrix retains its shape, this shape does not
+    effect the result so we treat it as a long vector for the purpose of the lookup).
+
+  - Applying some operation to a vector we looked up (...matrix... `% Eltwise ...`). Example:
+
+```jldoctest
+metacells = example_metacells_daf()
+metacells["@ metacell @ gene :: fraction % Log base 2 eps 1e-5"]
+
+# output
+
+7×683 Named Matrix{Float32}
+metacell ╲ gene │        RPL22         PARK7  …          TTC3         HMGN1
+────────────────┼──────────────────────────────────────────────────────────
+M1671.28        │     -7.80014      -13.3582  …      -13.0011      -11.4571
+M2357.20        │     -7.91664      -12.5723          -13.009      -11.7136
+M2169.56        │     -7.71757      -13.0192         -13.0406      -11.1986
+M2576.86        │      -7.8198      -12.8843         -12.6579      -11.5767
+M1440.15        │     -7.77472      -12.9433         -13.3506      -11.5629
+M756.63         │     -7.84368      -13.0487          -13.148      -11.8308
+M412.08         │     -8.06051      -13.7017  …      -12.8821      -12.5166
+```
+
+  - Grouping the matrix rows or columns by something and reducing each group to a single one
+    (...matrix... `-/ vector-property >- Sum`, ...matrix... `|/ vector-property >| Sum`) - see [`MATRIX_GROUP`](@ref).
+
+[**Syntax diagram:**](assets/matrix_operation.svg)
+
+![](assets/matrix_operation.svg)
+"""
+const MATRIX_OPERATION = nothing
+
+"""
+A query fragment for grouping rows or columns by some property and computing a single one per group. Valid phrases
+for fetching the group values are similar to [`VECTOR_LOOKUP`](@ref) but start with a `-/` or `|/` instead of `:`. This
+can be followed by any [`VECTOR_OPERATION`](@ref) (in particular, additional lookups). Once the final group value
+is established for each row or column entry, the values of all entries with the same group value are reduced using a
+[`ReductionOperation`](@ref) to a single value. The result matrix has this reduced value per group.
+E.g., `@ cell @ gene :: UMIs -/ metacell : type >- Sum`. The reduction operation must match the group
+operation (`-/ ... >-`, `|/ ... >|`). Example:
+
+```jldoctest
+metacells = example_metacells_daf()
+metacells["@ metacell @ gene :: fraction -/ type >- Mean"]
+
+# output
+
+4×683 Named Matrix{Float32}
+A ╲ gene │        RPL22         PARK7  …          TTC3         HMGN1
+─────────┼──────────────────────────────────────────────────────────
+MEBEMP-E │   0.00437961   0.000115139  …   0.000122451   0.000290955
+MEBEMP-L │   0.00474096   0.000110458      0.000108683   0.000415481
+MPP      │   0.00438723   0.000118797      0.000103007   0.000317991
+memory-B │   0.00373581    6.50531f-5  …   0.000122469   0.000160654
+```
+
+By default groups are sorted by their unique values. Explicitly specifying [`VECTOR_AS_AXIS`](@ref) for the group
+will change the rows or columns to the axis entries in the right (axis) order. T
+This may create rows or columns with all-zero values.
+
+By default the result is sorted by the group value (this is also used as the name in the result `NamedArray`).
+Specifying an [`VECTOR_AS_AXIS`](@ref) before the reduction operation changes this to require that the group values be
+entries in some axis. In this case the result will have one entry for each entry of the axis, in the axis order.
+
+```jldoctest
+metacells = example_metacells_daf()
+metacells["@ metacell @ gene :: fraction -/ type =@ >- Mean"]
+
+# output
+
+4×683 Named Matrix{Float32}
+type ╲ gene │        RPL22         PARK7  …          TTC3         HMGN1
+────────────┼──────────────────────────────────────────────────────────
+memory-B    │   0.00373581    6.50531f-5  …   0.000122469   0.000160654
+MEBEMP-E    │   0.00437961   0.000115139      0.000122451   0.000290955
+MEBEMP-L    │   0.00474096   0.000110458      0.000108683   0.000415481
+MPP         │   0.00438723   0.000118797  …   0.000103007   0.000317991
+```
+
+If some axis entries do not have any values associated with them, then the reduction will fail (e.g. "mean of an
+empty row/column vector"). In this case, you should specify a default value for the reduction.
+E.g., `@ cell @ gene :: UMIs -/ metacell : type =@ >- Sum || 0`. Example:
+
+[**Syntax diagram:**](assets/matrix_group.svg)
+
+![](assets/matrix_group.svg)
+"""
+const MATRIX_GROUP = nothing
+
+"""
+A query is a description of a (subset of a) procedure for extracting some data from a [`DafReader`](@ref). A full query
+is a sequence of [`QueryOperation`](@ref), that when applied to some [`DafReader`](@ref), result in a set of names, or
+scalar, vector or matrix result.
+
+Queries can be constructed in two ways. In code, a query can be built by chaining query operations (e.g., the query
+`Axis("gene") |> LookupVector("is_marker")` looks up the `is_marker` vector property of the `gene` axis).
 Alternatively, a query can be parsed from a string, which needs to be parsed into a [`Query`](@ref) object (e.g., the
-above can be written as `daf["/gene:is_marker"]`). See the [`QUERY_OPERATORS`](@ref) for a table of supported
-operators. Spaces (and comments) around the operators are optional; see [`tokenize`](@ref) for details. You can also
-convert a [`Query`](@ref) to a `string` (or `print` it, etc.) to see its representation. This is used for `error`
-messages and as a key when caching query results.
-
-Since query strings use `\\` as an escape character, it is easier to use `raw` string literals for queries (e.g.,
-`Query(raw"cell = ATCG\\:B1 : age")` vs. `Query("cell = ATCG\\\\:B1 : age")`). To make this even easier we provide the
-[`q`](@ref @q_str) macro (e.g., `q"cell = ATCG\\:B1 : batch"`) which works similarly to Julia's standard `r` macro for
-literal `Regex` strings.
-
-If the provided query string contains only an operand, and `operand_only` is specified, it is used as the operator
-(i.e., `Query("metacell")` is an error, but `Query("metacell", Axis)` is the same as `Axis("metacell")`). This is
-useful when providing suffix queries (e.g., for [`get_frame`](@ref)).
+above can be written as `parse_query("@gene:is_marker")` or using the [`@q_str`](@ref) macro as `q"gene:is_marker"`).
 
 Being able to represent queries as strings allows for reading them from configuration files and letting the user input
 them in an application UI (e.g., allowing the user to specify the X, Y and/or colors of a scatter plot using queries).
 At the same time, being able to incrementally build queries using code allows for convenient reuse (e.g., reusing axis
 sub-queries in `Daf` views), without having to go through the string representation.
 
-`Daf` provides a comprehensive set of [`QueryOperation`](@ref)s that can be used to construct queries. The
-[`QUERY_OPERATORS`](@ref) listed below provide the basic functionality (e.g., specifying an [`Axis`](@ref) or a property
-[`Lookup`](@ref)). In addition, `Daf` provides computation operations ([`EltwiseOperation`](@ref) and
-[`ReductionOperation`](@ref)), allowing for additional operations to be provided by external packages.
+If the provided query string contains only an operand, and `operand_only` is specified, it is used as the operator
+(i.e., `parse_query("metacell")` is an error, but `parse_query("metacell", Axis)` is the same as `Axis("metacell")`).
+This is useful when providing suffix queries (e.g., for [`get_frame`](@ref)).
 
-Obviously not all possible combinations of operations make sense (e.g., `Lookup("is_marker") |> Axis("cell")` will not
-work). For the full list of valid combinations, see [`NAMES_QUERY`](@ref), [`SCALAR_QUERY`](@ref),
-[`VECTOR_QUERY`](@ref) and [`MATRIX_QUERY`](@ref) below.
+To apply a query, invoke [`get_query`](@ref) to apply a query to some [`DafReader`](@ref) data (you can also use the
+shorthand `daf[query]` instead of `get_query(daf, query)`. Tou can also write `query |> get_query(daf)` which is useful
+when constructing a query from parts using `|>`). By default, [`get_query`](@ref) will cache their results in memory as
+[`QueryData`](@ref CacheGroup), to speed up repeated queries. This may lock up large amounts of memory. Using
+`daf[query]` does not cache the results; you can also use [`empty_cache!`](@ref) to release the memory.
 
 !!! note
 
     This has started as a very simple query language (which it still is, for the simple cases) but became complex to
     allow for useful but complex scenarios. In particular, the approach here of using a concatenative language (similar
-    to `ggplot`) makes simple things simpler, but became less unnatural for some of the more advanced operations.
-    However, using an RPN or a LISP notation to better support such cases would have ended up with a much less nice
-    syntax for the simple cases.
+    to `ggplot`) makes simple things simpler, but became less natural for some of the more advanced operations. However,
+    using an RPN or a LISP notation to better support such cases would have ended up with a much less nice syntax for
+    the simple cases.
 
     Hopefully we have covered sufficient ground so that we won't need to add further operations (except for more
     element-wise and reduction operations). In most cases, you can write code that accesses the vectors/matrix data and
     performs whatever computation you want instead of writing a complex query; however, this isn't an option when
     defining views or adapters, which rely on the query mechanism for specifying the data.
+
+## Execution Model
+
+Queries consist of a combination of one or more of the operators listed below. However, the execution of the query is
+not one operator at a time. Instead, at each point, a phrase consisting of several operators is executed as a single
+operation. Each such step modifies the state of the query (starting with an empty state). When the query is done, the
+result is extracted from the final query state.
+
+The query state is a stack which starts empty. Each phrase only applies if the top of the stack matches some pattern
+(e.g., looking up a vector property requires the top of the stack contains an axis specification). The execution of the
+phrase pops out the matching top stack elements, performs some operations on them, and then pushes some elements to the
+stack.
+
+This approach simplifies both the code and the mental model for the query language. For example, when looking up a
+scalar property using the [`LookupScalar`](@ref) operator, e.g. `". version"`, and we want to provide a default value to
+return if the property doesn't exist by following it with the [`IfMissing`](@ref) operator, e.g. `" || 0.0.0", the phrase `LookupScalar("version") |> IfMissing("0.0.0")`is executed as a single operation, invoking `get_scalar(daf,
+"version"; default = "0.0.0")`and pushing a scalar into the query state stack. This eliminates the issue of "what is the state of the query after executing a`LookupScalar`of a missing scalar property, before executing`IfMissing`".
+
+A disadvantage of this approach is that the semantics of an operator depends on the phrase it is used in. However, we
+defined the operators such that they would "make sense" in the context of the different phrases they participate in.
+This allows us to provide a list of operators with a coherent function for each:
+
+## Query Operators
+
+| Operator | Implementation               | Description                                                                                     |
+|:-------- |:----------------------------:|:----------------------------------------------------------------------------------------------- |
+| `@`      | [`Axis`](@ref)               | Specify an axis, e.g. for looking up a vector or matrix property.                               |
+| `=@`     | [`AsAxis`](@ref)             | Specify that values are axis entries, e.g. for looking up another vector or matrix property.    |
+| `@❘`     | [`SquareColumnIs`](@ref)     | Specify which column to slice from a square matrix.                                             |
+| `@-`     | [`SquareRowIs`](@ref)        | Specify which row to slice from a square matrix.                                                |
+| `/`      | [`GroupBy`](@ref)            | Group elements of a vector by values of another vector of the same length.                      |
+| `❘/`     | [`GroupColumnsBy`](@ref)     | Group columns of a matrix by values of a vector with one value per row.                         |
+| `-/`     | [`GroupRowsBy`](@ref)        | Group rows of a matrix by values of a vector with one value per row.                            |
+| `%`      | [`EltwiseOperation`](@ref)   | Specify an element-wise operation to apply to scalar, vector or matrix data.                    |
+| `>>`     | [`ReductionOperation`](@ref) | Specify a reduction operation to convert vector or matrix data to a single scalar value.        |
+| `>❘`     | [`ReduceToColumn`](@ref)     | Specify a reduction operation to convert matrix data to a single column.                        |
+| `>-`     | [`ReduceToRow`](@ref)        | Specify a reduction operation to convert matrix data to a single row.                           |
+| `❘❘`     | [`IfMissing`](@ref)          | Specify a default value to use when looking up a property that doesn't exist,                   |
+|          |                              | or when reducing an empty vector or matrix into a single scalar value.                          |
+| `*`      | [`CountBy`](@ref)            | Count in a matrix the number of times each combination of values from two vectors coincide.     |
+| `?`      | [`Names`](@ref)              | Ask for a set of names of axes or properties that can be used to look up data.                  |
+| `??`     | [`IfNot`](@ref)              | Specify a final value to use when performing chained lookup operations based on an empty value. |
+| `.`      | [`LookupScalar`](@ref)       | Lookup a scalar property.                                                                       |
+| `:`      | [`LookupVector`](@ref)       | Lookup a vector property based on some axis.                                                    |
+| `::`     | [`LookupMatrix`](@ref)       | Lookup a matrix property based on a pair of axes (rows and columns).                            |
+| `<`      | [`IsLess`](@ref)             | Compare less than a value.                                                                      |
+| `<=`     | [`IsLess`](@ref)             | Compare less than or equal to a value.                                                          |
+| `=`      | [`IsEqual`](@ref)            | Compare equal to a value.                                                                       |
+| `!=`     | [`IsNotEqual`](@ref)         | Compare not equal to a value.                                                                   |
+| `>=`     | [`IsLess`](@ref)             | Compare greater than or equal to a value.                                                       |
+| `>`      | [`IsLess`](@ref)             | Compare greater than a value.                                                                   |
+| `~`      | [`IsMatch`](@ref)            | Compare by matching to a regular expression.                                                    |
+| `!~`     | [`IsNotMatch`](@ref)         | Compare by not matching to a regular expression.                                                |
+| `[`      | [`BeginMask`](@ref)          | Begin computing a mask on an axis.                                                              |
+| `[ !`    | [`BeginNegatedMask`](@ref)   | Begin computing a mask on an axis, negating it.                                                 |
+| `]`      | [`EndMask`](@ref)            | Complete computing a mask on an axis.                                                           |
+| `&`      | [`AndMask`](@ref)            | Merge masks by AND Boolean operation.                                                           |
+| `& !`    | [`AndNegatedMask`](@ref)     | Merge masks by AND NOT Boolean operation.                                                       |
+| `❘`      | [`OrMask`](@ref)             | Merge masks by OR Boolean operation.                                                            |
+| `❘ !`    | [`OrNegatedMask`](@ref)      | Merge masks by OR NOT Boolean operation.                                                        |
+| `^`      | [`XorMask`](@ref)            | Merge masks by XOR Boolean operation.                                                           |
+| `^ !`    | [`XorNegatedMask`](@ref)     | Merge masks by XOR NOT Boolean operation.                                                       |
+
+!!! note
+
+    Due to Julia's Documenter limitations, the ASCII `|` character (`&#124;`, vertical bar) is replaced by the Unicode
+    `❘` character (`&#x2758;`, light vertical bar) in the above table. Sigh.
+
+## Query Syntax
+
+Obviously not all possible combinations of operators make sense (e.g., `LookupScalar("is_marker") |> Axis("cell")` will
+not work). Valid queries are built out of supported phrases (each including one or more operators), combined into a
+coherent query. For the full list of valid phrases and queries, see [`NAMES_QUERY`](@ref), [`SCALAR_QUERY`](@ref),
+[`VECTOR_QUERY`](@ref) and [`MATRIX_QUERY`](@ref) below.
 """
 abstract type Query <: QueryOperation end
 
@@ -144,415 +1030,27 @@ This type is used as a convenient notation for such query parameters.
 QueryString = Union{Query, AbstractString}
 
 """
-`NAMES_QUERY` :=
-( [`Names`](@ref) `scalars`
-| [`Names`](@ref) `axes`
-| [`Axis`](@ref) [`Names`](@ref)
-| [`Axis`](@ref) [`Axis`](@ref) [`Names`](@ref)
-)
+    struct QuerySequence <: Query
 
-A query returning a set of names:
-
-  - Looking up the set of names of the scalar properties (`? scalars`).
-  - Looking up the set of names of the axes (`? axes`).
-  - Looking up the set of names of the vector properties of an axis (e.g., `/ cell ?`).
-  - Looking up the set of names of the matrix properties of a pair of axes (e.g., `/ cell / gene ?`).
+A sequence of `N` [`QueryOperation`](@ref)s. This is the internal representation of the query as of itself (without applying it).
 """
-NAMES_QUERY = nothing
-
-"""
-`SCALAR_QUERY` :=
-( `LOOKUP_PROPERTY`](@ref)
-| [`VECTOR_ENTRY`](@ref)
-| [`MATRIX_ENTRY`](@ref)
-| [`REDUCE_VECTOR`](@ref)
-) [`EltwiseOperation`](@ref)*
-
-A query returning a scalar can be one of:
-
-  - Looking up the value of a scalar property (e.g., `: version` will return the value of the version scalar property).
-  - Picking a single entry of a vector property (e.g., `/ gene = FOXP1 : is_marker` will return whether the gene named
-    FOXP1 is a marker gene).
-  - Picking a single entry of a matrix property (e.g., `/ gene = FOXP1 / cell = ATCG : UMIs` will return the number of
-    UMIs of the FOXP1 gene of the ATCG cell).
-  - Reducing some vector into a single value (e.g., `/ donor : age %> Mean` will compute the mean age of all the
-    donors).
-
-Either way, this can be followed by a series of [`EltwiseOperation`](@ref) to modify the scalar result (e.g.,
-`/ donor : age %> Mean % Log base 2 % Abs` will compute the absolute value of the log base 2 of the mean age of all the
-donors).
-"""
-SCALAR_QUERY = nothing
-
-"""
-`LOOKUP_PROPERTY` := [`Lookup`](@ref) [`IfMissing`](@ref)?
-
-Lookup the value of a scalar or matrix property. This is used on its own to access a scalar property (e.g., `: version`)
-or combined with two axes to access a matrix property (e.g., `/ cell / gene : UMIs`).
-
-By default, it is an error if the property does not exist. However, if an [`IfMissing`](@ref) is provided, then this
-value is used instead (e.g., `: version || Unknown` will return a `Unknown` if there is no `version` scalar property,
-and `/ cell / gene : UMIs || 0` will return an all-zero matrix if there is no `UMIs` matrix property).
-
-Accessing a [`VECTOR_PROPERTY`](@ref) allows for more complex operations.
-"""
-LOOKUP_PROPERTY = nothing
-
-"""
-`VECTOR_ENTRY` := [`Axis`](@ref) [`IsEqual`](@ref) [`VECTOR_LOOKUP`](@ref)
-
-Lookup the scalar value of some entry of a vector property of some axis (e.g., `/ gene = FOXP1 : is_marker` will return
-whether the FOXP1 gene is a marker gene).
-"""
-VECTOR_ENTRY = nothing
-
-"""
-`MATRIX_ENTRY` := [`Axis`](@ref) [`IsEqual`](@ref) [`Axis`](@ref) [`IsEqual`](@ref) [`LOOKUP_PROPERTY`](@ref)
-
-Lookup the scalar value of the named entry of a matrix property (e.g., `/ gene = FOXP1 / cell = ATCG : UMIs` will return
-the number of UMIs of the FOXP1 gene of the ATCG cell).
-"""
-MATRIX_ENTRY = nothing
-
-"""
-REDUCE_VECTOR := [`VECTOR_QUERY`](@ref) [`ReductionOperation`](@ref) [`IfMissing`](@ref)?
-
-Perform an arbitrary vector query, and reduce the result into a single scalar value (e.g., `/ donor : age %> Mean` will
-compute the mean age of the ages of the donors).
-
-By default, it is an error if the vector query results in an empty vector. However, if an [`IfMissing`](@ref) suffix is
-provided, then this value is used instead (e.g., `/ cell & type = LMPP : age %> Mean || 0` will return zero if there are
-no cells whose type is LMPP).
-"""
-REDUCE_VECTOR = nothing
-
-"""
-`VECTOR_QUERY` :=
-( [`VECTOR_PROPERTY`](@ref)
-| [`MATRIX_ROW`](@ref)
-| [`MATRIX_COLUMN`](@ref)
-| [`REDUCE_MATRIX`](@ref)
-) [`POST_PROCESS`](@ref)*
-
-A query returning a vector can be one of:
-
-  - Looking up the value of a vector property (e.g., `/ gene : is_marker` will return a mask of the marker genes).
-  - Picking a single row or column of a matrix property (e.g., `/ gene = FOXP1 / cell : UMIs` will return a vector of the
-    UMIs of the FOXP1 gene of all the cells).
-  - Reducing each column of some matrix into a scalar, resulting in a vector (e.g., `/ gene / cell : UMIs %> Sum` will
-    compute the sum of the UMIs of all the genes in each cell).
-
-Either way, this can be followed by further processing of the vector (e.g., `/ gene / cell : UMIs % Log base 2 eps 1`
-will compute the log base 2 of one plus the of the UMIs of each gene in each cell).
-"""
-VECTOR_QUERY = nothing
-
-"""
-`VECTOR_PROPERTY` := [`Axis`](@ref) [`AXIS_MASK`](@ref)* [`VECTOR_LOOKUP`](@ref) [`VECTOR_FETCH`](@ref)*
-
-Lookup the values of some vector property (e.g., `/ gene : is_marker` will return a mask of the marker genes). This can
-be restricted to a subset of the vector using masks (e.g., `/ gene & is_marker : is_noisy` will return a mask of the
-noisy genes out of the marker genes), and/or fetch the property value from indirect axes (e.g.,
-`/ cell : batch => donor => age` will return the age of the donor of the batch of each cell).
-"""
-VECTOR_PROPERTY = nothing
-
-"""
-`VECTOR_LOOKUP` := [`Lookup`](@ref) [`IfMissing`](@ref)? ( [`IfNot`](@ref) | [`AsAxis`](@ref) )?
-
-A [`Lookup`](@ref) of a vector property (e.g., `/ cell : type` will return the type of each cell).
-
-By default, it is an error if the property does not exist. However, if an [`IfMissing`](@ref) is provided,
-then this value is used instead (e.g., `/ cell : type || Unknown` will return a vector of `Unknown` types if
-there is no `type` property for the `cell` axis).
-
-If the [`IfNot`](@ref) suffix is provided, it controls how to modify "false-ish" (empty string, zero numeric value, or
-false Boolean value) entries (e.g., `/ cell : type ?` will return a vector of the type of each cell that has a non-empty
-type, while `/ cell : type ? Outlier` will return a vector of the type of each cell, where cells with an empty type are
-given  the type `Outlier`).
-
-Only when the vector property is used for [`CountBy`](@ref) or for [`GroupBy`](@ref), providing the [`AsAxis`](@ref)
-suffix indicates that the property is associated with an axis (similar to an indirect axis in [`Fetch`](@ref)), and the
-set of groups is forced to be the values of that axis; in this case, empty string values are always ignored (e.g.,
-`/ cell : age @ type ! %> Mean || 0` will return a vector of the mean age of the cells of each type, with a value of
-zero for types which have no cells, and ignoring cells which have an empty type; similarly,
-`/ cell : batch => donor ! * type !` will return a matrix whose rows are donors and columns are types, counting the
-number of cells of each type that were sampled from each donor, ignoring cells which have an empty type or whose batch
-has an empty donor).
-"""
-VECTOR_LOOKUP = nothing
-
-"""
-`MATRIX_ROW` := [`Axis`](@ref) [`IsEqual`](@ref) [`Axis`](@ref) [`AXIS_MASK`](@ref)* [`Lookup`](@ref)
-
-Lookup the values of a single row of a matrix property, eliminating the rows axis (e.g., `/ gene = FOXP1 / cell : UMIs`
-will evaluate to a vector of the UMIs of the FOXP1 gene of all the cells).
-"""
-MATRIX_ROW = nothing
-
-"""
-`MATRIX_COLUMN` := [`Axis`](@ref) [`AXIS_MASK`](@ref)* [`Axis`](@ref) [`IsEqual`](@ref) [`Lookup`](@ref)
-
-Lookup the values of a single column of a matrix property, eliminating the columns axis (e.g.,
-`/ gene / cell = ATCG : UMIs` will evaluate to a vector of the UMIs of all the genes of the ATCG cell).
-"""
-MATRIX_COLUMN = nothing
-
-"""
-`REDUCE_MATRIX` := [`MATRIX_QUERY`](@ref) [`ReductionOperation`](@ref)
-
-Perform an arbitrary matrix query, and reduce the result into a vector by converting each column into a single value,
-eliminating the rows axis (e.g., `/ gene / cell : UMIs %> Sum` will evaluate to a vector of the total UMIs of each
-cell).
-"""
-REDUCE_MATRIX = nothing
-
-"""
-`MATRIX_QUERY` := ( [`MATRIX_LOOKUP`](@ref) | [`COUNTS_MATRIX`](@ref) ) [`POST_PROCESS`](@ref)*
-
-A query returning a matrix can be one of:
-
-  - Looking up the value of a matrix property (e.g., `/ gene / cell : UMIs` will return the matrix of UMIs for each gene
-    and cell).
-  - Counting the number of times each combination of two vector properties occurs in the data (e.g.,
-    `/ cell : batch => donor => age * type` will return a matrix whose rows are ages and columns are types,
-    where each entry contains the number of cells which have the specific type and age).
-
-Either way, this can be followed by a series of [`EltwiseOperation`](@ref) to modify the results (e.g.,
-`/ gene / cell : UMIs % Log base 2 eps 1` will compute the log base 2 of 1 plus the UMIs of each gene in each cell).
-"""
-MATRIX_QUERY = nothing
-
-"""
-`MATRIX_LOOKUP` := [`Axis`](@ref) [`AXIS_MASK`](@ref)* [`Axis`](@ref) [`AXIS_MASK`](@ref)* [`Lookup`](@ref)
-
-Lookup the values of some matrix property (e.g., `/ gene / cell : UMIs` will return the matrix of UMIs of each gene in
-each cell). This can be restricted to a subset of the vector using masks (e.g.,
-`/ gene & is_marker / cell & type = LMPP : UMIs` will return a matrix of the UMIs of each marker gene in cells whose
-type is LMPP).
-"""
-MATRIX_LOOKUP = nothing
-
-"""
-`COUNTS_MATRIX` := [`VECTOR_QUERY`](@ref) [`CountBy`](@ref) [`VECTOR_FETCH`](@ref)*
-
-Compute a matrix of counts of each combination of values given two vectors (e.g.,
-`/ cell : batch => donor => age * batch => donor => sex` will return a matrix whose rows are ages and columns are sexes,
-where each entry contains the number of cells which have the specific age and sex).
-"""
-COUNTS_MATRIX = nothing
-
-"""
-`POST_PROCESS` := [`EltwiseOperation`](@ref) | [`GROUP_BY`](@ref)
-
-A vector or a matrix result may be processed by one of:
-
-  - Applying an [`EltwiseOperation`](@ref) operation to each value (e.g., `/ donor : age % Log base 2` will compute the
-    log base 2 of the ages of all donors, and `/ gene / cell : UMIs % Log base 2 eps 1` will compute the log base 2 of 1
-    plus the UMIs count of each gene in each cell).
-  - Reducing each group of vector entries or matrix rows into a single value (e.g.,
-    `/ cell : batch => donor => age @ type %> Mean` will compute a vector of the mean age of the cells of each type,
-    and `/ cell / gene : UMIs @ type %> Mean` will compute a matrix of the mean UMIs of each gene for the cells of each
-    type).
-"""
-POST_PROCESS = nothing
-
-"""
-`GROUP_BY` := [`GroupBy`](@ref) [`VECTOR_FETCH`](@ref)* [`ReductionOperation`](@ref) [`IfMissing`](@ref)
-
-The entries of a vector or the rows of a matrix result may be grouped, where all the values that have the same group
-value are reduced to a single value using a [`ReductionOperation`](@ref) (e.g.,
-`/ cell : batch => donor => age @ type %> Mean` will compute the mean age of all the cells of each type,
-and `/ cell / gene : UMIs @ type %> Mean` will compute a matrix of the mean UMIs of each gene for the cells of each
-type).
-
-If the group property is suffixed by [`AsAxis`](@ref), then the result will have a value for each entry of the axis
-(e.g., `/ cell : age @ type ! %> Mean` will compute the mean age of the cells of each type). In this case, some groups
-may have no values at all, which by default, is an error. Providing an [`IfMissing`](@ref) suffix will use the specified
-value for such empty groups instead (e.g., `/ cell : age @ type ! %> Mean || 0` will compute the mean age for the cells
-of each type, with a zero value for types for which there are no cells).
-"""
-GROUP_BY = nothing
-
-"""
-`AXIS_MASK` := [`MASK_OPERATION`](@ref) ( [`VECTOR_FETCH`](@ref) )* ( [`MASK_SLICE`](@ref) )? ( [`ComparisonOperation`](@ref) )?
-
-Restrict the set of entries of an axis to lookup results for (e.g., `/ gene & is_marker`). If the mask is based on a
-non-`Bool` property, it is converted to a Boolean by comparing with the empty string or a zero value (depending on its
-data type); alternatively, you can explicitly compare it with a value (e.g.,
-`/ cell & batch => donor => age > 1`).
-"""
-AXIS_MASK = nothing
-
-"""
-`MASK_OPERATION` := [`And`](@ref) | [`AndNot`](@ref) | [`Or`](@ref) | [`OrNot`](@ref) | [`Xor`](@ref) | [`XorNot`](@ref)
-
-A query operation for restricting the set of entries of an [`Axis`](@ref). The mask operations are applied to the
-current mask, so if several operations are applied, they are applied in order from left to right (e.g.,
-`/ gene & is_marker | is_noisy &! is_lateral` will first restrict the set of genes to marker genes, then expand it to
-include noisy genes as well, then remove all the lateral genes; this would be different from
-`/ gene & is_marker &! is_lateral | is_noisy`, which will include all noisy genes even if they are lateral).
-"""
-MASK_OPERATION = nothing
-
-"""
-`MASK_SLICE` := [`MaskSlice`](@ref) [`IsEqual`](@ref) | [`SquareMaskColumn`](@ref) | [`SquareMaskRow`](@ref)
-
-Allow using a row or a column of a matrix as a mask. If the matrix uses a different axis, then use [`MaskSlice`](@ref)
-to specify the axis followed by [`IsEqual`](@ref) to specify the slice to use (e.g., `/ cell & UMIs ; gene > 0`). If
-the matrix is square use [`SquareMaskColumn`](@ref) or [`SquareMaskRow`](@ref) to slice a column or a row of the matrix
-(e.g., `/ cell & outgoing ;= ATCG` or `/ cell & outgoing ,= ATCG`).
-"""
-MASK_SLICE = nothing
-
-"""
-`VECTOR_FETCH` := [`AsAxis`](@ref)? [`Fetch`](@ref) [`IfMissing`](@ref)? ( [`IfNot`](@ref) | [`AsAxis`](@ref) )?
-
-Fetch the value of a property of an indirect axis. That is, there is a common pattern where one axis (e.g., cell) has a
-property (e.g., type) which has the same name as an axis, and whose values are (string) entry names of that axis.
-In this case, we often want to lookup a property of the other axis (e.g., `/ cell : type => color` will evaluate to a
-vector of the color of the type of each cell). Sometimes one walks a chain of such properties (e.g.,
-`/ cell : batch => donor => age`).
-
-Sometimes it is needed to store several alternate properties that refer to the same indirect axis. In this case, the
-name of the property can begin with the axis name, followed by `.` and a suffix (e.g., `/ cell : type.manual => color`
-will fetch the color of the manual type of each cell, still using the type axis).
-
-If the property does not follow this convention, it is possible to manually specify the name of the axis using an
-[`AsAxis`](@ref) prefix (e.g., `/ cell : manual ! type => color` will assume the value of the `manual` property
-is a vector of names of entries of the `type` axis).
-
-As usual, if the property does not exist, this is an error, unless an [`IfMissing`](@ref) suffix is provided
-(e.g., `/ cell : type || red => color` will assign all cells the color `red` if the `type` property does not exist).
-
-If the value of the property is the empty string for some vector entries, by default this is again an error (as the
-empty string is not one of the values of the indirect axis). If an [`IfNot`](@ref) suffix is provided, such entries can
-be removed from the result (e.g., `/ cell : type ? => color` will return a vector of the colors of the cells which
-have a non-empty type), or can be given an specific value (e.g., `/ cell : type ? red => color` will return a vector
-of a color for each cell, giving the `red` color to cells with an empty type).
-
-When using [`IfMissing`](@ref) and/or [`IfNot`](@ref), the default value provided is always of the final value (e.g.,
-`/ cell : batch || -1 ? -2 => donor || -3 ? -4 => age || -5 ? -6` will compute a vector if age per cell; if there's no
-`batch` property, all cells will get the age `-1`). If there is such property, then cells with an empty batch will get
-the age `-2`. For cells with a non-empty batch, if there's no `donor` property, they will get the value `-3`. If there
-is such a property, cells with an empty donor will get the value `-4`. Finally, for cells with a batch and donor, if
-there is no `age` property, they will be given an age of `-5`. Otherwise, if their age is zero, it will be changed to
-`-6`.
-"""
-VECTOR_FETCH = nothing
-
-"""
-Operators used to represent a [`Query`](@ref) as a string.
-
-| Operator | Implementation               | Description                                                                              |
-|:-------- |:----------------------------:|:---------------------------------------------------------------------------------------- |
-| `/`      | [`Axis`](@ref)               | Specify a vector or matrix axis (e.g., `/ cell : batch` or `/ cell / gene : UMIs`).      |
-| `?`      | [`Names`](@ref)              | 1. Names of scalars or axes (`? axes`, `? scalars`).                                     |
-|          |                              | 2. Names of vectors of axis (e.g., `/ cell ?`).                                          |
-|          |                              | 3. Names of matrices of axes (e.g., `/ cell / gene ?`).                                  |
-| `:`      | [`Lookup`](@ref)             | Lookup a property (e.g., `: version`, `/ cell : batch` or `/ cell / gene : UMIs`).       |
-| `=>`     | [`Fetch`](@ref)              | Fetch a property from another axis (e.g., `/ cell : batch => age`).                      |
-| `;`      | [`MaskSlice`](@ref)          | Slice a matrix mask (e.g. `/ cell & UMIs ; gene = FOXP1 > 0`).                           |
-| `;=`     | [`SquareMaskColumn`](@ref)   | Slice a square matrix mask column (e.g. `/ cell & outgoing ;= ATCG > 0`).                |
-| `,=`     | [`SquareMaskRow`](@ref)      | Slice a square matrix mask row (e.g. `/ cell & outgoing ,= ATCG > 0`).                   |
-| `!`      | [`AsAxis`](@ref)             | 1. Specify axis name when fetching a property (e.g., `/ cell : manual ! type => color`). |
-|          |                              | 2. Force all axis values when counting (e.g., `/ cell : batch ! * manual ! type`).       |
-|          |                              | 3. Force all axis values when grouping (e.g., `/ cell : age @ batch ! %> Mean`).         |
-| `??`     | [`IfNot`](@ref)              | 1. Mask excluding false-ish values (e.g., `/ cell : batch ?? => age`).                   |
-|          |                              | 2. Default for false-ish lookup values (e.g., `/ cell : type ?? Outlier`).               |
-|          |                              | 3. Default for false-ish fetched values (e.g., `/ cell : batch ?? 1 => age`).            |
-| `││`     | [`IfMissing`](@ref)          | 1. Value for missing lookup properties (e.g., `/ gene : is_marker ││ false`).            |
-|          |                              | 2. Value for missing fetched properties (e.g., `/ cell : type || red => color`).         |
-|          |                              | 3. Value for empty reduced vectors (e.g., `/ cell : type = LMPP => age %> Max || 0`).    |
-| `%`      | [`EltwiseOperation`](@ref)   | Apply an element-wise operation (e.g., `/ cell / gene : UMIs % Log base 2 eps 1`).       |
-| `%>`     | [`ReductionOperation`](@ref) | Apply a reduction operation (e.g., `/ cell / gene : UMIs %> Sum`).                       |
-| `*`      | [`CountBy`](@ref)            | Compute counts matrix (e.g., `/ cell : age * type`).                                     |
-| `@`      | [`GroupBy`](@ref)            | 1. Aggregate vector entries by a group (e.g., `/ cell : age @ type %> Mean`).            |
-|          |                              | 2. Aggregate matrix row entries by a group (e.g.,`/ cell / gene : UMIs @ type %> Max`).  |
-| `&`      | [`And`](@ref)                | Restrict axis entries (e.g., `/ gene & is_marker`).                                      |
-| `&!`     | [`AndNot`](@ref)             | Restrict axis entries (e.g., `/ gene &! is_marker`).                                     |
-| `│`      | [`Or`](@ref)                 | Expand axis entries (e.g., `/ gene & is_marker │ is_noisy`).                             |
-| `│!`     | [`OrNot`](@ref)              | Expand axis entries (e.g., `/ gene & is_marker │! is_noisy`).                            |
-| `^`      | [`Xor`](@ref)                | Flip axis entries (e.g., `/ gene & is_marker ^ is_noisy`).                               |
-| `^!`     | [`XorNot`](@ref)             | Flip axis entries (e.g., `/ gene & is_marker ^! is_noisy`).                              |
-| `=`      | [`IsEqual`](@ref)            | 1. Select an entry from an axis (e.g., `/ cell / gene = FOXP1 : UMIs`).                  |
-|          |                              | 2. Compare equal (e.g., `/ cell & age = 1`).                                             |
-| `!=`     | [`IsNotEqual`](@ref)         | Compare not equal (e.g., `/ cell & age != 1`).                                           |
-| `<`      | [`IsLess`](@ref)             | Compare less than (e.g., `/ cell & age < 1`).                                            |
-| `<=`     | [`IsLessEqual`](@ref)        | Compare less or equal (e.g., `/ cell & age <= 1`).                                       |
-| `>`      | [`IsGreater`](@ref)          | Compare greater than (e.g., `/ cell & age > 1`).                                         |
-| `>=`     | [`IsGreaterEqual`](@ref)     | Compare greater or equal (e.g., `/ cell & age >= 1`).                                    |
-| `~`      | [`IsMatch`](@ref)            | Compare match (e.g., `/ gene & name ~ RP\\[SL\\]`).                                      |
-| `!~`     | [`IsNotMatch`](@ref)         | Compare not match (e.g., `/ gene & name !~ RP\\[SL\\]`).                                 |
-
-!!! note
-
-    Due to Julia's Documenter limitations, the ASCII `|` character (`&#124;`) is replaced by the Unicode `│` character
-    (`&#9474;`) in the above table. Sigh.
-"""
-QUERY_OPERATORS = r"^(?:=>|\|\||\?\?|%>|&!|\|!|\^!|;=|,=|!=|<=|>=|!~|/|:|!|%|\*|@|&|\||\?|\^|;|=|<|>|~)"
+struct QuerySequence <: Query
+    query_operations::AbstractVector{<:QueryOperation}
+end
 
 function next_query_operation(tokens::Vector{Token}, next_token_index::Int)::Tuple{QueryOperation, Int}
     token = next_operator_token(tokens, next_token_index)
     next_token_index += 1
-
-    for (operator, operation_type) in (
-        ("/", Axis),
-        (":", Lookup),
-        (";", MaskSlice),
-        (";=", SquareMaskColumn),
-        (",=", SquareMaskRow),
-        ("=>", Fetch),
-        ("*", CountBy),
-        ("@", GroupBy),
-        ("&", And),
-        ("&!", AndNot),
-        ("|", Or),
-        ("|!", OrNot),
-        ("^", Xor),
-        ("^!", XorNot),
-        ("=", IsEqual),
-        ("!=", IsNotEqual),
-        ("<", IsLess),
-        ("<=", IsLessEqual),
-        (">", IsGreater),
-        (">=", IsGreaterEqual),
-        ("~", IsMatch),
-        ("!~", IsNotMatch),
-    )
-        if token.value == operator
-            token = next_value_token(tokens, next_token_index)
-            return (operation_type(token.value), next_token_index + 1)
-        end
-    end
-
-    for (operator, operation_type) in (("??", IfNot), ("!", AsAxis), ("?", Names))
-        if token.value == operator
-            token = maybe_next_value_token(tokens, next_token_index)
-            if token === nothing
-                return (operation_type(), next_token_index)
-            else
-                return (operation_type(token.value), next_token_index + 1)
-            end
-        end
-    end
-
-    for (operator, kind, registered_operations) in
-        (("%", "eltwise", ELTWISE_REGISTERED_OPERATIONS), ("%>", "reduce", REDUCTION_REGISTERED_OPERATIONS))
-        if token.value == operator
-            computation_operation, next_token_index =
-                parse_registered_operation(tokens, next_token_index, kind, registered_operations)
-            return (computation_operation, next_token_index)
-        end
-    end
 
     if token.value == "||"
         value_token = next_value_token(tokens, next_token_index)
         next_token_index += 1
         value = value_token.value
 
-        if next_token_index <= length(tokens) && !tokens[next_token_index].is_operator
-            type_token = tokens[next_token_index]
+        type_token = maybe_next_value_token(tokens, next_token_index)
+        if type_token === nothing
+            value = guess_typed_value(value)
+        else
             next_token_index += 1
             if type_token.value == "String"
                 type = String
@@ -562,40 +1060,63 @@ function next_query_operation(tokens::Vector{Token}, next_token_index::Int)::Tup
                     value = parse_number_value(token, "value", value_token, type)
                 end
             end
-        else
-            type = nothing
         end
 
-        return (IfMissing(value; type), next_token_index)
+        return (IfMissing(value), next_token_index)
     end
 
-    return error_at_token(tokens[next_token_index - 1], "bug when parsing query"; at_end = true)  # UNTESTED
-end
-
-function next_operator_token(tokens::Vector{Token}, next_token_index::Int)::Token
-    if next_token_index > length(tokens)
-        error_at_token(tokens[next_token_index - 1], "expected: operator"; at_end = true)  # UNTESTED
-    elseif !tokens[next_token_index].is_operator
-        error_at_token(tokens[next_token_index], "expected: operator")
+    if token.value == "%"
+        computation_operation, next_token_index =
+            parse_registered_operation(tokens, next_token_index, "eltwise", ELTWISE_REGISTERED_OPERATIONS)
+        return (computation_operation, next_token_index)
     end
-    return tokens[next_token_index]
-end
 
-function next_value_token(tokens::Vector{Token}, next_token_index::Int)::Token
-    if next_token_index > length(tokens)
-        error_at_token(tokens[next_token_index - 1], "expected: value"; at_end = true)  # UNTESTED
-    elseif tokens[next_token_index].is_operator
-        error_at_token(tokens[next_token_index], "expected: value")
+    if token.value in (">>", ">-", ">|")
+        computation_operation, next_token_index =
+            parse_registered_operation(tokens, next_token_index, "reduce", REDUCTION_REGISTERED_OPERATIONS)
+        if token.value == ">-"
+            computation_operation = ReduceToRow(computation_operation)
+        elseif token.value == ">|"
+            computation_operation = ReduceToColumn(computation_operation)
+        end
+        return (computation_operation, next_token_index)
     end
-    return tokens[next_token_index]
-end
 
-function maybe_next_value_token(tokens::Vector{Token}, next_token_index::Int)::Maybe{Token}
-    if next_token_index <= length(tokens) && !tokens[next_token_index].is_operator
-        return tokens[next_token_index]
-    else
-        return nothing
+    if token.value in ("[", "&", "|", "^") &&
+       next_token_index <= length(tokens) &&
+       tokens[next_token_index].is_operator &&
+       tokens[next_token_index].value == "!"
+        next_token = tokens[next_token_index]
+        next_token_index += 1
+        token = Token(
+            true,
+            token.value * " !",
+            token.token_index,
+            token.first_index,
+            next_token.last_index,
+            token.encoded_string * " " * next_token.encoded_string,
+        )
     end
+
+    operation = get(QUERY_OPERATIONS_DICT, token.value, nothing)
+    if operation !== nothing
+        operation_type, requires_operand = operation
+        if requires_operand === nothing
+            token = nothing
+        elseif requires_operand
+            token = next_value_token(tokens, next_token_index)
+        else
+            token = maybe_next_value_token(tokens, next_token_index)
+        end
+        if token === nothing
+            return (operation_type(), next_token_index)
+        else
+            return (operation_type(token.value), next_token_index + 1)
+        end
+    end
+
+    error_at_token(tokens[next_token_index - 1], "regex bug when parsing query"; at_end = true)  # UNTESTED
+    @assert false
 end
 
 function parse_registered_operation(
@@ -662,35 +1183,28 @@ function parse_operation_parameters(
     return (parameters_values, next_token_index)
 end
 
-"""
-    q"..."
-
-Shorthand for parsing a literal string as a [`Query`](@ref). This is equivalent to [`Query`](@ref)`(raw"...")`, that is,
-a `\\` can be placed in the string without escaping it (except for before a `"`). This is very convenient for literal
-queries (e.g., `q"/ cell = ATCG\\:B1 : batch"` == `Query(raw"/ cell = ATCG\\:B1 : batch")` ==
-`Query("/ cell = ATCG\\\\:B1 : batch")` == `Axis("cell") |> IsEqual("ATCG:B1") |> Lookup("batch"))`.
-
-```jldoctest
-println("/ cell = ATCG\\\\:B1 : batch")
-println(q"/ cell = ATCG\\:B1 : batch")
-
-# output
-
-/ cell = ATCG\\:B1 : batch
-/ cell = ATCG\\:B1 : batch
-```
-"""
-macro q_str(query_string::AbstractString)
-    return Query(query_string)
+function next_operator_token(tokens::Vector{Token}, next_token_index::Int)::Token
+    if !tokens[next_token_index].is_operator
+        error_at_token(tokens[next_token_index], "expected: operator")
+    end
+    return tokens[next_token_index]
 end
 
-"""
-    struct QuerySequence{N} <: Query where {N<:Integer}
+function next_value_token(tokens::Vector{Token}, next_token_index::Int)::Token
+    if next_token_index > length(tokens)
+        error_at_token(tokens[next_token_index - 1], "expected: value"; at_end = true)
+    elseif tokens[next_token_index].is_operator
+        error_at_token(tokens[next_token_index], "expected: value")
+    end
+    return tokens[next_token_index]
+end
 
-A sequence of `N` [`QueryOperation`](@ref)s. This is the internal representation of the query as of itself (without applying it).
-"""
-struct QuerySequence{N} <: Query where {N}
-    query_operations::NTuple{N, QueryOperation}
+function maybe_next_value_token(tokens::Vector{Token}, next_token_index::Int)::Maybe{Token}
+    if next_token_index <= length(tokens) && !tokens[next_token_index].is_operator
+        return tokens[next_token_index]
+    else
+        return nothing
+    end
 end
 
 function Base.show(io::IO, query_sequence::QuerySequence)::Nothing
@@ -712,1258 +1226,707 @@ function QuerySequence(
 end
 
 function Base.:(|>)(first_sequence::QuerySequence, second_sequence::QuerySequence)::QuerySequence
-    return QuerySequence((first_sequence.query_operations..., second_sequence.query_operations...))
+    return QuerySequence([first_sequence.query_operations..., second_sequence.query_operations...])
 end
 
 function Base.:(|>)(first_operation::QueryOperation, second_sequence::QuerySequence)::QuerySequence
-    return QuerySequence((first_operation, second_sequence.query_operations...))
+    return QuerySequence([first_operation, second_sequence.query_operations...])
 end
 
 function Base.:(|>)(first_sequence::QuerySequence, second_operation::QueryOperation)::QuerySequence
-    return QuerySequence((first_sequence.query_operations..., second_operation))
+    return QuerySequence([first_sequence.query_operations..., second_operation])
 end
 
 function Base.:(|>)(first_operation::QueryOperation, second_operation::QueryOperation)::QuerySequence
-    return QuerySequence((first_operation, second_operation))
+    return QuerySequence([first_operation, second_operation])
 end
 
 function Base.:(|>)(first::Union{QuerySequence, QueryOperation}, second::AbstractString)::QuerySequence
-    return first |> Query(second)
+    return first |> as_query_sequence(second)
 end
 
 function Base.:(|>)(first::AbstractString, second::Union{QuerySequence, QueryOperation})::QuerySequence
-    return Query(first) |> second
+    return as_query_sequence(first) |> second
+end
+
+function as_query_sequence(query_string::AbstractString)::QuerySequence
+    return as_query_sequence(parse_query(query_string))
+end
+
+function as_query_sequence(query_operation::QueryOperation)::QuerySequence
+    return QuerySequence([query_operation])
+end
+
+function as_query_sequence(query::Query)::QuerySequence
+    return QuerySequence([query])
+end
+
+function as_query_sequence(query_sequence::QuerySequence)::QuerySequence
+    return query_sequence
 end
 
 """
-    Names(kind::Maybe{AbstractString} = nothing) <: Query
+    q"..."
 
-A query operation for looking up a set of names. In a string [`Query`](@ref), this is specified using the `?`
-operator, optionally followed by the kind of objects to name.
+Shorthand for parsing a literal string as a [`Query`](@ref). This is equivalent to [`Query`](@ref)`(raw"...")`, that is,
+a `\\` can be placed in the string without escaping it (except for before a `"`). This is very convenient for literal
+queries (e.g., `q"@ cell = ATCG\\:B1 : batch"` == `parse_query(raw"@ cell = ATCG\\:B1 : batch")` ==
+`parse_query("@ cell = ATCG\\\\:B1 : batch")` == `Axis("cell") |> IsEqual("ATCG:B1") |> LookupVector("batch"))`.
 
-  - If the query state is empty, a `kind` must be specified, one of `scalars` or `axes`, and the result is the set of
-    their names (`? scalars`, `? axes`).
-  - If the query state contains a single axis (without any masks), the `kind` must not be specified, and the result is
-    the set of names of vector properties of the axis (e.g., `/ cell ?`).
-  - If the query state contains two axes (without any masks), the `kind` must not be specified, and the result is
-    the set of names of matrix properties of the axes (e.g., `/ cell / gene ?`).
+```jldoctest
+println("@ cell = ATCG\\\\:B1 : batch")
+println(q"@ cell = ATCG\\:B1 : batch")
+
+# output
+
+@ cell = ATCG\\:B1 : batch
+@ cell = ATCG\\:B1 : batch
+```
+"""
+macro q_str(query_string::AbstractString)
+    return parse_query(query_string)
+end
+
+"""
+    get_query(
+        daf::DafReader,
+        query::QueryString;
+        [cache::Bool = true]
+    )::Union{AbstractSet{<:AbstractString}, StorageScalar, NamedVector, NamedMatrix}
+
+    query |> get_query(
+        daf::DafReader;
+        cache::Bool = true,
+    )
+
+Apply the full `query` to the `Daf` data and return the result. By default, this will cache the final query result, so
+repeated identical queries will be accelerated. This may consume a large amount of memory. You can disable it by
+specifying `cache = false`, or release the cached data using [`empty_cache!`](@ref).
+
+As a shorthand syntax you can also invoke this using `getindex`, that is, using the `[]` operator (e.g.,
+`daf["@ cell"]` is equivalent to `get_query(daf, "@ cell"; cache = false)`). Finally, you can use `|>` to
+invoke the query, which is especially useful when constructing it from the operations `Axis("cell") |> get_query(daf)`
+or even `"@ cell" |> get_query(daf)`.
 
 !!! note
 
-    This, [`Lookup`](@ref) and [`Axis`](@ref) are the only [`QueryOperation`](@ref)s that also works as a complete
-    [`Query`](@ref).
-
-```jldoctest
-cells = example_cells_daf()
-println(Names("scalars") |> get_query(cells))
-println(sort!(String.(cells["? axes"])))
-
-# output
-
-AbstractString["organism"]
-["cell", "donor", "experiment", "gene"]
-```
-
-```jldoctest
-cells = example_cells_daf()
-println(sort!(String.(Axis("cell") |> Names() |> get_query(cells))))
-println(sort!(String.(cells["/ cell ?"])))
-
-# output
-
-["donor", "experiment"]
-["donor", "experiment"]
-```
-
-```jldoctest
-cells = example_cells_daf()
-println(Axis("cell") |> Axis("gene") |> Names() |> get_query(cells))
-println(cells["/ cell / gene ?"])
-
-# output
-
-Set(AbstractString["UMIs"])
-Set(AbstractString["UMIs"])
-```
-
-!!! note
-
-    The results are always a set of strings, never a vector. We sort them to force reproducible results across Julia
-    versions. Even when we don't (in single-result cases), sometimes `println` shows them as a vector, because
-    "reasons".
+    Using `get_query`, the query *is* cached (by default). Using `[...]`, the query is *not* cached. That is, `[...]` is
+    mostly used for one-off queries (and in interactive sessions, etc.) while `get_query` is used for more "fundamental"
+    queries that are expected to be re-used.
 """
-struct Names <: Query
-    kind::Maybe{AbstractString}
-    function Names(kind::Maybe{AbstractString} = nothing)::Names
-        return new(kind)
+function get_query(daf::DafReader; cache::Bool = true)::Tuple{DafReader, Bool}
+    return (daf, cache)
+end
+
+function Base.:(|>)(
+    query::QueryString,
+    daf_cache::Tuple{DafReader, Bool},
+)::Union{AbstractSet{<:AbstractString}, StorageScalar, NamedArray}
+    daf, cache = daf_cache
+    return get_query(daf, query; cache)
+end
+
+function Base.getindex(
+    daf::DafReader,
+    query::QueryString,
+)::Union{AbstractSet{<:AbstractString}, StorageScalar, NamedArray}
+    return get_query(daf, query; cache = false)
+end
+
+function get_query(
+    daf::DafReader,
+    query_string::QueryString;
+    cache::Bool = true,
+)::Union{AbstractSet{<:AbstractString}, StorageScalar, NamedArray}
+    query_sequence = as_query_sequence(query_string)
+    cache_key = (CachedQuery, "$(query_sequence)")
+    verify_contract_query(daf, cache_key)
+    return Formats.with_data_read_lock(daf, "for get_query of:", cache_key) do
+        if cache
+            result = Formats.get_through_cache(
+                daf,
+                cache_key,
+                Union{AbstractSet{<:AbstractString}, StorageScalar, NamedArray},
+                QueryData;
+                is_slow = true,
+            ) do
+                return get_query_result(daf, query_sequence)
+            end
+        else
+            result = Formats.with_cache_read_lock(daf, "for get_query of:", cache_key) do
+                return get(daf.internal.cache, cache_key, nothing)
+            end
+            if result === nothing
+                result, _ = get_query_result(daf, query_sequence)
+            else
+                result = result.data
+            end
+        end
+        @debug "get_query daf: $(brief(daf)) query_sequence: $(query_sequence) cache: $(cache) result: $(brief(result))"
+        return result
     end
 end
 
-function get_query(daf::DafReader, names::Names; cache::Bool = true)::AbstractSet{<:AbstractString}
-    return get_query(daf, QuerySequence((names,)); cache)
+function verify_contract_query(::DafReader, ::CacheKey)::Nothing
+    return nothing
 end
 
-function has_query(daf::DafReader, names::Names)::Bool
-    return has_query(daf, QuerySequence((names,)))
+function assert_is_valid(::Any)::Nothing
+    return nothing
 end
 
-function is_axis_query(names::Names)::Bool
-    return is_axis_query(QuerySequence((names,)))
+mutable struct NamesState
+    names_set::Maybe{AbstractSet{<:AbstractString}}
 end
 
-function query_result_dimensions(names::Names)::Int
-    return query_result_dimensions(QuerySequence((names,)))
+function print_query_stack_entry(query_operation::QueryOperation)::Nothing  # UNTESTED
+    println("   query_operation: $(query_operation)")
+    return nothing
 end
 
-function query_requires_relayout(daf::DafReader, names::Names)::Bool
-    return query_requires_relayout(daf, QuerySequence((names,)))
+function print_query_stack_entry(names_state::NamesState)::Nothing  # UNTESTED
+    println("   names_set: $(brief(names_state.names_set))")
+    return nothing
 end
 
-function Base.show(io::IO, names::Names)::Nothing
-    kind = names.kind
-    if kind === nothing
-        print(io, "?")
-    else
-        print(io, "? $(kind)")
+mutable struct ScalarState
+    scalar_value::Maybe{StorageScalar}
+end
+
+function print_query_stack_entry(scalar_state::ScalarState)::Nothing  # UNTESTED
+    println("   scalar_value: $(scalar_state.scalar_value)")
+    return nothing
+end
+
+mutable struct VectorState
+    entries_axis_name::Maybe{AbstractString}
+    vector_entries::Maybe{AbstractVector{<:AbstractString}}
+    property_name::Maybe{AbstractString}
+    property_axis_name::Maybe{AbstractString}
+    is_complete_property_axis::Bool
+    vector_values::Maybe{StorageVector}
+    pending_final_values::Maybe{AbstractVector{Any}}
+end
+
+function assert_is_valid(vector_state::VectorState)::Nothing
+    if vector_state.vector_entries !== nothing
+        @assert vector_state.vector_values !== nothing
+        @assert length(vector_state.vector_entries) == length(vector_state.vector_values)
     end
-    return nothing
-end
-
-"""
-    Lookup(property::AbstractString) <: Query
-
-A query operation for looking up the value of a property with some name. In a string [`Query`](@ref), this is specified
-using the `:` operator, followed by the property name to look up.
-
-  - If the query state is empty, this looks up the value of a scalar property (e.g., `: version`).
-  - If the query state contains a single axis, this looks up the value of a vector property (e.g., `/ cell : batch`).
-  - If the query state contains two axes, this looks up the value of a matrix property (e.g., `/ cell / gene : UMIs`).
-
-If the property does not exist, this is an error, unless this is followed by [`IfMissing`](@ref) (e.g.,
-`: version || 1.0`).
-
-If any of the axes has a single entry selected using [`IsEqual`](@ref), this will reduce the dimension of the result
-(e.g., `/ cell / gene = FOXP1 : UMIs` is a vector, and both `/ cell = C1 / gene = FOXP1 : UMIs` and
-`/ gene = FOXP1 : is_marker` are scalars).
-
-!!! note
-
-    This, [`Names`](@ref) and [`Axis`](@ref) are the only [`QueryOperation`](@ref)s that also works as a complete
-    [`Query`](@ref).
-
-```jldoctest
-cells = example_cells_daf()
-println(Lookup("organism") |> get_query(cells))
-println(cells[": organism"])
-
-# output
-
-human
-human
-```
-
-```jldoctest
-metacells = example_metacells_daf()
-println(String.(Axis("type") |> Lookup("color") |> get_query(metacells)))
-println(String.(metacells["/ type : color"]))
-
-# output
-
-["#eebb6e", "plum", "gold", "steelblue"]
-["#eebb6e", "plum", "gold", "steelblue"]
-```
-
-```jldoctest
-metacells = example_metacells_daf()
-# Axis("metacell") |> Axis("gene") |> Lookup("fraction") |> get_query(metacells)
-metacells["/ metacell / gene : fraction"]
-
-# output
-
-7×683 Named SparseArrays.ReadOnly{Float32, 2, Matrix{Float32}}
-metacell ╲ gene │        RPL22         PARK7  …          TTC3         HMGN1
-────────────────┼──────────────────────────────────────────────────────────
-M1671.28        │   0.00447666    8.52301f-5  …   0.000111978   0.000345676
-M2357.20        │    0.0041286   0.000154199       0.00011131   0.000287754
-M2169.56        │   0.00474096   0.000110458      0.000108683   0.000415481
-M2576.86        │   0.00441595   0.000122259      0.000144736   0.000317384
-M1440.15        │   0.00455642   0.000116962       8.57345f-5   0.000320543
-M756.63         │   0.00434327   0.000108019      0.000100166   0.000264526
-M412.08         │   0.00373581    6.50531f-5  …   0.000122469   0.000160654
-```
-"""
-struct Lookup <: Query
-    property_name::AbstractString
-end
-
-function get_query(daf::DafReader, lookup::Lookup; cache::Bool = true)::StorageScalar
-    return get_query(daf, QuerySequence((lookup,)); cache)
-end
-
-function has_query(daf::DafReader, lookup::Lookup)::Bool
-    return has_query(daf, QuerySequence((lookup,)))
-end
-
-function is_axis_query(lookup::Lookup)::Bool
-    return is_axis_query(QuerySequence((lookup,)))
-end
-
-function query_result_dimensions(lookup::Lookup)::Int
-    return query_result_dimensions(QuerySequence((lookup,)))
-end
-
-function query_requires_relayout(daf::DafReader, lookup::Lookup)::Bool
-    return query_requires_relayout(daf, QuerySequence((lookup,)))
-end
-
-function Base.show(io::IO, lookup::Lookup)::Nothing
-    print(io, ": $(escape_value(lookup.property_name))")
-    return nothing
-end
-
-abstract type ModifierQueryOperation <: QueryOperation end
-
-"""
-    Fetch(property::AbstractString) <: QueryOperation
-
-A query operation for fetching the value of a property from another axis, based on a vector property whose values are
-entry names of the axis. In a string [`Query`](@ref), this is specified using the `=>` operator, followed by the name to
-look up.
-
-That is, if you query for the values of a vector property (e.g., `batch` for each `cell`), and the name of this property
-is identical to some axis name, then we assume each value is the name of an entry of this axis. We use this to fetch the
-value of some other property (e.g., `age`) of that axis (e.g., `/ cell : batch => age`).
-
-It is useful to be able to store several vector properties which all map to the same axis. To support this, we support a
-naming convention where the property name begins with the axis name followed by a `.suffix`. (e.g., both
-`/ cell : type => color` and `/ cell : type.manual => color` will look up the `color` of the `type` of some property of
-the `cell` axis - either "the" `type` of each `cell`, or the alternate `type.manual` of each cell).
-
-Fetching can be chained (e.g., `/ cell : batch => donor => age` will fetch the `age` of the `donor` of the `batch` of
-each `cell`).
-
-If the property does not exist, this is an error, unless this is followed by [`IfMissing`](@ref) (e.g.,
-`/ cell : type => color || red`). If the property contains an empty value, this is also an error, unless it is followed
-by an [`IfNot`](@ref) (e.g., `/ cell : type ? => color` will compute a vector of the colors of the type of the cells
-that have a non-empty type, and `/ cell : batch ? 0 => donor => age` will assign a zero age for cells which have an
-empty batch).
-
-If the property exists but contains empty values (e.g., outlier cells which are not assigned to any metacell),
-then you need to deal with them by either masking them from the results, or providing an explicit value for
-them. See [`IfNot`](@ref) for details. The example below just masks such cells out.
-
-```jldoctest
-metacells = example_metacells_daf()
-# Axis("cell") |> Lookup("metacell") |> IfNot() |> Fetch("type") |> Fetch("color") |> get_query(metacells)
-metacells["/ cell : metacell ?? => type => color"]
-
-# output
-
-852-element Named SparseArrays.ReadOnly{String, 1, Vector{String}}
-cell                                │
-────────────────────────────────────┼────────────
-demux_07_12_20_1_AACAAGATCCATTTCA-1 │   "#eebb6e"
-demux_07_12_20_1_AAGACAAAGTTCCGTA-1 │   "#eebb6e"
-demux_07_12_20_1_AGACTCATCTATTGTC-1 │      "gold"
-demux_07_12_20_1_AGATAGACATTCCTCG-1 │   "#eebb6e"
-demux_07_12_20_1_CACAGGCGTCCTACAA-1 │   "#eebb6e"
-demux_07_12_20_1_CCTACGTAGCCAACCC-1 │   "#eebb6e"
-demux_07_12_20_1_CTTTCAAGTGAGGAAA-1 │ "steelblue"
-demux_07_12_20_1_GAAGGGTGTCCCTGAG-1 │   "#eebb6e"
-⋮                                               ⋮
-demux_11_04_21_2_GGCTTGGTCGTTCCTG-1 │   "#eebb6e"
-demux_11_04_21_2_GGGACTCTCTCATGGA-1 │      "gold"
-demux_11_04_21_2_GGGTCACCACCACATA-1 │      "gold"
-demux_11_04_21_2_TACAACGGTTACACAC-1 │      "plum"
-demux_11_04_21_2_TAGAGTCAGAACGCGT-1 │   "#eebb6e"
-demux_11_04_21_2_TGCCGAGAGTCGCGAA-1 │      "gold"
-demux_11_04_21_2_TGCTGAAAGCCGCACT-1 │      "gold"
-demux_11_04_21_2_TTTAGTCGTCTAGTGT-1 │   "#eebb6e"
-```
-"""
-struct Fetch <: ModifierQueryOperation
-    property_name::AbstractString
-end
-
-function Base.show(io::IO, fetch::Fetch)::Nothing
-    print(io, "=> $(escape_value(fetch.property_name))")
-    return nothing
-end
-
-"""
-    MaskSlice(axis_name::AbstractString) <: QueryOperation
-
-A query operation for using a slice of a matrix as a mask, when the other axis of the matrix is different from the mask axis. This needs
-to be followed by the axis entry to slice. In a string [`Query`](@ref), this is specified using the `;` operator, followed
-by the name of the axis for looking up the matrix, then followed by `=` and the value identifying the slice.
-
-That is, suppose we have a UMIs matrix per cell per gene, and we'd like to select all the cells which have non-zero UMIs
-for the FOXP1 gene. Then we can say `/ cell & UMIs ; gene = FOXP1 > 0` (or just `/ cell & UMIs ; gene = FOXP1` since the
-`> 0` is implicit).
-
-```jldoctest
-cells = example_cells_daf()
-# Axis("cell") |> And("UMIs") |> MaskSlice("gene") |> IsEqual("FOXP1") |> get_query(cells)
-cells["/ cell & UMIs ; gene = FOXP1"]
-
-# output
-
-372-element SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}:
- "demux_07_12_20_1_AACAAGATCCATTTCA-1"
- "demux_07_12_20_1_AACGAAAGTCCAATCA-1"
- "demux_07_12_20_1_AGACTCATCTATTGTC-1"
- "demux_07_12_20_1_ATCGTAGTCCAGTGCG-1"
- "demux_07_12_20_1_CACAGGCGTCCTACAA-1"
- "demux_07_12_20_1_CTTTCAAGTGAGGAAA-1"
- "demux_07_12_20_1_GAAGGGTGTCCCTGAG-1"
- "demux_07_12_20_1_GCAGCCAGTGTTACAC-1"
- "demux_07_12_20_1_GTTAGACGTCGGCACT-1"
- "demux_07_12_20_1_TCCTTCTTCTACTGAG-1"
- ⋮
- "demux_11_04_21_2_ATGGGAGTCCTGTTAT-1"
- "demux_11_04_21_2_CATGGTATCGTTAGAC-1"
- "demux_11_04_21_2_CCTACGTCAGACCAGA-1"
- "demux_11_04_21_2_CGTGAATGTGAGTGAC-1"
- "demux_11_04_21_2_GGCTTGGTCGTTCCTG-1"
- "demux_11_04_21_2_GGGTCACCACCACATA-1"
- "demux_11_04_21_2_TACAACGGTTACACAC-1"
- "demux_11_04_21_2_TGCTGAAAGCCGCACT-1"
- "demux_11_04_21_2_TTTAGTCGTCTAGTGT-1"
-```
-"""
-struct MaskSlice <: ModifierQueryOperation
-    axis_name::AbstractString
-end
-
-function Base.show(io::IO, mask_slice::MaskSlice)::Nothing
-    print(io, "; $(escape_value(mask_slice.axis_name))")
-    return nothing
-end
-
-abstract type SquareMaskSlice <: ModifierQueryOperation end
-
-"""
-    SquareMaskColumn(comparison_value::AbstractString) <: QueryOperation
-
-Similar to [`MaskSlice`](@ref) but is used when the mask matrix is square and we'd like to use a column as a mask. This therefore
-only needs specifying the column to slice. In a string [`Query`](@ref), this is specified using the `;=` operator followed by the
-value identifying the slice.
-
-That is, suppose we have a KNN graph between metacells as a metacell-metacell matrix where each column contains the weights of the
-outgoing edges from each metacell to the rest. To select all the metacells reachable from a particular one, we can say
-`/ metacell & edge_weight ;= M2169.56 > 0` (or just `/ metacell & edge_weight ;= M2169.56` as the `> 0` is implicit).
-If we also want to include the source cell we'd need to say `/ metacell & name = M2169.56 | edge_weight ;= M2169.56`,
-etc.
-
-```jldoctest
-metacells = example_metacells_daf()
-println(String.(Axis("metacell") |> And("edge_weight") |> SquareMaskColumn("M2169.56") |> get_query(metacells)))
-println(String.(metacells["/ metacell & edge_weight ;= M2169.56"]))
-
-# output
-
-["M2357.20", "M756.63", "M412.08"]
-["M2357.20", "M756.63", "M412.08"]
-```
-"""
-struct SquareMaskColumn <: SquareMaskSlice
-    comparison_value::AbstractString
-end
-
-function Base.show(io::IO, square_mask_column::SquareMaskColumn)::Nothing
-    print(io, ";= $(escape_value(square_mask_column.comparison_value))")
-    return nothing
-end
-
-"""
-    SquareMaskRow(comparison_value::AbstractString) <: QueryOperation
-
-Similar to [`SquareMaskRow`](@ref) but is used when the mask matrix is square and we'd like to use a row as a mask. This therefore
-only needs specifying the row to slice. In a string [`Query`](@ref), this is specified using the `,=` operator followed by the
-value identifying the slice.
-
-That is, suppose we have a KNN graph as above and we'd like to select all cells that can reach a particular one. Then
-`/ metacell & edge_weight ,= M2169.56 > 0` (or just `/ metacell & edge_weight ,= M2169.56` as the `> 0` is implicit).
-If we also want to include the source cell we'd need to say `/ metacell & name = M2169.56 | edge_weight ,= M2169.56`,
-etc.
-
-```jldoctest
-metacells = example_metacells_daf()
-println(String.(Axis("metacell") |> And("edge_weight") |> SquareMaskRow("M2169.56") |> get_query(metacells)))
-println(String.(metacells["/ metacell & edge_weight ,= M2169.56"]))
-
-# output
-
-["M1671.28", "M1440.15"]
-["M1671.28", "M1440.15"]
-```
-"""
-struct SquareMaskRow <: SquareMaskSlice
-    comparison_value::StorageScalar
-end
-
-function Base.show(io::IO, square_mask_row::SquareMaskRow)::Nothing
-    print(io, ",= $(escape_value(square_mask_row.comparison_value))")
-    return nothing
-end
-
-"""
-    IfMissing(value::StorageScalar; type::Maybe{Type} = nothing) <: QueryOperation
-
-A query operation providing a value to use if the data is missing some property. In a string [`Query`](@ref), this is
-specified using the `||` operator, followed by the value to use, and optionally followed by the data type of the value
-(e.g., `: score || 1 Float32`).
-
-If the data type is not specified, and the `value` isa `AbstractString`, then the data type is deduced using
-[`guess_typed_value`](@ref) of the `value`.
-
-```jldoctest
-cells = example_cells_daf()
-println(Lookup("version") |> IfMissing(1) |> get_query(cells))
-println(Lookup("version") |> IfMissing(Float32(1)) |> get_query(cells))
-println(cells[": version || 1"])
-println(cells[": version || 1 Float32"])
-
-# output
-
-1
-1.0
-1
-1.0
-```
-"""
-struct IfMissing <: ModifierQueryOperation
-    missing_value::StorageScalar
-    type::Maybe{Type}
-end
-
-function IfMissing(value::StorageScalar; type::Maybe{Type} = nothing)::IfMissing
-    if type !== nothing
-        @assert value isa type
-    elseif !(value isa AbstractString)
-        type = typeof(value)
+    if vector_state.pending_final_values !== nothing
+        @assert vector_state.vector_values !== nothing
+        @assert length(vector_state.pending_final_values) == length(vector_state.vector_values)
     end
-    return IfMissing(value, type)
-end
-
-function Base.show(io::IO, if_missing::IfMissing)::Nothing
-    print(io, "|| $(escape_value(string(if_missing.missing_value)))")
-    if if_missing.type !== nothing
-        print(io, " $(if_missing.type)")
+    if vector_state.is_complete_property_axis
+        @assert vector_state.pending_final_values === nothing
     end
     return nothing
 end
 
-"""
-    IfNot(value::Maybe{StorageScalar} = nothing) <: QueryOperation
-
-A query operation providing a value to use for "false-ish" values in a vector (empty strings, zero numeric values, or
-false Boolean values). In a string [`Query`](@ref), this is indicated using the `??` operator, optionally followed by a
-value to use.
-
-If the value is `nothing` (the default), then these entries are dropped (masked out) of the result (e.g.,
-`/ cell : type ??` behaves the same as `/ cell & type : type`, that is, returns the type of the cells which have a
-non-empty type). Otherwise, this value is used instead of the "false-ish" value (e.g., `/ cell : type ?? Outlier` will
-return a vector of the type of each cell, with the value `Outlier` for cells with an empty type). When fetching
-properties, this is the final value (e.g., `/ cell : type ?? red => color` will return a vector of the color of the type
-of each cell, with a `red` color for the cells with an empty type).
-
-If the `value` isa `AbstractString`, then it is automatically converted to the data type of the elements of the results
-vector.
-
-```jldoctest
-metacells = example_metacells_daf()
-# Axis("cell") |> Lookup("metacell") |> IfNot("magenta") |> Fetch("type") |> Fetch("color") |> get_query(metacells)
-metacells["/ cell : metacell ?? magenta => type => color"]
-
-# output
-
-856-element Named SparseArrays.ReadOnly{String, 1, Vector{String}}
-cell                                │
-────────────────────────────────────┼──────────
-demux_07_12_20_1_AACAAGATCCATTTCA-1 │ "#eebb6e"
-demux_07_12_20_1_AACGAAAGTCCAATCA-1 │ "magenta"
-demux_07_12_20_1_AAGACAAAGTTCCGTA-1 │ "#eebb6e"
-demux_07_12_20_1_AGACTCATCTATTGTC-1 │    "gold"
-demux_07_12_20_1_AGATAGACATTCCTCG-1 │ "#eebb6e"
-demux_07_12_20_1_ATCGTAGTCCAGTGCG-1 │ "magenta"
-demux_07_12_20_1_CACAGGCGTCCTACAA-1 │ "#eebb6e"
-demux_07_12_20_1_CCTACGTAGCCAACCC-1 │ "#eebb6e"
-⋮                                             ⋮
-demux_11_04_21_2_GGGTCACCACCACATA-1 │    "gold"
-demux_11_04_21_2_TACAACGGTTACACAC-1 │    "plum"
-demux_11_04_21_2_TAGAGTCAGAACGCGT-1 │ "#eebb6e"
-demux_11_04_21_2_TGATGCAAGGCCTGCT-1 │ "magenta"
-demux_11_04_21_2_TGCCGAGAGTCGCGAA-1 │    "gold"
-demux_11_04_21_2_TGCTGAAAGCCGCACT-1 │    "gold"
-demux_11_04_21_2_TTCAGGACAGGAATAT-1 │ "magenta"
-demux_11_04_21_2_TTTAGTCGTCTAGTGT-1 │ "#eebb6e"
-```
-"""
-struct IfNot <: ModifierQueryOperation
-    not_value::Maybe{StorageScalar}
+function VectorState()::VectorState
+    return VectorState(nothing, nothing, nothing, nothing, false, nothing, nothing)
 end
 
-function IfNot()
-    return IfNot(nothing)
+function Base.copy(vector_state::VectorState)::VectorState
+    copy_state = VectorState()
+    copy_state.entries_axis_name = vector_state.entries_axis_name
+    copy_state.vector_entries = vector_state.vector_entries
+    copy_state.property_name = vector_state.property_name
+    copy_state.property_axis_name = vector_state.property_axis_name
+    copy_state.is_complete_property_axis = vector_state.is_complete_property_axis
+    copy_state.vector_values = vector_state.vector_values
+    copy_state.pending_final_values = vector_state.pending_final_values
+    return copy_state
 end
 
-function Base.show(io::IO, if_not::IfNot)::Nothing
-    not_value = if_not.not_value
-    if not_value === nothing
-        print(io, "??")
-    else
-        print(io, "?? $(escape_value(string(not_value)))")
-    end
-    return nothing
+function print_query_stack_entry(vector_state::VectorState)::Nothing  # UNTESTED
+    return print_vector_state(vector_state, "")
 end
 
-"""
-    AsAxis([axis::AbstractString = nothing]) <: QueryOperation
-
-There are three cases where we may want to take a vector property and consider each value to be the name of an entry of
-some axis: [`Fetch`](@ref), [`CountBy`](@ref) and [`GroupBy`](@ref). In a string [`Query`](@ref), this is indicated by
-the `!` operators, optionally followed by the name of the axis to use.
-
-When using [`Fetch`](@ref), we always lookup in some axis, so [`AsAxis`](@ref) is implied (e.g.,
-`/ cell : type => color` is identical to `/ cell : type ! => color`). In contrast, when using [`CountBy`](@ref) and
-[`GroupBy`](@ref), one has to explicitly specify `AsAxis` to force using all the entries of the axis for the counting or
-grouping (e.g., `/ cell : age @ type %> Mean` will return a vector of the mean age of every type that has cells
-associated with it, while `/ cell : age @ type ! %> Mean` will return a vector of the mean age of each and every value
-of the type axis; similarly, `/ cell : type * age` will generate a counts matrix whose rows are types that have cells
-associated with them, while `/ cell : type ! * age` will generate a counts matrix whose rows are exactly the entries of
-the type axis).
-
-Since the set of values is fixed by the axis matching the vector property, it is possible that, when using this for
-[`GroupBy`](@ref), some groups would have no values, causing an error. This can be avoided by providing an
-[`IfMissing`](@ref) suffix to the reduction (e.g., `/ cell : age @ type ! %> Mean` will fail if some type has no cells
-associated with it, while `/ cell : age @ type ! %> Mean || 0` will give such types a zero mean age).
-
-Typically, the name of the base property is identical to the name of the axis. In this case, there is no need to specify
-the name of the axis (as in the examples above). Sometimes it is useful to be able to store several vector properties
-which all map to the same axis. To support this, we support a naming convention where the property name begins with the
-axis name followed by a `.suffix`. (e.g., both `/ cell : type => color` and `/ cell : type.manual => color` will look up
-the `color` of the `type` of some property of the `cell` axis - either "the" `type` of each `cell`, or the alternate
-`type.manual` of each cell).
-
-If the property name does not follow the above conventions, then it is possible to explicitly specify the name of the
-axis (e.g., `/ cell : manual ! type => color` will consider each value of the `manual` property as the name of an entry
-of the `type` axis and look up the matching `color` property value of this axis).
-
-```jldoctest
-metacells = example_metacells_daf()
-type_per_metacell = metacells["/ metacell : type"]
-set_vector!(metacells, "metacell", "kind", reverse(type_per_metacell.array))
-
-# Axis("metacell") |> Lookup("kind") |> AsAxis("type") |> Fetch("color") |> get_query(metacells)
-metacells["/ metacell : kind ! type => color"]
-
-# output
-
-7-element Named SparseArrays.ReadOnly{String, 1, Vector{String}}
-metacell  │
-──────────┼────────────
-M1671.28  │ "steelblue"
-M2357.20  │   "#eebb6e"
-M2169.56  │      "gold"
-M2576.86  │   "#eebb6e"
-M1440.15  │      "plum"
-M756.63   │      "gold"
-M412.08   │      "gold"
-```
-
-```jldoctest
-chain = example_chain_daf()
-type_per_metacell = chain["/ metacell : type"]
-set_vector!(chain, "metacell", "kind", reverse(type_per_metacell.array))
-
-# Axis("cell") |> Lookup("donor") |> Fetch("age") |> GroupBy("kind") |> IfNot() |> AsType("type") |> Mean() |> get_query(chain)
-chain["/ cell : donor => age @ metacell ?? => kind ! type %> Mean"]
-
-# output
-
-4-element Named SparseArrays.ReadOnly{Float32, 1, Vector{Float32}}
-type     │
-─────────┼────────
-MEBEMP-E │ 64.5693
-MEBEMP-L │ 66.0219
-MPP      │ 62.7153
-memory-B │ 62.2593
-```
-"""
-struct AsAxis <: QueryOperation
-    axis_name::Maybe{AbstractString}
-end
-
-function AsAxis()::AsAxis
-    return AsAxis(nothing)
-end
-
-function Base.show(io::IO, as_axis::AsAxis)::Nothing
-    if as_axis.axis_name === nothing
-        print(io, "!")
-    else
-        print(io, "! $(escape_value(as_axis.axis_name))")
-    end
-    return nothing
-end
-
-"""
-    Axis(axis::AbstractString) <: QueryOperation
-
-A query operation for specifying a result axis. In a string [`Query`](@ref), this is specified using the `/` operator
-followed by the axis name.
-
-This needs to be specified at least once for a vector query (e.g., `/ cell : batch`), and twice for a matrix (e.g.,
-`/ cell / gene : UMIs`). Axes can be filtered using Boolean masks using [`And`](@ref), [`AndNot`](@ref), [`Or`](@ref),
-[`OrNot`](@ref), [`Xor`](@ref) and [`XorNot`](@ref) (e.g., `/ gene & is_marker : is_noisy`). Alternatively, a single
-entry can be selected from the axis using [`IsEqual`](@ref) (e.g., `/ gene = FOXP1 : is_noisy`,
-`/ cell / gene = FOXP1 : UMIs`, `/ cell = C1 / gene = FOXP1 : UMIs`). Finally, a matrix can be reduced into a vector, and
-a vector to a scalar, using [`ReductionOperation`](@ref) (e.g., `/ gene / cell : UMIs %> Sum %> Mean`).
-
-!!! note
-
-    This, [`Names`](@ref) and [`Lookup`](@ref) are the only [`QueryOperation`](@ref)s that also works as a complete
-    [`Query`](@ref).
-
-```jldoctest
-metacells = example_metacells_daf()
-println(String.(Axis("metacell") |> get_query(metacells)))
-println(String.(metacells["/ metacell"]))
-
-# output
-
-["M1671.28", "M2357.20", "M2169.56", "M2576.86", "M1440.15", "M756.63", "M412.08"]
-["M1671.28", "M2357.20", "M2169.56", "M2576.86", "M1440.15", "M756.63", "M412.08"]
-```
-"""
-struct Axis <: Query
-    axis_name::AbstractString
-end
-
-function get_query(daf::DafReader, axis::Axis; cache::Bool = true)::AbstractVector{<:AbstractString}
-    return get_query(daf, QuerySequence((axis,)); cache)
-end
-
-function has_query(daf::DafReader, axis::Axis)::Bool
-    return has_query(daf, QuerySequence((axis,)))
-end
-
-function is_axis_query(axis::Axis)::Bool
-    return is_axis_query(QuerySequence((axis,)))
-end
-
-function query_result_dimensions(axis::Axis)::Int
-    return query_result_dimensions(QuerySequence((axis,)))
-end
-
-function query_requires_relayout(daf::DafReader, axis::Axis)::Bool
-    return query_requires_relayout(daf, QuerySequence((axis,)))
-end
-
-function Base.show(io::IO, axis::Axis)::Nothing
-    print(io, "/ $(escape_value(axis.axis_name))")
-    return nothing
-end
-
-abstract type MaskOperation <: QueryOperation end
-
-function Base.show(io::IO, mask_operation::MaskOperation)::Nothing
-    print(io, "$(mask_operator(mask_operation)) $(escape_value(mask_operation.property_name))")
-    return nothing
-end
-
-"""
-    And(property::AbstractString) <: QueryOperation
-
-A query operation for restricting the set of entries of an [`Axis`](@ref). In a string [`Query`](@ref), this is
-specified using the `&` operator, followed by the name of an axis property to look up to compute the mask.
-
-The mask may be just the fetched property (e.g., `/ gene & is_marker` will restrict the result vector to only marker
-genes). If the value of the property is not Boolean, it is automatically compared to `0` or the empty string, depending
-on its type (e.g., `/ cell & type` will restrict the result vector to only cells which were given a non-empty-string
-type annotation). It is also possible to fetch properties from other axes, and use an explicit
-[`ComparisonOperation`](@ref) to compute the Boolean mask (e.g., `/ cell & batch => age > 1` will restrict the result
-vector to cells whose batch has an age larger than 1).
-
-```jldoctest
-chain = example_chain_daf()
-# Axis("cell") |> And("donor") |> IsEqual("N16") |> get_query(chain)
-chain["/ cell & donor = N16"]
-
-# output
-
-10-element SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}:
- "demux_21_01_21_1_AACCCAATCGAGAATA-1"
- "demux_21_01_21_1_CACAGGCTCTTAGCCC-1"
- "demux_21_01_21_1_CTACGGGTCGTGCGAC-1"
- "demux_21_01_21_1_GAGATGGAGGGATCAC-1"
- "demux_21_01_21_1_GCCAGGTAGCGGTAGT-1"
- "demux_21_01_21_1_GCGTGCATCCGGCAGT-1"
- "demux_21_01_21_1_TCAATTCAGCTTCTAG-1"
- "demux_21_01_21_1_TCGCTTGGTCTTGTCC-1"
- "demux_21_01_21_1_TCTTTGAAGCGGGTAT-1"
- "demux_21_01_21_1_TTCTCTCCAACGGCCT-1"
-```
-"""
-struct And <: MaskOperation
-    property_name::AbstractString
-end
-
-function mask_operator(::And)::String
-    return "&"
-end
-
-function update_axis_mask(
-    axis_mask::AbstractVector{Bool},
-    mask_vector::Union{AbstractVector{Bool}, BitVector},
-    ::And,
-)::Nothing
-    axis_mask .&= mask_vector
-    return nothing
-end
-
-"""
-    AndNot(property::AbstractString) <: QueryOperation
-
-Same as [`And`](@ref) but use the inverse of the mask. In a string [`Query`](@ref), this is specified using the `&!`
-operator, followed by the name of an axis property to look up to compute the mask.
-
-```jldoctest
-chain = example_chain_daf()
-# Axis("cell") |> AndNot("donor") &> IsEqual("N16") |> get_query(chain)
-chain["/ cell &! donor = N16"]
-
-# output
-
-846-element SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}:
- "demux_07_12_20_1_AACAAGATCCATTTCA-1"
- "demux_07_12_20_1_AACGAAAGTCCAATCA-1"
- "demux_07_12_20_1_AAGACAAAGTTCCGTA-1"
- "demux_07_12_20_1_AGACTCATCTATTGTC-1"
- "demux_07_12_20_1_AGATAGACATTCCTCG-1"
- "demux_07_12_20_1_ATCGTAGTCCAGTGCG-1"
- "demux_07_12_20_1_CACAGGCGTCCTACAA-1"
- "demux_07_12_20_1_CCTACGTAGCCAACCC-1"
- "demux_07_12_20_1_CTTTCAAGTGAGGAAA-1"
- "demux_07_12_20_1_GAAGGGTGTCCCTGAG-1"
- ⋮
- "demux_11_04_21_2_GGGACTCTCTCATGGA-1"
- "demux_11_04_21_2_GGGTCACCACCACATA-1"
- "demux_11_04_21_2_TACAACGGTTACACAC-1"
- "demux_11_04_21_2_TAGAGTCAGAACGCGT-1"
- "demux_11_04_21_2_TGATGCAAGGCCTGCT-1"
- "demux_11_04_21_2_TGCCGAGAGTCGCGAA-1"
- "demux_11_04_21_2_TGCTGAAAGCCGCACT-1"
- "demux_11_04_21_2_TTCAGGACAGGAATAT-1"
- "demux_11_04_21_2_TTTAGTCGTCTAGTGT-1"
-```
-"""
-struct AndNot <: MaskOperation
-    property_name::AbstractString
-end
-
-function mask_operator(::AndNot)::String
-    return "&!"
-end
-
-function update_axis_mask(
-    axis_mask::AbstractVector{Bool},
-    mask_vector::Union{AbstractVector{Bool}, BitVector},
-    ::AndNot,
-)::Nothing
-    axis_mask .&= .!mask_vector
-    return nothing
-end
-
-"""
-    Or(property::AbstractString) <: QueryOperation
-
-A query operation for expanding the set of entries of an [`Axis`](@ref). In a string [`Query`](@ref), this is specified
-using the `|` operator, followed by the name of an axis property to look up to compute the mask.
-
-This works similarly to [`And`](@ref), except that it adds to the mask (e.g., `/ gene & is_marker | is_noisy` will
-restrict the result vector to either marker or noisy genes).
-
-```jldoctest
-chain = example_chain_daf()
-# Axis("cell") |> And("donor") |> IsEqual("N16") |> Or("donor") |> IsEqual("N15") |> get_query(chain)
-chain["/ cell & donor = N16 | donor = N17"]
-
-# output
-
-20-element SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}:
- "demux_21_01_21_1_AACCCAATCGAGAATA-1"
- "demux_21_01_21_1_AACGTCACATCCGAGC-1"
- "demux_21_01_21_1_ACCCAAAAGGTCCCGT-1"
- "demux_21_01_21_1_ACTTTCAAGTCCCAGC-1"
- "demux_21_01_21_1_AGATCGTGTACTCCGG-1"
- "demux_21_01_21_1_AGTAGCTGTATCAGGG-1"
- "demux_21_01_21_1_CACAGGCTCTTAGCCC-1"
- "demux_21_01_21_1_CTACGGGTCGTGCGAC-1"
- "demux_21_01_21_1_CTGCCTACACGCAGTC-1"
- "demux_21_01_21_1_GAGATGGAGGGATCAC-1"
- "demux_21_01_21_1_GATCAGTAGTCGAAAT-1"
- "demux_21_01_21_1_GCCAGGTAGCGGTAGT-1"
- "demux_21_01_21_1_GCGTGCATCCGGCAGT-1"
- "demux_21_01_21_1_GTTCTATGTATCCCTC-1"
- "demux_21_01_21_1_TCAATTCAGCTTCTAG-1"
- "demux_21_01_21_1_TCGCTTGGTCTTGTCC-1"
- "demux_21_01_21_1_TCTTTGAAGCGGGTAT-1"
- "demux_21_01_21_1_TGTAACGCATGGCCAC-1"
- "demux_21_01_21_1_TGTACAGGTTTGAACC-1"
- "demux_21_01_21_1_TTCTCTCCAACGGCCT-1"
-```
-"""
-struct Or <: MaskOperation
-    property_name::AbstractString
-end
-
-function mask_operator(::Or)::String
-    return "|"
-end
-
-function update_axis_mask(
-    axis_mask::AbstractVector{Bool},
-    mask_vector::Union{AbstractVector{Bool}, BitVector},
-    ::Or,
-)::Nothing
-    axis_mask .|= mask_vector
-    return nothing
-end
-
-"""
-    OrNot(property::AbstractString) <: QueryOperation
-
-Same as [`Or`](@ref) but use the inverse of the mask. In a string [`Query`](@ref), this is specified using the `|!`
-operator, followed by the name of an axis property to look up to compute the mask.
-
-```jldoctest
-chain = example_chain_daf()
-# Axis("cell") |> And("donor") |> IsEqual("N16") |> OrNot("metacell") |> get_query(chain)
-chain["/ cell & donor = N16 |! metacell"]
-
-# output
-
-14-element SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}:
- "demux_07_12_20_1_AACGAAAGTCCAATCA-1"
- "demux_07_12_20_1_ATCGTAGTCCAGTGCG-1"
- "demux_21_01_21_1_AACCCAATCGAGAATA-1"
- "demux_21_01_21_1_CACAGGCTCTTAGCCC-1"
- "demux_21_01_21_1_CTACGGGTCGTGCGAC-1"
- "demux_21_01_21_1_GAGATGGAGGGATCAC-1"
- "demux_21_01_21_1_GCCAGGTAGCGGTAGT-1"
- "demux_21_01_21_1_GCGTGCATCCGGCAGT-1"
- "demux_21_01_21_1_TCAATTCAGCTTCTAG-1"
- "demux_21_01_21_1_TCGCTTGGTCTTGTCC-1"
- "demux_21_01_21_1_TCTTTGAAGCGGGTAT-1"
- "demux_21_01_21_1_TTCTCTCCAACGGCCT-1"
- "demux_11_04_21_2_TGATGCAAGGCCTGCT-1"
- "demux_11_04_21_2_TTCAGGACAGGAATAT-1"
-```
-"""
-struct OrNot <: MaskOperation
-    property_name::AbstractString
-end
-
-function mask_operator(::OrNot)::String
-    return "|!"
-end
-
-function update_axis_mask(
-    axis_mask::AbstractVector{Bool},
-    mask_vector::Union{AbstractVector{Bool}, BitVector},
-    ::OrNot,
-)::Nothing
-    axis_mask .|= .!mask_vector
-    return nothing
-end
-
-"""
-    Xor(property::AbstractString) <: QueryOperation
-
-A query operation for flipping the set of entries of an [`Axis`](@ref). In a string [`Query`](@ref), this is specified
-using the `^` operator, followed by the name of an axis property to look up to compute the mask.
-
-This works similarly to [`Or`](@ref), except that it flips entries in the mask (e.g., `/ gene & is_marker ^ is_noisy`
-will restrict the result vector to either marker or noisy genes, but not both).
-"""
-struct Xor <: MaskOperation
-    property_name::AbstractString
-end
-
-function mask_operator(::Xor)::String
-    return "^"
-end
-
-function update_axis_mask(
-    axis_mask::AbstractVector{Bool},
-    mask_vector::Union{AbstractVector{Bool}, BitVector},
-    ::Xor,
-)::Nothing
-    axis_mask .= @. xor(axis_mask, mask_vector)
-    return nothing
-end
-
-"""
-    XorNot(property::AbstractString) <: QueryOperation
-
-Same as [`Xor`](@ref) but use the inverse of the mask. In a string [`Query`](@ref), this is specified using the `^!`
-operator, followed by the name of an axis property to look up to compute the mask.
-"""
-struct XorNot <: MaskOperation
-    property_name::AbstractString
-end
-
-function mask_operator(::XorNot)::String
-    return "^!"
-end
-
-function update_axis_mask(
-    axis_mask::AbstractVector{Bool},
-    mask_vector::Union{AbstractVector{Bool}, BitVector},
-    ::XorNot,
-)::Nothing
-    axis_mask .= @. xor(axis_mask, .!mask_vector)
-    return nothing
-end
-
-"""
-`ComparisonOperation` :=
-( [`IsLess`](@ref)
-| [`IsLessEqual`](@ref)
-| [`IsEqual`](@ref)
-| [`IsNotEqual`](@ref)
-| [`IsGreater`](@ref)
-| [`IsGreaterEqual`](@ref)
-| [`IsMatch`](@ref)
-| [`IsNotMatch`](@ref)
-)
-
-A query operation computing a mask by comparing the values of a vector with some constant (e.g., `/ cell & age > 0`).
-In addition, the [`IsEqual`](@ref) operation can be used to slice an entry from a vector (e.g.,
-`/ gene = FOXP1 : is_marker`) or a matrix (e.g., `/ cell / gene = FOXP1 & UMIs`, `/ cell = ATCG / gene = FOXP1 : UMIs`).
-"""
-abstract type ComparisonOperation <: ModifierQueryOperation end
-
-function Base.show(io::IO, comparison_operation::ComparisonOperation)::Nothing
-    print(
-        io,
-        "$(comparison_operator(comparison_operation)) $(escape_value(string(comparison_operation.comparison_value)))",
+function print_vector_state(vector_state::VectorState, indent::AbstractString)::Nothing  # UNTESTED
+    println("   $(indent)entries_axis_name: $(vector_state.entries_axis_name)")
+    println("   $(indent)vector_entries: $(brief(vector_state.vector_entries)) = $(vector_state.vector_entries)")
+    println("   $(indent)property_name: $(vector_state.property_name)")
+    println("   $(indent)property_axis_name: $(vector_state.property_axis_name)")
+    println("   $(indent)is_complete_property_axis: $(brief(vector_state.is_complete_property_axis))")
+    println("   $(indent)vector_values: $(brief(vector_state.vector_values)) = $(vector_state.vector_values)")
+    println(
+        "   $(indent)pending_final_values: $(brief(vector_state.pending_final_values)) = $(vector_state.pending_final_values)",
     )
     return nothing
 end
 
-"""
-    IsLess(value::StorageScalar) <: QueryOperation
-
-A query operation for converting a vector value to a Boolean mask by comparing it some value. In a string
-[`Query`](@ref), this is specified using the `<` operator, followed by the value to compare with.
-
-A string value is automatically converted into the same type as the vector values (e.g., `/ cell & probability < 0.5`
-will restrict the result vector only to cells whose probability is less than half).
-"""
-struct IsLess <: ComparisonOperation
-    comparison_value::StorageScalar
+mutable struct MatrixState
+    rows_state::Maybe{VectorState}
+    columns_state::Maybe{VectorState}
+    property_name::Maybe{AbstractString}
+    property_axis_name::Maybe{AbstractString}
+    matrix_values::Maybe{AbstractMatrix}
+    pending_final_values::Maybe{AbstractMatrix{Any}}
 end
 
-function comparison_operator(::IsLess)::String
-    return "<"
-end
-
-function compute_comparison(compared_value::StorageScalar, ::IsLess, comparison_value::StorageScalar)::Bool
-    return compared_value < comparison_value
-end
-
-"""
-    IsLessEqual(value::StorageScalar) <: QueryOperation
-
-Similar to [`IsLess`](@ref) except that uses `<=` instead of `<` for the comparison.
-"""
-struct IsLessEqual <: ComparisonOperation
-    comparison_value::StorageScalar
-end
-
-function comparison_operator(::IsLessEqual)::String
-    return "<="
-end
-
-function compute_comparison(compared_value::StorageScalar, ::IsLessEqual, comparison_value::StorageScalar)::Bool
-    return compared_value <= comparison_value
-end
-
-"""
-    IsEqual(value::StorageScalar) <: QueryOperation
-
-Equality is used for two purposes:
-
-  - As a comparison operator, similar to [`IsLess`](@ref) except that uses `=` instead of `<` for the comparison.
-  - To select a single entry from a vector. This allows a query to select a single scalar from a vector (e.g.,
-    `/ gene = FOXP1 : is_marker`) or from a matrix (e.g., `/ cell = ATCG / gene = FOXP1 : UMIs`); or to slice a single
-    vector from a matrix (e.g., `/ cell = ATCG / gene : UMIs` or `/ cell / gene = FOXP1 : UMIs`).
-"""
-struct IsEqual <: ComparisonOperation
-    comparison_value::StorageScalar
-end
-
-function comparison_operator(::IsEqual)::String
-    return "="
-end
-
-function compute_comparison(compared_value::StorageScalar, ::IsEqual, comparison_value::StorageScalar)::Bool
-    return compared_value == comparison_value
-end
-
-"""
-    IsNotEqual(value::StorageScalar) <: QueryOperation
-
-Similar to [`IsLess`](@ref) except that uses `!=` instead of `<` for the comparison.
-"""
-struct IsNotEqual <: ComparisonOperation
-    comparison_value::StorageScalar
-end
-
-function comparison_operator(::IsNotEqual)::String
-    return "!="
-end
-
-function compute_comparison(compared_value::StorageScalar, ::IsNotEqual, comparison_value::StorageScalar)::Bool
-    return compared_value != comparison_value
-end
-
-"""
-    IsGreater(value::StorageScalar) <: QueryOperation
-
-Similar to [`IsLess`](@ref) except that uses `>` instead of `<` for the comparison.
-"""
-struct IsGreater <: ComparisonOperation
-    comparison_value::StorageScalar
-end
-
-function comparison_operator(::IsGreater)::String
-    return ">"
-end
-
-function compute_comparison(compared_value::StorageScalar, ::IsGreater, comparison_value::StorageScalar)::Bool
-    return compared_value > comparison_value
-end
-
-"""
-    IsGreaterEqual(value::StorageScalar) <: QueryOperation
-
-Similar to [`IsLess`](@ref) except that uses `>=` instead of `<` for the comparison.
-"""
-struct IsGreaterEqual <: ComparisonOperation
-    comparison_value::StorageScalar
-end
-
-function comparison_operator(::IsGreaterEqual)::String
-    return ">="
-end
-
-function compute_comparison(compared_value::StorageScalar, ::IsGreaterEqual, comparison_value::StorageScalar)::Bool
-    return compared_value >= comparison_value
-end
-
-abstract type MatchOperation <: ComparisonOperation end
-
-"""
-    IsMatch(value::Union{AbstractString, Regex}) <: QueryOperation
-
-Similar to [`IsLess`](@ref) except that the compared values must be strings, and the mask
-is of the values that match the given regular expression.
-
-!!! note
-
-    This will succeed on partial matches. You therefore typically need to add `^` and/or `\$` to the regular expression
-    to avoid matching in the middle of the value.
-
-```jldoctest
-cells = example_cells_daf()
-#Axis("gene") |> And("name") |> IsMatch(r"^RP[LS]") |> get_query(cells)
-cells[q"/ gene & name ~ \\^RP\\[LS\\]"]
-
-# output
-
-78-element SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}:
- "RPL22"
- "RPL11"
- "RPS8"
- "RPL5"
- "RPS27"
- "RPS7"
- "RPS27A"
- "RPL31"
- "RPL37A"
- "RPL32"
- ⋮
- "RPS19"
- "RPL18"
- "RPL13A"
- "RPS11"
- "RPS9"
- "RPL28"
- "RPS5"
- "RPS4Y1"
- "RPL3"
-```
-"""
-struct IsMatch <: MatchOperation
-    comparison_value::Union{AbstractString, Regex}
-end
-
-function comparison_operator(::IsMatch)::String
-    return "~"
-end
-
-function compute_comparison(compared_value::AbstractString, ::IsMatch, comparison_regex::Regex)::Bool
-    return occursin(comparison_regex, compared_value)
-end
-
-"""
-    IsNotMatch(value::Union{AbstractString, Regex}) <: QueryOperation
-
-Similar to [`IsMatch`](@ref) except that looks for entries that do not match the pattern.
-"""
-struct IsNotMatch <: MatchOperation
-    comparison_value::Union{AbstractString, Regex}
-end
-
-function comparison_operator(::IsNotMatch)::String
-    return "!~"
-end
-
-function compute_comparison(compared_value::AbstractString, ::IsNotMatch, comparison_regex::Regex)::Bool
-    return !occursin(comparison_regex, compared_value)
-end
-
-"""
-    CountBy(property::AbstractString) <: QueryOperation
-
-A query operation that generates a matrix of counts of combinations of pairs of values for the same entries of an axis.
-That is, it follows fetching some vector property, and is followed by fetching a second vector property of the same
-axis. The result is a matrix whose rows are the values of the 1st property and the columns are the values of the
-2nd property, and the values are the number of times the combination of values appears. In a string [`Query`](@ref),
-this is specified using the `*` operator, followed by the property name to look up (e.g., `/ cell : type * batch`
-will generate a matrix whose rows correspond to cell types, whose columns correspond to cell batches, and whose
-values are the number of cells of each combination of batch and type).
-
-By default, the rows and/or columns only contain actually seen values and are ordered alphabetically. However, it is
-common that one or both of the properties correspond to an axis. In this case, you can use an [`AsAxis`](@ref) suffix to
-force the rows and/or columns of the matrix to be exactly the entries of the specific axis (e.g.,
-` / cell : type ! * batch`
-will generate a matrix whose rows are exactly the entries of the `type` axis, even if there is a type without any
-cells). This is especially useful when both properties are axes, as the result can be stored as a matrix property (e.g.,
-`/ cell : type ! * batch !` will generate a matrix whose rows are the entries of the type axis, and whose columns are
-the entries of the batch axis, so it can be given to `set_matrix!(daf, "type", "batch", ...)`).
-
-The raw counts matrix can be post-processed like any other matrix (using [`ReductionOperation`](@ref) or an
-[`EltwiseOperation`](@ref)). This allows computing useful aggregate properties (e.g.,
-`/ cell : type * batch % Fractions` will generate a matrix whose columns correspond to batches and whose rows are the
-fraction of the cells from each type within each batch).
-
-```jldoctest
-chain = example_chain_daf()
-
-# Axis("cell") |> Lookup("donor") |> CountBy("metacell") |> IfNot("Outlier") |> Fetch("type") |> Convert(type = Int) |> get_query(chain)
-chain["/ cell : donor * metacell ?? Outlier => type % Convert type Int"]
-
-# output
-
-95×5 Named SparseArrays.ReadOnly{Int64, 2, Matrix{Int64}}
-donor ╲ type │ MEBEMP-E  MEBEMP-L       MPP   Outlier  memory-B
-─────────────┼─────────────────────────────────────────────────
-N100         │        2         2         8         0         2
-N101         │        0         1         6         0         9
-N102         │        4         0         3         0         0
-N103         │        4         2         2         0         2
-N104         │        2         2         3         0        27
-N105         │        3         1         1         0         4
-N106         │        3         1         7         0         2
-N107         │        2         1         4         0         7
-⋮                     ⋮         ⋮         ⋮         ⋮         ⋮
-N92          │        4         0         2         0         0
-N93          │        0         1         0         0         2
-N94          │        5         1         2         0         3
-N95          │        2         0         3         0         0
-N96          │        6         2        12         0         1
-N97          │        0         2         2         0         1
-N98          │        2         0         4         0         0
-N99          │        4         0         7         0        16
-```
-
-!!! note
-
-    We use unsigned integers for values-that-can't-be-negative in `Daf` so that trying to feed negative data into such
-    places will be an error as soon as possible. However, Julia in its infinite wisdom prints unsigned ints in
-    hexadecimal, which is an abomination. In the example above we convert the result to `Int` so it will be displayed
-    properly; in actual code this step should be avoided.
-"""
-struct CountBy <: QueryOperation
-    property_name::AbstractString
-end
-
-function Base.show(io::IO, count_by::CountBy)::Nothing
-    print(io, "* $(escape_value(count_by.property_name))")
+function assert_is_valid(matrix_state::MatrixState)::Nothing
+    assert_is_valid(matrix_state.rows_state)
+    assert_is_valid(matrix_state.columns_state)
+    if matrix_state.pending_final_values !== nothing
+        @assert matrix_state.matrix_values !== nothing
+        @assert size(matrix_state.pending_final_values) == size(matrix_state.matrix_values)
+    end
+    if matrix_state.matrix_values !== nothing
+        @assert matrix_state.rows_state !== nothing
+        @assert matrix_state.rows_state.vector_values !== nothing
+        @assert matrix_state.columns_state !== nothing
+        @assert matrix_state.columns_state.vector_values !== nothing
+        @assert size(matrix_state.matrix_values) ==
+                (length(matrix_state.rows_state.vector_values), length(matrix_state.columns_state.vector_values))
+    end
     return nothing
 end
 
+function MatrixState()::MatrixState
+    return MatrixState(nothing, nothing, nothing, nothing, nothing, nothing)
+end
+
+function print_query_stack_entry(matrix_state::MatrixState)::Nothing  # UNTESTED
+    println("   rows_state:")
+    print_vector_state(matrix_state.rows_state, "  ")  # NOJET
+    println("   columns_state:")
+    print_vector_state(matrix_state.columns_state, "  ")  # NOJET
+    println("   property_name: $(matrix_state.property_name)")
+    println("   property_axis_name: $(matrix_state.property_axis_name)")
+    println("   matrix_values: $(brief(matrix_state.matrix_values)) = $(matrix_state.matrix_values)")
+    println(
+        "   pending_final_values: $(brief(matrix_state.pending_final_values)) = $(matrix_state.pending_final_values)",
+    )
+    return nothing
+end
+
+QueryStackElement = Union{NamesState, ScalarState, VectorState, MatrixState, QueryOperation}
+
+mutable struct QueryState
+    daf::Maybe{DafReader}
+    query_sequence::QuerySequence
+    first_operation_index::Integer
+    next_operation_index::Integer
+    what_for::Symbol
+    dependency_keys::Maybe{Set{CacheKey}}
+    requires_relayout::Bool
+    stack::Vector{QueryStackElement}
+end
+
+function assert_is_valid(query_state::QueryState)::Nothing
+    for element in query_state.stack
+        assert_is_valid(element)
+    end
+end
+
+function print_query_state(query_state::QueryState, where::AbstractString)::Nothing  # UNTESTED
+    println("AT: $(where) FOR: $(query_state.what_for)")
+    println("FULL: $(query_state.query_sequence)")
+    if query_state.first_operation_index > 1
+        println(
+            "DONE: $(QuerySequence(query_state.query_sequence.query_operations[1:query_state.first_operation_index - 1]))",
+        )
+    end
+    if query_state.next_operation_index > query_state.first_operation_index
+        println(
+            "CURR: $(QuerySequence(query_state.query_sequence.query_operations[query_state.first_operation_index:query_state.next_operation_index - 1]))",
+        )
+    end
+    if query_state.next_operation_index <= length(query_state.query_sequence.query_operations)
+        println(
+            "NEXT: $(QuerySequence(query_state.query_sequence.query_operations[query_state.next_operation_index:end]))",
+        )
+    end
+
+    println("KEYS: $(query_state.dependency_keys === nothing ? nothing : sort(collect(query_state.dependency_keys)))")  # NOJET
+    for index in 1:length(query_state.stack)
+        println("- $(index): $(typeof(query_state.stack[index]))")
+        print_query_stack_entry(query_state.stack[index])
+    end
+    return nothing
+end
+
+function query_state_offset(query_state::QueryState, index::Integer)::Integer
+    if index <= 1
+        return 0  # UNTESTED
+    else
+        return length(string(QuerySequence(query_state.query_sequence.query_operations[1:(index - 1)]))) + 1
+    end
+end
+
+function error_at_state(query_state::QueryState, message::AbstractString)::Nothing
+    if query_state.next_operation_index == query_state.first_operation_index
+        if query_state.first_operation_index <= length(query_state.query_sequence.query_operations)
+            query_state_first_offset = query_state_offset(query_state, query_state.first_operation_index) - 1
+        else
+            query_state_first_offset = length(string(query_state.query_sequence))  # UNTESTED
+        end
+        query_state_last_offset = query_state_first_offset + 1
+    else
+        query_state_first_offset = query_state_offset(query_state, query_state.first_operation_index)
+        if query_state.next_operation_index <= length(query_state.query_sequence.query_operations)
+            query_state_last_offset = query_state_offset(query_state, query_state.next_operation_index) - 1  # UNTESTED
+        else
+            query_state_last_offset = length(string(query_state.query_sequence))
+        end
+    end
+    @assert query_state_last_offset > query_state_first_offset
+
+    indent = repeat(" ", max(0, query_state_first_offset))
+    marker = repeat("▲", max(1, query_state_last_offset - query_state_first_offset))
+
+    message = chomp(message)
+    message *= "\nin the query: $(query_state.query_sequence)\nat location:  $(indent)$(marker)"
+
+    if query_state.daf !== nothing
+        message *= "\nfor the daf data: $(query_state.daf.name)"
+    end
+
+    error(message)
+    @assert false
+end
+
+function error_invalid_operation(query_state::QueryState)::Nothing
+    query_state.first_operation_index = query_state.next_operation_index
+    error_at_state(query_state, "invalid operation(s)")
+    @assert false
+end
+
+function is_complete(query_state::QueryState)::Bool
+    return (
+        is_all_stack(query_state, (NamesState,)) ||
+        is_all_stack(query_state, (ScalarState,)) ||
+        (
+            is_all_stack(query_state, (VectorState,)) &&
+            query_state.stack[1].vector_entries !== nothing &&
+            query_state.stack[1].vector_values !== nothing
+        ) ||
+        (
+            is_all_stack(query_state, (MatrixState,)) &&
+            query_state.stack[1].rows_state !== nothing &&
+            query_state.stack[1].rows_state.vector_entries !== nothing &&
+            query_state.stack[1].rows_state.pending_final_values === nothing &&
+            query_state.stack[1].columns_state !== nothing &&
+            query_state.stack[1].columns_state.vector_entries !== nothing &&
+            query_state.stack[1].columns_state.pending_final_values === nothing &&
+            query_state.stack[1].matrix_values !== nothing
+        )
+    )
+end
+
+function is_all_stack(query_state::QueryState, expected::NTuple{N, Union{Type, Function}})::Bool where {N}
+    return length(query_state.stack) == length(expected) && stack_has_top(query_state, expected)
+end
+
+function stack_has_top(query_state::QueryState, expected::NTuple{N, Union{Type, Function}})::Bool where {N}
+    if length(query_state.stack) < length(expected)
+        return false
+    end
+
+    @views top_of_stack = query_state.stack[(end - length(expected) + 1):end]
+    for (query_value, expectation) in zip(top_of_stack, expected)
+        if expectation isa Type
+            if !(query_value isa expectation)
+                return false
+            end
+        else
+            if !expectation(query_state, query_value)
+                return false
+            end
+        end
+    end
+
+    return true
+end
+
+struct Optional
+    condition::Maybe{Union{Type, Function}}
+end
+
+function next_matching_operations(
+    query_state::QueryState,
+    expected::NTuple{N, Union{Optional, Type, Function}},
+)::Maybe{AbstractVector{Maybe{QueryOperation}}} where {N}
+    matching_operations = Maybe{QueryOperation}[]
+
+    next_operation_index = query_state.next_operation_index
+    for expectation in expected
+        if next_operation_index > length(query_state.query_sequence.query_operations)
+            is_match = false
+        else
+            if expectation isa Optional
+                condition = expectation.condition
+            else
+                condition = expectation
+            end
+
+            query_operation = query_state.query_sequence.query_operations[next_operation_index]
+            if condition isa Type
+                is_match = query_operation isa condition
+            else
+                is_match = condition(query_operation)
+            end
+        end
+
+        if is_match
+            push!(matching_operations, query_operation)
+            next_operation_index += 1
+        elseif expectation isa Optional
+            push!(matching_operations, nothing)
+        else
+            return nothing
+        end
+    end
+
+    query_state.next_operation_index = next_operation_index
+    return matching_operations
+end
+
+function get_query_result(
+    daf::DafReader,
+    query_sequence::QuerySequence,
+)::Tuple{Union{AbstractSet{<:AbstractString}, StorageScalar, NamedArray}, Set{CacheKey}}
+    query_state = Formats.with_data_read_lock(daf, "for get_query:", query_sequence) do
+        @debug "Query: $(query_sequence)"
+        return get_query_final_state(daf, query_sequence, :compute)
+    end
+
+    if is_all_stack(query_state, (NamesState,))
+        return (pop!(query_state.stack).names_set, query_state.dependency_keys)
+    end
+
+    if is_all_stack(query_state, (ScalarState,))
+        scalar_state = pop!(query_state.stack)
+        @assert scalar_state isa ScalarState
+        if scalar_state.scalar_value !== nothing
+            return (scalar_state.scalar_value, query_state.dependency_keys)
+        end
+    end
+
+    if is_all_stack(query_state, (VectorState,))
+        vector_state = pop!(query_state.stack)
+        @assert vector_state isa VectorState
+        @assert vector_state.vector_entries !== nothing
+        @assert vector_state.vector_values !== nothing
+        finalize_vector_values!(query_state, vector_state)
+        if vector_state.entries_axis_name === nothing
+            named_vector = NamedArray(vector_state.vector_values; names = (vector_state.vector_entries,))  # NOJET
+        else
+            named_vector = NamedArray(  # NOJET
+                vector_state.vector_values;
+                names = (vector_state.vector_entries,),
+                dimnames = (vector_state.entries_axis_name,),
+            )
+        end
+        return (named_vector, query_state.dependency_keys)
+    end
+
+    if is_all_stack(query_state, (MatrixState,))
+        matrix_state = pop!(query_state.stack)
+        @assert matrix_state isa MatrixState
+        @assert matrix_state.rows_state !== nothing
+        @assert matrix_state.rows_state.vector_entries !== nothing
+        @assert matrix_state.rows_state.pending_final_values === nothing
+        @assert matrix_state.columns_state !== nothing
+        @assert matrix_state.columns_state.vector_entries !== nothing
+        @assert matrix_state.columns_state.pending_final_values === nothing
+        @assert matrix_state.matrix_values !== nothing
+        finalize_matrix_values!(query_state, matrix_state)
+
+        if matrix_state.matrix_values !== nothing
+            if matrix_state.rows_state.entries_axis_name === nothing
+                row_axis_name = :A
+            else
+                row_axis_name = matrix_state.rows_state.entries_axis_name
+            end
+
+            if matrix_state.columns_state.entries_axis_name === nothing
+                column_axis_name = :B
+            else
+                column_axis_name = matrix_state.columns_state.entries_axis_name
+            end
+
+            named_matrix = NamedArray(  # NOJET
+                matrix_state.matrix_values;
+                names = (matrix_state.rows_state.vector_entries, matrix_state.columns_state.vector_entries),
+                dimnames = (row_axis_name, column_axis_name),
+            )
+
+            return (named_matrix, query_state.dependency_keys)
+        end
+    end
+
+    @assert false
+end
+
+function get_query_final_state(daf::Maybe{DafReader}, query_sequence::QuerySequence, what_for::Symbol)::QueryState
+    if what_for == :compute
+        dependency_keys = Set{CacheKey}()
+    else
+        dependency_keys = nothing
+    end
+    query_state = QueryState(daf, query_sequence, 1, 1, what_for, dependency_keys, false, Vector{QueryStackElement}())
+
+    while true
+        # print_query_state(query_state, "STATE")
+        assert_is_valid(query_state)
+
+        if do_query_phrase(query_state)
+            continue
+        end
+
+        if query_state.next_operation_index <= length(query_state.query_sequence.query_operations)
+            error_invalid_operation(query_state)
+            @assert false
+        end
+
+        break
+    end
+    # print_query_state(query_state, "IS DONE")
+    assert_is_valid(query_state)
+
+    if !is_complete(query_state)
+        text = "invalid query: $(query_state.query_sequence)"
+        if daf !== nothing
+            text *= "\nfor the daf data: $(query_state.daf.name)"
+        end
+        error(text)
+    end
+
+    return query_state
+end
+
 """
-    GroupBy(property::AbstractString) <: QueryOperation
+    has_query(daf::DafReader, query::QueryString)::Bool
 
-A query operation that uses a (following) [`ReductionOperation`](@ref) to aggregate the values of each group of values.
-Will fetch the specified `property_name` (possibly followed by additional [`Fetch`](@ref) operations) and use the
-resulting vector for the name of the group of each value.
-
-If applied to a vector, the result is a vector with one entry per group (e.g., `/ cell : age @ type %> Mean` will
-generate a vector with an entry per cell type and whose values are the mean age of the cells of each type). If applied
-to a matrix, the result is a matrix with one row per group (e.g., `/ cell / gene : UMIs @ type %> Max` will generate
-a matrix with one row per type and one column per gene, whose values are the maximal UMIs count of the gene in the cells
-of each type).
-
-By default, the result uses only group values we actually observe, in sorted order. However, if the operation is
-followed by an [`AsAxis`](@ref) suffix, then the fetched property must correspond to an existing axis (similar to when
-using [`Fetch`](@ref)), and the result will use the entries of the axis, even if we do not observe them in the data (and
-will ignore vector entries with an empty value). In this case, the reduction operation will fail if there are no values
-for some group, unless it is followed by an [`IfMissing`](@ref) suffix (e.g., `/ cell : age @ type ! %> Mean` will
-generate a vector whose entries are all the entries of the `type` axis, and will ignore cells with an empty type; this
-will fail if there are types which are not associated with any cell. In contrast, `/ cell : age @ type ! %> Mean || 0`
-will succeed, assigning a value of zero for types which have no cells associated with them).
-
-```jldoctest
-chain = example_chain_daf()
-
-# Axis("cell") |> Lookup("donor") |> Fetch("age") |> GroupBy("metacell") |> IfNot() |> Fetch("type") |> Mean() |> get_query(chain)
-chain["/ cell : donor => age @ metacell ?? => type %> Mean"]
-
-# output
-
-4-element Named SparseArrays.ReadOnly{Float32, 1, Vector{Float32}}
-type     │
-─────────┼────────
-MEBEMP-E │ 63.9767
-MEBEMP-L │ 63.9524
-MPP      │  64.238
-memory-B │ 62.3077
-```
+Return whether the `query` can be successfully applied to the `Daf` data.
 """
-struct GroupBy <: QueryOperation
-    property_name::AbstractString
+function has_query(daf::DafReader, query_string::QueryString)::Bool
+    return has_query(daf, as_query_sequence(query_string))
 end
 
-function Base.show(io::IO, group_by::GroupBy)::Nothing
-    print(io, "@ $(escape_value(group_by.property_name))")
-    return nothing
+function has_query(daf::DafReader, query_sequence::QuerySequence)::Bool
+    return Formats.with_data_read_lock(daf, "for has_query:", query_sequence) do
+        try
+            get_query_final_state(daf, query_sequence, :has_query)
+            return true
+        catch error
+            if error isa AssertionError
+                throw(error)  # UNTESTED
+            end
+            return false
+        end
+    end
 end
 
-function Base.show(io::IO, eltwise_operation::EltwiseOperation)::Nothing
-    show_computation_operation(io, "%", eltwise_operation)
-    return nothing
+"""
+    is_axis_query(query::QueryString)::Bool
+
+Returns whether the `query` specifies a (possibly masked) axis. This also verifies the query is syntactically valid,
+though it may still fail if applied to specific data due to invalid data values or types.
+"""
+function is_axis_query(query_sequence::QueryString)::Bool
+    query_state = get_query_final_state(nothing, as_query_sequence(query_sequence), :is_axis)
+    return is_all_stack(query_state, (VectorState,)) &&
+           query_state.stack[end].entries_axis_name !== nothing &&  # NOLINT
+           query_state.stack[end].property_axis_name == query_state.stack[end].entries_axis_name &&  # NOLINT
+           query_state.stack[end].property_name == "name"  # NOLINT
 end
 
-function Base.show(io::IO, reduction_operation::ReductionOperation)::Nothing
-    show_computation_operation(io, "%>", reduction_operation)
-    return nothing
+"""
+    query_axis_name(query::QueryString)::AbstractString
+
+Return the axis name of a query. This must only be applied to queries that have a vector result that specify an axis,
+that is, if [`is_axis_query`](@ref).
+"""
+function query_axis_name(query_string::QueryString)::AbstractString
+    query_sequence = as_query_sequence(query_string)
+    query_state = get_query_final_state(nothing, as_query_sequence(query_sequence), :axis_name)
+    @assert is_all_stack(query_state, (VectorState,))
+    @assert query_state.stack[end].entries_axis_name !== nothing  # NOLINT
+    @assert query_state.stack[end].property_name == "name"  # NOLINT
+    @assert query_state.stack[end].entries_axis_name == query_state.stack[end].property_axis_name  # NOLINT
+    return query_state.stack[end].entries_axis_name  # NOLINT # NOJET
+end
+
+"""
+    query_result_dimensions(query::QueryString)::Int
+
+Return the number of dimensions (-1 - names, 0 - scalar, 1 - vector, 2 - matrix) of the results of a `query`. This also
+verifies the query is syntactically valid, though it may still fail if applied to specific data due to invalid data
+values or types.
+"""
+function query_result_dimensions(query_string::QueryString)::Int
+    query_sequence = as_query_sequence(query_string)
+    query_state = get_query_final_state(nothing, query_sequence, :result_dimensions)
+
+    if is_all_stack(query_state, (NamesState,))
+        return -1
+    end
+
+    if is_all_stack(query_state, (ScalarState,))
+        return 0
+    end
+
+    if is_all_stack(query_state, (VectorState,))
+        return 1
+    end
+
+    if is_all_stack(query_state, (MatrixState,))
+        return 2
+    end
+
+    @assert false
+end
+
+"""
+    query_requires_relayout(daf::DafReader, query::QueryString)::Bool
+
+Whether computing the `query` for the `daf` data requires `relayout` of some matrix. This also verifies the query is
+syntactically valid and that the query can be computed, though it may still fail if applied to specific data due to
+invalid values or types.
+"""
+function query_requires_relayout(daf::DafReader, query_string::QueryString)::Bool
+    query_sequence = as_query_sequence(query_string)
+    query_state = Formats.with_data_read_lock(daf, "for requires_relayout:", query_sequence) do
+        return get_query_final_state(daf, query_sequence, :requires_relayout)
+    end
+
+    return query_state.requires_relayout
+end
+
+"""
+    guess_typed_value(value::AbstractString)::StorageScalar
+
+Given a string value, guess the typed value it represents:
+
+  - `true` and `false` are assumed to be `Bool`.
+  - Integers are assumed to be `Int64`.
+  - Floating point numbers are assumed to be `Float64`, as are `e` and `pi`.
+  - Anything else is assumed to be a string.
+
+This doesn't have to be 100% accurate; it is intended to allow omitting the data type in most cases when specifying an
+[`IfMissing`](@ref) value. If it guesses wrong, just specify an explicit type (e.g., `. version || 1.0 String`).
+"""
+function guess_typed_value(value::AbstractString)::StorageScalar
+    for (string_value, typed_value) in (("true", true), ("false", false), ("e", Float64(e)), ("pi", Float64(pi)))
+        if value == string_value
+            return typed_value
+        end
+    end
+
+    try
+        return parse(Int64, value)
+    catch
+    end
+
+    try
+        return parse(Float64, value)
+    catch
+    end
+
+    return string(value)
 end
 
 function show_computation_operation(
@@ -1998,2433 +1961,2281 @@ function show_computation_operation(
     return nothing
 end
 
-mutable struct ScalarState
-    query_sequence::QuerySequence
-    dependency_keys::Set{CacheKey}
-    scalar_value::StorageScalar
-end
-
-struct FakeScalarState end
-
-mutable struct AxisState
-    query_sequence::QuerySequence
-    dependency_keys::Set{CacheKey}
-    axis_name::AbstractString
-    axis_modifier::Maybe{Union{AbstractVector{Bool}, Int}}
-end
-
-struct FakeAxisState
-    axis_name::Maybe{AbstractString}
-    is_entry::Bool
-    is_slice::Bool
-end
-
-mutable struct VectorState
-    query_sequence::QuerySequence
-    dependency_keys::Set{CacheKey}
-    named_vector::NamedArray
-    property_name::AbstractString
-    axis_state::Maybe{AxisState}
-    is_processed::Bool
-end
-
-struct FakeVectorState
-    axis_state::Maybe{FakeAxisState}
-    is_processed::Bool
-end
-
-mutable struct MatrixState
-    query_sequence::QuerySequence
-    dependency_keys::Set{CacheKey}
-    named_matrix::NamedArray
-    rows_property_name::AbstractString
-    columns_property_name::AbstractString
-    rows_axis_state::Maybe{AxisState}
-    columns_axis_state::AxisState
-end
-
-mutable struct NamesState
-    dependency_keys::Set{CacheKey}
-    names::AbstractSet{<:AbstractString}
-end
-
-struct FakeMatrixState
-    rows_axis::Maybe{FakeAxisState}
-    columns_axis::FakeAxisState
-end
-
-QueryValue = Union{NamesState, ScalarState, AxisState, VectorState, MatrixState, AsAxis, GroupBy}
-
-mutable struct QueryState
-    daf::DafReader
-    query_sequence::QuerySequence
-    next_operation_index::Int
-    stack::Vector{QueryValue}
-end
-
-function debug_query(object::Any; name::Maybe{AbstractString} = nothing, indent::AbstractString = "")::Nothing  # UNTESTED # NOJET
-    if name === nothing
-        @debug "$(indent)- $(brief(object))"
-    else
-        @debug "$(indent)- $(name): $(brief(object))"
-    end
+function Base.show(io::IO, eltwise_operation::EltwiseOperation)::Nothing
+    show_computation_operation(io, "%", eltwise_operation)
     return nothing
 end
 
-function debug_query(  # UNTESTED
-    query_state::QueryState;
-    name::Maybe{AbstractString} = nothing,
-    indent::AbstractString = "",
-)::Nothing
-    if name === nothing
-        @debug "$(indent)- QueryState:"
-    else
-        @debug "$(indent)- $(name): QueryState:"
-    end
-    @debug "$(indent)  daf: $(query_state.daf.name)"
-    @debug "$(indent)  sequence: $(query_state.query_sequence)"
-    @debug "$(indent)  next_operation_index: $(query_state.next_operation_index)"
-    @debug "$(indent)  stack:"
-    for (index, query_value) in enumerate(query_state.stack)
-        debug_query(query_value; name = "#$(index)", indent = indent * "  ")
-    end
+function Base.show(io::IO, reduction_operation::ReductionOperation)::Nothing
+    show_computation_operation(io, ">>", reduction_operation)
     return nothing
-end
-
-function debug_query(  # UNTESTED
-    scalar_state::ScalarState;
-    name::Maybe{AbstractString} = nothing,
-    indent::AbstractString = "",
-)::Nothing
-    if name === nothing
-        @debug "$(indent)- ScalarState:"
-    else
-        @debug "$(indent)- $(name): ScalarState:"
-    end
-    @debug "$(indent)  query_sequence: $(scalar_state.query_sequence)"
-    @debug "$(indent)  scalar_value: $(scalar_state.scalar_value)"
-    return nothing
-end
-
-function debug_query(axis_state::AxisState; name::Maybe{AbstractString} = nothing, indent::AbstractString = "")::Nothing  # UNTESTED
-    if name === nothing
-        @debug "$(indent)- AxisState:"
-    else
-        @debug "$(indent)- $(name): AxisState:"
-    end
-    @debug "$(indent)  query_sequence: $(axis_state.query_sequence)"
-    @debug "$(indent)  axis_name: $(axis_state.axis_name)"
-    @debug "$(indent)  axis_modifier: $(brief(axis_state.axis_modifier))"
-    return nothing
-end
-
-function debug_query(  # UNTESTED
-    vector_state::VectorState;
-    name::Maybe{AbstractString} = nothing,
-    indent::AbstractString = "",
-)::Nothing
-    if name === nothing
-        @debug "$(indent)- VectorState:"
-    else
-        @debug "$(indent)- $(name): VectorState:"
-    end
-    @debug "$(indent)   query_sequence: $(vector_state.query_sequence)"
-    @debug "$(indent)   named_vector: $(brief(vector_state.named_vector))"
-    @debug "$(indent)   property_name: $(vector_state.property_name)"
-    @debug "$(indent)  is_processed: $(vector_state.is_processed)"
-    if vector_state.axis_state === nothing
-        @debug "$(indent)  axis_state: nothing"
-    else
-        debug_query(vector_state.axis_state; name = "axis_state", indent = indent * "  ")
-    end
-    return nothing
-end
-
-function debug_query(  # UNTESTED
-    matrix_state::MatrixState;
-    name::Maybe{AbstractString} = nothing,
-    indent::AbstractString = "",
-)::Nothing
-    if name === nothing
-        @debug "$(indent)- MatrixState:"
-    else
-        @debug "$(indent)- $(name): MatrixState:"
-    end
-    @debug "$(indent)  query_sequence: $(matrix_state.query_sequence)"
-    @debug "$(indent)  named_matrix: $(brief(matrix_state.named_matrix))"
-    @debug "$(indent)  rows_property_name: $(matrix_state.rows_property_name)"
-    @debug "$(indent)  columns_property_name: $(matrix_state.columns_property_name)"
-    if matrix_state.rows_axis_state === nothing
-        @debug "$(indent)  rows_axis_state: nothing"
-    else
-        debug_query(matrix_state.rows_axis_state; name = "rows_axis_state", indent = indent * "  ")
-    end
-    debug_query(matrix_state.columns_axis_state; name = "columns_axis_state", indent = indent * "  ")
-    return nothing
-end
-
-struct FakeAsAxis end
-
-struct FakeGroupBy end
-
-FakeQueryValue = Union{
-    Set{AbstractString},
-    FakeScalarState,
-    FakeAxisState,
-    FakeVectorState,
-    FakeMatrixState,
-    FakeAsAxis,
-    FakeGroupBy,
-}
-
-mutable struct FakeQueryState
-    daf::Maybe{DafReader}
-    query_sequence::QuerySequence
-    next_operation_index::Int
-    stack::Vector{FakeQueryValue}
-    requires_relayout::Bool
-end
-
-function query_state_sequence(query_state::Union{QueryState, FakeQueryState}; trim::Int = 0)::QuerySequence
-    last_index = query_state.next_operation_index - 1 - trim
-    return QuerySequence(query_state.query_sequence.query_operations[1:last_index])
-end
-
-function error_at_state(query_state::Union{QueryState, FakeQueryState}, message::AbstractString)::Union{}
-    query_state_first_offset = length(string(query_state_sequence(query_state; trim = 1)))
-    query_state_last_offset = length(string(query_state_sequence(query_state)))
-    if query_state_first_offset > 0
-        query_state_first_offset += 1
-    end
-    @assert query_state_last_offset > query_state_first_offset
-
-    indent = repeat(" ", query_state_first_offset)
-    marker = repeat("▲", query_state_last_offset - query_state_first_offset)
-
-    message = chomp(message)
-    message *= "\nin the query: $(query_state.query_sequence)\nat operation: $(indent)$(marker)"
-    if query_state isa QueryState
-        message *= "\nfor the daf data: $(query_state.daf.name)"
-    end
-
-    return error(message)
-end
-
-function error_unexpected_operation(query_state::Union{QueryState, FakeQueryState})::Union{}
-    query_operation = query_state.query_sequence.query_operations[query_state.next_operation_index - 1]
-    if query_operation isa EltwiseOperation
-        query_operation_type = EltwiseOperation
-    elseif query_operation isa ReductionOperation
-        query_operation_type = ReductionOperation  # UNTESTED
-    else
-        query_operation_type = typeof(query_operation)
-    end
-    return error_at_state(query_state, "unexpected operation: $(query_operation_type)")
-end
-
-function Base.getindex(
-    daf::DafReader,
-    query::QueryString,
-)::Union{AbstractSet{<:AbstractString}, AbstractVector{<:AbstractString}, StorageScalar, NamedArray}
-    return get_query(daf, query; cache = false)
-end
-
-function Base.:(|>)(
-    query::QueryString,
-    daf_cache::Tuple{DafReader, Bool},
-)::Union{AbstractSet{<:AbstractString}, AbstractVector{<:AbstractString}, StorageScalar, NamedArray}
-    daf, cache = daf_cache
-    return get_query(daf, query; cache)
 end
 
 """
-    get_query(
-        daf::DafReader,
-        query::QueryString;
-        [cache::Bool = true]
-    )::Union{StorageScalar, NamedVector, NamedMatrix}
+    struct Names <: Query end
 
-    get_query(
-        daf::DafReader;
-        cache::Bool = true,
+A query operation for looking up a set of names. In a string [`Query`](@ref), this is specified using the `?` operator.
+This is only used in [`NAMES_QUERY`](@ref).
+"""
+struct Names <: Query end
+
+function Base.show(io::IO, ::Names)::Nothing
+    print(io, "?")
+    return nothing
+end
+
+"""
+    struct Axis <: Query
+        axis_name::Maybe{AbstractString}
+    end
+
+A query operator for specifying an axis. This is used extensively in [`VECTOR_QUERY`](@ref) and [`MATRIX_QUERY`](@ref).
+In addition, this is also used to ask for the names of axes (see [`NAMES_QUERY`](@ref)).
+"""
+struct Axis <: Query
+    axis_name::Maybe{AbstractString}
+end
+
+function Axis()::Axis
+    return Axis(nothing)
+end
+
+function Base.show(io::IO, axis::Axis)::Nothing
+    if axis.axis_name === nothing
+        print(io, "@")
+    else
+        print(io, "@ $(escape_value(axis.axis_name))")
+    end
+    return nothing
+end
+
+"""
+    struct AsAxis <: Query
+        axis_name::Maybe{AbstractString}
+    end
+
+A query operator for specifying that the values of a property we looked up are the names of entries in some axis. This
+is used extensively in [`VECTOR_AS_AXIS`](@ref).
+"""
+struct AsAxis <: Query
+    axis_name::Maybe{AbstractString}
+end
+
+function AsAxis()::AsAxis
+    return AsAxis(nothing)
+end
+
+function Base.show(io::IO, as_axis::AsAxis)::Nothing
+    if as_axis.axis_name === nothing
+        print(io, "=@")
+    else
+        print(io, "=@ $(escape_value(as_axis.axis_name))")
+    end
+    return nothing
+end
+
+"""
+    struct IfMissing <: QueryOperation
+        default_value::StorageScalar
+    end
+
+A query operator for specifying a value to use for a property that is missing from the data. This is used anywhere we
+look up a property (see [`SCALAR_QUERY`](@ref), [`VECTOR_QUERY`](@ref), [`MATRIX_QUERY`](@ref)).
+"""
+struct IfMissing <: QueryOperation
+    default_value::StorageScalar
+end
+
+function Base.show(io::IO, if_missing::IfMissing)::Nothing
+    string_default_value = string(if_missing.default_value)
+    print(io, "|| $(escape_value(string_default_value))")
+    if if_missing.default_value != guess_typed_value(string_default_value)
+        print(io, " $(typeof(if_missing.default_value))")
+    end
+    return nothing
+end
+
+function default_value(::Nothing)::UndefInitializer
+    return undef
+end
+
+function default_value(if_missing::IfMissing)::StorageScalar
+    return if_missing.default_value
+end
+
+"""
+    struct LookupScalar <: Query
+        property_name::AbstractString
+    end
+
+Lookup the value of a scalar property (see [`SCALAR_QUERY`](@ref)).
+"""
+struct LookupScalar <: Query
+    property_name::AbstractString
+end
+
+function Base.show(io::IO, lookup_scalar::LookupScalar)::Nothing
+    print(io, ". $(escape_value(lookup_scalar.property_name))")
+    return nothing
+end
+
+"""
+    parse_query(
+        query_string::AbstractString,
+        operand_only::Maybe{Type{<:QueryOperation}} = nothing
+    )::QueryOperation
+
+Parse a query (or a fragment of a query). If the `query_string` contains just a name, and `operand_only` was specified,
+then it is assumed this is the type of query operation.
+"""
+function parse_query(
+    query_string::AbstractString,
+    operand_only::Maybe{Type{<:QueryOperation}} = nothing,
+)::QueryOperation
+    tokens = tokenize(query_string, QUERY_OPERATIONS_REGEX)
+    if operand_only !== nothing && length(tokens) == 1 && !tokens[1].is_operator
+        return operand_only(query_string)  # NOJET
+    end
+
+    next_token_index = 1
+    query_operations = Vector{QueryOperation}()
+    while next_token_index <= length(tokens)
+        query_operation, next_token_index = next_query_operation(tokens, next_token_index)
+        push!(query_operations, query_operation)
+    end
+
+    return QuerySequence(query_operations)
+end
+
+"""
+    struct LookupVector <: QueryOperation
+        property_name::AbstractString
+    end
+
+Lookup the value of a vector property (see [`VECTOR_QUERY`](@ref)).
+"""
+struct LookupVector <: QueryOperation
+    property_name::AbstractString
+end
+
+function Base.show(io::IO, lookup_vector::LookupVector)::Nothing
+    print(io, ": $(escape_value(lookup_vector.property_name))")
+    return nothing
+end
+
+"""
+    struct LookupMatrix <: QueryOperation
+        property_name::AbstractString
+    end
+
+Lookup the value of a matrix property, even if we immediately slice just a vector (row or column) or even a single
+scalar entry out of the matrix (see [`SCALAR_QUERY`](@ref), [`VECTOR_LOOKUP`](@ref) and [`MATRIX_QUERY`](@ref)).
+"""
+struct LookupMatrix <: QueryOperation
+    property_name::AbstractString
+end
+
+function Base.show(io::IO, lookup_vector::LookupMatrix)::Nothing
+    print(io, ":: $(escape_value(lookup_vector.property_name))")
+    return nothing
+end
+
+"""
+    struct IfNot <: QueryOperation
+        final_value::Maybe{StorageScalar}
+    end
+
+Specify a final value to use when, having looked up some base property values, we use them as axis entry names to lookup
+another property of that axis. If the base property value is empty, then this is an error. Specifying `IfNot` without
+a `final_value` allows us to mask out that entry from the result instead. Specifying a `final_value` will use it for
+the final property value (since there may be an arbitrarily long chain of lookup operations).
+"""
+struct IfNot <: QueryOperation
+    final_value::Maybe{StorageScalar}
+end
+
+function IfNot()
+    return IfNot(nothing)
+end
+
+function Base.show(io::IO, if_not::IfNot)::Nothing
+    final_value = if_not.final_value
+    if final_value === nothing
+        print(io, "??")
+    else
+        print(io, "?? $(escape_value(string(final_value)))")
+    end
+    return nothing
+end
+
+"""
+    struct BeginMask <: QueryOperation
+        property_name::AbstractString
+    end
+
+Start specifying a mask to apply to an axis of the result. Must be accompanied by an [`EndMask`](@ref) (see
+[`VECTOR_MASK`](@ref)).
+"""
+struct BeginMask <: QueryOperation
+    property_name::AbstractString
+end
+
+function Base.show(io::IO, begin_mask::BeginMask)::Nothing
+    return print(io, "[ $(escape_value(begin_mask.property_name))")
+end
+
+"""
+    struct BeginNegatedMask <: QueryOperation
+        property_name::AbstractString
+    end
+
+Start specifying a mask to apply to an axis of the result, negating the first mask. Must be accompanied by an
+[`EndMask`](@ref) (see [`VECTOR_MASK`](@ref)).
+"""
+struct BeginNegatedMask <: QueryOperation
+    property_name::AbstractString
+end
+
+function Base.show(io::IO, begin_negated_mask::BeginNegatedMask)::Nothing
+    return print(io, "[ ! $(escape_value(begin_negated_mask.property_name))")
+end
+
+BeginAnyMask = Union{BeginMask, BeginNegatedMask}
+
+"""
+    struct EndMask <: QueryOperation end
+
+Finish specifying a mask to apply to an axis of the result, following [`BeginMask`](@ref) or [`BeginNegatedMask`](@ref)
+(see [`VECTOR_MASK`](@ref)).
+"""
+struct EndMask <: QueryOperation end
+
+function Base.show(io::IO, ::EndMask)::Nothing
+    return print(io, "]")
+end
+
+"""
+    struct IsLess <: QueryOperation
+        comparison_value::StorageScalar
+    end
+
+Convert a vector of values to a vector of Booleans, is true for entries that are less than the `comparison_value`
+(see [`VECTOR_OPERATION`](@ref)).
+"""
+struct IsLess <: QueryOperation
+    comparison_value::StorageScalar
+end
+
+function comparison_operator(::IsLess)::String
+    return "<"
+end
+
+function compute_comparison(compared_value::StorageScalar, ::IsLess, comparison_value::StorageScalar)::Bool
+    return compared_value < comparison_value
+end
+
+"""
+    struct IsLessEqual <: QueryOperation
+        comparison_value::StorageScalar
+    end
+
+Convert a vector of values to a vector of Booleans, is true for entries that are less than or equal to the
+`comparison_value` (see [`VECTOR_OPERATION`](@ref)).
+"""
+struct IsLessEqual <: QueryOperation
+    comparison_value::StorageScalar
+end
+
+function comparison_operator(::IsLessEqual)::String
+    return "<="
+end
+
+function compute_comparison(compared_value::StorageScalar, ::IsLessEqual, comparison_value::StorageScalar)::Bool
+    return compared_value <= comparison_value
+end
+
+"""
+    struct IsEqual <: QueryOperation
+        comparison_value::StorageScalar
+    end
+
+Convert a vector of values to a vector of Booleans, is true for entries that are equal to the `comparison_value` (see
+[`VECTOR_OPERATION`](@ref)).
+"""
+struct IsEqual <: QueryOperation
+    comparison_value::StorageScalar
+end
+
+function comparison_operator(::IsEqual)::String
+    return "="
+end
+
+function compute_comparison(compared_value::StorageScalar, ::IsEqual, comparison_value::StorageScalar)::Bool
+    return compared_value == comparison_value
+end
+
+"""
+    struct IsNotEqual <: QueryOperation
+        comparison_value::StorageScalar
+    end
+
+Convert a vector of values to a vector of Booleans, is true for entries that are not equal to the `comparison_value`
+(see [`VECTOR_OPERATION`](@ref)).
+"""
+struct IsNotEqual <: QueryOperation
+    comparison_value::StorageScalar
+end
+
+function comparison_operator(::IsNotEqual)::String
+    return "!="
+end
+
+function compute_comparison(compared_value::StorageScalar, ::IsNotEqual, comparison_value::StorageScalar)::Bool
+    return compared_value != comparison_value
+end
+
+"""
+    struct IsGreaterEqual <: QueryOperation
+        comparison_value::StorageScalar
+    end
+
+Convert a vector of values to a vector of Booleans, is true for entries that are greater than or equal to the
+`comparison_value` (see [`VECTOR_OPERATION`](@ref)).
+"""
+struct IsGreaterEqual <: QueryOperation
+    comparison_value::StorageScalar
+end
+
+function comparison_operator(::IsGreaterEqual)::String
+    return ">="
+end
+
+function compute_comparison(compared_value::StorageScalar, ::IsGreaterEqual, comparison_value::StorageScalar)::Bool
+    return compared_value >= comparison_value
+end
+
+"""
+    struct IsGreater <: QueryOperation
+        comparison_value::StorageScalar
+    end
+
+Convert a vector of values to a vector of Booleans, is true for entries that are greater than the `comparison_value`
+(see [`VECTOR_OPERATION`](@ref)).
+"""
+struct IsGreater <: QueryOperation
+    comparison_value::StorageScalar
+end
+
+function comparison_operator(::IsGreater)::String
+    return ">"
+end
+
+function compute_comparison(compared_value::StorageScalar, ::IsGreater, comparison_value::StorageScalar)::Bool
+    return compared_value > comparison_value
+end
+
+"""
+    struct IsMatch <: QueryOperation
+        comparison_value::StorageScalar
+    end
+
+Convert a vector of values to a vector of Booleans, is true for (string!) entries that are a (complete!) match to the
+`comparison_value` regular expression (see [`VECTOR_OPERATION`](@ref)).
+"""
+struct IsMatch <: QueryOperation
+    comparison_value::Union{AbstractString, Regex}
+end
+
+function comparison_operator(::IsMatch)::String
+    return "~"
+end
+
+function compute_comparison(compared_value::AbstractString, ::IsMatch, comparison_regex::Regex)::Bool
+    return occursin(comparison_regex, compared_value)
+end
+
+"""
+    struct IsNotMatch <: QueryOperation
+        comparison_value::StorageScalar
+    end
+
+Convert a vector of values to a vector of Booleans, is true for (string!) entries that are not a (complete!) match to
+the `comparison_value` regular expression (see [`VECTOR_OPERATION`](@ref)).
+"""
+struct IsNotMatch <: QueryOperation
+    comparison_value::Union{AbstractString, Regex}
+end
+
+function comparison_operator(::IsNotMatch)::String
+    return "!~"
+end
+
+function compute_comparison(compared_value::AbstractString, ::IsNotMatch, comparison_regex::Regex)::Bool
+    return !occursin(comparison_regex, compared_value)
+end
+
+VectorComparisonOperation =
+    Union{IsLess, IsLessEqual, IsEqual, IsNotEqual, IsGreaterEqual, IsGreater, IsMatch, IsNotMatch}
+
+function Base.show(io::IO, comparison_operation::VectorComparisonOperation)::Nothing
+    print(
+        io,
+        "$(comparison_operator(comparison_operation)) $(escape_value(string(comparison_operation.comparison_value)))",
     )
+    return nothing
+end
 
-Apply the full `query` to the `Daf` data and return the result. By default, this will cache results, so repeated queries
-will be accelerated. This may consume a large amount of memory. You can disable it by specifying `cache = false`, or
-release the cached data using [`empty_cache!`](@ref).
+"""
+    struct SquareColumnIs <: QueryOperation
+        comparison_value::AbstractString
+    end
 
-As a shorthand syntax you can also invoke this using `getindex`, that is, using the `[]` operator (e.g.,
-`daf[q"/ cell"]` is equivalent to `get_query(daf, q"/ cell"; cache = false)`). Finally, you can use `|>` to
-invoke the query, which is especially useful when constructing it from the operations `Axis("cell") |> get_query(daf)`
-or even `"/ cell" |> get_query(daf)`.
+Whenever extracting a vector from a square matrix, specify the axis entry that identifies the column to extract. This is
+used in any phrase that looks up a vector out of a matrix (see [`VECTOR_QUERY`](@ref) and [`MATRIX_QUERY`](@ref)).
 
 !!! note
 
-    Using `get_query`, the query *is* cached (by default). Using `[...]`, the query is *not* cached. That is, `[...]` is
-    mostly used for one-off queries (and in interactive sessions, etc.) while `get_query` is used for more "fundamental"
-    queries that are expected to be re-used.
+    Julia and `Daf` use column-major layout as their default, so this is typically the natural way to extract a vector
+    from a square matrix (e.g., for a square `is_in_neighborhood` matrix per block per block, the column is the base
+    block and the rows are the other block, so the column vector contains a mask of all the blocks in the neighborhood
+    of the base block).
 """
-function get_query(daf::DafReader; cache::Bool = true)::Tuple{DafReader, Bool}
-    return (daf, cache)
+struct SquareColumnIs <: QueryOperation
+    comparison_value::AbstractString
 end
 
-function get_query(
-    daf::DafReader,
-    query_string::AbstractString;
-    cache::Bool = true,
-)::Union{AbstractSet{<:AbstractString}, AbstractVector{<:AbstractString}, StorageScalar, NamedArray}
-    return get_query(daf, Query(query_string); cache)
-end
-
-function get_query(
-    daf::DafReader,
-    query_sequence::QuerySequence;
-    cache::Bool = true,
-)::Union{AbstractSet{<:AbstractString}, AbstractVector{<:AbstractString}, StorageScalar, NamedArray}
-    cache_key = (CachedQuery, "$(query_sequence)")
-    verify_contract_query(daf, cache_key)
-    return Formats.with_data_read_lock(daf, "for get_query of:", cache_key) do
-        if cache
-            result = Formats.get_through_cache(
-                daf,
-                cache_key,
-                Union{AbstractSet{<:AbstractString}, AbstractVector{<:AbstractString}, StorageScalar, NamedArray},
-                QueryData;
-                is_slow = true,
-            ) do
-                return do_get_query(daf, query_sequence)
-            end
-        else
-            result = Formats.with_cache_read_lock(daf, "for get_query of:", cache_key) do
-                return get(daf.internal.cache, cache_key, nothing)
-            end
-            if result === nothing
-                result, _ = do_get_query(daf, query_sequence)
-            else
-                result = result.data
-            end
-        end
-        @debug "get_query daf: $(brief(daf)) query_sequence: $(query_sequence) cache: $(cache) result: $(brief(result))"
-        return result
-    end
+function Base.show(io::IO, columns_is::SquareColumnIs)::Nothing
+    print(io, "@| $(escape_value(columns_is.comparison_value))")
+    return nothing
 end
 
 """
-    has_query(daf::DafReader, query::QueryString)::Bool
+    struct SquareRowIs <: QueryOperation
+        comparison_value::AbstractString
+    end
 
-Return whether the `query` can be applied to the `Daf` data.
+Whenever extracting a vector from a square matrix, specify the axis entry that identifies the row to extract. This is
+used in any phrase that looks up a vector out of a matrix (see [`VECTOR_QUERY`](@ref) and [`MATRIX_QUERY`](@ref)).
+
+!!! note
+
+    Julia and `Daf` use column-major layout as their default, so this typically cuts across the natural way to extract a
+    vector from a square matrix (e.g., for a square `is_in_neighborhood` matrix per block per block, the column is the
+    base block and the rows are the other block, so the row vector contains a mask of all the base blocks that a given
+    block is in the neighborhood of).
 """
-function has_query(daf::DafReader, query_string::AbstractString)::Bool
-    return has_query(daf, Query(query_string))
+struct SquareRowIs <: QueryOperation
+    comparison_value::AbstractString
 end
 
-function has_query(daf::DafReader, query_sequence::QuerySequence)::Bool
-    return Formats.with_data_read_lock(daf, "for query_requires_relayout:", query_sequence) do
-        try
-            get_fake_query_result(query_sequence; daf)
-            return true
-        catch error
-            if error isa AssertionError
-                throw(error)  # UNTESTED
-            end
-            return false
-        end
-    end
-end
-
-function verify_contract_query(::DafReader, ::CacheKey)::Nothing
+function Base.show(io::IO, square_row_is::SquareRowIs)::Nothing
+    print(io, "@| $(escape_value(square_row_is.comparison_value))")
     return nothing
-end
-
-function do_get_query(
-    daf::DafReader,
-    query_sequence::QuerySequence,
-)::Tuple{
-    Union{AbstractSet{<:AbstractString}, AbstractVector{<:AbstractString}, StorageScalar, NamedArray},
-    Set{CacheKey},
-}
-    return flame_timed("query") do
-        local query_state
-
-        flame_timed("query.operations") do
-            query_state = QueryState(daf, query_sequence, 1, Vector{QueryValue}())
-            while query_state.next_operation_index <= length(query_state.query_sequence.query_operations)
-                query_operation = query_sequence.query_operations[query_state.next_operation_index]
-                query_state.next_operation_index += 1
-                apply_query_operation!(query_state, query_operation)
-            end
-        end
-
-        return flame_timed("query.results") do
-            if is_all(query_state, (NamesState,))
-                return get_names_result(query_state)
-            elseif is_all(query_state, (ScalarState,))
-                return get_scalar_result(query_state)
-            elseif is_all(query_state, (AxisState,))
-                return axis_vector_result(query_state)
-            elseif is_all(query_state, (VectorState,))
-                return get_vector_result(query_state)
-            elseif is_all(query_state, (MatrixState,))
-                return get_matrix_result(query_state)
-            else
-                return error(chomp("""
-                             partial query: $(query_state.query_sequence)
-                             for the daf data: $(query_state.daf.name)
-                             """))
-            end
-        end
-    end
-end
-
-function get_names_result(query_state::QueryState)::Tuple{AbstractSet{<:AbstractString}, Set{CacheKey}}
-    names_state = pop!(query_state.stack)
-    @assert names_state isa NamesState
-    return (names_state.names, names_state.dependency_keys)
-end
-
-function get_scalar_result(query_state::QueryState)::Tuple{StorageScalar, Set{CacheKey}}
-    scalar_state = pop!(query_state.stack)
-    @assert scalar_state isa ScalarState
-    return (scalar_state.scalar_value, scalar_state.dependency_keys)
-end
-
-function axis_vector_result(
-    query_state::QueryState,
-)::Tuple{Union{AbstractString, AbstractVector{<:AbstractString}}, Set{CacheKey}}
-    axis_state = pop!(query_state.stack)
-    @assert axis_state isa AxisState
-
-    axis_modifier = axis_state.axis_modifier
-    axis_entries = axis_vector(query_state.daf, axis_state.axis_name)
-    if axis_modifier isa Int
-        return (axis_entries[axis_modifier], axis_state.dependency_keys)
-    else
-        if axis_modifier isa AbstractVector{Bool}
-            axis_entries = axis_entries[axis_modifier]
-        end
-        return (read_only_array(axis_entries), axis_state.dependency_keys)
-    end
-end
-
-function get_vector_result(query_state::QueryState)::Tuple{NamedArray, Set{CacheKey}}
-    vector_state = pop!(query_state.stack)
-    @assert vector_state isa VectorState
-    return (read_only_array(vector_state.named_vector), vector_state.dependency_keys)
-end
-
-function get_matrix_result(query_state::QueryState)::Tuple{NamedArray, Set{CacheKey}}
-    matrix_state = pop!(query_state.stack)
-    @assert matrix_state isa MatrixState
-    return (read_only_array(matrix_state.named_matrix), matrix_state.dependency_keys)
-end
-
-function is_axis_query(query_string::AbstractString)::Bool
-    return is_axis_query(Query(query_string))
-end
-
-function query_result_dimensions(query_string::AbstractString)::Int
-    return query_result_dimensions(Query(query_string))
-end
-
-function query_requires_relayout(daf::DafReader, query_string::AbstractString)::Bool
-    return query_requires_relayout(daf, Query(query_string))
 end
 
 """
-    is_axis_query(query::QueryString)::Bool
+    struct AndMask <: QueryOperation
+        property_name::AbstractString
+    end
 
-Returns whether the `query` specifies a (possibly masked) axis. This also verifies the query is syntactically valid,
-though it may still fail if applied to specific data due to invalid data values or types.
+Combine a mask with another, using the bitwise AND operator (see [`VECTOR_MASK`](@ref)).
 """
-function is_axis_query(query_sequence::QuerySequence)::Bool
-    return get_is_axis_query(get_fake_query_result(query_sequence))
-end
-
-function get_is_axis_query(fake_query_state::FakeQueryState)::Bool
-    if is_all(fake_query_state, (FakeAxisState,))
-        fake_axis_state = fake_query_state.stack[1]
-        @assert fake_axis_state isa FakeAxisState
-        if fake_axis_state.axis_name === nothing || !fake_axis_state.is_entry
-            return true
-        end
-    end
-
-    return false
-end
-
-"""
-    query_result_dimensions(query::QueryString)::Int
-
-Return the number of dimensions (-1 - names, 0 - scalar, 1 - vector, 2 - matrix) of the results of a `query`. This also
-verifies the query is syntactically valid, though it may still fail if applied to specific data due to invalid data
-values or types.
-"""
-function query_result_dimensions(query_sequence::QuerySequence)::Int
-    return get_query_result_dimensions(get_fake_query_result(query_sequence))
-end
-
-"""
-    query_requires_relayout(daf::DafReader, query::QueryString)::Bool
-
-Whether computing the `query` for the `daf` data requires `relayout!` of some matrix. This also verifies the
-query is syntactically valid and that the query can be computed, though it may still fail if applied to specific data
-due to invalid values or types.
-"""
-function query_requires_relayout(daf::DafReader, query_sequence::QuerySequence)::Bool
-    return Formats.with_data_read_lock(daf, "for query_requires_relayout:", query_sequence) do
-        return get_fake_query_result(query_sequence; daf).requires_relayout
-    end
-end
-
-function get_fake_query_result(query_sequence::QuerySequence; daf::Maybe{DafReader} = nothing)::FakeQueryState
-    fake_query_state = FakeQueryState(daf, query_sequence, 1, Vector{FakeQueryValue}(), false)
-    while fake_query_state.next_operation_index <= length(fake_query_state.query_sequence.query_operations)
-        query_operation = query_sequence.query_operations[fake_query_state.next_operation_index]
-        fake_query_state.next_operation_index += 1
-        fake_query_operation!(fake_query_state, query_operation)
-    end
-
-    if is_all(fake_query_state, (AbstractSet,)) ||
-       is_all(fake_query_state, (FakeScalarState,)) ||
-       is_all(fake_query_state, (FakeAxisState,)) ||
-       is_all(fake_query_state, (FakeVectorState,)) ||
-       is_all(fake_query_state, (FakeMatrixState,))
-        return fake_query_state
-    end
-
-    text = "partial query: $(fake_query_state.query_sequence)"
-    if daf !== nothing
-        text *= "\nfor the daf data: $(daf.name)"
-    end
-    return error(text)
-end
-
-function get_next_operation(
-    query_state::Union{QueryState, FakeQueryState},
-    query_operation_type::Type,
-)::Maybe{QueryOperation}
-    query_operation = peek_next_operation(query_state, query_operation_type)
-    if query_operation !== nothing
-        query_state.next_operation_index += 1
-    end
-    return query_operation
-end
-
-function peek_next_operation(
-    query_state::Union{QueryState, FakeQueryState},
-    query_operation_type::Type;
-    skip::Int = 0,
-)::Maybe{QueryOperation}
-    if query_state.next_operation_index + skip <= length(query_state.query_sequence.query_operations)
-        query_operation = query_state.query_sequence.query_operations[query_state.next_operation_index + skip]
-        if query_operation isa query_operation_type
-            return query_operation
-        end
-    end
-    return nothing
-end
-
-function get_query_result_dimensions(fake_query_state::FakeQueryState)::Int
-    if is_all(fake_query_state, (AbstractSet{<:AbstractString},))
-        return -1
-    elseif is_all(fake_query_state, (FakeScalarState,))
-        return 0
-    elseif is_all(fake_query_state, (FakeAxisState,))
-        fake_axis_state = fake_query_state.stack[1]
-        @assert fake_axis_state isa FakeAxisState
-        if fake_axis_state.is_entry
-            return 0
-        else
-            return 1
-        end
-    elseif is_all(fake_query_state, (FakeVectorState,))
-        return 1
-    elseif is_all(fake_query_state, (FakeMatrixState,))
-        return 2
-    else
-        return error("partial query: $(fake_query_state.query_sequence)")  # UNTESTED
-    end
-end
-
-function apply_query_operation!(query_state::QueryState, ::ModifierQueryOperation)::Nothing
-    return error_unexpected_operation(query_state)
-end
-
-function fake_query_operation!(fake_query_state::FakeQueryState, ::ModifierQueryOperation)::Nothing
-    return error_unexpected_operation(fake_query_state)
-end
-
-function apply_query_operation!(query_state::QueryState, axis::Axis)::Nothing
-    if isempty(query_state.stack) || is_all(query_state, (AxisState,))
-        is_equal = get_next_operation(query_state, IsEqual)
-        push_axis(query_state, axis, is_equal)
-        return nothing
-    end
-
-    return error_unexpected_operation(query_state)
-end
-
-function fake_query_operation!(fake_query_state::FakeQueryState, axis::Axis)::Nothing
-    if isempty(fake_query_state.stack) || is_all(fake_query_state, (FakeAxisState,))
-        daf = fake_query_state.daf
-        if daf !== nothing
-            require_axis(daf, "for the query: $(fake_query_state.query_sequence)", axis.axis_name)
-        end
-        is_entry = get_next_operation(fake_query_state, IsEqual) !== nothing
-        is_slice = peek_next_operation(fake_query_state, MaskOperation) !== nothing
-        push!(fake_query_state.stack, FakeAxisState(axis.axis_name, is_entry, is_slice))
-        return nothing
-    end
-
-    return error_unexpected_operation(fake_query_state)
-end
-
-function push_axis(query_state::QueryState, axis::Axis, ::Nothing)::Nothing
-    require_axis(query_state.daf, "for the query: $(query_state.query_sequence)", axis.axis_name)
-    query_sequence = QuerySequence((axis,))
-    dependency_keys = Set((Formats.axis_vector_cache_key(axis.axis_name),))
-    axis_state = AxisState(query_sequence, dependency_keys, axis.axis_name, nothing)
-    push!(query_state.stack, axis_state)
-    return nothing
-end
-
-function push_axis(query_state::QueryState, axis::Axis, is_equal::IsEqual)::Nothing
-    axis_entries = get_vector(query_state.daf, axis.axis_name, "name")
-
-    query_sequence = QuerySequence((axis, is_equal))
-    dependency_keys = Set((Formats.axis_vector_cache_key(axis.axis_name),))
-
-    comparison_value = is_equal.comparison_value
-    if !(comparison_value isa AbstractString)
-        error_at_state(
-            query_state,
-            """
-            comparing a non-String ($(typeof(comparison_value))): $(comparison_value)
-            with entries of the axis: $(axis.axis_name)
-            """,
-        )
-    end
-
-    axis_entry_index = get(axis_entries.dicts[1], comparison_value, nothing)
-    if axis_entry_index === nothing
-        error_at_state(
-            query_state,
-            """
-            the entry: $(comparison_value)
-            does not exist in the axis: $(axis.axis_name)
-            """,
-        )
-    end
-
-    axis_state = AxisState(query_sequence, dependency_keys, axis.axis_name, axis_entry_index)
-    push!(query_state.stack, axis_state)
-    return nothing
-end
-
-function apply_query_operation!(query_state::QueryState, names::Names)::Nothing
-    if isempty(query_state.stack)
-        return get_kind_names(query_state, names)
-    elseif is_all(query_state, (AxisState,))
-        return get_vectors_set(query_state, names)
-    elseif is_all(query_state, (AxisState, AxisState))
-        return get_matrices_set(query_state, names)
-    end
-
-    return error_unexpected_operation(query_state)
-end
-
-function get_kind_names(query_state::QueryState, names::Names)::Nothing
-    if names.kind === nothing
-        error_at_state(query_state, "no kind specified for names")
-    end
-
-    if names.kind == "scalars"
-        push!(query_state.stack, NamesState(Set([Formats.scalars_set_cache_key()]), scalars_set(query_state.daf)))
-    elseif names.kind == "axes"
-        push!(query_state.stack, NamesState(Set([Formats.axes_set_cache_key()]), axes_set(query_state.daf)))
-    else
-        error_at_state(query_state, "invalid kind: $(names.kind)")
-    end
-
-    return nothing
-end
-
-function get_vectors_set(query_state::QueryState, names::Names)::Nothing
-    if names.kind !== nothing
-        error_at_state(
-            query_state,
-            """
-            unexpected kind: $(names.kind)
-            specified for vector names
-            """,
-        )
-    end
-    axis_state = pop!(query_state.stack)
-    @assert axis_state isa AxisState
-    if axis_state.axis_modifier !== nothing
-        error_at_state(query_state, "sliced/masked axis for vector names")
-    end
-
-    push!(
-        query_state.stack,
-        NamesState(
-            Set([Formats.vectors_set_cache_key(axis_state.axis_name)]),
-            vectors_set(query_state.daf, axis_state.axis_name),
-        ),
-    )
-    return nothing
-end
-
-function get_matrices_set(query_state::QueryState, names::Names)::Nothing
-    if names.kind !== nothing
-        error_at_state(
-            query_state,
-            """
-            unexpected kind: $(names.kind)
-            specified for matrix names
-            """,
-        )
-    end
-
-    rows_axis_state = pop!(query_state.stack)
-    @assert rows_axis_state isa AxisState
-    columns_axis_state = pop!(query_state.stack)
-    @assert columns_axis_state isa AxisState
-    if rows_axis_state.axis_modifier !== nothing || columns_axis_state.axis_modifier !== nothing
-        error_at_state(query_state, "sliced/masked axis for matrix names")
-    end
-
-    push!(
-        query_state.stack,
-        NamesState(
-            Set([
-                Formats.matrices_set_cache_key(
-                    rows_axis_state.axis_name,
-                    columns_axis_state.axis_name;
-                    relayout = true,
-                ),
-            ]),
-            matrices_set(query_state.daf, rows_axis_state.axis_name, columns_axis_state.axis_name),
-        ),
-    )
-    return nothing
-end
-
-function fake_query_operation!(fake_query_state::FakeQueryState, names::Names)::Nothing
-    if isempty(fake_query_state.stack)
-        return fake_kind_names(fake_query_state, names)
-    elseif is_all(fake_query_state, (FakeAxisState,))
-        return fake_vectors_set(fake_query_state, names)
-    elseif is_all(fake_query_state, (FakeAxisState, FakeAxisState))
-        return fake_matrices_set(fake_query_state, names)
-    end
-
-    return error_unexpected_operation(fake_query_state)
-end
-
-function fake_kind_names(fake_query_state::FakeQueryState, names::Names)::Nothing
-    if names.kind === nothing
-        error_at_state(fake_query_state, "no kind specified for names")
-    elseif names.kind != "scalars" && names.kind != "axes"
-        error_at_state(fake_query_state, "invalid kind: $(names.kind)")
-    end
-
-    push!(fake_query_state.stack, Set{AbstractString}())
-    return nothing
-end
-
-function fake_vectors_set(fake_query_state::FakeQueryState, names::Names)::Nothing
-    if names.kind !== nothing
-        error_at_state(
-            fake_query_state,
-            """
-            unexpected kind: $(names.kind)
-            specified for vector names
-            """,
-        )
-    end
-
-    fake_axis_state = pop!(fake_query_state.stack)  # NOJET
-    @assert fake_axis_state isa FakeAxisState
-
-    if fake_axis_state.is_entry || fake_axis_state.is_slice
-        error_at_state(fake_query_state, "sliced/masked axis for vector names")
-    end
-
-    push!(fake_query_state.stack, Set{AbstractString}())
-    return nothing
-end
-
-function fake_matrices_set(fake_query_state::FakeQueryState, names::Names)::Nothing
-    if names.kind !== nothing
-        error_at_state(
-            fake_query_state,
-            """
-            unexpected kind: $(names.kind)
-            specified for matrix names
-            """,
-        )
-    end
-
-    fake_rows_axis_state = pop!(fake_query_state.stack)
-    @assert fake_rows_axis_state isa FakeAxisState
-    fake_columns_axis_state = pop!(fake_query_state.stack)
-    @assert fake_columns_axis_state isa FakeAxisState
-
-    if fake_rows_axis_state.is_entry ||
-       fake_rows_axis_state.is_slice ||
-       fake_columns_axis_state.is_entry ||
-       fake_columns_axis_state.is_slice
-        error_at_state(fake_query_state, "sliced/masked axis for matrix names")
-    end
-
-    push!(fake_query_state.stack, Set{AbstractString}())
-    return nothing
-end
-
-function apply_query_operation!(query_state::QueryState, lookup::Lookup; maybe_fetch::Bool = true)::Nothing
-    if isempty(query_state.stack)
-        @assert maybe_fetch
-        return lookup_scalar(query_state, lookup)
-    elseif is_all(query_state, (AxisState,))
-        return lookup_axis(query_state, lookup; maybe_fetch)
-    elseif is_all(query_state, (AxisState, AxisState))
-        @assert maybe_fetch
-        return lookup_axes(query_state, lookup)
-    end
-
-    return error_unexpected_operation(query_state)
-end
-
-function fake_query_operation!(fake_query_state::FakeQueryState, lookup::Lookup; maybe_fetch::Bool = true)::Nothing
-    if isempty(fake_query_state.stack)
-        @assert maybe_fetch
-        return fake_lookup_scalar(fake_query_state)
-    elseif is_all(fake_query_state, (FakeAxisState,))
-        return fake_lookup_axis(fake_query_state, lookup; maybe_fetch)
-    elseif is_all(fake_query_state, (FakeAxisState, FakeAxisState))
-        @assert maybe_fetch
-        return fake_lookup_axes(fake_query_state, lookup)
-    end
-
-    return error_unexpected_operation(fake_query_state)
-end
-
-function lookup_scalar(query_state::QueryState, lookup::Lookup)::Nothing
-    if_missing_value = parse_if_missing_value(query_state)
-    scalar_value = get_scalar(query_state.daf, lookup.property_name; default = if_missing_value)
-    dependency_keys = Set((Formats.scalar_cache_key(lookup.property_name),))
-    scalar_state = ScalarState(query_state_sequence(query_state), dependency_keys, scalar_value)
-    push!(query_state.stack, scalar_state)
-    return nothing
-end
-
-function fake_lookup_scalar(fake_query_state::FakeQueryState)::Nothing
-    get_next_operation(fake_query_state, IfMissing)
-    push!(fake_query_state.stack, FakeScalarState())
-    return nothing
-end
-
-function lookup_axes(query_state::QueryState, lookup::Lookup)::Nothing
-    columns_axis_state = pop!(query_state.stack)
-    @assert columns_axis_state isa AxisState
-    rows_axis_state = pop!(query_state.stack)
-    @assert rows_axis_state isa AxisState
-
-    if_missing_value = parse_if_missing_value(query_state)
-    named_matrix = get_matrix(
-        query_state.daf,
-        rows_axis_state.axis_name,
-        columns_axis_state.axis_name,
-        lookup.property_name;
-        default = if_missing_value,
-    )
-
-    dependency_keys = union(rows_axis_state.dependency_keys, columns_axis_state.dependency_keys)
-    push!(
-        dependency_keys,
-        Formats.matrix_cache_key(rows_axis_state.axis_name, columns_axis_state.axis_name, lookup.property_name),
-    )
-
-    rows_axis_modifier = rows_axis_state.axis_modifier
-    columns_axis_modifier = columns_axis_state.axis_modifier
-
-    if rows_axis_modifier === nothing
-        if columns_axis_modifier === nothing
-            return fetch_matrix(
-                query_state,
-                named_matrix,
-                rows_axis_state,
-                columns_axis_state,
-                lookup.property_name,
-                dependency_keys,
-            )
-        elseif columns_axis_modifier isa Int
-            @views return fetch_matrix_slice(
-                query_state,
-                named_matrix[:, columns_axis_modifier],
-                rows_axis_state,
-                lookup.property_name,
-                dependency_keys,
-            )
-        elseif columns_axis_modifier isa AbstractVector{Bool}
-            @views return fetch_matrix(
-                query_state,
-                named_matrix[:, columns_axis_modifier],
-                rows_axis_state,
-                columns_axis_state,
-                lookup.property_name,
-                dependency_keys,
-            )
-        end
-
-    elseif rows_axis_modifier isa Int
-        if columns_axis_modifier === nothing
-            @views return fetch_matrix_slice(
-                query_state,
-                named_matrix[rows_axis_modifier, :],
-                columns_axis_state,
-                lookup.property_name,
-                dependency_keys,
-            )
-        elseif columns_axis_modifier isa Int
-            @views return fetch_matrix_entry(
-                query_state,
-                named_matrix[rows_axis_modifier, columns_axis_modifier],
-                lookup.property_name,
-                dependency_keys,
-            )
-        elseif columns_axis_modifier isa AbstractVector{Bool}
-            @views return fetch_matrix_slice(
-                query_state,
-                named_matrix[rows_axis_modifier, columns_axis_modifier],
-                columns_axis_state,
-                lookup.property_name,
-                dependency_keys,
-            )
-        end
-
-    elseif rows_axis_modifier isa AbstractVector{Bool}
-        if columns_axis_modifier === nothing
-            @views return fetch_matrix(
-                query_state,
-                named_matrix[rows_axis_modifier, :],
-                rows_axis_state,
-                columns_axis_state,
-                lookup.property_name,
-                dependency_keys,
-            )
-        elseif columns_axis_modifier isa Int
-            @views return fetch_matrix_slice(
-                query_state,
-                named_matrix[rows_axis_modifier, columns_axis_modifier],
-                rows_axis_state,
-                lookup.property_name,
-                dependency_keys,
-            )
-        elseif columns_axis_modifier isa AbstractVector{Bool}
-            @views return fetch_matrix(
-                query_state,
-                named_matrix[rows_axis_modifier, columns_axis_modifier],
-                rows_axis_state,
-                columns_axis_state,
-                lookup.property_name,
-                dependency_keys,
-            )
-        end
-    end
-
-    @assert false
-end
-
-function fake_lookup_axes(fake_query_state::FakeQueryState, lookup::Lookup)::Nothing
-    columns_axis_state = pop!(fake_query_state.stack)
-    @assert columns_axis_state isa FakeAxisState
-    rows_axis_state = pop!(fake_query_state.stack)
-    @assert rows_axis_state isa FakeAxisState
-
-    if_missing = get_next_operation(fake_query_state, IfMissing)
-
-    daf = fake_query_state.daf
-    if if_missing === nothing && daf !== nothing
-        rows_axis_name = rows_axis_state.axis_name
-        columns_axis_name = columns_axis_state.axis_name
-        @assert rows_axis_name !== nothing
-        @assert columns_axis_name !== nothing
-        if rows_axis_name != columns_axis_name &&
-           !has_matrix(daf, rows_axis_name, columns_axis_name, lookup.property_name; relayout = false) &&
-           has_matrix(daf, columns_axis_name, rows_axis_name, lookup.property_name; relayout = false)
-            fake_query_state.requires_relayout = true
-        end
-        require_matrix(daf, rows_axis_name, columns_axis_name, lookup.property_name; relayout = true)
-    end
-
-    if rows_axis_state.is_entry
-        if columns_axis_state.is_entry
-            push!(fake_query_state.stack, FakeScalarState())
-        else
-            push!(fake_query_state.stack, FakeVectorState(columns_axis_state, false))
-        end
-
-    else
-        if columns_axis_state.is_entry
-            push!(fake_query_state.stack, FakeVectorState(rows_axis_state, false))
-        else
-            push!(fake_query_state.stack, FakeMatrixState(rows_axis_state, columns_axis_state))
-        end
-    end
-
-    fake_fetch_matrix_operations(fake_query_state)
-    return nothing
-end
-
-function fake_fetch_matrix_operations(fake_query_state::FakeQueryState)::Nothing
-    while true
-        if_not = get_next_operation(fake_query_state, IfNot)
-        if if_not !== nothing && if_not.not_value === nothing
-            error_at_state(fake_query_state, "expected IfNot value")
-        end
-
-        as_axis = get_next_operation(fake_query_state, AsAxis)
-        if as_axis !== nothing && as_axis.axis_name === nothing
-            error_at_state(fake_query_state, "expected AsAxis name")
-        end
-        next_fetch_operation = peek_next_operation(fake_query_state, Fetch)
-        is_final = next_fetch_operation === nothing
-
-        get_next_operation(fake_query_state, IfMissing)
-
-        if is_final
-            if if_not !== nothing || as_axis !== nothing
-                error_unexpected_operation(fake_query_state)
-            end
-            return nothing
-        end
-
-        fake_query_state.next_operation_index += 1
-    end
-end
-
-function fetch_matrix_entry(
-    query_state::QueryState,
-    scalar_value::StorageScalar,
-    fetch_property_name::AbstractString,
-    dependency_keys::Set{CacheKey},
-)::Nothing
-    scalar_state = ScalarState(query_state_sequence(query_state), dependency_keys, scalar_value)
-    push!(query_state.stack, scalar_state)
-    is_if_not = false
-
-    while true
-        if_not = get_next_operation(query_state, IfNot)
-        if if_not !== nothing && if_not.not_value === nothing
-            error_at_state(query_state, "expected IfNot value")
-        end
-
-        as_axis = get_next_operation(query_state, AsAxis)
-        if as_axis !== nothing && as_axis.axis_name === nothing
-            error_at_state(query_state, "expected AsAxis name")
-        end
-
-        fetch_operation = peek_next_operation(query_state, Fetch)
-        is_final = fetch_operation === nothing
-
-        if is_final
-            if if_not !== nothing || as_axis !== nothing
-                error_unexpected_operation(query_state)
-            end
-            return nothing
-        end
-
-        query_state.next_operation_index += 1
-        if_missing = get_next_operation(query_state, IfMissing)
-
-        if !is_if_not
-            if if_missing === nothing
-                if_missing_value = undef
-                default_value = undef
-            else
-                @assert if_missing isa IfMissing
-                if_missing_value = value_for_if_missing(query_state, if_missing)
-                default_value = nothing
-            end
-
-            if scalar_state.scalar_value == "" && if_not !== nothing
-                is_if_not = true
-                scalar_state.scalar_value = if_not.not_value
-            else
-                fetch_axis_name = axis_of_property(query_state.daf, fetch_property_name, as_axis)
-                fetch_property_name = fetch_operation.property_name
-                named_vector =
-                    get_vector(query_state.daf, fetch_axis_name, fetch_property_name; default = default_value)
-                push!(scalar_state.dependency_keys, Formats.vector_cache_key(fetch_axis_name, fetch_property_name))
-                if named_vector === nothing
-                    scalar_state.scalar_value = if_missing_value
-                else
-                    scalar_state.scalar_value = named_vector[scalar_state.scalar_value]
-                end
-            end
-        end
-    end
-end
-
-function fetch_matrix(
-    query_state::QueryState,
-    named_matrix::Maybe{NamedMatrix},
-    rows_axis_state::AxisState,
-    columns_axis_state::AxisState,
-    fetch_property_name::AbstractString,
-    dependency_keys::Set{CacheKey},
-)::Nothing
-    matrix_state = MatrixState(
-        query_state_sequence(query_state),
-        dependency_keys,
-        named_matrix,
-        rows_axis_state.axis_name,
-        columns_axis_state.axis_name,
-        rows_axis_state,
-        columns_axis_state,
-    )
-    push!(query_state.stack, matrix_state)
-    if_not_entries = nothing
-    n_not_if_not = length(matrix_state.named_matrix)
-
-    while true
-        if_not = get_next_operation(query_state, IfNot)
-        if if_not !== nothing && if_not.not_value === nothing
-            error_at_state(query_state, "expected IfNot value")
-        end
-
-        as_axis = get_next_operation(query_state, AsAxis)
-        if as_axis !== nothing && as_axis.axis_name === nothing
-            error_at_state(query_state, "expected AsAxis name")
-        end
-
-        fetch_operation = peek_next_operation(query_state, Fetch)
-        is_final = fetch_operation === nothing
-
-        if is_final
-            if if_not !== nothing || as_axis !== nothing
-                error_unexpected_operation(query_state)
-            end
-            if if_not_entries !== nothing
-                for (index, value) in enumerate(if_not_entries)
-                    if value !== nothing
-                        matrix_state.named_matrix.array[index] =
-                            cast_value_to_type(query_state, value, eltype(matrix_state.named_matrix.array))
-                    end
-                end
-            end
-            return nothing
-        end
-
-        query_state.next_operation_index += 1
-        if_missing = get_next_operation(query_state, IfMissing)
-
-        if n_not_if_not > 0
-            if if_missing === nothing
-                if_missing_value = undef
-                default_value = undef
-            else
-                @assert if_missing isa IfMissing
-                if_missing_value = value_for_if_missing(query_state, if_missing)
-                default_value = nothing
-            end
-
-            fetch_axis_name = axis_of_property(query_state.daf, fetch_property_name, as_axis)
-            fetch_property_name = fetch_operation.property_name
-            named_vector = get_vector(query_state.daf, fetch_axis_name, fetch_property_name; default = default_value)
-            if named_vector === nothing
-                result_type = typeof(if_missing_value)
-            else
-                result_type = eltype(named_vector)
-            end
-            result_matrix = Matrix{result_type}(undef, size(matrix_state.named_matrix))
-
-            for index in 1:length(result_matrix)
-                if if_not_entries === nothing || if_not_entries[index] === nothing
-                    value = matrix_state.named_matrix.array[index]
-                    if value == "" && if_not !== nothing
-                        if if_not_entries === nothing
-                            if_not_entries = Matrix{Any}(undef, size(matrix_state.named_matrix))
-                            fill!(if_not_entries, nothing)
-                        end
-                        if_not_entries[index] = if_not.not_value
-                        n_not_if_not -= 1
-                    elseif named_vector === nothing
-                        result_matrix[index] = if_missing_value
-                    else
-                        result_matrix[index] = named_vector[value]
-                    end
-                end
-            end
-
-            matrix_state.named_matrix =
-                NamedArray(result_matrix, matrix_state.named_matrix.dicts, matrix_state.named_matrix.dimnames)
-        end
-    end
-end
-
-function fetch_matrix_slice(
-    query_state::QueryState,
-    named_vector::NamedVector,
-    axis_state::AxisState,
-    fetch_property_name::AbstractString,
-    dependency_keys::Set{CacheKey},
-)::Nothing
-    vector_state = VectorState(
-        query_state_sequence(query_state),
-        dependency_keys,
-        named_vector,
-        axis_state.axis_name,
-        axis_state,
-        false,
-    )
-    push!(query_state.stack, vector_state)
-    if_not_entries = nothing
-    n_not_if_not = length(vector_state.named_vector)
-
-    while true
-        if_not = get_next_operation(query_state, IfNot)
-        if if_not !== nothing && if_not.not_value === nothing
-            error_at_state(query_state, "expected IfNot value")
-        end
-
-        as_axis = get_next_operation(query_state, AsAxis)
-        if as_axis !== nothing && as_axis.axis_name === nothing
-            error_at_state(query_state, "expected AsAxis name")
-        end
-
-        fetch_operation = peek_next_operation(query_state, Fetch)
-        is_final = fetch_operation === nothing
-
-        if is_final
-            if if_not !== nothing || as_axis !== nothing
-                error_unexpected_operation(query_state)
-            end
-            if if_not_entries !== nothing
-                for (index, value) in enumerate(if_not_entries)
-                    if value !== nothing
-                        vector_state.named_vector.array[index] =
-                            cast_value_to_type(query_state, value, eltype(vector_state.named_vector.array))
-                    end
-                end
-            end
-            return nothing
-        end
-
-        query_state.next_operation_index += 1
-        if_missing = get_next_operation(query_state, IfMissing)
-
-        if n_not_if_not > 0
-            if if_missing === nothing
-                if_missing_value = undef
-                default_value = undef
-            else
-                @assert if_missing isa IfMissing
-                if_missing_value = value_for_if_missing(query_state, if_missing)
-                default_value = nothing
-            end
-
-            fetch_axis_name = axis_of_property(query_state.daf, fetch_property_name, as_axis)
-            fetch_property_name = fetch_operation.property_name
-            named_vector = get_vector(query_state.daf, fetch_axis_name, fetch_property_name; default = default_value)
-            if named_vector === nothing
-                result_type = typeof(if_missing_value)
-            else
-                result_type = eltype(named_vector)
-            end
-            result_vector = Vector{result_type}(undef, size(vector_state.named_vector))
-
-            for index in 1:length(result_vector)
-                if if_not_entries === nothing || if_not_entries[index] === nothing
-                    value = vector_state.named_vector.array[index]
-                    if value == "" && if_not !== nothing
-                        if if_not_entries === nothing
-                            if_not_entries = Vector{Any}(undef, size(vector_state.named_vector))
-                            fill!(if_not_entries, nothing)
-                        end
-                        if_not_entries[index] = if_not.not_value
-                        n_not_if_not -= 1
-                    elseif named_vector === nothing
-                        result_vector[index] = if_missing_value
-                    else
-                        result_vector[index] = named_vector[value]
-                    end
-                end
-            end
-
-            vector_state.named_vector =
-                NamedArray(result_vector, vector_state.named_vector.dicts, vector_state.named_vector.dimnames)
-        end
-    end
-end
-
-function cast_value_to_type(query_state::QueryState, value::Any, type::Type)::Any
-    if !(value isa type)
-        try  # UNTESTED
-            if type <: AbstractString  # UNTESTED
-                value = String(value)  # UNTESTED
-            elseif value isa AbstractString  # UNTESTED
-                value = parse(type, value)  # UNTESTED
-            else
-                value = type(value)  # UNTESTED
-            end
-        catch
-            error_at_state(  # UNTESTED
-                query_state,
-                """
-                invalid if_not_value: $(value)
-                of type: $(typeof(value))
-                can't be cast to result type: $(type)
-                """,
-            )
-        end
-    end
-    return value
-end
-
-function parse_if_missing_value(query_state::QueryState)::Union{UndefInitializer, StorageScalar}
-    if_missing = get_next_operation(query_state, IfMissing)
-    if if_missing === nothing
-        if_missing_value = undef
-    else
-        @assert if_missing isa IfMissing
-        if_missing_value = value_for_if_missing(query_state, if_missing)
-    end
-    return if_missing_value
-end
-
-function lookup_axis(query_state::QueryState, lookup::Lookup; maybe_fetch::Bool)::Nothing
-    axis_state = pop!(query_state.stack)
-    @assert axis_state isa AxisState
-    fetch_property(query_state, axis_state, lookup; maybe_fetch)
-    return nothing
-end
-
-function fake_lookup_axis(
-    fake_query_state::FakeQueryState,
-    lookup::Maybe{Lookup} = nothing;
-    maybe_fetch::Bool = true,
-)::Nothing
-    fake_axis_state = pop!(fake_query_state.stack)
-    @assert fake_axis_state isa FakeAxisState
-
-    fake_fetch_property(
-        fake_query_state,
-        fake_axis_state,
-        lookup === nothing ? nothing : lookup.property_name;
-        maybe_fetch,
-    )
-    return nothing
-end
-
-FetchBaseOperation = Union{Lookup, MaskOperation, CountBy, GroupBy}
-
-mutable struct CommonFetchState
-    base_query_sequence::QuerySequence
-    first_operation_index::Int
-    axis_state::AxisState
-    axis_name::AbstractString
+struct AndMask <: QueryOperation
     property_name::AbstractString
-    dependency_keys::Set{CacheKey}
 end
 
-mutable struct EntryFetchState
-    common::CommonFetchState
-    axis_entry_index::Int
-    scalar_value::Maybe{StorageScalar}
-    if_not_value::Maybe{StorageScalar}
-end
-
-mutable struct VectorFetchState
-    common::CommonFetchState
-    may_modify_axis_mask::Bool
-    named_vector::Maybe{NamedArray}
-    may_modify_named_vector::Bool
-    if_not_values::Maybe{Vector{Maybe{IfNot}}}
-end
-
-function debug_query(  # UNTESTED
-    common_fetch_state::CommonFetchState;
-    name::Maybe{AbstractString} = nothing,
-    indent::AbstractString = "",
-)::Nothing
-    if name === nothing
-        @debug "$(indent)- CommonFetchState:"
-    else
-        @debug "$(indent)- $(name): CommonFetchState:"
-    end
-    @debug "$(indent)  base_query_sequence: $(common_fetch_state.base_query_sequence)"
-    @debug "$(indent)  first_operation_index: $(common_fetch_state.first_operation_index)"
-    debug_query(common_fetch_state.axis_state; name = "axis_state", indent = indent * "  ")
-    @debug "$(indent)  axis_name: $(common_fetch_state.axis_name)"
-    @debug "$(indent)  property_name: $(brief(common_fetch_state.property_name))"
-    @debug "$(indent)  dependency_keys: $(brief(common_fetch_state.dependency_keys))"
+function Base.show(io::IO, and_mask::AndMask)::Nothing
+    print(io, "& $(escape_value(and_mask.property_name))")
     return nothing
 end
 
-function debug_query(  # UNTESTED
-    entry_fetch_state::EntryFetchState;
-    name::Maybe{AbstractString} = nothing,
-    indent::AbstractString = "",
-)::Nothing
-    if name === nothing
-        @debug "$(indent)- EntryFetchState:"
-    else
-        @debug "$(indent)- $(name): EntryFetchState:"
+function combine_masks(
+    first_mask::AbstractVector{Bool},
+    ::AndMask,
+    second_mask::AbstractVector{Bool},
+)::AbstractVector{Bool}
+    return Vector{Bool}(first_mask .& second_mask)
+end
+
+"""
+    struct AndNegatedMask <: QueryOperation
+        property_name::AbstractString
     end
-    debug_query(entry_fetch_state.common; name = "common", indent = indent * "  ")
-    @debug "$(indent)  axis_entry_index: $(entry_fetch_state.axis_entry_index)"
-    @debug "$(indent)  scalar_value: $(entry_fetch_state.scalar_value)"
-    @debug "$(indent)  if_not_value: $(entry_fetch_state.if_not_value)"
+
+Combine a mask with another, using the bitwise AND-NOT operator (see [`VECTOR_MASK`](@ref)).
+"""
+struct AndNegatedMask <: QueryOperation
+    property_name::AbstractString
+end
+
+function Base.show(io::IO, and_negated_mask::AndNegatedMask)::Nothing
+    print(io, "& ! $(escape_value(and_negated_mask.property_name))")
     return nothing
 end
 
-function debug_query(  # UNTESTED
-    vector_fetch_state::VectorFetchState;
-    name::Maybe{AbstractString} = nothing,
-    indent::AbstractString = "",
-)::Nothing
-    if name === nothing
-        @debug "$(indent)- VectorFetchState:"
-    else
-        @debug "$(indent)- $(name): VectorFetchState:"
+function combine_masks(
+    first_mask::AbstractVector{Bool},
+    ::AndNegatedMask,
+    second_mask::AbstractVector{Bool},
+)::AbstractVector{Bool}
+    return Vector{Bool}(first_mask .& .!second_mask)
+end
+
+"""
+    struct OrMask <: QueryOperation
+        property_name::AbstractString
     end
-    debug_query(vector_fetch_state.common; name = "common", indent = indent * "  ")
-    @debug "$(indent)  may_modify_axis_mask: $(vector_fetch_state.may_modify_axis_mask)"
-    @debug "$(indent)  named_vector: $(brief(vector_fetch_state.named_vector))"
-    @debug "$(indent)  may_modify_named_vector: $(vector_fetch_state.may_modify_named_vector)"
-    @debug "$(indent)  if_not_values: $(brief(vector_fetch_state.if_not_values))"
+
+Combine a mask with another, using the bitwise OR operator (see [`VECTOR_MASK`](@ref)).
+"""
+struct OrMask <: QueryOperation
+    property_name::AbstractString
+end
+
+function Base.show(io::IO, or_mask::OrMask)::Nothing
+    print(io, "| $(escape_value(or_mask.property_name))")
     return nothing
 end
 
-function fetch_property(
-    query_state::QueryState,
-    axis_state::AxisState,
-    fetch_operation::FetchBaseOperation;
-    maybe_fetch::Bool = true,
-)::Nothing
-    base_query_sequence = QuerySequence((axis_state.query_sequence.query_operations..., fetch_operation))
-    common_fetch_state = CommonFetchState(
-        base_query_sequence,
-        query_state.next_operation_index - 1,
-        axis_state,
-        axis_state.axis_name,
-        "",
-        copy(axis_state.dependency_keys),
-    )
-
-    axis_modifier = axis_state.axis_modifier
-    if axis_modifier isa Int
-        fetch_state = EntryFetchState(common_fetch_state, axis_modifier, nothing, nothing)
-    else
-        fetch_state = VectorFetchState(common_fetch_state, false, nothing, false, nothing)
-    end
-
-    fetch_axis_name = axis_state.axis_name
-    fetch_property_name = fetch_operation.property_name
-
-    while true
-        if maybe_fetch
-            if_missing = get_next_operation(query_state, IfMissing)
-            if_not = get_next_operation(query_state, IfNot)
-        else
-            if_missing = nothing
-            if_not = nothing
-        end
-
-        if maybe_fetch &&
-           peek_next_operation(query_state, AsAxis) !== nothing &&
-           peek_next_operation(query_state, Fetch; skip = 1) !== nothing
-            as_axis = get_next_operation(query_state, AsAxis)
-            @assert as_axis !== nothing
-            if as_axis.axis_name === nothing
-                error_at_state(query_state, "expected AsAxis name")
-            end
-        else
-            as_axis = nothing
-        end
-
-        if maybe_fetch
-            next_fetch_operation = peek_next_operation(query_state, Fetch)
-        else
-            next_fetch_operation = nothing
-        end
-        is_final = next_fetch_operation === nothing
-        if is_final && if_not !== nothing
-            error_unexpected_operation(query_state)
-        end
-
-        if if_missing === nothing
-            if_missing_value = undef
-            default_value = undef
-        else
-            @assert if_missing isa IfMissing
-            if_missing_value = value_for_if_missing(query_state, if_missing)
-            default_value = nothing
-        end
-
-        slice_axis_name = nothing
-        next_named_vector = nothing
-        if is_final && as_axis === nothing && maybe_fetch
-            if peek_next_operation(query_state, MaskSlice) !== nothing &&
-               peek_next_operation(query_state, IsEqual; skip = 1) !== nothing
-                mask_slice = get_next_operation(query_state, MaskSlice)
-                @assert mask_slice !== nothing
-
-                slice_is_equal = get_next_operation(query_state, IsEqual)
-                @assert slice_is_equal !== nothing
-                slice_axis_name = mask_slice.axis_name
-
-                next_named_matrix = get_matrix(
-                    query_state.daf,
-                    fetch_axis_name,
-                    mask_slice.axis_name,
-                    fetch_property_name;
-                    default = default_value,
-                )
-
-                slice_comparison_value = slice_is_equal.comparison_value
-                if !(slice_comparison_value in names(next_named_matrix, 2))
-                    error_at_state(
-                        query_state,
-                        """
-                        invalid value: $(slice_comparison_value)
-                        is missing from the axis: $(mask_slice.axis_name)
-                        """,
-                    )
-                end
-                @views next_named_vector = next_named_matrix[:, slice_comparison_value]
-
-            elseif peek_next_operation(query_state, SquareMaskSlice) !== nothing
-                mask_slice = get_next_operation(query_state, SquareMaskSlice)
-                slice_axis_name = fetch_axis_name
-                next_named_matrix = get_matrix(
-                    query_state.daf,
-                    fetch_axis_name,
-                    fetch_axis_name,
-                    fetch_property_name;
-                    default = default_value,
-                )
-
-                slice_comparison_value = mask_slice.comparison_value
-                if !(slice_comparison_value in names(next_named_matrix, 2))
-                    error_at_state(
-                        query_state,
-                        """
-                        invalid value: $(slice_comparison_value)
-                        is missing from the axis: $(fetch_axis_name)
-                        """,
-                    )
-                end
-
-                if mask_slice isa SquareMaskColumn
-                    @views next_named_vector = next_named_matrix[:, slice_comparison_value]
-                elseif mask_slice isa SquareMaskRow
-                    @views next_named_vector = next_named_matrix[slice_comparison_value, :]
-                else
-                    @assert false
-                end
-            end
-        end
-
-        if slice_axis_name === nothing
-            push!(fetch_state.common.dependency_keys, Formats.vector_cache_key(fetch_axis_name, fetch_property_name))
-        else
-            push!(
-                fetch_state.common.dependency_keys,
-                Formats.matrix_cache_key(fetch_axis_name, slice_axis_name, fetch_property_name),
-            )
-        end
-
-        if next_named_vector === nothing
-            next_named_vector =
-                get_vector(query_state.daf, fetch_axis_name, fetch_property_name; default = default_value)
-        end
-
-        if !is_final && next_named_vector !== nothing && !(eltype(next_named_vector) <: AbstractString)
-            query_state.next_operation_index += 1
-            error_at_state(
-                query_state,
-                """
-                fetching with a non-String vector of: $(eltype(next_named_vector))
-                of the vector: $(fetch_property_name)
-                of the axis: $(fetch_axis_name)
-                """,
-            )
-        end
-
-        next_fetch_state(
-            query_state,
-            fetch_state,
-            fetch_axis_name,
-            fetch_property_name,
-            next_named_vector,
-            if_missing_value,
-            if_not,
-            as_axis,
-            is_final,
-        )
-        fetch_state.common.axis_name = fetch_axis_name
-        fetch_state.common.property_name = fetch_property_name
-
-        if next_fetch_operation === nothing
-            base_query_operations = fetch_state.common.base_query_sequence.query_operations
-            fetch_query_operations =
-                query_state.query_sequence.query_operations[(fetch_state.common.first_operation_index):(query_state.next_operation_index - 1)]
-            fetch_query_sequence = QuerySequence((base_query_operations..., fetch_query_operations...))
-            fetch_result(query_state, fetch_state, fetch_query_sequence)
-            return nothing
-        end
-
-        fetch_operation = next_fetch_operation
-        query_state.next_operation_index += 1
-        fetch_axis_name = axis_of_property(query_state.daf, fetch_property_name, as_axis)
-        fetch_property_name = fetch_operation.property_name
-    end
+function combine_masks(
+    first_mask::AbstractVector{Bool},
+    ::OrMask,
+    second_mask::AbstractVector{Bool},
+)::AbstractVector{Bool}
+    return Vector{Bool}(first_mask .| second_mask)
 end
 
-function fake_fetch_property(
-    fake_query_state::FakeQueryState,
-    fake_axis_state::FakeAxisState,
-    fetch_property_name::Maybe{AbstractString};
-    maybe_fetch::Bool = true,
-)::Nothing
-    daf = fake_query_state.daf
-    fetch_axis_name = fake_axis_state.axis_name
-
-    any_if_missing = false
-    second_axis_name = nothing
-
-    while true
-        if maybe_fetch
-            if_missing = get_next_operation(fake_query_state, IfMissing)
-        else
-            if_missing = nothing
-        end
-        if if_missing !== nothing
-            any_if_missing = true
-        end
-        if maybe_fetch
-            if_not = get_next_operation(fake_query_state, IfNot)
-        else
-            if_not = nothing
-        end
-
-        if maybe_fetch &&
-           peek_next_operation(fake_query_state, AsAxis) !== nothing &&
-           peek_next_operation(fake_query_state, Fetch; skip = 1) !== nothing
-            as_axis = get_next_operation(fake_query_state, AsAxis)
-            @assert as_axis !== nothing
-            if as_axis.axis_name === nothing
-                error_at_state(fake_query_state, "expected AsAxis name")
-            end
-        else
-            as_axis = nothing
-        end
-
-        if maybe_fetch
-            next_fetch_operation = peek_next_operation(fake_query_state, Fetch)
-        else
-            next_fetch_operation = nothing
-        end
-
-        is_final = next_fetch_operation === nothing
-        if is_final && if_not !== nothing
-            error_unexpected_operation(fake_query_state)
-        end
-
-        second_axis_name = nothing
-        if is_final && as_axis === nothing && maybe_fetch
-            if peek_next_operation(fake_query_state, MaskSlice) !== nothing &&
-               peek_next_operation(fake_query_state, IsEqual; skip = 1) !== nothing
-                mask_slice = get_next_operation(fake_query_state, MaskSlice)
-                second_axis_name = mask_slice.axis_name
-                @assert mask_slice !== nothing
-                slice_is_equal = get_next_operation(fake_query_state, IsEqual)
-                @assert slice_is_equal !== nothing
-            else
-                square_mask_slice = get_next_operation(fake_query_state, SquareMaskSlice)
-                if square_mask_slice !== nothing
-                    second_axis_name = fetch_axis_name
-                end
-            end
-        end
-
-        if daf !== nothing &&
-           !any_if_missing &&
-           fetch_axis_name !== nothing &&
-           !(fetch_property_name in (nothing, "name", "index"))
-            @assert fetch_property_name !== nothing  # Stupid JET
-            if second_axis_name === nothing
-                require_vector(daf, fetch_axis_name, fetch_property_name)
-            else
-                require_matrix(daf, fetch_axis_name, second_axis_name, fetch_property_name; relayout = true)
-            end
-        end
-
-        if next_fetch_operation === nothing
-            if fake_axis_state.is_entry
-                push!(fake_query_state.stack, FakeScalarState())
-            else
-                push!(fake_query_state.stack, FakeVectorState(fake_axis_state, false))
-            end
-            return nothing
-        end
-
-        if daf !== nothing && fetch_axis_name !== nothing && fetch_property_name !== nothing
-            fetch_axis_name = axis_of_property(daf, fetch_property_name, as_axis)
-        end
-        fetch_property_name = next_fetch_operation.property_name
-        fake_query_state.next_operation_index += 1
+"""
+    struct OrNegatedMask <: QueryOperation
+        property_name::AbstractString
     end
+
+Combine a mask with another, using the bitwise OR-NOT operator (see [`VECTOR_MASK`](@ref)).
+"""
+struct OrNegatedMask <: QueryOperation
+    property_name::AbstractString
 end
 
-function axis_of_property(daf::DafReader, property_name::AbstractString, as_axis::Maybe{AsAxis})::AbstractString
-    if as_axis !== nothing
-        axis_name = as_axis.axis_name
-        if axis_name !== nothing
-            return axis_name
-        end
-    end
-
-    if has_axis(daf, property_name)
-        return property_name
-    end
-
-    return split(property_name, "."; limit = 2)[1]
-end
-
-function next_fetch_state(
-    query_state::QueryState,
-    entry_fetch_state::EntryFetchState,
-    fetch_axis_name::AbstractString,
-    fetch_property_name::AbstractString,
-    next_named_vector::Maybe{NamedVector},
-    if_missing_value::Union{UndefInitializer, StorageScalar},
-    if_not::Maybe{IfNot},
-    as_axis::Maybe{AsAxis},
-    is_final::Bool,
-)::Nothing
-    if entry_fetch_state.if_not_value !== nothing
-        scalar_value =
-            if_not_scalar_value(query_state, entry_fetch_state, next_named_vector, if_missing_value, is_final)
-
-    elseif next_named_vector === nothing
-        scalar_value = missing_scalar_value(entry_fetch_state, if_missing_value, is_final)
-
-    else
-        scalar_value = entry_scalar_value(
-            query_state,
-            entry_fetch_state,
-            fetch_axis_name,
-            fetch_property_name,
-            next_named_vector,
-            if_not,
-            as_axis,
-            is_final,
-        )
-    end
-
-    entry_fetch_state.scalar_value = scalar_value
+function Base.show(io::IO, or_negated_mask::OrNegatedMask)::Nothing
+    print(io, "| ! $(escape_value(or_negated_mask.property_name))")
     return nothing
 end
 
-function if_not_scalar_value(
-    query_state::QueryState,
-    entry_fetch_state::EntryFetchState,
-    next_named_vector::Maybe{NamedVector},
-    if_missing_value::Union{UndefInitializer, StorageScalar},
-    is_final::Bool,
-)::Maybe{StorageScalar}
-    if !is_final
-        return nothing
-    else
-        if next_named_vector === nothing
-            @assert if_missing_value != undef
-            type = typeof(if_missing_value)
-        else
-            type = eltype(next_named_vector)
-        end
-        if_not_value = entry_fetch_state.if_not_value
-        @assert if_not_value !== nothing
-        return value_for(query_state, type, if_not_value)  # NOJET
-    end
+function combine_masks(
+    first_mask::AbstractVector{Bool},
+    ::OrNegatedMask,
+    second_mask::AbstractVector{Bool},
+)::AbstractVector{Bool}
+    return Vector{Bool}(first_mask .| .!second_mask)
 end
 
-function missing_scalar_value(
-    entry_fetch_state::EntryFetchState,
-    if_missing_value::Union{UndefInitializer, StorageScalar},
-    is_final::Bool,
-)::Maybe{StorageScalar}
-    @assert if_missing_value != undef
-    if is_final
-        return if_missing_value
-    else
-        @assert entry_fetch_state.if_not_value === nothing
-        entry_fetch_state.if_not_value = if_missing_value  # NOJET
-        return nothing
+"""
+    struct XorMask <: QueryOperation
+        property_name::AbstractString
     end
+
+Combine a mask with another, using the bitwise XOR operator (see [`VECTOR_MASK`](@ref)).
+"""
+struct XorMask <: QueryOperation
+    property_name::AbstractString
 end
 
-function entry_scalar_value(
+function Base.show(io::IO, xor_mask::XorMask)::Nothing
+    print(io, "^ $(escape_value(xor_mask.property_name))")
+    return nothing
+end
+
+function combine_masks(
+    first_mask::AbstractVector{Bool},
+    ::XorMask,
+    second_mask::AbstractVector{Bool},
+)::AbstractVector{Bool}
+    return Vector{Bool}(@. xor(first_mask, second_mask))
+end
+
+"""
+    struct XorNegatedMask <: QueryOperation
+        property_name::AbstractString
+    end
+
+Combine a mask with another, using the bitwise XOR-NOT operator (see [`VECTOR_MASK`](@ref)).
+"""
+struct XorNegatedMask <: QueryOperation
+    property_name::AbstractString
+end
+
+function Base.show(io::IO, xor_negated_mask::XorNegatedMask)::Nothing
+    print(io, "^ ! $(escape_value(xor_negated_mask.property_name))")
+    return nothing
+end
+
+function combine_masks(
+    first_mask::AbstractVector{Bool},
+    ::XorNegatedMask,
+    second_mask::AbstractVector{Bool},
+)::AbstractVector{Bool}
+    return Vector{Bool}(@. xor(first_mask, .!second_mask))
+end
+
+MaskOperation = Union{AndMask, AndNegatedMask, OrMask, OrNegatedMask, XorMask, XorNegatedMask}
+
+"""
+    struct GroupBy <: QueryOperation
+        property_name::AbstractString
+    end
+
+Specify value per vector entry to group vector values by, must be followed by a [`ReductionOperation`](@ref) to reduce
+each group of values to a single value (see [`VECTOR_GROUP`](@ref)).
+"""
+struct GroupBy <: QueryOperation
+    property_name::AbstractString
+end
+
+function Base.show(io::IO, group_by::GroupBy)::Nothing
+    print(io, "/ $(escape_value(group_by.property_name))")
+    return nothing
+end
+
+"""
+    struct GroupColumnsBy <: QueryOperation
+        property_name::AbstractString
+    end
+
+Specify value per matrix column to group the columns by, must be followed by a [`ReduceToColumn`](@ref) to reduce each
+group of columns to a single column (see [`MATRIX_GROUP`](@ref)).
+"""
+struct GroupColumnsBy <: QueryOperation
+    property_name::AbstractString
+end
+
+function Base.show(io::IO, group_columns_by::GroupColumnsBy)::Nothing
+    print(io, "|/ $(escape_value(group_columns_by.property_name))")
+    return nothing
+end
+
+"""
+    struct GroupRowsBy <: QueryOperation
+        property_name::AbstractString
+    end
+
+Specify value per matrix row to group the rows by, must be followed by a [`ReduceToRow`](@ref) to reduce each group of
+rows to a single row (see [`MATRIX_GROUP`](@ref)).
+"""
+struct GroupRowsBy <: QueryOperation
+    property_name::AbstractString
+end
+
+function Base.show(io::IO, group_rows_by::GroupRowsBy)::Nothing
+    print(io, "-/ $(escape_value(group_rows_by.property_name))")
+    return nothing
+end
+
+GroupAnyBy = Union{GroupColumnsBy, GroupRowsBy}
+
+"""
+    struct ReduceToRow <: QueryOperation
+        reduction_operation::ReductionOperation
+    end
+
+Specify a [`ReductionOperation`](@ref) to convert each column of a matrix to a single value, reducing the matrix to a
+single row (see [`VECTOR_FROM_MATRIX`](@ref) and [`MATRIX_GROUP`](@ref)).
+"""
+struct ReduceToRow <: QueryOperation
+    reduction_operation::ReductionOperation
+end
+
+function Base.show(io::IO, reduce_to_row::ReduceToRow)::Nothing
+    show_computation_operation(io, ">-", reduce_to_row.reduction_operation)
+    return nothing
+end
+
+"""
+    struct ReduceToColumn <: QueryOperation
+        reduction_operation::ReductionOperation
+    end
+
+Specify a [`ReductionOperation`](@ref) to convert each row of a matrix to a single value, reducing the matrix to a
+single column (see [`VECTOR_FROM_MATRIX`](@ref) and [`MATRIX_GROUP`](@ref)).
+"""
+struct ReduceToColumn <: QueryOperation
+    reduction_operation::ReductionOperation
+end
+
+function Base.show(io::IO, reduce_to_column::ReduceToColumn)::Nothing
+    show_computation_operation(io, ">|", reduce_to_column.reduction_operation)
+    return nothing
+end
+
+"""
+    struct CountBy <: QueryOperation
+        property_name::AbstractString
+    end
+
+Specify a second property for each vector entry, to compute a matrix of counts of the entries with each combination of
+values (see [`MATRIX_COUNT`](@ref).
+"""
+struct CountBy <: QueryOperation
+    property_name::AbstractString
+end
+
+function Base.show(io::IO, count_by::CountBy)::Nothing
+    print(io, "* $(escape_value(count_by.property_name))")
+    return nothing
+end
+
+function reduce_vector_to_scalar(
     query_state::QueryState,
-    entry_fetch_state::EntryFetchState,
-    fetch_axis_name::AbstractString,
-    fetch_property_name::AbstractString,
-    next_named_vector::NamedVector,
-    if_not::Maybe{IfNot},
-    as_axis::Maybe{AsAxis},
-    is_final::Bool,
-)::Maybe{StorageScalar}
-    previous_scalar_value = entry_fetch_state.scalar_value
-    if previous_scalar_value === nothing
-        scalar_value = next_named_vector.array[entry_fetch_state.axis_entry_index]
+    vector_state::VectorState,
+    reduction_operation::ReductionOperation,
+    if_missing::Maybe{IfMissing},
+)::Nothing
+    finalize_vector_values!(query_state, vector_state)
 
-    else
-        @assert previous_scalar_value isa AbstractString
-        @assert previous_scalar_value != ""
-
-        index_in_fetched = get(next_named_vector.dicts[1], previous_scalar_value, nothing)
-        if index_in_fetched === nothing
-            error_at_state(
-                query_state,
-                """
-                invalid value: $(previous_scalar_value)
-                of the vector: $(entry_fetch_state.common.property_name)
-                of the axis: $(entry_fetch_state.common.axis_name)
-                is missing from the fetched axis: $(fetch_axis_name)
-                """,
-            )
-        end
-        scalar_value = next_named_vector[index_in_fetched]
-    end
-
-    if if_not !== nothing && (scalar_value == "" || scalar_value == 0 || scalar_value == false)
-        @assert !is_final
-        entry_fetch_state.if_not_value = if_not.not_value
-        scalar_value = nothing
-    end
-
-    if !is_final && scalar_value == ""
-        fetch = get_next_operation(query_state, Fetch)
-        @assert fetch !== nothing
-        next_axis_name = axis_of_property(query_state.daf, fetch_property_name, as_axis)
+    if query_state.what_for !== :compute
+        push!(query_state.stack, ScalarState(nothing))
+    elseif eltype(vector_state.vector_values) <: AbstractString && !supports_strings(reduction_operation)
         error_at_state(
             query_state,
             """
-            empty value of the vector: $(fetch_property_name)
-            of the axis: $(fetch_axis_name)
-            used for the fetched axis: $(next_axis_name)
+            unsupported input type: String
+            for the reduction operation: $(typeof(reduction_operation))
             """,
         )
+    elseif length(vector_state.vector_values) > 0
+        push!(query_state.stack, ScalarState(compute_reduction(reduction_operation, vector_state.vector_values)))  # NOLINT
+    elseif if_missing !== nothing
+        push!(query_state.stack, ScalarState(if_missing.default_value))
+    else
+        error_at_state(query_state, "no IfMissing value specified for reducing an empty vector")
     end
 
-    return scalar_value
+    return nothing
 end
 
-function next_fetch_state(
+function reduce_matrix_to_scalar(
     query_state::QueryState,
-    vector_fetch_state::VectorFetchState,
-    fetch_axis_name::AbstractString,
-    fetch_property_name::AbstractString,
-    next_named_vector::Maybe{NamedVector},
-    if_missing_value::Union{UndefInitializer, StorageScalar},
-    if_not::Maybe{IfNot},
-    as_axis::Maybe{AsAxis},
-    is_final::Bool,
+    matrix_state::MatrixState,
+    reduction_operation::ReductionOperation,
+    if_missing::Maybe{IfMissing},
 )::Nothing
-    previous_named_vector = vector_fetch_state.named_vector
-    if previous_named_vector === nothing
-        base_named_vector, fetched_values =
-            fetch_first_named_vector(query_state, vector_fetch_state, next_named_vector, if_missing_value)
-    else
-        base_named_vector = previous_named_vector
-        fetched_values = fetch_second_named_vector(
+    finalize_matrix_values!(query_state, matrix_state)
+
+    if query_state.what_for !== :compute
+        push!(query_state.stack, ScalarState(nothing))
+    elseif eltype(matrix_state.matrix_values) <: AbstractString && !supports_strings(reduction_operation)
+        error_at_state(
             query_state,
-            vector_fetch_state,
-            fetch_axis_name,
-            previous_named_vector,
-            next_named_vector,
-            if_missing_value,
+            """
+            unsupported input type: String
+            for the reduction operation: $(typeof(reduction_operation))
+            """,
+        )
+    elseif length(matrix_state.matrix_values) > 0
+        push!(query_state.stack, ScalarState(compute_reduction(reduction_operation, matrix_state.matrix_values)))  # NOLINT
+    elseif if_missing !== nothing
+        push!(query_state.stack, ScalarState(if_missing.default_value))
+    else
+        error_at_state(query_state, "no IfMissing value specified for reducing an empty matrix")
+    end
+
+    return nothing
+end
+
+QUERY_OPERATIONS_REGEX = r"^(?:[!<>]=|!~|[\|-]/|[&^\|]!|\?\?|@[-\|]|=@|::|>[->\|]|\|\||[!&*%./:<=>?@\[\]^\|~])"
+
+struct NotModifier end
+
+QUERY_OPERATIONS_DICT = Dict(
+    "!" => (NotModifier, nothing),
+    "!=" => (IsNotEqual, true),
+    "!~" => (IsNotMatch, true),
+    "& !" => (AndNegatedMask, true),
+    "&" => (AndMask, true),
+    "*" => (CountBy, true),
+    "." => (LookupScalar, true),
+    "/" => (GroupBy, true),
+    "-/" => (GroupRowsBy, true),
+    "|/" => (GroupColumnsBy, true),
+    ":" => (LookupVector, true),
+    "::" => (LookupMatrix, true),
+    "<" => (IsLess, true),
+    "<=" => (IsLessEqual, true),
+    "=" => (IsEqual, true),
+    ">" => (IsGreater, true),
+    ">-" => (ReduceToRow, true),
+    ">=" => (IsGreaterEqual, true),
+    ">|" => (ReduceToColumn, true),
+    "?" => (Names, nothing),
+    "??" => (IfNot, false),
+    "@" => (Axis, false),
+    "=@" => (AsAxis, false),
+    "@-" => (SquareRowIs, true),
+    "@|" => (SquareColumnIs, true),
+    "[ !" => (BeginNegatedMask, true),
+    "[" => (BeginMask, true),
+    "]" => (EndMask, nothing),
+    "^ !" => (XorNegatedMask, true),
+    "^" => (XorMask, true),
+    "| !" => (OrNegatedMask, true),
+    "|" => (OrMask, true),
+    "~" => (IsMatch, true),
+)
+
+function axis_with_name(query_operation::QueryOperation)::Bool
+    return query_operation isa Axis && query_operation.axis_name !== nothing
+end
+
+function axis_without_name(query_operation::QueryOperation)::Bool
+    return query_operation isa Axis && query_operation.axis_name === nothing
+end
+
+function vector_axis(::QueryState, query_value::QueryStackElement)::Bool
+    return query_value isa VectorState && query_value.property_axis_name !== nothing
+end
+
+function vector_maybe_axis(query_state::QueryState, query_value::QueryStackElement)::Bool
+    return query_value isa VectorState && (
+        (query_state.what_for != :compute || eltype(query_value.vector_values) <: AbstractString) &&
+        (query_value.property_axis_name !== nothing || query_value.property_name !== nothing)
+    )
+end
+
+function matrix_maybe_axis(query_state::QueryState, query_value::QueryStackElement)::Bool
+    return query_value isa MatrixState &&
+           query_value.property_name !== nothing &&
+           query_value.property_axis_name === nothing &&
+           (query_state.what_for != :compute || eltype(query_value.matrix_values) <: AbstractString)
+end
+
+function names_of_matrices(query_state::QueryState, rows_axis::Axis, columns_axis::Axis, ::Names)::Nothing
+    @assert rows_axis.axis_name !== nothing
+    @assert columns_axis.axis_name !== nothing
+
+    if query_state.what_for != :compute
+        push!(query_state.stack, NamesState(nothing))
+
+    else
+        push!(query_state.stack, NamesState(matrices_set(query_state.daf, rows_axis.axis_name, columns_axis.axis_name)))  # NOJET
+        push!(  # NOJET
+            query_state.dependency_keys,
+            Formats.matrices_set_cache_key(rows_axis.axis_name, columns_axis.axis_name; relayout = true),
         )
     end
 
-    if_not_values = vector_fetch_state.if_not_values
-
-    if if_not !== nothing
-        base_named_vector, fetched_values =
-            patch_fetched_values(vector_fetch_state, base_named_vector, fetched_values, if_not_values, if_not)
-    elseif !is_final
-        verify_fetched_values(query_state, fetch_property_name, fetch_axis_name, fetched_values, if_not_values, as_axis)
-    end
-
-    vector_fetch_state.named_vector =
-        NamedArray(fetched_values, base_named_vector.dicts, (vector_fetch_state.common.axis_state.axis_name,))
-
     return nothing
 end
 
-function fetch_first_named_vector(
-    query_state::QueryState,
-    vector_fetch_state::VectorFetchState,
-    next_named_vector::Maybe{NamedVector},
-    if_missing_value::Union{UndefInitializer, StorageScalar},
-)::Tuple{NamedVector, StorageVector}
-    @assert vector_fetch_state.if_not_values === nothing
-    axis_mask = vector_fetch_state.common.axis_state.axis_modifier
+function names_of_vectors(query_state::QueryState, axis::Axis, ::Names)::Nothing
+    @assert axis.axis_name !== nothing
 
-    if next_named_vector === nothing
-        base_named_vector = get_vector(query_state.daf, vector_fetch_state.common.axis_state.axis_name, "name")
-        @assert if_missing_value != undef
-        if axis_mask === nothing
-            size = axis_length(query_state.daf, vector_fetch_state.common.axis_state.axis_name)
-        else
-            @assert axis_mask isa AbstractVector{Bool}
-            size = sum(axis_mask)
-            @views base_named_vector = base_named_vector[axis_mask]
-        end
-        fetched_values = Vector{typeof(if_missing_value)}(undef, size)
-        vector_fetch_state.may_modify_named_vector = true
-
-        if_not_values = Vector{Maybe{IfNot}}(undef, length(fetched_values))
-        fill!(if_not_values, IfNot(if_missing_value))
-        vector_fetch_state.if_not_values = if_not_values
+    if query_state.what_for != :compute
+        push!(query_state.stack, NamesState(nothing))
 
     else
-        base_named_vector = next_named_vector
-        if axis_mask === nothing
-            vector_fetch_state.may_modify_named_vector = false
-        else
-            @assert axis_mask isa AbstractVector{Bool}
-            @views base_named_vector = base_named_vector[axis_mask]  # NOJET
-        end
-        fetched_values = base_named_vector.array
+        push!(query_state.stack, NamesState(vectors_set(query_state.daf, axis.axis_name)))  # NOJET
+        push!(query_state.dependency_keys, Formats.vectors_set_cache_key(axis.axis_name))  # NOJET
     end
 
-    return (base_named_vector, fetched_values)
+    return nothing
 end
 
-function fetch_second_named_vector(
-    query_state::QueryState,
-    vector_fetch_state::VectorFetchState,
-    fetch_axis_name::AbstractString,
-    previous_named_vector::NamedVector,
-    next_named_vector::Maybe{NamedVector},
-    if_missing_value::Union{UndefInitializer, StorageScalar},
-)::StorageVector
-    @assert eltype(previous_named_vector) <: AbstractString
+function names_of_axes(query_state::QueryState, axis::Axis, ::Names)::Nothing
+    @assert axis.axis_name === nothing
 
-    vector_fetch_state.may_modify_named_vector = true
+    if query_state.what_for != :compute
+        push!(query_state.stack, NamesState(nothing))
 
-    if next_named_vector === nothing
-        @assert if_missing_value != undef
-        fetched_values = Vector{typeof(if_missing_value)}(undef, length(previous_named_vector))
-        if_not_values = ensure_if_not_values(vector_fetch_state, length(previous_named_vector))
-        if_not = IfNot(if_missing_value)
-        for (index, if_not_value) in enumerate(if_not_values)
-            if if_not_value === nothing
-                if_not_values[index] = if_not
-            end
-        end
     else
-        fetched_values = Vector{eltype(next_named_vector)}(undef, length(previous_named_vector))
-        if_not_values = vector_fetch_state.if_not_values
-
-        n_values = length(previous_named_vector)
-        for index in 1:n_values
-            if if_not_values === nothing || if_not_values[index] === nothing
-                previous_value = previous_named_vector[index]
-                @assert previous_value != ""
-
-                index_in_fetch = get(next_named_vector.dicts[1], previous_value, nothing)
-                if index_in_fetch === nothing
-                    error_at_state(
-                        query_state,
-                        """
-                        invalid value: $(previous_value)
-                        of the vector: $(vector_fetch_state.common.property_name)
-                        of the axis: $(vector_fetch_state.common.axis_name)
-                        is missing from the fetched axis: $(fetch_axis_name)
-                        """,
-                    )
-                end
-
-                fetched_values[index] = next_named_vector.array[index_in_fetch]
-            end
-        end
+        push!(query_state.stack, NamesState(axes_set(query_state.daf)))  # NOJET
+        push!(query_state.dependency_keys, Formats.axes_set_cache_key())  # NOJET
     end
 
-    return fetched_values
-end
-
-function patch_fetched_values(
-    vector_fetch_state::VectorFetchState,
-    base_named_vector::NamedVector,
-    fetched_values::StorageVector,
-    if_not_values::Maybe{Vector{Maybe{IfNot}}},
-    if_not::IfNot,
-)::Tuple{NamedVector, StorageVector}
-    fetched_mask = nothing
-    n_values = length(fetched_values)
-    for index in 1:n_values
-        if if_not_values === nothing || if_not_values[index] === nothing
-            if fetched_values[index] in ("", 0, false)
-                if if_not.not_value === nothing
-                    fetched_mask = ensure_fetched_mask(fetched_mask, length(fetched_values))
-                    fetched_mask[index] = false
-                else
-                    if_not_values = ensure_if_not_values(vector_fetch_state, length(fetched_values))
-                    if_not_values[index] = if_not
-                end
-            end
-        end
-    end
-
-    if fetched_mask !== nothing
-        axis_mask = vector_fetch_state.common.axis_state.axis_modifier
-        if axis_mask === nothing
-            axis_mask = fetched_mask
-        else
-            @assert axis_mask isa AbstractVector{Bool}
-            if !vector_fetch_state.may_modify_axis_mask
-                axis_mask = copy_array(axis_mask)
-            end
-            axis_mask[axis_mask] = fetched_mask  # NOJET
-        end
-        vector_fetch_state.may_modify_axis_mask = true
-
-        axis_state = vector_fetch_state.common.axis_state
-        vector_fetch_state.common.axis_state =
-            AxisState(axis_state.query_sequence, axis_state.dependency_keys, axis_state.axis_name, axis_mask)
-
-        @views base_named_vector = base_named_vector[fetched_mask]
-        if_not_values = vector_fetch_state.if_not_values
-        if if_not_values === nothing
-            @views fetched_values = fetched_values[fetched_mask]
-        else
-            masked_fetched_values = Vector{eltype(fetched_values)}(undef, sum(fetched_mask))
-            masked_index = 0
-            for (unmasked_index, is_fetched) in enumerate(fetched_mask)
-                if is_fetched
-                    masked_index += 1
-                    if if_not_values[unmasked_index] === nothing
-                        masked_fetched_values[masked_index] = fetched_values[unmasked_index]  # UNTESTED
-                    end
-                end
-            end
-            @assert masked_index == length(masked_fetched_values)
-            @views vector_fetch_state.if_not_values = if_not_values[fetched_mask]  # NOJET
-            fetched_values = masked_fetched_values
-        end
-    end
-
-    return (base_named_vector, fetched_values)
-end
-
-function verify_fetched_values(
-    query_state::QueryState,
-    fetch_property_name::AbstractString,
-    fetch_axis_name::AbstractString,
-    fetched_values::StorageVector,
-    if_not_values::Maybe{Vector{Maybe{IfNot}}},
-    as_axis::Maybe{AsAxis},
-)::Nothing
-    @assert eltype(fetched_values) <: AbstractString
-    n_values = length(fetched_values)
-    for index in 1:n_values
-        if (if_not_values === nothing || if_not_values[index] === nothing) && fetched_values[index] == ""
-            fetch = get_next_operation(query_state, Fetch)
-            @assert fetch !== nothing
-            next_axis_name = axis_of_property(query_state.daf, fetch_property_name, as_axis)
-            error_at_state(
-                query_state,
-                """
-                empty value of the vector: $(fetch_property_name)
-                of the axis: $(fetch_axis_name)
-                used for the fetched axis: $(next_axis_name)
-                """,
-            )
-        end
-    end
     return nothing
 end
 
-function ensure_if_not_values(vector_fetch_state::VectorFetchState, size::Int)::Vector{Maybe{IfNot}}
-    if_not_values = vector_fetch_state.if_not_values
-    if if_not_values === nothing
-        if_not_values = Vector{Maybe{IfNot}}(undef, size)
-        fill!(if_not_values, nothing)
-        vector_fetch_state.if_not_values = if_not_values
-    end
-    return if_not_values
-end
+function names_of_scalars(query_state::QueryState, ::Names)::Nothing
+    if query_state.what_for != :compute
+        push!(query_state.stack, NamesState(nothing))
 
-function ensure_fetched_mask(fetched_mask::Maybe{AbstractVector{Bool}}, size::Int)::AbstractVector{Bool}
-    if fetched_mask === nothing
-        fetched_mask = ones(Bool, size)
+    else
+        @assert query_state.daf !== nothing
+        push!(query_state.stack, NamesState(scalars_set(query_state.daf)))  # NOJET
+        push!(query_state.dependency_keys, Formats.scalars_set_cache_key())  # NOJET
     end
-    return fetched_mask
-end
 
-function fetch_result(
-    query_state::QueryState,
-    entry_fetch_state::EntryFetchState,
-    fetch_query_sequence::QuerySequence,
-)::Nothing
-    scalar_value = entry_fetch_state.scalar_value
-    @assert scalar_value !== nothing
-    push!(query_state.stack, ScalarState(fetch_query_sequence, entry_fetch_state.common.dependency_keys, scalar_value))
     return nothing
 end
 
-function fetch_result(
-    query_state::QueryState,
-    fetch_state::VectorFetchState,
-    fetch_query_sequence::QuerySequence,
-)::Nothing
-    named_vector = fetch_state.named_vector
-    @assert named_vector !== nothing
+function scalar_lookup(query_state::QueryState, lookup_scalar::LookupScalar, if_missing::Maybe{IfMissing})::Nothing
+    if query_state.what_for != :compute
+        push!(query_state.stack, ScalarState(nothing))
 
-    if_not_values = fetch_state.if_not_values
-    if if_not_values !== nothing
-        if (eltype(named_vector) <: AbstractString && !(eltype(named_vector) in (String, AbstractString)))
-            if eltype(named_vector) !== String  # UNTESTED
-                named_vector = copy_array(named_vector; eltype = String)  # NOJET # UNTESTED
-            end
-        elseif !fetch_state.may_modify_named_vector
-            named_vector = copy_array(named_vector)  # UNTESTED
-        end
-
-        for index in 1:length(named_vector)
-            if_not = if_not_values[index]
-            if if_not !== nothing
-                if_not_value = if_not.not_value
-                @assert if_not_value !== nothing
-                named_vector.array[index] = value_for(query_state, eltype(named_vector), if_not_value)
-            end
-        end
+    else
+        @assert query_state.daf !== nothing
+        default = default_value(if_missing)
+        push!(query_state.stack, ScalarState(get_scalar(query_state.daf, lookup_scalar.property_name; default)))  # NOJET
+        push!(query_state.dependency_keys, Formats.scalar_cache_key(lookup_scalar.property_name))  # NOJET
     end
 
-    push!(
-        query_state.stack,
-        VectorState(
-            fetch_query_sequence,
-            fetch_state.common.dependency_keys,
-            named_vector,
-            fetch_state.common.property_name,
-            fetch_state.common.axis_state,
-            false,
-        ),
-    )
     return nothing
 end
 
-function apply_query_operation!(query_state::QueryState, mask_operation::MaskOperation)::Nothing
-    if has_top(query_state, (AxisState,))
-        axis_state = pop!(query_state.stack)
-        @assert axis_state isa AxisState
-        if !(axis_state.axis_modifier isa Int)
-            full_axis_state =
-                AxisState(axis_state.query_sequence, axis_state.dependency_keys, axis_state.axis_name, nothing)
-            fetch_property(query_state, full_axis_state, mask_operation)
-            apply_comparison(query_state)
-            mask_state = pop!(query_state.stack)
-            @assert mask_state isa VectorState
-            apply_mask_to_axis_state(query_state, axis_state, mask_state, mask_operation)  # NOJET
-            push!(query_state.stack, axis_state)
-            return nothing
-        end
-    end
+function lookup_vector_entry(
+    query_state::QueryState,
+    lookup_vector::LookupVector,
+    if_missing::Maybe{IfMissing},
+    axis::Axis,
+    is_equal::IsEqual,
+)::Nothing
+    @assert axis.axis_name !== nothing
 
-    return error_unexpected_operation(query_state)
-end
-
-function fake_query_operation!(fake_query_state::FakeQueryState, mask_operation::MaskOperation)::Nothing
-    if has_top(fake_query_state, (FakeAxisState,))
-        fake_axis_state = pop!(fake_query_state.stack)
-        @assert fake_axis_state isa FakeAxisState
-        if !fake_axis_state.is_entry
-            fake_fetch_property(fake_query_state, fake_axis_state, mask_operation.property_name)
-            get_next_operation(fake_query_state, ComparisonOperation)
-            fake_mask_state = pop!(fake_query_state.stack)
-            @assert fake_mask_state isa FakeVectorState
-            push!(fake_query_state.stack, fake_axis_state)
-            return nothing
-        end
-    end
-
-    return error_unexpected_operation(fake_query_state)
-end
-
-function apply_comparison(query_state::QueryState)::Nothing
-    comparison_operation = get_next_operation(query_state, ComparisonOperation)
-    if comparison_operation === nothing
+    if query_state.what_for != :compute
+        push!(query_state.stack, ScalarState(nothing))
         return nothing
     end
 
-    @assert comparison_operation isa ComparisonOperation
-    vector_state = pop!(query_state.stack)
-    @assert vector_state isa VectorState
+    @assert query_state.daf !== nothing
+    default = default_value(if_missing)
+    named_vector = get_vector(query_state.daf, axis.axis_name, lookup_vector.property_name; default)  # NOJET
+    scalar_value = named_vector[is_equal.comparison_value]
+    push!(query_state.stack, ScalarState(scalar_value))
+    push!(query_state.dependency_keys, Formats.vector_cache_key(axis.axis_name, lookup_vector.property_name))  # NOJET
 
-    if comparison_operation isa MatchOperation
-        if !(eltype(vector_state.named_vector) <: AbstractString)
-            axis_state = vector_state.axis_state
-            @assert axis_state !== nothing
+    return nothing
+end
+
+function lookup_matrix_entry(
+    query_state::QueryState,
+    lookup_matrix::LookupMatrix,
+    if_missing::Maybe{IfMissing},
+    rows_axis::Axis,
+    square_row_is_equal::IsEqual,
+    columns_axis::Axis,
+    square_column_is_equal::IsEqual,
+)::Nothing
+    @assert rows_axis.axis_name !== nothing
+    @assert columns_axis.axis_name !== nothing
+
+    if query_state.what_for != :compute
+        push!(query_state.stack, ScalarState(nothing))
+        return nothing
+    end
+
+    @assert query_state.daf !== nothing
+    default = default_value(if_missing)
+    named_matrix =  # NOJET
+        get_matrix(query_state.daf, rows_axis.axis_name, columns_axis.axis_name, lookup_matrix.property_name; default)
+    scalar_value = named_matrix[square_row_is_equal.comparison_value, square_column_is_equal.comparison_value]
+    push!(query_state.stack, ScalarState(scalar_value))
+    push!(  # NOJET
+        query_state.dependency_keys,
+        Formats.matrix_cache_key(rows_axis.axis_name, columns_axis.axis_name, lookup_matrix.property_name),
+    )
+
+    return nothing
+end
+
+function eltwise_scalar(
+    query_state::QueryState,
+    scalar_state::ScalarState,
+    eltwise_operation::EltwiseOperation,
+)::Nothing
+    if query_state.what_for == :compute
+        if scalar_state.scalar_value isa AbstractString && !supports_strings(eltwise_operation)
             error_at_state(
                 query_state,
                 """
-                matching non-string vector: $(eltype(vector_state.named_vector))
-                of the vector: $(vector_state.property_name)
-                of the axis: $(axis_state.axis_name)
+                unsupported input type: String
+                for the eltwise operation: $(typeof(eltwise_operation))
                 """,
             )
         end
-        compare_with = regex_for(query_state, comparison_operation.comparison_value)
 
-    else
-        compare_with = value_for(query_state, eltype(vector_state.named_vector), comparison_operation.comparison_value)
+        scalar_state.scalar_value = compute_eltwise(eltwise_operation, scalar_state.scalar_value)  # NOLINT
     end
 
-    comparison_values =
-        [compute_comparison(value, comparison_operation, compare_with) for value in vector_state.named_vector]
-    vector_state.named_vector =
-        NamedArray(comparison_values, vector_state.named_vector.dicts, vector_state.named_vector.dimnames)
+    push!(query_state.stack, scalar_state)
+    return nothing
+end
+
+function axis_lookup(query_state::QueryState, axis::Axis)::Nothing
+    @assert axis.axis_name !== nothing
+
+    vector_state = VectorState()
+
+    if query_state.what_for != :compute
+        vector_state.vector_entries = String[]
+    else
+        @assert query_state.daf !== nothing
+        vector_state.vector_entries = axis_vector(query_state.daf, axis.axis_name)  # NOJET
+        push!(query_state.dependency_keys, Formats.axis_vector_cache_key(axis.axis_name))  # NOJET
+    end
+
+    vector_state.entries_axis_name = axis.axis_name
+    vector_state.property_name = "name"
+    vector_state.property_axis_name = axis.axis_name
+    vector_state.is_complete_property_axis = true
+    vector_state.vector_values = vector_state.vector_entries
 
     push!(query_state.stack, vector_state)
     return nothing
 end
 
-function apply_mask_to_axis_state(
-    query_state::QueryState,
-    axis_state::AxisState,
-    mask_state::VectorState,
-    mask_operation::MaskOperation,
-)::Nothing
-    mask_vector = mask_state.named_vector.array
-    if eltype(mask_vector) <: AbstractString
-        mask_vector = mask_vector .!= ""
-    elseif eltype(mask_vector) != Bool
-        mask_vector = mask_vector .!= 0
+function ensure_vector_is_axis(query_state::QueryState, vector_state::VectorState, as_axis::Maybe{AsAxis})::Nothing
+    if vector_state.property_axis_name === nothing || as_axis !== nothing
+        vector_property_is_axis(query_state, vector_state, as_axis)
+        @assert pop!(query_state.stack) === vector_state
     end
-    @assert eltype(mask_vector) <: Bool
-
-    axis_mask = axis_state.axis_modifier
-    if axis_mask === nothing
-        axis_mask = ones(Bool, axis_length(query_state.daf, axis_state.axis_name))
-        axis_state.axis_modifier = axis_mask
-    end
-    @assert axis_mask isa AbstractVector{Bool}
-
-    mask_mask = mask_state.axis_state.axis_modifier
-
-    if mask_mask === nothing
-        update_axis_mask(axis_mask, mask_vector, mask_operation)
-    else
-        axis_mask .&= mask_mask
-        @views update_axis_mask(axis_mask[mask_mask], mask_vector, mask_operation)
-    end
-
-    axis_state.axis_modifier = axis_mask
-    union!(axis_state.dependency_keys, mask_state.dependency_keys)
+    @assert vector_state.property_axis_name !== nothing
     return nothing
 end
 
-function apply_query_operation!(query_state::QueryState, as_axis::AsAxis)::Nothing
-    if is_all(query_state, (VectorState,))
-        vector_state = query_state.stack[1]
-        @assert vector_state isa VectorState
-        if !vector_state.is_processed && peek_next_operation(query_state, CountBy) !== nothing
-            push!(query_state.stack, as_axis)
-            return nothing
-        end
-    end
-
-    return error_unexpected_operation(query_state)
-end
-
-function fake_query_operation!(fake_query_state::FakeQueryState, ::AsAxis)::Nothing
-    if is_all(fake_query_state, (FakeVectorState,))
-        fake_vector_state = fake_query_state.stack[1]
-        @assert fake_vector_state isa FakeVectorState
-        if !fake_vector_state.is_processed && peek_next_operation(fake_query_state, CountBy) !== nothing
-            return nothing
-        end
-    end
-
-    return error_unexpected_operation(fake_query_state)
-end
-
-function apply_query_operation!(query_state::QueryState, count_by::CountBy)::Nothing
-    if is_all(query_state, (VectorState, AsAxis))
-        as_axis = pop!(query_state.stack)
-        @assert as_axis isa AsAxis
-        return fetch_count_by(query_state, count_by, as_axis)
-    elseif is_all(query_state, (VectorState,))
-        return fetch_count_by(query_state, count_by, nothing)
-    end
-
-    return error_unexpected_operation(query_state)
-end
-
-function fake_query_operation!(fake_query_state::FakeQueryState, count_by::CountBy)::Nothing
-    if is_all(fake_query_state, (FakeVectorState,))
-        return fake_fetch_count_by(fake_query_state, count_by)
-    end
-
-    return error_unexpected_operation(fake_query_state)
-end
-
-function fetch_count_by(query_state::QueryState, count_by::CountBy, rows_as_axis::Maybe{AsAxis})::Nothing
-    rows_vector_state = pop!(query_state.stack)
-    @assert rows_vector_state isa VectorState
-    rows_axis_state = rows_vector_state.axis_state
-    @assert rows_axis_state !== nothing
-
-    fetch_property(query_state, rows_axis_state, count_by)
-    columns_vector_state = pop!(query_state.stack)
-    @assert columns_vector_state isa VectorState
-    columns_axis_state = columns_vector_state.axis_state
-    @assert columns_axis_state !== nothing
-
-    columns_as_axis = get_next_operation(query_state, AsAxis)
-
-    apply_mask_to_base_vector_state(rows_vector_state, columns_vector_state)
-    rows_name, rows_values, rows_index_of_value = unique_values(query_state, rows_vector_state, rows_as_axis, true)
-    columns_name, columns_values, columns_index_of_value =
-        unique_values(query_state, columns_vector_state, columns_as_axis, true)
-    @assert rows_index_of_value !== nothing
-    @assert columns_index_of_value !== nothing
-
-    rows_names = values_to_names(rows_values)
-    columns_names = values_to_names(columns_values)
-
-    count_by_matrix = compute_count_by(
-        rows_vector_state.named_vector.array,
-        rows_values,
-        rows_index_of_value,
-        columns_vector_state.named_vector.array,
-        columns_values,
-        columns_index_of_value,
-    )
-    named_matrix = NamedArray(count_by_matrix, (rows_names, columns_names), (rows_name, columns_name))
-
-    dependency_keys = union(rows_vector_state.dependency_keys, columns_vector_state.dependency_keys)
-
-    matrix_state = MatrixState(
-        query_state_sequence(query_state),
-        dependency_keys,
-        named_matrix,
-        rows_vector_state.property_name,
-        columns_vector_state.property_name,
-        rows_axis_state,
-        columns_axis_state,
-    )
-    push!(query_state.stack, matrix_state)
-    return nothing
-end
-
-function fake_fetch_count_by(fake_query_state::FakeQueryState, count_by::CountBy)::Nothing
-    rows_vector_state = pop!(fake_query_state.stack)
-    @assert rows_vector_state isa FakeVectorState
-    @assert rows_vector_state.axis_state !== nothing
-
-    fake_fetch_property(fake_query_state, rows_vector_state.axis_state, count_by.property_name)
-    columns_vector_state = pop!(fake_query_state.stack)
-    @assert columns_vector_state isa FakeVectorState
-
-    get_next_operation(fake_query_state, AsAxis)
-
-    @assert columns_vector_state.axis_state !== nothing
-    push!(fake_query_state.stack, FakeMatrixState(rows_vector_state.axis_state, columns_vector_state.axis_state))
-    return nothing
-end
-
-function apply_mask_to_base_vector_state(base_vector_state::VectorState, masked_vector_state::VectorState)::Nothing
-    base_axis_state = base_vector_state.axis_state
-    @assert base_axis_state !== nothing
-    base_axis_mask = base_axis_state.axis_modifier
-
-    masked_axis_state = masked_vector_state.axis_state
-    @assert masked_axis_state !== nothing
-    masked_axis_mask = masked_axis_state.axis_modifier
-
-    if base_axis_mask != masked_axis_mask
-        @assert masked_axis_mask isa AbstractVector{Bool}
-        @assert base_axis_mask === nothing || !any(masked_axis_mask .& .!base_axis_mask)  # NOJET
-        apply_mask_to_vector_state(base_vector_state, masked_axis_mask)
-    end
-end
-
-function apply_mask_to_base_matrix_state(base_matrix_state::MatrixState, masked_vector_state::VectorState)::Nothing
-    base_axis_state = base_matrix_state.rows_axis_state
-    @assert base_axis_state !== nothing
-    base_axis_mask = base_axis_state.axis_modifier
-
-    masked_axis_state = masked_vector_state.axis_state
-    @assert masked_axis_state !== nothing
-    masked_axis_mask = masked_axis_state.axis_modifier
-
-    if base_axis_mask != masked_axis_mask
-        @assert masked_axis_mask isa AbstractVector{Bool}
-        @assert base_axis_mask === nothing || !any(masked_axis_mask .& .!base_axis_mask)
-        apply_mask_to_matrix_state_rows(base_matrix_state, masked_axis_mask)
-    end
-end
-
-function unique_values(
+function lookup_vector_by_vector(
     query_state::QueryState,
     vector_state::VectorState,
     as_axis::Maybe{AsAxis},
-    need_index_of_values::Bool,
-)::Tuple{AbstractString, StorageVector, Maybe{Dict}}
-    property_name = vector_state.property_name
+    if_not::Maybe{IfNot},
+    lookup_vector::LookupVector,
+    if_missing::Maybe{IfMissing},
+)::Nothing
+    ensure_vector_is_axis(query_state, vector_state, as_axis)
 
-    if as_axis === nothing
-        values = unique(vector_state.named_vector)
-        sort!(values)
-        if !need_index_of_values
-            index_of_value = nothing
+    if query_state.what_for != :compute
+        if vector_state.property_axis_name === nothing
+            vector_state.property_axis_name = vector_state.property_name  # UNTESTED
+        end
+    else
+        @assert query_state.daf !== nothing
+
+        if vector_state.property_axis_name === nothing
+            vector_state.property_axis_name = axis_of_property(query_state.daf, vector_state.property_name)  # NOJET # UNTESTED
+        end
+
+        add_final_values!(vector_state, if_not)
+
+        default = default_value(if_missing)
+        named_vector_values =  # NOJET
+            get_vector(query_state.daf, vector_state.property_axis_name, lookup_vector.property_name; default)
+        push!(  # NOJET
+            query_state.dependency_keys,
+            Formats.vector_cache_key(vector_state.property_axis_name, lookup_vector.property_name),
+        )
+
+        if vector_state.pending_final_values !== nothing
+            type = eltype(named_vector_values)
+            if type <: AbstractString
+                type = AbstractString
+            end
+            lookup_vector_values = Vector{type}(undef, length(vector_state.vector_values))
+            for index in 1:length(vector_state.vector_values)
+                if vector_state.pending_final_values[index] === nothing
+                    lookup_vector_values[index] = named_vector_values[string(vector_state.vector_values[index])]
+                elseif type == AbstractString
+                    lookup_vector_values[index] = ""
+                else
+                    lookup_vector_values[index] = zero(type)
+                end
+            end
+
+        elseif vector_state.is_complete_property_axis
+            @assert axis_vector(query_state.daf, vector_state.property_axis_name) == vector_state.vector_values  # NOJET
+            lookup_vector_values = named_vector_values.array
+
         else
-            index_of_value = Dict{eltype(values), Int32}()
-            for (index, value) in enumerate(values)
-                index_of_value[value] = index
+            lookup_vector_values = [named_vector_values[string.(value)] for value in vector_state.vector_values]
+        end
+
+        vector_state.vector_values = lookup_vector_values
+    end
+
+    vector_state.property_name = lookup_vector.property_name
+    vector_state.property_axis_name = nothing
+    vector_state.is_complete_property_axis = false
+
+    push!(query_state.stack, vector_state)
+
+    return nothing
+end
+
+function lookup_matrix_column_by_vector(
+    query_state::QueryState,
+    vector_state::VectorState,
+    as_axis::Maybe{AsAxis},
+    if_not::Maybe{IfNot},
+    lookup_matrix::LookupMatrix,
+    if_missing::Maybe{IfMissing},
+    columns_axis::Axis,
+    square_column_is_equal::IsEqual,
+)::Nothing
+    @assert columns_axis.axis_name !== nothing
+
+    ensure_vector_is_axis(query_state, vector_state, as_axis)
+
+    if query_state.what_for == :compute
+        fill_lookup_vector_values(
+            query_state,
+            vector_state,
+            if_not,
+            lookup_matrix,
+            if_missing,
+            columns_axis.axis_name,
+            square_column_is_equal.comparison_value;
+            is_column = true,
+        )
+    end
+
+    vector_state.property_name = lookup_matrix.property_name
+    vector_state.property_axis_name = nothing
+    vector_state.is_complete_property_axis = false
+
+    push!(query_state.stack, vector_state)
+
+    return nothing
+end
+
+function lookup_square_matrix_column_by_vector(
+    query_state::QueryState,
+    vector_state::VectorState,
+    as_axis::Maybe{AsAxis},
+    if_not::Maybe{IfNot},
+    lookup_matrix::LookupMatrix,
+    if_missing::Maybe{IfMissing},
+    square_column_is::SquareColumnIs,
+)::Nothing
+    ensure_vector_is_axis(query_state, vector_state, as_axis)
+
+    if query_state.what_for == :compute
+        fill_lookup_vector_values(  # NOJET
+            query_state,
+            vector_state,
+            if_not,
+            lookup_matrix,
+            if_missing,
+            vector_state.property_axis_name,
+            square_column_is.comparison_value;
+            is_column = true,
+        )
+    end
+
+    vector_state.property_name = lookup_matrix.property_name
+    vector_state.property_axis_name = nothing
+    vector_state.is_complete_property_axis = false
+
+    push!(query_state.stack, vector_state)
+
+    return nothing
+end
+
+function lookup_square_matrix_row_by_vector(
+    query_state::QueryState,
+    vector_state::VectorState,
+    as_axis::Maybe{AsAxis},
+    if_not::Maybe{IfNot},
+    lookup_matrix::LookupMatrix,
+    if_missing::Maybe{IfMissing},
+    square_row_is::SquareRowIs,
+)::Nothing
+    ensure_vector_is_axis(query_state, vector_state, as_axis)
+
+    if query_state.what_for == :compute
+        fill_lookup_vector_values(  # NOJET
+            query_state,
+            vector_state,
+            if_not,
+            lookup_matrix,
+            if_missing,
+            vector_state.property_axis_name,
+            square_row_is.comparison_value;
+            is_column = false,
+        )
+    end
+
+    vector_state.property_name = lookup_matrix.property_name
+    vector_state.property_axis_name = nothing
+    vector_state.is_complete_property_axis = false
+
+    push!(query_state.stack, vector_state)
+
+    return nothing
+end
+
+function fill_lookup_vector_values(
+    query_state::QueryState,
+    vector_state::VectorState,
+    if_not::Maybe{IfNot},
+    lookup_matrix::LookupMatrix,
+    if_missing::Maybe{IfMissing},
+    columns_axis_name::AbstractString,
+    lookup_value::StorageScalar;
+    is_column::Bool,
+)::Nothing
+    add_final_values!(vector_state, if_not)
+
+    @assert query_state.daf !== nothing
+    default = default_value(if_missing)
+    named_matrix_values = get_matrix(  # NOJET
+        query_state.daf,
+        vector_state.property_axis_name,
+        columns_axis_name,
+        lookup_matrix.property_name;
+        default,
+    )
+    push!(  # NOJET
+        query_state.dependency_keys,
+        Formats.matrix_cache_key(vector_state.property_axis_name, columns_axis_name, lookup_matrix.property_name),
+    )
+
+    if vector_state.pending_final_values !== nothing
+        type = eltype(named_matrix)  # NOLINT # NOJET # UNTESTED
+        if type <: AbstractString  # UNTESTED
+            type = AbstractString  # UNTESTED
+        end
+        lookup_vector_values = Vector{type}(undef, length(vector_state.vector_values))  # UNTESTED
+        for index in 1:length(vector_state.vector_values)  # UNTESTED
+            if vector_state.pending_final_values[index] === nothing  # UNTESTED
+                if is_column  # UNTESTED
+                    lookup_vector_values[index] =  # UNTESTED
+                        named_matrix_values[string(vector_state.vector_values[index]), string(lookup_value)]
+                else
+                    lookup_vector_values[index] =  # UNTESTED
+                        named_matrix_values[string(lookup_value), string(vector_state.vector_values[index])]
+                end
+            elseif type == AbstractString  # UNTESTED
+                lookup_vector_values[index] = ""  # UNTESTED
+            else
+                lookup_vector_values[index] = zero(type)  # UNTESTED
             end
         end
-        return (property_name, values, index_of_value)
+
+    elseif vector_state.is_complete_property_axis
+        @assert axis_vector(query_state.daf, vector_state.property_axis_name) == vector_state.vector_values  # NOJET
+        if is_column
+            lookup_vector_values = named_matrix_values[:, string(lookup_value)].array
+        else
+            lookup_vector_values = named_matrix_values[string(lookup_value), :].array
+        end
 
     else
-        axis_name = axis_of_property(query_state.daf, property_name, as_axis)
-        entry_names = get_vector(query_state.daf, axis_name, "name")
-        return (axis_name, entry_names.array, entry_names.dicts[1])
+        if is_column
+            lookup_vector_values = named_matrix_values[string.(vector_state.vector_values), string(lookup_value)].array
+        else
+            lookup_vector_values = named_matrix_values[string(lookup_value), string.(vector_state.vector_values)].array
+        end
     end
+
+    vector_state.vector_values = lookup_vector_values
+    return nothing
 end
 
-function values_to_names(values::StorageVector)::Vector{String}
-    return [string(value) for value in values]
+function add_final_values!(vector_state::VectorState, if_not::Maybe{IfNot})::Nothing
+    if if_not !== nothing
+        mask = as_booleans(vector_state.vector_values)  # NOJET
+        if if_not.final_value === nothing
+            vector_state.vector_entries = vector_state.vector_entries[mask]
+            vector_state.vector_values = vector_state.vector_values[mask]
+            if vector_state.pending_final_values !== nothing
+                vector_state.pending_final_values = vector_state.pending_final_values[mask]  # UNTESTED
+            end
+            vector_state.is_complete_property_axis = false
+        else
+            if vector_state.pending_final_values === nothing
+                vector_state.pending_final_values = Vector{Any}(undef, length(vector_state.vector_values))
+                vector_state.pending_final_values .= nothing  # NOJET
+            end
+            vector_state.pending_final_values[.!mask] .= if_not.final_value
+        end
+    end
+    return nothing
 end
 
-function compute_count_by(
-    rows_vector::StorageVector,
-    rows_values::StorageVector,
-    rows_index_of_value::Dict,
-    columns_vector::StorageVector,
-    columns_values::StorageVector,
-    columns_index_of_value::Dict,
-)::Matrix
-    @assert length(rows_vector) == length(columns_vector)
+function finalize_vector_values!(query_state::QueryState, vector_state::VectorState)::Nothing
+    if query_state.what_for === :compute && vector_state.pending_final_values !== nothing
+        vector_values = densify(vector_state.vector_values; copy = is_read_only_array(vector_state.vector_values))  # NOLINT
+        @assert !is_read_only_array(vector_values)  # NOLINT
+        for index in eachindex(vector_values)
+            final_value = vector_state.pending_final_values[index]
+            if final_value !== nothing
+                vector_values[index] = cast_value(query_state, "final", final_value, eltype(vector_values))
+            end
+        end
+        vector_state.vector_values = vector_values
+        vector_state.pending_final_values = nothing
+    end
+    return nothing
+end
+
+function lookup_vector_mask(
+    query_state::QueryState,
+    vector_state::VectorState,
+    as_axis::Maybe{AsAxis},
+    begin_mask::BeginAnyMask,
+    if_missing::Maybe{IfMissing},
+)::Nothing
+    finalize_vector_values!(query_state, vector_state)
+    ensure_vector_is_axis(query_state, vector_state, as_axis)
+
+    push!(query_state.stack, vector_state)
+    push!(query_state.stack, begin_mask)
+
+    lookup_vector_by_vector(
+        query_state,
+        copy(vector_state),
+        nothing,
+        nothing,
+        LookupVector(begin_mask.property_name),
+        if_missing,
+    )
+    return nothing
+end
+
+function lookup_matrix_column_mask(
+    query_state::QueryState,
+    vector_state::VectorState,
+    as_axis::Maybe{AsAxis},
+    begin_mask::BeginAnyMask,
+    if_missing::Maybe{IfMissing},
+    columns_axis::Axis,
+    square_column_is_equal::IsEqual,
+)::Nothing
+    @assert columns_axis.axis_name !== nothing
+    finalize_vector_values!(query_state, vector_state)
+    ensure_vector_is_axis(query_state, vector_state, as_axis)
+
+    push!(query_state.stack, vector_state)
+    push!(query_state.stack, begin_mask)
+
+    lookup_matrix_column_by_vector(
+        query_state,
+        copy(vector_state),
+        nothing,
+        nothing,
+        LookupMatrix(begin_mask.property_name),
+        if_missing,
+        columns_axis,
+        square_column_is_equal,
+    )
+    return nothing
+end
+
+function lookup_square_matrix_column_mask(
+    query_state::QueryState,
+    vector_state::VectorState,
+    as_axis::Maybe{AsAxis},
+    begin_mask::BeginAnyMask,
+    if_missing::Maybe{IfMissing},
+    square_column_is::SquareColumnIs,
+)::Nothing
+    @assert vector_state.property_axis_name !== nothing
+    finalize_vector_values!(query_state, vector_state)
+    ensure_vector_is_axis(query_state, vector_state, as_axis)
+
+    push!(query_state.stack, vector_state)
+    push!(query_state.stack, begin_mask)
+
+    lookup_square_matrix_column_by_vector(
+        query_state,
+        copy(vector_state),
+        nothing,
+        nothing,
+        LookupMatrix(begin_mask.property_name),
+        if_missing,
+        square_column_is,
+    )
+    return nothing
+end
+
+function lookup_square_matrix_row_mask(
+    query_state::QueryState,
+    vector_state::VectorState,
+    as_axis::Maybe{AsAxis},
+    begin_mask::BeginAnyMask,
+    if_missing::Maybe{IfMissing},
+    square_row_is::SquareRowIs,
+)::Nothing
+    finalize_vector_values!(query_state, vector_state)
+    ensure_vector_is_axis(query_state, vector_state, as_axis)
+
+    push!(query_state.stack, vector_state)
+    push!(query_state.stack, begin_mask)
+    lookup_square_matrix_row_by_vector(
+        query_state,
+        copy(vector_state),
+        nothing,
+        nothing,
+        LookupMatrix(begin_mask.property_name),
+        if_missing,
+        square_row_is,
+    )
+    return nothing
+end
+
+function apply_mask(
+    query_state::QueryState,
+    base_state::VectorState,
+    begin_mask::BeginAnyMask,
+    mask_state::VectorState,
+    ::EndMask,
+)::Nothing
+    if query_state.what_for != :compute
+        base_state.is_complete_property_axis = false
+        push!(query_state.stack, base_state)
+        return nothing
+    end
+
+    finalize_vector_values!(query_state, mask_state)
+
+    named_mask = NamedArray(zeros(Bool, length(base_state.vector_values)); names = (base_state.vector_entries,))
+    named_mask[mask_state.vector_entries] .= as_booleans(mask_state.vector_values)  # NOJET
+
+    if begin_mask isa BeginMask
+        mask = named_mask.array
+    elseif begin_mask isa BeginNegatedMask
+        mask = .!named_mask.array
+    else
+        @assert false
+    end
+
+    base_state.vector_values = base_state.vector_values[mask]
+    base_state.vector_entries = base_state.vector_entries[mask]
+    base_state.is_complete_property_axis = false
+
+    push!(query_state.stack, base_state)
+    return nothing
+end
+
+function lookup_vector_other_mask(
+    query_state::QueryState,
+    base_state::VectorState,
+    begin_mask::BeginAnyMask,
+    first_mask_state::VectorState,
+    mask_operation::MaskOperation,
+    if_missing::Maybe{IfMissing},
+)::Nothing
+    finalize_vector_values!(query_state, first_mask_state)
+
+    push!(query_state.stack, base_state)
+    push!(query_state.stack, begin_mask)
+    push!(query_state.stack, first_mask_state)
+    push!(query_state.stack, mask_operation)
+
+    lookup_vector_by_vector(
+        query_state,
+        copy(base_state),
+        nothing,
+        nothing,
+        LookupVector(mask_operation.property_name),
+        if_missing,
+    )
+    return nothing
+end
+
+function lookup_matrix_column_other_mask(
+    query_state::QueryState,
+    base_state::VectorState,
+    begin_mask::BeginAnyMask,
+    first_mask_state::VectorState,
+    mask_operation::MaskOperation,
+    if_missing::Maybe{IfMissing},
+    columns_axis::Axis,
+    square_column_is_equal::IsEqual,
+)::Nothing
+    finalize_vector_values!(query_state, first_mask_state)
+
+    push!(query_state.stack, base_state)
+    push!(query_state.stack, begin_mask)
+    push!(query_state.stack, first_mask_state)
+    push!(query_state.stack, mask_operation)
+
+    lookup_matrix_column_by_vector(
+        query_state,
+        copy(base_state),
+        nothing,
+        nothing,
+        LookupMatrix(mask_operation.property_name),
+        if_missing,
+        columns_axis,
+        square_column_is_equal,
+    )
+    return nothing
+end
+
+function lookup_square_matrix_column_other_mask(
+    query_state::QueryState,
+    base_state::VectorState,
+    begin_mask::BeginAnyMask,
+    first_mask_state::VectorState,
+    mask_operation::MaskOperation,
+    if_missing::Maybe{IfMissing},
+    square_column_is::SquareColumnIs,
+)::Nothing
+    finalize_vector_values!(query_state, first_mask_state)
+
+    push!(query_state.stack, base_state)
+    push!(query_state.stack, begin_mask)
+    push!(query_state.stack, first_mask_state)
+    push!(query_state.stack, mask_operation)
+
+    lookup_square_matrix_column_by_vector(
+        query_state,
+        copy(base_state),
+        nothing,
+        nothing,
+        LookupMatrix(mask_operation.property_name),
+        if_missing,
+        square_column_is,
+    )
+    return nothing
+end
+
+function lookup_square_matrix_row_other_mask(
+    query_state::QueryState,
+    base_state::VectorState,
+    begin_mask::BeginAnyMask,
+    first_mask_state::VectorState,
+    mask_operation::MaskOperation,
+    if_missing::Maybe{IfMissing},
+    square_row_is::SquareRowIs,
+)::Nothing
+    finalize_vector_values!(query_state, first_mask_state)
+
+    push!(query_state.stack, base_state)
+    push!(query_state.stack, begin_mask)
+    push!(query_state.stack, first_mask_state)
+    push!(query_state.stack, mask_operation)
+
+    lookup_square_matrix_row_by_vector(
+        query_state,
+        copy(base_state),
+        nothing,
+        nothing,
+        LookupMatrix(mask_operation.property_name),
+        if_missing,
+        square_row_is,
+    )
+    return nothing
+end
+
+function compute_mask_operation(
+    query_state::QueryState,
+    base_state::VectorState,
+    begin_mask::BeginAnyMask,
+    first_mask_state::VectorState,
+    mask_operation::MaskOperation,
+    second_mask_state::VectorState,
+)::Nothing
+    @assert first_mask_state.pending_final_values === nothing
+    finalize_vector_values!(query_state, second_mask_state)
+
+    if query_state.what_for != :compute
+        push!(query_state.stack, base_state)
+        push!(query_state.stack, begin_mask)
+        push!(query_state.stack, first_mask_state)
+        return nothing
+    end
+
+    first_named_mask = NamedArray(zeros(Bool, length(base_state.vector_values)); names = (base_state.vector_entries,))
+    first_named_mask[first_mask_state.vector_entries] .= as_booleans(first_mask_state.vector_values)  # NOJET
+
+    if begin_mask isa BeginMask
+        first_mask = first_named_mask.array
+    elseif begin_mask isa BeginNegatedMask
+        first_mask = .!first_named_mask.array
+        begin_mask = BeginMask(begin_mask.property_name)
+    else
+        @assert false
+    end
+
+    second_named_mask = NamedArray(zeros(Bool, length(base_state.vector_values)); names = (base_state.vector_entries,))
+    second_named_mask[second_mask_state.vector_entries] .= as_booleans(second_mask_state.vector_values)  # NOJET
+    second_mask = second_named_mask.array
+
+    combined_mask = combine_masks(first_mask, mask_operation, second_mask)
+
+    combined_mask_state = VectorState()
+    combined_mask_state.entries_axis_name = base_state.entries_axis_name
+    combined_mask_state.vector_entries = base_state.vector_entries
+    combined_mask_state.property_name = base_state.property_name
+    combined_mask_state.property_axis_name = base_state.property_axis_name
+    combined_mask_state.is_complete_property_axis = base_state.is_complete_property_axis
+    combined_mask_state.vector_values = combined_mask
+    combined_mask_state.pending_final_values = base_state.pending_final_values
+
+    push!(query_state.stack, base_state)
+    push!(query_state.stack, begin_mask)
+    push!(query_state.stack, combined_mask_state)
+
+    return nothing
+end
+
+function lookup_vector_group_by_vector(
+    query_state::QueryState,
+    vector_state::VectorState,
+    group_by::GroupBy,
+    if_missing::Maybe{IfMissing},
+)::Nothing
+    finalize_vector_values!(query_state, vector_state)
+
+    push!(query_state.stack, vector_state)
+    push!(query_state.stack, group_by)
+
+    lookup_vector_by_vector(
+        query_state,
+        extract_vector_axis(vector_state),
+        nothing,
+        nothing,
+        LookupVector(group_by.property_name),
+        if_missing,
+    )
+    return nothing
+end
+
+function lookup_vector_group_by_matrix_column(
+    query_state::QueryState,
+    vector_state::VectorState,
+    group_by::GroupBy,
+    if_missing::Maybe{IfMissing},
+    columns_axis::Axis,
+    square_column_is_equal::IsEqual,
+)::Nothing
+    finalize_vector_values!(query_state, vector_state)
+
+    push!(query_state.stack, vector_state)
+    push!(query_state.stack, group_by)
+
+    lookup_matrix_column_by_vector(
+        query_state,
+        extract_vector_axis(vector_state),
+        nothing,
+        nothing,
+        LookupMatrix(group_by.property_name),
+        if_missing,
+        columns_axis,
+        square_column_is_equal,
+    )
+    return nothing
+end
+
+function lookup_vector_group_by_square_matrix_column(
+    query_state::QueryState,
+    vector_state::VectorState,
+    group_by::GroupBy,
+    if_missing::Maybe{IfMissing},
+    square_column_is::SquareColumnIs,
+)::Nothing
+    finalize_vector_values!(query_state, vector_state)
+
+    push!(query_state.stack, vector_state)
+    push!(query_state.stack, group_by)
+
+    lookup_square_matrix_column_by_vector(
+        query_state,
+        extract_vector_axis(vector_state),
+        nothing,
+        nothing,
+        LookupMatrix(group_by.property_name),
+        if_missing,
+        square_column_is,
+    )
+    return nothing
+end
+
+function lookup_vector_group_by_square_matrix_row(
+    query_state::QueryState,
+    vector_state::VectorState,
+    group_by::GroupBy,
+    if_missing::Maybe{IfMissing},
+    square_row_is::SquareRowIs,
+)::Nothing
+    finalize_vector_values!(query_state, vector_state)
+
+    push!(query_state.stack, vector_state)
+    push!(query_state.stack, group_by)
+
+    lookup_square_matrix_row_by_vector(
+        query_state,
+        extract_vector_axis(vector_state),
+        nothing,
+        nothing,
+        LookupMatrix(group_by.property_name),
+        if_missing,
+        square_row_is,
+    )
+    return nothing
+end
+
+function extract_vector_axis(vector_state::VectorState)::VectorState
+    vector_axis = copy(vector_state)
+    vector_axis.property_axis_name = vector_axis.entries_axis_name
+    vector_axis.is_complete_property_axis = false
+    vector_axis.vector_values = vector_axis.vector_entries
+    @assert vector_axis.pending_final_values === nothing
+    return vector_axis
+end
+
+function extract_vector_axis(matrix_state::MatrixState, ::GroupColumnsBy)::VectorState
+    @assert matrix_state.columns_state !== nothing
+    return extract_vector_axis(matrix_state.columns_state)  # NOJET
+end
+
+function extract_vector_axis(matrix_state::MatrixState, ::GroupRowsBy)::VectorState
+    @assert matrix_state.rows_state !== nothing
+    return extract_vector_axis(matrix_state.rows_state)  # NOJET
+end
+
+function reduce_grouped_vector(
+    query_state::QueryState,
+    base_state::VectorState,
+    ::GroupBy,
+    group_state::VectorState,
+    reduction_operation::ReductionOperation,
+    if_missing::Maybe{IfMissing},
+)::Nothing
+    @assert base_state.pending_final_values === nothing
+    finalize_vector_values!(query_state, group_state)
+
+    if query_state.what_for != :compute
+        base_state.property_name = nothing
+        base_state.property_axis_name = nothing
+        base_state.is_complete_property_axis = false
+
+        push!(query_state.stack, base_state)
+
+        return nothing
+    end
+
+    named_values = NamedArray(base_state.vector_values; names = (base_state.vector_entries,))  # NOJET
+    vector_values = named_values[group_state.vector_entries].array
+
+    if group_state.property_axis_name === nothing
+        unique_group_values = sort!(unique(group_state.vector_values))
+    else
+        @assert query_state.daf !== nothing
+        unique_group_values = axis_vector(query_state.daf, group_state.property_axis_name)  # NOJET
+    end
+
+    if eltype(vector_values) <: AbstractString && !supports_strings(reduction_operation)
+        error_at_state(
+            query_state,
+            """
+            unsupported input type: String
+            for the reduction operation: $(typeof(reduction_operation))
+            """,
+        )
+    end
+
+    result_type = reduction_result_type(reduction_operation, eltype(vector_values))
+    reduced_values = Vector{result_type}(undef, length(unique_group_values))
+    for (group_index, group_value) in enumerate(unique_group_values)
+        group_mask = group_state.vector_values .== group_value
+        if any(group_mask)
+            @views group_vector_values = vector_values[group_mask]
+            reduced_values[group_index] = compute_reduction(reduction_operation, group_vector_values)  # NOLINT
+        elseif if_missing !== nothing
+            reduced_values[group_index] = cast_value(query_state, "missing", if_missing.default_value, result_type)
+        else
+            error_at_state(
+                query_state,
+                """
+                no IfMissing value specified for the unused entry: $(group_value)
+                of the axis: $(group_state.property_axis_name)
+                """,
+            )
+        end
+    end
+
+    reduced_state = VectorState()
+    reduced_state.entries_axis_name = group_state.property_axis_name
+    reduced_state.vector_entries = string.(unique_group_values)
+    reduced_state.is_complete_property_axis = base_state.property_axis_name !== nothing
+    reduced_state.vector_values = reduced_values
+
+    push!(query_state.stack, reduced_state)
+
+    return nothing
+end
+
+function reduce_matrix_to_column(
+    query_state::QueryState,
+    matrix_state::MatrixState,
+    reduce_to_column::ReduceToColumn,
+    if_missing::Maybe{IfMissing},
+)::Nothing
+    finalize_matrix_values!(query_state, matrix_state)
+
+    vector_state = matrix_state.rows_state
+    vector_state.property_name = nothing  # NOJET
+    vector_state.property_axis_name = nothing
+
+    if query_state.what_for == :compute
+        if eltype(matrix_state.matrix_values) <: AbstractString &&
+           !supports_strings(reduce_to_column.reduction_operation)
+            error_at_state(
+                query_state,
+                """
+                unsupported input type: String
+                for the reduction operation: $(typeof(reduce_to_column.reduction_operation))
+                """,
+            )
+        elseif length(matrix_state.matrix_values) > 0
+            vector_state.vector_values =
+                compute_reduction(reduce_to_column.reduction_operation, matrix_state.matrix_values, Columns)  # NOLINT
+        elseif if_missing !== nothing
+            vector_state.vector_values = fill(if_missing.default_value, length(vector_state.vector_values))
+        else
+            error_at_state(query_state, "no IfMissing value specified for reducing an empty matrix")
+        end
+    end
+
+    push!(query_state.stack, vector_state)  # NOJET
+    return nothing
+end
+
+function reduce_matrix_to_row(
+    query_state::QueryState,
+    matrix_state::MatrixState,
+    reduce_to_row::ReduceToRow,
+    if_missing::Maybe{IfMissing},
+)::Nothing
+    finalize_matrix_values!(query_state, matrix_state)
+
+    vector_state = matrix_state.columns_state
+    vector_state.property_name = nothing
+    vector_state.property_axis_name = nothing
+
+    if query_state.what_for == :compute
+        if eltype(matrix_state.matrix_values) <: AbstractString && !supports_strings(reduce_to_row.reduction_operation)
+            error_at_state(
+                query_state,
+                """
+                unsupported input type: String
+                for the reduction operation: $(typeof(reduce_to_row.reduction_operation))
+                """,
+            )
+        elseif length(matrix_state.matrix_values) > 0
+            vector_state.vector_values =
+                compute_reduction(reduce_to_row.reduction_operation, matrix_state.matrix_values, Rows)  # NOLINT
+        elseif if_missing !== nothing
+            vector_state.vector_values = fill(if_missing.default_value, length(vector_state.vector_values))
+        else
+            error_at_state(query_state, "no IfMissing value specified for reducing an empty matrix")
+        end
+    end
+
+    push!(query_state.stack, vector_state)
+    return nothing
+end
+
+function eltwise_vector(
+    query_state::QueryState,
+    vector_state::VectorState,
+    eltwise_operation::EltwiseOperation,
+)::Nothing
+    if query_state.what_for == :compute
+        if eltype(vector_state.vector_values) <: AbstractString && !supports_strings(eltwise_operation)
+            error_at_state(
+                query_state,
+                """
+                unsupported input type: String
+                for the eltwise operation: $(typeof(eltwise_operation))
+                """,
+            )
+        end
+
+        vector_state.vector_values = compute_eltwise(eltwise_operation, vector_state.vector_values)  # NOLINT
+    end
+
+    push!(query_state.stack, vector_state)
+    return nothing
+end
+
+function eltwise_matrix(
+    query_state::QueryState,
+    matrix_state::MatrixState,
+    eltwise_operation::EltwiseOperation,
+)::Nothing
+    finalize_matrix_values!(query_state, matrix_state)
+
+    if query_state.what_for == :compute
+        if eltype(matrix_state.matrix_values) <: AbstractString && !supports_strings(eltwise_operation)
+            error_at_state(
+                query_state,
+                """
+                unsupported input type: String
+                for the eltwise operation: $(typeof(eltwise_operation))
+                """,
+            )
+        end
+
+        matrix_state.matrix_values = compute_eltwise(eltwise_operation, matrix_state.matrix_values)  # NOLINT
+    end
+
+    push!(query_state.stack, matrix_state)
+    return nothing
+end
+
+function compare_vector(
+    query_state::QueryState,
+    vector_state::VectorState,
+    comparison_operation::VectorComparisonOperation,
+)::Nothing
+    finalize_vector_values!(query_state, vector_state)
+
+    if query_state.what_for == :compute
+        comparison_value = comparison_operation.comparison_value
+        is_string_value = comparison_value isa AbstractString || comparison_value isa Regex
+        is_string_vector = eltype(vector_state.vector_values) <: AbstractString
+
+        if comparison_operation isa IsMatch || comparison_operation isa IsNotMatch
+            if !is_string_vector
+                error_at_state(
+                    query_state,
+                    """
+                    unsupported vector element type: $(eltype(vector_state.vector_values))
+                    for the comparison operation: $(typeof(comparison_operation))
+                    """,
+                )
+            end
+
+            if comparison_value isa AbstractString
+                try
+                    comparison_value = Regex(comparison_value)
+                catch exception
+                    error_at_state(
+                        query_state,
+                        """
+                        invalid regular expression: $(comparison_value)
+                        for the comparison operation: $(typeof(comparison_operation))
+                        $(exception)
+                        """,
+                    )
+                end
+            end
+
+            @assert comparison_value isa Regex
+
+        elseif !is_string_vector && is_string_value
+            try
+                comparison_value = parse(Float64, comparison_value)
+            catch exception
+                error_at_state(
+                    query_state,
+                    """
+                    error parsing number comparison value: $(comparison_value)
+                    for comparison with a vector of type: $(eltype(vector_state.vector_values))
+                    $(exception)
+                    """,
+                )
+            end
+        end
+
+        vector_state.vector_values =
+            [compute_comparison(value, comparison_operation, comparison_value) for value in vector_state.vector_values]
+    end
+
+    vector_state.property_name = nothing
+    vector_state.property_axis_name = nothing
+    vector_state.is_complete_property_axis = false
+
+    push!(query_state.stack, vector_state)
+    return nothing
+end
+
+function vector_property_is_axis(
+    query_state::QueryState,
+    vector_state::VectorState,
+    as_axis::Maybe{AsAxis} = nothing,
+)::Nothing
+    @assert vector_state.property_name !== nothing
+    @assert vector_state.property_axis_name === nothing
+    if query_state.what_for == :compute
+        @assert eltype(vector_state.vector_values) <: AbstractString
+    end
+
+    finalize_vector_values!(query_state, vector_state)
+
+    if as_axis !== nothing && as_axis.axis_name !== nothing
+        axis_name = as_axis.axis_name
+
+    else
+        if query_state.what_for != :compute
+            axis_name = vector_state.property_name
+        else
+            @assert query_state.daf !== nothing
+            axis_name = axis_of_property(query_state.daf, vector_state.property_name)  # NOJET
+        end
+    end
+
+    vector_state.property_axis_name = axis_name
+    push!(query_state.stack, vector_state)
+
+    return nothing
+end
+
+function matrix_lookup(
+    query_state::QueryState,
+    rows_state::VectorState,
+    columns_state::VectorState,
+    as_axis::Maybe{AsAxis},
+    lookup_matrix::LookupMatrix,
+    if_missing::Maybe{IfMissing},
+)::Nothing
+    @assert rows_state.pending_final_values === nothing
+    @assert rows_state.property_axis_name !== nothing
+
+    finalize_vector_values!(query_state, columns_state)
+    ensure_vector_is_axis(query_state, columns_state, as_axis)
+
+    matrix_state = MatrixState()
+
+    matrix_state.rows_state = rows_state
+    matrix_state.columns_state = columns_state
+    matrix_state.property_name = lookup_matrix.property_name
+
+    if query_state.what_for == :requires_relayout
+        @assert query_state.daf !== nothing
+        if !has_matrix(
+            query_state.daf,
+            rows_state.property_axis_name,
+            columns_state.property_axis_name,
+            lookup_matrix.property_name;
+            relayout = false,
+        )
+            query_state.requires_relayout = has_matrix(
+                query_state.daf,
+                columns_state.property_axis_name,
+                rows_state.property_axis_name,
+                lookup_matrix.property_name;
+                relayout = false,
+            )
+        end
+        matrix_state.matrix_values = String[;;]
+
+    elseif query_state.what_for == :compute
+        @assert query_state.daf !== nothing
+        default = default_value(if_missing)
+        named_matrix_values = get_matrix(
+            query_state.daf,
+            rows_state.property_axis_name,
+            columns_state.property_axis_name,
+            lookup_matrix.property_name;
+            default,
+        )
+        push!(  # NOJET
+            query_state.dependency_keys,
+            Formats.matrix_cache_key(
+                rows_state.property_axis_name,
+                columns_state.property_axis_name,
+                lookup_matrix.property_name,
+            ),
+        )
+
+        if rows_state.is_complete_property_axis && columns_state.is_complete_property_axis
+            matrix_values = named_matrix_values.array
+        elseif rows_state.is_complete_property_axis
+            matrix_values = named_matrix_values[:, columns_state.vector_values].array
+        elseif columns_state.is_complete_property_axis
+            matrix_values = named_matrix_values[rows_state.vector_values, :].array
+        else
+            matrix_values = named_matrix_values[rows_state.vector_values, columns_state.vector_values].array  # UNTESTED
+        end
+
+        matrix_state.matrix_values = matrix_values
+    else
+        matrix_state.matrix_values = String[;;]
+    end
+
+    push!(query_state.stack, matrix_state)
+
+    return nothing
+end
+
+function lookup_vector_count(
+    query_state::QueryState,
+    vector_state::VectorState,
+    as_axis::Maybe{AsAxis},
+    count_by::CountBy,
+    if_missing::Maybe{IfMissing},
+)::Nothing
+    finalize_vector_values!(query_state, vector_state)
+
+    if as_axis !== nothing
+        vector_property_is_axis(query_state, vector_state, as_axis)
+        @assert pop!(query_state.stack) === vector_state
+    end
+
+    push!(query_state.stack, vector_state)
+    push!(query_state.stack, count_by)
+
+    lookup_vector_by_vector(
+        query_state,
+        extract_vector_axis(vector_state),
+        nothing,
+        nothing,
+        LookupVector(count_by.property_name),
+        if_missing,
+    )
+    return nothing
+end
+
+function lookup_matrix_column_count(
+    query_state::QueryState,
+    vector_state::VectorState,
+    count_by::CountBy,
+    if_missing::Maybe{IfMissing},
+    columns_axis::Axis,
+    square_column_is_equal::IsEqual,
+)::Nothing
+    @assert columns_axis.axis_name !== nothing
+    finalize_vector_values!(query_state, vector_state)
+
+    push!(query_state.stack, vector_state)
+    push!(query_state.stack, count_by)
+
+    lookup_matrix_column_by_vector(
+        query_state,
+        extract_vector_axis(vector_state),
+        nothing,
+        nothing,
+        LookupMatrix(count_by.property_name),
+        if_missing,
+        columns_axis,
+        square_column_is_equal,
+    )
+    return nothing
+end
+
+function lookup_square_matrix_column_count(
+    query_state::QueryState,
+    vector_state::VectorState,
+    count_by::CountBy,
+    if_missing::Maybe{IfMissing},
+    square_column_is::SquareColumnIs,
+)::Nothing
+    finalize_vector_values!(query_state, vector_state)
+
+    push!(query_state.stack, vector_state)
+    push!(query_state.stack, count_by)
+
+    lookup_square_matrix_column_by_vector(
+        query_state,
+        extract_vector_axis(vector_state),
+        nothing,
+        nothing,
+        LookupMatrix(count_by.property_name),
+        if_missing,
+        square_column_is,
+    )
+    return nothing
+end
+
+function lookup_square_matrix_row_count(
+    query_state::QueryState,
+    vector_state::VectorState,
+    count_by::CountBy,
+    if_missing::Maybe{IfMissing},
+    square_row_is::SquareRowIs,
+)::Nothing
+    finalize_vector_values!(query_state, vector_state)
+
+    push!(query_state.stack, vector_state)
+    push!(query_state.stack, count_by)
+
+    lookup_square_matrix_row_by_vector(
+        query_state,
+        extract_vector_axis(vector_state),
+        nothing,
+        nothing,
+        LookupMatrix(count_by.property_name),
+        if_missing,
+        square_row_is,
+    )
+    return nothing
+end
+
+function compute_count_matrix(
+    query_state::QueryState,
+    rows_state::VectorState,
+    ::CountBy,
+    columns_state::VectorState,
+)::Nothing
+    @assert rows_state.pending_final_values === nothing
+    finalize_vector_values!(query_state, columns_state)
+
+    if length(rows_state.vector_entries) != length(columns_state.vector_entries)
+        error_at_state(  # UNTESTED
+            query_state,
+            "different CountBy vector lengths: $(length(rows_state.vector_entries)) * $(length(columns_state.vector_entries))",
+        )
+    end
+
+    matrix_state = MatrixState()
+
+    matrix_state.rows_state, rows_index_of_value = count_by_axis_state(query_state, rows_state)
+    matrix_state.columns_state, columns_index_of_value = count_by_axis_state(query_state, columns_state)
+    matrix_state.property_name = nothing
+    matrix_state.matrix_values = count_by_values(
+        rows_state,
+        matrix_state.rows_state,
+        rows_index_of_value,
+        columns_state,
+        matrix_state.columns_state,
+        columns_index_of_value,
+    )
+
+    push!(query_state.stack, matrix_state)
+
+    return nothing
+end
+
+function count_by_axis_state(query_state::QueryState, vector_state::VectorState)::Tuple{VectorState, AbstractDict}
+    if query_state.what_for !== :compute
+        unique_vector_values = vector_state.vector_values
+        index_of_value = Dict()
+    elseif vector_state.property_axis_name === nothing
+        unique_vector_values = sort!(unique(vector_state.vector_values))
+        index_of_value = Dict{eltype(unique_vector_values), Int32}()
+        for (index, value) in enumerate(unique_vector_values)
+            index_of_value[value] = index
+        end
+    else
+        @assert query_state.daf !== nothing
+        unique_vector_values = axis_vector(query_state.daf, vector_state.property_axis_name)  # NOJET
+        index_of_value = axis_dict(query_state.daf, vector_state.property_axis_name)  # NOJET
+    end
+
+    count_state = VectorState()
+    count_state.entries_axis_name = vector_state.property_axis_name
+    count_state.vector_entries = string.(unique_vector_values)
+    count_state.property_axis_name = vector_state.property_axis_name
+    count_state.is_complete_property_axis = vector_state.property_axis_name !== nothing
+    count_state.vector_values = unique_vector_values
+
+    return (count_state, index_of_value)
+end
+
+function count_by_values(
+    rows_values::VectorState,
+    rows_axis::VectorState,
+    rows_index_of_value::AbstractDict,
+    columns_values::VectorState,
+    columns_axis::VectorState,
+    columns_index_of_value::AbstractDict,
+)::AbstractMatrix
+    @assert length(rows_values.vector_values) == length(columns_values.vector_values)
+    n_values = length(rows_values.vector_values)
 
     matrix_type = UInt64
     for type in (UInt32, UInt16, UInt8)
-        if length(rows_vector) <= typemax(type)
+        if n_values <= typemax(type)
             matrix_type = type
         end
     end
 
-    counts_matrix = zeros(matrix_type, length(rows_values), length(columns_values))
+    n_rows = length(rows_axis.vector_values)
+    n_columns = length(columns_axis.vector_values)
+    counts_matrix = zeros(matrix_type, n_rows, n_columns)
 
-    for (row_value, column_value) in zip(rows_vector, columns_vector)
+    for (row_value, column_value) in zip(rows_values.vector_values, columns_values.vector_values)  # NOJET
         row_index = get(rows_index_of_value, row_value, nothing)
         column_index = get(columns_index_of_value, column_value, nothing)
         if row_index !== nothing && column_index !== nothing
@@ -4435,664 +4246,907 @@ function compute_count_by(
     return counts_matrix
 end
 
-function apply_mask_to_vector_state(vector_state::VectorState, new_axis_mask::AbstractVector{Bool})::Nothing
-    axis_state = vector_state.axis_state
-    @assert axis_state !== nothing
-    old_axis_mask = axis_state.axis_modifier
-    if old_axis_mask === nothing
-        @views vector_state.named_vector = vector_state.named_vector[new_axis_mask]  # NOJET
-        axis_state.axis_modifier = new_axis_mask
-    else
-        @views sub_axis_mask = new_axis_mask[old_axis_mask]
-        @views vector_state.named_vector = vector_state.named_vector[sub_axis_mask]
-        axis_state.axis_modifier = new_axis_mask
-    end
-    return nothing
-end
-
-function apply_mask_to_matrix_state_rows(matrix_state::MatrixState, new_rows_mask::AbstractVector{Bool})::Nothing
-    rows_axis_state = matrix_state.rows_axis_state
-    @assert rows_axis_state !== nothing
-    old_rows_mask = rows_axis_state.axis_modifier
-    if old_rows_mask === nothing
-        @views matrix_state.named_matrix = matrix_state.named_matrix[new_rows_mask, :]  # NOJET
-        rows_axis_state.axis_modifier = new_rows_mask
-    else
-        @views sub_rows_mask = new_rows_mask[old_rows_mask]
-        @views matrix_state.named_matrix = matrix_state.named_matrix[sub_rows_mask, :]
-        rows_axis_state.axis_modifier = new_rows_mask
-    end
-    return nothing
-end
-
-function apply_query_operation!(query_state::QueryState, group_by::GroupBy)::Nothing
-    if is_all(query_state, (AxisState,))
-        apply_query_operation!(query_state, Lookup("name"); maybe_fetch = false)
-    end
-    if is_all(query_state, (VectorState,))
-        return fetch_group_by_vector(query_state, group_by)
-    elseif is_all(query_state, (MatrixState,))
-        return fetch_group_by_matrix(query_state, group_by)
-    end
-
-    return error_unexpected_operation(query_state)  # UNTESTED
-end
-
-function fake_query_operation!(fake_query_state::FakeQueryState, group_by::GroupBy)::Nothing
-    if is_all(fake_query_state, (FakeAxisState,))
-        fake_query_operation!(fake_query_state, Lookup("name"); maybe_fetch = false)
-    end
-    if is_all(fake_query_state, (FakeVectorState,))
-        return fake_fetch_group_by_vector(fake_query_state, group_by)
-    elseif is_all(fake_query_state, (FakeMatrixState,))
-        return fake_fetch_group_by_matrix(fake_query_state, group_by)
-    end
-
-    return error_unexpected_operation(fake_query_state)  # UNTESTED
-end
-
-function fetch_group_by_vector(query_state::QueryState, group_by::GroupBy)::Nothing
-    values_vector_state = pop!(query_state.stack)
-    @assert values_vector_state isa VectorState
-    axis_state = values_vector_state.axis_state
-    @assert axis_state !== nothing
-
-    parsed_group_by = parse_group_by(query_state, axis_state, group_by)
-    if parsed_group_by === nothing
-        return nothing
-    end
-    groups_vector_state, groups_values, groups_names, groups_name, reduction_operation, if_missing = parsed_group_by
-
-    apply_mask_to_base_vector_state(values_vector_state, groups_vector_state)
-
-    group_by_values = compute_vector_group_by(
-        query_state,
-        values_vector_state.named_vector.array,
-        groups_vector_state.named_vector.array,
-        groups_values,
-        reduction_operation,
-        if_missing,
-    )
-    named_vector = NamedArray(group_by_values, (groups_names,), (groups_name,))
-
-    dependency_keys = union(values_vector_state.dependency_keys, groups_vector_state.dependency_keys)
-
-    vector_state = VectorState(
-        query_state.query_sequence,
-        dependency_keys,
-        named_vector,
-        values_vector_state.property_name,
-        nothing,
-        true,
-    )
-    push!(query_state.stack, vector_state)
-    return nothing
-end
-
-function fake_fetch_group_by_vector(fake_query_state::FakeQueryState, group_by::GroupBy)::Nothing
-    fake_values_vector_state = pop!(fake_query_state.stack)
-    @assert fake_values_vector_state isa FakeVectorState
-    if fake_parse_group_by(fake_query_state, group_by)
-        push!(fake_query_state.stack, FakeVectorState(nothing, true))
-    end
-    return nothing
-end
-
-function fetch_group_by_matrix(query_state::QueryState, group_by::GroupBy)::Nothing
-    values_matrix_state = pop!(query_state.stack)
-    @assert values_matrix_state isa MatrixState
-    axis_state = values_matrix_state.rows_axis_state
-    @assert axis_state !== nothing
-
-    parsed_group_by = parse_group_by(query_state, axis_state, group_by)
-    if parsed_group_by === nothing
-        return nothing
-    end
-    groups_vector_state, groups_values, groups_names, groups_name, reduction_operation, if_missing = parsed_group_by
-
-    columns_axis_state = values_matrix_state.columns_axis_state
-    @assert columns_axis_state !== nothing
-
-    columns_names = axis_vector(query_state.daf, columns_axis_state.axis_name)
-    axis_mask = columns_axis_state.axis_modifier
-    if axis_mask !== nothing
-        @assert axis_mask isa AbstractVector{Bool}
-        @views columns_names = columns_names[axis_mask]
-    end
-
-    apply_mask_to_base_matrix_state(values_matrix_state, groups_vector_state)
-
-    group_by_values = compute_matrix_group_by(
-        query_state,
-        values_matrix_state.named_matrix.array,
-        groups_vector_state.named_vector.array,
-        groups_values,
-        reduction_operation,
-        if_missing,
-    )
-    named_matrix =
-        NamedArray(group_by_values, (groups_names, columns_names), (groups_name, columns_axis_state.axis_name))
-
-    dependency_keys = union(values_matrix_state.dependency_keys, groups_vector_state.dependency_keys)
-
-    matrix_state = MatrixState(
-        query_state_sequence(query_state),
-        dependency_keys,
-        named_matrix,
-        values_matrix_state.rows_property_name,
-        values_matrix_state.columns_property_name,
-        nothing,
-        columns_axis_state,
-    )
-    push!(query_state.stack, matrix_state)
-    return nothing
-end
-
-function fake_fetch_group_by_matrix(fake_query_state::FakeQueryState, group_by::GroupBy)::Nothing
-    fake_values_matrix_state = pop!(fake_query_state.stack)
-    @assert fake_values_matrix_state isa FakeMatrixState
-    if fake_parse_group_by(fake_query_state, group_by)
-        push!(fake_query_state.stack, FakeMatrixState(nothing, fake_values_matrix_state.columns_axis))
-    end
-    return nothing
-end
-
-function parse_group_by(
+function lookup_matrix_group_by_vector(
     query_state::QueryState,
-    axis_state::AxisState,
-    group_by::GroupBy,
-)::Maybe{
-    Tuple{
-        VectorState,
-        StorageVector,
-        AbstractVector{<:AbstractString},
-        AbstractString,
-        ReductionOperation,
-        Maybe{IfMissing},
-    },
-}
-    fetch_property(query_state, axis_state, group_by)
-    groups_vector_state = pop!(query_state.stack)
-    @assert groups_vector_state isa VectorState
-    groups_as_axis = get_next_operation(query_state, AsAxis)
-
-    reduction_operation = get_next_operation(query_state, ReductionOperation)
-    if reduction_operation === nothing
-        push!(query_state.stack, group_by)
-        return nothing
-    end
-
-    if groups_as_axis === nothing
-        if_missing = nothing
-    else
-        if_missing = get_next_operation(query_state, IfMissing)
-    end
-
-    groups_name, groups_values, _ = unique_values(query_state, groups_vector_state, groups_as_axis, false)
-    groups_names = values_to_names(groups_values)
-
-    return (groups_vector_state, groups_values, groups_names, groups_name, reduction_operation, if_missing)
-end
-
-function fake_parse_group_by(fake_query_state::FakeQueryState, group_by::GroupBy)::Bool
-    fake_fetch_property(fake_query_state, FakeAxisState(nothing, false, false), group_by.property_name)
-    groups_vector_state = pop!(fake_query_state.stack)
-    @assert groups_vector_state isa FakeVectorState
-    groups_as_axis = get_next_operation(fake_query_state, AsAxis)
-
-    reduction_operation = get_next_operation(fake_query_state, ReductionOperation)
-    if reduction_operation === nothing
-        push!(fake_query_state.stack, FakeGroupBy())
-        return false
-    end
-
-    if groups_as_axis !== nothing
-        get_next_operation(fake_query_state, IfMissing)
-    end
-
-    return true
-end
-
-function compute_vector_group_by(
-    query_state::QueryState,
-    values_vector::StorageVector,
-    groups_vector::StorageVector,
-    groups_values::StorageVector,
-    reduction_operation::ReductionOperation,
+    matrix_state::MatrixState,
+    group_by::GroupAnyBy,
     if_missing::Maybe{IfMissing},
-)::StorageVector
-    type = reduction_result_type(reduction_operation, eltype(values_vector))
-    results_vector = Vector{type}(undef, length(groups_values))
-
-    if if_missing === nothing
-        empty_group_value = nothing
-    else
-        empty_group_value = value_for_if_missing(query_state, if_missing; type)
-    end
-
-    collect_vector_group_by(
-        query_state,
-        results_vector,
-        values_vector,
-        groups_vector,
-        groups_values,
-        empty_group_value,
-        reduction_operation,
-    )
-
-    return results_vector
-end
-
-function compute_matrix_group_by(
-    query_state::QueryState,
-    values_matrix::StorageMatrix,
-    groups_vector::StorageVector,
-    groups_values::StorageVector,
-    reduction_operation::ReductionOperation,
-    if_missing::Maybe{IfMissing},
-)::StorageMatrix
-    type = reduction_result_type(reduction_operation, eltype(values_matrix))
-    results_matrix = Matrix{type}(undef, length(groups_values), size(values_matrix)[2])
-
-    if if_missing === nothing
-        empty_group_value = nothing
-    else
-        empty_group_value = value_for_if_missing(query_state, if_missing; type)
-    end
-
-    parallel_loop_wo_rng(
-        1:size(values_matrix, 2);
-        name = "compute_matrix_group_by.$(nameof(typeof(reduction_operation)))",
-        progress = DebugProgress(
-            size(values_matrix, 2);
-            desc = "compute_matrix_group_by.$(nameof(typeof(reduction_operation)))",
-        ),
-    ) do column_index
-        values_column = @views values_matrix[:, column_index]
-        results_column = @views results_matrix[:, column_index]
-        collect_vector_group_by(
-            query_state,
-            results_column,
-            values_column,
-            groups_vector,
-            groups_values,
-            empty_group_value,
-            reduction_operation,
-        )
-        return nothing
-    end
-
-    return results_matrix
-end
-
-function collect_vector_group_by(
-    query_state::QueryState,
-    results_vector::StorageVector,
-    values_vector::StorageVector,
-    groups_vector::StorageVector,
-    groups_values::StorageVector,
-    empty_group_value::Maybe{StorageScalar},
-    reduction_operation::ReductionOperation,
 )::Nothing
-    n_groups = length(groups_values)
-    parallel_loop_wo_rng(
-        1:n_groups;
-        name = "compute_vector_group_by.$(nameof(typeof(reduction_operation)))",
-        progress = DebugProgress(n_groups; desc = "compute_vector_group_by.$(nameof(typeof(reduction_operation)))"),
-    ) do group_index
-        group_value = groups_values[group_index]
-        group_mask = groups_vector .== group_value
-        values_of_group = values_vector[group_mask]
-        if !isempty(values_of_group)
-            results_vector[group_index] = compute_reduction(reduction_operation, read_only_array(values_of_group))  # NOLINT
-        elseif empty_group_value !== nothing
-            results_vector[group_index] = cast_value_to_type(query_state, empty_group_value, eltype(results_vector))
-        else
-            error_at_state(
-                query_state,
-                """
-                no values for the group: $(group_value)
-                and no IfMissing value was specified: || value_for_empty_groups
-                """,
-            )
-        end
-        return nothing
-    end
+    finalize_matrix_values!(query_state, matrix_state)
+
+    push!(query_state.stack, matrix_state)
+    push!(query_state.stack, group_by)
+
+    lookup_vector_by_vector(
+        query_state,
+        extract_vector_axis(matrix_state, group_by),
+        nothing,
+        nothing,
+        LookupVector(group_by.property_name),
+        if_missing,
+    )
+    return nothing
 end
 
-function apply_query_operation!(query_state::QueryState, eltwise_operation::EltwiseOperation)::Nothing
-    if is_all(query_state, (ScalarState,))
-        eltwise_scalar(query_state, eltwise_operation)
-        return nothing
-    end
+function lookup_matrix_group_by_matrix_column(
+    query_state::QueryState,
+    matrix_state::MatrixState,
+    group_by::GroupAnyBy,
+    if_missing::Maybe{IfMissing},
+    columns_axis::Axis,
+    column_is_equal::IsEqual,
+)::Nothing
+    finalize_matrix_values!(query_state, matrix_state)
 
-    if is_all(query_state, (VectorState,))
-        eltwise_vector(query_state, eltwise_operation)
-        return nothing
-    end
-
-    if is_all(query_state, (MatrixState,))
-        eltwise_matrix(query_state, eltwise_operation)
-        return nothing
-    end
-
-    return error_unexpected_operation(query_state)
+    @assert columns_axis.axis_name !== nothing
+    push!(query_state.stack, matrix_state)
+    push!(query_state.stack, group_by)
+    lookup_matrix_column_by_vector(
+        query_state,
+        extract_vector_axis(matrix_state, group_by),
+        nothing,
+        nothing,
+        LookupMatrix(group_by.property_name),
+        if_missing,
+        columns_axis,
+        column_is_equal,
+    )
+    return nothing
 end
 
-function fake_query_operation!(fake_query_state::FakeQueryState, ::EltwiseOperation)::Nothing
-    if is_all(fake_query_state, (FakeScalarState,)) ||
-       is_all(fake_query_state, (FakeVectorState,)) ||
-       is_all(fake_query_state, (FakeMatrixState,))
+function lookup_matrix_group_by_square_matrix_column(
+    query_state::QueryState,
+    matrix_state::MatrixState,
+    group_by::GroupAnyBy,
+    if_missing::Maybe{IfMissing},
+    square_column_is::SquareColumnIs,
+)::Nothing
+    finalize_matrix_values!(query_state, matrix_state)
+
+    push!(query_state.stack, matrix_state)
+    push!(query_state.stack, group_by)
+
+    lookup_square_matrix_column_by_vector(
+        query_state,
+        extract_vector_axis(matrix_state, group_by),
+        nothing,
+        nothing,
+        LookupMatrix(group_by.property_name),
+        if_missing,
+        square_column_is,
+    )
+    return nothing
+end
+
+function lookup_matrix_group_by_square_matrix_row(
+    query_state::QueryState,
+    matrix_state::MatrixState,
+    group_by::GroupAnyBy,
+    if_missing::Maybe{IfMissing},
+    square_row_is::SquareRowIs,
+)::Nothing
+    finalize_matrix_values!(query_state, matrix_state)
+
+    push!(query_state.stack, matrix_state)
+    push!(query_state.stack, group_by)
+
+    lookup_square_matrix_row_by_vector(
+        query_state,
+        extract_vector_axis(matrix_state, group_by),
+        nothing,
+        nothing,
+        LookupMatrix(group_by.property_name),
+        if_missing,
+        square_row_is,
+    )
+    return nothing
+end
+
+function compute_grouped_matrix(
+    query_state::QueryState,
+    base_state::MatrixState,
+    ::GroupColumnsBy,
+    group_state::VectorState,
+    reduce_to_column::ReduceToColumn,
+    if_missing::Maybe{IfMissing} = nothing,
+)::Nothing
+    finalize_vector_values!(query_state, group_state)
+
+    if query_state.what_for != :compute
+        base_state.property_name = nothing
+        base_state.columns_state.property_name = nothing
+        base_state.columns_state.property_axis_name = nothing
+        base_state.columns_state.is_complete_property_axis = false
+
+        push!(query_state.stack, base_state)
+
         return nothing
     end
 
-    return error_unexpected_operation(fake_query_state)
-end
+    named_values = NamedArray(  # NOJET
+        base_state.matrix_values;
+        names = (base_state.rows_state.vector_entries, base_state.columns_state.vector_entries),
+    )
+    matrix_values = named_values[:, group_state.vector_entries].array
 
-function eltwise_scalar(query_state::QueryState, eltwise_operation::EltwiseOperation)::Nothing
-    scalar_state = pop!(query_state.stack)
-    @assert scalar_state isa ScalarState
+    if group_state.property_axis_name === nothing
+        unique_group_values = sort!(unique(group_state.vector_values))
+    else
+        @assert query_state.daf !== nothing
+        unique_group_values = axis_vector(query_state.daf, group_state.property_axis_name)  # NOJET
+    end
 
-    scalar_value = scalar_state.scalar_value
-    if scalar_value isa AbstractString && !supports_strings(eltwise_operation)
+    if eltype(matrix_values) <: AbstractString && !supports_strings(reduce_to_column.reduction_operation)
         error_at_state(
             query_state,
             """
             unsupported input type: String
-            for the eltwise operation: $(typeof(eltwise_operation))
+            for the reduction operation: $(typeof(reduce_to_column.reduction_operation))
             """,
         )
     end
 
-    scalar_state.scalar_value = compute_eltwise(eltwise_operation, scalar_value)  # NOLINT
+    result_type = reduction_result_type(reduce_to_column.reduction_operation, eltype(matrix_values))
+    reduced_values =
+        Matrix{result_type}(undef, length(base_state.rows_state.vector_entries), length(unique_group_values))
+    for (group_index, group_value) in enumerate(unique_group_values)
+        group_mask = group_state.vector_values .== group_value
+        if any(group_mask)
+            @views group_matrix_values = matrix_values[:, group_mask]
+            reduced_values[:, group_index] =
+                vec(compute_reduction(reduce_to_column.reduction_operation, group_matrix_values, 2))  # NOLINT
+        elseif if_missing !== nothing
+            reduced_values[:, group_index] .= cast_value(query_state, "missing", if_missing.default_value, result_type)
+        else
+            error_at_state(
+                query_state,
+                """
+                no IfMissing value specified for the unused entry: $(group_value)
+                of the axis: $(group_state.property_axis_name)
+                """,
+            )
+        end
+    end
 
-    push!(query_state.stack, scalar_state)
+    reduced_state = MatrixState()
+    reduced_state.rows_state = base_state.rows_state
+    reduced_state.columns_state = VectorState()
+    reduced_state.columns_state.entries_axis_name = group_state.property_axis_name
+    reduced_state.columns_state.vector_entries = string.(unique_group_values)
+    reduced_state.columns_state.is_complete_property_axis = group_state.property_axis_name !== nothing
+    reduced_state.columns_state.vector_values = unique_group_values
+    reduced_state.matrix_values = reduced_values
+
+    push!(query_state.stack, reduced_state)
+
     return nothing
 end
 
-function eltwise_vector(query_state::QueryState, eltwise_operation::EltwiseOperation)::Nothing
-    vector_state = pop!(query_state.stack)
-    @assert vector_state isa VectorState
+function compute_grouped_matrix(
+    query_state::QueryState,
+    base_state::MatrixState,
+    ::GroupRowsBy,
+    group_state::VectorState,
+    reduce_to_row::ReduceToRow,
+    if_missing::Maybe{IfMissing} = nothing,
+)::Nothing
+    finalize_vector_values!(query_state, group_state)
 
-    if eltype(vector_state.named_vector) <: AbstractString && !supports_strings(eltwise_operation)
+    if query_state.what_for != :compute
+        base_state.property_name = nothing
+        base_state.rows_state.property_name = nothing
+        base_state.rows_state.property_axis_name = nothing
+        base_state.rows_state.is_complete_property_axis = false
+
+        push!(query_state.stack, base_state)
+
+        return nothing
+    end
+
+    named_values = NamedArray(  # NOJET
+        base_state.matrix_values;
+        names = (base_state.rows_state.vector_entries, base_state.columns_state.vector_entries),
+    )
+    matrix_values = named_values[group_state.vector_entries, :].array
+
+    if group_state.property_axis_name === nothing
+        unique_group_values = sort!(unique(group_state.vector_values))
+    else
+        @assert query_state.daf !== nothing
+        unique_group_values = axis_vector(query_state.daf, group_state.property_axis_name)  # NOJET
+    end
+
+    if eltype(matrix_values) <: AbstractString && !supports_strings(reduce_to_row.reduction_operation)
         error_at_state(
             query_state,
             """
-            unsupported input type: $(eltype(vector_state.named_vector))
-            for the eltwise operation: $(typeof(eltwise_operation))
+            unsupported input type: String
+            for the reduction operation: $(typeof(reduce_to_row.reduction_operation))
             """,
         )
     end
 
-    vector_value = flame_timed("eltwise_vector.$(nameof(typeof(eltwise_operation)))") do
-        return compute_eltwise(eltwise_operation, read_only_array(vector_state.named_vector.array))  # NOLINT
+    result_type = reduction_result_type(reduce_to_row.reduction_operation, eltype(matrix_values))
+    reduced_values =
+        Matrix{result_type}(undef, length(unique_group_values), length(base_state.columns_state.vector_entries))
+    for (group_index, group_value) in enumerate(unique_group_values)
+        group_mask = group_state.vector_values .== group_value
+        if any(group_mask)
+            @views group_matrix_values = matrix_values[group_mask, :]
+            reduced_values[group_index, :] =
+                vec(compute_reduction(reduce_to_row.reduction_operation, group_matrix_values, 1))  # NOLINT
+        elseif if_missing !== nothing
+            reduced_values[group_index, :] .= cast_value(query_state, "missing", if_missing.default_value, result_type)
+        else
+            error_at_state(
+                query_state,
+                """
+                no IfMissing value specified for the unused entry: $(group_value)
+                of the axis: $(group_state.property_axis_name)
+                """,
+            )
+        end
     end
-    vector_state.named_vector =
-        NamedArray(vector_value, vector_state.named_vector.dicts, vector_state.named_vector.dimnames)
-    vector_state.is_processed = true
 
-    push!(query_state.stack, vector_state)
+    reduced_state = MatrixState()
+    reduced_state.rows_state = VectorState()
+    reduced_state.rows_state.entries_axis_name = group_state.property_axis_name
+    reduced_state.rows_state.vector_entries = string.(unique_group_values)
+    reduced_state.rows_state.is_complete_property_axis = group_state.property_axis_name !== nothing
+    reduced_state.rows_state.vector_values = unique_group_values
+    reduced_state.columns_state = base_state.columns_state
+    reduced_state.matrix_values = reduced_values
+
+    push!(query_state.stack, reduced_state)
+
     return nothing
 end
 
-function eltwise_matrix(query_state::QueryState, eltwise_operation::EltwiseOperation)::Nothing
-    matrix_state = pop!(query_state.stack)
-    @assert matrix_state isa MatrixState
-
-    matrix_value = flame_timed("eltwise_matrix.$(nameof(typeof(eltwise_operation)))") do
-        return compute_eltwise(eltwise_operation, read_only_array(matrix_state.named_matrix.array))  # NOLINT
+function ensure_matrix_is_axis(query_state::QueryState, matrix_state::MatrixState, as_axis::Maybe{AsAxis})::Nothing
+    if matrix_state.property_axis_name === nothing || as_axis !== nothing
+        matrix_property_is_axis(query_state, matrix_state, as_axis)
+        @assert pop!(query_state.stack) === matrix_state
     end
-    matrix_state.named_matrix =
-        NamedArray(matrix_value, matrix_state.named_matrix.dicts, matrix_state.named_matrix.dimnames)
+    @assert matrix_state.property_axis_name !== nothing
+    return nothing
+end
+
+function lookup_vector_by_matrix(
+    query_state::QueryState,
+    matrix_state::MatrixState,
+    as_axis::Maybe{AsAxis},
+    if_not::Maybe{IfNot},
+    lookup_vector::LookupVector,
+    if_missing::Maybe{IfMissing},
+)::Nothing
+    ensure_matrix_is_axis(query_state, matrix_state, as_axis)
+
+    if query_state.what_for == :compute
+        add_final_values!(matrix_state, if_not)
+
+        @assert query_state.daf !== nothing
+        default = default_value(if_missing)
+        named_vector_values =  # NOJET
+            get_vector(query_state.daf, matrix_state.property_axis_name, lookup_vector.property_name; default)
+        push!(  # NOJET
+            query_state.dependency_keys,
+            Formats.vector_cache_key(matrix_state.property_axis_name, lookup_vector.property_name),
+        )
+
+        type = eltype(named_vector_values)
+        if type <: AbstractString
+            type = AbstractString
+        end
+        n_rows, n_columns = size(matrix_state.matrix_values)
+        lookup_matrix_values = Matrix{type}(undef, n_rows, n_columns)
+        for column_index in 1:n_columns
+            for row_index in 1:n_rows
+                if matrix_state.pending_final_values === nothing ||
+                   matrix_state.pending_final_values[row_index, column_index] === nothing
+                    lookup_matrix_values[row_index, column_index] =
+                        named_vector_values[string(matrix_state.matrix_values[row_index, column_index])]
+                elseif type == AbstractString
+                    lookup_matrix_values[row_index, column_index] = ""
+                else
+                    lookup_matrix_values[row_index, column_index] = zero(type)  # UNTESTED
+                end
+            end
+        end
+
+        matrix_state.matrix_values = lookup_matrix_values
+    end
+
+    matrix_state.property_name = lookup_vector.property_name
+    matrix_state.property_axis_name = nothing
 
     push!(query_state.stack, matrix_state)
+
     return nothing
 end
 
-function apply_query_operation!(query_state::QueryState, reduction_operation::ReductionOperation)::Nothing
-    if_missing = get_next_operation(query_state, IfMissing)
-
-    if is_all(query_state, (AxisState,))
-        lookup_axis(query_state, Lookup("name"); maybe_fetch = false)
-    end
-
-    if is_all(query_state, (VectorState,))
-        reduce_vector(query_state, reduction_operation, if_missing)
-        return nothing
-    end
-
-    if is_all(query_state, (MatrixState,))
-        reduce_matrix(query_state, reduction_operation, if_missing)
-        return nothing
-    end
-
-    return error_unexpected_operation(query_state)  # UNTESTED
-end
-
-function fake_query_operation!(fake_query_state::FakeQueryState, reduction_operation::ReductionOperation)::Nothing  # NOLINT
-    get_next_operation(fake_query_state, IfMissing)
-
-    if is_all(fake_query_state, (FakeAxisState,))
-        fake_lookup_axis(fake_query_state)
-    end
-
-    if is_all(fake_query_state, (FakeVectorState,))
-        fake_reduce_vector(fake_query_state)
-        return nothing
-    elseif is_all(fake_query_state, (FakeMatrixState,))
-        fake_reduce_matrix(fake_query_state)
-        return nothing
-    end
-
-    return error_unexpected_operation(fake_query_state)  # UNTESTED
-end
-
-function reduce_vector(
+function lookup_matrix_column_by_matrix(
     query_state::QueryState,
-    reduction_operation::ReductionOperation,
+    matrix_state::MatrixState,
+    as_axis::Maybe{AsAxis},
+    if_not::Maybe{IfNot},
+    lookup_matrix::LookupMatrix,
     if_missing::Maybe{IfMissing},
+    columns_axis::Axis,
+    square_column_is_equal::IsEqual,
 )::Nothing
-    vector_state = pop!(query_state.stack)
-    @assert vector_state isa VectorState
-    named_vector = vector_state.named_vector
+    @assert columns_axis.axis_name !== nothing
 
-    if eltype(named_vector) <: AbstractString && !supports_strings(reduction_operation)
-        error_at_state(
+    ensure_matrix_is_axis(query_state, matrix_state, as_axis)
+
+    if query_state.what_for == :compute
+        fill_lookup_matrix_values(
             query_state,
-            """
-            unsupported input type: $(eltype(named_vector))
-            for the reduction operation: $(typeof(reduction_operation))
-            """,
+            matrix_state,
+            if_not,
+            lookup_matrix,
+            if_missing,
+            columns_axis.axis_name,
+            square_column_is_equal.comparison_value;
+            is_column = true,
         )
     end
 
-    if !isempty(named_vector.array)
-        scalar_value = flame_timed("reduce_vector.$(nameof(typeof(reduction_operation)))") do
-            return compute_reduction(reduction_operation, read_only_array(named_vector.array))  # NOLINT
-        end
-    elseif if_missing !== nothing  # UNTESTED
-        type = reduction_result_type(reduction_operation, eltype(named_vector.array))  # UNTESTED
-        scalar_value = value_for_if_missing(query_state, if_missing; type)  # UNTESTED
-    else
-        error_at_state(  # UNTESTED
+    matrix_state.property_name = lookup_matrix.property_name
+    matrix_state.property_axis_name = nothing
+
+    push!(query_state.stack, matrix_state)
+
+    return nothing
+end
+
+function lookup_square_matrix_column_by_matrix(
+    query_state::QueryState,
+    matrix_state::MatrixState,
+    as_axis::Maybe{AsAxis},
+    if_not::Maybe{IfNot},
+    lookup_matrix::LookupMatrix,
+    if_missing::Maybe{IfMissing},
+    square_column_is::SquareColumnIs,
+)::Nothing
+    ensure_matrix_is_axis(query_state, matrix_state, as_axis)
+
+    if query_state.what_for == :compute
+        fill_lookup_matrix_values(
             query_state,
-            "no values in the vector and no IfMissing value was specified: || value_for_empty_vector",
+            matrix_state,
+            if_not,
+            lookup_matrix,
+            if_missing,
+            matrix_state.property_axis_name,
+            square_column_is.comparison_value;
+            is_column = true,
         )
     end
 
-    scalar_state = ScalarState(query_state.query_sequence, vector_state.dependency_keys, scalar_value)
-    push!(query_state.stack, scalar_state)
+    matrix_state.property_name = lookup_matrix.property_name
+    matrix_state.property_axis_name = nothing
+
+    push!(query_state.stack, matrix_state)
+
     return nothing
 end
 
-function fake_reduce_vector(fake_query_state::FakeQueryState)::Nothing
-    fake_vector_state = pop!(fake_query_state.stack)
-    @assert fake_vector_state isa FakeVectorState
-    push!(fake_query_state.stack, FakeScalarState())
-    return nothing
-end
-
-function reduce_matrix(
+function lookup_square_matrix_row_by_matrix(
     query_state::QueryState,
-    reduction_operation::ReductionOperation,
+    matrix_state::MatrixState,
+    as_axis::Maybe{AsAxis},
+    if_not::Maybe{IfNot},
+    lookup_matrix::LookupMatrix,
     if_missing::Maybe{IfMissing},
+    square_row_is::SquareRowIs,
 )::Nothing
-    matrix_state = pop!(query_state.stack)
-    @assert matrix_state isa MatrixState
+    ensure_matrix_is_axis(query_state, matrix_state, as_axis)
 
-    named_matrix = matrix_state.named_matrix
-
-    n_rows, n_columns = size(named_matrix)
-    if n_rows > 0 && n_columns > 0
-        vector_value = flame_timed("reduce_matrix.$(nameof(typeof(reduction_operation)))") do
-            return compute_reduction(reduction_operation, read_only_array(named_matrix.array))  # NOLINT
-        end
-    elseif n_columns == 0  # UNTESTED
-        type = reduction_result_type(reduction_operation, eltype(named_matrix.array))  # UNTESTED
-        vector_value = Vector{type}()  # UNTESTED
-    elseif if_missing !== nothing  # UNTESTED
-        type = reduction_result_type(reduction_operation, eltype(named_matrix.array))  # UNTESTED
-        scalar_value = value_for_if_missing(query_state, if_missing; type)  # UNTESTED
-        vector_value = fill(scalar_value, n_columns)  # UNTESTED
-    else
-        error_at_state(query_state, "empty matrix and no IfMissing value was specified: || value_for_empty_matrix")  # UNTESTED
+    if query_state.what_for == :compute
+        fill_lookup_matrix_values(
+            query_state,
+            matrix_state,
+            if_not,
+            lookup_matrix,
+            if_missing,
+            matrix_state.property_axis_name,
+            square_row_is.comparison_value;
+            is_column = false,
+        )
     end
 
-    named_vector = NamedArray(vector_value, named_matrix.dicts[2:2], named_matrix.dimnames[2:2])
+    matrix_state.property_name = lookup_matrix.property_name
+    matrix_state.property_axis_name = nothing
 
-    vector_state = VectorState(
-        query_state.query_sequence,
-        matrix_state.dependency_keys,
-        named_vector,
-        matrix_state.columns_property_name,
-        matrix_state.columns_axis_state,
-        true,
+    push!(query_state.stack, matrix_state)
+
+    return nothing
+end
+
+function fill_lookup_matrix_values(
+    query_state::QueryState,
+    matrix_state::MatrixState,
+    if_not::Maybe{IfNot},
+    lookup_matrix::LookupMatrix,
+    if_missing::Maybe{IfMissing},
+    columns_axis_name::AbstractString,
+    lookup_value::StorageScalar;
+    is_column::Bool,
+)::Nothing
+    add_final_values!(matrix_state, if_not)
+
+    @assert query_state.daf !== nothing
+    default = default_value(if_missing)
+    named_matrix_values = get_matrix(  # NOJET
+        query_state.daf,
+        matrix_state.property_axis_name,
+        columns_axis_name,
+        lookup_matrix.property_name;
+        default,
+    )
+    push!(  # NOJET
+        query_state.dependency_keys,
+        Formats.matrix_cache_key(matrix_state.property_axis_name, columns_axis_name, lookup_matrix.property_name),
     )
 
-    push!(query_state.stack, vector_state)
+    type = eltype(named_matrix_values)
+    if type <: AbstractString
+        type = AbstractString
+    end
+    n_rows, n_columns = size(matrix_state.matrix_values)
+    lookup_matrix_values = Matrix{type}(undef, n_rows, n_columns)
+    for column_index in 1:n_columns
+        for row_index in 1:n_rows
+            if matrix_state.pending_final_values === nothing ||
+               matrix_state.pending_final_values[row_index, column_index] === nothing
+                if is_column
+                    lookup_matrix_values[row_index, column_index] = named_matrix_values[
+                        string(matrix_state.matrix_values[row_index, column_index]),
+                        string(lookup_value),
+                    ]
+                else
+                    lookup_matrix_values[row_index, column_index] = named_matrix_values[
+                        string(lookup_value),
+                        string(matrix_state.matrix_values[row_index, column_index]),
+                    ]
+                end
+            elseif type == AbstractString  # UNTESTED
+                lookup_matrix_values[row_index, column_index] = ""  # UNTESTED
+            else
+                lookup_matrix_values[row_index, column_index] = zero(type)  # UNTESTED
+            end
+        end
+    end
+    matrix_state.matrix_values = lookup_matrix_values
     return nothing
 end
 
-function fake_reduce_matrix(fake_query_state::FakeQueryState)::Nothing
-    fake_matrix_state = pop!(fake_query_state.stack)
-    @assert fake_matrix_state isa FakeMatrixState
-    push!(fake_query_state.stack, FakeVectorState(nothing, true))
+function add_final_values!(matrix_state::MatrixState, if_not::Maybe{IfNot})::Nothing
+    if if_not !== nothing
+        @assert if_not.final_value !== nothing
+        mask = as_booleans(matrix_state.matrix_values)  # NOJET
+        if matrix_state.pending_final_values === nothing
+            matrix_state.pending_final_values = Matrix{Any}(undef, size(matrix_state.matrix_values)...)
+            matrix_state.pending_final_values .= nothing
+        end
+        matrix_state.pending_final_values[.!mask] .= if_not.final_value
+    end
     return nothing
 end
 
-function is_all(query_state::Union{QueryState, FakeQueryState}, types::NTuple{N, Type})::Bool where {N}
-    return length(query_state.stack) == length(types) && has_top(query_state, types)
-end
-
-function has_top(query_state::Union{QueryState, FakeQueryState}, types::NTuple{N, Type})::Bool where {N}
-    if length(query_state.stack) < length(types)
-        return false  # UNTESTED
-    end
-
-    for (query_operation, type) in zip(query_state.stack, types)
-        if !(query_operation isa type)
-            return false
+function finalize_matrix_values!(query_state::QueryState, matrix_state::MatrixState)::Nothing
+    if query_state.what_for === :compute && matrix_state.pending_final_values !== nothing
+        matrix_values = densify(matrix_state.matrix_values; copy = is_read_only_array(matrix_state.matrix_values))  # NOLINT
+        @assert !is_read_only_array(matrix_values)  # NOLINT
+        n_rows, n_columns = size(matrix_values)
+        for column_index in 1:n_columns
+            for row_index in 1:n_rows
+                final_value = matrix_state.pending_final_values[row_index, column_index]
+                if final_value !== nothing
+                    matrix_values[row_index, column_index] =
+                        cast_value(query_state, "final", final_value, eltype(matrix_values))
+                end
+            end
         end
+        matrix_state.matrix_values = matrix_values
+        matrix_state.pending_final_values = nothing
     end
-
-    return true
+    return nothing
 end
 
-"""
-    guess_typed_value(value::AbstractString)::StorageScalar
-
-Given a string value, guess the typed value it represents:
-
-  - `true` and `false` are assumed to be `Bool`.
-  - Integers are assumed to be `Int64`.
-  - Floating point numbers are assumed to be `Float64`, as are `e` and `pi`.
-  - Anything else is assumed to be a string.
-
-This doesn't have to be 100% accurate; it is intended to allow omitting the data type in most cases when specifying an
-[`IfMissing`](@ref) value. If it guesses wrong, just specify an explicit type (e.g., `@ version || 1.0 String`).
-"""
-function guess_typed_value(value::AbstractString)::StorageScalar
-    for (string_value, typed_value) in (("true", true), ("false", false), ("e", Float64(e)), ("pi", Float64(pi)))
-        if value == string_value
-            return typed_value
-        end
-    end
-
-    try
-        return parse(Int64, value)
-    catch
-    end
-
-    try
-        return parse(Float64, value)
-    catch
-    end
-
-    return string(value)
-end
-
-function value_for_if_missing(
+function matrix_property_is_axis(
     query_state::QueryState,
-    if_missing::IfMissing;
-    type::Maybe{Type} = nothing,
-)::StorageScalar
-    if if_missing.type !== nothing
-        @assert if_missing.missing_value isa if_missing.type
-        return if_missing.missing_value
+    matrix_state::MatrixState,
+    as_axis::Maybe{AsAxis} = nothing,
+)::Nothing
+    @assert matrix_state.property_name !== nothing
+    @assert matrix_state.property_axis_name === nothing
+    if query_state.what_for == :compute
+        @assert eltype(matrix_state.matrix_values) <: AbstractString
     end
 
-    if type === nothing
-        return guess_typed_value(if_missing.missing_value)
+    finalize_matrix_values!(query_state, matrix_state)
+
+    if as_axis !== nothing && as_axis.axis_name !== nothing
+        axis_name = as_axis.axis_name
+
+    else
+        if query_state.what_for != :compute
+            axis_name = matrix_state.property_name
+        else
+            @assert query_state.daf !== nothing
+            axis_name = axis_of_property(query_state.daf, matrix_state.property_name)  # NOJET
+        end
     end
 
-    if if_missing.missing_value isa type
-        return if_missing.missing_value  # UNTESTED
-    end
+    matrix_state.property_axis_name = axis_name
+    push!(query_state.stack, matrix_state)
 
-    return value_for(query_state, type, if_missing.missing_value)
+    return nothing
 end
 
-function regex_for(::QueryState, value::Regex)::Regex  # UNTESTED
+function axis_of_property(daf::DafReader, property_name::AbstractString)::AbstractString
+    if has_axis(daf, property_name)
+        return property_name
+    end
+
+    return split(property_name, "."; limit = 2)[1]
+end
+
+function as_booleans(vector::Union{AbstractVector{Bool}, BitVector})::Union{AbstractVector{Bool}, BitVector}
+    return vector
+end
+
+function as_booleans(vector::AbstractVector{<:AbstractString})::Union{AbstractVector{Bool}, BitVector}
+    return vector .!= ""
+end
+
+function as_booleans(vector::AbstractVector{<:Real})::Union{AbstractVector{Bool}, BitVector}
+    return vector .!= 0
+end
+
+function as_booleans(matrix::Union{AbstractMatrix{Bool}, BitMatrix})::Union{AbstractMatrix{Bool}, BitMatrix}  # UNTESTED
+    return matrix
+end
+
+function as_booleans(matrix::AbstractMatrix{<:AbstractString})::Union{AbstractMatrix{Bool}, BitMatrix}
+    return matrix .!= ""
+end
+
+function as_booleans(matrix::AbstractMatrix{<:Real})::Union{AbstractMatrix{Bool}, BitMatrix}  # UNTESTED
+    return matrix .!= 0
+end
+
+function cast_value(::QueryState, ::AbstractString, value::AbstractString, ::Type{T})::T where {T <: AbstractString}
     return value
 end
 
-function regex_for(query_state::QueryState, value::StorageScalar)::Regex
-    comparison_value = value_for(query_state, String, value)  # NOJET
+function cast_value(query_state::QueryState, what::AbstractString, value::AbstractString, ::Type{T})::T where {T}
     try
-        return Regex(comparison_value)  # NOJET
+        return parse(T, value)
     catch exception
         error_at_state(
             query_state,
             """
-            $(typeof(exception)): $(exception.msg)
-            in the regular expression: $(comparison_value)
+            error parsing $(what) value: $(value)
+            as type: $(T)
+            $(exception)
             """,
         )
     end
 end
 
-function value_for(
-    query_state::QueryState,
-    ::Type{T},
-    value::StorageScalar,
-)::StorageScalar where {T <: StorageScalarBase}
-    if value isa T
-        return value
-    elseif T <: AbstractString
-        return String(value)  # UNTESTED
-    elseif value isa AbstractString
-        try
-            return parse(T, value)
-        catch exception
-            error_at_state(query_state, "$(typeof(exception)): $(exception.msg)")
-        end
-    else
-        try  # UNTESTED
-            return T(value)  # UNTESTED
-        catch exception
-            error_at_state(query_state, "$(typeof(exception)): $(exception.msg)")  # UNTESTED
-        end
+function cast_value(query_state::QueryState, what::AbstractString, value::Real, ::Type{T})::T where {T <: Real}
+    try
+        return T(value)
+    catch exception
+        error_at_state(
+            query_state,
+            """
+            error converting: $(typeof(value))
+            $(what) value: $(value)
+            to type: $(T)
+            $(exception)
+            """,
+        )
     end
+end
+
+struct Phrase
+    input::Any  # Maybe{NTuple{N, Union{Type, Function}}}
+    operations::Any  # Maybe{NTuple{M, Union{Optional, Type, Function}}}
+    implementation::Any  # Function
+    output::Any  # NTuple{O, Union{Type, Function}}
+end
+
+PHRASES = [  # Order matters - first one wins, longer matches should win.
+    # Names
+
+    Phrase(nothing, (axis_with_name, axis_with_name, Names), names_of_matrices, (NamesState,)),
+    Phrase(nothing, (axis_with_name, Names), names_of_vectors, (NamesState,)),
+    Phrase(nothing, (axis_without_name, Names), names_of_axes, (NamesState,)),
+    Phrase(nothing, (Names,), names_of_scalars, (NamesState,)),
+
+    # Matrix
+
+    Phrase(
+        (vector_axis, vector_maybe_axis),
+        (Optional(AsAxis), LookupMatrix, Optional(IfMissing)),
+        matrix_lookup,
+        (MatrixState,),
+    ),
+    Phrase(
+        (VectorState,),
+        (CountBy, Optional(IfMissing), axis_with_name, IsEqual),
+        lookup_matrix_column_count,
+        (VectorState, CountBy, VectorState),
+    ),
+    Phrase(
+        (VectorState,),
+        (CountBy, Optional(IfMissing), SquareColumnIs),
+        lookup_square_matrix_column_count,
+        (VectorState, CountBy, VectorState),
+    ),
+    Phrase(
+        (VectorState,),
+        (CountBy, Optional(IfMissing), SquareRowIs),
+        lookup_square_matrix_row_count,
+        (VectorState, CountBy, VectorState),
+    ),
+    Phrase(
+        (VectorState,),
+        (Optional(AsAxis), CountBy, Optional(IfMissing)),
+        lookup_vector_count,
+        (VectorState, CountBy, VectorState),
+    ),
+    Phrase(
+        (matrix_maybe_axis,),
+        (Optional(AsAxis), Optional(IfNot), LookupMatrix, Optional(IfMissing), axis_with_name, IsEqual),
+        lookup_matrix_column_by_matrix,
+        (MatrixState,),
+    ),
+    Phrase(
+        (matrix_maybe_axis,),
+        (Optional(AsAxis), Optional(IfNot), LookupMatrix, Optional(IfMissing), SquareColumnIs),
+        lookup_square_matrix_column_by_matrix,
+        (MatrixState,),
+    ),
+    Phrase(
+        (matrix_maybe_axis,),
+        (Optional(AsAxis), Optional(IfNot), LookupMatrix, Optional(IfMissing), SquareRowIs),
+        lookup_square_matrix_row_by_matrix,
+        (MatrixState,),
+    ),
+    Phrase(
+        (matrix_maybe_axis,),
+        (Optional(AsAxis), Optional(IfNot), LookupVector, Optional(IfMissing)),
+        lookup_vector_by_matrix,
+        (MatrixState,),
+    ),
+    Phrase(
+        (MatrixState,),
+        (GroupAnyBy, Optional(IfMissing), axis_with_name, IsEqual),
+        lookup_matrix_group_by_matrix_column,
+        (MatrixState, GroupAnyBy, VectorState),
+    ),
+    Phrase(
+        (MatrixState,),
+        (GroupAnyBy, Optional(IfMissing), SquareColumnIs),
+        lookup_matrix_group_by_square_matrix_column,
+        (MatrixState, GroupAnyBy, VectorState),
+    ),
+    Phrase(
+        (MatrixState,),
+        (GroupAnyBy, Optional(IfMissing), SquareRowIs),
+        lookup_matrix_group_by_square_matrix_row,
+        (MatrixState, GroupAnyBy, VectorState),
+    ),
+    Phrase(
+        (MatrixState,),
+        (GroupAnyBy, Optional(IfMissing)),
+        lookup_matrix_group_by_vector,
+        (MatrixState, GroupAnyBy, VectorState),
+    ),
+    Phrase(
+        (MatrixState, GroupColumnsBy, VectorState),
+        (ReduceToColumn, Optional(IfMissing)),
+        compute_grouped_matrix,
+        (MatrixState,),
+    ),
+    Phrase(
+        (MatrixState, GroupRowsBy, VectorState),
+        (ReduceToRow, Optional(IfMissing)),
+        compute_grouped_matrix,
+        (MatrixState,),
+    ),
+    Phrase((MatrixState,), (EltwiseOperation,), eltwise_matrix, (MatrixState,)),
+
+    # Vector
+
+    Phrase(nothing, (axis_with_name,), axis_lookup, (vector_axis,)),
+    Phrase(
+        (vector_maybe_axis,),
+        (Optional(AsAxis), BeginAnyMask, Optional(IfMissing), axis_with_name, IsEqual),
+        lookup_matrix_column_mask,
+        (vector_axis, BeginAnyMask, VectorState),
+    ),
+    Phrase(
+        (vector_maybe_axis,),
+        (Optional(AsAxis), BeginAnyMask, Optional(IfMissing), SquareColumnIs),
+        lookup_square_matrix_column_mask,
+        (vector_axis, BeginAnyMask, VectorState),
+    ),
+    Phrase(
+        (vector_maybe_axis,),
+        (Optional(AsAxis), BeginAnyMask, Optional(IfMissing), SquareRowIs),
+        lookup_square_matrix_row_mask,
+        (vector_axis, BeginAnyMask, VectorState),
+    ),
+    Phrase(
+        (vector_maybe_axis,),
+        (Optional(AsAxis), BeginAnyMask, Optional(IfMissing)),
+        lookup_vector_mask,
+        (vector_axis, BeginAnyMask, VectorState),
+    ),
+    Phrase((vector_axis, BeginAnyMask, VectorState), (EndMask,), apply_mask, (vector_axis,)),
+    Phrase(
+        (vector_axis, BeginAnyMask, VectorState),
+        (MaskOperation, Optional(IfMissing), axis_with_name, IsEqual),
+        lookup_matrix_column_other_mask,
+        (vector_axis, BeginAnyMask, VectorState, MaskOperation, VectorState),
+    ),
+    Phrase(
+        (vector_axis, BeginAnyMask, VectorState),
+        (MaskOperation, Optional(IfMissing), SquareColumnIs),
+        lookup_square_matrix_column_other_mask,
+        (vector_axis, BeginAnyMask, VectorState, MaskOperation, VectorState),
+    ),
+    Phrase(
+        (vector_axis, BeginAnyMask, VectorState),
+        (MaskOperation, Optional(IfMissing), SquareRowIs),
+        lookup_square_matrix_row_other_mask,
+        (vector_axis, BeginAnyMask, VectorState, MaskOperation, VectorState),
+    ),
+    Phrase(
+        (vector_axis, BeginAnyMask, VectorState),
+        (MaskOperation, Optional(IfMissing)),
+        lookup_vector_other_mask,
+        (vector_axis, BeginAnyMask, VectorState, MaskOperation, VectorState),
+    ),
+    Phrase(
+        (vector_maybe_axis,),
+        (Optional(AsAxis), Optional(IfNot), LookupMatrix, Optional(IfMissing), axis_with_name, IsEqual),
+        lookup_matrix_column_by_vector,
+        (VectorState,),
+    ),
+    Phrase(
+        (vector_maybe_axis,),
+        (Optional(AsAxis), Optional(IfNot), LookupMatrix, Optional(IfMissing), SquareColumnIs),
+        lookup_square_matrix_column_by_vector,
+        (VectorState,),
+    ),
+    Phrase(
+        (vector_maybe_axis,),
+        (Optional(AsAxis), Optional(IfNot), LookupMatrix, Optional(IfMissing), SquareRowIs),
+        lookup_square_matrix_row_by_vector,
+        (VectorState,),
+    ),
+    Phrase(
+        (vector_maybe_axis,),
+        (Optional(AsAxis), Optional(IfNot), LookupVector, Optional(IfMissing)),
+        lookup_vector_by_vector,
+        (VectorState,),
+    ),
+    Phrase(
+        (VectorState,),
+        (GroupBy, Optional(IfMissing), axis_with_name, IsEqual),
+        lookup_vector_group_by_matrix_column,
+        (VectorState, GroupBy, VectorState),
+    ),
+    Phrase(
+        (VectorState,),
+        (GroupBy, Optional(IfMissing), SquareColumnIs),
+        lookup_vector_group_by_square_matrix_column,
+        (VectorState, GroupBy, VectorState),
+    ),
+    Phrase(
+        (VectorState,),
+        (GroupBy, Optional(IfMissing), SquareRowIs),
+        lookup_vector_group_by_square_matrix_row,
+        (VectorState, GroupBy, VectorState),
+    ),
+    Phrase(
+        (VectorState,),
+        (GroupBy, Optional(IfMissing)),
+        lookup_vector_group_by_vector,
+        (VectorState, GroupBy, VectorState),
+    ),
+    Phrase(
+        (VectorState, GroupBy, VectorState),
+        (ReductionOperation, Optional(IfMissing)),
+        reduce_grouped_vector,
+        (VectorState,),
+    ),
+    Phrase((MatrixState,), (ReduceToColumn, Optional(IfMissing)), reduce_matrix_to_column, (VectorState,)),
+    Phrase((MatrixState,), (ReduceToRow, Optional(IfMissing)), reduce_matrix_to_row, (VectorState,)),
+    Phrase((VectorState,), (EltwiseOperation,), eltwise_vector, (VectorState,)),
+    Phrase((VectorState,), (VectorComparisonOperation,), compare_vector, (VectorState,)),
+
+    # Scalar
+
+    Phrase(nothing, (LookupScalar, Optional(IfMissing)), scalar_lookup, (ScalarState,)),
+    Phrase(nothing, (LookupVector, Optional(IfMissing), axis_with_name, IsEqual), lookup_vector_entry, (ScalarState,)),
+    Phrase(
+        nothing,
+        (LookupMatrix, Optional(IfMissing), axis_with_name, IsEqual, axis_with_name, IsEqual),
+        lookup_matrix_entry,
+        (ScalarState,),
+    ),
+    Phrase((MatrixState,), (ReductionOperation, Optional(IfMissing)), reduce_matrix_to_scalar, (ScalarState,)),
+    Phrase((VectorState,), (ReductionOperation, Optional(IfMissing)), reduce_vector_to_scalar, (ScalarState,)),
+    Phrase((ScalarState,), (EltwiseOperation,), eltwise_scalar, (ScalarState,)),
+
+    # Implicit
+
+    Phrase((vector_maybe_axis,), (AsAxis,), vector_property_is_axis, (vector_axis,)),
+    Phrase((VectorState, CountBy, VectorState), nothing, compute_count_matrix, (MatrixState,)),
+    Phrase(
+        (vector_axis, BeginAnyMask, VectorState, MaskOperation, VectorState),
+        nothing,
+        compute_mask_operation,
+        (vector_axis, BeginAnyMask, VectorState),
+    ),
+]
+
+function do_query_phrase(query_state::QueryState)::Bool
+    original_first_operation_index = query_state.first_operation_index
+    original_next_operation_index = query_state.next_operation_index
+    original_stack = query_state.stack
+
+    for phrase in PHRASES
+        query_state.stack = original_stack
+
+        if phrase.input === nothing
+            match_stack = QueryStackElement[]
+
+        else
+            if !stack_has_top(query_state, phrase.input)
+                continue
+            end
+            match_stack = query_state.stack[(end - length(phrase.input) + 1):end]
+        end
+
+        query_state.first_operation_index = original_first_operation_index
+        query_state.next_operation_index = original_next_operation_index
+
+        query_state.first_operation_index = query_state.next_operation_index
+        if phrase.operations === nothing
+            next_operations = Maybe{QueryOperation}[]
+        else
+            next_operations = next_matching_operations(query_state, phrase.operations)
+            if next_operations === nothing
+                continue
+            end
+        end
+
+        real_operations = QueryOperation[operation for operation in next_operations if operation !== nothing]
+
+        if query_state.what_for == :compute
+            @debug "- $(phrase.implementation): $(QuerySequence(real_operations))"
+        end
+
+        @views query_state.stack = original_stack[1:(end - length(match_stack))]
+        phrase.implementation(query_state, match_stack..., next_operations...)
+        @assert stack_has_top(query_state, phrase.output)
+
+        return true
+    end
+
+    query_state.stack = original_stack
+    query_state.first_operation_index = original_first_operation_index
+    query_state.next_operation_index = original_next_operation_index
+
+    return false
 end
 
 """
@@ -5103,25 +5157,14 @@ so is the shorthand `"column_name"` (simple string).
 We also allow specifying tuples instead of pairs to make it easy to invoke the API from other languages such as Python
 which do not have the concept of a `Pair`.
 
-The query is combined with the axis query as follows (using [`full_vector_query`](@ref):
-
-  - If the query contains [`GroupBy`](@ref), then the query must repeat any mask specified for the axis query.
-    That is, if the axis query is `metacell & type = B`, then the column query must be
-    `/ cell & metacell => type = B @ metacell : age %> Mean`. Sorry for the inconvenience. TODO: Automatically inject the
-    mask into [`GroupBy`](@ref) column queries.
-  - Otherwise, if the query starts with a (single) axis, then it should only contain a reduction; the axis query is
-    automatically injected following it. That is, if the axis query is `gene & is_marker`, then the full query for the
-    column query `/ metacell : fraction %> Mean` will be `/ metacell / gene : fraction %> Mean` (the mean gene expression
-    in all metacells). We can't just concatenate the axis query and the columns query here, is because Julia, in its
-    infinite wisdom, uses column-major matrices, like R and matlab; so reduction eliminates the rows instead of the
-    columns of the matrix.
-  - Otherwise (the typical case), we simply concatenate the axis query and the column query. That is, of the axis query
-    is `cell & batch = B1` and the column query is `: age`, then the full query will be `cell & batch = B1 : age`. This
-    is the simplest and most common case.
-
-In all cases the (full) query must return a value for each entry of the axis.
+The query is combined with the axis query as follows (using [`full_vector_query`](@ref)). The (full) query result should
+be a vector with one value for each entry of the axis query result.
 """
-FrameColumn = Union{AbstractString, Tuple{AbstractString, QueryString}, Pair{<:AbstractString, <:QueryString}}
+FrameColumn = Union{
+    AbstractString,
+    Tuple{AbstractString, Union{QueryString, QueryOperation}},
+    Pair{<:AbstractString, <:Union{QueryString, QueryOperation}},
+}
 
 """
 Specify all the columns to collect for a frame. We would have liked to specify this as `AbstractVector{<:FrameColumn}`
@@ -5140,21 +5183,20 @@ FrameColumns = AbstractVector
 
 Return a `DataFrame` containing multiple vectors of the same `axis`.
 
-The `axis` can be either just the name of an axis (e.g., `"cell"`), or a query for the axis (e.g., `q"/ cell"`),
-possibly using a mask (e.g., `q"/ cell & age > 1"`). The result of the query must be a vector of unique axis entry
+The `axis` can be either just the name of an axis (e.g., `"cell"`), or a query for the axis (e.g., `q"@ cell"`),
+possibly using a mask (e.g., `q"@ cell [ age > 1 ]"`). The result of the query must be a vector of unique axis entry
 names.
 
 If `columns` is not specified, the data frame will contain all the vector properties of the axis, in alphabetical order
 (since `DataFrame` has no concept of named rows, the 1st column will contain the name of the axis entry).
 
-By default, this will cache results of all queries. This may consume a large amount of memory. You can disable it by
-specifying `cache = false`, or release the cached data using [`empty_cache!`](@ref).
+By default, this will not `cache` the results of the queries.
 """
 function get_frame(
     daf::DafReader,
     axis::QueryString,
     columns::Maybe{FrameColumns} = nothing;
-    cache::Bool = true,
+    cache::Bool = false,
 )::DataFrame
     if columns !== nothing
         for column in columns
@@ -5164,11 +5206,12 @@ function get_frame(
 
     if axis isa Query
         axis_query = axis
-        axis_name = query_axis_name(axis)
     else
-        axis_query = Query(axis, Axis)
-        axis_name = query_axis_name(axis_query)
+        axis_query = parse_query(axis, Axis)
     end
+
+    @assert is_axis_query(axis_query) "invalid axis query: $(axis_query)"
+    axis_name = query_axis_name(axis_query)
 
     names_of_rows = get_query(daf, axis_query; cache)
     @assert names_of_rows isa AbstractVector{<:AbstractString}
@@ -5179,12 +5222,12 @@ function get_frame(
     end
 
     if eltype(columns) <: AbstractString
-        columns = [column => Lookup(column) for column in columns]
+        columns = [column => LookupVector(column) for column in columns]
     end
 
     data = Vector{Pair{AbstractString, StorageVector}}()
     for frame_column in columns
-        @assert frame_column isa FrameColumn "invalid FrameColumn: $(frame_column)"
+        @assert frame_column isa FrameColumn "invalid FrameColumn: $(frame_column) :: $(typeof(frame_column))"
         if frame_column isa AbstractString
             column_name = frame_column
             column_query = "="
@@ -5211,26 +5254,6 @@ function get_frame(
     return result
 end
 
-function query_axis_name(query::Query)::AbstractString
-    return query_axis_name(QuerySequence((query,)))
-end
-
-function query_axis_name(query_sequence::QuerySequence)::AbstractString
-    return get_query_axis_name(get_fake_query_result(query_sequence))
-end
-
-function get_query_axis_name(fake_query_state::FakeQueryState)::AbstractString
-    if is_all(fake_query_state, (FakeAxisState,))
-        fake_axis_state = fake_query_state.stack[1]
-        @assert fake_axis_state isa FakeAxisState
-        if fake_axis_state.axis_name !== nothing && !fake_axis_state.is_entry
-            return fake_axis_state.axis_name
-        end
-    end
-
-    return error("invalid axis query: $(fake_query_state.query_sequence)")
-end
-
 """
     full_vector_query(
         axis_query::Query,
@@ -5241,61 +5264,40 @@ end
 Given a query for an axis, and some suffix query for a vector property, combine them into a full query for the vector
 values for the axis. This is used by [`FrameColumn`](@ref) for [`get_frame`](@ref) and also for queries of vector data
 in views.
+
+Normally we just concatenate the axis query and the vector query.
+
+  - If the vector query contains [`GroupBy`](@ref), then the query must repeat any mask specified for the axis query.
+    That is, if the axis query is `metacell [ type = B ]` (the frame has a row for each metacells of B cells), and we
+    want the mean age of the cells (`@ cell : age`) in each such metacell (`/ metacell >> Mean`), then the vector query
+    must be the full `@ cell [ metacell : type = B ] : age / metacell %> Mean`. TODO: Find a way to inject the mask in
+    the right place in such a query (that is, allow saying just `@ cell : age / metacell >> Mean`) - this is difficult
+    in the general case.
+
+  - Otherwise (the common case) we simply concatenate the axis query and the vector query. That is, of the axis query is
+    `@ cell [ batch = B1 ]` and the vector query is `: age`, then the full query will be `@ cell [ batch = B1 ] : age`.
+    Or, if the axis query is `@ gene [ is_marker ]` and the vector query is `@ metacell :: fraction >| Mean`, then the
+    full query would be `@ cell [ batch = B1 ] @ metacell :: fraction >| Mean`.
 """
 function full_vector_query(
     axis_query::Query,
-    vector_query::QueryString,
+    vector_query::Union{QueryString, QueryOperation},
     vector_name::Maybe{AbstractString} = nothing,
 )::Query
     if vector_name !== nothing && vector_query == "="
-        vector_query = Lookup(vector_name)
+        vector_query = LookupVector(vector_name)
+    elseif vector_query isa AbstractString
+        vector_query = parse_query(vector_query, LookupVector)
     else
-        vector_query = Query(vector_query, Lookup)
+        vector_query = as_query_sequence(vector_query)
     end
-    if vector_query isa QuerySequence && vector_query.query_operations[1] isa Axis
-        if !any([query_operation isa GroupBy for query_operation in vector_query.query_operations])
-            query_prefix, query_suffix = split_vector_query(vector_query)
-            vector_query = query_prefix |> axis_query |> query_suffix
-        end
+
+    if vector_query isa QuerySequence &&
+       any([query_operation isa GroupBy for query_operation in vector_query.query_operations])
+        return vector_query
     else
-        vector_query = axis_query |> vector_query
+        return axis_query |> vector_query
     end
-
-    return vector_query
-end
-
-function split_vector_query(query_sequence::QuerySequence)::Tuple{QuerySequence, QuerySequence}
-    index = findfirst(query_sequence.query_operations) do query_operation
-        return query_operation isa Lookup
-    end
-    if index === nothing
-        return (query_sequence, QuerySequence(()))  # UNTESTED
-    else
-        return (
-            QuerySequence(query_sequence.query_operations[1:(index - 1)]),
-            QuerySequence(query_sequence.query_operations[index:end]),
-        )
-    end
-end
-
-function Query(query::Query, ::Maybe{Union{Type{Lookup}, Type{Axis}}} = nothing)::Query
-    return query
-end
-
-function Query(query_string::AbstractString, operand_only::Maybe{Union{Type{Lookup}, Type{Axis}}} = nothing)::Query
-    tokens = tokenize(query_string, QUERY_OPERATORS)
-    if operand_only !== nothing && length(tokens) == 1 && !tokens[1].is_operator
-        return QuerySequence((operand_only(query_string),))  # NOJET
-    end
-
-    next_token_index = 1
-    query_operations = Vector{QueryOperation}()
-    while next_token_index <= length(tokens)
-        query_operation, next_token_index = next_query_operation(tokens, next_token_index)
-        push!(query_operations, query_operation)
-    end
-
-    return QuerySequence(Tuple(query_operations))
 end
 
 end  # module

@@ -1,0 +1,58 @@
+digraph {
+rankdir = LR
+node [ shape = box, fontname = "Sans-Serif" ]
+fontname = "Sans-Serif"
+fontsize = 28
+labeljust = "l"
+
+"Vector_base_axis" [ label = < VectorState<sub><i>base axis</i></sub>&nbsp;&nbsp;<br/> > ]
+
+"Vector_mask_values" [ label = <
+VectorState<sub><i>base axis</i></sub>
+<br/>&nbsp;<br/>
+BeginMask <sub><i>or&nbsp;</i></sub> BeginNegatedMask
+<br/>&nbsp;<br/>
+VectorState<sub><i>mask values</i></sub>
+<br/>&nbsp;<br/>
+> ]
+
+subgraph cluster_all {
+label = "VECTOR MASK LOOKUP"
+
+"VO1" [ style = dotted, fontname = "Courier", label = <
+&#91; <font color="gray">!</font> matrix_property<br/><font color="gray">|| default_value</font><br/>@- row_name<br/>&nbsp;<br/>Begin<font color="gray">Negated</font>Mask(matrix_property)<br/><font color="gray">|&gt; IfMissing(default_value)</font><br/>|&gt; RowIsEqual(row_name)
+> ]
+"VO1_" [ shape = cds, label = "lookup square matrix row mask&nbsp;&nbsp;" ]
+"VO1":e -> "VO1_":w
+
+"VO2" [ style = dotted, fontname = "Courier", label = <
+&#91; <font color="gray">!</font> matrix_property<br/><font color="gray">|| default_value</font><br/>@| column_name<br/>&nbsp;<br/>Begin<font color="gray">Negated</font>Mask(matrix_property)<br/><font color="gray">|&gt; IfMissing(default_value)</font><br/>|&gt; ColumnIsEqual(rowcolumn_name)
+> ]
+"VO2_" [ shape = cds, label = "lookup square matrix column mask&nbsp;&nbsp;" ]
+"VO2":e -> "VO2_":w
+
+"VO3" [ style = dotted, fontname = "Courier", label = <
+&#91; <font color="gray">!</font> matrix_property<br/><font color="gray">|| default_value</font><br/>@ column_axis = column_name<br/>&nbsp;<br/>Begin<font color="gray">Negated</font>Mask(matrix_property)<br/><font color="gray">|&gt; IfMissing(default_value)</font><br/>|&gt; IsEqual(column_name)
+> ]
+"VO3_" [ shape = cds, label = "lookup matrix column mask&nbsp;&nbsp;" ]
+"VO3":e -> "VO3_":w
+
+"VO4" [ style = dotted, fontname = "Courier", label = <
+&#91; <font color="gray">!</font> vector_property<br/><font color="gray">|| default_value</font><br/>&nbsp;<br/>Begin<font color="gray">Negated</font>Mask(vector_property)<br/><font color="gray">|&gt; IfMissing(default_value)</font>
+> ]
+"VO4_" [ shape = cds, label = "lookup vector mask&nbsp;&nbsp;" ]
+"VO4":e -> "VO4_":w
+
+}
+
+"Vector_base_axis" -> "VO1":w
+"Vector_base_axis" -> "VO2":w
+"Vector_base_axis" -> "VO3":w
+"Vector_base_axis" -> "VO4":w
+
+"VO1_":e -> "Vector_mask_values"
+"VO2_":e -> "Vector_mask_values"
+"VO3_":e -> "Vector_mask_values"
+"VO4_":e -> "Vector_mask_values"
+
+}

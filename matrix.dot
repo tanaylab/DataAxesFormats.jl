@@ -1,0 +1,81 @@
+digraph {
+concentrate = true
+node [ shape = box, fontname = "Sans-Serif" ]
+
+"EMPTY" [ shape = point ]
+
+"vector_final_any" [ label = <
+    VectorState <i><font color="gray"><sub>finalized&nbsp;</sub></font></i>
+> ]
+
+"vector_final_axis" [ label = <
+    VectorState <i><font color="gray"><sub>finalized,axis&nbsp;&nbsp;&nbsp;</sub></font></i>
+> ]
+
+"vector_final_axis" -> "vector_final_any" [ style = dotted ]
+
+"X10" [ shape = box, style = dotted, fontname = "Courier", label = <
+    / axis
+    <br/><br/>
+    Axis(axis)
+> ]
+"X10_" [ shape = invhouse, margin = 0, label = "vector_axis" ]
+"EMPTY" -> "X10" -> "X10_" -> "vector_final_axis"
+
+"vector_final_any, CountBy, vector_final_values" [ label = <
+    VectorState <i><font color="gray"><sub>finalized&nbsp;</sub></font></i>
+    <br/><br/>
+    CountBy
+    <br/>
+    VectorState <i><font color="gray"><sub>finalized&nbsp;!axis</sub></font></i>
+    <br/><br/>
+> ]
+
+"X14" [ shape = box, style = dotted, fontname = "Courier", label = <
+    * property
+    <i><font color="gray">(</font> || default <font color="gray">)<sub>opt&nbsp;</sub></font></i>
+    <br/><br/>
+    CountBy(property)
+    <i><font color="gray">(</font> |&gt; IfMissing(default) <font color="gray">)<sub>opt&nbsp;</sub></font></i>
+    <br/><br/>
+> ]
+"X14_" [ shape = invhouse, margin = 0, label = "count_by_vector" ]
+"vector_final_any" -> "X14" -> "X14_" -> "vector_final_any, CountBy, vector_final_values"
+
+# "vector_final_any" -> "X15 CountBy, RowIsEqual" -> "X15 count_by_square_row" -> "vector_final_any, CountBy, vector_final_values"
+# "vector_final_any" -> "X16 CountBy, axis_with_name, IsEqual" -> "X16 count_by_matrix_column" -> "vector_final_any, CountBy, vector_final_values"
+# "vector_final_any" -> "X17 CountBy, ColumnIsEqual" -> "X17 count_by_square_column" -> "vector_final_any, CountBy, vector_final_values"
+# "vector_final_any, CountBy, vector_final_any" -> "X18 nothing" -> "X18 count_by_matrix" -> "MatrixState"
+# "MatrixState" -> "X19 GroupColumnsBy, Optional(IfMissing)" -> "X19 group_matrix_columns_by_vector" -> "MatrixState, GroupColumnsBy, vector_final_values"
+# "MatrixState" -> "X20 GroupRowsBy, Optional(IfMissing)" -> "X20 group_matrix_rows_by_vector" -> "MatrixState, GroupRowsBy, vector_final_values"
+# "MatrixState, GroupColumnsBy, vector_final_any" -> "X21 ReduceToColumn, Optional(IfMissing)" -> "X21 reduce_grouped_columns" -> "MatrixState"
+# "MatrixState, GroupRowsBy, vector_final_values" -> "MatrixState, GroupRowsBy, vector_final_any" [ style = dotted ]
+# "MatrixState, GroupColumnsBy, vector_final_values" -> "MatrixState, GroupColumnsBy, vector_final_any" [ style = dotted ]
+# "MatrixState, GroupRowsBy, vector_final_any" -> "X23 ReduceToRow, Optional(IfMissing)" -> "X23 reduce_grouped_rows" -> "MatrixState"
+# "..., vector_final_axis" -> "X24 Optional(IfNot), Lookup, Optional(IfMissing), ColumnIsEqual" -> "X24 lookup_square_column" -> "..., vector_any_values"
+# "..., vector_final_axis" -> "X25 Optional(IfNot), Lookup, Optional(IfMissing), RowIsEqual" -> "X25 lookup_square_row" -> "..., vector_any_values"
+# "..., vector_final_axis" -> "X26 Optional(IfNot), Lookup, Optional(IfMissing)" -> "X26 lookup_vector" -> "..., vector_any_values"
+# "..., vector_final_axis" -> "X27 Optional(IfNot), Lookup, Optional(IfMissing), axis_with_name, IsEqual" -> "X27 lookup_matrix_column" -> "..., vector_any_values"
+# "..., vector_final_any" -> "X28 EltwiseOperation," -> "X28 eltwise_vector" -> "..., vector_final_values"
+# "..., vector_final_any" -> "X29 GroupBy, Optional(IfMissing), ColumnIsEqual" -> "X29 group_vector_by_square_column" -> "..., vector_final_any, GroupBy, vector_final_values"
+# "..., vector_final_any" -> "X30 GroupBy, Optional(IfMissing), RowIsEqual" -> "X30 group_vector_by_square_row" -> "..., vector_final_any, GroupBy, vector_final_values"
+# "..., vector_final_any" -> "X31 GroupBy, Optional(IfMissing)" -> "X31 group_vector_by_vector" -> "..., vector_final_any, GroupBy, vector_final_values"
+# "..., vector_final_any" -> "X32 GroupBy, Optional(IfMissing), axis_with_name, IsEqual" -> "X32 group_vector_by_matrix_column" -> "..., vector_final_any, GroupBy, vector_final_values"
+# "..., vector_final_axis, GroupBy, Optional(IfMissing)" -> "X33 vector_final_any" -> "X33 ReductionOperation" -> "reduce_grouped_vector" -> "..., vector_final_any"
+# "..., vector_final_axis" -> "X34 BeginAnyMask, Optional(IfMissing), ColumnIsEqual" -> "X34 begin_mask_with_square_column" -> "..., vector_final_axis, BeginAnyMask, vector_final_values"
+# "..., vector_final_axis" -> "X35 BeginAnyMask, Optional(IfMissing), RowIsEqual" -> "X35 begin_mask_with_square_row" -> "..., vector_final_axis, BeginAnyMask, vector_final_values"
+# "..., vector_final_axis" -> "X36 BeginAnyMask, Optional(IfMissing), axis_with_name, IsEqual" -> "X36 begin_mask_with_matrix_column" -> "..., vector_final_axis, BeginAnyMask, vector_final_values"
+# "..., vector_final_axis" -> "X37 BeginAnyMask, Optional(IfMissing)" -> "X37 begin_mask_with_vector" -> "..., vector_final_axis, BeginAnyMask, vector_final_values"
+# "..., vector_final_axis, BeginAnyMask, vector_final_values" -> "X38 EndMask" -> "X38 end_mask" -> "..., vector_final_axis"
+# "..., MatrixState" -> "X39 ReduceToColumn" -> "X39 reduce_matrix_to_column" -> "..., vector_final_values"
+# "..., MatrixState" -> "X40 ReduceToRow" -> "X40 reduce_matrix_to_row" -> "..., vector_final_values"
+# "..., MatrixState" -> "X41 EltwiseOperation" -> "X41 eltwise_matrix" -> "..., MatrixState"
+# "..., vector_final_any, BeginAnyMask, vector_final_values, MaskOperation, vector_final_values" -> "X42 nothing" -> "X42 combine_mask_vectors" -> "..., vector_final_values, BeginAnyMask, vector_final_values"
+# "..., vector_any_values" -> "X43 AsAxis" -> "X43 vector_as_axis" -> "..., vector_any_axis"
+# "..., vector_any_values" -> "X44 nothing" -> "X44 vector_as_axis" -> "..., vector_any_axis"
+# "..., vector_pending_any" -> "X45 nothing" -> "X45 finalize_vector_values" -> "..., vector_final_any"
+# "vector_final_axis" -> "X11 axis_with_name" -> "X11 columns_axis" -> "vector_final_axis, vector_final_axis"
+# "vector_final_axis, vector_final_axis" -> "X12 LookupMatrix, Optional(IfMissing)" -> "X12 lookup_matrix" -> "MatrixState"
+# "MatrixState" -> "X13 Optional(AsAxis), Optional(IfNot), Lookup, Optional(IfMissing)" -> "X13 lookup_by_matrix" -> "MatrixState"
+
+}

@@ -177,10 +177,10 @@ We first convert everything that matches the [`SPACE_REGEX`](@ref) into a single
 into a single line (discarding line breaks and comments), and the squashed expression is used for reporting errors. This
 is reasonable for dealing with `Daf` queries which are expected to be "relatively simple".
 
-When tokenizing, we discard the spaces. Anything that matches the [`VALUE_REGEX`](@ref) is considered to be a value
-[`Token`](@ref). Anything that matches the `operators` is considered to be an operator [`Token`](@ref). As a special
-case, `''` is converted to an empty string, which is otherwise impossible to represent (write `\\'\\'` to prevent this).
-Anything else is reported as an invalid character.
+When tokenizing, we discard the spaces. Anything that matches the `operators` is considered to be an operator
+[`Token`](@ref). Anything that matches the [`VALUE_REGEX`](@ref) is considered to be a value [`Token`](@ref). As a
+special case, `''` is converted to an empty string, which is otherwise impossible to represent (write `\\'\\'` to
+prevent this). Anything else is reported as an invalid character.
 
 !!! note
 
@@ -211,30 +211,6 @@ function tokenize(string::AbstractString, operators::Regex)::Vector{Token}
             continue
         end
 
-        value = match(VALUE_REGEX, rest_of_string)
-        if value !== nothing
-            @assert value.offset == 1
-            value_string = value.match
-            @assert !isempty(value_string)
-
-            push!(
-                tokens,
-                Token(
-                    false,
-                    unescape_value(decode_expression(value_string)),
-                    token_index,
-                    first_index,
-                    first_index + sizeof(value_string) - 1,
-                    encoded_string,
-                ),
-            )
-
-            token_index += 1
-            first_index += sizeof(value_string)
-            rest_of_string = rest_of_string[(sizeof(value_string) + 1):end]
-            continue
-        end
-
         operator = match(operators, rest_of_string)
         if operator !== nothing
             @assert operator.offset == 1
@@ -256,6 +232,30 @@ function tokenize(string::AbstractString, operators::Regex)::Vector{Token}
             token_index += 1
             first_index += sizeof(operator_string)
             rest_of_string = rest_of_string[(sizeof(operator_string) + 1):end]
+            continue
+        end
+
+        value = match(VALUE_REGEX, rest_of_string)
+        if value !== nothing
+            @assert value.offset == 1
+            value_string = value.match
+            @assert !isempty(value_string)
+
+            push!(
+                tokens,
+                Token(
+                    false,
+                    unescape_value(decode_expression(value_string)),
+                    token_index,
+                    first_index,
+                    first_index + sizeof(value_string) - 1,
+                    encoded_string,
+                ),
+            )
+
+            token_index += 1
+            first_index += sizeof(value_string)
+            rest_of_string = rest_of_string[(sizeof(value_string) + 1):end]
             continue
         end
 

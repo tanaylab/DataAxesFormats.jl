@@ -21,13 +21,13 @@ using ExprTools
 using TanayLabUtilities
 
 import ..Contracts.contract_documentation
-import TanayLabUtilities.Documentation.DefaultValue
-import TanayLabUtilities.Documentation.FunctionMetadata
-import TanayLabUtilities.Documentation.collect_defaults
-import TanayLabUtilities.Documentation.function_metadata
-import TanayLabUtilities.Documentation.get_metadata
-import TanayLabUtilities.Documentation.set_metadata_of_function
-import TanayLabUtilities.Logger.pass_args
+import TanayLabUtilities.Documentation.DefaultValue  # NOLINT
+import TanayLabUtilities.Documentation.FunctionMetadata  # NOLINT
+import TanayLabUtilities.Documentation.collect_defaults  # NOLINT
+import TanayLabUtilities.Documentation.function_metadata  # NOLINT
+import TanayLabUtilities.Documentation.get_metadata  # NOLINT
+import TanayLabUtilities.Documentation.set_metadata_of_function  # NOLINT
+import TanayLabUtilities.Logger.pass_args  # NOLINT
 
 function kwargs_overwrite(kwargs::Base.Pairs)::Bool
     for (name, value) in kwargs
@@ -142,10 +142,10 @@ macro computation(contract, definition)
     function_module = __module__
     full_name = "$(function_module).$(function_name)"
 
-    set_metadata_of_function(
+    set_metadata_of_function(  # NOLINT
         function_module,
         function_name,
-        FunctionMetadata([function_module.eval(contract)], collect_defaults(function_module, inner_definition)),
+        FunctionMetadata([function_module.eval(contract)], collect_defaults(function_module, inner_definition)),  # NOLINT
     )
 
     inner_definition[:name] = Symbol(function_name, :_compute)
@@ -156,8 +156,8 @@ macro computation(contract, definition)
             $full_name,
             $(ExprTools.combinedef(inner_definition)),
         )),
-        pass_args(false, get(outer_definition, :args, []))...,
-        pass_args(true, get(outer_definition, :kwargs, []))...,
+        pass_args(false, get(outer_definition, :args, []))...,  # NOLINT
+        pass_args(true, get(outer_definition, :kwargs, []))...,  # NOLINT
     )
 
     return esc(ExprTools.combinedef(outer_definition))
@@ -179,12 +179,12 @@ macro computation(first_contract, second_contract, definition)
     function_module = __module__
     full_name = "$(function_module).$(function_name)"
 
-    set_metadata_of_function(
+    set_metadata_of_function(  # NOLINT
         function_module,
         function_name,
-        FunctionMetadata(
+        FunctionMetadata(  # NOLINT
             [function_module.eval(first_contract), function_module.eval(second_contract)],
-            collect_defaults(function_module, inner_definition),
+            collect_defaults(function_module, inner_definition),  # NOLINT
         ),
     )
 
@@ -197,8 +197,8 @@ macro computation(first_contract, second_contract, definition)
             $full_name,
             $(ExprTools.combinedef(inner_definition)),
         )),
-        pass_args(false, get(outer_definition, :args, []))...,
-        pass_args(true, get(outer_definition, :kwargs, []))...,
+        pass_args(false, get(outer_definition, :args, []))...,  # NOLINT
+        pass_args(true, get(outer_definition, :kwargs, []))...,  # NOLINT
     )
 
     return esc(ExprTools.combinedef(outer_definition))
@@ -220,16 +220,16 @@ macro computation(first_contract, second_contract, third_contract, definition)
     function_module = __module__
     full_name = "$(function_module).$(function_name)"
 
-    set_metadata_of_function(
+    set_metadata_of_function(  # NOLINT
         function_module,
         function_name,
-        FunctionMetadata(
+        FunctionMetadata(  # NOLINT
             [
                 function_module.eval(first_contract),
                 function_module.eval(second_contract),
                 function_module.eval(third_contract),
             ],
-            collect_defaults(function_module, inner_definition),
+            collect_defaults(function_module, inner_definition),  # NOLINT
         ),
     )
 
@@ -243,8 +243,8 @@ macro computation(first_contract, second_contract, third_contract, definition)
             $full_name,
             $(ExprTools.combinedef(inner_definition)),
         )),
-        pass_args(false, get(outer_definition, :args, []))...,
-        pass_args(true, get(outer_definition, :kwargs, []))...,
+        pass_args(false, get(outer_definition, :args, []))...,  # NOLINT
+        pass_args(true, get(outer_definition, :kwargs, []))...,  # NOLINT
     )
 
     return esc(ExprTools.combinedef(outer_definition))
@@ -255,7 +255,7 @@ struct ContractDocumentation <: DocStringExtensions.Abbreviation
 end
 
 function DocStringExtensions.format(which::ContractDocumentation, buffer::IOBuffer, doc_str::Base.Docs.DocStr)::Nothing
-    full_name, metadata = get_metadata(doc_str)
+    full_name, metadata = get_metadata(doc_str)  # NOLINT
     if which.index > length(metadata.contracts)
         if which.index == 2
             error(chomp("""
@@ -321,7 +321,7 @@ Access the contract of a function annotated by [`@computation`](@ref). By defaul
 [`@computation`](@ref) has two contracts, you can specify the `index` of the contract to return.
 """
 function function_contract(func::Function, index::Integer = 1)::Contract
-    _, _, metadata = function_metadata(func)
+    _, _, metadata = function_metadata(func)  # NOLINT
     return metadata.contracts[index]
 end
 

@@ -50,7 +50,7 @@ The scalar is fetched using the `name` and the `default`. If `rename` is specifi
 name. If `type` is specified, the data is converted to this type. If the scalar already exists in the target, if
 `overwrite`, it will be replaced; otherwise, if not `insist`, skip the copy; otherwise, fail.
 """
-@logged function copy_scalar!(;
+@logged function copy_scalar!(;  # NOLINT
     destination::DafWriter,
     source::DafReader,
     name::AbstractString,
@@ -102,7 +102,7 @@ The axis is fetched using the `name` and the `default`. If `rename` is specified
 If the axis already exists in the target, if `overwrite`, it will be replaced (erasing all data for that axis);
 otherwise, if not `insist`, skip the copy; otherwise, fail.
 """
-@logged function copy_axis!(;
+@logged function copy_axis!(;  # NOLINT  # NOLINT
     destination::DafWriter,
     source::DafReader,
     axis::AbstractString,
@@ -159,7 +159,7 @@ This requires the axis of one data set is the same, or is a superset of, or a su
 contains entries that do not exist in the source, then `empty` must be specified to fill the missing values. If the
 source axis contains entries that do not exist in the target, they are discarded (not copied).
 """
-@logged @documented function copy_vector!(;
+@logged @documented function copy_vector!(;  # NOLINT
     destination::DafWriter,
     source::DafReader,
     axis::AbstractString,
@@ -170,8 +170,8 @@ source axis contains entries that do not exist in the target, they are discarded
     default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
     empty::Maybe{StorageScalar} = nothing,
     bestify::Bool = false,
-    min_sparse_saving_fraction::AbstractFloat = function_default(
-        TanayLabUtilities.MatrixFormats.bestify,
+    min_sparse_saving_fraction::AbstractFloat = function_default(  # NOLINT
+        TanayLabUtilities.MatrixFormats.bestify,  # NOLINT
         :min_sparse_saving_fraction,
     ),
     overwrite::Bool = false,
@@ -219,7 +219,7 @@ source axis contains entries that do not exist in the target, they are discarded
     end
 
     if bestify && Base.eltype(value) <: Real
-        value = TanayLabUtilities.MatrixFormats.bestify(value; min_sparse_saving_fraction, eltype)  # UNTESTED
+        value = TanayLabUtilities.MatrixFormats.bestify(value; min_sparse_saving_fraction, eltype)  # UNTESTED # NOLINT
     end
 
     if relation == :same
@@ -235,8 +235,8 @@ source axis contains entries that do not exist in the target, they are discarded
                 nnz(value.array);
                 overwrite,
             ) do sparse_nzind, sparse_nzval
-                sparse_nzind .= nzind(value.array)
-                sparse_nzval .= nzval(value.array)
+                sparse_nzind .= nzind(value.array)  # NOLINT
+                sparse_nzval .= nzval(value.array)  # NOLINT
                 return nothing
             end
         else
@@ -264,7 +264,7 @@ source axis contains entries that do not exist in the target, they are discarded
             named = as_named_vector(destination, reaxis, dense)
             named .= empty
             named[names(value, 1)] .= value  # NOJET
-            value = issparse(value.array) && !(concrete_eltype <: AbstractString) ? sparse_vector(dense) : dense
+            value = issparse(value.array) && !(concrete_eltype <: AbstractString) ? sparse_vector(dense) : dense  # NOLINT
             set_vector!(destination, reaxis, rename, value; overwrite)
         else
             empty_dense_vector!(destination, reaxis, rename, concrete_eltype; overwrite) do empty_vector
@@ -318,7 +318,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
     the destination. However, currently we create a temporary dense matrix for this; this is inefficient and should be
     replaced by a more efficient method.
 """
-@logged @documented function copy_matrix!(;
+@logged @documented function copy_matrix!(;  # NOLINT
     destination::DafWriter,
     source::DafReader,
     rows_axis::AbstractString,
@@ -331,8 +331,8 @@ axis contains entries that do not exist in the target, they are discarded (not c
     default::Union{StorageReal, StorageMatrix, Nothing, UndefInitializer} = undef,
     empty::Maybe{StorageReal} = nothing,
     bestify::Bool = false,
-    min_sparse_saving_fraction::AbstractFloat = function_default(
-        TanayLabUtilities.MatrixFormats.bestify,
+    min_sparse_saving_fraction::AbstractFloat = function_default(  # NOLINT
+        TanayLabUtilities.MatrixFormats.bestify,  # NOLINT
         :min_sparse_saving_fraction,
     ),
     relayout::Bool = true,
@@ -380,7 +380,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
     end
 
     if bestify && Base.eltype(value) <: Real
-        value = TanayLabUtilities.MatrixFormats.bestify(value; min_sparse_saving_fraction, eltype)  # UNTESTED
+        value = TanayLabUtilities.MatrixFormats.bestify(value; min_sparse_saving_fraction, eltype)  # UNTESTED # NOLINT
     end
 
     if relayout && has_matrix(source, columns_axis, rows_axis, name; relayout = false)
@@ -447,9 +447,9 @@ axis contains entries that do not exist in the target, they are discarded (not c
                     nnz(value);
                     overwrite,
                 ) do sparse_colptr, sparse_rowval, sparse_nzval
-                    sparse_colptr .= colptr(value)
-                    sparse_rowval .= rowval(value)
-                    sparse_nzval .= nzval(value)
+                    sparse_colptr .= colptr(value)  # NOLINT
+                    sparse_rowval .= rowval(value)  # NOLINT
+                    sparse_nzval .= nzval(value)  # NOLINT
                     return nothing
                 end
             else
@@ -487,7 +487,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
             if concrete_eltype <: AbstractString
                 set_matrix!(destination, rows_reaxis, columns_reaxis, rename, dense; overwrite, relayout)  # UNTESTED
             else
-                sparse = sparse_matrix_csc(dense)
+                sparse = sparse_matrix_csc(dense)  # NOLINT
                 set_matrix!(destination, rows_reaxis, columns_reaxis, rename, sparse; overwrite, relayout)
             end
         else
@@ -542,7 +542,7 @@ This is basically a loop that calls [`copy_matrix!`](@ref) for each of the tenso
 which exist in the destination but do not exist in the source. If a tensor matrix already exists in the target, if
 `overwrite`, it will be replaced; otherwise, if not `insist`, skip the copy; otherwise, fail.
 """
-@logged @documented function copy_tensor!(;
+@logged @documented function copy_tensor!(;  # NOLINT
     destination::DafWriter,
     source::DafReader,
     main_axis::AbstractString,
@@ -555,8 +555,8 @@ which exist in the destination but do not exist in the source. If a tensor matri
     eltype::Maybe{Type{<:StorageScalarBase}} = nothing,
     empty::Maybe{StorageReal} = nothing,
     bestify::Bool = false,
-    min_sparse_saving_fraction::AbstractFloat = function_default(
-        TanayLabUtilities.MatrixFormats.bestify,
+    min_sparse_saving_fraction::AbstractFloat = function_default(  # NOLINT
+        TanayLabUtilities.MatrixFormats.bestify,  # NOLINT
         :min_sparse_saving_fraction,
     ),
     relayout::Bool = true,
@@ -648,7 +648,7 @@ If `types` are specified, the copied data of the matching property is converted 
 If a [`TensorKey`](@ref) is specified, this will create an matrix full of the `empty` value for any entries of the main
 axis which exist in the destination but do not exist in the source.
 """
-@logged function copy_all!(;
+@logged function copy_all!(;  # NOLINT
     destination::DafWriter,
     source::DafReader,
     empty::Maybe{EmptyData} = nothing,

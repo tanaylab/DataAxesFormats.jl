@@ -1,0 +1,91 @@
+digraph {
+rankdir = LR
+node [ shape = box, fontname = "Sans-Serif" ]
+fontname = "Sans-Serif"
+fontsize = 28
+labeljust = "l"
+
+"Matrix_base_values" [ label = <
+MatrixState<sub><i>base values</i></sub>&nbsp;&nbsp;&nbsp;
+<br/>&nbsp;<br/>
+> ]
+
+"Matrix_final_values" [ label = <
+MatrixState<sub><i>final values</i></sub>&nbsp;&nbsp;&nbsp;
+<br/>&nbsp;<br/>
+> ]
+
+subgraph cluster_all {
+label = "MATRIX GROUP"
+
+"Matrix_group_values" [ label = <
+VectorState<sub><i>group values</i></sub>&nbsp;&nbsp;&nbsp;
+<br/>&nbsp;<br/>
+GroupColumnsBy<sub><i>or&nbsp;</i></sub>GroupRowsBy
+<br/>&nbsp;<br/>&nbsp;<br/>
+MatrixState<sub><i>base values</i></sub>&nbsp;&nbsp;&nbsp;
+<br/>&nbsp;<br/>
+> ]
+
+"MG1" [ style = dotted, fontname = "Courier", label = <
+|/<sub><i>or&nbsp;</i></sub>-/ matrix_property<br/>&nbsp;<br/><font color="gray">|| default_value</font><br/>@- row_value<br/>&nbsp;<br/>GroupColumnsBy<sub><i>or&nbsp;</i></sub>GroupRowsBy(matrix_property)<br/>&nbsp;<br/><font color="gray">|&gt; IfMissing(default_value)</font><br/>|&gt; RowIsEqual(row_value)
+> ]
+"MG1_" [ shape = cds, label = <
+lookup square matrix row matrix columns<sub><i>or&nbsp;</i></sub>rows groups&nbsp;&nbsp;<br/>&nbsp;
+> ]
+"MG1":e -> "MG1_":w
+"MG1_":e -> "Matrix_group_values":sw
+
+"MG2" [ style = dotted, fontname = "Courier", label = <
+|/<sub><i>or&nbsp;</i></sub>-/ matrix_property<br/>&nbsp;<br/><font color="gray">|| default_value</font><br/>@| column_value<br/>&nbsp;<br/>GroupColumnsBy<sub><i>or&nbsp;</i></sub>GroupRowsBy(matrix_property)<br/>&nbsp;<br/><font color="gray">|&gt; IfMissing(default_value)</font><br/>|&gt; ColumnIsEqual(column_value)
+> ]
+"MG2_" [ shape = cds, label = <
+lookup square matrix column matrix columns<sub><i>or&nbsp;</i></sub>rows groups&nbsp;&nbsp;<br/>&nbsp;
+> ]
+"MG2":e -> "MG2_":w
+"MG2_":e -> "Matrix_group_values"
+
+"MG3" [ style = dotted, fontname = "Courier", label = <
+|/<sub><i>or&nbsp;</i></sub>-/ matrix_property<br/>&nbsp;<br/><font color="gray">|| default_value</font><br/>@ columns_axis = column_value<br/>&nbsp;<br/>GroupColumnsBy(matrix_property)<sub><i>or&nbsp;</i></sub>GroupRowsBy<br/>&nbsp;<br/><font color="gray">|&gt; IfMissing(default_value)</font><br/>|&gt; Axis(columns_axis) |&gt; IsEqual(column_value)
+> ]
+"MG3_" [ shape = cds, label = <
+lookup matrix column matrix columns<sub><i>or&nbsp;</i></sub>rows groups&nbsp;&nbsp;<br/>&nbsp;
+> ]
+"MG3":e -> "MG3_":w
+"MG3_":e -> "Matrix_group_values"
+
+"MG4" [ style = dotted, fontname = "Courier", label = <
+|/<sub><i>or&nbsp;</i></sub>-/ vector_property<br/>&nbsp;<br/><font color="gray">|| default_value</font><br/>&nbsp;<br/>GroupColumnsBy<sub><i>or&nbsp;</i></sub>GroupRowsBy(vector_property)<br/>&nbsp;<br/><font color="gray">|&gt; IfMissing(default_value)</font>
+> ]
+"MG4_" [ shape = cds, label = <
+lookup vector matrix columns<sub><i>or&nbsp;</i></sub>rows groups&nbsp;&nbsp;<br/>&nbsp;
+> ]
+"MG4":e -> "MG4_":w
+"MG4_":e -> "Matrix_group_values"
+
+"MG1_" -> "MG5" [ style = invis ]
+
+"MG5" [ shape = component, label = "VECTOR OPERATION", URL = "#../DataAxesFormats.Queries.VECTOR_OPERATION" ]
+"Matrix_group_values" -> "MG5" [ constraint = false ]
+"MG5" -> "Matrix_group_values" [ constraint = false ]
+
+"MG6" [ style = dotted, fontname = "Courier", label = <
+&gt;|<sub><i>or&nbsp;</i></sub>&gt;- Reduction <font color="gray">param value<br/>|| default_value</font><br/>&nbsp;<br/>ReduceToColumn<sub><i>or&nbsp;</i></sub>ReduceToRows<br/>(Reduction(<font color="gray">param = value, ...</font>))<br/><font color="gray">|&gt; IfMissing(default_value)</font>
+> ]
+"MG6_" [ shape = cds, label = < reduce grouped matrix columns<sub><i>or&nbsp;</i></sub>rows&nbsp;&nbsp;<br/>&nbsp; > ]
+"MG6":e -> "MG6_":w
+
+"Matrix_group_values" -> "MG6":w
+
+"MG7" [ shape = component, label = "VECTOR AS AXIS", URL = "#../DataAxesFormats.Queries.VECTOR_AS_AXIS" ]
+"Matrix_group_values" -> "MG7":w
+"MG7":s -> "MG6":n [ constraint = false ]
+
+}
+
+"Matrix_base_values" -> "MG2":w
+"Matrix_base_values" -> "MG3":w
+
+"MG6_":e -> "Matrix_final_values"
+
+}

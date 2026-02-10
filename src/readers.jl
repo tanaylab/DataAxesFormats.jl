@@ -109,8 +109,9 @@ String.(scalars_set(example_cells_daf()))
 
 # output
 
-1-element Vector{String}:
+2-element Vector{String}:
  "organism"
+ "reference"
 ```
 """
 function scalars_set(daf::DafReader)::AbstractSet{<:AbstractString}
@@ -291,10 +292,10 @@ String.(axis_vector(example_metacells_daf(), "type"))
 # output
 
 4-element Vector{String}:
+ "memory-B"
  "MEBEMP-E"
  "MEBEMP-L"
  "MPP"
- "memory-B"
 ```
 """
 function axis_vector(
@@ -334,10 +335,10 @@ axis_dict(example_metacells_daf(), "type")
 # output
 
 OrderedCollections.OrderedDict{AbstractString, Int64} with 4 entries:
-  "MEBEMP-E" => 1
-  "MEBEMP-L" => 2
-  "MPP"      => 3
-  "memory-B" => 4
+  "memory-B" => 1
+  "MEBEMP-E" => 2
+  "MEBEMP-L" => 3
+  "MPP"      => 4
 ```
 """
 function axis_dict(daf::DafReader, axis::AbstractString)::AbstractDict{<:AbstractString, <:Integer}
@@ -368,7 +369,7 @@ axis_indices(example_metacells_daf(), "type", ["MPP", ""]; allow_empty = true)
 # output
 
 2-element Vector{Int64}:
- 3
+ 4
  0
 ```
 """
@@ -408,7 +409,7 @@ axis_entries(example_metacells_daf(), "type", [3, 0]; allow_empty = true)
 # output
 
 2-element Vector{AbstractString}:
- "MPP"
+ "MEBEMP-L"
  ""
 ```
 """
@@ -595,10 +596,10 @@ get_vector(example_metacells_daf(), "type", "color")
 4-element Named SparseArrays.ReadOnly{String, 1, Vector{String}}
 type     │
 ─────────┼────────────
+memory-B │ "steelblue"
 MEBEMP-E │   "#eebb6e"
 MEBEMP-L │      "plum"
 MPP      │      "gold"
-memory-B │ "steelblue"
 ```
 """
 function get_vector(
@@ -937,10 +938,10 @@ function get_matrix(
 
         if default isa StorageMatrix
             require_column_major(default)
-            require_axis_length(daf, size(default, Rows), "rows of the default for the matrix: $(name)", rows_axis)
+            require_axis_length(daf, size(default, Rows), "rows of the default for the matrix: $(name)", rows_axis)  # NOLINT
             require_axis_length(
                 daf,
-                size(default, Columns),
+                size(default, Columns),  # NOLINT
                 "columns of the default for the matrix: $(name)",
                 columns_axis,
             )
@@ -1002,28 +1003,29 @@ function assert_valid_matrix(
     name::AbstractString,
     matrix::AbstractMatrix,
 )::Nothing
-    @assert size(matrix, Rows) == Formats.format_axis_length(daf, rows_axis) """
+    @assert size(matrix, 1) == Formats.format_axis_length(daf, rows_axis) """
         format_get_matrix: $(name)
         for the daf format: $(nameof(typeof(daf)))
-        returned matrix rows: $(size(matrix, Rows))
+        returned matrix rows: $(size(matrix, 1))
         instead of axis: $(rows_axis)
         length: $(axis_length(daf, rows_axis))
         in the daf data: $(daf.name)
         """
 
-    @assert size(matrix, Columns) == Formats.format_axis_length(daf, columns_axis) """
+    @assert size(matrix, 2) == Formats.format_axis_length(daf, columns_axis) """
         format_get_matrix: $(name)
         for the daf format: $(nameof(typeof(daf)))
-        returned matrix columns: $(size(matrix, Columns))
+        returned matrix columns: $(size(matrix, 2))
         instead of axis: $(columns_axis)
         length: $(axis_length(daf, columns_axis))
         in the daf data: $(daf.name)
         """
 
-    @assert major_axis(matrix) == Columns """
-        format_get_matrix for daf format: $(nameof(typeof(daf)))
-        returned non column-major matrix: $(brief(matrix))
-        """
+    @assert major_axis(matrix) ==   # NOLINT
+            2 """
+            format_get_matrix for daf format: $(nameof(typeof(daf)))
+            returned non column-major matrix: $(brief(matrix))
+            """
 
     return nothing
 end
@@ -1074,7 +1076,7 @@ function matrix_version_counter(
 end
 
 function require_column_major(matrix::StorageMatrix)::Nothing
-    if major_axis(matrix) != Columns
+    if major_axis(matrix) != Columns  # NOLINT
         error("type not in column-major layout: $(brief(matrix))")
     end
 end
@@ -1137,6 +1139,7 @@ name: chain!
 type: Write Chain
 scalars:
   organism: "human"
+  reference: "test"
 axes:
   cell: 856 entries
   donor: 95 entries
@@ -1173,6 +1176,7 @@ chain:
   type: MemoryDaf
   scalars:
     organism: "human"
+    reference: "test"
   axes:
     cell: 856 entries
     donor: 95 entries

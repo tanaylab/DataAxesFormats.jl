@@ -245,7 +245,7 @@ function FilesDaf(
             name = path
         end
     end
-    name = unique_name(name)
+    name = unique_name(name)  # NOLINT
 
     if is_read_only
         file = read_only(FilesDaf(name, Internal(; cache_group = MappedData, is_frozen = true), path, mode, "r"))
@@ -686,7 +686,7 @@ function write_string_matrix(
 
     n_values = nrows * ncols
     n_nonempty = n_values - n_empty
-    ind_type = indtype_for_size(n_values)
+    ind_type = indtype_for_size(n_values)  # NOLINT
 
     dense_size = nonempty_size + nrows * ncols
     sparse_size = nonempty_size + n_nonempty + (ncols + 1 + n_nonempty) * sizeof(ind_type)
@@ -808,16 +808,16 @@ function Formats.format_relayout_matrix!(
         end
         relayout_matrix =
             SparseMatrixCSC(axis_length(files, columns_axis), axis_length(files, rows_axis), colptr, rowval, nzval)
-        relayout!(flip(relayout_matrix), matrix)
+        relayout!(flip(relayout_matrix), matrix)  # NOLINT  # NOLINT
 
     elseif eltype(matrix) <: AbstractString
-        relayout_matrix = flipped(matrix)
+        relayout_matrix = flipped(matrix)  # NOLINT
         write_string_matrix(files, columns_axis, rows_axis, name, relayout_matrix)
 
     else
         @assert eltype(matrix) <: Real
         relayout_matrix = Formats.format_get_empty_dense_matrix!(files, columns_axis, rows_axis, name, eltype(matrix))
-        relayout!(flip(relayout_matrix), matrix)
+        relayout!(flip(relayout_matrix), matrix)  # NOLINT
     end
 
     return relayout_matrix

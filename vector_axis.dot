@@ -1,0 +1,40 @@
+digraph {
+rankdir = LR
+node [ shape = box, fontname = "Sans-Serif" ]
+fontname = "Sans-Serif"
+fontsize = 28
+
+"..., vector_is_axis" [ label = <
+...
+<br/>
+VectorState <i><font color="gray"><sub>axis&nbsp;&nbsp;&nbsp;</sub></font></i>
+<br/>&nbsp;<br/>
+> ]
+
+"..., VectorState" [ label = <
+...
+<br/>
+VectorState
+> ]
+
+subgraph cluster_all {
+label = "VectorAxis"
+
+"VA1" [ shape = box, style = dotted, fontname = "Courier", label = <
+@ <font color="gray">axis</font><br/>&nbsp;<br/>Axis(<font color = "gray">axis</font>)
+> ]
+"VA1_" [ shape = cds, label = "vector_as_axis" ]
+"VA1":e -> "VA1_"
+
+"VA2" [ shape = cds, style = dotted, fontname = "Courier", label = <
+<font color="gray">implicit Axis()</font>
+> ]
+"VA2":e -> "VA1_"
+
+}
+
+"VA1_":e -> "..., vector_is_axis"
+"..., VectorState" -> "VA1":w
+"..., VectorState" -> "VA2":w
+
+}

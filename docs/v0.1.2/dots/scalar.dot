@@ -1,0 +1,68 @@
+digraph {
+rankdir = LR
+concentrate = true
+node [ shape = box, fontname = "Sans-Serif" ]
+fontname = "Sans-Serif"
+fontsize = 28
+labeljust = "l"
+
+subgraph cluster_all {
+label = "SCALAR"
+
+"EMPTY" [ shape = point ]
+"VectorState"
+"MatrixState"
+
+"ScalarState" [ shape = doubleoctagon ]
+
+"S1" [ style = dotted, fontname = "Courier", label = <
+% Eltwise <font color="gray">param value ...</font><br/>&nbsp;<br/>Eltwise(<font color="gray">param = value, ...</font>)
+> ]
+"S1_" [ shape = cds, label = "element-wise of scalar&nbsp;" ]
+"ScalarState" -> "S1":w
+"S1":e -> "S1_":w
+"S1_":se -> "ScalarState"
+
+"S2" [ style = dotted, fontname = "Courier", label = <
+&gt;&gt; Reduction <font color="gray">param value<br/>|| default_value</font><br/>&nbsp;<br/>Reduction(<font color="gray">param = value, ...</font>)<br/><font color="gray">|&gt; IfMissing(default_value)</font>
+> ]
+"S2_" [ shape = cds, label = "reduce matrix to scalar&nbsp;" ]
+"S2":e -> "S2_":w
+"S2_":e -> "ScalarState"
+
+"S3" [ style = dotted, fontname = "Courier", label = <
+&gt;&gt; Reduction <font color="gray">param value ...<br/>|| default_value</font><br/>&nbsp;<br/>Reduction(<font color="gray">param = value, ...</font>)<br/><font color="gray">|&gt; IfMissing(default_value)</font>
+> ]
+"S3_" [ shape = cds, label = "reduce vector to scalar&nbsp;" ]
+"S3":e -> "S3_":w
+"S3_":e -> "ScalarState"
+
+"S5" [ style = dotted, fontname = "Courier", label = <
+: vector_property<br/><font color="gray">|| default_value</font><br/>@ axis = value<br/>&nbsp;<br/>LookupVector(vector_property)<br/><font color="gray">|&gt; IfMissing(default_value)</font><br/>|&gt; Axis(axis) |&gt; IsEqual(value)
+> ]
+"S5_" [ shape = cds, label = "lookup vector entry&nbsp;" ]
+"S5":e -> "S5_":w
+"S5_":e -> "ScalarState"
+
+"S6" [ style = dotted, fontname = "Courier", label = <
+. scalar_property<br/><font color="gray">|| default_value</font><br/>&nbsp;<br/>LookupScalar(scalar_property)<br/><font color="gray">|&gt; IfMissing(default_value)</font>
+> ]
+"S6_" [ shape = cds, label = "lookup scalar&nbsp;" ]
+"S6":e -> "S6_":w
+"S6_":e -> "ScalarState"
+
+"S4" [ style = dotted, fontname = "Courier", label = <
+:: matrix_property<br/><font color="gray">|| default_value</font><br/>@ row_axis = row_value<br/>@ column_axis =
+column_value<br/>&nbsp;<br/>LookupMatrix(matrix_property)<br/><font color="gray">|&gt; IfMissing(default_value)</font><br/>|&gt; Axis(rows_axis) |&gt; IsEqual(row_value)<br/>|&gt; Axis(columns_axis) |&gt; IsEqual(column_value)
+> ]
+"S4_" [ shape = cds, label = "lookup matrix entry&nbsp;" ]
+"S4":e -> "S4_":w
+"S4_":e -> "ScalarState"
+
+}
+"MatrixState" -> "S2":w
+"VectorState" -> "S3":w
+"EMPTY" -> "S4":w
+"EMPTY" -> "S5":w
+"EMPTY" -> "S6":w
+}

@@ -1,0 +1,49 @@
+digraph {
+rankdir = LR
+concentrate = true
+node [ shape = box, fontname = "Sans-Serif" ]
+fontname = "Sans-Serif"
+fontsize = 28
+labeljust = "l"
+
+subgraph cluster_all {
+label = "NAMES"
+
+"EMPTY" [ shape = point ]
+
+"NamesState" [ shape = doubleoctagon ]
+
+"N1" [ style = dotted, fontname = "Courier", label = <
+@ rows_axis @ columns_axis ?<br/>&nbsp;<br/>Axis(rows_axis) |&gt; Axis(columns_axis) |&gt; Names()
+> ]
+"N1_" [ shape = cds, label = "names of matrices&nbsp;" ]
+"N1":e -> "N1_":w
+"N1_":e -> "NamesState"
+
+"N2" [ style = dotted, fontname = "Courier", label = <
+@ axis ?<br/>&nbsp;<br/>Axis(axis) |&gt; Names()
+> ]
+"N2_" [ shape = cds, label = "names of vectors&nbsp;" ]
+"N2":e -> "N2_":w
+"N2_":e -> "NamesState"
+
+"N3" [ style = dotted, fontname = "Courier", label = <
+@ ?<br/>&nbsp;<br/>Axis() |&gt; Names()
+> ]
+"N3_" [ shape = cds, label = "names of axes&nbsp;" ]
+"N3":e -> "N3_":w
+"N3_":e -> "NamesState"
+
+"N4" [ style = dotted, fontname = "Courier", label = <
+?<br/>&nbsp;<br/>Names()
+> ]
+"N4_" [ shape = cds, label = "names of scalars&nbsp;" ]
+"N4":e -> "N4_":w
+"N4_":e -> "NamesState"
+}
+
+"EMPTY" -> "N1":w
+"EMPTY" -> "N2":w
+"EMPTY" -> "N3":w
+"EMPTY" -> "N4":w
+}

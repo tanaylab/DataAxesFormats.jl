@@ -1,0 +1,35 @@
+digraph {
+rankdir = LR
+node [ shape = box, fontname = "Sans-Serif" ]
+fontname = "Sans-Serif"
+fontsize = 28
+labeljust = "l"
+
+"Matrix_values" [ label = < MatrixState<sub><i>values</i></sub>&nbsp;&nbsp;<br/> > ]
+
+"Matrix_axis" [ label = < MatrixState<sub><i>axis</i></sub>&nbsp;&nbsp;<br/> > ]
+
+subgraph cluster_all {
+label = "MATRIX AS AXIS"
+
+"MAA1" [ style = dotted, fontname = "Courier", label = <
+@ axis<br/>&nbsp;<br/>Axis(axis)
+> ]
+"MAA1_" [ shape = cds, label = "matrix values are entries of axis&nbsp;&nbsp;&nbsp;" ]
+"MAA1":e -> "MAA1_":w
+
+"MAA2" [ style = dotted, fontname = "Courier", label = <
+@<br/>&nbsp;<br/>Axis()
+> ]
+"MAA2_" [ shape = cds, label = "matrix property is an axis&nbsp;&nbsp;&nbsp;" ]
+"MAA2":e -> "MAA2_":w
+
+}
+
+"Matrix_values" -> "MAA1":w
+"Matrix_values" -> "MAA2":w
+
+"MAA1_":e -> "Matrix_axis"
+"MAA2_":e -> "Matrix_axis"
+
+}

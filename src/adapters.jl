@@ -81,7 +81,7 @@ This idiom allows [`@computation`](@ref) functions to use clear generic names fo
 apply them to arbitrary data sets that use more specific names. One can even invoke the same computation with different
 parameter values, and store the different results in the same data set under different names.
 """
-function adapter(
+@logged function adapter(  # NOLINT
     computation::Function,
     daf::DafWriter;
     name::AbstractString = ".adapter",

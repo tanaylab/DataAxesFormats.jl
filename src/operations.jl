@@ -757,7 +757,7 @@ function Significant(operation_name::Token, parameters_values::Dict{String, Toke
 end
 
 function compute_eltwise(operation::Significant, input::StorageMatrix)::StorageMatrix
-    output = copy_array(input)
+    output = copy_array(input)  # NOLINT
     if issparse(output)
         parallel_loop_wo_rng(
             1:size(output, 2);
@@ -767,7 +767,7 @@ function compute_eltwise(operation::Significant, input::StorageMatrix)::StorageM
             first = colptr(output)[column_index]
             last = colptr(output)[column_index + 1] - 1
             if first <= last
-                column_vector = @view nzval(output)[first:last]
+                column_vector = @view nzval(output)[first:last]  # NOLINT
                 significant!(column_vector, operation.high, operation.low)
             end
             return nothing
@@ -796,10 +796,10 @@ function compute_eltwise(operation::Significant, input::StorageMatrix)::StorageM
 end
 
 function compute_eltwise(operation::Significant, input::StorageVector{T})::StorageVector{T} where {T <: StorageReal}
-    output = copy_array(input)
+    output = copy_array(input)  # NOLINT
 
     if issparse(output)
-        significant!(nzval(output), operation.high, operation.low)
+        significant!(nzval(output), operation.high, operation.low)  # NOLINT
         dropzeros!(output)
         return output
     else
@@ -863,14 +863,15 @@ function Count(operation_name::Token, parameters_values::Dict{String, Token})::C
     return Count(type)
 end
 
-function compute_reduction(operation::Count, input::StorageMatrix)::StorageVector
+function compute_reduction(operation::Count, input::StorageMatrix, axis::Integer)::StorageVector
+    @assert 1 <= axis <= 2
     type = reduction_result_type(operation, eltype(input))
-    result = Vector{type}(undef, size(input, 2))
-    result .= size(input, 1)
+    result = Vector{type}(undef, size(input, other_axis(axis)))  # NOLINT
+    result .= size(input, axis)
     return result
 end
 
-function compute_reduction(operation::Count, input::StorageVector)::StorageReal
+function compute_reduction(operation::Count, input::Union{StorageVector, StorageMatrix})::StorageReal
     type = reduction_result_type(operation, eltype(input))
     return type(length(input))
 end
@@ -899,21 +900,34 @@ function Mode(::Token, ::Dict{String, Token})::Mode
     return Mode()
 end
 
-function compute_reduction(operation::Mode, input::StorageMatrix)::StorageVector
-    output = Vector{reduction_result_type(operation, eltype(input))}(undef, size(input, 2))
-    parallel_loop_wo_rng(
-        1:length(output);
-        name = "Mode",
-        progress = DebugProgress(length(output); desc = "Mode"),
-    ) do column_index
-        column_vector = @view input[:, column_index]
-        output[column_index] = mode(column_vector)
-        return nothing
+function compute_reduction(operation::Mode, input::StorageMatrix, axis::Integer)::StorageVector
+    @assert 1 <= axis <= 2
+    type = reduction_result_type(operation, eltype(input))
+    output = Vector{type}(undef, size(input, other_axis(axis)))  # NOLINT
+    if axis == 1
+        parallel_loop_wo_rng(
+            1:length(output);
+            name = "Mode",
+            progress = DebugProgress(length(output); desc = "Mode"),
+        ) do column_index
+            column_vector = @view input[:, column_index]
+            output[column_index] = mode(column_vector)
+        end
+    else
+        @threads :greedy for row_index in 1:length(output)
+        parallel_loop_wo_rng(
+            1:length(output);
+            name = "Mode",
+            progress = DebugProgress(length(output); desc = "Mode"),
+        ) do row_index
+            row_vector = @view input[row_index, :]
+            output[row_index] = mode(row_vector)
+        end
     end
     return output
 end
 
-function compute_reduction(::Mode, input::StorageVector)::StorageScalar
+function compute_reduction(::Mode, input::Union{StorageVector, StorageMatrix})::StorageScalar
     return mode(input)
 end
 
@@ -954,14 +968,22 @@ function Sum(operation_name::Token, parameters_values::Dict{String, Token})::Sum
     return Sum(type)
 end
 
-function compute_reduction(operation::Sum, input::StorageMatrix)::StorageVector{<:StorageReal}
+function compute_reduction(operation::Sum, input::StorageMatrix, axis::Integer)::StorageVector{<:StorageReal}
+    @assert 1 <= axis <= 2
     type = reduction_result_type(operation, eltype(input))
-    result = Vector{type}(undef, size(input, 2))
-    sum!(transpose(result), input)
+    result = Vector{type}(undef, size(input, other_axis(axis)))  # NOLINT
+    if axis == 1
+        sum!(result, flip(input))  # NOLINT
+    else
+        sum!(result, input)
+    end
     return result
 end
 
-function compute_reduction(operation::Sum, input::StorageVector{<:StorageReal})::StorageReal
+function compute_reduction(
+    operation::Sum,
+    input::Union{StorageVector{<:StorageReal}, StorageMatrix{<:StorageReal}},
+)::StorageReal
     type = reduction_result_type(operation, eltype(input))
     return type(sum(input))
 end
@@ -982,15 +1004,16 @@ function Max(::Token, ::Dict{String, Token})::Max
     return Max()
 end
 
-function compute_reduction(::Max, input::StorageMatrix)::StorageVector{<:StorageReal}
-    return vec(maximum(input; dims = 1))  # NOJET
+function compute_reduction(::Max, input::StorageMatrix, axis::Integer)::StorageVector{<:StorageReal}
+    @assert 1 <= axis <= 2
+    return vec(maximum(input; dims = axis))  # NOJET
 end
 
-function compute_reduction(::Max, input::StorageVector{<:StorageReal})::StorageReal
+function compute_reduction(::Max, input::Union{StorageVector{<:StorageReal}, StorageMatrix{<:StorageReal}})::StorageReal
     return maximum(input)
 end
 
-function reduction_result_type(::Max, eltype::Type)::Type
+function reduction_result_type(::Max, eltype::Type)::Type  # UNTESTED
     return eltype
 end
 
@@ -1006,15 +1029,16 @@ function Min(::Token, ::Dict{String, Token})::Min
     return Min()
 end
 
-function compute_reduction(::Min, input::StorageMatrix)::StorageVector{<:StorageReal}
-    return vec(minimum(input; dims = 1))
+function compute_reduction(::Min, input::StorageMatrix, axis::Integer)::StorageVector{<:StorageReal}
+    @assert 1 <= axis <= 2
+    return vec(minimum(input; dims = axis))
 end
 
-function compute_reduction(::Min, input::StorageVector{<:StorageReal})::StorageReal
+function compute_reduction(::Min, input::Union{StorageVector{<:StorageReal}, StorageMatrix{<:StorageReal}})::StorageReal
     return minimum(input)
 end
 
-function reduction_result_type(::Min, eltype::Type)::Type
+function reduction_result_type(::Min, eltype::Type)::Type  # UNTESTED
     return eltype
 end
 
@@ -1043,12 +1067,16 @@ function Median(operation_name::Token, parameters_values::Dict{String, Token})::
     return Median(type)
 end
 
-function compute_reduction(operation::Median, input::StorageMatrix)::StorageVector{<:StorageReal}
+function compute_reduction(operation::Median, input::StorageMatrix, axis::Integer)::StorageVector{<:StorageReal}
+    @assert 1 <= axis <= 2
     type = reduction_result_type(operation, eltype(input))
-    return convert(AbstractVector{type}, vec(median(input; dims = 1)))  # NOJET
+    return convert(AbstractVector{type}, vec(median(input; dims = axis)))  # NOJET
 end
 
-function compute_reduction(operation::Median, input::StorageVector{<:StorageReal})::StorageReal
+function compute_reduction(
+    operation::Median,
+    input::Union{StorageVector{<:StorageReal}, StorageMatrix{<:StorageReal}},
+)::StorageReal
     type = reduction_result_type(operation, eltype(input))
     return type(median(input))
 end
@@ -1098,22 +1126,36 @@ function Quantile(operation_name::Token, parameters_values::Dict{String, Token})
     return Quantile(type, p)
 end
 
-function compute_reduction(operation::Quantile, input::StorageMatrix)::StorageVector{<:StorageReal}
+function compute_reduction(operation::Quantile, input::StorageMatrix, axis::Integer)::StorageVector{<:StorageReal}
+    @assert 1 <= axis <= 2
     type = reduction_result_type(operation, eltype(input))
-    output = Vector{type}(undef, size(input, 2))
-    parallel_loop_wo_rng(
-        1:length(output);
-        name = "Quantile",
-        progress = DebugProgress(length(output); desc = "Quantile"),
-    ) do column_index
-        column_vector = @view input[:, column_index]
-        output[column_index] = quantile(column_vector, operation.p)  # NOJET
-        return nothing
+    output = Vector{type}(undef, size(input, other_axis(axis)))  # NOLINT
+    if axis == 1
+        parallel_loop_wo_rng(
+            1:length(output);
+            name = "Quantile",
+            progress = DebugProgress(length(output); desc = "Quantile"),
+        ) do column_index
+            column_vector = @view input[:, column_index]
+            output[column_index] = quantile(column_vector, operation.p)  # NOJET
+        end
+    else
+        parallel_loop_wo_rng(
+            1:length(output);
+            name = "Quantile",
+            progress = DebugProgress(length(output); desc = "Quantile"),
+        ) do row_index
+            row_vector = @view input[row_index, :]
+            output[row_index] = quantile(row_vector, operation.p)  # NOJET
+        end
     end
     return output
 end
 
-function compute_reduction(operation::Quantile, input::StorageVector{<:StorageReal})::StorageReal
+function compute_reduction(
+    operation::Quantile,
+    input::Union{StorageVector{<:StorageReal}, StorageMatrix{<:StorageReal}},
+)::StorageReal
     type = reduction_result_type(operation, eltype(input))
     return type(quantile(input, operation.p))
 end
@@ -1147,12 +1189,15 @@ function Mean(operation_name::Token, parameters_values::Dict{String, Token})::Me
     return Mean(type)
 end
 
-function compute_reduction(operation::Mean, input::StorageMatrix)::StorageVector{<:StorageReal}
+function compute_reduction(operation::Mean, input::StorageMatrix, axis::Integer)::StorageVector{<:StorageReal}
     type = reduction_result_type(operation, eltype(input))
-    return convert(AbstractVector{type}, vec(mean(input; dims = 1)))  # NOJET
+    return convert(AbstractVector{type}, vec(mean(input; dims = axis)))  # NOJET
 end
 
-function compute_reduction(operation::Mean, input::StorageVector{<:StorageReal})::StorageReal
+function compute_reduction(
+    operation::Mean,
+    input::Union{StorageVector{<:StorageReal}, StorageMatrix{<:StorageReal}},
+)::StorageReal
     type = reduction_result_type(operation, eltype(input))
     return type(mean(input))  # NOJET
 end
@@ -1197,16 +1242,28 @@ function GeoMean(operation_name::Token, parameters_values::Dict{String, Token}):
     return GeoMean(type, eps)
 end
 
-function compute_reduction(operation::GeoMean, input::StorageMatrix)::StorageVector{<:StorageReal}
+function compute_reduction(operation::GeoMean, input::StorageMatrix, axis::Integer)::StorageVector{<:StorageReal}
+    @assert 1 <= axis <= 2
     type = reduction_result_type(operation, eltype(input))
-    if operation.eps == 0
-        return convert(AbstractVector{type}, geomean.(eachcol(input)))  # NOJET
+    if axis == 1
+        if operation.eps == 0
+            return convert(AbstractVector{type}, geomean.(eachcol(input)))  # NOJET
+        else
+            return convert(AbstractVector{type}, geomean.(eachcol(input .+ operation.eps)) .- operation.eps)  # NOJET
+        end
     else
-        return convert(AbstractVector{type}, geomean.(eachcol(input .+ operation.eps)) .- operation.eps)  # NOJET
+        if operation.eps == 0
+            return convert(AbstractVector{type}, geomean.(eachrow(input)))  # NOJET
+        else
+            return convert(AbstractVector{type}, geomean.(eachrow(input .+ operation.eps)) .- operation.eps)  # NOJET
+        end
     end
 end
 
-function compute_reduction(operation::GeoMean, input::StorageVector{<:StorageReal})::StorageReal
+function compute_reduction(
+    operation::GeoMean,
+    input::Union{StorageVector{<:StorageReal}, StorageMatrix{<:StorageReal}},
+)::StorageReal
     type = reduction_result_type(operation, eltype(input))
     if operation.eps == 0
         return type(geomean(input))  # NOJET
@@ -1244,12 +1301,16 @@ function Var(operation_name::Token, parameters_values::Dict{String, Token})::Var
     return Var(type)
 end
 
-function compute_reduction(operation::Var, input::StorageMatrix)::StorageVector{<:StorageReal}
+function compute_reduction(operation::Var, input::StorageMatrix, axis::Integer)::StorageVector{<:StorageReal}
+    @assert 1 <= axis <= 2
     type = reduction_result_type(operation, eltype(input))
-    return convert(AbstractVector{type}, vec(var(input; dims = 1, corrected = false)))
+    return convert(AbstractVector{type}, vec(var(input; dims = axis, corrected = false)))
 end
 
-function compute_reduction(operation::Var, input::StorageVector{<:StorageReal})::StorageReal
+function compute_reduction(
+    operation::Var,
+    input::Union{StorageVector{<:StorageReal}, StorageMatrix{<:StorageReal}},
+)::StorageReal
     type = reduction_result_type(operation, eltype(input))
     return type(var(input; corrected = false))  # NOJET
 end
@@ -1295,16 +1356,20 @@ function VarN(operation_name::Token, parameters_values::Dict{String, Token})::Va
     return VarN(type, eps)
 end
 
-function compute_reduction(operation::VarN, input::StorageMatrix)::StorageVector{<:StorageReal}
+function compute_reduction(operation::VarN, input::StorageMatrix, axis::Integer)::StorageVector{<:StorageReal}
+    @assert 1 <= axis <= 2
     type = reduction_result_type(operation, eltype(input))
-    vars = convert(AbstractVector{type}, vec(var(input; dims = 1, corrected = false)))
-    means = convert(AbstractVector{type}, vec(mean(input; dims = 1)))
+    vars = convert(AbstractVector{type}, vec(var(input; dims = axis, corrected = false)))
+    means = convert(AbstractVector{type}, vec(mean(input; dims = axis)))
     means .+= operation.eps
     vars ./= means
     return vars
 end
 
-function compute_reduction(operation::VarN, input::StorageVector{<:StorageReal})::StorageReal
+function compute_reduction(
+    operation::VarN,
+    input::Union{StorageVector{<:StorageReal}, StorageMatrix{<:StorageReal}},
+)::StorageReal
     type = reduction_result_type(operation, eltype(input))
     return type(var(input; corrected = false)) / type((Float64(mean(input)) + operation.eps))
 end
@@ -1338,12 +1403,15 @@ function Std(operation_name::Token, parameters_values::Dict{String, Token})::Std
     return Std(type)
 end
 
-function compute_reduction(operation::Std, input::StorageMatrix)::StorageVector{<:StorageReal}
+function compute_reduction(operation::Std, input::StorageMatrix, axis::Integer)::StorageVector{<:StorageReal}
     type = reduction_result_type(operation, eltype(input))
-    return convert(AbstractVector{type}, vec(std(input; dims = 1, corrected = false)))
+    return convert(AbstractVector{type}, vec(std(input; dims = axis, corrected = false)))
 end
 
-function compute_reduction(operation::Std, input::StorageVector{<:StorageReal})::StorageReal
+function compute_reduction(
+    operation::Std,
+    input::Union{StorageVector{<:StorageReal}, StorageMatrix{<:StorageReal}},
+)::StorageReal
     type = reduction_result_type(operation, eltype(input))
     return type(std(input; corrected = false))
 end
@@ -1389,16 +1457,19 @@ function StdN(operation_name::Token, parameters_values::Dict{String, Token})::St
     return StdN(type, eps)
 end
 
-function compute_reduction(operation::StdN, input::StorageMatrix)::StorageVector{<:StorageReal}
+function compute_reduction(operation::StdN, input::StorageMatrix, axis::Integer)::StorageVector{<:StorageReal}
     type = reduction_result_type(operation, eltype(input))
-    stds = convert(AbstractVector{type}, vec(std(input; dims = 1, corrected = false)))
-    means = convert(AbstractVector{type}, vec(mean(input; dims = 1)))
+    stds = convert(AbstractVector{type}, vec(std(input; dims = axis, corrected = false)))
+    means = convert(AbstractVector{type}, vec(mean(input; dims = axis)))
     means .+= operation.eps
     stds ./= means
     return stds
 end
 
-function compute_reduction(operation::StdN, input::StorageVector{<:StorageReal})::StorageReal
+function compute_reduction(
+    operation::StdN,
+    input::Union{StorageVector{<:StorageReal}, StorageMatrix{<:StorageReal}},
+)::StorageReal
     type = reduction_result_type(operation, eltype(input))
     return type(std(input; corrected = false)) / type(mean(input) + operation.eps)
 end

@@ -1,0 +1,51 @@
+digraph {
+rankdir = LR
+node [ shape = box, fontname = "Sans-Serif" ]
+fontname = "Sans-Serif"
+fontsize = 28
+labeljust = "l"
+
+"Vector_axis" [ label = < VectorState<sub><i>axis</i></sub>&nbsp;&nbsp;<br/> > ]
+
+"Vector_values" [ label = < VectorState<sub><i>values</i></sub>&nbsp;&nbsp;<br/> > ]
+
+subgraph cluster_all {
+label = "VECTOR LOOKUP"
+
+"VL1" [ style = dotted, fontname = "Courier", label = <
+<font color="gray">?? final_value</font><br/>:: matrix_property<br/><font color="gray">|| default_value</font><br/>@- row_name<br/>&nbsp;<br/><font color="gray">IfEmpty(final_value) |&gt;</font><br/>LookupMatrix(vector_property)<br/><font color="gray">|&gt; IfMissing(default_value)</font><br/>|&gt; RowIsEqual(row_name)
+> ]
+"VL1_" [ shape = cds, label = "lookup square matrix row by vector&nbsp;&nbsp;" ]
+"VL1":e -> "VL1_":w
+
+"VL2" [ style = dotted, fontname = "Courier", label = <
+<font color="gray">?? final_value</font><br/>:: matrix_property<br/><font color="gray">|| default_value</font><br/>@| column_name<br/>&nbsp;<br/><font color="gray">IfEmpty(final_value) |&gt;</font><br/>LookupMatrix(vector_property)<br/><font color="gray">|&gt; IfMissing(default_value)</font><br/>|&gt; ColumnIsEqual(column_name)
+> ]
+"VL2_" [ shape = cds, label = "lookup square matrix column by vector&nbsp;&nbsp;" ]
+"VL2":e -> "VL2_":w
+
+"VL3" [ style = dotted, fontname = "Courier", label = <
+<font color="gray">?? final_value</font><br/>:: matrix_property<br/><font color="gray">|| default_value</font><br/>@ column_axis = column_name<br/>&nbsp;<br/><font color="gray">IfEmpty(final_value) |&gt;</font><br/>LookupMatrix(vector_property)<br/><font color="gray">|&gt; IfMissing(default_value)</font><br/>|&gt; Axis(column_axis) |&gt; IsEqual(column_name)
+> ]
+"VL3_" [ shape = cds, label = "lookup matrix column by vector&nbsp;&nbsp;" ]
+"VL3":e -> "VL3_":w
+
+"VL4" [ style = dotted, fontname = "Courier", label = <
+<font color="gray">?? final_value</font><br/>: vector_property<br/><font color="gray">|| default_value</font><br/>&nbsp;<br/><font color="gray">IfEmpty(final_value) |&gt;</font><br/>LookupVector(vector_property)<br/><font color="gray">|&gt; IfMissing(default_value)</font>
+> ]
+"VL4_" [ shape = cds, label = "lookup vector by vector&nbsp;&nbsp;" ]
+"VL4":e -> "VL4_":w
+
+}
+
+"Vector_axis" -> "VL1":w
+"Vector_axis" -> "VL2":w
+"Vector_axis" -> "VL3":w
+"Vector_axis" -> "VL4":w
+
+"VL1_":e -> "Vector_values"
+"VL2_":e -> "Vector_values"
+"VL3_":e -> "Vector_values"
+"VL4_":e -> "Vector_values"
+
+}

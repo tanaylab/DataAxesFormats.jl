@@ -54,7 +54,7 @@ In a string query, this is specified using the `%` operator (e.g., `% Abs`, `% L
 `EltwiseOperation` := `%` operation ( parameter value )*
 
 Since each `EltwiseOperation` isa [`QueryOperation`](@ref), you can directly apply it to a query (e.g.,
-`Axis("cell") |> Lookup("age") |> Abs()`). For this there should be other constructor(s) tailored for this usage.
+`Axis("cell") |> LookupVector("age") |> Abs()`). For this there should be other constructor(s) tailored for this usage.
 
 An element-wise operation may be applied to scalar, vector ot matrix data. It will preserve the shape of the data, but
 changes the value(s), and possibly the data type of the elements. For example, `Abs` will compute the absolute value of
@@ -92,13 +92,13 @@ In a string query, this is specified using the `%>` operator (e.g., `%> Sum`, `%
 `ReductionOperation` := `%>` operation ( parameter value )*
 
 Since each `ReductionOperation` isa [`QueryOperation`](@ref), you can directly apply it to a query (e.g.,
-`Axis("cell") |> Axis("gene") |> Lookup("UMIs") |> Quantile(0.05)`). For this there should be other constructor(s)
-tailored for this usage.
+`Axis("cell") |> Axis("gene") |> LookupMatrix("UMIs") |> Quantile(0.05)`). To allow for this, the reduction class should
+provide constructor(s) tailored for this usage.
 
 A reduction operation may be applied to matrix or vector data. It will reduce (eliminate) one dimension of the data, and
 possibly the result will have a different data type than the input. When applied to a vector, the operation will return
-a scalar. When applied to a matrix, it assumes the matrix is in column-major layout, and will return a vector with one
-entry per column, containing the result of reducing the column to a scalar.
+a scalar. When applied to a matrix, you must specify the axis that is to be eliminated from the result (as per Julia's
+conventions).
 
 To implement a new such operation, the type is expected to be of the form:
 
@@ -116,12 +116,21 @@ examples.
 abstract type ReductionOperation <: ComputationOperation end
 
 """
+    compute_reduction(operation::ReductionOperation, input::StorageMatrix, axis::Integer)::StorageVector
     compute_reduction(operation::ReductionOperation, input::StorageMatrix)::StorageVector
     compute_reduction(operation::ReductionOperation, input::StorageVector)::StorageReal
 
 Since each `ReductionOperation` isa [`QueryOperation`](@ref), you can directly apply it to a query (e.g.,
-`Axis("cell") |> Axis("gene") |> Lookup("UMIs") |> Sum()`). For this there should be other constructor(s) tailored for
-this usage.
+`Axis("cell") |> Axis("gene") |> LookupMatrix("UMIs") |> Sum()`). For this there should be other constructor(s) tailored
+for this usage.
+
+When reducing a matrix, if an axis is specified, that axis is the one being eliminated. For example, `axis = 1` (or
+`Rows`) means the result will have one entry per column. If no axis is specified, the matrix is reduced to a scalar.
+
+!!! note
+
+    Most reduction operations are wildly inefficient if the eliminated axis is not the `Rows`, that is, if the result
+    doesn't have one value per column of the original matrix.
 """
 function compute_reduction end
 

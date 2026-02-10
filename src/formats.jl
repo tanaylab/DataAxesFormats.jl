@@ -680,9 +680,9 @@ end
 
 function put_in_cache!(format::FormatReader, cache_key::CacheKey, data::CacheData, cache_group::CacheGroup)::Nothing
     @assert has_data_read_lock(format)
-    @assert has_write_lock(format.internal.cache_lock)
+    @assert has_write_lock(format.internal.cache_lock)  # NOLINT
     if data isa AbstractArray
-        data = read_only_array(data)
+        data = read_only_array(data)  # NOLINT
     end
     @debug "put_in_cache! daf: $(brief(format)) cache_key: $(cache_key) data: $(brief(data)) cache_group: $(cache_group)"
     format.internal.cache[cache_key] = CacheEntry(cache_group, data)
@@ -690,7 +690,7 @@ function put_in_cache!(format::FormatReader, cache_key::CacheKey, data::CacheDat
 end
 
 function set_in_cache!(format::FormatReader, cache_key::CacheKey, data::CacheData, cache_group::CacheGroup)::Nothing
-    return with_cache_write_lock(format, "for set_in_cache!:", cache_key) do       # NOJET
+    return with_cache_write_lock(format, "for set_in_cache!:", cache_key) do  # NOJET
         return put_in_cache!(format, cache_key, data, cache_group)
     end
 end
@@ -720,7 +720,7 @@ function get_through_cache(
     @assert has_data_read_lock(format)
     cached = nothing
     while cached === nothing
-        cache_entry = with_cache_read_lock(format, "for get_from_cache:", cache_key) do       # NOJET
+        cache_entry = with_cache_read_lock(format, "for get_from_cache:", cache_key) do  # NOJET
             return get(format.internal.cache, cache_key, nothing)
         end
         cached = result_from_cache(cache_entry, T)
@@ -742,7 +742,7 @@ end
 function result_from_cache(cache_entry::CacheEntry, ::Type{T})::T where {T}
     entry_lock = cache_entry.data
     if entry_lock isa AbstractLock
-        cache_entry = lock(entry_lock) do       # UNTESTED
+        cache_entry = lock(entry_lock) do  # UNTESTED
             return cache_entry  # UNTESTED
         end
     end
@@ -757,7 +757,7 @@ function write_throgh_cache(
     cache_group::Maybe{CacheGroup};
     is_slow::Bool = false,
 )::Maybe{T} where {T}
-    result = with_cache_write_lock(format, "for get_through_cache:", cache_key) do       # NOJET
+    result = with_cache_write_lock(format, "for get_through_cache:", cache_key) do  # NOJET
         cache_entry = get(format.internal.cache, cache_key, nothing)
         if cache_entry !== nothing
             if cache_entry.data isa AbstractLock  # UNTESTED
@@ -790,7 +790,7 @@ function write_throgh_cache(
         @assert entry_lock isa AbstractLock
         try
             result, dependency_keys = getter()
-            with_cache_write_lock(format, "for slow:", cache_key) do       # NOJET
+            with_cache_write_lock(format, "for slow:", cache_key) do  # NOJET
                 if dependency_keys !== nothing
                     for dependency_key in dependency_keys
                         put_cached_dependency_key!(format, cache_key, dependency_key)
@@ -861,7 +861,7 @@ function get_axis_vector_through_cache(format::FormatReader, axis::AbstractStrin
         AbstractVector{<:AbstractString},
         format.internal.cache_group,
     ) do
-        return read_only_array(format_axis_vector(format, axis))
+        return read_only_array(format_axis_vector(format, axis))  # NOLINT
     end
 end
 
@@ -879,7 +879,7 @@ function get_axis_dict_through_cache(
         if eltype(names) != AbstractString
             names = Vector{AbstractString}(names)  # NOJET
         end
-        names = read_only_array(names)
+        names = read_only_array(names)  # NOLINT
         named_array = NamedArray(spzeros(length(names)); names = (names,), dimnames = (axis,))
         return named_array.dicts[1]
     end
@@ -924,7 +924,7 @@ function get_relayout_matrix_through_cache(
         MemoryData;
         is_slow = true,
     ) do
-        matrix = flipped(matrix)
+        matrix = flipped(matrix)  # NOLINT
         matrix = as_named_matrix(format, rows_axis, columns_axis, matrix)
         return (matrix, nothing)
     end
@@ -989,7 +989,7 @@ end
 
 function put_cached_dependency_key!(format::FormatReader, cache_key::CacheKey, dependency_key::CacheKey)::Nothing
     @assert has_data_read_lock(format)
-    @assert has_write_lock(format.internal.cache_lock)
+    @assert has_write_lock(format.internal.cache_lock)  # NOLINT
     if dependency_key == cache_key
         return nothing
     end
@@ -1013,9 +1013,9 @@ function invalidate_cached!(format::FormatReader, cache_key::CacheKey)::Nothing
 
         dependents_keys = pop!(format.internal.dependents_of_cache_keys, cache_key, nothing)
         if dependents_keys !== nothing
-            for dependent_key in dependents_keys
-                @debug "- delete dependent_key: $(dependent_key)"
-                delete!(format.internal.cache, dependent_key)
+            for dependent_key in dependents_keys  # UNTESTED
+                @debug "- delete dependent_key: $(dependent_key)"  # UNTESTED
+                delete!(format.internal.cache, dependent_key)  # UNTESTED
             end
         end
     end
@@ -1059,11 +1059,11 @@ end
 
 function with_cache_read_lock(action::Function, format::FormatReader, what::Any...)::Any
     if isempty(what)
-        laxy_what = () -> "$(format.name) cache"  # UNTESTED
+        lazy_what = () -> "$(format.name) cache"  # UNTESTED
     else
-        laxy_what = () -> join([format.name, "cache for", what...], " ")
+        lazy_what = () -> join([format.name, "cache for", what...], " ")
     end
-    return lock_read(action, format.internal.cache_lock; what = laxy_what)
+    return lock_read(action, format.internal.cache_lock; what = lazy_what) # NOLINT
 end
 
 function with_cache_write_lock(action::Function, format::FormatReader, what::Any...)::Any
@@ -1090,7 +1090,7 @@ function with_data_read_lock(action::Function, format::FormatReader, what::Any..
 end
 
 function has_data_read_lock(format::FormatReader; read_only::Bool = false)::Bool
-    return has_read_lock(format.internal.data_lock; read_only)
+    return has_read_lock(format.internal.data_lock; read_only)  # NOLINT
 end
 
 function begin_data_write_lock(format::FormatReader, what::Any...)::Nothing
@@ -1123,7 +1123,7 @@ function with_data_write_lock(action::Function, format::FormatReader, what::Any.
 end
 
 function has_data_write_lock(format::FormatReader)::Bool
-    return has_write_lock(format.internal.data_lock)
+    return has_write_lock(format.internal.data_lock)  # NOLINT
 end
 
 function format_get_version_counter(format::FormatReader, version_key::PropertyKey)::UInt32

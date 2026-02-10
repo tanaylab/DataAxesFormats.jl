@@ -1,0 +1,142 @@
+digraph {
+rankdir = LR
+node [ shape = box, fontname = "Sans-Serif" ]
+
+"..., base_vector" [ label = <
+...
+<br/>
+VectorState <i><font color="gray"><sub>base axis&nbsp;&nbsp;&nbsp;</sub></font></i>
+<br/>&nbsp;<br/>
+> ]
+
+"..., axis_vector" [ label = <
+...
+<br/>
+VectorState <i><font color="gray"><sub>masked axis&nbsp;&nbsp;&nbsp;</sub></font></i>
+<br/>&nbsp;<br/>
+> ]
+
+
+subgraph cluster_component {
+fontname = "Sans-Serif"
+label = "VectorMask"
+fontsize = 28
+
+"..., base_vector, BeginAnyMask, VectorState" [ label = <
+...
+<br/>
+VectorState <i><font color="gray"><sub>base axis&nbsp;&nbsp;&nbsp;</sub></font></i>
+<br/>&nbsp;<br/>
+BeginMask <sub>or</sub> BeginNegatedMask
+<br/>&nbsp;<br/>
+VectorState <i><font color="gray"><sub>mask&nbsp;&nbsp;&nbsp;</sub></font></i>
+<br/>&nbsp;<br/>
+> ]
+
+"..., base_vector, BeginAnyMask, VectorState, MaskOperation, VectorState" [ label = <
+...
+<br/>
+VectorState <i><font color="gray"><sub>base axis&nbsp;&nbsp;&nbsp;</sub></font></i>
+<br/>&nbsp;<br/>
+BeginMask <sub>or</sub> BeginNegatedMask
+<br/>&nbsp;<br/>
+VectorState <i><font color="gray"><sub>left mask&nbsp;&nbsp;&nbsp;</sub></font></i>
+<br/>&nbsp;<br/>
+AndMask <sub>or</sub> AndNotMask <sub>or</sub> OrMask <sub>or</sub> OrNotMask <sub>or</sub> OrNotMask <sub>or</sub> XorMask <sub>or</sub> XorNotMask
+<br/>&nbsp;<br/>
+VectorState <i><font color="gray"><sub>right mask&nbsp;&nbsp;&nbsp;</sub></font></i>
+<br/>&nbsp;<br/>
+> ]
+
+"VectorAxisLookup1" [ shape = component, label = < VectorAxis<br/>VectorLookup > ]
+"..., base_vector, BeginAnyMask, VectorState" -> "VectorAxisLookup1" [ constraint = false ]
+"VectorAxisLookup1" -> "..., base_vector, BeginAnyMask, VectorState" [ constraint = false ]
+"VG1_" -> "VectorAxisLookup1" [ style = invis ]
+
+"VG4" [ shape = box, style = dotted, fontname = "Courier", label = <
+&#91; <font color="gray">!</font> vector_property <font color="gray">|| default_value</font><br/>&nbsp;<br/>Begin<font color="gray">Negated</font>Mask(vector_property) <font color="gray">|&gt; IfMissing(default_value)</font>
+> ]
+"VG4_" [ shape = cds, label = "mask_by_vector" ]
+"VG4":e -> "VG4_":w
+"VG4_":e -> "..., base_vector, BeginAnyMask, VectorState"
+
+"VG1" [ shape = box, style = dotted, fontname = "Courier", label = <
+&#91; <font color="gray">!</font> matrix_property <font color="gray">|| default_value</font> -= row_value<br/>&nbsp;<br/>Begin<font color="gray">Negated</font>Mask(matrix_property) <font color="gray">|&gt; IfMissing(default_value)</font> |&gt; RowIsEqual(row_value)
+> ]
+"VG1_" [ shape = cds, label = "mask_by_square_matrix_row" ]
+"VG1":e -> "VG1_":w
+"VG1_":e -> "..., base_vector, BeginAnyMask, VectorState"
+
+"VG2" [ shape = box, style = dotted, fontname = "Courier", label = <
+&#91; <font color="gray">!</font> matrix_property <font color="gray">|| default_value</font> |= column_value<br/>&nbsp;<br/>Begin<font color="gray">Negated</font>Mask(matrix_property) <font color="gray">|&gt; IfMissing(default_value)</font> |&gt; ColumnIsEqual(column_value)
+> ]
+"VG2_" [ shape = cds, label = "mask_by_square_matrix_column" ]
+"VG2":e -> "VG2_":w
+"VG2_":e -> "..., base_vector, BeginAnyMask, VectorState"
+
+"VG3" [ shape = box, style = dotted, fontname = "Courier", label = <
+&#91; <font color="gray">!</font> matrix_property <font color="gray">|| default_value</font> / columns_axis = column_value<br/>&nbsp;<br/>Begin<font color="gray">Negated</font>Mask(matrix_property) <font color="gray">|&gt; IfMissing(default_value)</font> |&gt; Axis(columns_axis) |&gt; IsEqual(column_value)
+> ]
+"VG3_" [ shape = cds, label = "mask_by_matrix_column" ]
+"VG3":e -> "VG3_":w
+"VG3_":e -> "..., base_vector, BeginAnyMask, VectorState"
+
+"VG10" [ shape = box, style = dotted, fontname = "Courier", label = <
+&amp; <font color="gray">!</font> <sub>or</sub> | <font color="gray">!</font> <sub>or</sub> ^ <font color="gray">!</font> vector_property <font color="gray">|| default_value</font><br/>&nbsp;<br/>And<font color="gray">Not</font> <sub>or</sub> Or<font color="gray">Not</font> <sub>or</sub> Xor<font color="gray">Not</font>(matrix_property) <font color="gray">|&gt; IfMissing(default_value)</font>
+> ]
+"..., base_vector, BeginAnyMask, VectorState" -> "VG10":w
+"VG10_" [ shape = cds, label = "operation_by_vector" ]
+"VG10":e -> "VG10_":w
+"VG10_":e -> "..., base_vector, BeginAnyMask, VectorState, MaskOperation, VectorState"
+
+"VG7" [ shape = box, style = dotted, fontname = "Courier", label = <
+&amp; <font color="gray">!</font> <sub>or</sub> | <font color="gray">!</font> <sub>or</sub> ^ <font color="gray">!</font> matrix_property <font color="gray">|| default_value</font> -= row_value<br/>&nbsp;<br/>And<font color="gray">Not</font> <sub>or</sub> Or<font color="gray">Not</font> <sub>or</sub> Xor<font color="gray">Not</font>(matrix_property) <font color="gray">|&gt; IfMissing(default_value)</font> |&gt; RowIsEqual(row_value)
+> ]
+"VG7_" [ shape = cds, label = "operation_by_square_matrix_row" ]
+"..., base_vector, BeginAnyMask, VectorState" -> "VG7":w
+"VG7":e -> "VG7_":w
+"VG7_":e -> "..., base_vector, BeginAnyMask, VectorState, MaskOperation, VectorState"
+
+"VG8" [ shape = box, style = dotted, fontname = "Courier", label = <
+&amp; <font color="gray">!</font> <sub>or</sub> | <font color="gray">!</font> <sub>or</sub> ^ <font color="gray">!</font> matrix_property <font color="gray">|| default_value</font> -= column_value<br/>&nbsp;<br/>And<font color="gray">Not</font> <sub>or</sub> Or<font color="gray">Not</font> <sub>or</sub> Xor<font color="gray">Not</font>(matrix_property) <font color="gray">|&gt; IfMissing(default_value)</font> |&gt; ColumnIsEqual(column_value)
+> ]
+"VG8_" [ shape = cds, label = "operation_by_square_matrix_column" ]
+"..., base_vector, BeginAnyMask, VectorState" -> "VG8":w
+"VG8":e -> "VG8_":w
+"VG8_":e -> "..., base_vector, BeginAnyMask, VectorState, MaskOperation, VectorState"
+
+"VG9" [ shape = box, style = dotted, fontname = "Courier", label = <
+&amp; <font color="gray">!</font> <sub>or</sub> | <font color="gray">!</font> <sub>or</sub> ^ <font color="gray">!</font> matrix_property <font color="gray">|| default_value</font> @ columns_axis = column_value<br/>&nbsp;<br/>And<font color="gray">Not</font> <sub>or</sub> Or<font color="gray">Not</font> <sub>or</sub> Xor<font color="gray">Not</font>(matrix_property) <font color="gray">|&gt; IfMissing(default_value)</font> |&gt; Axis(columns_axis) |&gt; IsEqual(column_value)
+> ]
+"..., base_vector, BeginAnyMask, VectorState" -> "VG9":w
+"VG9_" [ shape = cds, label = "operation_by_matrix_column" ]
+"VG9":e -> "VG9_":w
+"VG9_":e -> "..., base_vector, BeginAnyMask, VectorState, MaskOperation, VectorState"
+
+"VG11_" [ shape = cds, label = "implicit compute_mask_operation", style = dotted ]
+"..., base_vector, BeginAnyMask, VectorState, MaskOperation, VectorState":e -> "VG11_":w
+"VG11_":e -> "..., base_vector, BeginAnyMask, VectorState":n [ constraint = false ]
+
+"VectorAxisLookup2" [ shape = component, label = < VectorAxis<br/>VectorLookup > ]
+"..., base_vector, BeginAnyMask, VectorState, MaskOperation, VectorState" -> "VectorAxisLookup2" [ constraint = false ]
+"VectorAxisLookup2" -> "..., base_vector, BeginAnyMask, VectorState, MaskOperation, VectorState" [ constraint = false ]
+
+"VG7_" -> "VectorAxisLookup2" [ style = invis ]
+
+"VG12" [ shape = box, style = dotted, fontname = "Courier", label = <
+&#93;<br/>&nbsp;<br/>EndMask()
+> ]
+"..., base_vector, BeginAnyMask, VectorState" -> "VG12"
+"VG12_" [ shape = cds, label = "end_mask" ]
+"VG12":e -> "VG12_":w
+
+}
+
+"..., base_vector" -> VG1:w
+"..., base_vector" -> VG2:w
+"..., base_vector" -> VG3:w
+"..., base_vector" -> VG4:w
+"VG11_" -> "..., axis_vector" [ style = invis ]
+"VG12_":e -> "..., axis_vector"
+
+}

@@ -1,0 +1,270 @@
+digraph {
+rankdir = LR
+node [ shape = box, fontname = "Sans-Serif" ]
+
+"EMPTY" [ shape = point ]
+
+"vector_is_axis" [ label = <
+    VectorState <i><font color="gray"><sub>axis&nbsp;&nbsp;&nbsp;</sub></font></i>
+    <br/><br/>
+> ]
+
+"..., vector_is_axis" [ label = <
+    ...
+    <br/>
+    VectorState <i><font color="gray"><sub>axis&nbsp;&nbsp;&nbsp;</sub></font></i>
+    <br/><br/>
+> ]
+
+"vector_is_axis" -> "..., vector_is_axis" [ style = dotted ]
+
+"..., VectorState" [ label = <
+    ...
+    <br/>
+    VectorState
+> ]
+
+"..., vector_is_axis" -> "..., VectorState" [ style = dotted, constraint = false ]
+
+"X10" [ shape = box, style = dotted, fontname = "Courier", label = <
+    / axis
+    <br/>&nbsp;<br/>
+    Axis(axis)
+> ]
+"X10_" [ shape = cds, label = "vector_axis" ]
+"EMPTY" -> "X10" -> "X10_" -> "vector_is_axis"
+
+"X26" [ shape = box, style = dotted, fontname = "Courier", label = <
+    <font
+        color="gray"> ?? final_value </font
+    > : vector_property <font
+        color="gray"> || default_value </font
+    >
+    <br/><br/>
+    <font
+        color="gray"> IfEmpty(final_value) |&gt; </font
+    > Lookup(vector_property) <font
+        color="gray">|&gt; IfMissing(default_value) </font
+    >
+> ]
+"X26_" [ shape = cds, label = "lookup_vector" ]
+"..., vector_is_axis" -> "X26" -> "X26_" -> "..., VectorState"
+
+"X27" [ shape = box, style = dotted, fontname = "Courier", label = <
+    <font
+        color="gray"
+    > ?? final_value </font
+    > : matrix_property <font
+        color="gray"
+    > || default_value </font
+    > / columns_axis = column_name <br/><br/> <font
+        color="gray"
+    > IfEmpty(final_value) |&gt; </font
+    > Lookup(matrix_property) <font
+        color="gray"
+    > |&gt; IfMissing(default_value) </font
+    > |&gt; Axis(column_axis) |&gt; IsEqual(column_name)
+> ]
+"X27_" [ shape = cds, label = "lookup_matrix_column" ]
+"..., vector_is_axis" -> "X27" -> "X27_" -> "..., VectorState"
+
+"X24" [ shape = box, style = dotted, fontname = "Courier", label = <
+    <font
+        color="gray"
+    > ?? final_value </font
+    > : square_matrix_property <font
+        color="gray"
+    > || default_value </font
+    > |= column_name <br/><br/> <font
+        color="gray"
+    > IfEmpty(final_value) |&gt; </font
+    > Lookup(square_matrix_property) <font
+        color="gray"
+    > |&gt; IfMissing(default_value) </font
+    > ColumnIsEqual(column_name)
+> ]
+"X24_" [ shape = cds, label = "lookup_square_matrix_column" ]
+"..., vector_is_axis" -> "X24" -> "X24_" -> "..., VectorState"
+
+"X25" [ shape = box, style = dotted, fontname = "Courier", label = <
+    <font
+        color="gray"
+    > ?? final_value </font
+    > : square_matrix_property <font
+        color="gray"
+    > || default_value </font
+    > |= row_name <br/><br/> <font
+        color="gray"
+    > IfEmpty(final_value) |&gt; </font
+    > Lookup(square_matrix_property) <font
+        color="gray"
+    > |&gt; IfMissing(default_value) </font
+    > RowIsEqual(row_name)
+> ]
+"X25_" [ shape = cds, label = "lookup_square_matrix_row" ]
+"..., vector_is_axis" -> "X25" -> "X25_" -> "..., VectorState"
+
+"X28" [ shape = box, style = dotted, fontname = "Courier", label = <
+    % Eltwise <font
+        color="gray"
+    > param value ... </font
+    ><br/><br/> Eltwise( <font
+        color="gray"
+    > param = value , ... </font
+    > )
+> ]
+"X28_" [ shape = cds, label = "eltwise_vector" ]
+"..., VectorState" -> "X28" -> "X28_" -> "..., VectorState"
+
+"..., VectorState, GroupBy, VectorState" [ label = <
+    ...
+    <br/>
+    VectorState
+    <br/>
+    GroupBy
+    <br/>
+    VectorState <i><font color="gray"><sub>!axis&nbsp;&nbsp;&nbsp;</sub></font></i>
+    <br/><br/>
+> ]
+
+"X31" [ shape = box, style = dotted, fontname = "Courier", label = <
+   @ vector_property <font
+        color="gray"> || default_value </font
+    >
+    <br/><br/>
+    <font
+        color="gray"> IfEmpty(final_value) |&gt; </font
+    > GroupBy(vector_property) <font
+        color="gray">|&gt; IfMissing(default_value) </font
+    >
+> ]
+"X31_" [ shape = cds, label = "group_vector_by_vector" ]
+"..., VectorState" -> "X31" -> "X31_" -> "..., VectorState, GroupBy, VectorState"
+
+"X32" [ shape = box, style = dotted, fontname = "Courier", label = <
+    @ matrix_property <font
+        color="gray"
+    > || default_value </font
+    > / columns_axis = column_name <br/><br/> <font
+        color="gray"
+    > IfEmpty(final_value) |&gt; </font
+    > GroupBy(matrix_property) <font
+        color="gray"
+    > |&gt; IfMissing(default_value) </font
+    > |&gt; Axis(column_axis) |&gt; IsEqual(column_name)
+> ]
+"X32_" [ shape = cds, label = "group_vector_by_matrix_column" ]
+"..., VectorState" -> "X32" -> "X32_" -> "..., VectorState, GroupBy, VectorState"
+
+"X29" [ shape = box, style = dotted, fontname = "Courier", label = <
+    @ square_matrix_property <font
+        color="gray"
+    > || default_value </font
+    > |= column_name <br/><br/> GroupBy(square_matrix_property) <font
+        color="gray"
+    > IfMissing(default_value) |&gt; </font
+    > ColumnIsEqual(column_name)
+> ]
+"X29_" [ shape = cds, label = "group_vector_by_square_column" ]
+"..., VectorState" -> "X29" -> "X29_" -> "..., VectorState, GroupBy, VectorState"
+
+"..., VectorState, GroupBy, VectorState" [ label = <
+    ...
+    <br/>
+    VectorState
+    <br/>
+    GroupBy
+    <br/>
+    VectorState
+> ]
+
+"..., VectorState, GroupBy, VectorState" -> "..., VectorState, GroupBy, VectorState" [ style = dotted ]
+
+"X30" [ shape = box, style = dotted, fontname = "Courier", label = <
+    @ square_matrix_property <font
+        color="gray"
+    > || default_value </font
+    > -= row_name <br/><br/> GroupBy(square_matrix_property) <font
+        color="gray"
+    > IfMissing(default_value) |&gt; </font
+    > RowIsEqual(row_name)
+> ]
+"X30_" [ shape = cds, label = "group_vector_by_square_row" ]
+"..., VectorState" -> "X30" -> "X30_" -> "..., VectorState, GroupBy, VectorState"
+
+"X33" [ shape = box, style = dotted, fontname = "Courier", label = <
+    ! <font
+        color="gray"
+    > axis </font
+    > &gt;&gt; Reduction <font
+        color="gray"
+    > param value ... </font
+    > <font color="gray"
+    > || default_value </font
+    ><br/><br/> AsAxis(<font
+        color = "gray"
+    >axis</font
+    >) |&gt;  Reduction( <font color="gray"
+    > param = value , ... </font
+    > ) <font
+        color="gray"
+    > |&gt; IfMissing(default_value) </font
+    >
+> ]
+"X33_" [ shape = cds, label = "reduce_grouped_vector" ]
+"..., VectorState, GroupBy, VectorState" -> "X33" -> "X33_" -> "..., vector_is_axis"
+
+"X33.1" [ shape = box, style = dotted, fontname = "Courier", label = <
+    &gt;&gt; Reduction <font
+        color="gray"
+    > param value ... </font
+    > <font color="gray"
+    > || default_value </font
+    ><br/><br/> Reduction( <font color="gray"
+    > param = value , ... </font
+    > ) <font
+        color="gray"
+    > |&gt; IfMissing(default_value) </font
+    >
+> ]
+"X33.1_" [ shape = cds, label = "reduce_grouped_vector" ]
+"..., VectorState, GroupBy, VectorState" -> "X33.1" -> "X33.1_" -> "..., VectorState"
+
+"X43" [ shape = box, style = dotted, fontname = "Courier", label = <
+    ! <font
+        color="gray"
+    > axis </font
+    ><br/><br/>AsAxis(<font
+        color = "gray"
+    >axis</font
+    >)
+> ]
+"X43_" [ shape = cds, label = "vector_as_axis" ]
+"..., VectorState" -> "X43" -> "X43_" -> "..., vector_is_axis"
+
+"X44" [ shape = box, style = dotted, fontname = "Courier", label = <
+    <font
+        color="gray"
+    > implicit AsAxis() </font
+    >
+> ]
+"..., VectorState" -> "X44" -> "X43_"
+
+# "..., vector_is_axis" -> "X34 BeginAnyMask, Optional(IfMissing), ColumnIsEqual" -> "X34 begin_mask_with_square_column" -> "..., vector_is_axis, BeginAnyMask, vector_not_axis"
+# "..., vector_is_axis" -> "X35 BeginAnyMask, Optional(IfMissing), RowIsEqual" -> "X35 begin_mask_with_square_row" ->
+# "..., vector_is_axis, BeginAnyMask, vector_not_axis"
+# "..., vector_is_axis" -> "X36 BeginAnyMask, Optional(IfMissing), axis_with_name, IsEqual" -> "X36
+# begin_mask_with_matrix_column" -> "..., vector_is_axis, BeginAnyMask, vector_not_axis"
+# "..., vector_is_axis" -> "X37 BeginAnyMask, Optional(IfMissing)" -> "X37 begin_mask_with_vector" -> "...,
+# vector_is_axis, BeginAnyMask, vector_not_axis"
+# "..., vector_is_axis, BeginAnyMask, vector_not_axis" -> "X38 EndMask" -> "X38 end_mask" -> "..., vector_is_axis"
+# "..., MatrixState" -> "X39 ReduceToColumn" -> "X39 reduce_matrix_to_column" -> "..., vector_not_axis"
+# "..., MatrixState" -> "X40 ReduceToRow" -> "X40 reduce_matrix_to_row" -> "..., vector_not_axis"
+# "..., MatrixState" -> "X41 EltwiseOperation" -> "X41 eltwise_matrix" -> "..., MatrixState"
+# "..., VectorState, BeginAnyMask, vector_not_axis, MaskOperation, vector_not_axis" -> "X42 nothing" -> "X42 combine_mask_vectors" -> "..., vector_not_axis, BeginAnyMask, vector_not_axis"
+# "..., vector_pending_any" -> "X45 nothing" -> "X45 finalize_vector_values" -> "..., VectorState"
+# "vector_is_axis" -> "X11 axis_with_name" -> "X11 columns_axis" -> "vector_is_axis, vector_is_axis"
+# "vector_is_axis, vector_is_axis" -> "X12 LookupMatrix, Optional(IfMissing)" -> "X12 lookup_matrix" -> "MatrixState"
+# "MatrixState" -> "X13 Optional(AsAxis), Optional(IfNot), Lookup, Optional(IfMissing)" -> "X13 lookup_by_matrix" -> "MatrixState"
+
+}

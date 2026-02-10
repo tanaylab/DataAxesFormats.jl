@@ -84,7 +84,7 @@ function chain_reader(dafs::AbstractVector{<:DafReader}; name::Maybe{AbstractStr
         name = join([daf.name for daf in dafs], ";")
         @assert name !== nothing
     end
-    name = unique_name(name, ";#")
+    name = unique_name(name, ";#")  # NOLINT
 
     internal_dafs = reader_internal_dafs(dafs, name)
     chain = ReadOnlyChain(name, Internal(; cache_group = nothing, is_frozen = true), internal_dafs)
@@ -123,7 +123,7 @@ function chain_writer(dafs::AbstractVector{<:DafReader}; name::Maybe{AbstractStr
         name = join([daf.name for daf in dafs], ";")
         @assert name !== nothing
     else
-        name = unique_name(name)
+        name = unique_name(name)  # NOLINT
     end
 
     internal_dafs = reader_internal_dafs(dafs, name)
@@ -574,7 +574,7 @@ function Formats.format_relayout_matrix!(
                     MemoryData;
                     is_slow = true,
                 ) do
-                    return (Formats.as_named_matrix(daf, columns_axis, rows_axis, flipped(matrix)), nothing)
+                    return (Formats.as_named_matrix(daf, columns_axis, rows_axis, flipped(matrix)), nothing)  # NOLINT
                 end
             end
         end

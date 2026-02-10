@@ -8,8 +8,36 @@ DataAxesFormats.Queries
 
 ```@docs
 DataAxesFormats.Queries.Query
-DataAxesFormats.Queries.@q_str
+DataAxesFormats.Queries.QuerySequence
 DataAxesFormats.Queries.QueryString
+DataAxesFormats.Queries.parse_query
+DataAxesFormats.Queries.@q_str
+```
+
+## Syntax
+
+Each description of a part of the query syntax is accompanied by a diagram.
+
+[**Legend**](assets/legend.svg)
+
+![](assets/legend.svg)
+
+```@docs
+DataAxesFormats.Queries.NAMES_QUERY
+DataAxesFormats.Queries.SCALAR_QUERY
+DataAxesFormats.Queries.VECTOR_QUERY
+DataAxesFormats.Queries.VECTOR_OPERATION
+DataAxesFormats.Queries.VECTOR_AS_AXIS
+DataAxesFormats.Queries.VECTOR_LOOKUP
+DataAxesFormats.Queries.VECTOR_MASK
+DataAxesFormats.Queries.VECTOR_MASK_LOOKUP
+DataAxesFormats.Queries.VECTOR_MASK_OPERATION
+DataAxesFormats.Queries.VECTOR_GROUP
+DataAxesFormats.Queries.VECTOR_FROM_MATRIX
+DataAxesFormats.Queries.MATRIX_QUERY
+DataAxesFormats.Queries.MATRIX_COUNT
+DataAxesFormats.Queries.MATRIX_OPERATION
+DataAxesFormats.Queries.MATRIX_GROUP
 ```
 
 ## Functions
@@ -24,82 +52,68 @@ DataAxesFormats.Queries.full_vector_query
 DataAxesFormats.Queries.query_result_dimensions
 DataAxesFormats.Queries.query_requires_relayout
 DataAxesFormats.Queries.is_axis_query
-```
-
-## Syntax
-
-```@docs
-DataAxesFormats.Queries.QUERY_OPERATORS
-DataAxesFormats.Queries.NAMES_QUERY
-DataAxesFormats.Queries.SCALAR_QUERY
-DataAxesFormats.Queries.LOOKUP_PROPERTY
-DataAxesFormats.Queries.VECTOR_ENTRY
-DataAxesFormats.Queries.MATRIX_ENTRY
-DataAxesFormats.Queries.REDUCE_VECTOR
-DataAxesFormats.Queries.VECTOR_QUERY
-DataAxesFormats.Queries.VECTOR_PROPERTY
-DataAxesFormats.Queries.VECTOR_LOOKUP
-DataAxesFormats.Queries.MATRIX_ROW
-DataAxesFormats.Queries.MATRIX_COLUMN
-DataAxesFormats.Queries.REDUCE_MATRIX
-DataAxesFormats.Queries.MATRIX_QUERY
-DataAxesFormats.Queries.MATRIX_LOOKUP
-DataAxesFormats.Queries.COUNTS_MATRIX
-DataAxesFormats.Queries.POST_PROCESS
-DataAxesFormats.Queries.GROUP_BY
-DataAxesFormats.Queries.AXIS_MASK
-DataAxesFormats.Queries.MASK_OPERATION
-DataAxesFormats.Queries.MASK_SLICE
-DataAxesFormats.Queries.VECTOR_FETCH
+DataAxesFormats.Queries.query_axis_name
 DataAxesFormats.Queries.guess_typed_value
 ```
 
 ## Query Operators
 
-```@docs
-DataAxesFormats.Queries.QuerySequence
-```
-
-### Data Operators
+### Names
 
 ```@docs
-DataAxesFormats.Queries.AsAxis
-DataAxesFormats.Queries.Axis
-DataAxesFormats.Queries.CountBy
-DataAxesFormats.Queries.Fetch
-DataAxesFormats.Queries.GroupBy
-DataAxesFormats.Queries.IfMissing
-DataAxesFormats.Queries.IfNot
-DataAxesFormats.Queries.Lookup
 DataAxesFormats.Queries.Names
 ```
 
-### Mask Operators
+### Lookup
 
 ```@docs
-DataAxesFormats.Queries.And
-DataAxesFormats.Queries.AndNot
-DataAxesFormats.Queries.Or
-DataAxesFormats.Queries.OrNot
-DataAxesFormats.Queries.Xor
-DataAxesFormats.Queries.XorNot
-DataAxesFormats.Queries.MaskSlice
-DataAxesFormats.Queries.SquareMaskColumn
-DataAxesFormats.Queries.SquareMaskRow
+DataAxesFormats.Queries.LookupScalar
+DataAxesFormats.Queries.Axis
+DataAxesFormats.Queries.AsAxis
+DataAxesFormats.Queries.LookupVector
+DataAxesFormats.Queries.LookupMatrix
+DataAxesFormats.Queries.SquareColumnIs
+DataAxesFormats.Queries.SquareRowIs
+DataAxesFormats.Queries.IfMissing
+DataAxesFormats.Queries.IfNot
 ```
 
-### Comparison Operators
+### Masks
 
 ```@docs
-DataAxesFormats.Queries.ComparisonOperation
-DataAxesFormats.Queries.IsEqual
-DataAxesFormats.Queries.IsGreater
-DataAxesFormats.Queries.IsGreaterEqual
+DataAxesFormats.Queries.BeginMask
+DataAxesFormats.Queries.BeginNegatedMask
+DataAxesFormats.Queries.EndMask
+DataAxesFormats.Queries.AndMask
+DataAxesFormats.Queries.AndNegatedMask
+DataAxesFormats.Queries.OrMask
+DataAxesFormats.Queries.OrNegatedMask
+DataAxesFormats.Queries.XorMask
+DataAxesFormats.Queries.XorNegatedMask
+```
+
+### Comparisons
+
+```@docs
 DataAxesFormats.Queries.IsLess
 DataAxesFormats.Queries.IsLessEqual
-DataAxesFormats.Queries.IsMatch
+DataAxesFormats.Queries.IsEqual
 DataAxesFormats.Queries.IsNotEqual
+DataAxesFormats.Queries.IsGreater
+DataAxesFormats.Queries.IsGreaterEqual
+DataAxesFormats.Queries.IsMatch
 DataAxesFormats.Queries.IsNotMatch
+```
+
+### Groups
+
+```@docs
+DataAxesFormats.Queries.CountBy
+DataAxesFormats.Queries.GroupBy
+DataAxesFormats.Queries.GroupColumnsBy
+DataAxesFormats.Queries.GroupRowsBy
+DataAxesFormats.Queries.ReduceToColumn
+DataAxesFormats.Queries.ReduceToRow
 ```
 
 ## Index

@@ -1,0 +1,56 @@
+digraph {
+rankdir = LR
+node [ shape = box, fontname = "Sans-Serif" ]
+fontname = "Sans-Serif"
+fontsize = 28
+labeljust = "l"
+
+subgraph cluster_all {
+label = "VECTOR"
+URL="assets/vector.svg"
+
+"EMPTY" [ shape = point ]
+
+"Matrix_values" [ label = < MatrixState<sub><i>values</i></sub>&nbsp;&nbsp;<br/> > ]
+
+"Vector_axis" [ label = < VectorState<sub><i>axis</i></sub>&nbsp;&nbsp;<br/> > ]
+
+"Vector_values" [ shape = doubleoctagon, label = < VectorState<sub><i>values</i></sub>&nbsp;&nbsp; > ]
+
+"V1" [ style = dotted, fontname = "Courier", label = <
+@ axis<br/>&nbsp;<br/>Axis(axis)
+> ]
+"V1_" [ shape = cds, label = "lookup axis&nbsp;" ]
+"V1":e -> "V1_":w
+"V1_":e -> "Vector_axis":w
+
+"V2" [ shape = component, label = "VECTOR MASK", URL = "#../DataAxesFormats.Queries.VECTOR_MASK" ]
+"Vector_axis" -> "V2" [ constraint = false ]
+"V2" -> "Vector_axis" [ constraint = false ]
+"V1_" -> "V2" [ style = invis ]
+
+"V3" [ shape = cds, label = <
+values are names <sub><i>implicit</i></sub>&nbsp;&nbsp;&nbsp;&nbsp;<br/>&nbsp;<br/>
+> ]
+"Vector_axis" -> "V3":w
+"V3":e -> "Vector_values"
+
+"V4" [ shape = component, label = "VECTOR LOOKUP", URL = "#DataAxesFormats.Queries.VECTOR_LOOKUP" ]
+"Vector_axis":se -> "V4":w
+"V4":e -> "Vector_values"
+
+"V5" [ shape = component, label = "VECTOR OPERATION", URL = "#DataAxesFormats.Queries.VECTOR_OPERATION" ]
+"Vector_values" -> "V5" [ constraint = false ]
+"V5" -> "Vector_values" [ constraint = false ]
+"V4" -> "V5" [ style = invis ]
+
+"V6" [ shape = component, label = "VECTOR FROM MATRIX", URL = "#DataAxesFormats.Queries.VECTOR_FROM_MATRIX" ]
+"V6" -> "Vector_values"
+
+}
+
+"EMPTY" -> "V1"
+"Matrix_values" -> "V1" [ style = invis ]
+"Matrix_values" -> "V6"
+
+}

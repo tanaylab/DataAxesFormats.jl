@@ -30,15 +30,18 @@ using ..Keys
 using ..Queries
 using ..Readers
 using ..ReadOnly
+using ..Registry
 using ..StorageTypes
 using ..Tokens
 using TanayLabUtilities
 
 import ..Formats
 import ..Formats.Internal
+import ..Queries.as_query_sequence
 import ..ReadOnly
 import ..ReadOnly.DafReadOnlyWrapper
 import ..Readers.base_array
+import ..Registry.QueryOperation
 import ..Tokens.decode_expression
 import ..Tokens.encode_expression
 
@@ -263,7 +266,7 @@ function viewer(
     if name === nothing
         name = daf.name * ".view"
     end
-    name = unique_name(name)  # NOJET
+    name = unique_name(name)  # NOJET # NOLINT
 
     collected_axes = collect_axes(name, daf, axes)
     collected_scalars = collect_scalars(name, daf, data)
@@ -292,20 +295,17 @@ function collect_scalars(
     collected_scalars = Dict{AbstractString, Fetch{StorageScalar}}()
     for (key, query) in data
         if key isa AbstractString
-            collect_scalar(view_name, daf, collected_scalars, key, prepare_query(query, Lookup))
+            collect_scalar(view_name, daf, collected_scalars, key, prepare_query(query, LookupScalar))
         end
     end
     return collected_scalars
 end
 
-function prepare_query(
-    maybe_query::Maybe{QueryString},
-    operand_only::Union{Type{Axis}, Type{Lookup}},
-)::Maybe{QueryString}
+function prepare_query(maybe_query::Maybe{QueryString}, operand_only::Union{Type{<:QueryOperation}})::Maybe{QueryString}
     if maybe_query isa AbstractString
         maybe_query = strip(maybe_query)  # NOJET
         if maybe_query != "="
-            maybe_query = Query(maybe_query, operand_only)
+            maybe_query = parse_query(maybe_query, operand_only)
         end
     end
     return maybe_query
@@ -328,7 +328,7 @@ function collect_scalar(
         delete!(collected_scalars, scalar_name)
     else
         if scalar_query == "="
-            scalar_query = Lookup(scalar_name)
+            scalar_query = LookupScalar(scalar_name)
         else
             @assert scalar_query isa Query "invalid scalar query: $(scalar_query)"
         end
@@ -410,7 +410,7 @@ function collect_vectors(
                 collected_vectors,
                 axis_name,
                 vector_name,
-                prepare_query(query, Lookup),
+                prepare_query(query, LookupVector),
             )
         end
     end
@@ -480,7 +480,7 @@ function collect_matrices(
                 rows_axis_name,
                 columns_axis_name,
                 matrix_name,
-                prepare_query(query, Lookup),
+                prepare_query(query, LookupMatrix),
             )
         end
     end
@@ -532,7 +532,7 @@ function collect_tensors(
                     rows_axis_name,
                     columns_axis_name,
                     "$(entry_name)_$(matrix_name)",
-                    prepare_query(query, Lookup),
+                    prepare_query(query, LookupMatrix),
                 )
             end
         end
@@ -599,7 +599,7 @@ function collect_matrix(
         fetch_rows_axis = get_fetch_axis(view_name, daf, collected_axes, rows_axis_name)
         fetch_columns_axis = get_fetch_axis(view_name, daf, collected_axes, columns_axis_name)
         if matrix_query == "="
-            matrix_query = Lookup(matrix_name)
+            matrix_query = LookupMatrix(matrix_name)
         else
             @assert matrix_query isa Query "invalid matrix query: $(matrix_query)"
         end
@@ -644,6 +644,7 @@ function base_axis_of_query(query_sequence::QuerySequence)::AbstractString
 end
 
 function base_axis_of_query(axis::Axis)::AbstractString
+    @assert axis.axis_name !== nothing
     return axis.axis_name
 end
 

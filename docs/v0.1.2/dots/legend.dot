@@ -1,0 +1,105 @@
+digraph {
+rankdir = LR
+node [ shape = box, fontname = "Sans-Serif" ]
+fontname = "Sans-Serif"
+fontsize = 28
+labeljust = "l"
+
+subgraph cluster_all {
+label = "LEGEND"
+
+subgraph cluster_operation {
+style = invis
+label = ""
+
+"PHRASES" [
+    style = dotted,
+    fontname = "Courier",
+    label = < query phrase string<br/>&nbsp;<br/>Query() |&gt; Phrase() |&gt; Objects() >,
+    tooltip = "Query phrases are shown in the string format followed by the concatenated operation object format. Grayed items are optional.",
+]
+"INVIS1" [ shape = point, style = invis ]
+"INVIS1" -> "PHRASES" [ style = invis ]
+
+"OPS" [
+    shape = cds,
+    label = "name of query operation function&nbsp;&nbsp;&nbsp;",
+    tooltip = "Operations performed by the query engine are shown as an arrow-box.",
+]
+"PHRASES" -> "OPS" [ tooltip = "Edges connect query phrases to the operations performed by the phrase." ]
+
+}
+
+
+subgraph cluster_state {
+fontsize = 21
+style = dashed
+label = < <i>States</i> >
+"FINAL" [
+    shape = doubleoctagon,
+    label = < Query<br/>Result >,
+    tooltip = "Final states with query results are shown in a double octagon"
+]
+
+"STACK" [
+    label = < Query<br/>State<br/>Stack >,
+    tooltip = "The query state stack is shown in a box, each line is a separate state element.",
+]
+
+"STACK" -> "FINAL" [ style = invis ]
+
+subgraph cluster_empty {
+style = invis
+"EMPTY" [ shape = point ]
+"E0" [ shape = plain, label = < <i>empty</i> >, tooltip = "The empty query stack state is shown as a point." ]
+}
+
+"EMPTY" -> "STACK" [ style = invis ]
+
+}
+
+"COMPONENT" [
+    shape = component,
+    label = "REFERENCE TO QUERY COMPONENT&nbsp;&nbsp;",
+    tooltip = "References are clickable links to the description of the query component."
+]
+
+"INVIS2" [ shape = point, style = invis ]
+"INVIS2" -> "COMPONENT" [ style = invis ]
+
+"EMPTY" -> "PHRASES" [
+    constraint = false,
+    tooltip = "Edges connect specific states (such as the empty state) to query phrases that can be applied at this state."
+]
+"EMPTY" -> "COMPONENT" [
+    constraint = false,
+    tooltip = "Edges connect specific states (such as the empty state) to query components that can be applied at this state."
+]
+"STACK" -> "PHRASES" [
+    constraint = false,
+    tooltip = "Edges connect specific states to query phrases that can be applied at this state."
+]
+"OPS":nw -> "STACK" [
+    constraint = false,
+    tooltip = "Edges connect query operations to the resulting query state.",
+]
+"STACK" -> "COMPONENT":se [
+    constraint = false,
+    tooltip = "Edges connect specific states to query components that can be applied at this state."
+]
+"COMPONENT":sw -> "STACK" [
+    constraint = false,
+    tooltip = "Edges connect query components to the resulting query state.",
+]
+"OPS" -> "FINAL" [
+    constraint = false,
+    tooltip = "Edges connect query operations to the resulting query state (such as the final state).",
+]
+"COMPONENT" -> "FINAL" [
+    constraint = false,
+    tooltip = "Edges connect query components to the resulting query state (such as the final state).",
+]
+
+}
+
+}

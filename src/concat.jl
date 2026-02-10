@@ -131,7 +131,7 @@ then such properties will be processed according to it. Using `CollectAxis` for 
 
 By default, concatenation will fail rather than `overwrite` existing properties in the target.
 """
-@logged function concatenate!(
+@logged function concatenate!(  # NOLINT
     destination::DafWriter,
     axis::Union{AbstractString, AbstractVector{<:AbstractString}},
     sources::AbstractVector{<:DafReader};
@@ -617,8 +617,8 @@ function concatenate_axis_sparse_vectors(
             offset = offsets[source_index]
             nnz_offset = nnz_offsets[source_index]
             nnz_size = nnz_sizes[source_index]
-            sparse_nzval[(nnz_offset + 1):(nnz_offset + nnz_size)] = nzval(vector)
-            sparse_nzind[(nnz_offset + 1):(nnz_offset + nnz_size)] = nzind(vector)
+            sparse_nzval[(nnz_offset + 1):(nnz_offset + nnz_size)] = nzval(vector)  # NOLINT
+            sparse_nzind[(nnz_offset + 1):(nnz_offset + nnz_size)] = nzind(vector)  # NOLINT
             sparse_nzind[(nnz_offset + 1):(nnz_offset + nnz_size)] .+= offset
             return nothing
         end
@@ -1276,7 +1276,7 @@ function sparse_vectors_storage_fraction(
         end
     end
 
-    indtype = indtype_for_size(dense_size)
+    indtype = indtype_for_size(dense_size)  # NOLINT
     dense_bytes = dense_size * sizeof(eltype)
     sparse_bytes = sparse_size * (sizeof(eltype) + sizeof(indtype))
     return (dense_bytes - sparse_bytes) / dense_bytes
@@ -1312,7 +1312,7 @@ function sparse_matrices_storage_fraction(
         end
     end
 
-    indtype = indtype_for_size(dense_size)
+    indtype = indtype_for_size(dense_size)  # NOLINT
     dense_bytes = dense_size * sizeof(eltype)
     sparse_bytes = sparse_size * (sizeof(eltype) + sizeof(indtype)) + (total_n_columns + 1) * sizeof(indtype)
     return (dense_bytes - sparse_bytes) / dense_bytes
@@ -1339,7 +1339,7 @@ function sparsify_concatenated_vectors(
             @assert length(vector) == size
             vector = vector.array
             if !issparse(vector)
-                vector = sparse_vector(vector)
+                vector = sparse_vector(vector)  # NOLINT
             end
             sparse_vectors[source_index] = vector
         end

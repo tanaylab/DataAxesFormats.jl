@@ -1,0 +1,102 @@
+digraph {
+rankdir = LR
+node [ shape = box, fontname = "Sans-Serif" ]
+fontname = "Sans-Serif"
+fontsize = 28
+
+subgraph cluster_source {
+style = invis
+"..., vector_is_axis" [ label = <
+...
+<br/>
+VectorState <i><font color="gray"><sub>axis&nbsp;&nbsp;&nbsp;</sub></font></i>
+<br/>&nbsp;<br/>
+> ]
+
+"..., vector_is_axis" -> "..., VectorState" [ style = dotted, constraint = false ]
+
+"..., VectorState" [ label = <
+...
+<br/>
+VectorState
+> ]
+
+"VectorAsAxis" [ shape = component ]
+"..., VectorState" -> "VectorAsAxis"
+"VectorAsAxis" -> "..., vector_is_axis"
+
+}
+
+subgraph cluster_all {
+label = "Vector"
+
+"VectorState" [ shape = doubleoctagon ]
+
+"vector_is_axis" [ label = <
+VectorState <i><font color="gray"><sub>axis&nbsp;&nbsp;&nbsp;</sub></font></i>
+<br/>&nbsp;<br/>
+> ]
+
+"V1" [ shape = box, style = dotted, fontname = "Courier", label = <
+@ axis<br/>&nbsp;<br/>Axis(axis)
+> ]
+"V1_" [ shape = cds, label = "vector_axis" ]
+"V1" -> "V1_" -> "vector_is_axis"
+
+"VectorLookup" [ shape = component ]
+"..., vector_is_axis" -> "VectorLookup"
+"VectorLookup" -> "..., VectorState"
+
+"VectorGroup" [ shape = component ]
+"..., VectorState":nw -> "VectorGroup":e [ constraint = false ]
+"VectorGroup":s -> "..., VectorState"
+"VectorGroup":n -> "..., vector_is_axis" [ constraint = false ]
+
+"VectorMask" [ shape = component ]
+"..., vector_is_axis" -> "VectorMask" [ constraint = false ]
+"VectorMask" -> "..., vector_is_axis" [ constraint = false ]
+"vector_is_axis" -> "VectorMask" [ style = invis ]
+
+"V4" [ shape = box, style = dotted, fontname = "Courier", label = <
+% Eltwise <font color="gray">param value ...</font><br/>&nbsp;<br/> Eltwise(<font color="gray">param = value, ...</font>)
+> ]
+"V4_" [ shape = cds, label = "eltwise_vector" ]
+"..., VectorState" -> "V4":w
+"V4":e -> "V4_":w
+"V4_":ne -> "..., VectorState"
+
+"VectorAsAxis" [ shape = component ]
+"..., VectorState" -> "VectorAsAxis" [ constraint = false ]
+"VectorAsAxis" -> "..., vector_is_axis" [ constraint = false ]
+"..., vector_is_axis" -> "VectorAsAxis" [ style = invis ]
+
+"V5" [ shape = box, style = dotted, fontname = "Courier", label = <
+&gt;| Reduction<font color="gray"> param value ... </font><br/>&nbsp;<br/>|&gt; ReduceToColumn(Reduction(<font color="gray">param = value, ...</font>))
+> ]
+"V5_" [ shape = cds, label = "reduce_matrix_to_column" ]
+"V5":e -> "V5_":w
+"V5_":e -> "VectorState"
+
+"V6" [ shape = box, style = dotted, fontname = "Courier", label = <
+&gt;- Reduction <font color="gray">param value ...</font><br/>&nbsp;<br/>|&gt; ReduceToRow(Reduction(<font color="gray">param = value, ...</font>))
+> ]
+"V6_" [ shape = cds, label = "reduce_matrix_to_row" ]
+"V6":e -> "V6_":w
+"V6_":e -> "VectorState"
+
+"V7" [ shape = box, style = dotted, fontname = "Courier", label = <
+@ columns_axis = column_value @ axis<br/>&nbsp;<br/>Axis(columns_axis) |&gt; IsEqual(column_value) |&gt; Axis(rows_axis)
+> ]
+"V7_" [ shape = cds, label = "vector_axis" ]
+"V1" -> "V1_" -> "vector_is_axis"
+
+
+}
+
+"EMPTY" -> "V1"
+"MatrixState" -> "V5":w
+"MatrixState" -> "V6":w
+"..., VectorState":s -> "VectorState":e [ style = dashed ]
+"VectorState":n -> "..., VectorState" [ style = dotted ]
+
+}

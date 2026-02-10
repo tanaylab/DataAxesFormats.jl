@@ -6,6 +6,7 @@ nested_test("example_data") do
                                   type: MemoryDaf
                                   scalars:
                                     organism: "human"
+                                    reference: "test"
                                   axes:
                                     cell: 856 entries
                                     donor: 95 entries
@@ -65,6 +66,7 @@ nested_test("example_data") do
                                   - MemoryDaf metacells!
                                   scalars:
                                     organism: "human"
+                                    reference: "test"
                                   axes:
                                     cell: 856 entries
                                     donor: 95 entries

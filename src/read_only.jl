@@ -4,7 +4,6 @@ Read-only `Daf` storage format.
 module ReadOnly
 
 export DafReadOnly
-export is_read_only_array
 export read_only
 
 using ..Formats
@@ -44,7 +43,7 @@ function read_only(daf::DafReader; name::Maybe{AbstractString} = nothing)::DafRe
     if name === nothing
         name = daf.name * ".read_only"
     end
-    name = unique_name(name)  # NOJET
+    name = unique_name(name)  # NOJET # NOLINT
     wrapper = DafReadOnlyWrapper(name, daf.internal, daf)
     @debug "Daf: $(brief(wrapper)) base: $(daf)"
     return wrapper
@@ -143,7 +142,7 @@ function Formats.format_get_vector(
     name::AbstractString,
 )::StorageVector
     @assert Formats.has_data_read_lock(read_only_view)
-    return read_only_array(Formats.format_get_vector(read_only_view.daf, axis, name))
+    return read_only_array(Formats.format_get_vector(read_only_view.daf, axis, name))  # NOLINT
 end
 
 function Formats.format_has_matrix(
@@ -172,7 +171,7 @@ function Formats.format_get_matrix(
     name::AbstractString,
 )::StorageMatrix
     @assert Formats.has_data_read_lock(read_only_view)
-    return read_only_array(Formats.format_get_matrix(read_only_view.daf, rows_axis, columns_axis, name))
+    return read_only_array(Formats.format_get_matrix(read_only_view.daf, rows_axis, columns_axis, name))  # NOLINT
 end
 
 function Formats.format_description_header(  # UNTESTED

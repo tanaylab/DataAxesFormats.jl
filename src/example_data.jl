@@ -28,6 +28,7 @@ name: cells!
 type: MemoryDaf
 scalars:
   organism: "human"
+  reference: "test"
 axes:
   cell: 856 entries
   donor: 95 entries
@@ -95,6 +96,7 @@ function example_daf(which::Char; name::AbstractString)::MemoryDaf
 
     if which == 'c'
         set_scalar!(daf, "organism", "human")
+        set_scalar!(daf, "reference", "test")
     end
 
     for file in readdir(joinpath(@__DIR__, "..", "test", "example_data", "axes"))
@@ -212,6 +214,7 @@ chain:
 - MemoryDaf metacells!
 scalars:
   organism: "human"
+  reference: "test"
 axes:
   cell: 856 entries
   donor: 95 entries
