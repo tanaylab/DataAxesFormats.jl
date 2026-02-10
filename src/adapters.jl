@@ -94,10 +94,10 @@ parameter values, and store the different results in the same data set under dif
     relayout::Bool = true,
     overwrite::Bool = false,
 )::Any
-    flame_timed(name) do
+    flame_timed(name) do  # NOLINT
         local adapted
         local base_name
-        flame_timed("input") do
+        flame_timed("input") do  # NOLINT
             base_name = daf.name
             @assert input_axes !== nothing ||
                     input_data !== nothing ||
@@ -109,7 +109,7 @@ parameter values, and store the different results in the same data set under dif
             return nothing
         end
         result = computation(adapted)
-        flame_timed("output") do
+        flame_timed("output") do  # NOLINT
             output = viewer(adapted; axes = output_axes, data = output_data, name = base_name * ".output")
             return copy_all!(; source = output, destination = daf, empty, relayout, overwrite)
         end

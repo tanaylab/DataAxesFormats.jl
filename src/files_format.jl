@@ -202,7 +202,7 @@ function FilesDaf(
 
     if truncate_if_exists && isdir(path)
         rm(path; force = true, recursive = true)
-        empty_ispath_cache!()
+        empty_ispath_cache!()  # NOLINT
     end
 
     daf_file_path = "$(path)/daf.json"
@@ -211,9 +211,9 @@ function FilesDaf(
             mkpath(path)
         end
 
-        if !cached_ispath(daf_file_path)
+        if !cached_ispath(daf_file_path)  # NOLINT
             write(daf_file_path, "{\"version\":[$(MAJOR_VERSION),$(MINOR_VERSION)]}\n")
-            empty_ispath_cache!(daf_file_path)
+            empty_ispath_cache!(daf_file_path)  # NOLINT
             for directory in ("scalars", "axes", "vectors", "matrices")
                 mkdir("$(path)/$(directory)")
             end
@@ -239,7 +239,7 @@ function FilesDaf(
 
     if name === nothing
         name_path = "$(path)/scalars/name.json"
-        if cached_ispath(name_path)
+        if cached_ispath(name_path)  # NOLINT
             name = string(read_scalar(name_path))
         else
             name = path
@@ -258,7 +258,7 @@ end
 
 function Formats.format_has_scalar(files::FilesDaf, name::AbstractString)::Bool
     @assert Formats.has_data_read_lock(files)
-    return cached_ispath("$(files.path)/scalars/$(name).json")
+    return cached_ispath("$(files.path)/scalars/$(name).json")  # NOLINT
 end
 
 function Formats.format_set_scalar!(files::FilesDaf, name::AbstractString, value::StorageScalar)::Nothing
@@ -270,7 +270,7 @@ function Formats.format_set_scalar!(files::FilesDaf, name::AbstractString, value
 
     json_path = "$(files.path)/scalars/$(name).json"
     open(json_path, "w") do file
-        empty_ispath_cache!(json_path)
+        empty_ispath_cache!(json_path)  # NOLINT
         JSON.Writer.print(file, Dict("type" => "$(type)", "value" => value))  # NOLINT
         write(file, '\n')
         return nothing
@@ -283,7 +283,7 @@ function Formats.format_delete_scalar!(files::FilesDaf, name::AbstractString; fo
     @assert Formats.has_data_write_lock(files)
     json_path = "$(files.path)/scalars/$(name).json"
     rm(json_path; force = true)
-    empty_ispath_cache!(json_path)
+    empty_ispath_cache!(json_path)  # NOLINT
     return nothing
 end
 
@@ -317,7 +317,7 @@ end
 
 function Formats.format_has_axis(files::FilesDaf, axis::AbstractString; for_change::Bool)::Bool  # NOLINT
     @assert Formats.has_data_read_lock(files)
-    return cached_ispath("$(files.path)/axes/$(axis).txt")
+    return cached_ispath("$(files.path)/axes/$(axis).txt")  # NOLINT
 end
 
 function Formats.format_add_axis!(
@@ -327,9 +327,9 @@ function Formats.format_add_axis!(
 )::Nothing
     @assert Formats.has_data_write_lock(files)
     txt_path = "$(files.path)/axes/$(axis).txt"
-    flame_timed("FilesDaf.write_axis_vector") do
+    flame_timed("FilesDaf.write_axis_vector") do  # NOLINT
         open(txt_path, "w") do file  # NOJET
-            empty_ispath_cache!(txt_path)
+            empty_ispath_cache!(txt_path)  # NOLINT
             for entry in entries
                 @assert !contains(entry, '\n')
                 println(file, entry)
@@ -362,7 +362,7 @@ function Formats.format_delete_axis!(files::FilesDaf, axis::AbstractString)::Not
         rm("$(files.path)/matrices/$(other_axis)/$(axis)"; force = true, recursive = true)
     end
 
-    return empty_ispath_cache!()
+    return empty_ispath_cache!()  # NOLINT
 end
 
 function Formats.format_axes_set(files::FilesDaf)::AbstractSet{<:AbstractString}
@@ -383,7 +383,7 @@ end
 
 function Formats.format_has_vector(files::FilesDaf, axis::AbstractString, name::AbstractString)::Bool
     @assert Formats.has_data_read_lock(files)
-    return cached_ispath("$(files.path)/vectors/$(axis)/$(name).json")
+    return cached_ispath("$(files.path)/vectors/$(axis)/$(name).json")  # NOLINT
 end
 
 function Formats.format_set_vector!(
@@ -409,10 +409,10 @@ function Formats.format_set_vector!(
 
     elseif issparse(vector)
         write_array_json("$(files.path)/vectors/$(axis)/$(name).json", "sparse", eltype(vector), indtype(vector))
-        flame_timed("FilesDaf.write_sparse_vector") do
-            write("$(files.path)/vectors/$(axis)/$(name).nzind", nzind(vector))  # NOJET
-            if eltype(vector) != Bool || !all(nzval(vector))  # NOJET
-                write("$(files.path)/vectors/$(axis)/$(name).nzval", nzval(vector))  # NOJET
+        flame_timed("FilesDaf.write_sparse_vector") do  # NOLINT
+            write("$(files.path)/vectors/$(axis)/$(name).nzind", nzind(vector))  # NOJET # NOLINT
+            if eltype(vector) != Bool || !all(nzval(vector))  # NOJET # NOLINT
+                write("$(files.path)/vectors/$(axis)/$(name).nzval", nzval(vector))  # NOJET # NOLINT
             end
         end
 
@@ -421,7 +421,7 @@ function Formats.format_set_vector!(
 
     else
         write_array_json("$(files.path)/vectors/$(axis)/$(name).json", "dense", eltype(vector))
-        flame_timed("FilesDaf.write_dense_vector") do
+        flame_timed("FilesDaf.write_dense_vector") do  # NOLINT
             return write("$(files.path)/vectors/$(axis)/$(name).data", vector)
         end
     end
@@ -434,7 +434,7 @@ function write_string_vector(
     name::AbstractString,
     vector::Union{StorageScalar, StorageVector},
 )::Nothing
-    flame_timed("FilesDaf.write_string_vector") do
+    flame_timed("FilesDaf.write_string_vector") do  # NOLINT
         n_empty = 0
         nonempty_size = 0
         for value in vector
@@ -448,7 +448,7 @@ function write_string_vector(
 
         n_values = length(vector)
         n_nonempty = n_values - n_empty
-        ind_type = indtype_for_size(n_values)
+        ind_type = indtype_for_size(n_values)  # NOLINT
 
         dense_size = nonempty_size + length(vector)
         sparse_size = nonempty_size + n_nonempty * (1 + sizeof(ind_type))
@@ -538,7 +538,7 @@ function Formats.format_delete_vector!(
         path = "$(files.path)/vectors/$(axis)/$(name)$(suffix)"
         rm(path; force = true)
     end
-    return empty_ispath_cache!("$(files.path)/vectors/$(axis)/$(name).*")
+    return empty_ispath_cache!("$(files.path)/vectors/$(axis)/$(name).*")  # NOLINT
 end
 
 function Formats.format_vectors_set(files::FilesDaf, axis::AbstractString)::AbstractSet{<:AbstractString}
@@ -608,7 +608,7 @@ function Formats.format_has_matrix(
     name::AbstractString,
 )::Bool
     @assert Formats.has_data_read_lock(files)
-    return cached_ispath("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json")
+    return cached_ispath("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json")  # NOLINT
 end
 
 function Formats.format_set_matrix!(
@@ -641,11 +641,11 @@ function Formats.format_set_matrix!(
             eltype(matrix),
             indtype(matrix),
         )
-        flame_timed("FilesDaf.write_sparse_matrix") do
-            write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).colptr", colptr(matrix))
-            write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).rowval", rowval(matrix))
-            if eltype(matrix) != Bool || !all(nzval(matrix))
-                write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).nzval", nzval(matrix))
+        flame_timed("FilesDaf.write_sparse_matrix") do  # NOLINT
+            write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).colptr", colptr(matrix))  # NOLINT
+            write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).rowval", rowval(matrix))  # NOLINT
+            if eltype(matrix) != Bool || !all(nzval(matrix))  # NOLINT
+                write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).nzval", nzval(matrix))  # NOLINT
             end
         end
 
@@ -655,7 +655,7 @@ function Formats.format_set_matrix!(
     else
         @assert eltype(matrix) <: Real
         write_array_json("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", "dense", eltype(matrix))
-        flame_timed("FilesDaf.write_dense_matrix") do
+        flame_timed("FilesDaf.write_dense_matrix") do  # NOLINT
             return write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).data", matrix)
         end
     end
@@ -697,7 +697,7 @@ function write_string_matrix(
         colptr_vector = Vector{ind_type}(undef, ncols + 1)
         rowval_vector = Vector{ind_type}(undef, n_nonempty)
 
-        flame_timed("FilesDaf.write_sparse_string_matrix") do
+        flame_timed("FilesDaf.write_sparse_string_matrix") do  # NOLINT
             open("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).nztxt", "w") do file
                 position = 1
                 for column_index in 1:ncols
@@ -723,7 +723,7 @@ function write_string_matrix(
 
     else
         write_array_json("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", "dense", String)
-        flame_timed("FilesDaf.write_dense_string_matrix") do
+        flame_timed("FilesDaf.write_dense_string_matrix") do  # NOLINT
             open("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).txt", "w") do file
                 for value in matrix
                     @assert !(contains(value, '\n'))
@@ -802,7 +802,7 @@ function Formats.format_relayout_matrix!(
             nnz(matrix),
             eltype(matrix.colptr),
         )
-        flame_timed("FilesDaf.init_empty_sparse_matrix") do
+        flame_timed("FilesDaf.init_empty_sparse_matrix") do  # NOLINT
             colptr[1] = 1
             return colptr[2:end] .= length(nzval) + 1
         end
@@ -835,7 +835,7 @@ function Formats.format_delete_matrix!(
         path = "$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name)$(suffix)"
         rm(path; force = true)
     end
-    empty_ispath_cache!("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).*")
+    empty_ispath_cache!("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).*")  # NOLINT
     return nothing
 end
 
@@ -931,7 +931,7 @@ function Formats.format_get_matrix(
 end
 
 function get_names_set(path::AbstractString, suffix::AbstractString)::AbstractSet{<:AbstractString}
-    return flame_timed("FilesDaf.get_names_set") do
+    return flame_timed("FilesDaf.get_names_set") do  # NOLINT
         names_set = Set{AbstractString}()
         suffix_length = length(suffix)
 
@@ -946,9 +946,9 @@ function get_names_set(path::AbstractString, suffix::AbstractString)::AbstractSe
 end
 
 function mmap_file_lines(path::AbstractString)::AbstractVector{<:AbstractString}
-    return flame_timed("FilesDaf.mmap_file_lines") do
+    return flame_timed("FilesDaf.mmap_file_lines") do  # NOLINT
         key = (:daf, :mmap_lines, "r")
-        return get_through_global_weak_cache(abspath(path), key) do _
+        return get_through_global_weak_cache(abspath(path), key) do _  # NOLINT
             size = filesize(path)
             text = StringView(mmap_file_data(path, Vector{UInt8}, size, "r"))
             lines = split(text, "\n")
@@ -965,10 +965,10 @@ function mmap_file_data(
     size::Union{Integer, Tuple{<:Integer, <:Integer}},
     mode::AbstractString,
 )::T where {T <: Union{StorageVector, StorageMatrix}}
-    return flame_timed("FilesDaf.mmap_file_data") do
+    return flame_timed("FilesDaf.mmap_file_data") do  # NOLINT
         @assert mode in ("r", "r+")
         key = (:daf, :mmap_data, mode)
-        return get_through_global_weak_cache(abspath(path), key) do _
+        return get_through_global_weak_cache(abspath(path), key) do _  # NOLINT
             return open(path, mode) do file  # NOJET
                 return mmap(file, T, size)  # NOJET
             end
@@ -977,7 +977,7 @@ function mmap_file_data(
 end
 
 function fill_file(path::AbstractString, value::StorageScalar, size::Integer)::Nothing
-    flame_timed("FilesDaf.fill_file") do
+    flame_timed("FilesDaf.fill_file") do  # NOLINT
         if value isa AbstractString
             @assert !contains(value, '\n')
             open(path, "w") do file
@@ -1004,7 +1004,7 @@ function fill_file(path::AbstractString, value::StorageScalar, size::Integer)::N
 end
 
 function write_zeros_file(path::AbstractString, size::Integer)::Nothing
-    flame_timed("FilesDaf.write_zeros_file") do
+    flame_timed("FilesDaf.write_zeros_file") do  # NOLINT
         open(path, "w") do file
             if size > 0
                 seek(file, size - 1)
@@ -1021,7 +1021,7 @@ function write_array_json(
     eltype::Type{<:StorageScalarBase},
     ind_type::Maybe{Type{<:StorageInteger}} = nothing,
 )::Nothing
-    flame_timed("FilesDaf.write_array_json") do
+    flame_timed("FilesDaf.write_array_json") do  # NOLINT
         if format == "dense"
             @assert ind_type === nothing
             write(path, "{\"format\":\"dense\",\"eltype\":\"$(eltype)\"}\n")
@@ -1030,7 +1030,7 @@ function write_array_json(
             @assert ind_type !== nothing
             write(path, "{\"format\":\"sparse\",\"eltype\":\"$(eltype)\",\"indtype\":\"$(ind_type)\"}\n")
         end
-        return empty_ispath_cache!(path)
+        return empty_ispath_cache!(path)  # NOLINT
     end
     return nothing
 end

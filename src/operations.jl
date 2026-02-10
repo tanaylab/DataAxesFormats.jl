@@ -759,13 +759,13 @@ end
 function compute_eltwise(operation::Significant, input::StorageMatrix)::StorageMatrix
     output = copy_array(input)  # NOLINT
     if issparse(output)
-        parallel_loop_wo_rng(
+        parallel_loop_wo_rng(  # NOLINT
             1:size(output, 2);
             name = "Significant",
-            progress = DebugProgress(size(output, 2); desc = "Significant"),
+            progress = DebugProgress(size(output, 2); desc = "Significant"),  # NOLINT
         ) do column_index
-            first = colptr(output)[column_index]
-            last = colptr(output)[column_index + 1] - 1
+            first = colptr(output)[column_index]  # NOLINT
+            last = colptr(output)[column_index + 1] - 1  # NOLINT
             if first <= last
                 column_vector = @view nzval(output)[first:last]  # NOLINT
                 significant!(column_vector, operation.high, operation.low)
@@ -777,10 +777,10 @@ function compute_eltwise(operation::Significant, input::StorageMatrix)::StorageM
     else
         n_columns = size(output, 2)
         is_dense_of_columns = zeros(Bool, n_columns)
-        parallel_loop_wo_rng(
+        parallel_loop_wo_rng(  # NOLINT
             1:size(output, 2);
             name = "Significant",
-            progress = DebugProgress(size(output, 2); desc = "Significant"),
+            progress = DebugProgress(size(output, 2); desc = "Significant"),  # NOLINT
         ) do column_index
             column_vector = @view output[:, column_index]
             significant!(column_vector, operation.high, operation.low)
@@ -905,23 +905,22 @@ function compute_reduction(operation::Mode, input::StorageMatrix, axis::Integer)
     type = reduction_result_type(operation, eltype(input))
     output = Vector{type}(undef, size(input, other_axis(axis)))  # NOLINT
     if axis == 1
-        parallel_loop_wo_rng(
+        parallel_loop_wo_rng(  # NOLINT
             1:length(output);
             name = "Mode",
-            progress = DebugProgress(length(output); desc = "Mode"),
+            progress = DebugProgress(length(output); desc = "Mode"),  # NOLINT
         ) do column_index
             column_vector = @view input[:, column_index]
-            output[column_index] = mode(column_vector)
+            return output[column_index] = mode(column_vector)
         end
     else
-        @threads :greedy for row_index in 1:length(output)
-        parallel_loop_wo_rng(
+        parallel_loop_wo_rng(  # NOLINT
             1:length(output);
             name = "Mode",
-            progress = DebugProgress(length(output); desc = "Mode"),
+            progress = DebugProgress(length(output); desc = "Mode"),  # NOLINT
         ) do row_index
             row_vector = @view input[row_index, :]
-            output[row_index] = mode(row_vector)
+            return output[row_index] = mode(row_vector)
         end
     end
     return output
@@ -1131,22 +1130,22 @@ function compute_reduction(operation::Quantile, input::StorageMatrix, axis::Inte
     type = reduction_result_type(operation, eltype(input))
     output = Vector{type}(undef, size(input, other_axis(axis)))  # NOLINT
     if axis == 1
-        parallel_loop_wo_rng(
+        parallel_loop_wo_rng(  # NOLINT
             1:length(output);
             name = "Quantile",
-            progress = DebugProgress(length(output); desc = "Quantile"),
+            progress = DebugProgress(length(output); desc = "Quantile"),  # NOLINT
         ) do column_index
             column_vector = @view input[:, column_index]
-            output[column_index] = quantile(column_vector, operation.p)  # NOJET
+            return output[column_index] = quantile(column_vector, operation.p)  # NOJET
         end
     else
-        parallel_loop_wo_rng(
+        parallel_loop_wo_rng(  # NOLINT
             1:length(output);
             name = "Quantile",
-            progress = DebugProgress(length(output); desc = "Quantile"),
+            progress = DebugProgress(length(output); desc = "Quantile"),  # NOLINT
         ) do row_index
             row_vector = @view input[row_index, :]
-            output[row_index] = quantile(row_vector, operation.p)  # NOJET
+            return output[row_index] = quantile(row_vector, operation.p)  # NOJET
         end
     end
     return output

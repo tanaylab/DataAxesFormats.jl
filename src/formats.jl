@@ -193,8 +193,8 @@ struct Internal
     dependents_of_cache_keys::Dict{CacheKey, Set{CacheKey}}
     dependencies_of_query_keys::Dict{CacheKey, Set{CacheKey}}
     version_counters::Dict{PropertyKey, UInt32}
-    cache_lock::ExtendedReadWriteLock
-    data_lock::ExtendedReadWriteLock
+    cache_lock::ExtendedReadWriteLock  # NOLINT
+    data_lock::ExtendedReadWriteLock  # NOLINT
     is_frozen::Bool
     pending_condition::Threads.Condition
     pending_count::Vector{UInt32}
@@ -207,8 +207,8 @@ function Internal(; cache_group::Maybe{CacheGroup}, is_frozen::Bool)::Internal
         Dict{CacheKey, Set{CacheKey}}(),
         Dict{CacheKey, Set{CacheKey}}(),
         Dict{PropertyKey, UInt32}(),
-        ExtendedReadWriteLock(),
-        ExtendedReadWriteLock(),
+        ExtendedReadWriteLock(),  # NOLINT
+        ExtendedReadWriteLock(),  # NOLINT
         is_frozen,
         Threads.Condition(),
         UInt32[0],
@@ -690,7 +690,7 @@ function put_in_cache!(format::FormatReader, cache_key::CacheKey, data::CacheDat
 end
 
 function set_in_cache!(format::FormatReader, cache_key::CacheKey, data::CacheData, cache_group::CacheGroup)::Nothing
-    return with_cache_write_lock(format, "for set_in_cache!:", cache_key) do  # NOJET
+    return with_cache_write_lock(format, "for set_in_cache!:", cache_key) do         # NOJET
         return put_in_cache!(format, cache_key, data, cache_group)
     end
 end
@@ -720,7 +720,7 @@ function get_through_cache(
     @assert has_data_read_lock(format)
     cached = nothing
     while cached === nothing
-        cache_entry = with_cache_read_lock(format, "for get_from_cache:", cache_key) do  # NOJET
+        cache_entry = with_cache_read_lock(format, "for get_from_cache:", cache_key) do         # NOJET
             return get(format.internal.cache, cache_key, nothing)
         end
         cached = result_from_cache(cache_entry, T)
@@ -742,7 +742,7 @@ end
 function result_from_cache(cache_entry::CacheEntry, ::Type{T})::T where {T}
     entry_lock = cache_entry.data
     if entry_lock isa AbstractLock
-        cache_entry = lock(entry_lock) do  # UNTESTED
+        cache_entry = lock(entry_lock) do         # UNTESTED
             return cache_entry  # UNTESTED
         end
     end
@@ -757,7 +757,7 @@ function write_throgh_cache(
     cache_group::Maybe{CacheGroup};
     is_slow::Bool = false,
 )::Maybe{T} where {T}
-    result = with_cache_write_lock(format, "for get_through_cache:", cache_key) do  # NOJET
+    result = with_cache_write_lock(format, "for get_through_cache:", cache_key) do         # NOJET
         cache_entry = get(format.internal.cache, cache_key, nothing)
         if cache_entry !== nothing
             if cache_entry.data isa AbstractLock  # UNTESTED
@@ -790,7 +790,7 @@ function write_throgh_cache(
         @assert entry_lock isa AbstractLock
         try
             result, dependency_keys = getter()
-            with_cache_write_lock(format, "for slow:", cache_key) do  # NOJET
+            with_cache_write_lock(format, "for slow:", cache_key) do         # NOJET
                 if dependency_keys !== nothing
                     for dependency_key in dependency_keys
                         put_cached_dependency_key!(format, cache_key, dependency_key)
@@ -1043,7 +1043,7 @@ function begin_data_read_lock(format::FormatReader, what::Any...)::Nothing
     else
         lazy_what = () -> join([format.name, "data for", what...], " ")
     end
-    lock_read(format.internal.data_lock; what = lazy_what)  # NOJET
+    lock_read(format.internal.data_lock; what = lazy_what)  # NOJET # NOLINT
     return nothing
 end
 
@@ -1053,7 +1053,7 @@ function end_data_read_lock(format::FormatReader, what::Any...)::Nothing
     else
         lazy_what = () -> join([format.name, "data for", what...], " ")
     end
-    unlock_read(format.internal.data_lock; what = lazy_what)  # NOJET
+    unlock_read(format.internal.data_lock; what = lazy_what)  # NOJET # NOLINT
     return nothing
 end
 
@@ -1072,7 +1072,7 @@ function with_cache_write_lock(action::Function, format::FormatReader, what::Any
     else
         lazy_what = () -> join([format.name, "cache for", what...], " ")
     end
-    return lock_write(action, format.internal.cache_lock; what = lazy_what)
+    return lock_write(action, format.internal.cache_lock; what = lazy_what)  # NOLINT
 end
 
 function with_data_read_lock(action::Function, format::FormatReader, what::Any...)::Any
@@ -1099,7 +1099,7 @@ function begin_data_write_lock(format::FormatReader, what::Any...)::Nothing
     else
         lazy_what = () -> join([format.name, "data for", what...], " ")
     end
-    lock_write(format.internal.data_lock; what = lazy_what)  # NOJET
+    lock_write(format.internal.data_lock; what = lazy_what)  # NOJET # NOLINT
     return nothing
 end
 
@@ -1109,7 +1109,7 @@ function end_data_write_lock(format::FormatReader, what::Any...)::Nothing
     else
         lazy_what = () -> join([format.name, "data for", what...], " ")
     end
-    unlock_write(format.internal.data_lock; what = lazy_what)  # NOJET
+    unlock_write(format.internal.data_lock; what = lazy_what)  # NOJET # NOLINT
     return nothing
 end
 

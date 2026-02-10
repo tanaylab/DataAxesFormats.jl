@@ -312,7 +312,7 @@ function report_unsupported(
     unsupported_handler::AbnormalHandler,  # NOLINT
     message::AbstractString,
 )::Nothing
-    handle_abnormal(unsupported_handler) do  # NOLINT
+    handle_abnormal(unsupported_handler) do       # NOLINT
         return message * "in AnnData for the daf data: $(name)"
     end
     return nothing
@@ -577,7 +577,7 @@ stored in the returned new `AnnData` object.
         @assert obs_is != var_is
         require_matrix(daf, obs_is, var_is, X_is; relayout = true)
 
-        matrix = flip(get_matrix(daf, var_is, obs_is, X_is).array)
+        matrix = flip(get_matrix(daf, var_is, obs_is, X_is).array)  # NOLINT
         if X_eltype !== nothing && X_eltype != eltype(matrix)
             matrix = X_eltype.(matrix)  # UNTESTED
         end
@@ -646,14 +646,14 @@ end
 function copy_square_matrices(daf::DafReader, axis::AbstractString, dict::AbstractDict)::Nothing
     for name in matrices_set(daf, axis, axis)
         @debug "Square $(axis): $(name)"
-        dict[name] = flip(get_matrix(daf, axis, axis, name).array)
+        dict[name] = flip(get_matrix(daf, axis, axis, name).array)  # NOLINT
     end
 end
 
 function copy_vectors(daf::DafReader, axis::AbstractString, frame::DataFrame)::Nothing
     for name in vectors_set(daf, axis)
         @debug "Vector $(axis): $(name)"
-        frame[!, name] = densify(get_vector(daf, axis, name).array)
+        frame[!, name] = densify(get_vector(daf, axis, name).array)  # NOLINT
     end
 end
 
@@ -667,7 +667,7 @@ function copy_matrices(
     for name in matrices_set(daf, rows_axis, columns_axis; relayout = true)
         if name != skip_name
             @debug "Matrix $(rows_axis) $(columns_axis): $(name)"
-            dict[name] = flip(get_matrix(daf, columns_axis, rows_axis, name).array)
+            dict[name] = flip(get_matrix(daf, columns_axis, rows_axis, name).array)  # NOLINT
         end
     end
 end

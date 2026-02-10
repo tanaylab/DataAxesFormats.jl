@@ -333,7 +333,7 @@ metacells["@ metacell : type"]
 
 # output
 
-7-element Named SparseArrays.ReadOnly{SubString{StringViews.StringView{Vector{UInt8}}}, 1, Vector{SubString{StringViews.StringView{Vector{UInt8}}}}}
+7-element Named SparseArrays.ReadOnly{String, 1, Vector{String}}
 metacell  │
 ──────────┼───────────
 M1671.28  │      "MPP"
@@ -449,7 +449,7 @@ metacells["@ metacell : type : color"]
 
 # output
 
-7-element Named Vector{SubString{StringViews.StringView{Vector{UInt8}}}}
+7-element Named Vector{String}
 metacell  │
 ──────────┼────────────
 M1671.28  │      "gold"
@@ -549,7 +549,7 @@ metacells["@ metacell : type =@ : color"]
 
 # output
 
-7-element Named Vector{SubString{StringViews.StringView{Vector{UInt8}}}}
+7-element Named Vector{String}
 metacell  │
 ──────────┼────────────
 M1671.28  │      "gold"
@@ -567,7 +567,7 @@ metacells["@ metacell : type =@ type : color"]
 
 # output
 
-7-element Named Vector{SubString{StringViews.StringView{Vector{UInt8}}}}
+7-element Named Vector{String}
 metacell  │
 ──────────┼────────────
 M1671.28  │      "gold"

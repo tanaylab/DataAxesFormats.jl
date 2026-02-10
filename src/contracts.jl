@@ -377,11 +377,11 @@ outputs. If [`DAF_ENFORCE_CONTRACTS`](@ref) is not set, this just returns the or
 """
 function contractor(computation::AbstractString, contract::Contract, daf::DafReader; overwrite::Bool = false)::DafReader
     if DAF_ENFORCE_CONTRACTS
-        return flame_timed("contractor") do
+        return flame_timed("contractor") do  # NOLINT
             axes = collect_axes(contract)
             data = collect_data(computation, contract, daf, axes)
             expand_input_tensors(data, daf)
-            name = unique_name("$(daf.name).for.$(split(computation, '.')[end])")
+            name = unique_name("$(daf.name).for.$(split(computation, '.')[end])")  # NOLINT
             return ContractDaf(name, daf.internal, computation, contract.is_relaxed, axes, data, daf, overwrite)
         end
     else
@@ -564,7 +564,7 @@ of the appropriate type, and that if any of the optional data exists, it has the
 the `contract_daf` is just a `DafReader` (that is, if [`DAF_ENFORCE_CONTRACTS`](@ref) was not set).
 """
 function verify_input(contract_daf::ContractDaf)::Nothing
-    return flame_timed("verify_input") do
+    return flame_timed("verify_input") do  # NOLINT
         return verify_contract(contract_daf; is_output = false)
     end
 end
@@ -582,7 +582,7 @@ verifies that all the required inputs were accessed by the computation. This is 
 `DafReader` (that is, if [`DAF_ENFORCE_CONTRACTS`](@ref) was not set).
 """
 function verify_output(contract_daf::ContractDaf)::Nothing
-    return flame_timed("verify_output") do
+    return flame_timed("verify_output") do  # NOLINT
         return verify_contract(contract_daf; is_output = true)
     end
 end
@@ -1524,7 +1524,7 @@ function Readers.description(contract_daf::ContractDaf; cache::Bool = false, dee
 end
 
 function Queries.verify_contract_query(contract_daf::ContractDaf, cache_key::CacheKey)::Nothing
-    flame_timed("verify_contract_query") do
+    flame_timed("verify_contract_query") do  # NOLINT
         dependecies_keys = get(contract_daf.internal.dependencies_of_query_keys, cache_key, nothing)
         if dependecies_keys === nothing
             return nothing
