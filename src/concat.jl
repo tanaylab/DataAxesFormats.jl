@@ -131,7 +131,7 @@ then such properties will be processed according to it. Using `CollectAxis` for 
 
 By default, concatenation will fail rather than `overwrite` existing properties in the target.
 """
-@logged function concatenate!(  # NOLINT
+@logged function concatenate!(
     destination::DafWriter,
     axis::Union{AbstractString, AbstractVector{<:AbstractString}},
     sources::AbstractVector{<:DafReader};
@@ -426,10 +426,10 @@ function concatenate_axis_entry_names(
 )::Nothing
     axis_entry_names = Vector{AbstractString}(undef, concatenated_axis_size)
     n_sources = length(sources)
-    parallel_loop_wo_rng(  # NOLINT
+    parallel_loop_wo_rng(
         1:n_sources;
         name = "concatenate_axis_entry_names",
-        progress = DebugProgress(n_sources; desc = "concatenate_axis_entry_names"),  # NOLINT
+        progress = DebugProgress(n_sources; desc = "concatenate_axis_entry_names"),
     ) do source_index
         source = sources[source_index]
         offset = offsets[source_index]
@@ -462,10 +462,10 @@ function concatenate_axis_dataset_property(
     axis_datasets = Vector{AbstractString}(undef, concatenated_axis_size)
 
     n_sources = length(offsets)
-    parallel_loop_wo_rng(  # NOLINT
+    parallel_loop_wo_rng(
         1:n_sources;
         name = "concatenate_axis_dataset_property",
-        progress = DebugProgress(n_sources; desc = "concatenate_axis_dataset_property"),  # NOLINT
+        progress = DebugProgress(n_sources; desc = "concatenate_axis_dataset_property"),
     ) do source_index
         offset = offsets[source_index]
         size = sizes[source_index]
@@ -563,10 +563,10 @@ function concatenate_axis_string_vectors(
     concatenated_vector = Vector{AbstractString}(undef, concatenated_axis_size)
 
     n_sources = length(sources)
-    parallel_loop_wo_rng(  # NOLINT
+    parallel_loop_wo_rng(
         1:n_sources;
         name = "concatenate_axis_string_vectors",
-        progress = DebugProgress(n_sources; desc = "concatenate_axis_string_vectors"),  # NOLINT
+        progress = DebugProgress(n_sources; desc = "concatenate_axis_string_vectors"),
     ) do source_index
         vector = vectors[source_index]
         source = sources[source_index]
@@ -607,18 +607,18 @@ function concatenate_axis_sparse_vectors(
 
     empty_sparse_vector!(destination, axis, vector_property, eltype, total_nnz; overwrite) do sparse_nzind, sparse_nzval
         n_sources = length(vectors)
-        parallel_loop_wo_rng(  # NOLINT
+        parallel_loop_wo_rng(
             1:n_sources;
             name = "concatenate_axis_sparse_vectors",
-            progress = DebugProgress(n_sources; desc = "concatenate_axis_sparse_vectors"),  # NOLINT
+            progress = DebugProgress(n_sources; desc = "concatenate_axis_sparse_vectors"),
         ) do source_index
             vector = vectors[source_index]
             @assert issparse(vector)
             offset = offsets[source_index]
             nnz_offset = nnz_offsets[source_index]
             nnz_size = nnz_sizes[source_index]
-            sparse_nzval[(nnz_offset + 1):(nnz_offset + nnz_size)] = nzval(vector)  # NOLINT
-            sparse_nzind[(nnz_offset + 1):(nnz_offset + nnz_size)] = nzind(vector)  # NOLINT
+            sparse_nzval[(nnz_offset + 1):(nnz_offset + nnz_size)] = nzval(vector)
+            sparse_nzind[(nnz_offset + 1):(nnz_offset + nnz_size)] = nzind(vector)
             sparse_nzind[(nnz_offset + 1):(nnz_offset + nnz_size)] .+= offset
             return nothing
         end
@@ -641,10 +641,10 @@ function concatenate_axis_dense_vectors(
 )::Nothing
     empty_dense_vector!(destination, axis, vector_property, eltype; overwrite) do concatenated_vector
         n_sources = length(sources)
-        parallel_loop_wo_rng(  # NOLINT
+        parallel_loop_wo_rng(
             1:n_sources;
             name = "concatenate_axis_dense_vectors",
-            progress = DebugProgress(n_sources; desc = "concatenate_axis_dense_vectors"),  # NOLINT
+            progress = DebugProgress(n_sources; desc = "concatenate_axis_dense_vectors"),
         ) do source_index
             source = sources[source_index]
             vector = vectors[source_index]
@@ -740,10 +740,10 @@ function concatenate_axis_sparse_matrices(
         overwrite,
     ) do sparse_colptr, sparse_rowval, sparse_nzval
         n_sources = length(matrices)
-        parallel_loop_wo_rng(  # NOLINT
+        parallel_loop_wo_rng(
             1:n_sources;
             name = "concatenate_axis_sparse_matrices",
-            progress = DebugProgress(n_sources; desc = "concatenate_axis_sparse_matrices"),  # NOLINT
+            progress = DebugProgress(n_sources; desc = "concatenate_axis_sparse_matrices"),
         ) do source_index
             matrix = matrices[source_index]
             @assert issparse(matrix)
@@ -751,9 +751,9 @@ function concatenate_axis_sparse_matrices(
             ncols = sizes[source_index]
             nnz_offset = nnz_offsets[source_index]
             nnz_size = nnz_sizes[source_index]
-            sparse_nzval[(nnz_offset + 1):(nnz_offset + nnz_size)] = nzval(matrix)  # NOLINT
-            sparse_rowval[(nnz_offset + 1):(nnz_offset + nnz_size)] = rowval(matrix)  # NOLINT
-            sparse_colptr[(column_offset + 1):(column_offset + ncols)] = colptr(matrix)[1:ncols]  # NOLINT
+            sparse_nzval[(nnz_offset + 1):(nnz_offset + nnz_size)] = nzval(matrix)
+            sparse_rowval[(nnz_offset + 1):(nnz_offset + nnz_size)] = rowval(matrix)
+            sparse_colptr[(column_offset + 1):(column_offset + ncols)] = colptr(matrix)[1:ncols]
             sparse_colptr[(column_offset + 1):(column_offset + ncols)] .+= nnz_offset
             return nothing
         end
@@ -779,10 +779,10 @@ function concatenate_axis_dense_matrices(
 )::Nothing
     empty_dense_matrix!(destination, other_axis, axis, matrix_property, eltype; overwrite) do concatenated_matrix
         n_sources = length(sources)
-        parallel_loop_wo_rng(  # NOLINT
+        parallel_loop_wo_rng(
             1:n_sources;
             name = "concatenate_axis_dense_matrices",
-            progress = DebugProgress(n_sources; desc = "concatenate_axis_dense_matrices"),  # NOLINT
+            progress = DebugProgress(n_sources; desc = "concatenate_axis_dense_matrices"),
         ) do source_index
             source = sources[source_index]
             matrix = matrices[source_index]
@@ -1045,17 +1045,17 @@ function concatenate_merge_sparse_vector(
     ) do sparse_colptr, sparse_rowval, sparse_nzval
         sparse_colptr[1] == 1
         n_sources = length(vectors)
-        parallel_loop_wo_rng(  # NOLINT
+        parallel_loop_wo_rng(
             1:n_sources;
             name = "concatenate_merge_sparse_vector",
-            progress = DebugProgress(n_sources; desc = "concatenate_merge_sparse_vector"),  # NOLINT
+            progress = DebugProgress(n_sources; desc = "concatenate_merge_sparse_vector"),
         ) do source_index
             vector = vectors[source_index]
             @assert issparse(vector)
             nnz_offset = nnz_offsets[source_index]
             nnz_size = nnz_sizes[source_index]
-            sparse_nzval[(nnz_offset + 1):(nnz_offset + nnz_size)] = nzval(vector)  # NOLINT
-            sparse_rowval[(nnz_offset + 1):(nnz_offset + nnz_size)] = nzind(vector)  # NOLINT
+            sparse_nzval[(nnz_offset + 1):(nnz_offset + nnz_size)] = nzval(vector)
+            sparse_rowval[(nnz_offset + 1):(nnz_offset + nnz_size)] = nzind(vector)
             sparse_colptr[source_index + 1] = nnz_offset + nnz_size + 1
             return nothing
         end
@@ -1077,10 +1077,10 @@ function concatenate_merge_dense_vector(
 )::Nothing
     empty_dense_matrix!(destination, axis, dataset_axis, vector_property, eltype; overwrite) do concatenated_matrix
         n_sources = length(sources)
-        parallel_loop_wo_rng(  # NOLINT
+        parallel_loop_wo_rng(
             1:n_sources;
             name = "concatenate_merge_dense_vector",
-            progress = DebugProgress(n_sources; desc = "concatenate_merge_dense_vector"),  # NOLINT
+            progress = DebugProgress(n_sources; desc = "concatenate_merge_dense_vector"),
         ) do source_index
             source = sources[source_index]
             vector = vectors[source_index]
@@ -1276,7 +1276,7 @@ function sparse_vectors_storage_fraction(
         end
     end
 
-    indtype = indtype_for_size(dense_size)  # NOLINT
+    indtype = indtype_for_size(dense_size)
     dense_bytes = dense_size * sizeof(eltype)
     sparse_bytes = sparse_size * (sizeof(eltype) + sizeof(indtype))
     return (dense_bytes - sparse_bytes) / dense_bytes
@@ -1312,7 +1312,7 @@ function sparse_matrices_storage_fraction(
         end
     end
 
-    indtype = indtype_for_size(dense_size)  # NOLINT
+    indtype = indtype_for_size(dense_size)
     dense_bytes = dense_size * sizeof(eltype)
     sparse_bytes = sparse_size * (sizeof(eltype) + sizeof(indtype)) + (total_n_columns + 1) * sizeof(indtype)
     return (dense_bytes - sparse_bytes) / dense_bytes
@@ -1326,10 +1326,10 @@ function sparsify_concatenated_vectors(
     sparse_vectors = Vector{SparseVector}(undef, length(vectors))
 
     n_sources = length(vectors)
-    parallel_loop_wo_rng(  # NOLINT
+    parallel_loop_wo_rng(
         1:n_sources;
         name = "sparsify_concatenated_vectors",
-        progress = DebugProgress(n_sources; desc = "sparsify_concatenated_vectors"),  # NOLINT
+        progress = DebugProgress(n_sources; desc = "sparsify_concatenated_vectors"),
     ) do source_index
         vector = vectors[source_index]
         size = sizes[source_index]
@@ -1339,7 +1339,7 @@ function sparsify_concatenated_vectors(
             @assert length(vector) == size
             vector = vector.array
             if !issparse(vector)
-                vector = sparse_vector(vector)  # NOLINT
+                vector = sparse_vector(vector)
             end
             sparse_vectors[source_index] = vector
         end
@@ -1359,10 +1359,10 @@ function sparsify_concatenated_matrices(
     sparse_matrices = Vector{SparseMatrixCSC}(undef, length(matrices))
 
     n_sources = length(matrices)
-    parallel_loop_wo_rng(  # NOLINT
+    parallel_loop_wo_rng(
         1:n_sources;
         name = "sparsify_concatenated_matrices",
-        progress = DebugProgress(n_sources; desc = "sparsify_concatenated_matrices"),  # NOLINT
+        progress = DebugProgress(n_sources; desc = "sparsify_concatenated_matrices"),
     ) do source_index
         matrix = matrices[source_index]
         ncols = sizes[source_index]

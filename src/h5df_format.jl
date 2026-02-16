@@ -220,7 +220,7 @@ function H5df(
             purge = false
         end
 
-        root = get_through_global_weak_cache(abspath(root), key; purge) do _  # NOLINT
+        root = get_through_global_weak_cache(abspath(root), key; purge) do _
             return h5open(root, mode == "w+" ? "cw" : mode; fapl = HDF5.FileAccessProperties(; alignment = (1, 8)))  # NOJET
         end
 
@@ -275,7 +275,7 @@ function H5df(
             name = root.filename
         end
     end
-    name = unique_name(name)  # NOLINT
+    name = unique_name(name)
 
     h5df = H5df(name, Internal(; cache_group = MappedData, is_frozen = is_read_only), root, mode)
     @debug "Daf: $(brief(h5df)) root: $(root)"
@@ -384,7 +384,7 @@ function Formats.format_scalars_set(h5df::H5df)::AbstractSet{<:AbstractString}
     scalars_group = h5df.root["scalars"]
     @assert scalars_group isa HDF5.Group
 
-    return flame_timed("H5df.keys_as_set") do  # NOLINT
+    return flame_timed("H5df.keys_as_set") do
         return Set(keys(scalars_group))
     end
 end
@@ -401,7 +401,7 @@ function Formats.format_add_axis!(h5df::H5df, axis::AbstractString, entries::Abs
     axes_group = h5df.root["axes"]
     @assert axes_group isa HDF5.Group
 
-    flame_timed("H5df.create_axis_vector") do  # NOLINT
+    flame_timed("H5df.create_axis_vector") do
         axis_dataset = create_dataset(axes_group, axis, String, (length(entries)))
         axis_dataset[:] = entries
         return close(axis_dataset)
@@ -415,7 +415,7 @@ function Formats.format_add_axis!(h5df::H5df, axis::AbstractString, entries::Abs
     matrices_group = h5df.root["matrices"]
     @assert matrices_group isa HDF5.Group
 
-    axes = flame_timed("H5df.keys_as_set") do  # NOLINT
+    axes = flame_timed("H5df.keys_as_set") do
         return Set(keys(axes_group))
     end
     @assert axis in axes
@@ -470,7 +470,7 @@ function Formats.format_axes_set(h5df::H5df)::AbstractSet{<:AbstractString}
     axes_group = h5df.root["axes"]
     @assert axes_group isa HDF5.Group
 
-    return flame_timed("H5df.keys_as_set") do  # NOLINT
+    return flame_timed("H5df.keys_as_set") do
         return Set(keys(axes_group))
     end
 end
@@ -521,7 +521,7 @@ function Formats.format_set_vector!(
     @assert axis_vectors_group isa HDF5.Group
 
     if vector isa StorageScalar
-        flame_timed("H5df.fill_real_vector") do  # NOLINT
+        flame_timed("H5df.fill_real_vector") do
             vector_dataset =
                 create_dataset(axis_vectors_group, name, typeof(vector), (Formats.format_axis_length(h5df, axis),))
             vector_dataset[:] = vector  # NOJET
@@ -534,15 +534,15 @@ function Formats.format_set_vector!(
         vector = base_array(vector)
 
         if issparse(vector)
-            flame_timed("H5df.write_sparse_vector") do  # NOLINT
+            flame_timed("H5df.write_sparse_vector") do
                 @assert vector isa AbstractVector
                 vector_group = create_group(axis_vectors_group, name)
-                vector_group["nzind"] = nzind(vector)  # NOJET # NOLINT
-                if eltype(vector) != Bool || !all(nzval(vector)) # NOLINT
+                vector_group["nzind"] = nzind(vector)  # NOJET
+                if eltype(vector) != Bool || !all(nzval(vector))
                     if eltype(vector) <: AbstractString
-                        vector_group["nzval"] = String.(nzval(vector))  # NOJET # NOLINT # UNTESTED
+                        vector_group["nzval"] = String.(nzval(vector))  # NOJET # UNTESTED
                     else
-                        vector_group["nzval"] = nzval(vector)  # NOLINT
+                        vector_group["nzval"] = nzval(vector)
                     end
                 end
                 return close(vector_group)
@@ -552,7 +552,7 @@ function Formats.format_set_vector!(
             write_string_vector(axis_vectors_group, name, vector)
 
         else
-            flame_timed("H5df.write_dense_vector") do  # NOLINT
+            flame_timed("H5df.write_dense_vector") do
                 nice_vector = nothing
                 try
                     base = pointer(vector)
@@ -573,7 +573,7 @@ function write_string_vector(
     name::AbstractString,
     vector::AbstractVector{<:AbstractString},
 )::Nothing
-    flame_timed("H5df.write_string_vector") do  # NOLINT
+    flame_timed("H5df.write_string_vector") do
         n_empty = 0
         nonempty_size = 0
         for value in vector
@@ -587,7 +587,7 @@ function write_string_vector(
 
         n_values = length(vector)
         n_nonempty = n_values - n_empty
-        indtype = indtype_for_size(n_values)  # NOLINT
+        indtype = indtype_for_size(n_values)
 
         dense_size = nonempty_size + length(vector)
         sparse_size = nonempty_size + n_nonempty * (1 + sizeof(indtype))
@@ -633,7 +633,7 @@ function Formats.format_get_empty_dense_vector!(
     @assert axis_vectors_group isa HDF5.Group
 
     local vector_dataset
-    flame_timed("H5df.create_empty_dense_vector") do  # NOLINT
+    flame_timed("H5df.create_empty_dense_vector") do
         vector_dataset = create_dataset(axis_vectors_group, name, eltype, (Formats.format_axis_length(h5df, axis),))
         @assert vector_dataset isa HDF5.Dataset
         return vector_dataset[:] = 0
@@ -662,7 +662,7 @@ function Formats.format_get_empty_sparse_vector!(
 
     local nzind_dataset
     local nzval_dataset
-    flame_timed("H5df.create_empty_sparse_vector") do  # NOLINT
+    flame_timed("H5df.create_empty_sparse_vector") do
         nzind_dataset = create_dataset(vector_group, "nzind", indtype, (nnz,))
         nzval_dataset = create_dataset(vector_group, "nzval", eltype, (nnz,))
 
@@ -704,7 +704,7 @@ function Formats.format_vectors_set(h5df::H5df, axis::AbstractString)::AbstractS
     axis_vectors_group = vectors_group[axis]
     @assert axis_vectors_group isa HDF5.Group
 
-    return flame_timed("H5df.keys_as_set") do  # NOLINT
+    return flame_timed("H5df.keys_as_set") do
         return Set(keys(axis_vectors_group))
     end
 end
@@ -794,14 +794,14 @@ function Formats.format_set_matrix!(
     ncols = Formats.format_axis_length(h5df, columns_axis)
 
     if matrix isa StorageReal
-        flame_timed("H5df.fill_real_matrix") do  # NOLINT
+        flame_timed("H5df.fill_real_matrix") do
             matrix_dataset = create_dataset(columns_axis_group, name, typeof(matrix), (nrows, ncols))
             matrix_dataset[:, :] = matrix
             return close(matrix_dataset)
         end
 
     elseif matrix isa AbstractString
-        flame_timed("H5df.fill_string_matrix") do  # NOLINT
+        flame_timed("H5df.fill_string_matrix") do
             matrix_dataset = create_dataset(columns_axis_group, name, String, (nrows, ncols))
             matrix_dataset[:, :] = matrix
             return close(matrix_dataset)
@@ -812,28 +812,28 @@ function Formats.format_set_matrix!(
 
     else
         @assert matrix isa AbstractMatrix
-        @assert major_axis(matrix) != Rows  # NOLINT
+        @assert major_axis(matrix) != Rows
 
         matrix = base_array(matrix)
 
         if issparse(matrix)
-            flame_timed("H5df.write_sparse_matrix") do  # NOLINT
+            flame_timed("H5df.write_sparse_matrix") do
                 @assert matrix isa AbstractMatrix
                 matrix_group = create_group(columns_axis_group, name)
-                matrix_group["colptr"] = colptr(matrix)  # NOLINT
-                matrix_group["rowval"] = rowval(matrix)  # NOLINT
-                if eltype(matrix) != Bool || !all(nzval(matrix))  # NOLINT
+                matrix_group["colptr"] = colptr(matrix)
+                matrix_group["rowval"] = rowval(matrix)
+                if eltype(matrix) != Bool || !all(nzval(matrix))
                     if eltype(matrix) <: AbstractString
-                        matrix_group["nzval"] = String.(nzval(matrix))  # NOLINT # UNTESTED
+                        matrix_group["nzval"] = String.(nzval(matrix))  # UNTESTED
                     else
-                        matrix_group["nzval"] = nzval(matrix)  # NOLINT
+                        matrix_group["nzval"] = nzval(matrix)
                     end
                 end
                 return close(matrix_group)
             end
 
         else
-            flame_timed("H5df.write_dense_matrix") do  # NOLINT
+            flame_timed("H5df.write_dense_matrix") do
                 nice_matrix = nothing
                 try
                     base = pointer(matrix)
@@ -854,7 +854,7 @@ function write_string_matrix(
     name::AbstractString,
     matrix::AbstractMatrix{<:AbstractString},
 )::Nothing
-    flame_timed("H5df.write_string_matrix") do  # NOLINT
+    flame_timed("H5df.write_string_matrix") do
         nrows, ncols = size(matrix)
 
         n_empty = 0
@@ -870,7 +870,7 @@ function write_string_matrix(
 
         n_values = nrows * ncols
         n_nonempty = n_values - n_empty
-        indtype = indtype_for_size(n_values)  # NOLINT
+        indtype = indtype_for_size(n_values)
 
         dense_size = nonempty_size + length(matrix)
         sparse_size = nonempty_size + n_nonempty + (ncols + 1 + n_nonempty) * sizeof(indtype)
@@ -931,7 +931,7 @@ function Formats.format_get_empty_dense_matrix!(
     ncols = Formats.format_axis_length(h5df, columns_axis)
 
     local matrix_dataset
-    flame_timed("H5df.create_empty_dense_matrix") do  # NOLINT
+    flame_timed("H5df.create_empty_dense_matrix") do
         matrix_dataset = create_dataset(columns_axis_group, name, eltype, (nrows, ncols))
         return matrix_dataset[:, :] = 0
     end
@@ -968,7 +968,7 @@ function Formats.format_get_empty_sparse_matrix!(
     local rowval_dataset
     local nzval_dataset
 
-    flame_timed("H5df.create_empty_sparse_matrix") do  # NOLINT
+    flame_timed("H5df.create_empty_sparse_matrix") do
         colptr_dataset = create_dataset(matrix_group, "colptr", indtype, ncols + 1)
         rowval_dataset = create_dataset(matrix_group, "rowval", indtype, Int(nnz))
         nzval_dataset = create_dataset(matrix_group, "nzval", eltype, Int(nnz))
@@ -1008,7 +1008,7 @@ function Formats.format_relayout_matrix!(
             name,
             eltype(matrix),
             nnz(matrix),
-            eltype(colptr(matrix)),  # NOLINT
+            eltype(colptr(matrix)),
         )
         sparse_colptr .= length(sparse_nzval) + 1
         sparse_colptr[1] = 1
@@ -1019,7 +1019,7 @@ function Formats.format_relayout_matrix!(
             sparse_rowval,
             sparse_nzval,
         )
-        relayout!(flip(relayout_matrix), matrix)  # NOLINT
+        relayout!(flip(relayout_matrix), matrix)
 
     elseif eltype(matrix) <: AbstractString
         matrices_group = h5df.root["matrices"]
@@ -1031,12 +1031,12 @@ function Formats.format_relayout_matrix!(
         rows_axis_group = columns_axis_group[rows_axis]
         @assert rows_axis_group isa HDF5.Group
 
-        relayout_matrix = flipped(matrix)  # NOLINT
+        relayout_matrix = flipped(matrix)
         write_string_matrix(rows_axis_group, name, relayout_matrix)
 
     else
         relayout_matrix = Formats.format_get_empty_dense_matrix!(h5df, columns_axis, rows_axis, name, eltype(matrix))
-        relayout!(flip(relayout_matrix), matrix)  # NOLINT
+        relayout!(flip(relayout_matrix), matrix)
     end
 
     return relayout_matrix
@@ -1079,7 +1079,7 @@ function Formats.format_matrices_set(
     columns_axis_group = rows_axis_group[columns_axis]
     @assert columns_axis_group isa HDF5.Group
 
-    return flame_timed("H5df.keys_as_set") do  # NOLINT
+    return flame_timed("H5df.keys_as_set") do
         return Set(keys(columns_axis_group))
     end
 end
@@ -1154,7 +1154,7 @@ function Formats.format_get_matrix(
 end
 
 function dataset_as_vector(dataset::HDF5.Dataset)::StorageVector
-    return flame_timed("H5df.dataset_as_vector") do  # NOLINT
+    return flame_timed("H5df.dataset_as_vector") do
         if HDF5.ismmappable(dataset) && HDF5.iscontiguous(dataset) && !isempty(dataset)
             return HDF5.readmmap(dataset)  # NOJET
         else
@@ -1164,7 +1164,7 @@ function dataset_as_vector(dataset::HDF5.Dataset)::StorageVector
 end
 
 function dataset_as_matrix(dataset::HDF5.Dataset)::StorageMatrix
-    return flame_timed("H5df.dataset_as_matrix") do  # NOLINT
+    return flame_timed("H5df.dataset_as_matrix") do
         if HDF5.ismmappable(dataset) && HDF5.iscontiguous(dataset) && !isempty(dataset)
             return HDF5.readmmap(dataset)  # NOJET
         else

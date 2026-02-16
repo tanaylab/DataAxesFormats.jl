@@ -43,7 +43,7 @@ function read_only(daf::DafReader; name::Maybe{AbstractString} = nothing)::DafRe
     if name === nothing
         name = daf.name * ".read_only"
     end
-    name = unique_name(name)  # NOJET # NOLINT
+    name = unique_name(name)  # NOJET
     wrapper = DafReadOnlyWrapper(name, daf.internal, daf)
     @debug "Daf: $(brief(wrapper)) base: $(daf)"
     return wrapper
@@ -142,7 +142,7 @@ function Formats.format_get_vector(
     name::AbstractString,
 )::StorageVector
     @assert Formats.has_data_read_lock(read_only_view)
-    return read_only_array(Formats.format_get_vector(read_only_view.daf, axis, name))  # NOLINT
+    return read_only_array(Formats.format_get_vector(read_only_view.daf, axis, name))
 end
 
 function Formats.format_has_matrix(
@@ -171,7 +171,7 @@ function Formats.format_get_matrix(
     name::AbstractString,
 )::StorageMatrix
     @assert Formats.has_data_read_lock(read_only_view)
-    return read_only_array(Formats.format_get_matrix(read_only_view.daf, rows_axis, columns_axis, name))  # NOLINT
+    return read_only_array(Formats.format_get_matrix(read_only_view.daf, rows_axis, columns_axis, name))
 end
 
 function Formats.format_description_header(  # UNTESTED

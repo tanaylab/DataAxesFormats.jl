@@ -494,7 +494,7 @@ function empty_sparse_vector!(
     overwrite::Bool = false,
 )::Any
     if indtype === nothing
-        indtype = indtype_for_size(axis_length(daf, axis))  # NOLINT
+        indtype = indtype_for_size(axis_length(daf, axis))
     end
     @assert isbitstype(eltype)
     @assert isbitstype(indtype)
@@ -695,8 +695,8 @@ function set_matrix!(
 
         if matrix isa StorageMatrix
             require_column_major(matrix)
-            require_axis_length(daf, size(matrix, Rows), "rows of the matrix: $(name)", rows_axis)  # NOLINT
-            require_axis_length(daf, size(matrix, Columns), "columns of the matrix: $(name)", columns_axis)  # NOLINT
+            require_axis_length(daf, size(matrix, Rows), "rows of the matrix: $(name)", rows_axis)
+            require_axis_length(daf, size(matrix, Columns), "columns of the matrix: $(name)", columns_axis)
             if matrix isa NamedMatrix
                 require_axis_names(daf, rows_axis, "row names of the: matrix", names(matrix, 1))
                 require_axis_names(daf, columns_axis, "column names of the: matrix", names(matrix, 2))
@@ -869,7 +869,7 @@ function empty_sparse_matrix!(
     if indtype === nothing
         nrows = axis_length(daf, rows_axis)
         ncolumns = axis_length(daf, columns_axis)
-        indtype = indtype_for_size(max(nrows, ncolumns, nnz))  # NOLINT
+        indtype = indtype_for_size(max(nrows, ncolumns, nnz))
     end
     @assert isbitstype(eltype)
     @assert isbitstype(indtype)

@@ -924,10 +924,6 @@ them in an application UI (e.g., allowing the user to specify the X, Y and/or co
 At the same time, being able to incrementally build queries using code allows for convenient reuse (e.g., reusing axis
 sub-queries in `Daf` views), without having to go through the string representation.
 
-If the provided query string contains only an operand, and `operand_only` is specified, it is used as the operator
-(i.e., `parse_query("metacell")` is an error, but `parse_query("metacell", Axis)` is the same as `Axis("metacell")`).
-This is useful when providing suffix queries (e.g., for [`get_frame`](@ref)).
-
 To apply a query, invoke [`get_query`](@ref) to apply a query to some [`DafReader`](@ref) data (you can also use the
 shorthand `daf[query]` instead of `get_query(daf, query)`. Tou can also write `query |> get_query(daf)` which is useful
 when constructing a query from parts using `|>`). By default, [`get_query`](@ref) will cache their results in memory as
@@ -1257,10 +1253,6 @@ function as_query_sequence(query_operation::QueryOperation)::QuerySequence
     return QuerySequence([query_operation])
 end
 
-function as_query_sequence(query::Query)::QuerySequence
-    return QuerySequence([query])
-end
-
 function as_query_sequence(query_sequence::QuerySequence)::QuerySequence
     return query_sequence
 end
@@ -1339,7 +1331,7 @@ function get_query(
     cache::Bool = true,
 )::Union{AbstractSet{<:AbstractString}, StorageScalar, NamedArray}
     query_sequence = as_query_sequence(query_string)
-    cache_key = (CachedQuery, "$(query_sequence)")
+    cache_key = (CachedQuery, "$(query_sequence)", :value)
     verify_contract_query(daf, cache_key)
     return Formats.with_data_read_lock(daf, "for get_query of:", cache_key) do
         if cache
@@ -1594,7 +1586,7 @@ function error_invalid_operation(query_state::QueryState)::Nothing
 end
 
 function is_complete(query_state::QueryState)::Bool
-    return (
+    return (  # NOJET
         is_all_stack(query_state, (NamesState,)) ||
         is_all_stack(query_state, (ScalarState,)) ||
         (
@@ -1693,7 +1685,7 @@ function get_query_result(
     end
 
     if is_all_stack(query_state, (NamesState,))
-        return (pop!(query_state.stack).names_set, query_state.dependency_keys)
+        return (pop!(query_state.stack).names_set, query_state.dependency_keys)  # NOJET
     end
 
     if is_all_stack(query_state, (ScalarState,))
@@ -2087,6 +2079,10 @@ end
 
 Parse a query (or a fragment of a query). If the `query_string` contains just a name, and `operand_only` was specified,
 then it is assumed this is the type of query operation.
+
+If the provided query string contains only an operand, and `operand_only` is specified, it is used as the operator
+(i.e., `parse_query("metacell")` is an error, but `parse_query("metacell", Axis)` is the same as `Axis("metacell")`).
+This is useful when providing suffix queries (e.g., for [`get_frame`](@ref)).
 """
 function parse_query(
     query_string::AbstractString,
@@ -3250,8 +3246,8 @@ end
 
 function finalize_vector_values!(query_state::QueryState, vector_state::VectorState)::Nothing
     if query_state.what_for === :compute && vector_state.pending_final_values !== nothing
-        vector_values = densify(vector_state.vector_values; copy = is_read_only_array(vector_state.vector_values))  # NOLINT
-        @assert !is_read_only_array(vector_values)  # NOLINT
+        vector_values = densify(vector_state.vector_values; copy = is_read_only_array(vector_state.vector_values))  # NOJET
+        @assert !is_read_only_array(vector_values)
         for index in eachindex(vector_values)
             final_value = vector_state.pending_final_values[index]
             if final_value !== nothing
@@ -4736,8 +4732,8 @@ end
 
 function finalize_matrix_values!(query_state::QueryState, matrix_state::MatrixState)::Nothing
     if query_state.what_for === :compute && matrix_state.pending_final_values !== nothing
-        matrix_values = densify(matrix_state.matrix_values; copy = is_read_only_array(matrix_state.matrix_values))  # NOLINT
-        @assert !is_read_only_array(matrix_values)  # NOLINT
+        matrix_values = densify(matrix_state.matrix_values; copy = is_read_only_array(matrix_state.matrix_values))  # NOJET
+        @assert !is_read_only_array(matrix_values)
         n_rows, n_columns = size(matrix_values)
         for column_index in 1:n_columns
             for row_index in 1:n_rows
@@ -5265,19 +5261,9 @@ Given a query for an axis, and some suffix query for a vector property, combine 
 values for the axis. This is used by [`FrameColumn`](@ref) for [`get_frame`](@ref) and also for queries of vector data
 in views.
 
-Normally we just concatenate the axis query and the vector query.
-
-  - If the vector query contains [`GroupBy`](@ref), then the query must repeat any mask specified for the axis query.
-    That is, if the axis query is `metacell [ type = B ]` (the frame has a row for each metacells of B cells), and we
-    want the mean age of the cells (`@ cell : age`) in each such metacell (`/ metacell >> Mean`), then the vector query
-    must be the full `@ cell [ metacell : type = B ] : age / metacell %> Mean`. TODO: Find a way to inject the mask in
-    the right place in such a query (that is, allow saying just `@ cell : age / metacell >> Mean`) - this is difficult
-    in the general case.
-
-  - Otherwise (the common case) we simply concatenate the axis query and the vector query. That is, of the axis query is
-    `@ cell [ batch = B1 ]` and the vector query is `: age`, then the full query will be `@ cell [ batch = B1 ] : age`.
-    Or, if the axis query is `@ gene [ is_marker ]` and the vector query is `@ metacell :: fraction >| Mean`, then the
-    full query would be `@ cell [ batch = B1 ] @ metacell :: fraction >| Mean`.
+Normally we just concatenate the axis query and the vector query. However, similar to defining a view, if the query
+starts with an axis operator, it may require repeating the axis query in it, so an axis operator with the special
+`__axis__` name is replaced by the axis query.
 """
 function full_vector_query(
     axis_query::Query,
@@ -5285,19 +5271,33 @@ function full_vector_query(
     vector_name::Maybe{AbstractString} = nothing,
 )::Query
     if vector_name !== nothing && vector_query == "="
-        vector_query = LookupVector(vector_name)
+        vector_query = LookupVector(vector_name)  # UNTESTED
     elseif vector_query isa AbstractString
         vector_query = parse_query(vector_query, LookupVector)
-    else
-        vector_query = as_query_sequence(vector_query)
+    end
+    vector_query = patch_query(vector_query, ["__axis__" => as_query_sequence(axis_query)])
+    if !(vector_query.query_operations[1] isa Axis)
+        vector_query = axis_query |> vector_query
     end
 
-    if vector_query isa QuerySequence &&
-       any([query_operation isa GroupBy for query_operation in vector_query.query_operations])
-        return vector_query
-    else
-        return axis_query |> vector_query
+    return vector_query
+end
+
+function patch_query(query::QueryOperation, replacements::Vector{Pair{String, QuerySequence}})::QuerySequence
+    query = as_query_sequence(query)
+    index = 1
+    while index <= length(query.query_operations)
+        query_operation = query.query_operations[index]
+        if query_operation isa Axis
+            for (replaced_axis_name, replacement_query_sequence) in replacements
+                if query_operation.axis_name == replaced_axis_name
+                    splice!(query.query_operations, index:index, replacement_query_sequence.query_operations)
+                end
+            end
+        end
+        index += 1
     end
+    return query
 end
 
 end  # module

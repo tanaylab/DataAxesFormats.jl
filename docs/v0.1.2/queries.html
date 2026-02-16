@@ -378,20 +378,6 @@
 <code>Daf
 </code> views), without having to go through the string representation.
 </p>
-<p>If the provided query string contains only an operand, and 
-<code>operand_only
-</code> is specified, it is used as the operator (i.e., 
-<code>parse_query(&quot;metacell&quot;)
-</code> is an error, but 
-<code>parse_query(&quot;metacell&quot;, Axis)
-</code> is the same as 
-<code>Axis(&quot;metacell&quot;)
-</code>). This is useful when providing suffix queries (e.g., for 
-<a href="queries.html#DataAxesFormats.Queries.get_frame">
-<code>get_frame
-</code>
-</a>).
-</p>
 <p>To apply a query, invoke 
 <a href="queries.html#DataAxesFormats.Queries.get_query">
 <code>get_query
@@ -1100,6 +1086,20 @@
 </code> contains just a name, and 
 <code>operand_only
 </code> was specified, then it is assumed this is the type of query operation.
+</p>
+<p>If the provided query string contains only an operand, and 
+<code>operand_only
+</code> is specified, it is used as the operator (i.e., 
+<code>parse_query(&quot;metacell&quot;)
+</code> is an error, but 
+<code>parse_query(&quot;metacell&quot;, Axis)
+</code> is the same as 
+<code>Axis(&quot;metacell&quot;)
+</code>). This is useful when providing suffix queries (e.g., for 
+<a href="queries.html#DataAxesFormats.Queries.get_frame">
+<code>get_frame
+</code>
+</a>).
 </p>
 </div>
 </section>
@@ -10482,44 +10482,10 @@ query |&gt; get_query(
 </code>
 </a> and also for queries of vector data in views.
 </p>
-<p>Normally we just concatenate the axis query and the vector query.
+<p>Normally we just concatenate the axis query and the vector query. However, similar to defining a view, if the query starts with an axis operator, it may require repeating the axis query in it, so an axis operator with the special 
+<code>__axis__
+</code> name is replaced by the axis query.
 </p>
-<ul>
-<li>
-<p>If the vector query contains 
-<a href="queries.html#DataAxesFormats.Queries.GroupBy">
-<code>GroupBy
-</code>
-</a>, then the query must repeat any mask specified for the axis query. That is, if the axis query is 
-<code>metacell [ type = B ]
-</code> (the frame has a row for each metacells of B cells), and we want the mean age of the cells (
-<code>@ cell : age
-</code>) in each such metacell (
-<code>/ metacell &gt;&gt; Mean
-</code>), then the vector query must be the full 
-<code>@ cell [ metacell : type = B ] : age / metacell %&gt; Mean
-</code>. TODO: Find a way to inject the mask in the right place in such a query (that is, allow saying just 
-<code>@ cell : age / metacell &gt;&gt; Mean
-</code>) - this is difficult in the general case.
-</p>
-</li>
-<li>
-<p>Otherwise (the common case) we simply concatenate the axis query and the vector query. That is, of the axis query is 
-<code>@ cell [ batch = B1 ]
-</code> and the vector query is 
-<code>: age
-</code>, then the full query will be 
-<code>@ cell [ batch = B1 ] : age
-</code>. Or, if the axis query is 
-<code>@ gene [ is_marker ]
-</code> and the vector query is 
-<code>@ metacell :: fraction &gt;| Mean
-</code>, then the full query would be 
-<code>@ cell [ batch = B1 ] @ metacell :: fraction &gt;| Mean
-</code>.
-</p>
-</li>
-</ul>
 </div>
 </section>
 </details>

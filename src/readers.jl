@@ -722,18 +722,9 @@ function has_matrix(
         require_axis(daf, "for the rows of the matrix: $(name)", rows_axis)
         require_axis(daf, "for the columns of the matrix: $(name)", columns_axis)
 
-        result = Formats.with_cache_read_lock(
-            daf,
-            "cache for has_matrix of:",
-            name,
-            "of:",
-            rows_axis,
-            "and:",
-            columns_axis,
-        ) do
-            return Formats.format_has_matrix(daf, rows_axis, columns_axis, name) ||
-                   (relayout && Formats.format_has_matrix(daf, columns_axis, rows_axis, name))
-        end
+        result =
+            Formats.format_has_matrix(daf, rows_axis, columns_axis, name) ||
+            (relayout && Formats.format_has_matrix(daf, columns_axis, rows_axis, name))
         @debug "has_matrix daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) relayout: $(relayout) result: $(brief(result))"
         return result
     end
@@ -938,10 +929,10 @@ function get_matrix(
 
         if default isa StorageMatrix
             require_column_major(default)
-            require_axis_length(daf, size(default, Rows), "rows of the default for the matrix: $(name)", rows_axis)  # NOLINT
+            require_axis_length(daf, size(default, Rows), "rows of the default for the matrix: $(name)", rows_axis)
             require_axis_length(
                 daf,
-                size(default, Columns),  # NOLINT
+                size(default, Columns),
                 "columns of the default for the matrix: $(name)",
                 columns_axis,
             )
@@ -1021,11 +1012,10 @@ function assert_valid_matrix(
         in the daf data: $(daf.name)
         """
 
-    @assert major_axis(matrix) ==   # NOLINT
-            2 """
-            format_get_matrix for daf format: $(nameof(typeof(daf)))
-            returned non column-major matrix: $(brief(matrix))
-            """
+    @assert major_axis(matrix) == 2 """
+                                  format_get_matrix for daf format: $(nameof(typeof(daf)))
+                                  returned non column-major matrix: $(brief(matrix))
+                                  """
 
     return nothing
 end
@@ -1076,7 +1066,7 @@ function matrix_version_counter(
 end
 
 function require_column_major(matrix::StorageMatrix)::Nothing
-    if major_axis(matrix) != Columns  # NOLINT
+    if major_axis(matrix) != Columns
         error("type not in column-major layout: $(brief(matrix))")
     end
 end
@@ -1256,6 +1246,7 @@ function description(
                 AbstractString,
                 Dict{Tuple{AbstractString, AbstractString}, Dict{AbstractString, Set{AbstractString}}},
             }()
+
             for rows_axis in axes
                 for columns_axis in axes
                     collect_tensors(daf, rows_axis, columns_axis; matrices_per_tensor_per_axes_per_axis)
@@ -1529,9 +1520,10 @@ function collect_tensors(
     daf::DafReader,
     rows_axis::AbstractString,
     columns_axis::AbstractString;
-    matrices_per_tensor_per_axes_per_axis::Maybe{
-        Dict{AbstractString, Dict{Tuple{AbstractString, AbstractString}, Dict{AbstractString, Set{AbstractString}}}},
-    } = nothing,
+    matrices_per_tensor_per_axes_per_axis::Dict{
+        AbstractString,
+        Dict{Tuple{AbstractString, AbstractString}, Dict{AbstractString, Set{AbstractString}}},
+    },
     all_tensor_matrices::Maybe{AbstractSet{<:AbstractString}} = nothing,
 )::Nothing
     @assert Formats.has_data_read_lock(daf)

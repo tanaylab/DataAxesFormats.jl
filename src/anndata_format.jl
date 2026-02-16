@@ -126,25 +126,25 @@ If `filter` is specified, it is a function that is given two parameters. The fir
 `false` if the data is to be ignored. This allows skipping unwanted data (or data that can't be converted for any
 reason). This doesn't speed things up
 """
-@logged function anndata_as_daf(  # NOLINT
+@logged function anndata_as_daf(
     adata::Union{AnnData, AbstractString};
     name::Maybe{AbstractString} = nothing,
     obs_is::Maybe{AbstractString} = nothing,
     var_is::Maybe{AbstractString} = nothing,
     X_is::Maybe{AbstractString} = nothing,
-    unsupported_handler::AbnormalHandler = WarnHandler,  # NOLINT
+    unsupported_handler::AbnormalHandler = WarnHandler,
 )::MemoryDaf
     return do_anndata_as_daf(nothing, adata; name, obs_is, var_is, X_is, unsupported_handler)
 end
 
-@logged function anndata_as_daf(  # UNTESTED # NOLINT
+@logged function anndata_as_daf(  # UNTESTED
     filter::Maybe{Function},
     adata::Union{AnnData, AbstractString};
     name::Maybe{AbstractString} = nothing,
     obs_is::Maybe{AbstractString} = nothing,
     var_is::Maybe{AbstractString} = nothing,
     X_is::Maybe{AbstractString} = nothing,
-    unsupported_handler::AbnormalHandler = WarnHandler,  # NOLINT
+    unsupported_handler::AbnormalHandler = WarnHandler,
 )::MemoryDaf
     return do_anndata_as_daf(filter, adata; name, obs_is, var_is, X_is, unsupported_handler)
 end
@@ -156,7 +156,7 @@ function do_anndata_as_daf(
     obs_is::Maybe{AbstractString} = nothing,
     var_is::Maybe{AbstractString} = nothing,
     X_is::Maybe{AbstractString} = nothing,
-    unsupported_handler::AbnormalHandler = WarnHandler,  # NOLINT
+    unsupported_handler::AbnormalHandler = WarnHandler,
 )::MemoryDaf
     if adata isa AbstractString
         path = adata
@@ -196,10 +196,10 @@ SupportedMatrix{T} = AbstractMatrix{T} where {T <: Union{StorageScalar, Nothing,
 function verify_unsupported(
     adata::AnnData,
     name::AbstractString,
-    unsupported_handler::AbnormalHandler,  # NOLINT
+    unsupported_handler::AbnormalHandler,
     filter::Maybe{Function},
 )::Nothing
-    if unsupported_handler != IgnoreHandler  # NOLINT
+    if unsupported_handler != IgnoreHandler
         verify_are_supported_type(adata.uns, "uns", StorageScalar, name, unsupported_handler, filter)
 
         verify_are_supported_type(adata.obs, "obs", SupportedVector, name, unsupported_handler, filter)
@@ -222,7 +222,7 @@ function verify_are_supported_type(
     member::AbstractString,
     supported_type::Type,
     name::AbstractString,
-    unsupported_handler::AbnormalHandler,  # NOLINT
+    unsupported_handler::AbnormalHandler,
     filter::Maybe{Function},
 )::Nothing
     for (key, value) in dict  # NOJET
@@ -238,7 +238,7 @@ function verify_are_supported_type(
     member::AbstractString,
     supported_type::Type,
     name::AbstractString,
-    unsupported_handler::AbnormalHandler,  # NOLINT
+    unsupported_handler::AbnormalHandler,
     filter::Maybe{Function},
 )::Nothing
     for column in names(frame)
@@ -260,10 +260,10 @@ function verify_is_supported_type(
     supported_type::Type,
     name::AbstractString,
     property::AbstractString,
-    unsupported_handler::AbnormalHandler,  # NOLINT
+    unsupported_handler::AbnormalHandler,
 )::Nothing
     if value isa StorageMatrix &&
-       major_axis(value) === nothing &&  # NOLINT
+       major_axis(value) === nothing &&
        !(value isa Muon.TransposedDataset) &&
        !(value isa Muon.SparseDataset)
         report_unsupported(  # UNTESTED
@@ -296,7 +296,7 @@ function verify_are_empty(
     dict::AbstractDict,
     member::AbstractString,
     name::AbstractString,
-    unsupported_handler::AbnormalHandler,  # NOLINT
+    unsupported_handler::AbnormalHandler,
     filter::Maybe{Function},
 )::Nothing
     for key in keys(dict)
@@ -309,10 +309,10 @@ end
 
 function report_unsupported(
     name::AbstractString,
-    unsupported_handler::AbnormalHandler,  # NOLINT
+    unsupported_handler::AbnormalHandler,
     message::AbstractString,
 )::Nothing
-    handle_abnormal(unsupported_handler) do       # NOLINT
+    handle_abnormal(unsupported_handler) do
         return message * "in AnnData for the daf data: $(name)"
     end
     return nothing
@@ -437,7 +437,7 @@ function copy_supported_square_matrices(
             @info "skip filtered $(member) matrix: $(name)"  # UNTESTED
         else
             @info "copy $(member) matrix: $(name)"
-            set_matrix!(memory, axis, axis, name, flip(access_matrix(matrix)); relayout = false)  # NOLINT
+            set_matrix!(memory, axis, axis, name, flip(access_matrix(matrix)); relayout = false)
         end
     end
 end
@@ -481,7 +481,7 @@ function copy_supported_matrix(  # UNTESTED
 )::Nothing
     sparse_matrix = read(matrix)
     if matrix.csr
-        copy_supported_matrix(flip(sparse_matrix), memory, columns_axis, rows_axis, name)  # NOLINT
+        copy_supported_matrix(flip(sparse_matrix), memory, columns_axis, rows_axis, name)
     else
         copy_supported_matrix(sparse_matrix, memory, rows_axis, columns_axis, name)
     end
@@ -506,9 +506,9 @@ function copy_supported_matrix(
     columns_axis::AbstractString,
     name::AbstractString,
 )::Nothing
-    matrix_major_axis = major_axis(matrix)  # NOLINT
-    if matrix_major_axis == Rows  # NOLINT
-        matrix = flip(matrix)  # NOLINT
+    matrix_major_axis = major_axis(matrix)
+    if matrix_major_axis == Rows
+        matrix = flip(matrix)
         rows_axis, columns_axis = columns_axis, rows_axis
     end
     if matrix_major_axis !== nothing
@@ -521,9 +521,9 @@ function access_matrix( # only seems untested
 )::AbstractMatrix
     dataset = matrix.dset
     if HDF5.ismmappable(dataset) && HDF5.iscontiguous(dataset)
-        return flip(HDF5.readmmap(dataset))  # NOLINT
+        return flip(HDF5.readmmap(dataset))
     else
-        return flip(read(dataset))  # NOLINT
+        return flip(read(dataset))
     end
 end
 
@@ -561,7 +561,7 @@ Each of the final `obs_is`, `var_is`, `X_is` values is stored as unstructured an
 All scalar properties, vector properties of the chosen "obs" and "var" axes, and matrix properties of these axes, are
 stored in the returned new `AnnData` object.
 """
-@logged function daf_as_anndata(  # NOLINT
+@logged function daf_as_anndata(
     daf::DafReader;
     obs_is::Maybe{AbstractString} = nothing,
     var_is::Maybe{AbstractString} = nothing,
@@ -577,7 +577,7 @@ stored in the returned new `AnnData` object.
         @assert obs_is != var_is
         require_matrix(daf, obs_is, var_is, X_is; relayout = true)
 
-        matrix = flip(get_matrix(daf, var_is, obs_is, X_is).array)  # NOLINT
+        matrix = flip(get_matrix(daf, var_is, obs_is, X_is).array)
         if X_eltype !== nothing && X_eltype != eltype(matrix)
             matrix = X_eltype.(matrix)  # UNTESTED
         end
@@ -646,14 +646,14 @@ end
 function copy_square_matrices(daf::DafReader, axis::AbstractString, dict::AbstractDict)::Nothing
     for name in matrices_set(daf, axis, axis)
         @debug "Square $(axis): $(name)"
-        dict[name] = flip(get_matrix(daf, axis, axis, name).array)  # NOLINT
+        dict[name] = flip(get_matrix(daf, axis, axis, name).array)
     end
 end
 
 function copy_vectors(daf::DafReader, axis::AbstractString, frame::DataFrame)::Nothing
     for name in vectors_set(daf, axis)
         @debug "Vector $(axis): $(name)"
-        frame[!, name] = densify(get_vector(daf, axis, name).array)  # NOLINT
+        frame[!, name] = densify(get_vector(daf, axis, name).array)
     end
 end
 
@@ -667,7 +667,7 @@ function copy_matrices(
     for name in matrices_set(daf, rows_axis, columns_axis; relayout = true)
         if name != skip_name
             @debug "Matrix $(rows_axis) $(columns_axis): $(name)"
-            dict[name] = flip(get_matrix(daf, columns_axis, rows_axis, name).array)  # NOLINT
+            dict[name] = flip(get_matrix(daf, columns_axis, rows_axis, name).array)
         end
     end
 end

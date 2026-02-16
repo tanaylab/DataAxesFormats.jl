@@ -81,7 +81,7 @@ This idiom allows [`@computation`](@ref) functions to use clear generic names fo
 apply them to arbitrary data sets that use more specific names. One can even invoke the same computation with different
 parameter values, and store the different results in the same data set under different names.
 """
-@logged function adapter(  # NOLINT
+@logged function adapter(
     computation::Function,
     daf::DafWriter;
     name::AbstractString = ".adapter",
@@ -94,10 +94,10 @@ parameter values, and store the different results in the same data set under dif
     relayout::Bool = true,
     overwrite::Bool = false,
 )::Any
-    flame_timed(name) do  # NOLINT
+    flame_timed(name) do
         local adapted
         local base_name
-        flame_timed("input") do  # NOLINT
+        flame_timed("input") do
             base_name = daf.name
             @assert input_axes !== nothing ||
                     input_data !== nothing ||
@@ -109,7 +109,7 @@ parameter values, and store the different results in the same data set under dif
             return nothing
         end
         result = computation(adapted)
-        flame_timed("output") do  # NOLINT
+        flame_timed("output") do
             output = viewer(adapted; axes = output_axes, data = output_data, name = base_name * ".output")
             return copy_all!(; source = output, destination = daf, empty, relayout, overwrite)
         end

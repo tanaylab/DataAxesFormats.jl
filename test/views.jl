@@ -17,9 +17,9 @@ nested_test("views") do
         set_vector!(daf, "cell", "age", [1, 2])
 
         nested_test("copy") do
-            view = viewer(read_only(daf); data = [VIEW_ALL_SCALARS])
+            view = viewer(read_only(daf); name = "view!", data = [VIEW_ALL_SCALARS])
             @test read_only(view) === view
-            @test brief(view) == "View MemoryDaf memory!.view"
+            @test brief(view) == "View MemoryDaf view!"
             @test scalars_set(view) == Set(["version"])
             @test get_scalar(view, "version") == "1.0"
             renamed = read_only(view; name = "renamed")
@@ -33,17 +33,28 @@ nested_test("views") do
         end
 
         nested_test("vector") do
+            view = viewer(daf; name = "view!", data = ["sum_ages" => "@ cell : age"])
             @test_throws chomp("""
-                         vector query: @ cell : age
-                         for the scalar: sum_ages
-                         for the view: view!
-                         of the daf data: memory!
-                         """) viewer(daf; name = "view!", data = ["sum_ages" => "@ cell : age"])
+                               vector query: @ cell : age
+                               for the scalar: sum_ages
+                               for the view: view!
+                               of the daf data: memory!
+                               """) get_scalar(view, "sum_ages")
         end
 
         nested_test("hidden") do
             view = viewer(daf; data = [VIEW_ALL_SCALARS, "version" => nothing])
             @test isempty(scalars_set(view))
+            @test !has_scalar(view, "version")
+        end
+
+        nested_test("!*") do
+            @test_throws chomp("""
+                               invalid wildcard scalar query: version
+                               query for wildcard must be one of: "=", nothing
+                               for the view: view!
+                               of the daf data: memory!
+                               """) viewer(daf; name = "view!", axes = [VIEW_ALL_AXES], data = ["*" => "version"])
         end
     end
 
@@ -60,6 +71,9 @@ nested_test("views") do
         nested_test("hidden") do
             view = viewer(daf; axes = [VIEW_ALL_AXES, "cell" => nothing])
             @test axes_set(view) == Set(["gene"])
+            @test !has_axis(view, "cell")
+            view = viewer(daf; axes = ["cell" => "="])
+            @test !has_axis(view, "gene")
         end
 
         nested_test("masked") do
@@ -68,22 +82,24 @@ nested_test("views") do
         end
 
         nested_test("scalar") do
+            view = viewer(daf; name = "view!", axes = ["gene" => "@ gene : is_marker >> Sum"])
             @test_throws chomp("""
-                         not an axis query: @ gene : is_marker >> Sum
-                         for the axis: gene
-                         for the view: view!
-                         of the daf data: memory!
-                         """) viewer(daf; name = "view!", axes = ["gene" => "@ gene : is_marker >> Sum"])
+                               not an axis query: @ gene : is_marker >> Sum
+                               for the axis: gene
+                               for the view: view!
+                               of the daf data: memory!
+                               """) axis_vector(view, "gene")
         end
 
         nested_test("vector") do
             set_vector!(daf, "cell", "age", [1, 2])
+            view = viewer(daf; name = "view!", axes = ["cell" => "@ cell : age"])
             @test_throws chomp("""
-                         not an axis query: @ cell : age
-                         for the axis: cell
-                         for the view: view!
-                         of the daf data: memory!
-                         """) viewer(daf; name = "view!", axes = ["cell" => "@ cell : age"])
+                               not an axis query: @ cell : age
+                               for the axis: cell
+                               for the view: view!
+                               of the daf data: memory!
+                               """) axis_vector(view, "cell")
         end
     end
 
@@ -99,18 +115,56 @@ nested_test("views") do
             @test get_vector(view, "cell", "batch") == [1, 2, 2]
         end
 
+        nested_test("!*") do
+            nested_test("axis") do
+                @test_throws chomp("""
+                                   invalid wildcard vector query: age
+                                   query for wildcard must be one of: "=", nothing
+                                   for the vector property: *
+                                   for the vector axis: cell
+                                   for the view: view!
+                                   of the daf data: memory!
+                                   """) viewer(
+                    daf;
+                    name = "view!",
+                    axes = [VIEW_ALL_AXES],
+                    data = [("cell", "*") => "age"],
+                )
+            end
+
+            nested_test("property") do
+                @test_throws chomp("""
+                                   invalid wildcard vector query: age
+                                   query for wildcard must be one of: "=", nothing
+                                   for the vector property: age
+                                   for the vector axis: *
+                                   for the view: view!
+                                   of the daf data: memory!
+                                   """) viewer(
+                    daf;
+                    name = "view!",
+                    axes = [VIEW_ALL_AXES],
+                    data = [("*", "age") => "age"],
+                )
+            end
+        end
+
         nested_test("missing") do
+            view = viewer(daf; name = "view!", axes = ["cell" => nothing], data = [("cell", "age") => "="])
             @test_throws chomp("""
-                         the axis: cell
-                         is not exposed by the view: view!
-                         of the daf data: memory!
-                         """) viewer(daf; name = "view!", axes = ["cell" => nothing], data = [("cell", "age") => "="])
+                               missing axis: cell
+                               for the vector: age
+                               of the daf data: view!
+                               """) get_vector(view, "cell", "age")
         end
 
         nested_test("hidden") do
             view = viewer(daf; axes = [VIEW_ALL_AXES], data = [VIEW_ALL_VECTORS, ("cell", "age") => nothing])
             @test vectors_set(view, "cell") == Set(["batch"])
             @test get_vector(view, "cell", "batch") == [1, 2, 2]
+            @test !has_vector(view, "cell", "age")
+            view = viewer(daf; axes = [VIEW_ALL_AXES], data = [("cell", "age") => "="])
+            @test !has_vector(view, "cell", "batch")
         end
 
         nested_test("renamed") do
@@ -131,55 +185,41 @@ nested_test("views") do
                 add_axis!(daf, "batch", ["U", "V"])
                 set_vector!(daf, "batch", "sex", ["M", "F"])
 
-                nested_test("()") do
-                    view = viewer(
-                        daf;
-                        axes = ["batch" => "@ batch [ sex = F ]"],
-                        data = [("batch", "age") => "@ cell [ batch : sex = F ] : age / batch >> Mean"],
-                    )
-                    @test get_vector(view, "batch", "age") == [2.5]
-                end
-
-                nested_test("!mask") do
-                    view = viewer(
-                        daf;
-                        name = "view!",
-                        axes = ["batch" => "@ batch [ sex = F ]"],
-                        data = [("batch", "age") => "@ cell : age / batch >> Mean"],
-                    )
-                    @test_throws chomp("""
-                                 invalid vector query: @ cell : age / batch >> Mean
-                                 for the axis query: @ batch [ sex = F ]
-                                 of the daf data: memory!
-                                 for the axis: age
-                                 of the daf view: view!
-                                 """) get_vector(view, "batch", "age")
-                end
+                add_axis!(daf, "gene", ["A", "B"])
+                set_matrix!(daf, "cell", "gene", "UMIs", [0 1; 2 3; 4 5])
+                view = viewer(
+                    daf;
+                    axes = ["cell" => "@ cell [ batch = V ]"],
+                    data = [("cell", "total_UMIs") => "@ gene @ __axis__ :: UMIs >- Sum"],
+                )
+                @test get_vector(view, "cell", "total_UMIs") == [5, 9]
             end
         end
 
         nested_test("reduced") do
             add_axis!(daf, "gene", ["A", "B"])
             set_matrix!(daf, "cell", "gene", "UMIs", [0 1; 2 3; 4 5])
-            view = viewer(daf; axes = [VIEW_ALL_AXES], data = [("cell", "total_umis") => "@ gene :: UMIs >| Sum"])
+            view =
+                viewer(daf; axes = [VIEW_ALL_AXES], data = [("cell", "total_umis") => "@ cell @ gene :: UMIs >| Sum"])
             @test get_vector(view, "cell", "total_umis") == [1, 5, 9]
         end
 
         nested_test("matrix") do
             add_axis!(daf, "gene", ["A", "B"])
             set_matrix!(daf, "cell", "gene", "UMIs", [0 1; 2 3; 4 5])
-            @test_throws chomp("""
-                         matrix query: @ cell @ gene :: UMIs
-                         for the vector: total_umis
-                         for the axis: cell
-                         for the view: view!
-                         of the daf data: memory!
-                         """) viewer(
+            view = viewer(
                 daf;
                 name = "view!",
                 axes = [VIEW_ALL_AXES],
-                data = [("cell", "total_umis") => "@ gene :: UMIs"],
+                data = [("cell", "total_umis") => "@ __axis__ @ gene :: UMIs"],
             )
+            @test_throws chomp("""
+                               matrix query: @ cell @ gene :: UMIs
+                               for the vector: total_umis
+                               for the axis: cell
+                               for the view: view!
+                               of the daf data: memory!
+                               """) get_vector(view, "cell", "total_umis")
         end
     end
 
@@ -197,6 +237,59 @@ nested_test("views") do
             @test get_matrix(view, "gene", "cell", "UMIs") == [0 3; 1 4; 2 5]
         end
 
+        nested_test("!*") do
+            nested_test("rows_axis") do
+                @test_throws chomp("""
+                                   invalid wildcard matrix query: UMIs
+                                   query for wildcard must be one of: "=", nothing
+                                   for the matrix property: UMIs
+                                   for the rows axis: *
+                                   for the columns axis: gene
+                                   for the view: view!
+                                   of the daf data: memory!
+                                   """) viewer(
+                    daf;
+                    name = "view!",
+                    axes = [VIEW_ALL_AXES],
+                    data = [("*", "gene", "UMIs") => "UMIs"],
+                )
+            end
+
+            nested_test("columns_axis") do
+                @test_throws chomp("""
+                                   invalid wildcard matrix query: UMIs
+                                   query for wildcard must be one of: "=", nothing
+                                   for the matrix property: UMIs
+                                   for the rows axis: cell
+                                   for the columns axis: *
+                                   for the view: view!
+                                   of the daf data: memory!
+                                   """) viewer(
+                    daf;
+                    name = "view!",
+                    axes = [VIEW_ALL_AXES],
+                    data = [("cell", "*", "UMIs") => "UMIs"],
+                )
+            end
+
+            nested_test("property") do
+                @test_throws chomp("""
+                                   invalid wildcard matrix query: UMIs
+                                   query for wildcard must be one of: "=", nothing
+                                   for the matrix property: *
+                                   for the rows axis: cell
+                                   for the columns axis: gene
+                                   for the view: view!
+                                   of the daf data: memory!
+                                   """) viewer(
+                    daf;
+                    name = "view!",
+                    axes = [VIEW_ALL_AXES],
+                    data = [("cell", "gene", "*") => "UMIs"],
+                )
+            end
+        end
+
         nested_test("query") do
             view = viewer(daf; axes = [VIEW_ALL_AXES], data = [("cell", "gene", "UMIs") => ":: UMIs % Abs"])
             @test matrices_set(view, "gene", "cell"; relayout = true) == Set(["UMIs"])
@@ -208,6 +301,9 @@ nested_test("views") do
         nested_test("hidden") do
             view = viewer(daf; axes = [VIEW_ALL_AXES], data = [VIEW_ALL_MATRICES, ("cell", "gene", "UMIs") => nothing])
             @test isempty(matrices_set(view, "gene", "cell"))
+            @test !has_matrix(view, "gene", "cell", "UMIs")
+            view = viewer(daf; axes = [VIEW_ALL_AXES], data = [("cell", "gene", "fraction") => "="])
+            @test !has_matrix(view, "gene", "cell", "UMIs")
         end
 
         nested_test("masked") do
@@ -219,19 +315,20 @@ nested_test("views") do
         end
 
         nested_test("vector") do
-            @test_throws chomp("""
-                         vector query: @ cell @ gene :: UMIS >| Sum
-                         for the matrix: UMIs
-                         for the rows axis: cell
-                         and the columns axis: gene
-                         for the view: view!
-                         of the daf data: memory!
-                         """) viewer(
+            view = viewer(
                 daf;
                 name = "view!",
                 axes = [VIEW_ALL_AXES],
                 data = [("cell", "gene", "UMIs") => ":: UMIS >| Sum"],
             )
+            @test_throws chomp("""
+                               matrix query: @ cell @ gene :: UMIS >| Sum
+                               for the matrix: UMIs
+                               for the rows axis: cell
+                               and the columns axis: gene
+                               for the view: view!
+                               of the daf data: memory!
+                               """) get_matrix(view, "cell", "gene", "UMIs")
         end
     end
 
@@ -267,7 +364,9 @@ nested_test("views") do
                   var,obs:
                     X: 3 x 2 x Int64 in Columns (Dense)
                 """
+        end
 
+        nested_test("deep") do
             @test description(view; deep = true) == """
                 name: view!
                 type: View
@@ -337,10 +436,40 @@ nested_test("views") do
             @test matrices_set(daf, "gene", "cell"; tensors = false) == Set(["U_is_high", "V_is_high"])
         end
 
+        nested_test("hidden") do
+            view = viewer(
+                daf;
+                name = "view!",
+                axes = [VIEW_ALL_AXES, "batch" => nothing],
+                data = [("batch", "cell", "gene", "is_high") => "="],
+            )
+            @test_throws chomp("""
+                               hidden tensor main axis: batch
+                               for the matrix: is_high
+                               for the rows axis: cell
+                               for the columns axis: gene
+                               for the view: view!
+                               of the daf data: memory!
+                               """) matrices_set(view, "cell", "gene")
+
+            view = viewer(
+                daf;
+                name = "view!",
+                axes = [VIEW_ALL_AXES],
+                data = [VIEW_ALL_DATA..., ("batch", "cell", "gene", "is_high") => nothing],
+            )
+            @assert !has_matrix(view, "cell", "gene", "U_is_high")
+        end
+
         nested_test("dense") do
-            view = viewer(daf; axes = [VIEW_ALL_AXES], data = [("batch", "cell", "gene", "is_high") => "="])
+            view = viewer(
+                daf;
+                name = "view!",
+                axes = [VIEW_ALL_AXES],
+                data = [("batch", "cell", "gene", "is_high") => "="],
+            )
             @test description(view) == """
-                name: memory!.view
+                name: view!
                 type: View
                 base: MemoryDaf memory!
                 axes:
@@ -354,7 +483,7 @@ nested_test("views") do
                 """
 
             @test description(view; tensors = false) == """
-                name: memory!.view
+                name: view!
                 type: View
                 base: MemoryDaf memory!
                 axes:
@@ -387,9 +516,14 @@ nested_test("views") do
                 overwrite = true,
                 relayout = false,
             )
-            view = viewer(daf; axes = [VIEW_ALL_AXES], data = [("batch", "cell", "gene", "is_high") => "="])
+            view = viewer(
+                daf;
+                name = "view!",
+                axes = [VIEW_ALL_AXES],
+                data = [("batch", "cell", "gene", "is_high") => "="],
+            )
             @test description(view) == """
-                name: memory!.view
+                name: view!
                 type: View
                 base: MemoryDaf memory!
                 axes:
@@ -403,7 +537,7 @@ nested_test("views") do
                 """
 
             @test description(view; tensors = false) == """
-                name: memory!.view
+                name: view!
                 type: View
                 base: MemoryDaf memory!
                 axes:
@@ -427,9 +561,14 @@ nested_test("views") do
                 overwrite = true,
                 relayout = false,
             )
-            view = viewer(daf; axes = [VIEW_ALL_AXES], data = [("batch", "cell", "gene", "is_high") => "="])
+            view = viewer(
+                daf;
+                name = "view!",
+                axes = [VIEW_ALL_AXES],
+                data = [("batch", "cell", "gene", "is_high") => "="],
+            )
             @test description(view) == """
-                name: memory!.view
+                name: view!
                 type: View
                 base: MemoryDaf memory!
                 axes:
@@ -445,7 +584,7 @@ nested_test("views") do
                 """
 
             @test description(view; tensors = false) == """
-                name: memory!.view
+                name: view!
                 type: View
                 base: MemoryDaf memory!
                 axes:
@@ -460,9 +599,14 @@ nested_test("views") do
         end
 
         nested_test("!") do
-            view = viewer(daf; axes = [VIEW_ALL_AXES], data = [("batch", "cell", "gene", "is_high") => nothing])
+            view = viewer(
+                daf;
+                name = "view!",
+                axes = [VIEW_ALL_AXES],
+                data = [("batch", "cell", "gene", "is_high") => nothing],
+            )
             @test description(view) == """
-                name: memory!.view
+                name: view!
                 type: View
                 base: MemoryDaf memory!
                 axes:
@@ -474,27 +618,34 @@ nested_test("views") do
 
         nested_test("!*") do
             @test_throws chomp("""
-                         unsupported "*" wildcard for tensor
-                         for the matrix: is_high
-                         for the main axis: batch
-                         and the rows axis: *
-                         and the columns axis: gene
-                         for the view: memory!.view
-                         of the daf data: memory!
-                         """) viewer(daf; axes = [VIEW_ALL_AXES], data = [("batch", "*", "gene", "is_high") => "="])
+                               unsupported tensor wildcard
+                               for the matrix: is_high
+                               for the main axis: batch
+                               and the rows axis: *
+                               and the columns axis: gene
+                               for the view: view!
+                               of the daf data: memory!
+                               """) viewer(
+                daf;
+                name = "view!",
+                axes = [VIEW_ALL_AXES],
+                data = [("batch", "*", "gene", "is_high") => "="],
+            )
         end
 
         nested_test("!query") do
             @test_throws chomp("""
-                         unsupported query: foo
-                         for the matrix: is_high
-                         for the main axis: batch
-                         and the rows axis: cell
-                         and the columns axis: gene
-                         for the view: memory!.view
-                         of the daf data: memory!
-                         """) viewer(
+                               unsupported tensor query: foo
+                               query for tensor must be one of: "=", nothing
+                               for the matrix: is_high
+                               for the main axis: batch
+                               and the rows axis: cell
+                               and the columns axis: gene
+                               for the view: view!
+                               of the daf data: memory
+                               """) viewer(
                 daf;
+                name = "view!",
                 axes = [VIEW_ALL_AXES],
                 data = [("batch", "cell", "gene", "is_high") => "foo"],
             )

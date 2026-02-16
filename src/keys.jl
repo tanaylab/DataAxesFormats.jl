@@ -44,7 +44,7 @@ reasons; higher dimensional data raises sticky issues about layout and there is 
 (which is even more important for this kind of data). However, sometimes it is necessary to store 3D data in `Daf`. In
 this case, we pick the 1st axis as the main one, and store a series of `<main-axis-entry>_<property_name>` matrices
 using the other two axes (whose order doesn't matter). Access is only to each specific matrix, not to the whole 3D
-tensor. However, it is useful to be able to specify the whole set of matrices for copying, views, cobtracts, etc.
+tensor. However, it is useful to be able to specify the whole set of matrices for copying, views, contracts, etc.
 """
 TensorKey = Tuple{AbstractString, AbstractString, AbstractString, AbstractString}
 

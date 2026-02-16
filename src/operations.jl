@@ -757,17 +757,17 @@ function Significant(operation_name::Token, parameters_values::Dict{String, Toke
 end
 
 function compute_eltwise(operation::Significant, input::StorageMatrix)::StorageMatrix
-    output = copy_array(input)  # NOLINT
+    output = copy_array(input)
     if issparse(output)
-        parallel_loop_wo_rng(  # NOLINT
+        parallel_loop_wo_rng(
             1:size(output, 2);
             name = "Significant",
-            progress = DebugProgress(size(output, 2); desc = "Significant"),  # NOLINT
+            progress = DebugProgress(size(output, 2); desc = "Significant"),
         ) do column_index
-            first = colptr(output)[column_index]  # NOLINT
-            last = colptr(output)[column_index + 1] - 1  # NOLINT
+            first = colptr(output)[column_index]
+            last = colptr(output)[column_index + 1] - 1
             if first <= last
-                column_vector = @view nzval(output)[first:last]  # NOLINT
+                column_vector = @view nzval(output)[first:last]
                 significant!(column_vector, operation.high, operation.low)
             end
             return nothing
@@ -777,10 +777,10 @@ function compute_eltwise(operation::Significant, input::StorageMatrix)::StorageM
     else
         n_columns = size(output, 2)
         is_dense_of_columns = zeros(Bool, n_columns)
-        parallel_loop_wo_rng(  # NOLINT
+        parallel_loop_wo_rng(
             1:size(output, 2);
             name = "Significant",
-            progress = DebugProgress(size(output, 2); desc = "Significant"),  # NOLINT
+            progress = DebugProgress(size(output, 2); desc = "Significant"),
         ) do column_index
             column_vector = @view output[:, column_index]
             significant!(column_vector, operation.high, operation.low)
@@ -796,10 +796,10 @@ function compute_eltwise(operation::Significant, input::StorageMatrix)::StorageM
 end
 
 function compute_eltwise(operation::Significant, input::StorageVector{T})::StorageVector{T} where {T <: StorageReal}
-    output = copy_array(input)  # NOLINT
+    output = copy_array(input)
 
     if issparse(output)
-        significant!(nzval(output), operation.high, operation.low)  # NOLINT
+        significant!(nzval(output), operation.high, operation.low)
         dropzeros!(output)
         return output
     else
@@ -866,7 +866,7 @@ end
 function compute_reduction(operation::Count, input::StorageMatrix, axis::Integer)::StorageVector
     @assert 1 <= axis <= 2
     type = reduction_result_type(operation, eltype(input))
-    result = Vector{type}(undef, size(input, other_axis(axis)))  # NOLINT
+    result = Vector{type}(undef, size(input, other_axis(axis)))
     result .= size(input, axis)
     return result
 end
@@ -903,21 +903,21 @@ end
 function compute_reduction(operation::Mode, input::StorageMatrix, axis::Integer)::StorageVector
     @assert 1 <= axis <= 2
     type = reduction_result_type(operation, eltype(input))
-    output = Vector{type}(undef, size(input, other_axis(axis)))  # NOLINT
+    output = Vector{type}(undef, size(input, other_axis(axis)))
     if axis == 1
-        parallel_loop_wo_rng(  # NOLINT
+        parallel_loop_wo_rng(
             1:length(output);
             name = "Mode",
-            progress = DebugProgress(length(output); desc = "Mode"),  # NOLINT
+            progress = DebugProgress(length(output); desc = "Mode"),
         ) do column_index
             column_vector = @view input[:, column_index]
             return output[column_index] = mode(column_vector)
         end
     else
-        parallel_loop_wo_rng(  # NOLINT
+        parallel_loop_wo_rng(
             1:length(output);
             name = "Mode",
-            progress = DebugProgress(length(output); desc = "Mode"),  # NOLINT
+            progress = DebugProgress(length(output); desc = "Mode"),
         ) do row_index
             row_vector = @view input[row_index, :]
             return output[row_index] = mode(row_vector)
@@ -970,9 +970,9 @@ end
 function compute_reduction(operation::Sum, input::StorageMatrix, axis::Integer)::StorageVector{<:StorageReal}
     @assert 1 <= axis <= 2
     type = reduction_result_type(operation, eltype(input))
-    result = Vector{type}(undef, size(input, other_axis(axis)))  # NOLINT
+    result = Vector{type}(undef, size(input, other_axis(axis)))
     if axis == 1
-        sum!(result, flip(input))  # NOLINT
+        sum!(result, flip(input))
     else
         sum!(result, input)
     end
@@ -1128,24 +1128,24 @@ end
 function compute_reduction(operation::Quantile, input::StorageMatrix, axis::Integer)::StorageVector{<:StorageReal}
     @assert 1 <= axis <= 2
     type = reduction_result_type(operation, eltype(input))
-    output = Vector{type}(undef, size(input, other_axis(axis)))  # NOLINT
+    output = Vector{type}(undef, size(input, other_axis(axis)))
     if axis == 1
-        parallel_loop_wo_rng(  # NOLINT
+        parallel_loop_wo_rng(
             1:length(output);
             name = "Quantile",
-            progress = DebugProgress(length(output); desc = "Quantile"),  # NOLINT
+            progress = DebugProgress(length(output); desc = "Quantile"),
         ) do column_index
             column_vector = @view input[:, column_index]
-            return output[column_index] = quantile(column_vector, operation.p)  # NOJET
+            return output[column_index] = quantile(column_vector, operation.p)
         end
     else
-        parallel_loop_wo_rng(  # NOLINT
+        parallel_loop_wo_rng(
             1:length(output);
             name = "Quantile",
-            progress = DebugProgress(length(output); desc = "Quantile"),  # NOLINT
+            progress = DebugProgress(length(output); desc = "Quantile"),
         ) do row_index
             row_vector = @view input[row_index, :]
-            return output[row_index] = quantile(row_vector, operation.p)  # NOJET
+            return output[row_index] = quantile(row_vector, operation.p)
         end
     end
     return output

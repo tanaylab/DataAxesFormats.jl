@@ -44,48 +44,22 @@ function complete_daf(
     mode::AbstractString = "r";
     name::Maybe{AbstractString} = nothing,
 )::Union{DafReader, DafWriter}
-    @assert mode in ("r", "r+")
-    is_writer = mode == "r+"
-    base_daf_repository = leaf
-    dafs = DafReader[]
-    real_paths = AbstractString[]
-    leaf_name = name === nothing ? leaf : name
-    @info "Open complete $(leaf_name):"
-    while true
-        @info "- Open $(base_daf_repository)"
-        real_path = realpath(base_daf_repository)
-        is_in = real_path in real_paths
-        if is_in
-            @error "Loop in base repositories: $(join(real_paths, " -> "))"
-            @assert false
+    return flame_timed("complete_daf") do
+        if name === nothing
+            name = leaf
         end
-        push!(real_paths, real_path)
-
-        daf = open_daf(base_daf_repository, mode)
-        push!(dafs, daf)
-        mode = "r"
-
-        base_directory = dirname(base_daf_repository)
-        base_daf_repository = get_scalar(daf, "base_daf_repository"; default = nothing)
-        if base_daf_repository !== nothing
-            base_daf_repository = joinpath(base_directory, base_daf_repository)
-            continue
+        @assert mode in ("r", "r+")
+        @info "Open complete $(name):"
+        dafs = flame_timed("complete_daf.collect_dafs") do
+            return reverse!(collect_dafs(; name, base_daf_repository = leaf, mode, indent = "", index = 0))
         end
-
-        reverse!(dafs)
-        if is_writer
-            return chain_writer(dafs; name)
-        else
-            return chain_reader(dafs; name)
+        return flame_timed("complete_daf.chain") do
+            if mode == "r+"
+                return chain_writer(dafs; name = name * ".complete")
+            else
+                return chain_reader(dafs; name = name * ".complete")
+            end
         end
-    end
-    @assert mode in ("r", "r+")
-    @info "Open complete $(leaf_name):"
-    dafs = reverse!(collect_dafs(; name, base_daf_repository = leaf, mode, indent = "", index = 0))
-    if mode == "r+"
-        return chain_writer(dafs; name = leaf_name * ".complete")
-    else
-        return chain_reader(dafs; name = leaf_name * ".complete")
     end
 end
 
