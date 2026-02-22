@@ -89,7 +89,7 @@ A query returning a set of names. Valid phrases are:
 
 ```jldoctest
 cells = example_cells_daf()
-cells["?"]
+cells[". ?"]
 
 # output
 
@@ -113,11 +113,11 @@ KeySet for a Dict{AbstractString, AbstractVector{<:AbstractString}} with 4 entri
   "cell"
 ```
 
-  - Looking up the set of names of the vector properties of an axis (e.g., `@ cell ?`).
+  - Looking up the set of names of the vector properties of an axis (e.g., `@ cell : ?`).
 
 ```jldoctest
 cells = example_cells_daf()
-cells["@ gene ?"]
+cells["@ gene : ?"]
 
 # output
 
@@ -125,11 +125,11 @@ KeySet for a Dict{AbstractString, AbstractVector{T} where T<:(Union{Bool, Float3
   "is_lateral"
 ```
 
-  - Looking up the set of names of the matrix properties of a pair of axes (e.g., `@ cell @ gene ?`).
+  - Looking up the set of names of the matrix properties of a pair of axes (e.g., `@ cell @ gene :: ?`).
 
 ```jldoctest
 cells = example_cells_daf()
-cells["@ cell @ gene ?"]
+cells["@ cell @ gene :: ?"]
 
 # output
 
@@ -1541,7 +1541,7 @@ end
 
 function query_state_offset(query_state::QueryState, index::Integer)::Integer
     if index <= 1
-        return 0  # UNTESTED
+        return 0
     else
         return length(string(QuerySequence(query_state.query_sequence.query_operations[1:(index - 1)]))) + 1
     end
@@ -2057,17 +2057,25 @@ end
 
 """
     struct LookupScalar <: Query
-        property_name::AbstractString
+        property_name::Maybe{AbstractString}
     end
 
 Lookup the value of a scalar property (see [`SCALAR_QUERY`](@ref)).
 """
 struct LookupScalar <: Query
-    property_name::AbstractString
+    property_name::Maybe{AbstractString}
+end
+
+function LookupScalar()::LookupScalar
+    return LookupScalar(nothing)
 end
 
 function Base.show(io::IO, lookup_scalar::LookupScalar)::Nothing
-    print(io, ". $(escape_value(lookup_scalar.property_name))")
+    if lookup_scalar.property_name === nothing
+        print(io, ".")
+    else
+        print(io, ". $(escape_value(lookup_scalar.property_name))")
+    end
     return nothing
 end
 
@@ -2105,34 +2113,50 @@ end
 
 """
     struct LookupVector <: QueryOperation
-        property_name::AbstractString
+        property_name::Maybe{AbstractString}
     end
 
 Lookup the value of a vector property (see [`VECTOR_QUERY`](@ref)).
 """
 struct LookupVector <: QueryOperation
-    property_name::AbstractString
+    property_name::Maybe{AbstractString}
+end
+
+function LookupVector()::LookupVector
+    return LookupVector(nothing)
 end
 
 function Base.show(io::IO, lookup_vector::LookupVector)::Nothing
-    print(io, ": $(escape_value(lookup_vector.property_name))")
+    if lookup_vector.property_name === nothing
+        print(io, ":")
+    else
+        print(io, ": $(escape_value(lookup_vector.property_name))")
+    end
     return nothing
 end
 
 """
     struct LookupMatrix <: QueryOperation
-        property_name::AbstractString
+        property_name::Maybe{AbstractString}
     end
 
 Lookup the value of a matrix property, even if we immediately slice just a vector (row or column) or even a single
 scalar entry out of the matrix (see [`SCALAR_QUERY`](@ref), [`VECTOR_LOOKUP`](@ref) and [`MATRIX_QUERY`](@ref)).
 """
 struct LookupMatrix <: QueryOperation
-    property_name::AbstractString
+    property_name::Maybe{AbstractString}
 end
 
-function Base.show(io::IO, lookup_vector::LookupMatrix)::Nothing
-    print(io, ":: $(escape_value(lookup_vector.property_name))")
+function LookupMatrix()::LookupMatrix
+    return LookupMatrix(nothing)
+end
+
+function Base.show(io::IO, lookup_matrix::LookupMatrix)::Nothing
+    if lookup_matrix.property_name === nothing
+        print(io, "::")
+    else
+        print(io, ":: $(escape_value(lookup_matrix.property_name))")
+    end
     return nothing
 end
 
@@ -2748,12 +2772,12 @@ QUERY_OPERATIONS_DICT = Dict(
     "& !" => (AndNegatedMask, true),
     "&" => (AndMask, true),
     "*" => (CountBy, true),
-    "." => (LookupScalar, true),
+    "." => (LookupScalar, false),
     "/" => (GroupBy, true),
     "-/" => (GroupRowsBy, true),
     "|/" => (GroupColumnsBy, true),
-    ":" => (LookupVector, true),
-    "::" => (LookupMatrix, true),
+    ":" => (LookupVector, false),
+    "::" => (LookupMatrix, false),
     "<" => (IsLess, true),
     "<=" => (IsLessEqual, true),
     "=" => (IsEqual, true),
@@ -2803,9 +2827,40 @@ function matrix_maybe_axis(query_state::QueryState, query_value::QueryStackEleme
            (query_state.what_for != :compute || eltype(query_value.matrix_values) <: AbstractString)
 end
 
-function names_of_matrices(query_state::QueryState, rows_axis::Axis, columns_axis::Axis, ::Names)::Nothing
+function lookup_scalar_with_name(query_operation::QueryOperation)::Bool
+    return query_operation isa LookupScalar && query_operation.property_name !== nothing
+end
+
+function lookup_scalar_without_name(query_operation::QueryOperation)::Bool
+    return query_operation isa LookupScalar && query_operation.property_name === nothing
+end
+
+function lookup_vector_with_name(query_operation::QueryOperation)::Bool
+    return query_operation isa LookupVector && query_operation.property_name !== nothing
+end
+
+function lookup_vector_without_name(query_operation::QueryOperation)::Bool
+    return query_operation isa LookupVector && query_operation.property_name === nothing
+end
+
+function lookup_matrix_with_name(query_operation::QueryOperation)::Bool
+    return query_operation isa LookupMatrix && query_operation.property_name !== nothing
+end
+
+function lookup_matrix_without_name(query_operation::QueryOperation)::Bool
+    return query_operation isa LookupMatrix && query_operation.property_name === nothing
+end
+
+function names_of_matrices(
+    query_state::QueryState,
+    rows_axis::Axis,
+    columns_axis::Axis,
+    lookup_matrix::LookupMatrix,
+    ::Names,
+)::Nothing
     @assert rows_axis.axis_name !== nothing
     @assert columns_axis.axis_name !== nothing
+    @assert lookup_matrix.property_name === nothing
 
     if query_state.what_for != :compute
         push!(query_state.stack, NamesState(nothing))
@@ -2821,8 +2876,9 @@ function names_of_matrices(query_state::QueryState, rows_axis::Axis, columns_axi
     return nothing
 end
 
-function names_of_vectors(query_state::QueryState, axis::Axis, ::Names)::Nothing
+function names_of_vectors(query_state::QueryState, axis::Axis, lookup_vector::LookupVector, ::Names)::Nothing
     @assert axis.axis_name !== nothing
+    @assert lookup_vector.property_name === nothing
 
     if query_state.what_for != :compute
         push!(query_state.stack, NamesState(nothing))
@@ -2849,7 +2905,9 @@ function names_of_axes(query_state::QueryState, axis::Axis, ::Names)::Nothing
     return nothing
 end
 
-function names_of_scalars(query_state::QueryState, ::Names)::Nothing
+function names_of_scalars(query_state::QueryState, lookup_scalar::LookupScalar, ::Names)::Nothing
+    @assert lookup_scalar.property_name === nothing
+
     if query_state.what_for != :compute
         push!(query_state.stack, NamesState(nothing))
 
@@ -2863,6 +2921,8 @@ function names_of_scalars(query_state::QueryState, ::Names)::Nothing
 end
 
 function scalar_lookup(query_state::QueryState, lookup_scalar::LookupScalar, if_missing::Maybe{IfMissing})::Nothing
+    @assert lookup_scalar.property_name !== nothing
+
     if query_state.what_for != :compute
         push!(query_state.stack, ScalarState(nothing))
 
@@ -2883,6 +2943,7 @@ function lookup_vector_entry(
     axis::Axis,
     is_equal::IsEqual,
 )::Nothing
+    @assert lookup_vector.property_name !== nothing
     @assert axis.axis_name !== nothing
 
     if query_state.what_for != :compute
@@ -2909,6 +2970,7 @@ function lookup_matrix_entry(
     columns_axis::Axis,
     square_column_is_equal::IsEqual,
 )::Nothing
+    @assert lookup_matrix.property_name !== nothing
     @assert rows_axis.axis_name !== nothing
     @assert columns_axis.axis_name !== nothing
 
@@ -2994,6 +3056,7 @@ function lookup_vector_by_vector(
     lookup_vector::LookupVector,
     if_missing::Maybe{IfMissing},
 )::Nothing
+    @assert lookup_vector.property_name !== nothing
     ensure_vector_is_axis(query_state, vector_state, as_axis)
 
     if query_state.what_for != :compute
@@ -3063,6 +3126,7 @@ function lookup_matrix_column_by_vector(
     columns_axis::Axis,
     square_column_is_equal::IsEqual,
 )::Nothing
+    @assert lookup_matrix.property_name !== nothing
     @assert columns_axis.axis_name !== nothing
 
     ensure_vector_is_axis(query_state, vector_state, as_axis)
@@ -3098,6 +3162,7 @@ function lookup_square_matrix_column_by_vector(
     if_missing::Maybe{IfMissing},
     square_column_is::SquareColumnIs,
 )::Nothing
+    @assert lookup_matrix.property_name !== nothing
     ensure_vector_is_axis(query_state, vector_state, as_axis)
 
     if query_state.what_for == :compute
@@ -3131,6 +3196,7 @@ function lookup_square_matrix_row_by_vector(
     if_missing::Maybe{IfMissing},
     square_row_is::SquareRowIs,
 )::Nothing
+    @assert lookup_matrix.property_name !== nothing
     ensure_vector_is_axis(query_state, vector_state, as_axis)
 
     if query_state.what_for == :compute
@@ -3977,6 +4043,7 @@ function matrix_lookup(
 )::Nothing
     @assert rows_state.pending_final_values === nothing
     @assert rows_state.property_axis_name !== nothing
+    @assert lookup_matrix.property_name !== nothing
 
     finalize_vector_values!(query_state, columns_state)
     ensure_vector_is_axis(query_state, columns_state, as_axis)
@@ -4515,6 +4582,7 @@ function lookup_vector_by_matrix(
     lookup_vector::LookupVector,
     if_missing::Maybe{IfMissing},
 )::Nothing
+    @assert lookup_vector.property_name !== nothing
     ensure_matrix_is_axis(query_state, matrix_state, as_axis)
 
     if query_state.what_for == :compute
@@ -4571,6 +4639,7 @@ function lookup_matrix_column_by_matrix(
     square_column_is_equal::IsEqual,
 )::Nothing
     @assert columns_axis.axis_name !== nothing
+    @assert lookup_matrix.property_name !== nothing
 
     ensure_matrix_is_axis(query_state, matrix_state, as_axis)
 
@@ -4604,6 +4673,7 @@ function lookup_square_matrix_column_by_matrix(
     if_missing::Maybe{IfMissing},
     square_column_is::SquareColumnIs,
 )::Nothing
+    @assert lookup_matrix.property_name !== nothing
     ensure_matrix_is_axis(query_state, matrix_state, as_axis)
 
     if query_state.what_for == :compute
@@ -4636,6 +4706,7 @@ function lookup_square_matrix_row_by_matrix(
     if_missing::Maybe{IfMissing},
     square_row_is::SquareRowIs,
 )::Nothing
+    @assert lookup_matrix.property_name !== nothing
     ensure_matrix_is_axis(query_state, matrix_state, as_axis)
 
     if query_state.what_for == :compute
@@ -4858,16 +4929,21 @@ end
 PHRASES = [  # Order matters - first one wins, longer matches should win.
     # Names
 
-    Phrase(nothing, (axis_with_name, axis_with_name, Names), names_of_matrices, (NamesState,)),
-    Phrase(nothing, (axis_with_name, Names), names_of_vectors, (NamesState,)),
+    Phrase(
+        nothing,
+        (axis_with_name, axis_with_name, lookup_matrix_without_name, Names),
+        names_of_matrices,
+        (NamesState,),
+    ),
+    Phrase(nothing, (axis_with_name, lookup_vector_without_name, Names), names_of_vectors, (NamesState,)),
     Phrase(nothing, (axis_without_name, Names), names_of_axes, (NamesState,)),
-    Phrase(nothing, (Names,), names_of_scalars, (NamesState,)),
+    Phrase(nothing, (lookup_scalar_without_name, Names), names_of_scalars, (NamesState,)),
 
     # Matrix
 
     Phrase(
         (vector_axis, vector_maybe_axis),
-        (Optional(AsAxis), LookupMatrix, Optional(IfMissing)),
+        (Optional(AsAxis), lookup_matrix_with_name, Optional(IfMissing)),
         matrix_lookup,
         (MatrixState,),
     ),
@@ -4897,25 +4973,25 @@ PHRASES = [  # Order matters - first one wins, longer matches should win.
     ),
     Phrase(
         (matrix_maybe_axis,),
-        (Optional(AsAxis), Optional(IfNot), LookupMatrix, Optional(IfMissing), axis_with_name, IsEqual),
+        (Optional(AsAxis), Optional(IfNot), lookup_matrix_with_name, Optional(IfMissing), axis_with_name, IsEqual),
         lookup_matrix_column_by_matrix,
         (MatrixState,),
     ),
     Phrase(
         (matrix_maybe_axis,),
-        (Optional(AsAxis), Optional(IfNot), LookupMatrix, Optional(IfMissing), SquareColumnIs),
+        (Optional(AsAxis), Optional(IfNot), lookup_matrix_with_name, Optional(IfMissing), SquareColumnIs),
         lookup_square_matrix_column_by_matrix,
         (MatrixState,),
     ),
     Phrase(
         (matrix_maybe_axis,),
-        (Optional(AsAxis), Optional(IfNot), LookupMatrix, Optional(IfMissing), SquareRowIs),
+        (Optional(AsAxis), Optional(IfNot), lookup_matrix_with_name, Optional(IfMissing), SquareRowIs),
         lookup_square_matrix_row_by_matrix,
         (MatrixState,),
     ),
     Phrase(
         (matrix_maybe_axis,),
-        (Optional(AsAxis), Optional(IfNot), LookupVector, Optional(IfMissing)),
+        (Optional(AsAxis), Optional(IfNot), lookup_vector_with_name, Optional(IfMissing)),
         lookup_vector_by_matrix,
         (MatrixState,),
     ),
@@ -5011,25 +5087,25 @@ PHRASES = [  # Order matters - first one wins, longer matches should win.
     ),
     Phrase(
         (vector_maybe_axis,),
-        (Optional(AsAxis), Optional(IfNot), LookupMatrix, Optional(IfMissing), axis_with_name, IsEqual),
+        (Optional(AsAxis), Optional(IfNot), lookup_matrix_with_name, Optional(IfMissing), axis_with_name, IsEqual),
         lookup_matrix_column_by_vector,
         (VectorState,),
     ),
     Phrase(
         (vector_maybe_axis,),
-        (Optional(AsAxis), Optional(IfNot), LookupMatrix, Optional(IfMissing), SquareColumnIs),
+        (Optional(AsAxis), Optional(IfNot), lookup_matrix_with_name, Optional(IfMissing), SquareColumnIs),
         lookup_square_matrix_column_by_vector,
         (VectorState,),
     ),
     Phrase(
         (vector_maybe_axis,),
-        (Optional(AsAxis), Optional(IfNot), LookupMatrix, Optional(IfMissing), SquareRowIs),
+        (Optional(AsAxis), Optional(IfNot), lookup_matrix_with_name, Optional(IfMissing), SquareRowIs),
         lookup_square_matrix_row_by_vector,
         (VectorState,),
     ),
     Phrase(
         (vector_maybe_axis,),
-        (Optional(AsAxis), Optional(IfNot), LookupVector, Optional(IfMissing)),
+        (Optional(AsAxis), Optional(IfNot), lookup_vector_with_name, Optional(IfMissing)),
         lookup_vector_by_vector,
         (VectorState,),
     ),
@@ -5070,11 +5146,16 @@ PHRASES = [  # Order matters - first one wins, longer matches should win.
 
     # Scalar
 
-    Phrase(nothing, (LookupScalar, Optional(IfMissing)), scalar_lookup, (ScalarState,)),
-    Phrase(nothing, (LookupVector, Optional(IfMissing), axis_with_name, IsEqual), lookup_vector_entry, (ScalarState,)),
+    Phrase(nothing, (lookup_scalar_with_name, Optional(IfMissing)), scalar_lookup, (ScalarState,)),
     Phrase(
         nothing,
-        (LookupMatrix, Optional(IfMissing), axis_with_name, IsEqual, axis_with_name, IsEqual),
+        (lookup_vector_with_name, Optional(IfMissing), axis_with_name, IsEqual),
+        lookup_vector_entry,
+        (ScalarState,),
+    ),
+    Phrase(
+        nothing,
+        (lookup_matrix_with_name, Optional(IfMissing), axis_with_name, IsEqual, axis_with_name, IsEqual),
         lookup_matrix_entry,
         (ScalarState,),
     ),

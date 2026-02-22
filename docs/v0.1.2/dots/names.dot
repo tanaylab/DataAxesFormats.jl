@@ -14,14 +14,14 @@ label = "NAMES"
 "NamesState" [ shape = doubleoctagon ]
 
 "N1" [ style = dotted, fontname = "Courier", label = <
-@ rows_axis @ columns_axis ?<br/>&nbsp;<br/>Axis(rows_axis) |&gt; Axis(columns_axis) |&gt; Names()
+@ rows_axis @ columns_axis :: ?<br/>&nbsp;<br/>Axis(rows_axis) |&gt; Axis(columns_axis) |&gt; LookupMatrix() |&gt; Names()
 > ]
 "N1_" [ shape = cds, label = "names of matrices&nbsp;" ]
 "N1":e -> "N1_":w
 "N1_":e -> "NamesState"
 
 "N2" [ style = dotted, fontname = "Courier", label = <
-@ axis ?<br/>&nbsp;<br/>Axis(axis) |&gt; Names()
+@ axis : ?<br/>&nbsp;<br/>Axis(axis) |&gt; LookupVector() |&gt; Names()
 > ]
 "N2_" [ shape = cds, label = "names of vectors&nbsp;" ]
 "N2":e -> "N2_":w
@@ -35,7 +35,7 @@ label = "NAMES"
 "N3_":e -> "NamesState"
 
 "N4" [ style = dotted, fontname = "Courier", label = <
-?<br/>&nbsp;<br/>Names()
+. ?<br/>&nbsp;<br/>LookupScalar() |&gt; Names()
 > ]
 "N4_" [ shape = cds, label = "names of scalars&nbsp;" ]
 "N4":e -> "N4_":w

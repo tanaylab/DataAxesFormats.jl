@@ -84,18 +84,18 @@ nested_test("queries") do
         nested_test("!value") do
             @test_throws chomp("""
                                expected: value
-                               in: .
-                               at:  ▲
-                               """) parse_query(".")
+                               in: >>
+                               at:   ▲
+                               """) parse_query(">>")
             return nothing
         end
 
         nested_test("~value") do
             @test_throws chomp("""
                                expected: value
-                               in: . .
-                               at:   ▲
-                               """) parse_query(". .")
+                               in: >> .
+                               at:    ▲
+                               """) parse_query(">> .")
             return nothing
         end
 
@@ -228,14 +228,18 @@ nested_test("queries") do
 
     nested_test("names") do
         nested_test("unexpected") do
-            test_invalid(daf, q"? ?", "invalid query: ? ?")
+            test_invalid(daf, q"? ?", chomp("""
+                                            invalid operation(s)
+                                            in the query: ? ?
+                                            at location:  ▲
+                                            """))
             return nothing
         end
 
         nested_test("scalars") do
             set_scalar!(daf, "version", "0.1.2")
             set_scalar!(daf, "species", "mouse")
-            @test get_result(daf, q"?") == ["species", "version"]
+            @test get_result(daf, q". ?") == ["species", "version"]
         end
 
         nested_test("axes") do
@@ -248,14 +252,14 @@ nested_test("queries") do
             add_axis!(daf, "gene", ["A", "B"])
             set_vector!(daf, "gene", "is_lateral", [true, false])
             set_vector!(daf, "gene", "is_marker", [true, true])
-            @test get_result(daf, "@ gene ?") == ["is_lateral", "is_marker"]
+            @test get_result(daf, "@ gene : ?") == ["is_lateral", "is_marker"]
         end
 
         nested_test("matrices") do
             add_axis!(daf, "cell", ["X", "Y"])
             add_axis!(daf, "gene", ["A", "B"])
             set_matrix!(daf, "cell", "gene", "UMIs", [1 2; 3 4])
-            @test get_result(daf, "@ cell @ gene ?") == ["UMIs"]
+            @test get_result(daf, "@ cell @ gene :: ?") == ["UMIs"]
         end
     end
 
