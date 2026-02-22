@@ -943,6 +943,7 @@ true
     axis::AbstractString,
     entries::AbstractVector{&lt;:AbstractString};
     allow_empty::Bool = false,
+    allow_missing::Bool = false,
 )::AbstractVector{&lt;:Integer}
 </code>
 </pre>
@@ -952,7 +953,9 @@ true
 <code>axis
 </code>. If 
 <code>allow_empty
-</code>, the empty string is converted to a zero index. Otherwise, all 
+</code>, the empty string is converted to a zero index. If 
+<code>allow_missing
+</code>, any non-empty strings that do not exist are likewise converted to a zero index. Otherwise, all 
 <code>entries
 </code> must exist in the 
 <code>axis

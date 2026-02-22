@@ -366,9 +366,34 @@ function test_existing_axis(daf::DafReader, depth::Int)::Nothing
     end
 
     nested_test("axis_indices") do
-        @test axis_indices(daf, "gene", GENE_NAMES) == collect(1:length(GENE_NAMES))
-        @test axis_indices(daf, "cell", reverse(CELL_NAMES)) == collect(reverse(1:length(CELL_NAMES)))
-        @test axis_indices(daf, "cell", [""]; allow_empty = true) == [0]
+        nested_test("()") do
+            @test axis_indices(daf, "gene", GENE_NAMES) == collect(1:length(GENE_NAMES))
+            @test axis_indices(daf, "cell", reverse(CELL_NAMES)) == collect(reverse(1:length(CELL_NAMES)))
+        end
+
+        nested_test("empty") do
+            @test axis_indices(daf, "cell", [""]; allow_empty = true) == [0]
+        end
+
+        nested_test("!empty") do
+            @test_throws chomp("""
+                               missing entry: 
+                               for the axis: cell
+                               in the daf data: $(daf.name)
+                               """) axis_indices(daf, "cell", [""])
+        end
+
+        nested_test("missing") do
+            @test axis_indices(daf, "cell", ["NADA"]; allow_missing = true) == [0]
+        end
+
+        nested_test("!missing") do
+            @test_throws chomp("""
+                               missing entry: NADA
+                               for the axis: cell
+                               in the daf data: $(daf.name)
+                               """) axis_indices(daf, "cell", ["NADA"])
+        end
     end
 
     nested_test("name") do

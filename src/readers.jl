@@ -358,10 +358,12 @@ end
         axis::AbstractString,
         entries::AbstractVector{<:AbstractString};
         allow_empty::Bool = false,
+        allow_missing::Bool = false,
     )::AbstractVector{<:Integer}
 
 Return a vector of the indices of the `entries` in the `axis`. If `allow_empty`, the empty string is converted to a zero
-index. Otherwise, all `entries` must exist in the `axis`.
+index. If `allow_missing`, any non-empty strings that do not exist are likewise converted to a zero index. Otherwise, all
+`entries` must exist in the `axis`.
 
 ```jldoctest
 axis_indices(example_metacells_daf(), "type", ["MPP", ""]; allow_empty = true)
@@ -378,17 +380,36 @@ function axis_indices(
     axis::AbstractString,
     entries::AbstractVector{<:AbstractString};
     allow_empty::Bool = false,
+    allow_missing::Bool = false,
 )::AbstractVector{<:Integer}
     dictionary = axis_dict(daf, axis)
 
-    if allow_empty
-        result = [entry == "" ? 0 : dictionary[entry] for entry in entries]
-    else
-        result = [dictionary[entry] for entry in entries]
-    end
-
+    result = [get_axis_entry(daf, axis, dictionary, entry; allow_empty, allow_missing) for entry in entries]
     @debug "axis_indices daf: $(brief(daf)) allow_empty: $(allow_empty) result: $(brief(result))"
     return result
+end
+
+@inline function get_axis_entry(
+    daf::DafReader,
+    axis::AbstractString,
+    dict::AbstractDict{<:AbstractString, <:Integer},
+    entry::AbstractString;
+    allow_empty::Bool,
+    allow_missing::Bool,
+)::Integer
+    value = get(dict, entry, nothing)
+    if value === nothing
+        if (entry == "" && allow_empty) || (entry != "" && allow_missing)
+            value = 0
+        else
+            error(chomp("""
+                        missing entry: $(entry)
+                        for the axis: $(axis)
+                        in the daf data: $(daf.name)
+                        """))
+        end
+    end
+    return value
 end
 
 """
