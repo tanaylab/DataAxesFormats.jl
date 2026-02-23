@@ -70,11 +70,12 @@ $(CONTRACT2)
         "quality" => (GuaranteedOutput, Float64, "Overall output quality score between 0.0 and 1.0."),
     ],
 ) Contract(
+    name = "second",
     data = [
         "version" => (GuaranteedOutput, String, "In major.minor.patch format."),
         "quality" => (RequiredInput, Float64, "Overall output quality score between 0.0 and 1.0."),
     ],
-) function cross(first::DafWriter, second::DafWriter; overwrite::Bool = false)::Nothing
+) function cross(first::DafWriter; second::DafWriter, overwrite::Bool = false)::Nothing
     set_scalar!(second, "version", get_scalar(first, "version"); overwrite = overwrite)
     set_scalar!(first, "quality", get_scalar(second, "quality"); overwrite = overwrite)
     return nothing
@@ -101,14 +102,15 @@ $(CONTRACT3)
         "quality" => (GuaranteedOutput, Float64, "Overall output quality score between 0.0 and 1.0."),
     ],
 ) Contract(
+    name = "second",
     data = [
         "version" => (GuaranteedOutput, String, "In major.minor.patch format."),
         "quality" => (RequiredInput, Float64, "Overall output quality score between 0.0 and 1.0."),
     ],
-) Contract(data = ["note" => (GuaranteedOutput, String, "Some note.")]) function cross_note(
-    first::DafWriter,
+) Contract(name = "third", data = ["note" => (GuaranteedOutput, String, "Some note.")]) function cross_note(
+    first::DafWriter;
     second::DafWriter,
-    third::DafWriter;
+    third::DafWriter,
     overwrite::Bool = false,
 )::Nothing
     set_scalar!(third, "note", "Noteworthy.")
@@ -203,7 +205,7 @@ nested_test("computations") do
         nested_test("missing") do
             @test_throws chomp("""
                          missing input axis: gene
-                         for the computation: Main.single
+                         for the computation: Main.single.daf
                          on the daf data: memory!
                          """) single(daf, 0.0)
         end
@@ -276,7 +278,7 @@ nested_test("computations") do
         nested_test("()") do
             set_scalar!(first, "version", "0.0")
             set_scalar!(second, "quality", 1.0)
-            @test cross(first, second) === nothing
+            @test cross(first; second) === nothing
             @test get_scalar(first, "quality") == 1.0
             @test get_scalar(second, "version") == "0.0"
         end
@@ -285,7 +287,7 @@ nested_test("computations") do
             third = MemoryDaf(; name = "third!")
             set_scalar!(first, "version", "0.0")
             set_scalar!(second, "quality", 1.0)
-            @test cross_note(first, second, third) === nothing
+            @test cross_note(first; second, third) === nothing
             @test get_scalar(first, "quality") == 1.0
             @test get_scalar(second, "version") == "0.0"
             @test get_scalar(third, "note") == "Noteworthy."
@@ -296,7 +298,7 @@ nested_test("computations") do
             set_scalar!(first, "quality", 0.0)
             set_scalar!(second, "quality", 1.0)
             set_scalar!(second, "version", "1.0")
-            @test cross(first, second; overwrite = true) === nothing
+            @test cross(first; second, overwrite = true) === nothing
             @test get_scalar(first, "quality") == 1.0
             @test get_scalar(second, "version") == "0.0"
         end
@@ -308,9 +310,9 @@ nested_test("computations") do
             set_scalar!(second, "version", "1.0")
             @test_throws chomp("""
                          pre-existing GuaranteedOutput scalar: quality
-                         for the computation: Main.cross.1
+                         for the computation: Main.cross.daf
                          on the daf data: first!
-                         """) cross(first, second)
+                         """) cross(first; second)
             @test get_scalar(first, "quality") == 0.0
             @test get_scalar(second, "version") == "1.0"
         end
@@ -321,9 +323,9 @@ nested_test("computations") do
                 @test_throws chomp("""
                              missing input scalar: version
                              with type: String
-                             for the computation: Main.cross.1
+                             for the computation: Main.cross.daf
                              on the daf data: first!
-                             """) cross(first, second)
+                             """) cross(first; second)
             end
 
             nested_test("second") do
@@ -331,9 +333,9 @@ nested_test("computations") do
                 @test_throws chomp("""
                              missing input scalar: quality
                              with type: Float64
-                             for the computation: Main.cross.2
+                             for the computation: Main.cross.second
                              on the daf data: second!
-                             """) cross(first, second)
+                             """) cross(first; second)
             end
         end
 

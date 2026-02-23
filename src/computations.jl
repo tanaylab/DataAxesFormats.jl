@@ -29,7 +29,7 @@ import TanayLabUtilities.Documentation.get_metadata
 import TanayLabUtilities.Documentation.set_metadata_of_function
 import TanayLabUtilities.Logger.pass_args
 
-function kwargs_overwrite(kwargs::Base.Pairs)::Bool
+function kwargs_overwrite(kwargs)::Bool
     for (name, value) in kwargs
         if name == :overwrite
             @assert value isa Bool "non-Bool overwrite keyword parameter type: $(typeof(value)) = $(value)"
@@ -39,26 +39,56 @@ function kwargs_overwrite(kwargs::Base.Pairs)::Bool
     return false
 end
 
-function computation_wrapper(contract::Contract, name::AbstractString, inner_function)
-    return (daf::DafReader, args...; kwargs...) -> (
+function args_daf(computation::AbstractString, contract::Contract, args, kwargs)::Tuple{Maybe{AbstractString}, Any}
+    if contract.name === nothing
+        return (computation * ".daf", args[1])
+    else
+        for (argument_name, argument_value) in kwargs
+            if string(argument_name) == contract.name
+                return (computation * "." * contract.name, argument_value)
+            end
+        end
+        error("missing daf keyword parameter: $(contract.name)")  # UNTESTED
+    end
+end
+
+function patch_args(contract::Contract, daf::DafReader, args, kwargs)::Tuple{Any, Any}
+    if contract.name === nothing
+        args = Base.setindex(args, daf, 1)
+    else
+        kwargs = [name => (string(name) == contract.name ? daf : value) for (name, value) in kwargs]
+    end
+    return args, kwargs
+end
+
+function computation_wrapper(single_contract::Contract, name::AbstractString, inner_function)
+    return (args...; kwargs...) -> (
         #! format: off
-        contract_daf = contractor(name, contract, daf; overwrite = kwargs_overwrite(kwargs));
-        verify_input(contract_daf);
-        result = inner_function(contract_daf, args...; kwargs...);
-        verify_output(contract_daf);
+        (single_name, single_daf) = args_daf(name, single_contract, args, kwargs);
+        single_contract_daf = contractor(single_name, single_contract, single_daf; overwrite = kwargs_overwrite(kwargs));
+        (args, kwargs) = patch_args(single_contract, single_contract_daf, args, kwargs);
+        verify_input(single_contract_daf);
+        result = inner_function(args...; kwargs...);
+        verify_output(single_contract_daf);
         result  # flaky tested
         #! format: on
     )
 end
 
 function computation_wrapper(first_contract::Contract, second_contract::Contract, name::AbstractString, inner_function)
-    return (first_daf::DafReader, second_daf::DafReader, args...; kwargs...) -> (  # NOJET
+    return (args...; kwargs...) -> (  # NOJET
         #! format: off
-        first_contract_daf = contractor(name * ".1", first_contract, first_daf; overwrite = kwargs_overwrite(kwargs));
-        second_contract_daf = contractor(name * ".2", second_contract, second_daf; overwrite = kwargs_overwrite(kwargs));  # NOJET
+        @assert (first_contract.name === nothing) + (second_contract.name === nothing) <= 1 "at most one of two contracts can be an unnamed parameter";
+        overwrite = kwargs_overwrite(kwargs);
+        (first_name, first_daf) = args_daf(name, first_contract, args, kwargs);
+        (second_name, second_daf) = args_daf(name, second_contract, args, kwargs);
+        first_contract_daf = contractor(first_name, first_contract, first_daf; overwrite);
+        second_contract_daf = contractor(second_name, second_contract, second_daf; overwrite);  # NOJET
+        (args, kwargs) = patch_args(first_contract, first_contract_daf, args, kwargs);
+        (args, kwargs) = patch_args(second_contract, second_contract_daf, args, kwargs);
         verify_input(first_contract_daf);
         verify_input(second_contract_daf);
-        result = inner_function(first_contract_daf, second_contract_daf, args...; kwargs...);
+        result = inner_function(args...; kwargs...);
         verify_output(first_contract_daf);
         verify_output(second_contract_daf);
         result  # flaky tested
@@ -73,15 +103,23 @@ function computation_wrapper(
     name::AbstractString,
     inner_function,
 )
-    return (first_daf::DafReader, second_daf::DafReader, third_daf::DafReader, args...; kwargs...) -> (  # NOJET
+    return (args...; kwargs...) -> (  # NOJET
         #! format: off
-        first_contract_daf = contractor(name * ".1", first_contract, first_daf; overwrite = kwargs_overwrite(kwargs));
-        second_contract_daf = contractor(name * ".2", second_contract, second_daf; overwrite = kwargs_overwrite(kwargs));  # NOJET
-        third_contract_daf = contractor(name * ".3", third_contract, third_daf; overwrite = kwargs_overwrite(kwargs));  # NOJET
+        @assert (first_contract.name === nothing) + (second_contract.name === nothing) + (third_contract.name === nothing) <= 1 "at most one of three contracts can be an unnamed parameter";
+        overwrite = kwargs_overwrite(kwargs);
+        (first_name, first_daf) = args_daf(name, first_contract, args, kwargs);
+        (second_name, second_daf) = args_daf(name, second_contract, args, kwargs);
+        (third_name, third_daf) = args_daf(name, third_contract, args, kwargs);
+        first_contract_daf = contractor(first_name, first_contract, first_daf; overwrite);
+        second_contract_daf = contractor(second_name, second_contract, second_daf; overwrite);  # NOJET
+        third_contract_daf = contractor(third_name, third_contract, third_daf; overwrite);  # NOJET
+        (args, kwargs) = patch_args(first_contract, first_contract_daf, args, kwargs);
+        (args, kwargs) = patch_args(second_contract, second_contract_daf, args, kwargs);
+        (args, kwargs) = patch_args(third_contract, third_contract_daf, args, kwargs);
         verify_input(first_contract_daf);
         verify_input(second_contract_daf);
         verify_input(third_contract_daf);
-        result = inner_function(first_contract_daf, second_contract_daf, third_contract_daf, args...; kwargs...);
+        result = inner_function(args...; kwargs...);
         verify_output(first_contract_daf);
         verify_output(second_contract_daf);
         verify_output(third_contract_daf);
@@ -95,14 +133,14 @@ end
         return ...
     end
 
-    @computation Contract(...) Contract(...) function something(
-        first::DafReader/DafWriter, second::DafReader/DafWriter, ...
+    @computation Contract(...) Contract(name = "second" ...) function something(
+        first::DafReader/DafWriter; second::DafReader/DafWriter, ...
     )
         return ...
     end
 
-    @computation Contract(...) Contract(...) Contract(...) function something(
-        first::DafReader/DafWriter, second::DafReader/DafWriter, third::DafReader/DafWriter, ...
+    @computation Contract(...) Contract(name = "second", ...) Contract(name = "third", ...) function something(
+        first::DafReader/DafWriter; second::DafReader/DafWriter, third::DafReader/DafWriter, ...
     )
         return ...
     end

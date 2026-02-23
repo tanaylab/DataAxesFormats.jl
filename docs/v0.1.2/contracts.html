@@ -308,6 +308,7 @@
 <div>
 <pre>
 <code class="language-julia hljs">@kwdef struct Contract
+    name::Maybe{AbstractString} = nothing
     is_relaxed::Bool = false
     axes::Maybe{ContractAxes} = nothing
     data::Maybe{ContractData} = nothing
@@ -321,6 +322,10 @@ end
 </code>. If 
 <code>is_relaxed
 </code>, this allows for additional inputs and/or outputs; this is typically used when the computation has query parameters, which may need to access such additional data, or when the computation generates a variable set of data.
+</p>
+<p>If 
+<code>name
+</code> is specified, then the parameter for the daf repository should be so named. Otherwise, the parameter should be the first unnamed parameter (there can be only one such unnamed parameter per function).
 </p>
 <div class="admonition is-info" id="Note-ff28c7221030fe4c">
 <header class="admonition-header">Note

@@ -114,6 +114,7 @@ ContractData = AbstractVector
 
 """
     @kwdef struct Contract
+        name::Maybe{AbstractString} = nothing
         is_relaxed::Bool = false
         axes::Maybe{ContractAxes} = nothing
         data::Maybe{ContractData} = nothing
@@ -123,6 +124,9 @@ The contract of a computational tool, specifing the `axes` and and `data`. If `i
 inputs and/or outputs; this is typically used when the computation has query parameters, which may need to access such
 additional data, or when the computation generates a variable set of data.
 
+If `name` is specified, then the parameter for the daf repository should be so named. Otherwise, the parameter should
+be the first unnamed parameter (there can be only one such unnamed parameter per function).
+
 !!! note
 
     When a function calls several functions in a row, you can compute its contract by using [`function_contract`](@ref
@@ -130,6 +134,7 @@ additional data, or when the computation generates a variable set of data.
     using `|>`.
 """
 @kwdef struct Contract
+    name::Maybe{AbstractString} = nothing
     is_relaxed::Bool = false
     axes::Maybe{ContractAxes} = nothing
     data::Maybe{ContractData} = nothing
@@ -850,6 +855,7 @@ end
 
 function Base.:(|>)(left::Contract, right::Contract)::Contract
     return Contract(
+        left.name === nothing ? right.name : (right.name === nothing ? left.name : left.name * "_" * right.name),
         left.is_relaxed || right.is_relaxed,
         add_pairs(left.axes, right.axes),
         add_pairs(left.data, right.data),
