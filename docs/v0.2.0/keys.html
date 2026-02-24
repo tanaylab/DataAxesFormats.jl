@@ -5,14 +5,14 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Concat · DataAxesFormats.jl v0.1.2
+<title>Keys · DataAxesFormats.jl v0.2.0
 </title>
-<meta name="title" content="Concat · DataAxesFormats.jl v0.1.2"/>
-<meta property="og:title" content="Concat · DataAxesFormats.jl v0.1.2"/>
-<meta property="twitter:title" content="Concat · DataAxesFormats.jl v0.1.2"/>
-<meta name="description" content="Documentation for DataAxesFormats.jl v0.1.2."/>
-<meta property="og:description" content="Documentation for DataAxesFormats.jl v0.1.2."/>
-<meta property="twitter:description" content="Documentation for DataAxesFormats.jl v0.1.2."/>
+<meta name="title" content="Keys · DataAxesFormats.jl v0.2.0"/>
+<meta property="og:title" content="Keys · DataAxesFormats.jl v0.2.0"/>
+<meta property="twitter:title" content="Keys · DataAxesFormats.jl v0.2.0"/>
+<meta name="description" content="Documentation for DataAxesFormats.jl v0.2.0."/>
+<meta property="og:description" content="Documentation for DataAxesFormats.jl v0.2.0."/>
+<meta property="twitter:description" content="Documentation for DataAxesFormats.jl v0.2.0."/>
 <script data-outdated-warner src="assets/warner.js">
 </script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/>
@@ -101,7 +101,7 @@
 </a>
 <div class="docs-package-name">
 <span class="docs-autofit">
-<a href="index.html">DataAxesFormats.jl v0.1.2
+<a href="index.html">DataAxesFormats.jl v0.2.0
 </a>
 </span>
 </div>
@@ -148,17 +148,9 @@
 <a class="tocitem" href="copies.html">Copies
 </a>
 </li>
-<li class="is-active">
+<li>
 <a class="tocitem" href="concat.html">Concat
 </a>
-<ul class="internal">
-<li>
-<a class="tocitem" href="#Index">
-<span>Index
-</span>
-</a>
-</li>
-</ul>
 </li>
 <li>
 <a class="tocitem" href="adapters.html">Adapters
@@ -172,9 +164,17 @@
 <a class="tocitem" href="formats.html">Formats
 </a>
 </li>
-<li>
+<li class="is-active">
 <a class="tocitem" href="keys.html">Keys
 </a>
+<ul class="internal">
+<li>
+<a class="tocitem" href="#Index">
+<span>Index
+</span>
+</a>
+</li>
+</ul>
 </li>
 <li>
 <a class="tocitem" href="memory_format.html">Memory Format
@@ -241,13 +241,13 @@
 <nav class="breadcrumb">
 <ul class="is-hidden-mobile">
 <li class="is-active">
-<a href="concat.html">Concat
+<a href="keys.html">Keys
 </a>
 </li>
 </ul>
 <ul class="is-hidden-tablet">
 <li class="is-active">
-<a href="concat.html">Concat
+<a href="keys.html">Keys
 </a>
 </li>
 </ul>
@@ -266,19 +266,19 @@
 </div>
 </header>
 <article class="content" id="documenter-page">
-<h1 id="Concat">
-<a class="docs-heading-anchor" href="#Concat">Concat
+<h1 id="Keys">
+<a class="docs-heading-anchor" href="#Keys">Keys
 </a>
-<a id="Concat-1">
+<a id="Keys-1">
 </a>
-<a class="docs-heading-anchor-permalink" href="#Concat" title="Permalink">
+<a class="docs-heading-anchor-permalink" href="#Keys" title="Permalink">
 </a>
 </h1>
 <article>
 <details class="docstring" open="true">
-<summary id="DataAxesFormats.Concat">
-<a class="docstring-binding" href="#DataAxesFormats.Concat">
-<code>DataAxesFormats.Concat
+<summary id="DataAxesFormats.Keys">
+<a class="docstring-binding" href="#DataAxesFormats.Keys">
+<code>DataAxesFormats.Keys
 </code>
 </a> — 
 <span class="docstring-category">Module
@@ -286,11 +286,11 @@
 </summary>
 <section>
 <div>
-<p>Concatenate multiple 
+<p>Identify data inside a 
 <code>Daf
-</code> data sets along some axis. This copies the data from the concatenated data sets into some target data set.
+</code> data set using a key. These types are used in various high-level API parameters.
 </p>
-<p>The exact behavior of concatenation is surprisingly complex when accounting for sparse vs. dense matrices, different matrix layouts, and properties which are not along the concatenation axis. The implementation is further complicated by minimizing the allocation of intermediate memory buffers for the data; that is, in principle, concatenating from and into memory-mapped data sets should not allocate &quot;any&quot; memory buffers - the data should be copied directly from one memory-mapped region to another.
+<p>A separate key space is used for axes and data; thus, both axes and scalars use a simple string key.
 </p>
 </div>
 </section>
@@ -298,134 +298,9 @@
 </article>
 <article>
 <details class="docstring" open="true">
-<summary id="DataAxesFormats.Concat.concatenate!">
-<a class="docstring-binding" href="#DataAxesFormats.Concat.concatenate!">
-<code>DataAxesFormats.Concat.concatenate!
-</code>
-</a> — 
-<span class="docstring-category">Function
-</span>
-</summary>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">concatenate!(
-    destination::DafWriter,
-    axis::Union{AbstractString, AbstractVector{&lt;:AbstractString}},
-    sources::AbstractVector{&lt;:DafReader};
-    [names::Maybe{AbstractVector{&lt;:AbstractString}} = nothing,
-    dataset_axis::Maybe{AbstractString} = &quot;dataset&quot;,
-    dataset_property::Bool = true,
-    prefix::Union{Bool, AbstractVector{Bool}} = false,
-    prefixed::Maybe{Union{AbstractSet{&lt;:AbstractString}, AbstractVector{&lt;:AbstractSet{&lt;:AbstractString}}}} = nothing,
-    empty::Maybe{EmptyData} = nothing,
-    sparse_if_saves_storage_fraction::AbstractFloat = 0.25,
-    merge::Maybe{MergeData} = nothing,
-    overwrite::Bool = false]
-)::Nothing
-</code>
-</pre>
-<p>Concatenate data from a 
-<code>sources
-</code> sequence of 
-<code>Daf
-</code> data sets into a single 
-<code>destination
-</code> data set along one or more concatenation 
-<code>axis
-</code>. You can also concatenate along multiple axes by specifying an array of 
-<code>axis
-</code> names.
-</p>
-<p>We need a unique name for each of the concatenated data sets. By default, we use the 
-<code>DafReader.name
-</code>. You can override this by specifying an explicit 
-<code>names
-</code> vector with one name per data set.
-</p>
-<p>By default, a new axis named by 
-<code>dataset_axis
-</code> is created with one entry per concatenated data set, using these unique names. You can disable this by setting 
-<code>dataset_axis
-</code> to 
-<code>nothing
-</code>.
-</p>
-<p>If an axis is created, and 
-<code>dataset_property
-</code> is set (the default), a property with the same name is created for the concatenated 
-<code>axis
-</code>, containing the name of the data set each entry was collected from.
-</p>
-<p>The entries of each concatenated axis must be unique. By default, we require that no entry name is used in more than one data set. If this isn&#39;t the case, then set 
-<code>prefix
-</code> to specify adding the unique data set name (and a 
-<code>.
-</code> separator) to its entries (either once for all the axes, or using a vector with a setting per axis).
-</p>
-<div class="admonition is-info" id="Note-71b4b05fdd9d3341">
-<header class="admonition-header">Note
-<a class="admonition-anchor" href="#Note-71b4b05fdd9d3341" title="Permalink">
-</a>
-</header>
-<div class="admonition-body">
-<p>If a prefix is added to the axis entry names, then it must also be added to all the vector properties whose values are entries of the axis. By default, we assume that any property name that is identical to the axis name is such a property (e.g., given a 
-<code>cluster
-</code> axis, a 
-<code>cluster
-</code> property of each 
-<code>cell
-</code> is assumed to contain the names of clusters from that axis). We also allow for property names to just start with the axis name, followed by 
-<code>.
-</code> and some suffix (e.g., 
-<code>cluster.manual
-</code> will also be assumed to contain the names of clusters). We&#39;ll automatically add the unique prefix to all such properties.
-</p>
-<p>If, however, this heuristic fails, you can specify a vector of properties to be 
-<code>prefixed
-</code> (or a vector of such vectors, one per concatenated axis). In this case only the listed properties will be prefixed with the unique data set names.
-</p>
-</div>
-</div>
-<p>Vector and matrix properties for the 
-<code>axis
-</code> will be concatenated. If some of the concatenated data sets do not contain some property, then an 
-<code>empty
-</code> value must be specified for it, and will be used for the missing data.
-</p>
-<p>Concatenated matrices are always stored in column-major layout where the concatenation axis is the column axis. There should not exist any matrices whose both axes are concatenated (e.g., square matrices of the concatenated axis).
-</p>
-<p>The concatenated properties will be sparse if the storage for the sparse data is smaller than naive dense storage by at 
-<code>sparse_if_saves_storage_fraction
-</code> (by default, if using sparse storage saves at least 25% of the space, that is, takes at most 75% of the dense storage space). When estimating this fraction, we assume dense data is 100% non-zero; we only take into account data already stored as sparse, as well as any missing data whose 
-<code>empty
-</code> value is zero.
-</p>
-<p>By default, properties that do not apply to any of the concatenation 
-<code>axis
-</code> will be ignored. If 
-<code>merge
-</code> is specified, then such properties will be processed according to it. Using 
-<code>CollectAxis
-</code> for a property requires that the 
-<code>dataset_axis
-</code> will not be 
-<code>nothing
-</code>.
-</p>
-<p>By default, concatenation will fail rather than 
-<code>overwrite
-</code> existing properties in the target.
-</p>
-</div>
-</section>
-</details>
-</article>
-<article>
-<details class="docstring" open="true">
-<summary id="DataAxesFormats.Concat.MergeDatum">
-<a class="docstring-binding" href="#DataAxesFormats.Concat.MergeDatum">
-<code>DataAxesFormats.Concat.MergeDatum
+<summary id="DataAxesFormats.Keys.AxisKey">
+<a class="docstring-binding" href="#DataAxesFormats.Keys.AxisKey">
+<code>DataAxesFormats.Keys.AxisKey
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -433,94 +308,140 @@
 </summary>
 <section>
 <div>
-<p>A pair where the key is a 
-<a href="keys.html#DataAxesFormats.Keys.PropertyKey">
-<code>PropertyKey
-</code>
-</a> and the value is 
-<a href="concat.html#DataAxesFormats.Concat.MergeAction">
-<code>MergeAction
-</code>
-</a>. We also allow specifying tuples instead of pairs to make it easy to invoke the API from other languages such as Python which do not have the concept of a 
-<code>Pair
-</code>.
-</p>
-<p>Similarly to 
-<a href="views.html#DataAxesFormats.Views.ViewData">
-<code>ViewData
-</code>
-</a>, the order of the entries matters (last one wins), and a key containing 
-<code>&quot;*&quot;
-</code> is expanded to all the relevant properties. For matrices, merge is done separately for each layout. That is, the order of the key 
-<code>(rows_axis, columns_axis, matrix_name)
-</code> key 
-<em>does
-</em> matter in the 
-<code>MergeData
-</code>, which is different from how 
-<a href="views.html#DataAxesFormats.Views.ViewData">
-<code>ViewData
-</code>
-</a> works.
-</p>
-</div>
-</section>
-</details>
-</article>
-<article>
-<details class="docstring" open="true">
-<summary id="DataAxesFormats.Concat.MergeData">
-<a class="docstring-binding" href="#DataAxesFormats.Concat.MergeData">
-<code>DataAxesFormats.Concat.MergeData
-</code>
-</a> — 
-<span class="docstring-category">Type
-</span>
-</summary>
-<section>
-<div>
-<p>Specify all the data to merge. We would have liked to specify this as 
-<code>AbstractVector{&lt;:MergeDatum}
-</code> but Julia in its infinite wisdom considers 
-<code>[&quot;a&quot; =&gt; &quot;b&quot;, (&quot;c&quot;, &quot;d&quot;) =&gt; &quot;e&quot;]
-</code> to be a 
-<code>Vector{Any}
-</code>, which would require literals to be annotated with the type.
-</p>
-</div>
-</section>
-</details>
-</article>
-<article>
-<details class="docstring" open="true">
-<summary id="DataAxesFormats.Concat.MergeAction">
-<a class="docstring-binding" href="#DataAxesFormats.Concat.MergeAction">
-<code>DataAxesFormats.Concat.MergeAction
-</code>
-</a> — 
-<span class="docstring-category">Type
-</span>
-</summary>
-<section>
-<div>
-<p>The action for merging the values of a property from the concatenated data sets into the result data set. This is used to properties that do not apply to the concatenation axis (that is, scalar properties, and vector and matrix properties of other axes). Valid values are:
-</p>
-<ul>
-<li>
-<code>SkipProperty
-</code> - do not create the property in the result. This is the default.
-</li>
-<li>
-<code>LastValue
-</code> - use the value from the last concatenated data set (that has a value for the property). This is useful for properties that have the same value for all concatenated data sets.
-</li>
-<li>
-<code>CollectAxis
-</code> - collect the values from all the data sets, adding a dimension to the data (that is, convert a scalar property to a vector, and a vector property to a matrix). This can&#39;t be applied to matrix properties, because we can&#39;t directly store 3D data inside 
+<p>A key specifying some axis in 
 <code>Daf
-</code>. In addition, this requires that a dataset axis is created in the target, and that an empty value is specified for the property if it is missing from any of the concatenated data sets.
-</li>
-</ul>
+</code> by its name.
+</p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.Keys.ScalarKey">
+<a class="docstring-binding" href="#DataAxesFormats.Keys.ScalarKey">
+<code>DataAxesFormats.Keys.ScalarKey
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</summary>
+<section>
+<div>
+<p>A key specifying some scalar in 
+<code>Daf
+</code> by its name.
+</p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.Keys.VectorKey">
+<a class="docstring-binding" href="#DataAxesFormats.Keys.VectorKey">
+<code>DataAxesFormats.Keys.VectorKey
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</summary>
+<section>
+<div>
+<p>A key specifying some vector in 
+<code>Daf
+</code> by its axis and name.
+</p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.Keys.MatrixKey">
+<a class="docstring-binding" href="#DataAxesFormats.Keys.MatrixKey">
+<code>DataAxesFormats.Keys.MatrixKey
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</summary>
+<section>
+<div>
+<p>A key specifying some matrix in 
+<code>Daf
+</code> by its axes and name. The axes order does not matter.
+</p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.Keys.PropertyKey">
+<a class="docstring-binding" href="#DataAxesFormats.Keys.PropertyKey">
+<code>DataAxesFormats.Keys.PropertyKey
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</summary>
+<section>
+<div>
+<p>A key specifying some atomic data property in 
+<code>Daf
+</code>. That is, these keys refer to data we can directly get or set using the APIs.
+</p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.Keys.TensorKey">
+<a class="docstring-binding" href="#DataAxesFormats.Keys.TensorKey">
+<code>DataAxesFormats.Keys.TensorKey
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</summary>
+<section>
+<div>
+<p>A key specifying some tensor in 
+<code>Daf
+</code> by its axes and name. 
+<code>Daf
+</code> is restricted to storing 0D, 1D and 2D data, for good reasons; higher dimensional data raises sticky issues about layout and there is no support for any sparse representation (which is even more important for this kind of data). However, sometimes it is necessary to store 3D data in 
+<code>Daf
+</code>. In this case, we pick the 1st axis as the main one, and store a series of 
+<code>&lt;main-axis-entry&gt;_&lt;property_name&gt;
+</code> matrices using the other two axes (whose order doesn&#39;t matter). Access is only to each specific matrix, not to the whole 3D tensor. However, it is useful to be able to specify the whole set of matrices for copying, views, contracts, etc.
+</p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.Keys.DataKey">
+<a class="docstring-binding" href="#DataAxesFormats.Keys.DataKey">
+<code>DataAxesFormats.Keys.DataKey
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</summary>
+<section>
+<div>
+<p>A key specifying some data property in 
+<code>Daf
+</code>. This includes 
+<a href="keys.html#DataAxesFormats.Keys.TensorKey">
+<code>TensorKey
+</code>
+</a> which actually refers to a series of matrix properties instead of a single data property.
+</p>
 </div>
 </section>
 </details>
@@ -535,41 +456,59 @@
 </h2>
 <ul>
 <li>
-<a href="concat.html#DataAxesFormats.Concat">
-<code>DataAxesFormats.Concat
+<a href="keys.html#DataAxesFormats.Keys">
+<code>DataAxesFormats.Keys
 </code>
 </a>
 </li>
 <li>
-<a href="concat.html#DataAxesFormats.Concat.MergeAction">
-<code>DataAxesFormats.Concat.MergeAction
+<a href="keys.html#DataAxesFormats.Keys.AxisKey">
+<code>DataAxesFormats.Keys.AxisKey
 </code>
 </a>
 </li>
 <li>
-<a href="concat.html#DataAxesFormats.Concat.MergeData">
-<code>DataAxesFormats.Concat.MergeData
+<a href="keys.html#DataAxesFormats.Keys.DataKey">
+<code>DataAxesFormats.Keys.DataKey
 </code>
 </a>
 </li>
 <li>
-<a href="concat.html#DataAxesFormats.Concat.MergeDatum">
-<code>DataAxesFormats.Concat.MergeDatum
+<a href="keys.html#DataAxesFormats.Keys.MatrixKey">
+<code>DataAxesFormats.Keys.MatrixKey
 </code>
 </a>
 </li>
 <li>
-<a href="concat.html#DataAxesFormats.Concat.concatenate!">
-<code>DataAxesFormats.Concat.concatenate!
+<a href="keys.html#DataAxesFormats.Keys.PropertyKey">
+<code>DataAxesFormats.Keys.PropertyKey
+</code>
+</a>
+</li>
+<li>
+<a href="keys.html#DataAxesFormats.Keys.ScalarKey">
+<code>DataAxesFormats.Keys.ScalarKey
+</code>
+</a>
+</li>
+<li>
+<a href="keys.html#DataAxesFormats.Keys.TensorKey">
+<code>DataAxesFormats.Keys.TensorKey
+</code>
+</a>
+</li>
+<li>
+<a href="keys.html#DataAxesFormats.Keys.VectorKey">
+<code>DataAxesFormats.Keys.VectorKey
 </code>
 </a>
 </li>
 </ul>
 </article>
 <nav class="docs-footer">
-<a class="docs-footer-prevpage" href="copies.html">« Copies
+<a class="docs-footer-prevpage" href="formats.html">« Formats
 </a>
-<a class="docs-footer-nextpage" href="adapters.html">Adapters »
+<a class="docs-footer-nextpage" href="memory_format.html">Memory Format »
 </a>
 <div class="flexbox-break">
 </div>

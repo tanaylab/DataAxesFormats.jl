@@ -8,6 +8,6 @@ do
 done
 cd ../..
 JULIA_DEBUG="" julia --color=no deps/document.jl
-python3 deps/document.py docs/v0.1.2
-sed -i 's:<img src="assets/\([^ ]*\).svg":<embed src="assets/\1.svg":;s: on <span class="colophon-date" title="[^"]*">[^<]*</span>::;s:<:\n<:g' docs/v0.1.2/*html
+python3 deps/document.py docs/v0.2.0
+sed -i 's:<img src="assets/\([^ ]*\).svg":<embed src="assets/\1.svg":;s: on <span class="colophon-date" title="[^"]*">[^<]*</span>::;s:<:\n<:g' docs/v0.2.0/*html
 rm -rf docs/*/*.{cov,jl}

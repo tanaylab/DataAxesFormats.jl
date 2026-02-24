@@ -5,14 +5,14 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Chains · DataAxesFormats.jl v0.1.2
+<title>Concat · DataAxesFormats.jl v0.2.0
 </title>
-<meta name="title" content="Chains · DataAxesFormats.jl v0.1.2"/>
-<meta property="og:title" content="Chains · DataAxesFormats.jl v0.1.2"/>
-<meta property="twitter:title" content="Chains · DataAxesFormats.jl v0.1.2"/>
-<meta name="description" content="Documentation for DataAxesFormats.jl v0.1.2."/>
-<meta property="og:description" content="Documentation for DataAxesFormats.jl v0.1.2."/>
-<meta property="twitter:description" content="Documentation for DataAxesFormats.jl v0.1.2."/>
+<meta name="title" content="Concat · DataAxesFormats.jl v0.2.0"/>
+<meta property="og:title" content="Concat · DataAxesFormats.jl v0.2.0"/>
+<meta property="twitter:title" content="Concat · DataAxesFormats.jl v0.2.0"/>
+<meta name="description" content="Documentation for DataAxesFormats.jl v0.2.0."/>
+<meta property="og:description" content="Documentation for DataAxesFormats.jl v0.2.0."/>
+<meta property="twitter:description" content="Documentation for DataAxesFormats.jl v0.2.0."/>
 <script data-outdated-warner src="assets/warner.js">
 </script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/>
@@ -101,7 +101,7 @@
 </a>
 <div class="docs-package-name">
 <span class="docs-autofit">
-<a href="index.html">DataAxesFormats.jl v0.1.2
+<a href="index.html">DataAxesFormats.jl v0.2.0
 </a>
 </span>
 </div>
@@ -136,17 +136,9 @@
 <a class="tocitem" href="views.html">Views
 </a>
 </li>
-<li class="is-active">
+<li>
 <a class="tocitem" href="chains.html">Chains
 </a>
-<ul class="internal">
-<li>
-<a class="tocitem" href="#Index">
-<span>Index
-</span>
-</a>
-</li>
-</ul>
 </li>
 <li>
 <a class="tocitem" href="computations.html">Computations
@@ -156,9 +148,17 @@
 <a class="tocitem" href="copies.html">Copies
 </a>
 </li>
-<li>
+<li class="is-active">
 <a class="tocitem" href="concat.html">Concat
 </a>
+<ul class="internal">
+<li>
+<a class="tocitem" href="#Index">
+<span>Index
+</span>
+</a>
+</li>
+</ul>
 </li>
 <li>
 <a class="tocitem" href="adapters.html">Adapters
@@ -241,13 +241,13 @@
 <nav class="breadcrumb">
 <ul class="is-hidden-mobile">
 <li class="is-active">
-<a href="chains.html">Chains
+<a href="concat.html">Concat
 </a>
 </li>
 </ul>
 <ul class="is-hidden-tablet">
 <li class="is-active">
-<a href="chains.html">Chains
+<a href="concat.html">Concat
 </a>
 </li>
 </ul>
@@ -266,19 +266,19 @@
 </div>
 </header>
 <article class="content" id="documenter-page">
-<h1 id="Chains">
-<a class="docs-heading-anchor" href="#Chains">Chains
+<h1 id="Concat">
+<a class="docs-heading-anchor" href="#Concat">Concat
 </a>
-<a id="Chains-1">
+<a id="Concat-1">
 </a>
-<a class="docs-heading-anchor-permalink" href="#Chains" title="Permalink">
+<a class="docs-heading-anchor-permalink" href="#Concat" title="Permalink">
 </a>
 </h1>
 <article>
 <details class="docstring" open="true">
-<summary id="DataAxesFormats.Chains">
-<a class="docstring-binding" href="#DataAxesFormats.Chains">
-<code>DataAxesFormats.Chains
+<summary id="DataAxesFormats.Concat">
+<a class="docstring-binding" href="#DataAxesFormats.Concat">
+<code>DataAxesFormats.Concat
 </code>
 </a> — 
 <span class="docstring-category">Module
@@ -286,11 +286,11 @@
 </summary>
 <section>
 <div>
-<p>View a chain of 
+<p>Concatenate multiple 
 <code>Daf
-</code> data as a single data set. This allows creating a small 
-<code>Daf
-</code> data set that contains extra (or overriding) data on top of a larger read-only data set. In particular this allows creating several such incompatible extra data sets (e.g., different groupings of cells to metacells), without having to duplicate the common (read only) data.
+</code> data sets along some axis. This copies the data from the concatenated data sets into some target data set.
+</p>
+<p>The exact behavior of concatenation is surprisingly complex when accounting for sparse vs. dense matrices, different matrix layouts, and properties which are not along the concatenation axis. The implementation is further complicated by minimizing the allocation of intermediate memory buffers for the data; that is, in principle, concatenating from and into memory-mapped data sets should not allocate &quot;any&quot; memory buffers - the data should be copied directly from one memory-mapped region to another.
 </p>
 </div>
 </section>
@@ -298,9 +298,9 @@
 </article>
 <article>
 <details class="docstring" open="true">
-<summary id="DataAxesFormats.Chains.chain_reader">
-<a class="docstring-binding" href="#DataAxesFormats.Chains.chain_reader">
-<code>DataAxesFormats.Chains.chain_reader
+<summary id="DataAxesFormats.Concat.concatenate!">
+<a class="docstring-binding" href="#DataAxesFormats.Concat.concatenate!">
+<code>DataAxesFormats.Concat.concatenate!
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -309,92 +309,123 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">chain_reader(dafs::AbstractVector{&lt;:DafReader}; name::Maybe{AbstractString} = nothing)::DafReader
+<code class="language-julia hljs">concatenate!(
+    destination::DafWriter,
+    axis::Union{AbstractString, AbstractVector{&lt;:AbstractString}},
+    sources::AbstractVector{&lt;:DafReader};
+    [names::Maybe{AbstractVector{&lt;:AbstractString}} = nothing,
+    dataset_axis::Maybe{AbstractString} = &quot;dataset&quot;,
+    dataset_property::Bool = true,
+    prefix::Union{Bool, AbstractVector{Bool}} = false,
+    prefixed::Maybe{Union{AbstractSet{&lt;:AbstractString}, AbstractVector{&lt;:AbstractSet{&lt;:AbstractString}}}} = nothing,
+    empty::Maybe{EmptyData} = nothing,
+    sparse_if_saves_storage_fraction::AbstractFloat = 0.25,
+    merge::Maybe{MergeData} = nothing,
+    overwrite::Bool = false]
+)::Nothing
 </code>
 </pre>
-<p>Create a read-only chain wrapper of 
-<a href="formats.html#DataAxesFormats.Formats.DafReader">
-<code>DafReader
-</code>
-</a>s, presenting them as a single 
-<a href="formats.html#DataAxesFormats.Formats.DafReader">
-<code>DafReader
-</code>
-</a>. When accessing the content, the exposed value is that provided by the last data set that contains the data, that is, later data sets can override earlier data sets. However, if an axis exists in more than one data set in the chain, then its entries must be identical. This isn&#39;t typically created manually; instead call 
-<a href="chains.html#DataAxesFormats.Chains.chain_reader">
-<code>chain_reader
-</code>
-</a>.
+<p>Concatenate data from a 
+<code>sources
+</code> sequence of 
+<code>Daf
+</code> data sets into a single 
+<code>destination
+</code> data set along one or more concatenation 
+<code>axis
+</code>. You can also concatenate along multiple axes by specifying an array of 
+<code>axis
+</code> names.
 </p>
-<div class="admonition is-info" id="Note-476da351413e3330">
+<p>We need a unique name for each of the concatenated data sets. By default, we use the 
+<code>DafReader.name
+</code>. You can override this by specifying an explicit 
+<code>names
+</code> vector with one name per data set.
+</p>
+<p>By default, a new axis named by 
+<code>dataset_axis
+</code> is created with one entry per concatenated data set, using these unique names. You can disable this by setting 
+<code>dataset_axis
+</code> to 
+<code>nothing
+</code>.
+</p>
+<p>If an axis is created, and 
+<code>dataset_property
+</code> is set (the default), a property with the same name is created for the concatenated 
+<code>axis
+</code>, containing the name of the data set each entry was collected from.
+</p>
+<p>The entries of each concatenated axis must be unique. By default, we require that no entry name is used in more than one data set. If this isn&#39;t the case, then set 
+<code>prefix
+</code> to specify adding the unique data set name (and a 
+<code>.
+</code> separator) to its entries (either once for all the axes, or using a vector with a setting per axis).
+</p>
+<div class="admonition is-info" id="Note-71b4b05fdd9d3341">
 <header class="admonition-header">Note
-<a class="admonition-anchor" href="#Note-476da351413e3330" title="Permalink">
+<a class="admonition-anchor" href="#Note-71b4b05fdd9d3341" title="Permalink">
 </a>
 </header>
 <div class="admonition-body">
-<p>While this verifies the axes are consistent at the time of creating the chain, it&#39;s no defense against modifying the chained data after the fact, creating inconsistent axes. 
-<em>Don&#39;t do that
-</em>.
+<p>If a prefix is added to the axis entry names, then it must also be added to all the vector properties whose values are entries of the axis. By default, we assume that any property name that is identical to the axis name is such a property (e.g., given a 
+<code>cluster
+</code> axis, a 
+<code>cluster
+</code> property of each 
+<code>cell
+</code> is assumed to contain the names of clusters from that axis). We also allow for property names to just start with the axis name, followed by 
+<code>.
+</code> and some suffix (e.g., 
+<code>cluster.manual
+</code> will also be assumed to contain the names of clusters). We&#39;ll automatically add the unique prefix to all such properties.
+</p>
+<p>If, however, this heuristic fails, you can specify a vector of properties to be 
+<code>prefixed
+</code> (or a vector of such vectors, one per concatenated axis). In this case only the listed properties will be prefixed with the unique data set names.
 </p>
 </div>
 </div>
+<p>Vector and matrix properties for the 
+<code>axis
+</code> will be concatenated. If some of the concatenated data sets do not contain some property, then an 
+<code>empty
+</code> value must be specified for it, and will be used for the missing data.
+</p>
+<p>Concatenated matrices are always stored in column-major layout where the concatenation axis is the column axis. There should not exist any matrices whose both axes are concatenated (e.g., square matrices of the concatenated axis).
+</p>
+<p>The concatenated properties will be sparse if the storage for the sparse data is smaller than naive dense storage by at 
+<code>sparse_if_saves_storage_fraction
+</code> (by default, if using sparse storage saves at least 25% of the space, that is, takes at most 75% of the dense storage space). When estimating this fraction, we assume dense data is 100% non-zero; we only take into account data already stored as sparse, as well as any missing data whose 
+<code>empty
+</code> value is zero.
+</p>
+<p>By default, properties that do not apply to any of the concatenation 
+<code>axis
+</code> will be ignored. If 
+<code>merge
+</code> is specified, then such properties will be processed according to it. Using 
+<code>CollectAxis
+</code> for a property requires that the 
+<code>dataset_axis
+</code> will not be 
+<code>nothing
+</code>.
+</p>
+<p>By default, concatenation will fail rather than 
+<code>overwrite
+</code> existing properties in the target.
+</p>
 </div>
 </section>
 </details>
 </article>
 <article>
 <details class="docstring" open="true">
-<summary id="DataAxesFormats.Chains.chain_writer">
-<a class="docstring-binding" href="#DataAxesFormats.Chains.chain_writer">
-<code>DataAxesFormats.Chains.chain_writer
-</code>
-</a> — 
-<span class="docstring-category">Function
-</span>
-</summary>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">chain_writer(dafs::AbstractVector{&lt;:DafReader}; name::Maybe{AbstractString} = nothing)::DafWriter
-</code>
-</pre>
-<p>Create a chain wrapper for a chain of 
-<a href="formats.html#DataAxesFormats.Formats.DafReader">
-<code>DafReader
-</code>
-</a> data, presenting them as a single 
-<a href="formats.html#DataAxesFormats.Formats.DafWriter">
-<code>DafWriter
-</code>
-</a>. This acts similarly to 
-<a href="chains.html#DataAxesFormats.Chains.chain_reader">
-<code>chain_reader
-</code>
-</a>, but requires the final entry in the chain to be a 
-<a href="formats.html#DataAxesFormats.Formats.DafWriter">
-<code>DafWriter
-</code>
-</a>. Any modifications or additions to the chain are directed only at this final writer.
-</p>
-<div class="admonition is-info" id="Note-ebf202aaa2e32fd3">
-<header class="admonition-header">Note
-<a class="admonition-anchor" href="#Note-ebf202aaa2e32fd3" title="Permalink">
-</a>
-</header>
-<div class="admonition-body">
-<p>Deletions are only allowed for data that exists only in the final writer. That is, it is impossible to delete from a chain something that exists in any of the readers; it is only possible to override it.
-</p>
-</div>
-</div>
-</div>
-</section>
-</details>
-</article>
-<article>
-<details class="docstring" open="true">
-<summary id="DataAxesFormats.Chains.ReadOnlyChain">
-<a class="docstring-binding" href="#DataAxesFormats.Chains.ReadOnlyChain">
-<code>DataAxesFormats.Chains.ReadOnlyChain
+<summary id="DataAxesFormats.Concat.MergeDatum">
+<a class="docstring-binding" href="#DataAxesFormats.Concat.MergeDatum">
+<code>DataAxesFormats.Concat.MergeDatum
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -402,21 +433,35 @@
 </summary>
 <section>
 <div>
-<pre>
-<code class="language-julia hljs">struct ReadOnlyChain &lt;: DafReadOnly ... end
+<p>A pair where the key is a 
+<a href="keys.html#DataAxesFormats.Keys.PropertyKey">
+<code>PropertyKey
 </code>
-</pre>
-<p>A wrapper for a chain of 
-<a href="formats.html#DataAxesFormats.Formats.DafReader">
-<code>DafReader
+</a> and the value is 
+<a href="concat.html#DataAxesFormats.Concat.MergeAction">
+<code>MergeAction
 </code>
-</a> data, presenting them as a single 
-<code>DafReadOnly
-</code>. When accessing the content, the exposed value is that provided by the last data set that contains the data, that is, later data sets can override earlier data sets. However, if an axis exists in more than one data set in the chain, then its entries must be identical. This isn&#39;t typically created manually; instead call 
-<a href="chains.html#DataAxesFormats.Chains.chain_reader">
-<code>chain_reader
+</a>. We also allow specifying tuples instead of pairs to make it easy to invoke the API from other languages such as Python which do not have the concept of a 
+<code>Pair
+</code>.
+</p>
+<p>Similarly to 
+<a href="views.html#DataAxesFormats.Views.ViewData">
+<code>ViewData
 </code>
-</a>.
+</a>, the order of the entries matters (last one wins), and a key containing 
+<code>&quot;*&quot;
+</code> is expanded to all the relevant properties. For matrices, merge is done separately for each layout. That is, the order of the key 
+<code>(rows_axis, columns_axis, matrix_name)
+</code> key 
+<em>does
+</em> matter in the 
+<code>MergeData
+</code>, which is different from how 
+<a href="views.html#DataAxesFormats.Views.ViewData">
+<code>ViewData
+</code>
+</a> works.
 </p>
 </div>
 </section>
@@ -424,9 +469,9 @@
 </article>
 <article>
 <details class="docstring" open="true">
-<summary id="DataAxesFormats.Chains.WriteChain">
-<a class="docstring-binding" href="#DataAxesFormats.Chains.WriteChain">
-<code>DataAxesFormats.Chains.WriteChain
+<summary id="DataAxesFormats.Concat.MergeData">
+<a class="docstring-binding" href="#DataAxesFormats.Concat.MergeData">
+<code>DataAxesFormats.Concat.MergeData
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -434,30 +479,48 @@
 </summary>
 <section>
 <div>
-<pre>
-<code class="language-julia hljs">struct WriteChain &lt;: DafWriter ... end
-</code>
-</pre>
-<p>A wrapper for a chain of 
-<a href="formats.html#DataAxesFormats.Formats.DafReader">
-<code>DafReader
-</code>
-</a> data, with a final 
-<a href="formats.html#DataAxesFormats.Formats.DafWriter">
-<code>DafWriter
-</code>
-</a>, presenting them as a single 
-<a href="formats.html#DataAxesFormats.Formats.DafWriter">
-<code>DafWriter
-</code>
-</a>. When accessing the content, the exposed value is that provided by the last data set that contains the data, that is, later data sets can override earlier data sets (where the writer has the final word). However, if an axis exists in more than one data set in the chain, then its entries must be identical. This isn&#39;t typically created manually; instead call 
-<a href="chains.html#DataAxesFormats.Chains.chain_reader">
-<code>chain_reader
-</code>
-</a>.
+<p>Specify all the data to merge. We would have liked to specify this as 
+<code>AbstractVector{&lt;:MergeDatum}
+</code> but Julia in its infinite wisdom considers 
+<code>[&quot;a&quot; =&gt; &quot;b&quot;, (&quot;c&quot;, &quot;d&quot;) =&gt; &quot;e&quot;]
+</code> to be a 
+<code>Vector{Any}
+</code>, which would require literals to be annotated with the type.
 </p>
-<p>Any modifications or additions to the chain are directed at the final writer. Deletions are only allowed for data that exists only in this writer. That is, it is impossible to delete from a chain something that exists in any of the readers; it is only possible to override it.
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.Concat.MergeAction">
+<a class="docstring-binding" href="#DataAxesFormats.Concat.MergeAction">
+<code>DataAxesFormats.Concat.MergeAction
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</summary>
+<section>
+<div>
+<p>The action for merging the values of a property from the concatenated data sets into the result data set. This is used to properties that do not apply to the concatenation axis (that is, scalar properties, and vector and matrix properties of other axes). Valid values are:
 </p>
+<ul>
+<li>
+<code>SkipProperty
+</code> - do not create the property in the result. This is the default.
+</li>
+<li>
+<code>LastValue
+</code> - use the value from the last concatenated data set (that has a value for the property). This is useful for properties that have the same value for all concatenated data sets.
+</li>
+<li>
+<code>CollectAxis
+</code> - collect the values from all the data sets, adding a dimension to the data (that is, convert a scalar property to a vector, and a vector property to a matrix). This can&#39;t be applied to matrix properties, because we can&#39;t directly store 3D data inside 
+<code>Daf
+</code>. In addition, this requires that a dataset axis is created in the target, and that an empty value is specified for the property if it is missing from any of the concatenated data sets.
+</li>
+</ul>
 </div>
 </section>
 </details>
@@ -472,41 +535,41 @@
 </h2>
 <ul>
 <li>
-<a href="chains.html#DataAxesFormats.Chains">
-<code>DataAxesFormats.Chains
+<a href="concat.html#DataAxesFormats.Concat">
+<code>DataAxesFormats.Concat
 </code>
 </a>
 </li>
 <li>
-<a href="chains.html#DataAxesFormats.Chains.ReadOnlyChain">
-<code>DataAxesFormats.Chains.ReadOnlyChain
+<a href="concat.html#DataAxesFormats.Concat.MergeAction">
+<code>DataAxesFormats.Concat.MergeAction
 </code>
 </a>
 </li>
 <li>
-<a href="chains.html#DataAxesFormats.Chains.WriteChain">
-<code>DataAxesFormats.Chains.WriteChain
+<a href="concat.html#DataAxesFormats.Concat.MergeData">
+<code>DataAxesFormats.Concat.MergeData
 </code>
 </a>
 </li>
 <li>
-<a href="chains.html#DataAxesFormats.Chains.chain_reader">
-<code>DataAxesFormats.Chains.chain_reader
+<a href="concat.html#DataAxesFormats.Concat.MergeDatum">
+<code>DataAxesFormats.Concat.MergeDatum
 </code>
 </a>
 </li>
 <li>
-<a href="chains.html#DataAxesFormats.Chains.chain_writer">
-<code>DataAxesFormats.Chains.chain_writer
+<a href="concat.html#DataAxesFormats.Concat.concatenate!">
+<code>DataAxesFormats.Concat.concatenate!
 </code>
 </a>
 </li>
 </ul>
 </article>
 <nav class="docs-footer">
-<a class="docs-footer-prevpage" href="views.html">« Views
+<a class="docs-footer-prevpage" href="copies.html">« Copies
 </a>
-<a class="docs-footer-nextpage" href="computations.html">Computations »
+<a class="docs-footer-nextpage" href="adapters.html">Adapters »
 </a>
 <div class="flexbox-break">
 </div>

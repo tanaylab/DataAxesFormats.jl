@@ -1,3 +1,11 @@
+# v0.2.0
+
+  - Improve query language.
+  - Make views lazy.
+  - Improve contracts.
+  - Track performance (flame graphs).
+  - Improve performance (control over contracts and other expensive verifications).
+
 # v0.1.2
 
   - Add tensors to documentation.

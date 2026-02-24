@@ -5,14 +5,14 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Computations · DataAxesFormats.jl v0.1.2
+<title>Storage types · DataAxesFormats.jl v0.2.0
 </title>
-<meta name="title" content="Computations · DataAxesFormats.jl v0.1.2"/>
-<meta property="og:title" content="Computations · DataAxesFormats.jl v0.1.2"/>
-<meta property="twitter:title" content="Computations · DataAxesFormats.jl v0.1.2"/>
-<meta name="description" content="Documentation for DataAxesFormats.jl v0.1.2."/>
-<meta property="og:description" content="Documentation for DataAxesFormats.jl v0.1.2."/>
-<meta property="twitter:description" content="Documentation for DataAxesFormats.jl v0.1.2."/>
+<meta name="title" content="Storage types · DataAxesFormats.jl v0.2.0"/>
+<meta property="og:title" content="Storage types · DataAxesFormats.jl v0.2.0"/>
+<meta property="twitter:title" content="Storage types · DataAxesFormats.jl v0.2.0"/>
+<meta name="description" content="Documentation for DataAxesFormats.jl v0.2.0."/>
+<meta property="og:description" content="Documentation for DataAxesFormats.jl v0.2.0."/>
+<meta property="twitter:description" content="Documentation for DataAxesFormats.jl v0.2.0."/>
 <script data-outdated-warner src="assets/warner.js">
 </script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/>
@@ -101,7 +101,7 @@
 </a>
 <div class="docs-package-name">
 <span class="docs-autofit">
-<a href="index.html">DataAxesFormats.jl v0.1.2
+<a href="index.html">DataAxesFormats.jl v0.2.0
 </a>
 </span>
 </div>
@@ -140,17 +140,9 @@
 <a class="tocitem" href="chains.html">Chains
 </a>
 </li>
-<li class="is-active">
+<li>
 <a class="tocitem" href="computations.html">Computations
 </a>
-<ul class="internal">
-<li>
-<a class="tocitem" href="#Index">
-<span>Index
-</span>
-</a>
-</li>
-</ul>
 </li>
 <li>
 <a class="tocitem" href="copies.html">Copies
@@ -208,9 +200,17 @@
 <a class="tocitem" href="operations.html">Query operations
 </a>
 </li>
-<li>
+<li class="is-active">
 <a class="tocitem" href="storage_types.html">Storage types
 </a>
+<ul class="internal">
+<li>
+<a class="tocitem" href="#Index">
+<span>Index
+</span>
+</a>
+</li>
+</ul>
 </li>
 <li>
 <a class="tocitem" href="groups.html">Groups
@@ -241,13 +241,13 @@
 <nav class="breadcrumb">
 <ul class="is-hidden-mobile">
 <li class="is-active">
-<a href="computations.html">Computations
+<a href="storage_types.html">Storage types
 </a>
 </li>
 </ul>
 <ul class="is-hidden-tablet">
 <li class="is-active">
-<a href="computations.html">Computations
+<a href="storage_types.html">Storage types
 </a>
 </li>
 </ul>
@@ -266,19 +266,19 @@
 </div>
 </header>
 <article class="content" id="documenter-page">
-<h1 id="Computations">
-<a class="docs-heading-anchor" href="#Computations">Computations
+<h1 id="Storage-types">
+<a class="docs-heading-anchor" href="#Storage-types">Storage types
 </a>
-<a id="Computations-1">
+<a id="Storage-types-1">
 </a>
-<a class="docs-heading-anchor-permalink" href="#Computations" title="Permalink">
+<a class="docs-heading-anchor-permalink" href="#Storage-types" title="Permalink">
 </a>
 </h1>
 <article>
 <details class="docstring" open="true">
-<summary id="DataAxesFormats.Computations">
-<a class="docstring-binding" href="#DataAxesFormats.Computations">
-<code>DataAxesFormats.Computations
+<summary id="DataAxesFormats.StorageTypes">
+<a class="docstring-binding" href="#DataAxesFormats.StorageTypes">
+<code>DataAxesFormats.StorageTypes
 </code>
 </a> — 
 <span class="docstring-category">Module
@@ -286,218 +286,61 @@
 </summary>
 <section>
 <div>
-<p>Support writing &quot;well-behaved&quot; computations. Such computations declare a 
-<a href="contracts.html#DataAxesFormats.Contracts.Contract">
-<code>Contract
-</code>
-</a> describing their inputs and outputs. This is enforced, so that the implementation need not worry about missing inputs, and the caller can rely on the results. It is also self-documenting, so the generated documentation is always contains a clear up-to-date description of the contract.
-</p>
-</div>
-</section>
-</details>
-</article>
-<article>
-<details class="docstring" open="true">
-<summary id="DataAxesFormats.Computations.@computation">
-<a class="docstring-binding" href="#DataAxesFormats.Computations.@computation">
-<code>DataAxesFormats.Computations.@computation
-</code>
-</a> — 
-<span class="docstring-category">Macro
-</span>
-</summary>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">@computation Contract(...) function something(daf::DafWriter, ...)
-    return ...
-end
-
-@computation Contract(...) Contract(name = &quot;second&quot; ...) function something(
-    first::DafReader/DafWriter; second::DafReader/DafWriter, ...
-)
-    return ...
-end
-
-@computation Contract(...) Contract(name = &quot;second&quot;, ...) Contract(name = &quot;third&quot;, ...) function something(
-    first::DafReader/DafWriter; second::DafReader/DafWriter, third::DafReader/DafWriter, ...
-)
-    return ...
-end
-</code>
-</pre>
-<p>Mark a function as a 
+<p>Only a restricted set of scalar, matrix and vector types is stored by 
 <code>Daf
-</code> computation. This has the following effects:
-</p>
-<ul>
-<li>It has the same effect as 
-<code>@documented
-</code>, that is, allows using 
-<code>DEFAULT
-</code> in the documentation string, and using 
-<code>function_default
-</code> to access the default value of named parameters.
-</li>
-<li>It verifies that the 
-<code>Daf
-</code> data satisfies the 
-<a href="contracts.html#DataAxesFormats.Contracts.Contract">
-<code>Contract
-</code>
-</a>, when the computation is invoked and when it is complete (using 
-<a href="contracts.html#DataAxesFormats.Contracts.verify_input">
-<code>verify_input
-</code>
-</a> and 
-<a href="contracts.html#DataAxesFormats.Contracts.verify_output">
-<code>verify_output
-</code>
-</a>).
-</li>
-<li>It stashes the contract(s) (if any) in a global variable. This allows expanding 
-<a href="computations.html#DataAxesFormats.Computations.CONTRACT">
-<code>CONTRACT
-</code>
-</a> in the documentation string (for a single contract case), or 
-<a href="computations.html#DataAxesFormats.Computations.CONTRACT1">
-<code>CONTRACT1
-</code>
-</a> and 
-<a href="computations.html#DataAxesFormats.Computations.CONTRACT2">
-<code>CONTRACT2
-</code>
-</a> (for the dual contract case), or 
-<a href="computations.html#DataAxesFormats.Computations.CONTRACT1">
-<code>CONTRACT1
-</code>
-</a> and 
-<a href="computations.html#DataAxesFormats.Computations.CONTRACT2">
-<code>CONTRACT2
-</code>
-</a> and 
-<a href="computations.html#DataAxesFormats.Computations.CONTRACT3">
-<code>CONTRACT3
-</code>
-</a> (for the triple contract case).
-</li>
-<li>It logs the invocation of the function (using 
-<code>@debug
-</code>), including the actual values of the named arguments (using 
-<code>brief
-</code>).
-</li>
-</ul>
-<div class="admonition is-info" id="Note-5a0ab61b0f7074ad">
-<header class="admonition-header">Note
-<a class="admonition-anchor" href="#Note-5a0ab61b0f7074ad" title="Permalink">
-</a>
-</header>
-<div class="admonition-body">
-<p>For each 
-<a href="contracts.html#DataAxesFormats.Contracts.Contract">
-<code>Contract
-</code>
-</a> parameter (if any), there needs to be a 
-<a href="formats.html#DataAxesFormats.Formats.DafReader">
-<code>DafReader
-</code>
-</a> or 
-<a href="formats.html#DataAxesFormats.Formats.DafWriter">
-<code>DafWriter
-</code>
-</a>, which the contract(s) will be applied to. These parameters should be the initial positional parameters of the function.
-</p>
-</div>
-</div>
-</div>
-</section>
-</details>
-</article>
-<article>
-<details class="docstring" open="true">
-<summary id="DataAxesFormats.Computations.function_contract">
-<a class="docstring-binding" href="#DataAxesFormats.Computations.function_contract">
-<code>DataAxesFormats.Computations.function_contract
-</code>
-</a> — 
-<span class="docstring-category">Function
-</span>
-</summary>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">function_contract(func::Function[, index::Integer = 1])::Contract
-</code>
-</pre>
-<p>Access the contract of a function annotated by 
-<a href="computations.html#DataAxesFormats.Computations.@computation">
-<code>@computation
-</code>
-</a>. By default the first contract is returned. If the 
-<a href="computations.html#DataAxesFormats.Computations.@computation">
-<code>@computation
-</code>
-</a> has two contracts, you can specify the 
-<code>index
-</code> of the contract to return.
-</p>
-</div>
-</section>
-</details>
-</article>
-<article>
-<details class="docstring" open="true">
-<summary id="DataAxesFormats.Computations.CONTRACT">
-<a class="docstring-binding" href="#DataAxesFormats.Computations.CONTRACT">
-<code>DataAxesFormats.Computations.CONTRACT
-</code>
-</a> — 
-<span class="docstring-category">Constant
-</span>
-</summary>
-<section>
-<div>
-<p>When using 
-<a href="computations.html#DataAxesFormats.Computations.@computation">
-<code>@computation
-</code>
-</a>:
-</p>
-<pre>
-<code class="nohighlight hljs">&#39;&#39;&#39;
-...
-# Contract
-...
-$(CONTRACT)
-...
-&#39;&#39;&#39;
-@computation Contract(...) function something(daf::DafWriter, ...)
-    return ...
-end
-</code>
-</pre>
-<p>Then 
-<code>$(CONTRACT)
-</code> will be expanded with a description of the 
-<a href="contracts.html#DataAxesFormats.Contracts.Contract">
-<code>Contract
-</code>
-</a>. This is based on 
-<code>DocStringExtensions
 </code>.
 </p>
-<div class="admonition is-info" id="Note-66c04189ae22ae21">
+<p>The set of scalar types is restricted because we need to be able to store them in disk files. This rules out compound types such as 
+<code>Dict
+</code>. This isn&#39;t an issue for vector and matrix elements but is sometimes bothersome for &quot;scalar&quot; data (not associated with any axis). If you find yourself needed to store such data, you&#39;ll have to serialize it to a string. By convention, we use 
+<code>JSON
+</code> blobs for such data to maximize portability between different systems.
+</p>
+<p>Julia supports a potentially infinite variety of ways to represent matrices and vectors. 
+<code>Daf
+</code> is intentionally restricted to specific representations. This has several advantages:
+</p>
+<ul>
+<li>
+<p>
+<code>Daf
+</code> storage formats need only implement storing these restricted representations, which lend themselves to simple storage in consecutive bytes (in memory and/or on disk). These representations also allow for memory-mapping the data from disk files, which allows 
+<code>Daf
+</code> to deal with data sets larger than the available memory. However, we also allow storing vectors and matrices of strings. We try to make as efficient as possible (which isn&#39;t saying much).
+</p>
+</li>
+<li>
+<p>Client code need only worry about dealing with these restricted representations, which limits the amount of code paths required for efficient algorithm implementations. However, you (mostly) need not worry about this when invoking library functions, which have code paths covering all common matrix types. You 
+<strong>do
+</strong> need to consider the layout of the data, though (see below).
+</p>
+</li>
+</ul>
+<p>This has the downside that 
+<code>Daf
+</code> doesn&#39;t support efficient storage of specialized matrices (to pick a random example, upper triangular matrices). This isn&#39;t a great loss, since 
+<code>Daf
+</code> targets storing arbitrary scientific data (especially biological data), which in general is not of any such special shape. The upside is that all matrices stored and returned by 
+<code>Daf
+</code> have a clear layout (regardless of whether they are dense or sparse). This allows user code to ensure it is working &quot;with the grain&quot; of the data, which is 
+<strong>much
+</strong> more efficient.
+</p>
+<div class="admonition is-info" id="Note-6395b41c4ce6c144">
 <header class="admonition-header">Note
-<a class="admonition-anchor" href="#Note-66c04189ae22ae21" title="Permalink">
+<a class="admonition-anchor" href="#Note-6395b41c4ce6c144" title="Permalink">
 </a>
 </header>
 <div class="admonition-body">
-<p>The first argument of the function must be a 
-<a href="formats.html#DataAxesFormats.Formats.DafWriter">
-<code>DafWriter
-</code>
-</a>, which the contract will be applied to.
+<p>Currently all boolean vectors are matrices are stored internally using one byte per entry (that is, as 
+<code>Vector{Bool}
+</code> and 
+<code>Matrix{Bool}
+</code> rather than 
+<code>BitVector
+</code> and 
+<code>BitMatrix
+</code>. This is somewhat less efficient, but is simpler and Boolean data is rarely a significant part of either storage or processing.
 </p>
 </div>
 </div>
@@ -507,27 +350,21 @@ end
 </article>
 <article>
 <details class="docstring" open="true">
-<summary id="DataAxesFormats.Computations.CONTRACT1">
-<a class="docstring-binding" href="#DataAxesFormats.Computations.CONTRACT1">
-<code>DataAxesFormats.Computations.CONTRACT1
+<summary id="DataAxesFormats.StorageTypes.StorageSigned">
+<a class="docstring-binding" href="#DataAxesFormats.StorageTypes.StorageSigned">
+<code>DataAxesFormats.StorageTypes.StorageSigned
 </code>
 </a> — 
-<span class="docstring-category">Constant
+<span class="docstring-category">Type
 </span>
 </summary>
 <section>
 <div>
-<p>Same as 
-<a href="computations.html#DataAxesFormats.Computations.CONTRACT">
-<code>CONTRACT
+<pre>
+<code class="language-julia hljs">StorageSigned = Union{Int8, Int16, Int32, Int64}
 </code>
-</a>, but reference the contract for the 1st 
-<code>Daf
-</code> argument for a 
-<a href="computations.html#DataAxesFormats.Computations.@computation">
-<code>@computation
-</code>
-</a> with two such arguments.
+</pre>
+<p>Signed integer number types that can be used as scalars, or elements in stored matrices or vectors.
 </p>
 </div>
 </section>
@@ -535,27 +372,21 @@ end
 </article>
 <article>
 <details class="docstring" open="true">
-<summary id="DataAxesFormats.Computations.CONTRACT2">
-<a class="docstring-binding" href="#DataAxesFormats.Computations.CONTRACT2">
-<code>DataAxesFormats.Computations.CONTRACT2
+<summary id="DataAxesFormats.StorageTypes.StorageUnsigned">
+<a class="docstring-binding" href="#DataAxesFormats.StorageTypes.StorageUnsigned">
+<code>DataAxesFormats.StorageTypes.StorageUnsigned
 </code>
 </a> — 
-<span class="docstring-category">Constant
+<span class="docstring-category">Type
 </span>
 </summary>
 <section>
 <div>
-<p>Same as 
-<a href="computations.html#DataAxesFormats.Computations.CONTRACT">
-<code>CONTRACT
+<pre>
+<code class="language-julia hljs">StorageUnsigned = Union{UInt8, UInt16, UInt32, UInt64}
 </code>
-</a>, but reference the contract for the 2nd 
-<code>Daf
-</code> argument for a 
-<a href="computations.html#DataAxesFormats.Computations.@computation">
-<code>@computation
-</code>
-</a> with two such arguments.
+</pre>
+<p>Unsigned integer number types that can be used as scalars, or elements in stored matrices or vectors.
 </p>
 </div>
 </section>
@@ -563,28 +394,194 @@ end
 </article>
 <article>
 <details class="docstring" open="true">
-<summary id="DataAxesFormats.Computations.CONTRACT3">
-<a class="docstring-binding" href="#DataAxesFormats.Computations.CONTRACT3">
-<code>DataAxesFormats.Computations.CONTRACT3
+<summary id="DataAxesFormats.StorageTypes.StorageInteger">
+<a class="docstring-binding" href="#DataAxesFormats.StorageTypes.StorageInteger">
+<code>DataAxesFormats.StorageTypes.StorageInteger
 </code>
 </a> — 
-<span class="docstring-category">Constant
+<span class="docstring-category">Type
 </span>
 </summary>
 <section>
 <div>
-<p>Same as 
-<a href="computations.html#DataAxesFormats.Computations.CONTRACT2">
-<code>CONTRACT2
+<pre>
+<code class="language-julia hljs">StorageInteger = Union{StorageSigned, StorageUnsigned}
 </code>
-</a>, but reference the contract for the 3rd 
-<code>Daf
-</code> argument for a 
-<a href="computations.html#DataAxesFormats.Computations.@computation">
-<code>@computation
-</code>
-</a> with three such arguments.
+</pre>
+<p>Integer number types that can be used as scalars, or elements in stored matrices or vectors.
 </p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.StorageTypes.StorageFloat">
+<a class="docstring-binding" href="#DataAxesFormats.StorageTypes.StorageFloat">
+<code>DataAxesFormats.StorageTypes.StorageFloat
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">StorageFloat = Union{Float32, Float64}
+</code>
+</pre>
+<p>Floating point number types that can be used as scalars, or elements in stored matrices or vectors.
+</p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.StorageTypes.StorageReal">
+<a class="docstring-binding" href="#DataAxesFormats.StorageTypes.StorageReal">
+<code>DataAxesFormats.StorageTypes.StorageReal
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">StorageReal = Union{Bool, StorageInteger, StorageFloat}
+</code>
+</pre>
+<p>Number types that can be used as scalars, or elements in stored matrices or vectors.
+</p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.StorageTypes.StorageScalar">
+<a class="docstring-binding" href="#DataAxesFormats.StorageTypes.StorageScalar">
+<code>DataAxesFormats.StorageTypes.StorageScalar
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">StorageScalar = Union{StorageReal, &lt;:AbstractString}
+</code>
+</pre>
+<p>Types that can be used as scalars, or elements in stored matrices or vectors.
+</p>
+<p>This is restricted to 
+<a href="storage_types.html#DataAxesFormats.StorageTypes.StorageReal">
+<code>StorageReal
+</code>
+</a> (including Booleans) and strings. It is arguably too restrictive, as in principle we could support any arbitrary 
+<code>isbitstype
+</code>. However, in practice this would cause much trouble when accessing the data from other systems (specifically Python and R). Since 
+<code>Daf
+</code> targets storing scientific data (especially biological data), as opposed to &quot;anything at all&quot;, this restriction seems reasonable.
+</p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.StorageTypes.StorageScalarBase">
+<a class="docstring-binding" href="#DataAxesFormats.StorageTypes.StorageScalarBase">
+<code>DataAxesFormats.StorageTypes.StorageScalarBase
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">StorageScalarBase = Union{StorageReal, AbstractString}
+</code>
+</pre>
+<p>For using in 
+<code>where
+</code> clauses when a type needs to be a 
+<a href="storage_types.html#DataAxesFormats.StorageTypes.StorageScalar">
+<code>StorageScalar
+</code>
+</a>. That is, write 
+<code>where {T &lt;: StorageScalarBase}
+</code> instead of 
+<code>where {T &lt;: StorageScalar}
+</code>, because of the limitations of Julia&#39;s type system.
+</p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.StorageTypes.StorageVector">
+<a class="docstring-binding" href="#DataAxesFormats.StorageTypes.StorageVector">
+<code>DataAxesFormats.StorageTypes.StorageVector
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">StorageVector{T} = AbstractVector{T} where {T &lt;: StorageScalar}
+</code>
+</pre>
+<p>Vectors that can be directly stored (and fetched) from 
+<code>Daf
+</code> storage.
+</p>
+<p>The element type must be a 
+<a href="storage_types.html#DataAxesFormats.StorageTypes.StorageScalar">
+<code>StorageScalar
+</code>
+</a>, to allow storing the data in disk files. Vectors of strings are supported but will be less efficient.
+</p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.StorageTypes.StorageMatrix">
+<a class="docstring-binding" href="#DataAxesFormats.StorageTypes.StorageMatrix">
+<code>DataAxesFormats.StorageTypes.StorageMatrix
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">StorageMatrix{T} = AbstractMatrix{T} where {T &lt;: StorageScalar}
+</code>
+</pre>
+<p>Matrices that can be directly stored (and fetched) from 
+<code>Daf
+</code> storage.
+</p>
+<div class="admonition is-info" id="Note-670bdddbe6778b1d">
+<header class="admonition-header">Note
+<a class="admonition-anchor" href="#Note-670bdddbe6778b1d" title="Permalink">
+</a>
+</header>
+<div class="admonition-body">
+<p>All matrices we store must have a clear layout, that is, must be in either row-major or column-major format. There&#39;s no support for sparse matrices of strings, because &quot;reasons&quot;.
+</p>
+</div>
+</div>
 </div>
 </section>
 </details>
@@ -599,53 +596,71 @@ end
 </h2>
 <ul>
 <li>
-<a href="computations.html#DataAxesFormats.Computations">
-<code>DataAxesFormats.Computations
+<a href="storage_types.html#DataAxesFormats.StorageTypes">
+<code>DataAxesFormats.StorageTypes
 </code>
 </a>
 </li>
 <li>
-<a href="computations.html#DataAxesFormats.Computations.CONTRACT">
-<code>DataAxesFormats.Computations.CONTRACT
+<a href="storage_types.html#DataAxesFormats.StorageTypes.StorageFloat">
+<code>DataAxesFormats.StorageTypes.StorageFloat
 </code>
 </a>
 </li>
 <li>
-<a href="computations.html#DataAxesFormats.Computations.CONTRACT1">
-<code>DataAxesFormats.Computations.CONTRACT1
+<a href="storage_types.html#DataAxesFormats.StorageTypes.StorageInteger">
+<code>DataAxesFormats.StorageTypes.StorageInteger
 </code>
 </a>
 </li>
 <li>
-<a href="computations.html#DataAxesFormats.Computations.CONTRACT2">
-<code>DataAxesFormats.Computations.CONTRACT2
+<a href="storage_types.html#DataAxesFormats.StorageTypes.StorageMatrix">
+<code>DataAxesFormats.StorageTypes.StorageMatrix
 </code>
 </a>
 </li>
 <li>
-<a href="computations.html#DataAxesFormats.Computations.CONTRACT3">
-<code>DataAxesFormats.Computations.CONTRACT3
+<a href="storage_types.html#DataAxesFormats.StorageTypes.StorageReal">
+<code>DataAxesFormats.StorageTypes.StorageReal
 </code>
 </a>
 </li>
 <li>
-<a href="computations.html#DataAxesFormats.Computations.function_contract">
-<code>DataAxesFormats.Computations.function_contract
+<a href="storage_types.html#DataAxesFormats.StorageTypes.StorageScalar">
+<code>DataAxesFormats.StorageTypes.StorageScalar
 </code>
 </a>
 </li>
 <li>
-<a href="computations.html#DataAxesFormats.Computations.@computation">
-<code>DataAxesFormats.Computations.@computation
+<a href="storage_types.html#DataAxesFormats.StorageTypes.StorageScalarBase">
+<code>DataAxesFormats.StorageTypes.StorageScalarBase
+</code>
+</a>
+</li>
+<li>
+<a href="storage_types.html#DataAxesFormats.StorageTypes.StorageSigned">
+<code>DataAxesFormats.StorageTypes.StorageSigned
+</code>
+</a>
+</li>
+<li>
+<a href="storage_types.html#DataAxesFormats.StorageTypes.StorageUnsigned">
+<code>DataAxesFormats.StorageTypes.StorageUnsigned
+</code>
+</a>
+</li>
+<li>
+<a href="storage_types.html#DataAxesFormats.StorageTypes.StorageVector">
+<code>DataAxesFormats.StorageTypes.StorageVector
 </code>
 </a>
 </li>
 </ul>
 </article>
 <nav class="docs-footer">
-<a class="docs-footer-prevpage" href="chains.html">« Chains
+<a class="docs-footer-prevpage" href="operations.html">« Query operations
 </a>
-<a class="docs-footer-nextpage" href="copies.html">Copies »
+<a class="docs-footer-nextpage" href="groups.html">Groups »
 </a>
 <div class="flexbox-break">
 </div>

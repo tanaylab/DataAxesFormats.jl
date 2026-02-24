@@ -5,14 +5,14 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Complete Repositories · DataAxesFormats.jl v0.1.2
+<title>Reconstruction · DataAxesFormats.jl v0.2.0
 </title>
-<meta name="title" content="Complete Repositories · DataAxesFormats.jl v0.1.2"/>
-<meta property="og:title" content="Complete Repositories · DataAxesFormats.jl v0.1.2"/>
-<meta property="twitter:title" content="Complete Repositories · DataAxesFormats.jl v0.1.2"/>
-<meta name="description" content="Documentation for DataAxesFormats.jl v0.1.2."/>
-<meta property="og:description" content="Documentation for DataAxesFormats.jl v0.1.2."/>
-<meta property="twitter:description" content="Documentation for DataAxesFormats.jl v0.1.2."/>
+<meta name="title" content="Reconstruction · DataAxesFormats.jl v0.2.0"/>
+<meta property="og:title" content="Reconstruction · DataAxesFormats.jl v0.2.0"/>
+<meta property="twitter:title" content="Reconstruction · DataAxesFormats.jl v0.2.0"/>
+<meta name="description" content="Documentation for DataAxesFormats.jl v0.2.0."/>
+<meta property="og:description" content="Documentation for DataAxesFormats.jl v0.2.0."/>
+<meta property="twitter:description" content="Documentation for DataAxesFormats.jl v0.2.0."/>
 <script data-outdated-warner src="assets/warner.js">
 </script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/>
@@ -101,7 +101,7 @@
 </a>
 <div class="docs-package-name">
 <span class="docs-autofit">
-<a href="index.html">DataAxesFormats.jl v0.1.2
+<a href="index.html">DataAxesFormats.jl v0.2.0
 </a>
 </span>
 </div>
@@ -180,8 +180,16 @@
 <a class="tocitem" href="files_format.html">Files Format
 </a>
 </li>
-<li class="is-active">
+<li>
 <a class="tocitem" href="complete.html">Complete Repositories
+</a>
+</li>
+<li>
+<a class="tocitem" href="anndata_format.html">AnnData Format
+</a>
+</li>
+<li class="is-active">
+<a class="tocitem" href="reconstruction.html">Reconstruction
 </a>
 <ul class="internal">
 <li>
@@ -191,14 +199,6 @@
 </a>
 </li>
 </ul>
-</li>
-<li>
-<a class="tocitem" href="anndata_format.html">AnnData Format
-</a>
-</li>
-<li>
-<a class="tocitem" href="reconstruction.html">Reconstruction
-</a>
 </li>
 <li>
 <a class="tocitem" href="registry.html">Operations registry
@@ -241,13 +241,13 @@
 <nav class="breadcrumb">
 <ul class="is-hidden-mobile">
 <li class="is-active">
-<a href="complete.html">Complete Repositories
+<a href="reconstruction.html">Reconstruction
 </a>
 </li>
 </ul>
 <ul class="is-hidden-tablet">
 <li class="is-active">
-<a href="complete.html">Complete Repositories
+<a href="reconstruction.html">Reconstruction
 </a>
 </li>
 </ul>
@@ -266,19 +266,19 @@
 </div>
 </header>
 <article class="content" id="documenter-page">
-<h1 id="Complete-Repositories">
-<a class="docs-heading-anchor" href="#Complete-Repositories">Complete Repositories
+<h1 id="Reconstruction">
+<a class="docs-heading-anchor" href="#Reconstruction">Reconstruction
 </a>
-<a id="Complete-Repositories-1">
+<a id="Reconstruction-1">
 </a>
-<a class="docs-heading-anchor-permalink" href="#Complete-Repositories" title="Permalink">
+<a class="docs-heading-anchor-permalink" href="#Reconstruction" title="Permalink">
 </a>
 </h1>
 <article>
 <details class="docstring" open="true">
-<summary id="DataAxesFormats.CompleteDaf">
-<a class="docstring-binding" href="#DataAxesFormats.CompleteDaf">
-<code>DataAxesFormats.CompleteDaf
+<summary id="DataAxesFormats.Reconstruction">
+<a class="docstring-binding" href="#DataAxesFormats.Reconstruction">
+<code>DataAxesFormats.Reconstruction
 </code>
 </a> — 
 <span class="docstring-category">Module
@@ -286,27 +286,11 @@
 </summary>
 <section>
 <div>
-<p>The common idiom in 
+<p>Reconstruct implicit axes. Due to 
+<code>AnnData
+</code> two-axes limitations, other axes are often represented by storing their expanded data (e.g., a type for each cell, and a color for each cell, where the color is actually per type). When converting such data to 
 <code>Daf
-</code> is to have multiple repositories in a chain; actually, they typically form a tree where different leaf repositories are based on common ancestor repositories. For example, a base cells repository can be used by multiple alternative metacells repositories.
-</p>
-<p>Tracking this tree manually is possible, by using naming conventions (which is always a good idea). However, this gets tedious. The code here automates this by using an additional convention - each repository contains a scalar property called 
-<code>base_daf_repository
-</code> which identifies its parent repository (if any). This path is relative to the directory containing the child repository. See 
-<a href="complete.html#DataAxesFormats.CompleteDaf.open_daf">
-<code>open_daf
-</code>
-</a> for details.
-</p>
-<p>In addition, it is possible to have another scalar property, 
-<code>base_daf_view
-</code>. If specified, this should contain JSON serialization of the parameters of a 
-<code>DafView
-</code> to apply to the base repository. This allows the child repository to be based on a subset of the base data, and/or rename the base data.
-</p>
-<p>Since the same base repository can be used by multiple other repositories, we use the 
-<code>GlobalWeakCache
-</code> to avoid needlessly re-opening the same repository more than once.
+</code>, it is useful to reconstruct such axes (e.g., create a type axis, assign a color for each type, and delete the per-cell color property).
 </p>
 </div>
 </section>
@@ -314,9 +298,9 @@
 </article>
 <article>
 <details class="docstring" open="true">
-<summary id="DataAxesFormats.CompleteDaf.complete_daf">
-<a class="docstring-binding" href="#DataAxesFormats.CompleteDaf.complete_daf">
-<code>DataAxesFormats.CompleteDaf.complete_daf
+<summary id="DataAxesFormats.Reconstruction.reconstruct_axis!">
+<a class="docstring-binding" href="#DataAxesFormats.Reconstruction.reconstruct_axis!">
+<code>DataAxesFormats.Reconstruction.reconstruct_axis!
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -325,66 +309,115 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">complete_daf(leaf::AbstractString, mode::AbstractString = &quot;r&quot;; name::Maybe{AbstractString} = nothing)::Union{DafReader, DafWriter}
+<code class="language-julia hljs">reconstruct_axis!(
+    daf::DafWriter;
+    existing_axis::AbstractString,
+    implicit_axis::AbstractString,
+    [rename_axis::Maybe{AbstractString} = nothing,
+    empty_implicit::Maybe{StorageScalar} = nothing,
+    implicit_properties::Maybe{AbstractSet{&lt;:AbstractString}} = nothing,
+    skipped_properties::Maybe{AbstractSet{&lt;:AbstractString}} = nothing,
+    properties_defaults::Maybe{AbstractDict} = nothing]
+)::AbstractDict{&lt;:AbstractString, Maybe{StorageScalar}}
 </code>
 </pre>
-<p>Open a complete chain of 
-<code>Daf
-</code> repositories by tracing back through the 
-<code>base_daf_repository
-</code> and the optional 
-<code>base_daf_view
-</code>. Valid modes are only &quot;r&quot; and &quot;r+&quot;; if the latter, only the first (leaf) repository is opened in write mode.
+<p>Given an 
+<code>existing_axis
+</code> in 
+<code>daf
+</code>, which has a property 
+<code>implicit_axis
+</code>, create a new axis with the same name as the property (or, if specified, call it 
+<code>rename_axis
+</code>). If 
+<code>empty_implicit
+</code> is specified, this value of the property is replaced by the empty string (indicate there is no value associated with the 
+<code>existing_axis
+</code> entry). For each of the 
+<code>implicit_properties
+</code>, we collect the mapping between the 
+<code>implicit_axis
+</code> and the property values, and store it as a property of the newly created axis.
 </p>
+<p>exist as names of entries in the 
+<code>implicit_axis
+</code>. This allows manually creating the 
+<code>implicit_axis
+</code> with additional entries that are not currently in use.
+</p>
+<p>If 
+<code>implicit_properties
+</code> are explicitly specified, then we require the mapping from 
+<code>implicit_axis
+</code> to be consistent for them. Otherwise, we look at all the properties of the 
+<code>existing_axis
+</code>, and check for each one whether the mapping is consistent; if it is, we migrate the property to the new axis. For example, when importing 
+<code>AnnData
+</code> containing per-cell data, it isn&#39;t always clear which property is actually per-batch (e.g., cell age) and which is actually per cell (e.g., doublet score). Not specifying the 
+<code>implicit_properties
+</code> allows the function to figure it out on its own. If 
+<code>skipped_properties
+</code> are specified, they are skipped, then these properties are skipped even if they happen (accidentally) to have a consistent mapping with the type.
+</p>
+<p>If the 
+<code>implicit_axis
+</code> already exists, we verify that all the values provided for it by the 
+<code>existing_axis
+</code> do, in fact,
+</p>
+<p>If the reconstructed 
+<code>implicit_axis
+</code> axis already exists, it may contain values that don&#39;t exist in the property of the 
+<code>existing_axis
+</code>. In this case, for each reconstructed property, you should specify an entry in the 
+<code>properties_defaults
+</code> to use for these values.
+</p>
+<div class="admonition is-info" id="Note-fdd8008be90c6922">
+<header class="admonition-header">Note
+<a class="admonition-anchor" href="#Note-fdd8008be90c6922" title="Permalink">
+</a>
+</header>
+<div class="admonition-body">
+<p>For each converted property, the value associated with 
+<code>existing_axis
+</code> entries which have no 
+<code>implicit_axis
+</code> value (that is, have an empty string or 
+<code>empty_implicit
+</code> value) is lost. For example, if each cell type has a color, but some cells do not have a type, then the color of &quot;cells with no type&quot; is lost. We still require this value to be consistent, and return a mapping between each migrated property name and the value of such entries (if any exist). When reconstructing the original property, specify this value using 
+<a href="queries.html#DataAxesFormats.Queries.IfNot">
+<code>IfNot
+</code>
+</a> (e.g., 
+<code>/ cell : type =&gt; color ?? magenta
+</code>).
+</p>
+</div>
+</div>
 </div>
 </section>
 </details>
 </article>
 <article>
 <details class="docstring" open="true">
-<summary id="DataAxesFormats.CompleteDaf.open_daf">
-<a class="docstring-binding" href="#DataAxesFormats.CompleteDaf.open_daf">
-<code>DataAxesFormats.CompleteDaf.open_daf
+<summary id="DataAxesFormats.Reconstruction.PropertiesDefaults">
+<a class="docstring-binding" href="#DataAxesFormats.Reconstruction.PropertiesDefaults">
+<code>DataAxesFormats.Reconstruction.PropertiesDefaults
 </code>
 </a> — 
-<span class="docstring-category">Function
+<span class="docstring-category">Type
 </span>
 </summary>
 <section>
 <div>
-<pre>
-<code class="language-julia hljs">open_daf(
-    path::AbstractString,
-    mode::AbstractString = &quot;r&quot;;
-    name::Maybe{AbstractString} = nothing
-)::Union{DafReader, DafWriter}
-</code>
-</pre>
-<p>Open either a 
-<a href="files_format.html#DataAxesFormats.FilesFormat.FilesDaf">
-<code>FilesDaf
-</code>
-</a> or an 
-<a href="h5df_format.html#DataAxesFormats.H5dfFormat.H5df">
-<code>H5df
-</code>
-</a>. If the 
-<code>path
-</code> ends with 
-<code>.h5df
-</code> or contains 
-<code>.h5dfs#
-</code> (followed by a group path), then it opens an 
-<a href="h5df_format.html#DataAxesFormats.H5dfFormat">
-<code>H5dfFormat
-</code>
-</a> file (or a group in one). Otherwise, it opens a 
-<a href="files_format.html#DataAxesFormats.FilesFormat">
-<code>FilesFormat
-</code>
-</a> 
-<code>Daf
-</code>.
+<p>Map property names to a default value. We would have liked to specify this as 
+<code>AbstractDict{&lt;:AbstractString, &lt;:StorageScalarBase}
+</code> but Julia in its infinite wisdom considers 
+<code>Dict([&quot;a&quot; =&gt; &quot;b&quot;, &quot;c&quot; =&gt; 1])
+</code> to be a 
+<code>Dict{AbstractString, Any}
+</code>, which would require literals to be annotated with the type.
 </p>
 </div>
 </section>
@@ -400,29 +433,29 @@
 </h2>
 <ul>
 <li>
-<a href="complete.html#DataAxesFormats.CompleteDaf">
-<code>DataAxesFormats.CompleteDaf
+<a href="reconstruction.html#DataAxesFormats.Reconstruction">
+<code>DataAxesFormats.Reconstruction
 </code>
 </a>
 </li>
 <li>
-<a href="complete.html#DataAxesFormats.CompleteDaf.complete_daf">
-<code>DataAxesFormats.CompleteDaf.complete_daf
+<a href="reconstruction.html#DataAxesFormats.Reconstruction.PropertiesDefaults">
+<code>DataAxesFormats.Reconstruction.PropertiesDefaults
 </code>
 </a>
 </li>
 <li>
-<a href="complete.html#DataAxesFormats.CompleteDaf.open_daf">
-<code>DataAxesFormats.CompleteDaf.open_daf
+<a href="reconstruction.html#DataAxesFormats.Reconstruction.reconstruct_axis!">
+<code>DataAxesFormats.Reconstruction.reconstruct_axis!
 </code>
 </a>
 </li>
 </ul>
 </article>
 <nav class="docs-footer">
-<a class="docs-footer-prevpage" href="files_format.html">« Files Format
+<a class="docs-footer-prevpage" href="anndata_format.html">« AnnData Format
 </a>
-<a class="docs-footer-nextpage" href="anndata_format.html">AnnData Format »
+<a class="docs-footer-nextpage" href="registry.html">Operations registry »
 </a>
 <div class="flexbox-break">
 </div>

@@ -5,14 +5,14 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Storage types · DataAxesFormats.jl v0.1.2
+<title>Operations registry · DataAxesFormats.jl v0.2.0
 </title>
-<meta name="title" content="Storage types · DataAxesFormats.jl v0.1.2"/>
-<meta property="og:title" content="Storage types · DataAxesFormats.jl v0.1.2"/>
-<meta property="twitter:title" content="Storage types · DataAxesFormats.jl v0.1.2"/>
-<meta name="description" content="Documentation for DataAxesFormats.jl v0.1.2."/>
-<meta property="og:description" content="Documentation for DataAxesFormats.jl v0.1.2."/>
-<meta property="twitter:description" content="Documentation for DataAxesFormats.jl v0.1.2."/>
+<meta name="title" content="Operations registry · DataAxesFormats.jl v0.2.0"/>
+<meta property="og:title" content="Operations registry · DataAxesFormats.jl v0.2.0"/>
+<meta property="twitter:title" content="Operations registry · DataAxesFormats.jl v0.2.0"/>
+<meta name="description" content="Documentation for DataAxesFormats.jl v0.2.0."/>
+<meta property="og:description" content="Documentation for DataAxesFormats.jl v0.2.0."/>
+<meta property="twitter:description" content="Documentation for DataAxesFormats.jl v0.2.0."/>
 <script data-outdated-warner src="assets/warner.js">
 </script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/>
@@ -101,7 +101,7 @@
 </a>
 <div class="docs-package-name">
 <span class="docs-autofit">
-<a href="index.html">DataAxesFormats.jl v0.1.2
+<a href="index.html">DataAxesFormats.jl v0.2.0
 </a>
 </span>
 </div>
@@ -192,18 +192,28 @@
 <a class="tocitem" href="reconstruction.html">Reconstruction
 </a>
 </li>
-<li>
+<li class="is-active">
 <a class="tocitem" href="registry.html">Operations registry
 </a>
+<ul class="internal">
+<li>
+<a class="tocitem" href="#Element-wise-operations">
+<span>Element-wise operations
+</span>
+</a>
 </li>
 <li>
-<a class="tocitem" href="operations.html">Query operations
+<a class="tocitem" href="#Reduction-operations">
+<span>Reduction operations
+</span>
 </a>
 </li>
-<li class="is-active">
-<a class="tocitem" href="storage_types.html">Storage types
+<li>
+<a class="tocitem" href="#Registering-operations">
+<span>Registering operations
+</span>
 </a>
-<ul class="internal">
+</li>
 <li>
 <a class="tocitem" href="#Index">
 <span>Index
@@ -211,6 +221,14 @@
 </a>
 </li>
 </ul>
+</li>
+<li>
+<a class="tocitem" href="operations.html">Query operations
+</a>
+</li>
+<li>
+<a class="tocitem" href="storage_types.html">Storage types
+</a>
 </li>
 <li>
 <a class="tocitem" href="groups.html">Groups
@@ -241,13 +259,13 @@
 <nav class="breadcrumb">
 <ul class="is-hidden-mobile">
 <li class="is-active">
-<a href="storage_types.html">Storage types
+<a href="registry.html">Operations registry
 </a>
 </li>
 </ul>
 <ul class="is-hidden-tablet">
 <li class="is-active">
-<a href="storage_types.html">Storage types
+<a href="registry.html">Operations registry
 </a>
 </li>
 </ul>
@@ -266,19 +284,19 @@
 </div>
 </header>
 <article class="content" id="documenter-page">
-<h1 id="Storage-types">
-<a class="docs-heading-anchor" href="#Storage-types">Storage types
+<h1 id="Operations-registry">
+<a class="docs-heading-anchor" href="#Operations-registry">Operations registry
 </a>
-<a id="Storage-types-1">
+<a id="Operations-registry-1">
 </a>
-<a class="docs-heading-anchor-permalink" href="#Storage-types" title="Permalink">
+<a class="docs-heading-anchor-permalink" href="#Operations-registry" title="Permalink">
 </a>
 </h1>
 <article>
 <details class="docstring" open="true">
-<summary id="DataAxesFormats.StorageTypes">
-<a class="docstring-binding" href="#DataAxesFormats.StorageTypes">
-<code>DataAxesFormats.StorageTypes
+<summary id="DataAxesFormats.Registry">
+<a class="docstring-binding" href="#DataAxesFormats.Registry">
+<code>DataAxesFormats.Registry
 </code>
 </a> — 
 <span class="docstring-category">Module
@@ -286,61 +304,246 @@
 </summary>
 <section>
 <div>
-<p>Only a restricted set of scalar, matrix and vector types is stored by 
+<p>Registering element-wise and reduction operations is required, to allow them to be used in a query.
+</p>
+<div class="admonition is-info" id="Note-bbb334e1e5780faa">
+<header class="admonition-header">Note
+<a class="admonition-anchor" href="#Note-bbb334e1e5780faa" title="Permalink">
+</a>
+</header>
+<div class="admonition-body">
+<p>We do not re-export everything from here to the main 
 <code>Daf
+</code> namespace, as it is only of interest for implementers of new query operations. Most users of 
+<code>Daf
+</code> just stick with the (fairly comprehensive) list of built-in query operations so there&#39;s no need to pollute their namespace with these detail.
+</p>
+</div>
+</div>
+</div>
+</section>
+</details>
+</article>
+<h2 id="Element-wise-operations">
+<a class="docs-heading-anchor" href="#Element-wise-operations">Element-wise operations
+</a>
+<a id="Element-wise-operations-1">
+</a>
+<a class="docs-heading-anchor-permalink" href="#Element-wise-operations" title="Permalink">
+</a>
+</h2>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.Registry.EltwiseOperation">
+<a class="docstring-binding" href="#DataAxesFormats.Registry.EltwiseOperation">
+<code>DataAxesFormats.Registry.EltwiseOperation
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</summary>
+<section>
+<div>
+<p>Abstract type for all element-wise operations.
+</p>
+<p>In a string query, this is specified using the 
+<code>%
+</code> operator (e.g., 
+<code>% Abs
+</code>, 
+<code>% Log base 2
+</code>):
+</p>
+<p>
+<code>EltwiseOperation
+</code> := 
+<code>%
+</code> operation ( parameter value )*
+</p>
+<p>Since each 
+<code>EltwiseOperation
+</code> isa 
+<a href="registry.html#DataAxesFormats.Registry.QueryOperation">
+<code>QueryOperation
+</code>
+</a>, you can directly apply it to a query (e.g., 
+<code>Axis(&quot;cell&quot;) |&gt; LookupVector(&quot;age&quot;) |&gt; Abs()
+</code>). For this there should be other constructor(s) tailored for this usage.
+</p>
+<p>An element-wise operation may be applied to scalar, vector ot matrix data. It will preserve the shape of the data, but changes the value(s), and possibly the data type of the elements. For example, 
+<code>Abs
+</code> will compute the absolute value of each value.
+</p>
+<p>To implement a new such operation, the type is expected to be of the form:
+</p>
+<pre>
+<code class="nohighlight hljs">struct MyOperation &lt;: EltwiseOperation
+    ... optional parameters ...
+end
+@query_operation MyOperation
+
+MyOperation(operation_name::Token, parameter_values::Dict{String, Token})::MyOperation
+</code>
+</pre>
+<p>The constructor should use 
+<code>parse_parameter
+</code> for each of the parameters (for example, using 
+<code>parse_number_assignment
+</code>). In addition you will need to invoke 
+<a href="registry.html#DataAxesFormats.Registry.@query_operation">
+<code>@query_operation
+</code>
+</a> to register the operation so it can be used in a query, and implement the functions listed below. See the query operations module for details and examples.
+</p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.Registry.compute_eltwise">
+<a class="docstring-binding" href="#DataAxesFormats.Registry.compute_eltwise">
+<code>DataAxesFormats.Registry.compute_eltwise
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">compute_eltwise(operation::EltwiseOperation, input::StorageMatrix)::StorageMatrix
+compute_eltwise(operation::EltwiseOperation, input::StorageVector)::StorageVector
+compute_eltwise(operation::EltwiseOperation, input_value::Number)::StorageReal
+</code>
+</pre>
+<p>Compute an 
+<a href="registry.html#DataAxesFormats.Registry.EltwiseOperation">
+<code>EltwiseOperation
+</code>
+</a> 
+<code>operation
 </code>.
 </p>
-<p>The set of scalar types is restricted because we need to be able to store them in disk files. This rules out compound types such as 
-<code>Dict
-</code>. This isn&#39;t an issue for vector and matrix elements but is sometimes bothersome for &quot;scalar&quot; data (not associated with any axis). If you find yourself needed to store such data, you&#39;ll have to serialize it to a string. By convention, we use 
-<code>JSON
-</code> blobs for such data to maximize portability between different systems.
+</div>
+</section>
+</details>
+</article>
+<h2 id="Reduction-operations">
+<a class="docs-heading-anchor" href="#Reduction-operations">Reduction operations
+</a>
+<a id="Reduction-operations-1">
+</a>
+<a class="docs-heading-anchor-permalink" href="#Reduction-operations" title="Permalink">
+</a>
+</h2>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.Registry.ReductionOperation">
+<a class="docstring-binding" href="#DataAxesFormats.Registry.ReductionOperation">
+<code>DataAxesFormats.Registry.ReductionOperation
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</summary>
+<section>
+<div>
+<p>Abstract type for all reduction operations.
 </p>
-<p>Julia supports a potentially infinite variety of ways to represent matrices and vectors. 
-<code>Daf
-</code> is intentionally restricted to specific representations. This has several advantages:
+<p>In a string query, this is specified using the 
+<code>%&gt;
+</code> operator (e.g., 
+<code>%&gt; Sum
+</code>, 
+<code>%&gt; Quantile fraction 0.05
+</code>):
 </p>
-<ul>
-<li>
 <p>
-<code>Daf
-</code> storage formats need only implement storing these restricted representations, which lend themselves to simple storage in consecutive bytes (in memory and/or on disk). These representations also allow for memory-mapping the data from disk files, which allows 
-<code>Daf
-</code> to deal with data sets larger than the available memory. However, we also allow storing vectors and matrices of strings. We try to make as efficient as possible (which isn&#39;t saying much).
+<code>ReductionOperation
+</code> := 
+<code>%&gt;
+</code> operation ( parameter value )*
 </p>
-</li>
-<li>
-<p>Client code need only worry about dealing with these restricted representations, which limits the amount of code paths required for efficient algorithm implementations. However, you (mostly) need not worry about this when invoking library functions, which have code paths covering all common matrix types. You 
-<strong>do
-</strong> need to consider the layout of the data, though (see below).
+<p>Since each 
+<code>ReductionOperation
+</code> isa 
+<a href="registry.html#DataAxesFormats.Registry.QueryOperation">
+<code>QueryOperation
+</code>
+</a>, you can directly apply it to a query (e.g., 
+<code>Axis(&quot;cell&quot;) |&gt; Axis(&quot;gene&quot;) |&gt; LookupMatrix(&quot;UMIs&quot;) |&gt; Quantile(0.05)
+</code>). To allow for this, the reduction class should provide constructor(s) tailored for this usage.
 </p>
-</li>
-</ul>
-<p>This has the downside that 
-<code>Daf
-</code> doesn&#39;t support efficient storage of specialized matrices (to pick a random example, upper triangular matrices). This isn&#39;t a great loss, since 
-<code>Daf
-</code> targets storing arbitrary scientific data (especially biological data), which in general is not of any such special shape. The upside is that all matrices stored and returned by 
-<code>Daf
-</code> have a clear layout (regardless of whether they are dense or sparse). This allows user code to ensure it is working &quot;with the grain&quot; of the data, which is 
-<strong>much
-</strong> more efficient.
+<p>A reduction operation may be applied to matrix or vector data. It will reduce (eliminate) one dimension of the data, and possibly the result will have a different data type than the input. When applied to a vector, the operation will return a scalar. When applied to a matrix, you must specify the axis that is to be eliminated from the result (as per Julia&#39;s conventions).
 </p>
-<div class="admonition is-info" id="Note-6395b41c4ce6c144">
+<p>To implement a new such operation, the type is expected to be of the form:
+</p>
+<pre>
+<code class="nohighlight hljs">struct MyOperation &lt;: ReductionOperation
+    ... optional parameters ...
+end
+
+MyOperation(operation_name::Token, parameter_values::Dict{String, Token})::MyOperation
+</code>
+</pre>
+<p>The constructor should use 
+<code>parse_parameter
+</code> for each of the parameters (for example, using typically 
+<code>parse_number_assignment
+</code>). In addition you will need to invoke 
+<a href="registry.html#DataAxesFormats.Registry.@query_operation">
+<code>@query_operation
+</code>
+</a> to register the operation so it can be used in a query, and implement the functions listed below. See the query operations module for details and examples.
+</p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.Registry.compute_reduction">
+<a class="docstring-binding" href="#DataAxesFormats.Registry.compute_reduction">
+<code>DataAxesFormats.Registry.compute_reduction
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">compute_reduction(operation::ReductionOperation, input::StorageMatrix, axis::Integer)::StorageVector
+compute_reduction(operation::ReductionOperation, input::StorageMatrix)::StorageVector
+compute_reduction(operation::ReductionOperation, input::StorageVector)::StorageReal
+</code>
+</pre>
+<p>Since each 
+<code>ReductionOperation
+</code> isa 
+<a href="registry.html#DataAxesFormats.Registry.QueryOperation">
+<code>QueryOperation
+</code>
+</a>, you can directly apply it to a query (e.g., 
+<code>Axis(&quot;cell&quot;) |&gt; Axis(&quot;gene&quot;) |&gt; LookupMatrix(&quot;UMIs&quot;) |&gt; Sum()
+</code>). For this there should be other constructor(s) tailored for this usage.
+</p>
+<p>When reducing a matrix, if an axis is specified, that axis is the one being eliminated. For example, 
+<code>axis = 1
+</code> (or 
+<code>Rows
+</code>) means the result will have one entry per column. If no axis is specified, the matrix is reduced to a scalar.
+</p>
+<div class="admonition is-info" id="Note-e9973b72cf3db418">
 <header class="admonition-header">Note
-<a class="admonition-anchor" href="#Note-6395b41c4ce6c144" title="Permalink">
+<a class="admonition-anchor" href="#Note-e9973b72cf3db418" title="Permalink">
 </a>
 </header>
 <div class="admonition-body">
-<p>Currently all boolean vectors are matrices are stored internally using one byte per entry (that is, as 
-<code>Vector{Bool}
-</code> and 
-<code>Matrix{Bool}
-</code> rather than 
-<code>BitVector
-</code> and 
-<code>BitMatrix
-</code>. This is somewhat less efficient, but is simpler and Boolean data is rarely a significant part of either storage or processing.
+<p>Most reduction operations are wildly inefficient if the eliminated axis is not the 
+<code>Rows
+</code>, that is, if the result doesn&#39;t have one value per column of the original matrix.
 </p>
 </div>
 </div>
@@ -350,21 +553,25 @@
 </article>
 <article>
 <details class="docstring" open="true">
-<summary id="DataAxesFormats.StorageTypes.StorageSigned">
-<a class="docstring-binding" href="#DataAxesFormats.StorageTypes.StorageSigned">
-<code>DataAxesFormats.StorageTypes.StorageSigned
+<summary id="DataAxesFormats.Registry.reduction_result_type">
+<a class="docstring-binding" href="#DataAxesFormats.Registry.reduction_result_type">
+<code>DataAxesFormats.Registry.reduction_result_type
 </code>
 </a> — 
-<span class="docstring-category">Type
+<span class="docstring-category">Function
 </span>
 </summary>
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">StorageSigned = Union{Int8, Int16, Int32, Int64}
+<code class="language-julia hljs">reduction_result_type(operation::ReductionOperation, eltype::Type)::Type
 </code>
 </pre>
-<p>Signed integer number types that can be used as scalars, or elements in stored matrices or vectors.
+<p>Return the data type of the result of the reduction 
+<code>operation
+</code> if applied to a vector of the specified 
+<code>eltype
+</code>.
 </p>
 </div>
 </section>
@@ -372,216 +579,117 @@
 </article>
 <article>
 <details class="docstring" open="true">
-<summary id="DataAxesFormats.StorageTypes.StorageUnsigned">
-<a class="docstring-binding" href="#DataAxesFormats.StorageTypes.StorageUnsigned">
-<code>DataAxesFormats.StorageTypes.StorageUnsigned
+<summary id="DataAxesFormats.Registry.supports_strings">
+<a class="docstring-binding" href="#DataAxesFormats.Registry.supports_strings">
+<code>DataAxesFormats.Registry.supports_strings
 </code>
 </a> — 
-<span class="docstring-category">Type
+<span class="docstring-category">Function
 </span>
 </summary>
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">StorageUnsigned = Union{UInt8, UInt16, UInt32, UInt64}
+<code class="language-julia hljs">supports_strings(operation::ComputationOperation)::Bool
 </code>
 </pre>
-<p>Unsigned integer number types that can be used as scalars, or elements in stored matrices or vectors.
+<p>Most operations do not support string operands. The very few that do are explicitly marked in the documentation.
 </p>
 </div>
 </section>
 </details>
 </article>
-<article>
-<details class="docstring" open="true">
-<summary id="DataAxesFormats.StorageTypes.StorageInteger">
-<a class="docstring-binding" href="#DataAxesFormats.StorageTypes.StorageInteger">
-<code>DataAxesFormats.StorageTypes.StorageInteger
-</code>
-</a> — 
-<span class="docstring-category">Type
-</span>
-</summary>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">StorageInteger = Union{StorageSigned, StorageUnsigned}
-</code>
-</pre>
-<p>Integer number types that can be used as scalars, or elements in stored matrices or vectors.
-</p>
-</div>
-</section>
-</details>
-</article>
-<article>
-<details class="docstring" open="true">
-<summary id="DataAxesFormats.StorageTypes.StorageFloat">
-<a class="docstring-binding" href="#DataAxesFormats.StorageTypes.StorageFloat">
-<code>DataAxesFormats.StorageTypes.StorageFloat
-</code>
-</a> — 
-<span class="docstring-category">Type
-</span>
-</summary>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">StorageFloat = Union{Float32, Float64}
-</code>
-</pre>
-<p>Floating point number types that can be used as scalars, or elements in stored matrices or vectors.
-</p>
-</div>
-</section>
-</details>
-</article>
-<article>
-<details class="docstring" open="true">
-<summary id="DataAxesFormats.StorageTypes.StorageReal">
-<a class="docstring-binding" href="#DataAxesFormats.StorageTypes.StorageReal">
-<code>DataAxesFormats.StorageTypes.StorageReal
-</code>
-</a> — 
-<span class="docstring-category">Type
-</span>
-</summary>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">StorageReal = Union{Bool, StorageInteger, StorageFloat}
-</code>
-</pre>
-<p>Number types that can be used as scalars, or elements in stored matrices or vectors.
-</p>
-</div>
-</section>
-</details>
-</article>
-<article>
-<details class="docstring" open="true">
-<summary id="DataAxesFormats.StorageTypes.StorageScalar">
-<a class="docstring-binding" href="#DataAxesFormats.StorageTypes.StorageScalar">
-<code>DataAxesFormats.StorageTypes.StorageScalar
-</code>
-</a> — 
-<span class="docstring-category">Type
-</span>
-</summary>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">StorageScalar = Union{StorageReal, &lt;:AbstractString}
-</code>
-</pre>
-<p>Types that can be used as scalars, or elements in stored matrices or vectors.
-</p>
-<p>This is restricted to 
-<a href="storage_types.html#DataAxesFormats.StorageTypes.StorageReal">
-<code>StorageReal
-</code>
-</a> (including Booleans) and strings. It is arguably too restrictive, as in principle we could support any arbitrary 
-<code>isbitstype
-</code>. However, in practice this would cause much trouble when accessing the data from other systems (specifically Python and R). Since 
-<code>Daf
-</code> targets storing scientific data (especially biological data), as opposed to &quot;anything at all&quot;, this restriction seems reasonable.
-</p>
-</div>
-</section>
-</details>
-</article>
-<article>
-<details class="docstring" open="true">
-<summary id="DataAxesFormats.StorageTypes.StorageScalarBase">
-<a class="docstring-binding" href="#DataAxesFormats.StorageTypes.StorageScalarBase">
-<code>DataAxesFormats.StorageTypes.StorageScalarBase
-</code>
-</a> — 
-<span class="docstring-category">Type
-</span>
-</summary>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">StorageScalarBase = Union{StorageReal, AbstractString}
-</code>
-</pre>
-<p>For using in 
-<code>where
-</code> clauses when a type needs to be a 
-<a href="storage_types.html#DataAxesFormats.StorageTypes.StorageScalar">
-<code>StorageScalar
-</code>
-</a>. That is, write 
-<code>where {T &lt;: StorageScalarBase}
-</code> instead of 
-<code>where {T &lt;: StorageScalar}
-</code>, because of the limitations of Julia&#39;s type system.
-</p>
-</div>
-</section>
-</details>
-</article>
-<article>
-<details class="docstring" open="true">
-<summary id="DataAxesFormats.StorageTypes.StorageVector">
-<a class="docstring-binding" href="#DataAxesFormats.StorageTypes.StorageVector">
-<code>DataAxesFormats.StorageTypes.StorageVector
-</code>
-</a> — 
-<span class="docstring-category">Type
-</span>
-</summary>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">StorageVector{T} = AbstractVector{T} where {T &lt;: StorageScalar}
-</code>
-</pre>
-<p>Vectors that can be directly stored (and fetched) from 
-<code>Daf
-</code> storage.
-</p>
-<p>The element type must be a 
-<a href="storage_types.html#DataAxesFormats.StorageTypes.StorageScalar">
-<code>StorageScalar
-</code>
-</a>, to allow storing the data in disk files. Vectors of strings are supported but will be less efficient.
-</p>
-</div>
-</section>
-</details>
-</article>
-<article>
-<details class="docstring" open="true">
-<summary id="DataAxesFormats.StorageTypes.StorageMatrix">
-<a class="docstring-binding" href="#DataAxesFormats.StorageTypes.StorageMatrix">
-<code>DataAxesFormats.StorageTypes.StorageMatrix
-</code>
-</a> — 
-<span class="docstring-category">Type
-</span>
-</summary>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">StorageMatrix{T} = AbstractMatrix{T} where {T &lt;: StorageScalar}
-</code>
-</pre>
-<p>Matrices that can be directly stored (and fetched) from 
-<code>Daf
-</code> storage.
-</p>
-<div class="admonition is-info" id="Note-670bdddbe6778b1d">
-<header class="admonition-header">Note
-<a class="admonition-anchor" href="#Note-670bdddbe6778b1d" title="Permalink">
+<h2 id="Registering-operations">
+<a class="docs-heading-anchor" href="#Registering-operations">Registering operations
 </a>
-</header>
-<div class="admonition-body">
-<p>All matrices we store must have a clear layout, that is, must be in either row-major or column-major format. There&#39;s no support for sparse matrices of strings, because &quot;reasons&quot;.
+<a id="Registering-operations-1">
+</a>
+<a class="docs-heading-anchor-permalink" href="#Registering-operations" title="Permalink">
+</a>
+</h2>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.Registry.QueryOperation">
+<a class="docstring-binding" href="#DataAxesFormats.Registry.QueryOperation">
+<code>DataAxesFormats.Registry.QueryOperation
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</summary>
+<section>
+<div>
+<p>Abstract interface for all query operations. An actual query is a series of these operations which, when applied to 
+<code>Daf
+</code> data, compute some result.
 </p>
 </div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.Registry.@query_operation">
+<a class="docstring-binding" href="#DataAxesFormats.Registry.@query_operation">
+<code>DataAxesFormats.Registry.@query_operation
+</code>
+</a> — 
+<span class="docstring-category">Macro
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">struct MyOperation &lt;: EltwiseOperation  # Or &lt;: ReductionOperation
+    ...
+end
+@query_operation MyOperation
+</code>
+</pre>
+<p>Automatically call 
+<a href="registry.html#DataAxesFormats.Registry.register_query_operation">
+<code>register_query_operation
+</code>
+</a> for 
+<code>MyOperation
+</code>.
+</p>
+<p>Note this will import 
+<code>DataAxesFormats.Registry.register_query_operation
+</code>, so it may only be called from the top level scope of a module.
+</p>
 </div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.Registry.register_query_operation">
+<a class="docstring-binding" href="#DataAxesFormats.Registry.register_query_operation">
+<code>DataAxesFormats.Registry.register_query_operation
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">register_query_operation(
+    type::Type{&lt;:Union{EltwiseOperation, ReductionOperation}},
+    source_file::AbstractString,
+    source_line::Integer,
+)::Nothing
+</code>
+</pre>
+<p>Register a specific operation so it would be available inside queries. This is required to be able to parse the operation. This is idempotent (safe to invoke multiple times).
+</p>
+<p>This isn&#39;t usually called directly. Instead, it is typically invoked by using the 
+<a href="registry.html#DataAxesFormats.Registry.@query_operation">
+<code>@query_operation
+</code>
+</a> macro.
+</p>
 </div>
 </section>
 </details>
@@ -596,71 +704,71 @@
 </h2>
 <ul>
 <li>
-<a href="storage_types.html#DataAxesFormats.StorageTypes">
-<code>DataAxesFormats.StorageTypes
+<a href="registry.html#DataAxesFormats.Registry">
+<code>DataAxesFormats.Registry
 </code>
 </a>
 </li>
 <li>
-<a href="storage_types.html#DataAxesFormats.StorageTypes.StorageFloat">
-<code>DataAxesFormats.StorageTypes.StorageFloat
+<a href="registry.html#DataAxesFormats.Registry.EltwiseOperation">
+<code>DataAxesFormats.Registry.EltwiseOperation
 </code>
 </a>
 </li>
 <li>
-<a href="storage_types.html#DataAxesFormats.StorageTypes.StorageInteger">
-<code>DataAxesFormats.StorageTypes.StorageInteger
+<a href="registry.html#DataAxesFormats.Registry.QueryOperation">
+<code>DataAxesFormats.Registry.QueryOperation
 </code>
 </a>
 </li>
 <li>
-<a href="storage_types.html#DataAxesFormats.StorageTypes.StorageMatrix">
-<code>DataAxesFormats.StorageTypes.StorageMatrix
+<a href="registry.html#DataAxesFormats.Registry.ReductionOperation">
+<code>DataAxesFormats.Registry.ReductionOperation
 </code>
 </a>
 </li>
 <li>
-<a href="storage_types.html#DataAxesFormats.StorageTypes.StorageReal">
-<code>DataAxesFormats.StorageTypes.StorageReal
+<a href="registry.html#DataAxesFormats.Registry.compute_eltwise">
+<code>DataAxesFormats.Registry.compute_eltwise
 </code>
 </a>
 </li>
 <li>
-<a href="storage_types.html#DataAxesFormats.StorageTypes.StorageScalar">
-<code>DataAxesFormats.StorageTypes.StorageScalar
+<a href="registry.html#DataAxesFormats.Registry.compute_reduction">
+<code>DataAxesFormats.Registry.compute_reduction
 </code>
 </a>
 </li>
 <li>
-<a href="storage_types.html#DataAxesFormats.StorageTypes.StorageScalarBase">
-<code>DataAxesFormats.StorageTypes.StorageScalarBase
+<a href="registry.html#DataAxesFormats.Registry.reduction_result_type">
+<code>DataAxesFormats.Registry.reduction_result_type
 </code>
 </a>
 </li>
 <li>
-<a href="storage_types.html#DataAxesFormats.StorageTypes.StorageSigned">
-<code>DataAxesFormats.StorageTypes.StorageSigned
+<a href="registry.html#DataAxesFormats.Registry.register_query_operation">
+<code>DataAxesFormats.Registry.register_query_operation
 </code>
 </a>
 </li>
 <li>
-<a href="storage_types.html#DataAxesFormats.StorageTypes.StorageUnsigned">
-<code>DataAxesFormats.StorageTypes.StorageUnsigned
+<a href="registry.html#DataAxesFormats.Registry.supports_strings">
+<code>DataAxesFormats.Registry.supports_strings
 </code>
 </a>
 </li>
 <li>
-<a href="storage_types.html#DataAxesFormats.StorageTypes.StorageVector">
-<code>DataAxesFormats.StorageTypes.StorageVector
+<a href="registry.html#DataAxesFormats.Registry.@query_operation">
+<code>DataAxesFormats.Registry.@query_operation
 </code>
 </a>
 </li>
 </ul>
 </article>
 <nav class="docs-footer">
-<a class="docs-footer-prevpage" href="operations.html">« Query operations
+<a class="docs-footer-prevpage" href="reconstruction.html">« Reconstruction
 </a>
-<a class="docs-footer-nextpage" href="groups.html">Groups »
+<a class="docs-footer-nextpage" href="operations.html">Query operations »
 </a>
 <div class="flexbox-break">
 </div>
