@@ -88,7 +88,7 @@ function chain_reader(dafs::AbstractVector{<:DafReader}; name::Maybe{AbstractStr
 
     internal_dafs = reader_internal_dafs(dafs, name)
     chain = ReadOnlyChain(name, Internal(; cache_group = nothing, is_frozen = true), internal_dafs)
-    @debug "Daf: $(brief(chain)) chain: $(join([daf.name for daf in dafs], ";"))"
+    @debug "Daf: $(brief(chain)) chain: $(join([daf.name for daf in dafs], ";"))" _group = :daf_repos
     return chain
 end
 

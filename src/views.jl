@@ -352,7 +352,7 @@ function viewer(
         reversed_view_matrices,
         reversed_view_tensors,
     )
-    @debug "Daf: $(brief(wrapper)) base: $(brief(daf))"
+    @debug "Daf: $(brief(wrapper)) base: $(brief(daf))" _group = :daf_repos
     return wrapper
 end
 
@@ -506,7 +506,7 @@ function ReadOnly.read_only(daf::DafView; name::Maybe{AbstractString} = nothing)
         return daf
     else
         wrapper = DafReadOnlyWrapper(name, daf.internal, daf)
-        @debug "Daf: $(brief(wrapper)) base: $(daf)"
+        @debug "Daf: $(brief(wrapper)) base: $(daf)" _group = :daf_repos
         return wrapper
     end
 end

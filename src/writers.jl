@@ -75,7 +75,8 @@ function set_scalar!(daf::DafWriter, name::AbstractString, value::StorageScalar;
     @assert value isa AbstractString || isbits(value)
     return Formats.with_data_write_lock(daf, "set_scalar! of:", name) do
         # Formats.assert_valid_cache(daf)
-        @debug "set_scalar! daf: $(brief(daf)) name: $(name) value: $(brief(value)) overwrite: $(overwrite)"
+        @debug "set_scalar! daf: $(brief(daf)) name: $(name) value: $(brief(value)) overwrite: $(overwrite)" _group =
+            :daf_sets
 
         if !overwrite
             require_no_scalar(daf, name)
@@ -118,7 +119,7 @@ false
 function delete_scalar!(daf::DafWriter, name::AbstractString; must_exist::Bool = true, _for_set = false)::Nothing
     return Formats.with_data_write_lock(daf, "delete_scalar! of:", name) do
         # Formats.assert_valid_cache(daf)
-        @debug "delete_scalar! daf: $(brief(daf)) name: $(name) must exist: $(must_exist)"
+        @debug "delete_scalar! daf: $(brief(daf)) name: $(name) must exist: $(must_exist)" _group = :daf_sets
 
         if must_exist
             require_scalar(daf, name)
@@ -184,7 +185,7 @@ function add_axis!(
 
     return Formats.with_data_write_lock(daf, "add_axis! of:", axis) do
         # Formats.assert_valid_cache(daf)
-        @debug "add_axis! daf: $(brief(daf)) axis: $(axis) entries: $(brief(entries))"
+        @debug "add_axis! daf: $(brief(daf)) axis: $(axis) entries: $(brief(entries))" _group = :daf_sets
 
         require_no_axis(daf, axis; for_change = true)
 
@@ -226,7 +227,7 @@ false
 function delete_axis!(daf::DafWriter, axis::AbstractString; must_exist::Bool = true)::Nothing
     return Formats.with_data_write_lock(daf, "delete_axis! of:", axis) do
         # Formats.assert_valid_cache(daf)
-        @debug "delete_axis! daf: $(brief(daf)) axis: $(axis) must exist: $(must_exist)"
+        @debug "delete_axis! daf: $(brief(daf)) axis: $(axis) must exist: $(must_exist)" _group = :daf_sets
 
         if must_exist
             require_axis(daf, "for: delete_axis!", axis; for_change = true)
@@ -333,7 +334,8 @@ function set_vector!(
     @assert Base.eltype(vector) <: AbstractString || isbitstype(Base.eltype(vector))
     return Formats.with_data_write_lock(daf, "set_vector! of:", name, "of:", axis) do
         # Formats.assert_valid_cache(daf)
-        @debug "set_vector! daf: $(brief(daf)) axis: $(axis) name: $(name) vector: $(brief(vector)) overwrite: $(overwrite)"
+        @debug "set_vector! daf: $(brief(daf)) axis: $(axis) name: $(name) vector: $(brief(vector)) overwrite: $(overwrite)" _group =
+            :daf_sets
 
         require_not_reserved(daf, axis, name)
         require_axis(daf, "for the vector: $(name)", axis)
@@ -411,7 +413,7 @@ function empty_dense_vector!(
     try
         result = fill(vector)
         Formats.cache_vector!(daf, axis, name, Formats.as_named_vector(daf, axis, vector))
-        @debug "empty_dense_vector! filled vector: $(brief(vector)) }"
+        @debug "empty_dense_vector! filled vector: $(brief(vector)) }" _group = :daf_sets
         return result
     finally
         # Formats.assert_valid_cache(daf)
@@ -430,7 +432,8 @@ function get_empty_dense_vector!(
     Formats.begin_data_write_lock(daf, "empty_dense_vector! of:", name, "of:", axis)
     try
         # Formats.assert_valid_cache(daf)
-        @debug "empty_dense_vector! daf: $(brief(daf)) axis: $(axis) name: $(name) eltype: $(eltype) overwrite: $(overwrite) {"
+        @debug "empty_dense_vector! daf: $(brief(daf)) axis: $(axis) name: $(name) eltype: $(eltype) overwrite: $(overwrite) {" _group =
+            :daf_sets
         require_not_reserved(daf, axis, name)
         require_axis(daf, "for the vector: $(name)", axis)
 
@@ -521,7 +524,8 @@ function get_empty_sparse_vector!(
     Formats.begin_data_write_lock(daf, "empty_sparse_vector! of:", name, "of:", axis)
     try
         # Formats.assert_valid_cache(daf)
-        @debug "empty_sparse_vector! daf: $(brief(daf)) axis: $(axis) name: $(name) eltype: $(eltype) nnz: $(nnz) indtype: $(indtype) overwrite: $(overwrite) {"
+        @debug "empty_sparse_vector! daf: $(brief(daf)) axis: $(axis) name: $(name) eltype: $(eltype) nnz: $(nnz) indtype: $(indtype) overwrite: $(overwrite) {" _group =
+            :daf_sets
         require_not_reserved(daf, axis, name)
         require_axis(daf, "for the vector: $(name)", axis)
 
@@ -547,7 +551,7 @@ function filled_empty_sparse_vector!(
     filled_vector = SparseVector(axis_length(daf, axis), nzind, nzval)
     Formats.format_filled_empty_sparse_vector!(daf, axis, name, filled_vector)
     Formats.cache_vector!(daf, axis, name, Formats.as_named_vector(daf, axis, filled_vector))
-    @debug "empty_sparse_vector! filled vector: $(brief(filled_vector)) }"
+    @debug "empty_sparse_vector! filled vector: $(brief(filled_vector)) }" _group = :daf_sets
     return nothing
 end
 
@@ -590,7 +594,8 @@ false
 function delete_vector!(daf::DafWriter, axis::AbstractString, name::AbstractString; must_exist::Bool = true)::Nothing
     return Formats.with_data_write_lock(daf, "delete_vector! of:", name, "of:", axis) do
         # Formats.assert_valid_cache(daf)
-        @debug "delete_vector! $daf: $(brief(daf)) axis: $(axis) name: $(name) must exist: $(must_exist)"
+        @debug "delete_vector! $daf: $(brief(daf)) axis: $(axis) name: $(name) must exist: $(must_exist)" _group =
+            :daf_sets
 
         require_not_reserved(daf, axis, name)
         require_axis(daf, "for the vector: $(name)", axis)
@@ -688,7 +693,8 @@ function set_matrix!(
     Formats.with_data_write_lock(daf, "set_matrix! of:", name, "of:", rows_axis, "and:", columns_axis) do
         # Formats.assert_valid_cache(daf)
         relayout = relayout && rows_axis != columns_axis
-        @debug "set_matrix! daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) matrix: $(brief(matrix)) overwrite: $(overwrite) relayout: $(relayout)"
+        @debug "set_matrix! daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) matrix: $(brief(matrix)) overwrite: $(overwrite) relayout: $(relayout)" _group =
+            :daf_sets
 
         require_axis(daf, "for the rows of the matrix: $(name)", rows_axis)
         require_axis(daf, "for the columns of the matrix: $(name)", columns_axis)
@@ -781,7 +787,7 @@ function empty_dense_matrix!(
             name,
             Formats.as_named_matrix(daf, rows_axis, columns_axis, matrix),
         )
-        @debug "empty_dense_matrix! filled matrix: $(brief(matrix)) }"
+        @debug "empty_dense_matrix! filled matrix: $(brief(matrix)) }" _group = :daf_sets
         return result
     finally
         # Formats.assert_valid_cache(daf)
@@ -800,7 +806,8 @@ function get_empty_dense_matrix!(
     Formats.begin_data_write_lock(daf, "empty_dense_matrix! of:", name, "of:", rows_axis, "and:", columns_axis)
     try
         # Formats.assert_valid_cache(daf)
-        @debug "empty_dense_matrix! daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) eltype: $(eltype) overwrite: $(overwrite) {"
+        @debug "empty_dense_matrix! daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) eltype: $(eltype) overwrite: $(overwrite) {" _group =
+            :daf_sets
         require_axis(daf, "for the rows of the matrix: $(name)", rows_axis)
         require_axis(daf, "for the columns of the matrix: $(name)", columns_axis)
 
@@ -898,7 +905,8 @@ function get_empty_sparse_matrix!(
     Formats.begin_data_write_lock(daf, "empty_sparse_matrix! of:", name, "of:", rows_axis, "and:", columns_axis)
     try
         # Formats.assert_valid_cache(daf)
-        @debug "empty_sparse_matrix! daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) eltype: $(eltype) overwrite: $(overwrite) {"
+        @debug "empty_sparse_matrix! daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) eltype: $(eltype) overwrite: $(overwrite) {" _group =
+            :daf_sets
         require_axis(daf, "for the rows of the matrix: $(name)", rows_axis)
         require_axis(daf, "for the columns of the matrix: $(name)", columns_axis)
 
@@ -932,7 +940,7 @@ function filled_empty_sparse_matrix!(
         name,
         Formats.as_named_matrix(daf, rows_axis, columns_axis, filled_matrix),
     )
-    @debug "empty_sparse_matrix! filled matrix: $(brief(filled_matrix)) }"
+    @debug "empty_sparse_matrix! filled matrix: $(brief(filled_matrix)) }" _group = :daf_sets
     return nothing
 end
 
@@ -974,7 +982,8 @@ function relayout_matrix!(
 )::Nothing
     Formats.with_data_write_lock(daf, "relayout_matrix! of:", name, "of:", rows_axis, "and:", columns_axis) do
         # Formats.assert_valid_cache(daf)
-        @debug "relayout_matrix! daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) overwrite: $(overwrite) {"
+        @debug "relayout_matrix! daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) overwrite: $(overwrite) {" _group =
+            :daf_sets
 
         require_axis(daf, "for the rows of the matrix: $(name)", rows_axis)
         require_axis(daf, "for the columns of the matrix: $(name)", columns_axis)
@@ -999,7 +1008,7 @@ function relayout_matrix!(
         update_before_set_matrix(daf, columns_axis, rows_axis, name)
         Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name, matrix.array)
 
-        @debug "relayout_matrix! }"
+        @debug "relayout_matrix! }" _group = :daf_sets
         # Formats.assert_valid_cache(daf)
     end
     return nothing
@@ -1085,7 +1094,8 @@ function delete_matrix!(
     Formats.with_data_write_lock(daf, "delete_matrix! of:", name, "of:", rows_axis, "and:", columns_axis) do
         # Formats.assert_valid_cache(daf)
         relayout = relayout && rows_axis != columns_axis
-        @debug "delete_matrix! daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) must exist: $(must_exist)"
+        @debug "delete_matrix! daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) must exist: $(must_exist)" _group =
+            :daf_sets
 
         require_axis(daf, "for the rows of the matrix: $(name)", rows_axis)
         require_axis(daf, "for the columns of the matrix: $(name)", columns_axis)

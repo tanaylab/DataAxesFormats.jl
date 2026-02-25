@@ -65,7 +65,7 @@ to use for these values.
     When reconstructing the original property, specify this value using [`IfNot`](@ref) (e.g.,
     `/ cell : type => color ?? magenta`).
 """
-@logged function reconstruct_axis!(
+@logged :daf_ops function reconstruct_axis!(
     daf::DafWriter;
     existing_axis::AbstractString,
     implicit_axis::AbstractString,
@@ -162,7 +162,7 @@ to use for these values.
     end
 
     for (property, vector_value) in vector_values_of_properties
-        @info "reconstruct $(rename_axis) vector: $(property)"
+        @debug "reconstruct $(rename_axis) vector: $(property)" _group = :daf_sets
         set_vector!(daf, rename_axis, property, vector_value)
         delete_vector!(daf, existing_axis, property)
     end

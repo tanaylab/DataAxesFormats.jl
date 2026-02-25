@@ -38,6 +38,8 @@ using TanayLabUtilities
 Open a complete chain of `Daf` repositories by tracing back through the `base_daf_repository` and the optional
 `base_daf_view`. Valid modes are only "r" and "r+"; if the latter, only the first (leaf) repository is opened in write
 mode.
+
+TODO: Properly indent the log messages of the created leaf repositories. Generic mechanism for indenting all hierarchical log messages?
 """
 function complete_daf(
     leaf::AbstractString,
@@ -49,7 +51,7 @@ function complete_daf(
             name = leaf
         end
         @assert mode in ("r", "r+")
-        @info "Open complete $(name):"
+        @debug "Open complete $(name):" _group = :daf_repose
         dafs = flame_timed("complete_daf.collect_dafs") do
             return reverse!(collect_dafs(; name, base_daf_repository = leaf, mode, indent = "", index = 0))
         end
@@ -72,7 +74,7 @@ function collect_dafs(;
 )::AbstractVector{<:DafReader}
     dafs = DafReader[]
     while true
-        @info "$(indent)- Open $(base_daf_repository) $(mode)"
+        @debug "$(indent)- Open $(base_daf_repository) $(mode)" _group = :daf_repose
         daf = open_daf(base_daf_repository, mode)  # NOJET
         base_directory = dirname(base_daf_repository)  # NOJET
 
@@ -85,7 +87,7 @@ function collect_dafs(;
 
         base_daf_view = parse_view_parameters(get_scalar(daf, "base_daf_view"; default = nothing))
         if base_daf_view !== nothing
-            @debug "$(indent)  View"
+            @debug "$(indent)  View" _group = :daf_repose
             base_daf_view = parse_view_parameters(get_scalar(daf, "base_daf_view"; default = nothing))
             base_dafs = reverse!(
                 collect_dafs(; name, base_daf_repository, mode = "r", indent = indent * "  ", index = index + 1),
@@ -106,7 +108,7 @@ end
 
 function parse_view_parameters(json::AbstractString)::AbstractDict
     parameters = Dict{Symbol, Any}()
-    json_parameters = JSON.parse(json)  # NOLINT
+    json_parameters = JSON.parse(json)
     @assert json_parameters isa AbstractDict
     for (key, value) in json_parameters
         pairs = Pair[]
@@ -114,7 +116,7 @@ function parse_view_parameters(json::AbstractString)::AbstractDict
             for (pattern, value) in pair
                 if contains(pattern, "(")
                     pattern = replace(pattern, "(" => "[", ")" => "]")
-                    pattern = JSON.parse(pattern)  # NOLINT
+                    pattern = JSON.parse(pattern)
                     pattern = Tuple(pattern)
                 end
                 push!(pairs, pattern => value)

@@ -50,7 +50,7 @@ The scalar is fetched using the `name` and the `default`. If `rename` is specifi
 name. If `type` is specified, the data is converted to this type. If the scalar already exists in the target, if
 `overwrite`, it will be replaced; otherwise, if not `insist`, skip the copy; otherwise, fail.
 """
-@logged function copy_scalar!(;
+@logged :daf_ops function copy_scalar!(;
     destination::DafWriter,
     source::DafReader,
     name::AbstractString,
@@ -102,7 +102,7 @@ The axis is fetched using the `name` and the `default`. If `rename` is specified
 If the axis already exists in the target, if `overwrite`, it will be replaced (erasing all data for that axis);
 otherwise, if not `insist`, skip the copy; otherwise, fail.
 """
-@logged function copy_axis!(;
+@logged :daf_ops function copy_axis!(;
     destination::DafWriter,
     source::DafReader,
     axis::AbstractString,
@@ -159,7 +159,7 @@ This requires the axis of one data set is the same, or is a superset of, or a su
 contains entries that do not exist in the source, then `empty` must be specified to fill the missing values. If the
 source axis contains entries that do not exist in the target, they are discarded (not copied).
 """
-@logged @documented function copy_vector!(;
+@logged :daf_ops @documented function copy_vector!(;
     destination::DafWriter,
     source::DafReader,
     axis::AbstractString,
@@ -318,7 +318,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
     the destination. However, currently we create a temporary dense matrix for this; this is inefficient and should be
     replaced by a more efficient method.
 """
-@logged @documented function copy_matrix!(;
+@logged :daf_ops @documented function copy_matrix!(;
     destination::DafWriter,
     source::DafReader,
     rows_axis::AbstractString,
@@ -542,7 +542,7 @@ This is basically a loop that calls [`copy_matrix!`](@ref) for each of the tenso
 which exist in the destination but do not exist in the source. If a tensor matrix already exists in the target, if
 `overwrite`, it will be replaced; otherwise, if not `insist`, skip the copy; otherwise, fail.
 """
-@logged @documented function copy_tensor!(;
+@logged :daf_ops @documented function copy_tensor!(;
     destination::DafWriter,
     source::DafReader,
     main_axis::AbstractString,
@@ -648,7 +648,7 @@ If `types` are specified, the copied data of the matching property is converted 
 If a [`TensorKey`](@ref) is specified, this will create an matrix full of the `empty` value for any entries of the main
 axis which exist in the destination but do not exist in the source.
 """
-@logged function copy_all!(;
+@logged :daf_ops function copy_all!(;
     destination::DafWriter,
     source::DafReader,
     empty::Maybe{EmptyData} = nothing,

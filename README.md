@@ -132,6 +132,33 @@ other Python package.
 
 TODO: To install the R wrappers...
 
+## Environment Variables
+
+This uses `TanayLabUtilities` so all its environment variables apply here. In addition:
+
+`DAF_ENFORCE_CONTRACTS` - if set, then we verify all contracts for all computation functions. This slows things down,
+but is useful when debugging development of computation code. It also generates better error messages for missing
+computation inputs. If set, we generate an `@info` log message under the `daf_env` group.
+
+## Debug Logging
+
+This uses `TanayLabUtilities` so all its debug logging apply here. In addition, the following groups will generate
+log messages:
+
+`daf_repos` - will generate a debug log message whenever a `Daf` repository is created or opened.
+
+`daf_queries` - will generate a debug log message for each query, as well as how each query sequence is being interpreted.
+This will generate a lot of data and is only useful when debugging specific queries.
+
+`daf_gets` - will generate a debug log message whenever anything is read from a daf repository. This will generate a lot
+of data and is only useful when debugging complex issues with specific views, queries, etc.
+
+`daf_sets` - will generate a debug log message whenever anything is written into a daf repository. This will generate a
+modest amount of data and is useful for tracking what is being computed in complex computation pipelines.
+
+`daf_ops` - will generate a detailed debug log message when high-level functions are called (e.g., `adapter`,
+`concatenate`).
+
 ## License (MIT)
 
 Copyright © 2023-2025 Weizmann Institute of Science

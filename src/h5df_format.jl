@@ -278,7 +278,7 @@ function H5df(
     name = unique_name(name)
 
     h5df = H5df(name, Internal(; cache_group = MappedData, is_frozen = is_read_only), root, mode)
-    @debug "Daf: $(brief(h5df)) root: $(root)"
+    @debug "Daf: $(brief(h5df)) root: $(root)" _group = :daf_repos
     if is_read_only
         return read_only(h5df)
     else

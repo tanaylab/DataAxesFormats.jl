@@ -90,7 +90,7 @@ false
 function has_scalar(daf::DafReader, name::AbstractString)::Bool
     return Formats.with_data_read_lock(daf, "has_scalar of:", name) do
         result = Formats.format_has_scalar(daf, name)
-        @debug "has_scalar daf: $(brief(daf)) name: $(name) result: $(result)"
+        @debug "has_scalar daf: $(brief(daf)) name: $(name) result: $(result)" _group = :daf_gets
         return result
     end
 end
@@ -118,7 +118,7 @@ function scalars_set(daf::DafReader)::AbstractSet{<:AbstractString}
     return Formats.with_data_read_lock(daf, "scalars_set") do
         # Formats.assert_valid_cache(daf)
         result = Formats.get_scalars_set_through_cache(daf)
-        @debug "scalars_set daf: $(brief(daf)) result: $(brief(result))"
+        @debug "scalars_set daf: $(brief(daf)) result: $(brief(result))" _group = :daf_gets
         # Formats.assert_valid_cache(daf)
         return result
     end
@@ -162,12 +162,13 @@ function get_scalar(
         if default == undef
             require_scalar(daf, name)
         elseif !has_scalar(daf, name)
-            @debug "get_scalar daf: $(brief(daf)) name: $(name) default result: $(brief(default))"
+            @debug "get_scalar daf: $(brief(daf)) name: $(name) default result: $(brief(default))" _group = :daf_gets
             return default
         end
 
         result = Formats.get_scalar_through_cache(daf, name)
-        @debug "get_scalar daf: $(brief(daf)) name: $(name) default: $(brief(default)) result: $(brief(result))"
+        @debug "get_scalar daf: $(brief(daf)) name: $(name) default: $(brief(default)) result: $(brief(result))" _group =
+            :daf_gets
         # Formats.assert_valid_cache(daf)
         return result
     end
@@ -207,7 +208,7 @@ true
 function has_axis(daf::DafReader, axis::AbstractString)::Bool
     return Formats.with_data_read_lock(daf, "has_axis of:", axis) do
         result = Formats.format_has_axis(daf, axis; for_change = false)
-        @debug "has_axis daf: $(brief(daf)) axis: $(axis) result: $(result)"
+        @debug "has_axis daf: $(brief(daf)) axis: $(axis) result: $(result)" _group = :daf_gets
         return result
     end
 end
@@ -267,7 +268,7 @@ function axes_set(daf::DafReader)::AbstractSet{<:AbstractString}
     return Formats.with_data_read_lock(daf, "axes_set") do
         # Formats.assert_valid_cache(daf)
         result = Formats.get_axes_set_through_cache(daf)
-        @debug "axes_set daf: $(brief(daf)) result: $(brief(result))"
+        @debug "axes_set daf: $(brief(daf)) result: $(brief(result))" _group = :daf_gets
         # Formats.assert_valid_cache(daf)
         return result
     end
@@ -308,7 +309,8 @@ function axis_vector(
         result_prefix = ""
         if !Formats.format_has_axis(daf, axis; for_change = false)
             if default === nothing
-                @debug "axis_vector daf: $(brief(daf)) axis: $(axis) default: nothing result: nothing"
+                @debug "axis_vector daf: $(brief(daf)) axis: $(axis) default: nothing result: nothing" _group =
+                    :daf_gets
                 return nothing
             else
                 result_prefix = "default "
@@ -318,7 +320,8 @@ function axis_vector(
         end
 
         result = Formats.get_axis_vector_through_cache(daf, axis)
-        @debug "axis_vector daf: $(brief(daf)) axis: $(axis) default: $(brief(default)) $(result_prefix)result: $(brief(result))"
+        @debug "axis_vector daf: $(brief(daf)) axis: $(axis) default: $(brief(default)) $(result_prefix)result: $(brief(result))" _group =
+            :daf_gets
         # Formats.assert_valid_cache(daf)
         return result
     end
@@ -346,7 +349,7 @@ function axis_dict(daf::DafReader, axis::AbstractString)::AbstractDict{<:Abstrac
         # Formats.assert_valid_cache(daf)
         require_axis(daf, "for: axis_dict", axis)
         result = Formats.get_axis_dict_through_cache(daf, axis)
-        @debug "axis_dict daf: $(brief(daf)) result: $(brief(result))"
+        @debug "axis_dict daf: $(brief(daf)) result: $(brief(result))" _group = :daf_gets
         # Formats.assert_valid_cache(daf)
         return result
     end
@@ -385,7 +388,7 @@ function axis_indices(
     dictionary = axis_dict(daf, axis)
 
     result = [get_axis_entry(daf, axis, dictionary, entry; allow_empty, allow_missing) for entry in entries]
-    @debug "axis_indices daf: $(brief(daf)) allow_empty: $(allow_empty) result: $(brief(result))"
+    @debug "axis_indices daf: $(brief(daf)) allow_empty: $(allow_empty) result: $(brief(result))" _group = :daf_gets
     return result
 end
 
@@ -452,7 +455,7 @@ function axis_entries(
         result = entries[indices]
     end
 
-    @debug "axis_entries daf: $(brief(daf)) allow_empty: $(allow_empty) result: $(brief(result))"
+    @debug "axis_entries daf: $(brief(daf)) allow_empty: $(allow_empty) result: $(brief(result))" _group = :daf_gets
     return result
 end
 
@@ -476,7 +479,7 @@ function axis_length(daf::DafReader, axis::AbstractString)::Int64
         # Formats.assert_valid_cache(daf)
         require_axis(daf, "for: axis_length", axis)
         result = Formats.format_axis_length(daf, axis)
-        @debug "axis_length daf: $(brief(daf)) axis: $(axis) result: $(result)"
+        @debug "axis_length daf: $(brief(daf)) axis: $(axis) result: $(result)" _group = :daf_gets
         # Formats.assert_valid_cache(daf)
         return result
     end
@@ -522,7 +525,7 @@ function has_vector(daf::DafReader, axis::AbstractString, name::AbstractString):
         # Formats.assert_valid_cache(daf)
         require_axis(daf, "for has_vector: $(name)", axis)
         result = name == "name" || name == "index" || Formats.format_has_vector(daf, axis, name)
-        @debug "has_vector daf: $(brief(daf)) axis: $(axis) name: $(name) result: $(result)"
+        @debug "has_vector daf: $(brief(daf)) axis: $(axis) name: $(name) result: $(result)" _group = :daf_gets
         # Formats.assert_valid_cache(daf)
         return result
     end
@@ -556,7 +559,7 @@ println(vector_version_counter(metacells, "type", "color"))
 """
 function vector_version_counter(daf::DafReader, axis::AbstractString, name::AbstractString)::UInt32
     result = Formats.format_get_version_counter(daf, (axis, name))
-    @debug "vector_version_counter daf: $(brief(daf)) axis: $(axis) name: $(name) result: $(result)"
+    @debug "vector_version_counter daf: $(brief(daf)) axis: $(axis) name: $(name) result: $(result)" _group = :daf_gets
     return result
 end
 
@@ -586,7 +589,7 @@ function vectors_set(daf::DafReader, axis::AbstractString)::AbstractSet{<:Abstra
         # Formats.assert_valid_cache(daf)
         require_axis(daf, "for: vectors_set", axis)
         result = Formats.get_vectors_set_through_cache(daf, axis)
-        @debug "vectors_set daf: $(brief(daf)) axis: $(axis) result: $(brief(result))"
+        @debug "vectors_set daf: $(brief(daf)) axis: $(axis) result: $(brief(result))" _group = :daf_gets
         # Formats.assert_valid_cache(daf)
         return result
     end
@@ -647,7 +650,8 @@ function get_vector(
                 values = getindex.(Ref(dictionary), values)
             end
             vector = Formats.as_named_vector(daf, axis, values)
-            @debug "get_vector daf: $(brief(daf)) axis: $(axis) name: $(name) default: $(brief(default)) result: $(brief(vector))"
+            @debug "get_vector daf: $(brief(daf)) axis: $(axis) name: $(name) default: $(brief(default)) result: $(brief(vector))" _group =
+                :daf_gets
             # Formats.assert_valid_cache(daf)
             return vector
         end
@@ -687,7 +691,8 @@ function get_vector(
             vector = Formats.as_named_vector(daf, axis, vector)
         end
 
-        @debug "get_vector daf: $(brief(daf)) axis: $(axis) name: $(name) default: $(brief(default)) $(result_prefix)result: $(brief(vector))"
+        @debug "get_vector daf: $(brief(daf)) axis: $(axis) name: $(name) default: $(brief(default)) $(result_prefix)result: $(brief(vector))" _group =
+            :daf_gets
         # Formats.assert_valid_cache(daf)
         return vector
     end
@@ -746,7 +751,8 @@ function has_matrix(
         result =
             Formats.format_has_matrix(daf, rows_axis, columns_axis, name) ||
             (relayout && Formats.format_has_matrix(daf, columns_axis, rows_axis, name))
-        @debug "has_matrix daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) relayout: $(relayout) result: $(brief(result))"
+        @debug "has_matrix daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) relayout: $(relayout) result: $(brief(result))" _group =
+            :daf_gets
         return result
     end
 end
@@ -853,7 +859,8 @@ function matrices_set(
             end
         end
 
-        @debug "matrices_set daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) relayout: $(relayout) result: $(brief(names))"
+        @debug "matrices_set daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) relayout: $(relayout) result: $(brief(names))" _group =
+            :daf_gets
         # Formats.assert_valid_cache(daf)
         return names
     end
@@ -1002,7 +1009,8 @@ function get_matrix(
             matrix = Formats.as_named_matrix(daf, rows_axis, columns_axis, matrix)
         end
 
-        @debug "get_matrix daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) default: $(brief(default)) $(result_prefix)result: $(brief(matrix))"
+        @debug "get_matrix daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) default: $(brief(default)) $(result_prefix)result: $(brief(matrix))" _group =
+            :daf_gets
         # # Formats.assert_valid_cache(daf)
         return matrix
     end
@@ -1082,7 +1090,8 @@ function matrix_version_counter(
         rows_axis, columns_axis = columns_axis, rows_axis
     end
     result = Formats.format_get_version_counter(daf, (rows_axis, columns_axis, name))
-    @debug "matrix_version_counter daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) result: $(result)"
+    @debug "matrix_version_counter daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) result: $(result)" _group =
+        :daf_gets
     return result
 end
 

@@ -126,7 +126,7 @@ If `filter` is specified, it is a function that is given two parameters. The fir
 `false` if the data is to be ignored. This allows skipping unwanted data (or data that can't be converted for any
 reason). This doesn't speed things up
 """
-@logged function anndata_as_daf(
+@logged :daf_ops function anndata_as_daf(
     adata::Union{AnnData, AbstractString};
     name::Maybe{AbstractString} = nothing,
     obs_is::Maybe{AbstractString} = nothing,
@@ -137,7 +137,7 @@ reason). This doesn't speed things up
     return do_anndata_as_daf(nothing, adata; name, obs_is, var_is, X_is, unsupported_handler)
 end
 
-@logged function anndata_as_daf(  # UNTESTED
+@logged :daf_ops function anndata_as_daf(  # UNTESTED
     filter::Maybe{Function},
     adata::Union{AnnData, AbstractString};
     name::Maybe{AbstractString} = nothing,
@@ -160,9 +160,9 @@ function do_anndata_as_daf(
 )::MemoryDaf
     if adata isa AbstractString
         path = adata
-        @debug "readh5ad $(path) {"
-        adata = readh5ad(path; backed = false)  # NOJET
-        @debug "readh5ad $(path) }"
+        adata = flame_timed("readh5ad") do
+            return readh5ad(path; backed = false)  # NOJET
+        end
     end
 
     name = by_annotation(adata, name, "name", "anndata")
@@ -348,11 +348,11 @@ end
 function copy_supported_scalars(uns::AbstractDict, memory::MemoryDaf, filter::Maybe{Function})::Nothing
     for (name, value) in uns
         if !(value isa StorageScalar)
-            @info "skip unsupported scalar: $(name) type: $(typeof(value))"
+            @debug "skip unsupported scalar: $(name) type: $(typeof(value))" _group = :daf_sets
         elseif filter !== nothing && !filter("uns", name)
-            @info "skip filtered scalar: $(name)"  # UNTESTED
+            @debug "skip filtered scalar: $(name)" _group = :daf_sets  # UNTESTED
         else
-            @info "copy scalar: $(name)"
+            @debug "copy scalar: $(name)" _group = :daf_sets
             set_scalar!(memory, name, value)
         end
     end
@@ -367,14 +367,14 @@ function copy_supported_vectors(
 )::Nothing
     for column in names(frame)
         if filter !== nothing && !filter(member, column)
-            @info "skip filtered $(member) vector: $(column)"  # UNTESTED
+            @debug "skip filtered $(member) vector: $(column)" _group = :daf_sets  # UNTESTED
             continue  # UNTESTED
         end
 
         vector = frame[!, column]
 
         if !(vector isa SupportedVector)
-            @info "skip unsupported $(member) vector: $(column) type: $(typeof(vector))"  # UNTESTED
+            @debug "skip unsupported $(member) vector: $(column) type: $(typeof(vector))" _group = :daf_sets  # UNTESTED
             continue  # UNTESTED
         end
 
@@ -418,7 +418,7 @@ function copy_supported_vectors(
         end
 
         @assert vector isa StorageVector
-        @info "copy $(member) vector: $(column)"
+        @debug "copy $(member) vector: $(column)" _group = :daf_sets
         set_vector!(memory, axis, column, vector)
     end
 end
@@ -432,11 +432,11 @@ function copy_supported_square_matrices(
 )::Nothing
     for (name, matrix) in dict
         if !(matrix isa StorageMatrix)
-            @info "skip unsupported $(member) matrix: $(name)"  # UNTESTED
+            @debug "skip unsupported $(member) matrix: $(name)" _group = :daf_sets  # UNTESTED
         elseif filter !== nothing && !filter(member, name)
-            @info "skip filtered $(member) matrix: $(name)"  # UNTESTED
+            @debug "skip filtered $(member) matrix: $(name)" _group = :daf_sets  # UNTESTED
         else
-            @info "copy $(member) matrix: $(name)"
+            @debug "copy $(member) matrix: $(name)" _group = :daf_sets
             set_matrix!(memory, axis, axis, name, flip(access_matrix(matrix)); relayout = false)
         end
     end
@@ -452,11 +452,11 @@ function copy_supported_matrices(
 )::Nothing
     for (name, matrix) in dict  # NOJET
         if !(matrix isa StorageMatrix)
-            @info "skip unsupported $(member) matrix: $(name)"  # UNTESTED
+            @debug "skip unsupported $(member) matrix: $(name)" _group = :daf_sets  # UNTESTED
         elseif filter !== nothing && !filter(member, name)
-            @info "skip filtered $(member) matrix: $(name)"  # UNTESTED
+            @debug "skip filtered $(member) matrix: $(name)" _group = :daf_sets  # UNTESTED
         else
-            @info "copy $(member) matrix: $(name)"
+            @debug "copy $(member) matrix: $(name)" _group = :daf_sets
             copy_supported_matrix(access_matrix(matrix), memory, rows_axis, columns_axis, name)
         end
     end
@@ -561,7 +561,7 @@ Each of the final `obs_is`, `var_is`, `X_is` values is stored as unstructured an
 All scalar properties, vector properties of the chosen "obs" and "var" axes, and matrix properties of these axes, are
 stored in the returned new `AnnData` object.
 """
-@logged function daf_as_anndata(
+@logged :daf_ops function daf_as_anndata(
     daf::DafReader;
     obs_is::Maybe{AbstractString} = nothing,
     var_is::Maybe{AbstractString} = nothing,
@@ -601,9 +601,10 @@ stored in the returned new `AnnData` object.
     end
 
     if h5ad !== nothing
-        @debug "writeh5ad $(h5ad) {"
-        writeh5ad(h5ad, adata; compress = UInt8(0))  # NOJET
-        @debug "writeh5ad $(h5ad) }"
+        flame_timed("writeh5ad") do
+            writeh5ad(h5ad, adata; compress = UInt8(0))  # NOJET
+            return nothing
+        end
     end
 
     return adata

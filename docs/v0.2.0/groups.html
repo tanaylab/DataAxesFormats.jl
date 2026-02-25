@@ -288,6 +288,10 @@
 <div>
 <p>Functions for dealing with computing groups of axis entries (typically for creating a new axis).
 </p>
+<p>TODO: Migrate this to 
+<code>TanayLabUtilities
+</code>?
+</p>
 </div>
 </section>
 </details>
@@ -306,8 +310,7 @@
 <div>
 <pre>
 <code class="language-julia hljs">group_names(
-    daf::DafReader,
-    axis::AbstractString,
+    names_of_entries::AbstractVector{&lt;:AbstractString},
     entries_of_groups::AbstractVector{&lt;:AbstractVector{&lt;:Integer}};
     prefix::AbstractString,
 )::Vector{String}

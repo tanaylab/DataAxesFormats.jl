@@ -131,7 +131,7 @@ then such properties will be processed according to it. Using `CollectAxis` for 
 
 By default, concatenation will fail rather than `overwrite` existing properties in the target.
 """
-@logged function concatenate!(
+@logged :daf_ops function concatenate!(
     destination::DafWriter,
     axis::Union{AbstractString, AbstractVector{<:AbstractString}},
     sources::AbstractVector{<:DafReader};
@@ -189,12 +189,12 @@ By default, concatenation will fail rather than `overwrite` existing properties 
                     invalid_matrices_set = matrices_set(source, rows_axis, columns_axis; relayout = false)
                     for invalid_matrix_name in invalid_matrices_set
                         error(chomp("""
-                              can't concatenate the matrix: $(invalid_matrix_name)
-                              for the concatenated rows axis: $(rows_axis)
-                              and the concatenated columns axis: $(columns_axis)
-                              in the daf data: $(source.name)
-                              concatenated into the daf data: $(destination.name)
-                              """))
+                                    can't concatenate the matrix: $(invalid_matrix_name)
+                                    for the concatenated rows axis: $(rows_axis)
+                                    and the concatenated columns axis: $(columns_axis)
+                                    in the daf data: $(source.name)
+                                    concatenated into the daf data: $(destination.name)
+                                    """))
                     end
                 end
             end
@@ -243,11 +243,11 @@ By default, concatenation will fail rather than `overwrite` existing properties 
                         (previous_source_name, previous_axis_entry_names) = previous_axis_data
                         if other_axis_entry_names != previous_axis_entry_names
                             error(chomp("""
-                                  different entries for the axis: $(axis_name)
-                                  between the daf data: $(previous_source_name)
-                                  and the daf data: $(source.name)
-                                  concatenated into the daf data: $(destination.name)
-                                  """))
+                                        different entries for the axis: $(axis_name)
+                                        between the daf data: $(previous_source_name)
+                                        and the daf data: $(source.name)
+                                        concatenated into the daf data: $(destination.name)
+                                        """))
                         end
                     end
                 end
@@ -429,7 +429,7 @@ function concatenate_axis_entry_names(
     parallel_loop_wo_rng(
         1:n_sources;
         name = "concatenate_axis_entry_names",
-        progress = DebugProgress(n_sources; desc = "concatenate_axis_entry_names"),
+        progress = DebugProgress(n_sources; group = :daf_ops, desc = "concatenate_axis_entry_names"),
     ) do source_index
         source = sources[source_index]
         offset = offsets[source_index]
@@ -465,7 +465,7 @@ function concatenate_axis_dataset_property(
     parallel_loop_wo_rng(
         1:n_sources;
         name = "concatenate_axis_dataset_property",
-        progress = DebugProgress(n_sources; desc = "concatenate_axis_dataset_property"),
+        progress = DebugProgress(n_sources; group = :daf_ops, desc = "concatenate_axis_dataset_property"),
     ) do source_index
         offset = offsets[source_index]
         size = sizes[source_index]
@@ -566,7 +566,7 @@ function concatenate_axis_string_vectors(
     parallel_loop_wo_rng(
         1:n_sources;
         name = "concatenate_axis_string_vectors",
-        progress = DebugProgress(n_sources; desc = "concatenate_axis_string_vectors"),
+        progress = DebugProgress(n_sources; group = :daf_ops, desc = "concatenate_axis_string_vectors"),
     ) do source_index
         vector = vectors[source_index]
         source = sources[source_index]
@@ -610,7 +610,7 @@ function concatenate_axis_sparse_vectors(
         parallel_loop_wo_rng(
             1:n_sources;
             name = "concatenate_axis_sparse_vectors",
-            progress = DebugProgress(n_sources; desc = "concatenate_axis_sparse_vectors"),
+            progress = DebugProgress(n_sources; group = :daf_ops, desc = "concatenate_axis_sparse_vectors"),
         ) do source_index
             vector = vectors[source_index]
             @assert issparse(vector)
@@ -644,7 +644,7 @@ function concatenate_axis_dense_vectors(
         parallel_loop_wo_rng(
             1:n_sources;
             name = "concatenate_axis_dense_vectors",
-            progress = DebugProgress(n_sources; desc = "concatenate_axis_dense_vectors"),
+            progress = DebugProgress(n_sources; group = :daf_ops, desc = "concatenate_axis_dense_vectors"),
         ) do source_index
             source = sources[source_index]
             vector = vectors[source_index]
@@ -743,7 +743,7 @@ function concatenate_axis_sparse_matrices(
         parallel_loop_wo_rng(
             1:n_sources;
             name = "concatenate_axis_sparse_matrices",
-            progress = DebugProgress(n_sources; desc = "concatenate_axis_sparse_matrices"),
+            progress = DebugProgress(n_sources; group = :daf_ops, desc = "concatenate_axis_sparse_matrices"),
         ) do source_index
             matrix = matrices[source_index]
             @assert issparse(matrix)
@@ -782,7 +782,7 @@ function concatenate_axis_dense_matrices(
         parallel_loop_wo_rng(
             1:n_sources;
             name = "concatenate_axis_dense_matrices",
-            progress = DebugProgress(n_sources; desc = "concatenate_axis_dense_matrices"),
+            progress = DebugProgress(n_sources; group = :daf_ops, desc = "concatenate_axis_dense_matrices"),
         ) do source_index
             source = sources[source_index]
             matrix = matrices[source_index]
@@ -926,10 +926,10 @@ function concatenate_merge_scalar(
     elseif merge_action == CollectAxis
         if dataset_axis === nothing
             error(chomp("""
-                  can't collect axis for the scalar: $(scalar_property)
-                  of the daf data sets concatenated into the daf data: $(destination.name)
-                  because no data set axis was created
-                  """))
+                        can't collect axis for the scalar: $(scalar_property)
+                        of the daf data sets concatenated into the daf data: $(destination.name)
+                        because no data set axis was created
+                        """))
         end
 
         scalars = [get_scalar(source, scalar_property; default = nothing) for source in sources]
@@ -967,11 +967,11 @@ function concatenate_merge_vector(
     elseif merge_action == CollectAxis
         if dataset_axis === nothing
             error(chomp("""
-                  can't collect axis for the vector: $(vector_property)
-                  of the axis: $(axis)
-                  of the daf data sets concatenated into the daf data: $(destination.name)
-                  because no data set axis was created
-                  """))
+                        can't collect axis for the vector: $(vector_property)
+                        of the axis: $(axis)
+                        of the daf data sets concatenated into the daf data: $(destination.name)
+                        because no data set axis was created
+                        """))
         end
 
         vectors = [get_vector(source, axis, vector_property; default = nothing) for source in sources]
@@ -1048,7 +1048,7 @@ function concatenate_merge_sparse_vector(
         parallel_loop_wo_rng(
             1:n_sources;
             name = "concatenate_merge_sparse_vector",
-            progress = DebugProgress(n_sources; desc = "concatenate_merge_sparse_vector"),
+            progress = DebugProgress(n_sources; group = :daf_ops, desc = "concatenate_merge_sparse_vector"),
         ) do source_index
             vector = vectors[source_index]
             @assert issparse(vector)
@@ -1080,7 +1080,7 @@ function concatenate_merge_dense_vector(
         parallel_loop_wo_rng(
             1:n_sources;
             name = "concatenate_merge_dense_vector",
-            progress = DebugProgress(n_sources; desc = "concatenate_merge_dense_vector"),
+            progress = DebugProgress(n_sources; group = :daf_ops, desc = "concatenate_merge_dense_vector"),
         ) do source_index
             source = sources[source_index]
             vector = vectors[source_index]
@@ -1119,12 +1119,12 @@ function concatenate_merge_matrix(
 
     elseif merge_action == CollectAxis
         error(chomp("""
-              can't collect axis for the matrix: $(matrix_property)
-              of the rows axis: $(rows_axis)
-              and the columns axis: $(columns_axis)
-              of the daf data sets concatenated into the daf data: $(destination.name)
-              because that would create a 3D tensor, which is not supported
-              """))
+                    can't collect axis for the matrix: $(matrix_property)
+                    of the rows axis: $(rows_axis)
+                    and the columns axis: $(columns_axis)
+                    of the daf data sets concatenated into the daf data: $(destination.name)
+                    because that would create a 3D tensor, which is not supported
+                    """))
 
     else
         @assert false
@@ -1140,11 +1140,11 @@ function require_empty_value_for_vector(
 )::StorageScalar
     if empty_value === nothing
         error(chomp("""
-              no empty value for the vector: $(vector_property)
-              of the axis: $(axis)
-              which is missing from the daf data: $(daf.name)
-              concatenated into the daf data: $(destination.name)
-              """))
+                    no empty value for the vector: $(vector_property)
+                    of the axis: $(axis)
+                    which is missing from the daf data: $(daf.name)
+                    concatenated into the daf data: $(destination.name)
+                    """))
     end
     return empty_value
 end
@@ -1159,12 +1159,12 @@ function require_empty_value_for_matrix(
 )::StorageReal
     if empty_value === nothing
         error(chomp("""
-              no empty value for the matrix: $(matrix_property)
-              of the rows axis: $(rows_axis)
-              and the columns axis: $(columns_axis)
-              which is missing from the daf data: $(daf.name)
-              concatenated into the daf data: $(destination.name)
-              """))
+                    no empty value for the matrix: $(matrix_property)
+                    of the rows axis: $(rows_axis)
+                    and the columns axis: $(columns_axis)
+                    which is missing from the daf data: $(daf.name)
+                    concatenated into the daf data: $(destination.name)
+                    """))
     end
     return empty_value
 end
@@ -1329,7 +1329,7 @@ function sparsify_concatenated_vectors(
     parallel_loop_wo_rng(
         1:n_sources;
         name = "sparsify_concatenated_vectors",
-        progress = DebugProgress(n_sources; desc = "sparsify_concatenated_vectors"),
+        progress = DebugProgress(n_sources; group = :daf_ops, desc = "sparsify_concatenated_vectors"),
     ) do source_index
         vector = vectors[source_index]
         size = sizes[source_index]
@@ -1362,7 +1362,7 @@ function sparsify_concatenated_matrices(
     parallel_loop_wo_rng(
         1:n_sources;
         name = "sparsify_concatenated_matrices",
-        progress = DebugProgress(n_sources; desc = "sparsify_concatenated_matrices"),
+        progress = DebugProgress(n_sources; group = :daf_ops, desc = "sparsify_concatenated_matrices"),
     ) do source_index
         matrix = matrices[source_index]
         ncols = sizes[source_index]

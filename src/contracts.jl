@@ -49,7 +49,10 @@ DAF_ENFORCE_CONTRACTS = false
 
 function __init__()::Nothing
     global DAF_ENFORCE_CONTRACTS
-    DAF_ENFORCE_CONTRACTS = get_bool_env("DAF_ENFORCE_CONTRACTS", false)  # NOLINT
+    DAF_ENFORCE_CONTRACTS = get_bool_env("DAF_ENFORCE_CONTRACTS", false)
+    if DAF_ENFORCE_CONTRACTS
+        @info "Will enforce Daf contracts" _group = :daf_env
+    end
     return nothing
 end
 

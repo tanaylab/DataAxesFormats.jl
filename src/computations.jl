@@ -155,8 +155,6 @@ Mark a function as a `Daf` computation. This has the following effects:
     documentation string (for a single contract case), or [`CONTRACT1`](@ref) and [`CONTRACT2`](@ref) (for the dual
     contract case), or [`CONTRACT1`](@ref) and [`CONTRACT2`](@ref) and [`CONTRACT3`](@ref) (for the triple contract
     case).
-  - It logs the invocation of the function (using `@debug`), including the actual values of the named arguments (using
-    `brief`).
 
 !!! note
 

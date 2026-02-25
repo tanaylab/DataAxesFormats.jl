@@ -1354,7 +1354,8 @@ function get_query(
                 result = result.data
             end
         end
-        @debug "get_query daf: $(brief(daf)) query_sequence: $(query_sequence) cache: $(cache) result: $(brief(result))"
+        @debug "get_query daf: $(brief(daf)) query_sequence: $(query_sequence) cache: $(cache) result: $(brief(result))" _group =
+            :daf_queries
         return result
     end
 end
@@ -1680,7 +1681,7 @@ function get_query_result(
     query_sequence::QuerySequence,
 )::Tuple{Union{AbstractSet{<:AbstractString}, StorageScalar, NamedArray}, Set{CacheKey}}
     query_state = Formats.with_data_read_lock(daf, "for get_query:", query_sequence) do
-        @debug "Query: $(query_sequence)"
+        @debug "Query: $(query_sequence)" _group = :daf_queries
         return get_query_final_state(daf, query_sequence, :compute)
     end
 
@@ -5209,7 +5210,7 @@ function do_query_phrase(query_state::QueryState)::Bool
         real_operations = QueryOperation[operation for operation in next_operations if operation !== nothing]
 
         if query_state.what_for == :compute
-            @debug "- $(phrase.implementation): $(QuerySequence(real_operations))"
+            @debug "- $(phrase.implementation): $(QuerySequence(real_operations))" _group = :daf_queries
         end
 
         @views query_state.stack = original_stack[1:(end - length(match_stack))]
@@ -5327,7 +5328,8 @@ function get_frame(
     end
 
     result = DataFrame(data)  # NOJET
-    @debug "get_frame daf: $(brief(daf)) axis: $(axis) columns: $(columns) result: $(brief(result))"
+    @debug "get_frame daf: $(brief(daf)) axis: $(axis) columns: $(columns) result: $(brief(result))" _group =
+        :daf_queries
     return result
 end
 
