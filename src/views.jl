@@ -68,6 +68,7 @@ struct DafView <: DafReadOnly
     reversed_view_vectors::Vector{Tuple{VectorKey, Maybe{QueryString}}}
     reversed_view_matrices::Vector{Tuple{MatrixKey, Maybe{QueryString}}}
     reversed_view_tensors::Vector{Tuple{TensorKey, Maybe{QueryString}}}
+    path::Vector{AbstractString}
 end
 
 """
@@ -351,6 +352,7 @@ function viewer(
         reversed_view_vectors,
         reversed_view_matrices,
         reversed_view_tensors,
+        AbstractString[],
     )
     @debug "Daf: $(brief(wrapper)) base: $(brief(daf))" _group = :daf_repos
     return wrapper
@@ -388,7 +390,8 @@ end
 
 function Formats.format_has_scalar(view::DafView, name::AbstractString)::Bool
     @assert Formats.has_data_read_lock(view)
-    return fetch_scalar_query(view, name) !== nothing
+    query = fetch_scalar_query(view, name)
+    return query !== nothing && has_query(view.daf, query)
 end
 
 function Formats.format_get_scalar(view::DafView, name::AbstractString)::StorageScalar
@@ -403,7 +406,8 @@ end
 
 function Formats.format_has_axis(view::DafView, axis::AbstractString; for_change::Bool)::Bool  # NOLINT
     @assert Formats.has_data_read_lock(view)
-    return fetch_axis_query(view, axis) !== nothing
+    query = fetch_axis_query(view, axis)
+    return query !== nothing && has_query(view.daf, query)
 end
 
 function Formats.format_axes_set(view::DafView)::AbstractSet{<:AbstractString}
@@ -422,7 +426,8 @@ end
 
 function Formats.format_has_vector(view::DafView, axis::AbstractString, name::AbstractString)::Bool
     @assert Formats.has_data_read_lock(view)
-    return fetch_vector_query(view, axis, name) !== nothing
+    query = fetch_vector_query(view, axis, name)
+    return query !== nothing && has_query(view.daf, query)
 end
 
 function Formats.format_vectors_set(view::DafView, axis::AbstractString)::AbstractSet{<:AbstractString}
@@ -442,7 +447,8 @@ function Formats.format_has_matrix(
     name::AbstractString,
 )::Bool
     @assert Formats.has_data_read_lock(view)
-    return fetch_matrix_query(view, rows_axis, columns_axis, name) !== nothing
+    query = fetch_matrix_query(view, rows_axis, columns_axis, name)
+    return query !== nothing && has_query(view.daf, query)
 end
 
 function Formats.format_matrices_set(
@@ -1079,6 +1085,15 @@ function prepare_query(
             query_string = strip(name)
         end
         return parse_query(query_string, operand_only)
+    end
+end
+
+function Readers.complete_path(view::DafView)::Maybe{AbstractString}  # UNTESTED
+    if length(view.path) == 0
+        return nothing
+    else
+        @assert length(view.path) == 1
+        return view.path[1]
     end
 end
 

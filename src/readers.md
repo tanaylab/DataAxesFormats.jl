@@ -44,6 +44,7 @@ DataAxesFormats.Readers.get_matrix
 ## Utilities
 
 ```@docs
+DataAxesFormats.Readers.complete_path
 DataAxesFormats.Readers.axis_version_counter
 DataAxesFormats.Readers.vector_version_counter
 DataAxesFormats.Readers.matrix_version_counter

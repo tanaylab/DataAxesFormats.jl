@@ -762,7 +762,7 @@ function compute_eltwise(operation::Significant, input::StorageMatrix)::StorageM
         parallel_loop_wo_rng(
             1:size(output, 2);
             name = "Significant",
-            progress = DebugProgress(size(output, 2); group = :daf_ops, desc = "Significant"),
+            progress = DebugProgress(size(output, 2); group = :daf_loops, desc = "Significant"),
         ) do column_index
             first = colptr(output)[column_index]
             last = colptr(output)[column_index + 1] - 1
@@ -780,7 +780,7 @@ function compute_eltwise(operation::Significant, input::StorageMatrix)::StorageM
         parallel_loop_wo_rng(
             1:size(output, 2);
             name = "Significant",
-            progress = DebugProgress(size(output, 2); group = :daf_ops, desc = "Significant"),
+            progress = DebugProgress(size(output, 2); group = :daf_loops, desc = "Significant"),
         ) do column_index
             column_vector = @view output[:, column_index]
             significant!(column_vector, operation.high, operation.low)
@@ -908,7 +908,7 @@ function compute_reduction(operation::Mode, input::StorageMatrix, axis::Integer)
         parallel_loop_wo_rng(
             1:length(output);
             name = "Mode",
-            progress = DebugProgress(length(output); group = :daf_ops, desc = "Mode"),
+            progress = DebugProgress(length(output); group = :daf_loops, desc = "Mode"),
         ) do column_index
             column_vector = @view input[:, column_index]
             return output[column_index] = mode(column_vector)
@@ -917,7 +917,7 @@ function compute_reduction(operation::Mode, input::StorageMatrix, axis::Integer)
         parallel_loop_wo_rng(
             1:length(output);
             name = "Mode",
-            progress = DebugProgress(length(output); group = :daf_ops, desc = "Mode"),
+            progress = DebugProgress(length(output); group = :daf_loops, desc = "Mode"),
         ) do row_index
             row_vector = @view input[row_index, :]
             return output[row_index] = mode(row_vector)
@@ -1133,7 +1133,7 @@ function compute_reduction(operation::Quantile, input::StorageMatrix, axis::Inte
         parallel_loop_wo_rng(
             1:length(output);
             name = "Quantile",
-            progress = DebugProgress(length(output); group = :daf_ops, desc = "Quantile"),
+            progress = DebugProgress(length(output); group = :daf_loops, desc = "Quantile"),
         ) do column_index
             column_vector = @view input[:, column_index]
             return output[column_index] = quantile(column_vector, operation.p)
@@ -1142,7 +1142,7 @@ function compute_reduction(operation::Quantile, input::StorageMatrix, axis::Inte
         parallel_loop_wo_rng(
             1:length(output);
             name = "Quantile",
-            progress = DebugProgress(length(output); group = :daf_ops, desc = "Quantile"),
+            progress = DebugProgress(length(output); group = :daf_loops, desc = "Quantile"),
         ) do row_index
             row_vector = @view input[row_index, :]
             return output[row_index] = quantile(row_vector, operation.p)

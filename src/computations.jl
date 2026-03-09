@@ -65,7 +65,7 @@ function computation_wrapper(single_contract::Contract, name::AbstractString, in
     return (args...; kwargs...) -> (
         #! format: off
         (single_name, single_daf) = args_daf(name, single_contract, args, kwargs);
-        single_contract_daf = contractor(single_name, single_contract, single_daf; overwrite = kwargs_overwrite(kwargs));
+        single_contract_daf = contractor(name, single_contract, single_daf; name = single_name, overwrite = kwargs_overwrite(kwargs));
         (args, kwargs) = patch_args(single_contract, single_contract_daf, args, kwargs);
         verify_input(single_contract_daf);
         result = inner_function(args...; kwargs...);
@@ -82,8 +82,8 @@ function computation_wrapper(first_contract::Contract, second_contract::Contract
         overwrite = kwargs_overwrite(kwargs);
         (first_name, first_daf) = args_daf(name, first_contract, args, kwargs);
         (second_name, second_daf) = args_daf(name, second_contract, args, kwargs);
-        first_contract_daf = contractor(first_name, first_contract, first_daf; overwrite);
-        second_contract_daf = contractor(second_name, second_contract, second_daf; overwrite);  # NOJET
+        first_contract_daf = contractor(name, first_contract, first_daf; name = first_name, overwrite);
+        second_contract_daf = contractor(name, second_contract, second_daf; name = second_name, overwrite);  # NOJET
         (args, kwargs) = patch_args(first_contract, first_contract_daf, args, kwargs);
         (args, kwargs) = patch_args(second_contract, second_contract_daf, args, kwargs);
         verify_input(first_contract_daf);
@@ -110,9 +110,9 @@ function computation_wrapper(
         (first_name, first_daf) = args_daf(name, first_contract, args, kwargs);
         (second_name, second_daf) = args_daf(name, second_contract, args, kwargs);
         (third_name, third_daf) = args_daf(name, third_contract, args, kwargs);
-        first_contract_daf = contractor(first_name, first_contract, first_daf; overwrite);
-        second_contract_daf = contractor(second_name, second_contract, second_daf; overwrite);  # NOJET
-        third_contract_daf = contractor(third_name, third_contract, third_daf; overwrite);  # NOJET
+        first_contract_daf = contractor(name, first_contract, first_daf; name = first_name, overwrite);
+        second_contract_daf = contractor(name, second_contract, second_daf; name = second_name, overwrite);  # NOJET
+        third_contract_daf = contractor(name, third_contract, third_daf; name = third_name, overwrite);  # NOJET
         (args, kwargs) = patch_args(first_contract, first_contract_daf, args, kwargs);
         (args, kwargs) = patch_args(second_contract, second_contract_daf, args, kwargs);
         (args, kwargs) = patch_args(third_contract, third_contract_daf, args, kwargs);

@@ -29,6 +29,8 @@ nested_test("chains") do
             read_first = read_only(first)
             read_chain = chain_reader([read_first])
             @test read_chain === read_first
+            @test complete_path(read_first) === nothing
+            @test complete_path(read_chain) === nothing
         end
 
         nested_test("writer") do
@@ -47,6 +49,8 @@ nested_test("chains") do
         @test read_only(read_chain; name = "read-only first!;second!") !== read_chain
         write_chain = chain_writer([first, second])
         @test read_only(write_chain) !== write_chain
+        @test complete_path(read_chain) === nothing
+        @test complete_path(write_chain) === nothing
     end
 
     nested_test("access") do

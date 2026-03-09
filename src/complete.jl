@@ -39,6 +39,8 @@ Open a complete chain of `Daf` repositories by tracing back through the `base_da
 `base_daf_view`. Valid modes are only "r" and "r+"; if the latter, only the first (leaf) repository is opened in write
 mode.
 
+A convenient way to create persistent complete chains is using [`complete_chain!`](@ref).
+
 TODO: Properly indent the log messages of the created leaf repositories. Generic mechanism for indenting all hierarchical log messages?
 """
 function complete_daf(
@@ -94,6 +96,7 @@ function collect_dafs(;
             )
             chain = chain_reader(base_dafs; name = "$(name).chain_$(index)")
             daf = viewer(chain; name = "$(name).view_$(index)", base_daf_view...)  # NOJET
+            push!(daf.path, complete_path(base_dafs[end]))
             return push!(dafs, daf)
         end
 

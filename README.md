@@ -159,6 +159,8 @@ modest amount of data and is useful for tracking what is being computed in compl
 `daf_ops` - will generate a detailed debug log message when high-level functions are called (e.g., `adapter`,
 `concatenate`).
 
+`daf_loops` - will generate progress bars for parallel loops (reductions, concatenation).
+
 ## License (MIT)
 
 Copyright © 2023-2025 Weizmann Institute of Science

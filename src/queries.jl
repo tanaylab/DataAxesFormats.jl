@@ -1504,6 +1504,7 @@ mutable struct QueryState
     what_for::Symbol
     dependency_keys::Maybe{Set{CacheKey}}
     requires_relayout::Bool
+    exists::Bool
     stack::Vector{QueryStackElement}
 end
 
@@ -1516,6 +1517,12 @@ end
 function print_query_state(query_state::QueryState, where::AbstractString)::Nothing  # UNTESTED
     println("AT: $(where) FOR: $(query_state.what_for)")
     println("FULL: $(query_state.query_sequence)")
+    if query_state.what_for == :exists
+        println("EXISTS: $(query_state.exists)")
+    end
+    if query_state.what_for == :requires_relayout
+        println("REQUIRES_RELAYOUT: $(query_state.requires_relayout)")
+    end
     if query_state.first_operation_index > 1
         println(
             "DONE: $(QuerySequence(query_state.query_sequence.query_operations[1:query_state.first_operation_index - 1]))",
@@ -1681,7 +1688,7 @@ function get_query_result(
     query_sequence::QuerySequence,
 )::Tuple{Union{AbstractSet{<:AbstractString}, StorageScalar, NamedArray}, Set{CacheKey}}
     query_state = Formats.with_data_read_lock(daf, "for get_query:", query_sequence) do
-        @debug "Query: $(query_sequence)" _group = :daf_queries
+        @debug "get_query daf: $(brief(daf)) query: $(query_sequence)" _group = :daf_queries
         return get_query_final_state(daf, query_sequence, :compute)
     end
 
@@ -1759,13 +1766,18 @@ function get_query_final_state(daf::Maybe{DafReader}, query_sequence::QuerySeque
     else
         dependency_keys = nothing
     end
-    query_state = QueryState(daf, query_sequence, 1, 1, what_for, dependency_keys, false, Vector{QueryStackElement}())
+    query_state =
+        QueryState(daf, query_sequence, 1, 1, what_for, dependency_keys, false, true, Vector{QueryStackElement}())
 
     while true
         # print_query_state(query_state, "STATE")
         assert_is_valid(query_state)
 
         if do_query_phrase(query_state)
+            if !query_state.exists
+                @assert query_state.what_for == :exists  # UNTESTED
+                return query_state  # UNTESTED
+            end
             continue
         end
 
@@ -1776,6 +1788,11 @@ function get_query_final_state(daf::Maybe{DafReader}, query_sequence::QuerySeque
 
         break
     end
+
+    if query_state.what_for == :exists
+        return query_state
+    end
+
     # print_query_state(query_state, "IS DONE")
     assert_is_valid(query_state)
 
@@ -1801,15 +1818,8 @@ end
 
 function has_query(daf::DafReader, query_sequence::QuerySequence)::Bool
     return Formats.with_data_read_lock(daf, "for has_query:", query_sequence) do
-        try
-            get_query_final_state(daf, query_sequence, :has_query)
-            return true
-        catch error
-            if error isa AssertionError
-                throw(error)  # UNTESTED
-            end
-            return false
-        end
+        query_state = get_query_final_state(daf, query_sequence, :exists)
+        return is_complete(query_state) && query_state.exists
     end
 end
 
@@ -2395,10 +2405,9 @@ function compute_comparison(compared_value::AbstractString, ::IsNotMatch, compar
     return !occursin(comparison_regex, compared_value)
 end
 
-VectorComparisonOperation =
-    Union{IsLess, IsLessEqual, IsEqual, IsNotEqual, IsGreaterEqual, IsGreater, IsMatch, IsNotMatch}
+ComparisonOperation = Union{IsLess, IsLessEqual, IsEqual, IsNotEqual, IsGreaterEqual, IsGreater, IsMatch, IsNotMatch}
 
-function Base.show(io::IO, comparison_operation::VectorComparisonOperation)::Nothing
+function Base.show(io::IO, comparison_operation::ComparisonOperation)::Nothing
     print(
         io,
         "$(comparison_operator(comparison_operation)) $(escape_value(string(comparison_operation.comparison_value)))",
@@ -2712,7 +2721,7 @@ function reduce_vector_to_scalar(
 )::Nothing
     finalize_vector_values!(query_state, vector_state)
 
-    if query_state.what_for !== :compute
+    if query_state.what_for != :compute
         push!(query_state.stack, ScalarState(nothing))
     elseif eltype(vector_state.vector_values) <: AbstractString && !supports_strings(reduction_operation)
         error_at_state(
@@ -2741,7 +2750,7 @@ function reduce_matrix_to_scalar(
 )::Nothing
     finalize_matrix_values!(query_state, matrix_state)
 
-    if query_state.what_for !== :compute
+    if query_state.what_for != :compute
         push!(query_state.stack, ScalarState(nothing))
     elseif eltype(matrix_state.matrix_values) <: AbstractString && !supports_strings(reduction_operation)
         error_at_state(
@@ -2924,14 +2933,21 @@ end
 function scalar_lookup(query_state::QueryState, lookup_scalar::LookupScalar, if_missing::Maybe{IfMissing})::Nothing
     @assert lookup_scalar.property_name !== nothing
 
-    if query_state.what_for != :compute
-        push!(query_state.stack, ScalarState(nothing))
-
-    else
+    if query_state.what_for == :compute
         @assert query_state.daf !== nothing
         default = default_value(if_missing)
         push!(query_state.stack, ScalarState(get_scalar(query_state.daf, lookup_scalar.property_name; default)))  # NOJET
         push!(query_state.dependency_keys, Formats.scalar_cache_key(lookup_scalar.property_name))  # NOJET
+
+    else
+        if query_state.what_for == :exists
+            @assert query_state.daf !== nothing
+            if if_missing === nothing && !has_scalar(query_state.daf, lookup_scalar.property_name)  # NOJET
+                query_state.exists = false  # UNTESTED
+            end
+        end
+
+        push!(query_state.stack, ScalarState(nothing))
     end
 
     return nothing
@@ -2947,17 +2963,25 @@ function lookup_vector_entry(
     @assert lookup_vector.property_name !== nothing
     @assert axis.axis_name !== nothing
 
-    if query_state.what_for != :compute
-        push!(query_state.stack, ScalarState(nothing))
-        return nothing
-    end
+    if query_state.what_for == :compute
+        @assert query_state.daf !== nothing
+        default = default_value(if_missing)
+        named_vector = get_vector(query_state.daf, axis.axis_name, lookup_vector.property_name; default)  # NOJET
+        scalar_value = named_vector[string(is_equal.comparison_value)]
+        push!(query_state.stack, ScalarState(scalar_value))
+        push!(query_state.dependency_keys, Formats.vector_cache_key(axis.axis_name, lookup_vector.property_name))  # NOJET
 
-    @assert query_state.daf !== nothing
-    default = default_value(if_missing)
-    named_vector = get_vector(query_state.daf, axis.axis_name, lookup_vector.property_name; default)  # NOJET
-    scalar_value = named_vector[is_equal.comparison_value]
-    push!(query_state.stack, ScalarState(scalar_value))
-    push!(query_state.dependency_keys, Formats.vector_cache_key(axis.axis_name, lookup_vector.property_name))  # NOJET
+    else
+        if query_state.what_for == :exists
+            @assert query_state.daf !== nothing
+            if !haskey(axis_dict(query_state.daf, axis.axis_name), string(is_equal.comparison_value)) ||  # NOJET
+               (if_missing === nothing && !has_vector(query_state.daf, axis.axis_name, lookup_vector.property_name))
+                query_state.exists = false  # UNTESTED
+            end
+        end
+
+        push!(query_state.stack, ScalarState(nothing))
+    end
 
     return nothing
 end
@@ -2967,29 +2991,52 @@ function lookup_matrix_entry(
     lookup_matrix::LookupMatrix,
     if_missing::Maybe{IfMissing},
     rows_axis::Axis,
-    square_row_is_equal::IsEqual,
+    row_is_equal::IsEqual,
     columns_axis::Axis,
-    square_column_is_equal::IsEqual,
+    column_is_equal::IsEqual,
 )::Nothing
     @assert lookup_matrix.property_name !== nothing
     @assert rows_axis.axis_name !== nothing
     @assert columns_axis.axis_name !== nothing
 
-    if query_state.what_for != :compute
-        push!(query_state.stack, ScalarState(nothing))
-        return nothing
-    end
+    if query_state.what_for == :compute
+        @assert query_state.daf !== nothing
+        default = default_value(if_missing)
+        named_matrix =  # NOJET
+            get_matrix(
+                query_state.daf,
+                rows_axis.axis_name,
+                columns_axis.axis_name,
+                lookup_matrix.property_name;
+                default,
+            )
+        scalar_value = named_matrix[string(row_is_equal.comparison_value), string(column_is_equal.comparison_value)]
+        push!(query_state.stack, ScalarState(scalar_value))
+        push!(  # NOJET
+            query_state.dependency_keys,
+            Formats.matrix_cache_key(rows_axis.axis_name, columns_axis.axis_name, lookup_matrix.property_name),
+        )
 
-    @assert query_state.daf !== nothing
-    default = default_value(if_missing)
-    named_matrix =  # NOJET
-        get_matrix(query_state.daf, rows_axis.axis_name, columns_axis.axis_name, lookup_matrix.property_name; default)
-    scalar_value = named_matrix[square_row_is_equal.comparison_value, square_column_is_equal.comparison_value]
-    push!(query_state.stack, ScalarState(scalar_value))
-    push!(  # NOJET
-        query_state.dependency_keys,
-        Formats.matrix_cache_key(rows_axis.axis_name, columns_axis.axis_name, lookup_matrix.property_name),
-    )
+    else
+        if query_state.what_for == :exists
+            @assert query_state.daf !== nothing
+            if !haskey(axis_dict(query_state.daf, rows_axis.axis_name), string(row_is_equal.comparison_value)) ||  # NOJET
+               !haskey(axis_dict(query_state.daf, columns_axis.axis_name), string(column_is_equal.comparison_value)) ||
+               (
+                   if_missing === nothing &&
+                   !has_matrix(
+                       query_state.daf,
+                       rows_axis.axis_name,
+                       columns_axis.axis_name,
+                       lookup_matrix.property_name,
+                   )
+               )
+                query_state.exists = false  # UNTESTED
+            end
+        end
+
+        push!(query_state.stack, ScalarState(nothing))
+    end
 
     return nothing
 end
@@ -3022,12 +3069,20 @@ function axis_lookup(query_state::QueryState, axis::Axis)::Nothing
 
     vector_state = VectorState()
 
-    if query_state.what_for != :compute
-        vector_state.vector_entries = String[]
-    else
+    if query_state.what_for == :compute
         @assert query_state.daf !== nothing
         vector_state.vector_entries = axis_vector(query_state.daf, axis.axis_name)  # NOJET
         push!(query_state.dependency_keys, Formats.axis_vector_cache_key(axis.axis_name))  # NOJET
+
+    else
+        if query_state.what_for == :exists
+            @assert query_state.daf !== nothing
+            if !has_axis(query_state.daf, axis.axis_name)  # NOJET
+                query_state.exists = false  # UNTESTED
+            end
+        end
+
+        vector_state.vector_entries = String[]
     end
 
     vector_state.entries_axis_name = axis.axis_name
@@ -3042,7 +3097,7 @@ end
 
 function ensure_vector_is_axis(query_state::QueryState, vector_state::VectorState, as_axis::Maybe{AsAxis})::Nothing
     if vector_state.property_axis_name === nothing || as_axis !== nothing
-        vector_property_is_axis(query_state, vector_state, as_axis)
+        vector_property_is_axis(query_state, vector_state, as_axis; finalize_vector_values = false)
         @assert pop!(query_state.stack) === vector_state
     end
     @assert vector_state.property_axis_name !== nothing
@@ -3060,12 +3115,12 @@ function lookup_vector_by_vector(
     @assert lookup_vector.property_name !== nothing
     ensure_vector_is_axis(query_state, vector_state, as_axis)
 
-    if query_state.what_for != :compute
-        if vector_state.property_axis_name === nothing
-            vector_state.property_axis_name = vector_state.property_name  # UNTESTED
-        end
-    else
+    if query_state.what_for == :compute
         @assert query_state.daf !== nothing
+
+        if !(eltype(vector_state.vector_values) <: AbstractString)
+            error_at_state(query_state, "lookup based on non-String: $(eltype(vector_state.vector_values))")  # UNTESTED
+        end
 
         if vector_state.property_axis_name === nothing
             vector_state.property_axis_name = axis_of_property(query_state.daf, vector_state.property_name)  # NOJET # UNTESTED
@@ -3089,7 +3144,7 @@ function lookup_vector_by_vector(
             lookup_vector_values = Vector{type}(undef, length(vector_state.vector_values))
             for index in 1:length(vector_state.vector_values)
                 if vector_state.pending_final_values[index] === nothing
-                    lookup_vector_values[index] = named_vector_values[string(vector_state.vector_values[index])]
+                    lookup_vector_values[index] = named_vector_values[vector_state.vector_values[index]]
                 elseif type == AbstractString
                     lookup_vector_values[index] = ""
                 else
@@ -3102,10 +3157,25 @@ function lookup_vector_by_vector(
             lookup_vector_values = named_vector_values.array
 
         else
-            lookup_vector_values = [named_vector_values[string.(value)] for value in vector_state.vector_values]
+            lookup_vector_values = [named_vector_values[value] for value in vector_state.vector_values]
         end
 
         vector_state.vector_values = lookup_vector_values
+
+    elseif query_state.what_for == :exists
+        @assert query_state.daf !== nothing
+
+        if vector_state.property_axis_name === nothing
+            vector_state.property_axis_name = axis_of_property(query_state.daf, vector_state.property_name)  # NOJET # UNTESTED
+        end
+
+        if if_missing === nothing &&  # NOJET
+           !has_vector(query_state.daf, vector_state.property_axis_name, lookup_vector.property_name)
+            query_state.exists = false  # UNTESTED
+        end
+
+    elseif vector_state.property_axis_name === nothing
+        vector_state.property_axis_name = vector_state.property_name  # UNTESTED
     end
 
     vector_state.property_name = lookup_vector.property_name
@@ -3137,6 +3207,16 @@ function lookup_matrix_column_by_vector(
             query_state,
             vector_state,
             if_not,
+            lookup_matrix,
+            if_missing,
+            columns_axis.axis_name,
+            square_column_is_equal.comparison_value;
+            is_column = true,
+        )
+    elseif query_state.what_for == :exists
+        has_lookup_vector_values(
+            query_state,
+            vector_state,
             lookup_matrix,
             if_missing,
             columns_axis.axis_name,
@@ -3177,6 +3257,16 @@ function lookup_square_matrix_column_by_vector(
             square_column_is.comparison_value;
             is_column = true,
         )
+    elseif query_state.what_for == :exists
+        has_lookup_vector_values(  # NOJET
+            query_state,
+            vector_state,
+            lookup_matrix,
+            if_missing,
+            vector_state.property_axis_name,
+            square_column_is.comparison_value;
+            is_column = true,
+        )
     end
 
     vector_state.property_name = lookup_matrix.property_name
@@ -3205,6 +3295,16 @@ function lookup_square_matrix_row_by_vector(
             query_state,
             vector_state,
             if_not,
+            lookup_matrix,
+            if_missing,
+            vector_state.property_axis_name,
+            square_row_is.comparison_value;
+            is_column = false,
+        )
+    elseif query_state.what_for == :exists
+        has_lookup_vector_values(  # NOJET
+            query_state,
+            vector_state,
             lookup_matrix,
             if_missing,
             vector_state.property_axis_name,
@@ -3248,6 +3348,8 @@ function fill_lookup_vector_values(
         Formats.matrix_cache_key(vector_state.property_axis_name, columns_axis_name, lookup_matrix.property_name),
     )
 
+    lookup_value = string(lookup_value)
+
     if vector_state.pending_final_values !== nothing
         type = eltype(named_matrix)  # NOLINT # NOJET # UNTESTED
         if type <: AbstractString  # UNTESTED
@@ -3258,10 +3360,10 @@ function fill_lookup_vector_values(
             if vector_state.pending_final_values[index] === nothing  # UNTESTED
                 if is_column  # UNTESTED
                     lookup_vector_values[index] =  # UNTESTED
-                        named_matrix_values[string(vector_state.vector_values[index]), string(lookup_value)]
+                        named_matrix_values[string(vector_state.vector_values[index]), lookup_value]
                 else
                     lookup_vector_values[index] =  # UNTESTED
-                        named_matrix_values[string(lookup_value), string(vector_state.vector_values[index])]
+                        named_matrix_values[lookup_value, string(vector_state.vector_values[index])]
                 end
             elseif type == AbstractString  # UNTESTED
                 lookup_vector_values[index] = ""  # UNTESTED
@@ -3273,16 +3375,20 @@ function fill_lookup_vector_values(
     elseif vector_state.is_complete_property_axis
         @assert axis_vector(query_state.daf, vector_state.property_axis_name) == vector_state.vector_values  # NOJET
         if is_column
-            lookup_vector_values = named_matrix_values[:, string(lookup_value)].array
+            lookup_vector_values = named_matrix_values[:, lookup_value].array
         else
-            lookup_vector_values = named_matrix_values[string(lookup_value), :].array
+            lookup_vector_values = named_matrix_values[lookup_value, :].array
         end
 
     else
         if is_column
-            lookup_vector_values = named_matrix_values[string.(vector_state.vector_values), string(lookup_value)].array
+            lookup_vector_values = [
+                named_matrix_values[string.(vector_value), lookup_value] for vector_value in vector_state.vector_values
+            ]
         else
-            lookup_vector_values = named_matrix_values[string(lookup_value), string.(vector_state.vector_values)].array
+            lookup_vector_values = [
+                named_matrix_values[lookup_value, string.(vector_value)] for vector_value in vector_state.vector_values
+            ]
         end
     end
 
@@ -3290,23 +3396,58 @@ function fill_lookup_vector_values(
     return nothing
 end
 
-function add_final_values!(vector_state::VectorState, if_not::Maybe{IfNot})::Nothing
-    if if_not !== nothing
-        mask = as_booleans(vector_state.vector_values)  # NOJET
-        if if_not.final_value === nothing
-            vector_state.vector_entries = vector_state.vector_entries[mask]
-            vector_state.vector_values = vector_state.vector_values[mask]
-            if vector_state.pending_final_values !== nothing
-                vector_state.pending_final_values = vector_state.pending_final_values[mask]  # UNTESTED
-            end
-            vector_state.is_complete_property_axis = false
-        else
-            if vector_state.pending_final_values === nothing
-                vector_state.pending_final_values = Vector{Any}(undef, length(vector_state.vector_values))
-                vector_state.pending_final_values .= nothing  # NOJET
-            end
-            vector_state.pending_final_values[.!mask] .= if_not.final_value
+function has_lookup_vector_values(
+    query_state::QueryState,
+    vector_state::VectorState,
+    lookup_matrix::LookupMatrix,
+    if_missing::Maybe{IfMissing},
+    columns_axis_name::AbstractString,
+    lookup_value::StorageScalar;
+    is_column::Bool,
+)::Nothing
+    @assert query_state.daf !== nothing
+
+    lookup_value = string(lookup_value)
+
+    if (is_column && !haskey(axis_dict(query_state.daf, columns_axis_name), lookup_value)) ||  # NOJET
+       (!is_column && !haskey(axis_dict(query_state.daf, vector_state.property_axis_name), lookup_value)) ||
+       (
+           if_missing === nothing &&
+           !has_matrix(
+               query_state.daf,
+               vector_state.property_axis_name,
+               columns_axis_name,
+               lookup_matrix.property_name,
+           )
+       )
+        query_state.exists = false  # UNTESTED
+    end
+
+    return nothing
+end
+
+function add_final_values!(::VectorState, ::Nothing)::Nothing
+    return nothing
+end
+
+function add_final_values!(vector_state::VectorState, if_not::IfNot)::Nothing
+    mask = as_booleans(vector_state.vector_values)  # NOJET
+    if vector_state.pending_final_values !== nothing
+        mask .|= vector_state.pending_final_values .!== nothing
+    end
+    if if_not.final_value === nothing
+        vector_state.vector_entries = vector_state.vector_entries[mask]
+        vector_state.vector_values = vector_state.vector_values[mask]
+        if vector_state.pending_final_values !== nothing
+            vector_state.pending_final_values = vector_state.pending_final_values[mask]
         end
+        vector_state.is_complete_property_axis = false
+    else
+        if vector_state.pending_final_values === nothing
+            vector_state.pending_final_values = Vector{Any}(undef, length(vector_state.vector_values))
+            vector_state.pending_final_values .= nothing  # NOJET
+        end
+        vector_state.pending_final_values[.!mask] .= if_not.final_value
     end
     return nothing
 end
@@ -3760,12 +3901,11 @@ function reduce_grouped_vector(
         base_state.property_name = nothing
         base_state.property_axis_name = nothing
         base_state.is_complete_property_axis = false
-
         push!(query_state.stack, base_state)
-
         return nothing
     end
 
+    @assert query_state.daf !== nothing
     named_values = NamedArray(base_state.vector_values; names = (base_state.vector_entries,))  # NOJET
     vector_values = named_values[group_state.vector_entries].array
 
@@ -3939,7 +4079,7 @@ end
 function compare_vector(
     query_state::QueryState,
     vector_state::VectorState,
-    comparison_operation::VectorComparisonOperation,
+    comparison_operation::ComparisonOperation,
 )::Nothing
     finalize_vector_values!(query_state, vector_state)
 
@@ -3978,7 +4118,7 @@ function compare_vector(
 
         elseif !is_string_vector && is_string_value
             try
-                comparison_value = parse(Float64, comparison_value)
+                comparison_value = parse(Float64, comparison_value)  # NOJET
             catch exception
                 error_at_state(
                     query_state,
@@ -3991,8 +4131,9 @@ function compare_vector(
             end
         end
 
-        vector_state.vector_values =
-            [compute_comparison(value, comparison_operation, comparison_value) for value in vector_state.vector_values]
+        vector_state.vector_values = Vector{Bool}(
+            compute_comparison.(vector_state.vector_values, Ref(comparison_operation), Ref(comparison_value)),
+        )
     end
 
     vector_state.property_name = nothing
@@ -4003,10 +4144,78 @@ function compare_vector(
     return nothing
 end
 
+function compare_matrix(
+    query_state::QueryState,
+    matrix_state::MatrixState,
+    comparison_operation::ComparisonOperation,
+)::Nothing
+    finalize_matrix_values!(query_state, matrix_state)
+
+    if query_state.what_for == :compute
+        comparison_value = comparison_operation.comparison_value
+        is_string_value = comparison_value isa AbstractString || comparison_value isa Regex
+        is_string_matrix = eltype(matrix_state.matrix_values) <: AbstractString
+
+        if comparison_operation isa IsMatch || comparison_operation isa IsNotMatch
+            if !is_string_matrix
+                error_at_state(
+                    query_state,
+                    """
+                    unsupported matrix element type: $(eltype(matrix_state.matrix_values))
+                    for the comparison operation: $(typeof(comparison_operation))
+                    """,
+                )
+            end
+
+            if comparison_value isa AbstractString
+                try
+                    comparison_value = Regex(comparison_value)
+                catch exception
+                    error_at_state(
+                        query_state,
+                        """
+                        invalid regular expression: $(comparison_value)
+                        for the comparison operation: $(typeof(comparison_operation))
+                        $(exception)
+                        """,
+                    )
+                end
+            end
+
+            @assert comparison_value isa Regex  # UNTESTED
+
+        elseif !is_string_matrix && is_string_value
+            try
+                comparison_value = parse(Float64, comparison_value)  # NOJET
+            catch exception
+                error_at_state(
+                    query_state,
+                    """
+                    error parsing number comparison value: $(comparison_value)
+                    for comparison with a matrix of type: $(eltype(matrix_state.matrix_values))
+                    $(exception)
+                    """,
+                )
+            end
+        end
+
+        matrix_state.matrix_values = Matrix{Bool}(
+            compute_comparison.(matrix_state.matrix_values, Ref(comparison_operation), Ref(comparison_value)),
+        )
+    end
+
+    matrix_state.property_name = nothing
+    matrix_state.property_axis_name = nothing
+
+    push!(query_state.stack, matrix_state)
+    return nothing
+end
+
 function vector_property_is_axis(
     query_state::QueryState,
     vector_state::VectorState,
-    as_axis::Maybe{AsAxis} = nothing,
+    as_axis::Maybe{AsAxis} = nothing;
+    finalize_vector_values::Bool = true,
 )::Nothing
     @assert vector_state.property_name !== nothing
     @assert vector_state.property_axis_name === nothing
@@ -4014,17 +4223,25 @@ function vector_property_is_axis(
         @assert eltype(vector_state.vector_values) <: AbstractString
     end
 
-    finalize_vector_values!(query_state, vector_state)
+    if finalize_vector_values
+        finalize_vector_values!(query_state, vector_state)
+    end
 
     if as_axis !== nothing && as_axis.axis_name !== nothing
         axis_name = as_axis.axis_name
 
+    elseif query_state.what_for == :compute || query_state.what_for == :exists
+        @assert query_state.daf !== nothing
+        axis_name = axis_of_property(query_state.daf, vector_state.property_name)  # NOJET
+
     else
-        if query_state.what_for != :compute
-            axis_name = vector_state.property_name
-        else
-            @assert query_state.daf !== nothing
-            axis_name = axis_of_property(query_state.daf, vector_state.property_name)  # NOJET
+        axis_name = vector_state.property_name
+    end
+
+    if query_state.what_for == :exists
+        @assert query_state.daf !== nothing
+        if !has_axis(query_state.daf, axis_name)  # NOJET
+            query_state.exists = false  # UNTESTED
         end
     end
 
@@ -4071,6 +4288,19 @@ function matrix_lookup(
                 lookup_matrix.property_name;
                 relayout = false,
             )
+        end
+        matrix_state.matrix_values = String[;;]
+
+    elseif query_state.what_for == :exists
+        @assert query_state.daf !== nothing
+        if if_missing === nothing &&
+           !has_matrix(
+            query_state.daf,
+            rows_state.property_axis_name,
+            columns_state.property_axis_name,
+            lookup_matrix.property_name,
+        )
+            query_state.exists = false  # UNTESTED
         end
         matrix_state.matrix_values = String[;;]
 
@@ -4123,7 +4353,7 @@ function lookup_vector_count(
     finalize_vector_values!(query_state, vector_state)
 
     if as_axis !== nothing
-        vector_property_is_axis(query_state, vector_state, as_axis)
+        vector_property_is_axis(query_state, vector_state, as_axis; finalize_vector_values = false)
         @assert pop!(query_state.stack) === vector_state
     end
 
@@ -4252,19 +4482,22 @@ function compute_count_matrix(
 end
 
 function count_by_axis_state(query_state::QueryState, vector_state::VectorState)::Tuple{VectorState, AbstractDict}
-    if query_state.what_for !== :compute
+    if query_state.what_for == :compute
+        if vector_state.property_axis_name === nothing
+            unique_vector_values = sort!(unique(vector_state.vector_values))
+            index_of_value = Dict{eltype(unique_vector_values), Int32}()
+            for (index, value) in enumerate(unique_vector_values)
+                index_of_value[value] = index
+            end
+        else
+            @assert query_state.daf !== nothing
+            unique_vector_values = axis_vector(query_state.daf, vector_state.property_axis_name)  # NOJET
+            index_of_value = axis_dict(query_state.daf, vector_state.property_axis_name)  # NOJET
+        end
+
+    else
         unique_vector_values = vector_state.vector_values
         index_of_value = Dict()
-    elseif vector_state.property_axis_name === nothing
-        unique_vector_values = sort!(unique(vector_state.vector_values))
-        index_of_value = Dict{eltype(unique_vector_values), Int32}()
-        for (index, value) in enumerate(unique_vector_values)
-            index_of_value[value] = index
-        end
-    else
-        @assert query_state.daf !== nothing
-        unique_vector_values = axis_vector(query_state.daf, vector_state.property_axis_name)  # NOJET
-        index_of_value = axis_dict(query_state.daf, vector_state.property_axis_name)  # NOJET
     end
 
     count_state = VectorState()
@@ -4619,6 +4852,14 @@ function lookup_vector_by_matrix(
         end
 
         matrix_state.matrix_values = lookup_matrix_values
+
+    elseif query_state.what_for == :has_query
+        @assert query_state.daf !== nothing  # UNTESTED
+
+        if if_missing === nothing &&  # NOJET # UNTESTED
+           !has_vector(query_state.daf, matrix_state.property_axis_name, lookup_vector.property_name)
+            query_state.exists = false  # UNTESTED
+        end
     end
 
     matrix_state.property_name = lookup_vector.property_name
@@ -4649,6 +4890,16 @@ function lookup_matrix_column_by_matrix(
             query_state,
             matrix_state,
             if_not,
+            lookup_matrix,
+            if_missing,
+            columns_axis.axis_name,
+            square_column_is_equal.comparison_value;
+            is_column = true,
+        )
+    elseif query_state.what_for == :has_query
+        has_lookup_matrix_values(  # UNTESTED
+            query_state,
+            matrix_state,
             lookup_matrix,
             if_missing,
             columns_axis.axis_name,
@@ -4688,6 +4939,16 @@ function lookup_square_matrix_column_by_matrix(
             square_column_is.comparison_value;
             is_column = true,
         )
+    elseif query_state.what_for == :has_query
+        has_lookup_matrix_values(  # NOJET # UNTESTED
+            query_state,
+            matrix_state,
+            lookup_matrix,
+            if_missing,
+            matrix_state.property_axis_name,
+            square_column_is.comparison_value;
+            is_column = true,
+        )
     end
 
     matrix_state.property_name = lookup_matrix.property_name
@@ -4715,6 +4976,16 @@ function lookup_square_matrix_row_by_matrix(
             query_state,
             matrix_state,
             if_not,
+            lookup_matrix,
+            if_missing,
+            matrix_state.property_axis_name,
+            square_row_is.comparison_value;
+            is_column = false,
+        )
+    elseif query_state.what_for == :has_query
+        has_lookup_matrix_values(  # NOJET # UNTESTED
+            query_state,
+            matrix_state,
             lookup_matrix,
             if_missing,
             matrix_state.property_axis_name,
@@ -4757,6 +5028,8 @@ function fill_lookup_matrix_values(
         Formats.matrix_cache_key(matrix_state.property_axis_name, columns_axis_name, lookup_matrix.property_name),
     )
 
+    lookup_value = string(lookup_value)
+
     type = eltype(named_matrix_values)
     if type <: AbstractString
         type = AbstractString
@@ -4768,15 +5041,11 @@ function fill_lookup_matrix_values(
             if matrix_state.pending_final_values === nothing ||
                matrix_state.pending_final_values[row_index, column_index] === nothing
                 if is_column
-                    lookup_matrix_values[row_index, column_index] = named_matrix_values[
-                        string(matrix_state.matrix_values[row_index, column_index]),
-                        string(lookup_value),
-                    ]
+                    lookup_matrix_values[row_index, column_index] =
+                        named_matrix_values[string(matrix_state.matrix_values[row_index, column_index]), lookup_value]
                 else
-                    lookup_matrix_values[row_index, column_index] = named_matrix_values[
-                        string(lookup_value),
-                        string(matrix_state.matrix_values[row_index, column_index]),
-                    ]
+                    lookup_matrix_values[row_index, column_index] =
+                        named_matrix_values[lookup_value, string(matrix_state.matrix_values[row_index, column_index])]
                 end
             elseif type == AbstractString  # UNTESTED
                 lookup_matrix_values[row_index, column_index] = ""  # UNTESTED
@@ -4786,6 +5055,36 @@ function fill_lookup_matrix_values(
         end
     end
     matrix_state.matrix_values = lookup_matrix_values
+    return nothing
+end
+
+function has_lookup_matrix_values(  # UNTESTED
+    query_state::QueryState,
+    matrix_state::MatrixState,
+    lookup_matrix::LookupMatrix,
+    if_missing::Maybe{IfMissing},
+    columns_axis_name::AbstractString,
+    lookup_value::StorageScalar;
+    is_column::Bool,
+)::Nothing
+    @assert query_state.daf !== nothing
+
+    lookup_value = string(lookup_value)
+
+    if (is_column && !haskey(axis_dict(query_state.daf, columns_axis_name), lookup_value)) ||  # NOJET
+       (!is_column && !haskey(axis_dict(query_state.daf, matrix_state.property_axis_name), lookup_value)) ||
+       (
+           if_missing === nothing &&
+           !has_matrix(
+               query_state.daf,
+               matrix_state.property_axis_name,
+               columns_axis_name,
+               lookup_matrix.property_name,
+           )
+       )
+        query_state.exists = false
+    end
+
     return nothing
 end
 
@@ -4838,12 +5137,18 @@ function matrix_property_is_axis(
     if as_axis !== nothing && as_axis.axis_name !== nothing
         axis_name = as_axis.axis_name
 
+    elseif query_state.what_for == :compute || query_state.what_for == :exists
+        @assert query_state.daf !== nothing
+        axis_name = axis_of_property(query_state.daf, matrix_state.property_name)  # NOJET
+
     else
-        if query_state.what_for != :compute
-            axis_name = matrix_state.property_name
-        else
-            @assert query_state.daf !== nothing
-            axis_name = axis_of_property(query_state.daf, matrix_state.property_name)  # NOJET
+        axis_name = matrix_state.property_name
+    end
+
+    if query_state.what_for == :exists
+        @assert query_state.daf !== nothing
+        if !has_axis(query_state.daf, axis_name)  # NOJET
+            query_state.exists = false  # UNTESTED
         end
     end
 
@@ -5033,6 +5338,7 @@ PHRASES = [  # Order matters - first one wins, longer matches should win.
         (MatrixState,),
     ),
     Phrase((MatrixState,), (EltwiseOperation,), eltwise_matrix, (MatrixState,)),
+    Phrase((MatrixState,), (ComparisonOperation,), compare_matrix, (MatrixState,)),
 
     # Vector
 
@@ -5143,7 +5449,7 @@ PHRASES = [  # Order matters - first one wins, longer matches should win.
     Phrase((MatrixState,), (ReduceToColumn, Optional(IfMissing)), reduce_matrix_to_column, (VectorState,)),
     Phrase((MatrixState,), (ReduceToRow, Optional(IfMissing)), reduce_matrix_to_row, (VectorState,)),
     Phrase((VectorState,), (EltwiseOperation,), eltwise_vector, (VectorState,)),
-    Phrase((VectorState,), (VectorComparisonOperation,), compare_vector, (VectorState,)),
+    Phrase((VectorState,), (ComparisonOperation,), compare_vector, (VectorState,)),
 
     # Scalar
 
@@ -5210,7 +5516,7 @@ function do_query_phrase(query_state::QueryState)::Bool
         real_operations = QueryOperation[operation for operation in next_operations if operation !== nothing]
 
         if query_state.what_for == :compute
-            @debug "- $(phrase.implementation): $(QuerySequence(real_operations))" _group = :daf_queries
+            @debug "- PHRASE $(phrase.implementation): $(QuerySequence(real_operations))" _group = :daf_queries
         end
 
         @views query_state.stack = original_stack[1:(end - length(match_stack))]

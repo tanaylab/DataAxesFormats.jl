@@ -39,6 +39,7 @@ export axis_indices
 export axis_length
 export axis_vector
 export axis_version_counter
+export complete_path
 export description
 export empty_cache!
 export get_matrix
@@ -1257,9 +1258,8 @@ function description(
     tensors::Bool,
 )::Nothing
     push!(lines, "$(indent)name: $(daf.name)")
-    if startswith(indent, "-")
-        indent = " " * indent[2:end]
-        @assert indent isa AbstractString
+    if contains(indent, "-")
+        indent = replace(indent, "-" => " ")
     end
 
     Formats.format_description_header(daf, indent, lines, deep)
@@ -1598,6 +1598,23 @@ function collect_tensors(
         end
     end
 
+    return nothing
+end
+
+"""
+    complete_path(daf::DafReader)::Maybe{AbstractString}
+
+If the `daf` repository is persistent (resides on disk), the absolute path leading to it. This path can be given to
+`complete_daf` to access the repository after the current process is terminated. If `nothing` then the repository is (at
+least partially) in-memory and will disappear when the current process is terminated.
+
+!!! note
+
+    The [`H5df`](@ref DataAxesFormats.H5dfFormat.H5df) format may report a path that ends with `#...` to identify a
+    specific group inside an `HDF5` file. That is, the reported path isn't necessarily the path of a disk file or
+    directory.
+"""
+function complete_path(::DafReader)::Maybe{AbstractString}
     return nothing
 end
 

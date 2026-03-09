@@ -191,6 +191,7 @@ struct H5df <: DafWriter
     internal::Internal
     root::Union{HDF5.File, HDF5.Group}
     mode::AbstractString
+    path::Maybe{AbstractString}
 end
 
 function H5df(
@@ -200,14 +201,17 @@ function H5df(
 )::Union{H5df, DafReadOnly}
     (is_read_only, create_if_missing, truncate_if_exists) = Formats.parse_mode(mode)
 
+    full_path = nothing
     if root isa AbstractString
         parts = split(root, ".h5dfs#/")
         if length(parts) == 1
             group = nothing
+            full_path = abspath(root)
         else
             @assert length(parts) == 2 "can't parse as <file-path>.h5dfs#/<group-path>: $(root)"
             root, group = parts
             root *= ".h5dfs"
+            full_path = abspath(root) * "#/" * group
         end
 
         key = (:daf, :hdf5, is_read_only ? "r" : "r+")
@@ -267,17 +271,26 @@ function H5df(
         end
     end
 
-    if name === nothing
-        if root isa HDF5.Group
+    if root isa HDF5.Group
+        if name === nothing
             name = "$(root.file.filename)#$(HDF5.name(root))"
-        else
-            @assert root isa HDF5.File
+        end
+        if full_path === nothing
+            full_path = "$(abspath(root.file.filename))#$(HDF5.name(root))"
+        end
+    else
+        @assert root isa HDF5.File
+        if name === nothing
             name = root.filename
+        end
+        if full_path === nothing
+            full_path = abspath(root.filename)
         end
     end
     name = unique_name(name)
+    @assert full_path !== nothing
 
-    h5df = H5df(name, Internal(; cache_group = MappedData, is_frozen = is_read_only), root, mode)
+    h5df = H5df(name, Internal(; cache_group = MappedData, is_frozen = is_read_only), root, mode, full_path)
     @debug "Daf: $(brief(h5df)) root: $(root)" _group = :daf_repos
     if is_read_only
         return read_only(h5df)
@@ -500,6 +513,10 @@ function Formats.format_has_vector(h5df::H5df, axis::AbstractString, name::Abstr
     @assert Formats.has_data_read_lock(h5df)
     vectors_group = h5df.root["vectors"]
     @assert vectors_group isa HDF5.Group
+
+    if !haskey(vectors_group, axis)
+        return false  # UNTESTED
+    end
 
     axis_vectors_group = vectors_group[axis]
     @assert axis_vectors_group isa HDF5.Group
@@ -764,8 +781,16 @@ function Formats.format_has_matrix(
     matrices_group = h5df.root["matrices"]
     @assert matrices_group isa HDF5.Group
 
+    if !haskey(matrices_group, rows_axis)
+        return false  # UNTESTED
+    end
+
     rows_axis_group = matrices_group[rows_axis]
     @assert rows_axis_group isa HDF5.Group
+
+    if !haskey(rows_axis_group, columns_axis)
+        return false  # UNTESTED
+    end
 
     columns_axis_group = rows_axis_group[columns_axis]
     @assert columns_axis_group isa HDF5.Group
@@ -1179,6 +1204,10 @@ function Formats.format_description_header(h5df::H5df, indent::AbstractString, l
     push!(lines, "$(indent)root: $(h5df.root)")
     push!(lines, "$(indent)mode: $(h5df.mode)")
     return nothing
+end
+
+function Readers.complete_path(h5df::H5df)::Maybe{AbstractString}
+    return h5df.path
 end
 
 end  # module

@@ -1,5 +1,5 @@
 function is_output(expectation::ContractExpectation)::Bool
-    return expectation in (GuaranteedOutput, OptionalOutput)
+    return expectation in (CreatedOutput, GuaranteedOutput, OptionalOutput)
 end
 
 nested_test("contracts") do
@@ -39,6 +39,18 @@ nested_test("contracts") do
                 left = Contract(; axes = ["cell" => (OptionalInput, "description")])
                 right = Contract(; axes = ["cell" => (RequiredInput, "description")])
                 @test (left |> right).axes == ["cell" => (RequiredInput, "description")]
+            end
+
+            nested_test("created-required") do
+                left = Contract(; axes = ["cell" => (CreatedOutput, "description")])
+                right = Contract(; axes = ["cell" => (RequiredInput, "description")])
+                @test (left |> right).axes == ["cell" => (CreatedOutput, "description")]
+            end
+
+            nested_test("created-optional") do
+                left = Contract(; axes = ["cell" => (CreatedOutput, "description")])
+                right = Contract(; axes = ["cell" => (OptionalInput, "description")])
+                @test (left |> right).axes == ["cell" => (CreatedOutput, "description")]
             end
 
             nested_test("guaranteed-required") do
@@ -107,7 +119,7 @@ nested_test("contracts") do
             for (name, expectation) in (
                 ("required", RequiredInput),
                 ("optional", OptionalInput),
-                ("guaranteed", GuaranteedOutput),
+                ("created", CreatedOutput),
                 ("contingent", OptionalOutput),
             )
                 contract = Contract(; data = ["version" => (expectation, Int64, "description")])
@@ -148,7 +160,7 @@ nested_test("contracts") do
                                                      of the computation: computation
                                                      on the daf data: memory!
                                                      """) verify(contract_daf)
-                                    elseif is_output(expectation)
+                                    elseif is_output(expectation) && expectation != OptionalOutput
                                         @test_throws chomp("""
                                                      pre-existing $(expectation) scalar: version
                                                      for the computation: computation
@@ -161,7 +173,7 @@ nested_test("contracts") do
 
                                 nested_test("accessed") do
                                     @assert get_scalar(contract_daf, "version") == 1
-                                    if is_output(expectation)
+                                    if is_output(expectation) && expectation != OptionalOutput
                                         @test_throws chomp("""
                                                      pre-existing $(expectation) scalar: version
                                                      for the computation: computation
@@ -211,7 +223,7 @@ nested_test("contracts") do
             end
 
             nested_test("guaranteed") do
-                contract = Contract(; data = ["version" => (GuaranteedOutput, Int64, "description")])
+                contract = Contract(; data = ["version" => (CreatedOutput, Int64, "description")])
                 contract_daf = contractor("computation", contract, daf)
 
                 nested_test("input") do
@@ -248,7 +260,7 @@ nested_test("contracts") do
             for (name, expectation) in (
                 ("required", RequiredInput),
                 ("optional", OptionalInput),
-                ("guaranteed", GuaranteedOutput),
+                ("created", CreatedOutput),
                 ("contingent", OptionalOutput),
             )
                 nested_test(name) do
@@ -277,7 +289,7 @@ nested_test("contracts") do
             for (name, expectation) in (
                 ("required", RequiredInput),
                 ("optional", OptionalInput),
-                ("guaranteed", GuaranteedOutput),
+                ("created", CreatedOutput),
                 ("contingent", OptionalOutput),
             )
                 contract = Contract(; axes = ["cell" => (expectation, "description")])
@@ -318,7 +330,7 @@ nested_test("contracts") do
                                                      of the computation: computation
                                                      on the daf data: memory!
                                                      """) verify(contract_daf)
-                                    elseif is_output(expectation)
+                                    elseif is_output(expectation) && expectation != OptionalOutput
                                         @test_throws chomp("""
                                                      pre-existing $(expectation) axis: cell
                                                      for the computation: computation
@@ -331,7 +343,7 @@ nested_test("contracts") do
 
                                 nested_test("accessed") do
                                     @assert axis_length(contract_daf, "cell") == 2
-                                    if is_output(expectation)
+                                    if is_output(expectation) && expectation != OptionalOutput
                                         @test_throws chomp("""
                                                      pre-existing $(expectation) axis: cell
                                                      for the computation: computation
@@ -380,7 +392,7 @@ nested_test("contracts") do
             end
 
             nested_test("guaranteed") do
-                contract = Contract(; axes = ["cell" => (GuaranteedOutput, "description")])
+                contract = Contract(; axes = ["cell" => (CreatedOutput, "description")])
                 contract_daf = contractor("computation", contract, daf)
 
                 nested_test("input") do
@@ -442,7 +454,7 @@ nested_test("contracts") do
             for (name, expectation) in (
                 ("required", RequiredInput),
                 ("optional", OptionalInput),
-                ("guaranteed", GuaranteedOutput),
+                ("created", CreatedOutput),
                 ("contingent", OptionalOutput),
             )
                 contract = Contract(;
@@ -490,7 +502,7 @@ nested_test("contracts") do
                                                      of the computation: computation
                                                      on the daf data: memory!
                                                      """) verify(contract_daf)
-                                    elseif is_output(expectation)
+                                    elseif is_output(expectation) && expectation != OptionalOutput
                                         @test_throws chomp("""
                                                      pre-existing $(expectation) vector: age
                                                      of the axis: cell
@@ -504,7 +516,7 @@ nested_test("contracts") do
 
                                 nested_test("accessed") do
                                     @assert get_vector(contract_daf, "cell", "age") == [1, 2]
-                                    if is_output(expectation)
+                                    if is_output(expectation) && expectation != OptionalOutput
                                         @test_throws chomp("""
                                                      pre-existing $(expectation) vector: age
                                                      of the axis: cell
@@ -565,7 +577,7 @@ nested_test("contracts") do
             nested_test("guaranteed") do
                 contract = Contract(;
                     axes = ["cell" => (RequiredInput, "description")],
-                    data = [("cell", "age") => (GuaranteedOutput, Int64, "description")],
+                    data = [("cell", "age") => (CreatedOutput, Int64, "description")],
                 )
                 contract_daf = contractor("computation", contract, daf)
                 @assert axis_length(contract_daf, "cell") == 2
@@ -627,7 +639,7 @@ nested_test("contracts") do
             end
 
             nested_test("output") do
-                for (name, expectation) in (("guaranteed", GuaranteedOutput), ("contingent", OptionalOutput))
+                for (name, expectation) in (("created", CreatedOutput), ("contingent", OptionalOutput))
                     nested_test(name) do
                         contract = Contract(;
                             axes = ["cell" => (RequiredInput, "description")],
@@ -658,7 +670,7 @@ nested_test("contracts") do
             for (name, expectation) in (
                 ("required", RequiredInput),
                 ("optional", OptionalInput),
-                ("guaranteed", GuaranteedOutput),
+                ("created", CreatedOutput),
                 ("contingent", OptionalOutput),
             )
                 contract = Contract(;
@@ -710,7 +722,7 @@ nested_test("contracts") do
                                                      of the computation: computation
                                                      on the daf data: memory!
                                                      """) verify(contract_daf)
-                                    elseif is_output(expectation)
+                                    elseif is_output(expectation) && expectation != OptionalOutput
                                         @test_throws chomp("""
                                                      pre-existing $(expectation) matrix: UMIs
                                                      of the rows axis: cell
@@ -725,7 +737,7 @@ nested_test("contracts") do
 
                                 nested_test("accessed") do
                                     @assert get_matrix(contract_daf, "cell", "gene", "UMIs") == [0 1 2; 3 4 5]
-                                    if is_output(expectation)
+                                    if is_output(expectation) && expectation != OptionalOutput
                                         @test_throws chomp("""
                                                      pre-existing $(expectation) matrix: UMIs
                                                      of the rows axis: cell
@@ -789,7 +801,7 @@ nested_test("contracts") do
             nested_test("guaranteed") do
                 contract = Contract(;
                     axes = ["cell" => (RequiredInput, "description"), "gene" => (RequiredInput, "description")],
-                    data = [("cell", "gene", "UMIs") => (GuaranteedOutput, Int64, "description")],
+                    data = [("cell", "gene", "UMIs") => (CreatedOutput, Int64, "description")],
                 )
                 contract_daf = contractor("computation", contract, daf)
                 @assert axis_length(contract_daf, "cell") == 2
@@ -909,7 +921,7 @@ nested_test("contracts") do
                 end
             end
 
-            for (name, expectation) in (("guaranteed", GuaranteedOutput), ("contingent", OptionalOutput))
+            for (name, expectation) in (("created", CreatedOutput), ("contingent", OptionalOutput))
                 nested_test(name) do
                     contract = Contract(;
                         axes = ["cell" => (RequiredInput, "description"), "gene" => (RequiredInput, "description")],
@@ -1523,7 +1535,7 @@ nested_test("contracts") do
                     "cell" => (RequiredInput, "description"),
                     "batch" => (RequiredInput, "description"),
                 ],
-                data = [("batch", "cell", "gene", "is_high") => (GuaranteedOutput, Bool, "description")],
+                data = [("batch", "cell", "gene", "is_high") => (CreatedOutput, Bool, "description")],
             )
 
             contract_daf = contractor("computation", contract, daf)
@@ -1558,9 +1570,9 @@ nested_test("contracts") do
                     axes = [
                         "gene" => (RequiredInput, "description"),
                         "cell" => (RequiredInput, "description"),
-                        "batch" => (GuaranteedOutput, "description"),
+                        "batch" => (CreatedOutput, "description"),
                     ],
-                    data = [("batch", "cell", "gene", "is_high") => (GuaranteedOutput, Bool, "description")],
+                    data = [("batch", "cell", "gene", "is_high") => (CreatedOutput, Bool, "description")],
                 )
 
                 contract_daf = contractor("computation", contract, daf)

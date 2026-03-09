@@ -8,16 +8,20 @@ module Chains
 
 export chain_reader
 export chain_writer
+export complete_chain!
+
+using JSON
+using NamedArrays
+using SparseArrays
+using TanayLabUtilities
 
 using ..Formats
 using ..Keys
 using ..ReadOnly
 using ..Readers
 using ..StorageTypes
+using ..Views
 using ..Writers
-using NamedArrays
-using SparseArrays
-using TanayLabUtilities
 
 import ..Formats.CacheKey
 import ..Formats.FormatReader
@@ -109,6 +113,10 @@ function chain_writer(dafs::AbstractVector{<:DafReader}; name::Maybe{AbstractStr
         error("empty chain$(name_suffix(name))")
     end
 
+    if length(dafs) == 1 && name === nothing
+        return dafs[1]
+    end
+
     if !(dafs[end] isa DafWriter) || dafs[end].internal.is_frozen
         error(chomp("""
               read-only final data: $(dafs[end].name)
@@ -118,7 +126,7 @@ function chain_writer(dafs::AbstractVector{<:DafReader}; name::Maybe{AbstractStr
 
     if name === nothing
         if length(dafs) == 1
-            return dafs[1]
+            return dafs[1]  # UNTESTED
         end
         name = join([daf.name for daf in dafs], ";")
         @assert name !== nothing
@@ -131,6 +139,59 @@ function chain_writer(dafs::AbstractVector{<:DafReader}; name::Maybe{AbstractStr
     chain = WriteChain(name, reader.internal, reader.dafs, dafs[end])
     @debug "Daf: $(brief(chain)) chain: $(join([daf.name for daf in dafs], ";"))"
     return chain
+end
+
+"""
+    complete_chain!(;
+        base_daf::DafReader,
+        new_daf::DafWriter,
+        name::Maybe{AbstractString} = nothing,
+        axes::Maybe{ViewAxes} = nothing,
+        data::Maybe{ViewData} = nothing
+    )::DafWriter
+
+Immediately after creating an empty disk based `new_daf`, chain it with a disk based `base_daf` and return the new
+chain. If `axes` and/or `data` are specified, the `new_daf` will be chained on top of a [`viewer`](@ref) of the
+`base_daf`.
+
+This will set the `base_daf_repository` scalar property of the `new_daf` to point at the `base_daf`, and if view `axes`
+or `data` were specified, the `base_daf_view` as well. It should be therefore possible to recreate the chain by calling
+[`complete_daf`](@ref DataAxesFormats.CompleteDaf.complete_daf) in the future.
+
+By default, the stored base path in the `new_daf` will be the relative path to the `base_daf`, for the common case where
+a group of repositories is stored under a common root. This allows this root to be renamed or moved somewhere else and
+still allow `complete_daf` to work. If `absolute` is set, then the stored base path will be the absolute path of the
+`base_daf`.
+"""
+function complete_chain!(;  # UNTESTED
+    base_daf::DafReader,
+    new_daf::DafWriter,
+    name::Maybe{AbstractString} = nothing,
+    axes::Maybe{ViewAxes} = nothing,
+    data::Maybe{ViewData} = nothing,
+    absolute::Bool = false,
+)::DafWriter
+    new_path = complete_path(new_daf)
+    @assert new_path !== nothing
+
+    base_path = complete_path(base_daf)
+    @assert base_path !== nothing
+
+    if !absolute
+        base_path = relpath(base_path, dirname(new_path))
+    end
+    set_scalar!(new_daf, "base_daf_repository", base_path)
+
+    if axes !== nothing || data !== nothing
+        view_parameters = Dict(:axes => axes, :data => data)
+        filter!(view_parameters) do (_, value)
+            return value !== nothing
+        end
+        set_scalar!(new_daf, "base_daf_view", json(view_parameters))
+        base_daf = viewer(base_daf; axes, data)
+    end
+
+    return chain_writer([base_daf, new_daf]; name)
 end
 
 function reader_internal_dafs(dafs::AbstractVector, name::AbstractString)::Vector{DafReader}
@@ -232,7 +293,7 @@ end
 
 function Formats.format_has_scalar(chain::AnyChain, name::AbstractString)::Bool
     @assert Formats.has_data_read_lock(chain)
-    for daf in chain.dafs
+    for daf in reverse(chain.dafs)
         if Formats.format_has_scalar(daf, name)
             return true
         end
@@ -249,7 +310,7 @@ end
 function Formats.format_delete_scalar!(chain::WriteChain, name::AbstractString; for_set::Bool)::Nothing
     @assert Formats.has_data_write_lock(chain)
     if !for_set
-        for daf in chain.dafs[1:(end - 1)]
+        for daf in reverse(chain.dafs[1:(end - 1)])
             if Formats.format_has_scalar(daf, name)
                 error(chomp("""
                       failed to delete the scalar: $(name)
@@ -285,7 +346,7 @@ end
 
 function Formats.format_has_axis(chain::AnyChain, axis::AbstractString; for_change::Bool)::Bool
     @assert Formats.has_data_read_lock(chain)
-    for daf in chain.dafs
+    for daf in reverse(chain.dafs)
         if Formats.format_has_axis(daf, axis; for_change)
             return true
         end
@@ -306,7 +367,7 @@ end
 
 function Formats.format_delete_axis!(chain::WriteChain, axis::AbstractString)::Nothing
     @assert Formats.has_data_write_lock(chain)
-    for daf in chain.dafs[1:(end - 1)]
+    for daf in reverse(chain.dafs[1:(end - 1)])
         if Formats.format_has_axis(daf, axis; for_change = false)
             error(chomp("""
                   failed to delete the axis: $(axis)
@@ -337,7 +398,7 @@ end
 
 function Formats.format_axis_length(chain::AnyChain, axis::AbstractString)::Int64
     @assert Formats.has_data_read_lock(chain)
-    for daf in chain.dafs
+    for daf in reverse(chain.dafs)
         if Formats.format_has_axis(daf, axis; for_change = false)
             return Formats.format_axis_length(daf, axis)
         end
@@ -347,7 +408,7 @@ end
 
 function Formats.format_has_vector(chain::AnyChain, axis::AbstractString, name::AbstractString)::Bool
     @assert Formats.has_data_read_lock(chain)
-    for daf in chain.dafs
+    for daf in reverse(chain.dafs)
         if Formats.format_has_axis(daf, axis; for_change = false) && Formats.format_has_vector(daf, axis, name)
             return true
         end
@@ -416,7 +477,7 @@ function Formats.format_delete_vector!(
 )::Nothing
     @assert Formats.has_data_write_lock(chain)
     if !for_set
-        for daf in chain.dafs[1:(end - 1)]
+        for daf in reverse(chain.dafs[1:(end - 1)])
             if Formats.format_has_axis(daf, axis; for_change = false) && Formats.format_has_vector(daf, axis, name)
                 error(chomp("""
                       failed to delete the vector: $(name)
@@ -592,7 +653,7 @@ function Formats.format_delete_matrix!(
     @assert Formats.has_data_write_lock(chain)
 
     if !for_set
-        for daf in chain.dafs[1:(end - 1)]
+        for daf in reverse(chain.dafs[1:(end - 1)])
             if Formats.format_has_axis(daf, rows_axis; for_change = false) &&
                Formats.format_has_axis(daf, columns_axis; for_change = false) &&
                Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
@@ -737,4 +798,31 @@ function ReadOnly.read_only(daf::ReadOnlyChain; name::Maybe{AbstractString} = no
     end
 end
 
-end # module
+function Readers.complete_path(chain::AnyChain)::Maybe{AbstractString}
+    path = complete_path(chain.dafs[end])
+    if path === nothing
+        return nothing
+    end
+    expected_path = get_scalar(chain.dafs[end], "base_daf_repository"; default = nothing)  # UNTESTED
+    if expected_path === nothing  # UNTESTED
+        if length(chain.dafs) == 1  # UNTESTED
+            return path  # UNTESTED
+        else
+            return nothing  # UNTESTED
+        end
+    end
+    expected_path = abspath(joinpath(dirname(path), expected_path))  # UNTESTED
+    for daf in reverse(chain.dafs[1:(end - 1)])  # UNTESTED
+        next_path = complete_path(daf)  # UNTESTED
+        if next_path != expected_path  # UNTESTED
+            return nothing  # UNTESTED
+        end
+        expected_path = get_scalar(daf, "base_daf_repository"; default = nothing)  # UNTESTED
+        if expected_path !== nothing  # UNTESTED
+            expected_path = abspath(joinpath(dirname(next_path), expected_path))  # UNTESTED
+        end
+    end
+    return path  # UNTESTED
+end
+
+end  # module

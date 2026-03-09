@@ -528,12 +528,16 @@ end
 <p>Output data:
 </p>
 <p>
+<code>CreatedOutput
+</code> - data that is always created by the computation.
+</p>
+<p>
 <code>GuaranteedOutput
-</code> - data that is guaranteed to exist when the computation is done.
+</code> - data that will be created by the computation unless it already exists.
 </p>
 <p>
 <code>OptionalOutput
-</code> - data that may exist when the computation is done, depending on some condition, which may include the existence of optional input and/or the value of parameters to the computation, and/or the content of the data.
+</code> - data that may be created when the computation is done, depending on some condition, which may include the existence of optional input and/or the value of parameters to the computation, and/or the content of the data.
 </p>
 </div>
 </section>
@@ -580,7 +584,8 @@ end
     computation::AbstractString,
     contract::Contract,
     daf::DafReader;
-    overwrite::Bool,
+    name::Maybe{AbstractString} = nothing,
+    overwrite::Bool = false,
 )::DafReader
 </code>
 </pre>

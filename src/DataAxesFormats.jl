@@ -92,9 +92,6 @@ include("queries.jl")
 include("files_format.jl")
 @reexport using .FilesFormat
 
-include("chains.jl")
-@reexport using .Chains
-
 include("h5df_format.jl")
 @reexport using .H5dfFormat
 
@@ -103,6 +100,9 @@ include("memory_format.jl")
 
 include("views.jl")
 @reexport using .Views
+
+include("chains.jl")
+@reexport using .Chains
 
 include("complete.jl")
 @reexport using .CompleteDaf

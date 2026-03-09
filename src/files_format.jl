@@ -202,20 +202,23 @@ function FilesDaf(
 
     if truncate_if_exists && isdir(path)
         rm(path; force = true, recursive = true)
-        empty_ispath_cache!()
+        report_modified!(path)  # NOLINT
     end
 
     daf_file_path = "$(path)/daf.json"
     if create_if_missing
         if !isdir(path)
             mkpath(path)
+            report_modified!(path)  # NOLINT
         end
 
-        if !cached_ispath(daf_file_path)
+        if !cached_ispath(daf_file_path)  # NOLINT
             write(daf_file_path, "{\"version\":[$(MAJOR_VERSION),$(MINOR_VERSION)]}\n")
-            empty_ispath_cache!(daf_file_path)
+            report_modified!(daf_file_path)  # NOLINT
             for directory in ("scalars", "axes", "vectors", "matrices")
-                mkdir("$(path)/$(directory)")
+                full_path = "$(path)/$(directory)"
+                mkdir(full_path)
+                report_modified!(full_path)  # NOLINT
             end
         end
     end
@@ -239,7 +242,7 @@ function FilesDaf(
 
     if name === nothing
         name_path = "$(path)/scalars/name.json"
-        if cached_ispath(name_path)
+        if cached_ispath(name_path)  # NOLINT
             name = string(read_scalar(name_path))
         else
             name = path
@@ -248,9 +251,10 @@ function FilesDaf(
     name = unique_name(name)
 
     if is_read_only
-        file = read_only(FilesDaf(name, Internal(; cache_group = MappedData, is_frozen = true), path, mode, "r"))
+        file =
+            read_only(FilesDaf(name, Internal(; cache_group = MappedData, is_frozen = true), abspath(path), mode, "r"))
     else
-        file = FilesDaf(name, Internal(; cache_group = MappedData, is_frozen = false), path, mode, "r+")
+        file = FilesDaf(name, Internal(; cache_group = MappedData, is_frozen = false), abspath(path), mode, "r+")
     end
     @debug "Daf: $(brief(file)) path: $(path)" _group = :daf_repos
     return file
@@ -258,7 +262,7 @@ end
 
 function Formats.format_has_scalar(files::FilesDaf, name::AbstractString)::Bool
     @assert Formats.has_data_read_lock(files)
-    return cached_ispath("$(files.path)/scalars/$(name).json")
+    return cached_ispath("$(files.path)/scalars/$(name).json")  # NOLINT
 end
 
 function Formats.format_set_scalar!(files::FilesDaf, name::AbstractString, value::StorageScalar)::Nothing
@@ -270,7 +274,7 @@ function Formats.format_set_scalar!(files::FilesDaf, name::AbstractString, value
 
     json_path = "$(files.path)/scalars/$(name).json"
     open(json_path, "w") do file
-        empty_ispath_cache!(json_path)
+        report_modified!(json_path)  # NOLINT
         JSON.Writer.print(file, Dict("type" => "$(type)", "value" => value))
         write(file, '\n')
         return nothing
@@ -283,7 +287,7 @@ function Formats.format_delete_scalar!(files::FilesDaf, name::AbstractString; fo
     @assert Formats.has_data_write_lock(files)
     json_path = "$(files.path)/scalars/$(name).json"
     rm(json_path; force = true)
-    empty_ispath_cache!(json_path)
+    report_modified!(json_path)  # NOLINT
     return nothing
 end
 
@@ -317,7 +321,7 @@ end
 
 function Formats.format_has_axis(files::FilesDaf, axis::AbstractString; for_change::Bool)::Bool  # NOLINT
     @assert Formats.has_data_read_lock(files)
-    return cached_ispath("$(files.path)/axes/$(axis).txt")
+    return cached_ispath("$(files.path)/axes/$(axis).txt")  # NOLINT
 end
 
 function Formats.format_add_axis!(
@@ -329,7 +333,7 @@ function Formats.format_add_axis!(
     txt_path = "$(files.path)/axes/$(axis).txt"
     flame_timed("FilesDaf.write_axis_vector") do
         open(txt_path, "w") do file  # NOJET
-            empty_ispath_cache!(txt_path)
+            report_modified!(txt_path)  # NOLINT
             for entry in entries
                 @assert !contains(entry, '\n')
                 println(file, entry)
@@ -337,14 +341,20 @@ function Formats.format_add_axis!(
         end
     end
 
-    mkdir("$(files.path)/vectors/$(axis)")
-    mkdir("$(files.path)/matrices/$(axis)")
+    for path in ("$(files.path)/vectors/$(axis)", "$(files.path)/matrices/$(axis)")
+        mkdir(path)
+        report_modified!(path)  # NOLINT
+    end
 
     axes_set = Formats.get_axes_set_through_cache(files)
     for other_axis in axes_set
-        mkdir("$(files.path)/matrices/$(other_axis)/$(axis)")
+        path = "$(files.path)/matrices/$(other_axis)/$(axis)"
+        mkdir(path)
+        report_modified!(path)  # NOLINT
         if other_axis != axis
-            mkdir("$(files.path)/matrices/$(axis)/$(other_axis)")
+            path = "$(files.path)/matrices/$(axis)/$(other_axis)"
+            mkdir(path)
+            report_modified!(path)  # NOLINT
         end
     end
 
@@ -353,16 +363,19 @@ end
 
 function Formats.format_delete_axis!(files::FilesDaf, axis::AbstractString)::Nothing
     @assert Formats.has_data_write_lock(files)
-    rm("$(files.path)/axes/$(axis).txt"; force = true)
-    rm("$(files.path)/vectors/$(axis)"; force = true, recursive = true)
-    rm("$(files.path)/matrices/$(axis)"; force = true, recursive = true)
+    for path in ("$(files.path)/axes/$(axis).txt", "$(files.path)/vectors/$(axis)", "$(files.path)/matrices/$(axis)")
+        rm(path; force = true, recursive = true)
+        report_modified!(path)  # NOLINT
+    end
 
     axes_set = Formats.get_axes_set_through_cache(files)
     for other_axis in axes_set
-        rm("$(files.path)/matrices/$(other_axis)/$(axis)"; force = true, recursive = true)
+        path = "$(files.path)/matrices/$(other_axis)/$(axis)"
+        rm(path; force = true, recursive = true)
+        report_modified!(path)  # NOLINT
     end
 
-    return empty_ispath_cache!()
+    return nothing
 end
 
 function Formats.format_axes_set(files::FilesDaf)::AbstractSet{<:AbstractString}
@@ -383,7 +396,7 @@ end
 
 function Formats.format_has_vector(files::FilesDaf, axis::AbstractString, name::AbstractString)::Bool
     @assert Formats.has_data_read_lock(files)
-    return cached_ispath("$(files.path)/vectors/$(axis)/$(name).json")
+    return cached_ispath("$(files.path)/vectors/$(axis)") && cached_ispath("$(files.path)/vectors/$(axis)/$(name).json")  # NOLINT
 end
 
 function Formats.format_set_vector!(
@@ -395,6 +408,12 @@ function Formats.format_set_vector!(
     @assert Formats.has_data_write_lock(files)
     if vector == 0
         vector = spzeros(typeof(vector), Formats.format_axis_length(files, axis))
+    end
+
+    for suffix in (".json", ".txt", ".data", ".nzind", ".nzval")
+        path = "$(files.path)/vectors/$(axis)/$(name)$(suffix)"
+        rm(path; force = true)
+        report_modified!(path)  # NOLINT
     end
 
     if vector isa AbstractString
@@ -534,11 +553,12 @@ function Formats.format_delete_vector!(
     for_set::Bool,  # NOLINT
 )::Nothing
     @assert Formats.has_data_write_lock(files)
-    for suffix in (".json", ".data", ".nzind", ".nzval")
+    for suffix in (".json", ".txt", ".data", ".nzind", ".nzval")
         path = "$(files.path)/vectors/$(axis)/$(name)$(suffix)"
         rm(path; force = true)
+        report_modified!(path)  # NOLINT
     end
-    return empty_ispath_cache!("$(files.path)/vectors/$(axis)/$(name).*")
+    return nothing
 end
 
 function Formats.format_vectors_set(files::FilesDaf, axis::AbstractString)::AbstractSet{<:AbstractString}
@@ -588,7 +608,7 @@ function Formats.format_get_vector(files::FilesDaf, axis::AbstractString, name::
             eltype = DTYPE_BY_NAME[eltype_name]
             @assert eltype !== nothing
 
-            if isfile(nzval_path)
+            if cached_ispath(nzval_path)  # NOLINT
                 nzval_vector = mmap_file_data(nzval_path, Vector{eltype}, nnz, files.files_mode)
             else
                 nzval_vector = fill(true, nnz)
@@ -608,7 +628,9 @@ function Formats.format_has_matrix(
     name::AbstractString,
 )::Bool
     @assert Formats.has_data_read_lock(files)
-    return cached_ispath("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json")
+    return cached_ispath("$(files.path)/matrices/$(rows_axis)") &&  # NOLINT
+           cached_ispath("$(files.path)/matrices/$(rows_axis)/$(columns_axis)") &&  # NOLINT
+           cached_ispath("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json")  # NOLINT
 end
 
 function Formats.format_set_matrix!(
@@ -834,8 +856,8 @@ function Formats.format_delete_matrix!(
     for suffix in (".json", ".data", ".txt", ".colptr", ".rowval", "nzval")
         path = "$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name)$(suffix)"
         rm(path; force = true)
+        report_modified!(path)  # NOLINT
     end
-    empty_ispath_cache!("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).*")
     return nothing
 end
 
@@ -917,7 +939,7 @@ function Formats.format_get_matrix(
             @assert eltype !== nothing
 
             nzval_path = "$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).nzval"
-            if isfile(nzval_path)
+            if cached_ispath(nzval_path)  # NOLINT
                 nzval_vector = mmap_file_data(nzval_path, Vector{eltype}, nnz, files.files_mode)
             else
                 nzval_vector = fill(true, nnz)
@@ -1030,7 +1052,8 @@ function write_array_json(
             @assert ind_type !== nothing
             write(path, "{\"format\":\"sparse\",\"eltype\":\"$(eltype)\",\"indtype\":\"$(ind_type)\"}\n")
         end
-        return empty_ispath_cache!(path)
+        report_modified!(path)  # NOLINT
+        return nothing
     end
     return nothing
 end
@@ -1046,6 +1069,10 @@ function Formats.format_description_header(
     push!(lines, "$(indent)path: $(files.path)")
     push!(lines, "$(indent)mode: $(files.mode)")
     return nothing
+end
+
+function Readers.complete_path(files::FilesDaf)::Maybe{AbstractString}
+    return files.path
 end
 
 end  # module

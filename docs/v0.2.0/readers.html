@@ -1494,6 +1494,52 @@ HMGN1           │ 0.000345676  0.000287754  …  0.000264526  0.000160654
 </h2>
 <article>
 <details class="docstring" open="true">
+<summary id="DataAxesFormats.Readers.complete_path">
+<a class="docstring-binding" href="#DataAxesFormats.Readers.complete_path">
+<code>DataAxesFormats.Readers.complete_path
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">complete_path(daf::DafReader)::Maybe{AbstractString}
+</code>
+</pre>
+<p>If the 
+<code>daf
+</code> repository is persistent (resides on disk), the absolute path leading to it. This path can be given to 
+<code>complete_daf
+</code> to access the repository after the current process is terminated. If 
+<code>nothing
+</code> then the repository is (at least partially) in-memory and will disappear when the current process is terminated.
+</p>
+<div class="admonition is-info" id="Note-d465dadbd29679e9">
+<header class="admonition-header">Note
+<a class="admonition-anchor" href="#Note-d465dadbd29679e9" title="Permalink">
+</a>
+</header>
+<div class="admonition-body">
+<p>The 
+<a href="h5df_format.html#DataAxesFormats.H5dfFormat.H5df">
+<code>H5df
+</code>
+</a> format may report a path that ends with 
+<code>#...
+</code> to identify a specific group inside an 
+<code>HDF5
+</code> file. That is, the reported path isn&#39;t necessarily the path of a disk file or directory.
+</p>
+</div>
+</div>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
 <summary id="DataAxesFormats.Readers.axis_version_counter">
 <a class="docstring-binding" href="#DataAxesFormats.Readers.axis_version_counter">
 <code>DataAxesFormats.Readers.axis_version_counter
@@ -1724,6 +1770,12 @@ println(matrix_version_counter(metacells, &quot;gene&quot;, &quot;metacell&quot;
 <li>
 <a href="readers.html#DataAxesFormats.Readers.axis_version_counter">
 <code>DataAxesFormats.Readers.axis_version_counter
+</code>
+</a>
+</li>
+<li>
+<a href="readers.html#DataAxesFormats.Readers.complete_path">
+<code>DataAxesFormats.Readers.complete_path
 </code>
 </a>
 </li>

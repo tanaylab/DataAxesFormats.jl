@@ -3131,6 +3131,7 @@ end
 nested_test("data") do
     nested_test("memory") do
         daf = MemoryDaf(; name = "memory!")
+        @test complete_path(daf) === nothing
         @test daf.name == "memory!"
         @test string(daf) == "MemoryDaf memory!"
         @test string(read_only(daf)) == "ReadOnly MemoryDaf memory!.read_only"
@@ -3208,6 +3209,7 @@ nested_test("data") do
             mktempdir() do path
                 daf = H5df("$(path)/test.h5df", "w+"; name = "h5df!")
                 @test daf.name == "h5df!"
+                @test complete_path(daf) == abspath(path) * "/test.h5df"
                 @test string(daf) == "H5df h5df!"
                 @test string(read_only(daf)) == "ReadOnly H5df h5df!.read_only"
                 @test string(read_only(daf; name = "renamed!")) == "ReadOnly H5df renamed!"
@@ -3233,6 +3235,7 @@ nested_test("data") do
                 end
 
                 daf = H5df(path * "/test.h5dfs#/root", "w")
+                @test complete_path(daf) == abspath(path) * "/test.h5dfs#/root"
                 @test string(daf) == "H5df $(path)/test.h5dfs#/root"
                 @test string(read_only(daf)) == "ReadOnly H5df $(path)/test.h5dfs#/root.read_only"
                 @test string(read_only(daf; name = "renamed!")) == "ReadOnly H5df renamed!"
@@ -3287,6 +3290,7 @@ nested_test("data") do
             mktempdir() do path
                 path = path * "/test"
                 daf = FilesDaf(path, "w+"; name = "files!")
+                @test complete_path(daf) == abspath(path)
                 @test daf.name == "files!"
                 @test string(daf) == "FilesDaf files!"
                 @test string(read_only(daf)) == "ReadOnly FilesDaf files!.read_only"
@@ -3302,7 +3306,7 @@ nested_test("data") do
                 daf = FilesDaf(path, "r")
                 @test daf.name == "$(path).read_only"
                 write(path * "/scalars/name.json", "{\"type\":\"String\",\"value\":\"files!\"}\n")
-                empty_ispath_cache!(path * "/scalars/*")
+                report_modified!(path * "/scalars")
                 daf = FilesDaf(path, "r")
                 @test isdir(path * "/deleted")
                 @test string(daf) == "ReadOnly FilesDaf files!.read_only"

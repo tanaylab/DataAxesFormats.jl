@@ -25,7 +25,7 @@ SINGLE_CONTRACT = Contract(;
     ],
     data = [
         "version" => (OptionalInput, String, "In major.minor.patch format."),
-        "quality" => (GuaranteedOutput, Float64, "Overall output quality score between 0.0 and 1.0."),
+        "quality" => (CreatedOutput, Float64, "Overall output quality score between 0.0 and 1.0."),
         ("gene", "noisy") => (OptionalInput, Bool, "Mask of genes with high variability."),
         ("cell", "special") => (OptionalOutput, Bool, "Computed mask of special cells, if requested."),
         ("cell", "gene", "UMIs") =>
@@ -67,12 +67,12 @@ $(CONTRACT2)
 @logged @computation Contract(
     data = [
         "version" => (RequiredInput, String, "In major.minor.patch format."),
-        "quality" => (GuaranteedOutput, Float64, "Overall output quality score between 0.0 and 1.0."),
+        "quality" => (CreatedOutput, Float64, "Overall output quality score between 0.0 and 1.0."),
     ],
 ) Contract(
     name = "second",
     data = [
-        "version" => (GuaranteedOutput, String, "In major.minor.patch format."),
+        "version" => (CreatedOutput, String, "In major.minor.patch format."),
         "quality" => (RequiredInput, Float64, "Overall output quality score between 0.0 and 1.0."),
     ],
 ) function cross(first::DafWriter; second::DafWriter, overwrite::Bool = false)::Nothing
@@ -99,15 +99,15 @@ $(CONTRACT3)
 @logged @computation Contract(
     data = [
         "version" => (RequiredInput, String, "In major.minor.patch format."),
-        "quality" => (GuaranteedOutput, Float64, "Overall output quality score between 0.0 and 1.0."),
+        "quality" => (CreatedOutput, Float64, "Overall output quality score between 0.0 and 1.0."),
     ],
 ) Contract(
     name = "second",
     data = [
-        "version" => (GuaranteedOutput, String, "In major.minor.patch format."),
+        "version" => (CreatedOutput, String, "In major.minor.patch format."),
         "quality" => (RequiredInput, Float64, "Overall output quality score between 0.0 and 1.0."),
     ],
-) Contract(name = "third", data = ["note" => (GuaranteedOutput, String, "Some note.")]) function cross_note(
+) Contract(name = "third", data = ["note" => (CreatedOutput, String, "Some note.")]) function cross_note(
     first::DafWriter;
     second::DafWriter,
     third::DafWriter,
@@ -205,7 +205,7 @@ nested_test("computations") do
         nested_test("missing") do
             @test_throws chomp("""
                          missing input axis: gene
-                         for the computation: Main.single.daf
+                         for the computation: Main.single
                          on the daf data: memory!
                          """) single(daf, 0.0)
         end
@@ -240,7 +240,7 @@ nested_test("computations") do
 
                                             ### Scalars
 
-                                            **quality**::Float64 (guaranteed): Overall output quality score between 0.0 and 1.0.
+                                            **quality**::Float64 (created): Overall output quality score between 0.0 and 1.0.
 
                                             ### Axes
 
@@ -309,8 +309,8 @@ nested_test("computations") do
             set_scalar!(second, "quality", 1.0)
             set_scalar!(second, "version", "1.0")
             @test_throws chomp("""
-                         pre-existing GuaranteedOutput scalar: quality
-                         for the computation: Main.cross.daf
+                         pre-existing CreatedOutput scalar: quality
+                         for the computation: Main.cross
                          on the daf data: first!
                          """) cross(first; second)
             @test get_scalar(first, "quality") == 0.0
@@ -323,7 +323,7 @@ nested_test("computations") do
                 @test_throws chomp("""
                              missing input scalar: version
                              with type: String
-                             for the computation: Main.cross.daf
+                             for the computation: Main.cross
                              on the daf data: first!
                              """) cross(first; second)
             end
@@ -333,7 +333,7 @@ nested_test("computations") do
                 @test_throws chomp("""
                              missing input scalar: quality
                              with type: Float64
-                             for the computation: Main.cross.second
+                             for the computation: Main.cross
                              on the daf data: second!
                              """) cross(first; second)
             end
@@ -356,7 +356,7 @@ nested_test("computations") do
 
                     ### Scalars
 
-                    **quality**::Float64 (guaranteed): Overall output quality score between 0.0 and 1.0.
+                    **quality**::Float64 (created): Overall output quality score between 0.0 and 1.0.
 
                     # Second
 
@@ -370,7 +370,7 @@ nested_test("computations") do
 
                     ### Scalars
 
-                    **version**::String (guaranteed): In major.minor.patch format.
+                    **version**::String (created): In major.minor.patch format.
                     """
             end
 
@@ -390,7 +390,7 @@ nested_test("computations") do
 
                     ### Scalars
 
-                    **quality**::Float64 (guaranteed): Overall output quality score between 0.0 and 1.0.
+                    **quality**::Float64 (created): Overall output quality score between 0.0 and 1.0.
 
                     # Second
 
@@ -404,7 +404,7 @@ nested_test("computations") do
 
                     ### Scalars
 
-                    **version**::String (guaranteed): In major.minor.patch format.
+                    **version**::String (created): In major.minor.patch format.
 
                     # Third
 
@@ -412,7 +412,7 @@ nested_test("computations") do
 
                     ### Scalars
 
-                    **note**::String (guaranteed): Some note.
+                    **note**::String (created): Some note.
                     """
             end
         end

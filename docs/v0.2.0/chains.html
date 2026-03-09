@@ -462,6 +462,80 @@
 </section>
 </details>
 </article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.Chains.complete_chain!">
+<a class="docstring-binding" href="#DataAxesFormats.Chains.complete_chain!">
+<code>DataAxesFormats.Chains.complete_chain!
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">complete_chain!(;
+    base_daf::DafReader,
+    new_daf::DafWriter,
+    name::Maybe{AbstractString} = nothing,
+    axes::Maybe{ViewAxes} = nothing,
+    data::Maybe{ViewData} = nothing
+)::DafWriter
+</code>
+</pre>
+<p>Immediately after creating an empty disk based 
+<code>new_daf
+</code>, chain it with a disk based 
+<code>base_daf
+</code> and return the new chain. If 
+<code>axes
+</code> and/or 
+<code>data
+</code> are specified, the 
+<code>new_daf
+</code> will be chained on top of a 
+<a href="views.html#DataAxesFormats.Views.viewer">
+<code>viewer
+</code>
+</a> of the 
+<code>base_daf
+</code>.
+</p>
+<p>This will set the 
+<code>base_daf_repository
+</code> scalar property of the 
+<code>new_daf
+</code> to point at the 
+<code>base_daf
+</code>, and if view 
+<code>axes
+</code> or 
+<code>data
+</code> were specified, the 
+<code>base_daf_view
+</code> as well. It should be therefore possible to recreate the chain by calling 
+<a href="complete.html#DataAxesFormats.CompleteDaf.complete_daf">
+<code>complete_daf
+</code>
+</a> in the future.
+</p>
+<p>By default, the stored base path in the 
+<code>new_daf
+</code> will be the relative path to the 
+<code>base_daf
+</code>, for the common case where a group of repositories is stored under a common root. This allows this root to be renamed or moved somewhere else and still allow 
+<code>complete_daf
+</code> to work. If 
+<code>absolute
+</code> is set, then the stored base path will be the absolute path of the 
+<code>base_daf
+</code>.
+</p>
+</div>
+</section>
+</details>
+</article>
 <h2 id="Index">
 <a class="docs-heading-anchor" href="#Index">Index
 </a>
@@ -498,6 +572,12 @@
 <li>
 <a href="chains.html#DataAxesFormats.Chains.chain_writer">
 <code>DataAxesFormats.Chains.chain_writer
+</code>
+</a>
+</li>
+<li>
+<a href="chains.html#DataAxesFormats.Chains.complete_chain!">
+<code>DataAxesFormats.Chains.complete_chain!
 </code>
 </a>
 </li>

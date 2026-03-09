@@ -49,7 +49,15 @@ function test_invalid(daf::DafReader, query::Union{AbstractString, Query}, messa
     @test_throws (message * "\nfor the daf data: memory!") with_unwrapping_exceptions() do
         return daf[query]
     end
-    @test !has_query(daf, query)
+    has_no_query = true
+    try
+        has_no_query = !has_query(daf, query)
+    catch
+        @test_throws (message * "\nfor the daf data: memory!") with_unwrapping_exceptions() do
+            return has_query(daf, query)
+        end
+    end
+    @test has_no_query
     return nothing
 end
 
@@ -579,19 +587,32 @@ nested_test("queries") do
             end
 
             nested_test("if_not") do
-                add_axis!(daf, "cell", ["X", "Y"])
-                set_vector!(daf, "cell", "type", ["U", ""])
+                add_axis!(daf, "cell", ["A", "B", "C"])
+                set_vector!(daf, "cell", "metacell", ["X", "Y", ""])
+                add_axis!(daf, "metacell", ["X", "Y"])
+                set_vector!(daf, "metacell", "type", ["U", ""])
 
                 nested_test("mask") do
-                    @test get_result(daf, "@ cell : type ?? : color") == ("cell", ["X" => "red"])
+                    @test get_result(daf, "@ metacell : type ?? : color") == ("metacell", ["X" => "red"])
                 end
 
                 nested_test("value") do
-                    @test get_result(daf, "@ cell : type ?? blue : color") == ("cell", ["X" => "red", "Y" => "blue"])
+                    @test get_result(daf, "@ metacell : type ?? blue : color") ==
+                          ("metacell", ["X" => "red", "Y" => "blue"])
+                end
+
+                nested_test("chained") do
+                    @test get_result(daf, "@ cell : metacell ?? : type ?? : color") == ("cell", ["A" => "red"])
+                    @test get_result(daf, "@ cell : metacell ?? : type ?? blue : color") ==
+                          ("cell", ["A" => "red", "B" => "blue"])
+                    @test get_result(daf, "@ cell : metacell ?? blue : type ?? : color") ==
+                          ("cell", ["A" => "red", "C" => "blue"])
+                    @test get_result(daf, "@ cell : metacell ?? blue : type ?? magenta : color") ==
+                          ("cell", ["A" => "red", "B" => "magenta", "C" => "blue"])
                 end
 
                 nested_test("missing") do
-                    @test get_result(daf, "@ cell : type ?? 0 : phase || 1") == ("cell", ["X" => 1, "Y" => 0])
+                    @test get_result(daf, "@ metacell : type ?? 0 : phase || 1") == ("metacell", ["X" => 1, "Y" => 0])
                 end
 
                 nested_test("!missing") do
@@ -600,10 +621,10 @@ nested_test("queries") do
                                        error parsing final value: foo
                                        as type: Int64
                                        ArgumentError("invalid base 10 digit 'f' in \\"foo\\"")
-                                       in the query: @ cell : type ?? foo : phase
-                                       at location:                ▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+                                       in the query: @ metacell : type ?? foo : phase
+                                       at location:                    ▲▲▲▲▲▲▲▲▲▲▲▲▲▲
                                        for the daf data: memory!
-                                       """) daf["@ cell : type ?? foo : phase"]
+                                       """) daf["@ metacell : type ?? foo : phase"]
                 end
             end
         end
@@ -1041,6 +1062,61 @@ nested_test("queries") do
                                    in the query: @ cell @ gene :: level % Abs
                                    at location:                         ▲▲▲▲▲
                                    """) daf["@ cell @gene :: level % Abs"]
+            end
+        end
+
+        nested_test("compare") do
+            add_axis!(daf, "cell", ["X", "Y"])
+            add_axis!(daf, "gene", ["A", "B", "C"])
+            set_matrix!(daf, "cell", "gene", "UMIs", [0 1 2; 3 4 5])
+            set_matrix!(daf, "cell", "gene", "text", string.([0 1 2; 3 4 5]))
+
+            nested_test("!string") do
+                @test_throws chomp("""
+                                   unsupported matrix element type: Int64
+                                   for the comparison operation: IsMatch
+                                   in the query: @ cell @ gene :: UMIs ~ \\[UV\\]
+                                   at location:                        ▲▲▲▲▲▲▲▲
+                                   for the daf data: memory!
+                                   """) daf[q"@ cell @ gene :: UMIs ~ \[UV\]"]
+            end
+
+            nested_test("!regex") do
+                @test_throws chomp(
+                    """
+                    invalid regular expression: [UV
+                    for the comparison operation: IsMatch
+                    ErrorException("PCRE compilation error: missing terminating ] for character class at offset 3")
+                    in the query: @ cell @ gene :: text ~ \\[UV
+                    at location:                        ▲▲▲▲▲▲
+                    for the daf data: memory!
+                    """,
+                ) daf[q"@ cell @ gene :: text ~ \[UV"]
+            end
+
+            nested_test("!number") do
+                @test_throws chomp("""
+                                   error parsing number comparison value: U
+                                   for comparison with a matrix of type: Int64
+                                   ArgumentError("cannot parse \\"U\\" as Float64")
+                                   in the query: @ cell @ gene :: UMIs = U
+                                   at location:                        ▲▲▲
+                                   for the daf data: memory!
+                                   """) daf["@ cell @ gene :: UMIs = U"]
+            end
+
+            nested_test(">") do
+                @test get_result(daf, "@ cell @ gene :: UMIs > 0") == (
+                    ("cell", "gene"),
+                    [
+                        ("X", "A") => 0,
+                        ("X", "B") => 1,
+                        ("X", "C") => 1,
+                        ("Y", "A") => 1,
+                        ("Y", "B") => 1,
+                        ("Y", "C") => 1,
+                    ],
+                )
             end
         end
 

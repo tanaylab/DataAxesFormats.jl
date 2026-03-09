@@ -211,4 +211,8 @@ function TanayLabUtilities.Brief.brief(value::DafReadOnlyWrapper; name::Maybe{Ab
     return "ReadOnly $(brief(value.daf; name))"
 end
 
+function Readers.complete_path(read_only_view::DafReadOnlyWrapper)::Maybe{AbstractString}
+    return complete_path(read_only_view.daf)
+end
+
 end  # module
