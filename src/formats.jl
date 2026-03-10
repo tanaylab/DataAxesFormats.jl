@@ -206,8 +206,8 @@ struct Internal
     dependents_of_cache_keys::Dict{CacheKey, Set{CacheKey}}
     dependencies_of_query_keys::Dict{CacheKey, Set{CacheKey}}
     version_counters::Dict{PropertyKey, UInt32}
-    cache_lock::ExtendedReadWriteLock  # NOLINT
-    data_lock::ExtendedReadWriteLock  # NOLINT
+    cache_lock::ExtendedReadWriteLock
+    data_lock::ExtendedReadWriteLock
     is_frozen::Bool
     pending_condition::Threads.Condition
     pending_count::Vector{UInt32}
@@ -220,8 +220,8 @@ function Internal(; cache_group::Maybe{CacheGroup}, is_frozen::Bool)::Internal
         Dict{CacheKey, Set{CacheKey}}(),
         Dict{CacheKey, Set{CacheKey}}(),
         Dict{PropertyKey, UInt32}(),
-        ExtendedReadWriteLock(),  # NOLINT
-        ExtendedReadWriteLock(),  # NOLINT
+        ExtendedReadWriteLock(),
+        ExtendedReadWriteLock(),
         is_frozen,
         Threads.Condition(),
         UInt32[0],
@@ -693,7 +693,7 @@ end
 
 function put_in_cache!(format::FormatReader, cache_key::CacheKey, data::CacheData, cache_group::CacheGroup)::Nothing
     @assert has_data_read_lock(format)
-    @assert has_write_lock(format.internal.cache_lock)  # NOLINT
+    @assert has_write_lock(format.internal.cache_lock)
     if data isa AbstractArray
         data = read_only_array(data)
     end
@@ -1002,7 +1002,7 @@ end
 
 function put_cached_dependency_key!(format::FormatReader, cache_key::CacheKey, dependency_key::CacheKey)::Nothing
     @assert has_data_read_lock(format)
-    @assert has_write_lock(format.internal.cache_lock)  # NOLINT
+    @assert has_write_lock(format.internal.cache_lock)
     if dependency_key == cache_key
         return nothing
     end
@@ -1056,7 +1056,7 @@ function begin_data_read_lock(format::FormatReader, what::Any...)::Nothing
     else
         lazy_what = () -> join([format.name, "data for", what...], " ")
     end
-    lock_read(format.internal.data_lock; what = lazy_what)  # NOJET # NOLINT
+    lock_read(format.internal.data_lock; what = lazy_what)  # NOJET
     return nothing
 end
 
@@ -1066,7 +1066,7 @@ function end_data_read_lock(format::FormatReader, what::Any...)::Nothing
     else
         lazy_what = () -> join([format.name, "data for", what...], " ")
     end
-    unlock_read(format.internal.data_lock; what = lazy_what)  # NOJET # NOLINT
+    unlock_read(format.internal.data_lock; what = lazy_what)  # NOJET
     return nothing
 end
 
@@ -1076,7 +1076,7 @@ function with_cache_read_lock(action::Function, format::FormatReader, what::Any.
     else
         lazy_what = () -> join([format.name, "cache for", what...], " ")
     end
-    return lock_read(action, format.internal.cache_lock; what = lazy_what)  # NOLINT
+    return lock_read(action, format.internal.cache_lock; what = lazy_what)
 end
 
 function with_cache_write_lock(action::Function, format::FormatReader, what::Any...)::Any
@@ -1085,7 +1085,7 @@ function with_cache_write_lock(action::Function, format::FormatReader, what::Any
     else
         lazy_what = () -> join([format.name, "cache for", what...], " ")
     end
-    return lock_write(action, format.internal.cache_lock; what = lazy_what)  # NOLINT
+    return lock_write(action, format.internal.cache_lock; what = lazy_what)
 end
 
 function with_data_read_lock(action::Function, format::FormatReader, what::Any...)::Any
@@ -1103,7 +1103,7 @@ function with_data_read_lock(action::Function, format::FormatReader, what::Any..
 end
 
 function has_data_read_lock(format::FormatReader; read_only::Bool = false)::Bool
-    return has_read_lock(format.internal.data_lock; read_only)  # NOLINT
+    return has_read_lock(format.internal.data_lock; read_only)
 end
 
 function begin_data_write_lock(format::FormatReader, what::Any...)::Nothing
@@ -1112,7 +1112,7 @@ function begin_data_write_lock(format::FormatReader, what::Any...)::Nothing
     else
         lazy_what = () -> join([format.name, "data for", what...], " ")
     end
-    lock_write(format.internal.data_lock; what = lazy_what)  # NOJET # NOLINT
+    lock_write(format.internal.data_lock; what = lazy_what)  # NOJET
     return nothing
 end
 
@@ -1122,7 +1122,7 @@ function end_data_write_lock(format::FormatReader, what::Any...)::Nothing
     else
         lazy_what = () -> join([format.name, "data for", what...], " ")
     end
-    unlock_write(format.internal.data_lock; what = lazy_what)  # NOJET # NOLINT
+    unlock_write(format.internal.data_lock; what = lazy_what)  # NOJET
     return nothing
 end
 
@@ -1136,7 +1136,7 @@ function with_data_write_lock(action::Function, format::FormatReader, what::Any.
 end
 
 function has_data_write_lock(format::FormatReader)::Bool
-    return has_write_lock(format.internal.data_lock)  # NOLINT
+    return has_write_lock(format.internal.data_lock)
 end
 
 function format_get_version_counter(format::FormatReader, version_key::PropertyKey)::UInt32
