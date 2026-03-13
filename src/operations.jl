@@ -409,7 +409,7 @@ function compute_eltwise(
 )::Union{StorageMatrix, StorageVector{<:StorageReal}}
     type = unsigned_type_for(eltype(input), operation.type)
     output = similar(input, type)
-    output .= abs.(input)  # NOJET
+    @. output = abs(input)  # NOJET
     return output
 end
 
@@ -518,7 +518,7 @@ function compute_eltwise(
 )::Union{StorageMatrix, StorageVector}
     type = type_for_clamp(operation, eltype(input))
     output = similar(input, type)
-    output .= clamp.(input, operation.min, operation.max)
+    @. output = clamp(input, operation.min, operation.max)
     return output
 end
 
