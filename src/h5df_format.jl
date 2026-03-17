@@ -18,15 +18,20 @@ is **not** compatible with `h5ad`):
     name of the group that contains the `Daf` data set you are interested it. By convention, at least if such files
     contain "mostly" (or only) `Daf` data sets, they are given a `.h5dfs` suffix, and are accompanied by some
     documentation describing the top-level groups in the file.
+
   - Under the `Daf` data group, there are 4 sub-groups: `scalars`, `axes`, `vectors` and `matrices` and a `daf` dataset.
+
   - To future-proof the format, the `daf` dataset will contain a vector of two integers, the first acting as the major
     version number and the second as the minor version number, using [semantic versioning](https://semver.org/). This
     makes it easy to test whether some group in an HDF5 file does/n't contain `Daf` data, and which version of the
     internal structure it is using. Currently the only defined version is `[1,0]`.
+
   - The `scalars` group contains scalar properties, each as its own "dataset". The only supported scalar data types
     are these included in [`StorageScalar`](@ref). If you **really** need something else, serialize it to JSON and store
     the result as a string scalar. This should be **extremely** rare.
+
   - The `axes` group contains a "dataset" per axis, which contains a vector of strings (the names of the axis entries).
+
   - The `vectors` group contains a sub-group for each axis. Each such sub-group contains vector properties. If the
     vector is dense, it is stored directly as a "dataset". Otherwise, it is stored as a group containing two vector
     "datasets": `nzind` is containing the indices of the non-zero values, and `nzval` containing the actual values. See
@@ -39,6 +44,7 @@ is **not** compatible with `h5ad`):
     We switch to using this sparse format for sufficiently sparse string data (where the zero value is the empty
     string). This isn't supported by `SparseVector` because "reasons" so we load it into a dense vector. In this case we
     name the values vector `nztxt`.
+
   - The `matrices` group contains a sub-group for each rows axis, which contains a sub-group for each columns axis. Each
     such sub-sub group contains matrix properties. If the matrix is dense, it is stored directly as a "dataset" (in
     column-major layout). Otherwise, it is stored as a group containing three vector "datasets": `colptr` containing the
@@ -53,6 +59,7 @@ is **not** compatible with `h5ad`):
     We switch to using this sparse format for sufficiently sparse string data (where the zero value is the empty
     string). This isn't supported by `SparseMatrixCSC` because "reasons" so we load it into a dense matrix. In this case
     we name the values vector `nztxt`.
+
   - All vectors and matrices are stored in a contiguous way in the file, which allows us to efficiently memory-map
     them.
 

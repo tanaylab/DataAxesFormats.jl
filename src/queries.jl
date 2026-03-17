@@ -13,6 +13,7 @@ export BeginNegatedMask
 export CountBy
 export EndMask
 export FrameColumn
+export FrameColumns
 export full_vector_query
 export get_frame
 export get_query
@@ -2013,14 +2014,14 @@ function Base.show(io::IO, axis::Axis)::Nothing
 end
 
 """
-    struct AsAxis <: Query
+    struct AsAxis <: QueryOperation
         axis_name::Maybe{AbstractString}
     end
 
 A query operator for specifying that the values of a property we looked up are the names of entries in some axis. This
 is used extensively in [`VECTOR_AS_AXIS`](@ref).
 """
-struct AsAxis <: Query
+struct AsAxis <: QueryOperation
     axis_name::Maybe{AbstractString}
 end
 
@@ -2119,7 +2120,11 @@ function parse_query(
         push!(query_operations, query_operation)
     end
 
-    return QuerySequence(query_operations)
+    if length(query_operations) == 1
+        return query_operations[1]
+    else
+        return QuerySequence(query_operations)
+    end
 end
 
 """
@@ -5625,10 +5630,10 @@ function get_frame(
         vector = get_query(daf, column_query; cache)
         if !(vector isa StorageVector) || !(vector isa NamedArray) || names(vector, 1) != names_of_rows
             error(chomp("""
-                  invalid column query: $(column_query)
-                  for the axis query: $(axis_query)
-                  of the daf data: $(daf.name)
-                  """))
+                        invalid column query: $(column_query)
+                        for the axis query: $(axis_query)
+                        of the daf data: $(daf.name)
+                        """))
         end
         push!(data, column_name => vector.array)
     end

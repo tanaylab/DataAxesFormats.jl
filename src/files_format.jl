@@ -23,10 +23,13 @@ We use multiple files to store `Daf` data, under some root directory, as follows
     minor version number, using [semantic versioning](https://semver.org/). This makes it easy to test whether a
     directory does/n't contain `Daf` data, and which version of the internal structure it is using. Currently the only
     defined version is `[1,0]`.
+
   - The `scalars` directory contains scalar properties, each as in its own `name.json` file, containing a mapping with
     a `type` key whose value is the data type of the scalar (one of the `StorageScalar` types, with `String` for a
     string scalar) and a `value` key whose value is the actual scalar value.
+
   - The `axes` directory contains a `name.txt` file per axis, where each line contains a name of an axis entry.
+
   - The `vectors` directory contains a directory per axis, containing the vectors. For every vector, a `name.json` file
     will contain a mapping with an `eltype` key specifying the type of the vector element, and a `format` key specifying
     how the data is stored on disk, one of `dense` and `sparse`.
@@ -45,6 +48,7 @@ We use multiple files to store `Daf` data, under some root directory, as follows
     We switch to using this sparse format for sufficiently sparse string data (where the zero value is the empty
     string). This isn't supported by `SparseVector` because "reasons" so we load it into a dense vector. In this case we
     name the values file `name.nztxt`.
+
   - The `matrices` directly contains a directory per rows axis, which contains a directory per columns axis, which
     contains the matrices. For each matrix, a `name.json` file will contain a mapping with an `eltype` key specifying
     the type of the matrix element, and a `format` key specifying how the data is stored on disk, one of `dense` and

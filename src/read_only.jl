@@ -27,7 +27,7 @@ abstract type DafReadOnly <: DafReader end
 A wrapper for any [`DafWriter`](@ref) data, protecting it against accidental modification. This isn't exported and isn't
 created manually; instead call [`read_only`](@ref).
 """
-struct DafReadOnlyWrapper <: DafReadOnly
+struct DafReadOnlyWrapper <: DafReadOnly  # NOLINT
     name::AbstractString
     internal::Internal
     daf::DafReader

@@ -9,12 +9,13 @@ Registering element-wise and reduction operations is required, to allow them to 
 """
 module Registry
 
+export @query_operation
+export EltwiseOperation
+export QueryOperation
+export ReductionOperation
 export compute_eltwise
 export compute_reduction
-export EltwiseOperation
-export @query_operation
 export reduction_result_type
-export ReductionOperation
 export register_query_operation
 export supports_strings
 
@@ -22,7 +23,7 @@ using ..StorageTypes
 using TanayLabUtilities
 
 # An operation in the global registry (used for parsing).
-struct RegisteredOperation
+struct RegisteredOperation  # NOLINT
     type::Type
     source_file::AbstractString
     source_line::Int
@@ -32,10 +33,10 @@ end
 Abstract interface for all query operations. An actual query is a series of these operations which, when applied to
 `Daf` data, compute some result.
 """
-abstract type QueryOperation end
+abstract type QueryOperation end  # NOLINT
 
 # Abstract interface for all query computation (element-wise and reduction) operations.
-abstract type ComputationOperation <: QueryOperation end
+abstract type ComputationOperation <: QueryOperation end  # NOLINT
 
 """
     supports_strings(operation::ComputationOperation)::Bool

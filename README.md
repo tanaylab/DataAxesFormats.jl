@@ -11,21 +11,29 @@ The key features of `Daf` are:
   - Support both in-memory and persistent data storage of "any" format (given an adapter implementation).
 
   - The implementation is thread-safe, using read/write locks, to allow safe and efficient parallel processing.
+
   - Out of the box, allow importing and exporting `AnnData` objects (e.g., using `h5ad` files), storing the data in
     memory, directly inside [H5FS](https://hdfgroup.org/) files, or as a collection of simple memory-mapped files in a
     directory.
+
   - Support views and adapters for applying generic algorithms to your specific data while using your own specific names
     for the data properties.
+
   - Support chaining repositories for reusing a large base repository with one or more smaller computed results
     repositories, possibly computed in several ways for comparison of the results.
+
   - The data model is based on (1) some axes with named entries, (2) vector data indexed by a single axis, (3) matrix
     data indexed by a pair of axes, and also (4) scalar data (anything not tied to some axis).
+
   - The common case where one axis is a group of another is explicitly supported (e.g., storing a type for each cell,
     and having a type axis).
+
   - A simple query language allows for common operations such as accessing subsets of the data ("age of all cells which
     aren't doublets") or group data ("color of type of cell") or aggregate data ("mean age of cells of batch").
+
   - There is explicit control over 2D data layout (row or column major), and support for both dense and sparse matrices,
     both of which are crucial for performance.
+
   - This is implemented in Julia, as a seed for efficient computation pipelines (which are hard to implement in Python
     without resorting to using C/C++ code). WIP: a [DafPY](https://pypi.org/project/dafpy/) Python package, which is a
     thin wrapper around `DataAxesFormats` allowing efficient (zero-copy) access to the data using `numpy`, `scipy` and

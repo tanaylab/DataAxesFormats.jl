@@ -28,6 +28,7 @@ We need to consider the following kinds of characters:
     value [`Token`](@ref). These cover all the common cases (including signed integer and floating point values).
 
   - All other ASCII characters are (at least potentially) **special**, that is, may be used to describe an operation.
+
   - Prefixing **any** character with a `\\` allows using it inside a value [`Token`](@ref). This is useful if some name
     or value contains a special character. For example, if you have a cell whose name is `ACTG:Plate1`, and you want to
     access the name of the batch of this specific cell, you will have to write `/ cell = ACTG\\:Plate1 : batch`.
@@ -159,7 +160,7 @@ We also keep the location (`first_index` .. `last_index`) and the (encoded) expr
 friendly error messages. There are no line numbers in locations because in `Daf` we squash our queries to a single-line,
 under the assumption they are "relatively simple". This allows us to simplify the code.
 """
-struct Token
+struct Token  # NOLINT
     is_operator::Bool
     value::AbstractString
     token_index::Int

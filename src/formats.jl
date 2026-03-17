@@ -54,7 +54,7 @@ using SparseArrays
 using TanayLabUtilities
 
 import ..Registry.QueryOperation
-import Base.AbstractLock
+import Base.AbstractLock  # NOLINT
 
 """
 Types of cached data inside `Daf`.
@@ -89,7 +89,7 @@ CacheData = Union{
     Missing,  # View hidden
 }
 
-mutable struct CacheEntry
+mutable struct CacheEntry  # NOLINT
     cache_group::CacheGroup
     data::Union{AbstractLock, CacheData}
 end
@@ -200,7 +200,7 @@ member of the concrete format. This enables all the high-level [`DafReader`](@re
 
 The constructor will automatically call `unique_name` to try and make the names unique for improved error messages.
 """
-struct Internal
+struct Internal  # NOLINT
     cache::Dict{CacheKey, CacheEntry}
     cache_group::Maybe{CacheGroup}
     dependents_of_cache_keys::Dict{CacheKey, Set{CacheKey}}
@@ -236,7 +236,7 @@ high-level [`DafReader`](@ref) functions.
 
 Each storage format must implement the functions listed below for reading from the storage.
 """
-abstract type FormatReader end
+abstract type FormatReader end  # NOLINT
 
 """
 A high-level abstract interface for read-only access to `Daf` data.
@@ -251,7 +251,7 @@ An abstract interface for writing into `Daf` storage formats.
 
 Each storage format must implement the functions listed below for writing into the storage.
 """
-abstract type FormatWriter <: DafReader end
+abstract type FormatWriter <: DafReader end  # NOLINT
 
 """
 A high-level abstract interface for write access to `Daf` data.

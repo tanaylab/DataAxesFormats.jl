@@ -21,8 +21,8 @@ using ExprTools
 using TanayLabUtilities
 
 import ..Contracts.contract_documentation
-import TanayLabUtilities.Documentation.DefaultValue
-import TanayLabUtilities.Documentation.FunctionMetadata
+import TanayLabUtilities.Documentation.DefaultValue  # NOLINT
+import TanayLabUtilities.Documentation.FunctionMetadata  # NOLINT
 import TanayLabUtilities.Documentation.collect_defaults
 import TanayLabUtilities.Documentation.function_metadata
 import TanayLabUtilities.Documentation.get_metadata

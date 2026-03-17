@@ -60,7 +60,7 @@ include("storage_types.jl")
 @reexport using .StorageTypes
 
 include("registry.jl")
-@reexport using .Registry: EltwiseOperation, ReductionOperation
+@reexport using .Registry: EltwiseOperation, ReductionOperation, QueryOperation
 
 include("tokens.jl")
 @reexport using .Tokens
