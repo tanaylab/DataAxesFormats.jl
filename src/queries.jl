@@ -2464,7 +2464,7 @@ struct SquareRowIs <: QueryOperation
 end
 
 function Base.show(io::IO, square_row_is::SquareRowIs)::Nothing
-    print(io, "@| $(escape_value(square_row_is.comparison_value))")
+    print(io, "@- $(escape_value(square_row_is.comparison_value))")
     return nothing
 end
 

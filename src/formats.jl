@@ -719,7 +719,9 @@ function format_has_cached_matrix(
     name::AbstractString,
 )::Bool
     return format_has_matrix(format, rows_axis, columns_axis, name) ||
-           haskey(format.internal.cache, matrix_cache_key(rows_axis, columns_axis, name))
+           with_cache_read_lock(format, "for has_cached_matrix:", rows_axis, columns_axis, name) do
+        return haskey(format.internal.cache, matrix_cache_key(rows_axis, columns_axis, name))
+    end
 end
 
 function get_through_cache(
@@ -755,8 +757,8 @@ end
 function result_from_cache(cache_entry::CacheEntry)::Any
     entry_lock = cache_entry.data
     if entry_lock isa AbstractLock
-        cache_entry = lock(entry_lock) do  # UNTESTED
-            return cache_entry  # UNTESTED
+        return lock(entry_lock) do  # UNTESTED
+            return cache_entry.data  # UNTESTED
         end
     end
     return cache_entry.data
@@ -1007,7 +1009,7 @@ function put_cached_dependency_key!(format::FormatReader, cache_key::CacheKey, d
         return nothing
     end
     keys_set = get!(format.internal.dependents_of_cache_keys, dependency_key) do
-        return Set{AbstractString}()
+        return Set{CacheKey}()
     end
     size_before = length(keys_set)
     push!(keys_set, cache_key)
@@ -1029,8 +1031,10 @@ function invalidate_cached!(format::FormatReader, cache_key::CacheKey)::Nothing
             for dependent_key in dependents_keys  # UNTESTED
                 @debug "- delete dependent_key: $(dependent_key)"  # UNTESTED
                 delete!(format.internal.cache, dependent_key)  # UNTESTED
+                delete!(format.internal.dependencies_of_query_keys, dependent_key)  # UNTESTED
             end
         end
+        return delete!(format.internal.dependencies_of_query_keys, cache_key)
     end
 
     return nothing
@@ -1175,28 +1179,34 @@ function empty_cache!(daf::DafReader; clear::Maybe{CacheGroup} = nothing, keep::
         while daf.internal.pending_count[1] > 0
             wait(daf.internal.pending_condition)  # UNTESTED
         end
-        with_cache_write_lock(daf, "empty_cache!") do
-            @debug "empty_cache! daf: $(brief(daf)) clear: $(clear) keep: $(keep)"
-            if clear === nothing && keep === nothing
-                empty!(daf.internal.cache)
-            else
-                filter!(daf.internal.cache) do key_value
-                    cache_group = key_value[2].cache_group
-                    return cache_group == keep || (cache_group != clear && clear !== nothing)
-                end
+    end
+    with_cache_write_lock(daf, "empty_cache!") do
+        @debug "empty_cache! daf: $(brief(daf)) clear: $(clear) keep: $(keep)"
+        if clear === nothing && keep === nothing
+            empty!(daf.internal.cache)
+            empty!(daf.internal.dependents_of_cache_keys)
+            empty!(daf.internal.dependencies_of_query_keys)
+        else
+            filter!(daf.internal.cache) do key_value
+                cache_group = key_value[2].cache_group
+                return cache_group == keep || (cache_group != clear && clear !== nothing)
             end
 
             if isempty(daf.internal.cache)
-                empty!(daf.internal.dependents_of_cache_keys)
+                empty!(daf.internal.dependents_of_cache_keys)  # UNTESTED
+                empty!(daf.internal.dependencies_of_query_keys)  # UNTESTED
             else
                 for (_, dependents_keys) in daf.internal.dependents_of_cache_keys
-                    filter(dependents_keys) do dependent_key
+                    filter!(dependents_keys) do dependent_key
                         return haskey(daf.internal.cache, dependent_key)
                     end
                 end
-                filter(daf.internal.dependents_of_cache_keys) do entry
+                filter!(daf.internal.dependents_of_cache_keys) do entry
                     dependents_keys = entry[2]
                     return !isempty(dependents_keys)
+                end
+                filter!(daf.internal.dependencies_of_query_keys) do entry
+                    return haskey(daf.internal.cache, entry[1])
                 end
             end
         end
