@@ -3891,6 +3891,16 @@ function extract_vector_axis(matrix_state::MatrixState, ::GroupRowsBy)::VectorSt
     return extract_vector_axis(matrix_state.rows_state)  # NOJET
 end
 
+function allocate_is_in_group_per_value_per_thread(n_values::Integer)::Vector{Maybe{BitVector}}
+    if is_in_parallel_loop()
+        is_in_group_per_value_per_thread = Vector{Maybe{BitVector}}(nothing, nthreads())  # UNTESTED
+        is_in_group_per_value_per_thread[threadid()] = BitVector(undef, n_values)  # UNTESTED
+    else
+        is_in_group_per_value_per_thread = Maybe{BitVector}[BitVector(undef, n_values) for _ in 1:nthreads()]
+    end
+    return is_in_group_per_value_per_thread
+end
+
 function reduce_grouped_vector(
     query_state::QueryState,
     base_state::VectorState,
@@ -3933,10 +3943,18 @@ function reduce_grouped_vector(
 
     result_type = reduction_result_type(reduction_operation, eltype(vector_values))
     reduced_values = Vector{result_type}(undef, length(unique_group_values))
-    for (group_index, group_value) in enumerate(unique_group_values)
-        group_mask = group_state.vector_values .== group_value
-        if any(group_mask)
-            @views group_vector_values = vector_values[group_mask]
+    is_in_group_per_value_per_thread = allocate_is_in_group_per_value_per_thread(length(group_state.vector_values))
+    parallel_loop_wo_rng(
+        1:length(unique_group_values);
+        name = "GroupBy($(nameof(typeof(reduction_operation))))",
+        policy = :static,
+        progress = DebugProgress(length(unique_group_values); group = :daf_loops, desc = "GroupBy"),
+    ) do group_index
+        @views is_in_group_per_value = is_in_group_per_value_per_thread[threadid()]
+        group_value = unique_group_values[group_index]
+        is_in_group_per_value .= group_state.vector_values .== group_value
+        if any(is_in_group_per_value)
+            @views group_vector_values = vector_values[is_in_group_per_value]
             reduced_values[group_index] = compute_reduction(reduction_operation, group_vector_values)  # NOLINT
         elseif if_missing !== nothing
             reduced_values[group_index] = cast_value(query_state, "missing", if_missing.default_value, result_type)
@@ -3949,6 +3967,7 @@ function reduce_grouped_vector(
                 """,
             )
         end
+        return nothing
     end
 
     reduced_state = VectorState()
@@ -4691,10 +4710,18 @@ function compute_grouped_matrix(
     result_type = reduction_result_type(reduce_to_column.reduction_operation, eltype(matrix_values))
     reduced_values =
         Matrix{result_type}(undef, length(base_state.rows_state.vector_entries), length(unique_group_values))
-    for (group_index, group_value) in enumerate(unique_group_values)
-        group_mask = group_state.vector_values .== group_value
-        if any(group_mask)
-            @views group_matrix_values = matrix_values[:, group_mask]
+    is_in_group_per_value_per_thread = allocate_is_in_group_per_value_per_thread(length(group_state.vector_values))
+    parallel_loop_wo_rng(
+        1:length(unique_group_values);
+        name = "GroupByColumns($(nameof(typeof(reduce_to_column.reduction_operation))))",
+        policy = :static,
+        progress = DebugProgress(length(unique_group_values); group = :daf_loops, desc = "GroupByColumns"),
+    ) do group_index
+        @views is_in_group_per_value = is_in_group_per_value_per_thread[threadid()]
+        group_value = unique_group_values[group_index]
+        is_in_group_per_value .= group_state.vector_values .== group_value
+        if any(is_in_group_per_value)
+            @views group_matrix_values = matrix_values[:, is_in_group_per_value]
             reduced_values[:, group_index] =
                 vec(compute_reduction(reduce_to_column.reduction_operation, group_matrix_values, 2))  # NOLINT
         elseif if_missing !== nothing
@@ -4708,6 +4735,7 @@ function compute_grouped_matrix(
                 """,
             )
         end
+        return nothing
     end
 
     reduced_state = MatrixState()
@@ -4771,10 +4799,18 @@ function compute_grouped_matrix(
     result_type = reduction_result_type(reduce_to_row.reduction_operation, eltype(matrix_values))
     reduced_values =
         Matrix{result_type}(undef, length(unique_group_values), length(base_state.columns_state.vector_entries))
-    for (group_index, group_value) in enumerate(unique_group_values)
-        group_mask = group_state.vector_values .== group_value
-        if any(group_mask)
-            @views group_matrix_values = matrix_values[group_mask, :]
+    is_in_group_per_value_per_thread = allocate_is_in_group_per_value_per_thread(length(group_state.vector_values))
+    parallel_loop_wo_rng(
+        1:length(unique_group_values);
+        name = "GroupByRows($(nameof(typeof(reduce_to_row.reduction_operation))))",
+        policy = :static,
+        progress = DebugProgress(length(unique_group_values); group = :daf_loops, desc = "GroupByRows"),
+    ) do group_index
+        @views is_in_group_per_value = is_in_group_per_value_per_thread[threadid()]
+        group_value = unique_group_values[group_index]
+        is_in_group_per_value .= group_state.vector_values .== group_value
+        if any(is_in_group_per_value)
+            @views group_matrix_values = matrix_values[is_in_group_per_value, :]
             reduced_values[group_index, :] =
                 vec(compute_reduction(reduce_to_row.reduction_operation, group_matrix_values, 1))  # NOLINT
         elseif if_missing !== nothing
@@ -4788,6 +4824,7 @@ function compute_grouped_matrix(
                 """,
             )
         end
+        return nothing
     end
 
     reduced_state = MatrixState()

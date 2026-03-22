@@ -877,12 +877,15 @@ nested_test("queries") do
                 end
 
                 nested_test("missing") do
-                    @test_throws chomp("""
-                                       no IfMissing value specified for the unused entry: W
-                                       of the axis: type
-                                       in the query: @ cell : score / type =@ >> Sum
-                                       at location:                           ▲▲▲▲▲▲
-                                       """) daf["@ cell : score / type =@ >> Sum"]
+                    @test_throws Regex(chomp("""
+                                       TaskFailedException
+
+                                           nested task error: no IfMissing value specified for the unused entry: W
+                                           of the axis: type
+                                           in the query: @ cell : score / type =@ >> Sum
+                                           at location:                           ▲▲▲▲▲▲
+                                           for the daf data: memory!
+                                       """)) daf["@ cell : score / type =@ >> Sum"]
                 end
             end
         end
@@ -1243,25 +1246,31 @@ nested_test("queries") do
                     end
 
                     nested_test("~missing") do
-                        @test_throws chomp("""
-                                           error converting: Float64
-                                           missing value: 0.5
-                                           to type: Int64
-                                           InexactError(:Int64, (Int64, 0.5))
-                                           in the query: @ gene @ cell :: UMIs |/ type =@ >| Sum || 0.5
-                                           at location:                                   ▲▲▲▲▲▲▲▲▲▲▲▲▲
-                                           for the daf data: memory!
-                                           """) daf["@ gene @ cell :: UMIs |/ type =@ >| Sum || 0.5"]
+                        @test_throws Regex(chomp("""
+                                                 TaskFailedException
+
+                                                     nested task error: error converting: Float64
+                                                     missing value: 0.5
+                                                     to type: Int64
+                                                     InexactError(:Int64, (Int64, 0.5))
+                                                     in the query: @ gene @ cell :: UMIs |/ type =@ >| Sum || 0.5
+                                                     at location:                                   ▲▲▲▲▲▲▲▲▲▲▲▲▲
+                                                     for the daf data: memory!
+                                                 """)) daf["@ gene @ cell :: UMIs |/ type =@ >| Sum || 0.5"]
                     end
                 end
 
                 nested_test("missing") do
-                    @test_throws chomp("""
-                                       no IfMissing value specified for the unused entry: W
-                                       of the axis: type
-                                       in the query: @ gene @ cell :: UMIs |/ type =@ >| Sum
-                                       at location:                                   ▲▲▲▲▲▲
-                                       """) daf["@ gene @ cell :: UMIs |/ type =@ >| Sum"]
+                    @test_throws Regex(
+                        chomp("""
+                              TaskFailedException
+
+                                  nested task error: no IfMissing value specified for the unused entry: W
+                                  of the axis: type
+                                  in the query: @ gene @ cell :: UMIs |/ type =@ >| Sum
+                                  at location:                                   ▲▲▲▲▲▲
+                              """),
+                    ) daf["@ gene @ cell :: UMIs |/ type =@ >| Sum"]
                 end
             end
 
@@ -1313,15 +1322,17 @@ nested_test("queries") do
                     end
 
                     nested_test("~missing") do
-                        @test_throws chomp("""
-                                           error converting: Float64
-                                           missing value: 0.5
-                                           to type: Int64
-                                           InexactError(:Int64, (Int64, 0.5))
-                                           in the query: @ cell @ gene :: UMIs -/ type =@ >- Sum || 0.5
-                                           at location:                                   ▲▲▲▲▲▲▲▲▲▲▲▲▲
-                                           for the daf data: memory!
-                                           """) daf["@ cell @ gene :: UMIs -/ type =@ >- Sum || 0.5"]
+                        @test_throws Regex(chomp("""
+                                                 TaskFailedException
+
+                                                     nested task error: error converting: Float64
+                                                     missing value: 0.5
+                                                     to type: Int64
+                                                     InexactError(:Int64, (Int64, 0.5))
+                                                     in the query: @ cell @ gene :: UMIs -/ type =@ >- Sum || 0.5
+                                                     at location:                                   ▲▲▲▲▲▲▲▲▲▲▲▲▲
+                                                     for the daf data: memory!
+                                                     """)) daf["@ cell @ gene :: UMIs -/ type =@ >- Sum || 0.5"]
                     end
                 end
 
@@ -1336,12 +1347,16 @@ nested_test("queries") do
                 end
 
                 nested_test("missing") do
-                    @test_throws chomp("""
-                                       no IfMissing value specified for the unused entry: W
-                                       of the axis: type
-                                       in the query: @ cell @ gene :: UMIs -/ type =@ >- Sum
-                                       at location:                                   ▲▲▲▲▲▲
-                                       """) daf["@ cell @ gene :: UMIs -/ type =@ >- Sum"]
+                    @test_throws Regex(
+                        chomp("""
+                              TaskFailedException
+
+                                  nested task error: no IfMissing value specified for the unused entry: W
+                                  of the axis: type
+                                  in the query: @ cell @ gene :: UMIs -/ type =@ >- Sum
+                                  at location:                                   ▲▲▲▲▲▲
+                                  """),
+                    ) daf["@ cell @ gene :: UMIs -/ type =@ >- Sum"]
                 end
             end
         end

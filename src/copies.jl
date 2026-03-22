@@ -235,7 +235,7 @@ source axis contains entries that do not exist in the target, they are discarded
                 nnz(value.array);
                 overwrite,
             ) do sparse_nzind, sparse_nzval
-                sparse_nzind .= nzind(value.array)
+                sparse_nzind .= nzind(value.array)  # NOJET
                 sparse_nzval .= nzval(value.array)
                 return nothing
             end
