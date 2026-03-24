@@ -43,6 +43,7 @@ using Base.Threads
 using SparseArrays
 using Statistics
 using StatsBase
+using LoopVectorization
 using TanayLabUtilities
 
 import ..Registry.compute_eltwise
@@ -403,10 +404,37 @@ function Abs(operation_name::Token, parameters_values::Dict{String, Token})::Abs
     return Abs(type)
 end
 
-function compute_eltwise(
-    operation::Abs,
-    input::Union{StorageMatrix, StorageVector{<:StorageReal}},
-)::Union{StorageMatrix, StorageVector{<:StorageReal}}
+function compute_eltwise(operation::Abs, input::StorageMatrix)::StorageMatrix
+    type = unsigned_type_for(eltype(input), operation.type)
+    output = similar(input, type)
+    axis = major_axis(input)
+    if axis == Columns
+        n_columns = size(input, 2)
+        parallel_loop_wo_rng(
+            1:n_columns;
+            name = "Abs",
+            progress = DebugProgress(n_columns; group = :daf_loops, desc = "Abs"),
+        ) do column_index
+            @views output[:, column_index] .= abs.(input[:, column_index])  # NOJET
+            return nothing
+        end
+    elseif axis == Rows  # UNTESTED
+        n_rows = size(input, 1)  # UNTESTED
+        parallel_loop_wo_rng(  # UNTESTED
+            1:n_rows;
+            name = "Abs",
+            progress = DebugProgress(n_rows; group = :daf_loops, desc = "Abs"),
+        ) do row_index
+            @views output[row_index, :] .= abs.(input[row_index, :])
+            return nothing
+        end
+    else
+        @. output = abs(input)  # NOJET # UNTESTED
+    end
+    return output
+end
+
+function compute_eltwise(operation::Abs, input::StorageVector{<:StorageReal})::StorageVector{<:StorageReal}
     type = unsigned_type_for(eltype(input), operation.type)
     output = similar(input, type)
     @. output = abs(input)  # NOJET
@@ -443,10 +471,37 @@ function Round(operation_name::Token, parameters_values::Dict{String, Token})::R
     return Round(type)
 end
 
-function compute_eltwise(
-    operation::Round,
-    input::Union{StorageMatrix, StorageVector{<:StorageReal}},
-)::Union{StorageMatrix, StorageVector{<:StorageReal}}
+function compute_eltwise(operation::Round, input::StorageMatrix)::StorageMatrix
+    type = int_type_for(eltype(input), operation.type)
+    output = similar(input, type)
+    axis = major_axis(input)
+    if axis == Columns
+        n_columns = size(input, 2)
+        parallel_loop_wo_rng(
+            1:n_columns;
+            name = "Round",
+            progress = DebugProgress(n_columns; group = :daf_loops, desc = "Round"),
+        ) do column_index
+            @views output[:, column_index] .= round.(type, input[:, column_index])
+            return nothing
+        end
+    elseif axis == Rows  # UNTESTED
+        n_rows = size(input, 1)  # UNTESTED
+        parallel_loop_wo_rng(  # UNTESTED
+            1:n_rows;
+            name = "Round",
+            progress = DebugProgress(n_rows; group = :daf_loops, desc = "Round"),
+        ) do row_index
+            @views output[row_index, :] .= round.(type, input[row_index, :])
+            return nothing
+        end
+    else
+        output .= round.(type, input)  # UNTESTED
+    end
+    return output
+end
+
+function compute_eltwise(operation::Round, input::StorageVector{<:StorageReal})::StorageVector{<:StorageReal}
     return round.(int_type_for(eltype(input), operation.type), input)
 end
 
@@ -512,10 +567,39 @@ function type_for_clamp(operation::Clamp, input_type::Type)::Type
     end
 end
 
-function compute_eltwise(
-    operation::Clamp,
-    input::Union{StorageMatrix, StorageVector},
-)::Union{StorageMatrix, StorageVector}
+function compute_eltwise(operation::Clamp, input::StorageMatrix)::StorageMatrix
+    type = type_for_clamp(operation, eltype(input))
+    output = similar(input, type)
+    clamp_min = operation.min
+    clamp_max = operation.max
+    axis = major_axis(input)
+    if axis == Columns
+        n_columns = size(input, 2)
+        parallel_loop_wo_rng(
+            1:n_columns;
+            name = "Clamp",
+            progress = DebugProgress(n_columns; group = :daf_loops, desc = "Clamp"),
+        ) do column_index
+            @views output[:, column_index] .= clamp.(input[:, column_index], clamp_min, clamp_max)
+            return nothing
+        end
+    elseif axis == Rows  # UNTESTED
+        n_rows = size(input, 1)  # UNTESTED
+        parallel_loop_wo_rng(  # UNTESTED
+            1:n_rows;
+            name = "Clamp",
+            progress = DebugProgress(n_rows; group = :daf_loops, desc = "Clamp"),
+        ) do row_index
+            @views output[row_index, :] .= clamp.(input[row_index, :], clamp_min, clamp_max)
+            return nothing
+        end
+    else
+        @. output = clamp(input, clamp_min, clamp_max)  # UNTESTED
+    end
+    return output
+end
+
+function compute_eltwise(operation::Clamp, input::StorageVector)::StorageVector
     type = type_for_clamp(operation, eltype(input))
     output = similar(input, type)
     @. output = clamp(input, operation.min, operation.max)
@@ -553,10 +637,37 @@ function Convert(operation_name::Token, parameters_values::Dict{String, Token}):
     return Convert(type)
 end
 
-function compute_eltwise(
-    operation::Convert,
-    input::Union{StorageMatrix, StorageVector{<:StorageReal}},
-)::Union{StorageMatrix, StorageVector{<:StorageReal}}
+function compute_eltwise(operation::Convert, input::StorageMatrix)::StorageMatrix
+    type = operation.type
+    output = similar(input, type)
+    axis = major_axis(input)
+    if axis == Columns
+        n_columns = size(input, 2)
+        parallel_loop_wo_rng(
+            1:n_columns;
+            name = "Convert",
+            progress = DebugProgress(n_columns; group = :daf_loops, desc = "Convert"),
+        ) do column_index
+            @views output[:, column_index] .= type.(input[:, column_index])
+            return nothing
+        end
+    elseif axis == Rows  # UNTESTED
+        n_rows = size(input, 1)  # UNTESTED
+        parallel_loop_wo_rng(  # UNTESTED
+            1:n_rows;
+            name = "Convert",
+            progress = DebugProgress(n_rows; group = :daf_loops, desc = "Convert"),
+        ) do row_index
+            @views output[row_index, :] .= type.(input[row_index, :])
+            return nothing
+        end
+    else
+        output .= type.(input)  # UNTESTED
+    end
+    return output
+end
+
+function compute_eltwise(operation::Convert, input::StorageVector{<:StorageReal})::StorageVector{<:StorageReal}
     return operation.type.(input)
 end
 
@@ -684,18 +795,70 @@ function Log(operation_name::Token, parameters_values::Dict{String, Token})::Log
     return Log(type, base, eps)
 end
 
-function compute_eltwise(
-    operation::Log,
-    input::Union{StorageMatrix, StorageVector{<:StorageReal}},
-)::Union{StorageMatrix, StorageVector{<:StorageReal}}
+function log_vector!(
+    output::AbstractVector{T},
+    input::AbstractVector,
+    eps::T,
+    base::Float64,
+)::Nothing where {T <: AbstractFloat}
+    n_elements = length(output)
+    if base == 2.0
+        @turbo for element_index in 1:n_elements
+            output[element_index] = log2(T(input[element_index]) + eps)
+        end
+    elseif base == 10.0
+        @turbo for element_index in 1:n_elements  # UNTESTED
+            output[element_index] = log10(T(input[element_index]) + eps)  # UNTESTED
+        end
+    elseif base == Float64(e)
+        @turbo for element_index in 1:n_elements
+            output[element_index] = log(T(input[element_index]) + eps)
+        end
+    else
+        inverse_log_base = T(1.0 / log(base))  # UNTESTED
+        @turbo for element_index in 1:n_elements  # UNTESTED
+            output[element_index] = log(T(input[element_index]) + eps) * inverse_log_base  # UNTESTED
+        end
+    end
+    return nothing
+end
+
+function compute_eltwise(operation::Log, input::StorageMatrix)::StorageMatrix
     type = float_type_for(eltype(input), operation.type)
     output = similar(input, type)
-    output .= input
-    output .+= operation.eps
-    map!(log, output, output)
-    if operation.base != Float64(e)
-        output ./= log(operation.base)
+    eps = type(operation.eps)
+    base = operation.base
+    axis = major_axis(input)
+    if axis == Columns
+        n_columns = size(input, 2)
+        parallel_loop_wo_rng(
+            1:n_columns;
+            name = "Log",
+            progress = DebugProgress(n_columns; group = :daf_loops, desc = "Log"),
+        ) do column_index
+            @views log_vector!(output[:, column_index], input[:, column_index], eps, base)
+            return nothing
+        end
+    elseif axis == Rows  # UNTESTED
+        n_rows = size(input, 1)  # UNTESTED
+        parallel_loop_wo_rng(  # UNTESTED
+            1:n_rows;
+            name = "Log",
+            progress = DebugProgress(n_rows; group = :daf_loops, desc = "Log"),
+        ) do row_index
+            @views log_vector!(output[row_index, :], input[row_index, :], eps, base)
+            return nothing
+        end
+    else
+        log_vector!(vec(output), vec(input), eps, base)  # UNTESTED
     end
+    return output
+end
+
+function compute_eltwise(operation::Log, input::StorageVector{<:StorageReal})::StorageVector{<:StorageReal}
+    type = float_type_for(eltype(input), operation.type)
+    output = similar(input, type)
+    log_vector!(output, input, type(operation.eps), operation.base)
     return output
 end
 
