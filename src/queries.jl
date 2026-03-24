@@ -3944,11 +3944,12 @@ function reduce_grouped_vector(
     result_type = reduction_result_type(reduction_operation, eltype(vector_values))
     reduced_values = Vector{result_type}(undef, length(unique_group_values))
     is_in_group_per_value_per_thread = allocate_is_in_group_per_value_per_thread(length(group_state.vector_values))
+    loop_name = "GroupBy($(nameof(typeof(reduction_operation))))"
     parallel_loop_wo_rng(
         1:length(unique_group_values);
-        name = "GroupBy($(nameof(typeof(reduction_operation))))",
+        name = loop_name,
         policy = :static,
-        progress = DebugProgress(length(unique_group_values); group = :daf_loops, desc = "GroupBy"),
+        progress = DebugProgress(length(unique_group_values); group = :daf_loops, desc = loop_name),
     ) do group_index
         @views is_in_group_per_value = is_in_group_per_value_per_thread[threadid()]
         group_value = unique_group_values[group_index]
@@ -4711,11 +4712,12 @@ function compute_grouped_matrix(
     reduced_values =
         Matrix{result_type}(undef, length(base_state.rows_state.vector_entries), length(unique_group_values))
     is_in_group_per_value_per_thread = allocate_is_in_group_per_value_per_thread(length(group_state.vector_values))
+    loop_name = "GroupByColumns($(nameof(typeof(reduce_to_column.reduction_operation))))"
     parallel_loop_wo_rng(
         1:length(unique_group_values);
-        name = "GroupByColumns($(nameof(typeof(reduce_to_column.reduction_operation))))",
+        name = loop_name,
         policy = :static,
-        progress = DebugProgress(length(unique_group_values); group = :daf_loops, desc = "GroupByColumns"),
+        progress = DebugProgress(length(unique_group_values); group = :daf_loops, desc = loop_name),
     ) do group_index
         @views is_in_group_per_value = is_in_group_per_value_per_thread[threadid()]
         group_value = unique_group_values[group_index]
@@ -4800,11 +4802,12 @@ function compute_grouped_matrix(
     reduced_values =
         Matrix{result_type}(undef, length(unique_group_values), length(base_state.columns_state.vector_entries))
     is_in_group_per_value_per_thread = allocate_is_in_group_per_value_per_thread(length(group_state.vector_values))
+    loop_name = "GroupByRows($(nameof(typeof(reduce_to_row.reduction_operation))))"
     parallel_loop_wo_rng(
         1:length(unique_group_values);
-        name = "GroupByRows($(nameof(typeof(reduce_to_row.reduction_operation))))",
+        name = loop_name,
         policy = :static,
-        progress = DebugProgress(length(unique_group_values); group = :daf_loops, desc = "GroupByRows"),
+        progress = DebugProgress(length(unique_group_values); group = :daf_loops, desc = loop_name),
     ) do group_index
         @views is_in_group_per_value = is_in_group_per_value_per_thread[threadid()]
         group_value = unique_group_values[group_index]
