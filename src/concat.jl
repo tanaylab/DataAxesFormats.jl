@@ -1249,7 +1249,7 @@ function signed_sizeof(type::Type{<:Signed})::Integer
     return sizeof(type)
 end
 
-function signed_sizeof(type::Type{<:Unsigned})::Integer
+function signed_sizeof(type::Type{<:Unsigned})::Integer # UNTESTED
     return sizeof(type) + 1
 end
 

@@ -43,7 +43,7 @@ abstract type ComputationOperation <: QueryOperation end  # NOLINT
 
 Most operations do not support string operands. The very few that do are explicitly marked in the documentation.
 """
-function supports_strings(::ComputationOperation)::Bool
+function supports_strings(::ComputationOperation)::Bool # UNTESTED
     return false
 end
 

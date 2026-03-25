@@ -64,6 +64,7 @@ using NamedArrays
 using SparseArrays
 using TanayLabUtilities
 
+import Base.Threads.maxthreadid
 import ..Formats.CacheEntry
 import ..Formats.CacheKey
 import ..Formats.CachedQuery
@@ -1180,14 +1181,14 @@ function parse_operation_parameters(
     return (parameters_values, next_token_index)
 end
 
-function next_operator_token(tokens::Vector{Token}, next_token_index::Int)::Token
+function next_operator_token(tokens::Vector{Token}, next_token_index::Int)::Token # UNTESTED
     if !tokens[next_token_index].is_operator
         error_at_token(tokens[next_token_index], "expected: operator")
     end
     return tokens[next_token_index]
 end
 
-function next_value_token(tokens::Vector{Token}, next_token_index::Int)::Token
+function next_value_token(tokens::Vector{Token}, next_token_index::Int)::Token # UNTESTED
     if next_token_index > length(tokens)
         error_at_token(tokens[next_token_index - 1], "expected: value"; at_end = true)
     elseif tokens[next_token_index].is_operator
@@ -1215,7 +1216,7 @@ function Base.show(io::IO, query_sequence::QuerySequence)::Nothing
 end
 
 # For avoiding Julia operators when calling Julia from another language.
-function QuerySequence(
+function QuerySequence( # UNTESTED
     first::Union{QuerySequence, QueryOperation},
     second::Union{QuerySequence, QueryOperation},
 )::QuerySequence
@@ -1234,15 +1235,15 @@ function Base.:(|>)(first_sequence::QuerySequence, second_operation::QueryOperat
     return QuerySequence([first_sequence.query_operations..., second_operation])
 end
 
-function Base.:(|>)(first_operation::QueryOperation, second_operation::QueryOperation)::QuerySequence
+function Base.:(|>)(first_operation::QueryOperation, second_operation::QueryOperation)::QuerySequence # UNTESTED
     return QuerySequence([first_operation, second_operation])
 end
 
-function Base.:(|>)(first::Union{QuerySequence, QueryOperation}, second::AbstractString)::QuerySequence
+function Base.:(|>)(first::Union{QuerySequence, QueryOperation}, second::AbstractString)::QuerySequence # UNTESTED
     return first |> as_query_sequence(second)
 end
 
-function Base.:(|>)(first::AbstractString, second::Union{QuerySequence, QueryOperation})::QuerySequence
+function Base.:(|>)(first::AbstractString, second::Union{QuerySequence, QueryOperation})::QuerySequence # UNTESTED
     return as_query_sequence(first) |> second
 end
 
@@ -1254,7 +1255,7 @@ function as_query_sequence(query_operation::QueryOperation)::QuerySequence
     return QuerySequence([query_operation])
 end
 
-function as_query_sequence(query_sequence::QuerySequence)::QuerySequence
+function as_query_sequence(query_sequence::QuerySequence)::QuerySequence # UNTESTED
     return query_sequence
 end
 
@@ -1361,11 +1362,11 @@ function get_query(
     end
 end
 
-function verify_contract_query(::DafReader, ::CacheKey)::Nothing
+function verify_contract_query(::DafReader, ::CacheKey)::Nothing # UNTESTED
     return nothing
 end
 
-function assert_is_valid(::Any)::Nothing
+function assert_is_valid(::Any)::Nothing # UNTESTED
     return nothing
 end
 
@@ -1417,11 +1418,11 @@ function assert_is_valid(vector_state::VectorState)::Nothing
     return nothing
 end
 
-function VectorState()::VectorState
+function VectorState()::VectorState # UNTESTED
     return VectorState(nothing, nothing, nothing, nothing, false, nothing, nothing)
 end
 
-function Base.copy(vector_state::VectorState)::VectorState
+function Base.copy(vector_state::VectorState)::VectorState # UNTESTED
     copy_state = VectorState()
     copy_state.entries_axis_name = vector_state.entries_axis_name
     copy_state.vector_entries = vector_state.vector_entries
@@ -1477,7 +1478,7 @@ function assert_is_valid(matrix_state::MatrixState)::Nothing
     return nothing
 end
 
-function MatrixState()::MatrixState
+function MatrixState()::MatrixState # UNTESTED
     return MatrixState(nothing, nothing, nothing, nothing, nothing, nothing)
 end
 
@@ -1509,7 +1510,7 @@ mutable struct QueryState
     stack::Vector{QueryStackElement}
 end
 
-function assert_is_valid(query_state::QueryState)::Nothing
+function assert_is_valid(query_state::QueryState)::Nothing # UNTESTED
     for element in query_state.stack
         assert_is_valid(element)
     end
@@ -1616,7 +1617,7 @@ function is_complete(query_state::QueryState)::Bool
     )
 end
 
-function is_all_stack(query_state::QueryState, expected::NTuple{N, Union{Type, Function}})::Bool where {N}
+function is_all_stack(query_state::QueryState, expected::NTuple{N, Union{Type, Function}})::Bool where {N} # UNTESTED
     return length(query_state.stack) == length(expected) && stack_has_top(query_state, expected)
 end
 
@@ -2059,7 +2060,7 @@ function Base.show(io::IO, if_missing::IfMissing)::Nothing
     return nothing
 end
 
-function default_value(::Nothing)::UndefInitializer
+function default_value(::Nothing)::UndefInitializer # UNTESTED
     return undef
 end
 
@@ -2262,11 +2263,11 @@ struct IsLess <: QueryOperation
     comparison_value::StorageScalar
 end
 
-function comparison_operator(::IsLess)::String
+function comparison_operator(::IsLess)::String # UNTESTED
     return "<"
 end
 
-function compute_comparison(compared_value::StorageScalar, ::IsLess, comparison_value::StorageScalar)::Bool
+function compute_comparison(compared_value::StorageScalar, ::IsLess, comparison_value::StorageScalar)::Bool # UNTESTED
     return compared_value < comparison_value
 end
 
@@ -2282,11 +2283,11 @@ struct IsLessEqual <: QueryOperation
     comparison_value::StorageScalar
 end
 
-function comparison_operator(::IsLessEqual)::String
+function comparison_operator(::IsLessEqual)::String # UNTESTED
     return "<="
 end
 
-function compute_comparison(compared_value::StorageScalar, ::IsLessEqual, comparison_value::StorageScalar)::Bool
+function compute_comparison(compared_value::StorageScalar, ::IsLessEqual, comparison_value::StorageScalar)::Bool # UNTESTED
     return compared_value <= comparison_value
 end
 
@@ -2302,11 +2303,11 @@ struct IsEqual <: QueryOperation
     comparison_value::StorageScalar
 end
 
-function comparison_operator(::IsEqual)::String
+function comparison_operator(::IsEqual)::String # UNTESTED
     return "="
 end
 
-function compute_comparison(compared_value::StorageScalar, ::IsEqual, comparison_value::StorageScalar)::Bool
+function compute_comparison(compared_value::StorageScalar, ::IsEqual, comparison_value::StorageScalar)::Bool # UNTESTED
     return compared_value == comparison_value
 end
 
@@ -2322,11 +2323,11 @@ struct IsNotEqual <: QueryOperation
     comparison_value::StorageScalar
 end
 
-function comparison_operator(::IsNotEqual)::String
+function comparison_operator(::IsNotEqual)::String # UNTESTED
     return "!="
 end
 
-function compute_comparison(compared_value::StorageScalar, ::IsNotEqual, comparison_value::StorageScalar)::Bool
+function compute_comparison(compared_value::StorageScalar, ::IsNotEqual, comparison_value::StorageScalar)::Bool # UNTESTED
     return compared_value != comparison_value
 end
 
@@ -2342,11 +2343,11 @@ struct IsGreaterEqual <: QueryOperation
     comparison_value::StorageScalar
 end
 
-function comparison_operator(::IsGreaterEqual)::String
+function comparison_operator(::IsGreaterEqual)::String # UNTESTED
     return ">="
 end
 
-function compute_comparison(compared_value::StorageScalar, ::IsGreaterEqual, comparison_value::StorageScalar)::Bool
+function compute_comparison(compared_value::StorageScalar, ::IsGreaterEqual, comparison_value::StorageScalar)::Bool # UNTESTED
     return compared_value >= comparison_value
 end
 
@@ -2362,11 +2363,11 @@ struct IsGreater <: QueryOperation
     comparison_value::StorageScalar
 end
 
-function comparison_operator(::IsGreater)::String
+function comparison_operator(::IsGreater)::String # UNTESTED
     return ">"
 end
 
-function compute_comparison(compared_value::StorageScalar, ::IsGreater, comparison_value::StorageScalar)::Bool
+function compute_comparison(compared_value::StorageScalar, ::IsGreater, comparison_value::StorageScalar)::Bool # UNTESTED
     return compared_value > comparison_value
 end
 
@@ -2382,11 +2383,11 @@ struct IsMatch <: QueryOperation
     comparison_value::Union{AbstractString, Regex}
 end
 
-function comparison_operator(::IsMatch)::String
+function comparison_operator(::IsMatch)::String # UNTESTED
     return "~"
 end
 
-function compute_comparison(compared_value::AbstractString, ::IsMatch, comparison_regex::Regex)::Bool
+function compute_comparison(compared_value::AbstractString, ::IsMatch, comparison_regex::Regex)::Bool # UNTESTED
     return occursin(comparison_regex, compared_value)
 end
 
@@ -2402,11 +2403,11 @@ struct IsNotMatch <: QueryOperation
     comparison_value::Union{AbstractString, Regex}
 end
 
-function comparison_operator(::IsNotMatch)::String
+function comparison_operator(::IsNotMatch)::String # UNTESTED
     return "!~"
 end
 
-function compute_comparison(compared_value::AbstractString, ::IsNotMatch, comparison_regex::Regex)::Bool
+function compute_comparison(compared_value::AbstractString, ::IsNotMatch, comparison_regex::Regex)::Bool # UNTESTED
     return !occursin(comparison_regex, compared_value)
 end
 
@@ -2820,7 +2821,7 @@ function axis_with_name(query_operation::QueryOperation)::Bool
     return query_operation isa Axis && query_operation.axis_name !== nothing
 end
 
-function axis_without_name(query_operation::QueryOperation)::Bool
+function axis_without_name(query_operation::QueryOperation)::Bool # UNTESTED
     return query_operation isa Axis && query_operation.axis_name === nothing
 end
 
@@ -2835,7 +2836,7 @@ function vector_maybe_axis(query_state::QueryState, query_value::QueryStackEleme
     )
 end
 
-function matrix_maybe_axis(query_state::QueryState, query_value::QueryStackElement)::Bool
+function matrix_maybe_axis(query_state::QueryState, query_value::QueryStackElement)::Bool # UNTESTED
     return query_value isa MatrixState &&
            query_value.property_name !== nothing &&
            query_value.property_axis_name === nothing &&
@@ -2846,7 +2847,7 @@ function lookup_scalar_with_name(query_operation::QueryOperation)::Bool
     return query_operation isa LookupScalar && query_operation.property_name !== nothing
 end
 
-function lookup_scalar_without_name(query_operation::QueryOperation)::Bool
+function lookup_scalar_without_name(query_operation::QueryOperation)::Bool # UNTESTED
     return query_operation isa LookupScalar && query_operation.property_name === nothing
 end
 
@@ -2854,7 +2855,7 @@ function lookup_vector_with_name(query_operation::QueryOperation)::Bool
     return query_operation isa LookupVector && query_operation.property_name !== nothing
 end
 
-function lookup_vector_without_name(query_operation::QueryOperation)::Bool
+function lookup_vector_without_name(query_operation::QueryOperation)::Bool # UNTESTED
     return query_operation isa LookupVector && query_operation.property_name === nothing
 end
 
@@ -2862,7 +2863,7 @@ function lookup_matrix_with_name(query_operation::QueryOperation)::Bool
     return query_operation isa LookupMatrix && query_operation.property_name !== nothing
 end
 
-function lookup_matrix_without_name(query_operation::QueryOperation)::Bool
+function lookup_matrix_without_name(query_operation::QueryOperation)::Bool # UNTESTED
     return query_operation isa LookupMatrix && query_operation.property_name === nothing
 end
 
@@ -3431,7 +3432,7 @@ function has_lookup_vector_values(
     return nothing
 end
 
-function add_final_values!(::VectorState, ::Nothing)::Nothing
+function add_final_values!(::VectorState, ::Nothing)::Nothing # UNTESTED
     return nothing
 end
 
@@ -3872,7 +3873,7 @@ function lookup_vector_group_by_square_matrix_row(
     return nothing
 end
 
-function extract_vector_axis(vector_state::VectorState)::VectorState
+function extract_vector_axis(vector_state::VectorState)::VectorState # UNTESTED
     vector_axis = copy(vector_state)
     vector_axis.property_axis_name = vector_axis.entries_axis_name
     vector_axis.is_complete_property_axis = false
@@ -3893,10 +3894,10 @@ end
 
 function allocate_is_in_group_per_value_per_thread(n_values::Integer)::Vector{Maybe{BitVector}}
     if is_in_parallel_loop()
-        is_in_group_per_value_per_thread = Vector{Maybe{BitVector}}(nothing, nthreads())  # UNTESTED
+        is_in_group_per_value_per_thread = Vector{Maybe{BitVector}}(nothing, maxthreadid())  # UNTESTED
         is_in_group_per_value_per_thread[threadid()] = BitVector(undef, n_values)  # UNTESTED
     else
-        is_in_group_per_value_per_thread = Maybe{BitVector}[BitVector(undef, n_values) for _ in 1:nthreads()]
+        is_in_group_per_value_per_thread = Maybe{BitVector}[BitVector(undef, n_values) for _ in 1:maxthreadid()]
     end
     return is_in_group_per_value_per_thread
 end
@@ -5679,7 +5680,7 @@ function get_frame(
     end
 
     result = DataFrame(data)  # NOJET
-    @debug "get_frame daf: $(brief(daf)) axis: $(axis) columns: $(columns) result: $(brief(result))" _group =
+    @debug "get_frame daf: $(brief(daf)) axis: $(axis) columns: $(columns) result: $(brief(result))" _group =  # NOJET
         :daf_queries
     return result
 end

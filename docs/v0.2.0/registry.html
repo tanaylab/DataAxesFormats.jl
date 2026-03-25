@@ -377,7 +377,7 @@
 <p>To implement a new such operation, the type is expected to be of the form:
 </p>
 <pre>
-<code class="nohighlight hljs">struct MyOperation &lt;: EltwiseOperation
+<code class="language-julia hljs">struct MyOperation &lt;: EltwiseOperation
     ... optional parameters ...
 end
 @query_operation MyOperation
@@ -480,7 +480,7 @@ compute_eltwise(operation::EltwiseOperation, input_value::Number)::StorageReal
 <p>To implement a new such operation, the type is expected to be of the form:
 </p>
 <pre>
-<code class="nohighlight hljs">struct MyOperation &lt;: ReductionOperation
+<code class="language-julia hljs">struct MyOperation &lt;: ReductionOperation
     ... optional parameters ...
 end
 
@@ -816,7 +816,7 @@ end
 <hr/>
 <p>This document was generated with 
 <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl
-</a> version 1.17.0. Using Julia version 1.11.5.
+</a> version 1.17.0. Using Julia version 1.12.5.
 </p>
 </section>
 <footer class="modal-card-foot">

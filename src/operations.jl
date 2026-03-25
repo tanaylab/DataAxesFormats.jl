@@ -553,7 +553,7 @@ function Clamp(operation_name::Token, parameters_values::Dict{String, Token})::C
     return Clamp(type, min, max)
 end
 
-function is_int(value::Float64)::Bool
+function is_int(value::Float64)::Bool # UNTESTED
     return value == -Inf || value == Inf || isinteger(value)
 end
 
@@ -914,13 +914,13 @@ function Significant(operation_name::Token, parameters_values::Dict{String, Toke
 
     low = parse_parameter_value(operation_name, "eltwise", parameters_values, "low", high) do parameter_value
         low = parse_number_value(operation_name, "low", parameter_value, Float64)
-        if low < 0
+        if low < 0  # NOJET
             error_invalid_parameter_value(operation_name, "low", parameter_value, "not negative")
         end
-        if low > high
+        if low > high  # NOJET
             error_invalid_parameter_value(operation_name, "low", parameter_value, "at most high ($(high))")
         end
-        return low
+        return low  # NOJET
     end
 
     return Significant(high, low)
@@ -1050,7 +1050,7 @@ function reduction_result_type(operation::Count, ::Type)::Type
     return operation.type === nothing ? UInt32 : operation.type
 end
 
-function supports_strings(::Count)::Bool
+function supports_strings(::Count)::Bool # UNTESTED
     return true
 end
 
@@ -1102,15 +1102,15 @@ function compute_reduction(::Mode, input::Union{StorageVector, StorageMatrix})::
     return mode(input)
 end
 
-function reduction_result_type(::Mode, eltype::Type)::Type
+function reduction_result_type(::Mode, eltype::Type)::Type # UNTESTED
     if eltype <: AbstractString
-        return AbstractString  # UNTESTED
+        return AbstractString
     else
         return eltype
     end
 end
 
-function supports_strings(::Mode)::Bool
+function supports_strings(::Mode)::Bool # UNTESTED
     return true
 end
 

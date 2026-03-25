@@ -61,7 +61,7 @@ function patch_args(contract::Contract, daf::DafReader, args, kwargs)::Tuple{Any
     return args, kwargs
 end
 
-function computation_wrapper(single_contract::Contract, name::AbstractString, inner_function)
+function computation_wrapper(single_contract::Contract, name::AbstractString, inner_function) # UNTESTED
     return (args...; kwargs...) -> (
         #! format: off
         (single_name, single_daf) = args_daf(name, single_contract, args, kwargs);
@@ -75,7 +75,7 @@ function computation_wrapper(single_contract::Contract, name::AbstractString, in
     )
 end
 
-function computation_wrapper(first_contract::Contract, second_contract::Contract, name::AbstractString, inner_function)
+function computation_wrapper(first_contract::Contract, second_contract::Contract, name::AbstractString, inner_function) # UNTESTED
     return (args...; kwargs...) -> (  # NOJET
         #! format: off
         @assert (first_contract.name === nothing) + (second_contract.name === nothing) <= 1 "at most one of two contracts can be an unnamed parameter";
@@ -96,7 +96,7 @@ function computation_wrapper(first_contract::Contract, second_contract::Contract
     )
 end
 
-function computation_wrapper(
+function computation_wrapper( # UNTESTED
     first_contract::Contract,
     second_contract::Contract,
     third_contract::Contract,

@@ -327,13 +327,13 @@ function direction_header(buffer::IOBuffer; is_for_output::Bool, has_any::Bool):
     return true
 end
 
-function short(expectation::ContractExpectation)::String
+function short(expectation::ContractExpectation)::String # UNTESTED
     if expectation == RequiredInput
         return "required"
     elseif expectation == CreatedOutput
         return "created"
     elseif expectation == GuaranteedOutput
-        return "guaranteed"  # UNTESTED
+        return "guaranteed"
     elseif expectation in (OptionalInput, OptionalOutput)
         return "optional"
     else
@@ -547,7 +547,7 @@ function ensure_axis(
     return nothing
 end
 
-function is_compatible_axis_expectation(
+function is_compatible_axis_expectation( # UNTESTED
     data_expectation::ContractExpectation,
     axis_expectation::ContractExpectation,
 )::Bool
@@ -588,7 +588,7 @@ Verify the `contract_daf` data before a computation is invoked. This verifies th
 of the appropriate type, and that if any of the optional data exists, it has the appropriate type. This is a no-op if
 the `contract_daf` is just a `DafReader` (that is, if [`DAF_ENFORCE_CONTRACTS`](@ref) was not set).
 """
-function verify_input(contract_daf::ContractDaf)::Nothing
+function verify_input(contract_daf::ContractDaf)::Nothing # UNTESTED
     return flame_timed("verify_input") do
         return verify_contract(contract_daf; is_for_output = false)
     end
@@ -606,7 +606,7 @@ and is of the appropriate type, and that if any of the optional output data exis
 verifies that all the required inputs were accessed by the computation. This is a no-op if the `contract_daf` is just a
 `DafReader` (that is, if [`DAF_ENFORCE_CONTRACTS`](@ref) was not set).
 """
-function verify_output(contract_daf::ContractDaf)::Nothing
+function verify_output(contract_daf::ContractDaf)::Nothing # UNTESTED
     return flame_timed("verify_output") do
         return verify_contract(contract_daf; is_for_output = true)
     end
@@ -892,15 +892,15 @@ function Base.:(|>)(left::Contract, right::Contract)::Contract
     )
 end
 
-function add_pairs(::Nothing, ::Nothing)::Nothing
+function add_pairs(::Nothing, ::Nothing)::Nothing # UNTESTED
     return nothing
 end
 
-function add_pairs(::Nothing, right::T)::T where {T <: AbstractVector{<:Pair}}
+function add_pairs(::Nothing, right::T)::T where {T <: AbstractVector{<:Pair}} # UNTESTED
     return right
 end
 
-function add_pairs(left::T, ::Nothing)::T where {T <: AbstractVector{<:Pair}}
+function add_pairs(left::T, ::Nothing)::T where {T <: AbstractVector{<:Pair}} # UNTESTED
     return left
 end
 
@@ -916,7 +916,7 @@ function add_pairs(
     return collect(merged)
 end
 
-function merge_specifications(
+function merge_specifications( # UNTESTED
     ::Any,
     ::Nothing,
     right_specification::T,
@@ -950,7 +950,7 @@ function merge_specifications(
     )
 end
 
-function merge_types(data_key::DataKey, left_type::Type, right_type::Type)::Type
+function merge_types(data_key::DataKey, left_type::Type, right_type::Type)::Type # UNTESTED
     if left_type == right_type || left_type <: right_type
         return left_type
     elseif right_type <: left_type
@@ -964,7 +964,7 @@ function merge_types(data_key::DataKey, left_type::Type, right_type::Type)::Type
     end
 end
 
-function merge_expectations(
+function merge_expectations( # UNTESTED
     what::AbstractString,
     key::K,
     left_expectation::ContractExpectation,
@@ -1121,7 +1121,7 @@ function Formats.format_axis_vector(contract_daf::ContractDaf, axis::AbstractStr
     return Formats.format_axis_vector(contract_daf.daf, axis)
 end
 
-function Readers.axis_length(contract_daf::ContractDaf, axis::AbstractString)::Int64
+function Readers.axis_length(contract_daf::ContractDaf, axis::AbstractString)::Int64 # UNTESTED
     access_axis(contract_daf, axis; is_for_modify = false)
     return invoke(Readers.axis_length, Tuple{DafReader, AbstractString}, contract_daf, axis)
 end
@@ -1331,7 +1331,7 @@ function Formats.get_scalar_through_cache(contract_daf::ContractDaf, name::Abstr
     return invoke(Formats.get_scalar_through_cache, Tuple{FormatReader, AbstractString}, contract_daf, name)
 end
 
-function Formats.get_axis_vector_through_cache(
+function Formats.get_axis_vector_through_cache( # UNTESTED
     contract_daf::ContractDaf,
     axis::AbstractString,
 )::AbstractVector{<:AbstractString}
@@ -1339,7 +1339,7 @@ function Formats.get_axis_vector_through_cache(
     return invoke(Formats.get_axis_vector_through_cache, Tuple{FormatReader, AbstractString}, contract_daf, axis)
 end
 
-function Formats.get_axis_dict_through_cache(
+function Formats.get_axis_dict_through_cache( # UNTESTED
     contract_daf::ContractDaf,
     axis::AbstractString,
 )::AbstractDict{<:AbstractString, <:Integer}
@@ -1347,7 +1347,7 @@ function Formats.get_axis_dict_through_cache(
     return invoke(Formats.get_axis_dict_through_cache, Tuple{FormatReader, AbstractString}, contract_daf, axis)
 end
 
-function Formats.get_vector_through_cache(
+function Formats.get_vector_through_cache( # UNTESTED
     contract_daf::ContractDaf,
     axis::AbstractString,
     name::AbstractString,
@@ -1362,7 +1362,7 @@ function Formats.get_vector_through_cache(
     )
 end
 
-function Formats.get_matrix_through_cache(
+function Formats.get_matrix_through_cache( # UNTESTED
     contract_daf::ContractDaf,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
@@ -1536,7 +1536,7 @@ function is_immutable(expectation::ContractExpectation; is_for_modify::Bool)::Bo
     return is_for_modify && expectation in (RequiredInput, OptionalInput)
 end
 
-function direction_name(is_for_output::Bool)::String
+function direction_name(is_for_output::Bool)::String # UNTESTED
     if is_for_output
         return "output"
     else
@@ -1566,37 +1566,37 @@ function Readers.description(contract_daf::ContractDaf; cache::Bool = false, dee
     return description(contract_daf.daf; cache, deep)
 end
 
-function Queries.verify_contract_query(contract_daf::ContractDaf, cache_key::CacheKey)::Nothing
+function Queries.verify_contract_query(contract_daf::ContractDaf, cache_key::CacheKey)::Nothing # UNTESTED
     flame_timed("verify_contract_query") do
         dependecies_keys = get(contract_daf.internal.dependencies_of_query_keys, cache_key, nothing)
         if dependecies_keys === nothing
             return nothing
         end
 
-        for dependency_key in dependecies_keys  # UNTESTED
-            type, key = dependency_key  # UNTESTED
-            if type == CachedAxis  # UNTESTED
-                access_axis(contract_daf, key[1]; is_for_modify = false)  # UNTESTED
-            elseif type == CachedQuery  # UNTESTED
+        for dependency_key in dependecies_keys
+            type, key = dependency_key
+            if type == CachedAxis
+                access_axis(contract_daf, key[1]; is_for_modify = false)
+            elseif type == CachedQuery
                 @assert false
-            elseif type == CachedData  # UNTESTED
-                if key isa AbstractString  # UNTESTED
-                    access_scalar(contract_daf, key; is_for_modify = false)  # UNTESTED
-                elseif key isa Tuple{AbstractString, AbstractString}  # UNTESTED
-                    access_vector(contract_daf, key...; is_for_modify = false)  # UNTESTED
-                elseif key isa Tuple{AbstractString, AbstractString, AbstractString}  # UNTESTED
-                    access_matrix(contract_daf, key...; is_for_modify = false)  # UNTESTED
+            elseif type == CachedData
+                if key isa AbstractString
+                    access_scalar(contract_daf, key; is_for_modify = false)
+                elseif key isa Tuple{AbstractString, AbstractString}
+                    access_vector(contract_daf, key...; is_for_modify = false)
+                elseif key isa Tuple{AbstractString, AbstractString, AbstractString}
+                    access_matrix(contract_daf, key...; is_for_modify = false)
                 else
                     @assert false
                 end
-            elseif type == CachedNames  # UNTESTED
-                if key isa AbstractString  # UNTESTED
+            elseif type == CachedNames
+                if key isa AbstractString
 
-                elseif key isa Tuple{AbstractString}  # UNTESTED
-                    access_axis(contract_daf, key[1]; is_for_modify = false)  # UNTESTED
-                elseif key isa Tuple{AbstractString, AbstractString, Bool}  # UNTESTED
-                    access_axis(contract_daf, key[1]; is_for_modify = false)  # UNTESTED
-                    access_axis(contract_daf, key[2]; is_for_modify = false)  # UNTESTED
+                elseif key isa Tuple{AbstractString}
+                    access_axis(contract_daf, key[1]; is_for_modify = false)
+                elseif key isa Tuple{AbstractString, AbstractString, Bool}
+                    access_axis(contract_daf, key[1]; is_for_modify = false)
+                    access_axis(contract_daf, key[2]; is_for_modify = false)
                 end
             else
                 @assert false

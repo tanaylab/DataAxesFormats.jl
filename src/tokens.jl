@@ -63,7 +63,7 @@ end
 Undo [`escape_value`](@ref), that is, given an `escaped` value with a `\\` characters escaping special characters, drop
 the `\\` to get back the original string value.
 """
-function unescape_value(escaped::AbstractString)::String
+function unescape_value(escaped::AbstractString)::String # UNTESTED
     if escaped == "''"
         return ""
     else
@@ -99,7 +99,7 @@ parameter value).
 The safe characters are `a` - `z`, `A` - `Z`, `0` - `9`, `_`, `+`, `-`, and `.`, as well as any non-ASCII (that is,
 Unicode) characters.
 """
-function is_value_char(character::Char)::Bool
+function is_value_char(character::Char)::Bool # UNTESTED
     return character == '_' ||
            character == '.' ||
            character == '+' ||
@@ -117,7 +117,7 @@ by a `\\`, such that the result will only use [`is_value_char`](@ref) characters
 `_XX` using URI encoding, but replacing the `%` with a `_` so we can deal with unescaped `%` as an operator, so we also
 need to encode `_` as `_5F`, so we need to encode `\\_` as `_5C_5F`. Isn't encoding **fun**?
 """
-function encode_expression(expr_string::AbstractString)::String
+function encode_expression(expr_string::AbstractString)::String # UNTESTED
     return replace(expr_string, "\\_" => "_5C_5F", "_" => "_5F", r"\\." => encode_expression_char)  # NOJET
 end
 

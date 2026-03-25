@@ -459,7 +459,7 @@ function format_get_empty_sparse_vector! end
 
 Allow the `format` to perform caching once the empty sparse vector has been `filled`. By default this does nothing.
 """
-function format_filled_empty_sparse_vector!(
+function format_filled_empty_sparse_vector!( # UNTESTED
     ::FormatWriter,
     ::AbstractString,
     ::AbstractString,
@@ -588,7 +588,7 @@ function format_get_empty_sparse_matrix! end
 
 Allow the `format` to perform caching once the empty sparse matrix has been `filled`. By default this does nothing.
 """
-function format_filled_empty_sparse_matrix!(
+function format_filled_empty_sparse_matrix!( # UNTESTED
     ::FormatWriter,
     ::AbstractString,
     ::AbstractString,
@@ -667,7 +667,7 @@ Allow a `format` to amit additional description header lines.
 
 This trusts that we have a read lock on the data set.
 """
-function format_description_header(format::FormatReader, indent::AbstractString, lines::Vector{String}, ::Bool)::Nothing
+function format_description_header(format::FormatReader, indent::AbstractString, lines::Vector{String}, ::Bool)::Nothing # UNTESTED
     push!(lines, "$(indent)type: $(nameof(typeof(format)))")
     return nothing
 end
@@ -702,13 +702,13 @@ function put_in_cache!(format::FormatReader, cache_key::CacheKey, data::CacheDat
     return nothing
 end
 
-function set_in_cache!(format::FormatReader, cache_key::CacheKey, data::CacheData, cache_group::CacheGroup)::Nothing
+function set_in_cache!(format::FormatReader, cache_key::CacheKey, data::CacheData, cache_group::CacheGroup)::Nothing # UNTESTED
     return with_cache_write_lock(format, "for set_in_cache!:", cache_key) do  # NOJET
         return put_in_cache!(format, cache_key, data, cache_group)
     end
 end
 
-function set_in_cache!(::FormatReader, ::CacheKey, ::CacheData, ::Nothing)::Nothing
+function set_in_cache!(::FormatReader, ::CacheKey, ::CacheData, ::Nothing)::Nothing # UNTESTED
     return nothing
 end
 
@@ -750,7 +750,7 @@ function get_through_cache(
     return cached
 end
 
-function result_from_cache(::Nothing)::Nothing
+function result_from_cache(::Nothing)::Nothing # UNTESTED
     return nothing
 end
 

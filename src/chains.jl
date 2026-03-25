@@ -237,7 +237,7 @@ function reader_internal_dafs(dafs::AbstractVector, name::AbstractString)::Vecto
     return internal_dafs
 end
 
-function name_suffix(name::Maybe{AbstractString})::String
+function name_suffix(name::Maybe{AbstractString})::String # UNTESTED
     if name === nothing
         return ""
     else

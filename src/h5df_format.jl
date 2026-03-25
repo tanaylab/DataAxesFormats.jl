@@ -239,7 +239,7 @@ function H5df(
             if haskey(root, group)
                 if truncate_if_exists
                     delete_object(root, group)
-                    create_group(root, group)
+                    create_group(root, group)  # NOJET
                 end
             else
                 if create_if_missing  # UNTESTED
@@ -306,12 +306,12 @@ function H5df(
     end
 end
 
-function verify_alignment(root::HDF5.Group)::Nothing
+function verify_alignment(root::HDF5.Group)::Nothing # UNTESTED
     return verify_alignment(root.file)
 end
 
 function verify_alignment(root::HDF5.File)::Nothing
-    file_access_properties = HDF5.get_access_properties(root)
+    file_access_properties = HDF5.get_access_properties(root)  # NOJET
     alignment = file_access_properties.alignment
     if alignment[1] > 1 || alignment[2] != 8
         @warn """
@@ -592,7 +592,7 @@ function Formats.format_set_vector!(
     return nothing
 end
 
-function write_string_vector(
+function write_string_vector( # UNTESTED
     axis_vectors_group::HDF5.Group,
     name::AbstractString,
     vector::AbstractVector{<:AbstractString},
@@ -881,7 +881,7 @@ function Formats.format_set_matrix!(
     return nothing
 end
 
-function write_string_matrix(
+function write_string_matrix( # UNTESTED
     columns_axis_group::HDF5.Group,
     name::AbstractString,
     matrix::AbstractMatrix{<:AbstractString},

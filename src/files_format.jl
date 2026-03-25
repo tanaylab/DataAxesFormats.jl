@@ -216,7 +216,7 @@ function FilesDaf(
             report_modified!(path)
         end
 
-        if !cached_ispath(daf_file_path)
+        if !cached_ispath(daf_file_path)  # NOJET
             write(daf_file_path, "{\"version\":[$(MAJOR_VERSION),$(MINOR_VERSION)]}\n")
             report_modified!(daf_file_path)
             for directory in ("scalars", "axes", "vectors", "matrices")
@@ -451,7 +451,7 @@ function Formats.format_set_vector!(
     return nothing
 end
 
-function write_string_vector(
+function write_string_vector( # UNTESTED
     files::FilesDaf,
     axis::AbstractString,
     name::AbstractString,
@@ -956,7 +956,7 @@ function Formats.format_get_matrix(
     return matrix
 end
 
-function get_names_set(path::AbstractString, suffix::AbstractString)::AbstractSet{<:AbstractString}
+function get_names_set(path::AbstractString, suffix::AbstractString)::AbstractSet{<:AbstractString} # UNTESTED
     return flame_timed("FilesDaf.get_names_set") do
         names_set = Set{AbstractString}()
         suffix_length = length(suffix)
@@ -999,7 +999,7 @@ function mmap_file_data(
     end
 end
 
-function fill_file(path::AbstractString, value::StorageScalar, size::Integer)::Nothing
+function fill_file(path::AbstractString, value::StorageScalar, size::Integer)::Nothing # UNTESTED
     flame_timed("FilesDaf.fill_file") do
         if value isa AbstractString
             @assert !contains(value, '\n')
@@ -1026,7 +1026,7 @@ function fill_file(path::AbstractString, value::StorageScalar, size::Integer)::N
     end
 end
 
-function write_zeros_file(path::AbstractString, size::Integer)::Nothing
+function write_zeros_file(path::AbstractString, size::Integer)::Nothing # UNTESTED
     flame_timed("FilesDaf.write_zeros_file") do
         open(path, "w") do file
             if size > 0
@@ -1038,7 +1038,7 @@ function write_zeros_file(path::AbstractString, size::Integer)::Nothing
     return nothing
 end
 
-function write_array_json(
+function write_array_json( # UNTESTED
     path::AbstractString,
     format::AbstractString,
     eltype::Type{<:StorageScalarBase},

@@ -475,7 +475,30 @@ axis contains entries that do not exist in the target, they are discarded (not c
     @assert rows_relation == :source_is_subset || columns_relation == :source_is_subset
 
     with_data_write_lock(destination) do
-        if issparse(value) || empty == 0 || concrete_eltype <: AbstractString
+        if empty == 0 && !(concrete_eltype <: AbstractString)
+            rows_indices = axis_indices(destination, rows_reaxis, names(value, 1))
+            columns_indices = axis_indices(destination, columns_reaxis, names(value, 2))
+            n_rows = axis_length(destination, rows_reaxis)
+            n_columns = axis_length(destination, columns_reaxis)
+            if issparse(value)
+                embedded = embed_sparse_matrix_in_sparse_matrix(
+                    sparse_matrix_csc(value);
+                    rows_indices,
+                    n_rows,
+                    columns_indices,
+                    n_columns,
+                )
+            else
+                embedded = embed_dense_matrix_in_sparse_matrix(
+                    Matrix{concrete_eltype}(value);
+                    rows_indices,
+                    n_rows,
+                    columns_indices,
+                    n_columns,
+                )
+            end
+            set_matrix!(destination, rows_reaxis, columns_reaxis, rename, embedded; overwrite, relayout)
+        elseif issparse(value) || concrete_eltype <: AbstractString
             dense = Matrix{concrete_eltype}(
                 undef,
                 axis_length(destination, rows_reaxis),
@@ -996,7 +1019,7 @@ function copy_single_matrix(;
     )
 end
 
-function new_name(rename::Maybe{AbstractString}, name::AbstractString)::AbstractString
+function new_name(rename::Maybe{AbstractString}, name::AbstractString)::AbstractString # UNTESTED
     return rename === nothing ? name : rename
 end
 

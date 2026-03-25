@@ -399,7 +399,7 @@ function Formats.format_get_scalar(view::DafView, name::AbstractString)::Storage
     return fetch_scalar_data(view, name)
 end
 
-function Formats.format_scalars_set(view::DafView)::AbstractSet{<:AbstractString}
+function Formats.format_scalars_set(view::DafView)::AbstractSet{<:AbstractString} # UNTESTED
     @assert Formats.has_data_read_lock(view)
     return collect_view_scalars(view)
 end
@@ -410,12 +410,12 @@ function Formats.format_has_axis(view::DafView, axis::AbstractString; for_change
     return query !== nothing && has_query(view.daf, query)
 end
 
-function Formats.format_axes_set(view::DafView)::AbstractSet{<:AbstractString}
+function Formats.format_axes_set(view::DafView)::AbstractSet{<:AbstractString} # UNTESTED
     @assert Formats.has_data_read_lock(view)
     return collect_view_axes(view)
 end
 
-function Formats.format_axis_vector(view::DafView, axis::AbstractString)::AbstractVector{<:AbstractString}
+function Formats.format_axis_vector(view::DafView, axis::AbstractString)::AbstractVector{<:AbstractString} # UNTESTED
     @assert Formats.has_data_read_lock(view)
     return fetch_axis_data(view, axis)  # NOJET
 end
@@ -430,12 +430,12 @@ function Formats.format_has_vector(view::DafView, axis::AbstractString, name::Ab
     return query !== nothing && has_query(view.daf, query)
 end
 
-function Formats.format_vectors_set(view::DafView, axis::AbstractString)::AbstractSet{<:AbstractString}
+function Formats.format_vectors_set(view::DafView, axis::AbstractString)::AbstractSet{<:AbstractString} # UNTESTED
     @assert Formats.has_data_read_lock(view)
     return collect_view_vectors(view, axis)
 end
 
-function Formats.format_get_vector(view::DafView, axis::AbstractString, name::AbstractString)::StorageVector
+function Formats.format_get_vector(view::DafView, axis::AbstractString, name::AbstractString)::StorageVector # UNTESTED
     @assert Formats.has_data_read_lock(view)
     return fetch_vector_data(view, axis, name)
 end
@@ -451,7 +451,7 @@ function Formats.format_has_matrix(
     return query !== nothing && has_query(view.daf, query)
 end
 
-function Formats.format_matrices_set(
+function Formats.format_matrices_set( # UNTESTED
     view::DafView,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
@@ -460,7 +460,7 @@ function Formats.format_matrices_set(
     return collect_view_matrices(view, rows_axis, columns_axis)
 end
 
-function Formats.format_get_matrix(
+function Formats.format_get_matrix( # UNTESTED
     view::DafView,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
