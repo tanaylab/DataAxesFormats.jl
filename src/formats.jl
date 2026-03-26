@@ -823,6 +823,18 @@ function write_through_cache(
                 end
                 return nothing
             end
+        catch
+            with_cache_write_lock(format, "for slow error:", cache_key) do
+                delete!(format.internal.cache, cache_key)
+                lock(format.internal.pending_condition) do
+                    format.internal.pending_count[1] -= 1
+                    if format.internal.pending_count[1] == 0
+                        notify(format.internal.pending_condition)
+                    end
+                end
+                return nothing
+            end
+            rethrow()
         finally
             unlock(entry_lock)
         end

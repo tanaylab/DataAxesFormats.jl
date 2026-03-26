@@ -857,7 +857,7 @@ function Formats.format_delete_matrix!(
     for_set::Bool,  # NOLINT
 )::Nothing
     @assert Formats.has_data_write_lock(files)
-    for suffix in (".json", ".data", ".txt", ".colptr", ".rowval", "nzval")
+    for suffix in (".json", ".data", ".txt", ".colptr", ".rowval", ".nzval")
         path = "$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name)$(suffix)"
         rm(path; force = true)
         report_modified!(path)
