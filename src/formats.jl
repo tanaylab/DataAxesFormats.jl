@@ -824,7 +824,7 @@ function write_through_cache(
                 return nothing
             end
         catch
-            with_cache_write_lock(format, "for slow error:", cache_key) do
+            with_cache_write_lock(format, "for slow error:", cache_key) do  # FLAKY TESTED
                 delete!(format.internal.cache, cache_key)
                 lock(format.internal.pending_condition) do
                     format.internal.pending_count[1] -= 1
