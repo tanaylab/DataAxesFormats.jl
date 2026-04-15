@@ -9,6 +9,7 @@ module Reconstruction
 export reconstruct_axis!
 
 using ..Formats
+using ..Keys
 using ..Queries
 using ..Readers
 using ..StorageTypes
@@ -16,10 +17,9 @@ using ..Writers
 using TanayLabUtilities
 
 """
-Map property names to a default value. We would have liked to specify this as `AbstractDict{<:AbstractString, <:StorageScalarBase}` but Julia in its infinite wisdom considers `Dict(["a" => "b", "c" => 1])` to be a
-`Dict{AbstractString, Any}`, which would require literals to be annotated with the type.
+Map property names to a default value. This can be specified as a dictionary, a vector of pairs, or a named tuple.
 """
-PropertiesDefaults = AbstractDict
+PropertiesDefaults = Union{AbstractDict, AbstractVector, NamedTuple}
 
 """
     reconstruct_axis!(
@@ -75,6 +75,8 @@ to use for these values.
     skipped_properties::Maybe{AbstractSet{<:AbstractString}} = nothing,
     properties_defaults::Maybe{PropertiesDefaults} = nothing,
 )::AbstractDict{<:AbstractString, Maybe{StorageScalar}}
+    properties_defaults = pairs_as_dict(properties_defaults)
+
     if rename_axis === nothing
         rename_axis = implicit_axis
     end

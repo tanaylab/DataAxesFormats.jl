@@ -8,7 +8,7 @@ nested_test("contracts") do
     nested_test("add") do
         nested_test("axes") do
             nested_test("left") do
-                left = Contract(; axes = ["cell" => (RequiredInput, "description")])
+                left = Contract(; axes = (; cell = (RequiredInput, "description")))
                 right = Contract()
                 @test (left |> right).axes == ["cell" => (RequiredInput, "description")]
                 right = Contract(; axes = Pair{AxisKey, AxisSpecification}[])

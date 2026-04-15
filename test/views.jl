@@ -27,7 +27,7 @@ nested_test("views") do
         end
 
         nested_test("reduction") do
-            view = viewer(daf; data = ["sum_ages" => "@ cell : age >> Sum"])
+            view = viewer(daf; data = (; sum_ages = "@ cell : age >> Sum"))
             @test scalars_set(view) == Set(["sum_ages"])
             @test get_scalar(view, "sum_ages") == 3
         end
@@ -64,7 +64,7 @@ nested_test("views") do
         set_vector!(daf, "gene", "is_marker", [true, false, true])
 
         nested_test("copy") do
-            view = viewer(daf; axes = [VIEW_ALL_AXES])
+            view = viewer(daf; axes = (cell = "=", gene = "="))
             @test axes_set(view) == Set(["cell", "gene"])
         end
 
@@ -72,7 +72,7 @@ nested_test("views") do
             view = viewer(daf; axes = [VIEW_ALL_AXES, "cell" => nothing])
             @test axes_set(view) == Set(["gene"])
             @test !has_axis(view, "cell")
-            view = viewer(daf; axes = ["cell" => "="])
+            view = viewer(daf; axes = (; cell = "="))
             @test !has_axis(view, "gene")
         end
 

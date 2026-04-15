@@ -1385,8 +1385,8 @@ nested_test("copies") do
             copy_all!(;
                 source = source,
                 destination = destination,
-                empty = Dict(("cell", "age") => 0.0, ("gene", "cell", "UMIs") => 0),
-                types = Dict("version" => Float32),
+                empty = [("cell", "age") => 0.0, ("gene", "cell", "UMIs") => 0],
+                types = (; version = Float32),
             )
 
             @test get_scalar(destination, "version") == 1.5

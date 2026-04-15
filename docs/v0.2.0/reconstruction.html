@@ -411,13 +411,7 @@
 </summary>
 <section>
 <div>
-<p>Map property names to a default value. We would have liked to specify this as 
-<code>AbstractDict{&lt;:AbstractString, &lt;:StorageScalarBase}
-</code> but Julia in its infinite wisdom considers 
-<code>Dict([&quot;a&quot; =&gt; &quot;b&quot;, &quot;c&quot; =&gt; 1])
-</code> to be a 
-<code>Dict{AbstractString, Any}
-</code>, which would require literals to be annotated with the type.
+<p>Map property names to a default value. This can be specified as a dictionary, a vector of pairs, or a named tuple.
 </p>
 </div>
 </section>

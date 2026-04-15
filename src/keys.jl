@@ -12,6 +12,8 @@ export PropertyKey
 export ScalarKey
 export TensorKey
 export VectorKey
+export named_tuple_as_pairs
+export pairs_as_dict
 
 """
 A key specifying some axis in `Daf` by its name.
@@ -53,5 +55,39 @@ A key specifying some data property in `Daf`. This includes [`TensorKey`](@ref) 
 matrix properties instead of a single data property.
 """
 DataKey = Union{PropertyKey, TensorKey}
+
+"""
+Convert a dictionary, a vector of pairs, or a named tuple to a dictionary. Returns `nothing` for `nothing`.
+"""
+function pairs_as_dict(pairs_input::AbstractDict)::AbstractDict  # FLAKY TESTED
+    return pairs_input
+end
+
+function pairs_as_dict(pairs_input::AbstractVector)::Dict{Any, Any}  # FLAKY TESTED
+    return Dict{Any, Any}(pairs_input)
+end
+
+function pairs_as_dict(pairs_input::NamedTuple)::Dict{AbstractString, Any}  # FLAKY TESTED
+    return Dict{AbstractString, Any}(String(key) => value for (key, value) in pairs(pairs_input))
+end
+
+function pairs_as_dict(::Nothing)::Nothing  # FLAKY TESTED
+    return nothing
+end
+
+"""
+Convert a vector of pairs or a named tuple to a vector of pairs. Returns `nothing` for `nothing`.
+"""
+function named_tuple_as_pairs(pairs_input::AbstractVector)::AbstractVector
+    return pairs_input
+end
+
+function named_tuple_as_pairs(pairs_input::NamedTuple)::Vector{Pair{AbstractString, Any}}
+    return Pair{AbstractString, Any}[String(key) => value for (key, value) in pairs(pairs_input)]
+end
+
+function named_tuple_as_pairs(::Nothing)::Nothing  # UNTESTED
+    return nothing
+end
 
 end  # module

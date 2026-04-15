@@ -63,11 +63,11 @@ the key `(rows_axis, columns_axis, matrix_name)` key *does* matter in the `Merge
 MergeDatum = Union{Pair{<:PropertyKey, <:MergeAction}, Tuple{PropertyKey, MergeAction}}
 
 """
-Specify all the data to merge. We would have liked to specify this as `AbstractVector{<:MergeDatum}` but Julia in its
-infinite wisdom considers `["a" => "b", ("c", "d") => "e"]` to be a `Vector{Any}`, which would require literals to be
-annotated with the type.
+Specify all the data to merge. This can be specified as a vector or a named tuple. We would have liked to specify this
+as `AbstractVector{<:MergeDatum}` but Julia in its infinite wisdom considers `["a" => "b", ("c", "d") => "e"]` to be a
+`Vector{Any}`, which would require literals to be annotated with the type.
 """
-MergeData = AbstractVector
+MergeData = Union{AbstractVector, NamedTuple}
 
 """
     concatenate!(
@@ -146,6 +146,9 @@ By default, concatenation will fail rather than `overwrite` existing properties 
     overwrite::Bool = false,
 )::Nothing
     @assert 0 < sparse_if_saves_storage_fraction < 1
+
+    empty = pairs_as_dict(empty)
+    merge = named_tuple_as_pairs(merge)
 
     tensor_keys = Vector{TensorKey}()
     empty = expand_tensors(; dafs = DafReader[destination, sources...], data = empty, tensor_keys, what_for = "empty")

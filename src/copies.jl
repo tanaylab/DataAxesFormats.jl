@@ -614,33 +614,28 @@ which exist in the destination but do not exist in the source. If a tensor matri
 end
 
 """
-Specify the data to use for missing properties in a `Daf` data set. This is a dictionary with an [`DataKey`](@ref)
-specifying for which property we spec,aify a value to, and the value to use. We would have liked to specify this as
-`AbstractDict{<:DataKey, <:StorageScalarBase}` but Julia in its infinite wisdom considers
-`Dict(["a" => "b", ("c", "d") => 1])` to be a `Dict{Any, Any}`, which would require literals to be annotated with the
-type.
+Specify the data to use for missing properties in a `Daf` data set. This is specified using a [`DataKey`](@ref) for
+which property we specify a value for, and the value to use. This can be specified as a dictionary, a vector of pairs,
+or a named tuple.
 
 !!! note
 
     A [`TensorKey`](@ref) is interpreted as if it as the set of [`MatrixKey`](@ref)s that are included in the tensor.
     These are expanded in an internal copy of the dictionary and will override any other specified [`MatrixKey`](@ref).
 """
-EmptyData = AbstractDict
+EmptyData = Union{AbstractDict, AbstractVector, NamedTuple}
 
 """
-Specify the data type to use for overriding properties types in a `Daf` data set. This is a dictionary with an
-[`DataKey`](@ref) specifying for which property we specify a value to, and the data type to use.
-We would have liked to specify this as
-`AbstractDict{<:DataKey, Type{<:StorageScalarBase}}` but Julia in its infinite wisdom considers
-`Dict(["a" => Bool, ("c", "d") => Int32])` to be a `Dict{Any, DataType}`, which would require literals to be annotated
-with the type.
+Specify the data type to use for overriding properties types in a `Daf` data set. This is specified using a
+[`DataKey`](@ref) for which property we specify a type for, and the data type to use. This can be specified as a
+dictionary, a vector of pairs, or a named tuple.
 
 !!! note
 
     A [`TensorKey`](@ref) is interpreted as if it as the set of [`MatrixKey`](@ref)s that are included in the tensor.
     These are expanded in an internal copy of the dictionary and will override any other specified [`MatrixKey`](@ref).
 """
-DataTypes = AbstractDict
+DataTypes = Union{AbstractDict, AbstractVector, NamedTuple}
 
 """
     copy_all!(;
@@ -680,6 +675,9 @@ axis which exist in the destination but do not exist in the source.
     insist::Bool = true,
     relayout::Bool = true,
 )::Nothing
+    empty = pairs_as_dict(empty)
+    types = pairs_as_dict(types)
+
     tensor_keys = Vector{TensorKey}()
     empty = expand_tensors(; dafs = DafReader[destination, source], data = empty, tensor_keys, what_for = "empty")
     types = expand_tensors(; dafs = DafReader[destination, source], data = types, tensor_keys, what_for = "types")

@@ -295,7 +295,7 @@ nested_test("concat") do
             end
 
             nested_test("last") do
-                concatenate!(destination, "cell", sources; merge = ["version" => LastValue])
+                concatenate!(destination, "cell", sources; merge = (; version = LastValue))
                 @test get_scalar(destination, "version") == 2
                 @test !has_vector(destination, "dataset", "version")
             end

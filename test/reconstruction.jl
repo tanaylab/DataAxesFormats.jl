@@ -91,7 +91,7 @@ nested_test("reconstruction") do
                 memory;
                 existing_axis = "cell",
                 implicit_axis = "batch",
-                properties_defaults = Dict(["age" => 4]),
+                properties_defaults = (; age = 4),
             )
             @test keys(results) == Set(["age"])
             @test results["age"] == 3

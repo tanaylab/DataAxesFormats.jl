@@ -91,11 +91,11 @@ other languages such as Python which do not have the concept of a `Pair`.
 ContractAxis = Union{Pair{<:AxisKey, <:AxisSpecification}, Tuple{AxisKey, AxisSpecification}}
 
 """
-Specify all the axes for a contract. We would have liked to specify this as `AbstractVector{<:ContractAxis}`
-but Julia in its infinite wisdom considers `["a" => "b", ("c", "d")]` to be a `Vector{Any}`, which would require literals
-to be annotated with the type.
+Specify all the axes for a contract. This can be specified as a vector or a named tuple. We would have liked to specify
+this as `AbstractVector{<:ContractAxis}` but Julia in its infinite wisdom considers `["a" => "b", ("c", "d")]` to be a
+`Vector{Any}`, which would require literals to be annotated with the type.
 """
-ContractAxes = AbstractVector
+ContractAxes = Union{AbstractVector, NamedTuple}
 
 """
 The specification of some property in a [`Contract`](@ref), which is the [`ContractExpectation`](@ref) and the type for
@@ -112,11 +112,11 @@ concept of a `Pair`.
 ContractDatum = Union{Pair{<:DataKey, <:DataSpecification}, Tuple{DataKey, DataSpecification}}
 
 """
-Specify all the data for a contract. We would have liked to specify this as `AbstractVector{<:ContractDatum}` but Julia
-in its infinite wisdom considers `["a" => "b", ("c", "d") => "e"]` to be a `Vector{Any}`, which would require literals
-to be annotated with the type.
+Specify all the data for a contract. This can be specified as a vector or a named tuple. We would have liked to specify
+this as `AbstractVector{<:ContractDatum}` but Julia in its infinite wisdom considers `["a" => "b", ("c", "d") => "e"]`
+to be a `Vector{Any}`, which would require literals to be annotated with the type.
 """
-ContractData = AbstractVector
+ContractData = Union{AbstractVector, NamedTuple}
 
 """
     @kwdef struct Contract
@@ -144,6 +144,10 @@ be the first unnamed parameter (there can be only one such unnamed parameter per
     is_relaxed::Bool = false
     axes::Maybe{ContractAxes} = nothing
     data::Maybe{ContractData} = nothing
+
+    function Contract(name, is_relaxed, axes, data)
+        return new(name, is_relaxed, named_tuple_as_pairs(axes), named_tuple_as_pairs(data))
+    end
 end
 
 function contract_documentation(contract::Contract, buffer::IOBuffer)::Nothing
@@ -892,7 +896,7 @@ function Base.:(|>)(left::Contract, right::Contract)::Contract
     )
 end
 
-function add_pairs(::Nothing, ::Nothing)::Nothing # UNTESTED
+function add_pairs(::Nothing, ::Nothing)::Nothing
     return nothing
 end
 

@@ -48,6 +48,7 @@ nested_test("doctests") do
     return doctest(DataAxesFormats; manual = false)
 end
 
+include("keys.jl")
 include("read_only.jl")
 include("data.jl")
 include("anndata.jl")

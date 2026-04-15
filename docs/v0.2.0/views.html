@@ -459,9 +459,9 @@
 </summary>
 <section>
 <div>
-<p>Specify all the axes to expose from a view. The order of the pairs (or tuples) matters - the last one wins. We would have liked to specify this as 
+<p>Specify all the axes to expose from a view. The order of the pairs (or tuples) matters - the last one wins. This can be specified as a vector or a named tuple. We would have liked to specify this as 
 <code>AbstractVector{&lt;:ViewAxis}
-</code> but Julia in its infinite wisdom considers does not allow 
+</code> but Julia in its infinite wisdom does not allow 
 <code>Pair{String, String}
 </code> to be a subtype of 
 <code>Pair{AbstractString, AbstractString}
@@ -607,9 +607,9 @@
 </code>
 </a>s, so they will override them even if they appear earlier in the list of keys. For clarity it is best to list them at the very end of the list.
 </p>
-<p>We would have liked to specify this as 
+<p>This can be specified as a vector or a named tuple. We would have liked to specify this as 
 <code>AbstractVector{&lt;:ViewDatum}
-</code> but Julia in its infinite wisdom considers does not allow 
+</code> but Julia in its infinite wisdom does not allow 
 <code>Pair{String, String}
 </code> to be a subtype of 
 <code>Pair{AbstractString, AbstractString}

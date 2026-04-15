@@ -91,11 +91,11 @@ pair, followed by additional ones to hide or override specific axes.
 ViewAxis = Union{Tuple{AbstractString, Maybe{QueryString}}, Pair{<:AbstractString, <:Maybe{QueryString}}}
 
 """
-Specify all the axes to expose from a view. The order of the pairs (or tuples) matters - the last one wins. We would
-have liked to specify this as `AbstractVector{<:ViewAxis}` but Julia in its infinite wisdom considers does not allow
-`Pair{String, String}` to be a subtype of `Pair{AbstractString, AbstractString}`.
+Specify all the axes to expose from a view. The order of the pairs (or tuples) matters - the last one wins. This can be
+specified as a vector or a named tuple. We would have liked to specify this as `AbstractVector{<:ViewAxis}` but Julia in
+its infinite wisdom does not allow `Pair{String, String}` to be a subtype of `Pair{AbstractString, AbstractString}`.
 """
-ViewAxes = AbstractVector
+ViewAxes = Union{AbstractVector, NamedTuple}
 
 """
 Specify a single datum to expose from view.
@@ -143,10 +143,11 @@ Specify all the data to expose from a view. The order of the pairs (or tuples) m
 [`TensorKey`](@ref)s are interpreted after interpreting all [`MatrixKey`](@ref)s, so they will override them even if
 they appear earlier in the list of keys. For clarity it is best to list them at the very end of the list.
 
-We would have liked to specify this as `AbstractVector{<:ViewDatum}` but Julia in its infinite wisdom considers does not
-allow `Pair{String, String}` to be a subtype of `Pair{AbstractString, AbstractString}`.
+This can be specified as a vector or a named tuple. We would have liked to specify this as
+`AbstractVector{<:ViewDatum}` but Julia in its infinite wisdom does not allow `Pair{String, String}` to be a subtype of
+`Pair{AbstractString, AbstractString}`.
 """
-ViewData = AbstractVector
+ViewData = Union{AbstractVector, NamedTuple}
 
 """
 A key to use in the `axes` parameter of [`viewer`](@ref) to specify all the base data axes.
@@ -234,6 +235,9 @@ function viewer(
     if data === nothing
         data = VIEW_ALL_DATA
     end
+
+    axes = named_tuple_as_pairs(axes)
+    data = named_tuple_as_pairs(data)
 
     for axis in axes
         @assert (

@@ -769,17 +769,11 @@
 <div>
 <p>Specify the data to use for missing properties in a 
 <code>Daf
-</code> data set. This is a dictionary with an 
+</code> data set. This is specified using a 
 <a href="keys.html#DataAxesFormats.Keys.DataKey">
 <code>DataKey
 </code>
-</a> specifying for which property we spec,aify a value to, and the value to use. We would have liked to specify this as 
-<code>AbstractDict{&lt;:DataKey, &lt;:StorageScalarBase}
-</code> but Julia in its infinite wisdom considers 
-<code>Dict([&quot;a&quot; =&gt; &quot;b&quot;, (&quot;c&quot;, &quot;d&quot;) =&gt; 1])
-</code> to be a 
-<code>Dict{Any, Any}
-</code>, which would require literals to be annotated with the type.
+</a> for which property we specify a value for, and the value to use. This can be specified as a dictionary, a vector of pairs, or a named tuple.
 </p>
 <div class="admonition is-info" id="Note-c6ffe8c0b985b558">
 <header class="admonition-header">Note
@@ -821,17 +815,11 @@
 <div>
 <p>Specify the data type to use for overriding properties types in a 
 <code>Daf
-</code> data set. This is a dictionary with an 
+</code> data set. This is specified using a 
 <a href="keys.html#DataAxesFormats.Keys.DataKey">
 <code>DataKey
 </code>
-</a> specifying for which property we specify a value to, and the data type to use. We would have liked to specify this as 
-<code>AbstractDict{&lt;:DataKey, Type{&lt;:StorageScalarBase}}
-</code> but Julia in its infinite wisdom considers 
-<code>Dict([&quot;a&quot; =&gt; Bool, (&quot;c&quot;, &quot;d&quot;) =&gt; Int32])
-</code> to be a 
-<code>Dict{Any, DataType}
-</code>, which would require literals to be annotated with the type.
+</a> for which property we specify a type for, and the data type to use. This can be specified as a dictionary, a vector of pairs, or a named tuple.
 </p>
 <div class="admonition is-info" id="Note-c6ffe8c0b985b558">
 <header class="admonition-header">Note
