@@ -225,7 +225,7 @@ function H5df(
         if !truncate_if_exists
             purge = false
         elseif group === nothing
-            purge = true  # UNTESTED
+            purge = true
         else
             mode = "w+"
             purge = false
@@ -364,6 +364,14 @@ function delete_content(root::Union{HDF5.File, HDF5.Group})::Nothing
     for object_name in object_names
         HDF5.delete_object(root, object_name)
     end
+end
+
+function Readers.is_leaf(::H5df)::Bool  # FLAKY TESTED
+    return true
+end
+
+function Readers.is_leaf(::Type{H5df})::Bool  # FLAKY TESTED
+    return true
 end
 
 function Formats.format_has_scalar(h5df::H5df, name::AbstractString)::Bool

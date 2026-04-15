@@ -1716,6 +1716,51 @@ println(matrix_version_counter(metacells, &quot;gene&quot;, &quot;metacell&quot;
 </section>
 </details>
 </article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.Readers.is_leaf">
+<a class="docstring-binding" href="#DataAxesFormats.Readers.is_leaf">
+<code>DataAxesFormats.Readers.is_leaf
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">is_leaf(daf::DafReader)::Bool
+is_leaf(daf_type::Type{&lt;:DafReader})::Bool
+</code>
+</pre>
+<p>Return 
+<code>true
+</code> if 
+<code>daf
+</code> (or the 
+<code>Daf
+</code> storage type 
+<code>daf_type
+</code>) is a leaf 
+<code>Daf
+</code> storage format that owns its on-disk or in-memory state directly, rather than a wrapper (
+<code>ReadOnlyChain
+</code>, 
+<code>WriteChain
+</code>, 
+<code>ContractDaf
+</code>, 
+<code>DafView
+</code>, 
+<code>DafReadOnlyWrapper
+</code>). Only leaf formats support 
+<code>reorder_axes!
+</code>.
+</p>
+</div>
+</section>
+</details>
+</article>
 <h2 id="Index">
 <a class="docs-heading-anchor" href="#Index">Index
 </a>
@@ -1824,6 +1869,12 @@ println(matrix_version_counter(metacells, &quot;gene&quot;, &quot;metacell&quot;
 <li>
 <a href="readers.html#DataAxesFormats.Readers.has_vector">
 <code>DataAxesFormats.Readers.has_vector
+</code>
+</a>
+</li>
+<li>
+<a href="readers.html#DataAxesFormats.Readers.is_leaf">
+<code>DataAxesFormats.Readers.is_leaf
 </code>
 </a>
 </li>

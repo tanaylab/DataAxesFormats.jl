@@ -16,6 +16,15 @@ using TanayLabUtilities
 import ..Formats
 import ..Formats.Internal
 
+# Per-operation staging buffers for `reorder_axes!` on a `MemoryDaf`. Populated during staging and
+# atomically swapped into the live dictionaries at commit time; `nothing` outside a pending reorder.
+mutable struct MemoryReorderStaging
+    new_axes::Dict{AbstractString, AbstractVector{<:AbstractString}}  # NOJET
+    new_vectors::Dict{Tuple{AbstractString, AbstractString}, StorageVector}
+    new_matrices::Dict{Tuple{AbstractString, AbstractString, AbstractString}, StorageMatrix}
+    operation_id::String
+end
+
 """
     struct MemoryDaf <: DafWriter ... end
 
@@ -28,13 +37,14 @@ object that just keeps references to the data it is given.
 
 This is the "default" storage type you should use, unless you need to persist the data on the disk.
 """
-struct MemoryDaf <: DafWriter
+mutable struct MemoryDaf <: DafWriter
     name::AbstractString
     internal::Internal
     scalars::Dict{AbstractString, StorageScalar}
     axes::Dict{AbstractString, AbstractVector{<:AbstractString}}
     vectors::Dict{AbstractString, Dict{AbstractString, StorageVector}}
     matrices::Dict{AbstractString, Dict{AbstractString, Dict{AbstractString, StorageMatrix}}}
+    reorder_staging::Maybe{MemoryReorderStaging}
 end
 
 function MemoryDaf(; name::AbstractString = "memory")::MemoryDaf
@@ -43,9 +53,18 @@ function MemoryDaf(; name::AbstractString = "memory")::MemoryDaf
     vectors = Dict{AbstractString, Dict{AbstractString, StorageVector}}()
     matrices = Dict{AbstractString, Dict{AbstractString, Dict{AbstractString, StorageMatrix}}}()
     name = unique_name(name)
-    memory = MemoryDaf(name, Internal(; cache_group = nothing, is_frozen = false), scalars, axes, vectors, matrices)
+    memory =
+        MemoryDaf(name, Internal(; cache_group = nothing, is_frozen = false), scalars, axes, vectors, matrices, nothing)
     @debug "Daf: $(brief(memory))" _group = :daf_repose
     return memory
+end
+
+function Readers.is_leaf(::MemoryDaf)::Bool  # FLAKY TESTED
+    return true
+end
+
+function Readers.is_leaf(::Type{MemoryDaf})::Bool  # FLAKY TESTED
+    return true
 end
 
 function Formats.format_has_scalar(memory::MemoryDaf, name::AbstractString)::Bool

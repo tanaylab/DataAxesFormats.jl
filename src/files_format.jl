@@ -264,6 +264,14 @@ function FilesDaf(
     return file
 end
 
+function Readers.is_leaf(::FilesDaf)::Bool  # FLAKY TESTED
+    return true
+end
+
+function Readers.is_leaf(::Type{FilesDaf})::Bool  # FLAKY TESTED
+    return true
+end
+
 function Formats.format_has_scalar(files::FilesDaf, name::AbstractString)::Bool
     @assert Formats.has_data_read_lock(files)
     return cached_ispath("$(files.path)/scalars/$(name).json")

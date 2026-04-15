@@ -106,6 +106,17 @@ DataAxesFormats.Formats.format_get_empty_sparse_matrix!
 DataAxesFormats.Formats.format_filled_empty_sparse_matrix!
 ```
 
+### Reordering axes
+
+```@docs
+DataAxesFormats.Formats.FormatReorderPlan
+DataAxesFormats.Formats.format_plan_reorder_axes!
+DataAxesFormats.Formats.format_stage_reorder!
+DataAxesFormats.Formats.format_commit_reorder!
+DataAxesFormats.Formats.format_has_reorder_lock
+DataAxesFormats.Formats.format_reset_reorder!
+```
+
 ## Index
 
 ```@index

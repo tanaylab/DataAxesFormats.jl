@@ -49,6 +49,7 @@ export has_axis
 export has_matrix
 export has_scalar
 export has_vector
+export is_leaf
 export matrices_set
 export matrix_version_counter
 export scalars_set
@@ -66,6 +67,22 @@ import ..Formats
 import ..Formats.CacheEntry
 import ..Formats.CacheKey
 import ..Formats.FormatReader  # For documentation.
+
+"""
+    is_leaf(daf::DafReader)::Bool
+    is_leaf(daf_type::Type{<:DafReader})::Bool
+
+Return `true` if `daf` (or the `Daf` storage type `daf_type`) is a leaf `Daf` storage format that owns its
+on-disk or in-memory state directly, rather than a wrapper (`ReadOnlyChain`, `WriteChain`, `ContractDaf`,
+`DafView`, `DafReadOnlyWrapper`). Only leaf formats support `reorder_axes!`.
+"""
+function is_leaf(::DafReader)::Bool  # FLAKY TESTED
+    return false
+end
+
+function is_leaf(::Type{<:DafReader})::Bool  # FLAKY TESTED
+    return false
+end
 
 """
     has_scalar(daf::DafReader, name::AbstractString)::Bool
