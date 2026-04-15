@@ -517,13 +517,20 @@ function Formats.format_get_empty_dense_vector!(
     ::Type{T},
 )::AbstractVector{T} where {T <: StorageReal}
     @assert Formats.has_data_write_lock(files)
-
-    write_array_json("$(files.path)/vectors/$(axis)/$(name).json", "dense", T)
-    path = "$(files.path)/vectors/$(axis)/$(name).data"
-
     size = Formats.format_axis_length(files, axis)
-    fill_file(path, T(0), size)
+    return create_empty_dense_vector_at(files.path, axis, name, T, size)
+end
 
+function create_empty_dense_vector_at(
+    base_directory::AbstractString,
+    axis::AbstractString,
+    name::AbstractString,
+    ::Type{T},
+    size::Integer,
+)::AbstractVector{T} where {T <: StorageReal}
+    write_array_json("$(base_directory)/vectors/$(axis)/$(name).json", "dense", T)
+    path = "$(base_directory)/vectors/$(axis)/$(name).data"
+    fill_file(path, T(0), size)
     return mmap_file_data(path, Vector{T}, size, "r+")
 end
 
@@ -536,10 +543,20 @@ function Formats.format_get_empty_sparse_vector!(
     ::Type{I},
 )::Tuple{AbstractVector{I}, AbstractVector{T}} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(files)
+    return create_empty_sparse_vector_at(files.path, axis, name, T, nnz, I)
+end
 
-    write_array_json("$(files.path)/vectors/$(axis)/$(name).json", "sparse", T, I)
-    nzind_path = "$(files.path)/vectors/$(axis)/$(name).nzind"
-    nzval_path = "$(files.path)/vectors/$(axis)/$(name).nzval"
+function create_empty_sparse_vector_at(
+    base_directory::AbstractString,
+    axis::AbstractString,
+    name::AbstractString,
+    ::Type{T},
+    nnz::StorageInteger,
+    ::Type{I},
+)::Tuple{AbstractVector{I}, AbstractVector{T}} where {T <: StorageReal, I <: StorageInteger}
+    write_array_json("$(base_directory)/vectors/$(axis)/$(name).json", "sparse", T, I)
+    nzind_path = "$(base_directory)/vectors/$(axis)/$(name).nzind"
+    nzval_path = "$(base_directory)/vectors/$(axis)/$(name).nzval"
 
     fill_file(nzind_path, I(0), nnz)
     fill_file(nzval_path, T(0), nnz)
@@ -771,13 +788,23 @@ function Formats.format_get_empty_dense_matrix!(
     ::Type{T},
 )::AbstractMatrix{T} where {T <: StorageReal}
     @assert Formats.has_data_write_lock(files)
-    write_array_json("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", "dense", T)
-    path = "$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).data"
-
     nrows = Formats.format_axis_length(files, rows_axis)
     ncols = Formats.format_axis_length(files, columns_axis)
-    fill_file(path, T(0), nrows * ncols)
+    return create_empty_dense_matrix_at(files.path, rows_axis, columns_axis, name, T, nrows, ncols)
+end
 
+function create_empty_dense_matrix_at(
+    base_directory::AbstractString,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+    ::Type{T},
+    nrows::Integer,
+    ncols::Integer,
+)::AbstractMatrix{T} where {T <: StorageReal}
+    write_array_json("$(base_directory)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", "dense", T)
+    path = "$(base_directory)/matrices/$(rows_axis)/$(columns_axis)/$(name).data"
+    fill_file(path, T(0), nrows * ncols)
     return mmap_file_data(path, Matrix{T}, (nrows, ncols), "r+")
 end
 
@@ -791,13 +818,25 @@ function Formats.format_get_empty_sparse_matrix!(
     ::Type{I},
 )::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(files)
-    write_array_json("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", "sparse", T, I)
-
     ncols = Formats.format_axis_length(files, columns_axis)
+    return create_empty_sparse_matrix_at(files.path, rows_axis, columns_axis, name, T, nnz, I, ncols)
+end
 
-    colptr_path = "$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).colptr"
-    rowval_path = "$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).rowval"
-    nzval_path = "$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).nzval"
+function create_empty_sparse_matrix_at(
+    base_directory::AbstractString,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+    ::Type{T},
+    nnz::StorageInteger,
+    ::Type{I},
+    ncols::Integer,
+)::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}} where {T <: StorageReal, I <: StorageInteger}
+    write_array_json("$(base_directory)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", "sparse", T, I)
+
+    colptr_path = "$(base_directory)/matrices/$(rows_axis)/$(columns_axis)/$(name).colptr"
+    rowval_path = "$(base_directory)/matrices/$(rows_axis)/$(columns_axis)/$(name).rowval"
+    nzval_path = "$(base_directory)/matrices/$(rows_axis)/$(columns_axis)/$(name).nzval"
 
     fill_file(colptr_path, I(0), ncols + 1)
     fill_file(rowval_path, I(0), nnz)

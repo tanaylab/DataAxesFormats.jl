@@ -650,7 +650,18 @@ function Formats.format_get_empty_dense_vector!(
     eltype::Type{T},
 )::AbstractVector{T} where {T <: StorageReal}
     @assert Formats.has_data_write_lock(h5df)
-    vectors_group = h5df.root["vectors"]
+    size = Formats.format_axis_length(h5df, axis)
+    return create_empty_dense_vector_in(h5df.root, axis, name, eltype, size)
+end
+
+function create_empty_dense_vector_in(
+    daf_root::Union{HDF5.File, HDF5.Group},
+    axis::AbstractString,
+    name::AbstractString,
+    ::Type{T},
+    size::Integer,
+)::AbstractVector{T} where {T <: StorageReal}
+    vectors_group = daf_root["vectors"]
     @assert vectors_group isa HDF5.Group
 
     axis_vectors_group = vectors_group[axis]
@@ -658,7 +669,7 @@ function Formats.format_get_empty_dense_vector!(
 
     local vector_dataset
     flame_timed("H5df.create_empty_dense_vector") do
-        vector_dataset = create_dataset(axis_vectors_group, name, eltype, (Formats.format_axis_length(h5df, axis),))
+        vector_dataset = create_dataset(axis_vectors_group, name, T, (size,))
         @assert vector_dataset isa HDF5.Dataset
         return vector_dataset[:] = 0
     end
@@ -668,7 +679,7 @@ function Formats.format_get_empty_dense_vector!(
     return vector
 end
 
-function Formats.format_get_empty_sparse_vector!(
+function Formats.format_get_empty_sparse_vector!(  # FLAKY TESTED
     h5df::H5df,
     axis::AbstractString,
     name::AbstractString,
@@ -677,7 +688,18 @@ function Formats.format_get_empty_sparse_vector!(
     indtype::Type{I},
 )::Tuple{AbstractVector{I}, AbstractVector{T}} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(h5df)
-    vectors_group = h5df.root["vectors"]
+    return create_empty_sparse_vector_in(h5df.root, axis, name, eltype, nnz, indtype)
+end
+
+function create_empty_sparse_vector_in(
+    daf_root::Union{HDF5.File, HDF5.Group},
+    axis::AbstractString,
+    name::AbstractString,
+    ::Type{T},
+    nnz::StorageInteger,
+    ::Type{I},
+)::Tuple{AbstractVector{I}, AbstractVector{T}} where {T <: StorageReal, I <: StorageInteger}
+    vectors_group = daf_root["vectors"]
     @assert vectors_group isa HDF5.Group
 
     axis_vectors_group = vectors_group[axis]
@@ -687,8 +709,8 @@ function Formats.format_get_empty_sparse_vector!(
     local nzind_dataset
     local nzval_dataset
     flame_timed("H5df.create_empty_sparse_vector") do
-        nzind_dataset = create_dataset(vector_group, "nzind", indtype, (nnz,))
-        nzval_dataset = create_dataset(vector_group, "nzval", eltype, (nnz,))
+        nzind_dataset = create_dataset(vector_group, "nzind", I, (nnz,))
+        nzval_dataset = create_dataset(vector_group, "nzval", T, (nnz,))
 
         @assert nzind_dataset isa HDF5.Dataset
         @assert nzval_dataset isa HDF5.Dataset
@@ -950,7 +972,21 @@ function Formats.format_get_empty_dense_matrix!(
     eltype::Type{T},
 )::AbstractMatrix{T} where {T <: StorageReal}
     @assert Formats.has_data_write_lock(h5df)
-    matrices_group = h5df.root["matrices"]
+    nrows = Formats.format_axis_length(h5df, rows_axis)
+    ncols = Formats.format_axis_length(h5df, columns_axis)
+    return create_empty_dense_matrix_in(h5df.root, rows_axis, columns_axis, name, eltype, nrows, ncols)
+end
+
+function create_empty_dense_matrix_in(
+    daf_root::Union{HDF5.File, HDF5.Group},
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+    ::Type{T},
+    nrows::Integer,
+    ncols::Integer,
+)::AbstractMatrix{T} where {T <: StorageReal}
+    matrices_group = daf_root["matrices"]
     @assert matrices_group isa HDF5.Group
 
     rows_axis_group = matrices_group[rows_axis]
@@ -959,12 +995,9 @@ function Formats.format_get_empty_dense_matrix!(
     columns_axis_group = rows_axis_group[columns_axis]
     @assert columns_axis_group isa HDF5.Group
 
-    nrows = Formats.format_axis_length(h5df, rows_axis)
-    ncols = Formats.format_axis_length(h5df, columns_axis)
-
     local matrix_dataset
     flame_timed("H5df.create_empty_dense_matrix") do
-        matrix_dataset = create_dataset(columns_axis_group, name, eltype, (nrows, ncols))
+        matrix_dataset = create_dataset(columns_axis_group, name, T, (nrows, ncols))
         return matrix_dataset[:, :] = 0
     end
 
@@ -974,7 +1007,7 @@ function Formats.format_get_empty_dense_matrix!(
     return matrix
 end
 
-function Formats.format_get_empty_sparse_matrix!(
+function Formats.format_get_empty_sparse_matrix!(  # FLAKY TESTED
     h5df::H5df,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
@@ -984,7 +1017,21 @@ function Formats.format_get_empty_sparse_matrix!(
     indtype::Type{I},
 )::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(h5df)
-    matrices_group = h5df.root["matrices"]
+    ncols = Formats.format_axis_length(h5df, columns_axis)
+    return create_empty_sparse_matrix_in(h5df.root, rows_axis, columns_axis, name, eltype, nnz, indtype, ncols)
+end
+
+function create_empty_sparse_matrix_in(
+    daf_root::Union{HDF5.File, HDF5.Group},
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+    ::Type{T},
+    nnz::StorageInteger,
+    ::Type{I},
+    ncols::Integer,
+)::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}} where {T <: StorageReal, I <: StorageInteger}
+    matrices_group = daf_root["matrices"]
     @assert matrices_group isa HDF5.Group
 
     rows_axis_group = matrices_group[rows_axis]
@@ -994,16 +1041,14 @@ function Formats.format_get_empty_sparse_matrix!(
     @assert columns_axis_group isa HDF5.Group
     matrix_group = create_group(columns_axis_group, name)
 
-    ncols = Formats.format_axis_length(h5df, columns_axis)
-
     local colptr_dataset
     local rowval_dataset
     local nzval_dataset
 
     flame_timed("H5df.create_empty_sparse_matrix") do
-        colptr_dataset = create_dataset(matrix_group, "colptr", indtype, ncols + 1)
-        rowval_dataset = create_dataset(matrix_group, "rowval", indtype, Int(nnz))
-        nzval_dataset = create_dataset(matrix_group, "nzval", eltype, Int(nnz))
+        colptr_dataset = create_dataset(matrix_group, "colptr", I, ncols + 1)
+        rowval_dataset = create_dataset(matrix_group, "rowval", I, Int(nnz))
+        nzval_dataset = create_dataset(matrix_group, "nzval", T, Int(nnz))
 
         colptr_dataset[:] = nnz + 1
         colptr_dataset[1] = 1
