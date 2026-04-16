@@ -6,23 +6,26 @@ module MemoryFormat
 export MemoryDaf
 
 using ..Formats
+using ..Keys
 using ..Readers
+using ..Reorder
 using ..StorageTypes
 using ..Writers
 using NamedArrays
+using ProgressMeter
 using SparseArrays
 using TanayLabUtilities
 
 import ..Formats
 import ..Formats.Internal
+import ..Reorder
 
-# Per-operation staging buffers for `reorder_axes!` on a `MemoryDaf`. Populated during staging and
-# atomically swapped into the live dictionaries at commit time; `nothing` outside a pending reorder.
-mutable struct MemoryReorderStaging
-    new_axes::Dict{AbstractString, AbstractVector{<:AbstractString}}  # NOJET
-    new_vectors::Dict{Tuple{AbstractString, AbstractString}, StorageVector}
-    new_matrices::Dict{Tuple{AbstractString, AbstractString, AbstractString}, StorageMatrix}
-    operation_id::String
+# Per-operation backup for `reorder_axes!` on a `MemoryDaf`. Saves old data before replacement;
+# `nothing` outside a pending reorder.
+mutable struct MemoryReorderBackup
+    old_axes::Dict{AxisKey, AbstractVector{<:AbstractString}}  # NOJET
+    old_vectors::Dict{VectorKey, StorageVector}
+    old_matrices::Dict{MatrixKey, StorageMatrix}
 end
 
 """
@@ -44,7 +47,7 @@ mutable struct MemoryDaf <: DafWriter
     axes::Dict{AbstractString, AbstractVector{<:AbstractString}}
     vectors::Dict{AbstractString, Dict{AbstractString, StorageVector}}
     matrices::Dict{AbstractString, Dict{AbstractString, Dict{AbstractString, StorageMatrix}}}
-    reorder_staging::Maybe{MemoryReorderStaging}
+    reorder_backup::Maybe{MemoryReorderBackup}
 end
 
 function MemoryDaf(; name::AbstractString = "memory")::MemoryDaf
@@ -351,6 +354,211 @@ function Formats.format_get_matrix(
 )::StorageMatrix
     @assert Formats.has_data_read_lock(memory)
     return memory.matrices[rows_axis][columns_axis][name]
+end
+
+# Allocate a permuted copy of a dense or sparse storage vector. The caller passes both the forward and the cached
+# inverse permutation so sparse and dense branches can each pick the one their kernel expects.
+function stage_permuted_vector(
+    source::StorageVector,
+    permutation::AbstractVector{<:Integer},
+    inverse_permutation::AbstractVector{<:Integer},
+    replacement_progress::Maybe{Progress},
+)::StorageVector
+    if source isa SparseVector
+        destination_nzind = similar(SparseArrays.nonzeroinds(source))
+        destination_nzval = similar(SparseArrays.nonzeros(source))
+        permute_sparse_vector!(;
+            destination_nzind,
+            destination_nzval,
+            source,
+            inverse_permutation,
+            progress = replacement_progress,
+        )
+        return SparseVector(length(source), destination_nzind, destination_nzval)
+    else
+        destination = similar(source)
+        permute_vector!(; destination, source, permutation, progress = replacement_progress)
+        return destination
+    end
+end
+
+# Allocate a permuted copy of a dense or sparse storage matrix, dispatching on which sides of the matrix are being
+# reordered. `rows_permutation === nothing` means the rows axis is not permuted; likewise for `columns_permutation`.
+# At least one of the two must be non-`nothing` — matrices untouched by the reorder are never staged.
+function stage_permuted_matrix(
+    source::StorageMatrix,
+    rows_permutation::Maybe{AbstractVector{<:Integer}},
+    inverse_rows_permutation::Maybe{AbstractVector{<:Integer}},
+    columns_permutation::Maybe{AbstractVector{<:Integer}},
+    replacement_progress::Maybe{Progress},
+)::StorageMatrix
+    @assert rows_permutation !== nothing || columns_permutation !== nothing
+    if source isa SparseMatrixCSC
+        destination_colptr = similar(source.colptr)
+        destination_rowval = similar(source.rowval)
+        destination_nzval = similar(source.nzval)
+        if rows_permutation !== nothing && columns_permutation !== nothing
+            permute_sparse_matrix_both!(;
+                destination_colptr,
+                destination_rowval,
+                destination_nzval,
+                source,
+                inverse_rows_permutation,
+                columns_permutation,
+                progress = replacement_progress,
+            )
+        elseif rows_permutation !== nothing
+            permute_sparse_matrix_rows!(;
+                destination_colptr,
+                destination_rowval,
+                destination_nzval,
+                source,
+                inverse_rows_permutation,
+                progress = replacement_progress,
+            )
+        else
+            permute_sparse_matrix_columns!(;
+                destination_colptr,
+                destination_rowval,
+                destination_nzval,
+                source,
+                columns_permutation,
+                progress = replacement_progress,
+            )
+        end
+        return SparseMatrixCSC(
+            size(source, 1),
+            size(source, 2),
+            destination_colptr,
+            destination_rowval,
+            destination_nzval,
+        )
+    else
+        destination = similar(source)
+        if rows_permutation !== nothing && columns_permutation !== nothing
+            permute_dense_matrix_both!(;
+                destination,
+                source,
+                rows_permutation,
+                columns_permutation,
+                progress = replacement_progress,
+            )
+        elseif rows_permutation !== nothing
+            permute_dense_matrix_rows!(; destination, source, rows_permutation, progress = replacement_progress)
+        else
+            permute_dense_matrix_columns!(; destination, source, columns_permutation, progress = replacement_progress)
+        end
+        return destination
+    end
+end
+
+function Reorder.format_lock_reorder!(memory::MemoryDaf, ::AbstractString)::Nothing
+    @assert Formats.has_data_write_lock(memory)
+    @assert memory.reorder_backup === nothing
+    memory.reorder_backup = MemoryReorderBackup(
+        Dict{AxisKey, AbstractVector{<:AbstractString}}(),
+        Dict{VectorKey, StorageVector}(),
+        Dict{MatrixKey, StorageMatrix}(),
+    )
+    return nothing
+end
+
+function Reorder.format_backup_reorder!(memory::MemoryDaf, plan::Reorder.FormatReorderPlan)::Nothing
+    @assert Formats.has_data_write_lock(memory)
+    backup = memory.reorder_backup
+    @assert backup !== nothing
+
+    for (axis, _) in plan.planned_axes
+        if haskey(memory.axes, axis)
+            backup.old_axes[axis] = memory.axes[axis]
+        end
+    end
+    for planned in plan.planned_vectors
+        backup.old_vectors[(planned.axis, planned.name)] = memory.vectors[planned.axis][planned.name]
+    end
+    for planned in plan.planned_matrices
+        backup.old_matrices[(planned.rows_axis, planned.columns_axis, planned.name)] =
+            memory.matrices[planned.rows_axis][planned.columns_axis][planned.name]
+    end
+    return nothing
+end
+
+function Reorder.format_replace_reorder!(
+    memory::MemoryDaf,
+    plan::Reorder.FormatReorderPlan,
+    replacement_progress::Maybe{Progress},
+    crash_counter::Maybe{Ref{Int}},
+)::Nothing
+    @assert Formats.has_data_write_lock(memory)
+    @assert memory.reorder_backup !== nothing
+
+    for (axis, planned_axis) in plan.planned_axes
+        if haskey(memory.axes, axis)
+            memory.axes[axis] = planned_axis.new_entries
+        end
+    end
+
+    for planned in plan.planned_vectors
+        source_vector = memory.reorder_backup.old_vectors[(planned.axis, planned.name)]
+        planned_axis = plan.planned_axes[planned.axis]
+        memory.vectors[planned.axis][planned.name] = stage_permuted_vector(
+            source_vector,
+            planned_axis.permutation,
+            planned_axis.inverse_permutation,
+            replacement_progress,
+        )
+        Reorder.tick_crash_counter!(crash_counter)
+    end
+
+    for planned in plan.planned_matrices
+        source_matrix = memory.reorder_backup.old_matrices[(planned.rows_axis, planned.columns_axis, planned.name)]
+        planned_rows_axis = get(plan.planned_axes, planned.rows_axis, nothing)
+        planned_columns_axis = get(plan.planned_axes, planned.columns_axis, nothing)
+        rows_permutation = planned_rows_axis === nothing ? nothing : planned_rows_axis.permutation
+        inverse_rows_permutation = planned_rows_axis === nothing ? nothing : planned_rows_axis.inverse_permutation
+        columns_permutation = planned_columns_axis === nothing ? nothing : planned_columns_axis.permutation
+        memory.matrices[planned.rows_axis][planned.columns_axis][planned.name] = stage_permuted_matrix(
+            source_matrix,
+            rows_permutation,
+            inverse_rows_permutation,
+            columns_permutation,
+            replacement_progress,
+        )
+        Reorder.tick_crash_counter!(crash_counter)
+    end
+
+    return nothing
+end
+
+function Reorder.format_cleanup_reorder!(memory::MemoryDaf)::Nothing  # FLAKY TESTED
+    @assert Formats.has_data_write_lock(memory)
+    @assert memory.reorder_backup !== nothing
+    memory.reorder_backup = nothing
+    return nothing
+end
+
+function Reorder.format_has_reorder_lock(memory::MemoryDaf)::Bool  # FLAKY TESTED
+    @assert Formats.has_data_write_lock(memory)
+    return memory.reorder_backup !== nothing
+end
+
+function Reorder.format_reset_reorder!(memory::MemoryDaf)::Bool
+    @assert Formats.has_data_write_lock(memory)
+    backup = memory.reorder_backup
+    if backup === nothing
+        return false
+    end
+    for (axis, old_entries) in backup.old_axes
+        memory.axes[axis] = old_entries
+    end
+    for ((axis, name), old_vector) in backup.old_vectors
+        memory.vectors[axis][name] = old_vector
+    end
+    for ((rows_axis, columns_axis, name), old_matrix) in backup.old_matrices
+        memory.matrices[rows_axis][columns_axis][name] = old_matrix
+    end
+    memory.reorder_backup = nothing
+    return true
 end
 
 end  # module

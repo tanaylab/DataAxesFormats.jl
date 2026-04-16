@@ -64,6 +64,7 @@ makedocs(;
         "adapters.md",
         "contracts.md",
         "formats.md",
+        "reorder.md",
         "keys.md",
         "memory_format.md",
         "h5df_format.md",

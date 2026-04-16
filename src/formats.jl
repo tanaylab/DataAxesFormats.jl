@@ -691,71 +691,6 @@ function format_description_footer(
     return nothing
 end
 
-"""
-    abstract type FormatReorderPlan end
-
-An opaque, format-specific plan produced by [`format_plan_reorder_axes!`](@ref) and consumed by the
-subsequent reorder hooks. Each leaf format defines its own concrete subtype; the orchestrator never looks
-inside — it only passes the plan back to the same format that produced it.
-"""
-abstract type FormatReorderPlan end
-
-"""
-    format_plan_reorder_axes!(
-        format::FormatWriter,
-        axis_permutations::AbstractDict{<:AbstractString, <:AbstractVector{<:Integer}},
-        plan_progress::Maybe{Progress},
-    )::FormatReorderPlan
-
-Enumerate every property that will be rewritten when reordering the given axes in `format`, set up the
-format-level staging tree, and return a [`FormatReorderPlan`](@ref) describing each property's source
-location, destination staging location, permutation(s), and element count. Ticks `plan_progress` once per
-discovered property. Must be called inside a write lock.
-"""
-function format_plan_reorder_axes! end
-
-"""
-    format_stage_reorder!(
-        format::FormatWriter,
-        plan::FormatReorderPlan,
-        staging_progress::Maybe{Progress},
-    )::Nothing
-
-Walk `plan` serially, allocating each destination via the format's `create_empty_*_at` / `create_empty_*_in`
-helpers and filling it via the in-place permute primitives. Parallelism happens inside the matrix kernels,
-not at this level. `staging_progress` is threaded through to the kernels so they can advance it from inside
-their parallel loops.
-"""
-function format_stage_reorder! end
-
-"""
-    format_commit_reorder!(
-        format::FormatWriter,
-        plan::FormatReorderPlan,
-        commit_progress::Maybe{Progress},
-    )::Nothing
-
-After the manifest has been promoted to `"committing"`, atomically swap the staged versions into place,
-ticking `commit_progress` once per file / HDF5 object / property swapped. Serial and deterministic. A crash
-inside this call puts the daf into a state that requires `reset_failed_reorder_axes!` to recover.
-"""
-function format_commit_reorder! end
-
-"""
-    format_has_reorder_lock(format::FormatWriter)::Bool
-
-Return `true` iff a recovery marker from a previously-crashed reorder exists on `format`.
-"""
-function format_has_reorder_lock end
-
-"""
-    format_reset_reorder!(format::FormatWriter, commit_progress::Maybe{Progress})::Bool
-
-Roll any pending reorder back to the pre-reorder state. Returns `true` iff work was done. Ticks
-`commit_progress` once per file / object restored, if provided.
-"""
-function format_reset_reorder! end
-
 function put_in_cache!(format::FormatReader, cache_key::CacheKey, data::CacheData, cache_group::CacheGroup)::Nothing
     @assert has_data_read_lock(format)
     @assert has_write_lock(format.internal.cache_lock)
@@ -1231,6 +1166,47 @@ function format_increment_version_counter(format::FormatWriter, version_key::Pro
         previous_version_counter = format_get_version_counter(format, version_key)
         return format.internal.version_counters[version_key] = previous_version_counter + 1
     end
+    return nothing
+end
+
+"""
+    invalidate_axis_data!(writer::FormatWriter, axis::AbstractString)::Nothing
+
+Invalidate all cached data that depends on the content of `axis`: the axis entries, the axis-to-index dict, every vector
+on the axis, and every matrix where `axis` is one of the two axes. Increments the version counter for each property.
+Must be called inside a write lock.
+"""
+function invalidate_axis_data!(writer::FormatWriter, axis::AbstractString)::Nothing
+    @assert has_data_write_lock(writer)
+
+    invalidate_cached!(writer, axis_vector_cache_key(axis))
+    invalidate_cached!(writer, axis_dict_cache_key(axis))
+    format_increment_version_counter(writer, axis)
+
+    for name in get_vectors_set_through_cache(writer, axis)
+        invalidate_cached!(writer, vector_cache_key(axis, name))
+        format_increment_version_counter(writer, (axis, name))
+    end
+
+    for other_axis in get_axes_set_through_cache(writer)
+        for name in get_matrices_set_through_cache(writer, axis, other_axis)
+            invalidate_cached!(writer, matrix_cache_key(axis, other_axis, name))
+            if axis != other_axis
+                invalidate_cached!(writer, matrix_cache_key(other_axis, axis, name))
+            end
+            format_increment_version_counter(writer, (axis, other_axis, name))
+        end
+        if axis != other_axis
+            for name in get_matrices_set_through_cache(writer, other_axis, axis)
+                invalidate_cached!(writer, matrix_cache_key(other_axis, axis, name))
+                if axis != other_axis
+                    invalidate_cached!(writer, matrix_cache_key(axis, other_axis, name))
+                end
+                format_increment_version_counter(writer, (other_axis, axis, name))
+            end
+        end
+    end
+
     return nothing
 end
 

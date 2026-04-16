@@ -1,0 +1,18 @@
+# Reorder
+
+```@docs
+DataAxesFormats.Reorder
+DataAxesFormats.Reorder.reorder_axes!
+DataAxesFormats.Reorder.reset_reorder_axes!
+DataAxesFormats.Reorder.FormatReorderPlan
+DataAxesFormats.Reorder.PlannedAxis
+DataAxesFormats.Reorder.PlannedVector
+DataAxesFormats.Reorder.PlannedMatrix
+DataAxesFormats.Reorder.build_reorder_plan
+DataAxesFormats.Reorder.format_lock_reorder!
+DataAxesFormats.Reorder.format_backup_reorder!
+DataAxesFormats.Reorder.format_replace_reorder!
+DataAxesFormats.Reorder.format_cleanup_reorder!
+DataAxesFormats.Reorder.format_has_reorder_lock
+DataAxesFormats.Reorder.format_reset_reorder!
+```

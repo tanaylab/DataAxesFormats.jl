@@ -238,29 +238,18 @@ function delete_axis!(daf::DafWriter, axis::AbstractString; must_exist::Bool = t
         vectors_set = Formats.get_vectors_set_through_cache(daf, axis)
         for name in vectors_set
             Formats.format_delete_vector!(daf, axis, name; for_set = false)
-            Formats.invalidate_cached!(daf, Formats.vector_cache_key(axis, name))
         end
         Formats.invalidate_cached!(daf, Formats.vectors_set_cache_key(axis))
 
         axes_set = Formats.get_axes_set_through_cache(daf)
         for other_axis in axes_set
-            matrices_set = Formats.get_matrices_set_through_cache(daf, axis, other_axis)
-            for name in matrices_set
+            for name in Formats.get_matrices_set_through_cache(daf, axis, other_axis)
                 Formats.format_delete_matrix!(daf, axis, other_axis, name; for_set = false)
-                Formats.invalidate_cached!(daf, Formats.matrix_cache_key(axis, other_axis, name))
-                if axis != other_axis
-                    Formats.invalidate_cached!(daf, Formats.matrix_cache_key(other_axis, axis, name))
-                end
             end
 
             if axis != other_axis
-                matrices_set = Formats.get_matrices_set_through_cache(daf, other_axis, axis)
-                for name in matrices_set
+                for name in Formats.get_matrices_set_through_cache(daf, other_axis, axis)
                     Formats.format_delete_matrix!(daf, other_axis, axis, name; for_set = false)
-                    Formats.invalidate_cached!(daf, Formats.matrix_cache_key(other_axis, axis, name))
-                    if axis != other_axis
-                        Formats.invalidate_cached!(daf, Formats.matrix_cache_key(axis, other_axis, name))
-                    end
                 end
                 Formats.invalidate_cached!(daf, Formats.matrices_set_cache_key(other_axis, axis; relayout = false))
             end
@@ -269,10 +258,8 @@ function delete_axis!(daf::DafWriter, axis::AbstractString; must_exist::Bool = t
             Formats.invalidate_cached!(daf, Formats.matrices_set_cache_key(axis, other_axis; relayout = true))
         end
 
-        Formats.invalidate_cached!(daf, Formats.axis_dict_cache_key(axis))
-        Formats.invalidate_cached!(daf, Formats.axis_vector_cache_key(axis))
+        Formats.invalidate_axis_data!(daf, axis)
         Formats.invalidate_cached!(daf, Formats.axes_set_cache_key())
-        Formats.format_increment_version_counter(daf, axis)
 
         Formats.format_delete_axis!(daf, axis)
         # Formats.assert_valid_cache(daf)

@@ -133,11 +133,13 @@ export FilesDaf
 using ..Formats
 using ..ReadOnly
 using ..Readers
+using ..Reorder
 using ..StorageTypes
 using ..Writers
 using Base.Filesystem
 using JSON
 using Mmap
+using ProgressMeter
 using SparseArrays
 using StringViews
 using TanayLabUtilities
@@ -146,6 +148,7 @@ import ..Formats
 import ..Formats.Internal
 import ..Operations.DTYPE_BY_NAME
 import ..Readers.base_array
+import ..Reorder
 import SparseArrays.indtype
 
 """
@@ -336,21 +339,26 @@ function Formats.format_has_axis(files::FilesDaf, axis::AbstractString; for_chan
     return cached_ispath("$(files.path)/axes/$(axis).txt")
 end
 
+function write_lines_file(path::AbstractString, lines::AbstractArray{<:AbstractString})::Nothing  # FLAKY TESTED
+    open(path, "w") do file
+        for line in lines
+            @assert !contains(line, '\n')
+            println(file, line)
+        end
+        return nothing
+    end
+    report_modified!(path)
+    return nothing
+end
+
 function Formats.format_add_axis!(
     files::FilesDaf,
     axis::AbstractString,
     entries::AbstractVector{<:AbstractString},
 )::Nothing
     @assert Formats.has_data_write_lock(files)
-    txt_path = "$(files.path)/axes/$(axis).txt"
     flame_timed("FilesDaf.write_axis_vector") do
-        open(txt_path, "w") do file  # NOJET
-            report_modified!(txt_path)
-            for entry in entries
-                @assert !contains(entry, '\n')
-                println(file, entry)
-            end
-        end
+        return write_lines_file("$(files.path)/axes/$(axis).txt", entries)
     end
 
     for path in ("$(files.path)/vectors/$(axis)", "$(files.path)/matrices/$(axis)")
@@ -505,13 +513,7 @@ function write_string_vector( # UNTESTED
 
         else
             write_array_json("$(files.path)/vectors/$(axis)/$(name).json", "dense", String)
-            open("$(files.path)/vectors/$(axis)/$(name).txt", "w") do file  # NOJET
-                for value in vector
-                    @assert !(contains(value, '\n'))
-                    println(file, value)
-                end
-                return nothing
-            end
+            write_lines_file("$(files.path)/vectors/$(axis)/$(name).txt", vector)
         end
     end
 
@@ -775,13 +777,7 @@ function write_string_matrix(
     else
         write_array_json("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", "dense", String)
         flame_timed("FilesDaf.write_dense_string_matrix") do
-            open("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).txt", "w") do file
-                for value in matrix
-                    @assert !(contains(value, '\n'))
-                    println(file, value)
-                end
-                return nothing
-            end
+            return write_lines_file("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).txt", matrix)
         end
     end
 
@@ -1104,6 +1100,320 @@ function write_array_json( # UNTESTED
         return nothing
     end
     return nothing
+end
+
+const REORDER_BACKUP_DIR = ".reorder.backup"
+
+const REORDER_VECTOR_SUFFIXES = (".json", ".data", ".txt", ".nzind", ".nzval", ".nztxt")
+
+const REORDER_MATRIX_SUFFIXES = (".json", ".data", ".txt", ".colptr", ".rowval", ".nzval", ".nztxt")
+
+function Reorder.format_lock_reorder!(files::FilesDaf, ::AbstractString)::Nothing
+    @assert Formats.has_data_write_lock(files)
+    backup_root = "$(files.path)/$(REORDER_BACKUP_DIR)"
+    @assert !isdir(backup_root)
+    mkdir(backup_root)
+    report_modified!(backup_root)
+    return nothing
+end
+
+function Reorder.format_backup_reorder!(files::FilesDaf, plan::Reorder.FormatReorderPlan)::Nothing
+    @assert Formats.has_data_write_lock(files)
+    backup_root = "$(files.path)/$(REORDER_BACKUP_DIR)"
+    mkpath("$(backup_root)/axes")
+
+    for (axis, _) in plan.planned_axes
+        src = "$(files.path)/axes/$(axis).txt"
+        if cached_ispath(src)  # NOJET
+            hardlink(src, "$(backup_root)/axes/$(axis).txt")
+        end
+    end
+    for planned in plan.planned_vectors
+        backup_vector_dir = "$(backup_root)/vectors/$(planned.axis)"
+        mkpath(backup_vector_dir)
+        for suffix in REORDER_VECTOR_SUFFIXES
+            src = "$(files.path)/vectors/$(planned.axis)/$(planned.name)$(suffix)"
+            if cached_ispath(src)
+                hardlink(src, "$(backup_vector_dir)/$(planned.name)$(suffix)")
+            end
+        end
+    end
+    for planned in plan.planned_matrices
+        backup_matrix_dir = "$(backup_root)/matrices/$(planned.rows_axis)/$(planned.columns_axis)"
+        mkpath(backup_matrix_dir)
+        for suffix in REORDER_MATRIX_SUFFIXES
+            src = "$(files.path)/matrices/$(planned.rows_axis)/$(planned.columns_axis)/$(planned.name)$(suffix)"
+            if cached_ispath(src)
+                hardlink(src, "$(backup_matrix_dir)/$(planned.name)$(suffix)")
+            end
+        end
+    end
+    return nothing
+end
+
+function Reorder.format_replace_reorder!(
+    files::FilesDaf,
+    plan::Reorder.FormatReorderPlan,
+    replacement_progress::Maybe{Progress},
+    crash_counter::Maybe{Ref{Int}},
+)::Nothing
+    @assert Formats.has_data_write_lock(files)
+    @assert isdir("$(files.path)/$(REORDER_BACKUP_DIR)")
+
+    for (axis, planned_axis) in plan.planned_axes
+        axis_path = "$(files.path)/axes/$(axis).txt"
+        if cached_ispath(axis_path)
+            rm(axis_path)
+            write_lines_file(axis_path, planned_axis.new_entries)
+            report_modified!(axis_path)
+        end
+    end
+
+    for planned in plan.planned_vectors
+        replace_reorder_vector(files, planned, plan, replacement_progress)  # NOJET
+        Reorder.tick_crash_counter!(crash_counter)
+    end
+
+    for planned in plan.planned_matrices
+        replace_reorder_matrix(files, planned, plan, replacement_progress)  # NOJET
+        Reorder.tick_crash_counter!(crash_counter)
+    end
+
+    return nothing
+end
+
+function replace_reorder_vector(
+    files::FilesDaf,
+    planned::Reorder.PlannedVector,
+    plan::Reorder.FormatReorderPlan,
+    replacement_progress::Maybe{Progress},
+)::Nothing
+    source_vector = Formats.format_get_vector(files, planned.axis, planned.name)
+    planned_axis = plan.planned_axes[planned.axis]
+
+    for suffix in REORDER_VECTOR_SUFFIXES
+        path = "$(files.path)/vectors/$(planned.axis)/$(planned.name)$(suffix)"
+        if cached_ispath(path)
+            rm(path)
+            report_modified!(path)
+        end
+    end
+
+    if eltype(source_vector) <: AbstractString
+        permuted = Vector{String}(undef, length(source_vector))
+        permute_vector!(;
+            destination = permuted,
+            source = source_vector,
+            permutation = planned_axis.permutation,
+            progress = replacement_progress,
+        )
+        write_array_json("$(files.path)/vectors/$(planned.axis)/$(planned.name).json", "dense", String)
+        write_lines_file("$(files.path)/vectors/$(planned.axis)/$(planned.name).txt", permuted)
+    elseif source_vector isa SparseVector
+        T = eltype(source_vector)
+        I = eltype(SparseArrays.nonzeroinds(source_vector))
+        source_nnz = nnz(source_vector)
+        destination_nzind, destination_nzval =
+            create_empty_sparse_vector_at(files.path, planned.axis, planned.name, T, source_nnz, I)
+        permute_sparse_vector_buffers!(;
+            destination_nzind,
+            destination_nzval,
+            source_length = length(source_vector),
+            source_nzind = SparseArrays.nonzeroinds(source_vector),
+            source_nzval = nonzeros(source_vector),
+            inverse_permutation = planned_axis.inverse_permutation,
+            progress = replacement_progress,
+        )
+    else
+        T = eltype(source_vector)
+        destination = create_empty_dense_vector_at(files.path, planned.axis, planned.name, T, length(source_vector))
+        permute_vector!(;
+            destination,
+            source = source_vector,
+            permutation = planned_axis.permutation,
+            progress = replacement_progress,
+        )
+    end
+    return nothing
+end
+
+function replace_reorder_matrix(
+    files::FilesDaf,
+    planned::Reorder.PlannedMatrix,
+    plan::Reorder.FormatReorderPlan,
+    replacement_progress::Maybe{Progress},
+)::Nothing
+    source_matrix = Formats.format_get_matrix(files, planned.rows_axis, planned.columns_axis, planned.name)
+    planned_rows = get(plan.planned_axes, planned.rows_axis, nothing)
+    planned_columns = get(plan.planned_axes, planned.columns_axis, nothing)
+    @assert planned_rows !== nothing || planned_columns !== nothing
+
+    for suffix in REORDER_MATRIX_SUFFIXES
+        path = "$(files.path)/matrices/$(planned.rows_axis)/$(planned.columns_axis)/$(planned.name)$(suffix)"
+        if cached_ispath(path)
+            rm(path)
+            report_modified!(path)
+        end
+    end
+
+    nrows, ncols = size(source_matrix)
+    if eltype(source_matrix) <: AbstractString
+        permuted = Matrix{String}(undef, nrows, ncols)
+        if planned_rows !== nothing && planned_columns !== nothing
+            permute_dense_matrix_both!(;
+                destination = permuted,
+                source = source_matrix,
+                rows_permutation = planned_rows.permutation,
+                columns_permutation = planned_columns.permutation,
+                progress = replacement_progress,
+            )
+        elseif planned_rows !== nothing
+            permute_dense_matrix_rows!(;
+                destination = permuted,
+                source = source_matrix,
+                rows_permutation = planned_rows.permutation,
+                progress = replacement_progress,
+            )
+        else
+            permute_dense_matrix_columns!(;
+                destination = permuted,
+                source = source_matrix,
+                columns_permutation = planned_columns.permutation,
+                progress = replacement_progress,
+            )
+        end
+        write_array_json(
+            "$(files.path)/matrices/$(planned.rows_axis)/$(planned.columns_axis)/$(planned.name).json",
+            "dense",
+            String,
+        )
+        write_lines_file(
+            "$(files.path)/matrices/$(planned.rows_axis)/$(planned.columns_axis)/$(planned.name).txt",
+            permuted,
+        )
+    elseif source_matrix isa SparseMatrixCSC
+        T = eltype(source_matrix)
+        I = eltype(source_matrix.colptr)
+        source_nnz = nnz(source_matrix)
+        destination_colptr, destination_rowval, destination_nzval = create_empty_sparse_matrix_at(
+            files.path,
+            planned.rows_axis,
+            planned.columns_axis,
+            planned.name,
+            T,
+            source_nnz,
+            I,
+            ncols,
+        )
+        if planned_rows !== nothing && planned_columns !== nothing
+            permute_sparse_matrix_both_buffers!(;
+                destination_colptr,
+                destination_rowval,
+                destination_nzval,
+                source_n_rows = nrows,
+                source_colptr = source_matrix.colptr,
+                source_rowval = source_matrix.rowval,
+                source_nzval = source_matrix.nzval,
+                inverse_rows_permutation = planned_rows.inverse_permutation,
+                columns_permutation = planned_columns.permutation,
+                progress = replacement_progress,
+            )
+        elseif planned_rows !== nothing
+            permute_sparse_matrix_rows_buffers!(;
+                destination_colptr,
+                destination_rowval,
+                destination_nzval,
+                source_n_rows = nrows,
+                source_colptr = source_matrix.colptr,
+                source_rowval = source_matrix.rowval,
+                source_nzval = source_matrix.nzval,
+                inverse_rows_permutation = planned_rows.inverse_permutation,
+                progress = replacement_progress,
+            )
+        else
+            permute_sparse_matrix_columns_buffers!(;
+                destination_colptr,
+                destination_rowval,
+                destination_nzval,
+                source_n_rows = nrows,
+                source_colptr = source_matrix.colptr,
+                source_rowval = source_matrix.rowval,
+                source_nzval = source_matrix.nzval,
+                columns_permutation = planned_columns.permutation,
+                progress = replacement_progress,
+            )
+        end
+    else
+        T = eltype(source_matrix)
+        destination = create_empty_dense_matrix_at(
+            files.path,
+            planned.rows_axis,
+            planned.columns_axis,
+            planned.name,
+            T,
+            nrows,
+            ncols,
+        )
+        if planned_rows !== nothing && planned_columns !== nothing
+            permute_dense_matrix_both!(;
+                destination,
+                source = source_matrix,
+                rows_permutation = planned_rows.permutation,
+                columns_permutation = planned_columns.permutation,
+                progress = replacement_progress,
+            )
+        elseif planned_rows !== nothing
+            permute_dense_matrix_rows!(;
+                destination,
+                source = source_matrix,
+                rows_permutation = planned_rows.permutation,
+                progress = replacement_progress,
+            )
+        else
+            permute_dense_matrix_columns!(;
+                destination,
+                source = source_matrix,
+                columns_permutation = planned_columns.permutation,
+                progress = replacement_progress,
+            )
+        end
+    end
+    return nothing
+end
+
+function Reorder.format_cleanup_reorder!(files::FilesDaf)::Nothing
+    @assert Formats.has_data_write_lock(files)
+    backup_root = "$(files.path)/$(REORDER_BACKUP_DIR)"
+    @assert isdir(backup_root)
+    rm(backup_root; force = true, recursive = true)
+    report_modified!(backup_root)
+    return nothing
+end
+
+function Reorder.format_has_reorder_lock(files::FilesDaf)::Bool
+    @assert Formats.has_data_write_lock(files)
+    return isdir("$(files.path)/$(REORDER_BACKUP_DIR)")
+end
+
+function Reorder.format_reset_reorder!(files::FilesDaf)::Bool
+    @assert Formats.has_data_write_lock(files)
+    backup_root = "$(files.path)/$(REORDER_BACKUP_DIR)"
+    if !isdir(backup_root)
+        return false
+    end
+    for (root, _, filenames) in walkdir(backup_root)
+        rel = relpath(root, backup_root)
+        live_dir = rel == "." ? files.path : "$(files.path)/$(rel)"
+        for filename in filenames
+            live_path = "$(live_dir)/$(filename)"
+            rm(live_path; force = true)
+            hardlink("$(root)/$(filename)", live_path)
+            report_modified!(live_path)
+        end
+    end
+    rm(backup_root; force = true, recursive = true)
+    report_modified!(backup_root)
+    return true
 end
 
 function Formats.format_description_header(

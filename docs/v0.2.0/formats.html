@@ -185,6 +185,10 @@
 </ul>
 </li>
 <li>
+<a class="tocitem" href="reorder.html">Reorder
+</a>
+</li>
+<li>
 <a class="tocitem" href="keys.html">Keys
 </a>
 </li>
@@ -1949,35 +1953,9 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
 </h3>
 <article>
 <details class="docstring" open="true">
-<summary id="DataAxesFormats.Formats.FormatReorderPlan">
-<a class="docstring-binding" href="#DataAxesFormats.Formats.FormatReorderPlan">
-<code>DataAxesFormats.Formats.FormatReorderPlan
-</code>
-</a> — 
-<span class="docstring-category">Type
-</span>
-</summary>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">abstract type FormatReorderPlan end
-</code>
-</pre>
-<p>An opaque, format-specific plan produced by 
-<a href="formats.html#DataAxesFormats.Formats.format_plan_reorder_axes!">
-<code>format_plan_reorder_axes!
-</code>
-</a> and consumed by the subsequent reorder hooks. Each leaf format defines its own concrete subtype; the orchestrator never looks inside — it only passes the plan back to the same format that produced it.
-</p>
-</div>
-</section>
-</details>
-</article>
-<article>
-<details class="docstring" open="true">
-<summary id="DataAxesFormats.Formats.format_plan_reorder_axes!">
-<a class="docstring-binding" href="#DataAxesFormats.Formats.format_plan_reorder_axes!">
-<code>DataAxesFormats.Formats.format_plan_reorder_axes!
+<summary id="DataAxesFormats.Formats.invalidate_axis_data!">
+<a class="docstring-binding" href="#DataAxesFormats.Formats.invalidate_axis_data!">
+<code>DataAxesFormats.Formats.invalidate_axis_data!
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -1986,140 +1964,14 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">format_plan_reorder_axes!(
-    format::FormatWriter,
-    axis_permutations::AbstractDict{&lt;:AbstractString, &lt;:AbstractVector{&lt;:Integer}},
-    plan_progress::Maybe{Progress},
-)::FormatReorderPlan
+<code class="language-julia hljs">invalidate_axis_data!(writer::FormatWriter, axis::AbstractString)::Nothing
 </code>
 </pre>
-<p>Enumerate every property that will be rewritten when reordering the given axes in 
-<code>format
-</code>, set up the format-level staging tree, and return a 
-<a href="formats.html#DataAxesFormats.Formats.FormatReorderPlan">
-<code>FormatReorderPlan
-</code>
-</a> describing each property&#39;s source location, destination staging location, permutation(s), and element count. Ticks 
-<code>plan_progress
-</code> once per discovered property. Must be called inside a write lock.
-</p>
-</div>
-</section>
-</details>
-</article>
-<article>
-<details class="docstring" open="true">
-<summary id="DataAxesFormats.Formats.format_stage_reorder!">
-<a class="docstring-binding" href="#DataAxesFormats.Formats.format_stage_reorder!">
-<code>DataAxesFormats.Formats.format_stage_reorder!
-</code>
-</a> — 
-<span class="docstring-category">Function
-</span>
-</summary>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">format_stage_reorder!(
-    format::FormatWriter,
-    plan::FormatReorderPlan,
-    staging_progress::Maybe{Progress},
-)::Nothing
-</code>
-</pre>
-<p>Walk 
-<code>plan
-</code> serially, allocating each destination via the format&#39;s 
-<code>create_empty_*_at
-</code> / 
-<code>create_empty_*_in
-</code> helpers and filling it via the in-place permute primitives. Parallelism happens inside the matrix kernels, not at this level. 
-<code>staging_progress
-</code> is threaded through to the kernels so they can advance it from inside their parallel loops.
-</p>
-</div>
-</section>
-</details>
-</article>
-<article>
-<details class="docstring" open="true">
-<summary id="DataAxesFormats.Formats.format_commit_reorder!">
-<a class="docstring-binding" href="#DataAxesFormats.Formats.format_commit_reorder!">
-<code>DataAxesFormats.Formats.format_commit_reorder!
-</code>
-</a> — 
-<span class="docstring-category">Function
-</span>
-</summary>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">format_commit_reorder!(
-    format::FormatWriter,
-    plan::FormatReorderPlan,
-    commit_progress::Maybe{Progress},
-)::Nothing
-</code>
-</pre>
-<p>After the manifest has been promoted to 
-<code>&quot;committing&quot;
-</code>, atomically swap the staged versions into place, ticking 
-<code>commit_progress
-</code> once per file / HDF5 object / property swapped. Serial and deterministic. A crash inside this call puts the daf into a state that requires 
-<code>reset_failed_reorder_axes!
-</code> to recover.
-</p>
-</div>
-</section>
-</details>
-</article>
-<article>
-<details class="docstring" open="true">
-<summary id="DataAxesFormats.Formats.format_has_reorder_lock">
-<a class="docstring-binding" href="#DataAxesFormats.Formats.format_has_reorder_lock">
-<code>DataAxesFormats.Formats.format_has_reorder_lock
-</code>
-</a> — 
-<span class="docstring-category">Function
-</span>
-</summary>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">format_has_reorder_lock(format::FormatWriter)::Bool
-</code>
-</pre>
-<p>Return 
-<code>true
-</code> iff a recovery marker from a previously-crashed reorder exists on 
-<code>format
-</code>.
-</p>
-</div>
-</section>
-</details>
-</article>
-<article>
-<details class="docstring" open="true">
-<summary id="DataAxesFormats.Formats.format_reset_reorder!">
-<a class="docstring-binding" href="#DataAxesFormats.Formats.format_reset_reorder!">
-<code>DataAxesFormats.Formats.format_reset_reorder!
-</code>
-</a> — 
-<span class="docstring-category">Function
-</span>
-</summary>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">format_reset_reorder!(format::FormatWriter, commit_progress::Maybe{Progress})::Bool
-</code>
-</pre>
-<p>Roll any pending reorder back to the pre-reorder state. Returns 
-<code>true
-</code> iff work was done. Ticks 
-<code>commit_progress
-</code> once per file / object restored, if provided.
+<p>Invalidate all cached data that depends on the content of 
+<code>axis
+</code>: the axis entries, the axis-to-index dict, every vector on the axis, and every matrix where 
+<code>axis
+</code> is one of the two axes. Increments the version counter for each property. Must be called inside a write lock.
 </p>
 </div>
 </section>
@@ -2165,12 +2017,6 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
 </a>
 </li>
 <li>
-<a href="formats.html#DataAxesFormats.Formats.FormatReorderPlan">
-<code>DataAxesFormats.Formats.FormatReorderPlan
-</code>
-</a>
-</li>
-<li>
 <a href="formats.html#DataAxesFormats.Formats.FormatWriter">
 <code>DataAxesFormats.Formats.FormatWriter
 </code>
@@ -2209,12 +2055,6 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
 <li>
 <a href="formats.html#DataAxesFormats.Formats.format_axis_vector">
 <code>DataAxesFormats.Formats.format_axis_vector
-</code>
-</a>
-</li>
-<li>
-<a href="formats.html#DataAxesFormats.Formats.format_commit_reorder!">
-<code>DataAxesFormats.Formats.format_commit_reorder!
 </code>
 </a>
 </li>
@@ -2321,12 +2161,6 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
 </a>
 </li>
 <li>
-<a href="formats.html#DataAxesFormats.Formats.format_has_reorder_lock">
-<code>DataAxesFormats.Formats.format_has_reorder_lock
-</code>
-</a>
-</li>
-<li>
 <a href="formats.html#DataAxesFormats.Formats.format_has_scalar">
 <code>DataAxesFormats.Formats.format_has_scalar
 </code>
@@ -2345,20 +2179,8 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
 </a>
 </li>
 <li>
-<a href="formats.html#DataAxesFormats.Formats.format_plan_reorder_axes!">
-<code>DataAxesFormats.Formats.format_plan_reorder_axes!
-</code>
-</a>
-</li>
-<li>
 <a href="formats.html#DataAxesFormats.Formats.format_relayout_matrix!">
 <code>DataAxesFormats.Formats.format_relayout_matrix!
-</code>
-</a>
-</li>
-<li>
-<a href="formats.html#DataAxesFormats.Formats.format_reset_reorder!">
-<code>DataAxesFormats.Formats.format_reset_reorder!
 </code>
 </a>
 </li>
@@ -2387,14 +2209,14 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
 </a>
 </li>
 <li>
-<a href="formats.html#DataAxesFormats.Formats.format_stage_reorder!">
-<code>DataAxesFormats.Formats.format_stage_reorder!
+<a href="formats.html#DataAxesFormats.Formats.format_vectors_set">
+<code>DataAxesFormats.Formats.format_vectors_set
 </code>
 </a>
 </li>
 <li>
-<a href="formats.html#DataAxesFormats.Formats.format_vectors_set">
-<code>DataAxesFormats.Formats.format_vectors_set
+<a href="formats.html#DataAxesFormats.Formats.invalidate_axis_data!">
+<code>DataAxesFormats.Formats.invalidate_axis_data!
 </code>
 </a>
 </li>
@@ -2403,7 +2225,7 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
 <nav class="docs-footer">
 <a class="docs-footer-prevpage" href="contracts.html">« Contracts
 </a>
-<a class="docs-footer-nextpage" href="keys.html">Keys »
+<a class="docs-footer-nextpage" href="reorder.html">Reorder »
 </a>
 <div class="flexbox-break">
 </div>

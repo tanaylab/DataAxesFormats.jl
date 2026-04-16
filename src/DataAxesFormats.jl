@@ -89,6 +89,9 @@ include("writers.jl")
 include("queries.jl")
 @reexport using .Queries
 
+include("reorder.jl")
+@reexport using .Reorder
+
 include("files_format.jl")
 @reexport using .FilesFormat
 
