@@ -85,8 +85,8 @@ function set_scalar!(daf::DafWriter, name::AbstractString, value::StorageScalar;
         end
 
         Formats.invalidate_cached!(daf, Formats.scalars_set_cache_key())
-        Formats.format_set_scalar!(daf, name, value)
-        Formats.cache_scalar!(daf, name, value)
+        cache_group = Formats.format_set_scalar!(daf, name, value)
+        Formats.cache_scalar!(daf, name, value, cache_group)
 
         # Formats.assert_valid_cache(daf)
         return nothing
@@ -396,10 +396,10 @@ function empty_dense_vector!(
     overwrite::Bool = false,
 )::Any
     @assert isbitstype(eltype)
-    vector = get_empty_dense_vector!(daf, axis, name, eltype; overwrite)
+    vector, cache_group = get_empty_dense_vector!(daf, axis, name, eltype; overwrite)
     try
         result = fill(vector)
-        Formats.cache_vector!(daf, axis, name, Formats.as_named_vector(daf, axis, vector))
+        Formats.cache_vector!(daf, axis, name, Formats.as_named_vector(daf, axis, vector), cache_group)
         @debug "empty_dense_vector! filled vector: $(brief(vector)) }" _group = :daf_sets
         return result
     finally
@@ -414,7 +414,7 @@ function get_empty_dense_vector!(
     name::AbstractString,
     eltype::Type{T};
     overwrite::Bool = false,
-)::AbstractVector{T} where {T <: StorageReal}
+)::Tuple{AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal}
     @assert isbitstype(eltype)
     Formats.begin_data_write_lock(daf, "empty_dense_vector! of:", name, "of:", axis)
     try
@@ -536,8 +536,8 @@ function filled_empty_sparse_vector!(
     nzval::AbstractVector{<:StorageReal},
 )::Nothing
     filled_vector = SparseVector(axis_length(daf, axis), nzind, nzval)
-    Formats.format_filled_empty_sparse_vector!(daf, axis, name, filled_vector)
-    Formats.cache_vector!(daf, axis, name, Formats.as_named_vector(daf, axis, filled_vector))
+    cache_group = Formats.format_filled_empty_sparse_vector!(daf, axis, name, filled_vector)
+    Formats.cache_vector!(daf, axis, name, Formats.as_named_vector(daf, axis, filled_vector), cache_group)
     @debug "empty_sparse_vector! filled vector: $(brief(filled_vector)) }" _group = :daf_sets
     return nothing
 end
@@ -764,7 +764,7 @@ function empty_dense_matrix!(
     overwrite::Bool = false,
 )::Any
     @assert isbitstype(eltype)
-    matrix = get_empty_dense_matrix!(daf, rows_axis, columns_axis, name, eltype; overwrite)
+    matrix, cache_group = get_empty_dense_matrix!(daf, rows_axis, columns_axis, name, eltype; overwrite)
     try
         result = fill(matrix)
         Formats.cache_matrix!(
@@ -773,6 +773,7 @@ function empty_dense_matrix!(
             columns_axis,
             name,
             Formats.as_named_matrix(daf, rows_axis, columns_axis, matrix),
+            cache_group,
         )
         @debug "empty_dense_matrix! filled matrix: $(brief(matrix)) }" _group = :daf_sets
         return result
@@ -919,13 +920,14 @@ function filled_empty_sparse_matrix!(
     nzval::AbstractVector{<:StorageReal},
 )::Nothing where {I <: StorageInteger}
     filled_matrix = SparseMatrixCSC(axis_length(daf, rows_axis), axis_length(daf, columns_axis), colptr, rowval, nzval)
-    Formats.format_filled_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, filled_matrix)
+    cache_group = Formats.format_filled_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, filled_matrix)
     Formats.cache_matrix!(
         daf,
         rows_axis,
         columns_axis,
         name,
         Formats.as_named_matrix(daf, rows_axis, columns_axis, filled_matrix),
+        cache_group,
     )
     @debug "empty_sparse_matrix! filled matrix: $(brief(filled_matrix)) }" _group = :daf_sets
     return nothing

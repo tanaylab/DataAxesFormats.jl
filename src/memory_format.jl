@@ -56,8 +56,7 @@ function MemoryDaf(; name::AbstractString = "memory")::MemoryDaf
     vectors = Dict{AbstractString, Dict{AbstractString, StorageVector}}()
     matrices = Dict{AbstractString, Dict{AbstractString, Dict{AbstractString, StorageMatrix}}}()
     name = unique_name(name)
-    memory =
-        MemoryDaf(name, Internal(; cache_group = nothing, is_frozen = false), scalars, axes, vectors, matrices, nothing)
+    memory = MemoryDaf(name, Internal(; is_frozen = false), scalars, axes, vectors, matrices, nothing)
     @debug "Daf: $(brief(memory))" _group = :daf_repose
     return memory
 end
@@ -75,7 +74,11 @@ function Formats.format_has_scalar(memory::MemoryDaf, name::AbstractString)::Boo
     return haskey(memory.scalars, name)
 end
 
-function Formats.format_set_scalar!(memory::MemoryDaf, name::AbstractString, value::StorageScalar)::Nothing
+function Formats.format_set_scalar!(
+    memory::MemoryDaf,
+    name::AbstractString,
+    value::StorageScalar,
+)::Maybe{Formats.CacheGroup}
     @assert Formats.has_data_write_lock(memory)
     memory.scalars[name] = value
     return nothing
@@ -87,9 +90,12 @@ function Formats.format_delete_scalar!(memory::MemoryDaf, name::AbstractString; 
     return nothing
 end
 
-function Formats.format_get_scalar(memory::MemoryDaf, name::AbstractString)::StorageScalar
+function Formats.format_get_scalar(
+    memory::MemoryDaf,
+    name::AbstractString,
+)::Tuple{StorageScalar, Maybe{Formats.CacheGroup}}
     @assert Formats.has_data_read_lock(memory)
-    return memory.scalars[name]
+    return (memory.scalars[name], nothing)
 end
 
 function Formats.format_scalars_set(memory::MemoryDaf)::AbstractSet{<:AbstractString}
@@ -138,9 +144,12 @@ function Formats.format_axes_set(memory::MemoryDaf)::AbstractSet{<:AbstractStrin
     return keys(memory.axes)
 end
 
-function Formats.format_axis_vector(memory::MemoryDaf, axis::AbstractString)::AbstractVector{<:AbstractString}
+function Formats.format_axis_vector(
+    memory::MemoryDaf,
+    axis::AbstractString,
+)::Tuple{AbstractVector{<:AbstractString}, Maybe{Formats.CacheGroup}}
     @assert Formats.has_data_read_lock(memory)
-    return memory.axes[axis]
+    return (memory.axes[axis], nothing)
 end
 
 function Formats.format_axis_length(memory::MemoryDaf, axis::AbstractString)::Int64
@@ -176,12 +185,12 @@ function Formats.format_get_empty_dense_vector!(
     axis::AbstractString,
     name::AbstractString,
     ::Type{T},
-)::AbstractVector{T} where {T <: StorageReal}
+)::Tuple{AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal}
     @assert Formats.has_data_write_lock(memory)
     nelements = Formats.format_axis_length(memory, axis)
     vector = Vector{T}(undef, nelements)
     memory.vectors[axis][name] = vector
-    return vector
+    return (vector, nothing)
 end
 
 function Formats.format_get_empty_sparse_vector!(
@@ -203,7 +212,7 @@ function Formats.format_filled_empty_sparse_vector!(
     axis::AbstractString,
     name::AbstractString,
     filled::SparseVector{<:StorageReal, <:StorageInteger},
-)::Nothing
+)::Maybe{Formats.CacheGroup}
     @assert Formats.has_data_write_lock(memory)
     memory.vectors[axis][name] = filled
     return nothing
@@ -225,9 +234,13 @@ function Formats.format_vectors_set(memory::MemoryDaf, axis::AbstractString)::Ab
     return keys(memory.vectors[axis])
 end
 
-function Formats.format_get_vector(memory::MemoryDaf, axis::AbstractString, name::AbstractString)::StorageVector
+function Formats.format_get_vector(
+    memory::MemoryDaf,
+    axis::AbstractString,
+    name::AbstractString,
+)::Tuple{StorageVector, Maybe{Formats.CacheGroup}}
     @assert Formats.has_data_read_lock(memory)
-    return memory.vectors[axis][name]
+    return (memory.vectors[axis][name], nothing)
 end
 
 function Formats.format_has_matrix(
@@ -273,13 +286,13 @@ function Formats.format_get_empty_dense_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     ::Type{T},
-)::AbstractMatrix{T} where {T <: StorageReal}
+)::Tuple{AbstractMatrix{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal}
     @assert Formats.has_data_write_lock(memory)
     nrows = Formats.format_axis_length(memory, rows_axis)
     ncols = Formats.format_axis_length(memory, columns_axis)
     matrix = Matrix{T}(undef, nrows, ncols)
     memory.matrices[rows_axis][columns_axis][name] = matrix
-    return matrix
+    return (matrix, nothing)
 end
 
 function Formats.format_get_empty_sparse_matrix!(
@@ -306,7 +319,7 @@ function Formats.format_filled_empty_sparse_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     filled::SparseMatrixCSC{<:StorageReal, <:StorageInteger},
-)::Nothing
+)::Maybe{Formats.CacheGroup}
     @assert Formats.has_data_write_lock(memory)
     memory.matrices[rows_axis][columns_axis][name] = filled
     return nothing
@@ -351,9 +364,9 @@ function Formats.format_get_matrix(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-)::StorageMatrix
+)::Tuple{StorageMatrix, Maybe{Formats.CacheGroup}}
     @assert Formats.has_data_read_lock(memory)
-    return memory.matrices[rows_axis][columns_axis][name]
+    return (memory.matrices[rows_axis][columns_axis][name], nothing)
 end
 
 # Allocate a permuted copy of a dense or sparse storage vector. The caller passes both the forward and the cached

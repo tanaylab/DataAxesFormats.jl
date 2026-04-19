@@ -749,14 +749,29 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">format_get_scalar(format::FormatReader, name::AbstractString)::StorageScalar
+<code class="language-julia hljs">format_get_scalar(
+    format::FormatReader,
+    name::AbstractString,
+)::Tuple{StorageScalar, CacheGroup}
 </code>
 </pre>
 <p>Implement fetching the value of a scalar property with some 
 <code>name
 </code> in 
 <code>format
-</code>.
+</code>, together with a per-item 
+<a href="formats.html#DataAxesFormats.Formats.CacheGroup">
+<code>CacheGroup
+</code>
+</a> describing how the returned value should be cached. Formats that can classify a returned value&#39;s mmappability (e.g. 
+<a href="h5df_format.html#DataAxesFormats.H5dfFormat.H5df">
+<code>H5df
+</code>
+</a>) should return 
+<code>MappedData
+</code> when handing back an mmapped view and 
+<code>MemoryData
+</code> when handing back an eagerly-read copy.
 </p>
 <p>This trusts that we have a read lock on the data set, and that the 
 <code>name
@@ -845,14 +860,21 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">format_axis_vector(format::FormatReader, axis::AbstractString)::AbstractVector{&lt;:AbstractString}
+<code class="language-julia hljs">format_axis_vector(
+    format::FormatReader,
+    axis::AbstractString,
+)::Tuple{AbstractVector{&lt;:AbstractString}, CacheGroup}
 </code>
 </pre>
 <p>Implement fetching the unique names of the entries of some 
 <code>axis
 </code> of 
 <code>format
-</code>.
+</code>, together with a per-item 
+<a href="formats.html#DataAxesFormats.Formats.CacheGroup">
+<code>CacheGroup
+</code>
+</a> describing how the returned vector should be cached.
 </p>
 <p>This trusts that we have a read lock on the data set, and that the 
 <code>axis
@@ -987,7 +1009,11 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">format_get_vector(format::FormatReader, axis::AbstractString, name::AbstractString)::StorageVector
+<code class="language-julia hljs">format_get_vector(
+    format::FormatReader,
+    axis::AbstractString,
+    name::AbstractString,
+)::Tuple{StorageVector, CacheGroup}
 </code>
 </pre>
 <p>Implement fetching the vector property with some 
@@ -996,7 +1022,11 @@
 <code>axis
 </code> in 
 <code>format
-</code>.
+</code>, together with a per-item 
+<a href="formats.html#DataAxesFormats.Formats.CacheGroup">
+<code>CacheGroup
+</code>
+</a> describing how the returned vector should be cached.
 </p>
 <p>This trusts that we have a read lock on the data set, that the 
 <code>axis
@@ -1123,7 +1153,7 @@
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString
-)::StorageMatrix
+)::Tuple{StorageMatrix, CacheGroup}
 </code>
 </pre>
 <p>Implement fetching the matrix property with some 
@@ -1134,7 +1164,11 @@
 <code>columns_axis
 </code> in 
 <code>format
-</code>.
+</code>, together with a per-item 
+<a href="formats.html#DataAxesFormats.Formats.CacheGroup">
+<code>CacheGroup
+</code>
+</a> describing how the returned matrix should be cached.
 </p>
 <p>This trusts that we have a read lock on the data set, and that the 
 <code>rows_axis
@@ -1233,7 +1267,7 @@
     format::FormatWriter,
     name::AbstractString,
     value::StorageScalar,
-)::Nothing
+)::Maybe{CacheGroup}
 </code>
 </pre>
 <p>Implement setting the 
@@ -1242,7 +1276,17 @@
 <code>name
 </code> in 
 <code>format
-</code>.
+</code>. Return the 
+<a href="formats.html#DataAxesFormats.Formats.CacheGroup">
+<code>CacheGroup
+</code>
+</a> to use when caching the just-written value (as would be returned by 
+<a href="formats.html#DataAxesFormats.Formats.format_get_scalar">
+<code>format_get_scalar
+</code>
+</a>), or 
+<code>nothing
+</code> to skip caching.
 </p>
 <p>This trusts that we have a write lock on the data set, and that the 
 <code>name
@@ -1660,28 +1704,26 @@
     axis::AbstractString,
     name::AbstractString,
     eltype::Type{T},
-)::Vector{T} where {T &lt;: StorageReal}
+)::Tuple{AbstractVector{T}, Maybe{CacheGroup}} where {T &lt;: StorageReal}
 </code>
 </pre>
-<p>Implement setting a vector property with some 
+<p>Implement creating an empty dense vector property with some 
 <code>name
 </code> for some 
 <code>axis
 </code> in 
 <code>format
-</code>.
-</p>
-<p>Implement creating an empty dense 
-<code>matrix
-</code> with some 
-<code>name
-</code> for some 
-<code>rows_axis
-</code> and 
-<code>columns_axis
-</code> in 
-<code>format
-</code>.
+</code>. Return the buffer to be filled by the caller, together with the 
+<a href="formats.html#DataAxesFormats.Formats.CacheGroup">
+<code>CacheGroup
+</code>
+</a> to use when caching the filled buffer (as would be returned by 
+<a href="formats.html#DataAxesFormats.Formats.format_get_vector">
+<code>format_get_vector
+</code>
+</a>), or 
+<code>nothing
+</code> to skip caching.
 </p>
 <p>This trusts we have a write lock on the data set, that the 
 <code>axis
@@ -1785,14 +1827,26 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
     axis::AbstractString,
     name::AbstractString,
     filled::SparseVector{&lt;:StorageReal, &lt;:StorageInteger},
-)::Nothing
+)::Maybe{CacheGroup}
 </code>
 </pre>
 <p>Allow the 
 <code>format
-</code> to perform caching once the empty sparse vector has been 
+</code> to perform finalization once the empty sparse vector has been 
 <code>filled
-</code>. By default this does nothing.
+</code>. Return the 
+<a href="formats.html#DataAxesFormats.Formats.CacheGroup">
+<code>CacheGroup
+</code>
+</a> to use when caching the stored sparse vector (as would be returned by 
+<a href="formats.html#DataAxesFormats.Formats.format_get_vector">
+<code>format_get_vector
+</code>
+</a>), or 
+<code>nothing
+</code> to skip caching. The default returns 
+<code>nothing
+</code>.
 </p>
 </div>
 </section>
@@ -1817,7 +1871,7 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
     columns_axis::AbstractString,
     name::AbstractString,
     eltype::Type{T},
-)::AbstractMatrix{T} where {T &lt;: StorageReal}
+)::Tuple{AbstractMatrix{T}, Maybe{CacheGroup}} where {T &lt;: StorageReal}
 </code>
 </pre>
 <p>Implement creating an empty dense matrix property with some 
@@ -1828,7 +1882,17 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
 <code>columns_axis
 </code> in 
 <code>format
-</code>.
+</code>. Return the buffer to be filled by the caller, together with the 
+<a href="formats.html#DataAxesFormats.Formats.CacheGroup">
+<code>CacheGroup
+</code>
+</a> to use when caching the filled buffer (as would be returned by 
+<a href="formats.html#DataAxesFormats.Formats.format_get_matrix">
+<code>format_get_matrix
+</code>
+</a>), or 
+<code>nothing
+</code> to skip caching.
 </p>
 <p>This trusts we have a write lock on the data set, that the 
 <code>rows_axis
@@ -1930,14 +1994,26 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
     columns_axis::AbstractString,
     name::AbstractString,
     filled::SparseMatrixCSC{&lt;:StorageReal, &lt;:StorageInteger},
-)::Nothing
+)::Maybe{CacheGroup}
 </code>
 </pre>
 <p>Allow the 
 <code>format
-</code> to perform caching once the empty sparse matrix has been 
+</code> to perform finalization once the empty sparse matrix has been 
 <code>filled
-</code>. By default this does nothing.
+</code>. Return the 
+<a href="formats.html#DataAxesFormats.Formats.CacheGroup">
+<code>CacheGroup
+</code>
+</a> to use when caching the stored sparse matrix (as would be returned by 
+<a href="formats.html#DataAxesFormats.Formats.format_get_matrix">
+<code>format_get_matrix
+</code>
+</a>), or 
+<code>nothing
+</code> to skip caching. The default returns 
+<code>nothing
+</code>.
 </p>
 </div>
 </section>

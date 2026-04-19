@@ -299,7 +299,7 @@ function H5df(
     name = unique_name(name)
     @assert full_path !== nothing
 
-    h5df = H5df(name, Internal(; cache_group = MappedData, is_frozen = is_read_only), root, mode, full_path)
+    h5df = H5df(name, Internal(; is_frozen = is_read_only), root, mode, full_path)
     @debug "Daf: $(brief(h5df)) root: $(root)" _group = :daf_repos
     if is_read_only
         return read_only(h5df)
@@ -383,12 +383,12 @@ function Formats.format_has_scalar(h5df::H5df, name::AbstractString)::Bool
     return haskey(scalars_group, name)
 end
 
-function Formats.format_set_scalar!(h5df::H5df, name::AbstractString, value::StorageScalar)::Nothing
+function Formats.format_set_scalar!(h5df::H5df, name::AbstractString, value::StorageScalar)::Maybe{Formats.CacheGroup}
     @assert Formats.has_data_write_lock(h5df)
     scalars_group = h5df.root["scalars"]
     @assert scalars_group isa HDF5.Group
     scalars_group[name] = value
-    return nothing
+    return Formats.MemoryData
 end
 
 function Formats.format_delete_scalar!(h5df::H5df, name::AbstractString; for_set::Bool)::Nothing  # NOLINT
@@ -399,13 +399,13 @@ function Formats.format_delete_scalar!(h5df::H5df, name::AbstractString; for_set
     return nothing
 end
 
-function Formats.format_get_scalar(h5df::H5df, name::AbstractString)::StorageScalar
+function Formats.format_get_scalar(h5df::H5df, name::AbstractString)::Tuple{StorageScalar, Formats.CacheGroup}
     @assert Formats.has_data_read_lock(h5df)
     scalars_group = h5df.root["scalars"]
     @assert scalars_group isa HDF5.Group
     scalars_dataset = scalars_group[name]
     @assert scalars_dataset isa HDF5.Dataset
-    return read(scalars_dataset)
+    return (read(scalars_dataset), Formats.MemoryData)
 end
 
 function Formats.format_scalars_set(h5df::H5df)::AbstractSet{<:AbstractString}
@@ -505,7 +505,10 @@ function Formats.format_axes_set(h5df::H5df)::AbstractSet{<:AbstractString}
     end
 end
 
-function Formats.format_axis_vector(h5df::H5df, axis::AbstractString)::AbstractVector{<:AbstractString}
+function Formats.format_axis_vector(
+    h5df::H5df,
+    axis::AbstractString,
+)::Tuple{AbstractVector{<:AbstractString}, Formats.CacheGroup}
     @assert Formats.has_data_read_lock(h5df)
 
     axes_group = h5df.root["axes"]
@@ -658,7 +661,7 @@ function Formats.format_get_empty_dense_vector!(
     axis::AbstractString,
     name::AbstractString,
     eltype::Type{T},
-)::AbstractVector{T} where {T <: StorageReal}
+)::Tuple{AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal}
     @assert Formats.has_data_write_lock(h5df)
     size = Formats.format_axis_length(h5df, axis)
     return create_empty_dense_vector_in(h5df.root, axis, name, eltype, size)
@@ -670,7 +673,7 @@ function create_empty_dense_vector_in(
     name::AbstractString,
     ::Type{T},
     size::Integer,
-)::AbstractVector{T} where {T <: StorageReal}
+)::Tuple{AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal}
     vectors_group = daf_root["vectors"]
     @assert vectors_group isa HDF5.Group
 
@@ -684,9 +687,9 @@ function create_empty_dense_vector_in(
         return vector_dataset[:] = 0
     end
 
-    vector = dataset_as_vector(vector_dataset)
+    vector, cache_group = dataset_as_vector(vector_dataset)
     close(vector_dataset)
-    return vector
+    return (vector, cache_group)
 end
 
 function Formats.format_get_empty_sparse_vector!(  # FLAKY TESTED
@@ -729,14 +732,23 @@ function create_empty_sparse_vector_in(
         return nzval_dataset[:] = 0
     end
 
-    nzind_vector = dataset_as_vector(nzind_dataset)
-    nzval_vector = dataset_as_vector(nzval_dataset)
+    nzind_vector, _ = dataset_as_vector(nzind_dataset)
+    nzval_vector, _ = dataset_as_vector(nzval_dataset)
 
     close(nzind_dataset)
     close(nzval_dataset)
     close(vector_group)
 
     return (nzind_vector, nzval_vector)
+end
+
+function Formats.format_filled_empty_sparse_vector!(
+    ::H5df,
+    ::AbstractString,
+    ::AbstractString,
+    ::SparseVector{<:StorageReal, <:StorageInteger},
+)::Maybe{Formats.CacheGroup}
+    return Formats.MappedData
 end
 
 function Formats.format_delete_vector!(h5df::H5df, axis::AbstractString, name::AbstractString; for_set::Bool)::Nothing  # NOLINT
@@ -765,7 +777,11 @@ function Formats.format_vectors_set(h5df::H5df, axis::AbstractString)::AbstractS
     end
 end
 
-function Formats.format_get_vector(h5df::H5df, axis::AbstractString, name::AbstractString)::StorageVector
+function Formats.format_get_vector(
+    h5df::H5df,
+    axis::AbstractString,
+    name::AbstractString,
+)::Tuple{StorageVector, Formats.CacheGroup}
     @assert Formats.has_data_read_lock(h5df)
 
     vectors_group = h5df.root["vectors"]
@@ -776,7 +792,7 @@ function Formats.format_get_vector(h5df::H5df, axis::AbstractString, name::Abstr
 
     vector_object = axis_vectors_group[name]
     if vector_object isa HDF5.Dataset
-        vector = dataset_as_vector(vector_object)
+        vector, cache_group = dataset_as_vector(vector_object)
 
     else
         @assert vector_object isa HDF5.Group
@@ -784,30 +800,37 @@ function Formats.format_get_vector(h5df::H5df, axis::AbstractString, name::Abstr
 
         nzind_dataset = vector_object["nzind"]
         @assert nzind_dataset isa HDF5.Dataset
-        nzind_vector = dataset_as_vector(nzind_dataset)
+        nzind_vector, nzind_cache_group = dataset_as_vector(nzind_dataset)
 
         if haskey(vector_object, "nztxt")
             nztxt_dataset = vector_object["nztxt"]
             @assert nztxt_dataset isa HDF5.Dataset
-            nztxt_vector = dataset_as_vector(nztxt_dataset)
+            nztxt_vector, _ = dataset_as_vector(nztxt_dataset)
             vector = Vector{AbstractString}(undef, nelements)
             fill!(vector, "")
             vector[nzind_vector] .= nztxt_vector
+            cache_group = Formats.MemoryData
 
         else
             if haskey(vector_object, "nzval")
                 nzval_dataset = vector_object["nzval"]
                 @assert nzval_dataset isa HDF5.Dataset
-                nzval_vector = dataset_as_vector(nzval_dataset)
+                nzval_vector, nzval_cache_group = dataset_as_vector(nzval_dataset)
             else
                 nzval_vector = fill(true, length(nzind_vector))
+                nzval_cache_group = Formats.MemoryData
             end
 
             vector = SparseVector(nelements, nzind_vector, nzval_vector)
+            cache_group = if (nzind_cache_group == Formats.MappedData && nzval_cache_group == Formats.MappedData)
+                Formats.MappedData
+            else
+                Formats.MemoryData
+            end
         end
     end
 
-    return vector
+    return (vector, cache_group)
 end
 
 function Formats.format_has_matrix(
@@ -980,7 +1003,7 @@ function Formats.format_get_empty_dense_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     eltype::Type{T},
-)::AbstractMatrix{T} where {T <: StorageReal}
+)::Tuple{AbstractMatrix{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal}
     @assert Formats.has_data_write_lock(h5df)
     nrows = Formats.format_axis_length(h5df, rows_axis)
     ncols = Formats.format_axis_length(h5df, columns_axis)
@@ -995,7 +1018,7 @@ function create_empty_dense_matrix_in(
     ::Type{T},
     nrows::Integer,
     ncols::Integer,
-)::AbstractMatrix{T} where {T <: StorageReal}
+)::Tuple{AbstractMatrix{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal}
     matrices_group = daf_root["matrices"]
     @assert matrices_group isa HDF5.Group
 
@@ -1011,10 +1034,10 @@ function create_empty_dense_matrix_in(
         return matrix_dataset[:, :] = 0
     end
 
-    matrix = dataset_as_matrix(matrix_dataset)
+    matrix, cache_group = dataset_as_matrix(matrix_dataset)
     close(matrix_dataset)
 
-    return matrix
+    return (matrix, cache_group)
 end
 
 function Formats.format_get_empty_sparse_matrix!(  # FLAKY TESTED
@@ -1066,9 +1089,9 @@ function create_empty_sparse_matrix_in(
         return nzval_dataset[:] = 0
     end
 
-    colptr_vector = dataset_as_vector(colptr_dataset)
-    rowval_vector = dataset_as_vector(rowval_dataset)
-    nzval_vector = dataset_as_vector(nzval_dataset)
+    colptr_vector, _ = dataset_as_vector(colptr_dataset)
+    rowval_vector, _ = dataset_as_vector(rowval_dataset)
+    nzval_vector, _ = dataset_as_vector(nzval_dataset)
 
     close(colptr_dataset)
     close(rowval_dataset)
@@ -1076,6 +1099,16 @@ function create_empty_sparse_matrix_in(
     close(matrix_group)
 
     return (colptr_vector, rowval_vector, nzval_vector)
+end
+
+function Formats.format_filled_empty_sparse_matrix!(
+    ::H5df,
+    ::AbstractString,
+    ::AbstractString,
+    ::AbstractString,
+    ::SparseMatrixCSC{<:StorageReal, <:StorageInteger},
+)::Maybe{Formats.CacheGroup}
+    return Formats.MappedData
 end
 
 function Formats.format_relayout_matrix!(
@@ -1122,7 +1155,7 @@ function Formats.format_relayout_matrix!(
         write_string_matrix(rows_axis_group, name, relayout_matrix)
 
     else
-        relayout_matrix = Formats.format_get_empty_dense_matrix!(h5df, columns_axis, rows_axis, name, eltype(matrix))
+        relayout_matrix, _ = Formats.format_get_empty_dense_matrix!(h5df, columns_axis, rows_axis, name, eltype(matrix))
         relayout!(flip(relayout_matrix), matrix)
     end
 
@@ -1176,7 +1209,7 @@ function Formats.format_get_matrix(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-)::StorageMatrix
+)::Tuple{StorageMatrix, Formats.CacheGroup}
     @assert Formats.has_data_read_lock(h5df)
 
     matrices_group = h5df.root["matrices"]
@@ -1197,11 +1230,11 @@ function Formats.format_get_matrix(
 
         colptr_dataset = matrix_object["colptr"]
         @assert colptr_dataset isa HDF5.Dataset
-        colptr_vector = dataset_as_vector(colptr_dataset)
+        colptr_vector, colptr_cache_group = dataset_as_vector(colptr_dataset)
 
         rowval_dataset = matrix_object["rowval"]
         @assert rowval_dataset isa HDF5.Dataset
-        rowval_vector = dataset_as_vector(rowval_dataset)
+        rowval_vector, rowval_cache_group = dataset_as_vector(rowval_dataset)
 
         nrows = Formats.format_axis_length(h5df, rows_axis)
         ncols = Formats.format_axis_length(h5df, columns_axis)
@@ -1209,7 +1242,7 @@ function Formats.format_get_matrix(
         if haskey(matrix_object, "nztxt")
             nztxt_dataset = matrix_object["nztxt"]
             @assert nztxt_dataset isa HDF5.Dataset
-            nztxt_vector = dataset_as_vector(nztxt_dataset)
+            nztxt_vector, _ = dataset_as_vector(nztxt_dataset)
 
             matrix = Matrix{AbstractString}(undef, nrows, ncols)
             fill!(matrix, "")
@@ -1224,38 +1257,50 @@ function Formats.format_get_matrix(
                 end
             end
 
+            return (matrix, Formats.MemoryData)
+
         else
             if haskey(matrix_object, "nzval")
                 nzval_dataset = matrix_object["nzval"]
                 @assert nzval_dataset isa HDF5.Dataset
-                nzval_vector = dataset_as_vector(nzval_dataset)
+                nzval_vector, nzval_cache_group = dataset_as_vector(nzval_dataset)
             else
                 nzval_vector = fill(true, length(rowval_vector))
+                nzval_cache_group = Formats.MemoryData
             end
 
             matrix = SparseMatrixCSC(nrows, ncols, colptr_vector, rowval_vector, nzval_vector)
+            cache_group =
+                if (
+                    colptr_cache_group == Formats.MappedData &&
+                    rowval_cache_group == Formats.MappedData &&
+                    nzval_cache_group == Formats.MappedData
+                )
+                    Formats.MappedData
+                else
+                    Formats.MemoryData
+                end
+            return (matrix, cache_group)
         end
     end
-
-    return matrix
 end
 
-function dataset_as_vector(dataset::HDF5.Dataset)::StorageVector
+function dataset_as_vector(dataset::HDF5.Dataset)::Tuple{StorageVector, Formats.CacheGroup}
     return flame_timed("H5df.dataset_as_vector") do
         if HDF5.ismmappable(dataset) && HDF5.iscontiguous(dataset) && !isempty(dataset)
-            return HDF5.readmmap(dataset)  # NOJET
+            return (HDF5.readmmap(dataset), Formats.MappedData)  # NOJET
         else
-            return read(dataset)
+            return (read(dataset), Formats.MemoryData)
         end
     end
 end
 
-function dataset_as_matrix(dataset::HDF5.Dataset)::StorageMatrix
+function dataset_as_matrix(dataset::HDF5.Dataset)::Tuple{StorageMatrix, Formats.CacheGroup}
     return flame_timed("H5df.dataset_as_matrix") do
         if HDF5.ismmappable(dataset) && HDF5.iscontiguous(dataset) && !isempty(dataset)
-            return HDF5.readmmap(dataset)  # NOJET
+            return (HDF5.readmmap(dataset), Formats.MappedData)  # NOJET
         else
-            return read(dataset)
+            return (read(dataset), Formats.MemoryData)
         end
     end
 end
@@ -1439,7 +1484,7 @@ function replace_reorder_vector(
         else
             live_object = live_axis_vectors[planned.name]  # NOJET
             if live_object isa HDF5.Dataset && is_overwritable_dataset(live_object)
-                destination = dataset_as_vector(live_object)
+                destination, _ = dataset_as_vector(live_object)
                 permute_vector!(;
                     destination,
                     source,
@@ -1488,8 +1533,8 @@ function replace_reorder_vector(
             if live_object isa HDF5.Group &&
                is_overwritable_dataset(live_object["nzind"]) &&  # NOJET
                (!has_nzval || is_overwritable_dataset(live_object["nzval"]))
-                dest_nzind = dataset_as_vector(live_object["nzind"])  # NOJET
-                dest_nzval = has_nzval ? dataset_as_vector(live_object["nzval"]) : nothing  # NOJET
+                dest_nzind, _ = dataset_as_vector(live_object["nzind"])  # NOJET
+                dest_nzval = has_nzval ? dataset_as_vector(live_object["nzval"])[1] : nothing  # NOJET
                 permute_sparse_vector_buffers!(;
                     destination_nzind = dest_nzind,
                     destination_nzval = dest_nzval,
@@ -1571,7 +1616,7 @@ function replace_reorder_matrix(
             nrows, ncols = size(source)
             live_object = live_columns_group[planned.name]  # NOJET
             if live_object isa HDF5.Dataset && is_overwritable_dataset(live_object)
-                destination = dataset_as_matrix(live_object)
+                destination, _ = dataset_as_matrix(live_object)
             else
                 delete_object(live_columns_group, planned.name)  # NOJET  # UNTESTED
                 destination = create_empty_dense_matrix_in(  # UNTESTED
@@ -1665,9 +1710,9 @@ function replace_reorder_matrix(
                is_overwritable_dataset(live_object["colptr"]) &&  # NOJET
                is_overwritable_dataset(live_object["rowval"]) &&  # NOJET
                (!has_nzval || is_overwritable_dataset(live_object["nzval"]))  # NOJET
-                dest_colptr = dataset_as_vector(live_object["colptr"])  # NOJET
-                dest_rowval = dataset_as_vector(live_object["rowval"])  # NOJET
-                dest_nzval = has_nzval ? dataset_as_vector(live_object["nzval"]) : nothing  # NOJET
+                dest_colptr, _ = dataset_as_vector(live_object["colptr"])  # NOJET
+                dest_rowval, _ = dataset_as_vector(live_object["rowval"])  # NOJET
+                dest_nzval = has_nzval ? dataset_as_vector(live_object["nzval"])[1] : nothing  # NOJET
             else
                 delete_object(live_columns_group, planned.name)  # NOJET  # UNTESTED
                 T = has_nzval ? eltype(source_nzval) : Bool  # UNTESTED

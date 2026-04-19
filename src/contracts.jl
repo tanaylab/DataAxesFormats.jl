@@ -997,10 +997,13 @@ function Formats.format_has_scalar(contract_daf::ContractDaf, name::AbstractStri
     return Formats.format_has_scalar(contract_daf.daf, name)
 end
 
-function Formats.format_set_scalar!(contract_daf::ContractDaf, name::AbstractString, value::StorageScalar)::Nothing
+function Formats.format_set_scalar!(
+    contract_daf::ContractDaf,
+    name::AbstractString,
+    value::StorageScalar,
+)::Maybe{Formats.CacheGroup}
     access_scalar(contract_daf, name; is_for_modify = true)
-    Formats.format_set_scalar!(contract_daf.daf, name, value)
-    return nothing
+    return Formats.format_set_scalar!(contract_daf.daf, name, value)
 end
 
 function Formats.format_delete_scalar!(contract_daf::ContractDaf, name::AbstractString; for_set::Bool)::Nothing
@@ -1028,7 +1031,10 @@ function Formats.format_get_version_counter(contract_daf::ContractDaf, version_k
     return Formats.format_get_version_counter(contract_daf.daf, version_key)
 end
 
-function Formats.format_get_scalar(contract_daf::ContractDaf, name::AbstractString)::StorageScalar
+function Formats.format_get_scalar(
+    contract_daf::ContractDaf,
+    name::AbstractString,
+)::Tuple{StorageScalar, Maybe{Formats.CacheGroup}}
     return Formats.format_get_scalar(contract_daf.daf, name)
 end
 
@@ -1073,7 +1079,7 @@ function expand_axis_tensors(
         if tensor_axis == axis
             tensor_entries = entries
         else
-            tensor_entries = Formats.format_axis_vector(contract_daf.daf, tensor_axis)  # UNTESTED
+            tensor_entries, _ = Formats.format_axis_vector(contract_daf.daf, tensor_axis)  # UNTESTED
         end
         for entry in tensor_entries
             contract_daf.data[(rows_axis, columns_axis, "$(entry)_$(matrix_name)")] = tracker
@@ -1121,7 +1127,10 @@ function Readers.axis_indices(
     )
 end
 
-function Formats.format_axis_vector(contract_daf::ContractDaf, axis::AbstractString)::AbstractVector{<:AbstractString}
+function Formats.format_axis_vector(
+    contract_daf::ContractDaf,
+    axis::AbstractString,
+)::Tuple{AbstractVector{<:AbstractString}, Maybe{Formats.CacheGroup}}
     return Formats.format_axis_vector(contract_daf.daf, axis)
 end
 
@@ -1154,7 +1163,7 @@ function Formats.format_get_empty_dense_vector!(
     axis::AbstractString,
     name::AbstractString,
     ::Type{T},
-)::AbstractVector{T} where {T <: StorageReal}
+)::Tuple{AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal}
     access_vector(contract_daf, axis, name; is_for_modify = true)
     return Formats.format_get_empty_dense_vector!(contract_daf.daf, axis, name, T)
 end
@@ -1176,7 +1185,7 @@ function Formats.format_filled_empty_sparse_vector!(
     axis::AbstractString,
     name::AbstractString,
     filled::SparseVector{<:StorageReal, <:StorageInteger},
-)::Nothing
+)::Maybe{Formats.CacheGroup}
     return Formats.format_filled_empty_sparse_vector!(contract_daf.daf, axis, name, filled)
 end
 
@@ -1211,7 +1220,11 @@ function Readers.get_vector(
     )
 end
 
-function Formats.format_get_vector(contract_daf::ContractDaf, axis::AbstractString, name::AbstractString)::StorageVector
+function Formats.format_get_vector(
+    contract_daf::ContractDaf,
+    axis::AbstractString,
+    name::AbstractString,
+)::Tuple{StorageVector, Maybe{Formats.CacheGroup}}
     return Formats.format_get_vector(contract_daf.daf, axis, name)
 end
 
@@ -1241,7 +1254,7 @@ function Formats.format_get_empty_dense_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     ::Type{T},
-)::AbstractMatrix{T} where {T <: StorageScalarBase}
+)::Tuple{AbstractMatrix{T}, Maybe{Formats.CacheGroup}} where {T <: StorageScalarBase}
     access_matrix(contract_daf, rows_axis, columns_axis, name; is_for_modify = true)
     return Formats.format_get_empty_dense_matrix!(contract_daf.daf, rows_axis, columns_axis, name, T)
 end
@@ -1265,7 +1278,7 @@ function Formats.format_filled_empty_sparse_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     filled::SparseMatrixCSC{<:StorageReal, <:StorageInteger},
-)::Nothing
+)::Maybe{Formats.CacheGroup}
     return Formats.format_filled_empty_sparse_matrix!(contract_daf.daf, rows_axis, columns_axis, name, filled)
 end
 
@@ -1326,7 +1339,7 @@ function Formats.format_get_matrix(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-)::StorageMatrix
+)::Tuple{StorageMatrix, Maybe{Formats.CacheGroup}}
     return Formats.format_get_matrix(contract_daf.daf, rows_axis, columns_axis, name)
 end
 

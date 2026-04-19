@@ -90,7 +90,10 @@ function Formats.format_has_scalar(read_only_view::DafReadOnlyWrapper, name::Abs
     return Formats.format_has_scalar(read_only_view.daf, name)
 end
 
-function Formats.format_get_scalar(read_only_view::DafReadOnlyWrapper, name::AbstractString)::StorageScalar
+function Formats.format_get_scalar(
+    read_only_view::DafReadOnlyWrapper,
+    name::AbstractString,
+)::Tuple{StorageScalar, Maybe{Formats.CacheGroup}}
     @assert Formats.has_data_read_lock(read_only_view)
     return Formats.format_get_scalar(read_only_view.daf, name)
 end
@@ -113,7 +116,7 @@ end
 function Formats.format_axis_vector(
     read_only_view::DafReadOnlyWrapper,
     axis::AbstractString,
-)::AbstractVector{<:AbstractString}
+)::Tuple{AbstractVector{<:AbstractString}, Maybe{Formats.CacheGroup}}
     @assert Formats.has_data_read_lock(read_only_view)
     return Formats.format_axis_vector(read_only_view.daf, axis)
 end
@@ -140,9 +143,10 @@ function Formats.format_get_vector(
     read_only_view::DafReadOnlyWrapper,
     axis::AbstractString,
     name::AbstractString,
-)::StorageVector
+)::Tuple{StorageVector, Maybe{Formats.CacheGroup}}
     @assert Formats.has_data_read_lock(read_only_view)
-    return read_only_array(Formats.format_get_vector(read_only_view.daf, axis, name))
+    vector, cache_group = Formats.format_get_vector(read_only_view.daf, axis, name)
+    return (read_only_array(vector), cache_group)
 end
 
 function Formats.format_has_matrix(
@@ -169,9 +173,10 @@ function Formats.format_get_matrix(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-)::StorageMatrix
+)::Tuple{StorageMatrix, Maybe{Formats.CacheGroup}}
     @assert Formats.has_data_read_lock(read_only_view)
-    return read_only_array(Formats.format_get_matrix(read_only_view.daf, rows_axis, columns_axis, name))
+    matrix, cache_group = Formats.format_get_matrix(read_only_view.daf, rows_axis, columns_axis, name)
+    return (read_only_array(matrix), cache_group)
 end
 
 function Formats.format_description_header(  # UNTESTED

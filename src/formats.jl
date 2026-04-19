@@ -202,7 +202,6 @@ The constructor will automatically call `unique_name` to try and make the names 
 """
 struct Internal  # NOLINT
     cache::Dict{CacheKey, CacheEntry}
-    cache_group::Maybe{CacheGroup}
     dependents_of_cache_keys::Dict{CacheKey, Set{CacheKey}}
     dependencies_of_query_keys::Dict{CacheKey, Set{CacheKey}}
     version_counters::Dict{PropertyKey, UInt32}
@@ -213,10 +212,9 @@ struct Internal  # NOLINT
     pending_count::Vector{UInt32}
 end
 
-function Internal(; cache_group::Maybe{CacheGroup}, is_frozen::Bool)::Internal
+function Internal(; is_frozen::Bool)::Internal
     return Internal(
         Dict{CacheKey, CacheEntry}(),
-        cache_group,
         Dict{CacheKey, Set{CacheKey}}(),
         Dict{CacheKey, Set{CacheKey}}(),
         Dict{PropertyKey, UInt32}(),
@@ -280,9 +278,10 @@ function format_has_scalar end
         format::FormatWriter,
         name::AbstractString,
         value::StorageScalar,
-    )::Nothing
+    )::Maybe{CacheGroup}
 
-Implement setting the `value` of a scalar property with some `name` in `format`.
+Implement setting the `value` of a scalar property with some `name` in `format`. Return the [`CacheGroup`](@ref) to use
+when caching the just-written value (as would be returned by [`format_get_scalar`](@ref)), or `nothing` to skip caching.
 
 This trusts that we have a write lock on the data set, and that the `name` scalar property does not exist in `format`.
 """
@@ -312,9 +311,15 @@ This trusts that we have a read lock on the data set.
 function format_scalars_set end
 
 """
-    format_get_scalar(format::FormatReader, name::AbstractString)::StorageScalar
+    format_get_scalar(
+        format::FormatReader,
+        name::AbstractString,
+    )::Tuple{StorageScalar, CacheGroup}
 
-Implement fetching the value of a scalar property with some `name` in `format`.
+Implement fetching the value of a scalar property with some `name` in `format`, together with a per-item
+[`CacheGroup`](@ref) describing how the returned value should be cached. Formats that can classify a returned value's
+mmappability (e.g. [`H5df`](@ref DataAxesFormats.H5dfFormat.H5df)) should return `MappedData` when handing back an
+mmapped view and `MemoryData` when handing back an eagerly-read copy.
 
 This trusts that we have a read lock on the data set, and that the `name` scalar property exists in `format`.
 """
@@ -363,9 +368,13 @@ This trusts that we have a read lock on the data set.
 function format_axes_set end
 
 """
-    format_axis_vector(format::FormatReader, axis::AbstractString)::AbstractVector{<:AbstractString}
+    format_axis_vector(
+        format::FormatReader,
+        axis::AbstractString,
+    )::Tuple{AbstractVector{<:AbstractString}, CacheGroup}
 
-Implement fetching the unique names of the entries of some `axis` of `format`.
+Implement fetching the unique names of the entries of some `axis` of `format`, together with a per-item
+[`CacheGroup`](@ref) describing how the returned vector should be cached.
 
 This trusts that we have a read lock on the data set, and that the `axis` exists in `format`.
 """
@@ -413,11 +422,11 @@ function format_set_vector! end
         axis::AbstractString,
         name::AbstractString,
         eltype::Type{T},
-    )::Vector{T} where {T <: StorageReal}
+    )::Tuple{AbstractVector{T}, Maybe{CacheGroup}} where {T <: StorageReal}
 
-Implement setting a vector property with some `name` for some `axis` in `format`.
-
-Implement creating an empty dense `matrix` with some `name` for some `rows_axis` and `columns_axis` in `format`.
+Implement creating an empty dense vector property with some `name` for some `axis` in `format`. Return the buffer to be
+filled by the caller, together with the [`CacheGroup`](@ref) to use when caching the filled buffer (as would be returned
+by [`format_get_vector`](@ref)), or `nothing` to skip caching.
 
 This trusts we have a write lock on the data set, that the `axis` exists in `format` and that the vector property `name`
 isn't `"name"`, and that it does not exist for the `axis`.
@@ -455,16 +464,18 @@ function format_get_empty_sparse_vector! end
         axis::AbstractString,
         name::AbstractString,
         filled::SparseVector{<:StorageReal, <:StorageInteger},
-    )::Nothing
+    )::Maybe{CacheGroup}
 
-Allow the `format` to perform caching once the empty sparse vector has been `filled`. By default this does nothing.
+Allow the `format` to perform finalization once the empty sparse vector has been `filled`. Return the
+[`CacheGroup`](@ref) to use when caching the stored sparse vector (as would be returned by [`format_get_vector`](@ref)),
+or `nothing` to skip caching. The default returns `nothing`.
 """
 function format_filled_empty_sparse_vector!( # UNTESTED
     ::FormatWriter,
     ::AbstractString,
     ::AbstractString,
     ::SparseVector{<:StorageReal, <:StorageInteger},
-)::Nothing
+)::Maybe{CacheGroup}
     return nothing
 end
 
@@ -494,9 +505,14 @@ This trusts that we have a read lock on the data set, and that the `axis` exists
 function format_vectors_set end
 
 """
-    format_get_vector(format::FormatReader, axis::AbstractString, name::AbstractString)::StorageVector
+    format_get_vector(
+        format::FormatReader,
+        axis::AbstractString,
+        name::AbstractString,
+    )::Tuple{StorageVector, CacheGroup}
 
-Implement fetching the vector property with some `name` for some `axis` in `format`.
+Implement fetching the vector property with some `name` for some `axis` in `format`, together with a per-item
+[`CacheGroup`](@ref) describing how the returned vector should be cached.
 
 This trusts that we have a read lock on the data set, that the `axis` exists in `format`, and the `name` vector property
 exists for the `axis`.
@@ -543,9 +559,11 @@ function format_set_matrix! end
         columns_axis::AbstractString,
         name::AbstractString,
         eltype::Type{T},
-    )::AbstractMatrix{T} where {T <: StorageReal}
+    )::Tuple{AbstractMatrix{T}, Maybe{CacheGroup}} where {T <: StorageReal}
 
 Implement creating an empty dense matrix property with some `name` for some `rows_axis` and `columns_axis` in `format`.
+Return the buffer to be filled by the caller, together with the [`CacheGroup`](@ref) to use when caching the filled
+buffer (as would be returned by [`format_get_matrix`](@ref)), or `nothing` to skip caching.
 
 This trusts we have a write lock on the data set, that the `rows_axis` and `columns_axis` exist in `format` and that the
 `name` matrix property does not exist for them.
@@ -584,9 +602,11 @@ function format_get_empty_sparse_matrix! end
         columns_axis::AbstractString,
         name::AbstractString,
         filled::SparseMatrixCSC{<:StorageReal, <:StorageInteger},
-    )::Nothing
+    )::Maybe{CacheGroup}
 
-Allow the `format` to perform caching once the empty sparse matrix has been `filled`. By default this does nothing.
+Allow the `format` to perform finalization once the empty sparse matrix has been `filled`. Return the
+[`CacheGroup`](@ref) to use when caching the stored sparse matrix (as would be returned by [`format_get_matrix`](@ref)),
+or `nothing` to skip caching. The default returns `nothing`.
 """
 function format_filled_empty_sparse_matrix!( # UNTESTED
     ::FormatWriter,
@@ -594,7 +614,7 @@ function format_filled_empty_sparse_matrix!( # UNTESTED
     ::AbstractString,
     ::AbstractString,
     ::SparseMatrixCSC{<:StorageReal, <:StorageInteger},
-)::Nothing
+)::Maybe{CacheGroup}
     return nothing
 end
 
@@ -651,9 +671,10 @@ function format_matrices_set end
         rows_axis::AbstractString,
         columns_axis::AbstractString,
         name::AbstractString
-    )::StorageMatrix
+    )::Tuple{StorageMatrix, CacheGroup}
 
-Implement fetching the matrix property with some `name` for some `rows_axis` and `columns_axis` in `format`.
+Implement fetching the matrix property with some `name` for some `rows_axis` and `columns_axis` in `format`, together
+with a per-item [`CacheGroup`](@ref) describing how the returned matrix should be cached.
 
 This trusts that we have a read lock on the data set, and that the `rows_axis` and `columns_axis` exist in `format`, and
 the `name` matrix property exists for them.
@@ -708,10 +729,6 @@ function set_in_cache!(format::FormatReader, cache_key::CacheKey, data::CacheDat
     end
 end
 
-function set_in_cache!(::FormatReader, ::CacheKey, ::CacheData, ::Nothing)::Nothing # UNTESTED
-    return nothing
-end
-
 function format_has_cached_matrix(
     format::FormatReader,
     rows_axis::AbstractString,
@@ -724,13 +741,27 @@ function format_has_cached_matrix(
     end
 end
 
-function get_through_cache(
+function get_through_cache(getter::Function, format::FormatReader, cache_key::CacheKey, ::Type{T})::T where {T}
+    @assert has_data_read_lock(format)
+    cached = nothing
+    while cached === nothing
+        cache_entry = with_cache_read_lock(format, "for get_from_cache:", cache_key) do  # NOJET
+            return get(format.internal.cache, cache_key, nothing)
+        end
+        cached = result_from_cache(cache_entry)
+        while cached === nothing
+            cached = write_through_cache(getter, format, cache_key, T)
+        end
+    end
+    return cached
+end
+
+function get_slow_through_cache(
     getter::Function,
     format::FormatReader,
     cache_key::CacheKey,
     ::Type{T},
-    cache_group::Maybe{CacheGroup};
-    is_slow::Bool = false,
+    cache_group::CacheGroup,
 )::T where {T}
     @assert has_data_read_lock(format)
     cached = nothing
@@ -740,11 +771,7 @@ function get_through_cache(
         end
         cached = result_from_cache(cache_entry)
         while cached === nothing
-            if cache_group === nothing
-                cached = getter()
-            else
-                cached = write_through_cache(getter, format, cache_key, T, cache_group; is_slow)
-            end
+            cached = write_slow_through_cache(getter, format, cache_key, T, cache_group)
         end
     end
     return cached
@@ -764,13 +791,31 @@ function result_from_cache(cache_entry::CacheEntry)::Any
     return cache_entry.data
 end
 
-function write_through_cache(
+function write_through_cache(getter::Function, format::FormatReader, cache_key::CacheKey, ::Type{T})::Maybe{T} where {T}
+    return with_cache_write_lock(format, "for get_through_cache:", cache_key) do  # NOJET
+        cache_entry = get(format.internal.cache, cache_key, nothing)
+        if cache_entry !== nothing
+            if cache_entry.data isa AbstractLock  # UNTESTED
+                return nothing  # UNTESTED
+            else
+                return cache_entry.data  # UNTESTED
+            end
+        else
+            result, cache_group = getter()
+            if cache_group !== nothing
+                put_in_cache!(format, cache_key, result, cache_group)
+            end
+            return result
+        end
+    end
+end
+
+function write_slow_through_cache(
     getter::Function,
     format::FormatReader,
     cache_key::CacheKey,
     ::Type{T},
-    cache_group::Maybe{CacheGroup};
-    is_slow::Bool = false,
+    cache_group::CacheGroup,
 )::Maybe{T} where {T}
     result = with_cache_write_lock(format, "for get_through_cache:", cache_key) do  # NOJET
         cache_entry = get(format.internal.cache, cache_key, nothing)
@@ -781,27 +826,20 @@ function write_through_cache(
                 return cache_entry.data  # UNTESTED
             end
         else
-            if is_slow
-                entry_lock = SpinLock()
-                cache_entry = CacheEntry(cache_group, entry_lock)
-                lock(entry_lock)
-                format.internal.cache[cache_key] = cache_entry
-                lock(format.internal.pending_condition) do
-                    format.internal.pending_count[1] += 1
-                    return nothing
-                end
-                return cache_entry
-            else
-                result = getter()
-                put_in_cache!(format, cache_key, result, cache_group)
-                return result
+            entry_lock = SpinLock()
+            cache_entry = CacheEntry(cache_group, entry_lock)
+            lock(entry_lock)
+            format.internal.cache[cache_key] = cache_entry
+            lock(format.internal.pending_condition) do
+                format.internal.pending_count[1] += 1
+                return nothing
             end
+            return cache_entry
         end
     end
     if result isa CacheEntry
         cache_entry = result
         entry_lock = cache_entry.data
-        @assert is_slow
         @assert entry_lock isa AbstractLock
         try
             result, dependency_keys = getter()
@@ -843,20 +881,20 @@ function write_through_cache(
 end
 
 function get_scalars_set_through_cache(format::FormatReader)::AbstractSet{<:AbstractString}
-    return get_through_cache(format, scalars_set_cache_key(), AbstractSet{<:AbstractString}, MemoryData) do
-        return format_scalars_set(format)
+    return get_through_cache(format, scalars_set_cache_key(), AbstractSet{<:AbstractString}) do
+        return (format_scalars_set(format), MemoryData)
     end
 end
 
 function get_axes_set_through_cache(format::FormatReader)::AbstractSet{<:AbstractString}
-    return get_through_cache(format, axes_set_cache_key(), AbstractSet{<:AbstractString}, MemoryData) do
-        return format_axes_set(format)
+    return get_through_cache(format, axes_set_cache_key(), AbstractSet{<:AbstractString}) do
+        return (format_axes_set(format), MemoryData)
     end
 end
 
 function get_vectors_set_through_cache(format::FormatReader, axis::AbstractString)::AbstractSet{<:AbstractString}
-    return get_through_cache(format, vectors_set_cache_key(axis), AbstractSet{<:AbstractString}, MemoryData) do
-        return format_vectors_set(format, axis)
+    return get_through_cache(format, vectors_set_cache_key(axis), AbstractSet{<:AbstractString}) do
+        return (format_vectors_set(format, axis), MemoryData)
     end
 end
 
@@ -869,26 +907,21 @@ function get_matrices_set_through_cache(
         format,
         matrices_set_cache_key(rows_axis, columns_axis; relayout = false),
         AbstractSet{<:AbstractString},
-        format.internal.cache_group,
     ) do
-        return format_matrices_set(format, rows_axis, columns_axis)
+        return (format_matrices_set(format, rows_axis, columns_axis), MemoryData)
     end
 end
 
 function get_scalar_through_cache(format::FormatReader, name::AbstractString)::StorageScalar
-    return get_through_cache(format, scalar_cache_key(name), StorageScalar, format.internal.cache_group) do
+    return get_through_cache(format, scalar_cache_key(name), StorageScalar) do
         return format_get_scalar(format, name)
     end
 end
 
 function get_axis_vector_through_cache(format::FormatReader, axis::AbstractString)::AbstractVector{<:AbstractString}
-    return get_through_cache(
-        format,
-        axis_vector_cache_key(axis),
-        AbstractVector{<:AbstractString},
-        format.internal.cache_group,
-    ) do
-        return read_only_array(format_axis_vector(format, axis))
+    return get_through_cache(format, axis_vector_cache_key(axis), AbstractVector{<:AbstractString}) do
+        vector, cache_group = format_axis_vector(format, axis)
+        return (read_only_array(vector), cache_group)
     end
 end
 
@@ -896,26 +929,21 @@ function get_axis_dict_through_cache(
     format::FormatReader,
     axis::AbstractString,
 )::AbstractDict{<:AbstractString, <:Integer}
-    return get_through_cache(
-        format,
-        axis_dict_cache_key(axis),
-        AbstractDict{<:AbstractString, <:Integer},
-        MemoryData,
-    ) do
+    return get_through_cache(format, axis_dict_cache_key(axis), AbstractDict{<:AbstractString, <:Integer}) do
         names = get_axis_vector_through_cache(format, axis)
         if eltype(names) != AbstractString
             names = Vector{AbstractString}(names)  # NOJET
         end
         names = read_only_array(names)
         named_array = NamedArray(spzeros(length(names)); names = (names,), dimnames = (axis,))
-        return named_array.dicts[1]
+        return (named_array.dicts[1], MemoryData)
     end
 end
 
 function get_vector_through_cache(format::FormatReader, axis::AbstractString, name::AbstractString)::NamedArray
-    return get_through_cache(format, vector_cache_key(axis, name), StorageVector, format.internal.cache_group) do
-        vector = format_get_vector(format, axis, name)
-        return as_named_vector(format, axis, vector)
+    return get_through_cache(format, vector_cache_key(axis, name), StorageVector) do
+        vector, cache_group = format_get_vector(format, axis, name)
+        return (as_named_vector(format, axis, vector), cache_group)
     end
 end
 
@@ -925,14 +953,9 @@ function get_matrix_through_cache(
     columns_axis::AbstractString,
     name::AbstractString,
 )::NamedArray
-    return get_through_cache(
-        format,
-        matrix_cache_key(rows_axis, columns_axis, name),
-        StorageMatrix,
-        format.internal.cache_group,
-    ) do
-        matrix = format_get_matrix(format, rows_axis, columns_axis, name)
-        return as_named_matrix(format, rows_axis, columns_axis, matrix)
+    return get_through_cache(format, matrix_cache_key(rows_axis, columns_axis, name), StorageMatrix) do
+        matrix, cache_group = format_get_matrix(format, rows_axis, columns_axis, name)
+        return (as_named_matrix(format, rows_axis, columns_axis, matrix), cache_group)
     end
 end
 
@@ -944,26 +967,35 @@ function get_relayout_matrix_through_cache(
 )::NamedArray
     @assert !format_has_matrix(format, rows_axis, columns_axis, name)
     matrix = get_matrix_through_cache(format, columns_axis, rows_axis, name).array
-    return get_through_cache(
-        format,
-        matrix_cache_key(rows_axis, columns_axis, name),
-        StorageMatrix,
-        MemoryData;
-        is_slow = true,
-    ) do
+    return get_slow_through_cache(format, matrix_cache_key(rows_axis, columns_axis, name), StorageMatrix, MemoryData) do
         matrix = flipped(matrix)
         matrix = as_named_matrix(format, rows_axis, columns_axis, matrix)
         return (matrix, nothing)
     end
 end
 
-function cache_scalar!(format::FormatReader, name::AbstractString, value::StorageScalar)::Nothing
-    set_in_cache!(format, scalar_cache_key(name), value, format.internal.cache_group)
+function cache_scalar!(
+    format::FormatReader,
+    name::AbstractString,
+    value::StorageScalar,
+    cache_group::Maybe{CacheGroup},
+)::Nothing
+    if cache_group !== nothing
+        set_in_cache!(format, scalar_cache_key(name), value, cache_group)
+    end
     return nothing
 end
 
-function cache_vector!(format::FormatReader, axis::AbstractString, name::AbstractString, vector::NamedVector)::Nothing
-    set_in_cache!(format, vector_cache_key(axis, name), vector, format.internal.cache_group)
+function cache_vector!(
+    format::FormatReader,
+    axis::AbstractString,
+    name::AbstractString,
+    vector::NamedVector,
+    cache_group::Maybe{CacheGroup},
+)::Nothing
+    if cache_group !== nothing
+        set_in_cache!(format, vector_cache_key(axis, name), vector, cache_group)
+    end
     return nothing
 end
 
@@ -973,8 +1005,11 @@ function cache_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     matrix::NamedMatrix,
+    cache_group::Maybe{CacheGroup},
 )::Nothing
-    set_in_cache!(format, matrix_cache_key(rows_axis, columns_axis, name), matrix, format.internal.cache_group)
+    if cache_group !== nothing
+        set_in_cache!(format, matrix_cache_key(rows_axis, columns_axis, name), matrix, cache_group)
+    end
     return nothing
 end
 

@@ -845,12 +845,11 @@ function matrices_set(
                 daf,
                 Formats.matrices_set_cache_key(rows_axis, columns_axis; relayout = true),
                 AbstractSet{<:AbstractString},
-                daf.internal.cache_group,
             ) do
                 first_names = Formats.get_matrices_set_through_cache(daf, rows_axis, columns_axis)
                 second_names = Formats.get_matrices_set_through_cache(daf, columns_axis, rows_axis)
                 names = union(first_names, second_names)
-                return names
+                return (names, Formats.MemoryData)
             end
         end
 

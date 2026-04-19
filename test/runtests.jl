@@ -50,6 +50,7 @@ end
 
 include("keys.jl")
 include("read_only.jl")
+include("cache_groups.jl")
 include("data.jl")
 include("anndata.jl")
 include("reconstruction.jl")

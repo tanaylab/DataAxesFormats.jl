@@ -1337,12 +1337,11 @@ function get_query(
     verify_contract_query(daf, cache_key)
     return Formats.with_data_read_lock(daf, "for get_query of:", cache_key) do
         if cache
-            result = Formats.get_through_cache(
+            result = Formats.get_slow_through_cache(
                 daf,
                 cache_key,
                 Union{AbstractSet{<:AbstractString}, StorageScalar, NamedArray},
-                QueryData;
-                is_slow = true,
+                QueryData,
             ) do
                 return get_query_result(daf, query_sequence)
             end
@@ -1469,7 +1468,7 @@ function assert_is_valid(matrix_state::MatrixState)::Nothing
     end
     if matrix_state.matrix_values !== nothing
         @assert matrix_state.rows_state !== nothing
-        @assert matrix_state.rows_state.vector_values !== nothing
+        @assert matrix_state.rows_state.vector_values !== nothing  # NOJET
         @assert matrix_state.columns_state !== nothing
         @assert matrix_state.columns_state.vector_values !== nothing
         @assert size(matrix_state.matrix_values) ==
@@ -1672,7 +1671,7 @@ function next_matching_operations(
         end
 
         if is_match
-            push!(matching_operations, query_operation)
+            push!(matching_operations, query_operation)  # NOJET
             next_operation_index += 1
         elseif expectation isa Optional
             push!(matching_operations, nothing)
