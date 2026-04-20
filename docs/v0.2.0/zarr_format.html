@@ -5,11 +5,11 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Complete Repositories · DataAxesFormats.jl v0.2.0
+<title>Zarr Format · DataAxesFormats.jl v0.2.0
 </title>
-<meta name="title" content="Complete Repositories · DataAxesFormats.jl v0.2.0"/>
-<meta property="og:title" content="Complete Repositories · DataAxesFormats.jl v0.2.0"/>
-<meta property="twitter:title" content="Complete Repositories · DataAxesFormats.jl v0.2.0"/>
+<meta name="title" content="Zarr Format · DataAxesFormats.jl v0.2.0"/>
+<meta property="og:title" content="Zarr Format · DataAxesFormats.jl v0.2.0"/>
+<meta property="twitter:title" content="Zarr Format · DataAxesFormats.jl v0.2.0"/>
 <meta name="description" content="Documentation for DataAxesFormats.jl v0.2.0."/>
 <meta property="og:description" content="Documentation for DataAxesFormats.jl v0.2.0."/>
 <meta property="twitter:description" content="Documentation for DataAxesFormats.jl v0.2.0."/>
@@ -184,12 +184,8 @@
 <a class="tocitem" href="files_format.html">Files Format
 </a>
 </li>
-<li>
-<a class="tocitem" href="zarr_format.html">Zarr Format
-</a>
-</li>
 <li class="is-active">
-<a class="tocitem" href="complete.html">Complete Repositories
+<a class="tocitem" href="zarr_format.html">Zarr Format
 </a>
 <ul class="internal">
 <li>
@@ -199,6 +195,10 @@
 </a>
 </li>
 </ul>
+</li>
+<li>
+<a class="tocitem" href="complete.html">Complete Repositories
+</a>
 </li>
 <li>
 <a class="tocitem" href="anndata_format.html">AnnData Format
@@ -249,13 +249,13 @@
 <nav class="breadcrumb">
 <ul class="is-hidden-mobile">
 <li class="is-active">
-<a href="complete.html">Complete Repositories
+<a href="zarr_format.html">Zarr Format
 </a>
 </li>
 </ul>
 <ul class="is-hidden-tablet">
 <li class="is-active">
-<a href="complete.html">Complete Repositories
+<a href="zarr_format.html">Zarr Format
 </a>
 </li>
 </ul>
@@ -274,19 +274,19 @@
 </div>
 </header>
 <article class="content" id="documenter-page">
-<h1 id="Complete-Repositories">
-<a class="docs-heading-anchor" href="#Complete-Repositories">Complete Repositories
+<h1 id="Zarr-Format">
+<a class="docs-heading-anchor" href="#Zarr-Format">Zarr Format
 </a>
-<a id="Complete-Repositories-1">
+<a id="Zarr-Format-1">
 </a>
-<a class="docs-heading-anchor-permalink" href="#Complete-Repositories" title="Permalink">
+<a class="docs-heading-anchor-permalink" href="#Zarr-Format" title="Permalink">
 </a>
 </h1>
 <article>
 <details class="docstring" open="true">
-<summary id="DataAxesFormats.CompleteDaf">
-<a class="docstring-binding" href="#DataAxesFormats.CompleteDaf">
-<code>DataAxesFormats.CompleteDaf
+<summary id="DataAxesFormats.ZarrFormat">
+<a class="docstring-binding" href="#DataAxesFormats.ZarrFormat">
+<code>DataAxesFormats.ZarrFormat
 </code>
 </a> — 
 <span class="docstring-category">Module
@@ -294,114 +294,422 @@
 </summary>
 <section>
 <div>
-<p>The common idiom in 
+<p>A 
 <code>Daf
-</code> is to have multiple repositories in a chain; actually, they typically form a tree where different leaf repositories are based on common ancestor repositories. For example, a base cells repository can be used by multiple alternative metacells repositories.
-</p>
-<p>Tracking this tree manually is possible, by using naming conventions (which is always a good idea). However, this gets tedious. The code here automates this by using an additional convention - each repository contains a scalar property called 
-<code>base_daf_repository
-</code> which identifies its parent repository (if any). This path is relative to the directory containing the child repository. See 
-<a href="complete.html#DataAxesFormats.CompleteDaf.open_daf">
-<code>open_daf
-</code>
-</a> for details.
-</p>
-<p>In addition, it is possible to have another scalar property, 
-<code>base_daf_view
-</code>. If specified, this should contain JSON serialization of the parameters of a 
-<code>DafView
-</code> to apply to the base repository. This allows the child repository to be based on a subset of the base data, and/or rename the base data.
-</p>
-<p>Since the same base repository can be used by multiple other repositories, we use the 
-<code>GlobalWeakCache
-</code> to avoid needlessly re-opening the same repository more than once.
-</p>
-</div>
-</section>
-</details>
-</article>
-<article>
-<details class="docstring" open="true">
-<summary id="DataAxesFormats.CompleteDaf.complete_daf">
-<a class="docstring-binding" href="#DataAxesFormats.CompleteDaf.complete_daf">
-<code>DataAxesFormats.CompleteDaf.complete_daf
-</code>
-</a> — 
-<span class="docstring-category">Function
-</span>
-</summary>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">complete_daf(leaf::AbstractString, mode::AbstractString = &quot;r&quot;; name::Maybe{AbstractString} = nothing)::Union{DafReader, DafWriter}
-</code>
-</pre>
-<p>Open a complete chain of 
-<code>Daf
-</code> repositories by tracing back through the 
-<code>base_daf_repository
-</code> and the optional 
-<code>base_daf_view
-</code>. Valid modes are only &quot;r&quot; and &quot;r+&quot;; if the latter, only the first (leaf) repository is opened in write mode.
-</p>
-<p>A convenient way to create persistent complete chains is using 
-<a href="chains.html#DataAxesFormats.Chains.complete_chain!">
-<code>complete_chain!
-</code>
-</a>.
-</p>
-<p>TODO: Properly indent the log messages of the created leaf repositories. Generic mechanism for indenting all hierarchical log messages?
-</p>
-</div>
-</section>
-</details>
-</article>
-<article>
-<details class="docstring" open="true">
-<summary id="DataAxesFormats.CompleteDaf.open_daf">
-<a class="docstring-binding" href="#DataAxesFormats.CompleteDaf.open_daf">
-<code>DataAxesFormats.CompleteDaf.open_daf
-</code>
-</a> — 
-<span class="docstring-category">Function
-</span>
-</summary>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">open_daf(
-    path::AbstractString,
-    mode::AbstractString = &quot;r&quot;;
-    name::Maybe{AbstractString} = nothing
-)::Union{DafReader, DafWriter}
-</code>
-</pre>
-<p>Open either a 
+</code> storage format in a 
+<a href="https://zarr.readthedocs.io/">Zarr
+</a> directory tree. Like 
 <a href="files_format.html#DataAxesFormats.FilesFormat.FilesDaf">
 <code>FilesDaf
 </code>
-</a> or an 
+</a>, the data lives in a directory of files on the filesystem (so standard filesystem tools work, and deleting a property immediately frees its storage), and offers a different trade-off compared to 
+<a href="files_format.html#DataAxesFormats.FilesFormat.FilesDaf">
+<code>FilesDaf
+</code>
+</a> and 
 <a href="h5df_format.html#DataAxesFormats.H5dfFormat.H5df">
 <code>H5df
 </code>
-</a>. If the 
-<code>path
-</code> ends with 
-<code>.h5df
-</code> or contains 
-<code>.h5dfs#
-</code> (followed by a group path), then it opens an 
-<a href="h5df_format.html#DataAxesFormats.H5dfFormat">
-<code>H5dfFormat
-</code>
-</a> file (or a group in one). Otherwise, it opens a 
-<a href="files_format.html#DataAxesFormats.FilesFormat">
-<code>FilesFormat
-</code>
-</a> 
+</a>.
+</p>
+<p>
+<code>FilesDaf
+</code> uses its own 
+<code>Daf
+</code>-specific layout, but the individual files are in deliberately simple formats (
+<code>JSON
+</code> for metadata, one-line-per-entry text for axis entries, raw little-endian binary for numeric data), so they are easy to inspect or produce with standard command-line tools even without any 
+<code>Daf
+</code>-aware library. 
+<code>ZarrDaf
+</code> instead lays the files out according to the Zarr specification: the per-array 
+<code>.zarray
+</code> metadata and the chunk files are more opaque than 
+<code>FilesDaf
+</code>&#39;s plain text/JSON, but in exchange the directory can be read directly by any Zarr library (e.g. the Python 
+<code>zarr
+</code> package) without that library having to know anything about 
 <code>Daf
 </code>.
 </p>
+<p>A Zarr directory is still a directory rather than a single file, so you need to create a 
+<code>zip
+</code> or 
+<code>tar
+</code> archive to publish it, and accessing it consumes multiple file descriptors. In addition, not every Zarr feature is supported here: we rely on the local 
+<code>DirectoryStore
+</code> backend (no ZIP stores or remote object stores), and require every array to be stored in a single uncompressed chunk, so we can memory-map it directly for efficient access.
+</p>
+<p>We use the following internal structure under some root Zarr group (which is 
+<strong>not
+</strong> compatible with any specific existing Zarr-based convention such as 
+<a href="https://ngff.openmicroscopy.org/">
+<code>OME-NGFF
+</code>
+</a>):
+</p>
+<ul>
+<li>
+<p>The directory will contain 4 sub-groups: 
+<code>scalars
+</code>, 
+<code>axes
+</code>, 
+<code>vectors
+</code>, and 
+<code>matrices
+</code>, and a 
+<code>daf
+</code> array.
+</p>
+</li>
+<li>
+<p>The 
+<code>daf
+</code> array signifies that the group contains 
+<code>Daf
+</code> data. It contains two 
+<code>UInt8
+</code> integers, the first being the major version number and the second the minor version number, using 
+<a href="https://semver.org/">semantic versioning
+</a>. This makes it easy to test whether some Zarr group does/n&#39;t contain 
+<code>Daf
+</code> data, and which version of the internal structure it is using. Currently the only defined version is 
+<code>[1,0]
+</code>.
+</p>
+</li>
+<li>
+<p>The 
+<code>scalars
+</code> group contains scalar properties, each as a single-element Zarr array. The only supported scalar data types are these included in 
+<a href="storage_types.html#DataAxesFormats.StorageTypes.StorageScalar">
+<code>StorageScalar
+</code>
+</a>. If you 
+<strong>really
+</strong> need something else, serialize it to JSON and store the result as a string scalar. This should be 
+<strong>extremely
+</strong> rare.
+</p>
+</li>
+<li>
+<p>The 
+<code>axes
+</code> group contains a Zarr array per axis, which contains a vector of strings (the names of the axis entries).
+</p>
+</li>
+<li>
+<p>The 
+<code>vectors
+</code> group contains a sub-group for each axis. Each such sub-group contains vector properties. If the vector is dense, it is stored directly as a Zarr array. Otherwise, it is stored as a sub-group containing two child Zarr arrays: 
+<code>nzind
+</code> containing the indices of the non-zero values, and 
+<code>nzval
+</code> containing the actual values. See Julia&#39;s 
+<code>SparseVector
+</code> implementation for details. The only supported vector element types are these included in 
+<a href="storage_types.html#DataAxesFormats.StorageTypes.StorageScalar">
+<code>StorageScalar
+</code>
+</a>, same as 
+<a href="storage_types.html#DataAxesFormats.StorageTypes.StorageVector">
+<code>StorageVector
+</code>
+</a>.
+</p>
+<p>If the data type is 
+<code>Bool
+</code> then the data vector is typically all-
+<code>true
+</code> values; in this case we simply skip storing the 
+<code>nzval
+</code> child array.
+</p>
+</li>
+<li>
+<p>The 
+<code>matrices
+</code> group contains a sub-group for each rows axis, which contains a sub-group for each columns axis. Each such sub-sub-group contains matrix properties. If the matrix is dense, it is stored directly as a Zarr array (in column-major layout). Otherwise, it is stored as a sub-group containing three child Zarr arrays: 
+<code>colptr
+</code> containing the indices of the rows of each column in 
+<code>rowval
+</code>, 
+<code>rowval
+</code> containing the indices of the non-zero rows of the columns, and 
+<code>nzval
+</code> containing the non-zero matrix entry values. See Julia&#39;s 
+<code>SparseMatrixCSC
+</code> implementation for details. The only supported matrix element types are these included in 
+<a href="storage_types.html#DataAxesFormats.StorageTypes.StorageReal">
+<code>StorageReal
+</code>
+</a> - this explicitly excludes matrices of strings, same as 
+<a href="storage_types.html#DataAxesFormats.StorageTypes.StorageMatrix">
+<code>StorageMatrix
+</code>
+</a>.
+</p>
+<p>If the data type is 
+<code>Bool
+</code> then the data matrix is typically all-
+<code>true
+</code> values; in this case we simply skip storing the 
+<code>nzval
+</code> child array.
+</p>
+</li>
+<li>
+<p>Every Zarr array is created without compression, using a single chunk covering the full array, so the chunk file on disk is a raw binary image that we can memory-map for direct access.
+</p>
+</li>
+</ul>
+<p>Example Zarr directory structure:
+</p>
+<pre>
+<code class="language-julia hljs">example-daf-dataset-root-directory.zarr/
+├─ .zgroup
+├─ daf/
+│  ├─ .zarray
+│  └─ 0
+├─ scalars/
+│  ├─ .zgroup
+│  └─ version/
+│     ├─ .zarray
+│     └─ 0
+├─ axes/
+│  ├─ .zgroup
+│  ├─ cell/
+│  └─ gene/
+├─ vectors/
+│  ├─ .zgroup
+│  ├─ cell/
+│  │  ├─ .zgroup
+│  │  └─ batch/
+│  └─ gene/
+│     ├─ .zgroup
+│     └─ is_marker/
+└─ matrices/
+   ├─ .zgroup
+   ├─ cell/
+   │  ├─ .zgroup
+   │  └─ gene/
+   │     ├─ .zgroup
+   │     └─ UMIs/
+   │        ├─ .zgroup
+   │        ├─ colptr/
+   │        ├─ rowval/
+   │        └─ nzval/
+   └─ gene/
+      ├─ .zgroup
+      ├─ cell/
+      └─ gene/
+</code>
+</pre>
+<div class="admonition is-info" id="Note-1e6c31450c05f197">
+<header class="admonition-header">Note
+<a class="admonition-anchor" href="#Note-1e6c31450c05f197" title="Permalink">
+</a>
+</header>
+<div class="admonition-body">
+<p>Only the local 
+<code>DirectoryStore
+</code> backend (a 
+<code>.zarr
+</code> directory tree on a local filesystem) is supported. Other Zarr stores (ZIP archives, cloud object stores, …) are not.
+</p>
+</div>
+</div>
+<div class="admonition is-info" id="Note-a752192dc5eac09d">
+<header class="admonition-header">Note
+<a class="admonition-anchor" href="#Note-a752192dc5eac09d" title="Permalink">
+</a>
+</header>
+<div class="admonition-body">
+<p>The code here assumes the Zarr data obeys all the above conventions and restrictions. As long as you only create and access 
+<code>Daf
+</code> data in Zarr directories using 
+<a href="zarr_format.html#DataAxesFormats.ZarrFormat.ZarrDaf">
+<code>ZarrDaf
+</code>
+</a>, then the code will work as expected (assuming no bugs). However, if you do this in some other way (e.g., a Zarr library in another language producing compressed or multi-chunk arrays), and the result is invalid, then the code here may fail with &quot;less than friendly&quot; error messages.
+</p>
+</div>
+</div>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.ZarrFormat.MAJOR_VERSION">
+<a class="docstring-binding" href="#DataAxesFormats.ZarrFormat.MAJOR_VERSION">
+<code>DataAxesFormats.ZarrFormat.MAJOR_VERSION
+</code>
+</a> — 
+<span class="docstring-category">Constant
+</span>
+</summary>
+<section>
+<div>
+<p>The major version of the 
+<a href="zarr_format.html#DataAxesFormats.ZarrFormat.ZarrDaf">
+<code>ZarrDaf
+</code>
+</a> on-disk format supported by this code.
+</p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.ZarrFormat.MINOR_VERSION">
+<a class="docstring-binding" href="#DataAxesFormats.ZarrFormat.MINOR_VERSION">
+<code>DataAxesFormats.ZarrFormat.MINOR_VERSION
+</code>
+</a> — 
+<span class="docstring-category">Constant
+</span>
+</summary>
+<section>
+<div>
+<p>The highest minor version of the 
+<a href="zarr_format.html#DataAxesFormats.ZarrFormat.ZarrDaf">
+<code>ZarrDaf
+</code>
+</a> on-disk format supported by this code.
+</p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.ZarrFormat.ZarrDaf">
+<a class="docstring-binding" href="#DataAxesFormats.ZarrFormat.ZarrDaf">
+<code>DataAxesFormats.ZarrFormat.ZarrDaf
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">ZarrDaf(
+    path::AbstractString,
+    mode::AbstractString = &quot;r&quot;;
+    [name::Maybe{AbstractString} = nothing]
+)
+</code>
+</pre>
+<p>Storage in a Zarr directory tree.
+</p>
+<p>The 
+<code>path
+</code> is a filesystem path to a Zarr directory (by convention, using a 
+<code>.zarr
+</code> suffix).
+</p>
+<p>When opening an existing data set, if 
+<code>name
+</code> is not specified, and there exists a &quot;name&quot; scalar property, it is used as the name. Otherwise, the 
+<code>path
+</code> will be used as the name.
+</p>
+<p>The valid 
+<code>mode
+</code> values are as follows (the default mode is 
+<code>r
+</code>):
+</p>
+<table>
+<tr>
+<th style="text-align: left">Mode
+</th>
+<th style="text-align: left">Allow modifications?
+</th>
+<th style="text-align: left">Create if does not exist?
+</th>
+<th style="text-align: left">Truncate if exists?
+</th>
+<th style="text-align: left">Returned type
+</th>
+</tr>
+<tr>
+<td style="text-align: left">
+<code>r
+</code>
+</td>
+<td style="text-align: left">No
+</td>
+<td style="text-align: left">No
+</td>
+<td style="text-align: left">No
+</td>
+<td style="text-align: left">
+<a href="read_only.html#DataAxesFormats.ReadOnly.DafReadOnly">
+<code>DafReadOnly
+</code>
+</a>
+</td>
+</tr>
+<tr>
+<td style="text-align: left">
+<code>r+
+</code>
+</td>
+<td style="text-align: left">Yes
+</td>
+<td style="text-align: left">No
+</td>
+<td style="text-align: left">No
+</td>
+<td style="text-align: left">
+<a href="zarr_format.html#DataAxesFormats.ZarrFormat.ZarrDaf">
+<code>ZarrDaf
+</code>
+</a>
+</td>
+</tr>
+<tr>
+<td style="text-align: left">
+<code>w+
+</code>
+</td>
+<td style="text-align: left">Yes
+</td>
+<td style="text-align: left">Yes
+</td>
+<td style="text-align: left">No
+</td>
+<td style="text-align: left">
+<a href="zarr_format.html#DataAxesFormats.ZarrFormat.ZarrDaf">
+<code>ZarrDaf
+</code>
+</a>
+</td>
+</tr>
+<tr>
+<td style="text-align: left">
+<code>w
+</code>
+</td>
+<td style="text-align: left">Yes
+</td>
+<td style="text-align: left">Yes
+</td>
+<td style="text-align: left">Yes
+</td>
+<td style="text-align: left">
+<a href="zarr_format.html#DataAxesFormats.ZarrFormat.ZarrDaf">
+<code>ZarrDaf
+</code>
+</a>
+</td>
+</tr>
+</table>
 </div>
 </section>
 </details>
@@ -416,29 +724,35 @@
 </h2>
 <ul>
 <li>
-<a href="complete.html#DataAxesFormats.CompleteDaf">
-<code>DataAxesFormats.CompleteDaf
+<a href="zarr_format.html#DataAxesFormats.ZarrFormat">
+<code>DataAxesFormats.ZarrFormat
 </code>
 </a>
 </li>
 <li>
-<a href="complete.html#DataAxesFormats.CompleteDaf.complete_daf">
-<code>DataAxesFormats.CompleteDaf.complete_daf
+<a href="zarr_format.html#DataAxesFormats.ZarrFormat.MAJOR_VERSION">
+<code>DataAxesFormats.ZarrFormat.MAJOR_VERSION
 </code>
 </a>
 </li>
 <li>
-<a href="complete.html#DataAxesFormats.CompleteDaf.open_daf">
-<code>DataAxesFormats.CompleteDaf.open_daf
+<a href="zarr_format.html#DataAxesFormats.ZarrFormat.MINOR_VERSION">
+<code>DataAxesFormats.ZarrFormat.MINOR_VERSION
+</code>
+</a>
+</li>
+<li>
+<a href="zarr_format.html#DataAxesFormats.ZarrFormat.ZarrDaf">
+<code>DataAxesFormats.ZarrFormat.ZarrDaf
 </code>
 </a>
 </li>
 </ul>
 </article>
 <nav class="docs-footer">
-<a class="docs-footer-prevpage" href="zarr_format.html">« Zarr Format
+<a class="docs-footer-prevpage" href="files_format.html">« Files Format
 </a>
-<a class="docs-footer-nextpage" href="anndata_format.html">AnnData Format »
+<a class="docs-footer-nextpage" href="complete.html">Complete Repositories »
 </a>
 <div class="flexbox-break">
 </div>

@@ -2835,7 +2835,7 @@ function vector_maybe_axis(query_state::QueryState, query_value::QueryStackEleme
     )
 end
 
-function matrix_maybe_axis(query_state::QueryState, query_value::QueryStackElement)::Bool # UNTESTED
+function matrix_maybe_axis(query_state::QueryState, query_value::QueryStackElement)::Bool
     return query_value isa MatrixState &&
            query_value.property_name !== nothing &&
            query_value.property_axis_name === nothing &&

@@ -3317,4 +3317,189 @@ nested_test("data") do
             end
         end
     end
+
+    nested_test("zarr") do
+        nested_test("invalid") do
+            mktempdir() do path
+                @test_throws "invalid mode: a" ZarrDaf(path * "/test.zarr", "a")
+                @test_throws "not a zarr directory: $(path)/missing.zarr" ZarrDaf(path * "/missing.zarr", "r+")
+                empty_path = path * "/empty.zarr"
+                mkpath(empty_path)
+                write(empty_path * "/.zgroup", "{\"zarr_format\":2}")
+                @test_throws "not a daf zarr group: $(abspath(empty_path))" ZarrDaf(empty_path)
+                version_path = path * "/version.zarr"
+                ZarrDaf(version_path, "w+"; name = "v!")
+                write(version_path * "/daf/0", UInt8[2, 0])
+                @test_throws chomp("""
+                             incompatible format version: 2.0
+                             for the daf zarr group: $(abspath(version_path))
+                             the code supports version: 1.0
+                             """) ZarrDaf(version_path; name = "version!")
+            end
+        end
+
+        nested_test("root") do
+            mktempdir() do path
+                zarr_path = path * "/test.zarr"
+                daf = ZarrDaf(zarr_path, "w+"; name = "zarr!")
+                @test complete_path(daf) == abspath(zarr_path)
+                @test daf.name == "zarr!"
+                @test string(daf) == "ZarrDaf zarr!"
+                @test string(read_only(daf)) == "ReadOnly ZarrDaf zarr!.read_only"
+                @test string(read_only(daf; name = "renamed!")) == "ReadOnly ZarrDaf renamed!"
+                @test description(daf) == """
+                    name: zarr!
+                    type: ZarrDaf
+                    path: $(abspath(zarr_path))
+                    mode: w+
+                    """
+                test_format(daf)
+                daf = ZarrDaf(zarr_path, "r+")
+                @test complete_path(daf) == abspath(zarr_path)
+                daf = ZarrDaf(zarr_path, "r")
+                @test complete_path(daf) == abspath(zarr_path)
+                @test startswith(daf.name, abspath(zarr_path))
+                @test endswith(daf.name, ".read_only")
+                daf = ZarrDaf(zarr_path, "r+")
+                set_scalar!(daf, "name", "zarr!")
+                daf = ZarrDaf(zarr_path, "r")
+                @test string(daf) == "ReadOnly ZarrDaf zarr!.read_only"
+                daf = ZarrDaf(zarr_path, "w"; name = "empty!")
+                @test string(daf) == "ZarrDaf empty!"
+                @test !has_scalar(daf, "name")
+                return nothing
+            end
+        end
+
+        nested_test("non_canonical") do
+            nested_test("chunked_dense_vector") do
+                mktempdir() do path
+                    zarr_path = path * "/test.zarr"
+                    daf = ZarrDaf(zarr_path, "w"; name = "zarr!")
+                    add_axis!(daf, "cell", CELL_NAMES)
+                    cell_vec = daf.root.groups["vectors"].groups["cell"]
+                    age = zcreate(Int64, cell_vec, "age", length(CELL_NAMES); chunks = (2,), compressor = Zarr.NoCompressor())
+                    age[:] = [11, 22, 33]
+                    daf = ZarrDaf(zarr_path, "r"; name = "ro!")
+                    @test get_vector(daf, "cell", "age") == [11, 22, 33]
+                    return nothing
+                end
+            end
+
+            nested_test("compressed_dense_vector") do
+                mktempdir() do path
+                    zarr_path = path * "/test.zarr"
+                    daf = ZarrDaf(zarr_path, "w"; name = "zarr!")
+                    add_axis!(daf, "cell", CELL_NAMES)
+                    cell_vec = daf.root.groups["vectors"].groups["cell"]
+                    age = zcreate(Int64, cell_vec, "age", length(CELL_NAMES); compressor = Zarr.BloscCompressor())
+                    age[:] = [11, 22, 33]
+                    daf = ZarrDaf(zarr_path, "r"; name = "ro!")
+                    @test get_vector(daf, "cell", "age") == [11, 22, 33]
+                    return nothing
+                end
+            end
+
+            nested_test("chunked_compressed_dense_vector") do
+                mktempdir() do path
+                    zarr_path = path * "/test.zarr"
+                    daf = ZarrDaf(zarr_path, "w"; name = "zarr!")
+                    add_axis!(daf, "cell", CELL_NAMES)
+                    cell_vec = daf.root.groups["vectors"].groups["cell"]
+                    age = zcreate(Int64, cell_vec, "age", length(CELL_NAMES); chunks = (2,), compressor = Zarr.BloscCompressor())
+                    age[:] = [11, 22, 33]
+                    daf = ZarrDaf(zarr_path, "r"; name = "ro!")
+                    @test get_vector(daf, "cell", "age") == [11, 22, 33]
+                    return nothing
+                end
+            end
+
+            nested_test("chunked_string_vector") do
+                mktempdir() do path
+                    zarr_path = path * "/test.zarr"
+                    daf = ZarrDaf(zarr_path, "w"; name = "zarr!")
+                    add_axis!(daf, "cell", CELL_NAMES)
+                    cell_vec = daf.root.groups["vectors"].groups["cell"]
+                    color = zcreate(String, cell_vec, "color", length(CELL_NAMES); chunks = (2,), compressor = Zarr.NoCompressor())
+                    color[:] = ["red", "green", "blue"]
+                    daf = ZarrDaf(zarr_path, "r"; name = "ro!")
+                    @test get_vector(daf, "cell", "color") == ["red", "green", "blue"]
+                    return nothing
+                end
+            end
+
+            nested_test("chunked_dense_matrix") do
+                mktempdir() do path
+                    zarr_path = path * "/test.zarr"
+                    daf = ZarrDaf(zarr_path, "w"; name = "zarr!")
+                    add_axis!(daf, "cell", CELL_NAMES)
+                    add_axis!(daf, "gene", GENE_NAMES)
+                    group = daf.root.groups["matrices"].groups["cell"].groups["gene"]
+                    umis = zcreate(
+                        Int64, group, "UMIs", length(CELL_NAMES), length(GENE_NAMES);
+                        chunks = (2, 2), compressor = Zarr.NoCompressor(),
+                    )
+                    umis[:, :] = UMIS_BY_DEPTH[1]
+                    daf = ZarrDaf(zarr_path, "r"; name = "ro!")
+                    @test get_matrix(daf, "cell", "gene", "UMIs") == UMIS_BY_DEPTH[1]
+                    return nothing
+                end
+            end
+
+            nested_test("compressed_dense_matrix") do
+                mktempdir() do path
+                    zarr_path = path * "/test.zarr"
+                    daf = ZarrDaf(zarr_path, "w"; name = "zarr!")
+                    add_axis!(daf, "cell", CELL_NAMES)
+                    add_axis!(daf, "gene", GENE_NAMES)
+                    group = daf.root.groups["matrices"].groups["cell"].groups["gene"]
+                    umis = zcreate(
+                        Int64, group, "UMIs", length(CELL_NAMES), length(GENE_NAMES);
+                        compressor = Zarr.BloscCompressor(),
+                    )
+                    umis[:, :] = UMIS_BY_DEPTH[1]
+                    daf = ZarrDaf(zarr_path, "r"; name = "ro!")
+                    @test get_matrix(daf, "cell", "gene", "UMIs") == UMIS_BY_DEPTH[1]
+                    return nothing
+                end
+            end
+
+            nested_test("compressed_sparse_vector") do
+                mktempdir() do path
+                    zarr_path = path * "/test.zarr"
+                    daf = ZarrDaf(zarr_path, "w"; name = "zarr!")
+                    add_axis!(daf, "cell", CELL_NAMES)
+                    cell_vec = daf.root.groups["vectors"].groups["cell"]
+                    v_group = zgroup(cell_vec, "marker")
+                    nzind = zcreate(Int32, v_group, "nzind", 2; compressor = Zarr.BloscCompressor())
+                    nzind[:] = Int32[1, 3]
+                    nzval = zcreate(Int64, v_group, "nzval", 2; compressor = Zarr.BloscCompressor())
+                    nzval[:] = Int64[7, 9]
+                    daf = ZarrDaf(zarr_path, "r"; name = "ro!")
+                    @test get_vector(daf, "cell", "marker") == [7, 0, 9]
+                    return nothing
+                end
+            end
+
+            nested_test("compressed_sparse_matrix") do
+                mktempdir() do path
+                    zarr_path = path * "/test.zarr"
+                    daf = ZarrDaf(zarr_path, "w"; name = "zarr!")
+                    add_axis!(daf, "cell", CELL_NAMES)
+                    add_axis!(daf, "gene", GENE_NAMES)
+                    group = daf.root.groups["matrices"].groups["cell"].groups["gene"]
+                    m_group = zgroup(group, "UMIs")
+                    colptr = zcreate(Int32, m_group, "colptr", 5; compressor = Zarr.BloscCompressor())
+                    colptr[:] = Int32[1, 2, 3, 4, 5]
+                    rowval = zcreate(Int32, m_group, "rowval", 4; compressor = Zarr.BloscCompressor())
+                    rowval[:] = Int32[1, 2, 3, 1]
+                    nzval = zcreate(Int64, m_group, "nzval", 4; compressor = Zarr.BloscCompressor())
+                    nzval[:] = Int64[10, 20, 30, 40]
+                    daf = ZarrDaf(zarr_path, "r"; name = "ro!")
+                    @test get_matrix(daf, "cell", "gene", "UMIs") == [10 0 0 40; 0 20 0 0; 0 0 30 0]
+                    return nothing
+                end
+            end
+        end
+    end
 end

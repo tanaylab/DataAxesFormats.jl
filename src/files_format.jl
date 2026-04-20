@@ -1201,7 +1201,7 @@ function Reorder.format_replace_reorder!(
 
     for (axis, planned_axis) in plan.planned_axes
         axis_path = "$(files.path)/axes/$(axis).txt"
-        if cached_ispath(axis_path)
+        if cached_ispath(axis_path)  # NOJET
             rm(axis_path)
             write_lines_file(axis_path, planned_axis.new_entries)
             report_modified!(axis_path)

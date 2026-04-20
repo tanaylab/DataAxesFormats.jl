@@ -98,6 +98,9 @@ include("files_format.jl")
 include("h5df_format.jl")
 @reexport using .H5dfFormat
 
+include("zarr_format.jl")
+@reexport using .ZarrFormat
+
 include("memory_format.jl")
 @reexport using .MemoryFormat
 

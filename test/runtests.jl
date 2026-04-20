@@ -12,6 +12,7 @@ using NamedArrays
 using NestedTests
 using SparseArrays
 using TanayLabUtilities
+using Zarr
 
 import Random
 

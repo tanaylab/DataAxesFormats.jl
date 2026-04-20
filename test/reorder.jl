@@ -94,6 +94,7 @@ nested_test("reorder") do
             @test is_leaf(MemoryDaf)
             @test is_leaf(FilesDaf)
             @test is_leaf(H5df)
+            @test is_leaf(ZarrDaf)
             @test !is_leaf(DafReader)
             @test !is_leaf(DafWriter)
         end
@@ -114,6 +115,14 @@ nested_test("reorder") do
         nested_test("h5df") do
             mktempdir() do path
                 daf = H5df("$(path)/test.h5df", "w"; name = "h5df!")
+                @test is_leaf(daf)
+                return nothing
+            end
+        end
+
+        nested_test("zarr") do
+            mktempdir() do path
+                daf = ZarrDaf("$(path)/test.zarr", "w"; name = "zarr!")
                 @test is_leaf(daf)
                 return nothing
             end
@@ -386,6 +395,64 @@ nested_test("reorder") do
                     expected_text[9, 1] = "ab"
                     @test get_matrix(daf, "item", "feature", "note") == expected_text
                     return nothing
+                end
+            end
+        end
+
+        nested_test("zarr") do
+            nested_test("both_axes") do
+                mktempdir() do path
+                    daf = ZarrDaf("$(path)/test.zarr", "w"; name = "zarr!")
+                    populate_reorder_test_data!(daf)
+                    test_reorder_both_axes!(daf)
+                    return nothing
+                end
+            end
+
+            nested_test("single_axis") do
+                mktempdir() do path
+                    daf = ZarrDaf("$(path)/test.zarr", "w"; name = "zarr!")
+                    populate_reorder_test_data!(daf)
+                    test_reorder_single_axis!(daf)
+                    return nothing
+                end
+            end
+
+            nested_test("identity") do
+                mktempdir() do path
+                    daf = ZarrDaf("$(path)/test.zarr", "w"; name = "zarr!")
+                    populate_reorder_test_data!(daf)
+                    test_reorder_identity!(daf)
+                    return nothing
+                end
+            end
+
+            nested_test("crash_recovery") do
+                nested_test("after_1") do
+                    mktempdir() do path
+                        daf = ZarrDaf("$(path)/test.zarr", "w"; name = "zarr!")
+                        populate_reorder_test_data!(daf)
+                        test_crash_recovery!(daf, 1)
+                        return nothing
+                    end
+                end
+
+                nested_test("after_4") do
+                    mktempdir() do path
+                        daf = ZarrDaf("$(path)/test.zarr", "w"; name = "zarr!")
+                        populate_reorder_test_data!(daf)
+                        test_crash_recovery!(daf, 4)
+                        return nothing
+                    end
+                end
+
+                nested_test("no_pending") do
+                    mktempdir() do path
+                        daf = ZarrDaf("$(path)/test.zarr", "w"; name = "zarr!")
+                        populate_reorder_test_data!(daf)
+                        @test !reset_reorder_axes!(daf)
+                        return nothing
+                    end
                 end
             end
         end
