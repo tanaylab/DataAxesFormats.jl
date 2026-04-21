@@ -215,6 +215,15 @@ struct H5df <: DafWriter
     path::Maybe{AbstractString}
 end
 
+# Weak-cache entry pairing an open HDF5 file with the data_lock shared by every
+# sub-H5df of that file. libhdf5 is not thread-safe by default, so concurrent
+# calls on the same file handle across sub-dafs must serialize on this lock.
+mutable struct SharedH5dfHandle
+    file::HDF5.File
+    data_lock::ExtendedReadWriteLock
+    SharedH5dfHandle(file::HDF5.File, data_lock::ExtendedReadWriteLock) = new(file, data_lock)
+end
+
 function H5df(
     root::Union{AbstractString, HDF5.File, HDF5.Group},
     mode::AbstractString = "r";
@@ -223,6 +232,7 @@ function H5df(
     (is_read_only, create_if_missing, truncate_if_exists) = Formats.parse_mode(mode)
 
     full_path = nothing
+    shared_handle::Maybe{SharedH5dfHandle} = nothing
     if root isa AbstractString
         parts = split(root, ".h5dfs#/")
         if length(parts) == 1
@@ -245,9 +255,11 @@ function H5df(
             purge = false
         end
 
-        root = get_through_global_weak_cache(abspath(root), key; purge) do _
-            return h5open(root, mode == "w+" ? "cw" : mode; fapl = HDF5.FileAccessProperties(; alignment = (1, 8)))  # NOJET
+        shared_handle = get_through_global_weak_cache(abspath(root), key; purge) do _
+            file = h5open(root, mode == "w+" ? "cw" : mode; fapl = HDF5.FileAccessProperties(; alignment = (1, 8)))  # NOJET
+            return SharedH5dfHandle(file, ExtendedReadWriteLock())
         end
+        root = shared_handle.file
 
         if group !== nothing
             if haskey(root, group)
@@ -311,7 +323,12 @@ function H5df(
     name = unique_name(name)
     @assert full_path !== nothing
 
-    h5df = H5df(name, Internal(; is_frozen = is_read_only), root, mode, full_path)
+    internal = if shared_handle === nothing
+        Internal(; is_frozen = is_read_only)
+    else
+        Internal(; is_frozen = is_read_only, data_lock = shared_handle.data_lock, shared_resource = shared_handle)
+    end
+    h5df = H5df(name, internal, root, mode, full_path)
     @debug "Daf: $(brief(h5df)) root: $(root)" _group = :daf_repos
     if is_read_only
         return read_only(h5df)

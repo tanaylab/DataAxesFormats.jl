@@ -210,19 +210,25 @@ struct Internal  # NOLINT
     is_frozen::Bool
     pending_condition::Threads.Condition
     pending_count::Vector{UInt32}
+    shared_resource::Any
 end
 
-function Internal(; is_frozen::Bool)::Internal
+function Internal(;
+    is_frozen::Bool,
+    data_lock::Maybe{ExtendedReadWriteLock} = nothing,
+    shared_resource::Any = nothing,
+)::Internal
     return Internal(
         Dict{CacheKey, CacheEntry}(),
         Dict{CacheKey, Set{CacheKey}}(),
         Dict{CacheKey, Set{CacheKey}}(),
         Dict{PropertyKey, UInt32}(),
         ExtendedReadWriteLock(),
-        ExtendedReadWriteLock(),
+        data_lock === nothing ? ExtendedReadWriteLock() : data_lock,
         is_frozen,
         Threads.Condition(),
         UInt32[0],
+        shared_resource,
     )
 end
 
