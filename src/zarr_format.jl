@@ -104,6 +104,19 @@ Example Zarr directory structure:
 
 !!! note
 
+    `Zarr.jl` writes matrices in C storage order (the only order it supports) with the `.zarray` `shape` listed in the
+    reverse of the Julia matrix shape, so the raw chunk bytes match Julia's native column-major layout. A `Daf` matrix
+    whose `(rows_axis, columns_axis)` are `(cell, gene)` (a Julia `(n_cells, n_genes)` matrix) is therefore written with
+    `.zarray` containing `"shape": [n_genes, n_cells]` and `"order": "C"`. A client using a different Zarr
+    implementation — most notably Python's `zarr` package — reads this as a C-contiguous NumPy array of shape
+    `(n_genes, n_cells)`, which is the **transpose** of the Julia view. The bytes on disk are identical; only the shape
+    labels are swapped. To obtain the `Daf`-canonical `(cell, gene)` orientation in Python, apply `.T` (a zero-copy
+    view) to the loaded array. This affects only dense matrices (the `colptr`/`rowval`/`nzval` child arrays of sparse
+    matrices are 1D vectors, unaffected); 1D axis-entry arrays and vector properties have the same shape in both
+    languages.
+
+!!! note
+
     The code here assumes the Zarr data obeys all the above conventions and restrictions. As long as you only create
     and access `Daf` data in Zarr directories using [`ZarrDaf`](@ref), then the code will work as expected (assuming no
     bugs). However, if you do this in some other way (e.g., a Zarr library in another language producing compressed or

@@ -13,6 +13,7 @@ using NestedTests
 using SparseArrays
 using TanayLabUtilities
 using Zarr
+using ZipArchives
 
 import Random
 
@@ -68,4 +69,5 @@ include("concat.jl")
 include("adapters.jl")
 include("groups.jl")
 include("reorder.jl")
+include("mmap_zip_stores.jl")
 include("example_data.jl")

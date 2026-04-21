@@ -532,6 +532,46 @@
 </p>
 </div>
 </div>
+<div class="admonition is-info" id="Note-e5786972617a475a">
+<header class="admonition-header">Note
+<a class="admonition-anchor" href="#Note-e5786972617a475a" title="Permalink">
+</a>
+</header>
+<div class="admonition-body">
+<p>
+<code>HDF5.jl
+</code> writes dataset dimensions in the reverse of the Julia matrix shape so that the raw bytes match Julia&#39;s native column-major layout. A 
+<code>Daf
+</code> matrix whose 
+<code>(rows_axis, columns_axis)
+</code> are 
+<code>(cell, gene)
+</code> (a Julia 
+<code>(n_cells, n_genes)
+</code> matrix) is therefore written with an HDF5 dataspace of shape 
+<code>[n_genes, n_cells]
+</code>. A client using a different HDF5 binding — most notably Python&#39;s 
+<code>h5py
+</code> — will see 
+<code>dset.shape == (n_genes, n_cells)
+</code> and load it into a C-contiguous NumPy array of that shape, which is the 
+<strong>transpose
+</strong> of the Julia view. The bytes on disk are identical; only the shape labels are swapped. To obtain the 
+<code>Daf
+</code>-canonical 
+<code>(cell, gene)
+</code> orientation in Python, apply 
+<code>.T
+</code> (a zero-copy view) to the loaded array. This affects only dense matrices (and the 
+<code>colptr
+</code>/
+<code>rowval
+</code>/
+<code>nzval
+</code> of sparse matrices are 1D vectors, unaffected); 1D axis-entry arrays and vector properties have the same shape in both languages.
+</p>
+</div>
+</div>
 <div class="admonition is-info" id="Note-254e947d0047ecd0">
 <header class="admonition-header">Note
 <a class="admonition-anchor" href="#Note-254e947d0047ecd0" title="Permalink">

@@ -3378,7 +3378,14 @@ nested_test("data") do
                     daf = ZarrDaf(zarr_path, "w"; name = "zarr!")
                     add_axis!(daf, "cell", CELL_NAMES)
                     cell_vec = daf.root.groups["vectors"].groups["cell"]
-                    age = zcreate(Int64, cell_vec, "age", length(CELL_NAMES); chunks = (2,), compressor = Zarr.NoCompressor())
+                    age = zcreate(
+                        Int64,
+                        cell_vec,
+                        "age",
+                        length(CELL_NAMES);
+                        chunks = (2,),
+                        compressor = Zarr.NoCompressor(),
+                    )
                     age[:] = [11, 22, 33]
                     daf = ZarrDaf(zarr_path, "r"; name = "ro!")
                     @test get_vector(daf, "cell", "age") == [11, 22, 33]
@@ -3406,7 +3413,14 @@ nested_test("data") do
                     daf = ZarrDaf(zarr_path, "w"; name = "zarr!")
                     add_axis!(daf, "cell", CELL_NAMES)
                     cell_vec = daf.root.groups["vectors"].groups["cell"]
-                    age = zcreate(Int64, cell_vec, "age", length(CELL_NAMES); chunks = (2,), compressor = Zarr.BloscCompressor())
+                    age = zcreate(
+                        Int64,
+                        cell_vec,
+                        "age",
+                        length(CELL_NAMES);
+                        chunks = (2,),
+                        compressor = Zarr.BloscCompressor(),
+                    )
                     age[:] = [11, 22, 33]
                     daf = ZarrDaf(zarr_path, "r"; name = "ro!")
                     @test get_vector(daf, "cell", "age") == [11, 22, 33]
@@ -3420,7 +3434,14 @@ nested_test("data") do
                     daf = ZarrDaf(zarr_path, "w"; name = "zarr!")
                     add_axis!(daf, "cell", CELL_NAMES)
                     cell_vec = daf.root.groups["vectors"].groups["cell"]
-                    color = zcreate(String, cell_vec, "color", length(CELL_NAMES); chunks = (2,), compressor = Zarr.NoCompressor())
+                    color = zcreate(
+                        String,
+                        cell_vec,
+                        "color",
+                        length(CELL_NAMES);
+                        chunks = (2,),
+                        compressor = Zarr.NoCompressor(),
+                    )
                     color[:] = ["red", "green", "blue"]
                     daf = ZarrDaf(zarr_path, "r"; name = "ro!")
                     @test get_vector(daf, "cell", "color") == ["red", "green", "blue"]
@@ -3436,8 +3457,13 @@ nested_test("data") do
                     add_axis!(daf, "gene", GENE_NAMES)
                     group = daf.root.groups["matrices"].groups["cell"].groups["gene"]
                     umis = zcreate(
-                        Int64, group, "UMIs", length(CELL_NAMES), length(GENE_NAMES);
-                        chunks = (2, 2), compressor = Zarr.NoCompressor(),
+                        Int64,
+                        group,
+                        "UMIs",
+                        length(CELL_NAMES),
+                        length(GENE_NAMES);
+                        chunks = (2, 2),
+                        compressor = Zarr.NoCompressor(),
                     )
                     umis[:, :] = UMIS_BY_DEPTH[1]
                     daf = ZarrDaf(zarr_path, "r"; name = "ro!")
@@ -3454,7 +3480,11 @@ nested_test("data") do
                     add_axis!(daf, "gene", GENE_NAMES)
                     group = daf.root.groups["matrices"].groups["cell"].groups["gene"]
                     umis = zcreate(
-                        Int64, group, "UMIs", length(CELL_NAMES), length(GENE_NAMES);
+                        Int64,
+                        group,
+                        "UMIs",
+                        length(CELL_NAMES),
+                        length(GENE_NAMES);
                         compressor = Zarr.BloscCompressor(),
                     )
                     umis[:, :] = UMIS_BY_DEPTH[1]

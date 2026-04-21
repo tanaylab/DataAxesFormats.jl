@@ -110,6 +110,18 @@ Example HDF5 structure:
 
 !!! note
 
+    `HDF5.jl` writes dataset dimensions in the reverse of the Julia matrix shape so that the raw bytes match Julia's
+    native column-major layout. A `Daf` matrix whose `(rows_axis, columns_axis)` are `(cell, gene)` (a Julia
+    `(n_cells, n_genes)` matrix) is therefore written with an HDF5 dataspace of shape `[n_genes, n_cells]`. A client
+    using a different HDF5 binding — most notably Python's `h5py` — will see `dset.shape == (n_genes, n_cells)` and
+    load it into a C-contiguous NumPy array of that shape, which is the **transpose** of the Julia view. The bytes
+    on disk are identical; only the shape labels are swapped. To obtain the `Daf`-canonical `(cell, gene)`
+    orientation in Python, apply `.T` (a zero-copy view) to the loaded array. This affects only dense matrices
+    (and the `colptr`/`rowval`/`nzval` of sparse matrices are 1D vectors, unaffected); 1D axis-entry arrays and
+    vector properties have the same shape in both languages.
+
+!!! note
+
     The code here assumes the HDF5 data obeys all the above conventions and restrictions (that said, code will be able
     to access vectors and matrices stored in unaligned, chunked and/or compressed formats, but this will be much less
     efficient). As long as you only create and access `Daf` data in HDF5 files using [`H5df`](@ref), then the code will

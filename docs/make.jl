@@ -53,6 +53,7 @@ makedocs(;
         "h5df_format.md",
         "files_format.md",
         "zarr_format.md",
+        "mmap_zip_store.md",
         "complete.md",
         "anndata_format.md",
         "reconstruction.md",

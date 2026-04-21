@@ -33,6 +33,7 @@ URIs = "5c2747f8-b7ea-4ff2-ba2e-563bfd36b1d4"
 UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 Unicode = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
 Zarr = "0a941bbe-ad1d-11e8-39d9-ab76183a1d99"
+ZipArchives = "49080126-0e18-4c2a-b176-c102e4b3760c"
 
 [compat]
 CategoricalArrays = "0.1 - 0.10"
@@ -58,4 +59,5 @@ URIs = "1"
 UUIDs = "1.11.0"
 Unicode = "1.11.0"
 Zarr = "0.9.6"
+ZipArchives = "2"
 julia = "1.12"
