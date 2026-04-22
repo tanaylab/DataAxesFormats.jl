@@ -446,6 +446,29 @@ isn't `"name"`, and that it does not exist for the `axis`.
 function format_get_empty_dense_vector! end
 
 """
+    format_filled_empty_dense_vector!(
+        format::FormatWriter,
+        axis::AbstractString,
+        name::AbstractString,
+        filled::AbstractVector{<:StorageReal},
+    )::Nothing
+
+Allow the `format` to perform finalization once the empty dense vector has been `filled`. The default does nothing.
+
+This trusts we have a write lock on the data set, that the `axis` exists in `format`, that the `name` vector property
+exists for the `axis`, and that `filled` is the same buffer that was returned by
+[`format_get_empty_dense_vector!`](@ref).
+"""
+function format_filled_empty_dense_vector!(
+    ::FormatWriter,
+    ::AbstractString,
+    ::AbstractString,
+    ::AbstractVector{<:StorageReal},
+)::Nothing
+    return nothing
+end
+
+"""
     format_get_empty_sparse_vector!(
         format::FormatWriter,
         axis::AbstractString,
@@ -581,6 +604,31 @@ This trusts we have a write lock on the data set, that the `rows_axis` and `colu
     Julia's type system's limitations.
 """
 function format_get_empty_dense_matrix! end
+
+"""
+    format_filled_empty_dense_matrix!(
+        format::FormatWriter,
+        rows_axis::AbstractString,
+        columns_axis::AbstractString,
+        name::AbstractString,
+        filled::AbstractMatrix{<:StorageReal},
+    )::Nothing
+
+Allow the `format` to perform finalization once the empty dense matrix has been `filled`. The default does nothing.
+
+This trusts we have a write lock on the data set, that the `rows_axis` and `columns_axis` exist in `format`, that the
+`name` matrix property exists for them, and that `filled` is the same buffer that was returned by
+[`format_get_empty_dense_matrix!`](@ref).
+"""
+function format_filled_empty_dense_matrix!(
+    ::FormatWriter,
+    ::AbstractString,
+    ::AbstractString,
+    ::AbstractString,
+    ::AbstractMatrix{<:StorageReal},
+)::Nothing
+    return nothing
+end
 
 """
     format_get_empty_sparse_matrix!(

@@ -399,6 +399,7 @@ function empty_dense_vector!(
     vector, cache_group = get_empty_dense_vector!(daf, axis, name, eltype; overwrite)
     try
         result = fill(vector)
+        Formats.format_filled_empty_dense_vector!(daf, axis, name, vector)
         Formats.cache_vector!(daf, axis, name, Formats.as_named_vector(daf, axis, vector), cache_group)
         @debug "empty_dense_vector! filled vector: $(brief(vector)) }" _group = :daf_sets
         return result
@@ -767,6 +768,7 @@ function empty_dense_matrix!(
     matrix, cache_group = get_empty_dense_matrix!(daf, rows_axis, columns_axis, name, eltype; overwrite)
     try
         result = fill(matrix)
+        Formats.format_filled_empty_dense_matrix!(daf, rows_axis, columns_axis, name, matrix)
         Formats.cache_matrix!(
             daf,
             rows_axis,

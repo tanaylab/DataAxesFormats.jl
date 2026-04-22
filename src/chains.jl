@@ -467,6 +467,17 @@ function Formats.format_get_empty_sparse_vector!(
     return Formats.format_get_empty_sparse_vector!(chain.daf, axis, name, eltype, nnz, indtype)
 end
 
+function Formats.format_filled_empty_dense_vector!(
+    chain::WriteChain,
+    axis::AbstractString,
+    name::AbstractString,
+    filled::AbstractVector{<:StorageReal},
+)::Nothing
+    @assert Formats.has_data_write_lock(chain)
+    Formats.format_filled_empty_dense_vector!(chain.daf, axis, name, filled)
+    return nothing
+end
+
 function Formats.format_filled_empty_sparse_vector!(
     chain::WriteChain,
     axis::AbstractString,
@@ -610,6 +621,18 @@ function Formats.format_get_empty_sparse_matrix!(
         end
     end
     return Formats.format_get_empty_sparse_matrix!(chain.daf, rows_axis, columns_axis, name, eltype, nnz, indtype)
+end
+
+function Formats.format_filled_empty_dense_matrix!(
+    chain::WriteChain,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+    filled::AbstractMatrix{<:StorageReal},
+)::Nothing
+    @assert Formats.has_data_write_lock(chain)
+    Formats.format_filled_empty_dense_matrix!(chain.daf, rows_axis, columns_axis, name, filled)
+    return nothing
 end
 
 function Formats.format_filled_empty_sparse_matrix!(

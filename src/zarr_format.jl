@@ -492,6 +492,17 @@ function chunk_key(array::ZArray, suffix::AbstractString)::String  # FLAKY TESTE
     return isempty(array_key) ? String(suffix) : array_key * '/' * String(suffix)
 end
 
+function patch_chunk_crc_if_needed(array::ZArray, chunk_suffix::AbstractString)::Nothing
+    storage = array.storage
+    if storage isa MmapZipStore
+        key = chunk_key(array, chunk_suffix)
+        if haskey(storage.name_to_index, key)
+            patch_mmap_zip_entry_crc!(storage, key)
+        end
+    end
+    return nothing
+end
+
 function try_mmap_vector_chunk(daf::ZarrDaf, array::ZArray{T})::Maybe{AbstractVector{T}} where {T}  # FLAKY TESTED
     storage = array.storage
     key = chunk_key(array, "0")
@@ -722,6 +733,18 @@ function Formats.format_get_empty_dense_vector!(
     return array_as_vector(daf, array)
 end
 
+function Formats.format_filled_empty_dense_vector!(
+    daf::ZarrDaf,
+    axis::AbstractString,
+    name::AbstractString,
+    ::AbstractVector{<:StorageReal},
+)::Nothing
+    @assert Formats.has_data_write_lock(daf)
+    array = axis_vectors_group(daf, axis).arrays[name]
+    patch_chunk_crc_if_needed(array, "0")
+    return nothing
+end
+
 function write_sparse_vector(parent::ZGroup, name::AbstractString, vector::AbstractVector)::Nothing
     vector_group = zgroup(parent, name)
 
@@ -763,11 +786,17 @@ function Formats.format_get_empty_sparse_vector!(
 end
 
 function Formats.format_filled_empty_sparse_vector!(
-    ::ZarrDaf,
-    ::AbstractString,
-    ::AbstractString,
+    daf::ZarrDaf,
+    axis::AbstractString,
+    name::AbstractString,
     ::SparseVector{<:StorageReal, <:StorageInteger},
 )::Maybe{Formats.CacheGroup}
+    @assert Formats.has_data_write_lock(daf)
+    vector_group = axis_vectors_group(daf, axis).groups[name]
+    patch_chunk_crc_if_needed(vector_group.arrays["nzind"], "0")
+    if haskey(vector_group.arrays, "nzval")
+        patch_chunk_crc_if_needed(vector_group.arrays["nzval"], "0")
+    end
     return Formats.MappedData
 end
 
@@ -887,6 +916,19 @@ function Formats.format_get_empty_dense_matrix!(
     return array_as_matrix(daf, array)
 end
 
+function Formats.format_filled_empty_dense_matrix!(
+    daf::ZarrDaf,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+    ::AbstractMatrix{<:StorageReal},
+)::Nothing
+    @assert Formats.has_data_write_lock(daf)
+    array = columns_axis_group(daf, rows_axis, columns_axis).arrays[name]
+    patch_chunk_crc_if_needed(array, "0.0")
+    return nothing
+end
+
 function write_sparse_matrix(parent::ZGroup, name::AbstractString, matrix::AbstractMatrix)::Nothing
     matrix_group = zgroup(parent, name)
 
@@ -941,12 +983,19 @@ function Formats.format_get_empty_sparse_matrix!(
 end
 
 function Formats.format_filled_empty_sparse_matrix!(
-    ::ZarrDaf,
-    ::AbstractString,
-    ::AbstractString,
-    ::AbstractString,
+    daf::ZarrDaf,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
     ::SparseMatrixCSC{<:StorageReal, <:StorageInteger},
 )::Maybe{Formats.CacheGroup}
+    @assert Formats.has_data_write_lock(daf)
+    matrix_group = columns_axis_group(daf, rows_axis, columns_axis).groups[name]
+    patch_chunk_crc_if_needed(matrix_group.arrays["colptr"], "0")
+    patch_chunk_crc_if_needed(matrix_group.arrays["rowval"], "0")
+    if haskey(matrix_group.arrays, "nzval")
+        patch_chunk_crc_if_needed(matrix_group.arrays["nzval"], "0")
+    end
     return Formats.MappedData
 end
 

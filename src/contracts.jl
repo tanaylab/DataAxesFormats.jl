@@ -1180,6 +1180,16 @@ function Formats.format_get_empty_sparse_vector!(
     return Formats.format_get_empty_sparse_vector!(contract_daf.daf, axis, name, T, nnz, I)
 end
 
+function Formats.format_filled_empty_dense_vector!(
+    contract_daf::ContractDaf,
+    axis::AbstractString,
+    name::AbstractString,
+    filled::AbstractVector{<:StorageReal},
+)::Nothing
+    Formats.format_filled_empty_dense_vector!(contract_daf.daf, axis, name, filled)
+    return nothing
+end
+
 function Formats.format_filled_empty_sparse_vector!(
     contract_daf::ContractDaf,
     axis::AbstractString,
@@ -1270,6 +1280,17 @@ function Formats.format_get_empty_sparse_matrix!(
 )::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}} where {T <: StorageReal, I <: StorageInteger}
     access_matrix(contract_daf, rows_axis, columns_axis, name; is_for_modify = true)
     return Formats.format_get_empty_sparse_matrix!(contract_daf.daf, rows_axis, columns_axis, name, T, nnz, I)
+end
+
+function Formats.format_filled_empty_dense_matrix!(
+    contract_daf::ContractDaf,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+    filled::AbstractMatrix{<:StorageReal},
+)::Nothing
+    Formats.format_filled_empty_dense_matrix!(contract_daf.daf, rows_axis, columns_axis, name, filled)
+    return nothing
 end
 
 function Formats.format_filled_empty_sparse_matrix!(

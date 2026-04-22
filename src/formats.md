@@ -99,9 +99,11 @@ DataAxesFormats.Formats.format_delete_matrix!
 
 ```@docs
 DataAxesFormats.Formats.format_get_empty_dense_vector!
+DataAxesFormats.Formats.format_filled_empty_dense_vector!
 DataAxesFormats.Formats.format_get_empty_sparse_vector!
 DataAxesFormats.Formats.format_filled_empty_sparse_vector!
 DataAxesFormats.Formats.format_get_empty_dense_matrix!
+DataAxesFormats.Formats.format_filled_empty_dense_matrix!
 DataAxesFormats.Formats.format_get_empty_sparse_matrix!
 DataAxesFormats.Formats.format_filled_empty_sparse_matrix!
 ```
