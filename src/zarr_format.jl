@@ -133,6 +133,7 @@ using ..Readers
 using ..StorageTypes
 using ..Writers
 using Base.Filesystem
+using JSON
 using Mmap
 using ProgressMeter
 using SparseArrays
@@ -503,6 +504,31 @@ function patch_chunk_crc_if_needed(array::ZArray, chunk_suffix::AbstractString):
     return nothing
 end
 
+# Rewrite the consolidated `.zmetadata` file for `daf`'s root group so live readers (including the
+# `ConsolidatedStore` wrapper used for HTTP access) observe the newly-committed state. The rewrite
+# is atomic: the serialized JSON is printed to a neighboring `.zmetadata.new` staging file which is
+# then replaced over `.zmetadata` via `rename(2)`. `JSON.print` throws on any write failure and
+# `Base.Filesystem.rename` throws an `IOError` on any rename failure, so any problem here propagates
+# as a hard error to the caller. Currently only implemented for [`Zarr.DirectoryStore`](@extref) —
+# other backends (in-memory `DictStore`, [`MmapZipStore`](@ref)) are a no-op and rely on separate
+# backend-specific mechanisms for visibility.
+function refresh_consolidated_metadata!(daf::ZarrDaf)::Nothing
+    storage = daf.root.storage
+    if !(storage isa Zarr.DirectoryStore)
+        return nothing
+    end
+    prefix = daf.root.path
+    consolidated = Zarr.consolidate_metadata(storage, Dict{String, Any}(), prefix)
+    group_directory = joinpath(storage.folder, lstrip(prefix, '/'))
+    target_path = joinpath(group_directory, ".zmetadata")
+    staging_path = target_path * ".new"
+    open(staging_path, "w") do io
+        return JSON.print(io, Dict("metadata" => consolidated, "zarr_consolidated_format" => 1), 4)
+    end
+    Base.Filesystem.rename(staging_path, target_path)
+    return nothing
+end
+
 function try_mmap_vector_chunk(daf::ZarrDaf, array::ZArray{T})::Maybe{AbstractVector{T}} where {T}  # FLAKY TESTED
     storage = array.storage
     key = chunk_key(array, "0")
@@ -600,12 +626,14 @@ function Formats.format_set_scalar!(daf::ZarrDaf, name::AbstractString, value::S
     @assert Formats.has_data_write_lock(daf)
     array = zcreate(typeof(value), scalars_group(daf), name, 1; compressor = Zarr.NoCompressor())
     array[1] = value  # NOJET
+    refresh_consolidated_metadata!(daf)
     return Formats.MemoryData
 end
 
 function Formats.format_delete_scalar!(daf::ZarrDaf, name::AbstractString; for_set::Bool)::Nothing  # NOLINT
     @assert Formats.has_data_write_lock(daf)
     delete_child(scalars_group(daf), name)
+    refresh_consolidated_metadata!(daf)
     return nothing
 end
 
@@ -644,6 +672,7 @@ function Formats.format_add_axis!(
         zgroup(matrices_group(daf).groups[other_axis], axis)
     end
 
+    refresh_consolidated_metadata!(daf)
     return nothing
 end
 
@@ -659,6 +688,7 @@ function Formats.format_delete_axis!(daf::ZarrDaf, axis::AbstractString)::Nothin
         end
     end
 
+    refresh_consolidated_metadata!(daf)
     return nothing
 end
 
@@ -716,6 +746,7 @@ function Formats.format_set_vector!(
             array[:] = Vector(vector)  # NOJET
         end
     end
+    refresh_consolidated_metadata!(daf)
     return nothing
 end
 
@@ -742,6 +773,7 @@ function Formats.format_filled_empty_dense_vector!(
     @assert Formats.has_data_write_lock(daf)
     array = axis_vectors_group(daf, axis).arrays[name]
     patch_chunk_crc_if_needed(array, "0")
+    refresh_consolidated_metadata!(daf)
     return nothing
 end
 
@@ -797,6 +829,7 @@ function Formats.format_filled_empty_sparse_vector!(
     if haskey(vector_group.arrays, "nzval")
         patch_chunk_crc_if_needed(vector_group.arrays["nzval"], "0")
     end
+    refresh_consolidated_metadata!(daf)
     return Formats.MappedData
 end
 
@@ -808,6 +841,7 @@ function Formats.format_delete_vector!(
 )::Nothing
     @assert Formats.has_data_write_lock(daf)
     delete_child(axis_vectors_group(daf, axis), name)
+    refresh_consolidated_metadata!(daf)
     return nothing
 end
 
@@ -891,12 +925,14 @@ function Formats.format_set_matrix!(
         matrix = base_array(matrix)
         if issparse(matrix)
             write_sparse_matrix(group, name, matrix)
+            refresh_consolidated_metadata!(daf)
             return nothing
         else
             array = zcreate(eltype(matrix), group, name, nrows, ncols; compressor = Zarr.NoCompressor())
             array[:, :] = Matrix(matrix)  # NOJET
         end
     end
+    refresh_consolidated_metadata!(daf)
     return nothing
 end
 
@@ -926,6 +962,7 @@ function Formats.format_filled_empty_dense_matrix!(
     @assert Formats.has_data_write_lock(daf)
     array = columns_axis_group(daf, rows_axis, columns_axis).arrays[name]
     patch_chunk_crc_if_needed(array, "0.0")
+    refresh_consolidated_metadata!(daf)
     return nothing
 end
 
@@ -996,6 +1033,7 @@ function Formats.format_filled_empty_sparse_matrix!(
     if haskey(matrix_group.arrays, "nzval")
         patch_chunk_crc_if_needed(matrix_group.arrays["nzval"], "0")
     end
+    refresh_consolidated_metadata!(daf)
     return Formats.MappedData
 end
 
@@ -1014,6 +1052,7 @@ function Formats.format_relayout_matrix!(
         relayout_matrix = flipped(matrix)
         array = zcreate(String, group, name, nrows, ncols; compressor = Zarr.NoCompressor())
         array[:, :] = String.(relayout_matrix)
+        refresh_consolidated_metadata!(daf)
         return relayout_matrix
     end
     if issparse(matrix)
@@ -1036,10 +1075,12 @@ function Formats.format_relayout_matrix!(
             sparse_nzval,
         )
         relayout!(flip(relayout_matrix), matrix)
+        Formats.format_filled_empty_sparse_matrix!(daf, columns_axis, rows_axis, name, relayout_matrix)
         return relayout_matrix
     end
     relayout_matrix, _ = Formats.format_get_empty_dense_matrix!(daf, columns_axis, rows_axis, name, eltype(matrix))
     relayout!(flip(relayout_matrix), matrix)
+    Formats.format_filled_empty_dense_matrix!(daf, columns_axis, rows_axis, name, relayout_matrix)
     return relayout_matrix
 end
 
@@ -1052,6 +1093,7 @@ function Formats.format_delete_matrix!(
 )::Nothing
     @assert Formats.has_data_write_lock(daf)
     delete_child(columns_axis_group(daf, rows_axis, columns_axis), name)
+    refresh_consolidated_metadata!(daf)
     return nothing
 end
 

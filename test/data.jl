@@ -3464,6 +3464,65 @@ nested_test("data") do
             end
         end
 
+        nested_test("consolidated_metadata") do
+            mktempdir() do path
+                zarr_path = path * "/test.daf.zarr"
+                daf = ZarrDaf(zarr_path, "w+"; name = "zarr!")
+                @test !isfile(zarr_path * "/.zmetadata")
+                set_scalar!(daf, "depth", 2)
+                @test isfile(zarr_path * "/.zmetadata")
+
+                add_axis!(daf, "cell", CELL_NAMES)
+                add_axis!(daf, "gene", GENE_NAMES)
+                set_vector!(daf, "gene", "marker", MARKER_GENES_BY_DEPTH[1])
+                set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[1]; relayout = false)
+                empty_dense_vector!(daf, "gene", "score", Int16) do empty_vector
+                    empty_vector .= Int16[1, 2, 3, 4]
+                    return nothing
+                end
+                empty_dense_matrix!(daf, "cell", "gene", "counts", Int32) do empty_matrix
+                    empty_matrix .= Int32.(UMIS_BY_DEPTH[2])
+                    return nothing
+                end
+                empty_sparse_vector!(daf, "gene", "weight", Float32, 2, Int32) do empty_nzind, empty_nzval
+                    empty_nzind .= Int32[1, 3]
+                    empty_nzval .= Float32[0.5, 1.5]
+                    return nothing
+                end
+
+                consolidated_group = Zarr.zopen(zarr_path; consolidated = true)
+                @test consolidated_group.storage isa Zarr.ConsolidatedStore
+                @test consolidated_group.arrays["daf"][:] == UInt8[1, 0]
+                @test consolidated_group.groups["vectors"].groups["gene"].arrays["marker"][:] ==
+                      MARKER_GENES_BY_DEPTH[1]
+                @test consolidated_group.groups["vectors"].groups["gene"].arrays["score"][:] == Int16[1, 2, 3, 4]
+                @test consolidated_group.groups["matrices"].groups["cell"].groups["gene"].arrays["UMIs"][:, :] ==
+                      UMIS_BY_DEPTH[1]
+                @test consolidated_group.groups["matrices"].groups["cell"].groups["gene"].arrays["counts"][:, :] ==
+                      Int32.(UMIS_BY_DEPTH[2])
+                weight_group = consolidated_group.groups["vectors"].groups["gene"].groups["weight"]
+                @test weight_group.arrays["nzind"][:] == Int32[1, 3]
+                @test weight_group.arrays["nzval"][:] == Float32[0.5, 1.5]
+
+                delete_vector!(daf, "gene", "marker")
+                consolidated_group = Zarr.zopen(zarr_path; consolidated = true)
+                @test !haskey(consolidated_group.groups["vectors"].groups["gene"].arrays, "marker")
+
+                delete_matrix!(daf, "cell", "gene", "UMIs"; relayout = false)
+                consolidated_group = Zarr.zopen(zarr_path; consolidated = true)
+                @test !haskey(consolidated_group.groups["matrices"].groups["cell"].groups["gene"].arrays, "UMIs")
+
+                delete_axis!(daf, "cell")
+                consolidated_group = Zarr.zopen(zarr_path; consolidated = true)
+                @test !haskey(consolidated_group.groups["axes"].arrays, "cell")
+
+                delete_scalar!(daf, "depth")
+                consolidated_group = Zarr.zopen(zarr_path; consolidated = true)
+                @test !haskey(consolidated_group.groups["scalars"].arrays, "depth")
+                return nothing
+            end
+        end
+
         nested_test("non_canonical") do
             nested_test("chunked_dense_vector") do
                 mktempdir() do path
@@ -3668,6 +3727,40 @@ nested_test("data") do
                     @test complete_path(daf) == abspath(path * "/test.dafs.zarr.zip") * "#/root"
                     @test daf.name == "zarr!"
                     test_format(daf; append_only = true)
+                    return nothing
+                end
+            end
+
+            nested_test("empty_crc") do
+                mktempdir() do path
+                    zip_path = path * "/test.daf.zarr.zip"
+                    daf = ZarrDaf(zip_path, "w+"; name = "zarr!")
+                    add_axis!(daf, "cell", CELL_NAMES)
+                    add_axis!(daf, "gene", GENE_NAMES)
+                    empty_dense_vector!(daf, "gene", "score", Int32) do empty_vector
+                        empty_vector .= Int32[11, 22, 33, 44]
+                        return nothing
+                    end
+                    empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16) do empty_matrix
+                        empty_matrix .= Int16.(UMIS_BY_DEPTH[1])
+                        return nothing
+                    end
+                    empty_sparse_vector!(daf, "gene", "marker", Float32, 2, Int32) do nzind, nzval
+                        nzind .= Int32[2, 4]
+                        nzval .= Float32[1.5, 2.5]
+                        return nothing
+                    end
+                    daf = nothing  # NOLINT
+                    GC.gc()
+
+                    reopened = ZarrDaf(zip_path, "r")
+                    @test get_vector(reopened, "gene", "score") == Int32[11, 22, 33, 44]
+                    @test get_matrix(reopened, "cell", "gene", "UMIs") == Int16.(UMIS_BY_DEPTH[1])
+                    marker = get_vector(reopened, "gene", "marker")
+                    @test marker[2] ≈ 1.5f0
+                    @test marker[4] ≈ 2.5f0
+                    @test marker[1] == 0.0f0
+                    @test marker[3] == 0.0f0
                     return nothing
                 end
             end
