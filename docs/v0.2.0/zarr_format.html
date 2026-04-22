@@ -298,11 +298,11 @@
 <code>Daf
 </code> storage format in a 
 <a href="https://zarr.readthedocs.io/">Zarr
-</a> directory tree. Like 
+</a> directory tree or ZIP archive. Like 
 <a href="files_format.html#DataAxesFormats.FilesFormat.FilesDaf">
 <code>FilesDaf
 </code>
-</a>, the data lives in a directory of files on the filesystem (so standard filesystem tools work, and deleting a property immediately frees its storage), and offers a different trade-off compared to 
+</a>, the data can live in a directory of files on the filesystem (so standard filesystem tools work, and deleting a property immediately frees its storage), and offers a different trade-off compared to 
 <a href="files_format.html#DataAxesFormats.FilesFormat.FilesDaf">
 <code>FilesDaf
 </code>
@@ -332,13 +332,19 @@
 <code>Daf
 </code>.
 </p>
-<p>A Zarr directory is still a directory rather than a single file, so you need to create a 
-<code>zip
-</code> or 
-<code>tar
-</code> archive to publish it, and accessing it consumes multiple file descriptors. In addition, not every Zarr feature is supported here: we rely on the local 
-<code>DirectoryStore
-</code> backend (no ZIP stores or remote object stores), and require every array to be stored in a single uncompressed chunk, so we can memory-map it directly for efficient access.
+<p>A Zarr directory is still a directory rather than a single file, so for convenient publication or transport we also support storing a 
+<code>Daf
+</code> data set inside a single ZIP archive via 
+<a href="mmap_zip_store.html#DataAxesFormats.MmapZipStores.MmapZipStore">
+<code>MmapZipStore
+</code>
+</a>. Archives written by this package hold every chunk uncompressed (method 
+<code>0
+</code>) so it can be memory-mapped for direct access just like the directory backend. On the ZIP backend the archive is append-only: properties cannot be deleted and axes cannot be reordered. For read access, any Zarr v2 ZIP archive that matches the internal structure described below is accepted (including ones produced by foreign tools such as Python&#39;s 
+<code>zarr
+</code> package, even if the chunks are chunked and/or compressed, subject to 
+<code>Zarr.jl
+</code>&#39;s support for data types, filters, and compressors). Remote object stores (S3, GCS, …) are not supported.
 </p>
 <p>We use the following internal structure under some root Zarr group (which is 
 <strong>not
@@ -506,20 +512,6 @@
       └─ gene/
 </code>
 </pre>
-<div class="admonition is-info" id="Note-1e6c31450c05f197">
-<header class="admonition-header">Note
-<a class="admonition-anchor" href="#Note-1e6c31450c05f197" title="Permalink">
-</a>
-</header>
-<div class="admonition-body">
-<p>Only the local 
-<code>DirectoryStore
-</code> backend (a 
-<code>.zarr
-</code> directory tree on a local filesystem) is supported. Other Zarr stores (ZIP archives, cloud object stores, …) are not.
-</p>
-</div>
-</div>
 <div class="admonition is-info" id="Note-490e6912d10ac4a5">
 <header class="admonition-header">Note
 <a class="admonition-anchor" href="#Note-490e6912d10ac4a5" title="Permalink">
@@ -652,19 +644,59 @@
 )
 </code>
 </pre>
-<p>Storage in a Zarr directory tree.
+<p>Storage in a Zarr directory tree or Zarr ZIP archive.
 </p>
 <p>The 
 <code>path
-</code> is a filesystem path to a Zarr directory (by convention, using a 
-<code>.zarr
-</code> suffix).
+</code> is a filesystem path that follows one of these conventions:
 </p>
+<ul>
+<li>
+<code>something.daf.zarr
+</code> — a Zarr directory containing a single 
+<code>Daf
+</code> data set at its root.
+</li>
+<li>
+<code>something.daf.zarr.zip
+</code> — a Zarr ZIP archive containing a single 
+<code>Daf
+</code> data set at its root.
+</li>
+<li>
+<code>something.dafs.zarr.zip#/group
+</code> — a Zarr ZIP archive containing 
+<code>Daf
+</code> data sets in sub-groups, addressed by 
+<code>group
+</code>.
+</li>
+</ul>
+<p>The backend (directory or ZIP) is selected from the 
+<code>.zip
+</code> file-name suffix. The ZIP backend is append-only: properties cannot be deleted and axes cannot be reordered (attempts to do so raise an error).
+</p>
+<div class="admonition is-info" id="Note-c547a1dadec09805">
+<header class="admonition-header">Note
+<a class="admonition-anchor" href="#Note-c547a1dadec09805" title="Permalink">
+</a>
+</header>
+<div class="admonition-body">
+<p>If you create a directory whose name is 
+<code>something.dafs.zarr.zip#
+</code> and place 
+<code>Daf
+</code> ZIP archives in it, this scheme will fail. So don&#39;t.
+</p>
+</div>
+</div>
 <p>When opening an existing data set, if 
 <code>name
 </code> is not specified, and there exists a &quot;name&quot; scalar property, it is used as the name. Otherwise, the 
 <code>path
-</code> will be used as the name.
+</code> (including any 
+<code>#/group
+</code> suffix) will be used as the name.
 </p>
 <p>The valid 
 <code>mode
@@ -758,6 +790,80 @@
 </td>
 </tr>
 </table>
+<p>Truncating a sub-daf inside a ZIP archive is not supported (because the ZIP backend is append-only) and raises an error; use 
+<code>r+
+</code> or 
+<code>w+
+</code> to open a sub-daf for writing without truncation.
+</p>
+<div class="admonition is-info" id="Note-8b5a0c489fd8174f">
+<header class="admonition-header">Note
+<a class="admonition-anchor" href="#Note-8b5a0c489fd8174f" title="Permalink">
+</a>
+</header>
+<div class="admonition-body">
+<p>When several 
+<a href="zarr_format.html#DataAxesFormats.ZarrFormat.ZarrDaf">
+<code>ZarrDaf
+</code>
+</a> instances in the same process share a ZIP archive path (typically different 
+<code>#/group
+</code> sub-dafs of the same 
+<code>.dafs.zarr.zip
+</code> file, or repeated opens of the same single-daf 
+<code>.daf.zarr.zip
+</code>), they share a single underlying 
+<a href="mmap_zip_store.html#DataAxesFormats.MmapZipStores.MmapZipStore">
+<code>MmapZipStore
+</code>
+</a> and a single 
+<code>data_lock
+</code>, so that concurrent calls serialize correctly and the archive is never mmap-ed twice. The first such open determines the store&#39;s writability: a later open of the same archive that requests write access will raise an error if the first open was read-only. Release the read-only handle first, or open the writable instance first. The directory backend does not share a store — each open creates its own independent 
+<code>DirectoryStore
+</code> over the same filesystem tree.
+</p>
+</div>
+</div>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.ZarrFormat.DAF_ZARR_ZIP_MAX_FILE_SIZE">
+<a class="docstring-binding" href="#DataAxesFormats.ZarrFormat.DAF_ZARR_ZIP_MAX_FILE_SIZE">
+<code>DataAxesFormats.ZarrFormat.DAF_ZARR_ZIP_MAX_FILE_SIZE
+</code>
+</a> — 
+<span class="docstring-category">Constant
+</span>
+</summary>
+<section>
+<div>
+<p>The virtual address reservation size used for writable 
+<a href="mmap_zip_store.html#DataAxesFormats.MmapZipStores.MmapZipStore">
+<code>MmapZipStore
+</code>
+</a> opens of a 
+<a href="zarr_format.html#DataAxesFormats.ZarrFormat.ZarrDaf">
+<code>ZarrDaf
+</code>
+</a> (modes 
+<code>r+
+</code>, 
+<code>w+
+</code>, 
+<code>w
+</code>). Each such open reserves this much virtual address space via a single anonymous 
+<code>PROT_NONE
+</code> mapping and overlays the real file onto its first 
+<code>filesize
+</code> bytes; subsequent 
+<code>ftruncate
+</code> + re-overlay calls extend the accessible portion as the archive grows. The physical file stays at its real size — only VA is reserved. Defaults to 128 GiB, leaving plenty of room for concurrent live stores on platforms with ~128 TiB of user VA (Apple Silicon). Set to a larger value before opening a 
+<code>ZarrDaf
+</code> whose ZIP archive might grow past this bound. An append that would cross the bound fails with an explicit error pointing back here.
+</p>
 </div>
 </section>
 </details>
@@ -774,6 +880,12 @@
 <li>
 <a href="zarr_format.html#DataAxesFormats.ZarrFormat">
 <code>DataAxesFormats.ZarrFormat
+</code>
+</a>
+</li>
+<li>
+<a href="zarr_format.html#DataAxesFormats.ZarrFormat.DAF_ZARR_ZIP_MAX_FILE_SIZE">
+<code>DataAxesFormats.ZarrFormat.DAF_ZARR_ZIP_MAX_FILE_SIZE
 </code>
 </a>
 </li>

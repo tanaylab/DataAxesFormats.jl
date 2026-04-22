@@ -17,20 +17,39 @@ file on the local filesystem. It serves two complementary use cases:
     `0`) uncompressed entries exclusively, so chunk data can be memory-mapped for direct access.
     Entries may only be appended; existing entries cannot be modified or deleted.
 
+# Shared mmap
+
+On open, `MmapZipStore` memory-maps the archive file once into a single `Vector{UInt8}` owned by
+the store. A read-only open uses an ordinary file-backed `mmap` covering exactly the current file
+size. A writable open uses a two-step mapping that keeps the virtual address of the archive stable
+across file growth: first, `max_file_size` bytes of virtual address space are reserved via an
+anonymous `PROT_NONE` mapping (which consumes VA only — zero RAM, zero disk, zero file bytes); then
+the file is overlaid onto the first `filesize` bytes of that reservation via `MAP_SHARED | MAP_FIXED`.
+Each append calls `ftruncate` to extend the real (non-sparse) file, followed by a re-overlay with
+`MAP_SHARED | MAP_FIXED` at the same base address to extend the accessible portion of the
+reservation to the new file size. Subsequent writes (local file header, data, central directory,
+end-of-central-directory, CRC32 patches) are pure stores into `store.file_mmap`, not `write()`
+syscalls. The only writes through the IO stream are the initial bootstrap of an empty archive and
+`ftruncate` calls. Each open therefore consumes a single reservation plus one file overlay
+regardless of entry count, and every stored (method-`0`) entry is served directly out of the shared
+mapping with no copy. The file on disk remains a normal, non-sparse file of exactly `filesize`
+bytes — copying the archive with ordinary tools does not inflate to `max_file_size`.
+
 # On-disk protocol
 
 `MmapZipStore` uses a two-step commit protocol that leaves the archive in a valid ZIP and valid
 Zarr state after every append, with no need to wait for a final close:
 
- 1. For each append, the new central directory (containing both the pre-existing and the new
-    entries) and its end-of-central-directory record are built in memory and written to disk, at
-    the offset where the new local file header region will end, using a single positional write
-    system call. This is the commit point: after this single write, the archive on disk describes
-    the new entry, and the local file header region lies in a sparse hole in the file.
+ 1. For each append, the file is extended via `ftruncate` to its new end-of-archive position. The
+    new central directory (containing both the pre-existing and the new entries) and its
+    end-of-central-directory record are built in memory and copied into the mmap at the offset
+    where the new local file header region will end. This is the commit point: after this copy,
+    the archive on disk describes the new entry, and the local file header region lies in a
+    sparse hole in the file (the bytes zero-initialized by `ftruncate`).
 
- 2. The new local file header is then written at the offset that was previously occupied by the
-    old central directory (and end-of-central-directory record), and the entry's compressed data
-    bytes are written immediately after it. These writes may overlap what used to be the old
+ 2. The new local file header is then copied at the offset that was previously occupied by the
+    old central directory (and end-of-central-directory record), and the entry's stored data
+    bytes are copied immediately after it. These copies may overlap what used to be the old
     central directory: that is safe, because step 1 already committed the superseding copy to a
     higher offset in the file.
 
@@ -39,21 +58,30 @@ whose local file header is still partly (or entirely) missing or whose data's CR
 the recorded value. The next write-mode open detects this by validating the tail of the central
 directory from back to front; the first trailing run of invalid entries is rolled back by writing
 a new central directory and end-of-central-directory record at the oldest corrupt entry's local
-header offset, and truncating the file to the new end-of-central-directory.
+header offset, and `ftruncate`-ing the file to the new end-of-central-directory.
 
 # Two-phase append for `get_empty_*`
 
 The store exposes [`reserve_mmap_zip_entry!`](@ref) and [`patch_mmap_zip_entry_crc!`](@ref) to
 support Daf's two-phase `get_empty_*` / `filled_empty!` pattern without buffering gigabytes of
 zeros in memory. [`reserve_mmap_zip_entry!`](@ref) runs the full commit protocol with a CRC32
-placeholder of `0` and returns an mmap'd `Vector{UInt8}` over the data region (a file hole until
-the user writes into it). [`patch_mmap_zip_entry_crc!`](@ref) then computes the real CRC32 from
-the now-filled data and patches the CRC32 field in both the local file header and the central
-directory using two four-byte positional writes.
+placeholder of `0` and returns a byte view over the data region in the shared mmap (a file hole
+until the user writes into it). [`patch_mmap_zip_entry_crc!`](@ref) then computes the real CRC32
+from the now-filled data and patches the CRC32 field in both the local file header and the central
+directory via two four-byte stores into the shared mmap.
 
 If the process crashes between `reserve_mmap_zip_entry!` and `patch_mmap_zip_entry_crc!`, the
 recovery pass on the next write-mode open discards the partial entries because their stored CRC32
 placeholders of `0` do not match the actual data.
+
+# Aligned data offsets
+
+Every local file header written by `MmapZipStore` is padded (via a second opaque ZIP extra field)
+so that the following data region starts at a `DAF_DATA_OFFSET_ALIGNMENT`-byte-aligned file offset.
+This lets readers wrap the data region as an `Array{T}` of the appropriate element type via
+`unsafe_wrap` with no copy. [`try_mmap_entry_as`](@ref) performs the alignment check at read time
+and returns `nothing` for unaligned foreign archives, in which case the caller should fall back to
+the ordinary decoded copy from `store[key]`.
 
 # Limitations
 
@@ -80,8 +108,8 @@ module MmapZipStores
 export MmapZipStore
 export patch_mmap_zip_entry_crc!
 export reserve_mmap_zip_entry!
+export try_mmap_entry_as
 
-using Mmap
 using TanayLabUtilities
 using Zarr
 using ZipArchives
@@ -111,6 +139,11 @@ const ZIP64_LOCAL_FILE_HEADER_EXTRA_SIZE = 20
 const ZIP64_CENTRAL_DIRECTORY_EXTRA_SIZE = 28
 const STORED_COMPRESSION_METHOD = UInt16(0)
 const ZIP64_VERSION_NEEDED = UInt16(45)
+# Custom extra field ID used only to pad each local file header so that the following data region
+# starts at an 8-byte-aligned file offset. Unknown to every reader but `MmapZipStores`, and ignored
+# as an opaque extra field per the ZIP APPNOTE.
+const DAF_PADDING_EXTRA_HEADER_ID = UInt16(0xDAF1)
+const DAF_DATA_OFFSET_ALIGNMENT = 8
 
 # An in-memory description of a single ZIP archive entry tracked by `MmapZipStore`. The fields
 # mirror the minimal ZIP central directory information needed to locate and validate an entry.
@@ -133,7 +166,8 @@ end
         path::AbstractString;
         [writable::Bool = false,
         create::Bool = false,
-        truncate::Bool = false]
+        truncate::Bool = false,
+        max_file_size::Integer = 1 << 40]
     )
 
 Open (and optionally create or truncate) a ZIP archive at `path` as a Zarr store.
@@ -148,6 +182,15 @@ The `writable`, `create`, and `truncate` flags interact as follows (matching
 | `true`     | `true`   | `false`    | Read/write open, creating an empty archive if missing (mode `w+`) |
 | `true`     | `true`   | `true`     | Discard any existing archive and create an empty one (mode `w`)   |
 
+On a writable open, the store reserves `max_file_size` bytes of virtual address space via a single
+anonymous `PROT_NONE` mapping and overlays the file onto the first `filesize` bytes of that
+reservation (`MAP_SHARED | MAP_FIXED`). Each append calls `ftruncate` to grow the file by exactly
+the bytes needed (real, non-sparse) and re-overlays the file at the same base address to extend
+the accessible portion of the reservation. Reads slice into this single mapping, so the number of
+VMAs per open is small and fixed regardless of entry count. An append that would grow the file
+past `max_file_size` fails with an explicit error. Read-only opens memory-map exactly the current
+file size and ignore `max_file_size`.
+
 On open, the existing central directory is parsed and cached in memory. On a write-mode open, an
 interrupted tail of the central directory (entries whose local file header or CRC32 does not
 validate) is detected and rolled back; see the module documentation for the full protocol.
@@ -156,13 +199,98 @@ mutable struct MmapZipStore <: Zarr.AbstractStore
     path::String
     io_stream::IOStream
     is_writable::Bool
-    initial_buffer::Vector{UInt8}
-    initial_entry_count::Int
+    max_file_size::UInt64
+    reservation_base::Ptr{Cvoid}
+    reservation_length::UInt64
+    overlay_length::UInt64
+    file_mmap::Vector{UInt8}
     entries::Vector{ZipEntry}
     name_to_index::Dict{String, Int}
     central_directory_offset::UInt64
     central_directory_size::UInt64
-    appended_entry_mmaps::Dict{Int, Vector{UInt8}}
+end
+
+# Platform-specific MAP_ANON flag value for `mmap(2)` (Darwin uses 0x1000; Linux and other BSDs use 0x20).
+@static if Sys.isapple()
+    const MAP_ANON_FLAG = Cint(0x1000)
+else
+    const MAP_ANON_FLAG = Cint(0x20)
+end
+const MAP_PRIVATE_FLAG = Cint(0x02)
+const MAP_SHARED_FLAG = Cint(0x01)
+const MAP_FIXED_FLAG = Cint(0x10)
+const PROT_NONE_FLAG = Cint(0x00)
+const PROT_READ_FLAG = Cint(0x01)
+const PROT_WRITE_FLAG = Cint(0x02)
+
+# Reserve `byte_length` bytes of virtual address space as an anonymous PROT_NONE mapping. Consumes
+# VA only: no RAM, no disk, no file size. Accessing the returned range raises SIGSEGV until it is
+# overlaid with a file mapping via `overlay_file_on_range!`. On first failure (typically because
+# abandoned-but-not-yet-GC'd reservations from prior opens have filled the per-process VA), force a
+# GC cycle to finalize those and retry once.
+function reserve_virtual_range(byte_length::Integer)::Ptr{Cvoid}  # FLAKY TESTED
+    ptr = raw_reserve_virtual_range(byte_length)
+    if reinterpret(Int, ptr) == -1
+        GC.gc()  # UNTESTED
+        ptr = raw_reserve_virtual_range(byte_length)  # UNTESTED
+        if reinterpret(Int, ptr) == -1  # UNTESTED
+            error("mmap reservation of $(byte_length) bytes failed: $(Base.Libc.strerror())")  # UNTESTED
+        end
+    end
+    return ptr
+end
+
+@inline function raw_reserve_virtual_range(byte_length::Integer)::Ptr{Cvoid}  # FLAKY TESTED
+    return ccall(  # NOJET
+        :mmap,
+        Ptr{Cvoid},
+        (Ptr{Cvoid}, Csize_t, Cint, Cint, Cint, Int64),
+        Ptr{Cvoid}(0),
+        Csize_t(byte_length),
+        PROT_NONE_FLAG,
+        MAP_PRIVATE_FLAG | MAP_ANON_FLAG,
+        Cint(-1),
+        Int64(0),
+    )
+end
+
+# Overlay the file backing `io_stream` onto `byte_length` bytes starting at `base`, replacing any
+# existing mapping in that range. `base` must be inside a region previously obtained from
+# `reserve_virtual_range`, and `byte_length` must be <= filesize(io_stream) (macOS rejects
+# file-backed MAP_SHARED mappings whose length exceeds the file size).
+function overlay_file_on_range!(base::Ptr{Cvoid}, io_stream::IOStream, byte_length::Integer)::Nothing  # FLAKY TESTED
+    file_desc = Cint(reinterpret(Int32, fd(io_stream)))
+    ptr = ccall(  # NOJET
+        :mmap,
+        Ptr{Cvoid},
+        (Ptr{Cvoid}, Csize_t, Cint, Cint, Cint, Int64),
+        base,
+        Csize_t(byte_length),
+        PROT_READ_FLAG | PROT_WRITE_FLAG,
+        MAP_SHARED_FLAG | MAP_FIXED_FLAG,
+        file_desc,
+        Int64(0),
+    )
+    if reinterpret(Int, ptr) == -1 || ptr != base
+        error("mmap file overlay at $(base) for $(byte_length) bytes failed: $(Base.Libc.strerror())")  # UNTESTED
+    end
+    return nothing
+end
+
+# Tell the kernel not to coalesce 4 KiB pages into 2 MiB transparent huge pages across `byte_length`
+# bytes at `base`. The advice is recorded on the VMA and applies to all future file overlays within
+# the reservation. No-op on non-Linux platforms. See `mmap_with_small_pages` for the rationale.
+function disable_transparent_huge_pages(base::Ptr{Cvoid}, byte_length::Integer)::Nothing  # FLAKY TESTED
+    @static if Sys.islinux()
+        if byte_length > 0
+            MADV_NOHUGEPAGE = Cint(15)
+            result = ccall(:madvise, Cint, (Ptr{Cvoid}, Csize_t, Cint), base, Csize_t(byte_length), MADV_NOHUGEPAGE)
+            if result != 0
+                error("madvise MADV_NOHUGEPAGE failed: $(Base.Libc.strerror())")  # UNTESTED
+            end
+        end
+    end
+    return nothing
 end
 
 function Base.show(io::IO, store::MmapZipStore)::Nothing  # FLAKY TESTED
@@ -175,6 +303,7 @@ function MmapZipStore(
     writable::Bool = false,
     create::Bool = false,
     truncate::Bool = false,
+    max_file_size::Integer = 1 << 40,
 )::MmapZipStore
     if truncate
         @assert writable
@@ -197,7 +326,7 @@ function MmapZipStore(
 
     io_stream = open(path, writable ? "r+" : "r")
     store = try
-        parse_existing_zip_archive(String(path), io_stream, writable)
+        parse_existing_zip_archive(String(path), io_stream, writable, UInt64(max_file_size))
     catch exception
         close(io_stream)  # UNTESTED
         rethrow(exception)  # UNTESTED
@@ -218,14 +347,41 @@ function write_empty_zip_archive!(io_stream::IOStream)::Nothing  # FLAKY TESTED
     return nothing
 end
 
-function parse_existing_zip_archive(path::String, io_stream::IOStream, is_writable::Bool)::MmapZipStore
-    file_size = filesize(path)
+function parse_existing_zip_archive(
+    path::String,
+    io_stream::IOStream,
+    is_writable::Bool,
+    max_file_size::UInt64,
+)::MmapZipStore
+    file_size = UInt64(filesize(path))
     if file_size < END_OF_CENTRAL_DIRECTORY_SIZE
         error("file too small to be a zip archive: $(path)")  # UNTESTED
     end
 
-    initial_buffer = Mmap.mmap(io_stream, Vector{UInt8}, file_size, 0)
-    zip_reader = ZipArchives.ZipReader(initial_buffer)
+    if is_writable
+        if file_size > max_file_size
+            error(  # UNTESTED
+                "zip file size: $(file_size) exceeds max_file_size: $(max_file_size) for writable open: $(path)",
+            )
+        end
+        reservation_base = reserve_virtual_range(Int(max_file_size))
+        overlay_file_on_range!(reservation_base, io_stream, Int(file_size))
+        disable_transparent_huge_pages(reservation_base, Int(max_file_size))
+        file_mmap = unsafe_wrap(Array, Ptr{UInt8}(reservation_base), Int(max_file_size); own = false)
+        finalizer(file_mmap) do _
+            return ccall(:munmap, Cint, (Ptr{Cvoid}, Csize_t), reservation_base, Csize_t(max_file_size))
+        end
+        reservation_length = max_file_size
+        overlay_length = file_size
+    else
+        reservation_base = Ptr{Cvoid}(0)
+        reservation_length = UInt64(0)
+        overlay_length = file_size
+        file_mmap = mmap_with_small_pages(io_stream, Vector{UInt8}, Int(file_size), 0; grow = false)
+    end
+
+    zip_view = view(file_mmap, 1:Int(file_size))
+    zip_reader = ZipArchives.ZipReader(zip_view)
     entry_count = ZipArchives.zip_nentries(zip_reader)
 
     entries = Vector{ZipEntry}(undef, entry_count)
@@ -253,13 +409,15 @@ function parse_existing_zip_archive(path::String, io_stream::IOStream, is_writab
         path,
         io_stream,
         is_writable,
-        initial_buffer,
-        entry_count,
+        max_file_size,
+        reservation_base,
+        reservation_length,
+        overlay_length,
+        file_mmap,
         entries,
         name_to_index,
         central_directory_offset,
         central_directory_size,
-        Dict{Int, Vector{UInt8}}(),
     )
 end
 
@@ -278,12 +436,87 @@ end
            UInt64(ZIP64_CENTRAL_DIRECTORY_EXTRA_SIZE)
 end
 
-function Base.getindex(store::MmapZipStore, key::AbstractString)::Union{Nothing, AbstractVector{UInt8}}
+# Extend the real (non-sparse) file to `new_file_size` bytes and re-overlay the file onto the first
+# `new_file_size` bytes of `store.reservation_base`. Works for both growth and shrinkage: the file's
+# first `min(old, new)` bytes are untouched, and the overlay ends up covering exactly `new_file_size`
+# bytes of the reservation (the remainder reverts to the original PROT_NONE reservation).
+function resize_file_overlay!(store::MmapZipStore, new_file_size::UInt64)::Nothing  # FLAKY TESTED
+    @assert store.is_writable
+    @assert new_file_size <= store.max_file_size
+    truncate(store.io_stream, Int(new_file_size))
+    overlay_file_on_range!(store.reservation_base, store.io_stream, Int(new_file_size))
+    store.overlay_length = new_file_size
+    return nothing
+end
+
+# Number of bytes to append to the local file header (as a second, opaque extra field) so that the
+# following data region starts at a `DAF_DATA_OFFSET_ALIGNMENT`-byte-aligned file offset. Returns 0
+# when already aligned, or a value >= 4 (the minimum extra field header size) otherwise.
+@inline function compute_alignment_padding(unpadded_data_offset::UInt64)::Int  # FLAKY TESTED
+    remainder = Int(mod(unpadded_data_offset, UInt64(DAF_DATA_OFFSET_ALIGNMENT)))
+    if remainder == 0
+        return 0
+    end
+    total_mod = mod(-remainder, DAF_DATA_OFFSET_ALIGNMENT)
+    return total_mod >= 4 ? total_mod : total_mod + DAF_DATA_OFFSET_ALIGNMENT
+end
+
+function Base.getindex(store::MmapZipStore, key::AbstractString)::Union{Nothing, AbstractVector{UInt8}}  # FLAKY TESTED
     entry_index = get(store.name_to_index, key, nothing)
     if entry_index === nothing
         return nothing
     end
     return read_entry_bytes(store, entry_index)
+end
+
+"""
+    try_mmap_entry_as(
+        store::MmapZipStore,
+        key::AbstractString,
+        ::Type{T},
+        dims::Union{Integer, Tuple{Vararg{Integer}}},
+    )::Union{Nothing, Array{T}} where {T}
+
+If the entry named `key` exists in `store`, is held uncompressed (stored, method `0`), has exactly
+the byte size implied by `T` and `dims`, and its data region is suitably aligned for `T`, return a
+zero-copy `Array{T}` of shape `dims` viewing the mmap'd data region directly. Return `nothing`
+otherwise (absent, compressed, wrong size, or unaligned) and let the caller fall back to the
+ordinary decoded copy from `store[key]`.
+
+For archives produced by `MmapZipStore` itself, the alignment precondition always holds: every
+local file header is padded so the data region starts at an `DAF_DATA_OFFSET_ALIGNMENT`-byte-aligned
+file offset, which matches the alignment required by every Daf element type. Foreign archives may
+produce misaligned data offsets, in which case this returns `nothing`.
+
+The returned array aliases `store.file_mmap` and remains valid as long as `store` is open.
+"""
+function try_mmap_entry_as(
+    store::MmapZipStore,
+    key::AbstractString,
+    ::Type{T},
+    dims::Union{Integer, Tuple{Vararg{Integer}}},
+)::Union{Nothing, Array{T}} where {T}
+    entry_index = get(store.name_to_index, key, nothing)
+    if entry_index === nothing
+        return nothing
+    end
+    entry = store.entries[entry_index]
+    if entry.compression_method != STORED_COMPRESSION_METHOD
+        return nothing
+    end
+    element_count = UInt64(dims isa Integer ? dims : prod(dims))
+    expected_bytes = element_count * UInt64(sizeof(T))
+    if entry.compressed_size != expected_bytes
+        return nothing  # UNTESTED
+    end
+    if element_count == 0
+        return Array{T}(undef, dims)  # UNTESTED
+    end
+    data_pointer = pointer(store.file_mmap, Int(entry.data_offset) + 1)
+    if UInt(data_pointer) % UInt(DAF_DATA_OFFSET_ALIGNMENT) != 0
+        return nothing  # UNTESTED
+    end
+    return unsafe_wrap(Array, Ptr{T}(data_pointer), dims; own = false)
 end
 
 # Return the raw data bytes for the entry at the given index. For stored (method-0) entries the
@@ -298,32 +531,20 @@ function read_entry_bytes(store::MmapZipStore, entry_index::Int)::AbstractVector
     return read_compressed_entry_bytes(store, entry_index)
 end
 
-function mmap_stored_entry_bytes(store::MmapZipStore, entry_index::Int)::AbstractVector{UInt8}
+function mmap_stored_entry_bytes(store::MmapZipStore, entry_index::Int)::AbstractVector{UInt8}  # FLAKY TESTED
     entry = store.entries[entry_index]
-    if entry_index <= store.initial_entry_count
-        if entry.compressed_size == 0
-            return UInt8[]  # UNTESTED
-        end
-        start_position = Int(entry.data_offset) + 1
-        end_position = start_position + Int(entry.compressed_size) - 1
-        return view(store.initial_buffer, start_position:end_position)
+    if entry.compressed_size == 0
+        return UInt8[]
     end
-    cached_mmap = get(store.appended_entry_mmaps, entry_index, nothing)
-    @assert cached_mmap !== nothing  # appended entries are mmap'd eagerly at append time
-    return cached_mmap
+    start_position = Int(entry.data_offset) + 1
+    end_position = start_position + Int(entry.compressed_size) - 1
+    return view(store.file_mmap, start_position:end_position)
 end
 
 function read_compressed_entry_bytes(store::MmapZipStore, entry_index::Int)::Vector{UInt8}  # FLAKY TESTED
-    @assert entry_index <= store.initial_entry_count
-    zip_reader = ZipArchives.ZipReader(store.initial_buffer)
+    zip_view = view(store.file_mmap, 1:Int(store.overlay_length))
+    zip_reader = ZipArchives.ZipReader(zip_view)
     return ZipArchives.zip_readentry(zip_reader, entry_index)
-end
-
-function mmap_file_range(io_stream::IOStream, offset::UInt64, size::UInt64)::Vector{UInt8}  # FLAKY TESTED
-    if size == 0
-        return UInt8[]
-    end
-    return Mmap.mmap(io_stream, Vector{UInt8}, Int(size), Int(offset))
 end
 
 function Zarr.subkeys(store::MmapZipStore, prefix_path::AbstractString)::Vector{String}  # FLAKY TESTED
@@ -400,12 +621,8 @@ function append_entry!(store::MmapZipStore, key::String, data_bytes::Vector{UInt
     check_append_limits(store, name_bytes, length(data_bytes))
     computed_crc32 = ZipArchives.zip_crc32(data_bytes)
     entry = commit_new_entry!(store, key, name_bytes, computed_crc32, UInt64(length(data_bytes)))
-    positional_write!(store.io_stream, entry.data_offset, data_bytes)
-    if entry.compressed_size > 0
-        store.appended_entry_mmaps[length(store.entries)] =
-            mmap_file_range(store.io_stream, entry.data_offset, entry.compressed_size)
-    else
-        store.appended_entry_mmaps[length(store.entries)] = UInt8[]
+    if length(data_bytes) > 0
+        @inbounds copyto!(store.file_mmap, Int(entry.data_offset) + 1, data_bytes, 1, length(data_bytes))
     end
     return nothing
 end
@@ -425,8 +642,10 @@ function commit_new_entry!(
     data_size::UInt64,
 )::ZipEntry
     local_file_header_offset = store.central_directory_offset
-    local_file_header_size =
+    base_local_file_header_size =
         UInt64(LOCAL_FILE_HEADER_FIXED_SIZE) + UInt64(length(name_bytes)) + UInt64(ZIP64_LOCAL_FILE_HEADER_EXTRA_SIZE)
+    alignment_padding = compute_alignment_padding(local_file_header_offset + base_local_file_header_size)
+    local_file_header_size = base_local_file_header_size + UInt64(alignment_padding)
     data_offset = local_file_header_offset + local_file_header_size
     new_central_directory_offset = data_offset + data_size
 
@@ -435,6 +654,17 @@ function commit_new_entry!(
         UInt64(length(name_bytes)) +
         UInt64(ZIP64_CENTRAL_DIRECTORY_EXTRA_SIZE)
     new_central_directory_size = store.central_directory_size + new_entry_record_size
+
+    required_file_size =
+        new_central_directory_offset +
+        new_central_directory_size +
+        UInt64(TRAILING_END_OF_CENTRAL_DIRECTORY_REGION_SIZE)
+    if required_file_size > store.max_file_size
+        error(
+            "append of: $(name) would grow zip file past max_file_size: $(store.max_file_size) bytes " *
+            "(required: $(required_file_size) bytes) in: $(store.path)",
+        )
+    end
 
     new_entry = ZipEntry(
         name,
@@ -457,11 +687,28 @@ function commit_new_entry!(
         new_central_directory_offset,
         new_central_directory_size,
     )
-    positional_write!(store.io_stream, new_central_directory_offset, commit_buffer)
 
     local_file_header_buffer = Vector{UInt8}(undef, Int(local_file_header_size))
-    write_local_file_header!(local_file_header_buffer, 1, name_bytes, data_size, data_size, crc32_value)
-    positional_write!(store.io_stream, local_file_header_offset, local_file_header_buffer)
+    write_local_file_header!(
+        local_file_header_buffer,
+        1,
+        name_bytes,
+        data_size,
+        data_size,
+        crc32_value,
+        alignment_padding,
+    )
+
+    resize_file_overlay!(store, required_file_size)
+
+    @inbounds copyto!(store.file_mmap, Int(new_central_directory_offset) + 1, commit_buffer, 1, length(commit_buffer))
+    @inbounds copyto!(
+        store.file_mmap,
+        Int(local_file_header_offset) + 1,
+        local_file_header_buffer,
+        1,
+        length(local_file_header_buffer),
+    )
 
     store.central_directory_offset = new_central_directory_offset
     store.central_directory_size = new_central_directory_size
@@ -574,7 +821,9 @@ function write_local_file_header!(
     compressed_size::UInt64,
     uncompressed_size::UInt64,
     crc32_value::UInt32,
+    alignment_padding::Int,
 )::Nothing
+    total_extra_size = ZIP64_LOCAL_FILE_HEADER_EXTRA_SIZE + alignment_padding
     write_little_endian_uint32!(buffer, position, LOCAL_FILE_HEADER_SIGNATURE)
     write_little_endian_uint16!(buffer, position + 4, ZIP64_VERSION_NEEDED)          # version needed to extract (ZIP64)
     write_little_endian_uint16!(buffer, position + 6, UInt16(1 << 11))               # general purpose flag: UTF-8 name
@@ -585,13 +834,22 @@ function write_local_file_header!(
     write_little_endian_uint32!(buffer, position + 18, typemax(UInt32))              # compressed size sentinel (real value in ZIP64 extra)
     write_little_endian_uint32!(buffer, position + 22, typemax(UInt32))              # uncompressed size sentinel (real value in ZIP64 extra)
     write_little_endian_uint16!(buffer, position + 26, UInt16(length(name_bytes)))
-    write_little_endian_uint16!(buffer, position + 28, UInt16(ZIP64_LOCAL_FILE_HEADER_EXTRA_SIZE))  # extra field length
+    write_little_endian_uint16!(buffer, position + 28, UInt16(total_extra_size))     # extra field length (ZIP64 + alignment padding)
     copyto!(buffer, position + LOCAL_FILE_HEADER_FIXED_SIZE, name_bytes, 1, length(name_bytes))
     extra_field_position = position + LOCAL_FILE_HEADER_FIXED_SIZE + length(name_bytes)
     write_little_endian_uint16!(buffer, extra_field_position, ZIP64_EXTRA_HEADER_ID)
     write_little_endian_uint16!(buffer, extra_field_position + 2, UInt16(ZIP64_LOCAL_FILE_HEADER_EXTRA_SIZE - 4))
     write_little_endian_uint64!(buffer, extra_field_position + 4, uncompressed_size)
     write_little_endian_uint64!(buffer, extra_field_position + 12, compressed_size)
+    if alignment_padding > 0
+        @assert alignment_padding >= 4
+        padding_position = extra_field_position + ZIP64_LOCAL_FILE_HEADER_EXTRA_SIZE
+        write_little_endian_uint16!(buffer, padding_position, DAF_PADDING_EXTRA_HEADER_ID)
+        write_little_endian_uint16!(buffer, padding_position + 2, UInt16(alignment_padding - 4))
+        if alignment_padding > 4
+            fill!(view(buffer, (padding_position + 4):(padding_position + alignment_padding - 1)), 0x00)
+        end
+    end
     return nothing
 end
 
@@ -659,15 +917,8 @@ end
     return nothing
 end
 
-@inline function read_little_endian_uint32(buffer::Vector{UInt8}, position::Integer)::UInt32  # FLAKY TESTED
+@inline function read_little_endian_uint32(buffer::AbstractVector{UInt8}, position::Integer)::UInt32  # FLAKY TESTED
     return GC.@preserve buffer unsafe_load(Ptr{UInt32}(pointer(buffer, position)))
-end
-
-function positional_write!(io_stream::IOStream, offset::UInt64, buffer::AbstractVector{UInt8})::Nothing  # FLAKY TESTED
-    seek(io_stream, Int(offset))
-    write(io_stream, buffer)
-    flush(io_stream)
-    return nothing
 end
 
 """
@@ -678,8 +929,8 @@ end
     )::AbstractVector{UInt8}
 
 Reserve space for a new entry of `data_size` bytes with a placeholder CRC32 of `0`, and return an
-mmap-backed `Vector{UInt8}` over the reserved data region. The caller fills the returned buffer
-in place and then must call [`patch_mmap_zip_entry_crc!`](@ref) before any further appends.
+mmap-backed byte view over the reserved data region. The caller fills the returned buffer in place
+and then must call [`patch_mmap_zip_entry_crc!`](@ref) before any further appends.
 
 If the caller crashes between the reserve and patch steps, the next write-mode open will detect
 the placeholder CRC mismatch and roll the reservation back.
@@ -693,13 +944,12 @@ function reserve_mmap_zip_entry!(store::MmapZipStore, key::AbstractString, data_
     check_append_limits(store, name_bytes, data_size)
     reserved_size = UInt64(data_size)
     reserved_entry = commit_new_entry!(store, String(key), name_bytes, UInt32(0), reserved_size)
-    if reserved_size > 0
-        reserved_bytes = mmap_file_range(store.io_stream, reserved_entry.data_offset, reserved_size)
-    else
-        reserved_bytes = UInt8[]  # UNTESTED
+    if reserved_size == 0
+        return UInt8[]  # UNTESTED
     end
-    store.appended_entry_mmaps[length(store.entries)] = reserved_bytes
-    return reserved_bytes
+    start_position = Int(reserved_entry.data_offset) + 1
+    end_position = start_position + Int(reserved_size) - 1
+    return view(store.file_mmap, start_position:end_position)
 end
 
 """
@@ -707,7 +957,7 @@ end
 
 Compute the real CRC32 of the data region of the entry previously reserved via
 [`reserve_mmap_zip_entry!`](@ref) and patch the CRC32 field in both the local file header and the
-central directory record. Each patch is a single four-byte positional write.
+central directory record. Each patch is a single four-byte store into the shared mmap.
 """
 function patch_mmap_zip_entry_crc!(store::MmapZipStore, key::AbstractString)::Nothing
     entry_index = store.name_to_index[key]
@@ -715,10 +965,8 @@ function patch_mmap_zip_entry_crc!(store::MmapZipStore, key::AbstractString)::No
     entry_bytes = mmap_stored_entry_bytes(store, entry_index)
     computed_crc32 = ZipArchives.zip_crc32(entry_bytes)
     entry.crc32 = computed_crc32
-    crc32_buffer = Vector{UInt8}(undef, 4)
-    write_little_endian_uint32!(crc32_buffer, 1, computed_crc32)
-    positional_write!(store.io_stream, entry.local_file_header_offset + UInt64(14), crc32_buffer)
-    positional_write!(store.io_stream, entry.central_directory_offset + UInt64(16), crc32_buffer)
+    write_little_endian_uint32!(store.file_mmap, Int(entry.local_file_header_offset) + 14 + 1, computed_crc32)
+    write_little_endian_uint32!(store.file_mmap, Int(entry.central_directory_offset) + 16 + 1, computed_crc32)
     return nothing
 end
 
@@ -752,28 +1000,23 @@ function entry_is_valid(store::MmapZipStore, entry_index::Int)::Bool
         return true  # UNTESTED
     end
 
-    local_file_header_signature_bytes = read_file_range(store.io_stream, entry.local_file_header_offset, UInt64(4))
-    if local_file_header_signature_bytes === nothing
-        return false  # UNTESTED
-    end
+    local_file_header_signature_bytes = mmap_file_range(store, entry.local_file_header_offset, UInt64(4))
     if read_little_endian_uint32(local_file_header_signature_bytes, 1) != LOCAL_FILE_HEADER_SIGNATURE
         return false  # UNTESTED
     end
 
-    data_bytes = read_file_range(store.io_stream, entry.data_offset, entry.compressed_size)
-    if data_bytes === nothing
-        return false  # UNTESTED
-    end
+    data_bytes = mmap_file_range(store, entry.data_offset, entry.compressed_size)
     return ZipArchives.zip_crc32(data_bytes) == entry.crc32
 end
 
-function read_file_range(io_stream::IOStream, offset::UInt64, size::UInt64)::Union{Nothing, Vector{UInt8}}  # FLAKY TESTED
-    file_size = UInt64(filesize(io_stream))
-    if offset + size > file_size
-        return nothing
+function mmap_file_range(store::MmapZipStore, offset::UInt64, size::UInt64)::AbstractVector{UInt8}  # FLAKY TESTED
+    @assert offset + size <= store.overlay_length
+    if size == 0
+        return UInt8[]
     end
-    seek(io_stream, Int(offset))
-    return read(io_stream, Int(size))
+    start_position = Int(offset) + 1
+    end_position = start_position + Int(size) - 1
+    return view(store.file_mmap, start_position:end_position)
 end
 
 function roll_back_to_entry!(store::MmapZipStore, keep_count::Int)::Nothing
@@ -799,20 +1042,17 @@ function roll_back_to_entry!(store::MmapZipStore, keep_count::Int)::Nothing
         new_central_directory_offset,
         new_central_directory_size,
     )
-    positional_write!(store.io_stream, new_central_directory_offset, commit_buffer)
+    @inbounds copyto!(store.file_mmap, Int(new_central_directory_offset) + 1, commit_buffer, 1, length(commit_buffer))
+
+    new_file_size =
+        new_central_directory_offset +
+        new_central_directory_size +
+        UInt64(TRAILING_END_OF_CENTRAL_DIRECTORY_REGION_SIZE)
+    resize_file_overlay!(store, new_file_size)
 
     store.central_directory_offset = new_central_directory_offset
     store.central_directory_size = new_central_directory_size
     populate_central_directory_offsets!(store.entries, store.central_directory_offset)
-    store.initial_entry_count = min(store.initial_entry_count, keep_count)
-
-    new_file_size = Int(
-        new_central_directory_offset +
-        new_central_directory_size +
-        UInt64(TRAILING_END_OF_CENTRAL_DIRECTORY_REGION_SIZE),
-    )
-    truncate(store.io_stream, new_file_size)
-    flush(store.io_stream)
     return nothing
 end
 

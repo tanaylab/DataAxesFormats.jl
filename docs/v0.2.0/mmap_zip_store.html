@@ -335,6 +335,42 @@
 </li>
 </ul>
 <p>
+<strong>Shared mmap
+</strong>
+</p>
+<p>On open, 
+<code>MmapZipStore
+</code> memory-maps the archive file once into a single 
+<code>Vector{UInt8}
+</code> owned by the store. A read-only open uses an ordinary file-backed 
+<code>mmap
+</code> covering exactly the current file size. A writable open uses a two-step mapping that keeps the virtual address of the archive stable across file growth: first, 
+<code>max_file_size
+</code> bytes of virtual address space are reserved via an anonymous 
+<code>PROT_NONE
+</code> mapping (which consumes VA only — zero RAM, zero disk, zero file bytes); then the file is overlaid onto the first 
+<code>filesize
+</code> bytes of that reservation via 
+<code>MAP_SHARED | MAP_FIXED
+</code>. Each append calls 
+<code>ftruncate
+</code> to extend the real (non-sparse) file, followed by a re-overlay with 
+<code>MAP_SHARED | MAP_FIXED
+</code> at the same base address to extend the accessible portion of the reservation to the new file size. Subsequent writes (local file header, data, central directory, end-of-central-directory, CRC32 patches) are pure stores into 
+<code>store.file_mmap
+</code>, not 
+<code>write()
+</code> syscalls. The only writes through the IO stream are the initial bootstrap of an empty archive and 
+<code>ftruncate
+</code> calls. Each open therefore consumes a single reservation plus one file overlay regardless of entry count, and every stored (method-
+<code>0
+</code>) entry is served directly out of the shared mapping with no copy. The file on disk remains a normal, non-sparse file of exactly 
+<code>filesize
+</code> bytes — copying the archive with ordinary tools does not inflate to 
+<code>max_file_size
+</code>.
+</p>
+<p>
 <strong>On-disk protocol
 </strong>
 </p>
@@ -344,15 +380,21 @@
 </p>
 <ol>
 <li>
-<p>For each append, the new central directory (containing both the pre-existing and the new entries) and its end-of-central-directory record are built in memory and written to disk, at the offset where the new local file header region will end, using a single positional write system call. This is the commit point: after this single write, the archive on disk describes the new entry, and the local file header region lies in a sparse hole in the file.
+<p>For each append, the file is extended via 
+<code>ftruncate
+</code> to its new end-of-archive position. The new central directory (containing both the pre-existing and the new entries) and its end-of-central-directory record are built in memory and copied into the mmap at the offset where the new local file header region will end. This is the commit point: after this copy, the archive on disk describes the new entry, and the local file header region lies in a sparse hole in the file (the bytes zero-initialized by 
+<code>ftruncate
+</code>).
 </p>
 </li>
 <li>
-<p>The new local file header is then written at the offset that was previously occupied by the old central directory (and end-of-central-directory record), and the entry&#39;s compressed data bytes are written immediately after it. These writes may overlap what used to be the old central directory: that is safe, because step 1 already committed the superseding copy to a higher offset in the file.
+<p>The new local file header is then copied at the offset that was previously occupied by the old central directory (and end-of-central-directory record), and the entry&#39;s stored data bytes are copied immediately after it. These copies may overlap what used to be the old central directory: that is safe, because step 1 already committed the superseding copy to a higher offset in the file.
 </p>
 </li>
 </ol>
-<p>If the process crashes between step 1 and step 2, the committed central directory claims an entry whose local file header is still partly (or entirely) missing or whose data&#39;s CRC32 does not match the recorded value. The next write-mode open detects this by validating the tail of the central directory from back to front; the first trailing run of invalid entries is rolled back by writing a new central directory and end-of-central-directory record at the oldest corrupt entry&#39;s local header offset, and truncating the file to the new end-of-central-directory.
+<p>If the process crashes between step 1 and step 2, the committed central directory claims an entry whose local file header is still partly (or entirely) missing or whose data&#39;s CRC32 does not match the recorded value. The next write-mode open detects this by validating the tail of the central directory from back to front; the first trailing run of invalid entries is rolled back by writing a new central directory and end-of-central-directory record at the oldest corrupt entry&#39;s local header offset, and 
+<code>ftruncate
+</code>-ing the file to the new end-of-central-directory.
 </p>
 <p>
 <strong>Two-phase append for 
@@ -378,13 +420,11 @@
 </code>
 </a> runs the full commit protocol with a CRC32 placeholder of 
 <code>0
-</code> and returns an mmap&#39;d 
-<code>Vector{UInt8}
-</code> over the data region (a file hole until the user writes into it). 
+</code> and returns a byte view over the data region in the shared mmap (a file hole until the user writes into it). 
 <a href="mmap_zip_store.html#DataAxesFormats.MmapZipStores.patch_mmap_zip_entry_crc!">
 <code>patch_mmap_zip_entry_crc!
 </code>
-</a> then computes the real CRC32 from the now-filled data and patches the CRC32 field in both the local file header and the central directory using two four-byte positional writes.
+</a> then computes the real CRC32 from the now-filled data and patches the CRC32 field in both the local file header and the central directory via two four-byte stores into the shared mmap.
 </p>
 <p>If the process crashes between 
 <code>reserve_mmap_zip_entry!
@@ -393,6 +433,28 @@
 </code>, the recovery pass on the next write-mode open discards the partial entries because their stored CRC32 placeholders of 
 <code>0
 </code> do not match the actual data.
+</p>
+<p>
+<strong>Aligned data offsets
+</strong>
+</p>
+<p>Every local file header written by 
+<code>MmapZipStore
+</code> is padded (via a second opaque ZIP extra field) so that the following data region starts at a 
+<code>DAF_DATA_OFFSET_ALIGNMENT
+</code>-byte-aligned file offset. This lets readers wrap the data region as an 
+<code>Array{T}
+</code> of the appropriate element type via 
+<code>unsafe_wrap
+</code> with no copy. 
+<a href="mmap_zip_store.html#DataAxesFormats.MmapZipStores.try_mmap_entry_as">
+<code>try_mmap_entry_as
+</code>
+</a> performs the alignment check at read time and returns 
+<code>nothing
+</code> for unaligned foreign archives, in which case the caller should fall back to the ordinary decoded copy from 
+<code>store[key]
+</code>.
 </p>
 <p>
 <strong>Limitations
@@ -441,7 +503,8 @@
     path::AbstractString;
     [writable::Bool = false,
     create::Bool = false,
-    truncate::Bool = false]
+    truncate::Bool = false,
+    max_file_size::Integer = 1 &lt;&lt; 40]
 )
 </code>
 </pre>
@@ -559,7 +622,84 @@
 </td>
 </tr>
 </table>
+<p>On a writable open, the store reserves 
+<code>max_file_size
+</code> bytes of virtual address space via a single anonymous 
+<code>PROT_NONE
+</code> mapping and overlays the file onto the first 
+<code>filesize
+</code> bytes of that reservation (
+<code>MAP_SHARED | MAP_FIXED
+</code>). Each append calls 
+<code>ftruncate
+</code> to grow the file by exactly the bytes needed (real, non-sparse) and re-overlays the file at the same base address to extend the accessible portion of the reservation. Reads slice into this single mapping, so the number of VMAs per open is small and fixed regardless of entry count. An append that would grow the file past 
+<code>max_file_size
+</code> fails with an explicit error. Read-only opens memory-map exactly the current file size and ignore 
+<code>max_file_size
+</code>.
+</p>
 <p>On open, the existing central directory is parsed and cached in memory. On a write-mode open, an interrupted tail of the central directory (entries whose local file header or CRC32 does not validate) is detected and rolled back; see the module documentation for the full protocol.
+</p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.MmapZipStores.try_mmap_entry_as">
+<a class="docstring-binding" href="#DataAxesFormats.MmapZipStores.try_mmap_entry_as">
+<code>DataAxesFormats.MmapZipStores.try_mmap_entry_as
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">try_mmap_entry_as(
+    store::MmapZipStore,
+    key::AbstractString,
+    ::Type{T},
+    dims::Union{Integer, Tuple{Vararg{Integer}}},
+)::Union{Nothing, Array{T}} where {T}
+</code>
+</pre>
+<p>If the entry named 
+<code>key
+</code> exists in 
+<code>store
+</code>, is held uncompressed (stored, method 
+<code>0
+</code>), has exactly the byte size implied by 
+<code>T
+</code> and 
+<code>dims
+</code>, and its data region is suitably aligned for 
+<code>T
+</code>, return a zero-copy 
+<code>Array{T}
+</code> of shape 
+<code>dims
+</code> viewing the mmap&#39;d data region directly. Return 
+<code>nothing
+</code> otherwise (absent, compressed, wrong size, or unaligned) and let the caller fall back to the ordinary decoded copy from 
+<code>store[key]
+</code>.
+</p>
+<p>For archives produced by 
+<code>MmapZipStore
+</code> itself, the alignment precondition always holds: every local file header is padded so the data region starts at an 
+<code>DAF_DATA_OFFSET_ALIGNMENT
+</code>-byte-aligned file offset, which matches the alignment required by every Daf element type. Foreign archives may produce misaligned data offsets, in which case this returns 
+<code>nothing
+</code>.
+</p>
+<p>The returned array aliases 
+<code>store.file_mmap
+</code> and remains valid as long as 
+<code>store
+</code> is open.
 </p>
 </div>
 </section>
@@ -589,9 +729,7 @@
 <code>data_size
 </code> bytes with a placeholder CRC32 of 
 <code>0
-</code>, and return an mmap-backed 
-<code>Vector{UInt8}
-</code> over the reserved data region. The caller fills the returned buffer in place and then must call 
+</code>, and return an mmap-backed byte view over the reserved data region. The caller fills the returned buffer in place and then must call 
 <a href="mmap_zip_store.html#DataAxesFormats.MmapZipStores.patch_mmap_zip_entry_crc!">
 <code>patch_mmap_zip_entry_crc!
 </code>
@@ -623,7 +761,7 @@
 <a href="mmap_zip_store.html#DataAxesFormats.MmapZipStores.reserve_mmap_zip_entry!">
 <code>reserve_mmap_zip_entry!
 </code>
-</a> and patch the CRC32 field in both the local file header and the central directory record. Each patch is a single four-byte positional write.
+</a> and patch the CRC32 field in both the local file header and the central directory record. Each patch is a single four-byte store into the shared mmap.
 </p>
 </div>
 </section>
@@ -659,6 +797,12 @@
 <li>
 <a href="mmap_zip_store.html#DataAxesFormats.MmapZipStores.reserve_mmap_zip_entry!">
 <code>DataAxesFormats.MmapZipStores.reserve_mmap_zip_entry!
+</code>
+</a>
+</li>
+<li>
+<a href="mmap_zip_store.html#DataAxesFormats.MmapZipStores.try_mmap_entry_as">
+<code>DataAxesFormats.MmapZipStores.try_mmap_entry_as
 </code>
 </a>
 </li>

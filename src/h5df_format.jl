@@ -206,6 +206,14 @@ instead, it will only truncate the group.
 
     If specifying a path (string) `root`, when calling `h5open`, the file alignment of created files is set to `(1, 8)`
     to maximize efficiency of mapped vectors and matrices, and the `w+` mode is converted to `cw`.
+
+!!! note
+
+    When several [`H5df`](@ref) instances in the same process share a path (typically different `#/group` sub-dafs of
+    the same `.h5dfs` file), they also share a single underlying `HDF5.File` handle and a single `data_lock`, so that
+    concurrent calls serialize correctly (`libhdf5` is not thread-safe by default). The first such open determines the
+    handle's writability: later opens of the same path that request write access will raise an error if the first open
+    was read-only. Release the read-only handle first, or open the writable sub-daf first.
 """
 struct H5df <: DafWriter
     name::AbstractString
@@ -218,10 +226,15 @@ end
 # Weak-cache entry pairing an open HDF5 file with the data_lock shared by every
 # sub-H5df of that file. libhdf5 is not thread-safe by default, so concurrent
 # calls on the same file handle across sub-dafs must serialize on this lock.
+# `is_writable` records the mode the file was opened in, so that a later sub-H5df
+# opening the same path in an incompatible mode can be rejected cleanly.
 mutable struct SharedH5dfHandle
     file::HDF5.File
     data_lock::ExtendedReadWriteLock
-    SharedH5dfHandle(file::HDF5.File, data_lock::ExtendedReadWriteLock) = new(file, data_lock)
+    is_writable::Bool
+    function SharedH5dfHandle(file::HDF5.File, data_lock::ExtendedReadWriteLock, is_writable::Bool)  # FLAKY TESTED
+        return new(file, data_lock, is_writable)
+    end
 end
 
 function H5df(
@@ -245,7 +258,7 @@ function H5df(
             full_path = abspath(root) * "#/" * group
         end
 
-        key = (:daf, :hdf5, is_read_only ? "r" : "r+")
+        key = (:daf, :hdf5)
         if !truncate_if_exists
             purge = false
         elseif group === nothing
@@ -257,7 +270,13 @@ function H5df(
 
         shared_handle = get_through_global_weak_cache(abspath(root), key; purge) do _
             file = h5open(root, mode == "w+" ? "cw" : mode; fapl = HDF5.FileAccessProperties(; alignment = (1, 8)))  # NOJET
-            return SharedH5dfHandle(file, ExtendedReadWriteLock())
+            return SharedH5dfHandle(file, ExtendedReadWriteLock(), !is_read_only)
+        end
+        if !is_read_only && !shared_handle.is_writable
+            error(  # UNTESTED
+                "HDF5 file is already open read-only in this process; " *
+                "release the existing handle before opening it for write: $(abspath(root))",
+            )
         end
         root = shared_handle.file
 

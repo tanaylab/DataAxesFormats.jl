@@ -842,6 +842,30 @@
 </p>
 </div>
 </div>
+<div class="admonition is-info" id="Note-89243661a10e0b07">
+<header class="admonition-header">Note
+<a class="admonition-anchor" href="#Note-89243661a10e0b07" title="Permalink">
+</a>
+</header>
+<div class="admonition-body">
+<p>When several 
+<a href="h5df_format.html#DataAxesFormats.H5dfFormat.H5df">
+<code>H5df
+</code>
+</a> instances in the same process share a path (typically different 
+<code>#/group
+</code> sub-dafs of the same 
+<code>.h5dfs
+</code> file), they also share a single underlying 
+<code>HDF5.File
+</code> handle and a single 
+<code>data_lock
+</code>, so that concurrent calls serialize correctly (
+<code>libhdf5
+</code> is not thread-safe by default). The first such open determines the handle&#39;s writability: later opens of the same path that request write access will raise an error if the first open was read-only. Release the read-only handle first, or open the writable sub-daf first.
+</p>
+</div>
+</div>
 </div>
 </section>
 </details>

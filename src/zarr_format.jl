@@ -1,7 +1,7 @@
 """
-A `Daf` storage format in a [Zarr](https://zarr.readthedocs.io/) directory tree. Like
-[`FilesDaf`](@ref DataAxesFormats.FilesFormat.FilesDaf), the data lives in a directory of files on the filesystem (so
-standard filesystem tools work, and deleting a property immediately frees its storage), and offers a different
+A `Daf` storage format in a [Zarr](https://zarr.readthedocs.io/) directory tree or ZIP archive. Like
+[`FilesDaf`](@ref DataAxesFormats.FilesFormat.FilesDaf), the data can live in a directory of files on the filesystem
+(so standard filesystem tools work, and deleting a property immediately frees its storage), and offers a different
 trade-off compared to [`FilesDaf`](@ref DataAxesFormats.FilesFormat.FilesDaf) and
 [`H5df`](@ref DataAxesFormats.H5dfFormat.H5df).
 
@@ -12,10 +12,14 @@ files out according to the Zarr specification: the per-array `.zarray` metadata 
 than `FilesDaf`'s plain text/JSON, but in exchange the directory can be read directly by any Zarr library (e.g. the
 Python `zarr` package) without that library having to know anything about `Daf`.
 
-A Zarr directory is still a directory rather than a single file, so you need to create a `zip` or `tar` archive to
-publish it, and accessing it consumes multiple file descriptors. In addition, not every Zarr feature is supported here:
-we rely on the local `DirectoryStore` backend (no ZIP stores or remote object stores), and require every array to be
-stored in a single uncompressed chunk, so we can memory-map it directly for efficient access.
+A Zarr directory is still a directory rather than a single file, so for convenient publication or transport we also
+support storing a `Daf` data set inside a single ZIP archive via
+[`MmapZipStore`](@ref DataAxesFormats.MmapZipStores.MmapZipStore). Archives written by this package hold every chunk
+uncompressed (method `0`) so it can be memory-mapped for direct access just like the directory backend. On the ZIP
+backend the archive is append-only: properties cannot be deleted and axes cannot be reordered. For read access, any
+Zarr v2 ZIP archive that matches the internal structure described below is accepted (including ones produced by
+foreign tools such as Python's `zarr` package, even if the chunks are chunked and/or compressed, subject to `Zarr.jl`'s
+support for data types, filters, and compressors). Remote object stores (S3, GCS, …) are not supported.
 
 We use the following internal structure under some root Zarr group (which is **not** compatible with any specific
 existing Zarr-based convention such as [`OME-NGFF`](https://ngff.openmicroscopy.org/)):
@@ -99,11 +103,6 @@ Example Zarr directory structure:
 
 !!! note
 
-    Only the local `DirectoryStore` backend (a `.zarr` directory tree on a local filesystem) is supported. Other Zarr
-    stores (ZIP archives, cloud object stores, …) are not.
-
-!!! note
-
     `Zarr.jl` writes matrices in C storage order (the only order it supports) with the `.zarray` `shape` listed in the
     reverse of the Julia matrix shape, so the raw chunk bytes match Julia's native column-major layout. A `Daf` matrix
     whose `(rows_axis, columns_axis)` are `(cell, gene)` (a Julia `(n_cells, n_genes)` matrix) is therefore written with
@@ -128,6 +127,7 @@ module ZarrFormat
 export ZarrDaf
 
 using ..Formats
+using ..MmapZipStores
 using ..ReadOnly
 using ..Readers
 using ..StorageTypes
@@ -161,18 +161,44 @@ const VECTORS = "vectors"
 const MATRICES = "matrices"
 
 """
+The virtual address reservation size used for writable [`MmapZipStore`](@ref
+DataAxesFormats.MmapZipStores.MmapZipStore) opens of a [`ZarrDaf`](@ref) (modes `r+`, `w+`, `w`).
+Each such open reserves this much virtual address space via a single anonymous `PROT_NONE` mapping
+and overlays the real file onto its first `filesize` bytes; subsequent `ftruncate` + re-overlay
+calls extend the accessible portion as the archive grows. The physical file stays at its real size
+— only VA is reserved. Defaults to 128 GiB, leaving plenty of room for concurrent live stores on
+platforms with ~128 TiB of user VA (Apple Silicon). Set to a larger value before opening a
+`ZarrDaf` whose ZIP archive might grow past this bound. An append that would cross the bound fails
+with an explicit error pointing back here.
+"""
+DAF_ZARR_ZIP_MAX_FILE_SIZE::Int = 1 << 37
+
+"""
     ZarrDaf(
         path::AbstractString,
         mode::AbstractString = "r";
         [name::Maybe{AbstractString} = nothing]
     )
 
-Storage in a Zarr directory tree.
+Storage in a Zarr directory tree or Zarr ZIP archive.
 
-The `path` is a filesystem path to a Zarr directory (by convention, using a `.zarr` suffix).
+The `path` is a filesystem path that follows one of these conventions:
+
+  - `something.daf.zarr` — a Zarr directory containing a single `Daf` data set at its root.
+  - `something.daf.zarr.zip` — a Zarr ZIP archive containing a single `Daf` data set at its root.
+  - `something.dafs.zarr.zip#/group` — a Zarr ZIP archive containing `Daf` data sets in sub-groups, addressed by
+    `group`.
+
+The backend (directory or ZIP) is selected from the `.zip` file-name suffix. The ZIP backend is append-only:
+properties cannot be deleted and axes cannot be reordered (attempts to do so raise an error).
+
+!!! note
+
+    If you create a directory whose name is `something.dafs.zarr.zip#` and place `Daf` ZIP archives in it, this scheme
+    will fail. So don't.
 
 When opening an existing data set, if `name` is not specified, and there exists a "name" scalar property, it is used as
-the name. Otherwise, the `path` will be used as the name.
+the name. Otherwise, the `path` (including any `#/group` suffix) will be used as the name.
 
 The valid `mode` values are as follows (the default mode is `r`):
 
@@ -182,6 +208,20 @@ The valid `mode` values are as follows (the default mode is `r`):
 | `r+` | Yes                  | No                        | No                  | [`ZarrDaf`](@ref)     |
 | `w+` | Yes                  | Yes                       | No                  | [`ZarrDaf`](@ref)     |
 | `w`  | Yes                  | Yes                       | Yes                 | [`ZarrDaf`](@ref)     |
+
+Truncating a sub-daf inside a ZIP archive is not supported (because the ZIP backend is append-only) and raises an
+error; use `r+` or `w+` to open a sub-daf for writing without truncation.
+
+!!! note
+
+    When several [`ZarrDaf`](@ref) instances in the same process share a ZIP archive path (typically different
+    `#/group` sub-dafs of the same `.dafs.zarr.zip` file, or repeated opens of the same single-daf `.daf.zarr.zip`),
+    they share a single underlying [`MmapZipStore`](@ref DataAxesFormats.MmapZipStores.MmapZipStore) and a single
+    `data_lock`, so that concurrent calls serialize correctly and the archive is never mmap-ed twice. The first such
+    open determines the store's writability: a later open of the same archive that requests write access will raise
+    an error if the first open was read-only. Release the read-only handle first, or open the writable instance first.
+    The directory backend does not share a store — each open creates its own independent `DirectoryStore` over the
+    same filesystem tree.
 """
 struct ZarrDaf <: DafWriter
     name::AbstractString
@@ -191,35 +231,78 @@ struct ZarrDaf <: DafWriter
     path::AbstractString
 end
 
+# Weak-cache entry pairing an open [`MmapZipStore`](@ref) with the data_lock shared by every
+# sub-ZarrDaf of that archive. `MmapZipStore` is stateful (single `io_stream`, archive-wide mmap,
+# appended-entry mmap table), so sub-dafs of the same archive in the same process must share one
+# instance to avoid corrupting the archive with two independent writers. `is_writable` records the
+# mode the store was opened in, so that a later sub-ZarrDaf opening the same archive in an
+# incompatible mode can be rejected cleanly.
+mutable struct SharedMmapZipStoreHandle
+    store::MmapZipStore
+    data_lock::ExtendedReadWriteLock
+    is_writable::Bool
+    function SharedMmapZipStoreHandle(store::MmapZipStore, data_lock::ExtendedReadWriteLock, is_writable::Bool)  # FLAKY TESTED
+        return new(store, data_lock, is_writable)
+    end
+end
+
 function ZarrDaf(
     path::AbstractString,
     mode::AbstractString = "r";
     name::Maybe{AbstractString} = nothing,
 )::Union{ZarrDaf, DafReadOnly}
     (is_read_only, create_if_missing, truncate_if_exists) = Formats.parse_mode(mode)
-    full_path = abspath(path)
+    (container_path, group_path, is_zip) = parse_zarr_path(path)
+    full_container_path = abspath(container_path)
+    full_path = group_path === nothing ? full_container_path : full_container_path * "#/" * group_path
 
-    if isdir(full_path)
-        if truncate_if_exists
-            rm(full_path; recursive = true)  # NOJET
-            mkpath(full_path)
-            root = zgroup(full_path)  # NOJET
-            create_daf(root)
-        else
-            root = zopen(full_path, is_read_only ? "r" : "w")  # NOJET
-            if !(root isa ZGroup)
-                error("not a daf zarr group: $(full_path)")  # UNTESTED
-            end
-            verify_daf(root, full_path)
+    shared_handle::Maybe{SharedMmapZipStoreHandle} = nothing
+    if is_zip
+        if truncate_if_exists && group_path !== nothing
+            error(
+                "can't truncate a sub-daf inside a zip-backed ZarrDaf; " *
+                "the ZIP backend is append-only: $(full_path)",
+            )
         end
+        if !isfile(full_container_path) && !create_if_missing
+            error("no such file: $(full_container_path)")
+        end
+        purge = truncate_if_exists && group_path === nothing
+
+        shared_handle = get_through_global_weak_cache(full_container_path, (:daf, :zarr_zip); purge) do _
+            return SharedMmapZipStoreHandle(
+                MmapZipStore(
+                    full_container_path;
+                    writable = !is_read_only,
+                    create = create_if_missing,
+                    truncate = purge,
+                    max_file_size = DAF_ZARR_ZIP_MAX_FILE_SIZE,
+                ),
+                ExtendedReadWriteLock(),
+                !is_read_only,
+            )
+        end
+        if !is_read_only && !shared_handle.is_writable
+            error(  # UNTESTED
+                "zarr zip file is already open read-only in this process; " *
+                "release the existing handle before opening it for write: $(full_container_path)",
+            )
+        end
+        store = shared_handle.store
     else
-        if !create_if_missing
-            error("not a zarr directory: $(full_path)")
+        @assert group_path === nothing
+        if !isdir(full_container_path)
+            if !create_if_missing
+                error("no such directory: $(full_container_path)")
+            end
+        elseif truncate_if_exists
+            rm(full_container_path; recursive = true)  # NOJET
         end
-        mkpath(full_path)
-        root = zgroup(full_path)  # NOJET
-        create_daf(root)
+        store = Zarr.DirectoryStore(full_container_path)
     end
+
+    zpath = group_path === nothing ? "" : String(group_path)
+    root = open_or_create_daf_group(store, zpath, full_path, is_read_only, create_if_missing)
 
     if name === nothing && haskey(root.groups, SCALARS)
         scalars_group = root.groups[SCALARS]
@@ -233,13 +316,70 @@ function ZarrDaf(
     end
     name = unique_name(name)
 
-    daf = ZarrDaf(name, Internal(; is_frozen = is_read_only), root, mode, full_path)
+    internal = if shared_handle === nothing
+        Internal(; is_frozen = is_read_only)
+    else
+        Internal(; is_frozen = is_read_only, data_lock = shared_handle.data_lock, shared_resource = shared_handle)
+    end
+    daf = ZarrDaf(name, internal, root, mode, full_path)
     @debug "Daf: $(brief(daf)) root: $(root)" _group = :daf_repos
     if is_read_only
         return read_only(daf)
     else
         return daf
     end
+end
+
+# Parse the user-facing `path` into `(container_path, group_path, is_zip)`:
+#   foo.daf.zarr              → (foo.daf.zarr,      nothing, false)
+#   foo.daf.zarr.zip          → (foo.daf.zarr.zip,  nothing, true)
+#   foo.dafs.zarr.zip#/group  → (foo.dafs.zarr.zip, "group", true)
+# Anything else is a hard error.
+function parse_zarr_path(path::AbstractString)::Tuple{String, Maybe{String}, Bool}
+    parts = split(path, ".dafs.zarr.zip#/")
+    if length(parts) != 1
+        @assert length(parts) == 2 "can't parse as <stem>.dafs.zarr.zip#/<group>: $(path)"
+        return (String(parts[1]) * ".dafs.zarr.zip", String(parts[2]), true)
+    end
+    if endswith(path, ".daf.zarr.zip")
+        return (String(path), nothing, true)
+    end
+    if endswith(path, ".daf.zarr")
+        return (String(path), nothing, false)
+    end
+    return error(
+        "can't parse as ZarrDaf path: $(path)\n" *
+        "expected one of: <stem>.daf.zarr, <stem>.daf.zarr.zip, <stem>.dafs.zarr.zip#/<group>",
+    )
+end
+
+function open_or_create_daf_group(
+    store::Zarr.AbstractStore,
+    zpath::AbstractString,
+    full_path::AbstractString,
+    is_read_only::Bool,
+    create_if_missing::Bool,
+)::ZGroup
+    if Zarr.is_zgroup(store, zpath)
+        root = Zarr.zopen_noerr(store, is_read_only ? "r" : "w"; path = zpath, fill_as_missing = false)  # NOJET
+        if !(root isa ZGroup)
+            error("not a daf zarr group: $(full_path)")  # UNTESTED
+        end
+        if haskey(root.arrays, DAF_KEY)
+            verify_daf(root, full_path)
+        elseif create_if_missing
+            create_daf(root)
+        else
+            error("not a daf data set: $(full_path)")
+        end
+        return root
+    end
+    if !create_if_missing
+        error("not a zarr group: $(full_path)")
+    end
+    root = zgroup(store, String(zpath))  # NOJET
+    create_daf(root)
+    return root
 end
 
 function create_daf(root::ZGroup)::Nothing
@@ -255,9 +395,6 @@ function create_daf(root::ZGroup)::Nothing
 end
 
 function verify_daf(root::ZGroup, full_path::AbstractString)::Nothing
-    if !haskey(root.arrays, DAF_KEY)
-        error("not a daf zarr group: $(full_path)")
-    end
     version = root.arrays[DAF_KEY][:]
     @assert length(version) == 2
     if version[1] != MAJOR_VERSION || version[2] > MINOR_VERSION
@@ -306,30 +443,55 @@ function matrices_group(daf::ZarrDaf)::ZGroup  # FLAKY TESTED
     return daf.root.groups[MATRICES]
 end
 
-function array_path(array::ZArray)::String  # FLAKY TESTED
-    return joinpath(array.storage.folder, lstrip(array.path, '/'))
-end
-
 function is_writable(daf::ZarrDaf)::Bool
     return daf.mode != "r"
 end
 
-function mmap_chunk(  # FLAKY TESTED
-    daf::ZarrDaf,
-    chunk_path::AbstractString,
-    ::Type{Array{T, N}},
-    dims::NTuple{N, Int},
-)::Array{T, N} where {T, N}
-    open(chunk_path, is_writable(daf) ? "r+" : "r") do io
-        return Mmap.mmap(io, Array{T, N}, dims)
+function chunk_key(array::ZArray, suffix::AbstractString)::String  # FLAKY TESTED
+    array_key = lstrip(array.path, '/')
+    return isempty(array_key) ? String(suffix) : array_key * '/' * String(suffix)
+end
+
+function try_mmap_vector_chunk(daf::ZarrDaf, array::ZArray{T})::Maybe{Vector{T}} where {T}  # FLAKY TESTED
+    storage = array.storage
+    key = chunk_key(array, "0")
+    if storage isa Zarr.DirectoryStore
+        chunk_path = joinpath(storage.folder, key)
+        if !isfile(chunk_path)
+            return nothing  # UNTESTED
+        end
+        return open(chunk_path, is_writable(daf) ? "r+" : "r") do io
+            return Mmap.mmap(io, Vector{T}, (length(array),))
+        end
     end
+    if storage isa MmapZipStore
+        return try_mmap_entry_as(storage, key, T, length(array))
+    end
+    return nothing  # UNTESTED
+end
+
+function try_mmap_matrix_chunk(daf::ZarrDaf, array::ZArray{T})::Maybe{Matrix{T}} where {T}  # FLAKY TESTED
+    storage = array.storage
+    key = chunk_key(array, "0.0")
+    if storage isa Zarr.DirectoryStore
+        chunk_path = joinpath(storage.folder, key)
+        if !isfile(chunk_path)
+            return nothing  # UNTESTED
+        end
+        return open(chunk_path, is_writable(daf) ? "r+" : "r") do io
+            return Mmap.mmap(io, Matrix{T}, size(array))
+        end
+    end
+    if storage isa MmapZipStore
+        return try_mmap_entry_as(storage, key, T, size(array))
+    end
+    return nothing  # UNTESTED
 end
 
 function array_as_vector(daf::ZarrDaf, array::ZArray{T})::Tuple{StorageVector, Formats.CacheGroup} where {T}
     if can_mmap(array) && !isempty(array)
-        chunk_path = joinpath(array_path(array), "0")
-        if isfile(chunk_path)
-            vector = mmap_chunk(daf, chunk_path, Vector{T}, (length(array),))
+        vector = try_mmap_vector_chunk(daf, array)
+        if vector !== nothing
             return (vector, Formats.MappedData)
         end
     end
@@ -338,9 +500,8 @@ end
 
 function array_as_matrix(daf::ZarrDaf, array::ZArray{T})::Tuple{StorageMatrix, Formats.CacheGroup} where {T}
     if can_mmap(array) && !isempty(array)
-        chunk_path = joinpath(array_path(array), "0.0")
-        if isfile(chunk_path)
-            matrix = mmap_chunk(daf, chunk_path, Matrix{T}, size(array))
+        matrix = try_mmap_matrix_chunk(daf, array)
+        if matrix !== nothing
             return (matrix, Formats.MappedData)
         end
     end
@@ -352,7 +513,7 @@ function can_mmap(array::ZArray{T})::Bool where {T}  # FLAKY TESTED
            array.metadata.compressor isa Zarr.NoCompressor &&
            array.metadata.filters === nothing &&
            array.metadata.chunks == size(array) &&
-           array.storage isa Zarr.DirectoryStore
+           (array.storage isa Zarr.DirectoryStore || array.storage isa MmapZipStore)
 end
 
 function Formats.format_has_scalar(daf::ZarrDaf, name::AbstractString)::Bool
@@ -840,6 +1001,9 @@ function Formats.format_get_matrix(
 end
 
 function delete_child(parent::ZGroup, name::AbstractString)::Nothing
+    if parent.storage isa MmapZipStore
+        error("can't delete or overwrite properties in a zip-backed ZarrDaf; the ZIP backend is append-only")
+    end
     if haskey(parent.arrays, name)
         delete!(parent.arrays, name)
     elseif haskey(parent.groups, name)

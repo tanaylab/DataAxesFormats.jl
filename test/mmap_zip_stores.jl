@@ -227,6 +227,17 @@ nested_test("mmap_zip_stores") do
             try
                 @test String(copy(store["compressed"])) == repeat("compressible ", 64)
                 @test String(copy(store["plain"])) == "verbatim payload"
+                @test try_mmap_entry_as(store, "absent", UInt8, 1) === nothing
+                @test try_mmap_entry_as(store, "compressed", UInt8, length(repeat("compressible ", 64))) === nothing
+            finally
+                close(store)
+            end
+        end
+
+        nested_test("append_past_max_file_size_errors") do
+            store = MmapZipStore(zip_path; writable = true, create = true, truncate = true, max_file_size = 256)
+            try
+                @test_throws ErrorException store["too_big"] = Vector{UInt8}(undef, 1024)
             finally
                 close(store)
             end
