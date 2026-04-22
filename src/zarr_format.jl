@@ -330,6 +330,46 @@ function ZarrDaf(
     end
 end
 
+"""
+    ZarrDaf(; [name::Maybe{AbstractString} = nothing])::ZarrDaf
+
+In-memory [`ZarrDaf`](@ref) backed by a fresh `Zarr.DictStore`. The data lives in process memory as a
+dictionary of chunk byte buffers, with no filesystem path. Zero-copy reads are served via
+`unsafe_wrap` over the stored `Vector{UInt8}` chunks, so typed array accesses alias the dict's
+buffers without additional allocation. Always writable; wrap in `read_only(daf)` if read-only access
+is required.
+
+Prefer [`MemoryDaf`](@ref DataAxesFormats.MemoryFormat.MemoryDaf) for the common "scratch data set in
+RAM" case: it stores typed arrays directly, so references returned by `get_vector`/`get_matrix`
+remain valid under any subsequent mutation. Reach for this in-memory `ZarrDaf` only when downstream
+code specifically requires a Zarr group (e.g. handing the `root` to a non-`Daf`-aware Zarr
+consumer), or for building a data set in memory before dumping it to a `.daf.zarr` directory or
+`.daf.zarr.zip` archive without re-encoding.
+
+!!! warning
+
+    Zero-copy views from this backend are **not** retained across overwrites. A view obtained from
+    `get_vector(daf, axis, name)` (or `get_matrix`) aliases the `Vector{UInt8}` chunk held by the
+    backing `Zarr.DictStore`. A subsequent `set_vector!(daf, axis, name, ...; overwrite = true)` (or
+    `delete_vector!`, similarly for matrices) calls Zarr's write path, which replaces the dict entry
+    with a fresh `Vector{UInt8}`; the old buffer loses its last strong reference (the daf's cache is
+    invalidated on overwrite) and becomes eligible for GC, so the earlier view may dangle. Do not
+    hold `get_*` results across writes that touch the same property. `MemoryDaf` does not have this
+    hazard because its storage *is* the typed array the caller already holds.
+"""
+function ZarrDaf(; name::Maybe{AbstractString} = nothing)::ZarrDaf
+    store = Zarr.DictStore()
+    root = zgroup(store, "")
+    create_daf(root)
+    if name === nothing
+        name = "memory"  # UNTESTED
+    end
+    name = unique_name(name)
+    daf = ZarrDaf(name, Internal(; is_frozen = false), root, "w+", "<memory>")
+    @debug "Daf: $(brief(daf)) root: $(root)" _group = :daf_repos
+    return daf
+end
+
 # Parse the user-facing `path` into `(container_path, group_path, is_zip)`:
 #   foo.daf.zarr              → (foo.daf.zarr,      nothing, false)
 #   foo.daf.zarr.zip          → (foo.daf.zarr.zip,  nothing, true)
@@ -452,7 +492,7 @@ function chunk_key(array::ZArray, suffix::AbstractString)::String  # FLAKY TESTE
     return isempty(array_key) ? String(suffix) : array_key * '/' * String(suffix)
 end
 
-function try_mmap_vector_chunk(daf::ZarrDaf, array::ZArray{T})::Maybe{Vector{T}} where {T}  # FLAKY TESTED
+function try_mmap_vector_chunk(daf::ZarrDaf, array::ZArray{T})::Maybe{AbstractVector{T}} where {T}  # FLAKY TESTED
     storage = array.storage
     key = chunk_key(array, "0")
     if storage isa Zarr.DirectoryStore
@@ -467,10 +507,17 @@ function try_mmap_vector_chunk(daf::ZarrDaf, array::ZArray{T})::Maybe{Vector{T}}
     if storage isa MmapZipStore
         return try_mmap_entry_as(storage, key, T, length(array))
     end
+    if storage isa Zarr.DictStore
+        chunk_bytes = get(storage.a, key, nothing)
+        if chunk_bytes === nothing
+            return nothing  # UNTESTED
+        end
+        return unsafe_wrap(Array, Ptr{T}(pointer(chunk_bytes)), length(array); own = false)
+    end
     return nothing  # UNTESTED
 end
 
-function try_mmap_matrix_chunk(daf::ZarrDaf, array::ZArray{T})::Maybe{Matrix{T}} where {T}  # FLAKY TESTED
+function try_mmap_matrix_chunk(daf::ZarrDaf, array::ZArray{T})::Maybe{AbstractMatrix{T}} where {T}  # FLAKY TESTED
     storage = array.storage
     key = chunk_key(array, "0.0")
     if storage isa Zarr.DirectoryStore
@@ -484,6 +531,13 @@ function try_mmap_matrix_chunk(daf::ZarrDaf, array::ZArray{T})::Maybe{Matrix{T}}
     end
     if storage isa MmapZipStore
         return try_mmap_entry_as(storage, key, T, size(array))
+    end
+    if storage isa Zarr.DictStore
+        chunk_bytes = get(storage.a, key, nothing)
+        if chunk_bytes === nothing
+            return nothing  # UNTESTED
+        end
+        return unsafe_wrap(Array, Ptr{T}(pointer(chunk_bytes)), size(array); own = false)
     end
     return nothing  # UNTESTED
 end
@@ -513,7 +567,7 @@ function can_mmap(array::ZArray{T})::Bool where {T}  # FLAKY TESTED
            array.metadata.compressor isa Zarr.NoCompressor &&
            array.metadata.filters === nothing &&
            array.metadata.chunks == size(array) &&
-           (array.storage isa Zarr.DirectoryStore || array.storage isa MmapZipStore)
+           (array.storage isa Zarr.DirectoryStore || array.storage isa MmapZipStore || array.storage isa Zarr.DictStore)
 end
 
 function Formats.format_has_scalar(daf::ZarrDaf, name::AbstractString)::Bool
@@ -1013,6 +1067,15 @@ function delete_child(parent::ZGroup, name::AbstractString)::Nothing
         child_path = joinpath(parent.storage.folder, lstrip(parent.path, '/'), name)
         if ispath(child_path)
             rm(child_path; recursive = true)
+        end
+    end
+    if parent.storage isa Zarr.DictStore
+        prefix = child_zarr_path(parent, name)
+        prefix_slash = prefix * "/"
+        for key in collect(keys(parent.storage.a))
+            if key == prefix || startswith(key, prefix_slash)
+                delete!(parent.storage.a, key)
+            end
         end
     end
     return nothing

@@ -3625,6 +3625,23 @@ nested_test("data") do
             end
         end
 
+        nested_test("memory") do
+            daf = ZarrDaf(; name = "zarr!")
+            @test complete_path(daf) == "<memory>"
+            @test daf.name == "zarr!"
+            @test string(daf) == "ZarrDaf zarr!"
+            test_format(daf)
+
+            daf = ZarrDaf(; name = "mmap!")
+            add_axis!(daf, "gene", GENE_NAMES)
+            set_vector!(daf, "gene", "marker", MARKER_GENES_BY_DEPTH[1])
+            mmap_vector = get_vector(daf, "gene", "marker").array
+            @test mmap_vector == MARKER_GENES_BY_DEPTH[1]
+            mmap_vector[1] = !mmap_vector[1]
+            @test get_vector(daf, "gene", "marker").array[1] == mmap_vector[1]
+            return nothing
+        end
+
         nested_test("zip") do
             nested_test("single") do
                 mktempdir() do path

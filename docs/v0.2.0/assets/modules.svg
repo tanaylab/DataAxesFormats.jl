@@ -42,7 +42,7 @@
 </g>
 </g>
 <!-- Copies&#45;&gt;Concat -->
-<g id="edge42" class="edge">
+<g id="edge43" class="edge">
 <title>Copies&#45;&gt;Concat</title>
 <path fill="none" stroke="black" d="M230.83,-165.82C230.58,-159.22 230.23,-149.92 229.92,-141.53"/>
 <polygon fill="black" stroke="black" points="233.43,-141.67 229.55,-131.81 226.43,-141.93 233.43,-141.67"/>
@@ -87,7 +87,7 @@
 </g>
 </g>
 <!-- Writers&#45;&gt;Chains -->
-<g id="edge35" class="edge">
+<g id="edge36" class="edge">
 <title>Writers&#45;&gt;Chains</title>
 <path fill="none" stroke="black" d="M238.47,-221.1C227.17,-212.79 210.7,-199.52 199.16,-185.28 188.06,-171.58 178.69,-153.86 172.44,-140.54"/>
 <polygon fill="black" stroke="black" points="175.7,-139.26 168.41,-131.57 169.31,-142.12 175.7,-139.26"/>
@@ -117,7 +117,7 @@
 </g>
 </g>
 <!-- Writers&#45;&gt;H5dfFormat -->
-<g id="edge31" class="edge">
+<g id="edge30" class="edge">
 <title>Writers&#45;&gt;H5dfFormat</title>
 <path fill="none" stroke="black" d="M275.07,-221.61C299.77,-213 338.67,-199.44 367.31,-189.46"/>
 <polygon fill="black" stroke="black" points="368.4,-192.79 376.69,-186.19 366.09,-186.18 368.4,-192.79"/>
@@ -132,7 +132,7 @@
 </g>
 </g>
 <!-- Writers&#45;&gt;ZarrFormat -->
-<g id="edge24" class="edge">
+<g id="edge23" class="edge">
 <title>Writers&#45;&gt;ZarrFormat</title>
 <path fill="none" stroke="black" d="M275.19,-223.05C277.87,-222.4 280.56,-221.79 283.16,-221.28 404.44,-197.3 439.54,-204.85 564.67,-185.57"/>
 <polygon fill="black" stroke="black" points="565.01,-189.06 574.35,-184.05 563.93,-182.14 565.01,-189.06"/>
@@ -183,7 +183,7 @@
 </g>
 </g>
 <!-- MemoryFormat&#45;&gt;ExampleData -->
-<g id="edge20" class="edge">
+<g id="edge21" class="edge">
 <title>MemoryFormat&#45;&gt;ExampleData</title>
 <path fill="none" stroke="black" d="M496.54,-165.51C484.71,-156.79 466.74,-143.08 452.16,-129.96 435.53,-114.99 417.91,-96.52 405.71,-83.27"/>
 <polygon fill="black" stroke="black" points="408.56,-81.2 399.24,-76.17 403.39,-85.92 408.56,-81.2"/>
@@ -219,7 +219,7 @@
 </g>
 </g>
 <!-- Chains&#45;&gt;CompleteDaf -->
-<g id="edge12" class="edge">
+<g id="edge14" class="edge">
 <title>Chains&#45;&gt;CompleteDaf</title>
 <path fill="none" stroke="black" d="M178.58,-110.25C191.28,-102.29 210.03,-90.52 225.02,-81.12"/>
 <polygon fill="black" stroke="black" points="226.78,-84.15 233.39,-75.87 223.06,-78.22 226.78,-84.15"/>
@@ -240,7 +240,7 @@
 </g>
 </g>
 <!-- Views&#45;&gt;Chains -->
-<g id="edge36" class="edge">
+<g id="edge35" class="edge">
 <title>Views&#45;&gt;Chains</title>
 <path fill="none" stroke="black" d="M137.44,-165.82C141.63,-158.83 147.64,-148.83 152.89,-140.07"/>
 <polygon fill="black" stroke="black" points="155.84,-141.97 157.98,-131.59 149.84,-138.37 155.84,-141.97"/>
@@ -261,7 +261,7 @@
 <polygon fill="black" stroke="black" points="108.62,-137.41 99.82,-131.51 103.02,-141.61 108.62,-137.41"/>
 </g>
 <!-- Views&#45;&gt;Concat -->
-<g id="edge43" class="edge">
+<g id="edge42" class="edge">
 <title>Views&#45;&gt;Concat</title>
 <path fill="none" stroke="black" d="M148.61,-165.57C163.39,-157.46 185.34,-145.39 202.59,-135.9"/>
 <polygon fill="black" stroke="black" points="204.22,-139 211.3,-131.12 200.85,-132.87 204.22,-139"/>
@@ -282,7 +282,7 @@
 <polygon fill="black" stroke="black" points="164.68,-179.61 154.18,-181.06 163.29,-186.47 164.68,-179.61"/>
 </g>
 <!-- ReadOnly&#45;&gt;FilesFormat -->
-<g id="edge41" class="edge">
+<g id="edge40" class="edge">
 <title>ReadOnly&#45;&gt;FilesFormat</title>
 <path fill="none" stroke="black" d="M378.25,-220.89C366,-212.93 347.91,-201.16 333.45,-191.76"/>
 <polygon fill="black" stroke="black" points="335.7,-189.05 325.41,-186.53 331.88,-194.92 335.7,-189.05"/>
@@ -387,7 +387,7 @@
 <polygon fill="black" stroke="black" points="213.88,-304.18 205.6,-297.56 207.94,-307.89 213.88,-304.18"/>
 </g>
 <!-- Registry&#45;&gt;Formats -->
-<g id="edge18" class="edge">
+<g id="edge19" class="edge">
 <title>Registry&#45;&gt;Formats</title>
 <path fill="none" stroke="black" d="M274.26,-387.1C280.08,-379.88 288.49,-369.45 295.72,-360.49"/>
 <polygon fill="black" stroke="black" points="298.4,-362.74 301.96,-352.75 292.95,-358.34 298.4,-362.74"/>
@@ -450,19 +450,19 @@
 <polygon fill="black" stroke="black" points="319.11,-252.68 316.37,-242.45 312.13,-252.16 319.11,-252.68"/>
 </g>
 <!-- FilesFormat&#45;&gt;CompleteDaf -->
-<g id="edge13" class="edge">
+<g id="edge12" class="edge">
 <title>FilesFormat&#45;&gt;CompleteDaf</title>
 <path fill="none" stroke="black" d="M305.17,-165.73C295.29,-148.14 273.07,-108.57 259.78,-84.89"/>
 <polygon fill="black" stroke="black" points="262.91,-83.32 254.96,-76.31 256.81,-86.75 262.91,-83.32"/>
 </g>
 <!-- FilesFormat&#45;&gt;ExampleData -->
-<g id="edge21" class="edge">
+<g id="edge20" class="edge">
 <title>FilesFormat&#45;&gt;ExampleData</title>
 <path fill="none" stroke="black" d="M316.71,-165.73C329.77,-147.98 359.33,-107.85 376.7,-84.26"/>
 <polygon fill="black" stroke="black" points="379.51,-86.34 382.63,-76.21 373.88,-82.19 379.51,-86.34"/>
 </g>
 <!-- H5dfFormat&#45;&gt;CompleteDaf -->
-<g id="edge14" class="edge">
+<g id="edge13" class="edge">
 <title>H5dfFormat&#45;&gt;CompleteDaf</title>
 <path fill="none" stroke="black" d="M391.21,-165.54C364.7,-146.97 304,-104.42 271.18,-81.42"/>
 <polygon fill="black" stroke="black" points="273.4,-78.7 263.2,-75.82 269.38,-84.43 273.4,-78.7"/>
@@ -480,19 +480,19 @@
 <polygon fill="black" stroke="black" points="498.3,-196.93 501.5,-186.83 492.7,-192.73 498.3,-196.93"/>
 </g>
 <!-- Reorder&#45;&gt;FilesFormat -->
-<g id="edge40" class="edge">
+<g id="edge41" class="edge">
 <title>Reorder&#45;&gt;FilesFormat</title>
 <path fill="none" stroke="black" d="M442.19,-220.89C416.26,-212.2 376.85,-198.98 347.83,-189.25"/>
 <polygon fill="black" stroke="black" points="349.29,-186.05 338.7,-186.19 347.07,-192.69 349.29,-186.05"/>
 </g>
 <!-- Reorder&#45;&gt;H5dfFormat -->
-<g id="edge30" class="edge">
+<g id="edge31" class="edge">
 <title>Reorder&#45;&gt;H5dfFormat</title>
 <path fill="none" stroke="black" d="M458.13,-220.89C448.74,-213.19 435.01,-201.93 423.75,-192.69"/>
 <polygon fill="black" stroke="black" points="426.15,-190.13 416.19,-186.49 421.71,-195.54 426.15,-190.13"/>
 </g>
 <!-- Reorder&#45;&gt;ZarrFormat -->
-<g id="edge23" class="edge">
+<g id="edge26" class="edge">
 <title>Reorder&#45;&gt;ZarrFormat</title>
 <path fill="none" stroke="black" d="M493.42,-220.89C516.43,-212.32 551.25,-199.33 577.24,-189.64"/>
 <polygon fill="black" stroke="black" points="578.22,-193.01 586.36,-186.24 575.77,-186.45 578.22,-193.01"/>
@@ -513,7 +513,7 @@
 </g>
 </g>
 <!-- Keys&#45;&gt;Formats -->
-<g id="edge19" class="edge">
+<g id="edge18" class="edge">
 <title>Keys&#45;&gt;Formats</title>
 <path fill="none" stroke="black" d="M326.02,-387.1C323.62,-380.34 320.2,-370.77 317.16,-362.22"/>
 <polygon fill="black" stroke="black" points="320.53,-361.25 313.87,-353 313.93,-363.6 320.53,-361.25"/>
@@ -528,7 +528,7 @@
 </g>
 </g>
 <!-- MmapZipStores&#45;&gt;ZarrFormat -->
-<g id="edge26" class="edge">
+<g id="edge24" class="edge">
 <title>MmapZipStores&#45;&gt;ZarrFormat</title>
 <path fill="none" stroke="black" d="M612.16,-221.14C612.16,-214.54 612.16,-205.24 612.16,-196.85"/>
 <polygon fill="black" stroke="black" points="615.66,-197.13 612.16,-187.13 608.66,-197.13 615.66,-197.13"/>
