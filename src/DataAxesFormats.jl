@@ -107,6 +107,9 @@ include("mmap_zip_store.jl")
 include("zarr_format.jl")
 @reexport using .ZarrFormat
 
+include("zarr_convert.jl")
+@reexport using .ZarrConvert
+
 include("memory_format.jl")
 @reexport using .MemoryFormat
 

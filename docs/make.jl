@@ -54,6 +54,7 @@ makedocs(;
         "files_format.md",
         "http_format.md",
         "zarr_format.md",
+        "zarr_convert.md",
         "mmap_zip_store.md",
         "complete.md",
         "anndata_format.md",

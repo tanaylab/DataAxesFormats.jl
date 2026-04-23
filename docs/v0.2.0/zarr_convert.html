@@ -5,11 +5,11 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Memory Format · DataAxesFormats.jl v0.2.0
+<title>ZarrConvert · DataAxesFormats.jl v0.2.0
 </title>
-<meta name="title" content="Memory Format · DataAxesFormats.jl v0.2.0"/>
-<meta property="og:title" content="Memory Format · DataAxesFormats.jl v0.2.0"/>
-<meta property="twitter:title" content="Memory Format · DataAxesFormats.jl v0.2.0"/>
+<meta name="title" content="ZarrConvert · DataAxesFormats.jl v0.2.0"/>
+<meta property="og:title" content="ZarrConvert · DataAxesFormats.jl v0.2.0"/>
+<meta property="twitter:title" content="ZarrConvert · DataAxesFormats.jl v0.2.0"/>
 <meta name="description" content="Documentation for DataAxesFormats.jl v0.2.0."/>
 <meta property="og:description" content="Documentation for DataAxesFormats.jl v0.2.0."/>
 <meta property="twitter:description" content="Documentation for DataAxesFormats.jl v0.2.0."/>
@@ -172,17 +172,9 @@
 <a class="tocitem" href="keys.html">Keys
 </a>
 </li>
-<li class="is-active">
+<li>
 <a class="tocitem" href="memory_format.html">Memory Format
 </a>
-<ul class="internal">
-<li>
-<a class="tocitem" href="#Index">
-<span>Index
-</span>
-</a>
-</li>
-</ul>
 </li>
 <li>
 <a class="tocitem" href="h5df_format.html">H5DF Format
@@ -200,9 +192,17 @@
 <a class="tocitem" href="zarr_format.html">Zarr Format
 </a>
 </li>
-<li>
+<li class="is-active">
 <a class="tocitem" href="zarr_convert.html">ZarrConvert
 </a>
+<ul class="internal">
+<li>
+<a class="tocitem" href="#Index">
+<span>Index
+</span>
+</a>
+</li>
+</ul>
 </li>
 <li>
 <a class="tocitem" href="complete.html">Complete Repositories
@@ -257,13 +257,13 @@
 <nav class="breadcrumb">
 <ul class="is-hidden-mobile">
 <li class="is-active">
-<a href="memory_format.html">Memory Format
+<a href="zarr_convert.html">ZarrConvert
 </a>
 </li>
 </ul>
 <ul class="is-hidden-tablet">
 <li class="is-active">
-<a href="memory_format.html">Memory Format
+<a href="zarr_convert.html">ZarrConvert
 </a>
 </li>
 </ul>
@@ -282,19 +282,19 @@
 </div>
 </header>
 <article class="content" id="documenter-page">
-<h1 id="Memory-Format">
-<a class="docs-heading-anchor" href="#Memory-Format">Memory Format
+<h1 id="ZarrConvert">
+<a class="docs-heading-anchor" href="#ZarrConvert">ZarrConvert
 </a>
-<a id="Memory-Format-1">
+<a id="ZarrConvert-1">
 </a>
-<a class="docs-heading-anchor-permalink" href="#Memory-Format" title="Permalink">
+<a class="docs-heading-anchor-permalink" href="#ZarrConvert" title="Permalink">
 </a>
 </h1>
 <article>
 <details class="docstring" open="true">
-<summary id="DataAxesFormats.MemoryFormat">
-<a class="docstring-binding" href="#DataAxesFormats.MemoryFormat">
-<code>DataAxesFormats.MemoryFormat
+<summary id="DataAxesFormats.ZarrConvert">
+<a class="docstring-binding" href="#DataAxesFormats.ZarrConvert">
+<code>DataAxesFormats.ZarrConvert
 </code>
 </a> — 
 <span class="docstring-category">Module
@@ -302,9 +302,47 @@
 </summary>
 <section>
 <div>
-<p>In-memory 
-<code>Daf
-</code> storage format.
+<p>Hard-link conversion between 
+<a href="files_format.html#DataAxesFormats.FilesFormat.FilesDaf">
+<code>FilesDaf
+</code>
+</a> and 
+<a href="zarr_format.html#DataAxesFormats.ZarrFormat.ZarrDaf">
+<code>ZarrDaf
+</code>
+</a> directories.
+</p>
+<p>The two on-disk formats differ in their per-property metadata encoding (
+<code>FilesDaf
+</code> uses one JSON sidecar per array, 
+<code>ZarrDaf
+</code> uses one 
+<code>.zarray
+</code> per array plus a consolidated 
+<code>.zmetadata
+</code>), but both store every numeric blob — dense array chunks and the 
+<code>colptr
+</code>/
+<code>rowval
+</code>/
+<code>nzind
+</code>/
+<code>nzval
+</code> components of sparse arrays — as the same raw little-endian bytes without headers. The functions in this module exploit that equivalence to convert one tree into the other by hard-linking every numeric blob and re-serializing only the metadata and the string-valued properties, so the on-disk cost of a conversion is close to zero.
+</p>
+<p>Hard-linking requires the source and destination to live on the same filesystem; each conversion verifies this up front with an actual hard-link probe and refuses otherwise. Each conversion also refuses if the destination path already exists — it never overwrites pre-existing data. On any error the partially-populated destination is removed, so the destination is always either fully-populated or fully-absent.
+</p>
+<p>Only the directory-tree 
+<code>ZarrDaf
+</code> backend is supported (paths ending with 
+<code>.daf.zarr
+</code>). The ZIP archive backend (
+<code>.daf.zarr.zip
+</code>, 
+<code>.dafs.zarr.zip#/group
+</code>) and the HTTP backend (
+<code>http(s)://…
+</code>) are rejected — neither provides the per-chunk on-disk file that hard-linking needs.
 </p>
 </div>
 </section>
@@ -312,29 +350,103 @@
 </article>
 <article>
 <details class="docstring" open="true">
-<summary id="DataAxesFormats.MemoryFormat.MemoryDaf">
-<a class="docstring-binding" href="#DataAxesFormats.MemoryFormat.MemoryDaf">
-<code>DataAxesFormats.MemoryFormat.MemoryDaf
+<summary id="DataAxesFormats.ZarrConvert.zarr_to_files">
+<a class="docstring-binding" href="#DataAxesFormats.ZarrConvert.zarr_to_files">
+<code>DataAxesFormats.ZarrConvert.zarr_to_files
 </code>
 </a> — 
-<span class="docstring-category">Type
+<span class="docstring-category">Function
 </span>
 </summary>
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">struct MemoryDaf &lt;: DafWriter ... end
-
-MemoryDaf(; name = &quot;memory&quot;)
+<code class="language-julia hljs">zarr_to_files(;
+    zarr_path::AbstractString,
+    files_path::AbstractString,
+)::Nothing
 </code>
 </pre>
-<p>Simple in-memory storage.
+<p>Convert a 
+<a href="zarr_format.html#DataAxesFormats.ZarrFormat.ZarrDaf">
+<code>ZarrDaf
+</code>
+</a> directory at 
+<code>zarr_path
+</code> into an equivalent 
+<a href="files_format.html#DataAxesFormats.FilesFormat.FilesDaf">
+<code>FilesDaf
+</code>
+</a> directory at 
+<code>files_path
+</code>. Every numeric blob (dense chunks and the 
+<code>colptr
+</code>/
+<code>rowval
+</code>/
+<code>nzind
+</code>/
+<code>nzval
+</code> components of sparse arrays) is hard-linked from the source into the destination; scalars, axes, string vectors and string matrices are re-serialized through the respective readers/writers. 
+<code>zarr_path
+</code> must be a directory whose name ends with 
+<code>.daf.zarr
+</code> (the ZIP and HTTP backends are rejected); 
+<code>files_path
+</code> must not already exist, and the two paths must live on the same filesystem.
 </p>
-<p>This just keeps everything in-memory, similarly to the way an 
-<code>AnnData
-</code> object works; that is, this is a lightweight object that just keeps references to the data it is given.
-</p>
-<p>This is the &quot;default&quot; storage type you should use, unless you need to persist the data on the disk.
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.ZarrConvert.files_to_zarr">
+<a class="docstring-binding" href="#DataAxesFormats.ZarrConvert.files_to_zarr">
+<code>DataAxesFormats.ZarrConvert.files_to_zarr
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">files_to_zarr(;
+    files_path::AbstractString,
+    zarr_path::AbstractString,
+)::Nothing
+</code>
+</pre>
+<p>Convert a 
+<a href="files_format.html#DataAxesFormats.FilesFormat.FilesDaf">
+<code>FilesDaf
+</code>
+</a> directory at 
+<code>files_path
+</code> into an equivalent 
+<a href="zarr_format.html#DataAxesFormats.ZarrFormat.ZarrDaf">
+<code>ZarrDaf
+</code>
+</a> directory at 
+<code>zarr_path
+</code>. Every numeric blob (dense chunks and the 
+<code>colptr
+</code>/
+<code>rowval
+</code>/
+<code>nzind
+</code>/
+<code>nzval
+</code> components of sparse arrays) is hard-linked from the source into the destination; scalars, axes, string vectors and string matrices are re-serialized through the respective readers/writers. 
+<code>files_path
+</code> must be an existing 
+<code>FilesDaf
+</code> directory; 
+<code>zarr_path
+</code> must not already exist, its name must end with 
+<code>.daf.zarr
+</code> (the ZIP and HTTP backends are rejected), and the two paths must live on the same filesystem.
 </p>
 </div>
 </section>
@@ -350,23 +462,29 @@ MemoryDaf(; name = &quot;memory&quot;)
 </h2>
 <ul>
 <li>
-<a href="memory_format.html#DataAxesFormats.MemoryFormat">
-<code>DataAxesFormats.MemoryFormat
+<a href="zarr_convert.html#DataAxesFormats.ZarrConvert">
+<code>DataAxesFormats.ZarrConvert
 </code>
 </a>
 </li>
 <li>
-<a href="memory_format.html#DataAxesFormats.MemoryFormat.MemoryDaf">
-<code>DataAxesFormats.MemoryFormat.MemoryDaf
+<a href="zarr_convert.html#DataAxesFormats.ZarrConvert.files_to_zarr">
+<code>DataAxesFormats.ZarrConvert.files_to_zarr
+</code>
+</a>
+</li>
+<li>
+<a href="zarr_convert.html#DataAxesFormats.ZarrConvert.zarr_to_files">
+<code>DataAxesFormats.ZarrConvert.zarr_to_files
 </code>
 </a>
 </li>
 </ul>
 </article>
 <nav class="docs-footer">
-<a class="docs-footer-prevpage" href="keys.html">« Keys
+<a class="docs-footer-prevpage" href="zarr_format.html">« Zarr Format
 </a>
-<a class="docs-footer-nextpage" href="h5df_format.html">H5DF Format »
+<a class="docs-footer-nextpage" href="complete.html">Complete Repositories »
 </a>
 <div class="flexbox-break">
 </div>

@@ -71,6 +71,7 @@ makedocs(;
         "files_format.md",
         "http_format.md",
         "zarr_format.md",
+        "zarr_convert.md",
         "complete.md",
         "anndata_format.md",
         "reconstruction.md",

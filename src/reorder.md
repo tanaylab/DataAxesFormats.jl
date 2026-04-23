@@ -16,3 +16,9 @@ DataAxesFormats.Reorder.format_cleanup_reorder!
 DataAxesFormats.Reorder.format_has_reorder_lock
 DataAxesFormats.Reorder.format_reset_reorder!
 ```
+
+## Index
+
+```@index
+Pages = ["reorder.md"]
+```
