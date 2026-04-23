@@ -1337,22 +1337,29 @@ function get_query(
     verify_contract_query(daf, cache_key)
     return Formats.with_data_read_lock(daf, "for get_query of:", cache_key) do
         if cache
-            result = Formats.get_slow_through_cache(
+            entry = Formats.get_slow_through_cache(
                 daf,
                 cache_key,
-                Union{AbstractSet{<:AbstractString}, StorageScalar, NamedArray},
+                Union{AbstractSet{<:AbstractString}, StorageScalar, Tuple{NamedArray, Any}},
                 QueryData,
             ) do
-                return get_query_result(daf, query_sequence)
+                value, dependency_keys = get_query_result(daf, query_sequence)
+                if value isa NamedArray
+                    return ((value, nothing), dependency_keys)
+                else
+                    return (value, dependency_keys)
+                end
             end
+            result = entry isa Tuple{NamedArray, Any} ? entry[1] : entry
         else
-            result = Formats.with_cache_read_lock(daf, "for get_query of:", cache_key) do
+            cached = Formats.with_cache_read_lock(daf, "for get_query of:", cache_key) do
                 return get(daf.internal.cache, cache_key, nothing)
             end
-            if result === nothing
+            if cached === nothing
                 result, _ = get_query_result(daf, query_sequence)
             else
-                result = result.data
+                data = cached.data
+                result = data isa Tuple{NamedArray, Any} ? data[1] : data
             end
         end
         @debug "get_query daf: $(brief(daf)) query_sequence: $(query_sequence) cache: $(cache) result: $(brief(result))" _group =

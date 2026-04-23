@@ -6,6 +6,7 @@ using Documenter
 using ExceptionUnwrapping
 using HDF5
 using HTTP
+using JSON
 using LinearAlgebra
 using Sockets
 using Logging

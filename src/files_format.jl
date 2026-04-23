@@ -143,6 +143,7 @@ using ProgressMeter
 using SparseArrays
 using StringViews
 using TanayLabUtilities
+using ZipArchives
 
 import ..Formats
 import ..Formats.Internal
@@ -258,9 +259,12 @@ function FilesDaf(
     name = unique_name(name)
 
     if is_read_only
-        file = read_only(FilesDaf(name, Internal(; is_frozen = true), abspath(path), mode, "r"))
+        writable_files = FilesDaf(name, Internal(; is_frozen = true), abspath(path), mode, "r")
+        ensure_metadata_zip!(writable_files)
+        file = read_only(writable_files)
     else
         file = FilesDaf(name, Internal(; is_frozen = false), abspath(path), mode, "r+")
+        ensure_metadata_zip!(file)
     end
     @debug "Daf: $(brief(file)) path: $(path)" _group = :daf_repos
     return file
@@ -297,6 +301,7 @@ function Formats.format_set_scalar!(
         write(file, '\n')
         return nothing
     end
+    metadata_zip_append!(files, "scalars/$(name).json")
 
     return Formats.MemoryData
 end
@@ -306,6 +311,7 @@ function Formats.format_delete_scalar!(files::FilesDaf, name::AbstractString; fo
     json_path = "$(files.path)/scalars/$(name).json"
     rm(json_path; force = true)
     report_modified!(json_path)
+    metadata_zip_rebuild!(files)
     return nothing
 end
 
@@ -381,6 +387,7 @@ function Formats.format_add_axis!(
         end
     end
 
+    metadata_zip_rebuild!(files)
     return nothing
 end
 
@@ -398,6 +405,7 @@ function Formats.format_delete_axis!(files::FilesDaf, axis::AbstractString)::Not
         report_modified!(path)
     end
 
+    metadata_zip_rebuild!(files)
     return nothing
 end
 
@@ -470,6 +478,7 @@ function Formats.format_set_vector!(
             return write("$(files.path)/vectors/$(axis)/$(name).data", vector)
         end
     end
+    metadata_zip_append!(files, "vectors/$(axis)/$(name).json")
     return nothing
 end
 
@@ -534,7 +543,19 @@ function Formats.format_get_empty_dense_vector!(
 )::Tuple{AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal}
     @assert Formats.has_data_write_lock(files)
     size = Formats.format_axis_length(files, axis)
-    return (create_empty_dense_vector_at(files.path, axis, name, T, size), Formats.MappedData)
+    vector = create_empty_dense_vector_at(files.path, axis, name, T, size)
+    return (vector, Formats.MappedData)
+end
+
+function Formats.format_filled_empty_dense_vector!(
+    files::FilesDaf,
+    axis::AbstractString,
+    name::AbstractString,
+    ::AbstractVector{<:StorageReal},
+)::Maybe{Formats.CacheGroup}
+    @assert Formats.has_data_write_lock(files)
+    metadata_zip_append!(files, "vectors/$(axis)/$(name).json")
+    return Formats.MappedData
 end
 
 function create_empty_dense_vector_at(
@@ -584,11 +605,13 @@ function create_empty_sparse_vector_at(
 end
 
 function Formats.format_filled_empty_sparse_vector!(
-    ::FilesDaf,
-    ::AbstractString,
-    ::AbstractString,
+    files::FilesDaf,
+    axis::AbstractString,
+    name::AbstractString,
     ::SparseVector{<:StorageReal, <:StorageInteger},
 )::Maybe{Formats.CacheGroup}
+    @assert Formats.has_data_write_lock(files)
+    metadata_zip_append!(files, "vectors/$(axis)/$(name).json")
     return Formats.MappedData
 end
 
@@ -604,6 +627,7 @@ function Formats.format_delete_vector!(
         rm(path; force = true)
         report_modified!(path)
     end
+    metadata_zip_rebuild!(files)
     return nothing
 end
 
@@ -616,7 +640,7 @@ function Formats.format_get_vector(
     files::FilesDaf,
     axis::AbstractString,
     name::AbstractString,
-)::Tuple{StorageVector, Formats.CacheGroup}
+)::Tuple{StorageVector, Any, Formats.CacheGroup}
     @assert Formats.has_data_read_lock(files)
 
     json = JSON.parsefile("$(files.path)/vectors/$(axis)/$(name).json")
@@ -671,7 +695,7 @@ function Formats.format_get_vector(
         end
     end
 
-    return (vector, cache_group)
+    return (vector, nothing, cache_group)
 end
 
 function Formats.format_has_matrix(
@@ -735,6 +759,7 @@ function Formats.format_set_matrix!(
         end
     end
 
+    metadata_zip_append!(files, "matrices/$(rows_axis)/$(columns_axis)/$(name).json")
     return nothing
 end
 
@@ -816,10 +841,20 @@ function Formats.format_get_empty_dense_matrix!(
     @assert Formats.has_data_write_lock(files)
     nrows = Formats.format_axis_length(files, rows_axis)
     ncols = Formats.format_axis_length(files, columns_axis)
-    return (
-        create_empty_dense_matrix_at(files.path, rows_axis, columns_axis, name, T, nrows, ncols),
-        Formats.MappedData,
-    )
+    matrix = create_empty_dense_matrix_at(files.path, rows_axis, columns_axis, name, T, nrows, ncols)
+    return (matrix, Formats.MappedData)
+end
+
+function Formats.format_filled_empty_dense_matrix!(
+    files::FilesDaf,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+    ::AbstractMatrix{<:StorageReal},
+)::Maybe{Formats.CacheGroup}
+    @assert Formats.has_data_write_lock(files)
+    metadata_zip_append!(files, "matrices/$(rows_axis)/$(columns_axis)/$(name).json")
+    return Formats.MappedData
 end
 
 function create_empty_dense_matrix_at(
@@ -878,12 +913,14 @@ function create_empty_sparse_matrix_at(
 end
 
 function Formats.format_filled_empty_sparse_matrix!(
-    ::FilesDaf,
-    ::AbstractString,
-    ::AbstractString,
-    ::AbstractString,
+    files::FilesDaf,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
     ::SparseMatrixCSC{<:StorageReal, <:StorageInteger},
 )::Maybe{Formats.CacheGroup}
+    @assert Formats.has_data_write_lock(files)
+    metadata_zip_append!(files, "matrices/$(rows_axis)/$(columns_axis)/$(name).json")
     return Formats.MappedData
 end
 
@@ -925,6 +962,7 @@ function Formats.format_relayout_matrix!(
         relayout!(flip(relayout_matrix), matrix)
     end
 
+    metadata_zip_append!(files, "matrices/$(columns_axis)/$(rows_axis)/$(name).json")
     return relayout_matrix
 end
 
@@ -941,6 +979,7 @@ function Formats.format_delete_matrix!(
         rm(path; force = true)
         report_modified!(path)
     end
+    metadata_zip_rebuild!(files)
     return nothing
 end
 
@@ -958,7 +997,7 @@ function Formats.format_get_matrix(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-)::Tuple{StorageMatrix, Formats.CacheGroup}
+)::Tuple{StorageMatrix, Any, Formats.CacheGroup}
     @assert Formats.has_data_read_lock(files)
 
     nrows = Formats.format_axis_length(files, rows_axis)
@@ -1035,7 +1074,7 @@ function Formats.format_get_matrix(
         end
     end
 
-    return (matrix, cache_group)
+    return (matrix, nothing, cache_group)
 end
 
 function get_names_set(path::AbstractString, suffix::AbstractString)::AbstractSet{<:AbstractString} # UNTESTED
@@ -1141,6 +1180,131 @@ function write_array_json( # UNTESTED
     return nothing
 end
 
+const METADATA_ZIP = "metadata.zip"
+
+# Rewrite `axes/metadata.json` to contain the sorted list of axis names currently present in the
+# `axes/*.txt` files. This file is the only thing in the FilesDaf tree whose content isn't directly
+# observable from a per-property JSON — it exists specifically so HTTP clients can enumerate axes
+# from `metadata.zip` without fetching any `.txt` files.
+function write_axes_metadata!(files::FilesDaf)::Nothing
+    axes_directory = "$(files.path)/axes"
+    axes = String[]
+    if isdir(axes_directory)
+        for name in readdir(axes_directory)
+            if endswith(name, ".txt")
+                push!(axes, chop(name; tail = 4))
+            end
+        end
+    end
+    path = "$(axes_directory)/metadata.json"
+    open(path, "w") do file
+        JSON.Writer.print(file, axes)
+        write(file, '\n')
+        return nothing
+    end
+    report_modified!(path)
+    return nothing
+end
+
+# Append one already-on-disk JSON file as a new entry into `metadata.zip`. The entry name is its
+# relative path under `files.path`. Append-only is safe for our writer protocol: Daf routes
+# overwrites through delete + create, so a create never collides with an existing entry in the zip.
+function metadata_zip_append!(files::FilesDaf, relative_path::AbstractString)::Nothing
+    full_path = "$(files.path)/$(relative_path)"
+    bytes = read(full_path)
+    zip_path = "$(files.path)/$(METADATA_ZIP)"
+    ZipArchives.zip_append_archive(zip_path) do writer
+        return ZipArchives.zip_writefile(writer, relative_path, bytes)
+    end
+    report_modified!(zip_path)
+    return nothing
+end
+
+# Rebuild `metadata.zip` from scratch by walking the tree and bundling every `.json` file plus
+# `axes/metadata.json` (which is regenerated first). Committed atomically via `.new` + rename so
+# readers never observe a torn archive. Used on every delete and at the end of every reorder, and
+# also at open time when `metadata.zip` is missing.
+function metadata_zip_rebuild!(files::FilesDaf)::Nothing
+    write_axes_metadata!(files)
+    zip_path = "$(files.path)/$(METADATA_ZIP)"
+    staging_path = zip_path * ".new"
+    ZipArchives.ZipWriter(staging_path) do writer
+        add_entry_if_exists(writer, files.path, "daf.json")
+        add_entry_if_exists(writer, files.path, "axes/metadata.json")
+        add_json_files_in(writer, files.path, "scalars")
+        vectors_directory = "$(files.path)/vectors"
+        if isdir(vectors_directory)
+            for axis in readdir(vectors_directory)
+                add_json_files_in(writer, files.path, "vectors/$(axis)")
+            end
+        end
+        matrices_directory = "$(files.path)/matrices"
+        if isdir(matrices_directory)
+            for rows_axis in readdir(matrices_directory)
+                rows_directory = "$(matrices_directory)/$(rows_axis)"
+                if isdir(rows_directory)
+                    for columns_axis in readdir(rows_directory)
+                        add_json_files_in(writer, files.path, "matrices/$(rows_axis)/$(columns_axis)")
+                    end
+                end
+            end
+        end
+        return nothing
+    end
+    Base.Filesystem.rename(staging_path, zip_path)
+    report_modified!(zip_path)
+    return nothing
+end
+
+function add_entry_if_exists(
+    writer::ZipArchives.ZipWriter,
+    base_directory::AbstractString,
+    relative_path::AbstractString,
+)::Nothing
+    full_path = "$(base_directory)/$(relative_path)"
+    if isfile(full_path)
+        ZipArchives.zip_writefile(writer, relative_path, read(full_path))
+    end
+    return nothing
+end
+
+function add_json_files_in(
+    writer::ZipArchives.ZipWriter,
+    base_directory::AbstractString,
+    relative_directory::AbstractString,
+)::Nothing
+    full_directory = "$(base_directory)/$(relative_directory)"
+    if !isdir(full_directory)
+        return nothing  # UNTESTED
+    end
+    for name in readdir(full_directory)
+        if endswith(name, ".json")
+            relative_path = "$(relative_directory)/$(name)"
+            ZipArchives.zip_writefile(writer, relative_path, read("$(base_directory)/$(relative_path)"))
+        end
+    end
+    return nothing
+end
+
+# Ensure `metadata.zip` exists; rebuild if missing. Any error in read-only mode is silently
+# swallowed so a FilesDaf on a read-only filesystem still opens cleanly — HTTP serving then
+# requires one writable open to generate the sidecar.
+function ensure_metadata_zip!(files::FilesDaf)::Nothing
+    zip_path = "$(files.path)/$(METADATA_ZIP)"
+    if isfile(zip_path)
+        return nothing
+    end
+    try
+        metadata_zip_rebuild!(files)
+    catch  # FLAKY TESTED
+        if files.mode == "r"  # UNTESTED
+            return nothing  # UNTESTED
+        end
+        rethrow()  # UNTESTED
+    end
+    return nothing
+end
+
 const REORDER_BACKUP_DIR = ".reorder.backup"
 
 const REORDER_VECTOR_SUFFIXES = (".json", ".data", ".txt", ".nzind", ".nzval", ".nztxt")
@@ -1218,6 +1382,7 @@ function Reorder.format_replace_reorder!(
         Reorder.tick_crash_counter!(crash_counter)
     end
 
+    metadata_zip_rebuild!(files)
     return nothing
 end
 
@@ -1227,7 +1392,7 @@ function replace_reorder_vector(
     plan::Reorder.FormatReorderPlan,
     replacement_progress::Maybe{Progress},
 )::Nothing
-    source_vector, _ = Formats.format_get_vector(files, planned.axis, planned.name)
+    source_vector, _, _ = Formats.format_get_vector(files, planned.axis, planned.name)
     planned_axis = plan.planned_axes[planned.axis]
 
     for suffix in REORDER_VECTOR_SUFFIXES
@@ -1282,7 +1447,7 @@ function replace_reorder_matrix(
     plan::Reorder.FormatReorderPlan,
     replacement_progress::Maybe{Progress},
 )::Nothing
-    source_matrix, _ = Formats.format_get_matrix(files, planned.rows_axis, planned.columns_axis, planned.name)
+    source_matrix, _, _ = Formats.format_get_matrix(files, planned.rows_axis, planned.columns_axis, planned.name)
     planned_rows = get(plan.planned_axes, planned.rows_axis, nothing)
     planned_columns = get(plan.planned_axes, planned.columns_axis, nothing)
     @assert planned_rows !== nothing || planned_columns !== nothing
@@ -1452,6 +1617,7 @@ function Reorder.format_reset_reorder!(files::FilesDaf)::Bool
     end
     rm(backup_root; force = true, recursive = true)
     report_modified!(backup_root)
+    metadata_zip_rebuild!(files)
     return true
 end
 

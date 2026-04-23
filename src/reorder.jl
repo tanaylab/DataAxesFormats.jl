@@ -140,7 +140,7 @@ function build_reorder_plan(
             continue
         end
         for name in Formats.format_vectors_set(writer, axis)
-            vector, _ = Formats.format_get_vector(writer, axis, name)
+            vector, _, _ = Formats.format_get_vector(writer, axis, name)
             push!(planned_vectors, PlannedVector(axis, name, length(vector)))
         end
     end
@@ -152,13 +152,13 @@ function build_reorder_plan(
         end
         for other_axis in Formats.format_axes_set(writer)
             for name in Formats.format_matrices_set(writer, permuted_axis, other_axis)
-                matrix, _ = Formats.format_get_matrix(writer, permuted_axis, other_axis, name)
+                matrix, _, _ = Formats.format_get_matrix(writer, permuted_axis, other_axis, name)
                 n_elements = matrix isa SparseMatrixCSC ? nnz(matrix) : length(matrix)
                 push!(planned_matrices, PlannedMatrix(permuted_axis, other_axis, name, n_elements))
             end
             if !haskey(planned_axes, other_axis)
                 for name in Formats.format_matrices_set(writer, other_axis, permuted_axis)
-                    matrix, _ = Formats.format_get_matrix(writer, other_axis, permuted_axis, name)
+                    matrix, _, _ = Formats.format_get_matrix(writer, other_axis, permuted_axis, name)
                     n_elements = matrix isa SparseMatrixCSC ? nnz(matrix) : length(matrix)
                     push!(planned_matrices, PlannedMatrix(other_axis, permuted_axis, name, n_elements))
                 end

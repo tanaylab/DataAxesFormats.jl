@@ -529,10 +529,14 @@ function Formats.format_get_vector(
     chain::AnyChain,
     axis::AbstractString,
     name::AbstractString,
-)::Tuple{StorageVector, Maybe{Formats.CacheGroup}}
+)::Tuple{StorageVector, Any, Maybe{Formats.CacheGroup}}
     for daf in reverse(chain.dafs)
         if Formats.format_has_axis(daf, axis; for_change = false) && Formats.format_has_vector(daf, axis, name)
-            return (Formats.read_only_array(Formats.get_vector_through_cache(daf, axis, name)), Formats.MemoryData)
+            return (
+                Formats.read_only_array(Formats.get_vector_through_cache(daf, axis, name)),
+                nothing,
+                Formats.MemoryData,
+            )
         end
     end
     @assert false
@@ -662,14 +666,15 @@ function Formats.format_relayout_matrix!(
             if daf isa DafWriter && !daf.internal.is_frozen
                 return Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name, matrix)
             else
-                return Formats.get_slow_through_cache(  # UNTESTED
+                entry = Formats.get_slow_through_cache(  # UNTESTED
                     daf,
                     Formats.matrix_cache_key(columns_axis, rows_axis, name),
-                    StorageMatrix,
+                    Tuple{NamedArray, Any},
                     MemoryData,
                 ) do
-                    return (Formats.as_named_matrix(daf, columns_axis, rows_axis, flipped(matrix)), nothing)
+                    return ((Formats.as_named_matrix(daf, columns_axis, rows_axis, flipped(matrix)), nothing), nothing)  # FLAKY TESTED
                 end
+                return entry[1]  # UNTESTED
             end
         end
     end
@@ -733,7 +738,7 @@ function Formats.format_get_matrix(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-)::Tuple{StorageMatrix, Maybe{Formats.CacheGroup}}
+)::Tuple{StorageMatrix, Any, Maybe{Formats.CacheGroup}}
     @assert Formats.has_data_read_lock(chain)
     for daf in reverse(chain.dafs)
         if Formats.format_has_axis(daf, rows_axis; for_change = false) &&
@@ -741,6 +746,7 @@ function Formats.format_get_matrix(
            Formats.format_has_cached_matrix(daf, rows_axis, columns_axis, name)
             return (
                 Formats.read_only_array(Formats.get_matrix_through_cache(daf, rows_axis, columns_axis, name)),
+                nothing,
                 Formats.MemoryData,
             )
         end

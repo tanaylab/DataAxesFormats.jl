@@ -8,6 +8,187 @@ UMIS_BY_DEPTH =
     [[0 1 2 3; 1 2 3 0; 2 3 0 1], [1 2 3 0; 2 3 0 1; 3 0 1 2], [2 3 0 1; 3 0 1 2; 0 1 2 3], [3 0 1 2; 0 1 2 3; 1 2 3 0]]
 MASKS_BY_DEPTH = [Matrix{Bool}(Bool.(UMIS .% 2)) for UMIS in UMIS_BY_DEPTH]
 
+SERVED_DENSE_LABELS = [
+    "a" "b" "c" "d"
+    "e" "f" "g" "h"
+    "i" "j" "k" "l"
+]
+
+BATCH_NAMES = ["B$(lpad(i, 2, '0'))" for i in 1:20]
+
+BATCH_SPARSE_LABELS = begin
+    vector = fill("", 20)
+    vector[2] = "foo"
+    vector
+end
+
+BATCH_CELL_SPARSE_LABELS = begin
+    matrix = fill("", 20, 3)
+    matrix[3, 2] = "bar"
+    matrix
+end
+
+function populate_served_daf!(writer::DafWriter)::Nothing
+    set_scalar!(writer, "name", "served!")
+    set_scalar!(writer, "depth", Int32(1))
+    add_axis!(writer, "cell", CELL_NAMES)
+    add_axis!(writer, "gene", GENE_NAMES)
+    add_axis!(writer, "batch", BATCH_NAMES)
+    set_vector!(writer, "gene", "marker", MARKER_GENES_BY_DEPTH[1])
+    set_vector!(writer, "cell", "type", CELL_TYPES_BY_DEPTH[1])
+    empty_dense_vector!(writer, "cell", "score", Float32) do vector
+        vector .= Float32[1.0, 2.0, 3.0]
+        return nothing
+    end
+    empty_sparse_vector!(writer, "gene", "counts", Int32, 2, Int32) do nzind, nzval
+        nzind .= Int32[1, 3]
+        nzval .= Int32[10, 20]
+        return nothing
+    end
+    empty_sparse_vector!(writer, "gene", "flag", Bool, 2, Int32) do nzind, nzval
+        nzind .= Int32[2, 4]
+        nzval .= true
+        return nothing
+    end
+    set_vector!(writer, "batch", "label", BATCH_SPARSE_LABELS)
+    set_matrix!(writer, "cell", "gene", "UMIs", UMIS_BY_DEPTH[1]; relayout = false)
+    set_matrix!(
+        writer,
+        "cell",
+        "gene",
+        "sparse_UMIs",
+        SparseMatrixCSC{Int32, Int32}(UMIS_BY_DEPTH[1]);
+        relayout = false,
+    )
+    set_matrix!(writer, "cell", "gene", "mask", MASKS_BY_DEPTH[1]; relayout = false)
+    set_matrix!(
+        writer,
+        "cell",
+        "gene",
+        "sparse_mask",
+        SparseMatrixCSC{Bool, Int32}(MASKS_BY_DEPTH[1]);
+        relayout = false,
+    )
+    set_matrix!(writer, "cell", "gene", "labels", SERVED_DENSE_LABELS; relayout = false)
+    set_matrix!(writer, "batch", "cell", "sparse_labels", BATCH_CELL_SPARSE_LABELS; relayout = false)
+    return nothing
+end
+
+function test_served_read_only(make_daf::Function)::Nothing  # FLAKY TESTED
+    nested_test("scalars") do
+        daf = make_daf()
+        @test has_scalar(daf, "name")
+        @test !has_scalar(daf, "missing")
+        @test scalars_set(daf) == Set(["name", "depth"])
+        @test get_scalar(daf, "name") == "served!"
+        @test get_scalar(daf, "depth") == Int32(1)
+        return nothing
+    end
+
+    nested_test("axes") do
+        daf = make_daf()
+        @test has_axis(daf, "cell")
+        @test !has_axis(daf, "missing")
+        @test axes_set(daf) == Set(["cell", "gene", "batch"])
+        @test axis_vector(daf, "cell") == CELL_NAMES
+        @test axis_vector(daf, "gene") == GENE_NAMES
+        @test axis_vector(daf, "batch") == BATCH_NAMES
+        @test axis_length(daf, "cell") == length(CELL_NAMES)
+        return nothing
+    end
+
+    nested_test("vectors") do
+        daf = make_daf()
+
+        nested_test("set") do
+            @test has_vector(daf, "cell", "type")
+            @test !has_vector(daf, "cell", "missing")
+            @test vectors_set(daf, "cell") == Set(["type", "score"])
+            @test vectors_set(daf, "gene") == Set(["marker", "counts", "flag"])
+            @test vectors_set(daf, "batch") == Set(["label"])
+            return nothing
+        end
+
+        nested_test("dense") do
+            nested_test("string") do
+                @test get_vector(daf, "cell", "type") == CELL_TYPES_BY_DEPTH[1]
+                return nothing
+            end
+            nested_test("float") do
+                @test get_vector(daf, "cell", "score") == Float32[1.0, 2.0, 3.0]
+                return nothing
+            end
+            nested_test("bool") do
+                @test get_vector(daf, "gene", "marker") == MARKER_GENES_BY_DEPTH[1]
+                return nothing
+            end
+        end
+
+        nested_test("sparse") do
+            nested_test("int") do
+                counts = get_vector(daf, "gene", "counts")
+                @test counts isa NamedVector
+                @test Vector(counts) == Int32[10, 0, 20, 0]
+                return nothing
+            end
+            nested_test("bool") do
+                flag = get_vector(daf, "gene", "flag")
+                @test Vector(flag) == Bool[false, true, false, true]
+                return nothing
+            end
+            nested_test("string") do
+                label = get_vector(daf, "batch", "label")
+                @test Vector(label) == BATCH_SPARSE_LABELS
+                return nothing
+            end
+        end
+    end
+
+    nested_test("matrices") do
+        daf = make_daf()
+
+        nested_test("set") do
+            @test has_matrix(daf, "cell", "gene", "UMIs")
+            @test !has_matrix(daf, "cell", "gene", "missing")
+            @test matrices_set(daf, "cell", "gene") == Set(["UMIs", "sparse_UMIs", "mask", "sparse_mask", "labels"])
+            @test matrices_set(daf, "batch", "cell") == Set(["sparse_labels"])
+            return nothing
+        end
+
+        nested_test("dense") do
+            nested_test("int") do
+                @test get_matrix(daf, "cell", "gene", "UMIs") == UMIS_BY_DEPTH[1]
+                return nothing
+            end
+            nested_test("bool") do
+                @test get_matrix(daf, "cell", "gene", "mask") == MASKS_BY_DEPTH[1]
+                return nothing
+            end
+            nested_test("string") do
+                @test Matrix(get_matrix(daf, "cell", "gene", "labels")) == SERVED_DENSE_LABELS
+                return nothing
+            end
+        end
+
+        nested_test("sparse") do
+            nested_test("int") do
+                @test get_matrix(daf, "cell", "gene", "sparse_UMIs") == UMIS_BY_DEPTH[1]
+                return nothing
+            end
+            nested_test("bool") do
+                @test get_matrix(daf, "cell", "gene", "sparse_mask") == MASKS_BY_DEPTH[1]
+                return nothing
+            end
+            nested_test("string") do
+                @test Matrix(get_matrix(daf, "batch", "cell", "sparse_labels")) == BATCH_CELL_SPARSE_LABELS
+                return nothing
+            end
+        end
+    end
+
+    return nothing
+end
+
 function test_missing_scalar(daf::DafReader, depth::Int; append_only::Bool = false)::Nothing
     if depth > 2
         return nothing
@@ -3388,6 +3569,243 @@ nested_test("data") do
                 return nothing
             end
         end
+
+        nested_test("metadata.zip") do
+            mktempdir() do path
+                path = path * "/test"
+                daf = FilesDaf(path, "w+"; name = "meta!")
+                set_scalar!(daf, "version", "1.0")
+                add_axis!(daf, "cell", CELL_NAMES)
+                add_axis!(daf, "gene", GENE_NAMES)
+                set_vector!(daf, "gene", "is_marker", MARKER_GENES_BY_DEPTH[1])
+                set_vector!(daf, "cell", "type", CELL_TYPES_BY_DEPTH[1])
+                set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[1])
+                empty_dense_vector!(daf, "cell", "score", Float32) do vector
+                    vector .= Float32[1.0, 2.0, 3.0]
+                    return nothing
+                end
+                empty_sparse_vector!(daf, "gene", "counts", Int32, 2, Int32) do nzind, nzval
+                    nzind .= Int32[1, 3]
+                    nzval .= Int32[10, 20]
+                    return nothing
+                end
+
+                expected_json_files = Set{String}()
+                for (root, _, filenames) in walkdir(path)
+                    for filename in filenames
+                        if endswith(filename, ".json")
+                            push!(expected_json_files, relpath("$(root)/$(filename)", path))
+                        end
+                    end
+                end
+
+                zip_bytes = read("$(path)/metadata.zip")
+                reader = ZipArchives.ZipReader(zip_bytes)
+                zip_entries = Set(ZipArchives.zip_names(reader))
+                @test zip_entries == expected_json_files
+                @test "axes/metadata.json" in zip_entries
+                @test "daf.json" in zip_entries
+
+                for entry in zip_entries
+                    idx = ZipArchives.zip_findlast_entry(reader, entry)
+                    @test idx !== nothing
+                    @test ZipArchives.zip_readentry(reader, idx) == read("$(path)/$(entry)")
+                end
+
+                axes_index = ZipArchives.zip_findlast_entry(reader, "axes/metadata.json")
+                axes_json = JSON.parse(String(ZipArchives.zip_readentry(reader, axes_index)))
+                @test Set(axes_json) == Set(["cell", "gene"])
+
+                delete_vector!(daf, "cell", "type")
+                zip_entries_after_delete =
+                    Set(ZipArchives.zip_names(ZipArchives.ZipReader(read("$(path)/metadata.zip"))))
+                @test !("vectors/cell/type.json" in zip_entries_after_delete)
+
+                delete_axis!(daf, "gene")
+                reader2 = ZipArchives.ZipReader(read("$(path)/metadata.zip"))
+                zip_entries_after_axis = Set(ZipArchives.zip_names(reader2))
+                @test !("vectors/gene/is_marker.json" in zip_entries_after_axis)
+                @test !("vectors/gene/counts.json" in zip_entries_after_axis)
+                @test !("matrices/cell/gene/UMIs.json" in zip_entries_after_axis)
+                axes_index2 = ZipArchives.zip_findlast_entry(reader2, "axes/metadata.json")
+                axes_json2 = JSON.parse(String(ZipArchives.zip_readentry(reader2, axes_index2)))
+                @test Set(axes_json2) == Set(["cell"])
+
+                rm("$(path)/metadata.zip")
+                FilesDaf(path, "r+")
+                @test isfile("$(path)/metadata.zip")
+                expected_after_reopen = Set{String}()
+                for (root, _, filenames) in walkdir(path)
+                    for filename in filenames
+                        if endswith(filename, ".json")
+                            push!(expected_after_reopen, relpath("$(root)/$(filename)", path))
+                        end
+                    end
+                end
+                @test Set(ZipArchives.zip_names(ZipArchives.ZipReader(read("$(path)/metadata.zip")))) ==
+                      expected_after_reopen
+
+                return nothing
+            end
+        end
+
+        nested_test("http") do
+            mktempdir() do path
+                files_path = path * "/served.daf"
+                writer = FilesDaf(files_path, "w+"; name = "served!")
+                populate_served_daf!(writer)
+
+                handler = request -> begin
+                    key = String(lstrip(request.target, '/'))
+                    if occursin("..", key)
+                        return HTTP.Response(404, "Error: bad key $(key)")
+                    end
+                    file_path = "$(files_path)/$(key)"
+                    if !isfile(file_path)
+                        return HTTP.Response(404, "Error: Key $(key) not found")
+                    end
+                    return HTTP.Response(200, read(file_path))
+                end
+                server = HTTP.serve!(handler, Sockets.localhost, 0; listenany = true)
+                try
+                    port = server.listener.hostport
+                    url = "http://localhost:$(port)"
+
+                    nested_test("invalid_url") do
+                        @test_throws "not an HTTP(S) URL: file:///tmp" HttpDaf("file:///tmp")
+                        return nothing
+                    end
+
+                    nested_test("get_failed") do
+                        @test_throws "HTTP GET failed for: http://localhost:1/metadata.zip" HttpDaf(
+                            "http://localhost:1",
+                        )
+                        return nothing
+                    end
+
+                    nested_test("not_a_daf") do
+                        bad_url = "$(url)/nonexistent"
+                        @test_throws "HTTP GET returned status 404 for: $(bad_url)/metadata.zip" HttpDaf(bad_url)
+                        return nothing
+                    end
+
+                    nested_test("open") do
+                        daf = HttpDaf(url)
+                        @test string(daf) == "HttpDaf served!"
+                        @test complete_path(daf) == url
+                        @test description(daf; cache = true) isa AbstractString
+                        @test DataAxesFormats.Readers.is_leaf(daf)
+                        @test DataAxesFormats.Readers.is_leaf(typeof(daf))
+                        return nothing
+                    end
+
+                    test_served_read_only(() -> HttpDaf(url))
+
+                    nested_test("named") do
+                        daf = HttpDaf(url; name = "override!")
+                        @test string(daf) == "HttpDaf override!"
+                        return nothing
+                    end
+
+                    nested_test("empty_cache") do
+                        daf = HttpDaf(url; name = "cached!")
+                        @test get_vector(daf, "cell", "score") == Float32[1.0, 2.0, 3.0]
+                        empty_cache!(daf)
+                        @test get_vector(daf, "cell", "score") == Float32[1.0, 2.0, 3.0]
+                        return nothing
+                    end
+                finally
+                    close(server)
+                end
+                return nothing
+            end
+        end
+
+        nested_test("http_not_a_daf_zip") do
+            mktempdir() do path
+                bogus_zip_path = path * "/metadata.zip"
+                buffer = IOBuffer()
+                ZipArchives.ZipWriter(buffer) do zip
+                    ZipArchives.zip_newfile(zip, "other.json")
+                    return write(zip, "{}")
+                end
+                write(bogus_zip_path, take!(buffer))
+                handler = request -> begin
+                    key = String(lstrip(request.target, '/'))
+                    file_path = "$(path)/$(key)"
+                    if !isfile(file_path)
+                        return HTTP.Response(404, "Error: Key $(key) not found")
+                    end
+                    return HTTP.Response(200, read(file_path))
+                end
+                server = HTTP.serve!(handler, Sockets.localhost, 0; listenany = true)
+                try
+                    port = server.listener.hostport
+                    url = "http://localhost:$(port)"
+                    @test_throws "not a daf data set: $(url)" HttpDaf(url)
+                finally
+                    close(server)
+                end
+                return nothing
+            end
+        end
+
+        nested_test("http_incompatible_version") do
+            mktempdir() do path
+                zip_path = path * "/metadata.zip"
+                buffer = IOBuffer()
+                ZipArchives.ZipWriter(buffer) do zip
+                    ZipArchives.zip_newfile(zip, "daf.json")
+                    return write(zip, "{\"version\":[99,0]}")
+                end
+                write(zip_path, take!(buffer))
+                handler = request -> begin
+                    key = String(lstrip(request.target, '/'))
+                    file_path = "$(path)/$(key)"
+                    if !isfile(file_path)
+                        return HTTP.Response(404, "Error: Key $(key) not found")
+                    end
+                    return HTTP.Response(200, read(file_path))
+                end
+                server = HTTP.serve!(handler, Sockets.localhost, 0; listenany = true)
+                try
+                    port = server.listener.hostport
+                    url = "http://localhost:$(port)"
+                    @test_throws chomp("""
+                                 incompatible format version: 99.0
+                                 for the daf HTTP data set: $(url)
+                                 """) HttpDaf(url)
+                finally
+                    close(server)
+                end
+                return nothing
+            end
+        end
+
+        nested_test("http_default_name") do
+            mktempdir() do path
+                files_path = path * "/unnamed.daf"
+                FilesDaf(files_path, "w+"; name = "unnamed!")
+                handler = request -> begin
+                    key = String(lstrip(request.target, '/'))
+                    file_path = "$(files_path)/$(key)"
+                    if !isfile(file_path)
+                        return HTTP.Response(404, "Error: Key $(key) not found")
+                    end
+                    return HTTP.Response(200, read(file_path))
+                end
+                server = HTTP.serve!(handler, Sockets.localhost, 0; listenany = true)
+                try
+                    port = server.listener.hostport
+                    url = "http://localhost:$(port)"
+                    daf = HttpDaf(url)
+                    @test string(daf) == "HttpDaf $(url)"
+                finally
+                    close(server)
+                end
+                return nothing
+            end
+        end
     end
 
     nested_test("zarr") do
@@ -3853,11 +4271,7 @@ nested_test("data") do
             mktempdir() do path
                 zarr_path = path * "/test.daf.zarr"
                 writer = ZarrDaf(zarr_path, "w+"; name = "served!")
-                add_axis!(writer, "cell", CELL_NAMES)
-                add_axis!(writer, "gene", GENE_NAMES)
-                set_scalar!(writer, "depth", 1)
-                set_vector!(writer, "gene", "marker", MARKER_GENES_BY_DEPTH[1])
-                set_matrix!(writer, "cell", "gene", "UMIs", UMIS_BY_DEPTH[1]; relayout = false)
+                populate_served_daf!(writer)
 
                 store = Zarr.DirectoryStore(zarr_path)
                 handler = request -> begin
@@ -3891,23 +4305,14 @@ nested_test("data") do
                         return nothing
                     end
 
-                    nested_test("read") do
+                    nested_test("open") do
                         daf = ZarrDaf(url)
-                        @test string(daf) == "ReadOnly ZarrDaf $(url).read_only"
+                        @test string(daf) == "ReadOnly ZarrDaf served!.read_only"
                         @test complete_path(daf) == url
-                        @test scalars_set(daf) == Set(["depth"])
-                        @test axes_set(daf) == Set(["cell", "gene"])
-                        @test vectors_set(daf, "gene") == Set(["marker"])
-                        @test isempty(vectors_set(daf, "cell"))
-                        @test matrices_set(daf, "cell", "gene") == Set(["UMIs"])
-                        @test matrices_set(daf, "gene", "cell") == Set(["UMIs"])
-                        @test get_scalar(daf, "depth") == 1
-                        @test axis_vector(daf, "cell") == CELL_NAMES
-                        @test axis_vector(daf, "gene") == GENE_NAMES
-                        @test get_vector(daf, "gene", "marker") == MARKER_GENES_BY_DEPTH[1]
-                        @test get_matrix(daf, "cell", "gene", "UMIs") == UMIS_BY_DEPTH[1]
                         return nothing
                     end
+
+                    test_served_read_only(() -> ZarrDaf(url))
 
                     nested_test("named") do
                         daf = ZarrDaf(url; name = "override!")

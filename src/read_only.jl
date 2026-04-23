@@ -143,10 +143,10 @@ function Formats.format_get_vector(
     read_only_view::DafReadOnlyWrapper,
     axis::AbstractString,
     name::AbstractString,
-)::Tuple{StorageVector, Maybe{Formats.CacheGroup}}
+)::Tuple{StorageVector, Any, Maybe{Formats.CacheGroup}}
     @assert Formats.has_data_read_lock(read_only_view)
-    vector, cache_group = Formats.format_get_vector(read_only_view.daf, axis, name)
-    return (read_only_array(vector), cache_group)
+    vector, backing, cache_group = Formats.format_get_vector(read_only_view.daf, axis, name)
+    return (read_only_array(vector), backing, cache_group)
 end
 
 function Formats.format_has_matrix(
@@ -173,10 +173,10 @@ function Formats.format_get_matrix(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-)::Tuple{StorageMatrix, Maybe{Formats.CacheGroup}}
+)::Tuple{StorageMatrix, Any, Maybe{Formats.CacheGroup}}
     @assert Formats.has_data_read_lock(read_only_view)
-    matrix, cache_group = Formats.format_get_matrix(read_only_view.daf, rows_axis, columns_axis, name)
-    return (read_only_array(matrix), cache_group)
+    matrix, backing, cache_group = Formats.format_get_matrix(read_only_view.daf, rows_axis, columns_axis, name)
+    return (read_only_array(matrix), backing, cache_group)
 end
 
 function Formats.format_description_header(  # UNTESTED

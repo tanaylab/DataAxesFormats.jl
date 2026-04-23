@@ -5,11 +5,11 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Reconstruction · DataAxesFormats.jl v0.2.0
+<title>HTTP Format · DataAxesFormats.jl v0.2.0
 </title>
-<meta name="title" content="Reconstruction · DataAxesFormats.jl v0.2.0"/>
-<meta property="og:title" content="Reconstruction · DataAxesFormats.jl v0.2.0"/>
-<meta property="twitter:title" content="Reconstruction · DataAxesFormats.jl v0.2.0"/>
+<meta name="title" content="HTTP Format · DataAxesFormats.jl v0.2.0"/>
+<meta property="og:title" content="HTTP Format · DataAxesFormats.jl v0.2.0"/>
+<meta property="twitter:title" content="HTTP Format · DataAxesFormats.jl v0.2.0"/>
 <meta name="description" content="Documentation for DataAxesFormats.jl v0.2.0."/>
 <meta property="og:description" content="Documentation for DataAxesFormats.jl v0.2.0."/>
 <meta property="twitter:description" content="Documentation for DataAxesFormats.jl v0.2.0."/>
@@ -184,9 +184,17 @@
 <a class="tocitem" href="files_format.html">Files Format
 </a>
 </li>
-<li>
+<li class="is-active">
 <a class="tocitem" href="http_format.html">HTTP Format
 </a>
+<ul class="internal">
+<li>
+<a class="tocitem" href="#Index">
+<span>Index
+</span>
+</a>
+</li>
+</ul>
 </li>
 <li>
 <a class="tocitem" href="zarr_format.html">Zarr Format
@@ -200,17 +208,9 @@
 <a class="tocitem" href="anndata_format.html">AnnData Format
 </a>
 </li>
-<li class="is-active">
+<li>
 <a class="tocitem" href="reconstruction.html">Reconstruction
 </a>
-<ul class="internal">
-<li>
-<a class="tocitem" href="#Index">
-<span>Index
-</span>
-</a>
-</li>
-</ul>
 </li>
 <li>
 <a class="tocitem" href="registry.html">Operations registry
@@ -253,13 +253,13 @@
 <nav class="breadcrumb">
 <ul class="is-hidden-mobile">
 <li class="is-active">
-<a href="reconstruction.html">Reconstruction
+<a href="http_format.html">HTTP Format
 </a>
 </li>
 </ul>
 <ul class="is-hidden-tablet">
 <li class="is-active">
-<a href="reconstruction.html">Reconstruction
+<a href="http_format.html">HTTP Format
 </a>
 </li>
 </ul>
@@ -278,19 +278,19 @@
 </div>
 </header>
 <article class="content" id="documenter-page">
-<h1 id="Reconstruction">
-<a class="docs-heading-anchor" href="#Reconstruction">Reconstruction
+<h1 id="HTTP-Format">
+<a class="docs-heading-anchor" href="#HTTP-Format">HTTP Format
 </a>
-<a id="Reconstruction-1">
+<a id="HTTP-Format-1">
 </a>
-<a class="docs-heading-anchor-permalink" href="#Reconstruction" title="Permalink">
+<a class="docs-heading-anchor-permalink" href="#HTTP-Format" title="Permalink">
 </a>
 </h1>
 <article>
 <details class="docstring" open="true">
-<summary id="DataAxesFormats.Reconstruction">
-<a class="docstring-binding" href="#DataAxesFormats.Reconstruction">
-<code>DataAxesFormats.Reconstruction
+<summary id="DataAxesFormats.HttpFormat">
+<a class="docstring-binding" href="#DataAxesFormats.HttpFormat">
+<code>DataAxesFormats.HttpFormat
 </code>
 </a> — 
 <span class="docstring-category">Module
@@ -298,124 +298,89 @@
 </summary>
 <section>
 <div>
-<p>Reconstruct implicit axes. Due to 
-<code>AnnData
-</code> two-axes limitations, other axes are often represented by storing their expanded data (e.g., a type for each cell, and a color for each cell, where the color is actually per type). When converting such data to 
-<code>Daf
-</code>, it is useful to reconstruct such axes (e.g., create a type axis, assign a color for each type, and delete the per-cell color property).
-</p>
-</div>
-</section>
-</details>
-</article>
-<article>
-<details class="docstring" open="true">
-<summary id="DataAxesFormats.Reconstruction.reconstruct_axis!">
-<a class="docstring-binding" href="#DataAxesFormats.Reconstruction.reconstruct_axis!">
-<code>DataAxesFormats.Reconstruction.reconstruct_axis!
+<p>Read-only access to a 
+<a href="files_format.html#DataAxesFormats.FilesFormat.FilesDaf">
+<code>FilesDaf
 </code>
-</a> — 
-<span class="docstring-category">Function
-</span>
-</summary>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">reconstruct_axis!(
-    daf::DafWriter;
-    existing_axis::AbstractString,
-    implicit_axis::AbstractString,
-    [rename_axis::Maybe{AbstractString} = nothing,
-    empty_implicit::Maybe{StorageScalar} = nothing,
-    implicit_properties::Maybe{AbstractSet{&lt;:AbstractString}} = nothing,
-    skipped_properties::Maybe{AbstractSet{&lt;:AbstractString}} = nothing,
-    properties_defaults::Maybe{AbstractDict} = nothing]
-)::AbstractDict{&lt;:AbstractString, Maybe{StorageScalar}}
+</a> directory served over HTTP.
+</p>
+<p>The server is assumed to expose the 
+<code>FilesDaf
+</code> directory tree verbatim, with 
+<code>GET {url}/{relative_path}
+</code> returning the byte contents of the file. Any static web server (e.g. 
+<code>python -m http.server
+</code>, 
+<code>nginx
+</code>, S3 with HTTP access) pointed at the root directory will do.
+</p>
+<p>The client downloads 
+<code>metadata.zip
+</code> once at open time and keeps it in memory for the lifetime of the 
+<a href="http_format.html#DataAxesFormats.HttpFormat.HttpDaf">
+<code>HttpDaf
 </code>
-</pre>
-<p>Given an 
-<code>existing_axis
-</code> in 
-<code>daf
-</code>, which has a property 
-<code>implicit_axis
-</code>, create a new axis with the same name as the property (or, if specified, call it 
-<code>rename_axis
-</code>). If 
-<code>empty_implicit
-</code> is specified, this value of the property is replaced by the empty string (indicate there is no value associated with the 
-<code>existing_axis
-</code> entry). For each of the 
-<code>implicit_properties
-</code>, we collect the mapping between the 
-<code>implicit_axis
-</code> and the property values, and store it as a property of the newly created axis.
+</a>. Every 
+<code>.json
+</code> file in the tree (plus the 
+<code>axes/metadata.json
+</code> sidecar) is served from this in-memory archive, so enumerating scalars/axes/vectors/matrices and reading all their JSON metadata completes without further HTTP traffic.
 </p>
-<p>exist as names of entries in the 
-<code>implicit_axis
-</code>. This allows manually creating the 
-<code>implicit_axis
-</code> with additional entries that are not currently in use.
+<p>Non-JSON payloads (axis entry 
+<code>.txt
+</code> files, per-property 
+<code>.data
+</code> / 
+<code>.nzind
+</code> / 
+<code>.nzval
+</code> / 
+<code>.colptr
+</code> / 
+<code>.rowval
+</code> / 
+<code>.nztxt
+</code>) are fetched lazily on first use via one 
+<code>GET
+</code> each. Dense and sparse numeric vectors/matrices are returned zero-copy by 
+<code>unsafe_wrap
+</code>&#39;ing the downloaded 
+<code>Vector{UInt8}
+</code> buffer; the buffer is held alive by the same cache entry that holds the returned array. Matching the Zarr HTTP backend, the server data is assumed stable while an 
+<a href="http_format.html#DataAxesFormats.HttpFormat.HttpDaf">
+<code>HttpDaf
+</code>
+</a> is open; reopening is the only way to pick up server-side changes.
 </p>
-<p>If 
-<code>implicit_properties
-</code> are explicitly specified, then we require the mapping from 
-<code>implicit_axis
-</code> to be consistent for them. Otherwise, we look at all the properties of the 
-<code>existing_axis
-</code>, and check for each one whether the mapping is consistent; if it is, we migrate the property to the new axis. For example, when importing 
-<code>AnnData
-</code> containing per-cell data, it isn&#39;t always clear which property is actually per-batch (e.g., cell age) and which is actually per cell (e.g., doublet score). Not specifying the 
-<code>implicit_properties
-</code> allows the function to figure it out on its own. If 
-<code>skipped_properties
-</code> are specified, they are skipped, then these properties are skipped even if they happen (accidentally) to have a consistent mapping with the type.
-</p>
-<p>If the 
-<code>implicit_axis
-</code> already exists, we verify that all the values provided for it by the 
-<code>existing_axis
-</code> do, in fact,
-</p>
-<p>If the reconstructed 
-<code>implicit_axis
-</code> axis already exists, it may contain values that don&#39;t exist in the property of the 
-<code>existing_axis
-</code>. In this case, for each reconstructed property, you should specify an entry in the 
-<code>properties_defaults
-</code> to use for these values.
-</p>
-<div class="admonition is-info" id="Note-fdd8008be90c6922">
-<header class="admonition-header">Note
-<a class="admonition-anchor" href="#Note-fdd8008be90c6922" title="Permalink">
+<div class="admonition is-warning" id="Warning-f6381e490672db2a">
+<header class="admonition-header">Warning
+<a class="admonition-anchor" href="#Warning-f6381e490672db2a" title="Permalink">
 </a>
 </header>
 <div class="admonition-body">
-<p>For each converted property, the value associated with 
-<code>existing_axis
-</code> entries which have no 
-<code>implicit_axis
-</code> value (that is, have an empty string or 
-<code>empty_implicit
-</code> value) is lost. For example, if each cell type has a color, but some cells do not have a type, then the color of &quot;cells with no type&quot; is lost. We still require this value to be consistent, and return a mapping between each migrated property name and the value of such entries (if any exist). When reconstructing the original property, specify this value using 
-<a href="queries.html#DataAxesFormats.Queries.IfNot">
-<code>IfNot
+<p>Because returned vectors/matrices alias the cache entry&#39;s 
+<code>Vector{UInt8}
+</code> backing, calling 
+<a href="formats.html#DataAxesFormats.Formats.empty_cache!">
+<code>empty_cache!
 </code>
-</a> (e.g., 
-<code>/ cell : type =&gt; color ?? magenta
-</code>).
+</a> releases the memory that those arrays read from. Any vector/matrix reference previously returned by this format becomes dangling after the cache is emptied. Only call 
+<code>empty_cache!
+</code> once you have dropped all references returned by prior queries.
 </p>
 </div>
 </div>
+<p>Only a read-only interface is exposed; mutations are not supported.
+</p>
 </div>
 </section>
 </details>
 </article>
 <article>
 <details class="docstring" open="true">
-<summary id="DataAxesFormats.Reconstruction.PropertiesDefaults">
-<a class="docstring-binding" href="#DataAxesFormats.Reconstruction.PropertiesDefaults">
-<code>DataAxesFormats.Reconstruction.PropertiesDefaults
+<summary id="DataAxesFormats.HttpFormat.HttpDaf">
+<a class="docstring-binding" href="#DataAxesFormats.HttpFormat.HttpDaf">
+<code>DataAxesFormats.HttpFormat.HttpDaf
 </code>
 </a> — 
 <span class="docstring-category">Type
@@ -423,8 +388,57 @@
 </summary>
 <section>
 <div>
-<p>Map property names to a default value. This can be specified as a dictionary, a vector of pairs, or a named tuple.
+<pre>
+<code class="language-julia hljs">struct HttpDaf &lt;: DafReader ... end
+
+HttpDaf(
+    url::AbstractString;
+    [name::Maybe{AbstractString} = nothing]
+)::HttpDaf
+</code>
+</pre>
+<p>Open a read-only view of a remote 
+<a href="files_format.html#DataAxesFormats.FilesFormat.FilesDaf">
+<code>FilesDaf
+</code>
+</a> served over 
+<code>http://
+</code> or 
+<code>https://
+</code>. 
+<code>url
+</code> points at the root directory; the server must expose 
+<code>metadata.zip
+</code> alongside the usual 
+<code>FilesDaf
+</code> tree.
 </p>
+<p>If 
+<code>name
+</code> is not specified and the remote data set defines a 
+<code>name
+</code> scalar property, it is used as the name; otherwise, the 
+<code>url
+</code> itself is used.
+</p>
+<div class="admonition is-warning" id="Warning-af26d1c2549abccc">
+<header class="admonition-header">Warning
+<a class="admonition-anchor" href="#Warning-af26d1c2549abccc" title="Permalink">
+</a>
+</header>
+<div class="admonition-body">
+<p>Vectors and matrices returned by this format alias 
+<code>Vector{UInt8}
+</code> buffers that are held alive by the Daf cache. Calling 
+<a href="formats.html#DataAxesFormats.Formats.empty_cache!">
+<code>empty_cache!
+</code>
+</a> on this 
+<code>HttpDaf
+</code> releases those buffers, so any previously returned array reference becomes dangling. Drop all such references before emptying the cache.
+</p>
+</div>
+</div>
 </div>
 </section>
 </details>
@@ -439,29 +453,23 @@
 </h2>
 <ul>
 <li>
-<a href="reconstruction.html#DataAxesFormats.Reconstruction">
-<code>DataAxesFormats.Reconstruction
+<a href="http_format.html#DataAxesFormats.HttpFormat">
+<code>DataAxesFormats.HttpFormat
 </code>
 </a>
 </li>
 <li>
-<a href="reconstruction.html#DataAxesFormats.Reconstruction.PropertiesDefaults">
-<code>DataAxesFormats.Reconstruction.PropertiesDefaults
-</code>
-</a>
-</li>
-<li>
-<a href="reconstruction.html#DataAxesFormats.Reconstruction.reconstruct_axis!">
-<code>DataAxesFormats.Reconstruction.reconstruct_axis!
+<a href="http_format.html#DataAxesFormats.HttpFormat.HttpDaf">
+<code>DataAxesFormats.HttpFormat.HttpDaf
 </code>
 </a>
 </li>
 </ul>
 </article>
 <nav class="docs-footer">
-<a class="docs-footer-prevpage" href="anndata_format.html">« AnnData Format
+<a class="docs-footer-prevpage" href="files_format.html">« Files Format
 </a>
-<a class="docs-footer-nextpage" href="registry.html">Operations registry »
+<a class="docs-footer-nextpage" href="zarr_format.html">Zarr Format »
 </a>
 <div class="flexbox-break">
 </div>

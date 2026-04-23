@@ -363,11 +363,11 @@ function open_http_zarr_daf(url::AbstractString, mode::AbstractString; name::May
     if name === nothing && haskey(root.groups, SCALARS)
         scalars_sub = root.groups[SCALARS]
         if haskey(scalars_sub.arrays, "name")
-            name = string(read_scalar_value(scalars_sub.arrays["name"]))  # UNTESTED
+            name = string(read_scalar_value(scalars_sub.arrays["name"]))
         end
     end
     if name === nothing
-        name = String(url)
+        name = String(url)  # UNTESTED
     end
     name = unique_name(name)
     daf = ZarrDaf(name, Internal(; is_frozen = true), root, "r", String(url))
@@ -903,11 +903,12 @@ function Formats.format_get_vector(
     daf::ZarrDaf,
     axis::AbstractString,
     name::AbstractString,
-)::Tuple{StorageVector, Formats.CacheGroup}
+)::Tuple{StorageVector, Any, Formats.CacheGroup}
     @assert Formats.has_data_read_lock(daf)
     group = axis_vectors_group(daf, axis)
     if haskey(group.arrays, name)
-        return array_as_vector(daf, group.arrays[name])
+        vector, cache_group = array_as_vector(daf, group.arrays[name])
+        return (vector, nothing, cache_group)
     end
 
     @assert haskey(group.groups, name)
@@ -928,7 +929,7 @@ function Formats.format_get_vector(
     else
         Formats.MemoryData
     end
-    return (vector, cache_group)
+    return (vector, nothing, cache_group)
 end
 
 function columns_axis_group(daf::ZarrDaf, rows_axis::AbstractString, columns_axis::AbstractString)::ZGroup
@@ -1160,11 +1161,12 @@ function Formats.format_get_matrix(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-)::Tuple{StorageMatrix, Formats.CacheGroup}
+)::Tuple{StorageMatrix, Any, Formats.CacheGroup}
     @assert Formats.has_data_read_lock(daf)
     group = columns_axis_group(daf, rows_axis, columns_axis)
     if haskey(group.arrays, name)
-        return array_as_matrix(daf, group.arrays[name])
+        matrix, cache_group = array_as_matrix(daf, group.arrays[name])
+        return (matrix, nothing, cache_group)
     end
 
     @assert haskey(group.groups, name)
@@ -1190,7 +1192,7 @@ function Formats.format_get_matrix(
         else
             Formats.MemoryData
         end
-    return (matrix, cache_group)
+    return (matrix, nothing, cache_group)
 end
 
 function delete_child(parent::ZGroup, name::AbstractString)::Nothing
@@ -1343,7 +1345,7 @@ function replace_reorder_vector(
     plan::Reorder.FormatReorderPlan,
     replacement_progress::Maybe{Progress},
 )::Nothing
-    source_vector, _ = Formats.format_get_vector(daf, planned.axis, planned.name)
+    source_vector, _, _ = Formats.format_get_vector(daf, planned.axis, planned.name)
     planned_axis = plan.planned_axes[planned.axis]
     group = axis_vectors_group(daf, planned.axis)
 
@@ -1399,7 +1401,7 @@ function replace_reorder_matrix(
     plan::Reorder.FormatReorderPlan,
     replacement_progress::Maybe{Progress},
 )::Nothing
-    source_matrix, _ = Formats.format_get_matrix(daf, planned.rows_axis, planned.columns_axis, planned.name)
+    source_matrix, _, _ = Formats.format_get_matrix(daf, planned.rows_axis, planned.columns_axis, planned.name)
     planned_rows = get(plan.planned_axes, planned.rows_axis, nothing)
     planned_columns = get(plan.planned_axes, planned.columns_axis, nothing)
     @assert planned_rows !== nothing || planned_columns !== nothing

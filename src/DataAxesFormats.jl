@@ -95,6 +95,9 @@ include("reorder.jl")
 include("files_format.jl")
 @reexport using .FilesFormat
 
+include("http_format.jl")
+@reexport using .HttpFormat
+
 include("h5df_format.jl")
 @reexport using .H5dfFormat
 

@@ -238,9 +238,9 @@ function Formats.format_get_vector(
     memory::MemoryDaf,
     axis::AbstractString,
     name::AbstractString,
-)::Tuple{StorageVector, Maybe{Formats.CacheGroup}}
+)::Tuple{StorageVector, Any, Maybe{Formats.CacheGroup}}
     @assert Formats.has_data_read_lock(memory)
-    return (memory.vectors[axis][name], nothing)
+    return (memory.vectors[axis][name], nothing, nothing)
 end
 
 function Formats.format_has_matrix(
@@ -364,9 +364,9 @@ function Formats.format_get_matrix(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-)::Tuple{StorageMatrix, Maybe{Formats.CacheGroup}}
+)::Tuple{StorageMatrix, Any, Maybe{Formats.CacheGroup}}
     @assert Formats.has_data_read_lock(memory)
-    return (memory.matrices[rows_axis][columns_axis][name], nothing)
+    return (memory.matrices[rows_axis][columns_axis][name], nothing, nothing)
 end
 
 # Allocate a permuted copy of a dense or sparse storage vector. The caller passes both the forward and the cached

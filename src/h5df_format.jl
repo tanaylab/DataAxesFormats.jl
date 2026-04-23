@@ -832,7 +832,7 @@ function Formats.format_get_vector(
     h5df::H5df,
     axis::AbstractString,
     name::AbstractString,
-)::Tuple{StorageVector, Formats.CacheGroup}
+)::Tuple{StorageVector, Any, Formats.CacheGroup}
     @assert Formats.has_data_read_lock(h5df)
 
     vectors_group = h5df.root["vectors"]
@@ -881,7 +881,7 @@ function Formats.format_get_vector(
         end
     end
 
-    return (vector, cache_group)
+    return (vector, nothing, cache_group)
 end
 
 function Formats.format_has_matrix(
@@ -1260,7 +1260,7 @@ function Formats.format_get_matrix(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-)::Tuple{StorageMatrix, Formats.CacheGroup}
+)::Tuple{StorageMatrix, Any, Formats.CacheGroup}
     @assert Formats.has_data_read_lock(h5df)
 
     matrices_group = h5df.root["matrices"]
@@ -1274,7 +1274,8 @@ function Formats.format_get_matrix(
 
     matrix_object = columns_axis_group[name]
     if matrix_object isa HDF5.Dataset
-        return dataset_as_matrix(matrix_object)
+        matrix, cache_group = dataset_as_matrix(matrix_object)
+        return (matrix, nothing, cache_group)
 
     else
         @assert matrix_object isa HDF5.Group
@@ -1308,7 +1309,7 @@ function Formats.format_get_matrix(
                 end
             end
 
-            return (matrix, Formats.MemoryData)
+            return (matrix, nothing, Formats.MemoryData)
 
         else
             if haskey(matrix_object, "nzval")
@@ -1331,7 +1332,7 @@ function Formats.format_get_matrix(
                 else
                     Formats.MemoryData
                 end
-            return (matrix, cache_group)
+            return (matrix, nothing, cache_group)
         end
     end
 end

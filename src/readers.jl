@@ -1304,7 +1304,7 @@ function description(
         vectors_description(daf, axes, indent, lines) # NOJET
         matrices_description(daf, axes, indent, lines; tensors) # NOJET
         if cache
-            cache_description(daf, indent, lines)  # NOJET # UNTESTED
+            cache_description(daf, indent, lines)  # NOJET
         end
 
         if tensors && !isempty(matrices_per_tensor_per_axes_per_axis)  # NOJET

@@ -446,9 +446,9 @@ function Formats.format_get_vector(
     view::DafView,
     axis::AbstractString,
     name::AbstractString,
-)::Tuple{StorageVector, Maybe{Formats.CacheGroup}}
+)::Tuple{StorageVector, Any, Maybe{Formats.CacheGroup}}
     @assert Formats.has_data_read_lock(view)
-    return (fetch_vector_data(view, axis, name), QueryData)
+    return (fetch_vector_data(view, axis, name), nothing, QueryData)
 end
 
 function Formats.format_has_matrix(
@@ -476,9 +476,9 @@ function Formats.format_get_matrix(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-)::Tuple{StorageMatrix, Maybe{Formats.CacheGroup}}
+)::Tuple{StorageMatrix, Any, Maybe{Formats.CacheGroup}}
     @assert Formats.has_data_read_lock(view)
-    return (fetch_matrix_data(view, rows_axis, columns_axis, name), QueryData)
+    return (fetch_matrix_data(view, rows_axis, columns_axis, name), nothing, QueryData)
 end
 
 function Formats.format_description_header(
@@ -555,12 +555,9 @@ function fetch_scalar_query(view::DafView, name::AbstractString)::Maybe{QueryOpe
 end
 
 function fetch_scalar_data(view::DafView, name::AbstractString)::StorageScalar
-    cache_key = scalar_cache_key(name)
-    return get_through_cache(view, cache_key, StorageScalar) do
-        query = fetch_scalar_query(view, name)
-        @assert query !== nothing
-        return (get_query(view.daf, query; cache = false), QueryData)
-    end
+    query = fetch_scalar_query(view, name)
+    @assert query !== nothing
+    return get_query(view.daf, query; cache = false)
 end
 
 function fetch_axis_query(view::DafView, axis::AbstractString)::Maybe{QueryOperation}
@@ -588,12 +585,9 @@ function fetch_axis_query(view::DafView, axis::AbstractString)::Maybe{QueryOpera
 end
 
 function fetch_axis_data(view::DafView, axis::AbstractString)::AbstractVector{<:AbstractString}
-    cache_key = axis_vector_cache_key(axis)
-    return get_through_cache(view, cache_key, AbstractVector{<:AbstractString}) do
-        query = fetch_axis_query(view, axis)
-        @assert query !== nothing
-        return (get_query(view.daf, query; cache = false), QueryData)
-    end
+    query = fetch_axis_query(view, axis)
+    @assert query !== nothing
+    return get_query(view.daf, query; cache = false)
 end
 
 function fetch_vector_query(view::DafView, axis::AbstractString, name::AbstractString)::Maybe{QueryOperation}
@@ -627,12 +621,9 @@ function fetch_vector_query(view::DafView, axis::AbstractString, name::AbstractS
 end
 
 function fetch_vector_data(view::DafView, axis::AbstractString, name::AbstractString)::StorageVector
-    cache_key = vector_cache_key(axis, name)
-    return get_through_cache(view, cache_key, StorageVector) do
-        query = fetch_vector_query(view, axis, name)
-        @assert query !== nothing
-        return (get_query(view.daf, query; cache = false), QueryData)
-    end
+    query = fetch_vector_query(view, axis, name)
+    @assert query !== nothing
+    return get_query(view.daf, query; cache = false)
 end
 
 function fetch_matrix_query(
@@ -717,12 +708,9 @@ function fetch_matrix_data(
     columns_axis::AbstractString,
     name::AbstractString,
 )::StorageMatrix
-    cache_key = matrix_cache_key(rows_axis, columns_axis, name)
-    return get_through_cache(view, cache_key, StorageMatrix) do
-        query = fetch_matrix_query(view, rows_axis, columns_axis, name)
-        @assert query !== nothing
-        return (get_query(view.daf, query; cache = false), QueryData)
-    end
+    query = fetch_matrix_query(view, rows_axis, columns_axis, name)
+    @assert query !== nothing
+    return get_query(view.daf, query; cache = false)
 end
 
 function collect_view_scalars(view::DafView)::AbstractSet{<:AbstractString}

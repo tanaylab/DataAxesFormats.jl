@@ -83,10 +83,11 @@ CacheData = Union{
     AbstractSet{<:AbstractString},  # Names
     AbstractVector{<:AbstractString},  # Axis entries
     StorageScalar,  # Scalar
-    NamedArray,  # Vector / Matrix
+    Tuple{NamedArray, Any},  # Vector / Matrix bundled with opaque backing kept alive for zero-copy aliasing (nothing for backends that don't need it)
     AbstractDict{<:AbstractString, <:Integer}, # Axis dictionary
     QueryOperation,  # View query
     Missing,  # View hidden
+    Dict{String, Any},  # Parsed JSON object (format metadata)
 }
 
 mutable struct CacheEntry  # NOLINT
@@ -94,7 +95,7 @@ mutable struct CacheEntry  # NOLINT
     data::Union{AbstractLock, CacheData}
 end
 
-@enum CacheType CachedAxis CachedData CachedQuery CachedNames
+@enum CacheType CachedAxis CachedData CachedQuery CachedNames CachedMetadata
 
 AxisCacheKey = Tuple{AxisKey, Bool}
 
@@ -102,7 +103,7 @@ NamesKey = Union{AbstractString, Tuple{AbstractString}, Tuple{AbstractString, Ab
 
 CacheKey = Tuple{CacheType, Union{AxisCacheKey, PropertyKey, AbstractString, NamesKey}, Symbol}
 
-function Base.show(io::IO, cache_key::CacheKey)::Nothing  # UNTESTED
+function Base.show(io::IO, cache_key::CacheKey)::Nothing
     type, key, qualifier = cache_key
     if type == CachedAxis
         @assert key isa AxisCacheKey
@@ -112,8 +113,8 @@ function Base.show(io::IO, cache_key::CacheKey)::Nothing  # UNTESTED
             print(io, "axis_vector[axis: $(key[1])]:$(qualifier)")
         end
     elseif type == CachedQuery
-        @assert key isa AbstractString
-        print(io, "query[$(key)]:$(qualifier)")
+        @assert key isa AbstractString  # UNTESTED
+        print(io, "query[$(key)]:$(qualifier)")  # UNTESTED
     elseif type == CachedData
         if key isa AbstractString
             print(io, "scalar[$(key)]:$(qualifier)")
@@ -131,11 +132,14 @@ function Base.show(io::IO, cache_key::CacheKey)::Nothing  # UNTESTED
             print(io, "vectors[axis: $(key[1])]:$(qualifier)")
         elseif key isa Tuple{AbstractString, AbstractString, Bool}
             if key[3]
-                print(io, "matrices[relayout rows_axis: $(key[1]) columns_axis: $(key[2])]:$(qualifier)")
+                print(io, "matrices[relayout rows_axis: $(key[1]) columns_axis: $(key[2])]:$(qualifier)")  # UNTESTED
             else
                 print(io, "matrices[rows_axis: $(key[1]) columns_axis: $(key[2])]:$(qualifier)")
             end
         end
+    elseif type == CachedMetadata
+        @assert key isa AbstractString
+        print(io, "metadata[$(key)]:$(qualifier)")
     else
         @assert false
     end
@@ -190,6 +194,10 @@ function matrix_cache_key(
     qualifier::Symbol = :value,
 )::CacheKey
     return (CachedData, (rows_axis, columns_axis, name), qualifier)
+end
+
+function metadata_cache_key(path::AbstractString, qualifier::Symbol = :value)::CacheKey
+    return (CachedMetadata, path, qualifier)
 end
 
 """
@@ -538,10 +546,15 @@ function format_vectors_set end
         format::FormatReader,
         axis::AbstractString,
         name::AbstractString,
-    )::Tuple{StorageVector, CacheGroup}
+    )::Tuple{StorageVector, Any, CacheGroup}
 
-Implement fetching the vector property with some `name` for some `axis` in `format`, together with a per-item
-[`CacheGroup`](@ref) describing how the returned vector should be cached.
+Implement fetching the vector property with some `name` for some `axis` in `format`, together with an opaque backing
+object that must be kept alive for as long as the returned vector is used (pass `nothing` if the vector is
+self-contained), and a per-item [`CacheGroup`](@ref) describing how the returned vector should be cached.
+
+The backing slot exists so formats like [`HttpDaf`](@ref DataAxesFormats.HttpFormat.HttpDaf) can surface zero-copy
+`unsafe_wrap`'d vectors alongside the `Vector{UInt8}` buffer they alias; the cache stores the pair as a
+`Tuple{NamedArray, Any}` so the backing stays reachable as long as the vector is cached.
 
 This trusts that we have a read lock on the data set, that the `axis` exists in `format`, and the `name` vector property
 exists for the `axis`.
@@ -725,10 +738,12 @@ function format_matrices_set end
         rows_axis::AbstractString,
         columns_axis::AbstractString,
         name::AbstractString
-    )::Tuple{StorageMatrix, CacheGroup}
+    )::Tuple{StorageMatrix, Any, CacheGroup}
 
 Implement fetching the matrix property with some `name` for some `rows_axis` and `columns_axis` in `format`, together
-with a per-item [`CacheGroup`](@ref) describing how the returned matrix should be cached.
+with an opaque backing object kept alive for the returned matrix's lifetime (pass `nothing` if the matrix is
+self-contained), and a per-item [`CacheGroup`](@ref) describing how the returned matrix should be cached. See
+[`format_get_vector`](@ref) for the backing rationale.
 
 This trusts that we have a read lock on the data set, and that the `rows_axis` and `columns_axis` exist in `format`, and
 the `name` matrix property exists for them.
@@ -807,7 +822,7 @@ function get_through_cache(getter::Function, format::FormatReader, cache_key::Ca
             cached = write_through_cache(getter, format, cache_key, T)
         end
     end
-    return cached
+    return cached::T
 end
 
 function get_slow_through_cache(
@@ -828,7 +843,7 @@ function get_slow_through_cache(
             cached = write_slow_through_cache(getter, format, cache_key, T, cache_group)
         end
     end
-    return cached
+    return cached::T
 end
 
 function result_from_cache(::Nothing)::Nothing # UNTESTED
@@ -995,10 +1010,11 @@ function get_axis_dict_through_cache(
 end
 
 function get_vector_through_cache(format::FormatReader, axis::AbstractString, name::AbstractString)::NamedArray
-    return get_through_cache(format, vector_cache_key(axis, name), StorageVector) do
-        vector, cache_group = format_get_vector(format, axis, name)
-        return (as_named_vector(format, axis, vector), cache_group)
+    entry = get_through_cache(format, vector_cache_key(axis, name), Tuple{NamedArray, Any}) do
+        vector, backing, cache_group = format_get_vector(format, axis, name)
+        return ((as_named_vector(format, axis, vector), backing), cache_group)
     end
+    return entry[1]
 end
 
 function get_matrix_through_cache(
@@ -1007,10 +1023,11 @@ function get_matrix_through_cache(
     columns_axis::AbstractString,
     name::AbstractString,
 )::NamedArray
-    return get_through_cache(format, matrix_cache_key(rows_axis, columns_axis, name), StorageMatrix) do
-        matrix, cache_group = format_get_matrix(format, rows_axis, columns_axis, name)
-        return (as_named_matrix(format, rows_axis, columns_axis, matrix), cache_group)
+    entry = get_through_cache(format, matrix_cache_key(rows_axis, columns_axis, name), Tuple{NamedArray, Any}) do
+        matrix, backing, cache_group = format_get_matrix(format, rows_axis, columns_axis, name)
+        return ((as_named_matrix(format, rows_axis, columns_axis, matrix), backing), cache_group)
     end
+    return entry[1]
 end
 
 function get_relayout_matrix_through_cache(
@@ -1021,11 +1038,17 @@ function get_relayout_matrix_through_cache(
 )::NamedArray
     @assert !format_has_matrix(format, rows_axis, columns_axis, name)
     matrix = get_matrix_through_cache(format, columns_axis, rows_axis, name).array
-    return get_slow_through_cache(format, matrix_cache_key(rows_axis, columns_axis, name), StorageMatrix, MemoryData) do
+    entry = get_slow_through_cache(
+        format,
+        matrix_cache_key(rows_axis, columns_axis, name),
+        Tuple{NamedArray, Any},
+        MemoryData,
+    ) do
         matrix = flipped(matrix)
         matrix = as_named_matrix(format, rows_axis, columns_axis, matrix)
-        return (matrix, nothing)
+        return ((matrix, nothing), nothing)
     end
+    return entry[1]
 end
 
 function cache_scalar!(
@@ -1048,7 +1071,7 @@ function cache_vector!(
     cache_group::Maybe{CacheGroup},
 )::Nothing
     if cache_group !== nothing
-        set_in_cache!(format, vector_cache_key(axis, name), vector, cache_group)
+        set_in_cache!(format, vector_cache_key(axis, name), (vector, nothing), cache_group)
     end
     return nothing
 end
@@ -1062,7 +1085,7 @@ function cache_matrix!(
     cache_group::Maybe{CacheGroup},
 )::Nothing
     if cache_group !== nothing
-        set_in_cache!(format, matrix_cache_key(rows_axis, columns_axis, name), matrix, cache_group)
+        set_in_cache!(format, matrix_cache_key(rows_axis, columns_axis, name), (matrix, nothing), cache_group)
     end
     return nothing
 end
@@ -1314,6 +1337,13 @@ specific [`CacheGroup`](@ref) (e.g., for clearing only `QueryData`), or `keep`, 
 
     If there are any slow cache update operations in flight (matrix relayout, queries) then this will wait until they
     are done to ensure that the cache is in a consistent state.
+
+!!! warning
+
+    Some backends return vectors and matrices that alias buffers held alive by the cache entry (for zero-copy access).
+    Emptying the cache releases those buffers, so any array reference previously returned by such a backend becomes
+    dangling. Currently this affects [`HttpDaf`](@ref DataAxesFormats.HttpFormat.HttpDaf); drop all such references
+    before calling `empty_cache!` on one of these backends.
 """
 function empty_cache!(daf::DafReader; clear::Maybe{CacheGroup} = nothing, keep::Maybe{CacheGroup} = nothing)::Nothing
     @assert clear === nothing || keep === nothing
