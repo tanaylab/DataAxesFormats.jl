@@ -15,6 +15,8 @@ export empty_dense_matrix!
 export empty_dense_vector!
 export empty_sparse_matrix!
 export empty_sparse_vector!
+export filled_empty_dense_matrix!
+export filled_empty_dense_vector!
 export filled_empty_sparse_matrix!
 export filled_empty_sparse_vector!
 export get_empty_dense_matrix!
@@ -399,9 +401,7 @@ function empty_dense_vector!(
     vector, cache_group = get_empty_dense_vector!(daf, axis, name, eltype; overwrite)
     try
         result = fill(vector)
-        Formats.format_filled_empty_dense_vector!(daf, axis, name, vector)
-        Formats.cache_vector!(daf, axis, name, Formats.as_named_vector(daf, axis, vector), cache_group)
-        @debug "empty_dense_vector! filled vector: $(brief(vector)) }" _group = :daf_sets
+        filled_empty_dense_vector!(daf, axis, name, vector, cache_group)
         return result
     finally
         # Formats.assert_valid_cache(daf)
@@ -435,6 +435,35 @@ function get_empty_dense_vector!(
         Formats.end_data_write_lock(daf, "empty_dense_vector! of:", name, "of:", axis)
         rethrow()
     end
+end
+
+"""
+    filled_empty_dense_vector!(
+        daf::DafWriter,
+        axis::AbstractString,
+        name::AbstractString,
+        filled::AbstractVector{<:StorageReal},
+        cache_group::Maybe{CacheGroup},
+    )::Nothing
+
+Finalize an empty dense vector property after the caller has populated the `filled` buffer previously obtained from
+`get_empty_dense_vector!, and cache it using the given `cache_group`.
+
+This is normally invoked automatically by [`empty_dense_vector!`](@ref). Use it directly only when driving the
+`get_empty_dense_vector!` / `filled_empty_dense_vector!` pair from code that cannot pass a Julia callback (for example,
+a Python wrapper).
+"""
+function filled_empty_dense_vector!(
+    daf::DafWriter,
+    axis::AbstractString,
+    name::AbstractString,
+    filled::AbstractVector{<:StorageReal},
+    cache_group::Maybe{Formats.CacheGroup},
+)::Nothing
+    Formats.format_filled_empty_dense_vector!(daf, axis, name, filled)
+    Formats.cache_vector!(daf, axis, name, Formats.as_named_vector(daf, axis, filled), cache_group)
+    @debug "empty_dense_vector! filled vector: $(brief(filled)) }" _group = :daf_sets
+    return nothing
 end
 
 """
@@ -489,10 +518,10 @@ function empty_sparse_vector!(
     end
     @assert isbitstype(eltype)
     @assert isbitstype(indtype)
-    nzind, nzval = get_empty_sparse_vector!(daf, axis, name, eltype, nnz, indtype; overwrite)
+    nzind, nzval, cache_group = get_empty_sparse_vector!(daf, axis, name, eltype, nnz, indtype; overwrite)
     try
         result = fill(nzind, nzval)
-        filled_empty_sparse_vector!(daf, axis, name, nzind, nzval)
+        filled_empty_sparse_vector!(daf, axis, name, nzind, nzval, cache_group)
         return result
     finally
         # Formats.assert_valid_cache(daf)
@@ -508,7 +537,7 @@ function get_empty_sparse_vector!(
     nnz::StorageInteger,
     indtype::Type{I};
     overwrite::Bool = false,
-)::Tuple{AbstractVector{I}, AbstractVector{T}} where {T <: StorageReal, I <: StorageInteger}
+)::Tuple{AbstractVector{I}, AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal, I <: StorageInteger}
     Formats.begin_data_write_lock(daf, "empty_sparse_vector! of:", name, "of:", axis)
     try
         # Formats.assert_valid_cache(daf)
@@ -529,15 +558,34 @@ function get_empty_sparse_vector!(
     end
 end
 
+"""
+    filled_empty_sparse_vector!(
+        daf::DafWriter,
+        axis::AbstractString,
+        name::AbstractString,
+        nzind::AbstractVector{<:StorageInteger},
+        nzval::AbstractVector{<:StorageReal},
+        cache_group::Maybe{CacheGroup},
+    )::Nothing
+
+Finalize an empty sparse vector property after the caller has populated the `nzind` and `nzval` buffers previously
+obtained from `get_empty_sparse_vector!`. Assembles the `SparseVector` and caches it using the given
+`cache_group`.
+
+This is normally invoked automatically by [`empty_sparse_vector!`](@ref). Use it directly only when driving the
+`get_empty_sparse_vector!` / `filled_empty_sparse_vector!` pair from code that cannot pass a Julia callback (for
+example, a Python wrapper).
+"""
 function filled_empty_sparse_vector!(
     daf::DafWriter,
     axis::AbstractString,
     name::AbstractString,
     nzind::AbstractVector{<:StorageInteger},
     nzval::AbstractVector{<:StorageReal},
+    cache_group::Maybe{Formats.CacheGroup},
 )::Nothing
     filled_vector = SparseVector(axis_length(daf, axis), nzind, nzval)
-    cache_group = Formats.format_filled_empty_sparse_vector!(daf, axis, name, filled_vector)
+    Formats.format_filled_empty_sparse_vector!(daf, axis, name, filled_vector)
     Formats.cache_vector!(daf, axis, name, Formats.as_named_vector(daf, axis, filled_vector), cache_group)
     @debug "empty_sparse_vector! filled vector: $(brief(filled_vector)) }" _group = :daf_sets
     return nothing
@@ -768,16 +816,7 @@ function empty_dense_matrix!(
     matrix, cache_group = get_empty_dense_matrix!(daf, rows_axis, columns_axis, name, eltype; overwrite)
     try
         result = fill(matrix)
-        Formats.format_filled_empty_dense_matrix!(daf, rows_axis, columns_axis, name, matrix)
-        Formats.cache_matrix!(
-            daf,
-            rows_axis,
-            columns_axis,
-            name,
-            Formats.as_named_matrix(daf, rows_axis, columns_axis, matrix),
-            cache_group,
-        )
-        @debug "empty_dense_matrix! filled matrix: $(brief(matrix)) }" _group = :daf_sets
+        filled_empty_dense_matrix!(daf, rows_axis, columns_axis, name, matrix, cache_group)
         return result
     finally
         # Formats.assert_valid_cache(daf)
@@ -811,6 +850,44 @@ function get_empty_dense_matrix!(
         Formats.end_data_write_lock(daf, "empty_dense_matrix! of:", name, "of:", rows_axis, "and:", columns_axis)
         rethrow()
     end
+end
+
+"""
+    filled_empty_dense_matrix!(
+        daf::DafWriter,
+        rows_axis::AbstractString,
+        columns_axis::AbstractString,
+        name::AbstractString,
+        filled::AbstractMatrix{<:StorageReal},
+        cache_group::Maybe{CacheGroup},
+    )::Nothing
+
+Finalize an empty dense matrix property after the caller has populated the `filled` buffer previously obtained from
+`get_empty_dense_matrix!`, and cache it using the given `cache_group`.
+
+This is normally invoked automatically by [`empty_dense_matrix!`](@ref). Use it directly only when driving the
+`get_empty_dense_matrix!` / `filled_empty_dense_matrix!` pair from code that cannot pass a Julia callback (for example,
+a Python wrapper).
+"""
+function filled_empty_dense_matrix!(
+    daf::DafWriter,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+    filled::AbstractMatrix{<:StorageReal},
+    cache_group::Maybe{Formats.CacheGroup},
+)::Nothing
+    Formats.format_filled_empty_dense_matrix!(daf, rows_axis, columns_axis, name, filled)
+    Formats.cache_matrix!(
+        daf,
+        rows_axis,
+        columns_axis,
+        name,
+        Formats.as_named_matrix(daf, rows_axis, columns_axis, filled),
+        cache_group,
+    )
+    @debug "empty_dense_matrix! filled matrix: $(brief(filled)) }" _group = :daf_sets
+    return nothing
 end
 
 """
@@ -870,11 +947,11 @@ function empty_sparse_matrix!(
     end
     @assert isbitstype(eltype)
     @assert isbitstype(indtype)
-    colptr, rowval, nzval =
+    colptr, rowval, nzval, cache_group =
         get_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, eltype, nnz, indtype; overwrite)
     try
         result = fill(colptr, rowval, nzval)
-        filled_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, colptr, rowval, nzval)
+        filled_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, colptr, rowval, nzval, cache_group)
         return result
     finally
         # Formats.assert_valid_cache(daf)
@@ -891,7 +968,12 @@ function get_empty_sparse_matrix!(
     nnz::StorageInteger,
     indtype::Type{I};
     overwrite::Bool = false,
-)::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}} where {T <: StorageReal, I <: StorageInteger}
+)::Tuple{
+    AbstractVector{I},
+    AbstractVector{I},
+    AbstractVector{T},
+    Maybe{Formats.CacheGroup},
+} where {T <: StorageReal, I <: StorageInteger}
     Formats.begin_data_write_lock(daf, "empty_sparse_matrix! of:", name, "of:", rows_axis, "and:", columns_axis)
     try
         # Formats.assert_valid_cache(daf)
@@ -912,6 +994,26 @@ function get_empty_sparse_matrix!(
     end
 end
 
+"""
+    filled_empty_sparse_matrix!(
+        daf::DafWriter,
+        rows_axis::AbstractString,
+        columns_axis::AbstractString,
+        name::AbstractString,
+        colptr::AbstractVector{I},
+        rowval::AbstractVector{I},
+        nzval::AbstractVector{<:StorageReal},
+        cache_group::Maybe{CacheGroup},
+    )::Nothing where {I <: StorageInteger}
+
+Finalize an empty sparse matrix property after the caller has populated the `colptr`, `rowval` and `nzval` buffers
+previously obtained from `get_empty_sparse_matrix!`. Assembles the `SparseMatrixCSC` and caches it using the given
+`cache_group`.
+
+This is normally invoked automatically by [`empty_sparse_matrix!`](@ref). Use it directly only when driving the
+`get_empty_sparse_matrix!` / `filled_empty_sparse_matrix!` pair from code that cannot pass a Julia callback (for
+example, a Python wrapper).
+"""
 function filled_empty_sparse_matrix!(
     daf::DafWriter,
     rows_axis::AbstractString,
@@ -920,9 +1022,10 @@ function filled_empty_sparse_matrix!(
     colptr::AbstractVector{I},
     rowval::AbstractVector{I},
     nzval::AbstractVector{<:StorageReal},
+    cache_group::Maybe{Formats.CacheGroup},
 )::Nothing where {I <: StorageInteger}
     filled_matrix = SparseMatrixCSC(axis_length(daf, rows_axis), axis_length(daf, columns_axis), colptr, rowval, nzval)
-    cache_group = Formats.format_filled_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, filled_matrix)
+    Formats.format_filled_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, filled_matrix)
     Formats.cache_matrix!(
         daf,
         rows_axis,

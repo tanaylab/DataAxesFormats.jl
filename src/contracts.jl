@@ -1175,7 +1175,7 @@ function Formats.format_get_empty_sparse_vector!(
     ::Type{T},
     nnz::StorageInteger,
     ::Type{I},
-)::Tuple{AbstractVector{I}, AbstractVector{T}} where {T <: StorageReal, I <: StorageInteger}
+)::Tuple{AbstractVector{I}, AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal, I <: StorageInteger}
     access_vector(contract_daf, axis, name; is_for_modify = true)
     return Formats.format_get_empty_sparse_vector!(contract_daf.daf, axis, name, T, nnz, I)
 end
@@ -1195,8 +1195,9 @@ function Formats.format_filled_empty_sparse_vector!(
     axis::AbstractString,
     name::AbstractString,
     filled::SparseVector{<:StorageReal, <:StorageInteger},
-)::Maybe{Formats.CacheGroup}
-    return Formats.format_filled_empty_sparse_vector!(contract_daf.daf, axis, name, filled)
+)::Nothing
+    Formats.format_filled_empty_sparse_vector!(contract_daf.daf, axis, name, filled)
+    return nothing
 end
 
 function Formats.format_delete_vector!(
@@ -1277,7 +1278,12 @@ function Formats.format_get_empty_sparse_matrix!(
     ::Type{T},
     nnz::StorageInteger,
     ::Type{I},
-)::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}} where {T <: StorageReal, I <: StorageInteger}
+)::Tuple{
+    AbstractVector{I},
+    AbstractVector{I},
+    AbstractVector{T},
+    Maybe{Formats.CacheGroup},
+} where {T <: StorageReal, I <: StorageInteger}
     access_matrix(contract_daf, rows_axis, columns_axis, name; is_for_modify = true)
     return Formats.format_get_empty_sparse_matrix!(contract_daf.daf, rows_axis, columns_axis, name, T, nnz, I)
 end
@@ -1299,8 +1305,9 @@ function Formats.format_filled_empty_sparse_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     filled::SparseMatrixCSC{<:StorageReal, <:StorageInteger},
-)::Maybe{Formats.CacheGroup}
-    return Formats.format_filled_empty_sparse_matrix!(contract_daf.daf, rows_axis, columns_axis, name, filled)
+)::Nothing
+    Formats.format_filled_empty_sparse_matrix!(contract_daf.daf, rows_axis, columns_axis, name, filled)
+    return nothing
 end
 
 function Formats.format_relayout_matrix!(

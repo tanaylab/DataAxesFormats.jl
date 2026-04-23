@@ -26,9 +26,11 @@ using ..Chains
 using ..FilesFormat
 using ..Formats
 using ..H5dfFormat
+using ..HttpFormat
 using ..Readers
 using ..Views
 using ..Writers
+using ..ZarrFormat
 
 using TanayLabUtilities
 
@@ -137,16 +139,29 @@ end
         name::Maybe{AbstractString} = nothing
     )::Union{DafReader, DafWriter}
 
-Open either a [`FilesDaf`](@ref) or an [`H5df`](@ref). If the `path` ends with `.h5df` or contains `.h5dfs#` (followed
-by a group path), then it opens an [`H5dfFormat`](@ref) file (or a group in one). Otherwise, it opens a
-[`FilesFormat`](@ref) `Daf`.
+Open a `Daf` data set, dispatching to the appropriate backend based on `path`:
+
+  - If `path` ends with `.daf.zarr`, ends with `.daf.zarr.zip`, or contains `.dafs.zarr.zip#` (followed by a sub-daf
+    group path), open a [`ZarrDaf`](@ref).
+  - Otherwise, if `path` starts with `http://` or `https://`, open an [`HttpDaf`](@ref). Only `mode = "r"` is supported
+    for the HTTP backend; any other mode raises an error.
+  - Otherwise, if `path` ends with `.h5df` or contains `.h5dfs#` (followed by a group path), open an [`H5df`](@ref)
+    file (or a group in one).
+  - Otherwise, open a [`FilesDaf`](@ref).
 """
 function open_daf(
     path::AbstractString,
     mode::AbstractString = "r";
     name::Maybe{AbstractString} = nothing,
 )::Union{DafReader, DafWriter}
-    if endswith(path, ".h5df") || occursin(".h5dfs#", path)
+    if endswith(path, ".daf.zarr") || endswith(path, ".daf.zarr.zip") || occursin(".dafs.zarr.zip#", path)
+        return ZarrDaf(path, mode; name)
+    elseif startswith(path, "http://") || startswith(path, "https://")
+        if mode != "r"
+            error("can't open an http(s)://... HttpDaf in mode: $(mode); the HTTP backend is read-only: $(path)")
+        end
+        return HttpDaf(path; name)
+    elseif endswith(path, ".h5df") || occursin(".h5dfs#", path)
         return H5df(path, mode; name)
     else
         return FilesDaf(path, mode; name)

@@ -461,7 +461,8 @@ function format_get_empty_dense_vector! end
         filled::AbstractVector{<:StorageReal},
     )::Nothing
 
-Allow the `format` to perform finalization once the empty dense vector has been `filled`. The default does nothing.
+Allow the `format` to perform finalization once the empty dense vector has been `filled` (e.g. flushing metadata,
+patching chunk checksums). The default does nothing.
 
 This trusts we have a write lock on the data set, that the `axis` exists in `format`, that the `name` vector property
 exists for the `axis`, and that `filled` is the same buffer that was returned by
@@ -484,11 +485,12 @@ end
         eltype::Type{T},
         nnz::StorageInteger,
         indtype::Type{I},
-    )::Tuple{AbstractVector{I}, AbstractVector{T}, Any}
+    )::Tuple{AbstractVector{I}, AbstractVector{T}, Maybe{CacheGroup}}
     where {T <: StorageReal, I <: StorageInteger}
 
-Implement creating an empty dense vector property with some `name` for some `rows_axis` and `columns_axis` in
-`format`.
+Implement creating an empty sparse vector property with some `name` for some `axis` in `format`. Return the `nzind`
+and `nzval` buffers to be filled by the caller, together with the [`CacheGroup`](@ref) to use when caching the
+assembled sparse vector (as would be returned by [`format_get_vector`](@ref)), or `nothing` to skip caching.
 
 This trusts we have a write lock on the data set, that the `axis` exists in `format` and that the vector property `name`
 isn't `"name"`, and that it does not exist for the `axis`.
@@ -501,18 +503,17 @@ function format_get_empty_sparse_vector! end
         axis::AbstractString,
         name::AbstractString,
         filled::SparseVector{<:StorageReal, <:StorageInteger},
-    )::Maybe{CacheGroup}
+    )::Nothing
 
-Allow the `format` to perform finalization once the empty sparse vector has been `filled`. Return the
-[`CacheGroup`](@ref) to use when caching the stored sparse vector (as would be returned by [`format_get_vector`](@ref)),
-or `nothing` to skip caching. The default returns `nothing`.
+Allow the `format` to perform finalization once the empty sparse vector has been `filled` (e.g. flushing metadata,
+patching chunk checksums). The default does nothing.
 """
 function format_filled_empty_sparse_vector!( # UNTESTED
     ::FormatWriter,
     ::AbstractString,
     ::AbstractString,
     ::SparseVector{<:StorageReal, <:StorageInteger},
-)::Maybe{CacheGroup}
+)::Nothing
     return nothing
 end
 
@@ -627,7 +628,8 @@ function format_get_empty_dense_matrix! end
         filled::AbstractMatrix{<:StorageReal},
     )::Nothing
 
-Allow the `format` to perform finalization once the empty dense matrix has been `filled`. The default does nothing.
+Allow the `format` to perform finalization once the empty dense matrix has been `filled` (e.g. flushing metadata,
+patching chunk checksums). The default does nothing.
 
 This trusts we have a write lock on the data set, that the `rows_axis` and `columns_axis` exist in `format`, that the
 `name` matrix property exists for them, and that `filled` is the same buffer that was returned by
@@ -652,10 +654,13 @@ end
         eltype::Type{T},
         intdype::Type{I},
         nnz::StorageInteger,
-    )::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}, Any}
+    )::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}, Maybe{CacheGroup}}
     where {T <: StorageReal, I <: StorageInteger}
 
 Implement creating an empty sparse matrix property with some `name` for some `rows_axis` and `columns_axis` in `format`.
+Return the `colptr`, `rowval` and `nzval` buffers to be filled by the caller, together with the [`CacheGroup`](@ref) to
+use when caching the assembled sparse matrix (as would be returned by [`format_get_matrix`](@ref)), or `nothing` to skip
+caching.
 
 This trusts we have a write lock on the data set, that the `rows_axis` and `columns_axis` exist in `format` and that the
 `name` matrix property does not exist for them.
@@ -669,11 +674,10 @@ function format_get_empty_sparse_matrix! end
         columns_axis::AbstractString,
         name::AbstractString,
         filled::SparseMatrixCSC{<:StorageReal, <:StorageInteger},
-    )::Maybe{CacheGroup}
+    )::Nothing
 
-Allow the `format` to perform finalization once the empty sparse matrix has been `filled`. Return the
-[`CacheGroup`](@ref) to use when caching the stored sparse matrix (as would be returned by [`format_get_matrix`](@ref)),
-or `nothing` to skip caching. The default returns `nothing`.
+Allow the `format` to perform finalization once the empty sparse matrix has been `filled` (e.g. flushing metadata,
+patching chunk checksums). The default does nothing.
 """
 function format_filled_empty_sparse_matrix!( # UNTESTED
     ::FormatWriter,
@@ -681,7 +685,7 @@ function format_filled_empty_sparse_matrix!( # UNTESTED
     ::AbstractString,
     ::AbstractString,
     ::SparseMatrixCSC{<:StorageReal, <:StorageInteger},
-)::Maybe{CacheGroup}
+)::Nothing
     return nothing
 end
 

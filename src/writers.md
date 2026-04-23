@@ -37,9 +37,13 @@ DataAxesFormats.Writers.delete_matrix!
 
 ```@docs
 DataAxesFormats.Writers.empty_dense_vector!
+DataAxesFormats.Writers.filled_empty_dense_vector!
 DataAxesFormats.Writers.empty_sparse_vector!
+DataAxesFormats.Writers.filled_empty_sparse_vector!
 DataAxesFormats.Writers.empty_dense_matrix!
+DataAxesFormats.Writers.filled_empty_dense_matrix!
 DataAxesFormats.Writers.empty_sparse_matrix!
+DataAxesFormats.Writers.filled_empty_sparse_matrix!
 ```
 
 ## Index

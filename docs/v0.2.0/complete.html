@@ -384,32 +384,60 @@
 )::Union{DafReader, DafWriter}
 </code>
 </pre>
-<p>Open either a 
-<a href="files_format.html#DataAxesFormats.FilesFormat.FilesDaf">
-<code>FilesDaf
+<p>Open a 
+<code>Daf
+</code> data set, dispatching to the appropriate backend based on 
+<code>path
+</code>:
+</p>
+<ul>
+<li>If 
+<code>path
+</code> ends with 
+<code>.daf.zarr
+</code>, ends with 
+<code>.daf.zarr.zip
+</code>, or contains 
+<code>.dafs.zarr.zip#
+</code> (followed by a sub-daf group path), open a 
+<a href="zarr_format.html#DataAxesFormats.ZarrFormat.ZarrDaf">
+<code>ZarrDaf
 </code>
-</a> or an 
-<a href="h5df_format.html#DataAxesFormats.H5dfFormat.H5df">
-<code>H5df
+</a>.
+</li>
+<li>Otherwise, if 
+<code>path
+</code> starts with 
+<code>http://
+</code> or 
+<code>https://
+</code>, open an 
+<a href="http_format.html#DataAxesFormats.HttpFormat.HttpDaf">
+<code>HttpDaf
 </code>
-</a>. If the 
+</a>. Only 
+<code>mode = &quot;r&quot;
+</code> is supported for the HTTP backend; any other mode raises an error.
+</li>
+<li>Otherwise, if 
 <code>path
 </code> ends with 
 <code>.h5df
 </code> or contains 
 <code>.h5dfs#
-</code> (followed by a group path), then it opens an 
-<a href="h5df_format.html#DataAxesFormats.H5dfFormat">
-<code>H5dfFormat
+</code> (followed by a group path), open an 
+<a href="h5df_format.html#DataAxesFormats.H5dfFormat.H5df">
+<code>H5df
 </code>
-</a> file (or a group in one). Otherwise, it opens a 
-<a href="files_format.html#DataAxesFormats.FilesFormat">
-<code>FilesFormat
+</a> file (or a group in one).
+</li>
+<li>Otherwise, open a 
+<a href="files_format.html#DataAxesFormats.FilesFormat.FilesDaf">
+<code>FilesDaf
 </code>
-</a> 
-<code>Daf
-</code>.
-</p>
+</a>.
+</li>
+</ul>
 </div>
 </section>
 </details>

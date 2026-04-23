@@ -750,9 +750,10 @@ function Formats.format_get_empty_sparse_vector!(  # FLAKY TESTED
     eltype::Type{T},
     nnz::StorageInteger,
     indtype::Type{I},
-)::Tuple{AbstractVector{I}, AbstractVector{T}} where {T <: StorageReal, I <: StorageInteger}
+)::Tuple{AbstractVector{I}, AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(h5df)
-    return create_empty_sparse_vector_in(h5df.root, axis, name, eltype, nnz, indtype)
+    nzind_vector, nzval_vector = create_empty_sparse_vector_in(h5df.root, axis, name, eltype, nnz, indtype)
+    return (nzind_vector, nzval_vector, Formats.MappedData)
 end
 
 function create_empty_sparse_vector_in(
@@ -791,15 +792,6 @@ function create_empty_sparse_vector_in(
     close(vector_group)
 
     return (nzind_vector, nzval_vector)
-end
-
-function Formats.format_filled_empty_sparse_vector!(
-    ::H5df,
-    ::AbstractString,
-    ::AbstractString,
-    ::SparseVector{<:StorageReal, <:StorageInteger},
-)::Maybe{Formats.CacheGroup}
-    return Formats.MappedData
 end
 
 function Formats.format_delete_vector!(h5df::H5df, axis::AbstractString, name::AbstractString; for_set::Bool)::Nothing  # NOLINT
@@ -1099,10 +1091,17 @@ function Formats.format_get_empty_sparse_matrix!(  # FLAKY TESTED
     eltype::Type{T},
     nnz::StorageInteger,
     indtype::Type{I},
-)::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}} where {T <: StorageReal, I <: StorageInteger}
+)::Tuple{
+    AbstractVector{I},
+    AbstractVector{I},
+    AbstractVector{T},
+    Maybe{Formats.CacheGroup},
+} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(h5df)
     ncols = Formats.format_axis_length(h5df, columns_axis)
-    return create_empty_sparse_matrix_in(h5df.root, rows_axis, columns_axis, name, eltype, nnz, indtype, ncols)
+    colptr_vector, rowval_vector, nzval_vector =
+        create_empty_sparse_matrix_in(h5df.root, rows_axis, columns_axis, name, eltype, nnz, indtype, ncols)
+    return (colptr_vector, rowval_vector, nzval_vector, Formats.MappedData)
 end
 
 function create_empty_sparse_matrix_in(
@@ -1152,16 +1151,6 @@ function create_empty_sparse_matrix_in(
     return (colptr_vector, rowval_vector, nzval_vector)
 end
 
-function Formats.format_filled_empty_sparse_matrix!(
-    ::H5df,
-    ::AbstractString,
-    ::AbstractString,
-    ::AbstractString,
-    ::SparseMatrixCSC{<:StorageReal, <:StorageInteger},
-)::Maybe{Formats.CacheGroup}
-    return Formats.MappedData
-end
-
 function Formats.format_relayout_matrix!(
     h5df::H5df,
     rows_axis::AbstractString,
@@ -1172,7 +1161,7 @@ function Formats.format_relayout_matrix!(
     @assert Formats.has_data_write_lock(h5df)
 
     if issparse(matrix)
-        sparse_colptr, sparse_rowval, sparse_nzval = Formats.format_get_empty_sparse_matrix!(
+        sparse_colptr, sparse_rowval, sparse_nzval, _ = Formats.format_get_empty_sparse_matrix!(
             h5df,
             columns_axis,
             rows_axis,

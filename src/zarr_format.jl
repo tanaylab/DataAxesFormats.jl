@@ -849,7 +849,7 @@ function Formats.format_get_empty_sparse_vector!(
     ::Type{T},
     nnz::StorageInteger,
     ::Type{I},
-)::Tuple{AbstractVector{I}, AbstractVector{T}} where {T <: StorageReal, I <: StorageInteger}
+)::Tuple{AbstractVector{I}, AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(daf)
     group = axis_vectors_group(daf, axis)
     vector_group = zgroup(group, name)
@@ -862,7 +862,7 @@ function Formats.format_get_empty_sparse_vector!(
 
     nzind_vec, _ = array_as_vector(daf, nzind_array)
     nzval_vec, _ = array_as_vector(daf, nzval_array)
-    return (nzind_vec, nzval_vec)
+    return (nzind_vec, nzval_vec, Formats.MappedData)
 end
 
 function Formats.format_filled_empty_sparse_vector!(
@@ -870,7 +870,7 @@ function Formats.format_filled_empty_sparse_vector!(
     axis::AbstractString,
     name::AbstractString,
     ::SparseVector{<:StorageReal, <:StorageInteger},
-)::Maybe{Formats.CacheGroup}
+)::Nothing
     @assert Formats.has_data_write_lock(daf)
     vector_group = axis_vectors_group(daf, axis).groups[name]
     patch_chunk_crc_if_needed(vector_group.arrays["nzind"], "0")
@@ -878,7 +878,7 @@ function Formats.format_filled_empty_sparse_vector!(
         patch_chunk_crc_if_needed(vector_group.arrays["nzval"], "0")
     end
     refresh_consolidated_metadata!(daf)
-    return Formats.MappedData
+    return nothing
 end
 
 function Formats.format_delete_vector!(
@@ -1045,7 +1045,12 @@ function Formats.format_get_empty_sparse_matrix!(
     ::Type{T},
     nnz::StorageInteger,
     ::Type{I},
-)::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}} where {T <: StorageReal, I <: StorageInteger}
+)::Tuple{
+    AbstractVector{I},
+    AbstractVector{I},
+    AbstractVector{T},
+    Maybe{Formats.CacheGroup},
+} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(daf)
     group = columns_axis_group(daf, rows_axis, columns_axis)
     ncols = Formats.format_axis_length(daf, columns_axis)
@@ -1065,7 +1070,7 @@ function Formats.format_get_empty_sparse_matrix!(
     colptr_vec, _ = array_as_vector(daf, colptr_array)
     rowval_vec, _ = array_as_vector(daf, rowval_array)
     nzval_vec, _ = array_as_vector(daf, nzval_array)
-    return (colptr_vec, rowval_vec, nzval_vec)
+    return (colptr_vec, rowval_vec, nzval_vec, Formats.MappedData)
 end
 
 function Formats.format_filled_empty_sparse_matrix!(
@@ -1074,7 +1079,7 @@ function Formats.format_filled_empty_sparse_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     ::SparseMatrixCSC{<:StorageReal, <:StorageInteger},
-)::Maybe{Formats.CacheGroup}
+)::Nothing
     @assert Formats.has_data_write_lock(daf)
     matrix_group = columns_axis_group(daf, rows_axis, columns_axis).groups[name]
     patch_chunk_crc_if_needed(matrix_group.arrays["colptr"], "0")
@@ -1083,7 +1088,7 @@ function Formats.format_filled_empty_sparse_matrix!(
         patch_chunk_crc_if_needed(matrix_group.arrays["nzval"], "0")
     end
     refresh_consolidated_metadata!(daf)
-    return Formats.MappedData
+    return nothing
 end
 
 function Formats.format_relayout_matrix!(
@@ -1105,7 +1110,7 @@ function Formats.format_relayout_matrix!(
         return relayout_matrix
     end
     if issparse(matrix)
-        sparse_colptr, sparse_rowval, sparse_nzval = Formats.format_get_empty_sparse_matrix!(
+        sparse_colptr, sparse_rowval, sparse_nzval, _ = Formats.format_get_empty_sparse_matrix!(
             daf,
             columns_axis,
             rows_axis,
@@ -1424,7 +1429,7 @@ function replace_reorder_matrix(
         src_nzval = copy(source_matrix.nzval)
 
         delete_child(group, planned.name)
-        destination_colptr, destination_rowval, destination_nzval = Formats.format_get_empty_sparse_matrix!(
+        destination_colptr, destination_rowval, destination_nzval, _ = Formats.format_get_empty_sparse_matrix!(
             daf,
             planned.rows_axis,
             planned.columns_axis,

@@ -200,11 +200,11 @@ function Formats.format_get_empty_sparse_vector!(
     ::Type{T},
     nnz::StorageInteger,
     ::Type{I},
-)::Tuple{AbstractVector{I}, AbstractVector{T}} where {T <: StorageReal, I <: StorageInteger}
+)::Tuple{AbstractVector{I}, AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(memory)
     nzind = Vector{I}(undef, nnz)
     nzval = Vector{T}(undef, nnz)
-    return (nzind, nzval)
+    return (nzind, nzval, nothing)
 end
 
 function Formats.format_filled_empty_sparse_vector!(
@@ -212,7 +212,7 @@ function Formats.format_filled_empty_sparse_vector!(
     axis::AbstractString,
     name::AbstractString,
     filled::SparseVector{<:StorageReal, <:StorageInteger},
-)::Maybe{Formats.CacheGroup}
+)::Nothing
     @assert Formats.has_data_write_lock(memory)
     memory.vectors[axis][name] = filled
     return nothing
@@ -303,14 +303,19 @@ function Formats.format_get_empty_sparse_matrix!(
     ::Type{T},
     nnz::StorageInteger,
     ::Type{I},
-)::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}} where {T <: StorageReal, I <: StorageInteger}
+)::Tuple{
+    AbstractVector{I},
+    AbstractVector{I},
+    AbstractVector{T},
+    Maybe{Formats.CacheGroup},
+} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(memory)
     ncols = Formats.format_axis_length(memory, columns_axis)
     colptr = fill(I(nnz + 1), ncols + 1)
     colptr[1] = 1
     rowval = fill(I(1), nnz)
     nzval = Vector{T}(undef, nnz)
-    return (colptr, rowval, nzval)
+    return (colptr, rowval, nzval, nothing)
 end
 
 function Formats.format_filled_empty_sparse_matrix!(
@@ -319,7 +324,7 @@ function Formats.format_filled_empty_sparse_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     filled::SparseMatrixCSC{<:StorageReal, <:StorageInteger},
-)::Maybe{Formats.CacheGroup}
+)::Nothing
     @assert Formats.has_data_write_lock(memory)
     memory.matrices[rows_axis][columns_axis][name] = filled
     return nothing

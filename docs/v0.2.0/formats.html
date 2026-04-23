@@ -1832,7 +1832,7 @@
 <code>format
 </code> to perform finalization once the empty dense vector has been 
 <code>filled
-</code>. The default does nothing.
+</code> (e.g. flushing metadata, patching chunk checksums). The default does nothing.
 </p>
 <p>This trusts we have a write lock on the data set, that the 
 <code>axis
@@ -1874,19 +1874,31 @@
     eltype::Type{T},
     nnz::StorageInteger,
     indtype::Type{I},
-)::Tuple{AbstractVector{I}, AbstractVector{T}, Any}
+)::Tuple{AbstractVector{I}, AbstractVector{T}, Maybe{CacheGroup}}
 where {T &lt;: StorageReal, I &lt;: StorageInteger}
 </code>
 </pre>
-<p>Implement creating an empty dense vector property with some 
+<p>Implement creating an empty sparse vector property with some 
 <code>name
 </code> for some 
-<code>rows_axis
-</code> and 
-<code>columns_axis
+<code>axis
 </code> in 
 <code>format
-</code>.
+</code>. Return the 
+<code>nzind
+</code> and 
+<code>nzval
+</code> buffers to be filled by the caller, together with the 
+<a href="formats.html#DataAxesFormats.Formats.CacheGroup">
+<code>CacheGroup
+</code>
+</a> to use when caching the assembled sparse vector (as would be returned by 
+<a href="formats.html#DataAxesFormats.Formats.format_get_vector">
+<code>format_get_vector
+</code>
+</a>), or 
+<code>nothing
+</code> to skip caching.
 </p>
 <p>This trusts we have a write lock on the data set, that the 
 <code>axis
@@ -1922,26 +1934,14 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
     axis::AbstractString,
     name::AbstractString,
     filled::SparseVector{&lt;:StorageReal, &lt;:StorageInteger},
-)::Maybe{CacheGroup}
+)::Nothing
 </code>
 </pre>
 <p>Allow the 
 <code>format
 </code> to perform finalization once the empty sparse vector has been 
 <code>filled
-</code>. Return the 
-<a href="formats.html#DataAxesFormats.Formats.CacheGroup">
-<code>CacheGroup
-</code>
-</a> to use when caching the stored sparse vector (as would be returned by 
-<a href="formats.html#DataAxesFormats.Formats.format_get_vector">
-<code>format_get_vector
-</code>
-</a>), or 
-<code>nothing
-</code> to skip caching. The default returns 
-<code>nothing
-</code>.
+</code> (e.g. flushing metadata, patching chunk checksums). The default does nothing.
 </p>
 </div>
 </section>
@@ -2047,7 +2047,7 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
 <code>format
 </code> to perform finalization once the empty dense matrix has been 
 <code>filled
-</code>. The default does nothing.
+</code> (e.g. flushing metadata, patching chunk checksums). The default does nothing.
 </p>
 <p>This trusts we have a write lock on the data set, that the 
 <code>rows_axis
@@ -2090,7 +2090,7 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
     eltype::Type{T},
     intdype::Type{I},
     nnz::StorageInteger,
-)::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}, Any}
+)::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}, Maybe{CacheGroup}}
 where {T &lt;: StorageReal, I &lt;: StorageInteger}
 </code>
 </pre>
@@ -2102,7 +2102,23 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
 <code>columns_axis
 </code> in 
 <code>format
-</code>.
+</code>. Return the 
+<code>colptr
+</code>, 
+<code>rowval
+</code> and 
+<code>nzval
+</code> buffers to be filled by the caller, together with the 
+<a href="formats.html#DataAxesFormats.Formats.CacheGroup">
+<code>CacheGroup
+</code>
+</a> to use when caching the assembled sparse matrix (as would be returned by 
+<a href="formats.html#DataAxesFormats.Formats.format_get_matrix">
+<code>format_get_matrix
+</code>
+</a>), or 
+<code>nothing
+</code> to skip caching.
 </p>
 <p>This trusts we have a write lock on the data set, that the 
 <code>rows_axis
@@ -2137,26 +2153,14 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
     columns_axis::AbstractString,
     name::AbstractString,
     filled::SparseMatrixCSC{&lt;:StorageReal, &lt;:StorageInteger},
-)::Maybe{CacheGroup}
+)::Nothing
 </code>
 </pre>
 <p>Allow the 
 <code>format
 </code> to perform finalization once the empty sparse matrix has been 
 <code>filled
-</code>. Return the 
-<a href="formats.html#DataAxesFormats.Formats.CacheGroup">
-<code>CacheGroup
-</code>
-</a> to use when caching the stored sparse matrix (as would be returned by 
-<a href="formats.html#DataAxesFormats.Formats.format_get_matrix">
-<code>format_get_matrix
-</code>
-</a>), or 
-<code>nothing
-</code> to skip caching. The default returns 
-<code>nothing
-</code>.
+</code> (e.g. flushing metadata, patching chunk checksums). The default does nothing.
 </p>
 </div>
 </section>

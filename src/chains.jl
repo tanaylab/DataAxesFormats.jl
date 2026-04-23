@@ -459,7 +459,7 @@ function Formats.format_get_empty_sparse_vector!(
     eltype::Type{T},
     nnz::StorageInteger,
     indtype::Type{I},
-)::Tuple{AbstractVector{I}, AbstractVector{T}} where {T <: StorageReal, I <: StorageInteger}
+)::Tuple{AbstractVector{I}, AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(chain)
     if !Formats.format_has_axis(chain.daf, axis; for_change = false)
         add_axis!(chain.daf, axis, Formats.get_axis_vector_through_cache(chain, axis))
@@ -483,9 +483,10 @@ function Formats.format_filled_empty_sparse_vector!(
     axis::AbstractString,
     name::AbstractString,
     filled::SparseVector{T, I},
-)::Maybe{Formats.CacheGroup} where {T <: StorageReal, I <: StorageInteger}
+)::Nothing where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(chain)
-    return Formats.format_filled_empty_sparse_vector!(chain.daf, axis, name, filled)
+    Formats.format_filled_empty_sparse_vector!(chain.daf, axis, name, filled)
+    return nothing
 end
 
 function Formats.format_delete_vector!(
@@ -617,7 +618,12 @@ function Formats.format_get_empty_sparse_matrix!(
     eltype::Type{T},
     nnz::StorageInteger,
     indtype::Type{I},
-)::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}} where {T <: StorageReal, I <: StorageInteger}
+)::Tuple{
+    AbstractVector{I},
+    AbstractVector{I},
+    AbstractVector{T},
+    Maybe{Formats.CacheGroup},
+} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(chain)
     for axis in (rows_axis, columns_axis)
         if !Formats.format_has_axis(chain.daf, axis; for_change = false)
@@ -645,9 +651,10 @@ function Formats.format_filled_empty_sparse_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     filled::SparseMatrixCSC{T, I},
-)::Maybe{Formats.CacheGroup} where {T <: StorageReal, I <: StorageInteger}
+)::Nothing where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(chain)
-    return Formats.format_filled_empty_sparse_matrix!(chain.daf, rows_axis, columns_axis, name, filled)
+    Formats.format_filled_empty_sparse_matrix!(chain.daf, rows_axis, columns_axis, name, filled)
+    return nothing
 end
 
 function Formats.format_relayout_matrix!(

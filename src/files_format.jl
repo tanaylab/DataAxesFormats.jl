@@ -547,15 +547,15 @@ function Formats.format_get_empty_dense_vector!(
     return (vector, Formats.MappedData)
 end
 
-function Formats.format_filled_empty_dense_vector!(
+function Formats.format_filled_empty_dense_vector!(  # FLAKY TESTED
     files::FilesDaf,
     axis::AbstractString,
     name::AbstractString,
     ::AbstractVector{<:StorageReal},
-)::Maybe{Formats.CacheGroup}
+)::Nothing
     @assert Formats.has_data_write_lock(files)
     metadata_zip_append!(files, "vectors/$(axis)/$(name).json")
-    return Formats.MappedData
+    return nothing
 end
 
 function create_empty_dense_vector_at(
@@ -578,9 +578,10 @@ function Formats.format_get_empty_sparse_vector!(
     ::Type{T},
     nnz::StorageInteger,
     ::Type{I},
-)::Tuple{AbstractVector{I}, AbstractVector{T}} where {T <: StorageReal, I <: StorageInteger}
+)::Tuple{AbstractVector{I}, AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(files)
-    return create_empty_sparse_vector_at(files.path, axis, name, T, nnz, I)
+    nzind_vector, nzval_vector = create_empty_sparse_vector_at(files.path, axis, name, T, nnz, I)
+    return (nzind_vector, nzval_vector, Formats.MappedData)
 end
 
 function create_empty_sparse_vector_at(
@@ -604,15 +605,15 @@ function create_empty_sparse_vector_at(
     return (nzind_vector, nzval_vector)
 end
 
-function Formats.format_filled_empty_sparse_vector!(
+function Formats.format_filled_empty_sparse_vector!(  # FLAKY TESTED
     files::FilesDaf,
     axis::AbstractString,
     name::AbstractString,
     ::SparseVector{<:StorageReal, <:StorageInteger},
-)::Maybe{Formats.CacheGroup}
+)::Nothing
     @assert Formats.has_data_write_lock(files)
     metadata_zip_append!(files, "vectors/$(axis)/$(name).json")
-    return Formats.MappedData
+    return nothing
 end
 
 function Formats.format_delete_vector!(
@@ -845,16 +846,16 @@ function Formats.format_get_empty_dense_matrix!(
     return (matrix, Formats.MappedData)
 end
 
-function Formats.format_filled_empty_dense_matrix!(
+function Formats.format_filled_empty_dense_matrix!(  # FLAKY TESTED
     files::FilesDaf,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
     ::AbstractMatrix{<:StorageReal},
-)::Maybe{Formats.CacheGroup}
+)::Nothing
     @assert Formats.has_data_write_lock(files)
     metadata_zip_append!(files, "matrices/$(rows_axis)/$(columns_axis)/$(name).json")
-    return Formats.MappedData
+    return nothing
 end
 
 function create_empty_dense_matrix_at(
@@ -880,10 +881,17 @@ function Formats.format_get_empty_sparse_matrix!(
     ::Type{T},
     nnz::StorageInteger,
     ::Type{I},
-)::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}} where {T <: StorageReal, I <: StorageInteger}
+)::Tuple{
+    AbstractVector{I},
+    AbstractVector{I},
+    AbstractVector{T},
+    Maybe{Formats.CacheGroup},
+} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(files)
     ncols = Formats.format_axis_length(files, columns_axis)
-    return create_empty_sparse_matrix_at(files.path, rows_axis, columns_axis, name, T, nnz, I, ncols)
+    colptr_vector, rowval_vector, nzval_vector =
+        create_empty_sparse_matrix_at(files.path, rows_axis, columns_axis, name, T, nnz, I, ncols)
+    return (colptr_vector, rowval_vector, nzval_vector, Formats.MappedData)
 end
 
 function create_empty_sparse_matrix_at(
@@ -912,16 +920,16 @@ function create_empty_sparse_matrix_at(
     return (colptr_vector, rowval_vector, nzval_vector)
 end
 
-function Formats.format_filled_empty_sparse_matrix!(
+function Formats.format_filled_empty_sparse_matrix!(  # FLAKY TESTED
     files::FilesDaf,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
     ::SparseMatrixCSC{<:StorageReal, <:StorageInteger},
-)::Maybe{Formats.CacheGroup}
+)::Nothing
     @assert Formats.has_data_write_lock(files)
     metadata_zip_append!(files, "matrices/$(rows_axis)/$(columns_axis)/$(name).json")
-    return Formats.MappedData
+    return nothing
 end
 
 function Formats.format_relayout_matrix!(
@@ -934,7 +942,7 @@ function Formats.format_relayout_matrix!(
     @assert Formats.has_data_write_lock(files)
 
     if issparse(matrix)
-        colptr, rowval, nzval = Formats.format_get_empty_sparse_matrix!(
+        colptr, rowval, nzval, _ = Formats.format_get_empty_sparse_matrix!(
             files,
             columns_axis,
             rows_axis,

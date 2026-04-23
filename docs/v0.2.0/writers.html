@@ -1081,6 +1081,48 @@ false
 </article>
 <article>
 <details class="docstring" open="true">
+<summary id="DataAxesFormats.Writers.filled_empty_dense_vector!">
+<a class="docstring-binding" href="#DataAxesFormats.Writers.filled_empty_dense_vector!">
+<code>DataAxesFormats.Writers.filled_empty_dense_vector!
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">filled_empty_dense_vector!(
+    daf::DafWriter,
+    axis::AbstractString,
+    name::AbstractString,
+    filled::AbstractVector{&lt;:StorageReal},
+    cache_group::Maybe{CacheGroup},
+)::Nothing
+</code>
+</pre>
+<p>Finalize an empty dense vector property after the caller has populated the 
+<code>filled
+</code> buffer previously obtained from 
+<code>get_empty_dense_vector!, and cache it using the given
+</code>cache_group`.
+</p>
+<p>This is normally invoked automatically by 
+<a href="writers.html#DataAxesFormats.Writers.empty_dense_vector!">
+<code>empty_dense_vector!
+</code>
+</a>. Use it directly only when driving the 
+<code>get_empty_dense_vector!
+</code> / 
+<code>filled_empty_dense_vector!
+</code> pair from code that cannot pass a Julia callback (for example, a Python wrapper).
+</p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
 <summary id="DataAxesFormats.Writers.empty_sparse_vector!">
 <a class="docstring-binding" href="#DataAxesFormats.Writers.empty_sparse_vector!">
 <code>DataAxesFormats.Writers.empty_sparse_vector!
@@ -1180,6 +1222,55 @@ false
 </article>
 <article>
 <details class="docstring" open="true">
+<summary id="DataAxesFormats.Writers.filled_empty_sparse_vector!">
+<a class="docstring-binding" href="#DataAxesFormats.Writers.filled_empty_sparse_vector!">
+<code>DataAxesFormats.Writers.filled_empty_sparse_vector!
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">filled_empty_sparse_vector!(
+    daf::DafWriter,
+    axis::AbstractString,
+    name::AbstractString,
+    nzind::AbstractVector{&lt;:StorageInteger},
+    nzval::AbstractVector{&lt;:StorageReal},
+    cache_group::Maybe{CacheGroup},
+)::Nothing
+</code>
+</pre>
+<p>Finalize an empty sparse vector property after the caller has populated the 
+<code>nzind
+</code> and 
+<code>nzval
+</code> buffers previously obtained from 
+<code>get_empty_sparse_vector!
+</code>. Assembles the 
+<code>SparseVector
+</code> and caches it using the given 
+<code>cache_group
+</code>.
+</p>
+<p>This is normally invoked automatically by 
+<a href="writers.html#DataAxesFormats.Writers.empty_sparse_vector!">
+<code>empty_sparse_vector!
+</code>
+</a>. Use it directly only when driving the 
+<code>get_empty_sparse_vector!
+</code> / 
+<code>filled_empty_sparse_vector!
+</code> pair from code that cannot pass a Julia callback (for example, a Python wrapper).
+</p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
 <summary id="DataAxesFormats.Writers.empty_dense_matrix!">
 <a class="docstring-binding" href="#DataAxesFormats.Writers.empty_dense_matrix!">
 <code>DataAxesFormats.Writers.empty_dense_matrix!
@@ -1239,6 +1330,51 @@ false
 </code> and 
 <code>columns_axis
 </code>.
+</p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.Writers.filled_empty_dense_matrix!">
+<a class="docstring-binding" href="#DataAxesFormats.Writers.filled_empty_dense_matrix!">
+<code>DataAxesFormats.Writers.filled_empty_dense_matrix!
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">filled_empty_dense_matrix!(
+    daf::DafWriter,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+    filled::AbstractMatrix{&lt;:StorageReal},
+    cache_group::Maybe{CacheGroup},
+)::Nothing
+</code>
+</pre>
+<p>Finalize an empty dense matrix property after the caller has populated the 
+<code>filled
+</code> buffer previously obtained from 
+<code>get_empty_dense_matrix!
+</code>, and cache it using the given 
+<code>cache_group
+</code>.
+</p>
+<p>This is normally invoked automatically by 
+<a href="writers.html#DataAxesFormats.Writers.empty_dense_matrix!">
+<code>empty_dense_matrix!
+</code>
+</a>. Use it directly only when driving the 
+<code>get_empty_dense_matrix!
+</code> / 
+<code>filled_empty_dense_matrix!
+</code> pair from code that cannot pass a Julia callback (for example, a Python wrapper).
 </p>
 </div>
 </section>
@@ -1364,6 +1500,59 @@ false
 </section>
 </details>
 </article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.Writers.filled_empty_sparse_matrix!">
+<a class="docstring-binding" href="#DataAxesFormats.Writers.filled_empty_sparse_matrix!">
+<code>DataAxesFormats.Writers.filled_empty_sparse_matrix!
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">filled_empty_sparse_matrix!(
+    daf::DafWriter,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+    colptr::AbstractVector{I},
+    rowval::AbstractVector{I},
+    nzval::AbstractVector{&lt;:StorageReal},
+    cache_group::Maybe{CacheGroup},
+)::Nothing where {I &lt;: StorageInteger}
+</code>
+</pre>
+<p>Finalize an empty sparse matrix property after the caller has populated the 
+<code>colptr
+</code>, 
+<code>rowval
+</code> and 
+<code>nzval
+</code> buffers previously obtained from 
+<code>get_empty_sparse_matrix!
+</code>. Assembles the 
+<code>SparseMatrixCSC
+</code> and caches it using the given 
+<code>cache_group
+</code>.
+</p>
+<p>This is normally invoked automatically by 
+<a href="writers.html#DataAxesFormats.Writers.empty_sparse_matrix!">
+<code>empty_sparse_matrix!
+</code>
+</a>. Use it directly only when driving the 
+<code>get_empty_sparse_matrix!
+</code> / 
+<code>filled_empty_sparse_matrix!
+</code> pair from code that cannot pass a Julia callback (for example, a Python wrapper).
+</p>
+</div>
+</section>
+</details>
+</article>
 <h2 id="Index">
 <a class="docs-heading-anchor" href="#Index">Index
 </a>
@@ -1430,6 +1619,30 @@ false
 <li>
 <a href="writers.html#DataAxesFormats.Writers.empty_sparse_vector!">
 <code>DataAxesFormats.Writers.empty_sparse_vector!
+</code>
+</a>
+</li>
+<li>
+<a href="writers.html#DataAxesFormats.Writers.filled_empty_dense_matrix!">
+<code>DataAxesFormats.Writers.filled_empty_dense_matrix!
+</code>
+</a>
+</li>
+<li>
+<a href="writers.html#DataAxesFormats.Writers.filled_empty_dense_vector!">
+<code>DataAxesFormats.Writers.filled_empty_dense_vector!
+</code>
+</a>
+</li>
+<li>
+<a href="writers.html#DataAxesFormats.Writers.filled_empty_sparse_matrix!">
+<code>DataAxesFormats.Writers.filled_empty_sparse_matrix!
+</code>
+</a>
+</li>
+<li>
+<a href="writers.html#DataAxesFormats.Writers.filled_empty_sparse_vector!">
+<code>DataAxesFormats.Writers.filled_empty_sparse_vector!
 </code>
 </a>
 </li>
