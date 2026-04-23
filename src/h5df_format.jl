@@ -254,6 +254,9 @@ function H5df(
         else
             @assert length(parts) == 2 "can't parse as <file-path>.h5dfs#/<group-path>: $(root)"
             root, group = parts
+            if isempty(group)
+                error("empty group name after '#/' in H5df path: $(parts[1]).h5dfs#/")
+            end
             root *= ".h5dfs"
             full_path = abspath(root) * "#/" * group
         end

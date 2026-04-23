@@ -327,7 +327,7 @@ end
 
 function test_existing_axis(daf::DafReader, depth::Int; append_only::Bool = false)::Nothing
     if depth > 2
-        return nothing  # untested
+        return nothing
     end
 
     if daf isa DafWriter
@@ -3272,6 +3272,8 @@ nested_test("data") do
                                  the code supports version: 1.0
                                  """) H5df(h5file; name = "version!")
                 end
+                empty_group_path = path * "/eg.h5dfs#/"
+                @test_throws "empty group name after '#/' in H5df path: $(empty_group_path)" H5df(empty_group_path)
             end
         end
 
@@ -3408,6 +3410,11 @@ nested_test("data") do
 
                 bogus_path = path * "/bogus.foo"
                 @test_throws "can't parse as ZarrDaf path: $(bogus_path)" ZarrDaf(bogus_path)
+
+                empty_group_path = path * "/eg.dafs.zarr.zip#/"
+                @test_throws "empty group name after '#/' in ZarrDaf path: $(empty_group_path)" ZarrDaf(
+                    empty_group_path,
+                )
 
                 missing_zip = path * "/missing.daf.zarr.zip"
                 @test_throws "no such file: $(abspath(missing_zip))" ZarrDaf(missing_zip)
@@ -3839,6 +3846,78 @@ nested_test("data") do
                         return nothing
                     end
                 end
+            end
+        end
+
+        nested_test("http") do
+            mktempdir() do path
+                zarr_path = path * "/test.daf.zarr"
+                writer = ZarrDaf(zarr_path, "w+"; name = "served!")
+                add_axis!(writer, "cell", CELL_NAMES)
+                add_axis!(writer, "gene", GENE_NAMES)
+                set_scalar!(writer, "depth", 1)
+                set_vector!(writer, "gene", "marker", MARKER_GENES_BY_DEPTH[1])
+                set_matrix!(writer, "cell", "gene", "UMIs", UMIS_BY_DEPTH[1]; relayout = false)
+
+                store = Zarr.DirectoryStore(zarr_path)
+                handler = request -> begin
+                    key = String(lstrip(request.target, '/'))
+                    if occursin("..", key)
+                        return HTTP.Response(404, "Error: bad key $(key)")
+                    end
+                    bytes = store[key]
+                    if bytes === nothing
+                        return HTTP.Response(404, "Error: Key $(key) not found")
+                    end
+                    return HTTP.Response(200, bytes)
+                end
+                server = HTTP.serve!(handler, Sockets.localhost, 0; listenany = true)
+                try
+                    port = server.listener.hostport
+                    url = "http://localhost:$(port)"
+
+                    nested_test("invalid_mode") do
+                        @test_throws chomp(
+                            """
+                      can't open an http(s)://... ZarrDaf in mode: r+; the HTTP backend is read-only: $(url)
+                      """,
+                        ) ZarrDaf(url, "r+")
+                        return nothing
+                    end
+
+                    nested_test("not_a_daf") do
+                        bad_url = "$(url)/nonexistent"
+                        @test_throws "failed to open remote zarr group: $(bad_url)" ZarrDaf(bad_url)
+                        return nothing
+                    end
+
+                    nested_test("read") do
+                        daf = ZarrDaf(url)
+                        @test string(daf) == "ReadOnly ZarrDaf $(url).read_only"
+                        @test complete_path(daf) == url
+                        @test scalars_set(daf) == Set(["depth"])
+                        @test axes_set(daf) == Set(["cell", "gene"])
+                        @test vectors_set(daf, "gene") == Set(["marker"])
+                        @test isempty(vectors_set(daf, "cell"))
+                        @test matrices_set(daf, "cell", "gene") == Set(["UMIs"])
+                        @test matrices_set(daf, "gene", "cell") == Set(["UMIs"])
+                        @test get_scalar(daf, "depth") == 1
+                        @test axis_vector(daf, "cell") == CELL_NAMES
+                        @test axis_vector(daf, "gene") == GENE_NAMES
+                        @test get_vector(daf, "gene", "marker") == MARKER_GENES_BY_DEPTH[1]
+                        @test get_matrix(daf, "cell", "gene", "UMIs") == UMIS_BY_DEPTH[1]
+                        return nothing
+                    end
+
+                    nested_test("named") do
+                        daf = ZarrDaf(url; name = "override!")
+                        @test string(daf) == "ReadOnly ZarrDaf override!.read_only"
+                        return nothing
+                    end
+                finally
+                    close(server)
+                end
+                return nothing
             end
         end
     end

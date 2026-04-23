@@ -644,7 +644,7 @@
 )
 </code>
 </pre>
-<p>Storage in a Zarr directory tree or Zarr ZIP archive.
+<p>Storage in a Zarr directory tree, Zarr ZIP archive, or remote HTTP(S) Zarr group.
 </p>
 <p>The 
 <code>path
@@ -671,10 +671,32 @@
 <code>group
 </code>.
 </li>
+<li>
+<code>http://…
+</code> or 
+<code>https://…
+</code> — a URL pointing at a remote Zarr directory that contains a 
+<code>Daf
+</code> data set, served over HTTP (e.g. via a static file server, 
+<code>HTTP.serve(store, path, …)
+</code>, or 
+<code>xpublish
+</code>). Only 
+<code>mode = &quot;r&quot;
+</code> is supported; the HTTP backend is strictly read-only and returns a 
+<a href="read_only.html#DataAxesFormats.ReadOnly.DafReadOnly">
+<code>DafReadOnly
+</code>
+</a>. The remote directory 
+<strong>must
+</strong> contain a consolidated 
+<code>.zmetadata
+</code> file, and the served content 
+<strong>must
+</strong> be stable for the lifetime of the open handle: per-chunk GETs happen lazily, so if the underlying data set is rewritten or relocated while the handle is open, subsequent reads may see inconsistent bytes.
+</li>
 </ul>
-<p>The backend (directory or ZIP) is selected from the 
-<code>.zip
-</code> file-name suffix. The ZIP backend is append-only: properties cannot be deleted and axes cannot be reordered (attempts to do so raise an error).
+<p>The backend (directory, ZIP, or HTTP) is selected from the path prefix / file-name suffix. The ZIP backend is append-only: properties cannot be deleted and axes cannot be reordered (attempts to do so raise an error).
 </p>
 <div class="admonition is-info" id="Note-c547a1dadec09805">
 <header class="admonition-header">Note

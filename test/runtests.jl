@@ -5,7 +5,9 @@ using DataAxesFormats
 using Documenter
 using ExceptionUnwrapping
 using HDF5
+using HTTP
 using LinearAlgebra
+using Sockets
 using Logging
 using Muon
 using NamedArrays

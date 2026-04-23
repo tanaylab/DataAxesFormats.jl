@@ -181,7 +181,7 @@ DAF_ZARR_ZIP_MAX_FILE_SIZE::Int = 1 << 37
         [name::Maybe{AbstractString} = nothing]
     )
 
-Storage in a Zarr directory tree or Zarr ZIP archive.
+Storage in a Zarr directory tree, Zarr ZIP archive, or remote HTTP(S) Zarr group.
 
 The `path` is a filesystem path that follows one of these conventions:
 
@@ -189,9 +189,15 @@ The `path` is a filesystem path that follows one of these conventions:
   - `something.daf.zarr.zip` — a Zarr ZIP archive containing a single `Daf` data set at its root.
   - `something.dafs.zarr.zip#/group` — a Zarr ZIP archive containing `Daf` data sets in sub-groups, addressed by
     `group`.
+  - `http://…` or `https://…` — a URL pointing at a remote Zarr directory that contains a `Daf` data set, served over
+    HTTP (e.g. via a static file server, `HTTP.serve(store, path, …)`, or `xpublish`). Only `mode = "r"` is supported;
+    the HTTP backend is strictly read-only and returns a [`DafReadOnly`](@ref). The remote directory **must** contain
+    a consolidated `.zmetadata` file, and the served content **must** be stable for the lifetime of the open handle:
+    per-chunk GETs happen lazily, so if the underlying data set is rewritten or relocated while the handle is open,
+    subsequent reads may see inconsistent bytes.
 
-The backend (directory or ZIP) is selected from the `.zip` file-name suffix. The ZIP backend is append-only:
-properties cannot be deleted and axes cannot be reordered (attempts to do so raise an error).
+The backend (directory, ZIP, or HTTP) is selected from the path prefix / file-name suffix. The ZIP backend is
+append-only: properties cannot be deleted and axes cannot be reordered (attempts to do so raise an error).
 
 !!! note
 
@@ -252,6 +258,9 @@ function ZarrDaf(
     mode::AbstractString = "r";
     name::Maybe{AbstractString} = nothing,
 )::Union{ZarrDaf, DafReadOnly}
+    if startswith(path, "http://") || startswith(path, "https://")
+        return open_http_zarr_daf(path, mode; name)
+    end
     (is_read_only, create_if_missing, truncate_if_exists) = Formats.parse_mode(mode)
     (container_path, group_path, is_zip) = parse_zarr_path(path)
     full_container_path = abspath(container_path)
@@ -331,6 +340,41 @@ function ZarrDaf(
     end
 end
 
+function open_http_zarr_daf(url::AbstractString, mode::AbstractString; name::Maybe{AbstractString})::DafReadOnly
+    if mode != "r"
+        error("can't open an http(s)://... ZarrDaf in mode: $(mode); the HTTP backend is read-only: $(url)")
+    end
+    root = try
+        Zarr.zopen(String(url))  # NOJET
+    catch exception
+        error(
+            "failed to open remote zarr group: $(url)\n" *
+            "the remote directory must contain a consolidated `.zmetadata` file\n" *
+            "underlying error: $(exception)",
+        )
+    end
+    if !(root isa ZGroup)
+        error("not a zarr group: $(url)")  # UNTESTED
+    end
+    if !haskey(root.arrays, DAF_KEY)
+        error("not a daf data set: $(url)")  # UNTESTED
+    end
+    verify_daf(root, url)
+    if name === nothing && haskey(root.groups, SCALARS)
+        scalars_sub = root.groups[SCALARS]
+        if haskey(scalars_sub.arrays, "name")
+            name = string(read_scalar_value(scalars_sub.arrays["name"]))  # UNTESTED
+        end
+    end
+    if name === nothing
+        name = String(url)
+    end
+    name = unique_name(name)
+    daf = ZarrDaf(name, Internal(; is_frozen = true), root, "r", String(url))
+    @debug "Daf: $(brief(daf)) root: $(root)" _group = :daf_repos
+    return read_only(daf)
+end
+
 """
     ZarrDaf(; [name::Maybe{AbstractString} = nothing])::ZarrDaf
 
@@ -380,7 +424,11 @@ function parse_zarr_path(path::AbstractString)::Tuple{String, Maybe{String}, Boo
     parts = split(path, ".dafs.zarr.zip#/")
     if length(parts) != 1
         @assert length(parts) == 2 "can't parse as <stem>.dafs.zarr.zip#/<group>: $(path)"
-        return (String(parts[1]) * ".dafs.zarr.zip", String(parts[2]), true)
+        group = String(parts[2])
+        if isempty(group)
+            error("empty group name after '#/' in ZarrDaf path: $(path)")
+        end
+        return (String(parts[1]) * ".dafs.zarr.zip", group, true)
     end
     if endswith(path, ".daf.zarr.zip")
         return (String(path), nothing, true)
@@ -1201,6 +1249,8 @@ function reopen_zgroup_child!(group::ZGroup, name::AbstractString)::Nothing
         group.arrays[name] = child
     elseif child isa ZGroup
         group.groups[name] = child
+    else
+        error("failed to reopen zarr child: $(child_zarr_path(group, name))")  # UNTESTEd
     end
     return nothing
 end
@@ -1283,6 +1333,7 @@ function Reorder.format_replace_reorder!(
         Reorder.tick_crash_counter!(crash_counter)
     end
 
+    refresh_consolidated_metadata!(daf)
     return nothing
 end
 
@@ -1519,6 +1570,7 @@ function Reorder.format_reset_reorder!(daf::ZarrDaf)::Bool
     end
 
     rm(backup_root; force = true, recursive = true)
+    refresh_consolidated_metadata!(daf)
     return true
 end
 
