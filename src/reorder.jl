@@ -288,11 +288,11 @@ function reorder_axes!(
             @assert !format_has_reorder_lock(daf) "stale reorder lock on: $(daf.name)"
             format_lock_reorder!(daf, operation_id)
         end
-    catch  # FLAKY TESTED
-        for i in n_locked:-1:1  # UNTESTED
-            Formats.end_data_write_lock(sorted_dafs[i], "reorder_axes!")  # UNTESTED
+    catch
+        for index in n_locked:-1:1
+            Formats.end_data_write_lock(sorted_dafs[index], "reorder_axes!")
         end
-        rethrow()  # UNTESTED
+        rethrow()
     end
 
     try

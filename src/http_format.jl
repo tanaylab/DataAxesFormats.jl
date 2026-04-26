@@ -62,6 +62,13 @@ otherwise, the `url` itself is used.
     Vectors and matrices returned by this format alias `Vector{UInt8}` buffers that are held alive by the Daf cache.
     Calling [`empty_cache!`](@ref DataAxesFormats.Formats.empty_cache!) on this `HttpDaf` releases those buffers, so any
     previously returned array reference becomes dangling. Drop all such references before emptying the cache.
+
+!!! note
+
+    [`ZipDaf`](@ref DataAxesFormats.ZipFormat.ZipDaf) archives intentionally do not contain the `metadata.zip` /
+    `axes/metadata.json` sidecars `HttpDaf` reads, so an `unzip foo.daf.zip -d foo.daf/` produces a directory that
+    lacks them. Before exposing such a directory over HTTP, open it once locally with `FilesDaf("foo.daf")` (any
+    mode) so `FilesFormat.ensure_metadata_zip!` builds the sidecar.
 """
 struct HttpDaf <: DafReader
     name::AbstractString

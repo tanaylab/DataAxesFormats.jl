@@ -443,6 +443,32 @@ HttpDaf(
 </p>
 </div>
 </div>
+<div class="admonition is-info" id="Note-e4a1541388d78914">
+<header class="admonition-header">Note
+<a class="admonition-anchor" href="#Note-e4a1541388d78914" title="Permalink">
+</a>
+</header>
+<div class="admonition-body">
+<p>
+<a href="zip_files.html#DataAxesFormats.ZipFormat.ZipDaf">
+<code>ZipDaf
+</code>
+</a> archives intentionally do not contain the 
+<code>metadata.zip
+</code> / 
+<code>axes/metadata.json
+</code> sidecars 
+<code>HttpDaf
+</code> reads, so an 
+<code>unzip foo.daf.zip -d foo.daf/
+</code> produces a directory that lacks them. Before exposing such a directory over HTTP, open it once locally with 
+<code>FilesDaf(&quot;foo.daf&quot;)
+</code> (any mode) so 
+<code>FilesFormat.ensure_metadata_zip!
+</code> builds the sidecar.
+</p>
+</div>
+</div>
 </div>
 </section>
 </details>

@@ -775,6 +775,51 @@
 </section>
 </details>
 </article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.MmapZipStores.remove_entries_from_central_directory!">
+<a class="docstring-binding" href="#DataAxesFormats.MmapZipStores.remove_entries_from_central_directory!">
+<code>DataAxesFormats.MmapZipStores.remove_entries_from_central_directory!
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">remove_entries_from_central_directory!(
+    store::MmapZipStore,
+    keys::AbstractVector{&lt;:AbstractString},
+)::Nothing
+</code>
+</pre>
+<p>Drop the named entries from the archive&#39;s central directory. Local file headers and data bytes for the removed entries remain in the file as orphan regions (
+<code>MmapZipStore
+</code> is append-only with respect to data); only the central directory and end-of-central-directory records are rewritten, so the entries become unreachable through ordinary ZIP enumeration. Idempotent: keys absent from the archive are silently ignored, and the function is a no-op when none of 
+<code>keys
+</code> are present.
+</p>
+<p>Intended for stripping known-stale sidecar entries from a Daf archive that was produced by an external tool over a 
+<a href="files_format.html#DataAxesFormats.FilesFormat.FilesDaf">
+<code>FilesDaf
+</code>
+</a> directory (e.g. the 
+<code>metadata.zip
+</code> and 
+<code>axes/metadata.json
+</code> files written by 
+<code>FilesFormat.ensure_metadata_zip!
+</code>, which have no role inside a 
+<a href="zip_files.html#DataAxesFormats.ZipFormat.ZipDaf">
+<code>ZipDaf
+</code>
+</a> archive).
+</p>
+</div>
+</section>
+</details>
+</article>
 <h2 id="Index">
 <a class="docs-heading-anchor" href="#Index">Index
 </a>
@@ -799,6 +844,12 @@
 <li>
 <a href="mmap_zip_store.html#DataAxesFormats.MmapZipStores.patch_mmap_zip_entry_crc!">
 <code>DataAxesFormats.MmapZipStores.patch_mmap_zip_entry_crc!
+</code>
+</a>
+</li>
+<li>
+<a href="mmap_zip_store.html#DataAxesFormats.MmapZipStores.remove_entries_from_central_directory!">
+<code>DataAxesFormats.MmapZipStores.remove_entries_from_central_directory!
 </code>
 </a>
 </li>

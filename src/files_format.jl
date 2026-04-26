@@ -177,6 +177,10 @@ MINOR_VERSION::UInt8 = 0
 
 Storage in disk files in some directory.
 
+By convention the root directory name carries the `.daf` suffix (e.g. `cells.daf/`), but this isn't enforced — any
+directory containing a `daf.json` is a valid `FilesDaf`. The matching single-file ZIP form lives under
+[`ZipDaf`](@ref DataAxesFormats.ZipFormat.ZipDaf), with the `.daf.zip` and `.dafs.zip#/group` path conventions.
+
 When opening an existing data set, if `name` is not specified, and there exists a "name" scalar property, it is used as
 the name. Otherwise, the `path` will be used as the name.
 
@@ -1283,7 +1287,7 @@ function add_json_files_in(
 )::Nothing
     full_directory = "$(base_directory)/$(relative_directory)"
     if !isdir(full_directory)
-        return nothing  # UNTESTED
+        return nothing
     end
     for name in readdir(full_directory)
         if endswith(name, ".json")

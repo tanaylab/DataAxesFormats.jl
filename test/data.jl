@@ -28,6 +28,17 @@ BATCH_CELL_SPARSE_LABELS = begin
     matrix
 end
 
+function write_deflate_entry(
+    writer::ZipArchives.ZipWriter,
+    name::AbstractString,
+    data::Union{AbstractString, AbstractVector{UInt8}},
+)::Nothing
+    bytes = data isa AbstractString ? Vector{UInt8}(data) : Vector{UInt8}(data)
+    ZipArchives.zip_newfile(writer, name; compress = true, compression_method = ZipArchives.Deflate)
+    write(writer, bytes)
+    return nothing
+end
+
 function populate_served_daf!(writer::DafWriter)::Nothing
     set_scalar!(writer, "name", "served!")
     set_scalar!(writer, "depth", Int32(1))
@@ -3379,6 +3390,200 @@ function test_format(daf::DafWriter; append_only::Bool = false)
     end
 end
 
+# Exercise the parts of the lifecycle that are identical for every append-only ZIP-backed Daf
+# format (today: `ZarrDaf` over `.daf.zarr.zip`, `ZipDaf` over `.daf.zip`). The single-Daf and
+# multi-Daf path forms, the empty / two-phase reserve-and-patch round trip, and the deletion /
+# overwrite rejection messages all parameterize cleanly. Format-specific concerns (path-form
+# error wording, sidecar stripping, conversion round-trips) are tested in each format's own
+# block above this helper's call site.
+function test_zip_backed_format(;
+    open_format::Type{<:DafWriter},
+    type_name::AbstractString,
+    single_daf_suffix::AbstractString,
+    multi_dafs_suffix::AbstractString,
+    delete_error::AbstractString,
+    open_directory_format::Type{<:DafWriter},
+    directory_suffix::AbstractString,
+    extracted_metadata_sidecar::AbstractString,
+)::Nothing
+    # NestedTests replays each leaf path from the root, so this helper is invoked once per leaf.
+    # The previous leaf's `MmapZipStore` is held only by a global weak-cache entry — GC here
+    # releases it (and its 128 GiB virtual-address reservation) before the new leaf opens its own.
+    GC.gc()
+
+    nested_test("single") do
+        mktempdir() do path
+            zip_path = path * "/test" * single_daf_suffix
+            daf = open_format(zip_path, "w+"; name = "zip!")
+            @test complete_path(daf) == abspath(zip_path)
+            @test daf.name == "zip!"
+            @test string(daf) == "$(type_name) zip!"
+            @test string(read_only(daf)) == "ReadOnly $(type_name) zip!.read_only"
+            test_format(daf; append_only = true)
+            daf = open_format(zip_path, "r+")
+            @test complete_path(daf) == abspath(zip_path)
+            daf = open_format(zip_path, "r")
+            @test complete_path(daf) == abspath(zip_path)
+            @test endswith(daf.name, ".read_only")
+            return nothing
+        end
+    end
+
+    nested_test("multi") do
+        mktempdir() do path
+            container_path = path * "/test" * multi_dafs_suffix
+            zip_path = container_path * "#/root"
+            daf = open_format(zip_path, "w+"; name = "zip!")
+            @test complete_path(daf) == abspath(container_path) * "#/root"
+            @test daf.name == "zip!"
+            test_format(daf; append_only = true)
+            return nothing
+        end
+    end
+
+    nested_test("named_from_scalar") do
+        # Open a fresh archive without `name = ...`, after a writable open had stored a `name`
+        # scalar — the constructor should adopt the stored value as the daf's name.
+        mktempdir() do path
+            zip_path = path * "/test" * single_daf_suffix
+            writer = open_format(zip_path, "w+"; name = "writer!")
+            set_scalar!(writer, "name", "stored!")
+            writer = nothing  # NOLINT
+            GC.gc()
+
+            reopened = open_format(zip_path, "r")
+            @test string(reopened) == "ReadOnly $(type_name) stored!.read_only"
+            return nothing
+        end
+    end
+
+    nested_test("empty_crc") do
+        mktempdir() do path
+            zip_path = path * "/test" * single_daf_suffix
+            daf = open_format(zip_path, "w+"; name = "zip!")
+            add_axis!(daf, "cell", CELL_NAMES)
+            add_axis!(daf, "gene", GENE_NAMES)
+            empty_dense_vector!(daf, "gene", "score", Int32) do empty_vector
+                empty_vector .= Int32[11, 22, 33, 44]
+                return nothing
+            end
+            empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16) do empty_matrix
+                empty_matrix .= Int16.(UMIS_BY_DEPTH[1])
+                return nothing
+            end
+            empty_sparse_vector!(daf, "gene", "marker", Float32, 2, Int32) do nzind, nzval
+                nzind .= Int32[2, 4]
+                nzval .= Float32[1.5, 2.5]
+                return nothing
+            end
+            daf = nothing  # NOLINT
+            GC.gc()
+
+            reopened = open_format(zip_path, "r")
+            @test get_vector(reopened, "gene", "score") == Int32[11, 22, 33, 44]
+            @test get_matrix(reopened, "cell", "gene", "UMIs") == Int16.(UMIS_BY_DEPTH[1])
+            marker = get_vector(reopened, "gene", "marker")
+            @test marker[2] ≈ 1.5f0
+            @test marker[4] ≈ 2.5f0
+            @test marker[1] == 0.0f0
+            @test marker[3] == 0.0f0
+            return nothing
+        end
+    end
+
+    nested_test("append_only_rejects") do
+        nested_test("delete_scalar") do
+            mktempdir() do path
+                zip_path = path * "/test" * single_daf_suffix
+                daf = open_format(zip_path, "w+"; name = "zip!")
+                set_scalar!(daf, "depth", 1)
+                @test_throws delete_error delete_scalar!(daf, "depth")
+                return nothing
+            end
+        end
+
+        nested_test("overwrite_scalar") do
+            mktempdir() do path
+                zip_path = path * "/test" * single_daf_suffix
+                daf = open_format(zip_path, "w+"; name = "zip!")
+                set_scalar!(daf, "depth", 1)
+                @test_throws delete_error set_scalar!(daf, "depth", 2; overwrite = true)
+                return nothing
+            end
+        end
+
+        nested_test("delete_axis") do
+            mktempdir() do path
+                zip_path = path * "/test" * single_daf_suffix
+                daf = open_format(zip_path, "w+"; name = "zip!")
+                add_axis!(daf, "gene", GENE_NAMES)
+                @test_throws delete_error delete_axis!(daf, "gene")
+                return nothing
+            end
+        end
+
+        nested_test("delete_vector") do
+            mktempdir() do path
+                zip_path = path * "/test" * single_daf_suffix
+                daf = open_format(zip_path, "w+"; name = "zip!")
+                add_axis!(daf, "gene", GENE_NAMES)
+                set_vector!(daf, "gene", "marker", MARKER_GENES_BY_DEPTH[1])
+                @test_throws delete_error delete_vector!(daf, "gene", "marker")
+                return nothing
+            end
+        end
+
+        nested_test("delete_matrix") do
+            mktempdir() do path
+                zip_path = path * "/test" * single_daf_suffix
+                daf = open_format(zip_path, "w+"; name = "zip!")
+                add_axis!(daf, "cell", CELL_NAMES)
+                add_axis!(daf, "gene", GENE_NAMES)
+                set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[1]; relayout = false)
+                @test_throws delete_error delete_matrix!(daf, "cell", "gene", "UMIs"; relayout = false)
+                return nothing
+            end
+        end
+    end
+
+    # Populate the archive, decompose its entries back into a directory of the matching
+    # directory-form of this format (the `unzip` workflow), and verify the directory format reads
+    # the same data — and lazily rebuilt the missing metadata sidecar on its first open.
+    nested_test("unzip_round_trip") do
+        mktempdir() do path
+            zip_path = path * "/source" * single_daf_suffix
+            writer = open_format(zip_path, "w+"; name = "writer!")
+            add_axis!(writer, "cell", CELL_NAMES)
+            add_axis!(writer, "gene", GENE_NAMES)
+            set_vector!(writer, "gene", "marker", MARKER_GENES_BY_DEPTH[1])
+            set_matrix!(writer, "cell", "gene", "UMIs", UMIS_BY_DEPTH[1]; relayout = false)
+            writer = nothing  # NOLINT
+            GC.gc()
+
+            extracted_path = path * "/extracted" * directory_suffix
+            mkpath(extracted_path)
+            reader = ZipArchives.ZipReader(read(zip_path))
+            for entry_index in 1:ZipArchives.zip_nentries(reader)
+                entry_name = ZipArchives.zip_name(reader, entry_index)
+                entry_path = "$(extracted_path)/$(entry_name)"
+                mkpath(dirname(entry_path))
+                write(entry_path, ZipArchives.zip_readentry(reader, entry_index))
+            end
+
+            sidecar_path = "$(extracted_path)/$(extracted_metadata_sidecar)"
+            @test !isfile(sidecar_path)  # the archive never contained the sidecar
+
+            directory_daf = open_directory_format(extracted_path, "r+"; name = "extracted!")
+            @test isfile(sidecar_path)  # rebuilt by the directory format's ensure-on-open
+            @test get_vector(directory_daf, "gene", "marker") == MARKER_GENES_BY_DEPTH[1]
+            @test get_matrix(directory_daf, "cell", "gene", "UMIs"; relayout = false) == UMIS_BY_DEPTH[1]
+            return nothing
+        end
+    end
+
+    return nothing
+end
+
 nested_test("data") do
     nested_test("memory") do
         daf = MemoryDaf(; name = "memory!")
@@ -3808,6 +4013,180 @@ nested_test("data") do
         end
     end
 
+    nested_test("zip") do
+        nested_test("invalid") do
+            mktempdir() do path
+                @test_throws "invalid mode: a" ZipDaf(path * "/test.daf.zip", "a")
+                @test_throws "no such file: $(abspath(path * "/missing.daf.zip"))" ZipDaf(
+                    path * "/missing.daf.zip",
+                    "r+",
+                )
+
+                bogus_path = path * "/bogus.foo"
+                @test_throws "can't parse as ZipDaf path: $(bogus_path)" ZipDaf(bogus_path)
+
+                empty_group_path = path * "/eg.dafs.zip#/"
+                @test_throws "empty group name after '#/' in ZipDaf path: $(empty_group_path)" ZipDaf(empty_group_path)
+
+                bare_dafs_path = path * "/bare.dafs.zip"
+                @test_throws "missing '#/<group>' in plural ZipDaf path: $(bare_dafs_path)" ZipDaf(bare_dafs_path)
+
+                singular_with_group_path = path * "/singular.daf.zip#/oops"
+                @test_throws "can't address a sub-daf in a singular ZipDaf path" ZipDaf(singular_with_group_path)
+
+                sub_zip = path * "/sub.dafs.zip#/root"
+                ZipDaf(sub_zip, "w+")
+                @test_throws "can't truncate a sub-daf inside a ZipDaf; the ZIP backend is append-only" ZipDaf(
+                    sub_zip,
+                    "w",
+                )
+
+                version_path = path * "/version.daf.zip"
+                ZipDaf(version_path, "w+")
+                version_store = MmapZipStore(abspath(version_path); writable = true)
+                try
+                    remove_entries_from_central_directory!(version_store, String["daf.json"])
+                    version_store["daf.json"] = Vector{UInt8}("{\"version\":[2,0]}\n")
+                finally
+                    close(version_store)
+                end
+                GC.gc()
+                @test_throws chomp("""
+                             incompatible format version: 2.0
+                             for the daf zip archive: $(abspath(version_path))
+                             the code supports version: 1.0
+                             """) ZipDaf(version_path; name = "version!")
+
+                empty_zip_path = path * "/empty.daf.zip"
+                close(MmapZipStore(abspath(empty_zip_path); writable = true, create = true))
+                GC.gc()
+                @test_throws "not a daf data set: $(abspath(empty_zip_path))" ZipDaf(empty_zip_path)
+            end
+        end
+
+        test_zip_backed_format(;
+            open_format = ZipDaf,
+            type_name = "ZipDaf",
+            single_daf_suffix = ".daf.zip",
+            multi_dafs_suffix = ".dafs.zip",
+            delete_error = "ZipDaf is append-only",
+            open_directory_format = FilesDaf,
+            directory_suffix = ".daf",
+            extracted_metadata_sidecar = "metadata.zip",
+        )
+
+        nested_test("strip_files_daf_sidecars") do
+            # Build a FilesDaf directory (which writes the `metadata.zip` + `axes/metadata.json` sidecars), bundle
+            # its tree into a fresh archive (the `zip -r` workflow), and verify ZipDaf strips the sidecars on first
+            # writable open.
+            mktempdir() do path
+                files_path = path * "/source.daf"
+                files_daf = FilesDaf(files_path, "w+"; name = "source!")
+                add_axis!(files_daf, "cell", CELL_NAMES)
+                set_vector!(files_daf, "cell", "type", CELL_TYPES_BY_DEPTH[1])
+
+                @test isfile(files_path * "/metadata.zip")
+                @test isfile(files_path * "/axes/metadata.json")
+
+                zip_path = path * "/bundled.daf.zip"
+                store = MmapZipStore(abspath(zip_path); writable = true, create = true)
+                try
+                    for (root, _, filenames) in walkdir(files_path)
+                        for filename in filenames
+                            full_path = "$(root)/$(filename)"
+                            relative_path = relpath(full_path, files_path)
+                            store[relative_path] = read(full_path)
+                        end
+                    end
+                finally
+                    close(store)
+                end
+                GC.gc()
+
+                names_before = Set(ZipArchives.zip_names(ZipArchives.ZipReader(read(zip_path))))
+                @test "metadata.zip" in names_before
+                @test "axes/metadata.json" in names_before
+
+                ZipDaf(zip_path, "r+"; name = "bundled!")
+                GC.gc()
+
+                names_after = Set(ZipArchives.zip_names(ZipArchives.ZipReader(read(zip_path))))
+                @test !("metadata.zip" in names_after)
+                @test !("axes/metadata.json" in names_after)
+                @test "daf.json" in names_after
+                @test "axes/cell.txt" in names_after
+                @test "vectors/cell/type.json" in names_after
+                return nothing
+            end
+        end
+
+        nested_test("foreign_deflate_archive") do
+            # Build an archive whose entries are all deflate-compressed (the typical output of `zip -r`).
+            # On reads, every `try_mmap_entry_as` returns `nothing` (compressed entries can't be
+            # zero-copy mmap'd), so ZipDaf falls through to the decoded-bytes path in
+            # `read_entry_raw_bytes`, `read_entry_typed_vector`, and `read_entry_typed_matrix`.
+            mktempdir() do path
+                zip_path = path * "/foreign.daf.zip"
+                ZipArchives.ZipWriter(zip_path) do writer
+                    write_deflate_entry(writer, "daf.json", "{\"version\":[1,0]}\n")
+                    write_deflate_entry(writer, "axes/cell.txt", "alpha\nbeta\ngamma\n")
+                    write_deflate_entry(
+                        writer,
+                        "vectors/cell/score.json",
+                        "{\"format\":\"dense\",\"eltype\":\"Int32\"}\n",
+                    )
+                    write_deflate_entry(writer, "vectors/cell/score.data", reinterpret(UInt8, Int32[10, 20, 30]))
+                    write_deflate_entry(
+                        writer,
+                        "vectors/cell/label.json",
+                        "{\"format\":\"dense\",\"eltype\":\"String\"}\n",
+                    )
+                    write_deflate_entry(writer, "vectors/cell/label.txt", "first\nsecond\nthird\n")
+                    write_deflate_entry(
+                        writer,
+                        "matrices/cell/cell/edges.json",
+                        "{\"format\":\"dense\",\"eltype\":\"Int16\"}\n",
+                    )
+                    return write_deflate_entry(
+                        writer,
+                        "matrices/cell/cell/edges.data",
+                        reinterpret(UInt8, Int16[1, 2, 3, 4, 5, 6, 7, 8, 9]),
+                    )
+                end
+
+                daf = ZipDaf(zip_path, "r"; name = "foreign!")
+                @test get_vector(daf, "cell", "score") == Int32[10, 20, 30]
+                @test get_vector(daf, "cell", "label") == ["first", "second", "third"]
+                @test get_matrix(daf, "cell", "cell", "edges") == reshape(Int16[1, 2, 3, 4, 5, 6, 7, 8, 9], 3, 3)
+                return nothing
+            end
+        end
+
+        nested_test("reorder_axes_rejected") do
+            # Reorder is unsupported on the append-only ZIP backend. `reorder_axes!` exercises both
+            # `format_has_reorder_lock` (returns `false`) and `format_lock_reorder!` (raises).
+            mktempdir() do path
+                zip_path = path * "/test.daf.zip"
+                daf = ZipDaf(zip_path, "w+"; name = "zip!")
+                add_axis!(daf, "cell", CELL_NAMES)
+                @test_throws "ZipDaf is append-only; can't reorder" reorder_axes!(daf, Dict("cell" => [3, 1, 2]))
+                return nothing
+            end
+        end
+
+        nested_test("reset_reorder_axes_is_noop") do
+            # `reset_reorder_axes!` calls `format_reset_reorder!` which returns `false` (no lock to
+            # reset), exercising the corresponding ZipDaf method.
+            mktempdir() do path
+                zip_path = path * "/test.daf.zip"
+                daf = ZipDaf(zip_path, "w+"; name = "zip!")
+                add_axis!(daf, "cell", CELL_NAMES)
+                @test reset_reorder_axes!(daf) == false
+                return nothing
+            end
+        end
+    end
+
     nested_test("zarr") do
         nested_test("invalid") do
             mktempdir() do path
@@ -3893,7 +4272,7 @@ nested_test("data") do
             mktempdir() do path
                 zarr_path = path * "/test.daf.zarr"
                 daf = ZarrDaf(zarr_path, "w+"; name = "zarr!")
-                @test !isfile(zarr_path * "/.zmetadata")
+                @test isfile(zarr_path * "/.zmetadata")  # built lazily by `ensure_consolidated_metadata!` on open
                 set_scalar!(daf, "depth", 2)
                 @test isfile(zarr_path * "/.zmetadata")
 
@@ -4127,144 +4506,16 @@ nested_test("data") do
         end
 
         nested_test("zip") do
-            nested_test("single") do
-                mktempdir() do path
-                    zip_path = path * "/test.daf.zarr.zip"
-                    daf = ZarrDaf(zip_path, "w+"; name = "zarr!")
-                    @test complete_path(daf) == abspath(zip_path)
-                    @test daf.name == "zarr!"
-                    @test string(daf) == "ZarrDaf zarr!"
-                    @test string(read_only(daf)) == "ReadOnly ZarrDaf zarr!.read_only"
-                    test_format(daf; append_only = true)
-                    daf = ZarrDaf(zip_path, "r+")
-                    @test complete_path(daf) == abspath(zip_path)
-                    daf = ZarrDaf(zip_path, "r")
-                    @test complete_path(daf) == abspath(zip_path)
-                    @test endswith(daf.name, ".read_only")
-                    return nothing
-                end
-            end
-
-            nested_test("multi") do
-                mktempdir() do path
-                    zip_path = path * "/test.dafs.zarr.zip#/root"
-                    daf = ZarrDaf(zip_path, "w+"; name = "zarr!")
-                    @test complete_path(daf) == abspath(path * "/test.dafs.zarr.zip") * "#/root"
-                    @test daf.name == "zarr!"
-                    test_format(daf; append_only = true)
-                    return nothing
-                end
-            end
-
-            nested_test("empty_crc") do
-                mktempdir() do path
-                    zip_path = path * "/test.daf.zarr.zip"
-                    daf = ZarrDaf(zip_path, "w+"; name = "zarr!")
-                    add_axis!(daf, "cell", CELL_NAMES)
-                    add_axis!(daf, "gene", GENE_NAMES)
-                    empty_dense_vector!(daf, "gene", "score", Int32) do empty_vector
-                        empty_vector .= Int32[11, 22, 33, 44]
-                        return nothing
-                    end
-                    empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16) do empty_matrix
-                        empty_matrix .= Int16.(UMIS_BY_DEPTH[1])
-                        return nothing
-                    end
-                    empty_sparse_vector!(daf, "gene", "marker", Float32, 2, Int32) do nzind, nzval
-                        nzind .= Int32[2, 4]
-                        nzval .= Float32[1.5, 2.5]
-                        return nothing
-                    end
-                    daf = nothing  # NOLINT
-                    GC.gc()
-
-                    reopened = ZarrDaf(zip_path, "r")
-                    @test get_vector(reopened, "gene", "score") == Int32[11, 22, 33, 44]
-                    @test get_matrix(reopened, "cell", "gene", "UMIs") == Int16.(UMIS_BY_DEPTH[1])
-                    marker = get_vector(reopened, "gene", "marker")
-                    @test marker[2] ≈ 1.5f0
-                    @test marker[4] ≈ 2.5f0
-                    @test marker[1] == 0.0f0
-                    @test marker[3] == 0.0f0
-                    return nothing
-                end
-            end
-
-            nested_test("append_only_rejects") do
-                nested_test("delete_scalar") do
-                    mktempdir() do path
-                        zip_path = path * "/test.daf.zarr.zip"
-                        daf = ZarrDaf(zip_path, "w+"; name = "zarr!")
-                        set_scalar!(daf, "depth", 1)
-                        @test_throws "can't delete or overwrite properties in a zip-backed ZarrDaf; the ZIP backend is append-only" delete_scalar!(
-                            daf,
-                            "depth",
-                        )
-                        return nothing
-                    end
-                end
-
-                nested_test("overwrite_scalar") do
-                    mktempdir() do path
-                        zip_path = path * "/test.daf.zarr.zip"
-                        daf = ZarrDaf(zip_path, "w+"; name = "zarr!")
-                        set_scalar!(daf, "depth", 1)
-                        @test_throws "can't delete or overwrite properties in a zip-backed ZarrDaf; the ZIP backend is append-only" set_scalar!(
-                            daf,
-                            "depth",
-                            2;
-                            overwrite = true,
-                        )
-                        return nothing
-                    end
-                end
-
-                nested_test("delete_axis") do
-                    mktempdir() do path
-                        zip_path = path * "/test.daf.zarr.zip"
-                        daf = ZarrDaf(zip_path, "w+"; name = "zarr!")
-                        add_axis!(daf, "gene", GENE_NAMES)
-                        @test_throws "can't delete or overwrite properties in a zip-backed ZarrDaf; the ZIP backend is append-only" delete_axis!(
-                            daf,
-                            "gene",
-                        )
-                        return nothing
-                    end
-                end
-
-                nested_test("delete_vector") do
-                    mktempdir() do path
-                        zip_path = path * "/test.daf.zarr.zip"
-                        daf = ZarrDaf(zip_path, "w+"; name = "zarr!")
-                        add_axis!(daf, "gene", GENE_NAMES)
-                        set_vector!(daf, "gene", "marker", MARKER_GENES_BY_DEPTH[1])
-                        @test_throws "can't delete or overwrite properties in a zip-backed ZarrDaf; the ZIP backend is append-only" delete_vector!(
-                            daf,
-                            "gene",
-                            "marker",
-                        )
-                        return nothing
-                    end
-                end
-
-                nested_test("delete_matrix") do
-                    mktempdir() do path
-                        zip_path = path * "/test.daf.zarr.zip"
-                        daf = ZarrDaf(zip_path, "w+"; name = "zarr!")
-                        add_axis!(daf, "cell", CELL_NAMES)
-                        add_axis!(daf, "gene", GENE_NAMES)
-                        set_matrix!(daf, "cell", "gene", "UMIs", UMIS_BY_DEPTH[1]; relayout = false)
-                        @test_throws "can't delete or overwrite properties in a zip-backed ZarrDaf; the ZIP backend is append-only" delete_matrix!(
-                            daf,
-                            "cell",
-                            "gene",
-                            "UMIs";
-                            relayout = false,
-                        )
-                        return nothing
-                    end
-                end
-            end
+            return test_zip_backed_format(;
+                open_format = ZarrDaf,
+                type_name = "ZarrDaf",
+                single_daf_suffix = ".daf.zarr.zip",
+                multi_dafs_suffix = ".dafs.zarr.zip",
+                delete_error = "can't delete or overwrite properties in a zip-backed ZarrDaf; the ZIP backend is append-only",
+                open_directory_format = ZarrDaf,
+                directory_suffix = ".daf.zarr",
+                extracted_metadata_sidecar = ".zmetadata",
+            )
         end
 
         nested_test("http") do

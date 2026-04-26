@@ -31,6 +31,7 @@ using ..Readers
 using ..Views
 using ..Writers
 using ..ZarrFormat
+using ..ZipFormat
 
 using TanayLabUtilities
 
@@ -143,6 +144,8 @@ Open a `Daf` data set, dispatching to the appropriate backend based on `path`:
 
   - If `path` ends with `.daf.zarr`, ends with `.daf.zarr.zip`, or contains `.dafs.zarr.zip#` (followed by a sub-daf
     group path), open a [`ZarrDaf`](@ref).
+  - Otherwise, if `path` ends with `.daf.zip` or contains `.dafs.zip#` (followed by a sub-daf group path), open a
+    [`ZipDaf`](@ref).
   - Otherwise, if `path` starts with `http://` or `https://`, open an [`HttpDaf`](@ref). Only `mode = "r"` is supported
     for the HTTP backend; any other mode raises an error.
   - Otherwise, if `path` ends with `.h5df` or contains `.h5dfs#` (followed by a group path), open an [`H5df`](@ref)
@@ -156,6 +159,8 @@ function open_daf(
 )::Union{DafReader, DafWriter}
     if endswith(path, ".daf.zarr") || endswith(path, ".daf.zarr.zip") || occursin(".dafs.zarr.zip#", path)
         return ZarrDaf(path, mode; name)
+    elseif endswith(path, ".daf.zip") || occursin(".dafs.zip#", path)
+        return ZipDaf(path, mode; name)
     elseif startswith(path, "http://") || startswith(path, "https://")
         if mode != "r"
             error("can't open an http(s)://... HttpDaf in mode: $(mode); the HTTP backend is read-only: $(path)")

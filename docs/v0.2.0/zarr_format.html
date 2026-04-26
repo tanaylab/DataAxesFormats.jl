@@ -854,6 +854,28 @@
 </p>
 </div>
 </div>
+<div class="admonition is-info" id="Note-6bf7696efcbe95f4">
+<header class="admonition-header">Note
+<a class="admonition-anchor" href="#Note-6bf7696efcbe95f4" title="Permalink">
+</a>
+</header>
+<div class="admonition-body">
+<p>
+<code>.daf.zarr.zip
+</code> archives written by this code do not contain the 
+<code>.zmetadata
+</code> consolidated metadata sidecar, because the ZIP central directory plays the same enumeration role. Consequently, an 
+<code>unzip foo.daf.zarr.zip -d foo.daf.zarr/
+</code> produces a directory that lacks 
+<code>.zmetadata
+</code>. Before exposing such a directory over HTTP, open it once locally with 
+<code>ZarrDaf(&quot;foo.daf.zarr&quot;)
+</code> (any mode) so 
+<code>ensure_consolidated_metadata!
+</code> builds the sidecar.
+</p>
+</div>
+</div>
 </div>
 </section>
 </details>

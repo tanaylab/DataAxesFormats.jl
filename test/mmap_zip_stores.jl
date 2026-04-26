@@ -242,5 +242,46 @@ nested_test("mmap_zip_stores") do
                 close(store)
             end
         end
+
+        nested_test("remove_entries_from_central_directory") do
+            store = MmapZipStore(zip_path; writable = true, create = true, truncate = true)
+            try
+                store["first"] = Vector{UInt8}("alpha")
+                store["middle"] = Vector{UInt8}("beta")
+                store["last"] = Vector{UInt8}("gamma")
+            finally
+                close(store)
+            end
+
+            store = MmapZipStore(zip_path; writable = true)
+            try
+                remove_entries_from_central_directory!(store, String["middle", "absent"])
+                @test haskey(store, "first")
+                @test !haskey(store, "middle")
+                @test haskey(store, "last")
+                @test String(copy(store["first"])) == "alpha"
+                @test String(copy(store["last"])) == "gamma"
+                @test store["middle"] === nothing
+                # Idempotent: removing entries that are already gone is a no-op.
+                remove_entries_from_central_directory!(store, String["middle"])
+                @test haskey(store, "first")
+                @test haskey(store, "last")
+            finally
+                close(store)
+            end
+
+            reopened_store = MmapZipStore(zip_path)
+            try
+                @test sort(Zarr.subkeys(reopened_store, "")) == ["first", "last"]
+                @test String(copy(reopened_store["first"])) == "alpha"
+                @test String(copy(reopened_store["last"])) == "gamma"
+            finally
+                close(reopened_store)
+            end
+
+            zip_reader = ZipArchives.ZipReader(read(zip_path))
+            @test ZipArchives.zip_nentries(zip_reader) == 2
+            @test sort([ZipArchives.zip_name(zip_reader, i) for i in 1:ZipArchives.zip_nentries(zip_reader)]) == ["first", "last"]
+        end
     end
 end

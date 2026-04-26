@@ -143,6 +143,9 @@ import ..Formats
 import ..Formats.Internal
 import ..Readers.base_array
 import ..Reorder
+import ..ZipFormat.SharedMmapZipStoreHandle
+import ..ZipFormat.acquire_shared_mmap_zip_store!
+import ..ZipFormat.parse_zip_archive_path
 using TanayLabUtilities
 
 """
@@ -229,6 +232,14 @@ error; use `r+` or `w+` to open a sub-daf for writing without truncation.
     an error if the first open was read-only. Release the read-only handle first, or open the writable instance first.
     The directory backend does not share a store — each open creates its own independent `DirectoryStore` over the
     same filesystem tree.
+
+!!! note
+
+    `.daf.zarr.zip` archives written by this code do not contain the `.zmetadata` consolidated metadata sidecar,
+    because the ZIP central directory plays the same enumeration role. Consequently, an
+    `unzip foo.daf.zarr.zip -d foo.daf.zarr/` produces a directory that lacks `.zmetadata`. Before exposing such a
+    directory over HTTP, open it once locally with `ZarrDaf("foo.daf.zarr")` (any mode) so
+    `ensure_consolidated_metadata!` builds the sidecar.
 """
 struct ZarrDaf <: DafWriter
     name::AbstractString
@@ -236,21 +247,6 @@ struct ZarrDaf <: DafWriter
     root::ZGroup
     mode::AbstractString
     path::AbstractString
-end
-
-# Weak-cache entry pairing an open [`MmapZipStore`](@ref) with the data_lock shared by every
-# sub-ZarrDaf of that archive. `MmapZipStore` is stateful (single `io_stream`, archive-wide mmap,
-# appended-entry mmap table), so sub-dafs of the same archive in the same process must share one
-# instance to avoid corrupting the archive with two independent writers. `is_writable` records the
-# mode the store was opened in, so that a later sub-ZarrDaf opening the same archive in an
-# incompatible mode can be rejected cleanly.
-mutable struct SharedMmapZipStoreHandle
-    store::MmapZipStore
-    data_lock::ExtendedReadWriteLock
-    is_writable::Bool
-    function SharedMmapZipStoreHandle(store::MmapZipStore, data_lock::ExtendedReadWriteLock, is_writable::Bool)  # FLAKY TESTED
-        return new(store, data_lock, is_writable)
-    end
 end
 
 function ZarrDaf(
@@ -279,25 +275,13 @@ function ZarrDaf(
         end
         purge = truncate_if_exists && group_path === nothing
 
-        shared_handle = get_through_global_weak_cache(full_container_path, (:daf, :zarr_zip); purge) do _
-            return SharedMmapZipStoreHandle(
-                MmapZipStore(
-                    full_container_path;
-                    writable = !is_read_only,
-                    create = create_if_missing,
-                    truncate = purge,
-                    max_file_size = DAF_ZARR_ZIP_MAX_FILE_SIZE,
-                ),
-                ExtendedReadWriteLock(),
-                !is_read_only,
-            )
-        end
-        if !is_read_only && !shared_handle.is_writable
-            error(  # UNTESTED
-                "zarr zip file is already open read-only in this process; " *
-                "release the existing handle before opening it for write: $(full_container_path)",
-            )
-        end
+        shared_handle = acquire_shared_mmap_zip_store!(;
+            container_path = full_container_path,
+            is_read_only = is_read_only,
+            create_if_missing = create_if_missing,
+            truncate = purge,
+            max_file_size = DAF_ZARR_ZIP_MAX_FILE_SIZE,
+        )
         store = shared_handle.store
     else
         @assert group_path === nothing
@@ -332,6 +316,7 @@ function ZarrDaf(
         Internal(; is_frozen = is_read_only, data_lock = shared_handle.data_lock, shared_resource = shared_handle)
     end
     daf = ZarrDaf(name, internal, root, mode, full_path)
+    ensure_consolidated_metadata!(daf)
     @debug "Daf: $(brief(daf)) root: $(root)" _group = :daf_repos
     if is_read_only
         return read_only(daf)
@@ -415,23 +400,25 @@ function ZarrDaf(; name::Maybe{AbstractString} = nothing)::ZarrDaf
     return daf
 end
 
-# Parse the user-facing `path` into `(container_path, group_path, is_zip)`:
-#   foo.daf.zarr              → (foo.daf.zarr,      nothing, false)
-#   foo.daf.zarr.zip          → (foo.daf.zarr.zip,  nothing, true)
-#   foo.dafs.zarr.zip#/group  → (foo.dafs.zarr.zip, "group", true)
-# Anything else is a hard error.
+# Parse the user-facing `path` into `(container_path, group_path, is_zip)`. Three valid forms:
+#   foo.daf.zarr              → (foo.daf.zarr,      nothing, false)  # directory
+#   foo.daf.zarr.zip          → (foo.daf.zarr.zip,  nothing, true)   # singular ZIP, no group
+#   foo.dafs.zarr.zip#/group  → (foo.dafs.zarr.zip, "group", true)   # plural ZIP, group required
+# The two ZIP forms are recognized by `parse_zip_archive_path`, which also rejects the
+# cardinality near-misses with explicit errors: a `#/group` fragment on a `.daf.zarr.zip`
+# path, and a bare `.dafs.zarr.zip` path with no `#/group`. Only the directory form
+# `.daf.zarr` is local to ZarrDaf. Anything else is a hard error.
 function parse_zarr_path(path::AbstractString)::Tuple{String, Maybe{String}, Bool}
-    parts = split(path, ".dafs.zarr.zip#/")
-    if length(parts) != 1
-        @assert length(parts) == 2 "can't parse as <stem>.dafs.zarr.zip#/<group>: $(path)"
-        group = String(parts[2])
-        if isempty(group)
-            error("empty group name after '#/' in ZarrDaf path: $(path)")
-        end
-        return (String(parts[1]) * ".dafs.zarr.zip", group, true)
-    end
-    if endswith(path, ".daf.zarr.zip")
-        return (String(path), nothing, true)
+    zip_match = parse_zip_archive_path(
+        path;
+        single_daf_suffix = ".daf.zarr.zip",
+        multi_dafs_suffix = ".dafs.zarr.zip",
+        multi_dafs_marker = ".dafs.zarr.zip#/",
+        format_name = "ZarrDaf",
+    )
+    if zip_match !== nothing
+        (container_path, group_path) = zip_match
+        return (container_path, group_path, true)
     end
     if endswith(path, ".daf.zarr")
         return (String(path), nothing, false)
@@ -574,6 +561,36 @@ function refresh_consolidated_metadata!(daf::ZarrDaf)::Nothing
         return JSON.print(io, Dict("metadata" => consolidated, "zarr_consolidated_format" => 1), 4)
     end
     Base.Filesystem.rename(staging_path, target_path)
+    return nothing
+end
+
+# Lazy bootstrap of `.zmetadata` on every `ZarrDaf` open, mirroring `FilesFormat.ensure_metadata_zip!`
+# (`src/files_format.jl:1300`). Only the `DirectoryStore` backend has a `.zmetadata` sidecar to
+# rebuild — the ZIP backend's central directory plays the same role, and `DictStore` lives in
+# memory — so this is a no-op for every other backend. If the sidecar already exists the
+# function is also a no-op (the assumption is that all writes go through `ZarrDaf`, which keeps
+# `.zmetadata` in sync via `refresh_consolidated_metadata!`). On a read-only filesystem the
+# rebuild attempt fails and is silently swallowed when `daf.mode == "r"`, so opening a frozen
+# directory still succeeds — HTTP serving from such a directory then requires one prior writable
+# open to seed the sidecar.
+function ensure_consolidated_metadata!(daf::ZarrDaf)::Nothing
+    storage = daf.root.storage
+    if !(storage isa Zarr.DirectoryStore)
+        return nothing
+    end
+    group_directory = joinpath(storage.folder, lstrip(daf.root.path, '/'))
+    target_path = joinpath(group_directory, ".zmetadata")
+    if isfile(target_path)
+        return nothing
+    end
+    try
+        refresh_consolidated_metadata!(daf)
+    catch  # FLAKY TESTED
+        if daf.mode == "r"  # UNTESTED
+            return nothing  # UNTESTED
+        end
+        rethrow()  # UNTESTED
+    end
     return nothing
 end
 

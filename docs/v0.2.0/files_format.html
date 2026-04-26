@@ -650,6 +650,24 @@
 </pre>
 <p>Storage in disk files in some directory.
 </p>
+<p>By convention the root directory name carries the 
+<code>.daf
+</code> suffix (e.g. 
+<code>cells.daf/
+</code>), but this isn&#39;t enforced — any directory containing a 
+<code>daf.json
+</code> is a valid 
+<code>FilesDaf
+</code>. The matching single-file ZIP form lives under 
+<a href="zip_files.html#DataAxesFormats.ZipFormat.ZipDaf">
+<code>ZipDaf
+</code>
+</a>, with the 
+<code>.daf.zip
+</code> and 
+<code>.dafs.zip#/group
+</code> path conventions.
+</p>
 <p>When opening an existing data set, if 
 <code>name
 </code> is not specified, and there exists a &quot;name&quot; scalar property, it is used as the name. Otherwise, the 

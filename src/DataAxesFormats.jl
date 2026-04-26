@@ -8,9 +8,11 @@ features are:
   - Explicit control over 2D data (row or column major), with support for both dense and sparse matrices, both of which
     are crucial for performance.
   - Out of the box, allow storing the data in memory (using [`MemoryDaf`](@ref)), directly inside
-    [HDF5](https://www.hdfgroup.org/solutions/hdf5/) files (using [`H5df`](@ref)), or as a collection of simple files in
-    a directory (using [`FilesDaf`](@ref)), which works nicely with tools like `make` for automating computation
-    pipelines.
+    [HDF5](https://www.hdfgroup.org/solutions/hdf5/) files (using [`H5df`](@ref)), as a collection of simple files in
+    a directory (using [`FilesDaf`](@ref)), as the same `FilesDaf` layout packed into a single ZIP archive (using
+    [`ZipDaf`](@ref)), or as a [Zarr](https://zarr.readthedocs.io/) directory tree or ZIP archive (using
+    [`ZarrDaf`](@ref)). The `FilesDaf` and Zarr backends both work nicely with tools like `make` for automating
+    computation pipelines.
   - Import and export to/from [`AnnDataFormat`](@ref) for interoperability with non-`Daf` tools.
   - Implementation with a focus on memory-mapping to allow for efficient processing of large data sets (in theory,
     larger than the system's memory). In particular, merely opening a data set is a fast operation (almost) regardless
@@ -45,6 +47,8 @@ The `Daf` datasets type hierarchy looks like this:
           * [`WriteChain`](@ref DataAxesFormats.Chains.WriteChain) (created by [`chain_writer`](@ref DataAxesFormats.Chains.chain_writer))
           * [`MemoryDaf`](@ref DataAxesFormats.MemoryFormat.MemoryDaf)
           * [`FilesDaf`](@ref DataAxesFormats.FilesFormat.FilesDaf)
+          * [`ZipDaf`](@ref DataAxesFormats.ZipFormat.ZipDaf)
+          * [`ZarrDaf`](@ref DataAxesFormats.ZarrFormat.ZarrDaf)
           * [`H5df`](@ref DataAxesFormats.H5dfFormat.H5df)
 
 Here are all the internal modules implementing this package and the relationship between them (linking to their
@@ -103,6 +107,9 @@ include("h5df_format.jl")
 
 include("mmap_zip_store.jl")
 @reexport using .MmapZipStores
+
+include("zip_files.jl")
+@reexport using .ZipFormat
 
 include("zarr_format.jl")
 @reexport using .ZarrFormat

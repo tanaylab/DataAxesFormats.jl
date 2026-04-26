@@ -107,6 +107,7 @@ module MmapZipStores
 
 export MmapZipStore
 export patch_mmap_zip_entry_crc!
+export remove_entries_from_central_directory!
 export reserve_mmap_zip_entry!
 export try_mmap_entry_as
 
@@ -510,7 +511,7 @@ function try_mmap_entry_as(
         return nothing  # UNTESTED
     end
     if element_count == 0
-        return Array{T}(undef, dims)  # UNTESTED
+        return Array{T}(undef, dims)
     end
     data_pointer = pointer(store.file_mmap, Int(entry.data_offset) + 1)
     if UInt(data_pointer) % UInt(DAF_DATA_OFFSET_ALIGNMENT) != 0
@@ -1051,6 +1052,62 @@ function roll_back_to_entry!(store::MmapZipStore, keep_count::Int)::Nothing
     resize_file_overlay!(store, new_file_size)
 
     store.central_directory_offset = new_central_directory_offset
+    store.central_directory_size = new_central_directory_size
+    populate_central_directory_offsets!(store.entries, store.central_directory_offset)
+    return nothing
+end
+
+"""
+    remove_entries_from_central_directory!(
+        store::MmapZipStore,
+        keys::AbstractVector{<:AbstractString},
+    )::Nothing
+
+Drop the named entries from the archive's central directory. Local file headers and data bytes
+for the removed entries remain in the file as orphan regions (`MmapZipStore` is append-only with
+respect to data); only the central directory and end-of-central-directory records are rewritten,
+so the entries become unreachable through ordinary ZIP enumeration. Idempotent: keys absent from
+the archive are silently ignored, and the function is a no-op when none of `keys` are present.
+
+Intended for stripping known-stale sidecar entries from a Daf archive that was produced by an
+external tool over a [`FilesDaf`](@ref DataAxesFormats.FilesFormat.FilesDaf) directory (e.g. the
+`metadata.zip` and `axes/metadata.json` files written by `FilesFormat.ensure_metadata_zip!`,
+which have no role inside a [`ZipDaf`](@ref DataAxesFormats.ZipFormat.ZipDaf) archive).
+"""
+function remove_entries_from_central_directory!(store::MmapZipStore, keys::AbstractVector{<:AbstractString})::Nothing
+    @assert store.is_writable
+    surviving_entries = ZipEntry[entry for entry in store.entries if !(entry.name in keys)]
+    if length(surviving_entries) == length(store.entries)
+        return nothing
+    end
+
+    new_central_directory_size = UInt64(0)
+    for entry in surviving_entries
+        new_central_directory_size += central_directory_entry_size(entry)
+    end
+
+    central_directory_offset = store.central_directory_offset
+    commit_buffer =
+        Vector{UInt8}(undef, Int(new_central_directory_size) + TRAILING_END_OF_CENTRAL_DIRECTORY_REGION_SIZE)
+    write_central_directory_and_eocd!(
+        commit_buffer,
+        surviving_entries,
+        central_directory_offset,
+        new_central_directory_size,
+    )
+
+    @inbounds copyto!(store.file_mmap, Int(central_directory_offset) + 1, commit_buffer, 1, length(commit_buffer))
+
+    new_file_size =
+        central_directory_offset + new_central_directory_size + UInt64(TRAILING_END_OF_CENTRAL_DIRECTORY_REGION_SIZE)
+    resize_file_overlay!(store, new_file_size)
+
+    empty!(store.entries)
+    append!(store.entries, surviving_entries)
+    empty!(store.name_to_index)
+    for (entry_index, entry) in enumerate(store.entries)
+        store.name_to_index[entry.name] = entry_index
+    end
     store.central_directory_size = new_central_directory_size
     populate_central_directory_offsets!(store.entries, store.central_directory_offset)
     return nothing
