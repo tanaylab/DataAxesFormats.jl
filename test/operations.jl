@@ -401,8 +401,13 @@ nested_test("operations") do
 
             nested_test("matrix") do
                 set_matrix!(daf, "cell", "gene", "value", [1.0 2.0 2.0; 1.0 -3.0 6.0])
-                @test with_type(daf["@ cell @ gene :: value >| Median type Float32"]) == ([2.0, 1.0], Float32)
                 @test with_type(daf["@ gene @ cell :: value >- Median type Float32"]) == ([2.0, 1.0], Float32)
+                try
+                    TanayLabUtilities.MatrixLayouts.GLOBAL_INEFFICIENT_ACTION_HANDLER = IgnoreHandler
+                    @test with_type(daf["@ cell @ gene :: value >| Median type Float32"]) == ([2.0, 1.0], Float32)
+                finally
+                    TanayLabUtilities.MatrixLayouts.GLOBAL_INEFFICIENT_ACTION_HANDLER = ErrorHandler
+                end
             end
         end
 
@@ -439,7 +444,13 @@ nested_test("operations") do
             nested_test("matrix") do
                 set_matrix!(daf, "cell", "gene", "value", [1.0 2.0 2.0; 1.0 -3.0 6.0])
                 @test with_type(daf["@ gene @ cell :: value >- Quantile p 0.5"]) == ([2.0, 1.0], Float64)
-                @test with_type(daf["@ cell @ gene :: value >| Quantile p 1.0 type Float32"]) == ([2.0, 6.0], Float32)
+                try
+                    TanayLabUtilities.MatrixLayouts.GLOBAL_INEFFICIENT_ACTION_HANDLER = IgnoreHandler
+                    @test with_type(daf["@ cell @ gene :: value >| Quantile p 1.0 type Float32"]) ==
+                          ([2.0, 6.0], Float32)
+                finally
+                    TanayLabUtilities.MatrixLayouts.GLOBAL_INEFFICIENT_ACTION_HANDLER = ErrorHandler
+                end
             end
         end
 

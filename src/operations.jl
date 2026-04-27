@@ -41,7 +41,6 @@ using ..Tokens
 using Base.MathConstants
 using Base.Threads
 using SparseArrays
-using Statistics
 using StatsBase
 using LoopVectorization
 using TanayLabUtilities
@@ -1302,27 +1301,12 @@ function compute_reduction(operation::Median, input::StorageMatrix, axis::Intege
     @assert 1 <= axis <= 2
     type = reduction_result_type(operation, eltype(input))
     output = Vector{type}(undef, size(input, other_axis(axis)))
-    if axis == 1
-        parallel_loop_wo_rng(
-            1:length(output);
-            name = "Median",
-            progress = DebugProgress(length(output); group = :daf_loops, desc = "Median"),
-        ) do column_index
-            column_vector = @view input[:, column_index]
-            output[column_index] = type(median(column_vector))
-            return nothing
-        end
-    else
-        parallel_loop_wo_rng(
-            1:length(output);
-            name = "Median",
-            progress = DebugProgress(length(output); group = :daf_loops, desc = "Median"),
-        ) do row_index
-            row_vector = @view input[row_index, :]
-            output[row_index] = type(median(row_vector))
-            return nothing
-        end
-    end
+    sparse_median(
+        input;
+        dims = axis,
+        result = output,
+        progress = DebugProgress(length(output); group = :daf_loops, desc = "Median"),
+    )
     return output
 end
 
@@ -1331,7 +1315,7 @@ function compute_reduction(
     input::Union{StorageVector{<:StorageReal}, StorageMatrix{<:StorageReal}},
 )::StorageReal
     type = reduction_result_type(operation, eltype(input))
-    return type(median(input))
+    return type(sparse_median(input))
 end
 
 function reduction_result_type(operation::Median, eltype::Type)::Type
@@ -1383,27 +1367,13 @@ function compute_reduction(operation::Quantile, input::StorageMatrix, axis::Inte
     @assert 1 <= axis <= 2
     type = reduction_result_type(operation, eltype(input))
     output = Vector{type}(undef, size(input, other_axis(axis)))
-    if axis == 1
-        parallel_loop_wo_rng(
-            1:length(output);
-            name = "Quantile",
-            progress = DebugProgress(length(output); group = :daf_loops, desc = "Quantile"),
-        ) do column_index
-            column_vector = @view input[:, column_index]
-            output[column_index] = quantile(column_vector, operation.p)
-            return nothing
-        end
-    else
-        parallel_loop_wo_rng(
-            1:length(output);
-            name = "Quantile",
-            progress = DebugProgress(length(output); group = :daf_loops, desc = "Quantile"),
-        ) do row_index
-            row_vector = @view input[row_index, :]
-            output[row_index] = quantile(row_vector, operation.p)
-            return nothing
-        end
-    end
+    sparse_quantile(
+        input,
+        operation.p;
+        dims = axis,
+        result = output,
+        progress = DebugProgress(length(output); group = :daf_loops, desc = "Quantile"),
+    )
     return output
 end
 
@@ -1412,7 +1382,7 @@ function compute_reduction(
     input::Union{StorageVector{<:StorageReal}, StorageMatrix{<:StorageReal}},
 )::StorageReal
     type = reduction_result_type(operation, eltype(input))
-    return type(quantile(input, operation.p))
+    return type(sparse_quantile(input, operation.p))
 end
 
 function reduction_result_type(operation::Quantile, eltype::Type)::Type
@@ -1455,7 +1425,7 @@ function compute_reduction(operation::Mean, input::StorageMatrix, axis::Integer)
             progress = DebugProgress(length(output); group = :daf_loops, desc = "Mean"),
         ) do column_index
             column_vector = @view input[:, column_index]
-            output[column_index] = type(mean(column_vector))
+            output[column_index] = type(mean(column_vector))  # NOLINT
             return nothing
         end
     else
@@ -1465,7 +1435,7 @@ function compute_reduction(operation::Mean, input::StorageMatrix, axis::Integer)
             progress = DebugProgress(length(output); group = :daf_loops, desc = "Mean"),
         ) do row_index
             row_vector = @view input[row_index, :]
-            output[row_index] = type(mean(row_vector))
+            output[row_index] = type(mean(row_vector))  # NOLINT
             return nothing
         end
     end
@@ -1477,7 +1447,7 @@ function compute_reduction(
     input::Union{StorageVector{<:StorageReal}, StorageMatrix{<:StorageReal}},
 )::StorageReal
     type = reduction_result_type(operation, eltype(input))
-    return type(mean(input))  # NOJET
+    return type(mean(input))  # NOJET # NOLINT
 end
 
 function reduction_result_type(operation::Mean, eltype::Type)::Type
@@ -1608,7 +1578,7 @@ function compute_reduction(operation::Var, input::StorageMatrix, axis::Integer):
             progress = DebugProgress(length(output); group = :daf_loops, desc = "Var"),
         ) do column_index
             column_vector = @view input[:, column_index]
-            output[column_index] = type(var(column_vector; corrected = false))  # NOJET
+            output[column_index] = type(var(column_vector; corrected = false))  # NOJET # NOLINT
             return nothing
         end
     else
@@ -1618,7 +1588,7 @@ function compute_reduction(operation::Var, input::StorageMatrix, axis::Integer):
             progress = DebugProgress(length(output); group = :daf_loops, desc = "Var"),
         ) do row_index
             row_vector = @view input[row_index, :]
-            output[row_index] = type(var(row_vector; corrected = false))
+            output[row_index] = type(var(row_vector; corrected = false))  # NOLINT
             return nothing
         end
     end
@@ -1630,7 +1600,7 @@ function compute_reduction(
     input::Union{StorageVector{<:StorageReal}, StorageMatrix{<:StorageReal}},
 )::StorageReal
     type = reduction_result_type(operation, eltype(input))
-    return type(var(input; corrected = false))  # NOJET
+    return type(var(input; corrected = false))  # NOJET # NOLINT
 end
 
 function reduction_result_type(operation::Var, eltype::Type)::Type
@@ -1686,7 +1656,7 @@ function compute_reduction(operation::VarN, input::StorageMatrix, axis::Integer)
         ) do column_index
             column_vector = @view input[:, column_index]
             output[column_index] =
-                type(var(column_vector; corrected = false)) / type(mean(column_vector) + operation.eps)
+                type(var(column_vector; corrected = false)) / type(mean(column_vector) + operation.eps)  # NOLINT # NOJET
             return nothing
         end
     else
@@ -1696,7 +1666,7 @@ function compute_reduction(operation::VarN, input::StorageMatrix, axis::Integer)
             progress = DebugProgress(length(output); group = :daf_loops, desc = "VarN"),
         ) do row_index
             row_vector = @view input[row_index, :]
-            output[row_index] = type(var(row_vector; corrected = false)) / type(mean(row_vector) + operation.eps)
+            output[row_index] = type(var(row_vector; corrected = false)) / type(mean(row_vector) + operation.eps)  # NOLINT
             return nothing
         end
     end
@@ -1708,7 +1678,7 @@ function compute_reduction(
     input::Union{StorageVector{<:StorageReal}, StorageMatrix{<:StorageReal}},
 )::StorageReal
     type = reduction_result_type(operation, eltype(input))
-    return type(var(input; corrected = false)) / type((Float64(mean(input)) + operation.eps))
+    return type(var(input; corrected = false)) / type((Float64(mean(input)) + operation.eps))  # NOLINT
 end
 
 function reduction_result_type(operation::VarN, eltype::Type)::Type
@@ -1751,7 +1721,7 @@ function compute_reduction(operation::Std, input::StorageMatrix, axis::Integer):
             progress = DebugProgress(length(output); group = :daf_loops, desc = "Std"),
         ) do column_index
             column_vector = @view input[:, column_index]
-            output[column_index] = type(std(column_vector; corrected = false))
+            output[column_index] = type(std(column_vector; corrected = false))  # NOLINT
             return nothing
         end
     else
@@ -1761,7 +1731,7 @@ function compute_reduction(operation::Std, input::StorageMatrix, axis::Integer):
             progress = DebugProgress(length(output); group = :daf_loops, desc = "Std"),
         ) do row_index
             row_vector = @view input[row_index, :]
-            output[row_index] = type(std(row_vector; corrected = false))
+            output[row_index] = type(std(row_vector; corrected = false))  # NOLINT
             return nothing
         end
     end
@@ -1773,7 +1743,7 @@ function compute_reduction(
     input::Union{StorageVector{<:StorageReal}, StorageMatrix{<:StorageReal}},
 )::StorageReal
     type = reduction_result_type(operation, eltype(input))
-    return type(std(input; corrected = false))
+    return type(std(input; corrected = false))  # NOLINT
 end
 
 function reduction_result_type(operation::Std, eltype::Type)::Type
@@ -1829,7 +1799,7 @@ function compute_reduction(operation::StdN, input::StorageMatrix, axis::Integer)
         ) do column_index
             column_vector = @view input[:, column_index]
             output[column_index] =
-                type(std(column_vector; corrected = false)) / type(mean(column_vector) + operation.eps)
+                type(std(column_vector; corrected = false)) / type(mean(column_vector) + operation.eps)  # NOLINT
             return nothing
         end
     else
@@ -1839,7 +1809,7 @@ function compute_reduction(operation::StdN, input::StorageMatrix, axis::Integer)
             progress = DebugProgress(length(output); group = :daf_loops, desc = "StdN"),
         ) do row_index
             row_vector = @view input[row_index, :]
-            output[row_index] = type(std(row_vector; corrected = false)) / type(mean(row_vector) + operation.eps)
+            output[row_index] = type(std(row_vector; corrected = false)) / type(mean(row_vector) + operation.eps)  # NOLINT
             return nothing
         end
     end
@@ -1851,7 +1821,7 @@ function compute_reduction(
     input::Union{StorageVector{<:StorageReal}, StorageMatrix{<:StorageReal}},
 )::StorageReal
     type = reduction_result_type(operation, eltype(input))
-    return type(std(input; corrected = false)) / type(mean(input) + operation.eps)
+    return type(std(input; corrected = false)) / type(mean(input) + operation.eps)  # NOLINT
 end
 
 function reduction_result_type(operation::StdN, eltype::Type)::Type
