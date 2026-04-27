@@ -397,7 +397,8 @@
 
 HttpDaf(
     url::AbstractString;
-    [name::Maybe{AbstractString} = nothing]
+    [name::Maybe{AbstractString} = nothing,
+    packed::Bool = false]
 )::HttpDaf
 </code>
 </pre>
@@ -424,6 +425,14 @@ HttpDaf(
 </code> scalar property, it is used as the name; otherwise, the 
 <code>url
 </code> itself is used.
+</p>
+<p>The 
+<code>packed
+</code> kwarg is accepted for API uniformity with the writable formats but has no effect — 
+<code>HttpDaf
+</code> is read-only, and 
+<code>packed
+</code> controls only the per-daf write default.
 </p>
 <div class="admonition is-warning" id="Warning-af26d1c2549abccc">
 <header class="admonition-header">Warning

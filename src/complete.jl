@@ -36,11 +36,19 @@ using ..ZipFormat
 using TanayLabUtilities
 
 """
-    complete_daf(leaf::AbstractString, mode::AbstractString = "r"; name::Maybe{AbstractString} = nothing)::Union{DafReader, DafWriter}
+    complete_daf(
+        leaf::AbstractString,
+        mode::AbstractString = "r";
+        [name::Maybe{AbstractString} = nothing,
+        packed::Bool = false]
+    )::Union{DafReader, DafWriter}
 
 Open a complete chain of `Daf` repositories by tracing back through the `base_daf_repository` and the optional
 `base_daf_view`. Valid modes are only "r" and "r+"; if the latter, only the first (leaf) repository is opened in write
 mode.
+
+If `packed` is `true`, the leaf repository (the only one opened in write mode under "r+") gets `packed = true` as its
+per-daf default. Base repositories are always opened in "r" mode and the `packed` value is irrelevant for them.
 
 A convenient way to create persistent complete chains is using [`complete_chain!`](@ref).
 
@@ -50,6 +58,7 @@ function complete_daf(
     leaf::AbstractString,
     mode::AbstractString = "r";
     name::Maybe{AbstractString} = nothing,
+    packed::Bool = false,
 )::Union{DafReader, DafWriter}
     return flame_timed("complete_daf") do
         if name === nothing
@@ -58,7 +67,7 @@ function complete_daf(
         @assert mode in ("r", "r+")
         @debug "Open complete $(name):" _group = :daf_repose
         dafs = flame_timed("complete_daf.collect_dafs") do
-            return reverse!(collect_dafs(; name, base_daf_repository = leaf, mode, indent = "", index = 0))
+            return reverse!(collect_dafs(; name, base_daf_repository = leaf, mode, packed, indent = "", index = 0))
         end
         return flame_timed("complete_daf.chain") do
             if mode == "r+"
@@ -74,13 +83,14 @@ function collect_dafs(;
     name::AbstractString,
     base_daf_repository::Union{AbstractString, DafReader},
     mode::AbstractString,
+    packed::Bool,
     indent::AbstractString,
     index::Integer,
 )::AbstractVector{<:DafReader}
     dafs = DafReader[]
     while true
         @debug "$(indent)- Open $(base_daf_repository) $(mode)" _group = :daf_repose
-        daf = open_daf(base_daf_repository, mode)  # NOJET
+        daf = open_daf(base_daf_repository, mode; packed)  # NOJET
         base_directory = dirname(base_daf_repository)  # NOJET
 
         push!(dafs, daf)
@@ -95,7 +105,14 @@ function collect_dafs(;
             @debug "$(indent)  View" _group = :daf_repose
             base_daf_view = parse_view_parameters(get_scalar(daf, "base_daf_view"; default = nothing))
             base_dafs = reverse!(
-                collect_dafs(; name, base_daf_repository, mode = "r", indent = indent * "  ", index = index + 1),
+                collect_dafs(;
+                    name,
+                    base_daf_repository,
+                    mode = "r",
+                    packed = false,
+                    indent = indent * "  ",
+                    index = index + 1,
+                ),
             )
             chain = chain_reader(base_dafs; name = "$(name).chain_$(index)")
             daf = viewer(chain; name = "$(name).view_$(index)", base_daf_view...)  # NOJET
@@ -104,6 +121,7 @@ function collect_dafs(;
         end
 
         mode = "r"
+        packed = false
     end
     return dafs
 end
@@ -137,7 +155,8 @@ end
     open_daf(
         path::AbstractString,
         mode::AbstractString = "r";
-        name::Maybe{AbstractString} = nothing
+        [name::Maybe{AbstractString} = nothing,
+        packed::Bool = false]
     )::Union{DafReader, DafWriter}
 
 Open a `Daf` data set, dispatching to the appropriate backend based on `path`:
@@ -151,25 +170,28 @@ Open a `Daf` data set, dispatching to the appropriate backend based on `path`:
   - Otherwise, if `path` ends with `.h5df` or contains `.h5dfs#` (followed by a group path), open an [`H5df`](@ref)
     file (or a group in one).
   - Otherwise, open a [`FilesDaf`](@ref).
+
+The `packed` kwarg is forwarded to the chosen backend; see each backend's constructor for what it controls.
 """
 function open_daf(
     path::AbstractString,
     mode::AbstractString = "r";
     name::Maybe{AbstractString} = nothing,
+    packed::Bool = false,
 )::Union{DafReader, DafWriter}
     if endswith(path, ".daf.zarr") || endswith(path, ".daf.zarr.zip") || occursin(".dafs.zarr.zip#", path)
-        return ZarrDaf(path, mode; name)
+        return ZarrDaf(path, mode; name, packed)
     elseif endswith(path, ".daf.zip") || occursin(".dafs.zip#", path)
-        return ZipDaf(path, mode; name)
+        return ZipDaf(path, mode; name, packed)
     elseif startswith(path, "http://") || startswith(path, "https://")
         if mode != "r"
             error("can't open an http(s)://... HttpDaf in mode: $(mode); the HTTP backend is read-only: $(path)")
         end
-        return HttpDaf(path; name)
+        return HttpDaf(path; name, packed)
     elseif endswith(path, ".h5df") || occursin(".h5dfs#", path)
-        return H5df(path, mode; name)
+        return H5df(path, mode; name, packed)
     else
-        return FilesDaf(path, mode; name)
+        return FilesDaf(path, mode; name, packed)
     end
 end
 

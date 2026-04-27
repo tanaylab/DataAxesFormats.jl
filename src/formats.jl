@@ -218,12 +218,14 @@ struct Internal  # NOLINT
     is_frozen::Bool
     pending_condition::Threads.Condition
     pending_count::Vector{UInt32}
+    packed_default::Bool
     shared_resource::Any
 end
 
 function Internal(;
     is_frozen::Bool,
     data_lock::Maybe{ExtendedReadWriteLock} = nothing,
+    packed_default::Bool = false,
     shared_resource::Any = nothing,
 )::Internal
     return Internal(
@@ -236,6 +238,7 @@ function Internal(;
         is_frozen,
         Threads.Condition(),
         UInt32[0],
+        packed_default,
         shared_resource,
     )
 end
@@ -419,11 +422,16 @@ function format_has_vector end
         axis::AbstractString,
         name::AbstractString,
         vector::Union{StorageScalar, StorageVector},
+        packed::Bool,
     )::Nothing
 
 Implement setting a vector property with some `name` for some `axis` in `format`.
 
 If the `vector` specified is actually a [`StorageScalar`](@ref), the stored vector is filled with this value.
+
+The resolved `packed` flag indicates the requested encoding for this write (`true` means the packed / chunked +
+compressed on-disk encoding, `false` means today's flat encoding). Backends that do not support packed encoding ignore
+the flag.
 
 This trusts we have a write lock on the data set, that the `axis` exists in `format`, that the vector property `name`
 isn't `"name"`, that it does not exist for the `axis`, and that the `vector` has the appropriate length for it.
@@ -436,11 +444,15 @@ function format_set_vector! end
         axis::AbstractString,
         name::AbstractString,
         eltype::Type{T},
+        packed::Bool,
     )::Tuple{AbstractVector{T}, Maybe{CacheGroup}} where {T <: StorageReal}
 
 Implement creating an empty dense vector property with some `name` for some `axis` in `format`. Return the buffer to be
 filled by the caller, together with the [`CacheGroup`](@ref) to use when caching the filled buffer (as would be returned
 by [`format_get_vector`](@ref)), or `nothing` to skip caching.
+
+The resolved `packed` flag indicates the requested encoding for this write. Backends that do not support packed
+encoding ignore the flag.
 
 This trusts we have a write lock on the data set, that the `axis` exists in `format` and that the vector property `name`
 isn't `"name"`, and that it does not exist for the `axis`.
@@ -485,12 +497,16 @@ end
         eltype::Type{T},
         nnz::StorageInteger,
         indtype::Type{I},
+        packed::Bool,
     )::Tuple{AbstractVector{I}, AbstractVector{T}, Maybe{CacheGroup}}
     where {T <: StorageReal, I <: StorageInteger}
 
 Implement creating an empty sparse vector property with some `name` for some `axis` in `format`. Return the `nzind`
 and `nzval` buffers to be filled by the caller, together with the [`CacheGroup`](@ref) to use when caching the
 assembled sparse vector (as would be returned by [`format_get_vector`](@ref)), or `nothing` to skip caching.
+
+The resolved `packed` flag indicates the requested encoding for this write. Backends that do not support packed
+encoding ignore the flag.
 
 This trusts we have a write lock on the data set, that the `axis` exists in `format` and that the vector property `name`
 isn't `"name"`, and that it does not exist for the `axis`.
@@ -563,6 +579,27 @@ exists for the `axis`.
 function format_get_vector end
 
 """
+    format_is_packed_vector(
+        format::FormatReader,
+        axis::AbstractString,
+        name::AbstractString,
+    )::Bool
+
+Return `true` if the named vector property is stored using the packed (chunked + compressed) on-disk encoding, `false`
+for the flat encoding. The default implementation returns `false`; backends that support packed encoding override this
+to inspect their on-disk metadata.
+
+Used by internal operations that rebuild a property in place (relayout, axis reorder) to preserve the source's encoding
+when writing the rebuilt copy.
+
+This trusts that we have a read lock on the data set, that the `axis` exists in `format`, and the `name` vector
+property exists for the `axis`.
+"""
+function format_is_packed_vector(::FormatReader, ::AbstractString, ::AbstractString)::Bool
+    return false
+end
+
+"""
     format_has_matrix(
         format::FormatReader,
         rows_axis::AbstractString,
@@ -584,11 +621,15 @@ function format_has_matrix end
         columns_axis::AbstractString,
         name::AbstractString,
         matrix::StorageMatrix,
+        packed::Bool,
     )::Nothing
 
 Implement setting the matrix property with some `name` for some `rows_axis` and `columns_axis` in `format`.
 
 If the `matrix` specified is actually a [`StorageScalar`](@ref), the stored matrix is filled with this value.
+
+The resolved `packed` flag indicates the requested encoding for this write. Backends that do not support packed
+encoding ignore the flag.
 
 This trusts we have a write lock on the data set, that the `rows_axis` and `columns_axis` exist in `format`, that the
 `name` matrix property does not exist for them, and that the `matrix` is column-major of the appropriate size for it.
@@ -602,11 +643,15 @@ function format_set_matrix! end
         columns_axis::AbstractString,
         name::AbstractString,
         eltype::Type{T},
+        packed::Bool,
     )::Tuple{AbstractMatrix{T}, Maybe{CacheGroup}} where {T <: StorageReal}
 
 Implement creating an empty dense matrix property with some `name` for some `rows_axis` and `columns_axis` in `format`.
 Return the buffer to be filled by the caller, together with the [`CacheGroup`](@ref) to use when caching the filled
 buffer (as would be returned by [`format_get_matrix`](@ref)), or `nothing` to skip caching.
+
+The resolved `packed` flag indicates the requested encoding for this write. Backends that do not support packed
+encoding ignore the flag.
 
 This trusts we have a write lock on the data set, that the `rows_axis` and `columns_axis` exist in `format` and that the
 `name` matrix property does not exist for them.
@@ -654,6 +699,7 @@ end
         eltype::Type{T},
         intdype::Type{I},
         nnz::StorageInteger,
+        packed::Bool,
     )::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}, Maybe{CacheGroup}}
     where {T <: StorageReal, I <: StorageInteger}
 
@@ -661,6 +707,9 @@ Implement creating an empty sparse matrix property with some `name` for some `ro
 Return the `colptr`, `rowval` and `nzval` buffers to be filled by the caller, together with the [`CacheGroup`](@ref) to
 use when caching the assembled sparse matrix (as would be returned by [`format_get_matrix`](@ref)), or `nothing` to skip
 caching.
+
+The resolved `packed` flag indicates the requested encoding for this write. Backends that do not support packed
+encoding ignore the flag.
 
 This trusts we have a write lock on the data set, that the `rows_axis` and `columns_axis` exist in `format` and that the
 `name` matrix property does not exist for them.
@@ -696,10 +745,15 @@ end
         columns_axis::AbstractString,
         name::AbstractString,
         matrix::StorageMatrix,
+        packed::Bool,
     )::StorageMatrix
 
 `relayout!` the existing `name` column-major `matrix` property for the `rows_axis` and the `columns_axis` and
 store the results as a row-major matrix property (that is, with flipped axes).
+
+The resolved `packed` flag indicates the requested encoding for the flipped matrix. This is the same flag the caller
+would have passed to a write of a fresh matrix, so the flipped representation produced by `relayout!` matches the
+encoding the caller intended.
 
 This trusts we have a write lock on the data set, that the `rows_axis` and `columns_axis` are different from each other,
 exist in `format`, that the `name` matrix property exists for them, and that it does not exist for the flipped axes.
@@ -753,6 +807,28 @@ This trusts that we have a read lock on the data set, and that the `rows_axis` a
 the `name` matrix property exists for them.
 """
 function format_get_matrix end
+
+"""
+    format_is_packed_matrix(
+        format::FormatReader,
+        rows_axis::AbstractString,
+        columns_axis::AbstractString,
+        name::AbstractString,
+    )::Bool
+
+Return `true` if the named matrix property is stored using the packed (chunked + compressed) on-disk encoding, `false`
+for the flat encoding. The default implementation returns `false`; backends that support packed encoding override this
+to inspect their on-disk metadata.
+
+Used by internal operations that rebuild a property in place (relayout, axis reorder) to preserve the source's encoding
+when writing the rebuilt copy.
+
+This trusts that we have a read lock on the data set, that the `rows_axis` and `columns_axis` exist in `format`, and
+the `name` matrix property exists for them.
+"""
+function format_is_packed_matrix(::FormatReader, ::AbstractString, ::AbstractString, ::AbstractString)::Bool
+    return false
+end
 
 """
     format_description_header(format::FormatReader, lines::Vector{String}, deep::Bool)::Nothing

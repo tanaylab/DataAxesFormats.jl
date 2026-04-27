@@ -78,6 +78,9 @@ include("operations.jl")
 include("formats.jl")
 @reexport using .Formats
 
+include("packed_format.jl")
+@reexport using .PackedFormat
+
 include("readers.jl")
 @reexport using .Readers
 

@@ -168,7 +168,8 @@ MINOR_VERSION::UInt8 = 0
     H5df(
         root::Union{AbstractString, HDF5.File, HDF5.Group},
         mode::AbstractString = "r";
-        [name::Maybe{AbstractString} = nothing]
+        [name::Maybe{AbstractString} = nothing,
+        packed::Bool = false]
     )
 
 Storage in a HDF5 file.
@@ -201,6 +202,11 @@ The valid `mode` values are as follows (the default mode is `r`):
 
 If the `root` is a path followed by `#` and a group, then `w` mode will *not* truncate the whole file if it exists;
 instead, it will only truncate the group.
+
+If `packed` is `true`, subsequent writes through this handle default to the packed (chunked + compressed) HDF5 dataset
+encoding for properties whose uncompressed size is at or above
+[`DAF_PACKED_TARGET_CHUNK_KB`](@ref DataAxesFormats.PackedFormat.DAF_PACKED_TARGET_CHUNK_KB). Per-call `packed` kwargs
+on `set_*!` / `empty_*!` / `copy_*!` override this default. The default is `false` (today's flat encoding).
 
 !!! note
 
@@ -241,6 +247,7 @@ function H5df(
     root::Union{AbstractString, HDF5.File, HDF5.Group},
     mode::AbstractString = "r";
     name::Maybe{AbstractString} = nothing,
+    packed::Bool = false,
 )::Union{H5df, DafReadOnly}
     (is_read_only, create_if_missing, truncate_if_exists) = Formats.parse_mode(mode)
 
@@ -346,9 +353,14 @@ function H5df(
     @assert full_path !== nothing
 
     internal = if shared_handle === nothing
-        Internal(; is_frozen = is_read_only)
+        Internal(; is_frozen = is_read_only, packed_default = packed)
     else
-        Internal(; is_frozen = is_read_only, data_lock = shared_handle.data_lock, shared_resource = shared_handle)
+        Internal(;
+            is_frozen = is_read_only,
+            data_lock = shared_handle.data_lock,
+            packed_default = packed,
+            shared_resource = shared_handle,
+        )
     end
     h5df = H5df(name, internal, root, mode, full_path)
     @debug "Daf: $(brief(h5df)) root: $(root)" _group = :daf_repos
@@ -600,6 +612,7 @@ function Formats.format_set_vector!(
     axis::AbstractString,
     name::AbstractString,
     vector::Union{StorageScalar, StorageVector},
+    _packed::Bool,  # NOLINT
 )::Nothing
     @assert Formats.has_data_write_lock(h5df)
     vectors_group = h5df.root["vectors"]
@@ -712,6 +725,7 @@ function Formats.format_get_empty_dense_vector!(
     axis::AbstractString,
     name::AbstractString,
     eltype::Type{T},
+    _packed::Bool,  # NOLINT
 )::Tuple{AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal}
     @assert Formats.has_data_write_lock(h5df)
     size = Formats.format_axis_length(h5df, axis)
@@ -750,6 +764,7 @@ function Formats.format_get_empty_sparse_vector!(  # FLAKY TESTED
     eltype::Type{T},
     nnz::StorageInteger,
     indtype::Type{I},
+    _packed::Bool,  # NOLINT
 )::Tuple{AbstractVector{I}, AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(h5df)
     nzind_vector, nzval_vector = create_empty_sparse_vector_in(h5df.root, axis, name, eltype, nnz, indtype)
@@ -909,6 +924,7 @@ function Formats.format_set_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     matrix::Union{StorageScalarBase, StorageMatrix},
+    _packed::Bool,  # NOLINT
 )::Nothing
     @assert Formats.has_data_write_lock(h5df)
     matrices_group = h5df.root["matrices"]
@@ -1046,6 +1062,7 @@ function Formats.format_get_empty_dense_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     eltype::Type{T},
+    _packed::Bool,  # NOLINT
 )::Tuple{AbstractMatrix{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal}
     @assert Formats.has_data_write_lock(h5df)
     nrows = Formats.format_axis_length(h5df, rows_axis)
@@ -1091,6 +1108,7 @@ function Formats.format_get_empty_sparse_matrix!(  # FLAKY TESTED
     eltype::Type{T},
     nnz::StorageInteger,
     indtype::Type{I},
+    _packed::Bool,  # NOLINT
 )::Tuple{
     AbstractVector{I},
     AbstractVector{I},
@@ -1157,6 +1175,7 @@ function Formats.format_relayout_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     matrix::StorageMatrix,
+    packed::Bool,
 )::StorageMatrix
     @assert Formats.has_data_write_lock(h5df)
 
@@ -1169,6 +1188,7 @@ function Formats.format_relayout_matrix!(
             eltype(matrix),
             nnz(matrix),
             eltype(colptr(matrix)),
+            packed,
         )
         sparse_colptr .= length(sparse_nzval) + 1
         sparse_colptr[1] = 1
@@ -1195,7 +1215,8 @@ function Formats.format_relayout_matrix!(
         write_string_matrix(rows_axis_group, name, relayout_matrix)
 
     else
-        relayout_matrix, _ = Formats.format_get_empty_dense_matrix!(h5df, columns_axis, rows_axis, name, eltype(matrix))
+        relayout_matrix, _ =
+            Formats.format_get_empty_dense_matrix!(h5df, columns_axis, rows_axis, name, eltype(matrix), packed)
         relayout!(flip(relayout_matrix), matrix)
     end
 

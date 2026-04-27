@@ -257,7 +257,8 @@ end
     ZipDaf(
         path::AbstractString,
         mode::AbstractString = "r";
-        [name::Maybe{AbstractString} = nothing]
+        [name::Maybe{AbstractString} = nothing,
+        packed::Bool = false]
     )
 
 Storage in a single ZIP archive of the [`FilesDaf`](@ref DataAxesFormats.FilesFormat.FilesDaf)
@@ -268,6 +269,12 @@ mode table, the on-disk entry layout, the sub-daf sharing semantics, and the rel
 When opening an existing data set, if `name` is not specified, and there exists a `name` scalar
 property, it is used as the name. Otherwise, the `path` (including any `#/group` fragment) is
 used as the name.
+
+If `packed` is `true`, subsequent writes through this handle default to the packed (chunked +
+compressed) on-disk encoding for properties whose uncompressed size is at or above
+[`DAF_PACKED_TARGET_CHUNK_KB`](@ref DataAxesFormats.PackedFormat.DAF_PACKED_TARGET_CHUNK_KB).
+Per-call `packed` kwargs on `set_*!` / `empty_*!` / `copy_*!` override this default. The default
+is `false` (today's flat encoding).
 """
 struct ZipDaf <: DafWriter
     name::AbstractString
@@ -288,6 +295,7 @@ function ZipDaf(
     path::AbstractString,
     mode::AbstractString = "r";
     name::Maybe{AbstractString} = nothing,
+    packed::Bool = false,
 )::Union{ZipDaf, DafReadOnly}
     (is_read_only, create_if_missing, truncate_if_exists) = Formats.parse_mode(mode)
 
@@ -351,8 +359,12 @@ function ZipDaf(
     end
     name = unique_name(name)
 
-    internal =
-        Internal(; is_frozen = is_read_only, data_lock = shared_handle.data_lock, shared_resource = shared_handle)
+    internal = Internal(;
+        is_frozen = is_read_only,
+        data_lock = shared_handle.data_lock,
+        packed_default = packed,
+        shared_resource = shared_handle,
+    )
     zip_daf = ZipDaf(name, internal, store, group_prefix, mode, full_path)
     @debug "Daf: $(brief(zip_daf)) path: $(full_path)" _group = :daf_repos
     if is_read_only
@@ -716,6 +728,7 @@ function Formats.format_set_vector!(
     axis::AbstractString,
     name::AbstractString,
     vector::Union{StorageScalar, StorageVector},
+    _packed::Bool,  # NOLINT
 )::Nothing
     @assert Formats.has_data_write_lock(zip_daf)
     n_elements = Formats.format_axis_length(zip_daf, axis)
@@ -820,6 +833,7 @@ function Formats.format_get_empty_dense_vector!(
     axis::AbstractString,
     name::AbstractString,
     ::Type{T},
+    _packed::Bool,
 )::Tuple{AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal}
     @assert Formats.has_data_write_lock(zip_daf)
     n_elements = Formats.format_axis_length(zip_daf, axis)
@@ -848,6 +862,7 @@ function Formats.format_get_empty_sparse_vector!(
     ::Type{T},
     nnz::StorageInteger,
     ::Type{I},
+    _packed::Bool,
 )::Tuple{AbstractVector{I}, AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(zip_daf)
     zip_daf.store[entry_key(zip_daf, "vectors/", axis, "/", name, ".json")] = array_metadata_json_bytes("sparse", T, I)
@@ -1000,6 +1015,7 @@ function Formats.format_set_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     matrix::Union{StorageScalarBase, StorageMatrix},
+    _packed::Bool,  # NOLINT
 )::Nothing
     @assert Formats.has_data_write_lock(zip_daf)
     nrows = Formats.format_axis_length(zip_daf, rows_axis)
@@ -1128,6 +1144,7 @@ function Formats.format_get_empty_dense_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     ::Type{T},
+    _packed::Bool,
 )::Tuple{AbstractMatrix{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal}
     @assert Formats.has_data_write_lock(zip_daf)
     nrows = Formats.format_axis_length(zip_daf, rows_axis)
@@ -1167,6 +1184,7 @@ function Formats.format_get_empty_sparse_matrix!(
     ::Type{T},
     nnz::StorageInteger,
     ::Type{I},
+    _packed::Bool,
 )::Tuple{
     AbstractVector{I},
     AbstractVector{I},
@@ -1227,6 +1245,7 @@ function Formats.format_relayout_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     matrix::StorageMatrix,
+    packed::Bool,
 )::StorageMatrix
     @assert Formats.has_data_write_lock(zip_daf)
 
@@ -1239,6 +1258,7 @@ function Formats.format_relayout_matrix!(
             eltype(matrix),
             nnz(matrix),
             eltype(matrix.colptr),
+            packed,
         )
         colptr_vector[1] = 1
         colptr_vector[2:end] .= length(nzval_vector) + 1
@@ -1260,7 +1280,8 @@ function Formats.format_relayout_matrix!(
     end
 
     @assert eltype(matrix) <: Real
-    relayout_matrix, _ = Formats.format_get_empty_dense_matrix!(zip_daf, columns_axis, rows_axis, name, eltype(matrix))
+    relayout_matrix, _ =
+        Formats.format_get_empty_dense_matrix!(zip_daf, columns_axis, rows_axis, name, eltype(matrix), packed)
     relayout!(flip(relayout_matrix), matrix)
     Formats.format_filled_empty_dense_matrix!(zip_daf, columns_axis, rows_axis, name, relayout_matrix)
     return relayout_matrix

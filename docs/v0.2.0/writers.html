@@ -598,7 +598,8 @@ false
     name::AbstractString,
     vector::Union{StorageScalar, StorageVector};
     [eltype::Maybe{Type{&lt;:StorageReal}} = nothing,
-    overwrite::Bool = false]
+    overwrite::Bool = false,
+    packed::Maybe{Bool} = nothing]
 )::Nothing
 </code>
 </pre>
@@ -637,6 +638,14 @@ false
 <p>If 
 <code>eltype
 </code> is specified, and the data is of another type, then the data is converted to this data type before being stored.
+</p>
+<p>If 
+<code>packed
+</code> is non-
+<code>nothing
+</code>, it overrides the per-daf 
+<code>packed
+</code> default for this single write. Otherwise the per-daf default applies. The flag has no observable effect on backends that do not support packed encoding.
 </p>
 <pre>
 <code class="language-julia hljs">metacells = example_metacells_daf()
@@ -745,7 +754,8 @@ false
     matrix::Union{StorageScalarBase, StorageMatrix};
     [eltype::Maybe{Type{&lt;:StorageScalarBase}} = nothing,
     overwrite::Bool = false,
-    relayout::Bool = true]
+    relayout::Bool = true,
+    packed::Maybe{Bool} = nothing]
 )::Nothing
 </code>
 </pre>
@@ -794,6 +804,14 @@ false
 </code> and 
 <code>columns_axis
 </code>.
+</p>
+<p>If 
+<code>packed
+</code> is non-
+<code>nothing
+</code>, it overrides the per-daf 
+<code>packed
+</code> default for this single write. Otherwise the per-daf default applies. The flag has no observable effect on backends that do not support packed encoding.
 </p>
 <pre>
 <code class="language-julia hljs">metacells = example_metacells_daf()
@@ -850,7 +868,8 @@ true
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString;
-    [overwrite::Bool = false]
+    [overwrite::Bool = false,
+    packed::Maybe{Bool} = nothing]
 )::Nothing
 </code>
 </pre>
@@ -903,6 +922,12 @@ true
 </code> and 
 <code>columns_axis
 </code>.
+</p>
+<p>If 
+<code>packed
+</code> is non-
+<code>nothing
+</code>, the flipped representation is written with that explicit encoding. Otherwise the flipped representation mirrors the source&#39;s encoding (so a packed source produces a packed flipped copy).
 </p>
 <div class="admonition is-info" id="Note-bffcc95516c564bf">
 <header class="admonition-header">Note
@@ -1043,7 +1068,8 @@ false
     axis::AbstractString,
     name::AbstractString,
     eltype::Type{&lt;:StorageReal};
-    [overwrite::Bool = false]
+    [overwrite::Bool = false,
+    packed::Maybe{Bool} = nothing]
 )::Any
 </code>
 </pre>
@@ -1074,6 +1100,14 @@ false
 </code> vector does not exist for the 
 <code>axis
 </code>.
+</p>
+<p>If 
+<code>packed
+</code> is non-
+<code>nothing
+</code>, it overrides the per-daf 
+<code>packed
+</code> default for this single write. Otherwise the per-daf default applies. The flag has no observable effect on backends that do not support packed encoding.
 </p>
 </div>
 </section>
@@ -1289,7 +1323,8 @@ false
     columns_axis::AbstractString,
     name::AbstractString,
     eltype::Type{&lt;:StorageReal};
-    [overwrite::Bool = false]
+    [overwrite::Bool = false,
+    packed::Maybe{Bool} = nothing]
 )::Any
 </code>
 </pre>
@@ -1330,6 +1365,14 @@ false
 </code> and 
 <code>columns_axis
 </code>.
+</p>
+<p>If 
+<code>packed
+</code> is non-
+<code>nothing
+</code>, it overrides the per-daf 
+<code>packed
+</code> default for this single write. Otherwise the per-daf default applies. The flag has no observable effect on backends that do not support packed encoding.
 </p>
 </div>
 </section>

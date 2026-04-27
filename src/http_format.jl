@@ -47,7 +47,8 @@ import ..Operations.DTYPE_BY_NAME
 
     HttpDaf(
         url::AbstractString;
-        [name::Maybe{AbstractString} = nothing]
+        [name::Maybe{AbstractString} = nothing,
+        packed::Bool = false]
     )::HttpDaf
 
 Open a read-only view of a remote [`FilesDaf`](@ref DataAxesFormats.FilesFormat.FilesDaf) served over `http://` or
@@ -56,6 +57,9 @@ Open a read-only view of a remote [`FilesDaf`](@ref DataAxesFormats.FilesFormat.
 
 If `name` is not specified and the remote data set defines a `name` scalar property, it is used as the name;
 otherwise, the `url` itself is used.
+
+The `packed` kwarg is accepted for API uniformity with the writable formats but has no effect — `HttpDaf` is
+read-only, and `packed` controls only the per-daf write default.
 
 !!! warning
 
@@ -78,7 +82,11 @@ struct HttpDaf <: DafReader
     zip_reader::ZipArchives.ZipReader
 end
 
-function HttpDaf(url::AbstractString; name::Maybe{AbstractString} = nothing)::HttpDaf
+function HttpDaf(
+    url::AbstractString;
+    name::Maybe{AbstractString} = nothing,
+    packed::Bool = false,  # NOLINT
+)::HttpDaf
     if !(startswith(url, "http://") || startswith(url, "https://"))
         error("not an HTTP(S) URL: $(url)")
     end

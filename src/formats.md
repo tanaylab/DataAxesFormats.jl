@@ -114,6 +114,13 @@ DataAxesFormats.Formats.format_filled_empty_sparse_matrix!
 DataAxesFormats.Formats.invalidate_axis_data!
 ```
 
+### Packing
+
+```@docs
+DataAxesFormats.Formats.format_is_packed_vector
+DataAxesFormats.Formats.format_is_packed_matrix
+```
+
 ## Index
 
 ```@index

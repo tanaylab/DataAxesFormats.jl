@@ -68,6 +68,9 @@ struct DafView <: DafReadOnly
     reversed_view_vectors::Vector{Tuple{VectorKey, Maybe{QueryString}}}
     reversed_view_matrices::Vector{Tuple{MatrixKey, Maybe{QueryString}}}
     reversed_view_tensors::Vector{Tuple{TensorKey, Maybe{QueryString}}}
+    is_pure_axes::Bool
+    is_pure_vectors::Bool
+    is_pure_matrices::Bool
     path::Vector{AbstractString}
 end
 
@@ -356,6 +359,9 @@ function viewer(
         reversed_view_vectors,
         reversed_view_matrices,
         reversed_view_tensors,
+        is_all_entries_identity(reversed_view_axes),
+        is_all_entries_identity(reversed_view_vectors),
+        is_all_entries_identity(reversed_view_matrices),
         AbstractString[],
     )
     @debug "Daf: $(brief(wrapper)) base: $(brief(daf))" _group = :daf_repos
@@ -424,7 +430,11 @@ function Formats.format_axis_vector(
     axis::AbstractString,
 )::Tuple{AbstractVector{<:AbstractString}, Maybe{Formats.CacheGroup}}
     @assert Formats.has_data_read_lock(view)
-    return (fetch_axis_data(view, axis), QueryData)  # NOJET
+    if is_identity_axis(view, axis)
+        return Formats.format_axis_vector(view.daf, axis)
+    else
+        return (fetch_axis_data(view, axis), QueryData)  # NOJET
+    end
 end
 
 function Formats.format_axis_length(view::DafView, axis::AbstractString)::Int64
@@ -448,7 +458,21 @@ function Formats.format_get_vector(
     name::AbstractString,
 )::Tuple{StorageVector, Any, Maybe{Formats.CacheGroup}}
     @assert Formats.has_data_read_lock(view)
-    return (fetch_vector_data(view, axis, name), nothing, QueryData)
+    if is_identity_vector(view, axis, name)
+        vector, backing, cache_group = Formats.format_get_vector(view.daf, axis, name)
+        return (read_only_array(vector), backing, cache_group)
+    else
+        return (fetch_vector_data(view, axis, name), nothing, QueryData)
+    end
+end
+
+function Formats.format_is_packed_vector(view::DafView, axis::AbstractString, name::AbstractString)::Bool
+    @assert Formats.has_data_read_lock(view)
+    if is_identity_vector(view, axis, name)
+        return Formats.format_is_packed_vector(view.daf, axis, name)
+    else
+        return false
+    end
 end
 
 function Formats.format_has_matrix(
@@ -478,7 +502,26 @@ function Formats.format_get_matrix(
     name::AbstractString,
 )::Tuple{StorageMatrix, Any, Maybe{Formats.CacheGroup}}
     @assert Formats.has_data_read_lock(view)
-    return (fetch_matrix_data(view, rows_axis, columns_axis, name), nothing, QueryData)
+    if is_identity_matrix(view, rows_axis, columns_axis, name)
+        matrix, backing, cache_group = Formats.format_get_matrix(view.daf, rows_axis, columns_axis, name)
+        return (read_only_array(matrix), backing, cache_group)
+    else
+        return (fetch_matrix_data(view, rows_axis, columns_axis, name), nothing, QueryData)
+    end
+end
+
+function Formats.format_is_packed_matrix(
+    view::DafView,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+)::Bool
+    @assert Formats.has_data_read_lock(view)
+    if is_identity_matrix(view, rows_axis, columns_axis, name)
+        return Formats.format_is_packed_matrix(view.daf, rows_axis, columns_axis, name)
+    else
+        return false
+    end
 end
 
 function Formats.format_description_header(
@@ -526,6 +569,82 @@ function ReadOnly.read_only(daf::DafView; name::Maybe{AbstractString} = nothing)
         @debug "Daf: $(brief(wrapper)) base: $(daf)" _group = :daf_repos
         return wrapper
     end
+end
+
+function is_all_entries_identity(entries::AbstractVector)::Bool
+    for entry in entries
+        query = entry[2]
+        if query !== nothing && query != "="
+            return false
+        end
+    end
+    return true
+end
+
+function is_identity_axis(view::DafView, axis::AbstractString)::Bool
+    if view.is_pure_axes
+        return true
+    end
+    for (key, query) in view.reversed_view_axes
+        if key == axis || key == "*"
+            return query == "="
+        end
+    end
+    @assert false
+end
+
+function is_identity_vector(view::DafView, axis::AbstractString, name::AbstractString)::Bool
+    if !is_identity_axis(view, axis)
+        return false
+    end
+    if view.is_pure_vectors
+        return true
+    end
+    for (key, query) in view.reversed_view_vectors
+        key_axis, key_name = key
+        if (key_axis == axis || key_axis == "*") && (key_name == name || key_name == "*")
+            return query == "="
+        end
+    end
+    @assert false
+end
+
+function is_identity_matrix(
+    view::DafView,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+)::Bool
+    if !is_identity_axis(view, rows_axis) || !is_identity_axis(view, columns_axis)
+        return false
+    end
+    if view.is_pure_matrices
+        return true
+    end
+    for (key, query) in view.reversed_view_tensors
+        key_main_axis, key_rows_axis, key_columns_axis, key_name = key
+        for (test_key_rows_axis, test_key_columns_axis) in
+            ((key_rows_axis, key_columns_axis), (key_columns_axis, key_rows_axis))
+            if test_key_rows_axis == rows_axis &&
+               test_key_columns_axis == columns_axis &&
+               endswith(name, key_name) &&
+               haskey(axis_dict(view.daf, key_main_axis), name[1:(end - length(key_name) - 1)])
+                return query == "="
+            end
+        end
+    end
+    for (key, query) in view.reversed_view_matrices
+        key_rows_axis, key_columns_axis, key_name = key
+        for (test_key_rows_axis, test_key_columns_axis) in
+            ((key_rows_axis, key_columns_axis), (key_columns_axis, key_rows_axis))
+            if (test_key_rows_axis == rows_axis || test_key_rows_axis == "*") &&
+               (test_key_columns_axis == columns_axis || test_key_columns_axis == "*") &&
+               (key_name == name || key_name == "*")
+                return query == "="
+            end
+        end
+    end
+    @assert false
 end
 
 QUERY_TYPE_BY_DIMENSIONS = ["scalar", "vector", "matrix"]

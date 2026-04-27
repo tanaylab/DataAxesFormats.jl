@@ -31,7 +31,7 @@ end
 """
     struct MemoryDaf <: DafWriter ... end
 
-    MemoryDaf(; name = "memory")
+    MemoryDaf(; name = "memory", packed::Bool = false)
 
 Simple in-memory storage.
 
@@ -39,6 +39,10 @@ This just keeps everything in-memory, similarly to the way an `AnnData` object w
 object that just keeps references to the data it is given.
 
 This is the "default" storage type you should use, unless you need to persist the data on the disk.
+
+The `packed` kwarg is accepted for API uniformity with the disk-based formats but has no effect — `MemoryDaf` stores
+typed Julia arrays directly, with no on-disk encoding. If `packed = true` is requested, a `@debug` line is emitted
+once to flag the request, and the value is otherwise ignored.
 """
 mutable struct MemoryDaf <: DafWriter
     name::AbstractString
@@ -50,12 +54,16 @@ mutable struct MemoryDaf <: DafWriter
     reorder_backup::Maybe{MemoryReorderBackup}
 end
 
-function MemoryDaf(; name::AbstractString = "memory")::MemoryDaf
+function MemoryDaf(; name::AbstractString = "memory", packed::Bool = false)::MemoryDaf
     scalars = Dict{AbstractString, StorageScalar}()
     axes = Dict{AbstractString, AbstractVector{<:AbstractString}}()
     vectors = Dict{AbstractString, Dict{AbstractString, StorageVector}}()
     matrices = Dict{AbstractString, Dict{AbstractString, Dict{AbstractString, StorageMatrix}}}()
     name = unique_name(name)
+    if packed
+        @debug "Daf: MemoryDaf $(name) ignores packed=true (in-memory storage has no on-disk encoding)" _group =
+            :daf_repose
+    end
     memory = MemoryDaf(name, Internal(; is_frozen = false), scalars, axes, vectors, matrices, nothing)
     @debug "Daf: $(brief(memory))" _group = :daf_repose
     return memory
@@ -167,6 +175,7 @@ function Formats.format_set_vector!(
     axis::AbstractString,
     name::AbstractString,
     vector::Union{StorageScalar, StorageVector},
+    _packed::Bool,  # NOLINT
 )::Nothing
     @assert Formats.has_data_write_lock(memory)
     if vector isa StorageVector
@@ -185,6 +194,7 @@ function Formats.format_get_empty_dense_vector!(
     axis::AbstractString,
     name::AbstractString,
     ::Type{T},
+    _packed::Bool,
 )::Tuple{AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal}
     @assert Formats.has_data_write_lock(memory)
     nelements = Formats.format_axis_length(memory, axis)
@@ -200,6 +210,7 @@ function Formats.format_get_empty_sparse_vector!(
     ::Type{T},
     nnz::StorageInteger,
     ::Type{I},
+    _packed::Bool,
 )::Tuple{AbstractVector{I}, AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(memory)
     nzind = Vector{I}(undef, nnz)
@@ -259,6 +270,7 @@ function Formats.format_set_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     matrix::Union{StorageScalarBase, StorageMatrix},
+    _packed::Bool,  # NOLINT
 )::Nothing
     @assert Formats.has_data_write_lock(memory)
     if matrix isa StorageMatrix
@@ -286,6 +298,7 @@ function Formats.format_get_empty_dense_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     ::Type{T},
+    _packed::Bool,
 )::Tuple{AbstractMatrix{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal}
     @assert Formats.has_data_write_lock(memory)
     nrows = Formats.format_axis_length(memory, rows_axis)
@@ -303,6 +316,7 @@ function Formats.format_get_empty_sparse_matrix!(
     ::Type{T},
     nnz::StorageInteger,
     ::Type{I},
+    _packed::Bool,
 )::Tuple{
     AbstractVector{I},
     AbstractVector{I},
@@ -336,10 +350,11 @@ function Formats.format_relayout_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     matrix::StorageMatrix,
+    packed::Bool,
 )::StorageMatrix
     @assert Formats.has_data_write_lock(memory)
     matrix = flipped(matrix)
-    Formats.format_set_matrix!(memory, columns_axis, rows_axis, name, matrix)
+    Formats.format_set_matrix!(memory, columns_axis, rows_axis, name, matrix, packed)
     return matrix
 end
 

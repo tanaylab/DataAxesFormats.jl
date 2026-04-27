@@ -341,7 +341,12 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">complete_daf(leaf::AbstractString, mode::AbstractString = &quot;r&quot;; name::Maybe{AbstractString} = nothing)::Union{DafReader, DafWriter}
+<code class="language-julia hljs">complete_daf(
+    leaf::AbstractString,
+    mode::AbstractString = &quot;r&quot;;
+    [name::Maybe{AbstractString} = nothing,
+    packed::Bool = false]
+)::Union{DafReader, DafWriter}
 </code>
 </pre>
 <p>Open a complete chain of 
@@ -351,6 +356,16 @@
 </code> and the optional 
 <code>base_daf_view
 </code>. Valid modes are only &quot;r&quot; and &quot;r+&quot;; if the latter, only the first (leaf) repository is opened in write mode.
+</p>
+<p>If 
+<code>packed
+</code> is 
+<code>true
+</code>, the leaf repository (the only one opened in write mode under &quot;r+&quot;) gets 
+<code>packed = true
+</code> as its per-daf default. Base repositories are always opened in &quot;r&quot; mode and the 
+<code>packed
+</code> value is irrelevant for them.
 </p>
 <p>A convenient way to create persistent complete chains is using 
 <a href="chains.html#DataAxesFormats.Chains.complete_chain!">
@@ -380,7 +395,8 @@
 <code class="language-julia hljs">open_daf(
     path::AbstractString,
     mode::AbstractString = &quot;r&quot;;
-    name::Maybe{AbstractString} = nothing
+    [name::Maybe{AbstractString} = nothing,
+    packed::Bool = false]
 )::Union{DafReader, DafWriter}
 </code>
 </pre>
@@ -450,6 +466,10 @@
 </a>.
 </li>
 </ul>
+<p>The 
+<code>packed
+</code> kwarg is forwarded to the chosen backend; see each backend&#39;s constructor for what it controls.
+</p>
 </div>
 </section>
 </details>

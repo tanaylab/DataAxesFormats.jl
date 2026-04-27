@@ -325,7 +325,7 @@
 <pre>
 <code class="language-julia hljs">struct MemoryDaf &lt;: DafWriter ... end
 
-MemoryDaf(; name = &quot;memory&quot;)
+MemoryDaf(; name = &quot;memory&quot;, packed::Bool = false)
 </code>
 </pre>
 <p>Simple in-memory storage.
@@ -335,6 +335,16 @@ MemoryDaf(; name = &quot;memory&quot;)
 </code> object works; that is, this is a lightweight object that just keeps references to the data it is given.
 </p>
 <p>This is the &quot;default&quot; storage type you should use, unless you need to persist the data on the disk.
+</p>
+<p>The 
+<code>packed
+</code> kwarg is accepted for API uniformity with the disk-based formats but has no effect — 
+<code>MemoryDaf
+</code> stores typed Julia arrays directly, with no on-disk encoding. If 
+<code>packed = true
+</code> is requested, a 
+<code>@debug
+</code> line is emitted once to flag the request, and the value is otherwise ignored.
 </p>
 </div>
 </section>

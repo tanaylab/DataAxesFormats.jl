@@ -143,7 +143,8 @@ end
         bestify::Bool = false,
         min_sparse_saving_fraction::AbstractFloat = $(DEFAULT.min_sparse_saving_fraction),
         overwrite::Bool = false,
-        insist::Bool = true]
+        insist::Bool = true,
+        packed::Maybe{Bool} = nothing]
     )::Nothing
 
 Copy a vector from some `source` [`DafReader`](@ref) into some `destination` [`DafWriter`](@ref).
@@ -176,6 +177,7 @@ source axis contains entries that do not exist in the target, they are discarded
     ),
     overwrite::Bool = false,
     insist::Bool = true,
+    packed::Maybe{Bool} = nothing,
     relation::Maybe{Symbol} = nothing,
 )::Nothing
     reaxis = new_name(reaxis, axis)
@@ -224,7 +226,7 @@ source axis contains entries that do not exist in the target, they are discarded
 
     if relation == :same
         if Base.eltype(value) <: abstract_eltype
-            set_vector!(destination, reaxis, rename, value; overwrite)
+            set_vector!(destination, reaxis, rename, value; overwrite, packed)
         elseif issparse(value.array)
             @assert isbitstype(concrete_eltype) "not a bits type: $(concrete_eltype)"
             empty_sparse_vector!(
@@ -234,6 +236,7 @@ source axis contains entries that do not exist in the target, they are discarded
                 concrete_eltype,
                 nnz(value.array);
                 overwrite,
+                packed,
             ) do sparse_nzind, sparse_nzval
                 sparse_nzind .= nzind(value.array)  # NOJET
                 sparse_nzval .= nzval(value.array)
@@ -241,7 +244,7 @@ source axis contains entries that do not exist in the target, they are discarded
             end
         else
             @assert isbitstype(concrete_eltype) "not a bits type: $(concrete_eltype)"
-            empty_dense_vector!(destination, reaxis, rename, concrete_eltype; overwrite) do empty_vector
+            empty_dense_vector!(destination, reaxis, rename, concrete_eltype; overwrite, packed) do empty_vector
                 empty_vector .= value
                 return nothing
             end
@@ -265,9 +268,9 @@ source axis contains entries that do not exist in the target, they are discarded
             named .= empty
             named[names(value, 1)] .= value  # NOJET
             value = issparse(value.array) && !(concrete_eltype <: AbstractString) ? sparse_vector(dense) : dense
-            set_vector!(destination, reaxis, rename, value; overwrite)
+            set_vector!(destination, reaxis, rename, value; overwrite, packed)
         else
-            empty_dense_vector!(destination, reaxis, rename, concrete_eltype; overwrite) do empty_vector
+            empty_dense_vector!(destination, reaxis, rename, concrete_eltype; overwrite, packed) do empty_vector
                 empty_vector .= empty
                 named_vector = Formats.as_named_vector(destination, axis, empty_vector)
                 named_vector[names(value, 1)] .= value
@@ -296,7 +299,8 @@ end
         min_sparse_saving_fraction::AbstractFloat = $(DEFAULT.min_sparse_saving_fraction),
         relayout::Bool = true,
         overwrite::Bool = false,
-        insist::Bool = true]
+        insist::Bool = true,
+        packed::Maybe{Bool} = nothing]
     )::Nothing
 
 Copy a matrix from some `source` [`DafReader`](@ref) into some `destination` [`DafWriter`](@ref).
@@ -338,6 +342,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
     relayout::Bool = true,
     overwrite::Bool = false,
     insist::Bool = true,
+    packed::Maybe{Bool} = nothing,
     rows_relation::Maybe{Symbol} = nothing,
     columns_relation::Maybe{Symbol} = nothing,
 )::Nothing
@@ -397,6 +402,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
             relayout = false,
             empty,
             overwrite,
+            packed,
             rows_relation = columns_relation,
             columns_relation = rows_relation,
         )
@@ -435,7 +441,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
 
     if rows_relation == :same && columns_relation == :same
         if Base.eltype(value) == concrete_eltype || concrete_eltype <: AbstractString
-            set_matrix!(destination, rows_reaxis, columns_reaxis, rename, value; overwrite, relayout)
+            set_matrix!(destination, rows_reaxis, columns_reaxis, rename, value; overwrite, relayout, packed)
         else
             if issparse(value)
                 empty_sparse_matrix!(
@@ -446,6 +452,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
                     concrete_eltype,
                     nnz(value);
                     overwrite,
+                    packed,
                 ) do sparse_colptr, sparse_rowval, sparse_nzval
                     sparse_colptr .= colptr(value)
                     sparse_rowval .= rowval(value)
@@ -460,13 +467,14 @@ axis contains entries that do not exist in the target, they are discarded (not c
                     rename,
                     concrete_eltype;
                     overwrite,
+                    packed,
                 ) do empty_matrix
                     empty_matrix .= value
                     return nothing
                 end
             end
             if relayout
-                relayout_matrix!(destination, rows_reaxis, columns_reaxis, rename; overwrite)  # UNTESTED
+                relayout_matrix!(destination, rows_reaxis, columns_reaxis, rename; overwrite, packed)  # UNTESTED
             end
         end
         return nothing
@@ -497,7 +505,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
                     n_columns,
                 )
             end
-            set_matrix!(destination, rows_reaxis, columns_reaxis, rename, embedded; overwrite, relayout)
+            set_matrix!(destination, rows_reaxis, columns_reaxis, rename, embedded; overwrite, relayout, packed)
         elseif issparse(value) || concrete_eltype <: AbstractString
             dense = Matrix{concrete_eltype}(
                 undef,
@@ -508,10 +516,10 @@ axis contains entries that do not exist in the target, they are discarded (not c
             named .= empty
             named[names(value, 1), names(value, 2)] .= value  # NOJET
             if concrete_eltype <: AbstractString
-                set_matrix!(destination, rows_reaxis, columns_reaxis, rename, dense; overwrite, relayout)  # UNTESTED
+                set_matrix!(destination, rows_reaxis, columns_reaxis, rename, dense; overwrite, relayout, packed)  # UNTESTED
             else
                 sparse = sparse_matrix_csc(dense)
-                set_matrix!(destination, rows_reaxis, columns_reaxis, rename, sparse; overwrite, relayout)
+                set_matrix!(destination, rows_reaxis, columns_reaxis, rename, sparse; overwrite, relayout, packed)
             end
         else
             empty_dense_matrix!(
@@ -521,6 +529,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
                 rename,
                 concrete_eltype;
                 overwrite,
+                packed,
             ) do empty_matrix
                 empty_matrix .= empty
                 named_matrix = Formats.as_named_matrix(destination, rows_axis, columns_axis, empty_matrix)
@@ -528,7 +537,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
                 return nothing
             end
             if relayout
-                relayout_matrix!(destination, rows_reaxis, columns_reaxis, rename; overwrite)  # UNTESTED
+                relayout_matrix!(destination, rows_reaxis, columns_reaxis, rename; overwrite, packed)  # UNTESTED
             end
         end
     end
@@ -553,7 +562,8 @@ end
         min_sparse_saving_fraction::AbstractFloat = $(DEFAULT.min_sparse_saving_fraction),
         relayout::Bool = true,
         overwrite::Bool = false,
-        insist::Bool = true]
+        insist::Bool = true,
+        packed::Maybe{Bool} = nothing]
     )::Nothing
 
 Copy a tensor from some `source` [`DafReader`](@ref) into some `destination` [`DafWriter`](@ref).
@@ -585,6 +595,7 @@ which exist in the destination but do not exist in the source. If a tensor matri
     relayout::Bool = true,
     overwrite::Bool = false,
     insist::Bool = true,
+    packed::Maybe{Bool} = nothing,
     rows_relation::Maybe{Symbol} = nothing,
     columns_relation::Maybe{Symbol} = nothing,
 )::Nothing
@@ -607,6 +618,7 @@ which exist in the destination but do not exist in the source. If a tensor matri
             relayout,
             overwrite,
             insist,
+            packed,
             rows_relation,
             columns_relation,
         )
@@ -645,7 +657,8 @@ DataTypes = Union{AbstractDict, AbstractVector, NamedTuple}
         types::Maybe{DataTypes} = nothing,
         overwrite::Bool = false,
         insist::Bool = true,
-        relayout::Bool = true]
+        relayout::Bool = true,
+        packed::Maybe{Bool} = nothing]
     )::Nothing
 
 Copy all the content of a `source` [`DafReader`](@ref) into a `destination` [`DafWriter`](@ref). If some data already
@@ -674,6 +687,7 @@ axis which exist in the destination but do not exist in the source.
     overwrite::Bool = false,
     insist::Bool = true,
     relayout::Bool = true,
+    packed::Maybe{Bool} = nothing,
 )::Nothing
     empty = pairs_as_dict(empty)
     types = pairs_as_dict(types)
@@ -702,9 +716,20 @@ axis which exist in the destination but do not exist in the source.
     axis_relations = verify_axes(; destination, source, what_for)
     copy_scalars(; destination, source, types, overwrite, insist)
     copy_axes(; destination, source, overwrite, insist)
-    copy_vectors(; destination, source, axis_relations, empty, types, overwrite, insist)
-    copy_matrices(; destination, source, axis_relations, empty, types, overwrite, insist, relayout)
-    ensure_tensors(; destination, source, axis_relations, empty, types, overwrite, insist, relayout, tensor_keys)
+    copy_vectors(; destination, source, axis_relations, empty, types, overwrite, insist, packed)
+    copy_matrices(; destination, source, axis_relations, empty, types, overwrite, insist, relayout, packed)
+    ensure_tensors(;
+        destination,
+        source,
+        axis_relations,
+        empty,
+        types,
+        overwrite,
+        insist,
+        relayout,
+        tensor_keys,
+        packed,
+    )
 
     return nothing
 end
@@ -865,6 +890,7 @@ function copy_vectors(;
     types::Maybe{DataTypes},
     overwrite::Bool,
     insist::Bool,
+    packed::Maybe{Bool},
 )::Nothing
     for (axis, relation) in axis_relations
         for name in vectors_set(source, axis)
@@ -887,6 +913,7 @@ function copy_vectors(;
                 eltype = type,
                 overwrite,
                 insist,
+                packed,
                 relation,
             )
         end
@@ -902,6 +929,7 @@ function copy_matrices(;
     overwrite::Bool,
     insist::Bool,
     relayout::Bool,
+    packed::Maybe{Bool},
 )::Nothing
     for (rows_axis, rows_relation) in axis_relations
         for (columns_axis, columns_relation) in axis_relations
@@ -921,6 +949,7 @@ function copy_matrices(;
                             columns_relation,
                             name,
                             relayout,
+                            packed,
                         )
                     end
                 end
@@ -939,6 +968,7 @@ function ensure_tensors(;
     insist::Bool,
     relayout::Bool,
     tensor_keys::AbstractVector{TensorKey},
+    packed::Maybe{Bool},
 )::Nothing
     for (main_axis, rows_axis, columns_axis, matrix_name) in tensor_keys
         main_axis_entries = axis_vector(destination, main_axis)
@@ -958,6 +988,7 @@ function ensure_tensors(;
                     columns_relation = axis_relations[columns_axis],
                     name,
                     relayout,
+                    packed,
                 )
             end
         end
@@ -977,6 +1008,7 @@ function copy_single_matrix(;
     columns_relation::Symbol,
     name::AbstractString,
     relayout::Bool,
+    packed::Maybe{Bool},
 )::Nothing
     empty_value = nothing
     if empty !== nothing
@@ -1011,6 +1043,7 @@ function copy_single_matrix(;
         eltype = type,
         overwrite,
         insist,
+        packed,
         rows_relation,
         columns_relation,
         relayout,

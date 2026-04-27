@@ -54,6 +54,7 @@ nested_test("doctests") do
 end
 
 include("keys.jl")
+include("packed_format.jl")
 include("read_only.jl")
 include("cache_groups.jl")
 include("data.jl")

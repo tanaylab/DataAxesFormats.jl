@@ -13,6 +13,14 @@ file to actually release the storage). Also, you can use standard tools to look 
 Windows file explorer to view the list of properties, how much space each one uses, when it was created, etc.). Most
 importantly, this allows using standard tools like `make` to create automatic repeatable processing workflows.
 
+For packed (chunked) vectors and matrices, `FilesDaf` lays the chunks out in a bucketed directory hierarchy (each path
+component is a 3-digit zero-padded index, with extra levels accruing for higher counts). This keeps the number of
+entries in any single directory bounded regardless of total chunk count, so `FilesDaf` scales gracefully to very large
+packed matrices (hundreds of thousands of chunks) without stressing the filesystem or interactive tools like `ls` or
+file explorers. This is a meaningful difference from
+[`ZarrDaf`](@ref DataAxesFormats.ZarrFormat.ZarrDaf), which stores all chunks of an array as flat siblings in one
+directory.
+
 We use multiple files to store `Daf` data, under some root directory, as follows:
 
   - The directory will contain 4 sub-directories: `scalars`, `axes`, `vectors`, and `matrices`, and a file called
@@ -172,7 +180,8 @@ MINOR_VERSION::UInt8 = 0
     FilesDaf(
         path::AbstractString,
         mode::AbstractString = "r";
-        [name::Maybe{AbstractString} = nothing]
+        [name::Maybe{AbstractString} = nothing,
+        packed::Bool = false]
     )
 
 Storage in disk files in some directory.
@@ -183,6 +192,11 @@ directory containing a `daf.json` is a valid `FilesDaf`. The matching single-fil
 
 When opening an existing data set, if `name` is not specified, and there exists a "name" scalar property, it is used as
 the name. Otherwise, the `path` will be used as the name.
+
+If `packed` is `true`, subsequent writes through this handle default to the packed (chunked + compressed) on-disk
+encoding for properties whose uncompressed size is at or above
+[`DAF_PACKED_TARGET_CHUNK_KB`](@ref DataAxesFormats.PackedFormat.DAF_PACKED_TARGET_CHUNK_KB). Per-call `packed` kwargs
+on `set_*!` / `empty_*!` / `copy_*!` override this default. The default is `false` (today's flat encoding).
 
 The valid `mode` values are as follows (the default mode is `r`):
 
@@ -205,6 +219,7 @@ function FilesDaf(
     path::AbstractString,
     mode::AbstractString = "r";
     name::Maybe{AbstractString} = nothing,
+    packed::Bool = false,
 )::Union{FilesDaf, DafReadOnly}
     is_read_only, create_if_missing, truncate_if_exists = Formats.parse_mode(mode)
 
@@ -263,11 +278,11 @@ function FilesDaf(
     name = unique_name(name)
 
     if is_read_only
-        writable_files = FilesDaf(name, Internal(; is_frozen = true), abspath(path), mode, "r")
+        writable_files = FilesDaf(name, Internal(; is_frozen = true, packed_default = packed), abspath(path), mode, "r")
         ensure_metadata_zip!(writable_files)
         file = read_only(writable_files)
     else
-        file = FilesDaf(name, Internal(; is_frozen = false), abspath(path), mode, "r+")
+        file = FilesDaf(name, Internal(; is_frozen = false, packed_default = packed), abspath(path), mode, "r+")
         ensure_metadata_zip!(file)
     end
     @debug "Daf: $(brief(file)) path: $(path)" _group = :daf_repos
@@ -442,6 +457,7 @@ function Formats.format_set_vector!(
     axis::AbstractString,
     name::AbstractString,
     vector::Union{StorageScalar, StorageVector},
+    _packed::Bool,  # NOLINT
 )::Nothing
     @assert Formats.has_data_write_lock(files)
     if vector == 0
@@ -544,6 +560,7 @@ function Formats.format_get_empty_dense_vector!(
     axis::AbstractString,
     name::AbstractString,
     ::Type{T},
+    _packed::Bool,
 )::Tuple{AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal}
     @assert Formats.has_data_write_lock(files)
     size = Formats.format_axis_length(files, axis)
@@ -582,6 +599,7 @@ function Formats.format_get_empty_sparse_vector!(
     ::Type{T},
     nnz::StorageInteger,
     ::Type{I},
+    _packed::Bool,
 )::Tuple{AbstractVector{I}, AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(files)
     nzind_vector, nzval_vector = create_empty_sparse_vector_at(files.path, axis, name, T, nnz, I)
@@ -721,6 +739,7 @@ function Formats.format_set_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     matrix::Union{StorageScalarBase, StorageMatrix},
+    _packed::Bool,  # NOLINT
 )::Nothing
     @assert Formats.has_data_write_lock(files)
     nrows = Formats.format_axis_length(files, rows_axis)
@@ -842,6 +861,7 @@ function Formats.format_get_empty_dense_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     ::Type{T},
+    _packed::Bool,
 )::Tuple{AbstractMatrix{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal}
     @assert Formats.has_data_write_lock(files)
     nrows = Formats.format_axis_length(files, rows_axis)
@@ -885,6 +905,7 @@ function Formats.format_get_empty_sparse_matrix!(
     ::Type{T},
     nnz::StorageInteger,
     ::Type{I},
+    _packed::Bool,
 )::Tuple{
     AbstractVector{I},
     AbstractVector{I},
@@ -942,6 +963,7 @@ function Formats.format_relayout_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     matrix::StorageMatrix,
+    packed::Bool,
 )::StorageMatrix
     @assert Formats.has_data_write_lock(files)
 
@@ -954,6 +976,7 @@ function Formats.format_relayout_matrix!(
             eltype(matrix),
             nnz(matrix),
             eltype(matrix.colptr),
+            packed,
         )
         flame_timed("FilesDaf.init_empty_sparse_matrix") do
             colptr[1] = 1
@@ -970,7 +993,7 @@ function Formats.format_relayout_matrix!(
     else
         @assert eltype(matrix) <: Real
         relayout_matrix, _ =
-            Formats.format_get_empty_dense_matrix!(files, columns_axis, rows_axis, name, eltype(matrix))
+            Formats.format_get_empty_dense_matrix!(files, columns_axis, rows_axis, name, eltype(matrix), packed)
         relayout!(flip(relayout_matrix), matrix)
     end
 

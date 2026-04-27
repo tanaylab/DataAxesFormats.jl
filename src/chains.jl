@@ -430,12 +430,13 @@ function Formats.format_set_vector!(
     axis::AbstractString,
     name::AbstractString,
     vector::Union{StorageScalar, StorageVector},
+    packed::Bool,
 )::Nothing
     @assert Formats.has_data_write_lock(chain)
     if !Formats.format_has_axis(chain.daf, axis; for_change = false)
         add_axis!(chain.daf, axis, Formats.get_axis_vector_through_cache(chain, axis))
     end
-    Formats.format_set_vector!(chain.daf, axis, name, vector)
+    Formats.format_set_vector!(chain.daf, axis, name, vector, packed)
     return nothing
 end
 
@@ -444,12 +445,13 @@ function Formats.format_get_empty_dense_vector!(
     axis::AbstractString,
     name::AbstractString,
     eltype::Type{T},
+    packed::Bool,
 )::Tuple{AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal}
     @assert Formats.has_data_write_lock(chain)
     if !Formats.format_has_axis(chain.daf, axis; for_change = false)
         add_axis!(chain.daf, axis, Formats.get_axis_vector_through_cache(chain, axis))
     end
-    return Formats.format_get_empty_dense_vector!(chain.daf, axis, name, eltype)
+    return Formats.format_get_empty_dense_vector!(chain.daf, axis, name, eltype, packed)
 end
 
 function Formats.format_get_empty_sparse_vector!(
@@ -459,12 +461,13 @@ function Formats.format_get_empty_sparse_vector!(
     eltype::Type{T},
     nnz::StorageInteger,
     indtype::Type{I},
+    packed::Bool,
 )::Tuple{AbstractVector{I}, AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(chain)
     if !Formats.format_has_axis(chain.daf, axis; for_change = false)
         add_axis!(chain.daf, axis, Formats.get_axis_vector_through_cache(chain, axis))
     end
-    return Formats.format_get_empty_sparse_vector!(chain.daf, axis, name, eltype, nnz, indtype)
+    return Formats.format_get_empty_sparse_vector!(chain.daf, axis, name, eltype, nnz, indtype, packed)
 end
 
 function Formats.format_filled_empty_dense_vector!(
@@ -543,6 +546,16 @@ function Formats.format_get_vector(
     @assert false
 end
 
+function Formats.format_is_packed_vector(chain::AnyChain, axis::AbstractString, name::AbstractString)::Bool
+    @assert Formats.has_data_read_lock(chain)
+    for daf in reverse(chain.dafs)
+        if Formats.format_has_axis(daf, axis; for_change = false) && Formats.format_has_vector(daf, axis, name)
+            return Formats.format_is_packed_vector(daf, axis, name)
+        end
+    end
+    @assert false
+end
+
 function Formats.format_has_matrix(
     chain::AnyChain,
     rows_axis::AbstractString,
@@ -583,6 +596,7 @@ function Formats.format_set_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     matrix::Union{StorageReal, StorageMatrix},
+    packed::Bool,
 )::Nothing
     @assert Formats.has_data_write_lock(chain)
     for axis in (rows_axis, columns_axis)
@@ -590,7 +604,7 @@ function Formats.format_set_matrix!(
             add_axis!(chain.daf, axis, Formats.get_axis_vector_through_cache(chain, axis))
         end
     end
-    Formats.format_set_matrix!(chain.daf, rows_axis, columns_axis, name, matrix)
+    Formats.format_set_matrix!(chain.daf, rows_axis, columns_axis, name, matrix, packed)
     return nothing
 end
 
@@ -600,6 +614,7 @@ function Formats.format_get_empty_dense_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     eltype::Type{T},
+    packed::Bool,
 )::Tuple{AbstractMatrix{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal}
     @assert Formats.has_data_write_lock(chain)
     for axis in (rows_axis, columns_axis)
@@ -607,7 +622,7 @@ function Formats.format_get_empty_dense_matrix!(
             add_axis!(chain.daf, axis, Formats.get_axis_vector_through_cache(chain, axis))
         end
     end
-    return Formats.format_get_empty_dense_matrix!(chain.daf, rows_axis, columns_axis, name, eltype)
+    return Formats.format_get_empty_dense_matrix!(chain.daf, rows_axis, columns_axis, name, eltype, packed)
 end
 
 function Formats.format_get_empty_sparse_matrix!(
@@ -618,6 +633,7 @@ function Formats.format_get_empty_sparse_matrix!(
     eltype::Type{T},
     nnz::StorageInteger,
     indtype::Type{I},
+    packed::Bool,
 )::Tuple{
     AbstractVector{I},
     AbstractVector{I},
@@ -630,7 +646,16 @@ function Formats.format_get_empty_sparse_matrix!(
             add_axis!(chain.daf, axis, Formats.get_axis_vector_through_cache(chain, axis))
         end
     end
-    return Formats.format_get_empty_sparse_matrix!(chain.daf, rows_axis, columns_axis, name, eltype, nnz, indtype)
+    return Formats.format_get_empty_sparse_matrix!(
+        chain.daf,
+        rows_axis,
+        columns_axis,
+        name,
+        eltype,
+        nnz,
+        indtype,
+        packed,
+    )
 end
 
 function Formats.format_filled_empty_dense_matrix!(
@@ -663,6 +688,7 @@ function Formats.format_relayout_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     matrix::StorageMatrix,
+    packed::Bool,
 )::StorageMatrix
     @assert Formats.has_data_write_lock(chain)
 
@@ -671,7 +697,7 @@ function Formats.format_relayout_matrix!(
            Formats.format_has_axis(daf, columns_axis; for_change = false) &&
            Formats.format_has_cached_matrix(daf, rows_axis, columns_axis, name)
             if daf isa DafWriter && !daf.internal.is_frozen
-                return Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name, matrix)
+                return Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name, matrix, packed)
             else
                 entry = Formats.get_slow_through_cache(  # UNTESTED
                     daf,
@@ -756,6 +782,23 @@ function Formats.format_get_matrix(
                 nothing,
                 Formats.MemoryData,
             )
+        end
+    end
+    @assert false
+end
+
+function Formats.format_is_packed_matrix(
+    chain::AnyChain,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+)::Bool
+    @assert Formats.has_data_read_lock(chain)
+    for daf in reverse(chain.dafs)
+        if Formats.format_has_axis(daf, rows_axis; for_change = false) &&
+           Formats.format_has_axis(daf, columns_axis; for_change = false) &&
+           Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
+            return Formats.format_is_packed_matrix(daf, rows_axis, columns_axis, name)
         end
     end
     @assert false

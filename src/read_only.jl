@@ -149,6 +149,15 @@ function Formats.format_get_vector(
     return (read_only_array(vector), backing, cache_group)
 end
 
+function Formats.format_is_packed_vector(
+    read_only_view::DafReadOnlyWrapper,
+    axis::AbstractString,
+    name::AbstractString,
+)::Bool
+    @assert Formats.has_data_read_lock(read_only_view)
+    return Formats.format_is_packed_vector(read_only_view.daf, axis, name)
+end
+
 function Formats.format_has_matrix(
     read_only_view::DafReadOnlyWrapper,
     rows_axis::AbstractString,
@@ -177,6 +186,16 @@ function Formats.format_get_matrix(
     @assert Formats.has_data_read_lock(read_only_view)
     matrix, backing, cache_group = Formats.format_get_matrix(read_only_view.daf, rows_axis, columns_axis, name)
     return (read_only_array(matrix), backing, cache_group)
+end
+
+function Formats.format_is_packed_matrix(
+    read_only_view::DafReadOnlyWrapper,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+)::Bool
+    @assert Formats.has_data_read_lock(read_only_view)
+    return Formats.format_is_packed_matrix(read_only_view.daf, rows_axis, columns_axis, name)
 end
 
 function Formats.format_description_header(  # UNTESTED

@@ -29,6 +29,7 @@ export set_scalar!
 export set_vector!
 
 using ..Formats
+using ..PackedFormat
 using ..Readers
 using ..StorageTypes
 using ConcurrentUtils
@@ -38,6 +39,7 @@ using TanayLabUtilities
 
 import ..Formats
 import ..Formats.FormatWriter  # For documentation.
+import ..PackedFormat.resolve_packed
 import ..Readers.assert_valid_matrix
 import ..Readers.base_array
 import ..Readers.require_axis
@@ -283,7 +285,8 @@ end
         name::AbstractString,
         vector::Union{StorageScalar, StorageVector};
         [eltype::Maybe{Type{<:StorageReal}} = nothing,
-        overwrite::Bool = false]
+        overwrite::Bool = false,
+        packed::Maybe{Bool} = nothing]
     )::Nothing
 
 Set a vector property with some `name` for some `axis` in `daf`.
@@ -296,6 +299,9 @@ appropriate length. If not `overwrite` (the default), this also verifies the `na
 
 If `eltype` is specified, and the data is of another type, then the data is converted to this data type before being
 stored.
+
+If `packed` is non-`nothing`, it overrides the per-daf `packed` default for this single write. Otherwise the per-daf
+default applies. The flag has no observable effect on backends that do not support packed encoding.
 
 ```jldoctest
 metacells = example_metacells_daf()
@@ -319,6 +325,7 @@ function set_vector!(
     vector::Union{StorageScalar, StorageVector};
     eltype::Maybe{Type{<:StorageReal}} = nothing,
     overwrite::Bool = false,
+    packed::Maybe{Bool} = nothing,
 )::Nothing
     @assert Base.eltype(vector) <: AbstractString || isbitstype(Base.eltype(vector))
     return Formats.with_data_write_lock(daf, "set_vector! of:", name, "of:", axis) do
@@ -363,7 +370,7 @@ function set_vector!(
         if Base.eltype(vector) <: AbstractString
             vector = String.(vector)
         end
-        Formats.format_set_vector!(daf, axis, name, vector)
+        Formats.format_set_vector!(daf, axis, name, vector, resolve_packed(packed, daf))
         # Formats.assert_valid_cache(daf)
         return nothing
     end
@@ -376,7 +383,8 @@ end
         axis::AbstractString,
         name::AbstractString,
         eltype::Type{<:StorageReal};
-        [overwrite::Bool = false]
+        [overwrite::Bool = false,
+        packed::Maybe{Bool} = nothing]
     )::Any
 
 Create an empty dense vector property with some `name` for some `axis` in `daf`, pass it to `fill`, and return the
@@ -388,6 +396,9 @@ mapping). For this reason, this does not work for strings, as they do not have a
 
 This first verifies the `axis` exists in `daf` and that the property name isn't `name`. If not `overwrite` (the
 default), this also verifies the `name` vector does not exist for the `axis`.
+
+If `packed` is non-`nothing`, it overrides the per-daf `packed` default for this single write. Otherwise the per-daf
+default applies. The flag has no observable effect on backends that do not support packed encoding.
 """
 function empty_dense_vector!(
     fill::Function,
@@ -396,9 +407,10 @@ function empty_dense_vector!(
     name::AbstractString,
     eltype::Type{<:StorageReal};
     overwrite::Bool = false,
+    packed::Maybe{Bool} = nothing,
 )::Any
     @assert isbitstype(eltype)
-    vector, cache_group = get_empty_dense_vector!(daf, axis, name, eltype; overwrite)
+    vector, cache_group = get_empty_dense_vector!(daf, axis, name, eltype; overwrite, packed)
     try
         result = fill(vector)
         filled_empty_dense_vector!(daf, axis, name, vector, cache_group)
@@ -415,6 +427,7 @@ function get_empty_dense_vector!(
     name::AbstractString,
     eltype::Type{T};
     overwrite::Bool = false,
+    packed::Maybe{Bool} = nothing,
 )::Tuple{AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal}
     @assert isbitstype(eltype)
     Formats.begin_data_write_lock(daf, "empty_dense_vector! of:", name, "of:", axis)
@@ -430,7 +443,7 @@ function get_empty_dense_vector!(
         end
 
         update_before_set_vector(daf, axis, name)
-        return Formats.format_get_empty_dense_vector!(daf, axis, name, eltype)
+        return Formats.format_get_empty_dense_vector!(daf, axis, name, eltype, resolve_packed(packed, daf))
     catch
         Formats.end_data_write_lock(daf, "empty_dense_vector! of:", name, "of:", axis)
         rethrow()
@@ -512,13 +525,14 @@ function empty_sparse_vector!(
     nnz::StorageInteger,
     indtype::Maybe{Type{<:StorageInteger}} = nothing;
     overwrite::Bool = false,
+    packed::Maybe{Bool} = nothing,
 )::Any
     if indtype === nothing
         indtype = indtype_for_size(axis_length(daf, axis))
     end
     @assert isbitstype(eltype)
     @assert isbitstype(indtype)
-    nzind, nzval, cache_group = get_empty_sparse_vector!(daf, axis, name, eltype, nnz, indtype; overwrite)
+    nzind, nzval, cache_group = get_empty_sparse_vector!(daf, axis, name, eltype, nnz, indtype; overwrite, packed)
     try
         result = fill(nzind, nzval)
         filled_empty_sparse_vector!(daf, axis, name, nzind, nzval, cache_group)
@@ -537,6 +551,7 @@ function get_empty_sparse_vector!(
     nnz::StorageInteger,
     indtype::Type{I};
     overwrite::Bool = false,
+    packed::Maybe{Bool} = nothing,
 )::Tuple{AbstractVector{I}, AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal, I <: StorageInteger}
     Formats.begin_data_write_lock(daf, "empty_sparse_vector! of:", name, "of:", axis)
     try
@@ -551,7 +566,15 @@ function get_empty_sparse_vector!(
         end
 
         update_before_set_vector(daf, axis, name)
-        return Formats.format_get_empty_sparse_vector!(daf, axis, name, eltype, nnz, indtype)
+        return Formats.format_get_empty_sparse_vector!(
+            daf,
+            axis,
+            name,
+            eltype,
+            nnz,
+            indtype,
+            resolve_packed(packed, daf),
+        )
     catch
         Formats.end_data_write_lock(daf, "empty_sparse_vector! of:", name, "of:", axis)
         rethrow()
@@ -667,7 +690,8 @@ end
         matrix::Union{StorageScalarBase, StorageMatrix};
         [eltype::Maybe{Type{<:StorageScalarBase}} = nothing,
         overwrite::Bool = false,
-        relayout::Bool = true]
+        relayout::Bool = true,
+        packed::Maybe{Bool} = nothing]
     )::Nothing
 
 Set the matrix property with some `name` for some `rows_axis` and `columns_axis` in `daf`. Since this is Julia, this
@@ -682,6 +706,9 @@ data would also be stored in row-major layout (that is, with the axes flipped), 
 This first verifies the `rows_axis` and `columns_axis` exist in `daf`, that the `matrix` is column-major of the
 appropriate size. If not `overwrite` (the default), this also verifies the `name` matrix does not exist for the
 `rows_axis` and `columns_axis`.
+
+If `packed` is non-`nothing`, it overrides the per-daf `packed` default for this single write. Otherwise the per-daf
+default applies. The flag has no observable effect on backends that do not support packed encoding.
 
 ```jldoctest
 metacells = example_metacells_daf()
@@ -725,6 +752,7 @@ function set_matrix!(
     eltype::Maybe{Type{<:StorageScalarBase}} = nothing,
     overwrite::Bool = false,
     relayout::Bool = true,
+    packed::Maybe{Bool} = nothing,
 )::Nothing
     Formats.with_data_write_lock(daf, "set_matrix! of:", name, "of:", rows_axis, "and:", columns_axis) do
         # Formats.assert_valid_cache(daf)
@@ -768,12 +796,13 @@ function set_matrix!(
             require_no_matrix(daf, rows_axis, columns_axis, name; relayout)
         end
 
+        resolved_packed = resolve_packed(packed, daf)
         update_before_set_matrix(daf, rows_axis, columns_axis, name)
-        Formats.format_set_matrix!(daf, rows_axis, columns_axis, name, matrix)
+        Formats.format_set_matrix!(daf, rows_axis, columns_axis, name, matrix, resolved_packed)
 
         if relayout
             update_before_set_matrix(daf, columns_axis, rows_axis, name)
-            Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name, matrix)
+            Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name, matrix, resolved_packed)
         end
         # Formats.assert_valid_cache(daf)
     end
@@ -789,7 +818,8 @@ end
         columns_axis::AbstractString,
         name::AbstractString,
         eltype::Type{<:StorageReal};
-        [overwrite::Bool = false]
+        [overwrite::Bool = false,
+        packed::Maybe{Bool} = nothing]
     )::Any
 
 Create an empty dense matrix property with some `name` for some `rows_axis` and `columns_axis` in `daf`, pass it to
@@ -802,6 +832,9 @@ mapping). For this reason, this does not work for strings, as they do not have a
 This first verifies the `rows_axis` and `columns_axis` exist in `daf`, that the `matrix` is column-major of the
 appropriate size. If not `overwrite` (the default), this also verifies the `name` matrix does not exist for the
 `rows_axis` and `columns_axis`.
+
+If `packed` is non-`nothing`, it overrides the per-daf `packed` default for this single write. Otherwise the per-daf
+default applies. The flag has no observable effect on backends that do not support packed encoding.
 """
 function empty_dense_matrix!(
     fill::Function,
@@ -811,9 +844,10 @@ function empty_dense_matrix!(
     name::AbstractString,
     eltype::Type{<:StorageReal};
     overwrite::Bool = false,
+    packed::Maybe{Bool} = nothing,
 )::Any
     @assert isbitstype(eltype)
-    matrix, cache_group = get_empty_dense_matrix!(daf, rows_axis, columns_axis, name, eltype; overwrite)
+    matrix, cache_group = get_empty_dense_matrix!(daf, rows_axis, columns_axis, name, eltype; overwrite, packed)
     try
         result = fill(matrix)
         filled_empty_dense_matrix!(daf, rows_axis, columns_axis, name, matrix, cache_group)
@@ -831,6 +865,7 @@ function get_empty_dense_matrix!(
     name::AbstractString,
     eltype::Type{<:StorageReal};
     overwrite::Bool = false,
+    packed::Maybe{Bool} = nothing,
 )::Any
     Formats.begin_data_write_lock(daf, "empty_dense_matrix! of:", name, "of:", rows_axis, "and:", columns_axis)
     try
@@ -845,7 +880,14 @@ function get_empty_dense_matrix!(
         end
 
         update_before_set_matrix(daf, rows_axis, columns_axis, name)
-        return Formats.format_get_empty_dense_matrix!(daf, rows_axis, columns_axis, name, eltype)
+        return Formats.format_get_empty_dense_matrix!(
+            daf,
+            rows_axis,
+            columns_axis,
+            name,
+            eltype,
+            resolve_packed(packed, daf),
+        )
     catch
         Formats.end_data_write_lock(daf, "empty_dense_matrix! of:", name, "of:", rows_axis, "and:", columns_axis)
         rethrow()
@@ -939,6 +981,7 @@ function empty_sparse_matrix!(
     nnz::StorageInteger,
     indtype::Maybe{Type{<:StorageInteger}} = nothing;
     overwrite::Bool = false,
+    packed::Maybe{Bool} = nothing,
 )::Any
     if indtype === nothing
         nrows = axis_length(daf, rows_axis)
@@ -948,7 +991,7 @@ function empty_sparse_matrix!(
     @assert isbitstype(eltype)
     @assert isbitstype(indtype)
     colptr, rowval, nzval, cache_group =
-        get_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, eltype, nnz, indtype; overwrite)
+        get_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, eltype, nnz, indtype; overwrite, packed)
     try
         result = fill(colptr, rowval, nzval)
         filled_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, colptr, rowval, nzval, cache_group)
@@ -968,6 +1011,7 @@ function get_empty_sparse_matrix!(
     nnz::StorageInteger,
     indtype::Type{I};
     overwrite::Bool = false,
+    packed::Maybe{Bool} = nothing,
 )::Tuple{
     AbstractVector{I},
     AbstractVector{I},
@@ -987,7 +1031,16 @@ function get_empty_sparse_matrix!(
         end
 
         update_before_set_matrix(daf, rows_axis, columns_axis, name)
-        return Formats.format_get_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, eltype, nnz, indtype)
+        return Formats.format_get_empty_sparse_matrix!(
+            daf,
+            rows_axis,
+            columns_axis,
+            name,
+            eltype,
+            nnz,
+            indtype,
+            resolve_packed(packed, daf),
+        )
     catch
         Formats.end_data_write_lock(daf, "empty_sparse_matrix! of:", name, "of:", rows_axis, "and:", columns_axis)
         rethrow()
@@ -1044,7 +1097,8 @@ end
         rows_axis::AbstractString,
         columns_axis::AbstractString,
         name::AbstractString;
-        [overwrite::Bool = false]
+        [overwrite::Bool = false,
+        packed::Maybe{Bool} = nothing]
     )::Nothing
 
 Given a matrix property with some `name` exists (in column-major layout) in `daf` for the `rows_axis` and the
@@ -1057,6 +1111,9 @@ of the matrix are stored in `def`. When calling [`set_matrix!`](@ref), it is sim
 This first verifies the `rows_axis` and `columns_axis` exist in `daf`, and that there is a `name` (column-major) matrix
 property for them. If not `overwrite` (the default), this also verifies the `name` matrix does not exist for the
 *flipped* `rows_axis` and `columns_axis`.
+
+If `packed` is non-`nothing`, the flipped representation is written with that explicit encoding. Otherwise the
+flipped representation mirrors the source's encoding (so a packed source produces a packed flipped copy).
 
 !!! note
 
@@ -1073,6 +1130,7 @@ function relayout_matrix!(
     columns_axis::AbstractString,
     name::AbstractString;
     overwrite::Bool = false,
+    packed::Maybe{Bool} = nothing,
 )::Nothing
     Formats.with_data_write_lock(daf, "relayout_matrix! of:", name, "of:", rows_axis, "and:", columns_axis) do
         # Formats.assert_valid_cache(daf)
@@ -1099,8 +1157,14 @@ function relayout_matrix!(
         matrix = Formats.get_matrix_through_cache(daf, rows_axis, columns_axis, name)
         assert_valid_matrix(daf, rows_axis, columns_axis, name, matrix)
 
+        if packed === nothing
+            resolved_packed = Formats.format_is_packed_matrix(daf, rows_axis, columns_axis, name)
+        else
+            resolved_packed = packed
+        end
+
         update_before_set_matrix(daf, columns_axis, rows_axis, name)
-        Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name, matrix.array)
+        Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name, matrix.array, resolved_packed)
 
         @debug "relayout_matrix! }" _group = :daf_sets
         # Formats.assert_valid_cache(daf)

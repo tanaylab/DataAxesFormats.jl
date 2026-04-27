@@ -648,7 +648,8 @@
 <code class="language-julia hljs">ZarrDaf(
     path::AbstractString,
     mode::AbstractString = &quot;r&quot;;
-    [name::Maybe{AbstractString} = nothing]
+    [name::Maybe{AbstractString} = nothing,
+    packed::Bool = false]
 )
 </code>
 </pre>
@@ -727,6 +728,28 @@
 </code> (including any 
 <code>#/group
 </code> suffix) will be used as the name.
+</p>
+<p>If 
+<code>packed
+</code> is 
+<code>true
+</code>, subsequent writes through this handle default to the packed (chunked + compressed) on-disk encoding for properties whose uncompressed size is at or above 
+<a href="packed_format.html#DataAxesFormats.PackedFormat.DAF_PACKED_TARGET_CHUNK_MB">
+<code>DAF_PACKED_TARGET_CHUNK_MB
+</code>
+</a>. Per-call 
+<code>packed
+</code> kwargs on 
+<code>set_*!
+</code> / 
+<code>empty_*!
+</code> / 
+<code>copy_*!
+</code> override this default. The default is 
+<code>false
+</code> (today&#39;s flat encoding). HTTP-mode opens are read-only and ignore the 
+<code>packed
+</code> kwarg.
 </p>
 <p>The valid 
 <code>mode

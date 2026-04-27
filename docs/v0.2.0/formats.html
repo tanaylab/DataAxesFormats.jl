@@ -1484,6 +1484,7 @@
     axis::AbstractString,
     name::AbstractString,
     vector::Union{StorageScalar, StorageVector},
+    packed::Bool,
 )::Nothing
 </code>
 </pre>
@@ -1502,6 +1503,14 @@
 <code>StorageScalar
 </code>
 </a>, the stored vector is filled with this value.
+</p>
+<p>The resolved 
+<code>packed
+</code> flag indicates the requested encoding for this write (
+<code>true
+</code> means the packed / chunked + compressed on-disk encoding, 
+<code>false
+</code> means today&#39;s flat encoding). Backends that do not support packed encoding ignore the flag.
 </p>
 <p>This trusts we have a write lock on the data set, that the 
 <code>axis
@@ -1593,6 +1602,7 @@
     columns_axis::AbstractString,
     name::AbstractString,
     matrix::StorageMatrix,
+    packed::Bool,
 )::Nothing
 </code>
 </pre>
@@ -1613,6 +1623,10 @@
 <code>StorageScalar
 </code>
 </a>, the stored matrix is filled with this value.
+</p>
+<p>The resolved 
+<code>packed
+</code> flag indicates the requested encoding for this write. Backends that do not support packed encoding ignore the flag.
 </p>
 <p>This trusts we have a write lock on the data set, that the 
 <code>rows_axis
@@ -1649,6 +1663,7 @@
     columns_axis::AbstractString,
     name::AbstractString,
     matrix::StorageMatrix,
+    packed::Bool,
 )::StorageMatrix
 </code>
 </pre>
@@ -1663,6 +1678,12 @@
 </code> and the 
 <code>columns_axis
 </code> and store the results as a row-major matrix property (that is, with flipped axes).
+</p>
+<p>The resolved 
+<code>packed
+</code> flag indicates the requested encoding for the flipped matrix. This is the same flag the caller would have passed to a write of a fresh matrix, so the flipped representation produced by 
+<code>relayout!
+</code> matches the encoding the caller intended.
 </p>
 <p>This trusts we have a write lock on the data set, that the 
 <code>rows_axis
@@ -1752,6 +1773,7 @@
     axis::AbstractString,
     name::AbstractString,
     eltype::Type{T},
+    packed::Bool,
 )::Tuple{AbstractVector{T}, Maybe{CacheGroup}} where {T &lt;: StorageReal}
 </code>
 </pre>
@@ -1772,6 +1794,10 @@
 </a>), or 
 <code>nothing
 </code> to skip caching.
+</p>
+<p>The resolved 
+<code>packed
+</code> flag indicates the requested encoding for this write. Backends that do not support packed encoding ignore the flag.
 </p>
 <p>This trusts we have a write lock on the data set, that the 
 <code>axis
@@ -1874,6 +1900,7 @@
     eltype::Type{T},
     nnz::StorageInteger,
     indtype::Type{I},
+    packed::Bool,
 )::Tuple{AbstractVector{I}, AbstractVector{T}, Maybe{CacheGroup}}
 where {T &lt;: StorageReal, I &lt;: StorageInteger}
 </code>
@@ -1899,6 +1926,10 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
 </a>), or 
 <code>nothing
 </code> to skip caching.
+</p>
+<p>The resolved 
+<code>packed
+</code> flag indicates the requested encoding for this write. Backends that do not support packed encoding ignore the flag.
 </p>
 <p>This trusts we have a write lock on the data set, that the 
 <code>axis
@@ -1966,6 +1997,7 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
     columns_axis::AbstractString,
     name::AbstractString,
     eltype::Type{T},
+    packed::Bool,
 )::Tuple{AbstractMatrix{T}, Maybe{CacheGroup}} where {T &lt;: StorageReal}
 </code>
 </pre>
@@ -1988,6 +2020,10 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
 </a>), or 
 <code>nothing
 </code> to skip caching.
+</p>
+<p>The resolved 
+<code>packed
+</code> flag indicates the requested encoding for this write. Backends that do not support packed encoding ignore the flag.
 </p>
 <p>This trusts we have a write lock on the data set, that the 
 <code>rows_axis
@@ -2090,6 +2126,7 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
     eltype::Type{T},
     intdype::Type{I},
     nnz::StorageInteger,
+    packed::Bool,
 )::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}, Maybe{CacheGroup}}
 where {T &lt;: StorageReal, I &lt;: StorageInteger}
 </code>
@@ -2119,6 +2156,10 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
 </a>), or 
 <code>nothing
 </code> to skip caching.
+</p>
+<p>The resolved 
+<code>packed
+</code> flag indicates the requested encoding for this write. Backends that do not support packed encoding ignore the flag.
 </p>
 <p>This trusts we have a write lock on the data set, that the 
 <code>rows_axis
@@ -2195,6 +2236,103 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
 </code>: the axis entries, the axis-to-index dict, every vector on the axis, and every matrix where 
 <code>axis
 </code> is one of the two axes. Increments the version counter for each property. Must be called inside a write lock.
+</p>
+</div>
+</section>
+</details>
+</article>
+<h3 id="Packing">
+<a class="docs-heading-anchor" href="#Packing">Packing
+</a>
+<a id="Packing-1">
+</a>
+<a class="docs-heading-anchor-permalink" href="#Packing" title="Permalink">
+</a>
+</h3>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.Formats.format_is_packed_vector">
+<a class="docstring-binding" href="#DataAxesFormats.Formats.format_is_packed_vector">
+<code>DataAxesFormats.Formats.format_is_packed_vector
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">format_is_packed_vector(
+    format::FormatReader,
+    axis::AbstractString,
+    name::AbstractString,
+)::Bool
+</code>
+</pre>
+<p>Return 
+<code>true
+</code> if the named vector property is stored using the packed (chunked + compressed) on-disk encoding, 
+<code>false
+</code> for the flat encoding. The default implementation returns 
+<code>false
+</code>; backends that support packed encoding override this to inspect their on-disk metadata.
+</p>
+<p>Used by internal operations that rebuild a property in place (relayout, axis reorder) to preserve the source&#39;s encoding when writing the rebuilt copy.
+</p>
+<p>This trusts that we have a read lock on the data set, that the 
+<code>axis
+</code> exists in 
+<code>format
+</code>, and the 
+<code>name
+</code> vector property exists for the 
+<code>axis
+</code>.
+</p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.Formats.format_is_packed_matrix">
+<a class="docstring-binding" href="#DataAxesFormats.Formats.format_is_packed_matrix">
+<code>DataAxesFormats.Formats.format_is_packed_matrix
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">format_is_packed_matrix(
+    format::FormatReader,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+)::Bool
+</code>
+</pre>
+<p>Return 
+<code>true
+</code> if the named matrix property is stored using the packed (chunked + compressed) on-disk encoding, 
+<code>false
+</code> for the flat encoding. The default implementation returns 
+<code>false
+</code>; backends that support packed encoding override this to inspect their on-disk metadata.
+</p>
+<p>Used by internal operations that rebuild a property in place (relayout, axis reorder) to preserve the source&#39;s encoding when writing the rebuilt copy.
+</p>
+<p>This trusts that we have a read lock on the data set, that the 
+<code>rows_axis
+</code> and 
+<code>columns_axis
+</code> exist in 
+<code>format
+</code>, and the 
+<code>name
+</code> matrix property exists for them.
 </p>
 </div>
 </section>
@@ -2404,6 +2542,18 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
 <li>
 <a href="formats.html#DataAxesFormats.Formats.format_has_vector">
 <code>DataAxesFormats.Formats.format_has_vector
+</code>
+</a>
+</li>
+<li>
+<a href="formats.html#DataAxesFormats.Formats.format_is_packed_matrix">
+<code>DataAxesFormats.Formats.format_is_packed_matrix
+</code>
+</a>
+</li>
+<li>
+<a href="formats.html#DataAxesFormats.Formats.format_is_packed_vector">
+<code>DataAxesFormats.Formats.format_is_packed_vector
 </code>
 </a>
 </li>
