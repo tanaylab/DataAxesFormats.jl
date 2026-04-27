@@ -46,12 +46,23 @@ grep -H -n '.' */*.cov \
         OFS = "`"
     }
     (state == 0 || state == 3) && $4 ~ /"""/ { state = 3 - state }
-    state > 0 && uncov_func { $3 = "-" }
+    # Suppress executable-but-uncovered body lines inside an uncovered function. Lines with a
+    # positive count (covered) are NOT suppressed - this matters for single-line `function ... )::T`
+    # declarations, where Julia coverage attributes the count to body lines, not the signature.
+    state > 0 && uncov_func && $3 == "0" { $3 = "-" }
     state == 0 && $4 ~ /^[@A-Z][A-Za-z0-9:{}, ()]* =/ && $3 == "-" { $3 = "0" }
     state == 2 && $4 ~ /^end/ { state = 0 }
     state != 3 && ($3 != "-" && $3 != "0") && $4 ~ /^(@.* )?[ ]*function / && $4 !~ /^function.*end/ { state = 1; uncov_func = 0 }
     state != 3 && ($3 == "-" || $3 == "0") && $4 ~ /^(@.* )?[ ]*function / && $4 !~ /^function.*end/ { state = 1; uncov_func = 1; $3 = "0"; }
-    state == 1 && $4 ~ /)::|)$/ { state = 2 }
+    state == 1 && $4 ~ /)::|)$/ {
+        state = 2
+        # Single-line `function foo(args)::T`: the signature itself is non-executable in Julia
+        # coverage (the count goes to body lines). Mark the signature `-` to avoid a
+        # false-positive untested report; the body lines determine actual coverage status.
+        if ($4 ~ /^(@.* )?[ ]*function /) {
+            $3 = "-"
+        }
+    }
     state != 2 && state != 1 && $3 == "0" { $3 = "-" }
     { print }
 ' \
@@ -72,7 +83,7 @@ $3 == "-" && tolower($4) ~ /# untested|# only seems untested/ {
     print $1, $2, " ! " $4
     useless_untested += 1;
 }
-$3 == 0 && tolower($4) ~ /@assert false([ ]*#.*)?$|^[ ]*end([ ]*#.*)?$|^[ ]*local [^ =]*$|# untested|# only seems untested/ { ok_untested += 1; next }
+$3 == 0 && tolower($4) ~ /@assert false([ ]*#.*)?$|^[ ]*end([ ]*#.*)?$|# untested|# only seems untested/ { ok_untested += 1; next }
 $3 == 0 {
     print $1, $2, " - " $4
     untested += 1

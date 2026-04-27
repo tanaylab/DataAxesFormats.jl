@@ -761,7 +761,7 @@ Allow a `format` to amit additional description header lines.
 
 This trusts that we have a read lock on the data set.
 """
-function format_description_header(format::FormatReader, indent::AbstractString, lines::Vector{String}, ::Bool)::Nothing # UNTESTED
+function format_description_header(format::FormatReader, indent::AbstractString, lines::Vector{String}, ::Bool)::Nothing
     push!(lines, "$(indent)type: $(nameof(typeof(format)))")
     return nothing
 end
@@ -796,7 +796,7 @@ function put_in_cache!(format::FormatReader, cache_key::CacheKey, data::CacheDat
     return nothing
 end
 
-function set_in_cache!(format::FormatReader, cache_key::CacheKey, data::CacheData, cache_group::CacheGroup)::Nothing # UNTESTED
+function set_in_cache!(format::FormatReader, cache_key::CacheKey, data::CacheData, cache_group::CacheGroup)::Nothing
     return with_cache_write_lock(format, "for set_in_cache!:", cache_key) do  # NOJET
         return put_in_cache!(format, cache_key, data, cache_group)
     end
@@ -850,7 +850,7 @@ function get_slow_through_cache(
     return cached::T
 end
 
-function result_from_cache(::Nothing)::Nothing # UNTESTED
+function result_from_cache(::Nothing)::Nothing
     return nothing
 end
 
@@ -1390,7 +1390,7 @@ function empty_cache!(daf::DafReader; clear::Maybe{CacheGroup} = nothing, keep::
     return nothing
 end
 
-function assert_valid_cache(format::FormatReader)::Nothing  # UNTESTED
+function assert_valid_cache(format::FormatReader)::Nothing
     for cache_key in keys(format.internal.cache)
         type, key, _ = cache_key
         if type == CachedAxis

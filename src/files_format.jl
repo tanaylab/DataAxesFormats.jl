@@ -1089,7 +1089,7 @@ function Formats.format_get_matrix(
     return (matrix, nothing, cache_group)
 end
 
-function get_names_set(path::AbstractString, suffix::AbstractString)::AbstractSet{<:AbstractString} # UNTESTED
+function get_names_set(path::AbstractString, suffix::AbstractString)::AbstractSet{<:AbstractString}
     return flame_timed("FilesDaf.get_names_set") do
         names_set = Set{AbstractString}()
         suffix_length = length(suffix)
@@ -1132,7 +1132,7 @@ function mmap_file_data(
     end
 end
 
-function fill_file(path::AbstractString, value::StorageScalar, size::Integer)::Nothing # UNTESTED
+function fill_file(path::AbstractString, value::StorageScalar, size::Integer)::Nothing
     flame_timed("FilesDaf.fill_file") do
         if value isa AbstractString
             @assert !contains(value, '\n')
@@ -1159,7 +1159,7 @@ function fill_file(path::AbstractString, value::StorageScalar, size::Integer)::N
     end
 end
 
-function write_zeros_file(path::AbstractString, size::Integer)::Nothing # UNTESTED
+function write_zeros_file(path::AbstractString, size::Integer)::Nothing
     flame_timed("FilesDaf.write_zeros_file") do
         open(path, "w") do file
             if size > 0

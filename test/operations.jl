@@ -517,7 +517,12 @@ nested_test("operations") do
             nested_test("matrix") do
                 set_matrix!(daf, "cell", "gene", "value", [1.0 2.0 2.0; -3.0 1.0 6.0])
                 @test with_type(daf["@ cell @ gene :: value >- Var type Float32"]) == ([4.0, 0.25, 4.0], Float32)
-                @test with_type(daf["@ gene @ cell :: value >| Var type Float32"]) == ([4.0, 0.25, 4.0], Float32)
+                try
+                    TanayLabUtilities.MatrixLayouts.GLOBAL_INEFFICIENT_ACTION_HANDLER = IgnoreHandler
+                    @test with_type(daf["@ gene @ cell :: value >| Var type Float32"]) == ([4.0, 0.25, 4.0], Float32)
+                finally
+                    TanayLabUtilities.MatrixLayouts.GLOBAL_INEFFICIENT_ACTION_HANDLER = ErrorHandler
+                end
             end
         end
 
@@ -541,7 +546,13 @@ nested_test("operations") do
             nested_test("matrix") do
                 set_matrix!(daf, "cell", "gene", "value", [1.0 3.0 2.0; -3.0 9.0 6.0])
                 @test with_type(daf["@ cell @ gene :: value >- VarN type Float32 eps 0"]) == ([-4.0, 1.5, 1.0], Float32)
-                @test with_type(daf["@ gene @ cell :: value >| VarN type Float32 eps 0"]) == ([-4.0, 1.5, 1.0], Float32)
+                try
+                    TanayLabUtilities.MatrixLayouts.GLOBAL_INEFFICIENT_ACTION_HANDLER = IgnoreHandler
+                    @test with_type(daf["@ gene @ cell :: value >| VarN type Float32 eps 0"]) ==
+                          ([-4.0, 1.5, 1.0], Float32)
+                finally
+                    TanayLabUtilities.MatrixLayouts.GLOBAL_INEFFICIENT_ACTION_HANDLER = ErrorHandler
+                end
             end
         end
 
@@ -553,8 +564,14 @@ nested_test("operations") do
 
             nested_test("matrix") do
                 set_matrix!(daf, "cell", "gene", "value", [-1.0 2.0 4.0; -3.0 6.0 12.0])
-                @test with_type(daf["@ gene @ cell :: value >| Std type Float32"]) == (Float32[1.0, 2.0, 4.0], Float32)
                 @test with_type(daf["@ cell @ gene :: value >- Std type Float32"]) == (Float32[1.0, 2.0, 4.0], Float32)
+                try
+                    TanayLabUtilities.MatrixLayouts.GLOBAL_INEFFICIENT_ACTION_HANDLER = IgnoreHandler
+                    @test with_type(daf["@ gene @ cell :: value >| Std type Float32"]) ==
+                          (Float32[1.0, 2.0, 4.0], Float32)
+                finally
+                    TanayLabUtilities.MatrixLayouts.GLOBAL_INEFFICIENT_ACTION_HANDLER = ErrorHandler
+                end
             end
         end
 
@@ -579,8 +596,13 @@ nested_test("operations") do
                 set_matrix!(daf, "cell", "gene", "value", [-1.0 2.0 4.0; -3.0 6.0 12.0])
                 @test with_type(daf["@ cell @ gene :: value >- StdN type Float32 eps 0"]) ==
                       (Float32[-0.5, 0.5, 0.5], Float32)
-                @test with_type(daf["@ gene @ cell :: value >| StdN type Float32 eps 0"]) ==
-                      (Float32[-0.5, 0.5, 0.5], Float32)
+                try
+                    TanayLabUtilities.MatrixLayouts.GLOBAL_INEFFICIENT_ACTION_HANDLER = IgnoreHandler
+                    @test with_type(daf["@ gene @ cell :: value >| StdN type Float32 eps 0"]) ==
+                          (Float32[-0.5, 0.5, 0.5], Float32)
+                finally
+                    TanayLabUtilities.MatrixLayouts.GLOBAL_INEFFICIENT_ACTION_HANDLER = ErrorHandler
+                end
             end
         end
     end

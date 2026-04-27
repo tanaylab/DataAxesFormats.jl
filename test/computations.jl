@@ -124,7 +124,7 @@ Relaxed
 
 $(CONTRACT)
 """
-@computation Contract(is_relaxed = true) function relaxed(daf::DafWriter)::Nothing  # untested
+@computation Contract(is_relaxed = true) function relaxed(daf::DafWriter)::Nothing
     return nothing
 end
 
@@ -133,7 +133,7 @@ Missing
 
 $(DEFAULT.x)
 """
-@computation Contract() function missing_default(daf::DafWriter, x::Int)::Nothing  # untested
+@computation Contract() function missing_default(daf::DafWriter, x::Int)::Nothing
     return nothing
 end
 
@@ -144,11 +144,11 @@ $(CONTRACT1)
 
 $(CONTRACT2)
 """
-@computation Contract() function missing_second(first::DafWriter, second::DafWriter)::Nothing  # untested
+@computation Contract() function missing_second(first::DafWriter, second::DafWriter)::Nothing
     return nothing
 end
 
-function not_computation()::Nothing  # untested
+function not_computation()::Nothing
     return nothing
 end
 

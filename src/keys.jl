@@ -86,7 +86,7 @@ function named_tuple_as_pairs(pairs_input::NamedTuple)::Vector{Pair{AbstractStri
     return Pair{AbstractString, Any}[String(key) => value for (key, value) in pairs(pairs_input)]
 end
 
-function named_tuple_as_pairs(::Nothing)::Nothing  # UNTESTED
+function named_tuple_as_pairs(::Nothing)::Nothing
     return nothing
 end
 

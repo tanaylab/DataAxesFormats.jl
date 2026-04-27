@@ -552,7 +552,7 @@ function Clamp(operation_name::Token, parameters_values::Dict{String, Token})::C
     return Clamp(type, min, max)
 end
 
-function is_int(value::Float64)::Bool # UNTESTED
+function is_int(value::Float64)::Bool
     return value == -Inf || value == Inf || isinteger(value)
 end
 
@@ -1049,7 +1049,7 @@ function reduction_result_type(operation::Count, ::Type)::Type
     return operation.type === nothing ? UInt32 : operation.type
 end
 
-function supports_strings(::Count)::Bool # UNTESTED
+function supports_strings(::Count)::Bool
     return true
 end
 
@@ -1101,7 +1101,7 @@ function compute_reduction(::Mode, input::Union{StorageVector, StorageMatrix})::
     return mode(input)
 end
 
-function reduction_result_type(::Mode, eltype::Type)::Type # UNTESTED
+function reduction_result_type(::Mode, eltype::Type)::Type
     if eltype <: AbstractString
         return AbstractString
     else
@@ -1109,7 +1109,7 @@ function reduction_result_type(::Mode, eltype::Type)::Type # UNTESTED
     end
 end
 
-function supports_strings(::Mode)::Bool # UNTESTED
+function supports_strings(::Mode)::Bool
     return true
 end
 
@@ -1221,7 +1221,7 @@ function compute_reduction(::Max, input::Union{StorageVector{<:StorageReal}, Sto
     return maximum(input)
 end
 
-function reduction_result_type(::Max, eltype::Type)::Type  # UNTESTED
+function reduction_result_type(::Max, eltype::Type)::Type
     return eltype
 end
 
@@ -1268,7 +1268,7 @@ function compute_reduction(::Min, input::Union{StorageVector{<:StorageReal}, Sto
     return minimum(input)
 end
 
-function reduction_result_type(::Min, eltype::Type)::Type  # UNTESTED
+function reduction_result_type(::Min, eltype::Type)::Type
     return eltype
 end
 
@@ -1571,27 +1571,13 @@ function compute_reduction(operation::Var, input::StorageMatrix, axis::Integer):
     @assert 1 <= axis <= 2
     type = reduction_result_type(operation, eltype(input))
     output = Vector{type}(undef, size(input, other_axis(axis)))
-    if axis == 1
-        parallel_loop_wo_rng(
-            1:length(output);
-            name = "Var",
-            progress = DebugProgress(length(output); group = :daf_loops, desc = "Var"),
-        ) do column_index
-            column_vector = @view input[:, column_index]
-            output[column_index] = type(var(column_vector; corrected = false))  # NOJET # NOLINT
-            return nothing
-        end
-    else
-        parallel_loop_wo_rng(
-            1:length(output);
-            name = "Var",
-            progress = DebugProgress(length(output); group = :daf_loops, desc = "Var"),
-        ) do row_index
-            row_vector = @view input[row_index, :]
-            output[row_index] = type(var(row_vector; corrected = false))  # NOLINT
-            return nothing
-        end
-    end
+    sparse_var(
+        input;
+        dims = axis,
+        corrected = false,
+        result = output,
+        progress = DebugProgress(length(output); group = :daf_loops, desc = "Var"),
+    )
     return output
 end
 
@@ -1600,7 +1586,7 @@ function compute_reduction(
     input::Union{StorageVector{<:StorageReal}, StorageMatrix{<:StorageReal}},
 )::StorageReal
     type = reduction_result_type(operation, eltype(input))
-    return type(var(input; corrected = false))  # NOJET # NOLINT
+    return type(sparse_var(input; corrected = false))
 end
 
 function reduction_result_type(operation::Var, eltype::Type)::Type
@@ -1648,28 +1634,15 @@ function compute_reduction(operation::VarN, input::StorageMatrix, axis::Integer)
     @assert 1 <= axis <= 2
     type = reduction_result_type(operation, eltype(input))
     output = Vector{type}(undef, size(input, other_axis(axis)))
-    if axis == 1
-        parallel_loop_wo_rng(
-            1:length(output);
-            name = "VarN",
-            progress = DebugProgress(length(output); group = :daf_loops, desc = "VarN"),
-        ) do column_index
-            column_vector = @view input[:, column_index]
-            output[column_index] =
-                type(var(column_vector; corrected = false)) / type(mean(column_vector) + operation.eps)  # NOLINT # NOJET
-            return nothing
-        end
-    else
-        parallel_loop_wo_rng(
-            1:length(output);
-            name = "VarN",
-            progress = DebugProgress(length(output); group = :daf_loops, desc = "VarN"),
-        ) do row_index
-            row_vector = @view input[row_index, :]
-            output[row_index] = type(var(row_vector; corrected = false)) / type(mean(row_vector) + operation.eps)  # NOLINT
-            return nothing
-        end
-    end
+    sparse_var(
+        input;
+        dims = axis,
+        corrected = false,
+        result = output,
+        progress = DebugProgress(length(output); group = :daf_loops, desc = "VarN"),
+    )
+    means = vec(mean(input; dims = axis))  # NOJET # NOLINT
+    output ./= type.(means .+ operation.eps)
     return output
 end
 
@@ -1678,7 +1651,7 @@ function compute_reduction(
     input::Union{StorageVector{<:StorageReal}, StorageMatrix{<:StorageReal}},
 )::StorageReal
     type = reduction_result_type(operation, eltype(input))
-    return type(var(input; corrected = false)) / type((Float64(mean(input)) + operation.eps))  # NOLINT
+    return type(sparse_var(input; corrected = false) / (Float64(mean(input)) + operation.eps))  # NOLINT
 end
 
 function reduction_result_type(operation::VarN, eltype::Type)::Type
@@ -1714,27 +1687,13 @@ function compute_reduction(operation::Std, input::StorageMatrix, axis::Integer):
     @assert 1 <= axis <= 2
     type = reduction_result_type(operation, eltype(input))
     output = Vector{type}(undef, size(input, other_axis(axis)))
-    if axis == 1
-        parallel_loop_wo_rng(
-            1:length(output);
-            name = "Std",
-            progress = DebugProgress(length(output); group = :daf_loops, desc = "Std"),
-        ) do column_index
-            column_vector = @view input[:, column_index]
-            output[column_index] = type(std(column_vector; corrected = false))  # NOLINT
-            return nothing
-        end
-    else
-        parallel_loop_wo_rng(
-            1:length(output);
-            name = "Std",
-            progress = DebugProgress(length(output); group = :daf_loops, desc = "Std"),
-        ) do row_index
-            row_vector = @view input[row_index, :]
-            output[row_index] = type(std(row_vector; corrected = false))  # NOLINT
-            return nothing
-        end
-    end
+    sparse_std(
+        input;
+        dims = axis,
+        corrected = false,
+        result = output,
+        progress = DebugProgress(length(output); group = :daf_loops, desc = "Std"),
+    )
     return output
 end
 
@@ -1743,7 +1702,7 @@ function compute_reduction(
     input::Union{StorageVector{<:StorageReal}, StorageMatrix{<:StorageReal}},
 )::StorageReal
     type = reduction_result_type(operation, eltype(input))
-    return type(std(input; corrected = false))  # NOLINT
+    return type(sparse_std(input; corrected = false))
 end
 
 function reduction_result_type(operation::Std, eltype::Type)::Type
@@ -1791,28 +1750,15 @@ function compute_reduction(operation::StdN, input::StorageMatrix, axis::Integer)
     @assert 1 <= axis <= 2
     type = reduction_result_type(operation, eltype(input))
     output = Vector{type}(undef, size(input, other_axis(axis)))
-    if axis == 1
-        parallel_loop_wo_rng(
-            1:length(output);
-            name = "StdN",
-            progress = DebugProgress(length(output); group = :daf_loops, desc = "StdN"),
-        ) do column_index
-            column_vector = @view input[:, column_index]
-            output[column_index] =
-                type(std(column_vector; corrected = false)) / type(mean(column_vector) + operation.eps)  # NOLINT
-            return nothing
-        end
-    else
-        parallel_loop_wo_rng(
-            1:length(output);
-            name = "StdN",
-            progress = DebugProgress(length(output); group = :daf_loops, desc = "StdN"),
-        ) do row_index
-            row_vector = @view input[row_index, :]
-            output[row_index] = type(std(row_vector; corrected = false)) / type(mean(row_vector) + operation.eps)  # NOLINT
-            return nothing
-        end
-    end
+    sparse_std(
+        input;
+        dims = axis,
+        corrected = false,
+        result = output,
+        progress = DebugProgress(length(output); group = :daf_loops, desc = "StdN"),
+    )
+    means = vec(mean(input; dims = axis))  # NOJET # NOLINT
+    output ./= type.(means .+ operation.eps)
     return output
 end
 
@@ -1821,7 +1767,7 @@ function compute_reduction(
     input::Union{StorageVector{<:StorageReal}, StorageMatrix{<:StorageReal}},
 )::StorageReal
     type = reduction_result_type(operation, eltype(input))
-    return type(std(input; corrected = false)) / type(mean(input) + operation.eps)  # NOLINT
+    return type(sparse_std(input; corrected = false) / (Float64(mean(input)) + operation.eps))  # NOLINT
 end
 
 function reduction_result_type(operation::StdN, eltype::Type)::Type

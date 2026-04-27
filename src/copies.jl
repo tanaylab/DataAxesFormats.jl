@@ -1017,7 +1017,7 @@ function copy_single_matrix(;
     )
 end
 
-function new_name(rename::Maybe{AbstractString}, name::AbstractString)::AbstractString # UNTESTED
+function new_name(rename::Maybe{AbstractString}, name::AbstractString)::AbstractString
     return rename === nothing ? name : rename
 end
 

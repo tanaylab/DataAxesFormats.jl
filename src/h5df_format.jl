@@ -359,7 +359,7 @@ function H5df(
     end
 end
 
-function verify_alignment(root::HDF5.Group)::Nothing # UNTESTED
+function verify_alignment(root::HDF5.Group)::Nothing
     return verify_alignment(root.file)
 end
 

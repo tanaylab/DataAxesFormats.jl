@@ -237,7 +237,7 @@ function reader_internal_dafs(dafs::AbstractVector, name::AbstractString)::Vecto
     return internal_dafs
 end
 
-function name_suffix(name::Maybe{AbstractString})::String # UNTESTED
+function name_suffix(name::Maybe{AbstractString})::String
     if name === nothing
         return ""
     else
@@ -263,7 +263,7 @@ function Formats.end_data_read_lock(chain::AnyChain, what::Any...)::Nothing
     return nothing
 end
 
-function Formats.begin_data_write_lock(::ReadOnlyChain, ::Any...)::Nothing  # UNTESTED
+function Formats.begin_data_write_lock(::ReadOnlyChain, ::Any...)::Nothing
     @assert false
 end
 

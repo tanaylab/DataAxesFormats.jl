@@ -1495,7 +1495,7 @@ function tensors_description(
     return nothing
 end
 
-function format_counters(counters::Int, text::AbstractString)::AbstractString  # UNTESTED
+function format_counters(counters::Int, text::AbstractString)::AbstractString
     return "$(counters) X $(text)"
 end
 
@@ -1509,7 +1509,7 @@ function format_counters(counters::Tuple{Int, Int, Int64, Int64}, text::Abstract
     return "$(count) X $(join(parts, " "))"
 end
 
-function cache_description(daf::DafReader, indent::AbstractString, lines::Vector{String})::Nothing  # UNTESTED
+function cache_description(daf::DafReader, indent::AbstractString, lines::Vector{String})::Nothing
     is_first = true
     Formats.with_cache_read_lock(daf, "cache for: description") do
         cache_keys = collect(keys(daf.internal.cache))
@@ -1531,7 +1531,7 @@ function cache_description(daf::DafReader, indent::AbstractString, lines::Vector
     return nothing
 end
 
-function cache_key_is_less(left::CacheKey, right::CacheKey)::Bool  # UNTESTED
+function cache_key_is_less(left::CacheKey, right::CacheKey)::Bool
     left_type, left_key = left
     right_type, right_key = right
     if !(left_key isa Tuple)

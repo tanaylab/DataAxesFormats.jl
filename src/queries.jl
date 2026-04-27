@@ -1181,14 +1181,14 @@ function parse_operation_parameters(
     return (parameters_values, next_token_index)
 end
 
-function next_operator_token(tokens::Vector{Token}, next_token_index::Int)::Token # UNTESTED
+function next_operator_token(tokens::Vector{Token}, next_token_index::Int)::Token
     if !tokens[next_token_index].is_operator
         error_at_token(tokens[next_token_index], "expected: operator")
     end
     return tokens[next_token_index]
 end
 
-function next_value_token(tokens::Vector{Token}, next_token_index::Int)::Token # UNTESTED
+function next_value_token(tokens::Vector{Token}, next_token_index::Int)::Token
     if next_token_index > length(tokens)
         error_at_token(tokens[next_token_index - 1], "expected: value"; at_end = true)
     elseif tokens[next_token_index].is_operator
@@ -1235,15 +1235,15 @@ function Base.:(|>)(first_sequence::QuerySequence, second_operation::QueryOperat
     return QuerySequence([first_sequence.query_operations..., second_operation])
 end
 
-function Base.:(|>)(first_operation::QueryOperation, second_operation::QueryOperation)::QuerySequence # UNTESTED
+function Base.:(|>)(first_operation::QueryOperation, second_operation::QueryOperation)::QuerySequence
     return QuerySequence([first_operation, second_operation])
 end
 
-function Base.:(|>)(first::Union{QuerySequence, QueryOperation}, second::AbstractString)::QuerySequence # UNTESTED
+function Base.:(|>)(first::Union{QuerySequence, QueryOperation}, second::AbstractString)::QuerySequence
     return first |> as_query_sequence(second)
 end
 
-function Base.:(|>)(first::AbstractString, second::Union{QuerySequence, QueryOperation})::QuerySequence # UNTESTED
+function Base.:(|>)(first::AbstractString, second::Union{QuerySequence, QueryOperation})::QuerySequence
     return as_query_sequence(first) |> second
 end
 
@@ -1255,7 +1255,7 @@ function as_query_sequence(query_operation::QueryOperation)::QuerySequence
     return QuerySequence([query_operation])
 end
 
-function as_query_sequence(query_sequence::QuerySequence)::QuerySequence # UNTESTED
+function as_query_sequence(query_sequence::QuerySequence)::QuerySequence
     return query_sequence
 end
 
@@ -1368,11 +1368,11 @@ function get_query(
     end
 end
 
-function verify_contract_query(::DafReader, ::CacheKey)::Nothing # UNTESTED
+function verify_contract_query(::DafReader, ::CacheKey)::Nothing
     return nothing
 end
 
-function assert_is_valid(::Any)::Nothing # UNTESTED
+function assert_is_valid(::Any)::Nothing
     return nothing
 end
 
@@ -1380,12 +1380,12 @@ mutable struct NamesState
     names_set::Maybe{AbstractSet{<:AbstractString}}
 end
 
-function print_query_stack_entry(query_operation::QueryOperation)::Nothing  # UNTESTED
+function print_query_stack_entry(query_operation::QueryOperation)::Nothing
     println("   query_operation: $(query_operation)")
     return nothing
 end
 
-function print_query_stack_entry(names_state::NamesState)::Nothing  # UNTESTED
+function print_query_stack_entry(names_state::NamesState)::Nothing
     println("   names_set: $(brief(names_state.names_set))")
     return nothing
 end
@@ -1394,7 +1394,7 @@ mutable struct ScalarState
     scalar_value::Maybe{StorageScalar}
 end
 
-function print_query_stack_entry(scalar_state::ScalarState)::Nothing  # UNTESTED
+function print_query_stack_entry(scalar_state::ScalarState)::Nothing
     println("   scalar_value: $(scalar_state.scalar_value)")
     return nothing
 end
@@ -1424,11 +1424,11 @@ function assert_is_valid(vector_state::VectorState)::Nothing
     return nothing
 end
 
-function VectorState()::VectorState # UNTESTED
+function VectorState()::VectorState
     return VectorState(nothing, nothing, nothing, nothing, false, nothing, nothing)
 end
 
-function Base.copy(vector_state::VectorState)::VectorState # UNTESTED
+function Base.copy(vector_state::VectorState)::VectorState
     copy_state = VectorState()
     copy_state.entries_axis_name = vector_state.entries_axis_name
     copy_state.vector_entries = vector_state.vector_entries
@@ -1440,11 +1440,11 @@ function Base.copy(vector_state::VectorState)::VectorState # UNTESTED
     return copy_state
 end
 
-function print_query_stack_entry(vector_state::VectorState)::Nothing  # UNTESTED
+function print_query_stack_entry(vector_state::VectorState)::Nothing
     return print_vector_state(vector_state, "")
 end
 
-function print_vector_state(vector_state::VectorState, indent::AbstractString)::Nothing  # UNTESTED
+function print_vector_state(vector_state::VectorState, indent::AbstractString)::Nothing
     println("   $(indent)entries_axis_name: $(vector_state.entries_axis_name)")
     println("   $(indent)vector_entries: $(brief(vector_state.vector_entries)) = $(vector_state.vector_entries)")
     println("   $(indent)property_name: $(vector_state.property_name)")
@@ -1484,11 +1484,11 @@ function assert_is_valid(matrix_state::MatrixState)::Nothing
     return nothing
 end
 
-function MatrixState()::MatrixState # UNTESTED
+function MatrixState()::MatrixState
     return MatrixState(nothing, nothing, nothing, nothing, nothing, nothing)
 end
 
-function print_query_stack_entry(matrix_state::MatrixState)::Nothing  # UNTESTED
+function print_query_stack_entry(matrix_state::MatrixState)::Nothing
     println("   rows_state:")
     print_vector_state(matrix_state.rows_state, "  ")  # NOJET
     println("   columns_state:")
@@ -1516,13 +1516,13 @@ mutable struct QueryState
     stack::Vector{QueryStackElement}
 end
 
-function assert_is_valid(query_state::QueryState)::Nothing # UNTESTED
+function assert_is_valid(query_state::QueryState)::Nothing
     for element in query_state.stack
         assert_is_valid(element)
     end
 end
 
-function print_query_state(query_state::QueryState, where::AbstractString)::Nothing  # UNTESTED
+function print_query_state(query_state::QueryState, where::AbstractString)::Nothing
     println("AT: $(where) FOR: $(query_state.what_for)")
     println("FULL: $(query_state.query_sequence)")
     if query_state.what_for == :exists
@@ -1623,7 +1623,7 @@ function is_complete(query_state::QueryState)::Bool
     )
 end
 
-function is_all_stack(query_state::QueryState, expected::NTuple{N, Union{Type, Function}})::Bool where {N} # UNTESTED
+function is_all_stack(query_state::QueryState, expected::NTuple{N, Union{Type, Function}})::Bool where {N}
     return length(query_state.stack) == length(expected) && stack_has_top(query_state, expected)
 end
 
@@ -2066,7 +2066,7 @@ function Base.show(io::IO, if_missing::IfMissing)::Nothing
     return nothing
 end
 
-function default_value(::Nothing)::UndefInitializer # UNTESTED
+function default_value(::Nothing)::UndefInitializer
     return undef
 end
 
@@ -2269,11 +2269,11 @@ struct IsLess <: QueryOperation
     comparison_value::StorageScalar
 end
 
-function comparison_operator(::IsLess)::String # UNTESTED
+function comparison_operator(::IsLess)::String
     return "<"
 end
 
-function compute_comparison(compared_value::StorageScalar, ::IsLess, comparison_value::StorageScalar)::Bool # UNTESTED
+function compute_comparison(compared_value::StorageScalar, ::IsLess, comparison_value::StorageScalar)::Bool
     return compared_value < comparison_value
 end
 
@@ -2289,11 +2289,11 @@ struct IsLessEqual <: QueryOperation
     comparison_value::StorageScalar
 end
 
-function comparison_operator(::IsLessEqual)::String # UNTESTED
+function comparison_operator(::IsLessEqual)::String
     return "<="
 end
 
-function compute_comparison(compared_value::StorageScalar, ::IsLessEqual, comparison_value::StorageScalar)::Bool # UNTESTED
+function compute_comparison(compared_value::StorageScalar, ::IsLessEqual, comparison_value::StorageScalar)::Bool
     return compared_value <= comparison_value
 end
 
@@ -2309,11 +2309,11 @@ struct IsEqual <: QueryOperation
     comparison_value::StorageScalar
 end
 
-function comparison_operator(::IsEqual)::String # UNTESTED
+function comparison_operator(::IsEqual)::String
     return "="
 end
 
-function compute_comparison(compared_value::StorageScalar, ::IsEqual, comparison_value::StorageScalar)::Bool # UNTESTED
+function compute_comparison(compared_value::StorageScalar, ::IsEqual, comparison_value::StorageScalar)::Bool
     return compared_value == comparison_value
 end
 
@@ -2329,11 +2329,11 @@ struct IsNotEqual <: QueryOperation
     comparison_value::StorageScalar
 end
 
-function comparison_operator(::IsNotEqual)::String # UNTESTED
+function comparison_operator(::IsNotEqual)::String
     return "!="
 end
 
-function compute_comparison(compared_value::StorageScalar, ::IsNotEqual, comparison_value::StorageScalar)::Bool # UNTESTED
+function compute_comparison(compared_value::StorageScalar, ::IsNotEqual, comparison_value::StorageScalar)::Bool
     return compared_value != comparison_value
 end
 
@@ -2349,11 +2349,11 @@ struct IsGreaterEqual <: QueryOperation
     comparison_value::StorageScalar
 end
 
-function comparison_operator(::IsGreaterEqual)::String # UNTESTED
+function comparison_operator(::IsGreaterEqual)::String
     return ">="
 end
 
-function compute_comparison(compared_value::StorageScalar, ::IsGreaterEqual, comparison_value::StorageScalar)::Bool # UNTESTED
+function compute_comparison(compared_value::StorageScalar, ::IsGreaterEqual, comparison_value::StorageScalar)::Bool
     return compared_value >= comparison_value
 end
 
@@ -2369,11 +2369,11 @@ struct IsGreater <: QueryOperation
     comparison_value::StorageScalar
 end
 
-function comparison_operator(::IsGreater)::String # UNTESTED
+function comparison_operator(::IsGreater)::String
     return ">"
 end
 
-function compute_comparison(compared_value::StorageScalar, ::IsGreater, comparison_value::StorageScalar)::Bool # UNTESTED
+function compute_comparison(compared_value::StorageScalar, ::IsGreater, comparison_value::StorageScalar)::Bool
     return compared_value > comparison_value
 end
 
@@ -2389,11 +2389,11 @@ struct IsMatch <: QueryOperation
     comparison_value::Union{AbstractString, Regex}
 end
 
-function comparison_operator(::IsMatch)::String # UNTESTED
+function comparison_operator(::IsMatch)::String
     return "~"
 end
 
-function compute_comparison(compared_value::AbstractString, ::IsMatch, comparison_regex::Regex)::Bool # UNTESTED
+function compute_comparison(compared_value::AbstractString, ::IsMatch, comparison_regex::Regex)::Bool
     return occursin(comparison_regex, compared_value)
 end
 
@@ -2409,11 +2409,11 @@ struct IsNotMatch <: QueryOperation
     comparison_value::Union{AbstractString, Regex}
 end
 
-function comparison_operator(::IsNotMatch)::String # UNTESTED
+function comparison_operator(::IsNotMatch)::String
     return "!~"
 end
 
-function compute_comparison(compared_value::AbstractString, ::IsNotMatch, comparison_regex::Regex)::Bool # UNTESTED
+function compute_comparison(compared_value::AbstractString, ::IsNotMatch, comparison_regex::Regex)::Bool
     return !occursin(comparison_regex, compared_value)
 end
 
@@ -2827,7 +2827,7 @@ function axis_with_name(query_operation::QueryOperation)::Bool
     return query_operation isa Axis && query_operation.axis_name !== nothing
 end
 
-function axis_without_name(query_operation::QueryOperation)::Bool # UNTESTED
+function axis_without_name(query_operation::QueryOperation)::Bool
     return query_operation isa Axis && query_operation.axis_name === nothing
 end
 
@@ -2853,7 +2853,7 @@ function lookup_scalar_with_name(query_operation::QueryOperation)::Bool
     return query_operation isa LookupScalar && query_operation.property_name !== nothing
 end
 
-function lookup_scalar_without_name(query_operation::QueryOperation)::Bool # UNTESTED
+function lookup_scalar_without_name(query_operation::QueryOperation)::Bool
     return query_operation isa LookupScalar && query_operation.property_name === nothing
 end
 
@@ -2861,7 +2861,7 @@ function lookup_vector_with_name(query_operation::QueryOperation)::Bool
     return query_operation isa LookupVector && query_operation.property_name !== nothing
 end
 
-function lookup_vector_without_name(query_operation::QueryOperation)::Bool # UNTESTED
+function lookup_vector_without_name(query_operation::QueryOperation)::Bool
     return query_operation isa LookupVector && query_operation.property_name === nothing
 end
 
@@ -2869,7 +2869,7 @@ function lookup_matrix_with_name(query_operation::QueryOperation)::Bool
     return query_operation isa LookupMatrix && query_operation.property_name !== nothing
 end
 
-function lookup_matrix_without_name(query_operation::QueryOperation)::Bool # UNTESTED
+function lookup_matrix_without_name(query_operation::QueryOperation)::Bool
     return query_operation isa LookupMatrix && query_operation.property_name === nothing
 end
 
@@ -3438,7 +3438,7 @@ function has_lookup_vector_values(
     return nothing
 end
 
-function add_final_values!(::VectorState, ::Nothing)::Nothing # UNTESTED
+function add_final_values!(::VectorState, ::Nothing)::Nothing
     return nothing
 end
 
@@ -3879,7 +3879,7 @@ function lookup_vector_group_by_square_matrix_row(
     return nothing
 end
 
-function extract_vector_axis(vector_state::VectorState)::VectorState # UNTESTED
+function extract_vector_axis(vector_state::VectorState)::VectorState
     vector_axis = copy(vector_state)
     vector_axis.property_axis_name = vector_axis.entries_axis_name
     vector_axis.is_complete_property_axis = false
@@ -5230,7 +5230,7 @@ function as_booleans(vector::AbstractVector{<:Real})::Union{AbstractVector{Bool}
     return vector .!= 0
 end
 
-function as_booleans(matrix::Union{AbstractMatrix{Bool}, BitMatrix})::Union{AbstractMatrix{Bool}, BitMatrix}  # UNTESTED
+function as_booleans(matrix::Union{AbstractMatrix{Bool}, BitMatrix})::Union{AbstractMatrix{Bool}, BitMatrix}
     return matrix
 end
 
@@ -5238,7 +5238,7 @@ function as_booleans(matrix::AbstractMatrix{<:AbstractString})::Union{AbstractMa
     return matrix .!= ""
 end
 
-function as_booleans(matrix::AbstractMatrix{<:Real})::Union{AbstractMatrix{Bool}, BitMatrix}  # UNTESTED
+function as_booleans(matrix::AbstractMatrix{<:Real})::Union{AbstractMatrix{Bool}, BitMatrix}
     return matrix .!= 0
 end
 

@@ -1,4 +1,4 @@
-function is_output(expectation::ContractExpectation)::Bool # UNTESTED
+function is_output(expectation::ContractExpectation)::Bool
     return expectation in (CreatedOutput, GuaranteedOutput, OptionalOutput)
 end
 

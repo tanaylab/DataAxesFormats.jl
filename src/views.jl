@@ -388,7 +388,7 @@ function Formats.end_data_write_lock(view::DafView, what::Any...)::Nothing  # fl
     return invoke(Formats.end_data_write_lock, Tuple{DafReader, Vararg{Any}}, view, what...)
 end
 
-function Formats.has_data_write_lock(::DafView)::Bool  # UNTESTED
+function Formats.has_data_write_lock(::DafView)::Bool
     return false
 end
 
@@ -403,7 +403,7 @@ function Formats.format_get_scalar(view::DafView, name::AbstractString)::Tuple{S
     return (fetch_scalar_data(view, name), QueryData)
 end
 
-function Formats.format_scalars_set(view::DafView)::AbstractSet{<:AbstractString} # UNTESTED
+function Formats.format_scalars_set(view::DafView)::AbstractSet{<:AbstractString}
     @assert Formats.has_data_read_lock(view)
     return collect_view_scalars(view)
 end
@@ -414,7 +414,7 @@ function Formats.format_has_axis(view::DafView, axis::AbstractString; for_change
     return query !== nothing && has_query(view.daf, query)
 end
 
-function Formats.format_axes_set(view::DafView)::AbstractSet{<:AbstractString} # UNTESTED
+function Formats.format_axes_set(view::DafView)::AbstractSet{<:AbstractString}
     @assert Formats.has_data_read_lock(view)
     return collect_view_axes(view)
 end
@@ -437,7 +437,7 @@ function Formats.format_has_vector(view::DafView, axis::AbstractString, name::Ab
     return query !== nothing && has_query(view.daf, query)
 end
 
-function Formats.format_vectors_set(view::DafView, axis::AbstractString)::AbstractSet{<:AbstractString} # UNTESTED
+function Formats.format_vectors_set(view::DafView, axis::AbstractString)::AbstractSet{<:AbstractString}
     @assert Formats.has_data_read_lock(view)
     return collect_view_vectors(view, axis)
 end
@@ -1087,7 +1087,7 @@ function prepare_query(
     end
 end
 
-function Readers.complete_path(view::DafView)::Maybe{AbstractString}  # UNTESTED
+function Readers.complete_path(view::DafView)::Maybe{AbstractString}
     if length(view.path) == 0
         return nothing
     else

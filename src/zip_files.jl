@@ -1383,7 +1383,7 @@ function Reorder.format_lock_reorder!(zip_daf::ZipDaf, ::AbstractString)::Nothin
     return append_only_error(zip_daf, "reorder")
 end
 
-function Reorder.format_backup_reorder!(zip_daf::ZipDaf, ::Reorder.FormatReorderPlan)::Nothing  # UNTESTED
+function Reorder.format_backup_reorder!(zip_daf::ZipDaf, ::Reorder.FormatReorderPlan)::Nothing
     @assert Formats.has_data_write_lock(zip_daf)
     return append_only_error(zip_daf, "reorder")
 end
@@ -1398,7 +1398,7 @@ function Reorder.format_replace_reorder!(  # UNTESTED
     return append_only_error(zip_daf, "reorder")
 end
 
-function Reorder.format_cleanup_reorder!(zip_daf::ZipDaf)::Nothing  # UNTESTED
+function Reorder.format_cleanup_reorder!(zip_daf::ZipDaf)::Nothing
     @assert Formats.has_data_write_lock(zip_daf)
     return append_only_error(zip_daf, "reorder")
 end
