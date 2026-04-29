@@ -118,7 +118,12 @@ function verify_zarr_source(zarr_path::AbstractString)::Nothing
     if !isdir(zarr_path)
         error("not a directory: $(zarr_path)")
     end
-    if !isfile("$(zarr_path)/daf/.zarray")
+    root_json_path = "$(zarr_path)/zarr.json"
+    if !isfile(root_json_path)
+        error("not a daf zarr directory: $(zarr_path)")
+    end
+    root_json = read_json_dict(root_json_path)
+    if !(get(root_json, "node_type", "") == "group" && haskey(get(root_json, "attributes", Dict()), "daf"))
         error("not a daf zarr directory: $(zarr_path)")
     end
     return nothing
@@ -218,39 +223,38 @@ function zarr_vector_to_files(
 )::Nothing
     source_dir = "$(zarr_path)/vectors/$(axis)/$(name)"
     destination_base = "$(files_path)/vectors/$(axis)/$(name)"
-    zarray_path = "$(source_dir)/.zarray"
+    zarr_json = read_json_dict("$(source_dir)/zarr.json")
 
-    if isfile(zarray_path)
-        zarray = read_json_dict(zarray_path)
-        if is_string_zarr_dtype(zarray)
+    if zarr_json["node_type"] == "array"
+        if is_string_v3_dtype(zarr_json)
             set_vector!(destination, axis, name, get_vector(source, axis, name))
         else
-            element_type = julia_type_from_zarr_dtype(zarray["dtype"])
+            element_type = julia_type_from_v3_dtype(zarr_json["data_type"])
             FilesFormat.write_array_json("$(destination_base).json", "dense", element_type)
-            hardlink("$(source_dir)/0", "$(destination_base).data")
+            hardlink("$(source_dir)/c/0", "$(destination_base).data")
         end
     else
-        @assert isfile("$(source_dir)/.zgroup") "missing .zarray and .zgroup: $(source_dir)"
+        @assert zarr_json["node_type"] == "group" "unexpected node_type: $(zarr_json["node_type"])"
         zarr_sparse_vector_to_files(source_dir, destination_base)
     end
     return nothing
 end
 
 function zarr_sparse_vector_to_files(source_dir::AbstractString, destination_base::AbstractString)::Nothing
-    nzind_zarray = read_json_dict("$(source_dir)/nzind/.zarray")
-    ind_type = julia_type_from_zarr_dtype(nzind_zarray["dtype"])
+    nzind_json = read_json_dict("$(source_dir)/nzind/zarr.json")
+    ind_type = julia_type_from_v3_dtype(nzind_json["data_type"])
 
-    nzval_zarray_path = "$(source_dir)/nzval/.zarray"
-    if isfile(nzval_zarray_path)
-        element_type = julia_type_from_zarr_dtype(read_json_dict(nzval_zarray_path)["dtype"])
+    nzval_json_path = "$(source_dir)/nzval/zarr.json"
+    if isfile(nzval_json_path)
+        element_type = julia_type_from_v3_dtype(read_json_dict(nzval_json_path)["data_type"])
     else
         element_type = Bool
     end
 
     FilesFormat.write_array_json("$(destination_base).json", "sparse", element_type, ind_type)
-    hardlink("$(source_dir)/nzind/0", "$(destination_base).nzind")
-    if isfile("$(source_dir)/nzval/0")
-        hardlink("$(source_dir)/nzval/0", "$(destination_base).nzval")
+    hardlink("$(source_dir)/nzind/c/0", "$(destination_base).nzind")
+    if isfile("$(source_dir)/nzval/c/0")
+        hardlink("$(source_dir)/nzval/c/0", "$(destination_base).nzval")
     end
     return nothing
 end
@@ -266,11 +270,10 @@ function zarr_matrix_to_files(
 )::Nothing
     source_dir = "$(zarr_path)/matrices/$(rows_axis)/$(columns_axis)/$(name)"
     destination_base = "$(files_path)/matrices/$(rows_axis)/$(columns_axis)/$(name)"
-    zarray_path = "$(source_dir)/.zarray"
+    zarr_json = read_json_dict("$(source_dir)/zarr.json")
 
-    if isfile(zarray_path)
-        zarray = read_json_dict(zarray_path)
-        if is_string_zarr_dtype(zarray)
+    if zarr_json["node_type"] == "array"
+        if is_string_v3_dtype(zarr_json)
             set_matrix!(
                 destination,
                 rows_axis,
@@ -280,33 +283,33 @@ function zarr_matrix_to_files(
                 relayout = false,
             )
         else
-            element_type = julia_type_from_zarr_dtype(zarray["dtype"])
+            element_type = julia_type_from_v3_dtype(zarr_json["data_type"])
             FilesFormat.write_array_json("$(destination_base).json", "dense", element_type)
-            hardlink("$(source_dir)/0/0", "$(destination_base).data")
+            hardlink("$(source_dir)/c/0/0", "$(destination_base).data")
         end
     else
-        @assert isfile("$(source_dir)/.zgroup") "missing .zarray and .zgroup: $(source_dir)"
+        @assert zarr_json["node_type"] == "group" "unexpected node_type: $(zarr_json["node_type"])"
         zarr_sparse_matrix_to_files(source_dir, destination_base)
     end
     return nothing
 end
 
 function zarr_sparse_matrix_to_files(source_dir::AbstractString, destination_base::AbstractString)::Nothing
-    colptr_zarray = read_json_dict("$(source_dir)/colptr/.zarray")
-    ind_type = julia_type_from_zarr_dtype(colptr_zarray["dtype"])
+    colptr_json = read_json_dict("$(source_dir)/colptr/zarr.json")
+    ind_type = julia_type_from_v3_dtype(colptr_json["data_type"])
 
-    nzval_zarray_path = "$(source_dir)/nzval/.zarray"
-    if isfile(nzval_zarray_path)
-        element_type = julia_type_from_zarr_dtype(read_json_dict(nzval_zarray_path)["dtype"])
+    nzval_json_path = "$(source_dir)/nzval/zarr.json"
+    if isfile(nzval_json_path)
+        element_type = julia_type_from_v3_dtype(read_json_dict(nzval_json_path)["data_type"])
     else
         element_type = Bool
     end
 
     FilesFormat.write_array_json("$(destination_base).json", "sparse", element_type, ind_type)
-    hardlink("$(source_dir)/colptr/0", "$(destination_base).colptr")
-    hardlink("$(source_dir)/rowval/0", "$(destination_base).rowval")
-    if isfile("$(source_dir)/nzval/0")
-        hardlink("$(source_dir)/nzval/0", "$(destination_base).nzval")
+    hardlink("$(source_dir)/colptr/c/0", "$(destination_base).colptr")
+    hardlink("$(source_dir)/rowval/c/0", "$(destination_base).rowval")
+    if isfile("$(source_dir)/nzval/c/0")
+        hardlink("$(source_dir)/nzval/c/0", "$(destination_base).nzval")
     end
     return nothing
 end
@@ -365,20 +368,20 @@ function files_vector_to_zarr(
 
     if format == "dense"
         n_elements = axis_length(source, axis)
-        Zarr.zcreate(element_type, parent_group, name, n_elements; compressor = Zarr.NoCompressor())
-        hardlink("$(source_base).data", "$(destination_dir)/0")
+        ZarrFormat.dense_zcreate(element_type, parent_group, name, false, (n_elements,))
+        hardlink_v3_chunk("$(source_base).data", "$(destination_dir)/c/0")
     else
         @assert format == "sparse"
         ind_type = julia_type_from_files_eltype(String(json["indtype"]))
         nzind_path = "$(source_base).nzind"
-        nnz = div(filesize(nzind_path), sizeof(ind_type))
+        nnz_int = Int(div(filesize(nzind_path), sizeof(ind_type)))
         vector_group = Zarr.zgroup(parent_group, name)
-        Zarr.zcreate(ind_type, vector_group, "nzind", nnz; compressor = Zarr.NoCompressor())
-        hardlink(nzind_path, "$(destination_dir)/nzind/0")
+        ZarrFormat.dense_zcreate(ind_type, vector_group, "nzind", false, (nnz_int,))
+        hardlink_v3_chunk(nzind_path, "$(destination_dir)/nzind/c/0")
         nzval_path = "$(source_base).nzval"
         if isfile(nzval_path)
-            Zarr.zcreate(element_type, vector_group, "nzval", nnz; compressor = Zarr.NoCompressor())
-            hardlink(nzval_path, "$(destination_dir)/nzval/0")
+            ZarrFormat.dense_zcreate(element_type, vector_group, "nzval", false, (nnz_int,))
+            hardlink_v3_chunk(nzval_path, "$(destination_dir)/nzval/c/0")
         end
     end
     return nothing
@@ -417,25 +420,34 @@ function files_matrix_to_zarr(
     n_columns = axis_length(source, columns_axis)
 
     if format == "dense"
-        Zarr.zcreate(element_type, parent_group, name, n_rows, n_columns; compressor = Zarr.NoCompressor())
-        hardlink("$(source_base).data", "$(destination_dir)/0.0")
+        ZarrFormat.dense_zcreate(element_type, parent_group, name, false, (n_rows, n_columns))
+        hardlink_v3_chunk("$(source_base).data", "$(destination_dir)/c/0/0")
     else
         @assert format == "sparse"
         ind_type = julia_type_from_files_eltype(String(json["indtype"]))
         colptr_path = "$(source_base).colptr"
         rowval_path = "$(source_base).rowval"
-        nnz = div(filesize(rowval_path), sizeof(ind_type))
+        nnz_int = Int(div(filesize(rowval_path), sizeof(ind_type)))
         matrix_group = Zarr.zgroup(parent_group, name)
-        Zarr.zcreate(ind_type, matrix_group, "colptr", n_columns + 1; compressor = Zarr.NoCompressor())
-        hardlink(colptr_path, "$(destination_dir)/colptr/0")
-        Zarr.zcreate(ind_type, matrix_group, "rowval", nnz; compressor = Zarr.NoCompressor())
-        hardlink(rowval_path, "$(destination_dir)/rowval/0")
+        ZarrFormat.dense_zcreate(ind_type, matrix_group, "colptr", false, (n_columns + 1,))
+        hardlink_v3_chunk(colptr_path, "$(destination_dir)/colptr/c/0")
+        ZarrFormat.dense_zcreate(ind_type, matrix_group, "rowval", false, (nnz_int,))
+        hardlink_v3_chunk(rowval_path, "$(destination_dir)/rowval/c/0")
         nzval_path = "$(source_base).nzval"
         if isfile(nzval_path)
-            Zarr.zcreate(element_type, matrix_group, "nzval", nnz; compressor = Zarr.NoCompressor())
-            hardlink(nzval_path, "$(destination_dir)/nzval/0")
+            ZarrFormat.dense_zcreate(element_type, matrix_group, "nzval", false, (nnz_int,))
+            hardlink_v3_chunk(nzval_path, "$(destination_dir)/nzval/c/0")
         end
     end
+    return nothing
+end
+
+# Hard-link `source` to `destination`, creating the destination's parent directory if it does not yet exist.
+# The v3 `c/` chunk-prefix sub-directory of an array is not created by `numeric_zcreate` (only `zarr.json` is
+# emitted there), so each chunk hard-link needs its parent.
+function hardlink_v3_chunk(source::AbstractString, destination::AbstractString)::Nothing
+    mkpath(dirname(destination))
+    hardlink(source, destination)
     return nothing
 end
 
@@ -445,8 +457,8 @@ function read_json_dict(path::AbstractString)::Dict{String, Any}
     return Dict{String, Any}(String(k) => v for (k, v) in json)
 end
 
-function is_string_zarr_dtype(zarray::AbstractDict)::Bool
-    return zarray["dtype"] == "|O"
+function is_string_v3_dtype(zarr_json::AbstractDict)::Bool
+    return zarr_json["data_type"] == "string"
 end
 
 function is_string_eltype(eltype_name::AbstractString)::Bool
@@ -459,21 +471,12 @@ function julia_type_from_files_eltype(eltype_name::AbstractString)::Type
     return type
 end
 
-function julia_type_from_zarr_dtype(dtype::AbstractString)::Type
-    @assert length(dtype) == 3 "unsupported zarr dtype: $(dtype)"
-    kind = dtype[2]
-    n_bytes = parse(Int, dtype[3:3])
-    if kind == 'i'
-        return n_bytes == 1 ? Int8 : n_bytes == 2 ? Int16 : n_bytes == 4 ? Int32 : Int64
-    elseif kind == 'u'
-        return n_bytes == 1 ? UInt8 : n_bytes == 2 ? UInt16 : n_bytes == 4 ? UInt32 : UInt64
-    elseif kind == 'f'
-        return n_bytes == 4 ? Float32 : Float64
-    elseif kind == 'b'
-        @assert n_bytes == 1 "unsupported zarr dtype: $(dtype)"
-        return Bool
-    end
-    return error("unsupported zarr dtype: $(dtype)")  # UNTESTED
+# Translate a Zarr v3 `data_type` string ("float32", "int8", "bool", ...) to its Julia type. The mapping mirrors
+# `Zarr.typestr3(t)` which lower-cases the type name; `DTYPE_BY_NAME` already has the lower-cased keys.
+function julia_type_from_v3_dtype(data_type::AbstractString)::Type
+    type = get(DTYPE_BY_NAME, data_type, nothing)
+    @assert type !== nothing "unsupported zarr v3 data_type: $(data_type)"
+    return type
 end
 
 end  # module

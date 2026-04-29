@@ -4192,17 +4192,26 @@ nested_test("data") do
             mktempdir() do path
                 @test_throws "invalid mode: a" ZarrDaf(path * "/test.daf.zarr", "a")
                 @test_throws "no such directory: $(path)/missing.daf.zarr" ZarrDaf(path * "/missing.daf.zarr", "r+")
+                v2_path = path * "/v2.daf.zarr"
+                mkpath(v2_path)
+                write(v2_path * "/.zgroup", "{\"zarr_format\":2}")
+                @test_throws "Zarr v2 store at: $(abspath(v2_path))" ZarrDaf(v2_path)
+
                 empty_path = path * "/empty.daf.zarr"
                 mkpath(empty_path)
-                write(empty_path * "/.zgroup", "{\"zarr_format\":2}")
+                write(empty_path * "/zarr.json", "{\"zarr_format\":3,\"node_type\":\"group\"}")
                 @test_throws "not a daf data set: $(abspath(empty_path))" ZarrDaf(empty_path)
+
                 version_path = path * "/version.daf.zarr"
                 ZarrDaf(version_path, "w+"; name = "v!")
-                write(version_path * "/daf/0", UInt8[2, 0])
+                write(
+                    version_path * "/zarr.json",
+                    "{\"zarr_format\":3,\"node_type\":\"group\",\"attributes\":{\"daf\":[2,0]}}",
+                )
                 @test_throws chomp("""
                              incompatible format version: 2.0
                              for the daf zarr group: $(abspath(version_path))
-                             the code supports version: 1.1
+                             the code supports version: 1.0
                              """) ZarrDaf(version_path; name = "version!")
 
                 bogus_path = path * "/bogus.foo"
@@ -4229,7 +4238,7 @@ nested_test("data") do
 
                 not_daf_path = path * "/notdaf.daf.zarr"
                 mkpath(not_daf_path)
-                write(not_daf_path * "/.zgroup", "{\"zarr_format\":2}")
+                write(not_daf_path * "/zarr.json", "{\"zarr_format\":3,\"node_type\":\"group\"}")
                 daf = ZarrDaf(not_daf_path, "w+"; name = "upgraded!")
                 @test daf.name == "upgraded!"
             end
@@ -4296,7 +4305,7 @@ nested_test("data") do
 
                 consolidated_group = Zarr.zopen(zarr_path; consolidated = true)
                 @test consolidated_group.storage isa Zarr.ConsolidatedStore
-                @test consolidated_group.arrays["daf"][:] == UInt8[1, 1]
+                @test DataAxesFormats.ZarrFormat.zarr_group_attrs(consolidated_group)["daf"] == [1, 0]
                 @test consolidated_group.groups["vectors"].groups["gene"].arrays["marker"][:] ==
                       MARKER_GENES_BY_DEPTH[1]
                 @test consolidated_group.groups["vectors"].groups["gene"].arrays["score"][:] == Int16[1, 2, 3, 4]
@@ -4390,14 +4399,7 @@ nested_test("data") do
                     daf = ZarrDaf(zarr_path, "w"; name = "zarr!")
                     add_axis!(daf, "cell", CELL_NAMES)
                     cell_vec = daf.root.groups["vectors"].groups["cell"]
-                    color = zcreate(
-                        String,
-                        cell_vec,
-                        "color",
-                        length(CELL_NAMES);
-                        chunks = (2,),
-                        compressor = Zarr.NoCompressor(),
-                    )
+                    color = DataAxesFormats.ZarrFormat.string_zcreate(cell_vec, "color", (length(CELL_NAMES),), (2,))
                     color[:] = ["red", "green", "blue"]
                     daf = ZarrDaf(zarr_path, "r"; name = "ro!")
                     @test get_vector(daf, "cell", "color") == ["red", "green", "blue"]

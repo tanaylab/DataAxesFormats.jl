@@ -475,16 +475,20 @@ nested_test("packed_format") do
         end
 
         # Per-backend test bodies. `create_daf(path; packed)` returns a writable `ZarrDaf` rooted in `path`.
-        # `daf_marker_bytes_for(path)`, when supplied, reads the dataset's `daf` array bytes and is used by the few
-        # tests that assert the on-disk version marker; backends without a cheap byte-level reader pass `nothing`.
-        function run_zarr_packed_tests(create_daf::Function; daf_marker_bytes_for::Maybe{Function} = nothing)::Nothing
+        # `daf_marker_for(path)`, when supplied, returns the dataset's on-disk `daf` group attribute
+        # (`[major, minor]`) and is used by the few tests that assert the version marker; backends
+        # without a cheap byte-level reader pass `nothing`.
+        function run_zarr_packed_tests(create_daf::Function; daf_marker_for::Maybe{Function} = nothing)::Nothing
             nested_test("dense_matrix_round_trip") do
                 with_packed_dense_matrix_round_trip(create_daf) do daf, path
                     zarr_array = zarr_array_at(daf, "matrices", "row", "col", "data")
-                    @test zarr_array.metadata.chunks == (2048, 1)
-                    @test !(zarr_array.metadata.compressor isa Zarr.NoCompressor)
-                    if daf_marker_bytes_for !== nothing
-                        @test daf_marker_bytes_for(path) == UInt8[1, 1]
+                    sharding = zarr_array.metadata.pipeline.array_bytes
+                    @test zarr_array.metadata.chunks == size(zarr_array)
+                    @test sharding isa Zarr.Codecs.V3Codecs.ShardingCodec
+                    @test sharding.chunk_shape == (2048, 1)
+                    @test !isempty(sharding.codecs.bytes_bytes)
+                    if daf_marker_for !== nothing
+                        @test daf_marker_for(path) == [1, 0]
                     end
                     @test parent(get_matrix(daf, "row", "col", "data")) isa DiskArrays.CachedDiskArray
                     return nothing
@@ -510,8 +514,11 @@ nested_test("packed_format") do
                     @test get_matrix(daf, "row", "col", "data") == original
 
                     zarr_array = zarr_array_at(daf, "matrices", "row", "col", "data")
-                    @test zarr_array.metadata.chunks == (n_rows, 1)
-                    @test !(zarr_array.metadata.compressor isa Zarr.NoCompressor)
+                    sharding = zarr_array.metadata.pipeline.array_bytes
+                    @test zarr_array.metadata.chunks == size(zarr_array)
+                    @test sharding isa Zarr.Codecs.V3Codecs.ShardingCodec
+                    @test sharding.chunk_shape == (n_rows, 1)
+                    @test !isempty(sharding.codecs.bytes_bytes)
                     return nothing
                 end
             end
@@ -543,13 +550,16 @@ nested_test("packed_format") do
             nested_test("sparse_matrix_round_trip") do
                 with_packed_sparse_matrix_round_trip(create_daf) do daf, path
                     nzval_array = zarr_array_at(daf, "matrices", "row", "col", "data", "nzval")
-                    @test nzval_array.metadata.chunks == (2048,)
-                    @test !(nzval_array.metadata.compressor isa Zarr.NoCompressor)
+                    nzval_sharding = nzval_array.metadata.pipeline.array_bytes
+                    @test nzval_array.metadata.chunks == size(nzval_array)
+                    @test nzval_sharding isa Zarr.Codecs.V3Codecs.ShardingCodec
+                    @test nzval_sharding.chunk_shape == (2048,)
+                    @test !isempty(nzval_sharding.codecs.bytes_bytes)
                     colptr_array = zarr_array_at(daf, "matrices", "row", "col", "data", "colptr")
                     @test colptr_array.metadata.chunks == size(colptr_array)
-                    @test colptr_array.metadata.compressor isa Zarr.NoCompressor
+                    @test isempty(colptr_array.metadata.pipeline.bytes_bytes)
                     rowval_array = zarr_array_at(daf, "matrices", "row", "col", "data", "rowval")
-                    @test rowval_array.metadata.compressor isa Zarr.NoCompressor
+                    @test isempty(rowval_array.metadata.pipeline.bytes_bytes)
                     return nothing
                 end
             end
@@ -557,8 +567,11 @@ nested_test("packed_format") do
             nested_test("dense_vector_round_trip") do
                 with_packed_dense_vector_round_trip(create_daf) do daf, path
                     zarr_array = zarr_array_at(daf, "vectors", "elem", "data")
-                    @test zarr_array.metadata.chunks == (2048,)
-                    @test !(zarr_array.metadata.compressor isa Zarr.NoCompressor)
+                    sharding = zarr_array.metadata.pipeline.array_bytes
+                    @test zarr_array.metadata.chunks == size(zarr_array)
+                    @test sharding isa Zarr.Codecs.V3Codecs.ShardingCodec
+                    @test sharding.chunk_shape == (2048,)
+                    @test !isempty(sharding.codecs.bytes_bytes)
                     return nothing
                 end
             end
@@ -578,8 +591,11 @@ nested_test("packed_format") do
                     @test get_vector(daf, "elem", "data") == original
 
                     zarr_array = zarr_array_at(daf, "vectors", "elem", "data")
-                    @test zarr_array.metadata.chunks == (2048,)
-                    @test !(zarr_array.metadata.compressor isa Zarr.NoCompressor)
+                    sharding = zarr_array.metadata.pipeline.array_bytes
+                    @test zarr_array.metadata.chunks == size(zarr_array)
+                    @test sharding isa Zarr.Codecs.V3Codecs.ShardingCodec
+                    @test sharding.chunk_shape == (2048,)
+                    @test !isempty(sharding.codecs.bytes_bytes)
                     return nothing
                 end
             end
@@ -588,7 +604,7 @@ nested_test("packed_format") do
                 with_packed_string_vector_round_trip(create_daf) do daf, path
                     zarr_array = zarr_array_at(daf, "vectors", "gene", "label")
                     @test zarr_array.metadata.chunks == (512,)
-                    @test !(zarr_array.metadata.compressor isa Zarr.NoCompressor)
+                    @test !isempty(zarr_array.metadata.pipeline.bytes_bytes)
                     return nothing
                 end
             end
@@ -597,7 +613,7 @@ nested_test("packed_format") do
                 with_below_threshold_matrix_round_trip(create_daf) do daf, path
                     zarr_array = zarr_array_at(daf, "matrices", "row", "col", "data")
                     @test zarr_array.metadata.chunks == size(zarr_array)
-                    @test zarr_array.metadata.compressor isa Zarr.NoCompressor
+                    @test isempty(zarr_array.metadata.pipeline.bytes_bytes)
                     return nothing
                 end
             end
@@ -606,9 +622,9 @@ nested_test("packed_format") do
                 with_unpacked_dense_matrix_round_trip(create_daf) do daf, path
                     zarr_array = zarr_array_at(daf, "matrices", "row", "col", "data")
                     @test zarr_array.metadata.chunks == size(zarr_array)
-                    @test zarr_array.metadata.compressor isa Zarr.NoCompressor
-                    if daf_marker_bytes_for !== nothing
-                        @test daf_marker_bytes_for(path) == UInt8[1, 1]
+                    @test isempty(zarr_array.metadata.pipeline.bytes_bytes)
+                    if daf_marker_for !== nothing
+                        @test daf_marker_for(path) == [1, 0]
                     end
                     return nothing
                 end
@@ -632,11 +648,13 @@ nested_test("packed_format") do
                 return ZarrDaf(joinpath(path, "test.daf.zarr"), mode; name = "zarr_dir!", packed = packed)
             end
 
-            function directory_marker_bytes_for(path::AbstractString)::Vector{UInt8}
-                return read(joinpath(path, "test.daf.zarr", "daf", "0"))
+            function directory_marker_for(path::AbstractString)::Vector{Int}
+                root_metadata = JSON.parse(read(joinpath(path, "test.daf.zarr", "zarr.json"), String))
+                version = root_metadata["attributes"]["daf"]
+                return Int[Int(version[1]), Int(version[2])]
             end
 
-            return run_zarr_packed_tests(directory_factory; daf_marker_bytes_for = directory_marker_bytes_for)
+            return run_zarr_packed_tests(directory_factory; daf_marker_for = directory_marker_for)
         end
 
         nested_test("zip") do

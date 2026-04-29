@@ -277,15 +277,23 @@ struct PackedDenseMatrix{T} <: AbstractMatrix{T}  # NOLINT
     n_columns::Int
     thread_slots::Vector{PackedThreadSlot{T}}
     encoder::Function
+    finalizer::Function
 end
 
 # Allocate a `PackedDenseMatrix` over the given encoder. The encoder closure has signature
 # `(column::Int, chunk_buffer::Vector{T}) -> Nothing` and writes the chunk for `column` (the buffer's contents) to
-# storage. One `PackedThreadSlot{T}` is allocated per `Threads.maxthreadid()`; threads index into `thread_slots` by
-# `Threads.threadid()`.
-function PackedDenseMatrix{T}(n_rows::Int, n_columns::Int, encoder::Function)::PackedDenseMatrix{T} where {T}
+# storage. The optional `finalizer` closure (signature `() -> Nothing`) runs once after every column slot has been
+# flushed; it lets the format-level write path commit any per-array post-processing (e.g. emitting a shard index
+# footer). One `PackedThreadSlot{T}` is allocated per `Threads.maxthreadid()`; threads index into `thread_slots`
+# by `Threads.threadid()`.
+function PackedDenseMatrix{T}(
+    n_rows::Int,
+    n_columns::Int,
+    encoder::Function;
+    finalizer::Function = () -> nothing,
+)::PackedDenseMatrix{T} where {T}
     thread_slots = [PackedThreadSlot{T}(0, Vector{T}(undef, n_rows)) for _ in 1:Threads.maxthreadid()]
-    return PackedDenseMatrix{T}(n_rows, n_columns, thread_slots, encoder)
+    return PackedDenseMatrix{T}(n_rows, n_columns, thread_slots, encoder, finalizer)
 end
 
 function Base.size(matrix::PackedDenseMatrix)::Tuple{Int, Int}
@@ -329,6 +337,7 @@ function flush_packed_dense_matrix!(matrix::PackedDenseMatrix)::Nothing
             slot.current_column = 0
         end
     end
+    matrix.finalizer()
     return nothing
 end
 

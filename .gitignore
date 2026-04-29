@@ -1,3 +1,4 @@
+.claude
 *.jl.*.cov
 *.jl.cov
 .*.swo

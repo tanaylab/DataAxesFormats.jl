@@ -72,18 +72,24 @@ nested_test("zarr_convert") do
                 destination = FilesDaf(files_dst, "r"; name = "dst!")
                 verify_zarr_convert_test_data(destination)
 
-                @test same_inode("$(files_src)/matrices/cell/gene/UMIs.data", "$(zarr_mid)/matrices/cell/gene/UMIs/0.0")
+                @test same_inode(
+                    "$(files_src)/matrices/cell/gene/UMIs.data",
+                    "$(zarr_mid)/matrices/cell/gene/UMIs/c/0/0",
+                )
                 @test same_inode(
                     "$(files_src)/matrices/cell/gene/UMIs.data",
                     "$(files_dst)/matrices/cell/gene/UMIs.data",
                 )
                 @test same_inode(
                     "$(files_src)/matrices/cell/gene/sparse.nzval",
-                    "$(zarr_mid)/matrices/cell/gene/sparse/nzval/0",
+                    "$(zarr_mid)/matrices/cell/gene/sparse/nzval/c/0",
                 )
-                @test same_inode("$(files_src)/vectors/gene/marker.nzind", "$(zarr_mid)/vectors/gene/marker/nzind/0")
-                @test !isfile("$(zarr_mid)/vectors/gene/present/nzval/0")
-                @test !isfile("$(zarr_mid)/matrices/cell/gene/present/nzval/0")
+                @test same_inode(
+                    "$(files_src)/vectors/gene/marker.nzind",
+                    "$(zarr_mid)/vectors/gene/marker/nzind/c/0",
+                )
+                @test !isfile("$(zarr_mid)/vectors/gene/present/nzval/c/0")
+                @test !isfile("$(zarr_mid)/matrices/cell/gene/present/nzval/c/0")
                 return nothing
             end
         end
@@ -174,9 +180,12 @@ nested_test("zarr_convert") do
                 destination = ZarrDaf(zarr_dst, "r"; name = "dst!")
                 verify_zarr_convert_test_data(destination)
 
-                @test same_inode("$(zarr_src)/matrices/cell/gene/UMIs/0.0", "$(files_mid)/matrices/cell/gene/UMIs.data")
                 @test same_inode(
-                    "$(zarr_src)/matrices/cell/gene/sparse/colptr/0",
+                    "$(zarr_src)/matrices/cell/gene/UMIs/c/0/0",
+                    "$(files_mid)/matrices/cell/gene/UMIs.data",
+                )
+                @test same_inode(
+                    "$(zarr_src)/matrices/cell/gene/sparse/colptr/c/0",
                     "$(files_mid)/matrices/cell/gene/sparse.colptr",
                 )
                 @test !isfile("$(files_mid)/matrices/cell/gene/present.nzval")
