@@ -38,7 +38,8 @@ existing Zarr-based convention such as [`OME-NGFF`](https://ngff.openmicroscopy.
   - The `daf` array signifies that the group contains `Daf` data. It contains two `UInt8` integers, the first being the
     major version number and the second the minor version number, using [semantic versioning](https://semver.org/).
     This makes it easy to test whether some Zarr group does/n't contain `Daf` data, and which version of the internal
-    structure it is using. Currently the only defined version is `[1,0]`.
+    structure it is using. The defined versions are `[1,0]` (flat-only) and `[1,1]` (adds packed encoding for dense
+    numeric properties; new code reads both, old code refuses `[1,1]`).
 
   - The `scalars` group contains scalar properties, each as a single-element Zarr array. The only supported scalar data
     types are these included in [`StorageScalar`](@ref). If you **really** need something else, serialize it to JSON
@@ -67,8 +68,10 @@ existing Zarr-based convention such as [`OME-NGFF`](https://ngff.openmicroscopy.
     If the data type is `Bool` then the data matrix is typically all-`true` values; in this case we simply skip storing
     the `nzval` child array.
 
-  - Every Zarr array is created without compression, using a single chunk covering the full array, so the chunk file on
-    disk is a raw binary image that we can memory-map for direct access.
+  - Flat properties (the default) are stored as a single Zarr chunk covering the full array, without compression, so
+    the chunk file on disk is a raw binary image that we can memory-map. Packed properties (`packed = true`, uncompressed
+    size at or above [`DAF_PACKED_TARGET_CHUNK_KB`](@ref)) are stored chunked + compressed via the codec resolved from
+    [`DAF_PACKED_COMPRESSION`](@ref). Both encodings coexist within a `1.1`-marked dataset.
 
 Example Zarr directory structure:
 
@@ -142,20 +145,27 @@ using ..Readers
 using ..StorageTypes
 using ..Writers
 using Base.Filesystem
+using DiskArrays
 using JSON
 using Mmap
 using ProgressMeter
 using SparseArrays
+using TanayLabUtilities
 using Zarr
 
 import ..Formats
 import ..Formats.Internal
+import ..PackedFormat.PackedCodec
+import ..PackedFormat.PackedDenseMatrix
+import ..PackedFormat.chunks_for
+import ..PackedFormat.compressor_for
+import ..PackedFormat.flush_packed_dense_matrix!
+import ..PackedFormat.packed_local_cache_mb
 import ..Readers.base_array
 import ..Reorder
 import ..ZipFormat.SharedMmapZipStoreHandle
 import ..ZipFormat.acquire_shared_mmap_zip_store!
 import ..ZipFormat.parse_zip_archive_path
-using TanayLabUtilities
 
 """
 The major version of the [`ZarrDaf`](@ref) on-disk format supported by this code.
@@ -165,7 +175,7 @@ MAJOR_VERSION::UInt8 = 1
 """
 The highest minor version of the [`ZarrDaf`](@ref) on-disk format supported by this code.
 """
-MINOR_VERSION::UInt8 = 0
+MINOR_VERSION::UInt8 = 1
 
 const DAF_KEY = "daf"
 const SCALARS = "scalars"
@@ -223,8 +233,8 @@ the name. Otherwise, the `path` (including any `#/group` suffix) will be used as
 If `packed` is `true`, subsequent writes through this handle default to the packed (chunked + compressed) on-disk
 encoding for properties whose uncompressed size is at or above
 [`DAF_PACKED_TARGET_CHUNK_KB`](@ref DataAxesFormats.PackedFormat.DAF_PACKED_TARGET_CHUNK_KB). Per-call `packed` kwargs
-on `set_*!` / `empty_*!` / `copy_*!` override this default. The default is `false` (today's flat encoding). HTTP-mode
-opens are read-only and ignore the `packed` kwarg.
+on `set_*!` / `empty_*!` / `copy_*!` override this default. The default is `false` (flat single-chunk uncompressed
+encoding). HTTP-mode opens are read-only and ignore the `packed` kwarg.
 
 The valid `mode` values are as follows (the default mode is `r`):
 
@@ -458,8 +468,9 @@ function open_or_create_daf_group(
     is_read_only::Bool,
     create_if_missing::Bool,
 )::ZGroup
-    if Zarr.is_zgroup(store, zpath)
-        root = Zarr.zopen_noerr(store, is_read_only ? "r" : "w"; path = zpath, fill_as_missing = false)  # NOJET
+    if Zarr.is_zgroup(Zarr.ZarrFormat(2), store, zpath)  # NOJET
+        root =
+            Zarr.zopen_noerr(store, is_read_only ? "r" : "w", Zarr.ZarrFormat(2); path = zpath, fill_as_missing = false)  # NOJET
         if !(root isa ZGroup)
             error("not a daf zarr group: $(full_path)")  # UNTESTED
         end
@@ -548,6 +559,67 @@ end
 function chunk_key(array::ZArray, suffix::AbstractString)::String  # FLAKY TESTED
     array_key = lstrip(array.path, '/')
     return isempty(array_key) ? String(suffix) : array_key * '/' * String(suffix)
+end
+
+# Single-chunk-uncompressed-matrix chunk filename, honoring the per-array dimension separator from the array's
+# `chunk_key_encoding` metadata. Used by the flat (single-chunk) read fast path and the post-fill CRC patch on the ZIP
+# backend.
+function single_chunk_matrix_suffix(array::ZArray)::String
+    return "0$(array.metadata.chunk_key_encoding.sep)0"
+end
+
+# Create a Zarr array at `name` under `group` for a dense property of element type `T` and shape `shape`. When
+# `chunks_for` returns `nothing` (no packing) or for non-bits types (e.g. `String`), falls back to a single-chunk
+# uncompressed encoding and lets `Zarr.jl` apply its default per-type filter (e.g. `VLenUTF8Filter` for strings).
+# Otherwise applies the codec resolved from `DAF_PACKED_COMPRESSION` / `DAF_PACKED_COMPRESSION_LEVEL` and the
+# `chunks_for` chunk shape; the explicit `filters` kwarg is omitted for non-bits types so `Zarr.jl`'s default filter
+# stays in the chain ahead of the compressor. Callers fill data into the returned `ZArray` afterward.
+function dense_zcreate(
+    ::Type{T},
+    group::ZGroup,
+    name::AbstractString,
+    packed::Bool,
+    shape::NTuple{N, Int},
+)::ZArray{T, N} where {T, N}
+    chunks = chunks_for(packed, shape, T)
+    if chunks === nothing
+        return zcreate(T, group, name, shape...; compressor = Zarr.NoCompressor(), dimension_separator = "/")  # NOJET
+    end
+    compressor, filters = zarr_compressor_for(compressor_for(), T)
+    if isbitstype(T)
+        return zcreate(T, group, name, shape...; chunks, compressor, filters, dimension_separator = "/")  # NOJET
+    end
+    return zcreate(T, group, name, shape...; chunks, compressor, dimension_separator = "/")
+end
+
+# Resolve a `PackedCodec` to a `Zarr.Compressor` instance and an optional list of pre-compression filters. Returns
+# `(compressor, filters)` where `filters` is `nothing` for codecs without a pre-filter and a vector of filter instances
+# otherwise. Errors on `:zstd_bitshuffle` because `Zarr.jl` has no native bitshuffle filter; users wanting bitshuffle on
+# the ZarrDaf backend should pick `:blosc_zstd_bitshuffle` (Blosc bundles its own bitshuffle pre-filter). Internal
+# helper for the dense numeric `format_set_*!` write paths.
+function zarr_compressor_for(
+    codec::PackedCodec,
+    ::Type{T},
+)::Tuple{Zarr.Compressor, Maybe{Vector{<:Zarr.Filter}}} where {T}
+    compression = codec.compression
+    compression_level = codec.compression_level
+    if compression == :blosc_zstd_bitshuffle
+        return (Zarr.BloscCompressor(; cname = "zstd", clevel = compression_level, shuffle = 2), nothing)
+    elseif compression == :blosc_lz4_bitshuffle
+        return (Zarr.BloscCompressor(; cname = "lz4", clevel = compression_level, shuffle = 2), nothing)
+    elseif compression == :zstd
+        return (Zarr.ZstdCompressor(; level = compression_level), nothing)
+    elseif compression == :gzip
+        return (Zarr.ZlibCompressor(compression_level), nothing)
+    elseif compression == :gzip_shuffle
+        return (Zarr.ZlibCompressor(compression_level), [Zarr.ShuffleFilter(; elementsize = sizeof(T))])  # NOJET
+    else
+        @assert compression == :zstd_bitshuffle
+        return error(
+            "packed compression codec :zstd_bitshuffle is not supported on the ZarrDaf backend (Zarr.jl has no " *
+            "bitshuffle filter); use :blosc_zstd_bitshuffle (Blosc bundles its own bitshuffle pre-filter)",
+        )
+    end
 end
 
 function patch_chunk_crc_if_needed(array::ZArray, chunk_suffix::AbstractString)::Nothing
@@ -643,7 +715,7 @@ end
 
 function try_mmap_matrix_chunk(daf::ZarrDaf, array::ZArray{T})::Maybe{AbstractMatrix{T}} where {T}  # FLAKY TESTED
     storage = array.storage
-    key = chunk_key(array, "0.0")
+    key = chunk_key(array, single_chunk_matrix_suffix(array))
     if storage isa Zarr.DirectoryStore
         chunk_path = joinpath(storage.folder, key)
         if !isfile(chunk_path)
@@ -666,6 +738,29 @@ function try_mmap_matrix_chunk(daf::ZarrDaf, array::ZArray{T})::Maybe{AbstractMa
     return nothing  # UNTESTED
 end
 
+# `Zarr.ZArray` doesn't expose `strides` (chunked storage), so the default `MatrixLayouts.major_axis(::AbstractMatrix)`
+# fallback returns `nothing`. ZarrDaf writes matrices in C order with reversed `shape` (see the module docstring),
+# which is column-major in Julia's view; declare it so that the layout-forwarding chain through
+# `MatrixLayouts.major_axis(::DiskArrays.CachedDiskArray)` (defined in `TanayLabUtilities`) resolves correctly for the
+# packed read path.
+function TanayLabUtilities.MatrixLayouts.major_axis(::ZArray{T, 2})::Maybe{Int8} where {T}
+    return Columns
+end
+
+# Materialise a 1-D Zarr array as a concrete `Vector{T}`, used by the sparse-component reader where the consumer
+# (`SparseMatrixCSC`) requires a concrete `Vector` rather than an `AbstractVector`. For flat (single-chunk
+# uncompressed) arrays this returns the zero-copy mmap view (also a `Vector{T}`); for chunked compressed arrays it
+# materialises eagerly via `array[:]`.
+function array_as_materialized_vector(daf::ZarrDaf, array::ZArray{T})::Tuple{Vector{T}, Formats.CacheGroup} where {T}
+    if can_mmap(array) && !isempty(array)
+        vector = try_mmap_vector_chunk(daf, array)
+        if vector !== nothing
+            return (vector, Formats.MappedData)
+        end
+    end
+    return (Vector{T}(array[:]), Formats.MemoryData)
+end
+
 function array_as_vector(daf::ZarrDaf, array::ZArray{T})::Tuple{StorageVector, Formats.CacheGroup} where {T}
     if can_mmap(array) && !isempty(array)
         vector = try_mmap_vector_chunk(daf, array)
@@ -673,7 +768,7 @@ function array_as_vector(daf::ZarrDaf, array::ZArray{T})::Tuple{StorageVector, F
             return (vector, Formats.MappedData)
         end
     end
-    return (array[:], Formats.MemoryData)
+    return (DiskArrays.cache(array; maxsize = packed_local_cache_mb()), Formats.MemoryData)
 end
 
 function array_as_matrix(daf::ZarrDaf, array::ZArray{T})::Tuple{StorageMatrix, Formats.CacheGroup} where {T}
@@ -683,7 +778,7 @@ function array_as_matrix(daf::ZarrDaf, array::ZArray{T})::Tuple{StorageMatrix, F
             return (matrix, Formats.MappedData)
         end
     end
-    return (array[:, :], Formats.MemoryData)  # NOJET
+    return (DiskArrays.cache(array; maxsize = packed_local_cache_mb()), Formats.MemoryData)
 end
 
 function can_mmap(array::ZArray{T})::Bool where {T}  # FLAKY TESTED
@@ -711,7 +806,7 @@ end
 
 function Formats.format_set_scalar!(daf::ZarrDaf, name::AbstractString, value::StorageScalar)::Maybe{Formats.CacheGroup}
     @assert Formats.has_data_write_lock(daf)
-    array = zcreate(typeof(value), scalars_group(daf), name, 1; compressor = Zarr.NoCompressor())
+    array = zcreate(typeof(value), scalars_group(daf), name, 1; compressor = Zarr.NoCompressor())  # NOJET
     array[1] = value  # NOJET
     refresh_consolidated_metadata!(daf)
     return Formats.MemoryData
@@ -812,25 +907,28 @@ function Formats.format_set_vector!(
     axis::AbstractString,
     name::AbstractString,
     vector::Union{StorageScalar, StorageVector},
-    _packed::Bool,  # NOLINT
+    packed::Bool,
 )::Nothing
     @assert Formats.has_data_write_lock(daf)
     group = axis_vectors_group(daf, axis)
     nelements = Formats.format_axis_length(daf, axis)
 
-    if vector isa StorageScalar
-        array = zcreate(typeof(vector), group, name, nelements; compressor = Zarr.NoCompressor())
+    if vector isa StorageReal
+        array = dense_zcreate(typeof(vector), group, name, packed, (nelements,))
         array[:] = fill(vector, nelements)  # NOJET
+    elseif vector isa AbstractString
+        array = dense_zcreate(String, group, name, packed, (nelements,))
+        array[:] = fill(String(vector), nelements)  # NOJET
     else
         @assert vector isa AbstractVector
         vector = base_array(vector)
         if issparse(vector)
-            write_sparse_vector(group, name, vector)
+            write_sparse_vector(group, name, vector, packed)
         elseif eltype(vector) <: AbstractString
-            array = zcreate(String, group, name, nelements; compressor = Zarr.NoCompressor())
+            array = dense_zcreate(String, group, name, packed, (nelements,))
             array[:] = String.(vector)  # NOJET
         else
-            array = zcreate(eltype(vector), group, name, nelements; compressor = Zarr.NoCompressor())
+            array = dense_zcreate(eltype(vector), group, name, packed, (nelements,))
             array[:] = Vector(vector)  # NOJET
         end
     end
@@ -843,12 +941,19 @@ function Formats.format_get_empty_dense_vector!(
     axis::AbstractString,
     name::AbstractString,
     ::Type{T},
-    _packed::Bool,
+    packed::Bool,
 )::Tuple{AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal}
     @assert Formats.has_data_write_lock(daf)
     group = axis_vectors_group(daf, axis)
     nelements = Formats.format_axis_length(daf, axis)
-    array = zcreate(T, group, name, nelements; compressor = Zarr.NoCompressor())
+
+    array = dense_zcreate(T, group, name, packed, (nelements,))
+    if chunks_for(packed, (nelements,), T) !== nothing
+        # Packed: hand the user a fresh in-RAM buffer; encode at finalize. No streaming wrapper for vectors.
+        return (zeros(T, nelements), nothing)
+    end
+
+    # Flat single-chunk: zero-fill so the chunk file exists, return the mmap-backed view for in-place fill.
     array[:] = zeros(T, nelements)
     return array_as_vector(daf, array)
 end
@@ -857,16 +962,22 @@ function Formats.format_filled_empty_dense_vector!(
     daf::ZarrDaf,
     axis::AbstractString,
     name::AbstractString,
-    ::AbstractVector{<:StorageReal},
+    filled::AbstractVector{<:StorageReal},
 )::Nothing
     @assert Formats.has_data_write_lock(daf)
     array = axis_vectors_group(daf, axis).arrays[name]
-    patch_chunk_crc_if_needed(array, "0")
+    if array.metadata.chunks != size(array)
+        # Packed: write the user-filled in-RAM buffer through Zarr's chunked-write machinery.
+        array[:] = filled
+    else
+        # Flat: data was filled in place via the mmap view; patch the CRC on the ZIP backend.
+        patch_chunk_crc_if_needed(array, "0")
+    end
     refresh_consolidated_metadata!(daf)
     return nothing
 end
 
-function write_sparse_vector(parent::ZGroup, name::AbstractString, vector::AbstractVector)::Nothing
+function write_sparse_vector(parent::ZGroup, name::AbstractString, vector::AbstractVector, packed::Bool)::Nothing
     vector_group = zgroup(parent, name)
 
     nzind_vector = nzind(vector)
@@ -876,9 +987,8 @@ function write_sparse_vector(parent::ZGroup, name::AbstractString, vector::Abstr
 
     if eltype(vector) != Bool || !all(nzval(vector))
         nzval_vector = nzval(vector)
-        nzval_array =
-            zcreate(eltype(nzval_vector), vector_group, "nzval", length(nzval_vector); compressor = Zarr.NoCompressor())
-        nzval_array[:] = nzval_vector
+        nzval_array = dense_zcreate(eltype(nzval_vector), vector_group, "nzval", packed, (length(nzval_vector),))
+        nzval_array[:] = nzval_vector  # NOJET
     end
     return nothing
 end
@@ -957,9 +1067,9 @@ function Formats.format_get_vector(
     vector_group = group.groups[name]
     nelements = Formats.format_axis_length(daf, axis)
 
-    nzind_vector, nzind_cache_group = array_as_vector(daf, vector_group.arrays["nzind"])
+    nzind_vector, nzind_cache_group = array_as_materialized_vector(daf, vector_group.arrays["nzind"])
     if haskey(vector_group.arrays, "nzval")
-        nzval_vector, nzval_cache_group = array_as_vector(daf, vector_group.arrays["nzval"])
+        nzval_vector, nzval_cache_group = array_as_materialized_vector(daf, vector_group.arrays["nzval"])
     else
         nzval_vector = fill(true, length(nzind_vector))
         nzval_cache_group = Formats.MemoryData
@@ -995,7 +1105,7 @@ function Formats.format_set_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     matrix::Union{StorageScalarBase, StorageMatrix},
-    _packed::Bool,  # NOLINT
+    packed::Bool,
 )::Nothing
     @assert Formats.has_data_write_lock(daf)
     group = columns_axis_group(daf, rows_axis, columns_axis)
@@ -1003,7 +1113,7 @@ function Formats.format_set_matrix!(
     ncols = Formats.format_axis_length(daf, columns_axis)
 
     if matrix isa StorageReal
-        array = zcreate(typeof(matrix), group, name, nrows, ncols; compressor = Zarr.NoCompressor())
+        array = dense_zcreate(typeof(matrix), group, name, packed, (nrows, ncols))
         array[:, :] = fill(matrix, nrows, ncols)  # NOJET
     elseif matrix isa AbstractString
         array = zcreate(String, group, name, nrows, ncols; compressor = Zarr.NoCompressor())
@@ -1016,11 +1126,11 @@ function Formats.format_set_matrix!(
         @assert major_axis(matrix) != Rows
         matrix = base_array(matrix)
         if issparse(matrix)
-            write_sparse_matrix(group, name, matrix)
+            write_sparse_matrix(group, name, matrix, packed)
             refresh_consolidated_metadata!(daf)
             return nothing
         else
-            array = zcreate(eltype(matrix), group, name, nrows, ncols; compressor = Zarr.NoCompressor())
+            array = dense_zcreate(eltype(matrix), group, name, packed, (nrows, ncols))
             array[:, :] = Matrix(matrix)  # NOJET
         end
     end
@@ -1034,12 +1144,35 @@ function Formats.format_get_empty_dense_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     ::Type{T},
-    _packed::Bool,
+    packed::Bool,
 )::Tuple{AbstractMatrix{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal}
     @assert Formats.has_data_write_lock(daf)
     group = columns_axis_group(daf, rows_axis, columns_axis)
     nrows = Formats.format_axis_length(daf, rows_axis)
     ncols = Formats.format_axis_length(daf, columns_axis)
+
+    if packed && chunks_for(packed, (nrows, ncols), T) !== nothing
+        # Streaming chunk shape is forced to `(n_rows, 1)` so each `view(matrix, :, column)` returns the buffer for
+        # one full column; cross-row chunk boundaries within a column would force the caller to know about them.
+        zarr_compressor, zarr_filters = zarr_compressor_for(compressor_for(), T)
+        array = zcreate(
+            T,
+            group,
+            name,
+            nrows,
+            ncols;
+            chunks = (nrows, 1),
+            compressor = zarr_compressor,
+            filters = zarr_filters,
+            dimension_separator = "/",
+        )
+        encoder = (column::Int, chunk_buffer::Vector{T}) -> begin
+            array[:, column] = chunk_buffer
+            return nothing
+        end
+        return (PackedDenseMatrix{T}(nrows, ncols, encoder), nothing)
+    end
+
     array = zcreate(T, group, name, nrows, ncols; compressor = Zarr.NoCompressor())
     array[:, :] = zeros(T, nrows, ncols)
     return array_as_matrix(daf, array)
@@ -1050,16 +1183,20 @@ function Formats.format_filled_empty_dense_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    ::AbstractMatrix{<:StorageReal},
+    filled::AbstractMatrix{<:StorageReal},
 )::Nothing
     @assert Formats.has_data_write_lock(daf)
     array = columns_axis_group(daf, rows_axis, columns_axis).arrays[name]
-    patch_chunk_crc_if_needed(array, "0.0")
+    if filled isa PackedDenseMatrix
+        flush_packed_dense_matrix!(filled)
+    else
+        patch_chunk_crc_if_needed(array, single_chunk_matrix_suffix(array))
+    end
     refresh_consolidated_metadata!(daf)
     return nothing
 end
 
-function write_sparse_matrix(parent::ZGroup, name::AbstractString, matrix::AbstractMatrix)::Nothing
+function write_sparse_matrix(parent::ZGroup, name::AbstractString, matrix::AbstractMatrix, packed::Bool)::Nothing
     matrix_group = zgroup(parent, name)
 
     colptr_vector = colptr(matrix)
@@ -1074,9 +1211,8 @@ function write_sparse_matrix(parent::ZGroup, name::AbstractString, matrix::Abstr
 
     if eltype(matrix) != Bool || !all(nzval(matrix))
         nzval_vector = nzval(matrix)
-        nzval_array =
-            zcreate(eltype(nzval_vector), matrix_group, "nzval", length(nzval_vector); compressor = Zarr.NoCompressor())
-        nzval_array[:] = nzval_vector
+        nzval_array = dense_zcreate(eltype(nzval_vector), matrix_group, "nzval", packed, (length(nzval_vector),))
+        nzval_array[:] = nzval_vector  # NOJET
     end
     return nothing
 end
@@ -1227,10 +1363,10 @@ function Formats.format_get_matrix(
     nrows = Formats.format_axis_length(daf, rows_axis)
     ncols = Formats.format_axis_length(daf, columns_axis)
 
-    colptr_vector, colptr_cache_group = array_as_vector(daf, matrix_group.arrays["colptr"])
-    rowval_vector, rowval_cache_group = array_as_vector(daf, matrix_group.arrays["rowval"])
+    colptr_vector, colptr_cache_group = array_as_materialized_vector(daf, matrix_group.arrays["colptr"])
+    rowval_vector, rowval_cache_group = array_as_materialized_vector(daf, matrix_group.arrays["rowval"])
     if haskey(matrix_group.arrays, "nzval")
-        nzval_vector, nzval_cache_group = array_as_vector(daf, matrix_group.arrays["nzval"])
+        nzval_vector, nzval_cache_group = array_as_materialized_vector(daf, matrix_group.arrays["nzval"])
     else
         nzval_vector = fill(true, length(rowval_vector))
         nzval_cache_group = Formats.MemoryData
@@ -1299,7 +1435,13 @@ function child_zarr_path(group::ZGroup, name::AbstractString)::String  # FLAKY T
 end
 
 function reopen_zgroup_child!(group::ZGroup, name::AbstractString)::Nothing
-    child = Zarr.zopen_noerr(group.storage, "w"; path = child_zarr_path(group, name), fill_as_missing = false)  # NOJET
+    child = Zarr.zopen_noerr(
+        group.storage,
+        "w",
+        Zarr.ZarrFormat(2);
+        path = child_zarr_path(group, name),
+        fill_as_missing = false,
+    )  # NOJET
     if child isa ZArray
         group.arrays[name] = child
     elseif child isa ZGroup

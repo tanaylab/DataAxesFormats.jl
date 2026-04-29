@@ -282,7 +282,7 @@ function zarr_matrix_to_files(
         else
             element_type = julia_type_from_zarr_dtype(zarray["dtype"])
             FilesFormat.write_array_json("$(destination_base).json", "dense", element_type)
-            hardlink("$(source_dir)/0.0", "$(destination_base).data")
+            hardlink("$(source_dir)/0/0", "$(destination_base).data")
         end
     else
         @assert isfile("$(source_dir)/.zgroup") "missing .zarray and .zgroup: $(source_dir)"
@@ -313,7 +313,7 @@ end
 
 function files_to_zarr_populate(files_path::AbstractString, zarr_path::AbstractString)::Nothing
     source = FilesDaf(files_path, "r")
-    destination = ZarrDaf(zarr_path, "w+")::ZarrDaf
+    destination = ZarrDaf(zarr_path, "w+")::ZarrDaf  # NOJET
 
     for name in scalars_set(source)
         set_scalar!(destination, name, get_scalar(source, name))

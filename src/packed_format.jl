@@ -23,8 +23,9 @@ using TanayLabUtilities
 """
 The target uncompressed size in kilobytes for a single chunk (page) of a packed property. Doubles as the threshold
 below which a property is stored or fetched flat instead of being chunked. Properties whose uncompressed size is below
-this value get the today on-disk path on every backend (the mmap-friendly flat encoding) and the today HTTP path
-(single `GET`) regardless of `packed=true`.
+this value get the flat (mmap-friendly single-chunk uncompressed) on-disk path on every backend regardless of
+`packed=true`. (The HTTP backend uses the same threshold to gate stripe-synthesized fetches versus single-`GET`
+fetches; see the HTTP backend documentation.)
 
 Default `8` (8 KB) — page-sized, enabling sub-column slice access (the common K-marker query pattern fetches the first
 page of each of K columns rather than the full column). Small enough to keep network slice fetches cheap, but large
@@ -41,6 +42,32 @@ DAF_PACKED_TARGET_CHUNK_KB::Int = 8
 # calculations.
 function packed_target_chunk_bytes()::Int
     return DAF_PACKED_TARGET_CHUNK_KB * 1024
+end
+
+# Convert `DAF_PACKED_LOCAL_CACHE_KB` to the decimal-megabyte unit (1 MB = `1_000_000` bytes) used by
+# `DiskArrays.cache`'s `maxsize` parameter. Internal helper for the local read-side cache wrapper. The 5 % skew between
+# binary and decimal sizing is irrelevant for cache sizing — `DAF_PACKED_LOCAL_CACHE_KB` is a soft target.
+function packed_local_cache_mb()::Int
+    return DAF_PACKED_LOCAL_CACHE_KB * 1024 ÷ 1_000_000
+end
+
+# Convert `DAF_PACKED_HTTP_CACHE_KB` to the same decimal-megabyte unit, for the over-HTTP cache wrapper introduced in
+# Phase 5. Same 5 % skew applies.
+function packed_http_cache_mb()::Int
+    return DAF_PACKED_HTTP_CACHE_KB * 1024 ÷ 1_000_000
+end
+
+# Assumed average bytes-per-element for non-bits-typed properties (e.g. `String`-valued vectors), used by
+# `effective_sizeof` and through it by `chunks_for` when sizing chunks for variable-length data. The value (16) reflects
+# typical bio-data axis labels (cell IDs, gene names) — it undersizes very long strings and oversizes short ones, but
+# only nudges chunk shape, never correctness.
+const STRING_SIZEOF_ESTIMATE = 16
+
+# Effective per-element byte size for chunk-shape and threshold calculations. Returns `sizeof(T)` for bits types and
+# `STRING_SIZEOF_ESTIMATE` for non-bits types. `chunks_for` uses this so the same helper sizes chunks consistently for
+# numeric and string properties without the caller having to special-case.
+function effective_sizeof(::Type{T})::Int where {T}
+    return isbitstype(T) ? sizeof(T) : STRING_SIZEOF_ESTIMATE
 end
 
 """
@@ -164,7 +191,7 @@ end
 #
 # The constructor validates both fields: `compression` must be in the supported whitelist, and `compression_level` must
 # be in the codec-specific valid range (see `valid_compression_level_range`).
-struct PackedCodec
+struct PackedCodec  # NOLINT
     compression::Symbol
     compression_level::Int
 
@@ -191,6 +218,33 @@ function compressor_for(
     return PackedCodec(compression, compression_level)
 end
 
+# Return the chunk shape for a property of element type `T` and shape `shape`, given the per-call resolved `packed`
+# flag. Returns `nothing` when the property should not be packed: either `packed = false`, or a single column's
+# uncompressed bytes (`shape[1] * effective_sizeof(T)`) is below `packed_target_chunk_bytes()`. The format-level writer
+# treats `nothing` as "use the flat single-chunk uncompressed encoding". Otherwise returns the packed chunk shape:
+# `(rows_per_tile,)` for vectors and `(rows_per_tile, 1)` for matrices, where
+# `rows_per_tile = min(packed_target_chunk_bytes() ÷ effective_sizeof(T), shape[1])`. Internal helper for format-level
+# write paths. Only 1-D vectors and 2-D matrices are supported. The per-column threshold (rather than total bytes)
+# means matrices with short columns (e.g. `block × gene` shapes) stay flat even if they're large in total — chunks of
+# a few hundred bytes aren't worth the codec overhead.
+function chunks_for(packed::Bool, shape::NTuple{N, Int}, ::Type{T})::Maybe{NTuple{N, Int}} where {N, T}
+    @assert N == 1 || N == 2
+    if !packed
+        return nothing
+    end
+    target_bytes = packed_target_chunk_bytes()
+    element_bytes = effective_sizeof(T)
+    if shape[1] * element_bytes < target_bytes
+        return nothing
+    end
+    rows_per_tile = min(target_bytes ÷ element_bytes, shape[1])
+    if N == 1
+        return (rows_per_tile,)
+    end
+    @assert N == 2
+    return (rows_per_tile, 1)
+end
+
 # Resolve the effective `packed` flag for a write or copy operation. The resolution rule is:
 #
 #   1. If `per_call` is non-`nothing`, use it.
@@ -205,18 +259,77 @@ function resolve_packed(per_call::Maybe{Bool}, daf::DafReader)::Bool
     return daf.internal.packed_default
 end
 
-# Forward-declaration stub for the streaming write wrapper used by
-# `format_get_empty_dense_matrix!` when `packed=true`. The real `view` /
-# encoder-closure / streaming-fill semantics land in Phase 2 (Step 2.5)
-# alongside the per-backend write paths. The stub exists so that other
-# module code can reference the type and so `Base.size` / `eltype` work.
-mutable struct PackedDenseMatrix{T} <: AbstractMatrix{T}
+# Per-thread fill state used by `PackedDenseMatrix`. Each thread holds at most one column at a time in `chunk_buffer`,
+# reused across columns. `current_column` is `0` while the slot is uninitialized; it becomes the column index once the
+# user starts writing to a column.
+mutable struct PackedThreadSlot{T}
+    current_column::Int
+    chunk_buffer::Vector{T}
+end
+
+# Streaming write wrapper handed to user code by `format_get_empty_dense_matrix!` when packing is requested. Each
+# thread fills one column at a time through `view(matrix, :, column)`; switching to a different column on the same
+# thread triggers `encoder(prev_column, chunk_buffer)` to flush the previous column's chunk before the buffer is
+# reused. Cross-thread column order is unconstrained; the only contract is that no two threads ever touch the same
+# column and that each column is completely filled by its thread before that thread moves on.
+struct PackedDenseMatrix{T} <: AbstractMatrix{T}  # NOLINT
     n_rows::Int
     n_columns::Int
+    thread_slots::Vector{PackedThreadSlot{T}}
+    encoder::Function
+end
+
+# Allocate a `PackedDenseMatrix` over the given encoder. The encoder closure has signature
+# `(column::Int, chunk_buffer::Vector{T}) -> Nothing` and writes the chunk for `column` (the buffer's contents) to
+# storage. One `PackedThreadSlot{T}` is allocated per `Threads.maxthreadid()`; threads index into `thread_slots` by
+# `Threads.threadid()`.
+function PackedDenseMatrix{T}(n_rows::Int, n_columns::Int, encoder::Function)::PackedDenseMatrix{T} where {T}
+    thread_slots = [PackedThreadSlot{T}(0, Vector{T}(undef, n_rows)) for _ in 1:Threads.maxthreadid()]
+    return PackedDenseMatrix{T}(n_rows, n_columns, thread_slots, encoder)
 end
 
 function Base.size(matrix::PackedDenseMatrix)::Tuple{Int, Int}
     return (matrix.n_rows, matrix.n_columns)
+end
+
+function Base.view(matrix::PackedDenseMatrix{T}, ::Colon, column::Int)::Vector{T} where {T}
+    @assert 1 <= column <= matrix.n_columns
+    slot = matrix.thread_slots[Threads.threadid()]
+    if slot.current_column == column
+        return slot.chunk_buffer
+    end
+    if slot.current_column != 0
+        matrix.encoder(slot.current_column, slot.chunk_buffer)
+    end
+    slot.current_column = column
+    return slot.chunk_buffer
+end
+
+function Base.getindex(matrix::PackedDenseMatrix{T}, row::Int, column::Int)::T where {T}
+    return view(matrix, :, column)[row]
+end
+
+function Base.setindex!(matrix::PackedDenseMatrix{T}, value, row::Int, column::Int)::T where {T}
+    column_view = view(matrix, :, column)
+    column_view[row] = value
+    return T(value)
+end
+
+function TanayLabUtilities.MatrixLayouts.major_axis(::PackedDenseMatrix)::Maybe{Int8}
+    return TanayLabUtilities.MatrixLayouts.Columns
+end
+
+# Flush every active thread slot's chunk via `matrix.encoder` and reset the slot. Called by the format-level
+# `format_filled_empty_dense_matrix!` so the last-written column on each thread is committed to disk before the
+# wrapper goes out of scope.
+function flush_packed_dense_matrix!(matrix::PackedDenseMatrix)::Nothing
+    for slot in matrix.thread_slots
+        if slot.current_column != 0
+            matrix.encoder(slot.current_column, slot.chunk_buffer)
+            slot.current_column = 0
+        end
+    end
+    return nothing
 end
 
 # Forward-declaration stub for the HTTP stripe-synthesis read wrapper used

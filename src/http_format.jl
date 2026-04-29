@@ -163,11 +163,11 @@ function read_zip_entry(http::HttpDaf, relative_path::AbstractString)::Vector{UI
     return ZipArchives.zip_readentry(http.zip_reader, index)
 end
 
-function parse_zip_json_object(http::HttpDaf, relative_path::AbstractString)::Dict{String, Any}
+function parse_zip_json_object(http::HttpDaf, relative_path::AbstractString)::AbstractDict{String, Any}
     key = String(relative_path)
-    return Formats.get_through_cache(http, Formats.metadata_cache_key(key), Dict{String, Any}) do
+    return Formats.get_through_cache(http, Formats.metadata_cache_key(key), AbstractDict{String, Any}) do
         json = JSON.parse(String(read_zip_entry(http, key)))
-        @assert json isa Dict{String, Any}
+        @assert json isa AbstractDict{String, Any}
         return (json, Formats.MemoryData)
     end
 end

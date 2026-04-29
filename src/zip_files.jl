@@ -105,11 +105,13 @@ using StringViews
 using TanayLabUtilities
 using ZipArchives
 
-import ..FilesFormat: MAJOR_VERSION, MINOR_VERSION
+import ..FilesFormat.MAJOR_VERSION
+import ..FilesFormat.MINOR_VERSION
 import ..Formats
 import ..Formats.Internal
 import ..Operations.DTYPE_BY_NAME
 import ..Readers.base_array
+
 import SparseArrays.indtype
 
 """
@@ -564,7 +566,7 @@ function scalar_json_bytes(value::StorageScalar)::Vector{UInt8}
         type = String
     end
     io = IOBuffer()
-    JSON.Writer.print(io, Dict("type" => "$(type)", "value" => value))
+    JSON.print(io, Dict("type" => "$(type)", "value" => value))
     write(io, '\n')
     return take!(io)
 end

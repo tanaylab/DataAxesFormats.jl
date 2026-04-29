@@ -87,7 +87,7 @@ CacheData = Union{
     AbstractDict{<:AbstractString, <:Integer}, # Axis dictionary
     QueryOperation,  # View query
     Missing,  # View hidden
-    Dict{String, Any},  # Parsed JSON object (format metadata)
+    AbstractDict{String, Any},  # Parsed JSON object (format metadata)
 }
 
 mutable struct CacheEntry  # NOLINT

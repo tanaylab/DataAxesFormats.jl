@@ -187,7 +187,7 @@ function complete_chain!(;  # UNTESTED
         filter!(view_parameters) do (_, value)
             return value !== nothing
         end
-        set_scalar!(new_daf, "base_daf_view", json(view_parameters))
+        set_scalar!(new_daf, "base_daf_view", json(view_parameters))  # NOLINT
         base_daf = viewer(base_daf; axes, data)
     end
 

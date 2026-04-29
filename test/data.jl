@@ -4202,7 +4202,7 @@ nested_test("data") do
                 @test_throws chomp("""
                              incompatible format version: 2.0
                              for the daf zarr group: $(abspath(version_path))
-                             the code supports version: 1.0
+                             the code supports version: 1.1
                              """) ZarrDaf(version_path; name = "version!")
 
                 bogus_path = path * "/bogus.foo"
@@ -4296,7 +4296,7 @@ nested_test("data") do
 
                 consolidated_group = Zarr.zopen(zarr_path; consolidated = true)
                 @test consolidated_group.storage isa Zarr.ConsolidatedStore
-                @test consolidated_group.arrays["daf"][:] == UInt8[1, 0]
+                @test consolidated_group.arrays["daf"][:] == UInt8[1, 1]
                 @test consolidated_group.groups["vectors"].groups["gene"].arrays["marker"][:] ==
                       MARKER_GENES_BY_DEPTH[1]
                 @test consolidated_group.groups["vectors"].groups["gene"].arrays["score"][:] == Int16[1, 2, 3, 4]

@@ -2,6 +2,7 @@ using Test
 
 using Base.MathConstants
 using DataAxesFormats
+using DiskArrays
 using Documenter
 using ExceptionUnwrapping
 using HDF5

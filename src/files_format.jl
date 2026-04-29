@@ -316,7 +316,7 @@ function Formats.format_set_scalar!(
     json_path = "$(files.path)/scalars/$(name).json"
     open(json_path, "w") do file
         report_modified!(json_path)
-        JSON.Writer.print(file, Dict("type" => "$(type)", "value" => value))
+        JSON.print(file, Dict("type" => "$(type)", "value" => value))
         write(file, '\n')
         return nothing
     end
@@ -1233,7 +1233,7 @@ function write_axes_metadata!(files::FilesDaf)::Nothing
     end
     path = "$(axes_directory)/metadata.json"
     open(path, "w") do file
-        JSON.Writer.print(file, axes)
+        JSON.print(file, axes)
         write(file, '\n')
         return nothing
     end
