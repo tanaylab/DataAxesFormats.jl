@@ -1,0 +1,50 @@
+digraph {
+rankdir = LR
+node [ shape = box, fontname = "Sans-Serif" ]
+fontname = "Sans-Serif"
+fontsize = 28
+labeljust = "l"
+
+"Vector_base_axis" [ label = < VectorState<sub><i>base axis</i></sub>&nbsp;&nbsp;<br/> > ]
+
+"Vector_final_axis" [ label = < VectorState<sub><i>final axis</i></sub>&nbsp;&nbsp;<br/> > ]
+
+subgraph cluster_all {
+label = "VECTOR MASK"
+
+"V6" [ shape = component, label = "VECTOR MASK OPERATION", URL = "#../DataAxesFormats.Queries.VECTOR_MASK_OPERATION" ]
+"Vector_mask_values" -> "V6" [ constraint = false ]
+"V6" -> "Vector_mask_values" [ constraint = false ]
+"V4" -> "V6" [ style = invis ]
+
+"Vector_mask_values" [ label = <
+VectorState<sub><i>base axis</i></sub>
+<br/>&nbsp;<br/>
+BeginMask <sub><i>or</i></sub> BeginNegatedMask
+<br/>&nbsp;<br/>
+VectorState<sub><i>mask values</i></sub>
+<br/>&nbsp;<br/>
+> ]
+
+"V4" [ shape = component, label = "VECTOR MASK LOOKUP", URL = "#../DataAxesFormats.Queries.VECTOR_MASK_LOOKUP" ]
+"V4":e -> "Vector_mask_values"
+
+"VG12" [ shape = box, style = dotted, fontname = "Courier", label = <
+&#93;<br/>&nbsp;<br/>EndMask()
+> ]
+"Vector_mask_values" -> "VG12"
+"VG12_" [ shape = cds, label = "apply mask" ]
+"VG12":e -> "VG12_":w
+
+"V5" [ shape = component, label = "VECTOR OPERATION", URL = "#../DataAxesFormats.Queries.VECTOR_OPERATION" ]
+"Vector_mask_values" -> "V5" [ constraint = false ]
+"V5" -> "Vector_mask_values" [ constraint = false ]
+"V4" -> "V5" [ style = invis ]
+
+}
+
+"Vector_base_axis" -> "V4":w
+
+"VG12_":e -> "Vector_final_axis"
+
+}

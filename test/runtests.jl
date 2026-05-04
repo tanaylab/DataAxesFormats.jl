@@ -56,6 +56,7 @@ end
 
 include("keys.jl")
 include("packed_format.jl")
+include("lazy_sparse.jl")
 include("read_only.jl")
 include("cache_groups.jl")
 include("data.jl")

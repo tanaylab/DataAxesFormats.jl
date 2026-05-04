@@ -8,13 +8,26 @@ use cases were the driving force for the development of `Daf`.
 
 The key features of `Daf` are:
 
-  - Support both in-memory and persistent data storage of "any" format (given an adapter implementation).
+  - Support multiple storage formats: in-memory, and persistent via a collection simple disk files, a single zip file,
+    inside [H5FS](https://hdfgroup.org/) files, and using Zarr format(s).
+
+  - Allows accessing remote repositories (in files or Zarr DirectoryStore) over HTTP/S.
+
+  - Supports packed (compressed and chunked) formats for minimizing I/O (at increased CPU costs for de/compression), for
+    example for more efficient bandwidth usage when serving data over HTTP.
+
+  - Use memory mapping for local disk files. This automatically only reads from disk only the subset of the data that is
+    actually accessed, rather than all the data, even for raw (unpacked) data.
+
+  - Supports reordering the data so that access becomes even more efficient.
+
+  - Allow importing and exporting `AnnData` objects (e.g., using `h5ad` files).
 
   - The implementation is thread-safe, using read/write locks, to allow safe and efficient parallel processing.
+    Read/write locks allow safe write operations from any thread.
 
-  - Out of the box, allow importing and exporting `AnnData` objects (e.g., using `h5ad` files), storing the data in
-    memory, directly inside [H5FS](https://hdfgroup.org/) files, or as a collection of simple memory-mapped files in a
-    directory.
+  - The implementation is **not** automatically multi-process-safe. Multi-process / distributed writes to the same
+    repository are possible but require coordination between the processes.
 
   - Support views and adapters for applying generic algorithms to your specific data while using your own specific names
     for the data properties.

@@ -1,0 +1,50 @@
+digraph {
+rankdir = LR
+node [ shape = box, fontname = "Sans-Serif" ]
+fontname = "Sans-Serif"
+fontsize = 28
+labeljust = "l"
+
+"Matrix_base_values" [ label = < MatrixState<sub><i>base values</i></sub>&nbsp;&nbsp;<br/> > ]
+
+"Matrix_final_values" [ label = < MatrixState<sub><i>final values</i></sub>&nbsp;&nbsp;<br/> > ]
+
+subgraph cluster_all {
+label = "MATRIX OPERATION"
+
+"VO1" [ style = dotted, fontname = "Courier", label = <
+% Eltwise <font color="gray">param value ...</font><br/>&nbsp;<br/>Eltwise(<font color="gray">param = value, ...</font>)
+> ]
+"VO1_" [ shape = cds, label = "element-wise of matrix&nbsp;&nbsp;" ]
+"VO1":e -> "VO1_":w
+
+"VO3_" [ shape = component, label = "MATRIX GROUP&nbsp;&nbsp;", URL = "#../DataAxesFormats.Queries.MATRIX_GROUP" ]
+
+"VO4" [ shape = component, label = "VECTOR AS AXIS", URL = "#../DataAxesFormats.Queries.VECTOR_AS_AXIS" ]
+
+"VO5_" [ shape = cds, label = <
+matrix property is an axis<sub><i>implicit</i></sub>&nbsp;&nbsp;&nbsp;&nbsp;<br/>&nbsp;<br/>
+> ]
+
+"VO6_" [ shape = component, label = "VECTOR LOOKUP&nbsp;&nbsp;", URL = "#../DataAxesFormats.Queries.VECTOR_LOOKUP" ]
+
+"Matrix_axis" [ label = < MatrixState<sub><i>axis</i></sub>&nbsp;&nbsp;<br/> > ]
+
+"VO5_":e -> "Matrix_axis"
+
+"VO4":e -> "Matrix_axis"
+
+"Matrix_axis" -> "VO6_":w
+
+}
+
+"VO1_":e -> "Matrix_final_values"
+"VO3_":e -> "Matrix_final_values"
+"VO6_":e -> "Matrix_final_values"
+
+"Matrix_base_values" -> "VO1":w
+"Matrix_base_values" -> "VO3_":w
+"Matrix_base_values" -> "VO4":w
+"Matrix_base_values" -> "VO5_":w
+
+}

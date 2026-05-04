@@ -1,0 +1,50 @@
+digraph {
+rankdir = LR
+node [ shape = box, fontname = "Sans-Serif" ]
+fontname = "Sans-Serif"
+fontsize = 28
+labeljust = "l"
+
+"Matrix_axis" [ label = < MatrixState<sub><i>axis</i></sub>&nbsp;&nbsp;<br/> > ]
+
+"Matrix_values" [ label = < MatrixState<sub><i>values</i></sub>&nbsp;&nbsp;<br/> > ]
+
+subgraph cluster_all {
+label = "MATRIX LOOKUP"
+
+"ML1" [ style = dotted, fontname = "Courier", label = <
+<font color="gray">?? final_value</font><br/>:: matrix_property<br/><font color="gray">|| default_value</font><br/>@- row_name<br/>&nbsp;<br/><font color="gray">IfEmpty(final_value) |&gt;</font><br/>LookupMatrix(matrix_property)<br/><font color="gray">|&gt; IfMissing(default_value)</font><br/>|&gt; RowIsEqual(row_name)
+> ]
+"ML1_" [ shape = cds, label = "lookup square matrix row by matrix&nbsp;&nbsp;" ]
+"ML1":e -> "ML1_":w
+
+"ML2" [ style = dotted, fontname = "Courier", label = <
+<font color="gray">?? final_value</font><br/>:: matrix_property<br/><font color="gray">|| default_value</font><br/>@| column_name<br/>&nbsp;<br/><font color="gray">IfEmpty(final_value) |&gt;</font><br/>LookupMatrix(matrix_property)<br/><font color="gray">|&gt; IfMissing(default_value)</font><br/>|&gt; ColumnIsEqual(column_name)
+> ]
+"ML2_" [ shape = cds, label = "lookup square matrix column by matrix&nbsp;&nbsp;" ]
+"ML2":e -> "ML2_":w
+
+"ML3" [ style = dotted, fontname = "Courier", label = <
+<font color="gray">?? final_value</font><br/>:: matrix_property<br/><font color="gray">|| default_value</font><br/>@ column_axis = column_name<br/>&nbsp;<br/><font color="gray">IfEmpty(final_value) |&gt;</font><br/>LookupMatrix(matrix_property)<br/><font color="gray">|&gt; IfMissing(default_value)</font><br/>|&gt; Axis(column_axis) |&gt; IsEqual(column_name)
+> ]
+"ML3_" [ shape = cds, label = "lookup matrix column by matrix&nbsp;&nbsp;" ]
+"ML3":e -> "ML3_":w
+
+"ML4" [ style = dotted, fontname = "Courier", label = < <font color="gray">?? final_value</font><br/>: vector_property<br/><font color="gray">|| default_value</font><br/>&nbsp;<br/><font color="gray">IfEmpty(final_value) |&gt;</font><br/>LookupVector(vector_property)<br/><font color="gray">|&gt; IfMissing(default_value)</font>
+> ]
+"ML4_" [ shape = cds, label = "lookup vector by matrix&nbsp;&nbsp;" ]
+"ML4":e -> "ML4_":w
+
+}
+
+"Matrix_axis" -> "ML1":w
+"Matrix_axis" -> "ML2":w
+"Matrix_axis" -> "ML3":w
+"Matrix_axis" -> "ML4":w
+
+"ML1_":e -> "Matrix_values"
+"ML2_":e -> "Matrix_values"
+"ML3_":e -> "Matrix_values"
+"ML4_":e -> "Matrix_values"
+
+}

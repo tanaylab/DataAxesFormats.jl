@@ -84,10 +84,7 @@ nested_test("zarr_convert") do
                     "$(files_src)/matrices/cell/gene/sparse.nzval",
                     "$(zarr_mid)/matrices/cell/gene/sparse/nzval/c/0",
                 )
-                @test same_inode(
-                    "$(files_src)/vectors/gene/marker.nzind",
-                    "$(zarr_mid)/vectors/gene/marker/nzind/c/0",
-                )
+                @test same_inode("$(files_src)/vectors/gene/marker.nzind", "$(zarr_mid)/vectors/gene/marker/nzind/c/0")
                 @test !isfile("$(zarr_mid)/vectors/gene/present/nzval/c/0")
                 @test !isfile("$(zarr_mid)/matrices/cell/gene/present/nzval/c/0")
                 return nothing
@@ -239,6 +236,20 @@ nested_test("zarr_convert") do
                 end
             end
 
+            # Plain (non-daf) zarr group: `zarr.json` exists with `node_type = "group"` but lacks the `daf`
+            # attribute. Distinct from `not_a_daf_zarr` (which has no `zarr.json` at all).
+            nested_test("zarr_group_without_daf_attribute") do
+                mktempdir() do path
+                    zarr_src = "$(path)/src.daf.zarr"
+                    mkdir(zarr_src)
+                    write(joinpath(zarr_src, "zarr.json"), """{"zarr_format":3,"node_type":"group","attributes":{}}""")
+                    @test_throws "not a daf zarr directory: $(zarr_src)" zarr_to_files(;
+                        zarr_path = zarr_src,
+                        files_path = "$(path)/dst",
+                    )
+                end
+            end
+
             nested_test("destination_exists") do
                 mktempdir() do path
                     zarr_src = "$(path)/src.daf.zarr"
@@ -250,6 +261,147 @@ nested_test("zarr_convert") do
                         files_path = files_dst,
                     )
                 end
+            end
+        end
+    end
+
+    # Packed round-trip: build a `FilesDaf` with mixed flat and above-threshold packed properties, convert to
+    # `ZarrDaf` and back, and verify each `.shard` (or per-component shard) file is hard-linked between formats —
+    # which is the byte-equivalence invariant the conversion exists to exploit.
+    nested_test("packed_round_trip") do
+        function populate_packed_zarr_convert!(daf::DafWriter, n_rows::Int, n_columns::Int)::Nothing
+            dense_matrix = Matrix{Float32}(reshape(Float32.(1:(n_rows * n_columns)), n_rows, n_columns))
+            dense_vector = Float32.(1:n_rows)
+            sparse_matrix = SparseMatrixCSC{Float32, Int32}(
+                n_rows,
+                n_columns,
+                Int32[1 + (column_index - 1) * n_rows for column_index in 1:(n_columns + 1)],
+                Int32[((position - 1) % n_rows) + 1 for position in 1:(n_columns * n_rows)],
+                Float32[
+                    ((position - 1) ÷ n_rows + 1) * (((position - 1) % n_rows) + 1) for
+                    position in 1:(n_columns * n_rows)
+                ],
+            )
+            small_dense = Float32[1.0, 2.0, 3.0, 4.0]
+            add_axis!(daf, "row", ["r$(index)" for index in 1:n_rows])
+            add_axis!(daf, "col", ["c$(index)" for index in 1:n_columns])
+            add_axis!(daf, "small", ["s1", "s2", "s3", "s4"])
+            set_matrix!(daf, "row", "col", "data", dense_matrix; relayout = false)
+            set_matrix!(daf, "row", "col", "sparse", sparse_matrix; relayout = false)
+            set_vector!(daf, "row", "score", dense_vector)
+            set_vector!(daf, "small", "marker", small_dense)
+            return nothing
+        end
+
+        function verify_packed_zarr_convert(daf::DafReader)::Nothing
+            n_rows = axis_length(daf, "row")
+            n_columns = axis_length(daf, "col")
+            expected_dense = Matrix{Float32}(reshape(Float32.(1:(n_rows * n_columns)), n_rows, n_columns))
+            expected_vector = Float32.(1:n_rows)
+            expected_marker = Float32[1.0, 2.0, 3.0, 4.0]
+            @test get_matrix(daf, "row", "col", "data") == expected_dense
+            @test SparseMatrixCSC{Float32, Int32}(parent(get_matrix(daf, "row", "col", "sparse"))) ==
+                  SparseMatrixCSC{Float32, Int32}(
+                n_rows,
+                n_columns,
+                Int32[1 + (column_index - 1) * n_rows for column_index in 1:(n_columns + 1)],
+                Int32[((position - 1) % n_rows) + 1 for position in 1:(n_columns * n_rows)],
+                Float32[
+                    ((position - 1) ÷ n_rows + 1) * (((position - 1) % n_rows) + 1) for
+                    position in 1:(n_columns * n_rows)
+                ],
+            )
+            @test get_vector(daf, "row", "score") == expected_vector
+            @test get_vector(daf, "small", "marker") == expected_marker
+            return nothing
+        end
+
+        nested_test("files_to_zarr_to_files") do
+            mktempdir() do path
+                files_src = "$(path)/src.daf"
+                zarr_mid = "$(path)/mid.daf.zarr"
+                files_dst = "$(path)/dst.daf"
+                n_rows = 4096
+                n_columns = 3
+                source = FilesDaf(files_src, "w"; name = "src!", packed = true)
+                populate_packed_zarr_convert!(source, n_rows, n_columns)
+                files_to_zarr(; files_path = files_src, zarr_path = zarr_mid)
+                zarr_to_files(; zarr_path = zarr_mid, files_path = files_dst)
+
+                destination = FilesDaf(files_dst, "r"; name = "dst!")
+                verify_packed_zarr_convert(destination)
+
+                @test same_inode("$(files_src)/matrices/row/col/data.shard", "$(zarr_mid)/matrices/row/col/data/c/0/0")
+                @test same_inode("$(files_src)/matrices/row/col/data.shard", "$(files_dst)/matrices/row/col/data.shard")
+                @test same_inode(
+                    "$(files_src)/matrices/row/col/sparse.rowval.shard",
+                    "$(zarr_mid)/matrices/row/col/sparse/rowval/c/0",
+                )
+                @test same_inode(
+                    "$(files_src)/matrices/row/col/sparse.nzval.shard",
+                    "$(files_dst)/matrices/row/col/sparse.nzval.shard",
+                )
+                @test same_inode("$(files_src)/vectors/row/score.shard", "$(zarr_mid)/vectors/row/score/c/0")
+                @test isfile("$(files_dst)/vectors/small/marker.data")
+                return nothing
+            end
+        end
+
+        nested_test("zarr_to_files_to_zarr") do
+            mktempdir() do path
+                zarr_src = "$(path)/src.daf.zarr"
+                files_mid = "$(path)/mid.daf"
+                zarr_dst = "$(path)/dst.daf.zarr"
+                n_rows = 4096
+                n_columns = 3
+                source = ZarrDaf(zarr_src, "w"; name = "src!", packed = true)
+                populate_packed_zarr_convert!(source, n_rows, n_columns)
+                zarr_to_files(; zarr_path = zarr_src, files_path = files_mid)
+                files_to_zarr(; files_path = files_mid, zarr_path = zarr_dst)
+
+                destination = ZarrDaf(zarr_dst, "r"; name = "dst!")
+                verify_packed_zarr_convert(destination)
+
+                @test same_inode("$(zarr_src)/matrices/row/col/data/c/0/0", "$(files_mid)/matrices/row/col/data.shard")
+                @test same_inode("$(zarr_src)/matrices/row/col/data/c/0/0", "$(zarr_dst)/matrices/row/col/data/c/0/0")
+                @test isfile("$(files_mid)/vectors/small/marker.data")
+                return nothing
+            end
+        end
+
+        # `is_canonical_for_files` rejects sources whose codec differs from `compressor_for()`. Writing the source
+        # under a non-default codec then converting with the default codec restored forces the dense and sparse
+        # `*_to_files` re-encode fallbacks to fire (whose existence is the reason the codec mismatch is checked at
+        # all). The destination data still equals the source, just re-encoded under the destination's canonical
+        # codec rather than hard-linked.
+        nested_test("zarr_to_files_non_canonical_codec") do
+            saved_compression = DataAxesFormats.PackedFormat.DAF_PACKED_COMPRESSION
+            try
+                DataAxesFormats.PackedFormat.DAF_PACKED_COMPRESSION = :gzip
+                mktempdir() do path
+                    zarr_src = "$(path)/src.daf.zarr"
+                    files_dst = "$(path)/dst.daf"
+                    n_rows = 4096
+                    n_columns = 3
+                    source = ZarrDaf(zarr_src, "w"; name = "src!", packed = true)
+                    populate_packed_zarr_convert!(source, n_rows, n_columns)
+                    sparse_vector = SparseVector(
+                        n_rows,
+                        Int32[2 * index - 1 for index in 1:(n_rows ÷ 2)],
+                        Float32[index for index in 1:(n_rows ÷ 2)],
+                    )
+                    set_vector!(source, "row", "sparse_score", sparse_vector)
+
+                    DataAxesFormats.PackedFormat.DAF_PACKED_COMPRESSION = saved_compression
+                    zarr_to_files(; zarr_path = zarr_src, files_path = files_dst)
+
+                    destination = FilesDaf(files_dst, "r"; name = "dst!")
+                    verify_packed_zarr_convert(destination)
+                    @test get_vector(destination, "row", "sparse_score") == sparse_vector
+                    return nothing
+                end
+            finally
+                DataAxesFormats.PackedFormat.DAF_PACKED_COMPRESSION = saved_compression
             end
         end
     end

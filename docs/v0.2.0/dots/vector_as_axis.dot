@@ -1,0 +1,35 @@
+digraph {
+rankdir = LR
+node [ shape = box, fontname = "Sans-Serif" ]
+fontname = "Sans-Serif"
+fontsize = 28
+labeljust = "l"
+
+"Vector_values" [ label = < VectorState<sub><i>values</i></sub>&nbsp;&nbsp;<br/> > ]
+
+"Vector_axis" [ label = < VectorState<sub><i>axis</i></sub>&nbsp;&nbsp;<br/> > ]
+
+subgraph cluster_all {
+label = "VECTOR AS AXIS"
+
+"VAA1" [ style = dotted, fontname = "Courier", label = <
+@ axis<br/>&nbsp;<br/>Axis(axis)
+> ]
+"VAA1_" [ shape = cds, label = "vector values are entries of axis&nbsp;&nbsp;&nbsp;" ]
+"VAA1":e -> "VAA1_":w
+
+"VAA2" [ style = dotted, fontname = "Courier", label = <
+@<br/>&nbsp;<br/>Axis()
+> ]
+"VAA2_" [ shape = cds, label = "vector property is an axis&nbsp;&nbsp;&nbsp;" ]
+"VAA2":e -> "VAA2_":w
+
+}
+
+"Vector_values" -> "VAA1":w
+"Vector_values" -> "VAA2":w
+
+"VAA1_":e -> "Vector_axis"
+"VAA2_":e -> "Vector_axis"
+
+}

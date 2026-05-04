@@ -38,9 +38,11 @@ using SparseArrays
 using TanayLabUtilities
 using ZipArchives
 
-import ..FilesFormat: MAJOR_VERSION, MINOR_VERSION
+import ..FilesFormat.MAJOR_VERSION
+import ..FilesFormat.MINOR_VERSION
 import ..Formats.Internal
 import ..Operations.DTYPE_BY_NAME
+import ..PackedFormat.parse_sparse_descriptor
 
 """
     struct HttpDaf <: DafReader ... end
@@ -147,10 +149,11 @@ function read_scalar_bytes(bytes::AbstractVector{UInt8})::StorageScalar
     if dtype_name == "String" || dtype_name == "string"
         @assert json_value isa AbstractString
         return String(json_value)
+    else
+        type = get(DTYPE_BY_NAME, dtype_name, nothing)
+        @assert type !== nothing
+        return convert(type, json_value)
     end
-    type = get(DTYPE_BY_NAME, dtype_name, nothing)
-    @assert type !== nothing
-    return convert(type, json_value)
 end
 
 function has_zip_entry(http::HttpDaf, relative_path::AbstractString)::Bool  # FLAKY TESTED
@@ -263,26 +266,28 @@ function Formats.format_get_vector(
 )::Tuple{StorageVector, Any, Formats.CacheGroup}
     @assert Formats.has_data_read_lock(http)
     json = parse_zip_json_object(http, "vectors/$(axis)/$(name).json")
-    eltype_name = json["eltype"]
     format = json["format"]
     @assert format == "dense" || format == "sparse"
 
     size = Formats.format_axis_length(http, axis)
     if format == "dense"
+        eltype_name = json["eltype"]
         if eltype_name == "String" || eltype_name == "string"
             vector = fetch_lines(http, "vectors/$(axis)/$(name).txt")
             @assert length(vector) == size
             return (vector, nothing, Formats.MemoryData)
+        else
+            element_type = DTYPE_BY_NAME[eltype_name]
+            @assert element_type !== nothing
+            data_bytes = http_get("$(http.url)/vectors/$(axis)/$(name).data")
+            vector = bytes_to_vector(data_bytes, element_type, size)
+            return (vector, data_bytes, Formats.MemoryData)
         end
-        element_type = DTYPE_BY_NAME[eltype_name]
-        @assert element_type !== nothing
-        data_bytes = http_get("$(http.url)/vectors/$(axis)/$(name).data")
-        vector = bytes_to_vector(data_bytes, element_type, size)
-        return (vector, data_bytes, Formats.MemoryData)
     end
 
     @assert format == "sparse"
-    ind_type = DTYPE_BY_NAME[json["indtype"]]
+    eltype_name, indtype_name = parse_sparse_descriptor(json, "nzind")
+    ind_type = DTYPE_BY_NAME[indtype_name]
     @assert ind_type !== nothing
     nzind_bytes = http_get("$(http.url)/vectors/$(axis)/$(name).nzind")
     nnz = div(length(nzind_bytes), sizeof(ind_type))
@@ -293,18 +298,16 @@ function Formats.format_get_vector(
         fill!(vector, "")
         vector[nzind_vector] .= fetch_lines(http, "vectors/$(axis)/$(name).nztxt")  # NOJET
         return (vector, nothing, Formats.MemoryData)
-    end
-
-    if eltype_name == "Bool"
+    elseif eltype_name == "Bool"
         nzval_vector = fill(true, nnz)
         return (SparseVector(size, nzind_vector, nzval_vector), nzind_bytes, Formats.MemoryData)
+    else
+        element_type = DTYPE_BY_NAME[eltype_name]
+        @assert element_type !== nothing
+        nzval_bytes = http_get("$(http.url)/vectors/$(axis)/$(name).nzval")
+        nzval_vector = bytes_to_vector(nzval_bytes, element_type, nnz)
+        return (SparseVector(size, nzind_vector, nzval_vector), (nzind_bytes, nzval_bytes), Formats.MemoryData)
     end
-
-    element_type = DTYPE_BY_NAME[eltype_name]
-    @assert element_type !== nothing
-    nzval_bytes = http_get("$(http.url)/vectors/$(axis)/$(name).nzval")
-    nzval_vector = bytes_to_vector(nzval_bytes, element_type, nnz)
-    return (SparseVector(size, nzind_vector, nzval_vector), (nzind_bytes, nzval_bytes), Formats.MemoryData)
 end
 
 function Formats.format_has_matrix(
@@ -339,24 +342,26 @@ function Formats.format_get_matrix(
     json = parse_zip_json_object(http, "matrices/$(rows_axis)/$(columns_axis)/$(name).json")
     format = json["format"]
     @assert format == "dense" || format == "sparse"
-    eltype_name = json["eltype"]
 
     base = "matrices/$(rows_axis)/$(columns_axis)/$(name)"
     if format == "dense"
+        eltype_name = json["eltype"]
         if eltype_name == "String" || eltype_name == "string"
             flat = fetch_lines(http, "$(base).txt")
             @assert length(flat) == nrows * ncols
             return (reshape(flat, (nrows, ncols)), nothing, Formats.MemoryData)
+        else
+            element_type = DTYPE_BY_NAME[eltype_name]
+            @assert element_type !== nothing
+            data_bytes = http_get("$(http.url)/$(base).data")
+            flat = bytes_to_vector(data_bytes, element_type, nrows * ncols)
+            return (reshape(flat, (nrows, ncols)), data_bytes, Formats.MemoryData)
         end
-        element_type = DTYPE_BY_NAME[eltype_name]
-        @assert element_type !== nothing
-        data_bytes = http_get("$(http.url)/$(base).data")
-        flat = bytes_to_vector(data_bytes, element_type, nrows * ncols)
-        return (reshape(flat, (nrows, ncols)), data_bytes, Formats.MemoryData)
     end
 
     @assert format == "sparse"
-    ind_type = DTYPE_BY_NAME[json["indtype"]]
+    eltype_name, indtype_name = parse_sparse_descriptor(json, "colptr")
+    ind_type = DTYPE_BY_NAME[indtype_name]
     @assert ind_type !== nothing
     colptr_bytes = http_get("$(http.url)/$(base).colptr")
     colptr_vector = bytes_to_vector(colptr_bytes, ind_type, ncols + 1)
@@ -378,26 +383,24 @@ function Formats.format_get_matrix(
             end
         end
         return (matrix, nothing, Formats.MemoryData)
-    end
-
-    if eltype_name == "Bool"
+    elseif eltype_name == "Bool"
         nzval_vector = fill(true, nnz)
         return (
             SparseMatrixCSC(nrows, ncols, colptr_vector, rowval_vector, nzval_vector),
             (colptr_bytes, rowval_bytes),
             Formats.MemoryData,
         )
+    else
+        element_type = DTYPE_BY_NAME[eltype_name]
+        @assert element_type !== nothing
+        nzval_bytes = http_get("$(http.url)/$(base).nzval")
+        nzval_vector = bytes_to_vector(nzval_bytes, element_type, nnz)
+        return (
+            SparseMatrixCSC(nrows, ncols, colptr_vector, rowval_vector, nzval_vector),
+            (colptr_bytes, rowval_bytes, nzval_bytes),
+            Formats.MemoryData,
+        )
     end
-
-    element_type = DTYPE_BY_NAME[eltype_name]
-    @assert element_type !== nothing
-    nzval_bytes = http_get("$(http.url)/$(base).nzval")
-    nzval_vector = bytes_to_vector(nzval_bytes, element_type, nnz)
-    return (
-        SparseMatrixCSC(nrows, ncols, colptr_vector, rowval_vector, nzval_vector),
-        (colptr_bytes, rowval_bytes, nzval_bytes),
-        Formats.MemoryData,
-    )
 end
 
 function bytes_to_vector(bytes::Vector{UInt8}, ::Type{T}, size::Integer)::Vector{T} where {T}

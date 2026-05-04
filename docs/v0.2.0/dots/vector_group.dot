@@ -1,0 +1,85 @@
+digraph {
+rankdir = LR
+node [ shape = box, fontname = "Sans-Serif" ]
+fontname = "Sans-Serif"
+fontsize = 28
+labeljust = "l"
+
+"Vector_base_values" [ label = <
+VectorState<sub><i>base values</i></sub>&nbsp;&nbsp;&nbsp;
+<br/>&nbsp;<br/>
+> ]
+
+"Vector_final_values" [ label = <
+VectorState<sub><i>final values</i></sub>&nbsp;&nbsp;&nbsp;
+<br/>&nbsp;<br/>
+> ]
+
+subgraph cluster_all {
+label = "VECTOR GROUP"
+
+"Vector_group_values" [ label = <
+VectorState<sub><i>base values</i></sub>&nbsp;&nbsp;&nbsp;
+<br/>&nbsp;<br/>
+GroupBy
+<br/>&nbsp;<br/>
+VectorState<sub><i>group values</i></sub>&nbsp;&nbsp;&nbsp;
+<br/>&nbsp;<br/>
+> ]
+
+"VG1" [ style = dotted, fontname = "Courier", label = <
+/ matrix_property<br/><font color="gray">|| default_value</font><br/>@- row_value<br/>&nbsp;<br/>GroupBy(matrix_property)<br/><font color="gray">|&gt; IfMissing(default_value)</font><br/>|&gt; RowIsEqual(row_value)
+> ]
+"VG1_" [ shape = cds, label = "lookup square matrix row vector groups&nbsp;&nbsp;" ]
+"VG1":e -> "VG1_":w
+"VG1_":e -> "Vector_group_values":sw
+
+"VG2" [ style = dotted, fontname = "Courier", label = <
+/ matrix_property<br/><font color="gray">|| default_value</font><br/>@| column_value<br/>&nbsp;<br/>GroupBy(matrix_property)<br/><font color="gray">|&gt; IfMissing(default_value)</font><br/>|&gt; ColumnIsEqual(column_value)
+> ]
+"VG2_" [ shape = cds, label = "lookup square matrix column vector groups&nbsp;&nbsp;" ]
+"VG2":e -> "VG2_":w
+"VG2_":e -> "Vector_group_values"
+
+"VG3" [ style = dotted, fontname = "Courier", label = <
+/ matrix_property<br/><font color="gray">|| default_value</font><br/>@ columns_axis = column_value<br/>&nbsp;<br/>GroupBy(matrix_property)<br/><font color="gray">|&gt; IfMissing(default_value)</font><br/>|&gt; Axis(columns_axis) |&gt; IsEqual(column_value)
+> ]
+"VG3_" [ shape = cds, label = "lookup matrix column vector groups&nbsp;&nbsp;" ]
+"VG3":e -> "VG3_":w
+"VG3_":e -> "Vector_group_values"
+
+"VG4" [ style = dotted, fontname = "Courier", label = <
+/ vector_property<br/><font color="gray">|| default_value</font><br/>&nbsp;<br/>GroupBy(vector_property)<br/><font color="gray">|&gt; IfMissing(default_value)</font>
+> ]
+"VG4_" [ shape = cds, label = "lookup vector vector groups&nbsp;&nbsp;" ]
+"VG4":e -> "VG4_":w
+"VG4_":e -> "Vector_group_values"
+
+"VG1_" -> "VG5" [ style = invis ]
+
+"VG5" [ shape = component, label = "VECTOR OPERATION", URL = "#../DataAxesFormats.Queries.VECTOR_OPERATION" ]
+"Vector_group_values" -> "VG5" [ constraint = false ]
+"VG5" -> "Vector_group_values" [ constraint = false ]
+
+"VG6" [ style = dotted, fontname = "Courier", label = <
+&gt;&gt; Reduction <font color="gray">param value<br/>|| default_value</font><br/>&nbsp;<br/>Reduction(<font color="gray">param = value, ...</font>)<br/><font color="gray">|&gt; IfMissing(default_value)</font>
+> ]
+"VG6_" [ shape = cds, label = "reduce grouped vector&nbsp;&nbsp;" ]
+"VG6":e -> "VG6_":w
+
+"Vector_group_values" -> "VG6"
+
+"VG7" [ shape = component, label = "VECTOR AS AXIS", URL = "#../DataAxesFormats.Queries.VECTOR_AS_AXIS" ]
+"Vector_group_values" -> "VG7":w
+"VG7":e -> "VG6"
+
+}
+
+"Vector_base_values" -> "VG1":w
+"Vector_base_values" -> "VG2":w
+"Vector_base_values" -> "VG3":w
+"Vector_base_values" -> "VG4":w
+
+"VG6_":e -> "Vector_final_values"
+
+}

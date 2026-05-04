@@ -3739,8 +3739,46 @@ nested_test("data") do
                 @test_throws chomp("""
                              incompatible format version: 2.0
                              for the daf directory: $(path)
-                             the code supports version: 1.0
+                             the code supports version: 1.1
                              """) FilesDaf(path; name = "version!")
+            end
+        end
+
+        nested_test("legacy_v1_0") do
+            mktempdir() do path
+                # Hand-build a `[1,0]` FilesDaf with a dense vector and a flat-sparse vector using
+                # the legacy top-level `eltype` / `indtype` JSON shape. The v1.1 reader detects the
+                # schema by shape and routes through the same flat-mmap code path.
+                mkpath("$(path)/scalars")
+                mkpath("$(path)/axes")
+                mkpath("$(path)/vectors/cell")
+                mkpath("$(path)/matrices")
+                write("$(path)/daf.json", "{\"version\":[1,0]}\n")
+                write("$(path)/axes/cell.txt", "A\nB\nC\nD\n")
+
+                write("$(path)/vectors/cell/age.json", "{\"format\":\"dense\",\"eltype\":\"Int32\"}\n")
+                write("$(path)/vectors/cell/age.data", reinterpret(UInt8, Int32[10, 20, 30, 40]))
+
+                write(
+                    "$(path)/vectors/cell/marker.json",
+                    "{\"format\":\"sparse\",\"eltype\":\"Float32\",\"indtype\":\"Int32\"}\n",
+                )
+                write("$(path)/vectors/cell/marker.nzind", reinterpret(UInt8, Int32[1, 3]))
+                write("$(path)/vectors/cell/marker.nzval", reinterpret(UInt8, Float32[0.5, 1.5]))
+
+                daf = FilesDaf(path; name = "legacy!")
+                @test get_vector(daf, "cell", "age") == Int32[10, 20, 30, 40]
+                marker = get_vector(daf, "cell", "marker")
+                @test eltype(parent(marker)) == Float32
+                @test marker == Float32[0.5, 0.0, 1.5, 0.0]
+            end
+        end
+
+        nested_test("v1_1_marker") do
+            mktempdir() do path
+                # Even when no packed properties are written, `daf.json` records `[1,1]`.
+                FilesDaf(path, "w+"; name = "fresh!")
+                @test JSON.parsefile("$(path)/daf.json")["version"] == [1, 1]
             end
         end
 
@@ -4054,7 +4092,7 @@ nested_test("data") do
                 @test_throws chomp("""
                              incompatible format version: 2.0
                              for the daf zip archive: $(abspath(version_path))
-                             the code supports version: 1.0
+                             the code supports version: 1.1
                              """) ZipDaf(version_path; name = "version!")
 
                 empty_zip_path = path * "/empty.daf.zip"
@@ -4074,6 +4112,32 @@ nested_test("data") do
             directory_suffix = ".daf",
             extracted_metadata_sidecar = "metadata.zip",
         )
+
+        nested_test("legacy_v1_0") do
+            mktempdir() do path
+                # Hand-build a `[1,0]` ZipDaf archive with a dense vector and a flat-sparse vector
+                # using the legacy top-level `eltype` / `indtype` JSON shape. The v1.1 reader
+                # detects the schema by shape and routes through the same flat-mmap code path.
+                zip_path = path * "/legacy.daf.zip"
+                store = MmapZipStore(zip_path; writable = true, create = true)
+                store["daf.json"] = Vector{UInt8}("{\"version\":[1,0]}\n")
+                store["axes/cell.txt"] = Vector{UInt8}("A\nB\nC\nD\n")
+                store["vectors/cell/age.json"] = Vector{UInt8}("{\"format\":\"dense\",\"eltype\":\"Int32\"}\n")
+                store["vectors/cell/age.data"] = Vector{UInt8}(reinterpret(UInt8, Int32[10, 20, 30, 40]))
+                store["vectors/cell/marker.json"] =
+                    Vector{UInt8}("{\"format\":\"sparse\",\"eltype\":\"Float32\",\"indtype\":\"Int32\"}\n")
+                store["vectors/cell/marker.nzind"] = Vector{UInt8}(reinterpret(UInt8, Int32[1, 3]))
+                store["vectors/cell/marker.nzval"] = Vector{UInt8}(reinterpret(UInt8, Float32[0.5, 1.5]))
+                close(store)
+                GC.gc()
+
+                daf = ZipDaf(zip_path; name = "legacy!")
+                @test get_vector(daf, "cell", "age") == Int32[10, 20, 30, 40]
+                marker = get_vector(daf, "cell", "marker")
+                @test eltype(parent(marker)) == Float32
+                @test marker == Float32[0.5, 0.0, 1.5, 0.0]
+            end
+        end
 
         nested_test("strip_files_daf_sidecars") do
             # Build a FilesDaf directory (which writes the `metadata.zip` + `axes/metadata.json` sidecars), bundle

@@ -1,0 +1,58 @@
+digraph {
+rankdir = LR
+node [ shape = box, fontname = "Sans-Serif" ]
+fontname = "Sans-Serif"
+fontsize = 28
+labeljust = "l"
+
+"Vector_base_values" [ label = < VectorState<sub><i>base values</i></sub>&nbsp;&nbsp;<br/> > ]
+
+"Vector_final_values" [ label = < VectorState<sub><i>final values</i></sub>&nbsp;&nbsp;<br/> > ]
+
+subgraph cluster_all {
+label = "VECTOR OPERATION"
+
+"VO1" [ style = dotted, fontname = "Courier", label = <
+% Eltwise <font color="gray">param value ...</font><br/>&nbsp;<br/>Eltwise(<font color="gray">param = value, ...</font>)
+> ]
+"VO1_" [ shape = cds, label = "element-wise of vector&nbsp;&nbsp;" ]
+"VO1":e -> "VO1_":w
+
+"VO2" [ style = dotted, fontname = "Courier", label = <
+&lt;<sub><i>or&nbsp;</i></sub>&lt;=<sub><i>or&nbsp;</i></sub>=<sub><i>or&nbsp;</i></sub>!=<sub><i>or&nbsp;</i></sub>&gt;=<sub><i>or&nbsp;</i></sub>&gt;<sub><i>or&nbsp;</i></sub>~<sub><i>or&nbsp;</i></sub>!~ value<br/>&nbsp;<br/>&nbsp;<br/>IsLess<sub><i>or</i></sub>IsLessEqual<sub><i>or</i></sub><br/>&nbsp;<br/>IsEqual<sub><i>or</i></sub>IsNotEqual<sub><i>or</i></sub><br/>&nbsp;<br/>IsGreaterEqual<sub><i>or</i></sub>IsGreater<sub><i>or</i></sub><br/>&nbsp;<br/>IsMatch<sub><i>or</i></sub>IsNotMatch<br/>&nbsp;<br/>(value)
+> ]
+"VO2_" [ shape = cds, label = "compare vector&nbsp;&nbsp;" ]
+"VO2":e -> "VO2_":w
+
+"VO3_" [ shape = component, label = "VECTOR GROUP&nbsp;&nbsp;", URL = "#../DataAxesFormats.Queries.VECTOR_GROUP" ]
+
+"VO4" [ shape = component, label = "VECTOR AS AXIS", URL = "#../DataAxesFormats.Queries.VECTOR_AS_AXIS" ]
+
+"VO5_" [ shape = cds, label = <
+vector property is an axis<sub><i>implicit</i></sub>&nbsp;&nbsp;&nbsp;&nbsp;<br/>&nbsp;<br/>
+> ]
+
+"VO6_" [ shape = component, label = "VECTOR LOOKUP&nbsp;&nbsp;", URL = "#../DataAxesFormats.Queries.VECTOR_LOOKUP" ]
+
+"Vector_axis" [ label = < VectorState<sub><i>axis</i></sub>&nbsp;&nbsp;<br/> > ]
+
+"VO5_":e -> "Vector_axis"
+
+"VO4":e -> "Vector_axis"
+
+"Vector_axis" -> "VO6_":w
+
+}
+
+"VO1_":e -> "Vector_final_values"
+"VO2_":e -> "Vector_final_values"
+"VO3_":e -> "Vector_final_values"
+"VO6_":e -> "Vector_final_values"
+
+"Vector_base_values" -> "VO1":w
+"Vector_base_values" -> "VO2":w
+"Vector_base_values" -> "VO3_":w
+"Vector_base_values" -> "VO4":w
+"Vector_base_values" -> "VO5_":w
+
+}

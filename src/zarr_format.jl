@@ -70,8 +70,10 @@ existing Zarr-based convention such as [`OME-NGFF`](https://ngff.openmicroscopy.
 
   - Flat properties (the default) are stored as a single Zarr chunk covering the full array, without compression, so
     the chunk file on disk is a raw binary image that we can memory-map. Packed properties (`packed = true`, uncompressed
-    size at or above [`DAF_PACKED_TARGET_CHUNK_KB`](@ref)) are stored chunked + compressed via the codec resolved from
-    [`DAF_PACKED_COMPRESSION`](@ref). Both encodings coexist within a `1.1`-marked dataset.
+    size at or above [`DAF_PACKED_TARGET_CHUNK_KB`](@ref DataAxesFormats.PackedFormat.DAF_PACKED_TARGET_CHUNK_KB))
+    are stored chunked + compressed via the codec resolved from
+    [`DAF_PACKED_COMPRESSION`](@ref DataAxesFormats.PackedFormat.DAF_PACKED_COMPRESSION). Both encodings coexist
+    within a `1.1`-marked dataset.
 
 Example Zarr directory structure:
 
@@ -139,6 +141,7 @@ module ZarrFormat
 export ZarrDaf
 
 using ..Formats
+using ..LazySparse
 using ..MmapZipStores
 using ..ReadOnly
 using ..Readers
@@ -155,12 +158,19 @@ using Zarr
 
 import ..Formats
 import ..Formats.Internal
+import ..PackedFormat.IncrementalShardWriter
+import ..PackedFormat.MmapShardRegion
 import ..PackedFormat.PackedCodec
 import ..PackedFormat.PackedDenseMatrix
+import ..PackedFormat.VLenUTF8V3Codec
+import ..PackedFormat.build_shard_metadata
 import ..PackedFormat.chunks_for
 import ..PackedFormat.compressor_for
+import ..PackedFormat.finalize_shard!
 import ..PackedFormat.flush_packed_dense_matrix!
 import ..PackedFormat.packed_local_cache_mb
+import ..PackedFormat.submit_shard_chunk!
+import ..PackedFormat.v3_bytes_codecs_for
 import ..Readers.base_array
 import ..Reorder
 import ..ZipFormat.SharedMmapZipStoreHandle
@@ -182,67 +192,6 @@ const SCALARS = "scalars"
 const AXES = "axes"
 const VECTORS = "vectors"
 const MATRICES = "matrices"
-
-# ==============================================================================
-# BEGIN: Zarr.jl 0.10 v3 workarounds.
-#
-# Zarr.jl 0.10's V3 codec registry has no `vlen-utf8` entry, so writing a Zarr v3 array of `String` fails (the
-# default `BytesCodec` cannot reinterpret `String`). The codec below mirrors the wire format of Zarr.jl's v2
-# `VLenUTF8Filter` (numcodecs `vlen-utf8`) so v3 stores written here round-trip through the same standard
-# encoding. `__init__` checks at module load whether Zarr.jl now ships its own `vlen-utf8` v3 codec; if so, it
-# logs a warning and skips the local registration. Also defines a `Base.sizeof(::Type{String})` shim because
-# Zarr.jl 0.10's v3 metadata parser computes `sizeof(T)` unconditionally for the blosc-typesize default of the
-# codec context (irrelevant on our path because every blosc instance we emit carries an explicit `typesize`).
-# This entire block is meant to be deleted in favour of upstream support when Zarr.jl ships v3 vlen-utf8 and
-# fixes the `sizeof` call site; `string_zcreate` (in the permanent helpers section below) then needs its
-# `VLenUTF8V3Codec()` reference swapped for the upstream codec constructor.
-# ==============================================================================
-
-struct VLenUTF8V3Codec <: Zarr.Codecs.V3Codecs.V3Codec{:array, :bytes}
-end
-
-Zarr.Codecs.V3Codecs.name(::VLenUTF8V3Codec) = "vlen-utf8"
-Zarr.Codecs.V3Codecs.is_fixed_size(::VLenUTF8V3Codec) = false
-
-JSON.lower(::VLenUTF8V3Codec) =
-    Dict{String, Any}("name" => "vlen-utf8", "configuration" => Dict{String, Any}())
-
-function Zarr.Codecs.V3Codecs.codec_encode(::VLenUTF8V3Codec, data::AbstractArray)::Vector{UInt8}
-    buffer = IOBuffer()
-    write(buffer, UInt32(length(data)))
-    for element in data
-        utf8_bytes = transcode(String, String(element))
-        write(buffer, UInt32(ncodeunits(utf8_bytes)))
-        write(buffer, utf8_bytes)
-    end
-    return take!(buffer)
-end
-
-function Zarr.Codecs.V3Codecs.codec_decode(
-    ::VLenUTF8V3Codec,
-    encoded::Vector{UInt8},
-    ::Type{T},
-    shape::NTuple{N, Int};
-    fill_value = nothing,
-)::Array{String, N} where {T, N}
-    buffer = IOBuffer(encoded)
-    nitems = Int(read(buffer, UInt32))
-    output = Array{String, N}(undef, shape)
-    for index in 1:nitems
-        len = Int(read(buffer, UInt32))
-        output[index] = String(read(buffer, len))
-    end
-    close(buffer)
-    return output
-end
-
-# Type piracy on `Base.sizeof` is bounded — `sizeof(::Type{String})` is otherwise undefined in Julia and is
-# virtually never called outside the Zarr.jl 0.10 v3 metadata-parse code path that needs this shim.
-Base.sizeof(::Type{String}) = 1
-
-# ==============================================================================
-# END: Zarr.jl 0.10 v3 workarounds.
-# ==============================================================================
 
 # Build a v3 numeric ZArray under `group` at `name` with the given shape, inner-chunk shape, and bytes→bytes
 # codec chain (empty for the single-chunk uncompressed encoding). Bypasses `Zarr.zcreate` so the metadata is
@@ -278,17 +227,19 @@ function numeric_zcreate(
     return array
 end
 
-# Build a v3 `String` ZArray under `group` at `name` with the given shape and inner-chunk shape, the local
-# `VLenUTF8V3Codec` as the array→bytes step, and the given (possibly empty) bytes→bytes codec tuple as the
-# post-encoding compression chain.
+# Build a v3 uncompressed `String` ZArray under `group` at `name` with inner pipeline `VLenUTF8V3Codec`. The
+# default `chunks == shape` produces the single-chunk layout used for axis-entry arrays and the `daf`
+# version-marker. Packed string properties go through [`sharded_zcreate`](@ref) instead, which produces a
+# single-shard layout matching the numeric packed path. The optional `chunks` parameter exists for the
+# non-canonical read-tolerance test exercising the reader against a multi-chunk-per-file vlen-utf8 layout
+# that we never write ourselves.
 function string_zcreate(
     group::ZGroup,
     name::AbstractString,
     shape::NTuple{N, Int},
     chunks::NTuple{N, Int} = shape,
-    bytes_bytes_codecs::Tuple = (),
 )::ZArray{String, N} where {N}
-    pipeline = Zarr.V3Pipeline((), VLenUTF8V3Codec(), bytes_bytes_codecs)
+    pipeline = Zarr.V3Pipeline((), VLenUTF8V3Codec(), ())
     metadata = Zarr.MetadataV3{String, N, typeof(pipeline)}(
         3,
         "array",
@@ -310,10 +261,12 @@ function string_zcreate(
     return array
 end
 
-# Build a v3 numeric ZArray under `group` at `name` as a single-shard sharded array per ZEP-0002: the outer chunk
+# Build a v3 ZArray under `group` at `name` as a single-shard sharded array per ZEP-0002: the outer chunk
 # shape equals the array shape (one shard covers the whole array), the inner chunks have shape `inner_chunks`,
 # and `bytes_bytes_codecs` is the bytes→bytes chain applied per inner chunk (compression, etc.). The shard's
-# index lives at the tail (`index_location = :end`) and is protected by CRC32c.
+# index lives at the tail (`index_location = :end`) and is protected by CRC32c. For numeric `T` the inner
+# pipeline's array→bytes step is `BytesCodec`; for `T <: AbstractString` it's `VLenUTF8V3Codec`. Dispatch is
+# centralized in [`build_shard_metadata`](@ref).
 function sharded_zcreate(
     ::Type{T},
     group::ZGroup,
@@ -321,131 +274,17 @@ function sharded_zcreate(
     shape::NTuple{N, Int},
     inner_chunks::NTuple{N, Int},
     bytes_bytes_codecs::Tuple = (),
-)::ZArray{T, N} where {T, N}
-    inner_pipeline = Zarr.V3Pipeline((), Zarr.Codecs.V3Codecs.BytesCodec(:little), bytes_bytes_codecs)
-    index_pipeline = Zarr.V3Pipeline((), Zarr.Codecs.V3Codecs.BytesCodec(:little), (Zarr.Codecs.V3Codecs.CRC32cV3Codec(),))
-    sharding = Zarr.Codecs.V3Codecs.ShardingCodec(inner_chunks, inner_pipeline, index_pipeline, :end)
-    pipeline = Zarr.V3Pipeline((), sharding, ())
-    metadata = Zarr.MetadataV3{T, N, typeof(pipeline)}(
-        3,
-        "array",
-        shape,
-        shape,
-        Zarr.typestr3(T),
-        pipeline,
-        zero(T),
-        Zarr.ChunkKeyEncoding('/', true),
-    )
+)::ZArray where {T, N}
+    metadata = build_shard_metadata(T, shape, inner_chunks, bytes_bytes_codecs, :end)
     storage = group.storage
     array_path = Zarr._concatpath(group.path, String(name))
     if !Zarr.isemptysub(storage, array_path)
         error("non-empty Zarr path: $(array_path)")  # UNTESTED
     end
-    Zarr.writemetadata(Zarr.ZarrFormat(3), storage, array_path, metadata)
+    Zarr.writemetadata(Zarr.ZarrFormat(3), storage, array_path, metadata)  # NOJET
     array = Zarr.ZArray(metadata, storage, array_path, Dict{String, Any}(), true)
     group.arrays[String(name)] = array
     return array
-end
-
-# Mmap-backed sink that lets `IncrementalShardWriter` write into a region reserved by
-# [`reserve_mmap_zip_entry!`](@ref). The reserved region is over-allocated to an upper bound (raw chunk
-# bytes plus exact index size); the index is written at the tail of the region and any unused bytes between
-# the last data chunk and the index are padding that the reader skips because the index records the actual
-# `(offset, nbytes)` of every chunk.
-mutable struct MmapShardRegion
-    store::MmapZipStore
-    key::String
-    region::AbstractVector{UInt8}
-    cursor::UInt64
-    reserved_size::UInt64
-end
-
-# Sink-abstraction methods. Each `IncrementalShardWriter` operates on its sink through these three calls:
-# `position_in_sink` reads the current write cursor, `write_to_sink!` appends bytes (advancing the cursor),
-# and `finalize_sink!` emits the encoded shard index (at the tail) and finishes off any backend-specific
-# bookkeeping (closing the IO handle, patching the outer-zip CRC).
-position_in_sink(io::IOStream)::UInt64 = UInt64(position(io))
-position_in_sink(region::MmapShardRegion)::UInt64 = region.cursor
-
-function write_to_sink!(io::IOStream, bytes::AbstractVector{UInt8})::Nothing
-    write(io, bytes)
-    return nothing
-end
-
-function write_to_sink!(region::MmapShardRegion, bytes::AbstractVector{UInt8})::Nothing
-    n = UInt64(length(bytes))
-    region.region[(region.cursor + 1):(region.cursor + n)] .= bytes
-    region.cursor += n
-    return nothing
-end
-
-function finalize_sink!(io::IOStream, encoded_index::AbstractVector{UInt8})::Nothing
-    write(io, encoded_index)
-    close(io)
-    return nothing
-end
-
-function finalize_sink!(region::MmapShardRegion, encoded_index::AbstractVector{UInt8})::Nothing
-    index_size = UInt64(length(encoded_index))
-    index_offset = region.reserved_size - index_size
-    region.region[(index_offset + 1):region.reserved_size] .= encoded_index
-    patch_mmap_zip_entry_crc!(region.store, region.key)
-    return nothing
-end
-
-# Streaming writer for the v3 sharded-array binary format. Concurrent submitters call `submit_shard_chunk!`
-# with an inner-chunk index and the chunk's `AbstractArray` of data; the writer encodes the chunk through
-# `inner_pipeline`, appends the encoded bytes to its sink, and records `(file_offset, n_bytes)` in the
-# in-memory index slab at the slot for that chunk. Encoding runs outside the lock; only the cursor read
-# and the byte append run under the lock, so submitters serialize on disk I/O but not on encoding.
-# Chunks may arrive in any order — the index slab is keyed by chunk index, not arrival order. Empty (all
-# fill-value) inner chunks are elided per the sharding spec; their slots stay at the `MAX_UINT64` sentinel
-# that marks "no data". `finalize_shard!` encodes the index slab through `index_pipeline` (BytesCodec
-# little-endian + CRC32c) and emits it as the shard's footer, matching `index_location = :end`.
-mutable struct IncrementalShardWriter{S, P1 <: Zarr.AbstractCodecPipeline, P2 <: Zarr.AbstractCodecPipeline, F}
-    sink::S
-    inner_pipeline::P1
-    index_pipeline::P2
-    fill_value::F
-    index_data::Vector{UInt64}
-    write_lock::ReentrantLock
-end
-
-function IncrementalShardWriter(
-    sink,
-    inner_pipeline::Zarr.AbstractCodecPipeline,
-    index_pipeline::Zarr.AbstractCodecPipeline,
-    fill_value,
-    n_chunks::Int,
-)::IncrementalShardWriter
-    index_data = fill(typemax(UInt64), 2 * n_chunks)
-    return IncrementalShardWriter(sink, inner_pipeline, index_pipeline, fill_value, index_data, ReentrantLock())
-end
-
-function submit_shard_chunk!(
-    writer::IncrementalShardWriter,
-    chunk_index::Int,
-    chunk_data::AbstractArray,
-)::Nothing
-    encoded = Zarr.pipeline_encode(writer.inner_pipeline, chunk_data, writer.fill_value)
-    if encoded === nothing || isempty(encoded)
-        return nothing
-    end
-    @lock writer.write_lock begin
-        offset = position_in_sink(writer.sink)
-        writer.index_data[2 * chunk_index - 1] = offset
-        writer.index_data[2 * chunk_index] = UInt64(length(encoded))
-        write_to_sink!(writer.sink, encoded)
-    end
-    return nothing
-end
-
-function finalize_shard!(writer::IncrementalShardWriter)::Nothing
-    @lock writer.write_lock begin
-        encoded_index = Zarr.pipeline_encode(writer.index_pipeline, writer.index_data, nothing)
-        finalize_sink!(writer.sink, encoded_index)
-    end
-    return nothing
 end
 
 """
@@ -734,7 +573,9 @@ function zarr_group_attrs(group::ZGroup)::AbstractDict
     if storage isa Zarr.ConsolidatedStore
         json_key = Zarr._unconcpath(storage, group.path, "zarr.json")
         if !haskey(storage.cons, json_key)
-            return Dict{String, Any}()
+            # `refresh_consolidated_metadata!` always writes every group's `zarr.json` into the consolidated entry,
+            # so this branch fires only for a malformed or partial snapshot.
+            return Dict{String, Any}()  # UNTESTED
         end
         return get(storage.cons[json_key], "attributes", Dict{String, Any}())
     end
@@ -892,47 +733,17 @@ end
 # `chunks_for` chunk shape; the explicit `filters` kwarg is omitted for non-bits types so `Zarr.jl`'s default filter
 # stays in the chain ahead of the compressor. Callers fill data into the returned `ZArray` afterward.
 function dense_zcreate(
-    ::Type{String},
+    ::Type{T},
     group::ZGroup,
     name::AbstractString,
     packed::Bool,
     shape::NTuple{N, Int},
-)::ZArray{String, N} where {N}
-    chunks = chunks_for(packed, shape, String)
-    if chunks === nothing
+)::ZArray{String, N} where {N, T <: AbstractString}
+    inner_chunks = chunks_for(packed, shape, String)
+    if inner_chunks === nothing
         return string_zcreate(group, name, shape)
     else
-        return string_zcreate(group, name, shape, chunks, v3_bytes_codecs_for(compressor_for(), String))
-    end
-end
-
-# Translate a `PackedCodec` descriptor to the bytes→bytes codec tuple of a v3 codec pipeline. Used by the
-# chunked-compressed write paths in `dense_zcreate` (numeric and string arms). For `String`, `typesize` is `1`
-# because `sizeof(String) == 0` is not meaningful for blosc bitshuffle. `:gzip_shuffle` and `:zstd_bitshuffle`
-# are rejected because Zarr.jl 0.10's v3 codec registry has no standalone shuffle or bitshuffle codec.
-function v3_bytes_codecs_for(codec::PackedCodec, ::Type{T})::Tuple where {T}
-    compression = codec.compression
-    compression_level = codec.compression_level
-    typesize = isbitstype(T) ? sizeof(T) : 1
-    if compression == :blosc_zstd_bitshuffle
-        return (Zarr.Codecs.V3Codecs.BloscV3Codec("zstd", compression_level, 2, 0, typesize),)
-    elseif compression == :blosc_lz4_bitshuffle
-        return (Zarr.Codecs.V3Codecs.BloscV3Codec("lz4", compression_level, 2, 0, typesize),)
-    elseif compression == :zstd
-        return (Zarr.Codecs.V3Codecs.ZstdV3Codec(compression_level),)
-    elseif compression == :gzip
-        return (Zarr.Codecs.V3Codecs.GzipV3Codec(compression_level),)
-    elseif compression == :gzip_shuffle
-        return error(
-            "packed compression codec :gzip_shuffle is not supported on the ZarrDaf backend " *
-            "(Zarr.jl has no v3 standalone shuffle codec); use :gzip or :blosc_zstd_bitshuffle",
-        )
-    else
-        @assert compression == :zstd_bitshuffle
-        return error(
-            "packed compression codec :zstd_bitshuffle is not supported on the ZarrDaf backend " *
-            "(Zarr.jl has no v3 bitshuffle codec); use :blosc_zstd_bitshuffle (Blosc bundles its own bitshuffle)",
-        )
+        return sharded_zcreate(String, group, name, shape, inner_chunks, v3_bytes_codecs_for(compressor_for(), String))
     end
 end
 
@@ -1004,7 +815,7 @@ function consolidate_v3_metadata!(
     end
     foreach(Zarr.subdirs(storage, prefix)) do subname
         sub_prefix = isempty(prefix) ? subname : prefix * "/" * subname
-        consolidate_v3_metadata!(consolidated, storage, sub_prefix)
+        return consolidate_v3_metadata!(consolidated, storage, sub_prefix)
     end
     return nothing
 end
@@ -1045,7 +856,7 @@ function try_mmap_vector_chunk(daf::ZarrDaf, array::ZArray{T})::Maybe{AbstractVe
     if storage isa Zarr.DirectoryStore
         chunk_path = joinpath(storage.folder, key)
         if !isfile(chunk_path)
-            return nothing  # UNTESTED
+            return nothing
         end
         return open(chunk_path, is_writable(daf) ? "r+" : "r") do io
             return Mmap.mmap(io, Vector{T}, (length(array),))
@@ -1057,7 +868,7 @@ function try_mmap_vector_chunk(daf::ZarrDaf, array::ZArray{T})::Maybe{AbstractVe
     if storage isa Zarr.DictStore
         chunk_bytes = get(storage.a, key, nothing)
         if chunk_bytes === nothing
-            return nothing  # UNTESTED
+            return nothing
         end
         return unsafe_wrap(Array, Ptr{T}(pointer(chunk_bytes)), length(array); own = false)
     end
@@ -1070,7 +881,7 @@ function try_mmap_matrix_chunk(daf::ZarrDaf, array::ZArray{T})::Maybe{AbstractMa
     if storage isa Zarr.DirectoryStore
         chunk_path = joinpath(storage.folder, key)
         if !isfile(chunk_path)
-            return nothing  # UNTESTED
+            return nothing
         end
         return open(chunk_path, is_writable(daf) ? "r+" : "r") do io
             return Mmap.mmap(io, Matrix{T}, size(array))
@@ -1082,7 +893,7 @@ function try_mmap_matrix_chunk(daf::ZarrDaf, array::ZArray{T})::Maybe{AbstractMa
     if storage isa Zarr.DictStore
         chunk_bytes = get(storage.a, key, nothing)
         if chunk_bytes === nothing
-            return nothing  # UNTESTED
+            return nothing
         end
         return unsafe_wrap(Array, Ptr{T}(pointer(chunk_bytes)), size(array); own = false)
     end
@@ -1109,7 +920,7 @@ function array_as_materialized_vector(daf::ZarrDaf, array::ZArray{T})::Tuple{Vec
             return (vector, Formats.MappedData)
         end
     end
-    return (Vector{T}(array[:]), Formats.MemoryData)
+    return (array[:], Formats.MemoryData)
 end
 
 function array_as_vector(daf::ZarrDaf, array::ZArray{T})::Tuple{StorageVector, Formats.CacheGroup} where {T}
@@ -1195,7 +1006,7 @@ function Formats.format_add_axis!(
 )::Nothing
     @assert Formats.has_data_write_lock(daf)
     axis_array = string_zcreate(axes_group(daf), axis, (length(entries),))
-    axis_array[:] = String.(entries)  # NOJET
+    axis_array[:] = entries  # NOJET
 
     zgroup(vectors_group(daf), axis)
 
@@ -1277,7 +1088,7 @@ function Formats.format_set_vector!(
         array[:] = fill(vector, nelements)  # NOJET
     elseif vector isa AbstractString
         array = dense_zcreate(String, group, name, packed, (nelements,))
-        array[:] = fill(String(vector), nelements)  # NOJET
+        array[:] = fill(vector, nelements)  # NOJET
     else
         @assert vector isa AbstractVector
         vector = base_array(vector)
@@ -1285,10 +1096,10 @@ function Formats.format_set_vector!(
             write_sparse_vector(group, name, vector, packed)
         elseif eltype(vector) <: AbstractString
             array = dense_zcreate(String, group, name, packed, (nelements,))
-            array[:] = String.(vector)  # NOJET
+            array[:] = vector
         else
             array = dense_zcreate(eltype(vector), group, name, packed, (nelements,))
-            array[:] = Vector(vector)  # NOJET
+            array[:] = vector
         end
     end
     refresh_consolidated_metadata!(daf)
@@ -1324,7 +1135,7 @@ function Formats.format_filled_empty_dense_vector!(
     daf::ZarrDaf,
     axis::AbstractString,
     name::AbstractString,
-    filled::AbstractVector{<:StorageReal},
+    filled::AbstractVector{<:StorageReal},  # NOLINT
 )::Nothing
     @assert Formats.has_data_write_lock(daf)
     array = axis_vectors_group(daf, axis).arrays[name]
@@ -1341,8 +1152,7 @@ function write_sparse_vector(parent::ZGroup, name::AbstractString, vector::Abstr
     vector_group = zgroup(parent, name)
 
     nzind_vector = nzind(vector)
-    nzind_array =
-        dense_zcreate(eltype(nzind_vector), vector_group, "nzind", false, (length(nzind_vector),))
+    nzind_array = dense_zcreate(eltype(nzind_vector), vector_group, "nzind", false, (length(nzind_vector),))
     nzind_array[:] = nzind_vector
 
     if eltype(vector) != Bool || !all(nzval(vector))
@@ -1483,10 +1293,10 @@ function Formats.format_set_matrix!(
         array[:, :] = fill(matrix, nrows, ncols)  # NOJET
     elseif matrix isa AbstractString
         array = dense_zcreate(String, group, name, false, (nrows, ncols))
-        array[:, :] = fill(String(matrix), nrows, ncols)  # NOJET
+        array[:, :] = fill(matrix, nrows, ncols)  # NOJET
     elseif eltype(matrix) <: AbstractString
         array = dense_zcreate(String, group, name, false, (nrows, ncols))
-        array[:, :] = String.(matrix)  # NOJET
+        array[:, :] = matrix
     else
         @assert matrix isa AbstractMatrix
         @assert major_axis(matrix) != Rows
@@ -1497,7 +1307,7 @@ function Formats.format_set_matrix!(
             return nothing
         else
             array = dense_zcreate(eltype(matrix), group, name, packed, (nrows, ncols))
-            array[:, :] = Matrix(matrix)  # NOJET
+            array[:, :] = matrix
         end
     end
     refresh_consolidated_metadata!(daf)
@@ -1570,12 +1380,12 @@ function packed_streaming_dense_matrix(
         MmapShardRegion(storage, chunk_key_str, region, UInt64(0), reserved_size)
     end
 
-    writer =
-        IncrementalShardWriter(sink, sharding_codec.codecs, sharding_codec.index_codecs, zero(T), ncols)
-    encoder = (column::Int, chunk_buffer::Vector{T}) -> begin
-        submit_shard_chunk!(writer, column, reshape(chunk_buffer, nrows, 1))
-        return nothing
-    end
+    writer = IncrementalShardWriter(sink, sharding_codec.codecs, sharding_codec.index_codecs, zero(T), ncols)
+    encoder =
+        (column::Int, chunk_buffer::Vector{T}) -> begin
+            submit_shard_chunk!(writer, column, reshape(chunk_buffer, nrows, 1))
+            return nothing
+        end
     finalizer = () -> finalize_shard!(writer)
     return (PackedDenseMatrix{T}(nrows, ncols, encoder; finalizer), nothing)
 end
@@ -1602,13 +1412,11 @@ function write_sparse_matrix(parent::ZGroup, name::AbstractString, matrix::Abstr
     matrix_group = zgroup(parent, name)
 
     colptr_vector = colptr(matrix)
-    colptr_array =
-        dense_zcreate(eltype(colptr_vector), matrix_group, "colptr", false, (length(colptr_vector),))
+    colptr_array = dense_zcreate(eltype(colptr_vector), matrix_group, "colptr", false, (length(colptr_vector),))
     colptr_array[:] = colptr_vector
 
     rowval_vector = rowval(matrix)
-    rowval_array =
-        dense_zcreate(eltype(rowval_vector), matrix_group, "rowval", false, (length(rowval_vector),))
+    rowval_array = dense_zcreate(eltype(rowval_vector), matrix_group, "rowval", false, (length(rowval_vector),))
     rowval_array[:] = rowval_vector
 
     if eltype(matrix) != Bool || !all(nzval(matrix))
@@ -1696,7 +1504,7 @@ function Formats.format_relayout_matrix!(
         ncols = axis_length(daf, rows_axis)
         relayout_matrix = flipped(matrix)
         array = dense_zcreate(String, group, name, false, (nrows, ncols))
-        array[:, :] = String.(relayout_matrix)
+        array[:, :] = relayout_matrix
         refresh_consolidated_metadata!(daf)
         return relayout_matrix
     end
@@ -1772,13 +1580,33 @@ function Formats.format_get_matrix(
     nrows = Formats.format_axis_length(daf, rows_axis)
     ncols = Formats.format_axis_length(daf, columns_axis)
 
-    colptr_vector, colptr_cache_group = array_as_materialized_vector(daf, matrix_group.arrays["colptr"])
-    rowval_vector, rowval_cache_group = array_as_materialized_vector(daf, matrix_group.arrays["rowval"])
-    if haskey(matrix_group.arrays, "nzval")
-        nzval_vector, nzval_cache_group = array_as_materialized_vector(daf, matrix_group.arrays["nzval"])
-    else
+    colptr_array = matrix_group.arrays["colptr"]
+    rowval_array = matrix_group.arrays["rowval"]
+    nzval_array = get(matrix_group.arrays, "nzval", nothing)
+
+    rowval_packed = !can_mmap(rowval_array) || isempty(rowval_array)
+    nzval_packed = nzval_array !== nothing && (!can_mmap(nzval_array) || isempty(nzval_array))
+    if rowval_packed || nzval_packed
+        # `colptr` is always materialised at read time even when it lives on disk in packed form: it is small
+        # (`sizeof(eltype(colptr)) × (n_columns + 1)` bytes) and slicing needs random access to it.
+        colptr_vector, _ = array_as_materialized_vector(daf, colptr_array)
+        rowval_source = DiskArrays.cache(rowval_array; maxsize = packed_local_cache_mb())
+        nzval_source = if nzval_array === nothing
+            fill(true, length(rowval_array))
+        else
+            DiskArrays.cache(nzval_array; maxsize = packed_local_cache_mb())
+        end
+        matrix = LazySparseMatrix(nrows, colptr_vector, rowval_source, nzval_source)
+        return (matrix, nothing, Formats.MemoryData)
+    end
+
+    colptr_vector, colptr_cache_group = array_as_materialized_vector(daf, colptr_array)
+    rowval_vector, rowval_cache_group = array_as_materialized_vector(daf, rowval_array)
+    if nzval_array === nothing
         nzval_vector = fill(true, length(rowval_vector))
         nzval_cache_group = Formats.MemoryData
+    else
+        nzval_vector, nzval_cache_group = array_as_materialized_vector(daf, nzval_array)
     end
 
     matrix = SparseMatrixCSC(nrows, ncols, colptr_vector, rowval_vector, nzval_vector)
@@ -1847,7 +1675,7 @@ function reopen_zgroup_child!(group::ZGroup, name::AbstractString)::Nothing
     child = Zarr.zopen_noerr(
         group.storage,
         "w",
-        Zarr.ZarrFormat(2);
+        Zarr.ZarrFormat(3);
         path = child_zarr_path(group, name),
         fill_as_missing = false,
     )  # NOJET
@@ -1919,7 +1747,7 @@ function Reorder.format_replace_reorder!(
         if Formats.format_has_axis(daf, axis; for_change = false)
             delete_child(axes_group(daf), axis)
             axis_array = dense_zcreate(String, axes_group(daf), axis, false, (length(planned_axis.new_entries),))
-            axis_array[:] = String.(planned_axis.new_entries)  # NOJET
+            axis_array[:] = planned_axis.new_entries
         end
     end
 
@@ -1949,7 +1777,7 @@ function replace_reorder_vector(
     group = axis_vectors_group(daf, planned.axis)
 
     if eltype(source_vector) <: AbstractString
-        permuted = Vector{String}(undef, length(source_vector))
+        permuted = Vector{eltype(source_vector)}(undef, length(source_vector))
         permute_vector!(;
             destination = permuted,
             source = source_vector,
@@ -2010,7 +1838,7 @@ function replace_reorder_matrix(
     nrows, ncols = size(source_matrix)
 
     if eltype(source_matrix) <: AbstractString
-        permuted = Matrix{String}(undef, nrows, ncols)
+        permuted = Matrix{eltype(source_matrix)}(undef, nrows, ncols)
         permute_matrix_into!(permuted, source_matrix, planned_rows, planned_columns, replacement_progress)
         delete_child(group, planned.name)
         array = dense_zcreate(String, group, planned.name, false, (nrows, ncols))
@@ -2188,23 +2016,6 @@ function TanayLabUtilities.Brief.brief(value::ZarrDaf; name::Maybe{AbstractStrin
         name = value.name
     end
     return "ZarrDaf $(name)"
-end
-
-function __init__()
-    if haskey(Zarr.Codecs.V3Codecs.codec_parsers, "vlen-utf8")
-        @warn(
-            "Zarr.jl now ships a built-in `vlen-utf8` v3 codec. The local copy in " *
-            "`DataAxesFormats.ZarrFormat` (the BEGIN/END `vlen-utf8` block in " *
-            "`src/zarr_format.jl` plus this branch of `__init__`) should be removed in " *
-            "favour of the upstream version."
-        )
-    else
-        Zarr.Codecs.V3Codecs.register_codec("vlen-utf8", VLenUTF8V3Codec) do _config, _ctx
-            return VLenUTF8V3Codec()
-        end
-    end
-    Zarr.typemap3["string"] = String
-    return nothing
 end
 
 end  # module

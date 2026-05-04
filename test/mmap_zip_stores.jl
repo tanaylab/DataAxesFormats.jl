@@ -123,6 +123,57 @@ nested_test("mmap_zip_stores") do
             end
         end
 
+        nested_test("shrink_reserved_entry") do
+            reserved_size = 4096
+            actual_size = 1500
+            store = MmapZipStore(zip_path; writable = true, create = true, truncate = true)
+            try
+                reserved_bytes = reserve_mmap_zip_entry!(store, "bulk", reserved_size)
+                for index in 1:actual_size
+                    reserved_bytes[index] = UInt8((index - 1) % 256)
+                end
+                shrink_mmap_zip_entry!(store, "bulk", actual_size)
+                patch_mmap_zip_entry_crc!(store, "bulk")
+                store["next"] = Vector{UInt8}("Z")
+            finally
+                close(store)
+            end
+
+            reopened = MmapZipStore(zip_path)
+            try
+                bulk_bytes = reopened["bulk"]
+                @test length(bulk_bytes) == actual_size
+                for index in 1:actual_size
+                    @test bulk_bytes[index] == UInt8((index - 1) % 256)
+                end
+                @test reopened["next"] == Vector{UInt8}("Z")
+            finally
+                close(reopened)
+            end
+        end
+
+        nested_test("shrink_to_reserved_size_is_noop") do
+            reserved_size = 256
+            store = MmapZipStore(zip_path; writable = true, create = true, truncate = true)
+            try
+                reserved_bytes = reserve_mmap_zip_entry!(store, "exact", reserved_size)
+                fill!(reserved_bytes, UInt8(0x42))
+                shrink_mmap_zip_entry!(store, "exact", reserved_size)
+                patch_mmap_zip_entry_crc!(store, "exact")
+            finally
+                close(store)
+            end
+
+            reopened = MmapZipStore(zip_path)
+            try
+                bulk_bytes = reopened["exact"]
+                @test length(bulk_bytes) == reserved_size
+                @test all(byte -> byte == 0x42, bulk_bytes)
+            finally
+                close(reopened)
+            end
+        end
+
         nested_test("recovery_rolls_back_unpatched_reservation") do
             first_store = MmapZipStore(zip_path; writable = true, create = true, truncate = true)
             try

@@ -25,6 +25,7 @@ export zarr_to_files
 
 using ..FilesFormat
 using ..Formats
+using ..PackedFormat
 using ..Readers
 using ..StorageTypes
 using ..Writers
@@ -37,6 +38,8 @@ using Zarr
 
 import ..FilesFormat
 import ..Operations.DTYPE_BY_NAME
+import ..PackedFormat
+import ..ReadOnly.DafReadOnlyWrapper
 import ..ZarrFormat
 import SparseArrays.indtype
 
@@ -184,7 +187,12 @@ function verify_same_filesystem(source_path::AbstractString, destination_path::A
 end
 
 function zarr_to_files_populate(zarr_path::AbstractString, files_path::AbstractString)::Nothing
-    source = ZarrDaf(zarr_path, "r")
+    # `ZarrDaf(... "r")` returns a `DafReadOnlyWrapper` over a `ZarrDaf`; unwrap to the inner `ZarrDaf` so the
+    # per-property paths can touch its `ZGroup`s directly (the `DafReadOnly` interface only exposes the higher-level
+    # reader API). The `Union{ZarrDaf, DafReadOnly}` return type covers both writable and read-only modes; for `"r"`
+    # the runtime is always the wrapper branch.
+    opened = ZarrDaf(zarr_path, "r")
+    source = opened isa DafReadOnlyWrapper ? opened.daf::ZarrDaf : opened  # NOLINT
     destination = FilesDaf(files_path, "w+")::FilesDaf
 
     for name in scalars_set(source)
@@ -229,32 +237,117 @@ function zarr_vector_to_files(
         if is_string_v3_dtype(zarr_json)
             set_vector!(destination, axis, name, get_vector(source, axis, name))
         else
+            zarray = ZarrFormat.vectors_group(source).groups[axis].arrays[name]
             element_type = julia_type_from_v3_dtype(zarr_json["data_type"])
-            FilesFormat.write_array_json("$(destination_base).json", "dense", element_type)
-            hardlink("$(source_dir)/c/0", "$(destination_base).data")
+            n_elements = size(zarray, 1)
+            if is_canonical_for_files(zarray, element_type, (n_elements,))
+                link_zarr_to_files_dense(zarray, "$(destination_base).json", destination_base, element_type)
+            else
+                set_vector!(destination, axis, name, get_vector(source, axis, name); packed = true)
+            end
         end
     else
         @assert zarr_json["node_type"] == "group" "unexpected node_type: $(zarr_json["node_type"])"
-        zarr_sparse_vector_to_files(source_dir, destination_base)
+        zarr_sparse_vector_to_files(source, destination, axis, name, source_dir, destination_base)
     end
     return nothing
 end
 
-function zarr_sparse_vector_to_files(source_dir::AbstractString, destination_base::AbstractString)::Nothing
-    nzind_json = read_json_dict("$(source_dir)/nzind/zarr.json")
-    ind_type = julia_type_from_v3_dtype(nzind_json["data_type"])
+function zarr_sparse_vector_to_files(
+    source::DafReader,
+    destination::FilesDaf,
+    axis::AbstractString,
+    name::AbstractString,
+    source_dir::AbstractString,
+    destination_base::AbstractString,
+)::Nothing
+    vector_group = ZarrFormat.vectors_group(source).groups[axis].groups[name]
+    nzind_array = vector_group.arrays["nzind"]
+    ind_type = julia_type_from_v3_dtype(read_json_dict("$(source_dir)/nzind/zarr.json")["data_type"])
+    nnz_int = size(nzind_array, 1)
 
-    nzval_json_path = "$(source_dir)/nzval/zarr.json"
-    if isfile(nzval_json_path)
-        element_type = julia_type_from_v3_dtype(read_json_dict(nzval_json_path)["data_type"])
+    nzval_present = isfile("$(source_dir)/nzval/zarr.json")
+    if nzval_present
+        nzval_array = vector_group.arrays["nzval"]
+        element_type = julia_type_from_v3_dtype(read_json_dict("$(source_dir)/nzval/zarr.json")["data_type"])
+        nzval_canonical = is_canonical_for_files(nzval_array, element_type, (nnz_int,))
+        nzval_packed = PackedFormat.is_zarr_array_packed(nzval_array)
+        nzval_chunk_shape = nzval_packed ? PackedFormat.packed_codec_from_zarray(nzval_array)[1] : nothing
+        nzval_codec =
+            nzval_packed ? PackedFormat.packed_codec_from_zarray(nzval_array)[2] : PackedFormat.compressor_for()
     else
         element_type = Bool
+        nzval_canonical = true
+        nzval_packed = false
+        nzval_chunk_shape = nothing
+        nzval_codec = PackedFormat.compressor_for()
     end
 
-    FilesFormat.write_array_json("$(destination_base).json", "sparse", element_type, ind_type)
-    hardlink("$(source_dir)/nzind/c/0", "$(destination_base).nzind")
-    if isfile("$(source_dir)/nzval/c/0")
-        hardlink("$(source_dir)/nzval/c/0", "$(destination_base).nzval")
+    nzind_canonical = is_canonical_for_files(nzind_array, ind_type, (nnz_int,))
+
+    if !(nzind_canonical && nzval_canonical)
+        # Fallback: any component non-canonical → re-encode the whole sparse property eagerly through `set_vector!`.
+        set_vector!(destination, axis, name, get_vector(source, axis, name); packed = true)
+        return nothing
+    end
+
+    nzind_packed = PackedFormat.is_zarr_array_packed(nzind_array)
+    nzind_chunk_shape = nzind_packed ? PackedFormat.packed_codec_from_zarray(nzind_array)[1] : nothing
+    nzind_codec = nzind_packed ? PackedFormat.packed_codec_from_zarray(nzind_array)[2] : PackedFormat.compressor_for()
+
+    json_bytes = PackedFormat.sparse_vector_json_bytes(
+        element_type,
+        ind_type,
+        nnz_int;
+        nzind_chunk_shape,
+        nzval_chunk_shape,
+        nzind_codec,
+        nzval_codec,
+    )
+    write("$(destination_base).json", json_bytes)
+    link_zarr_chunk_to_sparse_component("$(source_dir)/nzind", "$(destination_base).nzind", nzind_packed)
+    if nzval_present
+        link_zarr_chunk_to_sparse_component("$(source_dir)/nzval", "$(destination_base).nzval", nzval_packed)
+    end
+    return nothing
+end
+
+# Hard-link a Zarr-side dense property's chunk file to a FilesDaf flat or packed sidecar. For packed sources the
+# JSON sidecar carries the source's `chunk_shape` / codec so the linked bytes decode unchanged.
+function link_zarr_to_files_dense(
+    zarray::Zarr.ZArray,
+    destination_json_path::AbstractString,
+    destination_base::AbstractString,
+    ::Type{T},
+)::Nothing where {T}
+    storage = zarray.storage
+    @assert storage isa Zarr.DirectoryStore
+    chunk_key_relative = ndims(zarray) == 1 ? "c/0" : "c/0/0"
+    chunk_path = joinpath(storage.folder, zarray.path, chunk_key_relative)
+    if PackedFormat.is_zarr_array_packed(zarray)
+        chunk_shape, codec = PackedFormat.packed_codec_from_zarray(zarray)
+        json_bytes = PackedFormat.packed_array_json_bytes(T, chunk_shape, codec)
+        write(destination_json_path, json_bytes)
+        hardlink(chunk_path, "$(destination_base).shard")
+    else
+        FilesFormat.write_dense_array_json(destination_json_path, T)
+        hardlink(chunk_path, "$(destination_base).data")
+    end
+    return nothing
+end
+
+# Hard-link the chunk file of a Zarr-side sparse component sub-array. `packed=true` ⇒ source is single-shard
+# (`c/0`) and target is `<base>.shard`; `packed=false` ⇒ source is single-chunk-uncompressed (`c/0`) and target is
+# the flat path.
+function link_zarr_chunk_to_sparse_component(  # FLAKY TESTED
+    source_array_dir::AbstractString,
+    destination_flat_path::AbstractString,
+    packed::Bool,
+)::Nothing
+    if packed
+        hardlink("$(source_array_dir)/c/0", "$(destination_flat_path).shard")
+    else
+        hardlink("$(source_array_dir)/c/0", destination_flat_path)
     end
     return nothing
 end
@@ -283,33 +376,154 @@ function zarr_matrix_to_files(
                 relayout = false,
             )
         else
+            zarray = ZarrFormat.columns_axis_group(source, rows_axis, columns_axis).arrays[name]
             element_type = julia_type_from_v3_dtype(zarr_json["data_type"])
-            FilesFormat.write_array_json("$(destination_base).json", "dense", element_type)
-            hardlink("$(source_dir)/c/0/0", "$(destination_base).data")
+            shape = (size(zarray, 1), size(zarray, 2))
+            if is_canonical_for_files(zarray, element_type, shape)
+                link_zarr_to_files_dense(zarray, "$(destination_base).json", destination_base, element_type)
+            else
+                reencode_dense_matrix(source, destination, rows_axis, columns_axis, name, element_type, shape)
+            end
         end
     else
         @assert zarr_json["node_type"] == "group" "unexpected node_type: $(zarr_json["node_type"])"
-        zarr_sparse_matrix_to_files(source_dir, destination_base)
+        zarr_sparse_matrix_to_files(source, destination, rows_axis, columns_axis, name, source_dir, destination_base)
     end
     return nothing
 end
 
-function zarr_sparse_matrix_to_files(source_dir::AbstractString, destination_base::AbstractString)::Nothing
-    colptr_json = read_json_dict("$(source_dir)/colptr/zarr.json")
-    ind_type = julia_type_from_v3_dtype(colptr_json["data_type"])
+function zarr_sparse_matrix_to_files(
+    source::DafReader,
+    destination::FilesDaf,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+    source_dir::AbstractString,
+    destination_base::AbstractString,
+)::Nothing
+    matrix_group = ZarrFormat.columns_axis_group(source, rows_axis, columns_axis).groups[name]
+    colptr_array = matrix_group.arrays["colptr"]
+    rowval_array = matrix_group.arrays["rowval"]
+    ind_type = julia_type_from_v3_dtype(read_json_dict("$(source_dir)/colptr/zarr.json")["data_type"])
+    n_columns = size(colptr_array, 1) - 1
+    nnz_int = size(rowval_array, 1)
 
-    nzval_json_path = "$(source_dir)/nzval/zarr.json"
-    if isfile(nzval_json_path)
-        element_type = julia_type_from_v3_dtype(read_json_dict(nzval_json_path)["data_type"])
+    nzval_present = isfile("$(source_dir)/nzval/zarr.json")
+    if nzval_present
+        nzval_array = matrix_group.arrays["nzval"]
+        element_type = julia_type_from_v3_dtype(read_json_dict("$(source_dir)/nzval/zarr.json")["data_type"])
+        nzval_canonical = is_canonical_for_files(nzval_array, element_type, (nnz_int,))
+        nzval_packed = PackedFormat.is_zarr_array_packed(nzval_array)
+        nzval_chunk_shape = nzval_packed ? PackedFormat.packed_codec_from_zarray(nzval_array)[1] : nothing
+        nzval_codec =
+            nzval_packed ? PackedFormat.packed_codec_from_zarray(nzval_array)[2] : PackedFormat.compressor_for()
     else
         element_type = Bool
+        nzval_canonical = true
+        nzval_packed = false
+        nzval_chunk_shape = nothing
+        nzval_codec = PackedFormat.compressor_for()
     end
 
-    FilesFormat.write_array_json("$(destination_base).json", "sparse", element_type, ind_type)
-    hardlink("$(source_dir)/colptr/c/0", "$(destination_base).colptr")
-    hardlink("$(source_dir)/rowval/c/0", "$(destination_base).rowval")
-    if isfile("$(source_dir)/nzval/c/0")
-        hardlink("$(source_dir)/nzval/c/0", "$(destination_base).nzval")
+    colptr_canonical = is_canonical_for_files(colptr_array, ind_type, (n_columns + 1,))
+    rowval_canonical = is_canonical_for_files(rowval_array, ind_type, (nnz_int,))
+
+    if !(colptr_canonical && rowval_canonical && nzval_canonical)
+        # Fallback: any component non-canonical → re-encode the whole property eagerly through `set_matrix!`. The
+        # destination uses FilesDaf's canonical chunk_shape and the destination's `compressor_for()` global.
+        set_matrix!(
+            destination,
+            rows_axis,
+            columns_axis,
+            name,
+            get_matrix(source, rows_axis, columns_axis, name);
+            relayout = false,
+            packed = true,
+        )
+        return nothing
+    end
+
+    colptr_packed = PackedFormat.is_zarr_array_packed(colptr_array)
+    rowval_packed = PackedFormat.is_zarr_array_packed(rowval_array)
+    colptr_chunk_shape = colptr_packed ? PackedFormat.packed_codec_from_zarray(colptr_array)[1] : nothing
+    rowval_chunk_shape = rowval_packed ? PackedFormat.packed_codec_from_zarray(rowval_array)[1] : nothing
+    colptr_codec =
+        colptr_packed ? PackedFormat.packed_codec_from_zarray(colptr_array)[2] : PackedFormat.compressor_for()
+    rowval_codec =
+        rowval_packed ? PackedFormat.packed_codec_from_zarray(rowval_array)[2] : PackedFormat.compressor_for()
+
+    json_bytes = PackedFormat.sparse_matrix_json_bytes(
+        element_type,
+        ind_type,
+        nnz_int,
+        n_columns;
+        colptr_chunk_shape,
+        rowval_chunk_shape,
+        nzval_chunk_shape,
+        colptr_codec,
+        rowval_codec,
+        nzval_codec,
+    )
+    write("$(destination_base).json", json_bytes)
+    link_zarr_chunk_to_sparse_component("$(source_dir)/colptr", "$(destination_base).colptr", colptr_packed)
+    link_zarr_chunk_to_sparse_component("$(source_dir)/rowval", "$(destination_base).rowval", rowval_packed)
+    if nzval_present
+        link_zarr_chunk_to_sparse_component("$(source_dir)/nzval", "$(destination_base).nzval", nzval_packed)
+    end
+    return nothing
+end
+
+# True if `zarray`'s on-disk encoding is byte-identical to what `FilesDaf` would write for the same data right now —
+# the only condition under which `zarr_to_files` may safely hard-link the chunk file. Below-threshold flat ⇒ source
+# must be `can_mmap` (single-chunk uncompressed). Above-threshold packed ⇒ source must be single-shard sharded with
+# inner `chunk_shape == chunks_for(true, shape, T)` and inner codec matching `compressor_for()`.
+# The `zarray.metadata.chunks != shape`, `sharding.chunk_shape != canonical_chunk_shape`, and `length(bytes_bytes) !=
+# 1` checks defend against foreign or older zarr writers that produce multi-chunk, off-shape, or compound-codec
+# arrays; the `compressor_for()` writer never produces any of those, so today's tests can only exercise the codec
+# mismatch branch (the `return` at the bottom).
+function is_canonical_for_files(zarray::Zarr.ZArray, ::Type{T}, shape::NTuple{N, Int})::Bool where {T, N}
+    canonical_chunk_shape = PackedFormat.chunks_for(true, shape, T)
+    if canonical_chunk_shape === nothing
+        return ZarrFormat.can_mmap(zarray) && !isempty(zarray)
+    end
+    if !PackedFormat.is_zarr_array_packed(zarray)
+        return false
+    end
+    if zarray.metadata.chunks != shape
+        return false  # UNTESTED
+    end
+    sharding = zarray.metadata.pipeline.array_bytes
+    if sharding.chunk_shape != canonical_chunk_shape
+        return false  # UNTESTED
+    end
+    bytes_bytes = sharding.codecs.bytes_bytes
+    if length(bytes_bytes) != 1
+        return false  # UNTESTED
+    end
+    target_codec = PackedFormat.compressor_for()
+    target_bytes_bytes = PackedFormat.v3_bytes_codecs_for(target_codec, T)
+    return length(target_bytes_bytes) == 1 && bytes_bytes[1] == target_bytes_bytes[1]
+end
+
+# Re-encode a non-canonical Zarr-side dense matrix into the FilesDaf destination via the streaming write path.
+# Reads the source column-by-column (`get_matrix(source, ...; relayout = false)` returns a column-major view; the
+# Zarr decoder fetches only the chunks intersecting each column on demand), and submits each column to
+# `empty_dense_matrix!`'s `PackedDenseMatrix` wrapper. Bounded RAM = one column buffer per thread.
+function reencode_dense_matrix(  # FLAKY TESTED
+    source::DafReader,
+    destination::FilesDaf,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+    ::Type{T},
+    shape::NTuple{2, Int},
+)::Nothing where {T}
+    n_columns = shape[2]
+    source_matrix = get_matrix(source, rows_axis, columns_axis, name; relayout = false)
+    empty_dense_matrix!(destination, rows_axis, columns_axis, name, T; packed = true) do filled
+        TanayLabUtilities.parallel_loop_wo_rng(1:n_columns; name = "zarr_to_files_reencode") do column_index
+            @views filled[:, column_index] .= source_matrix[:, column_index]
+        end
     end
     return nothing
 end
@@ -354,34 +568,68 @@ function files_vector_to_zarr(
 )::Nothing
     json = read_json_dict("$(files_path)/vectors/$(axis)/$(name).json")
     format = json["format"]
-    eltype_name = String(json["eltype"])
-
-    if is_string_eltype(eltype_name)
-        set_vector!(destination, axis, name, get_vector(source, axis, name))
-        return nothing
-    end
 
     parent_group = ZarrFormat.vectors_group(destination).groups[axis]
-    element_type = julia_type_from_files_eltype(eltype_name)
     source_base = "$(files_path)/vectors/$(axis)/$(name)"
     destination_dir = "$(zarr_path)/vectors/$(axis)/$(name)"
 
     if format == "dense"
+        eltype_name = String(json["eltype"])
+        if is_string_eltype(eltype_name)
+            set_vector!(destination, axis, name, get_vector(source, axis, name))
+            return nothing
+        end
+        element_type = julia_type_from_files_eltype(eltype_name)
         n_elements = axis_length(source, axis)
-        ZarrFormat.dense_zcreate(element_type, parent_group, name, false, (n_elements,))
-        hardlink_v3_chunk("$(source_base).data", "$(destination_dir)/c/0")
+        if get(json, "packed", false) === true
+            create_files_to_zarr_packed_dense(
+                parent_group,
+                name,
+                element_type,
+                (n_elements,),
+                json,
+                "$(source_base).shard",
+                "$(destination_dir)/c/0",
+            )
+        else
+            ZarrFormat.dense_zcreate(element_type, parent_group, name, false, (n_elements,))
+            hardlink_v3_chunk("$(source_base).data", "$(destination_dir)/c/0")
+        end
     else
         @assert format == "sparse"
-        ind_type = julia_type_from_files_eltype(String(json["indtype"]))
-        nzind_path = "$(source_base).nzind"
-        nnz_int = Int(div(filesize(nzind_path), sizeof(ind_type)))
+        eltype_name, indtype_name = PackedFormat.parse_sparse_descriptor(json, "nzind")
+        if is_string_eltype(eltype_name)
+            # Sparse string vectors round-trip through `set_vector!`; no current writer produces this layout, but the
+            # reader supports it for future-proofing.
+            set_vector!(destination, axis, name, get_vector(source, axis, name))  # UNTESTED
+            return nothing  # UNTESTED
+        end
+        ind_type = julia_type_from_files_eltype(indtype_name)
+        element_type = julia_type_from_files_eltype(eltype_name)
+        nzind_descriptor = get(json, "nzind", nothing)
+        nzval_descriptor = get(json, "nzval", nothing)
+        nnz_int = sparse_component_count(nzind_descriptor, source_base, "nzind", ind_type)
+
         vector_group = Zarr.zgroup(parent_group, name)
-        ZarrFormat.dense_zcreate(ind_type, vector_group, "nzind", false, (nnz_int,))
-        hardlink_v3_chunk(nzind_path, "$(destination_dir)/nzind/c/0")
-        nzval_path = "$(source_base).nzval"
-        if isfile(nzval_path)
-            ZarrFormat.dense_zcreate(element_type, vector_group, "nzval", false, (nnz_int,))
-            hardlink_v3_chunk(nzval_path, "$(destination_dir)/nzval/c/0")
+        link_files_to_zarr_sparse_component(
+            vector_group,
+            "nzind",
+            ind_type,
+            nnz_int,
+            nzind_descriptor,
+            "$(source_base).nzind",
+            "$(destination_dir)/nzind",
+        )
+        if has_files_sparse_component(source_base, "nzval", nzval_descriptor)
+            link_files_to_zarr_sparse_component(
+                vector_group,
+                "nzval",
+                element_type,
+                nnz_int,
+                nzval_descriptor,
+                "$(source_base).nzval",
+                "$(destination_dir)/nzval",
+            )
         end
     end
     return nothing
@@ -398,46 +646,164 @@ function files_matrix_to_zarr(
 )::Nothing
     json = read_json_dict("$(files_path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json")
     format = json["format"]
-    eltype_name = String(json["eltype"])
-
-    if is_string_eltype(eltype_name)
-        set_matrix!(
-            destination,
-            rows_axis,
-            columns_axis,
-            name,
-            get_matrix(source, rows_axis, columns_axis, name);
-            relayout = false,
-        )
-        return nothing
-    end
 
     parent_group = ZarrFormat.columns_axis_group(destination, rows_axis, columns_axis)
-    element_type = julia_type_from_files_eltype(eltype_name)
     source_base = "$(files_path)/matrices/$(rows_axis)/$(columns_axis)/$(name)"
     destination_dir = "$(zarr_path)/matrices/$(rows_axis)/$(columns_axis)/$(name)"
     n_rows = axis_length(source, rows_axis)
     n_columns = axis_length(source, columns_axis)
 
     if format == "dense"
-        ZarrFormat.dense_zcreate(element_type, parent_group, name, false, (n_rows, n_columns))
-        hardlink_v3_chunk("$(source_base).data", "$(destination_dir)/c/0/0")
+        eltype_name = String(json["eltype"])
+        if is_string_eltype(eltype_name)
+            set_matrix!(
+                destination,
+                rows_axis,
+                columns_axis,
+                name,
+                get_matrix(source, rows_axis, columns_axis, name);
+                relayout = false,
+            )
+            return nothing
+        end
+        element_type = julia_type_from_files_eltype(eltype_name)
+        if get(json, "packed", false) === true
+            create_files_to_zarr_packed_dense(
+                parent_group,
+                name,
+                element_type,
+                (n_rows, n_columns),
+                json,
+                "$(source_base).shard",
+                "$(destination_dir)/c/0/0",
+            )
+        else
+            ZarrFormat.dense_zcreate(element_type, parent_group, name, false, (n_rows, n_columns))
+            hardlink_v3_chunk("$(source_base).data", "$(destination_dir)/c/0/0")
+        end
     else
         @assert format == "sparse"
-        ind_type = julia_type_from_files_eltype(String(json["indtype"]))
-        colptr_path = "$(source_base).colptr"
-        rowval_path = "$(source_base).rowval"
-        nnz_int = Int(div(filesize(rowval_path), sizeof(ind_type)))
-        matrix_group = Zarr.zgroup(parent_group, name)
-        ZarrFormat.dense_zcreate(ind_type, matrix_group, "colptr", false, (n_columns + 1,))
-        hardlink_v3_chunk(colptr_path, "$(destination_dir)/colptr/c/0")
-        ZarrFormat.dense_zcreate(ind_type, matrix_group, "rowval", false, (nnz_int,))
-        hardlink_v3_chunk(rowval_path, "$(destination_dir)/rowval/c/0")
-        nzval_path = "$(source_base).nzval"
-        if isfile(nzval_path)
-            ZarrFormat.dense_zcreate(element_type, matrix_group, "nzval", false, (nnz_int,))
-            hardlink_v3_chunk(nzval_path, "$(destination_dir)/nzval/c/0")
+        eltype_name, indtype_name = PackedFormat.parse_sparse_descriptor(json, "rowval")
+        if is_string_eltype(eltype_name)
+            # Sparse string matrices round-trip through `set_matrix!`; no current writer produces this layout, but the
+            # reader supports it for future-proofing.
+            set_matrix!(  # UNTESTED
+                destination,
+                rows_axis,
+                columns_axis,
+                name,
+                get_matrix(source, rows_axis, columns_axis, name);
+                relayout = false,
+            )
+            return nothing  # UNTESTED
         end
+        ind_type = julia_type_from_files_eltype(indtype_name)
+        element_type = julia_type_from_files_eltype(eltype_name)
+        colptr_descriptor = get(json, "colptr", nothing)
+        rowval_descriptor = get(json, "rowval", nothing)
+        nzval_descriptor = get(json, "nzval", nothing)
+        nnz_int = sparse_component_count(rowval_descriptor, source_base, "rowval", ind_type)
+
+        matrix_group = Zarr.zgroup(parent_group, name)
+        link_files_to_zarr_sparse_component(
+            matrix_group,
+            "colptr",
+            ind_type,
+            n_columns + 1,
+            colptr_descriptor,
+            "$(source_base).colptr",
+            "$(destination_dir)/colptr",
+        )
+        link_files_to_zarr_sparse_component(
+            matrix_group,
+            "rowval",
+            ind_type,
+            nnz_int,
+            rowval_descriptor,
+            "$(source_base).rowval",
+            "$(destination_dir)/rowval",
+        )
+        if has_files_sparse_component(source_base, "nzval", nzval_descriptor)
+            link_files_to_zarr_sparse_component(
+                matrix_group,
+                "nzval",
+                element_type,
+                nnz_int,
+                nzval_descriptor,
+                "$(source_base).nzval",
+                "$(destination_dir)/nzval",
+            )
+        end
+    end
+    return nothing
+end
+
+# Resolve the source-side per-component element count from the descriptor's `n_elements` (v1.1) or the flat-file size
+# (v1.0 fallback). Mirrors the logic FilesDaf's reader uses in `open_sparse_component`.
+function sparse_component_count(
+    descriptor::Maybe{AbstractDict},
+    source_base::AbstractString,
+    component::AbstractString,
+    ::Type{T},
+)::Int where {T}
+    if descriptor isa AbstractDict && haskey(descriptor, "n_elements")
+        return Int(descriptor["n_elements"])
+    end
+    return Int(div(filesize("$(source_base).$(component)"), sizeof(T)))  # UNTESTED
+end
+
+# Whether the FilesDaf source has a stored value for the named sparse component, considering both the flat
+# (`<base>.<component>`) and packed (`<base>.<component>.shard`) on-disk paths. Mirrors FilesDaf's
+# `has_sparse_component`. The descriptor is consulted only as a hint; the file system is authoritative.
+function has_files_sparse_component(  # FLAKY TESTED
+    source_base::AbstractString,
+    component::AbstractString,
+    descriptor::Maybe{AbstractDict},  # NOLINT
+)::Bool
+    return isfile("$(source_base).$(component)") || isfile("$(source_base).$(component).shard")
+end
+
+# Build the destination ZArray for a packed dense FilesDaf source and hard-link the source `.shard` to the
+# destination's chunk-key path. The destination metadata reuses the source's `chunk_shape` / codec so the linked
+# bytes decode unchanged.
+function create_files_to_zarr_packed_dense(
+    group::Zarr.ZGroup,
+    name::AbstractString,
+    ::Type{T},
+    shape::NTuple{N, Int},
+    json::AbstractDict,
+    source_shard_path::AbstractString,
+    destination_chunk_path::AbstractString,
+)::Nothing where {T, N}
+    chunk_shape = NTuple{N, Int}(json["chunk_shape"])  # NOJET
+    codec = PackedFormat.PackedCodec(Symbol(json["compression"]), Int(json["compression_level"]))
+    bytes_bytes_codecs = PackedFormat.v3_bytes_codecs_for(codec, T)
+    ZarrFormat.sharded_zcreate(T, group, name, shape, chunk_shape, bytes_bytes_codecs)
+    hardlink_v3_chunk(source_shard_path, destination_chunk_path)
+    return nothing
+end
+
+# Hard-link a single sparse-component blob from a FilesDaf source into the matching Zarr destination sub-array.
+# Routes flat (`<source_base>.<component>`) to a flat single-chunk-uncompressed ZArray and packed
+# (`<source_base>.<component>.shard`) to a single-shard sharded ZArray with the source's codec.
+function link_files_to_zarr_sparse_component(
+    parent_group::Zarr.ZGroup,
+    component::AbstractString,
+    ::Type{T},
+    n_elements::Int,
+    descriptor::Maybe{AbstractDict},
+    source_flat_path::AbstractString,
+    destination_dir::AbstractString,
+)::Nothing where {T}
+    if descriptor isa AbstractDict && get(descriptor, "packed", false) === true
+        chunk_shape = (Int(descriptor["chunk_shape"][1]),)
+        codec = PackedFormat.PackedCodec(Symbol(descriptor["compression"]), Int(descriptor["compression_level"]))
+        bytes_bytes_codecs = PackedFormat.v3_bytes_codecs_for(codec, T)
+        ZarrFormat.sharded_zcreate(T, parent_group, component, (n_elements,), chunk_shape, bytes_bytes_codecs)
+        hardlink_v3_chunk("$(source_flat_path).shard", "$(destination_dir)/c/0")
+    else
+        ZarrFormat.dense_zcreate(T, parent_group, component, false, (n_elements,))
+        hardlink_v3_chunk(source_flat_path, "$(destination_dir)/c/0")
     end
     return nothing
 end

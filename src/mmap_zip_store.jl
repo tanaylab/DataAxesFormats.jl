@@ -109,6 +109,7 @@ export MmapZipStore
 export patch_mmap_zip_entry_crc!
 export remove_entries_from_central_directory!
 export reserve_mmap_zip_entry!
+export shrink_mmap_zip_entry!
 export try_mmap_entry_as
 
 using TanayLabUtilities
@@ -968,6 +969,67 @@ function patch_mmap_zip_entry_crc!(store::MmapZipStore, key::AbstractString)::No
     entry.crc32 = computed_crc32
     write_little_endian_uint32!(store.file_mmap, Int(entry.local_file_header_offset) + 14 + 1, computed_crc32)
     write_little_endian_uint32!(store.file_mmap, Int(entry.central_directory_offset) + 16 + 1, computed_crc32)
+    return nothing
+end
+
+"""
+    shrink_mmap_zip_entry!(
+        store::MmapZipStore,
+        key::AbstractString,
+        new_data_size::Integer,
+    )::Nothing
+
+Shrink the most recently reserved entry to `new_data_size` bytes, reclaiming the slack from the
+upper-bound size passed to [`reserve_mmap_zip_entry!`](@ref). Patches `compressed_size` and
+`uncompressed_size` in the in-memory `ZipEntry`, the local-file-header ZIP64 extra, and the
+central-directory ZIP64 extra; rewrites the central directory at the new (smaller) data-end offset
+and `ftruncate`s the file down. No-op when `new_data_size` equals the entry's current size.
+
+Asserts the entry is the last in the archive — no other appends or shrinks may have happened
+between [`reserve_mmap_zip_entry!`](@ref) and this call. Crash recovery is unchanged: the
+placeholder CRC32 set by the reserve still trips `entry_is_valid` and rolls the entry back
+regardless of whether the shrink ran.
+
+Typically pairs with [`patch_mmap_zip_entry_crc!`](@ref) — call this first to set the entry's final
+size, then patch the CRC over the now-shrunken data region.
+"""
+function shrink_mmap_zip_entry!(store::MmapZipStore, key::AbstractString, new_data_size::Integer)::Nothing
+    @assert store.is_writable
+    entry_index = store.name_to_index[key]
+    @assert entry_index == length(store.entries)
+    entry = store.entries[entry_index]
+    new_data_size_u64 = UInt64(new_data_size)
+    @assert new_data_size_u64 <= entry.compressed_size
+    if new_data_size_u64 == entry.compressed_size
+        return nothing
+    end
+
+    entry.compressed_size = new_data_size_u64
+    entry.uncompressed_size = new_data_size_u64
+
+    name_length = sizeof(entry.name)
+    local_extra_position = Int(entry.local_file_header_offset) + LOCAL_FILE_HEADER_FIXED_SIZE + name_length
+    write_little_endian_uint64!(store.file_mmap, local_extra_position + 4 + 1, new_data_size_u64)
+    write_little_endian_uint64!(store.file_mmap, local_extra_position + 12 + 1, new_data_size_u64)
+
+    new_central_directory_offset = entry.data_offset + new_data_size_u64
+    central_directory_size = store.central_directory_size
+    new_file_size =
+        new_central_directory_offset + central_directory_size + UInt64(TRAILING_END_OF_CENTRAL_DIRECTORY_REGION_SIZE)
+
+    commit_buffer = Vector{UInt8}(undef, Int(central_directory_size) + TRAILING_END_OF_CENTRAL_DIRECTORY_REGION_SIZE)
+    write_central_directory_and_eocd!(
+        commit_buffer,
+        store.entries,
+        new_central_directory_offset,
+        central_directory_size,
+    )
+
+    resize_file_overlay!(store, new_file_size)
+    @inbounds copyto!(store.file_mmap, Int(new_central_directory_offset) + 1, commit_buffer, 1, length(commit_buffer))
+
+    store.central_directory_offset = new_central_directory_offset
+    populate_central_directory_offsets!(store.entries, store.central_directory_offset)
     return nothing
 end
 

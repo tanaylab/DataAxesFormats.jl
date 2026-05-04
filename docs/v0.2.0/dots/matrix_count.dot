@@ -1,0 +1,74 @@
+digraph {
+rankdir = LR
+node [ shape = box, fontname = "Sans-Serif" ]
+fontname = "Sans-Serif"
+fontsize = 28
+labeljust = "l"
+
+subgraph cluster_all {
+label = "MATRIX COUNT"
+
+"Matrix_values" [ shape = doubleoctagon, label = < MatrixState<sub><i>values</i></sub>&nbsp;&nbsp;<br/> > ]
+
+"Vector_data" [ label = < VectorState<i><sub>values</sub>or&nbsp;<sub>axis</sub></i>&nbsp;&nbsp;<br/> > ]
+
+"Vector_other_values" [ label = <
+VectorState<i><sub>values&nbsp;</sub>or&nbsp;<sub>axis</sub></i>&nbsp;&nbsp;
+<br/>&nbsp;<br/>
+CountBy
+<br/>&nbsp;<br/>
+VectorState<sub><i>other values</i></sub>&nbsp;&nbsp;&nbsp;
+<br/>&nbsp;<br/>
+> ]
+
+"MC1" [ style = dotted, fontname = "Courier", label = <
+* matrix_property<br/><font color="gray">|| default_value</font><br/>@- row_value<br/>&nbsp;<br/>CountBy(matrix_property)<br/><font color="gray">|&gt; IfMissing(default_value)</font><br/>|&gt; RowIsEqual(row_value)
+> ]
+"MC1_" [ shape = cds, label = "lookup square matrix row other values&nbsp;&nbsp;" ]
+"MC1":e -> "MC1_":w
+"MC1_":e -> "Vector_other_values":sw
+
+"MC2" [ style = dotted, fontname = "Courier", label = <
+* matrix_property<br/><font color="gray">|| default_value</font><br/>@| column_value<br/>&nbsp;<br/>CountBy(matrix_property)<br/><font color="gray">|&gt; IfMissing(default_value)</font><br/>|&gt; ColumnIsEqual(column_value)
+> ]
+"MC2_" [ shape = cds, label = "lookup square matrix column other values&nbsp;&nbsp;" ]
+"MC2":e -> "MC2_":w
+"MC2_":e -> "Vector_other_values"
+
+"MC3" [ style = dotted, fontname = "Courier", label = <
+* matrix_property<br/><font color="gray">|| default_value</font><br/>@ columns_axis = column_value<br/>&nbsp;<br/>CountBy(matrix_property)<br/><font color="gray">|&gt; IfMissing(default_value)</font><br/>|&gt; Axis(columns_axis) |&gt; IsEqual(column_value)
+> ]
+"MC3_" [ shape = cds, label = "lookup matrix column other values&nbsp;&nbsp;" ]
+"MC3":e -> "MC3_":w
+"MC3_":e -> "Vector_other_values"
+
+"MC4" [ style = dotted, fontname = "Courier", label = <
+* vector_property<br/><font color="gray">|| default_value</font><br/>&nbsp;<br/>CountBy(vector_property)<br/><font color="gray">|&gt; IfMissing(default_value)</font>
+> ]
+"MC4_" [ shape = cds, label = "lookup vector other values&nbsp;&nbsp;" ]
+"MC4":e -> "MC4_":w
+"MC4_":e -> "Vector_other_values"
+
+"MC5" [ shape = component, label = "VECTOR OPERATION", URL = "#../DataAxesFormats.Queries.VECTOR_OPERATION" ]
+"Vector_other_values" -> "MC5" [ constraint = false ]
+"MC5" -> "Vector_other_values" [ constraint = false ]
+
+"MC1_" -> "MC5" [ style = invis ]
+
+"MC6_" [ shape = cds, label = < compute count matrix <sub><i>implicit</i></sub>&nbsp;&nbsp;&nbsp;&nbsp;<br/>&nbsp; > ]
+"Vector_other_values" -> "MC6_":w
+
+"MC7" [ shape = component, label = "VECTOR AS AXIS", URL = "#../DataAxesFormats.Queries.VECTOR_AS_AXIS" ]
+"Vector_other_values" -> "MC7":w
+"MC7":s -> "MC6_":n [ constraint = false ]
+
+}
+
+"Vector_data" -> "MC1":w
+"Vector_data" -> "MC2":w
+"Vector_data" -> "MC3":w
+"Vector_data" -> "MC4":w
+
+"MC6_":e -> "Matrix_values":w
+
+}

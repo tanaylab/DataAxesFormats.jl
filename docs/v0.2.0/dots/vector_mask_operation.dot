@@ -1,0 +1,88 @@
+digraph {
+rankdir = LR
+node [ shape = box, fontname = "Sans-Serif" ]
+fontname = "Sans-Serif"
+fontsize = 28
+labeljust = "l"
+
+"Vector_base_mask_values" [ label = <
+VectorState<sub><i>base axis</i></sub>
+<br/>&nbsp;<br/>
+BeginMask <sub><i>or&nbsp;</i></sub> BeginNegatedMask
+<br/>&nbsp;<br/>
+VectorState<sub><i>base mask values</i></sub>
+<br/>&nbsp;<br/>
+> ]
+
+"Vector_final_mask_values" [ label = <
+VectorState<sub><i>base axis</i></sub>
+<br/>&nbsp;<br/>
+BeginMask <sub><i>or&nbsp;</i></sub> BeginNegatedMask
+<br/>&nbsp;<br/>
+VectorState<sub><i>final mask values</i></sub>
+<br/>&nbsp;<br/>
+> ]
+
+subgraph cluster_all {
+label = "VECTOR MASK OPERATION"
+
+"Vector_mask_operands" [ label = <
+VectorState<sub><i>base axis</i></sub>
+<br/>&nbsp;<br/>
+BeginMask <sub><i>or&nbsp;</i></sub> BeginNegatedMask
+<br/>&nbsp;<br/>
+VectorState<sub><i>base mask values</i></sub>
+<br/>&nbsp;<br/>
+And<sub><i>or&nbsp;</i></sub>Or<sub><i>or&nbsp;</i></sub>Xor<font color="gray">Not</font>
+<br/>&nbsp;<br/>
+VectorState<sub><i>other mask values</i></sub>
+<br/>&nbsp;<br/>
+> ]
+
+"VMO1" [ style = dotted, fontname = "Courier", label = <
+&amp;<sub><i>or&nbsp;</i></sub>|<sub><i>or&nbsp;</i></sub>^ <font color="gray">!</font> matrix_property<br/>&nbsp;<br/><font color="gray">|| default_value</font><br/>@- row_value<br/>&nbsp;<br/>And<sub><i>or&nbsp;</i></sub>Or<sub><i>or&nbsp;</i></sub>Xor<font color="gray">Not</font>(matrix_property)<br/>&nbsp;<br/><font color="gray">|&gt; IfMissing(default_value)</font><br/>|&gt; RowIsEqual(row_value)
+> ]
+"VMO1_" [ shape = cds, label = "lookup square matrix row other mask&nbsp;&nbsp;" ]
+"VMO1":e -> "VMO1_":w
+"VMO1_":e -> "Vector_mask_operands":sw
+
+"VMO2" [ style = dotted, fontname = "Courier", label = <
+&amp;<sub><i>or&nbsp;</i></sub>|<sub><i>or&nbsp;</i></sub>^ <font color="gray">!</font> matrix_property<br/>&nbsp;<br/><font color="gray">|| default_value</font><br/>@| column_value<br/>&nbsp;<br/>And<sub><i>or&nbsp;</i></sub>Or<sub><i>or&nbsp;</i></sub>Xor<font color="gray">Not</font>(matrix_property)<br/>&nbsp;<br/><font color="gray">|&gt; IfMissing(default_value)</font><br/>|&gt; ColumnIsEqual(column_value)
+> ]
+"VMO2_" [ shape = cds, label = "lookup square matrix column other mask&nbsp;&nbsp;" ]
+"VMO2":e -> "VMO2_":w
+"VMO2_":e -> "Vector_mask_operands"
+
+"VMO3" [ style = dotted, fontname = "Courier", label = <
+&amp;<sub><i>or&nbsp;</i></sub>|<sub><i>or&nbsp;</i></sub>^ <font color="gray">!</font> matrix_property<br/>&nbsp;<br/><font color="gray">|| default_value</font><br/>@ columns_axis = column_value<br/>&nbsp;<br/>And<sub><i>or&nbsp;</i></sub>Or<sub><i>or&nbsp;</i></sub>Xor<font color="gray">Not</font>(matrix_property)<br/>&nbsp;<br/><font color="gray">|&gt; IfMissing(default_value)</font><br/>|&gt; Axis(columns_axis) |&gt; IsEqual(column_value)
+> ]
+"VMO3_" [ shape = cds, label = "lookup matrix column other mask&nbsp;&nbsp;" ]
+"VMO3":e -> "VMO3_":w
+"VMO3_":e -> "Vector_mask_operands"
+
+"VMO4" [ style = dotted, fontname = "Courier", label = <
+&amp;<sub><i>or&nbsp;</i></sub>|<sub><i>or&nbsp;</i></sub>^ <font color="gray">!</font> vector_property<br/>&nbsp;<br/><font color="gray">|| default_value</font><br/>&nbsp;<br/>And<sub><i>or&nbsp;</i></sub>Or<sub><i>or&nbsp;</i></sub>Xor<font color="gray">Not</font>(vector_property)<br/>&nbsp;<br/><font color="gray">|&gt; IfMissing(default_value)</font>
+> ]
+"VMO4_" [ shape = cds, label = "lookup vector other mask&nbsp;&nbsp;" ]
+"VMO4":e -> "VMO4_":w
+"VMO4_":e -> "Vector_mask_operands"
+
+"VMO1_" -> "VMO5" [ style = invis ]
+
+"VMO5" [ shape = component, label = "VECTOR OPERATION", URL = "#../DataAxesFormats.Queries.VECTOR_OPERATION" ]
+"Vector_mask_operands" -> "VMO5" [ constraint = false ]
+"VMO5" -> "Vector_mask_operands" [ constraint = false ]
+
+"VMO6_" [ shape = cds, label = < compute mask operation <sub><i>implicit</i></sub>&nbsp;&nbsp;&nbsp;&nbsp;<br/>&nbsp; > ]
+"Vector_mask_operands" -> "VMO6_":w
+
+}
+
+"Vector_base_mask_values" -> "VMO1":w
+"Vector_base_mask_values" -> "VMO2":w
+"Vector_base_mask_values" -> "VMO3":w
+"Vector_base_mask_values" -> "VMO4":w
+
+"VMO6_":e -> "Vector_final_mask_values"
+
+}

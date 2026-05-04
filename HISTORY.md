@@ -1,5 +1,164 @@
 # (unreleased)
 
+  - `zarr_convert.jl` hard-links packed properties between
+    `FilesDaf` and `ZarrDaf` in both directions, exploiting the
+    byte-identity between `FilesDaf` `<name>.shard` (or
+    per-component shard) and `ZarrDaf`'s single-shard `c/0[/0]`
+    chunk file under the same codec / `chunk_shape`. The hard-link
+    path fires only when the source's on-disk encoding is
+    byte-identical to what the destination would write right now
+    (matching `chunks_for(...)` and `compressor_for()`). Sources
+    whose chunk_shape, codec, or sharding layout differ — e.g.
+    foreign multi-chunk Zarr arrays, single-shard arrays whose
+    inner chunks are not the canonical `(rows_per_tile, 1)` shape,
+    or arrays compressed with a non-default codec — fall back to a
+    re-encode through the standard writer: streaming column-by-column
+    for dense matrices (bounded RAM), eager `set_*!` for vectors and
+    sparse properties.
+  - JSON sidecar builders (`component_descriptor_json`,
+    `sparse_vector_json_bytes`, `sparse_matrix_json_bytes`) accept
+    explicit per-component codec arguments, defaulting to
+    `compressor_for()`. `zarr_convert` passes the source's codec
+    so a hard-linked `.shard` decodes correctly even when the
+    destination's global compressor differs from the source's.
+    New `PackedFormat` helpers `is_zarr_array_packed`,
+    `packed_codec_from_zarray`, and `packed_codec_from_v3_codec`
+    map a Zarr `ShardingCodec` instance back to the `PackedCodec`
+    parameters that produced it.
+  - `LazySparseMatrix` gains explicit `TanayLabUtilities.colptr` /
+    `rowval` / `nzval` methods so it survives the FilesFormat /
+    ZipFormat sparse write paths (those helpers have no generic
+    `AbstractSparseMatrixCSC` fallback, only per-type methods for
+    `SparseMatrixCSC` / `NamedArray` / `SparseArrays.ReadOnly`).
+    Each delegates through the materialised cache to a concrete
+    `Vector`. `SparseArrays.rowvals` / `nonzeros` / `getcolptr` /
+    `nnz` / `SparseMatrixCSC(lazy)` were already wired in earlier;
+    these are the Daf-internal helpers that complete the AbstractSparseMatrixCSC
+    behaviour for the cross-format conversion path.
+  - `ZipDaf` ↔ `FilesDaf` byte-equivalence: bundling a packed
+    `FilesDaf` directory into a zip (`zip -r foo.daf.zip foo.daf/`)
+    produces a valid `ZipDaf`, and conversely unzipping a packed
+    `ZipDaf` produces a valid `FilesDaf` (the `metadata.zip` /
+    `axes/metadata.json` sidecars are rebuilt on first writable
+    open). Same equivalence for `ZarrDaf` directory ↔ zip
+    archive — the per-property `zarr.json` and chunk files are
+    byte-identical, and the `DirectoryStore`-only `.zmetadata`
+    consolidated sidecar rebuilds via
+    `ensure_consolidated_metadata!` on first writable open of an
+    unbundled tree.
+  - `ZipDaf` honors the `packed` flag end-to-end: dense / sparse
+    `set_*!` and the streaming `empty_dense_matrix!` write packed
+    `<name>.shard` (or per-component shard) entries directly into
+    the outer zip via `MmapShardRegion` + `IncrementalShardWriter`
+    (reserve the worst-case upper bound, shrink on finalize, patch
+    CRC). The on-disk `.shard` bytes are byte-identical to what
+    `FilesDaf` writes for the same content, so unzipping a packed
+    `ZipDaf` produces a `FilesDaf` directory whose `.shard` files
+    can be hard-linked.
+  - `ZipDaf` adopts the v1.1 sparse JSON schema (per-component
+    descriptors with `eltype` / `n_elements` and optional `packed`
+    / `chunk_shape` / `compression` / `compression_level` /
+    `index_location`), matching `FilesDaf` and ending the
+    schema-shape drift between the two formats. The reader
+    recognises both v1.0 (top-level `eltype` / `indtype`) and v1.1
+    (per-component) sparse layouts via `parse_sparse_descriptor`.
+    Packed sparse `format_get_matrix` returns a `LazySparseMatrix`
+    over the packed `rowval` / `nzval` sources, matching
+    `FilesDaf` and `ZarrDaf`.
+  - JSON sidecar bytes builders moved from `FilesFormat` into
+    `PackedFormat`: `dense_array_json_bytes`,
+    `packed_array_json_bytes`, `sparse_vector_json_bytes`,
+    `sparse_matrix_json_bytes`, plus `parse_sparse_descriptor` /
+    `eltype_for_descriptor` / `component_descriptor_json`. Both
+    `FilesDaf` and `ZipDaf` route their write paths through these
+    builders so the on-disk JSON shape is identical across
+    backends. `open_packed_dense_array` and `open_shard_as_zarray`
+    each gained a bytes-taking overload alongside the path-taking
+    one, so backends that already hold mmap'd shard bytes (the
+    outer-zip read path) avoid an unnecessary round-trip through
+    the filesystem.
+  - Add `LazySparse` module with the `LazySparseMatrix{Tv, Ti}`
+    skeleton and the `SparseSelection` family (`AllOf`, `RangeOf`,
+    `IndicesOf`, `MaskOf`). The matrix wraps the in-memory `colptr`
+    plus the per-property `rowval` / `nzval` `Zarr.ZArray` sources
+    produced by the packed read paths; row/column selections start
+    as `AllOf`. Slicing and materialisation arrive in later phases.
+  - `LazySparseMatrix` slicing forms `lazy[:, range]` /
+    `lazy[range, :]` / `lazy[:, indices]` / `lazy[mask, :]` each
+    return a fresh `LazySparseMatrix` whose row / column selection
+    composes with the prior selection (`AllOf` collapses,
+    `RangeOf ∘ RangeOf` stays a `RangeOf`, `MaskOf ∘ MaskOf` stays
+    a `MaskOf`, every other combination becomes `IndicesOf`).
+    Slicing rebinds selections only; the `full_colptr` vector and
+    the `rowval` / `nzval` `ZArray` sources are shared by reference
+    and never read.
+  - `LazySparseMatrix` materialisation: `SparseArrays.rowvals` /
+    `nonzeros` / `getcolptr` / `nnz`, `SparseMatrixCSC(lazy)` /
+    `convert(SparseMatrixCSC, lazy)`, and any generic
+    `AbstractSparseMatrixCSC` operation that reaches those
+    primitives, materialise the current slice into a
+    `SparseMatrixCSC{Tv, Ti}` cached in `matrix.materialized`.
+    The materialiser walks the `column_select` iterator, decompresses
+    each original column's `rowval` / `nzval` slabs through the
+    `ZArray` sources, and filters rows through an `O(1)`-per-call
+    `original_to_new` lookup (a `Dict` for `IndicesOf`, a
+    cumulative-sum table for `MaskOf`). The `colptr` field renamed
+    to `full_colptr` so `lazy.full_colptr` (original, unsliced)
+    no longer shadows `SparseArrays.getcolptr(lazy)` (sliced,
+    materialised). Scalar `lazy[i, j]` decompresses the target
+    column's `rowval` slab on the fly without populating the cache.
+  - `format_get_matrix` returns a `LazySparseMatrix` for packed
+    sparse properties on every backend (`FilesDaf`, `ZipDaf`,
+    `ZarrDaf`-Directory, `ZarrDaf`-Zip). The decision to wrap is
+    per-property: a sparse matrix whose `rowval` or `nzval`
+    components are stored chunked goes through the lazy wrapper;
+    all-flat-component sparse matrices stay on the eager
+    `SparseMatrixCSC` path with mmap-backed components. The lazy
+    wrapper's `rowval_source` / `nzval_source` field type is
+    `AbstractVector{T}` so a mixed-flat/packed property can hold
+    an mmap'd `Vector{T}` for one component and a `ZArray{T, 1}`
+    for the other; `read_chunk_range` dispatches to a zero-copy
+    `view` for `DenseVector` sources and to eager-decompress
+    indexing for chunked sources. Slicing through the public
+    `NamedArray` wrapper (which `get_matrix` returns) flows down
+    to `LazySparseMatrix.getindex` and produces a fresh
+    `NamedArray` over a `LazySparseMatrix` without touching the
+    chunked storage.
+  - `FilesDaf` packs every above-threshold component as a single
+    `<name>.<component>.shard` v3 sharded-array file: numeric dense
+    properties (`<name>.shard`), the integer index components of
+    sparse properties (`<name>.colptr.shard`, `<name>.rowval.shard`,
+    `<name>.nzind.shard`), and the string text of dense or sparse
+    string properties (the dense string flat path stays at
+    `<name>.txt`; packed dense and sparse string values use the same
+    `VLenUTF8` encoding inside a `ShardingCodec`). Each per-property
+    descriptor in the sparse JSON sidecar carries its own
+    `packed` / `chunk_shape` / codec parameters so each component is
+    independently flat or packed.
+  - `FilesDaf` `empty_dense_matrix!` with `packed = true` streams
+    columns into a single `<name>.shard` file via the same incremental
+    shard writer the `ZarrDaf` streaming path uses; the user's
+    column-by-column fill is sliced into row-tile-sized inner chunks
+    matching the byte-target heuristic, so streamed and non-streaming
+    writes produce the same on-disk inner-chunk shape.
+  - `FilesDaf` packed dense vectors and matrices write to a single
+    per-property `<name>.shard` file (Zarr v3 sharded-array bytes).
+    The on-disk bytes are byte-identical to what `ZarrDaf` writes for
+    the same content under the same codec / chunk shape, so
+    `zarr_convert.jl` can hard-link across backends. Below-threshold
+    properties keep the existing flat `<name>.data` mmap path.
+  - `FilesDaf` / `ZipDaf` on-disk format minor version bumped from
+    `[1,0]` to `[1,1]`. The JSON descriptor for sparse properties now
+    carries per-property descriptors (`colptr` / `rowval` / `nzval`,
+    or `nzind` / `nzval` for vectors) instead of top-level
+    `eltype` / `indtype` keys. Binary data files are unchanged. The
+    reader accepts both shapes; the writer always emits v1.1. Old
+    code refuses to read v1.1 files (the version-mismatch error
+    message names `1.1`).
+  - `ZarrDaf`-zip packed shards reclaim per-shard upper-bound slack at
+    finalize via `shrink_mmap_zip_entry!`; on-disk size now matches the
+    actual encoded data plus the index slab plus ZIP64 extra-field
+    bytes.
   - Add `PackedFormat` module with the configuration globals for the upcoming
     packed (chunked + compressed) on-disk encoding (`DAF_PACKED_TARGET_CHUNK_KB`,
     `DAF_PACKED_COMPRESSION`, `DAF_PACKED_COMPRESSION_LEVEL`,

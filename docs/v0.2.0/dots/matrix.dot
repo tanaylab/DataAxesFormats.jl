@@ -1,0 +1,44 @@
+digraph {
+rankdir = LR
+node [ shape = box, fontname = "Sans-Serif" ]
+fontname = "Sans-Serif"
+fontsize = 28
+labeljust = "l"
+
+subgraph cluster_all {
+label = "MATRIX"
+
+"Matrix_values" [ shape = doubleoctagon, label = < MatrixState<sub><i>values</i></sub>&nbsp;&nbsp;<br/> > ]
+
+"Vector_data" [ label = < VectorState<i><sub>values</sub>or<sub>axis</sub></i>&nbsp;&nbsp;<br/> > ]
+
+"Matrix_axes" [ label = <
+VectorState<sub><i>rows axis</i></sub>&nbsp;&nbsp;&nbsp;
+<br/>&nbsp;<br/>
+VectorState<sub><i>columns axis</i></sub>&nbsp;&nbsp;&nbsp;
+<br/>&nbsp;<br/>
+> ]
+
+"M1" [ style = dotted, fontname = "Courier", label = <
+:: matrix_property<br/><font color="gray">|| default_value</font><br/>&nbsp;<br/>LookupMatrix(vector_property)<br/><font color="gray">|&gt; IfMissing(default_value)</font>
+> ]
+"M1_" [ shape = cds, label = "lookup matrix&nbsp;" ]
+"M1":e -> "M1_":w
+
+"Matrix_axes" -> "M1":w
+"M1_":e -> "Matrix_values"
+
+"M2" [ shape = component, label = "MATRIX COUNT", URL = "#../DataAxesFormats.Queries.MATRIX_COUNT" ]
+"Vector_data" -> "M2":w
+"Vector_data" -> "M1" [ style = invis ]
+"M2":e -> "Matrix_values"
+
+"M3" [ shape = component, label = "MATRIX OPERATION", URL = "#../DataAxesFormats.Queries.MATRIX_OPERATION" ]
+"Matrix_values" -> "M3" [ constraint = false ]
+"M3" -> "Matrix_values" [ constraint = false ]
+"M2" -> "M3" [ style = invis ]
+"M1" -> "M2" [ style = invis ]
+
+}
+
+}

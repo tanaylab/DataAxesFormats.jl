@@ -1,0 +1,34 @@
+digraph {
+rankdir = LR
+node [ shape = box, fontname = "Sans-Serif" ]
+fontname = "Sans-Serif"
+fontsize = 28
+labeljust = "l"
+
+"Matrix_values" [ label = < MatrixState<sub><i>values</i></sub>&nbsp;&nbsp;&nbsp;<br/> > ]
+
+"Vector_values" [ label = < VectorState<sub><i>values</i></sub>&nbsp;&nbsp;&nbsp;<br/> > ]
+
+subgraph cluster_all {
+label = "VECTOR FROM MATRIX"
+
+"VFM1" [ style = dotted, fontname = "Courier", label = <
+&gt;- Reduction <font color="gray">param value ...<br/>|| default_value</font><br/>&nbsp;<br/>ReduceToRow(Reduction(<font color="gray">param, value, ...</font>))<br/><font color="gray">|&gt; IfMissing(default_value)</font><br/>
+> ]
+"VFM1_" [ shape = cds, label = "reduce matrix to row&nbsp;&nbsp;" ]
+"VFM1":e -> "VFM1_":w
+
+"VFM2" [ style = dotted, fontname = "Courier", label = <
+&gt;| Reduction <font color="gray">param value ...<br/>|| default_value</font><br/>&nbsp;<br/>ReduceToColumn(Reduction(<font color="gray">param, value, ...</font>))<br/><font color="gray">|&gt; IfMissing(default_value)</font><br/>
+> ]
+"VFM2_" [ shape = cds, label = "reduce matrix to column&nbsp;&nbsp;" ]
+"VFM2":e -> "VFM2_":w
+
+}
+
+"Matrix_values" -> "VFM2":w
+"Matrix_values" -> "VFM1":w
+"VFM2_":e -> "Vector_values"
+"VFM1_":e -> "Vector_values"
+
+}

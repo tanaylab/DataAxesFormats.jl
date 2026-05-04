@@ -78,8 +78,14 @@ include("operations.jl")
 include("formats.jl")
 @reexport using .Formats
 
+include("mmap_zip_store.jl")
+@reexport using .MmapZipStores
+
 include("packed_format.jl")
 @reexport using .PackedFormat
+
+include("lazy_sparse.jl")
+@reexport using .LazySparse
 
 include("readers.jl")
 @reexport using .Readers
@@ -107,9 +113,6 @@ include("http_format.jl")
 
 include("h5df_format.jl")
 @reexport using .H5dfFormat
-
-include("mmap_zip_store.jl")
-@reexport using .MmapZipStores
 
 include("zip_files.jl")
 @reexport using .ZipFormat
