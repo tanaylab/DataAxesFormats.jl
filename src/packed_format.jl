@@ -960,9 +960,12 @@ function packed_delete_entry!(daf::PackedDaf, ::AbstractString)::Nothing
     return error("packed_delete_entry! not implemented for $(typeof(daf))")
 end
 
-# Register a JSON sidecar key in the format's secondary index so HTTP clients can enumerate properties without
-# fetching data files. `FilesDaf` appends the key to `metadata.zip`; `ZipDaf` is a no-op (the zip itself is the index).
-function packed_register_metadata!(daf::PackedDaf, ::AbstractString)::Nothing
+# Register a property's JSON descriptor in the format's consolidated index so HTTP clients can enumerate properties
+# without fetching data files. `key` is the property's logical relative key (e.g. `vectors/cell/batch`, no `.json`
+# suffix); `descriptor` is the JSON bytes that the corresponding sidecar holds (with or without a trailing newline).
+# `FilesDaf` appends one entry to `metadata.json` via byte surgery; `ZipDaf` is a no-op (the zip's central directory
+# is the index, and we strip any stale `metadata.json` entry on append — see `src/zip_files.jl`).
+function packed_register_metadata!(daf::PackedDaf, ::AbstractString, ::AbstractVector{UInt8})::Nothing
     return error("packed_register_metadata! not implemented for $(typeof(daf))")
 end
 
@@ -998,9 +1001,11 @@ function packed_format_write_dense_array!(
     chunk_shape::NTuple{N, Int},
 )::Nothing where {T, N}
     codec = compressor_for()
-    packed_write_bytes!(daf, "$(base_key).json", packed_array_json_bytes(T, chunk_shape, codec))
+    json_bytes = packed_array_json_bytes(T, chunk_shape, codec)
+    packed_write_bytes!(daf, "$(base_key).json", json_bytes)
     encoded = encode_packed_dense_array(data, chunk_shape, v3_bytes_codecs_for(codec, T), :end)
     packed_write_bytes!(daf, "$(base_key).shard", encoded)
+    packed_register_metadata!(daf, base_key, json_bytes)
     return nothing
 end
 
@@ -1022,15 +1027,13 @@ function packed_format_write_sparse_numeric_vector!(
     nzind_chunk_shape = chunks_for(packed, (nnz,), indtype(vector))
     nzval_chunk_shape = nzval_omitted ? nothing : chunks_for(packed, (nnz,), eltype(vector))
     base_key = "vectors/$(axis)/$(name)"
-    packed_write_bytes!(
-        daf,
-        "$(base_key).json",
-        sparse_vector_json_bytes(eltype(vector), indtype(vector), nnz; nzind_chunk_shape, nzval_chunk_shape),
-    )
+    json_bytes = sparse_vector_json_bytes(eltype(vector), indtype(vector), nnz; nzind_chunk_shape, nzval_chunk_shape)
+    packed_write_bytes!(daf, "$(base_key).json", json_bytes)
     packed_format_write_sparse_component!(daf, base_key, "nzind", nzind_vector, nzind_chunk_shape)
     if !nzval_omitted
         packed_format_write_sparse_component!(daf, base_key, "nzval", nzval_vector, nzval_chunk_shape)
     end
+    packed_register_metadata!(daf, base_key, json_bytes)
     return nothing
 end
 
@@ -1238,7 +1241,9 @@ function packed_format_get_empty_dense_vector!(
         return (Vector{T}(undef, Int(n_elements)), nothing)
     end
     base_key = "vectors/$(axis)/$(name)"
-    packed_write_bytes!(daf, "$(base_key).json", dense_array_json_bytes(T))
+    json_bytes = dense_array_json_bytes(T)
+    packed_write_bytes!(daf, "$(base_key).json", json_bytes)
+    packed_register_metadata!(daf, base_key, json_bytes)
     return (packed_reserve_typed_vector!(daf, "$(base_key).data", T, n_elements), Formats.MappedData)
 end
 
@@ -1249,15 +1254,16 @@ function packed_format_filled_empty_dense_vector!(
     filled::AbstractVector{T},
 )::Nothing where {T <: StorageReal}
     base_key = "vectors/$(axis)/$(name)"
-    json_key = "$(base_key).json"
-    if !packed_has_entry(daf, json_key)  # NOJET
+    if !packed_has_entry(daf, "$(base_key).json")  # NOJET
+        # The packed branch in `packed_format_get_empty_dense_vector!` defers JSON-write until fill time so the chunk
+        # shape can be picked from the actual `filled` size; route through `packed_format_write_dense_array!`, which
+        # writes the JSON, the shard, and registers metadata in one step.
         chunk_shape = chunks_for(true, size(filled), T)
         @assert chunk_shape !== nothing
         packed_format_write_dense_array!(daf, base_key, filled, chunk_shape)
     else
         packed_finalize_entry!(daf, "$(base_key).data")
     end
-    packed_register_metadata!(daf, json_key)
     return nothing
 end
 
@@ -1270,7 +1276,9 @@ function packed_format_get_empty_sparse_vector!(
     ::Type{I},
 )::Tuple{AbstractVector{I}, AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal, I <: StorageInteger}
     base_key = "vectors/$(axis)/$(name)"
-    packed_write_bytes!(daf, "$(base_key).json", sparse_vector_json_bytes(T, I, Int(nnz)))
+    json_bytes = sparse_vector_json_bytes(T, I, Int(nnz))
+    packed_write_bytes!(daf, "$(base_key).json", json_bytes)
+    packed_register_metadata!(daf, base_key, json_bytes)
     nzind_vector = packed_reserve_typed_vector!(daf, "$(base_key).nzind", I, nnz)
     nzval_vector = packed_reserve_typed_vector!(daf, "$(base_key).nzval", T, nnz)
     return (nzind_vector, nzval_vector, Formats.MappedData)
@@ -1280,7 +1288,6 @@ function packed_format_filled_empty_sparse_vector!(daf, axis::AbstractString, na
     base_key = "vectors/$(axis)/$(name)"
     packed_finalize_entry!(daf, "$(base_key).nzind")
     packed_finalize_entry!(daf, "$(base_key).nzval")
-    packed_register_metadata!(daf, "$(base_key).json")
     return nothing
 end
 
@@ -1299,12 +1306,14 @@ function packed_format_get_empty_dense_matrix!(
         return packed_format_streaming_dense_matrix(daf, rows_axis, columns_axis, name, T, nrows, ncols, chunk_shape)
     end
     base_key = "matrices/$(rows_axis)/$(columns_axis)/$(name)"
-    packed_write_bytes!(daf, "$(base_key).json", dense_array_json_bytes(T))
+    json_bytes = dense_array_json_bytes(T)
+    packed_write_bytes!(daf, "$(base_key).json", json_bytes)
+    packed_register_metadata!(daf, base_key, json_bytes)
     matrix = packed_reserve_typed_matrix!(daf, "$(base_key).data", T, nrows, ncols)
     return (matrix, Formats.MappedData)
 end
 
-function packed_format_filled_empty_dense_matrix!(
+function packed_format_filled_empty_dense_matrix!(  # FLAKY TESTED
     daf::PackedDaf,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
@@ -1317,7 +1326,6 @@ function packed_format_filled_empty_dense_matrix!(
     else
         packed_finalize_entry!(daf, "$(base_key).data")
     end
-    packed_register_metadata!(daf, "$(base_key).json")
     return nothing
 end
 
@@ -1337,7 +1345,9 @@ function packed_format_get_empty_sparse_matrix!(
     Maybe{Formats.CacheGroup},
 } where {T <: StorageReal, I <: StorageInteger}
     base_key = "matrices/$(rows_axis)/$(columns_axis)/$(name)"
-    packed_write_bytes!(daf, "$(base_key).json", sparse_matrix_json_bytes(T, I, Int(nnz), Int(n_columns)))
+    json_bytes = sparse_matrix_json_bytes(T, I, Int(nnz), Int(n_columns))
+    packed_write_bytes!(daf, "$(base_key).json", json_bytes)
+    packed_register_metadata!(daf, base_key, json_bytes)
     colptr_vector = packed_reserve_typed_vector!(daf, "$(base_key).colptr", I, n_columns + 1)
     rowval_vector = packed_reserve_typed_vector!(daf, "$(base_key).rowval", I, nnz)
     nzval_vector = packed_reserve_typed_vector!(daf, "$(base_key).nzval", T, nnz)
@@ -1354,7 +1364,6 @@ function packed_format_filled_empty_sparse_matrix!(
     packed_finalize_entry!(daf, "$(base_key).colptr")
     packed_finalize_entry!(daf, "$(base_key).rowval")
     packed_finalize_entry!(daf, "$(base_key).nzval")
-    packed_register_metadata!(daf, "$(base_key).json")
     return nothing
 end
 
@@ -1405,7 +1414,9 @@ function packed_format_streaming_dense_matrix(
         end
     finalizer = () -> begin
         finalize_shard!(writer)
-        packed_write_bytes!(daf, "$(base_key).json", packed_array_json_bytes(T, chunk_shape, codec))
+        json_bytes = packed_array_json_bytes(T, chunk_shape, codec)
+        packed_write_bytes!(daf, "$(base_key).json", json_bytes)
+        packed_register_metadata!(daf, base_key, json_bytes)
         return nothing
     end
     return (PackedDenseMatrix{T}(Int(nrows), Int(ncols), encoder; finalizer), nothing)
@@ -1431,24 +1442,22 @@ function packed_format_write_sparse_numeric_matrix!(
     rowval_chunk_shape = chunks_for(packed, (nnz,), indtype(matrix))
     nzval_chunk_shape = nzval_omitted ? nothing : chunks_for(packed, (nnz,), eltype(matrix))
     base_key = "matrices/$(rows_axis)/$(columns_axis)/$(name)"
-    packed_write_bytes!(
-        daf,
-        "$(base_key).json",
-        sparse_matrix_json_bytes(
-            eltype(matrix),
-            indtype(matrix),
-            nnz,
-            n_columns;
-            colptr_chunk_shape,
-            rowval_chunk_shape,
-            nzval_chunk_shape,
-        ),
+    json_bytes = sparse_matrix_json_bytes(
+        eltype(matrix),
+        indtype(matrix),
+        nnz,
+        n_columns;
+        colptr_chunk_shape,
+        rowval_chunk_shape,
+        nzval_chunk_shape,
     )
+    packed_write_bytes!(daf, "$(base_key).json", json_bytes)
     packed_format_write_sparse_component!(daf, base_key, "colptr", colptr_vector, colptr_chunk_shape)
     packed_format_write_sparse_component!(daf, base_key, "rowval", rowval_vector, rowval_chunk_shape)
     if !nzval_omitted
         packed_format_write_sparse_component!(daf, base_key, "nzval", nzval_vector, nzval_chunk_shape)
     end
+    packed_register_metadata!(daf, base_key, json_bytes)
     return nothing
 end
 

@@ -5,9 +5,10 @@ The server is assumed to expose the `FilesDaf` directory tree verbatim, with `GE
 byte contents of the file. Any static web server (e.g. `python -m http.server`, `nginx`, S3 with HTTP access) pointed at
 the root directory will do.
 
-The client downloads `metadata.zip` once at open time and keeps it in memory for the lifetime of the [`HttpDaf`](@ref).
-Every `.json` file in the tree (plus the `axes/metadata.json` sidecar) is served from this in-memory archive, so
-enumerating scalars/axes/vectors/matrices and reading all their JSON metadata completes without further HTTP traffic.
+The client downloads `metadata.json` once at open time and keeps the parsed dict in memory for the lifetime of the
+[`HttpDaf`](@ref). Every per-property descriptor (axes, scalars, vectors, matrices) is served from this in-memory
+dict, so enumerating scalars/axes/vectors/matrices and reading all their JSON metadata completes without further HTTP
+traffic.
 
 Non-JSON payloads (axis entry `.txt` files, per-property `.data` / `.nzind` / `.nzval` / `.colptr` / `.rowval` /
 `.nztxt`) are fetched lazily on first use via one `GET` each. Dense and sparse numeric vectors/matrices are returned
@@ -36,7 +37,6 @@ using HTTP
 using JSON
 using SparseArrays
 using TanayLabUtilities
-using ZipArchives
 
 import ..FilesFormat.MAJOR_VERSION
 import ..FilesFormat.MINOR_VERSION
@@ -54,8 +54,8 @@ import ..PackedFormat.parse_sparse_descriptor
     )::HttpDaf
 
 Open a read-only view of a remote [`FilesDaf`](@ref DataAxesFormats.FilesFormat.FilesDaf) served over `http://` or
-`https://`. `url` points at the root directory; the server must expose `metadata.zip` alongside the usual
-`FilesDaf` tree.
+`https://`. `url` points at the root directory; the server must expose `metadata.json` and `daf.json` alongside the
+usual `FilesDaf` tree.
 
 If `name` is not specified and the remote data set defines a `name` scalar property, it is used as the name;
 otherwise, the `url` itself is used.
@@ -71,17 +71,15 @@ read-only, and `packed` controls only the per-daf write default.
 
 !!! note
 
-    [`ZipDaf`](@ref DataAxesFormats.ZipFormat.ZipDaf) archives intentionally do not contain the `metadata.zip` /
-    `axes/metadata.json` sidecars `HttpDaf` reads, so an `unzip foo.daf.zip -d foo.daf/` produces a directory that
-    lacks them. Before exposing such a directory over HTTP, open it once locally with `FilesDaf("foo.daf")` (any
-    mode) so `FilesFormat.ensure_metadata_zip!` builds the sidecar.
+    [`ZipDaf`](@ref DataAxesFormats.ZipFormat.ZipDaf) archives intentionally do not contain `metadata.json`, so an
+    `unzip foo.daf.zip -d foo.daf/` produces a directory that lacks it. Before exposing such a directory over HTTP,
+    open it once locally with `FilesDaf("foo.daf")` (any mode) so `FilesFormat.ensure_metadata_json!` builds it.
 """
 struct HttpDaf <: DafReader
     name::AbstractString
     internal::Internal
     url::String
-    zip_bytes::Vector{UInt8}
-    zip_reader::ZipArchives.ZipReader
+    metadata::Dict{String, Any}
 end
 
 function HttpDaf(
@@ -94,14 +92,7 @@ function HttpDaf(
     end
     url = String(rstrip(url, '/'))
 
-    zip_bytes = http_get("$(url)/metadata.zip")
-    zip_reader = ZipArchives.ZipReader(zip_bytes)
-
-    daf_index = ZipArchives.zip_findlast_entry(zip_reader, "daf.json")
-    if daf_index === nothing
-        error("not a daf data set: $(url)")
-    end
-    daf_json = JSON.parse(String(ZipArchives.zip_readentry(zip_reader, daf_index)))
+    daf_json = JSON.parse(String(http_get("$(url)/daf.json")))
     @assert daf_json isa AbstractDict
     version = daf_json["version"]
     @assert version isa AbstractVector
@@ -114,17 +105,21 @@ function HttpDaf(
               """))
     end
 
+    metadata_parsed = JSON.parse(String(http_get("$(url)/metadata.json")))
+    @assert metadata_parsed isa AbstractDict "$(url)/metadata.json must be a JSON object"
+    metadata = Dict{String, Any}(String(key) => value for (key, value) in metadata_parsed)
+
     if name === nothing
-        scalar_name_index = ZipArchives.zip_findlast_entry(zip_reader, "scalars/name.json")
-        if scalar_name_index !== nothing
-            name = string(read_scalar_bytes(ZipArchives.zip_readentry(zip_reader, scalar_name_index)))
+        scalar_name_descriptor = get(metadata, "scalars/name", nothing)
+        if scalar_name_descriptor isa AbstractDict && haskey(scalar_name_descriptor, "value")
+            name = string(scalar_name_descriptor["value"])
         else
             name = url
         end
     end
     name = unique_name(name)
 
-    http = HttpDaf(name, Internal(; is_frozen = true), url, zip_bytes, zip_reader)
+    http = HttpDaf(name, Internal(; is_frozen = true), url, metadata)
     @debug "Daf: $(brief(http)) url: $(url)" _group = :daf_repos
     return http
 end
@@ -141,11 +136,9 @@ function http_get(url::AbstractString)::Vector{UInt8}
     return response.body
 end
 
-function read_scalar_bytes(bytes::AbstractVector{UInt8})::StorageScalar
-    json = JSON.parse(String(bytes))
-    @assert json isa AbstractDict
-    dtype_name = json["type"]
-    json_value = json["value"]
+function descriptor_to_scalar(descriptor::AbstractDict)::StorageScalar
+    dtype_name = descriptor["type"]
+    json_value = descriptor["value"]
     if dtype_name == "String" || dtype_name == "string"
         @assert json_value isa AbstractString
         return String(json_value)
@@ -153,25 +146,6 @@ function read_scalar_bytes(bytes::AbstractVector{UInt8})::StorageScalar
         type = get(DTYPE_BY_NAME, dtype_name, nothing)
         @assert type !== nothing
         return convert(type, json_value)
-    end
-end
-
-function has_zip_entry(http::HttpDaf, relative_path::AbstractString)::Bool  # FLAKY TESTED
-    return ZipArchives.zip_findlast_entry(http.zip_reader, relative_path) !== nothing
-end
-
-function read_zip_entry(http::HttpDaf, relative_path::AbstractString)::Vector{UInt8}
-    index = ZipArchives.zip_findlast_entry(http.zip_reader, relative_path)
-    @assert index !== nothing
-    return ZipArchives.zip_readentry(http.zip_reader, index)
-end
-
-function parse_zip_json_object(http::HttpDaf, relative_path::AbstractString)::AbstractDict{String, Any}
-    key = String(relative_path)
-    return Formats.get_through_cache(http, Formats.metadata_cache_key(key), AbstractDict{String, Any}) do
-        json = JSON.parse(String(read_zip_entry(http, key)))
-        @assert json isa AbstractDict{String, Any}
-        return (json, Formats.MemoryData)
     end
 end
 
@@ -185,15 +159,18 @@ function fetch_lines(http::HttpDaf, relative_path::AbstractString)::Vector{SubSt
     return lines
 end
 
-function zip_names_under(http::HttpDaf, prefix::AbstractString, suffix::AbstractString)::Set{AbstractString}
+# Names of children under `parent_key` (one path segment beyond `parent_key/`) — i.e. keys whose form is
+# `parent_key/<name>` with `<name>` containing no further `/`. Used to enumerate scalars / vectors under a single axis
+# / matrices under a single (rows, columns) pair from the consolidated metadata dict.
+function names_under(http::HttpDaf, parent_key::AbstractString)::Set{AbstractString}
     names_set = Set{AbstractString}()
+    prefix = "$(parent_key)/"
     prefix_len = length(prefix)
-    suffix_len = length(suffix)
-    for entry in ZipArchives.zip_names(http.zip_reader)
-        if startswith(entry, prefix) && endswith(entry, suffix)
-            middle = entry[(prefix_len + 1):(lastindex(entry) - suffix_len)]
-            if !contains(middle, '/')
-                push!(names_set, String(middle))
+    for key in keys(http.metadata)
+        if startswith(key, prefix)
+            tail = key[(prefix_len + 1):end]
+            if !contains(tail, '/')
+                push!(names_set, String(tail))
             end
         end
     end
@@ -210,17 +187,19 @@ end
 
 function Formats.format_has_scalar(http::HttpDaf, name::AbstractString)::Bool
     @assert Formats.has_data_read_lock(http)
-    return has_zip_entry(http, "scalars/$(name).json")
+    return haskey(http.metadata, "scalars/$(name)")
 end
 
 function Formats.format_get_scalar(http::HttpDaf, name::AbstractString)::Tuple{StorageScalar, Formats.CacheGroup}
     @assert Formats.has_data_read_lock(http)
-    return (read_scalar_bytes(read_zip_entry(http, "scalars/$(name).json")), Formats.MemoryData)
+    descriptor = http.metadata["scalars/$(name)"]
+    @assert descriptor isa AbstractDict
+    return (descriptor_to_scalar(descriptor), Formats.MemoryData)
 end
 
 function Formats.format_scalars_set(http::HttpDaf)::AbstractSet{<:AbstractString}  # FLAKY TESTED
     @assert Formats.has_data_read_lock(http)
-    return zip_names_under(http, "scalars/", ".json")
+    return names_under(http, "scalars")
 end
 
 function Formats.format_has_axis(http::HttpDaf, axis::AbstractString; for_change::Bool)::Bool  # NOLINT
@@ -230,9 +209,7 @@ end
 
 function Formats.format_axes_set(http::HttpDaf)::AbstractSet{<:AbstractString}
     @assert Formats.has_data_read_lock(http)
-    axes_list = JSON.parse(String(read_zip_entry(http, "axes/metadata.json")))
-    @assert axes_list isa AbstractVector
-    return Set{AbstractString}(String(name) for name in axes_list)
+    return names_under(http, "axes")
 end
 
 function Formats.format_axis_vector(  # FLAKY TESTED
@@ -251,12 +228,12 @@ end
 
 function Formats.format_has_vector(http::HttpDaf, axis::AbstractString, name::AbstractString)::Bool
     @assert Formats.has_data_read_lock(http)
-    return has_zip_entry(http, "vectors/$(axis)/$(name).json")
+    return haskey(http.metadata, "vectors/$(axis)/$(name)")
 end
 
 function Formats.format_vectors_set(http::HttpDaf, axis::AbstractString)::AbstractSet{<:AbstractString}  # FLAKY TESTED
     @assert Formats.has_data_read_lock(http)
-    return zip_names_under(http, "vectors/$(axis)/", ".json")
+    return names_under(http, "vectors/$(axis)")
 end
 
 function Formats.format_get_vector(
@@ -265,7 +242,8 @@ function Formats.format_get_vector(
     name::AbstractString,
 )::Tuple{StorageVector, Any, Formats.CacheGroup}
     @assert Formats.has_data_read_lock(http)
-    json = parse_zip_json_object(http, "vectors/$(axis)/$(name).json")
+    json = http.metadata["vectors/$(axis)/$(name)"]
+    @assert json isa AbstractDict
     format = json["format"]
     @assert format == "dense" || format == "sparse"
 
@@ -317,7 +295,7 @@ function Formats.format_has_matrix(
     name::AbstractString,
 )::Bool
     @assert Formats.has_data_read_lock(http)
-    return has_zip_entry(http, "matrices/$(rows_axis)/$(columns_axis)/$(name).json")
+    return haskey(http.metadata, "matrices/$(rows_axis)/$(columns_axis)/$(name)")
 end
 
 function Formats.format_matrices_set(  # FLAKY TESTED
@@ -326,7 +304,7 @@ function Formats.format_matrices_set(  # FLAKY TESTED
     columns_axis::AbstractString,
 )::AbstractSet{<:AbstractString}
     @assert Formats.has_data_read_lock(http)
-    return zip_names_under(http, "matrices/$(rows_axis)/$(columns_axis)/", ".json")
+    return names_under(http, "matrices/$(rows_axis)/$(columns_axis)")
 end
 
 function Formats.format_get_matrix(
@@ -339,7 +317,8 @@ function Formats.format_get_matrix(
     nrows = Formats.format_axis_length(http, rows_axis)
     ncols = Formats.format_axis_length(http, columns_axis)
 
-    json = parse_zip_json_object(http, "matrices/$(rows_axis)/$(columns_axis)/$(name).json")
+    json = http.metadata["matrices/$(rows_axis)/$(columns_axis)/$(name)"]
+    @assert json isa AbstractDict
     format = json["format"]
     @assert format == "dense" || format == "sparse"
 

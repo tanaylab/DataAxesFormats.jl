@@ -1123,8 +1123,8 @@ nested_test("packed_format") do
                 verify_packed_round_trip(files_daf, expected)
 
                 # Mimic `zip -r bundled.daf.zip source.daf/` — every file in the FilesDaf tree becomes a zip entry
-                # whose name is the path relative to the daf root. ZipDaf strips the FilesDaf-only `metadata.zip`
-                # and `axes/metadata.json` sidecars on first writable open.
+                # whose name is the path relative to the daf root. ZipDaf strips the FilesDaf-only `metadata.json`
+                # sidecar on first writable open.
                 zip_path = joinpath(path, "bundled.daf.zip")
                 store = MmapZipStore(zip_path; writable = true, create = true)
                 try
@@ -1157,8 +1157,8 @@ nested_test("packed_format") do
                 GC.gc()
 
                 # Mimic `unzip source.daf.zip -d unbundled.daf/` — every zip entry becomes a file at the matching
-                # relative path. The unbundled directory has no `metadata.zip` / `axes/metadata.json` sidecars;
-                # FilesDaf rebuilds them on first writable open.
+                # relative path. The unbundled directory has no `metadata.json` sidecar; FilesDaf rebuilds it on
+                # first writable open.
                 files_path = joinpath(path, "unbundled.daf")
                 mkdir(files_path)
                 source_reader = ZipArchives.ZipReader(read(zip_path))
@@ -1181,8 +1181,9 @@ nested_test("packed_format") do
     # Goal: `zip -r foo.daf.zarr.zip foo.daf.zarr/` over a packed ZarrDaf-Directory produces a valid ZarrDaf-Zip,
     # and conversely `unzip foo.daf.zarr.zip` of a packed ZarrDaf-Zip produces a valid ZarrDaf-Directory. The two
     # backends share Zarr.jl so the per-property `zarr.json` and chunk files are byte-identical between formats; the
-    # only divergence is the `DirectoryStore`-only `.zmetadata` consolidated sidecar — `ensure_consolidated_metadata!`
-    # rebuilds it on first writable open of the unbundled tree.
+    # only divergence is the inline `consolidated_metadata` field that the `DirectoryStore` backend embeds in the
+    # root `zarr.json` and the ZIP backend does not — `ensure_consolidated_metadata!` rebuilds it on first writable
+    # open of the unbundled tree.
     nested_test("zarr_unzip_zip_equivalence") do
         nested_test("zip_zarrdir_then_open_as_zarrzip") do
             mktempdir() do path
@@ -1237,9 +1238,10 @@ nested_test("packed_format") do
                     end
                 end
 
-                @test !isfile(joinpath(zarr_dir_path, ".zmetadata"))
+                root_zarr_path = joinpath(zarr_dir_path, "zarr.json")
+                @test !haskey(JSON.parse(read(root_zarr_path, String)), "consolidated_metadata")
                 zarr_dir_daf = ZarrDaf(zarr_dir_path, "r+"; name = "unbundled!")
-                @test isfile(joinpath(zarr_dir_path, ".zmetadata"))
+                @test haskey(JSON.parse(read(root_zarr_path, String)), "consolidated_metadata")
                 verify_packed_round_trip(zarr_dir_daf, expected)
                 return nothing
             end

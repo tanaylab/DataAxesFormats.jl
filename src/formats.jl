@@ -95,7 +95,7 @@ mutable struct CacheEntry  # NOLINT
     data::Union{AbstractLock, CacheData}
 end
 
-@enum CacheType CachedAxis CachedData CachedQuery CachedNames CachedMetadata
+@enum CacheType CachedAxis CachedData CachedQuery CachedNames
 
 AxisCacheKey = Tuple{AxisKey, Bool}
 
@@ -137,9 +137,6 @@ function Base.show(io::IO, cache_key::CacheKey)::Nothing
                 print(io, "matrices[rows_axis: $(key[1]) columns_axis: $(key[2])]:$(qualifier)")
             end
         end
-    elseif type == CachedMetadata
-        @assert key isa AbstractString
-        print(io, "metadata[$(key)]:$(qualifier)")
     else
         @assert false
     end
@@ -194,10 +191,6 @@ function matrix_cache_key(
     qualifier::Symbol = :value,
 )::CacheKey
     return (CachedData, (rows_axis, columns_axis, name), qualifier)
-end
-
-function metadata_cache_key(path::AbstractString, qualifier::Symbol = :value)::CacheKey
-    return (CachedMetadata, path, qualifier)
 end
 
 """

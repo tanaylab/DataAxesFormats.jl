@@ -3,11 +3,28 @@ Hard-link conversion between [`FilesDaf`](@ref DataAxesFormats.FilesFormat.Files
 DataAxesFormats.ZarrFormat.ZarrDaf) directories.
 
 The two on-disk formats differ in their per-property metadata encoding (`FilesDaf` uses one JSON sidecar per array,
-`ZarrDaf` uses one `.zarray` per array plus a consolidated `.zmetadata`), but both store every numeric blob — dense
-array chunks and the `colptr`/`rowval`/`nzind`/`nzval` components of sparse arrays — as the same raw little-endian bytes
-without headers. The functions in this module exploit that equivalence to convert one tree into the other by
-hard-linking every numeric blob and re-serializing only the metadata and the string-valued properties, so the on-disk
+`ZarrDaf` uses one `zarr.json` per array), but both store every numeric blob byte-identically:
+
+  - Flat (unpacked) dense array chunks and the `colptr`/`rowval`/`nzind`/`nzval` components of flat sparse arrays
+    are raw little-endian bytes without headers — bit-for-bit identical between `FilesDaf`'s `<name>.data` /
+    `<name>.<component>` and `ZarrDaf`'s single-chunk file at `<name>/c/0[/0]`.
+  - Packed (chunked + compressed) dense properties and packed sparse components are stored in the v3 sharded-array
+    binary format (ZEP-0002): one shard file per property (`<name>.shard` in `FilesDaf`, `<name>/c/0[/0]` in
+    `ZarrDaf`). For the same input data, same `chunk_shape`, and same codec, the writer emits byte-identical shard
+    bytes regardless of which backend hosts it — so the shard files hard-link cleanly across formats.
+
+The functions in this module exploit these equivalences to convert one tree into the other by hard-linking every
+numeric blob (flat or packed) and re-serializing only the metadata and the string-valued properties, so the on-disk
 cost of a conversion is close to zero.
+
+The consolidated metadata files of the two formats — `FilesDaf`'s `metadata.json` (a single-line JSON object mapping
+relative path to per-property descriptor) and `ZarrDaf`'s root `zarr.json#consolidated_metadata.metadata` (the same
+mapping in the on-disk shape `zarr-python` 3.x writes) — carry the same information about the same set of properties;
+the per-property descriptor schemas are bijective. The translation rules between the two descriptor schemas are
+formally defined by this module: every dense / sparse / packed / flat / scalar / axis case has a documented mapping,
+and the source's consolidated metadata is read once at the start of a conversion to drive the per-property iteration.
+The destination's consolidated metadata is rebuilt at the end of the conversion (via `refresh_consolidated_metadata!`)
+so the destination is immediately usable, including for HTTP serving.
 
 Hard-linking requires the source and destination to live on the same filesystem; each conversion verifies this up front
 with an actual hard-link probe and refuses otherwise. Each conversion also refuses if the destination path already
@@ -195,6 +212,8 @@ function zarr_to_files_populate(zarr_path::AbstractString, files_path::AbstractS
     source = opened isa DafReadOnlyWrapper ? opened.daf::ZarrDaf : opened  # NOLINT
     destination = FilesDaf(files_path, "w+")::FilesDaf
 
+    consolidated = read_zarr_consolidated_dict(zarr_path)
+
     for name in scalars_set(source)
         set_scalar!(destination, name, get_scalar(source, name))
     end
@@ -205,23 +224,45 @@ function zarr_to_files_populate(zarr_path::AbstractString, files_path::AbstractS
 
     for axis in axes_set(source)
         for name in vectors_set(source, axis)
-            zarr_vector_to_files(source, destination, zarr_path, files_path, axis, name)
+            zarr_vector_to_files(consolidated, source, destination, zarr_path, files_path, axis, name)
         end
     end
 
     for rows_axis in axes_set(source)
         for columns_axis in axes_set(source)
             for name in matrices_set(source, rows_axis, columns_axis; relayout = false)
-                zarr_matrix_to_files(source, destination, zarr_path, files_path, rows_axis, columns_axis, name)
+                zarr_matrix_to_files(
+                    consolidated,
+                    source,
+                    destination,
+                    zarr_path,
+                    files_path,
+                    rows_axis,
+                    columns_axis,
+                    name,
+                )
             end
         end
     end
 
-    FilesFormat.metadata_zip_rebuild!(destination)
+    FilesFormat.metadata_json_rebuild!(destination)
     return nothing
 end
 
+# Parse the source's `consolidated_metadata.metadata` dict from root `zarr.json` once at the top of a conversion;
+# every per-property descriptor we need for translation is keyed by its store-relative path inside this dict, so the
+# rest of the converter doesn't reach back to disk for individual node `zarr.json` files. Returns the inner
+# `{<path>: <full v3 metadata blob>}` mapping; missing or malformed `consolidated_metadata` is a hard error since the
+# format guarantees it exists after every writable open.
+function read_zarr_consolidated_dict(zarr_path::AbstractString)::Dict{String, Any}
+    root_zarr_json = read_json_dict("$(zarr_path)/zarr.json")
+    consolidated_field = root_zarr_json["consolidated_metadata"]::AbstractDict
+    metadata = consolidated_field["metadata"]::AbstractDict
+    return Dict{String, Any}(String(key) => value for (key, value) in metadata)
+end
+
 function zarr_vector_to_files(
+    consolidated::Dict{String, Any},
     source::DafReader,
     destination::FilesDaf,
     zarr_path::AbstractString,
@@ -231,7 +272,8 @@ function zarr_vector_to_files(
 )::Nothing
     source_dir = "$(zarr_path)/vectors/$(axis)/$(name)"
     destination_base = "$(files_path)/vectors/$(axis)/$(name)"
-    zarr_json = read_json_dict("$(source_dir)/zarr.json")
+    base_key = "vectors/$(axis)/$(name)"
+    zarr_json = consolidated[base_key]::AbstractDict
 
     if zarr_json["node_type"] == "array"
         if is_string_v3_dtype(zarr_json)
@@ -248,28 +290,39 @@ function zarr_vector_to_files(
         end
     else
         @assert zarr_json["node_type"] == "group" "unexpected node_type: $(zarr_json["node_type"])"
-        zarr_sparse_vector_to_files(source, destination, axis, name, source_dir, destination_base)
+        zarr_sparse_vector_to_files(
+            consolidated,
+            source,
+            destination,
+            axis,
+            name,
+            source_dir,
+            base_key,
+            destination_base,
+        )
     end
     return nothing
 end
 
 function zarr_sparse_vector_to_files(
+    consolidated::Dict{String, Any},
     source::DafReader,
     destination::FilesDaf,
     axis::AbstractString,
     name::AbstractString,
     source_dir::AbstractString,
+    base_key::AbstractString,
     destination_base::AbstractString,
 )::Nothing
     vector_group = ZarrFormat.vectors_group(source).groups[axis].groups[name]
     nzind_array = vector_group.arrays["nzind"]
-    ind_type = julia_type_from_v3_dtype(read_json_dict("$(source_dir)/nzind/zarr.json")["data_type"])
+    ind_type = julia_type_from_v3_dtype((consolidated["$(base_key)/nzind"]::AbstractDict)["data_type"])
     nnz_int = size(nzind_array, 1)
 
-    nzval_present = isfile("$(source_dir)/nzval/zarr.json")
+    nzval_present = haskey(consolidated, "$(base_key)/nzval")
     if nzval_present
         nzval_array = vector_group.arrays["nzval"]
-        element_type = julia_type_from_v3_dtype(read_json_dict("$(source_dir)/nzval/zarr.json")["data_type"])
+        element_type = julia_type_from_v3_dtype((consolidated["$(base_key)/nzval"]::AbstractDict)["data_type"])
         nzval_canonical = is_canonical_for_files(nzval_array, element_type, (nnz_int,))
         nzval_packed = PackedFormat.is_zarr_array_packed(nzval_array)
         nzval_chunk_shape = nzval_packed ? PackedFormat.packed_codec_from_zarray(nzval_array)[1] : nothing
@@ -330,7 +383,7 @@ function link_zarr_to_files_dense(
         write(destination_json_path, json_bytes)
         hardlink(chunk_path, "$(destination_base).shard")
     else
-        FilesFormat.write_dense_array_json(destination_json_path, T)
+        write(destination_json_path, PackedFormat.dense_array_json_bytes(T))
         hardlink(chunk_path, "$(destination_base).data")
     end
     return nothing
@@ -353,6 +406,7 @@ function link_zarr_chunk_to_sparse_component(  # FLAKY TESTED
 end
 
 function zarr_matrix_to_files(
+    consolidated::Dict{String, Any},
     source::DafReader,
     destination::FilesDaf,
     zarr_path::AbstractString,
@@ -363,7 +417,8 @@ function zarr_matrix_to_files(
 )::Nothing
     source_dir = "$(zarr_path)/matrices/$(rows_axis)/$(columns_axis)/$(name)"
     destination_base = "$(files_path)/matrices/$(rows_axis)/$(columns_axis)/$(name)"
-    zarr_json = read_json_dict("$(source_dir)/zarr.json")
+    base_key = "matrices/$(rows_axis)/$(columns_axis)/$(name)"
+    zarr_json = consolidated[base_key]::AbstractDict
 
     if zarr_json["node_type"] == "array"
         if is_string_v3_dtype(zarr_json)
@@ -387,31 +442,43 @@ function zarr_matrix_to_files(
         end
     else
         @assert zarr_json["node_type"] == "group" "unexpected node_type: $(zarr_json["node_type"])"
-        zarr_sparse_matrix_to_files(source, destination, rows_axis, columns_axis, name, source_dir, destination_base)
+        zarr_sparse_matrix_to_files(
+            consolidated,
+            source,
+            destination,
+            rows_axis,
+            columns_axis,
+            name,
+            source_dir,
+            base_key,
+            destination_base,
+        )
     end
     return nothing
 end
 
 function zarr_sparse_matrix_to_files(
+    consolidated::Dict{String, Any},
     source::DafReader,
     destination::FilesDaf,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
     source_dir::AbstractString,
+    base_key::AbstractString,
     destination_base::AbstractString,
 )::Nothing
     matrix_group = ZarrFormat.columns_axis_group(source, rows_axis, columns_axis).groups[name]
     colptr_array = matrix_group.arrays["colptr"]
     rowval_array = matrix_group.arrays["rowval"]
-    ind_type = julia_type_from_v3_dtype(read_json_dict("$(source_dir)/colptr/zarr.json")["data_type"])
+    ind_type = julia_type_from_v3_dtype((consolidated["$(base_key)/colptr"]::AbstractDict)["data_type"])
     n_columns = size(colptr_array, 1) - 1
     nnz_int = size(rowval_array, 1)
 
-    nzval_present = isfile("$(source_dir)/nzval/zarr.json")
+    nzval_present = haskey(consolidated, "$(base_key)/nzval")
     if nzval_present
         nzval_array = matrix_group.arrays["nzval"]
-        element_type = julia_type_from_v3_dtype(read_json_dict("$(source_dir)/nzval/zarr.json")["data_type"])
+        element_type = julia_type_from_v3_dtype((consolidated["$(base_key)/nzval"]::AbstractDict)["data_type"])
         nzval_canonical = is_canonical_for_files(nzval_array, element_type, (nnz_int,))
         nzval_packed = PackedFormat.is_zarr_array_packed(nzval_array)
         nzval_chunk_shape = nzval_packed ? PackedFormat.packed_codec_from_zarray(nzval_array)[1] : nothing
@@ -532,6 +599,8 @@ function files_to_zarr_populate(files_path::AbstractString, zarr_path::AbstractS
     source = FilesDaf(files_path, "r")
     destination = ZarrDaf(zarr_path, "w+")::ZarrDaf  # NOJET
 
+    consolidated = read_files_consolidated_dict(files_path)
+
     for name in scalars_set(source)
         set_scalar!(destination, name, get_scalar(source, name))
     end
@@ -542,14 +611,23 @@ function files_to_zarr_populate(files_path::AbstractString, zarr_path::AbstractS
 
     for axis in axes_set(source)
         for name in vectors_set(source, axis)
-            files_vector_to_zarr(source, destination, files_path, zarr_path, axis, name)
+            files_vector_to_zarr(consolidated, source, destination, files_path, zarr_path, axis, name)
         end
     end
 
     for rows_axis in axes_set(source)
         for columns_axis in axes_set(source)
             for name in matrices_set(source, rows_axis, columns_axis; relayout = false)
-                files_matrix_to_zarr(source, destination, files_path, zarr_path, rows_axis, columns_axis, name)
+                files_matrix_to_zarr(
+                    consolidated,
+                    source,
+                    destination,
+                    files_path,
+                    zarr_path,
+                    rows_axis,
+                    columns_axis,
+                    name,
+                )
             end
         end
     end
@@ -558,7 +636,18 @@ function files_to_zarr_populate(files_path::AbstractString, zarr_path::AbstractS
     return nothing
 end
 
+# Parse the source FilesDaf's `metadata.json` once at the top of a conversion. Every per-property descriptor we need
+# for translation is keyed by its store-relative path (no `.json` suffix) inside this dict, so the rest of the
+# converter doesn't reach back to disk for individual `<path>.json` sidecars. Returns the `{<path>: <descriptor>}`
+# mapping; missing or malformed `metadata.json` is a hard error since the format guarantees it exists after every
+# writable open.
+function read_files_consolidated_dict(files_path::AbstractString)::Dict{String, Any}
+    parsed = read_json_dict("$(files_path)/metadata.json")
+    return Dict{String, Any}(String(key) => value for (key, value) in parsed)
+end
+
 function files_vector_to_zarr(
+    consolidated::Dict{String, Any},
     source::DafReader,
     destination::ZarrDaf,
     files_path::AbstractString,
@@ -566,7 +655,7 @@ function files_vector_to_zarr(
     axis::AbstractString,
     name::AbstractString,
 )::Nothing
-    json = read_json_dict("$(files_path)/vectors/$(axis)/$(name).json")
+    json = consolidated["vectors/$(axis)/$(name)"]::AbstractDict
     format = json["format"]
 
     parent_group = ZarrFormat.vectors_group(destination).groups[axis]
@@ -636,6 +725,7 @@ function files_vector_to_zarr(
 end
 
 function files_matrix_to_zarr(
+    consolidated::Dict{String, Any},
     source::DafReader,
     destination::ZarrDaf,
     files_path::AbstractString,
@@ -644,7 +734,7 @@ function files_matrix_to_zarr(
     columns_axis::AbstractString,
     name::AbstractString,
 )::Nothing
-    json = read_json_dict("$(files_path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json")
+    json = consolidated["matrices/$(rows_axis)/$(columns_axis)/$(name)"]::AbstractDict
     format = json["format"]
 
     parent_group = ZarrFormat.columns_axis_group(destination, rows_axis, columns_axis)

@@ -507,6 +507,104 @@
 </code>-marked dataset.
 </p>
 </li>
+<li>
+<p>The root group&#39;s 
+<code>zarr.json
+</code> carries a 
+<code>consolidated_metadata
+</code> field — an inline index of every per-node 
+<code>zarr.json
+</code> under the root, so an open / HTTP-served reader does not have to issue one GET per node. Its content is bijective with the consolidated metadata that 
+<a href="files_format.html#DataAxesFormats.FilesFormat.FilesDaf">
+<code>FilesDaf
+</code>
+</a> writes in its 
+<code>metadata.json
+</code> (see the 
+<code>FilesDaf
+</code> documentation for the formal mapping; 
+<a href="zarr_convert.html#DataAxesFormats.ZarrConvert.zarr_to_files">
+<code>zarr_to_files
+</code>
+</a> and 
+<a href="zarr_convert.html#DataAxesFormats.ZarrConvert.files_to_zarr">
+<code>files_to_zarr
+</code>
+</a> translate between them). The on-disk shape is the one 
+<code>zarr-python
+</code> 3.x writes, which informally tracks 
+<a href="https://github.com/zarr-developers/zarr-specs/pull/309">zarr-specs PR #309
+</a> (still open as of writing, so the spec PR is 
+<strong>not
+</strong> the authoritative reference — 
+<code>zarr-python
+</code>&#39;s 
+<code>ConsolidatedMetadata
+</code> class is). The field lives at the top level of the root group&#39;s 
+<code>zarr.json
+</code>, sibling to 
+<code>attributes
+</code>:
+</p>
+<pre>
+<code class="language-json hljs">{
+  &quot;zarr_format&quot;: 3,
+  &quot;node_type&quot;: &quot;group&quot;,
+  &quot;attributes&quot;: {&quot;daf&quot;: [1, 0]},
+  &quot;consolidated_metadata&quot;: {
+    &quot;kind&quot;: &quot;inline&quot;,
+    &quot;must_understand&quot;: false,
+    &quot;metadata&quot;: {
+      &quot;&lt;relative_path&gt;&quot;: &lt;full v3 metadata blob&gt;,
+      ...
+    }
+  }
+}
+</code>
+</pre>
+<p>where 
+<code>&lt;relative_path&gt;
+</code> is each node&#39;s path relative to the root group (no leading slash, no trailing 
+<code>/zarr.json
+</code>) and the value is the verbatim parsed content of that node&#39;s 
+<code>zarr.json
+</code> — i.e. the same 
+<code>MetadataV3
+</code> that the per-node file holds, including its own 
+<code>attributes
+</code>. 
+<code>kind
+</code> is always 
+<code>&quot;inline&quot;
+</code>; 
+<code>must_understand
+</code> is always 
+<code>false
+</code>. Order of keys inside 
+<code>metadata
+</code> is not significant for interop; 
+<code>zarr-python
+</code>&#39;s writer happens to sort by (depth, casefolded NFKC name) but its reader does not require it. On every property 
+<code>set!
+</code> / 
+<code>delete!
+</code> we update the field in the root 
+<code>zarr.json
+</code> (full file rewrite per operation, which is unavoidable since 
+<code>zarr.json
+</code> is one document; we cache the serialized bytes of the 
+<code>metadata
+</code> sub-dict and append in place rather than re-serializing every existing entry, so per-
+<code>set!
+</code> CPU work is O(size-of-one-descriptor)). On every open (read or write), if the field is missing we attempt to rebuild it by walking the per-node 
+<code>zarr.json
+</code> files; the rebuild is best-effort with the same swallow-on-read-only-frozen-filesystem semantics as 
+<code>FilesDaf
+</code>&#39;s 
+<code>metadata.json
+</code>.
+</p>
+</li>
 </ul>
 <p>Example Zarr directory structure:
 </p>
@@ -726,11 +824,15 @@
 <a href="read_only.html#DataAxesFormats.ReadOnly.DafReadOnly">
 <code>DafReadOnly
 </code>
-</a>. The remote directory 
+</a>. The remote root 
+<code>zarr.json
+</code> 
 <strong>must
-</strong> contain a consolidated 
-<code>.zmetadata
-</code> file, and the served content 
+</strong> carry an inline 
+<code>consolidated_metadata
+</code> field (the on-disk shape 
+<code>zarr-python
+</code> 3.x writes — see the module docstring), and the served content 
 <strong>must
 </strong> be stable for the lifetime of the open handle: per-chunk GETs happen lazily, so if the underlying data set is rewritten or relocated while the handle is open, subsequent reads may see inconsistent bytes.
 </li>
@@ -907,25 +1009,55 @@
 </p>
 </div>
 </div>
-<div class="admonition is-info" id="Note-6bf7696efcbe95f4">
+<div class="admonition is-info" id="Note-2d9d394249758849">
 <header class="admonition-header">Note
-<a class="admonition-anchor" href="#Note-6bf7696efcbe95f4" title="Permalink">
+<a class="admonition-anchor" href="#Note-2d9d394249758849" title="Permalink">
 </a>
 </header>
 <div class="admonition-body">
 <p>
 <code>.daf.zarr.zip
-</code> archives written by this code do not contain the 
-<code>.zmetadata
-</code> consolidated metadata sidecar, because the ZIP central directory plays the same enumeration role. Consequently, an 
+</code> archives written by this code do not carry the inline 
+<code>consolidated_metadata
+</code> field in their root 
+<code>zarr.json
+</code>, because the ZIP central directory plays the same enumeration role. Consequently, an 
 <code>unzip foo.daf.zarr.zip -d foo.daf.zarr/
-</code> produces a directory that lacks 
-<code>.zmetadata
+</code> produces a directory whose root 
+<code>zarr.json
+</code> lacks 
+<code>consolidated_metadata
 </code>. Before exposing such a directory over HTTP, open it once locally with 
 <code>ZarrDaf(&quot;foo.daf.zarr&quot;)
 </code> (any mode) so 
 <code>ensure_consolidated_metadata!
-</code> builds the sidecar.
+</code> builds it. Symmetrically, when ZarrDaf appends to a 
+<code>.daf.zarr.zip
+</code> whose root 
+<code>zarr.json
+</code> does have an inline 
+<code>consolidated_metadata
+</code> (e.g. from a 
+<code>zip -r
+</code> of a directory daf), the field is stripped from the rewritten root 
+<code>zarr.json
+</code> so subsequent unzips can&#39;t see a stale snapshot.
+</p>
+</div>
+</div>
+<div class="admonition is-warning" id="Warning-e1872fc17ff50056">
+<header class="admonition-header">Warning
+<a class="admonition-anchor" href="#Warning-e1872fc17ff50056" title="Permalink">
+</a>
+</header>
+<div class="admonition-body">
+<p>The byte-surgery append on 
+<code>consolidated_metadata.metadata
+</code> and the atomic stage-rename rewrite of root 
+<code>zarr.json
+</code> assume a single writer at a time. The in-process Daf write lock serializes writers within one Julia process; opening the same 
+<code>.daf.zarr
+</code> directory from multiple processes (or multiple machines, e.g. NFS) and writing concurrently can interleave rewrites and corrupt the consolidated metadata. Open writable from one process at a time.
 </p>
 </div>
 </div>

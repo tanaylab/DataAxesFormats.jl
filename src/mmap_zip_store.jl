@@ -1133,8 +1133,8 @@ the archive are silently ignored, and the function is a no-op when none of `keys
 
 Intended for stripping known-stale sidecar entries from a Daf archive that was produced by an
 external tool over a [`FilesDaf`](@ref DataAxesFormats.FilesFormat.FilesDaf) directory (e.g. the
-`metadata.zip` and `axes/metadata.json` files written by `FilesFormat.ensure_metadata_zip!`,
-which have no role inside a [`ZipDaf`](@ref DataAxesFormats.ZipFormat.ZipDaf) archive).
+`metadata.json` file written by `FilesFormat.ensure_metadata_json!`, which has no role inside a
+[`ZipDaf`](@ref DataAxesFormats.ZipFormat.ZipDaf) archive).
 """
 function remove_entries_from_central_directory!(store::MmapZipStore, keys::AbstractVector{<:AbstractString})::Nothing
     @assert store.is_writable

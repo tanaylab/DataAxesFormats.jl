@@ -23,8 +23,8 @@ directory.
 
 We use multiple files to store `Daf` data, under some root directory, as follows:
 
-  - The directory will contain 4 sub-directories: `scalars`, `axes`, `vectors`, and `matrices`, and a file called
-    `daf.json`.
+  - The directory will contain 4 sub-directories: `scalars`, `axes`, `vectors`, and `matrices`, and two files at the
+    root: `daf.json` (always) and `metadata.json` (a consolidated index, regenerated on demand — see below).
 
   - The `daf.json` signifies that the directory contains `Daf` data. In this file, there should be a mapping with a
     `version` key whose value is an array of two integers. The first is the major version number and the second is the
@@ -32,6 +32,28 @@ We use multiple files to store `Daf` data, under some root directory, as follows
     directory does/n't contain `Daf` data, and which version of the internal structure it is using. Defined versions
     are `[1,0]` and `[1,1]`. New code emits `[1,1]`; the reader accepts both. The on-disk difference is the JSON
     descriptor for sparse properties (see below) — the binary data files are unchanged across versions.
+
+  - The `metadata.json` is a consolidated index of every property's descriptor. After it has been seeded once (by
+    walking the tree on a writable open), subsequent opens consume it directly instead of walking, and an
+    HTTP-served `FilesDaf` can be browsed without per-property `readdir` round-trips. Its content is bijective with the per-property descriptors documented below, and with
+    the consolidated metadata that
+    [`ZarrDaf`](@ref DataAxesFormats.ZarrFormat.ZarrDaf) embeds in its root `zarr.json` (see the `ZarrDaf`
+    documentation for the formal mapping; [`zarr_to_files`](@ref DataAxesFormats.ZarrConvert.zarr_to_files) and
+    [`files_to_zarr`](@ref DataAxesFormats.ZarrConvert.files_to_zarr) translate between them).
+    The file is a single-line JSON object mapping each property's relative path to its descriptor:
+    `{"<relative_path>":<descriptor>,...}`, where `<relative_path>` is the property's location relative to the root
+    (e.g. `vectors/cell/batch`, `matrices/cell/gene/UMIs`, `axes/cell`, `scalars/version`) and `<descriptor>` is
+    byte-identical to the per-property sidecar JSON content described below (for axes, the descriptor is
+    `{"format":"axis","n_entries":<N>}`). On `set!` the file is appended in place via byte-level surgery:
+    `truncate` the trailing `}` and write `,"<new_path>":<descriptor>}` (or `"<new_path>":<descriptor>}` if the
+    file was the empty object `{}`). This makes a `set!` an O(size-of-one-descriptor) write rather than an
+    O(N-properties) rewrite. On `delete!` the file is rebuilt from scratch by walking the tree. On *every* open
+    (read or write), if the file is missing or fails to parse (the latter handles a torn write from a crash
+    mid-`set!`) we attempt to rebuild it by walking the tree. The rebuild is best-effort: if it fails (e.g.
+    because the underlying filesystem is read-only) the error is swallowed for read-only opens and rethrown for
+    writable opens. So the workflow `unzip foo.daf.zip; open foo.daf; serve over HTTP` works as long as the
+    unzipped tree is on a writable filesystem at first-open time; an HTTP-served `FilesDaf` placed on a frozen
+    filesystem without `metadata.json` requires one open on a writable filesystem to seed the file.
 
   - The `scalars` directory contains scalar properties, each as in its own `name.json` file, containing a mapping with
     a `type` key whose value is the data type of the scalar (one of the `StorageScalar` types, with `String` for a
@@ -90,10 +112,18 @@ We use multiple files to store `Daf` data, under some root directory, as follows
     simple, unique property names, using only alphanumeric characters, that would be a valid variable name in most
     programming languages.
 
+!!! warning
+
+    The byte-surgery append on `metadata.json` and the staged-rename rebuild assume a single writer at a time. The
+    in-process Daf write lock serializes writers within one Julia process; opening the same `FilesDaf` directory
+    from multiple processes (or multiple machines, e.g. NFS) and writing concurrently can interleave appends and
+    corrupt `metadata.json`. Open writable from one process at a time.
+
 Example directory structure:
 
     example-daf-dataset-root-directory/
     ├─ daf.json
+    ├─ metadata.json
     ├─ scalars/
     │  └─ version.json
     ├─ axes/
@@ -158,7 +188,6 @@ using ProgressMeter
 using SparseArrays
 using StringViews
 using TanayLabUtilities
-using ZipArchives
 
 import ..Formats
 import ..Formats.Internal
@@ -337,11 +366,11 @@ function FilesDaf(
 
     if is_read_only
         writable_files = FilesDaf(name, Internal(; is_frozen = true, packed_default = packed), abspath(path), mode, "r")
-        ensure_metadata_zip!(writable_files)
+        ensure_metadata_json!(writable_files)
         file = read_only(writable_files)
     else
         file = FilesDaf(name, Internal(; is_frozen = false, packed_default = packed), abspath(path), mode, "r+")
-        ensure_metadata_zip!(file)
+        ensure_metadata_json!(file)
     end
     @debug "Daf: $(brief(file)) path: $(path)" _group = :daf_repos
     return file
@@ -371,15 +400,8 @@ function Formats.format_set_scalar!(
         type = String
     end
 
-    json_path = "$(files.path)/scalars/$(name).json"
-    open(json_path, "w") do file
-        report_modified!(json_path)
-        JSON.print(file, Dict("type" => "$(type)", "value" => value))
-        write(file, '\n')
-        return nothing
-    end
-    metadata_zip_append!(files, "scalars/$(name).json")
-
+    json_bytes = Vector{UInt8}(JSON.json(Dict("type" => "$(type)", "value" => value)) * "\n")
+    write_property_json!(files, "scalars/$(name)", json_bytes)
     return Formats.MemoryData
 end
 
@@ -388,7 +410,7 @@ function Formats.format_delete_scalar!(files::FilesDaf, name::AbstractString; fo
     json_path = "$(files.path)/scalars/$(name).json"
     rm(json_path; force = true)
     report_modified!(json_path)
-    metadata_zip_rebuild!(files)
+    metadata_json_rebuild!(files)
     return nothing
 end
 
@@ -464,7 +486,8 @@ function Formats.format_add_axis!(
         end
     end
 
-    metadata_zip_rebuild!(files)
+    descriptor = Vector{UInt8}(JSON.json(Dict("format" => "axis", "n_entries" => length(entries))))
+    metadata_json_append!(files, "axes/$(axis)", descriptor)
     return nothing
 end
 
@@ -482,7 +505,7 @@ function Formats.format_delete_axis!(files::FilesDaf, axis::AbstractString)::Not
         report_modified!(path)
     end
 
-    metadata_zip_rebuild!(files)
+    metadata_json_rebuild!(files)
     return nothing
 end
 
@@ -522,21 +545,20 @@ function Formats.format_set_vector!(
         vector = spzeros(typeof(vector), Formats.format_axis_length(files, axis))
     end
 
-    for suffix in (".json", ".txt", ".data", ".shard", ".nzind", ".nzind.shard", ".nzval", ".nzval.shard", ".nztxt")
-        path = "$(files.path)/vectors/$(axis)/$(name)$(suffix)"
-        rm(path; force = true)
-        report_modified!(path)
-    end
-
+    # Contract: callers must have invoked `update_before_set_vector` (which delegates to `format_delete_vector!`)
+    # before reaching here, so the per-property files have already been removed from disk. The public `set_vector!`
+    # path in `writers.jl` does this; any internal caller that reaches this function directly must also do so to
+    # avoid stale `.json` / `.data` / `.txt` / `.shard` / `.nzind*` / `.nzval*` / `.nztxt` files.
+    base_key = "vectors/$(axis)/$(name)"
     if vector isa AbstractString
         @assert !(contains(vector, '\n'))
-        write_dense_array_json("$(files.path)/vectors/$(axis)/$(name).json", String)
-        fill_file("$(files.path)/vectors/$(axis)/$(name).txt", vector, Formats.format_axis_length(files, axis))
+        write_dense_array_json(files, base_key, String)
+        fill_file("$(files.path)/$(base_key).txt", vector, Formats.format_axis_length(files, axis))
 
     elseif vector isa StorageScalar
         @assert vector isa StorageReal
-        write_dense_array_json("$(files.path)/vectors/$(axis)/$(name).json", typeof(vector))
-        fill_file("$(files.path)/vectors/$(axis)/$(name).data", vector, Formats.format_axis_length(files, axis))  # NOJET
+        write_dense_array_json(files, base_key, typeof(vector))
+        fill_file("$(files.path)/$(base_key).data", vector, Formats.format_axis_length(files, axis))  # NOJET
 
     elseif issparse(vector)
         flame_timed("FilesDaf.write_sparse_vector") do
@@ -549,15 +571,14 @@ function Formats.format_set_vector!(
     else
         chunk_shape = chunks_for(packed, size(vector), eltype(vector))
         if chunk_shape !== nothing
-            packed_format_write_dense_array!(files, "vectors/$(axis)/$(name)", vector, chunk_shape)
+            packed_format_write_dense_array!(files, base_key, vector, chunk_shape)
         else
-            write_dense_array_json("$(files.path)/vectors/$(axis)/$(name).json", eltype(vector))
+            write_dense_array_json(files, base_key, eltype(vector))
             flame_timed("FilesDaf.write_dense_vector") do
-                return write("$(files.path)/vectors/$(axis)/$(name).data", vector)
+                return write("$(files.path)/$(base_key).data", vector)
             end
         end
     end
-    metadata_zip_append!(files, "vectors/$(axis)/$(name).json")
     return nothing
 end
 
@@ -592,7 +613,15 @@ function write_string_vector( # UNTESTED
         if sparse_size <= dense_size * 0.75
             nzind_chunk_shape = chunks_for(packed, (n_nonempty,), ind_type)
             nzval_chunk_shape = chunks_for(packed, (n_nonempty,), String)
-            write_sparse_vector_json("$(base).json", String, ind_type, n_nonempty; nzind_chunk_shape, nzval_chunk_shape)
+            write_sparse_vector_json(
+                files,
+                logical_base,
+                String,
+                ind_type,
+                n_nonempty;
+                nzind_chunk_shape,
+                nzval_chunk_shape,
+            )
 
             nzind_vector = Vector{ind_type}(undef, n_nonempty)
             nzval_buffer = Vector{eltype(vector)}(undef, n_nonempty)
@@ -611,7 +640,7 @@ function write_string_vector( # UNTESTED
             write_sparse_string_nzval(base, nzval_buffer, nzval_chunk_shape)
 
         else
-            write_dense_string_array(base, vector, chunks_for(packed, (length(vector),), String))
+            write_dense_string_array(files, logical_base, vector, chunks_for(packed, (length(vector),), String))
         end
     end
 
@@ -676,7 +705,7 @@ function Formats.format_delete_vector!(
         rm(path; force = true)
         report_modified!(path)
     end
-    metadata_zip_rebuild!(files)
+    metadata_json_rebuild!(files)
     return nothing
 end
 
@@ -780,13 +809,21 @@ function Formats.format_set_matrix!(
         matrix = spzeros(typeof(matrix), nrows, ncols)
     end
 
+    # Contract: callers must have invoked `update_before_set_matrix` (which delegates to `format_delete_matrix!`)
+    # before reaching here, so the per-property files have already been removed from disk. The public `set_matrix!`
+    # path in `writers.jl` does this. There is one internal caller — `MemoryDaf.format_relayout_matrix!` — that
+    # relies on the surrounding `relayout!` orchestration in `writers.jl` having already cleaned the destination
+    # `(columns_axis, rows_axis, name)` slot before invoking the relayout dispatch. Any new internal call site must
+    # also satisfy this contract to avoid stale `.json` / `.data` / `.txt` / `.colptr` / `.rowval` / `.nzval*` /
+    # `.nztxt` files.
+    base_key = "matrices/$(rows_axis)/$(columns_axis)/$(name)"
     if matrix isa StorageReal
-        write_dense_array_json("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", typeof(matrix))
-        fill_file("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).data", matrix, nrows * ncols)  # NOJET
+        write_dense_array_json(files, base_key, typeof(matrix))
+        fill_file("$(files.path)/$(base_key).data", matrix, nrows * ncols)  # NOJET
 
     elseif matrix isa AbstractString
-        write_dense_array_json("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", String)
-        fill_file("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).txt", matrix, nrows * ncols)  # NOJET
+        write_dense_array_json(files, base_key, String)
+        fill_file("$(files.path)/$(base_key).txt", matrix, nrows * ncols)  # NOJET
 
     elseif issparse(matrix)
         @assert matrix isa AbstractMatrix
@@ -801,21 +838,14 @@ function Formats.format_set_matrix!(
         @assert eltype(matrix) <: Real
         chunk_shape = chunks_for(packed, (nrows, ncols), eltype(matrix))
         if chunk_shape !== nothing
-            packed_format_write_dense_array!(
-                files,
-                "matrices/$(rows_axis)/$(columns_axis)/$(name)",
-                matrix,
-                chunk_shape,
-            )
+            packed_format_write_dense_array!(files, base_key, matrix, chunk_shape)
         else
-            write_dense_array_json("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).json", eltype(matrix))
+            write_dense_array_json(files, base_key, eltype(matrix))
             flame_timed("FilesDaf.write_dense_matrix") do
-                return write("$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name).data", matrix)
+                return write("$(files.path)/$(base_key).data", matrix)
             end
         end
     end
-
-    metadata_zip_append!(files, "matrices/$(rows_axis)/$(columns_axis)/$(name).json")
     return nothing
 end
 
@@ -855,7 +885,8 @@ function write_string_matrix(
         rowval_chunk_shape = chunks_for(packed, (n_nonempty,), ind_type)
         nzval_chunk_shape = chunks_for(packed, (n_nonempty,), String)
         write_sparse_matrix_json(
-            "$(base).json",
+            files,
+            logical_base,
             String,
             ind_type,
             n_nonempty,
@@ -893,7 +924,7 @@ function write_string_matrix(
         end
 
     else
-        write_dense_string_array(base, matrix, chunks_for(packed, (nrows, ncols), String))
+        write_dense_string_array(files, logical_base, matrix, chunks_for(packed, (nrows, ncols), String))
     end
 
     return nothing
@@ -996,8 +1027,6 @@ function Formats.format_relayout_matrix!(
             Formats.format_get_empty_dense_matrix!(files, columns_axis, rows_axis, name, eltype(matrix), packed)
         relayout!(flip(relayout_matrix), matrix)
     end
-
-    metadata_zip_append!(files, "matrices/$(columns_axis)/$(rows_axis)/$(name).json")
     return relayout_matrix
 end
 
@@ -1026,7 +1055,7 @@ function Formats.format_delete_matrix!(
         rm(path; force = true)
         report_modified!(path)
     end
-    metadata_zip_rebuild!(files)
+    metadata_json_rebuild!(files)
     return nothing
 end
 
@@ -1240,33 +1269,32 @@ function write_zeros_file(path::AbstractString, size::Integer)::Nothing
 end
 
 function write_dense_array_json(  # UNTESTED
-    path::AbstractString,
+    files::FilesDaf,
+    key::AbstractString,
     eltype::Type{<:StorageScalarBase},
 )::Nothing
     flame_timed("FilesDaf.write_dense_array_json") do
-        write(path, dense_array_json_bytes(eltype))
-        report_modified!(path)
-        return nothing
+        return write_property_json!(files, key, dense_array_json_bytes(eltype))
     end
     return nothing
 end
 
 function write_packed_array_json(  # UNTESTED
-    path::AbstractString,
+    files::FilesDaf,
+    key::AbstractString,
     eltype::Type{<:StorageScalarBase},
     chunk_shape::NTuple{N, Int},
     codec::PackedCodec,
 )::Nothing where {N}
     flame_timed("FilesDaf.write_packed_array_json") do
-        write(path, packed_array_json_bytes(eltype, chunk_shape, codec))
-        report_modified!(path)
-        return nothing
+        return write_property_json!(files, key, packed_array_json_bytes(eltype, chunk_shape, codec))
     end
     return nothing
 end
 
 function write_sparse_vector_json(
-    path::AbstractString,
+    files::FilesDaf,
+    key::AbstractString,
     eltype::Type{<:StorageScalarBase},
     indtype::Type{<:StorageInteger},
     nnz::Integer;
@@ -1274,15 +1302,15 @@ function write_sparse_vector_json(
     nzval_chunk_shape::Maybe{NTuple{1, Int}} = nothing,
 )::Nothing
     flame_timed("FilesDaf.write_sparse_vector_json") do
-        write(path, sparse_vector_json_bytes(eltype, indtype, nnz; nzind_chunk_shape, nzval_chunk_shape))
-        report_modified!(path)
-        return nothing
+        json_bytes = sparse_vector_json_bytes(eltype, indtype, nnz; nzind_chunk_shape, nzval_chunk_shape)
+        return write_property_json!(files, key, json_bytes)
     end
     return nothing
 end
 
 function write_sparse_matrix_json(
-    path::AbstractString,
+    files::FilesDaf,
+    key::AbstractString,
     eltype::Type{<:StorageScalarBase},
     indtype::Type{<:StorageInteger},
     nnz::Integer,
@@ -1292,21 +1320,28 @@ function write_sparse_matrix_json(
     nzval_chunk_shape::Maybe{NTuple{1, Int}} = nothing,
 )::Nothing
     flame_timed("FilesDaf.write_sparse_matrix_json") do
-        write(
-            path,
-            sparse_matrix_json_bytes(
-                eltype,
-                indtype,
-                nnz,
-                n_columns;
-                colptr_chunk_shape,
-                rowval_chunk_shape,
-                nzval_chunk_shape,
-            ),
+        json_bytes = sparse_matrix_json_bytes(
+            eltype,
+            indtype,
+            nnz,
+            n_columns;
+            colptr_chunk_shape,
+            rowval_chunk_shape,
+            nzval_chunk_shape,
         )
-        report_modified!(path)
-        return nothing
+        return write_property_json!(files, key, json_bytes)
     end
+    return nothing
+end
+
+# Write the per-property JSON sidecar at `<files.path>/<key>.json` (with a trailing newline) and append the
+# corresponding entry to `metadata.json`. `descriptor` is the JSON bytes returned by one of the
+# `*_json_bytes` helpers, which include the trailing newline; `metadata_json_append!` strips it before insertion.
+function write_property_json!(files::FilesDaf, key::AbstractString, descriptor::AbstractVector{UInt8})::Nothing
+    json_path = "$(files.path)/$(key).json"
+    write(json_path, descriptor)
+    report_modified!(json_path)
+    metadata_json_append!(files, key, descriptor)
     return nothing
 end
 
@@ -1320,12 +1355,14 @@ end
 # `<base>.txt` line-per-element file or the packed `<base>.shard` v3 sharded-array bytes. The
 # matching JSON descriptor is written at `<base>.json`.
 function write_dense_string_array(
-    base_path::AbstractString,
+    files::FilesDaf,
+    key::AbstractString,
     data::AbstractArray{T, N},
     chunk_shape::Maybe{NTuple{N, Int}},
 )::Nothing where {T <: AbstractString, N}
+    base_path = "$(files.path)/$(key)"
     if chunk_shape === nothing
-        write_dense_array_json("$(base_path).json", String)
+        write_dense_array_json(files, key, String)
         write_lines_file("$(base_path).txt", data)
     else
         codec = compressor_for()
@@ -1333,7 +1370,7 @@ function write_dense_string_array(
         shard_path = "$(base_path).shard"
         open(io -> write(io, encoded), shard_path, "w")
         report_modified!(shard_path)
-        write_packed_array_json("$(base_path).json", T, chunk_shape, codec)
+        write_packed_array_json(files, key, T, chunk_shape, codec)
     end
     return nothing
 end
@@ -1366,31 +1403,7 @@ function write_sparse_string_nzval(
     return nothing
 end
 
-const METADATA_ZIP = "metadata.zip"
-
-# Rewrite `axes/metadata.json` to contain the sorted list of axis names currently present in the
-# `axes/*.txt` files. This file is the only thing in the FilesDaf tree whose content isn't directly
-# observable from a per-property JSON — it exists specifically so HTTP clients can enumerate axes
-# from `metadata.zip` without fetching any `.txt` files.
-function write_axes_metadata!(files::FilesDaf)::Nothing
-    axes_directory = "$(files.path)/axes"
-    axes = String[]
-    if isdir(axes_directory)
-        for name in readdir(axes_directory)
-            if endswith(name, ".txt")
-                push!(axes, chop(name; tail = 4))
-            end
-        end
-    end
-    path = "$(axes_directory)/metadata.json"
-    open(path, "w") do file
-        JSON.print(file, axes)
-        write(file, '\n')
-        return nothing
-    end
-    report_modified!(path)
-    return nothing
-end
+const METADATA_JSON = "metadata.json"
 
 function packed_write_bytes!(files::FilesDaf, key::AbstractString, bytes::AbstractVector{UInt8})::Nothing
     path = "$(files.path)/$(key)"
@@ -1413,8 +1426,8 @@ function packed_delete_entry!(files::FilesDaf, key::AbstractString)::Nothing
     return nothing
 end
 
-function packed_register_metadata!(files::FilesDaf, key::AbstractString)::Nothing
-    metadata_zip_append!(files, key)
+function packed_register_metadata!(files::FilesDaf, key::AbstractString, descriptor::AbstractVector{UInt8})::Nothing
+    metadata_json_append!(files, key, descriptor)
     return nothing
 end
 
@@ -1509,70 +1522,99 @@ function packed_make_streaming_shard_writer(
     return open_streaming_shard_writer("$(files.path)/$(shard_key)", T, Int(n_chunks), v3_bytes_codecs_for(codec, T))
 end
 
-# Append one already-on-disk JSON file as a new entry into `metadata.zip`. The entry name is its
-# relative path under `files.path`. Append-only is safe for our writer protocol: Daf routes
-# overwrites through delete + create, so a create never collides with an existing entry in the zip.
-function metadata_zip_append!(files::FilesDaf, relative_path::AbstractString)::Nothing
-    full_path = "$(files.path)/$(relative_path)"
-    bytes = read(full_path)
-    zip_path = "$(files.path)/$(METADATA_ZIP)"
-    ZipArchives.zip_append_archive(zip_path) do writer
-        return ZipArchives.zip_writefile(writer, relative_path, bytes)
+# Append one entry to `metadata.json` via byte-level surgery on the trailing `}`. The `descriptor` bytes (typically
+# the just-built JSON of a per-property sidecar) are inserted verbatim under `key`; an optional trailing newline in
+# `descriptor` is stripped (so the same bytes that the disk sidecar holds — JSON + `\n` — can be passed through
+# without re-reading). The file is assumed to exist and parse to a JSON object — [`ensure_metadata_json!`](@ref)
+# runs at open time and [`metadata_json_rebuild!`](@ref) runs on every `delete!`, so the file's last byte is always
+# `}`. Append-only is safe for the writer protocol: Daf routes overwrites through delete + create, and `delete!`
+# rebuilds the file from scratch, so an `append!` never collides with an existing key.
+function metadata_json_append!(files::FilesDaf, key::AbstractString, descriptor::AbstractVector{UInt8})::Nothing
+    if !isempty(descriptor) && descriptor[end] == UInt8('\n')
+        descriptor = @view descriptor[1:(end - 1)]
     end
-    report_modified!(zip_path)
-    return nothing
-end
-
-# Rebuild `metadata.zip` from scratch by walking the tree and bundling every `.json` file plus
-# `axes/metadata.json` (which is regenerated first). Committed atomically via `.new` + rename so
-# readers never observe a torn archive. Used on every delete and at the end of every reorder, and
-# also at open time when `metadata.zip` is missing.
-function metadata_zip_rebuild!(files::FilesDaf)::Nothing
-    write_axes_metadata!(files)
-    zip_path = "$(files.path)/$(METADATA_ZIP)"
-    staging_path = zip_path * ".new"
-    ZipArchives.ZipWriter(staging_path) do writer
-        add_entry_if_exists(writer, files.path, "daf.json")
-        add_entry_if_exists(writer, files.path, "axes/metadata.json")
-        add_json_files_in(writer, files.path, "scalars")
-        vectors_directory = "$(files.path)/vectors"
-        if isdir(vectors_directory)
-            for axis in readdir(vectors_directory)
-                add_json_files_in(writer, files.path, "vectors/$(axis)")
-            end
-        end
-        matrices_directory = "$(files.path)/matrices"
-        if isdir(matrices_directory)
-            for rows_axis in readdir(matrices_directory)
-                rows_directory = "$(matrices_directory)/$(rows_axis)"
-                if isdir(rows_directory)
-                    for columns_axis in readdir(rows_directory)
-                        add_json_files_in(writer, files.path, "matrices/$(rows_axis)/$(columns_axis)")
-                    end
-                end
-            end
+    metadata_path = "$(files.path)/$(METADATA_JSON)"
+    encoded_key = Vector{UInt8}(JSON.json(String(key)))
+    file_size = filesize(metadata_path)
+    @assert file_size >= 2 "$(METADATA_JSON) missing or truncated; size=$(file_size)"
+    open(metadata_path, "r+") do io
+        truncate(io, file_size - 1)
+        seekend(io)
+        if file_size == 2  # was the empty object `{}`
+            write(io, encoded_key, UInt8(':'), descriptor, UInt8('}'))
+        else
+            write(io, UInt8(','), encoded_key, UInt8(':'), descriptor, UInt8('}'))
         end
         return nothing
     end
-    Base.Filesystem.rename(staging_path, zip_path)
-    report_modified!(zip_path)
+    report_modified!(metadata_path)
     return nothing
 end
 
-function add_entry_if_exists(
-    writer::ZipArchives.ZipWriter,
-    base_directory::AbstractString,
-    relative_path::AbstractString,
-)::Nothing
-    full_path = "$(base_directory)/$(relative_path)"
-    if isfile(full_path)
-        ZipArchives.zip_writefile(writer, relative_path, read(full_path))
+# Rebuild `metadata.json` from scratch by walking the tree and emitting one entry per property (axes, scalars,
+# vectors, matrices) in sorted-by-key order. Committed atomically via stage + rename so concurrent readers never
+# observe a torn file. Called on every `delete!` and reorder, and at open time when the file is missing or
+# unparseable.
+function metadata_json_rebuild!(files::FilesDaf)::Nothing
+    entries = Pair{String, Any}[]
+
+    axes_directory = "$(files.path)/axes"
+    if isdir(axes_directory)
+        for name in sort!(readdir(axes_directory))
+            if endswith(name, ".txt")
+                axis = chop(name; tail = 4)
+                n_entries = count_lines("$(axes_directory)/$(name)")
+                push!(entries, "axes/$(axis)" => Dict("format" => "axis", "n_entries" => n_entries))
+            end
+        end
     end
+
+    push_sidecars_in!(entries, files.path, "scalars")
+
+    vectors_directory = "$(files.path)/vectors"
+    if isdir(vectors_directory)
+        for axis in sort!(readdir(vectors_directory))
+            push_sidecars_in!(entries, files.path, "vectors/$(axis)")
+        end
+    end
+
+    matrices_directory = "$(files.path)/matrices"
+    if isdir(matrices_directory)
+        for rows_axis in sort!(readdir(matrices_directory))
+            rows_directory = "$(matrices_directory)/$(rows_axis)"
+            if isdir(rows_directory)
+                for columns_axis in sort!(readdir(rows_directory))
+                    push_sidecars_in!(entries, files.path, "matrices/$(rows_axis)/$(columns_axis)")
+                end
+            end
+        end
+    end
+
+    metadata_path = "$(files.path)/$(METADATA_JSON)"
+    staging_path = metadata_path * ".new"
+    open(staging_path, "w") do io
+        write(io, UInt8('{'))
+        for (index, (key, value)) in enumerate(entries)
+            if index > 1
+                write(io, UInt8(','))
+            end
+            JSON.print(io, key)
+            write(io, UInt8(':'))
+            JSON.print(io, value)
+        end
+        write(io, UInt8('}'))
+        return nothing
+    end
+    Base.Filesystem.rename(staging_path, metadata_path)
+    report_modified!(metadata_path)
     return nothing
 end
 
-function add_json_files_in(
-    writer::ZipArchives.ZipWriter,
+# Append every `*.json` sidecar in `<base_directory>/<relative_directory>` (in sorted name order) to `entries`,
+# keyed by `<relative_directory>/<sidecar-without-.json>`. Used by [`metadata_json_rebuild!`](@ref) to walk the
+# `scalars/`, `vectors/<axis>/`, and `matrices/<rows>/<cols>/` directories.
+function push_sidecars_in!(
+    entries::Vector{Pair{String, Any}},
     base_directory::AbstractString,
     relative_directory::AbstractString,
 )::Nothing
@@ -1580,25 +1622,48 @@ function add_json_files_in(
     if !isdir(full_directory)
         return nothing
     end
-    for name in readdir(full_directory)
+    for name in sort!(readdir(full_directory))
         if endswith(name, ".json")
-            relative_path = "$(relative_directory)/$(name)"
-            ZipArchives.zip_writefile(writer, relative_path, read("$(base_directory)/$(relative_path)"))
+            key = "$(relative_directory)/$(chop(name; tail = 5))"
+            content = JSON.parsefile("$(full_directory)/$(name)")
+            push!(entries, key => content)
         end
     end
     return nothing
 end
 
-# Ensure `metadata.zip` exists; rebuild if missing. Any error in read-only mode is silently
-# swallowed so a FilesDaf on a read-only filesystem still opens cleanly — HTTP serving then
-# requires one writable open to generate the sidecar.
-function ensure_metadata_zip!(files::FilesDaf)::Nothing
-    zip_path = "$(files.path)/$(METADATA_ZIP)"
-    if isfile(zip_path)
+# Count newline-terminated lines in `path`. Used by [`metadata_json_rebuild!`](@ref) to populate the `n_entries`
+# field of each axis descriptor without round-tripping through `mmap_file_lines`.
+function count_lines(path::AbstractString)::Int
+    n = 0
+    open(path, "r") do io
+        for _ in eachline(io)
+            n += 1
+        end
         return nothing
     end
+    return n
+end
+
+# Ensure `metadata.json` exists and parses; rebuild if missing or torn. Any error in read-only mode is silently
+# swallowed so a FilesDaf on a read-only filesystem still opens cleanly — HTTP serving from such a directory then
+# requires one open on a writable filesystem to seed the sidecar.
+function ensure_metadata_json!(files::FilesDaf)::Nothing
+    metadata_path = "$(files.path)/$(METADATA_JSON)"
+    if isfile(metadata_path)
+        is_parseable = false
+        try
+            JSON.parsefile(metadata_path)
+            is_parseable = true
+        catch  # FLAKY TESTED
+            # Torn write or corruption — fall through to rebuild.
+        end
+        if is_parseable
+            return nothing
+        end
+    end
     try
-        metadata_zip_rebuild!(files)
+        metadata_json_rebuild!(files)
     catch  # FLAKY TESTED
         if files.mode == "r"  # UNTESTED
             return nothing  # UNTESTED
@@ -1697,7 +1762,7 @@ function Reorder.format_replace_reorder!(
         Reorder.tick_crash_counter!(crash_counter)
     end
 
-    metadata_zip_rebuild!(files)
+    metadata_json_rebuild!(files)
     return nothing
 end
 
@@ -1726,7 +1791,7 @@ function replace_reorder_vector(
             permutation = planned_axis.permutation,
             progress = replacement_progress,
         )
-        write_dense_array_json("$(files.path)/vectors/$(planned.axis)/$(planned.name).json", String)
+        write_dense_array_json(files, "vectors/$(planned.axis)/$(planned.name)", String)
         write_lines_file("$(files.path)/vectors/$(planned.axis)/$(planned.name).txt", permuted)
     elseif source_vector isa SparseVector
         T = eltype(source_vector)
@@ -1802,10 +1867,7 @@ function replace_reorder_matrix(
                 progress = replacement_progress,
             )
         end
-        write_dense_array_json(
-            "$(files.path)/matrices/$(planned.rows_axis)/$(planned.columns_axis)/$(planned.name).json",
-            String,
-        )
+        write_dense_array_json(files, "matrices/$(planned.rows_axis)/$(planned.columns_axis)/$(planned.name)", String)
         write_lines_file(
             "$(files.path)/matrices/$(planned.rows_axis)/$(planned.columns_axis)/$(planned.name).txt",
             permuted,
@@ -1933,7 +1995,7 @@ function Reorder.format_reset_reorder!(files::FilesDaf)::Bool
     end
     rm(backup_root; force = true, recursive = true)
     report_modified!(backup_root)
-    metadata_zip_rebuild!(files)
+    metadata_json_rebuild!(files)
     return true
 end
 

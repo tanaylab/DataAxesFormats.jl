@@ -12,16 +12,18 @@ same little-endian byte stream. As a consequence:
 
   - Unzipping a `*.daf.zip` produced by this format yields a directory that
     [`FilesDaf`](@ref DataAxesFormats.FilesFormat.FilesDaf) opens directly. The unzipped tree
-    will not contain the `metadata.zip` / `axes/metadata.json` sidecars `FilesDaf` uses for
-    [`HttpDaf`](@ref DataAxesFormats.HttpFormat.HttpDaf) enumeration — those are rebuilt
-    automatically by `FilesDaf.ensure_metadata_zip!` on the first local open on a writable
+    will not contain the `metadata.json` consolidated index `FilesDaf` uses for
+    [`HttpDaf`](@ref DataAxesFormats.HttpFormat.HttpDaf) enumeration — it is rebuilt
+    automatically by `FilesDaf.ensure_metadata_json!` on the first local open on a writable
     filesystem.
   - Conversely, `zip -r foo.daf.zip foo.daf/` over an existing `FilesDaf` directory produces a
-    valid `ZipDaf`. Since the source directory holds the (now-redundant) `metadata.zip` and
-    `axes/metadata.json` sidecars, those entries get bundled inside the archive too — `ZipDaf`
-    strips them from the central directory on first writable open (see
+    valid `ZipDaf`. Since the source directory may hold a (now-stale) `metadata.json`, that
+    entry can get bundled inside the archive too — `ZipDaf` strips it from the central
+    directory on every writable open (see
     [`MmapZipStores.remove_entries_from_central_directory!`](@ref
-    DataAxesFormats.MmapZipStores.remove_entries_from_central_directory!)).
+    DataAxesFormats.MmapZipStores.remove_entries_from_central_directory!)). After unzipping
+    such a stripped archive, the next writable `FilesDaf` open rebuilds `metadata.json` from
+    scratch, so the consolidated index is always coherent with the directory tree.
 
 The backend is built on [`MmapZipStores.MmapZipStore`](@ref
 DataAxesFormats.MmapZipStores.MmapZipStore), so dense numeric blobs (and `colptr` / `rowval` /
@@ -80,12 +82,12 @@ raises an error; use `r+` or `w+` to open a sub-daf for writing without truncati
 
 !!! note
 
-    `ZipDaf` archives intentionally do not contain the `metadata.zip` / `axes/metadata.json`
-    sidecars that [`HttpDaf`](@ref DataAxesFormats.HttpFormat.HttpDaf) reads, because the
-    archive's own central directory plays the same enumeration role. Consequently, an
-    `unzip foo.daf.zip -d foo.daf/` produces a directory that lacks these sidecars; before
-    exposing such a directory over HTTP, open it once locally with `FilesDaf("foo.daf")` (any
-    mode) so `FilesFormat.ensure_metadata_zip!` builds the sidecar.
+    `ZipDaf` archives intentionally do not contain the `metadata.json` consolidated index that
+    [`HttpDaf`](@ref DataAxesFormats.HttpFormat.HttpDaf) reads, because the archive's own
+    central directory plays the same enumeration role. Consequently, an
+    `unzip foo.daf.zip -d foo.daf/` produces a directory that lacks the index; before exposing
+    such a directory over HTTP, open it once locally with `FilesDaf("foo.daf")` (any mode) so
+    `FilesFormat.ensure_metadata_json!` builds it.
 """
 module ZipFormat
 
@@ -331,10 +333,12 @@ struct ZipDaf <: PackedDaf
 end
 
 # Sidecar entries that may appear inside an archive produced by `zip -r` over a `FilesDaf`
-# directory (see `FilesFormat.ensure_metadata_zip!` and `FilesFormat.write_axes_metadata!`).
-# `ZipDaf` strips them from the central directory on first writable open: their data regions
-# stay in the file as orphan bytes, but they no longer surface through ordinary ZIP enumeration.
-const FILES_DAF_SIDECAR_NAMES = ("metadata.zip", "axes/metadata.json")
+# directory (see `FilesFormat.ensure_metadata_json!`). `ZipDaf` strips them from the central
+# directory on every writable open: their data regions stay in the file as orphan bytes, but
+# they no longer surface through ordinary ZIP enumeration. Stripping is what makes
+# `unzip foo.daf.zip` produce a directory that triggers a `metadata.json` rebuild on its first
+# writable `FilesDaf` open instead of preserving a stale snapshot.
+const FILES_DAF_SIDECAR_NAMES = ("metadata.json",)
 
 function ZipDaf(
     path::AbstractString,
@@ -441,7 +445,7 @@ function verify_daf_marker(store::MmapZipStore, daf_marker_key::AbstractString, 
     return nothing
 end
 
-# Strip stale `metadata.zip` / `axes/metadata.json` sidecar entries that may have been bundled
+# Strip a stale `metadata.json` sidecar entry that may have been bundled
 # into the archive by `zip -r` over a `FilesDaf` directory. The data bytes stay in the file as
 # orphan regions (the backend is append-only with respect to data); only the central directory
 # is rewritten so the entries become unreachable through normal ZIP enumeration. Idempotent.
@@ -664,8 +668,9 @@ function packed_delete_entry!(::ZipDaf, ::AbstractString)::Nothing
 end
 
 # `ZipDaf` has no secondary metadata index — the zip itself is the index, so JSON sidecars are discoverable from
-# `zip_names` directly.
-function packed_register_metadata!(::ZipDaf, ::AbstractString)::Nothing
+# `zip_names` directly. Stale `metadata.json` entries (e.g. from a `zip -r foo.daf` of a FilesDaf) are stripped on
+# writable open by [`strip_files_daf_sidecars!`](@ref) so they cannot resurface in the central directory.
+function packed_register_metadata!(::ZipDaf, ::AbstractString, ::AbstractVector{UInt8})::Nothing
     return nothing
 end
 

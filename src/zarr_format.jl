@@ -75,6 +75,45 @@ existing Zarr-based convention such as [`OME-NGFF`](https://ngff.openmicroscopy.
     [`DAF_PACKED_COMPRESSION`](@ref DataAxesFormats.PackedFormat.DAF_PACKED_COMPRESSION). Both encodings coexist
     within a `1.1`-marked dataset.
 
+  - The root group's `zarr.json` carries a `consolidated_metadata` field — an inline index of every per-node
+    `zarr.json` under the root, so an open / HTTP-served reader does not have to issue one GET per node. Its
+    content is bijective with the consolidated metadata that
+    [`FilesDaf`](@ref DataAxesFormats.FilesFormat.FilesDaf) writes in its `metadata.json` (see the `FilesDaf`
+    documentation for the formal mapping; [`zarr_to_files`](@ref DataAxesFormats.ZarrConvert.zarr_to_files) and
+    [`files_to_zarr`](@ref DataAxesFormats.ZarrConvert.files_to_zarr) translate between them).
+    The on-disk shape is the one `zarr-python` 3.x writes, which informally tracks
+    [zarr-specs PR #309](https://github.com/zarr-developers/zarr-specs/pull/309) (still open as of writing,
+    so the spec PR is **not** the authoritative reference — `zarr-python`'s `ConsolidatedMetadata` class is). The
+    field lives at the top level of the root group's `zarr.json`, sibling to `attributes`:
+
+    ```json
+    {
+      "zarr_format": 3,
+      "node_type": "group",
+      "attributes": {"daf": [1, 0]},
+      "consolidated_metadata": {
+        "kind": "inline",
+        "must_understand": false,
+        "metadata": {
+          "<relative_path>": <full v3 metadata blob>,
+          ...
+        }
+      }
+    }
+    ```
+
+    where `<relative_path>` is each node's path relative to the root group (no leading slash, no trailing
+    `/zarr.json`) and the value is the verbatim parsed content of that node's `zarr.json` — i.e. the same
+    `MetadataV3` that the per-node file holds, including its own `attributes`. `kind` is always `"inline"`;
+    `must_understand` is always `false`. Order of keys inside `metadata` is not significant for interop;
+    `zarr-python`'s writer happens to sort by (depth, casefolded NFKC name) but its reader does not require it.
+    On every property `set!` / `delete!` we update the field in the root `zarr.json` (full file rewrite per
+    operation, which is unavoidable since `zarr.json` is one document; we cache the serialized bytes of the
+    `metadata` sub-dict and append in place rather than re-serializing every existing entry, so per-`set!` CPU
+    work is O(size-of-one-descriptor)). On every open (read or write), if the field is missing we attempt to
+    rebuild it by walking the per-node `zarr.json` files; the rebuild is best-effort with the same
+    swallow-on-read-only-frozen-filesystem semantics as `FilesDaf`'s `metadata.json`.
+
 Example Zarr directory structure:
 
     example-daf-dataset-root-directory.zarr/
@@ -318,10 +357,11 @@ The `path` is a filesystem path that follows one of these conventions:
     `group`.
   - `http://…` or `https://…` — a URL pointing at a remote Zarr directory that contains a `Daf` data set, served over
     HTTP (e.g. via a static file server, `HTTP.serve(store, path, …)`, or `xpublish`). Only `mode = "r"` is supported;
-    the HTTP backend is strictly read-only and returns a [`DafReadOnly`](@ref). The remote directory **must** contain
-    a consolidated `.zmetadata` file, and the served content **must** be stable for the lifetime of the open handle:
-    per-chunk GETs happen lazily, so if the underlying data set is rewritten or relocated while the handle is open,
-    subsequent reads may see inconsistent bytes.
+    the HTTP backend is strictly read-only and returns a [`DafReadOnly`](@ref). The remote root `zarr.json` **must**
+    carry an inline `consolidated_metadata` field (the on-disk shape `zarr-python` 3.x writes — see the module
+    docstring), and the served content **must** be stable for the lifetime of the open handle: per-chunk GETs
+    happen lazily, so if the underlying data set is rewritten or relocated while the handle is open, subsequent
+    reads may see inconsistent bytes.
 
 The backend (directory, ZIP, or HTTP) is selected from the path prefix / file-name suffix. The ZIP backend is
 append-only: properties cannot be deleted and axes cannot be reordered (attempts to do so raise an error).
@@ -365,18 +405,35 @@ error; use `r+` or `w+` to open a sub-daf for writing without truncation.
 
 !!! note
 
-    `.daf.zarr.zip` archives written by this code do not contain the `.zmetadata` consolidated metadata sidecar,
-    because the ZIP central directory plays the same enumeration role. Consequently, an
-    `unzip foo.daf.zarr.zip -d foo.daf.zarr/` produces a directory that lacks `.zmetadata`. Before exposing such a
-    directory over HTTP, open it once locally with `ZarrDaf("foo.daf.zarr")` (any mode) so
-    `ensure_consolidated_metadata!` builds the sidecar.
+    `.daf.zarr.zip` archives written by this code do not carry the inline `consolidated_metadata` field in their
+    root `zarr.json`, because the ZIP central directory plays the same enumeration role. Consequently, an
+    `unzip foo.daf.zarr.zip -d foo.daf.zarr/` produces a directory whose root `zarr.json` lacks
+    `consolidated_metadata`. Before exposing such a directory over HTTP, open it once locally with
+    `ZarrDaf("foo.daf.zarr")` (any mode) so `ensure_consolidated_metadata!` builds it. Symmetrically, when ZarrDaf
+    appends to a `.daf.zarr.zip` whose root `zarr.json` does have an inline `consolidated_metadata` (e.g. from a
+    `zip -r` of a directory daf), the field is stripped from the rewritten root `zarr.json` so subsequent unzips
+    can't see a stale snapshot.
+
+!!! warning
+
+    The byte-surgery append on `consolidated_metadata.metadata` and the atomic stage-rename rewrite of root
+    `zarr.json` assume a single writer at a time. The in-process Daf write lock serializes writers within one Julia
+    process; opening the same `.daf.zarr` directory from multiple processes (or multiple machines, e.g. NFS) and
+    writing concurrently can interleave rewrites and corrupt the consolidated metadata. Open writable from one
+    process at a time.
 """
-struct ZarrDaf <: DafWriter
+mutable struct ZarrDaf <: DafWriter
     name::AbstractString
     internal::Internal
     root::ZGroup
     mode::AbstractString
     path::AbstractString
+    # Cached serialized form of `consolidated_metadata.metadata` (the inner `{<relative_path>: <full v3 metadata
+    # blob>}` dict — see the module docstring). Mutated by `register_consolidated_metadata!` (byte-surgery append on
+    # `set!`) and `refresh_consolidated_metadata!` (full rebuild on `delete!` / reorder). Always a valid JSON object
+    # literal whose last byte is `}` so the byte-surgery insertion can locate the splice point in O(1). Empty for
+    # backends that do not maintain consolidated metadata (`MmapZipStore`, `DictStore`).
+    consolidated_metadata_bytes::Vector{UInt8}
 end
 
 function ZarrDaf(
@@ -451,7 +508,8 @@ function ZarrDaf(
             shared_resource = shared_handle,
         )
     end
-    daf = ZarrDaf(name, internal, root, mode, full_path)
+    daf = ZarrDaf(name, internal, root, mode, full_path, Vector{UInt8}("{}"))
+    strip_zarr_zip_consolidated_metadata!(daf)
     ensure_consolidated_metadata!(daf)
     @debug "Daf: $(brief(daf)) root: $(root)" _group = :daf_repos
     if is_read_only
@@ -465,14 +523,46 @@ function open_http_zarr_daf(url::AbstractString, mode::AbstractString; name::May
     if mode != "r"
         error("can't open an http(s)://... ZarrDaf in mode: $(mode); the HTTP backend is read-only: $(url)")
     end
-    root = try
-        Zarr.zopen(String(url))  # NOJET
+    http_store = Zarr.HTTPStore(String(url))
+    root_zarr_bytes = try
+        http_store["", "zarr.json"]
     catch exception
+        error("failed to fetch remote zarr group: $(url)/zarr.json\n" * "underlying error: $(exception)")  # UNTESTED
+    end
+    if root_zarr_bytes === nothing
+        error("failed to fetch remote zarr group: $(url)/zarr.json")
+    end
+    root_metadata = JSON.parse(String(copy(root_zarr_bytes)); dicttype = Dict{String, Any})::Dict{String, Any}
+    if !(get(root_metadata, "node_type", "") == "group")
+        error("not a zarr group: $(url)")
+    end
+    consolidated_field = get(root_metadata, "consolidated_metadata", nothing)
+    if !(consolidated_field isa AbstractDict) ||
+       get(consolidated_field, "kind", "") != "inline" ||
+       !(get(consolidated_field, "metadata", nothing) isa AbstractDict)
         error(
-            "failed to open remote zarr group: $(url)\n" *
-            "the remote directory must contain a consolidated `.zmetadata` file\n" *
-            "underlying error: $(exception)",
+            "remote zarr group lacks an inline `consolidated_metadata` field: $(url)\n" *
+            "expose the directory after any `ZarrDaf(...)` open on a writable filesystem so the field is built",
         )
+    end
+    inline_metadata = consolidated_field["metadata"]::AbstractDict
+
+    # Translate zarr-python's flat path keys (`<path>`) to Zarr.jl's `ConsolidatedStore` key shape (`<path>/zarr.json`),
+    # and inject the root group's own metadata under `"zarr.json"` (with the `consolidated_metadata` field stripped so
+    # the consolidated dict the parent store sees doesn't recurse on itself).
+    cons_dict = Dict{String, Any}()
+    root_metadata_without_field = copy(root_metadata)
+    delete!(root_metadata_without_field, "consolidated_metadata")
+    cons_dict["zarr.json"] = root_metadata_without_field
+    for (path, blob) in inline_metadata
+        cons_dict["$(path)/zarr.json"] = blob
+    end
+
+    consolidated_store = Zarr.ConsolidatedStore(http_store, "", cons_dict)
+    root = try
+        Zarr.zopen(consolidated_store, "r"; zarr_format = 3)  # NOJET
+    catch exception
+        error("failed to open remote zarr group: $(url)\n" * "underlying error: $(exception)")  # UNTESTED
     end
     if !(root isa ZGroup)
         error("not a zarr group: $(url)")  # UNTESTED
@@ -491,7 +581,7 @@ function open_http_zarr_daf(url::AbstractString, mode::AbstractString; name::May
         name = String(url)  # UNTESTED
     end
     name = unique_name(name)
-    daf = ZarrDaf(name, Internal(; is_frozen = true), root, "r", String(url))
+    daf = ZarrDaf(name, Internal(; is_frozen = true), root, "r", String(url), Vector{UInt8}("{}"))
     @debug "Daf: $(brief(daf)) root: $(root)" _group = :daf_repos
     return read_only(daf)
 end
@@ -530,7 +620,14 @@ function ZarrDaf(; name::Maybe{AbstractString} = nothing, packed::Bool = false):
         name = "memory"  # UNTESTED
     end
     name = unique_name(name)
-    daf = ZarrDaf(name, Internal(; is_frozen = false, packed_default = packed), root, "w+", "<memory>")
+    daf = ZarrDaf(
+        name,
+        Internal(; is_frozen = false, packed_default = packed),
+        root,
+        "w+",
+        "<memory>",
+        Vector{UInt8}("{}"),
+    )
     @debug "Daf: $(brief(daf)) root: $(root)" _group = :daf_repos
     return daf
 end
@@ -773,74 +870,217 @@ function patch_chunk_crc_if_needed(array::ZArray, chunk_suffix::AbstractString):
     return nothing
 end
 
-# Rewrite the consolidated `.zmetadata` file for `daf`'s root group so live readers (including the
-# `ConsolidatedStore` wrapper used for HTTP access) observe the newly-committed state. The rewrite
-# is atomic: the serialized JSON is printed to a neighboring `.zmetadata.new` staging file which is
-# then replaced over `.zmetadata` via `rename(2)`. `JSON.print` throws on any write failure and
-# `Base.Filesystem.rename` throws an `IOError` on any rename failure, so any problem here propagates
-# as a hard error to the caller. Currently only implemented for [`Zarr.DirectoryStore`](@extref) —
-# other backends (in-memory `DictStore`, [`MmapZipStore`](@ref)) are a no-op and rely on separate
-# backend-specific mechanisms for visibility.
+# Rebuild `daf.consolidated_metadata_bytes` from scratch by walking the in-memory `ZGroup` tree (no disk reads), then
+# rewrite the root `zarr.json` inline `consolidated_metadata` field so live readers (including the
+# `ConsolidatedStore` wrapper used for HTTP access) observe the newly-committed state. Called from every `delete!`
+# and reorder; `set!` paths use the cheaper [`register_consolidated_metadata!`](@ref) which only appends one entry.
+# Currently only implemented for [`Zarr.DirectoryStore`](@extref) — other backends (in-memory `DictStore`,
+# [`MmapZipStore`](@ref)) do not maintain consolidated metadata and rely on the central directory or in-memory dict
+# for enumeration; the function is a no-op for them.
+# Drop a stale `consolidated_metadata` field from the root `zarr.json` of a ZIP-backed `ZarrDaf` on every writable
+# open. ZarrDaf-Zip does not maintain consolidated metadata (its central directory is the index), so any field that
+# survives from a `zip -r` of a previously-written `DirectoryStore` daf would become stale the moment we append a new
+# property. Stripping at open time guarantees that an `unzip` of the resulting archive produces a directory whose
+# next writable open will rebuild the field from the per-node `zarr.json` files. The strip is one
+# remove-from-central-directory + one append; the data region of the old entry remains as orphan bytes in the file
+# (acceptable since this fires at most once per writable open).
+function strip_zarr_zip_consolidated_metadata!(daf::ZarrDaf)::Nothing
+    storage = daf.root.storage
+    if !(storage isa MmapZipStore) || !is_writable(daf)
+        return nothing
+    end
+    prefix = daf.root.path
+    key = isempty(prefix) ? "zarr.json" : prefix * "/zarr.json"
+    raw = storage[prefix, "zarr.json"]
+    if raw === nothing
+        return nothing  # UNTESTED
+    end
+    parsed = JSON.parse(String(copy(raw)); dicttype = Dict{String, Any})::Dict{String, Any}
+    if !haskey(parsed, "consolidated_metadata")
+        return nothing
+    end
+    delete!(parsed, "consolidated_metadata")
+    io = IOBuffer()
+    JSON.print(io, parsed)
+    remove_entries_from_central_directory!(storage, [key])
+    storage[key] = take!(io)
+    return nothing
+end
+
 function refresh_consolidated_metadata!(daf::ZarrDaf)::Nothing
     storage = daf.root.storage
     if !(storage isa Zarr.DirectoryStore)
         return nothing
     end
-    prefix = daf.root.path
-    consolidated = Dict{String, Any}()
-    consolidate_v3_metadata!(consolidated, storage, prefix)
-    group_directory = joinpath(storage.folder, lstrip(prefix, '/'))
-    target_path = joinpath(group_directory, ".zmetadata")
+    daf.consolidated_metadata_bytes = build_consolidated_metadata_bytes(daf.root)
+    flush_consolidated_metadata!(daf)
+    return nothing
+end
+
+# Append a single entry to `daf.consolidated_metadata_bytes` via byte-level surgery on the trailing `}`. `path` is
+# the new node's path relative to the root group (no leading slash, no `/zarr.json` suffix); `descriptor` is the JSON
+# bytes of that node's full v3 metadata blob (matching what `zarr.json` for that node holds on disk). The cache is
+# updated in place; the caller is expected to call [`flush_consolidated_metadata!`](@ref) once after all node
+# registrations to commit the new state to disk. Use multiple `register_consolidated_node!` calls in sequence for
+# multi-node operations (sparse property writes that create a sub-group + sub-arrays, `add_axis` that creates several
+# groups) followed by a single flush, so the per-`set!` cost is one root `zarr.json` rewrite regardless of how many
+# nodes the operation touched. Per-call CPU work is O(size of the new descriptor); rebuild of the cache is O(N) and
+# done only on `delete!`/reorder via [`refresh_consolidated_metadata!`](@ref).
+function register_consolidated_node!(daf::ZarrDaf, path::AbstractString, descriptor::AbstractVector{UInt8})::Nothing
+    storage = daf.root.storage
+    if !(storage isa Zarr.DirectoryStore)
+        return nothing
+    end
+    cached = daf.consolidated_metadata_bytes
+    @assert !isempty(cached) && cached[end] == UInt8('}')
+    encoded_key = Vector{UInt8}(JSON.json(String(path)))
+    io = IOBuffer()
+    # The "was `{}`" branch is unreachable in normal flow: `ensure_consolidated_metadata!` populates the cache from
+    # the in-memory `ZGroup` tree at open, and a fresh `ZarrDaf` always has the `scalars` / `axes` / `vectors` /
+    # `matrices` sub-groups, so `cached` already holds 4+ entries before any `register_consolidated_node!` runs.
+    # Kept for correctness in case a future code path constructs an empty cache.
+    if length(cached) == 2  # was the empty object `{}`  # UNTESTED
+        write(io, UInt8('{'))  # UNTESTED
+    else
+        write(io, @view cached[1:(end - 1)])
+        write(io, UInt8(','))
+    end
+    write(io, encoded_key, UInt8(':'), descriptor, UInt8('}'))
+    daf.consolidated_metadata_bytes = take!(io)
+    return nothing
+end
+
+# Register every node in a freshly-written subtree rooted at `prefix` (a `ZGroup` whose ancestors already exist in the
+# cache). Used by sparse property writes (sub-group + `nzind`/`nzval` sub-arrays) and `add_axis` (one new group per
+# axis, recursive into the matrices cross-product). Cache-only — caller invokes [`flush_consolidated_metadata!`](@ref)
+# once at the end.
+function register_consolidated_subtree!(daf::ZarrDaf, prefix::AbstractString, group::ZGroup)::Nothing
+    storage = daf.root.storage
+    if !(storage isa Zarr.DirectoryStore)
+        return nothing
+    end
+    register_consolidated_node!(daf, prefix, zgroup_metadata_bytes(group))
+    for (name, subgroup) in pairs(group.groups)
+        register_consolidated_subtree!(daf, "$(prefix)/$(name)", subgroup)
+    end
+    for (name, array) in pairs(group.arrays)
+        register_consolidated_node!(daf, "$(prefix)/$(name)", Vector{UInt8}(JSON.json(array.metadata)))
+    end
+    return nothing
+end
+
+# Atomically rewrite root `zarr.json` from the current `daf.consolidated_metadata_bytes` cache. Called once at the end
+# of any `set!` (after one or more `register_consolidated_node!` / `register_consolidated_subtree!` calls) and at the
+# end of `refresh_consolidated_metadata!`.
+function flush_consolidated_metadata!(daf::ZarrDaf)::Nothing
+    storage = daf.root.storage
+    if !(storage isa Zarr.DirectoryStore)
+        return nothing
+    end
+    write_root_zarr_json!(daf)
+    return nothing
+end
+
+# Walk the in-memory ZGroup tree and emit a JSON object literal mapping each child node's relative path to its full
+# v3 metadata blob — the on-disk shape that `zarr-python`'s `ConsolidatedMetadata.from_dict` expects under
+# `consolidated_metadata.metadata`. Group entries carry `{"zarr_format":3,"node_type":"group","attributes":<...>}`;
+# array entries serialize the underlying `Zarr.MetadataV3` directly (which `JSON.print` already encodes as the
+# canonical v3 array zarr.json shape). Sort order is not required for interop; we visit in `pairs(...)` order.
+function build_consolidated_metadata_bytes(root::ZGroup)::Vector{UInt8}
+    io = IOBuffer()
+    write(io, UInt8('{'))
+    first = Ref(true)
+    walk_zgroup_subtree(io, root, ""; first)
+    write(io, UInt8('}'))
+    return take!(io)
+end
+
+function walk_zgroup_subtree(io::IO, group::ZGroup, prefix::AbstractString; first::Ref{Bool})::Nothing
+    if !isempty(prefix)
+        if !first[]
+            write(io, UInt8(','))
+        end
+        first[] = false
+        JSON.print(io, prefix)
+        write(io, UInt8(':'))
+        write(io, zgroup_metadata_bytes(group))
+    end
+    for (name, subgroup) in pairs(group.groups)
+        sub_path = isempty(prefix) ? String(name) : "$(prefix)/$(name)"
+        walk_zgroup_subtree(io, subgroup, sub_path; first)
+    end
+    for (name, array) in pairs(group.arrays)
+        sub_path = isempty(prefix) ? String(name) : "$(prefix)/$(name)"
+        if !first[]
+            write(io, UInt8(','))
+        end
+        first[] = false
+        JSON.print(io, sub_path)
+        write(io, UInt8(':'))
+        JSON.print(io, array.metadata)
+    end
+    return nothing
+end
+
+# Build a v3 group metadata JSON blob for a `ZGroup`. The on-disk form is `{"zarr_format":3,"node_type":"group"}`
+# plus an optional `"attributes"` field; we omit `attributes` when empty for byte-identity with what `zarr-python`'s
+# default group serializer emits.
+function zgroup_metadata_bytes(group::ZGroup)::Vector{UInt8}
+    io = IOBuffer()
+    write(io, "{\"zarr_format\":3,\"node_type\":\"group\"")
+    # Only the root group carries `attributes` (the `daf` marker), and `walk_zgroup_subtree` skips the root, so this
+    # function is always called for a sub-group whose `attrs` are empty under daf-only writes. The branch is kept for
+    # correctness against foreign tools that may have decorated a sub-group with attributes.
+    if !isempty(group.attrs)
+        write(io, ",\"attributes\":")  # UNTESTED
+        JSON.print(io, group.attrs)  # UNTESTED
+    end
+    write(io, UInt8('}'))
+    return take!(io)
+end
+
+# Atomically rewrite the root `zarr.json` of `daf` with the current attributes plus the cached consolidated metadata
+# bytes embedded under `consolidated_metadata.metadata`. Stages to a `.new` sibling and `rename(2)`s on top so
+# concurrent readers never observe a torn file. `JSON.print` and `Base.Filesystem.rename` propagate any I/O failure
+# as a hard error to the caller.
+function write_root_zarr_json!(daf::ZarrDaf)::Nothing
+    storage = daf.root.storage
+    @assert storage isa Zarr.DirectoryStore
+    group_directory = joinpath(storage.folder, lstrip(daf.root.path, '/'))
+    target_path = joinpath(group_directory, "zarr.json")
     staging_path = target_path * ".new"
     open(staging_path, "w") do io
-        return JSON.print(io, Dict("metadata" => consolidated, "zarr_consolidated_format" => 1), 4)
+        write(io, "{\"zarr_format\":3,\"node_type\":\"group\",\"attributes\":")
+        JSON.print(io, daf.root.attrs)
+        write(io, ",\"consolidated_metadata\":{\"kind\":\"inline\",\"must_understand\":false,\"metadata\":")
+        write(io, daf.consolidated_metadata_bytes)
+        write(io, "}}")
+        return nothing
     end
     Base.Filesystem.rename(staging_path, target_path)
     return nothing
 end
 
-# Walk every `zarr.json` under `prefix` in `storage` and accumulate them into `consolidated`, keyed by their store-relative
-# path. The result is the metadata dict that `Zarr.ConsolidatedStore` consumes when opening a store with
-# `consolidated = true`. Mirrors what `Zarr.consolidate_metadata` does for v2 stores; Zarr.jl 0.10's `consolidate_metadata`
-# only walks v2 metadata files so we walk v3 ones ourselves.
-function consolidate_v3_metadata!(
-    consolidated::Dict{String, Any},
-    storage::Zarr.AbstractStore,
-    prefix::AbstractString,
-)::Nothing
-    raw = storage[prefix, "zarr.json"]
-    if raw !== nothing
-        key = isempty(prefix) ? "zarr.json" : prefix * "/zarr.json"
-        consolidated[lstrip(key, '/')] = JSON.parse(String(copy(raw)); dicttype = Dict{String, Any})
-    end
-    foreach(Zarr.subdirs(storage, prefix)) do subname
-        sub_prefix = isempty(prefix) ? subname : prefix * "/" * subname
-        return consolidate_v3_metadata!(consolidated, storage, sub_prefix)
-    end
-    return nothing
-end
-
-# Lazy bootstrap of `.zmetadata` on every `ZarrDaf` open, mirroring `FilesFormat.ensure_metadata_zip!`
-# (`src/files_format.jl:1300`). Only the `DirectoryStore` backend has a `.zmetadata` sidecar to
-# rebuild — the ZIP backend's central directory plays the same role, and `DictStore` lives in
-# memory — so this is a no-op for every other backend. If the sidecar already exists the
-# function is also a no-op (the assumption is that all writes go through `ZarrDaf`, which keeps
-# `.zmetadata` in sync via `refresh_consolidated_metadata!`). On a read-only filesystem the
-# rebuild attempt fails and is silently swallowed when `daf.mode == "r"`, so opening a frozen
-# directory still succeeds — HTTP serving from such a directory then requires one prior writable
-# open to seed the sidecar.
+# Lazy bootstrap of inline consolidated metadata on every `ZarrDaf` open, mirroring `FilesFormat.ensure_metadata_json!`.
+# Only the `DirectoryStore` backend has a root `zarr.json` that we rewrite — the ZIP backend's central directory plays
+# the same enumeration role, and `DictStore` lives in memory — so this is a no-op for every other backend. Always
+# populates `daf.consolidated_metadata_bytes` from the in-memory ZGroup tree so the byte-surgery `register_*` helpers
+# observe the correct prior state on the first `set!`. Only writes the on-disk root `zarr.json` if the existing file
+# lacks a structurally valid `consolidated_metadata.metadata` field — read-only opens of a directory whose field is
+# already present do not mutate the filesystem. If the existing field is missing or torn (e.g. a crashed write or a
+# `zip -r`-bundled directory unzipped fresh), the rebuild is best-effort: it fails silently for read-only mode (so a
+# frozen filesystem still opens) and rethrows for writable mode.
 function ensure_consolidated_metadata!(daf::ZarrDaf)::Nothing
     storage = daf.root.storage
     if !(storage isa Zarr.DirectoryStore)
         return nothing
     end
-    group_directory = joinpath(storage.folder, lstrip(daf.root.path, '/'))
-    target_path = joinpath(group_directory, ".zmetadata")
-    if isfile(target_path)
+    daf.consolidated_metadata_bytes = build_consolidated_metadata_bytes(daf.root)
+    if root_zarr_has_valid_consolidated_metadata(daf)
         return nothing
     end
     try
-        refresh_consolidated_metadata!(daf)
+        flush_consolidated_metadata!(daf)
     catch  # FLAKY TESTED
         if daf.mode == "r"  # UNTESTED
             return nothing  # UNTESTED
@@ -848,6 +1088,27 @@ function ensure_consolidated_metadata!(daf::ZarrDaf)::Nothing
         rethrow()  # UNTESTED
     end
     return nothing
+end
+
+# Read root `zarr.json` and check that it carries a structurally valid inline consolidated metadata field. Used by
+# [`ensure_consolidated_metadata!`](@ref) to skip the redundant rewrite when the on-disk file already has the field.
+function root_zarr_has_valid_consolidated_metadata(daf::ZarrDaf)::Bool
+    storage = daf.root.storage
+    raw = storage[daf.root.path, "zarr.json"]
+    if raw === nothing
+        return false  # UNTESTED
+    end
+    parsed = try
+        JSON.parse(String(copy(raw)); dicttype = Dict{String, Any})::Dict{String, Any}
+    catch
+        return false  # UNTESTED
+    end
+    consolidated = get(parsed, "consolidated_metadata", nothing)
+    if !(consolidated isa AbstractDict)
+        return false
+    end
+    metadata = get(consolidated, "metadata", nothing)
+    return metadata isa AbstractDict
 end
 
 function try_mmap_vector_chunk(daf::ZarrDaf, array::ZArray{T})::Maybe{AbstractVector{T}} where {T}  # FLAKY TESTED
@@ -978,7 +1239,8 @@ function Formats.format_set_scalar!(daf::ZarrDaf, name::AbstractString, value::S
     @assert Formats.has_data_write_lock(daf)
     array = dense_zcreate(typeof(value), scalars_group(daf), name, false, (1,))
     array[1] = value  # NOJET
-    refresh_consolidated_metadata!(daf)
+    register_consolidated_node!(daf, "scalars/$(name)", Vector{UInt8}(JSON.json(array.metadata)))
+    flush_consolidated_metadata!(daf)
     return Formats.MemoryData
 end
 
@@ -1008,7 +1270,7 @@ function Formats.format_add_axis!(
     axis_array = string_zcreate(axes_group(daf), axis, (length(entries),))
     axis_array[:] = entries  # NOJET
 
-    zgroup(vectors_group(daf), axis)
+    vectors_axis_group = zgroup(vectors_group(daf), axis)
 
     axes = keys(axes_group(daf).arrays)
     @assert axis in axes
@@ -1024,7 +1286,16 @@ function Formats.format_add_axis!(
         zgroup(matrices_group(daf).groups[other_axis], axis)
     end
 
-    refresh_consolidated_metadata!(daf)
+    register_consolidated_node!(daf, "axes/$(axis)", Vector{UInt8}(JSON.json(axis_array.metadata)))
+    register_consolidated_node!(daf, "vectors/$(axis)", zgroup_metadata_bytes(vectors_axis_group))
+    register_consolidated_subtree!(daf, "matrices/$(axis)", axis_matrices)
+    for other_axis in axes
+        if other_axis != axis
+            cross_group = matrices_group(daf).groups[other_axis].groups[axis]
+            register_consolidated_node!(daf, "matrices/$(other_axis)/$(axis)", zgroup_metadata_bytes(cross_group))
+        end
+    end
+    flush_consolidated_metadata!(daf)
     return nothing
 end
 
@@ -1082,27 +1353,33 @@ function Formats.format_set_vector!(
     @assert Formats.has_data_write_lock(daf)
     group = axis_vectors_group(daf, axis)
     nelements = Formats.format_axis_length(daf, axis)
+    base_key = "vectors/$(axis)/$(name)"
 
     if vector isa StorageReal
         array = dense_zcreate(typeof(vector), group, name, packed, (nelements,))
         array[:] = fill(vector, nelements)  # NOJET
+        register_consolidated_node!(daf, base_key, Vector{UInt8}(JSON.json(array.metadata)))
     elseif vector isa AbstractString
         array = dense_zcreate(String, group, name, packed, (nelements,))
         array[:] = fill(vector, nelements)  # NOJET
+        register_consolidated_node!(daf, base_key, Vector{UInt8}(JSON.json(array.metadata)))
     else
         @assert vector isa AbstractVector
         vector = base_array(vector)
         if issparse(vector)
             write_sparse_vector(group, name, vector, packed)
+            register_consolidated_subtree!(daf, base_key, group.groups[name])
         elseif eltype(vector) <: AbstractString
             array = dense_zcreate(String, group, name, packed, (nelements,))
             array[:] = vector
+            register_consolidated_node!(daf, base_key, Vector{UInt8}(JSON.json(array.metadata)))
         else
             array = dense_zcreate(eltype(vector), group, name, packed, (nelements,))
             array[:] = vector
+            register_consolidated_node!(daf, base_key, Vector{UInt8}(JSON.json(array.metadata)))
         end
     end
-    refresh_consolidated_metadata!(daf)
+    flush_consolidated_metadata!(daf)
     return nothing
 end
 
@@ -1144,7 +1421,8 @@ function Formats.format_filled_empty_dense_vector!(
         patch_chunk_crc_if_needed(array, single_chunk_vector_suffix(array))
     end
     # Packed: the data was written into the ZArray directly (no intermediate buffer). Nothing more to do.
-    refresh_consolidated_metadata!(daf)
+    register_consolidated_node!(daf, "vectors/$(axis)/$(name)", Vector{UInt8}(JSON.json(array.metadata)))
+    flush_consolidated_metadata!(daf)
     return nothing
 end
 
@@ -1205,7 +1483,8 @@ function Formats.format_filled_empty_sparse_vector!(
         nzval_array = vector_group.arrays["nzval"]
         patch_chunk_crc_if_needed(nzval_array, single_chunk_vector_suffix(nzval_array))
     end
-    refresh_consolidated_metadata!(daf)
+    register_consolidated_subtree!(daf, "vectors/$(axis)/$(name)", vector_group)
+    flush_consolidated_metadata!(daf)
     return nothing
 end
 
@@ -1287,30 +1566,34 @@ function Formats.format_set_matrix!(
     group = columns_axis_group(daf, rows_axis, columns_axis)
     nrows = Formats.format_axis_length(daf, rows_axis)
     ncols = Formats.format_axis_length(daf, columns_axis)
+    base_key = "matrices/$(rows_axis)/$(columns_axis)/$(name)"
 
     if matrix isa StorageReal
         array = dense_zcreate(typeof(matrix), group, name, packed, (nrows, ncols))
         array[:, :] = fill(matrix, nrows, ncols)  # NOJET
+        register_consolidated_node!(daf, base_key, Vector{UInt8}(JSON.json(array.metadata)))
     elseif matrix isa AbstractString
         array = dense_zcreate(String, group, name, false, (nrows, ncols))
         array[:, :] = fill(matrix, nrows, ncols)  # NOJET
+        register_consolidated_node!(daf, base_key, Vector{UInt8}(JSON.json(array.metadata)))
     elseif eltype(matrix) <: AbstractString
         array = dense_zcreate(String, group, name, false, (nrows, ncols))
         array[:, :] = matrix
+        register_consolidated_node!(daf, base_key, Vector{UInt8}(JSON.json(array.metadata)))
     else
         @assert matrix isa AbstractMatrix
         @assert major_axis(matrix) != Rows
         matrix = base_array(matrix)
         if issparse(matrix)
             write_sparse_matrix(group, name, matrix, packed)
-            refresh_consolidated_metadata!(daf)
-            return nothing
+            register_consolidated_subtree!(daf, base_key, group.groups[name])
         else
             array = dense_zcreate(eltype(matrix), group, name, packed, (nrows, ncols))
             array[:, :] = matrix
+            register_consolidated_node!(daf, base_key, Vector{UInt8}(JSON.json(array.metadata)))
         end
     end
-    refresh_consolidated_metadata!(daf)
+    flush_consolidated_metadata!(daf)
     return nothing
 end
 
@@ -1404,7 +1687,12 @@ function Formats.format_filled_empty_dense_matrix!(
     else
         patch_chunk_crc_if_needed(array, single_chunk_matrix_suffix(array))
     end
-    refresh_consolidated_metadata!(daf)
+    register_consolidated_node!(
+        daf,
+        "matrices/$(rows_axis)/$(columns_axis)/$(name)",
+        Vector{UInt8}(JSON.json(array.metadata)),
+    )
+    flush_consolidated_metadata!(daf)
     return nothing
 end
 
@@ -1485,7 +1773,8 @@ function Formats.format_filled_empty_sparse_matrix!(
         nzval_array = matrix_group.arrays["nzval"]
         patch_chunk_crc_if_needed(nzval_array, single_chunk_vector_suffix(nzval_array))
     end
-    refresh_consolidated_metadata!(daf)
+    register_consolidated_subtree!(daf, "matrices/$(rows_axis)/$(columns_axis)/$(name)", matrix_group)
+    flush_consolidated_metadata!(daf)
     return nothing
 end
 
@@ -1505,7 +1794,12 @@ function Formats.format_relayout_matrix!(
         relayout_matrix = flipped(matrix)
         array = dense_zcreate(String, group, name, false, (nrows, ncols))
         array[:, :] = relayout_matrix
-        refresh_consolidated_metadata!(daf)
+        register_consolidated_node!(
+            daf,
+            "matrices/$(columns_axis)/$(rows_axis)/$(name)",
+            Vector{UInt8}(JSON.json(array.metadata)),
+        )
+        flush_consolidated_metadata!(daf)
         return relayout_matrix
     end
     if issparse(matrix)

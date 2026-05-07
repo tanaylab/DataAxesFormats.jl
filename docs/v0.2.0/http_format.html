@@ -319,16 +319,12 @@
 </code>, S3 with HTTP access) pointed at the root directory will do.
 </p>
 <p>The client downloads 
-<code>metadata.zip
-</code> once at open time and keeps it in memory for the lifetime of the 
+<code>metadata.json
+</code> once at open time and keeps the parsed dict in memory for the lifetime of the 
 <a href="http_format.html#DataAxesFormats.HttpFormat.HttpDaf">
 <code>HttpDaf
 </code>
-</a>. Every 
-<code>.json
-</code> file in the tree (plus the 
-<code>axes/metadata.json
-</code> sidecar) is served from this in-memory archive, so enumerating scalars/axes/vectors/matrices and reading all their JSON metadata completes without further HTTP traffic.
+</a>. Every per-property descriptor (axes, scalars, vectors, matrices) is served from this in-memory dict, so enumerating scalars/axes/vectors/matrices and reading all their JSON metadata completes without further HTTP traffic.
 </p>
 <p>Non-JSON payloads (axis entry 
 <code>.txt
@@ -413,7 +409,9 @@ HttpDaf(
 </code>. 
 <code>url
 </code> points at the root directory; the server must expose 
-<code>metadata.zip
+<code>metadata.json
+</code> and 
+<code>daf.json
 </code> alongside the usual 
 <code>FilesDaf
 </code> tree.
@@ -452,9 +450,9 @@ HttpDaf(
 </p>
 </div>
 </div>
-<div class="admonition is-info" id="Note-e4a1541388d78914">
+<div class="admonition is-info" id="Note-b166b0aa26e12b4c">
 <header class="admonition-header">Note
-<a class="admonition-anchor" href="#Note-e4a1541388d78914" title="Permalink">
+<a class="admonition-anchor" href="#Note-b166b0aa26e12b4c" title="Permalink">
 </a>
 </header>
 <div class="admonition-body">
@@ -462,19 +460,15 @@ HttpDaf(
 <a href="zip_files.html#DataAxesFormats.ZipFormat.ZipDaf">
 <code>ZipDaf
 </code>
-</a> archives intentionally do not contain the 
-<code>metadata.zip
-</code> / 
-<code>axes/metadata.json
-</code> sidecars 
-<code>HttpDaf
-</code> reads, so an 
+</a> archives intentionally do not contain 
+<code>metadata.json
+</code>, so an 
 <code>unzip foo.daf.zip -d foo.daf/
-</code> produces a directory that lacks them. Before exposing such a directory over HTTP, open it once locally with 
+</code> produces a directory that lacks it. Before exposing such a directory over HTTP, open it once locally with 
 <code>FilesDaf(&quot;foo.daf&quot;)
 </code> (any mode) so 
-<code>FilesFormat.ensure_metadata_zip!
-</code> builds the sidecar.
+<code>FilesFormat.ensure_metadata_json!
+</code> builds it.
 </p>
 </div>
 </div>

@@ -3404,7 +3404,7 @@ function test_zip_backed_format(;
     delete_error::AbstractString,
     open_directory_format::Type{<:DafWriter},
     directory_suffix::AbstractString,
-    extracted_metadata_sidecar::AbstractString,
+    has_consolidated_metadata::Function,
 )::Nothing
     # NestedTests replays each leaf path from the root, so this helper is invoked once per leaf.
     # The previous leaf's `MmapZipStore` is held only by a global weak-cache entry — GC here
@@ -3570,11 +3570,10 @@ function test_zip_backed_format(;
                 write(entry_path, ZipArchives.zip_readentry(reader, entry_index))
             end
 
-            sidecar_path = "$(extracted_path)/$(extracted_metadata_sidecar)"
-            @test !isfile(sidecar_path)  # the archive never contained the sidecar
+            @test !has_consolidated_metadata(extracted_path)  # the archive never carried the consolidated metadata
 
             directory_daf = open_directory_format(extracted_path, "r+"; name = "extracted!")
-            @test isfile(sidecar_path)  # rebuilt by the directory format's ensure-on-open
+            @test has_consolidated_metadata(extracted_path)  # rebuilt by the directory format's ensure-on-open
             @test get_vector(directory_daf, "gene", "marker") == MARKER_GENES_BY_DEPTH[1]
             @test get_matrix(directory_daf, "cell", "gene", "UMIs"; relayout = false) == UMIS_BY_DEPTH[1]
             return nothing
@@ -3813,7 +3812,7 @@ nested_test("data") do
             end
         end
 
-        nested_test("metadata.zip") do
+        nested_test("metadata.json") do
             mktempdir() do path
                 path = path * "/test"
                 daf = FilesDaf(path, "w+"; name = "meta!")
@@ -3833,60 +3832,56 @@ nested_test("data") do
                     return nothing
                 end
 
-                expected_json_files = Set{String}()
+                # Every per-property `.json` sidecar's content (without trailing newline) must equal the corresponding
+                # entry in `metadata.json`. Axes are present as `axes/<name>` entries with `{format,n_entries}`
+                # descriptors (no per-axis sidecar on disk).
+                metadata = JSON.parse(read("$(path)/metadata.json", String))
+                @test metadata isa AbstractDict
+                expected_keys = Set{String}()
                 for (root, _, filenames) in walkdir(path)
                     for filename in filenames
-                        if endswith(filename, ".json")
-                            push!(expected_json_files, relpath("$(root)/$(filename)", path))
+                        if endswith(filename, ".json") && filename != "metadata.json" && filename != "daf.json"
+                            relative = relpath("$(root)/$(filename)", path)
+                            push!(expected_keys, chop(String(relative); tail = 5))
                         end
                     end
                 end
+                push!(expected_keys, "axes/cell", "axes/gene")
+                @test Set(keys(metadata)) == expected_keys
 
-                zip_bytes = read("$(path)/metadata.zip")
-                reader = ZipArchives.ZipReader(zip_bytes)
-                zip_entries = Set(ZipArchives.zip_names(reader))
-                @test zip_entries == expected_json_files
-                @test "axes/metadata.json" in zip_entries
-                @test "daf.json" in zip_entries
-
-                for entry in zip_entries
-                    idx = ZipArchives.zip_findlast_entry(reader, entry)
-                    @test idx !== nothing
-                    @test ZipArchives.zip_readentry(reader, idx) == read("$(path)/$(entry)")
+                for key in keys(metadata)
+                    if startswith(key, "axes/")
+                        descriptor = metadata[key]
+                        @test descriptor["format"] == "axis"
+                        @test descriptor["n_entries"] isa Integer
+                    else
+                        sidecar_bytes = read("$(path)/$(key).json")
+                        if !isempty(sidecar_bytes) && sidecar_bytes[end] == UInt8('\n')
+                            sidecar_bytes = sidecar_bytes[1:(end - 1)]
+                        end
+                        @test JSON.parse(String(sidecar_bytes)) == metadata[key]
+                    end
                 end
-
-                axes_index = ZipArchives.zip_findlast_entry(reader, "axes/metadata.json")
-                axes_json = JSON.parse(String(ZipArchives.zip_readentry(reader, axes_index)))
-                @test Set(axes_json) == Set(["cell", "gene"])
+                @test metadata["axes/cell"]["n_entries"] == length(CELL_NAMES)
+                @test metadata["axes/gene"]["n_entries"] == length(GENE_NAMES)
 
                 delete_vector!(daf, "cell", "type")
-                zip_entries_after_delete =
-                    Set(ZipArchives.zip_names(ZipArchives.ZipReader(read("$(path)/metadata.zip"))))
-                @test !("vectors/cell/type.json" in zip_entries_after_delete)
+                metadata_after_delete = JSON.parse(read("$(path)/metadata.json", String))
+                @test !haskey(metadata_after_delete, "vectors/cell/type")
 
                 delete_axis!(daf, "gene")
-                reader2 = ZipArchives.ZipReader(read("$(path)/metadata.zip"))
-                zip_entries_after_axis = Set(ZipArchives.zip_names(reader2))
-                @test !("vectors/gene/is_marker.json" in zip_entries_after_axis)
-                @test !("vectors/gene/counts.json" in zip_entries_after_axis)
-                @test !("matrices/cell/gene/UMIs.json" in zip_entries_after_axis)
-                axes_index2 = ZipArchives.zip_findlast_entry(reader2, "axes/metadata.json")
-                axes_json2 = JSON.parse(String(ZipArchives.zip_readentry(reader2, axes_index2)))
-                @test Set(axes_json2) == Set(["cell"])
+                metadata_after_axis = JSON.parse(read("$(path)/metadata.json", String))
+                @test !haskey(metadata_after_axis, "axes/gene")
+                @test !haskey(metadata_after_axis, "vectors/gene/is_marker")
+                @test !haskey(metadata_after_axis, "vectors/gene/counts")
+                @test !haskey(metadata_after_axis, "matrices/cell/gene/UMIs")
+                @test haskey(metadata_after_axis, "axes/cell")
 
-                rm("$(path)/metadata.zip")
+                rm("$(path)/metadata.json")
                 FilesDaf(path, "r+")
-                @test isfile("$(path)/metadata.zip")
-                expected_after_reopen = Set{String}()
-                for (root, _, filenames) in walkdir(path)
-                    for filename in filenames
-                        if endswith(filename, ".json")
-                            push!(expected_after_reopen, relpath("$(root)/$(filename)", path))
-                        end
-                    end
-                end
-                @test Set(ZipArchives.zip_names(ZipArchives.ZipReader(read("$(path)/metadata.zip")))) ==
-                      expected_after_reopen
+                @test isfile("$(path)/metadata.json")
+                rebuilt = JSON.parse(read("$(path)/metadata.json", String))
+                @test Set(keys(rebuilt)) == Set(keys(metadata_after_axis))
 
                 return nothing
             end
@@ -3920,15 +3915,13 @@ nested_test("data") do
                     end
 
                     nested_test("get_failed") do
-                        @test_throws "HTTP GET failed for: http://localhost:1/metadata.zip" HttpDaf(
-                            "http://localhost:1",
-                        )
+                        @test_throws "HTTP GET failed for: http://localhost:1/daf.json" HttpDaf("http://localhost:1")
                         return nothing
                     end
 
                     nested_test("not_a_daf") do
                         bad_url = "$(url)/nonexistent"
-                        @test_throws "HTTP GET returned status 404 for: $(bad_url)/metadata.zip" HttpDaf(bad_url)
+                        @test_throws "HTTP GET returned status 404 for: $(bad_url)/daf.json" HttpDaf(bad_url)
                         return nothing
                     end
 
@@ -3964,44 +3957,10 @@ nested_test("data") do
             end
         end
 
-        nested_test("http_not_a_daf_zip") do
-            mktempdir() do path
-                bogus_zip_path = path * "/metadata.zip"
-                buffer = IOBuffer()
-                ZipArchives.ZipWriter(buffer) do zip
-                    ZipArchives.zip_newfile(zip, "other.json")
-                    return write(zip, "{}")
-                end
-                write(bogus_zip_path, take!(buffer))
-                handler = request -> begin
-                    key = String(lstrip(request.target, '/'))
-                    file_path = "$(path)/$(key)"
-                    if !isfile(file_path)
-                        return HTTP.Response(404, "Error: Key $(key) not found")
-                    end
-                    return HTTP.Response(200, read(file_path))
-                end
-                server = HTTP.serve!(handler, Sockets.localhost, 0; listenany = true)
-                try
-                    port = server.listener.hostport
-                    url = "http://localhost:$(port)"
-                    @test_throws "not a daf data set: $(url)" HttpDaf(url)
-                finally
-                    close(server)
-                end
-                return nothing
-            end
-        end
-
         nested_test("http_incompatible_version") do
             mktempdir() do path
-                zip_path = path * "/metadata.zip"
-                buffer = IOBuffer()
-                ZipArchives.ZipWriter(buffer) do zip
-                    ZipArchives.zip_newfile(zip, "daf.json")
-                    return write(zip, "{\"version\":[99,0]}")
-                end
-                write(zip_path, take!(buffer))
+                write("$(path)/daf.json", "{\"version\":[99,0]}\n")
+                write("$(path)/metadata.json", "{}")
                 handler = request -> begin
                     key = String(lstrip(request.target, '/'))
                     file_path = "$(path)/$(key)"
@@ -4110,7 +4069,7 @@ nested_test("data") do
             delete_error = "ZipDaf is append-only",
             open_directory_format = FilesDaf,
             directory_suffix = ".daf",
-            extracted_metadata_sidecar = "metadata.zip",
+            has_consolidated_metadata = path -> isfile("$(path)/metadata.json"),
         )
 
         nested_test("legacy_v1_0") do
@@ -4140,17 +4099,17 @@ nested_test("data") do
         end
 
         nested_test("strip_files_daf_sidecars") do
-            # Build a FilesDaf directory (which writes the `metadata.zip` + `axes/metadata.json` sidecars), bundle
-            # its tree into a fresh archive (the `zip -r` workflow), and verify ZipDaf strips the sidecars on first
-            # writable open.
+            # Build a FilesDaf directory (which writes the consolidated `metadata.json`), bundle its tree into a
+            # fresh archive (the `zip -r` workflow), and verify ZipDaf strips the sidecar from the central directory
+            # on first writable open. After the strip, an unzip of the resulting archive produces a directory whose
+            # next FilesDaf open will rebuild `metadata.json` from the per-property sidecars.
             mktempdir() do path
                 files_path = path * "/source.daf"
                 files_daf = FilesDaf(files_path, "w+"; name = "source!")
                 add_axis!(files_daf, "cell", CELL_NAMES)
                 set_vector!(files_daf, "cell", "type", CELL_TYPES_BY_DEPTH[1])
 
-                @test isfile(files_path * "/metadata.zip")
-                @test isfile(files_path * "/axes/metadata.json")
+                @test isfile(files_path * "/metadata.json")
 
                 zip_path = path * "/bundled.daf.zip"
                 store = MmapZipStore(abspath(zip_path); writable = true, create = true)
@@ -4168,15 +4127,13 @@ nested_test("data") do
                 GC.gc()
 
                 names_before = Set(ZipArchives.zip_names(ZipArchives.ZipReader(read(zip_path))))
-                @test "metadata.zip" in names_before
-                @test "axes/metadata.json" in names_before
+                @test "metadata.json" in names_before
 
                 ZipDaf(zip_path, "r+"; name = "bundled!")
                 GC.gc()
 
                 names_after = Set(ZipArchives.zip_names(ZipArchives.ZipReader(read(zip_path))))
-                @test !("metadata.zip" in names_after)
-                @test !("axes/metadata.json" in names_after)
+                @test !("metadata.json" in names_after)
                 @test "daf.json" in names_after
                 @test "axes/cell.txt" in names_after
                 @test "vectors/cell/type.json" in names_after
@@ -4344,10 +4301,20 @@ nested_test("data") do
         nested_test("consolidated_metadata") do
             mktempdir() do path
                 zarr_path = path * "/test.daf.zarr"
+
+                function read_consolidated(zp::AbstractString)::Dict{String, Any}
+                    root_zarr_json = JSON.parse(read("$(zp)/zarr.json", String); dicttype = Dict{String, Any})
+                    consolidated_field = root_zarr_json["consolidated_metadata"]::AbstractDict
+                    @test consolidated_field["kind"] == "inline"
+                    @test consolidated_field["must_understand"] === false
+                    return consolidated_field["metadata"]::Dict{String, Any}
+                end
+
                 daf = ZarrDaf(zarr_path, "w+"; name = "zarr!")
-                @test isfile(zarr_path * "/.zmetadata")  # built lazily by `ensure_consolidated_metadata!` on open
+                # Built lazily by `ensure_consolidated_metadata!` on open: root `zarr.json` carries an inline
+                # `consolidated_metadata` field even before any write happens.
+                @test haskey(JSON.parse(read("$(zarr_path)/zarr.json", String)), "consolidated_metadata")
                 set_scalar!(daf, "depth", 2)
-                @test isfile(zarr_path * "/.zmetadata")
 
                 add_axis!(daf, "cell", CELL_NAMES)
                 add_axis!(daf, "gene", GENE_NAMES)
@@ -4367,35 +4334,34 @@ nested_test("data") do
                     return nothing
                 end
 
-                consolidated_group = Zarr.zopen(zarr_path; consolidated = true)
-                @test consolidated_group.storage isa Zarr.ConsolidatedStore
-                @test DataAxesFormats.ZarrFormat.zarr_group_attrs(consolidated_group)["daf"] == [1, 0]
-                @test consolidated_group.groups["vectors"].groups["gene"].arrays["marker"][:] ==
-                      MARKER_GENES_BY_DEPTH[1]
-                @test consolidated_group.groups["vectors"].groups["gene"].arrays["score"][:] == Int16[1, 2, 3, 4]
-                @test consolidated_group.groups["matrices"].groups["cell"].groups["gene"].arrays["UMIs"][:, :] ==
-                      UMIS_BY_DEPTH[1]
-                @test consolidated_group.groups["matrices"].groups["cell"].groups["gene"].arrays["counts"][:, :] ==
-                      Int32.(UMIS_BY_DEPTH[2])
-                weight_group = consolidated_group.groups["vectors"].groups["gene"].groups["weight"]
-                @test weight_group.arrays["nzind"][:] == Int32[1, 3]
-                @test weight_group.arrays["nzval"][:] == Float32[0.5, 1.5]
+                metadata = read_consolidated(zarr_path)
+                @test metadata["scalars/depth"]["node_type"] == "array"
+                @test metadata["axes/cell"]["node_type"] == "array"
+                @test metadata["axes/gene"]["node_type"] == "array"
+                @test metadata["vectors/gene/marker"]["node_type"] == "array"
+                @test metadata["vectors/gene/score"]["node_type"] == "array"
+                @test metadata["matrices/cell/gene/UMIs"]["node_type"] == "array"
+                @test metadata["matrices/cell/gene/counts"]["node_type"] == "array"
+                @test metadata["vectors/gene/weight"]["node_type"] == "group"
+                @test metadata["vectors/gene/weight/nzind"]["node_type"] == "array"
+                @test metadata["vectors/gene/weight/nzval"]["node_type"] == "array"
 
                 delete_vector!(daf, "gene", "marker")
-                consolidated_group = Zarr.zopen(zarr_path; consolidated = true)
-                @test !haskey(consolidated_group.groups["vectors"].groups["gene"].arrays, "marker")
+                metadata = read_consolidated(zarr_path)
+                @test !haskey(metadata, "vectors/gene/marker")
 
                 delete_matrix!(daf, "cell", "gene", "UMIs"; relayout = false)
-                consolidated_group = Zarr.zopen(zarr_path; consolidated = true)
-                @test !haskey(consolidated_group.groups["matrices"].groups["cell"].groups["gene"].arrays, "UMIs")
+                metadata = read_consolidated(zarr_path)
+                @test !haskey(metadata, "matrices/cell/gene/UMIs")
 
                 delete_axis!(daf, "cell")
-                consolidated_group = Zarr.zopen(zarr_path; consolidated = true)
-                @test !haskey(consolidated_group.groups["axes"].arrays, "cell")
+                metadata = read_consolidated(zarr_path)
+                @test !haskey(metadata, "axes/cell")
+                @test !haskey(metadata, "matrices/cell")
 
                 delete_scalar!(daf, "depth")
-                consolidated_group = Zarr.zopen(zarr_path; consolidated = true)
-                @test !haskey(consolidated_group.groups["scalars"].arrays, "depth")
+                metadata = read_consolidated(zarr_path)
+                @test !haskey(metadata, "scalars/depth")
                 return nothing
             end
         end
@@ -4580,8 +4546,58 @@ nested_test("data") do
                 delete_error = "can't delete or overwrite properties in a zip-backed ZarrDaf; the ZIP backend is append-only",
                 open_directory_format = ZarrDaf,
                 directory_suffix = ".daf.zarr",
-                extracted_metadata_sidecar = ".zmetadata",
+                has_consolidated_metadata = path ->
+                    haskey(JSON.parse(read("$(path)/zarr.json", String)), "consolidated_metadata"),
             )
+        end
+
+        # Build a `DirectoryStore`-backed ZarrDaf (which embeds inline `consolidated_metadata` in root `zarr.json`),
+        # bundle its tree into a fresh archive (the `zip -r` workflow), and verify ZarrDaf-Zip strips the field from
+        # the rewritten root `zarr.json` entry on first writable open. After the strip, an unzip of the resulting
+        # archive produces a directory whose root `zarr.json` lacks `consolidated_metadata`, and the next writable
+        # open of that directory rebuilds the field from the per-node `zarr.json` files.
+        nested_test("strip_zip_consolidated_metadata") do
+            mktempdir() do path
+                directory_path = path * "/source.daf.zarr"
+                directory_daf = ZarrDaf(directory_path, "w+"; name = "src!")
+                add_axis!(directory_daf, "cell", CELL_NAMES)
+                set_vector!(directory_daf, "cell", "type", CELL_TYPES_BY_DEPTH[1])
+                @test haskey(JSON.parse(read("$(directory_path)/zarr.json", String)), "consolidated_metadata")
+
+                zip_path = path * "/bundled.daf.zarr.zip"
+                store = MmapZipStore(zip_path; writable = true, create = true)
+                try
+                    for (root, _, filenames) in walkdir(directory_path)
+                        for filename in filenames
+                            full_path = "$(root)/$(filename)"
+                            relative_path = relpath(full_path, directory_path)
+                            store[relative_path] = read(full_path)
+                        end
+                    end
+                finally
+                    close(store)
+                end
+                GC.gc()
+
+                ZarrDaf(zip_path, "r+"; name = "bundled!")
+                GC.gc()
+
+                extracted_path = path * "/extracted.daf.zarr"
+                mkpath(extracted_path)
+                reader = ZipArchives.ZipReader(read(zip_path))
+                for entry_index in 1:ZipArchives.zip_nentries(reader)
+                    entry_name = ZipArchives.zip_name(reader, entry_index)
+                    entry_path = "$(extracted_path)/$(entry_name)"
+                    mkpath(dirname(entry_path))
+                    write(entry_path, ZipArchives.zip_readentry(reader, entry_index))
+                end
+                @test !haskey(JSON.parse(read("$(extracted_path)/zarr.json", String)), "consolidated_metadata")
+
+                rebuilt_daf = ZarrDaf(extracted_path, "r+"; name = "rebuilt!")
+                @test haskey(JSON.parse(read("$(extracted_path)/zarr.json", String)), "consolidated_metadata")
+                @test get_vector(rebuilt_daf, "cell", "type") == CELL_TYPES_BY_DEPTH[1]
+                return nothing
+            end
         end
 
         nested_test("http") do
@@ -4594,7 +4610,7 @@ nested_test("data") do
                 handler = request -> begin
                     key = String(lstrip(request.target, '/'))
                     if occursin("..", key)
-                        return HTTP.Response(404, "Error: bad key $(key)")
+                        return HTTP.Response(404, "Error: bad key $(key)")  # UNTESTED
                     end
                     bytes = store[key]
                     if bytes === nothing
@@ -4618,7 +4634,59 @@ nested_test("data") do
 
                     nested_test("not_a_daf") do
                         bad_url = "$(url)/nonexistent"
-                        @test_throws "failed to open remote zarr group: $(bad_url)" ZarrDaf(bad_url)
+                        @test_throws "failed to fetch remote zarr group: $(bad_url)/zarr.json" ZarrDaf(bad_url)
+                        return nothing
+                    end
+
+                    nested_test("not_a_group") do
+                        # Serve a `zarr.json` whose `node_type` is `"array"` (the only other valid v3 node type) at
+                        # the URL root; the open path should reject it before any consolidated-metadata lookup.
+                        mktempdir() do path2
+                            write(path2 * "/zarr.json", "{\"zarr_format\":3,\"node_type\":\"array\"}")
+                            handler2 = request -> begin
+                                key = String(lstrip(request.target, '/'))
+                                file_path = "$(path2)/$(key)"
+                                if !isfile(file_path)
+                                    return HTTP.Response(404, "Error: Key $(key) not found")  # UNTESTED
+                                end
+                                return HTTP.Response(200, read(file_path))
+                            end
+                            server2 = HTTP.serve!(handler2, Sockets.localhost, 0; listenany = true)
+                            try
+                                port2 = server2.listener.hostport
+                                url2 = "http://localhost:$(port2)"
+                                @test_throws "not a zarr group: $(url2)" ZarrDaf(url2)
+                            finally
+                                close(server2)
+                            end
+                        end
+                        return nothing
+                    end
+
+                    nested_test("missing_consolidated_metadata") do
+                        # Serve a `zarr.json` that's a valid v3 group but lacks the inline `consolidated_metadata`
+                        # field. The open path should refuse with a guidance message about seeding the field.
+                        mktempdir() do path2
+                            write(path2 * "/zarr.json", "{\"zarr_format\":3,\"node_type\":\"group\",\"attributes\":{}}")
+                            handler2 = request -> begin
+                                key = String(lstrip(request.target, '/'))
+                                file_path = "$(path2)/$(key)"
+                                if !isfile(file_path)
+                                    return HTTP.Response(404, "Error: Key $(key) not found")  # UNTESTED
+                                end
+                                return HTTP.Response(200, read(file_path))
+                            end
+                            server2 = HTTP.serve!(handler2, Sockets.localhost, 0; listenany = true)
+                            try
+                                port2 = server2.listener.hostport
+                                url2 = "http://localhost:$(port2)"
+                                @test_throws "remote zarr group lacks an inline `consolidated_metadata` field: $(url2)" ZarrDaf(
+                                    url2,
+                                )
+                            finally
+                                close(server2)
+                            end
+                        end
                         return nothing
                     end
 

@@ -317,10 +317,11 @@
 </code> uses one JSON sidecar per array, 
 <code>ZarrDaf
 </code> uses one 
-<code>.zarray
-</code> per array plus a consolidated 
-<code>.zmetadata
-</code>), but both store every numeric blob — dense array chunks and the 
+<code>zarr.json
+</code> per array), but both store every numeric blob byte-identically:
+</p>
+<ul>
+<li>Flat (unpacked) dense array chunks and the 
 <code>colptr
 </code>/
 <code>rowval
@@ -328,7 +329,46 @@
 <code>nzind
 </code>/
 <code>nzval
-</code> components of sparse arrays — as the same raw little-endian bytes without headers. The functions in this module exploit that equivalence to convert one tree into the other by hard-linking every numeric blob and re-serializing only the metadata and the string-valued properties, so the on-disk cost of a conversion is close to zero.
+</code> components of flat sparse arrays are raw little-endian bytes without headers — bit-for-bit identical between 
+<code>FilesDaf
+</code>&#39;s 
+<code>&lt;name&gt;.data
+</code> / 
+<code>&lt;name&gt;.&lt;component&gt;
+</code> and 
+<code>ZarrDaf
+</code>&#39;s single-chunk file at 
+<code>&lt;name&gt;/c/0[/0]
+</code>.
+</li>
+<li>Packed (chunked + compressed) dense properties and packed sparse components are stored in the v3 sharded-array binary format (ZEP-0002): one shard file per property (
+<code>&lt;name&gt;.shard
+</code> in 
+<code>FilesDaf
+</code>, 
+<code>&lt;name&gt;/c/0[/0]
+</code> in 
+<code>ZarrDaf
+</code>). For the same input data, same 
+<code>chunk_shape
+</code>, and same codec, the writer emits byte-identical shard bytes regardless of which backend hosts it — so the shard files hard-link cleanly across formats.
+</li>
+</ul>
+<p>The functions in this module exploit these equivalences to convert one tree into the other by hard-linking every numeric blob (flat or packed) and re-serializing only the metadata and the string-valued properties, so the on-disk cost of a conversion is close to zero.
+</p>
+<p>The consolidated metadata files of the two formats — 
+<code>FilesDaf
+</code>&#39;s 
+<code>metadata.json
+</code> (a single-line JSON object mapping relative path to per-property descriptor) and 
+<code>ZarrDaf
+</code>&#39;s root 
+<code>zarr.json#consolidated_metadata.metadata
+</code> (the same mapping in the on-disk shape 
+<code>zarr-python
+</code> 3.x writes) — carry the same information about the same set of properties; the per-property descriptor schemas are bijective. The translation rules between the two descriptor schemas are formally defined by this module: every dense / sparse / packed / flat / scalar / axis case has a documented mapping, and the source&#39;s consolidated metadata is read once at the start of a conversion to drive the per-property iteration. The destination&#39;s consolidated metadata is rebuilt at the end of the conversion (via 
+<code>refresh_consolidated_metadata!
+</code>) so the destination is immediately usable, including for HTTP serving.
 </p>
 <p>Hard-linking requires the source and destination to live on the same filesystem; each conversion verifies this up front with an actual hard-link probe and refuses otherwise. Each conversion also refuses if the destination path already exists — it never overwrites pre-existing data. On any error the partially-populated destination is removed, so the destination is always either fully-populated or fully-absent.
 </p>

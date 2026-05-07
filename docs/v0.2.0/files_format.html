@@ -348,9 +348,11 @@
 <code>vectors
 </code>, and 
 <code>matrices
-</code>, and a file called 
+</code>, and two files at the root: 
 <code>daf.json
-</code>.
+</code> (always) and 
+<code>metadata.json
+</code> (a consolidated index, regenerated on demand — see below).
 </p>
 </li>
 <li>
@@ -371,6 +373,74 @@
 </code>. New code emits 
 <code>[1,1]
 </code>; the reader accepts both. The on-disk difference is the JSON descriptor for sparse properties (see below) — the binary data files are unchanged across versions.
+</p>
+</li>
+<li>
+<p>The 
+<code>metadata.json
+</code> is a consolidated index of every property&#39;s descriptor. After it has been seeded once (by walking the tree on a writable open), subsequent opens consume it directly instead of walking, and an HTTP-served 
+<code>FilesDaf
+</code> can be browsed without per-property 
+<code>readdir
+</code> round-trips. Its content is bijective with the per-property descriptors documented below, and with the consolidated metadata that 
+<a href="zarr_format.html#DataAxesFormats.ZarrFormat.ZarrDaf">
+<code>ZarrDaf
+</code>
+</a> embeds in its root 
+<code>zarr.json
+</code> (see the 
+<code>ZarrDaf
+</code> documentation for the formal mapping; 
+<a href="zarr_convert.html#DataAxesFormats.ZarrConvert.zarr_to_files">
+<code>zarr_to_files
+</code>
+</a> and 
+<a href="zarr_convert.html#DataAxesFormats.ZarrConvert.files_to_zarr">
+<code>files_to_zarr
+</code>
+</a> translate between them). The file is a single-line JSON object mapping each property&#39;s relative path to its descriptor: 
+<code>{&quot;&lt;relative_path&gt;&quot;:&lt;descriptor&gt;,...}
+</code>, where 
+<code>&lt;relative_path&gt;
+</code> is the property&#39;s location relative to the root (e.g. 
+<code>vectors/cell/batch
+</code>, 
+<code>matrices/cell/gene/UMIs
+</code>, 
+<code>axes/cell
+</code>, 
+<code>scalars/version
+</code>) and 
+<code>&lt;descriptor&gt;
+</code> is byte-identical to the per-property sidecar JSON content described below (for axes, the descriptor is 
+<code>{&quot;format&quot;:&quot;axis&quot;,&quot;n_entries&quot;:&lt;N&gt;}
+</code>). On 
+<code>set!
+</code> the file is appended in place via byte-level surgery: 
+<code>truncate
+</code> the trailing 
+<code>}
+</code> and write 
+<code>,&quot;&lt;new_path&gt;&quot;:&lt;descriptor&gt;}
+</code> (or 
+<code>&quot;&lt;new_path&gt;&quot;:&lt;descriptor&gt;}
+</code> if the file was the empty object 
+<code>{}
+</code>). This makes a 
+<code>set!
+</code> an O(size-of-one-descriptor) write rather than an O(N-properties) rewrite. On 
+<code>delete!
+</code> the file is rebuilt from scratch by walking the tree. On 
+<em>every
+</em> open (read or write), if the file is missing or fails to parse (the latter handles a torn write from a crash mid-
+<code>set!
+</code>) we attempt to rebuild it by walking the tree. The rebuild is best-effort: if it fails (e.g. because the underlying filesystem is read-only) the error is swallowed for read-only opens and rethrown for writable opens. So the workflow 
+<code>unzip foo.daf.zip; open foo.daf; serve over HTTP
+</code> works as long as the unzipped tree is on a writable filesystem at first-open time; an HTTP-served 
+<code>FilesDaf
+</code> placed on a frozen filesystem without 
+<code>metadata.json
+</code> requires one open on a writable filesystem to seed the file.
 </p>
 </li>
 <li>
@@ -538,11 +608,28 @@
 </p>
 </div>
 </div>
+<div class="admonition is-warning" id="Warning-1fd6e93c94cebcff">
+<header class="admonition-header">Warning
+<a class="admonition-anchor" href="#Warning-1fd6e93c94cebcff" title="Permalink">
+</a>
+</header>
+<div class="admonition-body">
+<p>The byte-surgery append on 
+<code>metadata.json
+</code> and the staged-rename rebuild assume a single writer at a time. The in-process Daf write lock serializes writers within one Julia process; opening the same 
+<code>FilesDaf
+</code> directory from multiple processes (or multiple machines, e.g. NFS) and writing concurrently can interleave appends and corrupt 
+<code>metadata.json
+</code>. Open writable from one process at a time.
+</p>
+</div>
+</div>
 <p>Example directory structure:
 </p>
 <pre>
 <code class="language-julia hljs">example-daf-dataset-root-directory/
 ├─ daf.json
+├─ metadata.json
 ├─ scalars/
 │  └─ version.json
 ├─ axes/

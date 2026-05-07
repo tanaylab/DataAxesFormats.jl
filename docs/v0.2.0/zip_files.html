@@ -330,17 +330,15 @@
 <code>FilesDaf
 </code>
 </a> opens directly. The unzipped tree will not contain the 
-<code>metadata.zip
-</code> / 
-<code>axes/metadata.json
-</code> sidecars 
+<code>metadata.json
+</code> consolidated index 
 <code>FilesDaf
 </code> uses for 
 <a href="http_format.html#DataAxesFormats.HttpFormat.HttpDaf">
 <code>HttpDaf
 </code>
-</a> enumeration — those are rebuilt automatically by 
-<code>FilesDaf.ensure_metadata_zip!
+</a> enumeration — it is rebuilt automatically by 
+<code>FilesDaf.ensure_metadata_json!
 </code> on the first local open on a writable filesystem.
 </li>
 <li>Conversely, 
@@ -349,17 +347,19 @@
 <code>FilesDaf
 </code> directory produces a valid 
 <code>ZipDaf
-</code>. Since the source directory holds the (now-redundant) 
-<code>metadata.zip
-</code> and 
-<code>axes/metadata.json
-</code> sidecars, those entries get bundled inside the archive too — 
+</code>. Since the source directory may hold a (now-stale) 
+<code>metadata.json
+</code>, that entry can get bundled inside the archive too — 
 <code>ZipDaf
-</code> strips them from the central directory on first writable open (see 
+</code> strips it from the central directory on every writable open (see 
 <a href="mmap_zip_store.html#DataAxesFormats.MmapZipStores.remove_entries_from_central_directory!">
 <code>MmapZipStores.remove_entries_from_central_directory!
 </code>
-</a>).
+</a>). After unzipping such a stripped archive, the next writable 
+<code>FilesDaf
+</code> open rebuilds 
+<code>metadata.json
+</code> from scratch, so the consolidated index is always coherent with the directory tree.
 </li>
 </ul>
 <p>The backend is built on 
@@ -551,29 +551,27 @@ matrices/cell/gene/UMIs.nzval
 </p>
 </div>
 </div>
-<div class="admonition is-info" id="Note-5dd1bd47a98ae096">
+<div class="admonition is-info" id="Note-12e6d6a234c8d02a">
 <header class="admonition-header">Note
-<a class="admonition-anchor" href="#Note-5dd1bd47a98ae096" title="Permalink">
+<a class="admonition-anchor" href="#Note-12e6d6a234c8d02a" title="Permalink">
 </a>
 </header>
 <div class="admonition-body">
 <p>
 <code>ZipDaf
 </code> archives intentionally do not contain the 
-<code>metadata.zip
-</code> / 
-<code>axes/metadata.json
-</code> sidecars that 
+<code>metadata.json
+</code> consolidated index that 
 <a href="http_format.html#DataAxesFormats.HttpFormat.HttpDaf">
 <code>HttpDaf
 </code>
 </a> reads, because the archive&#39;s own central directory plays the same enumeration role. Consequently, an 
 <code>unzip foo.daf.zip -d foo.daf/
-</code> produces a directory that lacks these sidecars; before exposing such a directory over HTTP, open it once locally with 
+</code> produces a directory that lacks the index; before exposing such a directory over HTTP, open it once locally with 
 <code>FilesDaf(&quot;foo.daf&quot;)
 </code> (any mode) so 
-<code>FilesFormat.ensure_metadata_zip!
-</code> builds the sidecar.
+<code>FilesFormat.ensure_metadata_json!
+</code> builds it.
 </p>
 </div>
 </div>

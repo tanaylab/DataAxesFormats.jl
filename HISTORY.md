@@ -1,5 +1,46 @@
 # (unreleased)
 
+  - `FilesDaf` consolidated metadata moved from a `metadata.zip`
+    archive of per-property JSON sidecars to a single-line
+    `metadata.json` object mapping `"<relative_path>"` → descriptor.
+    Each `set!` byte-surgery-appends one entry (truncate the trailing
+    `}`, write `,"k":v}`) — O(size of the new descriptor) per write,
+    independent of total property count. `delete!` rebuilds the file
+    from scratch. Every open rebuilds the file if it is missing or
+    parses, with the rebuild silently swallowed for read-only opens
+    on a frozen filesystem. `ZipDaf` strips a stale `metadata.json`
+    entry from the central directory on every writable open so an
+    `unzip foo.daf.zip` of a `zip -r foo.daf` does not preserve a
+    snapshot inconsistent with the destination tree. `HttpDaf` reads
+    `metadata.json` once at open instead of `metadata.zip`.
+  - `ZarrDaf` consolidated metadata moved from a separate `.zmetadata`
+    sidecar (Zarr v2 shape) to an inline `consolidated_metadata`
+    field in the root `zarr.json` matching the on-disk shape that
+    `zarr-python` 3.x writes (informally tracking
+    [`zarr-specs#309`](https://github.com/zarr-developers/zarr-specs/pull/309),
+    still open). The field is `{kind: "inline", must_understand: false, metadata: {<path>: <full v3 metadata blob>}}`. Each `set!` updates
+    a cached byte buffer of the inner `metadata` dict via byte-level
+    append (`register_consolidated_node!` / `register_consolidated_subtree!`
+    for sparse and `add_axis` paths) and rewrites root `zarr.json`
+    once via `flush_consolidated_metadata!`; `delete!`/reorder calls
+    `refresh_consolidated_metadata!` for full rebuild via in-memory
+    `ZGroup` walk. The HTTP `ZarrDaf` open path fetches root
+    `zarr.json` directly, parses the inline field, translates
+    `zarr-python`'s flat path keys (`<path>`) to Zarr.jl's
+    `ConsolidatedStore` shape (`<path>/zarr.json`), and constructs the
+    store manually — no dependence on Zarr.jl's `.zmetadata` lookup.
+    `ZarrDaf-Zip` strips a stale `consolidated_metadata` field from
+    root `zarr.json` on every writable open (parallel to `ZipDaf`'s
+    `metadata.json` strip) so a `zip -r` of a directory daf followed
+    by an unzip does not preserve a snapshot inconsistent with the
+    destination tree.
+  - `zarr_convert` reads the source's consolidated dict once at the
+    top of each conversion and threads it through to per-property
+    converters, replacing six `read_json_dict("$(source_dir)/zarr.json")`
+    calls with O(1) dict lookups. Hard-link byte-equivalence path
+    unchanged. The `<path>` ↔ FilesDaf-descriptor bijection between
+    the two consolidated formats is the formal contract of this module
+    (per the module docstring).
   - `zarr_convert.jl` hard-links packed properties between
     `FilesDaf` and `ZarrDaf` in both directions, exploiting the
     byte-identity between `FilesDaf` `<name>.shard` (or
