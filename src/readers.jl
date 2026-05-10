@@ -702,10 +702,7 @@ function get_vector(
         end
 
         if vector !== nothing
-            if eltype(vector) <: AbstractString
-                vector = Formats.read_only_array(vector)
-            end
-
+            vector = Formats.read_only_array(vector)
             vector = Formats.as_named_vector(daf, axis, vector)
         end
 
@@ -935,7 +932,7 @@ get_matrix(example_metacells_daf(), "gene", "metacell", "fraction")
 
 # output
 
-683×7 Named Matrix{Float32}
+683×7 Named SparseArrays.ReadOnly{Float32, 2, Matrix{Float32}}
 gene ╲ metacell │    M1671.28     M2357.20  …      M756.63      M412.08
 ────────────────┼──────────────────────────────────────────────────────
 RPL22           │  0.00447666    0.0041286  …   0.00434327   0.00373581
@@ -1023,6 +1020,7 @@ function get_matrix(
         end
 
         if matrix !== nothing
+            matrix = Formats.read_only_array(matrix)
             matrix = Formats.as_named_matrix(daf, rows_axis, columns_axis, matrix)
         end
 
@@ -1541,18 +1539,6 @@ function cache_key_is_less(left::CacheKey, right::CacheKey)::Bool
         right_key = (right_key,)
     end
     return (left_type, left_key) < (right_type, right_key)
-end
-
-function base_array(array::AbstractArray)::AbstractArray
-    return array
-end
-
-function base_array(array::SparseArrays.ReadOnly)::AbstractArray
-    return base_array(parent(array))
-end
-
-function base_array(array::NamedArray)::AbstractArray
-    return base_array(array.array)
 end
 
 function TanayLabUtilities.Brief.brief(daf::DafReader; name::Maybe{AbstractString} = nothing)::AbstractString

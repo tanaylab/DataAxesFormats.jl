@@ -303,15 +303,14 @@ end
 # `(column::Int, chunk_buffer::Vector{T}) -> Nothing` and writes the chunk for `column` (the buffer's contents) to
 # storage. The optional `finalizer` closure (signature `() -> Nothing`) runs once after every column slot has been
 # flushed; it lets the format-level write path commit any per-array post-processing (e.g. emitting a shard index
-# footer). One `PackedThreadSlot{T}` is allocated per `Threads.maxthreadid()`; threads index into `thread_slots`
-# by `Threads.threadid()`.
+# footer).
 function PackedDenseMatrix{T}(
     n_rows::Int,
     n_columns::Int,
     encoder::Function;
     finalizer::Function = () -> nothing,
 )::PackedDenseMatrix{T} where {T}
-    thread_slots = [PackedThreadSlot{T}(0, Vector{T}(undef, n_rows)) for _ in 1:Threads.maxthreadid()]
+    thread_slots = create_static_parallel_buffers(() -> PackedThreadSlot{T}(0, Vector{T}(undef, n_rows)))
     return PackedDenseMatrix{T}(n_rows, n_columns, thread_slots, encoder, finalizer)
 end
 
@@ -321,7 +320,7 @@ end
 
 function Base.view(matrix::PackedDenseMatrix{T}, ::Colon, column::Int)::Vector{T} where {T}
     @assert 1 <= column <= matrix.n_columns
-    slot = matrix.thread_slots[Threads.threadid()]
+    slot = get_static_parallel_buffer(matrix.thread_slots)
     if slot.current_column == column
         return slot.chunk_buffer  # FLAKY TESTED
     end
@@ -358,6 +357,25 @@ function flush_packed_dense_matrix!(matrix::PackedDenseMatrix)::Nothing
     end
     matrix.finalizer()
     return nothing
+end
+
+function TanayLabUtilities.MatrixLayouts.unnamed_relayout(
+    destination::PackedDenseMatrix{T},
+    source::AbstractMatrix,
+)::AbstractMatrix where {T}
+    @assert size(destination) == size(source)
+    @assert !issparse(source)
+    n_columns = size(destination, 2)
+    parallel_loop_wo_rng(
+        1:n_columns;
+        name = "PackedDenseMatrix.relayout",
+        policy = :static,
+        progress = DebugProgress(n_columns; group = :daf_loops, desc = "PackedDenseMatrix.relayout"),
+    ) do column_index
+        view(destination, :, column_index) .= view(source, :, column_index)
+        return nothing
+    end
+    return destination
 end
 
 # Forward-declaration stub for the HTTP stripe-synthesis read wrapper used

@@ -354,13 +354,13 @@
 <code>Zarr.jl
 </code>&#39;s support for data types, filters, and compressors). Remote object stores (S3, GCS, …) are not supported.
 </p>
-<div class="admonition is-info" id="Note-875052b81d36378e">
+<div class="admonition is-info" id="Note-1e3b0d6693812b86">
 <header class="admonition-header">Note
-<a class="admonition-anchor" href="#Note-875052b81d36378e" title="Permalink">
+<a class="admonition-anchor" href="#Note-1e3b0d6693812b86" title="Permalink">
 </a>
 </header>
 <div class="admonition-body">
-<p>Zarr stores all chunks of an array as flat sibling files in a single directory (this is dictated by the Zarr specification, not by this package). For packed (chunked) matrices with many chunks, that directory can hold hundreds of thousands of files, which stresses both filesystem performance and interactive tools like 
+<p>Zarr stores all chunks of an array as flat sibling files in a single directory (this is dictated by the Zarr specification, not by this package). For packed (chunked + compressed) matrices with many chunks, that directory can hold hundreds of thousands of files, which stresses both filesystem performance and interactive tools like 
 <code>ls
 </code> or file explorers. The 
 <a href="files_format.html#DataAxesFormats.FilesFormat.FilesDaf">

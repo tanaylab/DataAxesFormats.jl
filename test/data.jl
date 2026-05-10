@@ -4530,7 +4530,7 @@ nested_test("data") do
             daf = ZarrDaf(; name = "mmap!")
             add_axis!(daf, "gene", GENE_NAMES)
             set_vector!(daf, "gene", "marker", MARKER_GENES_BY_DEPTH[1])
-            mmap_vector = get_vector(daf, "gene", "marker").array
+            mmap_vector = mutable_array(get_vector(daf, "gene", "marker")).array
             @test mmap_vector == MARKER_GENES_BY_DEPTH[1]
             mmap_vector[1] = !mmap_vector[1]
             @test get_vector(daf, "gene", "marker").array[1] == mmap_vector[1]

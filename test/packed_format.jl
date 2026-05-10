@@ -129,7 +129,7 @@ function with_packed_streaming_dense_matrix_fill(
         add_axis!(daf, "row", ["r$(index)" for index in 1:n_rows])
         add_axis!(daf, "col", ["c$(index)" for index in 1:n_cols])
         empty_dense_matrix!(daf, "row", "col", "data", Float32; packed = true) do filled
-            parallel_loop_wo_rng(1:n_cols; name = "streaming_fill_columns") do column_index
+            parallel_loop_wo_rng(1:n_cols; name = "streaming_fill_columns", policy = :static) do column_index
                 @views filled[:, column_index] .= original[:, column_index]
             end
         end
@@ -646,7 +646,7 @@ nested_test("packed_format") do
                     if daf_marker_for !== nothing
                         @test daf_marker_for(path) == [1, 0]
                     end
-                    @test parent(get_matrix(daf, "row", "col", "data")) isa DiskArrays.CachedDiskArray
+                    @test parent(parent(get_matrix(daf, "row", "col", "data"))) isa DiskArrays.CachedDiskArray
                     return nothing
                 end
             end
@@ -674,12 +674,12 @@ nested_test("packed_format") do
                     set_matrix!(daf, "row", "col", "data", original; relayout = false)
 
                     first_named = get_matrix(daf, "row", "col", "data")
-                    first_wrapper = parent(first_named)
+                    first_wrapper = parent(parent(first_named))
                     @test first_wrapper isa DiskArrays.CachedDiskArray
 
                     empty_cache!(daf)
                     second_named = get_matrix(daf, "row", "col", "data")
-                    second_wrapper = parent(second_named)
+                    second_wrapper = parent(parent(second_named))
                     @test second_wrapper isa DiskArrays.CachedDiskArray
                     @test second_wrapper !== first_wrapper  # Cache rebuild produces a fresh wrapper.
                     @test second_named == first_named
@@ -816,7 +816,7 @@ nested_test("packed_format") do
             add_axis!(daf, "col", ["c$(index)" for index in 1:n_cols])
             empty_dense_matrix!(daf, "row", "col", "data", Float32; packed = true) do filled
                 @test filled isa DataAxesFormats.PackedFormat.PackedDenseMatrix{Float32}
-                parallel_loop_wo_rng(1:n_cols; name = "memory_streaming_fill_columns") do column_index
+                parallel_loop_wo_rng(1:n_cols; name = "memory_streaming_fill_columns", policy = :static) do column_index
                     @views filled[:, column_index] .= original[:, column_index]
                 end
             end
@@ -841,7 +841,7 @@ nested_test("packed_format") do
                 json = JSON.parsefile(joinpath(path, "test.daf", "matrices", "row", "col", "data.json"))
                 @test json["packed"] === true
                 @test json["chunk_shape"] == [2048, 1]
-                @test parent(get_matrix(daf, "row", "col", "data")) isa DiskArrays.CachedDiskArray
+                @test parent(parent(get_matrix(daf, "row", "col", "data"))) isa DiskArrays.CachedDiskArray
                 return nothing
             end
         end
@@ -1104,6 +1104,307 @@ nested_test("packed_format") do
                 end
                 expected = SparseMatrixCSC{Float32, Int32}(3, 2, Int32[1, 2, 3], Int32[1, 3], Float32[7.5, 9.5])
                 @test SparseMatrixCSC{Float32, Int32}(parent(get_matrix(daf, "row", "col", "data"))) == expected
+                return nothing
+            end
+        end
+    end
+
+    # `H5df` packed write / read paths use the same `chunks_for` decisions as `FilesDaf` / `ZipDaf` / `ZarrDaf` but
+    # encode through HDF5's chunked-dataset layout with a registered filter pipeline (no `.shard` files; the bytes
+    # live inside the HDF5 file). The tests exercise each variant end-to-end (write → read), validate the on-disk
+    # chunk shape via `HDF5.get_chunk`, and assert that packed datasets surface as `H5dfDiskArray`-backed
+    # `DiskArrays.CachedDiskArray` (dense) or `LazySparseMatrix` (sparse) on read while flat datasets keep today's
+    # mmap fast path.
+    nested_test("h5df") do
+        function h5df_factory(
+            path::AbstractString,
+            mode::AbstractString = "w";
+            packed::Bool = false,
+        )::Union{H5df, DafReadOnly}
+            return H5df(joinpath(path, "test.h5df"), mode; name = "h5df!", packed)
+        end
+
+        function h5df_dataset_at(daf::H5df, group_name::AbstractString, axes_and_name::AbstractString...)::HDF5.Dataset
+            object = daf.root[group_name]
+            for component in axes_and_name
+                object = object[component]
+            end
+            @assert object isa HDF5.Dataset
+            return object
+        end
+
+        nested_test("dense_matrix_round_trip") do
+            with_packed_dense_matrix_round_trip(h5df_factory) do daf, _path
+                dataset = h5df_dataset_at(daf, "matrices", "row", "col", "data")
+                @test HDF5.ischunked(dataset)
+                @test HDF5.get_chunk(dataset) == (2048, 1)
+                @test parent(parent(get_matrix(daf, "row", "col", "data"))) isa DiskArrays.CachedDiskArray
+                return nothing
+            end
+        end
+
+        nested_test("dense_vector_round_trip") do
+            with_packed_dense_vector_round_trip(h5df_factory) do daf, _path
+                dataset = h5df_dataset_at(daf, "vectors", "elem", "data")
+                @test HDF5.ischunked(dataset)
+                @test HDF5.get_chunk(dataset) == (2048,)
+                return nothing
+            end
+        end
+
+        nested_test("streaming_dense_matrix_fill") do
+            with_packed_streaming_dense_matrix_fill(h5df_factory) do daf, _path
+                dataset = h5df_dataset_at(daf, "matrices", "row", "col", "data")
+                @test HDF5.ischunked(dataset)
+                @test HDF5.get_chunk(dataset) == (2048, 1)
+                return nothing
+            end
+        end
+
+        nested_test("streaming_dense_matrix_fill_uneven_rows") do
+            # 5000 rows is not a multiple of 2048: the last row tile of every column is a partial chunk that HDF5
+            # transparently zero-pads to the chunk shape. Validate that the round-trip recovers the original
+            # matrix bytes (no corruption from the partial-tile path).
+            with_packed_streaming_dense_matrix_fill(h5df_factory; n_rows = 5000) do daf, _path
+                dataset = h5df_dataset_at(daf, "matrices", "row", "col", "data")
+                @test HDF5.ischunked(dataset)
+                @test HDF5.get_chunk(dataset) == (2048, 1)
+                return nothing
+            end
+        end
+
+        nested_test("empty_dense_vector_packed_round_trip") do
+            with_packed_empty_dense_vector_round_trip(h5df_factory) do daf, _path
+                dataset = h5df_dataset_at(daf, "vectors", "elem", "data")
+                @test HDF5.ischunked(dataset)
+                @test HDF5.get_chunk(dataset) == (2048,)
+                return nothing
+            end
+        end
+
+        nested_test("below_threshold_stays_flat") do
+            with_below_threshold_matrix_round_trip(h5df_factory) do daf, _path
+                dataset = h5df_dataset_at(daf, "matrices", "row", "col", "data")
+                @test !HDF5.ischunked(dataset)
+                @test HDF5.iscontiguous(dataset)
+                return nothing
+            end
+        end
+
+        nested_test("packed_sparse_matrix_round_trip") do
+            with_packed_sparse_matrix_round_trip(h5df_factory) do daf, _path
+                colptr_dataset = h5df_dataset_at(daf, "matrices", "row", "col", "data", "colptr")
+                rowval_dataset = h5df_dataset_at(daf, "matrices", "row", "col", "data", "rowval")
+                nzval_dataset = h5df_dataset_at(daf, "matrices", "row", "col", "data", "nzval")
+                # 5 × Int32 = 20 bytes < threshold → flat. 32 768 × 4 bytes = 128 KB ≥ threshold → packed.
+                @test !HDF5.ischunked(colptr_dataset)
+                @test HDF5.iscontiguous(colptr_dataset)
+                @test HDF5.ischunked(rowval_dataset)
+                @test HDF5.get_chunk(rowval_dataset) == (2048,)
+                @test HDF5.ischunked(nzval_dataset)
+                @test HDF5.get_chunk(nzval_dataset) == (2048,)
+                lazy_matrix = parent(parent(get_matrix(daf, "row", "col", "data")))
+                @test lazy_matrix isa LazySparseMatrix{Float32, Int32}
+                return nothing
+            end
+        end
+
+        nested_test("empty_sparse_vector_lifecycle") do
+            # `empty_sparse_vector!` lifecycle: `format_get_empty_sparse_vector!` returns in-RAM `Vector{I}` /
+            # `Vector{T}`, the user fills them via the public API, and `format_filled_empty_sparse_vector!` writes
+            # both components to disk via `write_packed_dense_dataset!`.
+            mktempdir() do path
+                n_elements = 16_384
+                nnz_count = 4_096
+                daf = h5df_factory(path; packed = true)
+                add_axis!(daf, "elem", ["e$(index)" for index in 1:n_elements])
+                empty_sparse_vector!(daf, "elem", "data", Float32, nnz_count, Int32) do nzind, nzval
+                    nzind .= Int32.(1:nnz_count)
+                    nzval .= Float32.(1:nnz_count)
+                    return nothing
+                end
+
+                expected = sparse_vector(
+                    [Float32(index) for index in 1:n_elements] .* [index <= nnz_count ? 1.0f0 : 0.0f0 for index in 1:n_elements],
+                )
+                @test get_vector(daf, "elem", "data") == expected
+                # Both components above the byte threshold → packed datasets.
+                nzind_dataset = h5df_dataset_at(daf, "vectors", "elem", "data", "nzind")
+                nzval_dataset = h5df_dataset_at(daf, "vectors", "elem", "data", "nzval")
+                @test HDF5.ischunked(nzind_dataset)
+                @test HDF5.ischunked(nzval_dataset)
+                return nothing
+            end
+        end
+
+        nested_test("empty_sparse_matrix_lifecycle") do
+            mktempdir() do path
+                n_rows = 8192
+                n_cols = 4
+                nnz_per_col = 1024
+                nnz_total = nnz_per_col * n_cols
+                daf = h5df_factory(path; packed = true)
+                add_axis!(daf, "row", ["r$(index)" for index in 1:n_rows])
+                add_axis!(daf, "col", ["c$(index)" for index in 1:n_cols])
+                empty_sparse_matrix!(daf, "row", "col", "data", Float32, nnz_total, Int32) do colptr, rowval, nzval
+                    for column in 1:n_cols
+                        colptr[column] = Int32((column - 1) * nnz_per_col + 1)
+                        nz_range = ((column - 1) * nnz_per_col + 1):(column * nnz_per_col)
+                        rowval[nz_range] .= Int32.(1:nnz_per_col)
+                        nzval[nz_range] .= Float32.((1:nnz_per_col) .+ (column - 1) * nnz_per_col)
+                    end
+                    colptr[n_cols + 1] = Int32(nnz_total + 1)
+                    return nothing
+                end
+
+                lazy_matrix = parent(parent(get_matrix(daf, "row", "col", "data")))
+                @test lazy_matrix isa LazySparseMatrix{Float32, Int32}
+                # `colptr` (5 × Int32 = 20 B) stays flat; `rowval` and `nzval` (4096 × 4 B = 16 KB ≥ threshold) pack.
+                colptr_dataset = h5df_dataset_at(daf, "matrices", "row", "col", "data", "colptr")
+                rowval_dataset = h5df_dataset_at(daf, "matrices", "row", "col", "data", "rowval")
+                nzval_dataset = h5df_dataset_at(daf, "matrices", "row", "col", "data", "nzval")
+                @test !HDF5.ischunked(colptr_dataset)
+                @test HDF5.ischunked(rowval_dataset)
+                @test HDF5.ischunked(nzval_dataset)
+                return nothing
+            end
+        end
+
+        nested_test("packed_relayout_dense_matrix") do
+            # `relayout = true` calls `format_relayout_matrix!` which (when the original direction packs) routes
+            # through the streaming `PackedDenseMatrix` and must `flush_packed_dense_matrix!` to commit the bytes.
+            # The 4096 × 3 shape packs in the original direction (column byte-size 16 KB ≥ threshold) but the
+            # relayouted (3 × 4096) shape stays flat (`chunks_for` returns `nothing` because `shape[1] * sizeof(T)
+            # < target_bytes` — the 3-row direction has only 12 bytes per "column"). Dual-packed relayout would
+            # require `relayout!` to support a `PackedDenseMatrix` destination, which it currently doesn't (latent
+            # gap shared with `FilesDaf` / `ZarrDaf` / `ZipDaf`).
+            mktempdir() do path
+                n_rows = 4096
+                n_cols = 3
+                original = Matrix{Float32}(reshape(Float32.(1:(n_rows * n_cols)), n_rows, n_cols))
+                daf = h5df_factory(path; packed = true)
+                add_axis!(daf, "row", ["r$(index)" for index in 1:n_rows])
+                add_axis!(daf, "col", ["c$(index)" for index in 1:n_cols])
+                set_matrix!(daf, "row", "col", "data", original; relayout = true)
+                @test get_matrix(daf, "row", "col", "data") == original
+                @test get_matrix(daf, "col", "row", "data") == original'
+                row_dataset = h5df_dataset_at(daf, "matrices", "row", "col", "data")
+                col_dataset = h5df_dataset_at(daf, "matrices", "col", "row", "data")
+                @test HDF5.ischunked(row_dataset)
+                @test !HDF5.ischunked(col_dataset)
+                @test HDF5.iscontiguous(col_dataset)
+                return nothing
+            end
+        end
+
+        nested_test("packed_relayout_dense_matrix_dual_packed") do
+            # Both directions cross the byte threshold: original (2048 × 2048) Float32 and relayouted
+            # (2048 × 2048) Float32 — column byte-size 8 KB ≥ DAF_PACKED_TARGET_CHUNK_KB. The relayouted
+            # destination is allocated as a `PackedDenseMatrix` streaming wrapper, and `relayout!` must walk
+            # `MatrixLayouts.unnamed_relayout(::PackedDenseMatrix, ::AbstractMatrix)` to populate it column-
+            # by-column. Validates the dual-packed-relayout fix.
+            mktempdir() do path
+                n_rows = 2048
+                n_cols = 2048
+                original = Matrix{Float32}(reshape(Float32.(1:(n_rows * n_cols)), n_rows, n_cols))
+                daf = h5df_factory(path; packed = true)
+                add_axis!(daf, "row", ["r$(index)" for index in 1:n_rows])
+                add_axis!(daf, "col", ["c$(index)" for index in 1:n_cols])
+                set_matrix!(daf, "row", "col", "data", original; relayout = true)
+                @test get_matrix(daf, "row", "col", "data") == original
+                @test get_matrix(daf, "col", "row", "data") == original'
+                row_dataset = h5df_dataset_at(daf, "matrices", "row", "col", "data")
+                col_dataset = h5df_dataset_at(daf, "matrices", "col", "row", "data")
+                @test HDF5.ischunked(row_dataset)
+                @test HDF5.ischunked(col_dataset)
+                return nothing
+            end
+        end
+
+        nested_test("packed_relayout_sparse_matrix") do
+            mktempdir() do path
+                n_rows = 8192
+                n_cols = 4
+                column_pointers = Int32[1 + (index - 1) * n_rows for index in 1:(n_cols + 1)]
+                row_indices = Int32[((position - 1) % n_rows) + 1 for position in 1:(n_cols * n_rows)]
+                nz_values = Float32[
+                    ((position - 1) ÷ n_rows + 1) * (((position - 1) % n_rows) + 1) for position in 1:(n_cols * n_rows)
+                ]
+                original = SparseMatrixCSC{Float32, Int32}(n_rows, n_cols, column_pointers, row_indices, nz_values)
+                daf = h5df_factory(path; packed = true)
+                add_axis!(daf, "row", ["r$(index)" for index in 1:n_rows])
+                add_axis!(daf, "col", ["c$(index)" for index in 1:n_cols])
+                set_matrix!(daf, "row", "col", "data", original; relayout = true)
+                @test get_matrix(daf, "row", "col", "data") == original
+                @test get_matrix(daf, "col", "row", "data") == original'
+                # The relayouted property's `rowval` / `nzval` should both pack.
+                rowval_dataset = h5df_dataset_at(daf, "matrices", "col", "row", "data", "rowval")
+                nzval_dataset = h5df_dataset_at(daf, "matrices", "col", "row", "data", "nzval")
+                @test HDF5.ischunked(rowval_dataset)
+                @test HDF5.ischunked(nzval_dataset)
+                return nothing
+            end
+        end
+
+        nested_test("hdf5_filters_for") do
+            # `hdf5_filters_for` translates each user-facing `DAF_PACKED_COMPRESSION` symbol into the matching
+            # `HDF5.Filters.Filter` chain. Cover all six codecs at the function level — full end-to-end packed
+            # writes-per-codec are exercised indirectly by the default-codec tests above.
+            for_codec = DataAxesFormats.H5dfFormat.hdf5_filters_for ∘ DataAxesFormats.PackedFormat.compressor_for
+
+            blosc_zstd = for_codec(:blosc_zstd_bitshuffle)
+            @test length(blosc_zstd) == 1
+            @test blosc_zstd[1] isa BloscFilter
+            @test blosc_zstd[1].shuffle == H5Zblosc.BITSHUFFLE
+
+            blosc_lz4 = for_codec(:blosc_lz4_bitshuffle)
+            @test length(blosc_lz4) == 1
+            @test blosc_lz4[1] isa BloscFilter
+            @test blosc_lz4[1].shuffle == H5Zblosc.BITSHUFFLE
+
+            zstd_bs = for_codec(:zstd_bitshuffle)
+            @test length(zstd_bs) == 1
+            @test zstd_bs[1] isa BitshuffleFilter
+
+            zstd = for_codec(:zstd)
+            @test length(zstd) == 1
+            @test zstd[1] isa ZstdFilter
+
+            gzip = for_codec(:gzip)
+            @test length(gzip) == 1
+            @test gzip[1] isa HDF5.Filters.Deflate
+
+            gzip_shuffle = for_codec(:gzip_shuffle)
+            @test length(gzip_shuffle) == 2
+            @test gzip_shuffle[1] isa HDF5.Filters.Shuffle
+            @test gzip_shuffle[2] isa HDF5.Filters.Deflate
+            return nothing
+        end
+
+        nested_test("packed_sparse_bool_all_true_round_trip") do
+            # Bool sparse properties whose non-zero values are all `true` skip writing `nzval` on disk; the read
+            # path then materialises `nzval_source = fill(true, length(rowval_dataset))` inside the
+            # `LazySparseMatrix` arm. Need `rowval` packed to hit that arm: 2048 nonzeros × 4 B = 8 KB ≥ threshold.
+            mktempdir() do path
+                n_rows = 8192
+                n_cols = 1
+                nnz_total = 2048
+                column_pointers = Int32[1, nnz_total + 1]
+                row_indices = Int32.(1:nnz_total)
+                nz_values = fill(true, nnz_total)
+                original = SparseMatrixCSC{Bool, Int32}(n_rows, n_cols, column_pointers, row_indices, nz_values)
+                daf = h5df_factory(path; packed = true)
+                add_axis!(daf, "row", ["r$(index)" for index in 1:n_rows])
+                add_axis!(daf, "col", ["c$(index)" for index in 1:n_cols])
+                set_matrix!(daf, "row", "col", "data", original; relayout = false)
+
+                matrix_object = daf.root["matrices"]["row"]["col"]["data"]
+                @test matrix_object isa HDF5.Group
+                @test !haskey(matrix_object, "nzval")  # all-true → nzval skipped on disk
+
+                roundtripped = parent(parent(get_matrix(daf, "row", "col", "data")))
+                @test roundtripped isa LazySparseMatrix{Bool, Int32}
+                @test SparseMatrixCSC(roundtripped) == original
                 return nothing
             end
         end

@@ -332,6 +332,22 @@
 </code>
 </a>.
 </p>
+<div class="admonition is-info" id="Note-2aa1f8303af2219e">
+<header class="admonition-header">Note
+<a class="admonition-anchor" href="#Note-2aa1f8303af2219e" title="Permalink">
+</a>
+</header>
+<div class="admonition-body">
+<p>If queries are invoked from within any 
+<code>parallel_loop_wo_rng
+</code> or 
+<code>parallel_loop_with_rng
+</code>, that loop must use 
+<code>policy = :static
+</code>.
+</p>
+</div>
+</div>
 </div>
 </section>
 </details>
@@ -7833,7 +7849,7 @@ cells[&quot;@ cell @ gene :: UMIs&quot;]
 
 # output
 
-856×683 Named Matrix{UInt8}
+856×683 Named SparseArrays.ReadOnly{UInt8, 2, Matrix{UInt8}}
                         cell ╲ gene │        RPL22  …         HMGN1
 ────────────────────────────────────┼──────────────────────────────
 demux_07_12_20_1_AACAAGATCCATTTCA-1 │         0x0c  …          0x02

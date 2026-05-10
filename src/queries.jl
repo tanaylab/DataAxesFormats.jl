@@ -1,5 +1,10 @@
 """
 Extract data from a [`DafReader`](@ref).
+
+!!! note
+
+    If queries are invoked from within any `parallel_loop_wo_rng` or `parallel_loop_with_rng`, that loop must
+    use `policy = :static`.
 """
 module Queries
 
@@ -712,7 +717,7 @@ cells["@ cell @ gene :: UMIs"]
 
 # output
 
-856×683 Named Matrix{UInt8}
+856×683 Named SparseArrays.ReadOnly{UInt8, 2, Matrix{UInt8}}
                         cell ╲ gene │        RPL22  …         HMGN1
 ────────────────────────────────────┼──────────────────────────────
 demux_07_12_20_1_AACAAGATCCATTTCA-1 │         0x0c  …          0x02

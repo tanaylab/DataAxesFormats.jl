@@ -41,7 +41,6 @@ import ..Formats
 import ..Formats.FormatWriter  # For documentation.
 import ..PackedFormat.resolve_packed
 import ..Readers.assert_valid_matrix
-import ..Readers.base_array
 import ..Readers.require_axis
 import ..Readers.require_axis_length
 import ..Readers.require_axis_names

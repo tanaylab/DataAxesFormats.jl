@@ -1085,7 +1085,7 @@ end
 function get_vector_through_cache(format::FormatReader, axis::AbstractString, name::AbstractString)::NamedArray
     entry = get_through_cache(format, vector_cache_key(axis, name), Tuple{NamedArray, Any}) do
         vector, backing, cache_group = format_get_vector(format, axis, name)
-        return ((as_named_vector(format, axis, vector), backing), cache_group)
+        return ((as_named_vector(format, axis, read_only_array(vector)), backing), cache_group)
     end
     return entry[1]
 end
@@ -1098,7 +1098,7 @@ function get_matrix_through_cache(
 )::NamedArray
     entry = get_through_cache(format, matrix_cache_key(rows_axis, columns_axis, name), Tuple{NamedArray, Any}) do
         matrix, backing, cache_group = format_get_matrix(format, rows_axis, columns_axis, name)
-        return ((as_named_matrix(format, rows_axis, columns_axis, matrix), backing), cache_group)
+        return ((as_named_matrix(format, rows_axis, columns_axis, read_only_array(matrix)), backing), cache_group)
     end
     return entry[1]
 end
@@ -1118,7 +1118,7 @@ function get_relayout_matrix_through_cache(
         MemoryData,
     ) do
         matrix = flipped(matrix)
-        matrix = as_named_matrix(format, rows_axis, columns_axis, matrix)
+        matrix = as_named_matrix(format, rows_axis, columns_axis, read_only_array(matrix))
         return ((matrix, nothing), nothing)
     end
     return entry[1]

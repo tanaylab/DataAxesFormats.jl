@@ -1268,7 +1268,7 @@ function sparse_vectors_storage_fraction(
     for (size, array) in zip(sizes, arrays)
         dense_size += size
         if array !== nothing
-            array = array.array
+            array = base_array(array)
             if array isa AbstractSparseArray
                 sparse_size += nnz(array)
             else
@@ -1304,7 +1304,7 @@ function sparse_matrices_storage_fraction(
         total_n_columns += n_columns
         dense_size += n_rows * n_columns
         if array !== nothing
-            array = array.array
+            array = base_array(array)
             if array isa AbstractSparseArray
                 sparse_size += nnz(array)
             else

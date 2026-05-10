@@ -46,7 +46,6 @@ import ..Formats.vector_cache_key
 import ..Formats.with_cache_write_lock
 import ..Queries.as_query_sequence
 import ..Queries.patch_query
-import ..Readers.base_array
 import ..ReadOnly
 import ..ReadOnly.DafReadOnlyWrapper
 import ..Registry.QueryOperation

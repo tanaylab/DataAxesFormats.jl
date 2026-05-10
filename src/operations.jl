@@ -801,6 +801,8 @@ function log_vector!(
     base::Float64,
 )::Nothing where {T <: AbstractFloat}
     n_elements = length(output)
+    output = base_array(output)
+    input = base_array(input)
     if base == 2.0
         @turbo for element_index in 1:n_elements
             output[element_index] = log2(T(input[element_index]) + eps)

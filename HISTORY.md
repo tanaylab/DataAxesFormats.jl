@@ -1,5 +1,70 @@
 # (unreleased)
 
+  - Public reads return read-only arrays consistently. Previously
+    `get_vector` wrapped only string vectors in `SparseArrays.ReadOnly`
+    and `get_matrix` wrapped nothing; numeric vectors and all matrices
+    came back mutable. Now `get_vector_through_cache` /
+    `get_matrix_through_cache` /
+    `get_relayout_matrix_through_cache` (formats.jl) and the
+    default-supplied branches in `get_vector` / `get_matrix`
+    (readers.jl) all route through `read_only_array` before
+    `as_named_*`, so every public read is shaped
+    `NamedArray → ReadOnly → underlying`. Callers that previously
+    did `parent(named) isa SomeStorage` now need
+    `parent(parent(named))`; callers that need the mutable bottom
+    storage (e.g. mmap shared-memory or `@turbo` inputs) drill via
+    `base_array`.
+  - `base_array` (originally `DataAxesFormats.Readers.base_array`,
+    used by `description` / `daf_chunk_info` to peel
+    `NamedArray` + `SparseArrays.ReadOnly`) is now in
+    `TanayLabUtilities.MatrixFormats` and extended to also recurse
+    into `SubArray` / `Transpose` / `Adjoint` /
+    `PermutedDimsArray` — reconstructing the wrapper around the
+    drilled parent so `array[i, j]` integer-index semantics are
+    preserved while the inner `ReadOnly` is peeled. This makes it
+    safe to call inside `LoopVectorization.@turbo` loops, which
+    silently fall back to scalar `@inbounds @fastmath` when their
+    inputs are `ReadOnly`-wrapped. `log_vector!` (operations.jl)
+    drills its `output` / `input` at function entry so the new
+    consistent-ReadOnly policy doesn't regress its `@turbo`
+    speedup. The six `import ..Readers.base_array` lines across
+    DataAxesFormats's backends were dropped (now in scope via the
+    existing `using TanayLabUtilities`).
+  - `concat.jl` `sparse_vectors_storage_fraction` /
+    `sparse_matrices_storage_fraction` now use `base_array` to
+    drill through the `NamedArray` + `ReadOnly` wrappers before
+    the `array isa AbstractSparseArray` check; previously the
+    `.array` peel only stripped the `NamedArray`, leaving a
+    `SparseArrays.ReadOnly{<:AbstractSparseArray}` that the `isa`
+    check rejected. The bug silently densified concatenated sparse
+    vectors / matrices once the consistent-ReadOnly policy
+    landed.
+  - `Chains.complete_chain!` (chains.jl) used a bare `json(...)`
+    that JSON.jl 1.x no longer exports; qualified to
+    `JSON.json(...)`. Caught by JET.
+  - `H5df` honors the `packed` flag end-to-end: dense and sparse
+    `set!` and `empty_*!` paths route each property (or each sparse
+    component independently) through `write_packed_dense_dataset!`,
+    which decides flat-vs-packed via `chunks_for`. Flat datasets stay
+    contiguous and unfiltered (mmap-friendly); packed datasets are
+    chunked (HDF5's only filter-pipeline-bearing layout) with the
+    codec resolved from `DAF_PACKED_COMPRESSION` (`H5Zblosc`,
+    `H5Zzstd`, `H5Zbitshuffle` are imported at module load to register
+    filter ids `32001` / `32008` / `32015`; `:gzip*` codecs use
+    HDF5.jl's built-in `Deflate` / `Shuffle`). Packed dense matrices
+    are streamed column-by-column through a `PackedDenseMatrix` whose
+    encoder issues `dataset[:, column] = chunk_buffer` hyperslab
+    writes serialized by an internal `ReentrantLock` (HDF5.jl is not
+    thread-safe in default builds even when distinct threads target
+    distinct chunks). The packed read path wraps packed datasets in a
+    new `H5dfDiskArray` (a `DiskArrays.AbstractDiskArray` adapter that
+    delegates `readblock!` to HDF5 hyperslab reads) and caches
+    decompressed chunks in `DiskArrays.cache`; packed sparse matrices
+    are returned as a `LazySparseMatrix` over the cached `rowval` /
+    `nzval` with `colptr` materialised eagerly (matching `ZarrDaf`
+    and `FilesDaf`). No version bump — `H5df` repos written by
+    previous releases do not exist in the wild, so the on-disk
+    `daf` group attribute stays at `[1, 0]`.
   - `FilesDaf` consolidated metadata moved from a `metadata.zip`
     archive of per-property JSON sidecars to a single-line
     `metadata.json` object mapping `"<relative_path>"` → descriptor.

@@ -13,7 +13,7 @@ file to actually release the storage). Also, you can use standard tools to look 
 Windows file explorer to view the list of properties, how much space each one uses, when it was created, etc.). Most
 importantly, this allows using standard tools like `make` to create automatic repeatable processing workflows.
 
-For packed (chunked) vectors and matrices, `FilesDaf` lays the chunks out in a bucketed directory hierarchy (each path
+For packed (chunked + compressed) vectors and matrices, `FilesDaf` lays the chunks out in a bucketed directory hierarchy (each path
 component is a 3-digit zero-padded index, with extra levels accruing for higher counts). This keeps the number of
 entries in any single directory bounded regardless of total chunk count, so `FilesDaf` scales gracefully to very large
 packed matrices (hundreds of thousands of chunks) without stressing the filesystem or interactive tools like `ls` or
@@ -243,7 +243,6 @@ import ..PackedFormat.sparse_matrix_json_bytes
 import ..PackedFormat.sparse_vector_json_bytes
 import ..PackedFormat.submit_shard_chunk!
 import ..PackedFormat.v3_bytes_codecs_for
-import ..Readers.base_array
 import ..Reorder
 import SparseArrays.indtype
 

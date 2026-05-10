@@ -24,7 +24,7 @@ support for data types, filters, and compressors). Remote object stores (S3, GCS
 !!! note
 
     Zarr stores all chunks of an array as flat sibling files in a single directory (this is dictated by the Zarr
-    specification, not by this package). For packed (chunked) matrices with many chunks, that directory can hold
+    specification, not by this package). For packed (chunked + compressed) matrices with many chunks, that directory can hold
     hundreds of thousands of files, which stresses both filesystem performance and interactive tools like `ls` or
     file explorers. The [`FilesDaf`](@ref DataAxesFormats.FilesFormat.FilesDaf) backend buckets its chunks into a
     hierarchy and avoids this issue, so it is friendlier than `ZarrDaf` for very large packed matrices. Pick
@@ -210,7 +210,6 @@ import ..PackedFormat.flush_packed_dense_matrix!
 import ..PackedFormat.packed_local_cache_mb
 import ..PackedFormat.submit_shard_chunk!
 import ..PackedFormat.v3_bytes_codecs_for
-import ..Readers.base_array
 import ..Reorder
 import ..ZipFormat.SharedMmapZipStoreHandle
 import ..ZipFormat.acquire_shared_mmap_zip_store!
@@ -532,7 +531,7 @@ function open_http_zarr_daf(url::AbstractString, mode::AbstractString; name::May
     if root_zarr_bytes === nothing
         error("failed to fetch remote zarr group: $(url)/zarr.json")
     end
-    root_metadata = JSON.parse(String(copy(root_zarr_bytes)); dicttype = Dict{String, Any})::Dict{String, Any}
+    root_metadata = JSON.parse(String(copy(root_zarr_bytes)); dicttype = Dict{String, Any})::Dict{String, Any}  # NOJET
     if !(get(root_metadata, "node_type", "") == "group")
         error("not a zarr group: $(url)")
     end
@@ -895,7 +894,7 @@ function strip_zarr_zip_consolidated_metadata!(daf::ZarrDaf)::Nothing
     if raw === nothing
         return nothing  # UNTESTED
     end
-    parsed = JSON.parse(String(copy(raw)); dicttype = Dict{String, Any})::Dict{String, Any}
+    parsed = JSON.parse(String(copy(raw)); dicttype = Dict{String, Any})::Dict{String, Any}  # NOJET
     if !haskey(parsed, "consolidated_metadata")
         return nothing
     end
@@ -1099,7 +1098,7 @@ function root_zarr_has_valid_consolidated_metadata(daf::ZarrDaf)::Bool
         return false  # UNTESTED
     end
     parsed = try
-        JSON.parse(String(copy(raw)); dicttype = Dict{String, Any})::Dict{String, Any}
+        JSON.parse(String(copy(raw)); dicttype = Dict{String, Any})::Dict{String, Any}  # NOJET
     catch
         return false  # UNTESTED
     end

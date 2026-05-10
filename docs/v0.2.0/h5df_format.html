@@ -468,7 +468,111 @@
 </p>
 </li>
 <li>
-<p>All vectors and matrices are stored in a contiguous way in the file, which allows us to efficiently memory-map them.
+<p>Flat properties (the default) are stored as contiguous, uncompressed HDF5 datasets, so we can memory-map them at read time for zero-copy access. Packed (chunked + compressed) properties (
+<code>packed = true
+</code>, uncompressed size at or above 
+<a href="packed_format.html#DataAxesFormats.PackedFormat.DAF_PACKED_TARGET_CHUNK_KB">
+<code>DAF_PACKED_TARGET_CHUNK_KB
+</code>
+</a>) are stored chunked + compressed via the codec resolved from 
+<a href="packed_format.html#DataAxesFormats.PackedFormat.DAF_PACKED_COMPRESSION">
+<code>DAF_PACKED_COMPRESSION
+</code>
+</a> (HDF5&#39;s only mechanism for applying a filter pipeline is its chunked-dataset layout — often a single chunk for properties just above the threshold, multiple chunks once the property is large enough that the chunk-shape heuristic splits it). Sparse properties pack each component (
+<code>nzind
+</code> / 
+<code>nzval
+</code> for vectors; 
+<code>colptr
+</code> / 
+<code>rowval
+</code> / 
+<code>nzval
+</code> for matrices) independently — 
+<code>colptr
+</code> typically stays flat (a few bytes), while 
+<code>rowval
+</code> and 
+<code>nzval
+</code> pack once they cross the byte threshold.
+</p>
+<p>For packed properties the chunk shape is 
+<code>(n_chunk_rows,)
+</code> for 1-D and 
+<code>(n_chunk_rows, 1)
+</code> for 2-D (one column per chunk, possibly multiple row tiles per column when 
+<code>nrows &gt; n_chunk_rows
+</code>); 
+<code>n_chunk_rows
+</code> is picked from 
+<code>DAF_PACKED_TARGET_CHUNK_KB
+</code> divided by the element size. A packed dense matrix is filled column-by-column through a 
+<code>PackedDenseMatrix
+</code> wrapper whose encoder issues 
+<code>dataset[:, column] = chunk_buffer
+</code> hyperslab writes serialized by an internal lock (HDF5.jl is not thread-safe in default builds even when distinct threads target distinct chunks).
+</p>
+<p>Packed datasets cannot be memory-mapped (HDF5 mmap requires the contiguous, unfiltered layout), so the reader wraps them in 
+<code>H5dfDiskArray
+</code> (a 
+<code>DiskArrays.AbstractDiskArray
+</code> adapter that delegates 
+<code>readblock!
+</code> to HDF5 hyperslab reads) and caches decompressed chunks in a 
+<code>DiskArrays.cache
+</code> LRU sized by 
+<a href="packed_format.html#DataAxesFormats.PackedFormat.DAF_PACKED_LOCAL_CACHE_KB">
+<code>DAF_PACKED_LOCAL_CACHE_KB
+</code>
+</a>. Packed sparse matrices are returned as a 
+<a href="lazy_sparse.html#DataAxesFormats.LazySparse.LazySparseMatrix">
+<code>LazySparseMatrix
+</code>
+</a> over the cached 
+<code>rowval
+</code> / 
+<code>nzval
+</code>, with 
+<code>colptr
+</code> materialised eagerly (it is small and slicing needs random access). Packed sparse vectors materialise both components eagerly into a 
+<code>SparseVector
+</code>.
+</p>
+</li>
+<li>
+<p>The HDF5 filter ids needed to read packed datasets (
+<code>32001
+</code> Blosc, 
+<code>32008
+</code> bitshuffle, 
+<code>32015
+</code> Zstandard) are registered at module load via 
+<a href="https://github.com/JuliaIO/HDF5.jl/tree/master/filters/H5Zblosc">
+<code>H5Zblosc
+</code>
+</a>, 
+<a href="https://github.com/JuliaIO/HDF5.jl/tree/master/filters/H5Zbitshuffle">
+<code>H5Zbitshuffle
+</code>
+</a>, and 
+<a href="https://github.com/JuliaIO/HDF5.jl/tree/master/filters/H5Zzstd">
+<code>H5Zzstd
+</code>
+</a>; the built-in 
+<code>Deflate
+</code> and 
+<code>Shuffle
+</code> filters cover 
+<code>:gzip
+</code> and 
+<code>:gzip_shuffle
+</code>. A foreign HDF5 reader (e.g. 
+<code>h5py
+</code>) needs the matching plugin shared library on its filter search path to read packed datasets — the corresponding plugin is named after the filter id (
+<code>libh5zblosc.so
+</code>, 
+<code>libh5zzstd.so
+</code>, …) and is shipped by the HDF5 plugin distribution.
 </p>
 </li>
 </ul>

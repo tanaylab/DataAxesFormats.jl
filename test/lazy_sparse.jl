@@ -409,7 +409,7 @@ nested_test("lazy_sparse") do
 
         function check_packed_lazy_read(daf, original::SparseMatrixCSC)::Nothing
             named = get_matrix(daf, "row", "col", "data")
-            wrapped = parent(named)
+            wrapped = parent(parent(named))
             @test wrapped isa LazySparseMatrix
             @test size(wrapped) == size(original)
             @test wrapped.materialized === nothing
@@ -419,7 +419,7 @@ nested_test("lazy_sparse") do
 
         function check_eager_below_threshold_read(daf, original::SparseMatrixCSC)::Nothing
             named = get_matrix(daf, "row", "col", "data")
-            wrapped = parent(named)
+            wrapped = parent(parent(named))
             @test wrapped isa SparseMatrixCSC
             @test wrapped == original
             return nothing
@@ -459,7 +459,7 @@ nested_test("lazy_sparse") do
                     add_axis!(daf, "col", ["c$(index)" for index in 1:n_columns])
                     set_matrix!(daf, "row", "col", "data", original; relayout = false)
                     named = get_matrix(daf, "row", "col", "data")
-                    wrapped = parent(named)
+                    wrapped = parent(parent(named))
                     @test wrapped isa LazySparseMatrix
                     @test SparseMatrixCSC(wrapped) == original
                     return nothing

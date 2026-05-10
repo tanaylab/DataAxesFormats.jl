@@ -155,7 +155,6 @@ import ..PackedFormat.parse_sparse_descriptor
 import ..PackedFormat.sparse_matrix_json_bytes
 import ..PackedFormat.sparse_vector_json_bytes
 import ..PackedFormat.v3_bytes_codecs_for
-import ..Readers.base_array
 
 import SparseArrays.indtype
 

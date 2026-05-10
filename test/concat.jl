@@ -167,7 +167,7 @@ nested_test("concat") do
                 set_vector!(sources[2], "cell", "age", sparse_vector([3, 4, 5]))
                 concatenate!(destination, "cell", sources)
                 @test get_vector(destination, "cell", "age") == [1, 2, 3, 4, 5]
-                @test !(get_vector(destination, "cell", "age").array isa SparseVector)
+                @test !(base_array(get_vector(destination, "cell", "age")) isa SparseVector)
             end
 
             nested_test("sparse") do
@@ -175,7 +175,7 @@ nested_test("concat") do
                 set_vector!(sources[2], "cell", "age", sparse_vector([0, 0, 2]))
                 concatenate!(destination, "cell", sources)
                 @test get_vector(destination, "cell", "age") == [1, 0, 0, 0, 2]
-                @test get_vector(destination, "cell", "age").array isa SparseVector
+                @test base_array(get_vector(destination, "cell", "age")) isa SparseVector
             end
 
             nested_test("!empty") do
@@ -207,14 +207,14 @@ nested_test("concat") do
                     set_vector!(sources[1], "cell", "age", [1, 2])
                     concatenate!(destination, "cell", sources; empty = Dict(("cell", "age") => 0))
                     @test get_vector(destination, "cell", "age") == [1, 2, 0, 0, 0]
-                    @test get_vector(destination, "cell", "age").array isa SparseVector
+                    @test base_array(get_vector(destination, "cell", "age")) isa SparseVector
                 end
 
                 nested_test("!zero") do
                     set_vector!(sources[1], "cell", "age", [1, 0])
                     concatenate!(destination, "cell", sources; empty = Dict(("cell", "age") => 2))
                     @test get_vector(destination, "cell", "age") == [1, 0, 2, 2, 2]
-                    @test !(get_vector(destination, "cell", "age").array isa SparseVector)
+                    @test !(base_array(get_vector(destination, "cell", "age")) isa SparseVector)
                 end
             end
         end
@@ -228,7 +228,7 @@ nested_test("concat") do
                 set_matrix!(sources[2], "cell", "gene", "UMIs", sparse_matrix_csc([5 6; 7 8; 9 10]))
                 concatenate!(destination, "cell", sources)
                 @test get_matrix(destination, "cell", "gene", "UMIs") == [1 2; 3 4; 5 6; 7 8; 9 10]
-                @test !(get_matrix(destination, "cell", "gene", "UMIs").array isa SparseMatrixCSC)
+                @test !(base_array(get_matrix(destination, "cell", "gene", "UMIs")) isa SparseMatrixCSC)
             end
 
             nested_test("sparse") do
@@ -277,7 +277,7 @@ nested_test("concat") do
                     set_matrix!(sources[1], "cell", "gene", "UMIs", sparse_matrix_csc([1 2; 3 4]))
                     concatenate!(destination, "cell", sources; empty = Dict(("gene", "cell", "UMIs") => 5))
                     @test get_matrix(destination, "cell", "gene", "UMIs") == [1 2; 3 4; 5 5; 5 5; 5 5]
-                    @test !(get_matrix(destination, "cell", "gene", "UMIs").array isa SparseMatrixCSC)
+                    @test !(base_array(get_matrix(destination, "cell", "gene", "UMIs")) isa SparseMatrixCSC)
                 end
             end
         end
@@ -363,7 +363,7 @@ nested_test("concat") do
                             @test !has_vector(destination, "gene", "weight")
                             @test get_matrix(destination, "dataset", "gene", "weight") == [1.0 2.0; 0.0 0.0]
                             @test eltype(get_matrix(destination, "dataset", "gene", "weight")) == Float64
-                            @test get_matrix(destination, "dataset", "gene", "weight").array isa SparseMatrixCSC
+                            @test base_array(get_matrix(destination, "dataset", "gene", "weight")) isa SparseMatrixCSC
                         end
 
                         nested_test("!zero") do
@@ -377,7 +377,9 @@ nested_test("concat") do
                             @test !has_vector(destination, "gene", "weight")
                             @test get_matrix(destination, "dataset", "gene", "weight") == [1 2; 3 3]
                             @test eltype(get_matrix(destination, "dataset", "gene", "weight")) == Int32
-                            @test !(get_matrix(destination, "dataset", "gene", "weight").array isa SparseMatrixCSC)
+                            @test !(
+                                base_array(get_matrix(destination, "dataset", "gene", "weight")) isa SparseMatrixCSC
+                            )
                         end
                     end
                 end
@@ -388,7 +390,7 @@ nested_test("concat") do
                     concatenate!(destination, "cell", sources; merge = [ALL_VECTORS => CollectAxis])
                     @test !has_vector(destination, "gene", "weight")
                     @test get_matrix(destination, "dataset", "gene", "weight") == [1 0; 0 2]
-                    @test get_matrix(destination, "dataset", "gene", "weight").array isa SparseMatrixCSC
+                    @test base_array(get_matrix(destination, "dataset", "gene", "weight")) isa SparseMatrixCSC
                 end
             end
 

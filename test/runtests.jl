@@ -5,6 +5,9 @@ using DataAxesFormats
 using DiskArrays
 using Documenter
 using ExceptionUnwrapping
+using H5Zbitshuffle
+using H5Zblosc
+using H5Zzstd
 using HDF5
 using HTTP
 using JSON

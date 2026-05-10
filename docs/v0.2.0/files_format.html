@@ -322,7 +322,7 @@
 <code>make
 </code> to create automatic repeatable processing workflows.
 </p>
-<p>For packed (chunked) vectors and matrices, 
+<p>For packed (chunked + compressed) vectors and matrices, 
 <code>FilesDaf
 </code> lays the chunks out in a bucketed directory hierarchy (each path component is a 3-digit zero-padded index, with extra levels accruing for higher counts). This keeps the number of entries in any single directory bounded regardless of total chunk count, so 
 <code>FilesDaf
