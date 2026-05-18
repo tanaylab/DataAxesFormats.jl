@@ -57,6 +57,7 @@ nested_test("doctests") do
     return doctest(DataAxesFormats; manual = false)
 end
 
+include("http_helpers.jl")
 include("keys.jl")
 include("packed_format.jl")
 include("lazy_sparse.jl")

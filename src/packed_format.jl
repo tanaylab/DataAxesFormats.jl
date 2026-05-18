@@ -11,6 +11,7 @@ no per-daf override.
 """
 module PackedFormat
 
+export DAF_HTTP_MAX_COALESCE_GAP_KB
 export DAF_PACKED_COMPRESSION
 export DAF_PACKED_COMPRESSION_LEVEL
 export DAF_PACKED_HTTP_CACHE_KB
@@ -21,7 +22,9 @@ using ..Formats
 using ..MmapZipStores
 using ..StorageTypes
 using DiskArrays
+using HTTP
 using JSON
+using LRUCache
 using Mmap
 using SparseArrays
 using TanayLabUtilities
@@ -179,6 +182,74 @@ are far more expensive (network round-trip + bandwidth) than local re-decompress
 Kilobytes are binary (1 KB = 1024 bytes), consistent with [`DAF_PACKED_TARGET_CHUNK_KB`](@ref).
 """
 DAF_PACKED_HTTP_CACHE_KB::Int = 262144
+
+"""
+The maximum gap (in kilobytes) between two needed byte ranges that the HTTP read path coalesces into a single
+Range GET. When materialising a slice that needs chunks `c1` and `c2` with an unneeded gap of `g` bytes between
+them, the path issues one Range GET covering `[c1_start, c2_end)` if `g ≤ DAF_HTTP_MAX_COALESCE_GAP_KB * 1024`,
+otherwise two separate Range GETs.
+
+Default matches [`DAF_PACKED_TARGET_CHUNK_KB`](@ref) — i.e., coalesce across at most one chunk's worth of
+unneeded bytes per gap.
+
+Kilobytes are binary (1 KB = 1024 bytes).
+"""
+DAF_HTTP_MAX_COALESCE_GAP_KB::Int = DAF_PACKED_TARGET_CHUNK_KB
+
+# Convert `DAF_HTTP_MAX_COALESCE_GAP_KB` to bytes (binary kilobytes × `1024`). Internal helper for the HTTP read
+# path's range-coalescing logic.
+function packed_http_max_coalesce_gap_bytes()::Int
+    return DAF_HTTP_MAX_COALESCE_GAP_KB * 1024
+end
+
+# Issue an HTTP `GET` against `url` and return the response body. Errors with the URL and underlying exception on
+# transport / non-200 status. Shared by `HttpDaf` and the HTTP-mode `ZarrDaf` open path.
+function http_get(url::AbstractString)::Vector{UInt8}
+    response = try
+        HTTP.get(url; retry = false, status_exception = false)  # NOJET
+    catch exception
+        error("HTTP GET failed for: $(url)\nunderlying error: $(exception)")
+    end
+    if response.status != 200
+        error("HTTP GET returned status $(response.status) for: $(url)")
+    end
+    return response.body
+end
+
+# Issue an HTTP `GET` with a `Range: bytes=offset-offset+nbytes-1` header, return exactly `nbytes` bytes from the
+# server. Errors with the URL, range, and underlying exception on transport / non-206-or-200 status, or if the
+# server returned a different number of bytes than requested. Shared by the striped + packed HTTP read paths in
+# both `HttpDaf` and (future) HTTP-mode `ZarrDaf` packed reads.
+function http_range_get(url::AbstractString, offset::Integer, nbytes::Integer)::Vector{UInt8}
+    range_header = "bytes=$(offset)-$(offset + nbytes - 1)"
+    response = try
+        HTTP.get(url; headers = ["Range" => range_header], retry = false, status_exception = false)  # NOJET
+    catch exception
+        error("HTTP Range GET failed for: $(url) range: $(range_header)\nunderlying error: $(exception)")  # UNTESTED
+    end
+    if response.status != 206 && response.status != 200
+        error("HTTP Range GET returned status $(response.status) for: $(url) range: $(range_header)")  # UNTESTED
+    end
+    @assert length(response.body) == nbytes "expected $(nbytes) bytes, got $(length(response.body)) for: $(url) range: $(range_header)"
+    return response.body
+end
+
+# Issue an HTTP `GET` with a `Range: bytes=-N` suffix-range header, return exactly the last `n_bytes` of the
+# resource. Used by the packed HTTP read path to fetch the shard's index footer when `index_location == :end`
+# without an extra HEAD request to learn the file size.
+function http_range_get_suffix(url::AbstractString, n_bytes::Integer)::Vector{UInt8}
+    range_header = "bytes=-$(n_bytes)"
+    response = try
+        HTTP.get(url; headers = ["Range" => range_header], retry = false, status_exception = false)  # NOJET
+    catch exception
+        error("HTTP suffix Range GET failed for: $(url) range: $(range_header)\nunderlying error: $(exception)")  # UNTESTED
+    end
+    if response.status != 206 && response.status != 200
+        error("HTTP suffix Range GET returned status $(response.status) for: $(url) range: $(range_header)")  # UNTESTED
+    end
+    @assert length(response.body) == n_bytes "expected $(n_bytes) bytes, got $(length(response.body)) for: $(url) range: $(range_header)"
+    return response.body
+end
 
 # The whitelist of supported `DAF_PACKED_COMPRESSION` codec symbols. Updating this requires also updating
 # `valid_compression_level_range` and the per-codec backends.
@@ -378,37 +449,351 @@ function TanayLabUtilities.MatrixLayouts.unnamed_relayout(
     return destination
 end
 
-# Forward-declaration stub for the HTTP stripe-synthesis read wrapper used
-# by `HttpDaf` for unpacked dense matrices at or above
-# `DAF_PACKED_TARGET_CHUNK_KB`. Stripe shape is always `(stripe_n_rows, 1)`
-# by design — one column per Range GET, since access is column-oriented for
-# the column-major-stored matrix. Real `readblock!` / `eachchunk` semantics
-# land in Phase 5 (Steps 5.1 / 5.2).
-mutable struct HttpStripedMatrix{T} <: AbstractMatrix{T}
-    url::AbstractString
-    header_size::Int
-    n_rows::Int
-    n_columns::Int
-    stripe_n_rows::Int
+# `DiskArrays.AbstractDiskArray` wrapper for an N-dimensional numeric array served as a single byte stream over
+# HTTP. `readblock!` enumerates the chunks intersecting the requested slice, coalesces the missing ones into the
+# smallest set of byte-contiguous Range GETs (gap ≤ [`DAF_HTTP_MAX_COALESCE_GAP_KB`](@ref)), decodes each fetched
+# chunk through the configured pipeline, and caches per-chunk decoded data in an LRU sized by
+# [`DAF_PACKED_HTTP_CACHE_KB`](@ref).
+#
+# The wrapper is configured by closures so the same machinery serves three concrete use cases — flat dense
+# vector ([`HttpStripedVector`](@ref)), flat dense matrix ([`HttpStripedMatrix`](@ref)), and v3-sharded packed
+# dense array ([`HttpPackedDenseArray`](@ref)). See those factories for the per-case wiring.
+#
+# - `decode_chunk(encoded_bytes::Vector{UInt8}, chunk_shape_in_array::NTuple{N, Int}) -> Array{T, N}` converts
+#   raw fetched bytes into a chunk-shaped buffer. For flat data this is `reinterpret` + `reshape`; for packed
+#   data it's the codec pipeline.
+# - `ensure_index() -> Nothing` is called before any chunk's byte range is queried. For flat data it's a no-op;
+#   for packed data it fetches and parses the shard index footer on first call (cached after).
+# - `chunk_byte_range(chunk_coords::CartesianIndex{N}) -> Maybe{Tuple{Int, Int}}` returns `(byte_offset,
+#   byte_end_exclusive)` of the chunk's encoded bytes within the file, or `nothing` for an empty (fill-only)
+#   chunk. For flat data the formula is a closed form; for packed data it indexes into the parsed shard footer.
+# - `byte_fetcher(offset::Int, n_bytes::Int) -> Vector{UInt8}` issues one Range GET against the underlying
+#   resource.
+struct HttpChunkedArray{T, N} <: DiskArrays.AbstractDiskArray{T, N}
+    shape::NTuple{N, Int}
+    chunk_shape::NTuple{N, Int}
+    decode_chunk::Function
+    ensure_index::Function
+    chunk_byte_range::Function
+    byte_fetcher::Function
+    cache::LRUCache.LRU{CartesianIndex{N}, Array{T, N}}
 end
 
-function Base.size(matrix::HttpStripedMatrix)::Tuple{Int, Int}
-    return (matrix.n_rows, matrix.n_columns)
+function Base.size(array::HttpChunkedArray{T, N})::NTuple{N, Int} where {T, N}
+    return array.shape
 end
 
-# Forward-declaration stub for the HTTP stripe-synthesis read wrapper used
-# by `HttpDaf` for unpacked dense vectors at or above
-# `DAF_PACKED_TARGET_CHUNK_KB`. Real `readblock!` / `eachchunk` semantics
-# land in Phase 5 (Step 5.1).
-mutable struct HttpStripedVector{T} <: AbstractVector{T}
-    url::AbstractString
-    header_size::Int
-    n_elements::Int
-    stripe_n_elements::Int
+function DiskArrays.haschunks(::HttpChunkedArray)::DiskArrays.Chunked
+    return DiskArrays.Chunked()
 end
 
-function Base.size(vector::HttpStripedVector)::Tuple{Int}
-    return (vector.n_elements,)
+function DiskArrays.eachchunk(array::HttpChunkedArray{T, N})::DiskArrays.GridChunks where {T, N}
+    return DiskArrays.GridChunks(array, array.chunk_shape)
+end
+
+# `HttpChunkedArray` doesn't expose `strides` (chunked storage), so the default `MatrixLayouts.major_axis`
+# fallback returns `nothing` and breaks `assert_valid_matrix`. The wire format is column-major (flat matrices
+# decode column tiles directly; packed shards use chunk shape `(_, 1)` slabbed along columns) — declare it.
+function TanayLabUtilities.MatrixLayouts.major_axis(::HttpChunkedArray{T, 2})::Maybe{Int8} where {T}
+    return TanayLabUtilities.MatrixLayouts.Columns
+end
+
+function DiskArrays.readblock!(
+    array::HttpChunkedArray{T, N},
+    destination::AbstractArray{<:Any, N},
+    ranges::Vararg{AbstractUnitRange, N},
+)::Nothing where {T, N}
+    array.ensure_index()
+    first_chunk_coords = ntuple(dim -> (first(ranges[dim]) - 1) ÷ array.chunk_shape[dim] + 1, N)
+    last_chunk_coords = ntuple(dim -> (last(ranges[dim]) - 1) ÷ array.chunk_shape[dim] + 1, N)
+    chunk_range = CartesianIndices(ntuple(dim -> first_chunk_coords[dim]:last_chunk_coords[dim], N))
+
+    missing_chunk_coords = CartesianIndex{N}[]
+    for chunk_coords in chunk_range
+        if !haskey(array.cache, chunk_coords)
+            push!(missing_chunk_coords, chunk_coords)
+        end
+    end
+    fetch_chunks_coalesced!(array, missing_chunk_coords)
+
+    for chunk_coords in chunk_range
+        copy_chunk_into_destination!(destination, array.cache[chunk_coords], chunk_coords, array.chunk_shape, ranges)
+    end
+    return nothing
+end
+
+# Clamped chunk extent (in elements) along each dim. For interior chunks this equals `array.chunk_shape`; for
+# chunks at the trailing edge of any dim it is smaller.
+function chunk_shape_in_array(  # FLAKY TESTED
+    array::HttpChunkedArray{T, N},
+    chunk_coords::CartesianIndex{N},
+)::NTuple{N, Int} where {T, N}
+    return ntuple(N) do dim
+        first_in_array = (chunk_coords[dim] - 1) * array.chunk_shape[dim] + 1
+        return min(array.chunk_shape[dim], array.shape[dim] - first_in_array + 1)
+    end
+end
+
+# Copy the portion of an in-cache decoded `chunk` that intersects the user-requested `ranges` into the
+# corresponding slice of `destination`.
+function copy_chunk_into_destination!(
+    destination::AbstractArray{<:Any, N},
+    chunk::Array{T, N},
+    chunk_coords::CartesianIndex{N},
+    chunk_shape::NTuple{N, Int},
+    ranges::NTuple{N, <:AbstractUnitRange},
+)::Nothing where {T, N}
+    chunk_first_in_array = ntuple(dim -> (chunk_coords[dim] - 1) * chunk_shape[dim] + 1, N)
+    chunk_last_in_array = ntuple(dim -> chunk_first_in_array[dim] + size(chunk, dim) - 1, N)
+    copy_first_in_array = ntuple(dim -> max(first(ranges[dim]), chunk_first_in_array[dim]), N)
+    copy_last_in_array = ntuple(dim -> min(last(ranges[dim]), chunk_last_in_array[dim]), N)
+    destination_ranges = ntuple(N) do dim
+        return (copy_first_in_array[dim] - first(ranges[dim]) + 1):(copy_last_in_array[dim] - first(ranges[dim]) + 1)
+    end
+    chunk_ranges = ntuple(N) do dim
+        return (copy_first_in_array[dim] - chunk_first_in_array[dim] + 1):(copy_last_in_array[dim] - chunk_first_in_array[dim] + 1)
+    end
+    @views destination[destination_ranges...] .= chunk[chunk_ranges...]  # NOJET
+    return nothing
+end
+
+# Sort missing chunks by byte offset, group consecutive ones into byte-contiguous Range GET spans (gap ≤
+# `DAF_HTTP_MAX_COALESCE_GAP_KB`), fetch each span, decode each chunk via `array.decode_chunk`, and populate the
+# cache. Empty chunks (those for which `array.chunk_byte_range` returns `nothing`, i.e. packed fill chunks) are
+# cached as zero-filled tiles without any HTTP traffic.
+function fetch_chunks_coalesced!(
+    array::HttpChunkedArray{T, N},
+    missing_chunk_coords::Vector{CartesianIndex{N}},
+)::Nothing where {T, N}
+    if isempty(missing_chunk_coords)
+        return nothing
+    end
+    empty_chunk_coords = CartesianIndex{N}[]
+    nonempty_with_offset = Tuple{CartesianIndex{N}, Int, Int}[]
+    for chunk_coords in missing_chunk_coords
+        range = array.chunk_byte_range(chunk_coords)
+        if range === nothing
+            push!(empty_chunk_coords, chunk_coords)  # UNTESTED
+        else
+            push!(nonempty_with_offset, (chunk_coords, range[1], range[2]))
+        end
+    end
+    for chunk_coords in empty_chunk_coords
+        array.cache[chunk_coords] = zeros(T, chunk_shape_in_array(array, chunk_coords))  # NOJET  # UNTESTED
+    end
+
+    if isempty(nonempty_with_offset)
+        return nothing  # UNTESTED
+    end
+    sort!(nonempty_with_offset; by = entry -> entry[2])
+    max_gap_bytes = packed_http_max_coalesce_gap_bytes()
+
+    span_first_index = 1
+    span_last_byte_end = nonempty_with_offset[1][3]
+    for next_index in 2:length(nonempty_with_offset)  # NOLINT
+        next_offset = nonempty_with_offset[next_index][2]  # NOLINT
+        gap_n_bytes = next_offset - span_last_byte_end
+        if gap_n_bytes <= max_gap_bytes
+            span_last_byte_end = nonempty_with_offset[next_index][3]
+        else
+            fetch_chunk_span!(array, nonempty_with_offset, span_first_index, next_index - 1)
+            span_first_index = next_index
+            span_last_byte_end = nonempty_with_offset[next_index][3]
+        end
+    end
+    fetch_chunk_span!(array, nonempty_with_offset, span_first_index, length(nonempty_with_offset))
+    return nothing
+end
+
+# Issue one Range GET covering the byte-contiguous span from `span_first_index` through `span_last_index`
+# (inclusive, indices into `nonempty_with_offset`), decode each chunk in the span via `array.decode_chunk`, and
+# populate the cache.
+function fetch_chunk_span!(
+    array::HttpChunkedArray{T, N},
+    nonempty_with_offset::Vector{Tuple{CartesianIndex{N}, Int, Int}},
+    span_first_index::Int,
+    span_last_index::Int,
+)::Nothing where {T, N}
+    first_offset = nonempty_with_offset[span_first_index][2]
+    last_end = nonempty_with_offset[span_last_index][3]
+    span_bytes = array.byte_fetcher(first_offset, last_end - first_offset)
+
+    for span_index in span_first_index:span_last_index
+        chunk_coords, chunk_offset, chunk_end = nonempty_with_offset[span_index]
+        offset_in_span = chunk_offset - first_offset
+        chunk_byte_view = view(span_bytes, (offset_in_span + 1):(chunk_end - first_offset))
+        array.cache[chunk_coords] =
+            array.decode_chunk(Vector{UInt8}(chunk_byte_view), chunk_shape_in_array(array, chunk_coords))
+    end
+    return nothing
+end
+
+# Closure factory for the chunk-byte-range function over a flat (column-major, contiguous, uncompressed) byte
+# stream where every chunk has shape `chunk_shape` (with `1` in every dim past the first, so each chunk is
+# byte-contiguous on disk). Used by `HttpStripedVector` and `HttpStripedMatrix`.
+function flat_chunk_byte_range_closure(  # FLAKY TESTED
+    shape::NTuple{N, Int},
+    chunk_shape::NTuple{N, Int},
+    sizeof_T::Int,
+)::Function where {N}
+    function compute_range(chunk_coords::CartesianIndex{N})::Tuple{Int, Int}
+        first_linear_position = 0
+        stride = 1
+        for dim in 1:N
+            first_in_dim = (chunk_coords[dim] - 1) * chunk_shape[dim] + 1
+            first_linear_position += (first_in_dim - 1) * stride
+            stride *= shape[dim]
+        end
+        chunk_n_elements = 1
+        for dim in 1:N
+            first_in_dim = (chunk_coords[dim] - 1) * chunk_shape[dim] + 1
+            chunk_n_elements *= min(chunk_shape[dim], shape[dim] - first_in_dim + 1)
+        end
+        byte_offset = first_linear_position * sizeof_T
+        return (byte_offset, byte_offset + chunk_n_elements * sizeof_T)
+    end
+    return compute_range
+end
+
+# Closure factory for the decoder of a flat chunk — `reinterpret` the raw bytes as `T` and `reshape` to the
+# (possibly partial-at-edge) chunk shape inside the array.
+function flat_decode_closure(::Type{T})::Function where {T}
+    function decode_flat(bytes::Vector{UInt8}, chunk_shape_in_array::NTuple{N, Int})::Array{T, N} where {N}
+        n_elements = prod(chunk_shape_in_array)
+        @assert length(bytes) == n_elements * sizeof(T)
+        return reshape(collect(reinterpret(T, bytes)), chunk_shape_in_array)
+    end
+    return decode_flat
+end
+
+# Pick the LRU capacity (number of cached chunks) from the global HTTP cache size budget. The budget is
+# expressed in bytes; we divide by the per-chunk byte estimate and clamp to at least 1 entry.
+function http_chunk_cache_capacity(n_bytes_per_chunk::Int)::Int
+    return max(1, packed_http_cache_mb() * 1_000_000 ÷ n_bytes_per_chunk)
+end
+
+"""
+    HttpStripedVector(::Type{T}, n_elements::Integer, stripe_n_elements::Integer, byte_fetcher::Function)::HttpChunkedArray{T, 1}
+
+Factory for a lazy 1-D `DiskArrays.AbstractDiskArray` that fetches a flat dense numeric vector served over
+HTTP in stripes (Range GETs of `stripe_n_elements` elements at a time, coalesced when adjacent).
+"""
+function HttpStripedVector(
+    ::Type{T},
+    n_elements::Integer,
+    stripe_n_elements::Integer,
+    byte_fetcher::Function,
+)::HttpChunkedArray{T, 1} where {T}
+    shape = (Int(n_elements),)
+    chunk_shape = (Int(stripe_n_elements),)
+    capacity = http_chunk_cache_capacity(Int(stripe_n_elements) * sizeof(T))
+    return HttpChunkedArray{T, 1}(  # NOJET
+        shape,
+        chunk_shape,
+        flat_decode_closure(T),
+        () -> nothing,
+        flat_chunk_byte_range_closure(shape, chunk_shape, sizeof(T)),
+        byte_fetcher,
+        LRUCache.LRU{CartesianIndex{1}, Array{T, 1}}(; maxsize = capacity),  # NOJET
+    )
+end
+
+"""
+    HttpStripedMatrix(::Type{T}, n_rows::Integer, n_columns::Integer, stripe_n_rows::Integer, byte_fetcher::Function)::HttpChunkedArray{T, 2}
+
+Factory for a lazy 2-D `DiskArrays.AbstractDiskArray` that fetches a flat dense numeric column-major matrix
+served over HTTP in column tiles of shape `(stripe_n_rows, 1)` (coalesced when adjacent).
+"""
+function HttpStripedMatrix(
+    ::Type{T},
+    n_rows::Integer,
+    n_columns::Integer,
+    stripe_n_rows::Integer,
+    byte_fetcher::Function,
+)::HttpChunkedArray{T, 2} where {T}
+    shape = (Int(n_rows), Int(n_columns))
+    chunk_shape = (Int(stripe_n_rows), 1)
+    capacity = http_chunk_cache_capacity(Int(stripe_n_rows) * sizeof(T))
+    return HttpChunkedArray{T, 2}(
+        shape,
+        chunk_shape,
+        flat_decode_closure(T),
+        () -> nothing,
+        flat_chunk_byte_range_closure(shape, chunk_shape, sizeof(T)),
+        byte_fetcher,
+        LRUCache.LRU{CartesianIndex{2}, Array{T, 2}}(; maxsize = capacity),
+    )
+end
+
+"""
+    HttpPackedDenseArray(
+        ::Type{T},
+        shape::NTuple{N, Int},
+        chunk_shape::NTuple{N, Int},
+        codec::PackedCodec,
+        index_location::Symbol,
+        byte_fetcher::Function,
+        suffix_byte_fetcher::Function,
+    )::HttpChunkedArray{T, N}
+
+Factory for a lazy N-dimensional `DiskArrays.AbstractDiskArray` that fetches a v3-sharded packed dense array
+served over HTTP. The shard index footer is fetched once on first read (one Range GET via
+`suffix_byte_fetcher` when `index_location == :end`, otherwise via `byte_fetcher(0, index_size)`); subsequent
+reads look up per-chunk byte ranges in the cached index, coalesce adjacent ones, and decode each fetched
+chunk through the codec pipeline.
+"""
+function HttpPackedDenseArray(
+    ::Type{T},
+    shape::NTuple{N, Int},
+    chunk_shape::NTuple{N, Int},
+    codec::PackedCodec,
+    index_location::Symbol,
+    byte_fetcher::Function,
+    suffix_byte_fetcher::Function,
+)::HttpChunkedArray{T, N} where {T, N}
+    chunks_per_shard = Zarr.Codecs.V3Codecs.calculate_chunks_per_shard(shape, chunk_shape)
+    sharding_codec =
+        build_shard_metadata(T, shape, chunk_shape, v3_bytes_codecs_for(codec, T), index_location).pipeline.array_bytes
+    index_size = Zarr.Codecs.V3Codecs.compute_encoded_index_size(chunks_per_shard, sharding_codec)
+    shard_index_ref = Ref{Any}(nothing)
+
+    function ensure_index()::Nothing
+        if shard_index_ref[] !== nothing
+            return nothing
+        end
+        index_bytes = if index_location == :end
+            suffix_byte_fetcher(index_size)
+        else
+            byte_fetcher(0, index_size)
+        end
+        shard_index_ref[] = Zarr.Codecs.V3Codecs.decode_shard_index(index_bytes, chunks_per_shard, sharding_codec)
+        return nothing
+    end
+
+    function chunk_byte_range(chunk_coords::CartesianIndex{N})::Maybe{Tuple{Int, Int}}
+        return Zarr.Codecs.V3Codecs.get_chunk_slice(shard_index_ref[], Tuple(chunk_coords))
+    end
+
+    function decode_chunk(encoded::Vector{UInt8}, this_chunk_shape::NTuple{N, Int})::Array{T, N}
+        full_chunk = Array{T}(undef, chunk_shape)
+        Zarr.pipeline_decode!(sharding_codec.codecs, full_chunk, encoded)
+        if this_chunk_shape == chunk_shape
+            return full_chunk
+        else
+            return full_chunk[ntuple(dim -> 1:this_chunk_shape[dim], N)...]
+        end
+    end
+
+    capacity = http_chunk_cache_capacity(prod(chunk_shape) * sizeof(T))
+    return HttpChunkedArray{T, N}(
+        shape,
+        chunk_shape,
+        decode_chunk,
+        ensure_index,
+        chunk_byte_range,
+        byte_fetcher,
+        LRUCache.LRU{CartesianIndex{N}, Array{T, N}}(; maxsize = capacity),
+    )
 end
 
 # ==============================================================================

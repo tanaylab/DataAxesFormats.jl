@@ -371,6 +371,27 @@ nested_test("lazy_sparse") do
         end
     end
 
+    # Unit tests for `LazySparseVector` exercise the materialisation paths that the format-level tests don't:
+    # unsorted output from non-trivial selections, `convert(SparseVector, ...)`, and scalar `getindex` after
+    # the materialisation cache has been populated.
+    nested_test("lazy_sparse_vector_unit") do
+        nested_test("materialise_unsorted_indices") do
+            vector = LazySparseVector(10, Int32[2, 5, 8], Float32[20.0, 50.0, 80.0])
+            sliced = vector[[8, 2, 5]]
+            @test SparseVector(sliced) == SparseVector(3, [1, 2, 3], Float32[80.0, 20.0, 50.0])
+            return nothing
+        end
+
+        nested_test("cached_scalar_getindex") do
+            vector = LazySparseVector(10, Int32[2, 5, 8], Float32[20.0, 50.0, 80.0])
+            SparseVector(vector)
+            @test vector.materialized !== nothing
+            @test vector[2] == Float32(20.0)
+            @test vector[3] == Float32(0.0)
+            return nothing
+        end
+    end
+
     # `format_get_matrix` for a packed sparse property routes through `LazySparseMatrix` on every backend that
     # produces sharded `nzval` / `rowval` storage (FilesDaf, ZarrDaf-Directory, ZarrDaf-Zip). Below-threshold sparse
     # properties keep the eager mmap-backed `SparseMatrixCSC` path. Each backend's daf is built through the public
@@ -518,6 +539,242 @@ nested_test("lazy_sparse") do
                 @test size(sliced_named) == (size(original, 1), 2)
                 @test SparseMatrixCSC(parent(sliced_named)) == original[:, 2:3]
                 return nothing
+            end
+        end
+    end
+
+    # `format_get_vector` for a packed sparse property routes through `LazySparseVector` on every backend that
+    # produces sharded `nzind` / `nzval` storage. Below-threshold sparse properties keep the eager `SparseVector`
+    # path. Each backend's daf is built through the public `set_vector!` API so the test exercises the same
+    # write/read pipeline as user code.
+    nested_test("format_get_vector") do
+        function build_packed_sparse_vector_daf(
+            create_daf::Function,
+            path::AbstractString,
+        )::Tuple{Any, SparseVector{Float32, Int32}}
+            n_elements = 8192
+            nnz_count = n_elements
+            indices = Int32[index for index in 1:nnz_count]
+            values = Float32[index for index in 1:nnz_count]
+            original = SparseVector{Float32, Int32}(n_elements, indices, values)
+            daf = create_daf(path; packed = true)
+            add_axis!(daf, "row", ["r$(index)" for index in 1:n_elements])
+            set_vector!(daf, "row", "data", original)
+            return (daf, original)
+        end
+
+        function build_unpacked_sparse_vector_daf(
+            create_daf::Function,
+            path::AbstractString,
+        )::Tuple{Any, SparseVector{Float32, Int32}}
+            original = SparseVector{Float32, Int32}(4, Int32[2, 4], Float32[10.0, 20.0])
+            daf = create_daf(path; packed = true)
+            add_axis!(daf, "row", ["r1", "r2", "r3", "r4"])
+            set_vector!(daf, "row", "data", original)
+            return (daf, original)
+        end
+
+        # Bool sparse vectors with all-true nzval skip writing `.nzval` on disk; the lazy path synthesises
+        # `fill(true, length(nzind))` instead of opening a chunked source. Triggered by `packed = true` plus
+        # enough non-zeros to push `nzind` over the chunk-byte threshold.
+        function build_packed_bool_sparse_vector_daf(
+            create_daf::Function,
+            path::AbstractString,
+        )::Tuple{Any, SparseVector{Bool, Int32}}
+            n_elements = 8192
+            indices = Int32[index for index in 1:n_elements]
+            values = fill(true, n_elements)
+            original = SparseVector{Bool, Int32}(n_elements, indices, values)
+            daf = create_daf(path; packed = true)
+            add_axis!(daf, "row", ["r$(index)" for index in 1:n_elements])
+            set_vector!(daf, "row", "data", original)
+            return (daf, original)
+        end
+
+        function check_packed_lazy_vector_read(daf, original::SparseVector)::Nothing
+            named = get_vector(daf, "row", "data")
+            wrapped = parent(parent(named))
+            @test wrapped isa LazySparseVector
+            @test size(wrapped) == size(original)
+            @test wrapped.materialized === nothing
+            @test SparseVector(wrapped) == original
+            return nothing
+        end
+
+        function check_eager_vector_below_threshold_read(daf, original::SparseVector)::Nothing
+            named = get_vector(daf, "row", "data")
+            wrapped = parent(parent(named))
+            @test wrapped isa SparseVector
+            @test wrapped == original
+            return nothing
+        end
+
+        nested_test("files") do
+            files_factory(path; packed) = FilesDaf(joinpath(path, "test.daf"), "w+"; name = "lazy_files!", packed)
+            nested_test("packed_returns_lazy") do
+                mktempdir() do path
+                    daf, original = build_packed_sparse_vector_daf(files_factory, path)
+                    check_packed_lazy_vector_read(daf, original)
+                    return nothing
+                end
+            end
+            nested_test("below_threshold_returns_eager") do
+                mktempdir() do path
+                    daf, original = build_unpacked_sparse_vector_daf(files_factory, path)
+                    check_eager_vector_below_threshold_read(daf, original)
+                    return nothing
+                end
+            end
+        end
+
+        nested_test("h5df") do
+            h5df_factory(path; packed) = H5df(joinpath(path, "test.h5df"), "w+"; name = "lazy_h5df!", packed)
+            nested_test("packed_returns_lazy") do
+                mktempdir() do path
+                    daf, original = build_packed_sparse_vector_daf(h5df_factory, path)
+                    check_packed_lazy_vector_read(daf, original)
+                    return nothing
+                end
+            end
+            nested_test("bool_packed_returns_lazy") do
+                mktempdir() do path
+                    daf, original = build_packed_bool_sparse_vector_daf(h5df_factory, path)
+                    check_packed_lazy_vector_read(daf, original)
+                    return nothing
+                end
+            end
+            nested_test("below_threshold_returns_eager") do
+                mktempdir() do path
+                    daf, original = build_unpacked_sparse_vector_daf(h5df_factory, path)
+                    check_eager_vector_below_threshold_read(daf, original)
+                    return nothing
+                end
+            end
+        end
+
+        nested_test("zarr_directory") do
+            zarr_factory(path; packed) = ZarrDaf(joinpath(path, "test.daf.zarr"), "w+"; name = "lazy_zarr_dir!", packed)
+            nested_test("packed_returns_lazy") do
+                mktempdir() do path
+                    daf, original = build_packed_sparse_vector_daf(zarr_factory, path)
+                    check_packed_lazy_vector_read(daf, original)
+                    return nothing
+                end
+            end
+            nested_test("bool_packed_returns_lazy") do
+                mktempdir() do path
+                    daf, original = build_packed_bool_sparse_vector_daf(zarr_factory, path)
+                    check_packed_lazy_vector_read(daf, original)
+                    return nothing
+                end
+            end
+            nested_test("below_threshold_returns_eager") do
+                mktempdir() do path
+                    daf, original = build_unpacked_sparse_vector_daf(zarr_factory, path)
+                    check_eager_vector_below_threshold_read(daf, original)
+                    return nothing
+                end
+            end
+        end
+
+        nested_test("zarr_zip") do
+            function zarr_zip_factory(path; packed)
+                return ZarrDaf(joinpath(path, "test.daf.zarr.zip"), "w+"; name = "lazy_zarr_zip!", packed)
+            end
+            nested_test("packed_returns_lazy") do
+                mktempdir() do path
+                    daf, original = build_packed_sparse_vector_daf(zarr_zip_factory, path)
+                    check_packed_lazy_vector_read(daf, original)
+                    return nothing
+                end
+            end
+            nested_test("bool_packed_returns_lazy") do
+                mktempdir() do path
+                    daf, original = build_packed_bool_sparse_vector_daf(zarr_zip_factory, path)
+                    check_packed_lazy_vector_read(daf, original)
+                    return nothing
+                end
+            end
+            nested_test("below_threshold_returns_eager") do
+                mktempdir() do path
+                    daf, original = build_unpacked_sparse_vector_daf(zarr_zip_factory, path)
+                    check_eager_vector_below_threshold_read(daf, original)
+                    return nothing
+                end
+            end
+        end
+
+        # `HttpDaf` exercises the lazy path two ways: a `packed = true` daf produces sharded `.shard` components
+        # opened as `HttpPackedDenseArray`; a `packed = false` daf produces flat `.nzind` / `.nzval` files served
+        # over `Range` GETs as `HttpStripedVector`. Either lazy source kind triggers `LazySparseVector`.
+        nested_test("http") do
+            function serve_files_daf(action::Function, path::AbstractString, packed::Bool)::Nothing
+                files_path = joinpath(path, "served.daf")
+                writer = FilesDaf(files_path, "w+"; name = "lazy_http!", packed)
+                handler = request -> begin
+                    key = String(lstrip(request.target, '/'))
+                    if occursin("..", key)
+                        return HTTP.Response(404, "Error: bad key $(key)")  # UNTESTED
+                    end
+                    file_path = "$(files_path)/$(key)"
+                    if !isfile(file_path)
+                        return HTTP.Response(404, "Error: Key $(key) not found")  # UNTESTED
+                    end
+                    return respond_with_range(read(file_path), request)
+                end
+                server = HTTP.serve!(handler, Sockets.localhost, 0; listenany = true)
+                try
+                    url = "http://localhost:$(server.listener.hostport)"
+                    action(writer, url)
+                finally
+                    close(server)
+                end
+                return nothing
+            end
+
+            nested_test("packed_returns_lazy") do
+                mktempdir() do path
+                    serve_files_daf(path, true) do writer, url
+                        n_elements = 8192
+                        indices = Int32[index for index in 1:n_elements]
+                        values = Float32[index for index in 1:n_elements]
+                        original = SparseVector{Float32, Int32}(n_elements, indices, values)
+                        add_axis!(writer, "row", ["r$(index)" for index in 1:n_elements])
+                        set_vector!(writer, "row", "data", original)
+                        check_packed_lazy_vector_read(HttpDaf(url), original)
+                        return nothing
+                    end
+                    return nothing
+                end
+            end
+
+            nested_test("striped_returns_lazy") do
+                mktempdir() do path
+                    serve_files_daf(path, false) do writer, url
+                        n_elements = 8192
+                        indices = Int32[index for index in 1:n_elements]
+                        values = Float32[index for index in 1:n_elements]
+                        original = SparseVector{Float32, Int32}(n_elements, indices, values)
+                        add_axis!(writer, "row", ["r$(index)" for index in 1:n_elements])
+                        set_vector!(writer, "row", "data", original)
+                        check_packed_lazy_vector_read(HttpDaf(url), original)
+                        return nothing
+                    end
+                    return nothing
+                end
+            end
+
+            nested_test("below_threshold_returns_eager") do
+                mktempdir() do path
+                    serve_files_daf(path, false) do writer, url
+                        original = SparseVector{Float32, Int32}(4, Int32[2, 4], Float32[10.0, 20.0])
+                        add_axis!(writer, "row", ["r1", "r2", "r3", "r4"])
+                        set_vector!(writer, "row", "data", original)
+                        check_eager_vector_below_threshold_read(HttpDaf(url), original)
+                        return nothing
+                    end
+                    return nothing
+                end
             end
         end
     end

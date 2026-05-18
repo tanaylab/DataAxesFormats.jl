@@ -294,7 +294,7 @@
 </summary>
 <section>
 <div>
-<p>Lazy slice-then-materialize wrapper around a packed sparse matrix.
+<p>Lazy slice-then-materialize wrappers around packed sparse properties.
 </p>
 <p>A 
 <a href="lazy_sparse.html#DataAxesFormats.LazySparse.LazySparseMatrix">
@@ -312,7 +312,15 @@
 </code>
 </a> 
 <code>ZArray
-</code> sources, so a packed sparse property opened from disk does not pay the decompression cost up front. Slicing the wrapper accumulates row / column 
+</code> sources, so a packed sparse property opened from disk does not pay the decompression cost up front. A 
+<a href="lazy_sparse.html#DataAxesFormats.LazySparse.LazySparseVector">
+<code>LazySparseVector
+</code>
+</a> is the 1-D counterpart, holding 
+<code>nzind
+</code> and 
+<code>nzval
+</code> as packed sources. Slicing either wrapper accumulates 
 <a href="lazy_sparse.html#DataAxesFormats.LazySparse.SparseSelection">
 <code>SparseSelection
 </code>
@@ -320,13 +328,9 @@
 <code>rowval
 </code> / 
 <code>nzval
-</code> data, and runs only on the selected slice.
-</p>
-<p>This module covers the type and the 
-<a href="lazy_sparse.html#DataAxesFormats.LazySparse.SparseSelection">
-<code>SparseSelection
-</code>
-</a> family. Slicing semantics and materialisation land in later phases of the packed-storage roadmap.
+</code> / 
+<code>nzind
+</code> data, and only on the selected slice.
 </p>
 </div>
 </section>
@@ -487,9 +491,161 @@ end
 </ul>
 <p>User code obtains a 
 <code>LazySparseMatrix
-</code> only as the result of reading a packed sparse property through 
+</code> only as the result of reading a sparse property whose 
+<code>rowval
+</code> / 
+<code>nzval
+</code> components are lazy sources — packed on disk, or chunked over HTTP — through 
 <a href="formats.html#DataAxesFormats.Formats.format_get_matrix">
 <code>DataAxesFormats.Formats.format_get_matrix
+</code>
+</a>; construction lives behind the read paths and is not part of the public API.
+</p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.LazySparse.LazySparseVector">
+<a class="docstring-binding" href="#DataAxesFormats.LazySparse.LazySparseVector">
+<code>DataAxesFormats.LazySparse.LazySparseVector
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">mutable struct LazySparseVector{Tv, Ti &lt;: Integer} &lt;: AbstractSparseVector{Tv, Ti}
+    full_n_elements::Int
+    nzind_source::AbstractVector{Ti}
+    nzval_source::AbstractVector{Tv}
+    select::SparseSelection
+    materialized::Maybe{SparseVector{Tv, Ti}}
+end
+</code>
+</pre>
+<p>Lazy 
+<a href="https://docs.julialang.org/en/v1/stdlib/SparseArrays/#SparseArrays.AbstractSparseVector">
+<code>AbstractSparseVector{Tv, Ti}
+</code>
+</a> over packed 
+<code>nzind
+</code> / 
+<code>nzval
+</code> sources.
+</p>
+<p>
+<code>nzind_source
+</code> and 
+<code>nzval_source
+</code> are one-dimensional indexable sources (typically 
+<code>Zarr.ZArray{T, 1}
+</code> or a 
+<code>DiskArrays.cache
+</code>-wrapped 
+<code>ZArray
+</code> for on-disk packed storage, or an 
+<code>HttpChunkedArray
+</code> for HTTP-served packed storage) that decompress per-chunk on access. 
+<code>select
+</code> describes the slice of the original axis exposed through this wrapper. Materialisation copies the selected slice into a plain 
+<a href="https://docs.julialang.org/en/v1/stdlib/SparseArrays/#SparseArrays.SparseVector">
+<code>SparseVector
+</code>
+</a> the first time it is required and caches it in 
+<code>materialized
+</code> for subsequent use.
+</p>
+<p>The 
+<code>full_n_elements
+</code> field is the original (unsliced) axis length. The corresponding 
+<code>AbstractSparseVector
+</code> accessors (
+<code>size
+</code>, 
+<code>SparseArrays.nonzeroinds
+</code>) report the 
+<em>sliced
+</em> shape; 
+<code>nonzeroinds
+</code> triggers materialisation so it can return the per-slice indices. Use 
+<code>full_n_elements
+</code> when internal Daf code needs the original layout without materialising.
+</p>
+<p>
+<strong>Materialisation triggers
+</strong>
+</p>
+<p>The following operations materialise the current slice into the cached 
+<code>materialized
+</code> vector on first call (and reuse the cache on subsequent calls):
+</p>
+<ul>
+<li>
+<code>SparseArrays.nonzeroinds
+</code> / 
+<code>SparseArrays.nonzeros
+</code> / 
+<code>SparseArrays.nnz
+</code>.
+</li>
+<li>
+<code>SparseVector(lazy)
+</code> and 
+<code>convert(SparseVector{Tv, Ti}, lazy)
+</code>.
+</li>
+<li>Any generic 
+<code>AbstractSparseVector
+</code> / 
+<code>AbstractVector
+</code> algorithm that calls those primitives.
+</li>
+</ul>
+<p>The following operations do 
+<strong>not
+</strong> materialise:
+</p>
+<ul>
+<li>
+<code>Base.size
+</code>, 
+<code>Base.eltype
+</code>, 
+<code>Base.length
+</code>.
+</li>
+<li>The slicing forms 
+<code>lazy[range]
+</code> / 
+<code>lazy[indices]
+</code> / 
+<code>lazy[mask]
+</code> (each rebinds the selection and clears the cache, returning a fresh wrapper).
+</li>
+<li>
+<code>Base.getindex(lazy, ::Int)
+</code> — the only access form that decompresses on the fly without populating the cache: each call binary-searches 
+<code>nzind_source
+</code> (
+<code>O(log nnz)
+</code> chunk reads) and reads one element of 
+<code>nzval_source
+</code>.
+</li>
+</ul>
+<p>User code obtains a 
+<code>LazySparseVector
+</code> only as the result of reading a sparse property whose 
+<code>nzind
+</code> / 
+<code>nzval
+</code> components are lazy sources — packed on disk, or chunked over HTTP — through 
+<a href="formats.html#DataAxesFormats.Formats.format_get_vector">
+<code>DataAxesFormats.Formats.format_get_vector
 </code>
 </a>; construction lives behind the read paths and is not part of the public API.
 </p>
@@ -699,6 +855,12 @@ end
 <li>
 <a href="lazy_sparse.html#DataAxesFormats.LazySparse.LazySparseMatrix">
 <code>DataAxesFormats.LazySparse.LazySparseMatrix
+</code>
+</a>
+</li>
+<li>
+<a href="lazy_sparse.html#DataAxesFormats.LazySparse.LazySparseVector">
+<code>DataAxesFormats.LazySparse.LazySparseVector
 </code>
 </a>
 </li>

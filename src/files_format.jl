@@ -746,17 +746,22 @@ function Formats.format_get_vector(
         ind_type = DTYPE_BY_NAME[indtype_name]
         @assert ind_type !== nothing
 
-        nzind_vector, _, nnz, nzind_cache =
-            packed_format_open_sparse_component_eager(files, base_key, "nzind", ind_type, json, nothing)
-        cache_group = max(cache_group, nzind_cache)
-
         if eltype_name == "string" || eltype_name == "String"
+            nzind_vector, _, _, nzind_cache =
+                packed_format_open_sparse_component_eager(files, base_key, "nzind", ind_type, json, nothing)
+            cache_group = max(cache_group, nzind_cache)
             vector = Vector{AbstractString}(undef, size)
             fill!(vector, "")
             nzval_descriptor = haskey(json, "nzval") ? json["nzval"] : Dict("format" => "dense", "eltype" => "String")
             if get(nzval_descriptor, "packed", false) === true
-                nzval_strings, _, _, _ =
-                    packed_format_open_sparse_component_eager(files, base_key, "nzval", String, json, nnz)
+                nzval_strings, _, _, _ = packed_format_open_sparse_component_eager(
+                    files,
+                    base_key,
+                    "nzval",
+                    String,
+                    json,
+                    length(nzind_vector),
+                )
                 vector[nzind_vector] .= nzval_strings  # NOJET
             else
                 nztxt_lines, _ = packed_read_lines(files, "$(base_key).nztxt")
@@ -766,15 +771,39 @@ function Formats.format_get_vector(
 
         else
             eltype = eltype_for_descriptor(eltype_name)
-            if packed_has_entry(files, "$(base_key).nzval") || packed_has_entry(files, "$(base_key).nzval.shard")
-                nzval_vector, _, _, nzval_cache =
-                    packed_format_open_sparse_component_eager(files, base_key, "nzval", eltype, json, nnz)
-                cache_group = max(cache_group, nzval_cache)
-            else
-                nzval_vector = fill(true, nnz)
+            nzind_descriptor = get(json, "nzind", nothing)
+            nzind_packed = nzind_descriptor isa AbstractDict && get(nzind_descriptor, "packed", false) === true
+            nzval_descriptor = get(json, "nzval", nothing)
+            nzval_packed = nzval_descriptor isa AbstractDict && get(nzval_descriptor, "packed", false) === true
+            nzval_present =
+                packed_has_entry(files, "$(base_key).nzval") || packed_has_entry(files, "$(base_key).nzval.shard")
+
+            if nzind_packed || nzval_packed
+                nzind_source, _, nnz, _ =
+                    packed_format_open_sparse_component_source(files, base_key, "nzind", ind_type, json, nothing)
+                nzval_source = if nzval_present
+                    nzval_vector, _, _, _ =
+                        packed_format_open_sparse_component_source(files, base_key, "nzval", eltype, json, nnz)
+                    nzval_vector
+                else
+                    fill(true, nnz)
+                end
+                vector = LazySparseVector(size, nzind_source, nzval_source)
                 cache_group = Formats.MemoryData
+            else
+                nzind_vector, _, nnz, nzind_cache =
+                    packed_format_open_sparse_component_eager(files, base_key, "nzind", ind_type, json, nothing)
+                cache_group = max(cache_group, nzind_cache)
+                if nzval_present
+                    nzval_vector, _, _, nzval_cache =
+                        packed_format_open_sparse_component_eager(files, base_key, "nzval", eltype, json, nnz)
+                    cache_group = max(cache_group, nzval_cache)
+                else
+                    nzval_vector = fill(true, nnz)
+                    cache_group = Formats.MemoryData
+                end
+                vector = SparseVector(size, nzind_vector, nzval_vector)
             end
-            vector = SparseVector(size, nzind_vector, nzval_vector)
         end
     end
 
@@ -1344,15 +1373,8 @@ function write_property_json!(files::FilesDaf, key::AbstractString, descriptor::
     return nothing
 end
 
-# Encode `data` as a v3 sharded-array byte blob (via [`encode_packed_dense_array`](@ref)) and
-# write it to `shard_path`. Emits the matching JSON descriptor at `json_path` carrying
-# `packed: true` plus the codec parameters needed to reconstruct the pipeline at read time.
-# Used by `format_set_*!` and `format_filled_empty_*!` for the dense `packed = true` arm; both
-# vector and matrix call sites share this helper. The on-disk bytes are byte-identical to what
-# `ZarrDaf` writes for the same content under the same codec / `chunk_shape`.
-# Write a top-level dense string property at `base_path` (no extension), emitting either the flat
-# `<base>.txt` line-per-element file or the packed `<base>.shard` v3 sharded-array bytes. The
-# matching JSON descriptor is written at `<base>.json`.
+# Write a dense string property as either the flat `<base>.txt` line-per-element file or the packed
+# `<base>.shard` v3 sharded-array bytes, plus its JSON descriptor at `<base>.json`.
 function write_dense_string_array(
     files::FilesDaf,
     key::AbstractString,
@@ -1374,10 +1396,8 @@ function write_dense_string_array(
     return nothing
 end
 
-# Write the `nzval` component of a sparse string property either flat at `<base>.nztxt`
-# (line-per-nonzero, matches v1.0 layout) or packed at `<base>.nzval.shard` (encoded as a v3 shard
-# via `VLenUTF8V3Codec`). Caller has already materialized the buffer of nonzero values in
-# user-axis order (matching the corresponding `nzind`); any `AbstractString` eltype is accepted.
+# Write the `nzval` component of a sparse string property either flat at `<base>.nztxt` (line-per-nonzero) or
+# packed at `<base>.nzval.shard` (v3 shard via `VLenUTF8V3Codec`).
 function write_sparse_string_nzval(
     base_path::AbstractString,
     nzval_buffer::AbstractVector{T},
@@ -1521,13 +1541,8 @@ function packed_make_streaming_shard_writer(
     return open_streaming_shard_writer("$(files.path)/$(shard_key)", T, Int(n_chunks), v3_bytes_codecs_for(codec, T))
 end
 
-# Append one entry to `metadata.json` via byte-level surgery on the trailing `}`. The `descriptor` bytes (typically
-# the just-built JSON of a per-property sidecar) are inserted verbatim under `key`; an optional trailing newline in
-# `descriptor` is stripped (so the same bytes that the disk sidecar holds — JSON + `\n` — can be passed through
-# without re-reading). The file is assumed to exist and parse to a JSON object — [`ensure_metadata_json!`](@ref)
-# runs at open time and [`metadata_json_rebuild!`](@ref) runs on every `delete!`, so the file's last byte is always
-# `}`. Append-only is safe for the writer protocol: Daf routes overwrites through delete + create, and `delete!`
-# rebuilds the file from scratch, so an `append!` never collides with an existing key.
+# Append `"key":<descriptor>` to `metadata.json` via byte-level surgery on the trailing `}`. A trailing newline in
+# `descriptor` is stripped so the verbatim sidecar bytes can be passed through.
 function metadata_json_append!(files::FilesDaf, key::AbstractString, descriptor::AbstractVector{UInt8})::Nothing
     if !isempty(descriptor) && descriptor[end] == UInt8('\n')
         descriptor = @view descriptor[1:(end - 1)]

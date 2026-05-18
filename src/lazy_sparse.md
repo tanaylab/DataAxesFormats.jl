@@ -3,6 +3,7 @@
 ```@docs
 DataAxesFormats.LazySparse
 DataAxesFormats.LazySparse.LazySparseMatrix
+DataAxesFormats.LazySparse.LazySparseVector
 DataAxesFormats.LazySparse.SparseSelection
 DataAxesFormats.LazySparse.AllOf
 DataAxesFormats.LazySparse.RangeOf

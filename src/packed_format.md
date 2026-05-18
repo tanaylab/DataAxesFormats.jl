@@ -7,6 +7,10 @@ DataAxesFormats.PackedFormat.DAF_PACKED_COMPRESSION
 DataAxesFormats.PackedFormat.DAF_PACKED_COMPRESSION_LEVEL
 DataAxesFormats.PackedFormat.DAF_PACKED_LOCAL_CACHE_KB
 DataAxesFormats.PackedFormat.DAF_PACKED_HTTP_CACHE_KB
+DataAxesFormats.PackedFormat.DAF_HTTP_MAX_COALESCE_GAP_KB
+DataAxesFormats.PackedFormat.HttpStripedVector
+DataAxesFormats.PackedFormat.HttpStripedMatrix
+DataAxesFormats.PackedFormat.HttpPackedDenseArray
 ```
 
 ## Index

@@ -822,12 +822,9 @@ function single_chunk_matrix_suffix(array::ZArray)::String
     return Zarr.citostring(array.metadata.chunk_key_encoding, CartesianIndex(1, 1))
 end
 
-# Create a Zarr array at `name` under `group` for a dense property of element type `T` and shape `shape`. When
-# `chunks_for` returns `nothing` (no packing) or for non-bits types (e.g. `String`), falls back to a single-chunk
-# uncompressed encoding and lets `Zarr.jl` apply its default per-type filter (e.g. `VLenUTF8Filter` for strings).
-# Otherwise applies the codec resolved from `DAF_PACKED_COMPRESSION` / `DAF_PACKED_COMPRESSION_LEVEL` and the
-# `chunks_for` chunk shape; the explicit `filters` kwarg is omitted for non-bits types so `Zarr.jl`'s default filter
-# stays in the chain ahead of the compressor. Callers fill data into the returned `ZArray` afterward.
+# Create a Zarr array for a dense property. Falls back to a single-chunk uncompressed encoding when `chunks_for`
+# returns `nothing` or `T` is non-bits (e.g. `String`); otherwise applies the codec from `DAF_PACKED_COMPRESSION` /
+# `DAF_PACKED_COMPRESSION_LEVEL`. Callers fill data into the returned `ZArray` afterward.
 function dense_zcreate(
     ::Type{T},
     group::ZGroup,
@@ -869,20 +866,10 @@ function patch_chunk_crc_if_needed(array::ZArray, chunk_suffix::AbstractString):
     return nothing
 end
 
-# Rebuild `daf.consolidated_metadata_bytes` from scratch by walking the in-memory `ZGroup` tree (no disk reads), then
-# rewrite the root `zarr.json` inline `consolidated_metadata` field so live readers (including the
-# `ConsolidatedStore` wrapper used for HTTP access) observe the newly-committed state. Called from every `delete!`
-# and reorder; `set!` paths use the cheaper [`register_consolidated_metadata!`](@ref) which only appends one entry.
-# Currently only implemented for [`Zarr.DirectoryStore`](@extref) — other backends (in-memory `DictStore`,
-# [`MmapZipStore`](@ref)) do not maintain consolidated metadata and rely on the central directory or in-memory dict
-# for enumeration; the function is a no-op for them.
-# Drop a stale `consolidated_metadata` field from the root `zarr.json` of a ZIP-backed `ZarrDaf` on every writable
-# open. ZarrDaf-Zip does not maintain consolidated metadata (its central directory is the index), so any field that
-# survives from a `zip -r` of a previously-written `DirectoryStore` daf would become stale the moment we append a new
-# property. Stripping at open time guarantees that an `unzip` of the resulting archive produces a directory whose
-# next writable open will rebuild the field from the per-node `zarr.json` files. The strip is one
-# remove-from-central-directory + one append; the data region of the old entry remains as orphan bytes in the file
-# (acceptable since this fires at most once per writable open).
+# Drop a stale `consolidated_metadata` field from the root `zarr.json` of a ZIP-backed `ZarrDaf` on writable open.
+# A field surviving from `zip -r` of a previous `DirectoryStore` daf would go stale on the next append; ZarrDaf-Zip
+# doesn't maintain consolidated metadata (the central directory is the index). Strip is remove + append; the old
+# entry's data region remains as orphan bytes.
 function strip_zarr_zip_consolidated_metadata!(daf::ZarrDaf)::Nothing
     storage = daf.root.storage
     if !(storage isa MmapZipStore) || !is_writable(daf)
@@ -934,10 +921,7 @@ function register_consolidated_node!(daf::ZarrDaf, path::AbstractString, descrip
     @assert !isempty(cached) && cached[end] == UInt8('}')
     encoded_key = Vector{UInt8}(JSON.json(String(path)))
     io = IOBuffer()
-    # The "was `{}`" branch is unreachable in normal flow: `ensure_consolidated_metadata!` populates the cache from
-    # the in-memory `ZGroup` tree at open, and a fresh `ZarrDaf` always has the `scalars` / `axes` / `vectors` /
-    # `matrices` sub-groups, so `cached` already holds 4+ entries before any `register_consolidated_node!` runs.
-    # Kept for correctness in case a future code path constructs an empty cache.
+    # The "was `{}`" branch is unreachable in normal flow but kept for correctness.
     if length(cached) == 2  # was the empty object `{}`  # UNTESTED
         write(io, UInt8('{'))  # UNTESTED
     else
@@ -1429,7 +1413,7 @@ function write_sparse_vector(parent::ZGroup, name::AbstractString, vector::Abstr
     vector_group = zgroup(parent, name)
 
     nzind_vector = nzind(vector)
-    nzind_array = dense_zcreate(eltype(nzind_vector), vector_group, "nzind", false, (length(nzind_vector),))
+    nzind_array = dense_zcreate(eltype(nzind_vector), vector_group, "nzind", packed, (length(nzind_vector),))
     nzind_array[:] = nzind_vector
 
     if eltype(vector) != Bool || !all(nzval(vector))
@@ -1521,12 +1505,28 @@ function Formats.format_get_vector(
     vector_group = group.groups[name]
     nelements = Formats.format_axis_length(daf, axis)
 
-    nzind_vector, nzind_cache_group = array_as_materialized_vector(daf, vector_group.arrays["nzind"])
-    if haskey(vector_group.arrays, "nzval")
-        nzval_vector, nzval_cache_group = array_as_materialized_vector(daf, vector_group.arrays["nzval"])
-    else
+    nzind_array = vector_group.arrays["nzind"]
+    nzval_array = get(vector_group.arrays, "nzval", nothing)
+
+    nzind_packed = !can_mmap(nzind_array) || isempty(nzind_array)
+    nzval_packed = nzval_array !== nothing && (!can_mmap(nzval_array) || isempty(nzval_array))
+    if nzind_packed || nzval_packed
+        nzind_source = DiskArrays.cache(nzind_array; maxsize = packed_local_cache_mb())
+        nzval_source = if nzval_array === nothing
+            fill(true, length(nzind_array))
+        else
+            DiskArrays.cache(nzval_array; maxsize = packed_local_cache_mb())
+        end
+        vector = LazySparseVector(nelements, nzind_source, nzval_source)
+        return (vector, nothing, Formats.MemoryData)
+    end
+
+    nzind_vector, nzind_cache_group = array_as_materialized_vector(daf, nzind_array)
+    if nzval_array === nothing
         nzval_vector = fill(true, length(nzind_vector))
         nzval_cache_group = Formats.MemoryData
+    else
+        nzval_vector, nzval_cache_group = array_as_materialized_vector(daf, nzval_array)
     end
 
     vector = SparseVector(nelements, nzind_vector, nzval_vector)
@@ -1699,11 +1699,11 @@ function write_sparse_matrix(parent::ZGroup, name::AbstractString, matrix::Abstr
     matrix_group = zgroup(parent, name)
 
     colptr_vector = colptr(matrix)
-    colptr_array = dense_zcreate(eltype(colptr_vector), matrix_group, "colptr", false, (length(colptr_vector),))
+    colptr_array = dense_zcreate(eltype(colptr_vector), matrix_group, "colptr", packed, (length(colptr_vector),))
     colptr_array[:] = colptr_vector
 
     rowval_vector = rowval(matrix)
-    rowval_array = dense_zcreate(eltype(rowval_vector), matrix_group, "rowval", false, (length(rowval_vector),))
+    rowval_array = dense_zcreate(eltype(rowval_vector), matrix_group, "rowval", packed, (length(rowval_vector),))
     rowval_array[:] = rowval_vector
 
     if eltype(matrix) != Bool || !all(nzval(matrix))

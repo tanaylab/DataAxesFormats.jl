@@ -554,7 +554,7 @@ function is_canonical_for_files(zarray::Zarr.ZArray, ::Type{T}, shape::NTuple{N,
         return ZarrFormat.can_mmap(zarray) && !isempty(zarray)
     end
     if !PackedFormat.is_zarr_array_packed(zarray)
-        return false
+        return false  # UNTESTED
     end
     if zarray.metadata.chunks != shape
         return false  # UNTESTED

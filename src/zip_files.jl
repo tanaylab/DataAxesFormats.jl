@@ -331,12 +331,9 @@ struct ZipDaf <: PackedDaf
     path::AbstractString
 end
 
-# Sidecar entries that may appear inside an archive produced by `zip -r` over a `FilesDaf`
-# directory (see `FilesFormat.ensure_metadata_json!`). `ZipDaf` strips them from the central
-# directory on every writable open: their data regions stay in the file as orphan bytes, but
-# they no longer surface through ordinary ZIP enumeration. Stripping is what makes
-# `unzip foo.daf.zip` produce a directory that triggers a `metadata.json` rebuild on its first
-# writable `FilesDaf` open instead of preserving a stale snapshot.
+# Sidecar entries that may appear inside an archive produced by `zip -r` over a `FilesDaf` directory.
+# Stripped from the central directory on every writable open so a stale snapshot doesn't survive a
+# `zip -r foo.daf` followed by `unzip` — the unzipped tree triggers a `metadata.json` rebuild instead.
 const FILES_DAF_SIDECAR_NAMES = ("metadata.json",)
 
 function ZipDaf(
@@ -444,10 +441,7 @@ function verify_daf_marker(store::MmapZipStore, daf_marker_key::AbstractString, 
     return nothing
 end
 
-# Strip a stale `metadata.json` sidecar entry that may have been bundled
-# into the archive by `zip -r` over a `FilesDaf` directory. The data bytes stay in the file as
-# orphan regions (the backend is append-only with respect to data); only the central directory
-# is rewritten so the entries become unreachable through normal ZIP enumeration. Idempotent.
+# Drop FilesDaf sidecar entries from the ZIP central directory; data regions stay as orphans. Idempotent.
 function strip_files_daf_sidecars!(store::MmapZipStore, group_prefix::AbstractString)::Nothing
     sidecar_keys = String[group_prefix * sidecar_name for sidecar_name in FILES_DAF_SIDECAR_NAMES]
     remove_entries_from_central_directory!(store, sidecar_keys)
@@ -555,10 +549,8 @@ function read_entry_lines(
     return (lines, cache_group)
 end
 
-# Wrap the bytes of an entry as a typed `Vector{T}` of length `element_count`. Returns
-# `(typed_view, byte_owner, cache_group)` where `byte_owner` is the `Vector{UInt8}` that backs
-# the view (or `nothing` for the zero-copy mmap path); the caller stores it alongside the typed
-# view to keep it alive as long as the typed view is reachable.
+# Wrap an entry's bytes as a `Vector{T}` of length `element_count`. Returns `(view, byte_owner, cache_group)`
+# where `byte_owner` is the backing `Vector{UInt8}` (or `nothing` for zero-copy mmap) — caller keeps it alive.
 function read_entry_typed_vector(
     zip_daf::ZipDaf,
     key::AbstractString,
@@ -658,17 +650,12 @@ function packed_write_typed_array!(zip_daf::ZipDaf, key::AbstractString, vector:
     return nothing
 end
 
-# `ZipDaf` is append-only at the storage level so deletion is a no-op: the format-set caller's defensive cleanup
-# loop is meaningful only on `FilesDaf` (where stale variant files must be removed before a property rewrite). On
-# `ZipDaf` the same property is never written twice — `format_delete_vector!` / `format_delete_matrix!` error before
-# any second write reaches us.
+# `ZipDaf` is append-only — no second write ever reaches us, so no cleanup is needed.
 function packed_delete_entry!(::ZipDaf, ::AbstractString)::Nothing
     return nothing
 end
 
-# `ZipDaf` has no secondary metadata index — the zip itself is the index, so JSON sidecars are discoverable from
-# `zip_names` directly. Stale `metadata.json` entries (e.g. from a `zip -r foo.daf` of a FilesDaf) are stripped on
-# writable open by [`strip_files_daf_sidecars!`](@ref) so they cannot resurface in the central directory.
+# `ZipDaf` has no secondary metadata index — the zip itself is the index.
 function packed_register_metadata!(::ZipDaf, ::AbstractString, ::AbstractVector{UInt8})::Nothing
     return nothing
 end
@@ -762,10 +749,8 @@ function packed_finalize_entry!(zip_daf::ZipDaf, key::AbstractString)::Nothing
     return nothing
 end
 
-# Reserve an upper-bound outer-zip entry sized for the worst-case codec inflation per inner chunk plus the index slab,
-# wrap it in an `MmapShardRegion` sink, and build the streaming `IncrementalShardWriter` over it. The sink's
-# `finalize_sink!` shrinks the reservation to the actual shard size and patches the entry's CRC, so callers only need
-# to drive `submit_shard_chunk!` / `finalize_shard!` against the writer.
+# Reserve an upper-bound outer-zip entry and build a streaming `IncrementalShardWriter` over it. The sink's
+# `finalize_sink!` shrinks the reservation to the actual shard size and patches the CRC at the end.
 function packed_make_streaming_shard_writer(
     zip_daf::ZipDaf,
     shard_key::AbstractString,

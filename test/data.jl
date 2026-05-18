@@ -3902,7 +3902,7 @@ nested_test("data") do
                     if !isfile(file_path)
                         return HTTP.Response(404, "Error: Key $(key) not found")
                     end
-                    return HTTP.Response(200, read(file_path))
+                    return respond_with_range(read(file_path), request)
                 end
                 server = HTTP.serve!(handler, Sockets.localhost, 0; listenany = true)
                 try
@@ -4005,6 +4005,179 @@ nested_test("data") do
                 finally
                     close(server)
                 end
+                return nothing
+            end
+        end
+
+        nested_test("http_chunked") do
+            mktempdir() do path
+                n_rows = 4096
+                n_columns = 4
+                score_vector = Float32[index for index in 1:n_rows]
+                umis_matrix = Float32[
+                    (row_index - 1) * n_columns + column_index for row_index in 1:n_rows, column_index in 1:n_columns
+                ]
+                column_pointers = Int32[1 + (column_index - 1) * n_rows for column_index in 1:(n_columns + 1)]
+                row_indices = Int32[((position - 1) % n_rows) + 1 for position in 1:(n_columns * n_rows)]
+                nz_values = Float32[position for position in 1:(n_columns * n_rows)]
+                sparse_umis =
+                    SparseMatrixCSC{Float32, Int32}(n_rows, n_columns, column_pointers, row_indices, nz_values)
+                sparse_mask = SparseMatrixCSC{Bool, Int32}(
+                    n_rows,
+                    n_columns,
+                    column_pointers,
+                    row_indices,
+                    fill(true, n_columns * n_rows),
+                )
+
+                function populate!(writer::FilesDaf)::Nothing
+                    add_axis!(writer, "row", ["r$(index)" for index in 1:n_rows])
+                    add_axis!(writer, "col", ["c$(index)" for index in 1:n_columns])
+                    set_vector!(writer, "row", "score", score_vector)
+                    set_matrix!(writer, "row", "col", "umis", umis_matrix; relayout = false)
+                    set_matrix!(writer, "row", "col", "sparse_umis", sparse_umis; relayout = false)
+                    set_matrix!(writer, "row", "col", "sparse_mask", sparse_mask; relayout = false)
+                    return nothing
+                end
+
+                function make_handler(root)
+                    return request -> begin
+                        key = String(lstrip(request.target, '/'))
+                        if occursin("..", key)
+                            return HTTP.Response(404, "Error: bad key $(key)")  # UNTESTED
+                        end
+                        file_path = "$(root)/$(key)"
+                        if !isfile(file_path)
+                            return HTTP.Response(404, "Error: Key $(key) not found")  # UNTESTED
+                        end
+                        return respond_with_range(read(file_path), request)
+                    end
+                end
+
+                function check_served(daf::HttpDaf)::Nothing
+                    @test collect(get_vector(daf, "row", "score")) == score_vector
+                    @test Matrix(get_matrix(daf, "row", "col", "umis")) == umis_matrix
+                    sparse_umis_named = get_matrix(daf, "row", "col", "sparse_umis")
+                    @test SparseMatrixCSC(parent(parent(sparse_umis_named))) == sparse_umis
+                    sparse_mask_named = get_matrix(daf, "row", "col", "sparse_mask")
+                    @test SparseMatrixCSC(parent(parent(sparse_mask_named))) == sparse_mask
+                    return nothing
+                end
+
+                nested_test("flat") do
+                    flat_path = path * "/flat.daf"
+                    writer = FilesDaf(flat_path, "w+"; name = "flat!", packed = false)
+                    populate!(writer)
+                    server = HTTP.serve!(make_handler(flat_path), Sockets.localhost, 0; listenany = true)
+                    try
+                        url = "http://localhost:$(server.listener.hostport)"
+                        check_served(HttpDaf(url))
+                    finally
+                        close(server)
+                    end
+                    return nothing
+                end
+
+                nested_test("packed") do
+                    packed_path = path * "/packed.daf"
+                    writer = FilesDaf(packed_path, "w+"; name = "packed!", packed = true)
+                    populate!(writer)
+                    server = HTTP.serve!(make_handler(packed_path), Sockets.localhost, 0; listenany = true)
+                    try
+                        url = "http://localhost:$(server.listener.hostport)"
+                        check_served(HttpDaf(url))
+                    finally
+                        close(server)
+                    end
+                    return nothing
+                end
+
+                # A packed dense vector whose length is not a multiple of the chunk size produces a partial-edge
+                # chunk: the v3 shard decoder allocates a full-sized chunk, decodes, then trims to the actual
+                # tail extent. Reading the full vector forces the partial-edge decode path.
+                nested_test("packed_partial_edge") do
+                    partial_path = path * "/partial.daf"
+                    writer = FilesDaf(partial_path, "w+"; name = "partial!", packed = true)
+                    n_elements = 2500
+                    partial_vector = Float32[index for index in 1:n_elements]
+                    add_axis!(writer, "cell", ["c$(index)" for index in 1:n_elements])
+                    set_vector!(writer, "cell", "score", partial_vector)
+                    server = HTTP.serve!(make_handler(partial_path), Sockets.localhost, 0; listenany = true)
+                    try
+                        url = "http://localhost:$(server.listener.hostport)"
+                        daf = HttpDaf(url)
+                        @test collect(get_vector(daf, "cell", "score")) == partial_vector
+                    finally
+                        close(server)
+                    end
+                    return nothing
+                end
+
+                # A packed sparse matrix wide enough for its `colptr` to itself be a packed shard
+                # (`(n_columns + 1) * sizeof(indtype)` ≥ `DAF_PACKED_TARGET_CHUNK_KB * 1024`) triggers the
+                # packed-component branch of `read_sparse_component_materialized` on the HTTP side. The same
+                # branch fires for any packed component the caller wants eagerly materialised (e.g. a sparse
+                # string vector's `nzind`).
+                nested_test("packed_wide_sparse_matrix") do
+                    wide_path = path * "/wide.daf"
+                    writer = FilesDaf(wide_path, "w+"; name = "wide!", packed = true)
+                    wide_n_rows = 32
+                    wide_n_columns = 2500
+                    wide_column_pointers =
+                        Int32[1 + (column_index - 1) * wide_n_rows for column_index in 1:(wide_n_columns + 1)]
+                    wide_row_indices =
+                        Int32[((position - 1) % wide_n_rows) + 1 for position in 1:(wide_n_columns * wide_n_rows)]
+                    wide_nz_values = Float32[position for position in 1:(wide_n_columns * wide_n_rows)]
+                    wide_sparse = SparseMatrixCSC{Float32, Int32}(
+                        wide_n_rows,
+                        wide_n_columns,
+                        wide_column_pointers,
+                        wide_row_indices,
+                        wide_nz_values,
+                    )
+                    add_axis!(writer, "row", ["r$(index)" for index in 1:wide_n_rows])
+                    add_axis!(writer, "col", ["c$(index)" for index in 1:wide_n_columns])
+                    set_matrix!(writer, "row", "col", "wide", wide_sparse; relayout = false)
+                    server = HTTP.serve!(make_handler(wide_path), Sockets.localhost, 0; listenany = true)
+                    try
+                        url = "http://localhost:$(server.listener.hostport)"
+                        daf = HttpDaf(url)
+                        named = get_matrix(daf, "row", "col", "wide")
+                        @test SparseMatrixCSC(parent(parent(named))) == wide_sparse
+                    finally
+                        close(server)
+                    end
+                    return nothing
+                end
+
+                # Pre-cache the middle chunk of a 3-chunk striped vector, then read the full range so that the
+                # missing chunks straddle the cached one. The coalescer sees non-contiguous missing offsets; with
+                # `DAF_HTTP_MAX_COALESCE_GAP_KB = 0` the gap exceeds the threshold and the span is split into
+                # separate Range GETs.
+                nested_test("coalesce_gap_split") do
+                    gap_path = path * "/gap.daf"
+                    writer = FilesDaf(gap_path, "w+"; name = "gap!", packed = false)
+                    n_gap_elements = 6144
+                    gap_vector = Float32[index for index in 1:n_gap_elements]
+                    add_axis!(writer, "cell", ["c$(index)" for index in 1:n_gap_elements])
+                    set_vector!(writer, "cell", "score", gap_vector)
+                    server = HTTP.serve!(make_handler(gap_path), Sockets.localhost, 0; listenany = true)
+                    saved_gap_kb = DataAxesFormats.PackedFormat.DAF_HTTP_MAX_COALESCE_GAP_KB
+                    try
+                        DataAxesFormats.PackedFormat.DAF_HTTP_MAX_COALESCE_GAP_KB = 0
+                        url = "http://localhost:$(server.listener.hostport)"
+                        daf = HttpDaf(url)
+                        vector = get_vector(daf, "cell", "score")
+                        wrapped = parent(parent(vector))
+                        @test wrapped[2049:4096] == gap_vector[2049:4096]
+                        @test wrapped[1:n_gap_elements] == gap_vector
+                    finally
+                        DataAxesFormats.PackedFormat.DAF_HTTP_MAX_COALESCE_GAP_KB = saved_gap_kb
+                        close(server)
+                    end
+                    return nothing
+                end
+
                 return nothing
             end
         end
@@ -4616,7 +4789,7 @@ nested_test("data") do
                     if bytes === nothing
                         return HTTP.Response(404, "Error: Key $(key) not found")
                     end
-                    return HTTP.Response(200, bytes)
+                    return respond_with_range(bytes, request)
                 end
                 server = HTTP.serve!(handler, Sockets.localhost, 0; listenany = true)
                 try

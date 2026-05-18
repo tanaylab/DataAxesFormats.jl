@@ -522,26 +522,6 @@ nested_test("packed_format") do
         @test all(==(Float32(7)), same_view)
     end
 
-    nested_test("http_striped_matrix_stub") do
-        matrix =
-            DataAxesFormats.PackedFormat.HttpStripedMatrix{Float32}("http://example.com/data", 128, 5000, 30000, 2048)
-        @test size(matrix) == (5000, 30000)
-        @test eltype(matrix) === Float32
-        @test matrix.url == "http://example.com/data"
-        @test matrix.header_size == 128
-        @test matrix.stripe_n_rows == 2048
-    end
-
-    nested_test("http_striped_vector_stub") do
-        vector = DataAxesFormats.PackedFormat.HttpStripedVector{Int32}("http://example.com/data", 64, 1_000_000, 2048)
-        @test size(vector) == (1_000_000,)
-        @test length(vector) == 1_000_000
-        @test eltype(vector) === Int32
-        @test vector.url == "http://example.com/data"
-        @test vector.header_size == 64
-        @test vector.stripe_n_elements == 2048
-    end
-
     nested_test("valid_compression_level_range") do
         @test DataAxesFormats.PackedFormat.valid_compression_level_range(:blosc_zstd_bitshuffle) == 1:9
         @test DataAxesFormats.PackedFormat.valid_compression_level_range(:blosc_lz4_bitshuffle) == 1:9

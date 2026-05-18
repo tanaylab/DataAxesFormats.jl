@@ -736,6 +736,132 @@
 </section>
 </details>
 </article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.PackedFormat.DAF_HTTP_MAX_COALESCE_GAP_KB">
+<a class="docstring-binding" href="#DataAxesFormats.PackedFormat.DAF_HTTP_MAX_COALESCE_GAP_KB">
+<code>DataAxesFormats.PackedFormat.DAF_HTTP_MAX_COALESCE_GAP_KB
+</code>
+</a> — 
+<span class="docstring-category">Constant
+</span>
+</summary>
+<section>
+<div>
+<p>The maximum gap (in kilobytes) between two needed byte ranges that the HTTP read path coalesces into a single Range GET. When materialising a slice that needs chunks 
+<code>c1
+</code> and 
+<code>c2
+</code> with an unneeded gap of 
+<code>g
+</code> bytes between them, the path issues one Range GET covering 
+<code>[c1_start, c2_end)
+</code> if 
+<code>g ≤ DAF_HTTP_MAX_COALESCE_GAP_KB * 1024
+</code>, otherwise two separate Range GETs.
+</p>
+<p>Default matches 
+<a href="packed_format.html#DataAxesFormats.PackedFormat.DAF_PACKED_TARGET_CHUNK_KB">
+<code>DAF_PACKED_TARGET_CHUNK_KB
+</code>
+</a> — i.e., coalesce across at most one chunk&#39;s worth of unneeded bytes per gap.
+</p>
+<p>Kilobytes are binary (1 KB = 1024 bytes).
+</p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.PackedFormat.HttpStripedVector">
+<a class="docstring-binding" href="#DataAxesFormats.PackedFormat.HttpStripedVector">
+<code>DataAxesFormats.PackedFormat.HttpStripedVector
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">HttpStripedVector(::Type{T}, n_elements::Integer, stripe_n_elements::Integer, byte_fetcher::Function)::HttpChunkedArray{T, 1}
+</code>
+</pre>
+<p>Factory for a lazy 1-D 
+<code>DiskArrays.AbstractDiskArray
+</code> that fetches a flat dense numeric vector served over HTTP in stripes (Range GETs of 
+<code>stripe_n_elements
+</code> elements at a time, coalesced when adjacent).
+</p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.PackedFormat.HttpStripedMatrix">
+<a class="docstring-binding" href="#DataAxesFormats.PackedFormat.HttpStripedMatrix">
+<code>DataAxesFormats.PackedFormat.HttpStripedMatrix
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">HttpStripedMatrix(::Type{T}, n_rows::Integer, n_columns::Integer, stripe_n_rows::Integer, byte_fetcher::Function)::HttpChunkedArray{T, 2}
+</code>
+</pre>
+<p>Factory for a lazy 2-D 
+<code>DiskArrays.AbstractDiskArray
+</code> that fetches a flat dense numeric column-major matrix served over HTTP in column tiles of shape 
+<code>(stripe_n_rows, 1)
+</code> (coalesced when adjacent).
+</p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.PackedFormat.HttpPackedDenseArray">
+<a class="docstring-binding" href="#DataAxesFormats.PackedFormat.HttpPackedDenseArray">
+<code>DataAxesFormats.PackedFormat.HttpPackedDenseArray
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">HttpPackedDenseArray(
+    ::Type{T},
+    shape::NTuple{N, Int},
+    chunk_shape::NTuple{N, Int},
+    codec::PackedCodec,
+    index_location::Symbol,
+    byte_fetcher::Function,
+    suffix_byte_fetcher::Function,
+)::HttpChunkedArray{T, N}
+</code>
+</pre>
+<p>Factory for a lazy N-dimensional 
+<code>DiskArrays.AbstractDiskArray
+</code> that fetches a v3-sharded packed dense array served over HTTP. The shard index footer is fetched once on first read (one Range GET via 
+<code>suffix_byte_fetcher
+</code> when 
+<code>index_location == :end
+</code>, otherwise via 
+<code>byte_fetcher(0, index_size)
+</code>); subsequent reads look up per-chunk byte ranges in the cached index, coalesce adjacent ones, and decode each fetched chunk through the codec pipeline.
+</p>
+</div>
+</section>
+</details>
+</article>
 <h2 id="Index">
 <a class="docs-heading-anchor" href="#Index">Index
 </a>
@@ -748,6 +874,12 @@
 <li>
 <a href="packed_format.html#DataAxesFormats.PackedFormat">
 <code>DataAxesFormats.PackedFormat
+</code>
+</a>
+</li>
+<li>
+<a href="packed_format.html#DataAxesFormats.PackedFormat.DAF_HTTP_MAX_COALESCE_GAP_KB">
+<code>DataAxesFormats.PackedFormat.DAF_HTTP_MAX_COALESCE_GAP_KB
 </code>
 </a>
 </li>
@@ -778,6 +910,24 @@
 <li>
 <a href="packed_format.html#DataAxesFormats.PackedFormat.DAF_PACKED_TARGET_CHUNK_KB">
 <code>DataAxesFormats.PackedFormat.DAF_PACKED_TARGET_CHUNK_KB
+</code>
+</a>
+</li>
+<li>
+<a href="packed_format.html#DataAxesFormats.PackedFormat.HttpPackedDenseArray">
+<code>DataAxesFormats.PackedFormat.HttpPackedDenseArray
+</code>
+</a>
+</li>
+<li>
+<a href="packed_format.html#DataAxesFormats.PackedFormat.HttpStripedMatrix">
+<code>DataAxesFormats.PackedFormat.HttpStripedMatrix
+</code>
+</a>
+</li>
+<li>
+<a href="packed_format.html#DataAxesFormats.PackedFormat.HttpStripedVector">
+<code>DataAxesFormats.PackedFormat.HttpStripedVector
 </code>
 </a>
 </li>
