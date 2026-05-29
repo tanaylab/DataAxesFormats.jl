@@ -415,14 +415,14 @@ function format_has_vector end
         axis::AbstractString,
         name::AbstractString,
         vector::Union{StorageScalar, StorageVector},
-        packed::Bool,
+        is_packed::Bool,
     )::Nothing
 
 Implement setting a vector property with some `name` for some `axis` in `format`.
 
 If the `vector` specified is actually a [`StorageScalar`](@ref), the stored vector is filled with this value.
 
-The resolved `packed` flag indicates the requested encoding for this write (`true` means the packed / chunked +
+The resolved `is_packed` flag indicates the requested encoding for this write (`true` means the packed / chunked +
 compressed on-disk encoding, `false` means today's flat encoding). Backends that do not support packed encoding ignore
 the flag.
 
@@ -437,14 +437,14 @@ function format_set_vector! end
         axis::AbstractString,
         name::AbstractString,
         eltype::Type{T},
-        packed::Bool,
+        is_packed::Bool,
     )::Tuple{AbstractVector{T}, Maybe{CacheGroup}} where {T <: StorageReal}
 
 Implement creating an empty dense vector property with some `name` for some `axis` in `format`. Return the buffer to be
 filled by the caller, together with the [`CacheGroup`](@ref) to use when caching the filled buffer (as would be returned
 by [`format_get_vector`](@ref)), or `nothing` to skip caching.
 
-The resolved `packed` flag indicates the requested encoding for this write. Backends that do not support packed
+The resolved `is_packed` flag indicates the requested encoding for this write. Backends that do not support packed
 encoding ignore the flag.
 
 This trusts we have a write lock on the data set, that the `axis` exists in `format` and that the vector property `name`
@@ -490,7 +490,7 @@ end
         eltype::Type{T},
         nnz::StorageInteger,
         indtype::Type{I},
-        packed::Bool,
+        is_packed::Bool,
     )::Tuple{AbstractVector{I}, AbstractVector{T}, Maybe{CacheGroup}}
     where {T <: StorageReal, I <: StorageInteger}
 
@@ -498,7 +498,7 @@ Implement creating an empty sparse vector property with some `name` for some `ax
 and `nzval` buffers to be filled by the caller, together with the [`CacheGroup`](@ref) to use when caching the
 assembled sparse vector (as would be returned by [`format_get_vector`](@ref)), or `nothing` to skip caching.
 
-The resolved `packed` flag indicates the requested encoding for this write. Backends that do not support packed
+The resolved `is_packed` flag indicates the requested encoding for this write. Backends that do not support packed
 encoding ignore the flag.
 
 This trusts we have a write lock on the data set, that the `axis` exists in `format` and that the vector property `name`
@@ -614,14 +614,14 @@ function format_has_matrix end
         columns_axis::AbstractString,
         name::AbstractString,
         matrix::StorageMatrix,
-        packed::Bool,
+        is_packed::Bool,
     )::Nothing
 
 Implement setting the matrix property with some `name` for some `rows_axis` and `columns_axis` in `format`.
 
 If the `matrix` specified is actually a [`StorageScalar`](@ref), the stored matrix is filled with this value.
 
-The resolved `packed` flag indicates the requested encoding for this write. Backends that do not support packed
+The resolved `is_packed` flag indicates the requested encoding for this write. Backends that do not support packed
 encoding ignore the flag.
 
 This trusts we have a write lock on the data set, that the `rows_axis` and `columns_axis` exist in `format`, that the
@@ -636,14 +636,14 @@ function format_set_matrix! end
         columns_axis::AbstractString,
         name::AbstractString,
         eltype::Type{T},
-        packed::Bool,
+        is_packed::Bool,
     )::Tuple{AbstractMatrix{T}, Maybe{CacheGroup}} where {T <: StorageReal}
 
 Implement creating an empty dense matrix property with some `name` for some `rows_axis` and `columns_axis` in `format`.
 Return the buffer to be filled by the caller, together with the [`CacheGroup`](@ref) to use when caching the filled
 buffer (as would be returned by [`format_get_matrix`](@ref)), or `nothing` to skip caching.
 
-The resolved `packed` flag indicates the requested encoding for this write. Backends that do not support packed
+The resolved `is_packed` flag indicates the requested encoding for this write. Backends that do not support packed
 encoding ignore the flag.
 
 This trusts we have a write lock on the data set, that the `rows_axis` and `columns_axis` exist in `format` and that the
@@ -692,7 +692,7 @@ end
         eltype::Type{T},
         intdype::Type{I},
         nnz::StorageInteger,
-        packed::Bool,
+        is_packed::Bool,
     )::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}, Maybe{CacheGroup}}
     where {T <: StorageReal, I <: StorageInteger}
 
@@ -701,7 +701,7 @@ Return the `colptr`, `rowval` and `nzval` buffers to be filled by the caller, to
 use when caching the assembled sparse matrix (as would be returned by [`format_get_matrix`](@ref)), or `nothing` to skip
 caching.
 
-The resolved `packed` flag indicates the requested encoding for this write. Backends that do not support packed
+The resolved `is_packed` flag indicates the requested encoding for this write. Backends that do not support packed
 encoding ignore the flag.
 
 This trusts we have a write lock on the data set, that the `rows_axis` and `columns_axis` exist in `format` and that the
@@ -738,13 +738,13 @@ end
         columns_axis::AbstractString,
         name::AbstractString,
         matrix::StorageMatrix,
-        packed::Bool,
+        is_packed::Bool,
     )::StorageMatrix
 
 `relayout!` the existing `name` column-major `matrix` property for the `rows_axis` and the `columns_axis` and
 store the results as a row-major matrix property (that is, with flipped axes).
 
-The resolved `packed` flag indicates the requested encoding for the flipped matrix. This is the same flag the caller
+The resolved `is_packed` flag indicates the requested encoding for the flipped matrix. This is the same flag the caller
 would have passed to a write of a fresh matrix, so the flipped representation produced by `relayout!` matches the
 encoding the caller intended.
 

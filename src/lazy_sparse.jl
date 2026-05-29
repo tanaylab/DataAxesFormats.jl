@@ -1,12 +1,13 @@
 """
-Lazy slice-then-materialize wrappers around packed sparse properties.
+Lazy slice-then-materialize wrappers around sparse properties whose components are chunked sources.
 
-A [`LazySparseMatrix`](@ref) holds the `colptr` of a sparse matrix in memory plus the `rowval` and `nzval` as packed
-[`Zarr`](https://github.com/JuliaIO/Zarr.jl) `ZArray` sources, so a packed sparse property opened from disk does not pay
-the decompression cost up front. A [`LazySparseVector`](@ref) is the 1-D counterpart, holding `nzind` and `nzval` as
-packed sources. Slicing either wrapper accumulates [`SparseSelection`](@ref)s without touching the chunked storage;
-materialisation runs only when downstream code asks for concrete `rowval` / `nzval` / `nzind` data, and only on the
-selected slice.
+A [`LazySparseMatrix`](@ref) holds the `colptr` of a sparse matrix in memory plus the `rowval` and `nzval` as
+lazy sources — packed on disk (`Zarr.ZArray`, `HDF5.Dataset`, FilesDaf shard) or chunked over HTTP
+(`ChunkedArray`) — so a packed sparse property opened from disk does not pay the decompression cost up
+front. A [`LazySparseVector`](@ref) is the 1-D counterpart, holding `nzind` and `nzval` as the same kind of
+lazy sources. Slicing either wrapper accumulates [`SparseSelection`](@ref)s without touching the chunked
+storage; materialisation runs only when downstream code asks for concrete `rowval` / `nzval` / `nzind` data,
+and only on the selected slice.
 """
 module LazySparse
 
@@ -172,6 +173,7 @@ function LazySparseMatrix(
     rowval_source::AbstractVector{Ti},
     nzval_source::AbstractVector{Tv},
 )::LazySparseMatrix{Tv, Ti} where {Tv, Ti <: Integer}
+    @assert length(rowval_source) == length(nzval_source)
     full_n_rows = Int(n_rows)
     full_n_columns = length(full_colptr) - 1
     return LazySparseMatrix{Tv, Ti}(
@@ -269,7 +271,7 @@ end
 
 # Fresh `LazySparseMatrix` with new selections and the rest of the fields shared by reference. The `materialized` cache
 # is reset because the cached `SparseMatrixCSC` is keyed to the prior selections.
-function with_selections(  # FLAKY TESTED
+function with_selections(
     matrix::LazySparseMatrix{Tv, Ti},
     row_select::SparseSelection,
     column_select::SparseSelection,
@@ -349,7 +351,7 @@ end
 # column axis becomes a `Base.OneTo` range and dispatch lands on one of the integer / range overrides below. The
 # `AbstractRange{Bool}` overrides exist only to satisfy `Aqua.test_ambiguities`; no natural slicing call constructs a
 # `Bool`-eltype range.
-function Base.getindex(  # FLAKY TESTED
+function Base.getindex(
     matrix::LazySparseMatrix{Tv, Ti},
     rows::AbstractRange{<:Integer},
     columns::AbstractVector{<:Integer},
@@ -357,7 +359,7 @@ function Base.getindex(  # FLAKY TESTED
     return slice_with_indexers(matrix, rows, columns)
 end
 
-function Base.getindex(  # FLAKY TESTED
+function Base.getindex(
     matrix::LazySparseMatrix,
     rows::AbstractVector{Bool},
     columns::AbstractVector{Bool},
@@ -365,7 +367,7 @@ function Base.getindex(  # FLAKY TESTED
     return slice_with_indexers(matrix, rows, columns)
 end
 
-function Base.getindex(  # FLAKY TESTED
+function Base.getindex(
     matrix::LazySparseMatrix,
     rows::AbstractVector{Bool},
     columns::AbstractVector{<:Integer},
@@ -373,7 +375,7 @@ function Base.getindex(  # FLAKY TESTED
     return slice_with_indexers(matrix, rows, columns)
 end
 
-function Base.getindex(  # FLAKY TESTED
+function Base.getindex(
     matrix::LazySparseMatrix,
     rows::AbstractVector{<:Integer},
     columns::AbstractVector{Bool},
@@ -389,7 +391,7 @@ function Base.getindex(  # UNTESTED
     return slice_with_indexers(matrix, rows, columns)
 end
 
-function Base.getindex(  # FLAKY TESTED
+function Base.getindex(
     matrix::LazySparseMatrix,
     rows::AbstractRange{<:Integer},
     columns::AbstractVector{Bool},
@@ -477,7 +479,7 @@ end
 # `Vector` sources (mmap-backed in practice). For `Zarr.ZArray` and other chunked sources, eager decode is the right
 # behaviour: the per-chunk decompression cost should be paid once per range, not once per element access through a
 # lazy `SubArray`.
-function read_chunk_range(source::DenseVector{T}, range::UnitRange{Int}) where {T}  # FLAKY TESTED
+function read_chunk_range(source::DenseVector{T}, range::UnitRange{Int}) where {T}
     return @view source[range]
 end
 
@@ -547,11 +549,8 @@ function SparseArrays.SparseMatrixCSC(matrix::LazySparseMatrix{Tv, Ti})::SparseM
     return ensure_materialized!(matrix)
 end
 
-function Base.convert(  # FLAKY TESTED
-    ::Type{SparseMatrixCSC{Tv, Ti}},
-    matrix::LazySparseMatrix{Tv, Ti},
-)::SparseMatrixCSC{Tv, Ti} where {Tv, Ti}
-    return ensure_materialized!(matrix)
+function Base.convert(::Type{M}, matrix::LazySparseMatrix{Tv, Ti})::M where {Tv, Ti, M <: SparseMatrixCSC}
+    return convert(M, ensure_materialized!(matrix))
 end
 
 # `TanayLabUtilities.colptr` / `rowval` / `nzval` are the writer-side sparse-component accessors that
@@ -615,7 +614,7 @@ Lazy [`AbstractSparseVector{Tv, Ti}`](https://docs.julialang.org/en/v1/stdlib/Sp
 over packed `nzind` / `nzval` sources.
 
 `nzind_source` and `nzval_source` are one-dimensional indexable sources (typically `Zarr.ZArray{T, 1}` or a
-`DiskArrays.cache`-wrapped `ZArray` for on-disk packed storage, or an `HttpChunkedArray` for HTTP-served packed
+`DiskArrays.cache`-wrapped `ZArray` for on-disk packed storage, or an `ChunkedArray` for HTTP-served packed
 storage) that decompress per-chunk on access. `select` describes the slice of the original axis exposed through this
 wrapper. Materialisation copies the selected slice into a plain
 [`SparseVector`](https://docs.julialang.org/en/v1/stdlib/SparseArrays/#SparseArrays.SparseVector) the first time
@@ -634,13 +633,14 @@ the cache on subsequent calls):
   - `SparseVector(lazy)` and `convert(SparseVector{Tv, Ti}, lazy)`.
   - Any generic `AbstractSparseVector` / `AbstractVector` algorithm that calls those primitives.
 
-The following operations do **not** materialise:
+The following operations do **not** materialise the slice into `vector.materialized`:
 
   - `Base.size`, `Base.eltype`, `Base.length`.
   - The slicing forms `lazy[range]` / `lazy[indices]` / `lazy[mask]` (each rebinds the selection and clears the cache,
     returning a fresh wrapper).
-  - `Base.getindex(lazy, ::Int)` — the only access form that decompresses on the fly without populating the cache:
-    each call binary-searches `nzind_source` (`O(log nnz)` chunk reads) and reads one element of `nzval_source`.
+  - `Base.getindex(lazy, ::Int)` — binary-searches `nzind_source` (`O(log nnz)` chunk reads) and reads one element of
+    `nzval_source`. The underlying chunked source's per-chunk LRU (set up by the read paths) amortises repeated
+    accesses, so subsequent scalar lookups within the same chunk are cheap.
 
 User code obtains a `LazySparseVector` only as the result of reading a sparse property whose `nzind` / `nzval`
 components are lazy sources — packed on disk, or chunked over HTTP — through
@@ -673,7 +673,7 @@ end
 
 # Fresh `LazySparseVector` with a new selection and the rest of the fields shared by reference. The `materialized`
 # cache is reset because the cached `SparseVector` is keyed to the prior selection.
-function with_select(  # FLAKY TESTED
+function with_selection(
     vector::LazySparseVector{Tv, Ti},
     select::SparseSelection,
 )::LazySparseVector{Tv, Ti} where {Tv, Ti}
@@ -681,12 +681,12 @@ function with_select(  # FLAKY TESTED
 end
 
 function Base.getindex(vector::LazySparseVector, ::Colon)::LazySparseVector
-    return with_select(vector, vector.select)
+    return with_selection(vector, vector.select)
 end
 
 # Shared body for the disambiguation overrides below.
 function slice_with_indexer(vector::LazySparseVector, indexer)::LazySparseVector
-    return with_select(vector, compose(selection_from_indexer(indexer), vector.select))
+    return with_selection(vector, compose(selection_from_indexer(indexer), vector.select))
 end
 
 # Explicit overrides matching `SparseArrays`'s parametric and `Bool`-eltype `getindex(::AbstractSparseVector, ...)`
@@ -714,37 +714,58 @@ function Base.getindex(vector::LazySparseVector, indexer::AbstractRange{Bool})::
 end
 
 # Materialise the current slice into a `SparseVector{Tv, Ti}` and cache it in `vector.materialized`. Subsequent
-# calls return the cached vector without re-reading the packed sources. Reads the full `nzind` / `nzval` source
-# slabs once, walks them in sorted order, and emits the surviving entries through the `select` lookup. For
-# `IndicesOf` / `MaskOf` selections that produce out-of-order indices, the result is sorted before constructing
-# the `SparseVector`.
+# calls return the cached vector without re-reading the packed sources. For an `AllOf` selection or for an
+# `IndicesOf` / `MaskOf` selection that filters per-position, reads the full `nzind` / `nzval` source slabs once
+# and walks them through the `select` lookup. For a `RangeOf` selection, binary-searches `nzind_source` for the
+# first / last source positions whose original index falls in the range and reads only that slab — so a small
+# slice of a huge chunked sparse vector decompresses only the touched chunks. `IndicesOf` / `MaskOf` selections
+# that produce out-of-order indices are sorted before constructing the `SparseVector`.
 function ensure_materialized!(vector::LazySparseVector{Tv, Ti})::SparseVector{Tv, Ti} where {Tv, Ti}
     cached = vector.materialized
     if cached !== nothing
         return cached
     end
-    n_new = length(vector.select)
-    full_nnz = length(vector.nzind_source)
-    full_nzind = read_chunk_range(vector.nzind_source, 1:full_nnz)
-    full_nzval = read_chunk_range(vector.nzval_source, 1:full_nnz)
-    new_index_for = build_original_to_new(vector.select)
-    new_nzind = Ti[]
-    new_nzval = Tv[]
-    for position in 1:full_nnz
-        new_index = new_index_for(Int(full_nzind[position]))
-        if new_index != 0
-            push!(new_nzind, Ti(new_index))
-            push!(new_nzval, full_nzval[position])
-        end
-    end
+    new_nzind, new_nzval = materialize_slab(vector)
     if !issorted(new_nzind)
         order = sortperm(new_nzind)
         new_nzind = new_nzind[order]
         new_nzval = new_nzval[order]
     end
-    materialized = SparseVector{Tv, Ti}(n_new, new_nzind, new_nzval)
+    materialized = SparseVector{Tv, Ti}(length(vector.select), new_nzind, new_nzval)
     vector.materialized = materialized
     return materialized
+end
+
+# Read just the source-position slab `nzind_source[range]` / `nzval_source[range]` that intersects the current
+# `RangeOf` selection (via two binary searches over the sorted `nzind_source`); fall back to a full source read
+# for the other selection kinds. Returns `(new_nzind, new_nzval)` mapped through `build_original_to_new`.
+function materialize_slab(vector::LazySparseVector{Tv, Ti})::Tuple{Vector{Ti}, Vector{Tv}} where {Tv, Ti}
+    full_nnz = length(vector.nzind_source)
+    source_range = if vector.select isa RangeOf
+        range_first = first(vector.select.range)
+        range_last = last(vector.select.range)
+        first_position = searchsortedfirst(vector.nzind_source, Ti(range_first))
+        last_position = searchsortedlast(vector.nzind_source, Ti(range_last))
+        first_position:last_position
+    else
+        1:full_nnz
+    end
+    if isempty(source_range)
+        return (Ti[], Tv[])
+    end
+    nzind_slab = read_chunk_range(vector.nzind_source, source_range)
+    nzval_slab = read_chunk_range(vector.nzval_source, source_range)
+    new_index_for = build_original_to_new(vector.select)
+    new_nzind = Ti[]
+    new_nzval = Tv[]
+    for offset in eachindex(nzind_slab)
+        new_index = new_index_for(Int(nzind_slab[offset]))
+        if new_index != 0
+            push!(new_nzind, Ti(new_index))
+            push!(new_nzval, nzval_slab[offset])
+        end
+    end
+    return (new_nzind, new_nzval)
 end
 
 function SparseArrays.nonzeroinds(vector::LazySparseVector{Tv, Ti})::Vector{Ti} where {Tv, Ti}
@@ -765,6 +786,13 @@ end
 
 function SparseArrays.SparseVector(vector::LazySparseVector{Tv, Ti})::SparseVector{Tv, Ti} where {Tv, Ti}
     return ensure_materialized!(vector)
+end
+
+# Generic `convert(::Type{<:SparseVector}, ::LazySparseVector)` — disambiguates against `SparseArrays`'s generic
+# `convert(::Type{<:SparseVector}, ::AbstractVector)` by being more specific on the second argument. Routes
+# through `ensure_materialized!` so the materialised slice flows through `SparseArrays`'s typed constructor.
+function Base.convert(::Type{V}, vector::LazySparseVector{Tv, Ti})::V where {Tv, Ti, V <: SparseVector}
+    return convert(V, ensure_materialized!(vector))
 end
 
 function TanayLabUtilities.nzind(vector::LazySparseVector)::AbstractVector

@@ -551,7 +551,7 @@ function ensure_axis(
     return nothing
 end
 
-function is_compatible_axis_expectation( # UNTESTED
+function is_compatible_axis_expectation(
     data_expectation::ContractExpectation,
     axis_expectation::ContractExpectation,
 )::Bool
@@ -920,7 +920,7 @@ function add_pairs(
     return collect(merged)
 end
 
-function merge_specifications( # UNTESTED
+function merge_specifications(
     ::Any,
     ::Nothing,
     right_specification::T,
@@ -968,7 +968,7 @@ function merge_types(data_key::DataKey, left_type::Type, right_type::Type)::Type
     end
 end
 
-function merge_expectations( # UNTESTED
+function merge_expectations(
     what::AbstractString,
     key::K,
     left_expectation::ContractExpectation,
@@ -1152,10 +1152,10 @@ function Formats.format_set_vector!(
     axis::AbstractString,
     name::AbstractString,
     vector::Union{StorageScalar, StorageVector},
-    packed::Bool,
+    is_packed::Bool,
 )::Nothing
     access_vector(contract_daf, axis, name; is_for_modify = true)
-    Formats.format_set_vector!(contract_daf.daf, axis, name, vector, packed)
+    Formats.format_set_vector!(contract_daf.daf, axis, name, vector, is_packed)
     return nothing
 end
 
@@ -1164,10 +1164,10 @@ function Formats.format_get_empty_dense_vector!(
     axis::AbstractString,
     name::AbstractString,
     ::Type{T},
-    packed::Bool,
+    is_packed::Bool,
 )::Tuple{AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal}
     access_vector(contract_daf, axis, name; is_for_modify = true)
-    return Formats.format_get_empty_dense_vector!(contract_daf.daf, axis, name, T, packed)
+    return Formats.format_get_empty_dense_vector!(contract_daf.daf, axis, name, T, is_packed)
 end
 
 function Formats.format_get_empty_sparse_vector!(
@@ -1177,10 +1177,10 @@ function Formats.format_get_empty_sparse_vector!(
     ::Type{T},
     nnz::StorageInteger,
     ::Type{I},
-    packed::Bool,
+    is_packed::Bool,
 )::Tuple{AbstractVector{I}, AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal, I <: StorageInteger}
     access_vector(contract_daf, axis, name; is_for_modify = true)
-    return Formats.format_get_empty_sparse_vector!(contract_daf.daf, axis, name, T, nnz, I, packed)
+    return Formats.format_get_empty_sparse_vector!(contract_daf.daf, axis, name, T, nnz, I, is_packed)
 end
 
 function Formats.format_filled_empty_dense_vector!(
@@ -1261,10 +1261,10 @@ function Formats.format_set_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     matrix::Union{StorageScalarBase, StorageMatrix},
-    packed::Bool,
+    is_packed::Bool,
 )::Nothing
     access_matrix(contract_daf, rows_axis, columns_axis, name; is_for_modify = true)
-    return Formats.format_set_matrix!(contract_daf.daf, rows_axis, columns_axis, name, matrix, packed)
+    return Formats.format_set_matrix!(contract_daf.daf, rows_axis, columns_axis, name, matrix, is_packed)
 end
 
 function Formats.format_get_empty_dense_matrix!(
@@ -1273,10 +1273,10 @@ function Formats.format_get_empty_dense_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     ::Type{T},
-    packed::Bool,
+    is_packed::Bool,
 )::Tuple{AbstractMatrix{T}, Maybe{Formats.CacheGroup}} where {T <: StorageScalarBase}
     access_matrix(contract_daf, rows_axis, columns_axis, name; is_for_modify = true)
-    return Formats.format_get_empty_dense_matrix!(contract_daf.daf, rows_axis, columns_axis, name, T, packed)
+    return Formats.format_get_empty_dense_matrix!(contract_daf.daf, rows_axis, columns_axis, name, T, is_packed)
 end
 
 function Formats.format_get_empty_sparse_matrix!(
@@ -1287,7 +1287,7 @@ function Formats.format_get_empty_sparse_matrix!(
     ::Type{T},
     nnz::StorageInteger,
     ::Type{I},
-    packed::Bool,
+    is_packed::Bool,
 )::Tuple{
     AbstractVector{I},
     AbstractVector{I},
@@ -1295,7 +1295,16 @@ function Formats.format_get_empty_sparse_matrix!(
     Maybe{Formats.CacheGroup},
 } where {T <: StorageReal, I <: StorageInteger}
     access_matrix(contract_daf, rows_axis, columns_axis, name; is_for_modify = true)
-    return Formats.format_get_empty_sparse_matrix!(contract_daf.daf, rows_axis, columns_axis, name, T, nnz, I, packed)
+    return Formats.format_get_empty_sparse_matrix!(
+        contract_daf.daf,
+        rows_axis,
+        columns_axis,
+        name,
+        T,
+        nnz,
+        I,
+        is_packed,
+    )
 end
 
 function Formats.format_filled_empty_dense_matrix!(
@@ -1326,10 +1335,10 @@ function Formats.format_relayout_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     matrix::StorageMatrix,
-    packed::Bool,
+    is_packed::Bool,
 )::StorageMatrix
     access_matrix(contract_daf, rows_axis, columns_axis, name; is_for_modify = false)
-    return Formats.format_relayout_matrix!(contract_daf.daf, rows_axis, columns_axis, name, matrix, packed)
+    return Formats.format_relayout_matrix!(contract_daf.daf, rows_axis, columns_axis, name, matrix, is_packed)
 end
 
 function Formats.format_delete_matrix!(
@@ -1396,7 +1405,7 @@ function Formats.get_scalar_through_cache(contract_daf::ContractDaf, name::Abstr
     return invoke(Formats.get_scalar_through_cache, Tuple{FormatReader, AbstractString}, contract_daf, name)
 end
 
-function Formats.get_axis_vector_through_cache( # UNTESTED
+function Formats.get_axis_vector_through_cache(
     contract_daf::ContractDaf,
     axis::AbstractString,
 )::AbstractVector{<:AbstractString}
@@ -1404,7 +1413,7 @@ function Formats.get_axis_vector_through_cache( # UNTESTED
     return invoke(Formats.get_axis_vector_through_cache, Tuple{FormatReader, AbstractString}, contract_daf, axis)
 end
 
-function Formats.get_axis_dict_through_cache( # UNTESTED
+function Formats.get_axis_dict_through_cache(
     contract_daf::ContractDaf,
     axis::AbstractString,
 )::AbstractDict{<:AbstractString, <:Integer}
@@ -1412,7 +1421,7 @@ function Formats.get_axis_dict_through_cache( # UNTESTED
     return invoke(Formats.get_axis_dict_through_cache, Tuple{FormatReader, AbstractString}, contract_daf, axis)
 end
 
-function Formats.get_vector_through_cache( # UNTESTED
+function Formats.get_vector_through_cache(
     contract_daf::ContractDaf,
     axis::AbstractString,
     name::AbstractString,
@@ -1427,7 +1436,7 @@ function Formats.get_vector_through_cache( # UNTESTED
     )
 end
 
-function Formats.get_matrix_through_cache( # UNTESTED
+function Formats.get_matrix_through_cache(
     contract_daf::ContractDaf,
     rows_axis::AbstractString,
     columns_axis::AbstractString,

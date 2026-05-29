@@ -70,7 +70,7 @@ function computation_wrapper(single_contract::Contract, name::AbstractString, in
         verify_input(single_contract_daf);
         result = inner_function(args...; kwargs...);
         verify_output(single_contract_daf);
-        result  # flaky tested
+        result
         #! format: on
     )
 end
@@ -91,12 +91,12 @@ function computation_wrapper(first_contract::Contract, second_contract::Contract
         result = inner_function(args...; kwargs...);
         verify_output(first_contract_daf);
         verify_output(second_contract_daf);
-        result  # flaky tested
+        result
         #! format: on
     )
 end
 
-function computation_wrapper( # UNTESTED
+function computation_wrapper(
     first_contract::Contract,
     second_contract::Contract,
     third_contract::Contract,
@@ -123,7 +123,7 @@ function computation_wrapper( # UNTESTED
         verify_output(first_contract_daf);
         verify_output(second_contract_daf);
         verify_output(third_contract_daf);
-        result  # flaky tested
+        result
         #! format: on
     )
 end

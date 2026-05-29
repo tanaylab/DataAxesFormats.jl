@@ -120,7 +120,7 @@ function with_packed_streaming_dense_matrix_fill(
     n_cols::Int = 3,
 )::Nothing
     # Streaming-fill round-trip: `empty_dense_matrix!(...; packed = true)` returns a `PackedDenseMatrix` wrapper that
-    # streams chunks to the per-property `.shard` file as columns finalize. Default 4096 × 3 Float32 hits the standard
+    # streams chunks to the per-property `.zip` file as columns finalize. Default 4096 × 3 Float32 hits the standard
     # `chunk_shape = (2048, 1)`; pass `n_rows = 5000` to exercise the partial-tail tile (`n_rows % 2048 ≠ 0`) where the
     # encoder pads the last tile to `n_chunk_rows` with `zero(T)` before submitting.
     mktempdir() do path
@@ -142,7 +142,7 @@ end
 
 function with_packed_empty_dense_vector_round_trip(action::Function, create_daf::Function)::Nothing
     # `empty_dense_vector!(...; packed = true)` allocates the full `Vector{T}` in RAM, the user fills it via the public
-    # API, and `format_filled_*!` encodes the buffer to a `.shard` at finalize.
+    # API, and `format_filled_*!` encodes the buffer to a `.zip` at finalize.
     mktempdir() do path
         n_elements = 10_000
         original = Float32.(1:n_elements)
@@ -534,68 +534,20 @@ nested_test("packed_format") do
         )
     end
 
-    nested_test("open_shard_as_zarray") do
-        # Write a packed dense property via `ZarrDaf` (which produces a single v3 shard file per array at
-        # `<group>/<name>/c/0[/0]`), then point [`open_shard_as_zarray`](@ref) at the chunk file and verify
-        # the standalone read reconstructs the same array. The shard bytes are byte-identical to what the
-        # `FilesDaf` packed writer (Step 3.5) will emit at `<name>.shard`, so this test validates the
-        # `FilesDaf` reader's helper without needing the writer in place.
-        nested_test("vector") do
-            mktempdir() do path
-                n_elements = 10_000
-                original = Float32.(1:n_elements)
-                zarr_path = joinpath(path, "test.daf.zarr")
-                daf = ZarrDaf(zarr_path, "w+"; name = "src!", packed = true)
-                add_axis!(daf, "elem", ["e$(index)" for index in 1:n_elements])
-                set_vector!(daf, "elem", "data", original)
-
-                shard_path = joinpath(zarr_path, "vectors", "elem", "data", "c", "0")
-                @test isfile(shard_path)
-
-                zarr_array = DataAxesFormats.PackedFormat.open_shard_as_zarray(
-                    shard_path,
-                    Float32,
-                    (n_elements,),
-                    (2048,),
-                    DataAxesFormats.PackedFormat.v3_bytes_codecs_for(
-                        DataAxesFormats.PackedFormat.compressor_for(),
-                        Float32,
-                    ),
-                    :end,
-                )
-                @test zarr_array[:] == original
-                return nothing
-            end
-        end
-
-        nested_test("matrix") do
-            mktempdir() do path
-                n_rows = 4096
-                n_cols = 3
-                original = Matrix{Float32}(reshape(Float32.(1:(n_rows * n_cols)), n_rows, n_cols))
-                zarr_path = joinpath(path, "test.daf.zarr")
-                daf = ZarrDaf(zarr_path, "w+"; name = "src!", packed = true)
-                add_axis!(daf, "row", ["r$(index)" for index in 1:n_rows])
-                add_axis!(daf, "col", ["c$(index)" for index in 1:n_cols])
-                set_matrix!(daf, "row", "col", "data", original; relayout = false)
-
-                shard_path = joinpath(zarr_path, "matrices", "row", "col", "data", "c", "0", "0")
-                @test isfile(shard_path)
-
-                zarr_array = DataAxesFormats.PackedFormat.open_shard_as_zarray(
-                    shard_path,
-                    Float32,
-                    (n_rows, n_cols),
-                    (2048, 1),
-                    DataAxesFormats.PackedFormat.v3_bytes_codecs_for(
-                        DataAxesFormats.PackedFormat.compressor_for(),
-                        Float32,
-                    ),
-                    :end,
-                )
-                @test zarr_array[:, :] == original
-                return nothing
-            end
+    # Stock `Zarr.zopen` (no DataAxesFormats layer) on a `ZarrDaf` packed property's array path — confirms
+    # the `:start`-index sharded shards we write are wire-compatible with foreign Zarr v3 readers.
+    nested_test("foreign_zarr_zopen") do
+        mktempdir() do path
+            n_elements = 10_000
+            original = Float32.(1:n_elements)
+            zarr_path = joinpath(path, "test.daf.zarr")
+            daf = ZarrDaf(zarr_path, "w+"; name = "src!", packed = true)
+            add_axis!(daf, "elem", ["e$(index)" for index in 1:n_elements])
+            set_vector!(daf, "elem", "data", original)
+            array_path = joinpath(zarr_path, "vectors", "elem", "data")
+            zarr_array = Zarr.zopen(array_path)
+            @test zarr_array[:] == original
+            return nothing
         end
     end
 
@@ -803,6 +755,18 @@ nested_test("packed_format") do
             @test get_matrix(daf, "row", "col", "data") == original
             return nothing
         end
+
+        # Packed dense vector round-trip on `DictStore`-backed `ZarrDaf`: exercises `write_packed_shard!`'s
+        # in-memory sink path (the `DictStoreSink` variant of `open_dual_shard_sink`).
+        nested_test("memory_dense_vector_round_trip") do
+            n_elements = 10_000
+            original = Float32.(1:n_elements)
+            daf = ZarrDaf(; name = "memory!", packed = true)
+            add_axis!(daf, "elem", ["e$(index)" for index in 1:n_elements])
+            set_vector!(daf, "elem", "data", original)
+            @test get_vector(daf, "elem", "data") == original
+            return nothing
+        end
     end
 
     nested_test("files") do
@@ -816,22 +780,23 @@ nested_test("packed_format") do
 
         nested_test("dense_matrix_round_trip") do
             with_packed_dense_matrix_round_trip(files_factory) do daf, path
-                shard_path = joinpath(path, "test.daf", "matrices", "row", "col", "data.shard")
+                shard_path = joinpath(path, "test.daf", "matrices", "row", "col", "data.zip")
                 @test isfile(shard_path)
                 json = JSON.parsefile(joinpath(path, "test.daf", "matrices", "row", "col", "data.json"))
-                @test json["packed"] === true
+                @test json["packed_format"] === "indexed+zipped"
                 @test json["chunk_shape"] == [2048, 1]
-                @test parent(parent(get_matrix(daf, "row", "col", "data"))) isa DiskArrays.CachedDiskArray
+                @test parent(parent(get_matrix(daf, "row", "col", "data"))) isa
+                      DataAxesFormats.PackedFormat.ChunkedArray
                 return nothing
             end
         end
 
         nested_test("dense_vector_round_trip") do
             with_packed_dense_vector_round_trip(files_factory) do daf, path
-                shard_path = joinpath(path, "test.daf", "vectors", "elem", "data.shard")
+                shard_path = joinpath(path, "test.daf", "vectors", "elem", "data.zip")
                 @test isfile(shard_path)
                 json = JSON.parsefile(joinpath(path, "test.daf", "vectors", "elem", "data.json"))
-                @test json["packed"] === true
+                @test json["packed_format"] === "indexed+zipped"
                 @test json["chunk_shape"] == [2048]
                 return nothing
             end
@@ -839,7 +804,7 @@ nested_test("packed_format") do
 
         nested_test("streaming_dense_matrix_fill") do
             with_packed_streaming_dense_matrix_fill(files_factory) do daf, path
-                @test isfile(joinpath(path, "test.daf", "matrices", "row", "col", "data.shard"))
+                @test isfile(joinpath(path, "test.daf", "matrices", "row", "col", "data.zip"))
                 return nothing
             end
         end
@@ -852,7 +817,7 @@ nested_test("packed_format") do
 
         nested_test("empty_dense_vector_packed_round_trip") do
             with_packed_empty_dense_vector_round_trip(files_factory) do _daf, path
-                @test isfile(joinpath(path, "test.daf", "vectors", "elem", "data.shard"))
+                @test isfile(joinpath(path, "test.daf", "vectors", "elem", "data.zip"))
                 return nothing
             end
         end
@@ -860,13 +825,13 @@ nested_test("packed_format") do
         nested_test("below_threshold_stays_flat") do
             with_below_threshold_matrix_round_trip(files_factory) do daf, path
                 @test isfile(joinpath(path, "test.daf", "matrices", "row", "col", "data.data"))
-                @test !isfile(joinpath(path, "test.daf", "matrices", "row", "col", "data.shard"))
+                @test !isfile(joinpath(path, "test.daf", "matrices", "row", "col", "data.zip"))
                 return nothing
             end
         end
 
         nested_test("byte_identical_to_zarr_dir") do
-            # The on-disk `.shard` bytes must match what `ZarrDaf` writes for the same content
+            # The on-disk `.zip` bytes must match what `ZarrDaf` writes for the same content
             # (same codec, same chunk shape) so `zarr_convert.jl` can hard-link across backends.
             mktempdir() do path
                 n_rows = 4096
@@ -883,7 +848,7 @@ nested_test("packed_format") do
                 add_axis!(zarr_daf, "col", ["c$(index)" for index in 1:n_cols])
                 set_matrix!(zarr_daf, "row", "col", "data", original; relayout = false)
 
-                files_shard = read(joinpath(path, "files.daf", "matrices", "row", "col", "data.shard"))
+                files_shard = read(joinpath(path, "files.daf", "matrices", "row", "col", "data.zip"))
                 zarr_shard = read(joinpath(path, "zarr.daf.zarr", "matrices", "row", "col", "data", "c", "0", "0"))
                 @test files_shard == zarr_shard
             end
@@ -893,12 +858,12 @@ nested_test("packed_format") do
             with_packed_sparse_matrix_round_trip(files_factory) do _daf, path
                 base = joinpath(path, "test.daf", "matrices", "row", "col", "data")
                 @test isfile("$(base).colptr")  # 5 * 4 bytes = 20 bytes < threshold → flat
-                @test isfile("$(base).rowval.shard")  # 32 768 * 4 bytes = 128 KB ≥ threshold → packed
-                @test isfile("$(base).nzval.shard")
+                @test isfile("$(base).rowval.zip")  # 32 768 * 4 bytes = 128 KB ≥ threshold → packed
+                @test isfile("$(base).nzval.zip")
                 json = JSON.parsefile("$(base).json")
-                @test get(json["colptr"], "packed", false) === false
-                @test json["rowval"]["packed"] === true
-                @test json["nzval"]["packed"] === true
+                @test get(json["colptr"], "packed_format", nothing) === nothing
+                @test json["rowval"]["packed_format"] === "indexed+zipped"
+                @test json["nzval"]["packed_format"] === "indexed+zipped"
                 return nothing
             end
         end
@@ -921,13 +886,13 @@ nested_test("packed_format") do
 
                 @test get_vector(daf, "elem", "label") == original
                 base = joinpath(path, "test.daf", "vectors", "elem", "label")
-                @test isfile("$(base).nzind.shard")
-                @test isfile("$(base).nzval.shard")
+                @test isfile("$(base).nzind.zip")
+                @test isfile("$(base).nzval.zip")
                 @test !isfile("$(base).nztxt")
                 json = JSON.parsefile("$(base).json")
                 @test json["format"] == "sparse"
-                @test json["nzind"]["packed"] === true
-                @test json["nzval"]["packed"] === true
+                @test json["nzind"]["packed_format"] === "indexed+zipped"
+                @test json["nzval"]["packed_format"] === "indexed+zipped"
                 @test json["nzval"]["eltype"] == "String"
                 return nothing
             end
@@ -935,7 +900,7 @@ nested_test("packed_format") do
     end
 
     # `ZipDaf` packed write / read paths mirror `FilesDaf`: the JSON sidecar lives at the same per-property entry name,
-    # and the per-property `.shard` (or per-component `<comp>.shard`) bytes are byte-identical to FilesDaf's. The tests
+    # and the per-property `.zip` (or per-component `<comp>.zip`) bytes are byte-identical to FilesDaf's. The tests
     # exercise each variant end-to-end (write → read), then validate byte-equivalence with FilesDaf for one canonical
     # property to lock the cross-format invariant.
     nested_test("zip") do
@@ -962,10 +927,10 @@ nested_test("packed_format") do
             with_packed_dense_matrix_round_trip(zip_factory) do daf, path
                 zip_path = joinpath(path, "test.daf.zip")
                 keys = entry_keys(zip_path)
-                @test "matrices/row/col/data.shard" in keys
+                @test "matrices/row/col/data.zip" in keys
                 @test !("matrices/row/col/data.data" in keys)
                 json = read_entry_json(zip_path, "matrices/row/col/data.json")
-                @test json["packed"] === true
+                @test json["packed_format"] === "indexed+zipped"
                 @test json["chunk_shape"] == [2048, 1]
                 return nothing
             end
@@ -974,9 +939,9 @@ nested_test("packed_format") do
         nested_test("dense_vector_round_trip") do
             with_packed_dense_vector_round_trip(zip_factory) do daf, path
                 zip_path = joinpath(path, "test.daf.zip")
-                @test "vectors/elem/data.shard" in entry_keys(zip_path)
+                @test "vectors/elem/data.zip" in entry_keys(zip_path)
                 json = read_entry_json(zip_path, "vectors/elem/data.json")
-                @test json["packed"] === true
+                @test json["packed_format"] === "indexed+zipped"
                 @test json["chunk_shape"] == [2048]
                 return nothing
             end
@@ -984,7 +949,7 @@ nested_test("packed_format") do
 
         nested_test("streaming_dense_matrix_fill") do
             with_packed_streaming_dense_matrix_fill(zip_factory) do _daf, path
-                @test "matrices/row/col/data.shard" in entry_keys(joinpath(path, "test.daf.zip"))
+                @test "matrices/row/col/data.zip" in entry_keys(joinpath(path, "test.daf.zip"))
                 return nothing
             end
         end
@@ -997,7 +962,7 @@ nested_test("packed_format") do
 
         nested_test("empty_dense_vector_packed_round_trip") do
             with_packed_empty_dense_vector_round_trip(zip_factory) do _daf, path
-                @test "vectors/elem/data.shard" in entry_keys(joinpath(path, "test.daf.zip"))
+                @test "vectors/elem/data.zip" in entry_keys(joinpath(path, "test.daf.zip"))
                 return nothing
             end
         end
@@ -1006,7 +971,7 @@ nested_test("packed_format") do
             with_below_threshold_matrix_round_trip(zip_factory) do daf, path
                 keys = entry_keys(joinpath(path, "test.daf.zip"))
                 @test "matrices/row/col/data.data" in keys
-                @test !("matrices/row/col/data.shard" in keys)
+                @test !("matrices/row/col/data.zip" in keys)
                 return nothing
             end
         end
@@ -1016,18 +981,63 @@ nested_test("packed_format") do
                 zip_path = joinpath(path, "test.daf.zip")
                 keys = entry_keys(zip_path)
                 @test "matrices/row/col/data.colptr" in keys
-                @test "matrices/row/col/data.rowval.shard" in keys
-                @test "matrices/row/col/data.nzval.shard" in keys
+                @test "matrices/row/col/data.rowval.zip" in keys
+                @test "matrices/row/col/data.nzval.zip" in keys
                 json = read_entry_json(zip_path, "matrices/row/col/data.json")
-                @test get(json["colptr"], "packed", false) === false
-                @test json["rowval"]["packed"] === true
-                @test json["nzval"]["packed"] === true
+                @test get(json["colptr"], "packed_format", nothing) === nothing
+                @test json["rowval"]["packed_format"] === "indexed+zipped"
+                @test json["nzval"]["packed_format"] === "indexed+zipped"
+                return nothing
+            end
+        end
+
+        # Packed sparse Bool vector with all-`true` non-zeros on ZipDaf — exercises the lazy `LazySparseVector`
+        # read path (`nzind` packed) and the `fill(true, nnz)` branch that skips reading `nzval` on disk.
+        nested_test("packed_sparse_bool_all_true_vector_round_trip") do
+            mktempdir() do path
+                n_elements = 8192
+                nnz_total = 2048
+                nzind = Int32.(1:nnz_total)
+                nzval = fill(true, nnz_total)
+                original = SparseVector{Bool, Int32}(n_elements, nzind, nzval)
+                daf = zip_factory(path; packed = true)
+                add_axis!(daf, "elem", ["e$(index)" for index in 1:n_elements])
+                set_vector!(daf, "elem", "data", original)
+                zip_path = joinpath(path, "test.daf.zip")
+                keys = entry_keys(zip_path)
+                @test "vectors/elem/data.nzind.zip" in keys
+                @test !("vectors/elem/data.nzval" in keys)
+                @test !("vectors/elem/data.nzval.zip" in keys)
+                roundtripped = get_vector(daf, "elem", "data")
+                @test SparseVector(parent(roundtripped)) == original
+                return nothing
+            end
+        end
+
+        # Packed sparse numeric vector on ZipDaf — exercises the lazy read arm that opens both `nzind` AND
+        # `nzval` sources (the `nzval_present` branch of the lazy ZipDaf sparse vector reader).
+        nested_test("packed_sparse_numeric_vector_round_trip") do
+            mktempdir() do path
+                n_elements = 8192
+                nnz_total = 2048
+                nzind = Int32.(1:nnz_total)
+                nzval = Float32.(1:nnz_total)
+                original = SparseVector{Float32, Int32}(n_elements, nzind, nzval)
+                daf = zip_factory(path; packed = true)
+                add_axis!(daf, "elem", ["e$(index)" for index in 1:n_elements])
+                set_vector!(daf, "elem", "data", original)
+                zip_path = joinpath(path, "test.daf.zip")
+                keys = entry_keys(zip_path)
+                @test "vectors/elem/data.nzind.zip" in keys
+                @test "vectors/elem/data.nzval.zip" in keys
+                roundtripped = get_vector(daf, "elem", "data")
+                @test SparseVector(parent(roundtripped)) == original
                 return nothing
             end
         end
 
         nested_test("byte_identical_to_files") do
-            # The on-disk `.shard` bytes for a packed property are byte-identical to FilesDaf's, so unzip(ZipDaf)
+            # The on-disk `.zip` bytes for a packed property are byte-identical to FilesDaf's, so unzip(ZipDaf)
             # produces a FilesDaf directory.
             mktempdir() do path
                 n_rows = 4096
@@ -1044,10 +1054,9 @@ nested_test("packed_format") do
                 add_axis!(zip_daf, "col", ["c$(index)" for index in 1:n_cols])
                 set_matrix!(zip_daf, "row", "col", "data", original; relayout = false)
 
-                files_shard = read(joinpath(path, "files.daf", "matrices", "row", "col", "data.shard"))
+                files_shard = read(joinpath(path, "files.daf", "matrices", "row", "col", "data.zip"))
                 zip_reader = ZipArchives.ZipReader(read(joinpath(path, "zip.daf.zip")))
-                entry_index =
-                    findfirst(name -> name == "matrices/row/col/data.shard", ZipArchives.zip_names(zip_reader))
+                entry_index = findfirst(name -> name == "matrices/row/col/data.zip", ZipArchives.zip_names(zip_reader))
                 zip_shard = ZipArchives.zip_readentry(zip_reader, entry_index)
                 @test files_shard == zip_shard
                 return nothing
@@ -1090,7 +1099,7 @@ nested_test("packed_format") do
     end
 
     # `H5df` packed write / read paths use the same `chunks_for` decisions as `FilesDaf` / `ZipDaf` / `ZarrDaf` but
-    # encode through HDF5's chunked-dataset layout with a registered filter pipeline (no `.shard` files; the bytes
+    # encode through HDF5's chunked-dataset layout with a registered filter pipeline (no `.zip` files; the bytes
     # live inside the HDF5 file). The tests exercise each variant end-to-end (write → read), validate the on-disk
     # chunk shape via `HDF5.get_chunk`, and assert that packed datasets surface as `H5dfDiskArray`-backed
     # `DiskArrays.CachedDiskArray` (dense) or `LazySparseMatrix` (sparse) on read while flat datasets keep today's
@@ -1385,6 +1394,204 @@ nested_test("packed_format") do
                 roundtripped = parent(parent(get_matrix(daf, "row", "col", "data")))
                 @test roundtripped isa LazySparseMatrix{Bool, Int32}
                 @test SparseMatrixCSC(roundtripped) == original
+                return nothing
+            end
+        end
+    end
+
+    # For each writer-supported codec (one STORED variant + one ZIP-method-mapped variant of each), write
+    # packed vector and matrix properties through `FilesDaf` and verify: daf reads them back unchanged;
+    # `unzip -t` validates every entry's CRC (i.e. generic ZIP tools see well-formed entries with
+    # auto-decompressible payloads for the method-mapped codecs); STORED shards carry a `codec.json`
+    # manifest that parses to a Zarr v3 codec list.
+    nested_test("per_codec_round_trip") do
+        # `system_unzip_supported` flags codecs whose ZIP method is widely supported by `unzip` (STORED
+        # and DEFLATE). Method 93 (zstd) is newer than the InfoZip versions shipped on most platforms
+        # (e.g. macOS), so the daf round-trip alone exercises that codec — `unzip -tq` is skipped.
+        for (codec_symbol, expected_codec_name, has_codec_json, system_unzip_supported) in
+            ((:blosc_lz4_bitshuffle, "blosc", true, true), (:zstd, "zstd", false, false), (:gzip, "gzip", false, true))
+            nested_test(string(codec_symbol)) do
+                saved_compression = DataAxesFormats.PackedFormat.DAF_PACKED_COMPRESSION
+                try
+                    DataAxesFormats.PackedFormat.DAF_PACKED_COMPRESSION = codec_symbol
+                    mktempdir() do path
+                        n_elements = 10_000
+                        n_rows = 4096
+                        n_cols = 3
+                        original_vec = Float32.(1:n_elements)
+                        original_mat = Matrix{Float32}(reshape(Float32.(1:(n_rows * n_cols)), n_rows, n_cols))
+                        daf = FilesDaf(joinpath(path, "test.daf"), "w+"; name = "src!", packed = true)
+                        add_axis!(daf, "elem", ["e$(index)" for index in 1:n_elements])
+                        add_axis!(daf, "row", ["r$(index)" for index in 1:n_rows])
+                        add_axis!(daf, "col", ["c$(index)" for index in 1:n_cols])
+                        set_vector!(daf, "elem", "v", original_vec)
+                        set_matrix!(daf, "row", "col", "m", original_mat; relayout = false)
+
+                        reader = FilesDaf(joinpath(path, "test.daf"), "r")
+                        @test get_vector(reader, "elem", "v") == original_vec
+                        @test get_matrix(reader, "row", "col", "m") == original_mat
+
+                        vec_shard = joinpath(path, "test.daf", "vectors", "elem", "v.zip")
+                        mat_shard = joinpath(path, "test.daf", "matrices", "row", "col", "m.zip")
+                        for shard_path in (vec_shard, mat_shard)
+                            @test isfile(shard_path)
+                            if system_unzip_supported
+                                # `unzip -tq` decompresses each entry (auto for method 8, identity for
+                                # STORED) and validates CRCs against the LFH/CD fields. Any malformed
+                                # entry produces a non-zero exit.
+                                @test success(`unzip -tq $(shard_path)`)
+                            end
+                            if has_codec_json
+                                json_bytes = read(`unzip -p $(shard_path) codec.json`)
+                                codec_list = JSON.parse(String(json_bytes))
+                                @test codec_list isa AbstractVector
+                                @test length(codec_list) == 2
+                                @test codec_list[1]["name"] == "bytes"
+                                @test codec_list[2]["name"] == expected_codec_name
+                            end
+                        end
+                        return nothing
+                    end
+                finally
+                    DataAxesFormats.PackedFormat.DAF_PACKED_COMPRESSION = saved_compression
+                end
+            end
+        end
+    end
+
+    # All three ZIP-family backends (FilesDaf, ZipDaf, HttpDaf) read packed shards through the ZIP CD; a
+    # shard labeled `packed_format == "zipped"` (foreign FilesDaf-style producer) is structurally
+    # indistinguishable on read from the daf-written `"indexed+zipped"` shape. Verify each backend can open
+    # a relabeled source. The fixture writes a packed FilesDaf, relabels the sidecar + `metadata.json`, then
+    # routes the same on-disk bytes to each backend.
+    nested_test("zipped_only_reads") do
+        function with_zipped_only_source(action::Function)::Nothing
+            mktempdir() do path
+                n_elements = 10_000
+                original = Float32.(1:n_elements)
+                files_src = joinpath(path, "src.daf")
+                source = FilesDaf(files_src, "w+"; name = "src!", packed = true)
+                add_axis!(source, "elem", ["e$(index)" for index in 1:n_elements])
+                set_vector!(source, "elem", "v", original)
+                for (relative, key) in [("vectors/elem/v.json", nothing), ("metadata.json", "vectors/elem/v")]
+                    full_path = joinpath(files_src, relative)
+                    descriptor = JSON.parse(read(full_path, String))
+                    if key === nothing
+                        descriptor["packed_format"] = "zipped"
+                    else
+                        descriptor[key]["packed_format"] = "zipped"
+                    end
+                    write(full_path, JSON.json(descriptor))
+                end
+                action(path, files_src, original)
+                return nothing
+            end
+        end
+
+        nested_test("zipdaf") do
+            with_zipped_only_source() do path, files_src, original
+                zip_path = joinpath(path, "src.daf.zip")
+                store = MmapZipStore(zip_path; writable = true, create = true)
+                try
+                    for (root, _, filenames) in walkdir(files_src)
+                        for filename in filenames
+                            absolute = joinpath(root, filename)
+                            relative = relpath(absolute, files_src)
+                            store[relative] = read(absolute)
+                        end
+                    end
+                finally
+                    close(store)
+                end
+                GC.gc()
+                @test get_vector(ZipDaf(zip_path, "r"; name = "z!"), "elem", "v") == original
+                return nothing
+            end
+        end
+
+        nested_test("httpdaf") do
+            with_zipped_only_source() do _path, files_src, original
+                handler = request -> begin
+                    key = String(lstrip(request.target, '/'))
+                    file_path = "$(files_src)/$(key)"
+                    if !isfile(file_path)
+                        return HTTP.Response(404)  # UNTESTED
+                    end
+                    return respond_with_range(read(file_path), request)
+                end
+                server = HTTP.serve!(handler, Sockets.localhost, 0; listenany = true)
+                try
+                    url = "http://localhost:$(server.listener.hostport)"
+                    @test get_vector(HttpDaf(url; name = "h!"), "elem", "v") == original
+                finally
+                    close(server)
+                end
+                return nothing
+            end
+        end
+    end
+
+    # All three Zarr-family backends (ZarrDaf direct, ZarrDaf-Zip, ZarrDaf-Http) read packed shards through
+    # the Zarr shard index, so a sharded array with no `daf_packed_format` attribute (foreign Zarr-style
+    # producer) is structurally readable just like a daf-written one. The fixture writes a packed
+    # ZarrDaf-Dir, strips the attribute from the array's `zarr.json`, then routes the same on-disk bytes to
+    # each Zarr-family backend.
+    nested_test("indexed_only_reads") do
+        function with_indexed_only_source(action::Function)::Nothing
+            mktempdir() do path
+                n_elements = 10_000
+                original = Float32.(1:n_elements)
+                zarr_src = joinpath(path, "src.daf.zarr")
+                source = ZarrDaf(zarr_src, "w"; name = "src!", packed = true)
+                add_axis!(source, "elem", ["e$(index)" for index in 1:n_elements])
+                set_vector!(source, "elem", "v", original)
+                array_json_path = joinpath(zarr_src, "vectors", "elem", "v", "zarr.json")
+                array_json = JSON.parse(read(array_json_path, String))
+                delete!(array_json["attributes"], "daf_packed_format")
+                write(array_json_path, JSON.json(array_json))
+                action(path, zarr_src, original)
+                return nothing
+            end
+        end
+
+        nested_test("zarrdaf_zip") do
+            with_indexed_only_source() do path, zarr_src, original
+                zip_path = joinpath(path, "src.daf.zarr.zip")
+                store = MmapZipStore(zip_path; writable = true, create = true)
+                try
+                    for (root, _, filenames) in walkdir(zarr_src)
+                        for filename in filenames
+                            absolute = joinpath(root, filename)
+                            relative = relpath(absolute, zarr_src)
+                            store[relative] = read(absolute)
+                        end
+                    end
+                finally
+                    close(store)
+                end
+                GC.gc()
+                @test get_vector(ZarrDaf(zip_path, "r"; name = "z!"), "elem", "v") == original
+                return nothing
+            end
+        end
+
+        nested_test("zarrdaf_http") do
+            with_indexed_only_source() do _path, zarr_src, original
+                handler = request -> begin
+                    key = String(lstrip(request.target, '/'))
+                    file_path = "$(zarr_src)/$(key)"
+                    if !isfile(file_path)
+                        return HTTP.Response(404)  # UNTESTED
+                    end
+                    return respond_with_range(read(file_path), request)
+                end
+                server = HTTP.serve!(handler, Sockets.localhost, 0; listenany = true)
+                try
+                    url = "http://localhost:$(server.listener.hostport)"
+                    @test get_vector(ZarrDaf(url; name = "h!"), "elem", "v") == original
+                finally
+                    close(server)
+                end
                 return nothing
             end
         end

@@ -42,6 +42,8 @@ The `Daf` datasets type hierarchy looks like this:
           * [`DafView`](@ref DataAxesFormats.Views.DafView) (created by [`viewer`](@ref DataAxesFormats.Views.viewer))
           * [`ReadOnlyChain`](@ref DataAxesFormats.Chains.ReadOnlyChain) (created by [`chain_reader`](@ref DataAxesFormats.Chains.chain_reader))
 
+      + [`HttpDaf`](@ref DataAxesFormats.HttpFormat.HttpDaf) (read-only access to a `FilesDaf` tree served over HTTP)
+
       + [`DafWriter`](@ref DataAxesFormats.Formats.DafWriter) (abstract type)
 
           * [`WriteChain`](@ref DataAxesFormats.Chains.WriteChain) (created by [`chain_writer`](@ref DataAxesFormats.Chains.chain_writer))

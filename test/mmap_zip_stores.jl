@@ -1,3 +1,69 @@
+# Build a one-entry non-ZIP64 archive with the given compression method label and pre-compressed
+# payload. Used to fabricate foreign archives whose entries use a compression method that
+# `ZipArchives.ZipWriter` cannot emit (e.g. BZIP2, ZSTD) while still being valid ZIP files.
+function build_single_entry_zip(
+    path::AbstractString,
+    name::AbstractString,
+    method::UInt16,
+    raw_payload::AbstractVector{UInt8},
+    compressed_payload::AbstractVector{UInt8},
+)::Nothing
+    name_bytes = Vector{UInt8}(name)
+    crc = ZipArchives.zip_crc32(raw_payload)
+    compressed_size = UInt32(length(compressed_payload))
+    uncompressed_size = UInt32(length(raw_payload))
+    name_length = UInt16(length(name_bytes))
+    io = IOBuffer()
+    # Local file header
+    write(io, UInt32(0x04034b50))
+    write(io, UInt16(20))                # version needed (no ZIP64)
+    write(io, UInt16(0))                 # flags
+    write(io, method)
+    write(io, UInt16(0))                 # mtime
+    write(io, UInt16(0x21))              # mdate (1980-01-01)
+    write(io, crc)
+    write(io, compressed_size)
+    write(io, uncompressed_size)
+    write(io, name_length)
+    write(io, UInt16(0))                 # extra length
+    write(io, name_bytes)
+    write(io, compressed_payload)
+    # Central directory entry
+    cd_offset = UInt32(position(io))
+    write(io, UInt32(0x02014b50))
+    write(io, UInt16(0x031e))            # version made by (Unix v3.0)
+    write(io, UInt16(20))                # version needed
+    write(io, UInt16(0))                 # flags
+    write(io, method)
+    write(io, UInt16(0))                 # mtime
+    write(io, UInt16(0x21))              # mdate
+    write(io, crc)
+    write(io, compressed_size)
+    write(io, uncompressed_size)
+    write(io, name_length)
+    write(io, UInt16(0))                 # extra length
+    write(io, UInt16(0))                 # comment length
+    write(io, UInt16(0))                 # disk number
+    write(io, UInt16(0))                 # internal attrs
+    write(io, UInt32(0))                 # external attrs
+    write(io, UInt32(0))                 # LFH offset
+    write(io, name_bytes)
+    cd_size = UInt32(position(io) - cd_offset)
+    # End of central directory record
+    write(io, UInt32(0x06054b50))
+    write(io, UInt16(0))                 # disk number
+    write(io, UInt16(0))                 # disk with CD
+    write(io, UInt16(1))                 # entries on this disk
+    write(io, UInt16(1))                 # total entries
+    write(io, cd_size)
+    write(io, cd_offset)
+    write(io, UInt16(0))                 # comment length
+    open(path, "w") do file
+        return write(file, take!(io))
+    end
+    return nothing
+end
+
 nested_test("mmap_zip_stores") do
     mktempdir() do tmp_directory
         zip_path = joinpath(tmp_directory, "test.zip")
@@ -280,6 +346,42 @@ nested_test("mmap_zip_stores") do
                 @test String(copy(store["plain"])) == "verbatim payload"
                 @test try_mmap_entry_as(store, "absent", UInt8, 1) === nothing
                 @test try_mmap_entry_as(store, "compressed", UInt8, length(repeat("compressible ", 64))) === nothing
+            finally
+                close(store)
+            end
+        end
+
+        nested_test("reopen_read_only_foreign_bzip2_archive") do
+            foreign_path = joinpath(tmp_directory, "foreign_bzip2.zip")
+            raw = Vector{UInt8}(repeat("compressible bzip2 payload ", 64))
+            build_single_entry_zip(foreign_path, "compressed", UInt16(12), raw, transcode(Bzip2Compressor, raw))
+            store = MmapZipStore(foreign_path)
+            try
+                @test copy(store["compressed"]) == raw
+            finally
+                close(store)
+            end
+        end
+
+        nested_test("reopen_read_only_foreign_zstd_archive") do
+            foreign_path = joinpath(tmp_directory, "foreign_zstd.zip")
+            raw = Vector{UInt8}(repeat("compressible zstd payload ", 64))
+            build_single_entry_zip(foreign_path, "compressed", UInt16(93), raw, transcode(ZstdCompressor, raw))
+            store = MmapZipStore(foreign_path)
+            try
+                @test copy(store["compressed"]) == raw
+            finally
+                close(store)
+            end
+        end
+
+        nested_test("unsupported_compression_method_errors") do
+            foreign_path = joinpath(tmp_directory, "foreign_unsupported.zip")
+            raw = Vector{UInt8}("payload")
+            build_single_entry_zip(foreign_path, "compressed", UInt16(99), raw, raw)
+            store = MmapZipStore(foreign_path)
+            try
+                @test_throws "unsupported ZIP compression method: 99" store["compressed"]
             finally
                 close(store)
             end

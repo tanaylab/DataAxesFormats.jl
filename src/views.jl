@@ -383,12 +383,12 @@ function Formats.has_data_read_lock(view::DafView)::Bool
     return Formats.has_data_read_lock(view.daf)
 end
 
-function Formats.begin_data_write_lock(view::DafView, what::Any...)::Nothing  # flaky tested
+function Formats.begin_data_write_lock(view::DafView, what::Any...)::Nothing
     invoke(Formats.begin_data_write_lock, Tuple{DafReader, Vararg{Any}}, view, what...)
     return Formats.begin_data_write_lock(view.daf, what...)
 end
 
-function Formats.end_data_write_lock(view::DafView, what::Any...)::Nothing  # flaky tested
+function Formats.end_data_write_lock(view::DafView, what::Any...)::Nothing
     Formats.end_data_write_lock(view.daf, what...)
     return invoke(Formats.end_data_write_lock, Tuple{DafReader, Vararg{Any}}, view, what...)
 end
@@ -485,7 +485,7 @@ function Formats.format_has_matrix(
     return query !== nothing && has_query(view.daf, query)
 end
 
-function Formats.format_matrices_set( # UNTESTED
+function Formats.format_matrices_set(
     view::DafView,
     rows_axis::AbstractString,
     columns_axis::AbstractString,

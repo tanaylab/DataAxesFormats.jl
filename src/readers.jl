@@ -76,11 +76,11 @@ Return `true` if `daf` (or the `Daf` storage type `daf_type`) is a leaf `Daf` st
 on-disk or in-memory state directly, rather than a wrapper (`ReadOnlyChain`, `WriteChain`, `ContractDaf`,
 `DafView`, `DafReadOnlyWrapper`). Only leaf formats support `reorder_axes!`.
 """
-function is_leaf(::DafReader)::Bool  # FLAKY TESTED
+function is_leaf(::DafReader)::Bool
     return false
 end
 
-function is_leaf(::Type{<:DafReader})::Bool  # FLAKY TESTED
+function is_leaf(::Type{<:DafReader})::Bool
     return false
 end
 

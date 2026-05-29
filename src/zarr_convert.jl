@@ -9,7 +9,7 @@ The two on-disk formats differ in their per-property metadata encoding (`FilesDa
     are raw little-endian bytes without headers — bit-for-bit identical between `FilesDaf`'s `<name>.data` /
     `<name>.<component>` and `ZarrDaf`'s single-chunk file at `<name>/c/0[/0]`.
   - Packed (chunked + compressed) dense properties and packed sparse components are stored in the v3 sharded-array
-    binary format (ZEP-0002): one shard file per property (`<name>.shard` in `FilesDaf`, `<name>/c/0[/0]` in
+    binary format (ZEP-0002): one shard file per property (`<name>.zip` in `FilesDaf`, `<name>/c/0[/0]` in
     `ZarrDaf`). For the same input data, same `chunk_shape`, and same codec, the writer emits byte-identical shard
     bytes regardless of which backend hosts it — so the shard files hard-link cleanly across formats.
 
@@ -53,11 +53,8 @@ using SparseArrays
 using TanayLabUtilities
 using Zarr
 
-import ..FilesFormat
 import ..Operations.DTYPE_BY_NAME
-import ..PackedFormat
 import ..ReadOnly.DafReadOnlyWrapper
-import ..ZarrFormat
 import SparseArrays.indtype
 
 const PROBE_NAME = ".daf_convert.probe"
@@ -86,7 +83,7 @@ function zarr_to_files(; zarr_path::AbstractString, files_path::AbstractString):
         verify_same_filesystem(abs_zarr, abs_files)
         zarr_to_files_populate(abs_zarr, abs_files)
         @debug "Daf: zarr_to_files $(abs_zarr) -> $(abs_files)" _group = :daf_repos
-    catch  # FLAKY TESTED
+    catch
         rm(abs_files; force = true, recursive = true)  # UNTESTED
         rethrow()  # UNTESTED
     end
@@ -118,7 +115,7 @@ function files_to_zarr(; files_path::AbstractString, zarr_path::AbstractString):
         verify_same_filesystem(abs_files, abs_zarr)
         files_to_zarr_populate(abs_files, abs_zarr)
         @debug "Daf: files_to_zarr $(abs_files) -> $(abs_zarr)" _group = :daf_repos
-    catch  # FLAKY TESTED
+    catch
         rm(abs_zarr; force = true, recursive = true)  # UNTESTED
         rethrow()  # UNTESTED
     end
@@ -172,7 +169,7 @@ function verify_files_source(files_path::AbstractString)::Nothing
     return nothing
 end
 
-function verify_destination_absent(destination_path::AbstractString)::Nothing  # FLAKY TESTED
+function verify_destination_absent(destination_path::AbstractString)::Nothing
     if ispath(destination_path)
         error("destination already exists: $(destination_path)")
     end
@@ -188,12 +185,12 @@ function verify_same_filesystem(source_path::AbstractString, destination_path::A
     try
         try
             hardlink(source_probe, destination_probe)
-        catch exception  # FLAKY TESTED
+        catch exception
             error(chomp("""  # UNTESTED
-                        can't hard-link between filesystems
-                        from the source: $(source_path)
-                        to the destination: $(destination_path)
-                        underlying error: $(exception)
+                        hard-link failed with underlying error: $(exception)
+                        from source: $(source_path)
+                        to destination: $(destination_path)
+                        (typically caused by source and destination being on different filesystems)
                         """))
         end
         rm(destination_probe; force = true)
@@ -324,14 +321,14 @@ function zarr_sparse_vector_to_files(
         nzval_array = vector_group.arrays["nzval"]
         element_type = julia_type_from_v3_dtype((consolidated["$(base_key)/nzval"]::AbstractDict)["data_type"])
         nzval_canonical = is_canonical_for_files(nzval_array, element_type, (nnz_int,))
-        nzval_packed = PackedFormat.is_zarr_array_packed(nzval_array)
-        nzval_chunk_shape = nzval_packed ? PackedFormat.packed_codec_from_zarray(nzval_array)[1] : nothing
+        is_nzval_packed = PackedFormat.is_zarr_array_packed(nzval_array)
+        nzval_chunk_shape = is_nzval_packed ? PackedFormat.packed_codec_from_zarray(nzval_array)[1] : nothing
         nzval_codec =
-            nzval_packed ? PackedFormat.packed_codec_from_zarray(nzval_array)[2] : PackedFormat.compressor_for()
+            is_nzval_packed ? PackedFormat.packed_codec_from_zarray(nzval_array)[2] : PackedFormat.compressor_for()
     else
         element_type = Bool
         nzval_canonical = true
-        nzval_packed = false
+        is_nzval_packed = false
         nzval_chunk_shape = nothing
         nzval_codec = PackedFormat.compressor_for()
     end
@@ -344,9 +341,10 @@ function zarr_sparse_vector_to_files(
         return nothing
     end
 
-    nzind_packed = PackedFormat.is_zarr_array_packed(nzind_array)
-    nzind_chunk_shape = nzind_packed ? PackedFormat.packed_codec_from_zarray(nzind_array)[1] : nothing
-    nzind_codec = nzind_packed ? PackedFormat.packed_codec_from_zarray(nzind_array)[2] : PackedFormat.compressor_for()
+    is_nzind_packed = PackedFormat.is_zarr_array_packed(nzind_array)
+    nzind_chunk_shape = is_nzind_packed ? PackedFormat.packed_codec_from_zarray(nzind_array)[1] : nothing
+    nzind_codec =
+        is_nzind_packed ? PackedFormat.packed_codec_from_zarray(nzind_array)[2] : PackedFormat.compressor_for()
 
     json_bytes = PackedFormat.sparse_vector_json_bytes(
         element_type,
@@ -356,17 +354,33 @@ function zarr_sparse_vector_to_files(
         nzval_chunk_shape,
         nzind_codec,
         nzval_codec,
+        nzval_present,
     )
     write("$(destination_base).json", json_bytes)
-    link_zarr_chunk_to_sparse_component("$(source_dir)/nzind", "$(destination_base).nzind", nzind_packed)
+    link_zarr_chunk_to_sparse_component(
+        nzind_array,
+        "$(source_dir)/nzind",
+        "$(destination_base).nzind",
+        is_nzind_packed,
+        ind_type,
+    )
     if nzval_present
-        link_zarr_chunk_to_sparse_component("$(source_dir)/nzval", "$(destination_base).nzval", nzval_packed)
+        link_zarr_chunk_to_sparse_component(  # NOJET
+            nzval_array,
+            "$(source_dir)/nzval",
+            "$(destination_base).nzval",
+            is_nzval_packed,
+            element_type,
+        )
     end
     return nothing
 end
 
 # Hard-link a Zarr-side dense property's chunk file to a FilesDaf flat or packed sidecar. For packed sources the
-# JSON sidecar carries the source's `chunk_shape` / codec so the linked bytes decode unchanged.
+# JSON sidecar carries the source's `chunk_shape` / codec so the linked bytes decode unchanged. If the source
+# chunk file is not a dual-format shard (e.g. a foreign Zarr-only producer), re-encode it into a dual-format
+# shard at the destination — hard-linking a Zarr-only shard would leave FilesDaf's HTTP read path unable to
+# find a ZIP central directory.
 function link_zarr_to_files_dense(
     zarray::Zarr.ZArray,
     destination_json_path::AbstractString,
@@ -379,9 +393,8 @@ function link_zarr_to_files_dense(
     chunk_path = joinpath(storage.folder, zarray.path, chunk_key_relative)
     if PackedFormat.is_zarr_array_packed(zarray)
         chunk_shape, codec = PackedFormat.packed_codec_from_zarray(zarray)
-        json_bytes = PackedFormat.packed_array_json_bytes(T, chunk_shape, codec)
-        write(destination_json_path, json_bytes)
-        hardlink(chunk_path, "$(destination_base).shard")
+        write(destination_json_path, PackedFormat.packed_array_json_bytes(T, chunk_shape, codec))
+        link_or_rewrite_zarr_shard_to_files(chunk_path, "$(destination_base).zip", zarray, T)
     else
         write(destination_json_path, PackedFormat.dense_array_json_bytes(T))
         hardlink(chunk_path, "$(destination_base).data")
@@ -390,17 +403,53 @@ function link_zarr_to_files_dense(
 end
 
 # Hard-link the chunk file of a Zarr-side sparse component sub-array. `packed=true` ⇒ source is single-shard
-# (`c/0`) and target is `<base>.shard`; `packed=false` ⇒ source is single-chunk-uncompressed (`c/0`) and target is
-# the flat path.
-function link_zarr_chunk_to_sparse_component(  # FLAKY TESTED
+# (`c/0`) and target is `<base>.zip` (re-encode to dual format if the source is not already dual);
+# `packed=false` ⇒ source is single-chunk-uncompressed and target is the flat path.
+function link_zarr_chunk_to_sparse_component(
+    source_array::Zarr.ZArray,
     source_array_dir::AbstractString,
     destination_flat_path::AbstractString,
-    packed::Bool,
-)::Nothing
-    if packed
-        hardlink("$(source_array_dir)/c/0", "$(destination_flat_path).shard")
+    is_packed::Bool,
+    ::Type{T},
+)::Nothing where {T}
+    if is_packed
+        link_or_rewrite_zarr_shard_to_files("$(source_array_dir)/c/0", "$(destination_flat_path).zip", source_array, T)
     else
         hardlink("$(source_array_dir)/c/0", destination_flat_path)
+    end
+    return nothing
+end
+
+# Dispatch a ZarrDaf-side packed shard to its FilesDaf-side equivalent based on the source array's
+# `daf_packed_format` attribute. `"indexed+zipped"` hard-links the dual-format bytes verbatim. An
+# absent attribute means the source array was produced by a foreign Zarr writer (Zarr.jl, Python
+# `zarr`, etc.) that does not emit daf-specific attributes; the only metadata available is the Zarr
+# shard index, so the shard is re-encoded via [`rewrite_index_only_as_dual_format_shard`](@ref
+# DataAxesFormats.PackedFormat.rewrite_index_only_as_dual_format_shard). Any other attribute value
+# is unexpected (no producer in the codebase emits one) and raises.
+function link_or_rewrite_zarr_shard_to_files(
+    source_chunk_path::AbstractString,
+    destination_shard_path::AbstractString,
+    source_array::Zarr.ZArray,
+    ::Type{T},
+)::Nothing where {T}
+    packed_format = get(source_array.attrs, "daf_packed_format", nothing)
+    if packed_format == "indexed+zipped"
+        hardlink(source_chunk_path, destination_shard_path)
+    elseif packed_format === nothing
+        chunk_shape, codec = PackedFormat.packed_codec_from_zarray(source_array)
+        sharding_codec = source_array.metadata.pipeline.array_bytes
+        PackedFormat.rewrite_index_only_as_dual_format_shard(
+            source_chunk_path,
+            destination_shard_path,
+            T,
+            size(source_array),
+            chunk_shape,
+            PackedFormat.v3_bytes_codecs_for(codec, T),
+            sharding_codec.index_location,
+        )
+    else
+        error("unexpected daf_packed_format on Zarr-side source: $(packed_format)")  # UNTESTED
     end
     return nothing
 end
@@ -480,14 +529,14 @@ function zarr_sparse_matrix_to_files(
         nzval_array = matrix_group.arrays["nzval"]
         element_type = julia_type_from_v3_dtype((consolidated["$(base_key)/nzval"]::AbstractDict)["data_type"])
         nzval_canonical = is_canonical_for_files(nzval_array, element_type, (nnz_int,))
-        nzval_packed = PackedFormat.is_zarr_array_packed(nzval_array)
-        nzval_chunk_shape = nzval_packed ? PackedFormat.packed_codec_from_zarray(nzval_array)[1] : nothing
+        is_nzval_packed = PackedFormat.is_zarr_array_packed(nzval_array)
+        nzval_chunk_shape = is_nzval_packed ? PackedFormat.packed_codec_from_zarray(nzval_array)[1] : nothing
         nzval_codec =
-            nzval_packed ? PackedFormat.packed_codec_from_zarray(nzval_array)[2] : PackedFormat.compressor_for()
+            is_nzval_packed ? PackedFormat.packed_codec_from_zarray(nzval_array)[2] : PackedFormat.compressor_for()
     else
         element_type = Bool
         nzval_canonical = true
-        nzval_packed = false
+        is_nzval_packed = false
         nzval_chunk_shape = nothing
         nzval_codec = PackedFormat.compressor_for()
     end
@@ -510,14 +559,14 @@ function zarr_sparse_matrix_to_files(
         return nothing
     end
 
-    colptr_packed = PackedFormat.is_zarr_array_packed(colptr_array)
-    rowval_packed = PackedFormat.is_zarr_array_packed(rowval_array)
-    colptr_chunk_shape = colptr_packed ? PackedFormat.packed_codec_from_zarray(colptr_array)[1] : nothing
-    rowval_chunk_shape = rowval_packed ? PackedFormat.packed_codec_from_zarray(rowval_array)[1] : nothing
+    is_colptr_packed = PackedFormat.is_zarr_array_packed(colptr_array)
+    is_rowval_packed = PackedFormat.is_zarr_array_packed(rowval_array)
+    colptr_chunk_shape = is_colptr_packed ? PackedFormat.packed_codec_from_zarray(colptr_array)[1] : nothing
+    rowval_chunk_shape = is_rowval_packed ? PackedFormat.packed_codec_from_zarray(rowval_array)[1] : nothing
     colptr_codec =
-        colptr_packed ? PackedFormat.packed_codec_from_zarray(colptr_array)[2] : PackedFormat.compressor_for()
+        is_colptr_packed ? PackedFormat.packed_codec_from_zarray(colptr_array)[2] : PackedFormat.compressor_for()
     rowval_codec =
-        rowval_packed ? PackedFormat.packed_codec_from_zarray(rowval_array)[2] : PackedFormat.compressor_for()
+        is_rowval_packed ? PackedFormat.packed_codec_from_zarray(rowval_array)[2] : PackedFormat.compressor_for()
 
     json_bytes = PackedFormat.sparse_matrix_json_bytes(
         element_type,
@@ -530,12 +579,31 @@ function zarr_sparse_matrix_to_files(
         colptr_codec,
         rowval_codec,
         nzval_codec,
+        nzval_present,
     )
     write("$(destination_base).json", json_bytes)
-    link_zarr_chunk_to_sparse_component("$(source_dir)/colptr", "$(destination_base).colptr", colptr_packed)
-    link_zarr_chunk_to_sparse_component("$(source_dir)/rowval", "$(destination_base).rowval", rowval_packed)
+    link_zarr_chunk_to_sparse_component(
+        colptr_array,
+        "$(source_dir)/colptr",
+        "$(destination_base).colptr",
+        is_colptr_packed,
+        ind_type,
+    )
+    link_zarr_chunk_to_sparse_component(
+        rowval_array,
+        "$(source_dir)/rowval",
+        "$(destination_base).rowval",
+        is_rowval_packed,
+        ind_type,
+    )
     if nzval_present
-        link_zarr_chunk_to_sparse_component("$(source_dir)/nzval", "$(destination_base).nzval", nzval_packed)
+        link_zarr_chunk_to_sparse_component(  # NOJET
+            nzval_array,
+            "$(source_dir)/nzval",
+            "$(destination_base).nzval",
+            is_nzval_packed,
+            element_type,
+        )
     end
     return nothing
 end
@@ -576,7 +644,7 @@ end
 # Reads the source column-by-column (`get_matrix(source, ...; relayout = false)` returns a column-major view; the
 # Zarr decoder fetches only the chunks intersecting each column on demand), and submits each column to
 # `empty_dense_matrix!`'s `PackedDenseMatrix` wrapper. Bounded RAM = one column buffer per thread.
-function reencode_dense_matrix(  # FLAKY TESTED
+function reencode_dense_matrix(
     source::DafReader,
     destination::FilesDaf,
     rows_axis::AbstractString,
@@ -674,14 +742,14 @@ function files_vector_to_zarr(
         end
         element_type = julia_type_from_files_eltype(eltype_name)
         n_elements = axis_length(source, axis)
-        if get(json, "packed", false) === true
+        if PackedFormat.is_packed_component(json)
             create_files_to_zarr_packed_dense(
                 parent_group,
                 name,
                 element_type,
                 (n_elements,),
                 json,
-                "$(source_base).shard",
+                "$(source_base).zip",
                 "$(destination_dir)/c/0",
             )
         else
@@ -761,14 +829,14 @@ function files_matrix_to_zarr(
             return nothing
         end
         element_type = julia_type_from_files_eltype(eltype_name)
-        if get(json, "packed", false) === true
+        if PackedFormat.is_packed_component(json)
             create_files_to_zarr_packed_dense(
                 parent_group,
                 name,
                 element_type,
                 (n_rows, n_columns),
                 json,
-                "$(source_base).shard",
+                "$(source_base).zip",
                 "$(destination_dir)/c/0/0",
             )
         else
@@ -847,19 +915,20 @@ function sparse_component_count(
 end
 
 # Whether the FilesDaf source has a stored value for the named sparse component, considering both the flat
-# (`<base>.<component>`) and packed (`<base>.<component>.shard`) on-disk paths. Mirrors FilesDaf's
+# (`<base>.<component>`) and packed (`<base>.<component>.zip`) on-disk paths. Mirrors FilesDaf's
 # `has_sparse_component`. The descriptor is consulted only as a hint; the file system is authoritative.
-function has_files_sparse_component(  # FLAKY TESTED
+function has_files_sparse_component(
     source_base::AbstractString,
     component::AbstractString,
     descriptor::Maybe{AbstractDict},  # NOLINT
 )::Bool
-    return isfile("$(source_base).$(component)") || isfile("$(source_base).$(component).shard")
+    return isfile("$(source_base).$(component)") || isfile("$(source_base).$(component).zip")
 end
 
-# Build the destination ZArray for a packed dense FilesDaf source and hard-link the source `.shard` to the
+# Build the destination ZArray for a packed dense FilesDaf source and hard-link the source `.zip` to the
 # destination's chunk-key path. The destination metadata reuses the source's `chunk_shape` / codec so the linked
-# bytes decode unchanged.
+# bytes decode unchanged. If the source `.zip` is not a dual-format shard (e.g. a foreign FilesDaf-format
+# producer with a Zarr-only encoding), re-encode it into a dual-format shard at the destination.
 function create_files_to_zarr_packed_dense(
     group::Zarr.ZGroup,
     name::AbstractString,
@@ -870,16 +939,17 @@ function create_files_to_zarr_packed_dense(
     destination_chunk_path::AbstractString,
 )::Nothing where {T, N}
     chunk_shape = NTuple{N, Int}(json["chunk_shape"])  # NOJET
-    codec = PackedFormat.PackedCodec(Symbol(json["compression"]), Int(json["compression_level"]))
+    codec = PackedFormat.packed_codec_from_descriptor(json)
     bytes_bytes_codecs = PackedFormat.v3_bytes_codecs_for(codec, T)
     ZarrFormat.sharded_zcreate(T, group, name, shape, chunk_shape, bytes_bytes_codecs)
-    hardlink_v3_chunk(source_shard_path, destination_chunk_path)
+    link_or_rewrite_files_shard_to_zarr(source_shard_path, destination_chunk_path, T, shape, chunk_shape, json)
     return nothing
 end
 
 # Hard-link a single sparse-component blob from a FilesDaf source into the matching Zarr destination sub-array.
 # Routes flat (`<source_base>.<component>`) to a flat single-chunk-uncompressed ZArray and packed
-# (`<source_base>.<component>.shard`) to a single-shard sharded ZArray with the source's codec.
+# (`<source_base>.<component>.zip`) to a single-shard sharded ZArray with the source's codec (re-encoding to
+# dual format if the source `.zip` is not already dual).
 function link_files_to_zarr_sparse_component(
     parent_group::Zarr.ZGroup,
     component::AbstractString,
@@ -889,15 +959,57 @@ function link_files_to_zarr_sparse_component(
     source_flat_path::AbstractString,
     destination_dir::AbstractString,
 )::Nothing where {T}
-    if descriptor isa AbstractDict && get(descriptor, "packed", false) === true
+    if PackedFormat.is_packed_component(descriptor)
         chunk_shape = (Int(descriptor["chunk_shape"][1]),)
-        codec = PackedFormat.PackedCodec(Symbol(descriptor["compression"]), Int(descriptor["compression_level"]))
+        codec = PackedFormat.packed_codec_from_descriptor(descriptor)
         bytes_bytes_codecs = PackedFormat.v3_bytes_codecs_for(codec, T)
         ZarrFormat.sharded_zcreate(T, parent_group, component, (n_elements,), chunk_shape, bytes_bytes_codecs)
-        hardlink_v3_chunk("$(source_flat_path).shard", "$(destination_dir)/c/0")
+        link_or_rewrite_files_shard_to_zarr(
+            "$(source_flat_path).zip",
+            "$(destination_dir)/c/0",
+            T,
+            (n_elements,),
+            chunk_shape,
+            descriptor,
+        )
     else
         ZarrFormat.dense_zcreate(T, parent_group, component, false, (n_elements,))
         hardlink_v3_chunk(source_flat_path, "$(destination_dir)/c/0")
+    end
+    return nothing
+end
+
+# Dispatch a FilesDaf-side packed shard to its ZarrDaf-side equivalent based on the source descriptor's
+# `packed_format` field. `"indexed+zipped"` hard-links the dual-format bytes verbatim. `"zipped"` is a
+# foreign FilesDaf-style producer that wrote a ZIP archive of chunks without prepending the Zarr index;
+# the source has no shard index, so it is re-encoded via [`rewrite_zip_only_as_dual_format_shard`](@ref
+# DataAxesFormats.PackedFormat.rewrite_zip_only_as_dual_format_shard). Callers gate this function on
+# [`is_packed_component`](@ref DataAxesFormats.PackedFormat.is_packed_component), so `packed_format` is
+# always present here; any other value is unexpected and raises.
+function link_or_rewrite_files_shard_to_zarr(
+    source_shard_path::AbstractString,
+    destination_chunk_path::AbstractString,
+    ::Type{T},
+    shape::NTuple{N, Int},
+    chunk_shape::NTuple{N, Int},
+    json::AbstractDict,
+)::Nothing where {T, N}
+    packed_format = get(json, "packed_format", nothing)
+    if packed_format == "indexed+zipped"
+        hardlink_v3_chunk(source_shard_path, destination_chunk_path)
+    elseif packed_format == "zipped"
+        mkpath(dirname(destination_chunk_path))
+        codec = PackedFormat.packed_codec_from_descriptor(json)
+        PackedFormat.rewrite_zip_only_as_dual_format_shard(
+            source_shard_path,
+            destination_chunk_path,
+            T,
+            shape,
+            chunk_shape,
+            codec,
+        )
+    else
+        error("unexpected packed_format on Files-side source: $(packed_format)")  # UNTESTED
     end
     return nothing
 end

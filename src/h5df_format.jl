@@ -84,7 +84,9 @@ is **not** compatible with `h5ad`):
     [`DAF_PACKED_LOCAL_CACHE_KB`](@ref DataAxesFormats.PackedFormat.DAF_PACKED_LOCAL_CACHE_KB). Packed sparse
     matrices are returned as a [`LazySparseMatrix`](@ref DataAxesFormats.LazySparse.LazySparseMatrix) over the
     cached `rowval` / `nzval`, with `colptr` materialised eagerly (it is small and slicing needs random access).
-    Packed sparse vectors materialise both components eagerly into a `SparseVector`.
+    Packed sparse vectors are returned as a [`LazySparseVector`](@ref DataAxesFormats.LazySparse.LazySparseVector)
+    over the cached `nzind` / `nzval` (matching the matrix wrapper); below-threshold flat sparse vectors stay on
+    the eager `SparseVector` path with mmap-backed components.
 
   - The HDF5 filter ids needed to read packed datasets (`32001` Blosc, `32008` bitshuffle, `32015` Zstandard)
     are registered at module load via [`H5Zblosc`](https://github.com/JuliaIO/HDF5.jl/tree/master/filters/H5Zblosc),
@@ -280,7 +282,7 @@ mutable struct SharedH5dfHandle
     file::HDF5.File
     data_lock::ExtendedReadWriteLock
     is_writable::Bool
-    function SharedH5dfHandle(file::HDF5.File, data_lock::ExtendedReadWriteLock, is_writable::Bool)  # FLAKY TESTED
+    function SharedH5dfHandle(file::HDF5.File, data_lock::ExtendedReadWriteLock, is_writable::Bool)
         return new(file, data_lock, is_writable)
     end
 end
@@ -455,10 +457,10 @@ function verify_daf(root::Union{HDF5.File, HDF5.Group})::Nothing
     @assert eltype(format_version) <: Unsigned
     if format_version[1] != MAJOR_VERSION || format_version[2] > MINOR_VERSION
         error(chomp("""
-              incompatible format version: $(format_version[1]).$(format_version[2])
-              for the daf data: $(root)
-              the code supports version: $(MAJOR_VERSION).$(MINOR_VERSION)
-              """))
+                    incompatible format version: $(format_version[1]).$(format_version[2])
+                    the code supports version: $(MAJOR_VERSION).$(MINOR_VERSION)
+                    in daf data: $(root)
+                    """))
     end
 end
 
@@ -473,11 +475,11 @@ function delete_content(root::Union{HDF5.File, HDF5.Group})::Nothing
     end
 end
 
-function Readers.is_leaf(::H5df)::Bool  # FLAKY TESTED
+function Readers.is_leaf(::H5df)::Bool
     return true
 end
 
-function Readers.is_leaf(::Type{H5df})::Bool  # FLAKY TESTED
+function Readers.is_leaf(::Type{H5df})::Bool
     return true
 end
 
@@ -654,7 +656,7 @@ function Formats.format_set_vector!(
     axis::AbstractString,
     name::AbstractString,
     vector::Union{StorageScalar, StorageVector},
-    packed::Bool,
+    is_packed::Bool,
 )::Nothing
     @assert Formats.has_data_write_lock(h5df)
     vectors_group = h5df.root["vectors"]
@@ -680,12 +682,12 @@ function Formats.format_set_vector!(
             flame_timed("H5df.write_sparse_vector") do
                 @assert vector isa AbstractVector
                 vector_group = create_group(axis_vectors_group, name)
-                write_packed_dense_dataset!(vector_group, "nzind", nzind(vector), packed)
+                write_packed_dense_dataset!(vector_group, "nzind", nzind(vector), is_packed)
                 if eltype(vector) != Bool || !all(nzval(vector))
                     if eltype(vector) <: AbstractString
                         vector_group["nzval"] = String.(nzval(vector))  # NOJET # UNTESTED
                     else
-                        write_packed_dense_dataset!(vector_group, "nzval", nzval(vector), packed)
+                        write_packed_dense_dataset!(vector_group, "nzval", nzval(vector), is_packed)
                     end
                 end
                 return close(vector_group)
@@ -703,7 +705,7 @@ function Formats.format_set_vector!(
                 catch
                     nice_vector = Vector(vector)  # NOJET # UNTESTED
                 end
-                return write_packed_dense_dataset!(axis_vectors_group, name, nice_vector, packed)
+                return write_packed_dense_dataset!(axis_vectors_group, name, nice_vector, is_packed)
             end
         end
     end
@@ -711,7 +713,7 @@ function Formats.format_set_vector!(
     return nothing
 end
 
-function write_string_vector( # UNTESTED
+function write_string_vector(
     axis_vectors_group::HDF5.Group,
     name::AbstractString,
     vector::AbstractVector{<:AbstractString},
@@ -754,7 +756,7 @@ function write_string_vector( # UNTESTED
             close(vector_group)
 
         else
-            nice_vector = String.(vector)
+            nice_vector = String[String(value) for value in vector]
             axis_vectors_group[name] = nice_vector  # NOJET
         end
     end
@@ -767,11 +769,11 @@ function Formats.format_get_empty_dense_vector!(
     axis::AbstractString,
     name::AbstractString,
     eltype::Type{T},
-    packed::Bool,
+    is_packed::Bool,
 )::Tuple{AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal}
     @assert Formats.has_data_write_lock(h5df)
     n_elements = Formats.format_axis_length(h5df, axis)
-    if chunks_for(packed, (Int(n_elements),), T) !== nothing
+    if chunks_for(is_packed, (Int(n_elements),), T) !== nothing
         return (Vector{T}(undef, Int(n_elements)), nothing)
     end
     return create_empty_dense_vector_in(h5df.root, axis, name, eltype, n_elements)
@@ -819,17 +821,17 @@ function create_empty_dense_vector_in(
     return (vector, cache_group)
 end
 
-function Formats.format_get_empty_sparse_vector!(  # FLAKY TESTED
+function Formats.format_get_empty_sparse_vector!(
     h5df::H5df,
     axis::AbstractString,
     name::AbstractString,
     eltype::Type{T},
     nnz::StorageInteger,
     indtype::Type{I},
-    packed::Bool,
+    is_packed::Bool,
 )::Tuple{AbstractVector{I}, AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(h5df)
-    if packed
+    if is_packed
         return (Vector{I}(undef, Int(nnz)), Vector{T}(undef, Int(nnz)), nothing)
     end
     nzind_vector, nzval_vector = create_empty_sparse_vector_in(h5df.root, axis, name, eltype, nnz, indtype)
@@ -961,9 +963,9 @@ function Formats.format_get_vector(
             nzval_dataset = haskey(vector_object, "nzval") ? vector_object["nzval"] : nothing
             @assert nzval_dataset === nothing || nzval_dataset isa HDF5.Dataset
 
-            nzind_packed = HDF5.ischunked(nzind_dataset) && !isempty(nzind_dataset)
-            nzval_packed = nzval_dataset !== nothing && HDF5.ischunked(nzval_dataset) && !isempty(nzval_dataset)
-            if nzind_packed || nzval_packed
+            is_nzind_packed = HDF5.ischunked(nzind_dataset) && !isempty(nzind_dataset)
+            is_nzval_packed = nzval_dataset !== nothing && HDF5.ischunked(nzval_dataset) && !isempty(nzval_dataset)
+            if is_nzind_packed || is_nzval_packed
                 nzind_source = DiskArrays.cache(H5dfDiskArray(nzind_dataset); maxsize = packed_local_cache_mb())  # NOJET
                 nzval_source = if nzval_dataset === nothing
                     fill(true, length(nzind_dataset))
@@ -1027,7 +1029,7 @@ function Formats.format_set_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     matrix::Union{StorageScalarBase, StorageMatrix},
-    packed::Bool,
+    is_packed::Bool,
 )::Nothing
     @assert Formats.has_data_write_lock(h5df)
     matrices_group = h5df.root["matrices"]
@@ -1069,13 +1071,13 @@ function Formats.format_set_matrix!(
             flame_timed("H5df.write_sparse_matrix") do
                 @assert matrix isa AbstractMatrix
                 matrix_group = create_group(columns_axis_group, name)
-                write_packed_dense_dataset!(matrix_group, "colptr", colptr(matrix), packed)
-                write_packed_dense_dataset!(matrix_group, "rowval", rowval(matrix), packed)
+                write_packed_dense_dataset!(matrix_group, "colptr", colptr(matrix), is_packed)
+                write_packed_dense_dataset!(matrix_group, "rowval", rowval(matrix), is_packed)
                 if eltype(matrix) != Bool || !all(nzval(matrix))
                     if eltype(matrix) <: AbstractString
                         matrix_group["nzval"] = String.(nzval(matrix))  # UNTESTED
                     else
-                        write_packed_dense_dataset!(matrix_group, "nzval", nzval(matrix), packed)
+                        write_packed_dense_dataset!(matrix_group, "nzval", nzval(matrix), is_packed)
                     end
                 end
                 return close(matrix_group)
@@ -1090,7 +1092,7 @@ function Formats.format_set_matrix!(
                 catch
                     nice_matrix = Matrix(matrix) # UNTESTED
                 end
-                return write_packed_dense_dataset!(columns_axis_group, name, nice_matrix, packed)
+                return write_packed_dense_dataset!(columns_axis_group, name, nice_matrix, is_packed)
             end
         end
     end
@@ -1098,7 +1100,7 @@ function Formats.format_set_matrix!(
     return nothing
 end
 
-function write_string_matrix( # UNTESTED
+function write_string_matrix(
     columns_axis_group::HDF5.Group,
     name::AbstractString,
     matrix::AbstractMatrix{<:AbstractString},
@@ -1152,7 +1154,8 @@ function write_string_matrix( # UNTESTED
             close(matrix_group)
 
         else
-            nice_matrix = String.(matrix)
+            nice_matrix = String[String(value) for value in matrix]
+            nice_matrix = reshape(nice_matrix, size(matrix))
             columns_axis_group[name] = nice_matrix  # NOJET
         end
     end
@@ -1165,12 +1168,12 @@ function Formats.format_get_empty_dense_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     eltype::Type{T},
-    packed::Bool,
+    is_packed::Bool,
 )::Tuple{AbstractMatrix{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal}
     @assert Formats.has_data_write_lock(h5df)
     nrows = Formats.format_axis_length(h5df, rows_axis)
     ncols = Formats.format_axis_length(h5df, columns_axis)
-    chunk_shape = chunks_for(packed, (Int(nrows), Int(ncols)), T)
+    chunk_shape = chunks_for(is_packed, (Int(nrows), Int(ncols)), T)
     if chunk_shape !== nothing
         return create_packed_streaming_dense_matrix(
             h5df.root,
@@ -1269,7 +1272,7 @@ function create_empty_dense_matrix_in(
     return (matrix, cache_group)
 end
 
-function Formats.format_get_empty_sparse_matrix!(  # FLAKY TESTED
+function Formats.format_get_empty_sparse_matrix!(
     h5df::H5df,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
@@ -1277,7 +1280,7 @@ function Formats.format_get_empty_sparse_matrix!(  # FLAKY TESTED
     eltype::Type{T},
     nnz::StorageInteger,
     indtype::Type{I},
-    packed::Bool,
+    is_packed::Bool,
 )::Tuple{
     AbstractVector{I},
     AbstractVector{I},
@@ -1286,7 +1289,7 @@ function Formats.format_get_empty_sparse_matrix!(  # FLAKY TESTED
 } where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(h5df)
     ncols = Formats.format_axis_length(h5df, columns_axis)
-    if packed
+    if is_packed
         return (Vector{I}(undef, Int(ncols) + 1), Vector{I}(undef, Int(nnz)), Vector{T}(undef, Int(nnz)), nothing)
     end
     colptr_vector, rowval_vector, nzval_vector =
@@ -1374,7 +1377,7 @@ function Formats.format_relayout_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     matrix::StorageMatrix,
-    packed::Bool,
+    is_packed::Bool,
 )::StorageMatrix
     @assert Formats.has_data_write_lock(h5df)
 
@@ -1387,7 +1390,7 @@ function Formats.format_relayout_matrix!(
             eltype(matrix),
             nnz(matrix),
             eltype(colptr(matrix)),
-            packed,
+            is_packed,
         )
         sparse_colptr .= length(sparse_nzval) + 1
         sparse_colptr[1] = 1
@@ -1416,7 +1419,7 @@ function Formats.format_relayout_matrix!(
 
     else
         relayout_matrix, _ =
-            Formats.format_get_empty_dense_matrix!(h5df, columns_axis, rows_axis, name, eltype(matrix), packed)
+            Formats.format_get_empty_dense_matrix!(h5df, columns_axis, rows_axis, name, eltype(matrix), is_packed)
         relayout!(flip(relayout_matrix), matrix)
         Formats.format_filled_empty_dense_matrix!(h5df, columns_axis, rows_axis, name, relayout_matrix)
     end
@@ -1526,9 +1529,9 @@ function Formats.format_get_matrix(
         nzval_dataset = haskey(matrix_object, "nzval") ? matrix_object["nzval"] : nothing
         @assert nzval_dataset === nothing || nzval_dataset isa HDF5.Dataset
 
-        rowval_packed = HDF5.ischunked(rowval_dataset) && !isempty(rowval_dataset)
-        nzval_packed = nzval_dataset !== nothing && HDF5.ischunked(nzval_dataset) && !isempty(nzval_dataset)
-        if rowval_packed || nzval_packed
+        is_rowval_packed = HDF5.ischunked(rowval_dataset) && !isempty(rowval_dataset)
+        is_nzval_packed = nzval_dataset !== nothing && HDF5.ischunked(nzval_dataset) && !isempty(nzval_dataset)
+        if is_rowval_packed || is_nzval_packed
             # `colptr` is always materialised: small and needs random access for slicing.
             colptr_vector, _ = dataset_as_materialized_vector(colptr_dataset)
             rowval_source = DiskArrays.cache(H5dfDiskArray(rowval_dataset); maxsize = packed_local_cache_mb())  # NOJET
@@ -1617,21 +1620,21 @@ end
 const REORDER_LOCK_DATASET = "daf_reorder_lock"
 const REORDER_REPOS_GROUP = "daf_reorder_repos"
 
-function h5df_file(h5df::H5df)::HDF5.File  # FLAKY TESTED
+function h5df_file(h5df::H5df)::HDF5.File
     root = h5df.root
     return root isa HDF5.File ? root : root.file
 end
 
-function h5df_group_path(h5df::H5df)::String  # FLAKY TESTED
+function h5df_group_path(h5df::H5df)::String
     root = h5df.root
     return root isa HDF5.File ? "/" : String(HDF5.name(root))
 end
 
-function h5df_backup_path(h5df::H5df)::String  # FLAKY TESTED
+function h5df_backup_path(h5df::H5df)::String
     return abspath(h5df_file(h5df).filename) * ".reorder.backup"
 end
 
-function lock_entry_name(group_path::String)::String  # FLAKY TESTED
+function lock_entry_name(group_path::String)::String
     return replace(group_path, "/" => "__")
 end
 
@@ -1739,7 +1742,7 @@ function Reorder.format_replace_reorder!(
         close(backup_file)
     end
 
-    if needs_compaction[]  # FLAKY TESTED
+    if needs_compaction[]
         @warn """
               reorder had to delete and recreate non-mmappable datasets in: $(h5df_file(h5df).filename)
               consider repacking the file to reclaim wasted space
@@ -1749,7 +1752,7 @@ function Reorder.format_replace_reorder!(
     return nothing
 end
 
-function is_overwritable_dataset(dataset::HDF5.Dataset)::Bool  # FLAKY TESTED
+function is_overwritable_dataset(dataset::HDF5.Dataset)::Bool
     return HDF5.ismmappable(dataset) && HDF5.iscontiguous(dataset) && !isempty(dataset)
 end
 
@@ -2246,9 +2249,9 @@ function write_packed_dense_dataset!(
     parent::Union{HDF5.File, HDF5.Group},
     name::AbstractString,
     data::AbstractArray{T, N},
-    packed::Bool,
+    is_packed::Bool,
 )::Nothing where {T, N}
-    chunk_shape = chunks_for(packed, size(data), T)
+    chunk_shape = chunks_for(is_packed, size(data), T)
     if chunk_shape === nothing
         parent[name] = data  # NOJET
     else

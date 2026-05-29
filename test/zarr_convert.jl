@@ -49,7 +49,7 @@ function verify_zarr_convert_test_data(daf::DafReader)::Nothing
     return nothing
 end
 
-function same_inode(left_path::AbstractString, right_path::AbstractString)::Bool  # FLAKY TESTED
+function same_inode(left_path::AbstractString, right_path::AbstractString)::Bool
     left_stat = stat(left_path)
     right_stat = stat(right_path)
     return left_stat.device == right_stat.device && left_stat.inode == right_stat.inode
@@ -266,7 +266,7 @@ nested_test("zarr_convert") do
     end
 
     # Packed round-trip: build a `FilesDaf` with mixed flat and above-threshold packed properties, convert to
-    # `ZarrDaf` and back, and verify each `.shard` (or per-component shard) file is hard-linked between formats —
+    # `ZarrDaf` and back, and verify each `.zip` (or per-component shard) file is hard-linked between formats —
     # which is the byte-equivalence invariant the conversion exists to exploit.
     nested_test("packed_round_trip") do
         function populate_packed_zarr_convert!(daf::DafWriter, n_rows::Int, n_columns::Int)::Nothing
@@ -331,17 +331,17 @@ nested_test("zarr_convert") do
                 destination = FilesDaf(files_dst, "r"; name = "dst!")
                 verify_packed_zarr_convert(destination)
 
-                @test same_inode("$(files_src)/matrices/row/col/data.shard", "$(zarr_mid)/matrices/row/col/data/c/0/0")
-                @test same_inode("$(files_src)/matrices/row/col/data.shard", "$(files_dst)/matrices/row/col/data.shard")
+                @test same_inode("$(files_src)/matrices/row/col/data.zip", "$(zarr_mid)/matrices/row/col/data/c/0/0")
+                @test same_inode("$(files_src)/matrices/row/col/data.zip", "$(files_dst)/matrices/row/col/data.zip")
                 @test same_inode(
-                    "$(files_src)/matrices/row/col/sparse.rowval.shard",
+                    "$(files_src)/matrices/row/col/sparse.rowval.zip",
                     "$(zarr_mid)/matrices/row/col/sparse/rowval/c/0",
                 )
                 @test same_inode(
-                    "$(files_src)/matrices/row/col/sparse.nzval.shard",
-                    "$(files_dst)/matrices/row/col/sparse.nzval.shard",
+                    "$(files_src)/matrices/row/col/sparse.nzval.zip",
+                    "$(files_dst)/matrices/row/col/sparse.nzval.zip",
                 )
-                @test same_inode("$(files_src)/vectors/row/score.shard", "$(zarr_mid)/vectors/row/score/c/0")
+                @test same_inode("$(files_src)/vectors/row/score.zip", "$(zarr_mid)/vectors/row/score/c/0")
                 @test isfile("$(files_dst)/vectors/small/marker.data")
                 return nothing
             end
@@ -362,7 +362,7 @@ nested_test("zarr_convert") do
                 destination = ZarrDaf(zarr_dst, "r"; name = "dst!")
                 verify_packed_zarr_convert(destination)
 
-                @test same_inode("$(zarr_src)/matrices/row/col/data/c/0/0", "$(files_mid)/matrices/row/col/data.shard")
+                @test same_inode("$(zarr_src)/matrices/row/col/data/c/0/0", "$(files_mid)/matrices/row/col/data.zip")
                 @test same_inode("$(zarr_src)/matrices/row/col/data/c/0/0", "$(zarr_dst)/matrices/row/col/data/c/0/0")
                 @test isfile("$(files_mid)/vectors/small/marker.data")
                 return nothing
@@ -402,6 +402,75 @@ nested_test("zarr_convert") do
                 end
             finally
                 DataAxesFormats.PackedFormat.DAF_PACKED_COMPRESSION = saved_compression
+            end
+        end
+
+        # Simulate a foreign Zarr writer (Zarr.jl, Python `zarr`, etc.) that emits a sharded array without
+        # the `daf_packed_format` attribute. `link_or_rewrite_zarr_shard_to_files` sees the absent attr
+        # and routes through `rewrite_index_only_as_dual_format_shard`, decoding the source via its Zarr
+        # shard index and re-emitting a dual-format shard at the destination.
+        nested_test("zarr_to_files_indexed_only_source") do
+            mktempdir() do path
+                zarr_src = "$(path)/src.daf.zarr"
+                files_dst = "$(path)/dst.daf"
+                n_elements = 10_000
+                original = Float32.(1:n_elements)
+
+                source = ZarrDaf(zarr_src, "w"; name = "src!", packed = true)
+                add_axis!(source, "elem", ["e$(index)" for index in 1:n_elements])
+                set_vector!(source, "elem", "v", original)
+
+                array_json_path = joinpath(zarr_src, "vectors", "elem", "v", "zarr.json")
+                array_json = JSON.parse(read(array_json_path, String))
+                @test array_json["attributes"]["daf_packed_format"] == "indexed+zipped"
+                delete!(array_json["attributes"], "daf_packed_format")
+                write(array_json_path, JSON.json(array_json))
+
+                zarr_to_files(; zarr_path = zarr_src, files_path = files_dst)
+
+                destination = FilesDaf(files_dst, "r"; name = "dst!")
+                @test get_vector(destination, "elem", "v") == original
+                return nothing
+            end
+        end
+
+        # Simulate a foreign FilesDaf-style producer that emits a `"zipped"`-only shard (a ZIP archive of
+        # chunks without prepending the Zarr index, signaled by `packed_format == "zipped"` in the
+        # descriptor). The on-disk shard our writer produces is dual-format, but relabeling the descriptor
+        # is enough to route reads and `zarr_convert` through the zip-only code paths: FilesDaf reads via
+        # `ZipShardArray` (CD-only — never touches the Zarr index), and `files_to_zarr` re-encodes via
+        # `rewrite_zip_only_as_dual_format_shard`.
+        nested_test("files_to_zarr_zipped_only_source") do
+            mktempdir() do path
+                files_src = "$(path)/src.daf"
+                zarr_dst = "$(path)/dst.daf.zarr"
+                n_elements = 10_000
+                original = Float32.(1:n_elements)
+
+                source = FilesDaf(files_src, "w+"; name = "src!", packed = true)
+                add_axis!(source, "elem", ["e$(index)" for index in 1:n_elements])
+                set_vector!(source, "elem", "v", original)
+
+                sidecar_path = joinpath(files_src, "vectors", "elem", "v.json")
+                sidecar = JSON.parse(read(sidecar_path, String))
+                @test sidecar["packed_format"] == "indexed+zipped"
+                sidecar["packed_format"] = "zipped"
+                write(sidecar_path, JSON.json(sidecar))
+
+                metadata_path = joinpath(files_src, "metadata.json")
+                metadata = JSON.parse(read(metadata_path, String))
+                @test metadata["vectors/elem/v"]["packed_format"] == "indexed+zipped"
+                metadata["vectors/elem/v"]["packed_format"] = "zipped"
+                write(metadata_path, JSON.json(metadata))
+
+                reader = FilesDaf(files_src, "r"; name = "src!")
+                @test get_vector(reader, "elem", "v") == original
+
+                files_to_zarr(; files_path = files_src, zarr_path = zarr_dst)
+
+                destination = ZarrDaf(zarr_dst, "r"; name = "dst!")
+                @test get_vector(destination, "elem", "v") == original
+                return nothing
             end
         end
     end

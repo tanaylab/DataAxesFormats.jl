@@ -2,24 +2,33 @@
 A `Daf` storage format in disk files. This is an efficient way to persist `Daf` data in a filesystem, and offers a
 different trade-off compared to storing the data in an HDF5 file.
 
-On the downside, this being a directory, you need to create a `zip` or `tar` or some other form of archive file if you
-want to publish it. Also, accessing `FilesDaf` will consume multiple file descriptors as opposed to just one for HDF5,
-and, of course, HDF5 has libraries to support it in most systems.
-
 On the upside, the format of the files is so simple that it is trivial to access them from any programming environment,
-without requiring a complex library like HDF5. In addition, since each scalar, vector or matrix property is stored in a
-separate file, deleting data automatically frees the storage (unlike in an HDF5 file, where you must manually repack the
-file to actually release the storage). Also, you can use standard tools to look at the data (e.g. use `ls` or the
-Windows file explorer to view the list of properties, how much space each one uses, when it was created, etc.). Most
-importantly, this allows using standard tools like `make` to create automatic repeatable processing workflows.
+without requiring a complex library like Zarr or HDF5. In addition, since each scalar, vector or matrix property is
+stored in a separate file, deleting data automatically frees the storage (unlike in an HDF5 file, where you must
+manually repack the file to actually release the storage). Also, you can use standard tools to look at the data (e.g.
+use `ls` or the Windows file explorer to view the list of properties, how much space each one uses, when it was created,
+etc.). Most importantly, this allows using standard tools like `make` to create automatic repeatable processing
+workflows.
 
-For packed (chunked + compressed) vectors and matrices, `FilesDaf` lays the chunks out in a bucketed directory hierarchy (each path
-component is a 3-digit zero-padded index, with extra levels accruing for higher counts). This keeps the number of
-entries in any single directory bounded regardless of total chunk count, so `FilesDaf` scales gracefully to very large
-packed matrices (hundreds of thousands of chunks) without stressing the filesystem or interactive tools like `ls` or
-file explorers. This is a meaningful difference from
-[`ZarrDaf`](@ref DataAxesFormats.ZarrFormat.ZarrDaf), which stores all chunks of an array as flat siblings in one
-directory.
+For packed (chunked + compressed) vectors and matrices, `FilesDaf` stores the entire property as one shard file
+(`<name>.zip` for dense, plus the per-component packed `.zip`s under sparse properties). `FilesDaf` reads the inner
+chunks of such a shard through its ZIP central directory, decoding each chunk on demand and caching the decoded chunks.
+The shard layout, codec catalogue, and on-disk write protocol are documented in [`PackedFormat`](@ref
+DataAxesFormats.PackedFormat). It is still relatively simple and would be accessible to any tool which can look inside
+ZIP files.
+
+On the downside, this being a directory, you need to create a `zip` archive file if you want to publish it. This will
+give you a valid `ZipDaf` file which you can access directly. However such files aren't easy to modify - you can append
+new data to them but that's it. Such a zip file would still be relatively easily accessible to tools that can look
+inside a zip file (and you can unzip such a file to get a valid repository directory (but see the section about
+`metadata.json` below). If you want a truly modifiable single-file format, you should use the `H5DF` format (which has
+its own trade-offs).
+
+This format is very close but not identical to the Zarr DirectoryStore format. Specifically, the binary blob files
+(numeric matrices and vectors) are byte-identical between the formats (we make a special effort to make it so even for
+packed numeric data). The format here has the advantage that the rest of the meta/data is easily accessed by standard
+tools - all metadata are simple JSON files, text vector/matrix data is stored in one-entry-per-line files, etc. The Zarr
+format is more opaque - one can't really access it other than through a Zarr library. So things like `wc repo.daf/axes/gene.txt` or `grep -in Fox repo.daf/axes/gene.txt` will work here but not in Zarr.
 
 We use multiple files to store `Daf` data, under some root directory, as follows:
 
@@ -34,26 +43,27 @@ We use multiple files to store `Daf` data, under some root directory, as follows
     descriptor for sparse properties (see below) — the binary data files are unchanged across versions.
 
   - The `metadata.json` is a consolidated index of every property's descriptor. After it has been seeded once (by
-    walking the tree on a writable open), subsequent opens consume it directly instead of walking, and an
-    HTTP-served `FilesDaf` can be browsed without per-property `readdir` round-trips. Its content is bijective with the per-property descriptors documented below, and with
-    the consolidated metadata that
-    [`ZarrDaf`](@ref DataAxesFormats.ZarrFormat.ZarrDaf) embeds in its root `zarr.json` (see the `ZarrDaf`
-    documentation for the formal mapping; [`zarr_to_files`](@ref DataAxesFormats.ZarrConvert.zarr_to_files) and
-    [`files_to_zarr`](@ref DataAxesFormats.ZarrConvert.files_to_zarr) translate between them).
-    The file is a single-line JSON object mapping each property's relative path to its descriptor:
-    `{"<relative_path>":<descriptor>,...}`, where `<relative_path>` is the property's location relative to the root
-    (e.g. `vectors/cell/batch`, `matrices/cell/gene/UMIs`, `axes/cell`, `scalars/version`) and `<descriptor>` is
-    byte-identical to the per-property sidecar JSON content described below (for axes, the descriptor is
-    `{"format":"axis","n_entries":<N>}`). On `set!` the file is appended in place via byte-level surgery:
-    `truncate` the trailing `}` and write `,"<new_path>":<descriptor>}` (or `"<new_path>":<descriptor>}` if the
-    file was the empty object `{}`). This makes a `set!` an O(size-of-one-descriptor) write rather than an
-    O(N-properties) rewrite. On `delete!` the file is rebuilt from scratch by walking the tree. On *every* open
-    (read or write), if the file is missing or fails to parse (the latter handles a torn write from a crash
-    mid-`set!`) we attempt to rebuild it by walking the tree. The rebuild is best-effort: if it fails (e.g.
-    because the underlying filesystem is read-only) the error is swallowed for read-only opens and rethrown for
-    writable opens. So the workflow `unzip foo.daf.zip; open foo.daf; serve over HTTP` works as long as the
-    unzipped tree is on a writable filesystem at first-open time; an HTTP-served `FilesDaf` placed on a frozen
-    filesystem without `metadata.json` requires one open on a writable filesystem to seed the file.
+    walking the tree on a writable open), subsequent opens consume it directly instead of walking the tree, and an
+    HTTP-served `FilesDaf` can be browsed without per-property `readdir` round-trips. Its content is bijective with the
+    per-property descriptors documented below, and with the same consolidated metadata that [`ZarrDaf`](@ref
+    DataAxesFormats.ZarrFormat.ZarrDaf) embeds in its root `zarr.json` (see the `ZarrDaf` documentation for the formal
+    mapping; [`zarr_to_files`](@ref DataAxesFormats.ZarrConvert.zarr_to_files) and [`files_to_zarr`](@ref
+    DataAxesFormats.ZarrConvert.files_to_zarr) translate between them). The file is a single-line JSON object mapping
+    each property's relative path to its descriptor: `{"<relative_path>":<descriptor>,...}`, where `<relative_path>` is
+    the property's location relative to the root (e.g. `vectors/cell/batch`, `matrices/cell/gene/UMIs`, `axes/cell`,
+    `scalars/version`) and `<descriptor>` is byte-identical to the per-property sidecar JSON content described below
+    (for axes, the descriptor is `{"format":"axis","n_entries":<N>}`). On `set!` the file is appended in place via
+    byte-level surgery: `truncate` the trailing `}` and write `,"<new_path>":<descriptor>}` (or
+    `"<new_path>":<descriptor>}` if the file was the empty object `{}`). On `delete!` the file is rebuilt from scratch
+    by walking the tree.
+
+    This file does NOT exist (or, if it does, is ignored) in a single-file `ZipDaf` repository, because we use the
+    central directory to efficiently access the metadata there, and we want to allow efficient append to the zipped
+    repository. To compensate for this, on *every* open (read or write), if the file is missing or fails to parse we
+    attempt to rebuild it by walking the tree. If it fails because the underlying filesystem is read-only, the error is
+    swallowed for read-only opens. So the workflow `unzip foo.daf.zip; open foo.daf` works as long as the filesystem is
+    writable. This flow is required if you want to serve the data over HTTP as this relies on the metadata file
+    existing.
 
   - The `scalars` directory contains scalar properties, each as in its own `name.json` file, containing a mapping with
     a `type` key whose value is the data type of the scalar (one of the `StorageScalar` types, with `String` for a
@@ -66,13 +76,15 @@ We use multiple files to store `Daf` data, under some root directory, as follows
     how the data is stored on disk, one of `dense` and `sparse`.
 
     If the `format` is `dense`, then there will be a file containing the vector entries, either `name.txt` for strings
-    (with a value per line), or `name.data` for binary data (which we can memory-map for direct access).
+    (with a value per line), `name.data` for flat binary data (which we can memory-map for direct access), or
+    `name.zip` for a packed (chunked + compressed) binary payload (see the packed-property note below).
 
     If the format is `sparse`, then in v1.1 the JSON contains a per-property descriptor for each component:
-    `nzind` and `nzval`, each shaped like a stand-alone dense-vector descriptor (a `format` key holding `"dense"` and
-    an `eltype` key). The component bytes live in `name.nzind` (indices of the non-zero entries) and `name.nzval`
-    (values of the non-zero entries), both memory-mappable. See Julia's `SparseVector` implementation for details.
-    The legacy v1.0 schema instead writes top-level `eltype` and `indtype` keys; the reader accepts both shapes.
+    `nzind` and `nzval`, each shaped like a stand-alone vector descriptor. The component bytes live in `name.nzind`
+    (indices of the non-zero entries) and `name.nzval` (values of the non-zero entries) for flat components, or
+    `name.nzind.zip` / `name.nzval.zip` for packed components (each component is independently packed). Flat
+    components are memory-mappable. See Julia's `SparseVector` implementation for details. The legacy v1.0 schema
+    instead writes top-level `eltype` and `indtype` keys; the reader accepts both shapes.
 
     If the data type is `Bool` then the data vector is typically all-`true` values; in this case we simply skip storing
     it.
@@ -87,14 +99,14 @@ We use multiple files to store `Daf` data, under some root directory, as follows
     `sparse`.
 
     If the `format` is `dense`, then there will be a `name.data` binary file in column-major layout (which we can
-    memory-map for direct access).
+    memory-map for direct access), or a `name.zip` packed shard (see the packed-property note below).
 
     If the format is `sparse`, then in v1.1 the JSON contains a per-property descriptor for each component:
-    `colptr`, `rowval`, and `nzval`, each shaped like a stand-alone dense-vector descriptor (a `format` key holding
-    `"dense"` and an `eltype` key). The component bytes live in `name.colptr`, `name.rowval` (indices of the non-zero
-    values) and `name.nzval` (values of the non-zero entries), all memory-mappable. See Julia's `SparseMatrixCSC`
-    implementation for details. The legacy v1.0 schema instead writes top-level `eltype` and `indtype` keys; the
-    reader accepts both shapes.
+    `colptr`, `rowval`, and `nzval`, each shaped like a stand-alone vector descriptor. The component bytes live in
+    `name.colptr`, `name.rowval` (indices of the non-zero values) and `name.nzval` (values of the non-zero entries)
+    for flat components, or `name.<component>.zip` for packed components. Flat components are memory-mappable. See
+    Julia's `SparseMatrixCSC` implementation for details. The legacy v1.0 schema instead writes top-level `eltype`
+    and `indtype` keys; the reader accepts both shapes.
 
     If the data type is `Bool` then the data vector is typically all-`true` values; in this case we simply skip storing
     it.
@@ -102,6 +114,23 @@ We use multiple files to store `Daf` data, under some root directory, as follows
     We switch to using this sparse format for sufficiently sparse string data (where the zero value is the empty
     string). This isn't supported by `SparseMatrixCSC` because "reasons" so we load it into a dense matrix. In this case
     we name the values file `name.nztxt`.
+
+  - Packed (chunked + compressed) properties carry an extra `"packed_format"` key in their JSON descriptor:
+
+      + `"indexed+zipped"` — produced by this package's writer. The `.zip` payload is a dual-format shard: it is
+        simultaneously a valid ZIP archive (central directory at the tail) and a valid Zarr v3 sharded array (shard
+        index at offset 0), so the very same bytes are readable both ways.
+      + `"zipped"` — a ZIP archive of inner chunks with no leading shard index (e.g. written by a tool that only
+        produced the ZIP framing).
+
+    `FilesDaf` reads packed properties through the ZIP central directory in both cases. We require the central
+    directory entries to be fixed-length and in chunk order, so a chunk's entry is located by index arithmetic
+    rather than by scanning the directory. We also try to stamp each chunk with its codec-specific ZIP method
+    (`93` for zstd, `8` for gzip) so generic ZIP tools that recognise those method codes decompress the chunk to
+    its uncompressed bytes automatically. Codecs with no matching ZIP method (blosc and the bitshuffle variants)
+    are stored with method `0` (STORED); for those shards a final `codec.json` entry records the codec pipeline so
+    an external tool can decode the otherwise-opaque STORED bytes. The packed-shard layout, codec catalogue, and
+    on-disk write protocol are documented in [`PackedFormat`](@ref DataAxesFormats.PackedFormat).
 
 !!! note
 
@@ -140,19 +169,22 @@ Example directory structure:
        ├─ cell/
        │  ├─ cell/
        │  └─ gene/
-       │     ├─ UMIs.json
+       │     ├─ UMIs.json            # sparse, flat components
        │     ├─ UMIs.colptr
        │     ├─ UMIs.rowval
-       │     └─ UMIs.nzval
+       │     ├─ UMIs.nzval
+       │     ├─ fractions.json       # dense, packed
+       │     └─ fractions.zip
        └─ gene/
           ├─ cell/
           └─ gene/
 
 !!! note
 
-    All binary data is stored as a sequence of elements, in little endian byte order (which is the native order for
-    modern CPUs), without any headers or padding. (Dense) matrices are stored in column-major layout (which matches
-    Julia's native matrix layout).
+    Flat (unpacked) binary data is stored as a sequence of elements, in little endian byte order (which is the native
+    order for modern CPUs), without any headers or padding. (Dense) matrices are stored in column-major layout (which
+    matches Julia's native matrix layout). Packed (`.zip`) properties instead use the shard layout documented in
+    [`PackedFormat`](@ref DataAxesFormats.PackedFormat).
 
     All string data is stored in lines, one entry per line, separated by a `\n` character (regardless of the OS used).
     Therefore, you can't have a line break inside an axis entry name or in a vector property value, at least not
@@ -175,8 +207,8 @@ export FilesDaf
 using ..Formats
 using ..LazySparse
 using ..PackedFormat
-using ..ReadOnly
 using ..Readers
+using ..ReadOnly
 using ..Reorder
 using ..StorageTypes
 using ..Writers
@@ -192,10 +224,7 @@ using TanayLabUtilities
 import ..Formats
 import ..Formats.Internal
 import ..Operations.DTYPE_BY_NAME
-import ..PackedFormat.IncrementalShardWriter
-import ..PackedFormat.PackedCodec
-import ..PackedFormat.PackedDaf
-import ..PackedFormat.PackedDenseMatrix
+import ..PackedFormat.ChunkedArray
 import ..PackedFormat.chunks_for
 import ..PackedFormat.compressor_for
 import ..PackedFormat.dense_array_json_bytes
@@ -203,9 +232,11 @@ import ..PackedFormat.eltype_for_descriptor
 import ..PackedFormat.encode_packed_dense_array
 import ..PackedFormat.finalize_shard!
 import ..PackedFormat.flush_packed_dense_matrix!
+import ..PackedFormat.IncrementalShardWriter
+import ..PackedFormat.is_packed_component
 import ..PackedFormat.json_eltype_name
-import ..PackedFormat.open_packed_dense_array
-import ..PackedFormat.open_shard_as_zarray
+import ..PackedFormat.local_chunk_cache_capacity
+import ..PackedFormat.open_packed_shard_from_buffer
 import ..PackedFormat.open_streaming_shard_writer
 import ..PackedFormat.packed_array_json_bytes
 import ..PackedFormat.packed_delete_entry!
@@ -226,7 +257,6 @@ import ..PackedFormat.packed_format_write_sparse_component!
 import ..PackedFormat.packed_format_write_sparse_numeric_matrix!
 import ..PackedFormat.packed_format_write_sparse_numeric_vector!
 import ..PackedFormat.packed_has_entry
-import ..PackedFormat.packed_local_cache_mb
 import ..PackedFormat.packed_make_streaming_shard_writer
 import ..PackedFormat.packed_open_array
 import ..PackedFormat.packed_read_json
@@ -238,6 +268,9 @@ import ..PackedFormat.packed_reserve_typed_matrix!
 import ..PackedFormat.packed_reserve_typed_vector!
 import ..PackedFormat.packed_write_bytes!
 import ..PackedFormat.packed_write_typed_array!
+import ..PackedFormat.PackedCodec
+import ..PackedFormat.PackedDaf
+import ..PackedFormat.PackedDenseMatrix
 import ..PackedFormat.parse_sparse_descriptor
 import ..PackedFormat.sparse_matrix_json_bytes
 import ..PackedFormat.sparse_vector_json_bytes
@@ -347,10 +380,10 @@ function FilesDaf(
 
     if Int(daf_version[1]) != MAJOR_VERSION || Int(daf_version[2]) > MINOR_VERSION
         error(chomp("""
-              incompatible format version: $(daf_version[1]).$(daf_version[2])
-              for the daf directory: $(path)
-              the code supports version: $(MAJOR_VERSION).$(MINOR_VERSION)
-              """))
+                    incompatible format version: $(daf_version[1]).$(daf_version[2])
+                    the code supports version: $(MAJOR_VERSION).$(MINOR_VERSION)
+                    in daf directory: $(path)
+                    """))
     end
 
     if name === nothing
@@ -375,11 +408,11 @@ function FilesDaf(
     return file
 end
 
-function Readers.is_leaf(::FilesDaf)::Bool  # FLAKY TESTED
+function Readers.is_leaf(::FilesDaf)::Bool
     return true
 end
 
-function Readers.is_leaf(::Type{FilesDaf})::Bool  # FLAKY TESTED
+function Readers.is_leaf(::Type{FilesDaf})::Bool
     return true
 end
 
@@ -446,7 +479,7 @@ function Formats.format_has_axis(files::FilesDaf, axis::AbstractString; for_chan
     return cached_ispath("$(files.path)/axes/$(axis).txt")
 end
 
-function write_lines_file(path::AbstractString, lines::AbstractArray{<:AbstractString})::Nothing  # FLAKY TESTED
+function write_lines_file(path::AbstractString, lines::AbstractArray{<:AbstractString})::Nothing
     open(path, "w") do file
         for line in lines
             @assert !contains(line, '\n')
@@ -537,7 +570,7 @@ function Formats.format_set_vector!(
     axis::AbstractString,
     name::AbstractString,
     vector::Union{StorageScalar, StorageVector},
-    packed::Bool,
+    is_packed::Bool,
 )::Nothing
     @assert Formats.has_data_write_lock(files)
     if vector == 0
@@ -547,7 +580,7 @@ function Formats.format_set_vector!(
     # Contract: callers must have invoked `update_before_set_vector` (which delegates to `format_delete_vector!`)
     # before reaching here, so the per-property files have already been removed from disk. The public `set_vector!`
     # path in `writers.jl` does this; any internal caller that reaches this function directly must also do so to
-    # avoid stale `.json` / `.data` / `.txt` / `.shard` / `.nzind*` / `.nzval*` / `.nztxt` files.
+    # avoid stale `.json` / `.data` / `.txt` / `.zip` / `.nzind*` / `.nzval*` / `.nztxt` files.
     base_key = "vectors/$(axis)/$(name)"
     if vector isa AbstractString
         @assert !(contains(vector, '\n'))
@@ -561,14 +594,14 @@ function Formats.format_set_vector!(
 
     elseif issparse(vector)
         flame_timed("FilesDaf.write_sparse_vector") do
-            return packed_format_write_sparse_numeric_vector!(files, axis, name, vector, packed)
+            return packed_format_write_sparse_numeric_vector!(files, axis, name, vector, is_packed)
         end
 
     elseif eltype(vector) <: AbstractString
-        write_string_vector(files, axis, name, vector, packed)
+        write_string_vector(files, axis, name, vector, is_packed)
 
     else
-        chunk_shape = chunks_for(packed, size(vector), eltype(vector))
+        chunk_shape = chunks_for(is_packed, size(vector), eltype(vector))
         if chunk_shape !== nothing
             packed_format_write_dense_array!(files, base_key, vector, chunk_shape)
         else
@@ -581,12 +614,12 @@ function Formats.format_set_vector!(
     return nothing
 end
 
-function write_string_vector( # UNTESTED
+function write_string_vector(
     files::FilesDaf,
     axis::AbstractString,
     name::AbstractString,
     vector::Union{StorageScalar, StorageVector},
-    packed::Bool,
+    is_packed::Bool,
 )::Nothing
     flame_timed("FilesDaf.write_string_vector") do
         n_empty = 0
@@ -610,8 +643,8 @@ function write_string_vector( # UNTESTED
         logical_base = "vectors/$(axis)/$(name)"
         base = "$(files.path)/$(logical_base)"
         if sparse_size <= dense_size * 0.75
-            nzind_chunk_shape = chunks_for(packed, (n_nonempty,), ind_type)
-            nzval_chunk_shape = chunks_for(packed, (n_nonempty,), String)
+            nzind_chunk_shape = chunks_for(is_packed, (n_nonempty,), ind_type)
+            nzval_chunk_shape = chunks_for(is_packed, (n_nonempty,), String)
             write_sparse_vector_json(
                 files,
                 logical_base,
@@ -639,7 +672,7 @@ function write_string_vector( # UNTESTED
             write_sparse_string_nzval(base, nzval_buffer, nzval_chunk_shape)
 
         else
-            write_dense_string_array(files, logical_base, vector, chunks_for(packed, (length(vector),), String))
+            write_dense_string_array(files, logical_base, vector, chunks_for(is_packed, (length(vector),), String))
         end
     end
 
@@ -651,13 +684,20 @@ function Formats.format_get_empty_dense_vector!(
     axis::AbstractString,
     name::AbstractString,
     ::Type{T},
-    packed::Bool,
+    is_packed::Bool,
 )::Tuple{AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal}
     @assert Formats.has_data_write_lock(files)
-    return packed_format_get_empty_dense_vector!(files, axis, name, T, packed, Formats.format_axis_length(files, axis))
+    return packed_format_get_empty_dense_vector!(
+        files,
+        axis,
+        name,
+        T,
+        is_packed,
+        Formats.format_axis_length(files, axis),
+    )
 end
 
-function Formats.format_filled_empty_dense_vector!(  # FLAKY TESTED
+function Formats.format_filled_empty_dense_vector!(
     files::FilesDaf,
     axis::AbstractString,
     name::AbstractString,
@@ -675,13 +715,13 @@ function Formats.format_get_empty_sparse_vector!(
     ::Type{T},
     nnz::StorageInteger,
     ::Type{I},
-    _packed::Bool,
+    _is_packed::Bool,
 )::Tuple{AbstractVector{I}, AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(files)
     return packed_format_get_empty_sparse_vector!(files, axis, name, T, nnz, I)
 end
 
-function Formats.format_filled_empty_sparse_vector!(  # FLAKY TESTED
+function Formats.format_filled_empty_sparse_vector!(
     files::FilesDaf,
     axis::AbstractString,
     name::AbstractString,
@@ -699,7 +739,7 @@ function Formats.format_delete_vector!(
     for_set::Bool,  # NOLINT
 )::Nothing
     @assert Formats.has_data_write_lock(files)
-    for suffix in (".json", ".txt", ".data", ".shard", ".nzind", ".nzind.shard", ".nzval", ".nzval.shard", ".nztxt")
+    for suffix in (".json", ".txt", ".data", ".zip", ".nzind", ".nzind.zip", ".nzval", ".nzval.zip", ".nztxt")
         path = "$(files.path)/vectors/$(axis)/$(name)$(suffix)"
         rm(path; force = true)
         report_modified!(path)
@@ -729,9 +769,8 @@ function Formats.format_get_vector(
     cache_group = Formats.MappedData
     if format == "dense"
         eltype_name = json["eltype"]
-        if get(json, "packed", false) === true
-            vector =
-                packed_open_array(files, "$(base_key).shard", eltype_for_descriptor(eltype_name), json, (Int(size),))
+        if is_packed_component(json)
+            vector = packed_open_array(files, "$(base_key).zip", eltype_for_descriptor(eltype_name), json, (Int(size),))
             cache_group = Formats.MemoryData
         elseif eltype_name == "string" || eltype_name == "String"
             vector, cache_group = packed_read_lines(files, "$(base_key).txt")
@@ -753,7 +792,7 @@ function Formats.format_get_vector(
             vector = Vector{AbstractString}(undef, size)
             fill!(vector, "")
             nzval_descriptor = haskey(json, "nzval") ? json["nzval"] : Dict("format" => "dense", "eltype" => "String")
-            if get(nzval_descriptor, "packed", false) === true
+            if is_packed_component(nzval_descriptor)
                 nzval_strings, _, _, _ = packed_format_open_sparse_component_eager(
                     files,
                     base_key,
@@ -772,13 +811,12 @@ function Formats.format_get_vector(
         else
             eltype = eltype_for_descriptor(eltype_name)
             nzind_descriptor = get(json, "nzind", nothing)
-            nzind_packed = nzind_descriptor isa AbstractDict && get(nzind_descriptor, "packed", false) === true
+            is_nzind_packed = is_packed_component(nzind_descriptor)
             nzval_descriptor = get(json, "nzval", nothing)
-            nzval_packed = nzval_descriptor isa AbstractDict && get(nzval_descriptor, "packed", false) === true
-            nzval_present =
-                packed_has_entry(files, "$(base_key).nzval") || packed_has_entry(files, "$(base_key).nzval.shard")
+            nzval_present = nzval_descriptor !== nothing || haskey(json, "eltype")
+            is_nzval_packed = is_packed_component(nzval_descriptor)
 
-            if nzind_packed || nzval_packed
+            if is_nzind_packed || is_nzval_packed
                 nzind_source, _, nnz, _ =
                     packed_format_open_sparse_component_source(files, base_key, "nzind", ind_type, json, nothing)
                 nzval_source = if nzval_present
@@ -828,7 +866,7 @@ function Formats.format_set_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     matrix::Union{StorageScalarBase, StorageMatrix},
-    packed::Bool,
+    is_packed::Bool,
 )::Nothing
     @assert Formats.has_data_write_lock(files)
     nrows = Formats.format_axis_length(files, rows_axis)
@@ -856,15 +894,15 @@ function Formats.format_set_matrix!(
     elseif issparse(matrix)
         @assert matrix isa AbstractMatrix
         flame_timed("FilesDaf.write_sparse_matrix") do
-            return packed_format_write_sparse_numeric_matrix!(files, rows_axis, columns_axis, name, matrix, packed)
+            return packed_format_write_sparse_numeric_matrix!(files, rows_axis, columns_axis, name, matrix, is_packed)
         end
 
     elseif eltype(matrix) <: AbstractString
-        write_string_matrix(files, rows_axis, columns_axis, name, matrix, packed)  # NOJET
+        write_string_matrix(files, rows_axis, columns_axis, name, matrix, is_packed)  # NOJET
 
     else
         @assert eltype(matrix) <: Real
-        chunk_shape = chunks_for(packed, (nrows, ncols), eltype(matrix))
+        chunk_shape = chunks_for(is_packed, (nrows, ncols), eltype(matrix))
         if chunk_shape !== nothing
             packed_format_write_dense_array!(files, base_key, matrix, chunk_shape)
         else
@@ -883,7 +921,7 @@ function write_string_matrix(
     columns_axis::AbstractString,
     name::AbstractString,
     matrix::AbstractMatrix{<:AbstractString},
-    packed::Bool,
+    is_packed::Bool,
 )::Nothing
     nrows, ncols = size(matrix)
 
@@ -909,9 +947,9 @@ function write_string_matrix(
     logical_base = "matrices/$(rows_axis)/$(columns_axis)/$(name)"
     base = "$(files.path)/$(logical_base)"
     if sparse_size <= dense_size * 0.75
-        colptr_chunk_shape = chunks_for(packed, (ncols + 1,), ind_type)
-        rowval_chunk_shape = chunks_for(packed, (n_nonempty,), ind_type)
-        nzval_chunk_shape = chunks_for(packed, (n_nonempty,), String)
+        colptr_chunk_shape = chunks_for(is_packed, (ncols + 1,), ind_type)
+        rowval_chunk_shape = chunks_for(is_packed, (n_nonempty,), ind_type)
+        nzval_chunk_shape = chunks_for(is_packed, (n_nonempty,), String)
         write_sparse_matrix_json(
             files,
             logical_base,
@@ -952,7 +990,7 @@ function write_string_matrix(
         end
 
     else
-        write_dense_string_array(files, logical_base, matrix, chunks_for(packed, (nrows, ncols), String))
+        write_dense_string_array(files, logical_base, matrix, chunks_for(is_packed, (nrows, ncols), String))
     end
 
     return nothing
@@ -964,15 +1002,15 @@ function Formats.format_get_empty_dense_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     ::Type{T},
-    packed::Bool,
+    is_packed::Bool,
 )::Tuple{AbstractMatrix{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal}
     @assert Formats.has_data_write_lock(files)
     nrows = Formats.format_axis_length(files, rows_axis)
     ncols = Formats.format_axis_length(files, columns_axis)
-    return packed_format_get_empty_dense_matrix!(files, rows_axis, columns_axis, name, T, packed, nrows, ncols)
+    return packed_format_get_empty_dense_matrix!(files, rows_axis, columns_axis, name, T, is_packed, nrows, ncols)
 end
 
-function Formats.format_filled_empty_dense_matrix!(  # FLAKY TESTED
+function Formats.format_filled_empty_dense_matrix!(
     files::FilesDaf,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
@@ -992,7 +1030,7 @@ function Formats.format_get_empty_sparse_matrix!(
     ::Type{T},
     nnz::StorageInteger,
     ::Type{I},
-    _packed::Bool,
+    _is_packed::Bool,
 )::Tuple{
     AbstractVector{I},
     AbstractVector{I},
@@ -1004,7 +1042,7 @@ function Formats.format_get_empty_sparse_matrix!(
     return packed_format_get_empty_sparse_matrix!(files, rows_axis, columns_axis, name, T, nnz, I, ncols)
 end
 
-function Formats.format_filled_empty_sparse_matrix!(  # FLAKY TESTED
+function Formats.format_filled_empty_sparse_matrix!(
     files::FilesDaf,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
@@ -1022,7 +1060,7 @@ function Formats.format_relayout_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     matrix::StorageMatrix,
-    packed::Bool,
+    is_packed::Bool,
 )::StorageMatrix
     @assert Formats.has_data_write_lock(files)
 
@@ -1035,7 +1073,7 @@ function Formats.format_relayout_matrix!(
             eltype(matrix),
             nnz(matrix),
             eltype(matrix.colptr),
-            packed,
+            is_packed,
         )
         flame_timed("FilesDaf.init_empty_sparse_matrix") do
             colptr[1] = 1
@@ -1047,12 +1085,12 @@ function Formats.format_relayout_matrix!(
 
     elseif eltype(matrix) <: AbstractString
         relayout_matrix = flipped(matrix)
-        write_string_matrix(files, columns_axis, rows_axis, name, relayout_matrix, packed)
+        write_string_matrix(files, columns_axis, rows_axis, name, relayout_matrix, is_packed)
 
     else
         @assert eltype(matrix) <: Real
         relayout_matrix, _ =
-            Formats.format_get_empty_dense_matrix!(files, columns_axis, rows_axis, name, eltype(matrix), packed)
+            Formats.format_get_empty_dense_matrix!(files, columns_axis, rows_axis, name, eltype(matrix), is_packed)
         relayout!(flip(relayout_matrix), matrix)
     end
     return relayout_matrix
@@ -1070,13 +1108,13 @@ function Formats.format_delete_matrix!(
         ".json",
         ".data",
         ".txt",
-        ".shard",
+        ".zip",
         ".colptr",
-        ".colptr.shard",
+        ".colptr.zip",
         ".rowval",
-        ".rowval.shard",
+        ".rowval.zip",
         ".nzval",
-        ".nzval.shard",
+        ".nzval.zip",
         ".nztxt",
     )
         path = "$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name)$(suffix)"
@@ -1115,10 +1153,10 @@ function Formats.format_get_matrix(
     cache_group = Formats.MappedData
     if format == "dense"
         eltype_name = json["eltype"]
-        if get(json, "packed", false) === true
+        if is_packed_component(json)
             matrix = packed_open_array(
                 files,
-                "$(base_key).shard",
+                "$(base_key).zip",
                 eltype_for_descriptor(eltype_name),
                 json,
                 (Int(nrows), Int(ncols)),
@@ -1155,7 +1193,7 @@ function Formats.format_get_matrix(
             # Defensive packed-`nzval` arm: current writers always emit `.nztxt` for string-sparse matrices, but the
             # reader supports a hand-authored or future layout that packs the per-row strings into a v3 shard.
             nzval_descriptor = haskey(json, "nzval") ? json["nzval"] : Dict("format" => "dense", "eltype" => "String")
-            nzval_strings = if get(nzval_descriptor, "packed", false) === true
+            nzval_strings = if is_packed_component(nzval_descriptor)
                 buffer, _, _, _ = packed_format_open_sparse_component_eager(files, base_key, "nzval", String, json, nnz)  # UNTESTED
                 buffer  # UNTESTED
             else
@@ -1176,13 +1214,12 @@ function Formats.format_get_matrix(
         else
             eltype = eltype_for_descriptor(eltype_name)
             rowval_descriptor = get(json, "rowval", nothing)
-            rowval_packed = rowval_descriptor isa AbstractDict && get(rowval_descriptor, "packed", false) === true
+            is_rowval_packed = is_packed_component(rowval_descriptor)
             nzval_descriptor = get(json, "nzval", nothing)
-            nzval_packed = nzval_descriptor isa AbstractDict && get(nzval_descriptor, "packed", false) === true
-            nzval_present =
-                packed_has_entry(files, "$(base_key).nzval") || packed_has_entry(files, "$(base_key).nzval.shard")
+            nzval_present = nzval_descriptor !== nothing || haskey(json, "eltype")
+            is_nzval_packed = is_packed_component(nzval_descriptor)
 
-            if rowval_packed || nzval_packed
+            if is_rowval_packed || is_nzval_packed
                 rowval_source, _, nnz, _ =
                     packed_format_open_sparse_component_source(files, base_key, "rowval", ind_type, json, nothing)
                 nzval_source = if nzval_present
@@ -1296,18 +1333,14 @@ function write_zeros_file(path::AbstractString, size::Integer)::Nothing
     return nothing
 end
 
-function write_dense_array_json(  # UNTESTED
-    files::FilesDaf,
-    key::AbstractString,
-    eltype::Type{<:StorageScalarBase},
-)::Nothing
+function write_dense_array_json(files::FilesDaf, key::AbstractString, eltype::Type{<:StorageScalarBase})::Nothing
     flame_timed("FilesDaf.write_dense_array_json") do
         return write_property_json!(files, key, dense_array_json_bytes(eltype))
     end
     return nothing
 end
 
-function write_packed_array_json(  # UNTESTED
+function write_packed_array_json(
     files::FilesDaf,
     key::AbstractString,
     eltype::Type{<:StorageScalarBase},
@@ -1374,7 +1407,7 @@ function write_property_json!(files::FilesDaf, key::AbstractString, descriptor::
 end
 
 # Write a dense string property as either the flat `<base>.txt` line-per-element file or the packed
-# `<base>.shard` v3 sharded-array bytes, plus its JSON descriptor at `<base>.json`.
+# `<base>.zip` v3 sharded-array bytes, plus its JSON descriptor at `<base>.json`.
 function write_dense_string_array(
     files::FilesDaf,
     key::AbstractString,
@@ -1387,8 +1420,8 @@ function write_dense_string_array(
         write_lines_file("$(base_path).txt", data)
     else
         codec = compressor_for()
-        encoded = encode_packed_dense_array(data, chunk_shape, v3_bytes_codecs_for(codec, T), :end)
-        shard_path = "$(base_path).shard"
+        encoded = encode_packed_dense_array(data, chunk_shape, v3_bytes_codecs_for(codec, T))
+        shard_path = "$(base_path).zip"
         open(io -> write(io, encoded), shard_path, "w")
         report_modified!(shard_path)
         write_packed_array_json(files, key, T, chunk_shape, codec)
@@ -1397,7 +1430,7 @@ function write_dense_string_array(
 end
 
 # Write the `nzval` component of a sparse string property either flat at `<base>.nztxt` (line-per-nonzero) or
-# packed at `<base>.nzval.shard` (v3 shard via `VLenUTF8V3Codec`).
+# packed at `<base>.nzval.zip` (v3 shard via `VLenUTF8V3Codec`).
 function write_sparse_string_nzval(
     base_path::AbstractString,
     nzval_buffer::AbstractVector{T},
@@ -1414,8 +1447,8 @@ function write_sparse_string_nzval(
         end
         report_modified!(nztxt_path)
     else
-        shard_path = "$(base_path).nzval.shard"
-        encoded = encode_packed_dense_array(nzval_buffer, chunk_shape, v3_bytes_codecs_for(compressor_for(), T), :end)
+        shard_path = "$(base_path).nzval.zip"
+        encoded = encode_packed_dense_array(nzval_buffer, chunk_shape, v3_bytes_codecs_for(compressor_for(), T))
         open(io -> write(io, encoded), shard_path, "w")
         report_modified!(shard_path)
     end
@@ -1498,8 +1531,9 @@ function packed_open_array(
     ::Type{T},
     descriptor::AbstractDict,
     dims::NTuple{N, Int},
-)::DiskArrays.CachedDiskArray where {T, N}
-    return open_packed_dense_array("$(files.path)/$(shard_key)", T, descriptor, dims)
+)::ChunkedArray{T, N} where {T, N}
+    mmap_bytes = open(io -> Mmap.mmap(io, Vector{UInt8}), "$(files.path)/$(shard_key)", "r")
+    return open_packed_shard_from_buffer(mmap_bytes, T, descriptor, dims)
 end
 
 function packed_reserve_typed_vector!(
@@ -1534,11 +1568,11 @@ function packed_make_streaming_shard_writer(
     files::FilesDaf,
     shard_key::AbstractString,
     ::Type{T},
-    n_chunks::Integer,
+    chunks_per_shard::Tuple,
     ::NTuple{2, Int},
     codec::PackedCodec,
 )::IncrementalShardWriter where {T <: StorageReal}
-    return open_streaming_shard_writer("$(files.path)/$(shard_key)", T, Int(n_chunks), v3_bytes_codecs_for(codec, T))
+    return open_streaming_shard_writer("$(files.path)/$(shard_key)", T, chunks_per_shard, v3_bytes_codecs_for(codec, T))
 end
 
 # Append `"key":<descriptor>` to `metadata.json` via byte-level surgery on the trailing `}`. A trailing newline in
@@ -1669,7 +1703,7 @@ function ensure_metadata_json!(files::FilesDaf)::Nothing
         try
             JSON.parsefile(metadata_path)
             is_parseable = true
-        catch  # FLAKY TESTED
+        catch  # ONLY SEEMS UNTESTED
             # Torn write or corruption — fall through to rebuild.
         end
         if is_parseable
@@ -1678,7 +1712,7 @@ function ensure_metadata_json!(files::FilesDaf)::Nothing
     end
     try
         metadata_json_rebuild!(files)
-    catch  # FLAKY TESTED
+    catch
         if files.mode == "r"  # UNTESTED
             return nothing  # UNTESTED
         end
@@ -1695,13 +1729,13 @@ const REORDER_MATRIX_SUFFIXES = (
     ".json",
     ".data",
     ".txt",
-    ".shard",
+    ".zip",
     ".colptr",
-    ".colptr.shard",
+    ".colptr.zip",
     ".rowval",
-    ".rowval.shard",
+    ".rowval.zip",
     ".nzval",
-    ".nzval.shard",
+    ".nzval.zip",
     ".nztxt",
 )
 

@@ -9,7 +9,7 @@ use cases were the driving force for the development of `Daf`.
 The key features of `Daf` are:
 
   - Support multiple storage formats: in-memory, and persistent via a collection simple disk files, a single zip file,
-    inside [H5FS](https://hdfgroup.org/) files, and using Zarr format(s).
+    inside [H5FS](https://hdfgroup.org/) files, and using [Zarr](https://zarr.dev/) format(s).
 
   - Allows accessing remote repositories (in files or Zarr DirectoryStore) over HTTP/S.
 
@@ -21,7 +21,8 @@ The key features of `Daf` are:
 
   - Supports reordering the data so that access becomes even more efficient.
 
-  - Allow importing and exporting `AnnData` objects (e.g., using `h5ad` files).
+  - Allow importing and exporting `AnnData` objects (e.g., using `h5ad` files). There's no `AnnData` backend as this
+    format isn't expressive enough for most purposes.
 
   - The implementation is thread-safe, using read/write locks, to allow safe and efficient parallel processing.
     Read/write locks allow safe write operations from any thread.
@@ -39,7 +40,7 @@ The key features of `Daf` are:
     data indexed by a pair of axes, and also (4) scalar data (anything not tied to some axis).
 
   - The common case where one axis is a group of another is explicitly supported (e.g., storing a type for each cell,
-    and having a type axis).
+    and having a type axis with per-type properties, such as color).
 
   - A simple query language allows for common operations such as accessing subsets of the data ("age of all cells which
     aren't doublets") or group data ("color of type of cell") or aggregate data ("mean age of cells of batch").
@@ -53,12 +54,12 @@ The key features of `Daf` are:
     `pandas` vector and matrix types. WIP: Implement a similar R package using
     [JuliaCall](https://libraries.io/cran/JuliaCall) to allow direct access to `DataAxesFormats` from R code.
 
-See the [v0.2.0 documentation](https://tanaylab.github.io/DataAxesFormats.jl/v0.2.0) for details.
+See the [v0.3.0 documentation](https://tanaylab.github.io/DataAxesFormats.jl/v0.3.0) for details.
 
 ## Status
 
-Version 0.2.0 is an alpha release. We hope it is feature complete and have started using it for internal projects.
-However, everything is subject to change based on user feedback (so don't be shy). Comments, bug reports and PRs are
+Version 0.3.0 is a beta release. We hope it is feature complete and has a stable API. We have started using it for
+internal projects. Zarr / ZIP / HTTP/S format support hasn't been heavily tested. Comments, bug reports and PRs are
 welcome!
 
 ## Motivation
@@ -116,11 +117,20 @@ archive file format. This may actually end up being faster as this allows compre
 transmission or archiving. Besides, due to the limitations of `AnnData`, one often has to send multiple files for a
 complete data set anyway.
 
+`Daf` also supports [Zarr](https://zarr.dev/) as a backend. This allows using Zarr's directory storage (very similar to
+our simple files storage format). Since the formats are very close to each other, it is possible to take one and create
+a view of it as the other, hard-linking all the binary data files (only metadata and file paths need to be adjusted).
+Still, both are supported as each offers (slightly) different trade-offs. Both formats allow being served over HTTP/S,
+and being stored in a single ZIP file (while maintaining memory-mapping performance benefits). However the ZIP files are
+read-mostly (they only allow appending new data).
+
 `Daf` also provides a simple in-memory storage format, which is a very efficient and lightweight container (similar to
 an in-memory `AnnData` object).
 
-Since `AnnData` is used by many existing tools, `Daf` allows exporting (a subset of) a data set into `AnnData`, and
-present an `AnnData` data set as a (restricted) `Daf` data set.
+All the above makes using `AnnData` pretty useless for our needs. However `AnnData` is used by many existing tools, so
+`Daf` allows importing from it and exporting (a subset of) a data set into it. The Python `Daf` wrappers also allow
+presenting a (subset of a) `Daf` repository as an `AnnData` object so it can be passed directly to code expecting an
+`AnnData` object.
 
 It is possible to create zero-copy views of `Daf` data (slicing, renaming and hiding axes and/or specific properties),
 and to copy `Daf` data from one data set to another. `Daf` also allows chaining data sets, for example storing
@@ -129,7 +139,7 @@ alternative clustering options in separates (small) data sets, next to the clust
 amounts of data just to mold it to the form needed by some computational tool.
 
 It is assumed that `Daf` data will be processed in a single machine, that is, `Daf` does not try to address the issues
-of a distributed cluster of servers working on a shared data set. Today's servers (as of 2023) can get very big (~100
+of a distributed cluster of servers working on a shared data set. Today's servers (as of 2026) can get very big (~100
 cores and ~1TB of RAM is practical), which means that all/most data sets would fit comfortably in one machine (and
 memory mapped files are a great help here). In addition, if using the "files" storage, it is possible to have different
 servers access the same `Daf` directory, each computing a different independent additional annotation (e.g., one server
@@ -143,6 +153,36 @@ storage, which can be persisted in any "reasonable" storage format, allowing eff
 code to naturally access and/or write only the data it needs, even for higher-level analysis pipeline, for small to
 "very large" (but not for "ludicrously large") data sets. `Daf` can import and export `AnnData` data sets for
 interoperability with legacy computation pipelines.
+
+## Packed vs. staged-unpacked
+
+`Daf` data sets can be written packed (chunked + compressed) or unpacked (single-chunk uncompressed); the choice
+optimises for different bottlenecks. **The rule: pick the format that matches where the data actually lives.** Packed
+for slow tiers, unpacked on fast local SSD if you can stage it. Neither side is the blanket default.
+
+Packed wins for data on slow storage (NFS / HTTP / mechanical disks): the wire transfer compresses 2–10×, chunked access
+only fetches the chunks the workload touches, and chunk-cache amortisation pays for itself when round-trip latency
+dominates.
+
+Unpacked-on-local-SSD wins for compute-intensive work on data that fits on a fast local drive: mmap-strided fast path,
+full `@turbo` / `LoopVectorization` / BLAS support, no chunk-cache `SpinLock` contention on many-core boxes, NVMe
+bandwidth (~3–7 GB/s) outruns zstd decompression speed (~500 MB/s/core).
+
+You can use the "stage to local" idiom — open the packed source, copy once to a local unpacked daf via `copy_all!`, then
+run compute against the staged copy:
+
+```julia
+using DataAxesFormats
+
+remote = open_daf("https://example.com/dataset")  # packed remote source
+local_dir = tempname() * ".daf"
+staged = open_daf(local_dir, "w+"; packed = false)
+copy_all!(; destination = staged, source = remote)
+
+# Compute against `staged` here, with full mmap-strided fast path, no SpinLock contention, full @turbo / BLAS support ...
+```
+
+See `docs/copies.md` for the full reasoning and per-tier breakdown.
 
 ## Installation
 
@@ -184,7 +224,7 @@ modest amount of data and is useful for tracking what is being computed in compl
 
 ## License (MIT)
 
-Copyright © 2023-2025 Weizmann Institute of Science
+Copyright © 2023-2026 Weizmann Institute of Science
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the Software without restriction, including without limitation the

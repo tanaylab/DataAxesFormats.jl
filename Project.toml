@@ -1,10 +1,14 @@
 name = "DataAxesFormats"
 uuid = "1375bf9c-a47d-45a1-aad5-626dd8629d98"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Oren Ben-Kiki <oren@ben-kiki.org>"]
 
 [deps]
+Base64 = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 CategoricalArrays = "324d7699-5711-5eae-9e2f-1d82baa6b597"
+CodecBzip2 = "523fee87-0ab8-5b00-afb7-3ecf72e48cfd"
+CodecZlib = "944b1d66-785c-5afd-91f1-9de20f533193"
+CodecZstd = "6b39b394-51ab-5f42-8807-6242bab2b4c2"
 ConcurrentUtils = "3df5f688-6c4c-4767-8685-17f5ad261477"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 DiskArrays = "3c3547ce-8d99-4f5e-a174-61eb10b00ae3"
@@ -37,6 +41,9 @@ ZipArchives = "49080126-0e18-4c2a-b176-c102e4b3760c"
 
 [compat]
 CategoricalArrays = "0.10"
+CodecBzip2 = "0.8.5"
+CodecZlib = "0.7"
+CodecZstd = "0.8.7"
 ConcurrentUtils = "0.1.0"
 DataFrames = "1.8.2"
 DiskArrays = "0.4.19"

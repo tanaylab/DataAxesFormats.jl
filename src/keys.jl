@@ -59,19 +59,19 @@ DataKey = Union{PropertyKey, TensorKey}
 """
 Convert a dictionary, a vector of pairs, or a named tuple to a dictionary. Returns `nothing` for `nothing`.
 """
-function pairs_as_dict(pairs_input::AbstractDict)::AbstractDict  # FLAKY TESTED
+function pairs_as_dict(pairs_input::AbstractDict)::AbstractDict
     return pairs_input
 end
 
-function pairs_as_dict(pairs_input::AbstractVector)::Dict{Any, Any}  # FLAKY TESTED
+function pairs_as_dict(pairs_input::AbstractVector)::Dict{Any, Any}
     return Dict{Any, Any}(pairs_input)
 end
 
-function pairs_as_dict(pairs_input::NamedTuple)::Dict{AbstractString, Any}  # FLAKY TESTED
+function pairs_as_dict(pairs_input::NamedTuple)::Dict{AbstractString, Any}
     return Dict{AbstractString, Any}(String(key) => value for (key, value) in pairs(pairs_input))
 end
 
-function pairs_as_dict(::Nothing)::Nothing  # FLAKY TESTED
+function pairs_as_dict(::Nothing)::Nothing
     return nothing
 end
 

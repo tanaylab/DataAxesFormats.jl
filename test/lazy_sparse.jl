@@ -390,6 +390,24 @@ nested_test("lazy_sparse") do
             @test vector[3] == Float32(0.0)
             return nothing
         end
+
+        # Contiguous-range slice → `RangeOf` selection → `materialize_slab`'s binary-search slab branch (the only
+        # path that avoids reading the full `nzind_source` / `nzval_source` for a sliced lazy sparse vector).
+        nested_test("materialise_range_slab") do
+            vector = LazySparseVector(10, Int32[2, 5, 8], Float32[20.0, 50.0, 80.0])
+            sliced = vector[4:7]
+            @test SparseVector(sliced) == SparseVector(4, [2], Float32[50.0])
+            return nothing
+        end
+
+        # `RangeOf` selection that contains no non-zero indices → `materialize_slab` returns empty buffers
+        # without reading any source bytes.
+        nested_test("materialise_empty_range_slab") do
+            vector = LazySparseVector(10, Int32[2, 5, 8], Float32[20.0, 50.0, 80.0])
+            sliced = vector[3:4]
+            @test SparseVector(sliced) == SparseVector(2, Int[], Float32[])
+            return nothing
+        end
     end
 
     # `format_get_matrix` for a packed sparse property routes through `LazySparseMatrix` on every backend that
@@ -704,9 +722,9 @@ nested_test("lazy_sparse") do
             end
         end
 
-        # `HttpDaf` exercises the lazy path two ways: a `packed = true` daf produces sharded `.shard` components
-        # opened as `HttpPackedDenseArray`; a `packed = false` daf produces flat `.nzind` / `.nzval` files served
-        # over `Range` GETs as `HttpStripedVector`. Either lazy source kind triggers `LazySparseVector`.
+        # `HttpDaf` exercises the lazy path two ways: a `packed = true` daf produces sharded `.zip` components
+        # opened as `PackedDenseArray`; a `packed = false` daf produces flat `.nzind` / `.nzval` files served
+        # over `Range` GETs as `StripedVector`. Either lazy source kind triggers `LazySparseVector`.
         nested_test("http") do
             function serve_files_daf(action::Function, path::AbstractString, packed::Bool)::Nothing
                 files_path = joinpath(path, "served.daf")
@@ -764,6 +782,25 @@ nested_test("lazy_sparse") do
                 end
             end
 
+            # All-`true` Bool sparse vector over HTTP — writer omits `nzval` on disk and the read path
+            # synthesises `fill(true, nnz)` in the lazy `LazySparseVector` arm of HttpDaf's sparse reader.
+            nested_test("packed_all_true_bool_returns_lazy") do
+                mktempdir() do path
+                    serve_files_daf(path, true) do writer, url
+                        n_elements = 8192
+                        nnz_total = 2048
+                        indices = Int32.(1:nnz_total)
+                        original = SparseVector{Bool, Int32}(n_elements, indices, fill(true, nnz_total))
+                        add_axis!(writer, "row", ["r$(index)" for index in 1:n_elements])
+                        set_vector!(writer, "row", "data", original)
+                        roundtripped = get_vector(HttpDaf(url), "row", "data")
+                        @test SparseVector(parent(roundtripped)) == original
+                        return nothing
+                    end
+                    return nothing
+                end
+            end
+
             nested_test("below_threshold_returns_eager") do
                 mktempdir() do path
                     serve_files_daf(path, false) do writer, url
@@ -771,6 +808,66 @@ nested_test("lazy_sparse") do
                         add_axis!(writer, "row", ["r1", "r2", "r3", "r4"])
                         set_vector!(writer, "row", "data", original)
                         check_eager_vector_below_threshold_read(HttpDaf(url), original)
+                        return nothing
+                    end
+                    return nothing
+                end
+            end
+        end
+
+        # `ZarrDaf` over HTTP exercises the same `LazySparseVector` path as `HttpDaf`, only the on-disk layout
+        # differs: each sparse component is a Zarr `nzind` / `nzval` sub-array whose chunks are fetched via the
+        # `array_as_vector` HTTP dispatch (`PackedDenseArray` for packed components, `StripedVector` for
+        # flat-and-above-threshold components).
+        nested_test("zarr_http") do
+            function serve_zarr_daf(action::Function, path::AbstractString, packed::Bool)::Nothing
+                zarr_path = joinpath(path, "served.daf.zarr")
+                writer = ZarrDaf(zarr_path, "w+"; name = "lazy_zarr_http!", packed)
+                store = Zarr.DirectoryStore(zarr_path)
+                handler = request -> begin
+                    key = String(lstrip(request.target, '/'))
+                    if occursin("..", key)
+                        return HTTP.Response(404, "Error: bad key $(key)")  # UNTESTED
+                    end
+                    bytes = store[key]
+                    if bytes === nothing
+                        return HTTP.Response(404, "Error: Key $(key) not found")  # UNTESTED
+                    end
+                    return respond_with_range(bytes, request)
+                end
+                server = HTTP.serve!(handler, Sockets.localhost, 0; listenany = true)
+                try
+                    url = "http://localhost:$(server.listener.hostport)"
+                    action(writer, url)
+                finally
+                    close(server)
+                end
+                return nothing
+            end
+
+            nested_test("packed_returns_lazy") do
+                mktempdir() do path
+                    serve_zarr_daf(path, true) do writer, url
+                        n_elements = 8192
+                        indices = Int32[index for index in 1:n_elements]
+                        values = Float32[index for index in 1:n_elements]
+                        original = SparseVector{Float32, Int32}(n_elements, indices, values)
+                        add_axis!(writer, "row", ["r$(index)" for index in 1:n_elements])
+                        set_vector!(writer, "row", "data", original)
+                        check_packed_lazy_vector_read(ZarrDaf(url), original)
+                        return nothing
+                    end
+                    return nothing
+                end
+            end
+
+            nested_test("below_threshold_returns_eager") do
+                mktempdir() do path
+                    serve_zarr_daf(path, false) do writer, url
+                        original = SparseVector{Float32, Int32}(4, Int32[2, 4], Float32[10.0, 20.0])
+                        add_axis!(writer, "row", ["r1", "r2", "r3", "r4"])
+                        set_vector!(writer, "row", "data", original)
+                        check_eager_vector_below_threshold_read(ZarrDaf(url), original)
                         return nothing
                     end
                     return nothing

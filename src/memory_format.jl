@@ -69,11 +69,11 @@ function MemoryDaf(; name::AbstractString = "memory", packed::Bool = false)::Mem
     return memory
 end
 
-function Readers.is_leaf(::MemoryDaf)::Bool  # FLAKY TESTED
+function Readers.is_leaf(::MemoryDaf)::Bool
     return true
 end
 
-function Readers.is_leaf(::Type{MemoryDaf})::Bool  # FLAKY TESTED
+function Readers.is_leaf(::Type{MemoryDaf})::Bool
     return true
 end
 
@@ -175,7 +175,7 @@ function Formats.format_set_vector!(
     axis::AbstractString,
     name::AbstractString,
     vector::Union{StorageScalar, StorageVector},
-    _packed::Bool,  # NOLINT
+    _is_packed::Bool,  # NOLINT
 )::Nothing
     @assert Formats.has_data_write_lock(memory)
     if vector isa StorageVector
@@ -194,7 +194,7 @@ function Formats.format_get_empty_dense_vector!(
     axis::AbstractString,
     name::AbstractString,
     ::Type{T},
-    _packed::Bool,
+    _is_packed::Bool,
 )::Tuple{AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal}
     @assert Formats.has_data_write_lock(memory)
     nelements = Formats.format_axis_length(memory, axis)
@@ -210,7 +210,7 @@ function Formats.format_get_empty_sparse_vector!(
     ::Type{T},
     nnz::StorageInteger,
     ::Type{I},
-    _packed::Bool,
+    _is_packed::Bool,
 )::Tuple{AbstractVector{I}, AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(memory)
     nzind = Vector{I}(undef, nnz)
@@ -270,7 +270,7 @@ function Formats.format_set_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     matrix::Union{StorageScalarBase, StorageMatrix},
-    _packed::Bool,  # NOLINT
+    _is_packed::Bool,  # NOLINT
 )::Nothing
     @assert Formats.has_data_write_lock(memory)
     if matrix isa StorageMatrix
@@ -298,7 +298,7 @@ function Formats.format_get_empty_dense_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     ::Type{T},
-    _packed::Bool,
+    _is_packed::Bool,
 )::Tuple{AbstractMatrix{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal}
     @assert Formats.has_data_write_lock(memory)
     nrows = Formats.format_axis_length(memory, rows_axis)
@@ -316,7 +316,7 @@ function Formats.format_get_empty_sparse_matrix!(
     ::Type{T},
     nnz::StorageInteger,
     ::Type{I},
-    _packed::Bool,
+    _is_packed::Bool,
 )::Tuple{
     AbstractVector{I},
     AbstractVector{I},
@@ -350,11 +350,11 @@ function Formats.format_relayout_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     matrix::StorageMatrix,
-    packed::Bool,
+    is_packed::Bool,
 )::StorageMatrix
     @assert Formats.has_data_write_lock(memory)
     matrix = flipped(matrix)
-    Formats.format_set_matrix!(memory, columns_axis, rows_axis, name, matrix, packed)
+    Formats.format_set_matrix!(memory, columns_axis, rows_axis, name, matrix, is_packed)
     return matrix
 end
 
@@ -563,14 +563,14 @@ function Reorder.format_replace_reorder!(
     return nothing
 end
 
-function Reorder.format_cleanup_reorder!(memory::MemoryDaf)::Nothing  # FLAKY TESTED
+function Reorder.format_cleanup_reorder!(memory::MemoryDaf)::Nothing
     @assert Formats.has_data_write_lock(memory)
     @assert memory.reorder_backup !== nothing
     memory.reorder_backup = nothing
     return nothing
 end
 
-function Reorder.format_has_reorder_lock(memory::MemoryDaf)::Bool  # FLAKY TESTED
+function Reorder.format_has_reorder_lock(memory::MemoryDaf)::Bool
     @assert Formats.has_data_write_lock(memory)
     return memory.reorder_backup !== nothing
 end

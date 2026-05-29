@@ -307,7 +307,7 @@ function verify_are_empty(
     return nothing
 end
 
-function report_unsupported( # UNTESTED
+function report_unsupported(
     name::AbstractString,
     unsupported_handler::AbnormalHandler,
     message::AbstractString,

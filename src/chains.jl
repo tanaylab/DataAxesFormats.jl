@@ -430,13 +430,13 @@ function Formats.format_set_vector!(
     axis::AbstractString,
     name::AbstractString,
     vector::Union{StorageScalar, StorageVector},
-    packed::Bool,
+    is_packed::Bool,
 )::Nothing
     @assert Formats.has_data_write_lock(chain)
     if !Formats.format_has_axis(chain.daf, axis; for_change = false)
         add_axis!(chain.daf, axis, Formats.get_axis_vector_through_cache(chain, axis))
     end
-    Formats.format_set_vector!(chain.daf, axis, name, vector, packed)
+    Formats.format_set_vector!(chain.daf, axis, name, vector, is_packed)
     return nothing
 end
 
@@ -445,13 +445,13 @@ function Formats.format_get_empty_dense_vector!(
     axis::AbstractString,
     name::AbstractString,
     eltype::Type{T},
-    packed::Bool,
+    is_packed::Bool,
 )::Tuple{AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal}
     @assert Formats.has_data_write_lock(chain)
     if !Formats.format_has_axis(chain.daf, axis; for_change = false)
         add_axis!(chain.daf, axis, Formats.get_axis_vector_through_cache(chain, axis))
     end
-    return Formats.format_get_empty_dense_vector!(chain.daf, axis, name, eltype, packed)
+    return Formats.format_get_empty_dense_vector!(chain.daf, axis, name, eltype, is_packed)
 end
 
 function Formats.format_get_empty_sparse_vector!(
@@ -461,13 +461,13 @@ function Formats.format_get_empty_sparse_vector!(
     eltype::Type{T},
     nnz::StorageInteger,
     indtype::Type{I},
-    packed::Bool,
+    is_packed::Bool,
 )::Tuple{AbstractVector{I}, AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(chain)
     if !Formats.format_has_axis(chain.daf, axis; for_change = false)
         add_axis!(chain.daf, axis, Formats.get_axis_vector_through_cache(chain, axis))
     end
-    return Formats.format_get_empty_sparse_vector!(chain.daf, axis, name, eltype, nnz, indtype, packed)
+    return Formats.format_get_empty_sparse_vector!(chain.daf, axis, name, eltype, nnz, indtype, is_packed)
 end
 
 function Formats.format_filled_empty_dense_vector!(
@@ -596,7 +596,7 @@ function Formats.format_set_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     matrix::Union{StorageReal, StorageMatrix},
-    packed::Bool,
+    is_packed::Bool,
 )::Nothing
     @assert Formats.has_data_write_lock(chain)
     for axis in (rows_axis, columns_axis)
@@ -604,7 +604,7 @@ function Formats.format_set_matrix!(
             add_axis!(chain.daf, axis, Formats.get_axis_vector_through_cache(chain, axis))
         end
     end
-    Formats.format_set_matrix!(chain.daf, rows_axis, columns_axis, name, matrix, packed)
+    Formats.format_set_matrix!(chain.daf, rows_axis, columns_axis, name, matrix, is_packed)
     return nothing
 end
 
@@ -614,7 +614,7 @@ function Formats.format_get_empty_dense_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     eltype::Type{T},
-    packed::Bool,
+    is_packed::Bool,
 )::Tuple{AbstractMatrix{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal}
     @assert Formats.has_data_write_lock(chain)
     for axis in (rows_axis, columns_axis)
@@ -622,7 +622,7 @@ function Formats.format_get_empty_dense_matrix!(
             add_axis!(chain.daf, axis, Formats.get_axis_vector_through_cache(chain, axis))
         end
     end
-    return Formats.format_get_empty_dense_matrix!(chain.daf, rows_axis, columns_axis, name, eltype, packed)
+    return Formats.format_get_empty_dense_matrix!(chain.daf, rows_axis, columns_axis, name, eltype, is_packed)
 end
 
 function Formats.format_get_empty_sparse_matrix!(
@@ -633,7 +633,7 @@ function Formats.format_get_empty_sparse_matrix!(
     eltype::Type{T},
     nnz::StorageInteger,
     indtype::Type{I},
-    packed::Bool,
+    is_packed::Bool,
 )::Tuple{
     AbstractVector{I},
     AbstractVector{I},
@@ -654,7 +654,7 @@ function Formats.format_get_empty_sparse_matrix!(
         eltype,
         nnz,
         indtype,
-        packed,
+        is_packed,
     )
 end
 
@@ -688,7 +688,7 @@ function Formats.format_relayout_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     matrix::StorageMatrix,
-    packed::Bool,
+    is_packed::Bool,
 )::StorageMatrix
     @assert Formats.has_data_write_lock(chain)
 
@@ -697,7 +697,7 @@ function Formats.format_relayout_matrix!(
            Formats.format_has_axis(daf, columns_axis; for_change = false) &&
            Formats.format_has_cached_matrix(daf, rows_axis, columns_axis, name)
             if daf isa DafWriter && !daf.internal.is_frozen
-                return Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name, matrix, packed)
+                return Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name, matrix, is_packed)
             else
                 entry = Formats.get_slow_through_cache(  # UNTESTED
                     daf,
@@ -705,7 +705,7 @@ function Formats.format_relayout_matrix!(
                     Tuple{NamedArray, Any},
                     MemoryData,
                 ) do
-                    return ((Formats.as_named_matrix(daf, columns_axis, rows_axis, flipped(matrix)), nothing), nothing)  # FLAKY TESTED
+                    return ((Formats.as_named_matrix(daf, columns_axis, rows_axis, flipped(matrix)), nothing), nothing)
                 end
                 return entry[1]  # UNTESTED
             end
