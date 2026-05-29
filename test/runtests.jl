@@ -1,6 +1,8 @@
 using Test
 
 using Base.MathConstants
+using CodecBzip2
+using CodecZstd
 using DataAxesFormats
 using DiskArrays
 using Documenter
@@ -75,6 +77,7 @@ include("views.jl")
 include("contracts.jl")
 include("computations.jl")
 include("copies.jl")
+include("copy_packed.jl")
 include("concat.jl")
 include("adapters.jl")
 include("groups.jl")

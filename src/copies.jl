@@ -716,8 +716,8 @@ axis which exist in the destination but do not exist in the source.
     axis_relations = verify_axes(; destination, source, what_for)
     copy_scalars(; destination, source, types, overwrite, insist)
     copy_axes(; destination, source, overwrite, insist)
-    copy_vectors(; destination, source, axis_relations, empty, types, overwrite, insist, packed)
-    copy_matrices(; destination, source, axis_relations, empty, types, overwrite, insist, relayout, packed)
+    copy_vectors(; destination, source, axis_relations, empty, types, overwrite, insist, is_packed = packed)
+    copy_matrices(; destination, source, axis_relations, empty, types, overwrite, insist, relayout, is_packed = packed)
     ensure_tensors(;
         destination,
         source,
@@ -728,7 +728,7 @@ axis which exist in the destination but do not exist in the source.
         insist,
         relayout,
         tensor_keys,
-        packed,
+        is_packed = packed,
     )
 
     return nothing
@@ -890,7 +890,7 @@ function copy_vectors(;
     types::Maybe{DataTypes},
     overwrite::Bool,
     insist::Bool,
-    packed::Maybe{Bool},
+    is_packed::Maybe{Bool},
 )::Nothing
     for (axis, relation) in axis_relations
         for name in vectors_set(source, axis)
@@ -913,7 +913,7 @@ function copy_vectors(;
                 eltype = type,
                 overwrite,
                 insist,
-                packed,
+                packed = is_packed,
                 relation,
             )
         end
@@ -929,7 +929,7 @@ function copy_matrices(;
     overwrite::Bool,
     insist::Bool,
     relayout::Bool,
-    packed::Maybe{Bool},
+    is_packed::Maybe{Bool},
 )::Nothing
     for (rows_axis, rows_relation) in axis_relations
         for (columns_axis, columns_relation) in axis_relations
@@ -949,7 +949,7 @@ function copy_matrices(;
                             columns_relation,
                             name,
                             relayout,
-                            packed,
+                            is_packed,
                         )
                     end
                 end
@@ -968,7 +968,7 @@ function ensure_tensors(;
     insist::Bool,
     relayout::Bool,
     tensor_keys::AbstractVector{TensorKey},
-    packed::Maybe{Bool},
+    is_packed::Maybe{Bool},
 )::Nothing
     for (main_axis, rows_axis, columns_axis, matrix_name) in tensor_keys
         main_axis_entries = axis_vector(destination, main_axis)
@@ -988,7 +988,7 @@ function ensure_tensors(;
                     columns_relation = axis_relations[columns_axis],
                     name,
                     relayout,
-                    packed,
+                    is_packed,
                 )
             end
         end
@@ -1008,7 +1008,7 @@ function copy_single_matrix(;
     columns_relation::Symbol,
     name::AbstractString,
     relayout::Bool,
-    packed::Maybe{Bool},
+    is_packed::Maybe{Bool},
 )::Nothing
     empty_value = nothing
     if empty !== nothing
@@ -1043,7 +1043,7 @@ function copy_single_matrix(;
         eltype = type,
         overwrite,
         insist,
-        packed,
+        packed = is_packed,
         rows_relation,
         columns_relation,
         relayout,

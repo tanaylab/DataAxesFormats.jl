@@ -10,5 +10,5 @@ deps/build.log
 junk*
 tags
 tracefile.info
-Manifest.toml
+Manifest.toml*
 src/assets/modules.svg

@@ -85,7 +85,7 @@ function populate_served_daf!(writer::DafWriter)::Nothing
     return nothing
 end
 
-function test_served_read_only(make_daf::Function)::Nothing  # FLAKY TESTED
+function test_served_read_only(make_daf::Function)::Nothing
     nested_test("scalars") do
         daf = make_daf()
         @test has_scalar(daf, "name")
@@ -3441,6 +3441,56 @@ function test_zip_backed_format(;
         end
     end
 
+    nested_test("multi_coexist") do
+        # Two independent repos in the same container archive: writing/appending to one must not
+        # disturb the other, and neither's enumerations may leak the other's properties. Every open
+        # is dropped + GC'd before the next so the shared (per-container) `MmapZipStore` is released
+        # between steps. All writable opens come first, then all reads — a read-only handle held over
+        # a later writable open of the same container would be rejected (the container's writability
+        # is fixed by its first live handle; see the sub-daf sharing note in the module docs).
+        mktempdir() do path
+            container_path = path * "/test" * multi_dafs_suffix
+            first_path = container_path * "#/first"
+            second_path = container_path * "#/second"
+
+            first = open_format(first_path, "w+"; name = "first!")
+            add_axis!(first, "cell", CELL_NAMES)
+            set_vector!(first, "cell", "age", Int32[10, 20, 30])
+            first = nothing  # NOLINT
+            GC.gc()
+
+            # Append `second` into the same archive that already holds `first`.
+            second = open_format(second_path, "w+"; name = "second!")
+            add_axis!(second, "gene", GENE_NAMES)
+            set_vector!(second, "gene", "len", Int32[1, 2, 3, 4])
+            second = nothing  # NOLINT
+            GC.gc()
+
+            # Append a new property to `first` after `second` was written into the same archive.
+            first = open_format(first_path, "r+")
+            set_vector!(first, "cell", "batch", ["U", "V", "W"])
+            first = nothing  # NOLINT
+            GC.gc()
+
+            # `first` carries its own axes / properties (including the late append) and none of
+            # `second`'s, despite both living in the same archive.
+            first = open_format(first_path, "r")
+            @test axes_set(first) == Set(["cell"])
+            @test vectors_set(first, "cell") == Set(["age", "batch"])
+            @test get_vector(first, "cell", "age") == Int32[10, 20, 30]
+            @test get_vector(first, "cell", "batch") == ["U", "V", "W"]
+            first = nothing  # NOLINT
+            GC.gc()
+
+            # `second` is untouched by either write to `first`.
+            second = open_format(second_path, "r")
+            @test axes_set(second) == Set(["gene"])
+            @test vectors_set(second, "gene") == Set(["len"])
+            @test get_vector(second, "gene", "len") == Int32[1, 2, 3, 4]
+            return nothing
+        end
+    end
+
     nested_test("named_from_scalar") do
         # Open a fresh archive without `name = ...`, after a writable open had stored a `name`
         # scalar — the constructor should adopt the stored value as the daf's name.
@@ -3653,8 +3703,8 @@ nested_test("data") do
                     h5file["daf"] = [UInt(2), UInt(0)]
                     @test_throws chomp("""
                                  incompatible format version: 2.0
-                                 for the daf data: HDF5.File: (read-write) $(path)/test.h5df
                                  the code supports version: 1.0
+                                 in daf data: HDF5.File: (read-write) $(path)/test.h5df
                                  """) H5df(h5file; name = "version!")
                 end
                 empty_group_path = path * "/eg.h5dfs#/"
@@ -3737,8 +3787,8 @@ nested_test("data") do
                 end
                 @test_throws chomp("""
                              incompatible format version: 2.0
-                             for the daf directory: $(path)
                              the code supports version: 1.1
+                             in daf directory: $(path)
                              """) FilesDaf(path; name = "version!")
             end
         end
@@ -3915,13 +3965,13 @@ nested_test("data") do
                     end
 
                     nested_test("get_failed") do
-                        @test_throws "HTTP GET failed for: http://localhost:1/daf.json" HttpDaf("http://localhost:1")
+                        @test_throws "for URL: http://localhost:1/daf.json" HttpDaf("http://localhost:1")
                         return nothing
                     end
 
                     nested_test("not_a_daf") do
                         bad_url = "$(url)/nonexistent"
-                        @test_throws "HTTP GET returned status 404 for: $(bad_url)/daf.json" HttpDaf(bad_url)
+                        @test_throws "HTTP GET non-200 status: 404" HttpDaf(bad_url)
                         return nothing
                     end
 
@@ -3975,7 +4025,8 @@ nested_test("data") do
                     url = "http://localhost:$(port)"
                     @test_throws chomp("""
                                  incompatible format version: 99.0
-                                 for the daf HTTP data set: $(url)
+                                 the code supports version: 1.1
+                                 in daf HTTP data set: $(url)
                                  """) HttpDaf(url)
                 finally
                     close(server)
@@ -4223,8 +4274,8 @@ nested_test("data") do
                 GC.gc()
                 @test_throws chomp("""
                              incompatible format version: 2.0
-                             for the daf zip archive: $(abspath(version_path))
                              the code supports version: 1.1
+                             in daf zip archive: $(abspath(version_path))
                              """) ZipDaf(version_path; name = "version!")
 
                 empty_zip_path = path * "/empty.daf.zip"
@@ -4404,8 +4455,8 @@ nested_test("data") do
                 )
                 @test_throws chomp("""
                              incompatible format version: 2.0
-                             for the daf zarr group: $(abspath(version_path))
                              the code supports version: 1.0
+                             in daf zarr group: $(abspath(version_path))
                              """) ZarrDaf(version_path; name = "version!")
 
                 bogus_path = path * "/bogus.foo"
@@ -4880,6 +4931,98 @@ nested_test("data") do
                 finally
                     close(server)
                 end
+                return nothing
+            end
+        end
+
+        # Above-threshold ZarrDaf properties served over HTTP route per-chunk Range GETs via
+        # `StripedVector` / `StripedMatrix` (flat single-chunk uncompressed) or
+        # `PackedDenseArray` (v3-sharded packed) instead of fetching whole chunk files. Mirrors the
+        # `data/files/http_chunked` block from the FilesDaf side.
+        nested_test("http_chunked") do
+            mktempdir() do path
+                n_rows = 4096
+                n_columns = 4
+                score_vector = Float32[index for index in 1:n_rows]
+                umis_matrix = Float32[
+                    (row_index - 1) * n_columns + column_index for row_index in 1:n_rows, column_index in 1:n_columns
+                ]
+                column_pointers = Int32[1 + (column_index - 1) * n_rows for column_index in 1:(n_columns + 1)]
+                row_indices = Int32[((position - 1) % n_rows) + 1 for position in 1:(n_columns * n_rows)]
+                nz_values = Float32[position for position in 1:(n_columns * n_rows)]
+                sparse_umis =
+                    SparseMatrixCSC{Float32, Int32}(n_rows, n_columns, column_pointers, row_indices, nz_values)
+                sparse_mask = SparseMatrixCSC{Bool, Int32}(
+                    n_rows,
+                    n_columns,
+                    column_pointers,
+                    row_indices,
+                    fill(true, n_columns * n_rows),
+                )
+
+                function populate!(writer::ZarrDaf)::Nothing
+                    add_axis!(writer, "row", ["r$(index)" for index in 1:n_rows])
+                    add_axis!(writer, "col", ["c$(index)" for index in 1:n_columns])
+                    set_vector!(writer, "row", "score", score_vector)
+                    set_matrix!(writer, "row", "col", "umis", umis_matrix; relayout = false)
+                    set_matrix!(writer, "row", "col", "sparse_umis", sparse_umis; relayout = false)
+                    set_matrix!(writer, "row", "col", "sparse_mask", sparse_mask; relayout = false)
+                    return nothing
+                end
+
+                function make_handler(zarr_path)
+                    store = Zarr.DirectoryStore(zarr_path)
+                    return request -> begin
+                        key = String(lstrip(request.target, '/'))
+                        if occursin("..", key)
+                            return HTTP.Response(404, "Error: bad key $(key)")  # UNTESTED
+                        end
+                        bytes = store[key]
+                        if bytes === nothing
+                            return HTTP.Response(404, "Error: Key $(key) not found")  # UNTESTED
+                        end
+                        return respond_with_range(bytes, request)
+                    end
+                end
+
+                function check_served(daf)::Nothing
+                    @test collect(get_vector(daf, "row", "score")) == score_vector
+                    @test Matrix(get_matrix(daf, "row", "col", "umis")) == umis_matrix
+                    sparse_umis_named = get_matrix(daf, "row", "col", "sparse_umis")
+                    @test SparseMatrixCSC(parent(parent(sparse_umis_named))) == sparse_umis
+                    sparse_mask_named = get_matrix(daf, "row", "col", "sparse_mask")
+                    @test SparseMatrixCSC(parent(parent(sparse_mask_named))) == sparse_mask
+                    return nothing
+                end
+
+                nested_test("flat") do
+                    flat_path = path * "/flat.daf.zarr"
+                    writer = ZarrDaf(flat_path, "w+"; name = "flat!", packed = false)
+                    populate!(writer)
+                    server = HTTP.serve!(make_handler(flat_path), Sockets.localhost, 0; listenany = true)
+                    try
+                        url = "http://localhost:$(server.listener.hostport)"
+                        check_served(ZarrDaf(url))
+                    finally
+                        close(server)
+                    end
+                    return nothing
+                end
+
+                nested_test("packed") do
+                    packed_path = path * "/packed.daf.zarr"
+                    writer = ZarrDaf(packed_path, "w+"; name = "packed!", packed = true)
+                    populate!(writer)
+                    server = HTTP.serve!(make_handler(packed_path), Sockets.localhost, 0; listenany = true)
+                    try
+                        url = "http://localhost:$(server.listener.hostport)"
+                        check_served(ZarrDaf(url))
+                    finally
+                        close(server)
+                    end
+                    return nothing
+                end
+
                 return nothing
             end
         end

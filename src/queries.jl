@@ -1221,7 +1221,7 @@ function Base.show(io::IO, query_sequence::QuerySequence)::Nothing
 end
 
 # For avoiding Julia operators when calling Julia from another language.
-function QuerySequence( # UNTESTED
+function QuerySequence(
     first::Union{QuerySequence, QueryOperation},
     second::Union{QuerySequence, QueryOperation},
 )::QuerySequence

@@ -1,0 +1,976 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Zip Files Format · DataAxesFormats.jl v0.3.0
+</title>
+<meta name="title" content="Zip Files Format · DataAxesFormats.jl v0.3.0"/>
+<meta property="og:title" content="Zip Files Format · DataAxesFormats.jl v0.3.0"/>
+<meta property="twitter:title" content="Zip Files Format · DataAxesFormats.jl v0.3.0"/>
+<meta name="description" content="Documentation for DataAxesFormats.jl v0.3.0."/>
+<meta property="og:description" content="Documentation for DataAxesFormats.jl v0.3.0."/>
+<meta property="twitter:description" content="Documentation for DataAxesFormats.jl v0.3.0."/>
+<script data-outdated-warner src="assets/warner.js">
+</script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/>
+<script>documenterBaseURL="."
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="assets/documenter.js">
+</script>
+<script src="search_index.js">
+</script>
+<script src="siteinfo.js">
+</script>
+<script src="../versions.js">
+</script>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/>
+<link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/>
+<script src="assets/themeswap.js">
+</script>
+</head>
+<body>
+<div id="documenter">
+<nav class="docs-sidebar">
+<a class="docs-logo" href="index.html">
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+
+<svg xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:svg="http://www.w3.org/2000/svg" xmlns="http://www.w3.org/2000/svg" xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" width="30.000004mm" height="23.844538mm" viewBox="0 0 30.000004 23.844538" version="1.1" id="svg8" sodipodi:docname="DAF Logo.svg" inkscape:version="1.0.2-2 (e86c870879, 2021-01-15)">
+  
+<defs id="defs2"/>
+  
+<sodipodi:namedview id="base" pagecolor="#ffffff" bordercolor="#666666" borderopacity="1.0" inkscape:pageopacity="0.0" inkscape:pageshadow="2" inkscape:zoom="7.2088125" inkscape:cx="44.874443" inkscape:cy="72.100493" inkscape:document-units="mm" inkscape:current-layer="layer1" inkscape:document-rotation="0" showgrid="false" inkscape:lockguides="true" inkscape:window-width="1918" inkscape:window-height="2037" inkscape:window-x="1909" inkscape:window-y="0" inkscape:window-maximized="0" fit-margin-top="0" fit-margin-left="0" fit-margin-right="0" fit-margin-bottom="0">
+    
+<inkscape:grid type="xygrid" id="grid833" originx="-96.389584" originy="-209.74039"/>
+  
+</sodipodi:namedview>
+  
+<metadata id="metadata5">
+    
+<rdf:RDF>
+      
+<cc:Work rdf:about="">
+        
+<dc:format>image/svg+xml
+</dc:format>
+        
+<dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+        
+<dc:title/>
+      
+</cc:Work>
+    
+</rdf:RDF>
+  
+</metadata>
+  
+<g inkscape:label="Layer 1" inkscape:groupmode="layer" id="layer1" transform="translate(-76.655906,-127.95804)">
+    
+<path id="path1030" style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.206908px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1" d="M 53.382812 4.9648438 L 3.7246094 79.453125 L 53.382812 54.623047 L 53.382812 4.9648438 z M 44.072266 36.830078 L 44.072266 48.673828 L 32.228516 54.646484 L 44.072266 36.830078 z " transform="matrix(0.26458333,0,0,0.26458333,76.655906,127.95804)"/>
+    
+<path style="fill:none;stroke:#000000;stroke-width:0.413817;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" d="m 91.601162,142.95804 v -14.5073" id="path895" sodipodi:nodetypes="cc"/>
+    
+<path style="fill:none;stroke:#000000;stroke-width:0.413817;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" d="m 91.578387,142.96344 14.233573,7.11679" id="path946" sodipodi:nodetypes="cc"/>
+    
+<path style="fill:none;stroke:#000000;stroke-width:0.413817;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" d="M 91.578387,142.96344 77.34481,150.08023" id="path1028" sodipodi:nodetypes="cc"/>
+    
+<path style="fill:#000200;fill-opacity:1;stroke:#000000;stroke-width:0.0547445px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1" d="m 95.29182,137.64243 6.0219,9.30657 4.35679,2.14043 -13.138691,-19.70803 v 13.13869 l 2.760001,1.41796 z" id="path1126" sodipodi:nodetypes="ccccccc"/>
+    
+<path style="fill:#000200;fill-opacity:1;stroke:#000000;stroke-width:0.0547445px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1" d="m 78.462476,150.4033 13.138686,-6.56934 13.138688,6.56934 -5.508395,-0.0135 -7.630293,-3.81863 -2.408759,1.20438 5.145985,2.62774 -5.408924,-0.004 -2.474288,-1.25467 -2.454373,1.25711 z" id="path1270" sodipodi:nodetypes="ccccccccccc"/>
+    
+<path style="fill:#000200;fill-opacity:1;stroke:none;stroke-width:0.0547445px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1" d="m 90.889483,129.05293 h 1.423357 l -0.711678,-1.09489 z" id="path1362"/>
+    
+<path style="fill:#000200;fill-opacity:1;stroke:none;stroke-width:0.0547445px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1" d="m 76.655906,150.45804 h 1.423358 l -0.711679,-1.09488 z" id="path1362-0"/>
+    
+<path style="fill:#000200;fill-opacity:1;stroke:none;stroke-width:0.0547445px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1" d="m 105.23255,150.56753 h 1.42336 l -0.71168,-1.09489 z" id="path1362-0-6"/>
+  
+</g>
+
+</svg>
+</a>
+<div class="docs-package-name">
+<span class="docs-autofit">
+<a href="index.html">DataAxesFormats.jl v0.3.0
+</a>
+</span>
+</div>
+<button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)
+</button>
+<ul class="docs-menu">
+<li>
+<a class="tocitem" href="index.html">Daf
+</a>
+</li>
+<li>
+<a class="tocitem" href="readers.html">Readers
+</a>
+</li>
+<li>
+<a class="tocitem" href="writers.html">Writers
+</a>
+</li>
+<li>
+<a class="tocitem" href="read_only.html">Read-only
+</a>
+</li>
+<li>
+<a class="tocitem" href="queries.html">Queries
+</a>
+</li>
+<li>
+<a class="tocitem" href="tokens.html">Tokens
+</a>
+</li>
+<li>
+<a class="tocitem" href="views.html">Views
+</a>
+</li>
+<li>
+<a class="tocitem" href="chains.html">Chains
+</a>
+</li>
+<li>
+<a class="tocitem" href="computations.html">Computations
+</a>
+</li>
+<li>
+<a class="tocitem" href="copies.html">Copies
+</a>
+</li>
+<li>
+<a class="tocitem" href="concat.html">Concat
+</a>
+</li>
+<li>
+<a class="tocitem" href="adapters.html">Adapters
+</a>
+</li>
+<li>
+<a class="tocitem" href="contracts.html">Contracts
+</a>
+</li>
+<li>
+<a class="tocitem" href="formats.html">Formats
+</a>
+</li>
+<li>
+<a class="tocitem" href="reorder.html">Reorder
+</a>
+</li>
+<li>
+<a class="tocitem" href="keys.html">Keys
+</a>
+</li>
+<li>
+<a class="tocitem" href="memory_format.html">Memory Format
+</a>
+</li>
+<li>
+<a class="tocitem" href="h5df_format.html">H5DF Format
+</a>
+</li>
+<li>
+<a class="tocitem" href="files_format.html">Files Format
+</a>
+</li>
+<li>
+<a class="tocitem" href="http_format.html">HTTP Format
+</a>
+</li>
+<li>
+<a class="tocitem" href="zarr_format.html">Zarr Format
+</a>
+</li>
+<li>
+<a class="tocitem" href="zarr_convert.html">ZarrConvert
+</a>
+</li>
+<li>
+<a class="tocitem" href="complete.html">Complete Repositories
+</a>
+</li>
+<li>
+<a class="tocitem" href="anndata_format.html">AnnData Format
+</a>
+</li>
+<li>
+<a class="tocitem" href="reconstruction.html">Reconstruction
+</a>
+</li>
+<li>
+<a class="tocitem" href="registry.html">Operations registry
+</a>
+</li>
+<li>
+<a class="tocitem" href="operations.html">Query operations
+</a>
+</li>
+<li>
+<a class="tocitem" href="storage_types.html">Storage types
+</a>
+</li>
+<li>
+<a class="tocitem" href="groups.html">Groups
+</a>
+</li>
+<li>
+<a class="tocitem" href="example_data.html">Example data
+</a>
+</li>
+</ul>
+<div class="docs-version-selector field has-addons">
+<div class="control">
+<span class="docs-label button is-static is-size-7">Version
+</span>
+</div>
+<div class="docs-selector control is-expanded">
+<div class="select is-fullwidth is-size-7">
+<select id="documenter-version-selector">
+</select>
+</div>
+</div>
+</div>
+</nav>
+<div class="docs-main">
+<header class="docs-navbar">
+<a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#">
+</a>
+<nav class="breadcrumb">
+<ul class="is-hidden-mobile">
+<li class="is-active">
+<a href="zip_files.html">Zip Files Format
+</a>
+</li>
+</ul>
+<ul class="is-hidden-tablet">
+<li class="is-active">
+<a href="zip_files.html">Zip Files Format
+</a>
+</li>
+</ul>
+</nav>
+<div class="docs-right">
+<a class="docs-navbar-link" href="https://github.com/tanaylab/DataAxesFormats.jl/blob/main{path}?plain=1#L{line}" title="View the repository on GitHub">
+<span class="docs-icon fa-brands">
+</span>
+<span class="docs-label is-hidden-touch">GitHub
+</span>
+</a>
+<a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings">
+</a>
+<a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings">
+</a>
+</div>
+</header>
+<article class="content" id="documenter-page">
+<h1 id="Zip-Files-Format">
+<a class="docs-heading-anchor" href="#Zip-Files-Format">Zip Files Format
+</a>
+<a id="Zip-Files-Format-1">
+</a>
+<a class="docs-heading-anchor-permalink" href="#Zip-Files-Format" title="Permalink">
+</a>
+</h1>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.ZipFormat">
+<a class="docstring-binding" href="#DataAxesFormats.ZipFormat">
+<code>DataAxesFormats.ZipFormat
+</code>
+</a> — 
+<span class="docstring-category">Module
+</span>
+</summary>
+<section>
+<div>
+<p>A 
+<code>Daf
+</code> storage format that packs one or more 
+<a href="files_format.html#DataAxesFormats.FilesFormat.FilesDaf">
+<code>FilesDaf
+</code>
+</a> on-disk layout verbatim into a single ZIP archive. This is a convenient single-file form for publication and transport: copy one 
+<code>*.daf[s].zip
+</code> instead of recursively copying a directory tree, without giving up the zero-copy memory-mapped access that 
+<code>FilesDaf
+</code> provides.
+</p>
+<p>The encoding is the 
+<code>FilesDaf
+</code> encoding — every entry name inside the archive is the relative path of the matching 
+<code>FilesDaf
+</code> file (
+<code>daf.json
+</code>, 
+<code>scalars/&lt;name&gt;.json
+</code>, 
+<code>axes/&lt;axis&gt;.txt
+</code>, 
+<code>vectors/&lt;axis&gt;/&lt;name&gt;.{json,txt,data,nzind,nzval,nztxt}
+</code>, 
+<code>matrices/&lt;rows&gt;/&lt;cols&gt;/&lt;name&gt;.{json,data,txt,colptr,rowval,nzval,nztxt}
+</code>), and every blob is the same little-endian byte stream. As a consequence:
+</p>
+<ul>
+<li>Unzipping a 
+<code>*.daf[s].zip
+</code> produced by this format yields directories that 
+<a href="files_format.html#DataAxesFormats.FilesFormat.FilesDaf">
+<code>FilesDaf
+</code>
+</a> opens directly. The unzipped tree might not contain the 
+<code>metadata.json
+</code> consolidated index 
+<code>FilesDaf
+</code> uses for 
+<a href="http_format.html#DataAxesFormats.HttpFormat.HttpDaf">
+<code>HttpDaf
+</code>
+</a> enumeration — it is rebuilt automatically by 
+<code>FilesDaf.ensure_metadata_json!
+</code> on the first local open on a writable filesystem (of each separate files repository, if there is more than one).
+</li>
+<li>Conversely, 
+<code>zip -r foo.daf.zip foo.daf/
+</code> over an existing 
+<code>FilesDaf
+</code> directory produces a valid 
+<code>ZipDaf
+</code>. Since the source directory may hold a (possible stale, ignored) 
+<code>metadata.json
+</code>, that entry can get bundled inside the archive too — 
+<code>ZipDaf
+</code> strips it from the central directory on every writable open to ensure stale metadata is not retained. After unzipping such a stripped archive, the next writable 
+<code>FilesDaf
+</code> open rebuilds 
+<code>metadata.json
+</code> from scratch, so the consolidated index is always coherent with the directory tree.
+</li>
+</ul>
+<p>Dense numeric blobs (and 
+<code>colptr
+</code> / 
+<code>rowval
+</code> / 
+<code>nzind
+</code> / 
+<code>nzval
+</code> for sparse ones) are served zero-copy via memory-mapped views of the archive file when possible; foreign archives whose entries are compressed (DEFLATE, DEFLATE64, BZIP2, or ZSTD) or unaligned fall back to in-memory decoded copies. The only modification allowed to writable ZIP repositories is appending new data: no entry deletes or overwrites, and no axis reorder.
+</p>
+<p>Path conventions, mirroring 
+<a href="zarr_format.html#DataAxesFormats.ZarrFormat.ZarrDaf">
+<code>ZarrDaf
+</code>
+</a>:
+</p>
+<ul>
+<li>
+<code>something.daf.zip
+</code> — single Daf at the archive root. A 
+<code>#/group
+</code> fragment in this form is rejected.
+</li>
+<li>
+<code>something.dafs.zip#/group
+</code> — a multi-Daf archive holding several 
+<code>Daf
+</code> data sets under sub-paths; 
+<code>group
+</code> selects one and must be non-empty. A bare 
+<code>something.dafs.zip
+</code> without a 
+<code>#/group
+</code> fragment is rejected.
+</li>
+</ul>
+<p>Example archive entry layout (single-Daf form; the multi-Daf form prefixes every entry with 
+<code>&lt;group&gt;/
+</code>):
+</p>
+<pre>
+<code class="language-julia hljs">daf.json
+scalars/version.json
+axes/cell.txt
+axes/gene.txt
+vectors/cell/batch.json
+vectors/cell/batch.txt
+vectors/gene/is_marker.json
+vectors/gene/is_marker.data
+matrices/cell/gene/UMIs.json
+matrices/cell/gene/UMIs.colptr
+matrices/cell/gene/UMIs.rowval
+matrices/cell/gene/UMIs.nzval
+matrices/cell/gene/fractions.json   # dense, packed
+matrices/cell/gene/fractions.zip
+</code>
+</pre>
+<p>Packed (chunked + compressed) properties are stored as one 
+<code>&lt;name&gt;.zip
+</code> archive 
+<em>entry
+</em> per property (or 
+<code>&lt;name&gt;.&lt;component&gt;.zip
+</code> per packed sparse component) — a nested ZIP archive of the inner chunks. 
+<code>ZipDaf
+</code> reads the inner chunks through that shard&#39;s own central directory, the same code path as 
+<a href="files_format.html#DataAxesFormats.FilesFormat.FilesDaf">
+<code>FilesDaf
+</code>
+</a> and 
+<a href="http_format.html#DataAxesFormats.HttpFormat.HttpDaf">
+<code>HttpDaf
+</code>
+</a>; the 
+<code>&quot;packed_format&quot;
+</code> descriptor key and the shard layout are documented in 
+<a href="files_format.html#DataAxesFormats.FilesFormat">
+<code>FilesFormat
+</code>
+</a> and 
+<a href="packed_format.html#DataAxesFormats.PackedFormat">
+<code>PackedFormat
+</code>
+</a>.
+</p>
+<p>The valid 
+<code>mode
+</code> values are as follows (the default mode is 
+<code>r
+</code>):
+</p>
+<table>
+<tr>
+<th style="text-align: left">Mode
+</th>
+<th style="text-align: left">Allow modifications?
+</th>
+<th style="text-align: left">Create if does not exist?
+</th>
+<th style="text-align: left">Truncate if exists?
+</th>
+<th style="text-align: left">Returned type
+</th>
+</tr>
+<tr>
+<td style="text-align: left">
+<code>r
+</code>
+</td>
+<td style="text-align: left">No
+</td>
+<td style="text-align: left">No
+</td>
+<td style="text-align: left">No
+</td>
+<td style="text-align: left">
+<a href="read_only.html#DataAxesFormats.ReadOnly.DafReadOnly">
+<code>DafReadOnly
+</code>
+</a>
+</td>
+</tr>
+<tr>
+<td style="text-align: left">
+<code>r+
+</code>
+</td>
+<td style="text-align: left">Yes
+</td>
+<td style="text-align: left">No
+</td>
+<td style="text-align: left">No
+</td>
+<td style="text-align: left">
+<a href="zip_files.html#DataAxesFormats.ZipFormat.ZipDaf">
+<code>ZipDaf
+</code>
+</a>
+</td>
+</tr>
+<tr>
+<td style="text-align: left">
+<code>w+
+</code>
+</td>
+<td style="text-align: left">Yes
+</td>
+<td style="text-align: left">Yes
+</td>
+<td style="text-align: left">No
+</td>
+<td style="text-align: left">
+<a href="zip_files.html#DataAxesFormats.ZipFormat.ZipDaf">
+<code>ZipDaf
+</code>
+</a>
+</td>
+</tr>
+<tr>
+<td style="text-align: left">
+<code>w
+</code>
+</td>
+<td style="text-align: left">Yes
+</td>
+<td style="text-align: left">Yes
+</td>
+<td style="text-align: left">Yes
+</td>
+<td style="text-align: left">
+<a href="zip_files.html#DataAxesFormats.ZipFormat.ZipDaf">
+<code>ZipDaf
+</code>
+</a>
+</td>
+</tr>
+</table>
+<p>Truncating a sub-daf inside a 
+<code>.dafs.zip
+</code> is not supported (the ZIP backend is append-only) and raises an error; use 
+<code>r+
+</code> or 
+<code>w+
+</code> to open a sub-daf for writing without truncation.
+</p>
+<div class="admonition is-info" id="Note-aacc12a5fa3e44e7">
+<header class="admonition-header">Note
+<a class="admonition-anchor" href="#Note-aacc12a5fa3e44e7" title="Permalink">
+</a>
+</header>
+<div class="admonition-body">
+<p>When several 
+<a href="zip_files.html#DataAxesFormats.ZipFormat.ZipDaf">
+<code>ZipDaf
+</code>
+</a> instances in the same process share an archive path (typically different 
+<code>#/group
+</code> sub-dafs of the same 
+<code>.dafs.zip
+</code> file, or repeated opens of the same single-daf 
+<code>.daf.zip
+</code>), they share a single underlying 
+<a href="mmap_zip_store.html#DataAxesFormats.MmapZipStores.MmapZipStore">
+<code>MmapZipStore
+</code>
+</a> and a single 
+<code>data_lock
+</code>, so concurrent calls serialize correctly and the archive is never mmap-ed twice. The first such open determines the store&#39;s writability: a later open of the same archive that requests write access raises an error if the first open was read-only. Release the read-only handle first, or open the writable instance first.
+</p>
+</div>
+</div>
+<div class="admonition is-info" id="Note-12e6d6a234c8d02a">
+<header class="admonition-header">Note
+<a class="admonition-anchor" href="#Note-12e6d6a234c8d02a" title="Permalink">
+</a>
+</header>
+<div class="admonition-body">
+<p>
+<code>ZipDaf
+</code> archives intentionally do not contain the 
+<code>metadata.json
+</code> consolidated index that 
+<a href="http_format.html#DataAxesFormats.HttpFormat.HttpDaf">
+<code>HttpDaf
+</code>
+</a> reads, because the archive&#39;s own central directory plays the same enumeration role. Consequently, an 
+<code>unzip foo.daf.zip -d foo.daf/
+</code> produces a directory that lacks the index; before exposing such a directory over HTTP, open it once locally with 
+<code>FilesDaf(&quot;foo.daf&quot;)
+</code> (any mode) so 
+<code>FilesFormat.ensure_metadata_json!
+</code> builds it.
+</p>
+</div>
+</div>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.ZipFormat.DAF_ZIP_MAX_FILE_SIZE">
+<a class="docstring-binding" href="#DataAxesFormats.ZipFormat.DAF_ZIP_MAX_FILE_SIZE">
+<code>DataAxesFormats.ZipFormat.DAF_ZIP_MAX_FILE_SIZE
+</code>
+</a> — 
+<span class="docstring-category">Constant
+</span>
+</summary>
+<section>
+<div>
+<p>The virtual address reservation size used for writable 
+<a href="mmap_zip_store.html#DataAxesFormats.MmapZipStores.MmapZipStore">
+<code>MmapZipStore
+</code>
+</a> opens of a 
+<a href="zip_files.html#DataAxesFormats.ZipFormat.ZipDaf">
+<code>ZipDaf
+</code>
+</a> (modes 
+<code>r+
+</code>, 
+<code>w+
+</code>, 
+<code>w
+</code>). Each such open reserves this much virtual address space via a single anonymous 
+<code>PROT_NONE
+</code> mapping and overlays the real file onto its first 
+<code>filesize
+</code> bytes; subsequent 
+<code>ftruncate
+</code> + re-overlay calls extend the accessible portion as the archive grows. The physical file stays at its real size — only VA is reserved. Defaults to 128 GiB, leaving plenty of room for concurrent live stores on platforms with ~128 TiB of user VA (Apple Silicon). Set to a larger value before opening a 
+<code>ZipDaf
+</code> whose ZIP archive might grow past this bound. An append that would cross the bound fails with an explicit error pointing back here.
+</p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.ZipFormat.ZipDaf">
+<a class="docstring-binding" href="#DataAxesFormats.ZipFormat.ZipDaf">
+<code>DataAxesFormats.ZipFormat.ZipDaf
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">ZipDaf(
+    path::AbstractString,
+    mode::AbstractString = &quot;r&quot;;
+    [name::Maybe{AbstractString} = nothing,
+    packed::Bool = false]
+)
+</code>
+</pre>
+<p>Storage in a single ZIP archive of the 
+<a href="files_format.html#DataAxesFormats.FilesFormat.FilesDaf">
+<code>FilesDaf
+</code>
+</a> on-disk layout. See the 
+<a href="zip_files.html#DataAxesFormats.ZipFormat">module documentation
+</a> for the path conventions, the mode table, the on-disk entry layout, the sub-daf sharing semantics, and the relationship to 
+<code>unzip
+</code> / 
+<code>zip -r
+</code> round-trips.
+</p>
+<p>When opening an existing data set, if 
+<code>name
+</code> is not specified, and there exists a 
+<code>name
+</code> scalar property, it is used as the name. Otherwise, the 
+<code>path
+</code> (including any 
+<code>#/group
+</code> fragment) is used as the name.
+</p>
+<p>If 
+<code>packed
+</code> is 
+<code>true
+</code>, subsequent writes through this handle default to the packed (chunked + compressed) on-disk encoding for properties whose uncompressed size is at or above 
+<a href="packed_format.html#DataAxesFormats.PackedFormat.DAF_PACKED_TARGET_CHUNK_KB">
+<code>DAF_PACKED_TARGET_CHUNK_KB
+</code>
+</a>. Per-call 
+<code>packed
+</code> kwargs on 
+<code>set_*!
+</code> / 
+<code>empty_*!
+</code> / 
+<code>copy_*!
+</code> override this default. The default is 
+<code>false
+</code> (today&#39;s flat encoding).
+</p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.ZipFormat.SharedMmapZipStoreHandle">
+<a class="docstring-binding" href="#DataAxesFormats.ZipFormat.SharedMmapZipStoreHandle">
+<code>DataAxesFormats.ZipFormat.SharedMmapZipStoreHandle
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</summary>
+<section>
+<div>
+<p>A weak-cache entry pairing an open 
+<a href="mmap_zip_store.html#DataAxesFormats.MmapZipStores.MmapZipStore">
+<code>MmapZipStore
+</code>
+</a> with the 
+<code>data_lock
+</code> shared by every sub-daf of that archive in the same process. 
+<code>MmapZipStore
+</code> is stateful (single 
+<code>io_stream
+</code>, archive-wide mmap, appended-entry mmap table), so multiple sub-dafs of the same archive must share one instance to avoid corrupting the archive with two independent writers. 
+<code>is_writable
+</code> records the mode the store was opened in, so that a later sub-daf opening the same archive in an incompatible mode can be rejected cleanly.
+</p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.ZipFormat.acquire_shared_mmap_zip_store!">
+<a class="docstring-binding" href="#DataAxesFormats.ZipFormat.acquire_shared_mmap_zip_store!">
+<code>DataAxesFormats.ZipFormat.acquire_shared_mmap_zip_store!
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">acquire_shared_mmap_zip_store!(;
+    container_path::AbstractString,
+    is_read_only::Bool,
+    create_if_missing::Bool,
+    truncate::Bool,
+    max_file_size::Integer,
+)::SharedMmapZipStoreHandle
+</code>
+</pre>
+<p>Acquire (or open, if not already open in this process) the 
+<a href="zip_files.html#DataAxesFormats.ZipFormat.SharedMmapZipStoreHandle">
+<code>SharedMmapZipStoreHandle
+</code>
+</a> for the ZIP archive at 
+<code>container_path
+</code>. The handle is registered in a process-wide weak cache keyed on 
+<code>container_path
+</code>, so concurrent opens of the same archive in the same process share one underlying 
+<a href="mmap_zip_store.html#DataAxesFormats.MmapZipStores.MmapZipStore">
+<code>MmapZipStore
+</code>
+</a> and one 
+<code>data_lock
+</code> regardless of which 
+<code>Daf
+</code> format (
+<a href="zip_files.html#DataAxesFormats.ZipFormat.ZipDaf">
+<code>ZipDaf
+</code>
+</a> or 
+<a href="zarr_format.html#DataAxesFormats.ZarrFormat.ZarrDaf">
+<code>ZarrDaf
+</code>
+</a>) opened it. This is deliberate: 
+<code>MmapZipStore
+</code> is stateful (single 
+<code>io_stream
+</code>, archive-wide mmap, appended-entry mmap table), so two independent stores over the same file would corrupt each other on writes.
+</p>
+<p>If the archive is already cached as a read-only store and the new open requests write access, this raises an explicit error pointing at the conflict; release the read-only handle first, or open the writable instance first.
+</p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.ZipFormat.parse_zip_archive_path">
+<a class="docstring-binding" href="#DataAxesFormats.ZipFormat.parse_zip_archive_path">
+<code>DataAxesFormats.ZipFormat.parse_zip_archive_path
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">parse_zip_archive_path(
+    path::AbstractString;
+    single_daf_suffix::AbstractString,
+    multi_dafs_suffix::AbstractString,
+    multi_dafs_marker::AbstractString,
+    format_name::AbstractString,
+)::Maybe{Tuple{String, Maybe{String}}}
+</code>
+</pre>
+<p>Parse 
+<code>path
+</code> as either a single-Daf archive (
+<code>*&lt;single_daf_suffix&gt;
+</code>, no 
+<code>#/group
+</code> fragment) or a multi-Daf archive (
+<code>*&lt;multi_dafs_suffix&gt;&lt;#/group&gt;
+</code>, group required and non-empty). Return 
+<code>(container_path, group_or_nothing)
+</code> for either valid form. Return 
+<code>nothing
+</code> if 
+<code>path
+</code> matches neither form, leaving the caller free to try further format-specific suffix recognition (e.g. 
+<a href="zarr_format.html#DataAxesFormats.ZarrFormat">
+<code>ZarrFormat
+</code>
+</a>&#39;s 
+<code>.daf.zarr
+</code> directory case) before issuing its own catch-all error.
+</p>
+<p>Raises an explicit error for the following ill-formed near-miss cases:
+</p>
+<ul>
+<li>
+<code>*&lt;single_daf_suffix&gt;#/group
+</code> — a singular path with a sub-daf fragment; 
+<code>can&#39;t address a sub-daf in a singular &lt;format_name&gt; path …
+</code>.
+</li>
+<li>
+<code>*&lt;multi_dafs_suffix&gt;
+</code> (no 
+<code>#/group
+</code>) — a plural path missing its sub-daf; 
+<code>missing &#39;#/&lt;group&gt;&#39; in plural &lt;format_name&gt; path …
+</code>.
+</li>
+<li>
+<code>*&lt;multi_dafs_marker&gt;
+</code> (empty group) — 
+<code>empty group name after &#39;#/&#39; in &lt;format_name&gt; path …
+</code>.
+</li>
+</ul>
+<p>
+<code>format_name
+</code> is the human-readable label used in error messages (
+<code>ZipDaf
+</code>, 
+<code>ZarrDaf
+</code>).
+</p>
+</div>
+</section>
+</details>
+</article>
+<h2 id="Index">
+<a class="docs-heading-anchor" href="#Index">Index
+</a>
+<a id="Index-1">
+</a>
+<a class="docs-heading-anchor-permalink" href="#Index" title="Permalink">
+</a>
+</h2>
+<ul>
+<li>
+<a href="zip_files.html#DataAxesFormats.ZipFormat">
+<code>DataAxesFormats.ZipFormat
+</code>
+</a>
+</li>
+<li>
+<a href="zip_files.html#DataAxesFormats.ZipFormat.DAF_ZIP_MAX_FILE_SIZE">
+<code>DataAxesFormats.ZipFormat.DAF_ZIP_MAX_FILE_SIZE
+</code>
+</a>
+</li>
+<li>
+<a href="zip_files.html#DataAxesFormats.ZipFormat.SharedMmapZipStoreHandle">
+<code>DataAxesFormats.ZipFormat.SharedMmapZipStoreHandle
+</code>
+</a>
+</li>
+<li>
+<a href="zip_files.html#DataAxesFormats.ZipFormat.ZipDaf">
+<code>DataAxesFormats.ZipFormat.ZipDaf
+</code>
+</a>
+</li>
+<li>
+<a href="zip_files.html#DataAxesFormats.ZipFormat.acquire_shared_mmap_zip_store!">
+<code>DataAxesFormats.ZipFormat.acquire_shared_mmap_zip_store!
+</code>
+</a>
+</li>
+<li>
+<a href="zip_files.html#DataAxesFormats.ZipFormat.parse_zip_archive_path">
+<code>DataAxesFormats.ZipFormat.parse_zip_archive_path
+</code>
+</a>
+</li>
+</ul>
+</article>
+<nav class="docs-footer">
+<p class="footer-message">Powered by 
+<a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl
+</a> and the 
+<a href="https://julialang.org/">Julia Programming Language
+</a>.
+</p>
+</nav>
+</div>
+<div class="modal" id="documenter-settings">
+<div class="modal-background">
+</div>
+<div class="modal-card">
+<header class="modal-card-head">
+<p class="modal-card-title">Settings
+</p>
+<button class="delete">
+</button>
+</header>
+<section class="modal-card-body">
+<p>
+<label class="label">Theme
+</label>
+<div class="select">
+<select id="documenter-themepicker">
+<option value="auto">Automatic (OS)
+</option>
+<option value="documenter-light">documenter-light
+</option>
+<option value="documenter-dark">documenter-dark
+</option>
+<option value="catppuccin-latte">catppuccin-latte
+</option>
+<option value="catppuccin-frappe">catppuccin-frappe
+</option>
+<option value="catppuccin-macchiato">catppuccin-macchiato
+</option>
+<option value="catppuccin-mocha">catppuccin-mocha
+</option>
+</select>
+</div>
+</p>
+<hr/>
+<p>This document was generated with 
+<a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl
+</a> version 1.17.0. Using Julia version 1.12.5.
+</p>
+</section>
+<footer class="modal-card-foot">
+</footer>
+</div>
+</div>
+</div>
+</body>
+</html>

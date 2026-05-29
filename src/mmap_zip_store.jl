@@ -7,11 +7,23 @@ file on the local filesystem. It serves two complementary use cases:
 
   - **Reading** any valid Zarr v2 ZIP archive (including archives produced by foreign tools such as
     Python's `zarr` package), subject to Zarr.jl's existing support for data types, filters, and
-    compressors. Stored (method `0`) entries are returned as zero-copy memory-mapped byte ranges;
-    deflate-compressed (method `8`) and deflate64-compressed (method `9`) entries are decompressed
-    on demand via `ZipArchives.jl`. Any other compression method raises a clear `ArgumentError`
-    from `ZipArchives.jl` on first access. In practice Zarr-ZIPs in the wild are overwhelmingly
-    method `0` (since the chunks are already compressed internally) or method `8`.
+    compressors.
+
+    The ZIP compression method (how an *entry* is framed inside the archive) is an independent layer
+    from the Zarr codec (how a *chunk's contents* are compressed before becoming an entry). A Zarr
+    chunk is typically already compressed by its own codec (blosc, zstd, …), so re-compressing it at
+    the ZIP layer buys nothing — which is why Zarr-ZIPs in the wild store their entries uncompressed
+    (ZIP method `0`), letting the ZIP layer act as a pure container. This package always writes
+    method `0` for the same reason, and additionally so that entries can be memory-mapped. Foreign
+    archives that nonetheless compress the entry are still read; this store just has to undo the ZIP
+    layer before handing the (still Zarr-codec-compressed) chunk bytes to Zarr.jl.
+
+    Accordingly: stored (method `0`) entries are returned as zero-copy memory-mapped byte ranges;
+    entries compressed at the ZIP layer are decompressed on demand — deflate (method `8`) and
+    deflate64 (method `9`) via `ZipArchives.jl`, bzip2 (method `12`) via `CodecBzip2`, and zstd
+    (method `93`) via `CodecZstd` (the latter two stream over a zero-copy mmap view of the entry and
+    validate the central-directory CRC32 + uncompressed size). Any other method raises a clear error
+    listing the supported ones.
 
   - **Creating and appending to** a ZIP archive written by this package. Writes use stored (method
     `0`) uncompressed entries exclusively, so chunk data can be memory-mapped for direct access.
@@ -112,6 +124,8 @@ export reserve_mmap_zip_entry!
 export shrink_mmap_zip_entry!
 export try_mmap_entry_as
 
+using CodecBzip2
+using CodecZstd
 using TanayLabUtilities
 using Zarr
 using ZipArchives
@@ -123,23 +137,27 @@ import Zarr.subdirs
 import Zarr.subkeys
 
 const LOCAL_FILE_HEADER_SIGNATURE = UInt32(0x04034b50)
-const CENTRAL_DIRECTORY_ENTRY_SIGNATURE = UInt32(0x02014b50)
-const END_OF_CENTRAL_DIRECTORY_SIGNATURE = UInt32(0x06054b50)
-const ZIP64_END_OF_CENTRAL_DIRECTORY_SIGNATURE = UInt32(0x06064b50)
+const CENTRAL_DIRECTORY_ENTRY_SIGNATURE = UInt32(0x02014b50)  # NOLINT
+const END_OF_CENTRAL_DIRECTORY_SIGNATURE = UInt32(0x06054b50)  # NOLINT
+const ZIP64_END_OF_CENTRAL_DIRECTORY_SIGNATURE = UInt32(0x06064b50)  # NOLINT
 const ZIP64_END_OF_CENTRAL_DIRECTORY_LOCATOR_SIGNATURE = UInt32(0x07064b50)
-const END_OF_CENTRAL_DIRECTORY_SIZE = 22
+const END_OF_CENTRAL_DIRECTORY_SIZE = 22  # NOLINT
 const ZIP64_END_OF_CENTRAL_DIRECTORY_SIZE = 56
 const ZIP64_END_OF_CENTRAL_DIRECTORY_LOCATOR_SIZE = 20
-const TRAILING_END_OF_CENTRAL_DIRECTORY_REGION_SIZE =
+const TRAILING_END_OF_CENTRAL_DIRECTORY_REGION_SIZE =  # NOLINT
     ZIP64_END_OF_CENTRAL_DIRECTORY_SIZE + ZIP64_END_OF_CENTRAL_DIRECTORY_LOCATOR_SIZE + END_OF_CENTRAL_DIRECTORY_SIZE
-const LOCAL_FILE_HEADER_FIXED_SIZE = 30
-const CENTRAL_DIRECTORY_ENTRY_FIXED_SIZE = 46
-const ZIP64_EXTRA_HEADER_ID = UInt16(0x0001)
+const LOCAL_FILE_HEADER_FIXED_SIZE = 30  # NOLINT
+const CENTRAL_DIRECTORY_ENTRY_FIXED_SIZE = 46  # NOLINT
+const ZIP64_EXTRA_HEADER_ID = UInt16(0x0001)  # NOLINT
 # header_id(2) + data_size(2) + uncompressed_size(8) + compressed_size(8)
-const ZIP64_LOCAL_FILE_HEADER_EXTRA_SIZE = 20
+const ZIP64_LOCAL_FILE_HEADER_EXTRA_SIZE = 20  # NOLINT
 # header_id(2) + data_size(2) + uncompressed_size(8) + compressed_size(8) + local_file_header_offset(8)
-const ZIP64_CENTRAL_DIRECTORY_EXTRA_SIZE = 28
-const STORED_COMPRESSION_METHOD = UInt16(0)
+const ZIP64_CENTRAL_DIRECTORY_EXTRA_SIZE = 28  # NOLINT
+const STORED_COMPRESSION_METHOD = UInt16(0)  # NOLINT
+const DEFLATE_COMPRESSION_METHOD = UInt16(8)  # NOLINT
+const DEFLATE64_COMPRESSION_METHOD = UInt16(9)
+const BZIP2_COMPRESSION_METHOD = UInt16(12)
+const ZSTD_COMPRESSION_METHOD = UInt16(93)  # NOLINT
 const ZIP64_VERSION_NEEDED = UInt16(45)
 # Custom extra field ID used only to pad each local file header so that the following data region
 # starts at an 8-byte-aligned file offset. Unknown to every reader but `MmapZipStores`, and ignored
@@ -230,7 +248,7 @@ const PROT_WRITE_FLAG = Cint(0x02)
 # overlaid with a file mapping via `overlay_file_on_range!`. On first failure (typically because
 # abandoned-but-not-yet-GC'd reservations from prior opens have filled the per-process VA), force a
 # GC cycle to finalize those and retry once.
-function reserve_virtual_range(byte_length::Integer)::Ptr{Cvoid}  # FLAKY TESTED
+function reserve_virtual_range(byte_length::Integer)::Ptr{Cvoid}
     ptr = raw_reserve_virtual_range(byte_length)
     if reinterpret(Int, ptr) == -1
         GC.gc()  # UNTESTED
@@ -242,7 +260,7 @@ function reserve_virtual_range(byte_length::Integer)::Ptr{Cvoid}  # FLAKY TESTED
     return ptr
 end
 
-@inline function raw_reserve_virtual_range(byte_length::Integer)::Ptr{Cvoid}  # FLAKY TESTED
+@inline function raw_reserve_virtual_range(byte_length::Integer)::Ptr{Cvoid}
     return ccall(  # NOJET
         :mmap,
         Ptr{Cvoid},
@@ -260,7 +278,7 @@ end
 # existing mapping in that range. `base` must be inside a region previously obtained from
 # `reserve_virtual_range`, and `byte_length` must be <= filesize(io_stream) (macOS rejects
 # file-backed MAP_SHARED mappings whose length exceeds the file size).
-function overlay_file_on_range!(base::Ptr{Cvoid}, io_stream::IOStream, byte_length::Integer)::Nothing  # FLAKY TESTED
+function overlay_file_on_range!(base::Ptr{Cvoid}, io_stream::IOStream, byte_length::Integer)::Nothing
     file_desc = Cint(reinterpret(Int32, fd(io_stream)))
     ptr = ccall(  # NOJET
         :mmap,
@@ -282,20 +300,20 @@ end
 # Tell the kernel not to coalesce 4 KiB pages into 2 MiB transparent huge pages across `byte_length`
 # bytes at `base`. The advice is recorded on the VMA and applies to all future file overlays within
 # the reservation. No-op on non-Linux platforms. See `mmap_with_small_pages` for the rationale.
-function disable_transparent_huge_pages(base::Ptr{Cvoid}, byte_length::Integer)::Nothing  # FLAKY TESTED
+function disable_transparent_huge_pages(base::Ptr{Cvoid}, byte_length::Integer)::Nothing
     @static if Sys.islinux()
         if byte_length > 0
             MADV_NOHUGEPAGE = Cint(15)
             result = ccall(:madvise, Cint, (Ptr{Cvoid}, Csize_t, Cint), base, Csize_t(byte_length), MADV_NOHUGEPAGE)
             if result != 0
-                error("madvise MADV_NOHUGEPAGE failed: $(Base.Libc.strerror())")  # FLAKY TESTED
+                error("madvise MADV_NOHUGEPAGE failed: $(Base.Libc.strerror())")
             end
         end
     end
     return nothing
 end
 
-function Base.show(io::IO, store::MmapZipStore)::Nothing  # FLAKY TESTED
+function Base.show(io::IO, store::MmapZipStore)::Nothing
     print(io, "MmapZipStore($(store.path))")
     return nothing
 end
@@ -341,7 +359,7 @@ function MmapZipStore(
     return store
 end
 
-function write_empty_zip_archive!(io_stream::IOStream)::Nothing  # FLAKY TESTED
+function write_empty_zip_archive!(io_stream::IOStream)::Nothing
     header_buffer = Vector{UInt8}(undef, TRAILING_END_OF_CENTRAL_DIRECTORY_REGION_SIZE)
     write_end_of_central_directory_region!(header_buffer, 1, UInt64(0), UInt64(0), UInt64(0))
     write(io_stream, header_buffer)
@@ -423,7 +441,7 @@ function parse_existing_zip_archive(
     )
 end
 
-function populate_central_directory_offsets!(entries::Vector{ZipEntry}, central_directory_offset::UInt64)::Nothing  # FLAKY TESTED
+function populate_central_directory_offsets!(entries::Vector{ZipEntry}, central_directory_offset::UInt64)::Nothing
     current_offset = central_directory_offset
     for entry in entries
         entry.central_directory_offset = current_offset
@@ -432,7 +450,7 @@ function populate_central_directory_offsets!(entries::Vector{ZipEntry}, central_
     return nothing
 end
 
-@inline function central_directory_entry_size(entry::ZipEntry)::UInt64  # FLAKY TESTED
+@inline function central_directory_entry_size(entry::ZipEntry)::UInt64
     return UInt64(CENTRAL_DIRECTORY_ENTRY_FIXED_SIZE) +
            UInt64(ncodeunits(entry.name)) +
            UInt64(ZIP64_CENTRAL_DIRECTORY_EXTRA_SIZE)
@@ -442,7 +460,7 @@ end
 # `new_file_size` bytes of `store.reservation_base`. Works for both growth and shrinkage: the file's
 # first `min(old, new)` bytes are untouched, and the overlay ends up covering exactly `new_file_size`
 # bytes of the reservation (the remainder reverts to the original PROT_NONE reservation).
-function resize_file_overlay!(store::MmapZipStore, new_file_size::UInt64)::Nothing  # FLAKY TESTED
+function resize_file_overlay!(store::MmapZipStore, new_file_size::UInt64)::Nothing
     @assert store.is_writable
     @assert new_file_size <= store.max_file_size
     truncate(store.io_stream, Int(new_file_size))
@@ -454,7 +472,7 @@ end
 # Number of bytes to append to the local file header (as a second, opaque extra field) so that the
 # following data region starts at a `DAF_DATA_OFFSET_ALIGNMENT`-byte-aligned file offset. Returns 0
 # when already aligned, or a value >= 4 (the minimum extra field header size) otherwise.
-@inline function compute_alignment_padding(unpadded_data_offset::UInt64)::Int  # FLAKY TESTED
+@inline function compute_alignment_padding(unpadded_data_offset::UInt64)::Int
     remainder = Int(mod(unpadded_data_offset, UInt64(DAF_DATA_OFFSET_ALIGNMENT)))
     if remainder == 0
         return 0
@@ -463,7 +481,7 @@ end
     return total_mod >= 4 ? total_mod : total_mod + DAF_DATA_OFFSET_ALIGNMENT
 end
 
-function Base.getindex(store::MmapZipStore, key::AbstractString)::Union{Nothing, AbstractVector{UInt8}}  # FLAKY TESTED
+function Base.getindex(store::MmapZipStore, key::AbstractString)::Union{Nothing, AbstractVector{UInt8}}
     entry_index = get(store.name_to_index, key, nothing)
     if entry_index === nothing
         return nothing
@@ -522,10 +540,9 @@ function try_mmap_entry_as(
 end
 
 # Return the raw data bytes for the entry at the given index. For stored (method-0) entries the
-# result is an mmap-backed zero-copy view; for deflate / deflate64 entries the result is an
-# in-memory decompressed copy from `ZipArchives.jl`. Any other method raises `ArgumentError` from
-# `ZipArchives.jl`.
-function read_entry_bytes(store::MmapZipStore, entry_index::Int)::AbstractVector{UInt8}  # FLAKY TESTED
+# result is an mmap-backed zero-copy view; for compressed entries the result is an in-memory
+# decompressed copy. Errors with a clear message on unsupported methods.
+function read_entry_bytes(store::MmapZipStore, entry_index::Int)::AbstractVector{UInt8}
     entry = store.entries[entry_index]
     if entry.compression_method == STORED_COMPRESSION_METHOD
         return mmap_stored_entry_bytes(store, entry_index)
@@ -533,7 +550,7 @@ function read_entry_bytes(store::MmapZipStore, entry_index::Int)::AbstractVector
     return read_compressed_entry_bytes(store, entry_index)
 end
 
-function mmap_stored_entry_bytes(store::MmapZipStore, entry_index::Int)::AbstractVector{UInt8}  # FLAKY TESTED
+function mmap_stored_entry_bytes(store::MmapZipStore, entry_index::Int)::AbstractVector{UInt8}
     entry = store.entries[entry_index]
     if entry.compressed_size == 0
         return UInt8[]
@@ -543,17 +560,57 @@ function mmap_stored_entry_bytes(store::MmapZipStore, entry_index::Int)::Abstrac
     return view(store.file_mmap, start_position:end_position)
 end
 
-function read_compressed_entry_bytes(store::MmapZipStore, entry_index::Int)::Vector{UInt8}  # FLAKY TESTED
-    zip_view = view(store.file_mmap, 1:Int(store.overlay_length))
-    zip_reader = ZipArchives.ZipReader(zip_view)
-    return ZipArchives.zip_readentry(zip_reader, entry_index)
+# Decompress one ZIP entry based on its CD-declared compression method. DEFLATE and DEFLATE64 are
+# routed through `ZipArchives.jl` (which handles both, plus CRC and size validation). BZIP2 and
+# ZSTD are decompressed via the matching `CodecBzip2` / `CodecZstd` stream over a zero-copy mmap
+# view of the entry payload, then validated against the central-directory CRC and size.
+function read_compressed_entry_bytes(store::MmapZipStore, entry_index::Int)::Vector{UInt8}
+    entry = store.entries[entry_index]
+    method = entry.compression_method
+    if method == DEFLATE_COMPRESSION_METHOD || method == DEFLATE64_COMPRESSION_METHOD
+        zip_view = view(store.file_mmap, 1:Int(store.overlay_length))
+        zip_reader = ZipArchives.ZipReader(zip_view)
+        return ZipArchives.zip_readentry(zip_reader, entry_index)
+    end
+    start_position = Int(entry.data_offset) + 1
+    end_position = start_position + Int(entry.compressed_size) - 1
+    compressed_view = view(store.file_mmap, start_position:end_position)
+    if method == BZIP2_COMPRESSION_METHOD
+        decompressed = read(Bzip2DecompressorStream(IOBuffer(compressed_view)))
+    elseif method == ZSTD_COMPRESSION_METHOD
+        decompressed = read(ZstdDecompressorStream(IOBuffer(compressed_view)))
+    else
+        error(chomp("""
+                    unsupported ZIP compression method: $(Int(method))
+                    in ZIP entry name: $(entry.name)
+                    supported methods are: 0 (STORED), 8 (DEFLATE), 9 (DEFLATE64), 12 (BZIP2), 93 (ZSTD)
+                    """))
+    end
+    if length(decompressed) != Int(entry.uncompressed_size)
+        error(chomp("""  # UNTESTED
+                    unexpected uncompressed size: $(length(decompressed))
+                    expected uncompressed size: $(Int(entry.uncompressed_size))
+                    in ZIP entry name: $(entry.name)
+                    with ZIP compression method: $(Int(method))
+                    """))
+    end
+    actual_crc32 = ZipArchives.zip_crc32(decompressed)
+    if actual_crc32 != entry.crc32
+        error(chomp("""  # UNTESTED
+                    unexpected CRC32: $(actual_crc32)
+                    expected CRC32: $(entry.crc32)
+                    in ZIP entry name: $(entry.name)
+                    with ZIP compression method: $(Int(method))
+                    """))
+    end
+    return decompressed
 end
 
-function Zarr.subkeys(store::MmapZipStore, prefix_path::AbstractString)::Vector{String}  # FLAKY TESTED
+function Zarr.subkeys(store::MmapZipStore, prefix_path::AbstractString)::Vector{String}
     return collect_names_under_prefix(store, prefix_path, :file)
 end
 
-function Zarr.subdirs(store::MmapZipStore, prefix_path::AbstractString)::Vector{String}  # FLAKY TESTED
+function Zarr.subdirs(store::MmapZipStore, prefix_path::AbstractString)::Vector{String}
     return collect_names_under_prefix(store, prefix_path, :directory)
 end
 
@@ -596,15 +653,15 @@ function Zarr.storagesize(store::MmapZipStore, prefix_path::AbstractString)::Int
     return total_size
 end
 
-function Zarr.isinitialized(store::MmapZipStore, key::AbstractString)::Bool  # FLAKY TESTED
+function Zarr.isinitialized(store::MmapZipStore, key::AbstractString)::Bool
     return haskey(store.name_to_index, key)
 end
 
-function Base.haskey(store::MmapZipStore, key::AbstractString)::Bool  # FLAKY TESTED
+function Base.haskey(store::MmapZipStore, key::AbstractString)::Bool
     return haskey(store.name_to_index, key)
 end
 
-function Base.setindex!(store::MmapZipStore, value::Any, key::AbstractString)::Any  # FLAKY TESTED
+function Base.setindex!(store::MmapZipStore, value::Any, key::AbstractString)::Any
     data_bytes = coerce_bytes_for_append(value)
     append_entry!(store, String(key), data_bytes)
     return value
@@ -629,7 +686,7 @@ function append_entry!(store::MmapZipStore, key::String, data_bytes::Vector{UInt
     return nothing
 end
 
-function check_append_limits(_::MmapZipStore, name_bytes::Vector{UInt8}, _::Integer)::Nothing  # FLAKY TESTED
+function check_append_limits(_::MmapZipStore, name_bytes::Vector{UInt8}, _::Integer)::Nothing
     if length(name_bytes) > typemax(UInt16)
         error("zip entry name too long: $(length(name_bytes)) bytes")
     end
@@ -788,12 +845,13 @@ function write_central_directory_entry!(
     uncompressed_size::UInt64,
     crc32_value::UInt32,
     local_file_header_offset::UInt64,
+    compression_method::UInt16 = STORED_COMPRESSION_METHOD,
 )::Nothing
     write_little_endian_uint32!(buffer, position, CENTRAL_DIRECTORY_ENTRY_SIGNATURE)
     write_little_endian_uint16!(buffer, position + 4, UInt16(0x031e))                # version made by (Unix v3.0)
     write_little_endian_uint16!(buffer, position + 6, ZIP64_VERSION_NEEDED)          # version needed to extract (ZIP64)
     write_little_endian_uint16!(buffer, position + 8, UInt16(1 << 11))               # general purpose flag: UTF-8 name
-    write_little_endian_uint16!(buffer, position + 10, STORED_COMPRESSION_METHOD)
+    write_little_endian_uint16!(buffer, position + 10, compression_method)
     write_little_endian_uint16!(buffer, position + 12, UInt16(0))                    # last modified time
     write_little_endian_uint16!(buffer, position + 14, UInt16(0x21))                 # last modified date (1980-01-01)
     write_little_endian_uint32!(buffer, position + 16, crc32_value)
@@ -824,28 +882,36 @@ function write_local_file_header!(
     uncompressed_size::UInt64,
     crc32_value::UInt32,
     alignment_padding::Int,
+    compression_method::UInt16 = STORED_COMPRESSION_METHOD;
+    include_zip64_extra::Bool = true,
 )::Nothing
-    total_extra_size = ZIP64_LOCAL_FILE_HEADER_EXTRA_SIZE + alignment_padding
+    zip64_extra_size = include_zip64_extra ? ZIP64_LOCAL_FILE_HEADER_EXTRA_SIZE : 0
+    total_extra_size = zip64_extra_size + alignment_padding
+    version_needed = include_zip64_extra ? ZIP64_VERSION_NEEDED : UInt16(20)
+    csize_field = include_zip64_extra ? typemax(UInt32) : UInt32(compressed_size)
+    usize_field = include_zip64_extra ? typemax(UInt32) : UInt32(uncompressed_size)
     write_little_endian_uint32!(buffer, position, LOCAL_FILE_HEADER_SIGNATURE)
-    write_little_endian_uint16!(buffer, position + 4, ZIP64_VERSION_NEEDED)          # version needed to extract (ZIP64)
+    write_little_endian_uint16!(buffer, position + 4, version_needed)
     write_little_endian_uint16!(buffer, position + 6, UInt16(1 << 11))               # general purpose flag: UTF-8 name
-    write_little_endian_uint16!(buffer, position + 8, STORED_COMPRESSION_METHOD)
+    write_little_endian_uint16!(buffer, position + 8, compression_method)
     write_little_endian_uint16!(buffer, position + 10, UInt16(0))                    # last modified time
     write_little_endian_uint16!(buffer, position + 12, UInt16(0x21))                 # last modified date (1980-01-01)
     write_little_endian_uint32!(buffer, position + 14, crc32_value)
-    write_little_endian_uint32!(buffer, position + 18, typemax(UInt32))              # compressed size sentinel (real value in ZIP64 extra)
-    write_little_endian_uint32!(buffer, position + 22, typemax(UInt32))              # uncompressed size sentinel (real value in ZIP64 extra)
+    write_little_endian_uint32!(buffer, position + 18, csize_field)
+    write_little_endian_uint32!(buffer, position + 22, usize_field)
     write_little_endian_uint16!(buffer, position + 26, UInt16(length(name_bytes)))
-    write_little_endian_uint16!(buffer, position + 28, UInt16(total_extra_size))     # extra field length (ZIP64 + alignment padding)
+    write_little_endian_uint16!(buffer, position + 28, UInt16(total_extra_size))
     copyto!(buffer, position + LOCAL_FILE_HEADER_FIXED_SIZE, name_bytes, 1, length(name_bytes))
     extra_field_position = position + LOCAL_FILE_HEADER_FIXED_SIZE + length(name_bytes)
-    write_little_endian_uint16!(buffer, extra_field_position, ZIP64_EXTRA_HEADER_ID)
-    write_little_endian_uint16!(buffer, extra_field_position + 2, UInt16(ZIP64_LOCAL_FILE_HEADER_EXTRA_SIZE - 4))
-    write_little_endian_uint64!(buffer, extra_field_position + 4, uncompressed_size)
-    write_little_endian_uint64!(buffer, extra_field_position + 12, compressed_size)
+    if include_zip64_extra
+        write_little_endian_uint16!(buffer, extra_field_position, ZIP64_EXTRA_HEADER_ID)
+        write_little_endian_uint16!(buffer, extra_field_position + 2, UInt16(ZIP64_LOCAL_FILE_HEADER_EXTRA_SIZE - 4))
+        write_little_endian_uint64!(buffer, extra_field_position + 4, uncompressed_size)
+        write_little_endian_uint64!(buffer, extra_field_position + 12, compressed_size)
+    end
     if alignment_padding > 0
         @assert alignment_padding >= 4
-        padding_position = extra_field_position + ZIP64_LOCAL_FILE_HEADER_EXTRA_SIZE
+        padding_position = extra_field_position + zip64_extra_size
         write_little_endian_uint16!(buffer, padding_position, DAF_PADDING_EXTRA_HEADER_ID)
         write_little_endian_uint16!(buffer, padding_position + 2, UInt16(alignment_padding - 4))
         if alignment_padding > 4
@@ -904,23 +970,31 @@ end
 # so we marshal the ZIP integer fields via direct stores and loads rather than byte-by-byte shifts.
 @assert ENDIAN_BOM == 0x04030201 "MmapZipStore requires a little-endian host"
 
-@inline function write_little_endian_uint16!(buffer::Vector{UInt8}, position::Integer, value::UInt16)::Nothing  # FLAKY TESTED
+@inline function write_little_endian_uint16!(buffer::Vector{UInt8}, position::Integer, value::UInt16)::Nothing
     GC.@preserve buffer unsafe_store!(Ptr{UInt16}(pointer(buffer, position)), value)
     return nothing
 end
 
-@inline function write_little_endian_uint32!(buffer::Vector{UInt8}, position::Integer, value::UInt32)::Nothing  # FLAKY TESTED
+@inline function write_little_endian_uint32!(buffer::Vector{UInt8}, position::Integer, value::UInt32)::Nothing
     GC.@preserve buffer unsafe_store!(Ptr{UInt32}(pointer(buffer, position)), value)
     return nothing
 end
 
-@inline function write_little_endian_uint64!(buffer::Vector{UInt8}, position::Integer, value::UInt64)::Nothing  # FLAKY TESTED
+@inline function write_little_endian_uint64!(buffer::Vector{UInt8}, position::Integer, value::UInt64)::Nothing
     GC.@preserve buffer unsafe_store!(Ptr{UInt64}(pointer(buffer, position)), value)
     return nothing
 end
 
-@inline function read_little_endian_uint32(buffer::AbstractVector{UInt8}, position::Integer)::UInt32  # FLAKY TESTED
+@inline function read_little_endian_uint16(buffer::AbstractVector{UInt8}, position::Integer)::UInt16
+    return GC.@preserve buffer unsafe_load(Ptr{UInt16}(pointer(buffer, position)))
+end
+
+@inline function read_little_endian_uint32(buffer::AbstractVector{UInt8}, position::Integer)::UInt32
     return GC.@preserve buffer unsafe_load(Ptr{UInt32}(pointer(buffer, position)))
+end
+
+@inline function read_little_endian_uint64(buffer::AbstractVector{UInt8}, position::Integer)::UInt64
+    return GC.@preserve buffer unsafe_load(Ptr{UInt64}(pointer(buffer, position)))
 end
 
 """
@@ -1072,7 +1146,7 @@ function entry_is_valid(store::MmapZipStore, entry_index::Int)::Bool
     return ZipArchives.zip_crc32(data_bytes) == entry.crc32
 end
 
-function mmap_file_range(store::MmapZipStore, offset::UInt64, size::UInt64)::AbstractVector{UInt8}  # FLAKY TESTED
+function mmap_file_range(store::MmapZipStore, offset::UInt64, size::UInt64)::AbstractVector{UInt8}
     @assert offset + size <= store.overlay_length
     if size == 0
         return UInt8[]
@@ -1175,14 +1249,14 @@ function remove_entries_from_central_directory!(store::MmapZipStore, keys::Abstr
     return nothing
 end
 
-function Base.close(store::MmapZipStore)::Nothing  # FLAKY TESTED
+function Base.close(store::MmapZipStore)::Nothing
     if isopen(store.io_stream)
         close(store.io_stream)
     end
     return nothing
 end
 
-function Zarr.storefromstring(::Type{MmapZipStore}, path::AbstractString, _::Any)::Tuple{MmapZipStore, String}  # FLAKY TESTED
+function Zarr.storefromstring(::Type{MmapZipStore}, path::AbstractString, _::Any)::Tuple{MmapZipStore, String}
     return (MmapZipStore(String(path); writable = false), "")
 end
 

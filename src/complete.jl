@@ -67,7 +67,9 @@ function complete_daf(
         @assert mode in ("r", "r+")
         @debug "Open complete $(name):" _group = :daf_repose
         dafs = flame_timed("complete_daf.collect_dafs") do
-            return reverse!(collect_dafs(; name, base_daf_repository = leaf, mode, packed, indent = "", index = 0))
+            return reverse!(
+                collect_dafs(; name, base_daf_repository = leaf, mode, is_packed = packed, indent = "", index = 0),
+            )
         end
         return flame_timed("complete_daf.chain") do
             if mode == "r+"
@@ -83,14 +85,14 @@ function collect_dafs(;
     name::AbstractString,
     base_daf_repository::Union{AbstractString, DafReader},
     mode::AbstractString,
-    packed::Bool,
+    is_packed::Bool,
     indent::AbstractString,
     index::Integer,
 )::AbstractVector{<:DafReader}
     dafs = DafReader[]
     while true
         @debug "$(indent)- Open $(base_daf_repository) $(mode)" _group = :daf_repose
-        daf = open_daf(base_daf_repository, mode; packed)  # NOJET
+        daf = open_daf(base_daf_repository, mode; packed = is_packed)  # NOJET
         base_directory = dirname(base_daf_repository)  # NOJET
 
         push!(dafs, daf)
@@ -109,7 +111,7 @@ function collect_dafs(;
                     name,
                     base_daf_repository,
                     mode = "r",
-                    packed = false,
+                    is_packed = false,
                     indent = indent * "  ",
                     index = index + 1,
                 ),
@@ -121,7 +123,7 @@ function collect_dafs(;
         end
 
         mode = "r"
-        packed = false
+        is_packed = false
     end
     return dafs
 end

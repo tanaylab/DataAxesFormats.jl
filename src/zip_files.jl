@@ -1,48 +1,38 @@
 """
-A `Daf` storage format that packs the [`FilesDaf`](@ref DataAxesFormats.FilesFormat.FilesDaf)
-on-disk layout verbatim into a single ZIP archive. This is a convenient single-file form for
-publication and transport: copy one `*.daf.zip` instead of recursively copying a directory tree,
-without giving up the zero-copy memory-mapped access that `FilesDaf` provides.
+A `Daf` storage format that packs one or more [`FilesDaf`](@ref DataAxesFormats.FilesFormat.FilesDaf) on-disk layout
+verbatim into a single ZIP archive. This is a convenient single-file form for publication and transport: copy one
+`*.daf[s].zip` instead of recursively copying a directory tree, without giving up the zero-copy memory-mapped access
+that `FilesDaf` provides.
 
-The encoding is the `FilesDaf` encoding — every entry name inside the archive is the relative
-path of the matching `FilesDaf` file (`daf.json`, `scalars/<name>.json`, `axes/<axis>.txt`,
+The encoding is the `FilesDaf` encoding — every entry name inside the archive is the relative path of the matching
+`FilesDaf` file (`daf.json`, `scalars/<name>.json`, `axes/<axis>.txt`,
 `vectors/<axis>/<name>.{json,txt,data,nzind,nzval,nztxt}`,
-`matrices/<rows>/<cols>/<name>.{json,data,txt,colptr,rowval,nzval,nztxt}`), and every blob is the
-same little-endian byte stream. As a consequence:
+`matrices/<rows>/<cols>/<name>.{json,data,txt,colptr,rowval,nzval,nztxt}`), and every blob is the same little-endian
+byte stream. As a consequence:
 
-  - Unzipping a `*.daf.zip` produced by this format yields a directory that
-    [`FilesDaf`](@ref DataAxesFormats.FilesFormat.FilesDaf) opens directly. The unzipped tree
-    will not contain the `metadata.json` consolidated index `FilesDaf` uses for
-    [`HttpDaf`](@ref DataAxesFormats.HttpFormat.HttpDaf) enumeration — it is rebuilt
-    automatically by `FilesDaf.ensure_metadata_json!` on the first local open on a writable
-    filesystem.
-  - Conversely, `zip -r foo.daf.zip foo.daf/` over an existing `FilesDaf` directory produces a
-    valid `ZipDaf`. Since the source directory may hold a (now-stale) `metadata.json`, that
-    entry can get bundled inside the archive too — `ZipDaf` strips it from the central
-    directory on every writable open (see
-    [`MmapZipStores.remove_entries_from_central_directory!`](@ref
-    DataAxesFormats.MmapZipStores.remove_entries_from_central_directory!)). After unzipping
-    such a stripped archive, the next writable `FilesDaf` open rebuilds `metadata.json` from
-    scratch, so the consolidated index is always coherent with the directory tree.
+  - Unzipping a `*.daf[s].zip` produced by this format yields directories that [`FilesDaf`](@ref
+    DataAxesFormats.FilesFormat.FilesDaf) opens directly. The unzipped tree might not contain the `metadata.json`
+    consolidated index `FilesDaf` uses for [`HttpDaf`](@ref DataAxesFormats.HttpFormat.HttpDaf) enumeration — it is
+    rebuilt automatically by `FilesDaf.ensure_metadata_json!` on the first local open on a writable filesystem (of each
+    separate files repository, if there is more than one).
+  - Conversely, `zip -r foo.daf.zip foo.daf/` over an existing `FilesDaf` directory produces a valid `ZipDaf`. Since the
+    source directory may hold a (possible stale, ignored) `metadata.json`, that entry can get bundled inside the archive
+    too — `ZipDaf` strips it from the central directory on every writable open to ensure stale metadata is not retained.
+    After unzipping such a stripped archive, the next writable `FilesDaf` open rebuilds `metadata.json` from scratch, so
+    the consolidated index is always coherent with the directory tree.
 
-The backend is built on [`MmapZipStores.MmapZipStore`](@ref
-DataAxesFormats.MmapZipStores.MmapZipStore), so dense numeric blobs (and `colptr` / `rowval` /
-`nzind` / `nzval` for sparse ones) are served zero-copy via memory-mapped views of the archive
-file when possible; foreign archives whose entries are deflate-compressed or unaligned fall back
-to in-memory decoded copies. Same archive-on-disk protocol as the ZIP backend of
-[`ZarrDaf`](@ref DataAxesFormats.ZarrFormat.ZarrDaf): append-only, no entry deletes or
-overwrites, no axis reorder, with crash-recovery on the next writable open.
+Dense numeric blobs (and `colptr` / `rowval` / `nzind` / `nzval` for sparse ones) are served zero-copy via memory-mapped
+views of the archive file when possible; foreign archives whose entries are compressed (DEFLATE, DEFLATE64, BZIP2, or
+ZSTD) or unaligned fall back to in-memory decoded copies. The only modification allowed to writable ZIP repositories is
+appending new data: no entry deletes or overwrites, and no axis reorder.
 
 Path conventions, mirroring [`ZarrDaf`](@ref DataAxesFormats.ZarrFormat.ZarrDaf):
 
-  - `something.daf.zip` — single Daf at the archive root. A `#/group` fragment in this form is
-    rejected.
-  - `something.dafs.zip#/group` — a multi-Daf archive holding several `Daf` data sets under
-    sub-paths; `group` selects one and must be non-empty. A bare `something.dafs.zip` without a
-    `#/group` fragment is rejected.
+  - `something.daf.zip` — single Daf at the archive root. A `#/group` fragment in this form is rejected.
+  - `something.dafs.zip#/group` — a multi-Daf archive holding several `Daf` data sets under sub-paths; `group` selects
+    one and must be non-empty. A bare `something.dafs.zip` without a `#/group` fragment is rejected.
 
-Example archive entry layout (single-Daf form; the multi-Daf form prefixes every entry with
-`<group>/`):
+Example archive entry layout (single-Daf form; the multi-Daf form prefixes every entry with `<group>/`):
 
     daf.json
     scalars/version.json
@@ -56,6 +46,15 @@ Example archive entry layout (single-Daf form; the multi-Daf form prefixes every
     matrices/cell/gene/UMIs.colptr
     matrices/cell/gene/UMIs.rowval
     matrices/cell/gene/UMIs.nzval
+    matrices/cell/gene/fractions.json   # dense, packed
+    matrices/cell/gene/fractions.zip
+
+Packed (chunked + compressed) properties are stored as one `<name>.zip` archive *entry* per property (or
+`<name>.<component>.zip` per packed sparse component) — a nested ZIP archive of the inner chunks. `ZipDaf` reads the
+inner chunks through that shard's own central directory, the same code path as [`FilesDaf`](@ref
+DataAxesFormats.FilesFormat.FilesDaf) and [`HttpDaf`](@ref DataAxesFormats.HttpFormat.HttpDaf); the `"packed_format"`
+descriptor key and the shard layout are documented in [`FilesFormat`](@ref DataAxesFormats.FilesFormat) and
+[`PackedFormat`](@ref DataAxesFormats.PackedFormat).
 
 The valid `mode` values are as follows (the default mode is `r`):
 
@@ -113,16 +112,22 @@ import ..FilesFormat.MAJOR_VERSION
 import ..FilesFormat.MINOR_VERSION
 import ..Formats
 import ..Formats.Internal
+import ..MmapZipStores.CENTRAL_DIRECTORY_ENTRY_FIXED_SIZE
+import ..MmapZipStores.LOCAL_FILE_HEADER_FIXED_SIZE
+import ..MmapZipStores.TRAILING_END_OF_CENTRAL_DIRECTORY_REGION_SIZE
+import ..MmapZipStores.ZIP64_CENTRAL_DIRECTORY_EXTRA_SIZE
+import ..MmapZipStores.ZIP64_LOCAL_FILE_HEADER_EXTRA_SIZE
 import ..Operations.DTYPE_BY_NAME
-import ..PackedFormat.IncrementalShardWriter
-import ..PackedFormat.MmapShardRegion
-import ..PackedFormat.PackedCodec
-import ..PackedFormat.PackedDaf
+import ..PackedFormat.ChunkedArray
 import ..PackedFormat.chunks_for
 import ..PackedFormat.dense_array_json_bytes
 import ..PackedFormat.eltype_for_descriptor
+import ..PackedFormat.IncrementalShardWriter
+import ..PackedFormat.is_packed_component
+import ..PackedFormat.local_chunk_cache_capacity
 import ..PackedFormat.make_streaming_shard_writer
-import ..PackedFormat.open_packed_dense_array
+import ..PackedFormat.open_packed_shard_from_buffer
+import ..PackedFormat.MmapShardRegion
 import ..PackedFormat.packed_delete_entry!
 import ..PackedFormat.packed_entry_size
 import ..PackedFormat.packed_finalize_entry!
@@ -151,6 +156,8 @@ import ..PackedFormat.packed_reserve_typed_matrix!
 import ..PackedFormat.packed_reserve_typed_vector!
 import ..PackedFormat.packed_write_bytes!
 import ..PackedFormat.packed_write_typed_array!
+import ..PackedFormat.PackedCodec
+import ..PackedFormat.PackedDaf
 import ..PackedFormat.parse_sparse_descriptor
 import ..PackedFormat.sparse_matrix_json_bytes
 import ..PackedFormat.sparse_vector_json_bytes
@@ -252,7 +259,7 @@ neither form, leaving the caller free to try further format-specific suffix reco
 [`ZarrFormat`](@ref DataAxesFormats.ZarrFormat)'s `.daf.zarr` directory case) before issuing
 its own catch-all error.
 
-Raises an explicit error for the two ill-formed near-miss cases:
+Raises an explicit error for the following ill-formed near-miss cases:
 
   - `*<single_daf_suffix>#/group` — a singular path with a sub-daf fragment;
     `can't address a sub-daf in a singular <format_name> path …`.
@@ -433,10 +440,10 @@ function verify_daf_marker(store::MmapZipStore, daf_marker_key::AbstractString, 
 
     if Int(daf_version[1]) != MAJOR_VERSION || Int(daf_version[2]) > MINOR_VERSION
         error(chomp("""
-              incompatible format version: $(daf_version[1]).$(daf_version[2])
-              for the daf zip archive: $(full_path)
-              the code supports version: $(MAJOR_VERSION).$(MINOR_VERSION)
-              """))
+                    incompatible format version: $(daf_version[1]).$(daf_version[2])
+                    the code supports version: $(MAJOR_VERSION).$(MINOR_VERSION)
+                    in daf zip archive: $(full_path)
+                    """))
     end
     return nothing
 end
@@ -452,11 +459,11 @@ end
 # Format identification & description
 # --------------------------------------------------------------------------------------------
 
-function Readers.is_leaf(::ZipDaf)::Bool  # FLAKY TESTED
+function Readers.is_leaf(::ZipDaf)::Bool
     return true
 end
 
-function Readers.is_leaf(::Type{ZipDaf})::Bool  # FLAKY TESTED
+function Readers.is_leaf(::Type{ZipDaf})::Bool
     return true
 end
 
@@ -464,7 +471,7 @@ function Readers.complete_path(zip_daf::ZipDaf)::Maybe{AbstractString}
     return zip_daf.path
 end
 
-function Formats.format_description_header(  # FLAKY TESTED
+function Formats.format_description_header(  # ONLY SEEMS UNTESTED
     zip_daf::ZipDaf,
     indent::AbstractString,
     lines::Vector{String},
@@ -488,7 +495,7 @@ end
 # Entry-key construction and enumeration helpers
 # --------------------------------------------------------------------------------------------
 
-@inline function entry_key(zip_daf::ZipDaf, parts::AbstractString...)::String  # FLAKY TESTED
+@inline function entry_key(zip_daf::ZipDaf, parts::AbstractString...)::String
     return zip_daf.group_prefix * join(parts)
 end
 
@@ -517,7 +524,7 @@ function entries_in_directory(
     return names_set
 end
 
-@inline function entry_byte_size(zip_daf::ZipDaf, key::AbstractString)::UInt64  # FLAKY TESTED
+@inline function entry_byte_size(zip_daf::ZipDaf, key::AbstractString)::UInt64
     return zip_daf.store.entries[zip_daf.store.name_to_index[key]].uncompressed_size
 end
 
@@ -569,7 +576,7 @@ end
 
 # Same as `read_entry_typed_vector`, but the wrap shape is a `(nrows, ncols)` matrix in the
 # archive's column-major layout.
-function read_entry_typed_matrix(  # FLAKY TESTED
+function read_entry_typed_matrix(
     zip_daf::ZipDaf,
     key::AbstractString,
     ::Type{T},
@@ -587,7 +594,7 @@ function read_entry_typed_matrix(  # FLAKY TESTED
     return (typed_view, decoded_bytes, Formats.MemoryData)
 end
 
-@inline function combine_cache_groups(left::Formats.CacheGroup, right::Formats.CacheGroup)::Formats.CacheGroup  # FLAKY TESTED
+@inline function combine_cache_groups(left::Formats.CacheGroup, right::Formats.CacheGroup)::Formats.CacheGroup
     if left == Formats.MappedData && right == Formats.MappedData
         return Formats.MappedData
     end
@@ -627,12 +634,12 @@ function repeated_string_bytes(value::AbstractString, count::Integer)::Vector{UI
     return take!(io)
 end
 
-function repeated_value_bytes(value::T, count::Integer)::Vector{UInt8} where {T <: StorageReal}  # FLAKY TESTED
+function repeated_value_bytes(value::T, count::Integer)::Vector{UInt8} where {T <: StorageReal}
     typed_buffer = fill(value, Int(count))
     return typed_array_to_bytes(typed_buffer)
 end
 
-function typed_array_to_bytes(typed::AbstractArray{T})::Vector{UInt8} where {T}  # FLAKY TESTED
+function typed_array_to_bytes(typed::AbstractArray{T})::Vector{UInt8} where {T}
     bytes = Vector{UInt8}(undef, length(typed) * sizeof(T))
     if length(typed) > 0
         GC.@preserve typed bytes unsafe_copyto!(Ptr{T}(pointer(bytes)), pointer(typed), length(typed))
@@ -674,7 +681,7 @@ function packed_read_json(zip_daf::ZipDaf, key::AbstractString)::AbstractDict
     return parsed
 end
 
-function packed_read_lines(  # FLAKY TESTED
+function packed_read_lines(
     zip_daf::ZipDaf,
     key::AbstractString,
 )::Tuple{AbstractVector{<:AbstractString}, Formats.CacheGroup}
@@ -706,12 +713,12 @@ function packed_open_array(
     ::Type{T},
     descriptor::AbstractDict,
     dims::NTuple{N, Int},
-)::DiskArrays.CachedDiskArray where {T, N}
+)::ChunkedArray{T, N} where {T, N}
     shard_bytes, _ = read_entry_raw_bytes(zip_daf, entry_key(zip_daf, shard_key))
-    return open_packed_dense_array(Vector{UInt8}(shard_bytes), T, descriptor, dims)
+    return open_packed_shard_from_buffer(shard_bytes, T, descriptor, dims)
 end
 
-function packed_reserve_typed_vector!(  # FLAKY TESTED
+function packed_reserve_typed_vector!(
     zip_daf::ZipDaf,
     key::AbstractString,
     ::Type{T},
@@ -720,7 +727,7 @@ function packed_reserve_typed_vector!(  # FLAKY TESTED
     byte_count = Int(n_elements) * sizeof(T)
     raw_view = reserve_mmap_zip_entry!(zip_daf.store, entry_key(zip_daf, key), byte_count)
     if Int(n_elements) == 0
-        return Vector{T}(undef, 0)
+        return Vector{T}(undef, 0)  # UNTESTED
     end
     return unsafe_wrap(Array, Ptr{T}(pointer(raw_view)), Int(n_elements); own = false)
 end
@@ -749,23 +756,29 @@ function packed_finalize_entry!(zip_daf::ZipDaf, key::AbstractString)::Nothing
     return nothing
 end
 
-# Reserve an upper-bound outer-zip entry and build a streaming `IncrementalShardWriter` over it. The sink's
-# `finalize_sink!` shrinks the reservation to the actual shard size and patches the CRC at the end.
+# Reserve an upper-bound outer-zip entry and build a streaming `IncrementalShardWriter` over it. The
+# reservation budgets for: the Zarr index slab at offset 0, per-chunk `[LFH | encoded bytes]` with codec
+# slack and a generous LFH/CD overhead allowance, plus the trailing ZIP64 EOCD region with one CD entry per
+# chunk. The sink shrinks the reservation to the actual shard size and patches the outer-zip CRC at close.
 function packed_make_streaming_shard_writer(
     zip_daf::ZipDaf,
     shard_key::AbstractString,
     ::Type{T},
-    n_chunks::Integer,
+    chunks_per_shard::Tuple,
     chunk_shape::NTuple{2, Int},
     codec::PackedCodec,
 )::IncrementalShardWriter where {T <: StorageReal}
-    per_chunk_upper_bound = UInt64(2 * prod(chunk_shape) * sizeof(T) + 4096)
-    index_size = UInt64(16 * Int(n_chunks))
-    reserved_size = UInt64(n_chunks) * per_chunk_upper_bound + index_size
+    n_chunks = UInt64(prod(chunks_per_shard))
+    per_chunk_overhead = UInt64(LOCAL_FILE_HEADER_FIXED_SIZE + 64 + ZIP64_LOCAL_FILE_HEADER_EXTRA_SIZE)
+    per_chunk_upper_bound = UInt64(2 * prod(chunk_shape) * sizeof(T) + 4096) + per_chunk_overhead
+    per_cd_entry_overhead = UInt64(CENTRAL_DIRECTORY_ENTRY_FIXED_SIZE + 64 + ZIP64_CENTRAL_DIRECTORY_EXTRA_SIZE)
+    index_size = UInt64(16 * n_chunks + 4)
+    cd_region_size = n_chunks * per_cd_entry_overhead + UInt64(TRAILING_END_OF_CENTRAL_DIRECTORY_REGION_SIZE)
+    reserved_size = index_size + n_chunks * per_chunk_upper_bound + cd_region_size
     physical_key = entry_key(zip_daf, shard_key)
     region = reserve_mmap_zip_entry!(zip_daf.store, physical_key, reserved_size)
-    sink = MmapShardRegion(zip_daf.store, physical_key, region, UInt64(0), reserved_size)
-    return make_streaming_shard_writer(sink, T, Int(n_chunks), v3_bytes_codecs_for(codec, T))
+    sink = MmapShardRegion(zip_daf.store, physical_key, region, UInt64(0), UInt64(0), reserved_size)
+    return make_streaming_shard_writer(sink, T, chunks_per_shard, v3_bytes_codecs_for(codec, T))
 end
 
 # --------------------------------------------------------------------------------------------
@@ -881,7 +894,7 @@ function Formats.format_set_vector!(
     axis::AbstractString,
     name::AbstractString,
     vector::Union{StorageScalar, StorageVector},
-    packed::Bool,
+    is_packed::Bool,
 )::Nothing
     @assert Formats.has_data_write_lock(zip_daf)
     n_elements = Formats.format_axis_length(zip_daf, axis)
@@ -901,13 +914,13 @@ function Formats.format_set_vector!(
             repeated_value_bytes(vector, n_elements)
 
     elseif issparse(vector)
-        packed_format_write_sparse_numeric_vector!(zip_daf, axis, name, vector, packed)  # NOJET
+        packed_format_write_sparse_numeric_vector!(zip_daf, axis, name, vector, is_packed)  # NOJET
 
     elseif eltype(vector) <: AbstractString
         write_string_vector(zip_daf, axis, name, vector)  # NOJET
 
     else
-        chunk_shape = chunks_for(packed, size(vector), eltype(vector))
+        chunk_shape = chunks_for(is_packed, size(vector), eltype(vector))
         if chunk_shape !== nothing
             packed_format_write_dense_array!(zip_daf, "vectors/$(axis)/$(name)", vector, chunk_shape)  # NOJET
         else
@@ -973,7 +986,7 @@ function Formats.format_get_empty_dense_vector!(
     axis::AbstractString,
     name::AbstractString,
     ::Type{T},
-    packed::Bool,
+    is_packed::Bool,
 )::Tuple{AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal}
     @assert Formats.has_data_write_lock(zip_daf)
     return packed_format_get_empty_dense_vector!(
@@ -981,12 +994,12 @@ function Formats.format_get_empty_dense_vector!(
         axis,
         name,
         T,
-        packed,
+        is_packed,
         Formats.format_axis_length(zip_daf, axis),
     )
 end
 
-function Formats.format_filled_empty_dense_vector!(  # FLAKY TESTED
+function Formats.format_filled_empty_dense_vector!(
     zip_daf::ZipDaf,
     axis::AbstractString,
     name::AbstractString,
@@ -1004,13 +1017,13 @@ function Formats.format_get_empty_sparse_vector!(
     ::Type{T},
     nnz::StorageInteger,
     ::Type{I},
-    _packed::Bool,
+    _is_packed::Bool,
 )::Tuple{AbstractVector{I}, AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(zip_daf)
     return packed_format_get_empty_sparse_vector!(zip_daf, axis, name, T, nnz, I)
 end
 
-function Formats.format_filled_empty_sparse_vector!(  # FLAKY TESTED
+function Formats.format_filled_empty_sparse_vector!(
     zip_daf::ZipDaf,
     axis::AbstractString,
     name::AbstractString,
@@ -1053,8 +1066,8 @@ function Formats.format_get_vector(
     if format == "dense"
         eltype_name = String(json["eltype"])
         eltype = eltype_for_descriptor(eltype_name)
-        if get(json, "packed", false) === true
-            vector = packed_open_array(zip_daf, "$(base_key).shard", eltype, json, (n_elements,))
+        if is_packed_component(json)
+            vector = packed_open_array(zip_daf, "$(base_key).zip", eltype, json, (n_elements,))
             return (vector, nothing, Formats.MemoryData)
         end
         if eltype_name == "string" || eltype_name == "String"
@@ -1070,10 +1083,9 @@ function Formats.format_get_vector(
     eltype_name, indtype_name = parse_sparse_descriptor(json, "nzind")
     ind_type = eltype_for_descriptor(indtype_name)
 
-    nzind_vector, nzind_owner, nnz, nzind_cache_group =
-        packed_format_open_sparse_component_eager(zip_daf, base_key, "nzind", ind_type, json, nothing)
-
     if eltype_name == "string" || eltype_name == "String"
+        nzind_vector, _, _, _ =
+            packed_format_open_sparse_component_eager(zip_daf, base_key, "nzind", ind_type, json, nothing)
         nztxt_lines, _ = packed_read_lines(zip_daf, "$(base_key).nztxt")
         vector = Vector{AbstractString}(undef, n_elements)
         fill!(vector, "")
@@ -1082,8 +1094,27 @@ function Formats.format_get_vector(
     end
 
     eltype = eltype_for_descriptor(eltype_name)
-    nzval_present =
-        packed_has_entry(zip_daf, "$(base_key).nzval") || packed_has_entry(zip_daf, "$(base_key).nzval.shard")
+    nzind_descriptor = get(json, "nzind", nothing)
+    is_nzind_packed = is_packed_component(nzind_descriptor)
+    nzval_descriptor = get(json, "nzval", nothing)
+    nzval_present = nzval_descriptor !== nothing || haskey(json, "eltype")
+    is_nzval_packed = is_packed_component(nzval_descriptor)
+
+    if is_nzind_packed || is_nzval_packed
+        nzind_source, _, nnz, _ =
+            packed_format_open_sparse_component_source(zip_daf, base_key, "nzind", ind_type, json, nothing)
+        nzval_source = if nzval_present
+            source, _, _, _ = packed_format_open_sparse_component_source(zip_daf, base_key, "nzval", eltype, json, nnz)
+            source
+        else
+            fill(true, nnz)
+        end
+        vector = LazySparseVector(n_elements, nzind_source, nzval_source)
+        return (vector, nothing, Formats.MemoryData)
+    end
+
+    nzind_vector, nzind_owner, nnz, nzind_cache_group =
+        packed_format_open_sparse_component_eager(zip_daf, base_key, "nzind", ind_type, json, nothing)
 
     if nzval_present
         nzval_vector, nzval_owner, _, nzval_cache_group =
@@ -1120,7 +1151,7 @@ function Formats.format_set_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     matrix::Union{StorageScalarBase, StorageMatrix},
-    packed::Bool,
+    is_packed::Bool,
 )::Nothing
     @assert Formats.has_data_write_lock(zip_daf)
     nrows = Formats.format_axis_length(zip_daf, rows_axis)
@@ -1143,14 +1174,14 @@ function Formats.format_set_matrix!(
 
     elseif issparse(matrix)
         @assert matrix isa AbstractMatrix
-        packed_format_write_sparse_numeric_matrix!(zip_daf, rows_axis, columns_axis, name, matrix, packed)
+        packed_format_write_sparse_numeric_matrix!(zip_daf, rows_axis, columns_axis, name, matrix, is_packed)
 
     elseif eltype(matrix) <: AbstractString
         write_string_matrix(zip_daf, rows_axis, columns_axis, name, matrix)  # NOJET
 
     else
         @assert eltype(matrix) <: Real
-        chunk_shape = chunks_for(packed, (nrows, ncols), eltype(matrix))
+        chunk_shape = chunks_for(is_packed, (nrows, ncols), eltype(matrix))
         if chunk_shape !== nothing
             packed_format_write_dense_array!(  # NOJET
                 zip_daf,
@@ -1239,15 +1270,15 @@ function Formats.format_get_empty_dense_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     ::Type{T},
-    packed::Bool,
+    is_packed::Bool,
 )::Tuple{AbstractMatrix{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal}
     @assert Formats.has_data_write_lock(zip_daf)
     nrows = Formats.format_axis_length(zip_daf, rows_axis)
     ncols = Formats.format_axis_length(zip_daf, columns_axis)
-    return packed_format_get_empty_dense_matrix!(zip_daf, rows_axis, columns_axis, name, T, packed, nrows, ncols)
+    return packed_format_get_empty_dense_matrix!(zip_daf, rows_axis, columns_axis, name, T, is_packed, nrows, ncols)
 end
 
-function Formats.format_filled_empty_dense_matrix!(  # FLAKY TESTED
+function Formats.format_filled_empty_dense_matrix!(
     zip_daf::ZipDaf,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
@@ -1267,7 +1298,7 @@ function Formats.format_get_empty_sparse_matrix!(
     ::Type{T},
     nnz::StorageInteger,
     ::Type{I},
-    _packed::Bool,
+    _is_packed::Bool,
 )::Tuple{
     AbstractVector{I},
     AbstractVector{I},
@@ -1279,7 +1310,7 @@ function Formats.format_get_empty_sparse_matrix!(
     return packed_format_get_empty_sparse_matrix!(zip_daf, rows_axis, columns_axis, name, T, nnz, I, ncols)
 end
 
-function Formats.format_filled_empty_sparse_matrix!(  # FLAKY TESTED
+function Formats.format_filled_empty_sparse_matrix!(
     zip_daf::ZipDaf,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
@@ -1297,7 +1328,7 @@ function Formats.format_relayout_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     matrix::StorageMatrix,
-    packed::Bool,
+    is_packed::Bool,
 )::StorageMatrix
     @assert Formats.has_data_write_lock(zip_daf)
 
@@ -1310,7 +1341,7 @@ function Formats.format_relayout_matrix!(
             eltype(matrix),
             nnz(matrix),
             eltype(matrix.colptr),
-            packed,
+            is_packed,
         )
         colptr_vector[1] = 1
         colptr_vector[2:end] .= length(nzval_vector) + 1
@@ -1333,7 +1364,7 @@ function Formats.format_relayout_matrix!(
 
     @assert eltype(matrix) <: Real
     relayout_matrix, _ =
-        Formats.format_get_empty_dense_matrix!(zip_daf, columns_axis, rows_axis, name, eltype(matrix), packed)
+        Formats.format_get_empty_dense_matrix!(zip_daf, columns_axis, rows_axis, name, eltype(matrix), is_packed)
     relayout!(flip(relayout_matrix), matrix)
     Formats.format_filled_empty_dense_matrix!(zip_daf, columns_axis, rows_axis, name, relayout_matrix)
     return relayout_matrix
@@ -1378,8 +1409,8 @@ function Formats.format_get_matrix(
     if format == "dense"
         eltype_name = String(json["eltype"])
         eltype = eltype_for_descriptor(eltype_name)
-        if get(json, "packed", false) === true
-            matrix = packed_open_array(zip_daf, "$(base_key).shard", eltype, json, (nrows, ncols))
+        if is_packed_component(json)
+            matrix = packed_open_array(zip_daf, "$(base_key).zip", eltype, json, (nrows, ncols))
             return (matrix, nothing, Formats.MemoryData)
         end
         if eltype_name == "string" || eltype_name == "String"
@@ -1396,12 +1427,10 @@ function Formats.format_get_matrix(
     ind_type = eltype_for_descriptor(indtype_name)
 
     rowval_descriptor = get(json, "rowval", nothing)
-    rowval_packed = rowval_descriptor isa AbstractDict && get(rowval_descriptor, "packed", false) === true
+    is_rowval_packed = is_packed_component(rowval_descriptor)
     nzval_descriptor = get(json, "nzval", nothing)
-    nzval_packed = nzval_descriptor isa AbstractDict && get(nzval_descriptor, "packed", false) === true
-
-    nzval_present =
-        packed_has_entry(zip_daf, "$(base_key).nzval") || packed_has_entry(zip_daf, "$(base_key).nzval.shard")
+    nzval_present = nzval_descriptor !== nothing || haskey(json, "eltype")
+    is_nzval_packed = is_packed_component(nzval_descriptor)
 
     # `colptr` is always materialised at read time (small; slicing needs random access).
     colptr_vector, colptr_owner, _, colptr_cache_group =
@@ -1427,7 +1456,7 @@ function Formats.format_get_matrix(
 
     eltype = eltype_for_descriptor(eltype_name)
 
-    if rowval_packed || (nzval_present && nzval_packed)
+    if is_rowval_packed || is_nzval_packed
         rowval_source, _, nnz, _ =
             packed_format_open_sparse_component_source(zip_daf, base_key, "rowval", ind_type, json, nothing)
         nzval_source = if nzval_present

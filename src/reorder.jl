@@ -37,7 +37,7 @@ using UUIDs
 
 struct SimulatedCrash <: Exception end
 
-function tick_crash_counter!(crash_counter::Maybe{Ref{Int}})::Nothing  # FLAKY TESTED
+function tick_crash_counter!(crash_counter::Maybe{Ref{Int}})::Nothing
     if crash_counter === nothing
         return nothing
     end
@@ -250,7 +250,7 @@ subsequent call can detect and roll back a partially-applied reorder.
 When multiple writers share the same backing store (e.g. several H5df groups in one HDF5 file), pass them all in a single
 call so that the backup and lock are coordinated correctly.
 """
-function reorder_axes!(  # FLAKY TESTED
+function reorder_axes!(
     daf::Formats.DafWriter,
     axes_permutations::AbstractDict{<:AbstractString, <:AbstractVector{<:Integer}};
     _simulate_crash::Maybe{Integer} = nothing,
@@ -306,7 +306,7 @@ function reorder_axes!(
     return nothing
 end
 
-function reorder_sort_key(daf::Formats.DafWriter)  # FLAKY TESTED
+function reorder_sort_key(daf::Formats.DafWriter)
     path = Readers.complete_path(daf)
     if path !== nothing
         return (0, path)
@@ -406,7 +406,7 @@ end
 Roll back a partially-applied reorder on one or more leaf `DafWriter`s. This is the **only** way to recover from a
 crash during [`reorder_axes!`](@ref). Returns `true` if any writer had a pending reorder that was rolled back.
 """
-function reset_reorder_axes!(daf::Formats.DafWriter)::Bool  # FLAKY TESTED
+function reset_reorder_axes!(daf::Formats.DafWriter)::Bool
     return reset_reorder_axes!(Formats.DafWriter[daf])
 end
 

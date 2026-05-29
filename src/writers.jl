@@ -795,13 +795,13 @@ function set_matrix!(
             require_no_matrix(daf, rows_axis, columns_axis, name; relayout)
         end
 
-        resolved_packed = resolve_packed(packed, daf)
+        is_resolved_packed = resolve_packed(packed, daf)
         update_before_set_matrix(daf, rows_axis, columns_axis, name)
-        Formats.format_set_matrix!(daf, rows_axis, columns_axis, name, matrix, resolved_packed)
+        Formats.format_set_matrix!(daf, rows_axis, columns_axis, name, matrix, is_resolved_packed)
 
         if relayout
             update_before_set_matrix(daf, columns_axis, rows_axis, name)
-            Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name, matrix, resolved_packed)
+            Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name, matrix, is_resolved_packed)
         end
         # Formats.assert_valid_cache(daf)
     end
@@ -1157,13 +1157,13 @@ function relayout_matrix!(
         assert_valid_matrix(daf, rows_axis, columns_axis, name, matrix)
 
         if packed === nothing
-            resolved_packed = Formats.format_is_packed_matrix(daf, rows_axis, columns_axis, name)
+            is_resolved_packed = Formats.format_is_packed_matrix(daf, rows_axis, columns_axis, name)
         else
-            resolved_packed = packed
+            is_resolved_packed = packed
         end
 
         update_before_set_matrix(daf, columns_axis, rows_axis, name)
-        Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name, matrix.array, resolved_packed)
+        Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name, matrix.array, is_resolved_packed)
 
         @debug "relayout_matrix! }" _group = :daf_sets
         # Formats.assert_valid_cache(daf)
