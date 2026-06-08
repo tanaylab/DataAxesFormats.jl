@@ -302,11 +302,11 @@ end
 # the reservation. No-op on non-Linux platforms. See `mmap_with_small_pages` for the rationale.
 function disable_transparent_huge_pages(base::Ptr{Cvoid}, byte_length::Integer)::Nothing
     @static if Sys.islinux()
-        if byte_length > 0
-            MADV_NOHUGEPAGE = Cint(15)
-            result = ccall(:madvise, Cint, (Ptr{Cvoid}, Csize_t, Cint), base, Csize_t(byte_length), MADV_NOHUGEPAGE)
-            if result != 0
-                error("madvise MADV_NOHUGEPAGE failed: $(Base.Libc.strerror())")
+        if byte_length > 0  # FLAKY TESTED
+            MADV_NOHUGEPAGE = Cint(15)  # FLAKY TESTED
+            result = ccall(:madvise, Cint, (Ptr{Cvoid}, Csize_t, Cint), base, Csize_t(byte_length), MADV_NOHUGEPAGE)  # FLAKY TESTED
+            if result != 0  # FLAKY TESTED
+                error("madvise MADV_NOHUGEPAGE failed: $(Base.Libc.strerror())")  # FLAKY TESTED
             end
         end
     end

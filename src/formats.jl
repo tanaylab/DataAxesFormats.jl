@@ -927,7 +927,7 @@ function result_from_cache(cache_entry::CacheEntry)::Any
     entry_lock = cache_entry.data
     if entry_lock isa AbstractLock
         return lock(entry_lock) do  # UNTESTED
-            return cache_entry.data  # UNTESTED
+            return cache_entry.data  # FLAKY TESTED
         end
     end
     return cache_entry.data

@@ -76,6 +76,7 @@ using ..Formats
 using ..MmapZipStores
 using ..StorageTypes
 using Base64
+using Base.Threads
 using CodecZlib
 using DiskArrays
 using HTTP
@@ -107,6 +108,8 @@ import ..MmapZipStores.write_end_of_central_directory_region!
 import ..MmapZipStores.write_little_endian_uint32!
 import ..MmapZipStores.write_local_file_header!
 import ..Operations.DTYPE_BY_NAME
+
+import Base.Threads.maxthreadid
 import SparseArrays.indtype
 import ZipArchives.zip_crc32
 
@@ -502,7 +505,7 @@ function PackedDenseMatrix{T}(
     encoder::Function;
     finalizer::Function = () -> nothing,
 )::PackedDenseMatrix{T} where {T}
-    thread_slots = create_static_parallel_buffers(() -> PackedThreadSlot{T}(0, Vector{T}(undef, n_rows)))
+    thread_slots = [PackedThreadSlot{T}(0, Vector{T}(undef, n_rows)) for _ in 1:maxthreadid()]
     return PackedDenseMatrix{T}(n_rows, n_columns, thread_slots, encoder, finalizer)
 end
 
@@ -512,7 +515,7 @@ end
 
 function Base.view(matrix::PackedDenseMatrix{T}, ::Colon, column::Int)::Vector{T} where {T}
     @assert 1 <= column <= matrix.n_columns
-    slot = get_static_parallel_buffer(matrix.thread_slots)
+    slot = matrix.thread_slots[threadid()]
     if slot.current_column == column
         return slot.chunk_buffer
     end
@@ -561,7 +564,6 @@ function TanayLabUtilities.MatrixLayouts.unnamed_relayout(
     parallel_loop_wo_rng(
         1:n_columns;
         name = "PackedDenseMatrix.relayout",
-        policy = :static,
         progress = DebugProgress(n_columns; group = :daf_loops, desc = "PackedDenseMatrix.relayout"),
     ) do column_index
         view(destination, :, column_index) .= view(source, :, column_index)

@@ -738,7 +738,7 @@ function open_or_create_daf_group(
     create_if_missing::Bool,
 )::ZGroup
     if Zarr.is_zgroup(Zarr.ZarrFormat(3), store, zpath)  # NOJET
-        root =
+        root =  # NOJET
             Zarr.zopen_noerr(store, is_read_only ? "r" : "w", Zarr.ZarrFormat(3); path = zpath, fill_as_missing = false)  # NOJET
         if !(root isa ZGroup)
             error("not a daf zarr group: $(full_path)")  # UNTESTED
@@ -2115,7 +2115,7 @@ function Formats.format_relayout_matrix!(
         ncols = axis_length(daf, rows_axis)
         relayout_matrix = flipped(matrix)
         array = dense_zcreate(String, group, name, false, (nrows, ncols))
-        array[:, :] = relayout_matrix
+        array[:, :] = relayout_matrix  # NOJET
         register_consolidated_node!(
             daf,
             "matrices/$(columns_axis)/$(rows_axis)/$(name)",
@@ -2363,7 +2363,7 @@ function Reorder.format_replace_reorder!(
         if Formats.format_has_axis(daf, axis; for_change = false)
             delete_child(axes_group(daf), axis)
             axis_array = dense_zcreate(String, axes_group(daf), axis, false, (length(planned_axis.new_entries),))
-            axis_array[:] = planned_axis.new_entries
+            axis_array[:] = planned_axis.new_entries  # NOJET
         end
     end
 

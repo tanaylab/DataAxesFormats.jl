@@ -753,6 +753,20 @@ function Formats.format_vectors_set(files::FilesDaf, axis::AbstractString)::Abst
     return get_names_set("$(files.path)/vectors/$(axis)", ".json")
 end
 
+# Whether a sparse property stores an `nzval` file on disk. In the v1.1 schema (per-component descriptors) the presence
+# of the `nzval` descriptor is authoritative. The legacy v1.0 schema (top-level `eltype`/`indtype`) carries no
+# per-component descriptor and always omits the `nzval` file for `Bool` properties (the stored values are all the
+# implied `true`), so its presence is determined by the element type.
+function nzval_is_present(json::AbstractDict, eltype_name::AbstractString)::Bool
+    if haskey(json, "nzval")
+        return true
+    elseif haskey(json, "eltype")
+        return eltype_name != "Bool"
+    else
+        return false
+    end
+end
+
 function Formats.format_get_vector(
     files::FilesDaf,
     axis::AbstractString,
@@ -813,7 +827,7 @@ function Formats.format_get_vector(
             nzind_descriptor = get(json, "nzind", nothing)
             is_nzind_packed = is_packed_component(nzind_descriptor)
             nzval_descriptor = get(json, "nzval", nothing)
-            nzval_present = nzval_descriptor !== nothing || haskey(json, "eltype")
+            nzval_present = nzval_is_present(json, eltype_name)
             is_nzval_packed = is_packed_component(nzval_descriptor)
 
             if is_nzind_packed || is_nzval_packed
@@ -1216,7 +1230,7 @@ function Formats.format_get_matrix(
             rowval_descriptor = get(json, "rowval", nothing)
             is_rowval_packed = is_packed_component(rowval_descriptor)
             nzval_descriptor = get(json, "nzval", nothing)
-            nzval_present = nzval_descriptor !== nothing || haskey(json, "eltype")
+            nzval_present = nzval_is_present(json, eltype_name)
             is_nzval_packed = is_packed_component(nzval_descriptor)
 
             if is_rowval_packed || is_nzval_packed

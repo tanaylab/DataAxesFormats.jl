@@ -803,6 +803,8 @@ function log_vector!(
     n_elements = length(output)
     output = base_array(output)
     input = base_array(input)
+    @check_turbo_vector(output)
+    @check_turbo_vector(input)
     if base == 2.0
         @turbo for element_index in 1:n_elements
             output[element_index] = log2(T(input[element_index]) + eps)

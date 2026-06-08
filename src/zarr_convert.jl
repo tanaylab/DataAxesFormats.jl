@@ -656,11 +656,7 @@ function reencode_dense_matrix(
     n_columns = shape[2]
     source_matrix = get_matrix(source, rows_axis, columns_axis, name; relayout = false)
     empty_dense_matrix!(destination, rows_axis, columns_axis, name, T; packed = true) do filled
-        TanayLabUtilities.parallel_loop_wo_rng(
-            1:n_columns;
-            name = "zarr_to_files_reencode",
-            policy = :static,
-        ) do column_index
+        TanayLabUtilities.parallel_loop_wo_rng(1:n_columns; name = "zarr_to_files_reencode") do column_index
             @views filled[:, column_index] .= source_matrix[:, column_index]
         end
     end

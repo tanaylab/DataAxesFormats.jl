@@ -4,7 +4,7 @@ Extract data from a [`DafReader`](@ref).
 !!! note
 
     If queries are invoked from within any `parallel_loop_wo_rng` or `parallel_loop_with_rng`, that loop must
-    use `policy = :static`.
+    use `policy = :greedy_sticky`.
 """
 module Queries
 
@@ -3960,7 +3960,6 @@ function reduce_grouped_vector(
     parallel_loop_wo_rng(
         1:length(unique_group_values);
         name = loop_name,
-        policy = :static,
         progress = DebugProgress(length(unique_group_values); group = :daf_loops, desc = loop_name),
     ) do group_index
         @views is_in_group_per_value = is_in_group_per_value_per_thread[threadid()]
@@ -4728,7 +4727,6 @@ function compute_grouped_matrix(
     parallel_loop_wo_rng(
         1:length(unique_group_values);
         name = loop_name,
-        policy = :static,
         progress = DebugProgress(length(unique_group_values); group = :daf_loops, desc = loop_name),
     ) do group_index
         @views is_in_group_per_value = is_in_group_per_value_per_thread[threadid()]
@@ -4818,7 +4816,6 @@ function compute_grouped_matrix(
     parallel_loop_wo_rng(
         1:length(unique_group_values);
         name = loop_name,
-        policy = :static,
         progress = DebugProgress(length(unique_group_values); group = :daf_loops, desc = loop_name),
     ) do group_index
         @views is_in_group_per_value = is_in_group_per_value_per_thread[threadid()]
