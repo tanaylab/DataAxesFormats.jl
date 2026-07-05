@@ -1724,12 +1724,12 @@ function get_query_result(
         @assert vector_state.vector_values !== nothing
         finalize_vector_values!(query_state, vector_state)
         if vector_state.entries_axis_name === nothing
-            named_vector = NamedArray(vector_state.vector_values; names = (vector_state.vector_entries,))  # NOJET
+            named_vector = NamedArray(vector_state.vector_values, (Formats.names_dict(vector_state.vector_entries),))  # NOJET
         else
             named_vector = NamedArray(  # NOJET
-                vector_state.vector_values;
-                names = (vector_state.vector_entries,),
-                dimnames = (vector_state.entries_axis_name,),
+                vector_state.vector_values,
+                (Formats.names_dict(vector_state.vector_entries),),
+                (vector_state.entries_axis_name,),
             )
         end
         return (named_vector, query_state.dependency_keys)
@@ -1761,9 +1761,12 @@ function get_query_result(
             end
 
             named_matrix = NamedArray(  # NOJET
-                matrix_state.matrix_values;
-                names = (matrix_state.rows_state.vector_entries, matrix_state.columns_state.vector_entries),
-                dimnames = (row_axis_name, column_axis_name),
+                matrix_state.matrix_values,
+                (
+                    Formats.names_dict(matrix_state.rows_state.vector_entries),
+                    Formats.names_dict(matrix_state.columns_state.vector_entries),
+                ),
+                (row_axis_name, column_axis_name),
             )
 
             return (named_matrix, query_state.dependency_keys)
@@ -3605,7 +3608,8 @@ function apply_mask(
 
     finalize_vector_values!(query_state, mask_state)
 
-    named_mask = NamedArray(zeros(Bool, length(base_state.vector_values)); names = (base_state.vector_entries,))
+    named_mask =  # NOJET
+        NamedArray(zeros(Bool, length(base_state.vector_values)), (Formats.names_dict(base_state.vector_entries),))
     named_mask[mask_state.vector_entries] .= as_booleans(mask_state.vector_values)  # NOJET
 
     if begin_mask isa BeginMask
@@ -3754,7 +3758,8 @@ function compute_mask_operation(
         return nothing
     end
 
-    first_named_mask = NamedArray(zeros(Bool, length(base_state.vector_values)); names = (base_state.vector_entries,))
+    first_named_mask =  # NOJET
+        NamedArray(zeros(Bool, length(base_state.vector_values)), (Formats.names_dict(base_state.vector_entries),))
     first_named_mask[first_mask_state.vector_entries] .= as_booleans(first_mask_state.vector_values)  # NOJET
 
     if begin_mask isa BeginMask
@@ -3766,7 +3771,8 @@ function compute_mask_operation(
         @assert false
     end
 
-    second_named_mask = NamedArray(zeros(Bool, length(base_state.vector_values)); names = (base_state.vector_entries,))
+    second_named_mask =  # NOJET
+        NamedArray(zeros(Bool, length(base_state.vector_values)), (Formats.names_dict(base_state.vector_entries),))
     second_named_mask[second_mask_state.vector_entries] .= as_booleans(second_mask_state.vector_values)  # NOJET
     second_mask = second_named_mask.array
 
@@ -3933,8 +3939,8 @@ function reduce_grouped_vector(
     end
 
     @assert query_state.daf !== nothing
-    named_values = NamedArray(base_state.vector_values; names = (base_state.vector_entries,))  # NOJET
-    vector_values = named_values[group_state.vector_entries].array
+    named_values = NamedArray(base_state.vector_values, (Formats.names_dict(base_state.vector_entries),))  # NOJET
+    vector_values = named_values[group_state.vector_entries].array  # NOJET
 
     if group_state.property_axis_name === nothing
         unique_group_values = sort!(unique(group_state.vector_values))
@@ -4697,8 +4703,11 @@ function compute_grouped_matrix(
     end
 
     named_values = NamedArray(  # NOJET
-        base_state.matrix_values;
-        names = (base_state.rows_state.vector_entries, base_state.columns_state.vector_entries),
+        base_state.matrix_values,
+        (
+            Formats.names_dict(base_state.rows_state.vector_entries),
+            Formats.names_dict(base_state.columns_state.vector_entries),
+        ),
     )
     matrix_values = named_values[:, group_state.vector_entries].array
 
@@ -4786,8 +4795,11 @@ function compute_grouped_matrix(
     end
 
     named_values = NamedArray(  # NOJET
-        base_state.matrix_values;
-        names = (base_state.rows_state.vector_entries, base_state.columns_state.vector_entries),
+        base_state.matrix_values,
+        (
+            Formats.names_dict(base_state.rows_state.vector_entries),
+            Formats.names_dict(base_state.columns_state.vector_entries),
+        ),
     )
     matrix_values = named_values[group_state.vector_entries, :].array
 

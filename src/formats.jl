@@ -1067,18 +1067,25 @@ function get_axis_vector_through_cache(format::FormatReader, axis::AbstractStrin
     end
 end
 
+# Build the name-to-index lookup dictionary that a `NamedArray` uses for an axis. The key type is forced to
+# `AbstractString` so that lookups accept any string type; if it were the concrete type of `names` (for memory-mapped
+# data, a zero-copy `SubString{StringView{...}}`), `NamedArray` would only accept that exact type as a lookup key.
+function names_dict(names::AbstractVector{<:AbstractString})::OrderedDict{AbstractString, Int}
+    dict = OrderedDict{AbstractString, Int}()
+    for (index, name) in enumerate(names)
+        dict[name] = index
+    end
+    length(dict) == length(names) || error("Cannot have duplicated names for indices")
+    return dict
+end
+
 function get_axis_dict_through_cache(
     format::FormatReader,
     axis::AbstractString,
 )::AbstractDict{<:AbstractString, <:Integer}
     return get_through_cache(format, axis_dict_cache_key(axis), AbstractDict{<:AbstractString, <:Integer}) do
         names = get_axis_vector_through_cache(format, axis)
-        if eltype(names) != AbstractString
-            names = Vector{AbstractString}(names)  # NOJET
-        end
-        names = read_only_array(names)
-        named_array = NamedArray(spzeros(length(names)); names = (names,), dimnames = (axis,))
-        return (named_array.dicts[1], MemoryData)
+        return (names_dict(names), MemoryData)
     end
 end
 
