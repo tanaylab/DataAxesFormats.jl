@@ -548,7 +548,7 @@ When the values of a vector are entries in some axis, we can use it to look up s
 lookups the `@` can be omitted (e.g. `@ cell : metacell`). This can be chained (`@ cell : metacell : type : color`).
 When grouping a vector or matrix rows or columns, explicitly associating an axis with the values causes creating a group
 for each axis entry in the right order so that the result is a proper values vector for the
-axis (`@ metacell / type @ >> Count`).
+axis (`@ metacell / type =@ >> Count`).
 
 ```jldoctest
 metacells = example_metacells_daf()
@@ -1957,7 +1957,7 @@ function show_computation_operation(
     print(io, " ")
 
     operation_type = typeof(computation_operation)
-    print(io, operation_type)
+    print(io, nameof(operation_type))
 
     for field_name in fieldnames(operation_type)
         if field_name != :type || getfield(computation_operation, :type) !== nothing
