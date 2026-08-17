@@ -103,6 +103,8 @@ using ..Writers
 using DiskArrays
 using JSON
 using ProgressMeter
+
+import ProgressMeter.AbstractProgress  # NOLINT
 using SparseArrays
 using StringViews
 using TanayLabUtilities
@@ -1503,7 +1505,7 @@ end
 function Reorder.format_replace_reorder!(  # UNTESTED
     zip_daf::ZipDaf,
     ::Reorder.FormatReorderPlan,
-    ::Maybe{Progress},
+    ::Maybe{AbstractProgress},
     ::Maybe{Ref{Int}},
 )::Nothing
     @assert Formats.has_data_write_lock(zip_daf)

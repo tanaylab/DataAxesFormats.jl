@@ -217,6 +217,8 @@ using DiskArrays
 using JSON
 using Mmap
 using ProgressMeter
+
+import ProgressMeter.AbstractProgress  # NOLINT
 using SparseArrays
 using StringViews
 using TanayLabUtilities
@@ -1799,7 +1801,7 @@ end
 function Reorder.format_replace_reorder!(
     files::FilesDaf,
     plan::Reorder.FormatReorderPlan,
-    replacement_progress::Maybe{Progress},
+    replacement_progress::Maybe{AbstractProgress},
     crash_counter::Maybe{Ref{Int}},
 )::Nothing
     @assert Formats.has_data_write_lock(files)
@@ -1832,7 +1834,7 @@ function replace_reorder_vector(
     files::FilesDaf,
     planned::Reorder.PlannedVector,
     plan::Reorder.FormatReorderPlan,
-    replacement_progress::Maybe{Progress},
+    replacement_progress::Maybe{AbstractProgress},
 )::Nothing
     source_vector, _, _ = Formats.format_get_vector(files, planned.axis, planned.name)
     planned_axis = plan.planned_axes[planned.axis]
@@ -1888,7 +1890,7 @@ function replace_reorder_matrix(
     files::FilesDaf,
     planned::Reorder.PlannedMatrix,
     plan::Reorder.FormatReorderPlan,
-    replacement_progress::Maybe{Progress},
+    replacement_progress::Maybe{AbstractProgress},
 )::Nothing
     source_matrix, _, _ = Formats.format_get_matrix(files, planned.rows_axis, planned.columns_axis, planned.name)
     planned_rows = get(plan.planned_axes, planned.rows_axis, nothing)

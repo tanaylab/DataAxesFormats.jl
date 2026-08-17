@@ -196,7 +196,7 @@ function format_backup_reorder! end
     format_replace_reorder!(
         writer::FormatWriter,
         plan::FormatReorderPlan,
-        replacement_progress::Maybe{Progress},
+        replacement_progress::Maybe{AbstractProgress},
         crash_counter::Maybe{Ref{Int}},
     )::Nothing
 

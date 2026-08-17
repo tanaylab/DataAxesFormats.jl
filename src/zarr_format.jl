@@ -214,6 +214,8 @@ using DiskArrays
 using JSON
 using Mmap
 using ProgressMeter
+
+import ProgressMeter.AbstractProgress  # NOLINT
 using SparseArrays
 using TanayLabUtilities
 using Zarr
@@ -2353,7 +2355,7 @@ end
 function Reorder.format_replace_reorder!(
     daf::ZarrDaf,
     plan::Reorder.FormatReorderPlan,
-    replacement_progress::Maybe{Progress},
+    replacement_progress::Maybe{AbstractProgress},
     crash_counter::Maybe{Ref{Int}},
 )::Nothing
     @assert Formats.has_data_write_lock(daf)
@@ -2385,7 +2387,7 @@ function replace_reorder_vector(
     daf::ZarrDaf,
     planned::Reorder.PlannedVector,
     plan::Reorder.FormatReorderPlan,
-    replacement_progress::Maybe{Progress},
+    replacement_progress::Maybe{AbstractProgress},
 )::Nothing
     source_vector, _, _ = Formats.format_get_vector(daf, planned.axis, planned.name)
     is_source_packed = Formats.format_is_packed_vector(daf, planned.axis, planned.name)
@@ -2442,7 +2444,7 @@ function replace_reorder_matrix(
     daf::ZarrDaf,
     planned::Reorder.PlannedMatrix,
     plan::Reorder.FormatReorderPlan,
-    replacement_progress::Maybe{Progress},
+    replacement_progress::Maybe{AbstractProgress},
 )::Nothing
     source_matrix, _, _ = Formats.format_get_matrix(daf, planned.rows_axis, planned.columns_axis, planned.name)
     is_source_packed = Formats.format_is_packed_matrix(daf, planned.rows_axis, planned.columns_axis, planned.name)
@@ -2538,7 +2540,7 @@ function permute_matrix_into!(
     source::AbstractMatrix,
     planned_rows::Maybe{Reorder.PlannedAxis},
     planned_columns::Maybe{Reorder.PlannedAxis},
-    replacement_progress::Maybe{Progress},
+    replacement_progress::Maybe{AbstractProgress},
 )::Nothing
     if planned_rows !== nothing && planned_columns !== nothing
         permute_dense_matrix_both!(;

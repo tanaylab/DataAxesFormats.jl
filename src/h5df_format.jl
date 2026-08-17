@@ -190,6 +190,8 @@ import ..PackedFormat.flush_packed_dense_matrix!
 import ..PackedFormat.packed_local_cache_mb
 import ..Reorder
 using ProgressMeter
+
+import ProgressMeter.AbstractProgress  # NOLINT
 using TanayLabUtilities
 
 """
@@ -1706,7 +1708,7 @@ end
 function Reorder.format_replace_reorder!(
     h5df::H5df,
     plan::Reorder.FormatReorderPlan,
-    replacement_progress::Maybe{Progress},
+    replacement_progress::Maybe{AbstractProgress},
     crash_counter::Maybe{Ref{Int}},
 )::Nothing
     @assert Formats.has_data_write_lock(h5df)
@@ -1761,7 +1763,7 @@ function replace_reorder_vector(
     backup_root::Union{HDF5.File, HDF5.Group},
     planned::Reorder.PlannedVector,
     plan::Reorder.FormatReorderPlan,
-    replacement_progress::Maybe{Progress},
+    replacement_progress::Maybe{AbstractProgress},
     needs_compaction::Ref{Bool},
 )::Nothing
     planned_axis = plan.planned_axes[planned.axis]
@@ -1871,7 +1873,7 @@ function replace_reorder_matrix(
     backup_root::Union{HDF5.File, HDF5.Group},
     planned::Reorder.PlannedMatrix,
     plan::Reorder.FormatReorderPlan,
-    replacement_progress::Maybe{Progress},
+    replacement_progress::Maybe{AbstractProgress},
     needs_compaction::Ref{Bool},
 )::Nothing
     planned_rows = get(plan.planned_axes, planned.rows_axis, nothing)

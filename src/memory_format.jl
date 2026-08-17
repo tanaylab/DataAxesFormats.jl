@@ -13,6 +13,8 @@ using ..StorageTypes
 using ..Writers
 using NamedArrays
 using ProgressMeter
+
+import ProgressMeter.AbstractProgress  # NOLINT
 using SparseArrays
 using TanayLabUtilities
 
@@ -395,7 +397,7 @@ function stage_permuted_vector(
     source::StorageVector,
     permutation::AbstractVector{<:Integer},
     inverse_permutation::AbstractVector{<:Integer},
-    replacement_progress::Maybe{Progress},
+    replacement_progress::Maybe{AbstractProgress},
 )::StorageVector
     if source isa SparseVector
         destination_nzind = similar(SparseArrays.nonzeroinds(source))
@@ -423,7 +425,7 @@ function stage_permuted_matrix(
     rows_permutation::Maybe{AbstractVector{<:Integer}},
     inverse_rows_permutation::Maybe{AbstractVector{<:Integer}},
     columns_permutation::Maybe{AbstractVector{<:Integer}},
-    replacement_progress::Maybe{Progress},
+    replacement_progress::Maybe{AbstractProgress},
 )::StorageMatrix
     @assert rows_permutation !== nothing || columns_permutation !== nothing
     if source isa SparseMatrixCSC
@@ -519,7 +521,7 @@ end
 function Reorder.format_replace_reorder!(
     memory::MemoryDaf,
     plan::Reorder.FormatReorderPlan,
-    replacement_progress::Maybe{Progress},
+    replacement_progress::Maybe{AbstractProgress},
     crash_counter::Maybe{Ref{Int}},
 )::Nothing
     @assert Formats.has_data_write_lock(memory)
