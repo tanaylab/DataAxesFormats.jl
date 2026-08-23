@@ -6,6 +6,8 @@ type, and delete the per-cell color property).
 """
 module Reconstruction
 
+export EmptyImplicit
+export PropertiesDefaults
 export reconstruct_axis!
 
 using ..Formats
