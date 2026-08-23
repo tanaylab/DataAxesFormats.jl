@@ -26,6 +26,34 @@ nested_test("reconstruction") do
             """
     end
 
+    nested_test("empties") do
+        set_vector!(memory, "cell", "age", [1, 1, 3, 3]; overwrite = true)
+        set_vector!(memory, "cell", "batch", ["X", "X", "Outliers", "Doublet"])
+        results = reconstruct_axis!(
+            memory;
+            existing_axis = "cell",
+            implicit_axis = "batch",
+            empty_implicit = ("Outliers", "Doublet"),
+        )
+        @test keys(results) == Set(["age"])
+        @test results["age"] == 3
+        @test get_vector(memory, "cell", "batch").array == ["X", "X", "", ""]
+
+        @test description(memory) == """
+            name: memory!
+            type: MemoryDaf
+            axes:
+              batch: 1 entries
+              cell: 4 entries
+            vectors:
+              batch:
+                age: 1 x Int64 (Dense)
+              cell:
+                batch: 4 x Str (Dense)
+                score: 4 x Float64 (Dense)
+            """
+    end
+
     nested_test("inconsistent") do
         set_vector!(memory, "cell", "batch", ["X", "X", "Y", ""])
         @test_throws chomp("""

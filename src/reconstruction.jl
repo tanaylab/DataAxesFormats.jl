@@ -22,22 +22,46 @@ Map property names to a default value. This can be specified as a dictionary, a 
 PropertiesDefaults = Union{AbstractDict, AbstractVector, NamedTuple}
 
 """
+The value(s) of a property which mean "there is no value". This can be specified as a single value, or as a vector, set
+or tuple of them, for data which spells "no value" in more than one way (e.g., both `Outliers` and `Doublet`).
+"""
+EmptyImplicit = Union{
+    StorageScalar,
+    AbstractVector{<:StorageScalarBase},
+    AbstractSet{<:StorageScalarBase},
+    Tuple{Vararg{StorageScalarBase}},
+}
+
+# Collect the value(s) meaning "there is no value" into a set, so that one of them and several of them are treated the
+# same way. Specifying none of them gives an empty set, which no value is a member of.
+function set_of_empty_implicit(empty_implicit::Maybe{EmptyImplicit})::Set{StorageScalarBase}
+    if empty_implicit === nothing
+        return Set{StorageScalarBase}()
+    elseif empty_implicit isa StorageScalar
+        return Set{StorageScalarBase}((empty_implicit,))
+    else
+        return Set{StorageScalarBase}(empty_implicit)
+    end
+end
+
+"""
     reconstruct_axis!(
         daf::DafWriter;
         existing_axis::AbstractString,
         implicit_axis::AbstractString,
         [rename_axis::Maybe{AbstractString} = nothing,
-        empty_implicit::Maybe{StorageScalar} = nothing,
+        empty_implicit::Maybe{EmptyImplicit} = nothing,
         implicit_properties::Maybe{AbstractSet{<:AbstractString}} = nothing,
         skipped_properties::Maybe{AbstractSet{<:AbstractString}} = nothing,
         properties_defaults::Maybe{AbstractDict} = nothing]
     )::AbstractDict{<:AbstractString, Maybe{StorageScalar}}
 
 Given an `existing_axis` in `daf`, which has a property `implicit_axis`, create a new axis with the same name as the
-property (or, if specified, call it `rename_axis`). If `empty_implicit` is specified, this value of the property is
-replaced by the empty string (indicate there is no value associated with the `existing_axis` entry). For each of the
-`implicit_properties`, we collect the mapping between the `implicit_axis` and the property values, and store it as a
-property of the newly created axis.
+property (or, if specified, call it `rename_axis`). If `empty_implicit` is specified, these values of the property are
+replaced by the empty string (indicate there is no value associated with the `existing_axis` entry); it may be a single
+value or any collection of them, since data often spells "no value" in more than one way (e.g., both `Outliers` and
+`Doublet` may appear where a cell type is expected). For each of the `implicit_properties`, we collect the mapping
+between the `implicit_axis` and the property values, and store it as a property of the newly created axis.
 
 exist as names of entries in the `implicit_axis`. This allows manually creating the `implicit_axis` with additional
 entries that are not currently in use.
@@ -59,7 +83,7 @@ to use for these values.
 !!! note
 
     For each converted property, the value associated with `existing_axis` entries which have no `implicit_axis` value
-    (that is, have an empty string or `empty_implicit` value) is lost. For example, if each cell type has a color, but
+    (that is, have an empty string or any `empty_implicit` value) is lost. For example, if each cell type has a color, but
     some cells do not have a type, then the color of "cells with no type" is lost. We still require this value to be
     consistent, and return a mapping between each migrated property name and the value of such entries (if any exist).
     When reconstructing the original property, specify this value using [`IfNot`](@ref) (e.g.,
@@ -70,7 +94,7 @@ to use for these values.
     existing_axis::AbstractString,
     implicit_axis::AbstractString,
     rename_axis::Maybe{AbstractString} = nothing,
-    empty_implicit::Maybe{StorageScalar} = nothing,
+    empty_implicit::Maybe{EmptyImplicit} = nothing,
     implicit_properties::Maybe{AbstractSet{<:AbstractString}} = nothing,
     skipped_properties::Maybe{AbstractSet{<:AbstractString}} = nothing,
     properties_defaults::Maybe{PropertiesDefaults} = nothing,
@@ -97,12 +121,15 @@ to use for these values.
     end
 
     implicit_values = get_vector(daf, existing_axis, implicit_axis)
+    empty_implicit_values = set_of_empty_implicit(empty_implicit)
     overwrite_implicit_values =
-        !(eltype(implicit_values) <: AbstractString) || (empty_implicit !== nothing && empty_implicit != "")
-    if eltype(implicit_values) <: AbstractString && empty_implicit === nothing
-        empty_implicit = ""
+        !(eltype(implicit_values) <: AbstractString) ||
+        any(empty_implicit_value != "" for empty_implicit_value in empty_implicit_values)
+    if eltype(implicit_values) <: AbstractString && isempty(empty_implicit_values)
+        push!(empty_implicit_values, "")
     end
-    unique_values = unique(implicit_values[implicit_values .!= empty_implicit])
+    is_empty_per_value = in.(implicit_values, Ref(empty_implicit_values))
+    unique_values = unique(implicit_values[.!is_empty_per_value])
     sort!(unique_values)
     if !(eltype(unique_values) <: AbstractString)
         unique_values = [string(unique_value) for unique_value in unique_values]
@@ -122,8 +149,10 @@ to use for these values.
         unique_values = axis_values
     end
 
-    implicit_values =
-        [implicit_value == empty_implicit ? "" : String(string(implicit_value)) for implicit_value in implicit_values]
+    implicit_values = [
+        is_empty ? "" : String(string(implicit_value)) for
+        (implicit_value, is_empty) in zip(implicit_values, is_empty_per_value)
+    ]
     value_of_empties_of_properties = Dict{AbstractString, Maybe{StorageScalar}}()
     vector_values_of_properties = Dict{AbstractString, StorageVector}()
     for property in vectors_set(daf, existing_axis)

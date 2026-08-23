@@ -330,7 +330,7 @@
     existing_axis::AbstractString,
     implicit_axis::AbstractString,
     [rename_axis::Maybe{AbstractString} = nothing,
-    empty_implicit::Maybe{StorageScalar} = nothing,
+    empty_implicit::Maybe{EmptyImplicit} = nothing,
     implicit_properties::Maybe{AbstractSet{&lt;:AbstractString}} = nothing,
     skipped_properties::Maybe{AbstractSet{&lt;:AbstractString}} = nothing,
     properties_defaults::Maybe{AbstractDict} = nothing]
@@ -347,9 +347,13 @@
 <code>rename_axis
 </code>). If 
 <code>empty_implicit
-</code> is specified, this value of the property is replaced by the empty string (indicate there is no value associated with the 
+</code> is specified, these values of the property are replaced by the empty string (indicate there is no value associated with the 
 <code>existing_axis
-</code> entry). For each of the 
+</code> entry); it may be a single value or any collection of them, since data often spells &quot;no value&quot; in more than one way (e.g., both 
+<code>Outliers
+</code> and 
+<code>Doublet
+</code> may appear where a cell type is expected). For each of the 
 <code>implicit_properties
 </code>, we collect the mapping between the 
 <code>implicit_axis
@@ -389,9 +393,9 @@
 <code>properties_defaults
 </code> to use for these values.
 </p>
-<div class="admonition is-info" id="Note-fdd8008be90c6922">
+<div class="admonition is-info" id="Note-4fffd52ca197b0ee">
 <header class="admonition-header">Note
-<a class="admonition-anchor" href="#Note-fdd8008be90c6922" title="Permalink">
+<a class="admonition-anchor" href="#Note-4fffd52ca197b0ee" title="Permalink">
 </a>
 </header>
 <div class="admonition-body">
@@ -399,7 +403,7 @@
 <code>existing_axis
 </code> entries which have no 
 <code>implicit_axis
-</code> value (that is, have an empty string or 
+</code> value (that is, have an empty string or any 
 <code>empty_implicit
 </code> value) is lost. For example, if each cell type has a color, but some cells do not have a type, then the color of &quot;cells with no type&quot; is lost. We still require this value to be consistent, and return a mapping between each migrated property name and the value of such entries (if any exist). When reconstructing the original property, specify this value using 
 <a href="queries.html#DataAxesFormats.Queries.IfNot">
@@ -433,6 +437,28 @@
 </section>
 </details>
 </article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.Reconstruction.EmptyImplicit">
+<a class="docstring-binding" href="#DataAxesFormats.Reconstruction.EmptyImplicit">
+<code>DataAxesFormats.Reconstruction.EmptyImplicit
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</summary>
+<section>
+<div>
+<p>The value(s) of a property which mean &quot;there is no value&quot;. This can be specified as a single value, or as a vector, set or tuple of them, for data which spells &quot;no value&quot; in more than one way (e.g., both 
+<code>Outliers
+</code> and 
+<code>Doublet
+</code>).
+</p>
+</div>
+</section>
+</details>
+</article>
 <h2 id="Index">
 <a class="docs-heading-anchor" href="#Index">Index
 </a>
@@ -445,6 +471,12 @@
 <li>
 <a href="reconstruction.html#DataAxesFormats.Reconstruction">
 <code>DataAxesFormats.Reconstruction
+</code>
+</a>
+</li>
+<li>
+<a href="reconstruction.html#DataAxesFormats.Reconstruction.EmptyImplicit">
+<code>DataAxesFormats.Reconstruction.EmptyImplicit
 </code>
 </a>
 </li>
