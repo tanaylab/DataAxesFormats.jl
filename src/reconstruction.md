@@ -3,6 +3,7 @@
 ```@docs
 DataAxesFormats.Reconstruction
 DataAxesFormats.Reconstruction.reconstruct_axis!
+DataAxesFormats.Reconstruction.connect_axes!
 DataAxesFormats.Reconstruction.PropertiesDefaults
 DataAxesFormats.Reconstruction.EmptyImplicit
 ```

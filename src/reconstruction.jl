@@ -6,6 +6,7 @@ type, and delete the per-cell color property).
 """
 module Reconstruction
 
+export connect_axes!
 export EmptyImplicit
 export PropertiesDefaults
 export reconstruct_axis!
@@ -260,6 +261,128 @@ function value_of_implicit_property(
             """))
     end
     return value
+end
+
+"""
+    connect_axes!(
+        daf::DafWriter;
+        base_axis::AbstractString,
+        from_axis::AbstractString,
+        [from_property::Maybe{AbstractString} = nothing,]
+        to_axis::AbstractString,
+        [to_property::Maybe{AbstractString} = nothing,
+        connect_property::Maybe{AbstractString} = nothing,
+        overwrite::Bool = false]
+    )::Nothing
+
+Given a `base_axis` with two vector properties, one holding a reference to `from_axis` and one to `to_axis`, create a
+property of `from_axis` that references `to_axis`. This is only possible if every entry of `from_axis` is always
+associated with a single entry of `to_axis`.
+
+This can happen when one axis (say, "batch") references two other axes (say, "plate" and "tray"). If *every* batch was
+placed in one plate and every plate was in a tray, then we'd have batch refers to plate, plate refers to run;
+[`reconstruct_axis!`](@ref) would have been enough to deal with it, and batch simply wouldn't have a "tray" property.
+This is the more common and more sensible case.
+
+However, if for some reason some batches *do* have a tray reference, but (for whatever reason) do *not* have a plate
+reference, we still want to record that "each plate is in a tray", while not giving up on "each batch is in a tray". So
+we must duplicate data. We record for each plate which tray it is in using `connect_axes!` - creating a new "tray"
+property for the plate axis - while keeping the original tray property per batch.
+
+This is in contrast to `reconstruct_axis!` which does *not* duplicate data - it *moves* the data to its proper place,
+removing the original which became redundant.
+
+By default the properties of `base_axis` holding the references are named after the axes they refer to, and the created
+`connect_property` of `from_axis` is named after `to_axis`. Specify `from_property`, `to_property` and
+`connect_property` when they are not; a base axis may refer to the same axis twice (a "sorted_by" and a "sequenced_by"
+run, say), in which case the name of the property is the only thing telling them apart.
+
+An entry of `base_axis` with no `from_axis` reference is skipped, since there is nothing to record it against; its
+`to_axis` reference is therefore not examined at all. An entry of `from_axis` which no entry of `base_axis` refers to
+is given an empty value.
+"""
+@logged :daf_ops function connect_axes!(
+    daf::DafWriter;
+    base_axis::AbstractString,
+    from_axis::AbstractString,
+    from_property::Maybe{AbstractString} = nothing,
+    to_axis::AbstractString,
+    to_property::Maybe{AbstractString} = nothing,
+    connect_property::Maybe{AbstractString} = nothing,
+    overwrite::Bool = false,
+)::Nothing
+    if from_property === nothing
+        from_property = from_axis
+    end
+
+    if to_property === nothing
+        to_property = to_axis
+    end
+
+    if connect_property === nothing
+        connect_property = to_axis
+    end
+
+    from_per_base = get_vector(daf, base_axis, from_property)
+    to_per_base = get_vector(daf, base_axis, to_property)
+
+    from_names_set = Set(axis_vector(daf, from_axis))
+    to_names_set = Set(axis_vector(daf, to_axis))
+
+    to_name_per_from_name = Dict{AbstractString, AbstractString}()
+    for (from_value, to_value) in zip(from_per_base, to_per_base)
+        from_name = string(from_value)
+        if from_name == ""
+            continue
+        end
+
+        # Each message names the property as well as the axis, since the two need not be named the same, and it is the
+        # property which has to be looked at to see what is wrong.
+        if !(from_name in from_names_set)
+            error(chomp("""
+                missing entry: $(from_name)
+                of the axis: $(from_axis)
+                named by the property: $(from_property)
+                of the axis: $(base_axis)
+                in the daf data: $(daf.name)
+                """))
+        end
+
+        to_name = string(to_value)
+        if to_name != "" && !(to_name in to_names_set)
+            error(chomp("""
+                missing entry: $(to_name)
+                of the axis: $(to_axis)
+                named by the property: $(to_property)
+                of the axis: $(base_axis)
+                in the daf data: $(daf.name)
+                """))
+        end
+
+        previous_to_name = get(to_name_per_from_name, from_name, nothing)
+        if previous_to_name === nothing
+            to_name_per_from_name[from_name] = to_name
+        elseif previous_to_name != to_name
+            # Quoted, unlike the messages above, because here one of the two may be the empty value, and an empty
+            # value is a value: "R1 != " reads as though something went missing from the message itself.
+            error(chomp("""
+                conflicting entries: "$(previous_to_name)" != "$(to_name)"
+                of the axis: $(to_axis)
+                named by the property: $(to_property)
+                of the axis: $(base_axis)
+                for the entry: $(from_name)
+                of the axis: $(from_axis)
+                named by the property: $(from_property)
+                in the daf data: $(daf.name)
+                """))
+        end
+    end
+
+    # Nothing is written until everything above has been verified, so rejected data is left as it was.
+    to_name_per_from = [get(to_name_per_from_name, from_name, "") for from_name in axis_vector(daf, from_axis)]
+    set_vector!(daf, from_axis, connect_property, to_name_per_from; overwrite)
+
+    return nothing
 end
 
 end  # module

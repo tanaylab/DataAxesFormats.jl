@@ -421,6 +421,105 @@
 </article>
 <article>
 <details class="docstring" open="true">
+<summary id="DataAxesFormats.Reconstruction.connect_axes!">
+<a class="docstring-binding" href="#DataAxesFormats.Reconstruction.connect_axes!">
+<code>DataAxesFormats.Reconstruction.connect_axes!
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">connect_axes!(
+    daf::DafWriter;
+    base_axis::AbstractString,
+    from_axis::AbstractString,
+    [from_property::Maybe{AbstractString} = nothing,]
+    to_axis::AbstractString,
+    [to_property::Maybe{AbstractString} = nothing,
+    connect_property::Maybe{AbstractString} = nothing,
+    overwrite::Bool = false]
+)::Nothing
+</code>
+</pre>
+<p>Given a 
+<code>base_axis
+</code> with two vector properties, one holding a reference to 
+<code>from_axis
+</code> and one to 
+<code>to_axis
+</code>, create a property of 
+<code>from_axis
+</code> that references 
+<code>to_axis
+</code>. This is only possible if every entry of 
+<code>from_axis
+</code> is always associated with a single entry of 
+<code>to_axis
+</code>.
+</p>
+<p>This can happen when one axis (say, &quot;batch&quot;) references two other axes (say, &quot;plate&quot; and &quot;tray&quot;). If 
+<em>every
+</em> batch was placed in one plate and every plate was in a tray, then we&#39;d have batch refers to plate, plate refers to run; 
+<a href="reconstruction.html#DataAxesFormats.Reconstruction.reconstruct_axis!">
+<code>reconstruct_axis!
+</code>
+</a> would have been enough to deal with it, and batch simply wouldn&#39;t have a &quot;tray&quot; property. This is the more common and more sensible case.
+</p>
+<p>However, if for some reason some batches 
+<em>do
+</em> have a tray reference, but (for whatever reason) do 
+<em>not
+</em> have a plate reference, we still want to record that &quot;each plate is in a tray&quot;, while not giving up on &quot;each batch is in a tray&quot;. So we must duplicate data. We record for each plate which tray it is in using 
+<code>connect_axes!
+</code> - creating a new &quot;tray&quot; property for the plate axis - while keeping the original tray property per batch.
+</p>
+<p>This is in contrast to 
+<code>reconstruct_axis!
+</code> which does 
+<em>not
+</em> duplicate data - it 
+<em>moves
+</em> the data to its proper place, removing the original which became redundant.
+</p>
+<p>By default the properties of 
+<code>base_axis
+</code> holding the references are named after the axes they refer to, and the created 
+<code>connect_property
+</code> of 
+<code>from_axis
+</code> is named after 
+<code>to_axis
+</code>. Specify 
+<code>from_property
+</code>, 
+<code>to_property
+</code> and 
+<code>connect_property
+</code> when they are not; a base axis may refer to the same axis twice (a &quot;sorted
+<em>by&quot; and a &quot;sequenced
+</em>by&quot; run, say), in which case the name of the property is the only thing telling them apart.
+</p>
+<p>An entry of 
+<code>base_axis
+</code> with no 
+<code>from_axis
+</code> reference is skipped, since there is nothing to record it against; its 
+<code>to_axis
+</code> reference is therefore not examined at all. An entry of 
+<code>from_axis
+</code> which no entry of 
+<code>base_axis
+</code> refers to is given an empty value.
+</p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
 <summary id="DataAxesFormats.Reconstruction.PropertiesDefaults">
 <a class="docstring-binding" href="#DataAxesFormats.Reconstruction.PropertiesDefaults">
 <code>DataAxesFormats.Reconstruction.PropertiesDefaults
@@ -483,6 +582,12 @@
 <li>
 <a href="reconstruction.html#DataAxesFormats.Reconstruction.PropertiesDefaults">
 <code>DataAxesFormats.Reconstruction.PropertiesDefaults
+</code>
+</a>
+</li>
+<li>
+<a href="reconstruction.html#DataAxesFormats.Reconstruction.connect_axes!">
+<code>DataAxesFormats.Reconstruction.connect_axes!
 </code>
 </a>
 </li>
