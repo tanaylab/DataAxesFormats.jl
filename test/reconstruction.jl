@@ -5,6 +5,102 @@ nested_test("reconstruction") do
     set_vector!(memory, "cell", "age", [1, 1, 2, 3])
     set_vector!(memory, "cell", "score", [0.0, 0.5, 1.0, 2.0])
 
+    nested_test("unify") do
+        nested_test("strings") do
+            # One property, spelling "no value" three ways, as data does.
+            set_vector!(memory, "cell", "batch", ["X", "NA", "(Missing)", ""])
+            unify_empty_vector_values!(memory; axis = "cell", property = "batch", empty_values = ("NA", "(Missing)"))
+            @test get_vector(memory, "cell", "batch").array == ["X", "", "", ""]
+        end
+
+        nested_test("floats") do
+            # The smallest integer, which survived a cast to float and is a number rather than an absence.
+            set_vector!(memory, "cell", "rank", [1.0, 2.0, -2147483648.0, 3.0]; overwrite = true)
+            unify_empty_vector_values!(memory; axis = "cell", property = "rank", empty_values = -2147483648.0)
+            values = get_vector(memory, "cell", "rank").array
+            @test isnan(values[3])
+            @test values[[1, 2, 4]] == [1.0, 2.0, 3.0]
+        end
+
+        nested_test("!signed") do
+            # A signed integer has no empty value: 0 and -1 are ordinary integers.
+            @test_throws chomp("""
+                         no empty value for the type: Int64
+                         of the property: age
+                         of the axis: cell
+                         in the daf data: memory!
+                         """) unify_empty_vector_values!(memory; axis = "cell", property = "age", empty_values = 1)
+        end
+
+        nested_test("signed") do
+            unify_empty_vector_values!(memory; axis = "cell", property = "age", empty_values = 1, empty_value = 0)
+            @test get_vector(memory, "cell", "age").array == [0, 0, 2, 3]
+        end
+
+        nested_test("numbers as text") do
+            # A column of measurements is a column of strings because a few of its entries say `NA`.
+            set_vector!(memory, "cell", "qc", ["23.5", "NA", "24.5", "NA"])
+            unify_empty_vector_values!(memory; axis = "cell", property = "qc", empty_values = "NA", dtype = Float32)
+            values = get_vector(memory, "cell", "qc").array
+            @test eltype(values) == Float32
+            @test values[[1, 3]] == Float32[23.5, 24.5]
+            @test all(isnan.(values[[2, 4]]))
+        end
+
+        nested_test("unsigned as text") do
+            # An unsigned index is 1-based, so 0 is free to mean "none".
+            set_vector!(memory, "cell", "plate_index", ["1", "", "32", ""])
+            unify_empty_vector_values!(
+                memory;
+                axis = "cell",
+                property = "plate_index",
+                empty_values = "",
+                dtype = UInt32,
+            )
+            @test get_vector(memory, "cell", "plate_index").array == UInt32[1, 0, 32, 0]
+        end
+
+        nested_test("!text") do
+            set_vector!(memory, "cell", "qc", ["23.5", "NA", "later", "NA"])
+            @test_throws chomp("""
+                         invalid value: later
+                         for the type: Float32
+                         of the property: qc
+                         of the axis: cell
+                         in the daf data: memory!
+                         """) unify_empty_vector_values!(
+                memory;
+                axis = "cell",
+                property = "qc",
+                empty_values = "NA",
+                dtype = Float32,
+            )
+        end
+
+        nested_test("none") do
+            # Which markers a property carries is a fact about the file, so matching none of them is not an error.
+            unify_empty_vector_values!(memory; axis = "cell", property = "age", empty_values = 9)
+            @test get_vector(memory, "cell", "age").array == [1, 1, 2, 3]
+        end
+
+        nested_test("as text") do
+            # The other direction: a number becoming text, which is what an axis entry name has to be.
+            set_vector!(memory, "cell", "batch", [1, 1, 2, 0])
+            unify_empty_vector_values!(memory; axis = "cell", property = "batch", empty_values = 0, dtype = String)
+            @test get_vector(memory, "cell", "batch").array == ["1", "1", "2", ""]
+        end
+
+        nested_test("!nothing") do
+            # Asking for nothing at all cannot do anything whatever the data says.
+            @test_throws chomp("""
+                         no empty values and no type to convert to
+                         of the property: age
+                         of the axis: cell
+                         in the daf data: memory!
+                         """) unify_empty_vector_values!(memory; axis = "cell", property = "age", empty_values = ())
+        end
+    end
+
     nested_test("connect") do
         # Plates and sequencing runs are both properties of a batch, and each plate belongs to one run, but nothing
         # says so where a plate can be asked about it. The last batch has no plate, which is not a problem: nothing is
@@ -125,12 +221,8 @@ nested_test("reconstruction") do
     nested_test("empties") do
         set_vector!(memory, "cell", "age", [1, 1, 3, 3]; overwrite = true)
         set_vector!(memory, "cell", "batch", ["X", "X", "Outliers", "Doublet"])
-        results = reconstruct_axis!(
-            memory;
-            existing_axis = "cell",
-            implicit_axis = "batch",
-            empty_implicit = ("Outliers", "Doublet"),
-        )
+        unify_empty_vector_values!(memory; axis = "cell", property = "batch", empty_values = ("Outliers", "Doublet"))
+        results = reconstruct_axis!(memory; existing_axis = "cell", implicit_axis = "batch")
         @test keys(results) == Set(["age"])
         @test results["age"] == 3
         @test get_vector(memory, "cell", "batch").array == ["X", "X", "", ""]
@@ -167,9 +259,21 @@ nested_test("reconstruction") do
         )
     end
 
+    nested_test("!strings") do
+        # Saying which values mean nothing, and turning anything else into a name, belongs to one function.
+        set_vector!(memory, "cell", "batch", [1, 1, 2, 0])
+        @test_throws chomp("""
+                     not a property of strings: batch
+                     of the axis: cell
+                     in the daf data: memory!
+                     use unify_empty_vector_values! to convert it, saying which of its values mean nothing
+                     """) reconstruct_axis!(memory; existing_axis = "cell", implicit_axis = "batch")
+    end
+
     nested_test("integer") do
         set_vector!(memory, "cell", "batch", [1, 1, 2, 0])
-        results = reconstruct_axis!(memory; existing_axis = "cell", implicit_axis = "batch", empty_implicit = 0)
+        unify_empty_vector_values!(memory; axis = "cell", property = "batch", empty_values = 0, dtype = String)
+        results = reconstruct_axis!(memory; existing_axis = "cell", implicit_axis = "batch")
         @test keys(results) == Set(["age"])
         @test results["age"] == 3
 

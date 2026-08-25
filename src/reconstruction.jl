@@ -10,6 +10,7 @@ export connect_axes!
 export EmptyImplicit
 export PropertiesDefaults
 export reconstruct_axis!
+export unify_empty_vector_values!
 
 using ..Formats
 using ..Keys
@@ -37,10 +38,8 @@ EmptyImplicit = Union{
 
 # Collect the value(s) meaning "there is no value" into a set, so that one of them and several of them are treated the
 # same way. Specifying none of them gives an empty set, which no value is a member of.
-function set_of_empty_implicit(empty_implicit::Maybe{EmptyImplicit})::Set{StorageScalarBase}
-    if empty_implicit === nothing
-        return Set{StorageScalarBase}()
-    elseif empty_implicit isa StorageScalar
+function set_of_empty_implicit(empty_implicit::EmptyImplicit)::Set{StorageScalarBase}
+    if empty_implicit isa StorageScalar
         return Set{StorageScalarBase}((empty_implicit,))
     else
         return Set{StorageScalarBase}(empty_implicit)
@@ -53,18 +52,17 @@ end
         existing_axis::AbstractString,
         implicit_axis::AbstractString,
         [rename_axis::Maybe{AbstractString} = nothing,
-        empty_implicit::Maybe{EmptyImplicit} = nothing,
         implicit_properties::Maybe{AbstractSet{<:AbstractString}} = nothing,
         skipped_properties::Maybe{AbstractSet{<:AbstractString}} = nothing,
         properties_defaults::Maybe{AbstractDict} = nothing]
     )::AbstractDict{<:AbstractString, Maybe{StorageScalar}}
 
 Given an `existing_axis` in `daf`, which has a property `implicit_axis`, create a new axis with the same name as the
-property (or, if specified, call it `rename_axis`). If `empty_implicit` is specified, these values of the property are
-replaced by the empty string (indicate there is no value associated with the `existing_axis` entry); it may be a single
-value or any collection of them, since data often spells "no value" in more than one way (e.g., both `Outliers` and
-`Doublet` may appear where a cell type is expected). For each of the `implicit_properties`, we collect the mapping
-between the `implicit_axis` and the property values, and store it as a property of the newly created axis.
+property (or, if specified, call it `rename_axis`). An empty string means there is no value associated with that
+`existing_axis` entry; data spelling that some other way - `NA`, `Outliers`, a sentinel number - should be passed
+through [`unify_empty_vector_values!`](@ref) first, which is where that concept lives. For each of the
+`implicit_properties`, we collect the mapping between the `implicit_axis` and the property values, and store it as a
+property of the newly created axis.
 
 exist as names of entries in the `implicit_axis`. This allows manually creating the `implicit_axis` with additional
 entries that are not currently in use.
@@ -86,7 +84,7 @@ to use for these values.
 !!! note
 
     For each converted property, the value associated with `existing_axis` entries which have no `implicit_axis` value
-    (that is, have an empty string or any `empty_implicit` value) is lost. For example, if each cell type has a color, but
+    (that is, have an empty string) is lost. For example, if each cell type has a color, but
     some cells do not have a type, then the color of "cells with no type" is lost. We still require this value to be
     consistent, and return a mapping between each migrated property name and the value of such entries (if any exist).
     When reconstructing the original property, specify this value using [`IfNot`](@ref) (e.g.,
@@ -97,7 +95,6 @@ to use for these values.
     existing_axis::AbstractString,
     implicit_axis::AbstractString,
     rename_axis::Maybe{AbstractString} = nothing,
-    empty_implicit::Maybe{EmptyImplicit} = nothing,
     implicit_properties::Maybe{AbstractSet{<:AbstractString}} = nothing,
     skipped_properties::Maybe{AbstractSet{<:AbstractString}} = nothing,
     properties_defaults::Maybe{PropertiesDefaults} = nothing,
@@ -124,19 +121,18 @@ to use for these values.
     end
 
     implicit_values = get_vector(daf, existing_axis, implicit_axis)
-    empty_implicit_values = set_of_empty_implicit(empty_implicit)
-    overwrite_implicit_values =
-        !(eltype(implicit_values) <: AbstractString) ||
-        any(empty_implicit_value != "" for empty_implicit_value in empty_implicit_values)
-    if eltype(implicit_values) <: AbstractString && isempty(empty_implicit_values)
-        push!(empty_implicit_values, "")
+    if !(eltype(implicit_values) <: AbstractString)
+        error(chomp("""
+            not a property of strings: $(implicit_axis)
+            of the axis: $(existing_axis)
+            in the daf data: $(daf.name)
+            use unify_empty_vector_values! to convert it, saying which of its values mean nothing
+            """))
     end
-    is_empty_per_value = in.(implicit_values, Ref(empty_implicit_values))
+
+    is_empty_per_value = implicit_values .== ""
     unique_values = unique(implicit_values[.!is_empty_per_value])
     sort!(unique_values)
-    if !(eltype(unique_values) <: AbstractString)
-        unique_values = [string(unique_value) for unique_value in unique_values]
-    end
     if has_axis(daf, rename_axis)
         axis_values = axis_vector(daf, rename_axis)
         axis_values_set = Set(axis_values)
@@ -152,10 +148,6 @@ to use for these values.
         unique_values = axis_values
     end
 
-    implicit_values = [
-        is_empty ? "" : String(string(implicit_value)) for
-        (implicit_value, is_empty) in zip(implicit_values, is_empty_per_value)
-    ]
     value_of_empties_of_properties = Dict{AbstractString, Maybe{StorageScalar}}()
     vector_values_of_properties = Dict{AbstractString, StorageVector}()
     for property in vectors_set(daf, existing_axis)
@@ -189,10 +181,6 @@ to use for these values.
 
     if !has_axis(daf, rename_axis)
         add_axis!(daf, rename_axis, unique_values)
-    end
-
-    if overwrite_implicit_values
-        set_vector!(daf, existing_axis, implicit_axis, implicit_values; overwrite = true)
     end
 
     for (property, vector_value) in vector_values_of_properties
@@ -261,6 +249,140 @@ function value_of_implicit_property(
             """))
     end
     return value
+end
+
+"""
+    unify_empty_vector_values!(
+        daf::DafWriter;
+        axis::AbstractString,
+        property::AbstractString,
+        empty_values::EmptyImplicit,
+        [dtype::Maybe{Type{<:StorageScalarBase}} = nothing,
+        empty_value::Maybe{StorageScalar} = nothing]
+    )::Nothing
+
+Replace every one of the `empty_values` of a `property` of an `axis` with a single `empty_value`, so that "there is no
+value here" is spelled one way, converting the property to a `dtype` on the way if one is given.
+
+Data arrives spelling it several ways, often several ways in the same property: an empty string in some entries and
+`NA` in others, `(Missing)` elsewhere, and for numbers a sentinel such as the smallest integer, which is not obviously
+a sentinel at all - it is a number, so a mean or a plot of that property is silently wrong rather than visibly absent.
+
+This matters before [`reconstruct_axis!`](@ref) and [`connect_axes!`](@ref), which decide what to do with an entry by
+asking whether its value is empty. A property still saying `NA` would have `NA` reconstructed into an entry of the new
+axis, sitting among the real ones.
+
+Numbers often arrive as text for exactly this reason - a column of measurements is a column of strings because a few of
+its entries say `NA`. Giving a `dtype` converts the values which are not empty, which is an error unless all of them
+are values of that type; the ones which are empty become the `empty_value`, which is why this is one operation and not
+two.
+
+By default the `empty_value` is the empty string for strings, `NaN` for floats, and `0` for unsigned integers, which is
+the same convention `Daf` uses for module indices - they are 1-based, so `0` is free to mean "none". A signed integer
+or a Boolean has no such value, so one must be given, or a `dtype` which has one.
+
+A property none of whose values is empty is left as it is, rather than being an error: which markers a property
+carries is a fact about the file, and the same cleanup has to keep working on a file which happens to be clean. What
+*is* an error is asking for nothing at all - no `empty_values` and no `dtype` - since that cannot do anything whatever
+the data says, and so is a mistake in the call rather than a fact about the file.
+
+The result is `bestify`d, so a property which turns out to be mostly empty is stored sparsely rather than densely.
+"""
+@logged :daf_ops function unify_empty_vector_values!(
+    daf::DafWriter;
+    axis::AbstractString,
+    property::AbstractString,
+    empty_values::EmptyImplicit,
+    dtype::Maybe{Type{<:StorageScalarBase}} = nothing,
+    empty_value::Maybe{StorageScalar} = nothing,
+)::Nothing
+    values = get_vector(daf, axis, property).array
+
+    if dtype === nothing
+        dtype = eltype(values)
+    end
+
+    empty_values_set = set_of_empty_implicit(empty_values)
+    if isempty(empty_values_set) && dtype === eltype(values)
+        error(chomp("""
+            no empty values and no type to convert to
+            of the property: $(property)
+            of the axis: $(axis)
+            in the daf data: $(daf.name)
+            """))
+    end
+
+    is_empty_per_value = in.(values, Ref(empty_values_set))
+
+    # Only needed if some value actually is empty: a property of a type which has no empty value is fine as long as
+    # none of its values is one, which is the common case for a property which merely needs converting.
+    if empty_value === nothing && any(is_empty_per_value)
+        empty_value = default_empty_value(daf, axis, property, dtype)
+    end
+
+    unified_values = [
+        is_empty ? dtype(empty_value) : value_as_type(daf, axis, property, value, dtype) for
+        (value, is_empty) in zip(values, is_empty_per_value)
+    ]
+    if eltype(unified_values) <: Real
+        unified_values = TanayLabUtilities.MatrixFormats.bestify(unified_values)
+    end
+    set_vector!(daf, axis, property, unified_values; overwrite = true)
+
+    return nothing
+end
+
+# What "there is no value here" is spelled as, for each kind of type which has such a spelling.
+function default_empty_value(
+    daf::DafWriter,
+    axis::AbstractString,
+    property::AbstractString,
+    dtype::Type{<:StorageScalarBase},
+)::StorageScalar
+    if dtype <: AbstractString
+        return ""
+    elseif dtype <: AbstractFloat
+        return NaN
+    elseif dtype <: Unsigned
+        return 0
+    else
+        error(chomp("""
+            no empty value for the type: $(dtype)
+            of the property: $(property)
+            of the axis: $(axis)
+            in the daf data: $(daf.name)
+            """))
+    end
+end
+
+# Convert one value which is not empty, saying which one it was when it is not a value of the type at all.
+function value_as_type(
+    daf::DafWriter,
+    axis::AbstractString,
+    property::AbstractString,
+    value::StorageScalar,
+    dtype::Type{<:StorageScalarBase},
+)::StorageScalar
+    if value isa dtype
+        return value
+    end
+
+    if dtype <: AbstractString
+        return string(value)
+    end
+
+    converted = value isa AbstractString ? tryparse(dtype, value) : dtype(value)
+    if converted === nothing
+        error(chomp("""
+            invalid value: $(value)
+            for the type: $(dtype)
+            of the property: $(property)
+            of the axis: $(axis)
+            in the daf data: $(daf.name)
+            """))
+    end
+
+    return converted
 end
 
 """

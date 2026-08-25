@@ -330,7 +330,6 @@
     existing_axis::AbstractString,
     implicit_axis::AbstractString,
     [rename_axis::Maybe{AbstractString} = nothing,
-    empty_implicit::Maybe{EmptyImplicit} = nothing,
     implicit_properties::Maybe{AbstractSet{&lt;:AbstractString}} = nothing,
     skipped_properties::Maybe{AbstractSet{&lt;:AbstractString}} = nothing,
     properties_defaults::Maybe{AbstractDict} = nothing]
@@ -345,15 +344,17 @@
 <code>implicit_axis
 </code>, create a new axis with the same name as the property (or, if specified, call it 
 <code>rename_axis
-</code>). If 
-<code>empty_implicit
-</code> is specified, these values of the property are replaced by the empty string (indicate there is no value associated with the 
+</code>). An empty string means there is no value associated with that 
 <code>existing_axis
-</code> entry); it may be a single value or any collection of them, since data often spells &quot;no value&quot; in more than one way (e.g., both 
+</code> entry; data spelling that some other way - 
+<code>NA
+</code>, 
 <code>Outliers
-</code> and 
-<code>Doublet
-</code> may appear where a cell type is expected). For each of the 
+</code>, a sentinel number - should be passed through 
+<a href="reconstruction.html#DataAxesFormats.Reconstruction.unify_empty_vector_values!">
+<code>unify_empty_vector_values!
+</code>
+</a> first, which is where that concept lives. For each of the 
 <code>implicit_properties
 </code>, we collect the mapping between the 
 <code>implicit_axis
@@ -393,9 +394,9 @@
 <code>properties_defaults
 </code> to use for these values.
 </p>
-<div class="admonition is-info" id="Note-4fffd52ca197b0ee">
+<div class="admonition is-info" id="Note-47deceaf8781ec6a">
 <header class="admonition-header">Note
-<a class="admonition-anchor" href="#Note-4fffd52ca197b0ee" title="Permalink">
+<a class="admonition-anchor" href="#Note-47deceaf8781ec6a" title="Permalink">
 </a>
 </header>
 <div class="admonition-body">
@@ -403,9 +404,7 @@
 <code>existing_axis
 </code> entries which have no 
 <code>implicit_axis
-</code> value (that is, have an empty string or any 
-<code>empty_implicit
-</code> value) is lost. For example, if each cell type has a color, but some cells do not have a type, then the color of &quot;cells with no type&quot; is lost. We still require this value to be consistent, and return a mapping between each migrated property name and the value of such entries (if any exist). When reconstructing the original property, specify this value using 
+</code> value (that is, have an empty string) is lost. For example, if each cell type has a color, but some cells do not have a type, then the color of &quot;cells with no type&quot; is lost. We still require this value to be consistent, and return a mapping between each migrated property name and the value of such entries (if any exist). When reconstructing the original property, specify this value using 
 <a href="queries.html#DataAxesFormats.Queries.IfNot">
 <code>IfNot
 </code>
@@ -520,6 +519,99 @@
 </article>
 <article>
 <details class="docstring" open="true">
+<summary id="DataAxesFormats.Reconstruction.unify_empty_vector_values!">
+<a class="docstring-binding" href="#DataAxesFormats.Reconstruction.unify_empty_vector_values!">
+<code>DataAxesFormats.Reconstruction.unify_empty_vector_values!
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">unify_empty_vector_values!(
+    daf::DafWriter;
+    axis::AbstractString,
+    property::AbstractString,
+    empty_values::EmptyImplicit,
+    [dtype::Maybe{Type{&lt;:StorageScalarBase}} = nothing,
+    empty_value::Maybe{StorageScalar} = nothing]
+)::Nothing
+</code>
+</pre>
+<p>Replace every one of the 
+<code>empty_values
+</code> of a 
+<code>property
+</code> of an 
+<code>axis
+</code> with a single 
+<code>empty_value
+</code>, so that &quot;there is no value here&quot; is spelled one way, converting the property to a 
+<code>dtype
+</code> on the way if one is given.
+</p>
+<p>Data arrives spelling it several ways, often several ways in the same property: an empty string in some entries and 
+<code>NA
+</code> in others, 
+<code>(Missing)
+</code> elsewhere, and for numbers a sentinel such as the smallest integer, which is not obviously a sentinel at all - it is a number, so a mean or a plot of that property is silently wrong rather than visibly absent.
+</p>
+<p>This matters before 
+<a href="reconstruction.html#DataAxesFormats.Reconstruction.reconstruct_axis!">
+<code>reconstruct_axis!
+</code>
+</a> and 
+<a href="reconstruction.html#DataAxesFormats.Reconstruction.connect_axes!">
+<code>connect_axes!
+</code>
+</a>, which decide what to do with an entry by asking whether its value is empty. A property still saying 
+<code>NA
+</code> would have 
+<code>NA
+</code> reconstructed into an entry of the new axis, sitting among the real ones.
+</p>
+<p>Numbers often arrive as text for exactly this reason - a column of measurements is a column of strings because a few of its entries say 
+<code>NA
+</code>. Giving a 
+<code>dtype
+</code> converts the values which are not empty, which is an error unless all of them are values of that type; the ones which are empty become the 
+<code>empty_value
+</code>, which is why this is one operation and not two.
+</p>
+<p>By default the 
+<code>empty_value
+</code> is the empty string for strings, 
+<code>NaN
+</code> for floats, and 
+<code>0
+</code> for unsigned integers, which is the same convention 
+<code>Daf
+</code> uses for module indices - they are 1-based, so 
+<code>0
+</code> is free to mean &quot;none&quot;. A signed integer or a Boolean has no such value, so one must be given, or a 
+<code>dtype
+</code> which has one.
+</p>
+<p>A property none of whose values is empty is left as it is, rather than being an error: which markers a property carries is a fact about the file, and the same cleanup has to keep working on a file which happens to be clean. What 
+<em>is
+</em> an error is asking for nothing at all - no 
+<code>empty_values
+</code> and no 
+<code>dtype
+</code> - since that cannot do anything whatever the data says, and so is a mistake in the call rather than a fact about the file.
+</p>
+<p>The result is 
+<code>bestify
+</code>d, so a property which turns out to be mostly empty is stored sparsely rather than densely.
+</p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
 <summary id="DataAxesFormats.Reconstruction.PropertiesDefaults">
 <a class="docstring-binding" href="#DataAxesFormats.Reconstruction.PropertiesDefaults">
 <code>DataAxesFormats.Reconstruction.PropertiesDefaults
@@ -594,6 +686,12 @@
 <li>
 <a href="reconstruction.html#DataAxesFormats.Reconstruction.reconstruct_axis!">
 <code>DataAxesFormats.Reconstruction.reconstruct_axis!
+</code>
+</a>
+</li>
+<li>
+<a href="reconstruction.html#DataAxesFormats.Reconstruction.unify_empty_vector_values!">
+<code>DataAxesFormats.Reconstruction.unify_empty_vector_values!
 </code>
 </a>
 </li>
