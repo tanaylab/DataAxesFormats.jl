@@ -7,6 +7,7 @@ DataAxesFormats.Chains.chain_writer
 DataAxesFormats.Chains.ReadOnlyChain
 DataAxesFormats.Chains.WriteChain
 DataAxesFormats.Chains.complete_chain!
+DataAxesFormats.Chains.BaseDaf
 ```
 
 ## Index

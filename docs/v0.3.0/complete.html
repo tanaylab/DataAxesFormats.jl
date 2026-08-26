@@ -308,17 +308,33 @@
 </p>
 <p>Tracking this tree manually is possible, by using naming conventions (which is always a good idea). However, this gets tedious. The code here automates this by using an additional convention - each repository contains a scalar property called 
 <code>base_daf_repository
-</code> which identifies its parent repository (if any). This path is relative to the directory containing the child repository. See 
+</code> which identifies the repositories it is immediately based on (if any). Each path is relative to the directory containing the child repository. See 
 <a href="complete.html#DataAxesFormats.CompleteDaf.open_daf">
 <code>open_daf
 </code>
 </a> for details.
 </p>
-<p>In addition, it is possible to have another scalar property, 
-<code>base_daf_view
-</code>. If specified, this should contain JSON serialization of the parameters of a 
+<p>The property holds only the immediate bases; what each of them in turn is based on is recorded in it, so the shape of the whole is found by following the records. It is one of:
+</p>
+<ul>
+<li>A path, for the common case of resting on the whole of a single repository.
+</li>
+<li>A JSON object 
+<code>{&quot;path&quot;: ..., &quot;axes&quot;: ..., &quot;data&quot;: ...}
+</code>, where the optional 
+<code>axes
+</code> and 
+<code>data
+</code> are the parameters of a 
 <code>DafView
-</code> to apply to the base repository. This allows the child repository to be based on a subset of the base data, and/or rename the base data.
+</code> to apply, so that the child rests on a subset of the base data, and/or on renamed base data.
+</li>
+<li>A JSON array of either of the above, for a repository resting on several. Later bases override earlier ones, as in any chain.
+</li>
+</ul>
+<p>Since the same base repository can be reached through more than one of these, it is opened once (using the 
+<code>GlobalWeakCache
+</code>) and appears once in the chain, at its earliest position - a base must not override what rests on it.
 </p>
 <p>Since the same base repository can be used by multiple other repositories, we use the 
 <code>GlobalWeakCache
@@ -353,9 +369,9 @@
 <code>Daf
 </code> repositories by tracing back through the 
 <code>base_daf_repository
-</code> and the optional 
-<code>base_daf_view
-</code>. Valid modes are only &quot;r&quot; and &quot;r+&quot;; if the latter, only the first (leaf) repository is opened in write mode.
+</code> of each. Valid modes are only &quot;r&quot; and &quot;r+&quot;; if the latter, only the 
+<code>leaf
+</code> repository is opened in write mode.
 </p>
 <p>If 
 <code>packed

@@ -6,6 +6,7 @@ data.
 """
 module Chains
 
+export BaseDaf
 export chain_reader
 export chain_writer
 export complete_chain!
@@ -142,65 +143,269 @@ function chain_writer(dafs::AbstractVector{<:DafReader}; name::Maybe{AbstractStr
 end
 
 """
+    @kwdef struct BaseDaf
+        daf::DafReader
+        axes::Maybe{ViewAxes} = nothing
+        data::Maybe{ViewData} = nothing
+    end
+
+One base repository of a [`complete_chain!`](@ref), and the [`viewer`](@ref) parameters to apply to it, which restrict
+it to a subset of its data and/or rename that data. Pass a plain `DafReader` instead wherever the whole of it is used,
+which is the common case.
+"""
+@kwdef struct BaseDaf
+    daf::DafReader
+    axes::Maybe{ViewAxes} = nothing
+    data::Maybe{ViewData} = nothing
+end
+
+# One immediate base of a repository, as it is written into and read back from its `base_daf_repository`. The path is
+# as recorded, that is, relative to the repository naming it unless it was stored as an absolute one.
+struct RecordedBase  # NOLINT
+    path::AbstractString
+    axes::Maybe{ViewAxes}
+    data::Maybe{ViewData}
+end
+
+# Two views of one repository are two different bases, so which repository it is of is not enough to tell them apart.
+function Base.:(==)(left::RecordedBase, right::RecordedBase)::Bool
+    return left.path == right.path && left.axes == right.axes && left.data == right.data
+end
+
+"""
     complete_chain!(;
-        base_daf::DafReader,
+        base_daf::Union{DafReader, BaseDaf, AbstractVector{<:Union{BaseDaf, DafReader}}},
         new_daf::DafWriter,
         name::Maybe{AbstractString} = nothing,
-        axes::Maybe{ViewAxes} = nothing,
-        data::Maybe{ViewData} = nothing
+        absolute::Bool = false
     )::DafWriter
 
-Immediately after creating an empty disk based `new_daf`, chain it with a disk based `base_daf` and return the new
-chain. If `axes` and/or `data` are specified, the `new_daf` will be chained on top of a [`viewer`](@ref) of the
-`base_daf`.
+Immediately after creating an empty disk based `new_daf`, chain it on top of one or more disk based base repositories,
+and return the new chain. Each base is a `DafReader`, or a [`BaseDaf`](@ref) when only a view of it is used. Give
+several of them when the `new_daf` rests on more than one repository - say, a repository of shared computed results and
+a repository of the parameters this variant of the analysis uses, both resting in turn on the same raw data. Later bases
+override earlier ones, as in any chain, and a repository reached more than once is used once, at its earliest position.
 
-This will set the `base_daf_repository` scalar property of the `new_daf` to point at the `base_daf`, and if view `axes`
-or `data` were specified, the `base_daf_view` as well. It should be therefore possible to recreate the chain by calling
-[`complete_daf`](@ref DataAxesFormats.CompleteDaf.complete_daf) in the future.
+This will set the `base_daf_repository` scalar property of the `new_daf` to describe the bases, so that the chain can be
+recreated by calling [`complete_daf`](@ref DataAxesFormats.CompleteDaf.complete_daf) in the future.
 
-By default, the stored base path in the `new_daf` will be the relative path to the `base_daf`, for the common case where
-a group of repositories is stored under a common root. This allows this root to be renamed or moved somewhere else and
-still allow `complete_daf` to work. If `absolute` is set, then the stored base path will be the absolute path of the
-`base_daf`.
+By default, the stored paths will be relative to the `new_daf`, for the common case where a group of repositories is
+stored under a common root. This allows this root to be renamed or moved somewhere else and still allow `complete_daf`
+to work. If `absolute` is set, then the stored paths will be absolute.
 """
-function complete_chain!(;  # UNTESTED
-    base_daf::DafReader,
+function complete_chain!(;
+    base_daf::Union{DafReader, BaseDaf, AbstractVector{<:Union{BaseDaf, DafReader}}},
     new_daf::DafWriter,
     name::Maybe{AbstractString} = nothing,
-    axes::Maybe{ViewAxes} = nothing,
-    data::Maybe{ViewData} = nothing,
     absolute::Bool = false,
 )::DafWriter
     new_path = complete_path(new_daf)
     @assert new_path !== nothing
 
-    base_path = complete_path(base_daf)
-    @assert base_path !== nothing
+    bases = immediate_bases(base_daf, dirname(new_path), absolute)
+    set_scalar!(new_daf, "base_daf_repository", base_specification(bases))
 
-    if !absolute
-        base_path = relpath(base_path, dirname(new_path))
-    end
-    set_scalar!(new_daf, "base_daf_repository", base_path)
+    base_dafs = DafReader[base.second for base in bases]
+    push!(base_dafs, new_daf)
+    return chain_writer(base_dafs; name)
+end
 
-    if axes !== nothing || data !== nothing
-        view_parameters = Dict(:axes => axes, :data => data)
-        filter!(view_parameters) do (_, value)
-            return value !== nothing
+# The immediate bases of a repository: how each is recorded, and the reader it is reached through. Only the immediate
+# ones - what each of them in turn rests on is recorded in it, and is found by following the records.
+function immediate_bases(
+    base_daf::AbstractVector,
+    new_directory::AbstractString,
+    absolute::Bool,
+)::Vector{Pair{RecordedBase, DafReader}}
+    return unique_bases([immediate_base(base, new_directory, absolute) for base in base_daf])
+end
+
+function immediate_bases(
+    base_daf::Union{DafReader, BaseDaf},
+    new_directory::AbstractString,
+    absolute::Bool,
+)::Vector{Pair{RecordedBase, DafReader}}
+    return [immediate_base(base_daf, new_directory, absolute)]
+end
+
+function immediate_base(
+    base_daf::DafReader,
+    new_directory::AbstractString,
+    absolute::Bool,
+)::Pair{RecordedBase, DafReader}
+    return RecordedBase(base_path(base_daf, new_directory, absolute), nothing, nothing) => base_daf
+end
+
+function immediate_base(base_daf::BaseDaf, new_directory::AbstractString, absolute::Bool)::Pair{RecordedBase, DafReader}
+    recorded = RecordedBase(base_path(base_daf.daf, new_directory, absolute), base_daf.axes, base_daf.data)
+    return recorded => viewer(base_daf.daf; base_daf.axes, base_daf.data)
+end
+
+# The same base twice is the same data twice, so it is kept once, at its earliest position: a chain resolves later-wins,
+# and a base must not override what rests on it.
+function unique_bases(bases::AbstractVector{<:Pair{RecordedBase, <:DafReader}})::Vector{Pair{RecordedBase, DafReader}}
+    kept = Pair{RecordedBase, DafReader}[]
+    for base in bases
+        if !any(kept_base.first == base.first for kept_base in kept)
+            push!(kept, base)
         end
-        set_scalar!(new_daf, "base_daf_view", JSON.json(view_parameters))
-        base_daf = viewer(base_daf; axes, data)
+    end
+    return kept
+end
+
+# How the immediate bases are described in the `base_daf_repository` scalar. A lone unviewed base is stored as its path
+# rather than as JSON, both because that is what almost every repository has, and because it is what someone looking at
+# the property expects to see.
+function base_specification(bases::AbstractVector{Pair{RecordedBase, DafReader}})::AbstractString
+    if length(bases) == 1 && bases[1].first.axes === nothing && bases[1].first.data === nothing
+        return bases[1].first.path
+    else
+        return JSON.json([base_json(base.first) for base in bases])  # NOJET
+    end
+end
+
+function base_json(base::RecordedBase)::Any
+    if base.axes === nothing && base.data === nothing
+        return base.path
+    end
+    json = Dict{String, Any}("path" => base.path)
+    if base.axes !== nothing
+        json["axes"] = view_json(base.axes)
+    end
+    if base.data !== nothing
+        json["data"] = view_json(base.data)
+    end
+    return json
+end
+
+# A view's axes and data are pairs, and the order of them matters - a pattern is overridden by a later one. JSON has
+# neither pairs nor ordered objects, so they are written as an array of single-entry objects rather than as one object.
+function view_json(parameters::Union{AbstractVector, NamedTuple})::Vector{Dict{String, Any}}
+    return [Dict{String, Any}(view_json_key(key) => value) for (key, value) in named_tuple_as_pairs(parameters)]
+end
+
+function view_json_key(key::AbstractString)::AbstractString
+    return key
+end
+
+# A matrix names both of its axes, which is written as it is spelled in Julia and read back by `view_parameters`.
+function view_json_key(key::Tuple)::AbstractString
+    return string(key)
+end
+
+# The immediate bases a repository records - only its own, never theirs. A repository which rests on several is a
+# JSON array, one which rests on a view of a single one is a JSON object, and the common case of resting on the whole
+# of a single one is the path itself.
+function recorded_bases(specification::AbstractString)::Vector{RecordedBase}
+    specification = lstrip(specification)
+    if !startswith(specification, "[") && !startswith(specification, "{")
+        return [RecordedBase(specification, nothing, nothing)]
     end
 
-    return chain_writer([base_daf, new_daf]; name)
+    json = JSON.parse(specification)
+    if json isa AbstractVector
+        return [recorded_base(base) for base in json]
+    else
+        return [recorded_base(json)]
+    end
+end
+
+function recorded_base(json::AbstractString)::RecordedBase
+    return RecordedBase(json, nothing, nothing)
+end
+
+function recorded_base(json::AbstractDict)::RecordedBase
+    return RecordedBase(
+        json["path"],
+        view_parameters(get(json, "axes", nothing)),
+        view_parameters(get(json, "data", nothing)),
+    )
+end
+
+function view_parameters(::Nothing)::Nothing
+    return nothing
+end
+
+# A view's axes and data are pairs, and JSON has no pairs, so they are stored as a list of single-entry objects. A
+# matrix key is a pair of axes, which is spelled with parentheses in Julia and stored as a JSON array.
+function view_parameters(json::AbstractVector)::Vector{Pair}
+    pairs = Pair[]
+    for entry in json
+        for (pattern, value) in entry
+            if contains(pattern, "(")
+                pattern = Tuple(JSON.parse(replace(pattern, "(" => "[", ")" => "]")))
+            end
+            push!(pairs, pattern => value)
+        end
+    end
+    return pairs
+end
+
+function base_path(base_daf::DafReader, new_directory::AbstractString, absolute::Bool)::AbstractString
+    path = complete_path(base_daf)
+    @assert path !== nothing
+    if absolute
+        return path
+    else
+        return relpath(path, new_directory)
+    end
+end
+
+# The repositories of a chain: whatever the caller gave us, flattened, and with each repository appearing once.
+#
+# A chain of chains is the same data as one long chain, and repositories form a tree rather than a list - two bases of
+# the same repository typically rest on a common ancestor, which is therefore reached through both of them. It is the
+# same data either way, so it is kept at its earliest position: a chain resolves later-wins, and an ancestor must not
+# override what is based on it.
+function flatten_dafs(dafs::AbstractVector, name::AbstractString)::Vector{DafReader}
+    expanded_dafs = Vector{DafReader}()
+    for daf in dafs
+        if daf isa DafReadOnlyWrapper
+            daf = daf.daf
+        end
+        if daf isa AnyChain
+            append!(expanded_dafs, flatten_dafs(daf.dafs, name))  # NOJET
+        else
+            push!(expanded_dafs, daf)
+        end
+    end
+
+    # The last repository is the one a `chain_writer` writes to. Reaching it again is a repository based on itself
+    # rather than a diamond, and there is no order which makes sense of that. This is asked before dropping repeats,
+    # since dropping one would remove the very repository that is written to. A view of it counts as reaching it:
+    # writing through the chain would change what an earlier link of the same chain reads.
+    last_path = complete_path(expanded_dafs[end])
+    if last_path !== nothing && any(complete_path(daf) == last_path for daf in expanded_dafs[1:(end - 1)])
+        error(chomp("""
+              cyclic repository: $(last_path)
+              is also a base of itself
+              in the chain: $(name)
+              """))
+    end
+
+    # Only a whole repository is the same data as another copy of itself. A view is a subset of one, and two views of
+    # the same repository - or a view of it and the repository itself - report the same path while exposing different
+    # data, so a view is never dropped. Neither is a repository which is not persistent, having no path to be
+    # recognized by.
+    flat_dafs = Vector{DafReader}()
+    whole_paths = Set{AbstractString}()
+    for daf in expanded_dafs
+        path = daf isa DafView ? nothing : complete_path(daf)
+        if path === nothing
+            push!(flat_dafs, daf)
+        elseif !(path in whole_paths)
+            push!(whole_paths, path)
+            push!(flat_dafs, daf)
+        end
+    end
+
+    return flat_dafs
 end
 
 function reader_internal_dafs(dafs::AbstractVector, name::AbstractString)::Vector{DafReader}
     axes_entries = Dict{AbstractString, Tuple{AbstractString, AbstractVector{<:AbstractString}}}()
     internal_dafs = Vector{DafReader}()
-    for daf in dafs
-        if daf isa DafReadOnlyWrapper
-            daf = daf.daf
-        end
+    for daf in flatten_dafs(dafs, name)
         push!(internal_dafs, daf)
         for axis in axes_set(daf)
             new_axis_entries = axis_vector(daf, axis)
@@ -890,31 +1095,49 @@ function ReadOnly.read_only(daf::ReadOnlyChain; name::Maybe{AbstractString} = no
     end
 end
 
+# A chain has the path of its last repository only when it holds exactly what reopening that path would give: every
+# repository the records lead to, and nothing besides. Since a repository records only its own immediate bases, this
+# follows them outwards from the last repository rather than comparing the chain link by link, which a repository
+# resting on several bases would not survive.
 function Readers.complete_path(chain::AnyChain)::Maybe{AbstractString}
     path = complete_path(chain.dafs[end])
     if path === nothing
         return nothing
     end
-    expected_path = get_scalar(chain.dafs[end], "base_daf_repository"; default = nothing)  # UNTESTED
-    if expected_path === nothing  # UNTESTED
-        if length(chain.dafs) == 1  # UNTESTED
-            return path  # UNTESTED
-        else
-            return nothing  # UNTESTED
+
+    daf_of_path = Dict{AbstractString, DafReader}()
+    for daf in chain.dafs
+        daf_path = complete_path(daf)
+        if daf_path === nothing
+            return nothing
+        end
+        daf_of_path[daf_path] = daf
+    end
+
+    reached = Set{AbstractString}()
+    unvisited = AbstractString[path]
+    while !isempty(unvisited)
+        daf_path = pop!(unvisited)
+        push!(reached, daf_path)
+        specification = get_scalar(daf_of_path[daf_path], "base_daf_repository"; default = nothing)
+        if specification !== nothing
+            for base in recorded_bases(specification)
+                base_path = abspath(joinpath(dirname(daf_path), base.path))
+                if !haskey(daf_of_path, base_path)
+                    return nothing
+                end
+                if !(base_path in reached)
+                    push!(unvisited, base_path)
+                end
+            end
         end
     end
-    expected_path = abspath(joinpath(dirname(path), expected_path))  # UNTESTED
-    for daf in reverse(chain.dafs[1:(end - 1)])  # UNTESTED
-        next_path = complete_path(daf)  # UNTESTED
-        if next_path != expected_path  # UNTESTED
-            return nothing  # UNTESTED
-        end
-        expected_path = get_scalar(daf, "base_daf_repository"; default = nothing)  # UNTESTED
-        if expected_path !== nothing  # UNTESTED
-            expected_path = abspath(joinpath(dirname(next_path), expected_path))  # UNTESTED
-        end
+
+    # A repository the records never lead to is one the caller chained in by hand, so reopening would not give this.
+    if length(reached) != length(daf_of_path)
+        return nothing
     end
-    return path  # UNTESTED
+    return path
 end
 
 end  # module

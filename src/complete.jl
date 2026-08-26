@@ -5,12 +5,20 @@ by multiple alternative metacells repositories.
 
 Tracking this tree manually is possible, by using naming conventions (which is always a good idea). However, this gets
 tedious. The code here automates this by using an additional convention - each repository contains a scalar property
-called `base_daf_repository` which identifies its parent repository (if any). This path is relative to the directory
-containing the child repository. See [`open_daf`](@ref) for details.
+called `base_daf_repository` which identifies the repositories it is immediately based on (if any). Each path is
+relative to the directory containing the child repository. See [`open_daf`](@ref) for details.
 
-In addition, it is possible to have another scalar property, `base_daf_view`. If specified, this should contain JSON
-serialization of the parameters of a `DafView` to apply to the base repository. This allows the child repository to be
-based on a subset of the base data, and/or rename the base data.
+The property holds only the immediate bases; what each of them in turn is based on is recorded in it, so the shape of
+the whole is found by following the records. It is one of:
+
+  - A path, for the common case of resting on the whole of a single repository.
+  - A JSON object `{"path": ..., "axes": ..., "data": ...}`, where the optional `axes` and `data` are the parameters of
+    a `DafView` to apply, so that the child rests on a subset of the base data, and/or on renamed base data.
+  - A JSON array of either of the above, for a repository resting on several. Later bases override earlier ones, as in
+    any chain.
+
+Since the same base repository can be reached through more than one of these, it is opened once (using the
+`GlobalWeakCache`) and appears once in the chain, at its earliest position - a base must not override what rests on it.
 
 Since the same base repository can be used by multiple other repositories, we use the `GlobalWeakCache` to avoid
 needlessly re-opening the same repository more than once.
@@ -19,8 +27,6 @@ module CompleteDaf
 
 export complete_daf
 export open_daf
-
-using JSON
 
 using ..Chains
 using ..FilesFormat
@@ -35,6 +41,9 @@ using ..ZipFormat
 
 using TanayLabUtilities
 
+import ..Chains.RecordedBase
+import ..Chains.recorded_bases
+
 """
     complete_daf(
         leaf::AbstractString,
@@ -43,9 +52,8 @@ using TanayLabUtilities
         packed::Bool = false]
     )::Union{DafReader, DafWriter}
 
-Open a complete chain of `Daf` repositories by tracing back through the `base_daf_repository` and the optional
-`base_daf_view`. Valid modes are only "r" and "r+"; if the latter, only the first (leaf) repository is opened in write
-mode.
+Open a complete chain of `Daf` repositories by tracing back through the `base_daf_repository` of each. Valid modes are
+only "r" and "r+"; if the latter, only the `leaf` repository is opened in write mode.
 
 If `packed` is `true`, the leaf repository (the only one opened in write mode under "r+") gets `packed = true` as its
 per-daf default. Base repositories are always opened in "r" mode and the `packed` value is irrelevant for them.
@@ -67,9 +75,7 @@ function complete_daf(
         @assert mode in ("r", "r+")
         @debug "Open complete $(name):" _group = :daf_repose
         dafs = flame_timed("complete_daf.collect_dafs") do
-            return reverse!(
-                collect_dafs(; name, base_daf_repository = leaf, mode, is_packed = packed, indent = "", index = 0),
-            )
+            return collect_dafs(; name, path = leaf, mode, is_packed = packed, indent = "", index = 0)
         end
         return flame_timed("complete_daf.chain") do
             if mode == "r+"
@@ -81,76 +87,60 @@ function complete_daf(
     end
 end
 
+# The repositories of the complete chain of a repository, in chain order - a repository comes after everything it is
+# based on. A repository names only its own immediate bases, so the shape of the whole is found by following them, and
+# a repository reached through more than one of them is opened once, by the `GlobalWeakCache`, and appears once, at
+# its earliest position.
 function collect_dafs(;
     name::AbstractString,
-    base_daf_repository::Union{AbstractString, DafReader},
+    path::AbstractString,
     mode::AbstractString,
     is_packed::Bool,
     indent::AbstractString,
     index::Integer,
-)::AbstractVector{<:DafReader}
-    dafs = DafReader[]
-    while true
-        @debug "$(indent)- Open $(base_daf_repository) $(mode)" _group = :daf_repose
-        daf = open_daf(base_daf_repository, mode; packed = is_packed)  # NOJET
-        base_directory = dirname(base_daf_repository)  # NOJET
+)::Vector{DafReader}
+    @debug "$(indent)- Open $(path) $(mode)" _group = :daf_repose
+    daf = open_daf(path, mode; packed = is_packed)  # NOJET
 
-        push!(dafs, daf)
-        base_daf_repository = get_scalar(daf, "base_daf_repository"; default = nothing)
-        if base_daf_repository === nothing
-            return dafs
-        end
-        base_daf_repository = joinpath(base_directory, base_daf_repository)
-
-        base_daf_view = parse_view_parameters(get_scalar(daf, "base_daf_view"; default = nothing))
-        if base_daf_view !== nothing
-            @debug "$(indent)  View" _group = :daf_repose
-            base_daf_view = parse_view_parameters(get_scalar(daf, "base_daf_view"; default = nothing))
-            base_dafs = reverse!(
-                collect_dafs(;
-                    name,
-                    base_daf_repository,
-                    mode = "r",
-                    is_packed = false,
-                    indent = indent * "  ",
-                    index = index + 1,
-                ),
-            )
-            chain = chain_reader(base_dafs; name = "$(name).chain_$(index)")
-            daf = viewer(chain; name = "$(name).view_$(index)", base_daf_view...)  # NOJET
-            push!(daf.path, complete_path(base_dafs[end]))
-            return push!(dafs, daf)
-        end
-
-        mode = "r"
-        is_packed = false
+    specification = get_scalar(daf, "base_daf_repository"; default = nothing)
+    if specification === nothing
+        return DafReader[daf]
     end
+
+    dafs = DafReader[]
+    for base in recorded_bases(specification)
+        append!(dafs, collect_base(; name, base, base_directory = dirname(path), indent, index))
+    end
+    push!(dafs, daf)
     return dafs
 end
 
-function parse_view_parameters(::Nothing)::Nothing
-    return nothing
-end
+function collect_base(;
+    name::AbstractString,
+    base::RecordedBase,
+    base_directory::AbstractString,
+    indent::AbstractString,
+    index::Integer,
+)::Vector{DafReader}
+    base_dafs = collect_dafs(;
+        name,
+        path = joinpath(base_directory, base.path),
+        mode = "r",
+        is_packed = false,
+        indent = indent * "  ",
+        index = index + 1,
+    )
 
-function parse_view_parameters(json::AbstractString)::AbstractDict
-    parameters = Dict{Symbol, Any}()
-    json_parameters = JSON.parse(json)
-    @assert json_parameters isa AbstractDict
-    for (key, value) in json_parameters
-        pairs = Pair[]
-        for pair in value
-            for (pattern, value) in pair
-                if contains(pattern, "(")
-                    pattern = replace(pattern, "(" => "[", ")" => "]")
-                    pattern = JSON.parse(pattern)
-                    pattern = Tuple(pattern)
-                end
-                push!(pairs, pattern => value)
-            end
-        end
-        parameters[Symbol(key)] = pairs
+    if base.axes === nothing && base.data === nothing
+        return base_dafs
     end
-    return parameters
+
+    # A view is of the base's own complete chain, so what it exposes is decided before anything is chained on top of it.
+    @debug "$(indent)  View" _group = :daf_repose
+    chain = chain_reader(base_dafs; name = "$(name).chain_$(index)")
+    view = viewer(chain; name = "$(name).view_$(index)", axes = base.axes, data = base.data)  # NOJET
+    push!(view.path, complete_path(base_dafs[end]))  # NOJET
+    return DafReader[view]
 end
 
 """
