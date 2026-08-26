@@ -299,7 +299,9 @@ The result is `bestify`d, so a property which turns out to be mostly empty is st
     values = get_vector(daf, axis, property).array
 
     if dtype === nothing
-        dtype = eltype(values)
+        # Not the stored type as it is: a memory mapped string is some `SubString` of a view, which one can read but
+        # not construct. A property of strings is a property of `String`s unless told otherwise.
+        dtype = eltype(values) <: AbstractString ? String : eltype(values)
     end
 
     empty_values_set = set_of_empty_implicit(empty_values)
@@ -320,8 +322,8 @@ The result is `bestify`d, so a property which turns out to be mostly empty is st
         empty_value = default_empty_value(daf, axis, property, dtype)
     end
 
-    unified_values = [
-        is_empty ? dtype(empty_value) : value_as_type(daf, axis, property, value, dtype) for
+    unified_values = dtype[
+        is_empty ? empty_value : value_as_type(daf, axis, property, value, dtype) for
         (value, is_empty) in zip(values, is_empty_per_value)
     ]
     if eltype(unified_values) <: Real

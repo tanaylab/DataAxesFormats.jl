@@ -13,6 +13,24 @@ nested_test("reconstruction") do
             @test get_vector(memory, "cell", "batch").array == ["X", "", "", ""]
         end
 
+        nested_test("stored strings") do
+            # A property of strings stays a property of strings. In a files repository the stored type is some
+            # `SubString` of a memory mapped view, which one can read but not construct, so it cannot be the type the
+            # result is built as.
+            mktempdir() do path
+                files = FilesDaf(path * "/files", "w+"; name = "files!")
+                add_axis!(files, "cell", ["A", "B", "C"])
+                set_vector!(files, "cell", "batch", ["X", "NA", "Y"])
+                @test !(eltype(get_vector(files, "cell", "batch").array) == String)
+
+                unify_empty_vector_values!(files; axis = "cell", property = "batch", empty_values = "NA")
+
+                values = get_vector(files, "cell", "batch").array
+                @test eltype(values) <: AbstractString
+                @test values == ["X", "", "Y"]
+            end
+        end
+
         nested_test("floats") do
             # The smallest integer, which survived a cast to float and is a number rather than an absence.
             set_vector!(memory, "cell", "rank", [1.0, 2.0, -2147483648.0, 3.0]; overwrite = true)
