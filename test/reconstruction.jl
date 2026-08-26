@@ -260,6 +260,20 @@ nested_test("reconstruction") do
             """
     end
 
+    nested_test("gaps") do
+        # A missing number is a `NaN`, and `NaN != NaN`, so comparing values with `!=` would read two absent values as
+        # disagreeing and leave behind every property which has a gap in it.
+        set_vector!(memory, "cell", "batch", ["X", "X", "Y", "Y"])
+        set_vector!(memory, "cell", "score", [NaN, NaN, 2.0, 2.0]; overwrite = true)
+
+        reconstruct_axis!(memory; existing_axis = "cell", implicit_axis = "batch")
+
+        @test "score" in vectors_set(memory, "batch")
+        scores = get_vector(memory, "batch", "score").array
+        @test isnan(scores[1])
+        @test scores[2] == 2.0
+    end
+
     nested_test("inconsistent") do
         set_vector!(memory, "cell", "batch", ["X", "X", "Y", ""])
         @test_throws chomp("""

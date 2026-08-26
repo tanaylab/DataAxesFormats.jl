@@ -210,7 +210,8 @@ function collect_property_data(
         property_value_of_implicit = get(property_values_of_implicits, implicit_value, nothing)
         if property_value_of_implicit === nothing
             property_values_of_implicits[implicit_value] = property_value
-        elseif property_value_of_implicit != property_value
+            # `isequal` rather than `!=` because of NaN values.
+        elseif !isequal(property_value_of_implicit, property_value)
             if must_be_consistent
                 error(chomp("""
                     inconsistent values: $(property_value) != $(property_value_of_implicit)
