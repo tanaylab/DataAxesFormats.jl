@@ -2011,8 +2011,9 @@ function test_missing_matrix(daf::DafReader, depth::Int; append_only::Bool = fal
 
     nested_test("empty_matrix!") do
         nested_test("dense") do
+            # These say what `relayout_matrix!` does, so the write has to leave the other layout for it to store.
             previous_version_counter = matrix_version_counter(daf, "cell", "gene", "UMIs")
-            @test empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16) do empty_matrix
+            @test empty_dense_matrix!(daf, "cell", "gene", "UMIs", Int16; relayout = false) do empty_matrix
                 empty_matrix .= UMIS_BY_DEPTH[depth]
                 return 7
             end == 7
@@ -2031,6 +2032,7 @@ function test_missing_matrix(daf::DafReader, depth::Int; append_only::Bool = fal
         end
 
         nested_test("sparse") do
+            # These say what `relayout_matrix!` does, so the write has to leave the other layout for it to store.
             previous_version_counter = matrix_version_counter(daf, "cell", "gene", "UMIs")
             @test empty_sparse_matrix!(
                 daf,
@@ -2039,7 +2041,8 @@ function test_missing_matrix(daf::DafReader, depth::Int; append_only::Bool = fal
                 "UMIs",
                 Int16,
                 sum(UMIS_BY_DEPTH[depth] .> 0),
-                Int16,
+                Int16;
+                relayout = false,
             ) do empty_colptr, empty_rowval, empty_nzval
                 sparse = sparse_matrix_csc(UMIS_BY_DEPTH[depth])
                 empty_colptr .= sparse.colptr
@@ -2571,6 +2574,7 @@ function test_existing_matrix(daf::DafReader, depth::Int; append_only::Bool = fa
 
                 if !append_only
                     nested_test("true") do
+                        # These say what `relayout_matrix!` does, so the write has to leave the other layout for it.
                         @test empty_dense_matrix!(
                             daf,
                             "cell",
@@ -2578,6 +2582,7 @@ function test_existing_matrix(daf::DafReader, depth::Int; append_only::Bool = fa
                             "UMIs",
                             Int16;
                             overwrite = true,
+                            relayout = false,
                         ) do empty_matrix
                             empty_matrix .= UMIS_BY_DEPTH[depth]
                             return 7
@@ -2643,6 +2648,7 @@ function test_existing_matrix(daf::DafReader, depth::Int; append_only::Bool = fa
 
                 if !append_only
                     nested_test("true") do
+                        # These say what `relayout_matrix!` does, so the write has to leave the other layout for it.
                         @test empty_sparse_matrix!(
                             daf,
                             "cell",
@@ -2652,6 +2658,7 @@ function test_existing_matrix(daf::DafReader, depth::Int; append_only::Bool = fa
                             sum(UMIS_BY_DEPTH[depth] .> 0),
                             Int16;
                             overwrite = true,
+                            relayout = false,
                         ) do empty_colptr, empty_rowval, empty_nzval
                             sparse = sparse_matrix_csc(UMIS_BY_DEPTH[depth])
                             empty_colptr .= sparse.colptr

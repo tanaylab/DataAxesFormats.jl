@@ -795,6 +795,26 @@ function Formats.format_has_cached_matrix(
     return false
 end
 
+# A chain holds no data of its own, so whatever is derived from a matrix is cached in the repository the matrix comes
+# from - the last one holding it, which is the one the chain reads it from. Every chain over that repository then finds
+# the one copy, rather than each deriving its own and then failing to recognize it.
+function Formats.format_matrix_cache_format(
+    chain::AnyChain,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+)::Formats.FormatReader
+    @assert Formats.has_data_read_lock(chain)
+    for daf in reverse(chain.dafs)
+        if Formats.format_has_axis(daf, rows_axis; for_change = false) &&
+           Formats.format_has_axis(daf, columns_axis; for_change = false) &&
+           Formats.format_has_cached_matrix(daf, rows_axis, columns_axis, name)
+            return Formats.format_matrix_cache_format(daf, rows_axis, columns_axis, name)
+        end
+    end
+    return chain  # UNTESTED
+end
+
 function Formats.format_set_matrix!(
     chain::WriteChain,
     rows_axis::AbstractString,

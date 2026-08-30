@@ -1345,7 +1345,11 @@ true
 </p>
 <p>If 
 <code>relayout
-</code> (default), then this will include the names of matrices that exist in the other layout (that is, with flipped axes).
+</code> (default), then this will include the names of matrices that exist in the other layout (that is, with flipped axes). Otherwise this lists exactly the matrices stored in this layout, which is exactly the set 
+<a href="readers.html#DataAxesFormats.Readers.get_matrix">
+<code>get_matrix
+</code>
+</a> will give when asked the same way.
 </p>
 <p>This first verifies the 
 <code>rows_axis
@@ -1421,13 +1425,7 @@ true
 <code>relayout
 </code> (the default), then if the matrix is only stored in the other memory layout (that is, with flipped axes), then automatically call 
 <code>relayout!
-</code> to compute the result. If 
-<code>daf
-</code> isa 
-<a href="formats.html#DataAxesFormats.Formats.DafWriter">
-<code>DafWriter
-</code>
-</a>, then store the result for future use; otherwise, just cache it as 
+</code> to compute the result, and cache it as 
 <a href="formats.html#DataAxesFormats.Formats.CacheGroup">
 <code>MemoryData
 </code>
@@ -1435,7 +1433,7 @@ true
 <a href="formats.html#DataAxesFormats.Formats.empty_cache!">
 <code>empty_cache!
 </code>
-</a> to release it.
+</a> to release it. Otherwise, only the stored layout will do, even if such a transposed copy is already in the cache, so that the result does not depend on what was read earlier.
 </p>
 <p>This first verifies the 
 <code>rows_axis

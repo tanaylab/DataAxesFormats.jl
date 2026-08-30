@@ -741,6 +741,7 @@ function concatenate_axis_sparse_matrices(
         eltype,
         total_nnz;
         overwrite,
+        relayout = false,
     ) do sparse_colptr, sparse_rowval, sparse_nzval
         n_sources = length(matrices)
         parallel_loop_wo_rng(
@@ -780,7 +781,15 @@ function concatenate_axis_dense_matrices(
     matrices::AbstractVector{<:Maybe{<:StorageMatrix}},
     overwrite::Bool,
 )::Nothing
-    empty_dense_matrix!(destination, other_axis, axis, matrix_property, eltype; overwrite) do concatenated_matrix
+    empty_dense_matrix!(
+        destination,
+        other_axis,
+        axis,
+        matrix_property,
+        eltype;
+        overwrite,
+        relayout = false,
+    ) do concatenated_matrix
         n_sources = length(sources)
         parallel_loop_wo_rng(
             1:n_sources;
@@ -1045,6 +1054,7 @@ function concatenate_merge_sparse_vector(
         eltype,
         total_nnz;
         overwrite,
+        relayout = false,
     ) do sparse_colptr, sparse_rowval, sparse_nzval
         sparse_colptr[1] == 1
         n_sources = length(vectors)
@@ -1078,7 +1088,15 @@ function concatenate_merge_dense_vector(
     vectors::AbstractVector{<:Maybe{<:NamedVector}},
     overwrite::Bool,
 )::Nothing
-    empty_dense_matrix!(destination, axis, dataset_axis, vector_property, eltype; overwrite) do concatenated_matrix
+    empty_dense_matrix!(
+        destination,
+        axis,
+        dataset_axis,
+        vector_property,
+        eltype;
+        overwrite,
+        relayout = false,
+    ) do concatenated_matrix
         n_sources = length(sources)
         parallel_loop_wo_rng(
             1:n_sources;

@@ -1232,6 +1232,35 @@
 </section>
 </details>
 </article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.Formats.format_matrix_cache_format">
+<a class="docstring-binding" href="#DataAxesFormats.Formats.format_matrix_cache_format">
+<code>DataAxesFormats.Formats.format_matrix_cache_format
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">format_matrix_cache_format(
+    format::FormatReader,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+)::FormatReader
+</code>
+</pre>
+<p>The format whose cache should hold whatever is derived from a matrix. By default this is the format itself, which is the one holding the matrix.
+</p>
+<p>A wrapper holding no data of its own answers with the format the matrix comes from, so that what is derived from it is cached beside it. Otherwise the wrapper caches something and then, asking what it wraps whether it has it, answers no - and each wrapper of the same data derives it again rather than sharing the one copy.
+</p>
+</div>
+</section>
+</details>
+</article>
 <h2 id="Write-API">
 <a class="docs-heading-anchor" href="#Write-API">Write API
 </a>
@@ -2560,6 +2589,12 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
 <li>
 <a href="formats.html#DataAxesFormats.Formats.format_matrices_set">
 <code>DataAxesFormats.Formats.format_matrices_set
+</code>
+</a>
+</li>
+<li>
+<a href="formats.html#DataAxesFormats.Formats.format_matrix_cache_format">
+<code>DataAxesFormats.Formats.format_matrix_cache_format
 </code>
 </a>
 </li>

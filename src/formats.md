@@ -57,6 +57,7 @@ DataAxesFormats.Formats.format_get_vector
 DataAxesFormats.Formats.format_has_matrix
 DataAxesFormats.Formats.format_matrices_set
 DataAxesFormats.Formats.format_get_matrix
+DataAxesFormats.Formats.format_matrix_cache_format
 ```
 
 ## Write API

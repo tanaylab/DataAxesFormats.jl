@@ -69,7 +69,13 @@ grep -H -n '.' */*.cov \
         split(buf[1], parts, "`")
         buf[1] = parts[1] OFS parts[2] OFS count OFS parts[4]
     }
-    (state == 0 || state == 3) && $4 ~ /"""/ { state = 3 - state }
+    # The `"""` on a line pair up with each other, so a string which opens and closes on the same line
+    # (a JSON literal, say) leaves the state as it was. Only an odd count crosses a docstring boundary.
+    (state == 0 || state == 3) && $4 ~ /"""/ {
+        if ((split($4, docstring_parts, /"""/) - 1) % 2 == 1) {
+            state = 3 - state
+        }
+    }
     state == 0 && $4 ~ /^[@A-Z][A-Za-z0-9:{}, ()]* =/ && $3 == "-" { $3 = "0" }
     state == 2 && $4 ~ /^end/ { state = 0; if (buf_count > 0) { flush_buf() }; func_directive = "" }
     state != 3 && ($3 != "-" && $3 != "0") && $4 ~ /^(@.* )?[ ]*function / && $4 !~ /^function.*end/ {

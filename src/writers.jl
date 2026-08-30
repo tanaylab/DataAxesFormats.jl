@@ -700,7 +700,7 @@ If the `matrix` specified is actually a [`StorageScalar`](@ref), the stored matr
 
 If `relayout` (the default), this will also automatically `relayout!` the matrix and store the result, so the
 data would also be stored in row-major layout (that is, with the axes flipped), similarly to calling
-`relayout!`.
+`relayout!`. Square data is only ever stored in one layout, so this is ignored when the axes are the same.
 
 This first verifies the `rows_axis` and `columns_axis` exist in `daf`, that the `matrix` is column-major of the
 appropriate size. If not `overwrite` (the default), this also verifies the `name` matrix does not exist for the
@@ -798,11 +798,7 @@ function set_matrix!(
         is_resolved_packed = resolve_packed(packed, daf)
         update_before_set_matrix(daf, rows_axis, columns_axis, name)
         Formats.format_set_matrix!(daf, rows_axis, columns_axis, name, matrix, is_resolved_packed)
-
-        if relayout
-            update_before_set_matrix(daf, columns_axis, rows_axis, name)
-            Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name, matrix, is_resolved_packed)
-        end
+        return relayout_stored_matrix!(daf, rows_axis, columns_axis, name, matrix, relayout, is_resolved_packed)
         # Formats.assert_valid_cache(daf)
     end
 
@@ -818,6 +814,7 @@ end
         name::AbstractString,
         eltype::Type{<:StorageReal};
         [overwrite::Bool = false,
+        relayout::Bool = true,
         packed::Maybe{Bool} = nothing]
     )::Any
 
@@ -827,6 +824,10 @@ Create an empty dense matrix property with some `name` for some `rows_axis` and 
 The returned matrix will be uninitialized; the caller is expected to `fill` it with values. This saves creating a copy
 of the matrix before setting it in `daf`, which makes a huge difference when creating matrices on disk (using memory
 mapping). For this reason, this does not work for strings, as they do not have a fixed size.
+
+If `relayout` (the default), then once `fill` returns, this will also automatically `relayout!` the matrix and store the
+result, so the data would also be stored in row-major layout (that is, with the axes flipped), same as
+[`set_matrix!`](@ref). Square data is only ever stored in one layout, so this is ignored when the axes are the same.
 
 This first verifies the `rows_axis` and `columns_axis` exist in `daf`, that the `matrix` is column-major of the
 appropriate size. If not `overwrite` (the default), this also verifies the `name` matrix does not exist for the
@@ -843,13 +844,15 @@ function empty_dense_matrix!(
     name::AbstractString,
     eltype::Type{<:StorageReal};
     overwrite::Bool = false,
+    relayout::Bool = true,
     packed::Maybe{Bool} = nothing,
 )::Any
     @assert isbitstype(eltype)
-    matrix, cache_group = get_empty_dense_matrix!(daf, rows_axis, columns_axis, name, eltype; overwrite, packed)
+    matrix, cache_group =
+        get_empty_dense_matrix!(daf, rows_axis, columns_axis, name, eltype; overwrite, relayout, packed)
     try
         result = fill(matrix)
-        filled_empty_dense_matrix!(daf, rows_axis, columns_axis, name, matrix, cache_group)
+        filled_empty_dense_matrix!(daf, rows_axis, columns_axis, name, matrix, cache_group; relayout)
         return result
     finally
         # Formats.assert_valid_cache(daf)
@@ -864,18 +867,20 @@ function get_empty_dense_matrix!(
     name::AbstractString,
     eltype::Type{<:StorageReal};
     overwrite::Bool = false,
+    relayout::Bool = true,
     packed::Maybe{Bool} = nothing,
 )::Any
     Formats.begin_data_write_lock(daf, "empty_dense_matrix! of:", name, "of:", rows_axis, "and:", columns_axis)
     try
         # Formats.assert_valid_cache(daf)
-        @debug "empty_dense_matrix! daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) eltype: $(eltype) overwrite: $(overwrite) {" _group =
+        relayout = relayout && rows_axis != columns_axis
+        @debug "empty_dense_matrix! daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) eltype: $(eltype) overwrite: $(overwrite) relayout: $(relayout) {" _group =
             :daf_sets
         require_axis(daf, "for the rows of the matrix: $(name)", rows_axis)
         require_axis(daf, "for the columns of the matrix: $(name)", columns_axis)
 
         if !overwrite
-            require_no_matrix(daf, rows_axis, columns_axis, name; relayout = false)
+            require_no_matrix(daf, rows_axis, columns_axis, name; relayout)
         end
 
         update_before_set_matrix(daf, rows_axis, columns_axis, name)
@@ -900,11 +905,13 @@ end
         columns_axis::AbstractString,
         name::AbstractString,
         filled::AbstractMatrix{<:StorageReal},
-        cache_group::Maybe{CacheGroup},
+        cache_group::Maybe{CacheGroup};
+        [relayout::Bool = true]
     )::Nothing
 
 Finalize an empty dense matrix property after the caller has populated the `filled` buffer previously obtained from
-`get_empty_dense_matrix!`, and cache it using the given `cache_group`.
+`get_empty_dense_matrix!`, and cache it using the given `cache_group`. If `relayout` (the default), also store the
+matrix in the flipped layout, as described in [`empty_dense_matrix!`](@ref).
 
 This is normally invoked automatically by [`empty_dense_matrix!`](@ref). Use it directly only when driving the
 `get_empty_dense_matrix!` / `filled_empty_dense_matrix!` pair from code that cannot pass a Julia callback (for example,
@@ -916,7 +923,8 @@ function filled_empty_dense_matrix!(
     columns_axis::AbstractString,
     name::AbstractString,
     filled::AbstractMatrix{<:StorageReal},
-    cache_group::Maybe{Formats.CacheGroup},
+    cache_group::Maybe{Formats.CacheGroup};
+    relayout::Bool = true,
 )::Nothing
     Formats.format_filled_empty_dense_matrix!(daf, rows_axis, columns_axis, name, filled)
     Formats.cache_matrix!(
@@ -927,6 +935,7 @@ function filled_empty_dense_matrix!(
         Formats.as_named_matrix(daf, rows_axis, columns_axis, filled),
         cache_group,
     )
+    relayout_stored_matrix!(daf, rows_axis, columns_axis, name, nothing, relayout, nothing)
     @debug "empty_dense_matrix! filled matrix: $(brief(filled)) }" _group = :daf_sets
     return nothing
 end
@@ -941,7 +950,9 @@ end
         eltype::Type{<:StorageReal},
         nnz::StorageInteger,
         intdype::Maybe{Type{<:StorageInteger}} = nothing;
-        [overwrite::Bool = false]
+        [overwrite::Bool = false,
+        relayout::Bool = true,
+        packed::Maybe{Bool} = nothing]
     )::Any
 
 Create an empty sparse matrix property with some `name` for some `rows_axis` and `columns_axis` in `daf`, pass its parts
@@ -957,6 +968,13 @@ not work for strings, as they do not have a fixed size.
 This severely restricts the usefulness of this function, because typically `nnz` is only know after fully computing the
 matrix. Still, in some cases a large sparse matrix is created by concatenating several smaller ones; this function
 allows doing so directly into the data, avoiding a copy in case of memory-mapped disk formats.
+
+If `relayout` (the default), then once `fill` returns, this will also automatically `relayout!` the matrix and store the
+result, so the data would also be stored in row-major layout (that is, with the axes flipped), same as
+[`set_matrix!`](@ref). Square data is only ever stored in one layout, so this is ignored when the axes are the same.
+
+If `packed` is non-`nothing`, it overrides the per-daf `packed` default for this single write. Otherwise the per-daf
+default applies. The flag has no observable effect on backends that do not support packed encoding.
 
 !!! warning
 
@@ -980,6 +998,7 @@ function empty_sparse_matrix!(
     nnz::StorageInteger,
     indtype::Maybe{Type{<:StorageInteger}} = nothing;
     overwrite::Bool = false,
+    relayout::Bool = true,
     packed::Maybe{Bool} = nothing,
 )::Any
     if indtype === nothing
@@ -990,10 +1009,10 @@ function empty_sparse_matrix!(
     @assert isbitstype(eltype)
     @assert isbitstype(indtype)
     colptr, rowval, nzval, cache_group =
-        get_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, eltype, nnz, indtype; overwrite, packed)
+        get_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, eltype, nnz, indtype; overwrite, relayout, packed)
     try
         result = fill(colptr, rowval, nzval)
-        filled_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, colptr, rowval, nzval, cache_group)
+        filled_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, colptr, rowval, nzval, cache_group; relayout)
         return result
     finally
         # Formats.assert_valid_cache(daf)
@@ -1010,6 +1029,7 @@ function get_empty_sparse_matrix!(
     nnz::StorageInteger,
     indtype::Type{I};
     overwrite::Bool = false,
+    relayout::Bool = true,
     packed::Maybe{Bool} = nothing,
 )::Tuple{
     AbstractVector{I},
@@ -1020,13 +1040,14 @@ function get_empty_sparse_matrix!(
     Formats.begin_data_write_lock(daf, "empty_sparse_matrix! of:", name, "of:", rows_axis, "and:", columns_axis)
     try
         # Formats.assert_valid_cache(daf)
-        @debug "empty_sparse_matrix! daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) eltype: $(eltype) overwrite: $(overwrite) {" _group =
+        relayout = relayout && rows_axis != columns_axis
+        @debug "empty_sparse_matrix! daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) eltype: $(eltype) overwrite: $(overwrite) relayout: $(relayout) {" _group =
             :daf_sets
         require_axis(daf, "for the rows of the matrix: $(name)", rows_axis)
         require_axis(daf, "for the columns of the matrix: $(name)", columns_axis)
 
         if !overwrite
-            require_no_matrix(daf, rows_axis, columns_axis, name; relayout = false)
+            require_no_matrix(daf, rows_axis, columns_axis, name; relayout)
         end
 
         update_before_set_matrix(daf, rows_axis, columns_axis, name)
@@ -1055,12 +1076,14 @@ end
         colptr::AbstractVector{I},
         rowval::AbstractVector{I},
         nzval::AbstractVector{<:StorageReal},
-        cache_group::Maybe{CacheGroup},
+        cache_group::Maybe{CacheGroup};
+        [relayout::Bool = true]
     )::Nothing where {I <: StorageInteger}
 
 Finalize an empty sparse matrix property after the caller has populated the `colptr`, `rowval` and `nzval` buffers
 previously obtained from `get_empty_sparse_matrix!`. Assembles the `SparseMatrixCSC` and caches it using the given
-`cache_group`.
+`cache_group`. If `relayout` (the default), also store the matrix in the flipped layout, as described in
+[`empty_sparse_matrix!`](@ref).
 
 This is normally invoked automatically by [`empty_sparse_matrix!`](@ref). Use it directly only when driving the
 `get_empty_sparse_matrix!` / `filled_empty_sparse_matrix!` pair from code that cannot pass a Julia callback (for
@@ -1074,7 +1097,8 @@ function filled_empty_sparse_matrix!(
     colptr::AbstractVector{I},
     rowval::AbstractVector{I},
     nzval::AbstractVector{<:StorageReal},
-    cache_group::Maybe{Formats.CacheGroup},
+    cache_group::Maybe{Formats.CacheGroup};
+    relayout::Bool = true,
 )::Nothing where {I <: StorageInteger}
     filled_matrix = SparseMatrixCSC(axis_length(daf, rows_axis), axis_length(daf, columns_axis), colptr, rowval, nzval)
     Formats.format_filled_empty_sparse_matrix!(daf, rows_axis, columns_axis, name, filled_matrix)
@@ -1086,6 +1110,7 @@ function filled_empty_sparse_matrix!(
         Formats.as_named_matrix(daf, rows_axis, columns_axis, filled_matrix),
         cache_group,
     )
+    relayout_stored_matrix!(daf, rows_axis, columns_axis, name, nothing, relayout, nothing)
     @debug "empty_sparse_matrix! filled matrix: $(brief(filled_matrix)) }" _group = :daf_sets
     return nothing
 end
@@ -1103,9 +1128,9 @@ end
 Given a matrix property with some `name` exists (in column-major layout) in `daf` for the `rows_axis` and the
 `columns_axis`, then `relayout!` it and store the row-major result as well (that is, with flipped axes).
 
-This is useful following calling [`empty_dense_matrix!`](@ref) or [`empty_sparse_matrix!`](@ref) to ensure both layouts
-of the matrix are stored in `def`. When calling [`set_matrix!`](@ref), it is simpler to just specify (the default)
-`relayout = true`.
+This is useful for a matrix which is stored in one layout only. When writing the matrix, it is simpler to just specify
+(the default) `relayout = true` in [`set_matrix!`](@ref), [`empty_dense_matrix!`](@ref) or
+[`empty_sparse_matrix!`](@ref).
 
 This first verifies the `rows_axis` and `columns_axis` exist in `daf`, and that there is a `name` (column-major) matrix
 property for them. If not `overwrite` (the default), this also verifies the `name` matrix does not exist for the
@@ -1156,17 +1181,37 @@ function relayout_matrix!(
         matrix = Formats.get_matrix_through_cache(daf, rows_axis, columns_axis, name)
         assert_valid_matrix(daf, rows_axis, columns_axis, name, matrix)
 
-        if packed === nothing
-            is_resolved_packed = Formats.format_is_packed_matrix(daf, rows_axis, columns_axis, name)
-        else
-            is_resolved_packed = packed
-        end
-
-        update_before_set_matrix(daf, columns_axis, rows_axis, name)
-        Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name, matrix.array, is_resolved_packed)
+        relayout_stored_matrix!(daf, rows_axis, columns_axis, name, matrix.array, true, packed)
 
         @debug "relayout_matrix! }" _group = :daf_sets
         # Formats.assert_valid_cache(daf)
+    end
+    return nothing
+end
+
+# Store the flipped layout of a matrix which is already stored, so the data is available in both layouts. If `matrix`
+# is `nothing`, it is read back from `daf`, which is what a caller which filled a buffer in place has to ask for: such a
+# buffer need not be readable once it is full (a streamed packed matrix is a write-only sink into the file, and is spent
+# by then). If `packed` is `nothing`, the flipped copy mirrors the encoding of the matrix it is of. Square data is only
+# ever stored in one layout, so there is nothing to do when the axes are the same.
+function relayout_stored_matrix!(
+    daf::DafWriter,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+    matrix::Maybe{Union{StorageScalarBase, StorageMatrix}},
+    relayout::Bool,
+    packed::Maybe{Bool},
+)::Nothing
+    if relayout && rows_axis != columns_axis
+        if matrix === nothing
+            matrix = Formats.get_matrix_through_cache(daf, rows_axis, columns_axis, name).array
+        end
+        if packed === nothing
+            packed = Formats.format_is_packed_matrix(daf, rows_axis, columns_axis, name)
+        end
+        update_before_set_matrix(daf, columns_axis, rows_axis, name)
+        Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name, matrix, packed)
     end
     return nothing
 end

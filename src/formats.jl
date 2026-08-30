@@ -883,6 +883,30 @@ function format_has_cached_matrix(
     end
 end
 
+"""
+    format_matrix_cache_format(
+        format::FormatReader,
+        rows_axis::AbstractString,
+        columns_axis::AbstractString,
+        name::AbstractString,
+    )::FormatReader
+
+The format whose cache should hold whatever is derived from a matrix. By default this is the format itself, which is
+the one holding the matrix.
+
+A wrapper holding no data of its own answers with the format the matrix comes from, so that what is derived from it is
+cached beside it. Otherwise the wrapper caches something and then, asking what it wraps whether it has it, answers no -
+and each wrapper of the same data derives it again rather than sharing the one copy.
+"""
+function format_matrix_cache_format(
+    format::FormatReader,
+    ::AbstractString,
+    ::AbstractString,
+    ::AbstractString,
+)::FormatReader
+    return format
+end
+
 function get_through_cache(getter::Function, format::FormatReader, cache_key::CacheKey, ::Type{T})::T where {T}
     @assert has_data_read_lock(format)
     cached = nothing
@@ -1116,6 +1140,9 @@ function get_relayout_matrix_through_cache(
     columns_axis::AbstractString,
     name::AbstractString,
 )::NamedArray
+    # The transposed copy is cached beside the matrix it is of, rather than in whatever was read through to reach it.
+    # The stored layout says which format that is, since that is the one holding the data being transposed.
+    format = format_matrix_cache_format(format, columns_axis, rows_axis, name)
     @assert !format_has_matrix(format, rows_axis, columns_axis, name)
     matrix = get_matrix_through_cache(format, columns_axis, rows_axis, name).array
     entry = get_slow_through_cache(

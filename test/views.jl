@@ -404,6 +404,9 @@ nested_test("views") do
             var_obs = get_matrix(view, "var", "obs", "X")
             @test get_matrix(view, "obs", "var", "X").array === obs_var.array
             @test get_matrix(view, "var", "obs", "X").array == var_obs.array
+
+            # The view holds `X` in one layout; reading the other transposes it into the cache, which is not data of the
+            # view, so what the view says it has does not depend on what was read from it.
             @test description(view) == """
                 name: view!
                 type: View
@@ -416,8 +419,6 @@ nested_test("views") do
                     age: 2 x Float64 (Dense)
                     batch: 2 x Str (Dense)
                 matrices:
-                  obs,var:
-                    X: 2 x 3 x Int64 in Columns (Dense)
                   var,obs:
                     X: 3 x 2 x Int64 in Columns (Dense)
                 """

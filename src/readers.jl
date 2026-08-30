@@ -787,7 +787,8 @@ If `tensors`, this will condense the list of tensor matrices (`<`_tensor_axis_en
 (which wouldn't work in files and H5DF storage formats, anyway).
 
 If `relayout` (default), then this will include the names of matrices that exist in the other layout (that is, with
-flipped axes).
+flipped axes). Otherwise this lists exactly the matrices stored in this layout, which is exactly the set
+[`get_matrix`](@ref) will give when asked the same way.
 
 This first verifies the `rows_axis` and `columns_axis` exist in `daf`.
 
@@ -820,24 +821,7 @@ function matrices_set(
 
         if !relayout
             names = Formats.get_matrices_set_through_cache(daf, rows_axis, columns_axis)
-            can_modify_names = false
-            candidate_cached_names = Formats.get_matrices_set_through_cache(daf, columns_axis, rows_axis)
-            Formats.with_cache_read_lock(daf, "cache for matrices_set of:", rows_axis, "and:", columns_axis) do
-                for candidate_cached_name in candidate_cached_names
-                    if !(candidate_cached_name in names)
-                        candidate_cache_key = Formats.matrix_cache_key(rows_axis, columns_axis, candidate_cached_name)
-                        if haskey(daf.internal.cache, candidate_cache_key)
-                            if !can_modify_names
-                                names = Set{AbstractString}(names)
-                                can_modify_names = true
-                            end
-                            push!(names, candidate_cached_name)
-                        end
-                    end
-                end
-            end
         else
-            can_modify_names = false
             names = Formats.get_through_cache(
                 daf,
                 Formats.matrices_set_cache_key(rows_axis, columns_axis; relayout = true),
@@ -857,9 +841,7 @@ function matrices_set(
             }()
             all_tensor_matrices = Set{AbstractString}()
             collect_tensors(daf, rows_axis, columns_axis; matrices_per_tensor_per_axes_per_axis, all_tensor_matrices)
-            if !can_modify_names
-                names = Set{AbstractString}(names)
-            end
+            names = Set{AbstractString}(names)
             filter!(names) do name
                 return !(name in all_tensor_matrices)
             end
@@ -918,9 +900,10 @@ Get the column-major matrix property with some `name` for some `rows_axis` and `
 result axes are the names of the relevant axes entries (same as returned by [`axis_vector`](@ref)).
 
 If `relayout` (the default), then if the matrix is only stored in the other memory layout (that is, with flipped axes),
-then automatically call `relayout!` to compute the result. If `daf` isa [`DafWriter`](@ref), then store the
-result for future use; otherwise, just cache it as [`MemoryData`](@ref CacheGroup). This may lock up very large amounts
-of memory; you can call [`empty_cache!`](@ref) to release it.
+then automatically call `relayout!` to compute the result, and cache it as [`MemoryData`](@ref CacheGroup). This may
+lock up very large amounts of memory; you can call [`empty_cache!`](@ref) to release it. Otherwise, only the stored
+layout will do, even if such a transposed copy is already in the cache, so that the result does not depend on what was
+read earlier.
 
 This first verifies the `rows_axis` and `columns_axis` exist in `daf`. If `default` is `undef` (the default), this first
 verifies the `name` matrix exists in `daf`. Otherwise, if `default` is `nothing`, it is returned. If `default` is a
@@ -984,7 +967,15 @@ function get_matrix(
             end
         end
 
-        if Formats.format_has_cached_matrix(daf, rows_axis, columns_axis, name)
+        # With `relayout`, a transposed copy already in the cache is as good as the stored layout. Without it, only the
+        # stored layout will do, so that the answer does not depend on what was read through this `daf` earlier.
+        if relayout
+            has_matrix_in_layout = Formats.format_has_cached_matrix(daf, rows_axis, columns_axis, name)
+        else
+            has_matrix_in_layout = Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
+        end
+
+        if has_matrix_in_layout
             result_prefix = ""
             matrix = Formats.get_matrix_through_cache(daf, rows_axis, columns_axis, name)
             assert_valid_matrix(daf, rows_axis, columns_axis, name, matrix)

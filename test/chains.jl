@@ -534,4 +534,32 @@ nested_test("chains") do
             end
         end
     end
+
+    nested_test("relayout") do
+        add_axis!(first, "cell", ["A", "B"])
+        add_axis!(first, "gene", ["X", "Y", "Z"])
+        set_matrix!(first, "cell", "gene", "UMIs", [0 1 2; 3 4 5]; relayout = false)
+        chain = chain_reader([first, second]; name = "chain!")
+
+        transposed_cache_key = "matrix[rows_axis: gene columns_axis: cell name: UMIs]"
+        described = description(chain)
+
+        # Reading the layout which is not stored transposes it. The copy is cached where the matrix it is of lives
+        # rather than in the chain it was read through, so that another chain of the same data finds the one copy
+        # instead of transposing it again.
+        @test !contains(description(first; cache = true), transposed_cache_key)
+        @test get_matrix(chain, "gene", "cell", "UMIs") == [0 3; 1 4; 2 5]
+        @test contains(description(first; cache = true), transposed_cache_key)
+
+        # A transposed copy is not stored data, so it is neither listed as such nor given as such, and describing the
+        # data does not depend on what was read from it earlier.
+        @test !("UMIs" in matrices_set(chain, "gene", "cell"; relayout = false))
+        @test_throws chomp("""
+                     missing matrix: UMIs
+                     for the rows axis: gene
+                     and the columns axis: cell
+                     in the daf data: chain!
+                     """) get_matrix(chain, "gene", "cell", "UMIs"; relayout = false)
+        @test description(chain) == described
+    end
 end

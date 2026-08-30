@@ -452,6 +452,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
                     concrete_eltype,
                     nnz(value);
                     overwrite,
+                    relayout,
                     packed,
                 ) do sparse_colptr, sparse_rowval, sparse_nzval
                     sparse_colptr .= colptr(value)
@@ -467,14 +468,12 @@ axis contains entries that do not exist in the target, they are discarded (not c
                     rename,
                     concrete_eltype;
                     overwrite,
+                    relayout,
                     packed,
                 ) do empty_matrix
                     empty_matrix .= value
                     return nothing
                 end
-            end
-            if relayout
-                relayout_matrix!(destination, rows_reaxis, columns_reaxis, rename; overwrite, packed)  # UNTESTED
             end
         end
         return nothing
@@ -529,15 +528,13 @@ axis contains entries that do not exist in the target, they are discarded (not c
                 rename,
                 concrete_eltype;
                 overwrite,
+                relayout,
                 packed,
             ) do empty_matrix
                 empty_matrix .= empty
                 named_matrix = Formats.as_named_matrix(destination, rows_axis, columns_axis, empty_matrix)
                 named_matrix[names(value, 1), names(value, 2)] .= value
                 return nothing
-            end
-            if relayout
-                relayout_matrix!(destination, rows_reaxis, columns_reaxis, rename; overwrite, packed)  # UNTESTED
             end
         end
     end

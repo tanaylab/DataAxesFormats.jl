@@ -785,7 +785,7 @@ false
 <code>relayout!
 </code> the matrix and store the result, so the data would also be stored in row-major layout (that is, with the axes flipped), similarly to calling 
 <code>relayout!
-</code>.
+</code>. Square data is only ever stored in one layout, so this is ignored when the axes are the same.
 </p>
 <p>This first verifies the 
 <code>rows_axis
@@ -885,7 +885,13 @@ true
 <code>relayout!
 </code> it and store the row-major result as well (that is, with flipped axes).
 </p>
-<p>This is useful following calling 
+<p>This is useful for a matrix which is stored in one layout only. When writing the matrix, it is simpler to just specify (the default) 
+<code>relayout = true
+</code> in 
+<a href="writers.html#DataAxesFormats.Writers.set_matrix!">
+<code>set_matrix!
+</code>
+</a>, 
 <a href="writers.html#DataAxesFormats.Writers.empty_dense_matrix!">
 <code>empty_dense_matrix!
 </code>
@@ -893,15 +899,7 @@ true
 <a href="writers.html#DataAxesFormats.Writers.empty_sparse_matrix!">
 <code>empty_sparse_matrix!
 </code>
-</a> to ensure both layouts of the matrix are stored in 
-<code>def
-</code>. When calling 
-<a href="writers.html#DataAxesFormats.Writers.set_matrix!">
-<code>set_matrix!
-</code>
-</a>, it is simpler to just specify (the default) 
-<code>relayout = true
-</code>.
+</a>.
 </p>
 <p>This first verifies the 
 <code>rows_axis
@@ -1324,6 +1322,7 @@ false
     name::AbstractString,
     eltype::Type{&lt;:StorageReal};
     [overwrite::Bool = false,
+    relayout::Bool = true,
     packed::Maybe{Bool} = nothing]
 )::Any
 </code>
@@ -1347,6 +1346,18 @@ false
 </code> it with values. This saves creating a copy of the matrix before setting it in 
 <code>daf
 </code>, which makes a huge difference when creating matrices on disk (using memory mapping). For this reason, this does not work for strings, as they do not have a fixed size.
+</p>
+<p>If 
+<code>relayout
+</code> (the default), then once 
+<code>fill
+</code> returns, this will also automatically 
+<code>relayout!
+</code> the matrix and store the result, so the data would also be stored in row-major layout (that is, with the axes flipped), same as 
+<a href="writers.html#DataAxesFormats.Writers.set_matrix!">
+<code>set_matrix!
+</code>
+</a>. Square data is only ever stored in one layout, so this is ignored when the axes are the same.
 </p>
 <p>This first verifies the 
 <code>rows_axis
@@ -1397,7 +1408,8 @@ false
     columns_axis::AbstractString,
     name::AbstractString,
     filled::AbstractMatrix{&lt;:StorageReal},
-    cache_group::Maybe{CacheGroup},
+    cache_group::Maybe{CacheGroup};
+    [relayout::Bool = true]
 )::Nothing
 </code>
 </pre>
@@ -1407,7 +1419,13 @@ false
 <code>get_empty_dense_matrix!
 </code>, and cache it using the given 
 <code>cache_group
-</code>.
+</code>. If 
+<code>relayout
+</code> (the default), also store the matrix in the flipped layout, as described in 
+<a href="writers.html#DataAxesFormats.Writers.empty_dense_matrix!">
+<code>empty_dense_matrix!
+</code>
+</a>.
 </p>
 <p>This is normally invoked automatically by 
 <a href="writers.html#DataAxesFormats.Writers.empty_dense_matrix!">
@@ -1445,7 +1463,9 @@ false
     eltype::Type{&lt;:StorageReal},
     nnz::StorageInteger,
     intdype::Maybe{Type{&lt;:StorageInteger}} = nothing;
-    [overwrite::Bool = false]
+    [overwrite::Bool = false,
+    relayout::Bool = true,
+    packed::Maybe{Bool} = nothing]
 )::Any
 </code>
 </pre>
@@ -1486,6 +1506,26 @@ false
 <p>This severely restricts the usefulness of this function, because typically 
 <code>nnz
 </code> is only know after fully computing the matrix. Still, in some cases a large sparse matrix is created by concatenating several smaller ones; this function allows doing so directly into the data, avoiding a copy in case of memory-mapped disk formats.
+</p>
+<p>If 
+<code>relayout
+</code> (the default), then once 
+<code>fill
+</code> returns, this will also automatically 
+<code>relayout!
+</code> the matrix and store the result, so the data would also be stored in row-major layout (that is, with the axes flipped), same as 
+<a href="writers.html#DataAxesFormats.Writers.set_matrix!">
+<code>set_matrix!
+</code>
+</a>. Square data is only ever stored in one layout, so this is ignored when the axes are the same.
+</p>
+<p>If 
+<code>packed
+</code> is non-
+<code>nothing
+</code>, it overrides the per-daf 
+<code>packed
+</code> default for this single write. Otherwise the per-daf default applies. The flag has no observable effect on backends that do not support packed encoding.
 </p>
 <div class="admonition is-warning" id="Warning-63837c60dd06b2b5">
 <header class="admonition-header">Warning
@@ -1564,7 +1604,8 @@ false
     colptr::AbstractVector{I},
     rowval::AbstractVector{I},
     nzval::AbstractVector{&lt;:StorageReal},
-    cache_group::Maybe{CacheGroup},
+    cache_group::Maybe{CacheGroup};
+    [relayout::Bool = true]
 )::Nothing where {I &lt;: StorageInteger}
 </code>
 </pre>
@@ -1580,7 +1621,13 @@ false
 <code>SparseMatrixCSC
 </code> and caches it using the given 
 <code>cache_group
-</code>.
+</code>. If 
+<code>relayout
+</code> (the default), also store the matrix in the flipped layout, as described in 
+<a href="writers.html#DataAxesFormats.Writers.empty_sparse_matrix!">
+<code>empty_sparse_matrix!
+</code>
+</a>.
 </p>
 <p>This is normally invoked automatically by 
 <a href="writers.html#DataAxesFormats.Writers.empty_sparse_matrix!">
