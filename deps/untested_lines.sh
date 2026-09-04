@@ -102,7 +102,10 @@ grep -H -n '.' */*.cov \
         # Single-line `function foo(args)::T`: the signature itself is non-executable in Julia
         # coverage (the count goes to body lines). Mark the signature `-` to avoid a
         # false-positive untested report; the body lines determine actual coverage status.
-        if ($4 ~ /^(@.* )?[ ]*function /) {
+        #
+        # Unless it carries a marker of its own, which is how a whole function is marked instead of
+        # each of its lines. Blanking it would make that marker look like it had nothing to mark.
+        if ($4 ~ /^(@.* )?[ ]*function / && detect_directive($0) == "") {
             $3 = "-"
         }
     }
@@ -135,7 +138,11 @@ grep -H -n '.' */*.cov \
     # Suppress executable-but-uncovered body lines inside an uncovered function. Lines with a
     # positive count (covered) are NOT suppressed - this matters for single-line `function ... )::T`
     # declarations, where Julia coverage attributes the count to body lines, not the signature.
-    state > 0 && func_directive == "untested" && $3 == "0" { $3 = "-" }
+    #
+    # A line carrying a marker of its own is left alone, so that the signature which marked the whole
+    # function - the reason the rest of it is being suppressed - is not suppressed by its own doing
+    # and then reported as a marker with nothing to mark.
+    state > 0 && func_directive == "untested" && $3 == "0" && detect_directive($0) == "" { $3 = "-" }
     # Function-level FLAKY / ONLY SEEMS UNTESTED propagate to body lines that lack their own marker so
     # the final pass classifies them the same way as the signature.
     state == 2 && func_directive == "flaky" && tolower($4) !~ /# (flaky tested|untested|only seems untested)/ {

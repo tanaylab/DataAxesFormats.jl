@@ -26,6 +26,7 @@ import TanayLabUtilities.Documentation.FunctionMetadata  # NOLINT
 import TanayLabUtilities.Documentation.collect_defaults
 import TanayLabUtilities.Documentation.function_metadata
 import TanayLabUtilities.Documentation.get_metadata
+import Base.Docs
 import TanayLabUtilities.Documentation.set_metadata_of_function
 import TanayLabUtilities.Logger.pass_args
 
@@ -305,7 +306,10 @@ function DocStringExtensions.format(which::ContractDocumentation, buffer::IOBuff
                   """))
         end
     end
-    contract_documentation(metadata.contracts[which.index], buffer)
+    # Which package the documentation is being built for, which is what says whether the links of the contract's
+    # descriptions are local to it or point into another package.
+    in_module = parentmodule(Docs.resolve(doc_str.data[:binding]))
+    contract_documentation(metadata.contracts[which.index], buffer, in_module)
     return nothing
 end
 

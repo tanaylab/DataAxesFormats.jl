@@ -35,6 +35,44 @@ SINGLE_CONTRACT = Contract(;
     ],
 )
 
+LINKED_DESCRIPTION = "See [`Contract`](@ref) for details."
+
+"""
+Local
+
+$(CONTRACT)
+"""
+@computation Contract(; axes = ["cell" => (RequiredInput, LINKED_DESCRIPTION)]) function local_link(
+    daf::DafWriter,
+)::Nothing
+    axis_vector(daf, "cell")
+    return nothing
+end
+
+"""
+Stripped
+
+$(CONTRACT)
+"""
+@computation Contract(; link = nothing, axes = ["cell" => (RequiredInput, LINKED_DESCRIPTION)]) function stripped_link(
+    daf::DafWriter,
+)::Nothing
+    axis_vector(daf, "cell")
+    return nothing
+end
+
+"""
+External
+
+$(CONTRACT)
+"""
+@computation Contract(; link = DataAxesFormats, axes = ["cell" => (RequiredInput, LINKED_DESCRIPTION)]) function external_link(
+    daf::DafWriter,
+)::Nothing
+    axis_vector(daf, "cell")
+    return nothing
+end
+
 """
 Single
 
@@ -254,6 +292,55 @@ nested_test("computations") do
 
                                             **block; cell, gene @ match**::Union{Float32, Float64} (optional): How well the gene of the cell match the block.
                                             """
+        end
+
+        nested_test("links") do
+            # The `@ref` of a description resolves only in the package documenting what it refers to, so the contract
+            # says which package that is.
+            nested_test("local") do
+                @test formatdoc(@doc local_link) == """
+                                                    Local
+
+                                                    ## Inputs
+
+                                                    ### Axes
+
+                                                    **cell** (required): See [`Contract`](@ref) for details.
+                                                    """
+            end
+
+            nested_test("stripped") do
+                @test formatdoc(@doc stripped_link) == """
+                                                       Stripped
+
+                                                       ## Inputs
+
+                                                       ### Axes
+
+                                                       **cell** (required): See `Contract` for details.
+                                                       """
+            end
+
+            nested_test("compute") do
+                daf = MemoryDaf(; name = "test!")
+                add_axis!(daf, "cell", ["A", "B"])
+                @test local_link(daf) === nothing
+                @test stripped_link(daf) === nothing
+                @test external_link(daf) === nothing
+                return nothing
+            end
+
+            nested_test("external") do
+                @test formatdoc(@doc external_link) == """
+                                                       External
+
+                                                       ## Inputs
+
+                                                       ### Axes
+
+                                                       **cell** (required): See [`Contract`](@extref DataAxesFormats DataAxesFormats.Contracts.Contract) for details.
+                                                       """
+            end
         end
 
         nested_test("relaxed") do

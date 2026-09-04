@@ -121,6 +121,7 @@ ContractData = Union{AbstractVector, NamedTuple}
 """
     @kwdef struct Contract
         name::Maybe{AbstractString} = nothing
+        link::Union{Nothing, Symbol, Module} = :local
         is_relaxed::Bool = false
         axes::Maybe{ContractAxes} = nothing
         data::Maybe{ContractData} = nothing
@@ -133,6 +134,18 @@ additional data, or when the computation generates a variable set of data.
 If `name` is specified, then the parameter for the daf repository should be so named. Otherwise, the parameter should
 be the first unnamed parameter (there can be only one such unnamed parameter per function).
 
+The `link` says which package the `@ref` links in the descriptions of the entries point into, since a description is
+shown by every package which uses the entry, and a `@ref` only resolves in the package documenting what it refers to.
+By default (`:local`) the links are left as they are, which is what a package using its own entries wants. Specify the
+`Module` of another package to convert them to `@extref` links into its documentation, which requires that package's
+inventory to be given to `DocumenterInterLinks` when building the documentation. Specify `nothing` to drop the links
+and leave just the name of what they referred to.
+
+!!! note
+
+    A package can't specify itself as the `link`, since its name is not bound inside the sub-modules its computations
+    are typically defined in. It doesn't need to: `:local` is exactly that.
+
 !!! note
 
     When a function calls several functions in a row, you can compute its contract by using [`function_contract`](@ref
@@ -141,16 +154,48 @@ be the first unnamed parameter (there can be only one such unnamed parameter per
 """
 @kwdef struct Contract
     name::Maybe{AbstractString} = nothing
+    link::Union{Nothing, Symbol, Module} = :local
     is_relaxed::Bool = false
     axes::Maybe{ContractAxes} = nothing
     data::Maybe{ContractData} = nothing
 
-    function Contract(name, is_relaxed, axes, data)
-        return new(name, is_relaxed, named_tuple_as_pairs(axes), named_tuple_as_pairs(data))
+    function Contract(name, link, is_relaxed, axes, data)
+        @assert link isa Module || link === nothing || link === :local "invalid Contract link: $(link)"
+        return new(name, link, is_relaxed, named_tuple_as_pairs(axes), named_tuple_as_pairs(data))
     end
 end
 
-function contract_documentation(contract::Contract, buffer::IOBuffer)::Nothing
+# Render the links of a contract entry's description according to the package the documentation is being built for. A
+# description is data, so the same text is shown by every package using the entry; a `@ref` in it only resolves in the
+# package documenting the target, which is what `link` says.
+function linked(description::AbstractString, link::Union{Nothing, Symbol, Module}, in_module::Module)::AbstractString
+    if link === :local || (link isa Module && Base.moduleroot(in_module) === link)
+        return description
+    elseif link === nothing
+        return replace(description, LINK_PATTERN => s"`\1`")
+    else
+        return replace(description, LINK_PATTERN => matched -> external_link(link, matched))
+    end
+end
+
+# A `@ref` link in a description, whose text is the name of whatever it refers to.
+LINK_PATTERN = r"\[`([^`]*)`\]\(@ref[^)]*\)"
+
+# The same link, into the documentation of another package. A `@ref` names what it refers to the way the package
+# writing it sees it, which is the bare name; the inventory an `@extref` is resolved against holds the full path, so
+# the name is looked up in that package to qualify it.
+function external_link(link::Module, matched::AbstractString)::AbstractString
+    name = match(LINK_PATTERN, matched)[1]
+    symbol = Symbol(name)
+    if isdefined(link, symbol)
+        full_name = "$(join(fullname(parentmodule(getfield(link, symbol))), ".")).$(name)"
+    else
+        full_name = name  # UNTESTED
+    end
+    return "[`$(name)`](@extref $(nameof(link)) $(full_name))"
+end
+
+function contract_documentation(contract::Contract, buffer::IOBuffer, in_module::Module)::Nothing
     if contract.axes !== nothing
         for (axis_key, axis_specification) in contract.axes
             @assert axis_key isa AxisKey "invalid AxisKey: $(axis_key)"
@@ -166,11 +211,11 @@ function contract_documentation(contract::Contract, buffer::IOBuffer)::Nothing
     end
 
     has_inputs = false
-    has_inputs = scalar_documentation(contract, buffer; is_for_output = false, has_any = has_inputs)
-    has_inputs = axes_documentation(contract, buffer; is_for_output = false, has_any = has_inputs)
-    has_inputs = vectors_documentation(contract, buffer; is_for_output = false, has_any = has_inputs)
-    has_inputs = matrices_documentation(contract, buffer; is_for_output = false, has_any = has_inputs)
-    has_inputs = tensors_documentation(contract, buffer; is_for_output = false, has_any = has_inputs)
+    has_inputs = scalar_documentation(contract, buffer, in_module; is_for_output = false, has_any = has_inputs)
+    has_inputs = axes_documentation(contract, buffer, in_module; is_for_output = false, has_any = has_inputs)
+    has_inputs = vectors_documentation(contract, buffer, in_module; is_for_output = false, has_any = has_inputs)
+    has_inputs = matrices_documentation(contract, buffer, in_module; is_for_output = false, has_any = has_inputs)
+    has_inputs = tensors_documentation(contract, buffer, in_module; is_for_output = false, has_any = has_inputs)
 
     if contract.is_relaxed
         direction_header(buffer; is_for_output = false, has_any = has_inputs)
@@ -179,11 +224,11 @@ function contract_documentation(contract::Contract, buffer::IOBuffer)::Nothing
     end
 
     has_outputs = false
-    has_outputs = scalar_documentation(contract, buffer; is_for_output = true, has_any = has_outputs)
-    has_outputs = axes_documentation(contract, buffer; is_for_output = true, has_any = has_outputs)
-    has_outputs = vectors_documentation(contract, buffer; is_for_output = true, has_any = has_outputs)
-    has_outputs = matrices_documentation(contract, buffer; is_for_output = true, has_any = has_outputs)
-    has_outputs = tensors_documentation(contract, buffer; is_for_output = true, has_any = has_outputs)
+    has_outputs = scalar_documentation(contract, buffer, in_module; is_for_output = true, has_any = has_outputs)
+    has_outputs = axes_documentation(contract, buffer, in_module; is_for_output = true, has_any = has_outputs)
+    has_outputs = vectors_documentation(contract, buffer, in_module; is_for_output = true, has_any = has_outputs)
+    has_outputs = matrices_documentation(contract, buffer, in_module; is_for_output = true, has_any = has_outputs)
+    has_outputs = tensors_documentation(contract, buffer, in_module; is_for_output = true, has_any = has_outputs)
 
     if contract.is_relaxed
         direction_header(buffer; is_for_output = true, has_any = has_inputs)
@@ -194,7 +239,13 @@ function contract_documentation(contract::Contract, buffer::IOBuffer)::Nothing
     return nothing
 end
 
-function scalar_documentation(contract::Contract, buffer::IOBuffer; is_for_output::Bool, has_any::Bool)::Bool
+function scalar_documentation(
+    contract::Contract,
+    buffer::IOBuffer,
+    in_module::Module;
+    is_for_output::Bool,
+    has_any::Bool,
+)::Bool
     if contract.data !== nothing
         is_first = true
         for (name, (expectation, data_type, description)) in contract.data
@@ -209,7 +260,10 @@ function scalar_documentation(contract::Contract, buffer::IOBuffer; is_for_outpu
                     println(buffer, "### Scalars")
                 end
                 println(buffer)
-                println(buffer, "**$(name)**::$(data_type) ($(short(expectation))): $(dedent(description))")
+                println(
+                    buffer,
+                    "**$(name)**::$(data_type) ($(short(expectation))): $(dedent(linked(description, contract.link, in_module)))",
+                )
             end
         end
     end
@@ -217,7 +271,13 @@ function scalar_documentation(contract::Contract, buffer::IOBuffer; is_for_outpu
     return has_any
 end
 
-function axes_documentation(contract::Contract, buffer::IOBuffer; is_for_output::Bool, has_any::Bool)::Bool
+function axes_documentation(
+    contract::Contract,
+    buffer::IOBuffer,
+    in_module::Module;
+    is_for_output::Bool,
+    has_any::Bool,
+)::Bool
     if contract.axes !== nothing
         is_first = true
         for (name, (expectation, description)) in contract.axes
@@ -230,7 +290,10 @@ function axes_documentation(contract::Contract, buffer::IOBuffer; is_for_output:
                     println(buffer, "### Axes")
                 end
                 println(buffer)
-                println(buffer, "**$(name)** ($(short(expectation))): $(dedent(description))")
+                println(
+                    buffer,
+                    "**$(name)** ($(short(expectation))): $(dedent(linked(description, contract.link, in_module)))",
+                )
             end
         end
     end
@@ -238,7 +301,13 @@ function axes_documentation(contract::Contract, buffer::IOBuffer; is_for_output:
     return has_any
 end
 
-function vectors_documentation(contract::Contract, buffer::IOBuffer; is_for_output::Bool, has_any::Bool)::Bool
+function vectors_documentation(
+    contract::Contract,
+    buffer::IOBuffer,
+    in_module::Module;
+    is_for_output::Bool,
+    has_any::Bool,
+)::Bool
     if contract.data !== nothing
         is_first = true
         for (key, (expectation, data_type, description)) in contract.data
@@ -255,7 +324,7 @@ function vectors_documentation(contract::Contract, buffer::IOBuffer; is_for_outp
                     println(buffer)
                     println(
                         buffer,
-                        "**$(axis_name) @ $(name)**::$(data_type) ($(short(expectation))): $(dedent(description))",
+                        "**$(axis_name) @ $(name)**::$(data_type) ($(short(expectation))): $(dedent(linked(description, contract.link, in_module)))",
                     )
                 end
             end
@@ -265,7 +334,13 @@ function vectors_documentation(contract::Contract, buffer::IOBuffer; is_for_outp
     return has_any
 end
 
-function matrices_documentation(contract::Contract, buffer::IOBuffer; is_for_output::Bool, has_any::Bool)::Bool
+function matrices_documentation(
+    contract::Contract,
+    buffer::IOBuffer,
+    in_module::Module;
+    is_for_output::Bool,
+    has_any::Bool,
+)::Bool
     if contract.data !== nothing
         is_first = true
         for (key, (expectation, data_type, description)) in contract.data
@@ -282,7 +357,7 @@ function matrices_documentation(contract::Contract, buffer::IOBuffer; is_for_out
                     println(buffer)
                     println(
                         buffer,
-                        "**$(rows_axis_name), $(columns_axis_name) @ $(name)**::$(data_type) ($(short(expectation))): $(dedent(description))",
+                        "**$(rows_axis_name), $(columns_axis_name) @ $(name)**::$(data_type) ($(short(expectation))): $(dedent(linked(description, contract.link, in_module)))",
                     )
                 end
             end
@@ -292,7 +367,13 @@ function matrices_documentation(contract::Contract, buffer::IOBuffer; is_for_out
     return has_any
 end
 
-function tensors_documentation(contract::Contract, buffer::IOBuffer; is_for_output::Bool, has_any::Bool)::Bool
+function tensors_documentation(
+    contract::Contract,
+    buffer::IOBuffer,
+    in_module::Module;
+    is_for_output::Bool,
+    has_any::Bool,
+)::Bool
     if contract.data !== nothing
         is_first = true
         for (key, (expectation, data_type, description)) in contract.data
@@ -309,7 +390,7 @@ function tensors_documentation(contract::Contract, buffer::IOBuffer; is_for_outp
                     println(buffer)
                     println(
                         buffer,
-                        "**$(main_axis_name); $(rows_axis_name), $(columns_axis_name) @ $(name)**::$(data_type) ($(short(expectation))): $(dedent(description))",
+                        "**$(main_axis_name); $(rows_axis_name), $(columns_axis_name) @ $(name)**::$(data_type) ($(short(expectation))): $(dedent(linked(description, contract.link, in_module)))",
                     )
                 end
             end
@@ -888,8 +969,10 @@ function TanayLabUtilities.Brief.brief(contract_daf::ContractDaf; name::Maybe{Ab
 end
 
 function Base.:(|>)(left::Contract, right::Contract)::Contract
+    @assert left.link === right.link "combining contracts with different links: $(left.link) and $(right.link)"
     return Contract(
         left.name === nothing ? right.name : (right.name === nothing ? left.name : left.name * "_" * right.name),
+        left.link,
         left.is_relaxed || right.is_relaxed,
         add_pairs(left.axes, right.axes),
         add_pairs(left.data, right.data),
