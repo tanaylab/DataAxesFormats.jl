@@ -72,6 +72,9 @@ docs: docs/v0.3.0/index.html
 
 docs/v0.3.0/index.html: src/*.jl src/*.md deps/document.sh deps/document.jl docs/make.jl deps/modules_to_dot.py
 	deps/document.sh
+	@# The documentation is generated into the repository, so the check that nothing is left unstaged would
+	@# otherwise trip over the files this very rule just wrote.
+	@git add -A docs src/assets
 
 .PHONY: clean
 clean:
