@@ -463,7 +463,7 @@ end
     )::Nothing
 
 Finalize an empty dense vector property after the caller has populated the `filled` buffer previously obtained from
-`get_empty_dense_vector!, and cache it using the given `cache_group`.
+`get_empty_dense_vector!`, and cache it using the given `cache_group`.
 
 This is normally invoked automatically by [`empty_dense_vector!`](@ref). Use it directly only when driving the
 `get_empty_dense_vector!` / `filled_empty_dense_vector!` pair from code that cannot pass a Julia callback (for example,

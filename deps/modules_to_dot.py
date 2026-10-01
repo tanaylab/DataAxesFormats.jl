@@ -71,7 +71,11 @@ print("node [ fontname = \"Sans-Serif\" ];")
 for mod, deps in sorted(deps_of.items()):
     # The package's own module is in the file named after it, and is not one of the modules shown.
     if paths[mod] != mod:
-        print(f"{mod} [ shape = box, color = white, margin = 0.03, width = 0, height = 0, URL = \"../{paths[mod]}.html\" target = _top ];")
+        # The link is relative to the HTML page, since `document.py` inlines the SVG into it.
+        print(
+            f"{mod} [ shape = box, color = white, margin = 0.03, width = 0, height = 0, "
+            f"URL = \"{paths[mod]}.html\" target = _top ];"
+        )
     for dep in sorted(deps):
         print(f"{dep} -> {mod};")
 

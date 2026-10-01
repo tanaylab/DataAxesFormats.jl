@@ -1,6 +1,9 @@
 using LanguageServer
 using StaticLint
 using SymbolServer
+using TOML
+
+PACKAGE_NAME = TOML.parsefile("Project.toml")["name"]
 
 language_server = LanguageServerInstance(Pipe(), stdout, ".")
 _, symbols = SymbolServer.getstore(language_server.symbol_server, ".")
@@ -12,7 +15,7 @@ root_file = nothing
 for file_name in readdir("src")
     if endswith(file_name, ".jl")
         file = StaticLint.loadfile(language_server, abspath("src/$(file_name)"))
-        if file_name == "DataAxesFormats.jl"
+        if file_name == "$(PACKAGE_NAME).jl"
             global root_file
             root_file = file
         end

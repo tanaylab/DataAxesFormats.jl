@@ -16,7 +16,7 @@
 <script data-outdated-warner src="assets/warner.js">
 </script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/>
-<link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.63.2/juliamono.min.css" rel="stylesheet" type="text/css"/>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/>
@@ -181,6 +181,14 @@
 </a>
 </li>
 <li>
+<a class="tocitem" href="packed_format.html">Packed Format
+</a>
+</li>
+<li>
+<a class="tocitem" href="lazy_sparse.html">Lazy Sparse
+</a>
+</li>
+<li>
 <a class="tocitem" href="memory_format.html">Memory Format
 </a>
 </li>
@@ -197,11 +205,19 @@
 </a>
 </li>
 <li>
+<a class="tocitem" href="zip_files.html">Zip Files Format
+</a>
+</li>
+<li>
 <a class="tocitem" href="zarr_format.html">Zarr Format
 </a>
 </li>
 <li>
 <a class="tocitem" href="zarr_convert.html">ZarrConvert
+</a>
+</li>
+<li>
+<a class="tocitem" href="mmap_zip_store.html">Mmap Zip Store
 </a>
 </li>
 <li>
@@ -360,19 +376,19 @@
 <li>Implementation with a focus on memory-mapping to allow for efficient processing of large data sets (in theory, larger than the system&#39;s memory). In particular, merely opening a data set is a fast operation (almost) regardless of its size.
 </li>
 <li>Well-defined interfaces for implementing additional storage 
-<a href="formats.html#Formats">
+<a href="formats.html#DataAxesFormats.Formats">
 <code>Formats
 </code>
 </a>.
 </li>
 <li>Creating 
-<a href="chains.html#Chains">
+<a href="chains.html#DataAxesFormats.Chains">
 <code>Chains
 </code>
 </a> of data sets, allowing zero-copy reuse of common data between multiple computation pipelines.
 </li>
 <li>
-<a href="concat.html#Concat">
+<a href="concat.html#DataAxesFormats.Concat">
 <code>Concat
 </code>
 </a> multiple data sets into a single data set along one or more axes.
@@ -382,25 +398,25 @@
 <code>Query
 </code>
 </a> language for accessing the data, providing features such as slicing, aggregation and filtering, and making 
-<a href="views.html#Views">
+<a href="views.html#DataAxesFormats.Views">
 <code>Views
 </code>
 </a> and 
-<a href="copies.html#Copies">
+<a href="copies.html#DataAxesFormats.Copies">
 <code>Copies
 </code>
 </a> based on these queries.
 </li>
 <li>Self documenting 
-<a href="computations.html#Computations">
+<a href="computations.html#DataAxesFormats.Computations">
 <code>Computations
 </code>
 </a> with an explicit 
-<a href="contracts.html#Contracts">
+<a href="contracts.html#DataAxesFormats.Contracts">
 <code>Contracts
 </code>
 </a> describing and enforcing the inputs and outputs, and 
-<a href="adapters.html#Adapters">
+<a href="adapters.html#DataAxesFormats.Adapters">
 <code>Adapters
 </code>
 </a> for applying the computation to data of a different format.
@@ -571,7 +587,7 @@
 </title>
 
 <g id="a_node1">
-<a xlink:href="../adapters.html" xlink:title="Adapters" target="_top">
+<a xlink:href="adapters.html" xlink:title="Adapters" target="_top">
 
 <polygon fill="none" stroke="#ffffff" points="546,-19 487,-19 487,0 546,0 546,-19"/>
 
@@ -592,7 +608,7 @@
 </title>
 
 <g id="a_node2">
-<a xlink:href="../chains.html" xlink:title="Chains" target="_top">
+<a xlink:href="chains.html" xlink:title="Chains" target="_top">
 
 <polygon fill="none" stroke="#ffffff" points="504,-129 457,-129 457,-110 504,-110 504,-129"/>
 
@@ -626,7 +642,7 @@
 </title>
 
 <g id="a_node9">
-<a xlink:href="../complete.html" xlink:title="CompleteDaf" target="_top">
+<a xlink:href="complete.html" xlink:title="CompleteDaf" target="_top">
 
 <polygon fill="none" stroke="#ffffff" points="208.5,-19 124.5,-19 124.5,0 208.5,0 208.5,-19"/>
 
@@ -660,7 +676,7 @@
 </title>
 
 <g id="a_node15">
-<a xlink:href="../example_data.html" xlink:title="ExampleData" target="_top">
+<a xlink:href="example_data.html" xlink:title="ExampleData" target="_top">
 
 <polygon fill="none" stroke="#ffffff" points="362.5,-74 276.5,-74 276.5,-55 362.5,-55 362.5,-74"/>
 
@@ -694,7 +710,7 @@
 </title>
 
 <g id="a_node3">
-<a xlink:href="../computations.html" xlink:title="Computations" target="_top">
+<a xlink:href="computations.html" xlink:title="Computations" target="_top">
 
 <polygon fill="none" stroke="#ffffff" points="598,-74 509,-74 509,-55 598,-55 598,-74"/>
 
@@ -728,7 +744,7 @@
 </title>
 
 <g id="a_node4">
-<a xlink:href="../copies.html" xlink:title="Copies" target="_top">
+<a xlink:href="copies.html" xlink:title="Copies" target="_top">
 
 <polygon fill="none" stroke="#ffffff" points="627,-184 580,-184 580,-165 627,-165 627,-184"/>
 
@@ -762,7 +778,7 @@
 </title>
 
 <g id="a_node14">
-<a xlink:href="../concat.html" xlink:title="Concat" target="_top">
+<a xlink:href="concat.html" xlink:title="Concat" target="_top">
 
 <polygon fill="none" stroke="#ffffff" points="650,-129 603,-129 603,-110 650,-110 650,-129"/>
 
@@ -796,7 +812,7 @@
 </title>
 
 <g id="a_node5">
-<a xlink:href="../memory_format.html" xlink:title="MemoryFormat" target="_top">
+<a xlink:href="memory_format.html" xlink:title="MemoryFormat" target="_top">
 
 <polygon fill="none" stroke="#ffffff" points="452.5,-184 354.5,-184 354.5,-165 452.5,-165 452.5,-184"/>
 
@@ -830,7 +846,7 @@
 </title>
 
 <g id="a_node6">
-<a xlink:href="../anndata_format.html" xlink:title="AnnDataFormat" target="_top">
+<a xlink:href="anndata_format.html" xlink:title="AnnDataFormat" target="_top">
 
 <polygon fill="none" stroke="#ffffff" points="362,-129 261,-129 261,-110 362,-110 362,-129"/>
 
@@ -877,7 +893,7 @@
 </title>
 
 <g id="a_node7">
-<a xlink:href="../views.html" xlink:title="Views" target="_top">
+<a xlink:href="views.html" xlink:title="Views" target="_top">
 
 <polygon fill="none" stroke="#ffffff" points="562,-184 521,-184 521,-165 562,-165 562,-184"/>
 
@@ -911,7 +927,7 @@
 </title>
 
 <g id="a_node13">
-<a xlink:href="../contracts.html" xlink:title="Contracts" target="_top">
+<a xlink:href="contracts.html" xlink:title="Contracts" target="_top">
 
 <polygon fill="none" stroke="#ffffff" points="584.5,-129 522.5,-129 522.5,-110 584.5,-110 584.5,-129"/>
 
@@ -958,7 +974,7 @@
 </title>
 
 <g id="a_node8">
-<a xlink:href="../writers.html" xlink:title="Writers" target="_top">
+<a xlink:href="writers.html" xlink:title="Writers" target="_top">
 
 <polygon fill="none" stroke="#ffffff" points="490,-239 443,-239 443,-220 490,-220 490,-239"/>
 
@@ -1018,7 +1034,7 @@
 </title>
 
 <g id="a_node10">
-<a xlink:href="../h5df_format.html" xlink:title="H5dfFormat" target="_top">
+<a xlink:href="h5df_format.html" xlink:title="H5dfFormat" target="_top">
 
 <polygon fill="none" stroke="#ffffff" points="336,-184 259,-184 259,-165 336,-165 336,-184"/>
 
@@ -1052,7 +1068,7 @@
 </title>
 
 <g id="a_node16">
-<a xlink:href="../files_format.html" xlink:title="FilesFormat" target="_top">
+<a xlink:href="files_format.html" xlink:title="FilesFormat" target="_top">
 
 <polygon fill="none" stroke="#ffffff" points="241,-184 164,-184 164,-165 241,-165 241,-184"/>
 
@@ -1086,7 +1102,7 @@
 </title>
 
 <g id="a_node30">
-<a xlink:href="../reconstruction.html" xlink:title="Reconstruction" target="_top">
+<a xlink:href="reconstruction.html" xlink:title="Reconstruction" target="_top">
 
 <polygon fill="none" stroke="#ffffff" points="740,-184 645,-184 645,-165 740,-165 740,-184"/>
 
@@ -1133,7 +1149,7 @@
 </title>
 
 <g id="a_node11">
-<a xlink:href="../http_format.html" xlink:title="HttpFormat" target="_top">
+<a xlink:href="http_format.html" xlink:title="HttpFormat" target="_top">
 
 <polygon fill="none" stroke="#ffffff" points="166,-74 93,-74 93,-55 166,-55 166,-74"/>
 
@@ -1167,7 +1183,7 @@
 </title>
 
 <g id="a_node12">
-<a xlink:href="../zarr_format.html" xlink:title="ZarrFormat" target="_top">
+<a xlink:href="zarr_format.html" xlink:title="ZarrFormat" target="_top">
 
 <polygon fill="none" stroke="#ffffff" points="75,-74 2,-74 2,-55 75,-55 75,-74"/>
 
@@ -1201,7 +1217,7 @@
 </title>
 
 <g id="a_node32">
-<a xlink:href="../zarr_convert.html" xlink:title="ZarrConvert" target="_top">
+<a xlink:href="zarr_convert.html" xlink:title="ZarrConvert" target="_top">
 
 <polygon fill="none" stroke="#ffffff" points="77,-19 0,-19 0,0 77,0 77,-19"/>
 
@@ -1274,7 +1290,7 @@
 </title>
 
 <g id="a_node33">
-<a xlink:href="../zip_files.html" xlink:title="ZipFormat" target="_top">
+<a xlink:href="zip_files.html" xlink:title="ZipFormat" target="_top">
 
 <polygon fill="none" stroke="#ffffff" points="100,-129 33,-129 33,-110 100,-110 100,-129"/>
 
@@ -1308,7 +1324,7 @@
 </title>
 
 <g id="a_node17">
-<a xlink:href="../lazy_sparse.html" xlink:title="LazySparse" target="_top">
+<a xlink:href="lazy_sparse.html" xlink:title="LazySparse" target="_top">
 
 <polygon fill="none" stroke="#ffffff" points="202.5,-239 126.5,-239 126.5,-220 202.5,-220 202.5,-239"/>
 
@@ -1355,7 +1371,7 @@
 </title>
 
 <g id="a_node18">
-<a xlink:href="../read_only.html" xlink:title="ReadOnly" target="_top">
+<a xlink:href="read_only.html" xlink:title="ReadOnly" target="_top">
 
 <polygon fill="none" stroke="#ffffff" points="425,-239 360,-239 360,-220 425,-220 425,-239"/>
 
@@ -1415,7 +1431,7 @@
 </title>
 
 <g id="a_node19">
-<a xlink:href="../reorder.html" xlink:title="Reorder" target="_top">
+<a xlink:href="reorder.html" xlink:title="Reorder" target="_top">
 
 <polygon fill="none" stroke="#ffffff" points="342,-239 289,-239 289,-220 342,-220 342,-239"/>
 
@@ -1475,7 +1491,7 @@
 </title>
 
 <g id="a_node20">
-<a xlink:href="../formats.html" xlink:title="Formats" target="_top">
+<a xlink:href="formats.html" xlink:title="Formats" target="_top">
 
 <polygon fill="none" stroke="#ffffff" points="398,-349 343,-349 343,-330 398,-330 398,-349"/>
 
@@ -1496,7 +1512,7 @@
 </title>
 
 <g id="a_node25">
-<a xlink:href="../readers.html" xlink:title="Readers" target="_top">
+<a xlink:href="readers.html" xlink:title="Readers" target="_top">
 
 <polygon fill="none" stroke="#ffffff" points="400.5,-294 344.5,-294 344.5,-275 400.5,-275 400.5,-294"/>
 
@@ -1530,7 +1546,7 @@
 </title>
 
 <g id="a_node28">
-<a xlink:href="../packed_format.html" xlink:title="PackedFormat" target="_top">
+<a xlink:href="packed_format.html" xlink:title="PackedFormat" target="_top">
 
 <polygon fill="none" stroke="#ffffff" points="512.5,-294 420.5,-294 420.5,-275 512.5,-275 512.5,-294"/>
 
@@ -1564,7 +1580,7 @@
 </title>
 
 <g id="a_node21">
-<a xlink:href="../keys.html" xlink:title="Keys" target="_top">
+<a xlink:href="keys.html" xlink:title="Keys" target="_top">
 
 <polygon fill="none" stroke="#ffffff" points="387.5,-404 353.5,-404 353.5,-385 387.5,-385 387.5,-404"/>
 
@@ -1598,7 +1614,7 @@
 </title>
 
 <g id="a_node22">
-<a xlink:href="../registry.html" xlink:title="Registry" target="_top">
+<a xlink:href="registry.html" xlink:title="Registry" target="_top">
 
 <polygon fill="none" stroke="#ffffff" points="493.5,-404 439.5,-404 439.5,-385 493.5,-385 493.5,-404"/>
 
@@ -1632,7 +1648,7 @@
 </title>
 
 <g id="a_node27">
-<a xlink:href="../operations.html" xlink:title="Operations" target="_top">
+<a xlink:href="operations.html" xlink:title="Operations" target="_top">
 
 <polygon fill="none" stroke="#ffffff" points="606,-349 535,-349 535,-330 606,-330 606,-349"/>
 
@@ -1666,7 +1682,7 @@
 </title>
 
 <g id="a_node23">
-<a xlink:href="../tokens.html" xlink:title="Tokens" target="_top">
+<a xlink:href="tokens.html" xlink:title="Tokens" target="_top">
 
 <polygon fill="none" stroke="#ffffff" points="576,-404 529,-404 529,-385 576,-385 576,-404"/>
 
@@ -1713,7 +1729,7 @@
 </title>
 
 <g id="a_node24">
-<a xlink:href="../groups.html" xlink:title="Groups" target="_top">
+<a xlink:href="groups.html" xlink:title="Groups" target="_top">
 
 <polygon fill="none" stroke="#ffffff" points="270.5,-239 220.5,-239 220.5,-220 270.5,-220 270.5,-239"/>
 
@@ -1786,7 +1802,7 @@
 </title>
 
 <g id="a_node29">
-<a xlink:href="../queries.html" xlink:title="Queries" target="_top">
+<a xlink:href="queries.html" xlink:title="Queries" target="_top">
 
 <polygon fill="none" stroke="#ffffff" points="575,-239 522,-239 522,-220 575,-220 575,-239"/>
 
@@ -1820,7 +1836,7 @@
 </title>
 
 <g id="a_node26">
-<a xlink:href="../mmap_zip_store.html" xlink:title="MmapZipStores" target="_top">
+<a xlink:href="mmap_zip_store.html" xlink:title="MmapZipStores" target="_top">
 
 <polygon fill="none" stroke="#ffffff" points="517,-349 416,-349 416,-330 517,-330 517,-349"/>
 
@@ -1919,7 +1935,7 @@
 </title>
 
 <g id="a_node31">
-<a xlink:href="../storage_types.html" xlink:title="StorageTypes" target="_top">
+<a xlink:href="storage_types.html" xlink:title="StorageTypes" target="_top">
 
 <polygon fill="none" stroke="#ffffff" points="510,-459 423,-459 423,-440 510,-440 510,-459"/>
 
@@ -4271,7 +4287,7 @@
 <hr/>
 <p>This document was generated with 
 <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl
-</a> version 1.17.0. Using Julia version 1.12.6.
+</a> version 1.19.0. Using Julia version 1.12.6.
 </p>
 </section>
 <footer class="modal-card-foot">

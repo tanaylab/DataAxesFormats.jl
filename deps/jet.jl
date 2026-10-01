@@ -1,7 +1,9 @@
 using JET
+using TOML
 
 push!(LOAD_PATH, ".")
 
-using DataAxesFormats
+PACKAGE_NAME = TOML.parsefile("Project.toml")["name"]
+@eval using $(Symbol(PACKAGE_NAME))
 
-println(report_package("DataAxesFormats"))
+println(report_package(PACKAGE_NAME))

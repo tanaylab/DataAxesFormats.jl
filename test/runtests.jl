@@ -1,3 +1,6 @@
+# Test that the computations follow their contracts. This is read when `DataAxesFormats` is loaded.
+ENV["DAF_ENFORCE_CONTRACTS"] = "true"
+
 using Test
 
 using Base.MathConstants

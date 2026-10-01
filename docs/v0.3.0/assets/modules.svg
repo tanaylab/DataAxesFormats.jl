@@ -12,7 +12,7 @@
 <!-- Adapters -->
 <g id="node1" class="node">
 <title>Adapters</title>
-<g id="a_node1"><a xlink:href="../adapters.html" xlink:title="Adapters" target="_top">
+<g id="a_node1"><a xlink:href="adapters.html" xlink:title="Adapters" target="_top">
 <polygon fill="none" stroke="#ffffff" points="546,-19 487,-19 487,0 546,0 546,-19"/>
 <text text-anchor="middle" x="516.5" y="-5.8" font-family="Sans-Serif" font-size="14.00" fill="#000000">Adapters</text>
 </a>
@@ -21,7 +21,7 @@
 <!-- Chains -->
 <g id="node2" class="node">
 <title>Chains</title>
-<g id="a_node2"><a xlink:href="../chains.html" xlink:title="Chains" target="_top">
+<g id="a_node2"><a xlink:href="chains.html" xlink:title="Chains" target="_top">
 <polygon fill="none" stroke="#ffffff" points="504,-129 457,-129 457,-110 504,-110 504,-129"/>
 <text text-anchor="middle" x="480.5" y="-115.8" font-family="Sans-Serif" font-size="14.00" fill="#000000">Chains</text>
 </a>
@@ -36,7 +36,7 @@
 <!-- CompleteDaf -->
 <g id="node9" class="node">
 <title>CompleteDaf</title>
-<g id="a_node9"><a xlink:href="../complete.html" xlink:title="CompleteDaf" target="_top">
+<g id="a_node9"><a xlink:href="complete.html" xlink:title="CompleteDaf" target="_top">
 <polygon fill="none" stroke="#ffffff" points="208.5,-19 124.5,-19 124.5,0 208.5,0 208.5,-19"/>
 <text text-anchor="middle" x="166.5" y="-5.8" font-family="Sans-Serif" font-size="14.00" fill="#000000">CompleteDaf</text>
 </a>
@@ -51,7 +51,7 @@
 <!-- ExampleData -->
 <g id="node15" class="node">
 <title>ExampleData</title>
-<g id="a_node15"><a xlink:href="../example_data.html" xlink:title="ExampleData" target="_top">
+<g id="a_node15"><a xlink:href="example_data.html" xlink:title="ExampleData" target="_top">
 <polygon fill="none" stroke="#ffffff" points="362.5,-74 276.5,-74 276.5,-55 362.5,-55 362.5,-74"/>
 <text text-anchor="middle" x="319.5" y="-60.8" font-family="Sans-Serif" font-size="14.00" fill="#000000">ExampleData</text>
 </a>
@@ -66,7 +66,7 @@
 <!-- Computations -->
 <g id="node3" class="node">
 <title>Computations</title>
-<g id="a_node3"><a xlink:href="../computations.html" xlink:title="Computations" target="_top">
+<g id="a_node3"><a xlink:href="computations.html" xlink:title="Computations" target="_top">
 <polygon fill="none" stroke="#ffffff" points="598,-74 509,-74 509,-55 598,-55 598,-74"/>
 <text text-anchor="middle" x="553.5" y="-60.8" font-family="Sans-Serif" font-size="14.00" fill="#000000">Computations</text>
 </a>
@@ -81,7 +81,7 @@
 <!-- Copies -->
 <g id="node4" class="node">
 <title>Copies</title>
-<g id="a_node4"><a xlink:href="../copies.html" xlink:title="Copies" target="_top">
+<g id="a_node4"><a xlink:href="copies.html" xlink:title="Copies" target="_top">
 <polygon fill="none" stroke="#ffffff" points="627,-184 580,-184 580,-165 627,-165 627,-184"/>
 <text text-anchor="middle" x="603.5" y="-170.8" font-family="Sans-Serif" font-size="14.00" fill="#000000">Copies</text>
 </a>
@@ -96,7 +96,7 @@
 <!-- Concat -->
 <g id="node14" class="node">
 <title>Concat</title>
-<g id="a_node14"><a xlink:href="../concat.html" xlink:title="Concat" target="_top">
+<g id="a_node14"><a xlink:href="concat.html" xlink:title="Concat" target="_top">
 <polygon fill="none" stroke="#ffffff" points="650,-129 603,-129 603,-110 650,-110 650,-129"/>
 <text text-anchor="middle" x="626.5" y="-115.8" font-family="Sans-Serif" font-size="14.00" fill="#000000">Concat</text>
 </a>
@@ -111,7 +111,7 @@
 <!-- MemoryFormat -->
 <g id="node5" class="node">
 <title>MemoryFormat</title>
-<g id="a_node5"><a xlink:href="../memory_format.html" xlink:title="MemoryFormat" target="_top">
+<g id="a_node5"><a xlink:href="memory_format.html" xlink:title="MemoryFormat" target="_top">
 <polygon fill="none" stroke="#ffffff" points="452.5,-184 354.5,-184 354.5,-165 452.5,-165 452.5,-184"/>
 <text text-anchor="middle" x="403.5" y="-170.8" font-family="Sans-Serif" font-size="14.00" fill="#000000">MemoryFormat</text>
 </a>
@@ -126,7 +126,7 @@
 <!-- AnnDataFormat -->
 <g id="node6" class="node">
 <title>AnnDataFormat</title>
-<g id="a_node6"><a xlink:href="../anndata_format.html" xlink:title="AnnDataFormat" target="_top">
+<g id="a_node6"><a xlink:href="anndata_format.html" xlink:title="AnnDataFormat" target="_top">
 <polygon fill="none" stroke="#ffffff" points="362,-129 261,-129 261,-110 362,-110 362,-129"/>
 <text text-anchor="middle" x="311.5" y="-115.8" font-family="Sans-Serif" font-size="14.00" fill="#000000">AnnDataFormat</text>
 </a>
@@ -147,7 +147,7 @@
 <!-- Views -->
 <g id="node7" class="node">
 <title>Views</title>
-<g id="a_node7"><a xlink:href="../views.html" xlink:title="Views" target="_top">
+<g id="a_node7"><a xlink:href="views.html" xlink:title="Views" target="_top">
 <polygon fill="none" stroke="#ffffff" points="562,-184 521,-184 521,-165 562,-165 562,-184"/>
 <text text-anchor="middle" x="541.5" y="-170.8" font-family="Sans-Serif" font-size="14.00" fill="#000000">Views</text>
 </a>
@@ -162,7 +162,7 @@
 <!-- Contracts -->
 <g id="node13" class="node">
 <title>Contracts</title>
-<g id="a_node13"><a xlink:href="../contracts.html" xlink:title="Contracts" target="_top">
+<g id="a_node13"><a xlink:href="contracts.html" xlink:title="Contracts" target="_top">
 <polygon fill="none" stroke="#ffffff" points="584.5,-129 522.5,-129 522.5,-110 584.5,-110 584.5,-129"/>
 <text text-anchor="middle" x="553.5" y="-115.8" font-family="Sans-Serif" font-size="14.00" fill="#000000">Contracts</text>
 </a>
@@ -183,7 +183,7 @@
 <!-- Writers -->
 <g id="node8" class="node">
 <title>Writers</title>
-<g id="a_node8"><a xlink:href="../writers.html" xlink:title="Writers" target="_top">
+<g id="a_node8"><a xlink:href="writers.html" xlink:title="Writers" target="_top">
 <polygon fill="none" stroke="#ffffff" points="490,-239 443,-239 443,-220 490,-220 490,-239"/>
 <text text-anchor="middle" x="466.5" y="-225.8" font-family="Sans-Serif" font-size="14.00" fill="#000000">Writers</text>
 </a>
@@ -210,7 +210,7 @@
 <!-- H5dfFormat -->
 <g id="node10" class="node">
 <title>H5dfFormat</title>
-<g id="a_node10"><a xlink:href="../h5df_format.html" xlink:title="H5dfFormat" target="_top">
+<g id="a_node10"><a xlink:href="h5df_format.html" xlink:title="H5dfFormat" target="_top">
 <polygon fill="none" stroke="#ffffff" points="336,-184 259,-184 259,-165 336,-165 336,-184"/>
 <text text-anchor="middle" x="297.5" y="-170.8" font-family="Sans-Serif" font-size="14.00" fill="#000000">H5dfFormat</text>
 </a>
@@ -225,7 +225,7 @@
 <!-- FilesFormat -->
 <g id="node16" class="node">
 <title>FilesFormat</title>
-<g id="a_node16"><a xlink:href="../files_format.html" xlink:title="FilesFormat" target="_top">
+<g id="a_node16"><a xlink:href="files_format.html" xlink:title="FilesFormat" target="_top">
 <polygon fill="none" stroke="#ffffff" points="241,-184 164,-184 164,-165 241,-165 241,-184"/>
 <text text-anchor="middle" x="202.5" y="-170.8" font-family="Sans-Serif" font-size="14.00" fill="#000000">FilesFormat</text>
 </a>
@@ -240,7 +240,7 @@
 <!-- Reconstruction -->
 <g id="node30" class="node">
 <title>Reconstruction</title>
-<g id="a_node30"><a xlink:href="../reconstruction.html" xlink:title="Reconstruction" target="_top">
+<g id="a_node30"><a xlink:href="reconstruction.html" xlink:title="Reconstruction" target="_top">
 <polygon fill="none" stroke="#ffffff" points="740,-184 645,-184 645,-165 740,-165 740,-184"/>
 <text text-anchor="middle" x="692.5" y="-170.8" font-family="Sans-Serif" font-size="14.00" fill="#000000">Reconstruction</text>
 </a>
@@ -261,7 +261,7 @@
 <!-- HttpFormat -->
 <g id="node11" class="node">
 <title>HttpFormat</title>
-<g id="a_node11"><a xlink:href="../http_format.html" xlink:title="HttpFormat" target="_top">
+<g id="a_node11"><a xlink:href="http_format.html" xlink:title="HttpFormat" target="_top">
 <polygon fill="none" stroke="#ffffff" points="166,-74 93,-74 93,-55 166,-55 166,-74"/>
 <text text-anchor="middle" x="129.5" y="-60.8" font-family="Sans-Serif" font-size="14.00" fill="#000000">HttpFormat</text>
 </a>
@@ -276,7 +276,7 @@
 <!-- ZarrFormat -->
 <g id="node12" class="node">
 <title>ZarrFormat</title>
-<g id="a_node12"><a xlink:href="../zarr_format.html" xlink:title="ZarrFormat" target="_top">
+<g id="a_node12"><a xlink:href="zarr_format.html" xlink:title="ZarrFormat" target="_top">
 <polygon fill="none" stroke="#ffffff" points="75,-74 2,-74 2,-55 75,-55 75,-74"/>
 <text text-anchor="middle" x="38.5" y="-60.8" font-family="Sans-Serif" font-size="14.00" fill="#000000">ZarrFormat</text>
 </a>
@@ -291,7 +291,7 @@
 <!-- ZarrConvert -->
 <g id="node32" class="node">
 <title>ZarrConvert</title>
-<g id="a_node32"><a xlink:href="../zarr_convert.html" xlink:title="ZarrConvert" target="_top">
+<g id="a_node32"><a xlink:href="zarr_convert.html" xlink:title="ZarrConvert" target="_top">
 <polygon fill="none" stroke="#ffffff" points="77,-19 0,-19 0,0 77,0 77,-19"/>
 <text text-anchor="middle" x="38.5" y="-5.8" font-family="Sans-Serif" font-size="14.00" fill="#000000">ZarrConvert</text>
 </a>
@@ -324,7 +324,7 @@
 <!-- ZipFormat -->
 <g id="node33" class="node">
 <title>ZipFormat</title>
-<g id="a_node33"><a xlink:href="../zip_files.html" xlink:title="ZipFormat" target="_top">
+<g id="a_node33"><a xlink:href="zip_files.html" xlink:title="ZipFormat" target="_top">
 <polygon fill="none" stroke="#ffffff" points="100,-129 33,-129 33,-110 100,-110 100,-129"/>
 <text text-anchor="middle" x="66.5" y="-115.8" font-family="Sans-Serif" font-size="14.00" fill="#000000">ZipFormat</text>
 </a>
@@ -339,7 +339,7 @@
 <!-- LazySparse -->
 <g id="node17" class="node">
 <title>LazySparse</title>
-<g id="a_node17"><a xlink:href="../lazy_sparse.html" xlink:title="LazySparse" target="_top">
+<g id="a_node17"><a xlink:href="lazy_sparse.html" xlink:title="LazySparse" target="_top">
 <polygon fill="none" stroke="#ffffff" points="202.5,-239 126.5,-239 126.5,-220 202.5,-220 202.5,-239"/>
 <text text-anchor="middle" x="164.5" y="-225.8" font-family="Sans-Serif" font-size="14.00" fill="#000000">LazySparse</text>
 </a>
@@ -360,7 +360,7 @@
 <!-- ReadOnly -->
 <g id="node18" class="node">
 <title>ReadOnly</title>
-<g id="a_node18"><a xlink:href="../read_only.html" xlink:title="ReadOnly" target="_top">
+<g id="a_node18"><a xlink:href="read_only.html" xlink:title="ReadOnly" target="_top">
 <polygon fill="none" stroke="#ffffff" points="425,-239 360,-239 360,-220 425,-220 425,-239"/>
 <text text-anchor="middle" x="392.5" y="-225.8" font-family="Sans-Serif" font-size="14.00" fill="#000000">ReadOnly</text>
 </a>
@@ -387,7 +387,7 @@
 <!-- Reorder -->
 <g id="node19" class="node">
 <title>Reorder</title>
-<g id="a_node19"><a xlink:href="../reorder.html" xlink:title="Reorder" target="_top">
+<g id="a_node19"><a xlink:href="reorder.html" xlink:title="Reorder" target="_top">
 <polygon fill="none" stroke="#ffffff" points="342,-239 289,-239 289,-220 342,-220 342,-239"/>
 <text text-anchor="middle" x="315.5" y="-225.8" font-family="Sans-Serif" font-size="14.00" fill="#000000">Reorder</text>
 </a>
@@ -414,7 +414,7 @@
 <!-- Formats -->
 <g id="node20" class="node">
 <title>Formats</title>
-<g id="a_node20"><a xlink:href="../formats.html" xlink:title="Formats" target="_top">
+<g id="a_node20"><a xlink:href="formats.html" xlink:title="Formats" target="_top">
 <polygon fill="none" stroke="#ffffff" points="398,-349 343,-349 343,-330 398,-330 398,-349"/>
 <text text-anchor="middle" x="370.5" y="-335.8" font-family="Sans-Serif" font-size="14.00" fill="#000000">Formats</text>
 </a>
@@ -423,7 +423,7 @@
 <!-- Readers -->
 <g id="node25" class="node">
 <title>Readers</title>
-<g id="a_node25"><a xlink:href="../readers.html" xlink:title="Readers" target="_top">
+<g id="a_node25"><a xlink:href="readers.html" xlink:title="Readers" target="_top">
 <polygon fill="none" stroke="#ffffff" points="400.5,-294 344.5,-294 344.5,-275 400.5,-275 400.5,-294"/>
 <text text-anchor="middle" x="372.5" y="-280.8" font-family="Sans-Serif" font-size="14.00" fill="#000000">Readers</text>
 </a>
@@ -438,7 +438,7 @@
 <!-- PackedFormat -->
 <g id="node28" class="node">
 <title>PackedFormat</title>
-<g id="a_node28"><a xlink:href="../packed_format.html" xlink:title="PackedFormat" target="_top">
+<g id="a_node28"><a xlink:href="packed_format.html" xlink:title="PackedFormat" target="_top">
 <polygon fill="none" stroke="#ffffff" points="512.5,-294 420.5,-294 420.5,-275 512.5,-275 512.5,-294"/>
 <text text-anchor="middle" x="466.5" y="-280.8" font-family="Sans-Serif" font-size="14.00" fill="#000000">PackedFormat</text>
 </a>
@@ -453,7 +453,7 @@
 <!-- Keys -->
 <g id="node21" class="node">
 <title>Keys</title>
-<g id="a_node21"><a xlink:href="../keys.html" xlink:title="Keys" target="_top">
+<g id="a_node21"><a xlink:href="keys.html" xlink:title="Keys" target="_top">
 <polygon fill="none" stroke="#ffffff" points="387.5,-404 353.5,-404 353.5,-385 387.5,-385 387.5,-404"/>
 <text text-anchor="middle" x="370.5" y="-390.8" font-family="Sans-Serif" font-size="14.00" fill="#000000">Keys</text>
 </a>
@@ -468,7 +468,7 @@
 <!-- Registry -->
 <g id="node22" class="node">
 <title>Registry</title>
-<g id="a_node22"><a xlink:href="../registry.html" xlink:title="Registry" target="_top">
+<g id="a_node22"><a xlink:href="registry.html" xlink:title="Registry" target="_top">
 <polygon fill="none" stroke="#ffffff" points="493.5,-404 439.5,-404 439.5,-385 493.5,-385 493.5,-404"/>
 <text text-anchor="middle" x="466.5" y="-390.8" font-family="Sans-Serif" font-size="14.00" fill="#000000">Registry</text>
 </a>
@@ -483,7 +483,7 @@
 <!-- Operations -->
 <g id="node27" class="node">
 <title>Operations</title>
-<g id="a_node27"><a xlink:href="../operations.html" xlink:title="Operations" target="_top">
+<g id="a_node27"><a xlink:href="operations.html" xlink:title="Operations" target="_top">
 <polygon fill="none" stroke="#ffffff" points="606,-349 535,-349 535,-330 606,-330 606,-349"/>
 <text text-anchor="middle" x="570.5" y="-335.8" font-family="Sans-Serif" font-size="14.00" fill="#000000">Operations</text>
 </a>
@@ -498,7 +498,7 @@
 <!-- Tokens -->
 <g id="node23" class="node">
 <title>Tokens</title>
-<g id="a_node23"><a xlink:href="../tokens.html" xlink:title="Tokens" target="_top">
+<g id="a_node23"><a xlink:href="tokens.html" xlink:title="Tokens" target="_top">
 <polygon fill="none" stroke="#ffffff" points="576,-404 529,-404 529,-385 576,-385 576,-404"/>
 <text text-anchor="middle" x="552.5" y="-390.8" font-family="Sans-Serif" font-size="14.00" fill="#000000">Tokens</text>
 </a>
@@ -519,7 +519,7 @@
 <!-- Groups -->
 <g id="node24" class="node">
 <title>Groups</title>
-<g id="a_node24"><a xlink:href="../groups.html" xlink:title="Groups" target="_top">
+<g id="a_node24"><a xlink:href="groups.html" xlink:title="Groups" target="_top">
 <polygon fill="none" stroke="#ffffff" points="270.5,-239 220.5,-239 220.5,-220 270.5,-220 270.5,-239"/>
 <text text-anchor="middle" x="245.5" y="-225.8" font-family="Sans-Serif" font-size="14.00" fill="#000000">Groups</text>
 </a>
@@ -552,7 +552,7 @@
 <!-- Queries -->
 <g id="node29" class="node">
 <title>Queries</title>
-<g id="a_node29"><a xlink:href="../queries.html" xlink:title="Queries" target="_top">
+<g id="a_node29"><a xlink:href="queries.html" xlink:title="Queries" target="_top">
 <polygon fill="none" stroke="#ffffff" points="575,-239 522,-239 522,-220 575,-220 575,-239"/>
 <text text-anchor="middle" x="548.5" y="-225.8" font-family="Sans-Serif" font-size="14.00" fill="#000000">Queries</text>
 </a>
@@ -567,7 +567,7 @@
 <!-- MmapZipStores -->
 <g id="node26" class="node">
 <title>MmapZipStores</title>
-<g id="a_node26"><a xlink:href="../mmap_zip_store.html" xlink:title="MmapZipStores" target="_top">
+<g id="a_node26"><a xlink:href="mmap_zip_store.html" xlink:title="MmapZipStores" target="_top">
 <polygon fill="none" stroke="#ffffff" points="517,-349 416,-349 416,-330 517,-330 517,-349"/>
 <text text-anchor="middle" x="466.5" y="-335.8" font-family="Sans-Serif" font-size="14.00" fill="#000000">MmapZipStores</text>
 </a>
@@ -612,7 +612,7 @@
 <!-- StorageTypes -->
 <g id="node31" class="node">
 <title>StorageTypes</title>
-<g id="a_node31"><a xlink:href="../storage_types.html" xlink:title="StorageTypes" target="_top">
+<g id="a_node31"><a xlink:href="storage_types.html" xlink:title="StorageTypes" target="_top">
 <polygon fill="none" stroke="#ffffff" points="510,-459 423,-459 423,-440 510,-440 510,-459"/>
 <text text-anchor="middle" x="466.5" y="-445.8" font-family="Sans-Serif" font-size="14.00" fill="#000000">StorageTypes</text>
 </a>

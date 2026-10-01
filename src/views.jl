@@ -112,7 +112,7 @@ of all genes in all cells.
 axis must be exposed by the view (based on the `axes` parameter). If the axis is `"*"`, it is replaces by all the
 exposed axis names specified by the `axes` parameter. Similarly, if the property name is `"*"` (e.g., `("gene", "*")`),
 then it is replaced by all the vector properties of the exposed axis in the base data. Therefore specifying `("*", "*")`
-(or [`ALL_VECTORS`](@ref))`, all vector properties of all the (exposed) axes will also be exposed.
+(or [`ALL_VECTORS`](@ref)), all vector properties of all the (exposed) axes will also be exposed.
 
 The value for vectors must be the suffix of a vector query based on the appropriate axis. For example,
 `("cell", "color") => ": type : color"` will expose a vector of color for each exposed cell, which is the color of the
