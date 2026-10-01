@@ -453,7 +453,24 @@ nested_test("packed_format") do
         nested_test("chain") do
             chain = chain_writer([daf]; name = "chain!")
             DataAxesFormats.Formats.with_data_read_lock(chain, "test") do
+                @test !DataAxesFormats.Formats.format_is_packed_vector(chain, "cell", "age")
                 @test !DataAxesFormats.Formats.format_is_packed_matrix(chain, "cell", "gene", "UMIs")
+                return nothing
+            end
+        end
+
+        nested_test("contract") do
+            contract = Contract(;
+                axes = ["cell" => (RequiredInput, "description"), "gene" => (RequiredInput, "description")],
+                data = [
+                    ("cell", "age") => (RequiredInput, Int64, "description"),
+                    ("cell", "gene", "UMIs") => (RequiredInput, Int64, "description"),
+                ],
+            )
+            contract_daf = contractor("computation", contract, daf)
+            DataAxesFormats.Formats.with_data_read_lock(contract_daf, "test") do
+                @test !DataAxesFormats.Formats.format_is_packed_vector(contract_daf, "cell", "age")
+                @test !DataAxesFormats.Formats.format_is_packed_matrix(contract_daf, "cell", "gene", "UMIs")
                 return nothing
             end
         end
@@ -520,6 +537,14 @@ nested_test("packed_format") do
         same_view = view(matrix, :, 2)
         @test same_view === second_view
         @test all(==(Float32(7)), same_view)
+
+        # Scalar access goes through the same column slot.
+        @test setindex!(matrix, 5, 3, 2) === Float32(5)
+        @test matrix[3, 2] === Float32(5)
+    end
+
+    nested_test("format_zip_entry_name") do
+        @test DataAxesFormats.PackedFormat.format_zip_entry_name(UInt8[0x61, 0x5c, 0x1f, 0x7e]) == "a\\x5c\\x1f~"
     end
 
     nested_test("valid_compression_level_range") do
@@ -529,9 +554,37 @@ nested_test("packed_format") do
         @test DataAxesFormats.PackedFormat.valid_compression_level_range(:zstd) == 1:22
         @test DataAxesFormats.PackedFormat.valid_compression_level_range(:gzip) == 1:9
         @test DataAxesFormats.PackedFormat.valid_compression_level_range(:gzip_shuffle) == 1:9
-        @test_throws "unsupported packed compression codec: :bogus" DataAxesFormats.PackedFormat.valid_compression_level_range(
-            :bogus,
-        )
+        valid_compression_level_range = DataAxesFormats.PackedFormat.valid_compression_level_range
+        @test_throws "unsupported packed compression codec: :bogus" valid_compression_level_range(:bogus)
+    end
+
+    nested_test("v3_codecs") do
+        compressor_for = DataAxesFormats.PackedFormat.compressor_for
+        v3_bytes_codecs_for = DataAxesFormats.PackedFormat.v3_bytes_codecs_for
+        packed_codec_from_v3_codec = DataAxesFormats.PackedFormat.packed_codec_from_v3_codec
+
+        nested_test("round_trip") do
+            for compression in (:blosc_zstd_bitshuffle, :blosc_lz4_bitshuffle, :zstd, :gzip)
+                codec = packed_codec_from_v3_codec(only(v3_bytes_codecs_for(compressor_for(compression, 3), Float32)))
+                @test codec.compression == compression
+                @test codec.compression_level == 3
+            end
+        end
+
+        nested_test("unsupported_on_v3") do
+            @test_throws "packed compression codec :gzip_shuffle is not supported" v3_bytes_codecs_for(
+                compressor_for(:gzip_shuffle),
+                Float32,
+            )
+            @test_throws "packed compression codec :zstd_bitshuffle is not supported" v3_bytes_codecs_for(
+                compressor_for(:zstd_bitshuffle),
+                Float32,
+            )
+        end
+
+        nested_test("unsupported_from_v3") do
+            @test_throws "unsupported v3 codec for packed conversion" packed_codec_from_v3_codec("bogus")
+        end
     end
 
     # Stock `Zarr.zopen` (no DataAxesFormats layer) on a `ZarrDaf` packed property's array path — confirms
@@ -1213,9 +1266,7 @@ nested_test("packed_format") do
                     return nothing
                 end
 
-                expected = sparse_vector(
-                    [Float32(index) for index in 1:n_elements] .* [index <= nnz_count ? 1.0f0 : 0.0f0 for index in 1:n_elements],
-                )
+                expected = sparse_vector([index <= nnz_count ? Float32(index) : 0.0f0 for index in 1:n_elements])
                 @test get_vector(daf, "elem", "data") == expected
                 # Both components above the byte threshold → packed datasets.
                 nzind_dataset = h5df_dataset_at(daf, "vectors", "elem", "data", "nzind")

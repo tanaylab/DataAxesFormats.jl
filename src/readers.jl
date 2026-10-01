@@ -185,8 +185,9 @@ function get_scalar(
         end
 
         result = Formats.get_scalar_through_cache(daf, name)
-        @debug "get_scalar daf: $(brief(daf)) name: $(name) default: $(brief(default)) result: $(brief(result))" _group =
-            :daf_gets
+        @debug (
+            "get_scalar daf: $(brief(daf)) name: $(name) " * "default: $(brief(default)) " * "result: $(brief(result))"
+        ) _group = :daf_gets
         # Formats.assert_valid_cache(daf)
         return result
     end
@@ -338,8 +339,10 @@ function axis_vector(
         end
 
         result = Formats.get_axis_vector_through_cache(daf, axis)
-        @debug "axis_vector daf: $(brief(daf)) axis: $(axis) default: $(brief(default)) $(result_prefix)result: $(brief(result))" _group =
-            :daf_gets
+        @debug (
+            "axis_vector daf: $(brief(daf)) axis: $(axis) default: $(brief(default)) " *
+            "$(result_prefix)result: $(brief(result))"
+        ) _group = :daf_gets
         # Formats.assert_valid_cache(daf)
         return result
     end
@@ -383,8 +386,8 @@ end
     )::AbstractVector{<:Integer}
 
 Return a vector of the indices of the `entries` in the `axis`. If `allow_empty`, the empty string is converted to a zero
-index. If `allow_missing`, any non-empty strings that do not exist are likewise converted to a zero index. Otherwise, all
-`entries` must exist in the `axis`.
+index. If `allow_missing`, any non-empty strings that do not exist are likewise converted to a zero index. Otherwise,
+all `entries` must exist in the `axis`.
 
 ```jldoctest
 axis_indices(example_metacells_daf(), "type", ["MPP", ""]; allow_empty = true)
@@ -622,8 +625,8 @@ end
     )::Maybe{NamedVector}
 
 Get the vector property with some `name` for some `axis` in `daf`. The names of the result are the names of the vector
-entries (same as returned by [`axis_vector`](@ref)). The special property `name` returns an array whose values are also the
-(read-only) names of the entries of the axis.
+entries (same as returned by [`axis_vector`](@ref)). The special property `name` returns an array whose values are also
+the (read-only) names of the entries of the axis.
 
 This first verifies the `axis` exists in `daf`. If `default` is `undef` (the default), this first verifies the `name`
 vector exists in `daf`. Otherwise, if `default` is `nothing`, it will be returned. If it is a [`StorageVector`](@ref),
@@ -668,8 +671,10 @@ function get_vector(
                 values = getindex.(Ref(dictionary), values)
             end
             vector = Formats.as_named_vector(daf, axis, values)
-            @debug "get_vector daf: $(brief(daf)) axis: $(axis) name: $(name) default: $(brief(default)) result: $(brief(vector))" _group =
-                :daf_gets
+            @debug (
+                "get_vector daf: $(brief(daf)) axis: $(axis) name: $(name) default: $(brief(default)) " *
+                "result: $(brief(vector))"
+            ) _group = :daf_gets
             # Formats.assert_valid_cache(daf)
             return vector
         end
@@ -706,8 +711,10 @@ function get_vector(
             vector = Formats.as_named_vector(daf, axis, vector)
         end
 
-        @debug "get_vector daf: $(brief(daf)) axis: $(axis) name: $(name) default: $(brief(default)) $(result_prefix)result: $(brief(vector))" _group =
-            :daf_gets
+        @debug (
+            "get_vector daf: $(brief(daf)) axis: $(axis) name: $(name) default: $(brief(default)) " *
+            "$(result_prefix)result: $(brief(vector))"
+        ) _group = :daf_gets
         # Formats.assert_valid_cache(daf)
         return vector
     end
@@ -766,8 +773,10 @@ function has_matrix(
         result =
             Formats.format_has_matrix(daf, rows_axis, columns_axis, name) ||
             (relayout && Formats.format_has_matrix(daf, columns_axis, rows_axis, name))
-        @debug "has_matrix daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) relayout: $(relayout) result: $(brief(result))" _group =
-            :daf_gets
+        @debug (
+            "has_matrix daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) " *
+            "relayout: $(relayout) result: $(brief(result))"
+        ) _group = :daf_gets
         return result
     end
 end
@@ -855,8 +864,10 @@ function matrices_set(
             end
         end
 
-        @debug "matrices_set daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) relayout: $(relayout) result: $(brief(names))" _group =
-            :daf_gets
+        @debug (
+            "matrices_set daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) " *
+            "relayout: $(relayout) result: $(brief(names))"
+        ) _group = :daf_gets
         # Formats.assert_valid_cache(daf)
         return names
     end
@@ -1015,8 +1026,10 @@ function get_matrix(
             matrix = Formats.as_named_matrix(daf, rows_axis, columns_axis, matrix)
         end
 
-        @debug "get_matrix daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) default: $(brief(default)) $(result_prefix)result: $(brief(matrix))" _group =
-            :daf_gets
+        @debug (
+            "get_matrix daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) " *
+            "default: $(brief(default)) $(result_prefix)result: $(brief(matrix))"
+        ) _group = :daf_gets
         # # Formats.assert_valid_cache(daf)
         return matrix
     end
@@ -1066,8 +1079,8 @@ end
 Return the version number of the matrix. The order of the axes does not matter. This is incremented every time
 [`set_matrix!`](@ref DataAxesFormats.Writers.set_matrix!),
 [`empty_dense_matrix!`](@ref DataAxesFormats.Writers.empty_dense_matrix!) or
-[`empty_sparse_matrix!`](@ref DataAxesFormats.Writers.empty_sparse_matrix!) are called. It is used by interfaces to other
-programming languages to safely cache per-matrix data.
+[`empty_sparse_matrix!`](@ref DataAxesFormats.Writers.empty_sparse_matrix!) are called. It is used by interfaces to
+other programming languages to safely cache per-matrix data.
 
 !!! note
 
@@ -1096,8 +1109,10 @@ function matrix_version_counter(
         rows_axis, columns_axis = columns_axis, rows_axis
     end
     result = Formats.format_get_version_counter(daf, (rows_axis, columns_axis, name))
-    @debug "matrix_version_counter daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) result: $(result)" _group =
-        :daf_gets
+    @debug (
+        "matrix_version_counter daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) " *
+        "name: $(name) result: $(result)"
+    ) _group = :daf_gets
     return result
 end
 
@@ -1484,7 +1499,7 @@ function tensors_description(
     return nothing
 end
 
-function format_counters(counters::Int, text::AbstractString)::AbstractString
+function format_counters(counters::Int, text::AbstractString)::AbstractString  # UNTESTED
     return "$(counters) X $(text)"
 end
 

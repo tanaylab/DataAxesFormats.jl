@@ -60,7 +60,8 @@ per-daf default. Base repositories are always opened in "r" mode and the `packed
 
 A convenient way to create persistent complete chains is using [`complete_chain!`](@ref).
 
-TODO: Properly indent the log messages of the created leaf repositories. Generic mechanism for indenting all hierarchical log messages?
+TODO: Properly indent the log messages of the created leaf repositories. Generic mechanism for indenting all
+hierarchical log messages?
 """
 function complete_daf(
     leaf::AbstractString,

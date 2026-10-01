@@ -80,6 +80,20 @@ nested_test("contracts") do
                              for the contracts axis: cell
                              """) (left |> right)
             end
+
+            nested_test("order") do
+                left = Contract(;
+                    axes = ["gene" => (RequiredInput, "description"), "cell" => (RequiredInput, "description")],
+                )
+                right = Contract(;
+                    axes = ["batch" => (CreatedOutput, "description"), "gene" => (OptionalInput, "description")],
+                )
+                @test (left |> right).axes == [
+                    "gene" => (RequiredInput, "description"),
+                    "cell" => (RequiredInput, "description"),
+                    "batch" => (CreatedOutput, "description"),
+                ]
+            end
         end
 
         nested_test("data") do
@@ -110,6 +124,73 @@ nested_test("contracts") do
                              for the contracts data: ("cell", "age")
                              """) (left |> right)
             end
+
+            nested_test("vector-matrix") do
+                left = Contract(; data = [("cell", "age") => (RequiredInput, Int32, "description")])
+                right = Contract(; data = [("cell", "gene", "UMIs") => (RequiredInput, UInt32, "description")])
+                @test (left |> right).data == [
+                    ("cell", "age") => (RequiredInput, Int32, "description"),
+                    ("cell", "gene", "UMIs") => (RequiredInput, UInt32, "description"),
+                ]
+            end
+        end
+    end
+
+    nested_test("optional") do
+        nested_test("axes") do
+            contract = Contract(;
+                axes = [
+                    "required" => (RequiredInput, "description"),
+                    "optional" => (OptionalInput, "description"),
+                    "created" => (CreatedOutput, "description"),
+                    "guaranteed" => (GuaranteedOutput, "description"),
+                    "contingent" => (OptionalOutput, "description"),
+                ],
+            )
+            @test optional_contract(contract).axes == [
+                "required" => (OptionalInput, "description"),
+                "optional" => (OptionalInput, "description"),
+                "created" => (OptionalOutput, "description"),
+                "guaranteed" => (OptionalOutput, "description"),
+                "contingent" => (OptionalOutput, "description"),
+            ]
+        end
+
+        nested_test("data") do
+            contract = Contract(; data = [("cell", "age") => (RequiredInput, Int32, "description")])
+            @test optional_contract(contract).data == [("cell", "age") => (OptionalInput, Int32, "description")]
+        end
+
+        nested_test("nothing") do
+            contract = optional_contract(Contract(; name = "name"))
+            @test contract.name == "name"
+            @test contract.axes === nothing
+            @test contract.data === nothing
+        end
+
+        nested_test("add") do
+            always = Contract(; axes = ["cell" => (RequiredInput, "description")])
+            sometimes =
+                Contract(; axes = ["cell" => (RequiredInput, "description"), "type" => (RequiredInput, "description")])
+            @test (always |> optional_contract(sometimes)).axes ==
+                  ["cell" => (RequiredInput, "description"), "type" => (OptionalInput, "description")]
+        end
+    end
+
+    nested_test("renamed") do
+        left = Contract(; name = "left", axes = ["cell" => (RequiredInput, "description")])
+        right = Contract(; name = "right", axes = ["gene" => (RequiredInput, "description")])
+        combined = left |> right
+        @test combined.name == "left_right"
+
+        nested_test("name") do
+            renamed = renamed_contract(combined, "daf")
+            @test renamed.name == "daf"
+            @test renamed.axes == combined.axes
+        end
+
+        nested_test("nothing") do
+            @test renamed_contract(combined, nothing).name === nothing
         end
     end
 
@@ -1635,5 +1716,45 @@ nested_test("contracts") do
                 @test verify_output(contract_daf) === nothing
             end
         end
+    end
+
+    # A query which is already cached is not computed again through the contract, so the contract is told which data
+    # the cached result depends on, and counts it as accessed.
+    nested_test("cached_query") do
+        set_scalar!(daf, "version", 1)
+        add_axis!(daf, "cell", ["A", "B"])
+        add_axis!(daf, "gene", ["X", "Y", "Z"])
+        set_vector!(daf, "cell", "age", [1, 2])
+        set_matrix!(daf, "gene", "cell", "UMIs", [1 2; 3 4; 5 6])
+
+        queries =
+            [". version", "@ cell : age", "@ gene @ cell :: UMIs", ". ?", "@ ?", "@ cell : ?", "@ gene @ cell :: ?"]
+        for query in queries
+            get_query(daf, query)
+        end
+
+        contract = Contract(;
+            axes = ["cell" => (RequiredInput, "description"), "gene" => (RequiredInput, "description")],
+            data = [
+                "version" => (RequiredInput, Int64, "description"),
+                ("cell", "age") => (RequiredInput, Int64, "description"),
+                ("gene", "cell", "UMIs") => (RequiredInput, Int64, "description"),
+            ],
+        )
+        contract_daf = contractor("computation", contract, daf)
+        @test verify_input(contract_daf) === nothing
+        for query in queries
+            get_query(contract_daf, query)
+        end
+        @test verify_output(contract_daf) === nothing
+    end
+
+    nested_test("expectation_names") do
+        short = DataAxesFormats.Contracts.short
+        @test short(RequiredInput) == "required"
+        @test short(CreatedOutput) == "created"
+        @test short(GuaranteedOutput) == "guaranteed"
+        @test short(OptionalInput) == "optional"
+        @test short(OptionalOutput) == "optional"
     end
 end

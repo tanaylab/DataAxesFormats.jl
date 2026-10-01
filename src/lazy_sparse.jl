@@ -709,7 +709,7 @@ function Base.getindex(vector::LazySparseVector, indexer::AbstractVector{Bool}):
     return slice_with_indexer(vector, indexer)
 end
 
-function Base.getindex(vector::LazySparseVector, indexer::AbstractRange{Bool})::LazySparseVector
+function Base.getindex(vector::LazySparseVector, indexer::AbstractRange{Bool})::LazySparseVector  # UNTESTED
     return slice_with_indexer(vector, indexer)
 end
 

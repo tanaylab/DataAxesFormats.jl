@@ -333,7 +333,9 @@
     dataset_axis::Maybe{AbstractString} = &quot;dataset&quot;,
     dataset_property::Bool = true,
     prefix::Union{Bool, AbstractVector{Bool}} = false,
-    prefixed::Maybe{Union{AbstractSet{&lt;:AbstractString}, AbstractVector{&lt;:AbstractSet{&lt;:AbstractString}}}} = nothing,
+    prefixed::Maybe{
+        Union{AbstractSet{&lt;:AbstractString}, AbstractVector{&lt;:AbstractSet{&lt;:AbstractString}}},
+    } = nothing,
     empty::Maybe{EmptyData} = nothing,
     sparse_if_saves_storage_fraction::AbstractFloat = 0.25,
     merge::Maybe{MergeData} = nothing,

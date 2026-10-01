@@ -36,10 +36,10 @@ using TanayLabUtilities
 Invoke a `computation` on a view of some `daf` data and return the result; copy a view of the results into the base
 `daf` data.
 
-If you have some `Daf` data you wish to run a `computation` on, you need to deal with name mismatches. That is, the names
-of the input and output data properties of the `computation` may be different from these used in your data. In addition,
-you might be interested only in a subset of the computed data properties, to avoiding polluting your data set with
-irrelevant properties.
+If you have some `Daf` data you wish to run a `computation` on, you need to deal with name mismatches. That is, the
+names of the input and output data properties of the `computation` may be different from these used in your data. In
+addition, you might be interested only in a subset of the computed data properties, to avoiding polluting your data set
+with irrelevant properties.
 
 To address these issues, the common idiom for applying computations to `Daf` data is to use the `adapter` as
 follows:

@@ -475,14 +475,16 @@
 <code>IfMissing
 </code>
 </a> operator, e.g. 
-<code>&quot; || 0.0.0&quot;, the phrase
-</code>LookupScalar(&quot;version&quot;) |&gt; IfMissing(&quot;0.0.0&quot;)
-<code>is executed as a single operation, invoking
-</code>get_scalar(daf, &quot;version&quot;; default = &quot;0.0.0&quot;)
-<code>and pushing a scalar into the query state stack. This eliminates the issue of &quot;what is the state of the query after executing a
-</code>LookupScalar
-<code>of a missing scalar property, before executing
-</code>IfMissing`&quot;.
+<code>&quot; || 0.0.0&quot;
+</code>, the phrase 
+<code>LookupScalar(&quot;version&quot;) |&gt; IfMissing(&quot;0.0.0&quot;)
+</code> is executed as a single operation, invoking 
+<code>get_scalar(daf, &quot;version&quot;; default = &quot;0.0.0&quot;)
+</code> and pushing a scalar into the query state stack. This eliminates the issue of &quot;what is the state of the query after executing a 
+<code>LookupScalar
+</code> of a missing scalar property, before executing 
+<code>IfMissing
+</code>&quot;.
 </p>
 <p>A disadvantage of this approach is that the semantics of an operator depends on the phrase it is used in. However, we defined the operators such that they would &quot;make sense&quot; in the context of the different phrases they participate in. This allows us to provide a list of operators with a coherent function for each:
 </p>
@@ -4505,7 +4507,7 @@ M412.08   │ 0.0
 <code>VECTOR_OPERATION
 </code>
 </a>), the final value is applied at the end of the lookup chain (
-<code>?? final-value : vector-property-which-holds-axis-entries : vector-property-of-that-axis-which-holds-another-axis-entries : vector-property-of-the-other-axis
+<code>?? final-value : property-with-entries-of-axis : property-with-entries-of-other-axis : property-of-other-axis
 </code>).
 </p>
 <p>

@@ -108,13 +108,15 @@ repository and a simple name query is interpreted as a scalar name (that is, `"q
 `"total_umis" => q"@ cell @ gene :: UMIs >> Sum"` will expose a `total_umis` scalar containing the total sum of all UMIs
 of all genes in all cells.
 
-**Vectors** are specified similarly to scalars, but require a tuple key specifying both an axis and a property name.
-The axis must be exposed by the view (based on the `axes` parameter). If the axis is `"*"`, it is replaces by all the
+**Vectors** are specified similarly to scalars, but require a tuple key specifying both an axis and a property name. The
+axis must be exposed by the view (based on the `axes` parameter). If the axis is `"*"`, it is replaces by all the
 exposed axis names specified by the `axes` parameter. Similarly, if the property name is `"*"` (e.g., `("gene", "*")`),
-then  it is replaced by all the vector properties of the exposed axis in the base data. Therefore specifying `("*", "*")` (or [`ALL_VECTORS`](@ref))`, all vector properties of all the (exposed) axes will also be exposed.
+then it is replaced by all the vector properties of the exposed axis in the base data. Therefore specifying `("*", "*")`
+(or [`ALL_VECTORS`](@ref))`, all vector properties of all the (exposed) axes will also be exposed.
 
-The value for vectors must be the suffix of a vector query based on the appropriate axis. For example, `("cell", "color") => ": type : color"` will expose a vector of color for each exposed cell, which is the color of the type of the
-cell, even if the exposed cell axis is a subset of the original cell axis.
+The value for vectors must be the suffix of a vector query based on the appropriate axis. For example,
+`("cell", "color") => ": type : color"` will expose a vector of color for each exposed cell, which is the color of the
+type of the cell, even if the exposed cell axis is a subset of the original cell axis.
 
 However, if the query starts with an axis operator, then it should be a complete query. This may require repeating the
 axis query in it; as a convenience, a axis operator with the special name `__axis__` is replaced by the axis query. For
@@ -125,9 +127,9 @@ expanded to `@ gene @ cell [ type = TCell ] :: UMIs >- Sum"` to compute the tota
 **Matrices** require a tuple key specifying both axes and a property name. The axes must both be exposed by the view
 (based on the `axes` parameter). Again if any or both of the axes are `"*"`, they are replaced by all the exposed axes
 (based on the `axes` parameter), and likewise if the name is `"*"`, it replaced by all the matrix properties of the
-axes. Normally the query is prefixed by the rows and columns axes queries, unless the query starts with an axis operator.
-To avoid having to repeat the axes queries in this case, saying `@ __rows_axis__` will expand to the query of the rows
-axis and `@ __columns_axis__` will expand to the query of the columns axis.
+axes. Normally the query is prefixed by the rows and columns axes queries, unless the query starts with an axis
+operator. To avoid having to repeat the axes queries in this case, saying `@ __rows_axis__` will expand to the query of
+the rows axis and `@ __columns_axis__` will expand to the query of the columns axis.
 
 **3D Tensors** require a tuple key specifying the main axis, followed by two axes, and a property name. All the axes
 must be exposed by the view (based on the `axes` parameter). In this cases, none of the axes may be `"*"`, and the value
@@ -383,7 +385,7 @@ function Formats.has_data_read_lock(view::DafView)::Bool
     return Formats.has_data_read_lock(view.daf)
 end
 
-function Formats.begin_data_write_lock(view::DafView, what::Any...)::Nothing
+function Formats.begin_data_write_lock(view::DafView, what::Any...)::Nothing  # UNTESTED
     invoke(Formats.begin_data_write_lock, Tuple{DafReader, Vararg{Any}}, view, what...)
     return Formats.begin_data_write_lock(view.daf, what...)
 end
@@ -393,7 +395,7 @@ function Formats.end_data_write_lock(view::DafView, what::Any...)::Nothing
     return invoke(Formats.end_data_write_lock, Tuple{DafReader, Vararg{Any}}, view, what...)
 end
 
-function Formats.has_data_write_lock(::DafView)::Bool
+function Formats.has_data_write_lock(::DafView)::Bool  # UNTESTED
     return false
 end
 

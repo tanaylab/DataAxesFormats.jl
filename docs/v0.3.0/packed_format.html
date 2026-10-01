@@ -905,7 +905,12 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">StripedVector(::Type{T}, n_elements::Integer, stripe_n_elements::Integer, byte_fetcher::Function)::ChunkedArray{T, 1}
+<code class="language-julia hljs">StripedVector(
+    ::Type{T},
+    n_elements::Integer,
+    stripe_n_elements::Integer,
+    byte_fetcher::Function,
+)::ChunkedArray{T, 1}
 </code>
 </pre>
 <p>Factory for a lazy 1-D 
@@ -931,7 +936,13 @@
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">StripedMatrix(::Type{T}, n_rows::Integer, n_columns::Integer, stripe_n_rows::Integer, byte_fetcher::Function)::ChunkedArray{T, 2}
+<code class="language-julia hljs">StripedMatrix(
+    ::Type{T},
+    n_rows::Integer,
+    n_columns::Integer,
+    stripe_n_rows::Integer,
+    byte_fetcher::Function,
+)::ChunkedArray{T, 2}
 </code>
 </pre>
 <p>Factory for a lazy 2-D 

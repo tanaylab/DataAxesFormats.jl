@@ -152,7 +152,8 @@ nested_test("zarr_convert") do
                 mktempdir() do path
                     files_src = "$(path)/src"
                     FilesDaf(files_src, "w"; name = "src!")
-                    @test_throws "can't convert into a remote ZarrDaf over HTTP: http://example.com/dst.daf.zarr" files_to_zarr(;
+                    message = "can't convert into a remote ZarrDaf over HTTP: http://example.com/dst.daf.zarr"
+                    @test_throws message files_to_zarr(;
                         files_path = files_src,
                         zarr_path = "http://example.com/dst.daf.zarr",
                     )

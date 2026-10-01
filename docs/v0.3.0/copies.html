@@ -467,7 +467,7 @@
     name::AbstractString,
     [reaxis::Maybe{AbstractString} = nothing,
     rename::Maybe{AbstractString} = nothing,
-    type::Maybe{Type{&lt;:StorageScalarBase}} = nothing,
+    eltype::Maybe{Type{&lt;:StorageScalarBase}} = nothing,
     default::Union{StorageScalar, StorageVector, Nothing, UndefInitializer} = undef,
     empty::Maybe{StorageScalar} = nothing,
     bestify::Bool = false,
@@ -503,7 +503,7 @@
 </code> is specified, store the vector using this axis. If 
 <code>rename
 </code> is specified, store the vector using this name. If 
-<code>type
+<code>eltype
 </code> is specified, the data is converted to this type. If the vector already exists in the target, if 
 <code>overwrite
 </code>, it will be replaced; otherwise, if not 

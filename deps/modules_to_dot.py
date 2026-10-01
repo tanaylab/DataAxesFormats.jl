@@ -3,7 +3,7 @@ from glob import glob
 deps_of = {}
 paths = {}
 
-for module_path in glob("src/*.jl"):
+for module_path in sorted(glob("src/*.jl")):
     with open(module_path, "r") as module_file:
         for line in module_file.readlines():
             line = line[:-1]
@@ -13,8 +13,9 @@ for module_path in glob("src/*.jl"):
 
             if line.startswith("module "):
                 module_name = line[7:]
-                deps_of[module_name] = set()
-                paths[module_name] = module_path.split("/")[1][:-3]
+                if " " not in module_name:
+                    deps_of[module_name] = set()
+                    paths[module_name] = module_path.split("/")[1][:-3]
                 continue
 
             parts = line.split(" ..")
@@ -66,11 +67,12 @@ for mod, deps in deps_of.items():
 print("digraph {")
 print("node [ fontname = \"Sans-Serif\" ];")
 
-for mod, deps in deps_of.items():
-    if mod != "DataAxesFormats":
+# Sorted, since the order of a set differs between runs, and graphviz lays out the nodes in the order they are given.
+for mod, deps in sorted(deps_of.items()):
+    # The package's own module is in the file named after it, and is not one of the modules shown.
+    if paths[mod] != mod:
         print(f"{mod} [ shape = box, color = white, margin = 0.03, width = 0, height = 0, URL = \"../{paths[mod]}.html\" target = _top ];")
-    for dep in deps:
-        prefix = mod[:-3]
+    for dep in sorted(deps):
         print(f"{dep} -> {mod};")
 
 print("}")

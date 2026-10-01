@@ -95,6 +95,7 @@ nested_test("reorder") do
             @test is_leaf(FilesDaf)
             @test is_leaf(H5df)
             @test is_leaf(ZarrDaf)
+            @test is_leaf(ZipDaf)
             @test !is_leaf(DafReader)
             @test !is_leaf(DafWriter)
         end
@@ -457,7 +458,33 @@ nested_test("reorder") do
             end
         end
 
+        nested_test("zip") do
+            mktempdir() do path
+                daf = ZipDaf("$(path)/test.daf.zip", "w+"; name = "zip!")
+                add_axis!(daf, "cell", ["A", "B", "C"])
+                @test_throws "ZipDaf is append-only; can't reorder" reorder_axes!(daf, Dict("cell" => [3, 1, 2]))
+                return nothing
+            end
+        end
+
         nested_test("multiple_writers") do
+            # File data sets are locked in the order of their paths.
+            nested_test("files_pair") do
+                mktempdir() do path
+                    daf1 = FilesDaf("$(path)/first", "w"; name = "first!")
+                    daf2 = FilesDaf("$(path)/second", "w"; name = "second!")
+                    populate_reorder_test_data!(daf1)
+                    populate_reorder_test_data!(daf2)
+                    reorder_axes!([daf2, daf1], Dict("cell" => [3, 1, 2]))
+
+                    @test axis_entries(daf1, "cell") == ["C", "A", "B"]
+                    @test axis_entries(daf2, "cell") == ["C", "A", "B"]
+                    @test get_vector(daf1, "cell", "age") == [30, 10, 20]
+                    @test get_vector(daf2, "cell", "age") == [30, 10, 20]
+                    return nothing
+                end
+            end
+
             nested_test("memory_pair") do
                 daf1 = MemoryDaf(; name = "first!")
                 daf2 = MemoryDaf(; name = "second!")

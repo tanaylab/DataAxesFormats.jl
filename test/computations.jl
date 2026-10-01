@@ -61,14 +61,14 @@ $(CONTRACT)
     return nothing
 end
 
+EXTERNAL_CONTRACT = Contract(; link = DataAxesFormats, axes = ["cell" => (RequiredInput, LINKED_DESCRIPTION)])
+
 """
 External
 
 $(CONTRACT)
 """
-@computation Contract(; link = DataAxesFormats, axes = ["cell" => (RequiredInput, LINKED_DESCRIPTION)]) function external_link(
-    daf::DafWriter,
-)::Nothing
+@computation EXTERNAL_CONTRACT function external_link(daf::DafWriter)::Nothing
     axis_vector(daf, "cell")
     return nothing
 end
@@ -158,11 +158,34 @@ $(CONTRACT3)
 end
 
 """
+Maybe
+
+# First
+
+$(CONTRACT1)
+
+# Second
+
+Only if `second` is given.
+
+$(CONTRACT2)
+"""
+@computation Contract(
+    data = ["quality" => (CreatedOutput, Float64, "Overall output quality score between 0.0 and 1.0.")],
+) Contract(
+    name = "second",
+    data = ["quality" => (RequiredInput, Float64, "Overall output quality score between 0.0 and 1.0.")],
+) function maybe_cross(first::DafWriter; second::Maybe{DafReader} = nothing)::Nothing
+    set_scalar!(first, "quality", second === nothing ? 0.0 : get_scalar(second, "quality"))
+    return nothing
+end
+
+"""
 Relaxed
 
 $(CONTRACT)
 """
-@computation Contract(is_relaxed = true) function relaxed(daf::DafWriter)::Nothing
+@computation Contract(is_relaxed = true) function relaxed(daf::DafWriter)::Nothing  # UNTESTED
     return nothing
 end
 
@@ -171,7 +194,7 @@ Missing
 
 $(DEFAULT.x)
 """
-@computation Contract() function missing_default(daf::DafWriter, x::Int)::Nothing
+@computation Contract() function missing_default(daf::DafWriter, x::Int)::Nothing  # UNTESTED
     return nothing
 end
 
@@ -182,11 +205,11 @@ $(CONTRACT1)
 
 $(CONTRACT2)
 """
-@computation Contract() function missing_second(first::DafWriter, second::DafWriter)::Nothing
+@computation Contract() function missing_second(first::DafWriter, second::DafWriter)::Nothing  # UNTESTED
     return nothing
 end
 
-function not_computation()::Nothing
+function not_computation()::Nothing  # UNTESTED
     return nothing
 end
 
@@ -252,7 +275,8 @@ nested_test("computations") do
             @test formatdoc(@doc single) == """
                                             Single
 
-                                            The `quality` is mandatory. The default `optional` is `1`. The default `named` is `\"Foo\"`.
+                                            The `quality` is mandatory. The default `optional` \
+                                            is `1`. The default `named` is `\"Foo\"`.
 
                                             ## Inputs
 
@@ -272,13 +296,15 @@ nested_test("computations") do
 
                                             ### Matrices
 
-                                            **cell, gene @ UMIs**::Union{UInt16, UInt32, UInt64, UInt8} (required): The number of sampled scRNA molecules.
+                                            **cell, gene @ UMIs**::Union{UInt16, UInt32, UInt64, UInt8} \
+                                            (required): The number of sampled scRNA molecules.
 
                                             ## Outputs
 
                                             ### Scalars
 
-                                            **quality**::Float64 (created): Overall output quality score between 0.0 and 1.0.
+                                            **quality**::Float64 (created): Overall output quality \
+                                            score between 0.0 and 1.0.
 
                                             ### Axes
 
@@ -286,11 +312,13 @@ nested_test("computations") do
 
                                             ### Vectors
 
-                                            **cell @ special**::Bool (optional): Computed mask of special cells, if requested.
+                                            **cell @ special**::Bool (optional): Computed \
+                                            mask of special cells, if requested.
 
                                             ### Tensors
 
-                                            **block; cell, gene @ match**::Union{Float32, Float64} (optional): How well the gene of the cell match the block.
+                                            **block; cell, gene @ match**::Union{Float32, Float64} (optional): How \
+                                            well the gene of the cell match the block.
                                             """
         end
 
@@ -338,7 +366,8 @@ nested_test("computations") do
 
                                                        ### Axes
 
-                                                       **cell** (required): See [`Contract`](@extref DataAxesFormats DataAxesFormats.Contracts.Contract) for details.
+                                                       **cell** (required): See [`Contract`](@extref \
+                                                       DataAxesFormats DataAxesFormats.Contracts.Contract) for details.
                                                        """
             end
         end
@@ -404,6 +433,33 @@ nested_test("computations") do
             @test get_scalar(second, "version") == "1.0"
         end
 
+        nested_test("maybe") do
+            nested_test("given") do
+                set_scalar!(second, "quality", 1.0)
+                @test maybe_cross(first; second) === nothing
+                @test get_scalar(first, "quality") == 1.0
+            end
+
+            nested_test("missing") do
+                @test_throws chomp("""
+                             missing input scalar: quality
+                             with type: Float64
+                             for the computation: Main.maybe_cross
+                             on the daf data: second!
+                             """) maybe_cross(first; second)
+            end
+
+            nested_test("nothing") do
+                @test maybe_cross(first; second = nothing) === nothing
+                @test get_scalar(first, "quality") == 0.0
+            end
+
+            nested_test("omitted") do
+                @test maybe_cross(first) === nothing
+                @test get_scalar(first, "quality") == 0.0
+            end
+        end
+
         nested_test("missing") do
             nested_test("first") do
                 set_scalar!(second, "quality", 0.0)
@@ -443,7 +499,8 @@ nested_test("computations") do
 
                     ### Scalars
 
-                    **quality**::Float64 (created): Overall output quality score between 0.0 and 1.0.
+                    **quality**::Float64 (created): Overall output quality \
+                    score between 0.0 and 1.0.
 
                     # Second
 
@@ -477,7 +534,8 @@ nested_test("computations") do
 
                     ### Scalars
 
-                    **quality**::Float64 (created): Overall output quality score between 0.0 and 1.0.
+                    **quality**::Float64 (created): Overall output quality \
+                    score between 0.0 and 1.0.
 
                     # Second
 

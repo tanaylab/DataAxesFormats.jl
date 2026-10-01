@@ -49,12 +49,15 @@ function args_daf(computation::AbstractString, contract::Contract, args, kwargs)
                 return (computation * "." * contract.name, argument_value)
             end
         end
-        error("missing daf keyword parameter: $(contract.name)")  # UNTESTED
+        # An optional daf keyword parameter which was not given. A required one is reported by Julia when calling.
+        return (computation * "." * contract.name, nothing)  # ONLY SEEMS UNTESTED
     end
 end
 
-function patch_args(contract::Contract, daf::DafReader, args, kwargs)::Tuple{Any, Any}
-    if contract.name === nothing
+function patch_args(contract::Contract, daf::Maybe{DafReader}, args, kwargs)::Tuple{Any, Any}
+    if daf === nothing
+        return args, kwargs
+    elseif contract.name === nothing
         args = Base.setindex(args, daf, 1)
     else
         kwargs = [name => (string(name) == contract.name ? daf : value) for (name, value) in kwargs]
@@ -66,7 +69,9 @@ function computation_wrapper(single_contract::Contract, name::AbstractString, in
     return (args...; kwargs...) -> (
         #! format: off
         (single_name, single_daf) = args_daf(name, single_contract, args, kwargs);
-        single_contract_daf = contractor(name, single_contract, single_daf; name = single_name, overwrite = kwargs_overwrite(kwargs));
+        single_contract_daf = contractor(
+            name, single_contract, single_daf; name = single_name, overwrite = kwargs_overwrite(kwargs)
+        );
         (args, kwargs) = patch_args(single_contract, single_contract_daf, args, kwargs);
         verify_input(single_contract_daf);
         result = inner_function(args...; kwargs...);
@@ -79,7 +84,9 @@ end
 function computation_wrapper(first_contract::Contract, second_contract::Contract, name::AbstractString, inner_function) # UNTESTED
     return (args...; kwargs...) -> (  # NOJET
         #! format: off
-        @assert (first_contract.name === nothing) + (second_contract.name === nothing) <= 1 "at most one of two contracts can be an unnamed parameter";
+        @assert (first_contract.name === nothing) + (second_contract.name === nothing) <= 1 (
+            "at most one of two contracts can be an unnamed parameter"
+        );
         overwrite = kwargs_overwrite(kwargs);
         (first_name, first_daf) = args_daf(name, first_contract, args, kwargs);
         (second_name, second_daf) = args_daf(name, second_contract, args, kwargs);
@@ -106,7 +113,11 @@ function computation_wrapper(
 )
     return (args...; kwargs...) -> (  # NOJET
         #! format: off
-        @assert (first_contract.name === nothing) + (second_contract.name === nothing) + (third_contract.name === nothing) <= 1 "at most one of three contracts can be an unnamed parameter";
+        @assert (
+            (first_contract.name === nothing) +
+            (second_contract.name === nothing) +
+            (third_contract.name === nothing) <= 1
+        ) "at most one of three contracts can be an unnamed parameter";
         overwrite = kwargs_overwrite(kwargs);
         (first_name, first_daf) = args_daf(name, first_contract, args, kwargs);
         (second_name, second_daf) = args_daf(name, second_contract, args, kwargs);
@@ -162,6 +173,12 @@ Mark a function as a `Daf` computation. This has the following effects:
     For each [`Contract`](@ref) parameter (if any), there needs to be a [`DafReader`](@ref) or [`DafWriter`](@ref),
     which the contract(s) will be applied to. These parameters should be the initial positional parameters of the
     function.
+
+!!! note
+
+    A named `Daf` parameter may be optional, that is, `Maybe{DafReader}` (or `Maybe{DafWriter}`) with a default of
+    `nothing`. Its contract is only enforced when it is given. Say so in the documentation string, in a short line just
+    before the `\$(CONTRACT2)` (or `\$(CONTRACT3)`) of that parameter.
 """
 macro computation(contract, definition)
     while definition.head === :macrocall
@@ -349,8 +366,8 @@ such arguments.
 const CONTRACT2 = ContractDocumentation(2)
 
 """
-Same as [`CONTRACT2`](@ref), but reference the contract for the 3rd `Daf` argument for a [`@computation`](@ref) with three
-such arguments.
+Same as [`CONTRACT2`](@ref), but reference the contract for the 3rd `Daf` argument for a [`@computation`](@ref) with
+three such arguments.
 """
 const CONTRACT3 = ContractDocumentation(3)
 

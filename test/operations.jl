@@ -333,6 +333,11 @@ nested_test("operations") do
                 @test with_type(daf["@ cell @ gene :: value >| Mode"]) == ([2.0, 1.0], Float64)
                 @test with_type(daf["@ gene @ cell :: value >- Mode"]) == ([2.0, 1.0], Float64)
             end
+
+            nested_test("string_matrix") do
+                set_matrix!(daf, "cell", "gene", "value", ["a" "b" "b"; "a" "a" "c"])
+                @test daf["@ cell @ gene :: value >| Mode"].array == ["b", "a"]
+            end
         end
 
         nested_test("count") do
@@ -379,6 +384,10 @@ nested_test("operations") do
                 set_matrix!(daf, "cell", "gene", "value", [1.0 2.0 2.0; -3.0 1.0 6.0])
                 @test with_type(daf["@ cell @ gene :: value >- Max"]) == ([1.0, 2.0, 6.0], Float64)
             end
+
+            nested_test("result_type") do
+                @test DataAxesFormats.Registry.reduction_result_type(Max(), Int8) === Int8
+            end
         end
 
         nested_test("min") do
@@ -390,6 +399,10 @@ nested_test("operations") do
             nested_test("matrix") do
                 set_matrix!(daf, "cell", "gene", "value", [1.0 2.0 2.0; -3.0 1.0 6.0])
                 @test with_type(daf["@ cell @ gene :: value >- Min"]) == ([-3.0, 1.0, 2.0], Float64)
+            end
+
+            nested_test("result_type") do
+                @test DataAxesFormats.Registry.reduction_result_type(Min(), Int8) === Int8
             end
         end
 

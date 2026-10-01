@@ -4242,6 +4242,16 @@ nested_test("data") do
     end
 
     nested_test("zip") do
+        # A sparse property is mapped only if all of its components are.
+        nested_test("cache_groups") do
+            combine_cache_groups = DataAxesFormats.ZipFormat.combine_cache_groups
+            MappedData = DataAxesFormats.Formats.MappedData
+            MemoryData = DataAxesFormats.Formats.MemoryData
+            @test combine_cache_groups(MappedData, MappedData) == MappedData
+            @test combine_cache_groups(MappedData, MemoryData) == MemoryData
+            @test combine_cache_groups(MemoryData, MappedData) == MemoryData
+        end
+
         nested_test("invalid") do
             mktempdir() do path
                 @test_throws "invalid mode: a" ZipDaf(path * "/test.daf.zip", "a")
@@ -4774,7 +4784,8 @@ nested_test("data") do
                 type_name = "ZarrDaf",
                 single_daf_suffix = ".daf.zarr.zip",
                 multi_dafs_suffix = ".dafs.zarr.zip",
-                delete_error = "can't delete or overwrite properties in a zip-backed ZarrDaf; the ZIP backend is append-only",
+                delete_error = "can't delete or overwrite properties in a zip-backed ZarrDaf; " *
+                               "the ZIP backend is append-only",
                 open_directory_format = ZarrDaf,
                 directory_suffix = ".daf.zarr",
                 has_consolidated_metadata = path ->
@@ -4911,9 +4922,9 @@ nested_test("data") do
                             try
                                 port2 = server2.listener.hostport
                                 url2 = "http://localhost:$(port2)"
-                                @test_throws "remote zarr group lacks an inline `consolidated_metadata` field: $(url2)" ZarrDaf(
-                                    url2,
-                                )
+                                @test_throws (
+                                    "remote zarr group lacks an inline `consolidated_metadata` field: $(url2)"
+                                ) ZarrDaf(url2)
                             finally
                                 close(server2)
                             end

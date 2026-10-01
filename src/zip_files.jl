@@ -102,9 +102,6 @@ using ..StorageTypes
 using ..Writers
 using DiskArrays
 using JSON
-using ProgressMeter
-
-import ProgressMeter.AbstractProgress  # NOLINT
 using SparseArrays
 using StringViews
 using TanayLabUtilities
@@ -130,7 +127,6 @@ import ..PackedFormat.local_chunk_cache_capacity
 import ..PackedFormat.make_streaming_shard_writer
 import ..PackedFormat.open_packed_shard_from_buffer
 import ..PackedFormat.MmapShardRegion
-import ..PackedFormat.packed_delete_entry!
 import ..PackedFormat.packed_entry_size
 import ..PackedFormat.packed_finalize_entry!
 import ..PackedFormat.packed_format_filled_empty_dense_matrix!
@@ -656,11 +652,6 @@ end
 
 function packed_write_typed_array!(zip_daf::ZipDaf, key::AbstractString, vector::AbstractVector)::Nothing
     zip_daf.store[entry_key(zip_daf, key)] = typed_array_to_bytes(vector)
-    return nothing
-end
-
-# `ZipDaf` is append-only — no second write ever reaches us, so no cleanup is needed.
-function packed_delete_entry!(::ZipDaf, ::AbstractString)::Nothing
     return nothing
 end
 
@@ -1493,26 +1484,6 @@ end
 # --------------------------------------------------------------------------------------------
 
 function Reorder.format_lock_reorder!(zip_daf::ZipDaf, ::AbstractString)::Nothing
-    @assert Formats.has_data_write_lock(zip_daf)
-    return append_only_error(zip_daf, "reorder")
-end
-
-function Reorder.format_backup_reorder!(zip_daf::ZipDaf, ::Reorder.FormatReorderPlan)::Nothing
-    @assert Formats.has_data_write_lock(zip_daf)
-    return append_only_error(zip_daf, "reorder")
-end
-
-function Reorder.format_replace_reorder!(  # UNTESTED
-    zip_daf::ZipDaf,
-    ::Reorder.FormatReorderPlan,
-    ::Maybe{AbstractProgress},
-    ::Maybe{Ref{Int}},
-)::Nothing
-    @assert Formats.has_data_write_lock(zip_daf)
-    return append_only_error(zip_daf, "reorder")
-end
-
-function Reorder.format_cleanup_reorder!(zip_daf::ZipDaf)::Nothing
     @assert Formats.has_data_write_lock(zip_daf)
     return append_only_error(zip_daf, "reorder")
 end

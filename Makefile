@@ -16,7 +16,7 @@ unindexed_files:
 
 .PHONY: format
 format: deps/.did.format
-deps/.did.format: */*.jl deps/format.sh deps/format.jl
+deps/.did.format: */*.jl deps/format.sh deps/format.jl deps/reflow.py
 	deps/format.sh
 	@touch deps/.did.format
 

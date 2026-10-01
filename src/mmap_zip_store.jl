@@ -855,8 +855,9 @@ function write_central_directory_entry!(
     write_little_endian_uint16!(buffer, position + 12, UInt16(0))                    # last modified time
     write_little_endian_uint16!(buffer, position + 14, UInt16(0x21))                 # last modified date (1980-01-01)
     write_little_endian_uint32!(buffer, position + 16, crc32_value)
-    write_little_endian_uint32!(buffer, position + 20, typemax(UInt32))              # compressed size sentinel (real value in ZIP64 extra)
-    write_little_endian_uint32!(buffer, position + 24, typemax(UInt32))              # uncompressed size sentinel (real value in ZIP64 extra)
+    # The real sizes are in the ZIP64 extra field.
+    write_little_endian_uint32!(buffer, position + 20, typemax(UInt32))              # compressed size sentinel
+    write_little_endian_uint32!(buffer, position + 24, typemax(UInt32))              # uncompressed size sentinel
     write_little_endian_uint16!(buffer, position + 28, UInt16(length(name_bytes)))
     write_little_endian_uint16!(buffer, position + 30, UInt16(ZIP64_CENTRAL_DIRECTORY_EXTRA_SIZE))  # extra field length
     write_little_endian_uint16!(buffer, position + 32, UInt16(0))                    # comment length
@@ -958,7 +959,7 @@ function write_end_of_central_directory!(buffer::Vector{UInt8}, position::Int)::
     write_little_endian_uint32!(buffer, position, END_OF_CENTRAL_DIRECTORY_SIGNATURE)
     write_little_endian_uint16!(buffer, position + 4, UInt16(0))                     # disk number
     write_little_endian_uint16!(buffer, position + 6, UInt16(0))                     # CD start disk
-    write_little_endian_uint16!(buffer, position + 8, typemax(UInt16))               # entries on this disk (ZIP64 sentinel)
+    write_little_endian_uint16!(buffer, position + 8, typemax(UInt16))               # disk entries (ZIP64 sentinel)
     write_little_endian_uint16!(buffer, position + 10, typemax(UInt16))              # total entries (ZIP64 sentinel)
     write_little_endian_uint32!(buffer, position + 12, typemax(UInt32))              # CD size (ZIP64 sentinel)
     write_little_endian_uint32!(buffer, position + 16, typemax(UInt32))              # CD offset (ZIP64 sentinel)

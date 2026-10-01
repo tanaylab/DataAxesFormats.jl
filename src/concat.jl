@@ -78,7 +78,9 @@ MergeData = Union{AbstractVector, NamedTuple}
         dataset_axis::Maybe{AbstractString} = "dataset",
         dataset_property::Bool = true,
         prefix::Union{Bool, AbstractVector{Bool}} = false,
-        prefixed::Maybe{Union{AbstractSet{<:AbstractString}, AbstractVector{<:AbstractSet{<:AbstractString}}}} = nothing,
+        prefixed::Maybe{
+            Union{AbstractSet{<:AbstractString}, AbstractVector{<:AbstractSet{<:AbstractString}}},
+        } = nothing,
         empty::Maybe{EmptyData} = nothing,
         sparse_if_saves_storage_fraction::AbstractFloat = 0.25,
         merge::Maybe{MergeData} = nothing,

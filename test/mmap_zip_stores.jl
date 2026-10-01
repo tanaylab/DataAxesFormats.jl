@@ -130,6 +130,32 @@ nested_test("mmap_zip_stores") do
             end
         end
 
+        nested_test("empty_entry") do
+            store = MmapZipStore(zip_path; writable = true, create = true, truncate = true)
+            try
+                store["empty"] = UInt8[]
+                @test isempty(store["empty"])
+                @test haskey(store, "empty")
+            finally
+                close(store)
+            end
+
+            reopened = MmapZipStore(zip_path)
+            try
+                @test isempty(reopened["empty"])
+            finally
+                close(reopened)
+            end
+
+            # Opening for writing validates the trailing entries, including an empty one.
+            writable = MmapZipStore(zip_path; writable = true)
+            try
+                @test isempty(writable["empty"])
+            finally
+                close(writable)
+            end
+        end
+
         nested_test("append_to_existing_archive") do
             first_store = MmapZipStore(zip_path; writable = true, create = true, truncate = true)
             try
@@ -434,7 +460,8 @@ nested_test("mmap_zip_stores") do
 
             zip_reader = ZipArchives.ZipReader(read(zip_path))
             @test ZipArchives.zip_nentries(zip_reader) == 2
-            @test sort([ZipArchives.zip_name(zip_reader, i) for i in 1:ZipArchives.zip_nentries(zip_reader)]) == ["first", "last"]
+            entry_names = [ZipArchives.zip_name(zip_reader, index) for index in 1:ZipArchives.zip_nentries(zip_reader)]
+            @test sort(entry_names) == ["first", "last"]
         end
     end
 end

@@ -14,8 +14,10 @@ export CreatedOutput
 export DAF_ENFORCE_CONTRACTS
 export DataSpecification
 export GuaranteedOutput
+export optional_contract
 export OptionalInput
 export OptionalOutput
+export renamed_contract
 export RequiredInput
 export verify_input
 export verify_output
@@ -72,8 +74,8 @@ Output data:
 
 `GuaranteedOutput` - data that will be created by the computation unless it already exists.
 
-`OptionalOutput` - data that may be created when the computation is done, depending on some condition, which may include the
-existence of optional input and/or the value of parameters to the computation, and/or the content of the data.
+`OptionalOutput` - data that may be created when the computation is done, depending on some condition, which may include
+the existence of optional input and/or the value of parameters to the computation, and/or the content of the data.
 """
 @enum ContractExpectation RequiredInput OptionalInput CreatedOutput GuaranteedOutput OptionalOutput
 
@@ -150,7 +152,10 @@ and leave just the name of what they referred to.
 
     When a function calls several functions in a row, you can compute its contract by using [`function_contract`](@ref
     DataAxesFormats.Computations.function_contract) on them and then combining the results in their invocation order
-    using `|>`.
+    using `|>`. The combined contract lists the entries in the order they first appear. If a function is only called
+    under some condition, pass its contract through [`optional_contract`](@ref) before combining it. The combined
+    contract joins the names of the combined contracts. If the function names its `Daf` parameter differently, pass the
+    result through [`renamed_contract`](@ref).
 """
 @kwdef struct Contract
     name::Maybe{AbstractString} = nothing
@@ -262,7 +267,8 @@ function scalar_documentation(
                 println(buffer)
                 println(
                     buffer,
-                    "**$(name)**::$(data_type) ($(short(expectation))): $(dedent(linked(description, contract.link, in_module)))",
+                    "**$(name)**::$(data_type) ($(short(expectation))): " *
+                    "$(dedent(linked(description, contract.link, in_module)))",
                 )
             end
         end
@@ -324,7 +330,8 @@ function vectors_documentation(
                     println(buffer)
                     println(
                         buffer,
-                        "**$(axis_name) @ $(name)**::$(data_type) ($(short(expectation))): $(dedent(linked(description, contract.link, in_module)))",
+                        "**$(axis_name) @ $(name)**::$(data_type) ($(short(expectation))): " *
+                        "$(dedent(linked(description, contract.link, in_module)))",
                     )
                 end
             end
@@ -357,7 +364,8 @@ function matrices_documentation(
                     println(buffer)
                     println(
                         buffer,
-                        "**$(rows_axis_name), $(columns_axis_name) @ $(name)**::$(data_type) ($(short(expectation))): $(dedent(linked(description, contract.link, in_module)))",
+                        "**$(rows_axis_name), $(columns_axis_name) @ $(name)**::$(data_type) " *
+                        "($(short(expectation))): $(dedent(linked(description, contract.link, in_module)))",
                     )
                 end
             end
@@ -390,7 +398,8 @@ function tensors_documentation(
                     println(buffer)
                     println(
                         buffer,
-                        "**$(main_axis_name); $(rows_axis_name), $(columns_axis_name) @ $(name)**::$(data_type) ($(short(expectation))): $(dedent(linked(description, contract.link, in_module)))",
+                        "**$(main_axis_name); $(rows_axis_name), $(columns_axis_name) @ $(name)**::$(data_type) " *
+                        "($(short(expectation))): $(dedent(linked(description, contract.link, in_module)))",
                     )
                 end
             end
@@ -440,7 +449,8 @@ A [`DafWriter`](@ref) wrapper which restricts access only to the properties list
 tracks which properties are accessed, so when a computation is done, we can verify that all required inputs were
 actually accessed. If they weren't, then they weren't really required (should have been marked as optional instead).
 
-This isn't exported and isn't created manually; instead call [`contractor`](@ref), or, better yet, use the `@computation` macro.
+This isn't exported and isn't created manually; instead call [`contractor`](@ref), or, better yet, use the
+`@computation` macro.
 
 !!! note
 
@@ -468,7 +478,8 @@ end
     )::DafReader
 
 Wrap a `daf` data set to enforce a `contract` for some `computation`, possibly allowing for `overwrite` of existing
-outputs. If [`DAF_ENFORCE_CONTRACTS`](@ref) is not set, this just returns the original `daf`.
+outputs. If [`DAF_ENFORCE_CONTRACTS`](@ref) is not set, this just returns the original `daf`. If the `daf` is `nothing`
+(an optional parameter which was not given), this returns `nothing`.
 
 !!! note
 
@@ -499,12 +510,24 @@ function contractor(
     end
 end
 
+function contractor(
+    ::AbstractString,
+    ::Contract,
+    ::Nothing;
+    name::Maybe{AbstractString} = nothing,  # NOLINT
+    overwrite::Bool = false,  # NOLINT
+)::Nothing
+    return nothing
+end
+
 function collect_axes(contract::Contract, name::AbstractString)::Dict{AbstractString, Tracker}
     axes = Dict{AbstractString, Tracker}()
     if contract.axes !== nothing
         for (axis_name, axis_specification) in contract.axes
             @assert axis_name isa AxisKey "invalid AxisKey: $(axis_name)\nfor the daf data: $(name)"
-            @assert axis_specification isa AxisSpecification "invalid AxisSpecification: $(axis_specification)\nfor the daf data: $(name)"
+            @assert axis_specification isa AxisSpecification (
+                "invalid AxisSpecification: $(axis_specification)\n" * "for the daf data: $(name)"
+            )
             axes[axis_name] = Tracker(axis_specification[1], nothing, false, nothing)
         end
     end
@@ -521,7 +544,9 @@ function collect_data(
     if contract.data !== nothing
         for (data_key, data_specification) in contract.data
             @assert data_key isa DataKey "invalid DataKey: $(data_key)\nfor the daf data: $(name)"
-            @assert data_specification isa DataSpecification "invalid DataSpecification: $(data_specification)\nfor the daf data: $(name)"
+            @assert data_specification isa DataSpecification (
+                "invalid DataSpecification: $(data_specification)\n" * "for the daf data: $(name)"
+            )
             expectation = data_specification[1]
             type = data_specification[2]
             data[data_key] = Tracker(expectation, type, false, nothing)
@@ -667,36 +692,38 @@ end
 
 """
     verify_input(contract_daf::ContractDaf)::Nothing
-    verify_input(contract_daf::DafReader)::Nothing
+    verify_input(contract_daf::Maybe{DafReader})::Nothing
 
 Verify the `contract_daf` data before a computation is invoked. This verifies that all the required data exists and is
 of the appropriate type, and that if any of the optional data exists, it has the appropriate type. This is a no-op if
-the `contract_daf` is just a `DafReader` (that is, if [`DAF_ENFORCE_CONTRACTS`](@ref) was not set).
+the `contract_daf` is just a `DafReader` (that is, if [`DAF_ENFORCE_CONTRACTS`](@ref) was not set), or if it is
+`nothing` (an optional parameter which was not given).
 """
 function verify_input(contract_daf::ContractDaf)::Nothing
     return flame_timed("verify_input") do
         return verify_contract(contract_daf; is_for_output = false)
     end
 end
-function verify_input(::DafReader)::Nothing
+function verify_input(::Maybe{DafReader})::Nothing
     return nothing
 end
 
 """
     verify_output(contract_daf::ContractDaf)::Nothing
-    verify_output(contract_daf::DafWriter)::Nothing
+    verify_output(contract_daf::Maybe{DafReader})::Nothing
 
 Verify the `contract_daf` data when a computation is complete. This verifies that all the guaranteed output data exists
 and is of the appropriate type, and that if any of the optional output data exists, it has the appropriate type. It also
 verifies that all the required inputs were accessed by the computation. This is a no-op if the `contract_daf` is just a
-`DafReader` (that is, if [`DAF_ENFORCE_CONTRACTS`](@ref) was not set).
+`DafReader` (that is, if [`DAF_ENFORCE_CONTRACTS`](@ref) was not set), or if it is `nothing` (an optional parameter
+which was not given).
 """
 function verify_output(contract_daf::ContractDaf)::Nothing
     return flame_timed("verify_output") do
         return verify_contract(contract_daf; is_for_output = true)
     end
 end
-function verify_output(::DafReader)::Nothing
+function verify_output(::Maybe{DafReader})::Nothing
     return nothing
 end
 
@@ -995,20 +1022,19 @@ function add_pairs(
     left::L,
     right::R,
 )::AbstractVector{<:Pair} where {L <: AbstractVector{<:Pair}, R <: AbstractVector{<:Pair}}
-    merged = Dict(left)
+    merged = Pair[key => specification for (key, specification) in left]
+    index_per_key = Dict{Any, Int}(key => index for (index, (key, _)) in enumerate(merged))
     for (right_key, right_specification) in right
-        left_specification = get(merged, right_key, nothing)
-        merged[right_key] = merge_specifications(right_key, left_specification, right_specification)
+        index = get(index_per_key, right_key, nothing)
+        if index === nothing
+            push!(merged, right_key => right_specification)
+            index_per_key[right_key] = length(merged)
+        else
+            left_specification = merged[index][2]
+            merged[index] = right_key => merge_specifications(right_key, left_specification, right_specification)
+        end
     end
-    return collect(merged)
-end
-
-function merge_specifications(
-    ::Any,
-    ::Nothing,
-    right_specification::T,
-)::T where {T <: Union{AxisSpecification, DataSpecification}}
-    return right_specification
+    return merged
 end
 
 function merge_specifications(
@@ -1073,6 +1099,72 @@ function merge_expectations(
               and expectation: $(right_expectation)
               for the contracts $(what): $(key)
               """))
+    end
+end
+
+"""
+    optional_contract(contract::Contract)::Contract
+
+Make everything in a `contract` optional. A `RequiredInput` becomes an `OptionalInput`, and a `CreatedOutput` or a
+`GuaranteedOutput` becomes an `OptionalOutput`. This is for combining contracts using `|>` when a function only calls
+another function under some condition:
+
+```julia
+function_contract(always_called) |> optional_contract(function_contract(sometimes_called))
+```
+
+An input the condition made optional is still required if some other combined contract requires it.
+"""
+function optional_contract(contract::Contract)::Contract
+    return Contract(
+        contract.name,
+        contract.link,
+        contract.is_relaxed,
+        optional_pairs(contract.axes),
+        optional_pairs(contract.data),
+    )
+end
+
+"""
+    renamed_contract(contract::Contract, name::Maybe{AbstractString})::Contract
+
+Return the same `contract` for a differently named `Daf` parameter. A `name` of `nothing` is for the first unnamed
+parameter. This is for combining contracts using `|>`, when the combining function names its parameter differently
+from the functions it calls:
+
+```julia
+renamed_contract(function_contract(first_called, 2) |> function_contract(second_called, 2), "base_daf")
+```
+"""
+function renamed_contract(contract::Contract, name::Maybe{AbstractString})::Contract
+    return Contract(name, contract.link, contract.is_relaxed, contract.axes, contract.data)
+end
+
+function optional_pairs(::Nothing)::Nothing
+    return nothing
+end
+
+function optional_pairs(pairs::Union{ContractAxes, ContractData})::AbstractVector{<:Pair}
+    return Pair[key => optional_specification(specification) for (key, specification) in named_tuple_as_pairs(pairs)]
+end
+
+function optional_specification(specification::AxisSpecification)::AxisSpecification
+    expectation, description = specification
+    return (optional_expectation(expectation), description)
+end
+
+function optional_specification(specification::DataSpecification)::DataSpecification
+    expectation, type, description = specification
+    return (optional_expectation(expectation), type, description)
+end
+
+function optional_expectation(expectation::ContractExpectation)::ContractExpectation
+    if expectation == RequiredInput
+        return OptionalInput
+    elseif expectation in (CreatedOutput, GuaranteedOutput)
+        return OptionalOutput
+    else
+        return expectation
     end
 end
 

@@ -150,9 +150,9 @@ end
 Copy a vector from some `source` [`DafReader`](@ref) into some `destination` [`DafWriter`](@ref).
 
 The vector is fetched using the `axis`, `name` and the `default`. If `reaxis` is specified, store the vector using this
-axis. If `rename` is specified, store the vector using this name. If `eltype` is specified, the data is converted to this
-type. If the vector already exists in the target, if `overwrite`, it will be replaced; otherwise, if not `insist`, skip
-the copy; otherwise, fail.
+axis. If `rename` is specified, store the vector using this name. If `eltype` is specified, the data is converted to
+this type. If the vector already exists in the target, if `overwrite`, it will be replaced; otherwise, if not `insist`,
+skip the copy; otherwise, fail.
 
 If `bestify` is set, then `bestify` the data before writing it, using `min_sparse_saving_fraction`.
 

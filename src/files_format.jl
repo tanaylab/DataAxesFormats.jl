@@ -28,7 +28,8 @@ This format is very close but not identical to the Zarr DirectoryStore format. S
 (numeric matrices and vectors) are byte-identical between the formats (we make a special effort to make it so even for
 packed numeric data). The format here has the advantage that the rest of the meta/data is easily accessed by standard
 tools - all metadata are simple JSON files, text vector/matrix data is stored in one-entry-per-line files, etc. The Zarr
-format is more opaque - one can't really access it other than through a Zarr library. So things like `wc repo.daf/axes/gene.txt` or `grep -in Fox repo.daf/axes/gene.txt` will work here but not in Zarr.
+format is more opaque - one can't really access it other than through a Zarr library. So things like
+`wc repo.daf/axes/gene.txt` or `grep -in Fox repo.daf/axes/gene.txt` will work here but not in Zarr.
 
 We use multiple files to store `Daf` data, under some root directory, as follows:
 
@@ -241,7 +242,6 @@ import ..PackedFormat.local_chunk_cache_capacity
 import ..PackedFormat.open_packed_shard_from_buffer
 import ..PackedFormat.open_streaming_shard_writer
 import ..PackedFormat.packed_array_json_bytes
-import ..PackedFormat.packed_delete_entry!
 import ..PackedFormat.packed_entry_size
 import ..PackedFormat.packed_finalize_entry!
 import ..PackedFormat.packed_format_filled_empty_dense_matrix!
@@ -1483,13 +1483,6 @@ end
 function packed_write_typed_array!(files::FilesDaf, key::AbstractString, vector::AbstractVector)::Nothing
     path = "$(files.path)/$(key)"
     write(path, vector)  # NOJET
-    report_modified!(path)
-    return nothing
-end
-
-function packed_delete_entry!(files::FilesDaf, key::AbstractString)::Nothing
-    path = "$(files.path)/$(key)"
-    rm(path; force = true)
     report_modified!(path)
     return nothing
 end

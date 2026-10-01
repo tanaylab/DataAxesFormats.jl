@@ -1,6 +1,23 @@
 #!/bin/bash
 set -e -o pipefail
-grep -H -n '.' */*.cov \
+if ! compgen -G "*/*.cov" > /dev/null; then
+    echo "ERROR: no coverage files; run the tests first"
+    exit 1
+fi
+{
+    grep -H -n '.' */*.cov
+    # A source file without any coverage file had none of its code run. Its lines are given as non-code, which the
+    # rules below report as functions which were never called. A line which is marked as untested is given as
+    # executable but not run, which is what its marker says it is.
+    for source in src/*.jl; do
+        if ! compgen -G "$source.*.cov" > /dev/null; then
+            awk -v source="$source" '{
+                count = (tolower($0) ~ /# (untested|only seems untested)/) ? "0" : "-"
+                printf "%s.0.cov:%d:        %s %s\n", source, NR, count, $0
+            }' "$source"
+        fi
+    done
+} \
 | sed 's/\.[0-9][0-9]*\.cov:\([0-9][0-9]*\): [ ]*\([^ ]*\) /`\1`\2`/' \
 | sort -t '`' -k '1,1' -k '2n,2' \
 | awk -F '`' '
@@ -69,6 +86,15 @@ grep -H -n '.' */*.cov \
         split(buf[1], parts, "`")
         buf[1] = parts[1] OFS parts[2] OFS count OFS parts[4]
     }
+    function buf_has_assert_false(   i, parts) {
+        for (i = 2; i <= buf_count; i++) {
+            split(buf[i], parts, "`")
+            if (tolower(parts[4]) ~ /@assert false/) {
+                return 1
+            }
+        }
+        return 0
+    }
     # The `"""` on a line pair up with each other, so a string which opens and closes on the same line
     # (a JSON literal, say) leaves the state as it was. Only an odd count crosses a docstring boundary.
     (state == 0 || state == 3) && $4 ~ /"""/ {
@@ -77,25 +103,40 @@ grep -H -n '.' */*.cov \
         }
     }
     state == 0 && $4 ~ /^[@A-Z][A-Za-z0-9:{}, ()]* =/ && $3 == "-" { $3 = "0" }
-    state == 2 && $4 ~ /^end/ { state = 0; if (buf_count > 0) { flush_buf() }; func_directive = "" }
-    state != 3 && ($3 != "-" && $3 != "0") && $4 ~ /^(@.* )?[ ]*function / && $4 !~ /^function.*end/ {
+    # A function still buffered at its `end` had no executable body line, so it was never called. It is
+    # reported at its signature, unless it is a deliberate `@assert false` stub.
+    state == 2 && $4 ~ /^end/ {
+        state = 0
+        if (buf_count > 0) {
+            if (detect_directive(buf[1]) == "" && buf_has_assert_false()) {
+                set_buf_signature_count("-")
+            }
+            flush_buf()
+        }
+        func_directive = ""
+    }
+    # A signature starts with `function`, possibly after macros (`@logged ...`), or after the `)` which closes a
+    # multi-line macro argument (the contract of a `@computation`).
+    state != 3 && ($3 != "-" && $3 != "0") && $4 ~ /^(@.* |\).* )?[ ]*function / && $4 !~ /^function.*end/ {
         if (buf_count > 0) { flush_buf() }
         state = 1; func_directive = detect_directive($0)
     }
-    state != 3 && ($3 == "-" || $3 == "0") && $4 ~ /^(@.* )?[ ]*function / && $4 !~ /^function.*end/ {
+    state != 3 && ($3 == "-" || $3 == "0") && $4 ~ /^(@.* |\).* )?[ ]*function / && $4 !~ /^function.*end/ {
         if (buf_count > 0) { flush_buf() }
         # Tentatively treat as uncovered (forces `$3="0"` so an unmarked uncov function gets reported
         # at the signature line). The buffer decision below revises this if the body turns out to be
         # covered or the signature carries a FLAKY/SEEMS marker.
         state = 1; func_directive = "untested"; $3 = "0"
-        if ($4 !~ /)::|)$/) {
-            # Multi-line signature — buffer; the first executable body line will decide whether the
-            # signature line is reclassified to `-` (covered, no directive) or kept at "0" (uncovered).
-            buf_count = 1
-            buf[1] = $0
-            next
+        # Buffer the signature. The first executable body line will decide whether the signature line
+        # is reclassified to `-` (covered, no directive) or kept at "0" (uncovered). If the body has no
+        # executable line at all (as in a `@computation` which never ran), the signature stays "0".
+        buf_count = 1
+        buf[1] = $0
+        if ($4 ~ /)::|)$/) {
+            # Single-line signature. The body starts on the next line.
+            state = 2
         }
-        # Single-line signature — fall through to the transition rule below, which sets $3="-".
+        next
     }
     state == 1 && $4 ~ /)::|)$/ {
         state = 2
@@ -105,7 +146,7 @@ grep -H -n '.' */*.cov \
         #
         # Unless it carries a marker of its own, which is how a whole function is marked instead of
         # each of its lines. Blanking it would make that marker look like it had nothing to mark.
-        if ($4 ~ /^(@.* )?[ ]*function / && detect_directive($0) == "") {
+        if ($4 ~ /^(@.* |\).* )?[ ]*function / && detect_directive($0) == "") {
             $3 = "-"
         }
     }
@@ -131,8 +172,13 @@ grep -H -n '.' */*.cov \
             # non-executable so the script does not mis-report it as untested.
             set_buf_signature_count("-")
             func_directive = ""
+        } else if (state == 2 && (tolower($4) ~ /@assert false/ || detect_directive($0) != "")) {
+            # Body line is uncovered but accounts for itself (an `@assert false`, or a marker of its own).
+            # The signature has nothing left to report.
+            set_buf_signature_count("-")
+            func_directive = ""
         }
-        # else: state == 2 && $3 == "0" and no signature marker — keep `func_directive = "untested"`.
+        # else: state == 2 && $3 == "0" and no marker — keep `func_directive = "untested"`.
         flush_buf()
     }
     # Suppress executable-but-uncovered body lines inside an uncovered function. Lines with a

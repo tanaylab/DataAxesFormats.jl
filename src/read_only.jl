@@ -81,7 +81,7 @@ function Formats.end_data_write_lock(::DafReadOnlyWrapper, ::Any...)::Nothing
     @assert false
 end
 
-function Formats.has_data_write_lock(::DafReadOnlyWrapper)::Bool
+function Formats.has_data_write_lock(::DafReadOnlyWrapper)::Bool  # UNTESTED
     return false
 end
 

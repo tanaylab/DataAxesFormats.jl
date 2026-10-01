@@ -91,7 +91,8 @@ end
     end
 
 One entry in a [`FormatReorderPlan`](@ref) identifying a matrix that will be rewritten when one or both of its axes are
-permuted. `n_replacement_elements` is the number of progress ticks the replacement phase will produce for this matrix (`n_rows * n_columns` for dense matrices, `nnz` for sparse matrices).
+permuted. `n_replacement_elements` is the number of progress ticks the replacement phase will produce for this matrix
+(`n_rows * n_columns` for dense matrices, `nnz` for sparse matrices).
 """
 struct PlannedMatrix
     rows_axis::AbstractString
@@ -107,10 +108,10 @@ end
         planned_matrices::Vector{PlannedMatrix}
     end
 
-Enumerates every property that will be rewritten when the given axes are permuted in a single `FormatWriter`.
-Produced by [`build_reorder_plan`](@ref) and consumed by [`format_replace_reorder!`](@ref),
-[`format_cleanup_reorder!`](@ref), and [`format_reset_reorder!`](@ref). The orchestrator derives replacement progress totals by summing `n_replacement_elements` across `planned_vectors` and
-`planned_matrices`.
+Enumerates every property that will be rewritten when the given axes are permuted in a single `FormatWriter`. Produced
+by [`build_reorder_plan`](@ref) and consumed by [`format_replace_reorder!`](@ref), [`format_cleanup_reorder!`](@ref),
+and [`format_reset_reorder!`](@ref). The orchestrator derives replacement progress totals by summing
+`n_replacement_elements` across `planned_vectors` and `planned_matrices`.
 """
 struct FormatReorderPlan
     planned_axes::AbstractDict{<:AbstractString, PlannedAxis}
@@ -173,8 +174,8 @@ end
     format_lock_reorder!(writer::FormatWriter, operation_id::AbstractString)::Nothing
 
 Fast, atomic: claim the reorder lock on `writer` so subsequent [`build_reorder_plan`](@ref),
-[`format_replace_reorder!`](@ref), and [`format_cleanup_reorder!`](@ref) calls have exclusive rights to the reorder backup
-state. Must be called inside a write lock, and only when [`format_has_reorder_lock`](@ref) returns `false`.
+[`format_replace_reorder!`](@ref), and [`format_cleanup_reorder!`](@ref) calls have exclusive rights to the reorder
+backup state. Must be called inside a write lock, and only when [`format_has_reorder_lock`](@ref) returns `false`.
 
 `operation_id` is an opaque token (typically a UUID) generated once per reorder batch by the orchestrator. For formats
 where multiple writers can share the same backing store (e.g. H5df), the implementation verifies that any pre-existing
@@ -247,8 +248,8 @@ identical entry lists for that axis.
 The operation is crash-safe: a backup is created before any data is modified, and a lock marker is written so that a
 subsequent call can detect and roll back a partially-applied reorder.
 
-When multiple writers share the same backing store (e.g. several H5df groups in one HDF5 file), pass them all in a single
-call so that the backup and lock are coordinated correctly.
+When multiple writers share the same backing store (e.g. several H5df groups in one HDF5 file), pass them all in a
+single call so that the backup and lock are coordinated correctly.
 """
 function reorder_axes!(
     daf::Formats.DafWriter,

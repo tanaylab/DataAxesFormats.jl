@@ -1473,14 +1473,18 @@ nested_test("queries") do
             end
 
             nested_test("masked") do
-                @test "$(get_frame(daf, "@ metacell [ type = U ]", ["mean_age" => "@ cell [ metacell : type = U ] : age / metacell >> Mean"]))" ==
-                      chomp("""
-                            1×1 DataFrame
-                             Row │ mean_age
-                                 │ Float64
-                            ─────┼──────────
-                               1 │      0.5
-                            """)
+                frame = get_frame(
+                    daf,
+                    "@ metacell [ type = U ]",
+                    ["mean_age" => "@ cell [ metacell : type = U ] : age / metacell >> Mean"],
+                )
+                @test "$(frame)" == chomp("""
+                                          1×1 DataFrame
+                                           Row │ mean_age
+                                               │ Float64
+                                          ─────┼──────────
+                                             1 │      0.5
+                                          """)
             end
 
             nested_test("!masked") do

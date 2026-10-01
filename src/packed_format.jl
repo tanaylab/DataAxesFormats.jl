@@ -131,8 +131,8 @@ Default `8` (8 KB) — page-sized, enabling sub-column slice access (the common 
 page of each of K columns rather than the full column). Small enough to keep network slice fetches cheap, but large
 enough that compression codecs still produce reasonable ratios.
 
-Kilobytes are binary (1 KB = 1024 bytes), matching OS page size and the conventions of [`DAF_PACKED_LOCAL_CACHE_KB`](@ref)
-and [`DAF_PACKED_HTTP_CACHE_KB`](@ref).
+Kilobytes are binary (1 KB = 1024 bytes), matching OS page size and the conventions of
+[`DAF_PACKED_LOCAL_CACHE_KB`](@ref) and [`DAF_PACKED_HTTP_CACHE_KB`](@ref).
 
 To tune: `DataAxesFormats.PackedFormat.DAF_PACKED_TARGET_CHUNK_KB = 16` at the top of your script or REPL session.
 """
@@ -208,9 +208,9 @@ on the same module init when its adapter is available.
 
 Install commands for non-Julia consumers:
 
-  - **Python**: `pip install hdf5plugin` (one library covers blosc / zstd / lz4 / bitshuffle for HDF5); `pip install zarr`
-    brings `numcodecs` which already includes blosc, zstd, and zlib; `pip install bitshuffle` adds bitshuffle support for
-    Zarr (`:zstd_bitshuffle`).
+  - **Python**: `pip install hdf5plugin` (one library covers blosc / zstd / lz4 / bitshuffle for HDF5);
+    `pip install zarr` brings `numcodecs` which already includes blosc, zstd, and zlib; `pip install bitshuffle` adds
+    bitshuffle support for Zarr (`:zstd_bitshuffle`).
   - **R**: `BiocManager::install("rhdf5filters")` covers blosc, zstd, lz4, and bitshuffle for `rhdf5`.
 
 Setting `DAF_PACKED_COMPRESSION` to any value outside the table causes a runtime error listing the supported codecs at
@@ -324,7 +324,9 @@ function http_range_get(url::AbstractString, offset::Integer, nbytes::Integer)::
                     range: $(range_header)
                     """))
     end
-    @assert length(response.body) == nbytes "expected $(nbytes) bytes, got $(length(response.body)) for: $(url) range: $(range_header)"
+    @assert length(response.body) == nbytes (
+        "expected $(nbytes) bytes, got $(length(response.body)) for: $(url) range: $(range_header)"
+    )
     return response.body
 end
 
@@ -349,7 +351,9 @@ function http_range_get_suffix(url::AbstractString, n_bytes::Integer)::Vector{UI
                     range: $(range_header)
                     """))
     end
-    @assert length(response.body) == n_bytes "expected $(n_bytes) bytes, got $(length(response.body)) for: $(url) range: $(range_header)"
+    @assert length(response.body) == n_bytes (
+        "expected $(n_bytes) bytes, got $(length(response.body)) for: $(url) range: $(range_header)"
+    )
     return response.body
 end
 
@@ -675,7 +679,9 @@ function copy_chunk_into_destination!(
         return (copy_first_in_array[dim] - first(ranges[dim]) + 1):(copy_last_in_array[dim] - first(ranges[dim]) + 1)
     end
     chunk_ranges = ntuple(N) do dim
-        return (copy_first_in_array[dim] - chunk_first_in_array[dim] + 1):(copy_last_in_array[dim] - chunk_first_in_array[dim] + 1)
+        first_in_chunk = copy_first_in_array[dim] - chunk_first_in_array[dim] + 1
+        last_in_chunk = copy_last_in_array[dim] - chunk_first_in_array[dim] + 1
+        return first_in_chunk:last_in_chunk
     end
     @views destination[destination_ranges...] .= chunk[chunk_ranges...]  # NOJET
     return nothing
@@ -782,7 +788,7 @@ end
 # Closure factory for the decoder of a flat chunk — `reinterpret` the raw bytes as `T` and `reshape` to the
 # (possibly partial-at-edge) chunk shape inside the array. The `method` argument is part of the shared
 # `ChunkedArray` decode contract and ignored here (flat reads have no ZIP framing).
-function flat_decode_closure(::Type{T})::Function where {T}
+function flat_decode_closure(::Type{T})::Function where {T}  # ONLY SEEMS UNTESTED
     function decode_flat(bytes::Vector{UInt8}, chunk_shape_in_array::NTuple{N, Int}, ::UInt16)::Array{T, N} where {N}
         n_elements = prod(chunk_shape_in_array)
         @assert length(bytes) == n_elements * sizeof(T)
@@ -805,7 +811,12 @@ function local_chunk_cache_capacity(n_bytes_per_chunk::Int)::Int
 end
 
 """
-    StripedVector(::Type{T}, n_elements::Integer, stripe_n_elements::Integer, byte_fetcher::Function)::ChunkedArray{T, 1}
+    StripedVector(
+        ::Type{T},
+        n_elements::Integer,
+        stripe_n_elements::Integer,
+        byte_fetcher::Function,
+    )::ChunkedArray{T, 1}
 
 Factory for a lazy 1-D `DiskArrays.AbstractDiskArray` that fetches a flat dense numeric vector served over
 HTTP in stripes (Range GETs of `stripe_n_elements` elements at a time, coalesced when adjacent).
@@ -831,7 +842,13 @@ function StripedVector(
 end
 
 """
-    StripedMatrix(::Type{T}, n_rows::Integer, n_columns::Integer, stripe_n_rows::Integer, byte_fetcher::Function)::ChunkedArray{T, 2}
+    StripedMatrix(
+        ::Type{T},
+        n_rows::Integer,
+        n_columns::Integer,
+        stripe_n_rows::Integer,
+        byte_fetcher::Function,
+    )::ChunkedArray{T, 2}
 
 Factory for a lazy 2-D `DiskArrays.AbstractDiskArray` that fetches a flat dense numeric column-major matrix
 served over HTTP in column tiles of shape `(stripe_n_rows, 1)` (coalesced when adjacent).
@@ -2049,20 +2066,14 @@ end
 
 # Write a raw byte blob at the logical key, replacing any existing entry. Used by code paths that have already
 # assembled the bytes (e.g. JSON descriptors, encoded shard payloads).
-function packed_write_bytes!(daf::PackedDaf, ::AbstractString, ::AbstractVector{UInt8})::Nothing
+function packed_write_bytes!(daf::PackedDaf, ::AbstractString, ::AbstractVector{UInt8})::Nothing  # UNTESTED
     return error("packed_write_bytes! not implemented for $(typeof(daf))")
 end
 
 # Write a numeric vector at the logical key as raw little-endian bytes (zero-copy where possible). Used for the flat
 # (unpacked) sparse component path and for the flat dense vector path.
-function packed_write_typed_array!(daf::PackedDaf, ::AbstractString, ::AbstractVector)::Nothing
+function packed_write_typed_array!(daf::PackedDaf, ::AbstractString, ::AbstractVector)::Nothing  # UNTESTED
     return error("packed_write_typed_array! not implemented for $(typeof(daf))")
-end
-
-# Remove the entry at the logical key if it exists. Defensive cleanup before a property rewrite — `ZipDaf` is
-# append-only so this is only relevant on `FilesDaf` in practice, but the dispatch is uniform.
-function packed_delete_entry!(daf::PackedDaf, ::AbstractString)::Nothing
-    return error("packed_delete_entry! not implemented for $(typeof(daf))")
 end
 
 # Register a property's JSON descriptor in the format's consolidated index so HTTP clients can enumerate properties
@@ -2070,7 +2081,7 @@ end
 # suffix); `descriptor` is the JSON bytes that the corresponding sidecar holds (with or without a trailing newline).
 # `FilesDaf` appends one entry to `metadata.json` via byte surgery; `ZipDaf` is a no-op (the zip's central directory
 # is the index, and we strip any stale `metadata.json` entry on append — see `src/zip_files.jl`).
-function packed_register_metadata!(daf::PackedDaf, ::AbstractString, ::AbstractVector{UInt8})::Nothing
+function packed_register_metadata!(daf::PackedDaf, ::AbstractString, ::AbstractVector{UInt8})::Nothing  # UNTESTED
     return error("packed_register_metadata! not implemented for $(typeof(daf))")
 end
 
@@ -2175,7 +2186,7 @@ end
 
 # Mark a previously reserved entry as filled. `FilesDaf` is a no-op (file mtime tracks freshness). `ZipDaf` recomputes
 # the entry's CRC32 from the user-written bytes and patches the local + central directory headers.
-function packed_finalize_entry!(daf::PackedDaf, ::AbstractString)::Nothing
+function packed_finalize_entry!(daf::PackedDaf, ::AbstractString)::Nothing  # UNTESTED
     return error("packed_finalize_entry! not implemented for $(typeof(daf))")
 end
 
@@ -2228,13 +2239,13 @@ function packed_read_lines(  # UNTESTED
 end
 
 # Whether the entry at the logical key exists.
-function packed_has_entry(daf::PackedDaf, ::AbstractString)::Bool
+function packed_has_entry(daf::PackedDaf, ::AbstractString)::Bool  # UNTESTED
     return error("packed_has_entry not implemented for $(typeof(daf))")
 end
 
 # The byte size of the entry at the logical key. Used by the sparse-component reader to derive `n_elements` for v1.0
 # sparse properties whose JSON descriptor predates the `n_elements` field.
-function packed_entry_size(daf::PackedDaf, ::AbstractString)::Int
+function packed_entry_size(daf::PackedDaf, ::AbstractString)::Int  # UNTESTED
     return error("packed_entry_size not implemented for $(typeof(daf))")
 end
 
@@ -2253,7 +2264,7 @@ end
 
 # Read the JSON descriptor at the entry's logical key as an `AbstractDict`. `FilesDaf` parses the file; `ZipDaf` reads
 # the entry bytes and parses the resulting `String`.
-function packed_read_json(daf::PackedDaf, ::AbstractString)::AbstractDict
+function packed_read_json(daf::PackedDaf, ::AbstractString)::AbstractDict  # UNTESTED
     return error("packed_read_json not implemented for $(typeof(daf))")
 end
 
@@ -2542,7 +2553,8 @@ function packed_format_streaming_dense_matrix(
 end
 
 # Write a sparse numeric matrix property as the descriptor JSON plus per-component blobs (`colptr`, `rowval`, optional
-# `nzval`). Same `nzval`-omission rule as [`packed_format_write_sparse_numeric_vector!`](@ref) for an all-`true` `Bool` matrix.
+# `nzval`). Same `nzval`-omission rule as [`packed_format_write_sparse_numeric_vector!`](@ref) for an all-`true` `Bool`
+# matrix.
 function packed_format_write_sparse_numeric_matrix!(
     daf::PackedDaf,
     rows_axis::AbstractString,

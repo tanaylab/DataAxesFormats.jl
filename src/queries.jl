@@ -154,8 +154,11 @@ const NAMES_QUERY = nothing
 A query returning a scalar result. Valid phrases are:
 
   - Looking up a scalar property (`. scalar-property`, `. scalar-property || default-value`).
-  - Looking up a vector, and picking a specific entry in it (`: vector-property @ axis = entry`, `: vector-property || default-value @ axis = entry`).
-  - Looking up a matrix, and picking a specific entry in it (`:: matrix-property @ rows-axis = row-entry @ columns-axis = column-entry`, `:: matrix-property || default-value @ rows-axis = row-entry @ columns-axis = column-entry`).
+  - Looking up a vector, and picking a specific entry in it (`: vector-property @ axis = entry`,
+    `: vector-property || default-value @ axis = entry`).
+  - Looking up a matrix, and picking a specific entry in it
+    (`:: matrix-property @ rows-axis = row-entry @ columns-axis = column-entry`,
+    `:: matrix-property || default-value @ rows-axis = row-entry @ columns-axis = column-entry`).
 
 In addition, you can use [`EltwiseOperation`](@ref) and [`ReductionOperation`](@ref):
 
@@ -226,8 +229,10 @@ demux_28_12_20_2 │ "demux_28_12_20_2"
 ```
 
   - Applying a mask to an axis (...axis... `[` ...mask... `]`) - see [`VECTOR_MASK`](@ref).
-  - Looking up the values of a property based on a (possibly masked) axis (...axis... `:` ...lookup...) - see [`VECTOR_LOOKUP`](@ref).
-  - Applying some operation to a vector we looked up (...vector... `% Eltwise operation...`) - see [`VECTOR_OPERATION`](@ref).
+  - Looking up the values of a property based on a (possibly masked) axis (...axis... `:` ...lookup...) - see
+    [`VECTOR_LOOKUP`](@ref).
+  - Applying some operation to a vector we looked up (...vector... `% Eltwise operation...`) - see
+    [`VECTOR_OPERATION`](@ref).
   - Taking any matrix query and reducing it to a column or a row vector (...matrix... `>| Reduction operation...`,
     ...matrix... `>- Reduction operation...`) - see [`VECTOR_FROM_MATRIX`](@ref).
 
@@ -240,7 +245,8 @@ const VECTOR_QUERY = nothing
 """
 A query fragment specifying a mask to apply to an axis. Valid phrases are:
 
-  - Beginning a mask by looking up some vector property for each entry (...axis... `[ vector-property`, ...axis... `[ ! vector-property`) - see [`VECTOR_MASK_LOOKUP`](@ref).
+  - Beginning a mask by looking up some vector property for each entry (...axis... `[ vector-property`, ...axis...
+    `[ ! vector-property`) - see [`VECTOR_MASK_LOOKUP`](@ref).
   - Applying some operation to a vector we looked up (...mask... `> value`) - see [`VECTOR_OPERATION`](@ref).
   - Combining the mask with another one (...mask... `&` ...mask..., ...mask... `& !` ...mask...) - see
     [`VECTOR_MASK_OPERATION`](@ref).
@@ -253,8 +259,9 @@ A query fragment specifying a mask to apply to an axis. Valid phrases are:
 const VECTOR_MASK = nothing
 
 """
-A query fragment specifying looking up a vector for a mask to apply to an axis. Valid phrases are similar to [`VECTOR_LOOKUP`](@ref),
-except that they start with `[` instead of `:` (starting with `[ !` reverses the mask). Example:
+A query fragment specifying looking up a vector for a mask to apply to an axis. Valid phrases are similar to
+[`VECTOR_LOOKUP`](@ref), except that they start with `[` instead of `:` (starting with `[ !` reverses the mask).
+Example:
 
 ```jldoctest
 cells = example_cells_daf()
@@ -291,9 +298,9 @@ ATP5PO     │    "ATP5PO"
 const VECTOR_MASK_LOOKUP = nothing
 
 """
-A query fragment specifying combining a mask with a second mask. Valid phrases are similar to [`VECTOR_MASK_LOOKUP`](@ref),
-except that they start with the logical combination operator (`&`, `|`, `^`), with an optional `!` suffix for negating
-the second mask. Operations are evaluated in order (left to right). Example:
+A query fragment specifying combining a mask with a second mask. Valid phrases are similar to
+[`VECTOR_MASK_LOOKUP`](@ref), except that they start with the logical combination operator (`&`, `|`, `^`), with an
+optional `!` suffix for negating the second mask. Operations are evaluated in order (left to right). Example:
 
 ```jldoctest
 cells = example_cells_daf()
@@ -430,12 +437,16 @@ M412.08   │ 0.0
 ```
 
 In all of these, the lookup operation (`:`, `::`) can be followed by `|| default-value` to specify a value to use if the
-property we look up doesn't exist (...vector... `: vector-property || default-value`, ...vector... `:: square-matrix-property || default-value @| column-entry`).
+property we look up doesn't exist (...vector... `: vector-property || default-value`, ...vector...
+`:: square-matrix-property || default-value @| column-entry`).
 
 If the base axis is the result of looking up some property, then some of the entries may have an empty string value.
 Looking up the vector property based on this will cause an error. To overcome this, you can request that these entries
-will be masked out of the result by prefixing the query with `??` (...vector... `?? : vector-property`, ...vector... `?? :: matrix-property ...`), or specify the *final* value of these entries (...vector... `?? final-value : vector-property`, ...vector... `?? final-value :: matrix-property ...`). Since it is possible to chain lookup operations
-(see [`VECTOR_OPERATION`](@ref)), the final value is applied at the end of the lookup chain (`?? final-value : vector-property-which-holds-axis-entries : vector-property-of-that-axis-which-holds-another-axis-entries : vector-property-of-the-other-axis`).
+will be masked out of the result by prefixing the query with `??` (...vector... `?? : vector-property`, ...vector...
+`?? :: matrix-property ...`), or specify the *final* value of these entries (...vector...
+`?? final-value : vector-property`, ...vector... `?? final-value :: matrix-property ...`). Since it is possible to chain
+lookup operations (see [`VECTOR_OPERATION`](@ref)), the final value is applied at the end of the lookup chain
+(`?? final-value : property-with-entries-of-axis : property-with-entries-of-other-axis : property-of-other-axis`).
 
 [**Syntax diagram:**](assets/vector_lookup.svg)
 
@@ -964,8 +975,11 @@ stack.
 
 This approach simplifies both the code and the mental model for the query language. For example, when looking up a
 scalar property using the [`LookupScalar`](@ref) operator, e.g. `". version"`, and we want to provide a default value to
-return if the property doesn't exist by following it with the [`IfMissing`](@ref) operator, e.g. `" || 0.0.0", the phrase `LookupScalar("version") |> IfMissing("0.0.0")`is executed as a single operation, invoking `get_scalar(daf,
-"version"; default = "0.0.0")`and pushing a scalar into the query state stack. This eliminates the issue of "what is the state of the query after executing a`LookupScalar`of a missing scalar property, before executing`IfMissing`".
+return if the property doesn't exist by following it with the [`IfMissing`](@ref) operator, e.g. `" || 0.0.0"`, the
+phrase `LookupScalar("version") |> IfMissing("0.0.0")` is executed as a single operation, invoking
+`get_scalar(daf, "version"; default = "0.0.0")` and pushing a scalar into the query state stack. This eliminates the
+issue of "what is the state of the query after executing a `LookupScalar` of a missing scalar property, before executing
+`IfMissing`".
 
 A disadvantage of this approach is that the semantics of an operator depends on the phrase it is used in. However, we
 defined the operators such that they would "make sense" in the context of the different phrases they participate in.
@@ -1035,7 +1049,8 @@ QueryString = Union{Query, AbstractString}
 """
     struct QuerySequence <: Query
 
-A sequence of `N` [`QueryOperation`](@ref)s. This is the internal representation of the query as of itself (without applying it).
+A sequence of `N` [`QueryOperation`](@ref)s. This is the internal representation of the query as of itself (without
+applying it).
 """
 struct QuerySequence <: Query
     query_operations::AbstractVector{<:QueryOperation}
@@ -1367,8 +1382,9 @@ function get_query(
                 result = data isa Tuple{NamedArray, Any} ? data[1] : data
             end
         end
-        @debug "get_query daf: $(brief(daf)) query_sequence: $(query_sequence) cache: $(cache) result: $(brief(result))" _group =
-            :daf_queries
+        @debug (
+            "get_query daf: $(brief(daf)) query_sequence: $(query_sequence) cache: $(cache) result: $(brief(result))"
+        ) _group = :daf_queries
         return result
     end
 end
@@ -1385,12 +1401,12 @@ mutable struct NamesState
     names_set::Maybe{AbstractSet{<:AbstractString}}
 end
 
-function print_query_stack_entry(query_operation::QueryOperation)::Nothing
+function print_query_stack_entry(query_operation::QueryOperation)::Nothing  # UNTESTED
     println("   query_operation: $(query_operation)")
     return nothing
 end
 
-function print_query_stack_entry(names_state::NamesState)::Nothing
+function print_query_stack_entry(names_state::NamesState)::Nothing  # UNTESTED
     println("   names_set: $(brief(names_state.names_set))")
     return nothing
 end
@@ -1399,7 +1415,7 @@ mutable struct ScalarState
     scalar_value::Maybe{StorageScalar}
 end
 
-function print_query_stack_entry(scalar_state::ScalarState)::Nothing
+function print_query_stack_entry(scalar_state::ScalarState)::Nothing  # UNTESTED
     println("   scalar_value: $(scalar_state.scalar_value)")
     return nothing
 end
@@ -1445,11 +1461,11 @@ function Base.copy(vector_state::VectorState)::VectorState
     return copy_state
 end
 
-function print_query_stack_entry(vector_state::VectorState)::Nothing
+function print_query_stack_entry(vector_state::VectorState)::Nothing  # UNTESTED
     return print_vector_state(vector_state, "")
 end
 
-function print_vector_state(vector_state::VectorState, indent::AbstractString)::Nothing
+function print_vector_state(vector_state::VectorState, indent::AbstractString)::Nothing  # UNTESTED
     println("   $(indent)entries_axis_name: $(vector_state.entries_axis_name)")
     println("   $(indent)vector_entries: $(brief(vector_state.vector_entries)) = $(vector_state.vector_entries)")
     println("   $(indent)property_name: $(vector_state.property_name)")
@@ -1457,7 +1473,8 @@ function print_vector_state(vector_state::VectorState, indent::AbstractString)::
     println("   $(indent)is_complete_property_axis: $(brief(vector_state.is_complete_property_axis))")
     println("   $(indent)vector_values: $(brief(vector_state.vector_values)) = $(vector_state.vector_values)")
     println(
-        "   $(indent)pending_final_values: $(brief(vector_state.pending_final_values)) = $(vector_state.pending_final_values)",
+        "   $(indent)pending_final_values: $(brief(vector_state.pending_final_values)) = " *
+        "$(vector_state.pending_final_values)",
     )
     return nothing
 end
@@ -1493,7 +1510,7 @@ function MatrixState()::MatrixState
     return MatrixState(nothing, nothing, nothing, nothing, nothing, nothing)
 end
 
-function print_query_stack_entry(matrix_state::MatrixState)::Nothing
+function print_query_stack_entry(matrix_state::MatrixState)::Nothing  # UNTESTED
     println("   rows_state:")
     print_vector_state(matrix_state.rows_state, "  ")  # NOJET
     println("   columns_state:")
@@ -1527,7 +1544,7 @@ function assert_is_valid(query_state::QueryState)::Nothing
     end
 end
 
-function print_query_state(query_state::QueryState, where::AbstractString)::Nothing
+function print_query_state(query_state::QueryState, where::AbstractString)::Nothing  # UNTESTED
     println("AT: $(where) FOR: $(query_state.what_for)")
     println("FULL: $(query_state.query_sequence)")
     if query_state.what_for == :exists
@@ -4500,7 +4517,8 @@ function compute_count_matrix(
     if length(rows_state.vector_entries) != length(columns_state.vector_entries)
         error_at_state(  # UNTESTED
             query_state,
-            "different CountBy vector lengths: $(length(rows_state.vector_entries)) * $(length(columns_state.vector_entries))",
+            "different CountBy vector lengths: $(length(rows_state.vector_entries)) * " *
+            "$(length(columns_state.vector_entries))",
         )
     end
 
@@ -5244,7 +5262,7 @@ function as_booleans(vector::AbstractVector{<:Real})::Union{AbstractVector{Bool}
     return vector .!= 0
 end
 
-function as_booleans(matrix::Union{AbstractMatrix{Bool}, BitMatrix})::Union{AbstractMatrix{Bool}, BitMatrix}
+function as_booleans(matrix::Union{AbstractMatrix{Bool}, BitMatrix})::Union{AbstractMatrix{Bool}, BitMatrix}  # UNTESTED
     return matrix
 end
 
@@ -5252,7 +5270,7 @@ function as_booleans(matrix::AbstractMatrix{<:AbstractString})::Union{AbstractMa
     return matrix .!= ""
 end
 
-function as_booleans(matrix::AbstractMatrix{<:Real})::Union{AbstractMatrix{Bool}, BitMatrix}
+function as_booleans(matrix::AbstractMatrix{<:Real})::Union{AbstractMatrix{Bool}, BitMatrix}  # UNTESTED
     return matrix .!= 0
 end
 

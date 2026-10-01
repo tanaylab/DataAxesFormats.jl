@@ -62,6 +62,8 @@ nested_test("lazy_sparse") do
             @test compose(AllOf(3), existing_indices) === existing_indices
             new_range = RangeOf(2:5)
             @test compose(new_range, AllOf(10)) === new_range
+            new_all = AllOf(10)
+            @test compose(new_all, AllOf(10)) === new_all
             return nothing
         end
 
@@ -406,6 +408,78 @@ nested_test("lazy_sparse") do
             vector = LazySparseVector(10, Int32[2, 5, 8], Float32[20.0, 50.0, 80.0])
             sliced = vector[3:4]
             @test SparseVector(sliced) == SparseVector(2, Int[], Float32[])
+            return nothing
+        end
+
+        nested_test("colon_slice") do
+            vector = LazySparseVector(10, Int32[2, 5, 8], Float32[20.0, 50.0, 80.0])
+            @test SparseVector(vector[:]) == SparseVector(10, [2, 5, 8], Float32[20.0, 50.0, 80.0])
+            return nothing
+        end
+
+        nested_test("step_range_slice") do
+            vector = LazySparseVector(10, Int32[2, 5, 8], Float32[20.0, 50.0, 80.0])
+            @test SparseVector(vector[2:3:8]) == SparseVector(3, [1, 2, 3], Float32[20.0, 50.0, 80.0])
+            return nothing
+        end
+
+        nested_test("mask_slice") do
+            vector = LazySparseVector(10, Int32[2, 5, 8], Float32[20.0, 50.0, 80.0])
+            mask = falses(10)
+            mask[[2, 3, 8]] .= true
+            sliced = vector[mask]
+            @test sliced[3] == Float32(80.0)
+            @test sliced.materialized === nothing
+            @test SparseVector(sliced) == SparseVector(3, [1, 3], Float32[20.0, 80.0])
+            return nothing
+        end
+
+        nested_test("bool_vector_slice") do
+            vector = LazySparseVector(10, Int32[2, 5, 8], Float32[20.0, 50.0, 80.0])
+            mask = [false, true, true, false, false, false, false, true, false, false]
+            @test SparseVector(vector[mask]) == SparseVector(3, [1, 3], Float32[20.0, 80.0])
+            return nothing
+        end
+
+        nested_test("indices_scalar_getindex") do
+            vector = LazySparseVector(10, Int32[2, 5, 8], Float32[20.0, 50.0, 80.0])
+            sliced = vector[[8, 2, 5]]
+            @test sliced[1] == Float32(80.0)
+            @test sliced.materialized === nothing
+            return nothing
+        end
+
+        nested_test("nnz_and_conversions") do
+            vector = LazySparseVector(10, Int32[2, 5, 8], Float32[20.0, 50.0, 80.0])
+            @test nnz(vector) == 3
+            expected = SparseVector(10, Int32[2, 5, 8], Float32[20.0, 50.0, 80.0])
+            @test SparseVector{Float32, Int32}(vector) == expected
+            @test convert(SparseVector{Float32, Int32}, vector) == expected
+            return nothing
+        end
+    end
+
+    nested_test("lazy_sparse_matrix_unit") do
+        full_colptr = Int32[1, 3, 3, 5]
+        rowval_source = Int32[1, 2, 1, 3]
+        nzval_source = Float32[10, 20, 30, 40]
+        expected = SparseMatrixCSC{Float32, Int32}(3, 3, full_colptr, rowval_source, nzval_source)
+
+        nested_test("colon_colon") do
+            lazy = LazySparseMatrix(3, copy(full_colptr), rowval_source, nzval_source)
+            @test SparseMatrixCSC(lazy[:, :]) == expected
+            return nothing
+        end
+
+        nested_test("typed_constructor") do
+            lazy = LazySparseMatrix(3, copy(full_colptr), rowval_source, nzval_source)
+            @test SparseMatrixCSC{Float32, Int32}(lazy) == expected
+            return nothing
+        end
+
+        nested_test("column_mask") do
+            lazy = LazySparseMatrix(3, copy(full_colptr), rowval_source, nzval_source)
+            @test SparseMatrixCSC(lazy[:, BitVector([true, false, true])]) == expected[:, [1, 3]]
             return nothing
         end
     end

@@ -36,7 +36,8 @@ A key specifying some matrix in `Daf` by its axes and name. The axes order does 
 MatrixKey = Tuple{AbstractString, AbstractString, AbstractString}
 
 """
-A key specifying some atomic data property in `Daf`. That is, these keys refer to data we can directly get or set using the APIs.
+A key specifying some atomic data property in `Daf`. That is, these keys refer to data we can directly get or set using
+the APIs.
 """
 PropertyKey = Union{ScalarKey, VectorKey, MatrixKey}
 

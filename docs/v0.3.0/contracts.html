@@ -376,9 +376,9 @@ end
 </p>
 </div>
 </div>
-<div class="admonition is-info" id="Note-ff28c7221030fe4c">
+<div class="admonition is-info" id="Note-457eb24649e546a2">
 <header class="admonition-header">Note
-<a class="admonition-anchor" href="#Note-ff28c7221030fe4c" title="Permalink">
+<a class="admonition-anchor" href="#Note-457eb24649e546a2" title="Permalink">
 </a>
 </header>
 <div class="admonition-body">
@@ -388,7 +388,17 @@ end
 </code>
 </a> on them and then combining the results in their invocation order using 
 <code>|&gt;
-</code>.
+</code>. The combined contract lists the entries in the order they first appear. If a function is only called under some condition, pass its contract through 
+<a href="contracts.html#DataAxesFormats.Contracts.optional_contract">
+<code>optional_contract
+</code>
+</a> before combining it. The combined contract joins the names of the combined contracts. If the function names its 
+<code>Daf
+</code> parameter differently, pass the result through 
+<a href="contracts.html#DataAxesFormats.Contracts.renamed_contract">
+<code>renamed_contract
+</code>
+</a>.
 </p>
 </div>
 </div>
@@ -594,6 +604,84 @@ end
 </article>
 <article>
 <details class="docstring" open="true">
+<summary id="DataAxesFormats.Contracts.optional_contract">
+<a class="docstring-binding" href="#DataAxesFormats.Contracts.optional_contract">
+<code>DataAxesFormats.Contracts.optional_contract
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">optional_contract(contract::Contract)::Contract
+</code>
+</pre>
+<p>Make everything in a 
+<code>contract
+</code> optional. A 
+<code>RequiredInput
+</code> becomes an 
+<code>OptionalInput
+</code>, and a 
+<code>CreatedOutput
+</code> or a 
+<code>GuaranteedOutput
+</code> becomes an 
+<code>OptionalOutput
+</code>. This is for combining contracts using 
+<code>|&gt;
+</code> when a function only calls another function under some condition:
+</p>
+<pre>
+<code class="language-julia hljs">function_contract(always_called) |&gt; optional_contract(function_contract(sometimes_called))
+</code>
+</pre>
+<p>An input the condition made optional is still required if some other combined contract requires it.
+</p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.Contracts.renamed_contract">
+<a class="docstring-binding" href="#DataAxesFormats.Contracts.renamed_contract">
+<code>DataAxesFormats.Contracts.renamed_contract
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">renamed_contract(contract::Contract, name::Maybe{AbstractString})::Contract
+</code>
+</pre>
+<p>Return the same 
+<code>contract
+</code> for a differently named 
+<code>Daf
+</code> parameter. A 
+<code>name
+</code> of 
+<code>nothing
+</code> is for the first unnamed parameter. This is for combining contracts using 
+<code>|&gt;
+</code>, when the combining function names its parameter differently from the functions it calls:
+</p>
+<pre>
+<code class="language-julia hljs">renamed_contract(function_contract(first_called, 2) |&gt; function_contract(second_called, 2), &quot;base_daf&quot;)
+</code>
+</pre>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
 <summary id="DataAxesFormats.Contracts.DAF_ENFORCE_CONTRACTS">
 <a class="docstring-binding" href="#DataAxesFormats.Contracts.DAF_ENFORCE_CONTRACTS">
 <code>DataAxesFormats.Contracts.DAF_ENFORCE_CONTRACTS
@@ -652,6 +740,12 @@ end
 </code>
 </a> is not set, this just returns the original 
 <code>daf
+</code>. If the 
+<code>daf
+</code> is 
+<code>nothing
+</code> (an optional parameter which was not given), this returns 
+<code>nothing
 </code>.
 </p>
 <div class="admonition is-info" id="Note-3e8b639f4908122c">
@@ -750,7 +844,7 @@ end
 <div>
 <pre>
 <code class="language-julia hljs">verify_input(contract_daf::ContractDaf)::Nothing
-verify_input(contract_daf::DafReader)::Nothing
+verify_input(contract_daf::Maybe{DafReader})::Nothing
 </code>
 </pre>
 <p>Verify the 
@@ -763,7 +857,9 @@ verify_input(contract_daf::DafReader)::Nothing
 <a href="contracts.html#DataAxesFormats.Contracts.DAF_ENFORCE_CONTRACTS">
 <code>DAF_ENFORCE_CONTRACTS
 </code>
-</a> was not set).
+</a> was not set), or if it is 
+<code>nothing
+</code> (an optional parameter which was not given).
 </p>
 </div>
 </section>
@@ -783,7 +879,7 @@ verify_input(contract_daf::DafReader)::Nothing
 <div>
 <pre>
 <code class="language-julia hljs">verify_output(contract_daf::ContractDaf)::Nothing
-verify_output(contract_daf::DafWriter)::Nothing
+verify_output(contract_daf::Maybe{DafReader})::Nothing
 </code>
 </pre>
 <p>Verify the 
@@ -796,7 +892,9 @@ verify_output(contract_daf::DafWriter)::Nothing
 <a href="contracts.html#DataAxesFormats.Contracts.DAF_ENFORCE_CONTRACTS">
 <code>DAF_ENFORCE_CONTRACTS
 </code>
-</a> was not set).
+</a> was not set), or if it is 
+<code>nothing
+</code> (an optional parameter which was not given).
 </p>
 </div>
 </section>
@@ -880,6 +978,18 @@ verify_output(contract_daf::DafWriter)::Nothing
 <li>
 <a href="contracts.html#DataAxesFormats.Contracts.contractor">
 <code>DataAxesFormats.Contracts.contractor
+</code>
+</a>
+</li>
+<li>
+<a href="contracts.html#DataAxesFormats.Contracts.optional_contract">
+<code>DataAxesFormats.Contracts.optional_contract
+</code>
+</a>
+</li>
+<li>
+<a href="contracts.html#DataAxesFormats.Contracts.renamed_contract">
+<code>DataAxesFormats.Contracts.renamed_contract
 </code>
 </a>
 </li>

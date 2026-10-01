@@ -83,7 +83,9 @@ CacheData = Union{
     AbstractSet{<:AbstractString},  # Names
     AbstractVector{<:AbstractString},  # Axis entries
     StorageScalar,  # Scalar
-    Tuple{NamedArray, Any},  # Vector / Matrix bundled with opaque backing kept alive for zero-copy aliasing (nothing for backends that don't need it)
+    # Vector / Matrix bundled with opaque backing kept alive for zero-copy aliasing (nothing for backends that don't
+    # need it).
+    Tuple{NamedArray, Any},
     AbstractDict{<:AbstractString, <:Integer}, # Axis dictionary
     QueryOperation,  # View query
     Missing,  # View hidden
@@ -836,7 +838,13 @@ function format_description_header(format::FormatReader, indent::AbstractString,
 end
 
 """
-    format_description_footer(format::FormatReader, lines::Vector{String}; cache::Bool, deep::Bool, tensors::Bool)::Nothing
+    format_description_footer(
+        format::FormatReader,
+        lines::Vector{String};
+        cache::Bool,
+        deep::Bool,
+        tensors::Bool,
+    )::Nothing
 
 Allow a `format` to amit additional description footer lines. If `deep`, this also emit the description of any data sets
 nested in this one, if any.
@@ -860,7 +868,10 @@ function put_in_cache!(format::FormatReader, cache_key::CacheKey, data::CacheDat
     if data isa AbstractArray
         data = read_only_array(data)
     end
-    @debug "put_in_cache! daf: $(brief(format)) cache_key: $(cache_key) data: $(brief(data)) cache_group: $(cache_group)"
+    @debug (
+        "put_in_cache! daf: $(brief(format)) cache_key: $(cache_key) data: $(brief(data)) " *
+        "cache_group: $(cache_group)"
+    )
     format.internal.cache[cache_key] = CacheEntry(cache_group, data)
     return nothing
 end
@@ -1246,7 +1257,10 @@ function put_cached_dependency_key!(format::FormatReader, cache_key::CacheKey, d
     push!(keys_set, cache_key)
     size_after = length(keys_set)
     if size_after > size_before
-        @debug "put_cached_dependency_key! daf: $(brief(format)) cache_key: $(cache_key) dependency_key: $(dependency_key)"
+        @debug (
+            "put_cached_dependency_key! daf: $(brief(format)) cache_key: $(cache_key) " *
+            "dependency_key: $(dependency_key)"
+        )
     end
     return nothing
 end
