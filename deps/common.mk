@@ -33,6 +33,22 @@ deps/.did.format: *.md */*.jl deps/format.sh deps/format.jl deps/reflow.py
 	deps/format.sh
 	@touch deps/.did.format
 
+# The project is resolved once, before the stages which use it, so that none of them writes it while another reads it.
+deps/.did.prepare: *.toml
+	julia --project=. -e 'using Pkg; Pkg.resolve(); Pkg.instantiate(); Pkg.precompile()'
+	@touch deps/.did.prepare
+
+# In a full build (`ci`, which is also the default goal), the stages are ordered so they can run in parallel (`make
+# -j`). The formatter rewrites the sources, so it runs first. The check that everything is staged runs after everything
+# which writes files, and the check of the tools runs last. A stage run by itself is not affected.
+ifeq ($(if $(MAKECMDGOALS),$(filter ci,$(MAKECMDGOALS)),ci),ci)
+deps/.did.static_analysis deps/.did.jet deps/.did.aqua tracefile.info docs/$(DOCS_VERSION)/index.html: \
+    | deps/.did.format deps/.did.prepare
+deps/.did.$(TODO_X): | deps/.did.format
+unindexed_files: format check coverage docs $(TODO_X)
+check_tools: unindexed_files
+endif
+
 .PHONY: check
 check: static_analysis jet aqua untested_lines
 
