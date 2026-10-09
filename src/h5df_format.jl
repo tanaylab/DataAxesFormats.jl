@@ -325,7 +325,7 @@ function H5df(
         end
 
         shared_handle = get_through_global_weak_cache(abspath(root), key; purge) do _
-            file = h5open(root, mode == "w+" ? "cw" : mode; fapl = HDF5.FileAccessProperties(; alignment = (1, 8)))  # NOJET
+            file = h5open(root, mode == "w+" ? "cw" : mode; fapl = HDF5.FileAccessProperties(; alignment = (1, 8)))
             return SharedH5dfHandle(file, ExtendedReadWriteLock(), !is_read_only)
         end
         if !is_read_only && !shared_handle.is_writable
@@ -353,7 +353,7 @@ function H5df(
 
     verify_alignment(root)
 
-    if haskey(root, "daf")  # NOJET
+    if haskey(root, "daf")
         if truncate_if_exists
             delete_content(root)
             create_daf(root)
@@ -671,7 +671,7 @@ function Formats.format_set_vector!(
         flame_timed("H5df.fill_real_vector") do
             vector_dataset =
                 create_dataset(axis_vectors_group, name, typeof(vector), (Formats.format_axis_length(h5df, axis),))
-            vector_dataset[:] = vector  # NOJET
+            vector_dataset[:] = vector
             return close(vector_dataset)
         end
 
@@ -705,7 +705,7 @@ function Formats.format_set_vector!(
                     base = pointer(vector)
                     nice_vector = Base.unsafe_wrap(Array, base, size(vector))
                 catch
-                    nice_vector = Vector(vector)  # NOJET # UNTESTED
+                    nice_vector = Vector(vector)  # UNTESTED
                 end
                 return write_packed_dense_dataset!(axis_vectors_group, name, nice_vector, is_packed)
             end
@@ -753,13 +753,13 @@ function write_string_vector(
             @assert position == n_nonempty + 1
 
             vector_group = create_group(axis_vectors_group, name)
-            vector_group["nzind"] = nzind_vector  # NOJET
+            vector_group["nzind"] = nzind_vector
             vector_group["nztxt"] = nztxt_vector
             close(vector_group)
 
         else
             nice_vector = String[String(value) for value in vector]
-            axis_vectors_group[name] = nice_vector  # NOJET
+            axis_vectors_group[name] = nice_vector
         end
     end
 
@@ -958,7 +958,7 @@ function Formats.format_get_vector(
             nztxt_vector, _ = dataset_as_materialized_vector(nztxt_dataset)
             vector = Vector{AbstractString}(undef, nelements)
             fill!(vector, "")
-            vector[nzind_vector] .= nztxt_vector  # NOJET
+            vector[nzind_vector] .= nztxt_vector
             cache_group = Formats.MemoryData
 
         else
@@ -968,11 +968,11 @@ function Formats.format_get_vector(
             is_nzind_packed = HDF5.ischunked(nzind_dataset) && !isempty(nzind_dataset)
             is_nzval_packed = nzval_dataset !== nothing && HDF5.ischunked(nzval_dataset) && !isempty(nzval_dataset)
             if is_nzind_packed || is_nzval_packed
-                nzind_source = DiskArrays.cache(H5dfDiskArray(nzind_dataset); maxsize = packed_local_cache_mb())  # NOJET
+                nzind_source = DiskArrays.cache(H5dfDiskArray(nzind_dataset); maxsize = packed_local_cache_mb())
                 nzval_source = if nzval_dataset === nothing
                     fill(true, length(nzind_dataset))
                 else
-                    DiskArrays.cache(H5dfDiskArray(nzval_dataset); maxsize = packed_local_cache_mb())  # NOJET
+                    DiskArrays.cache(H5dfDiskArray(nzval_dataset); maxsize = packed_local_cache_mb())
                 end
                 vector = LazySparseVector(nelements, nzind_source, nzval_source)
                 return (vector, nothing, Formats.MemoryData)
@@ -1061,7 +1061,7 @@ function Formats.format_set_matrix!(
         end
 
     elseif eltype(matrix) <: AbstractString
-        write_string_matrix(columns_axis_group, name, matrix)  # NOJET
+        write_string_matrix(columns_axis_group, name, matrix)
 
     else
         @assert matrix isa AbstractMatrix
@@ -1158,7 +1158,7 @@ function write_string_matrix(
         else
             nice_matrix = String[String(value) for value in matrix]
             nice_matrix = reshape(nice_matrix, size(matrix))
-            columns_axis_group[name] = nice_matrix  # NOJET
+            columns_axis_group[name] = nice_matrix
         end
     end
     return nothing
@@ -1232,7 +1232,7 @@ function create_packed_streaming_dense_matrix(
     dataset_lock = ReentrantLock()
     encoder = (column::Int, chunk_buffer::Vector{T}) -> begin
         lock(dataset_lock) do
-            dataset[:, column] = chunk_buffer  # NOJET
+            dataset[:, column] = chunk_buffer
             return nothing
         end
         return nothing
@@ -1536,11 +1536,11 @@ function Formats.format_get_matrix(
         if is_rowval_packed || is_nzval_packed
             # `colptr` is always materialised: small and needs random access for slicing.
             colptr_vector, _ = dataset_as_materialized_vector(colptr_dataset)
-            rowval_source = DiskArrays.cache(H5dfDiskArray(rowval_dataset); maxsize = packed_local_cache_mb())  # NOJET
+            rowval_source = DiskArrays.cache(H5dfDiskArray(rowval_dataset); maxsize = packed_local_cache_mb())
             nzval_source = if nzval_dataset === nothing
                 fill(true, length(rowval_dataset))
             else
-                DiskArrays.cache(H5dfDiskArray(nzval_dataset); maxsize = packed_local_cache_mb())  # NOJET
+                DiskArrays.cache(H5dfDiskArray(nzval_dataset); maxsize = packed_local_cache_mb())
             end
             matrix = LazySparseMatrix(nrows, colptr_vector, rowval_source, nzval_source)
             return (matrix, nothing, Formats.MemoryData)
@@ -1573,9 +1573,9 @@ end
 function dataset_as_vector(dataset::HDF5.Dataset)::Tuple{StorageVector, Formats.CacheGroup}
     return flame_timed("H5df.dataset_as_vector") do
         if HDF5.ismmappable(dataset) && HDF5.iscontiguous(dataset) && !isempty(dataset)
-            return (HDF5.readmmap(dataset), Formats.MappedData)  # NOJET
+            return (HDF5.readmmap(dataset), Formats.MappedData)
         elseif HDF5.ischunked(dataset) && !isempty(dataset)
-            cached = DiskArrays.cache(H5dfDiskArray(dataset); maxsize = packed_local_cache_mb())  # NOJET
+            cached = DiskArrays.cache(H5dfDiskArray(dataset); maxsize = packed_local_cache_mb())
             return (cached, Formats.MemoryData)
         else
             return (read(dataset), Formats.MemoryData)
@@ -1586,9 +1586,9 @@ end
 function dataset_as_matrix(dataset::HDF5.Dataset)::Tuple{StorageMatrix, Formats.CacheGroup}
     return flame_timed("H5df.dataset_as_matrix") do
         if HDF5.ismmappable(dataset) && HDF5.iscontiguous(dataset) && !isempty(dataset)
-            return (HDF5.readmmap(dataset), Formats.MappedData)  # NOJET
+            return (HDF5.readmmap(dataset), Formats.MappedData)
         elseif HDF5.ischunked(dataset) && !isempty(dataset)
-            cached = DiskArrays.cache(H5dfDiskArray(dataset); maxsize = packed_local_cache_mb())  # NOJET
+            cached = DiskArrays.cache(H5dfDiskArray(dataset); maxsize = packed_local_cache_mb())
             return (cached, Formats.MemoryData)
         else
             return (read(dataset), Formats.MemoryData)
@@ -1600,7 +1600,7 @@ end
 function dataset_as_materialized_vector(dataset::HDF5.Dataset)::Tuple{Vector, Formats.CacheGroup}
     return flame_timed("H5df.dataset_as_materialized_vector") do
         if HDF5.ismmappable(dataset) && HDF5.iscontiguous(dataset) && !isempty(dataset)
-            return (HDF5.readmmap(dataset), Formats.MappedData)  # NOJET
+            return (HDF5.readmmap(dataset), Formats.MappedData)
         else
             return (read(dataset), Formats.MemoryData)
         end
@@ -1647,12 +1647,12 @@ function Reorder.format_lock_reorder!(h5df::H5df, operation_id::AbstractString):
 
     while true
         try
-            write_dataset(file, REORDER_LOCK_DATASET, op_id)  # NOJET
+            write_dataset(file, REORDER_LOCK_DATASET, op_id)
             break
         catch  # UNTESTED
         end
 
-        if !haskey(file, REORDER_LOCK_DATASET)  # NOJET  # UNTESTED
+        if !haskey(file, REORDER_LOCK_DATASET)  # UNTESTED
             continue  # UNTESTED
         end
 
@@ -1674,10 +1674,10 @@ function Reorder.format_lock_reorder!(h5df::H5df, operation_id::AbstractString):
                     """))
     end
 
-    if !haskey(file, REORDER_REPOS_GROUP)  # NOJET
-        create_group(file, REORDER_REPOS_GROUP)  # NOJET
+    if !haskey(file, REORDER_REPOS_GROUP)
+        create_group(file, REORDER_REPOS_GROUP)
     end
-    repos_group = file[REORDER_REPOS_GROUP]  # NOJET
+    repos_group = file[REORDER_REPOS_GROUP]
     entry = lock_entry_name(h5df_group_path(h5df))
     @assert !haskey(repos_group, entry)
     repos_group[entry] = UInt8[1]  # NOJET
@@ -1687,12 +1687,12 @@ end
 function Reorder.format_has_reorder_lock(h5df::H5df)::Bool
     @assert Formats.has_data_write_lock(h5df)
     file = h5df_file(h5df)
-    if !haskey(file, REORDER_REPOS_GROUP)  # NOJET
+    if !haskey(file, REORDER_REPOS_GROUP)
         return false
     end
-    repos_group = file[REORDER_REPOS_GROUP]  # NOJET  # UNTESTED
+    repos_group = file[REORDER_REPOS_GROUP]  # UNTESTED
     entry = lock_entry_name(h5df_group_path(h5df))  # UNTESTED
-    return haskey(repos_group, entry)  # NOJET  # UNTESTED
+    return haskey(repos_group, entry)  # UNTESTED
 end
 
 function Reorder.format_backup_reorder!(h5df::H5df, ::Reorder.FormatReorderPlan)::Nothing
@@ -1719,11 +1719,11 @@ function Reorder.format_replace_reorder!(
     backup_file = h5open(backup_path, "r")  # NOJET
     try
         group_path = h5df_group_path(h5df)
-        backup_root = group_path == "/" ? backup_file : backup_file[group_path]  # NOJET
+        backup_root = group_path == "/" ? backup_file : backup_file[group_path]
 
         for (axis, planned_axis) in plan.planned_axes
             if Formats.format_has_axis(h5df, axis; for_change = false)
-                axes_group = h5df.root["axes"]  # NOJET
+                axes_group = h5df.root["axes"]
                 delete_object(axes_group, axis)  # NOJET
                 axis_dataset = create_dataset(axes_group, axis, String, (length(planned_axis.new_entries),))  # NOJET
                 axis_dataset[:] = planned_axis.new_entries
@@ -1833,7 +1833,7 @@ function replace_reorder_vector(
             live_object = live_axis_vectors[planned.name]  # NOJET
 
             if live_object isa HDF5.Group &&
-               is_overwritable_dataset(live_object["nzind"]) &&  # NOJET
+               is_overwritable_dataset(live_object["nzind"]) &&
                (!has_nzval || is_overwritable_dataset(live_object["nzval"]))
                 dest_nzind, _ = dataset_as_vector(live_object["nzind"])  # NOJET
                 dest_nzval = has_nzval ? dataset_as_vector(live_object["nzval"])[1] : nothing  # NOJET
@@ -2009,9 +2009,9 @@ function replace_reorder_matrix(
             live_object = live_columns_group[planned.name]  # NOJET
 
             if live_object isa HDF5.Group &&
-               is_overwritable_dataset(live_object["colptr"]) &&  # NOJET
-               is_overwritable_dataset(live_object["rowval"]) &&  # NOJET
-               (!has_nzval || is_overwritable_dataset(live_object["nzval"]))  # NOJET
+               is_overwritable_dataset(live_object["colptr"]) &&
+               is_overwritable_dataset(live_object["rowval"]) &&
+               (!has_nzval || is_overwritable_dataset(live_object["nzval"]))
                 dest_colptr, _ = dataset_as_vector(live_object["colptr"])  # NOJET
                 dest_rowval, _ = dataset_as_vector(live_object["rowval"])  # NOJET
                 dest_nzval = has_nzval ? dataset_as_vector(live_object["nzval"])[1] : nothing  # NOJET
@@ -2209,7 +2209,7 @@ function H5dfDiskArray(dataset::HDF5.Dataset)::H5dfDiskArray
     T = eltype(dataset)
     shape = size(dataset)
     chunks = HDF5.get_chunk(dataset)
-    return H5dfDiskArray{T, length(shape)}(dataset, shape, chunks)  # NOJET
+    return H5dfDiskArray{T, length(shape)}(dataset, shape, chunks)
 end
 
 function Base.size(array::H5dfDiskArray{T, N})::NTuple{N, Int} where {T, N}

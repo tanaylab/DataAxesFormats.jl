@@ -877,7 +877,7 @@ function put_in_cache!(format::FormatReader, cache_key::CacheKey, data::CacheDat
 end
 
 function set_in_cache!(format::FormatReader, cache_key::CacheKey, data::CacheData, cache_group::CacheGroup)::Nothing
-    return with_cache_write_lock(format, "for set_in_cache!:", cache_key) do  # NOJET
+    return with_cache_write_lock(format, "for set_in_cache!:", cache_key) do
         return put_in_cache!(format, cache_key, data, cache_group)
     end
 end
@@ -922,7 +922,7 @@ function get_through_cache(getter::Function, format::FormatReader, cache_key::Ca
     @assert has_data_read_lock(format)
     cached = nothing
     while cached === nothing
-        cache_entry = with_cache_read_lock(format, "for get_from_cache:", cache_key) do  # NOJET
+        cache_entry = with_cache_read_lock(format, "for get_from_cache:", cache_key) do
             return get(format.internal.cache, cache_key, nothing)
         end
         cached = result_from_cache(cache_entry)
@@ -943,7 +943,7 @@ function get_slow_through_cache(
     @assert has_data_read_lock(format)
     cached = nothing
     while cached === nothing
-        cache_entry = with_cache_read_lock(format, "for get_from_cache:", cache_key) do  # NOJET
+        cache_entry = with_cache_read_lock(format, "for get_from_cache:", cache_key) do
             return get(format.internal.cache, cache_key, nothing)
         end
         cached = result_from_cache(cache_entry)
@@ -994,7 +994,7 @@ function write_slow_through_cache(
     ::Type{T},
     cache_group::CacheGroup,
 )::Maybe{T} where {T}
-    result = with_cache_write_lock(format, "for get_through_cache:", cache_key) do  # NOJET
+    result = with_cache_write_lock(format, "for get_through_cache:", cache_key) do
         cache_entry = get(format.internal.cache, cache_key, nothing)
         if cache_entry !== nothing
             if cache_entry.data isa AbstractLock  # UNTESTED
@@ -1020,7 +1020,7 @@ function write_slow_through_cache(
         @assert entry_lock isa AbstractLock
         try
             result, dependency_keys = getter()
-            with_cache_write_lock(format, "for slow:", cache_key) do  # NOJET
+            with_cache_write_lock(format, "for slow:", cache_key) do
                 if dependency_keys !== nothing
                     for dependency_key in dependency_keys
                         put_cached_dependency_key!(format, cache_key, dependency_key)
@@ -1305,7 +1305,7 @@ function begin_data_read_lock(format::FormatReader, what::Any...)::Nothing
     else
         lazy_what = () -> join([format.name, "data for", what...], " ")
     end
-    lock_read(format.internal.data_lock; what = lazy_what)  # NOJET
+    lock_read(format.internal.data_lock; what = lazy_what)
     return nothing
 end
 
@@ -1315,7 +1315,7 @@ function end_data_read_lock(format::FormatReader, what::Any...)::Nothing
     else
         lazy_what = () -> join([format.name, "data for", what...], " ")
     end
-    unlock_read(format.internal.data_lock; what = lazy_what)  # NOJET
+    unlock_read(format.internal.data_lock; what = lazy_what)
     return nothing
 end
 
@@ -1361,7 +1361,7 @@ function begin_data_write_lock(format::FormatReader, what::Any...)::Nothing
     else
         lazy_what = () -> join([format.name, "data for", what...], " ")
     end
-    lock_write(format.internal.data_lock; what = lazy_what)  # NOJET
+    lock_write(format.internal.data_lock; what = lazy_what)
     return nothing
 end
 
@@ -1371,7 +1371,7 @@ function end_data_write_lock(format::FormatReader, what::Any...)::Nothing
     else
         lazy_what = () -> join([format.name, "data for", what...], " ")
     end
-    unlock_write(format.internal.data_lock; what = lazy_what)  # NOJET
+    unlock_write(format.internal.data_lock; what = lazy_what)
     return nothing
 end
 

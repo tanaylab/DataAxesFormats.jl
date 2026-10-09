@@ -268,7 +268,7 @@ function viewer(
     if name === nothing
         name = daf.name * ".view"
     end
-    name = unique_name(name)  # NOJET
+    name = unique_name(name)
 
     reversed_view_axes = Tuple{AxisKey, Maybe{QueryString}}[(key, query) for (key, query) in axes]
     reversed_view_scalars = Tuple{ScalarKey, Maybe{QueryString}}[]
@@ -434,7 +434,7 @@ function Formats.format_axis_vector(
     if is_identity_axis(view, axis)
         return Formats.format_axis_vector(view.daf, axis)
     else
-        return (fetch_axis_data(view, axis), QueryData)  # NOJET
+        return (fetch_axis_data(view, axis), QueryData)
     end
 end
 
@@ -550,7 +550,7 @@ function Formats.format_description_footer(
     @assert Formats.has_data_read_lock(view)
     if deep
         push!(lines, "$(indent)base:")
-        description(view.daf, indent * "  ", lines; cache, deep, tensors)  # NOJET
+        description(view.daf, indent * "  ", lines; cache, deep, tensors)
     end
     return nothing
 end

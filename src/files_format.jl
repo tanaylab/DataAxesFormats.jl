@@ -360,7 +360,7 @@ function FilesDaf(
             report_modified!(path)
         end
 
-        if !cached_ispath(daf_file_path)  # NOJET
+        if !cached_ispath(daf_file_path)
             write(daf_file_path, "{\"version\":[$(MAJOR_VERSION),$(MINOR_VERSION)]}\n")
             report_modified!(daf_file_path)
             for directory in ("scalars", "axes", "vectors", "matrices")
@@ -592,7 +592,7 @@ function Formats.format_set_vector!(
     elseif vector isa StorageScalar
         @assert vector isa StorageReal
         write_dense_array_json(files, base_key, typeof(vector))
-        fill_file("$(files.path)/$(base_key).data", vector, Formats.format_axis_length(files, axis))  # NOJET
+        fill_file("$(files.path)/$(base_key).data", vector, Formats.format_axis_length(files, axis))
 
     elseif issparse(vector)
         flame_timed("FilesDaf.write_sparse_vector") do
@@ -901,11 +901,11 @@ function Formats.format_set_matrix!(
     base_key = "matrices/$(rows_axis)/$(columns_axis)/$(name)"
     if matrix isa StorageReal
         write_dense_array_json(files, base_key, typeof(matrix))
-        fill_file("$(files.path)/$(base_key).data", matrix, nrows * ncols)  # NOJET
+        fill_file("$(files.path)/$(base_key).data", matrix, nrows * ncols)
 
     elseif matrix isa AbstractString
         write_dense_array_json(files, base_key, String)
-        fill_file("$(files.path)/$(base_key).txt", matrix, nrows * ncols)  # NOJET
+        fill_file("$(files.path)/$(base_key).txt", matrix, nrows * ncols)
 
     elseif issparse(matrix)
         @assert matrix isa AbstractMatrix
@@ -914,7 +914,7 @@ function Formats.format_set_matrix!(
         end
 
     elseif eltype(matrix) <: AbstractString
-        write_string_matrix(files, rows_axis, columns_axis, name, matrix, is_packed)  # NOJET
+        write_string_matrix(files, rows_axis, columns_axis, name, matrix, is_packed)
 
     else
         @assert eltype(matrix) <: Real
@@ -1259,7 +1259,7 @@ function Formats.format_get_matrix(
                     nzval_vector = fill(true, nnz)
                     cache_group = Formats.MemoryData
                 end
-                matrix = SparseMatrixCSC(nrows, ncols, colptr_vector, rowval_vector, nzval_vector)  # NOJET
+                matrix = SparseMatrixCSC(nrows, ncols, colptr_vector, rowval_vector, nzval_vector)
             end
         end
     end
@@ -1305,7 +1305,7 @@ function mmap_file_data(
     return flame_timed("FilesDaf.mmap_file_data") do
         key = (:daf, :mmap_data, mode)
         return get_through_global_weak_cache(abspath(path), key) do _
-            return mmap_populate_if_old_linux_ramdisk(path, T, size, mode)  # NOJET
+            return mmap_populate_if_old_linux_ramdisk(path, T, size, mode)
         end
     end
 end
@@ -1482,7 +1482,7 @@ end
 
 function packed_write_typed_array!(files::FilesDaf, key::AbstractString, vector::AbstractVector)::Nothing
     path = "$(files.path)/$(key)"
-    write(path, vector)  # NOJET
+    write(path, vector)
     report_modified!(path)
     return nothing
 end
@@ -1764,7 +1764,7 @@ function Reorder.format_backup_reorder!(files::FilesDaf, plan::Reorder.FormatReo
 
     for (axis, _) in plan.planned_axes
         src = "$(files.path)/axes/$(axis).txt"
-        if cached_ispath(src)  # NOJET
+        if cached_ispath(src)
             hardlink(src, "$(backup_root)/axes/$(axis).txt")
         end
     end
@@ -1802,7 +1802,7 @@ function Reorder.format_replace_reorder!(
 
     for (axis, planned_axis) in plan.planned_axes
         axis_path = "$(files.path)/axes/$(axis).txt"
-        if cached_ispath(axis_path)  # NOJET
+        if cached_ispath(axis_path)
             rm(axis_path)
             write_lines_file(axis_path, planned_axis.new_entries)
             report_modified!(axis_path)
@@ -1810,12 +1810,12 @@ function Reorder.format_replace_reorder!(
     end
 
     for planned in plan.planned_vectors
-        replace_reorder_vector(files, planned, plan, replacement_progress)  # NOJET
+        replace_reorder_vector(files, planned, plan, replacement_progress)
         Reorder.tick_crash_counter!(crash_counter)
     end
 
     for planned in plan.planned_matrices
-        replace_reorder_matrix(files, planned, plan, replacement_progress)  # NOJET
+        replace_reorder_matrix(files, planned, plan, replacement_progress)
         Reorder.tick_crash_counter!(crash_counter)
     end
 

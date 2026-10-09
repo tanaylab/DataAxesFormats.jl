@@ -101,7 +101,7 @@ function collect_dafs(;
     index::Integer,
 )::Vector{DafReader}
     @debug "$(indent)- Open $(path) $(mode)" _group = :daf_repose
-    daf = open_daf(path, mode; packed = is_packed)  # NOJET
+    daf = open_daf(path, mode; packed = is_packed)
 
     specification = get_scalar(daf, "base_daf_repository"; default = nothing)
     if specification === nothing
@@ -139,7 +139,7 @@ function collect_base(;
     # A view is of the base's own complete chain, so what it exposes is decided before anything is chained on top of it.
     @debug "$(indent)  View" _group = :daf_repose
     chain = chain_reader(base_dafs; name = "$(name).chain_$(index)")
-    view = viewer(chain; name = "$(name).view_$(index)", axes = base.axes, data = base.data)  # NOJET
+    view = viewer(chain; name = "$(name).view_$(index)", axes = base.axes, data = base.data)
     push!(view.path, complete_path(base_dafs[end]))  # NOJET
     return DafReader[view]
 end

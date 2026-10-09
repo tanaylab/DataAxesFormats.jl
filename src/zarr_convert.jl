@@ -665,7 +665,7 @@ end
 
 function files_to_zarr_populate(files_path::AbstractString, zarr_path::AbstractString)::Nothing
     source = FilesDaf(files_path, "r")
-    destination = ZarrDaf(zarr_path, "w+")::ZarrDaf  # NOJET
+    destination = ZarrDaf(zarr_path, "w+")::ZarrDaf
 
     consolidated = read_files_consolidated_dict(files_path)
 
@@ -934,7 +934,7 @@ function create_files_to_zarr_packed_dense(
     source_shard_path::AbstractString,
     destination_chunk_path::AbstractString,
 )::Nothing where {T, N}
-    chunk_shape = NTuple{N, Int}(json["chunk_shape"])  # NOJET
+    chunk_shape = NTuple{N, Int}(json["chunk_shape"])
     codec = PackedFormat.packed_codec_from_descriptor(json)
     bytes_bytes_codecs = PackedFormat.v3_bytes_codecs_for(codec, T)
     ZarrFormat.sharded_zcreate(T, group, name, shape, chunk_shape, bytes_bytes_codecs)

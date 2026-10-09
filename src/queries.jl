@@ -1497,7 +1497,7 @@ function assert_is_valid(matrix_state::MatrixState)::Nothing
     end
     if matrix_state.matrix_values !== nothing
         @assert matrix_state.rows_state !== nothing
-        @assert matrix_state.rows_state.vector_values !== nothing  # NOJET
+        @assert matrix_state.rows_state.vector_values !== nothing
         @assert matrix_state.columns_state !== nothing
         @assert matrix_state.columns_state.vector_values !== nothing
         @assert size(matrix_state.matrix_values) ==
@@ -1723,7 +1723,7 @@ function get_query_result(
     end
 
     if is_all_stack(query_state, (NamesState,))
-        return (pop!(query_state.stack).names_set, query_state.dependency_keys)  # NOJET
+        return (pop!(query_state.stack).names_set, query_state.dependency_keys)
     end
 
     if is_all_stack(query_state, (ScalarState,))
@@ -2142,7 +2142,7 @@ function parse_query(
 )::QueryOperation
     tokens = tokenize(query_string, QUERY_OPERATIONS_REGEX)
     if operand_only !== nothing && length(tokens) == 1 && !tokens[1].is_operator
-        return operand_only(query_string)  # NOJET
+        return operand_only(query_string)
     end
 
     next_token_index = 1
@@ -3373,7 +3373,7 @@ function fill_lookup_vector_values(
 
     @assert query_state.daf !== nothing
     default = default_value(if_missing)
-    named_matrix_values = get_matrix(  # NOJET
+    named_matrix_values = get_matrix(
         query_state.daf,
         vector_state.property_axis_name,
         columns_axis_name,
@@ -4025,7 +4025,7 @@ function reduce_matrix_to_column(
     finalize_matrix_values!(query_state, matrix_state)
 
     vector_state = matrix_state.rows_state
-    vector_state.property_name = nothing  # NOJET
+    vector_state.property_name = nothing
     vector_state.property_axis_name = nothing
 
     if query_state.what_for == :compute
@@ -4592,7 +4592,7 @@ function count_by_values(
     n_columns = length(columns_axis.vector_values)
     counts_matrix = zeros(matrix_type, n_rows, n_columns)
 
-    for (row_value, column_value) in zip(rows_values.vector_values, columns_values.vector_values)  # NOJET
+    for (row_value, column_value) in zip(rows_values.vector_values, columns_values.vector_values)
         row_index = get(rows_index_of_value, row_value, nothing)
         column_index = get(columns_index_of_value, column_value, nothing)
         if row_index !== nothing && column_index !== nothing
@@ -5100,7 +5100,7 @@ function fill_lookup_matrix_values(
 
     @assert query_state.daf !== nothing
     default = default_value(if_missing)
-    named_matrix_values = get_matrix(  # NOJET
+    named_matrix_values = get_matrix(
         query_state.daf,
         matrix_state.property_axis_name,
         columns_axis_name,

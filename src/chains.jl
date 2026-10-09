@@ -1067,7 +1067,7 @@ function Formats.format_description_footer(
     if deep
         push!(lines, "$(indent)chain:")
         for daf in chain.dafs
-            description(daf, indent * "- ", lines; cache, deep, tensors)  # NOJET
+            description(daf, indent * "- ", lines; cache, deep, tensors)
         end
     end
     return nothing

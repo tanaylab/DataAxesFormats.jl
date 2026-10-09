@@ -53,7 +53,7 @@ function escape_value(value::AbstractString)::String
     if value == ""
         return "''"
     else
-        return replace(value, (character -> !is_value_char(character)) => s"\\\0")  # NOJET
+        return replace(value, (character -> !is_value_char(character)) => s"\\\0")
     end
 end
 
@@ -118,7 +118,7 @@ by a `\\`, such that the result will only use [`is_value_char`](@ref) characters
 need to encode `_` as `_5F`, so we need to encode `\\_` as `_5C_5F`. Isn't encoding **fun**?
 """
 function encode_expression(expr_string::AbstractString)::String
-    return replace(expr_string, "\\_" => "_5C_5F", "_" => "_5F", r"\\." => encode_expression_char)  # NOJET
+    return replace(expr_string, "\\_" => "_5C_5F", "_" => "_5F", r"\\." => encode_expression_char)
 end
 
 function encode_expression_char(escaped_char::AbstractString)::AbstractString
@@ -279,12 +279,10 @@ function error_at_token(token::Token, message::AbstractString; at_end::Bool = fa
         indent = repeat(" ", decode_index(token.encoded_string, token.first_index - 1))
         marker = repeat("▲", length(token.value))
     end
-    return error(chomp(message) *  # NOJET
-                 "\n" *
-                 """
-                 in: $(decode_expression(token.encoded_string))
-                 at: $(indent)$(marker)
-                 """)
+    return error(chomp(message) * "\n" * """
+                                         in: $(decode_expression(token.encoded_string))
+                                         at: $(indent)$(marker)
+                                         """)
 end
 
 end  # module

@@ -225,7 +225,7 @@ function verify_are_supported_type(
     unsupported_handler::AbnormalHandler,
     filter::Maybe{Function},
 )::Nothing
-    for (key, value) in dict  # NOJET
+    for (key, value) in dict
         if filter === nothing || filter(member, key)
             verify_is_supported_type(value, supported_type, name, "$(member)[$(key)]", unsupported_handler)
         end
@@ -450,7 +450,7 @@ function copy_supported_matrices(
     member::AbstractString,
     filter::Maybe{Function},
 )::Nothing
-    for (name, matrix) in dict  # NOJET
+    for (name, matrix) in dict
         if !(matrix isa StorageMatrix)
             @debug "skip unsupported $(member) matrix: $(name)" _group = :daf_sets  # UNTESTED
         elseif filter !== nothing && !filter(member, name)
@@ -602,7 +602,7 @@ stored in the returned new `AnnData` object.
 
     if h5ad !== nothing
         flame_timed("writeh5ad") do
-            writeh5ad(h5ad, adata; compress = UInt8(0))  # NOJET
+            writeh5ad(h5ad, adata; compress = UInt8(0))
             return nothing
         end
     end

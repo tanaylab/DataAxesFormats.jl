@@ -409,7 +409,7 @@ function compute_eltwise(operation::Abs, input::StorageMatrix)::StorageMatrix
     axis = major_axis(input)
     if axis == Columns
         n_columns = size(input, 2)
-        parallel_loop_wo_rng(
+        parallel_loop_wo_rng(  # NOJET
             1:n_columns;
             name = "Abs",
             progress = DebugProgress(n_columns; group = :daf_loops, desc = "Abs"),
@@ -428,7 +428,7 @@ function compute_eltwise(operation::Abs, input::StorageMatrix)::StorageMatrix
             return nothing
         end
     else
-        @. output = abs(input)  # NOJET # UNTESTED
+        @. output = abs(input)  # UNTESTED
     end
     return output
 end
@@ -436,7 +436,7 @@ end
 function compute_eltwise(operation::Abs, input::StorageVector{<:StorageReal})::StorageVector{<:StorageReal}
     type = unsigned_type_for(eltype(input), operation.type)
     output = similar(input, type)
-    @. output = abs(input)  # NOJET
+    @. output = abs(input)
     return output
 end
 
@@ -707,7 +707,7 @@ function compute_eltwise(operation::Fraction, input::StorageMatrix)::StorageMatr
     type = float_type_for(eltype(input), operation.type)
     output = similar(input, type)
     output .= input
-    parallel_loop_wo_rng(  # NOJET
+    parallel_loop_wo_rng(
         1:size(output, 2);
         name = "Fraction",
         progress = DebugProgress(size(output, 2); group = :daf_loops, desc = "Fraction"),
@@ -901,9 +901,9 @@ function Significant(; high::StorageReal, low::Maybe{StorageReal} = nothing)::Si
         low = high
     end
     @assert high > 0
-    @assert low > 0  # NOJET
+    @assert low > 0
     @assert low <= high
-    return Significant(Float64(high), Float64(low))  # NOJET
+    return Significant(Float64(high), Float64(low))
 end
 
 function Significant(operation_name::Token, parameters_values::Dict{String, Token})::Significant
@@ -1451,7 +1451,7 @@ function compute_reduction(
     input::Union{StorageVector{<:StorageReal}, StorageMatrix{<:StorageReal}},
 )::StorageReal
     type = reduction_result_type(operation, eltype(input))
-    return type(mean(input))  # NOJET # NOLINT
+    return type(mean(input))  # NOLINT
 end
 
 function reduction_result_type(operation::Mean, eltype::Type)::Type
@@ -1506,9 +1506,9 @@ function compute_reduction(operation::GeoMean, input::StorageMatrix, axis::Integ
         ) do column_index
             column_vector = @view input[:, column_index]
             if operation.eps == 0
-                output[column_index] = type(geomean(column_vector))  # NOJET
+                output[column_index] = type(geomean(column_vector))
             else
-                output[column_index] = type(geomean(column_vector .+ operation.eps) - operation.eps)  # NOJET
+                output[column_index] = type(geomean(column_vector .+ operation.eps) - operation.eps)
             end
             return nothing
         end
@@ -1520,9 +1520,9 @@ function compute_reduction(operation::GeoMean, input::StorageMatrix, axis::Integ
         ) do row_index
             row_vector = @view input[row_index, :]
             if operation.eps == 0
-                output[row_index] = type(geomean(row_vector))  # NOJET
+                output[row_index] = type(geomean(row_vector))
             else
-                output[row_index] = type(geomean(row_vector .+ operation.eps) - operation.eps)  # NOJET
+                output[row_index] = type(geomean(row_vector .+ operation.eps) - operation.eps)
             end
             return nothing
         end
@@ -1536,9 +1536,9 @@ function compute_reduction(
 )::StorageReal
     type = reduction_result_type(operation, eltype(input))
     if operation.eps == 0
-        return type(geomean(input))  # NOJET
+        return type(geomean(input))
     else
-        return type(geomean(input .+ operation.eps) - operation.eps)  # NOJET
+        return type(geomean(input .+ operation.eps) - operation.eps)
     end
 end
 
@@ -1645,7 +1645,7 @@ function compute_reduction(operation::VarN, input::StorageMatrix, axis::Integer)
         result = output,
         progress = DebugProgress(length(output); group = :daf_loops, desc = "VarN"),
     )
-    means = vec(mean(input; dims = axis))  # NOJET # NOLINT
+    means = vec(mean(input; dims = axis))  # NOLINT
     output ./= type.(means .+ operation.eps)
     return output
 end
@@ -1761,7 +1761,7 @@ function compute_reduction(operation::StdN, input::StorageMatrix, axis::Integer)
         result = output,
         progress = DebugProgress(length(output); group = :daf_loops, desc = "StdN"),
     )
-    means = vec(mean(input; dims = axis))  # NOJET # NOLINT
+    means = vec(mean(input; dims = axis))  # NOLINT
     output ./= type.(means .+ operation.eps)
     return output
 end

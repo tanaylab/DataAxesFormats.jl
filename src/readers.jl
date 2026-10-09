@@ -1012,7 +1012,7 @@ function get_matrix(
                     )
                 else
                     @assert default isa StorageScalar
-                    matrix = fill(  # NOJET
+                    matrix = fill(
                         default,
                         Formats.format_axis_length(daf, rows_axis),
                         Formats.format_axis_length(daf, columns_axis),
@@ -1284,7 +1284,7 @@ function description(
 
     Formats.format_description_header(daf, indent, lines, deep)
 
-    scalars_description(daf, indent, lines) # NOJET
+    scalars_description(daf, indent, lines)
 
     axes = collect(axes_set(daf))
 
@@ -1304,11 +1304,11 @@ function description(
             end
         end
 
-        axes_description(daf, axes, indent, lines) # NOJET
-        vectors_description(daf, axes, indent, lines) # NOJET
-        matrices_description(daf, axes, indent, lines; tensors) # NOJET
+        axes_description(daf, axes, indent, lines)
+        vectors_description(daf, axes, indent, lines)
+        matrices_description(daf, axes, indent, lines; tensors)
         if cache
-            cache_description(daf, indent, lines)  # NOJET
+            cache_description(daf, indent, lines)
         end
 
         if tensors && !isempty(matrices_per_tensor_per_axes_per_axis)  # NOJET
@@ -1316,7 +1316,7 @@ function description(
         end
     end
 
-    Formats.format_description_footer(daf, indent, lines; cache, deep, tensors)  # NOJET
+    Formats.format_description_footer(daf, indent, lines; cache, deep, tensors)
     return nothing
 end
 

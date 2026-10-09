@@ -686,7 +686,7 @@ function expand_input_tensors(data::Dict{DataKey, Tracker}, daf::DafReader)::Not
         for entry in entries
             data[(rows_axis, columns_axis, "$(entry)_$(matrix_name)")] = tracker
         end
-        delete!(data, tensor_key)  # NOJET
+        delete!(data, tensor_key)
     end
 end
 
@@ -1871,7 +1871,7 @@ function dedent(string::AbstractString; indent::AbstractString = "")::String
         if first_non_space === nothing || (line_non_space !== nothing && line_non_space < first_non_space)
             first_non_space = line_non_space
         end
-    end  # NOJET
+    end
 
     if first_non_space === nothing
         return indent * string  # UNTESTED

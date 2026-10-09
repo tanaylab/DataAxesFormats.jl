@@ -531,7 +531,7 @@ function ZarrDaf(
                 error("no such directory: $(full_container_path)")
             end
         elseif truncate_if_exists
-            rm(full_container_path; recursive = true)  # NOJET
+            rm(full_container_path; recursive = true)
         end
         store = Zarr.DirectoryStore(full_container_path)
     end
@@ -739,9 +739,9 @@ function open_or_create_daf_group(
     is_read_only::Bool,
     create_if_missing::Bool,
 )::ZGroup
-    if Zarr.is_zgroup(Zarr.ZarrFormat(3), store, zpath)  # NOJET
+    if Zarr.is_zgroup(Zarr.ZarrFormat(3), store, zpath)
         root =  # NOJET
-            Zarr.zopen_noerr(store, is_read_only ? "r" : "w", Zarr.ZarrFormat(3); path = zpath, fill_as_missing = false)  # NOJET
+            Zarr.zopen_noerr(store, is_read_only ? "r" : "w", Zarr.ZarrFormat(3); path = zpath, fill_as_missing = false)
         if !(root isa ZGroup)
             error("not a daf zarr group: $(full_path)")  # UNTESTED
         end
@@ -754,7 +754,7 @@ function open_or_create_daf_group(
         end
         return root
     end
-    if Zarr.is_zgroup(Zarr.ZarrFormat(2), store, zpath)  # NOJET
+    if Zarr.is_zgroup(Zarr.ZarrFormat(2), store, zpath)
         error(chomp("""
                     Zarr v2 store at: $(full_path)
                     DataAxesFormats requires a Zarr v3 store.
@@ -775,7 +775,7 @@ end
 # `MmapZipStore`, which reject overwrites of the just-written `zarr.json`.
 function create_fresh_daf_group(store::Zarr.AbstractStore, path::AbstractString)::ZGroup
     attrs = Dict{String, Any}(DAF_KEY => [Int(MAJOR_VERSION), Int(MINOR_VERSION)])
-    root = zgroup(store, String(path), Zarr.ZarrFormat(3); attrs)  # NOJET
+    root = zgroup(store, String(path), Zarr.ZarrFormat(3); attrs)
     zgroup(root, SCALARS)
     zgroup(root, AXES)
     zgroup(root, VECTORS)
@@ -1238,7 +1238,7 @@ function root_zarr_has_valid_consolidated_metadata(daf::ZarrDaf)::Bool
         return false  # UNTESTED
     end
     parsed = try
-        JSON.parse(String(copy(raw)); dicttype = Dict{String, Any})::Dict{String, Any}  # NOJET
+        JSON.parse(String(copy(raw)); dicttype = Dict{String, Any})::Dict{String, Any}
     catch
         return false  # UNTESTED
     end
@@ -1574,7 +1574,7 @@ function Formats.format_add_axis!(
 )::Nothing
     @assert Formats.has_data_write_lock(daf)
     axis_array = string_zcreate(axes_group(daf), axis, (length(entries),))
-    axis_array[:] = entries  # NOJET
+    axis_array[:] = entries
 
     vectors_axis_group = zgroup(vectors_group(daf), axis)
 
@@ -1674,7 +1674,7 @@ function Formats.format_set_vector!(
         vector = base_array(vector)
         if eltype(vector) <: AbstractString
             array = dense_zcreate(String, group, name, is_packed, (nelements,))
-            write_dense_data!(array, vector)  # NOJET
+            write_dense_data!(array, vector)
             register_consolidated_node!(daf, base_key, Vector{UInt8}(JSON.json(array.metadata)))
         elseif issparse(vector)
             write_sparse_vector(group, name, vector, is_packed)
@@ -2296,7 +2296,7 @@ function reopen_zgroup_child!(group::ZGroup, name::AbstractString)::Nothing
         Zarr.ZarrFormat(3);
         path = child_zarr_path(group, name),
         fill_as_missing = false,
-    )  # NOJET
+    )
     if child isa ZArray
         group.arrays[name] = child
     elseif child isa ZGroup
@@ -2404,7 +2404,7 @@ function replace_reorder_vector(
         )
         delete_child(group, planned.name)
         array = dense_zcreate(String, group, planned.name, false, (length(permuted),))
-        array[:] = permuted  # NOJET
+        array[:] = permuted
     elseif source_vector isa SparseVector
         T = eltype(source_vector)
         I = eltype(SparseArrays.nonzeroinds(source_vector))
@@ -2460,7 +2460,7 @@ function replace_reorder_matrix(
         permute_matrix_into!(permuted, source_matrix, planned_rows, planned_columns, replacement_progress)
         delete_child(group, planned.name)
         array = dense_zcreate(String, group, planned.name, false, (nrows, ncols))
-        array[:, :] = permuted  # NOJET
+        array[:, :] = permuted
     elseif source_matrix isa SparseMatrixCSC
         T = eltype(source_matrix)
         I = eltype(source_matrix.colptr)

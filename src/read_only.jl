@@ -43,7 +43,7 @@ function read_only(daf::DafReader; name::Maybe{AbstractString} = nothing)::DafRe
     if name === nothing
         name = daf.name * ".read_only"
     end
-    name = unique_name(name)  # NOJET
+    name = unique_name(name)
     wrapper = DafReadOnlyWrapper(name, daf.internal, daf)
     @debug "Daf: $(brief(wrapper)) base: $(daf)" _group = :daf_repose
     return wrapper
@@ -223,7 +223,7 @@ function Formats.format_description_footer(  # UNTESTED
     @assert Formats.has_data_read_lock(read_only_view)
     if deep
         push!(lines, "$(indent)base:")
-        description(read_only_view.daf, indent * "  ", lines; cache, deep, tensors)  # NOJET
+        description(read_only_view.daf, indent * "  ", lines; cache, deep, tensors)
     end
     return nothing
 end

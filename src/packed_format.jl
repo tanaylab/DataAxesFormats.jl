@@ -309,7 +309,7 @@ end
 function http_range_get(url::AbstractString, offset::Integer, nbytes::Integer)::Vector{UInt8}
     range_header = "bytes=$(offset)-$(offset + nbytes - 1)"
     response = try
-        HTTP.get(url; headers = ["Range" => range_header], retry = false, status_exception = false)  # NOJET
+        HTTP.get(url; headers = ["Range" => range_header], retry = false, status_exception = false)
     catch exception
         error(chomp("""  # UNTESTED
                     HTTP Range GET error: $(exception)
@@ -336,7 +336,7 @@ end
 function http_range_get_suffix(url::AbstractString, n_bytes::Integer)::Vector{UInt8}
     range_header = "bytes=-$(n_bytes)"
     response = try
-        HTTP.get(url; headers = ["Range" => range_header], retry = false, status_exception = false)  # NOJET
+        HTTP.get(url; headers = ["Range" => range_header], retry = false, status_exception = false)
     catch exception
         error(chomp("""  # UNTESTED
                     HTTP suffix Range GET error: $(exception)
@@ -837,7 +837,7 @@ function StripedVector(
         () -> nothing,
         flat_chunk_byte_range_closure(shape, chunk_shape, sizeof(T)),
         byte_fetcher,
-        LRUCache.LRU{CartesianIndex{1}, Array{T, 1}}(; maxsize = capacity),  # NOJET
+        LRUCache.LRU{CartesianIndex{1}, Array{T, 1}}(; maxsize = capacity),
     )
 end
 
@@ -1100,7 +1100,7 @@ function decode_zip_entry(
     end
     full_chunk = Array{T}(undef, chunk_shape)
     if method == STORED_COMPRESSION_METHOD || method == ZSTD_COMPRESSION_METHOD
-        Zarr.pipeline_decode!(inner_pipeline, full_chunk, encoded)  # NOJET
+        Zarr.pipeline_decode!(inner_pipeline, full_chunk, encoded)
     elseif method == DEFLATE_COMPRESSION_METHOD
         raw_bytes = transcode(DeflateDecompressor, encoded)
         array_bytes_pipeline = Zarr.V3Pipeline((), inner_pipeline.array_bytes, ())
@@ -1965,7 +1965,7 @@ function rewrite_index_only_as_dual_format_shard(
     source_metadata = build_shard_metadata(T, shape, inner_chunk_shape, bytes_bytes_codecs, source_index_location)
     decoded = Array{T}(undef, shape)
     source_bytes = open(io -> Mmap.mmap(io, Vector{UInt8}), source_path, "r")
-    Zarr.pipeline_decode!(source_metadata.pipeline, decoded, source_bytes)  # NOJET
+    Zarr.pipeline_decode!(source_metadata.pipeline, decoded, source_bytes)
     write(destination_path, encode_packed_dense_array(decoded, inner_chunk_shape, bytes_bytes_codecs))
     return nothing
 end
@@ -2015,11 +2015,11 @@ function extract_inner_chunk(
     starts = ntuple(dim -> (coord[dim] - 1) * inner_chunk_shape[dim] + 1, Val(N))  # NOJET
     stops = ntuple(dim -> min(coord[dim] * inner_chunk_shape[dim], size(data, dim)), Val(N))  # NOJET
     if all(stops .- starts .+ 1 .== inner_chunk_shape)
-        return view(data, ntuple(dim -> starts[dim]:stops[dim], Val(N))...)  # NOJET
+        return view(data, ntuple(dim -> starts[dim]:stops[dim], Val(N))...)
     else
         padded = fill(fill_value, inner_chunk_shape)
-        live_view = view(padded, ntuple(dim -> 1:(stops[dim] - starts[dim] + 1), Val(N))...)  # NOJET
-        live_view .= view(data, ntuple(dim -> starts[dim]:stops[dim], Val(N))...)  # NOJET
+        live_view = view(padded, ntuple(dim -> 1:(stops[dim] - starts[dim] + 1), Val(N))...)
+        live_view .= view(data, ntuple(dim -> starts[dim]:stops[dim], Val(N))...)
         return padded
     end
 end

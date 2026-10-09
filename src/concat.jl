@@ -1362,7 +1362,7 @@ function sparsify_concatenated_vectors(
             @assert length(vector) == size
             vector = vector.array
             if !issparse(vector)
-                vector = sparse_vector(vector)
+                vector = sparse_vector(vector)  # NOJET
             end
             sparse_vectors[source_index] = vector
         end

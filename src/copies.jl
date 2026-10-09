@@ -238,7 +238,7 @@ source axis contains entries that do not exist in the target, they are discarded
                 overwrite,
                 packed,
             ) do sparse_nzind, sparse_nzval
-                sparse_nzind .= nzind(value.array)  # NOJET
+                sparse_nzind .= nzind(value.array)
                 sparse_nzval .= nzval(value.array)
                 return nothing
             end
@@ -266,7 +266,7 @@ source axis contains entries that do not exist in the target, they are discarded
             dense = Vector{concrete_eltype}(undef, axis_length(destination, reaxis))
             named = as_named_vector(destination, reaxis, dense)
             named .= empty
-            named[names(value, 1)] .= value  # NOJET
+            named[names(value, 1)] .= value
             value = issparse(value.array) && !(concrete_eltype <: AbstractString) ? sparse_vector(dense) : dense
             set_vector!(destination, reaxis, rename, value; overwrite, packed)
         else
@@ -513,7 +513,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
             )
             named = as_named_matrix(destination, rows_reaxis, columns_reaxis, dense)
             named .= empty
-            named[names(value, 1), names(value, 2)] .= value  # NOJET
+            named[names(value, 1), names(value, 2)] .= value
             if concrete_eltype <: AbstractString
                 set_matrix!(destination, rows_reaxis, columns_reaxis, rename, dense; overwrite, relayout, packed)  # UNTESTED
             else

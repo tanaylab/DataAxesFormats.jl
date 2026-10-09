@@ -82,7 +82,7 @@ function computation_wrapper(single_contract::Contract, name::AbstractString, in
 end
 
 function computation_wrapper(first_contract::Contract, second_contract::Contract, name::AbstractString, inner_function) # UNTESTED
-    return (args...; kwargs...) -> (  # NOJET
+    return (args...; kwargs...) -> (
         #! format: off
         @assert (first_contract.name === nothing) + (second_contract.name === nothing) <= 1 (
             "at most one of two contracts can be an unnamed parameter"
@@ -91,7 +91,7 @@ function computation_wrapper(first_contract::Contract, second_contract::Contract
         (first_name, first_daf) = args_daf(name, first_contract, args, kwargs);
         (second_name, second_daf) = args_daf(name, second_contract, args, kwargs);
         first_contract_daf = contractor(name, first_contract, first_daf; name = first_name, overwrite);
-        second_contract_daf = contractor(name, second_contract, second_daf; name = second_name, overwrite);  # NOJET
+        second_contract_daf = contractor(name, second_contract, second_daf; name = second_name, overwrite);
         (args, kwargs) = patch_args(first_contract, first_contract_daf, args, kwargs);
         (args, kwargs) = patch_args(second_contract, second_contract_daf, args, kwargs);
         verify_input(first_contract_daf);
@@ -111,7 +111,7 @@ function computation_wrapper(
     name::AbstractString,
     inner_function,
 )
-    return (args...; kwargs...) -> (  # NOJET
+    return (args...; kwargs...) -> (
         #! format: off
         @assert (
             (first_contract.name === nothing) +
@@ -123,8 +123,8 @@ function computation_wrapper(
         (second_name, second_daf) = args_daf(name, second_contract, args, kwargs);
         (third_name, third_daf) = args_daf(name, third_contract, args, kwargs);
         first_contract_daf = contractor(name, first_contract, first_daf; name = first_name, overwrite);
-        second_contract_daf = contractor(name, second_contract, second_daf; name = second_name, overwrite);  # NOJET
-        third_contract_daf = contractor(name, third_contract, third_daf; name = third_name, overwrite);  # NOJET
+        second_contract_daf = contractor(name, second_contract, second_daf; name = second_name, overwrite);
+        third_contract_daf = contractor(name, third_contract, third_daf; name = third_name, overwrite);
         (args, kwargs) = patch_args(first_contract, first_contract_daf, args, kwargs);
         (args, kwargs) = patch_args(second_contract, second_contract_daf, args, kwargs);
         (args, kwargs) = patch_args(third_contract, third_contract_daf, args, kwargs);
@@ -203,7 +203,7 @@ macro computation(contract, definition)
     )
 
     inner_definition[:name] = Symbol(function_name, :_compute)
-    outer_definition[:body] = Expr(
+    outer_definition[:body] = Expr(  # NOJET
         :call,
         :(DataAxesFormats.Computations.computation_wrapper(
             $function_module.__TLU_FUNCTION_METADATA__[Symbol($function_name)].contracts[1],

@@ -261,7 +261,7 @@ function reserve_virtual_range(byte_length::Integer)::Ptr{Cvoid}
 end
 
 @inline function raw_reserve_virtual_range(byte_length::Integer)::Ptr{Cvoid}
-    return ccall(  # NOJET
+    return ccall(
         :mmap,
         Ptr{Cvoid},
         (Ptr{Cvoid}, Csize_t, Cint, Cint, Cint, Int64),
@@ -280,7 +280,7 @@ end
 # file-backed MAP_SHARED mappings whose length exceeds the file size).
 function overlay_file_on_range!(base::Ptr{Cvoid}, io_stream::IOStream, byte_length::Integer)::Nothing
     file_desc = Cint(reinterpret(Int32, fd(io_stream)))
-    ptr = ccall(  # NOJET
+    ptr = ccall(
         :mmap,
         Ptr{Cvoid},
         (Ptr{Cvoid}, Csize_t, Cint, Cint, Cint, Int64),

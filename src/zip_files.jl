@@ -1181,7 +1181,7 @@ function Formats.format_set_matrix!(
                 "matrices/$(rows_axis)/$(columns_axis)/$(name)",
                 matrix,
                 chunk_shape,
-            )  # NOJET
+            )
         else
             zip_daf.store[entry_key(zip_daf, "matrices/", rows_axis, "/", columns_axis, "/", name, ".json")] =
                 dense_array_json_bytes(eltype(matrix))

@@ -153,7 +153,7 @@ function cast_vector(vector::AbstractVector{<:AbstractString})::AbstractVector
         vector = parse.(Float32, vector)
         for type in (UInt32, Int32)
             try
-                return type.(vector)  # NOJET
+                return type.(vector)
             catch  # UNTESTED
             end
         end

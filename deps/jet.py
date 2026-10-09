@@ -10,6 +10,13 @@ read_path = None
 read_lines = {}
 unused_lines = {}
 bad_paths = set()
+# The files of this package. Only their NOJET directives disable reports, so each package disables the reports of its own
+# analysis in its own files, and only these are checked for unused NOJET directives.
+local_paths = set()
+
+def normalized(path):
+    # The same file may be reached through several paths (e.g. through a symbolic link), so it is keyed by its real path.
+    return os.path.relpath(os.path.realpath(path))
 
 def load_file(path):
     global read_lines
@@ -38,7 +45,7 @@ def is_local(line):
     return os.path.basename(os.getcwd()) in line
 
 def is_disabled(path, line):
-    path = os.path.relpath(path)
+    path = normalized(path)
     if not load_file(path):
         return False
 
@@ -46,14 +53,11 @@ def is_disabled(path, line):
     if line >= len(read_lines[path]):
         return True  # macro-expanded line beyond file end; skip
     unused_lines[path][line] = ""
-    return "NOJET" in read_lines[path][line]
+    return path in local_paths and "NOJET" in read_lines[path][line]
 
-for path in glob("src/*.jl"):
-    path = os.path.relpath(path)
-    load_file(path)
-
-for path in glob("test/*.jl"):
-    path = os.path.relpath(path)
+for path in glob("src/*.jl") + glob("test/*.jl"):
+    path = normalized(path)
+    local_paths.add(path)
     load_file(path)
 
 context_lines = []
@@ -117,9 +121,9 @@ for line in fileinput.input():
     context_changed = False
 
 unused = 0
-for path, lines in unused_lines.items():
-    for line_index, line_text in enumerate(lines):
-        if "NOJET" in line_text and ".jl/" in line_text:
+for path in sorted(local_paths):
+    for line_index, line_text in enumerate(unused_lines.get(path, [])):
+        if "NOJET" in line_text:
             if unused == 0:
                 print("")
             unused += 1
