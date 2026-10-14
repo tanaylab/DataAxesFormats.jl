@@ -256,6 +256,11 @@ function Formats.format_get_vector(
     return (memory.vectors[axis][name], nothing, nothing)
 end
 
+function Formats.format_vector_metadata(memory::MemoryDaf, axis::AbstractString, name::AbstractString)::PropertyMetadata
+    @assert Formats.has_data_read_lock(memory)
+    return Formats.array_metadata(memory.vectors[axis][name])
+end
+
 function Formats.format_has_matrix(
     memory::MemoryDaf,
     rows_axis::AbstractString,
@@ -391,100 +396,14 @@ function Formats.format_get_matrix(
     return (memory.matrices[rows_axis][columns_axis][name], nothing, nothing)
 end
 
-# Allocate a permuted copy of a dense or sparse storage vector. The caller passes both the forward and the cached
-# inverse permutation so sparse and dense branches can each pick the one their kernel expects.
-function stage_permuted_vector(
-    source::StorageVector,
-    permutation::AbstractVector{<:Integer},
-    inverse_permutation::AbstractVector{<:Integer},
-    replacement_progress::Maybe{AbstractProgress},
-)::StorageVector
-    if source isa SparseVector
-        destination_nzind = similar(SparseArrays.nonzeroinds(source))
-        destination_nzval = similar(SparseArrays.nonzeros(source))
-        permute_sparse_vector!(;
-            destination_nzind,
-            destination_nzval,
-            source,
-            inverse_permutation,
-            progress = replacement_progress,
-        )
-        return SparseVector(length(source), destination_nzind, destination_nzval)
-    else
-        destination = similar(source)
-        permute_vector!(; destination, source, permutation, progress = replacement_progress)
-        return destination
-    end
-end
-
-# Allocate a permuted copy of a dense or sparse storage matrix, dispatching on which sides of the matrix are being
-# reordered. `rows_permutation === nothing` means the rows axis is not permuted; likewise for `columns_permutation`.
-# At least one of the two must be non-`nothing` — matrices untouched by the reorder are never staged.
-function stage_permuted_matrix(
-    source::StorageMatrix,
-    rows_permutation::Maybe{AbstractVector{<:Integer}},
-    inverse_rows_permutation::Maybe{AbstractVector{<:Integer}},
-    columns_permutation::Maybe{AbstractVector{<:Integer}},
-    replacement_progress::Maybe{AbstractProgress},
-)::StorageMatrix
-    @assert rows_permutation !== nothing || columns_permutation !== nothing
-    if source isa SparseMatrixCSC
-        destination_colptr = similar(source.colptr)
-        destination_rowval = similar(source.rowval)
-        destination_nzval = similar(source.nzval)
-        if rows_permutation !== nothing && columns_permutation !== nothing
-            permute_sparse_matrix_both!(;
-                destination_colptr,
-                destination_rowval,
-                destination_nzval,
-                source,
-                inverse_rows_permutation,
-                columns_permutation,
-                progress = replacement_progress,
-            )
-        elseif rows_permutation !== nothing
-            permute_sparse_matrix_rows!(;
-                destination_colptr,
-                destination_rowval,
-                destination_nzval,
-                source,
-                inverse_rows_permutation,
-                progress = replacement_progress,
-            )
-        else
-            permute_sparse_matrix_columns!(;
-                destination_colptr,
-                destination_rowval,
-                destination_nzval,
-                source,
-                columns_permutation,
-                progress = replacement_progress,
-            )
-        end
-        return SparseMatrixCSC(
-            size(source, 1),
-            size(source, 2),
-            destination_colptr,
-            destination_rowval,
-            destination_nzval,
-        )
-    else
-        destination = similar(source)
-        if rows_permutation !== nothing && columns_permutation !== nothing
-            permute_dense_matrix_both!(;
-                destination,
-                source,
-                rows_permutation,
-                columns_permutation,
-                progress = replacement_progress,
-            )
-        elseif rows_permutation !== nothing
-            permute_dense_matrix_rows!(; destination, source, rows_permutation, progress = replacement_progress)
-        else
-            permute_dense_matrix_columns!(; destination, source, columns_permutation, progress = replacement_progress)
-        end
-        return destination
-    end
+function Formats.format_matrix_metadata(
+    memory::MemoryDaf,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+)::PropertyMetadata
+    @assert Formats.has_data_read_lock(memory)
+    return Formats.array_metadata(memory.matrices[rows_axis][columns_axis][name])
 end
 
 function Reorder.format_lock_reorder!(memory::MemoryDaf, ::AbstractString)::Nothing
@@ -535,28 +454,17 @@ function Reorder.format_replace_reorder!(
 
     for planned in plan.planned_vectors
         source_vector = memory.reorder_backup.old_vectors[(planned.axis, planned.name)]
-        planned_axis = plan.planned_axes[planned.axis]
-        memory.vectors[planned.axis][planned.name] = stage_permuted_vector(
-            source_vector,
-            planned_axis.permutation,
-            planned_axis.inverse_permutation,
-            replacement_progress,
-        )
+        memory.vectors[planned.axis][planned.name] =
+            Reorder.stage_permuted_vector(source_vector, plan.planned_axes[planned.axis], replacement_progress)
         Reorder.tick_crash_counter!(crash_counter)
     end
 
     for planned in plan.planned_matrices
         source_matrix = memory.reorder_backup.old_matrices[(planned.rows_axis, planned.columns_axis, planned.name)]
-        planned_rows_axis = get(plan.planned_axes, planned.rows_axis, nothing)
-        planned_columns_axis = get(plan.planned_axes, planned.columns_axis, nothing)
-        rows_permutation = planned_rows_axis === nothing ? nothing : planned_rows_axis.permutation
-        inverse_rows_permutation = planned_rows_axis === nothing ? nothing : planned_rows_axis.inverse_permutation
-        columns_permutation = planned_columns_axis === nothing ? nothing : planned_columns_axis.permutation
-        memory.matrices[planned.rows_axis][planned.columns_axis][planned.name] = stage_permuted_matrix(
+        memory.matrices[planned.rows_axis][planned.columns_axis][planned.name] = Reorder.stage_permuted_matrix(
             source_matrix,
-            rows_permutation,
-            inverse_rows_permutation,
-            columns_permutation,
+            get(plan.planned_axes, planned.rows_axis, nothing),
+            get(plan.planned_axes, planned.columns_axis, nothing),
             replacement_progress,
         )
         Reorder.tick_crash_counter!(crash_counter)

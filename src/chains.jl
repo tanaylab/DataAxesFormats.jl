@@ -751,11 +751,11 @@ function Formats.format_get_vector(
     @assert false
 end
 
-function Formats.format_is_packed_vector(chain::AnyChain, axis::AbstractString, name::AbstractString)::Bool
+function Formats.format_vector_metadata(chain::AnyChain, axis::AbstractString, name::AbstractString)::PropertyMetadata
     @assert Formats.has_data_read_lock(chain)
     for daf in reverse(chain.dafs)
         if Formats.format_has_axis(daf, axis; for_change = false) && Formats.format_has_vector(daf, axis, name)
-            return Formats.format_is_packed_vector(daf, axis, name)
+            return Formats.format_vector_metadata(daf, axis, name)
         end
     end
     @assert false
@@ -1012,18 +1012,18 @@ function Formats.format_get_matrix(
     @assert false
 end
 
-function Formats.format_is_packed_matrix(
+function Formats.format_matrix_metadata(
     chain::AnyChain,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-)::Bool
+)::PropertyMetadata
     @assert Formats.has_data_read_lock(chain)
     for daf in reverse(chain.dafs)
         if Formats.format_has_axis(daf, rows_axis; for_change = false) &&
            Formats.format_has_axis(daf, columns_axis; for_change = false) &&
            Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
-            return Formats.format_is_packed_matrix(daf, rows_axis, columns_axis, name)
+            return Formats.format_matrix_metadata(daf, rows_axis, columns_axis, name)
         end
     end
     @assert false

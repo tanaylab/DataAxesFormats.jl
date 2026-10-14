@@ -168,20 +168,7 @@ nested_test("copy_packed") do
             files_path = joinpath(source_path, "served.daf")
             source = FilesDaf(files_path, "w+"; name = "http_src!", packed = true)
             populate_source!(source)
-            handler = request -> begin
-                key = String(lstrip(request.target, '/'))
-                if occursin("..", key)
-                    return HTTP.Response(404, "Error: bad key $(key)")  # UNTESTED
-                end
-                file_path = "$(files_path)/$(key)"
-                if !isfile(file_path)
-                    return HTTP.Response(404, "Error: Key $(key) not found")  # UNTESTED
-                end
-                return respond_with_range(read(file_path), request)
-            end
-            server = HTTP.serve!(handler, Sockets.localhost, 0; listenany = true)
-            try
-                url = "http://localhost:$(server.listener.hostport)"
+            with_served_directory(files_path) do url
                 http_source = HttpDaf(url)
                 mktempdir() do destination_path
                     destination = FilesDaf(joinpath(destination_path, "dst.daf"), "w+"; name = "dst!", packed = false)
@@ -189,8 +176,7 @@ nested_test("copy_packed") do
                     verify_destination(destination)
                     return nothing
                 end
-            finally
-                close(server)
+                return nothing
             end
             return nothing
         end

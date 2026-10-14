@@ -477,83 +477,175 @@ function resolve_packed(per_call::Maybe{Bool}, daf::DafReader)::Bool
     end
 end
 
-# Per-thread fill state used by `PackedDenseMatrix`. Each thread holds at most one column at a time in `chunk_buffer`,
-# reused across columns. `current_column` is `0` while the slot is uninitialized; it becomes the column index once the
-# user starts writing to a column.
-mutable struct PackedThreadSlot{T}
-    current_column::Int
-    chunk_buffer::Vector{T}
-end
-
-# Streaming write wrapper handed to user code by `format_get_empty_dense_matrix!` when packing is requested. Each
-# thread fills one column at a time through `view(matrix, :, column)`; switching to a different column on the same
-# thread triggers `encoder(prev_column, chunk_buffer)` to flush the previous column's chunk before the buffer is
-# reused. Cross-thread column order is unconstrained; the only contract is that no two threads ever touch the same
-# column and that each column is completely filled by its thread before that thread moves on.
+# Streaming write wrapper handed to user code by `format_get_empty_dense_matrix!` when packing is requested. Every write
+# is a whole column (or several), and each column is encoded as soon as it is written: `matrix[:, column] = values`,
+# `matrix[:, column] .= ...`, `view(matrix, :, column) .= ...`, the same for a range of columns, `matrix .= ...`, or
+# [`fill_column!`](@ref). Element reads and writes are not supported. Column buffers come from a `ReusableStorage`, so
+# any number of tasks may write different columns at the same time, with any scheduling.
 struct PackedDenseMatrix{T} <: AbstractMatrix{T}  # NOLINT
     n_rows::Int
     n_columns::Int
-    thread_slots::Vector{PackedThreadSlot{T}}
+    buffers::ReusableStorage{Vector{T}}
     encoder::Function
     finalizer::Function
 end
 
 # Allocate a `PackedDenseMatrix` over the given encoder. The encoder closure has signature
-# `(column::Int, chunk_buffer::Vector{T}) -> Nothing` and writes the chunk for `column` (the buffer's contents) to
-# storage. The optional `finalizer` closure (signature `() -> Nothing`) runs once after every column slot has been
-# flushed; it lets the format-level write path commit any per-array post-processing (e.g. emitting a shard index
-# footer).
+# `(column::Int, values::Vector{T}) -> Nothing` and writes the column's values to storage. It only reads `values` and
+# keeps no reference to them. The optional `finalizer` closure (signature `() -> Nothing`) runs once after all the
+# columns were written; it lets the format-level write path commit any per-array post-processing (e.g. emitting a shard
+# index footer).
 function PackedDenseMatrix{T}(
     n_rows::Int,
     n_columns::Int,
     encoder::Function;
     finalizer::Function = () -> nothing,
 )::PackedDenseMatrix{T} where {T}
-    thread_slots = [PackedThreadSlot{T}(0, Vector{T}(undef, n_rows)) for _ in 1:maxthreadid()]
-    return PackedDenseMatrix{T}(n_rows, n_columns, thread_slots, encoder, finalizer)
+    buffers = ReusableStorage(() -> Vector{T}(undef, n_rows))
+    return PackedDenseMatrix{T}(n_rows, n_columns, buffers, encoder, finalizer)
 end
 
 function Base.size(matrix::PackedDenseMatrix)::Tuple{Int, Int}
     return (matrix.n_rows, matrix.n_columns)
 end
 
-function Base.view(matrix::PackedDenseMatrix{T}, ::Colon, column::Int)::Vector{T} where {T}
-    @assert 1 <= column <= matrix.n_columns
-    slot = matrix.thread_slots[threadid()]
-    if slot.current_column == column
-        return slot.chunk_buffer
-    end
-    if slot.current_column != 0
-        matrix.encoder(slot.current_column, slot.chunk_buffer)
-    end
-    slot.current_column = column
-    return slot.chunk_buffer
-end
-
-function Base.getindex(matrix::PackedDenseMatrix{T}, row::Int, column::Int)::T where {T}
-    return view(matrix, :, column)[row]
-end
-
-function Base.setindex!(matrix::PackedDenseMatrix{T}, value, row::Int, column::Int)::T where {T}
-    column_view = view(matrix, :, column)
-    column_view[row] = value
-    return T(value)
-end
-
 function TanayLabUtilities.MatrixLayouts.major_axis(::PackedDenseMatrix)::Maybe{Int8}
     return TanayLabUtilities.MatrixLayouts.Columns
 end
 
-# Flush every active thread slot's chunk via `matrix.encoder` and reset the slot. Called by the format-level
-# `format_filled_empty_dense_matrix!` so the last-written column on each thread is committed to disk before the
-# wrapper goes out of scope.
-function flush_packed_dense_matrix!(matrix::PackedDenseMatrix)::Nothing
-    for slot in matrix.thread_slots
-        if slot.current_column != 0
-            matrix.encoder(slot.current_column, slot.chunk_buffer)
-            slot.current_column = 0
+# The generic `brief` of a `Bool` matrix counts its `true` values, which would read elements.
+function TanayLabUtilities.Brief.brief(matrix::PackedDenseMatrix{T})::String where {T}
+    return "$(delimited_number(matrix.n_rows)) x $(delimited_number(matrix.n_columns)) x $(T) in Columns (Packed)"
+end
+
+# Write one column of a matrix. `fill(buffer)` must set every entry of the column buffer, without keeping a reference to
+# it. For a `PackedDenseMatrix` the buffer is then encoded, and reused for other columns.
+function fill_column!(fill::Function, matrix::PackedDenseMatrix, column::Integer)::Nothing
+    @assert 1 <= column <= matrix.n_columns
+    with_reusable(matrix.buffers) do buffer
+        fill(buffer)
+        matrix.encoder(Int(column), buffer)
+        return nothing
+    end
+    return nothing
+end
+
+# For any other (in-memory or memory-mapped) dense matrix, `fill` writes straight into the column.
+function fill_column!(fill::Function, matrix::AbstractMatrix, column::Integer)::Nothing
+    fill(view(matrix, :, column))
+    return nothing
+end
+
+# A ready `Vector{T}` is encoded directly; any other vector is first copied into a column buffer.
+function Base.setindex!(
+    matrix::PackedDenseMatrix{T},
+    values::AbstractVector,
+    ::Colon,
+    column::Integer,
+)::PackedDenseMatrix{T} where {T}
+    @assert length(values) == matrix.n_rows
+    if values isa Vector{T}
+        @assert 1 <= column <= matrix.n_columns
+        matrix.encoder(Int(column), values)
+    else
+        fill_column!(buffer -> copyto!(buffer, values), matrix, column)
+    end
+    return matrix
+end
+
+function Base.setindex!(
+    matrix::PackedDenseMatrix{T},
+    values::AbstractMatrix,
+    ::Colon,
+    columns::AbstractUnitRange{<:Integer},
+)::PackedDenseMatrix{T} where {T}
+    @assert size(values) == (matrix.n_rows, length(columns))
+    for (position, column) in enumerate(columns)
+        matrix[:, column] = view(values, :, position)
+    end
+    return matrix
+end
+
+# The target of a broadcast assignment to one column, or a range of columns, of a `PackedDenseMatrix`
+# (`matrix[:, column] .= ...`, `view(matrix, :, column) .= ...`). It holds no data and can't be indexed.
+struct PackedDenseColumns{T, C <: Union{Integer, AbstractUnitRange{<:Integer}}}
+    matrix::PackedDenseMatrix{T}
+    columns::C
+end
+
+function Base.view(
+    matrix::PackedDenseMatrix{T},
+    ::Colon,
+    columns::Union{Integer, AbstractUnitRange{<:Integer}},
+)::PackedDenseColumns{T} where {T}
+    return PackedDenseColumns(matrix, columns)
+end
+
+function Base.dotview(
+    matrix::PackedDenseMatrix{T},
+    ::Colon,
+    columns::Union{Integer, AbstractUnitRange{<:Integer}},
+)::PackedDenseColumns{T} where {T}
+    return PackedDenseColumns(matrix, columns)
+end
+
+function Base.materialize!(
+    target::PackedDenseColumns{T, <:Integer},
+    broadcasted::Base.Broadcast.Broadcasted,
+)::PackedDenseColumns{T} where {T}
+    fill_column!(buffer -> Base.materialize!(buffer, broadcasted), target.matrix, target.columns)
+    return target
+end
+
+function Base.materialize!(
+    target::PackedDenseColumns{T, <:AbstractUnitRange},
+    broadcasted::Base.Broadcast.Broadcasted,
+)::PackedDenseColumns{T} where {T}
+    fill_columns!(target.matrix, target.columns, broadcasted)
+    return target
+end
+
+function Base.materialize!(
+    matrix::PackedDenseMatrix{T},
+    broadcasted::Base.Broadcast.Broadcasted,
+)::PackedDenseMatrix{T} where {T}
+    fill_columns!(matrix, 1:(matrix.n_columns), broadcasted)
+    return matrix
+end
+
+# Write the `columns` of a matrix from a broadcast of their shape, one column at a time.
+function fill_columns!(
+    matrix::PackedDenseMatrix,
+    columns::AbstractUnitRange{<:Integer},
+    broadcasted::Base.Broadcast.Broadcasted,
+)::Nothing
+    if broadcasted.f === identity &&
+       length(broadcasted.args) == 1 &&
+       broadcasted.args[1] isa AbstractMatrix &&
+       size(broadcasted.args[1]) == (matrix.n_rows, length(columns))
+        # Assigning a matrix of the same shape copies each of its columns as a whole.
+        source = broadcasted.args[1]
+        for (position, column) in enumerate(columns)
+            fill_column!(buffer -> copyto!(buffer, view(source, :, position)), matrix, column)
+        end
+    else
+        shape = (Base.OneTo(matrix.n_rows), Base.OneTo(length(columns)))
+        instantiated = Base.Broadcast.instantiate(Base.Broadcast.Broadcasted(broadcasted.f, broadcasted.args, shape))
+        for (position, column) in enumerate(columns)
+            fill_column!(matrix, column) do buffer
+                for row in 1:(matrix.n_rows)
+                    buffer[row] = instantiated[CartesianIndex(row, position)]
+                end
+                return nothing
+            end
         end
     end
+    return nothing
+end
+
+# Every column was already encoded when it was written; this commits the per-array post-processing. Called by the
+# format-level `format_filled_empty_dense_matrix!`.
+function flush_packed_dense_matrix!(matrix::PackedDenseMatrix)::Nothing
     matrix.finalizer()
     return nothing
 end
@@ -574,6 +666,39 @@ function TanayLabUtilities.MatrixLayouts.unnamed_relayout(
         return nothing
     end
     return destination
+end
+
+# The materialization of a lazy array: a concrete copy, built once on first use and then shared. Concurrent first
+# callers wait for a single build instead of each building their own.
+mutable struct MaterializationCell{T}
+    @atomic value::Union{Nothing, T}
+    const lock::ReentrantLock
+end
+
+function MaterializationCell{T}()::MaterializationCell{T} where {T}
+    return MaterializationCell{T}(nothing, ReentrantLock())
+end
+
+# The materialization if it was already built, or `nothing`. Never builds it, and takes no lock.
+function existing_materialization(cell::MaterializationCell{T})::Maybe{T} where {T}
+    return @atomic :acquire cell.value
+end
+
+# The materialization, built by `build()` on first use.
+function materialization!(build::Function, cell::MaterializationCell{T})::T where {T}
+    value = @atomic :acquire cell.value
+    if value !== nothing
+        return value
+    end
+    return lock(cell.lock) do
+        existing = @atomic :acquire cell.value
+        if existing !== nothing
+            return existing
+        end
+        built = build()::T
+        @atomic :release cell.value = built
+        return built
+    end
 end
 
 # `DiskArrays.AbstractDiskArray` wrapper for an N-dimensional numeric array served as a byte stream via the
@@ -639,17 +764,18 @@ function DiskArrays.readblock!(
     last_chunk_coords = ntuple(dim -> (last(ranges[dim]) - 1) ÷ array.chunk_shape[dim] + 1, N)
     chunk_range = CartesianIndices(ntuple(dim -> first_chunk_coords[dim]:last_chunk_coords[dim], N))
 
+    # The cache is never read back after fetching: a read may span more chunks than it holds, and other threads may
+    # evict chunks at any time. So each chunk is copied into the destination as soon as it is at hand.
     missing_chunk_coords = CartesianIndex{N}[]
     for chunk_coords in chunk_range
-        if !haskey(array.cache, chunk_coords)
+        chunk = get(array.cache, chunk_coords, nothing)  # NOJET
+        if chunk === nothing
             push!(missing_chunk_coords, chunk_coords)
+        else
+            copy_chunk_into_destination!(destination, chunk, chunk_coords, array.chunk_shape, ranges)
         end
     end
-    fetch_chunks_coalesced!(array, missing_chunk_coords)
-
-    for chunk_coords in chunk_range
-        copy_chunk_into_destination!(destination, array.cache[chunk_coords], chunk_coords, array.chunk_shape, ranges)
-    end
+    fetch_chunks_coalesced!(array, missing_chunk_coords, destination, ranges)
     return nothing
 end
 
@@ -683,17 +809,20 @@ function copy_chunk_into_destination!(
         last_in_chunk = copy_last_in_array[dim] - chunk_first_in_array[dim] + 1
         return first_in_chunk:last_in_chunk
     end
-    @views destination[destination_ranges...] .= chunk[chunk_ranges...]  # NOJET
+    @views destination[destination_ranges...] .= chunk[chunk_ranges...]
     return nothing
 end
 
 # Sort missing chunks by byte offset, group consecutive ones into byte-contiguous Range GET spans (gap ≤
-# `DAF_HTTP_MAX_COALESCE_GAP_KB`), fetch each span, decode each chunk via `array.decode_chunk`, and populate the
-# cache. Empty chunks (those for which `array.chunk_byte_range` returns `nothing`, i.e. packed fill chunks) are
-# cached as zero-filled tiles without any HTTP traffic.
+# `DAF_HTTP_MAX_COALESCE_GAP_KB`), fetch each span, decode each chunk via `array.decode_chunk`, copy it into the
+# `destination` slice of the requested `ranges`, and populate the cache. Empty chunks (those for which
+# `array.chunk_byte_range` returns `nothing`, i.e. packed fill chunks) become zero-filled tiles without any HTTP
+# traffic.
 function fetch_chunks_coalesced!(
     array::ChunkedArray{T, N},
     missing_chunk_coords::Vector{CartesianIndex{N}},
+    destination::AbstractArray{<:Any, N},
+    ranges::NTuple{N, <:AbstractUnitRange},
 )::Nothing where {T, N}
     if isempty(missing_chunk_coords)
         return nothing
@@ -709,7 +838,9 @@ function fetch_chunks_coalesced!(
         end
     end
     for chunk_coords in empty_chunk_coords
-        array.cache[chunk_coords] = zeros(T, chunk_shape_in_array(array, chunk_coords))  # NOJET  # UNTESTED
+        chunk = zeros(T, chunk_shape_in_array(array, chunk_coords))  # UNTESTED
+        copy_chunk_into_destination!(destination, chunk, chunk_coords, array.chunk_shape, ranges)  # UNTESTED
+        array.cache[chunk_coords] = chunk  # UNTESTED
     end
 
     if isempty(nonempty_with_offset)
@@ -726,20 +857,22 @@ function fetch_chunks_coalesced!(
         if gap_n_bytes <= max_gap_bytes
             span_last_byte_end = nonempty_with_offset[next_index][3]
         else
-            fetch_chunk_span!(array, nonempty_with_offset, span_first_index, next_index - 1)
+            fetch_chunk_span!(array, destination, ranges, nonempty_with_offset, span_first_index, next_index - 1)
             span_first_index = next_index
             span_last_byte_end = nonempty_with_offset[next_index][3]
         end
     end
-    fetch_chunk_span!(array, nonempty_with_offset, span_first_index, length(nonempty_with_offset))
+    fetch_chunk_span!(array, destination, ranges, nonempty_with_offset, span_first_index, length(nonempty_with_offset))
     return nothing
 end
 
 # Issue one Range GET covering the byte-contiguous span from `span_first_index` through `span_last_index`
-# (inclusive, indices into `nonempty_with_offset`), decode each chunk in the span via `array.decode_chunk`, and
-# populate the cache.
+# (inclusive, indices into `nonempty_with_offset`), decode each chunk in the span via `array.decode_chunk`, copy it
+# into the `destination` slice of the requested `ranges`, and populate the cache.
 function fetch_chunk_span!(
     array::ChunkedArray{T, N},
+    destination::AbstractArray{<:Any, N},
+    ranges::NTuple{N, <:AbstractUnitRange},
     nonempty_with_offset::Vector{Tuple{CartesianIndex{N}, Int, Int, UInt16}},
     span_first_index::Int,
     span_last_index::Int,
@@ -752,8 +885,10 @@ function fetch_chunk_span!(
         chunk_coords, chunk_offset, chunk_end, chunk_method = nonempty_with_offset[span_index]
         offset_in_span = chunk_offset - first_offset
         chunk_byte_view = view(span_bytes, (offset_in_span + 1):(chunk_end - first_offset))
-        array.cache[chunk_coords] =
+        chunk =
             array.decode_chunk(Vector{UInt8}(chunk_byte_view), chunk_shape_in_array(array, chunk_coords), chunk_method)
+        copy_chunk_into_destination!(destination, chunk, chunk_coords, array.chunk_shape, ranges)
+        array.cache[chunk_coords] = chunk
     end
     return nothing
 end
@@ -904,25 +1039,23 @@ function PackedDenseArray(
     sharding_codec =
         build_shard_metadata(T, shape, chunk_shape, v3_bytes_codecs_for(codec, T), index_location).pipeline.array_bytes
     index_size = Zarr.Codecs.V3Codecs.compute_encoded_index_size(chunks_per_shard, sharding_codec)
-    shard_index_ref = Ref{Maybe{Zarr.Codecs.V3Codecs.ShardIndex{N}}}(nothing)
-
-    function ensure_index()::Nothing
-        if shard_index_ref[] !== nothing
-            return nothing
-        end
+    # Fetched and decoded once, even when several threads read the array for the first time together.
+    shard_index = OncePerProcess{Zarr.Codecs.V3Codecs.ShardIndex{N}}() do
         index_bytes = if index_location == :end
             suffix_byte_fetcher(index_size)  # UNTESTED
         else
             byte_fetcher(0, index_size)
         end
-        shard_index_ref[] = Zarr.Codecs.V3Codecs.decode_shard_index(index_bytes, chunks_per_shard, sharding_codec)
+        return Zarr.Codecs.V3Codecs.decode_shard_index(index_bytes, chunks_per_shard, sharding_codec)
+    end
+
+    function ensure_index()::Nothing
+        shard_index()
         return nothing
     end
 
     function chunk_byte_range(chunk_coords::CartesianIndex{N})::Maybe{Tuple{Int, Int, UInt16}}
-        shard_index = shard_index_ref[]
-        @assert shard_index !== nothing
-        range = Zarr.Codecs.V3Codecs.get_chunk_slice(shard_index, Tuple(chunk_coords))
+        range = Zarr.Codecs.V3Codecs.get_chunk_slice(shard_index(), Tuple(chunk_coords))
         return range === nothing ? nothing : (range[1], range[2], UInt16(0))
     end
 
@@ -986,36 +1119,36 @@ function ZipShardArray(
         CENTRAL_DIRECTORY_ENTRY_FIXED_SIZE +
         inner_chunk_name_length(chunks_per_shard, method) +
         ZIP64_CENTRAL_DIRECTORY_EXTRA_SIZE
-    cd_buffer_ref = Ref{Maybe{Vector{UInt8}}}(nothing)
     chunk_indices = CartesianIndices(chunks_per_shard)
 
-    function ensure_index()::Nothing
-        if cd_buffer_ref[] !== nothing
-            return nothing
-        end
+    # Fetched once, even when several threads read the array for the first time together.
+    cd_buffer = OncePerProcess{Vector{UInt8}}() do
         eocd_region = suffix_byte_fetcher(TRAILING_END_OF_CENTRAL_DIRECTORY_REGION_SIZE)
         # ZIP64 EOCD record sits first in the EOCD region; its signature is at byte 1 and the CD's absolute
         # offset is at byte 49 (skipping signature, record size, version-made, version-needed, disk numbers,
         # entries-on-disk, total entries, and CD size — 48 preceding bytes).
         @assert read_little_endian_uint32(eocd_region, 1) == ZIP64_END_OF_CENTRAL_DIRECTORY_SIGNATURE
         cd_offset = read_little_endian_uint64(eocd_region, 1 + 48)
-        # Materialize to a concrete `Vector{UInt8}` once at storage time so the typed `Ref` keeps every
-        # `chunk_byte_range`'s `parse_zip_central_directory_entry` calls type-stable. An abstract Ref
-        # boxes every `getindex` (measured ~1800× slowdown + N allocations per read on the hot path);
-        # one upfront copy of the CD span is dwarfed by every subsequent chunk read.
-        cd_buffer_ref[] = Vector{UInt8}(byte_fetcher(Int(cd_offset), Int(prod(chunks_per_shard) * cd_entry_size)))
+        # Materialize to a concrete `Vector{UInt8}` once so every `chunk_byte_range`'s
+        # `parse_zip_central_directory_entry` calls stay type-stable. An abstract container boxes every `getindex`
+        # (measured ~1800× slowdown + N allocations per read on the hot path); one upfront copy of the CD span is
+        # dwarfed by every subsequent chunk read.
+        return Vector{UInt8}(byte_fetcher(Int(cd_offset), Int(prod(chunks_per_shard) * cd_entry_size)))
+    end
+
+    function ensure_index()::Nothing
+        cd_buffer()
         return nothing
     end
 
     function chunk_byte_range(chunk_coords::CartesianIndex{N})::Maybe{Tuple{Int, Int, UInt16}}
         chunk_index = LinearIndices(chunk_indices)[chunk_coords]
-        cd_buffer = cd_buffer_ref[]
-        @assert cd_buffer !== nothing
+        cd_buffer_bytes = cd_buffer()
         position = (chunk_index - 1) * cd_entry_size + 1
-        data_offset, chunk_size, entry_method = parse_zip_central_directory_entry(cd_buffer, position)
+        data_offset, chunk_size, entry_method = parse_zip_central_directory_entry(cd_buffer_bytes, position)
         expected_name = inner_chunk_name_bytes(chunks_per_shard, chunk_index, entry_method)
         name_position = position + CENTRAL_DIRECTORY_ENTRY_FIXED_SIZE
-        actual_name = view(cd_buffer, name_position:(name_position + length(expected_name) - 1))
+        actual_name = view(cd_buffer_bytes, name_position:(name_position + length(expected_name) - 1))
         if actual_name != expected_name
             error(chomp("""  # UNTESTED
                         unexpected ZIP CD entry name: $(format_zip_entry_name(actual_name))
@@ -1922,7 +2055,7 @@ end
 
 # Encode `data` as a single dual-format shard byte blob and return the bytes. The caller decides where to
 # put them: the `FilesDaf` packed write path writes them to a fresh `<name>.zip` `IOStream`; the `ZipDaf`
-# packed write path writes them into a reserved outer-zip mmap region via [`reserve_mmap_zip_entry!`](@ref).
+# packed write path stores them as a new outer-zip entry via `packed_write_bytes!`.
 # Implementation: drive [`IncrementalShardWriter`](@ref) over an [`InMemorySink`](@ref), slicing `data` into
 # the inner-chunk grid and submitting one chunk at a time (partial-edge chunks are padded with the
 # `shard_fill_value(T)`). The resulting bytes are byte-identical to what a `ZarrDaf` in `DirectoryStore` mode
@@ -2076,6 +2209,11 @@ function packed_write_typed_array!(daf::PackedDaf, ::AbstractString, ::AbstractV
     return error("packed_write_typed_array! not implemented for $(typeof(daf))")
 end
 
+# Write strings at the logical key, one per line. Used for the flat (unpacked) string paths.
+function packed_write_lines!(daf::PackedDaf, ::AbstractString, ::AbstractArray{<:AbstractString})::Nothing  # UNTESTED
+    return error("packed_write_lines! not implemented for $(typeof(daf))")
+end
+
 # Register a property's JSON descriptor in the format's consolidated index so HTTP clients can enumerate properties
 # without fetching data files. `key` is the property's logical relative key (e.g. `vectors/cell/batch`, no `.json`
 # suffix); `descriptor` is the JSON bytes that the corresponding sidecar holds (with or without a trailing newline).
@@ -2122,6 +2260,201 @@ function packed_format_write_dense_array!(
     encoded = encode_packed_dense_array(data, chunk_shape, v3_bytes_codecs_for(codec, T))
     packed_write_bytes!(daf, "$(base_key).zip", encoded)
     packed_register_metadata!(daf, base_key, json_bytes)
+    return nothing
+end
+
+# Write a dense string property as the flat `<base_key>.txt` line-per-element entry when `chunk_shape === nothing`, or
+# as a packed shard otherwise, plus its descriptor JSON.
+function packed_format_write_dense_string_array!(
+    daf::PackedDaf,
+    base_key::AbstractString,
+    data::AbstractArray{<:AbstractString, N},
+    chunk_shape::Maybe{NTuple{N, Int}},
+)::Nothing where {N}
+    if chunk_shape === nothing
+        json_bytes = dense_array_json_bytes(String)
+        packed_write_bytes!(daf, "$(base_key).json", json_bytes)
+        packed_write_lines!(daf, "$(base_key).txt", data)
+        packed_register_metadata!(daf, base_key, json_bytes)
+    else
+        packed_format_write_dense_array!(daf, base_key, data, chunk_shape)
+    end
+    return nothing
+end
+
+# Write the non-empty values of a sparse string property as the flat `<base_key>.nztxt` line-per-value entry when
+# `chunk_shape === nothing`, or as the packed `<base_key>.nzval.zip` shard otherwise.
+function packed_format_write_sparse_string_nzval!(
+    daf::PackedDaf,
+    base_key::AbstractString,
+    nzval::AbstractVector{<:AbstractString},
+    chunk_shape::Maybe{NTuple{1, Int}},
+)::Nothing
+    if chunk_shape === nothing
+        packed_write_lines!(daf, "$(base_key).nztxt", nzval)
+    else
+        packed_format_write_sparse_component!(daf, base_key, "nzval", nzval, chunk_shape)
+    end
+    return nothing
+end
+
+# Read the non-empty values of a sparse string property: the packed `nzval` component if the descriptor has one,
+# otherwise the flat `<base_key>.nztxt` lines.
+function packed_format_read_sparse_string_nzval(
+    daf::PackedDaf,
+    base_key::AbstractString,
+    json::AbstractDict,
+    n_nonempty::Integer,
+)::AbstractVector{<:AbstractString}
+    if is_packed_component(get(json, "nzval", nothing))
+        nzval_strings, _, _, _ =
+            packed_format_open_sparse_component_eager(daf, base_key, "nzval", String, json, n_nonempty)
+        return nzval_strings
+    else
+        nztxt_lines, _ = packed_read_lines(daf, "$(base_key).nztxt")
+        return nztxt_lines
+    end
+end
+
+# Whether a sparse property stores its `nzval` component. In the v1.1 schema (per-component descriptors) the presence of
+# the `nzval` descriptor is authoritative. In the legacy v1.0 schema (top-level `eltype` / `indtype`) a `Bool` property
+# omits its `nzval` entry when all its values are `true`, so only the entry itself tells.
+function packed_format_has_nzval(daf::PackedDaf, base_key::AbstractString, json::AbstractDict)::Bool
+    if haskey(json, "eltype")
+        return json["eltype"] != "Bool" || packed_has_entry(daf, "$(base_key).nzval")  # NOJET
+    else
+        return haskey(json, "nzval")
+    end
+end
+
+# Write a string vector property. A mostly-empty vector is stored sparse: `nzind` plus the non-empty values. Otherwise
+# it is stored dense. Each part is packed when `is_packed` and [`chunks_for`](@ref) say so.
+function packed_format_write_string_vector!(
+    daf::PackedDaf,
+    axis::AbstractString,
+    name::AbstractString,
+    vector::AbstractVector{<:AbstractString},
+    is_packed::Bool,
+)::Nothing
+    n_empty = 0
+    nonempty_size = 0
+    for value in vector
+        value_size = length(value)
+        if value_size > 0
+            nonempty_size += value_size
+        else
+            n_empty += 1
+        end
+    end
+
+    n_values = length(vector)
+    n_nonempty = n_values - n_empty
+    ind_type = indtype_for_size(n_values)
+
+    dense_size = nonempty_size + n_values
+    sparse_size = nonempty_size + n_nonempty * (1 + sizeof(ind_type))
+
+    base_key = "vectors/$(axis)/$(name)"
+    if sparse_size <= dense_size * 0.75
+        nzind_chunk_shape = chunks_for(is_packed, (n_nonempty,), ind_type)
+        nzval_chunk_shape = chunks_for(is_packed, (n_nonempty,), String)
+        json_bytes = sparse_vector_json_bytes(String, ind_type, n_nonempty; nzind_chunk_shape, nzval_chunk_shape)
+        packed_write_bytes!(daf, "$(base_key).json", json_bytes)
+        packed_register_metadata!(daf, base_key, json_bytes)
+
+        nzind_vector = Vector{ind_type}(undef, n_nonempty)
+        nzval_vector = Vector{eltype(vector)}(undef, n_nonempty)
+        position = 1
+        for (index, value) in enumerate(vector)
+            if length(value) > 0
+                @assert !contains(value, '\n')
+                nzind_vector[position] = index
+                nzval_vector[position] = value
+                position += 1
+            end
+        end
+        @assert position == n_nonempty + 1
+
+        packed_format_write_sparse_component!(daf, base_key, "nzind", nzind_vector, nzind_chunk_shape)
+        packed_format_write_sparse_string_nzval!(daf, base_key, nzval_vector, nzval_chunk_shape)
+    else
+        packed_format_write_dense_string_array!(daf, base_key, vector, chunks_for(is_packed, (n_values,), String))
+    end
+    return nothing
+end
+
+# Write a string matrix property. A mostly-empty matrix is stored sparse: `colptr`, `rowval` and the non-empty values.
+# Otherwise it is stored dense. Each part is packed when `is_packed` and [`chunks_for`](@ref) say so.
+function packed_format_write_string_matrix!(
+    daf::PackedDaf,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+    matrix::AbstractMatrix{<:AbstractString},
+    is_packed::Bool,
+)::Nothing
+    nrows, ncols = size(matrix)
+
+    n_empty = 0
+    nonempty_size = 0
+    for value in matrix
+        value_size = length(value)
+        if value_size > 0
+            nonempty_size += value_size
+        else
+            n_empty += 1
+        end
+    end
+
+    n_values = nrows * ncols
+    n_nonempty = n_values - n_empty
+    ind_type = indtype_for_size(n_values)
+
+    dense_size = nonempty_size + n_values
+    sparse_size = nonempty_size + n_nonempty + (ncols + 1 + n_nonempty) * sizeof(ind_type)
+
+    base_key = "matrices/$(rows_axis)/$(columns_axis)/$(name)"
+    if sparse_size <= dense_size * 0.75
+        colptr_chunk_shape = chunks_for(is_packed, (ncols + 1,), ind_type)
+        rowval_chunk_shape = chunks_for(is_packed, (n_nonempty,), ind_type)
+        nzval_chunk_shape = chunks_for(is_packed, (n_nonempty,), String)
+        json_bytes = sparse_matrix_json_bytes(
+            String,
+            ind_type,
+            n_nonempty,
+            ncols;
+            colptr_chunk_shape,
+            rowval_chunk_shape,
+            nzval_chunk_shape,
+        )
+        packed_write_bytes!(daf, "$(base_key).json", json_bytes)
+        packed_register_metadata!(daf, base_key, json_bytes)
+
+        colptr_vector = Vector{ind_type}(undef, ncols + 1)
+        rowval_vector = Vector{ind_type}(undef, n_nonempty)
+        nzval_vector = Vector{eltype(matrix)}(undef, n_nonempty)
+        position = 1
+        for column_index in 1:ncols
+            colptr_vector[column_index] = position
+            for row_index in 1:nrows
+                value = matrix[row_index, column_index]
+                if length(value) > 0
+                    @assert !contains(value, '\n')
+                    rowval_vector[position] = row_index
+                    nzval_vector[position] = value
+                    position += 1
+                end
+            end
+        end
+        @assert position == n_nonempty + 1
+        colptr_vector[ncols + 1] = n_nonempty + 1
+
+        packed_format_write_sparse_component!(daf, base_key, "colptr", colptr_vector, colptr_chunk_shape)
+        packed_format_write_sparse_component!(daf, base_key, "rowval", rowval_vector, rowval_chunk_shape)
+        packed_format_write_sparse_string_nzval!(daf, base_key, nzval_vector, nzval_chunk_shape)
+    else
+        packed_format_write_dense_string_array!(daf, base_key, matrix, chunks_for(is_packed, (nrows, ncols), String))
+    end
     return nothing
 end
 
@@ -2306,6 +2639,59 @@ function is_packed_component(descriptor::Maybe{AbstractDict})::Bool
     return descriptor isa AbstractDict && haskey(descriptor, "packed_format")
 end
 
+# Whether a property's JSON descriptor stores any of its components packed. A dense property carries `packed_format` at
+# the top level. A sparse property carries it in its per-component descriptors.
+function is_packed_property(json::AbstractDict)::Bool
+    return is_packed_component(json) || any(
+        is_packed_component(get(json, component, nothing)) for component in ("nzind", "colptr", "rowval", "nzval")
+    )
+end
+
+# The [`PropertyMetadata`](@ref) of a property given its JSON descriptor. The `indices_component` of a sparse property
+# is `nzind` for a vector and `rowval` for a matrix. A legacy v1.0 sparse descriptor doesn't record its nnz, so
+# `legacy_nnz(indtype)` computes it. It may be `nothing` if the descriptor is known to be v1.1.
+function descriptor_metadata(
+    json::AbstractDict,
+    indices_component::AbstractString,
+    legacy_nnz::Maybe{Function},
+)::PropertyMetadata
+    if json["format"] == "dense"
+        return PropertyMetadata(
+            eltype_for_descriptor(json["eltype"]),
+            false,
+            nothing,
+            nothing,
+            is_packed_property(json),
+        )
+    end
+
+    @assert json["format"] == "sparse"
+    eltype_name, indtype_name = parse_sparse_descriptor(json, indices_component)
+    ind_type = eltype_for_descriptor(indtype_name)
+    if haskey(json, "eltype")
+        @assert legacy_nnz !== nothing
+        nnz = legacy_nnz(ind_type)
+    else
+        nnz = Int(json[indices_component]["n_elements"])
+    end
+    return PropertyMetadata(eltype_for_descriptor(eltype_name), true, nnz, ind_type, is_packed_property(json))
+end
+
+# The [`PropertyMetadata`](@ref) of the property stored at `base_key`. A legacy v1.0 sparse property gets its nnz from
+# the size of its `indices_component` entry.
+function packed_format_property_metadata(
+    daf::PackedDaf,
+    base_key::AbstractString,
+    indices_component::AbstractString,
+)::PropertyMetadata
+    json = packed_read_json(daf, "$(base_key).json")  # NOJET
+    return descriptor_metadata(
+        json,
+        indices_component,
+        ind_type -> div(packed_entry_size(daf, "$(base_key).$(indices_component)"), sizeof(ind_type)),
+    )
+end
+
 # Open one sparse-property component as a lazy `AbstractVector{T}` source — a `DiskArrays.cache`-wrapped `ZArray`
 # for packed components (chunks decode on demand), or a flat-backed `Vector{T}` (mmap or memory) for unpacked
 # components. Used by the lazy sparse-read path: the caller wraps the resulting sources in a
@@ -2384,7 +2770,7 @@ function packed_format_filled_empty_dense_vector!(
     filled::AbstractVector{T},
 )::Nothing where {T <: StorageReal}
     base_key = "vectors/$(axis)/$(name)"
-    if !packed_has_entry(daf, "$(base_key).json")  # NOJET
+    if !packed_has_entry(daf, "$(base_key).json")
         # The packed branch in `packed_format_get_empty_dense_vector!` defers JSON-write until fill time so the chunk
         # shape can be picked from the actual `filled` size; route through `packed_format_write_dense_array!`, which
         # writes the JSON, the shard, and registers metadata in one step.
@@ -2404,7 +2790,13 @@ function packed_format_get_empty_sparse_vector!(
     ::Type{T},
     nnz::Integer,
     ::Type{I},
+    is_packed::Bool,
 )::Tuple{AbstractVector{I}, AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal, I <: StorageInteger}
+    if chunks_for(is_packed, (Int(nnz),), T) !== nothing
+        # The packed sparse writer encodes whole components: hand the user fresh in-RAM buffers and encode them at
+        # fill time.
+        return (Vector{I}(undef, Int(nnz)), Vector{T}(undef, Int(nnz)), nothing)
+    end
     base_key = "vectors/$(axis)/$(name)"
     json_bytes = sparse_vector_json_bytes(T, I, Int(nnz))
     packed_write_bytes!(daf, "$(base_key).json", json_bytes)
@@ -2414,10 +2806,20 @@ function packed_format_get_empty_sparse_vector!(
     return (nzind_vector, nzval_vector, Formats.MappedData)
 end
 
-function packed_format_filled_empty_sparse_vector!(daf, axis::AbstractString, name::AbstractString)::Nothing
+function packed_format_filled_empty_sparse_vector!(
+    daf::PackedDaf,
+    axis::AbstractString,
+    name::AbstractString,
+    filled::SparseVector{<:StorageReal, <:StorageInteger},
+)::Nothing
     base_key = "vectors/$(axis)/$(name)"
-    packed_finalize_entry!(daf, "$(base_key).nzind")
-    packed_finalize_entry!(daf, "$(base_key).nzval")
+    if !packed_has_entry(daf, "$(base_key).json")
+        # The packed branch in `packed_format_get_empty_sparse_vector!` defers all writes until fill time.
+        packed_format_write_sparse_numeric_vector!(daf, axis, name, filled, true)
+    else
+        packed_finalize_entry!(daf, "$(base_key).nzind")
+        packed_finalize_entry!(daf, "$(base_key).nzval")
+    end
     return nothing
 end
 
@@ -2468,12 +2870,18 @@ function packed_format_get_empty_sparse_matrix!(
     nnz::Integer,
     ::Type{I},
     n_columns::Integer,
+    is_packed::Bool,
 )::Tuple{
     AbstractVector{I},
     AbstractVector{I},
     AbstractVector{T},
     Maybe{Formats.CacheGroup},
 } where {T <: StorageReal, I <: StorageInteger}
+    if chunks_for(is_packed, (Int(nnz),), T) !== nothing
+        # The packed sparse writer encodes whole components: hand the user fresh in-RAM buffers and encode them at
+        # fill time.
+        return (Vector{I}(undef, Int(n_columns) + 1), Vector{I}(undef, Int(nnz)), Vector{T}(undef, Int(nnz)), nothing)
+    end
     base_key = "matrices/$(rows_axis)/$(columns_axis)/$(name)"
     json_bytes = sparse_matrix_json_bytes(T, I, Int(nnz), Int(n_columns))
     packed_write_bytes!(daf, "$(base_key).json", json_bytes)
@@ -2489,11 +2897,17 @@ function packed_format_filled_empty_sparse_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
+    filled::SparseMatrixCSC{<:StorageReal, <:StorageInteger},
 )::Nothing
     base_key = "matrices/$(rows_axis)/$(columns_axis)/$(name)"
-    packed_finalize_entry!(daf, "$(base_key).colptr")
-    packed_finalize_entry!(daf, "$(base_key).rowval")
-    packed_finalize_entry!(daf, "$(base_key).nzval")
+    if !packed_has_entry(daf, "$(base_key).json")
+        # The packed branch in `packed_format_get_empty_sparse_matrix!` defers all writes until fill time.
+        packed_format_write_sparse_numeric_matrix!(daf, rows_axis, columns_axis, name, filled, true)
+    else
+        packed_finalize_entry!(daf, "$(base_key).colptr")
+        packed_finalize_entry!(daf, "$(base_key).rowval")
+        packed_finalize_entry!(daf, "$(base_key).nzval")
+    end
     return nothing
 end
 

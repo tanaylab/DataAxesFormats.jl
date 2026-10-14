@@ -1358,7 +1358,7 @@ end
 function try_http_striped_vector(array::ZArray{T})::Maybe{AbstractVector{T}} where {T}
     n_elements = length(array)
     chunk_shape = chunks_for(true, (n_elements,), T)
-    if chunk_shape === nothing
+    if !isbitstype(T) || chunk_shape === nothing
         return nothing
     else
         url = http_chunk_url(array, single_chunk_vector_suffix(array))
@@ -1371,7 +1371,7 @@ end
 function try_http_striped_matrix(array::ZArray{T})::Maybe{AbstractMatrix{T}} where {T}
     n_rows, n_columns = size(array)
     chunk_shape = chunks_for(true, (n_rows, n_columns), T)
-    if chunk_shape === nothing
+    if !isbitstype(T) || chunk_shape === nothing
         return nothing
     else
         url = http_chunk_url(array, single_chunk_matrix_suffix(array))
@@ -1422,7 +1422,7 @@ function is_lazy_source(array::ZArray{T})::Bool where {T}
     elseif can_mmap(array)
         return false
     elseif is_http_array(array)
-        return chunks_for(true, size(array), T) !== nothing
+        return isbitstype(T) && chunks_for(true, size(array), T) !== nothing
     else
         return true
     end
@@ -1756,9 +1756,13 @@ function Formats.format_get_empty_sparse_vector!(
     ::Type{T},
     nnz::StorageInteger,
     ::Type{I},
-    _is_packed::Bool,
+    is_packed::Bool,
 )::Tuple{AbstractVector{I}, AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(daf)
+    if chunks_for(is_packed, (Int(nnz),), T) !== nothing
+        # Packed (sharded): hand the user intermediate buffers. `format_filled_empty_sparse_vector!` writes them.
+        return (Vector{I}(undef, Int(nnz)), Vector{T}(undef, Int(nnz)), nothing)
+    end
     group = axis_vectors_group(daf, axis)
     vector_group = zgroup(group, name)
 
@@ -1781,10 +1785,16 @@ function Formats.format_filled_empty_sparse_vector!(
     daf::ZarrDaf,
     axis::AbstractString,
     name::AbstractString,
-    ::SparseVector{<:StorageReal, <:StorageInteger},
+    filled::SparseVector{<:StorageReal, <:StorageInteger},
 )::Nothing
     @assert Formats.has_data_write_lock(daf)
-    vector_group = axis_vectors_group(daf, axis).groups[name]
+    group = axis_vectors_group(daf, axis)
+    if !haskey(group.groups, name)
+        # Packed (sharded): the user filled the intermediate buffers.
+        Formats.format_set_vector!(daf, axis, name, filled, true)
+        return nothing
+    end
+    vector_group = group.groups[name]
     nzind_array = vector_group.arrays["nzind"]
     patch_chunk_crc_if_needed(nzind_array, single_chunk_vector_suffix(nzind_array))
     if haskey(vector_group.arrays, "nzval")
@@ -1821,15 +1831,23 @@ function Formats.format_get_vector(
 )::Tuple{StorageVector, Any, Formats.CacheGroup}
     @assert Formats.has_data_read_lock(daf)
     group = axis_vectors_group(daf, axis)
-    if haskey(group.arrays, name)
-        vector, cache_group = array_as_vector(daf, group.arrays[name])
-        return (vector, nothing, cache_group)
+    child = haskey(group.arrays, name) ? group.arrays[name] : group.groups[name]
+    vector, cache_group = property_vector(daf, child, Formats.format_axis_length(daf, axis))
+    return (vector, nothing, cache_group)
+end
+
+# Read a vector property from its `ZArray` (dense) or `ZGroup` (sparse), for an axis with `nelements` entries. The
+# property is either live or in the reorder backup.
+function property_vector(
+    daf::ZarrDaf,
+    child::Union{ZArray, ZGroup},
+    nelements::Integer,
+)::Tuple{StorageVector, Formats.CacheGroup}
+    if child isa ZArray
+        return array_as_vector(daf, child)
     end
 
-    @assert haskey(group.groups, name)
-    vector_group = group.groups[name]
-    nelements = Formats.format_axis_length(daf, axis)
-
+    vector_group = child
     nzind_array = vector_group.arrays["nzind"]
     nzval_array = get(vector_group.arrays, "nzval", nothing)
 
@@ -1843,7 +1861,7 @@ function Formats.format_get_vector(
             first(array_as_vector(daf, nzval_array))
         end
         vector = LazySparseVector(nelements, nzind_source, nzval_source)
-        return (vector, nothing, Formats.MemoryData)
+        return (vector, Formats.MemoryData)
     end
 
     nzind_vector, nzind_cache_group = array_as_materialized_vector(daf, nzind_array)
@@ -1860,7 +1878,41 @@ function Formats.format_get_vector(
     else
         Formats.MemoryData
     end
-    return (vector, nothing, cache_group)
+    return (vector, cache_group)
+end
+
+function Formats.format_vector_metadata(daf::ZarrDaf, axis::AbstractString, name::AbstractString)::PropertyMetadata
+    @assert Formats.has_data_read_lock(daf)
+    return child_metadata(axis_vectors_group(daf, axis), name, "nzind")
+end
+
+# The [`PropertyMetadata`](@ref) of a property's array (dense) or group (sparse). The `indices_component` of a sparse
+# property is `nzind` for a vector and `rowval` for a matrix.
+function child_metadata(parent::ZGroup, name::AbstractString, indices_component::AbstractString)::PropertyMetadata
+    is_packed = is_packed_child(parent, name)
+    if haskey(parent.arrays, name)
+        return PropertyMetadata(zarray_eltype(parent.arrays[name]), false, nothing, nothing, is_packed)
+    end
+
+    arrays = parent.groups[name].arrays
+    indices_array = arrays[indices_component]
+    nzval_array = get(arrays, "nzval", nothing)
+    element_type = nzval_array === nothing ? Bool : zarray_eltype(nzval_array)
+    return PropertyMetadata(element_type, true, length(indices_array), eltype(indices_array), is_packed)
+end
+
+# The type of the elements of an array. This is `String` for any string array.
+function zarray_eltype(array::ZArray)::Type
+    return eltype(array) <: AbstractString ? String : eltype(array)
+end
+
+# Whether a property's array, or any array in its sparse property group, uses the packed (sharded) encoding.
+function is_packed_child(parent::ZGroup, name::AbstractString)::Bool
+    if haskey(parent.arrays, name)
+        return is_zarr_array_packed(parent.arrays[name])
+    else
+        return any(is_zarr_array_packed(array) for array in values(parent.groups[name].arrays))
+    end
 end
 
 function columns_axis_group(daf::ZarrDaf, rows_axis::AbstractString, columns_axis::AbstractString)::ZGroup
@@ -1897,11 +1949,11 @@ function Formats.format_set_matrix!(
         write_dense_data!(array, fill(matrix, nrows, ncols))
         register_consolidated_node!(daf, base_key, Vector{UInt8}(JSON.json(array.metadata)))
     elseif matrix isa AbstractString
-        array = dense_zcreate(String, group, name, false, (nrows, ncols))
+        array = dense_zcreate(String, group, name, is_packed, (nrows, ncols))
         write_dense_data!(array, fill(matrix, nrows, ncols))
         register_consolidated_node!(daf, base_key, Vector{UInt8}(JSON.json(array.metadata)))
     elseif eltype(matrix) <: AbstractString
-        array = dense_zcreate(String, group, name, false, (nrows, ncols))
+        array = dense_zcreate(String, group, name, is_packed, (nrows, ncols))
         write_dense_data!(array, matrix)  # NOJET
         register_consolidated_node!(daf, base_key, Vector{UInt8}(JSON.json(array.metadata)))
     else
@@ -2047,7 +2099,7 @@ function Formats.format_get_empty_sparse_matrix!(
     ::Type{T},
     nnz::StorageInteger,
     ::Type{I},
-    _is_packed::Bool,
+    is_packed::Bool,
 )::Tuple{
     AbstractVector{I},
     AbstractVector{I},
@@ -2057,6 +2109,10 @@ function Formats.format_get_empty_sparse_matrix!(
     @assert Formats.has_data_write_lock(daf)
     group = columns_axis_group(daf, rows_axis, columns_axis)
     ncols = Formats.format_axis_length(daf, columns_axis)
+    if chunks_for(is_packed, (Int(nnz),), T) !== nothing
+        # Packed (sharded): hand the user intermediate buffers. `format_filled_empty_sparse_matrix!` writes them.
+        return (Vector{I}(undef, ncols + 1), Vector{I}(undef, Int(nnz)), Vector{T}(undef, Int(nnz)), nothing)
+    end
     matrix_group = zgroup(group, name)
 
     nnz_int = Int(nnz)
@@ -2085,10 +2141,16 @@ function Formats.format_filled_empty_sparse_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    ::SparseMatrixCSC{<:StorageReal, <:StorageInteger},
+    filled::SparseMatrixCSC{<:StorageReal, <:StorageInteger},
 )::Nothing
     @assert Formats.has_data_write_lock(daf)
-    matrix_group = columns_axis_group(daf, rows_axis, columns_axis).groups[name]
+    group = columns_axis_group(daf, rows_axis, columns_axis)
+    if !haskey(group.groups, name)
+        # Packed (sharded): the user filled the intermediate buffers.
+        Formats.format_set_matrix!(daf, rows_axis, columns_axis, name, filled, true)
+        return nothing
+    end
+    matrix_group = group.groups[name]
     colptr_array = matrix_group.arrays["colptr"]
     rowval_array = matrix_group.arrays["rowval"]
     patch_chunk_crc_if_needed(colptr_array, single_chunk_vector_suffix(colptr_array))
@@ -2116,8 +2178,8 @@ function Formats.format_relayout_matrix!(
         nrows = axis_length(daf, columns_axis)
         ncols = axis_length(daf, rows_axis)
         relayout_matrix = flipped(matrix)
-        array = dense_zcreate(String, group, name, false, (nrows, ncols))
-        array[:, :] = relayout_matrix  # NOJET
+        array = dense_zcreate(String, group, name, is_packed, (nrows, ncols))
+        write_dense_data!(array, relayout_matrix)
         register_consolidated_node!(
             daf,
             "matrices/$(columns_axis)/$(rows_axis)/$(name)",
@@ -2134,7 +2196,7 @@ function Formats.format_relayout_matrix!(
             name,
             eltype(matrix),
             nnz(matrix),
-            eltype(colptr(matrix)),
+            SparseArrays.indtype(matrix),
             is_packed,
         )
         sparse_colptr .= length(sparse_nzval) + 1
@@ -2188,16 +2250,29 @@ function Formats.format_get_matrix(
 )::Tuple{StorageMatrix, Any, Formats.CacheGroup}
     @assert Formats.has_data_read_lock(daf)
     group = columns_axis_group(daf, rows_axis, columns_axis)
-    if haskey(group.arrays, name)
-        matrix, cache_group = array_as_matrix(daf, group.arrays[name])
-        return (matrix, nothing, cache_group)
+    child = haskey(group.arrays, name) ? group.arrays[name] : group.groups[name]
+    matrix, cache_group = property_matrix(
+        daf,
+        child,
+        Formats.format_axis_length(daf, rows_axis),
+        Formats.format_axis_length(daf, columns_axis),
+    )
+    return (matrix, nothing, cache_group)
+end
+
+# Read a matrix property from its `ZArray` (dense) or `ZGroup` (sparse), for axes with `nrows` and `ncols` entries. The
+# property is either live or in the reorder backup.
+function property_matrix(
+    daf::ZarrDaf,
+    child::Union{ZArray, ZGroup},
+    nrows::Integer,
+    ncols::Integer,
+)::Tuple{StorageMatrix, Formats.CacheGroup}
+    if child isa ZArray
+        return array_as_matrix(daf, child)
     end
 
-    @assert haskey(group.groups, name)
-    matrix_group = group.groups[name]
-    nrows = Formats.format_axis_length(daf, rows_axis)
-    ncols = Formats.format_axis_length(daf, columns_axis)
-
+    matrix_group = child
     colptr_array = matrix_group.arrays["colptr"]
     rowval_array = matrix_group.arrays["rowval"]
     nzval_array = get(matrix_group.arrays, "nzval", nothing)
@@ -2215,7 +2290,7 @@ function Formats.format_get_matrix(
             first(array_as_vector(daf, nzval_array))
         end
         matrix = LazySparseMatrix(nrows, colptr_vector, rowval_source, nzval_source)
-        return (matrix, nothing, Formats.MemoryData)
+        return (matrix, Formats.MemoryData)
     end
 
     colptr_vector, colptr_cache_group = array_as_materialized_vector(daf, colptr_array)
@@ -2236,7 +2311,17 @@ function Formats.format_get_matrix(
         else
             Formats.MemoryData
         end
-    return (matrix, nothing, cache_group)
+    return (matrix, cache_group)
+end
+
+function Formats.format_matrix_metadata(
+    daf::ZarrDaf,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+)::PropertyMetadata
+    @assert Formats.has_data_read_lock(daf)
+    return child_metadata(columns_axis_group(daf, rows_axis, columns_axis), name, "rowval")
 end
 
 function delete_child(parent::ZGroup, name::AbstractString)::Nothing
@@ -2270,6 +2355,12 @@ const REORDER_BACKUP_DIR = ".reorder.backup"
 
 function reorder_backup_root(daf::ZarrDaf)::String
     return "$(daf.path)/$(REORDER_BACKUP_DIR)"
+end
+
+# Open the `ZArray` (dense) or `ZGroup` (sparse) of a property in the reorder backup, given its path relative to the
+# data set root.
+function backup_property(daf::ZarrDaf, relative_path::AbstractString)::Union{ZArray, ZGroup}
+    return Zarr.zopen(Zarr.DirectoryStore(reorder_backup_root(daf)), "r"; path = relative_path)  # NOJET
 end
 
 function recursive_hardlink(src::AbstractString, dst::AbstractString)::Nothing
@@ -2389,54 +2480,15 @@ function replace_reorder_vector(
     plan::Reorder.FormatReorderPlan,
     replacement_progress::Maybe{AbstractProgress},
 )::Nothing
-    source_vector, _, _ = Formats.format_get_vector(daf, planned.axis, planned.name)
-    is_source_packed = Formats.format_is_packed_vector(daf, planned.axis, planned.name)
     planned_axis = plan.planned_axes[planned.axis]
-    group = axis_vectors_group(daf, planned.axis)
-
-    if eltype(source_vector) <: AbstractString
-        permuted = Vector{eltype(source_vector)}(undef, length(source_vector))
-        permute_vector!(;
-            destination = permuted,
-            source = source_vector,
-            permutation = planned_axis.permutation,
-            progress = replacement_progress,
-        )
-        delete_child(group, planned.name)
-        array = dense_zcreate(String, group, planned.name, false, (length(permuted),))
-        array[:] = permuted
-    elseif source_vector isa SparseVector
-        T = eltype(source_vector)
-        I = eltype(SparseArrays.nonzeroinds(source_vector))
-        source_length = length(source_vector)
-        source_nnz = nnz(source_vector)
-        source_nzind = copy(SparseArrays.nonzeroinds(source_vector))
-        source_nzval = copy(nonzeros(source_vector))
-
-        delete_child(group, planned.name)
-        destination_nzind, destination_nzval =
-            Formats.format_get_empty_sparse_vector!(daf, planned.axis, planned.name, T, source_nnz, I, is_source_packed)
-        permute_sparse_vector_buffers!(;
-            destination_nzind,
-            destination_nzval,
-            source_length,
-            source_nzind,
-            source_nzval,
-            inverse_permutation = planned_axis.inverse_permutation,
-            progress = replacement_progress,
-        )
-    else
-        T = eltype(source_vector)
-        materialized = Vector{T}(source_vector)
-        delete_child(group, planned.name)
-        destination, _ = Formats.format_get_empty_dense_vector!(daf, planned.axis, planned.name, T, is_source_packed)
-        permute_vector!(;
-            destination,
-            source = materialized,
-            permutation = planned_axis.permutation,
-            progress = replacement_progress,
-        )
-    end
+    source_vector, _ = property_vector(
+        daf,
+        backup_property(daf, "$(VECTORS)/$(planned.axis)/$(planned.name)"),
+        length(planned_axis.permutation),
+    )
+    is_packed = Formats.format_vector_metadata(daf, planned.axis, planned.name).is_packed
+    delete_child(axis_vectors_group(daf, planned.axis), planned.name)
+    Reorder.write_permuted_vector(daf, planned, source_vector, planned_axis, is_packed, replacement_progress)
     return nothing
 end
 
@@ -2446,125 +2498,25 @@ function replace_reorder_matrix(
     plan::Reorder.FormatReorderPlan,
     replacement_progress::Maybe{AbstractProgress},
 )::Nothing
-    source_matrix, _, _ = Formats.format_get_matrix(daf, planned.rows_axis, planned.columns_axis, planned.name)
-    is_source_packed = Formats.format_is_packed_matrix(daf, planned.rows_axis, planned.columns_axis, planned.name)
     planned_rows = get(plan.planned_axes, planned.rows_axis, nothing)
     planned_columns = get(plan.planned_axes, planned.columns_axis, nothing)
-    @assert planned_rows !== nothing || planned_columns !== nothing
-
-    group = columns_axis_group(daf, planned.rows_axis, planned.columns_axis)
-    nrows, ncols = size(source_matrix)
-
-    if eltype(source_matrix) <: AbstractString
-        permuted = Matrix{eltype(source_matrix)}(undef, nrows, ncols)
-        permute_matrix_into!(permuted, source_matrix, planned_rows, planned_columns, replacement_progress)
-        delete_child(group, planned.name)
-        array = dense_zcreate(String, group, planned.name, false, (nrows, ncols))
-        array[:, :] = permuted
-    elseif source_matrix isa SparseMatrixCSC
-        T = eltype(source_matrix)
-        I = eltype(source_matrix.colptr)
-        source_nnz_val = nnz(source_matrix)
-        src_colptr = copy(source_matrix.colptr)
-        src_rowval = copy(source_matrix.rowval)
-        src_nzval = copy(source_matrix.nzval)
-
-        delete_child(group, planned.name)
-        destination_colptr, destination_rowval, destination_nzval, _ = Formats.format_get_empty_sparse_matrix!(
-            daf,
-            planned.rows_axis,
-            planned.columns_axis,
-            planned.name,
-            T,
-            source_nnz_val,
-            I,
-            is_source_packed,
-        )
-        if planned_rows !== nothing && planned_columns !== nothing
-            permute_sparse_matrix_both_buffers!(;
-                destination_colptr,
-                destination_rowval,
-                destination_nzval,
-                source_n_rows = nrows,
-                source_colptr = src_colptr,
-                source_rowval = src_rowval,
-                source_nzval = src_nzval,
-                inverse_rows_permutation = planned_rows.inverse_permutation,
-                columns_permutation = planned_columns.permutation,
-                progress = replacement_progress,
-            )
-        elseif planned_rows !== nothing
-            permute_sparse_matrix_rows_buffers!(;
-                destination_colptr,
-                destination_rowval,
-                destination_nzval,
-                source_n_rows = nrows,
-                source_colptr = src_colptr,
-                source_rowval = src_rowval,
-                source_nzval = src_nzval,
-                inverse_rows_permutation = planned_rows.inverse_permutation,
-                progress = replacement_progress,
-            )
-        else
-            permute_sparse_matrix_columns_buffers!(;
-                destination_colptr,
-                destination_rowval,
-                destination_nzval,
-                source_n_rows = nrows,
-                source_colptr = src_colptr,
-                source_rowval = src_rowval,
-                source_nzval = src_nzval,
-                columns_permutation = planned_columns.permutation,
-                progress = replacement_progress,
-            )
-        end
-    else
-        T = eltype(source_matrix)
-        materialized = Matrix{T}(source_matrix)
-        delete_child(group, planned.name)
-        destination, _ = Formats.format_get_empty_dense_matrix!(
-            daf,
-            planned.rows_axis,
-            planned.columns_axis,
-            planned.name,
-            T,
-            is_source_packed,
-        )
-        permute_matrix_into!(destination, materialized, planned_rows, planned_columns, replacement_progress)
-    end
-    return nothing
-end
-
-function permute_matrix_into!(
-    destination::AbstractMatrix,
-    source::AbstractMatrix,
-    planned_rows::Maybe{Reorder.PlannedAxis},
-    planned_columns::Maybe{Reorder.PlannedAxis},
-    replacement_progress::Maybe{AbstractProgress},
-)::Nothing
-    if planned_rows !== nothing && planned_columns !== nothing
-        permute_dense_matrix_both!(;
-            destination,
-            source,
-            rows_permutation = planned_rows.permutation,
-            columns_permutation = planned_columns.permutation,
-            progress = replacement_progress,
-        )
-    elseif planned_rows !== nothing
-        permute_dense_matrix_rows!(;
-            destination,
-            source,
-            rows_permutation = planned_rows.permutation,
-            progress = replacement_progress,
-        )
-    else
-        permute_dense_matrix_columns!(;
-            destination,
-            source,
-            columns_permutation = planned_columns.permutation,
-            progress = replacement_progress,
-        )
-    end
+    source_matrix, _ = property_matrix(
+        daf,
+        backup_property(daf, "$(MATRICES)/$(planned.rows_axis)/$(planned.columns_axis)/$(planned.name)"),
+        Reorder.old_axis_length(daf, planned.rows_axis, planned_rows),
+        Reorder.old_axis_length(daf, planned.columns_axis, planned_columns),
+    )
+    is_packed = Formats.format_matrix_metadata(daf, planned.rows_axis, planned.columns_axis, planned.name).is_packed
+    delete_child(columns_axis_group(daf, planned.rows_axis, planned.columns_axis), planned.name)
+    Reorder.write_permuted_matrix(
+        daf,
+        planned,
+        source_matrix,
+        planned_rows,
+        planned_columns,
+        is_packed,
+        replacement_progress,
+    )
     return nothing
 end
 

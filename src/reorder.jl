@@ -29,8 +29,13 @@ export reorder_axes!
 export reset_reorder_axes!
 
 using ..Formats
+using ..LazySparse
 using ..Readers
 using ..StorageTypes
+using ProgressMeter
+
+import ..PackedFormat.fill_column!
+import ProgressMeter.AbstractProgress  # NOLINT
 using SparseArrays
 using TanayLabUtilities
 using UUIDs
@@ -140,9 +145,9 @@ function build_reorder_plan(
         if !Formats.format_has_axis(writer, axis; for_change = false)
             continue
         end
+        n_axis_entries = Formats.format_axis_length(writer, axis)
         for name in Formats.format_vectors_set(writer, axis)
-            vector, _, _ = Formats.format_get_vector(writer, axis, name)
-            push!(planned_vectors, PlannedVector(axis, name, length(vector)))
+            push!(planned_vectors, PlannedVector(axis, name, n_axis_entries))
         end
     end
 
@@ -153,14 +158,12 @@ function build_reorder_plan(
         end
         for other_axis in Formats.format_axes_set(writer)
             for name in Formats.format_matrices_set(writer, permuted_axis, other_axis)
-                matrix, _, _ = Formats.format_get_matrix(writer, permuted_axis, other_axis, name)
-                n_elements = matrix isa SparseMatrixCSC ? nnz(matrix) : length(matrix)
+                n_elements = n_matrix_replacement_elements(writer, permuted_axis, other_axis, name)
                 push!(planned_matrices, PlannedMatrix(permuted_axis, other_axis, name, n_elements))
             end
             if !haskey(planned_axes, other_axis)
                 for name in Formats.format_matrices_set(writer, other_axis, permuted_axis)
-                    matrix, _, _ = Formats.format_get_matrix(writer, other_axis, permuted_axis, name)
-                    n_elements = matrix isa SparseMatrixCSC ? nnz(matrix) : length(matrix)
+                    n_elements = n_matrix_replacement_elements(writer, other_axis, permuted_axis, name)
                     push!(planned_matrices, PlannedMatrix(other_axis, permuted_axis, name, n_elements))
                 end
             end
@@ -168,6 +171,336 @@ function build_reorder_plan(
     end
 
     return FormatReorderPlan(planned_axes, planned_vectors, planned_matrices)
+end
+
+# The number of progress ticks for replacing a matrix: its nnz if it is sparse, otherwise its number of elements. Sparse
+# string matrices are read as dense, so they count all their elements.
+function n_matrix_replacement_elements(
+    writer::Formats.FormatWriter,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+)::Int
+    metadata = Formats.format_matrix_metadata(writer, rows_axis, columns_axis, name)
+    if metadata.is_sparse && metadata.eltype != String
+        return metadata.nnz
+    else
+        return Formats.format_axis_length(writer, rows_axis) * Formats.format_axis_length(writer, columns_axis)
+    end
+end
+
+# The length of an axis before the reorder. `planned_axis === nothing` means the axis is not permuted.
+function old_axis_length(writer::Formats.FormatWriter, axis::AbstractString, planned_axis::Maybe{PlannedAxis})::Int
+    if planned_axis === nothing
+        return Formats.format_axis_length(writer, axis)
+    else
+        return length(planned_axis.permutation)
+    end
+end
+
+# Allocate a permuted in-memory copy of a dense or sparse storage vector. Lazy or chunked sources (packed properties)
+# are read into memory first. A permutation reads them out of order, which defeats the chunk cache.
+function stage_permuted_vector(
+    source::StorageVector,
+    planned_axis::PlannedAxis,
+    replacement_progress::Maybe{AbstractProgress},
+)::StorageVector
+    if source isa LazySparseVector
+        source = convert(SparseVector, source)
+    elseif !issparse(source) && !(source isa DenseVector)
+        source = Vector(source)
+    end
+
+    if source isa SparseVector
+        destination_nzind = similar(SparseArrays.nonzeroinds(source))
+        destination_nzval = similar(SparseArrays.nonzeros(source))
+        permute_sparse_vector!(;
+            destination_nzind,
+            destination_nzval,
+            source,
+            inverse_permutation = planned_axis.inverse_permutation,
+            progress = replacement_progress,
+        )
+        return SparseVector(length(source), destination_nzind, destination_nzval)
+    else
+        destination = similar(source)
+        permute_vector!(; destination, source, permutation = planned_axis.permutation, progress = replacement_progress)
+        return destination
+    end
+end
+
+# Allocate a permuted in-memory copy of a dense or sparse storage matrix. `planned_rows === nothing` means the rows axis
+# is not permuted; likewise for `planned_columns`. At least one of the two must be non-`nothing`. Lazy or chunked
+# sources (packed properties) are read into memory first. A permutation reads them out of order, which defeats the chunk
+# cache, and the packed sparse writer needs whole arrays anyway.
+function stage_permuted_matrix(
+    source::StorageMatrix,
+    planned_rows::Maybe{PlannedAxis},
+    planned_columns::Maybe{PlannedAxis},
+    replacement_progress::Maybe{AbstractProgress},
+)::StorageMatrix
+    if source isa LazySparseMatrix
+        source = convert(SparseMatrixCSC, source)
+    elseif !issparse(source) && !(source isa DenseMatrix)
+        source = Matrix(source)
+    end
+
+    if source isa SparseMatrixCSC
+        destination_colptr = similar(source.colptr)
+        destination_rowval = similar(source.rowval)
+        destination_nzval = similar(source.nzval)
+        permute_sparse_matrix_into!(;
+            destination_colptr,
+            destination_rowval,
+            destination_nzval,
+            source_n_rows = size(source, 1),
+            source_colptr = source.colptr,
+            source_rowval = source.rowval,
+            source_nzval = source.nzval,
+            planned_rows,
+            planned_columns,
+            replacement_progress,
+        )
+        return SparseMatrixCSC(
+            size(source, 1),
+            size(source, 2),
+            destination_colptr,
+            destination_rowval,
+            destination_nzval,
+        )
+    else
+        destination = similar(source)
+        permute_dense_matrix_into!(destination, source, planned_rows, planned_columns, replacement_progress)
+        return destination
+    end
+end
+
+# Permute a dense matrix into a destination of the same size. `planned_rows === nothing` means the rows axis is not
+# permuted; likewise for `planned_columns`. At least one of the two must be non-`nothing`.
+function permute_dense_matrix_into!(
+    destination::AbstractMatrix,
+    source::AbstractMatrix,
+    planned_rows::Maybe{PlannedAxis},
+    planned_columns::Maybe{PlannedAxis},
+    replacement_progress::Maybe{AbstractProgress},
+)::Nothing
+    @assert planned_rows !== nothing || planned_columns !== nothing
+    if planned_rows !== nothing && planned_columns !== nothing
+        permute_dense_matrix_both!(;
+            destination,
+            source,
+            rows_permutation = planned_rows.permutation,
+            columns_permutation = planned_columns.permutation,
+            progress = replacement_progress,
+        )
+    elseif planned_rows !== nothing
+        permute_dense_matrix_rows!(;
+            destination,
+            source,
+            rows_permutation = planned_rows.permutation,
+            progress = replacement_progress,
+        )
+    else
+        permute_dense_matrix_columns!(;
+            destination,
+            source,
+            columns_permutation = planned_columns.permutation,
+            progress = replacement_progress,
+        )
+    end
+    return nothing
+end
+
+# Permute the buffers of a sparse matrix into destination buffers of the same sizes. The `nzval` buffers are `nothing`
+# for a `Bool` matrix that stores no values. `planned_rows === nothing` means the rows axis is not permuted; likewise
+# for `planned_columns`. At least one of the two must be non-`nothing`.
+function permute_sparse_matrix_into!(;
+    destination_colptr::AbstractVector{<:Integer},
+    destination_rowval::AbstractVector{<:Integer},
+    destination_nzval::Maybe{AbstractVector},
+    source_n_rows::Integer,
+    source_colptr::AbstractVector{<:Integer},
+    source_rowval::AbstractVector{<:Integer},
+    source_nzval::Maybe{AbstractVector},
+    planned_rows::Maybe{PlannedAxis},
+    planned_columns::Maybe{PlannedAxis},
+    replacement_progress::Maybe{AbstractProgress},
+)::Nothing
+    @assert planned_rows !== nothing || planned_columns !== nothing
+    if planned_rows !== nothing && planned_columns !== nothing
+        permute_sparse_matrix_both_buffers!(;
+            destination_colptr,
+            destination_rowval,
+            destination_nzval,
+            source_n_rows,
+            source_colptr,
+            source_rowval,
+            source_nzval,
+            inverse_rows_permutation = planned_rows.inverse_permutation,
+            columns_permutation = planned_columns.permutation,
+            progress = replacement_progress,
+        )
+    elseif planned_rows !== nothing
+        permute_sparse_matrix_rows_buffers!(;
+            destination_colptr,
+            destination_rowval,
+            destination_nzval,
+            source_n_rows,
+            source_colptr,
+            source_rowval,
+            source_nzval,
+            inverse_rows_permutation = planned_rows.inverse_permutation,
+            progress = replacement_progress,
+        )
+    else
+        permute_sparse_matrix_columns_buffers!(;
+            destination_colptr,
+            destination_rowval,
+            destination_nzval,
+            source_n_rows,
+            source_colptr,
+            source_rowval,
+            source_nzval,
+            columns_permutation = planned_columns.permutation,
+            progress = replacement_progress,
+        )
+    end
+    return nothing
+end
+
+# Write the permuted copy of a vector property into `writer`. The property must not exist in `writer` (its old storage
+# was already removed). A vector is at most one axis long, so it is permuted in memory.
+function write_permuted_vector(
+    writer::Formats.FormatWriter,
+    planned::PlannedVector,
+    source::StorageVector,
+    planned_axis::PlannedAxis,
+    is_packed::Bool,
+    replacement_progress::Maybe{AbstractProgress},
+)::Nothing
+    permuted = stage_permuted_vector(source, planned_axis, replacement_progress)
+    Formats.format_set_vector!(writer, planned.axis, planned.name, permuted, is_packed)
+    return nothing
+end
+
+# Write the permuted copy of a matrix property into `writer`. The property must not exist in `writer` (its old storage
+# was already removed). Dense numeric matrices are streamed one column at a time. Flat sparse matrices are permuted
+# directly into the new property's storage. Packed sparse matrices and string matrices are permuted in memory.
+function write_permuted_matrix(
+    writer::Formats.FormatWriter,
+    planned::PlannedMatrix,
+    source::StorageMatrix,
+    planned_rows::Maybe{PlannedAxis},
+    planned_columns::Maybe{PlannedAxis},
+    is_packed::Bool,
+    replacement_progress::Maybe{AbstractProgress},
+)::Nothing
+    if !issparse(source) && !(eltype(source) <: AbstractString)
+        stream_permuted_dense_matrix(
+            writer,
+            planned,
+            source,
+            planned_rows,
+            planned_columns,
+            is_packed,
+            replacement_progress,
+        )
+    elseif source isa SparseMatrixCSC && !is_packed
+        fill_permuted_sparse_matrix(writer, planned, source, planned_rows, planned_columns, replacement_progress)
+    else
+        permuted = stage_permuted_matrix(source, planned_rows, planned_columns, replacement_progress)
+        Formats.format_set_matrix!(writer, planned.rows_axis, planned.columns_axis, planned.name, permuted, is_packed)
+    end
+    return nothing
+end
+
+# Write the permuted copy of a dense matrix into `writer` one column at a time, so only one column is held in memory.
+function stream_permuted_dense_matrix(
+    writer::Formats.FormatWriter,
+    planned::PlannedMatrix,
+    source::AbstractMatrix{<:StorageReal},
+    planned_rows::Maybe{PlannedAxis},
+    planned_columns::Maybe{PlannedAxis},
+    is_packed::Bool,
+    replacement_progress::Maybe{AbstractProgress},
+)::Nothing
+    n_rows, n_columns = size(source)
+    rows_permutation = planned_rows === nothing ? (1:n_rows) : planned_rows.permutation
+    destination, _ = Formats.format_get_empty_dense_matrix!(
+        writer,
+        planned.rows_axis,
+        planned.columns_axis,
+        planned.name,
+        eltype(source),
+        is_packed,
+    )
+    for column in 1:n_columns
+        source_column = planned_columns === nothing ? column : planned_columns.permutation[column]
+        if source isa DenseMatrix
+            source_values = view(source, :, source_column)
+        else
+            source_values = source[:, source_column]
+        end
+        fill_column!(destination, column) do destination_column
+            permute_vector!(;
+                destination = destination_column,
+                source = source_values,
+                permutation = rows_permutation,
+                progress = replacement_progress,
+            )
+            return nothing
+        end
+    end
+    Formats.format_filled_empty_dense_matrix!(
+        writer,
+        planned.rows_axis,
+        planned.columns_axis,
+        planned.name,
+        destination,
+    )
+    return nothing
+end
+
+# Write the permuted copy of a sparse matrix directly into the buffers of a new flat sparse matrix property in `writer`.
+function fill_permuted_sparse_matrix(
+    writer::Formats.FormatWriter,
+    planned::PlannedMatrix,
+    source::SparseMatrixCSC,
+    planned_rows::Maybe{PlannedAxis},
+    planned_columns::Maybe{PlannedAxis},
+    replacement_progress::Maybe{AbstractProgress},
+)::Nothing
+    n_rows, n_columns = size(source)
+    destination_colptr, destination_rowval, destination_nzval, _ = Formats.format_get_empty_sparse_matrix!(
+        writer,
+        planned.rows_axis,
+        planned.columns_axis,
+        planned.name,
+        eltype(source),
+        nnz(source),
+        eltype(source.colptr),
+        false,
+    )
+    permute_sparse_matrix_into!(;
+        destination_colptr,
+        destination_rowval,
+        destination_nzval,
+        source_n_rows = n_rows,
+        source_colptr = source.colptr,
+        source_rowval = source.rowval,
+        source_nzval = source.nzval,
+        planned_rows,
+        planned_columns,
+        replacement_progress,
+    )
+    Formats.format_filled_empty_sparse_matrix!(
+        writer,
+        planned.rows_axis,
+        planned.columns_axis,
+        planned.name,
+        SparseMatrixCSC(n_rows, n_columns, destination_colptr, destination_rowval, destination_nzval),
+    )
+    return nothing
 end
 
 """

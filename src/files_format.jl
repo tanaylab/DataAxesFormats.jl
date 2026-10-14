@@ -252,12 +252,17 @@ import ..PackedFormat.packed_format_get_empty_dense_matrix!
 import ..PackedFormat.packed_format_get_empty_dense_vector!
 import ..PackedFormat.packed_format_get_empty_sparse_matrix!
 import ..PackedFormat.packed_format_get_empty_sparse_vector!
+import ..PackedFormat.packed_format_has_nzval
 import ..PackedFormat.packed_format_open_sparse_component_eager
 import ..PackedFormat.packed_format_open_sparse_component_source
+import ..PackedFormat.packed_format_property_metadata
+import ..PackedFormat.packed_format_read_sparse_string_nzval
 import ..PackedFormat.packed_format_write_dense_array!
 import ..PackedFormat.packed_format_write_sparse_component!
 import ..PackedFormat.packed_format_write_sparse_numeric_matrix!
 import ..PackedFormat.packed_format_write_sparse_numeric_vector!
+import ..PackedFormat.packed_format_write_string_matrix!
+import ..PackedFormat.packed_format_write_string_vector!
 import ..PackedFormat.packed_has_entry
 import ..PackedFormat.packed_make_streaming_shard_writer
 import ..PackedFormat.packed_open_array
@@ -269,6 +274,7 @@ import ..PackedFormat.packed_register_metadata!
 import ..PackedFormat.packed_reserve_typed_matrix!
 import ..PackedFormat.packed_reserve_typed_vector!
 import ..PackedFormat.packed_write_bytes!
+import ..PackedFormat.packed_write_lines!
 import ..PackedFormat.packed_write_typed_array!
 import ..PackedFormat.PackedCodec
 import ..PackedFormat.PackedDaf
@@ -374,7 +380,7 @@ function FilesDaf(
     if !isfile(daf_file_path)
         error("not a daf directory: $(path)")
     end
-    daf_json = JSON.parsefile(daf_file_path)  # NOJET
+    daf_json = JSON.parsefile(daf_file_path)
     @assert daf_json isa AbstractDict
     daf_version = daf_json["version"]
     @assert daf_version isa AbstractVector
@@ -600,7 +606,7 @@ function Formats.format_set_vector!(
         end
 
     elseif eltype(vector) <: AbstractString
-        write_string_vector(files, axis, name, vector, is_packed)
+        packed_format_write_string_vector!(files, axis, name, vector, is_packed)
 
     else
         chunk_shape = chunks_for(is_packed, size(vector), eltype(vector))
@@ -613,71 +619,6 @@ function Formats.format_set_vector!(
             end
         end
     end
-    return nothing
-end
-
-function write_string_vector(
-    files::FilesDaf,
-    axis::AbstractString,
-    name::AbstractString,
-    vector::Union{StorageScalar, StorageVector},
-    is_packed::Bool,
-)::Nothing
-    flame_timed("FilesDaf.write_string_vector") do
-        n_empty = 0
-        nonempty_size = 0
-        for value in vector
-            value_size = length(value)
-            if value_size > 0
-                nonempty_size += value_size
-            else
-                n_empty += 1
-            end
-        end
-
-        n_values = length(vector)
-        n_nonempty = n_values - n_empty
-        ind_type = indtype_for_size(n_values)
-
-        dense_size = nonempty_size + length(vector)
-        sparse_size = nonempty_size + n_nonempty * (1 + sizeof(ind_type))
-
-        logical_base = "vectors/$(axis)/$(name)"
-        base = "$(files.path)/$(logical_base)"
-        if sparse_size <= dense_size * 0.75
-            nzind_chunk_shape = chunks_for(is_packed, (n_nonempty,), ind_type)
-            nzval_chunk_shape = chunks_for(is_packed, (n_nonempty,), String)
-            write_sparse_vector_json(
-                files,
-                logical_base,
-                String,
-                ind_type,
-                n_nonempty;
-                nzind_chunk_shape,
-                nzval_chunk_shape,
-            )
-
-            nzind_vector = Vector{ind_type}(undef, n_nonempty)
-            nzval_buffer = Vector{eltype(vector)}(undef, n_nonempty)
-            position = 1
-            for (index, value) in enumerate(vector)
-                if length(value) > 0
-                    @assert !(contains(value, '\n'))
-                    nzind_vector[position] = index
-                    nzval_buffer[position] = value
-                    position += 1
-                end
-            end
-            @assert position == n_nonempty + 1
-
-            packed_format_write_sparse_component!(files, logical_base, "nzind", nzind_vector, nzind_chunk_shape)
-            write_sparse_string_nzval(base, nzval_buffer, nzval_chunk_shape)
-
-        else
-            write_dense_string_array(files, logical_base, vector, chunks_for(is_packed, (length(vector),), String))
-        end
-    end
-
     return nothing
 end
 
@@ -717,22 +658,41 @@ function Formats.format_get_empty_sparse_vector!(
     ::Type{T},
     nnz::StorageInteger,
     ::Type{I},
-    _is_packed::Bool,
+    is_packed::Bool,
 )::Tuple{AbstractVector{I}, AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(files)
-    return packed_format_get_empty_sparse_vector!(files, axis, name, T, nnz, I)
+    return packed_format_get_empty_sparse_vector!(files, axis, name, T, nnz, I, is_packed)
 end
 
 function Formats.format_filled_empty_sparse_vector!(
     files::FilesDaf,
     axis::AbstractString,
     name::AbstractString,
-    ::SparseVector{<:StorageReal, <:StorageInteger},
+    filled::SparseVector{<:StorageReal, <:StorageInteger},
 )::Nothing
     @assert Formats.has_data_write_lock(files)
-    packed_format_filled_empty_sparse_vector!(files, axis, name)
+    packed_format_filled_empty_sparse_vector!(files, axis, name, filled)
     return nothing
 end
+
+# Every file suffix a vector property may use on disk.
+const VECTOR_FILE_SUFFIXES =
+    (".json", ".txt", ".data", ".zip", ".nzind", ".nzind.zip", ".nzval", ".nzval.zip", ".nztxt")
+
+# Every file suffix a matrix property may use on disk.
+const MATRIX_FILE_SUFFIXES = (
+    ".json",
+    ".data",
+    ".txt",
+    ".zip",
+    ".colptr",
+    ".colptr.zip",
+    ".rowval",
+    ".rowval.zip",
+    ".nzval",
+    ".nzval.zip",
+    ".nztxt",
+)
 
 function Formats.format_delete_vector!(
     files::FilesDaf,
@@ -741,7 +701,7 @@ function Formats.format_delete_vector!(
     for_set::Bool,  # NOLINT
 )::Nothing
     @assert Formats.has_data_write_lock(files)
-    for suffix in (".json", ".txt", ".data", ".zip", ".nzind", ".nzind.zip", ".nzval", ".nzval.zip", ".nztxt")
+    for suffix in VECTOR_FILE_SUFFIXES
         path = "$(files.path)/vectors/$(axis)/$(name)$(suffix)"
         rm(path; force = true)
         report_modified!(path)
@@ -753,20 +713,6 @@ end
 function Formats.format_vectors_set(files::FilesDaf, axis::AbstractString)::AbstractSet{<:AbstractString}
     @assert Formats.has_data_read_lock(files)
     return get_names_set("$(files.path)/vectors/$(axis)", ".json")
-end
-
-# Whether a sparse property stores an `nzval` file on disk. In the v1.1 schema (per-component descriptors) the presence
-# of the `nzval` descriptor is authoritative. The legacy v1.0 schema (top-level `eltype`/`indtype`) carries no
-# per-component descriptor and always omits the `nzval` file for `Bool` properties (the stored values are all the
-# implied `true`), so its presence is determined by the element type.
-function nzval_is_present(json::AbstractDict, eltype_name::AbstractString)::Bool
-    if haskey(json, "nzval")
-        return true
-    elseif haskey(json, "eltype")
-        return eltype_name != "Bool"
-    else
-        return false
-    end
 end
 
 function Formats.format_get_vector(
@@ -807,21 +753,7 @@ function Formats.format_get_vector(
             cache_group = max(cache_group, nzind_cache)
             vector = Vector{AbstractString}(undef, size)
             fill!(vector, "")
-            nzval_descriptor = haskey(json, "nzval") ? json["nzval"] : Dict("format" => "dense", "eltype" => "String")
-            if is_packed_component(nzval_descriptor)
-                nzval_strings, _, _, _ = packed_format_open_sparse_component_eager(
-                    files,
-                    base_key,
-                    "nzval",
-                    String,
-                    json,
-                    length(nzind_vector),
-                )
-                vector[nzind_vector] .= nzval_strings  # NOJET
-            else
-                nztxt_lines, _ = packed_read_lines(files, "$(base_key).nztxt")
-                vector[nzind_vector] .= nztxt_lines
-            end
+            vector[nzind_vector] .= packed_format_read_sparse_string_nzval(files, base_key, json, length(nzind_vector))
             cache_group = Formats.MemoryData
 
         else
@@ -829,7 +761,7 @@ function Formats.format_get_vector(
             nzind_descriptor = get(json, "nzind", nothing)
             is_nzind_packed = is_packed_component(nzind_descriptor)
             nzval_descriptor = get(json, "nzval", nothing)
-            nzval_present = nzval_is_present(json, eltype_name)
+            nzval_present = packed_format_has_nzval(files, base_key, json)
             is_nzval_packed = is_packed_component(nzval_descriptor)
 
             if is_nzind_packed || is_nzval_packed
@@ -862,6 +794,11 @@ function Formats.format_get_vector(
     end
 
     return (vector, nothing, cache_group)
+end
+
+function Formats.format_vector_metadata(files::FilesDaf, axis::AbstractString, name::AbstractString)::PropertyMetadata
+    @assert Formats.has_data_read_lock(files)
+    return packed_format_property_metadata(files, "vectors/$(axis)/$(name)", "nzind")
 end
 
 function Formats.format_has_matrix(
@@ -914,7 +851,7 @@ function Formats.format_set_matrix!(
         end
 
     elseif eltype(matrix) <: AbstractString
-        write_string_matrix(files, rows_axis, columns_axis, name, matrix, is_packed)
+        packed_format_write_string_matrix!(files, rows_axis, columns_axis, name, matrix, is_packed)
 
     else
         @assert eltype(matrix) <: Real
@@ -928,87 +865,6 @@ function Formats.format_set_matrix!(
             end
         end
     end
-    return nothing
-end
-
-function write_string_matrix(
-    files::FilesDaf,
-    rows_axis::AbstractString,
-    columns_axis::AbstractString,
-    name::AbstractString,
-    matrix::AbstractMatrix{<:AbstractString},
-    is_packed::Bool,
-)::Nothing
-    nrows, ncols = size(matrix)
-
-    n_empty = 0
-    nonempty_size = 0
-
-    for value in matrix
-        value_size = length(value)
-        if value_size > 0
-            nonempty_size += value_size
-        else
-            n_empty += 1
-        end
-    end
-
-    n_values = nrows * ncols
-    n_nonempty = n_values - n_empty
-    ind_type = indtype_for_size(n_values)
-
-    dense_size = nonempty_size + nrows * ncols
-    sparse_size = nonempty_size + n_nonempty + (ncols + 1 + n_nonempty) * sizeof(ind_type)
-
-    logical_base = "matrices/$(rows_axis)/$(columns_axis)/$(name)"
-    base = "$(files.path)/$(logical_base)"
-    if sparse_size <= dense_size * 0.75
-        colptr_chunk_shape = chunks_for(is_packed, (ncols + 1,), ind_type)
-        rowval_chunk_shape = chunks_for(is_packed, (n_nonempty,), ind_type)
-        nzval_chunk_shape = chunks_for(is_packed, (n_nonempty,), String)
-        write_sparse_matrix_json(
-            files,
-            logical_base,
-            String,
-            ind_type,
-            n_nonempty,
-            ncols;
-            colptr_chunk_shape,
-            rowval_chunk_shape,
-            nzval_chunk_shape,
-        )
-
-        colptr_vector = Vector{ind_type}(undef, ncols + 1)
-        rowval_vector = Vector{ind_type}(undef, n_nonempty)
-        nzval_buffer = Vector{eltype(matrix)}(undef, n_nonempty)
-
-        flame_timed("FilesDaf.write_sparse_string_matrix") do
-            position = 1
-            for column_index in 1:ncols
-                colptr_vector[column_index] = position
-                for row_index in 1:nrows
-                    value = matrix[row_index, column_index]
-                    if length(value) > 0
-                        @assert !contains(value, '\n')
-                        rowval_vector[position] = row_index
-                        nzval_buffer[position] = value
-                        position += 1
-                    end
-                end
-            end
-            @assert position == n_nonempty + 1
-            colptr_vector[ncols + 1] = n_nonempty + 1
-
-            packed_format_write_sparse_component!(files, logical_base, "colptr", colptr_vector, colptr_chunk_shape)
-            packed_format_write_sparse_component!(files, logical_base, "rowval", rowval_vector, rowval_chunk_shape)
-            write_sparse_string_nzval(base, nzval_buffer, nzval_chunk_shape)
-            return nothing
-        end
-
-    else
-        write_dense_string_array(files, logical_base, matrix, chunks_for(is_packed, (nrows, ncols), String))
-    end
-
     return nothing
 end
 
@@ -1046,7 +902,7 @@ function Formats.format_get_empty_sparse_matrix!(
     ::Type{T},
     nnz::StorageInteger,
     ::Type{I},
-    _is_packed::Bool,
+    is_packed::Bool,
 )::Tuple{
     AbstractVector{I},
     AbstractVector{I},
@@ -1055,7 +911,7 @@ function Formats.format_get_empty_sparse_matrix!(
 } where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(files)
     ncols = Formats.format_axis_length(files, columns_axis)
-    return packed_format_get_empty_sparse_matrix!(files, rows_axis, columns_axis, name, T, nnz, I, ncols)
+    return packed_format_get_empty_sparse_matrix!(files, rows_axis, columns_axis, name, T, nnz, I, ncols, is_packed)
 end
 
 function Formats.format_filled_empty_sparse_matrix!(
@@ -1063,10 +919,10 @@ function Formats.format_filled_empty_sparse_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    ::SparseMatrixCSC{<:StorageReal, <:StorageInteger},
+    filled::SparseMatrixCSC{<:StorageReal, <:StorageInteger},
 )::Nothing
     @assert Formats.has_data_write_lock(files)
-    packed_format_filled_empty_sparse_matrix!(files, rows_axis, columns_axis, name)
+    packed_format_filled_empty_sparse_matrix!(files, rows_axis, columns_axis, name, filled)
     return nothing
 end
 
@@ -1088,7 +944,7 @@ function Formats.format_relayout_matrix!(
             name,
             eltype(matrix),
             nnz(matrix),
-            eltype(matrix.colptr),
+            indtype(matrix),
             is_packed,
         )
         flame_timed("FilesDaf.init_empty_sparse_matrix") do
@@ -1098,16 +954,18 @@ function Formats.format_relayout_matrix!(
         relayout_matrix =
             SparseMatrixCSC(axis_length(files, columns_axis), axis_length(files, rows_axis), colptr, rowval, nzval)
         relayout!(flip(relayout_matrix), matrix)
+        Formats.format_filled_empty_sparse_matrix!(files, columns_axis, rows_axis, name, relayout_matrix)
 
     elseif eltype(matrix) <: AbstractString
         relayout_matrix = flipped(matrix)
-        write_string_matrix(files, columns_axis, rows_axis, name, relayout_matrix, is_packed)
+        packed_format_write_string_matrix!(files, columns_axis, rows_axis, name, relayout_matrix, is_packed)
 
     else
         @assert eltype(matrix) <: Real
         relayout_matrix, _ =
             Formats.format_get_empty_dense_matrix!(files, columns_axis, rows_axis, name, eltype(matrix), is_packed)
         relayout!(flip(relayout_matrix), matrix)
+        Formats.format_filled_empty_dense_matrix!(files, columns_axis, rows_axis, name, relayout_matrix)
     end
     return relayout_matrix
 end
@@ -1120,19 +978,7 @@ function Formats.format_delete_matrix!(
     for_set::Bool,  # NOLINT
 )::Nothing
     @assert Formats.has_data_write_lock(files)
-    for suffix in (
-        ".json",
-        ".data",
-        ".txt",
-        ".zip",
-        ".colptr",
-        ".colptr.zip",
-        ".rowval",
-        ".rowval.zip",
-        ".nzval",
-        ".nzval.zip",
-        ".nztxt",
-    )
+    for suffix in MATRIX_FILE_SUFFIXES
         path = "$(files.path)/matrices/$(rows_axis)/$(columns_axis)/$(name)$(suffix)"
         rm(path; force = true)
         report_modified!(path)
@@ -1206,16 +1052,7 @@ function Formats.format_get_matrix(
             cache_group = max(cache_group, rowval_cache)
             matrix = Matrix{AbstractString}(undef, nrows, ncols)
             fill!(matrix, "")
-            # Defensive packed-`nzval` arm: current writers always emit `.nztxt` for string-sparse matrices, but the
-            # reader supports a hand-authored or future layout that packs the per-row strings into a v3 shard.
-            nzval_descriptor = haskey(json, "nzval") ? json["nzval"] : Dict("format" => "dense", "eltype" => "String")
-            nzval_strings = if is_packed_component(nzval_descriptor)
-                buffer, _, _, _ = packed_format_open_sparse_component_eager(files, base_key, "nzval", String, json, nnz)  # UNTESTED
-                buffer  # UNTESTED
-            else
-                lines, _ = packed_read_lines(files, "$(base_key).nztxt")
-                lines
-            end
+            nzval_strings = packed_format_read_sparse_string_nzval(files, base_key, json, nnz)
             position = 1
             for column_index in 1:ncols
                 first_row_position = colptr_vector[column_index]
@@ -1232,7 +1069,7 @@ function Formats.format_get_matrix(
             rowval_descriptor = get(json, "rowval", nothing)
             is_rowval_packed = is_packed_component(rowval_descriptor)
             nzval_descriptor = get(json, "nzval", nothing)
-            nzval_present = nzval_is_present(json, eltype_name)
+            nzval_present = packed_format_has_nzval(files, base_key, json)
             is_nzval_packed = is_packed_component(nzval_descriptor)
 
             if is_rowval_packed || is_nzval_packed
@@ -1265,6 +1102,16 @@ function Formats.format_get_matrix(
     end
 
     return (matrix, nothing, cache_group)
+end
+
+function Formats.format_matrix_metadata(
+    files::FilesDaf,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+)::PropertyMetadata
+    @assert Formats.has_data_read_lock(files)
+    return packed_format_property_metadata(files, "matrices/$(rows_axis)/$(columns_axis)/$(name)", "rowval")
 end
 
 function get_names_set(path::AbstractString, suffix::AbstractString)::AbstractSet{<:AbstractString}
@@ -1356,61 +1203,6 @@ function write_dense_array_json(files::FilesDaf, key::AbstractString, eltype::Ty
     return nothing
 end
 
-function write_packed_array_json(
-    files::FilesDaf,
-    key::AbstractString,
-    eltype::Type{<:StorageScalarBase},
-    chunk_shape::NTuple{N, Int},
-    codec::PackedCodec,
-)::Nothing where {N}
-    flame_timed("FilesDaf.write_packed_array_json") do
-        return write_property_json!(files, key, packed_array_json_bytes(eltype, chunk_shape, codec))
-    end
-    return nothing
-end
-
-function write_sparse_vector_json(
-    files::FilesDaf,
-    key::AbstractString,
-    eltype::Type{<:StorageScalarBase},
-    indtype::Type{<:StorageInteger},
-    nnz::Integer;
-    nzind_chunk_shape::Maybe{NTuple{1, Int}} = nothing,
-    nzval_chunk_shape::Maybe{NTuple{1, Int}} = nothing,
-)::Nothing
-    flame_timed("FilesDaf.write_sparse_vector_json") do
-        json_bytes = sparse_vector_json_bytes(eltype, indtype, nnz; nzind_chunk_shape, nzval_chunk_shape)
-        return write_property_json!(files, key, json_bytes)
-    end
-    return nothing
-end
-
-function write_sparse_matrix_json(
-    files::FilesDaf,
-    key::AbstractString,
-    eltype::Type{<:StorageScalarBase},
-    indtype::Type{<:StorageInteger},
-    nnz::Integer,
-    n_columns::Integer;
-    colptr_chunk_shape::Maybe{NTuple{1, Int}} = nothing,
-    rowval_chunk_shape::Maybe{NTuple{1, Int}} = nothing,
-    nzval_chunk_shape::Maybe{NTuple{1, Int}} = nothing,
-)::Nothing
-    flame_timed("FilesDaf.write_sparse_matrix_json") do
-        json_bytes = sparse_matrix_json_bytes(
-            eltype,
-            indtype,
-            nnz,
-            n_columns;
-            colptr_chunk_shape,
-            rowval_chunk_shape,
-            nzval_chunk_shape,
-        )
-        return write_property_json!(files, key, json_bytes)
-    end
-    return nothing
-end
-
 # Write the per-property JSON sidecar at `<files.path>/<key>.json` (with a trailing newline) and append the
 # corresponding entry to `metadata.json`. `descriptor` is the JSON bytes returned by one of the
 # `*_json_bytes` helpers, which include the trailing newline; `metadata_json_append!` strips it before insertion.
@@ -1422,61 +1214,17 @@ function write_property_json!(files::FilesDaf, key::AbstractString, descriptor::
     return nothing
 end
 
-# Write a dense string property as either the flat `<base>.txt` line-per-element file or the packed
-# `<base>.zip` v3 sharded-array bytes, plus its JSON descriptor at `<base>.json`.
-function write_dense_string_array(
-    files::FilesDaf,
-    key::AbstractString,
-    data::AbstractArray{T, N},
-    chunk_shape::Maybe{NTuple{N, Int}},
-)::Nothing where {T <: AbstractString, N}
-    base_path = "$(files.path)/$(key)"
-    if chunk_shape === nothing
-        write_dense_array_json(files, key, String)
-        write_lines_file("$(base_path).txt", data)
-    else
-        codec = compressor_for()
-        encoded = encode_packed_dense_array(data, chunk_shape, v3_bytes_codecs_for(codec, T))
-        shard_path = "$(base_path).zip"
-        open(io -> write(io, encoded), shard_path, "w")
-        report_modified!(shard_path)
-        write_packed_array_json(files, key, T, chunk_shape, codec)
-    end
-    return nothing
-end
-
-# Write the `nzval` component of a sparse string property either flat at `<base>.nztxt` (line-per-nonzero) or
-# packed at `<base>.nzval.zip` (v3 shard via `VLenUTF8V3Codec`).
-function write_sparse_string_nzval(
-    base_path::AbstractString,
-    nzval_buffer::AbstractVector{T},
-    chunk_shape::Maybe{NTuple{1, Int}},
-)::Nothing where {T <: AbstractString}
-    if chunk_shape === nothing
-        nztxt_path = "$(base_path).nztxt"
-        open(nztxt_path, "w") do file
-            for value in nzval_buffer
-                @assert !contains(value, '\n')
-                println(file, value)
-            end
-            return nothing
-        end
-        report_modified!(nztxt_path)
-    else
-        shard_path = "$(base_path).nzval.zip"
-        encoded = encode_packed_dense_array(nzval_buffer, chunk_shape, v3_bytes_codecs_for(compressor_for(), T))
-        open(io -> write(io, encoded), shard_path, "w")
-        report_modified!(shard_path)
-    end
-    return nothing
-end
-
 const METADATA_JSON = "metadata.json"
 
 function packed_write_bytes!(files::FilesDaf, key::AbstractString, bytes::AbstractVector{UInt8})::Nothing
     path = "$(files.path)/$(key)"
     write(path, bytes)
     report_modified!(path)
+    return nothing
+end
+
+function packed_write_lines!(files::FilesDaf, key::AbstractString, lines::AbstractArray{<:AbstractString})::Nothing
+    write_lines_file("$(files.path)/$(key)", lines)
     return nothing
 end
 
@@ -1681,12 +1429,34 @@ function push_sidecars_in!(
     end
     for name in sort!(readdir(full_directory))
         if endswith(name, ".json")
-            key = "$(relative_directory)/$(chop(name; tail = 5))"
+            property_name = chop(name; tail = 5)
+            key = "$(relative_directory)/$(property_name)"
             content = JSON.parsefile("$(full_directory)/$(name)")
-            push!(entries, key => content)
+            push!(entries, key => metadata_json_descriptor("$(full_directory)/$(property_name)", content))
         end
     end
     return nothing
+end
+
+# The descriptor of a property in `metadata.json`. This is the sidecar itself, except for a legacy v1.0 sparse sidecar
+# (top-level `eltype` / `indtype`). That one is given in the v1.1 shape, so readers of `metadata.json` see only v1.1
+# sparse descriptors. Its sizes come from the component files. Its `nzval` is listed only if the `.nzval` file exists.
+function metadata_json_descriptor(base_path::AbstractString, sidecar::AbstractDict)::AbstractDict
+    if get(sidecar, "format", nothing) != "sparse" || !haskey(sidecar, "eltype")
+        return sidecar
+    end
+    eltype = eltype_for_descriptor(sidecar["eltype"])
+    ind_type = eltype_for_descriptor(sidecar["indtype"])
+    nzval_present = eltype != Bool || isfile("$(base_path).nzval")
+    if isfile("$(base_path).nzind")
+        nnz = div(filesize("$(base_path).nzind"), sizeof(ind_type))
+        json_bytes = sparse_vector_json_bytes(eltype, ind_type, nnz; nzval_present)
+    else
+        n_columns = div(filesize("$(base_path).colptr"), sizeof(ind_type)) - 1
+        nnz = div(filesize("$(base_path).rowval"), sizeof(ind_type))
+        json_bytes = sparse_matrix_json_bytes(eltype, ind_type, nnz, n_columns; nzval_present)
+    end
+    return JSON.parse(String(json_bytes))
 end
 
 # Count newline-terminated lines in `path`. Used by [`metadata_json_rebuild!`](@ref) to populate the `n_entries`
@@ -1732,22 +1502,6 @@ end
 
 const REORDER_BACKUP_DIR = ".reorder.backup"
 
-const REORDER_VECTOR_SUFFIXES = (".json", ".data", ".txt", ".nzind", ".nzval", ".nztxt")
-
-const REORDER_MATRIX_SUFFIXES = (
-    ".json",
-    ".data",
-    ".txt",
-    ".zip",
-    ".colptr",
-    ".colptr.zip",
-    ".rowval",
-    ".rowval.zip",
-    ".nzval",
-    ".nzval.zip",
-    ".nztxt",
-)
-
 function Reorder.format_lock_reorder!(files::FilesDaf, ::AbstractString)::Nothing
     @assert Formats.has_data_write_lock(files)
     backup_root = "$(files.path)/$(REORDER_BACKUP_DIR)"
@@ -1771,7 +1525,7 @@ function Reorder.format_backup_reorder!(files::FilesDaf, plan::Reorder.FormatReo
     for planned in plan.planned_vectors
         backup_vector_dir = "$(backup_root)/vectors/$(planned.axis)"
         mkpath(backup_vector_dir)
-        for suffix in REORDER_VECTOR_SUFFIXES
+        for suffix in VECTOR_FILE_SUFFIXES
             src = "$(files.path)/vectors/$(planned.axis)/$(planned.name)$(suffix)"
             if cached_ispath(src)
                 hardlink(src, "$(backup_vector_dir)/$(planned.name)$(suffix)")
@@ -1781,7 +1535,7 @@ function Reorder.format_backup_reorder!(files::FilesDaf, plan::Reorder.FormatReo
     for planned in plan.planned_matrices
         backup_matrix_dir = "$(backup_root)/matrices/$(planned.rows_axis)/$(planned.columns_axis)"
         mkpath(backup_matrix_dir)
-        for suffix in REORDER_MATRIX_SUFFIXES
+        for suffix in MATRIX_FILE_SUFFIXES
             src = "$(files.path)/matrices/$(planned.rows_axis)/$(planned.columns_axis)/$(planned.name)$(suffix)"
             if cached_ispath(src)
                 hardlink(src, "$(backup_matrix_dir)/$(planned.name)$(suffix)")
@@ -1830,9 +1584,9 @@ function replace_reorder_vector(
     replacement_progress::Maybe{AbstractProgress},
 )::Nothing
     source_vector, _, _ = Formats.format_get_vector(files, planned.axis, planned.name)
-    planned_axis = plan.planned_axes[planned.axis]
+    is_packed = Formats.format_vector_metadata(files, planned.axis, planned.name).is_packed
 
-    for suffix in REORDER_VECTOR_SUFFIXES
+    for suffix in VECTOR_FILE_SUFFIXES
         path = "$(files.path)/vectors/$(planned.axis)/$(planned.name)$(suffix)"
         if cached_ispath(path)
             rm(path)
@@ -1840,42 +1594,14 @@ function replace_reorder_vector(
         end
     end
 
-    if eltype(source_vector) <: AbstractString
-        permuted = Vector{eltype(source_vector)}(undef, length(source_vector))
-        permute_vector!(;
-            destination = permuted,
-            source = source_vector,
-            permutation = planned_axis.permutation,
-            progress = replacement_progress,
-        )
-        write_dense_array_json(files, "vectors/$(planned.axis)/$(planned.name)", String)
-        write_lines_file("$(files.path)/vectors/$(planned.axis)/$(planned.name).txt", permuted)
-    elseif source_vector isa SparseVector
-        T = eltype(source_vector)
-        I = eltype(SparseArrays.nonzeroinds(source_vector))
-        source_nnz = nnz(source_vector)
-        destination_nzind, destination_nzval, _ =
-            packed_format_get_empty_sparse_vector!(files, planned.axis, planned.name, T, source_nnz, I)
-        permute_sparse_vector_buffers!(;
-            destination_nzind,
-            destination_nzval,
-            source_length = length(source_vector),
-            source_nzind = SparseArrays.nonzeroinds(source_vector),
-            source_nzval = nonzeros(source_vector),
-            inverse_permutation = planned_axis.inverse_permutation,
-            progress = replacement_progress,
-        )
-    else
-        T = eltype(source_vector)
-        destination, _ =
-            packed_format_get_empty_dense_vector!(files, planned.axis, planned.name, T, false, length(source_vector))
-        permute_vector!(;
-            destination,
-            source = source_vector,
-            permutation = planned_axis.permutation,
-            progress = replacement_progress,
-        )
-    end
+    Reorder.write_permuted_vector(
+        files,
+        planned,
+        source_vector,
+        plan.planned_axes[planned.axis],
+        is_packed,
+        replacement_progress,
+    )
     return nothing
 end
 
@@ -1886,11 +1612,9 @@ function replace_reorder_matrix(
     replacement_progress::Maybe{AbstractProgress},
 )::Nothing
     source_matrix, _, _ = Formats.format_get_matrix(files, planned.rows_axis, planned.columns_axis, planned.name)
-    planned_rows = get(plan.planned_axes, planned.rows_axis, nothing)
-    planned_columns = get(plan.planned_axes, planned.columns_axis, nothing)
-    @assert planned_rows !== nothing || planned_columns !== nothing
+    is_packed = Formats.format_matrix_metadata(files, planned.rows_axis, planned.columns_axis, planned.name).is_packed
 
-    for suffix in REORDER_MATRIX_SUFFIXES
+    for suffix in MATRIX_FILE_SUFFIXES
         path = "$(files.path)/matrices/$(planned.rows_axis)/$(planned.columns_axis)/$(planned.name)$(suffix)"
         if cached_ispath(path)
             rm(path)
@@ -1898,125 +1622,15 @@ function replace_reorder_matrix(
         end
     end
 
-    nrows, ncols = size(source_matrix)
-    if eltype(source_matrix) <: AbstractString
-        permuted = Matrix{eltype(source_matrix)}(undef, nrows, ncols)
-        if planned_rows !== nothing && planned_columns !== nothing
-            permute_dense_matrix_both!(;
-                destination = permuted,
-                source = source_matrix,
-                rows_permutation = planned_rows.permutation,
-                columns_permutation = planned_columns.permutation,
-                progress = replacement_progress,
-            )
-        elseif planned_rows !== nothing
-            permute_dense_matrix_rows!(;
-                destination = permuted,
-                source = source_matrix,
-                rows_permutation = planned_rows.permutation,
-                progress = replacement_progress,
-            )
-        else
-            permute_dense_matrix_columns!(;
-                destination = permuted,
-                source = source_matrix,
-                columns_permutation = planned_columns.permutation,
-                progress = replacement_progress,
-            )
-        end
-        write_dense_array_json(files, "matrices/$(planned.rows_axis)/$(planned.columns_axis)/$(planned.name)", String)
-        write_lines_file(
-            "$(files.path)/matrices/$(planned.rows_axis)/$(planned.columns_axis)/$(planned.name).txt",
-            permuted,
-        )
-    elseif source_matrix isa SparseMatrixCSC
-        T = eltype(source_matrix)
-        I = eltype(source_matrix.colptr)
-        source_nnz = nnz(source_matrix)
-        destination_colptr, destination_rowval, destination_nzval, _ = packed_format_get_empty_sparse_matrix!(
-            files,
-            planned.rows_axis,
-            planned.columns_axis,
-            planned.name,
-            T,
-            source_nnz,
-            I,
-            ncols,
-        )
-        if planned_rows !== nothing && planned_columns !== nothing
-            permute_sparse_matrix_both_buffers!(;
-                destination_colptr,
-                destination_rowval,
-                destination_nzval,
-                source_n_rows = nrows,
-                source_colptr = source_matrix.colptr,
-                source_rowval = source_matrix.rowval,
-                source_nzval = source_matrix.nzval,
-                inverse_rows_permutation = planned_rows.inverse_permutation,
-                columns_permutation = planned_columns.permutation,
-                progress = replacement_progress,
-            )
-        elseif planned_rows !== nothing
-            permute_sparse_matrix_rows_buffers!(;
-                destination_colptr,
-                destination_rowval,
-                destination_nzval,
-                source_n_rows = nrows,
-                source_colptr = source_matrix.colptr,
-                source_rowval = source_matrix.rowval,
-                source_nzval = source_matrix.nzval,
-                inverse_rows_permutation = planned_rows.inverse_permutation,
-                progress = replacement_progress,
-            )
-        else
-            permute_sparse_matrix_columns_buffers!(;
-                destination_colptr,
-                destination_rowval,
-                destination_nzval,
-                source_n_rows = nrows,
-                source_colptr = source_matrix.colptr,
-                source_rowval = source_matrix.rowval,
-                source_nzval = source_matrix.nzval,
-                columns_permutation = planned_columns.permutation,
-                progress = replacement_progress,
-            )
-        end
-    else
-        T = eltype(source_matrix)
-        destination, _ = packed_format_get_empty_dense_matrix!(
-            files,
-            planned.rows_axis,
-            planned.columns_axis,
-            planned.name,
-            T,
-            false,
-            nrows,
-            ncols,
-        )
-        if planned_rows !== nothing && planned_columns !== nothing
-            permute_dense_matrix_both!(;
-                destination,
-                source = source_matrix,
-                rows_permutation = planned_rows.permutation,
-                columns_permutation = planned_columns.permutation,
-                progress = replacement_progress,
-            )
-        elseif planned_rows !== nothing
-            permute_dense_matrix_rows!(;
-                destination,
-                source = source_matrix,
-                rows_permutation = planned_rows.permutation,
-                progress = replacement_progress,
-            )
-        else
-            permute_dense_matrix_columns!(;
-                destination,
-                source = source_matrix,
-                columns_permutation = planned_columns.permutation,
-                progress = replacement_progress,
-            )
-        end
-    end
+    Reorder.write_permuted_matrix(
+        files,
+        planned,
+        source_matrix,
+        get(plan.planned_axes, planned.rows_axis, nothing),
+        get(plan.planned_axes, planned.columns_axis, nothing),
+        is_packed,
+        replacement_progress,
+    )
     return nothing
 end
 
@@ -2043,6 +1657,25 @@ function Reorder.format_reset_reorder!(files::FilesDaf)::Bool
     for (root, _, filenames) in walkdir(backup_root)
         rel = relpath(root, backup_root)
         live_dir = rel == "." ? files.path : "$(files.path)/$(rel)"
+
+        # The replacement may have stored a property using different files than the backup (e.g., `.nztxt` instead
+        # of `.txt`), so all the live files of each backed-up property are removed before restoring it.
+        if startswith(rel, "vectors")
+            suffixes = VECTOR_FILE_SUFFIXES
+        elseif startswith(rel, "matrices")
+            suffixes = MATRIX_FILE_SUFFIXES
+        else
+            suffixes = ()
+        end
+        for filename in filenames
+            if endswith(filename, ".json")
+                name = chop(filename; tail = length(".json"))
+                for suffix in suffixes
+                    rm("$(live_dir)/$(name)$(suffix)"; force = true)
+                end
+            end
+        end
+
         for filename in filenames
             live_path = "$(live_dir)/$(filename)"
             rm(live_path; force = true)

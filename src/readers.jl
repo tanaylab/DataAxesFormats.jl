@@ -51,8 +51,10 @@ export has_scalar
 export has_vector
 export is_leaf
 export matrices_set
+export matrix_metadata
 export matrix_version_counter
 export scalars_set
+export vector_metadata
 export vector_version_counter
 export vectors_set
 
@@ -732,6 +734,39 @@ function require_vector(daf::DafReader, axis::AbstractString, name::AbstractStri
 end
 
 """
+    vector_metadata(daf::DafReader, axis::AbstractString, name::AbstractString)::PropertyMetadata
+
+Get the [`PropertyMetadata`](@ref) of the vector property with some `name` for some `axis` in `daf`, without reading its
+data. The special property `name` is a dense `String` vector. The special property `index` is a dense `Int64` vector.
+
+This first verifies the `axis` exists in `daf`, and that the `name` vector exists for it.
+
+```jldoctest
+vector_metadata(example_cells_daf(), "gene", "is_lateral")
+
+# output
+
+PropertyMetadata(Bool, false, nothing, nothing, false)
+```
+"""
+function vector_metadata(daf::DafReader, axis::AbstractString, name::AbstractString)::PropertyMetadata
+    return Formats.with_data_read_lock(daf, "vector_metadata of:", name, "of:", axis) do
+        require_axis(daf, "for the vector: $(name)", axis)
+        if name == "name"
+            result = PropertyMetadata(String, false, nothing, nothing, false)
+        elseif name == "index"
+            result = PropertyMetadata(Int64, false, nothing, nothing, false)
+        else
+            require_vector(daf, axis, name)
+            result = Formats.format_vector_metadata(daf, axis, name)
+        end
+        @debug "vector_metadata daf: $(brief(daf)) axis: $(axis) name: $(name) result: $(brief(result))" _group =
+            :daf_gets
+        return result
+    end
+end
+
+"""
     has_matrix(
         daf::DafReader,
         rows_axis::AbstractString,
@@ -895,6 +930,47 @@ function require_matrix(
               """))
     end
     return nothing
+end
+
+"""
+    matrix_metadata(
+        daf::DafReader,
+        rows_axis::AbstractString,
+        columns_axis::AbstractString,
+        name::AbstractString,
+    )::PropertyMetadata
+
+Get the [`PropertyMetadata`](@ref) of the matrix property with some `name` for some `rows_axis` and `columns_axis` in
+`daf`, without reading its data. This only looks at the matrix stored in this layout. To accept either layout, first
+check which one exists using [`has_matrix`](@ref) with `relayout = false`.
+
+This first verifies the `rows_axis` and `columns_axis` exist in `daf`, and that the `name` matrix exists for them.
+
+```jldoctest
+matrix_metadata(example_cells_daf(), "cell", "gene", "UMIs")
+
+# output
+
+PropertyMetadata(UInt8, false, nothing, nothing, false)
+```
+"""
+function matrix_metadata(
+    daf::DafReader,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+)::PropertyMetadata
+    return Formats.with_data_read_lock(daf, "matrix_metadata of:", name, "of:", rows_axis, "and:", columns_axis) do
+        require_axis(daf, "for the rows of the matrix: $(name)", rows_axis)
+        require_axis(daf, "for the columns of the matrix: $(name)", columns_axis)
+        require_matrix(daf, rows_axis, columns_axis, name; relayout = false)
+        result = Formats.format_matrix_metadata(daf, rows_axis, columns_axis, name)
+        @debug (
+            "matrix_metadata daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) " *
+            "name: $(name) result: $(brief(result))"
+        ) _group = :daf_gets
+        return result
+    end
 end
 
 """
@@ -1197,21 +1273,21 @@ vectors:
     age: 95 x UInt32 (Dense)
     sex: 95 x Str (Dense)
   gene:
-    is_lateral: 683 x Bool (Dense; 438 (64%) true)
-    is_marker: 683 x Bool (Dense; 650 (95%) true)
+    is_lateral: 683 x Bool (Dense); 438 (64%) true
+    is_marker: 683 x Bool (Dense); 650 (95%) true
   metacell:
     type: 7 x Str (Dense)
   type:
     color: 4 x Str (Dense)
 matrices:
   cell,gene:
-    UMIs: 856 x 683 x UInt8 in Columns (Dense)
+    UMIs: 856 x 683 x UInt8 (Dense)
   gene,cell:
-    UMIs: 683 x 856 x UInt8 in Columns (Dense)
+    UMIs: 683 x 856 x UInt8 (Dense)
   gene,metacell:
-    fraction: 683 x 7 x Float32 in Columns (Dense)
+    fraction: 683 x 7 x Float32 (Dense)
   metacell,metacell:
-    edge_weight: 7 x 7 x Float32 in Columns (Dense)
+    edge_weight: 7 x 7 x Float32 (Dense)
 chain:
 - name: cells!
   type: MemoryDaf
@@ -1231,12 +1307,12 @@ chain:
       age: 95 x UInt32 (Dense)
       sex: 95 x Str (Dense)
     gene:
-      is_lateral: 683 x Bool (Dense; 438 (64%) true)
+      is_lateral: 683 x Bool (Dense); 438 (64%) true
   matrices:
     cell,gene:
-      UMIs: 856 x 683 x UInt8 in Columns (Dense)
+      UMIs: 856 x 683 x UInt8 (Dense)
     gene,cell:
-      UMIs: 683 x 856 x UInt8 in Columns (Dense)
+      UMIs: 683 x 856 x UInt8 (Dense)
 - name: metacells!
   type: MemoryDaf
   axes:
@@ -1248,16 +1324,16 @@ chain:
     cell:
       metacell: 856 x Str (Dense)
     gene:
-      is_marker: 683 x Bool (Dense; 650 (95%) true)
+      is_marker: 683 x Bool (Dense); 650 (95%) true
     metacell:
       type: 7 x Str (Dense)
     type:
       color: 4 x Str (Dense)
   matrices:
     gene,metacell:
-      fraction: 683 x 7 x Float32 in Columns (Dense)
+      fraction: 683 x 7 x Float32 (Dense)
     metacell,metacell:
-      edge_weight: 7 x 7 x Float32 in Columns (Dense)
+      edge_weight: 7 x 7 x Float32 (Dense)
 ```
 """
 function description(daf::DafReader; cache::Bool = false, deep::Bool = false, tensors::Bool = true)::String
@@ -1361,12 +1437,56 @@ function vectors_description(
             end
             sort!(vectors)
             push!(lines, "$(indent)  $(axis):")
+            n_entries = axis_length(daf, axis)
             for vector in vectors
-                push!(lines, "$(indent)    $(vector): $(brief(base_array(get_vector(daf, axis, vector))))")
+                metadata = vector_metadata(daf, axis, vector)
+                n_true = metadata.eltype == Bool ? sum(get_vector(daf, axis, vector)) : nothing
+                text = property_description(delimited_number(n_entries), metadata, n_entries, n_true)
+                push!(lines, "$(indent)    $(vector): $(text)")
             end
         end
     end
     return nothing
+end
+
+# Describe a vector or matrix property with some `shape`: its metadata, followed by extras that depend on its values.
+# These are the percent of the stored elements of a sparse property, and the number of `true` values of a `Bool`
+# property (unless it is sparse and all its stored elements are `true`).
+function property_description(
+    shape::AbstractString,
+    metadata::PropertyMetadata,
+    n_elements::Integer,
+    n_true::Maybe{Integer},
+)::String
+    text = "$(shape) x $(brief(metadata))"
+    if metadata.is_sparse
+        @assert metadata.nnz !== nothing
+        stored_elements = metadata.eltype == String ? "non-empty" : "non-zero"
+        text *= "; $(percent(metadata.nnz, n_elements)) $(stored_elements)"
+    end
+    if n_true !== nothing && !(metadata.is_sparse && n_true == metadata.nnz)
+        text *= "; $(delimited_number(n_true)) ($(percent(n_true, n_elements))) true"
+    end
+    return text
+end
+
+# The number of `true` values of a `Bool` matrix, or `nothing` for any other matrix.
+function n_true_matrix_values(
+    daf::DafReader,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+    metadata::PropertyMetadata,
+)::Maybe{Int}
+    if metadata.eltype == Bool
+        return sum(get_matrix(daf, rows_axis, columns_axis, name; relayout = false))
+    else
+        return nothing
+    end
+end
+
+function matrix_shape(daf::DafReader, rows_axis::AbstractString, columns_axis::AbstractString)::String
+    return "$(delimited_number(axis_length(daf, rows_axis))) x $(delimited_number(axis_length(daf, columns_axis)))"
 end
 
 function matrices_description(
@@ -1383,9 +1503,12 @@ function matrices_description(
             if !isempty(matrices)
                 sort!(matrices)
                 is_first_axes = true
+                shape = matrix_shape(daf, rows_axis, columns_axis)
+                n_elements = axis_length(daf, rows_axis) * axis_length(daf, columns_axis)
                 for matrix in matrices
                     if !tensors || matrix[1] != '/'
-                        data = base_array(get_matrix(daf, rows_axis, columns_axis, matrix; relayout = false))
+                        metadata = matrix_metadata(daf, rows_axis, columns_axis, matrix)
+                        n_true = n_true_matrix_values(daf, rows_axis, columns_axis, matrix, metadata)
                         if is_first_matrix
                             push!(lines, "$(indent)matrices:")
                             is_first_matrix = false
@@ -1394,7 +1517,10 @@ function matrices_description(
                             push!(lines, "$(indent)  $(rows_axis),$(columns_axis):")
                             is_first_axes = false
                         end
-                        push!(lines, "$(indent)    $(matrix): " * brief(data))
+                        push!(
+                            lines,
+                            "$(indent)    $(matrix): $(property_description(shape, metadata, n_elements, n_true))",
+                        )
                     end
                 end
             end
@@ -1427,6 +1553,8 @@ function tensors_description(
 
         for (rows_axis, columns_axis) in axes
             push!(lines, "$(indent)    $(rows_axis),$(columns_axis):")
+            shape = matrix_shape(daf, rows_axis, columns_axis)
+            n_matrix_elements = axis_length(daf, rows_axis) * axis_length(daf, columns_axis)
 
             matrices_per_tensor = matrices_per_tensor_per_axes[(rows_axis, columns_axis)]
             tensors = collect(keys(matrices_per_tensor))
@@ -1441,55 +1569,35 @@ function tensors_description(
                     suffix = " ($(n_tensor_matrices) out of $(n_tensor_axis_entries))"  # UNTESTED
                 end
 
-                counters_per_text = Dict{AbstractString, Union{Int, Tuple{Int, Int, Int64, Int64}}}()
+                # The number of matrices, their total nnz, and their total number of `true` values, per way of storage
+                # (element type, sparse, index type, packed).
+                counters_per_storage = Dict{Tuple{Type, Bool, Maybe{Type}, Bool}, Tuple{Int, Int, Int}}()
                 for matrix in values(matrices)
-                    data = base_array(get_matrix(daf, rows_axis, columns_axis, matrix; relayout = false))
-                    text = brief(data)
-                    parts = split(text, " ")
-                    sparse_index = findfirst((parts .== "Sparse") .| (parts .== "(Sparse"))
-                    counted = nothing
-                    counted_index = nothing
-                    if sparse_index !== nothing
-                        counted = nnz(data)
-                        counted_index = sparse_index + 1
-                        parts[counted_index] = "."
-                        parts[counted_index + 1] = "."
-                    else
-                        true_index = findfirst(parts .== "true)")
-                        if true_index !== nothing
-                            counted = sum(data)
-                            counted_index = true_index - 2
-                            parts[true_index - 1] = "."
-                            parts[true_index - 2] = "."
-                        end
-                    end
-
-                    if counted !== nothing
-                        @assert counted_index !== nothing
-                        parts[counted_index] = "."
-                        parts[counted_index + 1] = "."
-                        text = join(parts, " ")
-                        counters = get(counters_per_text, text, (0, counted_index, Int64(0), Int64(0)))
-                        counters_per_text[text] =
-                            (counters[1] + 1, counters[2], counters[3] + counted, counters[4] + length(data))
-                    else
-                        @assert counted_index === nothing  # UNTESTED
-                        counters_per_text[text] = get(counters_per_text, text, 0) + 1  # NOJET # UNTESTED
-                    end
+                    metadata = matrix_metadata(daf, rows_axis, columns_axis, matrix)
+                    n_true = something(n_true_matrix_values(daf, rows_axis, columns_axis, matrix, metadata), 0)
+                    storage = (metadata.eltype, metadata.is_sparse, metadata.indtype, metadata.is_packed)
+                    n_matrices, total_nnz, total_true = get(counters_per_storage, storage, (0, 0, 0))
+                    counters_per_storage[storage] =
+                        (n_matrices + 1, total_nnz + something(metadata.nnz, 0), total_true + n_true)
                 end
 
-                if length(counters_per_text) == 1
-                    for (text, counters) in counters_per_text
-                        push!(lines, "$(indent)      $(tensor_name)$(suffix): $(format_counters(counters, text))")
-                    end
+                texts = String[]
+                for (storage, (n_matrices, total_nnz, total_true)) in counters_per_storage
+                    element_type, is_sparse, ind_type, is_packed = storage
+                    metadata =
+                        PropertyMetadata(element_type, is_sparse, is_sparse ? total_nnz : nothing, ind_type, is_packed)
+                    n_elements = n_matrices * n_matrix_elements
+                    n_true = element_type == Bool ? total_true : nothing
+                    push!(texts, "$(n_matrices) X $(property_description(shape, metadata, n_elements, n_true))")
+                end
+                sort!(texts)
+
+                if length(texts) == 1
+                    push!(lines, "$(indent)      $(tensor_name)$(suffix): $(texts[1])")
                 else
                     push!(lines, "$(indent)      $(tensor_name)$(suffix):")
-
-                    texts = collect(keys(counters_per_text))
-                    sort!(texts)
                     for text in texts
-                        counters = counters_per_text[text]
-                        push!(lines, "$(indent)      - $(format_counters(counters, text))")
+                        push!(lines, "$(indent)      - $(text)")
                     end
                 end
             end
@@ -1497,20 +1605,6 @@ function tensors_description(
     end
 
     return nothing
-end
-
-function format_counters(counters::Int, text::AbstractString)::AbstractString  # UNTESTED
-    return "$(counters) X $(text)"
-end
-
-function format_counters(counters::Tuple{Int, Int, Int64, Int64}, text::AbstractString)::AbstractString
-    count, counted_index, counted, out_of = counters
-    parts = split(text, " ")
-    @assert parts[counted_index] == "."
-    @assert parts[counted_index + 1] == "."
-    parts[counted_index] = "$(counted)"
-    parts[counted_index + 1] = "($(percent(counted, out_of)))"
-    return "$(count) X $(join(parts, " "))"
 end
 
 function cache_description(daf::DafReader, indent::AbstractString, lines::Vector{String})::Nothing

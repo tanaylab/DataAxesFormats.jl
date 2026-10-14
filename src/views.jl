@@ -467,12 +467,12 @@ function Formats.format_get_vector(
     end
 end
 
-function Formats.format_is_packed_vector(view::DafView, axis::AbstractString, name::AbstractString)::Bool
+function Formats.format_vector_metadata(view::DafView, axis::AbstractString, name::AbstractString)::PropertyMetadata
     @assert Formats.has_data_read_lock(view)
     if is_identity_vector(view, axis, name)
-        return Formats.format_is_packed_vector(view.daf, axis, name)
+        return Formats.format_vector_metadata(view.daf, axis, name)
     else
-        return false
+        return Formats.array_metadata(fetch_vector_data(view, axis, name))
     end
 end
 
@@ -511,17 +511,17 @@ function Formats.format_get_matrix(
     end
 end
 
-function Formats.format_is_packed_matrix(
+function Formats.format_matrix_metadata(
     view::DafView,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-)::Bool
+)::PropertyMetadata
     @assert Formats.has_data_read_lock(view)
     if is_identity_matrix(view, rows_axis, columns_axis, name)
-        return Formats.format_is_packed_matrix(view.daf, rows_axis, columns_axis, name)
+        return Formats.format_matrix_metadata(view.daf, rows_axis, columns_axis, name)
     else
-        return false
+        return Formats.array_metadata(fetch_matrix_data(view, rows_axis, columns_axis, name))
     end
 end
 

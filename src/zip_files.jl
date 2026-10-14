@@ -137,11 +137,16 @@ import ..PackedFormat.packed_format_get_empty_dense_matrix!
 import ..PackedFormat.packed_format_get_empty_dense_vector!
 import ..PackedFormat.packed_format_get_empty_sparse_matrix!
 import ..PackedFormat.packed_format_get_empty_sparse_vector!
+import ..PackedFormat.packed_format_has_nzval
 import ..PackedFormat.packed_format_open_sparse_component_eager
 import ..PackedFormat.packed_format_open_sparse_component_source
+import ..PackedFormat.packed_format_property_metadata
+import ..PackedFormat.packed_format_read_sparse_string_nzval
 import ..PackedFormat.packed_format_write_dense_array!
 import ..PackedFormat.packed_format_write_sparse_numeric_matrix!
 import ..PackedFormat.packed_format_write_sparse_numeric_vector!
+import ..PackedFormat.packed_format_write_string_matrix!
+import ..PackedFormat.packed_format_write_string_vector!
 import ..PackedFormat.packed_has_entry
 import ..PackedFormat.packed_make_streaming_shard_writer
 import ..PackedFormat.packed_open_array
@@ -153,6 +158,7 @@ import ..PackedFormat.packed_register_metadata!
 import ..PackedFormat.packed_reserve_typed_matrix!
 import ..PackedFormat.packed_reserve_typed_vector!
 import ..PackedFormat.packed_write_bytes!
+import ..PackedFormat.packed_write_lines!
 import ..PackedFormat.packed_write_typed_array!
 import ..PackedFormat.PackedCodec
 import ..PackedFormat.PackedDaf
@@ -650,6 +656,11 @@ function packed_write_bytes!(zip_daf::ZipDaf, key::AbstractString, bytes::Abstra
     return nothing
 end
 
+function packed_write_lines!(zip_daf::ZipDaf, key::AbstractString, lines::AbstractArray{<:AbstractString})::Nothing
+    zip_daf.store[entry_key(zip_daf, key)] = lines_bytes(lines)
+    return nothing
+end
+
 function packed_write_typed_array!(zip_daf::ZipDaf, key::AbstractString, vector::AbstractVector)::Nothing
     zip_daf.store[entry_key(zip_daf, key)] = typed_array_to_bytes(vector)
     return nothing
@@ -910,7 +921,7 @@ function Formats.format_set_vector!(
         packed_format_write_sparse_numeric_vector!(zip_daf, axis, name, vector, is_packed)  # NOJET
 
     elseif eltype(vector) <: AbstractString
-        write_string_vector(zip_daf, axis, name, vector)  # NOJET
+        packed_format_write_string_vector!(zip_daf, axis, name, vector, is_packed)  # NOJET
 
     else
         chunk_shape = chunks_for(is_packed, size(vector), eltype(vector))
@@ -921,55 +932,6 @@ function Formats.format_set_vector!(
                 dense_array_json_bytes(eltype(vector))
             zip_daf.store[entry_key(zip_daf, "vectors/", axis, "/", name, ".data")] = typed_array_to_bytes(vector)  # NOJET
         end
-    end
-    return nothing
-end
-
-function write_string_vector(
-    zip_daf::ZipDaf,
-    axis::AbstractString,
-    name::AbstractString,
-    vector::AbstractVector{<:AbstractString},
-)::Nothing
-    n_empty = 0
-    nonempty_size = 0
-    for value in vector
-        value_size = length(value)
-        if value_size > 0
-            nonempty_size += value_size
-        else
-            n_empty += 1
-        end
-    end
-
-    n_values = length(vector)
-    n_nonempty = n_values - n_empty
-    ind_type = indtype_for_size(n_values)
-
-    dense_size = nonempty_size + length(vector)
-    sparse_size = nonempty_size + n_nonempty * (1 + sizeof(ind_type))
-
-    if sparse_size <= dense_size * 0.75
-        nzind_vector = Vector{ind_type}(undef, n_nonempty)
-        nztxt_io = IOBuffer()
-        position = 1
-        for (index, value) in enumerate(vector)
-            if length(value) > 0
-                @assert !contains(value, '\n')
-                println(nztxt_io, value)
-                nzind_vector[position] = index
-                position += 1
-            end
-        end
-        @assert position == n_nonempty + 1
-
-        zip_daf.store[entry_key(zip_daf, "vectors/", axis, "/", name, ".json")] =
-            sparse_vector_json_bytes(String, ind_type, n_nonempty)
-        zip_daf.store[entry_key(zip_daf, "vectors/", axis, "/", name, ".nztxt")] = take!(nztxt_io)
-        zip_daf.store[entry_key(zip_daf, "vectors/", axis, "/", name, ".nzind")] = typed_array_to_bytes(nzind_vector)
-    else
-        zip_daf.store[entry_key(zip_daf, "vectors/", axis, "/", name, ".json")] = dense_array_json_bytes(String)
-        zip_daf.store[entry_key(zip_daf, "vectors/", axis, "/", name, ".txt")] = lines_bytes(vector)
     end
     return nothing
 end
@@ -1010,20 +972,20 @@ function Formats.format_get_empty_sparse_vector!(
     ::Type{T},
     nnz::StorageInteger,
     ::Type{I},
-    _is_packed::Bool,
+    is_packed::Bool,
 )::Tuple{AbstractVector{I}, AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(zip_daf)
-    return packed_format_get_empty_sparse_vector!(zip_daf, axis, name, T, nnz, I)
+    return packed_format_get_empty_sparse_vector!(zip_daf, axis, name, T, nnz, I, is_packed)
 end
 
 function Formats.format_filled_empty_sparse_vector!(
     zip_daf::ZipDaf,
     axis::AbstractString,
     name::AbstractString,
-    ::SparseVector{<:StorageReal, <:StorageInteger},
+    filled::SparseVector{<:StorageReal, <:StorageInteger},
 )::Nothing
     @assert Formats.has_data_write_lock(zip_daf)
-    packed_format_filled_empty_sparse_vector!(zip_daf, axis, name)
+    packed_format_filled_empty_sparse_vector!(zip_daf, axis, name, filled)
     return nothing
 end
 
@@ -1050,7 +1012,7 @@ function Formats.format_get_vector(
     @assert Formats.has_data_read_lock(zip_daf)
 
     base_key = "vectors/$(axis)/$(name)"
-    json = packed_read_json(zip_daf, "$(base_key).json")  # NOJET
+    json = packed_read_json(zip_daf, "$(base_key).json")
     format = json["format"]
     @assert format == "dense" || format == "sparse"
 
@@ -1079,10 +1041,9 @@ function Formats.format_get_vector(
     if eltype_name == "string" || eltype_name == "String"
         nzind_vector, _, _, _ =
             packed_format_open_sparse_component_eager(zip_daf, base_key, "nzind", ind_type, json, nothing)
-        nztxt_lines, _ = packed_read_lines(zip_daf, "$(base_key).nztxt")
         vector = Vector{AbstractString}(undef, n_elements)
         fill!(vector, "")
-        vector[nzind_vector] .= nztxt_lines  # NOJET
+        vector[nzind_vector] .= packed_format_read_sparse_string_nzval(zip_daf, base_key, json, length(nzind_vector))
         return (vector, nothing, Formats.MemoryData)
     end
 
@@ -1090,7 +1051,7 @@ function Formats.format_get_vector(
     nzind_descriptor = get(json, "nzind", nothing)
     is_nzind_packed = is_packed_component(nzind_descriptor)
     nzval_descriptor = get(json, "nzval", nothing)
-    nzval_present = nzval_descriptor !== nothing || haskey(json, "eltype")
+    nzval_present = packed_format_has_nzval(zip_daf, base_key, json)
     is_nzval_packed = is_packed_component(nzval_descriptor)
 
     if is_nzind_packed || is_nzval_packed
@@ -1119,6 +1080,11 @@ function Formats.format_get_vector(
     nzval_vector = fill(true, nnz)
     sparse_vector = SparseVector(n_elements, nzind_vector, nzval_vector)
     return (sparse_vector, nzind_owner, Formats.MemoryData)
+end
+
+function Formats.format_vector_metadata(zip_daf::ZipDaf, axis::AbstractString, name::AbstractString)::PropertyMetadata
+    @assert Formats.has_data_read_lock(zip_daf)
+    return packed_format_property_metadata(zip_daf, "vectors/$(axis)/$(name)", "nzind")
 end
 
 # --------------------------------------------------------------------------------------------
@@ -1170,7 +1136,7 @@ function Formats.format_set_matrix!(
         packed_format_write_sparse_numeric_matrix!(zip_daf, rows_axis, columns_axis, name, matrix, is_packed)
 
     elseif eltype(matrix) <: AbstractString
-        write_string_matrix(zip_daf, rows_axis, columns_axis, name, matrix)  # NOJET
+        packed_format_write_string_matrix!(zip_daf, rows_axis, columns_axis, name, matrix, is_packed)  # NOJET
 
     else
         @assert eltype(matrix) <: Real
@@ -1188,71 +1154,6 @@ function Formats.format_set_matrix!(
             zip_daf.store[entry_key(zip_daf, "matrices/", rows_axis, "/", columns_axis, "/", name, ".data")] =  # NOJET
                 typed_array_to_bytes(matrix)
         end
-    end
-    return nothing
-end
-
-function write_string_matrix(
-    zip_daf::ZipDaf,
-    rows_axis::AbstractString,
-    columns_axis::AbstractString,
-    name::AbstractString,
-    matrix::AbstractMatrix{<:AbstractString},
-)::Nothing
-    nrows, ncols = size(matrix)
-
-    n_empty = 0
-    nonempty_size = 0
-    for value in matrix
-        value_size = length(value)
-        if value_size > 0
-            nonempty_size += value_size
-        else
-            n_empty += 1
-        end
-    end
-
-    n_values = nrows * ncols
-    n_nonempty = n_values - n_empty
-    ind_type = indtype_for_size(n_values)
-
-    dense_size = nonempty_size + nrows * ncols
-    sparse_size = nonempty_size + n_nonempty + (ncols + 1 + n_nonempty) * sizeof(ind_type)
-
-    if sparse_size <= dense_size * 0.75
-        colptr_vector = Vector{ind_type}(undef, ncols + 1)
-        rowval_vector = Vector{ind_type}(undef, n_nonempty)
-        nztxt_io = IOBuffer()
-
-        position = 1
-        for column_index in 1:ncols
-            colptr_vector[column_index] = position
-            for row_index in 1:nrows
-                value = matrix[row_index, column_index]
-                if length(value) > 0
-                    @assert !contains(value, '\n')
-                    println(nztxt_io, value)
-                    rowval_vector[position] = row_index
-                    position += 1
-                end
-            end
-        end
-        @assert position == n_nonempty + 1
-        colptr_vector[ncols + 1] = n_nonempty + 1
-
-        zip_daf.store[entry_key(zip_daf, "matrices/", rows_axis, "/", columns_axis, "/", name, ".json")] =
-            sparse_matrix_json_bytes(String, ind_type, n_nonempty, ncols)
-        zip_daf.store[entry_key(zip_daf, "matrices/", rows_axis, "/", columns_axis, "/", name, ".nztxt")] =
-            take!(nztxt_io)
-        zip_daf.store[entry_key(zip_daf, "matrices/", rows_axis, "/", columns_axis, "/", name, ".colptr")] =
-            typed_array_to_bytes(colptr_vector)
-        zip_daf.store[entry_key(zip_daf, "matrices/", rows_axis, "/", columns_axis, "/", name, ".rowval")] =
-            typed_array_to_bytes(rowval_vector)
-    else
-        zip_daf.store[entry_key(zip_daf, "matrices/", rows_axis, "/", columns_axis, "/", name, ".json")] =
-            dense_array_json_bytes(String)
-        zip_daf.store[entry_key(zip_daf, "matrices/", rows_axis, "/", columns_axis, "/", name, ".txt")] =
-            lines_bytes(matrix)
     end
     return nothing
 end
@@ -1291,7 +1192,7 @@ function Formats.format_get_empty_sparse_matrix!(
     ::Type{T},
     nnz::StorageInteger,
     ::Type{I},
-    _is_packed::Bool,
+    is_packed::Bool,
 )::Tuple{
     AbstractVector{I},
     AbstractVector{I},
@@ -1300,7 +1201,7 @@ function Formats.format_get_empty_sparse_matrix!(
 } where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(zip_daf)
     ncols = Formats.format_axis_length(zip_daf, columns_axis)
-    return packed_format_get_empty_sparse_matrix!(zip_daf, rows_axis, columns_axis, name, T, nnz, I, ncols)
+    return packed_format_get_empty_sparse_matrix!(zip_daf, rows_axis, columns_axis, name, T, nnz, I, ncols, is_packed)
 end
 
 function Formats.format_filled_empty_sparse_matrix!(
@@ -1308,10 +1209,10 @@ function Formats.format_filled_empty_sparse_matrix!(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-    ::SparseMatrixCSC{<:StorageReal, <:StorageInteger},
+    filled::SparseMatrixCSC{<:StorageReal, <:StorageInteger},
 )::Nothing
     @assert Formats.has_data_write_lock(zip_daf)
-    packed_format_filled_empty_sparse_matrix!(zip_daf, rows_axis, columns_axis, name)
+    packed_format_filled_empty_sparse_matrix!(zip_daf, rows_axis, columns_axis, name, filled)
     return nothing
 end
 
@@ -1333,7 +1234,7 @@ function Formats.format_relayout_matrix!(
             name,
             eltype(matrix),
             nnz(matrix),
-            eltype(matrix.colptr),
+            indtype(matrix),
             is_packed,
         )
         colptr_vector[1] = 1
@@ -1351,7 +1252,7 @@ function Formats.format_relayout_matrix!(
 
     elseif eltype(matrix) <: AbstractString
         relayout_matrix = flipped(matrix)
-        write_string_matrix(zip_daf, columns_axis, rows_axis, name, relayout_matrix)
+        packed_format_write_string_matrix!(zip_daf, columns_axis, rows_axis, name, relayout_matrix, is_packed)
         return relayout_matrix
     end
 
@@ -1422,7 +1323,7 @@ function Formats.format_get_matrix(
     rowval_descriptor = get(json, "rowval", nothing)
     is_rowval_packed = is_packed_component(rowval_descriptor)
     nzval_descriptor = get(json, "nzval", nothing)
-    nzval_present = nzval_descriptor !== nothing || haskey(json, "eltype")
+    nzval_present = packed_format_has_nzval(zip_daf, base_key, json)
     is_nzval_packed = is_packed_component(nzval_descriptor)
 
     # `colptr` is always materialised at read time (small; slicing needs random access).
@@ -1432,7 +1333,7 @@ function Formats.format_get_matrix(
     if eltype_name == "string" || eltype_name == "String"
         rowval_vector, _, nnz, _ =
             packed_format_open_sparse_component_eager(zip_daf, base_key, "rowval", ind_type, json, nothing)
-        nztxt_lines, _ = packed_read_lines(zip_daf, "$(base_key).nztxt")
+        nzval_strings = packed_format_read_sparse_string_nzval(zip_daf, base_key, json, nnz)
         matrix = Matrix{AbstractString}(undef, nrows, ncols)
         fill!(matrix, "")
         position = 1
@@ -1440,7 +1341,7 @@ function Formats.format_get_matrix(
             first_row_position = colptr_vector[column_index]
             last_row_position = colptr_vector[column_index + 1] - 1
             for row_index in rowval_vector[first_row_position:last_row_position]
-                matrix[row_index, column_index] = nztxt_lines[position]
+                matrix[row_index, column_index] = nzval_strings[position]
                 position += 1
             end
         end
@@ -1477,6 +1378,16 @@ function Formats.format_get_matrix(
     nzval_vector = fill(true, nnz)
     sparse_matrix = SparseMatrixCSC(nrows, ncols, colptr_vector, rowval_vector, nzval_vector)
     return (sparse_matrix, (colptr_owner, rowval_owner), Formats.MemoryData)
+end
+
+function Formats.format_matrix_metadata(
+    zip_daf::ZipDaf,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+)::PropertyMetadata
+    @assert Formats.has_data_read_lock(zip_daf)
+    return packed_format_property_metadata(zip_daf, "matrices/$(rows_axis)/$(columns_axis)/$(name)", "rowval")
 end
 
 # --------------------------------------------------------------------------------------------

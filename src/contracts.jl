@@ -853,12 +853,12 @@ function verify_vector_data(
     tracker::Tracker;
     is_for_output::Bool,
 )::Nothing
-    if has_axis(contract_daf.daf, axis)
-        value = get_vector(contract_daf.daf, axis, name; default = nothing)
+    if has_axis(contract_daf.daf, axis) && has_vector(contract_daf.daf, axis, name)
+        value_type = vector_metadata(contract_daf.daf, axis, name).eltype
     else
-        value = nothing  # UNTESTED
+        value_type = nothing
     end
-    if value === nothing
+    if value_type === nothing
         if is_mandatory(tracker.expectation; is_for_output)
             error(chomp("""
                   missing $(direction_name(is_for_output)) vector: $(name)
@@ -879,9 +879,9 @@ function verify_vector_data(
         end
         type = tracker.type
         @assert type !== nothing
-        if !(eltype(value) <: type)
+        if !(value_type <: type)
             error(chomp("""
-                  unexpected type: $(eltype(value))
+                  unexpected type: $(value_type)
                   instead of type: $(type)
                   for the $(direction_name(is_for_output)) vector: $(name)
                   of the axis: $(axis)
@@ -919,13 +919,16 @@ function verify_matrix_data(
     tracker::Tracker;
     is_for_output::Bool,
 )::Nothing
+    value_type = nothing
     if has_axis(contract_daf.daf, rows_axis) && has_axis(contract_daf.daf, columns_axis)
-        value = get_matrix(contract_daf.daf, rows_axis, columns_axis, name; default = nothing)
-    else
-        value = nothing
+        if has_matrix(contract_daf.daf, rows_axis, columns_axis, name; relayout = false)
+            value_type = matrix_metadata(contract_daf.daf, rows_axis, columns_axis, name).eltype
+        elseif has_matrix(contract_daf.daf, columns_axis, rows_axis, name; relayout = false)
+            value_type = matrix_metadata(contract_daf.daf, columns_axis, rows_axis, name).eltype
+        end
     end
-    if value === nothing
-        if is_mandatory(tracker.expectation; is_for_output) && value === nothing
+    if value_type === nothing
+        if is_mandatory(tracker.expectation; is_for_output)
             error(chomp("""
                   missing $(direction_name(is_for_output)) matrix: $(name)
                   of the rows axis: $(rows_axis)
@@ -947,9 +950,9 @@ function verify_matrix_data(
         end
         type = tracker.type
         @assert type !== nothing
-        if !(eltype(value) <: type)
+        if !(value_type <: type)
             error(chomp("""
-                  unexpected type: $(eltype(value))
+                  unexpected type: $(value_type)
                   instead of type: $(type)
                   for the $(direction_name(is_for_output)) matrix: $(name)
                   of the rows axis: $(rows_axis)
@@ -1417,8 +1420,12 @@ function Formats.format_get_vector(
     return Formats.format_get_vector(contract_daf.daf, axis, name)
 end
 
-function Formats.format_is_packed_vector(contract_daf::ContractDaf, axis::AbstractString, name::AbstractString)::Bool
-    return Formats.format_is_packed_vector(contract_daf.daf, axis, name)
+function Formats.format_vector_metadata(
+    contract_daf::ContractDaf,
+    axis::AbstractString,
+    name::AbstractString,
+)::PropertyMetadata
+    return Formats.format_vector_metadata(contract_daf.daf, axis, name)
 end
 
 function Formats.format_has_matrix(
@@ -1566,13 +1573,13 @@ function Formats.format_get_matrix(
     return Formats.format_get_matrix(contract_daf.daf, rows_axis, columns_axis, name)
 end
 
-function Formats.format_is_packed_matrix(
+function Formats.format_matrix_metadata(
     contract_daf::ContractDaf,
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-)::Bool
-    return Formats.format_is_packed_matrix(contract_daf.daf, rows_axis, columns_axis, name)
+)::PropertyMetadata
+    return Formats.format_matrix_metadata(contract_daf.daf, rows_axis, columns_axis, name)
 end
 
 function Formats.get_scalar_through_cache(contract_daf::ContractDaf, name::AbstractString)::StorageScalar

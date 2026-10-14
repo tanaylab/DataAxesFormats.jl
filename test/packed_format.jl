@@ -75,41 +75,219 @@ function with_packed_string_vector_round_trip(action::Function, create_daf::Func
     return nothing
 end
 
-function populate_packed_round_trip!(daf::DafWriter, n_rows::Int, n_cols::Int)::Tuple
-    # Shared property-set used by the unzip↔zip equivalence tests. Writes one above-threshold dense matrix and one
-    # above-threshold sparse matrix on (row, col), one above-threshold dense vector, one above-threshold string vector
-    # (length-`n_rows`), and one below-threshold dense vector on a tiny `small` axis. Returns the originals as a tuple
-    # for the read-side verifier.
-    dense_matrix = Matrix{Float32}(reshape(Float32.(1:(n_rows * n_cols)), n_rows, n_cols))
-    dense_vector = Float32.(1:n_rows)
-    sparse_matrix = SparseMatrixCSC{Float32, Int32}(
-        n_rows,
-        n_cols,
-        Int32[1 + (column_index - 1) * n_rows for column_index in 1:(n_cols + 1)],
-        Int32[((position - 1) % n_rows) + 1 for position in 1:(n_cols * n_rows)],
-        Float32[((position - 1) ÷ n_rows + 1) * (((position - 1) % n_rows) + 1) for position in 1:(n_cols * n_rows)],
+function populate_packed_round_trip!(
+    daf::DafWriter,
+    n_rows::Int,
+    n_cols::Int,
+)::Tuple{Dict{String, AbstractVector}, Dict{String, AbstractMatrix}}
+    # Shared property set used by the unzip↔zip equivalence tests. Writes every combination of number or string
+    # elements, dense or sparse storage, and packed or flat encoding, both as a vector on `row` and as a matrix on
+    # (`row`, `col`). The name of each property is `<element>_<storage>_<encoding>`. Also writes a `Bool` sparse vector,
+    # which stores no values. With `n_rows = 4096`, each packed property clears the packed threshold. The sparse strings
+    # have one non-empty value in 8: that is sparse enough to be stored sparse, and still has enough values to pack.
+    # Returns the originals, keyed by property name, for the read-side verifier.
+    vector_per_kind = Dict{String, AbstractVector}(
+        "number_dense" => Float32.(1:n_rows),
+        "number_sparse" => sparse(Float32[isodd(row) ? row : 0 for row in 1:n_rows]),
+        "string_dense" => ["row_$(row)" for row in 1:n_rows],
+        "string_sparse" => [row % 8 == 0 ? "row_$(row)" : "" for row in 1:n_rows],
     )
-    small_dense = Float32[1.0, 2.0, 3.0, 4.0]
-    string_vector = ["row_$(index)" for index in 1:n_rows]
 
     add_axis!(daf, "row", ["r$(index)" for index in 1:n_rows])
     add_axis!(daf, "col", ["c$(index)" for index in 1:n_cols])
-    add_axis!(daf, "small", ["s1", "s2", "s3", "s4"])
-    set_matrix!(daf, "row", "col", "data", dense_matrix; relayout = false)
-    set_matrix!(daf, "row", "col", "sparse", sparse_matrix; relayout = false)
-    set_vector!(daf, "row", "score", dense_vector)
-    set_vector!(daf, "row", "label", string_vector)
-    set_vector!(daf, "small", "marker", small_dense)
-    return (dense_matrix, dense_vector, sparse_matrix, small_dense, string_vector)
+
+    expected_vectors = Dict{String, AbstractVector}()
+    expected_matrices = Dict{String, AbstractMatrix}()
+    for (kind, vector) in vector_per_kind
+        matrix = hcat([isodd(column) ? vector : reverse(vector) for column in 1:n_cols]...)
+        for (encoding, packed) in (("packed", true), ("flat", false))
+            name = "$(kind)_$(encoding)"
+            set_vector!(daf, "row", name, vector; packed)
+            set_matrix!(daf, "row", "col", name, matrix; relayout = false, packed)
+            expected_vectors[name] = vector
+            expected_matrices[name] = matrix
+        end
+    end
+
+    bool_vector = sparse(Bool[isodd(row) for row in 1:n_rows])
+    set_vector!(daf, "row", "bool_sparse", bool_vector; packed = false)
+    expected_vectors["bool_sparse"] = bool_vector
+
+    return (expected_vectors, expected_matrices)
 end
 
-function verify_packed_round_trip(daf::DafReader, expected::Tuple)::Nothing
-    dense_matrix, dense_vector, sparse_matrix, small_dense, string_vector = expected
-    @test get_matrix(daf, "row", "col", "data") == dense_matrix
-    @test get_matrix(daf, "row", "col", "sparse") == sparse_matrix
-    @test get_vector(daf, "row", "score") == dense_vector
-    @test get_vector(daf, "row", "label") == string_vector
-    @test get_vector(daf, "small", "marker") == small_dense
+function verify_packed_round_trip(
+    daf::DafReader,
+    expected::Tuple{Dict{String, AbstractVector}, Dict{String, AbstractMatrix}};
+    is_packing_supported::Bool = true,
+)::Nothing
+    expected_vectors, expected_matrices = expected
+    for (name, vector) in expected_vectors
+        values = get_vector(daf, "row", name)
+        @test values == vector
+        if !startswith(name, "string_")
+            @test issparse(base_array(values)) == contains(name, "_sparse")
+        end
+    end
+    for (name, matrix) in expected_matrices
+        values = get_matrix(daf, "row", "col", name; relayout = false)
+        @test values == matrix
+        if !startswith(name, "string_")
+            @test issparse(base_array(values)) == contains(name, "_sparse")
+        end
+    end
+    for name in keys(expected_vectors)
+        verify_vector_metadata(daf, "row", name; is_packed = is_packing_supported && endswith(name, "_packed"))
+    end
+    for name in keys(expected_matrices)
+        verify_matrix_metadata(daf, "row", "col", name; is_packed = is_packing_supported && endswith(name, "_packed"))
+    end
+    return nothing
+end
+
+function test_metadata_leaf(create_daf::Function)::Nothing
+    # 10 000 rows: each Float32 vector (40 KB) and each Float32 matrix column clears the packed threshold.
+    mktempdir() do path
+        n_rows = 10_000
+        dense_vector = Float32.(1:n_rows)
+        dense_matrix = ones(Float32, n_rows, 2)
+        daf = create_daf(path; packed = true)
+        add_axis!(daf, "row", ["r$(index)" for index in 1:n_rows])
+        add_axis!(daf, "col", ["c1", "c2"])
+        set_vector!(daf, "row", "dense_packed", dense_vector)
+        set_vector!(daf, "row", "dense_flat", dense_vector; packed = false)
+        set_vector!(daf, "row", "sparse_packed", sparse(dense_vector))
+        set_vector!(daf, "row", "sparse_flat", sparse(dense_vector); packed = false)
+        set_matrix!(daf, "row", "col", "dense_packed", dense_matrix; relayout = false)
+        set_matrix!(daf, "row", "col", "dense_flat", dense_matrix; relayout = false, packed = false)
+        set_matrix!(daf, "row", "col", "sparse_packed", sparse_matrix_csc(dense_matrix); relayout = false)
+        set_matrix!(daf, "row", "col", "sparse_flat", sparse_matrix_csc(dense_matrix); relayout = false, packed = false)
+        for name in ("dense_packed", "dense_flat", "sparse_packed", "sparse_flat")
+            verify_vector_metadata(daf, "row", name; is_packed = endswith(name, "_packed"))
+            verify_matrix_metadata(daf, "row", "col", name; is_packed = endswith(name, "_packed"))
+        end
+        return nothing
+    end
+    return nothing
+end
+
+function test_packed_strings(create_daf::Function)::Nothing
+    # 4096 rows: each dense string column (4096 × 16-byte estimate) and the 512 non-empty values of each mostly-empty
+    # string column clear the packed threshold. One non-empty value in 8 is sparse enough to be stored sparse.
+    mktempdir() do path
+        n_rows = 4096
+        dense_vector = ["cell_$(index)" for index in 1:n_rows]
+        sparse_vector = [index % 8 == 0 ? "cell_$(index)" : "" for index in 1:n_rows]
+        dense_matrix = hcat(dense_vector, reverse(dense_vector))
+        sparse_matrix = hcat(sparse_vector, reverse(sparse_vector))
+        daf = create_daf(path; packed = true)
+        add_axis!(daf, "row", ["r$(index)" for index in 1:n_rows])
+        add_axis!(daf, "col", ["c1", "c2"])
+        for (prefix, packed) in (("packed", true), ("flat", false))
+            set_vector!(daf, "row", "$(prefix)_dense", dense_vector; packed)
+            set_vector!(daf, "row", "$(prefix)_sparse", sparse_vector; packed)
+            set_matrix!(daf, "row", "col", "$(prefix)_dense", dense_matrix; relayout = false, packed)
+            set_matrix!(daf, "row", "col", "$(prefix)_sparse", sparse_matrix; relayout = false, packed)
+        end
+
+        daf = create_daf(path, "r")
+        for (prefix, is_packed) in (("packed", true), ("flat", false))
+            for kind in ("dense", "sparse")
+                verify_vector_metadata(daf, "row", "$(prefix)_$(kind)"; is_packed)
+                verify_matrix_metadata(daf, "row", "col", "$(prefix)_$(kind)"; is_packed)
+            end
+        end
+        for prefix in ("packed", "flat")
+            @test get_vector(daf, "row", "$(prefix)_dense") == dense_vector
+            @test get_vector(daf, "row", "$(prefix)_sparse") == sparse_vector
+            @test get_matrix(daf, "row", "col", "$(prefix)_dense"; relayout = false) == dense_matrix
+            @test get_matrix(daf, "row", "col", "$(prefix)_sparse"; relayout = false) == sparse_matrix
+        end
+        return nothing
+    end
+    return nothing
+end
+
+function test_packed_empty_sparse(create_daf::Function)::Nothing
+    # With a 1 KB threshold, the Float32 `nzval` of each property (512 or 1024 entries) clears it.
+    saved_target = DAF_PACKED_TARGET_CHUNK_KB
+    try
+        DataAxesFormats.PackedFormat.DAF_PACKED_TARGET_CHUNK_KB = 1
+        mktempdir() do path
+            n_rows = 1024
+            expected_vector = SparseVector(n_rows, collect(Int32, 1:2:n_rows), Float32.(1:2:n_rows))
+            expected_matrix = sparse_matrix_csc(hcat(expected_vector, expected_vector))
+            daf = create_daf(path)
+            add_axis!(daf, "row", ["r$(index)" for index in 1:n_rows])
+            add_axis!(daf, "col", ["c1", "c2"])
+            for (name, packed) in (("packed", true), ("flat", false))
+                empty_sparse_vector!(daf, "row", name, Float32, nnz(expected_vector), Int32; packed) do nzind, nzval
+                    nzind .= expected_vector.nzind
+                    nzval .= expected_vector.nzval
+                    return nothing
+                end
+                empty_sparse_matrix!(
+                    daf,
+                    "row",
+                    "col",
+                    name,
+                    Float32,
+                    nnz(expected_matrix),
+                    Int32;
+                    relayout = false,
+                    packed,
+                ) do colptr, rowval, nzval
+                    colptr .= expected_matrix.colptr
+                    rowval .= expected_matrix.rowval
+                    nzval .= expected_matrix.nzval
+                    return nothing
+                end
+            end
+
+            daf = create_daf(path, "r")
+            for name in ("packed", "flat")
+                verify_vector_metadata(daf, "row", name; is_packed = name == "packed")
+                verify_matrix_metadata(daf, "row", "col", name; is_packed = name == "packed")
+            end
+            for name in ("packed", "flat")
+                @test get_vector(daf, "row", name) == expected_vector
+                @test get_matrix(daf, "row", "col", name; relayout = false) == expected_matrix
+            end
+            return nothing
+        end
+    finally
+        DataAxesFormats.PackedFormat.DAF_PACKED_TARGET_CHUNK_KB = saved_target
+    end
+    return nothing
+end
+
+function test_packed_relayout(create_daf::Function)::Nothing
+    # With a 1 KB threshold, each Float32 column of the 512 × 300 dense matrix (2 KB) and of its 300 × 512 relayout
+    # (1.2 KB) clears it. So do the `nzval`s of the half-zero sparse matrix and of its relayout.
+    saved_target = DAF_PACKED_TARGET_CHUNK_KB
+    try
+        DataAxesFormats.PackedFormat.DAF_PACKED_TARGET_CHUNK_KB = 1
+        mktempdir() do path
+            n_rows = 512
+            n_columns = 300
+            dense_matrix = Float32.(reshape(1:(n_rows * n_columns), n_rows, n_columns))
+            sparse_matrix = sparse_matrix_csc(Float32[isodd(row) ? row : 0 for row in 1:n_rows, _ in 1:n_columns])
+            daf = create_daf(path; packed = true)
+            add_axis!(daf, "row", ["r$(index)" for index in 1:n_rows])
+            add_axis!(daf, "col", ["c$(index)" for index in 1:n_columns])
+            set_matrix!(daf, "row", "col", "dense", dense_matrix)
+            set_matrix!(daf, "row", "col", "sparse", sparse_matrix)
+
+            daf = create_daf(path, "r")
+            verify_matrix_metadata(daf, "col", "row", "dense"; is_packed = true)
+            verify_matrix_metadata(daf, "col", "row", "sparse"; is_packed = true)
+            @test get_matrix(daf, "col", "row", "dense"; relayout = false) == transpose(dense_matrix)
+            @test get_matrix(daf, "col", "row", "sparse"; relayout = false) == transpose(sparse_matrix)
+            return nothing
+        end
+    finally
+        DataAxesFormats.PackedFormat.DAF_PACKED_TARGET_CHUNK_KB = saved_target
+    end
     return nothing
 end
 
@@ -434,66 +612,62 @@ nested_test("packed_format") do
         @test relayout_matrix!(daf, "cell", "gene", "UMIs"; packed = false) === nothing
     end
 
-    nested_test("format_is_packed") do
-        daf = MemoryDaf(; name = "memory!")
-        add_axis!(daf, "cell", ["A", "B", "C"])
-        add_axis!(daf, "gene", ["X", "Y"])
-        set_vector!(daf, "cell", "age", [1, 2, 3])
-        set_matrix!(daf, "cell", "gene", "UMIs", [1 2; 3 4; 5 6])
+    nested_test("metadata") do
+        mktempdir() do path
+            # 10 000 cells: the Float32 vector (40 KB) and each Float32 matrix column clear the packed threshold.
+            n_cells = 10_000
+            daf = FilesDaf(joinpath(path, "test.daf"), "w+"; name = "files!", packed = true)
+            add_axis!(daf, "cell", ["c$(index)" for index in 1:n_cells])
+            add_axis!(daf, "gene", ["X", "Y"])
+            set_vector!(daf, "cell", "age", Float32.(1:n_cells))
+            set_matrix!(daf, "cell", "gene", "UMIs", ones(Float32, n_cells, 2); relayout = false)
 
-        nested_test("read_only") do
-            ro = read_only(daf)
-            DataAxesFormats.Formats.with_data_read_lock(ro, "test") do
-                @test !DataAxesFormats.Formats.format_is_packed_vector(ro, "cell", "age")
-                @test !DataAxesFormats.Formats.format_is_packed_matrix(ro, "cell", "gene", "UMIs")
+            nested_test("read_only") do
+                ro = read_only(daf)
+                verify_vector_metadata(ro, "cell", "age"; is_packed = true)
+                verify_matrix_metadata(ro, "cell", "gene", "UMIs"; is_packed = true)
                 return nothing
             end
-        end
 
-        nested_test("chain") do
-            chain = chain_writer([daf]; name = "chain!")
-            DataAxesFormats.Formats.with_data_read_lock(chain, "test") do
-                @test !DataAxesFormats.Formats.format_is_packed_vector(chain, "cell", "age")
-                @test !DataAxesFormats.Formats.format_is_packed_matrix(chain, "cell", "gene", "UMIs")
+            nested_test("chain") do
+                chain = chain_writer([daf]; name = "chain!")
+                verify_vector_metadata(chain, "cell", "age"; is_packed = true)
+                verify_matrix_metadata(chain, "cell", "gene", "UMIs"; is_packed = true)
                 return nothing
             end
-        end
 
-        nested_test("contract") do
-            contract = Contract(;
-                axes = ["cell" => (RequiredInput, "description"), "gene" => (RequiredInput, "description")],
-                data = [
-                    ("cell", "age") => (RequiredInput, Int64, "description"),
-                    ("cell", "gene", "UMIs") => (RequiredInput, Int64, "description"),
-                ],
-            )
-            contract_daf = contractor("computation", contract, daf)
-            DataAxesFormats.Formats.with_data_read_lock(contract_daf, "test") do
-                @test !DataAxesFormats.Formats.format_is_packed_vector(contract_daf, "cell", "age")
-                @test !DataAxesFormats.Formats.format_is_packed_matrix(contract_daf, "cell", "gene", "UMIs")
+            nested_test("contract") do
+                contract = Contract(;
+                    axes = ["cell" => (RequiredInput, "description"), "gene" => (RequiredInput, "description")],
+                    data = [
+                        ("cell", "age") => (RequiredInput, Float32, "description"),
+                        ("cell", "gene", "UMIs") => (RequiredInput, Float32, "description"),
+                    ],
+                )
+                contract_daf = contractor("computation", contract, daf)
+                verify_vector_metadata(contract_daf, "cell", "age"; is_packed = true)
+                verify_matrix_metadata(contract_daf, "cell", "gene", "UMIs"; is_packed = true)
                 return nothing
             end
-        end
 
-        nested_test("view_identity") do
-            view = viewer(daf; axes = [VIEW_ALL_AXES], data = [VIEW_ALL_VECTORS, VIEW_ALL_MATRICES])
-            DataAxesFormats.Formats.with_data_read_lock(view, "test") do
-                @test !DataAxesFormats.Formats.format_is_packed_vector(view, "cell", "age")
-                @test !DataAxesFormats.Formats.format_is_packed_matrix(view, "cell", "gene", "UMIs")
+            nested_test("view_identity") do
+                view = viewer(daf; axes = [VIEW_ALL_AXES], data = [VIEW_ALL_VECTORS, VIEW_ALL_MATRICES])
+                verify_vector_metadata(view, "cell", "age"; is_packed = true)
+                verify_matrix_metadata(view, "cell", "gene", "UMIs"; is_packed = true)
                 return nothing
             end
-        end
 
-        nested_test("view_non_identity") do
-            view = viewer(
-                daf;
-                data = [("cell", "age") => "@ cell : age", ("cell", "gene", "UMIs") => "@ cell @ gene : UMIs"],
-            )
-            DataAxesFormats.Formats.with_data_read_lock(view, "test") do
-                @test !DataAxesFormats.Formats.format_is_packed_vector(view, "cell", "age")
-                @test !DataAxesFormats.Formats.format_is_packed_matrix(view, "cell", "gene", "UMIs")
+            nested_test("view_non_identity") do
+                view = viewer(
+                    daf;
+                    data = [("cell", "age") => "@ cell : age", ("cell", "gene", "UMIs") => "@ cell @ gene :: UMIs"],
+                )
+                verify_vector_metadata(view, "cell", "age")
+                verify_matrix_metadata(view, "cell", "gene", "UMIs")
                 return nothing
             end
+
+            return nothing
         end
     end
 
@@ -510,37 +684,118 @@ nested_test("packed_format") do
             axes = [VIEW_ALL_AXES],
             data = [("batch", "gene", "cell", "is_high") => "=", ("gene", "cell", "score") => "@ gene @ cell : score"],
         )
-        DataAxesFormats.Formats.with_data_read_lock(view, "test") do
-            @test !DataAxesFormats.Formats.format_is_packed_matrix(view, "gene", "cell", "U_is_high")
+        return verify_matrix_metadata(view, "gene", "cell", "U_is_high")
+    end
+
+    # Every write to a packed dense matrix is a whole column (or several), encoded as soon as it is written.
+    nested_test("packed_dense_matrix") do
+        encoded = Dict{Int, Vector{Float32}}()
+        encoded_lock = ReentrantLock()
+        function encoder(column::Int, values::Vector{Float32})::Nothing
+            lock(encoded_lock) do
+                encoded[column] = copy(values)
+                return nothing
+            end
+            return nothing
+        end
+        matrix = DataAxesFormats.PackedFormat.PackedDenseMatrix{Float32}(4, 3, encoder)
+        @test size(matrix) == (4, 3)
+        @test eltype(matrix) === Float32
+
+        nested_test("columns") do
+            matrix[:, 1] .= Float32[1, 2, 3, 4]
+            matrix[:, 2] = Float32[5, 6, 7, 8]
+            view(matrix, :, 3) .= 9
+            @test encoded == Dict(1 => Float32[1, 2, 3, 4], 2 => Float32[5, 6, 7, 8], 3 => Float32[9, 9, 9, 9])
+            return nothing
+        end
+
+        nested_test("fill_column!") do
+            DataAxesFormats.PackedFormat.fill_column!(matrix, 2) do buffer
+                buffer .= 1:4
+                return nothing
+            end
+            @test encoded == Dict(2 => Float32[1, 2, 3, 4])
+            return nothing
+        end
+
+        nested_test("column_ranges") do
+            matrix[:, 2:3] .= 7
+            matrix[:, 1:2] = Float32[1 5; 2 6; 3 7; 4 8]
+            @test encoded == Dict(1 => Float32[1, 2, 3, 4], 2 => Float32[5, 6, 7, 8], 3 => Float32[7, 7, 7, 7])
+            return nothing
+        end
+
+        nested_test("whole") do
+            matrix .= Float32[1 2 3]
+            @test encoded == Dict(1 => Float32[1, 1, 1, 1], 2 => Float32[2, 2, 2, 2], 3 => Float32[3, 3, 3, 3])
+            return nothing
+        end
+
+        nested_test("element_writes") do
+            @test_throws "setindex! not defined" matrix[1, 2] = 5
+            @test_throws "no method matching setindex!" view(matrix, :, 2)[1] = 5
+            @test isempty(encoded)
             return nothing
         end
     end
 
-    nested_test("packed_dense_matrix") do
-        no_op_encoder(::Int, ::Vector{Float32})::Nothing = nothing
-        matrix = DataAxesFormats.PackedFormat.PackedDenseMatrix{Float32}(5000, 30000, no_op_encoder)
-        @test size(matrix) == (5000, 30000)
-        @test eltype(matrix) === Float32
+    # Filling a packed matrix from more tasks than threads, each yielding between its column writes.
+    nested_test("packed_dense_matrix_tasks") do
+        mktempdir() do path
+            n_rows = 4096
+            n_columns = 64
+            expected = Float32[column * 10_000 + row for row in 1:n_rows, column in 1:n_columns]
+            daf = FilesDaf(joinpath(path, "test.daf"), "w+"; name = "files!", packed = true)
+            add_axis!(daf, "row", ["r$(index)" for index in 1:n_rows])
+            add_axis!(daf, "column", ["c$(index)" for index in 1:n_columns])
+            empty_dense_matrix!(daf, "row", "column", "data", Float32; relayout = false) do filled
+                @sync for first_column in 1:4:n_columns
+                    Threads.@spawn for column in first_column:(first_column + 3)
+                        filled[:, column] .= view(expected, :, column)
+                        yield()
+                    end
+                end
+                return nothing
+            end
+            @test get_matrix(daf, "row", "column", "data"; relayout = false) == expected
+            return nothing
+        end
+    end
 
-        # Per-thread slot is reused across columns: same buffer object on the same thread, distinct contents per column.
-        first_view = view(matrix, :, 1)
-        @test first_view isa Vector{Float32}
-        @test length(first_view) == 5000
-        first_view .= Float32(1)
+    # Reads spanning more chunks than the cache holds must not depend on the chunks staying in the cache.
+    nested_test("chunked_array") do
+        saved_cache_kb = DAF_PACKED_HTTP_CACHE_KB
+        try
+            DataAxesFormats.PackedFormat.DAF_PACKED_HTTP_CACHE_KB = 1  # A cache of a single chunk.
+            values = Float64[row + column / 10 for row in 1:100, column in 1:4]
+            bytes = Vector{UInt8}(reinterpret(UInt8, vec(values)))
+            fetcher = (offset::Int, n_bytes::Int) -> bytes[(offset + 1):(offset + n_bytes)]
+            chunked() = DataAxesFormats.PackedFormat.StripedMatrix(Float64, 100, 4, 10, fetcher)
 
-        second_view = view(matrix, :, 2)
-        @test second_view === first_view  # buffer object reused on the same thread.
+            nested_test("column") do
+                @test chunked()[:, 2] == values[:, 2]
+            end
 
-        # Same column twice on the same thread short-circuits to the existing slot buffer; nothing flushes and the
-        # contents persist across the second `view` call.
-        second_view .= Float32(7)
-        same_view = view(matrix, :, 2)
-        @test same_view === second_view
-        @test all(==(Float32(7)), same_view)
+            nested_test("row") do
+                @test chunked()[5, :] == values[5, :]
+            end
 
-        # Scalar access goes through the same column slot.
-        @test setindex!(matrix, 5, 3, 2) === Float32(5)
-        @test matrix[3, 2] === Float32(5)
+            nested_test("whole") do
+                @test collect(chunked()) == values
+            end
+
+            nested_test("parallel") do
+                array = chunked()
+                columns = Vector{Vector{Float64}}(undef, 4)
+                Threads.@threads for column in 1:4
+                    columns[column] = array[:, column]
+                end
+                @test all(columns[column] == values[:, column] for column in 1:4)
+            end
+        finally
+            DataAxesFormats.PackedFormat.DAF_PACKED_HTTP_CACHE_KB = saved_cache_kb
+        end
     end
 
     nested_test("format_zip_entry_name") do
@@ -620,6 +875,22 @@ nested_test("packed_format") do
         # (`[major, minor]`) and is used by the few tests that assert the version marker; backends
         # without a cheap byte-level reader pass `nothing`.
         function run_zarr_packed_tests(create_daf::Function; daf_marker_for::Maybe{Function} = nothing)::Nothing
+            nested_test("metadata") do
+                return test_metadata_leaf(create_daf)
+            end
+
+            nested_test("relayout") do
+                return test_packed_relayout(create_daf)
+            end
+
+            nested_test("empty_sparse") do
+                return test_packed_empty_sparse(create_daf)
+            end
+
+            nested_test("strings") do
+                return test_packed_strings(create_daf)
+            end
+
             nested_test("dense_matrix_round_trip") do
                 with_packed_dense_matrix_round_trip(create_daf) do daf, path
                     zarr_array = zarr_array_at(daf, "matrices", "row", "col", "data")
@@ -831,6 +1102,22 @@ nested_test("packed_format") do
             return FilesDaf(joinpath(path, "test.daf"), mode; name = "files!", packed = packed)
         end
 
+        nested_test("metadata") do
+            return test_metadata_leaf(files_factory)
+        end
+
+        nested_test("relayout") do
+            return test_packed_relayout(files_factory)
+        end
+
+        nested_test("empty_sparse") do
+            return test_packed_empty_sparse(files_factory)
+        end
+
+        nested_test("strings") do
+            return test_packed_strings(files_factory)
+        end
+
         nested_test("dense_matrix_round_trip") do
             with_packed_dense_matrix_round_trip(files_factory) do daf, path
                 shard_path = joinpath(path, "test.daf", "matrices", "row", "col", "data.zip")
@@ -974,6 +1261,22 @@ nested_test("packed_format") do
             entry_index = findfirst(name -> name == key, ZipArchives.zip_names(zip_reader))
             @assert entry_index !== nothing "missing entry: $(key)"
             return JSON.parse(String(ZipArchives.zip_readentry(zip_reader, entry_index)))
+        end
+
+        nested_test("metadata") do
+            return test_metadata_leaf(zip_factory)
+        end
+
+        nested_test("relayout") do
+            return test_packed_relayout(zip_factory)
+        end
+
+        nested_test("empty_sparse") do
+            return test_packed_empty_sparse(zip_factory)
+        end
+
+        nested_test("strings") do
+            return test_packed_strings(zip_factory)
         end
 
         nested_test("dense_matrix_round_trip") do
@@ -1173,6 +1476,22 @@ nested_test("packed_format") do
             end
             @assert object isa HDF5.Dataset
             return object
+        end
+
+        nested_test("metadata") do
+            return test_metadata_leaf(h5df_factory)
+        end
+
+        nested_test("relayout") do
+            return test_packed_relayout(h5df_factory)
+        end
+
+        nested_test("empty_sparse") do
+            return test_packed_empty_sparse(h5df_factory)
+        end
+
+        nested_test("strings") do
+            return test_packed_strings(h5df_factory)
         end
 
         nested_test("dense_matrix_round_trip") do
@@ -1562,20 +1881,9 @@ nested_test("packed_format") do
 
         nested_test("httpdaf") do
             with_zipped_only_source() do _path, files_src, original
-                handler = request -> begin
-                    key = String(lstrip(request.target, '/'))
-                    file_path = "$(files_src)/$(key)"
-                    if !isfile(file_path)
-                        return HTTP.Response(404)  # UNTESTED
-                    end
-                    return respond_with_range(read(file_path), request)
-                end
-                server = HTTP.serve!(handler, Sockets.localhost, 0; listenany = true)
-                try
-                    url = "http://localhost:$(server.listener.hostport)"
+                with_served_directory(files_src) do url
                     @test get_vector(HttpDaf(url; name = "h!"), "elem", "v") == original
-                finally
-                    close(server)
+                    return nothing
                 end
                 return nothing
             end
@@ -1628,20 +1936,9 @@ nested_test("packed_format") do
 
         nested_test("zarrdaf_http") do
             with_indexed_only_source() do _path, zarr_src, original
-                handler = request -> begin
-                    key = String(lstrip(request.target, '/'))
-                    file_path = "$(zarr_src)/$(key)"
-                    if !isfile(file_path)
-                        return HTTP.Response(404)  # UNTESTED
-                    end
-                    return respond_with_range(read(file_path), request)
-                end
-                server = HTTP.serve!(handler, Sockets.localhost, 0; listenany = true)
-                try
-                    url = "http://localhost:$(server.listener.hostport)"
+                with_served_directory(zarr_src) do url
                     @test get_vector(ZarrDaf(url; name = "h!"), "elem", "v") == original
-                finally
-                    close(server)
+                    return nothing
                 end
                 return nothing
             end
@@ -1660,6 +1957,10 @@ nested_test("packed_format") do
                 files_daf = FilesDaf(files_path, "w+"; name = "src!", packed = true)
                 expected = populate_packed_round_trip!(files_daf, n_rows, n_cols)
                 verify_packed_round_trip(files_daf, expected)
+                for encoding in ("packed", "flat")
+                    json = JSON.parsefile(joinpath(files_path, "vectors", "row", "string_sparse_$(encoding).json"))
+                    @test json["format"] == "sparse"
+                end
 
                 # Mimic `zip -r bundled.daf.zip source.daf/` — every file in the FilesDaf tree becomes a zip entry
                 # whose name is the path relative to the daf root. ZipDaf strips the FilesDaf-only `metadata.json`
@@ -1712,6 +2013,21 @@ nested_test("packed_format") do
 
                 files_daf = FilesDaf(files_path, "r"; name = "unbundled!")
                 verify_packed_round_trip(files_daf, expected)
+                return nothing
+            end
+        end
+
+        nested_test("serve_filesdaf_then_open_as_httpdaf") do
+            mktempdir() do path
+                n_rows = 4096
+                n_cols = 3
+                files_path = joinpath(path, "source.daf")
+                files_daf = FilesDaf(files_path, "w+"; name = "src!", packed = true)
+                expected = populate_packed_round_trip!(files_daf, n_rows, n_cols)
+                with_served_directory(files_path) do url
+                    verify_packed_round_trip(HttpDaf(url; name = "served!"), expected)
+                    return nothing
+                end
                 return nothing
             end
         end
@@ -1782,6 +2098,21 @@ nested_test("packed_format") do
                 zarr_dir_daf = ZarrDaf(zarr_dir_path, "r+"; name = "unbundled!")
                 @test haskey(JSON.parse(read(root_zarr_path, String)), "consolidated_metadata")
                 verify_packed_round_trip(zarr_dir_daf, expected)
+                return nothing
+            end
+        end
+
+        nested_test("serve_zarrdir_then_open_as_zarrhttp") do
+            mktempdir() do path
+                n_rows = 4096
+                n_cols = 3
+                zarr_dir_path = joinpath(path, "source.daf.zarr")
+                zarr_dir_daf = ZarrDaf(zarr_dir_path, "w+"; name = "src!", packed = true)
+                expected = populate_packed_round_trip!(zarr_dir_daf, n_rows, n_cols)
+                with_served_directory(zarr_dir_path) do url
+                    verify_packed_round_trip(ZarrDaf(url; name = "served!"), expected)
+                    return nothing
+                end
                 return nothing
             end
         end

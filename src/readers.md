@@ -31,6 +31,7 @@ DataAxesFormats.Readers.axis_dict
 DataAxesFormats.Readers.has_vector
 DataAxesFormats.Readers.vectors_set
 DataAxesFormats.Readers.get_vector
+DataAxesFormats.Readers.vector_metadata
 ```
 
 ## Matrix properties
@@ -39,6 +40,7 @@ DataAxesFormats.Readers.get_vector
 DataAxesFormats.Readers.has_matrix
 DataAxesFormats.Readers.matrices_set
 DataAxesFormats.Readers.get_matrix
+DataAxesFormats.Readers.matrix_metadata
 ```
 
 ## Utilities

@@ -49,6 +49,7 @@ DataAxesFormats.Formats.format_axis_length
 DataAxesFormats.Formats.format_has_vector
 DataAxesFormats.Formats.format_vectors_set
 DataAxesFormats.Formats.format_get_vector
+DataAxesFormats.Formats.format_vector_metadata
 ```
 
 ### Matrix properties
@@ -57,7 +58,14 @@ DataAxesFormats.Formats.format_get_vector
 DataAxesFormats.Formats.format_has_matrix
 DataAxesFormats.Formats.format_matrices_set
 DataAxesFormats.Formats.format_get_matrix
+DataAxesFormats.Formats.format_matrix_metadata
 DataAxesFormats.Formats.format_matrix_cache_format
+```
+
+### Property metadata
+
+```@docs
+DataAxesFormats.Formats.PropertyMetadata
 ```
 
 ## Write API
@@ -113,13 +121,6 @@ DataAxesFormats.Formats.format_filled_empty_sparse_matrix!
 
 ```@docs
 DataAxesFormats.Formats.invalidate_axis_data!
-```
-
-### Packing
-
-```@docs
-DataAxesFormats.Formats.format_is_packed_vector
-DataAxesFormats.Formats.format_is_packed_matrix
 ```
 
 ## Index

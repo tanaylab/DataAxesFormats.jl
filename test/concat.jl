@@ -239,6 +239,23 @@ nested_test("concat") do
                 @test issparse(get_matrix(destination, "cell", "gene", "UMIs").array)
             end
 
+            nested_test("dense_rows") do
+                set_matrix!(sources[1], "cell", "gene", "UMIs", [1 2; 3 4]; relayout = false)
+                set_matrix!(sources[2], "cell", "gene", "UMIs", [5 6; 7 8; 9 10]; relayout = false)
+                concatenate!(destination, "cell", sources)
+                @test get_matrix(destination, "gene", "cell", "UMIs"; relayout = false) == [1 3 5 7 9; 2 4 6 8 10]
+                @test !has_matrix(destination, "cell", "gene", "UMIs"; relayout = false)
+            end
+
+            nested_test("sparse_rows") do
+                set_matrix!(sources[1], "cell", "gene", "UMIs", sparse_matrix_csc([1 0; 0 0]); relayout = false)
+                set_matrix!(sources[2], "cell", "gene", "UMIs", sparse_matrix_csc([0 2; 3 0; 0 0]); relayout = false)
+                concatenate!(destination, "cell", sources)
+                @test get_matrix(destination, "gene", "cell", "UMIs"; relayout = false) == [1 0 0 3 0; 0 0 2 0 0]
+                @test issparse(get_matrix(destination, "gene", "cell", "UMIs"; relayout = false).array)
+                @test !has_matrix(destination, "cell", "gene", "UMIs"; relayout = false)
+            end
+
             nested_test("!empty") do
                 set_matrix!(sources[1], "cell", "gene", "UMIs", sparse_matrix_csc([1 2; 3 4]))
                 @test_throws chomp("""
@@ -391,6 +408,17 @@ nested_test("concat") do
                     @test !has_vector(destination, "gene", "weight")
                     @test get_matrix(destination, "dataset", "gene", "weight") == [1 0; 0 2]
                     @test base_array(get_matrix(destination, "dataset", "gene", "weight")) isa SparseMatrixCSC
+                end
+
+                nested_test("sparse_files") do
+                    set_vector!(sources[1], "gene", "weight", sparse_vector([1, 0]); overwrite = true)
+                    set_vector!(sources[2], "gene", "weight", sparse_vector([0, 2]); overwrite = true)
+                    mktempdir() do path
+                        files_destination = FilesDaf("$(path)/destination", "w"; name = "destination!")
+                        concatenate!(files_destination, "cell", sources; merge = [ALL_VECTORS => CollectAxis])
+                        @test get_matrix(files_destination, "dataset", "gene", "weight") == [1 0; 0 2]
+                        return nothing
+                    end
                 end
             end
 

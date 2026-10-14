@@ -194,6 +194,20 @@ nested_test("views") do
                 )
                 @test get_vector(view, "cell", "total_UMIs") == [5, 9]
             end
+
+            nested_test("reused_query") do
+                add_axis!(daf, "batch", ["U", "V"])
+                set_vector!(daf, "batch", "sex", ["M", "F"])
+
+                add_axis!(daf, "gene", ["A", "B"])
+                set_matrix!(daf, "cell", "gene", "UMIs", [0 1; 2 3; 4 5])
+                query = q"@ gene @ __axis__ :: UMIs >- Sum"
+                first_view =
+                    viewer(daf; axes = ["cell" => "@ cell [ batch = V ]"], data = [("cell", "total_UMIs") => query])
+                @test get_vector(first_view, "cell", "total_UMIs") == [5, 9]
+                second_view = viewer(daf; axes = [VIEW_ALL_AXES], data = [("cell", "total_UMIs") => query])
+                @test get_vector(second_view, "cell", "total_UMIs") == [1, 5, 9]
+            end
         end
 
         nested_test("reduced") do
@@ -362,7 +376,7 @@ nested_test("views") do
                     batch: 2 x Str (Dense)
                 matrices:
                   var,obs:
-                    X: 3 x 2 x Int64 in Columns (Dense)
+                    X: 3 x 2 x Int64 (Dense)
                 """
         end
 
@@ -379,7 +393,7 @@ nested_test("views") do
                     batch: 2 x Str (Dense)
                 matrices:
                   var,obs:
-                    X: 3 x 2 x Int64 in Columns (Dense)
+                    X: 3 x 2 x Int64 (Dense)
                 base:
                   name: memory!
                   type: MemoryDaf
@@ -395,7 +409,7 @@ nested_test("views") do
                       batch: 2 x Str (Dense)
                   matrices:
                     gene,cell:
-                      UMIs: 3 x 2 x Int64 in Columns (Dense)
+                      UMIs: 3 x 2 x Int64 (Dense)
                 """
         end
 
@@ -420,7 +434,7 @@ nested_test("views") do
                     batch: 2 x Str (Dense)
                 matrices:
                   var,obs:
-                    X: 3 x 2 x Int64 in Columns (Dense)
+                    X: 3 x 2 x Int64 (Dense)
                 """
         end
     end
@@ -480,7 +494,7 @@ nested_test("views") do
                 tensors:
                   batch:
                     gene,cell:
-                      is_high: 2 X 3 x 2 x Bool in Columns (Dense; 6 (50%) true)
+                      is_high: 2 X 3 x 2 x Bool (Dense); 6 (50%) true
                 """
 
             @test description(view; tensors = false) == """
@@ -493,8 +507,8 @@ nested_test("views") do
                   gene: 3 entries
                 matrices:
                   gene,cell:
-                    U_is_high: 3 x 2 x Bool in Columns (Dense; 3 (50%) true)
-                    V_is_high: 3 x 2 x Bool in Columns (Dense; 3 (50%) true)
+                    U_is_high: 3 x 2 x Bool (Dense); 3 (50%) true
+                    V_is_high: 3 x 2 x Bool (Dense); 3 (50%) true
                 """
         end
 
@@ -534,7 +548,7 @@ nested_test("views") do
                 tensors:
                   batch:
                     gene,cell:
-                      is_high: 2 X 3 x 2 x Bool in Columns (Sparse 5 (42%) [Int64])
+                      is_high: 2 X 3 x 2 x Bool (Sparse 5 [Int64]); 42% non-zero
                 """
 
             @test description(view; tensors = false) == """
@@ -547,8 +561,8 @@ nested_test("views") do
                   gene: 3 entries
                 matrices:
                   gene,cell:
-                    U_is_high: 3 x 2 x Bool in Columns (Sparse 3 (50%) [Int64])
-                    V_is_high: 3 x 2 x Bool in Columns (Sparse 2 (33%) [Int64])
+                    U_is_high: 3 x 2 x Bool (Sparse 3 [Int64]); 50% non-zero
+                    V_is_high: 3 x 2 x Bool (Sparse 2 [Int64]); 33% non-zero
                 """
         end
 
@@ -580,8 +594,8 @@ nested_test("views") do
                   batch:
                     gene,cell:
                       is_high:
-                      - 1 X 3 x 2 x Bool in Columns (Dense; 3 (50%) true)
-                      - 1 X 3 x 2 x Bool in Columns (Sparse 3 (50%) [Int64])
+                      - 1 X 3 x 2 x Bool (Dense); 3 (50%) true
+                      - 1 X 3 x 2 x Bool (Sparse 3 [Int64]); 50% non-zero
                 """
 
             @test description(view; tensors = false) == """
@@ -594,8 +608,8 @@ nested_test("views") do
                   gene: 3 entries
                 matrices:
                   gene,cell:
-                    U_is_high: 3 x 2 x Bool in Columns (Sparse 3 (50%) [Int64])
-                    V_is_high: 3 x 2 x Bool in Columns (Dense; 3 (50%) true)
+                    U_is_high: 3 x 2 x Bool (Sparse 3 [Int64]); 50% non-zero
+                    V_is_high: 3 x 2 x Bool (Dense); 3 (50%) true
                 """
         end
 

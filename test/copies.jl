@@ -310,6 +310,19 @@ nested_test("copies") do
                         ) === nothing
                         @test get_vector(destination, "cell", "age") == [1, 2, -1]
                     end
+
+                    nested_test("reaxis") do
+                        @test add_axis!(destination, "obs", ["C", "B", "A"]) === nothing
+                        @test copy_vector!(;
+                            source = source,
+                            destination = destination,
+                            axis = "cell",
+                            name = "age",
+                            reaxis = "obs",
+                            empty = -1,
+                        ) === nothing
+                        @test get_vector(destination, "obs", "age") == [-1, 2, 1]
+                    end
                 end
             end
 
@@ -740,6 +753,7 @@ nested_test("copies") do
                     ) === nothing
                     @test get_matrix(destination, "cell", "gene", "UMIs") == [1.0 2.0 3.0; 4.0 5.0 6.0]
                     @test eltype(get_matrix(destination, "cell", "gene", "UMIs")) == Float32
+                    @test eltype(get_matrix(destination, "gene", "cell", "UMIs"; relayout = false)) == Float32
                 end
             end
 
@@ -824,6 +838,20 @@ nested_test("copies") do
                                 empty = -1,
                             ) === nothing
                             @test get_matrix(destination, "cell", "gene", "UMIs") == [1 2 3; 4 5 6; -1 -1 -1]
+                        end
+
+                        nested_test("reaxis") do
+                            @test add_axis!(destination, "obs", ["C", "B", "A"]) === nothing
+                            @test copy_matrix!(;
+                                source = source,
+                                destination = destination,
+                                rows_axis = "cell",
+                                columns_axis = "gene",
+                                name = "UMIs",
+                                rows_reaxis = "obs",
+                                empty = -1,
+                            ) === nothing
+                            @test get_matrix(destination, "obs", "gene", "UMIs") == [-1 -1 -1; 4 5 6; 1 2 3]
                         end
                     end
                 end
@@ -1137,6 +1165,20 @@ nested_test("copies") do
                             ) === nothing
                             @test get_matrix(destination, "cell", "gene", "UMIs") == [0 1 2; 3 4 0; 0 0 0]
                             @test nnz(get_matrix(destination, "cell", "gene", "UMIs").array) == 4
+                        end
+
+                        nested_test("convert") do
+                            @test copy_matrix!(;
+                                source = source,
+                                destination = destination,
+                                rows_axis = "cell",
+                                columns_axis = "gene",
+                                name = "UMIs",
+                                eltype = Float32,
+                                empty = 0,
+                            ) === nothing
+                            @test get_matrix(destination, "cell", "gene", "UMIs") == [0 1 2; 3 4 0; 0 0 0]
+                            @test eltype(get_matrix(destination, "cell", "gene", "UMIs")) == Float32
                         end
                     end
                 end

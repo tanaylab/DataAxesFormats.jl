@@ -31,6 +31,7 @@ using TanayLabUtilities
 import ..Formats.as_named_matrix
 import ..Formats.as_named_vector
 import ..Formats.with_data_write_lock
+import ..PackedFormat.fill_column!
 
 """
     copy_scalar(;
@@ -272,7 +273,7 @@ source axis contains entries that do not exist in the target, they are discarded
         else
             empty_dense_vector!(destination, reaxis, rename, concrete_eltype; overwrite, packed) do empty_vector
                 empty_vector .= empty
-                named_vector = Formats.as_named_vector(destination, axis, empty_vector)
+                named_vector = Formats.as_named_vector(destination, reaxis, empty_vector)
                 named_vector[names(value, 1)] .= value
                 return nothing
             end
@@ -398,10 +399,14 @@ axis contains entries that do not exist in the target, they are discarded (not c
             rows_reaxis = columns_reaxis,
             columns_reaxis = rows_reaxis,
             rename,
+            eltype,
             default = nothing,
-            relayout = false,
             empty,
+            bestify,
+            min_sparse_saving_fraction,
+            relayout = false,
             overwrite,
+            insist,
             packed,
             rows_relation = columns_relation,
             columns_relation = rows_relation,
@@ -488,8 +493,9 @@ axis contains entries that do not exist in the target, they are discarded (not c
             n_rows = axis_length(destination, rows_reaxis)
             n_columns = axis_length(destination, columns_reaxis)
             if issparse(value)
+                sparse_value = sparse_matrix_csc(value)
                 embedded = embed_sparse_matrix_in_sparse_matrix(
-                    sparse_matrix_csc(value);
+                    convert(SparseMatrixCSC{concrete_eltype, Base.eltype(sparse_value.colptr)}, sparse_value);
                     rows_indices,
                     n_rows,
                     columns_indices,
@@ -531,9 +537,22 @@ axis contains entries that do not exist in the target, they are discarded (not c
                 relayout,
                 packed,
             ) do empty_matrix
-                empty_matrix .= empty
-                named_matrix = Formats.as_named_matrix(destination, rows_axis, columns_axis, empty_matrix)
-                named_matrix[names(value, 1), names(value, 2)] .= value
+                # Each column is written once, whole, as a packed destination requires.
+                rows_indices = axis_indices(destination, rows_reaxis, names(value, 1))
+                columns_indices = axis_indices(destination, columns_reaxis, names(value, 2))
+                value_column_per_column = zeros(Int, size(empty_matrix, 2))
+                value_column_per_column[columns_indices] .= 1:length(columns_indices)
+                values = parent(value)
+                for column in 1:size(empty_matrix, 2)
+                    fill_column!(empty_matrix, column) do column_values
+                        column_values .= empty
+                        value_column = value_column_per_column[column]
+                        if value_column > 0
+                            column_values[rows_indices] .= view(values, :, value_column)
+                        end
+                        return nothing
+                    end
+                end
                 return nothing
             end
         end
@@ -933,7 +952,7 @@ function copy_matrices(;
             if !relayout || columns_axis >= rows_axis
                 for name in matrices_set(source, rows_axis, columns_axis; relayout)
                     if name[1] != '/'
-                        copy_single_matrix(;
+                        copy_single_matrix(;  # NOJET
                             destination,
                             source,
                             empty,

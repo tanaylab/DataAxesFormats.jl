@@ -491,7 +491,8 @@ end
         eltype::Type{<:StorageReal},
         nnz::StorageInteger,
         indtype::Maybe{Type{<:StorageInteger}} = nothing;
-        [overwrite::Bool = false]
+        [overwrite::Bool = false,
+        packed::Maybe{Bool} = nothing]
     )::Any
 
 Create an empty sparse vector property with some `name` for some `axis` in `daf`, pass its parts (`nzind` and `nzval`)
@@ -508,13 +509,16 @@ This severely restricts the usefulness of this function, because typically `nnz`
 matrix. Still, in some cases a large sparse vector is created by concatenating several smaller ones; this function
 allows doing so directly into the data vector, avoiding a copy in case of memory-mapped disk formats.
 
+If `packed` is non-`nothing`, it overrides the per-daf `packed` default for this single write. Otherwise the per-daf
+default applies. The flag has no observable effect on backends that do not support packed encoding.
+
 !!! warning
 
     It is the caller's responsibility to fill the two vectors with valid data. Specifically, you must ensure:
 
-      - `nzind[1] == 1`
-      - `nzind[i] <= nzind[i + 1]`
-      - `nzind[end] == nnz`
+      - `1 <= nzind[1]`
+      - `nzind[i] < nzind[i + 1]`
+      - `nzind[end] <=` the length of the `axis`
 
 This first verifies the `axis` exists in `daf` and that the property name isn't `name`. If not `overwrite` (the
 default), this also verifies the `name` vector does not exist for the `axis`.
@@ -959,7 +963,7 @@ end
         name::AbstractString,
         eltype::Type{<:StorageReal},
         nnz::StorageInteger,
-        intdype::Maybe{Type{<:StorageInteger}} = nothing;
+        indtype::Maybe{Type{<:StorageInteger}} = nothing;
         [overwrite::Bool = false,
         relayout::Bool = true,
         packed::Maybe{Bool} = nothing]
@@ -994,7 +998,7 @@ default applies. The flag has no observable effect on backends that do not suppo
       - `colptr[end] == nnz + 1`
       - `colptr[i] <= colptr[i + 1]`
       - for all `j`, for all `i` such that `colptr[j] <= i` and `i + 1 < colptr[j + 1]`,
-        `1 <= rowptr[i] < rowptr[i + 1] <= nrows`
+        `1 <= rowval[i] < rowval[i + 1] <= nrows`
 
 This first verifies the `rows_axis` and `columns_axis` exist in `daf`. If not `overwrite` (the default), this also
 verifies the `name` matrix does not exist for the `rows_axis` and `columns_axis`.
@@ -1223,7 +1227,7 @@ function relayout_stored_matrix!(
             matrix = Formats.get_matrix_through_cache(daf, rows_axis, columns_axis, name).array
         end
         if packed === nothing
-            packed = Formats.format_is_packed_matrix(daf, rows_axis, columns_axis, name)
+            packed = Formats.format_matrix_metadata(daf, rows_axis, columns_axis, name).is_packed
         end
         update_before_set_matrix(daf, columns_axis, rows_axis, name)
         Formats.format_relayout_matrix!(daf, rows_axis, columns_axis, name, matrix, packed)

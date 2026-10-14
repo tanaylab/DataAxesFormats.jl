@@ -43,6 +43,19 @@ function get_result(
     end
 end
 
+function test_is_not_relayouted(
+    daf::DafReader,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+)::Nothing
+    DataAxesFormats.Formats.with_data_read_lock(daf, "test") do
+        @test !DataAxesFormats.Formats.format_has_cached_matrix(daf, rows_axis, columns_axis, name)
+        return nothing
+    end
+    return nothing
+end
+
 function test_invalid(daf::DafReader, query::Union{AbstractString, Query}, message::AbstractString)::Nothing
     message = chomp(message)
     @test_throws message query_result_dimensions(query)
@@ -379,6 +392,12 @@ nested_test("queries") do
                 @test get_result(daf, ":: UMIs @ cell = Y @ gene = B") == 3
             end
 
+            nested_test("flipped") do
+                set_matrix!(daf, "gene", "cell", "UMIs", [0 2; 1 3]; relayout = false)
+                @test get_result(daf, ":: UMIs @ cell = Y @ gene = B") == 3
+                return test_is_not_relayouted(daf, "cell", "gene", "UMIs")
+            end
+
             nested_test("missing") do
                 @test get_result(daf, ":: UMIs || 0 @ cell = Y @ gene = B") == 0
             end
@@ -615,6 +634,27 @@ nested_test("queries") do
                     @test get_result(daf, "@ metacell : type ?? 0 : phase || 1") == ("metacell", ["X" => 1, "Y" => 0])
                 end
 
+                nested_test("matrix") do
+                    add_axis!(daf, "gene", ["A", "B"])
+                    set_matrix!(daf, "type", "gene", "score", [1 2; 3 4])
+                    set_matrix!(daf, "type", "type", "distance", [5 6; 7 8])
+
+                    nested_test("column") do
+                        @test get_result(daf, "@ metacell : type ?? 0 :: score @ gene = B") ==
+                              ("metacell", ["X" => 2, "Y" => 0])
+                    end
+
+                    nested_test("square_column") do
+                        @test get_result(daf, "@ metacell : type ?? 0 :: distance @| V") ==
+                              ("metacell", ["X" => 6, "Y" => 0])
+                    end
+
+                    nested_test("square_row") do
+                        @test get_result(daf, "@ metacell : type ?? 0 :: distance @- V") ==
+                              ("metacell", ["X" => 7, "Y" => 0])
+                    end
+                end
+
                 nested_test("!missing") do
                     set_vector!(daf, "type", "phase", [0, 1])
                     @test_throws chomp("""
@@ -637,6 +677,12 @@ nested_test("queries") do
             nested_test("column") do
                 @test get_result(daf, "@ cell :: UMIs @ gene = A") == ("cell", ["X" => 0, "Y" => 3])
                 @test get_result(daf, "@ gene :: UMIs @ cell = X") == ("gene", ["A" => 0, "B" => 1, "C" => 2])
+            end
+
+            nested_test("flipped_column") do
+                set_matrix!(daf, "gene", "cell", "flipped_UMIs", [0 3; 1 4; 2 5]; relayout = false)
+                @test get_result(daf, "@ cell :: flipped_UMIs @ gene = A") == ("cell", ["X" => 0, "Y" => 3])
+                return test_is_not_relayouted(daf, "cell", "gene", "flipped_UMIs")
             end
 
             nested_test("reduction") do
@@ -915,6 +961,11 @@ nested_test("queries") do
                 add_axis!(daf, "tag", ["U", "V", "W"])
                 set_vector!(daf, "tag", "color", ["red", "green", "blue"])
 
+                nested_test("!exists") do
+                    set_matrix!(daf, "cell", "gene", "tag", ["U" "V" "W"; "W" "V" "U"])
+                    @test !has_query(daf, "@ cell @ gene :: tag : shape")
+                end
+
                 nested_test("()") do
                     set_matrix!(daf, "cell", "gene", "tag", ["U" "V" "W"; "W" "V" "U"])
                     @test get_result(daf, "@ cell @ gene :: tag : color") == (
@@ -965,6 +1016,38 @@ nested_test("queries") do
                 add_axis!(daf, "tag", ["U", "V", "W"])
                 add_axis!(daf, "kind", ["K", "L"])
                 set_matrix!(daf, "kind", "tag", "color", ["red" "green" "blue"; "cyan" "magenta" "yellow"])
+
+                nested_test("flipped") do
+                    set_matrix!(daf, "cell", "gene", "tag", ["U" "V" "W"; "W" "V" "U"])
+                    set_matrix!(
+                        daf,
+                        "kind",
+                        "tag",
+                        "shade",
+                        ["red" "green" "blue"; "cyan" "magenta" "yellow"];
+                        relayout = false,
+                    )
+                    @test get_result(daf, "@ cell @ gene :: tag :: shade @ kind = K") == (
+                        ("cell", "gene"),
+                        [
+                            ("X", "A") => "red",
+                            ("X", "B") => "green",
+                            ("X", "C") => "blue",
+                            ("Y", "A") => "blue",
+                            ("Y", "B") => "green",
+                            ("Y", "C") => "red",
+                        ],
+                    )
+                    return test_is_not_relayouted(daf, "tag", "kind", "shade")
+                end
+
+                nested_test("!exists") do
+                    set_matrix!(daf, "cell", "gene", "tag", ["U" "V" "W"; "W" "V" "U"])
+                    @test !has_query(daf, "@ cell @ gene :: tag :: shade @ kind = K")
+                    @test !has_query(daf, "@ cell @ gene :: tag :: color @ kind = Z")
+                    @test !has_query(daf, "@ cell @ gene :: tag :: distance @| U")
+                    @test !has_query(daf, "@ cell @ gene :: tag :: distance @- U")
+                end
 
                 nested_test("()") do
                     set_matrix!(daf, "cell", "gene", "tag", ["U" "V" "W"; "W" "V" "U"])

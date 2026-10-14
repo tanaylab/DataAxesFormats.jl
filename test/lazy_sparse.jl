@@ -1,4 +1,7 @@
 nested_test("lazy_sparse") do
+    is_materialized = DataAxesFormats.LazySparse.is_materialized
+    cached_materialization! = DataAxesFormats.LazySparse.cached_materialization!
+
     # Build a packed sparse matrix through `ZarrDaf` once so the `nzval` and `rowval` ZArrays end up sharded; the
     # nested tests then wrap those ZArrays in a `LazySparseMatrix` and exercise slicing without ever materialising.
     function build_lazy(action::Function)::Nothing
@@ -37,7 +40,7 @@ nested_test("lazy_sparse") do
             @test length(lazy.full_colptr) == 5
             @test lazy.row_select isa AllOf
             @test lazy.column_select isa AllOf
-            @test lazy.materialized === nothing
+            @test !is_materialized(lazy)
             return nothing
         end
     end
@@ -132,7 +135,7 @@ nested_test("lazy_sparse") do
     end
 
     # `Base.getindex` on a `LazySparseMatrix` rebinds row / column selections; `with_selections` resets the
-    # `materialized` cache and re-uses the underlying `full_colptr` / `rowval_source` / `nzval_source` by reference.
+    # `materialization_cell` and re-uses the underlying `full_colptr` / `rowval_source` / `nzval_source` by reference.
     # The `ZArray` sources are checked with `===` to confirm slicing does not allocate new arrays and never touches
     # the chunked storage.
     nested_test("slicing") do
@@ -144,7 +147,7 @@ nested_test("lazy_sparse") do
                 @test length(sliced.column_select) == 2
                 @test sliced.rowval_source === rowval_source
                 @test sliced.nzval_source === nzval_source
-                @test sliced.materialized === nothing
+                @test !is_materialized(sliced)
                 return nothing
             end
         end
@@ -244,7 +247,11 @@ nested_test("lazy_sparse") do
                 @test materialised[1, 1] == 1
                 @test materialised[2, 3] == 6
                 @test materialised[100, 4] == 400
-                @test lazy.materialized === materialised
+                # Like `SparseArrays`' own constructors, this returns a matrix owned by the caller, without caching it,
+                # so editing it leaves the lazy matrix intact.
+                @test !is_materialized(lazy)
+                materialised.nzval[1] = -1
+                @test SparseMatrixCSC(lazy)[1, 1] == 1
                 return nothing
             end
         end
@@ -281,16 +288,16 @@ nested_test("lazy_sparse") do
         nested_test("rowvals_nonzeros_getcolptr_consistent") do
             build_lazy() do lazy, _, _
                 sliced = lazy[:, [1, 3]]
-                @test sliced.materialized === nothing
+                @test !is_materialized(sliced)
                 colptr = SparseArrays.getcolptr(sliced)
-                @test sliced.materialized !== nothing
+                @test is_materialized(sliced)
                 @test length(colptr) == 3
                 @test colptr[1] == 1
                 @test colptr[end] == nnz(sliced) + 1
-                # Repeat calls return the cache (`===` on the result vectors).
-                @test SparseArrays.getcolptr(sliced) === colptr
-                @test rowvals(sliced) === rowvals(sliced.materialized)
-                @test nonzeros(sliced) === nonzeros(sliced.materialized)
+                # Repeat calls return read-only views of the same cached vectors.
+                @test parent(SparseArrays.getcolptr(sliced)) === parent(colptr)
+                @test parent(rowvals(sliced)) === rowvals(cached_materialization!(sliced))
+                @test parent(nonzeros(sliced)) === nonzeros(cached_materialization!(sliced))
                 return nothing
             end
         end
@@ -298,23 +305,43 @@ nested_test("lazy_sparse") do
         nested_test("nnz_triggers_materialise") do
             build_lazy() do lazy, _, _
                 sliced = lazy[1024:2048, :][:, [1, 3]]
-                @test sliced.materialized === nothing
+                @test !is_materialized(sliced)
                 @test nnz(sliced) == (2048 - 1024 + 1) * 2
-                @test sliced.materialized !== nothing
+                @test is_materialized(sliced)
                 return nothing
             end
         end
 
-        # `convert(SparseMatrixCSC{...}, lazy)` triggers the same materialisation pipeline as the call constructor
-        # `SparseMatrixCSC(lazy)`, exercising the explicit `Base.convert` override (separate from the inner constructor
-        # method) that user code reaches through `convert`-style coercion sites.
+        nested_test("nnz_of_full_matrix") do
+            build_lazy() do lazy, _, _
+                @test nnz(lazy) == 8192 * 4
+                @test !is_materialized(lazy)
+                return nothing
+            end
+        end
+
+        # `convert(SparseMatrixCSC{...}, lazy)` returns the cached materialization, building it on first use. This is
+        # unlike the constructor `SparseMatrixCSC(lazy)`, which returns a copy owned by the caller.
         nested_test("convert_triggers_materialise") do
             build_lazy() do lazy, _, _
                 materialised = convert(SparseMatrixCSC{Float32, Int32}, lazy)
                 @test materialised isa SparseMatrixCSC{Float32, Int32}
                 @test size(materialised) == (8192, 4)
                 @test nnz(materialised) == 8192 * 4
-                @test lazy.materialized === materialised
+                @test cached_materialization!(lazy) === materialised
+                return nothing
+            end
+        end
+
+        # Concurrent first readers wait for a single materialization, so all get the same cached matrix.
+        nested_test("concurrent_materialise") do
+            build_lazy() do lazy, _, _
+                n_readers = 4 * Threads.nthreads()
+                materialized_per_reader = Vector{Any}(undef, n_readers)
+                Threads.@threads for reader in 1:n_readers
+                    materialized_per_reader[reader] = cached_materialization!(lazy)
+                end
+                @test all(materialized === materialized_per_reader[1] for materialized in materialized_per_reader)
                 return nothing
             end
         end
@@ -328,7 +355,7 @@ nested_test("lazy_sparse") do
                 @test lazy[1, 1] == 1
                 @test lazy[100, 3] == 3 * 100
                 @test lazy[8192, 4] == 4 * 8192
-                @test lazy.materialized === nothing
+                @test !is_materialized(lazy)
                 return nothing
             end
         end
@@ -338,7 +365,7 @@ nested_test("lazy_sparse") do
                 sliced = lazy[:, 2:3]
                 @test sliced[1, 1] == 2 * 1
                 @test sliced[5, 2] == 3 * 5
-                @test sliced.materialized === nothing
+                @test !is_materialized(sliced)
                 return nothing
             end
         end
@@ -346,8 +373,8 @@ nested_test("lazy_sparse") do
         nested_test("delegates_to_cache_after_materialise") do
             build_lazy() do lazy, _, _
                 sliced = lazy[:, [1, 3]]
-                _ = SparseMatrixCSC(sliced)
-                @test sliced.materialized !== nothing
+                _ = nonzeros(sliced)
+                @test is_materialized(sliced)
                 @test sliced[1, 1] == 1 * 1
                 @test sliced[100, 2] == 3 * 100
                 return nothing
@@ -368,7 +395,7 @@ nested_test("lazy_sparse") do
             @test empty_col_lazy[3, 2] == 0
             @test empty_col_lazy[1, 3] == 30
             @test empty_col_lazy[3, 3] == 40
-            @test empty_col_lazy.materialized === nothing
+            @test !is_materialized(empty_col_lazy)
             return nothing
         end
     end
@@ -386,8 +413,8 @@ nested_test("lazy_sparse") do
 
         nested_test("cached_scalar_getindex") do
             vector = LazySparseVector(10, Int32[2, 5, 8], Float32[20.0, 50.0, 80.0])
-            SparseVector(vector)
-            @test vector.materialized !== nothing
+            nonzeros(vector)
+            @test is_materialized(vector)
             @test vector[2] == Float32(20.0)
             @test vector[3] == Float32(0.0)
             return nothing
@@ -429,7 +456,7 @@ nested_test("lazy_sparse") do
             mask[[2, 3, 8]] .= true
             sliced = vector[mask]
             @test sliced[3] == Float32(80.0)
-            @test sliced.materialized === nothing
+            @test !is_materialized(sliced)
             @test SparseVector(sliced) == SparseVector(3, [1, 3], Float32[20.0, 80.0])
             return nothing
         end
@@ -445,7 +472,7 @@ nested_test("lazy_sparse") do
             vector = LazySparseVector(10, Int32[2, 5, 8], Float32[20.0, 50.0, 80.0])
             sliced = vector[[8, 2, 5]]
             @test sliced[1] == Float32(80.0)
-            @test sliced.materialized === nothing
+            @test !is_materialized(sliced)
             return nothing
         end
 
@@ -455,6 +482,19 @@ nested_test("lazy_sparse") do
             expected = SparseVector(10, Int32[2, 5, 8], Float32[20.0, 50.0, 80.0])
             @test SparseVector{Float32, Int32}(vector) == expected
             @test convert(SparseVector{Float32, Int32}, vector) == expected
+            return nothing
+        end
+
+        # Like `SparseArrays`, constructors return a copy and `convert` returns the cached materialization.
+        nested_test("constructors_copy") do
+            vector = LazySparseVector(10, Int32[2, 5, 8], Float32[20.0, 50.0, 80.0])
+            typed = SparseVector{Float32, Int32}(vector)
+            typed.nzval[1] = -1
+            untyped = SparseVector(vector)
+            untyped.nzval[2] = -1
+            @test vector[2] == Float32(20.0)
+            @test vector[5] == Float32(50.0)
+            @test convert(SparseVector{Float32, Int32}, vector) === cached_materialization!(vector)
             return nothing
         end
     end
@@ -473,13 +513,43 @@ nested_test("lazy_sparse") do
 
         nested_test("typed_constructor") do
             lazy = LazySparseMatrix(3, copy(full_colptr), rowval_source, nzval_source)
-            @test SparseMatrixCSC{Float32, Int32}(lazy) == expected
+            typed = SparseMatrixCSC{Float32, Int32}(lazy)
+            @test typed == expected
+            typed.nzval[1] = -1
+            @test SparseMatrixCSC(lazy) == expected
+            @test convert(SparseMatrixCSC{Float32, Int32}, lazy) === cached_materialization!(lazy)
             return nothing
         end
 
         nested_test("column_mask") do
             lazy = LazySparseMatrix(3, copy(full_colptr), rowval_source, nzval_source)
             @test SparseMatrixCSC(lazy[:, BitVector([true, false, true])]) == expected[:, [1, 3]]
+            return nothing
+        end
+
+        nested_test("read_only") do
+            lazy = LazySparseMatrix(3, copy(full_colptr), rowval_source, nzval_source)
+            @test_throws "Can't change" lazy[1, 1] = 5
+            @test_throws "Can't change" nonzeros(lazy)[1] = 5
+            @test SparseMatrixCSC(lazy) == expected
+            vector = LazySparseVector(10, Int32[2, 5, 8], Float32[20.0, 50.0, 80.0])
+            @test_throws "setindex! not defined" vector[2] = 5
+            @test_throws "Can't change" nonzeros(vector)[1] = 5
+            @test vector[2] == Float32(20.0)
+            return nothing
+        end
+
+        nested_test("copy") do
+            lazy = LazySparseMatrix(3, copy(full_colptr), rowval_source, nzval_source)
+            copied = copy(lazy)
+            @test copied isa SparseMatrixCSC{Float32, Int32}
+            @test copied == expected
+            @test !is_materialized(lazy)
+            vector = LazySparseVector(10, Int32[2, 5, 8], Float32[20.0, 50.0, 80.0])
+            copied_vector = copy(vector)
+            @test copied_vector isa SparseVector{Float32, Int32}
+            @test copied_vector == SparseVector(10, Int32[2, 5, 8], Float32[20.0, 50.0, 80.0])
+            @test !is_materialized(vector)
             return nothing
         end
     end
@@ -525,7 +595,7 @@ nested_test("lazy_sparse") do
             wrapped = parent(parent(named))
             @test wrapped isa LazySparseMatrix
             @test size(wrapped) == size(original)
-            @test wrapped.materialized === nothing
+            @test !is_materialized(wrapped)
             @test SparseMatrixCSC(wrapped) == original
             return nothing
         end
@@ -544,6 +614,23 @@ nested_test("lazy_sparse") do
                 mktempdir() do path
                     daf, original = build_packed_sparse_daf(files_factory, path)
                     check_packed_lazy_read(daf, original)
+                    return nothing
+                end
+            end
+            # `Significant` copies its input and edits the copy in place, so the stored property must not change.
+            nested_test("query_keeps_stored") do
+                mktempdir() do path
+                    daf, original = build_packed_sparse_daf(files_factory, path)
+                    @test daf["@ row @ col :: data % Significant high 3"] isa AbstractMatrix
+                    @test get_matrix(daf, "row", "col", "data"; relayout = false) == original
+                    return nothing
+                end
+            end
+            nested_test("relayout_packed") do
+                mktempdir() do path
+                    daf, original = build_packed_sparse_daf(files_factory, path)
+                    relayout_matrix!(daf, "row", "col", "data")
+                    @test get_matrix(daf, "col", "row", "data"; relayout = false) == transpose(original)
                     return nothing
                 end
             end
@@ -575,6 +662,18 @@ nested_test("lazy_sparse") do
                     wrapped = parent(parent(named))
                     @test wrapped isa LazySparseMatrix
                     @test SparseMatrixCSC(wrapped) == original
+                    return nothing
+                end
+            end
+        end
+
+        nested_test("zip") do
+            zip_factory(path; packed) = ZipDaf(joinpath(path, "test.daf.zip"), "w+"; name = "lazy_zip!", packed)
+            nested_test("relayout_packed") do
+                mktempdir() do path
+                    daf, original = build_packed_sparse_daf(zip_factory, path)
+                    relayout_matrix!(daf, "row", "col", "data")
+                    @test get_matrix(daf, "col", "row", "data"; relayout = false) == transpose(original)
                     return nothing
                 end
             end
@@ -688,7 +787,7 @@ nested_test("lazy_sparse") do
             wrapped = parent(parent(named))
             @test wrapped isa LazySparseVector
             @test size(wrapped) == size(original)
-            @test wrapped.materialized === nothing
+            @test !is_materialized(wrapped)
             @test SparseVector(wrapped) == original
             return nothing
         end
@@ -803,23 +902,9 @@ nested_test("lazy_sparse") do
             function serve_files_daf(action::Function, path::AbstractString, packed::Bool)::Nothing
                 files_path = joinpath(path, "served.daf")
                 writer = FilesDaf(files_path, "w+"; name = "lazy_http!", packed)
-                handler = request -> begin
-                    key = String(lstrip(request.target, '/'))
-                    if occursin("..", key)
-                        return HTTP.Response(404, "Error: bad key $(key)")  # UNTESTED
-                    end
-                    file_path = "$(files_path)/$(key)"
-                    if !isfile(file_path)
-                        return HTTP.Response(404, "Error: Key $(key) not found")  # UNTESTED
-                    end
-                    return respond_with_range(read(file_path), request)
-                end
-                server = HTTP.serve!(handler, Sockets.localhost, 0; listenany = true)
-                try
-                    url = "http://localhost:$(server.listener.hostport)"
+                with_served_directory(files_path) do url
                     action(writer, url)
-                finally
-                    close(server)
+                    return nothing
                 end
                 return nothing
             end
@@ -897,24 +982,9 @@ nested_test("lazy_sparse") do
             function serve_zarr_daf(action::Function, path::AbstractString, packed::Bool)::Nothing
                 zarr_path = joinpath(path, "served.daf.zarr")
                 writer = ZarrDaf(zarr_path, "w+"; name = "lazy_zarr_http!", packed)
-                store = Zarr.DirectoryStore(zarr_path)
-                handler = request -> begin
-                    key = String(lstrip(request.target, '/'))
-                    if occursin("..", key)
-                        return HTTP.Response(404, "Error: bad key $(key)")  # UNTESTED
-                    end
-                    bytes = store[key]
-                    if bytes === nothing
-                        return HTTP.Response(404, "Error: Key $(key) not found")  # UNTESTED
-                    end
-                    return respond_with_range(bytes, request)
-                end
-                server = HTTP.serve!(handler, Sockets.localhost, 0; listenany = true)
-                try
-                    url = "http://localhost:$(server.listener.hostport)"
+                with_served_directory(zarr_path) do url
                     action(writer, url)
-                finally
-                    close(server)
+                    return nothing
                 end
                 return nothing
             end

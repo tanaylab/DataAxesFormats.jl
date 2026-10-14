@@ -1087,9 +1087,9 @@ nested_test("contracts") do
                         age: 2 x Float64 (Dense)
                     matrices:
                       cell,gene:
-                        UMIs: 2 x 3 x Float64 in Columns (Dense)
+                        UMIs: 2 x 3 x Float64 (Dense)
                       gene,cell:
-                        UMIs: 3 x 2 x Float64 in Columns (Dense)
+                        UMIs: 3 x 2 x Float64 (Dense)
                     """
             end
 
@@ -1193,9 +1193,9 @@ nested_test("contracts") do
                         age: 2 x Float64 (Dense)
                     matrices:
                       cell,gene:
-                        UMIs: 2 x 3 x Float64 in Columns (Dense)
+                        UMIs: 2 x 3 x Float64 (Dense)
                       gene,cell:
-                        UMIs: 3 x 2 x Float64 in Columns (Dense)
+                        UMIs: 3 x 2 x Float64 (Dense)
                     """
             end
 

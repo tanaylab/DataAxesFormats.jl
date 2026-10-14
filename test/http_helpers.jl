@@ -23,3 +23,22 @@ function respond_with_range(bytes::Vector{UInt8}, request)::HTTP.Response
     content_range = "bytes $(first_index - 1)-$(last_index - 1)/$(n_bytes)"
     return HTTP.Response(206, ["Content-Range" => content_range], bytes[first_index:last_index])
 end
+
+# Serve the files under `directory` over HTTP, honoring `Range` requests, and call `action` with the server's URL.
+function with_served_directory(action::Function, directory::AbstractString)::Nothing
+    handler = request -> begin
+        key = String(lstrip(request.target, '/'))
+        file_path = "$(directory)/$(key)"
+        if occursin("..", key) || !isfile(file_path)
+            return HTTP.Response(404, "Error: Key $(key) not found")
+        end
+        return respond_with_range(read(file_path), request)
+    end
+    server = HTTP.serve!(handler, Sockets.localhost, 0; listenany = true)
+    try
+        action("http://localhost:$(server.listener.hostport)")
+    finally
+        close(server)
+    end
+    return nothing
+end

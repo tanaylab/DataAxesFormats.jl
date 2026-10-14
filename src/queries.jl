@@ -3037,22 +3037,21 @@ function lookup_matrix_entry(
     @assert columns_axis.axis_name !== nothing
 
     if query_state.what_for == :compute
-        @assert query_state.daf !== nothing
-        default = default_value(if_missing)
-        named_matrix =  # NOJET
-            get_matrix(
-                query_state.daf,
-                rows_axis.axis_name,
-                columns_axis.axis_name,
-                lookup_matrix.property_name;
-                default,
-            )
-        scalar_value = named_matrix[string(row_is_equal.comparison_value), string(column_is_equal.comparison_value)]
-        push!(query_state.stack, ScalarState(scalar_value))
-        push!(  # NOJET
-            query_state.dependency_keys,
-            Formats.matrix_cache_key(rows_axis.axis_name, columns_axis.axis_name, lookup_matrix.property_name),
+        named_matrix, is_flipped = get_lookup_matrix(
+            query_state,
+            rows_axis.axis_name,
+            columns_axis.axis_name,
+            lookup_matrix.property_name,
+            if_missing,
         )
+        row_name = string(row_is_equal.comparison_value)
+        column_name = string(column_is_equal.comparison_value)
+        if is_flipped
+            scalar_value = named_matrix[column_name, row_name]  # NOJET
+        else
+            scalar_value = named_matrix[row_name, column_name]
+        end
+        push!(query_state.stack, ScalarState(scalar_value))
 
     else
         if query_state.what_for == :exists
@@ -3359,6 +3358,30 @@ function lookup_square_matrix_row_by_vector(
     return nothing
 end
 
+# Fetch a matrix to look up some of its entries, and depend on it. A matrix stored only in the flipped layout is
+# returned as is, instead of relayouting all of it, and `is_flipped` tells the caller to swap rows and columns.
+function get_lookup_matrix(
+    query_state::QueryState,
+    rows_axis_name::AbstractString,
+    columns_axis_name::AbstractString,
+    name::AbstractString,
+    if_missing::Maybe{IfMissing},
+)::Tuple{NamedMatrix, Bool}
+    daf = query_state.daf
+    @assert daf !== nothing
+    is_flipped =
+        rows_axis_name != columns_axis_name &&
+        !has_matrix(daf, rows_axis_name, columns_axis_name, name; relayout = false) &&
+        has_matrix(daf, columns_axis_name, rows_axis_name, name; relayout = false)
+    if is_flipped
+        rows_axis_name, columns_axis_name = columns_axis_name, rows_axis_name
+    end
+    named_matrix =
+        get_matrix(daf, rows_axis_name, columns_axis_name, name; default = default_value(if_missing), relayout = false)
+    push!(query_state.dependency_keys, Formats.matrix_cache_key(rows_axis_name, columns_axis_name, name))  # NOJET
+    return (named_matrix, is_flipped)
+end
+
 function fill_lookup_vector_values(
     query_state::QueryState,
     vector_state::VectorState,
@@ -3371,41 +3394,37 @@ function fill_lookup_vector_values(
 )::Nothing
     add_final_values!(vector_state, if_not)
 
-    @assert query_state.daf !== nothing
-    default = default_value(if_missing)
-    named_matrix_values = get_matrix(
-        query_state.daf,
+    named_matrix_values, is_flipped = get_lookup_matrix(
+        query_state,
         vector_state.property_axis_name,
         columns_axis_name,
-        lookup_matrix.property_name;
-        default,
+        lookup_matrix.property_name,
+        if_missing,
     )
-    push!(  # NOJET
-        query_state.dependency_keys,
-        Formats.matrix_cache_key(vector_state.property_axis_name, columns_axis_name, lookup_matrix.property_name),
-    )
+    # Looking up a column of the flipped matrix is looking up a row of the stored one.
+    is_column = is_column != is_flipped
 
     lookup_value = string(lookup_value)
 
     if vector_state.pending_final_values !== nothing
-        type = eltype(named_matrix)  # NOLINT # NOJET # UNTESTED
-        if type <: AbstractString  # UNTESTED
+        type = eltype(named_matrix_values)
+        if type <: AbstractString
             type = AbstractString  # UNTESTED
         end
-        lookup_vector_values = Vector{type}(undef, length(vector_state.vector_values))  # UNTESTED
-        for index in 1:length(vector_state.vector_values)  # UNTESTED
-            if vector_state.pending_final_values[index] === nothing  # UNTESTED
-                if is_column  # UNTESTED
-                    lookup_vector_values[index] =  # UNTESTED
+        lookup_vector_values = Vector{type}(undef, length(vector_state.vector_values))
+        for index in 1:length(vector_state.vector_values)
+            if vector_state.pending_final_values[index] === nothing
+                if is_column
+                    lookup_vector_values[index] =
                         named_matrix_values[string(vector_state.vector_values[index]), lookup_value]
                 else
-                    lookup_vector_values[index] =  # UNTESTED
+                    lookup_vector_values[index] =
                         named_matrix_values[lookup_value, string(vector_state.vector_values[index])]
                 end
-            elseif type == AbstractString  # UNTESTED
+            elseif type == AbstractString
                 lookup_vector_values[index] = ""  # UNTESTED
             else
-                lookup_vector_values[index] = zero(type)  # UNTESTED
+                lookup_vector_values[index] = zero(type)
             end
         end
 
@@ -4937,12 +4956,12 @@ function lookup_vector_by_matrix(
 
         matrix_state.matrix_values = lookup_matrix_values
 
-    elseif query_state.what_for == :has_query
-        @assert query_state.daf !== nothing  # UNTESTED
+    elseif query_state.what_for == :exists
+        @assert query_state.daf !== nothing
 
-        if if_missing === nothing &&  # NOJET # UNTESTED
+        if if_missing === nothing &&  # NOJET
            !has_vector(query_state.daf, matrix_state.property_axis_name, lookup_vector.property_name)
-            query_state.exists = false  # UNTESTED
+            query_state.exists = false
         end
     end
 
@@ -4980,8 +4999,8 @@ function lookup_matrix_column_by_matrix(
             square_column_is_equal.comparison_value;
             is_column = true,
         )
-    elseif query_state.what_for == :has_query
-        has_lookup_matrix_values(  # UNTESTED
+    elseif query_state.what_for == :exists
+        has_lookup_matrix_values(
             query_state,
             matrix_state,
             lookup_matrix,
@@ -5023,8 +5042,8 @@ function lookup_square_matrix_column_by_matrix(
             square_column_is.comparison_value;
             is_column = true,
         )
-    elseif query_state.what_for == :has_query
-        has_lookup_matrix_values(  # NOJET # UNTESTED
+    elseif query_state.what_for == :exists
+        has_lookup_matrix_values(  # NOJET
             query_state,
             matrix_state,
             lookup_matrix,
@@ -5066,8 +5085,8 @@ function lookup_square_matrix_row_by_matrix(
             square_row_is.comparison_value;
             is_column = false,
         )
-    elseif query_state.what_for == :has_query
-        has_lookup_matrix_values(  # NOJET # UNTESTED
+    elseif query_state.what_for == :exists
+        has_lookup_matrix_values(  # NOJET
             query_state,
             matrix_state,
             lookup_matrix,
@@ -5098,19 +5117,15 @@ function fill_lookup_matrix_values(
 )::Nothing
     add_final_values!(matrix_state, if_not)
 
-    @assert query_state.daf !== nothing
-    default = default_value(if_missing)
-    named_matrix_values = get_matrix(
-        query_state.daf,
+    named_matrix_values, is_flipped = get_lookup_matrix(
+        query_state,
         matrix_state.property_axis_name,
         columns_axis_name,
-        lookup_matrix.property_name;
-        default,
+        lookup_matrix.property_name,
+        if_missing,
     )
-    push!(  # NOJET
-        query_state.dependency_keys,
-        Formats.matrix_cache_key(matrix_state.property_axis_name, columns_axis_name, lookup_matrix.property_name),
-    )
+    # Looking up a column of the flipped matrix is looking up a row of the stored one.
+    is_column = is_column != is_flipped
 
     lookup_value = string(lookup_value)
 
@@ -5142,7 +5157,7 @@ function fill_lookup_matrix_values(
     return nothing
 end
 
-function has_lookup_matrix_values(  # UNTESTED
+function has_lookup_matrix_values(
     query_state::QueryState,
     matrix_state::MatrixState,
     lookup_matrix::LookupMatrix,
@@ -5757,7 +5772,7 @@ function full_vector_query(
 end
 
 function patch_query(query::QueryOperation, replacements::Vector{Pair{String, QuerySequence}})::QuerySequence
-    query = as_query_sequence(query)
+    query = QuerySequence(QueryOperation[operation for operation in as_query_sequence(query).query_operations])
     index = 1
     while index <= length(query.query_operations)
         query_operation = query.query_operations[index]

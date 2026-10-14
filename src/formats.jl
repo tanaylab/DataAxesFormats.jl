@@ -40,6 +40,7 @@ export empty_cache!
 export end_data_write_lock
 export MappedData
 export MemoryData
+export PropertyMetadata
 export QueryData
 
 using ..Keys
@@ -78,6 +79,63 @@ Types of cached data inside `Daf`.
 If too much data has been cached, call [`empty_cache!`](@ref) to release it.
 """
 @enum CacheGroup MappedData MemoryData QueryData
+
+"""
+    struct PropertyMetadata
+        eltype::Type
+        is_sparse::Bool
+        nnz::Maybe{Int}
+        indtype::Maybe{Type}
+        is_packed::Bool
+    end
+
+How a vector or matrix property is stored. This is obtained without reading the data, using
+[`vector_metadata`](@ref DataAxesFormats.Readers.vector_metadata) or
+[`matrix_metadata`](@ref DataAxesFormats.Readers.matrix_metadata).
+
+  - `eltype` - the type of the elements. This is `String` for any string property.
+  - `is_sparse` - whether the property is stored as a sparse array.
+  - `nnz` - the number of stored (non-zero) elements of a sparse property, or `nothing` for a dense one.
+  - `indtype` - the type of the indices of a sparse property, or `nothing` for a dense one.
+  - `is_packed` - whether the property is stored using the packed (chunked and compressed) encoding.
+
+!!! note
+
+    A sparse string property stores only its non-empty values. Reading it still returns a dense array.
+"""
+struct PropertyMetadata
+    eltype::Type
+    is_sparse::Bool
+    nnz::Maybe{Int}
+    indtype::Maybe{Type}
+    is_packed::Bool
+end
+
+function TanayLabUtilities.Brief.brief(metadata::PropertyMetadata)::String
+    eltype_name = metadata.eltype <: AbstractString ? "Str" : string(metadata.eltype)
+    if metadata.is_sparse
+        nnz = metadata.nnz
+        @assert nnz !== nothing
+        storage = "Sparse $(delimited_number(nnz)) [$(metadata.indtype)]"
+    else
+        storage = "Dense"
+    end
+    if metadata.is_packed
+        storage *= ", Packed"
+    end
+    return "$(eltype_name) ($(storage))"
+end
+
+# The [`PropertyMetadata`](@ref) of an in-memory (not packed) `array`.
+function array_metadata(array::AbstractArray)::PropertyMetadata
+    array = base_array(array)
+    element_type = eltype(array) <: AbstractString ? String : eltype(array)
+    if issparse(array)
+        return PropertyMetadata(element_type, true, nnz(array), SparseArrays.indtype(array), false)
+    else
+        return PropertyMetadata(element_type, false, nothing, nothing, false)
+    end
+end
 
 CacheData = Union{
     AbstractSet{<:AbstractString},  # Names
@@ -574,25 +632,15 @@ exists for the `axis`.
 function format_get_vector end
 
 """
-    format_is_packed_vector(
-        format::FormatReader,
-        axis::AbstractString,
-        name::AbstractString,
-    )::Bool
+    format_vector_metadata(format::FormatReader, axis::AbstractString, name::AbstractString)::PropertyMetadata
 
-Return `true` if the named vector property is stored using the packed (chunked + compressed) on-disk encoding, `false`
-for the flat encoding. The default implementation returns `false`; backends that support packed encoding override this
-to inspect their on-disk metadata.
+Implement fetching the [`PropertyMetadata`](@ref) of the vector property with some `name` for some `axis` in `format`,
+without reading its data.
 
-Used by internal operations that rebuild a property in place (relayout, axis reorder) to preserve the source's encoding
-when writing the rebuilt copy.
-
-This trusts that we have a read lock on the data set, that the `axis` exists in `format`, and the `name` vector
-property exists for the `axis`.
+This trusts that we have a read lock on the data set, that the `axis` exists in `format`, and the `name` vector property
+exists for the `axis`.
 """
-function format_is_packed_vector(::FormatReader, ::AbstractString, ::AbstractString)::Bool
-    return false
-end
+function format_vector_metadata end
 
 """
     format_has_matrix(
@@ -692,8 +740,8 @@ end
         columns_axis::AbstractString,
         name::AbstractString,
         eltype::Type{T},
-        intdype::Type{I},
         nnz::StorageInteger,
+        indtype::Type{I},
         is_packed::Bool,
     )::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}, Maybe{CacheGroup}}
     where {T <: StorageReal, I <: StorageInteger}
@@ -804,26 +852,20 @@ the `name` matrix property exists for them.
 function format_get_matrix end
 
 """
-    format_is_packed_matrix(
+    format_matrix_metadata(
         format::FormatReader,
         rows_axis::AbstractString,
         columns_axis::AbstractString,
         name::AbstractString,
-    )::Bool
+    )::PropertyMetadata
 
-Return `true` if the named matrix property is stored using the packed (chunked + compressed) on-disk encoding, `false`
-for the flat encoding. The default implementation returns `false`; backends that support packed encoding override this
-to inspect their on-disk metadata.
+Implement fetching the [`PropertyMetadata`](@ref) of the matrix property with some `name` for some `rows_axis` and
+`columns_axis` in `format`, without reading its data.
 
-Used by internal operations that rebuild a property in place (relayout, axis reorder) to preserve the source's encoding
-when writing the rebuilt copy.
-
-This trusts that we have a read lock on the data set, that the `rows_axis` and `columns_axis` exist in `format`, and
-the `name` matrix property exists for them.
+This trusts that we have a read lock on the data set, that the `rows_axis` and `columns_axis` exist in `format`, and the
+`name` matrix property exists for them.
 """
-function format_is_packed_matrix(::FormatReader, ::AbstractString, ::AbstractString, ::AbstractString)::Bool
-    return false
-end
+function format_matrix_metadata end
 
 """
     format_description_header(format::FormatReader, lines::Vector{String}, deep::Bool)::Nothing

@@ -63,6 +63,7 @@ nested_test("doctests") do
 end
 
 include("http_helpers.jl")
+include("metadata_helpers.jl")
 include("keys.jl")
 include("packed_format.jl")
 include("lazy_sparse.jl")

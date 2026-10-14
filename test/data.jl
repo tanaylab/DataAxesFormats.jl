@@ -85,6 +85,53 @@ function populate_served_daf!(writer::DafWriter)::Nothing
     return nothing
 end
 
+# Write a `[1,0]` data set using the legacy top-level `eltype` / `indtype` JSON shape, calling `write_entry(key, bytes)`
+# for each file. A sparse `Bool` property stores its `.nzval` only if some value is `false`.
+function write_legacy_v1_0_daf(write_entry::Function)::Nothing
+    write_entry("daf.json", Vector{UInt8}("{\"version\":[1,0]}\n"))
+    write_entry("axes/cell.txt", Vector{UInt8}("A\nB\nC\nD\n"))
+    write_entry("axes/gene.txt", Vector{UInt8}("X\nY\n"))
+
+    write_entry("vectors/cell/age.json", Vector{UInt8}("{\"format\":\"dense\",\"eltype\":\"Int32\"}\n"))
+    write_entry("vectors/cell/age.data", Vector{UInt8}(reinterpret(UInt8, Int32[10, 20, 30, 40])))
+
+    sparse_float32_json = Vector{UInt8}("{\"format\":\"sparse\",\"eltype\":\"Float32\",\"indtype\":\"Int32\"}\n")
+    sparse_bool_json = Vector{UInt8}("{\"format\":\"sparse\",\"eltype\":\"Bool\",\"indtype\":\"Int32\"}\n")
+
+    write_entry("vectors/cell/marker.json", sparse_float32_json)
+    write_entry("vectors/cell/marker.nzind", Vector{UInt8}(reinterpret(UInt8, Int32[1, 3])))
+    write_entry("vectors/cell/marker.nzval", Vector{UInt8}(reinterpret(UInt8, Float32[0.5, 1.5])))
+
+    write_entry("vectors/cell/all_true.json", sparse_bool_json)
+    write_entry("vectors/cell/all_true.nzind", Vector{UInt8}(reinterpret(UInt8, Int32[2, 4])))
+
+    write_entry("vectors/cell/mixed.json", sparse_bool_json)
+    write_entry("vectors/cell/mixed.nzind", Vector{UInt8}(reinterpret(UInt8, Int32[1, 3])))
+    write_entry("vectors/cell/mixed.nzval", Vector{UInt8}(reinterpret(UInt8, Bool[true, false])))
+
+    write_entry("matrices/cell/gene/all_true.json", sparse_bool_json)
+    write_entry("matrices/cell/gene/all_true.colptr", Vector{UInt8}(reinterpret(UInt8, Int32[1, 2, 3])))
+    write_entry("matrices/cell/gene/all_true.rowval", Vector{UInt8}(reinterpret(UInt8, Int32[1, 3])))
+
+    write_entry("matrices/cell/gene/mixed.json", sparse_bool_json)
+    write_entry("matrices/cell/gene/mixed.colptr", Vector{UInt8}(reinterpret(UInt8, Int32[1, 2, 3])))
+    write_entry("matrices/cell/gene/mixed.rowval", Vector{UInt8}(reinterpret(UInt8, Int32[2, 4])))
+    write_entry("matrices/cell/gene/mixed.nzval", Vector{UInt8}(reinterpret(UInt8, Bool[false, true])))
+    return nothing
+end
+
+function verify_legacy_v1_0_daf(daf::DafReader)::Nothing
+    @test get_vector(daf, "cell", "age") == Int32[10, 20, 30, 40]
+    marker = get_vector(daf, "cell", "marker")
+    @test eltype(parent(marker)) == Float32
+    @test marker == Float32[0.5, 0.0, 1.5, 0.0]
+    @test get_vector(daf, "cell", "all_true") == Bool[false, true, false, true]
+    @test get_vector(daf, "cell", "mixed") == Bool[true, false, false, false]
+    @test get_matrix(daf, "cell", "gene", "all_true"; relayout = false) == Bool[1 0; 0 0; 0 1; 0 0]
+    @test get_matrix(daf, "cell", "gene", "mixed"; relayout = false) == Bool[0 0; 0 0; 0 0; 0 1]
+    return nothing
+end
+
 function test_served_read_only(make_daf::Function)::Nothing
     nested_test("scalars") do
         daf = make_daf()
@@ -153,6 +200,15 @@ function test_served_read_only(make_daf::Function)::Nothing
                 return nothing
             end
         end
+
+        nested_test("metadata") do
+            for axis in ("cell", "gene", "batch")
+                for name in vectors_set(daf, axis)
+                    verify_vector_metadata(daf, axis, name)
+                end
+            end
+            return nothing
+        end
     end
 
     nested_test("matrices") do
@@ -194,6 +250,15 @@ function test_served_read_only(make_daf::Function)::Nothing
                 @test Matrix(get_matrix(daf, "batch", "cell", "sparse_labels")) == BATCH_CELL_SPARSE_LABELS
                 return nothing
             end
+        end
+
+        nested_test("metadata") do
+            for (rows_axis, columns_axis) in (("cell", "gene"), ("batch", "cell"))
+                for name in matrices_set(daf, rows_axis, columns_axis; relayout = false)
+                    verify_matrix_metadata(daf, rows_axis, columns_axis, name)
+                end
+            end
+            return nothing
         end
     end
 
@@ -595,11 +660,13 @@ function test_existing_axis(daf::DafReader, depth::Int; append_only::Bool = fals
     nested_test("name") do
         @test get_vector(daf, "gene", "name") == GENE_NAMES
         @test get_vector(daf, "cell", "name") == CELL_NAMES
+        return verify_vector_metadata(daf, "gene", "name")
     end
 
     nested_test("index") do
         @test get_vector(daf, "gene", "index") == collect(1:length(GENE_NAMES))
         @test get_vector(daf, "cell", "index") == collect(1:length(CELL_NAMES))
+        return verify_vector_metadata(daf, "gene", "index")
     end
 
     if !(daf isa DafWriter)
@@ -780,6 +847,11 @@ function test_missing_vector(daf::DafReader, depth::Int; append_only::Bool = fal
                          for the axis: gene
                          in the daf data: $(daf.name)
                          """) get_vector(daf, "gene", "marker")
+            @test_throws chomp("""
+                         missing vector: marker
+                         for the axis: gene
+                         in the daf data: $(daf.name)
+                         """) vector_metadata(daf, "gene", "marker")
         end
 
         nested_test("default") do
@@ -1092,6 +1164,8 @@ function test_existing_vector(daf::DafReader, depth::Int; append_only::Bool = fa
             @test get_vector(daf, "cell", "type") == CELL_TYPES_BY_DEPTH[depth - 1]
             @test dimnames(get_vector(daf, "cell", "type")) == ["cell"]
             @test names(get_vector(daf, "cell", "type")) == [CELL_NAMES]
+            verify_vector_metadata(daf, "gene", "marker")
+            return verify_vector_metadata(daf, "cell", "type")
         end
 
         nested_test("default") do
@@ -1509,6 +1583,12 @@ function test_missing_matrix(daf::DafReader, depth::Int; append_only::Bool = fal
                              and the columns axis: gene
                              in the daf data: $(daf.name)
                              """) get_matrix(daf, "cell", "gene", "UMIs"; relayout = false)
+                @test_throws chomp("""
+                             missing matrix: UMIs
+                             for the rows axis: cell
+                             and the columns axis: gene
+                             in the daf data: $(daf.name)
+                             """) matrix_metadata(daf, "cell", "gene", "UMIs")
             end
 
             if daf isa DafWriter
@@ -2168,6 +2248,7 @@ function test_existing_matrix(daf::DafReader, depth::Int; append_only::Bool = fa
                 @test get_matrix(daf, "cell", "gene", "UMIs"; relayout = false) == UMIS_BY_DEPTH[depth - 1]
                 @test dimnames(get_matrix(daf, "cell", "gene", "UMIs"; relayout = false)) == ["cell", "gene"]
                 @test names(get_matrix(daf, "cell", "gene", "UMIs"; relayout = false)) == [CELL_NAMES, GENE_NAMES]
+                verify_matrix_metadata(daf, "cell", "gene", "UMIs")
 
                 @test_throws chomp("""
                              missing matrix: UMIs
@@ -2175,6 +2256,12 @@ function test_existing_matrix(daf::DafReader, depth::Int; append_only::Bool = fa
                              and the columns axis: cell
                              in the daf data: $(daf.name)
                              """) get_matrix(daf, "gene", "cell", "UMIs"; relayout = false)
+                @test_throws chomp("""
+                             missing matrix: UMIs
+                             for the rows axis: gene
+                             and the columns axis: cell
+                             in the daf data: $(daf.name)
+                             """) matrix_metadata(daf, "gene", "cell", "UMIs")
             end
         end
 
@@ -2777,6 +2864,9 @@ function test_existing_relayout_matrix(daf::DafReader, depth::Int; append_only::
                 @test get_matrix(daf, "gene", "cell", "UMIs"; relayout = false) == transpose(UMIS_BY_DEPTH[depth - 1])
                 @test dimnames(get_matrix(daf, "gene", "cell", "UMIs"; relayout = false)) == ["gene", "cell"]
                 @test names(get_matrix(daf, "gene", "cell", "UMIs"; relayout = false)) == [GENE_NAMES, CELL_NAMES]
+
+                verify_matrix_metadata(daf, "cell", "gene", "UMIs")
+                return verify_matrix_metadata(daf, "gene", "cell", "UMIs")
             end
         end
 
@@ -3802,31 +3892,23 @@ nested_test("data") do
 
         nested_test("legacy_v1_0") do
             mktempdir() do path
-                # Hand-build a `[1,0]` FilesDaf with a dense vector and a flat-sparse vector using
-                # the legacy top-level `eltype` / `indtype` JSON shape. The v1.1 reader detects the
-                # schema by shape and routes through the same flat-mmap code path.
+                # The v1.1 reader detects the legacy schema by shape and routes through the same flat-mmap code path.
                 mkpath("$(path)/scalars")
-                mkpath("$(path)/axes")
-                mkpath("$(path)/vectors/cell")
-                mkpath("$(path)/matrices")
-                write("$(path)/daf.json", "{\"version\":[1,0]}\n")
-                write("$(path)/axes/cell.txt", "A\nB\nC\nD\n")
+                write_legacy_v1_0_daf() do key, bytes
+                    mkpath(dirname("$(path)/$(key)"))
+                    write("$(path)/$(key)", bytes)
+                    return nothing
+                end
 
-                write("$(path)/vectors/cell/age.json", "{\"format\":\"dense\",\"eltype\":\"Int32\"}\n")
-                write("$(path)/vectors/cell/age.data", reinterpret(UInt8, Int32[10, 20, 30, 40]))
+                verify_legacy_v1_0_daf(FilesDaf(path; name = "legacy!"))
 
-                write(
-                    "$(path)/vectors/cell/marker.json",
-                    "{\"format\":\"sparse\",\"eltype\":\"Float32\",\"indtype\":\"Int32\"}\n",
-                )
-                write("$(path)/vectors/cell/marker.nzind", reinterpret(UInt8, Int32[1, 3]))
-                write("$(path)/vectors/cell/marker.nzval", reinterpret(UInt8, Float32[0.5, 1.5]))
-
-                daf = FilesDaf(path; name = "legacy!")
-                @test get_vector(daf, "cell", "age") == Int32[10, 20, 30, 40]
-                marker = get_vector(daf, "cell", "marker")
-                @test eltype(parent(marker)) == Float32
-                @test marker == Float32[0.5, 0.0, 1.5, 0.0]
+                nested_test("http") do
+                    with_served_directory(path) do url
+                        verify_legacy_v1_0_daf(HttpDaf(url; name = "legacy!"))
+                        return nothing
+                    end
+                    return nothing
+                end
             end
         end
 
@@ -3950,22 +4032,7 @@ nested_test("data") do
                 writer = FilesDaf(files_path, "w+"; name = "served!")
                 populate_served_daf!(writer)
 
-                handler = request -> begin
-                    key = String(lstrip(request.target, '/'))
-                    if occursin("..", key)
-                        return HTTP.Response(404, "Error: bad key $(key)")
-                    end
-                    file_path = "$(files_path)/$(key)"
-                    if !isfile(file_path)
-                        return HTTP.Response(404, "Error: Key $(key) not found")
-                    end
-                    return respond_with_range(read(file_path), request)
-                end
-                server = HTTP.serve!(handler, Sockets.localhost, 0; listenany = true)
-                try
-                    port = server.listener.hostport
-                    url = "http://localhost:$(port)"
-
+                with_served_directory(files_path) do url
                     nested_test("invalid_url") do
                         @test_throws "not an HTTP(S) URL: file:///tmp" HttpDaf("file:///tmp")
                         return nothing
@@ -4007,8 +4074,7 @@ nested_test("data") do
                         @test get_vector(daf, "cell", "score") == Float32[1.0, 2.0, 3.0]
                         return nothing
                     end
-                finally
-                    close(server)
+                    return nothing
                 end
                 return nothing
             end
@@ -4018,25 +4084,13 @@ nested_test("data") do
             mktempdir() do path
                 write("$(path)/daf.json", "{\"version\":[99,0]}\n")
                 write("$(path)/metadata.json", "{}")
-                handler = request -> begin
-                    key = String(lstrip(request.target, '/'))
-                    file_path = "$(path)/$(key)"
-                    if !isfile(file_path)
-                        return HTTP.Response(404, "Error: Key $(key) not found")
-                    end
-                    return HTTP.Response(200, read(file_path))
-                end
-                server = HTTP.serve!(handler, Sockets.localhost, 0; listenany = true)
-                try
-                    port = server.listener.hostport
-                    url = "http://localhost:$(port)"
+                with_served_directory(path) do url
                     @test_throws chomp("""
                                  incompatible format version: 99.0
                                  the code supports version: 1.1
                                  in daf HTTP data set: $(url)
                                  """) HttpDaf(url)
-                finally
-                    close(server)
+                    return nothing
                 end
                 return nothing
             end
@@ -4046,22 +4100,10 @@ nested_test("data") do
             mktempdir() do path
                 files_path = path * "/unnamed.daf"
                 FilesDaf(files_path, "w+"; name = "unnamed!")
-                handler = request -> begin
-                    key = String(lstrip(request.target, '/'))
-                    file_path = "$(files_path)/$(key)"
-                    if !isfile(file_path)
-                        return HTTP.Response(404, "Error: Key $(key) not found")
-                    end
-                    return HTTP.Response(200, read(file_path))
-                end
-                server = HTTP.serve!(handler, Sockets.localhost, 0; listenany = true)
-                try
-                    port = server.listener.hostport
-                    url = "http://localhost:$(port)"
+                with_served_directory(files_path) do url
                     daf = HttpDaf(url)
                     @test string(daf) == "HttpDaf $(url)"
-                finally
-                    close(server)
+                    return nothing
                 end
                 return nothing
             end
@@ -4098,20 +4140,6 @@ nested_test("data") do
                     return nothing
                 end
 
-                function make_handler(root)
-                    return request -> begin
-                        key = String(lstrip(request.target, '/'))
-                        if occursin("..", key)
-                            return HTTP.Response(404, "Error: bad key $(key)")  # UNTESTED
-                        end
-                        file_path = "$(root)/$(key)"
-                        if !isfile(file_path)
-                            return HTTP.Response(404, "Error: Key $(key) not found")  # UNTESTED
-                        end
-                        return respond_with_range(read(file_path), request)
-                    end
-                end
-
                 function check_served(daf::HttpDaf)::Nothing
                     @test collect(get_vector(daf, "row", "score")) == score_vector
                     @test Matrix(get_matrix(daf, "row", "col", "umis")) == umis_matrix
@@ -4126,12 +4154,9 @@ nested_test("data") do
                     flat_path = path * "/flat.daf"
                     writer = FilesDaf(flat_path, "w+"; name = "flat!", packed = false)
                     populate!(writer)
-                    server = HTTP.serve!(make_handler(flat_path), Sockets.localhost, 0; listenany = true)
-                    try
-                        url = "http://localhost:$(server.listener.hostport)"
+                    with_served_directory(flat_path) do url
                         check_served(HttpDaf(url))
-                    finally
-                        close(server)
+                        return nothing
                     end
                     return nothing
                 end
@@ -4140,12 +4165,9 @@ nested_test("data") do
                     packed_path = path * "/packed.daf"
                     writer = FilesDaf(packed_path, "w+"; name = "packed!", packed = true)
                     populate!(writer)
-                    server = HTTP.serve!(make_handler(packed_path), Sockets.localhost, 0; listenany = true)
-                    try
-                        url = "http://localhost:$(server.listener.hostport)"
+                    with_served_directory(packed_path) do url
                         check_served(HttpDaf(url))
-                    finally
-                        close(server)
+                        return nothing
                     end
                     return nothing
                 end
@@ -4160,13 +4182,10 @@ nested_test("data") do
                     partial_vector = Float32[index for index in 1:n_elements]
                     add_axis!(writer, "cell", ["c$(index)" for index in 1:n_elements])
                     set_vector!(writer, "cell", "score", partial_vector)
-                    server = HTTP.serve!(make_handler(partial_path), Sockets.localhost, 0; listenany = true)
-                    try
-                        url = "http://localhost:$(server.listener.hostport)"
+                    with_served_directory(partial_path) do url
                         daf = HttpDaf(url)
                         @test collect(get_vector(daf, "cell", "score")) == partial_vector
-                    finally
-                        close(server)
+                        return nothing
                     end
                     return nothing
                 end
@@ -4196,14 +4215,11 @@ nested_test("data") do
                     add_axis!(writer, "row", ["r$(index)" for index in 1:wide_n_rows])
                     add_axis!(writer, "col", ["c$(index)" for index in 1:wide_n_columns])
                     set_matrix!(writer, "row", "col", "wide", wide_sparse; relayout = false)
-                    server = HTTP.serve!(make_handler(wide_path), Sockets.localhost, 0; listenany = true)
-                    try
-                        url = "http://localhost:$(server.listener.hostport)"
+                    with_served_directory(wide_path) do url
                         daf = HttpDaf(url)
                         named = get_matrix(daf, "row", "col", "wide")
                         @test SparseMatrixCSC(parent(parent(named))) == wide_sparse
-                    finally
-                        close(server)
+                        return nothing
                     end
                     return nothing
                 end
@@ -4219,19 +4235,19 @@ nested_test("data") do
                     gap_vector = Float32[index for index in 1:n_gap_elements]
                     add_axis!(writer, "cell", ["c$(index)" for index in 1:n_gap_elements])
                     set_vector!(writer, "cell", "score", gap_vector)
-                    server = HTTP.serve!(make_handler(gap_path), Sockets.localhost, 0; listenany = true)
-                    saved_gap_kb = DataAxesFormats.PackedFormat.DAF_HTTP_MAX_COALESCE_GAP_KB
-                    try
-                        DataAxesFormats.PackedFormat.DAF_HTTP_MAX_COALESCE_GAP_KB = 0
-                        url = "http://localhost:$(server.listener.hostport)"
-                        daf = HttpDaf(url)
-                        vector = get_vector(daf, "cell", "score")
-                        wrapped = parent(parent(vector))
-                        @test wrapped[2049:4096] == gap_vector[2049:4096]
-                        @test wrapped[1:n_gap_elements] == gap_vector
-                    finally
-                        DataAxesFormats.PackedFormat.DAF_HTTP_MAX_COALESCE_GAP_KB = saved_gap_kb
-                        close(server)
+                    with_served_directory(gap_path) do url
+                        saved_gap_kb = DataAxesFormats.PackedFormat.DAF_HTTP_MAX_COALESCE_GAP_KB
+                        try
+                            DataAxesFormats.PackedFormat.DAF_HTTP_MAX_COALESCE_GAP_KB = 0
+                            daf = HttpDaf(url)
+                            vector = get_vector(daf, "cell", "score")
+                            wrapped = parent(parent(vector))
+                            @test wrapped[2049:4096] == gap_vector[2049:4096]
+                            @test wrapped[1:n_gap_elements] == gap_vector
+                        finally
+                            DataAxesFormats.PackedFormat.DAF_HTTP_MAX_COALESCE_GAP_KB = saved_gap_kb
+                        end
+                        return nothing
                     end
                     return nothing
                 end
@@ -4315,27 +4331,17 @@ nested_test("data") do
 
         nested_test("legacy_v1_0") do
             mktempdir() do path
-                # Hand-build a `[1,0]` ZipDaf archive with a dense vector and a flat-sparse vector
-                # using the legacy top-level `eltype` / `indtype` JSON shape. The v1.1 reader
-                # detects the schema by shape and routes through the same flat-mmap code path.
+                # The v1.1 reader detects the legacy schema by shape and routes through the same flat-mmap code path.
                 zip_path = path * "/legacy.daf.zip"
                 store = MmapZipStore(zip_path; writable = true, create = true)
-                store["daf.json"] = Vector{UInt8}("{\"version\":[1,0]}\n")
-                store["axes/cell.txt"] = Vector{UInt8}("A\nB\nC\nD\n")
-                store["vectors/cell/age.json"] = Vector{UInt8}("{\"format\":\"dense\",\"eltype\":\"Int32\"}\n")
-                store["vectors/cell/age.data"] = Vector{UInt8}(reinterpret(UInt8, Int32[10, 20, 30, 40]))
-                store["vectors/cell/marker.json"] =
-                    Vector{UInt8}("{\"format\":\"sparse\",\"eltype\":\"Float32\",\"indtype\":\"Int32\"}\n")
-                store["vectors/cell/marker.nzind"] = Vector{UInt8}(reinterpret(UInt8, Int32[1, 3]))
-                store["vectors/cell/marker.nzval"] = Vector{UInt8}(reinterpret(UInt8, Float32[0.5, 1.5]))
+                write_legacy_v1_0_daf() do key, bytes
+                    store[key] = bytes
+                    return nothing
+                end
                 close(store)
                 GC.gc()
 
-                daf = ZipDaf(zip_path; name = "legacy!")
-                @test get_vector(daf, "cell", "age") == Int32[10, 20, 30, 40]
-                marker = get_vector(daf, "cell", "marker")
-                @test eltype(parent(marker)) == Float32
-                @test marker == Float32[0.5, 0.0, 1.5, 0.0]
+                return verify_legacy_v1_0_daf(ZipDaf(zip_path; name = "legacy!"))
             end
         end
 
@@ -4848,23 +4854,7 @@ nested_test("data") do
                 writer = ZarrDaf(zarr_path, "w+"; name = "served!")
                 populate_served_daf!(writer)
 
-                store = Zarr.DirectoryStore(zarr_path)
-                handler = request -> begin
-                    key = String(lstrip(request.target, '/'))
-                    if occursin("..", key)
-                        return HTTP.Response(404, "Error: bad key $(key)")  # UNTESTED
-                    end
-                    bytes = store[key]
-                    if bytes === nothing
-                        return HTTP.Response(404, "Error: Key $(key) not found")
-                    end
-                    return respond_with_range(bytes, request)
-                end
-                server = HTTP.serve!(handler, Sockets.localhost, 0; listenany = true)
-                try
-                    port = server.listener.hostport
-                    url = "http://localhost:$(port)"
-
+                with_served_directory(zarr_path) do url
                     nested_test("invalid_mode") do
                         @test_throws chomp(
                             """
@@ -4885,22 +4875,11 @@ nested_test("data") do
                         # the URL root; the open path should reject it before any consolidated-metadata lookup.
                         mktempdir() do path2
                             write(path2 * "/zarr.json", "{\"zarr_format\":3,\"node_type\":\"array\"}")
-                            handler2 = request -> begin
-                                key = String(lstrip(request.target, '/'))
-                                file_path = "$(path2)/$(key)"
-                                if !isfile(file_path)
-                                    return HTTP.Response(404, "Error: Key $(key) not found")  # UNTESTED
-                                end
-                                return HTTP.Response(200, read(file_path))
-                            end
-                            server2 = HTTP.serve!(handler2, Sockets.localhost, 0; listenany = true)
-                            try
-                                port2 = server2.listener.hostport
-                                url2 = "http://localhost:$(port2)"
+                            with_served_directory(path2) do url2
                                 @test_throws "not a zarr group: $(url2)" ZarrDaf(url2)
-                            finally
-                                close(server2)
+                                return nothing
                             end
+                            return nothing
                         end
                         return nothing
                     end
@@ -4910,24 +4889,13 @@ nested_test("data") do
                         # field. The open path should refuse with a guidance message about seeding the field.
                         mktempdir() do path2
                             write(path2 * "/zarr.json", "{\"zarr_format\":3,\"node_type\":\"group\",\"attributes\":{}}")
-                            handler2 = request -> begin
-                                key = String(lstrip(request.target, '/'))
-                                file_path = "$(path2)/$(key)"
-                                if !isfile(file_path)
-                                    return HTTP.Response(404, "Error: Key $(key) not found")  # UNTESTED
-                                end
-                                return HTTP.Response(200, read(file_path))
-                            end
-                            server2 = HTTP.serve!(handler2, Sockets.localhost, 0; listenany = true)
-                            try
-                                port2 = server2.listener.hostport
-                                url2 = "http://localhost:$(port2)"
+                            with_served_directory(path2) do url2
                                 @test_throws (
                                     "remote zarr group lacks an inline `consolidated_metadata` field: $(url2)"
                                 ) ZarrDaf(url2)
-                            finally
-                                close(server2)
+                                return nothing
                             end
+                            return nothing
                         end
                         return nothing
                     end
@@ -4946,8 +4914,7 @@ nested_test("data") do
                         @test string(daf) == "ReadOnly ZarrDaf override!.read_only"
                         return nothing
                     end
-                finally
-                    close(server)
+                    return nothing
                 end
                 return nothing
             end
@@ -4988,21 +4955,6 @@ nested_test("data") do
                     return nothing
                 end
 
-                function make_handler(zarr_path)
-                    store = Zarr.DirectoryStore(zarr_path)
-                    return request -> begin
-                        key = String(lstrip(request.target, '/'))
-                        if occursin("..", key)
-                            return HTTP.Response(404, "Error: bad key $(key)")  # UNTESTED
-                        end
-                        bytes = store[key]
-                        if bytes === nothing
-                            return HTTP.Response(404, "Error: Key $(key) not found")  # UNTESTED
-                        end
-                        return respond_with_range(bytes, request)
-                    end
-                end
-
                 function check_served(daf)::Nothing
                     @test collect(get_vector(daf, "row", "score")) == score_vector
                     @test Matrix(get_matrix(daf, "row", "col", "umis")) == umis_matrix
@@ -5017,12 +4969,9 @@ nested_test("data") do
                     flat_path = path * "/flat.daf.zarr"
                     writer = ZarrDaf(flat_path, "w+"; name = "flat!", packed = false)
                     populate!(writer)
-                    server = HTTP.serve!(make_handler(flat_path), Sockets.localhost, 0; listenany = true)
-                    try
-                        url = "http://localhost:$(server.listener.hostport)"
+                    with_served_directory(flat_path) do url
                         check_served(ZarrDaf(url))
-                    finally
-                        close(server)
+                        return nothing
                     end
                     return nothing
                 end
@@ -5031,12 +4980,9 @@ nested_test("data") do
                     packed_path = path * "/packed.daf.zarr"
                     writer = ZarrDaf(packed_path, "w+"; name = "packed!", packed = true)
                     populate!(writer)
-                    server = HTTP.serve!(make_handler(packed_path), Sockets.localhost, 0; listenany = true)
-                    try
-                        url = "http://localhost:$(server.listener.hostport)"
+                    with_served_directory(packed_path) do url
                         check_served(ZarrDaf(url))
-                    finally
-                        close(server)
+                        return nothing
                     end
                     return nothing
                 end

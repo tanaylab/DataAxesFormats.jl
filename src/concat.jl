@@ -119,8 +119,10 @@ its entries (either once for all the axes, or using a vector with a setting per 
 Vector and matrix properties for the `axis` will be concatenated. If some of the concatenated data sets do not contain
 some property, then an `empty` value must be specified for it, and will be used for the missing data.
 
-Concatenated matrices are always stored in column-major layout where the concatenation axis is the column axis. There
-should not exist any matrices whose both axes are concatenated (e.g., square matrices of the concatenated axis).
+A source matrix is concatenated whichever layout it is stored in. The concatenated matrix is stored only in the
+column-major layout where the concatenation axis is the column axis. If you also need the other layout, call
+[`relayout_matrix!`](@ref) on the result. There should not exist any matrices whose both axes are concatenated (e.g.,
+square matrices of the concatenated axis).
 
 The concatenated properties will be sparse if the storage for the sparse data is smaller than naive dense storage by at
 `sparse_if_saves_storage_fraction` (by default, if using sparse storage saves at least 25% of the space, that is, takes
@@ -396,6 +398,7 @@ function concatenate_axis(
         matrix_properties_set = Set{AbstractString}()
         for source in sources
             union!(matrix_properties_set, matrices_set(source, other_axis, axis; relayout = false))
+            union!(matrix_properties_set, matrices_set(source, axis, other_axis; relayout = false))
         end
 
         for matrix_property in matrix_properties_set
@@ -1058,7 +1061,7 @@ function concatenate_merge_sparse_vector(
         overwrite,
         relayout = false,
     ) do sparse_colptr, sparse_rowval, sparse_nzval
-        sparse_colptr[1] == 1
+        sparse_colptr[1] = 1
         n_sources = length(vectors)
         parallel_loop_wo_rng(
             1:n_sources;
@@ -1362,7 +1365,7 @@ function sparsify_concatenated_vectors(
             @assert length(vector) == size
             vector = vector.array
             if !issparse(vector)
-                vector = sparse_vector(vector)  # NOJET
+                vector = sparse_vector(vector)
             end
             sparse_vectors[source_index] = vector
         end

@@ -696,7 +696,7 @@ function Formats.format_set_vector!(
             end
 
         elseif eltype(vector) <: AbstractString
-            write_string_vector(axis_vectors_group, name, vector)
+            write_string_vector(axis_vectors_group, name, vector, is_packed)
 
         else
             flame_timed("H5df.write_dense_vector") do
@@ -719,6 +719,7 @@ function write_string_vector(
     axis_vectors_group::HDF5.Group,
     name::AbstractString,
     vector::AbstractVector{<:AbstractString},
+    is_packed::Bool,
 )::Nothing
     flame_timed("H5df.write_string_vector") do
         n_empty = 0
@@ -753,13 +754,13 @@ function write_string_vector(
             @assert position == n_nonempty + 1
 
             vector_group = create_group(axis_vectors_group, name)
-            vector_group["nzind"] = nzind_vector
-            vector_group["nztxt"] = nztxt_vector
+            write_packed_dense_dataset!(vector_group, "nzind", nzind_vector, is_packed)
+            write_packed_dense_dataset!(vector_group, "nztxt", nztxt_vector, is_packed)
             close(vector_group)
 
         else
-            nice_vector = String[String(value) for value in vector]
-            axis_vectors_group[name] = nice_vector
+            nice_vector = vector isa Vector{String} ? vector : String[String(value) for value in vector]
+            write_packed_dense_dataset!(axis_vectors_group, name, nice_vector, is_packed)
         end
     end
 
@@ -833,7 +834,7 @@ function Formats.format_get_empty_sparse_vector!(
     is_packed::Bool,
 )::Tuple{AbstractVector{I}, AbstractVector{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(h5df)
-    if is_packed
+    if chunks_for(is_packed, (Int(nnz),), T) !== nothing
         return (Vector{I}(undef, Int(nnz)), Vector{T}(undef, Int(nnz)), nothing)
     end
     nzind_vector, nzval_vector = create_empty_sparse_vector_in(h5df.root, axis, name, eltype, nnz, indtype)
@@ -940,14 +941,20 @@ function Formats.format_get_vector(
     axis_vectors_group = vectors_group[axis]
     @assert axis_vectors_group isa HDF5.Group
 
-    vector_object = axis_vectors_group[name]
+    vector, cache_group = property_vector(axis_vectors_group[name], Formats.format_axis_length(h5df, axis))  # NOJET
+    return (vector, nothing, cache_group)
+end
+
+# Read a vector property from its dataset (dense) or group (sparse), for an axis with `nelements` entries. The property
+# is either live or in the reorder backup.
+function property_vector(
+    vector_object::Union{HDF5.Dataset, HDF5.Group},
+    nelements::Integer,
+)::Tuple{StorageVector, Formats.CacheGroup}
     if vector_object isa HDF5.Dataset
         vector, cache_group = dataset_as_vector(vector_object)
 
     else
-        @assert vector_object isa HDF5.Group
-        nelements = Formats.format_axis_length(h5df, axis)
-
         nzind_dataset = vector_object["nzind"]
         @assert nzind_dataset isa HDF5.Dataset
 
@@ -975,7 +982,7 @@ function Formats.format_get_vector(
                     DiskArrays.cache(H5dfDiskArray(nzval_dataset); maxsize = packed_local_cache_mb())
                 end
                 vector = LazySparseVector(nelements, nzind_source, nzval_source)
-                return (vector, nothing, Formats.MemoryData)
+                return (vector, Formats.MemoryData)
             end
 
             nzind_vector, nzind_cache_group = dataset_as_materialized_vector(nzind_dataset)
@@ -995,7 +1002,70 @@ function Formats.format_get_vector(
         end
     end
 
-    return (vector, nothing, cache_group)
+    return (vector, cache_group)
+end
+
+function Formats.format_vector_metadata(h5df::H5df, axis::AbstractString, name::AbstractString)::PropertyMetadata
+    @assert Formats.has_data_read_lock(h5df)
+
+    vectors_group = h5df.root["vectors"]
+    @assert vectors_group isa HDF5.Group
+
+    axis_vectors_group = vectors_group[axis]
+    @assert axis_vectors_group isa HDF5.Group
+
+    vector_object = axis_vectors_group[name]
+    @assert vector_object isa Union{HDF5.Dataset, HDF5.Group}
+    return object_metadata(vector_object, "nzind")
+end
+
+# The [`PropertyMetadata`](@ref) of a property's dataset (dense) or group (sparse). The `indices_component` of a sparse
+# property is `nzind` for a vector and `rowval` for a matrix.
+function object_metadata(object::Union{HDF5.Dataset, HDF5.Group}, indices_component::AbstractString)::PropertyMetadata
+    is_packed = is_packed_object(object)
+    if object isa HDF5.Dataset
+        return PropertyMetadata(dataset_eltype(object), false, nothing, nothing, is_packed)
+    end
+
+    indices_dataset = object[indices_component]
+    @assert indices_dataset isa HDF5.Dataset
+    if haskey(object, "nztxt")
+        element_type = String
+    elseif haskey(object, "nzval")
+        nzval_dataset = object["nzval"]
+        @assert nzval_dataset isa HDF5.Dataset
+        element_type = dataset_eltype(nzval_dataset)
+    else
+        element_type = Bool
+    end
+    return PropertyMetadata(element_type, true, length(indices_dataset), dataset_eltype(indices_dataset), is_packed)
+end
+
+# The type of the elements of a dataset. HDF5.jl reports variable-length string datasets as `Cstring`, but reading them
+# gives `String`s.
+function dataset_eltype(dataset::HDF5.Dataset)::Type
+    element_type = eltype(dataset)
+    if element_type === Cstring || element_type <: AbstractString
+        return String
+    else
+        return element_type
+    end
+end
+
+# Whether a property's dataset, or any dataset in its sparse property group, is stored chunked (packed).
+function is_packed_object(object::Union{HDF5.Dataset, HDF5.Group})::Bool
+    if object isa HDF5.Dataset
+        return HDF5.ischunked(object) && !isempty(object)
+    else
+        for component in keys(object)
+            component_object = object[component]
+            @assert component_object isa Union{HDF5.Dataset, HDF5.Group}
+            if is_packed_object(component_object)
+                return true
+            end
+        end
+        return false
+    end
 end
 
 function Formats.format_has_matrix(
@@ -1061,7 +1131,7 @@ function Formats.format_set_matrix!(
         end
 
     elseif eltype(matrix) <: AbstractString
-        write_string_matrix(columns_axis_group, name, matrix)
+        write_string_matrix(columns_axis_group, name, matrix, is_packed)
 
     else
         @assert matrix isa AbstractMatrix
@@ -1106,6 +1176,7 @@ function write_string_matrix(
     columns_axis_group::HDF5.Group,
     name::AbstractString,
     matrix::AbstractMatrix{<:AbstractString},
+    is_packed::Bool,
 )::Nothing
     flame_timed("H5df.write_string_matrix") do
         nrows, ncols = size(matrix)
@@ -1150,15 +1221,14 @@ function write_string_matrix(
             colptr_vector[ncols + 1] = n_nonempty + 1
 
             matrix_group = create_group(columns_axis_group, name)
-            matrix_group["colptr"] = colptr_vector
-            matrix_group["rowval"] = rowval_vector
-            matrix_group["nztxt"] = nztxt_vector
+            write_packed_dense_dataset!(matrix_group, "colptr", colptr_vector, is_packed)
+            write_packed_dense_dataset!(matrix_group, "rowval", rowval_vector, is_packed)
+            write_packed_dense_dataset!(matrix_group, "nztxt", nztxt_vector, is_packed)
             close(matrix_group)
 
         else
-            nice_matrix = String[String(value) for value in matrix]
-            nice_matrix = reshape(nice_matrix, size(matrix))
-            columns_axis_group[name] = nice_matrix
+            nice_matrix = matrix isa Matrix{String} ? matrix : String[String(value) for value in matrix]
+            write_packed_dense_dataset!(columns_axis_group, name, nice_matrix, is_packed)
         end
     end
     return nothing
@@ -1291,7 +1361,7 @@ function Formats.format_get_empty_sparse_matrix!(
 } where {T <: StorageReal, I <: StorageInteger}
     @assert Formats.has_data_write_lock(h5df)
     ncols = Formats.format_axis_length(h5df, columns_axis)
-    if is_packed
+    if chunks_for(is_packed, (Int(nnz),), T) !== nothing
         return (Vector{I}(undef, Int(ncols) + 1), Vector{I}(undef, Int(nnz)), Vector{T}(undef, Int(nnz)), nothing)
     end
     colptr_vector, rowval_vector, nzval_vector =
@@ -1391,7 +1461,7 @@ function Formats.format_relayout_matrix!(
             name,
             eltype(matrix),
             nnz(matrix),
-            eltype(colptr(matrix)),
+            SparseArrays.indtype(matrix),
             is_packed,
         )
         sparse_colptr .= length(sparse_nzval) + 1
@@ -1417,7 +1487,7 @@ function Formats.format_relayout_matrix!(
         @assert rows_axis_group isa HDF5.Group
 
         relayout_matrix = flipped(matrix)
-        write_string_matrix(rows_axis_group, name, relayout_matrix)
+        write_string_matrix(rows_axis_group, name, relayout_matrix, is_packed)
 
     else
         relayout_matrix, _ =
@@ -1488,22 +1558,30 @@ function Formats.format_get_matrix(
     columns_axis_group = rows_axis_group[columns_axis]
     @assert columns_axis_group isa HDF5.Group
 
-    matrix_object = columns_axis_group[name]
+    matrix, cache_group = property_matrix(  # NOJET
+        columns_axis_group[name],
+        Formats.format_axis_length(h5df, rows_axis),
+        Formats.format_axis_length(h5df, columns_axis),
+    )
+    return (matrix, nothing, cache_group)
+end
+
+# Read a matrix property from its dataset (dense) or group (sparse), for axes with `nrows` and `ncols` entries. The
+# property is either live or in the reorder backup.
+function property_matrix(
+    matrix_object::Union{HDF5.Dataset, HDF5.Group},
+    nrows::Integer,
+    ncols::Integer,
+)::Tuple{StorageMatrix, Formats.CacheGroup}
     if matrix_object isa HDF5.Dataset
-        matrix, cache_group = dataset_as_matrix(matrix_object)
-        return (matrix, nothing, cache_group)
+        return dataset_as_matrix(matrix_object)
 
     else
-        @assert matrix_object isa HDF5.Group
-
         colptr_dataset = matrix_object["colptr"]
         @assert colptr_dataset isa HDF5.Dataset
 
         rowval_dataset = matrix_object["rowval"]
         @assert rowval_dataset isa HDF5.Dataset
-
-        nrows = Formats.format_axis_length(h5df, rows_axis)
-        ncols = Formats.format_axis_length(h5df, columns_axis)
 
         if haskey(matrix_object, "nztxt")
             colptr_vector, _ = dataset_as_materialized_vector(colptr_dataset)
@@ -1525,7 +1603,7 @@ function Formats.format_get_matrix(
                 end
             end
 
-            return (matrix, nothing, Formats.MemoryData)
+            return (matrix, Formats.MemoryData)
         end
 
         nzval_dataset = haskey(matrix_object, "nzval") ? matrix_object["nzval"] : nothing
@@ -1543,7 +1621,7 @@ function Formats.format_get_matrix(
                 DiskArrays.cache(H5dfDiskArray(nzval_dataset); maxsize = packed_local_cache_mb())
             end
             matrix = LazySparseMatrix(nrows, colptr_vector, rowval_source, nzval_source)
-            return (matrix, nothing, Formats.MemoryData)
+            return (matrix, Formats.MemoryData)
         end
 
         colptr_vector, colptr_cache_group = dataset_as_materialized_vector(colptr_dataset)
@@ -1566,8 +1644,30 @@ function Formats.format_get_matrix(
             else
                 Formats.MemoryData
             end
-        return (matrix, nothing, cache_group)
+        return (matrix, cache_group)
     end
+end
+
+function Formats.format_matrix_metadata(
+    h5df::H5df,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+)::PropertyMetadata
+    @assert Formats.has_data_read_lock(h5df)
+
+    matrices_group = h5df.root["matrices"]
+    @assert matrices_group isa HDF5.Group
+
+    rows_axis_group = matrices_group[rows_axis]
+    @assert rows_axis_group isa HDF5.Group
+
+    columns_axis_group = rows_axis_group[columns_axis]
+    @assert columns_axis_group isa HDF5.Group
+
+    matrix_object = columns_axis_group[name]
+    @assert matrix_object isa Union{HDF5.Dataset, HDF5.Group}
+    return object_metadata(matrix_object, "rowval")
 end
 
 function dataset_as_vector(dataset::HDF5.Dataset)::Tuple{StorageVector, Formats.CacheGroup}
@@ -1695,12 +1795,21 @@ function Reorder.format_has_reorder_lock(h5df::H5df)::Bool
     return haskey(repos_group, entry)  # UNTESTED
 end
 
-function Reorder.format_backup_reorder!(h5df::H5df, ::Reorder.FormatReorderPlan)::Nothing
+function Reorder.format_backup_reorder!(h5df::H5df, plan::Reorder.FormatReorderPlan)::Nothing
     @assert Formats.has_data_write_lock(h5df)
     backup_path = h5df_backup_path(h5df)
     if !isfile(backup_path)
         flush(h5df_file(h5df))
         cp(abspath(h5df_file(h5df).filename), backup_path)
+    end
+
+    # The lock entry records the reordered axes, so a reset restores only what the reorder may have touched.
+    reordered_axes = String[axis for axis in keys(plan.planned_axes) if haskey(h5df.root["axes"], axis)]
+    if !isempty(reordered_axes)
+        repos_group = h5df_file(h5df)[REORDER_REPOS_GROUP]
+        entry = lock_entry_name(h5df_group_path(h5df))
+        delete_object(repos_group, entry)  # NOJET
+        repos_group[entry] = reordered_axes  # NOJET
     end
     return nothing
 end
@@ -1758,6 +1867,11 @@ function is_overwritable_dataset(dataset::HDF5.Dataset)::Bool
     return HDF5.ismmappable(dataset) && HDF5.iscontiguous(dataset) && !isempty(dataset)
 end
 
+# Whether every dataset of a sparse numeric property group can be overwritten in place.
+function is_overwritable_group(group::HDF5.Group)::Bool
+    return !haskey(group, "nztxt") && all(is_overwritable_dataset(group[component]) for component in keys(group))
+end
+
 function replace_reorder_vector(
     h5df::H5df,
     backup_root::Union{HDF5.File, HDF5.Group},
@@ -1767,104 +1881,40 @@ function replace_reorder_vector(
     needs_compaction::Ref{Bool},
 )::Nothing
     planned_axis = plan.planned_axes[planned.axis]
-    backup_object = backup_root["vectors"][planned.axis][planned.name]  # NOJET
-    live_axis_vectors = h5df.root["vectors"][planned.axis]  # NOJET
+    source_vector, _ =  # NOJET
+        property_vector(backup_root["vectors"][planned.axis][planned.name], length(planned_axis.permutation))
+    live_axis_vectors = h5df.root["vectors"][planned.axis]
+    live_object = live_axis_vectors[planned.name]
 
-    if backup_object isa HDF5.Dataset
-        source = read(backup_object)
-        if eltype(source) <: AbstractString
-            permuted = Vector{String}(undef, length(source))
-            permute_vector!(;
-                destination = permuted,
-                source,
-                permutation = planned_axis.permutation,
-                progress = replacement_progress,
-            )
-            delete_object(live_axis_vectors, planned.name)  # NOJET
-            write_string_vector(live_axis_vectors, planned.name, permuted)
-            needs_compaction[] = true
-        else
-            live_object = live_axis_vectors[planned.name]  # NOJET
-            if live_object isa HDF5.Dataset && is_overwritable_dataset(live_object)
-                destination, _ = dataset_as_vector(live_object)
-                permute_vector!(;
-                    destination,
-                    source,
-                    permutation = planned_axis.permutation,
-                    progress = replacement_progress,
-                )
-            else
-                delete_object(live_axis_vectors, planned.name)  # NOJET  # UNTESTED
-                destination =  # UNTESTED
-                    create_empty_dense_vector_in(h5df.root, planned.axis, planned.name, eltype(source), length(source))
-                permute_vector!(;  # UNTESTED
-                    destination,
-                    source,
-                    permutation = planned_axis.permutation,
-                    progress = replacement_progress,
-                )
-                needs_compaction[] = true  # UNTESTED
-            end
-        end
+    if live_object isa HDF5.Dataset && is_overwritable_dataset(live_object)
+        destination, _ = dataset_as_vector(live_object)
+        permute_vector!(;
+            destination,
+            source = source_vector,
+            permutation = planned_axis.permutation,
+            progress = replacement_progress,
+        )
+
+    elseif live_object isa HDF5.Group && is_overwritable_group(live_object)
+        @assert source_vector isa SparseVector
+        has_nzval = haskey(live_object, "nzval")
+        permute_sparse_vector_buffers!(;
+            destination_nzind = first(dataset_as_vector(live_object["nzind"])),
+            destination_nzval = has_nzval ? first(dataset_as_vector(live_object["nzval"])) : nothing,
+            source_length = length(source_vector),
+            source_nzind = SparseArrays.nonzeroinds(source_vector),
+            source_nzval = has_nzval ? nonzeros(source_vector) : nothing,
+            inverse_permutation = planned_axis.inverse_permutation,
+            progress = replacement_progress,
+        )
+
     else
-        @assert backup_object isa HDF5.Group
-        source_nzind = read(backup_object["nzind"])  # NOJET
-        has_nzval = haskey(backup_object, "nzval")
-        source_nzval = has_nzval ? read(backup_object["nzval"]) : nothing  # NOJET
-
-        if haskey(backup_object, "nztxt")
-            nztxt_vector = read(backup_object["nztxt"])  # NOJET
-            source_length = Formats.format_axis_length(h5df, planned.axis)
-            full_vector = Vector{String}(undef, source_length)
-            fill!(full_vector, "")
-            full_vector[source_nzind] .= nztxt_vector
-            permuted = Vector{String}(undef, source_length)
-            permute_vector!(;
-                destination = permuted,
-                source = full_vector,
-                permutation = planned_axis.permutation,
-                progress = replacement_progress,
-            )
-            delete_object(live_axis_vectors, planned.name)  # NOJET
-            write_string_vector(live_axis_vectors, planned.name, permuted)
-            needs_compaction[] = true
-        else
-            source_length = Formats.format_axis_length(h5df, planned.axis)
-            live_object = live_axis_vectors[planned.name]  # NOJET
-
-            if live_object isa HDF5.Group &&
-               is_overwritable_dataset(live_object["nzind"]) &&
-               (!has_nzval || is_overwritable_dataset(live_object["nzval"]))
-                dest_nzind, _ = dataset_as_vector(live_object["nzind"])  # NOJET
-                dest_nzval = has_nzval ? dataset_as_vector(live_object["nzval"])[1] : nothing  # NOJET
-                permute_sparse_vector_buffers!(;
-                    destination_nzind = dest_nzind,
-                    destination_nzval = dest_nzval,
-                    source_length,
-                    source_nzind,
-                    source_nzval,
-                    inverse_permutation = planned_axis.inverse_permutation,
-                    progress = replacement_progress,
-                )
-            else
-                delete_object(live_axis_vectors, planned.name)  # NOJET  # UNTESTED
-                T = has_nzval ? eltype(source_nzval) : Bool  # UNTESTED
-                I = eltype(source_nzind)  # UNTESTED
-                dest_nzind, dest_nzval =  # UNTESTED
-                    create_empty_sparse_vector_in(h5df.root, planned.axis, planned.name, T, length(source_nzind), I)
-                permute_sparse_vector_buffers!(;  # UNTESTED
-                    destination_nzind = dest_nzind,
-                    destination_nzval = dest_nzval,
-                    source_length,
-                    source_nzind,
-                    source_nzval,
-                    inverse_permutation = planned_axis.inverse_permutation,
-                    progress = replacement_progress,
-                )
-                needs_compaction[] = true  # UNTESTED
-            end
-        end
+        is_packed = is_packed_object(live_object)
+        delete_object(live_axis_vectors, planned.name)
+        Reorder.write_permuted_vector(h5df, planned, source_vector, planned_axis, is_packed, replacement_progress)
+        needs_compaction[] = true
     end
+
     return nothing
 end
 
@@ -1878,200 +1928,56 @@ function replace_reorder_matrix(
 )::Nothing
     planned_rows = get(plan.planned_axes, planned.rows_axis, nothing)
     planned_columns = get(plan.planned_axes, planned.columns_axis, nothing)
-    @assert planned_rows !== nothing || planned_columns !== nothing
+    n_rows = Reorder.old_axis_length(h5df, planned.rows_axis, planned_rows)
+    source_matrix, _ = property_matrix(  # NOJET
+        backup_root["matrices"][planned.rows_axis][planned.columns_axis][planned.name],
+        n_rows,
+        Reorder.old_axis_length(h5df, planned.columns_axis, planned_columns),
+    )
+    live_columns_group = h5df.root["matrices"][planned.rows_axis][planned.columns_axis]
+    live_object = live_columns_group[planned.name]
 
-    backup_object = backup_root["matrices"][planned.rows_axis][planned.columns_axis][planned.name]  # NOJET
-    live_columns_group = h5df.root["matrices"][planned.rows_axis][planned.columns_axis]  # NOJET
+    if live_object isa HDF5.Dataset && is_overwritable_dataset(live_object)
+        destination, _ = dataset_as_matrix(live_object)
+        Reorder.permute_dense_matrix_into!(
+            destination,
+            source_matrix,
+            planned_rows,
+            planned_columns,
+            replacement_progress,
+        )
 
-    if backup_object isa HDF5.Dataset
-        source = read(backup_object)
-        if eltype(source) <: AbstractString
-            nrows, ncols = size(source)
-            permuted = Matrix{String}(undef, nrows, ncols)
-            if planned_rows !== nothing && planned_columns !== nothing
-                permute_dense_matrix_both!(;
-                    destination = permuted,
-                    source,
-                    rows_permutation = planned_rows.permutation,
-                    columns_permutation = planned_columns.permutation,
-                    progress = replacement_progress,
-                )
-            elseif planned_rows !== nothing
-                permute_dense_matrix_rows!(;
-                    destination = permuted,
-                    source,
-                    rows_permutation = planned_rows.permutation,
-                    progress = replacement_progress,
-                )
-            else
-                permute_dense_matrix_columns!(;
-                    destination = permuted,
-                    source,
-                    columns_permutation = planned_columns.permutation,
-                    progress = replacement_progress,
-                )
-            end
-            delete_object(live_columns_group, planned.name)  # NOJET
-            write_string_matrix(live_columns_group, planned.name, permuted)
-            needs_compaction[] = true
-        else
-            nrows, ncols = size(source)
-            live_object = live_columns_group[planned.name]  # NOJET
-            if live_object isa HDF5.Dataset && is_overwritable_dataset(live_object)
-                destination, _ = dataset_as_matrix(live_object)
-            else
-                delete_object(live_columns_group, planned.name)  # NOJET  # UNTESTED
-                destination = create_empty_dense_matrix_in(  # UNTESTED
-                    h5df.root,
-                    planned.rows_axis,
-                    planned.columns_axis,
-                    planned.name,
-                    eltype(source),
-                    nrows,
-                    ncols,
-                )
-                needs_compaction[] = true  # UNTESTED
-            end
+    elseif live_object isa HDF5.Group && is_overwritable_group(live_object)
+        @assert source_matrix isa SparseMatrixCSC
+        has_nzval = haskey(live_object, "nzval")
+        Reorder.permute_sparse_matrix_into!(;
+            destination_colptr = first(dataset_as_vector(live_object["colptr"])),
+            destination_rowval = first(dataset_as_vector(live_object["rowval"])),
+            destination_nzval = has_nzval ? first(dataset_as_vector(live_object["nzval"])) : nothing,
+            source_n_rows = n_rows,
+            source_colptr = source_matrix.colptr,
+            source_rowval = source_matrix.rowval,
+            source_nzval = has_nzval ? source_matrix.nzval : nothing,
+            planned_rows,
+            planned_columns,
+            replacement_progress,
+        )
 
-            if planned_rows !== nothing && planned_columns !== nothing
-                permute_dense_matrix_both!(;
-                    destination,
-                    source,
-                    rows_permutation = planned_rows.permutation,
-                    columns_permutation = planned_columns.permutation,
-                    progress = replacement_progress,
-                )
-            elseif planned_rows !== nothing
-                permute_dense_matrix_rows!(;
-                    destination,
-                    source,
-                    rows_permutation = planned_rows.permutation,
-                    progress = replacement_progress,
-                )
-            else
-                permute_dense_matrix_columns!(;
-                    destination,
-                    source,
-                    columns_permutation = planned_columns.permutation,
-                    progress = replacement_progress,
-                )
-            end
-        end
     else
-        @assert backup_object isa HDF5.Group
-        source_colptr = read(backup_object["colptr"])  # NOJET
-        source_rowval = read(backup_object["rowval"])  # NOJET
-        has_nzval = haskey(backup_object, "nzval")
-        source_nzval = has_nzval ? read(backup_object["nzval"]) : nothing  # NOJET
-
-        if haskey(backup_object, "nztxt")
-            nztxt_vector = read(backup_object["nztxt"])  # NOJET
-            nrows = Formats.format_axis_length(h5df, planned.rows_axis)
-            ncols = Formats.format_axis_length(h5df, planned.columns_axis)
-            full_matrix = Matrix{String}(undef, nrows, ncols)
-            fill!(full_matrix, "")
-            for col in 1:ncols
-                for idx in source_colptr[col]:(source_colptr[col + 1] - 1)
-                    full_matrix[source_rowval[idx], col] = nztxt_vector[idx]
-                end
-            end
-            permuted = Matrix{String}(undef, nrows, ncols)
-            if planned_rows !== nothing && planned_columns !== nothing
-                permute_dense_matrix_both!(;  # UNTESTED
-                    destination = permuted,
-                    source = full_matrix,
-                    rows_permutation = planned_rows.permutation,
-                    columns_permutation = planned_columns.permutation,
-                    progress = replacement_progress,
-                )
-            elseif planned_rows !== nothing
-                permute_dense_matrix_rows!(;
-                    destination = permuted,
-                    source = full_matrix,
-                    rows_permutation = planned_rows.permutation,
-                    progress = replacement_progress,
-                )
-            else
-                permute_dense_matrix_columns!(;  # UNTESTED
-                    destination = permuted,
-                    source = full_matrix,
-                    columns_permutation = planned_columns.permutation,
-                    progress = replacement_progress,
-                )
-            end
-            delete_object(live_columns_group, planned.name)  # NOJET
-            write_string_matrix(live_columns_group, planned.name, permuted)
-            needs_compaction[] = true
-        else
-            nrows = Formats.format_axis_length(h5df, planned.rows_axis)
-            ncols = Formats.format_axis_length(h5df, planned.columns_axis)
-            source_nnz = length(source_rowval)
-            live_object = live_columns_group[planned.name]  # NOJET
-
-            if live_object isa HDF5.Group &&
-               is_overwritable_dataset(live_object["colptr"]) &&
-               is_overwritable_dataset(live_object["rowval"]) &&
-               (!has_nzval || is_overwritable_dataset(live_object["nzval"]))
-                dest_colptr, _ = dataset_as_vector(live_object["colptr"])  # NOJET
-                dest_rowval, _ = dataset_as_vector(live_object["rowval"])  # NOJET
-                dest_nzval = has_nzval ? dataset_as_vector(live_object["nzval"])[1] : nothing  # NOJET
-            else
-                delete_object(live_columns_group, planned.name)  # NOJET  # UNTESTED
-                T = has_nzval ? eltype(source_nzval) : Bool  # UNTESTED
-                I = eltype(source_colptr)  # UNTESTED
-                dest_colptr, dest_rowval, dest_nzval = create_empty_sparse_matrix_in(  # UNTESTED
-                    h5df.root,
-                    planned.rows_axis,
-                    planned.columns_axis,
-                    planned.name,
-                    T,
-                    source_nnz,
-                    I,
-                    ncols,
-                )
-                needs_compaction[] = true  # UNTESTED
-            end
-
-            if planned_rows !== nothing && planned_columns !== nothing
-                permute_sparse_matrix_both_buffers!(;
-                    destination_colptr = dest_colptr,
-                    destination_rowval = dest_rowval,
-                    destination_nzval = dest_nzval,
-                    source_n_rows = nrows,
-                    source_colptr,
-                    source_rowval,
-                    source_nzval,
-                    inverse_rows_permutation = planned_rows.inverse_permutation,
-                    columns_permutation = planned_columns.permutation,
-                    progress = replacement_progress,
-                )
-            elseif planned_rows !== nothing
-                permute_sparse_matrix_rows_buffers!(;
-                    destination_colptr = dest_colptr,
-                    destination_rowval = dest_rowval,
-                    destination_nzval = dest_nzval,
-                    source_n_rows = nrows,
-                    source_colptr,
-                    source_rowval,
-                    source_nzval,
-                    inverse_rows_permutation = planned_rows.inverse_permutation,
-                    progress = replacement_progress,
-                )
-            else
-                permute_sparse_matrix_columns_buffers!(;
-                    destination_colptr = dest_colptr,
-                    destination_rowval = dest_rowval,
-                    destination_nzval = dest_nzval,
-                    source_n_rows = nrows,
-                    source_colptr,
-                    source_rowval,
-                    source_nzval,
-                    columns_permutation = planned_columns.permutation,
-                    progress = replacement_progress,
-                )
-            end
-        end
+        is_packed = is_packed_object(live_object)
+        delete_object(live_columns_group, planned.name)
+        Reorder.write_permuted_matrix(
+            h5df,
+            planned,
+            source_matrix,
+            planned_rows,
+            planned_columns,
+            is_packed,
+            replacement_progress,
+        )
+        needs_compaction[] = true
     end
+
     return nothing
 end
 
@@ -2103,13 +2009,15 @@ function Reorder.format_reset_reorder!(h5df::H5df)::Bool
         return false  # UNTESTED
     end
 
+    # A lock entry that does not list axes was written before the backup, so nothing was replaced yet.
     backup_path = h5df_backup_path(h5df)
-    if isfile(backup_path)
+    reordered_axes = read(repos_group[entry])  # NOJET
+    if reordered_axes isa AbstractVector{<:AbstractString} && isfile(backup_path)
         group_path = h5df_group_path(h5df)
         backup_file = h5open(backup_path, "r")
         try
             backup_root = group_path == "/" ? backup_file : backup_file[group_path]
-            restore_group_from_backup(h5df.root, backup_root)  # NOJET
+            restore_group_from_backup(h5df.root, backup_root, reordered_axes)  # NOJET
         finally
             close(backup_file)
         end
@@ -2124,74 +2032,45 @@ function Reorder.format_reset_reorder!(h5df::H5df)::Bool
     return true
 end
 
+# Restore the `reordered_axes`, their vectors, and the matrices with either axis among them, from the backup.
 function restore_group_from_backup(
     live_root::Union{HDF5.File, HDF5.Group},
     backup_root::Union{HDF5.File, HDF5.Group},
+    reordered_axes::AbstractVector{<:AbstractString},
 )::Nothing
-    axes_group = live_root["axes"]
-    backup_axes = backup_root["axes"]
-    for axis in keys(backup_axes)  # NOJET
-        if haskey(axes_group, axis)
-            delete_object(axes_group, axis)  # NOJET
-        end
-        backup_ds = backup_axes[axis]  # NOJET
-        axis_dataset = create_dataset(axes_group, axis, String, size(backup_ds))  # NOJET
-        axis_dataset[:] = read(backup_ds)  # NOJET
-        close(axis_dataset)
-    end
-
     backup_vectors = backup_root["vectors"]
     live_vectors = live_root["vectors"]
-    for axis in keys(backup_vectors)  # NOJET
-        if !haskey(live_vectors, axis)
-            continue  # UNTESTED
-        end
-        backup_axis_vectors = backup_vectors[axis]
+    for axis in reordered_axes
+        restore_object(live_root["axes"], backup_root["axes"], axis)
+        backup_axis_vectors = backup_vectors[axis]  # NOJET
         live_axis_vectors = live_vectors[axis]  # NOJET
-        for name in keys(backup_axis_vectors)  # NOJET
-            if haskey(live_axis_vectors, name)  # NOJET
-                delete_object(live_axis_vectors, name)
-            end
+        for name in keys(backup_axis_vectors)
             restore_object(live_axis_vectors, backup_axis_vectors, name)
         end
     end
 
     backup_matrices = backup_root["matrices"]
     live_matrices = live_root["matrices"]
-    for rows_axis in keys(backup_matrices)
-        if !haskey(live_matrices, rows_axis)
-            continue  # UNTESTED
-        end
+    for rows_axis in keys(backup_matrices)  # NOJET
         for columns_axis in keys(backup_matrices[rows_axis])  # NOJET
-            if !haskey(live_matrices[rows_axis], columns_axis)  # NOJET
-                continue  # UNTESTED
-            end
-            backup_properties = backup_matrices[rows_axis][columns_axis]  # NOJET
-            live_properties = live_matrices[rows_axis][columns_axis]  # NOJET
-            for name in keys(backup_properties)  # NOJET
-                if haskey(live_properties, name)  # NOJET
-                    delete_object(live_properties, name)  # NOJET
+            if rows_axis in reordered_axes || columns_axis in reordered_axes
+                backup_properties = backup_matrices[rows_axis][columns_axis]  # NOJET
+                live_properties = live_matrices[rows_axis][columns_axis]  # NOJET
+                for name in keys(backup_properties)  # NOJET
+                    restore_object(live_properties, backup_properties, name)
                 end
-                restore_object(live_properties, backup_properties, name)
             end
         end
     end
     return nothing
 end
 
+# Replace the live object `name` with its backup copy. The copy is done by HDF5, so it keeps chunking and filters.
 function restore_object(live_group::HDF5.Group, backup_group::HDF5.Group, name::AbstractString)::Nothing
-    obj = backup_group[name]
-    if obj isa HDF5.Dataset
-        data = read(obj)
-        live_group[name] = data
-    else
-        @assert obj isa HDF5.Group
-        new_group = create_group(live_group, name)
-        for sub_name in keys(obj)
-            restore_object(new_group, obj, sub_name)
-        end
-        close(new_group)
+    if haskey(live_group, name)
+        delete_object(live_group, name)
     end
+    copy_object(backup_group, name, live_group, name)
     return nothing
 end
 
@@ -2206,7 +2085,7 @@ end
 
 function H5dfDiskArray(dataset::HDF5.Dataset)::H5dfDiskArray
     @assert HDF5.ischunked(dataset) "H5dfDiskArray requires a chunked dataset"
-    T = eltype(dataset)
+    T = dataset_eltype(dataset)
     shape = size(dataset)
     chunks = HDF5.get_chunk(dataset)
     return H5dfDiskArray{T, length(shape)}(dataset, shape, chunks)
@@ -2221,7 +2100,7 @@ function DiskArrays.readblock!(
     destination::AbstractArray{<:Any, N},
     ranges::Vararg{AbstractUnitRange, N},
 )::Nothing where {T, N}
-    destination .= array.dataset[ranges...]  # NOJET
+    destination .= array.dataset[ranges...]
     return nothing
 end
 
