@@ -20,6 +20,45 @@ function with_packed_dense_matrix_round_trip(action::Function, create_daf::Funct
     return nothing
 end
 
+# Verify that the matrix of `with_packed_dense_matrix_round_trip` is read lazily from a local packed format. A whole
+# read pools no chunks. A row read pools the chunk it used in each column.
+function verify_lazy_dense_matrix_pooling(daf::DafReader)::Nothing
+    empty_cache!(daf)
+    lazy = parent(parent(get_matrix(daf, "row", "col", "data")))
+    @test lazy isa DataAxesFormats.PackedFormat.ChunkedArray
+    pool = DataAxesFormats.PackedFormat.LOCAL_CHUNK_POOL
+    n_pooled_chunks() = count(key -> key[1] == lazy.source_id, keys(pool.chunks))
+    @test collect(lazy) == Matrix{Float32}(reshape(Float32.(1:(4096 * 3)), 4096, 3))
+    @test n_pooled_chunks() == 0
+    @test lazy[5, :] == Float32[5, 4096 + 5, 2 * 4096 + 5]
+    @test n_pooled_chunks() == 3
+    return nothing
+end
+
+# Verify that `empty_cache!` releases the pooled chunks and the materialization of the lazy matrix of
+# `with_packed_dense_matrix_round_trip`, and that the lazy matrix refuses to be read after its property is overwritten.
+# A `densify` snapshot stays valid.
+function verify_lazy_dense_matrix_invalidation(daf::DafWriter)::Nothing
+    empty_cache!(daf)
+    lazy = parent(parent(get_matrix(daf, "row", "col", "data")))
+    pool = DataAxesFormats.PackedFormat.LOCAL_CHUNK_POOL
+    n_pooled_chunks() = count(key -> key[1] == lazy.source_id, keys(pool.chunks))
+    @test lazy[5, :] == Float32[5, 4096 + 5, 2 * 4096 + 5]
+    @test n_pooled_chunks() == 3
+    dense = densify(lazy)
+
+    empty_cache!(daf)
+    @test n_pooled_chunks() == 0
+    @test DataAxesFormats.PackedFormat.existing_materialization(lazy.materialization_cell) === nothing
+    @test lazy[5, :] == Float32[5, 4096 + 5, 2 * 4096 + 5]
+
+    set_matrix!(daf, "row", "col", "data", zeros(Float32, 4096, 3); overwrite = true, relayout = false)
+    @test n_pooled_chunks() == 0
+    @test_throws "modified after" lazy[5, :]
+    @test dense[5, :] == Float32[5, 4096 + 5, 2 * 4096 + 5]
+    return nothing
+end
+
 function with_packed_dense_vector_round_trip(action::Function, create_daf::Function)::Nothing
     # 10 000-element Float32: 40 KB ≥ threshold; `chunks_for` returns `(2048,)` → 5 chunks.
     mktempdir() do path
@@ -56,6 +95,23 @@ function with_packed_sparse_matrix_round_trip(action::Function, create_daf::Func
         action(daf, path)
         return nothing
     end
+    return nothing
+end
+
+# Verify that the lazy matrix of `with_packed_sparse_matrix_round_trip`, and a materialized slice of it, refuse to be
+# read after its property is overwritten.
+function verify_lazy_sparse_matrix_invalidation(daf::DafWriter)::Nothing
+    empty_cache!(daf)
+    lazy = parent(parent(get_matrix(daf, "row", "col", "data")))
+    @test lazy isa LazySparseMatrix
+    sliced = lazy[:, 2:3]
+    @test nnz(sliced) == 2 * 8192
+    @test nonzeros(sliced)[1] == 2
+
+    set_matrix!(daf, "row", "col", "data", spzeros(Float32, Int32, 8192, 4); overwrite = true, relayout = false)
+    @test_throws "modified after" nonzeros(lazy)
+    @test_throws "modified after" lazy[1, 1]
+    @test_throws "modified after" nonzeros(sliced)
     return nothing
 end
 
@@ -410,8 +466,8 @@ nested_test("packed_format") do
         @test DAF_PACKED_TARGET_CHUNK_KB == 8
         @test DAF_PACKED_COMPRESSION == :blosc_zstd_bitshuffle
         @test DAF_PACKED_COMPRESSION_LEVEL == 5
-        @test DAF_PACKED_LOCAL_CACHE_KB == 65536
-        @test DAF_PACKED_HTTP_CACHE_KB == 262144
+        @test DAF_PACKED_LOCAL_CACHE_KB == 524288
+        @test DAF_PACKED_HTTP_CACHE_KB == 1048576
     end
 
     nested_test("packed_target_chunk_bytes") do
@@ -763,16 +819,22 @@ nested_test("packed_format") do
         end
     end
 
-    # Reads spanning more chunks than the cache holds must not depend on the chunks staying in the cache.
     nested_test("chunked_array") do
         saved_cache_kb = DAF_PACKED_HTTP_CACHE_KB
         try
-            DataAxesFormats.PackedFormat.DAF_PACKED_HTTP_CACHE_KB = 1  # A cache of a single chunk.
+            DataAxesFormats.PackedFormat.DAF_PACKED_HTTP_CACHE_KB = 1  # A pool of 12 chunks of 80 bytes.
             values = Float64[row + column / 10 for row in 1:100, column in 1:4]
             bytes = Vector{UInt8}(reinterpret(UInt8, vec(values)))
-            fetcher = (offset::Int, n_bytes::Int) -> bytes[(offset + 1):(offset + n_bytes)]
+            n_fetches = Threads.Atomic{Int}(0)
+            fetcher = (offset::Int, n_bytes::Int) -> begin
+                Threads.atomic_add!(n_fetches, 1)
+                return bytes[(offset + 1):(offset + n_bytes)]
+            end
             chunked() = DataAxesFormats.PackedFormat.StripedMatrix(Float64, 100, 4, 10, fetcher)
+            pool = DataAxesFormats.PackedFormat.HTTP_CHUNK_POOL
+            n_pooled_chunks(array) = count(key -> key[1] == array.source_id, keys(pool.chunks))
 
+            # Reads spanning more chunks than the pool holds must not depend on the chunks staying in the pool.
             nested_test("column") do
                 @test chunked()[:, 2] == values[:, 2]
             end
@@ -792,6 +854,63 @@ nested_test("packed_format") do
                     columns[column] = array[:, column]
                 end
                 @test all(columns[column] == values[:, column] for column in 1:4)
+            end
+
+            nested_test("whole_chunks_bypass") do
+                array = chunked()
+                @test collect(array) == values
+                @test n_pooled_chunks(array) == 0
+            end
+
+            nested_test("partial_chunks_hit") do
+                array = chunked()
+                @test array[5, :] == values[5, :]
+                @test n_pooled_chunks(array) == 4
+                n_fetches[] = 0
+                @test array[6, :] == values[6, :]
+                @test array[7, 2] == values[7, 2]
+                @test n_fetches[] == 0
+            end
+
+            nested_test("budget") do
+                arrays = [chunked() for _ in 1:4]
+                for array in arrays
+                    @test array[5, :] == values[5, :]
+                end
+                @test 0 < pool.chunks.currentsize <= 1024
+                @test n_pooled_chunks(arrays[end]) == 4
+            end
+
+            nested_test("densify") do
+                array = chunked()
+                n_fetches[] = 0
+                dense = densify(read_only_array(array))
+                @test is_read_only_array(dense)
+                @test parent(dense) isa Matrix{Float64}
+                @test dense == values
+                @test n_fetches[] > 0
+                n_fetches[] = 0
+                @test parent(densify(read_only_array(array))) === parent(dense)
+                @test array[5, :] == values[5, :]
+                @test n_fetches[] == 0
+                @test mutable_array(read_only_array(array)) === parent(dense)
+                copied = densify(read_only_array(array); copy = true)
+                @test copied isa Matrix{Float64}
+                @test copied == values
+                @test copied !== parent(dense)
+            end
+
+            nested_test("densify_copy") do
+                array = chunked()
+                copied = densify(read_only_array(array); copy = true)
+                @test copied isa Matrix{Float64}
+                @test copied == values
+                @test DataAxesFormats.PackedFormat.existing_materialization(array.materialization_cell) === nothing
+            end
+
+            nested_test("string_bytes") do
+                @test DataAxesFormats.PackedFormat.chunk_n_bytes(["ab", "cde"]) == 2 * sizeof(Int) + 5
+                @test DataAxesFormats.PackedFormat.chunk_n_bytes(Float32[1, 2, 3]) == 12
             end
         finally
             DataAxesFormats.PackedFormat.DAF_PACKED_HTTP_CACHE_KB = saved_cache_kb
@@ -873,8 +992,13 @@ nested_test("packed_format") do
         # Per-backend test bodies. `create_daf(path; packed)` returns a writable `ZarrDaf` rooted in `path`.
         # `daf_marker_for(path)`, when supplied, returns the dataset's on-disk `daf` group attribute
         # (`[major, minor]`) and is used by the few tests that assert the version marker; backends
-        # without a cheap byte-level reader pass `nothing`.
-        function run_zarr_packed_tests(create_daf::Function; daf_marker_for::Maybe{Function} = nothing)::Nothing
+        # without a cheap byte-level reader pass `nothing`. An append-only backend can't overwrite a property, so it
+        # skips the tests of overwriting one.
+        function run_zarr_packed_tests(
+            create_daf::Function;
+            daf_marker_for::Maybe{Function} = nothing,
+            is_append_only::Bool = false,
+        )::Nothing
             nested_test("metadata") do
                 return test_metadata_leaf(create_daf)
             end
@@ -902,7 +1026,10 @@ nested_test("packed_format") do
                     if daf_marker_for !== nothing
                         @test daf_marker_for(path) == [1, 0]
                     end
-                    @test parent(parent(get_matrix(daf, "row", "col", "data"))) isa DiskArrays.CachedDiskArray
+                    verify_lazy_dense_matrix_pooling(daf)
+                    if !is_append_only
+                        verify_lazy_dense_matrix_invalidation(daf)
+                    end
                     return nothing
                 end
             end
@@ -931,12 +1058,12 @@ nested_test("packed_format") do
 
                     first_named = get_matrix(daf, "row", "col", "data")
                     first_wrapper = parent(parent(first_named))
-                    @test first_wrapper isa DiskArrays.CachedDiskArray
+                    @test first_wrapper isa DataAxesFormats.PackedFormat.ChunkedArray
 
                     empty_cache!(daf)
                     second_named = get_matrix(daf, "row", "col", "data")
                     second_wrapper = parent(parent(second_named))
-                    @test second_wrapper isa DiskArrays.CachedDiskArray
+                    @test second_wrapper isa DataAxesFormats.PackedFormat.ChunkedArray
                     @test second_wrapper !== first_wrapper  # Cache rebuild produces a fresh wrapper.
                     @test second_named == first_named
                     return nothing
@@ -956,7 +1083,26 @@ nested_test("packed_format") do
                     @test isempty(colptr_array.metadata.pipeline.bytes_bytes)
                     rowval_array = zarr_array_at(daf, "matrices", "row", "col", "data", "rowval")
                     @test isempty(rowval_array.metadata.pipeline.bytes_bytes)
+                    if !is_append_only
+                        verify_lazy_sparse_matrix_invalidation(daf)
+                    end
                     return nothing
+                end
+            end
+
+            nested_test("zero_nnz_sparse_matrix") do
+                for packed in (false, true)
+                    mktempdir() do path
+                        daf = create_daf(path; packed)
+                        add_axis!(daf, "row", ["r1", "r2", "r3"])
+                        add_axis!(daf, "col", ["c1", "c2"])
+                        set_matrix!(daf, "row", "col", "data", spzeros(Float32, Int32, 3, 2); relayout = false)
+                        @test get_matrix(daf, "row", "col", "data") == zeros(Float32, 3, 2)
+                        @test nnz(get_matrix(daf, "row", "col", "data").array) == 0
+                        set_matrix!(daf, "row", "col", "text", fill("", 3, 2); relayout = false)
+                        @test get_matrix(daf, "row", "col", "text") == fill("", 3, 2)
+                        return nothing
+                    end
                 end
             end
 
@@ -1056,7 +1202,7 @@ nested_test("packed_format") do
             # The `MmapZipStore`-backed daf marker lives as a zip entry rather than a filesystem path; reading it
             # would mean going through the store's API, which the rest of the round-trip already exercises. Skipping
             # the marker check here keeps this block focused on the storage-backend coverage.
-            return run_zarr_packed_tests(zip_factory)
+            return run_zarr_packed_tests(zip_factory; is_append_only = true)
         end
 
         # In-memory `ZarrDaf` (`DictStore`-backed) has no incremental sink, so `packed_streaming_dense_matrix` falls
@@ -1125,8 +1271,8 @@ nested_test("packed_format") do
                 json = JSON.parsefile(joinpath(path, "test.daf", "matrices", "row", "col", "data.json"))
                 @test json["packed_format"] === "indexed+zipped"
                 @test json["chunk_shape"] == [2048, 1]
-                @test parent(parent(get_matrix(daf, "row", "col", "data"))) isa
-                      DataAxesFormats.PackedFormat.ChunkedArray
+                verify_lazy_dense_matrix_pooling(daf)
+                verify_lazy_dense_matrix_invalidation(daf)
                 return nothing
             end
         end
@@ -1195,7 +1341,7 @@ nested_test("packed_format") do
         end
 
         nested_test("packed_sparse_matrix_round_trip") do
-            with_packed_sparse_matrix_round_trip(files_factory) do _daf, path
+            with_packed_sparse_matrix_round_trip(files_factory) do daf, path
                 base = joinpath(path, "test.daf", "matrices", "row", "col", "data")
                 @test isfile("$(base).colptr")  # 5 * 4 bytes = 20 bytes < threshold → flat
                 @test isfile("$(base).rowval.zip")  # 32 768 * 4 bytes = 128 KB ≥ threshold → packed
@@ -1204,6 +1350,7 @@ nested_test("packed_format") do
                 @test get(json["colptr"], "packed_format", nothing) === nothing
                 @test json["rowval"]["packed_format"] === "indexed+zipped"
                 @test json["nzval"]["packed_format"] === "indexed+zipped"
+                verify_lazy_sparse_matrix_invalidation(daf)
                 return nothing
             end
         end
@@ -1288,6 +1435,7 @@ nested_test("packed_format") do
                 json = read_entry_json(zip_path, "matrices/row/col/data.json")
                 @test json["packed_format"] === "indexed+zipped"
                 @test json["chunk_shape"] == [2048, 1]
+                verify_lazy_dense_matrix_pooling(daf)
                 return nothing
             end
         end
@@ -1457,9 +1605,8 @@ nested_test("packed_format") do
     # `H5df` packed write / read paths use the same `chunks_for` decisions as `FilesDaf` / `ZipDaf` / `ZarrDaf` but
     # encode through HDF5's chunked-dataset layout with a registered filter pipeline (no `.zip` files; the bytes
     # live inside the HDF5 file). The tests exercise each variant end-to-end (write → read), validate the on-disk
-    # chunk shape via `HDF5.get_chunk`, and assert that packed datasets surface as `H5dfDiskArray`-backed
-    # `DiskArrays.CachedDiskArray` (dense) or `LazySparseMatrix` (sparse) on read while flat datasets keep today's
-    # mmap fast path.
+    # chunk shape via `HDF5.get_chunk`, and assert that packed datasets surface as `ChunkedArray` (dense) or
+    # `LazySparseMatrix` over `ChunkedArray` sources (sparse) on read while flat datasets keep the mmap fast path.
     nested_test("h5df") do
         function h5df_factory(
             path::AbstractString,
@@ -1499,7 +1646,8 @@ nested_test("packed_format") do
                 dataset = h5df_dataset_at(daf, "matrices", "row", "col", "data")
                 @test HDF5.ischunked(dataset)
                 @test HDF5.get_chunk(dataset) == (2048, 1)
-                @test parent(parent(get_matrix(daf, "row", "col", "data"))) isa DiskArrays.CachedDiskArray
+                verify_lazy_dense_matrix_pooling(daf)
+                verify_lazy_dense_matrix_invalidation(daf)
                 return nothing
             end
         end
@@ -1566,6 +1714,9 @@ nested_test("packed_format") do
                 @test HDF5.get_chunk(nzval_dataset) == (2048,)
                 lazy_matrix = parent(parent(get_matrix(daf, "row", "col", "data")))
                 @test lazy_matrix isa LazySparseMatrix{Float32, Int32}
+                @test lazy_matrix.rowval_source isa DataAxesFormats.PackedFormat.ChunkedArray{Int32, 1}
+                @test lazy_matrix.nzval_source isa DataAxesFormats.PackedFormat.ChunkedArray{Float32, 1}
+                verify_lazy_sparse_matrix_invalidation(daf)
                 return nothing
             end
         end

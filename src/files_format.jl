@@ -238,7 +238,6 @@ import ..PackedFormat.flush_packed_dense_matrix!
 import ..PackedFormat.IncrementalShardWriter
 import ..PackedFormat.is_packed_component
 import ..PackedFormat.json_eltype_name
-import ..PackedFormat.local_chunk_cache_capacity
 import ..PackedFormat.open_packed_shard_from_buffer
 import ..PackedFormat.open_streaming_shard_writer
 import ..PackedFormat.packed_array_json_bytes

@@ -23,9 +23,12 @@ using SparseArrays
 using TanayLabUtilities
 using Zarr
 
+import ..Formats
+import ..PackedFormat.clear_materialization!
 import ..PackedFormat.existing_materialization
 import ..PackedFormat.materialization!
 import ..PackedFormat.MaterializationCell
+import ..PackedFormat.require_unmodified
 import SparseArrays.AbstractSparseMatrixCSC  # NOLINT
 import SparseArrays.AbstractSparseVector  # NOLINT
 
@@ -119,11 +122,11 @@ end
 Lazy [`AbstractSparseMatrixCSC{Tv, Ti}`](https://docs.julialang.org/en/v1/stdlib/SparseArrays/#SparseArrays.AbstractSparseMatrixCSC)
 over packed `rowval` / `nzval` sources.
 
-Holds the original `colptr` in memory (small — `sizeof(Ti) × (full_n_columns + 1)` bytes) and the `rowval` / `nzval`
-as one-dimensional indexable sources (typically `Zarr.ZArray{T, 1}` or a `DiskArrays.cache`-wrapped `ZArray`,
-with `Vector{T}` accepted for flat mmap'd components in mixed flat/packed properties) that decompress per-chunk on
-access. `row_select` and `column_select` describe the slice of the original axes exposed through this wrapper.
-Materialisation copies the selected slice into a plain
+Holds the original `colptr` in memory (small — `sizeof(Ti) × (full_n_columns + 1)` bytes) and the `rowval` / `nzval` as
+one-dimensional indexable sources (typically a chunked source that decodes one chunk at a time, with `Vector{T}`
+accepted for flat mmap'd components in mixed flat/packed properties) that decompress per-chunk on access. `row_select`
+and `column_select` describe the slice of the original axes exposed through this wrapper. Materialisation copies the
+selected slice into a plain
 [`SparseMatrixCSC`](https://docs.julialang.org/en/v1/stdlib/SparseArrays/#SparseArrays.SparseMatrixCSC) the first time
 it is required and caches it in `materialization_cell` for subsequent use. Concurrent first readers wait for a single
 materialization.
@@ -154,7 +157,8 @@ The following operations do **not** materialise:
     selections and clears the cache, returning a fresh wrapper).
   - `Base.getindex(lazy, ::Int, ::Int)` — the only access form that decompresses on the fly without populating the
     cache: each call reads the column's `rowval` chunk and one element of `nzval`. Repeated calls on the same column
-    are amortised by the `DiskArrays.cache` wrapper that the read paths place over the packed sources.
+    reuse the decoded chunks kept in the pool of the packed sources (see
+    [`DAF_PACKED_LOCAL_CACHE_KB`](@ref DataAxesFormats.PackedFormat.DAF_PACKED_LOCAL_CACHE_KB)).
 
 User code obtains a `LazySparseMatrix` only as the result of reading a sparse property whose `rowval` / `nzval`
 components are lazy sources — packed on disk, or chunked over HTTP — through
@@ -498,6 +502,7 @@ end
 # The materialization of the current slice, cached in `matrix.materialization_cell` and shared by all its callers. The
 # first call builds it with [`new_materialization`](@ref); later calls return it without re-reading the packed sources.
 function cached_materialization!(matrix::LazySparseMatrix{Tv, Ti})::SparseMatrixCSC{Tv, Ti} where {Tv, Ti}
+    require_unmodified(matrix)
     return materialization!(() -> new_materialization(matrix), matrix.materialization_cell)
 end
 
@@ -559,6 +564,7 @@ end
 # cached, this copies it; otherwise this builds a new one without caching it. In contrast, `convert` returns the cached
 # materialization itself.
 function SparseArrays.SparseMatrixCSC{Tv, Ti}(matrix::LazySparseMatrix{Tv, Ti})::SparseMatrixCSC{Tv, Ti} where {Tv, Ti}
+    require_unmodified(matrix)
     cached = existing_materialization(matrix.materialization_cell)
     if cached === nothing
         return new_materialization(matrix)
@@ -608,6 +614,7 @@ function Base.getindex(matrix::LazySparseMatrix{Tv, Ti}, row_index::Int, column_
         @assert 1 <= row_index <= length(matrix.row_select)
         @assert 1 <= column_index <= length(matrix.column_select)
     end
+    require_unmodified(matrix)
     cached = existing_materialization(matrix.materialization_cell)
     if cached !== nothing
         return cached[row_index, column_index]
@@ -641,12 +648,11 @@ end
 Lazy [`AbstractSparseVector{Tv, Ti}`](https://docs.julialang.org/en/v1/stdlib/SparseArrays/#SparseArrays.AbstractSparseVector)
 over packed `nzind` / `nzval` sources.
 
-`nzind_source` and `nzval_source` are one-dimensional indexable sources (typically `Zarr.ZArray{T, 1}` or a
-`DiskArrays.cache`-wrapped `ZArray` for on-disk packed storage, or an `ChunkedArray` for HTTP-served packed
-storage) that decompress per-chunk on access. `select` describes the slice of the original axis exposed through this
-wrapper. Materialisation copies the selected slice into a plain
-[`SparseVector`](https://docs.julialang.org/en/v1/stdlib/SparseArrays/#SparseArrays.SparseVector) the first time
-it is required and caches it in `materialization_cell` for subsequent use. Concurrent first readers wait for a single
+`nzind_source` and `nzval_source` are one-dimensional indexable sources (typically a chunked source that decodes one
+chunk at a time) that decompress per-chunk on access. `select` describes the slice of the original axis exposed through
+this wrapper. Materialisation copies the selected slice into a plain
+[`SparseVector`](https://docs.julialang.org/en/v1/stdlib/SparseArrays/#SparseArrays.SparseVector) the first time it is
+required and caches it in `materialization_cell` for subsequent use. Concurrent first readers wait for a single
 materialization.
 
 The `full_n_elements` field is the original (unsliced) axis length. The corresponding `AbstractSparseVector` accessors
@@ -672,8 +678,8 @@ The following operations do **not** materialise the slice:
   - The slicing forms `lazy[range]` / `lazy[indices]` / `lazy[mask]` (each rebinds the selection and clears the cache,
     returning a fresh wrapper).
   - `Base.getindex(lazy, ::Int)` — binary-searches `nzind_source` (`O(log nnz)` chunk reads) and reads one element of
-    `nzval_source`. The underlying chunked source's per-chunk LRU (set up by the read paths) amortises repeated
-    accesses, so subsequent scalar lookups within the same chunk are cheap.
+    `nzval_source`. The chunked sources keep the decoded chunks they used part of in a pool, so subsequent scalar
+    lookups within the same chunk are cheap.
 
 User code obtains a `LazySparseVector` only as the result of reading a sparse property whose `nzind` / `nzval`
 components are lazy sources — packed on disk, or chunked over HTTP — through
@@ -761,6 +767,7 @@ end
 # The materialization of the current slice, cached in `vector.materialization_cell` and shared by all its callers. The
 # first call builds it with [`new_materialization`](@ref); later calls return it without re-reading the packed sources.
 function cached_materialization!(vector::LazySparseVector{Tv, Ti})::SparseVector{Tv, Ti} where {Tv, Ti}
+    require_unmodified(vector)
     return materialization!(() -> new_materialization(vector), vector.materialization_cell)
 end
 
@@ -834,6 +841,7 @@ end
 # cached, this copies it; otherwise this builds a new one without caching it. In contrast, `convert` returns the cached
 # materialization itself.
 function SparseArrays.SparseVector{Tv, Ti}(vector::LazySparseVector{Tv, Ti})::SparseVector{Tv, Ti} where {Tv, Ti}
+    require_unmodified(vector)
     cached = existing_materialization(vector.materialization_cell)
     if cached === nothing
         return new_materialization(vector)
@@ -873,6 +881,7 @@ end
 # `SparseVector`.
 function Base.getindex(vector::LazySparseVector{Tv, Ti}, index::Int)::Tv where {Tv, Ti}
     @boundscheck @assert 1 <= index <= length(vector.select)
+    require_unmodified(vector)
     cached = existing_materialization(vector.materialization_cell)
     if cached !== nothing
         return cached[index]
@@ -883,6 +892,48 @@ function Base.getindex(vector::LazySparseVector{Tv, Ti}, index::Int)::Tv where {
         return zero(Tv)
     end
     return Tv(vector.nzval_source[position])
+end
+
+# The two component sources of a lazy sparse array, each a lazy source or a plain vector.
+function component_sources(matrix::LazySparseMatrix)::Tuple{AbstractVector, AbstractVector}
+    return (matrix.rowval_source, matrix.nzval_source)
+end
+
+function component_sources(vector::LazySparseVector)::Tuple{AbstractVector, AbstractVector}
+    return (vector.nzind_source, vector.nzval_source)
+end
+
+# A lazy sparse array (and any slice of it) was modified exactly when one of its lazy sources was. This also covers an
+# already materialized slice, which doesn't read its sources again.
+function require_unmodified(array::Union{LazySparseMatrix, LazySparseVector})::Nothing
+    for source in component_sources(array)
+        require_unmodified(source)
+    end
+    return nothing
+end
+
+function Formats.is_lazy_array(::Union{LazySparseMatrix, LazySparseVector})::Bool
+    return true
+end
+
+function Formats.invalidate_lazy_array!(array::Union{LazySparseMatrix, LazySparseVector})::Nothing
+    for source in component_sources(array)
+        if Formats.is_lazy_array(source)
+            Formats.invalidate_lazy_array!(source)
+        end
+    end
+    clear_materialization!(array.materialization_cell)
+    return nothing
+end
+
+function Formats.purge_lazy_array!(array::Union{LazySparseMatrix, LazySparseVector})::Nothing
+    for source in component_sources(array)
+        if Formats.is_lazy_array(source)
+            Formats.purge_lazy_array!(source)
+        end
+    end
+    clear_materialization!(array.materialization_cell)
+    return nothing
 end
 
 end  # module

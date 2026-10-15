@@ -123,7 +123,6 @@ import ..PackedFormat.dense_array_json_bytes
 import ..PackedFormat.eltype_for_descriptor
 import ..PackedFormat.IncrementalShardWriter
 import ..PackedFormat.is_packed_component
-import ..PackedFormat.local_chunk_cache_capacity
 import ..PackedFormat.make_streaming_shard_writer
 import ..PackedFormat.open_packed_shard_from_buffer
 import ..PackedFormat.MmapShardRegion

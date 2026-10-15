@@ -79,8 +79,8 @@ is **not** compatible with `h5ad`):
     thread-safe in default builds even when distinct threads target distinct chunks).
 
     Packed datasets cannot be memory-mapped (HDF5 mmap requires the contiguous, unfiltered layout), so the
-    reader wraps them in `H5dfDiskArray` (a `DiskArrays.AbstractDiskArray` adapter that delegates `readblock!`
-    to HDF5 hyperslab reads) and caches decompressed chunks in a `DiskArrays.cache` LRU sized by
+    reader returns lazy arrays that read each chunk by an HDF5 hyperslab read of exactly that chunk. Chunks that a
+    read used only part of are kept in the pool bounded by
     [`DAF_PACKED_LOCAL_CACHE_KB`](@ref DataAxesFormats.PackedFormat.DAF_PACKED_LOCAL_CACHE_KB). Packed sparse
     matrices are returned as a [`LazySparseMatrix`](@ref DataAxesFormats.LazySparse.LazySparseMatrix) over the
     cached `rowval` / `nzval`, with `colptr` materialised eagerly (it is small and slicing needs random access).
@@ -173,7 +173,6 @@ using ..ReadOnly
 using ..Readers
 using ..StorageTypes
 using ..Writers
-using DiskArrays
 using H5Zbitshuffle  # Registers `BitshuffleFilter` (HDF5 filter id 32008) for `:zstd_bitshuffle`.
 using H5Zblosc       # Registers `BloscFilter` (HDF5 filter id 32001) for `:blosc_*` codecs.
 using H5Zzstd        # Registers `ZstdFilter` (HDF5 filter id 32015) for `:zstd`.
@@ -182,12 +181,13 @@ using SparseArrays
 
 import ..Formats
 import ..Formats.Internal
+import ..PackedFormat.ChunkedArray
+import ..PackedFormat.LOCAL_CHUNK_POOL
 import ..PackedFormat.PackedCodec
 import ..PackedFormat.PackedDenseMatrix
 import ..PackedFormat.chunks_for
 import ..PackedFormat.compressor_for
 import ..PackedFormat.flush_packed_dense_matrix!
-import ..PackedFormat.packed_local_cache_mb
 import ..Reorder
 using ProgressMeter
 
@@ -975,11 +975,11 @@ function property_vector(
             is_nzind_packed = HDF5.ischunked(nzind_dataset) && !isempty(nzind_dataset)
             is_nzval_packed = nzval_dataset !== nothing && HDF5.ischunked(nzval_dataset) && !isempty(nzval_dataset)
             if is_nzind_packed || is_nzval_packed
-                nzind_source = DiskArrays.cache(H5dfDiskArray(nzind_dataset); maxsize = packed_local_cache_mb())
+                nzind_source = dataset_as_chunked_array(nzind_dataset)
                 nzval_source = if nzval_dataset === nothing
                     fill(true, length(nzind_dataset))
                 else
-                    DiskArrays.cache(H5dfDiskArray(nzval_dataset); maxsize = packed_local_cache_mb())
+                    dataset_as_chunked_array(nzval_dataset)
                 end
                 vector = LazySparseVector(nelements, nzind_source, nzval_source)
                 return (vector, Formats.MemoryData)
@@ -1614,11 +1614,11 @@ function property_matrix(
         if is_rowval_packed || is_nzval_packed
             # `colptr` is always materialised: small and needs random access for slicing.
             colptr_vector, _ = dataset_as_materialized_vector(colptr_dataset)
-            rowval_source = DiskArrays.cache(H5dfDiskArray(rowval_dataset); maxsize = packed_local_cache_mb())
+            rowval_source = dataset_as_chunked_array(rowval_dataset)
             nzval_source = if nzval_dataset === nothing
                 fill(true, length(rowval_dataset))
             else
-                DiskArrays.cache(H5dfDiskArray(nzval_dataset); maxsize = packed_local_cache_mb())
+                dataset_as_chunked_array(nzval_dataset)
             end
             matrix = LazySparseMatrix(nrows, colptr_vector, rowval_source, nzval_source)
             return (matrix, Formats.MemoryData)
@@ -1675,8 +1675,7 @@ function dataset_as_vector(dataset::HDF5.Dataset)::Tuple{StorageVector, Formats.
         if HDF5.ismmappable(dataset) && HDF5.iscontiguous(dataset) && !isempty(dataset)
             return (HDF5.readmmap(dataset), Formats.MappedData)
         elseif HDF5.ischunked(dataset) && !isempty(dataset)
-            cached = DiskArrays.cache(H5dfDiskArray(dataset); maxsize = packed_local_cache_mb())
-            return (cached, Formats.MemoryData)
+            return (dataset_as_chunked_array(dataset), Formats.MemoryData)
         else
             return (read(dataset), Formats.MemoryData)
         end
@@ -1688,8 +1687,7 @@ function dataset_as_matrix(dataset::HDF5.Dataset)::Tuple{StorageMatrix, Formats.
         if HDF5.ismmappable(dataset) && HDF5.iscontiguous(dataset) && !isempty(dataset)
             return (HDF5.readmmap(dataset), Formats.MappedData)
         elseif HDF5.ischunked(dataset) && !isempty(dataset)
-            cached = DiskArrays.cache(H5dfDiskArray(dataset); maxsize = packed_local_cache_mb())
-            return (cached, Formats.MemoryData)
+            return (dataset_as_chunked_array(dataset), Formats.MemoryData)
         else
             return (read(dataset), Formats.MemoryData)
         end
@@ -2074,51 +2072,18 @@ function restore_object(live_group::HDF5.Group, backup_group::HDF5.Group, name::
     return nothing
 end
 
-# `DiskArrays.AbstractDiskArray` adapter over a chunked-and-filtered `HDF5.Dataset`, used by
-# [`dataset_as_vector`](@ref) / [`dataset_as_matrix`](@ref) for the packed read path (chunks decoded on demand
-# through the registered filter pipeline). Unpacked (contiguous) datasets keep today's mmap fast path.
-struct H5dfDiskArray{T, N} <: DiskArrays.AbstractDiskArray{T, N}
-    dataset::HDF5.Dataset
-    size::NTuple{N, Int}
-    chunks::NTuple{N, Int}
-end
-
-function H5dfDiskArray(dataset::HDF5.Dataset)::H5dfDiskArray
-    @assert HDF5.ischunked(dataset) "H5dfDiskArray requires a chunked dataset"
-    T = dataset_eltype(dataset)
+# A lazy array over a chunked (packed) `HDF5.Dataset`. Each chunk is read by a hyperslab read of exactly that chunk,
+# which HDF5 decodes through the registered filter pipeline. Unpacked (contiguous) datasets keep the mmap fast path.
+function dataset_as_chunked_array(dataset::HDF5.Dataset)::ChunkedArray
+    @assert HDF5.ischunked(dataset)
     shape = size(dataset)
-    chunks = HDF5.get_chunk(dataset)
-    return H5dfDiskArray{T, length(shape)}(dataset, shape, chunks)
-end
-
-function Base.size(array::H5dfDiskArray{T, N})::NTuple{N, Int} where {T, N}
-    return array.size
-end
-
-function DiskArrays.readblock!(
-    array::H5dfDiskArray{T, N},
-    destination::AbstractArray{<:Any, N},
-    ranges::Vararg{AbstractUnitRange, N},
-)::Nothing where {T, N}
-    destination .= array.dataset[ranges...]
-    return nothing
-end
-
-function DiskArrays.haschunks(::H5dfDiskArray)::DiskArrays.Chunked
-    return DiskArrays.Chunked()
-end
-
-function DiskArrays.eachchunk(array::H5dfDiskArray)::DiskArrays.GridChunks
-    return DiskArrays.GridChunks(array, array.chunks)
-end
-
-# `H5dfDiskArray` doesn't expose `strides` (chunked storage), so the default
-# `MatrixLayouts.major_axis(::AbstractMatrix)` fallback returns `nothing`. HDF5.jl presents 2-D datasets in Julia's
-# column-major view; declare it so that the layout-forwarding chain through
-# `MatrixLayouts.major_axis(::DiskArrays.CachedDiskArray)` (defined in `TanayLabUtilities`) resolves correctly for the
-# packed read path.
-function TanayLabUtilities.MatrixLayouts.major_axis(::H5dfDiskArray{T, 2})::Maybe{Int8} where {T}
-    return Columns
+    read_chunk = chunk_ranges -> dataset[chunk_ranges...]
+    return ChunkedArray{dataset_eltype(dataset), length(shape)}(
+        shape,
+        HDF5.get_chunk(dataset),
+        read_chunk,
+        LOCAL_CHUNK_POOL,
+    )
 end
 
 # Write `data` (a numeric `AbstractArray{T,N}`) to a new dataset under `parent` at `name`. When `packed = true` and

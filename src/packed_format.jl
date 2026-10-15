@@ -10,6 +10,20 @@ fast local SSD, prefer staging an unpacked copy via [`copy_all!`](@ref DataAxesF
 The exported globals in this module are the only knobs tuning the packed encoding. They apply process-wide; there is
 no per-daf override.
 
+# Lazy reads
+
+A packed property is read lazily. Reading it returns an array that decodes its chunks on demand. Chunks that a read
+used only part of are kept in a process-wide pool (see [`DAF_PACKED_LOCAL_CACHE_KB`](@ref) and
+[`DAF_PACKED_HTTP_CACHE_KB`](@ref)). `densify` or `mutable_array` of a lazy array reads all of it once, and returns the
+same in-memory array from then on.
+
+If the property is later modified through the same daf (overwritten, deleted, or reordered), reading the old lazy
+array throws. This keeps it from mixing old decoded chunks with the new storage. An in-memory array obtained earlier
+from `densify` or `mutable_array` stays valid.
+
+This does not cover a modification through another daf object or another process, data changing on an HTTP server, or
+one thread reading a lazy array while another thread modifies its property without coordinating with it.
+
 # Dual-format shard layout
 
 A packed property is stored as a single *shard* — one file (`<name>.zip` in
@@ -144,19 +158,6 @@ function packed_target_chunk_bytes()::Int
     return DAF_PACKED_TARGET_CHUNK_KB * 1024
 end
 
-# Convert `DAF_PACKED_LOCAL_CACHE_KB` to the decimal-megabyte unit (1 MB = `1_000_000` bytes) used by
-# `DiskArrays.cache`'s `maxsize` parameter. Internal helper for the local read-side cache wrapper. The 5 % skew between
-# binary and decimal sizing is irrelevant for cache sizing — `DAF_PACKED_LOCAL_CACHE_KB` is a soft target.
-function packed_local_cache_mb()::Int
-    return DAF_PACKED_LOCAL_CACHE_KB * 1024 ÷ 1_000_000
-end
-
-# Convert `DAF_PACKED_HTTP_CACHE_KB` to the same decimal-megabyte unit, for the HTTP cache wrapper sized
-# separately from the local cache. Same 5 % skew (binary vs decimal) applies.
-function packed_http_cache_mb()::Int
-    return DAF_PACKED_HTTP_CACHE_KB * 1024 ÷ 1_000_000
-end
-
 # Assumed average bytes-per-element for non-bits-typed properties (e.g. `String`-valued vectors), used by
 # `effective_sizeof` and through it by `chunks_for` when sizing chunks for variable-length data. The value (16) reflects
 # typical bio-data axis labels (cell IDs, gene names) — it undersizes very long strings and oversizes short ones, but
@@ -236,32 +237,35 @@ actually want compression applied.
 DAF_PACKED_COMPRESSION_LEVEL::Int = 5
 
 """
-The cache size in kilobytes used by the per-property `DiskArrays.cache` LRU when reading packed properties on
-local-disk backends. Larger caches reduce repeat decompression cost when scattered scalar access patterns revisit the
-same chunks.
+The total size in kilobytes of the decoded chunks kept for packed properties read from local storage. All the packed
+properties read from local storage in the process share this one pool. The least recently used chunks are dropped
+first.
 
-Default `65536` (64 MiB). Each `get_matrix` / `get_vector` call on a packed local-disk property returns a
-`DiskArrays.CachedDiskArray` wrapper sized at this value (in bytes, after multiplying by 1024); the cache is held alive
-by the daf's internal cache (`MemoryData` cache group) and released by
-[`empty_cache!`](@ref DataAxesFormats.Formats.empty_cache!).
+A read keeps only the chunks it used part of, such as for a single element, a row, or the boundary of a sparse
+column. A read that uses whole chunks, such as of whole columns, decodes them again next time. So the pool serves
+repeated partial reads. For example, reading the rows of a matrix one by one reuses one chunk per column for many
+rows, if the pool can hold one chunk per column.
+
+Default `524288` (512 MiB). This holds one chunk per column for about 60,000 columns, at the default
+[`DAF_PACKED_TARGET_CHUNK_KB`](@ref).
 
 Kilobytes are binary (1 KB = 1024 bytes), consistent with [`DAF_PACKED_TARGET_CHUNK_KB`](@ref).
 
-This is independent of the HTTP cache (see [`DAF_PACKED_HTTP_CACHE_KB`](@ref)) because re-fetching over the network is
+This is independent of the HTTP pool (see [`DAF_PACKED_HTTP_CACHE_KB`](@ref)) because re-fetching over the network is
 much more expensive than re-decompressing on local disk.
 """
-DAF_PACKED_LOCAL_CACHE_KB::Int = 65536
+DAF_PACKED_LOCAL_CACHE_KB::Int = 524288
 
 """
-The cache size in kilobytes used by the per-property `DiskArrays.cache` LRU when reading packed properties (or
-stripe-synthesised unpacked properties) over HTTP.
+The total size in kilobytes of the decoded chunks kept for properties read over HTTP (packed properties, or unpacked
+ones read in stripes). This works like [`DAF_PACKED_LOCAL_CACHE_KB`](@ref), with a separate pool.
 
-Default `262144` (256 MiB), meaningfully larger than [`DAF_PACKED_LOCAL_CACHE_KB`](@ref) because re-fetches over HTTP
-are far more expensive (network round-trip + bandwidth) than local re-decompressions.
+Default `1048576` (1 GiB), larger than [`DAF_PACKED_LOCAL_CACHE_KB`](@ref) because re-fetches over HTTP are far more
+expensive (network round-trip + bandwidth) than local re-decompressions.
 
 Kilobytes are binary (1 KB = 1024 bytes), consistent with [`DAF_PACKED_TARGET_CHUNK_KB`](@ref).
 """
-DAF_PACKED_HTTP_CACHE_KB::Int = 262144
+DAF_PACKED_HTTP_CACHE_KB::Int = 1048576
 
 """
 The maximum gap (in kilobytes) between two needed byte ranges that the HTTP read path coalesces into a single
@@ -701,16 +705,56 @@ function materialization!(build::Function, cell::MaterializationCell{T})::T wher
     end
 end
 
-# `DiskArrays.AbstractDiskArray` wrapper for an N-dimensional numeric array served as a byte stream via the
-# `byte_fetcher` closure (HTTP range GETs, an mmap of a local file, the bytes of a ZIP entry, etc.).
-# `readblock!` enumerates the chunks intersecting the requested slice, coalesces the missing ones into the
-# smallest set of byte-contiguous fetches (gap ≤ [`DAF_HTTP_MAX_COALESCE_GAP_KB`](@ref)), decodes each fetched
-# chunk through the configured pipeline, and caches per-chunk decoded data in an LRU sized by
-# [`DAF_PACKED_HTTP_CACHE_KB`](@ref).
-#
-# The wrapper is configured by closures so the same machinery serves flat dense vector
-# ([`StripedVector`](@ref)), flat dense matrix ([`StripedMatrix`](@ref)), v3-sharded packed dense array
-# ([`PackedDenseArray`](@ref)), and ZIP-CD-based packed shard reads ([`ZipShardArray`](@ref)).
+# Drop the materialization, so its memory can be released. The next use builds it again.
+function clear_materialization!(cell::MaterializationCell)::Nothing
+    lock(cell.lock) do
+        @atomic :release cell.value = nothing
+        return nothing
+    end
+    return nothing
+end
+
+# The number of bytes a decoded chunk occupies. Strings count their bytes as well as their references.
+function chunk_n_bytes(chunk::Array)::Int
+    n_bytes = sizeof(chunk)
+    if !isbitstype(eltype(chunk))
+        n_bytes += sum(sizeof, chunk; init = 0)
+    end
+    return n_bytes
+end
+
+# A process-wide pool of decoded chunks, shared by every `ChunkedArray` that reads the same kind of storage. It is keyed
+# by the source id of the array and the linear index of the chunk. It holds at most `budget_kb()` kilobytes of chunks.
+struct ChunkPool
+    chunks::LRUCache.LRU{Tuple{Int, Int}, Array}
+    budget_kb::Function
+end
+
+function ChunkPool(budget_kb::Function)::ChunkPool
+    return ChunkPool(
+        LRUCache.LRU{Tuple{Int, Int}, Array}(; maxsize = budget_kb() * 1024, by = chunk_n_bytes),
+        budget_kb,
+    )
+end
+
+# The chunks of packed properties read from local storage.
+const LOCAL_CHUNK_POOL = ChunkPool(() -> DAF_PACKED_LOCAL_CACHE_KB)
+
+# The chunks of properties read over HTTP.
+const HTTP_CHUNK_POOL = ChunkPool(() -> DAF_PACKED_HTTP_CACHE_KB)
+
+const NEXT_CHUNK_SOURCE_ID = Threads.Atomic{Int}(0)
+
+# A new id for a chunked source. Ids are never reused in the process, so a new source never sees the chunks of an old
+# one.
+function next_chunk_source_id()::Int
+    return Threads.atomic_add!(NEXT_CHUNK_SOURCE_ID, 1) + 1
+end
+
+# How a [`ChunkedArray`](@ref) reads chunks that are stored encoded in a byte stream, which the `byte_fetcher` closure
+# reads (HTTP range GETs, an mmap of a local file, the bytes of a ZIP entry, etc.). The missing chunks of a read are
+# coalesced into the smallest set of byte-contiguous fetches (gap ≤ [`DAF_HTTP_MAX_COALESCE_GAP_KB`](@ref)), and each
+# fetched chunk is decoded through the configured pipeline.
 #
 # - `decode_chunk(encoded_bytes::Vector{UInt8}, chunk_shape_in_array::NTuple{N, Int}, method::UInt16) -> Array{T, N}`
 #   converts raw fetched bytes into a chunk-shaped buffer. `method` is the ZIP compression method (relevant
@@ -725,14 +769,137 @@ end
 #   `UInt16(0)` for flat / shard-index readers.
 # - `byte_fetcher(offset::Int, n_bytes::Int) -> Vector{UInt8}` reads one byte slab from the underlying
 #   resource.
-struct ChunkedArray{T, N} <: DiskArrays.AbstractDiskArray{T, N}  # NOLINT
-    shape::NTuple{N, Int}
-    chunk_shape::NTuple{N, Int}
+struct EncodedChunkReader
     decode_chunk::Function
     ensure_index::Function
     chunk_byte_range::Function
     byte_fetcher::Function
-    cache::LRUCache.LRU{CartesianIndex{N}, Array{T, N}}
+end
+
+# `DiskArrays.AbstractDiskArray` wrapper for an N-dimensional array stored in chunks. `readblock!` enumerates the chunks
+# intersecting the requested slice, and reads the missing ones through the `chunk_reader`. Chunks the read used only
+# part of are kept in the array's `pool`.
+#
+# The `chunk_reader` is either an [`EncodedChunkReader`](@ref), or a
+# `read_chunk(chunk_ranges::NTuple{N, UnitRange{Int}}) -> Array{T, N}` closure that returns one chunk, already decoded.
+#
+# The same machinery serves flat dense vector ([`StripedVector`](@ref)), flat dense matrix ([`StripedMatrix`](@ref)),
+# v3-sharded packed dense array ([`PackedDenseArray`](@ref)), ZIP-CD-based packed shard reads
+# ([`ZipShardArray`](@ref)), and chunked HDF5 datasets.
+#
+# `densify` and `mutable_array` read the whole array once into the `materialization_cell`, and return that same `Array`
+# from then on. Once it is filled, all reads are served from it.
+#
+# It is a mutable object so the daf it was read from can hold a weak reference to it. When its property is modified, the
+# daf sets `is_invalidated`, and any later read throws. `pooled_chunk_indices` lists the chunks it put in its pool, so
+# they can be purged.
+mutable struct ChunkedArray{T, N} <: DiskArrays.AbstractDiskArray{T, N}  # NOLINT
+    const shape::NTuple{N, Int}
+    const chunk_shape::NTuple{N, Int}
+    const chunk_reader::Union{EncodedChunkReader, Function}
+    const pool::ChunkPool
+    const source_id::Int
+    const materialization_cell::MaterializationCell{Array{T, N}}
+    const pooled_chunk_indices::Set{Int}
+    const pooled_chunk_indices_lock::ReentrantLock
+    @atomic is_invalidated::Bool
+end
+
+function ChunkedArray{T, N}(
+    shape::NTuple{N, Int},
+    chunk_shape::NTuple{N, Int},
+    chunk_reader::Union{EncodedChunkReader, Function},
+    pool::ChunkPool,
+)::ChunkedArray{T, N} where {T, N}
+    return ChunkedArray{T, N}(
+        shape,
+        chunk_shape,
+        chunk_reader,
+        pool,
+        next_chunk_source_id(),
+        MaterializationCell{Array{T, N}}(),
+        Set{Int}(),
+        ReentrantLock(),
+        false,
+    )
+end
+
+# Throw if the property the array was read from was modified since. Only lazy arrays know this.
+function require_unmodified(::AbstractArray)::Nothing
+    return nothing
+end
+
+function require_unmodified(array::ChunkedArray)::Nothing
+    if @atomic :acquire array.is_invalidated
+        error("the property was modified after this lazy array was read from it")
+    end
+    return nothing
+end
+
+function Formats.is_lazy_array(::ChunkedArray)::Bool
+    return true
+end
+
+function Formats.invalidate_lazy_array!(array::ChunkedArray)::Nothing
+    @atomic :release array.is_invalidated = true
+    Formats.purge_lazy_array!(array)
+    return nothing
+end
+
+function Formats.purge_lazy_array!(array::ChunkedArray)::Nothing
+    pooled_chunk_indices = lock(array.pooled_chunk_indices_lock) do
+        indices = collect(array.pooled_chunk_indices)
+        empty!(array.pooled_chunk_indices)
+        return indices
+    end
+    for chunk_index in pooled_chunk_indices
+        try
+            delete!(array.pool.chunks, (array.source_id, chunk_index))
+        catch exception
+            # The pool may have evicted the chunk already.
+            if !(exception isa KeyError)
+                rethrow()  # UNTESTED
+            end
+        end
+    end
+    clear_materialization!(array.materialization_cell)
+    return nothing
+end
+
+# A new `Array` of element type `E` holding all of the array, which isn't cached. It is read in whole chunks, which
+# bypass the pool.
+function new_materialization(array::ChunkedArray{T, N}, ::Type{E} = T)::Array{E, N} where {T, N, E}
+    materialization = Array{E, N}(undef, array.shape)
+    DiskArrays.readblock!(array, materialization, Base.OneTo.(array.shape)...)
+    return materialization
+end
+
+# The `Array` holding all of the array, shared by all its callers. The first call reads it.
+function cached_materialization!(array::ChunkedArray{T, N})::Array{T, N} where {T, N}
+    return materialization!(() -> new_materialization(array), array.materialization_cell)
+end
+
+# Without `copy` or a different `eltype`, this is the shared materialization. Otherwise it is a new array owned by the
+# caller: a copy of the materialization if there is one, otherwise a new read that isn't cached.
+function TanayLabUtilities.MatrixFormats.densify(
+    array::ChunkedArray{T, N};
+    copy::Bool = false,
+    eltype::Maybe{Type} = nothing,
+)::Array where {T, N}
+    densified_eltype = something(eltype, T)
+    if !copy && densified_eltype == T
+        return cached_materialization!(array)
+    end
+    materialization = existing_materialization(array.materialization_cell)
+    if materialization === nothing
+        return new_materialization(array, densified_eltype)
+    else
+        return Array{densified_eltype, N}(materialization)
+    end
+end
+
+function TanayLabUtilities.ReadOnlyArrays.mutable_array(array::ChunkedArray)::Array
+    return cached_materialization!(array)
 end
 
 function Base.size(array::ChunkedArray{T, N})::NTuple{N, Int} where {T, N}
@@ -759,23 +926,57 @@ function DiskArrays.readblock!(
     destination::AbstractArray{<:Any, N},
     ranges::Vararg{AbstractUnitRange, N},
 )::Nothing where {T, N}
-    array.ensure_index()
+    require_unmodified(array)
+    materialization = existing_materialization(array.materialization_cell)
+    if materialization !== nothing
+        destination .= view(materialization, ranges...)
+        return nothing
+    end
+
     first_chunk_coords = ntuple(dim -> (first(ranges[dim]) - 1) ÷ array.chunk_shape[dim] + 1, N)
     last_chunk_coords = ntuple(dim -> (last(ranges[dim]) - 1) ÷ array.chunk_shape[dim] + 1, N)
     chunk_range = CartesianIndices(ntuple(dim -> first_chunk_coords[dim]:last_chunk_coords[dim], N))
 
-    # The cache is never read back after fetching: a read may span more chunks than it holds, and other threads may
+    # The pool is never read back after fetching: a read may span more chunks than it holds, and other threads may
     # evict chunks at any time. So each chunk is copied into the destination as soon as it is at hand.
     missing_chunk_coords = CartesianIndex{N}[]
     for chunk_coords in chunk_range
-        chunk = get(array.cache, chunk_coords, nothing)  # NOJET
+        chunk = get(array.pool.chunks, chunk_key(array, chunk_coords), nothing)  # NOJET
         if chunk === nothing
             push!(missing_chunk_coords, chunk_coords)
         else
             copy_chunk_into_destination!(destination, chunk, chunk_coords, array.chunk_shape, ranges)
         end
     end
-    fetch_chunks_coalesced!(array, missing_chunk_coords, destination, ranges)
+
+    chunk_reader = array.chunk_reader
+    if chunk_reader isa EncodedChunkReader
+        fetch_chunks_coalesced!(array, chunk_reader, missing_chunk_coords, destination, ranges)
+    else
+        read_decoded_chunks!(array, chunk_reader, missing_chunk_coords, destination, ranges)
+    end
+    return nothing
+end
+
+# Read each missing chunk with `read_chunk`, which returns it already decoded. Copy it into the `destination` slice of
+# the requested `ranges`, and pool it if the read used only part of it.
+function read_decoded_chunks!(
+    array::ChunkedArray{T, N},
+    read_chunk::Function,
+    missing_chunk_coords::Vector{CartesianIndex{N}},
+    destination::AbstractArray{<:Any, N},
+    ranges::NTuple{N, <:AbstractUnitRange},
+)::Nothing where {T, N}
+    for chunk_coords in missing_chunk_coords
+        chunk_shape = chunk_shape_in_array(array, chunk_coords)
+        chunk_ranges = ntuple(N) do dim
+            first_in_array = (chunk_coords[dim] - 1) * array.chunk_shape[dim] + 1
+            return first_in_array:(first_in_array + chunk_shape[dim] - 1)
+        end
+        chunk = read_chunk(chunk_ranges)::Array{T, N}
+        copy_chunk_into_destination!(destination, chunk, chunk_coords, array.chunk_shape, ranges)
+        pool_partially_used_chunk!(array, chunk, chunk_coords, ranges)
+    end
     return nothing
 end
 
@@ -788,8 +989,43 @@ function chunk_shape_in_array(array::ChunkedArray{T, N}, chunk_coords::Cartesian
     end
 end
 
-# Copy the portion of an in-cache decoded `chunk` that intersects the user-requested `ranges` into the
-# corresponding slice of `destination`.
+# The key of a chunk of the array in its pool.
+function chunk_key(array::ChunkedArray{T, N}, chunk_coords::CartesianIndex{N})::Tuple{Int, Int} where {T, N}
+    chunk_grid_shape = ntuple(dim -> cld(array.shape[dim], array.chunk_shape[dim]), N)
+    return (array.source_id, LinearIndices(chunk_grid_shape)[chunk_coords])
+end
+
+# Keep a fetched chunk in the pool if the read used only part of it. A read that used all of it isn't kept, so sweeps
+# over whole chunks don't push out the chunks that partial reads revisit.
+function pool_partially_used_chunk!(
+    array::ChunkedArray{T, N},
+    chunk::Array{T, N},
+    chunk_coords::CartesianIndex{N},
+    ranges::NTuple{N, <:AbstractUnitRange},
+)::Nothing where {T, N}
+    is_whole_chunk_used = all(1:N) do dim
+        first_in_array = (chunk_coords[dim] - 1) * array.chunk_shape[dim] + 1
+        last_in_array = first_in_array + size(chunk, dim) - 1
+        return first(ranges[dim]) <= first_in_array && last_in_array <= last(ranges[dim])
+    end
+    if !is_whole_chunk_used
+        chunks = array.pool.chunks
+        maxsize = array.pool.budget_kb() * 1024
+        if chunks.maxsize != maxsize
+            resize!(chunks; maxsize)
+        end
+        key = chunk_key(array, chunk_coords)
+        lock(array.pooled_chunk_indices_lock) do
+            push!(array.pooled_chunk_indices, key[2])
+            return nothing
+        end
+        chunks[key] = chunk
+    end
+    return nothing
+end
+
+# Copy the portion of a decoded `chunk` that intersects the user-requested `ranges` into the corresponding slice of
+# `destination`.
 function copy_chunk_into_destination!(
     destination::AbstractArray{<:Any, N},
     chunk::Array{T, N},
@@ -814,12 +1050,13 @@ function copy_chunk_into_destination!(
 end
 
 # Sort missing chunks by byte offset, group consecutive ones into byte-contiguous Range GET spans (gap ≤
-# `DAF_HTTP_MAX_COALESCE_GAP_KB`), fetch each span, decode each chunk via `array.decode_chunk`, copy it into the
-# `destination` slice of the requested `ranges`, and populate the cache. Empty chunks (those for which
-# `array.chunk_byte_range` returns `nothing`, i.e. packed fill chunks) become zero-filled tiles without any HTTP
-# traffic.
+# `DAF_HTTP_MAX_COALESCE_GAP_KB`), fetch each span, decode each chunk via `chunk_reader.decode_chunk`, copy it into
+# the `destination` slice of the requested `ranges`, and pool it if the read used only part of it. Empty chunks (those
+# for which `chunk_reader.chunk_byte_range` returns `nothing`, i.e. packed fill chunks) become zero-filled tiles
+# without any HTTP traffic.
 function fetch_chunks_coalesced!(
     array::ChunkedArray{T, N},
+    chunk_reader::EncodedChunkReader,
     missing_chunk_coords::Vector{CartesianIndex{N}},
     destination::AbstractArray{<:Any, N},
     ranges::NTuple{N, <:AbstractUnitRange},
@@ -827,10 +1064,11 @@ function fetch_chunks_coalesced!(
     if isempty(missing_chunk_coords)
         return nothing
     end
+    chunk_reader.ensure_index()
     empty_chunk_coords = CartesianIndex{N}[]
     nonempty_with_offset = Tuple{CartesianIndex{N}, Int, Int, UInt16}[]
     for chunk_coords in missing_chunk_coords
-        range = array.chunk_byte_range(chunk_coords)
+        range = chunk_reader.chunk_byte_range(chunk_coords)
         if range === nothing
             push!(empty_chunk_coords, chunk_coords)  # UNTESTED
         else
@@ -840,7 +1078,7 @@ function fetch_chunks_coalesced!(
     for chunk_coords in empty_chunk_coords
         chunk = zeros(T, chunk_shape_in_array(array, chunk_coords))  # UNTESTED
         copy_chunk_into_destination!(destination, chunk, chunk_coords, array.chunk_shape, ranges)  # UNTESTED
-        array.cache[chunk_coords] = chunk  # UNTESTED
+        pool_partially_used_chunk!(array, chunk, chunk_coords, ranges)  # UNTESTED
     end
 
     if isempty(nonempty_with_offset)
@@ -857,20 +1095,37 @@ function fetch_chunks_coalesced!(
         if gap_n_bytes <= max_gap_bytes
             span_last_byte_end = nonempty_with_offset[next_index][3]
         else
-            fetch_chunk_span!(array, destination, ranges, nonempty_with_offset, span_first_index, next_index - 1)
+            fetch_chunk_span!(
+                array,
+                chunk_reader,
+                destination,
+                ranges,
+                nonempty_with_offset,
+                span_first_index,
+                next_index - 1,
+            )
             span_first_index = next_index
             span_last_byte_end = nonempty_with_offset[next_index][3]
         end
     end
-    fetch_chunk_span!(array, destination, ranges, nonempty_with_offset, span_first_index, length(nonempty_with_offset))
+    fetch_chunk_span!(
+        array,
+        chunk_reader,
+        destination,
+        ranges,
+        nonempty_with_offset,
+        span_first_index,
+        length(nonempty_with_offset),
+    )
     return nothing
 end
 
 # Issue one Range GET covering the byte-contiguous span from `span_first_index` through `span_last_index`
-# (inclusive, indices into `nonempty_with_offset`), decode each chunk in the span via `array.decode_chunk`, copy it
-# into the `destination` slice of the requested `ranges`, and populate the cache.
+# (inclusive, indices into `nonempty_with_offset`), decode each chunk in the span via `chunk_reader.decode_chunk`,
+# copy it into the `destination` slice of the requested `ranges`, and pool it if the read used only part of it.
 function fetch_chunk_span!(
     array::ChunkedArray{T, N},
+    chunk_reader::EncodedChunkReader,
     destination::AbstractArray{<:Any, N},
     ranges::NTuple{N, <:AbstractUnitRange},
     nonempty_with_offset::Vector{Tuple{CartesianIndex{N}, Int, Int, UInt16}},
@@ -879,16 +1134,19 @@ function fetch_chunk_span!(
 )::Nothing where {T, N}
     first_offset = nonempty_with_offset[span_first_index][2]
     last_end = nonempty_with_offset[span_last_index][3]
-    span_bytes = array.byte_fetcher(first_offset, last_end - first_offset)
+    span_bytes = chunk_reader.byte_fetcher(first_offset, last_end - first_offset)
 
     for span_index in span_first_index:span_last_index
         chunk_coords, chunk_offset, chunk_end, chunk_method = nonempty_with_offset[span_index]
         offset_in_span = chunk_offset - first_offset
         chunk_byte_view = view(span_bytes, (offset_in_span + 1):(chunk_end - first_offset))
-        chunk =
-            array.decode_chunk(Vector{UInt8}(chunk_byte_view), chunk_shape_in_array(array, chunk_coords), chunk_method)
+        chunk = chunk_reader.decode_chunk(
+            Vector{UInt8}(chunk_byte_view),
+            chunk_shape_in_array(array, chunk_coords),
+            chunk_method,
+        )
         copy_chunk_into_destination!(destination, chunk, chunk_coords, array.chunk_shape, ranges)
-        array.cache[chunk_coords] = chunk
+        pool_partially_used_chunk!(array, chunk, chunk_coords, ranges)
     end
     return nothing
 end
@@ -932,19 +1190,6 @@ function flat_decode_closure(::Type{T})::Function where {T}  # ONLY SEEMS UNTEST
     return decode_flat
 end
 
-# Pick the LRU capacity (number of cached chunks) from the global HTTP cache size budget. The budget is
-# expressed in bytes; we divide by the per-chunk byte estimate and clamp to at least 1 entry.
-function http_chunk_cache_capacity(n_bytes_per_chunk::Int)::Int
-    return max(1, packed_http_cache_mb() * 1_000_000 ÷ n_bytes_per_chunk)
-end
-
-# Same as [`http_chunk_cache_capacity`](@ref) but draws from the local-read cache budget. Used by FilesDaf
-# and ZipDaf packed reads, which mmap or hold the shard bytes in memory and so warrant a smaller per-array
-# decoded-chunk cache than HTTP reads (where each miss costs a network round-trip).
-function local_chunk_cache_capacity(n_bytes_per_chunk::Int)::Int
-    return max(1, packed_local_cache_mb() * 1_000_000 ÷ n_bytes_per_chunk)
-end
-
 """
     StripedVector(
         ::Type{T},
@@ -964,16 +1209,13 @@ function StripedVector(
 )::ChunkedArray{T, 1} where {T}
     shape = (Int(n_elements),)
     chunk_shape = (Int(stripe_n_elements),)
-    capacity = http_chunk_cache_capacity(Int(stripe_n_elements) * sizeof(T))
-    return ChunkedArray{T, 1}(  # NOJET
-        shape,
-        chunk_shape,
+    chunk_reader = EncodedChunkReader(
         flat_decode_closure(T),
         () -> nothing,
         flat_chunk_byte_range_closure(shape, chunk_shape, sizeof(T)),
         byte_fetcher,
-        LRUCache.LRU{CartesianIndex{1}, Array{T, 1}}(; maxsize = capacity),
     )
+    return ChunkedArray{T, 1}(shape, chunk_shape, chunk_reader, HTTP_CHUNK_POOL)
 end
 
 """
@@ -997,16 +1239,13 @@ function StripedMatrix(
 )::ChunkedArray{T, 2} where {T}
     shape = (Int(n_rows), Int(n_columns))
     chunk_shape = (Int(stripe_n_rows), 1)
-    capacity = http_chunk_cache_capacity(Int(stripe_n_rows) * sizeof(T))
-    return ChunkedArray{T, 2}(
-        shape,
-        chunk_shape,
+    chunk_reader = EncodedChunkReader(
         flat_decode_closure(T),
         () -> nothing,
         flat_chunk_byte_range_closure(shape, chunk_shape, sizeof(T)),
         byte_fetcher,
-        LRUCache.LRU{CartesianIndex{2}, Array{T, 2}}(; maxsize = capacity),
     )
+    return ChunkedArray{T, 2}(shape, chunk_shape, chunk_reader, HTTP_CHUNK_POOL)
 end
 
 """
@@ -1017,14 +1256,14 @@ end
         codec::PackedCodec,
         index_location::Symbol,
         byte_fetcher::Function,
-        suffix_byte_fetcher::Function,
+        suffix_byte_fetcher::Function;
+        pool::ChunkPool = HTTP_CHUNK_POOL,
     )::ChunkedArray{T, N}
 
-Factory for a lazy N-dimensional `DiskArrays.AbstractDiskArray` that fetches a v3-sharded packed dense array
-served over HTTP. The shard index footer is fetched once on first read (one Range GET via
-`suffix_byte_fetcher` when `index_location == :end`, otherwise via `byte_fetcher(0, index_size)`); subsequent
-reads look up per-chunk byte ranges in the cached index, coalesce adjacent ones, and decode each fetched
-chunk through the codec pipeline.
+Factory for a lazy N-dimensional `DiskArrays.AbstractDiskArray` that fetches a v3-sharded packed dense array, served
+over HTTP or held locally. The shard index footer is fetched once on first read (via `suffix_byte_fetcher` when
+`index_location == :end`, otherwise via `byte_fetcher(0, index_size)`); subsequent reads look up per-chunk byte ranges
+in the cached index, coalesce adjacent ones, and decode each fetched chunk through the codec pipeline.
 """
 function PackedDenseArray(
     ::Type{T},
@@ -1033,7 +1272,8 @@ function PackedDenseArray(
     codec::PackedCodec,
     index_location::Symbol,
     byte_fetcher::Function,
-    suffix_byte_fetcher::Function,
+    suffix_byte_fetcher::Function;
+    pool::ChunkPool = HTTP_CHUNK_POOL,
 )::ChunkedArray{T, N} where {T, N}
     chunks_per_shard = Zarr.Codecs.V3Codecs.calculate_chunks_per_shard(shape, chunk_shape)
     sharding_codec =
@@ -1046,7 +1286,12 @@ function PackedDenseArray(
         else
             byte_fetcher(0, index_size)
         end
-        return Zarr.Codecs.V3Codecs.decode_shard_index(index_bytes, chunks_per_shard, sharding_codec)
+        # `decode_shard_index` requires a `Vector`. A local fetcher returns a view of the shard bytes.
+        return Zarr.Codecs.V3Codecs.decode_shard_index(
+            convert(Vector{UInt8}, index_bytes),
+            chunks_per_shard,
+            sharding_codec,
+        )
     end
 
     function ensure_index()::Nothing
@@ -1072,16 +1317,8 @@ function PackedDenseArray(
         end
     end
 
-    capacity = http_chunk_cache_capacity(prod(chunk_shape) * sizeof(T))
-    return ChunkedArray{T, N}(
-        shape,
-        chunk_shape,
-        decode_chunk,
-        ensure_index,
-        chunk_byte_range,
-        byte_fetcher,
-        LRUCache.LRU{CartesianIndex{N}, Array{T, N}}(; maxsize = capacity),
-    )
+    chunk_reader = EncodedChunkReader(decode_chunk, ensure_index, chunk_byte_range, byte_fetcher)
+    return ChunkedArray{T, N}(shape, chunk_shape, chunk_reader, pool)
 end
 
 """
@@ -1091,7 +1328,8 @@ end
         chunk_shape::NTuple{N, Int},
         codec::PackedCodec,
         byte_fetcher::Function,
-        suffix_byte_fetcher::Function,
+        suffix_byte_fetcher::Function;
+        pool::ChunkPool = HTTP_CHUNK_POOL,
     )::ChunkedArray{T, N}
 
 Factory for a lazy N-dimensional `DiskArrays.AbstractDiskArray` that reads a ZIP-archive shard file via its
@@ -1110,7 +1348,7 @@ function ZipShardArray(
     codec::PackedCodec,
     byte_fetcher::Function,
     suffix_byte_fetcher::Function;
-    cache_capacity::Int = http_chunk_cache_capacity(prod(chunk_shape) * sizeof(T)),
+    pool::ChunkPool = HTTP_CHUNK_POOL,
 )::ChunkedArray{T, N} where {T, N}
     chunks_per_shard = Zarr.Codecs.V3Codecs.calculate_chunks_per_shard(shape, chunk_shape)
     inner_pipeline = build_inner_pipeline(T, v3_bytes_codecs_for(codec, T))
@@ -1168,15 +1406,8 @@ function ZipShardArray(
         end
     end
 
-    return ChunkedArray{T, N}(  # NOJET
-        shape,
-        chunk_shape,
-        decode_chunk,
-        ensure_index,
-        chunk_byte_range,
-        byte_fetcher,
-        LRUCache.LRU{CartesianIndex{N}, Array{T, N}}(; maxsize = cache_capacity),
-    )
+    chunk_reader = EncodedChunkReader(decode_chunk, ensure_index, chunk_byte_range, byte_fetcher)
+    return ChunkedArray{T, N}(shape, chunk_shape, chunk_reader, pool)
 end
 
 # Parse a single CD entry at `position` (1-based) in `cd_region_bytes` and return
@@ -1268,8 +1499,8 @@ end
 
 # Open a packed shard whose bytes are already in `buffer` (mmap of a `<name>.zip` file for FilesDaf,
 # `MmapZipStore`-served entry bytes for ZipDaf) as a [`ZipShardArray`](@ref) parameterised by the
-# `descriptor`'s codec and inner chunk shape. The local-read cache budget is used so on-disk shards
-# don't compete with the HTTP read cache for memory.
+# `descriptor`'s codec and inner chunk shape. Its chunks go in the local pool, so on-disk shards don't compete with HTTP
+# reads for memory.
 function open_packed_shard_from_buffer(
     buffer::AbstractVector{UInt8},
     ::Type{T},
@@ -1285,7 +1516,7 @@ function open_packed_shard_from_buffer(
         codec,
         buffer_byte_fetcher(buffer),
         buffer_suffix_byte_fetcher(buffer);
-        cache_capacity = local_chunk_cache_capacity(prod(chunk_shape) * sizeof(T)),
+        pool = LOCAL_CHUNK_POOL,
     )
 end
 
@@ -2124,7 +2355,7 @@ function rewrite_zip_only_as_dual_format_shard(
         codec,
         buffer_byte_fetcher(mmap_bytes),
         buffer_suffix_byte_fetcher(mmap_bytes);
-        cache_capacity = local_chunk_cache_capacity(prod(inner_chunk_shape) * sizeof(T)),
+        pool = LOCAL_CHUNK_POOL,
     )
     decoded = source_array[ntuple(_ -> Colon(), N)...]
     bytes_bytes_codecs = v3_bytes_codecs_for(codec, T)
@@ -2625,7 +2856,7 @@ function packed_format_open_sparse_component_eager(
     end
     if is_packed
         zarray = packed_open_array(daf, "$(flat_key).zip", T, descriptor, (n_elements,))
-        return (zarray[:], nothing, n_elements, Formats.MemoryData)  # NOJET
+        return (zarray[:], nothing, n_elements, Formats.MemoryData)
     end
     vector, byte_owner, cache_group = packed_read_typed_vector(daf, flat_key, T, n_elements)
     return (vector, byte_owner, n_elements, cache_group)
@@ -2692,7 +2923,7 @@ function packed_format_property_metadata(
     )
 end
 
-# Open one sparse-property component as a lazy `AbstractVector{T}` source — a `DiskArrays.cache`-wrapped `ZArray`
+# Open one sparse-property component as a lazy `AbstractVector{T}` source — a `ChunkedArray`
 # for packed components (chunks decode on demand), or a flat-backed `Vector{T}` (mmap or memory) for unpacked
 # components. Used by the lazy sparse-read path: the caller wraps the resulting sources in a
 # [`LazySparse.LazySparseMatrix`](@ref) and defers materialisation until a consumer asks for one of the

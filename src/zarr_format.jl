@@ -210,7 +210,6 @@ using ..Readers
 using ..StorageTypes
 using ..Writers
 using Base.Filesystem
-using DiskArrays
 using JSON
 using Mmap
 using ProgressMeter
@@ -227,6 +226,8 @@ import ..MmapZipStores.LOCAL_FILE_HEADER_FIXED_SIZE
 import ..MmapZipStores.TRAILING_END_OF_CENTRAL_DIRECTORY_REGION_SIZE
 import ..MmapZipStores.ZIP64_CENTRAL_DIRECTORY_EXTRA_SIZE
 import ..MmapZipStores.ZIP64_LOCAL_FILE_HEADER_EXTRA_SIZE
+import ..PackedFormat.buffer_byte_fetcher
+import ..PackedFormat.buffer_suffix_byte_fetcher
 import ..PackedFormat.build_shard_metadata
 import ..PackedFormat.ChunkedArray
 import ..PackedFormat.chunks_for
@@ -234,6 +235,7 @@ import ..PackedFormat.compressor_for
 import ..PackedFormat.extract_inner_chunk
 import ..PackedFormat.finalize_shard!
 import ..PackedFormat.flush_packed_dense_matrix!
+import ..PackedFormat.HTTP_CHUNK_POOL
 import ..PackedFormat.PackedDenseArray
 import ..PackedFormat.StripedMatrix
 import ..PackedFormat.StripedVector
@@ -241,10 +243,9 @@ import ..PackedFormat.IncrementalShardWriter
 import ..PackedFormat.InMemorySink
 import ..PackedFormat.is_zarr_array_packed
 import ..PackedFormat.join_url
+import ..PackedFormat.LOCAL_CHUNK_POOL
 import ..PackedFormat.MmapShardRegion
 import ..PackedFormat.packed_codec_from_zarray
-import ..PackedFormat.packed_http_cache_mb
-import ..PackedFormat.packed_local_cache_mb
 import ..PackedFormat.PackedCodec
 import ..PackedFormat.PackedDenseMatrix
 import ..PackedFormat.position_in_sink
@@ -295,7 +296,7 @@ function numeric_zcreate(
         3,
         "array",
         shape,
-        chunks,
+        map(chunk -> max(chunk, 1), chunks),  # Zarr requires chunks of at least 1, even for an empty array.
         Zarr.typestr3(T),
         pipeline,
         zero(T),
@@ -1302,9 +1303,7 @@ end
 
 # `Zarr.ZArray` doesn't expose `strides` (chunked storage), so the default `MatrixLayouts.major_axis(::AbstractMatrix)`
 # fallback returns `nothing`. ZarrDaf writes matrices in C order with reversed `shape` (see the module docstring),
-# which is column-major in Julia's view; declare it so that the layout-forwarding chain through
-# `MatrixLayouts.major_axis(::DiskArrays.CachedDiskArray)` (defined in `TanayLabUtilities`) resolves correctly for the
-# packed read path.
+# which is column-major in Julia's view; declare it.
 function TanayLabUtilities.MatrixLayouts.major_axis(::ZArray{T, 2})::Maybe{Int8} where {T}
     return Columns
 end
@@ -1317,16 +1316,6 @@ function is_http_array(array::ZArray)::Bool
         storage = storage.parent
     end
     return storage isa Zarr.HTTPStore
-end
-
-# Pick the right `DiskArrays.cache` size budget for `array`: the HTTP cache size for `Zarr.HTTPStore`-backed
-# arrays (re-fetch amortisation is expensive over the wire), the local cache size otherwise.
-function array_cache_mb(array::ZArray)::Int
-    if is_http_array(array)
-        return packed_http_cache_mb()
-    else
-        return packed_local_cache_mb()
-    end
 end
 
 # Construct the chunk's URL for an `HTTPStore`-backed array. The store URL is the daf root; the array's `path`
@@ -1354,7 +1343,7 @@ end
 
 # Wrap a flat single-chunk uncompressed `Zarr.HTTPStore`-backed array in an `StripedVector` —
 # same machinery `HttpDaf` uses for its flat striped path. Returns `nothing` when the property is below the
-# chunk-byte threshold (the caller falls through to the `DiskArrays.cache` over the unmodified `ZArray`).
+# chunk-byte threshold (the caller falls through to [`zarr_chunked_array`](@ref)).
 function try_http_striped_vector(array::ZArray{T})::Maybe{AbstractVector{T}} where {T}
     n_elements = length(array)
     chunk_shape = chunks_for(true, (n_elements,), T)
@@ -1379,33 +1368,55 @@ function try_http_striped_matrix(array::ZArray{T})::Maybe{AbstractMatrix{T}} whe
     end
 end
 
-# Wrap a v3-sharded `Zarr.HTTPStore`-backed array in an `PackedDenseArray` — per-chunk Range-GET read path
-# over the single shard URL. Reuses the same factory `HttpDaf` uses for its packed dense properties.
-function http_packed_array(array::ZArray{T, N})::ChunkedArray{T, N} where {T, N}
+# Wrap a v3-sharded array in a `PackedDenseArray`, which reads and decodes each inner chunk on its own. Zarr.jl would
+# decode the whole shard for any partial read. The shard of an `HTTPStore`-backed array is read by Range GETs. The shard
+# of a local array is read in place: an mmap of its file, or the bytes of its zip entry or of its in-memory store.
+function packed_chunked_array(array::ZArray{T, N})::ChunkedArray{T, N} where {T, N}
     inner_chunk_shape, codec = packed_codec_from_zarray(array)
     sharding = array.metadata.pipeline.array_bytes
     @assert sharding isa Zarr.Codecs.V3Codecs.ShardingCodec
-    url = http_chunk_url(array, single_chunk_suffix(array))
+    if is_http_array(array)
+        url = http_chunk_url(array, single_chunk_suffix(array))
+        byte_fetcher = url_byte_fetcher(url)
+        suffix_byte_fetcher = url_suffix_byte_fetcher(url)
+        pool = HTTP_CHUNK_POOL
+    else
+        shard_bytes = local_shard_bytes(array)
+        byte_fetcher = buffer_byte_fetcher(shard_bytes)
+        suffix_byte_fetcher = buffer_suffix_byte_fetcher(shard_bytes)
+        pool = LOCAL_CHUNK_POOL
+    end
     return PackedDenseArray(
         T,
         size(array),
         inner_chunk_shape,
         codec,
         sharding.index_location,
-        url_byte_fetcher(url),
-        url_suffix_byte_fetcher(url),
+        byte_fetcher,
+        suffix_byte_fetcher;
+        pool,
     )
 end
 
-# Default fallback wrapper for a 1-D `ZArray`: `DiskArrays.cache` sized per the storage kind (local for local,
-# HTTP for HTTP). Used when none of the mmap / striped / packed-Range fast paths apply.
-function cached_array_as_vector(array::ZArray{T})::Tuple{StorageVector, Formats.CacheGroup} where {T}
-    return (DiskArrays.cache(array; maxsize = array_cache_mb(array)), Formats.MemoryData)
+# The bytes of the shard of a local packed array, without copying them.
+function local_shard_bytes(array::ZArray)::AbstractVector{UInt8}
+    storage = array.storage
+    key = chunk_key(array, single_chunk_suffix(array))
+    if storage isa Zarr.DirectoryStore
+        return open(io -> Mmap.mmap(io, Vector{UInt8}), joinpath(storage.folder, key), "r")
+    else
+        shard_bytes = storage[key]
+        @assert shard_bytes !== nothing
+        return shard_bytes
+    end
 end
 
-# Matrix counterpart of [`cached_array_as_vector`](@ref).
-function cached_array_as_matrix(array::ZArray{T})::Tuple{StorageMatrix, Formats.CacheGroup} where {T}
-    return (DiskArrays.cache(array; maxsize = array_cache_mb(array)), Formats.MemoryData)
+# Wrap any other non-empty `ZArray` in a `ChunkedArray` that reads one chunk at a time through Zarr.jl. Such an array is
+# not sharded, so Zarr.jl decodes exactly the chunk that is read.
+function zarr_chunked_array(array::ZArray{T, N})::ChunkedArray{T, N} where {T, N}
+    pool = is_http_array(array) ? HTTP_CHUNK_POOL : LOCAL_CHUNK_POOL
+    read_chunk = chunk_ranges -> array[chunk_ranges...]
+    return ChunkedArray{T, N}(size(array), Tuple(array.metadata.chunks), read_chunk, pool)
 end
 
 # Whether `array_as_vector` / `array_as_matrix` would return a wrapper that defers reads (chunked / packed-Range
@@ -1470,25 +1481,24 @@ function array_as_materialized_vector(daf::ZarrDaf, array::ZArray{T})::Tuple{Vec
 end
 
 # Wrap a 1-D `ZArray` as an `AbstractVector{T}` for the dense / lazy-sparse read paths. Local arrays go through
-# the mmap fast path when flat; `Zarr.HTTPStore`-backed arrays go through the per-chunk-Range-GET path —
-# `PackedDenseArray` for v3-sharded arrays, `StripedVector` for flat-and-above-threshold arrays. Anything
-# else routes through `DiskArrays.cache` sized per the storage kind.
+# the mmap fast path when flat. V3-sharded arrays go through [`packed_chunked_array`](@ref). Flat
+# `Zarr.HTTPStore`-backed arrays above the threshold go through `StripedVector`. Anything else goes through
+# [`zarr_chunked_array`](@ref).
 function array_as_vector(daf::ZarrDaf, array::ZArray{T})::Tuple{StorageVector, Formats.CacheGroup} where {T}
     mmapped = try_mmap_vector(daf, array)
     if mmapped !== nothing
         return mmapped  # NOJET
-    elseif !is_http_array(array) || isempty(array)
-        return cached_array_as_vector(array)
+    elseif isempty(array)
+        return (Vector{T}(), Formats.MemoryData)
     elseif is_zarr_array_packed(array)
-        return (http_packed_array(array), Formats.MemoryData)
-    else
+        return (packed_chunked_array(array), Formats.MemoryData)
+    elseif is_http_array(array)
         striped = try_http_striped_vector(array)
-        if striped === nothing
-            return cached_array_as_vector(array)
-        else
+        if striped !== nothing
             return (striped, Formats.MemoryData)
         end
     end
+    return (zarr_chunked_array(array), Formats.MemoryData)
 end
 
 # Matrix counterpart of [`array_as_vector`](@ref).
@@ -1496,18 +1506,17 @@ function array_as_matrix(daf::ZarrDaf, array::ZArray{T})::Tuple{StorageMatrix, F
     mmapped = try_mmap_matrix(daf, array)
     if mmapped !== nothing
         return mmapped  # NOJET
-    elseif !is_http_array(array) || isempty(array)
-        return cached_array_as_matrix(array)
+    elseif isempty(array)
+        return (Matrix{T}(undef, size(array)), Formats.MemoryData)
     elseif is_zarr_array_packed(array)
-        return (http_packed_array(array), Formats.MemoryData)
-    else
+        return (packed_chunked_array(array), Formats.MemoryData)
+    elseif is_http_array(array)
         striped = try_http_striped_matrix(array)
-        if striped === nothing
-            return cached_array_as_matrix(array)
-        else
+        if striped !== nothing
             return (striped, Formats.MemoryData)
         end
     end
+    return (zarr_chunked_array(array), Formats.MemoryData)
 end
 
 function can_mmap(array::ZArray{T})::Bool where {T}

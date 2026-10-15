@@ -265,6 +265,7 @@ struct Internal  # NOLINT
     cache::Dict{CacheKey, CacheEntry}
     dependents_of_cache_keys::Dict{CacheKey, Set{CacheKey}}
     dependencies_of_query_keys::Dict{CacheKey, Set{CacheKey}}
+    lazy_arrays_of_cache_keys::Dict{CacheKey, Vector{WeakRef}}
     version_counters::Dict{PropertyKey, UInt32}
     cache_lock::ExtendedReadWriteLock
     data_lock::ExtendedReadWriteLock
@@ -285,6 +286,7 @@ function Internal(;
         Dict{CacheKey, CacheEntry}(),
         Dict{CacheKey, Set{CacheKey}}(),
         Dict{CacheKey, Set{CacheKey}}(),
+        Dict{CacheKey, Vector{WeakRef}}(),
         Dict{PropertyKey, UInt32}(),
         ExtendedReadWriteLock(),
         data_lock === nothing ? ExtendedReadWriteLock() : data_lock,
@@ -1167,8 +1169,10 @@ function get_axis_dict_through_cache(
 end
 
 function get_vector_through_cache(format::FormatReader, axis::AbstractString, name::AbstractString)::NamedArray
-    entry = get_through_cache(format, vector_cache_key(axis, name), Tuple{NamedArray, Any}) do
+    cache_key = vector_cache_key(axis, name)
+    entry = get_through_cache(format, cache_key, Tuple{NamedArray, Any}) do
         vector, backing, cache_group = format_get_vector(format, axis, name)
+        register_lazy_array!(format, cache_key, vector)
         return ((as_named_vector(format, axis, read_only_array(vector)), backing), cache_group)
     end
     return entry[1]
@@ -1180,8 +1184,10 @@ function get_matrix_through_cache(
     columns_axis::AbstractString,
     name::AbstractString,
 )::NamedArray
-    entry = get_through_cache(format, matrix_cache_key(rows_axis, columns_axis, name), Tuple{NamedArray, Any}) do
+    cache_key = matrix_cache_key(rows_axis, columns_axis, name)
+    entry = get_through_cache(format, cache_key, Tuple{NamedArray, Any}) do
         matrix, backing, cache_group = format_get_matrix(format, rows_axis, columns_axis, name)
+        register_lazy_array!(format, cache_key, matrix)
         return ((as_named_matrix(format, rows_axis, columns_axis, read_only_array(matrix)), backing), cache_group)
     end
     return entry[1]
@@ -1307,11 +1313,45 @@ function put_cached_dependency_key!(format::FormatReader, cache_key::CacheKey, d
     return nothing
 end
 
+# Whether a storage array read from a format is lazy: it reads its data from storage on demand. A lazy array must be
+# told when its property is modified, so it won't mix old cached data with the new storage. The formats that return lazy
+# arrays add methods to this, to `invalidate_lazy_array!` and to `purge_lazy_array!`.
+function is_lazy_array(::AbstractArray)::Bool
+    return false
+end
+
+# Mark a lazy array as reading a property that was modified, so any later read of it throws, and release its memory.
+function invalidate_lazy_array! end
+
+# Release the memory a lazy array holds (decoded chunks and its materialization). It stays readable.
+function purge_lazy_array! end
+
+# Remember a lazy storage array read for a cache key, so `invalidate_cached!` of that key invalidates it, even after
+# `empty_cache!` dropped it from the cache. Must be called under the cache write lock.
+function register_lazy_array!(format::FormatReader, cache_key::CacheKey, array::AbstractArray)::Nothing
+    if is_lazy_array(array)
+        weak_references = get!(Vector{WeakRef}, format.internal.lazy_arrays_of_cache_keys, cache_key)
+        filter!(weak_reference -> weak_reference.value !== nothing, weak_references)
+        push!(weak_references, WeakRef(array))
+    end
+    return nothing
+end
+
 function invalidate_cached!(format::FormatReader, cache_key::CacheKey)::Nothing
     @debug "invalidate_cached! daf: $(brief(format)) cache_key: $(cache_key)"
     @debug "- delete cache_key: $(cache_key)"
     with_cache_write_lock(format, "for invalidate key:", cache_key) do
         delete!(format.internal.cache, cache_key)
+
+        weak_references = pop!(format.internal.lazy_arrays_of_cache_keys, cache_key, nothing)
+        if weak_references !== nothing
+            for weak_reference in weak_references
+                lazy_array = weak_reference.value
+                if lazy_array !== nothing
+                    invalidate_lazy_array!(lazy_array)
+                end
+            end
+        end
 
         dependents_keys = pop!(format.internal.dependents_of_cache_keys, cache_key, nothing)
         if dependents_keys !== nothing
@@ -1501,6 +1541,12 @@ specific [`CacheGroup`](@ref) (e.g., for clearing only `QueryData`), or `keep`, 
     If there are any slow cache update operations in flight (matrix relayout, queries) then this will wait until they
     are done to ensure that the cache is in a consistent state.
 
+!!! note
+
+    Packed properties may be returned as lazy arrays, which read their data on demand. Emptying the cache also releases
+    the decoded chunks and the materialized data these arrays keep. They remain readable, and read their data again
+    when needed.
+
 !!! warning
 
     Some backends return vectors and matrices that alias buffers held alive by the cache entry (for zero-copy access).
@@ -1544,6 +1590,23 @@ function empty_cache!(daf::DafReader; clear::Maybe{CacheGroup} = nothing, keep::
                     return haskey(daf.internal.cache, entry[1])
                 end
             end
+        end
+
+        # The lazy arrays stay registered, so a later modification still invalidates them.
+        for (cache_key, weak_references) in daf.internal.lazy_arrays_of_cache_keys
+            filter!(weak_reference -> weak_reference.value !== nothing, weak_references)
+            if !haskey(daf.internal.cache, cache_key)
+                for weak_reference in weak_references
+                    lazy_array = weak_reference.value
+                    if lazy_array !== nothing
+                        purge_lazy_array!(lazy_array)
+                    end
+                end
+            end
+        end
+        filter!(daf.internal.lazy_arrays_of_cache_keys) do entry
+            weak_references = entry[2]
+            return !isempty(weak_references)
         end
     end
     return nothing
