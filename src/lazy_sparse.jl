@@ -98,6 +98,17 @@ function new_materialization(matrix::LazySparseMatrix{Tv, Ti})::SparseMatrixCSC{
     return read_columns(matrix, 1:size(matrix, 2))
 end
 
+function Formats.materialization_without_caching(
+    matrix::LazySparseMatrix{Tv, Ti},
+)::SparseMatrixCSC{Tv, Ti} where {Tv, Ti}
+    require_unmodified(matrix)
+    materialization = existing_materialization(matrix.materialization_cell)
+    if materialization === nothing
+        materialization = new_materialization(matrix)
+    end
+    return materialization
+end
+
 # Whether the whole matrix was already read and cached.
 function is_materialized(matrix::LazySparseMatrix)::Bool
     return existing_materialization(matrix.materialization_cell) !== nothing

@@ -1224,7 +1224,7 @@ function get_relayout_matrix_through_cache(
     @assert !format_has_matrix(format, rows_axis, columns_axis, name)
     matrix = get_matrix_through_cache(format, columns_axis, rows_axis, name).array
     return get_slow_through_cache(format, matrix_cache_key(rows_axis, columns_axis, name), NamedArray, MemoryData) do
-        matrix = flipped(matrix)
+        matrix = flipped(materialization_without_caching(matrix))
         matrix = as_named_matrix(format, rows_axis, columns_axis, read_only_array(matrix))
         return (matrix, nothing)
     end
@@ -1338,6 +1338,13 @@ function invalidate_lazy_array! end
 
 # Release the memory a lazy array holds (decoded chunks and its materialization). It stays readable.
 function purge_lazy_array! end
+
+# The values of the `array` as an in-memory array, for an internal read of all of it (e.g. a relayout). A lazy array
+# returns its materialization if it has one. Otherwise it reads itself without caching the result, so it doesn't hold a
+# copy that nobody asked for. Any other array is returned as is.
+function materialization_without_caching(array::AbstractArray)::AbstractArray
+    return array
+end
 
 # Remember a lazy storage array read for a cache key, so `invalidate_cached!` of that key invalidates it, even after
 # `empty_cache!` dropped it from the cache. Must be called under the cache write lock.

@@ -881,7 +881,17 @@ end
 
 # The `Array` holding all of the array, shared by all its callers. The first call reads it.
 function cached_materialization!(array::ChunkedArray{T, N})::Array{T, N} where {T, N}
+    require_unmodified(array)
     return materialization!(() -> new_materialization(array), array.materialization_cell)
+end
+
+function Formats.materialization_without_caching(array::ChunkedArray{T, N})::Array{T, N} where {T, N}
+    require_unmodified(array)
+    materialization = existing_materialization(array.materialization_cell)
+    if materialization === nothing
+        materialization = new_materialization(array)
+    end
+    return materialization
 end
 
 # Without `copy` or a different `eltype`, this is a read-only view of the shared materialization. Otherwise it is a new

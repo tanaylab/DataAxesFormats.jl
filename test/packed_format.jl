@@ -59,6 +59,8 @@ function verify_lazy_dense_matrix_invalidation(daf::DafWriter)::Nothing
     set_matrix!(daf, "row", "col", "data", zeros(Float32, 4096, 3); overwrite = true, relayout = false)
     @test n_pooled_chunks() == 0
     @test_throws "modified after" lazy[5, :]
+    @test_throws "modified after" densify(lazy)
+    @test_throws "modified after" mutable_array(lazy)
     @test dense[5, :] == Float32[5, 4096 + 5, 2 * 4096 + 5]
     return nothing
 end
@@ -889,6 +891,35 @@ nested_test("packed_format") do
             @test get_matrix(source, "row", "col", "dense") == dense
             @test get_matrix(source, "row", "col", "sparse") == sparse_values
             @test get_vector(source, "row", "vector") == vector
+            return nothing
+        end
+    end
+
+    nested_test("relayout_lazy_matrices") do
+        mktempdir() do path
+            daf = FilesDaf(joinpath(path, "test.daf"), "w+"; name = "packed!", packed = true)
+            add_axis!(daf, "row", ["r$(index)" for index in 1:4096])
+            add_axis!(daf, "col", ["c1", "c2", "c3"])
+            dense = Float32[row + 10_000 * column for row in 1:4096, column in 1:3]
+            sparse_values =
+                SparseMatrixCSC{Float32, Int32}(sparse(Int32.(1:4096), fill(Int32(2), 4096), Float32.(1:4096), 4096, 3))
+            set_matrix!(daf, "row", "col", "dense", dense; relayout = false)
+            set_matrix!(daf, "row", "col", "sparse", sparse_values; relayout = false)
+            existing_materialization = DataAxesFormats.PackedFormat.existing_materialization
+            is_lazy_array = DataAxesFormats.Formats.is_lazy_array
+            for (name, values) in (("dense", dense), ("sparse", sparse_values))
+                for is_materialized in (false, true)
+                    nested_test("$(name)/$(is_materialized ? "materialized" : "lazy")") do
+                        empty_cache!(daf)
+                        lazy = get_matrix(daf, "row", "col", name; relayout = false).array
+                        @test is_lazy_array(lazy)
+                        materialization = is_materialized ? mutable_array(lazy) : nothing
+                        @test get_matrix(daf, "col", "row", name) == transpose(values)
+                        @test existing_materialization(lazy.materialization_cell) === materialization
+                        return nothing
+                    end
+                end
+            end
             return nothing
         end
     end
