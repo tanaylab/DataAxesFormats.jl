@@ -4,6 +4,16 @@ nested_test("concat") do
     add_axis!(sources[1], "cell", ["A", "B"])
     add_axis!(sources[2], "cell", ["C", "D", "E"])
 
+    nested_test("sparsify_shares_sparse_sources") do
+        matrix = SparseMatrixCSC{Float32, Int32}(sparse(Int32[1, 4, 2], Int32[1, 2, 3], Float32[1, 2, 3], 4, 3))
+        named = NamedArray(read_only_array(matrix))
+        sparsify_concatenated_matrices = DataAxesFormats.Concat.sparsify_concatenated_matrices
+        sparse_matrices = sparsify_concatenated_matrices([named, nothing], Float32, 4, [3, 2])
+        @test sparse_matrices[1] === matrix
+        @test sparse_matrices[2] == spzeros(Float32, 4, 2)
+        return nothing
+    end
+
     nested_test("!square") do
         set_matrix!(sources[1], "cell", "cell", "outgoing_edges", [1.0 0.0; 0.0 1.0])
         @test_throws chomp("""

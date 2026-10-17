@@ -205,9 +205,7 @@ function stage_permuted_vector(
     planned_axis::PlannedAxis,
     replacement_progress::Maybe{AbstractProgress},
 )::StorageVector
-    if source isa LazySparseVector
-        source = convert(SparseVector, source)
-    elseif !issparse(source) && !(source isa DenseVector)
+    if !issparse(source) && !(source isa DenseVector)
         source = Vector(source)
     end
 

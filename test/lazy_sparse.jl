@@ -3,7 +3,7 @@ nested_test("lazy_sparse") do
     cached_materialization! = DataAxesFormats.LazySparse.cached_materialization!
 
     # Build a packed sparse matrix through `ZarrDaf` once so the `nzval` and `rowval` ZArrays end up sharded; the
-    # nested tests then wrap those ZArrays in a `LazySparseMatrix` and exercise slicing without ever materialising.
+    # nested tests then wrap those ZArrays in a `LazySparseMatrix`.
     function build_lazy(action::Function)::Nothing
         mktempdir() do path
             n_rows = 8192
@@ -35,284 +35,152 @@ nested_test("lazy_sparse") do
         build_lazy() do lazy, _, _
             @test size(lazy) == (8192, 4)
             @test eltype(lazy) === Float32
-            @test lazy.full_n_rows == 8192
-            @test lazy.full_n_columns == 4
-            @test length(lazy.full_colptr) == 5
-            @test lazy.row_select isa AllOf
-            @test lazy.column_select isa AllOf
+            @test lazy.n_rows == 8192
+            @test length(lazy.colptr) == 5
             @test !is_materialized(lazy)
             return nothing
         end
     end
 
-    nested_test("selection_lengths") do
-        @test length(AllOf(7)) == 7
-        @test length(RangeOf(3:9)) == 7
-        @test length(IndicesOf([2, 5, 8, 11])) == 4
-        @test length(MaskOf(BitVector([true, false, true, true, false]))) == 3
-        return nothing
+    # A small matrix with an empty column, and with rows missing from some columns.
+    expected = SparseMatrixCSC{Float32, Int32}(sparse(Float32[10 0 30 0; 20 0 0 5; 0 0 40 6]))
+    function new_lazy()::LazySparseMatrix
+        return LazySparseMatrix(3, copy(expected.colptr), copy(expected.rowval), copy(expected.nzval))
     end
 
-    # Exercise the `compose(new, existing)` rules directly, independent of the matrix wrapper. Each rule's
-    # pure-Julia output is checked here so the slicing tests below can rely on the correct algebra.
-    nested_test("compose") do
-        compose = DataAxesFormats.LazySparse.compose
-
-        nested_test("allof_collapses") do
-            @test compose(AllOf(5), RangeOf(10:14)) === RangeOf(10:14) ||
-                  compose(AllOf(5), RangeOf(10:14)).range == 10:14
-            existing_indices = IndicesOf([2, 4, 6])
-            @test compose(AllOf(3), existing_indices) === existing_indices
-            new_range = RangeOf(2:5)
-            @test compose(new_range, AllOf(10)) === new_range
-            new_all = AllOf(10)
-            @test compose(new_all, AllOf(10)) === new_all
-            return nothing
+    # Reading a subset of the columns reads only those columns, and does not materialize the whole matrix.
+    nested_test("column_subsets") do
+        nested_test("column") do
+            lazy = new_lazy()
+            @test lazy[:, 1] isa SparseVector{Float32, Int32}
+            @test lazy[:, 1] == expected[:, 1]
+            @test lazy[:, 2] == expected[:, 2]
+            @test lazy[:, 4] == expected[:, 4]
+            @test !is_materialized(lazy)
         end
 
-        nested_test("range_then_range") do
-            result = compose(RangeOf(2:4), RangeOf(10:20))
-            @test result isa RangeOf
-            @test result.range == 11:13
-            return nothing
+        nested_test("columns") do
+            lazy = new_lazy()
+            @test lazy[:, 2:4] isa SparseMatrixCSC{Float32, Int32}
+            @test lazy[:, 2:4] == expected[:, 2:4]
+            @test lazy[:, [4, 1]] == expected[:, [4, 1]]
+            @test lazy[:, [true, false, true, false]] == expected[:, [1, 3]]
+            @test !is_materialized(lazy)
         end
 
-        nested_test("range_then_indices") do
-            result = compose(RangeOf(2:3), IndicesOf([7, 11, 13, 17, 19]))
-            @test result isa IndicesOf
-            @test result.indices == [11, 13]
-            return nothing
+        nested_test("rows_of_columns") do
+            lazy = new_lazy()
+            reordered = lazy[[3, 1], 3:4]
+            @test reordered == expected[[3, 1], 3:4]
+            @test all(issorted(view(rowvals(reordered), nzrange(reordered, column))) for column in 1:2)
+            @test lazy[[true, false, true], [1, 3]] == expected[[1, 3], [1, 3]]
+            @test lazy[2:3, 4] == expected[2:3, 4]
+            @test lazy[[false, true, true], 4] == expected[2:3, 4]
+            @test !is_materialized(lazy)
         end
 
-        nested_test("range_then_mask") do
-            result = compose(RangeOf(2:3), MaskOf(BitVector([false, true, true, false, true, true])))
-            @test result isa IndicesOf
-            @test result.indices == [3, 5]
-            return nothing
+        nested_test("all_rows") do
+            lazy = new_lazy()
+            @test lazy[collect(1:3), [1, 3]] == expected[:, [1, 3]]
+            @test lazy[trues(3), 2:3] == expected[:, 2:3]
+            @test lazy[1:3, 4] == expected[:, 4]
+            @test !is_materialized(lazy)
         end
 
-        nested_test("indices_then_range") do
-            result = compose(IndicesOf([1, 3]), RangeOf(10:14))
-            @test result isa IndicesOf
-            @test result.indices == [10, 12]
-            return nothing
+        nested_test("view") do
+            lazy = new_lazy()
+            @test sum(view(lazy, :, 3)) == 70
+            @test view(lazy, :, 2:3) == expected[:, 2:3]
+            @test !is_materialized(lazy)
         end
 
-        nested_test("indices_then_indices") do
-            result = compose(IndicesOf([1, 3]), IndicesOf([5, 7, 9, 11]))
-            @test result isa IndicesOf
-            @test result.indices == [5, 9]
-            return nothing
+        nested_test("named") do
+            lazy = new_lazy()
+            named = NamedArray(lazy, (["r1", "r2", "r3"], ["c1", "c2", "c3", "c4"]), ("row", "col"))
+            @test named[:, "c3"] == expected[:, 3]
+            @test named[:, ["c1", "c4"]] == expected[:, [1, 4]]
+            @test named[["r3", "r1"], "c3"] == expected[[3, 1], 3]
+            @test !is_materialized(lazy)
         end
 
-        nested_test("indices_then_mask") do
-            result = compose(IndicesOf([1, 3]), MaskOf(BitVector([true, false, true, true, false])))
-            @test result isa IndicesOf
-            @test result.indices == [1, 4]
-            return nothing
+        nested_test("owned_by_caller") do
+            lazy = new_lazy()
+            columns = lazy[:, 1:2]
+            nonzeros(columns)[1] = -1
+            @test lazy[:, 1:2] == expected[:, 1:2]
         end
 
-        nested_test("mask_then_range") do
-            result = compose(MaskOf(BitVector([true, false, true, true])), RangeOf(10:13))
-            @test result isa IndicesOf
-            @test result.indices == [10, 12, 13]
-            return nothing
-        end
-
-        nested_test("mask_then_indices") do
-            result = compose(MaskOf(BitVector([true, false, true])), IndicesOf([5, 7, 9]))
-            @test result isa IndicesOf
-            @test result.indices == [5, 9]
-            return nothing
-        end
-
-        nested_test("mask_then_mask") do
-            result = compose(MaskOf(BitVector([true, false, true])), MaskOf(BitVector([true, true, false, true])))
-            @test result isa MaskOf
-            @test result.mask == BitVector([true, false, false, true])
-            return nothing
+        nested_test("after_materialization") do
+            lazy = new_lazy()
+            cached_materialization!(lazy)
+            @test lazy[:, 3] == expected[:, 3]
+            @test lazy[[3, 1], 3:4] == expected[[3, 1], 3:4]
         end
     end
 
-    # `Base.getindex` on a `LazySparseMatrix` rebinds row / column selections; `with_selections` resets the
-    # `materialization_cell` and re-uses the underlying `full_colptr` / `rowval_source` / `nzval_source` by reference.
-    # The `ZArray` sources are checked with `===` to confirm slicing does not allocate new arrays and never touches
-    # the chunked storage.
-    nested_test("slicing") do
-        nested_test("column_range") do
-            build_lazy() do lazy, rowval_source, nzval_source
-                sliced = lazy[:, 2:3]
-                @test size(sliced) == (8192, 2)
-                @test length(sliced.row_select) == 8192
-                @test length(sliced.column_select) == 2
-                @test sliced.rowval_source === rowval_source
-                @test sliced.nzval_source === nzval_source
-                @test !is_materialized(sliced)
-                return nothing
-            end
+    # Any other access reads the whole matrix once.
+    nested_test("other_access") do
+        nested_test("scalar") do
+            lazy = new_lazy()
+            @test lazy[2, 1] == 20
+            @test lazy[1, 2] == 0
+            @test lazy[3, 3] == 40
+            @test is_materialized(lazy)
         end
 
-        nested_test("row_range") do
-            build_lazy() do lazy, _, _
-                sliced = lazy[1024:2048, :]
-                @test size(sliced) == (1025, 4)
-                @test length(sliced.row_select) == 1025
-                @test length(sliced.column_select) == 4
-                return nothing
-            end
+        nested_test("row") do
+            lazy = new_lazy()
+            @test lazy[3, :] == expected[3, :]
+            @test is_materialized(lazy)
         end
 
-        nested_test("column_indices") do
-            build_lazy() do lazy, _, _
-                sliced = lazy[:, [1, 3]]
-                @test size(sliced) == (8192, 2)
-                @test sliced.column_select isa IndicesOf
-                @test sliced.column_select.indices == [1, 3]
-                return nothing
-            end
+        nested_test("rows") do
+            lazy = new_lazy()
+            @test lazy[[1, 3], :] == expected[[1, 3], :]
         end
 
-        nested_test("row_mask") do
-            build_lazy() do lazy, _, _
-                mask = falses(8192)
-                mask[1:512] .= true
-                sliced = lazy[mask, :]
-                @test size(sliced) == (512, 4)
-                @test sliced.row_select isa MaskOf
-                @test count(sliced.row_select.mask) == 512
-                return nothing
-            end
-        end
-
-        nested_test("chained_compose_via_indices") do
-            build_lazy() do lazy, _, _
-                first_slice = lazy[:, 1:3]
-                second_slice = first_slice[:, [1, 3]]
-                @test size(second_slice) == (8192, 2)
-                @test second_slice.column_select isa IndicesOf
-                @test second_slice.column_select.indices == [1, 3]
-                return nothing
-            end
-        end
-
-        # Direct dispatch on the explicit ambiguity overrides — `SparseArrays`'s parametric `getindex(::SparseMatrixCSC,
-        # ...)` methods are more specific on indexer types than the `LazySparseMatrix.getindex(::NonColonIndexer,
-        # ::NonColonIndexer)` fallback, so each combination below has its own override that delegates to
-        # `slice_with_indexers`.
-        nested_test("ambiguity_override_bool_bool") do
-            build_lazy() do lazy, _, _
-                row_mask = falses(8192)
-                row_mask[1:512] .= true
-                column_mask = BitVector([true, false, true, false])
-                sliced = lazy[row_mask, column_mask]
-                @test size(sliced) == (512, 2)
-                @test sliced.row_select isa MaskOf
-                @test sliced.column_select isa MaskOf
-                return nothing
-            end
-        end
-
-        nested_test("ambiguity_override_indices_bool") do
-            build_lazy() do lazy, _, _
-                column_mask = BitVector([true, false, true, false])
-                sliced = lazy[[1, 100, 8192], column_mask]
-                @test size(sliced) == (3, 2)
-                @test sliced.row_select isa IndicesOf
-                @test sliced.column_select isa MaskOf
-                return nothing
-            end
-        end
-
-        nested_test("ambiguity_override_range_bool") do
-            build_lazy() do lazy, _, _
-                column_mask = BitVector([true, false, true, false])
-                sliced = lazy[1:100, column_mask]
-                @test size(sliced) == (100, 2)
-                @test sliced.row_select isa RangeOf
-                @test sliced.column_select isa MaskOf
-                return nothing
-            end
+        nested_test("generic") do
+            lazy = new_lazy()
+            @test sum(lazy) == sum(expected)
+            @test lazy * Float32[1, 1, 1, 1] == expected * Float32[1, 1, 1, 1]
+            @test is_materialized(lazy)
         end
     end
 
-    # Materialisation triggers and the cached `SparseMatrixCSC`. The test data is a fully-populated CSC matrix
-    # where every (row, column) pair is a structural nonzero with value `column * row`, so each materialised slice's
-    # contents are predictable from the slicing parameters.
-    nested_test("materialise") do
+    nested_test("materialize") do
         nested_test("full_matrix_round_trip") do
             build_lazy() do lazy, _, _
-                materialised = SparseMatrixCSC(lazy)
-                @test size(materialised) == (8192, 4)
-                @test nnz(materialised) == 8192 * 4
-                @test materialised[1, 1] == 1
-                @test materialised[2, 3] == 6
-                @test materialised[100, 4] == 400
+                materialized = SparseMatrixCSC(lazy)
+                @test size(materialized) == (8192, 4)
+                @test nnz(materialized) == 8192 * 4
+                @test materialized[1, 1] == 1
+                @test materialized[2, 3] == 6
+                @test materialized[100, 4] == 400
                 # Like `SparseArrays`' own constructors, this returns a matrix owned by the caller, without caching it,
                 # so editing it leaves the lazy matrix intact.
                 @test !is_materialized(lazy)
-                materialised.nzval[1] = -1
+                materialized.nzval[1] = -1
                 @test SparseMatrixCSC(lazy)[1, 1] == 1
                 return nothing
             end
         end
 
-        nested_test("column_range_slice") do
+        nested_test("accessors") do
             build_lazy() do lazy, _, _
-                sliced = lazy[:, 2:3]
-                materialised = SparseMatrixCSC(sliced)
-                @test size(materialised) == (8192, 2)
-                @test nnz(materialised) == 8192 * 2
-                @test materialised[1, 1] == 2 * 1
-                @test materialised[5, 2] == 3 * 5
-                return nothing
-            end
-        end
-
-        nested_test("row_mask_slice") do
-            build_lazy() do lazy, _, _
-                mask = falses(8192)
-                mask[1] = true
-                mask[100] = true
-                mask[8192] = true
-                sliced = lazy[mask, :]
-                materialised = SparseMatrixCSC(sliced)
-                @test size(materialised) == (3, 4)
-                @test nnz(materialised) == 3 * 4
-                @test materialised[1, 1] == 1
-                @test materialised[2, 1] == 100
-                @test materialised[3, 4] == 4 * 8192
-                return nothing
-            end
-        end
-
-        nested_test("rowvals_nonzeros_getcolptr_consistent") do
-            build_lazy() do lazy, _, _
-                sliced = lazy[:, [1, 3]]
-                @test !is_materialized(sliced)
-                colptr = SparseArrays.getcolptr(sliced)
-                @test is_materialized(sliced)
-                @test length(colptr) == 3
-                @test colptr[1] == 1
-                @test colptr[end] == nnz(sliced) + 1
+                colptr = SparseArrays.getcolptr(lazy)
+                @test length(colptr) == 5
+                @test colptr[end] == nnz(lazy) + 1
+                @test !is_materialized(lazy)
+                rowvals(lazy)
+                @test is_materialized(lazy)
                 # Repeat calls return read-only views of the same cached vectors.
-                @test parent(SparseArrays.getcolptr(sliced)) === parent(colptr)
-                @test parent(rowvals(sliced)) === rowvals(cached_materialization!(sliced))
-                @test parent(nonzeros(sliced)) === nonzeros(cached_materialization!(sliced))
+                @test parent(rowvals(lazy)) === rowvals(cached_materialization!(lazy))
+                @test parent(nonzeros(lazy)) === nonzeros(cached_materialization!(lazy))
                 return nothing
             end
         end
 
-        nested_test("nnz_triggers_materialise") do
-            build_lazy() do lazy, _, _
-                sliced = lazy[1024:2048, :][:, [1, 3]]
-                @test !is_materialized(sliced)
-                @test nnz(sliced) == (2048 - 1024 + 1) * 2
-                @test is_materialized(sliced)
-                return nothing
-            end
-        end
-
-        nested_test("nnz_of_full_matrix") do
+        nested_test("nnz") do
             build_lazy() do lazy, _, _
                 @test nnz(lazy) == 8192 * 4
                 @test !is_materialized(lazy)
@@ -322,19 +190,20 @@ nested_test("lazy_sparse") do
 
         # `convert(SparseMatrixCSC{...}, lazy)` returns the cached materialization, building it on first use. This is
         # unlike the constructor `SparseMatrixCSC(lazy)`, which returns a copy owned by the caller.
-        nested_test("convert_triggers_materialise") do
+        nested_test("convert") do
             build_lazy() do lazy, _, _
-                materialised = convert(SparseMatrixCSC{Float32, Int32}, lazy)
-                @test materialised isa SparseMatrixCSC{Float32, Int32}
-                @test size(materialised) == (8192, 4)
-                @test nnz(materialised) == 8192 * 4
-                @test cached_materialization!(lazy) === materialised
+                materialized = convert(SparseMatrixCSC{Float32, Int32}, lazy)
+                @test materialized isa SparseMatrixCSC{Float32, Int32}
+                @test size(materialized) == (8192, 4)
+                @test nnz(materialized) == 8192 * 4
+                @test cached_materialization!(lazy) === materialized
+                @test mutable_array(lazy) === materialized
                 return nothing
             end
         end
 
         # Concurrent first readers wait for a single materialization, so all get the same cached matrix.
-        nested_test("concurrent_materialise") do
+        nested_test("concurrent") do
             build_lazy() do lazy, _, _
                 n_readers = 4 * Threads.nthreads()
                 materialized_per_reader = Vector{Any}(undef, n_readers)
@@ -347,172 +216,16 @@ nested_test("lazy_sparse") do
         end
     end
 
-    # Scalar `Base.getindex(lazy, ::Int, ::Int)` decompresses the target column on the fly without populating
-    # the materialised cache.
-    nested_test("scalar_getindex") do
-        nested_test("returns_value_without_materialise") do
-            build_lazy() do lazy, _, _
-                @test lazy[1, 1] == 1
-                @test lazy[100, 3] == 3 * 100
-                @test lazy[8192, 4] == 4 * 8192
-                @test !is_materialized(lazy)
-                return nothing
-            end
-        end
-
-        nested_test("on_sliced_matrix") do
-            build_lazy() do lazy, _, _
-                sliced = lazy[:, 2:3]
-                @test sliced[1, 1] == 2 * 1
-                @test sliced[5, 2] == 3 * 5
-                @test !is_materialized(sliced)
-                return nothing
-            end
-        end
-
-        nested_test("delegates_to_cache_after_materialise") do
-            build_lazy() do lazy, _, _
-                sliced = lazy[:, [1, 3]]
-                _ = nonzeros(sliced)
-                @test is_materialized(sliced)
-                @test sliced[1, 1] == 1 * 1
-                @test sliced[100, 2] == 3 * 100
-                return nothing
-            end
-        end
-
-        # Hand-built `LazySparseMatrix` with a structurally empty middle column (`full_colptr[2] == full_colptr[3]`)
-        # so the scalar `getindex` path returns `zero(Tv)` for any `(row, 2)` cell without ever touching the rowval /
-        # nzval sources.
-        nested_test("returns_zero_for_empty_column") do
-            full_colptr = Int32[1, 3, 3, 5]
-            rowval_source = Int32[1, 2, 1, 3]
-            nzval_source = Float32[10, 20, 30, 40]
-            empty_col_lazy = LazySparseMatrix(3, full_colptr, rowval_source, nzval_source)
-            @test empty_col_lazy[1, 1] == 10
-            @test empty_col_lazy[2, 1] == 20
-            @test empty_col_lazy[1, 2] == 0
-            @test empty_col_lazy[3, 2] == 0
-            @test empty_col_lazy[1, 3] == 30
-            @test empty_col_lazy[3, 3] == 40
-            @test !is_materialized(empty_col_lazy)
-            return nothing
-        end
-    end
-
-    # Unit tests for `LazySparseVector` exercise the materialisation paths that the format-level tests don't:
-    # unsorted output from non-trivial selections, `convert(SparseVector, ...)`, and scalar `getindex` after
-    # the materialisation cache has been populated.
-    nested_test("lazy_sparse_vector_unit") do
-        nested_test("materialise_unsorted_indices") do
-            vector = LazySparseVector(10, Int32[2, 5, 8], Float32[20.0, 50.0, 80.0])
-            sliced = vector[[8, 2, 5]]
-            @test SparseVector(sliced) == SparseVector(3, [1, 2, 3], Float32[80.0, 20.0, 50.0])
-            return nothing
-        end
-
-        nested_test("cached_scalar_getindex") do
-            vector = LazySparseVector(10, Int32[2, 5, 8], Float32[20.0, 50.0, 80.0])
-            nonzeros(vector)
-            @test is_materialized(vector)
-            @test vector[2] == Float32(20.0)
-            @test vector[3] == Float32(0.0)
-            return nothing
-        end
-
-        # Contiguous-range slice → `RangeOf` selection → `materialize_slab`'s binary-search slab branch (the only
-        # path that avoids reading the full `nzind_source` / `nzval_source` for a sliced lazy sparse vector).
-        nested_test("materialise_range_slab") do
-            vector = LazySparseVector(10, Int32[2, 5, 8], Float32[20.0, 50.0, 80.0])
-            sliced = vector[4:7]
-            @test SparseVector(sliced) == SparseVector(4, [2], Float32[50.0])
-            return nothing
-        end
-
-        # `RangeOf` selection that contains no non-zero indices → `materialize_slab` returns empty buffers
-        # without reading any source bytes.
-        nested_test("materialise_empty_range_slab") do
-            vector = LazySparseVector(10, Int32[2, 5, 8], Float32[20.0, 50.0, 80.0])
-            sliced = vector[3:4]
-            @test SparseVector(sliced) == SparseVector(2, Int[], Float32[])
-            return nothing
-        end
-
-        nested_test("colon_slice") do
-            vector = LazySparseVector(10, Int32[2, 5, 8], Float32[20.0, 50.0, 80.0])
-            @test SparseVector(vector[:]) == SparseVector(10, [2, 5, 8], Float32[20.0, 50.0, 80.0])
-            return nothing
-        end
-
-        nested_test("step_range_slice") do
-            vector = LazySparseVector(10, Int32[2, 5, 8], Float32[20.0, 50.0, 80.0])
-            @test SparseVector(vector[2:3:8]) == SparseVector(3, [1, 2, 3], Float32[20.0, 50.0, 80.0])
-            return nothing
-        end
-
-        nested_test("mask_slice") do
-            vector = LazySparseVector(10, Int32[2, 5, 8], Float32[20.0, 50.0, 80.0])
-            mask = falses(10)
-            mask[[2, 3, 8]] .= true
-            sliced = vector[mask]
-            @test sliced[3] == Float32(80.0)
-            @test !is_materialized(sliced)
-            @test SparseVector(sliced) == SparseVector(3, [1, 3], Float32[20.0, 80.0])
-            return nothing
-        end
-
-        nested_test("bool_vector_slice") do
-            vector = LazySparseVector(10, Int32[2, 5, 8], Float32[20.0, 50.0, 80.0])
-            mask = [false, true, true, false, false, false, false, true, false, false]
-            @test SparseVector(vector[mask]) == SparseVector(3, [1, 3], Float32[20.0, 80.0])
-            return nothing
-        end
-
-        nested_test("indices_scalar_getindex") do
-            vector = LazySparseVector(10, Int32[2, 5, 8], Float32[20.0, 50.0, 80.0])
-            sliced = vector[[8, 2, 5]]
-            @test sliced[1] == Float32(80.0)
-            @test !is_materialized(sliced)
-            return nothing
-        end
-
-        nested_test("nnz_and_conversions") do
-            vector = LazySparseVector(10, Int32[2, 5, 8], Float32[20.0, 50.0, 80.0])
-            @test nnz(vector) == 3
-            expected = SparseVector(10, Int32[2, 5, 8], Float32[20.0, 50.0, 80.0])
-            @test SparseVector{Float32, Int32}(vector) == expected
-            @test convert(SparseVector{Float32, Int32}, vector) == expected
-            return nothing
-        end
-
-        # Like `SparseArrays`, constructors return a copy and `convert` returns the cached materialization.
-        nested_test("constructors_copy") do
-            vector = LazySparseVector(10, Int32[2, 5, 8], Float32[20.0, 50.0, 80.0])
-            typed = SparseVector{Float32, Int32}(vector)
-            typed.nzval[1] = -1
-            untyped = SparseVector(vector)
-            untyped.nzval[2] = -1
-            @test vector[2] == Float32(20.0)
-            @test vector[5] == Float32(50.0)
-            @test convert(SparseVector{Float32, Int32}, vector) === cached_materialization!(vector)
-            return nothing
-        end
-    end
-
-    nested_test("lazy_sparse_matrix_unit") do
-        full_colptr = Int32[1, 3, 3, 5]
-        rowval_source = Int32[1, 2, 1, 3]
-        nzval_source = Float32[10, 20, 30, 40]
-        expected = SparseMatrixCSC{Float32, Int32}(3, 3, full_colptr, rowval_source, nzval_source)
-
+    nested_test("unit") do
         nested_test("colon_colon") do
-            lazy = LazySparseMatrix(3, copy(full_colptr), rowval_source, nzval_source)
-            @test SparseMatrixCSC(lazy[:, :]) == expected
+            lazy = new_lazy()
+            @test lazy[:, :] isa SparseMatrixCSC{Float32, Int32}
+            @test lazy[:, :] == expected
             return nothing
         end
 
         nested_test("typed_constructor") do
-            lazy = LazySparseMatrix(3, copy(full_colptr), rowval_source, nzval_source)
+            lazy = new_lazy()
             typed = SparseMatrixCSC{Float32, Int32}(lazy)
             @test typed == expected
             typed.nzval[1] = -1
@@ -521,43 +234,29 @@ nested_test("lazy_sparse") do
             return nothing
         end
 
-        nested_test("column_mask") do
-            lazy = LazySparseMatrix(3, copy(full_colptr), rowval_source, nzval_source)
-            @test SparseMatrixCSC(lazy[:, BitVector([true, false, true])]) == expected[:, [1, 3]]
-            return nothing
-        end
-
         nested_test("read_only") do
-            lazy = LazySparseMatrix(3, copy(full_colptr), rowval_source, nzval_source)
+            lazy = new_lazy()
+            @test is_read_only_array(lazy)
             @test_throws "Can't change" lazy[1, 1] = 5
             @test_throws "Can't change" nonzeros(lazy)[1] = 5
             @test SparseMatrixCSC(lazy) == expected
-            vector = LazySparseVector(10, Int32[2, 5, 8], Float32[20.0, 50.0, 80.0])
-            @test_throws "setindex! not defined" vector[2] = 5
-            @test_throws "Can't change" nonzeros(vector)[1] = 5
-            @test vector[2] == Float32(20.0)
             return nothing
         end
 
         nested_test("copy") do
-            lazy = LazySparseMatrix(3, copy(full_colptr), rowval_source, nzval_source)
+            lazy = new_lazy()
             copied = copy(lazy)
             @test copied isa SparseMatrixCSC{Float32, Int32}
             @test copied == expected
             @test !is_materialized(lazy)
-            vector = LazySparseVector(10, Int32[2, 5, 8], Float32[20.0, 50.0, 80.0])
-            copied_vector = copy(vector)
-            @test copied_vector isa SparseVector{Float32, Int32}
-            @test copied_vector == SparseVector(10, Int32[2, 5, 8], Float32[20.0, 50.0, 80.0])
-            @test !is_materialized(vector)
             return nothing
         end
     end
 
-    # `format_get_matrix` for a packed sparse property routes through `LazySparseMatrix` on every backend that
-    # produces sharded `nzval` / `rowval` storage (FilesDaf, ZarrDaf-Directory, ZarrDaf-Zip). Below-threshold sparse
-    # properties keep the eager mmap-backed `SparseMatrixCSC` path. Each backend's daf is built through the public
-    # `set_matrix!` API so the test exercises the same write/read pipeline as user code.
+    # `format_get_matrix` for a packed sparse property returns a `LazySparseMatrix` on every backend that produces
+    # sharded `nzval` / `rowval` storage (FilesDaf, ZarrDaf-Directory, ZarrDaf-Zip). Below-threshold sparse properties
+    # keep the eager mmap-backed `SparseMatrixCSC` path. Each backend's daf is built through the public `set_matrix!`
+    # API so the test exercises the same write/read pipeline as user code.
     nested_test("format_get_matrix") do
         function build_packed_sparse_daf(
             create_daf::Function,
@@ -591,12 +290,11 @@ nested_test("lazy_sparse") do
         end
 
         function check_packed_lazy_read(daf, original::SparseMatrixCSC)::Nothing
-            named = get_matrix(daf, "row", "col", "data")
-            wrapped = parent(parent(named))
-            @test wrapped isa LazySparseMatrix
-            @test size(wrapped) == size(original)
-            @test !is_materialized(wrapped)
-            @test SparseMatrixCSC(wrapped) == original
+            lazy = get_matrix(daf, "row", "col", "data").array
+            @test lazy isa LazySparseMatrix
+            @test size(lazy) == size(original)
+            @test !is_materialized(lazy)
+            @test SparseMatrixCSC(lazy) == original
             return nothing
         end
 
@@ -642,8 +340,7 @@ nested_test("lazy_sparse") do
                 end
             end
             # Mixed encoding: an `Int64` indtype with a `Float32` eltype puts `rowval` above and `nzval` below the
-            # `chunks_for` threshold, so the lazy path opens `nzval` through the unpacked-source branch (mmap-backed
-            # `Vector` rather than the packed `ZArray`).
+            # `chunks_for` threshold, so the lazy matrix reads `nzval` from a flat (mmap-backed) `Vector`.
             nested_test("mixed_packed_flat_components") do
                 mktempdir() do path
                     n_rows = 2000
@@ -658,10 +355,10 @@ nested_test("lazy_sparse") do
                     add_axis!(daf, "row", ["r$(index)" for index in 1:n_rows])
                     add_axis!(daf, "col", ["c$(index)" for index in 1:n_columns])
                     set_matrix!(daf, "row", "col", "data", original; relayout = false)
-                    named = get_matrix(daf, "row", "col", "data")
-                    wrapped = parent(parent(named))
-                    @test wrapped isa LazySparseMatrix
-                    @test SparseMatrixCSC(wrapped) == original
+                    lazy = get_matrix(daf, "row", "col", "data").array
+                    @test lazy isa LazySparseMatrix
+                    @test lazy[:, 2] == original[:, 2]
+                    @test SparseMatrixCSC(lazy) == original
                     return nothing
                 end
             end
@@ -717,27 +414,24 @@ nested_test("lazy_sparse") do
             end
         end
 
-        # Slicing through the public `NamedArray` (the wrapper that `get_matrix` returns) flows down to
-        # `LazySparseMatrix.getindex` and produces a fresh `NamedArray` over a `LazySparseMatrix`; chunk reads only
-        # happen when the sliced wrapper is materialised (here, by the equality check against the expected slice).
+        # Slicing the columns through the public `NamedArray` (the wrapper that `get_matrix` returns) reads only those
+        # columns, into a new `SparseMatrixCSC`.
         nested_test("slicing_through_named_array") do
             mktempdir() do path
                 daf = FilesDaf(joinpath(path, "test.daf"), "w+"; name = "named_slice!", packed = true)
                 _, original = build_packed_sparse_daf((p; packed) -> daf, path)
                 full = get_matrix(daf, "row", "col", "data")
                 sliced_named = full[:, 2:3]
-                @test parent(sliced_named) isa LazySparseMatrix
-                @test size(sliced_named) == (size(original, 1), 2)
-                @test SparseMatrixCSC(parent(sliced_named)) == original[:, 2:3]
+                @test parent(sliced_named) isa SparseMatrixCSC
+                @test sliced_named == original[:, 2:3]
+                @test !is_materialized(full.array)
                 return nothing
             end
         end
     end
 
-    # `format_get_vector` for a packed sparse property routes through `LazySparseVector` on every backend that
-    # produces sharded `nzind` / `nzval` storage. Below-threshold sparse properties keep the eager `SparseVector`
-    # path. Each backend's daf is built through the public `set_vector!` API so the test exercises the same
-    # write/read pipeline as user code.
+    # `format_get_vector` for a sparse property always returns an eager `SparseVector`, packed or not. Each backend's
+    # daf is built through the public `set_vector!` API so the test exercises the same write/read pipeline as user code.
     nested_test("format_get_vector") do
         function build_packed_sparse_vector_daf(
             create_daf::Function,
@@ -765,9 +459,9 @@ nested_test("lazy_sparse") do
             return (daf, original)
         end
 
-        # Bool sparse vectors with all-true nzval skip writing `.nzval` on disk; the lazy path synthesises
-        # `fill(true, length(nzind))` instead of opening a chunked source. Triggered by `packed = true` plus
-        # enough non-zeros to push `nzind` over the chunk-byte threshold.
+        # Bool sparse vectors with all-true nzval skip writing `.nzval` on disk; the read path synthesises
+        # `fill(true, length(nzind))`. Triggered by `packed = true` plus enough non-zeros to push `nzind` over the
+        # chunk-byte threshold.
         function build_packed_bool_sparse_vector_daf(
             create_daf::Function,
             path::AbstractString,
@@ -782,17 +476,7 @@ nested_test("lazy_sparse") do
             return (daf, original)
         end
 
-        function check_packed_lazy_vector_read(daf, original::SparseVector)::Nothing
-            named = get_vector(daf, "row", "data")
-            wrapped = parent(parent(named))
-            @test wrapped isa LazySparseVector
-            @test size(wrapped) == size(original)
-            @test !is_materialized(wrapped)
-            @test SparseVector(wrapped) == original
-            return nothing
-        end
-
-        function check_eager_vector_below_threshold_read(daf, original::SparseVector)::Nothing
+        function check_sparse_vector_read(daf, original::SparseVector)::Nothing
             named = get_vector(daf, "row", "data")
             wrapped = parent(parent(named))
             @test wrapped isa SparseVector
@@ -802,17 +486,17 @@ nested_test("lazy_sparse") do
 
         nested_test("files") do
             files_factory(path; packed) = FilesDaf(joinpath(path, "test.daf"), "w+"; name = "lazy_files!", packed)
-            nested_test("packed_returns_lazy") do
+            nested_test("packed_returns_eager") do
                 mktempdir() do path
                     daf, original = build_packed_sparse_vector_daf(files_factory, path)
-                    check_packed_lazy_vector_read(daf, original)
+                    check_sparse_vector_read(daf, original)
                     return nothing
                 end
             end
             nested_test("below_threshold_returns_eager") do
                 mktempdir() do path
                     daf, original = build_unpacked_sparse_vector_daf(files_factory, path)
-                    check_eager_vector_below_threshold_read(daf, original)
+                    check_sparse_vector_read(daf, original)
                     return nothing
                 end
             end
@@ -820,24 +504,24 @@ nested_test("lazy_sparse") do
 
         nested_test("h5df") do
             h5df_factory(path; packed) = H5df(joinpath(path, "test.h5df"), "w+"; name = "lazy_h5df!", packed)
-            nested_test("packed_returns_lazy") do
+            nested_test("packed_returns_eager") do
                 mktempdir() do path
                     daf, original = build_packed_sparse_vector_daf(h5df_factory, path)
-                    check_packed_lazy_vector_read(daf, original)
+                    check_sparse_vector_read(daf, original)
                     return nothing
                 end
             end
-            nested_test("bool_packed_returns_lazy") do
+            nested_test("bool_packed_returns_eager") do
                 mktempdir() do path
                     daf, original = build_packed_bool_sparse_vector_daf(h5df_factory, path)
-                    check_packed_lazy_vector_read(daf, original)
+                    check_sparse_vector_read(daf, original)
                     return nothing
                 end
             end
             nested_test("below_threshold_returns_eager") do
                 mktempdir() do path
                     daf, original = build_unpacked_sparse_vector_daf(h5df_factory, path)
-                    check_eager_vector_below_threshold_read(daf, original)
+                    check_sparse_vector_read(daf, original)
                     return nothing
                 end
             end
@@ -845,24 +529,24 @@ nested_test("lazy_sparse") do
 
         nested_test("zarr_directory") do
             zarr_factory(path; packed) = ZarrDaf(joinpath(path, "test.daf.zarr"), "w+"; name = "lazy_zarr_dir!", packed)
-            nested_test("packed_returns_lazy") do
+            nested_test("packed_returns_eager") do
                 mktempdir() do path
                     daf, original = build_packed_sparse_vector_daf(zarr_factory, path)
-                    check_packed_lazy_vector_read(daf, original)
+                    check_sparse_vector_read(daf, original)
                     return nothing
                 end
             end
-            nested_test("bool_packed_returns_lazy") do
+            nested_test("bool_packed_returns_eager") do
                 mktempdir() do path
                     daf, original = build_packed_bool_sparse_vector_daf(zarr_factory, path)
-                    check_packed_lazy_vector_read(daf, original)
+                    check_sparse_vector_read(daf, original)
                     return nothing
                 end
             end
             nested_test("below_threshold_returns_eager") do
                 mktempdir() do path
                     daf, original = build_unpacked_sparse_vector_daf(zarr_factory, path)
-                    check_eager_vector_below_threshold_read(daf, original)
+                    check_sparse_vector_read(daf, original)
                     return nothing
                 end
             end
@@ -872,32 +556,31 @@ nested_test("lazy_sparse") do
             function zarr_zip_factory(path; packed)
                 return ZarrDaf(joinpath(path, "test.daf.zarr.zip"), "w+"; name = "lazy_zarr_zip!", packed)
             end
-            nested_test("packed_returns_lazy") do
+            nested_test("packed_returns_eager") do
                 mktempdir() do path
                     daf, original = build_packed_sparse_vector_daf(zarr_zip_factory, path)
-                    check_packed_lazy_vector_read(daf, original)
+                    check_sparse_vector_read(daf, original)
                     return nothing
                 end
             end
-            nested_test("bool_packed_returns_lazy") do
+            nested_test("bool_packed_returns_eager") do
                 mktempdir() do path
                     daf, original = build_packed_bool_sparse_vector_daf(zarr_zip_factory, path)
-                    check_packed_lazy_vector_read(daf, original)
+                    check_sparse_vector_read(daf, original)
                     return nothing
                 end
             end
             nested_test("below_threshold_returns_eager") do
                 mktempdir() do path
                     daf, original = build_unpacked_sparse_vector_daf(zarr_zip_factory, path)
-                    check_eager_vector_below_threshold_read(daf, original)
+                    check_sparse_vector_read(daf, original)
                     return nothing
                 end
             end
         end
 
-        # `HttpDaf` exercises the lazy path two ways: a `packed = true` daf produces sharded `.zip` components
-        # opened as `PackedDenseArray`; a `packed = false` daf produces flat `.nzind` / `.nzval` files served
-        # over `Range` GETs as `StripedVector`. Either lazy source kind triggers `LazySparseVector`.
+        # `HttpDaf` reads the components two ways: a `packed = true` daf produces sharded `.zip` components; a
+        # `packed = false` daf produces flat `.nzind` / `.nzval` files. Both are read eagerly.
         nested_test("http") do
             function serve_files_daf(action::Function, path::AbstractString, packed::Bool)::Nothing
                 files_path = joinpath(path, "served.daf")
@@ -909,7 +592,7 @@ nested_test("lazy_sparse") do
                 return nothing
             end
 
-            nested_test("packed_returns_lazy") do
+            nested_test("packed_returns_eager") do
                 mktempdir() do path
                     serve_files_daf(path, true) do writer, url
                         n_elements = 8192
@@ -918,14 +601,14 @@ nested_test("lazy_sparse") do
                         original = SparseVector{Float32, Int32}(n_elements, indices, values)
                         add_axis!(writer, "row", ["r$(index)" for index in 1:n_elements])
                         set_vector!(writer, "row", "data", original)
-                        check_packed_lazy_vector_read(HttpDaf(url), original)
+                        check_sparse_vector_read(HttpDaf(url), original)
                         return nothing
                     end
                     return nothing
                 end
             end
 
-            nested_test("striped_returns_lazy") do
+            nested_test("flat_returns_eager") do
                 mktempdir() do path
                     serve_files_daf(path, false) do writer, url
                         n_elements = 8192
@@ -934,16 +617,16 @@ nested_test("lazy_sparse") do
                         original = SparseVector{Float32, Int32}(n_elements, indices, values)
                         add_axis!(writer, "row", ["r$(index)" for index in 1:n_elements])
                         set_vector!(writer, "row", "data", original)
-                        check_packed_lazy_vector_read(HttpDaf(url), original)
+                        check_sparse_vector_read(HttpDaf(url), original)
                         return nothing
                     end
                     return nothing
                 end
             end
 
-            # All-`true` Bool sparse vector over HTTP — writer omits `nzval` on disk and the read path
-            # synthesises `fill(true, nnz)` in the lazy `LazySparseVector` arm of HttpDaf's sparse reader.
-            nested_test("packed_all_true_bool_returns_lazy") do
+            # All-`true` Bool sparse vector over HTTP: the writer omits `nzval` on disk, and the read path synthesises
+            # `fill(true, nnz)`.
+            nested_test("packed_all_true_bool_returns_eager") do
                 mktempdir() do path
                     serve_files_daf(path, true) do writer, url
                         n_elements = 8192
@@ -952,8 +635,7 @@ nested_test("lazy_sparse") do
                         original = SparseVector{Bool, Int32}(n_elements, indices, fill(true, nnz_total))
                         add_axis!(writer, "row", ["r$(index)" for index in 1:n_elements])
                         set_vector!(writer, "row", "data", original)
-                        roundtripped = get_vector(HttpDaf(url), "row", "data")
-                        @test SparseVector(parent(roundtripped)) == original
+                        check_sparse_vector_read(HttpDaf(url), original)
                         return nothing
                     end
                     return nothing
@@ -966,7 +648,7 @@ nested_test("lazy_sparse") do
                         original = SparseVector{Float32, Int32}(4, Int32[2, 4], Float32[10.0, 20.0])
                         add_axis!(writer, "row", ["r1", "r2", "r3", "r4"])
                         set_vector!(writer, "row", "data", original)
-                        check_eager_vector_below_threshold_read(HttpDaf(url), original)
+                        check_sparse_vector_read(HttpDaf(url), original)
                         return nothing
                     end
                     return nothing
@@ -974,10 +656,7 @@ nested_test("lazy_sparse") do
             end
         end
 
-        # `ZarrDaf` over HTTP exercises the same `LazySparseVector` path as `HttpDaf`, only the on-disk layout
-        # differs: each sparse component is a Zarr `nzind` / `nzval` sub-array whose chunks are fetched via the
-        # `array_as_vector` HTTP dispatch (`PackedDenseArray` for packed components, `StripedVector` for
-        # flat-and-above-threshold components).
+        # `ZarrDaf` over HTTP reads each sparse component from a Zarr `nzind` / `nzval` sub-array, eagerly.
         nested_test("zarr_http") do
             function serve_zarr_daf(action::Function, path::AbstractString, packed::Bool)::Nothing
                 zarr_path = joinpath(path, "served.daf.zarr")
@@ -989,7 +668,7 @@ nested_test("lazy_sparse") do
                 return nothing
             end
 
-            nested_test("packed_returns_lazy") do
+            nested_test("packed_returns_eager") do
                 mktempdir() do path
                     serve_zarr_daf(path, true) do writer, url
                         n_elements = 8192
@@ -998,7 +677,7 @@ nested_test("lazy_sparse") do
                         original = SparseVector{Float32, Int32}(n_elements, indices, values)
                         add_axis!(writer, "row", ["r$(index)" for index in 1:n_elements])
                         set_vector!(writer, "row", "data", original)
-                        check_packed_lazy_vector_read(ZarrDaf(url), original)
+                        check_sparse_vector_read(ZarrDaf(url), original)
                         return nothing
                     end
                     return nothing
@@ -1011,7 +690,7 @@ nested_test("lazy_sparse") do
                         original = SparseVector{Float32, Int32}(4, Int32[2, 4], Float32[10.0, 20.0])
                         add_axis!(writer, "row", ["r1", "r2", "r3", "r4"])
                         set_vector!(writer, "row", "data", original)
-                        check_eager_vector_below_threshold_read(ZarrDaf(url), original)
+                        check_sparse_vector_read(ZarrDaf(url), original)
                         return nothing
                     end
                     return nothing

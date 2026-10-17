@@ -508,7 +508,8 @@ local file header is padded so the data region starts at an `DAF_DATA_OFFSET_ALI
 file offset, which matches the alignment required by every Daf element type. Foreign archives may
 produce misaligned data offsets, in which case this returns `nothing`.
 
-The returned array aliases `store.file_mmap` and remains valid as long as `store` is open.
+The returned array aliases `store.file_mmap`. It keeps the mapping alive, so it stays valid even
+after `store` is no longer used.
 """
 function try_mmap_entry_as(
     store::MmapZipStore,
@@ -536,7 +537,7 @@ function try_mmap_entry_as(
     if UInt(data_pointer) % UInt(DAF_DATA_OFFSET_ALIGNMENT) != 0
         return nothing  # UNTESTED
     end
-    return unsafe_wrap(Array, Ptr{T}(data_pointer), dims; own = false)
+    return reinterpreted_array(T, store.file_mmap, dims; offset = entry.data_offset)
 end
 
 # Return the raw data bytes for the entry at the given index. For stored (method-0) entries the

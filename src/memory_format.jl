@@ -172,6 +172,16 @@ function Formats.format_has_vector(memory::MemoryDaf, axis::AbstractString, name
     return haskey(memory.vectors[axis], name)
 end
 
+# The array to store for a given one. Most arrays are stored as they are. A lazy array reads the storage of the daf it
+# came from. That daf invalidates it when it modifies the property. So we store a copy of a lazy array instead.
+function owned_array(array::AbstractArray)::AbstractArray
+    if Formats.is_lazy_array(array)
+        return copy(array)
+    else
+        return array
+    end
+end
+
 function Formats.format_set_vector!(
     memory::MemoryDaf,
     axis::AbstractString,
@@ -181,7 +191,7 @@ function Formats.format_set_vector!(
 )::Nothing
     @assert Formats.has_data_write_lock(memory)
     if vector isa StorageVector
-        memory.vectors[axis][name] = vector
+        memory.vectors[axis][name] = owned_array(vector)
     elseif vector == 0
         memory.vectors[axis][name] = spzeros(typeof(vector), Formats.format_axis_length(memory, axis))
     else
@@ -251,9 +261,9 @@ function Formats.format_get_vector(
     memory::MemoryDaf,
     axis::AbstractString,
     name::AbstractString,
-)::Tuple{StorageVector, Any, Maybe{Formats.CacheGroup}}
+)::Tuple{StorageVector, Maybe{Formats.CacheGroup}}
     @assert Formats.has_data_read_lock(memory)
-    return (memory.vectors[axis][name], nothing, nothing)
+    return (memory.vectors[axis][name], nothing)
 end
 
 function Formats.format_vector_metadata(memory::MemoryDaf, axis::AbstractString, name::AbstractString)::PropertyMetadata
@@ -281,7 +291,7 @@ function Formats.format_set_matrix!(
 )::Nothing
     @assert Formats.has_data_write_lock(memory)
     if matrix isa StorageMatrix
-        memory.matrices[rows_axis][columns_axis][name] = matrix
+        memory.matrices[rows_axis][columns_axis][name] = owned_array(matrix)
     elseif matrix == 0
         memory.matrices[rows_axis][columns_axis][name] = spzeros(
             typeof(matrix),
@@ -391,9 +401,9 @@ function Formats.format_get_matrix(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-)::Tuple{StorageMatrix, Any, Maybe{Formats.CacheGroup}}
+)::Tuple{StorageMatrix, Maybe{Formats.CacheGroup}}
     @assert Formats.has_data_read_lock(memory)
-    return (memory.matrices[rows_axis][columns_axis][name], nothing, nothing)
+    return (memory.matrices[rows_axis][columns_axis][name], nothing)
 end
 
 function Formats.format_matrix_metadata(

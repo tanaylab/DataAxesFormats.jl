@@ -427,7 +427,11 @@
 <code>empty
 </code> value must be specified for it, and will be used for the missing data.
 </p>
-<p>Concatenated matrices are always stored in column-major layout where the concatenation axis is the column axis. There should not exist any matrices whose both axes are concatenated (e.g., square matrices of the concatenated axis).
+<p>A source matrix is concatenated whichever layout it is stored in. The concatenated matrix is stored only in the column-major layout where the concatenation axis is the column axis. If you also need the other layout, call 
+<a href="writers.html#DataAxesFormats.Writers.relayout_matrix!">
+<code>relayout_matrix!
+</code>
+</a> on the result. There should not exist any matrices whose both axes are concatenated (e.g., square matrices of the concatenated axis).
 </p>
 <p>The concatenated properties will be sparse if the storage for the sparse data is smaller than naive dense storage by at 
 <code>sparse_if_saves_storage_fraction

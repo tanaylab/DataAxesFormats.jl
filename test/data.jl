@@ -39,6 +39,16 @@ function write_deflate_entry(
     return nothing
 end
 
+# Collect garbage, then fill memory with other values. An array whose memory was freed reads these values afterwards (or
+# crashes).
+@noinline function reuse_freed_memory(n_bytes::Integer)::Int
+    for _ in 1:3
+        GC.gc(true)
+    end
+    garbage = [fill(0xAB, n_bytes) for _ in 1:64]
+    return sum(length, garbage)
+end
+
 function populate_served_daf!(writer::DafWriter)::Nothing
     set_scalar!(writer, "name", "served!")
     set_scalar!(writer, "depth", Int32(1))
@@ -4080,6 +4090,32 @@ nested_test("data") do
             end
         end
 
+        nested_test("http_held_arrays") do
+            mktempdir() do path
+                files_path = path * "/served.daf"
+                writer = FilesDaf(files_path, "w+"; name = "served!")
+                add_axis!(writer, "cell", ["c$(index)" for index in 1:512])
+                add_axis!(writer, "gene", ["g$(index)" for index in 1:64])
+                vector = Float64.(1:512)
+                matrix = Float64[row + 1000 * column for row in 1:512, column in 1:64]
+                set_vector!(writer, "cell", "score", vector)
+                set_matrix!(writer, "cell", "gene", "level", matrix; relayout = false)
+
+                with_served_directory(files_path) do url
+                    daf = HttpDaf(url; name = "held!")
+                    score = get_vector(daf, "cell", "score")
+                    level = get_matrix(daf, "cell", "gene", "level"; relayout = false)
+                    empty_cache!(daf)
+                    reuse_freed_memory(sizeof(vector))
+                    reuse_freed_memory(sizeof(matrix))
+                    @test score == vector
+                    @test level == matrix
+                    return nothing
+                end
+                return nothing
+            end
+        end
+
         nested_test("http_incompatible_version") do
             mktempdir() do path
                 write("$(path)/daf.json", "{\"version\":[99,0]}\n")
@@ -4430,6 +4466,51 @@ nested_test("data") do
             end
         end
 
+        nested_test("foreign_deflate_held_arrays") do
+            mktempdir() do path
+                zip_path = path * "/foreign.daf.zip"
+                values = Float64.(1:100_000)
+                ZipArchives.ZipWriter(zip_path) do writer
+                    write_deflate_entry(writer, "daf.json", "{\"version\":[1,0]}\n")
+                    write_deflate_entry(writer, "axes/cell.txt", join(["c$(index)\n" for index in 1:100_000]))
+                    write_deflate_entry(
+                        writer,
+                        "vectors/cell/score.json",
+                        "{\"format\":\"dense\",\"eltype\":\"Float64\"}\n",
+                    )
+                    return write_deflate_entry(writer, "vectors/cell/score.data", reinterpret(UInt8, values))
+                end
+
+                daf = ZipDaf(zip_path, "r"; name = "foreign!")
+                score = get_vector(daf, "cell", "score")
+                chained_score = get_vector(chain_reader([daf]; name = "chain!"), "cell", "score")
+                empty_cache!(daf)
+                reuse_freed_memory(sizeof(values))
+                @test score == values
+                @test chained_score == values
+                return nothing
+            end
+        end
+
+        nested_test("held_after_dropped") do
+            mktempdir() do path
+                zip_path = path * "/test.daf.zip"
+                values = Float64.(1:100_000)
+                writer = ZipDaf(zip_path, "w+"; name = "writer!")
+                add_axis!(writer, "cell", ["c$(index)" for index in 1:100_000])
+                set_vector!(writer, "cell", "score", values)
+                writer = nothing
+                reader = ZipDaf(zip_path, "r"; name = "reader!")
+                weak_reader = WeakRef(reader)
+                score = get_vector(reader, "cell", "score")
+                reader = nothing
+                reuse_freed_memory(sizeof(values))
+                @test weak_reader.value === nothing
+                @test score == values
+                return nothing
+            end
+        end
+
         nested_test("reorder_axes_rejected") do
             # Reorder is unsupported on the append-only ZIP backend. `reorder_axes!` exercises both
             # `format_has_reorder_lock` (returns `false`) and `format_lock_reorder!` (raises).
@@ -4456,6 +4537,25 @@ nested_test("data") do
     end
 
     nested_test("zarr") do
+        nested_test("memory_held_after_overwrite") do
+            daf = ZarrDaf(; name = "memory!")
+            add_axis!(daf, "cell", ["c$(index)" for index in 1:100_000])
+            add_axis!(daf, "gene", ["g1", "g2"])
+            vector = Float64.(1:100_000)
+            matrix = Float64[row + 1_000_000 * column for row in 1:100_000, column in 1:2]
+            set_vector!(daf, "cell", "score", vector)
+            set_matrix!(daf, "cell", "gene", "level", matrix; relayout = false)
+            score = get_vector(daf, "cell", "score")
+            level = get_matrix(daf, "cell", "gene", "level"; relayout = false)
+            set_vector!(daf, "cell", "score", zeros(Float64, 100_000); overwrite = true)
+            set_matrix!(daf, "cell", "gene", "level", zeros(Float64, 100_000, 2); overwrite = true, relayout = false)
+            reuse_freed_memory(sizeof(vector))
+            reuse_freed_memory(sizeof(matrix))
+            @test score == vector
+            @test level == matrix
+            return nothing
+        end
+
         nested_test("invalid") do
             mktempdir() do path
                 @test_throws "invalid mode: a" ZarrDaf(path * "/test.daf.zarr", "a")

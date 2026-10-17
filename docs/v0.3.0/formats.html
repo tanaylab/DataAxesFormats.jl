@@ -2175,8 +2175,8 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
     columns_axis::AbstractString,
     name::AbstractString,
     eltype::Type{T},
-    intdype::Type{I},
     nnz::StorageInteger,
+    indtype::Type{I},
     is_packed::Bool,
 )::Tuple{AbstractVector{I}, AbstractVector{I}, AbstractVector{T}, Maybe{CacheGroup}}
 where {T &lt;: StorageReal, I &lt;: StorageInteger}

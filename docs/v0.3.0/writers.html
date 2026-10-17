@@ -1192,7 +1192,8 @@ false
     eltype::Type{&lt;:StorageReal},
     nnz::StorageInteger,
     indtype::Maybe{Type{&lt;:StorageInteger}} = nothing;
-    [overwrite::Bool = false]
+    [overwrite::Bool = false,
+    packed::Maybe{Bool} = nothing]
 )::Any
 </code>
 </pre>
@@ -1228,9 +1229,17 @@ false
 <code>nnz
 </code> is only know after fully computing the matrix. Still, in some cases a large sparse vector is created by concatenating several smaller ones; this function allows doing so directly into the data vector, avoiding a copy in case of memory-mapped disk formats.
 </p>
-<div class="admonition is-warning" id="Warning-10578a76ad417cb3">
+<p>If 
+<code>packed
+</code> is non-
+<code>nothing
+</code>, it overrides the per-daf 
+<code>packed
+</code> default for this single write. Otherwise the per-daf default applies. The flag has no observable effect on backends that do not support packed encoding.
+</p>
+<div class="admonition is-warning" id="Warning-3c80b6d376066b0b">
 <header class="admonition-header">Warning
-<a class="admonition-anchor" href="#Warning-10578a76ad417cb3" title="Permalink">
+<a class="admonition-anchor" href="#Warning-3c80b6d376066b0b" title="Permalink">
 </a>
 </header>
 <div class="admonition-body">
@@ -1238,15 +1247,17 @@ false
 </p>
 <ul>
 <li>
-<code>nzind[1] == 1
+<code>1 &lt;= nzind[1]
 </code>
 </li>
 <li>
-<code>nzind[i] &lt;= nzind[i + 1]
+<code>nzind[i] &lt; nzind[i + 1]
 </code>
 </li>
 <li>
-<code>nzind[end] == nnz
+<code>nzind[end] &lt;=
+</code> the length of the 
+<code>axis
 </code>
 </li>
 </ul>
@@ -1480,7 +1491,7 @@ false
     name::AbstractString,
     eltype::Type{&lt;:StorageReal},
     nnz::StorageInteger,
-    intdype::Maybe{Type{&lt;:StorageInteger}} = nothing;
+    indtype::Maybe{Type{&lt;:StorageInteger}} = nothing;
     [overwrite::Bool = false,
     relayout::Bool = true,
     packed::Maybe{Bool} = nothing]
@@ -1545,9 +1556,9 @@ false
 <code>packed
 </code> default for this single write. Otherwise the per-daf default applies. The flag has no observable effect on backends that do not support packed encoding.
 </p>
-<div class="admonition is-warning" id="Warning-63837c60dd06b2b5">
+<div class="admonition is-warning" id="Warning-7eea97ed2349a8b1">
 <header class="admonition-header">Warning
-<a class="admonition-anchor" href="#Warning-63837c60dd06b2b5" title="Permalink">
+<a class="admonition-anchor" href="#Warning-7eea97ed2349a8b1" title="Permalink">
 </a>
 </header>
 <div class="admonition-body">
@@ -1575,7 +1586,7 @@ false
 </code> and 
 <code>i + 1 &lt; colptr[j + 1]
 </code>, 
-<code>1 &lt;= rowptr[i] &lt; rowptr[i + 1] &lt;= nrows
+<code>1 &lt;= rowval[i] &lt; rowval[i + 1] &lt;= nrows
 </code>
 </li>
 </ul>

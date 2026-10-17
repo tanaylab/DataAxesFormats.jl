@@ -540,8 +540,19 @@ function read_entry_raw_bytes(zip_daf::ZipDaf, key::AbstractString)::Tuple{Abstr
     if mapped_bytes !== nothing
         return (mapped_bytes, Formats.MappedData)
     end
-    decoded_bytes = Vector{UInt8}(zip_daf.store[key])  # NOJET
-    return (decoded_bytes, Formats.MemoryData)
+    return (owned_entry_bytes(zip_daf, key), Formats.MemoryData)
+end
+
+# The bytes of an entry in a new `Vector{UInt8}`. A compressed entry is already decoded into one. A stored entry is
+# copied, since its bytes in the mmap may be misaligned for a typed array.
+function owned_entry_bytes(zip_daf::ZipDaf, key::AbstractString)::Vector{UInt8}
+    entry_bytes = zip_daf.store[key]
+    @assert entry_bytes !== nothing
+    if entry_bytes isa Vector{UInt8}
+        return entry_bytes
+    else
+        return Vector{UInt8}(entry_bytes)
+    end
 end
 
 # Read the contents of a `.txt` / `.nztxt` entry as one `SubString` per line. Mirrors
@@ -559,22 +570,21 @@ function read_entry_lines(
     return (lines, cache_group)
 end
 
-# Wrap an entry's bytes as a `Vector{T}` of length `element_count`. Returns `(view, byte_owner, cache_group)`
-# where `byte_owner` is the backing `Vector{UInt8}` (or `nothing` for zero-copy mmap) — caller keeps it alive.
+# Wrap an entry's bytes as a `Vector{T}` of length `element_count`. Returns `(vector, cache_group)`. The vector keeps
+# its bytes alive.
 function read_entry_typed_vector(
     zip_daf::ZipDaf,
     key::AbstractString,
     ::Type{T},
     element_count::Integer,
-)::Tuple{Vector{T}, Any, Formats.CacheGroup} where {T}
+)::Tuple{Vector{T}, Formats.CacheGroup} where {T}
     mapped_view = try_mmap_entry_as(zip_daf.store, key, T, Int(element_count))
     if mapped_view !== nothing
-        return (mapped_view, nothing, Formats.MappedData)
+        return (mapped_view, Formats.MappedData)
     end
-    decoded_bytes = Vector{UInt8}(zip_daf.store[key])
+    decoded_bytes = owned_entry_bytes(zip_daf, key)
     @assert length(decoded_bytes) == Int(element_count) * sizeof(T)
-    typed_view = unsafe_wrap(Array, Ptr{T}(pointer(decoded_bytes)), Int(element_count); own = false)
-    return (typed_view, decoded_bytes, Formats.MemoryData)
+    return (reinterpreted_array(T, decoded_bytes, Int(element_count)), Formats.MemoryData)
 end
 
 # Same as `read_entry_typed_vector`, but the wrap shape is a `(nrows, ncols)` matrix in the
@@ -585,16 +595,15 @@ function read_entry_typed_matrix(
     ::Type{T},
     nrows::Integer,
     ncols::Integer,
-)::Tuple{Matrix{T}, Any, Formats.CacheGroup} where {T}
+)::Tuple{Matrix{T}, Formats.CacheGroup} where {T}
     matrix_dims = (Int(nrows), Int(ncols))
     mapped_view = try_mmap_entry_as(zip_daf.store, key, T, matrix_dims)
     if mapped_view !== nothing
-        return (mapped_view, nothing, Formats.MappedData)
+        return (mapped_view, Formats.MappedData)
     end
-    decoded_bytes = Vector{UInt8}(zip_daf.store[key])
+    decoded_bytes = owned_entry_bytes(zip_daf, key)
     @assert length(decoded_bytes) == prod(matrix_dims) * sizeof(T)
-    typed_view = unsafe_wrap(Array, Ptr{T}(pointer(decoded_bytes)), matrix_dims; own = false)
-    return (typed_view, decoded_bytes, Formats.MemoryData)
+    return (reinterpreted_array(T, decoded_bytes, matrix_dims), Formats.MemoryData)
 end
 
 @inline function combine_cache_groups(left::Formats.CacheGroup, right::Formats.CacheGroup)::Formats.CacheGroup
@@ -645,7 +654,11 @@ end
 function typed_array_to_bytes(typed::AbstractArray{T})::Vector{UInt8} where {T}
     bytes = Vector{UInt8}(undef, length(typed) * sizeof(T))
     if length(typed) > 0
-        GC.@preserve typed bytes unsafe_copyto!(Ptr{T}(pointer(bytes)), pointer(typed), length(typed))
+        # The `typed` array may be lazy, or a view with gaps, so it may have no usable `pointer`.
+        GC.@preserve bytes begin
+            typed_bytes = unsafe_wrap(Array, Ptr{T}(pointer(bytes)), size(typed); own = false)
+            typed_bytes .= typed
+        end
     end
     return bytes
 end
@@ -696,7 +709,7 @@ function packed_read_typed_vector(
     key::AbstractString,
     ::Type{T},
     n_elements::Integer,
-)::Tuple{Vector{T}, Any, Formats.CacheGroup} where {T}
+)::Tuple{Vector{T}, Formats.CacheGroup} where {T}
     return read_entry_typed_vector(zip_daf, entry_key(zip_daf, key), T, n_elements)
 end
 
@@ -706,7 +719,7 @@ function packed_read_typed_matrix(
     ::Type{T},
     nrows::Integer,
     ncols::Integer,
-)::Tuple{Matrix{T}, Any, Formats.CacheGroup} where {T}
+)::Tuple{Matrix{T}, Formats.CacheGroup} where {T}
     return read_entry_typed_matrix(zip_daf, entry_key(zip_daf, key), T, nrows, ncols)
 end
 
@@ -729,10 +742,7 @@ function packed_reserve_typed_vector!(
 )::Vector{T} where {T <: StorageReal}
     byte_count = Int(n_elements) * sizeof(T)
     raw_view = reserve_mmap_zip_entry!(zip_daf.store, entry_key(zip_daf, key), byte_count)
-    if Int(n_elements) == 0
-        return Vector{T}(undef, 0)  # UNTESTED
-    end
-    return unsafe_wrap(Array, Ptr{T}(pointer(raw_view)), Int(n_elements); own = false)
+    return reinterpreted_array(T, raw_view, Int(n_elements))
 end
 
 function packed_reserve_typed_matrix!(
@@ -745,10 +755,7 @@ function packed_reserve_typed_matrix!(
     matrix_dims = (Int(nrows), Int(ncols))
     byte_count = prod(matrix_dims) * sizeof(T)
     raw_view = reserve_mmap_zip_entry!(zip_daf.store, entry_key(zip_daf, key), byte_count)
-    if prod(matrix_dims) == 0
-        return Matrix{T}(undef, matrix_dims)  # UNTESTED
-    end
-    return unsafe_wrap(Array, Ptr{T}(pointer(raw_view)), matrix_dims; own = false)
+    return reinterpreted_array(T, raw_view, matrix_dims)
 end
 
 # `ZipDaf` finalises a reserved entry by recomputing its CRC32 from the user-written bytes and patching the local +
@@ -1007,7 +1014,7 @@ function Formats.format_get_vector(
     zip_daf::ZipDaf,
     axis::AbstractString,
     name::AbstractString,
-)::Tuple{StorageVector, Any, Formats.CacheGroup}
+)::Tuple{StorageVector, Formats.CacheGroup}
     @assert Formats.has_data_read_lock(zip_daf)
 
     base_key = "vectors/$(axis)/$(name)"
@@ -1022,15 +1029,14 @@ function Formats.format_get_vector(
         eltype = eltype_for_descriptor(eltype_name)
         if is_packed_component(json)
             vector = packed_open_array(zip_daf, "$(base_key).zip", eltype, json, (n_elements,))
-            return (vector, nothing, Formats.MemoryData)
+            return (vector, Formats.MemoryData)
         end
         if eltype_name == "string" || eltype_name == "String"
             vector, cache_group = packed_read_lines(zip_daf, "$(base_key).txt")
             @assert length(vector) == n_elements
-            return (vector, nothing, cache_group)
+            return (vector, cache_group)
         end
-        vector, byte_owner, cache_group = packed_read_typed_vector(zip_daf, "$(base_key).data", eltype, n_elements)
-        return (vector, byte_owner, cache_group)
+        return packed_read_typed_vector(zip_daf, "$(base_key).data", eltype, n_elements)
     end
 
     @assert format == "sparse"
@@ -1038,47 +1044,30 @@ function Formats.format_get_vector(
     ind_type = eltype_for_descriptor(indtype_name)
 
     if eltype_name == "string" || eltype_name == "String"
-        nzind_vector, _, _, _ =
+        nzind_vector, _, _ =
             packed_format_open_sparse_component_eager(zip_daf, base_key, "nzind", ind_type, json, nothing)
         vector = Vector{AbstractString}(undef, n_elements)
         fill!(vector, "")
         vector[nzind_vector] .= packed_format_read_sparse_string_nzval(zip_daf, base_key, json, length(nzind_vector))
-        return (vector, nothing, Formats.MemoryData)
+        return (vector, Formats.MemoryData)
     end
 
+    # A sparse vector is at most one axis long, so even its packed components are read eagerly.
     eltype = eltype_for_descriptor(eltype_name)
-    nzind_descriptor = get(json, "nzind", nothing)
-    is_nzind_packed = is_packed_component(nzind_descriptor)
-    nzval_descriptor = get(json, "nzval", nothing)
     nzval_present = packed_format_has_nzval(zip_daf, base_key, json)
-    is_nzval_packed = is_packed_component(nzval_descriptor)
-
-    if is_nzind_packed || is_nzval_packed
-        nzind_source, _, nnz, _ =
-            packed_format_open_sparse_component_source(zip_daf, base_key, "nzind", ind_type, json, nothing)
-        nzval_source = if nzval_present
-            source, _, _, _ = packed_format_open_sparse_component_source(zip_daf, base_key, "nzval", eltype, json, nnz)
-            source
-        else
-            fill(true, nnz)
-        end
-        vector = LazySparseVector(n_elements, nzind_source, nzval_source)
-        return (vector, nothing, Formats.MemoryData)
-    end
-
-    nzind_vector, nzind_owner, nnz, nzind_cache_group =
+    nzind_vector, nnz, nzind_cache_group =
         packed_format_open_sparse_component_eager(zip_daf, base_key, "nzind", ind_type, json, nothing)
 
     if nzval_present
-        nzval_vector, nzval_owner, _, nzval_cache_group =
+        nzval_vector, _, nzval_cache_group =
             packed_format_open_sparse_component_eager(zip_daf, base_key, "nzval", eltype, json, nnz)
         sparse_vector = SparseVector(n_elements, nzind_vector, nzval_vector)
-        return (sparse_vector, (nzind_owner, nzval_owner), combine_cache_groups(nzind_cache_group, nzval_cache_group))
+        return (sparse_vector, combine_cache_groups(nzind_cache_group, nzval_cache_group))
     end
 
     nzval_vector = fill(true, nnz)
     sparse_vector = SparseVector(n_elements, nzind_vector, nzval_vector)
-    return (sparse_vector, nzind_owner, Formats.MemoryData)
+    return (sparse_vector, Formats.MemoryData)
 end
 
 function Formats.format_vector_metadata(zip_daf::ZipDaf, axis::AbstractString, name::AbstractString)::PropertyMetadata
@@ -1288,7 +1277,7 @@ function Formats.format_get_matrix(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-)::Tuple{StorageMatrix, Any, Formats.CacheGroup}
+)::Tuple{StorageMatrix, Formats.CacheGroup}
     @assert Formats.has_data_read_lock(zip_daf)
 
     nrows = Formats.format_axis_length(zip_daf, rows_axis)
@@ -1304,15 +1293,14 @@ function Formats.format_get_matrix(
         eltype = eltype_for_descriptor(eltype_name)
         if is_packed_component(json)
             matrix = packed_open_array(zip_daf, "$(base_key).zip", eltype, json, (nrows, ncols))
-            return (matrix, nothing, Formats.MemoryData)
+            return (matrix, Formats.MemoryData)
         end
         if eltype_name == "string" || eltype_name == "String"
             flat_lines, cache_group = packed_read_lines(zip_daf, "$(base_key).txt")
             @assert length(flat_lines) == nrows * ncols
-            return (reshape(flat_lines, (nrows, ncols)), nothing, cache_group)
+            return (reshape(flat_lines, (nrows, ncols)), cache_group)
         end
-        matrix, byte_owner, cache_group = packed_read_typed_matrix(zip_daf, "$(base_key).data", eltype, nrows, ncols)
-        return (matrix, byte_owner, cache_group)
+        return packed_read_typed_matrix(zip_daf, "$(base_key).data", eltype, nrows, ncols)
     end
 
     @assert format == "sparse"
@@ -1326,11 +1314,11 @@ function Formats.format_get_matrix(
     is_nzval_packed = is_packed_component(nzval_descriptor)
 
     # `colptr` is always materialised at read time (small; slicing needs random access).
-    colptr_vector, colptr_owner, _, colptr_cache_group =
+    colptr_vector, _, colptr_cache_group =
         packed_format_open_sparse_component_eager(zip_daf, base_key, "colptr", ind_type, json, ncols + 1)
 
     if eltype_name == "string" || eltype_name == "String"
-        rowval_vector, _, nnz, _ =
+        rowval_vector, nnz, _ =
             packed_format_open_sparse_component_eager(zip_daf, base_key, "rowval", ind_type, json, nothing)
         nzval_strings = packed_format_read_sparse_string_nzval(zip_daf, base_key, json, nnz)
         matrix = Matrix{AbstractString}(undef, nrows, ncols)
@@ -1344,39 +1332,39 @@ function Formats.format_get_matrix(
                 position += 1
             end
         end
-        return (matrix, nothing, Formats.MemoryData)
+        return (matrix, Formats.MemoryData)
     end
 
     eltype = eltype_for_descriptor(eltype_name)
 
     if is_rowval_packed || is_nzval_packed
-        rowval_source, _, nnz, _ =
+        rowval_source, nnz, _ =
             packed_format_open_sparse_component_source(zip_daf, base_key, "rowval", ind_type, json, nothing)
         nzval_source = if nzval_present
-            source, _, _, _ = packed_format_open_sparse_component_source(zip_daf, base_key, "nzval", eltype, json, nnz)
+            source, _, _ = packed_format_open_sparse_component_source(zip_daf, base_key, "nzval", eltype, json, nnz)
             source
         else
             fill(true, nnz)
         end
         matrix = LazySparseMatrix(nrows, colptr_vector, rowval_source, nzval_source)
-        return (matrix, nothing, Formats.MemoryData)
+        return (matrix, Formats.MemoryData)
     end
 
-    rowval_vector, rowval_owner, nnz, rowval_cache_group =
+    rowval_vector, nnz, rowval_cache_group =
         packed_format_open_sparse_component_eager(zip_daf, base_key, "rowval", ind_type, json, nothing)
 
     if nzval_present
-        nzval_vector, nzval_owner, _, nzval_cache_group =
+        nzval_vector, _, nzval_cache_group =
             packed_format_open_sparse_component_eager(zip_daf, base_key, "nzval", eltype, json, nnz)
         sparse_matrix = SparseMatrixCSC(nrows, ncols, colptr_vector, rowval_vector, nzval_vector)
         cache_group =
             combine_cache_groups(combine_cache_groups(colptr_cache_group, rowval_cache_group), nzval_cache_group)
-        return (sparse_matrix, (colptr_owner, rowval_owner, nzval_owner), cache_group)
+        return (sparse_matrix, cache_group)
     end
 
     nzval_vector = fill(true, nnz)
     sparse_matrix = SparseMatrixCSC(nrows, ncols, colptr_vector, rowval_vector, nzval_vector)
-    return (sparse_matrix, (colptr_owner, rowval_owner), Formats.MemoryData)
+    return (sparse_matrix, Formats.MemoryData)
 end
 
 function Formats.format_matrix_metadata(

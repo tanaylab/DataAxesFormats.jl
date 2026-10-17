@@ -644,28 +644,16 @@ end
     ZarrDaf(; [name::Maybe{AbstractString} = nothing, packed::Bool = false])::ZarrDaf
 
 In-memory [`ZarrDaf`](@ref) backed by a fresh `Zarr.DictStore`. The data lives in process memory as a
-dictionary of chunk byte buffers, with no filesystem path. Zero-copy reads are served via
-`unsafe_wrap` over the stored `Vector{UInt8}` chunks, so typed array accesses alias the dict's
-buffers without additional allocation. Always writable; wrap in `read_only(daf)` if read-only access
-is required.
+dictionary of chunk byte buffers, with no filesystem path. Reads of flat properties are zero-copy.
+The returned arrays share the stored chunk buffers. These arrays keep their buffers alive, so they
+stay valid after the property is overwritten or deleted. Always writable; wrap in `read_only(daf)`
+if read-only access is required.
 
 Prefer [`MemoryDaf`](@ref DataAxesFormats.MemoryFormat.MemoryDaf) for the common "scratch data set in
-RAM" case: it stores typed arrays directly, so references returned by `get_vector`/`get_matrix`
-remain valid under any subsequent mutation. Reach for this in-memory `ZarrDaf` only when downstream
+RAM" case: it stores typed arrays directly. Reach for this in-memory `ZarrDaf` only when downstream
 code specifically requires a Zarr group (e.g. handing the `root` to a non-`Daf`-aware Zarr
 consumer), or for building a data set in memory before dumping it to a `.daf.zarr` directory or
 `.daf.zarr.zip` archive without re-encoding.
-
-!!! warning
-
-    Zero-copy views from this backend are **not** retained across overwrites. A view obtained from
-    `get_vector(daf, axis, name)` (or `get_matrix`) aliases the `Vector{UInt8}` chunk held by the
-    backing `Zarr.DictStore`. A subsequent `set_vector!(daf, axis, name, ...; overwrite = true)` (or
-    `delete_vector!`, similarly for matrices) calls Zarr's write path, which replaces the dict entry
-    with a fresh `Vector{UInt8}`; the old buffer loses its last strong reference (the daf's cache is
-    invalidated on overwrite) and becomes eligible for GC, so the earlier view may dangle. Do not
-    hold `get_*` results across writes that touch the same property. `MemoryDaf` does not have this
-    hazard because its storage *is* the typed array the caller already holds.
 """
 function ZarrDaf(; name::Maybe{AbstractString} = nothing, packed::Bool = false)::ZarrDaf
     store = Zarr.DictStore()
@@ -1271,7 +1259,7 @@ function try_mmap_vector_chunk(daf::ZarrDaf, array::ZArray{T})::Maybe{Vector{T}}
         if chunk_bytes === nothing
             return nothing
         end
-        return unsafe_wrap(Array, Ptr{T}(pointer(chunk_bytes)), length(array); own = false)
+        return reinterpreted_array(T, chunk_bytes, length(array))
     end
     return nothing  # UNTESTED
 end
@@ -1296,7 +1284,7 @@ function try_mmap_matrix_chunk(daf::ZarrDaf, array::ZArray{T})::Maybe{Matrix{T}}
         if chunk_bytes === nothing
             return nothing
         end
-        return unsafe_wrap(Array, Ptr{T}(pointer(chunk_bytes)), size(array); own = false)
+        return reinterpreted_array(T, chunk_bytes, size(array))
     end
     return nothing  # UNTESTED
 end
@@ -1419,12 +1407,11 @@ function zarr_chunked_array(array::ZArray{T, N})::ChunkedArray{T, N} where {T, N
     return ChunkedArray{T, N}(size(array), Tuple(array.metadata.chunks), read_chunk, pool)
 end
 
-# Whether `array_as_vector` / `array_as_matrix` would return a wrapper that defers reads (chunked / packed-Range
-# / striped-Range) versus an eagerly readable view (mmap or whole-property GET). Used by the sparse read path
-# to decide between `LazySparseVector` / `LazySparseMatrix` and the concrete `SparseVector` / `SparseMatrixCSC`
-# construction. The cases (is_packed, mmap, HTTP, on-disk-chunked-non-packed) are mutually exclusive — a v3 sharded
-# array is never mmap-eligible, an `HTTPStore`-backed array is never mmap-eligible, etc. — so check order is
-# purely cost-driven (cheapest predicate first).
+# Whether `array_as_vector` / `array_as_matrix` would return a wrapper that defers reads (chunked / packed-Range /
+# striped-Range) versus an eagerly readable view (mmap or whole-property GET). Used by the sparse matrix read path to
+# decide between `LazySparseMatrix` and the concrete `SparseMatrixCSC` construction. The cases (is_packed, mmap, HTTP,
+# on-disk-chunked-non-packed) are mutually exclusive — a v3 sharded array is never mmap-eligible, an `HTTPStore`-backed
+# array is never mmap-eligible, etc. — so check order is purely cost-driven (cheapest predicate first).
 function is_lazy_source(array::ZArray{T})::Bool where {T}
     if isempty(array)
         return false  # UNTESTED
@@ -1837,12 +1824,11 @@ function Formats.format_get_vector(
     daf::ZarrDaf,
     axis::AbstractString,
     name::AbstractString,
-)::Tuple{StorageVector, Any, Formats.CacheGroup}
+)::Tuple{StorageVector, Formats.CacheGroup}
     @assert Formats.has_data_read_lock(daf)
     group = axis_vectors_group(daf, axis)
     child = haskey(group.arrays, name) ? group.arrays[name] : group.groups[name]
-    vector, cache_group = property_vector(daf, child, Formats.format_axis_length(daf, axis))
-    return (vector, nothing, cache_group)
+    return property_vector(daf, child, Formats.format_axis_length(daf, axis))
 end
 
 # Read a vector property from its `ZArray` (dense) or `ZGroup` (sparse), for an axis with `nelements` entries. The
@@ -1860,19 +1846,7 @@ function property_vector(
     nzind_array = vector_group.arrays["nzind"]
     nzval_array = get(vector_group.arrays, "nzval", nothing)
 
-    is_nzind_packed = is_lazy_source(nzind_array)
-    is_nzval_packed = nzval_array !== nothing && is_lazy_source(nzval_array)
-    if is_nzind_packed || is_nzval_packed
-        nzind_source, _ = array_as_vector(daf, nzind_array)
-        nzval_source = if nzval_array === nothing
-            fill(true, length(nzind_array))
-        else
-            first(array_as_vector(daf, nzval_array))
-        end
-        vector = LazySparseVector(nelements, nzind_source, nzval_source)
-        return (vector, Formats.MemoryData)
-    end
-
+    # A sparse vector is at most one axis long, so even its packed components are read eagerly.
     nzind_vector, nzind_cache_group = array_as_materialized_vector(daf, nzind_array)
     if nzval_array === nothing
         nzval_vector = fill(true, length(nzind_vector))
@@ -2017,10 +1991,15 @@ function packed_streaming_dense_matrix(
 )::Tuple{PackedDenseMatrix{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal}
     storage = group.storage
     if !(storage isa Zarr.DirectoryStore || storage isa MmapZipStore)
-        # Stores with no incremental sink (e.g. `DictStore`) fall back to per-column chunk files.
+        # Stores with no incremental sink (e.g. `DictStore`) fall back to per-column chunk files. Columns may be written
+        # from several tasks at once, and such a store (e.g. a `Dict`) isn't thread-safe.
         array = numeric_zcreate(T, group, name, (nrows, ncols), (nrows, 1), v3_bytes_codecs_for(compressor_for(), T))
+        array_lock = ReentrantLock()
         encoder = (column::Int, chunk_buffer::Vector{T}) -> begin
-            array[:, column] = chunk_buffer
+            lock(array_lock) do
+                array[:, column] = chunk_buffer
+                return nothing
+            end
             return nothing
         end
         return (PackedDenseMatrix{T}(nrows, ncols, encoder), nothing)
@@ -2256,17 +2235,16 @@ function Formats.format_get_matrix(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-)::Tuple{StorageMatrix, Any, Formats.CacheGroup}
+)::Tuple{StorageMatrix, Formats.CacheGroup}
     @assert Formats.has_data_read_lock(daf)
     group = columns_axis_group(daf, rows_axis, columns_axis)
     child = haskey(group.arrays, name) ? group.arrays[name] : group.groups[name]
-    matrix, cache_group = property_matrix(
+    return property_matrix(
         daf,
         child,
         Formats.format_axis_length(daf, rows_axis),
         Formats.format_axis_length(daf, columns_axis),
     )
-    return (matrix, nothing, cache_group)
 end
 
 # Read a matrix property from its `ZArray` (dense) or `ZGroup` (sparse), for axes with `nrows` and `ncols` entries. The

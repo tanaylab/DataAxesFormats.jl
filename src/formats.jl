@@ -141,9 +141,7 @@ CacheData = Union{
     AbstractSet{<:AbstractString},  # Names
     AbstractVector{<:AbstractString},  # Axis entries
     StorageScalar,  # Scalar
-    # Vector / Matrix bundled with opaque backing kept alive for zero-copy aliasing (nothing for backends that don't
-    # need it).
-    Tuple{NamedArray, Any},
+    NamedArray,  # Vector / Matrix
     AbstractDict{<:AbstractString, <:Integer}, # Axis dictionary
     QueryOperation,  # View query
     Missing,  # View hidden
@@ -618,15 +616,11 @@ function format_vectors_set end
         format::FormatReader,
         axis::AbstractString,
         name::AbstractString,
-    )::Tuple{StorageVector, Any, CacheGroup}
+    )::Tuple{StorageVector, CacheGroup}
 
-Implement fetching the vector property with some `name` for some `axis` in `format`, together with an opaque backing
-object that must be kept alive for as long as the returned vector is used (pass `nothing` if the vector is
-self-contained), and a per-item [`CacheGroup`](@ref) describing how the returned vector should be cached.
-
-The backing slot exists so formats like [`HttpDaf`](@ref DataAxesFormats.HttpFormat.HttpDaf) can surface zero-copy
-`unsafe_wrap`'d vectors alongside the `Vector{UInt8}` buffer they alias; the cache stores the pair as a
-`Tuple{NamedArray, Any}` so the backing stays reachable as long as the vector is cached.
+Implement fetching the vector property with some `name` for some `axis` in `format`, together with a per-item
+[`CacheGroup`](@ref) describing how the returned vector should be cached. The returned vector must keep alive any memory
+it reads from, since the caller may keep it after it was removed from the cache.
 
 This trusts that we have a read lock on the data set, that the `axis` exists in `format`, and the `name` vector property
 exists for the `axis`.
@@ -841,12 +835,11 @@ function format_matrices_set end
         rows_axis::AbstractString,
         columns_axis::AbstractString,
         name::AbstractString
-    )::Tuple{StorageMatrix, Any, CacheGroup}
+    )::Tuple{StorageMatrix, CacheGroup}
 
 Implement fetching the matrix property with some `name` for some `rows_axis` and `columns_axis` in `format`, together
-with an opaque backing object kept alive for the returned matrix's lifetime (pass `nothing` if the matrix is
-self-contained), and a per-item [`CacheGroup`](@ref) describing how the returned matrix should be cached. See
-[`format_get_vector`](@ref) for the backing rationale.
+with a per-item [`CacheGroup`](@ref) describing how the returned matrix should be cached. As in
+[`format_get_vector`](@ref), the returned matrix must keep alive any memory it reads from.
 
 This trusts that we have a read lock on the data set, and that the `rows_axis` and `columns_axis` exist in `format`, and
 the `name` matrix property exists for them.
@@ -1170,12 +1163,11 @@ end
 
 function get_vector_through_cache(format::FormatReader, axis::AbstractString, name::AbstractString)::NamedArray
     cache_key = vector_cache_key(axis, name)
-    entry = get_through_cache(format, cache_key, Tuple{NamedArray, Any}) do
-        vector, backing, cache_group = format_get_vector(format, axis, name)
+    return get_through_cache(format, cache_key, NamedArray) do
+        vector, cache_group = format_get_vector(format, axis, name)
         register_lazy_array!(format, cache_key, vector)
-        return ((as_named_vector(format, axis, read_only_array(vector)), backing), cache_group)
+        return (as_named_vector(format, axis, read_only_array(vector)), cache_group)
     end
-    return entry[1]
 end
 
 function get_matrix_through_cache(
@@ -1185,12 +1177,11 @@ function get_matrix_through_cache(
     name::AbstractString,
 )::NamedArray
     cache_key = matrix_cache_key(rows_axis, columns_axis, name)
-    entry = get_through_cache(format, cache_key, Tuple{NamedArray, Any}) do
-        matrix, backing, cache_group = format_get_matrix(format, rows_axis, columns_axis, name)
+    return get_through_cache(format, cache_key, NamedArray) do
+        matrix, cache_group = format_get_matrix(format, rows_axis, columns_axis, name)
         register_lazy_array!(format, cache_key, matrix)
-        return ((as_named_matrix(format, rows_axis, columns_axis, read_only_array(matrix)), backing), cache_group)
+        return (as_named_matrix(format, rows_axis, columns_axis, read_only_array(matrix)), cache_group)
     end
-    return entry[1]
 end
 
 function get_relayout_matrix_through_cache(
@@ -1204,17 +1195,11 @@ function get_relayout_matrix_through_cache(
     format = format_matrix_cache_format(format, columns_axis, rows_axis, name)
     @assert !format_has_matrix(format, rows_axis, columns_axis, name)
     matrix = get_matrix_through_cache(format, columns_axis, rows_axis, name).array
-    entry = get_slow_through_cache(
-        format,
-        matrix_cache_key(rows_axis, columns_axis, name),
-        Tuple{NamedArray, Any},
-        MemoryData,
-    ) do
+    return get_slow_through_cache(format, matrix_cache_key(rows_axis, columns_axis, name), NamedArray, MemoryData) do
         matrix = flipped(matrix)
         matrix = as_named_matrix(format, rows_axis, columns_axis, read_only_array(matrix))
-        return ((matrix, nothing), nothing)
+        return (matrix, nothing)
     end
-    return entry[1]
 end
 
 function cache_scalar!(
@@ -1237,7 +1222,7 @@ function cache_vector!(
     cache_group::Maybe{CacheGroup},
 )::Nothing
     if cache_group !== nothing
-        set_in_cache!(format, vector_cache_key(axis, name), (vector, nothing), cache_group)
+        set_in_cache!(format, vector_cache_key(axis, name), vector, cache_group)
     end
     return nothing
 end
@@ -1251,7 +1236,7 @@ function cache_matrix!(
     cache_group::Maybe{CacheGroup},
 )::Nothing
     if cache_group !== nothing
-        set_in_cache!(format, matrix_cache_key(rows_axis, columns_axis, name), (matrix, nothing), cache_group)
+        set_in_cache!(format, matrix_cache_key(rows_axis, columns_axis, name), matrix, cache_group)
     end
     return nothing
 end

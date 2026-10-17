@@ -12,22 +12,14 @@ traffic.
 
 Non-JSON payloads (axis entry `.txt` files, per-property `.data` / `.nzind` / `.nzval` / `.colptr` / `.rowval` /
 `.nztxt`) are fetched lazily on first use via one `GET` each. Dense and sparse numeric vectors/matrices are returned
-zero-copy by `unsafe_wrap`'ing the downloaded `Vector{UInt8}` buffer; the buffer is held alive by the same cache entry
-that holds the returned array. The server data is assumed stable while an [`HttpDaf`](@ref) is open; reopening is the
-only way to pick up server-side changes.
+zero-copy over the downloaded `Vector{UInt8}` buffer. The returned arrays keep this buffer alive. The server data is
+assumed stable while an [`HttpDaf`](@ref) is open; reopening is the only way to pick up server-side changes.
 
 Packed (chunked + compressed) properties are served as one `<name>.zip` shard per property (or
 `<name>.<component>.zip` per packed sparse component). Rather than downloading the whole shard, `HttpDaf` issues a
 suffix-Range `GET` to read the shard's ZIP central directory once, then a Range `GET` per needed chunk (adjacent
 chunk ranges are coalesced into a single request), decoding and caching each chunk on demand. The shard layout and
 codec catalogue are documented in [`PackedFormat`](@ref DataAxesFormats.PackedFormat).
-
-!!! warning
-
-    Because returned vectors/matrices alias the cache entry's `Vector{UInt8}` backing, calling
-    [`empty_cache!`](@ref DataAxesFormats.Formats.empty_cache!) releases the memory that those arrays read from. Any
-    vector/matrix reference previously returned by this format becomes dangling after the cache is emptied. Only call
-    `empty_cache!` once you have dropped all references returned by prior queries.
 
 Only a read-only interface is exposed; mutations are not supported.
 """
@@ -244,7 +236,7 @@ function Formats.format_get_vector(
     http::HttpDaf,
     axis::AbstractString,
     name::AbstractString,
-)::Tuple{StorageVector, Any, Formats.CacheGroup}
+)::Tuple{StorageVector, Formats.CacheGroup}
     @assert Formats.has_data_read_lock(http)
     json = http.metadata["vectors/$(axis)/$(name)"]
     @assert json isa AbstractDict
@@ -261,7 +253,7 @@ function Formats.format_get_vector(
             end
             vector = fetch_lines(http, "$(base_key).txt")
             @assert length(vector) == size
-            return (vector, nothing, Formats.MemoryData)
+            return (vector, Formats.MemoryData)
         else
             element_type = DTYPE_BY_NAME[eltype_name]
             @assert element_type !== nothing
@@ -280,30 +272,24 @@ function Formats.format_get_vector(
     nzval_descriptor = get(json, "nzval", nothing)
 
     if eltype_name == "String" || eltype_name == "string"
-        nzind_vector, _ = read_sparse_component_materialized(http, "$(base_key).nzind", ind_type, nzind_descriptor)
+        nzind_vector = read_sparse_component_materialized(http, "$(base_key).nzind", ind_type, nzind_descriptor)
         vector = Vector{AbstractString}(undef, size)
         fill!(vector, "")
         vector[nzind_vector] .= read_sparse_string_nzval(http, base_key, nzval_descriptor)
-        return (vector, nothing, Formats.MemoryData)
+        return (vector, Formats.MemoryData)
     end
 
-    nzind_source, nzind_owner =
-        read_sparse_component_possibly_lazy(http, "$(base_key).nzind", ind_type, nzind_descriptor)
+    # A sparse vector is at most one axis long, so even its packed components are read eagerly.
+    nzind_vector = read_sparse_component_materialized(http, "$(base_key).nzind", ind_type, nzind_descriptor)
     if nzval_descriptor === nothing
-        nzval_source = all_true_nzval_source(length(nzind_source))
-        nzval_owner = nothing
+        nzval_vector = fill(true, length(nzind_vector))
     else
         element_type = DTYPE_BY_NAME[eltype_name]
         @assert element_type !== nothing
-        nzval_source, nzval_owner =
-            read_sparse_component_possibly_lazy(http, "$(base_key).nzval", element_type, nzval_descriptor)
-        @assert length(nzval_source) == length(nzind_source)
+        nzval_vector = read_sparse_component_materialized(http, "$(base_key).nzval", element_type, nzval_descriptor)
+        @assert length(nzval_vector) == length(nzind_vector)
     end
-
-    if nzind_source isa Vector && nzval_source isa Vector
-        return (SparseVector(size, nzind_source, nzval_source), (nzind_owner, nzval_owner), Formats.MemoryData)
-    end
-    return (LazySparseVector(size, nzind_source, nzval_source), (nzind_owner, nzval_owner), Formats.MemoryData)
+    return (SparseVector(size, nzind_vector, nzval_vector), Formats.MemoryData)
 end
 
 function Formats.format_vector_metadata(http::HttpDaf, axis::AbstractString, name::AbstractString)::PropertyMetadata
@@ -319,8 +305,7 @@ function read_sparse_string_nzval(
     nzval_descriptor::Maybe{AbstractDict},
 )::AbstractVector{<:AbstractString}
     if is_packed_component(nzval_descriptor)
-        nzval_strings, _ = read_sparse_component_materialized(http, "$(base_key).nzval", String, nzval_descriptor)
-        return nzval_strings
+        return read_sparse_component_materialized(http, "$(base_key).nzval", String, nzval_descriptor)
     else
         return fetch_lines(http, "$(base_key).nztxt")
     end
@@ -335,15 +320,15 @@ function read_sparse_component_materialized(
     flat_base_path::AbstractString,
     ::Type{T},
     descriptor::AbstractDict,
-)::Tuple{Vector{T}, Vector{UInt8}} where {T}
+)::Vector{T} where {T}
     n_elements = Int(descriptor["n_elements"])
     if is_packed_component(descriptor)
-        array, _, _ = read_packed_dense_vector(http, "$(flat_base_path).zip", T, descriptor, n_elements)
-        return (collect(array), UInt8[])
+        array, _ = read_packed_dense_vector(http, "$(flat_base_path).zip", T, descriptor, n_elements)
+        return collect(array)
     end
     data_bytes = http_get(join_url(http.url, flat_base_path))
     @assert length(data_bytes) == n_elements * sizeof(T)
-    return (bytes_to_vector(data_bytes, T, n_elements), data_bytes)
+    return reinterpreted_array(T, data_bytes, n_elements)
 end
 
 # Synthetic `nzval` source for a Bool sparse matrix where every non-zero is `true` (so the writer skipped
@@ -368,14 +353,14 @@ function read_sparse_component_possibly_lazy(
     flat_base_path::AbstractString,
     ::Type{T},
     descriptor::AbstractDict,
-)::Tuple{AbstractVector{T}, Any} where {T}
+)::AbstractVector{T} where {T}
     n_elements = Int(descriptor["n_elements"])
     if is_packed_component(descriptor)
-        vector, owner, _ = read_packed_dense_vector(http, "$(flat_base_path).zip", T, descriptor, n_elements)
-        return (vector, owner)
+        vector, _ = read_packed_dense_vector(http, "$(flat_base_path).zip", T, descriptor, n_elements)
+        return vector
     end
-    vector, owner, _ = read_flat_dense_numeric_vector(http, flat_base_path, T, n_elements)
-    return (vector, owner)
+    vector, _ = read_flat_dense_numeric_vector(http, flat_base_path, T, n_elements)
+    return vector
 end
 
 function Formats.format_has_matrix(
@@ -402,7 +387,7 @@ function Formats.format_get_matrix(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-)::Tuple{StorageMatrix, Any, Formats.CacheGroup}
+)::Tuple{StorageMatrix, Formats.CacheGroup}
     @assert Formats.has_data_read_lock(http)
     nrows = Formats.format_axis_length(http, rows_axis)
     ncols = Formats.format_axis_length(http, columns_axis)
@@ -421,7 +406,7 @@ function Formats.format_get_matrix(
             end
             flat = fetch_lines(http, "$(base_key).txt")
             @assert length(flat) == nrows * ncols
-            return (reshape(flat, (nrows, ncols)), nothing, Formats.MemoryData)
+            return (reshape(flat, (nrows, ncols)), Formats.MemoryData)
         else
             element_type = DTYPE_BY_NAME[eltype_name]
             @assert element_type !== nothing
@@ -440,12 +425,11 @@ function Formats.format_get_matrix(
     rowval_descriptor = json["rowval"]
     nzval_descriptor = get(json, "nzval", nothing)
 
-    colptr_vector, colptr_owner =
-        read_sparse_component_materialized(http, "$(base_key).colptr", ind_type, colptr_descriptor)
+    colptr_vector = read_sparse_component_materialized(http, "$(base_key).colptr", ind_type, colptr_descriptor)
     @assert length(colptr_vector) == ncols + 1
 
     if eltype_name == "String" || eltype_name == "string"
-        rowval_vector, _ = read_sparse_component_materialized(http, "$(base_key).rowval", ind_type, rowval_descriptor)
+        rowval_vector = read_sparse_component_materialized(http, "$(base_key).rowval", ind_type, rowval_descriptor)
         matrix = Matrix{AbstractString}(undef, nrows, ncols)
         fill!(matrix, "")
         nzval_strings = read_sparse_string_nzval(http, base_key, nzval_descriptor)
@@ -458,34 +442,23 @@ function Formats.format_get_matrix(
                 position += 1
             end
         end
-        return (matrix, nothing, Formats.MemoryData)
+        return (matrix, Formats.MemoryData)
     end
 
-    rowval_source, rowval_owner =
-        read_sparse_component_possibly_lazy(http, "$(base_key).rowval", ind_type, rowval_descriptor)
+    rowval_source = read_sparse_component_possibly_lazy(http, "$(base_key).rowval", ind_type, rowval_descriptor)
     if nzval_descriptor === nothing
         nzval_source = all_true_nzval_source(length(rowval_source))
-        nzval_owner = nothing
     else
         element_type = DTYPE_BY_NAME[eltype_name]
         @assert element_type !== nothing
-        nzval_source, nzval_owner =
-            read_sparse_component_possibly_lazy(http, "$(base_key).nzval", element_type, nzval_descriptor)
+        nzval_source = read_sparse_component_possibly_lazy(http, "$(base_key).nzval", element_type, nzval_descriptor)
         @assert length(nzval_source) == length(rowval_source)
     end
 
     if rowval_source isa Vector && nzval_source isa Vector
-        return (
-            SparseMatrixCSC(nrows, ncols, colptr_vector, rowval_source, nzval_source),
-            (colptr_owner, rowval_owner, nzval_owner),
-            Formats.MemoryData,
-        )
+        return (SparseMatrixCSC(nrows, ncols, colptr_vector, rowval_source, nzval_source), Formats.MemoryData)
     end
-    return (
-        LazySparseMatrix(nrows, colptr_vector, rowval_source, nzval_source),
-        (colptr_owner, rowval_owner, nzval_owner),
-        Formats.MemoryData,
-    )
+    return (LazySparseMatrix(nrows, colptr_vector, rowval_source, nzval_source), Formats.MemoryData)
 end
 
 function Formats.format_matrix_metadata(
@@ -498,11 +471,6 @@ function Formats.format_matrix_metadata(
     return descriptor_metadata(http.metadata["matrices/$(rows_axis)/$(columns_axis)/$(name)"], "rowval", nothing)
 end
 
-function bytes_to_vector(bytes::Vector{UInt8}, ::Type{T}, size::Integer)::Vector{T} where {T}
-    @assert length(bytes) == size * sizeof(T)
-    return unsafe_wrap(Array, Ptr{T}(pointer(bytes)), size; own = false)
-end
-
 # Read a flat (uncompressed, single-allocation) dense numeric vector served over HTTP at `relative_path`. Below
 # the chunk-byte threshold the whole file is fetched via one `GET`; at or above the threshold the result is a
 # lazy `StripedVector` that fetches stripes on demand.
@@ -511,15 +479,15 @@ function read_flat_dense_numeric_vector(
     relative_path::AbstractString,
     ::Type{T},
     n_elements::Int,
-)::Tuple{StorageVector, Any, Formats.CacheGroup} where {T}
+)::Tuple{StorageVector, Formats.CacheGroup} where {T}
     url = join_url(http.url, relative_path)
     chunk_shape = chunks_for(true, (n_elements,), T)
     if chunk_shape === nothing
         data_bytes = http_get(url)
-        vector = bytes_to_vector(data_bytes, T, n_elements)
-        return (vector, data_bytes, Formats.MemoryData)
+        @assert length(data_bytes) == n_elements * sizeof(T)
+        return (reinterpreted_array(T, data_bytes, n_elements), Formats.MemoryData)
     end
-    return (StripedVector(T, n_elements, chunk_shape[1], url_byte_fetcher(url)), nothing, Formats.MemoryData)
+    return (StripedVector(T, n_elements, chunk_shape[1], url_byte_fetcher(url)), Formats.MemoryData)
 end
 
 # Read a packed (ZIP-archive shard) dense numeric vector served over HTTP. The ZIP central directory is
@@ -532,12 +500,12 @@ function read_packed_dense_vector(
     ::Type{T},
     json::AbstractDict,
     n_elements::Int,
-)::Tuple{StorageVector, Any, Formats.CacheGroup} where {T}
+)::Tuple{StorageVector, Formats.CacheGroup} where {T}
     chunk_shape = (Int(json["chunk_shape"][1]),)
     codec = packed_codec_from_descriptor(json)
     url = join_url(http.url, shard_relative_path)
     array = ZipShardArray(T, (n_elements,), chunk_shape, codec, url_byte_fetcher(url), url_suffix_byte_fetcher(url))
-    return (array, nothing, Formats.MemoryData)
+    return (array, Formats.MemoryData)
 end
 
 # Read a flat (column-major contiguous, uncompressed) dense numeric matrix served over HTTP. Below the chunk
@@ -549,15 +517,15 @@ function read_flat_dense_numeric_matrix(
     ::Type{T},
     n_rows::Int,
     n_columns::Int,
-)::Tuple{StorageMatrix, Any, Formats.CacheGroup} where {T}
+)::Tuple{StorageMatrix, Formats.CacheGroup} where {T}
     url = join_url(http.url, relative_path)
     chunk_shape = chunks_for(true, (n_rows, n_columns), T)
     if chunk_shape === nothing
         data_bytes = http_get(url)
-        flat = bytes_to_vector(data_bytes, T, n_rows * n_columns)
-        return (reshape(flat, (n_rows, n_columns)), data_bytes, Formats.MemoryData)
+        @assert length(data_bytes) == n_rows * n_columns * sizeof(T)
+        return (reinterpreted_array(T, data_bytes, (n_rows, n_columns)), Formats.MemoryData)
     end
-    return (StripedMatrix(T, n_rows, n_columns, chunk_shape[1], url_byte_fetcher(url)), nothing, Formats.MemoryData)
+    return (StripedMatrix(T, n_rows, n_columns, chunk_shape[1], url_byte_fetcher(url)), Formats.MemoryData)
 end
 
 # Read a packed (ZIP-archive shard) dense numeric matrix served over HTTP. See `read_packed_dense_vector`
@@ -569,13 +537,13 @@ function read_packed_dense_matrix(
     json::AbstractDict,
     n_rows::Int,
     n_columns::Int,
-)::Tuple{StorageMatrix, Any, Formats.CacheGroup} where {T}
+)::Tuple{StorageMatrix, Formats.CacheGroup} where {T}
     chunk_shape = (Int(json["chunk_shape"][1]), Int(json["chunk_shape"][2]))
     codec = packed_codec_from_descriptor(json)
     url = join_url(http.url, shard_relative_path)
     array =
         ZipShardArray(T, (n_rows, n_columns), chunk_shape, codec, url_byte_fetcher(url), url_suffix_byte_fetcher(url))
-    return (array, nothing, Formats.MemoryData)
+    return (array, Formats.MemoryData)
 end
 
 function Formats.format_description_header(

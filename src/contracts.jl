@@ -1416,7 +1416,7 @@ function Formats.format_get_vector(
     contract_daf::ContractDaf,
     axis::AbstractString,
     name::AbstractString,
-)::Tuple{StorageVector, Any, Maybe{Formats.CacheGroup}}
+)::Tuple{StorageVector, Maybe{Formats.CacheGroup}}
     return Formats.format_get_vector(contract_daf.daf, axis, name)
 end
 
@@ -1569,7 +1569,7 @@ function Formats.format_get_matrix(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-)::Tuple{StorageMatrix, Any, Maybe{Formats.CacheGroup}}
+)::Tuple{StorageMatrix, Maybe{Formats.CacheGroup}}
     return Formats.format_get_matrix(contract_daf.daf, rows_axis, columns_axis, name)
 end
 

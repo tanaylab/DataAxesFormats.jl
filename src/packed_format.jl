@@ -67,7 +67,7 @@ generic ZIP tool which recognises the method decompresses the chunk to its uncom
     placed in the entry's *name* field (binary but NUL-free), the entry data is the raw DEFLATE payload, and the
     8-byte gzip trailer follows as dead bytes. A single contiguous Zarr range from the name start spans a valid gzip
     stream, while the ZIP entry points only at the DEFLATE payload.
-  - **blosc, bitshuffle variants, or any codec with no matching ZIP method** → method `0` (STORED). The entry data
+  - **blosc, or any codec with no matching ZIP method** → method `0` (STORED). The entry data
     is the codec output verbatim, which a generic ZIP tool cannot decode. For these shards a final `codec.json`
     entry (after the last chunk, before the central directory) records the inner codec pipeline as a Zarr v3 codec
     list, so an external tool with a Zarr v3 codec implementation can decode the otherwise-opaque STORED bytes.
@@ -178,41 +178,42 @@ bitshuffle isolates high-zero bytes; for floats with clustered exponents it does
 
 Supported codecs:
 
-| Symbol                             | Zarr backend                                        | HDF5 backend                        | Plug-in needed for non-Julia consumers    |
-|:---------------------------------- |:--------------------------------------------------- |:----------------------------------- |:----------------------------------------- |
-| `:blosc_zstd_bitshuffle` (default) | `BloscCompressor(cname="zstd", shuffle=BITSHUFFLE)` | `H5Zblosc` filter                   | HDF5 readers only                         |
-| `:blosc_lz4_bitshuffle`            | `BloscCompressor(cname="lz4", shuffle=BITSHUFFLE)`  | `H5Zblosc` filter                   | HDF5 readers only                         |
-| `:zstd_bitshuffle`                 | bitshuffle filter + `ZstdCompressor`                | `H5Zbitshuffle` + `H5Zzstd` filters | HDF5 readers; Zarr readers for bitshuffle |
-| `:zstd`                            | `ZstdCompressor`                                    | `H5Zzstd` filter                    | HDF5 readers only                         |
-| `:gzip`                            | `ZlibCompressor`                                    | built-in deflate                    | None                                      |
-| `:gzip_shuffle`                    | `ZlibCompressor` + byte-shuffle filter              | built-in deflate + built-in shuffle | None                                      |
+| Symbol                             | Zarr backend                                 | HDF5 backend                        | Plug-in needed for non-Julia consumers |
+|:---------------------------------- |:-------------------------------------------- |:----------------------------------- |:-------------------------------------- |
+| `:blosc_zstd_bitshuffle` (default) | `blosc` codec (`cname = "zstd"`, bitshuffle) | `H5Zblosc` filter                   | HDF5 readers only                      |
+| `:blosc_lz4_bitshuffle`            | `blosc` codec (`cname = "lz4"`, bitshuffle)  | `H5Zblosc` filter                   | HDF5 readers only                      |
+| `:zstd`                            | `zstd` codec                                 | `H5Zzstd` filter                    | HDF5 readers only                      |
+| `:gzip`                            | `gzip` codec                                 | built-in deflate                    | None                                   |
+| `:gzip_shuffle`                    | `blosc` codec (`cname = "zlib"`, shuffle)    | built-in deflate + built-in shuffle | None                                   |
+
+The Zarr backend is used by [`FilesDaf`](@ref DataAxesFormats.FilesFormat.FilesDaf),
+[`ZipDaf`](@ref DataAxesFormats.ZipFormat.ZipDaf) and [`ZarrDaf`](@ref DataAxesFormats.ZarrFormat.ZarrDaf), which
+store packed properties as Zarr v3 shards. The HDF5 backend is used by [`H5df`](@ref DataAxesFormats.H5dfFormat.H5df).
+Zarr v3 has no standard shuffle codec, so `:gzip_shuffle` uses Blosc there. The values are the same, but the bytes
+differ from the HDF5 backend.
 
 The "plug-in needed" column reflects what a consumer of the produced files needs to add beyond a stock install of their
-HDF5 / Zarr library to be able to read the data. `:gzip` and `:gzip_shuffle` use only HDF5 / Zarr built-in filters and
-require no plug-ins anywhere. All other codecs require the consumer to load filter libraries; the exact recipes per
+HDF5 / Zarr library to be able to read the data. `:gzip` and `:gzip_shuffle` use only HDF5 / Zarr built-in codecs and
+require no plug-ins anywhere. All other codecs require HDF5 consumers to load filter libraries; the exact recipes per
 language are listed below.
 
 **Plug-in installation by codec and language**, for tools that need to read the produced files:
 
-| Codec                                             | Python                                       | R                       |
-|:------------------------------------------------- |:-------------------------------------------- |:----------------------- |
-| `:gzip`, `:gzip_shuffle`                          | none                                         | none                    |
-| `:blosc_zstd_bitshuffle`, `:blosc_lz4_bitshuffle` | `hdf5plugin` for HDF5                        | `rhdf5filters` for HDF5 |
-| `:zstd`                                           | `hdf5plugin` for HDF5                        | `rhdf5filters` for HDF5 |
-| `:zstd_bitshuffle`                                | `hdf5plugin` for HDF5; `bitshuffle` for Zarr | `rhdf5filters` for HDF5 |
+| Codec                                             | Python                | R                       |
+|:------------------------------------------------- |:--------------------- |:----------------------- |
+| `:gzip`, `:gzip_shuffle`                          | none                  | none                    |
+| `:blosc_zstd_bitshuffle`, `:blosc_lz4_bitshuffle` | `hdf5plugin` for HDF5 | `rhdf5filters` for HDF5 |
+| `:zstd`                                           | `hdf5plugin` for HDF5 | `rhdf5filters` for HDF5 |
 
-In Julia, no extra installation step is needed: `DataAxesFormats` declares `H5Zblosc`, `H5Zzstd`,
-and (where available) `H5Zbitshuffle` as direct dependencies and loads them at module init, so
-`using DataAxesFormats` is enough to register all required filters with HDF5.jl's filter registry.
-Zarr.jl already ships with blosc, zstd, and zlib built in; the bitshuffle Zarr filter is registered
-on the same module init when its adapter is available.
+In Julia, no extra installation step is needed: `DataAxesFormats` declares `H5Zblosc` and `H5Zzstd` as direct
+dependencies and loads them at module init, so `using DataAxesFormats` is enough to register all required filters with
+HDF5.jl's filter registry. Zarr.jl already ships with blosc, zstd, and zlib built in.
 
 Install commands for non-Julia consumers:
 
-  - **Python**: `pip install hdf5plugin` (one library covers blosc / zstd / lz4 / bitshuffle for HDF5);
-    `pip install zarr` brings `numcodecs` which already includes blosc, zstd, and zlib; `pip install bitshuffle` adds
-    bitshuffle support for Zarr (`:zstd_bitshuffle`).
-  - **R**: `BiocManager::install("rhdf5filters")` covers blosc, zstd, lz4, and bitshuffle for `rhdf5`.
+  - **Python**: `pip install hdf5plugin` (one library covers blosc / zstd / lz4 for HDF5); `pip install zarr` brings
+    `numcodecs` which already includes blosc, zstd, and zlib.
+  - **R**: `BiocManager::install("rhdf5filters")` covers blosc, zstd, and lz4 for `rhdf5`.
 
 Setting `DAF_PACKED_COMPRESSION` to any value outside the table causes a runtime error listing the supported codecs at
 the first write that needs to resolve the codec.
@@ -385,8 +386,7 @@ end
 
 # The whitelist of supported `DAF_PACKED_COMPRESSION` codec symbols. Updating this requires also updating
 # `valid_compression_level_range` and the per-codec backends.
-const SUPPORTED_COMPRESSION_CODECS =
-    (:blosc_zstd_bitshuffle, :blosc_lz4_bitshuffle, :zstd_bitshuffle, :zstd, :gzip, :gzip_shuffle)
+const SUPPORTED_COMPRESSION_CODECS = (:blosc_zstd_bitshuffle, :blosc_lz4_bitshuffle, :zstd, :gzip, :gzip_shuffle)
 
 # Return the valid range of compression levels for the given supported codec symbol. Each codec family has its own
 # range. Level `0` is excluded for all codecs because picking a packed codec implies you actually want compression
@@ -394,7 +394,7 @@ const SUPPORTED_COMPRESSION_CODECS =
 function valid_compression_level_range(compression::Symbol)::UnitRange{Int}
     if compression == :blosc_zstd_bitshuffle || compression == :blosc_lz4_bitshuffle
         return 1:9
-    elseif compression == :zstd_bitshuffle || compression == :zstd
+    elseif compression == :zstd
         return 1:22
     elseif compression == :gzip || compression == :gzip_shuffle
         return 1:9
@@ -674,41 +674,46 @@ end
 
 # The materialization of a lazy array: a concrete copy, built once on first use and then shared. Concurrent first
 # callers wait for a single build instead of each building their own.
-mutable struct MaterializationCell{T}
-    @atomic value::Union{Nothing, T}
-    const lock::ReentrantLock
+#
+# The `value` is a single-entry `AtomicMemory` rather than an `@atomic` field, since an `@atomic` field declaration
+# stops StaticLint from analyzing the rest of the file.
+struct MaterializationCell{T}  # NOLINT
+    value::AtomicMemory{Union{Nothing, T}}
+    build_lock::ReentrantLock
 end
 
 function MaterializationCell{T}()::MaterializationCell{T} where {T}
-    return MaterializationCell{T}(nothing, ReentrantLock())
+    value = AtomicMemory{Union{Nothing, T}}(undef, 1)
+    @atomic :release value[1] = nothing
+    return MaterializationCell{T}(value, ReentrantLock())
 end
 
 # The materialization if it was already built, or `nothing`. Never builds it, and takes no lock.
 function existing_materialization(cell::MaterializationCell{T})::Maybe{T} where {T}
-    return @atomic :acquire cell.value
+    return @atomic :acquire cell.value[1]
 end
 
 # The materialization, built by `build()` on first use.
 function materialization!(build::Function, cell::MaterializationCell{T})::T where {T}
-    value = @atomic :acquire cell.value
+    value = @atomic :acquire cell.value[1]
     if value !== nothing
         return value
     end
-    return lock(cell.lock) do
-        existing = @atomic :acquire cell.value
+    return lock(cell.build_lock) do
+        existing = @atomic :acquire cell.value[1]
         if existing !== nothing
             return existing
         end
         built = build()::T
-        @atomic :release cell.value = built
+        @atomic :release cell.value[1] = built
         return built
     end
 end
 
 # Drop the materialization, so its memory can be released. The next use builds it again.
 function clear_materialization!(cell::MaterializationCell)::Nothing
-    lock(cell.lock) do
-        @atomic :release cell.value = nothing
+    lock(cell.build_lock) do
+        @atomic :release cell.value[1] = nothing
         return nothing
     end
     return nothing
@@ -738,10 +743,10 @@ function ChunkPool(budget_kb::Function)::ChunkPool
 end
 
 # The chunks of packed properties read from local storage.
-const LOCAL_CHUNK_POOL = ChunkPool(() -> DAF_PACKED_LOCAL_CACHE_KB)
+const LOCAL_CHUNK_POOL = ChunkPool(() -> DAF_PACKED_LOCAL_CACHE_KB)  # NOLINT
 
 # The chunks of properties read over HTTP.
-const HTTP_CHUNK_POOL = ChunkPool(() -> DAF_PACKED_HTTP_CACHE_KB)
+const HTTP_CHUNK_POOL = ChunkPool(() -> DAF_PACKED_HTTP_CACHE_KB)  # NOLINT
 
 const NEXT_CHUNK_SOURCE_ID = Threads.Atomic{Int}(0)
 
@@ -802,7 +807,7 @@ mutable struct ChunkedArray{T, N} <: DiskArrays.AbstractDiskArray{T, N}  # NOLIN
     const materialization_cell::MaterializationCell{Array{T, N}}
     const pooled_chunk_indices::Set{Int}
     const pooled_chunk_indices_lock::ReentrantLock
-    @atomic is_invalidated::Bool
+    const is_invalidated::Threads.Atomic{Bool}
 end
 
 function ChunkedArray{T, N}(
@@ -820,7 +825,7 @@ function ChunkedArray{T, N}(
         MaterializationCell{Array{T, N}}(),
         Set{Int}(),
         ReentrantLock(),
-        false,
+        Threads.Atomic{Bool}(false),
     )
 end
 
@@ -830,7 +835,7 @@ function require_unmodified(::AbstractArray)::Nothing
 end
 
 function require_unmodified(array::ChunkedArray)::Nothing
-    if @atomic :acquire array.is_invalidated
+    if array.is_invalidated[]
         error("the property was modified after this lazy array was read from it")
     end
     return nothing
@@ -841,7 +846,7 @@ function Formats.is_lazy_array(::ChunkedArray)::Bool
 end
 
 function Formats.invalidate_lazy_array!(array::ChunkedArray)::Nothing
-    @atomic :release array.is_invalidated = true
+    array.is_invalidated[] = true
     Formats.purge_lazy_array!(array)
     return nothing
 end
@@ -879,16 +884,16 @@ function cached_materialization!(array::ChunkedArray{T, N})::Array{T, N} where {
     return materialization!(() -> new_materialization(array), array.materialization_cell)
 end
 
-# Without `copy` or a different `eltype`, this is the shared materialization. Otherwise it is a new array owned by the
-# caller: a copy of the materialization if there is one, otherwise a new read that isn't cached.
+# Without `copy` or a different `eltype`, this is a read-only view of the shared materialization. Otherwise it is a new
+# array owned by the caller: a copy of the materialization if there is one, otherwise a new read that isn't cached.
 function TanayLabUtilities.MatrixFormats.densify(
     array::ChunkedArray{T, N};
     copy::Bool = false,
     eltype::Maybe{Type} = nothing,
-)::Array where {T, N}
+)::AbstractArray where {T, N}
     densified_eltype = something(eltype, T)
     if !copy && densified_eltype == T
-        return cached_materialization!(array)
+        return read_only_array(cached_materialization!(array))
     end
     materialization = existing_materialization(array.materialization_cell)
     if materialization === nothing
@@ -900,6 +905,16 @@ end
 
 function TanayLabUtilities.ReadOnlyArrays.mutable_array(array::ChunkedArray)::Array
     return cached_materialization!(array)
+end
+
+# A `ChunkedArray` rejects writes, so it needs no read-only wrapper. Without one, broadcasting, `view` and `similar` see
+# the lazy array itself.
+function TanayLabUtilities.ReadOnlyArrays.read_only_array(array::ChunkedArray)::ChunkedArray
+    return array
+end
+
+function TanayLabUtilities.ReadOnlyArrays.is_read_only_array(::ChunkedArray)::Bool
+    return true
 end
 
 function Base.size(array::ChunkedArray{T, N})::NTuple{N, Int} where {T, N}
@@ -1915,7 +1930,7 @@ end
 const CODEC_JSON_NAME_BYTES = Vector{UInt8}("codec.json")
 
 # Emit a `codec.json` ZIP entry after the last chunk and before the central directory. Used by STORED shards
-# (codecs whose entry data is the codec-encoded bytes — blosc, bitshuffle variants) so that an external tool
+# (codecs whose entry data is the codec-encoded bytes, i.e. blosc) so that an external tool
 # with a Zarr v3 codec implementation can decode the chunks given only the ZIP archive. The entry is a
 # regular STORED ZIP entry; daf's reader never reads it (the codec is recovered from the descriptor). The
 # Zarr shard index ignores it too — it has slots only for the `chunks_per_shard` inner chunks.
@@ -1998,34 +2013,29 @@ function write_central_directory_and_eocd!(writer::IncrementalShardWriter)::Noth
     return nothing
 end
 
+# The `shuffle` values of the Blosc codec.
+const BLOSC_SHUFFLE = 1
+const BLOSC_BITSHUFFLE = 2
+
 # Translate a `PackedCodec` descriptor to the bytes→bytes codec tuple of a v3 codec pipeline. Shared by the
 # `ZarrDaf` and `FilesDaf` packed write/read paths. For non-bits eltypes (e.g. any `AbstractString`),
 # `typesize` is `1` because the in-memory representation has no fixed bit width and isn't meaningful for
-# blosc bitshuffle. `:gzip_shuffle` and `:zstd_bitshuffle` are rejected because Zarr.jl 0.10's v3 codec
-# registry has no standalone shuffle or bitshuffle codec.
+# blosc bitshuffle. Zarr v3 has no standard shuffle codec, so `:gzip_shuffle` is Blosc's `zlib` with byte shuffle.
 function v3_bytes_codecs_for(codec::PackedCodec, ::Type{T})::Tuple where {T}
     compression = codec.compression
     compression_level = codec.compression_level
     typesize = isbitstype(T) ? sizeof(T) : 1
     if compression == :blosc_zstd_bitshuffle
-        return (Zarr.Codecs.V3Codecs.BloscV3Codec("zstd", compression_level, 2, 0, typesize),)
+        return (Zarr.Codecs.V3Codecs.BloscV3Codec("zstd", compression_level, BLOSC_BITSHUFFLE, 0, typesize),)
     elseif compression == :blosc_lz4_bitshuffle
-        return (Zarr.Codecs.V3Codecs.BloscV3Codec("lz4", compression_level, 2, 0, typesize),)
+        return (Zarr.Codecs.V3Codecs.BloscV3Codec("lz4", compression_level, BLOSC_BITSHUFFLE, 0, typesize),)
     elseif compression == :zstd
         return (Zarr.Codecs.V3Codecs.ZstdV3Codec(compression_level),)
     elseif compression == :gzip
         return (Zarr.Codecs.V3Codecs.GzipV3Codec(compression_level),)
-    elseif compression == :gzip_shuffle
-        return error(
-            "packed compression codec :gzip_shuffle is not supported on the v3 sharded backend " *
-            "(Zarr.jl has no v3 standalone shuffle codec); use :gzip or :blosc_zstd_bitshuffle",
-        )
     else
-        @assert compression == :zstd_bitshuffle
-        return error(
-            "packed compression codec :zstd_bitshuffle is not supported on the v3 sharded backend " *
-            "(Zarr.jl has no v3 bitshuffle codec); use :blosc_zstd_bitshuffle (Blosc bundles its own bitshuffle)",
-        )
+        @assert compression == :gzip_shuffle
+        return (Zarr.Codecs.V3Codecs.BloscV3Codec("zlib", compression_level, BLOSC_SHUFFLE, 0, typesize),)
     end
 end
 
@@ -2034,10 +2044,12 @@ end
 # Only the codec instances [`v3_bytes_codecs_for`](@ref) emits are recognised; anything else errors out.
 function packed_codec_from_v3_codec(codec)::PackedCodec
     if codec isa Zarr.Codecs.V3Codecs.BloscV3Codec
-        if codec.cname == "zstd" && codec.shuffle == 2
+        if codec.cname == "zstd" && codec.shuffle == BLOSC_BITSHUFFLE
             return PackedCodec(:blosc_zstd_bitshuffle, codec.clevel)
-        elseif codec.cname == "lz4" && codec.shuffle == 2
+        elseif codec.cname == "lz4" && codec.shuffle == BLOSC_BITSHUFFLE
             return PackedCodec(:blosc_lz4_bitshuffle, codec.clevel)
+        elseif codec.cname == "zlib" && codec.shuffle == BLOSC_SHUFFLE
+            return PackedCodec(:gzip_shuffle, codec.clevel)
         end
     elseif codec isa Zarr.Codecs.V3Codecs.ZstdV3Codec
         return PackedCodec(:zstd, codec.level)
@@ -2378,13 +2390,17 @@ function extract_inner_chunk(
     coord = Tuple(CartesianIndices(chunks_per_shard)[chunk_index])
     starts = ntuple(dim -> (coord[dim] - 1) * inner_chunk_shape[dim] + 1, Val(N))  # NOJET
     stops = ntuple(dim -> min(coord[dim] * inner_chunk_shape[dim], size(data, dim)), Val(N))  # NOJET
-    if all(stops .- starts .+ 1 .== inner_chunk_shape)
-        return view(data, ntuple(dim -> starts[dim]:stops[dim], Val(N))...)
-    else
+    ranges = ntuple(dim -> starts[dim]:stops[dim], Val(N))
+    if !all(stops .- starts .+ 1 .== inner_chunk_shape)
         padded = fill(fill_value, inner_chunk_shape)
         live_view = view(padded, ntuple(dim -> 1:(stops[dim] - starts[dim] + 1), Val(N))...)
-        live_view .= view(data, ntuple(dim -> starts[dim]:stops[dim], Val(N))...)
+        live_view .= view(data, ranges...)
         return padded
+    elseif data isa DiskArrays.AbstractDiskArray
+        # The codecs reshape the chunk, and a reshaped view of a disk array can't be read.
+        return data[ranges...]
+    else
+        return view(data, ranges...)
     end
 end
 
@@ -2486,9 +2502,9 @@ function packed_format_write_dense_array!(
     chunk_shape::NTuple{N, Int},
 )::Nothing where {T, N}
     codec = compressor_for()
+    encoded = encode_packed_dense_array(data, chunk_shape, v3_bytes_codecs_for(codec, T))
     json_bytes = packed_array_json_bytes(T, chunk_shape, codec)
     packed_write_bytes!(daf, "$(base_key).json", json_bytes)
-    encoded = encode_packed_dense_array(data, chunk_shape, v3_bytes_codecs_for(codec, T))
     packed_write_bytes!(daf, "$(base_key).zip", encoded)
     packed_register_metadata!(daf, base_key, json_bytes)
     return nothing
@@ -2538,7 +2554,7 @@ function packed_format_read_sparse_string_nzval(
     n_nonempty::Integer,
 )::AbstractVector{<:AbstractString}
     if is_packed_component(get(json, "nzval", nothing))
-        nzval_strings, _, _, _ =
+        nzval_strings, _, _ =
             packed_format_open_sparse_component_eager(daf, base_key, "nzval", String, json, n_nonempty)
         return nzval_strings
     else
@@ -2769,16 +2785,15 @@ function packed_make_streaming_shard_writer(  # UNTESTED
     return error("packed_make_streaming_shard_writer not implemented for $(typeof(daf))")
 end
 
-# Read a numeric `Vector{T}` from the entry at the logical key. Returns `(vector, byte_owner, cache_group)` where
-# `byte_owner` is whatever object backs `vector`'s storage and must outlive it (`nothing` for the zero-copy mmap path).
-# `FilesDaf` mmap-loads from a file; `ZipDaf` mmap-loads when the entry is uncompressed and aligned, otherwise decodes
-# into a fresh `Vector{UInt8}` and wraps it as a typed view.
+# Read a numeric `Vector{T}` from the entry at the logical key. Returns `(vector, cache_group)`. The `vector` keeps its
+# memory alive. `FilesDaf` mmap-loads from a file; `ZipDaf` mmap-loads when the entry is uncompressed and aligned,
+# otherwise decodes into a fresh `Vector{UInt8}` and wraps it as a typed view.
 function packed_read_typed_vector(  # UNTESTED
     daf::PackedDaf,
     ::AbstractString,
     ::Type{T},
     ::Integer,
-)::Tuple{Vector{T}, Any, Formats.CacheGroup} where {T}
+)::Tuple{Vector{T}, Formats.CacheGroup} where {T}
     return error("packed_read_typed_vector not implemented for $(typeof(daf))")
 end
 
@@ -2790,7 +2805,7 @@ function packed_read_typed_matrix(  # UNTESTED
     ::Type{T},
     ::Integer,
     ::Integer,
-)::Tuple{Matrix{T}, Any, Formats.CacheGroup} where {T}
+)::Tuple{Matrix{T}, Formats.CacheGroup} where {T}
     return error("packed_read_typed_matrix not implemented for $(typeof(daf))")
 end
 
@@ -2835,7 +2850,7 @@ end
 # Open one sparse-property component as an eager `Vector{T}` — flat (mmap- or memory-backed via
 # [`packed_read_typed_vector`](@ref)) or packed (decoded once via [`packed_open_array`](@ref)). Resolves the
 # component descriptor (v1.1 nested per-component dict) or synthesizes one from the v1.0 top-level `eltype` /
-# `indtype`. Returns `(vector, byte_owner, n_elements, cache_group)`.
+# `indtype`. Returns `(vector, n_elements, cache_group)`.
 function packed_format_open_sparse_component_eager(
     daf::PackedDaf,
     base_key::AbstractString,
@@ -2843,7 +2858,7 @@ function packed_format_open_sparse_component_eager(
     ::Type{T},
     descriptor_json::AbstractDict,
     n_elements_known::Maybe{Int},
-)::Tuple{Vector{T}, Any, Int, Formats.CacheGroup} where {T}
+)::Tuple{Vector{T}, Int, Formats.CacheGroup} where {T}
     descriptor = component_descriptor_for(descriptor_json, component)
     flat_key = "$(base_key).$(component)"
     is_packed = is_packed_component(descriptor)
@@ -2856,10 +2871,10 @@ function packed_format_open_sparse_component_eager(
     end
     if is_packed
         zarray = packed_open_array(daf, "$(flat_key).zip", T, descriptor, (n_elements,))
-        return (zarray[:], nothing, n_elements, Formats.MemoryData)
+        return (zarray[:], n_elements, Formats.MemoryData)
     end
-    vector, byte_owner, cache_group = packed_read_typed_vector(daf, flat_key, T, n_elements)
-    return (vector, byte_owner, n_elements, cache_group)
+    vector, cache_group = packed_read_typed_vector(daf, flat_key, T, n_elements)
+    return (vector, n_elements, cache_group)
 end
 
 # Whether a descriptor (a top-level dense descriptor, or a v1.1 sparse-component dict) describes a packed
@@ -2927,7 +2942,7 @@ end
 # for packed components (chunks decode on demand), or a flat-backed `Vector{T}` (mmap or memory) for unpacked
 # components. Used by the lazy sparse-read path: the caller wraps the resulting sources in a
 # [`LazySparse.LazySparseMatrix`](@ref) and defers materialisation until a consumer asks for one of the
-# `SparseArrays` accessors. Returns `(source, byte_owner, n_elements, cache_group)`.
+# `SparseArrays` accessors. Returns `(source, n_elements, cache_group)`.
 function packed_format_open_sparse_component_source(
     daf::PackedDaf,
     base_key::AbstractString,
@@ -2935,7 +2950,7 @@ function packed_format_open_sparse_component_source(
     ::Type{T},
     descriptor_json::AbstractDict,
     n_elements_known::Maybe{Int},
-)::Tuple{AbstractVector{T}, Any, Int, Formats.CacheGroup} where {T}
+)::Tuple{AbstractVector{T}, Int, Formats.CacheGroup} where {T}
     descriptor = component_descriptor_for(descriptor_json, component)
     flat_key = "$(base_key).$(component)"
     is_packed = is_packed_component(descriptor)
@@ -2948,10 +2963,10 @@ function packed_format_open_sparse_component_source(
     end
     if is_packed
         zarray = packed_open_array(daf, "$(flat_key).zip", T, descriptor, (n_elements,))
-        return (zarray, nothing, n_elements, Formats.MemoryData)
+        return (zarray, n_elements, Formats.MemoryData)
     end
-    vector, byte_owner, cache_group = packed_read_typed_vector(daf, flat_key, T, n_elements)
-    return (vector, byte_owner, n_elements, cache_group)
+    vector, cache_group = packed_read_typed_vector(daf, flat_key, T, n_elements)
+    return (vector, n_elements, cache_group)
 end
 
 # Resolve a per-component descriptor: prefer the v1.1 nested dict (`json[component]`), otherwise synthesize a flat one

@@ -1,27 +1,19 @@
 """
-Lazy slice-then-materialize wrappers around sparse properties whose components are chunked sources.
+A lazy wrapper around a sparse matrix whose components are chunked sources.
 
-A [`LazySparseMatrix`](@ref) holds the `colptr` of a sparse matrix in memory plus the `rowval` and `nzval` as
-lazy sources — packed on disk (`Zarr.ZArray`, `HDF5.Dataset`, FilesDaf shard) or chunked over HTTP
-(`ChunkedArray`) — so a packed sparse property opened from disk does not pay the decompression cost up
-front. A [`LazySparseVector`](@ref) is the 1-D counterpart, holding `nzind` and `nzval` as the same kind of
-lazy sources. Slicing either wrapper accumulates [`SparseSelection`](@ref)s without touching the chunked
-storage; materialisation runs only when downstream code asks for concrete `rowval` / `nzval` / `nzind` data,
-and only on the selected slice.
+A [`LazySparseMatrix`](@ref) holds the `colptr` of a sparse matrix in memory, and the `rowval` and `nzval` as lazy
+sources (packed on disk, or chunked over HTTP). Reading a subset of its columns reads only those columns. Any other
+access reads the whole matrix once.
+
+Sparse vectors are at most one axis long, so the formats always read them eagerly.
 """
 module LazySparse
 
-export AllOf
-export IndicesOf
 export LazySparseMatrix
-export LazySparseVector
-export MaskOf
-export RangeOf
-export SparseSelection
 
+using DiskArrays
 using SparseArrays
 using TanayLabUtilities
-using Zarr
 
 import ..Formats
 import ..PackedFormat.clear_materialization!
@@ -30,511 +22,278 @@ import ..PackedFormat.materialization!
 import ..PackedFormat.MaterializationCell
 import ..PackedFormat.require_unmodified
 import SparseArrays.AbstractSparseMatrixCSC  # NOLINT
-import SparseArrays.AbstractSparseVector  # NOLINT
-
-"""
-    abstract type SparseSelection end
-
-The kind of slice exposed through a [`LazySparseMatrix`](@ref) along one of the original sparse matrix axes. Concrete
-subtypes:
-
-  - [`AllOf`](@ref) — every entry of the original axis.
-  - [`RangeOf`](@ref) — a contiguous range of original indices.
-  - [`IndicesOf`](@ref) — an explicit ordered vector of original indices.
-  - [`MaskOf`](@ref) — entries selected by a boolean mask.
-
-Each subtype implements [`Base.length`](https://docs.julialang.org/en/v1/base/collections/#Base.length).
-"""
-abstract type SparseSelection end
-
-"""
-    struct AllOf <: SparseSelection
-        n_entries::Int
-    end
-
-A [`SparseSelection`](@ref) that exposes every entry of the original axis (the axis has `n_entries` entries).
-"""
-struct AllOf <: SparseSelection
-    n_entries::Int
-end
-
-function Base.length(selection::AllOf)::Int
-    return selection.n_entries
-end
-
-"""
-    struct RangeOf <: SparseSelection
-        range::UnitRange{Int}
-    end
-
-A [`SparseSelection`](@ref) that exposes a contiguous range of entries from the original axis.
-"""
-struct RangeOf <: SparseSelection
-    range::UnitRange{Int}
-end
-
-function Base.length(selection::RangeOf)::Int
-    return length(selection.range)
-end
-
-"""
-    struct IndicesOf <: SparseSelection
-        indices::Vector{Int}
-    end
-
-A [`SparseSelection`](@ref) that exposes an explicit ordered vector of original-axis indices.
-"""
-struct IndicesOf <: SparseSelection
-    indices::Vector{Int}
-end
-
-function Base.length(selection::IndicesOf)::Int
-    return length(selection.indices)
-end
-
-"""
-    struct MaskOf <: SparseSelection
-        mask::BitVector
-    end
-
-A [`SparseSelection`](@ref) that exposes the entries selected by a boolean mask over the original axis.
-"""
-struct MaskOf <: SparseSelection
-    mask::BitVector
-end
-
-function Base.length(selection::MaskOf)::Int
-    return count(selection.mask)
-end
 
 """
     mutable struct LazySparseMatrix{Tv, Ti <: Integer} <: AbstractSparseMatrixCSC{Tv, Ti}
-        full_n_rows::Int
-        full_n_columns::Int
-        full_colptr::Vector{Ti}
+        n_rows::Int
+        colptr::Vector{Ti}
         rowval_source::AbstractVector{Ti}
         nzval_source::AbstractVector{Tv}
-        row_select::SparseSelection
-        column_select::SparseSelection
         materialization_cell::MaterializationCell{SparseMatrixCSC{Tv, Ti}}
     end
 
 Lazy [`AbstractSparseMatrixCSC{Tv, Ti}`](https://docs.julialang.org/en/v1/stdlib/SparseArrays/#SparseArrays.AbstractSparseMatrixCSC)
-over packed `rowval` / `nzval` sources.
+over the `rowval` / `nzval` sources of a stored sparse matrix.
 
-Holds the original `colptr` in memory (small — `sizeof(Ti) × (full_n_columns + 1)` bytes) and the `rowval` / `nzval` as
-one-dimensional indexable sources (typically a chunked source that decodes one chunk at a time, with `Vector{T}`
-accepted for flat mmap'd components in mixed flat/packed properties) that decompress per-chunk on access. `row_select`
-and `column_select` describe the slice of the original axes exposed through this wrapper. Materialisation copies the
-selected slice into a plain
-[`SparseMatrixCSC`](https://docs.julialang.org/en/v1/stdlib/SparseArrays/#SparseArrays.SparseMatrixCSC) the first time
-it is required and caches it in `materialization_cell` for subsequent use. Concurrent first readers wait for a single
-materialization.
+It holds the `colptr` in memory (one entry per column). The `rowval` and `nzval` sources decode their data on demand,
+one chunk at a time. A source may also be a plain `Vector`, for a flat component of a property whose other component is
+packed.
 
-The `full_n_rows` / `full_n_columns` / `full_colptr` fields describe the original (unsliced) matrix. The corresponding
-`AbstractSparseMatrixCSC` accessors (`size`, `SparseArrays.getcolptr`) report the *sliced* shape — `getcolptr` triggers
-materialisation so it can return the per-slice colptr. Use the `full_*` fields when internal Daf code needs the
-original layout without materialising.
+Reading a subset of the columns reads only those columns. This covers `lazy[:, columns]`, `lazy[rows, columns]`,
+`lazy[:, column]`, `lazy[rows, column]`, and a `view` of any of these. It returns a new `SparseMatrixCSC` (or
+`SparseVector`) owned by the caller, which is not cached.
 
-# Materialisation triggers
+Any other access reads the whole matrix once into a `SparseMatrixCSC`. This is cached in `materialization_cell`, and is
+shared by all later readers. This includes scalar access, row access, and any generic `AbstractSparseMatrixCSC`
+operation (arithmetic, broadcasting, `Matrix(lazy)`, ...). The generic operations reach the data through `rowvals` /
+`nonzeros`, which return read-only views of the materialization. So code that loops over many elements pays for one full
+read, then runs at the speed of a plain sparse matrix. Code that loops over elements should still prefer walking the
+columns of the `SparseMatrixCSC`.
 
-The following operations materialise the current slice into the cached matrix on first call (and reuse
-the cache on subsequent calls):
-
-  - `SparseArrays.rowvals` / `SparseArrays.nonzeros` / `SparseArrays.getcolptr` / `SparseArrays.nnz`. These return
-    read-only views of the cached matrix.
-  - `convert(SparseMatrixCSC{Tv, Ti}, lazy)`, which returns the cached matrix itself.
-  - Any generic `AbstractSparseMatrixCSC` / `AbstractMatrix` algorithm that calls those primitives (e.g.
-    `Matrix(lazy)`, multiplication, the `LinearAlgebra` operations).
-
-`SparseMatrixCSC(lazy)` and `copy(lazy)` return a new matrix owned by the caller: a copy of the cached matrix if there
-is one, otherwise a new materialization that is not cached.
-
-The following operations do **not** materialise:
-
-  - `Base.size`, `Base.eltype`, `Base.length`.
-  - The four slicing forms `lazy[:, range]` / `lazy[range, :]` / `lazy[:, indices]` / `lazy[mask, :]` (each rebinds
-    selections and clears the cache, returning a fresh wrapper).
-  - `Base.getindex(lazy, ::Int, ::Int)` — the only access form that decompresses on the fly without populating the
-    cache: each call reads the column's `rowval` chunk and one element of `nzval`. Repeated calls on the same column
-    reuse the decoded chunks kept in the pool of the packed sources (see
-    [`DAF_PACKED_LOCAL_CACHE_KB`](@ref DataAxesFormats.PackedFormat.DAF_PACKED_LOCAL_CACHE_KB)).
+`convert(SparseMatrixCSC, lazy)` and `mutable_array(lazy)` return the shared materialization itself.
+`SparseMatrixCSC(lazy)` and `copy(lazy)` return a new matrix owned by the caller.
 
 User code obtains a `LazySparseMatrix` only as the result of reading a sparse property whose `rowval` / `nzval`
-components are lazy sources — packed on disk, or chunked over HTTP — through
-[`DataAxesFormats.Formats.format_get_matrix`](@ref); construction lives behind the read paths and is not part of the
-public API.
+components are lazy sources, through [`DataAxesFormats.Formats.format_get_matrix`](@ref). Construction lives behind the
+read paths and is not part of the public API.
 """
 mutable struct LazySparseMatrix{Tv, Ti <: Integer} <: AbstractSparseMatrixCSC{Tv, Ti}
-    full_n_rows::Int
-    full_n_columns::Int
-    full_colptr::Vector{Ti}
+    n_rows::Int
+    colptr::Vector{Ti}
     rowval_source::AbstractVector{Ti}
     nzval_source::AbstractVector{Tv}
-    row_select::SparseSelection
-    column_select::SparseSelection
     materialization_cell::MaterializationCell{SparseMatrixCSC{Tv, Ti}}
 end
 
-# Construct a `LazySparseMatrix` exposing the full original matrix, with both selections set to `AllOf`. The
-# `full_colptr` vector is taken by reference; callers that intend to share it should `copy` first. `n_rows` is the
-# original row count; `length(full_colptr) - 1` is the original column count.
+# The `colptr` is taken by reference; callers that intend to share it should `copy` first.
 function LazySparseMatrix(
     n_rows::Integer,
-    full_colptr::Vector{Ti},
+    colptr::Vector{Ti},
     rowval_source::AbstractVector{Ti},
     nzval_source::AbstractVector{Tv},
 )::LazySparseMatrix{Tv, Ti} where {Tv, Ti <: Integer}
     @assert length(rowval_source) == length(nzval_source)
-    full_n_rows = Int(n_rows)
-    full_n_columns = length(full_colptr) - 1
     return LazySparseMatrix{Tv, Ti}(
-        full_n_rows,
-        full_n_columns,
-        full_colptr,
+        Int(n_rows),
+        colptr,
         rowval_source,
         nzval_source,
-        AllOf(full_n_rows),
-        AllOf(full_n_columns),
         MaterializationCell{SparseMatrixCSC{Tv, Ti}}(),
     )
 end
 
 function Base.size(matrix::LazySparseMatrix)::Tuple{Int, Int}
-    return (length(matrix.row_select), length(matrix.column_select))
+    return (matrix.n_rows, length(matrix.colptr) - 1)
 end
 
-# Compose `new` (a selection of the slice that `existing` exposes) with `existing` (a selection of the original axis),
-# producing a [`SparseSelection`](@ref) over the original axis that picks the same entries `new` picks over the
-# existing slice. An `AllOf` on either side collapses; `RangeOf ∘ RangeOf` stays a `RangeOf`; `MaskOf ∘ MaskOf` stays
-# a `MaskOf` (the original axis length is `length(existing.mask)`); every other combination falls back to `IndicesOf`.
-function compose(::AllOf, existing::SparseSelection)::SparseSelection
-    return existing
+# The whole matrix, cached in `matrix.materialization_cell` and shared by all its callers. The first call builds it with
+# [`new_materialization`](@ref); later calls return it without reading the sources again.
+function cached_materialization!(matrix::LazySparseMatrix{Tv, Ti})::SparseMatrixCSC{Tv, Ti} where {Tv, Ti}
+    require_unmodified(matrix)
+    return materialization!(() -> new_materialization(matrix), matrix.materialization_cell)
 end
 
-function compose(new::SparseSelection, ::AllOf)::SparseSelection
-    return new
+# A new `SparseMatrixCSC` of the whole matrix, owned by the caller; nothing is cached.
+function new_materialization(matrix::LazySparseMatrix{Tv, Ti})::SparseMatrixCSC{Tv, Ti} where {Tv, Ti}
+    return read_columns(matrix, 1:size(matrix, 2))
 end
 
-# Resolve the `compose(::AllOf, ::AllOf)` method ambiguity in favour of returning `new` (semantically equivalent to
-# returning `existing` because both are `AllOf` over the same axis).
-function compose(new::AllOf, ::AllOf)::SparseSelection
-    return new
+# Whether the whole matrix was already read and cached.
+function is_materialized(matrix::LazySparseMatrix)::Bool
+    return existing_materialization(matrix.materialization_cell) !== nothing
 end
 
-function compose(new::RangeOf, existing::RangeOf)::RangeOf
-    @assert checkbounds(Bool, existing.range, new.range)
-    return RangeOf(existing.range[new.range])
-end
-
-function compose(new::RangeOf, existing::IndicesOf)::IndicesOf
-    @assert checkbounds(Bool, existing.indices, new.range)
-    return IndicesOf(existing.indices[new.range])
-end
-
-function compose(new::RangeOf, existing::MaskOf)::IndicesOf
-    selected_originals = findall(existing.mask)
-    @assert checkbounds(Bool, selected_originals, new.range)
-    return IndicesOf(selected_originals[new.range])
-end
-
-function compose(new::IndicesOf, existing::RangeOf)::IndicesOf
-    @assert checkbounds(Bool, existing.range, new.indices)
-    return IndicesOf(collect(Int, existing.range[new.indices]))
-end
-
-function compose(new::IndicesOf, existing::IndicesOf)::IndicesOf
-    @assert checkbounds(Bool, existing.indices, new.indices)
-    return IndicesOf(existing.indices[new.indices])
-end
-
-function compose(new::IndicesOf, existing::MaskOf)::IndicesOf
-    selected_originals = findall(existing.mask)
-    @assert checkbounds(Bool, selected_originals, new.indices)
-    return IndicesOf(selected_originals[new.indices])
-end
-
-function compose(new::MaskOf, existing::RangeOf)::IndicesOf
-    @assert length(new.mask) == length(existing.range)
-    return IndicesOf([existing.range[i] for i in eachindex(new.mask) if new.mask[i]])
-end
-
-function compose(new::MaskOf, existing::IndicesOf)::IndicesOf
-    @assert length(new.mask) == length(existing.indices)
-    return IndicesOf(existing.indices[new.mask])
-end
-
-# `MaskOf ∘ MaskOf` stays a `MaskOf` over the original axis: each true bit in `existing.mask` is enabled by the
-# corresponding bit of `new.mask` (in 1..count(existing.mask) order), disabled otherwise.
-function compose(new::MaskOf, existing::MaskOf)::MaskOf
-    @assert length(new.mask) == count(existing.mask)
-    composed_mask = falses(length(existing.mask))
-    new_position = 0
-    for original_position in eachindex(existing.mask)
-        if existing.mask[original_position]
-            new_position += 1
-            if new.mask[new_position]
-                composed_mask[original_position] = true
-            end
-        end
+# A new `SparseMatrixCSC` of all the rows of some columns, owned by the caller; nothing is cached. Reads only these
+# columns' ranges of the sources, with one read per run of consecutive columns.
+function read_columns(
+    matrix::LazySparseMatrix{Tv, Ti},
+    column_indices::AbstractVector{<:Integer},
+)::SparseMatrixCSC{Tv, Ti} where {Tv, Ti}
+    n_columns = length(column_indices)
+    colptr = Vector{Ti}(undef, n_columns + 1)
+    colptr[1] = 1
+    for (position, column_index) in enumerate(column_indices)
+        colptr[position + 1] = colptr[position] + matrix.colptr[column_index + 1] - matrix.colptr[column_index]
     end
-    return MaskOf(composed_mask)
+
+    n_stored = Int(colptr[end]) - 1
+    rowval = Vector{Ti}(undef, n_stored)
+    nzval = Vector{Tv}(undef, n_stored)
+    first_position = 1
+    while first_position <= n_columns
+        last_position = first_position
+        while last_position < n_columns && column_indices[last_position + 1] == column_indices[last_position] + 1
+            last_position += 1
+        end
+        source_range =
+            Int(
+                matrix.colptr[column_indices[first_position]],
+            ):(Int(matrix.colptr[column_indices[last_position] + 1]) - 1)
+        if !isempty(source_range)
+            destination_range = Int(colptr[first_position]):(Int(colptr[last_position + 1]) - 1)
+            read_source_range!(view(rowval, destination_range), matrix.rowval_source, source_range)
+            read_source_range!(view(nzval, destination_range), matrix.nzval_source, source_range)
+        end
+        first_position = last_position + 1
+    end
+
+    return SparseMatrixCSC{Tv, Ti}(matrix.n_rows, n_columns, colptr, rowval, nzval)
 end
 
-# Fresh `LazySparseMatrix` with new selections and the rest of the fields shared by reference. It gets its own empty
-# `materialization_cell` because the cached `SparseMatrixCSC` is keyed to the prior selections.
-function with_selections(
+# Copy a `range` of a component source into `destination`. A chunked source decodes straight into it.
+function read_source_range!(
+    destination::AbstractVector,
+    source::DiskArrays.AbstractDiskArray,
+    range::UnitRange{Int},
+)::Nothing
+    DiskArrays.readblock!(source, destination, range)
+    return nothing
+end
+
+function read_source_range!(destination::AbstractVector, source::AbstractVector, range::UnitRange{Int})::Nothing
+    copyto!(destination, view(source, range))
+    return nothing
+end
+
+# Whether a row indexer selects every row, in order. A `NamedArray` passes `:` to its parent as `collect(1:n_rows)`.
+function is_all_rows(rows::AbstractVector{Bool}, n_rows::Int)::Bool
+    return length(rows) == n_rows && all(rows)
+end
+
+function is_all_rows(rows::AbstractVector{<:Integer}, n_rows::Int)::Bool
+    return length(rows) == n_rows && all(position -> rows[position] == position, 1:n_rows)
+end
+
+# Some rows of some columns, as a new `SparseMatrixCSC` owned by the caller. Reads only these columns.
+function read_rows_of_columns(
     matrix::LazySparseMatrix{Tv, Ti},
-    row_select::SparseSelection,
-    column_select::SparseSelection,
-)::LazySparseMatrix{Tv, Ti} where {Tv, Ti}
-    return LazySparseMatrix{Tv, Ti}(
-        matrix.full_n_rows,
-        matrix.full_n_columns,
-        matrix.full_colptr,
-        matrix.rowval_source,
-        matrix.nzval_source,
-        row_select,
-        column_select,
-        MaterializationCell{SparseMatrixCSC{Tv, Ti}}(),
-    )
+    rows::Union{Colon, AbstractVector},
+    columns::AbstractVector,
+)::SparseMatrixCSC{Tv, Ti} where {Tv, Ti}
+    require_unmodified(matrix)
+    cached = existing_materialization(matrix.materialization_cell)
+    if cached !== nothing
+        return cached[rows, columns]
+    end
+    column_indices = columns isa AbstractVector{Bool} ? findall(columns) : columns
+    columns_subset = read_columns(matrix, column_indices)
+    if rows isa Colon || is_all_rows(rows, matrix.n_rows)
+        return columns_subset
+    else
+        return columns_subset[rows, :]
+    end
 end
 
-# Translate one axis indexer into a [`SparseSelection`](@ref) over the parent axis the wrapper currently exposes
-# (`length(parent_select)` entries). The `BitVector` / `AbstractVector{Bool}` overloads come before the
-# `AbstractVector{<:Integer}` one because `Bool <: Integer`. `Colon` has no overload here — the slicing methods
-# below short-circuit on `Colon` and reuse `matrix.row_select` / `matrix.column_select` directly.
-function selection_from_indexer(indexer::AbstractUnitRange{<:Integer})::RangeOf
-    return RangeOf(Int(first(indexer)):Int(last(indexer)))
-end
-
-function selection_from_indexer(indexer::BitVector)::MaskOf
-    return MaskOf(indexer)
-end
-
-function selection_from_indexer(indexer::AbstractVector{Bool})::MaskOf
-    return MaskOf(BitVector(indexer))  # NOJET
-end
-
-function selection_from_indexer(indexer::AbstractVector{<:Integer})::IndicesOf
-    return IndicesOf(Vector{Int}(indexer))
-end
-
-# Slicing through a `LazySparseMatrix` rebinds row / column selections without touching the chunked sources. Each
-# axis accepts `Colon`, `AbstractUnitRange{<:Integer}`, `AbstractVector{<:Integer}`, and `AbstractVector{Bool}`
-# (including `BitVector`). Four explicit two-argument methods cover the `Colon` / non-`Colon` combinations to
-# disambiguate against `SparseArrays`'s `getindex(::AbstractSparseMatrixCSC, ::Colon, i)` /
-# `getindex(::AbstractSparseMatrixCSC, i, ::Colon)` / `getindex(::AbstractSparseMatrixCSC, ::Colon, ::Colon)`.
-# The same dispatch covers direct slicing (`lazy[:, 2:3]`) and slicing through the
-# [`NamedArray`](https://github.com/davidavdav/NamedArrays.jl) wrapper that `get_matrix` returns (which converts
-# `Colon` to `collect(1:length)` before delegating to the parent).
-const NonColonIndexer = Union{AbstractRange{<:Integer}, AbstractVector{<:Integer}, AbstractVector{Bool}}
-
-function Base.getindex(matrix::LazySparseMatrix, ::Colon, ::Colon)::LazySparseMatrix
-    return with_selections(matrix, matrix.row_select, matrix.column_select)
-end
-
-function Base.getindex(matrix::LazySparseMatrix, rows::NonColonIndexer, columns::NonColonIndexer)::LazySparseMatrix
-    return slice_with_indexers(matrix, rows, columns)
-end
-
-# `lazy[:, i]` and `lazy[i, :]` are not given explicit methods: `SparseArrays`'s
-# `getindex(::AbstractSparseMatrixCSC, ::Colon, i) = getindex(A, axes(A, 1), i)` (and its symmetric form for the row
-# axis) recurses with `axes(A, *)::OneTo`, which then dispatches to the `(NonColonIndexer, NonColonIndexer)` method
-# above (or one of the disambiguation overrides below) and preserves the lazy slicing semantics. Adding a direct
-# `(::Colon, ::NonColonIndexer)` method would just save one dispatch hop with no semantic change.
-
-# Shared body for the disambiguation overrides below and for the general `(NonColonIndexer, NonColonIndexer)` method
-# above.
-function slice_with_indexers(matrix::LazySparseMatrix, rows, columns)::LazySparseMatrix
-    return with_selections(
-        matrix,
-        compose(selection_from_indexer(rows), matrix.row_select),
-        compose(selection_from_indexer(columns), matrix.column_select),
-    )
-end
-
-# Explicit overrides matching `SparseArrays`'s parametric and `Bool`-eltype `getindex(::AbstractSparseMatrixCSC, ...)`
-# methods on a `LazySparseMatrix` to disambiguate the mixed-specificity cases (where SparseArrays is more specific on
-# the index types and the LazySparseMatrix dispatch is more specific on the matrix type). Each delegates to
-# `slice_with_indexers` so the lazy slicing semantics carry through. The `(_, ::Colon)` and `(::Colon, _)` slicing
-# forms (including those produced by `NamedArray`'s wrapper) recurse via
-# `SparseArrays`'s `getindex(A, ::Colon, i) = getindex(A, axes(A, 1), i)` (and its symmetric form), so the row /
-# column axis becomes a `Base.OneTo` range and dispatch lands on one of the integer / range overrides below. The
-# `AbstractRange{Bool}` overrides exist only to satisfy `Aqua.test_ambiguities`; no natural slicing call constructs a
-# `Bool`-eltype range.
-function Base.getindex(
+# Some rows of one column, as a new `SparseVector` owned by the caller. Reads only this column.
+function read_rows_of_column(
     matrix::LazySparseMatrix{Tv, Ti},
-    rows::AbstractRange{<:Integer},
+    rows::Union{Colon, AbstractVector},
+    column_index::Integer,
+)::SparseVector{Tv, Ti} where {Tv, Ti}
+    require_unmodified(matrix)
+    cached = existing_materialization(matrix.materialization_cell)
+    if cached !== nothing
+        return cached[rows, column_index]
+    end
+    column_subset = read_columns(matrix, column_index:column_index)
+    column = SparseVector{Tv, Ti}(matrix.n_rows, rowvals(column_subset), nonzeros(column_subset))
+    if rows isa Colon || is_all_rows(rows, matrix.n_rows)
+        return column
+    else
+        return column[rows]
+    end
+end
+
+# The column subset forms of `getindex`. Each mirrors the signature of one `SparseArrays` method for an
+# `AbstractSparseMatrixCSC`, so the call isn't ambiguous between the two. The forms that select some rows of all the
+# columns, a single row, or a single element are left to `SparseArrays`, which reads the whole matrix once.
+function Base.getindex(matrix::LazySparseMatrix, ::Colon, ::Colon)::SparseMatrixCSC
+    return SparseMatrixCSC(matrix)
+end
+
+function Base.getindex(matrix::LazySparseMatrix, ::Colon, columns::AbstractVector)::SparseMatrixCSC
+    return read_rows_of_columns(matrix, :, columns)
+end
+
+function Base.getindex(matrix::LazySparseMatrix, rows::AbstractVector, columns::AbstractVector)::SparseMatrixCSC
+    return read_rows_of_columns(matrix, rows, columns)
+end
+
+function Base.getindex(matrix::LazySparseMatrix, rows::AbstractRange, columns::AbstractVector)::SparseMatrixCSC
+    return read_rows_of_columns(matrix, rows, columns)  # NOJET
+end
+
+function Base.getindex(  # UNTESTED
+    matrix::LazySparseMatrix,
+    rows::AbstractRange{Bool},
+    columns::AbstractVector{Bool},
+)::SparseMatrixCSC
+    return read_rows_of_columns(matrix, rows, columns)
+end
+
+function Base.getindex(  # UNTESTED
+    matrix::LazySparseMatrix,
+    rows::AbstractRange{Bool},
     columns::AbstractVector{<:Integer},
-)::LazySparseMatrix where {Tv, Ti <: Integer}
-    return slice_with_indexers(matrix, rows, columns)
+)::SparseMatrixCSC
+    return read_rows_of_columns(matrix, rows, columns)
+end
+
+function Base.getindex(
+    matrix::LazySparseMatrix,
+    rows::AbstractRange{<:Integer},
+    columns::AbstractVector{Bool},
+)::SparseMatrixCSC
+    return read_rows_of_columns(matrix, rows, columns)
 end
 
 function Base.getindex(
     matrix::LazySparseMatrix,
     rows::AbstractVector{Bool},
     columns::AbstractVector{Bool},
-)::LazySparseMatrix
-    return slice_with_indexers(matrix, rows, columns)
-end
-
-function Base.getindex(
-    matrix::LazySparseMatrix,
-    rows::AbstractVector{Bool},
-    columns::AbstractVector{<:Integer},
-)::LazySparseMatrix
-    return slice_with_indexers(matrix, rows, columns)
+)::SparseMatrixCSC
+    return read_rows_of_columns(matrix, rows, columns)
 end
 
 function Base.getindex(
     matrix::LazySparseMatrix,
     rows::AbstractVector{<:Integer},
     columns::AbstractVector{Bool},
-)::LazySparseMatrix
-    return slice_with_indexers(matrix, rows, columns)
-end
-
-function Base.getindex(  # UNTESTED
-    matrix::LazySparseMatrix,
-    rows::AbstractRange{Bool},
-    columns::AbstractVector{<:Integer},
-)::LazySparseMatrix
-    return slice_with_indexers(matrix, rows, columns)
+)::SparseMatrixCSC
+    return read_rows_of_columns(matrix, rows, columns)
 end
 
 function Base.getindex(
     matrix::LazySparseMatrix,
-    rows::AbstractRange{<:Integer},
-    columns::AbstractVector{Bool},
-)::LazySparseMatrix
-    return slice_with_indexers(matrix, rows, columns)
+    rows::AbstractVector{Bool},
+    columns::AbstractVector{<:Integer},
+)::SparseMatrixCSC
+    return read_rows_of_columns(matrix, rows, columns)
 end
 
-function Base.getindex(  # UNTESTED
+function Base.getindex(matrix::LazySparseMatrix, ::Colon, column_index::Integer)::SparseVector
+    return read_rows_of_column(matrix, :, column_index)
+end
+
+function Base.getindex(matrix::LazySparseMatrix, rows::AbstractVector, column_index::Integer)::SparseVector
+    return read_rows_of_column(matrix, rows, column_index)
+end
+
+function Base.getindex(matrix::LazySparseMatrix, rows::AbstractUnitRange, column_index::Integer)::SparseVector
+    return read_rows_of_column(matrix, rows, column_index)
+end
+
+function Base.getindex(matrix::LazySparseMatrix, rows::AbstractVector{Bool}, column_index::Integer)::SparseVector
+    return read_rows_of_column(matrix, rows, column_index)
+end
+
+# A lazy matrix never changes, so a view of a column subset is the same as reading it.
+function Base.view(
     matrix::LazySparseMatrix,
-    rows::AbstractRange{Bool},
-    columns::AbstractVector{Bool},
-)::LazySparseMatrix
-    return slice_with_indexers(matrix, rows, columns)
-end
-
-# Iterate `(new_index, original_index)` pairs of a [`SparseSelection`](@ref). Used by the materialisation algorithm
-# to walk the column selection in lockstep with output positions. `MaskOf` allocates `findall` once per call —
-# materialisation calls this once per `LazySparseMatrix`, so the cost is amortised.
-function iter_selection(selection::AllOf)
-    return enumerate(1:selection.n_entries)
-end
-
-function iter_selection(selection::RangeOf)
-    return enumerate(selection.range)
-end
-
-function iter_selection(selection::IndicesOf)
-    return enumerate(selection.indices)
-end
-
-function iter_selection(selection::MaskOf)
-    return enumerate(findall(selection.mask))
-end
-
-# Build an `original_index::Int -> new_index::Int` callable for a [`SparseSelection`](@ref); a return value of `0`
-# means the original index is filtered out of the slice. The callable is `O(1)` per call. Construction is `O(1)` for
-# `AllOf` / `RangeOf`, `O(length(indices))` for `IndicesOf` (the per-call cost beats `findfirst`'s `O(n)`), and
-# `O(length(mask))` for `MaskOf` (the cumulative-sum precompute beats per-call `count`).
-function build_original_to_new(::AllOf)::Function
-    return identity
-end
-
-function build_original_to_new(selection::RangeOf)::Function
-    range_first = first(selection.range)
-    range_last = last(selection.range)
-    return original_index -> (range_first <= original_index <= range_last) ? original_index - range_first + 1 : 0
-end
-
-function build_original_to_new(selection::IndicesOf)::Function
-    table = Dict{Int, Int}()
-    sizehint!(table, length(selection.indices))
-    for (new_index, original_index) in enumerate(selection.indices)
-        table[original_index] = new_index
-    end
-    return original_index -> get(table, original_index, 0)
-end
-
-function build_original_to_new(selection::MaskOf)::Function
-    cumulative = cumsum(selection.mask)
-    mask = selection.mask
-    return original_index -> mask[original_index] ? Int(cumulative[original_index]) : 0
-end
-
-# Translate a 1-based position in the slice back to its position in the original axis. Used by scalar
-# `Base.getindex(lazy, ::Int, ::Int)`. `MaskOf`'s implementation is `O(length(mask))` per call (it walks `findall`);
-# tight loops should materialise the slice or call `build_original_to_new` instead.
-function original_at(::AllOf, new_index::Int)::Int
-    return new_index
-end
-
-function original_at(selection::RangeOf, new_index::Int)::Int
-    return first(selection.range) + new_index - 1
-end
-
-function original_at(selection::IndicesOf, new_index::Int)::Int
-    return selection.indices[new_index]
-end
-
-function original_at(selection::MaskOf, new_index::Int)::Int
-    return findall(selection.mask)[new_index]
-end
-
-# Read the contiguous `range` of elements out of `source` for the materialisation algorithm to walk. The result is
-# only iterated and indexed inside the inner loop and is not retained, so a zero-copy `view` is preferred for flat
-# `Vector` sources (mmap-backed in practice). For `Zarr.ZArray` and other chunked sources, eager decode is the right
-# behaviour: the per-chunk decompression cost should be paid once per range, not once per element access through a
-# lazy `SubArray`.
-function read_chunk_range(source::DenseVector{T}, range::UnitRange{Int}) where {T}
-    return @view source[range]
-end
-
-function read_chunk_range(source::AbstractVector{T}, range::UnitRange{Int})::Vector{T} where {T}
-    return Vector{T}(source[range])
-end
-
-# The materialization of the current slice, cached in `matrix.materialization_cell` and shared by all its callers. The
-# first call builds it with [`new_materialization`](@ref); later calls return it without re-reading the packed sources.
-function cached_materialization!(matrix::LazySparseMatrix{Tv, Ti})::SparseMatrixCSC{Tv, Ti} where {Tv, Ti}
-    require_unmodified(matrix)
-    return materialization!(() -> new_materialization(matrix), matrix.materialization_cell)
-end
-
-# A new materialization of the current slice, owned by the caller; nothing is cached. For each original column in
-# `column_select`, decompresses the column's `rowval` / `nzval` slabs, filters rows through the `row_select` lookup, and
-# appends the surviving entries to the output buffers.
-function new_materialization(matrix::LazySparseMatrix{Tv, Ti})::SparseMatrixCSC{Tv, Ti} where {Tv, Ti}
-    n_new_rows = length(matrix.row_select)
-    n_new_columns = length(matrix.column_select)
-    output_colptr = Vector{Ti}(undef, n_new_columns + 1)
-    output_colptr[1] = 1
-    output_rowval = Vector{Ti}()
-    output_nzval = Vector{Tv}()
-    row_lookup = build_original_to_new(matrix.row_select)
-    for (new_column_index, original_column_index) in iter_selection(matrix.column_select)
-        range_start = Int(matrix.full_colptr[original_column_index])
-        range_stop = Int(matrix.full_colptr[original_column_index + 1]) - 1
-        if range_start <= range_stop
-            range_in_source = range_start:range_stop
-            column_rowvals = read_chunk_range(matrix.rowval_source, range_in_source)
-            column_nzvals = read_chunk_range(matrix.nzval_source, range_in_source)
-            for k in eachindex(column_rowvals)
-                new_row_index = row_lookup(Int(column_rowvals[k]))
-                if new_row_index != 0
-                    push!(output_rowval, Ti(new_row_index))
-                    push!(output_nzval, column_nzvals[k])
-                end
-            end
-        end
-        output_colptr[new_column_index + 1] = Ti(length(output_rowval) + 1)
-    end
-    return SparseMatrixCSC{Tv, Ti}(n_new_rows, n_new_columns, output_colptr, output_rowval, output_nzval)
+    rows::Union{Colon, AbstractVector},
+    columns::Union{Integer, AbstractVector},
+)::AbstractSparseArray
+    return matrix[rows, columns]
 end
 
 # A lazy matrix is read-only. The generic `SparseArrays` code reads and writes a sparse matrix through these accessors,
@@ -549,15 +308,11 @@ function SparseArrays.nonzeros(matrix::LazySparseMatrix{Tv, Ti})::AbstractVector
 end
 
 function SparseArrays.getcolptr(matrix::LazySparseMatrix{Tv, Ti})::AbstractVector{Ti} where {Tv, Ti}
-    return read_only_array(SparseArrays.getcolptr(cached_materialization!(matrix)))
+    return read_only_array(matrix.colptr)
 end
 
 function SparseArrays.nnz(matrix::LazySparseMatrix)::Int
-    if !is_materialized(matrix) && matrix.row_select isa AllOf && matrix.column_select isa AllOf
-        return Int(matrix.full_colptr[end]) - 1
-    else
-        return nnz(cached_materialization!(matrix))
-    end
+    return Int(matrix.colptr[end]) - 1
 end
 
 # Like `SparseArrays`' own constructors, these return a matrix owned by the caller. If the materialization is already
@@ -605,335 +360,53 @@ function TanayLabUtilities.nzval(matrix::LazySparseMatrix)::AbstractVector
     return SparseArrays.nonzeros(cached_materialization!(matrix))
 end
 
-# Per-cell scalar lookup that does not build the materialization. Reads the target column's `rowval` slab from
-# the packed source, binary-searches it for `original_row` (CSC stores rowvals sorted within a column), and returns
-# the matching `nzval` entry (or `zero(Tv)` if the cell is structurally absent). When the matrix is already
-# materialised, this delegates to the cached `SparseMatrixCSC`.
-function Base.getindex(matrix::LazySparseMatrix{Tv, Ti}, row_index::Int, column_index::Int)::Tv where {Tv, Ti}
-    @boundscheck begin
-        @assert 1 <= row_index <= length(matrix.row_select)
-        @assert 1 <= column_index <= length(matrix.column_select)
-    end
-    require_unmodified(matrix)
-    cached = existing_materialization(matrix.materialization_cell)
-    if cached !== nothing
-        return cached[row_index, column_index]
-    end
-    original_row = original_at(matrix.row_select, row_index)
-    original_column = original_at(matrix.column_select, column_index)
-    range_start = Int(matrix.full_colptr[original_column])
-    range_stop = Int(matrix.full_colptr[original_column + 1]) - 1
-    if range_start > range_stop
-        return zero(Tv)
-    end
-    range_in_source = range_start:range_stop
-    column_rowvals = read_chunk_range(matrix.rowval_source, range_in_source)
-    position = searchsortedfirst(column_rowvals, Ti(original_row))
-    if position > length(column_rowvals) || Int(column_rowvals[position]) != original_row
-        return zero(Tv)
-    end
-    target_in_source = range_start + position - 1
-    return Tv(matrix.nzval_source[target_in_source])
-end
-
-"""
-    mutable struct LazySparseVector{Tv, Ti <: Integer} <: AbstractSparseVector{Tv, Ti}
-        full_n_elements::Int
-        nzind_source::AbstractVector{Ti}
-        nzval_source::AbstractVector{Tv}
-        select::SparseSelection
-        materialization_cell::MaterializationCell{SparseVector{Tv, Ti}}
-    end
-
-Lazy [`AbstractSparseVector{Tv, Ti}`](https://docs.julialang.org/en/v1/stdlib/SparseArrays/#SparseArrays.AbstractSparseVector)
-over packed `nzind` / `nzval` sources.
-
-`nzind_source` and `nzval_source` are one-dimensional indexable sources (typically a chunked source that decodes one
-chunk at a time) that decompress per-chunk on access. `select` describes the slice of the original axis exposed through
-this wrapper. Materialisation copies the selected slice into a plain
-[`SparseVector`](https://docs.julialang.org/en/v1/stdlib/SparseArrays/#SparseArrays.SparseVector) the first time it is
-required and caches it in `materialization_cell` for subsequent use. Concurrent first readers wait for a single
-materialization.
-
-The `full_n_elements` field is the original (unsliced) axis length. The corresponding `AbstractSparseVector` accessors
-(`size`, `SparseArrays.nonzeroinds`) report the *sliced* shape; `nonzeroinds` triggers materialisation so it can return
-the per-slice indices. Use `full_n_elements` when internal Daf code needs the original layout without materialising.
-
-# Materialisation triggers
-
-The following operations materialise the current slice into the cached vector on first call (and reuse the cache on
-subsequent calls):
-
-  - `SparseArrays.nonzeroinds` / `SparseArrays.nonzeros` / `SparseArrays.nnz`. The first two return read-only views of
-    the cached vector.
-  - `convert(SparseVector{Tv, Ti}, lazy)`, which returns the cached vector itself.
-  - Any generic `AbstractSparseVector` / `AbstractVector` algorithm that calls those primitives.
-
-`SparseVector(lazy)` and `copy(lazy)` return a new vector owned by the caller: a copy of the cached vector if there is
-one, otherwise a new materialization that is not cached.
-
-The following operations do **not** materialise the slice:
-
-  - `Base.size`, `Base.eltype`, `Base.length`.
-  - The slicing forms `lazy[range]` / `lazy[indices]` / `lazy[mask]` (each rebinds the selection and clears the cache,
-    returning a fresh wrapper).
-  - `Base.getindex(lazy, ::Int)` — binary-searches `nzind_source` (`O(log nnz)` chunk reads) and reads one element of
-    `nzval_source`. The chunked sources keep the decoded chunks they used part of in a pool, so subsequent scalar
-    lookups within the same chunk are cheap.
-
-User code obtains a `LazySparseVector` only as the result of reading a sparse property whose `nzind` / `nzval`
-components are lazy sources — packed on disk, or chunked over HTTP — through
-[`DataAxesFormats.Formats.format_get_vector`](@ref); construction lives behind the read paths and is not part of the
-public API.
-"""
-mutable struct LazySparseVector{Tv, Ti <: Integer} <: AbstractSparseVector{Tv, Ti}
-    full_n_elements::Int
-    nzind_source::AbstractVector{Ti}
-    nzval_source::AbstractVector{Tv}
-    select::SparseSelection
-    materialization_cell::MaterializationCell{SparseVector{Tv, Ti}}
-end
-
-# Construct a `LazySparseVector` exposing the full original vector, with the selection set to `AllOf`. The
-# sources are taken by reference. `nzind_source` and `nzval_source` must have the same length.
-function LazySparseVector(
-    n_elements::Integer,
-    nzind_source::AbstractVector{Ti},
-    nzval_source::AbstractVector{Tv},
-)::LazySparseVector{Tv, Ti} where {Tv, Ti <: Integer}
-    full_n_elements = Int(n_elements)
-    @assert length(nzind_source) == length(nzval_source)
-    return LazySparseVector{Tv, Ti}(
-        full_n_elements,
-        nzind_source,
-        nzval_source,
-        AllOf(full_n_elements),
-        MaterializationCell{SparseVector{Tv, Ti}}(),
-    )
-end
-
-function Base.size(vector::LazySparseVector)::Tuple{Int}
-    return (length(vector.select),)
-end
-
-# Fresh `LazySparseVector` with a new selection and the rest of the fields shared by reference. It gets its own empty
-# `materialization_cell` because the cached `SparseVector` is keyed to the prior selection.
-function with_selection(
-    vector::LazySparseVector{Tv, Ti},
-    select::SparseSelection,
-)::LazySparseVector{Tv, Ti} where {Tv, Ti}
-    return LazySparseVector{Tv, Ti}(
-        vector.full_n_elements,
-        vector.nzind_source,
-        vector.nzval_source,
-        select,
-        MaterializationCell{SparseVector{Tv, Ti}}(),
-    )
-end
-
-function Base.getindex(vector::LazySparseVector, ::Colon)::LazySparseVector
-    return with_selection(vector, vector.select)
-end
-
-# Shared body for the disambiguation overrides below.
-function slice_with_indexer(vector::LazySparseVector, indexer)::LazySparseVector
-    return with_selection(vector, compose(selection_from_indexer(indexer), vector.select))
-end
-
-# Explicit overrides matching `SparseArrays`'s parametric and `Bool`-eltype `getindex(::AbstractSparseVector, ...)`
-# methods on a `LazySparseVector` to disambiguate the mixed-specificity cases (where SparseArrays is more specific on
-# the index type and the `LazySparseVector` dispatch is more specific on the vector type). Each delegates to
-# `slice_with_indexer` so the lazy slicing semantics carry through.
-function Base.getindex(vector::LazySparseVector, indexer::AbstractUnitRange{<:Integer})::LazySparseVector
-    return slice_with_indexer(vector, indexer)
-end
-
-function Base.getindex(vector::LazySparseVector, indexer::AbstractRange{<:Integer})::LazySparseVector
-    return slice_with_indexer(vector, indexer)
-end
-
-function Base.getindex(vector::LazySparseVector, indexer::AbstractVector{<:Integer})::LazySparseVector
-    return slice_with_indexer(vector, indexer)
-end
-
-function Base.getindex(vector::LazySparseVector, indexer::AbstractVector{Bool})::LazySparseVector
-    return slice_with_indexer(vector, indexer)
-end
-
-function Base.getindex(vector::LazySparseVector, indexer::AbstractRange{Bool})::LazySparseVector  # UNTESTED
-    return slice_with_indexer(vector, indexer)
-end
-
-# The materialization of the current slice, cached in `vector.materialization_cell` and shared by all its callers. The
-# first call builds it with [`new_materialization`](@ref); later calls return it without re-reading the packed sources.
-function cached_materialization!(vector::LazySparseVector{Tv, Ti})::SparseVector{Tv, Ti} where {Tv, Ti}
-    require_unmodified(vector)
-    return materialization!(() -> new_materialization(vector), vector.materialization_cell)
-end
-
-# Whether the materialization of the current slice was already built and cached.
-function is_materialized(array::Union{LazySparseMatrix, LazySparseVector})::Bool
-    return existing_materialization(array.materialization_cell) !== nothing
-end
-
-# A new materialization of the current slice, owned by the caller; nothing is cached. For an `AllOf` selection or for
-# an `IndicesOf` / `MaskOf` selection that filters per-position, reads the full `nzind` / `nzval` source slabs once and
-# walks them through the `select` lookup. For a `RangeOf` selection, binary-searches `nzind_source` for the first /
-# last source positions whose original index falls in the range and reads only that slab — so a small slice of a huge
-# chunked sparse vector decompresses only the touched chunks. `IndicesOf` / `MaskOf` selections that produce
-# out-of-order indices are sorted before constructing the `SparseVector`.
-function new_materialization(vector::LazySparseVector{Tv, Ti})::SparseVector{Tv, Ti} where {Tv, Ti}
-    new_nzind, new_nzval = materialize_slab(vector)
-    if !issorted(new_nzind)
-        order = sortperm(new_nzind)
-        new_nzind = new_nzind[order]
-        new_nzval = new_nzval[order]
-    end
-    return SparseVector{Tv, Ti}(length(vector.select), new_nzind, new_nzval)
-end
-
-# Read just the source-position slab `nzind_source[range]` / `nzval_source[range]` that intersects the current
-# `RangeOf` selection (via two binary searches over the sorted `nzind_source`); fall back to a full source read
-# for the other selection kinds. Returns `(new_nzind, new_nzval)` mapped through `build_original_to_new`.
-function materialize_slab(vector::LazySparseVector{Tv, Ti})::Tuple{Vector{Ti}, Vector{Tv}} where {Tv, Ti}
-    full_nnz = length(vector.nzind_source)
-    source_range = if vector.select isa RangeOf
-        range_first = first(vector.select.range)
-        range_last = last(vector.select.range)
-        first_position = searchsortedfirst(vector.nzind_source, Ti(range_first))
-        last_position = searchsortedlast(vector.nzind_source, Ti(range_last))
-        first_position:last_position
-    else
-        1:full_nnz
-    end
-    if isempty(source_range)
-        return (Ti[], Tv[])
-    end
-    nzind_slab = read_chunk_range(vector.nzind_source, source_range)
-    nzval_slab = read_chunk_range(vector.nzval_source, source_range)
-    new_index_for = build_original_to_new(vector.select)
-    new_nzind = Ti[]
-    new_nzval = Tv[]
-    for offset in eachindex(nzind_slab)
-        new_index = new_index_for(Int(nzind_slab[offset]))
-        if new_index != 0
-            push!(new_nzind, Ti(new_index))
-            push!(new_nzval, nzval_slab[offset])
-        end
-    end
-    return (new_nzind, new_nzval)
-end
-
-# Read-only views of the cached materialization, as for the matrix accessors above.
-function SparseArrays.nonzeroinds(vector::LazySparseVector{Tv, Ti})::AbstractVector{Ti} where {Tv, Ti}
-    return read_only_array(SparseArrays.nonzeroinds(cached_materialization!(vector)))
-end
-
-function SparseArrays.nonzeros(vector::LazySparseVector{Tv, Ti})::AbstractVector{Tv} where {Tv, Ti}
-    return read_only_array(nonzeros(cached_materialization!(vector)))
-end
-
-function SparseArrays.nnz(vector::LazySparseVector)::Int
-    return nnz(cached_materialization!(vector))
-end
-
-# Like `SparseArrays`' own constructors, these return a vector owned by the caller. If the materialization is already
-# cached, this copies it; otherwise this builds a new one without caching it. In contrast, `convert` returns the cached
-# materialization itself.
-function SparseArrays.SparseVector{Tv, Ti}(vector::LazySparseVector{Tv, Ti})::SparseVector{Tv, Ti} where {Tv, Ti}
-    require_unmodified(vector)
-    cached = existing_materialization(vector.materialization_cell)
-    if cached === nothing
-        return new_materialization(vector)
-    else
-        return copy(cached)
-    end
-end
-
-function SparseArrays.SparseVector(vector::LazySparseVector{Tv, Ti})::SparseVector{Tv, Ti} where {Tv, Ti}
-    return SparseVector{Tv, Ti}(vector)
-end
-
-# As for `copy` of a lazy matrix: one new vector owned by the caller.
-function Base.copy(vector::LazySparseVector{Tv, Ti})::SparseVector{Tv, Ti} where {Tv, Ti}
-    return SparseVector{Tv, Ti}(vector)
-end
-
-# Generic `convert(::Type{<:SparseVector}, ::LazySparseVector)` — disambiguates against `SparseArrays`'s generic
-# `convert(::Type{<:SparseVector}, ::AbstractVector)` by being more specific on the second argument. Routes
-# through `cached_materialization!` so the materialised slice flows through `SparseArrays`'s typed constructor.
-function Base.convert(::Type{V}, vector::LazySparseVector{Tv, Ti})::V where {Tv, Ti, V <: SparseVector}
-    return convert(V, cached_materialization!(vector))
-end
-
-# The plain arrays of the cached materialization, as for the matrix `TanayLabUtilities` accessors above.
-function TanayLabUtilities.nzind(vector::LazySparseVector)::AbstractVector
-    return SparseArrays.nonzeroinds(cached_materialization!(vector))
-end
-
-function TanayLabUtilities.nzval(vector::LazySparseVector)::AbstractVector
-    return SparseArrays.nonzeros(cached_materialization!(vector))
-end
-
-# Per-element scalar lookup that does not build the materialization. Binary-searches `nzind_source` for the
-# original-axis index (the wire layout is sorted), and returns the matching `nzval_source` entry (or `zero(Tv)` if
-# the index is structurally absent). When the vector is already materialised, this delegates to the cached
-# `SparseVector`.
-function Base.getindex(vector::LazySparseVector{Tv, Ti}, index::Int)::Tv where {Tv, Ti}
-    @boundscheck @assert 1 <= index <= length(vector.select)
-    require_unmodified(vector)
-    cached = existing_materialization(vector.materialization_cell)
-    if cached !== nothing
-        return cached[index]
-    end
-    original_index = original_at(vector.select, index)
-    position = searchsortedfirst(vector.nzind_source, Ti(original_index))
-    if position > length(vector.nzind_source) || Int(vector.nzind_source[position]) != original_index
-        return zero(Tv)
-    end
-    return Tv(vector.nzval_source[position])
-end
-
-# The two component sources of a lazy sparse array, each a lazy source or a plain vector.
-function component_sources(matrix::LazySparseMatrix)::Tuple{AbstractVector, AbstractVector}
-    return (matrix.rowval_source, matrix.nzval_source)
-end
-
-function component_sources(vector::LazySparseVector)::Tuple{AbstractVector, AbstractVector}
-    return (vector.nzind_source, vector.nzval_source)
-end
-
-# A lazy sparse array (and any slice of it) was modified exactly when one of its lazy sources was. This also covers an
-# already materialized slice, which doesn't read its sources again.
-function require_unmodified(array::Union{LazySparseMatrix, LazySparseVector})::Nothing
-    for source in component_sources(array)
-        require_unmodified(source)
-    end
+# A lazy matrix was modified exactly when one of its lazy sources was.
+function require_unmodified(matrix::LazySparseMatrix)::Nothing
+    require_unmodified(matrix.rowval_source)
+    require_unmodified(matrix.nzval_source)
     return nothing
 end
 
-function Formats.is_lazy_array(::Union{LazySparseMatrix, LazySparseVector})::Bool
+function Formats.is_lazy_array(::LazySparseMatrix)::Bool
     return true
 end
 
-function Formats.invalidate_lazy_array!(array::Union{LazySparseMatrix, LazySparseVector})::Nothing
-    for source in component_sources(array)
+function Formats.invalidate_lazy_array!(matrix::LazySparseMatrix)::Nothing
+    for source in (matrix.rowval_source, matrix.nzval_source)
         if Formats.is_lazy_array(source)
             Formats.invalidate_lazy_array!(source)
         end
     end
-    clear_materialization!(array.materialization_cell)
+    clear_materialization!(matrix.materialization_cell)
     return nothing
 end
 
-function Formats.purge_lazy_array!(array::Union{LazySparseMatrix, LazySparseVector})::Nothing
-    for source in component_sources(array)
+function Formats.purge_lazy_array!(matrix::LazySparseMatrix)::Nothing
+    for source in (matrix.rowval_source, matrix.nzval_source)
         if Formats.is_lazy_array(source)
             Formats.purge_lazy_array!(source)
         end
     end
-    clear_materialization!(array.materialization_cell)
+    clear_materialization!(matrix.materialization_cell)
     return nothing
+end
+
+# A lazy matrix rejects writes, so it needs no read-only wrapper. Without one, broadcasting, `view` and `similar` see
+# the lazy matrix itself.
+function TanayLabUtilities.ReadOnlyArrays.read_only_array(matrix::LazySparseMatrix)::LazySparseMatrix
+    return matrix
+end
+
+function TanayLabUtilities.ReadOnlyArrays.is_read_only_array(::LazySparseMatrix)::Bool
+    return true
+end
+
+# The shared materialization, which is a plain mutable sparse matrix. Writing into it changes what all later readers of
+# this lazy matrix see.
+function TanayLabUtilities.ReadOnlyArrays.mutable_array(
+    matrix::LazySparseMatrix{Tv, Ti},
+)::SparseMatrixCSC{Tv, Ti} where {Tv, Ti}
+    return cached_materialization!(matrix)
 end
 
 end  # module

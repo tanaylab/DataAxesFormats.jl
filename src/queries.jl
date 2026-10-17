@@ -1357,20 +1357,14 @@ function get_query(
     verify_contract_query(daf, cache_key)
     return Formats.with_data_read_lock(daf, "for get_query of:", cache_key) do
         if cache
-            entry = Formats.get_slow_through_cache(
+            result = Formats.get_slow_through_cache(
                 daf,
                 cache_key,
-                Union{AbstractSet{<:AbstractString}, StorageScalar, Tuple{NamedArray, Any}},
+                Union{AbstractSet{<:AbstractString}, StorageScalar, NamedArray},
                 QueryData,
             ) do
-                value, dependency_keys = get_query_result(daf, query_sequence)
-                if value isa NamedArray
-                    return ((value, nothing), dependency_keys)
-                else
-                    return (value, dependency_keys)
-                end
+                return get_query_result(daf, query_sequence)
             end
-            result = entry isa Tuple{NamedArray, Any} ? entry[1] : entry
         else
             cached = Formats.with_cache_read_lock(daf, "for get_query of:", cache_key) do
                 return get(daf.internal.cache, cache_key, nothing)
@@ -1378,8 +1372,7 @@ function get_query(
             if cached === nothing
                 result, _ = get_query_result(daf, query_sequence)
             else
-                data = cached.data
-                result = data isa Tuple{NamedArray, Any} ? data[1] : data
+                result = cached.data
             end
         end
         @debug (
@@ -3510,7 +3503,7 @@ end
 
 function finalize_vector_values!(query_state::QueryState, vector_state::VectorState)::Nothing
     if query_state.what_for === :compute && vector_state.pending_final_values !== nothing
-        vector_values = densify(vector_state.vector_values; copy = is_read_only_array(vector_state.vector_values))  # NOJET
+        vector_values = densify(vector_state.vector_values; copy = is_read_only_array(vector_state.vector_values))
         @assert !is_read_only_array(vector_values)
         for index in eachindex(vector_values)
             final_value = vector_state.pending_final_values[index]
@@ -5202,7 +5195,7 @@ end
 
 function finalize_matrix_values!(query_state::QueryState, matrix_state::MatrixState)::Nothing
     if query_state.what_for === :compute && matrix_state.pending_final_values !== nothing
-        matrix_values = densify(matrix_state.matrix_values; copy = is_read_only_array(matrix_state.matrix_values))  # NOJET
+        matrix_values = densify(matrix_state.matrix_values; copy = is_read_only_array(matrix_state.matrix_values))
         @assert !is_read_only_array(matrix_values)
         n_rows, n_columns = size(matrix_values)
         for column_index in 1:n_columns

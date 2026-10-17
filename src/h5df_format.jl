@@ -83,14 +83,11 @@ is **not** compatible with `h5ad`):
     read used only part of are kept in the pool bounded by
     [`DAF_PACKED_LOCAL_CACHE_KB`](@ref DataAxesFormats.PackedFormat.DAF_PACKED_LOCAL_CACHE_KB). Packed sparse
     matrices are returned as a [`LazySparseMatrix`](@ref DataAxesFormats.LazySparse.LazySparseMatrix) over the
-    cached `rowval` / `nzval`, with `colptr` materialised eagerly (it is small and slicing needs random access).
-    Packed sparse vectors are returned as a [`LazySparseVector`](@ref DataAxesFormats.LazySparse.LazySparseVector)
-    over the cached `nzind` / `nzval` (matching the matrix wrapper); below-threshold flat sparse vectors stay on
-    the eager `SparseVector` path with mmap-backed components.
+    lazy `rowval` / `nzval`, with `colptr` read eagerly (it is small, and reading a subset of the columns needs it).
+    Sparse vectors are at most one axis long, so they are always read eagerly into a `SparseVector`.
 
-  - The HDF5 filter ids needed to read packed datasets (`32001` Blosc, `32008` bitshuffle, `32015` Zstandard)
-    are registered at module load via [`H5Zblosc`](https://github.com/JuliaIO/HDF5.jl/tree/master/filters/H5Zblosc),
-    [`H5Zbitshuffle`](https://github.com/JuliaIO/HDF5.jl/tree/master/filters/H5Zbitshuffle), and
+  - The HDF5 filter ids needed to read packed datasets (`32001` Blosc, `32015` Zstandard) are registered at module
+    load via [`H5Zblosc`](https://github.com/JuliaIO/HDF5.jl/tree/master/filters/H5Zblosc) and
     [`H5Zzstd`](https://github.com/JuliaIO/HDF5.jl/tree/master/filters/H5Zzstd); the built-in `Deflate` and
     `Shuffle` filters cover `:gzip` and `:gzip_shuffle`. A foreign HDF5 reader (e.g. `h5py`) needs the matching
     plugin shared library on its filter search path to read packed datasets — the corresponding plugin is named
@@ -173,9 +170,8 @@ using ..ReadOnly
 using ..Readers
 using ..StorageTypes
 using ..Writers
-using H5Zbitshuffle  # Registers `BitshuffleFilter` (HDF5 filter id 32008) for `:zstd_bitshuffle`.
-using H5Zblosc       # Registers `BloscFilter` (HDF5 filter id 32001) for `:blosc_*` codecs.
-using H5Zzstd        # Registers `ZstdFilter` (HDF5 filter id 32015) for `:zstd`.
+using H5Zblosc  # Registers `BloscFilter` (HDF5 filter id 32001) for `:blosc_*` codecs.
+using H5Zzstd   # Registers `ZstdFilter` (HDF5 filter id 32015) for `:zstd`.
 using HDF5
 using SparseArrays
 
@@ -932,7 +928,7 @@ function Formats.format_get_vector(
     h5df::H5df,
     axis::AbstractString,
     name::AbstractString,
-)::Tuple{StorageVector, Any, Formats.CacheGroup}
+)::Tuple{StorageVector, Formats.CacheGroup}
     @assert Formats.has_data_read_lock(h5df)
 
     vectors_group = h5df.root["vectors"]
@@ -941,8 +937,7 @@ function Formats.format_get_vector(
     axis_vectors_group = vectors_group[axis]
     @assert axis_vectors_group isa HDF5.Group
 
-    vector, cache_group = property_vector(axis_vectors_group[name], Formats.format_axis_length(h5df, axis))  # NOJET
-    return (vector, nothing, cache_group)
+    return property_vector(axis_vectors_group[name], Formats.format_axis_length(h5df, axis))  # NOJET
 end
 
 # Read a vector property from its dataset (dense) or group (sparse), for an axis with `nelements` entries. The property
@@ -972,19 +967,7 @@ function property_vector(
             nzval_dataset = haskey(vector_object, "nzval") ? vector_object["nzval"] : nothing
             @assert nzval_dataset === nothing || nzval_dataset isa HDF5.Dataset
 
-            is_nzind_packed = HDF5.ischunked(nzind_dataset) && !isempty(nzind_dataset)
-            is_nzval_packed = nzval_dataset !== nothing && HDF5.ischunked(nzval_dataset) && !isempty(nzval_dataset)
-            if is_nzind_packed || is_nzval_packed
-                nzind_source = dataset_as_chunked_array(nzind_dataset)
-                nzval_source = if nzval_dataset === nothing
-                    fill(true, length(nzind_dataset))
-                else
-                    dataset_as_chunked_array(nzval_dataset)
-                end
-                vector = LazySparseVector(nelements, nzind_source, nzval_source)
-                return (vector, Formats.MemoryData)
-            end
-
+            # A sparse vector is at most one axis long, so even its packed components are read eagerly.
             nzind_vector, nzind_cache_group = dataset_as_materialized_vector(nzind_dataset)
             if nzval_dataset === nothing
                 nzval_vector = fill(true, length(nzind_vector))
@@ -1546,7 +1529,7 @@ function Formats.format_get_matrix(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-)::Tuple{StorageMatrix, Any, Formats.CacheGroup}
+)::Tuple{StorageMatrix, Formats.CacheGroup}
     @assert Formats.has_data_read_lock(h5df)
 
     matrices_group = h5df.root["matrices"]
@@ -1558,12 +1541,11 @@ function Formats.format_get_matrix(
     columns_axis_group = rows_axis_group[columns_axis]
     @assert columns_axis_group isa HDF5.Group
 
-    matrix, cache_group = property_matrix(  # NOJET
+    return property_matrix(  # NOJET
         columns_axis_group[name],
         Formats.format_axis_length(h5df, rows_axis),
         Formats.format_axis_length(h5df, columns_axis),
     )
-    return (matrix, nothing, cache_group)
 end
 
 # Read a matrix property from its dataset (dense) or group (sparse), for axes with `nrows` and `ncols` entries. The
@@ -1614,11 +1596,12 @@ function property_matrix(
         if is_rowval_packed || is_nzval_packed
             # `colptr` is always materialised: small and needs random access for slicing.
             colptr_vector, _ = dataset_as_materialized_vector(colptr_dataset)
-            rowval_source = dataset_as_chunked_array(rowval_dataset)
+            # Each component is chunked on its own, so the other one may be contiguous.
+            rowval_source, _ = dataset_as_vector(rowval_dataset)
             nzval_source = if nzval_dataset === nothing
                 fill(true, length(rowval_dataset))
             else
-                dataset_as_chunked_array(nzval_dataset)
+                first(dataset_as_vector(nzval_dataset))
             end
             matrix = LazySparseMatrix(nrows, colptr_vector, rowval_source, nzval_source)
             return (matrix, Formats.MemoryData)
@@ -2121,8 +2104,6 @@ function hdf5_filters_for(codec::PackedCodec)::Vector{HDF5.Filters.Filter}
         return [BloscFilter(; level = compression_level, shuffle = H5Zblosc.BITSHUFFLE, compressor = "zstd")]  # NOLINT
     elseif compression == :blosc_lz4_bitshuffle
         return [BloscFilter(; level = compression_level, shuffle = H5Zblosc.BITSHUFFLE, compressor = "lz4")]  # NOLINT
-    elseif compression == :zstd_bitshuffle
-        return [BitshuffleFilter(; compressor = :zstd, comp_level = compression_level)]
     elseif compression == :zstd
         return [ZstdFilter(compression_level)]
     elseif compression == :gzip

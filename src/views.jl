@@ -457,13 +457,13 @@ function Formats.format_get_vector(
     view::DafView,
     axis::AbstractString,
     name::AbstractString,
-)::Tuple{StorageVector, Any, Maybe{Formats.CacheGroup}}
+)::Tuple{StorageVector, Maybe{Formats.CacheGroup}}
     @assert Formats.has_data_read_lock(view)
     if is_identity_vector(view, axis, name)
-        vector, backing, cache_group = Formats.format_get_vector(view.daf, axis, name)
-        return (read_only_array(vector), backing, cache_group)
+        vector, cache_group = Formats.format_get_vector(view.daf, axis, name)
+        return (read_only_array(vector), cache_group)
     else
-        return (fetch_vector_data(view, axis, name), nothing, QueryData)
+        return (fetch_vector_data(view, axis, name), QueryData)
     end
 end
 
@@ -501,13 +501,13 @@ function Formats.format_get_matrix(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-)::Tuple{StorageMatrix, Any, Maybe{Formats.CacheGroup}}
+)::Tuple{StorageMatrix, Maybe{Formats.CacheGroup}}
     @assert Formats.has_data_read_lock(view)
     if is_identity_matrix(view, rows_axis, columns_axis, name)
-        matrix, backing, cache_group = Formats.format_get_matrix(view.daf, rows_axis, columns_axis, name)
-        return (read_only_array(matrix), backing, cache_group)
+        matrix, cache_group = Formats.format_get_matrix(view.daf, rows_axis, columns_axis, name)
+        return (read_only_array(matrix), cache_group)
     else
-        return (fetch_matrix_data(view, rows_axis, columns_axis, name), nothing, QueryData)
+        return (fetch_matrix_data(view, rows_axis, columns_axis, name), QueryData)
     end
 end
 

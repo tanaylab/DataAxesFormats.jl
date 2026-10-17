@@ -128,7 +128,7 @@ We use multiple files to store `Daf` data, under some root directory, as follows
     directory entries to be fixed-length and in chunk order, so a chunk's entry is located by index arithmetic
     rather than by scanning the directory. We also try to stamp each chunk with its codec-specific ZIP method
     (`93` for zstd, `8` for gzip) so generic ZIP tools that recognise those method codes decompress the chunk to
-    its uncompressed bytes automatically. Codecs with no matching ZIP method (blosc and the bitshuffle variants)
+    its uncompressed bytes automatically. Codecs with no matching ZIP method (the blosc ones)
     are stored with method `0` (STORED); for those shards a final `codec.json` entry records the codec pipeline so
     an external tool can decode the otherwise-opaque STORED bytes. The packed-shard layout, codec catalogue, and
     on-disk write protocol are documented in [`PackedFormat`](@ref DataAxesFormats.PackedFormat).
@@ -718,7 +718,7 @@ function Formats.format_get_vector(
     files::FilesDaf,
     axis::AbstractString,
     name::AbstractString,
-)::Tuple{StorageVector, Any, Formats.CacheGroup}
+)::Tuple{StorageVector, Formats.CacheGroup}
     @assert Formats.has_data_read_lock(files)
 
     base_key = "vectors/$(axis)/$(name)"
@@ -738,7 +738,7 @@ function Formats.format_get_vector(
             @assert length(vector) == size
         else
             eltype = eltype_for_descriptor(eltype_name)
-            vector, _, cache_group = packed_read_typed_vector(files, "$(base_key).data", eltype, size)
+            vector, cache_group = packed_read_typed_vector(files, "$(base_key).data", eltype, size)
         end
     else
         @assert format == "sparse"
@@ -747,7 +747,7 @@ function Formats.format_get_vector(
         @assert ind_type !== nothing
 
         if eltype_name == "string" || eltype_name == "String"
-            nzind_vector, _, _, nzind_cache =
+            nzind_vector, _, nzind_cache =
                 packed_format_open_sparse_component_eager(files, base_key, "nzind", ind_type, json, nothing)
             cache_group = max(cache_group, nzind_cache)
             vector = Vector{AbstractString}(undef, size)
@@ -756,43 +756,25 @@ function Formats.format_get_vector(
             cache_group = Formats.MemoryData
 
         else
+            # A sparse vector is at most one axis long, so even its packed components are read eagerly.
             eltype = eltype_for_descriptor(eltype_name)
-            nzind_descriptor = get(json, "nzind", nothing)
-            is_nzind_packed = is_packed_component(nzind_descriptor)
-            nzval_descriptor = get(json, "nzval", nothing)
             nzval_present = packed_format_has_nzval(files, base_key, json)
-            is_nzval_packed = is_packed_component(nzval_descriptor)
-
-            if is_nzind_packed || is_nzval_packed
-                nzind_source, _, nnz, _ =
-                    packed_format_open_sparse_component_source(files, base_key, "nzind", ind_type, json, nothing)
-                nzval_source = if nzval_present
-                    nzval_vector, _, _, _ =
-                        packed_format_open_sparse_component_source(files, base_key, "nzval", eltype, json, nnz)
-                    nzval_vector
-                else
-                    fill(true, nnz)
-                end
-                vector = LazySparseVector(size, nzind_source, nzval_source)
-                cache_group = Formats.MemoryData
+            nzind_vector, nnz, nzind_cache =
+                packed_format_open_sparse_component_eager(files, base_key, "nzind", ind_type, json, nothing)
+            cache_group = max(cache_group, nzind_cache)
+            if nzval_present
+                nzval_vector, _, nzval_cache =
+                    packed_format_open_sparse_component_eager(files, base_key, "nzval", eltype, json, nnz)
+                cache_group = max(cache_group, nzval_cache)
             else
-                nzind_vector, _, nnz, nzind_cache =
-                    packed_format_open_sparse_component_eager(files, base_key, "nzind", ind_type, json, nothing)
-                cache_group = max(cache_group, nzind_cache)
-                if nzval_present
-                    nzval_vector, _, _, nzval_cache =
-                        packed_format_open_sparse_component_eager(files, base_key, "nzval", eltype, json, nnz)
-                    cache_group = max(cache_group, nzval_cache)
-                else
-                    nzval_vector = fill(true, nnz)
-                    cache_group = Formats.MemoryData
-                end
-                vector = SparseVector(size, nzind_vector, nzval_vector)
+                nzval_vector = fill(true, nnz)
+                cache_group = Formats.MemoryData
             end
+            vector = SparseVector(size, nzind_vector, nzval_vector)
         end
     end
 
-    return (vector, nothing, cache_group)
+    return (vector, cache_group)
 end
 
 function Formats.format_vector_metadata(files::FilesDaf, axis::AbstractString, name::AbstractString)::PropertyMetadata
@@ -1000,7 +982,7 @@ function Formats.format_get_matrix(
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString,
-)::Tuple{StorageMatrix, Any, Formats.CacheGroup}
+)::Tuple{StorageMatrix, Formats.CacheGroup}
     @assert Formats.has_data_read_lock(files)
 
     nrows = Formats.format_axis_length(files, rows_axis)
@@ -1030,7 +1012,7 @@ function Formats.format_get_matrix(
 
         else
             eltype = eltype_for_descriptor(eltype_name)
-            matrix, _, cache_group = packed_read_typed_matrix(files, "$(base_key).data", eltype, nrows, ncols)
+            matrix, cache_group = packed_read_typed_matrix(files, "$(base_key).data", eltype, nrows, ncols)
         end
 
     else
@@ -1041,12 +1023,12 @@ function Formats.format_get_matrix(
 
         # `colptr` is always materialised at read time even if it lives on disk in packed form: it is small
         # (`sizeof(ind_type) × (n_columns + 1)` bytes) and slicing needs random access to it.
-        colptr_vector, _, _, colptr_cache =
+        colptr_vector, _, colptr_cache =
             packed_format_open_sparse_component_eager(files, base_key, "colptr", ind_type, json, ncols + 1)
         cache_group = max(cache_group, colptr_cache)
 
         if eltype_name == "string" || eltype_name == "String"
-            rowval_vector, _, nnz, rowval_cache =
+            rowval_vector, nnz, rowval_cache =
                 packed_format_open_sparse_component_eager(files, base_key, "rowval", ind_type, json, nothing)
             cache_group = max(cache_group, rowval_cache)
             matrix = Matrix{AbstractString}(undef, nrows, ncols)
@@ -1072,10 +1054,10 @@ function Formats.format_get_matrix(
             is_nzval_packed = is_packed_component(nzval_descriptor)
 
             if is_rowval_packed || is_nzval_packed
-                rowval_source, _, nnz, _ =
+                rowval_source, nnz, _ =
                     packed_format_open_sparse_component_source(files, base_key, "rowval", ind_type, json, nothing)
                 nzval_source = if nzval_present
-                    nzval_vector, _, _, _ =
+                    nzval_vector, _, _ =
                         packed_format_open_sparse_component_source(files, base_key, "nzval", eltype, json, nnz)
                     nzval_vector
                 else
@@ -1084,11 +1066,11 @@ function Formats.format_get_matrix(
                 matrix = LazySparseMatrix(nrows, colptr_vector, rowval_source, nzval_source)
                 cache_group = Formats.MemoryData
             else
-                rowval_vector, _, nnz, rowval_cache =
+                rowval_vector, nnz, rowval_cache =
                     packed_format_open_sparse_component_eager(files, base_key, "rowval", ind_type, json, nothing)
                 cache_group = max(cache_group, rowval_cache)
                 if nzval_present
-                    nzval_vector, _, _, nzval_cache =
+                    nzval_vector, _, nzval_cache =
                         packed_format_open_sparse_component_eager(files, base_key, "nzval", eltype, json, nnz)
                     cache_group = max(cache_group, nzval_cache)
                 else
@@ -1100,7 +1082,7 @@ function Formats.format_get_matrix(
         end
     end
 
-    return (matrix, nothing, cache_group)
+    return (matrix, cache_group)
 end
 
 function Formats.format_matrix_metadata(
@@ -1265,9 +1247,9 @@ function packed_read_typed_vector(
     key::AbstractString,
     ::Type{T},
     n_elements::Integer,
-)::Tuple{Vector{T}, Any, Formats.CacheGroup} where {T}
+)::Tuple{Vector{T}, Formats.CacheGroup} where {T}
     vector = mmap_file_data("$(files.path)/$(key)", Vector{T}, Int(n_elements), files.files_mode)
-    return (vector, nothing, Formats.MappedData)
+    return (vector, Formats.MappedData)
 end
 
 function packed_read_typed_matrix(
@@ -1276,9 +1258,9 @@ function packed_read_typed_matrix(
     ::Type{T},
     nrows::Integer,
     ncols::Integer,
-)::Tuple{Matrix{T}, Any, Formats.CacheGroup} where {T}
+)::Tuple{Matrix{T}, Formats.CacheGroup} where {T}
     matrix = mmap_file_data("$(files.path)/$(key)", Matrix{T}, (Int(nrows), Int(ncols)), files.files_mode)
-    return (matrix, nothing, Formats.MappedData)
+    return (matrix, Formats.MappedData)
 end
 
 function packed_open_array(
@@ -1582,7 +1564,7 @@ function replace_reorder_vector(
     plan::Reorder.FormatReorderPlan,
     replacement_progress::Maybe{AbstractProgress},
 )::Nothing
-    source_vector, _, _ = Formats.format_get_vector(files, planned.axis, planned.name)
+    source_vector, _ = Formats.format_get_vector(files, planned.axis, planned.name)
     is_packed = Formats.format_vector_metadata(files, planned.axis, planned.name).is_packed
 
     for suffix in VECTOR_FILE_SUFFIXES
@@ -1610,7 +1592,7 @@ function replace_reorder_matrix(
     plan::Reorder.FormatReorderPlan,
     replacement_progress::Maybe{AbstractProgress},
 )::Nothing
-    source_matrix, _, _ = Formats.format_get_matrix(files, planned.rows_axis, planned.columns_axis, planned.name)
+    source_matrix, _ = Formats.format_get_matrix(files, planned.rows_axis, planned.columns_axis, planned.name)
     is_packed = Formats.format_matrix_metadata(files, planned.rows_axis, planned.columns_axis, planned.name).is_packed
 
     for suffix in MATRIX_FILE_SUFFIXES

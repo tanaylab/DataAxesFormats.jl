@@ -20,18 +20,22 @@ function with_packed_dense_matrix_round_trip(action::Function, create_daf::Funct
     return nothing
 end
 
-# Verify that the matrix of `with_packed_dense_matrix_round_trip` is read lazily from a local packed format. A whole
-# read pools no chunks. A row read pools the chunk it used in each column.
+# Verify that the matrix of `with_packed_dense_matrix_round_trip` is read lazily from a local packed format. The lazy
+# array is returned as-is, since it is read-only by itself; `densify` of it is read-only too. A whole read pools no
+# chunks. A row read pools the chunk it used in each column.
 function verify_lazy_dense_matrix_pooling(daf::DafReader)::Nothing
     empty_cache!(daf)
-    lazy = parent(parent(get_matrix(daf, "row", "col", "data")))
+    named = get_matrix(daf, "row", "col", "data")
+    lazy = named.array
     @test lazy isa DataAxesFormats.PackedFormat.ChunkedArray
+    @test is_read_only_array(named)
     pool = DataAxesFormats.PackedFormat.LOCAL_CHUNK_POOL
     n_pooled_chunks() = count(key -> key[1] == lazy.source_id, keys(pool.chunks))
     @test collect(lazy) == Matrix{Float32}(reshape(Float32.(1:(4096 * 3)), 4096, 3))
     @test n_pooled_chunks() == 0
     @test lazy[5, :] == Float32[5, 4096 + 5, 2 * 4096 + 5]
     @test n_pooled_chunks() == 3
+    @test is_read_only_array(densify(named))
     return nothing
 end
 
@@ -40,7 +44,7 @@ end
 # A `densify` snapshot stays valid.
 function verify_lazy_dense_matrix_invalidation(daf::DafWriter)::Nothing
     empty_cache!(daf)
-    lazy = parent(parent(get_matrix(daf, "row", "col", "data")))
+    lazy = get_matrix(daf, "row", "col", "data").array
     pool = DataAxesFormats.PackedFormat.LOCAL_CHUNK_POOL
     n_pooled_chunks() = count(key -> key[1] == lazy.source_id, keys(pool.chunks))
     @test lazy[5, :] == Float32[5, 4096 + 5, 2 * 4096 + 5]
@@ -98,20 +102,24 @@ function with_packed_sparse_matrix_round_trip(action::Function, create_daf::Func
     return nothing
 end
 
-# Verify that the lazy matrix of `with_packed_sparse_matrix_round_trip`, and a materialized slice of it, refuse to be
-# read after its property is overwritten.
+# Verify that the lazy matrix of `with_packed_sparse_matrix_round_trip` is returned as-is, since it is read-only by
+# itself, and that `mutable_array` of it is its shared materialization. Verify that it refuses to be read after its
+# property is overwritten, while a column subset read from it earlier stays valid.
 function verify_lazy_sparse_matrix_invalidation(daf::DafWriter)::Nothing
     empty_cache!(daf)
-    lazy = parent(parent(get_matrix(daf, "row", "col", "data")))
+    named = get_matrix(daf, "row", "col", "data")
+    lazy = named.array
     @test lazy isa LazySparseMatrix
-    sliced = lazy[:, 2:3]
-    @test nnz(sliced) == 2 * 8192
-    @test nonzeros(sliced)[1] == 2
+    @test is_read_only_array(named)
+    columns = lazy[:, 2:3]
+    @test nnz(columns) == 2 * 8192
+    @test mutable_array(lazy) === convert(SparseMatrixCSC, lazy)
 
     set_matrix!(daf, "row", "col", "data", spzeros(Float32, Int32, 8192, 4); overwrite = true, relayout = false)
     @test_throws "modified after" nonzeros(lazy)
     @test_throws "modified after" lazy[1, 1]
-    @test_throws "modified after" nonzeros(sliced)
+    @test_throws "modified after" lazy[:, 2]
+    @test nonzeros(columns)[1] == 2
     return nothing
 end
 
@@ -494,8 +502,7 @@ nested_test("packed_format") do
         end
 
         nested_test("supported_codecs") do
-            for codec_symbol in
-                (:blosc_zstd_bitshuffle, :blosc_lz4_bitshuffle, :zstd_bitshuffle, :zstd, :gzip, :gzip_shuffle)
+            for codec_symbol in (:blosc_zstd_bitshuffle, :blosc_lz4_bitshuffle, :zstd, :gzip, :gzip_shuffle)
                 result = DataAxesFormats.PackedFormat.compressor_for(codec_symbol)
                 @test result.compression == codec_symbol
             end
@@ -505,6 +512,8 @@ nested_test("packed_format") do
             @test_throws "unsupported packed compression codec: :snappy" DataAxesFormats.PackedFormat.compressor_for(
                 :snappy,
             )
+            compressor_for = DataAxesFormats.PackedFormat.compressor_for
+            @test_throws "unsupported packed compression codec: :zstd_bitshuffle" compressor_for(:zstd_bitshuffle)
         end
 
         nested_test("error_lists_supported") do
@@ -819,6 +828,104 @@ nested_test("packed_format") do
         end
     end
 
+    # An in-memory `ZarrDaf` keeps its chunks in a `Dict`, so concurrent column writes must not corrupt it. A race shows
+    # only sometimes, so the fill is repeated.
+    nested_test("packed_dense_matrix_memory_zarr_tasks") do
+        n_rows = 2048
+        n_columns = 2048
+        expected = Float32[column * 10_000 + row for row in 1:n_rows, column in 1:n_columns]
+        n_correct = 0
+        for _ in 1:10
+            daf = ZarrDaf(; name = "memory!", packed = true)
+            add_axis!(daf, "row", ["r$(index)" for index in 1:n_rows])
+            add_axis!(daf, "column", ["c$(index)" for index in 1:n_columns])
+            empty_dense_matrix!(daf, "row", "column", "data", Float32; relayout = false) do filled
+                Threads.@threads for column in 1:n_columns
+                    filled[:, column] = expected[:, column]
+                end
+                return nothing
+            end
+            empty_cache!(daf)
+            if get_matrix(daf, "row", "column", "data"; relayout = false) == expected
+                n_correct += 1
+            end
+        end
+        @test n_correct == 10
+    end
+
+    # A `MemoryDaf` owns what it stores. A lazy array read from another daf is copied, so modifying either daf doesn't
+    # affect the other.
+    nested_test("memory_daf_copies_lazy_arrays") do
+        mktempdir() do path
+            source = FilesDaf(joinpath(path, "source.daf"), "w+"; name = "source!", packed = true)
+            add_axis!(source, "row", ["r$(index)" for index in 1:4096])
+            add_axis!(source, "col", ["c1", "c2", "c3"])
+            dense = Float32[row + 10_000 * column for row in 1:4096, column in 1:3]
+            sparse_values =
+                SparseMatrixCSC{Float32, Int32}(sparse(Int32.(1:4096), fill(Int32(2), 4096), Float32.(1:4096), 4096, 3))
+            vector = Float32.(1:4096)
+            set_matrix!(source, "row", "col", "dense", dense; relayout = false)
+            set_matrix!(source, "row", "col", "sparse", sparse_values; relayout = false)
+            set_vector!(source, "row", "vector", vector)
+
+            memory = MemoryDaf(; name = "memory!")
+            copy_all!(; source, destination = memory, relayout = false)
+            is_lazy_array = DataAxesFormats.Formats.is_lazy_array
+            @test !is_lazy_array(get_matrix(memory, "row", "col", "dense").array)
+            @test !is_lazy_array(get_matrix(memory, "row", "col", "sparse").array)
+            @test !is_lazy_array(get_vector(memory, "row", "vector").array)
+
+            set_matrix!(memory, "row", "col", "dense", zeros(Float32, 4096, 3); overwrite = true, relayout = false)
+            set_matrix!(
+                memory,
+                "row",
+                "col",
+                "sparse",
+                spzeros(Float32, Int32, 4096, 3);
+                overwrite = true,
+                relayout = false,
+            )
+            set_vector!(memory, "row", "vector", zeros(Float32, 4096); overwrite = true)
+            @test get_matrix(source, "row", "col", "dense") == dense
+            @test get_matrix(source, "row", "col", "sparse") == sparse_values
+            @test get_vector(source, "row", "vector") == vector
+            return nothing
+        end
+    end
+
+    nested_test("copy_lazy_arrays") do
+        mktempdir() do path
+            source = FilesDaf(joinpath(path, "source.daf"), "w+"; name = "source!", packed = true)
+            add_axis!(source, "row", ["r$(index)" for index in 1:4096])
+            add_axis!(source, "col", ["c1", "c2", "c3"])
+            dense = Float32[row + 10_000 * column for row in 1:4096, column in 1:3]
+            sparse_values =
+                SparseMatrixCSC{Float32, Int32}(sparse(Int32.(1:4096), fill(Int32(2), 4096), Float32.(1:4096), 4096, 3))
+            vector = Float32.(1:4096)
+            set_matrix!(source, "row", "col", "dense", dense; relayout = false)
+            set_matrix!(source, "row", "col", "sparse", sparse_values; relayout = false)
+            set_vector!(source, "row", "vector", vector)
+
+            for (destination_name, destination) in (
+                ("flat_zip", () -> ZipDaf(joinpath(path, "flat.daf.zip"), "w+"; name = "flat_zip!", packed = false)),
+                (
+                    "packed_zarr",
+                    () -> ZarrDaf(joinpath(path, "packed.daf.zarr"), "w+"; name = "packed_zarr!", packed = true),
+                ),
+            )
+                nested_test(destination_name) do
+                    daf = destination()
+                    copy_all!(; source, destination = daf, relayout = false)
+                    @test get_matrix(daf, "row", "col", "dense") == dense
+                    @test get_matrix(daf, "row", "col", "sparse") == sparse_values
+                    @test get_vector(daf, "row", "vector") == vector
+                    return nothing
+                end
+            end
+            return nothing
+        end
+    end
+
     nested_test("chunked_array") do
         saved_cache_kb = DAF_PACKED_HTTP_CACHE_KB
         try
@@ -924,7 +1031,6 @@ nested_test("packed_format") do
     nested_test("valid_compression_level_range") do
         @test DataAxesFormats.PackedFormat.valid_compression_level_range(:blosc_zstd_bitshuffle) == 1:9
         @test DataAxesFormats.PackedFormat.valid_compression_level_range(:blosc_lz4_bitshuffle) == 1:9
-        @test DataAxesFormats.PackedFormat.valid_compression_level_range(:zstd_bitshuffle) == 1:22
         @test DataAxesFormats.PackedFormat.valid_compression_level_range(:zstd) == 1:22
         @test DataAxesFormats.PackedFormat.valid_compression_level_range(:gzip) == 1:9
         @test DataAxesFormats.PackedFormat.valid_compression_level_range(:gzip_shuffle) == 1:9
@@ -938,22 +1044,11 @@ nested_test("packed_format") do
         packed_codec_from_v3_codec = DataAxesFormats.PackedFormat.packed_codec_from_v3_codec
 
         nested_test("round_trip") do
-            for compression in (:blosc_zstd_bitshuffle, :blosc_lz4_bitshuffle, :zstd, :gzip)
+            for compression in (:blosc_zstd_bitshuffle, :blosc_lz4_bitshuffle, :zstd, :gzip, :gzip_shuffle)
                 codec = packed_codec_from_v3_codec(only(v3_bytes_codecs_for(compressor_for(compression, 3), Float32)))
                 @test codec.compression == compression
                 @test codec.compression_level == 3
             end
-        end
-
-        nested_test("unsupported_on_v3") do
-            @test_throws "packed compression codec :gzip_shuffle is not supported" v3_bytes_codecs_for(
-                compressor_for(:gzip_shuffle),
-                Float32,
-            )
-            @test_throws "packed compression codec :zstd_bitshuffle is not supported" v3_bytes_codecs_for(
-                compressor_for(:zstd_bitshuffle),
-                Float32,
-            )
         end
 
         nested_test("unsupported_from_v3") do
@@ -1495,8 +1590,8 @@ nested_test("packed_format") do
             end
         end
 
-        # Packed sparse Bool vector with all-`true` non-zeros on ZipDaf — exercises the lazy `LazySparseVector`
-        # read path (`nzind` packed) and the `fill(true, nnz)` branch that skips reading `nzval` on disk.
+        # Packed sparse Bool vector with all-`true` non-zeros on ZipDaf — exercises the eager read of a packed `nzind`
+        # and the `fill(true, nnz)` branch that skips reading `nzval` on disk.
         nested_test("packed_sparse_bool_all_true_vector_round_trip") do
             mktempdir() do path
                 n_elements = 8192
@@ -1721,6 +1816,24 @@ nested_test("packed_format") do
             end
         end
 
+        # Each component is chunked on its own. 2048 `Int64` row indices (16 KB) are chunked, while 2048 `UInt8` values
+        # (2 KB) are contiguous.
+        nested_test("mixed_packed_flat_sparse_matrix") do
+            mktempdir() do path
+                daf = h5df_factory(path; packed = true)
+                add_axis!(daf, "row", ["r$(index)" for index in 1:4096])
+                add_axis!(daf, "col", ["c1", "c2"])
+                original =
+                    SparseMatrixCSC{UInt8, Int64}(sparse(Int64.(1:2048), fill(1, 2048), fill(UInt8(7), 2048), 4096, 2))
+                set_matrix!(daf, "row", "col", "data", original; relayout = false)
+                @test HDF5.ischunked(h5df_dataset_at(daf, "matrices", "row", "col", "data", "rowval"))
+                @test !HDF5.ischunked(h5df_dataset_at(daf, "matrices", "row", "col", "data", "nzval"))
+                empty_cache!(daf)
+                @test get_matrix(daf, "row", "col", "data") == original
+                return nothing
+            end
+        end
+
         nested_test("empty_sparse_vector_lifecycle") do
             # `empty_sparse_vector!` lifecycle: `format_get_empty_sparse_vector!` returns in-RAM `Vector{I}` /
             # `Vector{T}`, the user fills them via the public API, and `format_filled_empty_sparse_vector!` writes
@@ -1858,7 +1971,7 @@ nested_test("packed_format") do
 
         nested_test("hdf5_filters_for") do
             # `hdf5_filters_for` translates each user-facing `DAF_PACKED_COMPRESSION` symbol into the matching
-            # `HDF5.Filters.Filter` chain. Cover all six codecs at the function level — full end-to-end packed
+            # `HDF5.Filters.Filter` chain. Cover all five codecs at the function level — full end-to-end packed
             # writes-per-codec are exercised indirectly by the default-codec tests above.
             for_codec = DataAxesFormats.H5dfFormat.hdf5_filters_for ∘ DataAxesFormats.PackedFormat.compressor_for
 
@@ -1871,10 +1984,6 @@ nested_test("packed_format") do
             @test length(blosc_lz4) == 1
             @test blosc_lz4[1] isa BloscFilter
             @test blosc_lz4[1].shuffle == H5Zblosc.BITSHUFFLE
-
-            zstd_bs = for_codec(:zstd_bitshuffle)
-            @test length(zstd_bs) == 1
-            @test zstd_bs[1] isa BitshuffleFilter
 
             zstd = for_codec(:zstd)
             @test length(zstd) == 1
@@ -1929,8 +2038,12 @@ nested_test("packed_format") do
         # `system_unzip_supported` flags codecs whose ZIP method is widely supported by `unzip` (STORED
         # and DEFLATE). Method 93 (zstd) is newer than the InfoZip versions shipped on most platforms
         # (e.g. macOS), so the daf round-trip alone exercises that codec — `unzip -tq` is skipped.
-        for (codec_symbol, expected_codec_name, has_codec_json, system_unzip_supported) in
-            ((:blosc_lz4_bitshuffle, "blosc", true, true), (:zstd, "zstd", false, false), (:gzip, "gzip", false, true))
+        for (codec_symbol, expected_codec_name, has_codec_json, system_unzip_supported) in (
+            (:blosc_lz4_bitshuffle, "blosc", true, true),
+            (:gzip_shuffle, "blosc", true, true),
+            (:zstd, "zstd", false, false),
+            (:gzip, "gzip", false, true),
+        )
             nested_test(string(codec_symbol)) do
                 saved_compression = DataAxesFormats.PackedFormat.DAF_PACKED_COMPRESSION
                 try
