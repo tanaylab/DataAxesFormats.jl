@@ -409,4 +409,11 @@ function TanayLabUtilities.ReadOnlyArrays.mutable_array(
     return cached_materialization!(matrix)
 end
 
+function TanayLabUtilities.MatrixFormats.plain_array(
+    matrix::LazySparseMatrix{Tv, Ti};
+    transposed_as::Maybe{Type} = nothing,  # NOLINT
+)::SparseMatrixCSC{Tv, Ti} where {Tv, Ti}
+    return cached_materialization!(matrix)
+end
+
 end  # module

@@ -907,6 +907,13 @@ function TanayLabUtilities.ReadOnlyArrays.mutable_array(array::ChunkedArray)::Ar
     return cached_materialization!(array)
 end
 
+function TanayLabUtilities.MatrixFormats.plain_array(
+    array::ChunkedArray;
+    transposed_as::Maybe{Type} = nothing,  # NOLINT
+)::Array
+    return cached_materialization!(array)
+end
+
 # A `ChunkedArray` rejects writes, so it needs no read-only wrapper. Without one, broadcasting, `view` and `similar` see
 # the lazy array itself.
 function TanayLabUtilities.ReadOnlyArrays.read_only_array(array::ChunkedArray)::ChunkedArray

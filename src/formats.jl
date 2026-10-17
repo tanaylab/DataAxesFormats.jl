@@ -55,7 +55,6 @@ using SparseArrays
 using TanayLabUtilities
 
 import ..Registry.QueryOperation
-import Base.AbstractLock  # NOLINT
 
 """
 Types of cached data inside `Daf`.
@@ -148,9 +147,20 @@ CacheData = Union{
     AbstractDict{String, Any},  # Parsed JSON object (format metadata)
 }
 
+# The data of a cache entry while its slow computation runs. The computing task sets the entry's data to the result (or
+# deletes the entry if the computation fails), then sets `is_done`, then notifies `done_event`.
+struct PendingResult
+    is_done::Threads.Atomic{Bool}
+    done_event::Threads.Event
+end
+
+function PendingResult()
+    return PendingResult(Threads.Atomic{Bool}(false), Threads.Event())
+end
+
 mutable struct CacheEntry  # NOLINT
     cache_group::CacheGroup
-    data::Union{AbstractLock, CacheData}
+    data::Union{PendingResult, CacheData}
 end
 
 @enum CacheType CachedAxis CachedData CachedQuery CachedNames
@@ -963,7 +973,8 @@ function get_through_cache(getter::Function, format::FormatReader, cache_key::Ca
             return get(format.internal.cache, cache_key, nothing)
         end
         cached = result_from_cache(cache_entry)
-        while cached === nothing
+        # If another computation became pending meanwhile, this returns `nothing`, and the loop waits for it.
+        if cached === nothing
             cached = write_through_cache(getter, format, cache_key, T)
         end
     end
@@ -984,7 +995,8 @@ function get_slow_through_cache(
             return get(format.internal.cache, cache_key, nothing)
         end
         cached = result_from_cache(cache_entry)
-        while cached === nothing
+        # If another computation became pending meanwhile, this returns `nothing`, and the loop waits for it.
+        if cached === nothing
             cached = write_slow_through_cache(getter, format, cache_key, T, cache_group)
         end
     end
@@ -995,21 +1007,38 @@ function result_from_cache(::Nothing)::Nothing
     return nothing
 end
 
+# The cached result, or `nothing` if it needs to be computed. A pending entry is waited for. If its computation failed,
+# the entry was deleted without a result, and the caller computes it again.
 function result_from_cache(cache_entry::CacheEntry)::Any
-    entry_lock = cache_entry.data
-    if entry_lock isa AbstractLock
-        return lock(entry_lock) do  # UNTESTED
-            return cache_entry.data  # FLAKY TESTED
-        end
+    pending_result = cache_entry.data
+    if pending_result isa PendingResult
+        wait_for_pending_result(pending_result)
+        result = cache_entry.data
+        return result isa PendingResult ? nothing : result
     end
-    return cache_entry.data
+    return pending_result
+end
+
+# How many times a waiter checks a pending result before it blocks. This avoids a context switch when the computation
+# is about to finish.
+const PENDING_RESULT_SPIN_COUNT = 1000
+
+function wait_for_pending_result(pending_result::PendingResult)::Nothing
+    for _ in 1:PENDING_RESULT_SPIN_COUNT
+        if pending_result.is_done[]
+            return nothing
+        end
+        ccall(:jl_cpu_pause, Cvoid, ())
+    end
+    wait(pending_result.done_event)
+    return nothing
 end
 
 function write_through_cache(getter::Function, format::FormatReader, cache_key::CacheKey, ::Type{T})::Maybe{T} where {T}
     return with_cache_write_lock(format, "for get_through_cache:", cache_key) do  # NOJET
         cache_entry = get(format.internal.cache, cache_key, nothing)
         if cache_entry !== nothing
-            if cache_entry.data isa AbstractLock  # UNTESTED
+            if cache_entry.data isa PendingResult  # UNTESTED
                 return nothing  # UNTESTED
             else
                 return cache_entry.data  # UNTESTED
@@ -1034,15 +1063,13 @@ function write_slow_through_cache(
     result = with_cache_write_lock(format, "for get_through_cache:", cache_key) do
         cache_entry = get(format.internal.cache, cache_key, nothing)
         if cache_entry !== nothing
-            if cache_entry.data isa AbstractLock  # UNTESTED
+            if cache_entry.data isa PendingResult  # UNTESTED
                 return nothing  # UNTESTED
             else
                 return cache_entry.data  # UNTESTED
             end
         else
-            entry_lock = SpinLock()
-            cache_entry = CacheEntry(cache_group, entry_lock)
-            lock(entry_lock)
+            cache_entry = CacheEntry(cache_group, PendingResult())
             format.internal.cache[cache_key] = cache_entry
             lock(format.internal.pending_condition) do
                 format.internal.pending_count[1] += 1
@@ -1053,8 +1080,8 @@ function write_slow_through_cache(
     end
     if result isa CacheEntry
         cache_entry = result
-        entry_lock = cache_entry.data
-        @assert entry_lock isa AbstractLock
+        pending_result = cache_entry.data
+        @assert pending_result isa PendingResult
         try
             result, dependency_keys = getter()
             with_cache_write_lock(format, "for slow:", cache_key) do
@@ -1088,7 +1115,8 @@ function write_slow_through_cache(
             end
             rethrow()
         finally
-            unlock(entry_lock)
+            pending_result.is_done[] = true
+            notify(pending_result.done_event)
         end
     end
     return result

@@ -696,14 +696,7 @@ function Formats.format_set_vector!(
 
         else
             flame_timed("H5df.write_dense_vector") do
-                nice_vector = nothing
-                try
-                    base = pointer(vector)
-                    nice_vector = Base.unsafe_wrap(Array, base, size(vector))
-                catch
-                    nice_vector = Vector(vector)  # UNTESTED
-                end
-                return write_packed_dense_dataset!(axis_vectors_group, name, nice_vector, is_packed)
+                return write_packed_dense_dataset!(axis_vectors_group, name, plain_array(vector), is_packed)
             end
         end
     end
@@ -1140,14 +1133,9 @@ function Formats.format_set_matrix!(
 
         else
             flame_timed("H5df.write_dense_matrix") do
-                nice_matrix = nothing
-                try
-                    base = pointer(matrix)
-                    nice_matrix = Base.unsafe_wrap(Array, base, size(matrix))
-                catch
-                    nice_matrix = Matrix(matrix) # UNTESTED
-                end
-                return write_packed_dense_dataset!(columns_axis_group, name, nice_matrix, is_packed)
+                plain_matrix = plain_array(matrix)
+                @assert plain_matrix isa Matrix
+                return write_packed_dense_dataset!(columns_axis_group, name, plain_matrix, is_packed)
             end
         end
     end

@@ -1366,13 +1366,12 @@ function get_query(
                 return get_query_result(daf, query_sequence)
             end
         else
-            cached = Formats.with_cache_read_lock(daf, "for get_query of:", cache_key) do
+            cache_entry = Formats.with_cache_read_lock(daf, "for get_query of:", cache_key) do
                 return get(daf.internal.cache, cache_key, nothing)
             end
-            if cached === nothing
+            result = Formats.result_from_cache(cache_entry)
+            if result === nothing
                 result, _ = get_query_result(daf, query_sequence)
-            else
-                result = cached.data
             end
         end
         @debug (

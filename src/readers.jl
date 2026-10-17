@@ -1619,11 +1619,16 @@ function cache_description(daf::DafReader, indent::AbstractString, lines::Vector
             end
             cache_entry = daf.internal.cache[key]
             value = cache_entry.data
-            if value isa AbstractArray
-                value = base_array(value)
+            if value isa Formats.PendingResult
+                value_description = "pending"
+            else
+                if value isa AbstractArray
+                    value = base_array(value)
+                end
+                value_description = brief(value)
             end
             key = replace("$(key)", "'" => "''")
-            push!(lines, "$(indent)  '$(key)': ($(cache_entry.cache_group)) $(brief(value))")
+            push!(lines, "$(indent)  '$(key)': ($(cache_entry.cache_group)) $(value_description)")
         end
     end
     return nothing

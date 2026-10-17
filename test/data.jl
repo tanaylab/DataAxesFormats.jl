@@ -3788,6 +3788,35 @@ nested_test("data") do
     end
 
     nested_test("h5df") do
+        nested_test("strided_views") do
+            mktempdir() do path
+                daf = H5df(path * "/test.h5df", "w+"; name = "h5df!")
+                add_axis!(daf, "cell", ["A", "B", "C"])
+                add_axis!(daf, "gene", ["X", "Y"])
+                values = Float64.(1:6)
+                set_vector!(daf, "cell", "score", view(values, 1:2:6))
+                @test get_vector(daf, "cell", "score") == [1.0, 3.0, 5.0]
+                matrix = Float64[row + 10 * column for row in 1:6, column in 1:4]
+                set_matrix!(daf, "cell", "gene", "level", view(matrix, 1:2:6, 1:2:4); relayout = false)
+                @test get_matrix(daf, "cell", "gene", "level"; relayout = false) == matrix[1:2:6, 1:2:4]
+                return nothing
+            end
+        end
+
+        nested_test("held_after_overwrite") do
+            mktempdir() do path
+                daf = H5df(path * "/test.h5df", "w+"; name = "h5df!")
+                add_axis!(daf, "cell", ["c$(index)" for index in 1:100_000])
+                values = Float64.(1:100_000)
+                set_vector!(daf, "cell", "score", values)
+                score = get_vector(daf, "cell", "score")
+                set_vector!(daf, "cell", "score", zeros(Float64, 100_000); overwrite = true)
+                set_vector!(daf, "cell", "other", fill(-1.0, 100_000))
+                @test score == values
+                return nothing
+            end
+        end
+
         nested_test("invalid") do
             mktempdir() do path
                 h5open(path * "/test.h5df", "w") do h5file

@@ -6,7 +6,10 @@ function test_adata(adata::AnnData)::Nothing
     @test adata.uns["X_is"] == "UMIs"
     @test adata.X == [0 1 2; 3 4 5]
     @test adata.obs[!, "age"] == [0, 1]
+    @test adata.obs[!, "type"] == ["T", "B"]
+    @test adata.var[!, "kind"] == ["p", "q", "r"]
     @test adata.layers["LogUMIs"] == log2.([0 1 2; 3 4 5] .+ 1)
+    @test adata.layers["SparseUMIs"] == [0 1 2; 3 4 0]
     @test adata.obsp["edges"] == transpose([0 1; 2 3])
     return nothing
 end
@@ -18,8 +21,11 @@ function test_daf(daf::DafReader)::Nothing
     @test get_scalar(daf, "var_is") == "gene"
     @test get_scalar(daf, "X_is") == "UMIs"
     @test get_vector(daf, "cell", "age") == [0, 1]
+    @test get_vector(daf, "cell", "type") == ["T", "B"]
+    @test get_vector(daf, "gene", "kind") == ["p", "q", "r"]
     @test get_matrix(daf, "cell", "gene", "UMIs") == [0 1 2; 3 4 5]
     @test get_matrix(daf, "cell", "gene", "LogUMIs") == log2.([0 1 2; 3 4 5] .+ 1)
+    @test get_matrix(daf, "cell", "gene", "SparseUMIs") == [0 1 2; 3 4 0]
     @test get_matrix(daf, "cell", "cell", "edges") == [0 1; 2 3]
     return nothing
 end
@@ -35,6 +41,9 @@ nested_test("anndata") do
     set_scalar!(memory, "X_is", "UMIs")
 
     set_vector!(memory, "cell", "age", [0, 1])
+    set_matrix!(memory, "gene", "cell", "SparseUMIs", sparse([0 3; 1 4; 2 0]))
+    set_vector!(memory, "cell", "type", ["T", "B"])
+    set_vector!(memory, "gene", "kind", ["p", "q", "r"])
 
     set_matrix!(memory, "cell", "cell", "edges", [0 1; 2 3])
 
@@ -147,6 +156,10 @@ nested_test("anndata") do
         mktempdir() do path
             adata = daf_as_anndata(memory; obs_is = "cell", var_is = "gene", h5ad = "$(path)/test.h5ad")
             test_adata(adata)
+            h5open("$(path)/test.h5ad", "r") do h5file
+                @test read_attribute(h5file["layers/SparseUMIs"], "encoding-type") == "csr_matrix"
+                return nothing
+            end
             back = anndata_as_daf("$(path)/test.h5ad"; unsupported_handler = ErrorHandler)
             test_daf(back)
             return nothing

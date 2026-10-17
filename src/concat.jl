@@ -1396,8 +1396,8 @@ function sparsify_concatenated_matrices(
             sparse_matrices[source_index] = spzeros(eltype, nrows, ncols)
         else
             @assert size(matrix) == (nrows, ncols)
-            # Without the read-only wrapper, a sparse matrix is stored as is, rather than converted element by element.
-            sparse_matrices[source_index] = base_array(matrix.array)
+            # A plain sparse matrix is stored as is, rather than converted element by element.
+            sparse_matrices[source_index] = plain_array(matrix.array)
         end
         return nothing
     end

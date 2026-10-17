@@ -87,6 +87,24 @@ function test_invalid(  # UNTESTED
     return nothing
 end
 
+# While the query's computation is pending, run `wait_for_query` in another task. Then fail the computation, as the
+# cache does: delete its entry, then mark it done. The waiting task must compute the query itself.
+function test_failed_pending_query(daf::DafReader, wait_for_query::Function)::Nothing
+    query_sequence = DataAxesFormats.Queries.as_query_sequence(q"@ cell [ is_doublet ] : age")
+    cache_key = (DataAxesFormats.Formats.CachedQuery, "$(query_sequence)", :value)
+    pending_result = DataAxesFormats.Formats.PendingResult()
+    daf.internal.cache[cache_key] =
+        DataAxesFormats.Formats.CacheEntry(DataAxesFormats.Formats.QueryData, pending_result)
+    @test occursin("(QueryData) pending", description(daf; cache = true))
+    waiting_task = Threads.@spawn wait_for_query()
+    sleep(1)
+    delete!(daf.internal.cache, cache_key)
+    pending_result.is_done[] = true
+    notify(pending_result.done_event)
+    @test fetch(waiting_task) == [0]
+    return nothing
+end
+
 nested_test("queries") do
     daf = MemoryDaf(; name = "memory!")
 
@@ -216,6 +234,24 @@ nested_test("queries") do
             remasked = daf[q"@ cell [ is_doublet ] : age"]
             @test remasked == masked
             @test remasked !== masked
+        end
+
+        nested_test("dependency") do
+            @test get_query(daf, q"@ cell [ is_doublet ] : age") == [0]
+            set_vector!(daf, "cell", "age", [2, 3]; overwrite = true)
+            @test get_query(daf, q"@ cell [ is_doublet ] : age") == [2]
+            set_vector!(daf, "cell", "is_doublet", [false, true]; overwrite = true)
+            @test get_query(daf, q"@ cell [ is_doublet ] : age") == [3]
+        end
+
+        nested_test("pending") do
+            test_failed_pending_query(daf, () -> get_query(daf, q"@ cell [ is_doublet ] : age"; cache = false))
+            return nothing
+        end
+
+        nested_test("failed_pending") do
+            test_failed_pending_query(daf, () -> get_query(daf, q"@ cell [ is_doublet ] : age"))
+            return nothing
         end
 
         nested_test("empty") do

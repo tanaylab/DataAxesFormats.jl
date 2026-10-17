@@ -560,6 +560,11 @@ Each of the final `obs_is`, `var_is`, `X_is` values is stored as unstructured an
 
 All scalar properties, vector properties of the chosen "obs" and "var" axes, and matrix properties of these axes, are
 stored in the returned new `AnnData` object.
+
+!!! warning
+
+    To avoid copying, the arrays of the returned `AnnData` share the storage of the `daf` data where possible. Do not
+    modify them, as this would modify (and may corrupt) the `daf` data.
 """
 @logged :daf_ops function daf_as_anndata(
     daf::DafReader;
@@ -577,7 +582,7 @@ stored in the returned new `AnnData` object.
         @assert obs_is != var_is
         require_matrix(daf, obs_is, var_is, X_is; relayout = true)
 
-        matrix = flip(get_matrix(daf, var_is, obs_is, X_is).array)
+        matrix = muon_flipped_matrix(get_matrix(daf, var_is, obs_is, X_is).array)
         if X_eltype !== nothing && X_eltype != eltype(matrix)
             matrix = X_eltype.(matrix)  # UNTESTED
         end
@@ -644,17 +649,23 @@ function store_rename_scalar(
     return nothing
 end
 
+# The transpose of a stored `matrix`, in the form Muon writes without copying. For a dense matrix this is a reversed
+# `PermutedDimsArray`. For a sparse matrix it is an `Adjoint`.
+function muon_flipped_matrix(matrix::AbstractMatrix)::AbstractMatrix
+    return plain_array(flip(matrix); transposed_as = issparse(matrix) ? Adjoint : PermutedDimsArray)
+end
+
 function copy_square_matrices(daf::DafReader, axis::AbstractString, dict::AbstractDict)::Nothing
     for name in matrices_set(daf, axis, axis)
         @debug "Square $(axis): $(name)"
-        dict[name] = flip(get_matrix(daf, axis, axis, name).array)
+        dict[name] = muon_flipped_matrix(get_matrix(daf, axis, axis, name).array)
     end
 end
 
 function copy_vectors(daf::DafReader, axis::AbstractString, frame::DataFrame)::Nothing
     for name in vectors_set(daf, axis)
         @debug "Vector $(axis): $(name)"
-        frame[!, name] = densify(get_vector(daf, axis, name).array)
+        frame[!, name] = plain_array(densify(get_vector(daf, axis, name).array))
     end
 end
 
@@ -668,7 +679,7 @@ function copy_matrices(
     for name in matrices_set(daf, rows_axis, columns_axis; relayout = true)
         if name != skip_name
             @debug "Matrix $(rows_axis) $(columns_axis): $(name)"
-            dict[name] = flip(get_matrix(daf, columns_axis, rows_axis, name).array)
+            dict[name] = muon_flipped_matrix(get_matrix(daf, columns_axis, rows_axis, name).array)
         end
     end
 end
