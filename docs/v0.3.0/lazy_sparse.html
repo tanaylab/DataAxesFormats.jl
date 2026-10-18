@@ -318,7 +318,7 @@
 </summary>
 <section>
 <div>
-<p>Lazy slice-then-materialize wrappers around sparse properties whose components are chunked sources.
+<p>A lazy wrapper around a sparse matrix whose components are chunked sources.
 </p>
 <p>A 
 <a href="lazy_sparse.html#DataAxesFormats.LazySparse.LazySparseMatrix">
@@ -326,35 +326,13 @@
 </code>
 </a> holds the 
 <code>colptr
-</code> of a sparse matrix in memory plus the 
+</code> of a sparse matrix in memory, and the 
 <code>rowval
 </code> and 
 <code>nzval
-</code> as lazy sources — packed on disk (
-<code>Zarr.ZArray
-</code>, 
-<code>HDF5.Dataset
-</code>, FilesDaf shard) or chunked over HTTP (
-<code>ChunkedArray
-</code>) — so a packed sparse property opened from disk does not pay the decompression cost up front. A 
-<a href="lazy_sparse.html#DataAxesFormats.LazySparse.LazySparseVector">
-<code>LazySparseVector
-</code>
-</a> is the 1-D counterpart, holding 
-<code>nzind
-</code> and 
-<code>nzval
-</code> as the same kind of lazy sources. Slicing either wrapper accumulates 
-<a href="lazy_sparse.html#DataAxesFormats.LazySparse.SparseSelection">
-<code>SparseSelection
-</code>
-</a>s without touching the chunked storage; materialisation runs only when downstream code asks for concrete 
-<code>rowval
-</code> / 
-<code>nzval
-</code> / 
-<code>nzind
-</code> data, and only on the selected slice.
+</code> as lazy sources (packed on disk, or chunked over HTTP). Reading a subset of its columns reads only those columns. Any other access reads the whole matrix once.
+</p>
+<p>Sparse vectors are at most one axis long, so the formats always read them eagerly.
 </p>
 </div>
 </section>
@@ -374,14 +352,12 @@
 <div>
 <pre>
 <code class="language-julia hljs">mutable struct LazySparseMatrix{Tv, Ti &lt;: Integer} &lt;: AbstractSparseMatrixCSC{Tv, Ti}
-    full_n_rows::Int
-    full_n_columns::Int
-    full_colptr::Vector{Ti}
+    n_rows::Int
+    colptr::Vector{Ti}
     rowval_source::AbstractVector{Ti}
     nzval_source::AbstractVector{Tv}
-    row_select::SparseSelection
-    column_select::SparseSelection
-    materialized::Maybe{SparseMatrixCSC{Tv, Ti}}
+    materialization_cell::MaterializationCell{SparseMatrixCSC{Tv, Ti}}
+    did_report_scalar_access::Threads.Atomic{Bool}
 end
 </code>
 </pre>
@@ -389,463 +365,83 @@ end
 <a href="https://docs.julialang.org/en/v1/stdlib/SparseArrays/#SparseArrays.AbstractSparseMatrixCSC">
 <code>AbstractSparseMatrixCSC{Tv, Ti}
 </code>
-</a> over packed 
+</a> over the 
 <code>rowval
 </code> / 
 <code>nzval
-</code> sources.
+</code> sources of a stored sparse matrix.
 </p>
-<p>Holds the original 
+<p>It holds the 
 <code>colptr
-</code> in memory (small — 
-<code>sizeof(Ti) × (full_n_columns + 1)
-</code> bytes) and the 
+</code> in memory (one entry per column). The 
 <code>rowval
-</code> / 
-<code>nzval
-</code> as one-dimensional indexable sources (typically 
-<code>Zarr.ZArray{T, 1}
-</code> or a 
-<code>DiskArrays.cache
-</code>-wrapped 
-<code>ZArray
-</code>, with 
-<code>Vector{T}
-</code> accepted for flat mmap&#39;d components in mixed flat/packed properties) that decompress per-chunk on access. 
-<code>row_select
 </code> and 
-<code>column_select
-</code> describe the slice of the original axes exposed through this wrapper. Materialisation copies the selected slice into a plain 
-<a href="https://docs.julialang.org/en/v1/stdlib/SparseArrays/#SparseArrays.SparseMatrixCSC">
-<code>SparseMatrixCSC
-</code>
-</a> the first time it is required and caches it in 
-<code>materialized
-</code> for subsequent use.
+<code>nzval
+</code> sources decode their data on demand, one chunk at a time. A source may also be a plain 
+<code>Vector
+</code>, for a flat component of a property whose other component is packed.
 </p>
-<p>The 
-<code>full_n_rows
-</code> / 
-<code>full_n_columns
-</code> / 
-<code>full_colptr
-</code> fields describe the original (unsliced) matrix. The corresponding 
-<code>AbstractSparseMatrixCSC
-</code> accessors (
-<code>size
+<p>Reading a subset of the columns reads only those columns. This covers 
+<code>lazy[:, columns]
 </code>, 
-<code>SparseArrays.getcolptr
-</code>) report the 
-<em>sliced
-</em> shape — 
-<code>getcolptr
-</code> triggers materialisation so it can return the per-slice colptr. Use the 
-<code>full_*
-</code> fields when internal Daf code needs the original layout without materialising.
+<code>lazy[rows, columns]
+</code>, 
+<code>lazy[:, column]
+</code>, 
+<code>lazy[rows, column]
+</code>, and a 
+<code>view
+</code> of any of these. It returns a new 
+<code>SparseMatrixCSC
+</code> (or 
+<code>SparseVector
+</code>) owned by the caller, which is not cached.
+</p>
+<p>Any other access reads the whole matrix into a 
+<code>SparseMatrixCSC
+</code>, its materialization. All readers share it while any of them holds it. Once no reader holds it, its memory is freed, and the next access reads the matrix again. This includes row access and any generic 
+<code>AbstractSparseMatrixCSC
+</code> operation (arithmetic, broadcasting, 
+<code>Matrix(lazy)
+</code>, ...). The generic operations reach the data through 
+<code>rowvals
+</code> / 
+<code>nonzeros
+</code>, which return read-only views of the materialization. Code that loops over many elements should take 
+<code>plain_array(lazy)
+</code> once, and use it. This reads the matrix once, and holds it in memory while the code runs. Such code should still prefer walking the columns of the 
+<code>SparseMatrixCSC
+</code>.
+</p>
+<p>Scalar access (
+<code>lazy[row, column]
+</code>) is reported to the TanayLabUtilities 
+<code>GLOBAL_INEFFICIENT_ACTION_HANDLER
+</code>, once per lazy matrix. It is usually part of a loop over many elements. So the lazy matrix then holds its materialization until it is modified or purged by 
+<code>empty_cache!
+</code>, so that such a loop reads the matrix only once.
 </p>
 <p>
-<strong>Materialisation triggers
-</strong>
-</p>
-<p>The following operations materialise the current slice into the cached 
-<code>materialized
-</code> matrix on first call (and reuse the cache on subsequent calls):
-</p>
-<ul>
-<li>
-<code>SparseArrays.rowvals
-</code> / 
-<code>SparseArrays.nonzeros
-</code> / 
-<code>SparseArrays.getcolptr
-</code> / 
-<code>SparseArrays.nnz
-</code>.
-</li>
-<li>
+<code>convert(SparseMatrixCSC, lazy)
+</code> and 
+<code>plain_array(lazy)
+</code> return the shared materialization itself. 
 <code>SparseMatrixCSC(lazy)
 </code> and 
-<code>convert(SparseMatrixCSC{Tv, Ti}, lazy)
-</code>.
-</li>
-<li>Any generic 
-<code>AbstractSparseMatrixCSC
-</code> / 
-<code>AbstractMatrix
-</code> algorithm that calls those primitives (e.g. 
-<code>Matrix(lazy)
-</code>, multiplication, the 
-<code>LinearAlgebra
-</code> operations).
-</li>
-</ul>
-<p>The following operations do 
-<strong>not
-</strong> materialise:
+<code>copy(lazy)
+</code> return a new matrix owned by the caller.
 </p>
-<ul>
-<li>
-<code>Base.size
-</code>, 
-<code>Base.eltype
-</code>, 
-<code>Base.length
-</code>.
-</li>
-<li>The four slicing forms 
-<code>lazy[:, range]
-</code> / 
-<code>lazy[range, :]
-</code> / 
-<code>lazy[:, indices]
-</code> / 
-<code>lazy[mask, :]
-</code> (each rebinds selections and clears the cache, returning a fresh wrapper).
-</li>
-<li>
-<code>Base.getindex(lazy, ::Int, ::Int)
-</code> — the only access form that decompresses on the fly without populating the cache: each call reads the column&#39;s 
-<code>rowval
-</code> chunk and one element of 
-<code>nzval
-</code>. Repeated calls on the same column are amortised by the 
-<code>DiskArrays.cache
-</code> wrapper that the read paths place over the packed sources.
-</li>
-</ul>
 <p>User code obtains a 
 <code>LazySparseMatrix
 </code> only as the result of reading a sparse property whose 
 <code>rowval
 </code> / 
 <code>nzval
-</code> components are lazy sources — packed on disk, or chunked over HTTP — through 
+</code> components are lazy sources, through 
 <a href="formats.html#DataAxesFormats.Formats.format_get_matrix">
 <code>DataAxesFormats.Formats.format_get_matrix
 </code>
-</a>; construction lives behind the read paths and is not part of the public API.
-</p>
-</div>
-</section>
-</details>
-</article>
-<article>
-<details class="docstring" open="true">
-<summary id="DataAxesFormats.LazySparse.LazySparseVector">
-<a class="docstring-binding" href="#DataAxesFormats.LazySparse.LazySparseVector">
-<code>DataAxesFormats.LazySparse.LazySparseVector
-</code>
-</a> — 
-<span class="docstring-category">Type
-</span>
-</summary>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">mutable struct LazySparseVector{Tv, Ti &lt;: Integer} &lt;: AbstractSparseVector{Tv, Ti}
-    full_n_elements::Int
-    nzind_source::AbstractVector{Ti}
-    nzval_source::AbstractVector{Tv}
-    select::SparseSelection
-    materialized::Maybe{SparseVector{Tv, Ti}}
-end
-</code>
-</pre>
-<p>Lazy 
-<a href="https://docs.julialang.org/en/v1/stdlib/SparseArrays/#SparseArrays.AbstractSparseVector">
-<code>AbstractSparseVector{Tv, Ti}
-</code>
-</a> over packed 
-<code>nzind
-</code> / 
-<code>nzval
-</code> sources.
-</p>
-<p>
-<code>nzind_source
-</code> and 
-<code>nzval_source
-</code> are one-dimensional indexable sources (typically 
-<code>Zarr.ZArray{T, 1}
-</code> or a 
-<code>DiskArrays.cache
-</code>-wrapped 
-<code>ZArray
-</code> for on-disk packed storage, or an 
-<code>ChunkedArray
-</code> for HTTP-served packed storage) that decompress per-chunk on access. 
-<code>select
-</code> describes the slice of the original axis exposed through this wrapper. Materialisation copies the selected slice into a plain 
-<a href="https://docs.julialang.org/en/v1/stdlib/SparseArrays/#SparseArrays.SparseVector">
-<code>SparseVector
-</code>
-</a> the first time it is required and caches it in 
-<code>materialized
-</code> for subsequent use.
-</p>
-<p>The 
-<code>full_n_elements
-</code> field is the original (unsliced) axis length. The corresponding 
-<code>AbstractSparseVector
-</code> accessors (
-<code>size
-</code>, 
-<code>SparseArrays.nonzeroinds
-</code>) report the 
-<em>sliced
-</em> shape; 
-<code>nonzeroinds
-</code> triggers materialisation so it can return the per-slice indices. Use 
-<code>full_n_elements
-</code> when internal Daf code needs the original layout without materialising.
-</p>
-<p>
-<strong>Materialisation triggers
-</strong>
-</p>
-<p>The following operations materialise the current slice into the cached 
-<code>materialized
-</code> vector on first call (and reuse the cache on subsequent calls):
-</p>
-<ul>
-<li>
-<code>SparseArrays.nonzeroinds
-</code> / 
-<code>SparseArrays.nonzeros
-</code> / 
-<code>SparseArrays.nnz
-</code>.
-</li>
-<li>
-<code>SparseVector(lazy)
-</code> and 
-<code>convert(SparseVector{Tv, Ti}, lazy)
-</code>.
-</li>
-<li>Any generic 
-<code>AbstractSparseVector
-</code> / 
-<code>AbstractVector
-</code> algorithm that calls those primitives.
-</li>
-</ul>
-<p>The following operations do 
-<strong>not
-</strong> materialise the slice into 
-<code>vector.materialized
-</code>:
-</p>
-<ul>
-<li>
-<code>Base.size
-</code>, 
-<code>Base.eltype
-</code>, 
-<code>Base.length
-</code>.
-</li>
-<li>The slicing forms 
-<code>lazy[range]
-</code> / 
-<code>lazy[indices]
-</code> / 
-<code>lazy[mask]
-</code> (each rebinds the selection and clears the cache, returning a fresh wrapper).
-</li>
-<li>
-<code>Base.getindex(lazy, ::Int)
-</code> — binary-searches 
-<code>nzind_source
-</code> (
-<code>O(log nnz)
-</code> chunk reads) and reads one element of 
-<code>nzval_source
-</code>. The underlying chunked source&#39;s per-chunk LRU (set up by the read paths) amortises repeated accesses, so subsequent scalar lookups within the same chunk are cheap.
-</li>
-</ul>
-<p>User code obtains a 
-<code>LazySparseVector
-</code> only as the result of reading a sparse property whose 
-<code>nzind
-</code> / 
-<code>nzval
-</code> components are lazy sources — packed on disk, or chunked over HTTP — through 
-<a href="formats.html#DataAxesFormats.Formats.format_get_vector">
-<code>DataAxesFormats.Formats.format_get_vector
-</code>
-</a>; construction lives behind the read paths and is not part of the public API.
-</p>
-</div>
-</section>
-</details>
-</article>
-<article>
-<details class="docstring" open="true">
-<summary id="DataAxesFormats.LazySparse.SparseSelection">
-<a class="docstring-binding" href="#DataAxesFormats.LazySparse.SparseSelection">
-<code>DataAxesFormats.LazySparse.SparseSelection
-</code>
-</a> — 
-<span class="docstring-category">Type
-</span>
-</summary>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">abstract type SparseSelection end
-</code>
-</pre>
-<p>The kind of slice exposed through a 
-<a href="lazy_sparse.html#DataAxesFormats.LazySparse.LazySparseMatrix">
-<code>LazySparseMatrix
-</code>
-</a> along one of the original sparse matrix axes. Concrete subtypes:
-</p>
-<ul>
-<li>
-<a href="lazy_sparse.html#DataAxesFormats.LazySparse.AllOf">
-<code>AllOf
-</code>
-</a> — every entry of the original axis.
-</li>
-<li>
-<a href="lazy_sparse.html#DataAxesFormats.LazySparse.RangeOf">
-<code>RangeOf
-</code>
-</a> — a contiguous range of original indices.
-</li>
-<li>
-<a href="lazy_sparse.html#DataAxesFormats.LazySparse.IndicesOf">
-<code>IndicesOf
-</code>
-</a> — an explicit ordered vector of original indices.
-</li>
-<li>
-<a href="lazy_sparse.html#DataAxesFormats.LazySparse.MaskOf">
-<code>MaskOf
-</code>
-</a> — entries selected by a boolean mask.
-</li>
-</ul>
-<p>Each subtype implements 
-<a href="https://docs.julialang.org/en/v1/base/collections/#Base.length">
-<code>Base.length
-</code>
-</a>.
-</p>
-</div>
-</section>
-</details>
-</article>
-<article>
-<details class="docstring" open="true">
-<summary id="DataAxesFormats.LazySparse.AllOf">
-<a class="docstring-binding" href="#DataAxesFormats.LazySparse.AllOf">
-<code>DataAxesFormats.LazySparse.AllOf
-</code>
-</a> — 
-<span class="docstring-category">Type
-</span>
-</summary>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">struct AllOf &lt;: SparseSelection
-    n_entries::Int
-end
-</code>
-</pre>
-<p>A 
-<a href="lazy_sparse.html#DataAxesFormats.LazySparse.SparseSelection">
-<code>SparseSelection
-</code>
-</a> that exposes every entry of the original axis (the axis has 
-<code>n_entries
-</code> entries).
-</p>
-</div>
-</section>
-</details>
-</article>
-<article>
-<details class="docstring" open="true">
-<summary id="DataAxesFormats.LazySparse.RangeOf">
-<a class="docstring-binding" href="#DataAxesFormats.LazySparse.RangeOf">
-<code>DataAxesFormats.LazySparse.RangeOf
-</code>
-</a> — 
-<span class="docstring-category">Type
-</span>
-</summary>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">struct RangeOf &lt;: SparseSelection
-    range::UnitRange{Int}
-end
-</code>
-</pre>
-<p>A 
-<a href="lazy_sparse.html#DataAxesFormats.LazySparse.SparseSelection">
-<code>SparseSelection
-</code>
-</a> that exposes a contiguous range of entries from the original axis.
-</p>
-</div>
-</section>
-</details>
-</article>
-<article>
-<details class="docstring" open="true">
-<summary id="DataAxesFormats.LazySparse.IndicesOf">
-<a class="docstring-binding" href="#DataAxesFormats.LazySparse.IndicesOf">
-<code>DataAxesFormats.LazySparse.IndicesOf
-</code>
-</a> — 
-<span class="docstring-category">Type
-</span>
-</summary>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">struct IndicesOf &lt;: SparseSelection
-    indices::Vector{Int}
-end
-</code>
-</pre>
-<p>A 
-<a href="lazy_sparse.html#DataAxesFormats.LazySparse.SparseSelection">
-<code>SparseSelection
-</code>
-</a> that exposes an explicit ordered vector of original-axis indices.
-</p>
-</div>
-</section>
-</details>
-</article>
-<article>
-<details class="docstring" open="true">
-<summary id="DataAxesFormats.LazySparse.MaskOf">
-<a class="docstring-binding" href="#DataAxesFormats.LazySparse.MaskOf">
-<code>DataAxesFormats.LazySparse.MaskOf
-</code>
-</a> — 
-<span class="docstring-category">Type
-</span>
-</summary>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">struct MaskOf &lt;: SparseSelection
-    mask::BitVector
-end
-</code>
-</pre>
-<p>A 
-<a href="lazy_sparse.html#DataAxesFormats.LazySparse.SparseSelection">
-<code>SparseSelection
-</code>
-</a> that exposes the entries selected by a boolean mask over the original axis.
+</a>. Construction lives behind the read paths and is not part of the public API.
 </p>
 </div>
 </section>
@@ -867,44 +463,8 @@ end
 </a>
 </li>
 <li>
-<a href="lazy_sparse.html#DataAxesFormats.LazySparse.AllOf">
-<code>DataAxesFormats.LazySparse.AllOf
-</code>
-</a>
-</li>
-<li>
-<a href="lazy_sparse.html#DataAxesFormats.LazySparse.IndicesOf">
-<code>DataAxesFormats.LazySparse.IndicesOf
-</code>
-</a>
-</li>
-<li>
 <a href="lazy_sparse.html#DataAxesFormats.LazySparse.LazySparseMatrix">
 <code>DataAxesFormats.LazySparse.LazySparseMatrix
-</code>
-</a>
-</li>
-<li>
-<a href="lazy_sparse.html#DataAxesFormats.LazySparse.LazySparseVector">
-<code>DataAxesFormats.LazySparse.LazySparseVector
-</code>
-</a>
-</li>
-<li>
-<a href="lazy_sparse.html#DataAxesFormats.LazySparse.MaskOf">
-<code>DataAxesFormats.LazySparse.MaskOf
-</code>
-</a>
-</li>
-<li>
-<a href="lazy_sparse.html#DataAxesFormats.LazySparse.RangeOf">
-<code>DataAxesFormats.LazySparse.RangeOf
-</code>
-</a>
-</li>
-<li>
-<a href="lazy_sparse.html#DataAxesFormats.LazySparse.SparseSelection">
-<code>DataAxesFormats.LazySparse.SparseSelection
 </code>
 </a>
 </li>

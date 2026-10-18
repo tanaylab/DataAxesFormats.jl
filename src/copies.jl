@@ -239,8 +239,9 @@ source axis contains entries that do not exist in the target, they are discarded
                 overwrite,
                 packed,
             ) do sparse_nzind, sparse_nzval
-                sparse_nzind .= nzind(value.array)
-                sparse_nzval .= nzval(value.array)
+                sparse_value = plain_array(value.array)
+                sparse_nzind .= nzind(sparse_value)
+                sparse_nzval .= nzval(sparse_value)
                 return nothing
             end
         else
@@ -460,9 +461,10 @@ axis contains entries that do not exist in the target, they are discarded (not c
                     relayout,
                     packed,
                 ) do sparse_colptr, sparse_rowval, sparse_nzval
-                    sparse_colptr .= colptr(value)
-                    sparse_rowval .= rowval(value)
-                    sparse_nzval .= nzval(value)
+                    sparse_value = plain_array(value)
+                    sparse_colptr .= colptr(sparse_value)
+                    sparse_rowval .= rowval(sparse_value)
+                    sparse_nzval .= nzval(sparse_value)
                     return nothing
                 end
             else
@@ -502,13 +504,12 @@ axis contains entries that do not exist in the target, they are discarded (not c
                     n_columns,
                 )
             else
-                embedded = embed_dense_matrix_in_sparse_matrix(
-                    Matrix{concrete_eltype}(value);
-                    rows_indices,
-                    n_rows,
-                    columns_indices,
-                    n_columns,
-                )
+                dense_value = plain_array(value)
+                if Base.eltype(dense_value) != concrete_eltype
+                    dense_value = Matrix{concrete_eltype}(dense_value)
+                end
+                embedded =
+                    embed_dense_matrix_in_sparse_matrix(dense_value; rows_indices, n_rows, columns_indices, n_columns)
             end
             set_matrix!(destination, rows_reaxis, columns_reaxis, rename, embedded; overwrite, relayout, packed)
         elseif issparse(value) || concrete_eltype <: AbstractString

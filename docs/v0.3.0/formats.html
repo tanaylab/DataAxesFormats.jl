@@ -636,6 +636,16 @@
 </p>
 </div>
 </div>
+<div class="admonition is-info" id="Note-27cb51946c41b00">
+<header class="admonition-header">Note
+<a class="admonition-anchor" href="#Note-27cb51946c41b00" title="Permalink">
+</a>
+</header>
+<div class="admonition-body">
+<p>Packed properties may be returned as lazy arrays, which read their data on demand. Emptying the cache also releases the decoded chunks and the materialized data these arrays keep. They remain readable, and read their data again when needed.
+</p>
+</div>
+</div>
 <div class="admonition is-warning" id="Warning-e1342c33642b90ab">
 <header class="admonition-header">Warning
 <a class="admonition-anchor" href="#Warning-e1342c33642b90ab" title="Permalink">
@@ -1063,7 +1073,7 @@
     format::FormatReader,
     axis::AbstractString,
     name::AbstractString,
-)::Tuple{StorageVector, Any, CacheGroup}
+)::Tuple{StorageVector, CacheGroup}
 </code>
 </pre>
 <p>Implement fetching the vector property with some 
@@ -1072,25 +1082,53 @@
 <code>axis
 </code> in 
 <code>format
-</code>, together with an opaque backing object that must be kept alive for as long as the returned vector is used (pass 
-<code>nothing
-</code> if the vector is self-contained), and a per-item 
+</code>, together with a per-item 
 <a href="formats.html#DataAxesFormats.Formats.CacheGroup">
 <code>CacheGroup
 </code>
-</a> describing how the returned vector should be cached.
+</a> describing how the returned vector should be cached. The returned vector must keep alive any memory it reads from, since the caller may keep it after it was removed from the cache.
 </p>
-<p>The backing slot exists so formats like 
-<a href="http_format.html#DataAxesFormats.HttpFormat.HttpDaf">
-<code>HttpDaf
+<p>This trusts that we have a read lock on the data set, that the 
+<code>axis
+</code> exists in 
+<code>format
+</code>, and the 
+<code>name
+</code> vector property exists for the 
+<code>axis
+</code>.
+</p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.Formats.format_vector_metadata">
+<a class="docstring-binding" href="#DataAxesFormats.Formats.format_vector_metadata">
+<code>DataAxesFormats.Formats.format_vector_metadata
 </code>
-</a> can surface zero-copy 
-<code>unsafe_wrap
-</code>&#39;d vectors alongside the 
-<code>Vector{UInt8}
-</code> buffer they alias; the cache stores the pair as a 
-<code>Tuple{NamedArray, Any}
-</code> so the backing stays reachable as long as the vector is cached.
+</a> — 
+<span class="docstring-category">Function
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">format_vector_metadata(format::FormatReader, axis::AbstractString, name::AbstractString)::PropertyMetadata
+</code>
+</pre>
+<p>Implement fetching the 
+<a href="formats.html#DataAxesFormats.Formats.PropertyMetadata">
+<code>PropertyMetadata
+</code>
+</a> of the vector property with some 
+<code>name
+</code> for some 
+<code>axis
+</code> in 
+<code>format
+</code>, without reading its data.
 </p>
 <p>This trusts that we have a read lock on the data set, that the 
 <code>axis
@@ -1217,7 +1255,7 @@
     rows_axis::AbstractString,
     columns_axis::AbstractString,
     name::AbstractString
-)::Tuple{StorageMatrix, Any, CacheGroup}
+)::Tuple{StorageMatrix, CacheGroup}
 </code>
 </pre>
 <p>Implement fetching the matrix property with some 
@@ -1228,19 +1266,66 @@
 <code>columns_axis
 </code> in 
 <code>format
-</code>, together with an opaque backing object kept alive for the returned matrix&#39;s lifetime (pass 
-<code>nothing
-</code> if the matrix is self-contained), and a per-item 
+</code>, together with a per-item 
 <a href="formats.html#DataAxesFormats.Formats.CacheGroup">
 <code>CacheGroup
 </code>
-</a> describing how the returned matrix should be cached. See 
+</a> describing how the returned matrix should be cached. As in 
 <a href="formats.html#DataAxesFormats.Formats.format_get_vector">
 <code>format_get_vector
 </code>
-</a> for the backing rationale.
+</a>, the returned matrix must keep alive any memory it reads from.
 </p>
 <p>This trusts that we have a read lock on the data set, and that the 
+<code>rows_axis
+</code> and 
+<code>columns_axis
+</code> exist in 
+<code>format
+</code>, and the 
+<code>name
+</code> matrix property exists for them.
+</p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.Formats.format_matrix_metadata">
+<a class="docstring-binding" href="#DataAxesFormats.Formats.format_matrix_metadata">
+<code>DataAxesFormats.Formats.format_matrix_metadata
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">format_matrix_metadata(
+    format::FormatReader,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+)::PropertyMetadata
+</code>
+</pre>
+<p>Implement fetching the 
+<a href="formats.html#DataAxesFormats.Formats.PropertyMetadata">
+<code>PropertyMetadata
+</code>
+</a> of the matrix property with some 
+<code>name
+</code> for some 
+<code>rows_axis
+</code> and 
+<code>columns_axis
+</code> in 
+<code>format
+</code>, without reading its data.
+</p>
+<p>This trusts that we have a read lock on the data set, that the 
 <code>rows_axis
 </code> and 
 <code>columns_axis
@@ -1279,6 +1364,88 @@
 </p>
 <p>A wrapper holding no data of its own answers with the format the matrix comes from, so that what is derived from it is cached beside it. Otherwise the wrapper caches something and then, asking what it wraps whether it has it, answers no - and each wrapper of the same data derives it again rather than sharing the one copy.
 </p>
+</div>
+</section>
+</details>
+</article>
+<h3 id="Property-metadata">
+<a class="docs-heading-anchor" href="#Property-metadata">Property metadata
+</a>
+<a id="Property-metadata-1">
+</a>
+<a class="docs-heading-anchor-permalink" href="#Property-metadata" title="Permalink">
+</a>
+</h3>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.Formats.PropertyMetadata">
+<a class="docstring-binding" href="#DataAxesFormats.Formats.PropertyMetadata">
+<code>DataAxesFormats.Formats.PropertyMetadata
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">struct PropertyMetadata
+    eltype::Type
+    is_sparse::Bool
+    nnz::Maybe{Int}
+    indtype::Maybe{Type}
+    is_packed::Bool
+end
+</code>
+</pre>
+<p>How a vector or matrix property is stored. This is obtained without reading the data, using 
+<a href="readers.html#DataAxesFormats.Readers.vector_metadata">
+<code>vector_metadata
+</code>
+</a> or 
+<a href="readers.html#DataAxesFormats.Readers.matrix_metadata">
+<code>matrix_metadata
+</code>
+</a>.
+</p>
+<ul>
+<li>
+<code>eltype
+</code> - the type of the elements. This is 
+<code>String
+</code> for any string property.
+</li>
+<li>
+<code>is_sparse
+</code> - whether the property is stored as a sparse array.
+</li>
+<li>
+<code>nnz
+</code> - the number of stored (non-zero) elements of a sparse property, or 
+<code>nothing
+</code> for a dense one.
+</li>
+<li>
+<code>indtype
+</code> - the type of the indices of a sparse property, or 
+<code>nothing
+</code> for a dense one.
+</li>
+<li>
+<code>is_packed
+</code> - whether the property is stored using the packed (chunked and compressed) encoding.
+</li>
+</ul>
+<div class="admonition is-info" id="Note-469d302bfa549be4">
+<header class="admonition-header">Note
+<a class="admonition-anchor" href="#Note-469d302bfa549be4" title="Permalink">
+</a>
+</header>
+<div class="admonition-body">
+<p>A sparse string property stores only its non-empty values. Reading it still returns a dense array.
+</p>
+</div>
+</div>
 </div>
 </section>
 </details>
@@ -2286,104 +2453,7 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
 <code>axis
 </code>: the axis entries, the axis-to-index dict, every vector on the axis, and every matrix where 
 <code>axis
-</code> is one of the two axes. Increments the version counter for each property. Must be called inside a write lock.
-</p>
-</div>
-</section>
-</details>
-</article>
-<h3 id="Packing">
-<a class="docs-heading-anchor" href="#Packing">Packing
-</a>
-<a id="Packing-1">
-</a>
-<a class="docs-heading-anchor-permalink" href="#Packing" title="Permalink">
-</a>
-</h3>
-<article>
-<details class="docstring" open="true">
-<summary id="DataAxesFormats.Formats.format_is_packed_vector">
-<a class="docstring-binding" href="#DataAxesFormats.Formats.format_is_packed_vector">
-<code>DataAxesFormats.Formats.format_is_packed_vector
-</code>
-</a> — 
-<span class="docstring-category">Function
-</span>
-</summary>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">format_is_packed_vector(
-    format::FormatReader,
-    axis::AbstractString,
-    name::AbstractString,
-)::Bool
-</code>
-</pre>
-<p>Return 
-<code>true
-</code> if the named vector property is stored using the packed (chunked + compressed) on-disk encoding, 
-<code>false
-</code> for the flat encoding. The default implementation returns 
-<code>false
-</code>; backends that support packed encoding override this to inspect their on-disk metadata.
-</p>
-<p>Used by internal operations that rebuild a property in place (relayout, axis reorder) to preserve the source&#39;s encoding when writing the rebuilt copy.
-</p>
-<p>This trusts that we have a read lock on the data set, that the 
-<code>axis
-</code> exists in 
-<code>format
-</code>, and the 
-<code>name
-</code> vector property exists for the 
-<code>axis
-</code>.
-</p>
-</div>
-</section>
-</details>
-</article>
-<article>
-<details class="docstring" open="true">
-<summary id="DataAxesFormats.Formats.format_is_packed_matrix">
-<a class="docstring-binding" href="#DataAxesFormats.Formats.format_is_packed_matrix">
-<code>DataAxesFormats.Formats.format_is_packed_matrix
-</code>
-</a> — 
-<span class="docstring-category">Function
-</span>
-</summary>
-<section>
-<div>
-<pre>
-<code class="language-julia hljs">format_is_packed_matrix(
-    format::FormatReader,
-    rows_axis::AbstractString,
-    columns_axis::AbstractString,
-    name::AbstractString,
-)::Bool
-</code>
-</pre>
-<p>Return 
-<code>true
-</code> if the named matrix property is stored using the packed (chunked + compressed) on-disk encoding, 
-<code>false
-</code> for the flat encoding. The default implementation returns 
-<code>false
-</code>; backends that support packed encoding override this to inspect their on-disk metadata.
-</p>
-<p>Used by internal operations that rebuild a property in place (relayout, axis reorder) to preserve the source&#39;s encoding when writing the rebuilt copy.
-</p>
-<p>This trusts that we have a read lock on the data set, that the 
-<code>rows_axis
-</code> and 
-<code>columns_axis
-</code> exist in 
-<code>format
-</code>, and the 
-<code>name
-</code> matrix property exists for them.
+</code> is one of the two axes. This increments the version counter of each of these. Must be called inside a write lock.
 </p>
 </div>
 </section>
@@ -2437,6 +2507,12 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
 <li>
 <a href="formats.html#DataAxesFormats.Formats.Internal">
 <code>DataAxesFormats.Formats.Internal
+</code>
+</a>
+</li>
+<li>
+<a href="formats.html#DataAxesFormats.Formats.PropertyMetadata">
+<code>DataAxesFormats.Formats.PropertyMetadata
 </code>
 </a>
 </li>
@@ -2597,18 +2673,6 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
 </a>
 </li>
 <li>
-<a href="formats.html#DataAxesFormats.Formats.format_is_packed_matrix">
-<code>DataAxesFormats.Formats.format_is_packed_matrix
-</code>
-</a>
-</li>
-<li>
-<a href="formats.html#DataAxesFormats.Formats.format_is_packed_vector">
-<code>DataAxesFormats.Formats.format_is_packed_vector
-</code>
-</a>
-</li>
-<li>
 <a href="formats.html#DataAxesFormats.Formats.format_matrices_set">
 <code>DataAxesFormats.Formats.format_matrices_set
 </code>
@@ -2617,6 +2681,12 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
 <li>
 <a href="formats.html#DataAxesFormats.Formats.format_matrix_cache_format">
 <code>DataAxesFormats.Formats.format_matrix_cache_format
+</code>
+</a>
+</li>
+<li>
+<a href="formats.html#DataAxesFormats.Formats.format_matrix_metadata">
+<code>DataAxesFormats.Formats.format_matrix_metadata
 </code>
 </a>
 </li>
@@ -2647,6 +2717,12 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
 <li>
 <a href="formats.html#DataAxesFormats.Formats.format_set_vector!">
 <code>DataAxesFormats.Formats.format_set_vector!
+</code>
+</a>
+</li>
+<li>
+<a href="formats.html#DataAxesFormats.Formats.format_vector_metadata">
+<code>DataAxesFormats.Formats.format_vector_metadata
 </code>
 </a>
 </li>

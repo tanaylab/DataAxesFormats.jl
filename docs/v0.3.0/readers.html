@@ -481,21 +481,21 @@ vectors:
     age: 95 x UInt32 (Dense)
     sex: 95 x Str (Dense)
   gene:
-    is_lateral: 683 x Bool (Dense; 438 (64%) true)
-    is_marker: 683 x Bool (Dense; 650 (95%) true)
+    is_lateral: 683 x Bool (Dense); 438 (64%) true
+    is_marker: 683 x Bool (Dense); 650 (95%) true
   metacell:
     type: 7 x Str (Dense)
   type:
     color: 4 x Str (Dense)
 matrices:
   cell,gene:
-    UMIs: 856 x 683 x UInt8 in Columns (Dense)
+    UMIs: 856 x 683 x UInt8 (Dense)
   gene,cell:
-    UMIs: 683 x 856 x UInt8 in Columns (Dense)
+    UMIs: 683 x 856 x UInt8 (Dense)
   gene,metacell:
-    fraction: 683 x 7 x Float32 in Columns (Dense)
+    fraction: 683 x 7 x Float32 (Dense)
   metacell,metacell:
-    edge_weight: 7 x 7 x Float32 in Columns (Dense)
+    edge_weight: 7 x 7 x Float32 (Dense)
 chain:
 - name: cells!
   type: MemoryDaf
@@ -515,12 +515,12 @@ chain:
       age: 95 x UInt32 (Dense)
       sex: 95 x Str (Dense)
     gene:
-      is_lateral: 683 x Bool (Dense; 438 (64%) true)
+      is_lateral: 683 x Bool (Dense); 438 (64%) true
   matrices:
     cell,gene:
-      UMIs: 856 x 683 x UInt8 in Columns (Dense)
+      UMIs: 856 x 683 x UInt8 (Dense)
     gene,cell:
-      UMIs: 683 x 856 x UInt8 in Columns (Dense)
+      UMIs: 683 x 856 x UInt8 (Dense)
 - name: metacells!
   type: MemoryDaf
   axes:
@@ -532,16 +532,16 @@ chain:
     cell:
       metacell: 856 x Str (Dense)
     gene:
-      is_marker: 683 x Bool (Dense; 650 (95%) true)
+      is_marker: 683 x Bool (Dense); 650 (95%) true
     metacell:
       type: 7 x Str (Dense)
     type:
       color: 4 x Str (Dense)
   matrices:
     gene,metacell:
-      fraction: 683 x 7 x Float32 in Columns (Dense)
+      fraction: 683 x 7 x Float32 (Dense)
     metacell,metacell:
-      edge_weight: 7 x 7 x Float32 in Columns (Dense)
+      edge_weight: 7 x 7 x Float32 (Dense)
 </code>
 </pre>
 </div>
@@ -1244,6 +1244,62 @@ MPP      │      &quot;gold&quot;
 </section>
 </details>
 </article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.Readers.vector_metadata">
+<a class="docstring-binding" href="#DataAxesFormats.Readers.vector_metadata">
+<code>DataAxesFormats.Readers.vector_metadata
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">vector_metadata(daf::DafReader, axis::AbstractString, name::AbstractString)::PropertyMetadata
+</code>
+</pre>
+<p>Get the 
+<a href="formats.html#DataAxesFormats.Formats.PropertyMetadata">
+<code>PropertyMetadata
+</code>
+</a> of the vector property with some 
+<code>name
+</code> for some 
+<code>axis
+</code> in 
+<code>daf
+</code>, without reading its data. The special property 
+<code>name
+</code> is a dense 
+<code>String
+</code> vector. The special property 
+<code>index
+</code> is a dense 
+<code>Int64
+</code> vector.
+</p>
+<p>This first verifies the 
+<code>axis
+</code> exists in 
+<code>daf
+</code>, and that the 
+<code>name
+</code> vector exists for it.
+</p>
+<pre>
+<code class="language-julia hljs">vector_metadata(example_cells_daf(), &quot;gene&quot;, &quot;is_lateral&quot;)
+
+# output
+
+PropertyMetadata(Bool, false, nothing, nothing, false)
+</code>
+</pre>
+</div>
+</section>
+</details>
+</article>
 <h2 id="Matrix-properties">
 <a class="docs-heading-anchor" href="#Matrix-properties">Matrix properties
 </a>
@@ -1514,6 +1570,69 @@ HMGN1           │ 0.000345676  0.000287754  …  0.000264526  0.000160654
 </section>
 </details>
 </article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.Readers.matrix_metadata">
+<a class="docstring-binding" href="#DataAxesFormats.Readers.matrix_metadata">
+<code>DataAxesFormats.Readers.matrix_metadata
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">matrix_metadata(
+    daf::DafReader,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+)::PropertyMetadata
+</code>
+</pre>
+<p>Get the 
+<a href="formats.html#DataAxesFormats.Formats.PropertyMetadata">
+<code>PropertyMetadata
+</code>
+</a> of the matrix property with some 
+<code>name
+</code> for some 
+<code>rows_axis
+</code> and 
+<code>columns_axis
+</code> in 
+<code>daf
+</code>, without reading its data. This only looks at the matrix stored in this layout. To accept either layout, first check which one exists using 
+<a href="readers.html#DataAxesFormats.Readers.has_matrix">
+<code>has_matrix
+</code>
+</a> with 
+<code>relayout = false
+</code>.
+</p>
+<p>This first verifies the 
+<code>rows_axis
+</code> and 
+<code>columns_axis
+</code> exist in 
+<code>daf
+</code>, and that the 
+<code>name
+</code> matrix exists for them.
+</p>
+<pre>
+<code class="language-julia hljs">matrix_metadata(example_cells_daf(), &quot;cell&quot;, &quot;gene&quot;, &quot;UMIs&quot;)
+
+# output
+
+PropertyMetadata(UInt8, false, nothing, nothing, false)
+</code>
+</pre>
+</div>
+</section>
+</details>
+</article>
 <h2 id="Utilities">
 <a class="docs-heading-anchor" href="#Utilities">Utilities
 </a>
@@ -1584,11 +1703,11 @@ HMGN1           │ 0.000345676  0.000287754  …  0.000264526  0.000160654
 <code class="language-julia hljs">axis_version_counter(daf::DafReader, axis::AbstractString)::UInt32
 </code>
 </pre>
-<p>Return the version number of the axis. This is incremented every time 
+<p>Return the version number of the axis. This increases every time the axis entries may have changed (e.g. when 
 <a href="writers.html#DataAxesFormats.Writers.delete_axis!">
 <code>delete_axis!
 </code>
-</a> is called. It is used by interfaces to other programming languages to safely cache per-axis data.
+</a> is called). It may increase by more than one at a time. It is used by interfaces to other programming languages to safely cache per-axis data.
 </p>
 <div class="admonition is-info" id="Note-91068776d8dc60d2">
 <header class="admonition-header">Note
@@ -1606,15 +1725,14 @@ HMGN1           │ 0.000345676  0.000287754  …  0.000264526  0.000160654
 </div>
 <pre>
 <code class="language-julia hljs">metacells = example_metacells_daf()
-println(axis_version_counter(metacells, &quot;type&quot;))
+previous_version_counter = axis_version_counter(metacells, &quot;type&quot;)
 delete_axis!(metacells, &quot;type&quot;)
 add_axis!(metacells, &quot;type&quot;, [&quot;Foo&quot;, &quot;Bar&quot;, &quot;Baz&quot;])
-println(axis_version_counter(metacells, &quot;type&quot;))
+println(axis_version_counter(metacells, &quot;type&quot;) &gt; previous_version_counter)
 
 # output
 
-0
-1
+true
 </code>
 </pre>
 </div>
@@ -1637,7 +1755,7 @@ println(axis_version_counter(metacells, &quot;type&quot;))
 <code class="language-julia hljs">vector_version_counter(daf::DafReader, axis::AbstractString, name::AbstractString)::UInt32
 </code>
 </pre>
-<p>Return the version number of the vector. This is incremented every time 
+<p>Return the version number of the vector. This increases every time the vector may have changed (e.g. when 
 <a href="writers.html#DataAxesFormats.Writers.set_vector!">
 <code>set_vector!
 </code>
@@ -1649,7 +1767,7 @@ println(axis_version_counter(metacells, &quot;type&quot;))
 <a href="writers.html#DataAxesFormats.Writers.empty_sparse_vector!">
 <code>empty_sparse_vector!
 </code>
-</a> are called. It is used by interfaces to safely cache per-vector data.
+</a> are called). It may increase by more than one at a time. It is used by interfaces to safely cache per-vector data.
 </p>
 <div class="admonition is-info" id="Note-91068776d8dc60d2">
 <header class="admonition-header">Note
@@ -1667,14 +1785,13 @@ println(axis_version_counter(metacells, &quot;type&quot;))
 </div>
 <pre>
 <code class="language-julia hljs">metacells = example_metacells_daf()
-println(vector_version_counter(metacells, &quot;type&quot;, &quot;color&quot;))
+previous_version_counter = vector_version_counter(metacells, &quot;type&quot;, &quot;color&quot;)
 set_vector!(metacells, &quot;type&quot;, &quot;color&quot;, string.(collect(1:4)); overwrite = true)
-println(vector_version_counter(metacells, &quot;type&quot;, &quot;color&quot;))
+println(vector_version_counter(metacells, &quot;type&quot;, &quot;color&quot;) &gt; previous_version_counter)
 
 # output
 
-1
-2
+true
 </code>
 </pre>
 </div>
@@ -1702,7 +1819,7 @@ println(vector_version_counter(metacells, &quot;type&quot;, &quot;color&quot;))
 )::UInt32
 </code>
 </pre>
-<p>Return the version number of the matrix. The order of the axes does not matter. This is incremented every time 
+<p>Return the version number of the matrix. The order of the axes does not matter. This increases every time the matrix may have changed (e.g. when 
 <a href="writers.html#DataAxesFormats.Writers.set_matrix!">
 <code>set_matrix!
 </code>
@@ -1714,7 +1831,7 @@ println(vector_version_counter(metacells, &quot;type&quot;, &quot;color&quot;))
 <a href="writers.html#DataAxesFormats.Writers.empty_sparse_matrix!">
 <code>empty_sparse_matrix!
 </code>
-</a> are called. It is used by interfaces to other programming languages to safely cache per-matrix data.
+</a> are called). It may increase by more than one at a time. It is used by interfaces to other programming languages to safely cache per-matrix data.
 </p>
 <div class="admonition is-info" id="Note-91068776d8dc60d2">
 <header class="admonition-header">Note
@@ -1732,14 +1849,13 @@ println(vector_version_counter(metacells, &quot;type&quot;, &quot;color&quot;))
 </div>
 <pre>
 <code class="language-julia hljs">metacells = example_metacells_daf()
-println(matrix_version_counter(metacells, &quot;gene&quot;, &quot;metacell&quot;, &quot;fraction&quot;))
+previous_version_counter = matrix_version_counter(metacells, &quot;gene&quot;, &quot;metacell&quot;, &quot;fraction&quot;)
 set_matrix!(metacells, &quot;gene&quot;, &quot;metacell&quot;, &quot;fraction&quot;, rand(Float32, 683, 7); overwrite = true)
-println(matrix_version_counter(metacells, &quot;gene&quot;, &quot;metacell&quot;, &quot;fraction&quot;))
+println(matrix_version_counter(metacells, &quot;metacell&quot;, &quot;gene&quot;, &quot;fraction&quot;) &gt; previous_version_counter)
 
 # output
 
-1
-2
+true
 </code>
 </pre>
 </div>
@@ -1915,6 +2031,12 @@ is_leaf(daf_type::Type{&lt;:DafReader})::Bool
 </a>
 </li>
 <li>
+<a href="readers.html#DataAxesFormats.Readers.matrix_metadata">
+<code>DataAxesFormats.Readers.matrix_metadata
+</code>
+</a>
+</li>
+<li>
 <a href="readers.html#DataAxesFormats.Readers.matrix_version_counter">
 <code>DataAxesFormats.Readers.matrix_version_counter
 </code>
@@ -1923,6 +2045,12 @@ is_leaf(daf_type::Type{&lt;:DafReader})::Bool
 <li>
 <a href="readers.html#DataAxesFormats.Readers.scalars_set">
 <code>DataAxesFormats.Readers.scalars_set
+</code>
+</a>
+</li>
+<li>
+<a href="readers.html#DataAxesFormats.Readers.vector_metadata">
+<code>DataAxesFormats.Readers.vector_metadata
 </code>
 </a>
 </li>

@@ -630,7 +630,6 @@ function update_before_set_vector(daf::DafWriter, axis::AbstractString, name::Ab
     else
         Formats.invalidate_cached!(daf, Formats.vectors_set_cache_key(axis))
     end
-    Formats.format_increment_version_counter(daf, (axis, name))
     return nothing
 end
 
@@ -1241,8 +1240,9 @@ function update_before_set_matrix(
     columns_axis::AbstractString,
     name::AbstractString,
 )::Nothing
-    if Formats.format_has_cached_matrix(daf, rows_axis, columns_axis, name)
-        Formats.invalidate_cached!(daf, Formats.matrix_cache_key(rows_axis, columns_axis, name))
+    is_cached = Formats.format_has_cached_matrix(daf, rows_axis, columns_axis, name)
+    Formats.invalidate_cached!(daf, Formats.matrix_cache_key(rows_axis, columns_axis, name))
+    if is_cached
         if Formats.format_has_matrix(daf, rows_axis, columns_axis, name)
             Formats.format_delete_matrix!(daf, rows_axis, columns_axis, name; for_set = true)
         end
@@ -1250,7 +1250,6 @@ function update_before_set_matrix(
         Formats.invalidate_cached!(daf, Formats.matrices_set_cache_key(rows_axis, columns_axis; relayout = false))
         Formats.invalidate_cached!(daf, Formats.matrices_set_cache_key(rows_axis, columns_axis; relayout = true))
     end
-    Formats.format_increment_version_counter(daf, (rows_axis, columns_axis, name))
     return nothing
 end
 

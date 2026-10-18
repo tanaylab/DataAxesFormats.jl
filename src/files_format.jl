@@ -614,7 +614,7 @@ function Formats.format_set_vector!(
         else
             write_dense_array_json(files, base_key, eltype(vector))
             flame_timed("FilesDaf.write_dense_vector") do
-                return write("$(files.path)/$(base_key).data", vector)
+                return write("$(files.path)/$(base_key).data", plain_array(vector))
             end
         end
     end
@@ -842,7 +842,7 @@ function Formats.format_set_matrix!(
         else
             write_dense_array_json(files, base_key, eltype(matrix))
             flame_timed("FilesDaf.write_dense_matrix") do
-                return write("$(files.path)/$(base_key).data", matrix)
+                return write("$(files.path)/$(base_key).data", plain_array(matrix))
             end
         end
     end

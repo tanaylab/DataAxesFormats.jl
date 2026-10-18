@@ -914,9 +914,7 @@
 <ul>
 <li>
 <strong>Data on an NFS mount.
-</strong> NFS mmap is page-by-page; random scattered scalar access can produce one round-trip per page, and aggregate bandwidth from a network file system is typically tens of MB/s. Packed format compresses the wire transfer 2–10× and serves chunks via 
-<code>DiskArrays.cache
-</code>, so a per-block iteration touches only the chunks it needs. Net throughput is usually higher than reading the equivalent unpacked layout.
+</strong> NFS mmap is page-by-page; random scattered scalar access can produce one round-trip per page, and aggregate bandwidth from a network file system is typically tens of MB/s. Packed format compresses the wire transfer 2–10× and decodes chunks on demand, so a per-block iteration touches only the chunks it needs. Net throughput is usually higher than reading the equivalent unpacked layout.
 </li>
 <li>
 <strong>Data accessed via HTTP
@@ -928,9 +926,7 @@
 <a href="zarr_format.html#DataAxesFormats.ZarrFormat.ZarrDaf">
 <code>ZarrDaf
 </code>
-</a> over HTTP). Same story more so: round-trip latency is the dominant cost; striped / chunked access amortises it across the data the user actually touches, and compression cuts wire bytes. Reading an unpacked HTTP-served property doesn&#39;t even avoid the chunk-cache machinery — the unpacked HTTP striped path also wraps through 
-<code>DiskArrays.cache
-</code> — so the only thing un-packing the source buys you is wire bandwidth, which is precisely the thing you don&#39;t want to give up here.
+</a> over HTTP). Same story more so: round-trip latency is the dominant cost; striped / chunked access amortises it across the data the user actually touches, and compression cuts wire bytes. Reading an unpacked HTTP-served property doesn&#39;t even avoid the chunk-pool machinery — the unpacked HTTP striped path also reads through the chunk pool — so the only thing un-packing the source buys you is wire bandwidth, which is precisely the thing you don&#39;t want to give up here.
 </li>
 <li>
 <strong>Data on a slow local disk
@@ -954,9 +950,7 @@
 <code>LoopVectorization
 </code> / BLAS support.
 </li>
-<li>No 
-<code>DiskArrays.cache
-</code> 
+<li>No chunk pool 
 <code>SpinLock
 </code> in the access path; on many-core boxes (32+ threads) the cache-line bouncing on the lock atomic is meaningful, and the unpacked path avoids it entirely.
 </li>

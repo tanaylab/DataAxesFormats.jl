@@ -30,6 +30,33 @@ function populate_data!(daf::DafWriter)::Nothing
 end
 
 nested_test("cache_groups") do
+    nested_test("version_counters") do
+        daf = MemoryDaf(; name = "memory!")
+        populate_data!(daf)
+        version_counter(cache_key) = Formats.format_get_version_counter(daf, cache_key)
+
+        previous_scalar_version = version_counter(Formats.scalar_cache_key("version"))
+        previous_scalars_set_version = version_counter(Formats.scalars_set_cache_key())
+        previous_axis_version = axis_version_counter(daf, "cell")
+        set_scalar!(daf, "version", "2.0"; overwrite = true)
+        set_scalar!(daf, "cell", "same name as an axis")
+        @test version_counter(Formats.scalar_cache_key("version")) > previous_scalar_version
+        @test version_counter(Formats.scalars_set_cache_key()) > previous_scalars_set_version
+        @test axis_version_counter(daf, "cell") == previous_axis_version
+
+        previous_vectors_set_version = version_counter(Formats.vectors_set_cache_key("cell"))
+        set_vector!(daf, "cell", "batch", [1, 1, 2])
+        @test version_counter(Formats.vectors_set_cache_key("cell")) > previous_vectors_set_version
+
+        previous_matrix_version = matrix_version_counter(daf, "gene", "cell", "UMIs")
+        set_matrix!(daf, "cell", "gene", "UMIs", [0 2; 3 4; 5 6]; overwrite = true)
+        @test matrix_version_counter(daf, "gene", "cell", "UMIs") > previous_matrix_version
+
+        empty_cache!(daf)
+        @test version_counter(Formats.scalars_set_cache_key()) > previous_scalars_set_version
+        return nothing
+    end
+
     nested_test("memory") do
         daf = MemoryDaf(; name = "memory!")
         populate_data!(daf)

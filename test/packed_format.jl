@@ -3,6 +3,12 @@
 # property at a fixed test shape, asserts the round-trip equality, then yields `(daf, path)` to the caller's `action`
 # block for backend-specific introspection (chunk shape on disk, compressor type, dataset-level marker file, …).
 
+# A weak reference to the materialization of a lazy `array`. This is a separate function so that no local variable of
+# the caller keeps the materialization alive.
+@noinline function weak_materialization(array::AbstractArray)::WeakRef
+    return WeakRef(plain_array(array))
+end
+
 function with_packed_dense_matrix_round_trip(action::Function, create_daf::Function)::Nothing
     # 4096 × 3 Float32: per-column 16 KB ≥ threshold; `chunks_for` returns `(2048, 1)` → 6 chunks.
     mktempdir() do path
@@ -60,7 +66,7 @@ function verify_lazy_dense_matrix_invalidation(daf::DafWriter)::Nothing
     @test n_pooled_chunks() == 0
     @test_throws "modified after" lazy[5, :]
     @test_throws "modified after" densify(lazy)
-    @test_throws "modified after" mutable_array(lazy)
+    @test_throws "modified after" plain_array(lazy)
     @test dense[5, :] == Float32[5, 4096 + 5, 2 * 4096 + 5]
     return nothing
 end
@@ -105,7 +111,7 @@ function with_packed_sparse_matrix_round_trip(action::Function, create_daf::Func
 end
 
 # Verify that the lazy matrix of `with_packed_sparse_matrix_round_trip` is returned as-is, since it is read-only by
-# itself, and that `mutable_array` of it is its shared materialization. Verify that it refuses to be read after its
+# itself, and that `plain_array` of it is its shared materialization. Verify that it refuses to be read after its
 # property is overwritten, while a column subset read from it earlier stays valid.
 function verify_lazy_sparse_matrix_invalidation(daf::DafWriter)::Nothing
     empty_cache!(daf)
@@ -115,7 +121,7 @@ function verify_lazy_sparse_matrix_invalidation(daf::DafWriter)::Nothing
     @test is_read_only_array(named)
     columns = lazy[:, 2:3]
     @test nnz(columns) == 2 * 8192
-    @test mutable_array(lazy) === convert(SparseMatrixCSC, lazy)
+    @test plain_array(lazy) === convert(SparseMatrixCSC, lazy)
 
     set_matrix!(daf, "row", "col", "data", spzeros(Float32, Int32, 8192, 4); overwrite = true, relayout = false)
     @test_throws "modified after" nonzeros(lazy)
@@ -913,8 +919,11 @@ nested_test("packed_format") do
                         empty_cache!(daf)
                         lazy = get_matrix(daf, "row", "col", name; relayout = false).array
                         @test is_lazy_array(lazy)
-                        materialization = is_materialized ? mutable_array(lazy) : nothing
+                        materialization = is_materialized ? plain_array(lazy) : nothing
                         @test get_matrix(daf, "col", "row", name) == transpose(values)
+                        # The relayout holds no materialization of its own. A held one was reused.
+                        GC.gc()
+                        GC.gc()
                         @test existing_materialization(lazy.materialization_cell) === materialization
                         return nothing
                     end
@@ -1031,7 +1040,7 @@ nested_test("packed_format") do
                 @test parent(densify(read_only_array(array))) === parent(dense)
                 @test array[5, :] == values[5, :]
                 @test n_fetches[] == 0
-                @test mutable_array(read_only_array(array)) === parent(dense)
+                @test plain_array(read_only_array(array)) === parent(dense)
                 copied = densify(read_only_array(array); copy = true)
                 @test copied isa Matrix{Float64}
                 @test copied == values
@@ -1043,6 +1052,15 @@ nested_test("packed_format") do
                 copied = densify(read_only_array(array); copy = true)
                 @test copied isa Matrix{Float64}
                 @test copied == values
+                @test DataAxesFormats.PackedFormat.existing_materialization(array.materialization_cell) === nothing
+            end
+
+            nested_test("freed_when_dropped") do
+                array = chunked()
+                weak_reference = weak_materialization(array)
+                GC.gc()
+                GC.gc()
+                @test weak_reference.value === nothing
                 @test DataAxesFormats.PackedFormat.existing_materialization(array.materialization_cell) === nothing
             end
 

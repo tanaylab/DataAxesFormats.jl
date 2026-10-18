@@ -1667,7 +1667,7 @@ function Formats.format_set_vector!(
         register_consolidated_node!(daf, base_key, Vector{UInt8}(JSON.json(array.metadata)))
     else
         @assert vector isa AbstractVector
-        vector = base_array(vector)
+        vector = plain_array(vector)
         if eltype(vector) <: AbstractString
             array = dense_zcreate(String, group, name, is_packed, (nelements,))
             write_dense_data!(array, vector)
@@ -1937,12 +1937,12 @@ function Formats.format_set_matrix!(
         register_consolidated_node!(daf, base_key, Vector{UInt8}(JSON.json(array.metadata)))
     elseif eltype(matrix) <: AbstractString
         array = dense_zcreate(String, group, name, is_packed, (nrows, ncols))
-        write_dense_data!(array, matrix)  # NOJET
+        write_dense_data!(array, plain_array(matrix))
         register_consolidated_node!(daf, base_key, Vector{UInt8}(JSON.json(array.metadata)))
     else
         @assert matrix isa AbstractMatrix
         @assert major_axis(matrix) != Rows
-        matrix = base_array(matrix)
+        matrix = plain_array(matrix)
         if issparse(matrix)
             write_sparse_matrix(group, name, matrix, is_packed)
             register_consolidated_subtree!(daf, base_key, group.groups[name])

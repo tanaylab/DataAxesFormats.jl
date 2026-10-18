@@ -358,11 +358,9 @@
 <code>.nztxt
 </code>) are fetched lazily on first use via one 
 <code>GET
-</code> each. Dense and sparse numeric vectors/matrices are returned zero-copy by 
-<code>unsafe_wrap
-</code>&#39;ing the downloaded 
+</code> each. Dense and sparse numeric vectors/matrices are returned zero-copy over the downloaded 
 <code>Vector{UInt8}
-</code> buffer; the buffer is held alive by the same cache entry that holds the returned array. The server data is assumed stable while an 
+</code> buffer. The returned arrays keep this buffer alive. The server data is assumed stable while an 
 <a href="http_format.html#DataAxesFormats.HttpFormat.HttpDaf">
 <code>HttpDaf
 </code>
@@ -384,24 +382,6 @@
 </code>
 </a>.
 </p>
-<div class="admonition is-warning" id="Warning-f6381e490672db2a">
-<header class="admonition-header">Warning
-<a class="admonition-anchor" href="#Warning-f6381e490672db2a" title="Permalink">
-</a>
-</header>
-<div class="admonition-body">
-<p>Because returned vectors/matrices alias the cache entry&#39;s 
-<code>Vector{UInt8}
-</code> backing, calling 
-<a href="formats.html#DataAxesFormats.Formats.empty_cache!">
-<code>empty_cache!
-</code>
-</a> releases the memory that those arrays read from. Any vector/matrix reference previously returned by this format becomes dangling after the cache is emptied. Only call 
-<code>empty_cache!
-</code> once you have dropped all references returned by prior queries.
-</p>
-</div>
-</div>
 <p>Only a read-only interface is exposed; mutations are not supported.
 </p>
 </div>

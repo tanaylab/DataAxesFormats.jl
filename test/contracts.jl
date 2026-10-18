@@ -1066,7 +1066,7 @@ nested_test("contracts") do
             end
 
             nested_test("axis_version_counter") do
-                return axis_version_counter(contract_daf, "cell") == 1
+                @test axis_version_counter(contract_daf, "cell") == axis_version_counter(daf, "cell")
             end
 
             nested_test("brief") do

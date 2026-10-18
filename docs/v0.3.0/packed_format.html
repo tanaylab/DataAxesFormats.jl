@@ -331,6 +331,38 @@
 <p>The exported globals in this module are the only knobs tuning the packed encoding. They apply process-wide; there is no per-daf override.
 </p>
 <p>
+<strong>Lazy reads
+</strong>
+</p>
+<p>A packed property is read lazily. Reading it returns an array that decodes its chunks on demand. Chunks that a read used only part of are kept in a process-wide pool (see 
+<a href="packed_format.html#DataAxesFormats.PackedFormat.DAF_PACKED_LOCAL_CACHE_KB">
+<code>DAF_PACKED_LOCAL_CACHE_KB
+</code>
+</a> and 
+<a href="packed_format.html#DataAxesFormats.PackedFormat.DAF_PACKED_HTTP_CACHE_KB">
+<code>DAF_PACKED_HTTP_CACHE_KB
+</code>
+</a>). 
+<code>densify
+</code> or 
+<code>plain_array
+</code> of a lazy array reads all of it, and returns an in-memory array. Later calls return the same in-memory array, as long as some caller still holds it. Once no caller holds it, its memory is freed, and the next call reads the data again. So the decoded data is held in memory exactly while it is used.
+</p>
+<p>Decoded data lives in ordinary memory, which the operating system can&#39;t evict. In contrast, unpacked data is memory-mapped, so the operating system can evict it and read it again as needed. Data larger than the memory can only be processed unpacked. Stage an unpacked copy of it once, using 
+<a href="copies.html#DataAxesFormats.Copies.copy_all!">
+<code>copy_all!
+</code>
+</a>.
+</p>
+<p>If the property is later modified through the same daf (overwritten, deleted, or reordered), reading the old lazy array throws. This keeps it from mixing old decoded chunks with the new storage. An in-memory array obtained earlier from 
+<code>densify
+</code> or 
+<code>plain_array
+</code> stays valid.
+</p>
+<p>This does not cover a modification through another daf object or another process, data changing on an HTTP server, or one thread reading a lazy array while another thread modifies its property without coordinating with it.
+</p>
+<p>
 <strong>Dual-format shard layout
 </strong>
 </p>
@@ -438,7 +470,7 @@
 </em> field (binary but NUL-free), the entry data is the raw DEFLATE payload, and the 8-byte gzip trailer follows as dead bytes. A single contiguous Zarr range from the name start spans a valid gzip stream, while the ZIP entry points only at the DEFLATE payload.
 </li>
 <li>
-<strong>blosc, bitshuffle variants, or any codec with no matching ZIP method
+<strong>blosc, or any codec with no matching ZIP method
 </strong> → method 
 <code>0
 </code> (STORED). The entry data is the codec output verbatim, which a generic ZIP tool cannot decode. For these shards a final 
@@ -531,8 +563,10 @@
 </code> (default)
 </td>
 <td style="text-align: left">
-<code>BloscCompressor(cname=&quot;zstd&quot;, shuffle=BITSHUFFLE)
-</code>
+<code>blosc
+</code> codec (
+<code>cname = &quot;zstd&quot;
+</code>, bitshuffle)
 </td>
 <td style="text-align: left">
 <code>H5Zblosc
@@ -547,8 +581,10 @@
 </code>
 </td>
 <td style="text-align: left">
-<code>BloscCompressor(cname=&quot;lz4&quot;, shuffle=BITSHUFFLE)
-</code>
+<code>blosc
+</code> codec (
+<code>cname = &quot;lz4&quot;
+</code>, bitshuffle)
 </td>
 <td style="text-align: left">
 <code>H5Zblosc
@@ -559,30 +595,12 @@
 </tr>
 <tr>
 <td style="text-align: left">
-<code>:zstd_bitshuffle
-</code>
-</td>
-<td style="text-align: left">bitshuffle filter + 
-<code>ZstdCompressor
-</code>
-</td>
-<td style="text-align: left">
-<code>H5Zbitshuffle
-</code> + 
-<code>H5Zzstd
-</code> filters
-</td>
-<td style="text-align: left">HDF5 readers; Zarr readers for bitshuffle
-</td>
-</tr>
-<tr>
-<td style="text-align: left">
 <code>:zstd
 </code>
 </td>
 <td style="text-align: left">
-<code>ZstdCompressor
-</code>
+<code>zstd
+</code> codec
 </td>
 <td style="text-align: left">
 <code>H5Zzstd
@@ -597,8 +615,8 @@
 </code>
 </td>
 <td style="text-align: left">
-<code>ZlibCompressor
-</code>
+<code>gzip
+</code> codec
 </td>
 <td style="text-align: left">built-in deflate
 </td>
@@ -611,8 +629,10 @@
 </code>
 </td>
 <td style="text-align: left">
-<code>ZlibCompressor
-</code> + byte-shuffle filter
+<code>blosc
+</code> codec (
+<code>cname = &quot;zlib&quot;
+</code>, shuffle)
 </td>
 <td style="text-align: left">built-in deflate + built-in shuffle
 </td>
@@ -620,11 +640,31 @@
 </td>
 </tr>
 </table>
+<p>The Zarr backend is used by 
+<a href="files_format.html#DataAxesFormats.FilesFormat.FilesDaf">
+<code>FilesDaf
+</code>
+</a>, 
+<a href="zip_files.html#DataAxesFormats.ZipFormat.ZipDaf">
+<code>ZipDaf
+</code>
+</a> and 
+<a href="zarr_format.html#DataAxesFormats.ZarrFormat.ZarrDaf">
+<code>ZarrDaf
+</code>
+</a>, which store packed properties as Zarr v3 shards. The HDF5 backend is used by 
+<a href="h5df_format.html#DataAxesFormats.H5dfFormat.H5df">
+<code>H5df
+</code>
+</a>. Zarr v3 has no standard shuffle codec, so 
+<code>:gzip_shuffle
+</code> uses Blosc there. The values are the same, but the bytes differ from the HDF5 backend.
+</p>
 <p>The &quot;plug-in needed&quot; column reflects what a consumer of the produced files needs to add beyond a stock install of their HDF5 / Zarr library to be able to read the data. 
 <code>:gzip
 </code> and 
 <code>:gzip_shuffle
-</code> use only HDF5 / Zarr built-in filters and require no plug-ins anywhere. All other codecs require the consumer to load filter libraries; the exact recipes per language are listed below.
+</code> use only HDF5 / Zarr built-in codecs and require no plug-ins anywhere. All other codecs require HDF5 consumers to load filter libraries; the exact recipes per language are listed below.
 </p>
 <p>
 <strong>Plug-in installation by codec and language
@@ -681,34 +721,16 @@
 </code> for HDF5
 </td>
 </tr>
-<tr>
-<td style="text-align: left">
-<code>:zstd_bitshuffle
-</code>
-</td>
-<td style="text-align: left">
-<code>hdf5plugin
-</code> for HDF5; 
-<code>bitshuffle
-</code> for Zarr
-</td>
-<td style="text-align: left">
-<code>rhdf5filters
-</code> for HDF5
-</td>
-</tr>
 </table>
 <p>In Julia, no extra installation step is needed: 
 <code>DataAxesFormats
 </code> declares 
 <code>H5Zblosc
-</code>, 
+</code> and 
 <code>H5Zzstd
-</code>, and (where available) 
-<code>H5Zbitshuffle
 </code> as direct dependencies and loads them at module init, so 
 <code>using DataAxesFormats
-</code> is enough to register all required filters with HDF5.jl&#39;s filter registry. Zarr.jl already ships with blosc, zstd, and zlib built in; the bitshuffle Zarr filter is registered on the same module init when its adapter is available.
+</code> is enough to register all required filters with HDF5.jl&#39;s filter registry. Zarr.jl already ships with blosc, zstd, and zlib built in.
 </p>
 <p>Install commands for non-Julia consumers:
 </p>
@@ -717,21 +739,17 @@
 <strong>Python
 </strong>: 
 <code>pip install hdf5plugin
-</code> (one library covers blosc / zstd / lz4 / bitshuffle for HDF5); 
+</code> (one library covers blosc / zstd / lz4 for HDF5); 
 <code>pip install zarr
 </code> brings 
 <code>numcodecs
-</code> which already includes blosc, zstd, and zlib; 
-<code>pip install bitshuffle
-</code> adds bitshuffle support for Zarr (
-<code>:zstd_bitshuffle
-</code>).
+</code> which already includes blosc, zstd, and zlib.
 </li>
 <li>
 <strong>R
 </strong>: 
 <code>BiocManager::install(&quot;rhdf5filters&quot;)
-</code> covers blosc, zstd, lz4, and bitshuffle for 
+</code> covers blosc, zstd, and lz4 for 
 <code>rhdf5
 </code>.
 </li>
@@ -810,23 +828,15 @@
 </summary>
 <section>
 <div>
-<p>The cache size in kilobytes used by the per-property 
-<code>DiskArrays.cache
-</code> LRU when reading packed properties on local-disk backends. Larger caches reduce repeat decompression cost when scattered scalar access patterns revisit the same chunks.
+<p>The total size in kilobytes of the decoded chunks kept for packed properties read from local storage. All the packed properties read from local storage in the process share this one pool. The least recently used chunks are dropped first.
+</p>
+<p>A read keeps only the chunks it used part of, such as for a single element, a row, or the boundary of a sparse column. A read that uses whole chunks, such as of whole columns, decodes them again next time. So the pool serves repeated partial reads. For example, reading the rows of a matrix one by one reuses one chunk per column for many rows, if the pool can hold one chunk per column.
 </p>
 <p>Default 
-<code>65536
-</code> (64 MiB). Each 
-<code>get_matrix
-</code> / 
-<code>get_vector
-</code> call on a packed local-disk property returns a 
-<code>DiskArrays.CachedDiskArray
-</code> wrapper sized at this value (in bytes, after multiplying by 1024); the cache is held alive by the daf&#39;s internal cache (
-<code>MemoryData
-</code> cache group) and released by 
-<a href="formats.html#DataAxesFormats.Formats.empty_cache!">
-<code>empty_cache!
+<code>524288
+</code> (512 MiB). This holds one chunk per column for about 60,000 columns, at the default 
+<a href="packed_format.html#DataAxesFormats.PackedFormat.DAF_PACKED_TARGET_CHUNK_KB">
+<code>DAF_PACKED_TARGET_CHUNK_KB
 </code>
 </a>.
 </p>
@@ -836,7 +846,7 @@
 </code>
 </a>.
 </p>
-<p>This is independent of the HTTP cache (see 
+<p>This is independent of the HTTP pool (see 
 <a href="packed_format.html#DataAxesFormats.PackedFormat.DAF_PACKED_HTTP_CACHE_KB">
 <code>DAF_PACKED_HTTP_CACHE_KB
 </code>
@@ -858,13 +868,15 @@
 </summary>
 <section>
 <div>
-<p>The cache size in kilobytes used by the per-property 
-<code>DiskArrays.cache
-</code> LRU when reading packed properties (or stripe-synthesised unpacked properties) over HTTP.
+<p>The total size in kilobytes of the decoded chunks kept for properties read over HTTP (packed properties, or unpacked ones read in stripes). This works like 
+<a href="packed_format.html#DataAxesFormats.PackedFormat.DAF_PACKED_LOCAL_CACHE_KB">
+<code>DAF_PACKED_LOCAL_CACHE_KB
+</code>
+</a>, with a separate pool.
 </p>
 <p>Default 
-<code>262144
-</code> (256 MiB), meaningfully larger than 
+<code>1048576
+</code> (1 GiB), larger than 
 <a href="packed_format.html#DataAxesFormats.PackedFormat.DAF_PACKED_LOCAL_CACHE_KB">
 <code>DAF_PACKED_LOCAL_CACHE_KB
 </code>
@@ -999,13 +1011,14 @@
     codec::PackedCodec,
     index_location::Symbol,
     byte_fetcher::Function,
-    suffix_byte_fetcher::Function,
+    suffix_byte_fetcher::Function;
+    pool::ChunkPool = HTTP_CHUNK_POOL,
 )::ChunkedArray{T, N}
 </code>
 </pre>
 <p>Factory for a lazy N-dimensional 
 <code>DiskArrays.AbstractDiskArray
-</code> that fetches a v3-sharded packed dense array served over HTTP. The shard index footer is fetched once on first read (one Range GET via 
+</code> that fetches a v3-sharded packed dense array, served over HTTP or held locally. The shard index footer is fetched once on first read (via 
 <code>suffix_byte_fetcher
 </code> when 
 <code>index_location == :end
@@ -1036,7 +1049,8 @@
     chunk_shape::NTuple{N, Int},
     codec::PackedCodec,
     byte_fetcher::Function,
-    suffix_byte_fetcher::Function,
+    suffix_byte_fetcher::Function;
+    pool::ChunkPool = HTTP_CHUNK_POOL,
 )::ChunkedArray{T, N}
 </code>
 </pre>

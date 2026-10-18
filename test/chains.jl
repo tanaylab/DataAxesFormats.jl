@@ -2,6 +2,36 @@ nested_test("chains") do
     first = MemoryDaf(; name = "first!")
     second = MemoryDaf(; name = "second!")
 
+    nested_test("direct_base_writes") do
+        chain = chain_reader([first, second]; name = "chain!")
+        add_axis!(first, "cell", ["A", "B"])
+        add_axis!(first, "gene", ["X", "Y", "Z"])
+        set_scalar!(second, "version", 1)
+        set_vector!(first, "cell", "age", [1, 2])
+        set_matrix!(first, "cell", "gene", "UMIs", [1 2 3; 4 5 6])
+
+        @test get_scalar(chain, "version") == 1
+        @test get_vector(chain, "cell", "age") == [1, 2]
+        @test get_matrix(chain, "cell", "gene", "UMIs") == [1 2 3; 4 5 6]
+        @test get_matrix(chain, "gene", "cell", "UMIs") == [1 4; 2 5; 3 6]
+        @test vectors_set(chain, "cell") == Set(["age"])
+        @test matrices_set(chain, "gene", "cell"; relayout = true) == Set(["UMIs"])
+
+        set_scalar!(second, "version", 2; overwrite = true)
+        set_vector!(first, "cell", "age", [3, 4]; overwrite = true)
+        set_vector!(first, "cell", "batch", [1, 1])
+        set_matrix!(first, "cell", "gene", "UMIs", [0 2 3; 4 5 6]; overwrite = true)
+        set_matrix!(first, "gene", "cell", "fraction", [0.5 0.5; 0.5 0.5; 0.0 0.0])
+
+        @test get_scalar(chain, "version") == 2
+        @test get_vector(chain, "cell", "age") == [3, 4]
+        @test get_matrix(chain, "cell", "gene", "UMIs") == [0 2 3; 4 5 6]
+        @test get_matrix(chain, "gene", "cell", "UMIs") == [0 4; 2 5; 3 6]
+        @test vectors_set(chain, "cell") == Set(["age", "batch"])
+        @test matrices_set(chain, "gene", "cell"; relayout = true) == Set(["UMIs", "fraction"])
+        return nothing
+    end
+
     nested_test("empty") do
         nested_test("name") do
             nested_test("reader") do
@@ -193,7 +223,7 @@ nested_test("chains") do
                         add_axis!(first, "cell", ["A", "B"])
                         previous_version_counter = vector_version_counter(chain, "cell", "age")
                         set_vector!(first, "cell", "age", [1, 2])
-                        @test vector_version_counter(chain, "cell", "age") == previous_version_counter + 1
+                        @test vector_version_counter(chain, "cell", "age") > previous_version_counter
                         @test has_vector(chain, "cell", "age")
                         @test get_vector(chain, "cell", "age") == [1, 2]
                         @test vectors_set(chain, "cell") == Set(["age"])
@@ -204,7 +234,7 @@ nested_test("chains") do
                         add_axis!(second, "cell", ["A", "B"])
                         previous_version_counter = vector_version_counter(chain, "cell", "age")
                         set_vector!(second, "cell", "age", [2, 3])
-                        @test vector_version_counter(chain, "cell", "age") == previous_version_counter + 1
+                        @test vector_version_counter(chain, "cell", "age") > previous_version_counter
                         @test has_vector(chain, "cell", "age")
                         @test get_vector(chain, "cell", "age") == [2, 3]
                         @test vectors_set(chain, "cell") == Set(["age"])

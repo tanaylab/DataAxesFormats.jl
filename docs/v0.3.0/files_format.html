@@ -636,7 +636,7 @@
 <code>93
 </code> for zstd, 
 <code>8
-</code> for gzip) so generic ZIP tools that recognise those method codes decompress the chunk to its uncompressed bytes automatically. Codecs with no matching ZIP method (blosc and the bitshuffle variants) are stored with method 
+</code> for gzip) so generic ZIP tools that recognise those method codes decompress the chunk to its uncompressed bytes automatically. Codecs with no matching ZIP method (the blosc ones) are stored with method 
 <code>0
 </code> (STORED); for those shards a final 
 <code>codec.json

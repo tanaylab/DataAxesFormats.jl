@@ -674,7 +674,7 @@ function Formats.format_set_vector!(
     else
         @assert vector isa AbstractVector
 
-        vector = base_array(vector)
+        vector = plain_array(vector)
 
         if issparse(vector)
             flame_timed("H5df.write_sparse_vector") do
@@ -696,7 +696,7 @@ function Formats.format_set_vector!(
 
         else
             flame_timed("H5df.write_dense_vector") do
-                return write_packed_dense_dataset!(axis_vectors_group, name, plain_array(vector), is_packed)
+                return write_packed_dense_dataset!(axis_vectors_group, name, vector, is_packed)
             end
         end
     end
@@ -1113,7 +1113,7 @@ function Formats.format_set_matrix!(
         @assert matrix isa AbstractMatrix
         @assert major_axis(matrix) != Rows
 
-        matrix = base_array(matrix)
+        matrix = plain_array(matrix)
 
         if issparse(matrix)
             flame_timed("H5df.write_sparse_matrix") do
@@ -1133,9 +1133,7 @@ function Formats.format_set_matrix!(
 
         else
             flame_timed("H5df.write_dense_matrix") do
-                plain_matrix = plain_array(matrix)
-                @assert plain_matrix isa Matrix
-                return write_packed_dense_dataset!(columns_axis_group, name, plain_matrix, is_packed)
+                return write_packed_dense_dataset!(columns_axis_group, name, matrix, is_packed)
             end
         end
     end
@@ -2068,6 +2066,8 @@ function write_packed_dense_dataset!(
     data::AbstractArray{T, N},
     is_packed::Bool,
 )::Nothing where {T, N}
+    # HDF5 writes the memory of the data as is, so a view with gaps would be written with wrong values.
+    data = plain_array(data; contiguous = true)
     chunk_shape = chunks_for(is_packed, size(data), T)
     if chunk_shape === nothing
         parent[name] = data  # NOJET

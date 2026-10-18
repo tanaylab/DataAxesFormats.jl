@@ -827,38 +827,30 @@ function log_vector!(
 end
 
 function compute_eltwise(operation::Log, input::StorageMatrix)::StorageMatrix
+    input = plain_array(densify(input))
+    if major_axis(input) == Rows
+        # The result has the same layout as the input, and is computed along its columns.
+        return flip(compute_eltwise(operation, flip(input)))
+    end
+    @assert major_axis(input) == Columns
     type = float_type_for(eltype(input), operation.type)
     output = similar(input, type)
     eps = type(operation.eps)
     base = operation.base
-    axis = major_axis(input)
-    if axis == Columns
-        n_columns = size(input, 2)
-        parallel_loop_wo_rng(
-            1:n_columns;
-            name = "Log",
-            progress = DebugProgress(n_columns; group = :daf_loops, desc = "Log"),
-        ) do column_index
-            @views log_vector!(output[:, column_index], input[:, column_index], eps, base)
-            return nothing
-        end
-    elseif axis == Rows  # UNTESTED
-        n_rows = size(input, 1)  # UNTESTED
-        parallel_loop_wo_rng(  # UNTESTED
-            1:n_rows;
-            name = "Log",
-            progress = DebugProgress(n_rows; group = :daf_loops, desc = "Log"),
-        ) do row_index
-            @views log_vector!(output[row_index, :], input[row_index, :], eps, base)
-            return nothing
-        end
-    else
-        log_vector!(vec(output), vec(input), eps, base)  # UNTESTED
+    n_columns = size(input, 2)
+    parallel_loop_wo_rng(
+        1:n_columns;
+        name = "Log",
+        progress = DebugProgress(n_columns; group = :daf_loops, desc = "Log"),
+    ) do column_index
+        @views log_vector!(output[:, column_index], input[:, column_index], eps, base)
+        return nothing
     end
     return output
 end
 
 function compute_eltwise(operation::Log, input::StorageVector{<:StorageReal})::StorageVector{<:StorageReal}
+    input = plain_array(densify(input))
     type = float_type_for(eltype(input), operation.type)
     output = similar(input, type)
     log_vector!(output, input, type(operation.eps), operation.base)

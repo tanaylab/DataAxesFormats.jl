@@ -1205,8 +1205,8 @@ function Formats.invalidate_cached!(contract_daf::ContractDaf, cache_key::CacheK
     return nothing
 end
 
-function Formats.format_get_version_counter(contract_daf::ContractDaf, version_key::PropertyKey)::UInt32
-    return Formats.format_get_version_counter(contract_daf.daf, version_key)
+function Formats.format_get_version_counter(contract_daf::ContractDaf, cache_key::CacheKey)::UInt32
+    return Formats.format_get_version_counter(contract_daf.daf, cache_key)
 end
 
 function Formats.format_get_scalar(

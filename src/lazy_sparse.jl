@@ -12,6 +12,8 @@ module LazySparse
 export LazySparseMatrix
 
 using DiskArrays
+using LinearAlgebra
+using NamedArrays
 using SparseArrays
 using TanayLabUtilities
 
@@ -20,8 +22,10 @@ import ..PackedFormat.clear_materialization!
 import ..PackedFormat.existing_materialization
 import ..PackedFormat.materialization!
 import ..PackedFormat.MaterializationCell
+import ..PackedFormat.pinned_materialization!
 import ..PackedFormat.require_unmodified
 import SparseArrays.AbstractSparseMatrixCSC  # NOLINT
+import SparseArrays.AbstractSparseMatrixCSCInclAdjointAndTranspose
 
 """
     mutable struct LazySparseMatrix{Tv, Ti <: Integer} <: AbstractSparseMatrixCSC{Tv, Ti}
@@ -30,6 +34,7 @@ import SparseArrays.AbstractSparseMatrixCSC  # NOLINT
         rowval_source::AbstractVector{Ti}
         nzval_source::AbstractVector{Tv}
         materialization_cell::MaterializationCell{SparseMatrixCSC{Tv, Ti}}
+        did_report_scalar_access::Threads.Atomic{Bool}
     end
 
 Lazy [`AbstractSparseMatrixCSC{Tv, Ti}`](https://docs.julialang.org/en/v1/stdlib/SparseArrays/#SparseArrays.AbstractSparseMatrixCSC)
@@ -43,14 +48,18 @@ Reading a subset of the columns reads only those columns. This covers `lazy[:, c
 `lazy[:, column]`, `lazy[rows, column]`, and a `view` of any of these. It returns a new `SparseMatrixCSC` (or
 `SparseVector`) owned by the caller, which is not cached.
 
-Any other access reads the whole matrix once into a `SparseMatrixCSC`. This is cached in `materialization_cell`, and is
-shared by all later readers. This includes scalar access, row access, and any generic `AbstractSparseMatrixCSC`
-operation (arithmetic, broadcasting, `Matrix(lazy)`, ...). The generic operations reach the data through `rowvals` /
-`nonzeros`, which return read-only views of the materialization. So code that loops over many elements pays for one full
-read, then runs at the speed of a plain sparse matrix. Code that loops over elements should still prefer walking the
-columns of the `SparseMatrixCSC`.
+Any other access reads the whole matrix into a `SparseMatrixCSC`, its materialization. All readers share it while any of
+them holds it. Once no reader holds it, its memory is freed, and the next access reads the matrix again. This includes
+row access and any generic `AbstractSparseMatrixCSC` operation (arithmetic, broadcasting, `Matrix(lazy)`, ...). The
+generic operations reach the data through `rowvals` / `nonzeros`, which return read-only views of the materialization.
+Code that loops over many elements should take `plain_array(lazy)` once, and use it. This reads the matrix once, and
+holds it in memory while the code runs. Such code should still prefer walking the columns of the `SparseMatrixCSC`.
 
-`convert(SparseMatrixCSC, lazy)` and `mutable_array(lazy)` return the shared materialization itself.
+Scalar access (`lazy[row, column]`) is reported to the TanayLabUtilities `GLOBAL_INEFFICIENT_ACTION_HANDLER`, once per
+lazy matrix. It is usually part of a loop over many elements. So the lazy matrix then holds its materialization until it
+is modified or purged by `empty_cache!`, so that such a loop reads the matrix only once.
+
+`convert(SparseMatrixCSC, lazy)` and `plain_array(lazy)` return the shared materialization itself.
 `SparseMatrixCSC(lazy)` and `copy(lazy)` return a new matrix owned by the caller.
 
 User code obtains a `LazySparseMatrix` only as the result of reading a sparse property whose `rowval` / `nzval`
@@ -63,6 +72,7 @@ mutable struct LazySparseMatrix{Tv, Ti <: Integer} <: AbstractSparseMatrixCSC{Tv
     rowval_source::AbstractVector{Ti}
     nzval_source::AbstractVector{Tv}
     materialization_cell::MaterializationCell{SparseMatrixCSC{Tv, Ti}}
+    did_report_scalar_access::Threads.Atomic{Bool}
 end
 
 # The `colptr` is taken by reference; callers that intend to share it should `copy` first.
@@ -79,6 +89,7 @@ function LazySparseMatrix(
         rowval_source,
         nzval_source,
         MaterializationCell{SparseMatrixCSC{Tv, Ti}}(),
+        Threads.Atomic{Bool}(false),
     )
 end
 
@@ -86,30 +97,19 @@ function Base.size(matrix::LazySparseMatrix)::Tuple{Int, Int}
     return (matrix.n_rows, length(matrix.colptr) - 1)
 end
 
-# The whole matrix, cached in `matrix.materialization_cell` and shared by all its callers. The first call builds it with
-# [`new_materialization`](@ref); later calls return it without reading the sources again.
-function cached_materialization!(matrix::LazySparseMatrix{Tv, Ti})::SparseMatrixCSC{Tv, Ti} where {Tv, Ti}
+# The whole matrix, shared by all its callers while any of them holds it. Reads it with [`new_materialization`](@ref) if
+# no caller holds it.
+function shared_materialization!(matrix::LazySparseMatrix{Tv, Ti})::SparseMatrixCSC{Tv, Ti} where {Tv, Ti}
     require_unmodified(matrix)
     return materialization!(() -> new_materialization(matrix), matrix.materialization_cell)
 end
 
-# A new `SparseMatrixCSC` of the whole matrix, owned by the caller; nothing is cached.
+# A new `SparseMatrixCSC` of the whole matrix, owned by the caller; nothing is shared.
 function new_materialization(matrix::LazySparseMatrix{Tv, Ti})::SparseMatrixCSC{Tv, Ti} where {Tv, Ti}
     return read_columns(matrix, 1:size(matrix, 2))
 end
 
-function Formats.materialization_without_caching(
-    matrix::LazySparseMatrix{Tv, Ti},
-)::SparseMatrixCSC{Tv, Ti} where {Tv, Ti}
-    require_unmodified(matrix)
-    materialization = existing_materialization(matrix.materialization_cell)
-    if materialization === nothing
-        materialization = new_materialization(matrix)
-    end
-    return materialization
-end
-
-# Whether the whole matrix was already read and cached.
+# Whether a caller holds the materialization of the whole matrix.
 function is_materialized(matrix::LazySparseMatrix)::Bool
     return existing_materialization(matrix.materialization_cell) !== nothing
 end
@@ -298,6 +298,130 @@ function Base.getindex(matrix::LazySparseMatrix, rows::AbstractVector{Bool}, col
     return read_rows_of_column(matrix, rows, column_index)
 end
 
+function Base.getindex(matrix::LazySparseMatrix{Tv}, row_index::Integer, column_index::Integer)::Tv where {Tv}
+    require_unmodified(matrix)
+    report_scalar_access(matrix)
+    return shared_materialization!(matrix)[row_index, column_index]
+end
+
+# Report the first scalar access to the `matrix`, and from then on hold its materialization. Scalar access is usually
+# part of a loop over many elements, which would otherwise read the whole matrix again whenever the GC freed it.
+function report_scalar_access(matrix::LazySparseMatrix)::Nothing
+    if !matrix.did_report_scalar_access[]
+        handle_abnormal(TanayLabUtilities.MatrixLayouts.GLOBAL_INEFFICIENT_ACTION_HANDLER) do
+            return """
+                inefficient scalar access to a lazy sparse matrix (take plain_array first)
+                for: $(brief(matrix))
+                """
+        end
+        if !Threads.atomic_xchg!(matrix.did_report_scalar_access, true)
+            pinned_materialization!(() -> new_materialization(matrix), matrix.materialization_cell)
+        end
+    end
+    return nothing
+end
+
+# Comparing a lazy matrix through the generic methods reads it element by element (scalar access), and so does comparing
+# a `NamedArray` of one. These methods compare the plain storage instead, which uses the efficient sparse methods. The
+# methods with `AbstractSparseMatrixCSC`, with transposed sparse matrices, and with two lazy matrices resolve
+# ambiguities with the `SparseArrays` methods.
+NamedLazySparseMatrix = NamedArray{<:Any, 2, <:LazySparseMatrix}
+
+LazyOrNamedLazySparseMatrix = Union{LazySparseMatrix, NamedLazySparseMatrix}
+
+function Base.:(==)(left::LazyOrNamedLazySparseMatrix, right::AbstractArray)::Bool
+    return plain_array(left) == plain_array(right)
+end
+
+function Base.:(==)(left::AbstractArray, right::LazyOrNamedLazySparseMatrix)::Bool
+    return plain_array(left) == plain_array(right)
+end
+
+function Base.:(==)(left::LazyOrNamedLazySparseMatrix, right::LazyOrNamedLazySparseMatrix)::Bool
+    return plain_array(left) == plain_array(right)
+end
+
+function Base.:(==)(left::LazySparseMatrix, right::AbstractSparseMatrixCSC)::Bool
+    return plain_array(left) == plain_array(right)
+end
+
+function Base.:(==)(left::AbstractSparseMatrixCSC, right::LazySparseMatrix)::Bool
+    return plain_array(left) == plain_array(right)
+end
+
+function Base.:(==)(left::LazySparseMatrix, right::LazySparseMatrix)::Bool
+    return plain_array(left) == plain_array(right)
+end
+
+TransposedSparseMatrix = Union{
+    Adjoint{<:Any, <:AbstractSparseMatrixCSCInclAdjointAndTranspose},
+    Transpose{<:Any, <:AbstractSparseMatrixCSCInclAdjointAndTranspose},
+}
+
+function Base.:(==)(left::LazySparseMatrix, right::TransposedSparseMatrix)::Bool
+    return plain_array(left) == right
+end
+
+function Base.:(==)(
+    left::Adjoint{<:Any, <:AbstractSparseMatrixCSCInclAdjointAndTranspose},
+    right::LazySparseMatrix,
+)::Bool
+    return left == plain_array(right)
+end
+
+function Base.:(==)(
+    left::Transpose{<:Any, <:AbstractSparseMatrixCSCInclAdjointAndTranspose},
+    right::LazySparseMatrix,
+)::Bool
+    return left == plain_array(right)
+end
+
+function Base.isequal(left::LazyOrNamedLazySparseMatrix, right::AbstractArray)::Bool
+    return isequal(plain_array(left), plain_array(right))
+end
+
+function Base.isequal(left::AbstractArray, right::LazyOrNamedLazySparseMatrix)::Bool
+    return isequal(plain_array(left), plain_array(right))
+end
+
+function Base.isequal(left::LazyOrNamedLazySparseMatrix, right::LazyOrNamedLazySparseMatrix)::Bool
+    return isequal(plain_array(left), plain_array(right))
+end
+
+function Base.isequal(left::LazySparseMatrix, right::AbstractSparseMatrixCSC)::Bool
+    return isequal(plain_array(left), plain_array(right))
+end
+
+function Base.isequal(left::AbstractSparseMatrixCSC, right::LazySparseMatrix)::Bool
+    return isequal(plain_array(left), plain_array(right))
+end
+
+function Base.isequal(left::LazySparseMatrix, right::LazySparseMatrix)::Bool
+    return isequal(plain_array(left), plain_array(right))
+end
+
+# Showing a lazy matrix (or a `NamedArray` of one) shows its plain storage, rather than reading the displayed elements
+# one at a time (scalar access).
+function Base.show(io::IO, matrix::LazySparseMatrix)::Nothing
+    show(io, plain_array(matrix))
+    return nothing
+end
+
+function Base.show(io::IO, mime::MIME"text/plain", matrix::LazySparseMatrix)::Nothing
+    show(io, mime, plain_array(matrix))
+    return nothing
+end
+
+function Base.show(io::IO, named::NamedLazySparseMatrix)::Nothing
+    show(io, NamedArray(plain_array(named.array), named.dicts, named.dimnames))
+    return nothing
+end
+
+function Base.show(io::IO, mime::MIME"text/plain", named::NamedLazySparseMatrix)::Nothing
+    show(io, mime, NamedArray(plain_array(named.array), named.dicts, named.dimnames))
+    return nothing
+end
+
 # A lazy matrix never changes, so a view of a column subset is the same as reading it.
 function Base.view(
     matrix::LazySparseMatrix,
@@ -308,14 +432,14 @@ function Base.view(
 end
 
 # A lazy matrix is read-only. The generic `SparseArrays` code reads and writes a sparse matrix through these accessors,
-# so they return read-only views of the cached materialization. Any write through them (`setindex!`, `dropzeros!`,
+# so they return read-only views of the shared materialization. Any write through them (`setindex!`, `dropzeros!`,
 # `nonzeros(matrix)[i] = ...`) fails instead of changing the data all later readers see.
 function SparseArrays.rowvals(matrix::LazySparseMatrix{Tv, Ti})::AbstractVector{Ti} where {Tv, Ti}
-    return read_only_array(rowvals(cached_materialization!(matrix)))
+    return read_only_array(rowvals(shared_materialization!(matrix)))
 end
 
 function SparseArrays.nonzeros(matrix::LazySparseMatrix{Tv, Ti})::AbstractVector{Tv} where {Tv, Ti}
-    return read_only_array(nonzeros(cached_materialization!(matrix)))
+    return read_only_array(nonzeros(shared_materialization!(matrix)))
 end
 
 function SparseArrays.getcolptr(matrix::LazySparseMatrix{Tv, Ti})::AbstractVector{Ti} where {Tv, Ti}
@@ -326,9 +450,9 @@ function SparseArrays.nnz(matrix::LazySparseMatrix)::Int
     return Int(matrix.colptr[end]) - 1
 end
 
-# Like `SparseArrays`' own constructors, these return a matrix owned by the caller. If the materialization is already
-# cached, this copies it; otherwise this builds a new one without caching it. In contrast, `convert` returns the cached
-# materialization itself.
+# Like `SparseArrays`' own constructors, these return a matrix owned by the caller. If a caller holds the
+# materialization, this copies it; otherwise this builds a new one without sharing it. In contrast, `convert` returns
+# the shared materialization itself.
 function SparseArrays.SparseMatrixCSC{Tv, Ti}(matrix::LazySparseMatrix{Tv, Ti})::SparseMatrixCSC{Tv, Ti} where {Tv, Ti}
     require_unmodified(matrix)
     cached = existing_materialization(matrix.materialization_cell)
@@ -343,14 +467,14 @@ function SparseArrays.SparseMatrixCSC(matrix::LazySparseMatrix{Tv, Ti})::SparseM
     return SparseMatrixCSC{Tv, Ti}(matrix)
 end
 
-# The generic sparse `copy` would fail on the read-only accessors, and would copy the cached materialization after
+# The generic sparse `copy` would fail on the read-only accessors, and would copy the shared materialization after
 # building it. This builds one new matrix owned by the caller.
 function Base.copy(matrix::LazySparseMatrix{Tv, Ti})::SparseMatrixCSC{Tv, Ti} where {Tv, Ti}
     return SparseMatrixCSC{Tv, Ti}(matrix)
 end
 
 function Base.convert(::Type{M}, matrix::LazySparseMatrix{Tv, Ti})::M where {Tv, Ti, M <: SparseMatrixCSC}
-    return convert(M, cached_materialization!(matrix))
+    return convert(M, shared_materialization!(matrix))
 end
 
 # `TanayLabUtilities.colptr` / `rowval` / `nzval` are the writer-side sparse-component accessors that
@@ -358,17 +482,17 @@ end
 # `set_matrix!` reaches the format layer. They are explicit per-type methods (`SparseMatrixCSC`, `NamedArray`,
 # `SparseArrays.ReadOnly`) with no generic `AbstractSparseMatrixCSC` fallback, so dispatch on `LazySparseMatrix`
 # would error out without these overrides. Like the `SparseArrays.ReadOnly` methods, each returns the plain arrays of
-# the cached materialization (not read-only views), which is what the writers and fast loops expect.
+# the shared materialization (not read-only views), which is what the writers and fast loops expect.
 function TanayLabUtilities.colptr(matrix::LazySparseMatrix)::AbstractVector
-    return SparseArrays.getcolptr(cached_materialization!(matrix))
+    return SparseArrays.getcolptr(shared_materialization!(matrix))
 end
 
 function TanayLabUtilities.rowval(matrix::LazySparseMatrix)::AbstractVector
-    return SparseArrays.rowvals(cached_materialization!(matrix))
+    return SparseArrays.rowvals(shared_materialization!(matrix))
 end
 
 function TanayLabUtilities.nzval(matrix::LazySparseMatrix)::AbstractVector
-    return SparseArrays.nonzeros(cached_materialization!(matrix))
+    return SparseArrays.nonzeros(shared_materialization!(matrix))
 end
 
 # A lazy matrix was modified exactly when one of its lazy sources was.
@@ -399,6 +523,7 @@ function Formats.purge_lazy_array!(matrix::LazySparseMatrix)::Nothing
         end
     end
     clear_materialization!(matrix.materialization_cell)
+    matrix.did_report_scalar_access[] = false
     return nothing
 end
 
@@ -412,19 +537,12 @@ function TanayLabUtilities.ReadOnlyArrays.is_read_only_array(::LazySparseMatrix)
     return true
 end
 
-# The shared materialization, which is a plain mutable sparse matrix. Writing into it changes what all later readers of
-# this lazy matrix see.
-function TanayLabUtilities.ReadOnlyArrays.mutable_array(
-    matrix::LazySparseMatrix{Tv, Ti},
-)::SparseMatrixCSC{Tv, Ti} where {Tv, Ti}
-    return cached_materialization!(matrix)
-end
-
-function TanayLabUtilities.MatrixFormats.plain_array(
+function TanayLabUtilities.MatrixLayouts.plain_array(
     matrix::LazySparseMatrix{Tv, Ti};
     transposed_as::Maybe{Type} = nothing,  # NOLINT
+    contiguous::Bool = false,  # NOLINT
 )::SparseMatrixCSC{Tv, Ti} where {Tv, Ti}
-    return cached_materialization!(matrix)
+    return shared_materialization!(matrix)
 end
 
 end  # module

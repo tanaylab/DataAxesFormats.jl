@@ -540,7 +540,7 @@ function Formats.format_get_scalar(
     @assert Formats.has_data_read_lock(chain)
     for daf in reverse(chain.dafs)
         if Formats.format_has_scalar(daf, name)
-            return (Formats.get_scalar_through_cache(daf, name), Formats.MemoryData)
+            return (Formats.get_scalar_through_cache(daf, name), nothing)
         end
     end
     @assert false
@@ -604,7 +604,7 @@ function Formats.format_axis_vector(
     @assert Formats.has_data_read_lock(chain)
     for daf in reverse(chain.dafs)
         if Formats.format_has_axis(daf, axis; for_change = false)
-            return (Formats.get_axis_vector_through_cache(daf, axis), Formats.MemoryData)
+            return (Formats.get_axis_vector_through_cache(daf, axis), nothing)
         end
     end
     @assert false
@@ -741,7 +741,7 @@ function Formats.format_get_vector(
 )::Tuple{StorageVector, Maybe{Formats.CacheGroup}}
     for daf in reverse(chain.dafs)
         if Formats.format_has_axis(daf, axis; for_change = false) && Formats.format_has_vector(daf, axis, name)
-            return (Formats.read_only_array(Formats.get_vector_through_cache(daf, axis, name)), Formats.MemoryData)
+            return (Formats.read_only_array(Formats.get_vector_through_cache(daf, axis, name)), nothing)
         end
     end
     @assert false
@@ -999,7 +999,7 @@ function Formats.format_get_matrix(
            Formats.format_has_cached_matrix(daf, rows_axis, columns_axis, name)
             return (
                 Formats.read_only_array(Formats.get_matrix_through_cache(daf, rows_axis, columns_axis, name)),
-                Formats.MemoryData,
+                nothing,
             )
         end
     end
@@ -1074,16 +1074,92 @@ function Formats.invalidate_cached!(chain::AnyChain, cache_key::CacheKey)::Nothi
     end
 end
 
-function Formats.format_get_version_counter(chain::AnyChain, version_key::PropertyKey)::UInt32
+# Any change to a key in any of the dafs increases the sum.
+function Formats.format_get_version_counter(chain::AnyChain, cache_key::CacheKey)::UInt32
     version_counter = UInt32(0)
     for daf in chain.dafs
-        version_counter += Formats.format_get_version_counter(daf, version_key)
+        version_counter += Formats.format_get_version_counter(daf, cache_key)
     end
     return version_counter
 end
 
-function Formats.format_increment_version_counter(chain::WriteChain, version_key::PropertyKey)::Nothing
-    Formats.format_increment_version_counter(chain.daf, version_key)
+# A chain caches no data of its own. Its dafs cache their data, and invalidate it when it changes, even when it is
+# changed directly rather than through the chain. So the names are collected from the dafs on each access, and data
+# written through the chain is cached in the daf it is written to.
+
+function Formats.get_scalars_set_through_cache(chain::AnyChain)::AbstractSet{<:AbstractString}
+    return Formats.format_scalars_set(chain)
+end
+
+function Formats.get_axes_set_through_cache(chain::AnyChain)::AbstractSet{<:AbstractString}
+    return Formats.format_axes_set(chain)
+end
+
+function Formats.get_vectors_set_through_cache(chain::AnyChain, axis::AbstractString)::AbstractSet{<:AbstractString}
+    return Formats.format_vectors_set(chain, axis)
+end
+
+function Formats.get_matrices_set_through_cache(
+    chain::AnyChain,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+)::AbstractSet{<:AbstractString}
+    return Formats.format_matrices_set(chain, rows_axis, columns_axis)
+end
+
+function Formats.get_relayout_matrices_set_through_cache(
+    chain::AnyChain,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+)::AbstractSet{<:AbstractString}
+    return union(
+        Formats.format_matrices_set(chain, rows_axis, columns_axis),
+        Formats.format_matrices_set(chain, columns_axis, rows_axis),
+    )
+end
+
+function Formats.get_axis_dict_through_cache(
+    chain::AnyChain,
+    axis::AbstractString,
+)::AbstractDict{<:AbstractString, <:Integer}
+    for daf in reverse(chain.dafs)
+        if Formats.format_has_axis(daf, axis; for_change = false)
+            return Formats.get_axis_dict_through_cache(daf, axis)
+        end
+    end
+    @assert false
+end
+
+function Formats.cache_scalar!(
+    chain::WriteChain,
+    name::AbstractString,
+    value::StorageScalar,
+    cache_group::Maybe{Formats.CacheGroup},
+)::Nothing
+    Formats.cache_scalar!(chain.daf, name, value, cache_group)
+    return nothing
+end
+
+function Formats.cache_vector!(
+    chain::WriteChain,
+    axis::AbstractString,
+    name::AbstractString,
+    vector::NamedVector,
+    cache_group::Maybe{Formats.CacheGroup},
+)::Nothing
+    Formats.cache_vector!(chain.daf, axis, name, vector, cache_group)
+    return nothing
+end
+
+function Formats.cache_matrix!(
+    chain::WriteChain,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+    matrix::NamedMatrix,
+    cache_group::Maybe{Formats.CacheGroup},
+)::Nothing
+    Formats.cache_matrix!(chain.daf, rows_axis, columns_axis, name, matrix, cache_group)
     return nothing
 end
 

@@ -29,7 +29,6 @@ export reorder_axes!
 export reset_reorder_axes!
 
 using ..Formats
-using ..LazySparse
 using ..Readers
 using ..StorageTypes
 using ProgressMeter
@@ -205,9 +204,7 @@ function stage_permuted_vector(
     planned_axis::PlannedAxis,
     replacement_progress::Maybe{AbstractProgress},
 )::StorageVector
-    if !issparse(source) && !(source isa DenseVector)
-        source = Vector(source)
-    end
+    source = plain_array(source)
 
     if source isa SparseVector
         destination_nzind = similar(SparseArrays.nonzeroinds(source))
@@ -237,11 +234,7 @@ function stage_permuted_matrix(
     planned_columns::Maybe{PlannedAxis},
     replacement_progress::Maybe{AbstractProgress},
 )::StorageMatrix
-    if source isa LazySparseMatrix
-        source = convert(SparseMatrixCSC, source)
-    elseif !issparse(source) && !(source isa DenseMatrix)
-        source = Matrix(source)
-    end
+    source = plain_array(source)
 
     if source isa SparseMatrixCSC
         destination_colptr = similar(source.colptr)
@@ -403,8 +396,15 @@ function write_permuted_matrix(
             is_packed,
             replacement_progress,
         )
-    elseif source isa SparseMatrixCSC && !is_packed
-        fill_permuted_sparse_matrix(writer, planned, source, planned_rows, planned_columns, replacement_progress)
+    elseif issparse(source) && !is_packed
+        fill_permuted_sparse_matrix(
+            writer,
+            planned,
+            plain_array(source),
+            planned_rows,
+            planned_columns,
+            replacement_progress,
+        )
     else
         permuted = stage_permuted_matrix(source, planned_rows, planned_columns, replacement_progress)
         Formats.format_set_matrix!(writer, planned.rows_axis, planned.columns_axis, planned.name, permuted, is_packed)

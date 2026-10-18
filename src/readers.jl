@@ -237,9 +237,9 @@ end
 """
     axis_version_counter(daf::DafReader, axis::AbstractString)::UInt32
 
-Return the version number of the axis. This is incremented every time [`delete_axis!`](@ref
-DataAxesFormats.Writers.delete_axis!) is called. It is used by interfaces to other programming languages to safely cache
-per-axis data.
+Return the version number of the axis. This increases every time the axis entries may have changed (e.g. when
+[`delete_axis!`](@ref DataAxesFormats.Writers.delete_axis!) is called). It may increase by more than one at a time. It
+is used by interfaces to other programming languages to safely cache per-axis data.
 
 !!! note
 
@@ -248,20 +248,18 @@ per-axis data.
 
 ```jldoctest
 metacells = example_metacells_daf()
-println(axis_version_counter(metacells, "type"))
+previous_version_counter = axis_version_counter(metacells, "type")
 delete_axis!(metacells, "type")
 add_axis!(metacells, "type", ["Foo", "Bar", "Baz"])
-println(axis_version_counter(metacells, "type"))
+println(axis_version_counter(metacells, "type") > previous_version_counter)
 
 # output
 
-0
-1
+true
 ```
 """
 function axis_version_counter(daf::DafReader, axis::AbstractString)::UInt32
-    # TRICKY: We don't track versions for scalars so we can use the string keys for the axes.
-    return Formats.format_get_version_counter(daf, axis)
+    return Formats.format_get_version_counter(daf, Formats.axis_vector_cache_key(axis))
 end
 
 """
@@ -557,11 +555,11 @@ end
 """
     vector_version_counter(daf::DafReader, axis::AbstractString, name::AbstractString)::UInt32
 
-Return the version number of the vector. This is incremented every time
+Return the version number of the vector. This increases every time the vector may have changed (e.g. when
 [`set_vector!`](@ref DataAxesFormats.Writers.set_vector!),
 [`empty_dense_vector!`](@ref DataAxesFormats.Writers.empty_dense_vector!) or
-[`empty_sparse_vector!`](@ref DataAxesFormats.Writers.empty_sparse_vector!) are called. It is used by interfaces to
-safely cache per-vector data.
+[`empty_sparse_vector!`](@ref DataAxesFormats.Writers.empty_sparse_vector!) are called). It may increase by more than
+one at a time. It is used by interfaces to safely cache per-vector data.
 
 !!! note
 
@@ -570,18 +568,17 @@ safely cache per-vector data.
 
 ```jldoctest
 metacells = example_metacells_daf()
-println(vector_version_counter(metacells, "type", "color"))
+previous_version_counter = vector_version_counter(metacells, "type", "color")
 set_vector!(metacells, "type", "color", string.(collect(1:4)); overwrite = true)
-println(vector_version_counter(metacells, "type", "color"))
+println(vector_version_counter(metacells, "type", "color") > previous_version_counter)
 
 # output
 
-1
-2
+true
 ```
 """
 function vector_version_counter(daf::DafReader, axis::AbstractString, name::AbstractString)::UInt32
-    result = Formats.format_get_version_counter(daf, (axis, name))
+    result = Formats.format_get_version_counter(daf, Formats.vector_cache_key(axis, name))
     @debug "vector_version_counter daf: $(brief(daf)) axis: $(axis) name: $(name) result: $(result)" _group = :daf_gets
     return result
 end
@@ -866,16 +863,7 @@ function matrices_set(
         if !relayout
             names = Formats.get_matrices_set_through_cache(daf, rows_axis, columns_axis)
         else
-            names = Formats.get_through_cache(
-                daf,
-                Formats.matrices_set_cache_key(rows_axis, columns_axis; relayout = true),
-                AbstractSet{<:AbstractString},
-            ) do
-                first_names = Formats.get_matrices_set_through_cache(daf, rows_axis, columns_axis)
-                second_names = Formats.get_matrices_set_through_cache(daf, columns_axis, rows_axis)
-                names = union(first_names, second_names)
-                return (names, Formats.MemoryData)
-            end
+            names = Formats.get_relayout_matrices_set_through_cache(daf, rows_axis, columns_axis)
         end
 
         if tensors
@@ -1152,11 +1140,11 @@ end
         name::AbstractString
     )::UInt32
 
-Return the version number of the matrix. The order of the axes does not matter. This is incremented every time
-[`set_matrix!`](@ref DataAxesFormats.Writers.set_matrix!),
+Return the version number of the matrix. The order of the axes does not matter. This increases every time the matrix
+may have changed (e.g. when [`set_matrix!`](@ref DataAxesFormats.Writers.set_matrix!),
 [`empty_dense_matrix!`](@ref DataAxesFormats.Writers.empty_dense_matrix!) or
-[`empty_sparse_matrix!`](@ref DataAxesFormats.Writers.empty_sparse_matrix!) are called. It is used by interfaces to
-other programming languages to safely cache per-matrix data.
+[`empty_sparse_matrix!`](@ref DataAxesFormats.Writers.empty_sparse_matrix!) are called). It may increase by more than
+one at a time. It is used by interfaces to other programming languages to safely cache per-matrix data.
 
 !!! note
 
@@ -1165,14 +1153,13 @@ other programming languages to safely cache per-matrix data.
 
 ```jldoctest
 metacells = example_metacells_daf()
-println(matrix_version_counter(metacells, "gene", "metacell", "fraction"))
+previous_version_counter = matrix_version_counter(metacells, "gene", "metacell", "fraction")
 set_matrix!(metacells, "gene", "metacell", "fraction", rand(Float32, 683, 7); overwrite = true)
-println(matrix_version_counter(metacells, "gene", "metacell", "fraction"))
+println(matrix_version_counter(metacells, "metacell", "gene", "fraction") > previous_version_counter)
 
 # output
 
-1
-2
+true
 ```
 """
 function matrix_version_counter(
@@ -1181,10 +1168,10 @@ function matrix_version_counter(
     columns_axis::AbstractString,
     name::AbstractString,
 )::UInt32
-    if columns_axis < rows_axis
-        rows_axis, columns_axis = columns_axis, rows_axis
-    end
-    result = Formats.format_get_version_counter(daf, (rows_axis, columns_axis, name))
+    # Each layout has its own cache key, and a change to either layout increases the sum.
+    result =
+        Formats.format_get_version_counter(daf, Formats.matrix_cache_key(rows_axis, columns_axis, name)) +
+        Formats.format_get_version_counter(daf, Formats.matrix_cache_key(columns_axis, rows_axis, name))
     @debug (
         "matrix_version_counter daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) " *
         "name: $(name) result: $(result)"

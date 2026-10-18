@@ -741,9 +741,9 @@
 </p>
 <p>The returned array aliases 
 <code>store.file_mmap
-</code> and remains valid as long as 
+</code>. It keeps the mapping alive, so it stays valid even after 
 <code>store
-</code> is open.
+</code> is no longer used.
 </p>
 </div>
 </section>

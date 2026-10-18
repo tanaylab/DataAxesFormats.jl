@@ -528,15 +528,7 @@
 <code>dataset[:, column] = chunk_buffer
 </code> hyperslab writes serialized by an internal lock (HDF5.jl is not thread-safe in default builds even when distinct threads target distinct chunks).
 </p>
-<p>Packed datasets cannot be memory-mapped (HDF5 mmap requires the contiguous, unfiltered layout), so the reader wraps them in 
-<code>H5dfDiskArray
-</code> (a 
-<code>DiskArrays.AbstractDiskArray
-</code> adapter that delegates 
-<code>readblock!
-</code> to HDF5 hyperslab reads) and caches decompressed chunks in a 
-<code>DiskArrays.cache
-</code> LRU sized by 
+<p>Packed datasets cannot be memory-mapped (HDF5 mmap requires the contiguous, unfiltered layout), so the reader returns lazy arrays that read each chunk by an HDF5 hyperslab read of exactly that chunk. Chunks that a read used only part of are kept in the pool bounded by 
 <a href="packed_format.html#DataAxesFormats.PackedFormat.DAF_PACKED_LOCAL_CACHE_KB">
 <code>DAF_PACKED_LOCAL_CACHE_KB
 </code>
@@ -544,41 +536,27 @@
 <a href="lazy_sparse.html#DataAxesFormats.LazySparse.LazySparseMatrix">
 <code>LazySparseMatrix
 </code>
-</a> over the cached 
+</a> over the lazy 
 <code>rowval
 </code> / 
 <code>nzval
 </code>, with 
 <code>colptr
-</code> materialised eagerly (it is small and slicing needs random access). Packed sparse vectors are returned as a 
-<a href="lazy_sparse.html#DataAxesFormats.LazySparse.LazySparseVector">
-<code>LazySparseVector
-</code>
-</a> over the cached 
-<code>nzind
-</code> / 
-<code>nzval
-</code> (matching the matrix wrapper); below-threshold flat sparse vectors stay on the eager 
+</code> read eagerly (it is small, and reading a subset of the columns needs it). Sparse vectors are at most one axis long, so they are always read eagerly into a 
 <code>SparseVector
-</code> path with mmap-backed components.
+</code>.
 </p>
 </li>
 <li>
 <p>The HDF5 filter ids needed to read packed datasets (
 <code>32001
 </code> Blosc, 
-<code>32008
-</code> bitshuffle, 
 <code>32015
 </code> Zstandard) are registered at module load via 
 <a href="https://github.com/JuliaIO/HDF5.jl/tree/master/filters/H5Zblosc">
 <code>H5Zblosc
 </code>
-</a>, 
-<a href="https://github.com/JuliaIO/HDF5.jl/tree/master/filters/H5Zbitshuffle">
-<code>H5Zbitshuffle
-</code>
-</a>, and 
+</a> and 
 <a href="https://github.com/JuliaIO/HDF5.jl/tree/master/filters/H5Zzstd">
 <code>H5Zzstd
 </code>

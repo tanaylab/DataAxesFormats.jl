@@ -1,6 +1,18 @@
 nested_test("lazy_sparse") do
     is_materialized = DataAxesFormats.LazySparse.is_materialized
-    cached_materialization! = DataAxesFormats.LazySparse.cached_materialization!
+    shared_materialization! = DataAxesFormats.LazySparse.shared_materialization!
+
+    # Whether the `access` materializes the whole `lazy` matrix. Nothing holds that materialization, so the GC is
+    # disabled meanwhile, or it could free it before the check.
+    function does_materialize(access::Function, lazy::LazySparseMatrix)::Bool
+        was_enabled = GC.enable(false)
+        try
+            access()
+            return is_materialized(lazy)
+        finally
+            GC.enable(was_enabled)
+        end
+    end
 
     # Build a packed sparse matrix through `ZarrDaf` once so the `nzval` and `rowval` ZArrays end up sharded; the
     # nested tests then wrap those ZArrays in a `LazySparseMatrix`.
@@ -112,7 +124,7 @@ nested_test("lazy_sparse") do
 
         nested_test("after_materialization") do
             lazy = new_lazy()
-            cached_materialization!(lazy)
+            materialized = shared_materialization!(lazy)
             @test lazy[:, 3] == expected[:, 3]
             @test lazy[[3, 1], 3:4] == expected[[3, 1], 3:4]
         end
@@ -120,18 +132,45 @@ nested_test("lazy_sparse") do
 
     # Any other access reads the whole matrix once.
     nested_test("other_access") do
+        # Scalar access is reported as inefficient. The lazy matrix then holds its materialization, so a loop over
+        # elements reads it only once.
         nested_test("scalar") do
-            lazy = new_lazy()
-            @test lazy[2, 1] == 20
-            @test lazy[1, 2] == 0
-            @test lazy[3, 3] == 40
-            @test is_materialized(lazy)
+            nested_test("error") do
+                lazy = new_lazy()
+                @test_throws "inefficient scalar access to a lazy sparse matrix" lazy[2, 1]
+                return nothing
+            end
+
+            nested_test("ignore") do
+                lazy = new_lazy()
+                previous_handler = TanayLabUtilities.MatrixLayouts.GLOBAL_INEFFICIENT_ACTION_HANDLER
+                TanayLabUtilities.MatrixLayouts.GLOBAL_INEFFICIENT_ACTION_HANDLER = IgnoreHandler
+                try
+                    @test lazy[2, 1] == 20
+                    @test lazy[1, 2] == 0
+                    @test lazy[3, 3] == 40
+                finally
+                    TanayLabUtilities.MatrixLayouts.GLOBAL_INEFFICIENT_ACTION_HANDLER = previous_handler
+                end
+                GC.gc()
+                GC.gc()
+                @test is_materialized(lazy)
+
+                # A purge (e.g. by `empty_cache!`) drops the held materialization.
+                DataAxesFormats.Formats.purge_lazy_array!(lazy)
+                GC.gc()
+                GC.gc()
+                @test !is_materialized(lazy)
+                @test !lazy.did_report_scalar_access[]
+                return nothing
+            end
         end
 
         nested_test("row") do
             lazy = new_lazy()
-            @test lazy[3, :] == expected[3, :]
-            @test is_materialized(lazy)
+            @test does_materialize(lazy) do
+                @test lazy[3, :] == expected[3, :]
+            end
         end
 
         nested_test("rows") do
@@ -141,9 +180,10 @@ nested_test("lazy_sparse") do
 
         nested_test("generic") do
             lazy = new_lazy()
-            @test sum(lazy) == sum(expected)
-            @test lazy * Float32[1, 1, 1, 1] == expected * Float32[1, 1, 1, 1]
-            @test is_materialized(lazy)
+            @test does_materialize(lazy) do
+                @test sum(lazy) == sum(expected)
+                @test lazy * Float32[1, 1, 1, 1] == expected * Float32[1, 1, 1, 1]
+            end
         end
     end
 
@@ -156,7 +196,7 @@ nested_test("lazy_sparse") do
                 @test materialized[1, 1] == 1
                 @test materialized[2, 3] == 6
                 @test materialized[100, 4] == 400
-                # Like `SparseArrays`' own constructors, this returns a matrix owned by the caller, without caching it,
+                # Like `SparseArrays`' own constructors, this returns a matrix owned by the caller, without sharing it,
                 # so editing it leaves the lazy matrix intact.
                 @test !is_materialized(lazy)
                 materialized.nzval[1] = -1
@@ -171,11 +211,11 @@ nested_test("lazy_sparse") do
                 @test length(colptr) == 5
                 @test colptr[end] == nnz(lazy) + 1
                 @test !is_materialized(lazy)
-                rowvals(lazy)
-                @test is_materialized(lazy)
-                # Repeat calls return read-only views of the same cached vectors.
-                @test parent(rowvals(lazy)) === rowvals(cached_materialization!(lazy))
-                @test parent(nonzeros(lazy)) === nonzeros(cached_materialization!(lazy))
+                @test does_materialize(() -> rowvals(lazy), lazy)
+                # While the materialization is held, calls return read-only views of its vectors.
+                materialized = shared_materialization!(lazy)
+                @test parent(rowvals(lazy)) === rowvals(materialized)
+                @test parent(nonzeros(lazy)) === nonzeros(materialized)
                 return nothing
             end
         end
@@ -188,31 +228,47 @@ nested_test("lazy_sparse") do
             end
         end
 
-        # `convert(SparseMatrixCSC{...}, lazy)` returns the cached materialization, building it on first use. This is
-        # unlike the constructor `SparseMatrixCSC(lazy)`, which returns a copy owned by the caller.
+        # `convert(SparseMatrixCSC{...}, lazy)` returns the shared materialization, building it if no caller holds it.
+        # This is unlike the constructor `SparseMatrixCSC(lazy)`, which returns a copy owned by the caller.
         nested_test("convert") do
             build_lazy() do lazy, _, _
                 materialized = convert(SparseMatrixCSC{Float32, Int32}, lazy)
                 @test materialized isa SparseMatrixCSC{Float32, Int32}
                 @test size(materialized) == (8192, 4)
                 @test nnz(materialized) == 8192 * 4
-                @test cached_materialization!(lazy) === materialized
-                @test mutable_array(lazy) === materialized
+                @test shared_materialization!(lazy) === materialized
+                @test plain_array(lazy) === materialized
                 return nothing
             end
         end
 
-        # Concurrent first readers wait for a single materialization, so all get the same cached matrix.
+        # Concurrent first readers wait for a single materialization, so all get the same matrix.
         nested_test("concurrent") do
             build_lazy() do lazy, _, _
                 n_readers = 4 * Threads.nthreads()
                 materialized_per_reader = Vector{Any}(undef, n_readers)
                 Threads.@threads for reader in 1:n_readers
-                    materialized_per_reader[reader] = cached_materialization!(lazy)
+                    materialized_per_reader[reader] = shared_materialization!(lazy)
                 end
                 @test all(materialized === materialized_per_reader[1] for materialized in materialized_per_reader)
                 return nothing
             end
+        end
+
+        # The materialization is shared while a caller holds it, and is freed once no caller holds it.
+        nested_test("weakly_held") do
+            lazy = new_lazy()
+            materialized = plain_array(lazy)
+            @test plain_array(lazy) === materialized
+            @test is_materialized(lazy)
+
+            dropped_lazy = new_lazy()
+            weak_reference = weak_materialization(dropped_lazy)
+            GC.gc()
+            GC.gc()
+            @test weak_reference.value === nothing
+            @test !is_materialized(dropped_lazy)
+            return nothing
         end
     end
 
@@ -230,7 +286,8 @@ nested_test("lazy_sparse") do
             @test typed == expected
             typed.nzval[1] = -1
             @test SparseMatrixCSC(lazy) == expected
-            @test convert(SparseMatrixCSC{Float32, Int32}, lazy) === cached_materialization!(lazy)
+            materialized = convert(SparseMatrixCSC{Float32, Int32}, lazy)
+            @test shared_materialization!(lazy) === materialized
             return nothing
         end
 
@@ -240,6 +297,40 @@ nested_test("lazy_sparse") do
             @test_throws "Can't change" lazy[1, 1] = 5
             @test_throws "Can't change" nonzeros(lazy)[1] = 5
             @test SparseMatrixCSC(lazy) == expected
+            return nothing
+        end
+
+        # Equality and display use the plain storage, so they are not reported as scalar access.
+        nested_test("equality") do
+            lazy = new_lazy()
+            named = NamedArray(lazy, (["r1", "r2", "r3"], ["c1", "c2", "c3", "c4"]), ("row", "col"))
+            @test lazy == expected
+            @test expected == lazy
+            @test lazy == Matrix(expected)
+            @test named == expected
+            @test expected == named
+            @test named == named
+            @test lazy == new_lazy()
+            transposed = transpose(sparse(transpose(expected)))
+            @test lazy == transposed
+            @test transposed == lazy
+            @test adjoint(sparse(adjoint(expected))) == lazy
+            @test isequal(named, expected)
+            @test isequal(expected, lazy)
+            @test lazy != expected .* 2
+            @test !lazy.did_report_scalar_access[]
+            return nothing
+        end
+
+        nested_test("show") do
+            lazy = new_lazy()
+            named = NamedArray(lazy, (["r1", "r2", "r3"], ["c1", "c2", "c3", "c4"]), ("row", "col"))
+            plain_named = NamedArray(expected, named.dicts, named.dimnames)
+            @test sprint(show, MIME"text/plain"(), lazy) == sprint(show, MIME"text/plain"(), expected)
+            @test sprint(show, lazy) == sprint(show, expected)
+            @test sprint(show, MIME"text/plain"(), named) == sprint(show, MIME"text/plain"(), plain_named)
+            @test sprint(show, named) == sprint(show, plain_named)
+            @test !lazy.did_report_scalar_access[]
             return nothing
         end
 

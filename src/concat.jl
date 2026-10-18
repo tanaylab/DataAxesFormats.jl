@@ -1363,7 +1363,8 @@ function sparsify_concatenated_vectors(
             sparse_vectors[source_index] = spzeros(eltype, size)
         else
             @assert length(vector) == size
-            vector = vector.array
+            # A plain sparse vector is stored as is, rather than converted element by element.
+            vector = plain_array(vector.array)
             if !issparse(vector)
                 vector = sparse_vector(vector)
             end

@@ -274,7 +274,7 @@ struct Internal  # NOLINT
     dependents_of_cache_keys::Dict{CacheKey, Set{CacheKey}}
     dependencies_of_query_keys::Dict{CacheKey, Set{CacheKey}}
     lazy_arrays_of_cache_keys::Dict{CacheKey, Vector{WeakRef}}
-    version_counters::Dict{PropertyKey, UInt32}
+    version_counters::Dict{CacheKey, UInt32}
     cache_lock::ExtendedReadWriteLock
     data_lock::ExtendedReadWriteLock
     is_frozen::Bool
@@ -295,7 +295,7 @@ function Internal(;
         Dict{CacheKey, Set{CacheKey}}(),
         Dict{CacheKey, Set{CacheKey}}(),
         Dict{CacheKey, Vector{WeakRef}}(),
-        Dict{PropertyKey, UInt32}(),
+        Dict{CacheKey, UInt32}(),
         ExtendedReadWriteLock(),
         data_lock === nothing ? ExtendedReadWriteLock() : data_lock,
         is_frozen,
@@ -1154,6 +1154,23 @@ function get_matrices_set_through_cache(
     end
 end
 
+# The names of the matrices stored in either layout.
+function get_relayout_matrices_set_through_cache(
+    format::FormatReader,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+)::AbstractSet{<:AbstractString}
+    return get_through_cache(
+        format,
+        matrices_set_cache_key(rows_axis, columns_axis; relayout = true),
+        AbstractSet{<:AbstractString},
+    ) do
+        first_names = get_matrices_set_through_cache(format, rows_axis, columns_axis)
+        second_names = get_matrices_set_through_cache(format, columns_axis, rows_axis)
+        return (union(first_names, second_names), MemoryData)
+    end
+end
+
 function get_scalar_through_cache(format::FormatReader, name::AbstractString)::StorageScalar
     return get_through_cache(format, scalar_cache_key(name), StorageScalar) do
         return format_get_scalar(format, name)
@@ -1224,7 +1241,7 @@ function get_relayout_matrix_through_cache(
     @assert !format_has_matrix(format, rows_axis, columns_axis, name)
     matrix = get_matrix_through_cache(format, columns_axis, rows_axis, name).array
     return get_slow_through_cache(format, matrix_cache_key(rows_axis, columns_axis, name), NamedArray, MemoryData) do
-        matrix = flipped(materialization_without_caching(matrix))
+        matrix = flipped(matrix)
         matrix = as_named_matrix(format, rows_axis, columns_axis, read_only_array(matrix))
         return (matrix, nothing)
     end
@@ -1339,13 +1356,6 @@ function invalidate_lazy_array! end
 # Release the memory a lazy array holds (decoded chunks and its materialization). It stays readable.
 function purge_lazy_array! end
 
-# The values of the `array` as an in-memory array, for an internal read of all of it (e.g. a relayout). A lazy array
-# returns its materialization if it has one. Otherwise it reads itself without caching the result, so it doesn't hold a
-# copy that nobody asked for. Any other array is returned as is.
-function materialization_without_caching(array::AbstractArray)::AbstractArray
-    return array
-end
-
 # Remember a lazy storage array read for a cache key, so `invalidate_cached!` of that key invalidates it, even after
 # `empty_cache!` dropped it from the cache. Must be called under the cache write lock.
 function register_lazy_array!(format::FormatReader, cache_key::CacheKey, array::AbstractArray)::Nothing
@@ -1361,6 +1371,7 @@ function invalidate_cached!(format::FormatReader, cache_key::CacheKey)::Nothing
     @debug "invalidate_cached! daf: $(brief(format)) cache_key: $(cache_key)"
     @debug "- delete cache_key: $(cache_key)"
     with_cache_write_lock(format, "for invalidate key:", cache_key) do
+        increment_version_counter!(format, cache_key)
         delete!(format.internal.cache, cache_key)
 
         weak_references = pop!(format.internal.lazy_arrays_of_cache_keys, cache_key, nothing)
@@ -1375,10 +1386,11 @@ function invalidate_cached!(format::FormatReader, cache_key::CacheKey)::Nothing
 
         dependents_keys = pop!(format.internal.dependents_of_cache_keys, cache_key, nothing)
         if dependents_keys !== nothing
-            for dependent_key in dependents_keys  # UNTESTED
-                @debug "- delete dependent_key: $(dependent_key)"  # UNTESTED
-                delete!(format.internal.cache, dependent_key)  # UNTESTED
-                delete!(format.internal.dependencies_of_query_keys, dependent_key)  # UNTESTED
+            for dependent_key in dependents_keys
+                @debug "- delete dependent_key: $(dependent_key)"
+                increment_version_counter!(format, dependent_key)
+                delete!(format.internal.cache, dependent_key)
+                delete!(format.internal.dependencies_of_query_keys, dependent_key)
             end
         end
         return delete!(format.internal.dependencies_of_query_keys, cache_key)
@@ -1490,17 +1502,18 @@ function has_data_write_lock(format::FormatReader)::Bool
     return has_write_lock(format.internal.data_lock)
 end
 
-function format_get_version_counter(format::FormatReader, version_key::PropertyKey)::UInt32
-    return with_cache_read_lock(format, "for version counter of:", string(version_key)) do
-        return get(format.internal.version_counters, version_key, UInt32(0))
+# The version counter of a cache key: how many times it was invalidated. Every write invalidates every key it affects,
+# whether it is cached or not. The counter only ever increases, and `empty_cache!` never resets it. So a value computed
+# from the data of some keys is valid as long as their counters are unchanged.
+function format_get_version_counter(format::FormatReader, cache_key::CacheKey)::UInt32
+    return with_cache_read_lock(format, "for version counter of:", cache_key) do
+        return get(format.internal.version_counters, cache_key, UInt32(0))
     end
 end
 
-function format_increment_version_counter(format::FormatWriter, version_key::PropertyKey)::Nothing
-    with_cache_write_lock(format, "for version counter of:", string(version_key)) do
-        previous_version_counter = format_get_version_counter(format, version_key)
-        return format.internal.version_counters[version_key] = previous_version_counter + 1
-    end
+# Increment the version counter of a cache key. Must be called under the cache write lock.
+function increment_version_counter!(format::FormatReader, cache_key::CacheKey)::Nothing
+    format.internal.version_counters[cache_key] = get(format.internal.version_counters, cache_key, UInt32(0)) + 1
     return nothing
 end
 
@@ -1508,19 +1521,17 @@ end
     invalidate_axis_data!(writer::FormatWriter, axis::AbstractString)::Nothing
 
 Invalidate all cached data that depends on the content of `axis`: the axis entries, the axis-to-index dict, every vector
-on the axis, and every matrix where `axis` is one of the two axes. Increments the version counter for each property.
-Must be called inside a write lock.
+on the axis, and every matrix where `axis` is one of the two axes. This increments the version counter of each of
+these. Must be called inside a write lock.
 """
 function invalidate_axis_data!(writer::FormatWriter, axis::AbstractString)::Nothing
     @assert has_data_write_lock(writer)
 
     invalidate_cached!(writer, axis_vector_cache_key(axis))
     invalidate_cached!(writer, axis_dict_cache_key(axis))
-    format_increment_version_counter(writer, axis)
 
     for name in get_vectors_set_through_cache(writer, axis)
         invalidate_cached!(writer, vector_cache_key(axis, name))
-        format_increment_version_counter(writer, (axis, name))
     end
 
     for other_axis in get_axes_set_through_cache(writer)
@@ -1529,15 +1540,11 @@ function invalidate_axis_data!(writer::FormatWriter, axis::AbstractString)::Noth
             if axis != other_axis
                 invalidate_cached!(writer, matrix_cache_key(other_axis, axis, name))
             end
-            format_increment_version_counter(writer, (axis, other_axis, name))
         end
         if axis != other_axis
             for name in get_matrices_set_through_cache(writer, other_axis, axis)
                 invalidate_cached!(writer, matrix_cache_key(other_axis, axis, name))
-                if axis != other_axis
-                    invalidate_cached!(writer, matrix_cache_key(axis, other_axis, name))
-                end
-                format_increment_version_counter(writer, (other_axis, axis, name))
+                invalidate_cached!(writer, matrix_cache_key(axis, other_axis, name))
             end
         end
     end

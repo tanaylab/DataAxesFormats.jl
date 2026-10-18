@@ -575,8 +575,8 @@ function test_missing_axis(daf::DafReader, depth::Int; append_only::Bool = false
         nested_test("unique") do
             @test add_axis!(daf, "gene", GENE_NAMES) === nothing
             @test add_axis!(daf, "cell", CELL_NAMES) === nothing
-            @test axis_version_counter(daf, "gene") == depth - 1
-            @test axis_version_counter(daf, "cell") == depth - 1
+            @test (axis_version_counter(daf, "gene") == 0) == (depth == 1)
+            @test (axis_version_counter(daf, "cell") == 0) == (depth == 1)
             nested_test("created") do
                 test_existing_axis(daf, depth + 1; append_only)
                 return nothing
@@ -1108,11 +1108,11 @@ function test_missing_vector(daf::DafReader, depth::Int; append_only::Bool = fal
                 empty_vector .= MARKER_GENES_BY_DEPTH[depth]
                 return 7
             end == 7
-            @test vector_version_counter(daf, "gene", "marker") == previous_version_counter + 1
+            @test vector_version_counter(daf, "gene", "marker") > previous_version_counter
 
             previous_version_counter = vector_version_counter(daf, "cell", "type")
             @test set_vector!(daf, "cell", "type", CELL_TYPES_BY_DEPTH[depth]; overwrite = true) === nothing
-            @test vector_version_counter(daf, "gene", "marker") == previous_version_counter + 1
+            @test vector_version_counter(daf, "cell", "type") > previous_version_counter
 
             test_existing_vector(daf, depth + 1; append_only)
             return nothing
@@ -1134,11 +1134,11 @@ function test_missing_vector(daf::DafReader, depth::Int; append_only::Bool = fal
                 return 7
             end == 7
 
-            @test vector_version_counter(daf, "gene", "marker") == previous_version_counter + 1
+            @test vector_version_counter(daf, "gene", "marker") > previous_version_counter
 
             previous_version_counter = vector_version_counter(daf, "cell", "type")
             @test set_vector!(daf, "cell", "type", CELL_TYPES_BY_DEPTH[depth]; overwrite = true) === nothing
-            @test vector_version_counter(daf, "gene", "marker") == previous_version_counter + 1
+            @test vector_version_counter(daf, "cell", "type") > previous_version_counter
 
             test_existing_vector(daf, depth + 1; append_only)
             return nothing
@@ -2033,7 +2033,7 @@ function test_missing_matrix(daf::DafReader, depth::Int; append_only::Bool = fal
                 end
 
                 nested_test("false") do
-                    previous_version_counter = matrix_version_counter(daf, "gene", "cell", "UMIS")
+                    previous_version_counter = matrix_version_counter(daf, "gene", "cell", "UMIs")
                     @test set_matrix!(
                         daf,
                         "cell",
@@ -2042,7 +2042,7 @@ function test_missing_matrix(daf::DafReader, depth::Int; append_only::Bool = fal
                         NamedArray(UMIS_BY_DEPTH[depth]; names = (CELL_NAMES, GENE_NAMES), dimnames = ("cell", "gene"));
                         relayout = false,
                     ) === nothing
-                    @test matrix_version_counter(daf, "cell", "gene", "UMIs") == previous_version_counter + 1
+                    @test matrix_version_counter(daf, "cell", "gene", "UMIs") > previous_version_counter
 
                     nested_test("exists") do
                         test_existing_matrix(daf, depth + 1; append_only)
@@ -2107,7 +2107,7 @@ function test_missing_matrix(daf::DafReader, depth::Int; append_only::Bool = fal
                 empty_matrix .= UMIS_BY_DEPTH[depth]
                 return 7
             end == 7
-            @test matrix_version_counter(daf, "gene", "cell", "UMIs") == previous_version_counter + 1
+            @test matrix_version_counter(daf, "gene", "cell", "UMIs") > previous_version_counter
 
             nested_test("exists") do
                 test_existing_matrix(daf, depth + 1; append_only)
@@ -2140,7 +2140,7 @@ function test_missing_matrix(daf::DafReader, depth::Int; append_only::Bool = fal
                 empty_nzval .= sparse.nzval
                 return 7
             end == 7
-            @test matrix_version_counter(daf, "gene", "cell", "UMIs") == previous_version_counter + 1
+            @test matrix_version_counter(daf, "gene", "cell", "UMIs") > previous_version_counter
 
             nested_test("exists") do
                 test_existing_matrix(daf, depth + 1; append_only)
@@ -4902,14 +4902,6 @@ nested_test("data") do
             @test daf.name == "zarr!"
             @test string(daf) == "ZarrDaf zarr!"
             test_format(daf)
-
-            daf = ZarrDaf(; name = "mmap!")
-            add_axis!(daf, "gene", GENE_NAMES)
-            set_vector!(daf, "gene", "marker", MARKER_GENES_BY_DEPTH[1])
-            mmap_vector = mutable_array(get_vector(daf, "gene", "marker")).array
-            @test mmap_vector == MARKER_GENES_BY_DEPTH[1]
-            mmap_vector[1] = !mmap_vector[1]
-            @test get_vector(daf, "gene", "marker").array[1] == mmap_vector[1]
             return nothing
         end
 

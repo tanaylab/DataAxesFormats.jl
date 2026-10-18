@@ -1034,17 +1034,46 @@ nested_test("queries") do
 
                 nested_test("if_not") do
                     set_matrix!(daf, "cell", "gene", "tag", ["" "V" "W"; "" "V" "U"])
-                    @test get_result(daf, "@ cell @ gene :: tag ?? purple : color") == (
-                        ("cell", "gene"),
-                        [
-                            ("X", "A") => "purple",
-                            ("X", "B") => "green",
-                            ("X", "C") => "blue",
-                            ("Y", "A") => "purple",
-                            ("Y", "B") => "green",
-                            ("Y", "C") => "red",
-                        ],
-                    )
+
+                    nested_test("()") do
+                        @test get_result(daf, "@ cell @ gene :: tag ?? purple : color") == (
+                            ("cell", "gene"),
+                            [
+                                ("X", "A") => "purple",
+                                ("X", "B") => "green",
+                                ("X", "C") => "blue",
+                                ("Y", "A") => "purple",
+                                ("Y", "B") => "green",
+                                ("Y", "C") => "red",
+                            ],
+                        )
+                    end
+
+                    nested_test("chained") do
+                        add_axis!(daf, "kind", ["K", "L"])
+                        set_vector!(daf, "kind", "color", ["cyan", "magenta"])
+                        set_vector!(daf, "tag", "kind", ["K", "", "L"])
+                        @test get_result(daf, "@ cell @ gene :: tag ?? purple : kind ?? orange : color") == (
+                            ("cell", "gene"),
+                            [
+                                ("X", "A") => "purple",
+                                ("X", "B") => "orange",
+                                ("X", "C") => "magenta",
+                                ("Y", "A") => "purple",
+                                ("Y", "B") => "orange",
+                                ("Y", "C") => "cyan",
+                            ],
+                        )
+                    end
+
+                    nested_test("!value") do
+                        @test_throws chomp("""
+                                     no IfNot value specified for a matrix lookup
+                                     in the query: @ cell @ gene :: tag ?? : color
+                                     at location:                       ▲▲▲▲▲▲▲▲▲▲
+                                     for the daf data: memory!
+                                     """) daf["@ cell @ gene :: tag ?? : color"]
+                    end
                 end
             end
 

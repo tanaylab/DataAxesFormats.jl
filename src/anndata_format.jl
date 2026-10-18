@@ -650,9 +650,9 @@ function store_rename_scalar(
 end
 
 # The transpose of a stored `matrix`, in the form Muon writes without copying. For a dense matrix this is a reversed
-# `PermutedDimsArray`. For a sparse matrix it is an `Adjoint`.
+# `PermutedDimsArray`. For a sparse matrix it is an `Adjoint`. Muon writes through HDF5, which needs contiguous memory.
 function muon_flipped_matrix(matrix::AbstractMatrix)::AbstractMatrix
-    return plain_array(flip(matrix); transposed_as = issparse(matrix) ? Adjoint : PermutedDimsArray)
+    return plain_array(flip(matrix); transposed_as = issparse(matrix) ? Adjoint : PermutedDimsArray, contiguous = true)
 end
 
 function copy_square_matrices(daf::DafReader, axis::AbstractString, dict::AbstractDict)::Nothing
@@ -665,7 +665,7 @@ end
 function copy_vectors(daf::DafReader, axis::AbstractString, frame::DataFrame)::Nothing
     for name in vectors_set(daf, axis)
         @debug "Vector $(axis): $(name)"
-        frame[!, name] = plain_array(densify(get_vector(daf, axis, name).array))
+        frame[!, name] = plain_array(densify(get_vector(daf, axis, name).array); contiguous = true)
     end
 end
 

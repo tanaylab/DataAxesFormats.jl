@@ -239,6 +239,48 @@ nested_test("operations") do
                 @test with_type(daf["@ cell @ gene :: value % Log eps 1"]) ==
                       ([log(1) log(2) log(3); log(4) log(5) log(6)], Float64)
             end
+
+            nested_test("sparse") do
+                set_vector!(daf, "cell", "value", sparse([0.0, 3.0]))
+                set_matrix!(daf, "cell", "gene", "value", sparse([0.0 1.0 0.0; 3.0 0.0 5.0]); relayout = false)
+                @test daf["@ cell : value % Log eps 1"] == [log(1), log(4)]
+                @test daf["@ cell @ gene :: value % Log eps 1"] == [log(1) log(2) log(1); log(4) log(1) log(6)]
+            end
+
+            nested_test("rows") do
+                values = Float64[0 1 2; 3 4 5]
+                result = DataAxesFormats.Registry.compute_eltwise(Log(; eps = 1), transpose(values))
+                @test major_axis(result) == Rows
+                @test result ≈ transpose(log.(values .+ 1))
+            end
+
+            nested_test("packed") do
+                mktempdir() do path
+                    packed = FilesDaf(path * "/packed.daf", "w+"; name = "packed!", packed = true)
+                    add_axis!(packed, "cell", ["c$(index)" for index in 1:4096])
+                    add_axis!(packed, "gene", ["X", "Y"])
+                    values = Float32[row + column for row in 1:4096, column in 1:2]
+                    set_vector!(packed, "cell", "value", values[:, 1])
+                    set_matrix!(packed, "cell", "gene", "value", values; relayout = false)
+                    @test packed["@ cell : value % Log eps 1"] ≈ log.(values[:, 1] .+ 1)
+                    @test packed["@ cell @ gene :: value % Log eps 1"] ≈ log.(values .+ 1)
+                    # The cached query results hold no materialization of the lazy inputs. The tasks of the last
+                    # parallel loop stay reachable (with the input they captured) until other tasks run.
+                    parallel_loop_wo_rng(1:1000; name = "release") do _
+                        return nothing
+                    end
+                    GC.gc()
+                    GC.gc()
+                    for lazy in (
+                        get_vector(packed, "cell", "value").array,
+                        get_matrix(packed, "cell", "gene", "value"; relayout = false).array,
+                    )
+                        @test DataAxesFormats.PackedFormat.existing_materialization(lazy.materialization_cell) ===
+                              nothing
+                    end
+                    return nothing
+                end
+            end
         end
 
         nested_test("significant") do

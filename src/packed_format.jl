@@ -14,12 +14,18 @@ no per-daf override.
 
 A packed property is read lazily. Reading it returns an array that decodes its chunks on demand. Chunks that a read
 used only part of are kept in a process-wide pool (see [`DAF_PACKED_LOCAL_CACHE_KB`](@ref) and
-[`DAF_PACKED_HTTP_CACHE_KB`](@ref)). `densify` or `mutable_array` of a lazy array reads all of it once, and returns the
-same in-memory array from then on.
+[`DAF_PACKED_HTTP_CACHE_KB`](@ref)). `densify` or `plain_array` of a lazy array reads all of it, and returns an
+in-memory array. Later calls return the same in-memory array, as long as some caller still holds it. Once no caller
+holds it, its memory is freed, and the next call reads the data again. So the decoded data is held in memory exactly
+while it is used.
+
+Decoded data lives in ordinary memory, which the operating system can't evict. In contrast, unpacked data is
+memory-mapped, so the operating system can evict it and read it again as needed. Data larger than the memory can only
+be processed unpacked. Stage an unpacked copy of it once, using [`copy_all!`](@ref DataAxesFormats.Copies.copy_all!).
 
 If the property is later modified through the same daf (overwritten, deleted, or reordered), reading the old lazy
 array throws. This keeps it from mixing old decoded chunks with the new storage. An in-memory array obtained earlier
-from `densify` or `mutable_array` stays valid.
+from `densify` or `plain_array` stays valid.
 
 This does not cover a modification through another daf object or another process, data changing on an HTTP server, or
 one thread reading a lazy array while another thread modifies its property without coordinating with it.
@@ -672,48 +678,103 @@ function TanayLabUtilities.MatrixLayouts.unnamed_relayout(
     return destination
 end
 
-# The materialization of a lazy array: a concrete copy, built once on first use and then shared. Concurrent first
-# callers wait for a single build instead of each building their own.
+# The materialization of a lazy array: a concrete copy, built on first use and shared while anyone uses it. The cell
+# holds it through weak references (see `weakly_held`), so it is freed once no caller holds it, and the next use builds
+# it again. Concurrent first callers wait for a single build instead of each building their own.
 #
-# The `value` is a single-entry `AtomicMemory` rather than an `@atomic` field, since an `@atomic` field declaration
-# stops StaticLint from analyzing the rest of the file.
+# The `held` is a single-entry `AtomicMemory` rather than an `@atomic` field, since an `@atomic` field declaration stops
+# StaticLint from analyzing the rest of the file. It is `nothing`, the result of `weakly_held`, or the materialization
+# itself when it is pinned (see `pinned_materialization!`).
 struct MaterializationCell{T}  # NOLINT
-    value::AtomicMemory{Union{Nothing, T}}
+    held::AtomicMemory{Any}
     build_lock::ReentrantLock
 end
 
 function MaterializationCell{T}()::MaterializationCell{T} where {T}
-    value = AtomicMemory{Union{Nothing, T}}(undef, 1)
-    @atomic :release value[1] = nothing
-    return MaterializationCell{T}(value, ReentrantLock())
+    held = AtomicMemory{Any}(undef, 1)
+    @atomic :release held[1] = nothing
+    return MaterializationCell{T}(held, ReentrantLock())
 end
 
-# The materialization if it was already built, or `nothing`. Never builds it, and takes no lock.
+# A reference to a materialization that doesn't keep it alive. An `Array` is a mutable object, so a `WeakRef` holds it.
+# A `SparseMatrixCSC` is an immutable struct, so a `WeakRef` would hold a copy of it that nothing else references, and
+# the GC would free it at once. So each of its vectors is held through a `WeakRef` instead.
+function weakly_held(materialization::Array)::WeakRef
+    return WeakRef(materialization)
+end
+
+function weakly_held(materialization::SparseMatrixCSC)::Tuple{Int, Int, WeakRef, WeakRef, WeakRef}
+    return (
+        size(materialization)...,
+        WeakRef(SparseArrays.getcolptr(materialization)),
+        WeakRef(rowvals(materialization)),
+        WeakRef(nonzeros(materialization)),
+    )
+end
+
+# The materialization referenced by the result of `weakly_held`, or `nothing` if no caller holds it.
+function still_held(::Nothing)::Nothing
+    return nothing
+end
+
+function still_held(weak_reference::WeakRef)::Any
+    return weak_reference.value
+end
+
+function still_held(materialization::Union{Array, SparseMatrixCSC})::Union{Array, SparseMatrixCSC}
+    return materialization
+end
+
+function still_held(weak_parts::Tuple{Int, Int, WeakRef, WeakRef, WeakRef})::Maybe{SparseMatrixCSC}
+    n_rows, n_columns, colptr_reference, rowval_reference, nzval_reference = weak_parts
+    colptr = colptr_reference.value
+    rowval = rowval_reference.value
+    nzval = nzval_reference.value
+    if colptr === nothing || rowval === nothing || nzval === nothing
+        return nothing
+    else
+        return SparseMatrixCSC(n_rows, n_columns, colptr, rowval, nzval)
+    end
+end
+
+# The materialization if a caller still holds it, or `nothing`. Never builds it, and takes no lock.
 function existing_materialization(cell::MaterializationCell{T})::Maybe{T} where {T}
-    return @atomic :acquire cell.value[1]
+    return still_held(@atomic :acquire cell.held[1])
 end
 
-# The materialization, built by `build()` on first use.
+# The materialization, built by `build()` if no caller holds it.
 function materialization!(build::Function, cell::MaterializationCell{T})::T where {T}
-    value = @atomic :acquire cell.value[1]
-    if value !== nothing
-        return value
+    existing = existing_materialization(cell)
+    if existing !== nothing
+        return existing
     end
     return lock(cell.build_lock) do
-        existing = @atomic :acquire cell.value[1]
+        existing = existing_materialization(cell)
         if existing !== nothing
             return existing
         end
         built = build()::T
-        @atomic :release cell.value[1] = built
+        @atomic :release cell.held[1] = weakly_held(built)
         return built
     end
 end
 
-# Drop the materialization, so its memory can be released. The next use builds it again.
+# The materialization, built by `build()` if no caller holds it, and held by the cell from now on until it is cleared.
+function pinned_materialization!(build::Function, cell::MaterializationCell{T})::T where {T}
+    return lock(cell.build_lock) do
+        materialization = existing_materialization(cell)
+        if materialization === nothing
+            materialization = build()::T
+        end
+        @atomic :release cell.held[1] = materialization
+        return materialization
+    end
+end
+
+# Forget the materialization, so the next use builds it again. Callers that hold it keep a valid copy.
 function clear_materialization!(cell::MaterializationCell)::Nothing
     lock(cell.build_lock) do
-        @atomic :release cell.value[1] = nothing
+        @atomic :release cell.held[1] = nothing
         return nothing
     end
     return nothing
@@ -792,8 +853,8 @@ end
 # v3-sharded packed dense array ([`PackedDenseArray`](@ref)), ZIP-CD-based packed shard reads
 # ([`ZipShardArray`](@ref)), and chunked HDF5 datasets.
 #
-# `densify` and `mutable_array` read the whole array once into the `materialization_cell`, and return that same `Array`
-# from then on. Once it is filled, all reads are served from it.
+# `densify` and `plain_array` read the whole array into an `Array`, which the `materialization_cell` shares while any
+# caller holds it. While it is held, all reads are served from it.
 #
 # It is a mutable object so the daf it was read from can hold a weak reference to it. When its property is modified, the
 # daf sets `is_invalidated`, and any later read throws. `pooled_chunk_indices` lists the chunks it put in its pool, so
@@ -871,7 +932,7 @@ function Formats.purge_lazy_array!(array::ChunkedArray)::Nothing
     return nothing
 end
 
-# A new `Array` of element type `E` holding all of the array, which isn't cached. It is read in whole chunks, which
+# A new `Array` of element type `E` holding all of the array, which isn't shared. It is read in whole chunks, which
 # bypass the pool.
 function new_materialization(array::ChunkedArray{T, N}, ::Type{E} = T)::Array{E, N} where {T, N, E}
     materialization = Array{E, N}(undef, array.shape)
@@ -879,23 +940,15 @@ function new_materialization(array::ChunkedArray{T, N}, ::Type{E} = T)::Array{E,
     return materialization
 end
 
-# The `Array` holding all of the array, shared by all its callers. The first call reads it.
-function cached_materialization!(array::ChunkedArray{T, N})::Array{T, N} where {T, N}
+# The `Array` holding all of the array, shared by all its callers while any of them holds it. Reads it if no caller
+# holds it.
+function shared_materialization!(array::ChunkedArray{T, N})::Array{T, N} where {T, N}
     require_unmodified(array)
     return materialization!(() -> new_materialization(array), array.materialization_cell)
 end
 
-function Formats.materialization_without_caching(array::ChunkedArray{T, N})::Array{T, N} where {T, N}
-    require_unmodified(array)
-    materialization = existing_materialization(array.materialization_cell)
-    if materialization === nothing
-        materialization = new_materialization(array)
-    end
-    return materialization
-end
-
 # Without `copy` or a different `eltype`, this is a read-only view of the shared materialization. Otherwise it is a new
-# array owned by the caller: a copy of the materialization if there is one, otherwise a new read that isn't cached.
+# array owned by the caller: a copy of the materialization if a caller holds it, otherwise a new read that isn't shared.
 function TanayLabUtilities.MatrixFormats.densify(
     array::ChunkedArray{T, N};
     copy::Bool = false,
@@ -903,7 +956,7 @@ function TanayLabUtilities.MatrixFormats.densify(
 )::AbstractArray where {T, N}
     densified_eltype = something(eltype, T)
     if !copy && densified_eltype == T
-        return read_only_array(cached_materialization!(array))
+        return read_only_array(shared_materialization!(array))
     end
     materialization = existing_materialization(array.materialization_cell)
     if materialization === nothing
@@ -913,15 +966,12 @@ function TanayLabUtilities.MatrixFormats.densify(
     end
 end
 
-function TanayLabUtilities.ReadOnlyArrays.mutable_array(array::ChunkedArray)::Array
-    return cached_materialization!(array)
-end
-
-function TanayLabUtilities.MatrixFormats.plain_array(
+function TanayLabUtilities.MatrixLayouts.plain_array(
     array::ChunkedArray;
     transposed_as::Maybe{Type} = nothing,  # NOLINT
+    contiguous::Bool = false,  # NOLINT
 )::Array
-    return cached_materialization!(array)
+    return shared_materialization!(array)
 end
 
 # A `ChunkedArray` rejects writes, so it needs no read-only wrapper. Without one, broadcasting, `view` and `similar` see
@@ -2733,6 +2783,7 @@ function packed_format_write_sparse_numeric_vector!(
     vector::AbstractVector,
     is_packed::Bool,
 )::Nothing
+    vector = plain_array(vector)
     nzind_vector = nzind(vector)
     nzval_vector = nzval(vector)
     nnz = length(nzind_vector)
@@ -3240,6 +3291,7 @@ function packed_format_write_sparse_numeric_matrix!(
     matrix::AbstractMatrix,
     is_packed::Bool,
 )::Nothing
+    matrix = plain_array(matrix)
     colptr_vector = colptr(matrix)
     rowval_vector = rowval(matrix)
     nzval_vector = nzval(matrix)

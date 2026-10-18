@@ -1,6 +1,47 @@
 nested_test("views") do
     daf = MemoryDaf(; name = "memory!")
 
+    nested_test("direct_base_writes") do
+        add_axis!(daf, "cell", ["A", "B", "C"])
+        set_scalar!(daf, "version", 1)
+        set_vector!(daf, "cell", "age", [1, 2, 3])
+        set_vector!(daf, "cell", "is_old", [false, true, true])
+
+        nested_test("identity") do
+            view = viewer(daf; name = "view!", axes = [VIEW_ALL_AXES], data = [VIEW_ALL_SCALARS, VIEW_ALL_VECTORS])
+            @test get_scalar(view, "version") == 1
+            @test get_vector(view, "cell", "age") == [1, 2, 3]
+            @test vectors_set(view, "cell") == Set(["age", "is_old"])
+
+            set_scalar!(daf, "version", 2; overwrite = true)
+            set_vector!(daf, "cell", "age", [4, 5, 6]; overwrite = true)
+            set_vector!(daf, "cell", "batch", [1, 1, 2])
+            @test get_scalar(view, "version") == 2
+            @test get_vector(view, "cell", "age") == [4, 5, 6]
+            @test vectors_set(view, "cell") == Set(["age", "is_old", "batch"])
+            return nothing
+        end
+
+        nested_test("query") do
+            view = viewer(
+                daf;
+                name = "view!",
+                axes = ["cell" => "@ cell [ is_old ]"],
+                data = [("cell", "age") => "=", "total_age" => "@ cell : age >> Sum"],
+            )
+            @test axis_vector(view, "cell") == ["B", "C"]
+            @test get_vector(view, "cell", "age") == [2, 3]
+            @test get_scalar(view, "total_age") == 6
+
+            set_vector!(daf, "cell", "age", [10, 20, 30]; overwrite = true)
+            set_vector!(daf, "cell", "is_old", [true, false, true]; overwrite = true)
+            @test axis_vector(view, "cell") == ["A", "C"]
+            @test get_vector(view, "cell", "age") == [10, 30]
+            @test get_scalar(view, "total_age") == 60
+            return nothing
+        end
+    end
+
     nested_test("none") do
         view = viewer(daf; name = "read_only")
         @test view isa DafReadOnly

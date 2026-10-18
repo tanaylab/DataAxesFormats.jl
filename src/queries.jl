@@ -4896,7 +4896,7 @@ end
 
 function ensure_matrix_is_axis(query_state::QueryState, matrix_state::MatrixState, as_axis::Maybe{AsAxis})::Nothing
     if matrix_state.property_axis_name === nothing || as_axis !== nothing
-        matrix_property_is_axis(query_state, matrix_state, as_axis)
+        matrix_property_is_axis(query_state, matrix_state, as_axis; finalize_matrix_values = false)
         @assert pop!(query_state.stack) === matrix_state
     end
     @assert matrix_state.property_axis_name !== nothing
@@ -4915,7 +4915,7 @@ function lookup_vector_by_matrix(
     ensure_matrix_is_axis(query_state, matrix_state, as_axis)
 
     if query_state.what_for == :compute
-        add_final_values!(matrix_state, if_not)
+        add_final_values!(query_state, matrix_state, if_not)
 
         @assert query_state.daf !== nothing
         default = default_value(if_missing)
@@ -5107,7 +5107,7 @@ function fill_lookup_matrix_values(
     lookup_value::StorageScalar;
     is_column::Bool,
 )::Nothing
-    add_final_values!(matrix_state, if_not)
+    add_final_values!(query_state, matrix_state, if_not)
 
     named_matrix_values, is_flipped = get_lookup_matrix(
         query_state,
@@ -5179,13 +5179,17 @@ function has_lookup_matrix_values(
     return nothing
 end
 
-function add_final_values!(matrix_state::MatrixState, if_not::Maybe{IfNot})::Nothing
+function add_final_values!(query_state::QueryState, matrix_state::MatrixState, if_not::Maybe{IfNot})::Nothing
     if if_not !== nothing
-        @assert if_not.final_value !== nothing
+        if if_not.final_value === nothing
+            error_at_state(query_state, "no IfNot value specified for a matrix lookup")
+        end
         mask = as_booleans(matrix_state.matrix_values)  # NOJET
         if matrix_state.pending_final_values === nothing
             matrix_state.pending_final_values = Matrix{Any}(undef, size(matrix_state.matrix_values)...)
             matrix_state.pending_final_values .= nothing
+        else
+            mask .|= matrix_state.pending_final_values .!== nothing
         end
         matrix_state.pending_final_values[.!mask] .= if_not.final_value
     end
@@ -5215,7 +5219,8 @@ end
 function matrix_property_is_axis(
     query_state::QueryState,
     matrix_state::MatrixState,
-    as_axis::Maybe{AsAxis} = nothing,
+    as_axis::Maybe{AsAxis} = nothing;
+    finalize_matrix_values::Bool = true,
 )::Nothing
     @assert matrix_state.property_name !== nothing
     @assert matrix_state.property_axis_name === nothing
@@ -5223,7 +5228,9 @@ function matrix_property_is_axis(
         @assert eltype(matrix_state.matrix_values) <: AbstractString
     end
 
-    finalize_matrix_values!(query_state, matrix_state)
+    if finalize_matrix_values
+        finalize_matrix_values!(query_state, matrix_state)
+    end
 
     if as_axis !== nothing && as_axis.axis_name !== nothing
         axis_name = as_axis.axis_name
