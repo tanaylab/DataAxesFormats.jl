@@ -383,6 +383,50 @@ function parse_parameter_value(
     end
 end
 
+# An element-wise operation on a sparse matrix, computed on its stored values. If the `value_of` zero is zero, the
+# result is sparse, with the same structure (sharing its indices with the input). Otherwise it is dense, filled with the
+# `value_of` zero.
+function compute_sparse_eltwise(
+    value_of::Function,
+    input::AbstractMatrix,
+    type::Type,
+    name::AbstractString,
+)::StorageMatrix
+    input = plain_array(input)
+    if !(input isa SparseMatrixCSC)
+        return transpose(compute_sparse_eltwise(value_of, parent(input), type, name))
+    end
+
+    zero_value = type(value_of(zero(eltype(input))))
+    value_per_stored = nonzeros(input)
+    if zero_value == 0
+        output_value_per_stored = Vector{type}(undef, length(value_per_stored))
+        map!(value -> type(value_of(value)), output_value_per_stored, value_per_stored)
+        return SparseMatrixCSC(
+            size(input, 1),
+            size(input, 2),
+            SparseArrays.getcolptr(input),
+            rowvals(input),
+            output_value_per_stored,
+        )
+    end
+
+    output = fill(zero_value, size(input))
+    row_index_per_stored = rowvals(input)
+    n_columns = size(input, 2)
+    parallel_loop_wo_rng(  # NOJET
+        1:n_columns;
+        name,
+        progress = DebugProgress(n_columns; group = :daf_loops, desc = name),
+    ) do column_index
+        for stored_index in nzrange(input, column_index)
+            output[row_index_per_stored[stored_index], column_index] = value_of(value_per_stored[stored_index])
+        end
+        return nothing
+    end
+    return output
+end
+
 """
     Abs([; type::Maybe{Type} = nothing])
 
@@ -410,6 +454,9 @@ end
 
 function compute_eltwise(operation::Abs, input::StorageMatrix)::StorageMatrix
     type = unsigned_type_for(eltype(input), operation.type)
+    if issparse(input)
+        return compute_sparse_eltwise(abs, input, type, "Abs")
+    end
     output = similar(input, type)
     axis = major_axis(input)
     if axis == Columns
@@ -477,6 +524,9 @@ end
 
 function compute_eltwise(operation::Round, input::StorageMatrix)::StorageMatrix
     type = int_type_for(eltype(input), operation.type)
+    if issparse(input)
+        return compute_sparse_eltwise(value -> round(type, value), input, type, "Round")
+    end
     output = similar(input, type)
     axis = major_axis(input)
     if axis == Columns
@@ -573,9 +623,12 @@ end
 
 function compute_eltwise(operation::Clamp, input::StorageMatrix)::StorageMatrix
     type = type_for_clamp(operation, eltype(input))
-    output = similar(input, type)
     clamp_min = operation.min
     clamp_max = operation.max
+    if issparse(input)
+        return compute_sparse_eltwise(value -> clamp(value, clamp_min, clamp_max), input, type, "Clamp")
+    end
+    output = similar(input, type)
     axis = major_axis(input)
     if axis == Columns
         n_columns = size(input, 2)
@@ -643,6 +696,9 @@ end
 
 function compute_eltwise(operation::Convert, input::StorageMatrix)::StorageMatrix
     type = operation.type
+    if issparse(input)
+        return compute_sparse_eltwise(identity, input, type, "Convert")
+    end
     output = similar(input, type)
     axis = major_axis(input)
     if axis == Columns

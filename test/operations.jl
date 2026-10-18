@@ -126,6 +126,12 @@ nested_test("operations") do
                 set_matrix!(daf, "cell", "gene", "value", [0 -1.7 2.3; -3.3 4.7 5.2])
                 @test with_type(daf["@ cell @ gene :: value % Clamp min 0 max 4"]) == ([0 0 2.3; 0 4 4], Float64)
             end
+
+            nested_test("sparse") do
+                values = sprand(Random.MersenneTwister(123), 2000, 200, 0.05)
+                result = DataAxesFormats.Registry.compute_eltwise(Clamp(; min = 0.5, max = 0.8), values)
+                @test result == clamp.(Matrix(values), 0.5, 0.8)
+            end
         end
 
         nested_test("convert") do
@@ -405,6 +411,24 @@ nested_test("operations") do
             end
             @test !supports_grouped_reduction(Median())
             return nothing
+        end
+
+        nested_test("packed") do
+            mktempdir() do path
+                packed = FilesDaf(path * "/packed.daf", "w+"; name = "packed!", packed = true)
+                memory = MemoryDaf(; name = "memory!")
+                values = Float32[row + column for row in 1:4096, column in 1:2]
+                for target in (packed, memory)
+                    add_axis!(target, "cell", ["c$(index)" for index in 1:4096])
+                    add_axis!(target, "gene", ["X", "Y"])
+                    set_matrix!(target, "cell", "gene", "value", values; relayout = false)
+                end
+                for operation in ("Median", "Quantile p 0.3", "Var", "VarN", "Std", "StdN")
+                    query = "@ cell @ gene :: value >> $(operation)"
+                    @test packed[query] ≈ memory[query]
+                end
+                return nothing
+            end
         end
 
         nested_test("most_frequent") do
